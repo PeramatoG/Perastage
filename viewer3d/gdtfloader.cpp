@@ -840,26 +840,28 @@ static void ParseModes(tinyxml2::XMLElement* ft,
                         return reference;
                     return it->second;
                 };
+            std::unordered_map<std::string, std::string> modeMasterNameByReference;
+            for (tinyxml2::XMLElement* modeChannel = channels->FirstChildElement("DMXChannel");
+                 modeChannel; modeChannel = modeChannel->NextSiblingElement("DMXChannel")) {
+                for (tinyxml2::XMLElement* lc = modeChannel->FirstChildElement("LogicalChannel");
+                     lc; lc = lc->NextSiblingElement("LogicalChannel")) {
+                    for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
+                         cf; cf = cf->NextSiblingElement("ChannelFunction")) {
+                        const char* name = cf->Attribute("Name");
+                        const char* attr = cf->Attribute("Attribute");
+                        if (!attr)
+                            attr = cf->Attribute("attribute");
+                        if (name && *name && attr && *attr)
+                            modeMasterNameByReference[name] = attr;
+                        if (attr && *attr)
+                            modeMasterNameByReference[attr] = attr;
+                    }
+                }
+            }
             auto buildFunctionSummary =
                 [&](tinyxml2::XMLElement* dmxChannel) {
                     if (!dmxChannel)
                         return std::string{};
-
-                    std::unordered_map<std::string, std::string> modeMasterNameByReference;
-                    for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");
-                         lc; lc = lc->NextSiblingElement("LogicalChannel")) {
-                        for (tinyxml2::XMLElement* cf = lc->FirstChildElement("ChannelFunction");
-                             cf; cf = cf->NextSiblingElement("ChannelFunction")) {
-                            const char* name = cf->Attribute("Name");
-                            const char* attr = cf->Attribute("Attribute");
-                            if (!attr)
-                                attr = cf->Attribute("attribute");
-                            if (name && *name && attr && *attr)
-                                modeMasterNameByReference[name] = attr;
-                            if (attr && *attr)
-                                modeMasterNameByReference[attr] = attr;
-                        }
-                    }
 
                     std::vector<std::string> summaries;
                     for (tinyxml2::XMLElement* lc = dmxChannel->FirstChildElement("LogicalChannel");

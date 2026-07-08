@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <sstream>
 #include <set>
+#include <vector>
 
 #include <tinyxml2.h>
 
@@ -33,6 +34,14 @@ std::string LowerAscii(std::string value) {
   return value;
 }
 
+// Normalizes archive separators without changing case or resource text.
+std::string NormalizeArchiveSeparators(std::string value) {
+  std::replace(value.begin(), value.end(), '\\', '/');
+  while (value.rfind("./", 0) == 0)
+    value.erase(0, 2);
+  return value;
+}
+
 // Parses a float attribute from a small set of accepted GDTF attribute names.
 bool ParseFloatAttribute(const tinyxml2::XMLElement *element,
                          std::initializer_list<const char *> names,
@@ -52,6 +61,37 @@ bool ParseFloatAttribute(const tinyxml2::XMLElement *element,
     }
   }
   return false;
+}
+
+// Adds positive values only when an attribute can be parsed as a number.
+bool AddPositiveFloatAttribute(const tinyxml2::XMLElement *element,
+                               std::initializer_list<const char *> names,
+                               float &total) {
+  float parsed = 0.0f;
+  if (!ParseFloatAttribute(element, names, parsed) || parsed <= 0.0f)
+    return false;
+  total += parsed;
+  return true;
+}
+
+// Recursively sums consumer wiring-object payloads from a geometry subtree.
+float SumConsumerWiringPower(const tinyxml2::XMLElement *element) {
+  float total = 0.0f;
+  for (const tinyxml2::XMLElement *child =
+           element ? element->FirstChildElement() : nullptr;
+       child; child = child->NextSiblingElement()) {
+    const std::string name = child->Name() ? child->Name() : "";
+    if (name == "WiringObject") {
+      const char *componentType = child->Attribute("ComponentType");
+      if (componentType && std::string(componentType) == "Consumer") {
+        AddPositiveFloatAttribute(child, {"ElectricalPayLoad",
+                                          "ElectricalPayload"},
+                                  total);
+      }
+    }
+    total += SumConsumerWiringPower(child);
+  }
+  return total;
 }
 
 // Converts GDTF xyY color text to a display hex RGB value when possible.
@@ -123,11 +163,11 @@ void RecordUnknownChildren(GdtfDescriptionSnapshot &snapshot,
   }
 }
 
-// Collects media/resource reference attributes from a wheel slot.
+// Collects generic resource reference attributes from a wheel slot.
 std::vector<std::string> CollectSlotResourceReferences(
     const tinyxml2::XMLElement *slot) {
   std::vector<std::string> refs;
-  for (const char *name : {"MediaFileName", "Gobo", "File", "Image"}) {
+  for (const char *name : {"Gobo", "File", "Image"}) {
     if (const char *value = slot->Attribute(name); value && *value)
       refs.emplace_back(value);
   }
@@ -143,14 +183,64 @@ void ValidateLocalReferences(GdtfDescriptionSnapshot &snapshot,
   for (const std::string &ref : refs) {
     if (ref.empty())
       continue;
-    std::string normalized = ref;
-    std::replace(normalized.begin(), normalized.end(), '\\', '/');
+    std::string normalized = NormalizeArchiveSeparators(ref);
     if (!archiveEntries.count(LowerAscii(normalized))) {
       AddDiagnostic(snapshot, DescriptionDiagnosticCode::MissingLocalResource,
                     "A GDTF resource reference does not match an archive entry.",
                     ref);
     }
   }
+}
+
+// Resolves a wheel slot MediaFileName against canonical wheels resources.
+void ValidateWheelMediaReference(GdtfDescriptionSnapshot &snapshot,
+                                 const std::string &mediaFileName,
+                                 const std::set<std::string> &archiveEntries,
+                                 const std::set<std::string> &lowerArchiveEntries) {
+  if (mediaFileName.empty() || archiveEntries.empty())
+    return;
+
+  const std::string base = NormalizeArchiveSeparators(mediaFileName);
+  const std::vector<std::string> canonicalCandidates = {
+      "wheels/" + base + ".png", "wheels/" + base + ".svg"};
+  std::vector<std::string> exactMatches;
+  for (const std::string &candidate : canonicalCandidates) {
+    if (archiveEntries.count(candidate))
+      exactMatches.push_back(candidate);
+  }
+  if (exactMatches.size() == 1)
+    return;
+  if (exactMatches.size() > 1) {
+    AddDiagnostic(snapshot,
+                  DescriptionDiagnosticCode::AmbiguousWheelMediaResource,
+                  "A GDTF wheel media reference matches multiple canonical resources.",
+                  mediaFileName);
+    return;
+  }
+
+  std::vector<std::string> caseMatches;
+  for (const std::string &candidate : canonicalCandidates) {
+    if (lowerArchiveEntries.count(LowerAscii(candidate)))
+      caseMatches.push_back(candidate);
+  }
+  if (caseMatches.size() == 1) {
+    AddDiagnostic(snapshot,
+                  DescriptionDiagnosticCode::NonCanonicalWheelMediaCaseMatch,
+                  "A GDTF wheel media resource was accepted through a case-insensitive compatibility match.",
+                  mediaFileName);
+    return;
+  }
+  if (caseMatches.size() > 1) {
+    AddDiagnostic(snapshot,
+                  DescriptionDiagnosticCode::AmbiguousWheelMediaResource,
+                  "A GDTF wheel media reference has multiple case-insensitive resource matches.",
+                  mediaFileName);
+    return;
+  }
+
+  AddDiagnostic(snapshot, DescriptionDiagnosticCode::MissingWheelMediaResource,
+                "A GDTF wheel media reference does not match a wheels resource.",
+                mediaFileName);
 }
 } // namespace
 
@@ -207,9 +297,11 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
       FirstAttribute(fixtureType, {"Revision", "DataVersion", "Version"});
 
   std::set<std::string> archiveEntries;
+  std::set<std::string> lowerArchiveEntries;
   for (std::string path : archiveEntryPaths) {
-    std::replace(path.begin(), path.end(), '\\', '/');
-    archiveEntries.insert(LowerAscii(path));
+    path = NormalizeArchiveSeparators(path);
+    archiveEntries.insert(path);
+    lowerArchiveEntries.insert(LowerAscii(path));
   }
 
   if (const tinyxml2::XMLElement *revisions =
@@ -249,16 +341,26 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
         snapshot.weightKgPresent =
             ParseFloatAttribute(weight, {"Value", "value"}, snapshot.weightKg);
       }
+      float explicitPower = 0.0f;
       for (const tinyxml2::XMLElement *power =
                properties->FirstChildElement("PowerConsumption");
            power; power = power->NextSiblingElement("PowerConsumption")) {
-        float parsed = 0.0f;
-        if (ParseFloatAttribute(power, {"Value", "PowerConsumption", "value"},
-                                parsed)) {
-          snapshot.powerConsumptionW += parsed;
-          snapshot.powerConsumptionWPresent = true;
-        }
+        AddPositiveFloatAttribute(power, {"Value", "PowerConsumption", "value"},
+                                  explicitPower);
       }
+      if (explicitPower > 0.0f) {
+        snapshot.powerConsumptionW = explicitPower;
+        snapshot.powerConsumptionWPresent = true;
+      }
+    }
+  }
+  if (!snapshot.powerConsumptionWPresent) {
+    const tinyxml2::XMLElement *geometries =
+        fixtureType->FirstChildElement("Geometries");
+    const float wiringPower = SumConsumerWiringPower(geometries);
+    if (wiringPower > 0.0f) {
+      snapshot.powerConsumptionW = wiringPower;
+      snapshot.powerConsumptionWPresent = true;
     }
   }
   snapshot.modelColorHex = ParseModelColorHex(fixtureType);
@@ -273,9 +375,11 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
         GdtfWheelSlotInfo slotInfo;
         slotInfo.name = FirstAttribute(slot, {"Name"});
         slotInfo.mediaFileName = FirstAttribute(slot, {"MediaFileName"});
+        ValidateWheelMediaReference(snapshot, slotInfo.mediaFileName,
+                                    archiveEntries, lowerArchiveEntries);
         slotInfo.resourceReferences = CollectSlotResourceReferences(slot);
         ValidateLocalReferences(snapshot, slotInfo.resourceReferences,
-                                archiveEntries);
+                                lowerArchiveEntries);
         wheelInfo.slots.push_back(std::move(slotInfo));
       }
       snapshot.wheels.push_back(std::move(wheelInfo));

@@ -13,7 +13,10 @@ enum class DescriptionDiagnosticCode {
   MissingDmxModes,
   MissingUsableDmxMode,
   UnknownElement,
-  MissingLocalResource
+  MissingLocalResource,
+  MissingWheelMediaResource,
+  AmbiguousWheelMediaResource,
+  NonCanonicalWheelMediaCaseMatch
 };
 
 struct DescriptionDiagnostic {

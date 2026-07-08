@@ -10,6 +10,12 @@ The reader rejects ambiguous or unsafe input instead of guessing. Multiple root 
 
 Public GDTF read and fixture insertion preparation boundaries convert malformed archives, filesystem failures, ZIP failures, XML failures, and unexpected exceptions into diagnostics. These paths must not let ordinary invalid input escape into the GUI event loop as exceptions.
 
+Read-only semantic extraction keeps legacy fixture insertion metadata behavior where it is already proven. Explicit positive `PhysicalDescriptions/Properties/PowerConsumption` values are summed first. Only when no positive explicit power exists, Perastage recursively inspects `Geometries` for consumer `WiringObject` elements and sums positive `ElectricalPayLoad` or compatibility-spelled `ElectricalPayload` values. The fallback is read-only and does not normalize or write the source archive.
+
+Wheel slot `MediaFileName` is resolved according to GDTF resource semantics instead of as a complete archive path. The XML value is preserved exactly, treated as a basename without extension, and resolved only against canonical `wheels/<MediaFileName>.png` or `wheels/<MediaFileName>.svg` resources. Exact case-sensitive canonical matches are accepted first. A single case-insensitive match is accepted only with an explicit compatibility diagnostic, missing media remains a non-fatal warning, and multiple matching resources are reported as ambiguous instead of guessed. Unrelated archive entries with the same basename outside `wheels/` are not accepted for wheel media.
+
+The known ZIP compatibility issue where a producer stores Unicode filenames without the ZIP UTF-8 flag is not addressed by this PR. That recovery path is deferred to a separate compatibility task because guessing an alternate filename encoding must be scoped and tested independently.
+
 ## Fixture insertion preparation
 
 `PrepareGdtfFixtureInsertion(...)` is a non-GUI read-only service used before the Add Fixture dialog opens. It validates the source file, reads archive identity and modes through the shared read-only services, returns fixture display name, ordered DMX modes, optional physical values, optional model color, standards-compliance status, compatibility-fallback status, and structured diagnostics. It does not show dialogs, mutate the scene, modify the GDTF, extract files permanently, or invent missing modes.

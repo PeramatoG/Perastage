@@ -1332,6 +1332,7 @@ add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
+               build_info_stub.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_channel_modes_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)

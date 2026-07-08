@@ -18,6 +18,7 @@ Changes since **v1.4.0**.
 ## Fixes
 
 - Fixed adding downloaded GDTF Share fixtures to a project by validating the archive with non-throwing read diagnostics before opening Add Fixture, while preserving the downloaded file unchanged.
+- Improved downloaded GDTF fixture insertion compatibility by preserving WiringObject-based power fallback metadata, resolving wheel media resources from standard `wheels/` archive entries, and reporting empty `description.xml` files with clearer diagnostics.
 - Fixed geometry-only MVR trusses so rigging warnings reliably flag invalid weights, Edit Truss previews direct GLB/3DS geometry without generating a GDTF, and Add Truss shows readable names instead of internal type keys.
 - Fixed Layout View so opening another project cannot briefly reuse the previous project's cached layout preview before the new layout rebuilds.
 - Fixed table selection highlights so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed elements selected, and fixture multi-selection actions preserve the original selection order after sorting.

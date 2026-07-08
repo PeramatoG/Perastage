@@ -1,6 +1,7 @@
 #include "gdtf_fixture_insertion_preparation.h"
 
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -64,6 +65,11 @@ bool HasDiagnostic(const gdtf::GdtfFixtureInsertionPreparation &preparation,
       return true;
   }
   return false;
+}
+
+// Verifies two floating point values are close enough for parsed metadata tests.
+bool NearlyEqual(float left, float right) {
+  return std::fabs(left - right) < 0.001f;
 }
 
 // Verifies canonical and ordered mode preparation behavior.
@@ -131,6 +137,12 @@ void AssertFailureDiagnostics(const fs::path &dir) {
   assert(!preparation.success);
   assert(HasDiagnostic(preparation, "archive-empty-description"));
 
+  const fs::path zeroByteDescription = dir / "zero_byte_description.gdtf";
+  assert(WriteArchive(zeroByteDescription, {{"description.xml", ""}}));
+  preparation = gdtf::PrepareGdtfFixtureInsertion(zeroByteDescription);
+  assert(!preparation.success);
+  assert(HasDiagnostic(preparation, "archive-empty-description"));
+
   const fs::path malformed = dir / "malformed.gdtf";
   assert(WriteArchive(malformed, {{"description.xml", "<GDTF><FixtureType>"}}));
   preparation = gdtf::PrepareGdtfFixtureInsertion(malformed);
@@ -169,6 +181,25 @@ void AssertFailureDiagnostics(const fs::path &dir) {
   preparation = gdtf::PrepareGdtfFixtureInsertion(dir / "missing_file.gdtf");
   assert(!preparation.success);
   assert(HasDiagnostic(preparation, "source-missing"));
+}
+
+// Verifies fixture insertion receives WiringObject fallback power metadata.
+void AssertWiringObjectPowerFallback(const fs::path &dir) {
+  const fs::path archive = dir / "wiring_power.gdtf";
+  assert(WriteArchive(
+      archive,
+      {{"description.xml",
+        GdtfXml(Modes({"Mode"}) +
+                "<Geometries><Geometry>"
+                "<WiringObject ComponentType=\"Consumer\" ElectricalPayLoad=\"30\"/>"
+                "<Geometry>"
+                "<WiringObject ComponentType=\"Consumer\" ElectricalPayload=\"12\"/>"
+                "</Geometry>"
+                "</Geometry></Geometries>")}}));
+  auto preparation = gdtf::PrepareGdtfFixtureInsertion(archive);
+  assert(preparation.success);
+  assert(preparation.powerConsumptionW.has_value());
+  assert(NearlyEqual(*preparation.powerConsumptionW, 42.0f));
 }
 
 // Verifies Unicode paths and unsafe archive paths are handled deterministically.
@@ -213,6 +244,7 @@ int main() {
   AssertCanonicalPreparation(dir);
   AssertTolerantDescriptionLookup(dir);
   AssertFailureDiagnostics(dir);
+  AssertWiringObjectPowerFallback(dir);
   AssertUnicodeAndUnsafePaths(dir);
   AssertPreparationIsReadOnly(dir);
   return 0;

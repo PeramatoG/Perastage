@@ -70,6 +70,12 @@ std::string ToCode(DescriptionDiagnosticCode code) {
     return "description-unknown-element";
   case DescriptionDiagnosticCode::MissingLocalResource:
     return "description-missing-local-resource";
+  case DescriptionDiagnosticCode::MissingWheelMediaResource:
+    return "description-missing-wheel-media";
+  case DescriptionDiagnosticCode::AmbiguousWheelMediaResource:
+    return "description-ambiguous-wheel-media";
+  case DescriptionDiagnosticCode::NonCanonicalWheelMediaCaseMatch:
+    return "description-non-canonical-wheel-media-case";
   }
   return "description-unknown";
 }
@@ -86,6 +92,9 @@ bool IsFatalDescriptionDiagnostic(DescriptionDiagnosticCode code) {
   case DescriptionDiagnosticCode::None:
   case DescriptionDiagnosticCode::UnknownElement:
   case DescriptionDiagnosticCode::MissingLocalResource:
+  case DescriptionDiagnosticCode::MissingWheelMediaResource:
+  case DescriptionDiagnosticCode::AmbiguousWheelMediaResource:
+  case DescriptionDiagnosticCode::NonCanonicalWheelMediaCaseMatch:
     return false;
   }
   return true;

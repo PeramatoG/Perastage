@@ -266,12 +266,6 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
                     "The GDTF archive does not contain readable entries.");
     }
     SelectDescriptionCandidate(result, descriptionCandidates);
-    if (result.descriptionXml.empty() && result.Success()) {
-      AddDiagnostic(result, ArchiveDiagnosticCode::EmptyDescriptionXml,
-                    "description.xml is empty.", result.descriptionEntryPath);
-    } else if (result.descriptionXml.empty()) {
-      result.descriptionEntryPath.clear();
-    }
     if (result.descriptionEntryPath.empty()) {
       return result;
     }
@@ -280,7 +274,6 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
       AddDiagnostic(result, ArchiveDiagnosticCode::EmptyDescriptionXml,
                     "description.xml is empty.", result.descriptionEntryPath);
       result.descriptionXml.clear();
-      result.descriptionEntryPath.clear();
     }
   } catch (const std::filesystem::filesystem_error &error) {
     AddDiagnostic(result, ArchiveDiagnosticCode::FilesystemError,
