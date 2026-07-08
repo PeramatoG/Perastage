@@ -7,6 +7,7 @@
 #include <wx/gdicmn.h>
 
 #include "symbols/Symbol2D.h"
+#include "tools/fixture_geometry_bounds.h"
 
 class ConfigManager;
 class Viewer2DOffscreenRenderer;
@@ -34,6 +35,7 @@ struct SceneModelSymbolCaptureResult {
   bool ok = false;
   std::string error;
   std::vector<symbols::Symbol2D> symbols;
+  FixtureGeometryBounds fixtureBoundsMm;
 };
 
 SceneModelSymbolCaptureResult

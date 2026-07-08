@@ -393,8 +393,12 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   }
 
   std::string calibrationError;
-  if (!tools::CalibrateFixtureSymbolsToPhysicalUnits(
-          cfg, fixtureUuid, capture.symbols, calibrationError)) {
+  const bool calibrated = capture.fixtureBoundsMm.valid
+      ? tools::CalibrateFixtureSymbolsToPhysicalUnits(
+            capture.fixtureBoundsMm, capture.symbols, calibrationError)
+      : tools::CalibrateFixtureSymbolsToPhysicalUnits(
+            cfg, fixtureUuid, capture.symbols, calibrationError);
+  if (!calibrated) {
     ReportFixtureAutoUpdate(
         *this, consolePanel,
         "Fixture symbol auto-update: failed to calibrate symbols for '" +

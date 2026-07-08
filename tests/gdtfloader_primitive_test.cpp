@@ -29,6 +29,7 @@ class wxZipStreamLink;
 #include <wx/zipstrm.h>
 
 namespace {
+// Creates a temporary single-model primitive GDTF archive.
 std::string MakeGdtf(const std::string& primitiveType)
 {
     wxFileName tempName(wxFileName::CreateTempFileName("gdtf_primitive_"));
@@ -58,8 +59,48 @@ std::string MakeGdtf(const std::string& primitiveType)
 
     return outPath;
 }
+
+// Creates a temporary primitive-only fixture with a nested geometry hierarchy.
+std::string MakePrimitiveFixtureGdtf()
+{
+    wxFileName tempName(wxFileName::CreateTempFileName("gdtf_primitive_multi_"));
+    const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
+    wxRemoveFile(tempName.GetFullPath());
+
+    wxFFileOutputStream fileOut(outPath);
+    assert(fileOut.IsOk());
+    wxZipOutputStream zipOut(fileOut);
+
+    zipOut.PutNextEntry("description.xml");
+    const std::string xml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<GDTF DataVersion=\"1.2\">"
+        "<FixtureType Name=\"PrimitiveOnly\">"
+        "<Models>"
+        "<Model Name=\"Base\" File=\"\" PrimitiveType=\"Base\" Length=\"0.4\" Width=\"0.4\" Height=\"0.1\"/>"
+        "<Model Name=\"Yoke\" File=\"\" PrimitiveType=\"Yoke\" Length=\"0.5\" Width=\"0.2\" Height=\"0.5\"/>"
+        "<Model Name=\"Head\" File=\"\" PrimitiveType=\"Head\" Length=\"0.3\" Width=\"0.3\" Height=\"0.3\"/>"
+        "<Model Name=\"Beam\" File=\"\" PrimitiveType=\"Cylinder\" Length=\"0.1\" Width=\"0.1\" Height=\"0.8\"/>"
+        "</Models>"
+        "<Geometries>"
+        "<Geometry Name=\"Root\" Model=\"Base\">"
+        "<Axis Name=\"YokeAxis\" Model=\"Yoke\">"
+        "<Axis Name=\"HeadAxis\" Model=\"Head\">"
+        "<Beam Name=\"BeamNode\" Model=\"Beam\"/>"
+        "</Axis>"
+        "</Axis>"
+        "</Geometry>"
+        "</Geometries>"
+        "<DMXModes><DMXMode Name=\"Default\" Geometry=\"Root\"/></DMXModes>"
+        "</FixtureType>"
+        "</GDTF>";
+    zipOut.Write(xml.data(), xml.size());
+    zipOut.Close();
+    return outPath;
+}
 }
 
+// Runs primitive GDTF loader regression checks.
 int main()
 {
     {
@@ -70,6 +111,35 @@ int main()
         assert(ok);
         assert(error.empty());
         assert(!objects.empty());
+        std::error_code ec;
+        std::filesystem::remove(gdtfPath, ec);
+    }
+
+
+
+    {
+        const std::string gdtfPath = MakePrimitiveFixtureGdtf();
+        std::vector<GdtfObject> objects;
+        GdtfGeometryTree tree;
+        std::string error;
+        assert(LoadGdtf(gdtfPath, objects, "Default", &error));
+        assert(error.empty());
+        assert(objects.size() == 4);
+        assert(LoadGdtfGeometryTree(gdtfPath, tree, "Default", &error));
+        assert(tree.nodes.size() == 4);
+        assert(tree.axisNodeIndices.size() == 2);
+        assert(tree.emitterNodeIndices.size() == 1);
+        assert(tree.nodes[0].stableName == "Geometry_Root");
+        assert(tree.nodes[1].stableName == "Axis_YokeAxis");
+        assert(tree.nodes[2].stableName == "Axis_HeadAxis");
+        assert(tree.nodes[3].stableName == "Emitter_BeamNode");
+
+        std::vector<GdtfObject> objectsAgain;
+        GdtfGeometryTree treeAgain;
+        assert(LoadGdtf(gdtfPath, objectsAgain, "Default", &error));
+        assert(LoadGdtfGeometryTree(gdtfPath, treeAgain, "Default", &error));
+        assert(objectsAgain.size() == objects.size());
+        assert(treeAgain.nodes.size() == tree.nodes.size());
         std::error_code ec;
         std::filesystem::remove(gdtfPath, ec);
     }

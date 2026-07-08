@@ -134,9 +134,12 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   }
 
   std::string calibrationError;
-  if (!CalibrateFixtureSymbolsToPhysicalUnits(cfg, selectedFixtureUuid,
-                                              capture.symbols,
-                                              calibrationError)) {
+  const bool calibrated = capture.fixtureBoundsMm.valid
+      ? CalibrateFixtureSymbolsToPhysicalUnits(capture.fixtureBoundsMm,
+                                               capture.symbols, calibrationError)
+      : CalibrateFixtureSymbolsToPhysicalUnits(cfg, selectedFixtureUuid,
+                                               capture.symbols, calibrationError);
+  if (!calibrated) {
     wxMessageBox(calibrationError, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
     return;

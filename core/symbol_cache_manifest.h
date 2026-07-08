@@ -83,6 +83,8 @@ private:
   std::vector<FixtureSymbolCacheEntry> entries;
 };
 
+std::string ComputeGdtfSemanticFingerprint(const std::string &path,
+                                           std::string &errorMessage);
 std::string ComputeFileContentHash(const std::string &path,
                                    std::string &errorMessage);
 std::set<std::string> RequiredPerastageSymbolViews();
