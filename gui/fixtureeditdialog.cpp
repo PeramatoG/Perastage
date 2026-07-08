@@ -21,6 +21,7 @@
 #include "fixturepreviewpanel.h"
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
+#include "gdtf/gdtf_metadata_panel.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtfdictionary.h"
@@ -400,29 +401,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, 6);
 
-  wxFlexGridSizer *metadataGrid = new wxFlexGridSizer(2, 4, 8);
-  metadataGrid->AddGrowableCol(1, 1);
-  const std::array<wxString, 8> metadataLabels = {
-      "Manufacturer", "Description", "Creation date", "UserID",
-      "ModifiedBy",   "Revision",    "Last modified", "Version"};
-  for (size_t i = 0; i < metadataLabels.size(); ++i) {
-    metadataGrid->Add(new wxStaticText(this, wxID_ANY, metadataLabels[i]), 0,
-                      wxALIGN_CENTER_VERTICAL);
-    if (i == 1) {
-      metadataDescriptionCtrl =
-          new wxTextCtrl(this, wxID_ANY, "-", wxDefaultPosition, wxSize(-1, 90),
-          wxTE_MULTILINE | wxTE_READONLY);
-      metadataDescriptionCtrl->SetMinSize(wxSize(300, 90));
-      metadataDescriptionCtrl->ShowPosition(0);
-      metadataValueLabels[i] = nullptr;
-      metadataGrid->Add(metadataDescriptionCtrl, 1, wxEXPAND);
-      continue;
-    }
-    metadataValueLabels[i] = new wxStaticText(this, wxID_ANY, "-");
-    metadataValueLabels[i]->Wrap(360);
-    metadataGrid->Add(metadataValueLabels[i], 1, wxEXPAND);
-  }
-  metadataSizer->Add(metadataGrid, 1, wxEXPAND | wxALL, 6);
+  metadataPanel = new GdtfMetadataPanel(this);
+  metadataSizer->Add(metadataPanel, 1, wxEXPAND | wxALL, 6);
 
   gdtfGeneralSizer->Add(gdtfGrid, 1, wxEXPAND | wxALL, 6);
   gdtfGeneralSizer->Add(
@@ -691,32 +671,11 @@ void FixtureEditDialog::UpdateMetadataSummary() {
   }
   const std::string path = std::string(gdtfPath.ToUTF8());
   GdtfMetadataSummary metadata;
-  const bool loaded = LoadGdtfMetadataSummary(path, metadata);
-  const wxString unavailable = wxString("-");
-  auto toValueOrFallback = [&](const std::string &value) -> wxString {
-    if (!loaded || value.empty())
-      return unavailable;
-    return wxString::FromUTF8(value);
-  };
-  const std::array<wxString, 8> values = {
-      toValueOrFallback(metadata.manufacturer),
-      toValueOrFallback(metadata.description),
-      toValueOrFallback(metadata.creationDate),
-      toValueOrFallback(metadata.userId),
-      toValueOrFallback(metadata.modifiedBy),
-      toValueOrFallback(metadata.revision),
-      toValueOrFallback(metadata.lastModified),
-      toValueOrFallback(metadata.version)};
-  for (size_t i = 0; i < metadataValueLabels.size() && i < values.size(); ++i) {
-    if (i == 1 && metadataDescriptionCtrl) {
-      metadataDescriptionCtrl->SetValue(values[i]);
-      metadataDescriptionCtrl->ShowPosition(0);
-      continue;
-    }
-    if (metadataValueLabels[i]) {
-      metadataValueLabels[i]->SetLabel(values[i]);
-      metadataValueLabels[i]->Wrap(360);
-    }
+  if (LoadGdtfMetadataSummary(path, metadata)) {
+    if (metadataPanel)
+      metadataPanel->SetMetadata(metadata);
+  } else if (metadataPanel) {
+    metadataPanel->SetUnavailable();
   }
   Layout();
 }

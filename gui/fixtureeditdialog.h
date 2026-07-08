@@ -28,6 +28,7 @@ class FixtureTablePanel;
 class FixturePreviewPanel;
 class wxStaticBitmap;
 class wxPanel;
+class GdtfMetadataPanel;
 
 class FixtureEditDialog : public wxDialog {
 public:
@@ -54,10 +55,9 @@ private:
     wxTextCtrl* chCountCtrl = nullptr;
     wxTextCtrl* modelCtrl = nullptr;
     wxTextCtrl* channelList = nullptr;
-    wxTextCtrl* metadataDescriptionCtrl = nullptr;
+    GdtfMetadataPanel* metadataPanel = nullptr;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
-    std::array<wxStaticText*, 8> metadataValueLabels{};
     std::array<wxPanel*, 3> symbolPanels{};
     std::array<bool, 3> symbolAvailability{};
     std::array<PerastageSvgSymbolData, 3> symbolData{};
