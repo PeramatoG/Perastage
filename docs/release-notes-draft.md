@@ -58,6 +58,7 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
+- Completed the GDTF editor Checkpoint 06 composition step by adding a reusable presentation-only `GdtfEditorPanel` that arranges the existing metadata, type identity, physical properties, and modes panels without changing Fixture Edit or Truss Edit behavior.
 - Completed the GDTF editor Checkpoint 05 panel extraction by adding reusable physical properties, type identity, and modes panels while preserving existing Fixture Edit and Truss Edit apply behavior.
 
 - Improved GDTF geometry loading and symbol-cache validation by sharing one cached geometry build, caching primitive meshes by dimensions, reusing fixture bounds during symbol generation, and switching generated-symbol manifests to a versioned semantic GDTF fingerprint that is stable across ZIP repackaging.

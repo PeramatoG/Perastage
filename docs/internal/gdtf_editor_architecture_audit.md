@@ -198,3 +198,15 @@ Fixture Edit now composes metadata, type/source, physical properties, and modes 
 Truss Edit now composes metadata, manufacturer/model identity, and physical/type fields as reusable GDTF panels. MVR instance fields remain outside common GDTF panels. Truss generation, table and scene update ordering, undo behavior, generated source/model updates, metadata refresh, preview refresh, and viewer refresh remain host-owned.
 
 Checkpoint 05 is complete after these reusable panels. Checkpoint 06 is next: compose the reusable panels into `GdtfEditorPanel` without introducing session/apply adapters yet.
+
+## Checkpoint 06 reusable editor panel composition
+
+Checkpoint 05 is complete and merged. Checkpoint 06 introduces `GdtfEditorPanel` as a reusable wxWidgets composite under `gui/gdtf/` that owns and arranges exactly one `GdtfMetadataPanel`, `GdtfTypeIdentityPanel`, `GdtfPhysicalPropertiesPanel`, and `GdtfModesPanel`.
+
+The composite remains presentation-only. It accepts typed section configuration for visibility, titles, expanded behavior, and single-column or balanced two-column layouts. The stable single-column order is metadata, type identity, physical properties, then modes and channels. The stable two-column arrangement places metadata and type identity on the left, with physical properties and modes and channels on the right. Hidden sections are skipped by layout insertion while their child panel instances remain reusable if shown again.
+
+`GdtfEditorPanelPresentation` aggregates the existing child panel presentation types and keeps metadata availability explicit. Programmatic setters forward to the child panels and must not emit user-change callbacks. `SetUnavailable()` deterministically clears metadata, identity fields, physical fields, mode selection, channel count, and channel rows through the existing child panel contracts.
+
+The panel performs no file loading, archive reading, metadata discovery, GDTF mutation, derivative creation, project apply behavior, undo/redo, viewer refresh, or hoist-load recalculation. Fixture Edit and Truss Edit still own their direct child panel instances and all project/apply semantics in this checkpoint.
+
+Checkpoint 07 is next: migrate `FixtureEditDialog` and `TrussEditDialog` from direct child-panel ownership to `GdtfEditorPanel` while preserving host-owned project, apply, mutation, scene update, and recalculation behavior.

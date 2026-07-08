@@ -157,3 +157,13 @@ Fixture composition after Checkpoint 05: metadata, type/source identity, physica
 Truss composition after Checkpoint 05: metadata, manufacturer/model identity, dimensions/weight/cross-section physical type fields, MVR/project instance fields, preview, and host Apply/OK/Cancel controls. Geometry-only truss behavior and GDTF generation policy remain in the host dialog.
 
 Checkpoint 06 should compose these reusable panels into `GdtfEditorPanel`. Direct `GdtfEditSession` binding and apply adapters remain later controlled migrations.
+
+## Reusable composite boundary after Checkpoint 06
+
+Checkpoint 06 adds `GdtfEditorPanel` as a composition layer above the four reusable GDTF panels. The composite owns one instance of each child panel, groups them into configurable sections, and exposes typed forwarding APIs for presentation updates, callbacks, getters, setters, mode selection, and physical-property validation.
+
+The composite does not change context semantics. `GdtfEditorContext`, `GdtfFieldCapability`, and host-specific configuration still decide whether a field represents a document mutation, context selection, project override, derived value, or read-only value. `GdtfEditorPanel` only displays the aggregate presentation supplied by a host and forwards genuine child-control user events back to that host.
+
+Programmatic composite updates are non-notifying, including configuration changes, aggregate presentation replacement, unavailable-state refreshes, metadata updates, identity or physical field setters, and mode presentation updates. This keeps future Fixture Edit, Truss Edit, standalone read-only, and standalone editable hosts responsible for deciding when user intent should become an apply request.
+
+Current Fixture Edit and Truss Edit dialogs are intentionally not migrated in Checkpoint 06. Checkpoint 07 will migrate those dialogs to the composite while keeping source path resolution, loaders, derivative creation, truss generation, undo/redo, scene updates, viewer refresh, and hoist/load recalculation in the host layer.
