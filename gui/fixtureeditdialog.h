@@ -22,6 +22,7 @@
 #include <vector>
 #include <string>
 #include <array>
+#include <filesystem>
 #include <memory>
 #include "gdtf/editor/gdtf_field_registry.h"
 #include "symbols/PerastageSvgSymbol.h"
@@ -52,6 +53,7 @@ private:
     void UpdateMetadataSummary();
     bool ApplyChanges();
     void BuildEditSession();
+    std::filesystem::path GetActiveResolvedGdtfPath() const;
     void SyncSessionDirtyToLegacyFlags();
     bool SetSessionValue(gdtf::GdtfFieldId fieldId, const std::string& value);
     bool ValidateSessionBeforeApply();
@@ -69,6 +71,7 @@ private:
     std::array<PerastageSvgSymbolData, 3> symbolData{};
     bool applied = false;
     bool hasRejectedSessionInput = false;
+    std::filesystem::path pendingSelectedGdtfPath;
     wxString originalType;
     float originalPowerW = 0.0f;
     float originalWeightKg = 0.0f;

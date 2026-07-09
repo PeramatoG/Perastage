@@ -21,6 +21,7 @@
 #include "fixturepreviewpanel.h"
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
+#include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf/gdtf_editor_panel.h"
 #include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_mutation_audit.h"
@@ -52,6 +53,7 @@
 #include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/graphics.h>
+#include <wx/log.h>
 #include <wx/mstream.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -90,6 +92,20 @@ bool IsUserFixtureLibraryPath(const std::string &path) {
   return IsPathInsideDirectory(
       candidate, PathUtils::PathFromUtf8(
                      ProjectUtils::GetWritableLibraryPath("fixtures")));
+}
+
+// Checks whether a path points to an existing regular file without throwing.
+bool IsExistingRegularFile(const std::filesystem::path &path) {
+  if (path.empty())
+    return false;
+  std::error_code ec;
+  return std::filesystem::exists(path, ec) && !ec &&
+         std::filesystem::is_regular_file(path, ec) && !ec;
+}
+
+// Converts a wx path string to a filesystem path for operational I/O.
+std::filesystem::path PathFromWxString(const wxString &path) {
+  return PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
 }
 
 // Checks whether two fixture records use the same GDTF type-level physical
@@ -281,21 +297,71 @@ void FixtureEditDialog::BuildEditSession() {
   auto it = scene.fixtures.find(panel->rowUuids[static_cast<size_t>(row)]);
   if (it == scene.fixtures.end())
     return;
+  const Fixture &fixture = it->second;
+
+  std::filesystem::path resolvedPath;
+  if (static_cast<size_t>(row) < panel->gdtfPaths.size()) {
+    const auto rowPath = PathFromWxString(panel->gdtfPaths[static_cast<size_t>(row)]);
+    if (IsExistingRegularFile(rowPath))
+      resolvedPath = rowPath;
+  }
+
+  gui::fixtures::FixtureGdtfResolution resolution;
+  std::string resolutionError;
+  if (resolvedPath.empty() &&
+      gui::fixtures::ResolveFixtureGdtfDeterministic(
+          fixture, scene, resolution, resolutionError,
+          "FixtureEditDialog::BuildEditSession")) {
+    resolvedPath = PathUtils::PathFromUtf8(resolution.selectedPath);
+  }
+  if (resolvedPath.empty() && !resolutionError.empty())
+    wxLogWarning("%s", resolutionError.c_str());
+
   gdtf::ProjectFixtureGdtfContextInput input;
-  input.fixture = it->second;
-  wxString path;
-  if (static_cast<size_t>(row) < panel->gdtfPaths.size())
-    path = panel->gdtfPaths[static_cast<size_t>(row)];
-  if (path.empty())
-    path = wxString::FromUTF8(it->second.gdtfSpec);
-  input.resolvedGdtfPath = PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
-  input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
+  input.fixture = fixture;
+  input.resolvedGdtfPath = resolvedPath;
+  input.editorSourceFileReference =
+      !resolvedPath.empty() ? resolvedPath.string() : fixture.gdtfSpec;
+  if (IsExistingRegularFile(input.resolvedGdtfPath))
+    input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
   input.sourceKind = IsUserFixtureLibraryPath(input.resolvedGdtfPath.string())
                          ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
                          : gdtf::GdtfSourceKind::Unknown;
   input.writePolicy = gdtf::GdtfWritePolicy::CreateDerivativeBeforeMutation;
   gdtfEditSession = std::make_unique<gdtf::GdtfEditSession>(
       gdtf::BuildProjectFixtureGdtfEditSession(input));
+}
+
+// Returns the active resolved GDTF path used for all Fixture Edit file I/O.
+std::filesystem::path FixtureEditDialog::GetActiveResolvedGdtfPath() const {
+  if (gdtfEditSession) {
+    const auto &path = gdtfEditSession->Context().sourcePath;
+    if (IsExistingRegularFile(path))
+      return path;
+  }
+  if (IsExistingRegularFile(pendingSelectedGdtfPath))
+    return pendingSelectedGdtfPath;
+  if (panel && row >= 0 && static_cast<size_t>(row) < panel->gdtfPaths.size()) {
+    const auto rowPath = PathFromWxString(panel->gdtfPaths[static_cast<size_t>(row)]);
+    if (IsExistingRegularFile(rowPath))
+      return rowPath;
+  }
+  if (!panel || row < 0 || static_cast<size_t>(row) >= panel->rowUuids.size())
+    return {};
+  const auto &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  auto it = scene.fixtures.find(panel->rowUuids[static_cast<size_t>(row)]);
+  if (it == scene.fixtures.end())
+    return {};
+  gui::fixtures::FixtureGdtfResolution resolution;
+  std::string resolutionError;
+  if (gui::fixtures::ResolveFixtureGdtfDeterministic(
+          it->second, scene, resolution, resolutionError,
+          "FixtureEditDialog::GetActiveResolvedGdtfPath"))
+    return PathUtils::PathFromUtf8(resolution.selectedPath);
+  if (!resolutionError.empty())
+    wxLogWarning("%s", resolutionError.c_str());
+  return {};
 }
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
@@ -389,9 +455,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   }
 
 
-  wxString initialGdtfPath;
-  if (static_cast<size_t>(row) < panel->gdtfPaths.size())
-    initialGdtfPath = panel->gdtfPaths[row];
+  const std::filesystem::path initialGdtfPath = GetActiveResolvedGdtfPath();
 
   wxVariant typeValue;
   table->GetValue(typeValue, row, 2);
@@ -433,7 +497,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
           {GdtfTypeIdentityField::SourceFileReference, "Model file",
            gui::gdtf_binding::ValueText(
                sessionValues, gdtf::GdtfFieldId::SourceFileReference,
-               std::string(initialGdtfPath.ToUTF8())),
+               initialGdtfPath.string()),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(
@@ -460,7 +524,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
                                              gdtf::GdtfFieldId::Weight),
            "kg"},
       },
-      {GetGdtfModes(std::string(initialGdtfPath.ToUTF8())),
+      {initialGdtfPath.empty() ? std::vector<std::string>()
+                               : GetGdtfModes(initialGdtfPath.string()),
        gui::gdtf_binding::ValueText(
            sessionValues, gdtf::GdtfFieldId::ModeName,
            std::string(modeValue.GetString().ToUTF8())),
@@ -658,6 +723,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   if (fdlg.ShowModal() != wxID_OK)
     return;
   wxString path = fdlg.GetPath();
+  pendingSelectedGdtfPath = PathFromWxString(path);
   if (gdtfEditSession && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
     const auto &scene =
@@ -666,9 +732,10 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     if (it != scene.fixtures.end()) {
       gdtf::ProjectFixtureGdtfContextInput input;
       input.fixture = it->second;
-      input.resolvedGdtfPath =
-          PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
-      input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
+      input.resolvedGdtfPath = pendingSelectedGdtfPath;
+      input.editorSourceFileReference = input.resolvedGdtfPath.string();
+      if (IsExistingRegularFile(input.resolvedGdtfPath))
+        input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
       input.sourceKind =
           IsUserFixtureLibraryPath(input.resolvedGdtfPath.string())
               ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
@@ -814,12 +881,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
 }
 
 void FixtureEditDialog::UpdateVisualizers() {
-  wxString gdtfPath = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetIdentityValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
-  if (gdtfPath.empty() && panel && row >= 0 &&
-      static_cast<size_t>(row) < panel->gdtfPaths.size()) {
-    gdtfPath = panel->gdtfPaths[row];
-  }
-  const std::string path = std::string(gdtfPath.ToUTF8());
+  const std::string path = GetActiveResolvedGdtfPath().string();
   const std::array<SymbolViewKind, 3> views = {
       SymbolViewKind::Bottom, SymbolViewKind::Front, SymbolViewKind::Left};
   for (size_t i = 0; i < views.size(); ++i) {
@@ -853,12 +915,7 @@ void FixtureEditDialog::UpdateVisualizers() {
 }
 
 void FixtureEditDialog::UpdateMetadataSummary() {
-  wxString gdtfPath = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetIdentityValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
-  if (gdtfPath.empty() && panel && row >= 0 &&
-      static_cast<size_t>(row) < panel->gdtfPaths.size()) {
-    gdtfPath = panel->gdtfPaths[row];
-  }
-  const std::string path = std::string(gdtfPath.ToUTF8());
+  const std::string path = GetActiveResolvedGdtfPath().string();
   GdtfMetadataSummary metadata;
   if (LoadGdtfMetadataSummary(path, metadata)) {
     if (gdtfEditorPanel)
@@ -870,21 +927,17 @@ void FixtureEditDialog::UpdateMetadataSummary() {
 }
 
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
-  wxString gdtfPath = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetIdentityValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
-  if (gdtfPath.empty() && panel && row >= 0 &&
-      static_cast<size_t>(row) < panel->gdtfPaths.size()) {
-    gdtfPath = panel->gdtfPaths[row];
-  }
+  const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   wxString mode = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetSelectedMode()) : wxString();
   if (preview)
-    preview->LoadFixture(std::string(gdtfPath.ToUTF8()));
+    preview->LoadFixture(gdtfPath.string());
   if (gdtfPath.empty() || mode.empty()) {
     if (gdtfEditorPanel)
       gdtfEditorPanel->ClearModeDetails();
     return;
   }
-  auto channels = GetGdtfModeChannels(std::string(gdtfPath.ToUTF8()),
-                                      std::string(mode.ToUTF8()));
+  auto channels =
+      GetGdtfModeChannels(gdtfPath.string(), std::string(mode.ToUTF8()));
   std::vector<GdtfModeChannelPresentation> channelRows;
   for (const auto &ch : channels) {
     channelRows.push_back({
@@ -895,8 +948,8 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   }
   if (gdtfEditorPanel)
     gdtfEditorPanel->SetChannels(channelRows);
-  int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
-                                        std::string(mode.ToUTF8()));
+  int chCount =
+      GetGdtfModeChannelCount(gdtfPath.string(), std::string(mode.ToUTF8()));
   if (gdtfEditorPanel)
     gdtfEditorPanel->SetChannelCount(chCount >= 0 ? std::string(wxString::Format("%d", chCount).ToUTF8()) : std::string());
   if (markChannelCountDirty)
@@ -921,7 +974,7 @@ bool FixtureEditDialog::ApplyChanges() {
   if (!ValidateSessionBeforeApply())
     return false;
   auto *table = panel->table;
-  wxString gdtfPath = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetIdentityValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
+  std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
 
   std::vector<std::string> oldOrder = panel->rowUuids;
   std::vector<std::string> selectedUuids;
@@ -940,17 +993,20 @@ bool FixtureEditDialog::ApplyChanges() {
     if (i == 7 && gdtfEditorPanel) {
       table->SetValue(wxVariant(wxString::FromUTF8(gdtfEditorPanel->GetSelectedMode())), row, i);
     } else if (i == 8 && gdtfEditorPanel) {
-      int chCount = GetGdtfModeChannelCount(std::string(gdtfPath.ToUTF8()),
-                                            gdtfEditorPanel->GetSelectedMode());
+      int chCount = gdtfPath.empty()
+                        ? -1
+                        : GetGdtfModeChannelCount(
+                              gdtfPath.string(),
+                              gdtfEditorPanel->GetSelectedMode());
       table->SetValue(wxVariant(chCount >= 0 ? wxString::Format("%d", chCount)
                                              : wxString()),
                       row, i);
     } else if (i == 9 && gdtfEditorPanel) {
-      wxFileName fn(gdtfPath);
+      wxFileName fn(wxString::FromUTF8(gdtfPath.string()));
       table->SetValue(wxVariant(fn.GetFullName()), row, i);
       if ((size_t)row >= panel->gdtfPaths.size())
         panel->gdtfPaths.resize(row + 1);
-      panel->gdtfPaths[row] = gdtfPath;
+      panel->gdtfPaths[row] = wxString::FromUTF8(gdtfPath.string());
     } else if (i == 2 && gdtfEditorPanel) {
       auto value = gdtfEditorPanel->GetIdentityValue(
           GdtfTypeIdentityField::FixtureTypeName);
@@ -1057,26 +1113,29 @@ bool FixtureEditDialog::ApplyChanges() {
           std::fabs(newPowerW - originalPowerW) > 0.01f ||
           std::fabs(newWeightKg - originalWeightKg) > 0.01f;
       if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged) {
-        std::string writableGdtfPath = std::string(gdtfPath.ToUTF8());
+        std::string writableGdtfPath = gdtfPath.string();
         if (IsUserFixtureLibraryPath(writableGdtfPath)) {
           auto derivative =
               GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
               std::string(originalType.ToUTF8()), writableGdtfPath);
           if (derivative && !derivative->path.empty()) {
             writableGdtfPath = derivative->path;
-            gdtfPath = wxString::FromUTF8(derivative->path);
+            gdtfPath = PathUtils::PathFromUtf8(derivative->path);
+            pendingSelectedGdtfPath = gdtfPath;
             if (gdtfEditorPanel)
               gdtfEditorPanel->SetIdentityValue(
                   GdtfTypeIdentityField::SourceFileReference,
-                  std::string(gdtfPath.ToUTF8()));
+                  gdtfPath.string());
             if (gdtfEditSession)
               gdtfEditSession->SetValue(gdtf::GdtfFieldId::SourceFileReference,
-                                        std::string(gdtfPath.ToUTF8()));
+                                        gdtfPath.string());
             if (panel && row >= 0) {
               if (static_cast<size_t>(row) >= panel->gdtfPaths.size())
                 panel->gdtfPaths.resize(static_cast<size_t>(row) + 1);
-              panel->gdtfPaths[static_cast<size_t>(row)] = gdtfPath;
-              table->SetValue(wxVariant(wxFileName(gdtfPath).GetFullName()),
+              panel->gdtfPaths[static_cast<size_t>(row)] =
+                  wxString::FromUTF8(gdtfPath.string());
+              table->SetValue(wxVariant(wxFileName(wxString::FromUTF8(
+                                            gdtfPath.string())).GetFullName()),
                               row, 9);
             }
           }
@@ -1103,7 +1162,8 @@ bool FixtureEditDialog::ApplyChanges() {
           gdtfEditorPanel ? gdtfEditorPanel->GetSelectedMode() : std::string();
       // Project fixture metadata edits stay project-scoped and do not promote
       // files into the user library.
-      panel->ApplyModeForGdtf(gdtfPath, wxString::FromUTF8(mode.c_str()));
+      panel->ApplyModeForGdtf(wxString::FromUTF8(gdtfPath.string()),
+                              wxString::FromUTF8(mode.c_str()));
     }
   }
   if (fixtureColorChanged) {

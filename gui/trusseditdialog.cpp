@@ -67,6 +67,15 @@ std::string ResolveTrussResourcePath(const std::string &basePath,
     resolved = fs::path(basePath) / resolved;
   return resolved.string();
 }
+
+// Checks whether a path points to an existing regular file without throwing.
+bool IsExistingRegularFile(const std::filesystem::path &path) {
+  if (path.empty())
+    return false;
+  std::error_code ec;
+  return std::filesystem::exists(path, ec) && !ec &&
+         std::filesystem::is_regular_file(path, ec) && !ec;
+}
 } // namespace
 
 // Destroys the host-owned GDTF edit session after the dialog closes.
@@ -84,7 +93,8 @@ void TrussEditDialog::BuildEditSession() {
   gdtf::ProjectTrussGdtfContextInput input;
   input.truss = it->second;
   input.resolvedGdtfPath = ResolveCurrentGdtfPath();
-  input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
+  if (IsExistingRegularFile(input.resolvedGdtfPath))
+    input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
   input.sourceKind = input.resolvedGdtfPath.empty()
                          ? gdtf::GdtfSourceKind::Unknown
                          : gdtf::GdtfSourceKind::PerastageTrussLibraryFile;
@@ -388,7 +398,8 @@ std::string TrussEditDialog::ResolveCurrentGdtfPath() const {
   auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
   if (it == scene.trusses.end())
     return {};
-  return ResolveTrussResourcePath(scene.basePath, it->second.gdtfSpec);
+  const auto resolved = ResolveTrussResourcePath(scene.basePath, it->second.gdtfSpec);
+  return IsExistingRegularFile(resolved) ? resolved : std::string();
 }
 
 // Updates the read-only GDTF metadata section from the current GDTF.

@@ -22,6 +22,7 @@ gdtf::GdtfEditorContext MakeFixtureContext() {
   gdtf::ProjectFixtureGdtfContextInput input;
   input.fixture = fixture;
   input.resolvedGdtfPath = "/tmp/profile.gdtf";
+  input.editorSourceFileReference = "/tmp/profile.gdtf";
   return gdtf::BuildProjectFixtureGdtfEditorContext(input);
 }
 
@@ -186,6 +187,26 @@ void AssertSourceRebindingCheckpoint08A() {
   assert(!session.IsDirty());
 }
 
+// Verifies resolved fixture source presentation does not use a portable reference.
+void AssertFixtureResolvedSourcePresentation() {
+  Fixture fixture;
+  fixture.uuid = "fixture-relative";
+  fixture.typeName = "Profile";
+  fixture.gdtfSpec = "Fixture.gdtf";
+  gdtf::ProjectFixtureGdtfContextInput input;
+  input.fixture = fixture;
+  input.resolvedGdtfPath = "/tmp/scene/Fixture.gdtf";
+  input.editorSourceFileReference = input.resolvedGdtfPath.string();
+  auto session = gdtf::BuildProjectFixtureGdtfEditSession(input);
+  assert(session.Context().sourcePath ==
+         std::filesystem::path("/tmp/scene/Fixture.gdtf"));
+  assert(session.CurrentValues().sourceFileReference);
+  assert(*session.CurrentValues().sourceFileReference ==
+         "/tmp/scene/Fixture.gdtf");
+  assert(*session.CurrentValues().sourceFileReference != fixture.gdtfSpec);
+  assert(!session.IsDirty());
+}
+
 // Verifies validation only applies to supported active-context values.
 void AssertValidationBehavior() {
   gdtf::GdtfEditSession session(MakeFixtureContext());
@@ -343,6 +364,7 @@ int main() {
   AssertFixtureSessionCheckpoint08A();
   AssertTrussSessionCheckpoint08A();
   AssertSourceRebindingCheckpoint08A();
+  AssertFixtureResolvedSourcePresentation();
   AssertValidationBehavior();
   AssertProjectFixtureCapabilities();
   AssertProjectTrussCapabilities();

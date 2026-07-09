@@ -232,3 +232,7 @@ Session state is authoritative for supported Checkpoint 08A fields. Host callbac
 The existing Apply implementations remain responsible for all side effects. They may consume session-backed values through the current panel getters, but derivative creation, GDTF physical-property mutation, truss generation, table resync, scene updates, undo, project dirty state, previews, hoist/load recalculation, and Viewer2D/Viewer3D refresh are intentionally not moved to adapters in this checkpoint. No `GdtfApplyResult`-driven Apply path was introduced.
 
 Checkpoint 08B should migrate Fixture Apply behavior to a dedicated adapter. Checkpoint 08C should migrate Truss Apply behavior to a dedicated adapter.
+
+### Checkpoint 08A fixture source-resolution correction
+
+The Checkpoint 08A binding now preserves the distinction between portable fixture source references and resolved operational paths. Fixture sessions use an explicit editor source reference supplied by the host, and Fixture Edit resolves project-relative sources through the existing deterministic resolver before calling shared document readers or legacy preview/mode/metadata services. The composite panel remains presentation-only and is no longer an authority for GDTF file I/O paths.
