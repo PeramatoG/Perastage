@@ -159,6 +159,31 @@ if ! rg -q "new wxStaticText\(gdtfSizer->GetStaticBox\(\)" "$truss_source"; then
   echo "Truss Edit GDTF explanatory text must be parented to the surrounding static box." >&2
   exit 1
 fi
+for token in \
+  "wxWindow \*fixtureSpecificParent = fixtureSpecificSizer->GetStaticBox\(\)" \
+  "new wxChoice\(fixtureSpecificParent" \
+  "new wxColourPickerCtrl\(fixtureSpecificParent" \
+  "new wxTextCtrl\(fixtureSpecificParent" \
+  "new wxStaticText\(fixtureSpecificParent" \
+  "wxWindow \*symbolParent = symbolSizer->GetStaticBox\(\)" \
+  "new wxStaticText\(symbolParent" \
+  "new wxPanel\(symbolParent" \
+  "new wxStaticBitmap\(imageSizer->GetStaticBox\(\)"; do
+  if ! rg -q "$token" "$fixture_source"; then
+    echo "Fixture Edit static-box contents must use static-box parents: $token" >&2
+    exit 1
+  fi
+done
+for token in \
+  "wxWindow \*mvrParent = mvrSizer->GetStaticBox\(\)" \
+  "new wxTextCtrl\(mvrParent" \
+  "new wxStaticText\(mvrParent" \
+  "new FixturePreviewPanel\(previewSizer->GetStaticBox\(\)"; do
+  if ! rg -q "$token" "$truss_source"; then
+    echo "Truss Edit static-box contents must use static-box parents: $token" >&2
+    exit 1
+  fi
+done
 if ! rg -q "gdtfConfiguration.modes.title = \"Modes and channels\"" "$fixture_source"; then
   echo "Fixture Edit must keep the composite modes section visible with a host title." >&2
   exit 1

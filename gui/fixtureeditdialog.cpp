@@ -278,6 +278,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       wxVERTICAL, this, "GDTF (shared for this fixture type)");
   wxFlexGridSizer *fixtureGrid = new wxFlexGridSizer(2, 5, 5);
   fixtureGrid->AddGrowableCol(1, 1);
+  wxWindow *fixtureSpecificParent = fixtureSpecificSizer->GetStaticBox();
 
   auto *table = panel->table; // friend access
   ctrls.resize(panel->columnLabels.size(), nullptr);
@@ -291,9 +292,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   auto addLabeledControl = [&](size_t index, wxWindow *controlWindow,
                                wxSizer *nestedSizer, bool isGdtfField) {
     (void)isGdtfField;
-    fixtureGrid->Add(
-        new wxStaticText(this, wxID_ANY, panel->columnLabels[index]), 0,
-                    wxALIGN_CENTER_VERTICAL);
+    fixtureGrid->Add(new wxStaticText(fixtureSpecificParent, wxID_ANY,
+                                       panel->columnLabels[index]),
+                     0, wxALIGN_CENTER_VERTICAL);
     if (nestedSizer)
       fixtureGrid->Add(nestedSizer, 1, wxEXPAND);
     else
@@ -308,7 +309,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     if (i == 2 || i == 7 || i == 8 || i == 9 || i == 16 || i == 17) {
       continue;
     } else if (i == 18) {
-      auto *category = new wxChoice(this, wxID_ANY);
+      auto *category = new wxChoice(fixtureSpecificParent, wxID_ANY);
       const wxArrayString values = {
           "Beam",         "Blinder", "Conventional", "FX",    "Hoist",
           "Hybrid",       "Laser",   "LED",          "Smoke", "Spot",
@@ -337,13 +338,15 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       wxColour initial(colorString);
       if (colorString.IsEmpty() || !initial.IsOk())
         initial = *wxWHITE;
-      auto *picker = new wxColourPickerCtrl(this, wxID_ANY, initial);
+      auto *picker =
+          new wxColourPickerCtrl(fixtureSpecificParent, wxID_ANY, initial);
       picker->Bind(wxEVT_COLOURPICKER_CHANGED,
                    [this, i](wxColourPickerEvent &) { MarkColumnModified(i); });
       ctrls[i] = picker;
       controlWindow = picker;
     } else {
-      wxTextCtrl *tc = new wxTextCtrl(this, wxID_ANY, v.GetString());
+      wxTextCtrl *tc =
+          new wxTextCtrl(fixtureSpecificParent, wxID_ANY, v.GetString());
       tc->Bind(wxEVT_TEXT,
                [this, i](wxCommandEvent &) { MarkColumnModified(i); });
       ctrls[i] = tc;
@@ -453,12 +456,13 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   wxStaticBoxSizer *symbolSizer =
       new wxStaticBoxSizer(wxHORIZONTAL, this, "Symbols");
+  wxWindow *symbolParent = symbolSizer->GetStaticBox();
   const std::array<wxString, 3> symbolLabels = {"Top", "Front", "Side"};
   for (size_t i = 0; i < symbolPanels.size(); ++i) {
     wxBoxSizer *symbolColumn = new wxBoxSizer(wxVERTICAL);
-    symbolColumn->Add(new wxStaticText(this, wxID_ANY, symbolLabels[i]), 0,
-                      wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 3);
-    symbolPanels[i] = new wxPanel(this, wxID_ANY, wxDefaultPosition,
+    symbolColumn->Add(new wxStaticText(symbolParent, wxID_ANY, symbolLabels[i]),
+                      0, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 3);
+    symbolPanels[i] = new wxPanel(symbolParent, wxID_ANY, wxDefaultPosition,
                                   wxSize(90, 70), wxBORDER_SIMPLE);
     symbolPanels[i]->SetBackgroundStyle(wxBG_STYLE_PAINT);
     symbolPanels[i]->Bind(wxEVT_PAINT, &FixtureEditDialog::OnSymbolPreviewPaint,
@@ -470,7 +474,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   wxStaticBoxSizer *imageSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "Fixture image");
-  fixtureImagePreview = new wxStaticBitmap(this, wxID_ANY, wxBitmap(220, 220));
+  fixtureImagePreview = new wxStaticBitmap(imageSizer->GetStaticBox(), wxID_ANY,
+                                           wxBitmap(220, 220));
   imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
   rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
   rightSizer->SetMinSize(wxSize(280, -1));

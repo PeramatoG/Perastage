@@ -78,6 +78,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
       new wxStaticBoxSizer(wxVERTICAL, this, "MVR instance");
   wxStaticBoxSizer *gdtfSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "GDTF truss type");
+  wxWindow *mvrParent = mvrSizer->GetStaticBox();
   wxFlexGridSizer *mvrGrid = new wxFlexGridSizer(2, 5, 5);
   mvrGrid->AddGrowableCol(1, 1);
 
@@ -90,12 +91,13 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
       continue;
     wxVariant value;
     table->GetValue(value, row, static_cast<unsigned int>(i));
-    wxTextCtrl *control = new wxTextCtrl(this, wxID_ANY, value.GetString());
+    wxTextCtrl *control =
+        new wxTextCtrl(mvrParent, wxID_ANY, value.GetString());
     control->Bind(wxEVT_TEXT,
                   [this, i](wxCommandEvent &) { MarkColumnModified(i); });
     ctrls[i] = control;
-    mvrGrid->Add(new wxStaticText(this, wxID_ANY, panel->columnLabels[i]), 0,
-                 wxALIGN_CENTER_VERTICAL);
+    mvrGrid->Add(new wxStaticText(mvrParent, wxID_ANY, panel->columnLabels[i]),
+                 0, wxALIGN_CENTER_VERTICAL);
     mvrGrid->Add(control, 1, wxEXPAND);
   }
 
@@ -175,7 +177,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   wxStaticBoxSizer *previewSizer =
       new wxStaticBoxSizer(wxVERTICAL, this, "3D preview");
   previewSizer->SetMinSize(wxSize(360, 190));
-  preview = new FixturePreviewPanel(this);
+  preview = new FixturePreviewPanel(previewSizer->GetStaticBox());
   preview->SetMinSize(wxSize(320, 160));
   previewSizer->Add(preview, 1, wxEXPAND | wxALL, 6);
 
