@@ -138,6 +138,32 @@ void GdtfEditorPanel::SetModesPresentation(
   modesPanel->SetPresentation(presentation);
 }
 
+// Replaces the mode list without notifying callbacks.
+void GdtfEditorPanel::SetModes(const std::vector<std::string> &modes) {
+  modesPanel->SetModes(modes);
+}
+
+// Selects a mode without notifying callbacks.
+void GdtfEditorPanel::SetSelectedMode(const std::string &mode) {
+  modesPanel->SetSelectedMode(mode);
+}
+
+// Sets the derived channel count without notifying callbacks.
+void GdtfEditorPanel::SetChannelCount(const std::string &channelCount) {
+  modesPanel->SetChannelCount(channelCount);
+}
+
+// Sets the visible channel rows without notifying callbacks.
+void GdtfEditorPanel::SetChannels(
+    const std::vector<GdtfModeChannelPresentation> &channels) {
+  modesPanel->SetChannels(channels);
+}
+
+// Clears derived mode details without notifying callbacks.
+void GdtfEditorPanel::ClearModeDetails() {
+  modesPanel->ClearModeDetails();
+}
+
 // Enables or disables user mode selection.
 void GdtfEditorPanel::SetModeSelectionEnabled(bool enabled) {
   modesPanel->SetModeSelectionEnabled(enabled);
@@ -161,21 +187,27 @@ void GdtfEditorPanel::BuildSections() {
   rightColumnSizer = new wxBoxSizer(wxVERTICAL);
   SetSizer(rootSizer);
 
-  metadataPanel = new GdtfMetadataPanel(this);
-  typeIdentityPanel = new GdtfTypeIdentityPanel(this);
-  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(this);
-  modesPanel = new GdtfModesPanel(this);
-
   metadataSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
   typeIdentitySection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
   physicalPropertiesSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
   modesSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
+
+  metadataPanel = new GdtfMetadataPanel(metadataSection->GetStaticBox());
+  typeIdentityPanel =
+      new GdtfTypeIdentityPanel(typeIdentitySection->GetStaticBox());
+  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(
+      physicalPropertiesSection->GetStaticBox());
+  modesPanel = new GdtfModesPanel(modesSection->GetStaticBox());
 
   metadataSection->Add(metadataPanel, 0, wxEXPAND | wxALL, kSectionPadding);
   typeIdentitySection->Add(typeIdentityPanel, 0, wxEXPAND | wxALL, kSectionPadding);
   physicalPropertiesSection->Add(physicalPropertiesPanel, 0,
                                  wxEXPAND | wxALL, kSectionPadding);
   modesSection->Add(modesPanel, 1, wxEXPAND | wxALL, kSectionPadding);
+
+  twoColumnSizer->Add(leftColumnSizer, 1, wxEXPAND | wxRIGHT, kSectionGap);
+  twoColumnSizer->Add(rightColumnSizer, 1, wxEXPAND);
+  rootSizer->Add(twoColumnSizer, 1, wxEXPAND);
 }
 
 // Applies one section label and window visibility from typed configuration.
@@ -187,6 +219,24 @@ void GdtfEditorPanel::ApplySectionConfiguration(
   section->GetStaticBox()->Show(sectionConfiguration.visible);
 }
 
+// Detaches reusable section sizers before rebuilding the layout arrangement.
+void GdtfEditorPanel::DetachReusableLayoutSizers() {
+  rootSizer->Detach(metadataSection);
+  rootSizer->Detach(typeIdentitySection);
+  rootSizer->Detach(physicalPropertiesSection);
+  rootSizer->Detach(modesSection);
+
+  leftColumnSizer->Detach(metadataSection);
+  leftColumnSizer->Detach(typeIdentitySection);
+  leftColumnSizer->Detach(physicalPropertiesSection);
+  leftColumnSizer->Detach(modesSection);
+
+  rightColumnSizer->Detach(metadataSection);
+  rightColumnSizer->Detach(typeIdentitySection);
+  rightColumnSizer->Detach(physicalPropertiesSection);
+  rightColumnSizer->Detach(modesSection);
+}
+
 // Rebuilds only the top-level sizer arrangement while preserving child panels.
 void GdtfEditorPanel::RebuildLayout() {
   ApplySectionConfiguration(metadataSection, configuration.metadata);
@@ -195,10 +245,7 @@ void GdtfEditorPanel::RebuildLayout() {
                             configuration.physicalProperties);
   ApplySectionConfiguration(modesSection, configuration.modes);
 
-  rootSizer->Clear(false);
-  twoColumnSizer->Clear(false);
-  leftColumnSizer->Clear(false);
-  rightColumnSizer->Clear(false);
+  DetachReusableLayoutSizers();
 
   if (configuration.layout == GdtfEditorPanelLayout::TwoColumn)
     AddTwoColumnSections(rootSizer);
@@ -220,6 +267,7 @@ void GdtfEditorPanel::AddSection(wxBoxSizer *target, wxStaticBoxSizer *section,
 
 // Adds visible sections in the documented single-column order.
 void GdtfEditorPanel::AddSingleColumnSections(wxBoxSizer *root) {
+  root->Show(twoColumnSizer, false, true);
   AddSection(root, metadataSection, configuration.metadata, 0);
   AddSection(root, typeIdentitySection, configuration.typeIdentity, 0);
   AddSection(root, physicalPropertiesSection, configuration.physicalProperties, 0);
@@ -233,7 +281,5 @@ void GdtfEditorPanel::AddTwoColumnSections(wxBoxSizer *root) {
   AddSection(rightColumnSizer, physicalPropertiesSection,
              configuration.physicalProperties, 0);
   AddSection(rightColumnSizer, modesSection, configuration.modes, 1);
-  twoColumnSizer->Add(leftColumnSizer, 1, wxEXPAND | wxRIGHT, kSectionGap);
-  twoColumnSizer->Add(rightColumnSizer, 1, wxEXPAND);
-  root->Add(twoColumnSizer, 1, wxEXPAND);
+  root->Show(twoColumnSizer, true, true);
 }

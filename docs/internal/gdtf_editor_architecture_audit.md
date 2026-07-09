@@ -210,3 +210,13 @@ The composite remains presentation-only. It accepts typed section configuration 
 The panel performs no file loading, archive reading, metadata discovery, GDTF mutation, derivative creation, project apply behavior, undo/redo, viewer refresh, or hoist-load recalculation. Fixture Edit and Truss Edit still own their direct child panel instances and all project/apply semantics in this checkpoint.
 
 Checkpoint 07 is next: migrate `FixtureEditDialog` and `TrussEditDialog` from direct child-panel ownership to `GdtfEditorPanel` while preserving host-owned project, apply, mutation, scene update, and recalculation behavior.
+
+## Checkpoint 07 host composition migration
+
+Checkpoint 07 is complete. `FixtureEditDialog` and `TrussEditDialog` now instantiate one `GdtfEditorPanel` each instead of directly owning `GdtfMetadataPanel`, `GdtfTypeIdentityPanel`, `GdtfPhysicalPropertiesPanel`, or `GdtfModesPanel` instances.
+
+Fixture Edit uses the composite with metadata, fixture type/source identity, physical power/weight, and modes/channels visible. Truss Edit uses the same composite with metadata, truss manufacturer/model identity, dimensions/weight/cross-section physical fields, and the modes section hidden. The composite gained only narrow presentation-only forwarding for incremental modes updates used by the fixture host.
+
+The composite remains presentation-only. It has no project, table, MVR, loader, mutation, derivative, truss-generation, undo, viewer, or `GdtfEditSession` responsibilities. Host dialogs still translate typed callbacks into their existing modified-column flags and continue to own Apply/OK/Cancel behavior, table updates, scene updates, previews, metadata loading, fixture derivative handling, truss generation, undo, and viewer refresh.
+
+This checkpoint does not implement direct `.gdtf` startup routing, standalone GDTF windows, direct edit-session binding, or `GdtfApplyRequest` adapters. Checkpoint 08 remains the next controlled architecture step.

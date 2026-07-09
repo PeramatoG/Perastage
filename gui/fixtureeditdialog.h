@@ -28,10 +28,7 @@ class FixtureTablePanel;
 class FixturePreviewPanel;
 class wxStaticBitmap;
 class wxPanel;
-class GdtfMetadataPanel;
-class GdtfModesPanel;
-class GdtfPhysicalPropertiesPanel;
-class GdtfTypeIdentityPanel;
+class GdtfEditorPanel;
 
 class FixtureEditDialog : public wxDialog {
 public:
@@ -54,10 +51,7 @@ private:
     FixtureTablePanel* panel;
     int row;
     std::vector<wxControl*> ctrls;
-    GdtfTypeIdentityPanel* typeIdentityPanel = nullptr;
-    GdtfPhysicalPropertiesPanel* physicalPropertiesPanel = nullptr;
-    GdtfModesPanel* modesPanel = nullptr;
-    GdtfMetadataPanel* metadataPanel = nullptr;
+    GdtfEditorPanel* gdtfEditorPanel = nullptr;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
     std::array<wxPanel*, 3> symbolPanels{};

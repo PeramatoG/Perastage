@@ -32,11 +32,36 @@ for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel
     echo "GdtfEditorPanel must own exactly one ${child} pointer." >&2
     exit 1
   fi
-  if ! rg -q "new ${child}\(this\)" "$panel_source"; then
-    echo "GdtfEditorPanel must create ${child} exactly once with wx parent ownership." >&2
+  if [[ $(rg -c "new ${child}\(" "$panel_source") -ne 1 ]]; then
+    echo "GdtfEditorPanel must instantiate ${child} exactly once." >&2
+    exit 1
+  fi
+  if rg -q "new ${child}\(this\)" "$panel_source"; then
+    echo "GdtfEditorPanel child panels must be parented to their section static boxes, not the composite panel." >&2
     exit 1
   fi
 done
+
+python3 - <<'PY_CHECK'
+from pathlib import Path
+source = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
+checks = [
+    ('metadataSection', 'metadataPanel', 'GdtfMetadataPanel', 'metadataSection->GetStaticBox()'),
+    ('typeIdentitySection', 'typeIdentityPanel', 'GdtfTypeIdentityPanel', 'typeIdentitySection->GetStaticBox()'),
+    ('physicalPropertiesSection', 'physicalPropertiesPanel', 'GdtfPhysicalPropertiesPanel', 'physicalPropertiesSection->GetStaticBox()'),
+    ('modesSection', 'modesPanel', 'GdtfModesPanel', 'modesSection->GetStaticBox()'),
+]
+for section, member, child, parent in checks:
+    section_token = f'{section} = new wxStaticBoxSizer'
+    section_index = source.find(section_token)
+    child_index = source.find(f'{member} =', section_index)
+    new_index = source.find(f'new {child}', child_index)
+    parent_index = source.find(parent, new_index)
+    if (section_index < 0 or child_index < 0 or new_index < 0 or
+            parent_index < 0 or section_index > child_index):
+        raise SystemExit(
+            f'{child} must be created after {section} and parented with {parent}.')
+PY_CHECK
 
 for token in GdtfEditorPanelLayout GdtfEditorSectionConfiguration GdtfEditorPanelConfiguration GdtfEditorPanelPresentation metadataAvailable identityFields physicalFields; do
   if ! rg -q "$token" "$panel_header"; then
@@ -44,7 +69,7 @@ for token in GdtfEditorPanelLayout GdtfEditorSectionConfiguration GdtfEditorPane
     exit 1
   fi
 done
-for api in Configure SetPresentation SetUnavailable SetIdentityChangeCallback SetIdentityActionCallback SetPhysicalPropertyChangeCallback SetModeSelectionCallback GetIdentityValue GetPhysicalPropertyValue GetSelectedMode SetIdentityValue SetPhysicalPropertyValue SetPhysicalPropertyValidation SetModesPresentation SetMetadata SetMetadataUnavailable; do
+for api in Configure SetPresentation SetUnavailable SetIdentityChangeCallback SetIdentityActionCallback SetPhysicalPropertyChangeCallback SetModeSelectionCallback GetIdentityValue GetPhysicalPropertyValue GetSelectedMode SetIdentityValue SetPhysicalPropertyValue SetPhysicalPropertyValidation SetModesPresentation SetModes SetSelectedMode SetChannelCount SetChannels ClearModeDetails SetMetadata SetMetadataUnavailable; do
   if ! rg -q "$api" "$panel_header"; then
     echo "Missing public forwarding API: $api" >&2
     exit 1
@@ -62,6 +87,17 @@ if ! rg -q "wxStaticBoxSizer" "$panel_header" "$panel_source"; then
 fi
 if ! rg -q "AddSingleColumnSections" "$panel_source" || ! rg -q "AddTwoColumnSections" "$panel_source"; then
   echo "Composite must implement deterministic single-column and two-column layouts." >&2
+  exit 1
+fi
+if ! rg -Fq "SetSizer(rootSizer)" "$panel_source" || \
+   ! rg -Fq "rootSizer->Add(twoColumnSizer, 1, wxEXPAND)" "$panel_source" || \
+   ! rg -Fq "twoColumnSizer->Add(leftColumnSizer" "$panel_source" || \
+   ! rg -Fq "twoColumnSizer->Add(rightColumnSizer" "$panel_source"; then
+  echo "Composite layout container sizers must have stable parent-sizer ownership after construction." >&2
+  exit 1
+fi
+if rg -q "Detach\(twoColumnSizer\)|Detach\(leftColumnSizer\)|Detach\(rightColumnSizer\)" "$panel_source"; then
+  echo "Composite layout must not detach permanently owned container sizers." >&2
   exit 1
 fi
 if ! rg -q "AddSection\(leftColumnSizer, metadataSection" "$panel_source" || \
@@ -100,8 +136,99 @@ if rg -q "gdtf_editor_panel" "${child_files[@]}"; then
   echo "Reusable child panels must not depend on the composite panel." >&2
   exit 1
 fi
-if rg -q "GdtfEditorPanel" "$fixture_header" "$fixture_source" "$truss_header" "$truss_source"; then
-  echo "Fixture Edit and Truss Edit must not be migrated to GdtfEditorPanel in Checkpoint 06." >&2
+for header in "$fixture_header" "$truss_header"; do
+  if [[ $(rg -c "GdtfEditorPanel \*gdtfEditorPanel|GdtfEditorPanel\* gdtfEditorPanel" "$header") -ne 1 ]]; then
+    echo "${header} must own exactly one GdtfEditorPanel pointer." >&2
+    exit 1
+  fi
+done
+for source in "$fixture_source" "$truss_source"; do
+  if [[ $(rg -c "new GdtfEditorPanel\(" "$source") -ne 1 ]]; then
+    echo "${source} must instantiate exactly one GdtfEditorPanel with wx parent ownership." >&2
+    exit 1
+  fi
+done
+for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel GdtfModesPanel; do
+  if rg -q "${child} \*|${child}\*|new ${child}\(" "$fixture_header" "$fixture_source" "$truss_header" "$truss_source"; then
+    echo "Host dialogs must not own or directly instantiate ${child}." >&2
+    exit 1
+  fi
+done
+if ! rg -q "new GdtfEditorPanel\(gdtfGeneralSizer->GetStaticBox\(\)\)" "$fixture_source"; then
+  echo "Fixture Edit must parent its composite to the surrounding static box." >&2
+  exit 1
+fi
+if ! rg -q "new GdtfEditorPanel\(gdtfSizer->GetStaticBox\(\)\)" "$truss_source"; then
+  echo "Truss Edit must parent its composite to the surrounding static box." >&2
+  exit 1
+fi
+if ! rg -q "new wxStaticText\(gdtfGeneralSizer->GetStaticBox\(\)" "$fixture_source"; then
+  echo "Fixture Edit GDTF explanatory text must be parented to the surrounding static box." >&2
+  exit 1
+fi
+if ! rg -q "new wxStaticText\(gdtfSizer->GetStaticBox\(\)" "$truss_source"; then
+  echo "Truss Edit GDTF explanatory text must be parented to the surrounding static box." >&2
+  exit 1
+fi
+for token in \
+  "wxWindow \*fixtureSpecificParent = fixtureSpecificSizer->GetStaticBox\(\)" \
+  "new wxChoice\(fixtureSpecificParent" \
+  "new wxColourPickerCtrl\(fixtureSpecificParent" \
+  "new wxTextCtrl\(fixtureSpecificParent" \
+  "new wxStaticText\(fixtureSpecificParent" \
+  "wxWindow \*symbolParent = symbolSizer->GetStaticBox\(\)" \
+  "new wxStaticText\(symbolParent" \
+  "new wxPanel\(symbolParent" \
+  "new wxStaticBitmap\(imageSizer->GetStaticBox\(\)"; do
+  if ! rg -q "$token" "$fixture_source"; then
+    echo "Fixture Edit static-box contents must use static-box parents: $token" >&2
+    exit 1
+  fi
+done
+for token in \
+  "wxWindow \*mvrParent = mvrSizer->GetStaticBox\(\)" \
+  "new wxTextCtrl\(mvrParent" \
+  "new wxStaticText\(mvrParent" \
+  "new FixturePreviewPanel\(previewSizer->GetStaticBox\(\)"; do
+  if ! rg -q "$token" "$truss_source"; then
+    echo "Truss Edit static-box contents must use static-box parents: $token" >&2
+    exit 1
+  fi
+done
+if ! rg -q "gdtfConfiguration.modes.title = \"Modes and channels\"" "$fixture_source"; then
+  echo "Fixture Edit must keep the composite modes section visible with a host title." >&2
+  exit 1
+fi
+if ! rg -q "gdtfConfiguration.modes.visible = false" "$truss_source"; then
+  echo "Truss Edit must hide the composite modes section." >&2
+  exit 1
+fi
+if rg -q "gdtf/gdtf_(metadata|type_identity|physical_properties|modes)_panel\.h" "$fixture_source" "$truss_source"; then
+  echo "Host sources must not include obsolete direct child-panel headers." >&2
+  exit 1
+fi
+
+if rg -q "Clear\(false\)" "$panel_source"; then
+  echo "Composite layout must detach reusable sizers instead of clearing and deleting them." >&2
+  exit 1
+fi
+if ! rg -q "DetachReusableLayoutSizers" "$panel_header" "$panel_source" || \
+   ! rg -q "rootSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "rootSizer->Detach\(modesSection\)" "$panel_source" || \
+   ! rg -q "leftColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "leftColumnSizer->Detach\(modesSection\)" "$panel_source" || \
+   ! rg -q "rightColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "rightColumnSizer->Detach\(modesSection\)" "$panel_source"; then
+  echo "Composite layout rebuild must detach reusable section sizers before re-adding them." >&2
+  exit 1
+fi
+if ! rg -Fq "root->Show(twoColumnSizer, false, true)" "$panel_source" || \
+   ! rg -Fq "root->Show(twoColumnSizer, true, true)" "$panel_source"; then
+  echo "Composite layout must hide the stable two-column container in single-column mode and show it in two-column mode." >&2
+  exit 1
+fi
+if rg -q "delete .*Sizer|delete rootSizer|delete twoColumnSizer|delete leftColumnSizer|delete rightColumnSizer" "$panel_source"; then
+  echo "Composite layout must not manually delete wx-owned sizers." >&2
   exit 1
 fi
 
@@ -110,4 +237,4 @@ if rg -q "Fit\(" "$panel_source"; then
   exit 1
 fi
 
-echo "OK: GDTF editor panel composition boundary checks passed."
+echo "OK: GDTF editor panel Checkpoint 07 composition boundary checks passed."
