@@ -432,7 +432,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, 6);
 
   gdtfGeneralSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, 6);
-  gdtfGeneralSizer->Add(new wxStaticText(this, wxID_ANY,
+  gdtfGeneralSizer->Add(new wxStaticText(gdtfGeneralSizer->GetStaticBox(), wxID_ANY,
                                          "Type, source, and mode controls select project fixture context. Power and weight edits update the GDTF file and append a revision entry."),
                         0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
 

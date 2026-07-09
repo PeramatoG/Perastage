@@ -151,6 +151,14 @@ if ! rg -q "new GdtfEditorPanel\(gdtfSizer->GetStaticBox\(\)\)" "$truss_source";
   echo "Truss Edit must parent its composite to the surrounding static box." >&2
   exit 1
 fi
+if ! rg -q "new wxStaticText\(gdtfGeneralSizer->GetStaticBox\(\)" "$fixture_source"; then
+  echo "Fixture Edit GDTF explanatory text must be parented to the surrounding static box." >&2
+  exit 1
+fi
+if ! rg -q "new wxStaticText\(gdtfSizer->GetStaticBox\(\)" "$truss_source"; then
+  echo "Truss Edit GDTF explanatory text must be parented to the surrounding static box." >&2
+  exit 1
+fi
 if ! rg -q "gdtfConfiguration.modes.title = \"Modes and channels\"" "$fixture_source"; then
   echo "Fixture Edit must keep the composite modes section visible with a host title." >&2
   exit 1

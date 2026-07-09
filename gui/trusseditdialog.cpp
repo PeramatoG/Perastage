@@ -168,7 +168,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, 6);
   gdtfSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, 6);
   gdtfSizer->Add(
-      new wxStaticText(this, wxID_ANY,
+      new wxStaticText(gdtfSizer->GetStaticBox(), wxID_ANY,
                        "Editing these fields creates or updates the truss "
                        "GDTF. MVR-only fields remain project-scoped."),
       0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
