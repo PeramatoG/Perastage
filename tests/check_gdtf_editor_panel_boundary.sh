@@ -197,6 +197,19 @@ if rg -q "gdtf/gdtf_(metadata|type_identity|physical_properties|modes)_panel\.h"
   exit 1
 fi
 
+if rg -q "Clear\(false\)" "$panel_source"; then
+  echo "Composite layout must detach reusable sizers instead of clearing and deleting them." >&2
+  exit 1
+fi
+if ! rg -q "DetachReusableLayoutSizers" "$panel_header" "$panel_source" || \
+   ! rg -q "rootSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "twoColumnSizer->Detach\(leftColumnSizer\)" "$panel_source" || \
+   ! rg -q "leftColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "rightColumnSizer->Detach\(modesSection\)" "$panel_source"; then
+  echo "Composite layout rebuild must detach all reusable section and column sizers before re-adding them." >&2
+  exit 1
+fi
+
 if rg -q "Fit\(" "$panel_source"; then
   echo "Composite layout must not repeatedly fit parent windows." >&2
   exit 1

@@ -215,6 +215,28 @@ void GdtfEditorPanel::ApplySectionConfiguration(
   section->GetStaticBox()->Show(sectionConfiguration.visible);
 }
 
+// Detaches reusable child sizers before rebuilding the layout arrangement.
+void GdtfEditorPanel::DetachReusableLayoutSizers() {
+  rootSizer->Detach(metadataSection);
+  rootSizer->Detach(typeIdentitySection);
+  rootSizer->Detach(physicalPropertiesSection);
+  rootSizer->Detach(modesSection);
+  rootSizer->Detach(twoColumnSizer);
+
+  twoColumnSizer->Detach(leftColumnSizer);
+  twoColumnSizer->Detach(rightColumnSizer);
+
+  leftColumnSizer->Detach(metadataSection);
+  leftColumnSizer->Detach(typeIdentitySection);
+  leftColumnSizer->Detach(physicalPropertiesSection);
+  leftColumnSizer->Detach(modesSection);
+
+  rightColumnSizer->Detach(metadataSection);
+  rightColumnSizer->Detach(typeIdentitySection);
+  rightColumnSizer->Detach(physicalPropertiesSection);
+  rightColumnSizer->Detach(modesSection);
+}
+
 // Rebuilds only the top-level sizer arrangement while preserving child panels.
 void GdtfEditorPanel::RebuildLayout() {
   ApplySectionConfiguration(metadataSection, configuration.metadata);
@@ -223,10 +245,7 @@ void GdtfEditorPanel::RebuildLayout() {
                             configuration.physicalProperties);
   ApplySectionConfiguration(modesSection, configuration.modes);
 
-  rootSizer->Clear(false);
-  twoColumnSizer->Clear(false);
-  leftColumnSizer->Clear(false);
-  rightColumnSizer->Clear(false);
+  DetachReusableLayoutSizers();
 
   if (configuration.layout == GdtfEditorPanelLayout::TwoColumn)
     AddTwoColumnSections(rootSizer);

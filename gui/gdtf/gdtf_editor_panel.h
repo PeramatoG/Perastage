@@ -97,6 +97,7 @@ private:
   void BuildSections();
   void ApplySectionConfiguration(wxStaticBoxSizer *section,
                                  const GdtfEditorSectionConfiguration &configuration);
+  void DetachReusableLayoutSizers();
   void RebuildLayout();
   void AddSection(wxBoxSizer *target, wxStaticBoxSizer *section,
                   const GdtfEditorSectionConfiguration &configuration,
