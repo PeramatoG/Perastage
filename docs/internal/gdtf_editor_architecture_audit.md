@@ -220,3 +220,15 @@ Fixture Edit uses the composite with metadata, fixture type/source identity, phy
 The composite remains presentation-only. It has no project, table, MVR, loader, mutation, derivative, truss-generation, undo, viewer, or `GdtfEditSession` responsibilities. Host dialogs still translate typed callbacks into their existing modified-column flags and continue to own Apply/OK/Cancel behavior, table updates, scene updates, previews, metadata loading, fixture derivative handling, truss generation, undo, and viewer refresh.
 
 This checkpoint does not implement direct `.gdtf` startup routing, standalone GDTF windows, direct edit-session binding, or `GdtfApplyRequest` adapters. Checkpoint 08 remains the next controlled architecture step.
+
+## Checkpoint 08A audit: host-owned sessions, legacy-owned writes
+
+Checkpoint 08A is complete from an architecture-boundary perspective. `FixtureEditDialog` and `TrussEditDialog` each own one `gdtf::GdtfEditSession` and construct it with `BuildProjectFixtureGdtfEditSession(...)` or `BuildProjectTrussGdtfEditSession(...)` from stable row UUID data, resolved source path, shared `LoadGdtfDocument(...)` output, conservative source kind, and the current descriptive write policy.
+
+`GdtfEditorPanel` remains presentation-only. It has no session member, loader, project context, table access, write policy, Apply logic, viewer dependency, or mutable project access. A small GUI binding helper maps reusable panel field enums to `gdtf::GdtfFieldId`, extracts session presentation text, and applies field capability editability without owning project/write behavior.
+
+Session state is authoritative for supported Checkpoint 08A fields. Host callbacks call `SetValue(...)`, validation is evaluated before legacy mutation, rejected numeric text is tracked outside the session as pending host validation, and reversible dirty tracking mirrors session field dirtiness into the existing compatibility flags. MVR/project-only fields continue to use the existing host tracking.
+
+The existing Apply implementations remain responsible for all side effects. They may consume session-backed values through the current panel getters, but derivative creation, GDTF physical-property mutation, truss generation, table resync, scene updates, undo, project dirty state, previews, hoist/load recalculation, and Viewer2D/Viewer3D refresh are intentionally not moved to adapters in this checkpoint. No `GdtfApplyResult`-driven Apply path was introduced.
+
+Checkpoint 08B should migrate Fixture Apply behavior to a dedicated adapter. Checkpoint 08C should migrate Truss Apply behavior to a dedicated adapter.

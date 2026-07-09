@@ -111,6 +111,14 @@ void GdtfTypeIdentityPanel::SetFieldEditable(GdtfTypeIdentityField field,
     it->second.value->Enable(editable);
 }
 
+// Displays validation feedback supplied by the host as a tooltip.
+void GdtfTypeIdentityPanel::SetFieldValidation(GdtfTypeIdentityField field,
+                                               const std::string &message) {
+  auto it = controls.find(field);
+  if (it != controls.end() && it->second.value)
+    it->second.value->SetToolTip(wxString::FromUTF8(message));
+}
+
 // Registers the host field-change callback.
 void GdtfTypeIdentityPanel::SetChangeCallback(ChangeCallback callback) {
   changeCallback = std::move(callback);

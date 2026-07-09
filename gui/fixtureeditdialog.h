@@ -22,6 +22,8 @@
 #include <vector>
 #include <string>
 #include <array>
+#include <memory>
+#include "gdtf/editor/gdtf_field_registry.h"
 #include "symbols/PerastageSvgSymbol.h"
 
 class FixtureTablePanel;
@@ -29,10 +31,12 @@ class FixturePreviewPanel;
 class wxStaticBitmap;
 class wxPanel;
 class GdtfEditorPanel;
+namespace gdtf { class GdtfEditSession; }
 
 class FixtureEditDialog : public wxDialog {
 public:
     FixtureEditDialog(FixtureTablePanel* panel, int row);
+    ~FixtureEditDialog() override;
     bool WasApplied() const { return applied; }
 
 private:
@@ -46,18 +50,25 @@ private:
     void UpdateChannels(bool markChannelCountDirty = false);
     void UpdateVisualizers();
     void UpdateMetadataSummary();
-    void ApplyChanges();
+    bool ApplyChanges();
+    void BuildEditSession();
+    void SyncSessionDirtyToLegacyFlags();
+    bool SetSessionValue(gdtf::GdtfFieldId fieldId, const std::string& value);
+    bool ValidateSessionBeforeApply();
+    void ClearSessionValidation();
 
     FixtureTablePanel* panel;
     int row;
     std::vector<wxControl*> ctrls;
     GdtfEditorPanel* gdtfEditorPanel = nullptr;
+    std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
     std::array<wxPanel*, 3> symbolPanels{};
     std::array<bool, 3> symbolAvailability{};
     std::array<PerastageSvgSymbolData, 3> symbolData{};
     bool applied = false;
+    bool hasRejectedSessionInput = false;
     wxString originalType;
     float originalPowerW = 0.0f;
     float originalWeightKg = 0.0f;

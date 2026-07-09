@@ -28,6 +28,8 @@ public:
   bool RequiresApply() const;
   std::vector<GdtfValidationDiagnostic> Validate() const;
   void Reset();
+  void AcceptCurrentValues();
+  void RebindContextPreservingValues(GdtfEditorContext context);
   GdtfApplyRequest BuildApplyRequest() const;
 
 private:

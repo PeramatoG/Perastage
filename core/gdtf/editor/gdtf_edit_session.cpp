@@ -117,6 +117,20 @@ void GdtfEditSession::Reset() {
   dirtyFields_.clear();
 }
 
+// Accepts the current values as the clean baseline after a successful host apply.
+void GdtfEditSession::AcceptCurrentValues() {
+  initialValues_ = currentValues_;
+  context_.initialValues = currentValues_;
+  dirtyFields_.clear();
+}
+
+// Replaces source/document context while preserving the session value baseline.
+void GdtfEditSession::RebindContextPreservingValues(GdtfEditorContext context) {
+  context_ = std::move(context);
+  context_.initialValues = initialValues_;
+  RecomputeDirtyFields();
+}
+
 // Builds a GUI-independent apply request for the host adapter.
 GdtfApplyRequest GdtfEditSession::BuildApplyRequest() const {
   GdtfApplyRequest request;

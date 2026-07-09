@@ -22,8 +22,11 @@
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_metadata_summary.h"
+#include "gdtf/editor/gdtf_document.h"
+#include "gdtf/editor/project_fixture_gdtf_context.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "guiconfigservices.h"
@@ -266,10 +269,40 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
 
 } // namespace
 
+// Destroys the host-owned GDTF edit session after the dialog closes.
+FixtureEditDialog::~FixtureEditDialog() = default;
+
+// Builds the host-owned GDTF edit session from current fixture row state.
+void FixtureEditDialog::BuildEditSession() {
+  if (!panel || row < 0 || static_cast<size_t>(row) >= panel->rowUuids.size())
+    return;
+  const auto &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  auto it = scene.fixtures.find(panel->rowUuids[static_cast<size_t>(row)]);
+  if (it == scene.fixtures.end())
+    return;
+  gdtf::ProjectFixtureGdtfContextInput input;
+  input.fixture = it->second;
+  wxString path;
+  if (static_cast<size_t>(row) < panel->gdtfPaths.size())
+    path = panel->gdtfPaths[static_cast<size_t>(row)];
+  if (path.empty())
+    path = wxString::FromUTF8(it->second.gdtfSpec);
+  input.resolvedGdtfPath = PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
+  input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
+  input.sourceKind = IsUserFixtureLibraryPath(input.resolvedGdtfPath.string())
+                         ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
+                         : gdtf::GdtfSourceKind::Unknown;
+  input.writePolicy = gdtf::GdtfWritePolicy::CreateDerivativeBeforeMutation;
+  gdtfEditSession = std::make_unique<gdtf::GdtfEditSession>(
+      gdtf::BuildProjectFixtureGdtfEditSession(input));
+}
+
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
                wxSize(900, 740)),
       panel(p), row(r) {
+  BuildEditSession();
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
   wxStaticBoxSizer *fixtureSpecificSizer =
@@ -382,33 +415,61 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   gdtfConfiguration.physicalProperties.title = "Physical properties";
   gdtfConfiguration.modes.title = "Modes and channels";
   gdtfEditorPanel->Configure(gdtfConfiguration);
+  const auto &sessionValues =
+      gdtfEditSession ? gdtfEditSession->CurrentValues()
+                      : gdtf::GdtfEditableValues{};
   gdtfEditorPanel->SetPresentation({
       false,
       {},
       {
           {GdtfTypeIdentityField::FixtureTypeName, "Type",
-           std::string(typeValue.GetString().ToUTF8())},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::FixtureTypeName,
+               std::string(typeValue.GetString().ToUTF8())),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(
+                   *gdtfEditSession, gdtf::GdtfFieldId::FixtureTypeName)},
           {GdtfTypeIdentityField::SourceFileReference, "Model file",
-           std::string(initialGdtfPath.ToUTF8()), true, true, true, "..."},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::SourceFileReference,
+               std::string(initialGdtfPath.ToUTF8())),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(
+                   *gdtfEditSession, gdtf::GdtfFieldId::SourceFileReference),
+           true, "..."},
       },
       {
           {GdtfPhysicalPropertyField::PowerConsumption, "Power",
-           std::string(powerValue.GetString().ToUTF8())},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::PowerConsumption,
+               std::string(powerValue.GetString().ToUTF8())),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(
+                   *gdtfEditSession, gdtf::GdtfFieldId::PowerConsumption),
+           "W"},
           {GdtfPhysicalPropertyField::Weight, "Weight",
-           std::string(weightValue.GetString().ToUTF8())},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::Weight,
+               std::string(weightValue.GetString().ToUTF8())),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(*gdtfEditSession,
+                                             gdtf::GdtfFieldId::Weight),
+           "kg"},
       },
       {GetGdtfModes(std::string(initialGdtfPath.ToUTF8())),
-       std::string(modeValue.GetString().ToUTF8()),
+       gui::gdtf_binding::ValueText(
+           sessionValues, gdtf::GdtfFieldId::ModeName,
+           std::string(modeValue.GetString().ToUTF8())),
        std::string(),
        {}}});
   gdtfEditorPanel->SetIdentityChangeCallback(
-      [this](GdtfTypeIdentityField field, const std::string &) {
-        if (field == GdtfTypeIdentityField::FixtureTypeName)
-          MarkColumnModified(FixtureTableColumns::ToIndex(
-              FixtureTableColumns::Column::Type));
-        else if (field == GdtfTypeIdentityField::SourceFileReference)
-          MarkColumnModified(FixtureTableColumns::ToIndex(
-              FixtureTableColumns::Column::ModelFile));
+      [this](GdtfTypeIdentityField field, const std::string &value) {
+        if (auto fieldId = gui::gdtf_binding::ToFieldId(field))
+          SetSessionValue(*fieldId, value);
       });
   gdtfEditorPanel->SetIdentityActionCallback(
       [this](GdtfTypeIdentityField field) {
@@ -418,17 +479,12 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
         }
       });
   gdtfEditorPanel->SetPhysicalPropertyChangeCallback(
-      [this](GdtfPhysicalPropertyField field, const std::string &) {
-        if (field == GdtfPhysicalPropertyField::PowerConsumption)
-          MarkColumnModified(FixtureTableColumns::ToIndex(
-              FixtureTableColumns::Column::Power));
-        else if (field == GdtfPhysicalPropertyField::Weight)
-          MarkColumnModified(FixtureTableColumns::ToIndex(
-              FixtureTableColumns::Column::Weight));
+      [this](GdtfPhysicalPropertyField field, const std::string &value) {
+        if (auto fieldId = gui::gdtf_binding::ToFieldId(field))
+          SetSessionValue(*fieldId, value);
       });
-  gdtfEditorPanel->SetModeSelectionCallback([this](const std::string &) {
-    MarkColumnModified(FixtureTableColumns::ToIndex(
-        FixtureTableColumns::Column::Mode));
+  gdtfEditorPanel->SetModeSelectionCallback([this](const std::string &value) {
+    SetSessionValue(gdtf::GdtfFieldId::ModeName, value);
     UpdateChannels(true);
   });
 
@@ -507,6 +563,93 @@ void FixtureEditDialog::MarkColumnModified(size_t index) {
     modifiedColumns[index] = true;
 }
 
+// Mirrors authoritative session dirty fields into legacy table-column flags.
+void FixtureEditDialog::SyncSessionDirtyToLegacyFlags() {
+  if (!gdtfEditSession)
+    return;
+  auto setFlag = [this](FixtureTableColumns::Column column,
+                        gdtf::GdtfFieldId fieldId) {
+    const size_t index =
+        static_cast<size_t>(FixtureTableColumns::ToIndex(column));
+    if (index < modifiedColumns.size())
+      modifiedColumns[index] = gdtfEditSession->IsFieldDirty(fieldId);
+  };
+  setFlag(FixtureTableColumns::Column::Type, gdtf::GdtfFieldId::FixtureTypeName);
+  setFlag(FixtureTableColumns::Column::Mode, gdtf::GdtfFieldId::ModeName);
+  setFlag(FixtureTableColumns::Column::ModelFile,
+          gdtf::GdtfFieldId::SourceFileReference);
+  setFlag(FixtureTableColumns::Column::Power,
+          gdtf::GdtfFieldId::PowerConsumption);
+  setFlag(FixtureTableColumns::Column::Weight, gdtf::GdtfFieldId::Weight);
+}
+
+// Clears session validation tooltips from the GDTF editor presentation.
+void FixtureEditDialog::ClearSessionValidation() {
+  if (!gdtfEditorPanel)
+    return;
+  gdtfEditorPanel->SetIdentityFieldValidation(
+      GdtfTypeIdentityField::FixtureTypeName, {});
+  gdtfEditorPanel->SetPhysicalPropertyValidation(
+      GdtfPhysicalPropertyField::PowerConsumption, {});
+  gdtfEditorPanel->SetPhysicalPropertyValidation(
+      GdtfPhysicalPropertyField::Weight, {});
+}
+
+// Stores a supported panel edit in the session and mirrors dirty state.
+bool FixtureEditDialog::SetSessionValue(gdtf::GdtfFieldId fieldId,
+                                        const std::string &value) {
+  if (!gdtfEditSession)
+    return false;
+  ClearSessionValidation();
+  const bool accepted = gdtfEditSession->SetValue(fieldId, value);
+  if (!accepted) {
+    hasRejectedSessionInput = true;
+    if (fieldId == gdtf::GdtfFieldId::PowerConsumption)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::PowerConsumption,
+          "Enter a valid numeric power value.");
+    else if (fieldId == gdtf::GdtfFieldId::Weight)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::Weight, "Enter a valid numeric weight.");
+    SyncSessionDirtyToLegacyFlags();
+    return false;
+  }
+  hasRejectedSessionInput = false;
+  SyncSessionDirtyToLegacyFlags();
+  return true;
+}
+
+// Validates session state before any legacy apply mutation starts.
+bool FixtureEditDialog::ValidateSessionBeforeApply() {
+  if (!gdtfEditSession)
+    return true;
+  ClearSessionValidation();
+  if (hasRejectedSessionInput) {
+    wxMessageBox("Fix malformed GDTF editor values before applying.",
+                 "GDTF validation", wxOK | wxICON_WARNING, this);
+    return false;
+  }
+  const auto diagnostics = gdtfEditSession->Validate();
+  if (diagnostics.empty())
+    return true;
+  std::string message = "Fix GDTF editor validation errors before applying.";
+  for (const auto &diagnostic : diagnostics) {
+    message += "\n- " + diagnostic.message;
+    if (diagnostic.fieldId == gdtf::GdtfFieldId::FixtureTypeName)
+      gdtfEditorPanel->SetIdentityFieldValidation(
+          GdtfTypeIdentityField::FixtureTypeName, diagnostic.message);
+    else if (diagnostic.fieldId == gdtf::GdtfFieldId::PowerConsumption)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::PowerConsumption, diagnostic.message);
+    else if (diagnostic.fieldId == gdtf::GdtfFieldId::Weight)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::Weight, diagnostic.message);
+  }
+  wxMessageBox(wxString::FromUTF8(message), "GDTF validation",
+               wxOK | wxICON_WARNING, this);
+  return false;
+}
+
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   wxString fixDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
@@ -515,8 +658,29 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   if (fdlg.ShowModal() != wxID_OK)
     return;
   wxString path = fdlg.GetPath();
+  if (gdtfEditSession && panel && row >= 0 &&
+      static_cast<size_t>(row) < panel->rowUuids.size()) {
+    const auto &scene =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+    auto it = scene.fixtures.find(panel->rowUuids[static_cast<size_t>(row)]);
+    if (it != scene.fixtures.end()) {
+      gdtf::ProjectFixtureGdtfContextInput input;
+      input.fixture = it->second;
+      input.resolvedGdtfPath =
+          PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
+      input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
+      input.sourceKind =
+          IsUserFixtureLibraryPath(input.resolvedGdtfPath.string())
+              ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
+              : gdtf::GdtfSourceKind::Unknown;
+      input.writePolicy = gdtf::GdtfWritePolicy::CreateDerivativeBeforeMutation;
+      gdtfEditSession->RebindContextPreservingValues(
+          gdtf::BuildProjectFixtureGdtfEditorContext(input));
+    }
+  }
   gdtfEditorPanel->SetIdentityValue(GdtfTypeIdentityField::SourceFileReference, std::string(path.ToUTF8()));
-  MarkColumnModified(9);
+  SetSessionValue(gdtf::GdtfFieldId::SourceFileReference,
+                  std::string(path.ToUTF8()));
   if (preview)
     preview->LoadFixture(std::string(path.ToUTF8()));
   // update type/power/weight fields
@@ -526,7 +690,8 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     if (typeName.empty())
       typeName = fdlg.GetFilename();
     gdtfEditorPanel->SetIdentityValue(GdtfTypeIdentityField::FixtureTypeName, std::string(typeName.ToUTF8()));
-    MarkColumnModified(2);
+    SetSessionValue(gdtf::GdtfFieldId::FixtureTypeName,
+                    std::string(typeName.ToUTF8()));
     float w = 0.f, p = 0.f;
     GetGdtfProperties(std::string(path.ToUTF8()), w, p);
     if (ctrls.size() > 16)
@@ -534,13 +699,15 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
           GdtfPhysicalPropertyField::PowerConsumption,
           std::string(wxString::Format("%.1f", p).ToUTF8()));
     if (ctrls.size() > 16)
-      MarkColumnModified(16);
+      SetSessionValue(gdtf::GdtfFieldId::PowerConsumption,
+                      std::string(wxString::Format("%.1f", p).ToUTF8()));
     if (ctrls.size() > 17)
       gdtfEditorPanel->SetPhysicalPropertyValue(
           GdtfPhysicalPropertyField::Weight,
           std::string(wxString::Format("%.2f", w).ToUTF8()));
     if (ctrls.size() > 17)
-      MarkColumnModified(17);
+      SetSessionValue(gdtf::GdtfFieldId::Weight,
+                      std::string(wxString::Format("%.2f", w).ToUTF8()));
   }
   // repopulate modes
   if (gdtfEditorPanel) {
@@ -548,8 +715,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     gdtfEditorPanel->SetModes(modes);
     if (!modes.empty()) {
       gdtfEditorPanel->SetSelectedMode(modes.front());
-      MarkColumnModified(FixtureTableColumns::ToIndex(
-          FixtureTableColumns::Column::Mode));
+      SetSessionValue(gdtf::GdtfFieldId::ModeName, modes.front());
     }
   }
   UpdateChannels(true);
@@ -741,15 +907,19 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
 void FixtureEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
 
 void FixtureEditDialog::OnOk(wxCommandEvent &) {
-  ApplyChanges();
+  if (!ApplyChanges())
+    return;
   EndModal(wxID_OK);
 }
 
 void FixtureEditDialog::OnCancel(wxCommandEvent &) { EndModal(wxID_CANCEL); }
 
-void FixtureEditDialog::ApplyChanges() {
+bool FixtureEditDialog::ApplyChanges() {
   if (!panel)
-    return;
+    return true;
+  SyncSessionDirtyToLegacyFlags();
+  if (!ValidateSessionBeforeApply())
+    return false;
   auto *table = panel->table;
   wxString gdtfPath = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetIdentityValue(GdtfTypeIdentityField::SourceFileReference).value_or(std::string())) : wxString();
 
@@ -762,7 +932,7 @@ void FixtureEditDialog::ApplyChanges() {
       std::any_of(modifiedColumns.begin(), modifiedColumns.end(),
                                           [](bool modified) { return modified; });
   if (!hasUserChanges)
-    return;
+    return true;
 
   for (size_t i = 0; i < ctrls.size(); ++i) {
     if (i >= modifiedColumns.size() || !modifiedColumns[i])
@@ -899,6 +1069,9 @@ void FixtureEditDialog::ApplyChanges() {
               gdtfEditorPanel->SetIdentityValue(
                   GdtfTypeIdentityField::SourceFileReference,
                   std::string(gdtfPath.ToUTF8()));
+            if (gdtfEditSession)
+              gdtfEditSession->SetValue(gdtf::GdtfFieldId::SourceFileReference,
+                                        std::string(gdtfPath.ToUTF8()));
             if (panel && row >= 0) {
               if (static_cast<size_t>(row) >= panel->gdtfPaths.size())
                 panel->gdtfPaths.resize(static_cast<size_t>(row) + 1);
@@ -969,4 +1142,9 @@ void FixtureEditDialog::ApplyChanges() {
       Viewer2DPanel::Instance()->UpdateScene(false);
   }
   std::fill(modifiedColumns.begin(), modifiedColumns.end(), false);
+  if (gdtfEditSession) {
+    BuildEditSession();
+    SyncSessionDirtyToLegacyFlags();
+  }
+  return true;
 }

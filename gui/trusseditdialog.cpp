@@ -20,7 +20,10 @@
 #include "configmanager.h"
 #include "fixturepreviewpanel.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_metadata_summary.h"
+#include "gdtf/editor/gdtf_document.h"
+#include "gdtf/editor/project_truss_gdtf_context.h"
 #include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"
@@ -66,10 +69,35 @@ std::string ResolveTrussResourcePath(const std::string &basePath,
 }
 } // namespace
 
+// Destroys the host-owned GDTF edit session after the dialog closes.
+TrussEditDialog::~TrussEditDialog() = default;
+
+// Builds the host-owned GDTF edit session from current truss row state.
+void TrussEditDialog::BuildEditSession() {
+  if (!panel || row < 0 || static_cast<size_t>(row) >= panel->rowUuids.size())
+    return;
+  const auto &scene =
+      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+  auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
+  if (it == scene.trusses.end())
+    return;
+  gdtf::ProjectTrussGdtfContextInput input;
+  input.truss = it->second;
+  input.resolvedGdtfPath = ResolveCurrentGdtfPath();
+  input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
+  input.sourceKind = input.resolvedGdtfPath.empty()
+                         ? gdtf::GdtfSourceKind::Unknown
+                         : gdtf::GdtfSourceKind::PerastageTrussLibraryFile;
+  input.writePolicy = gdtf::GdtfWritePolicy::ProjectControlledGeneration;
+  gdtfEditSession = std::make_unique<gdtf::GdtfEditSession>(
+      gdtf::BuildProjectTrussGdtfEditSession(input));
+}
+
 // Builds the truss editing dialog with MVR and GDTF fields.
 TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxSize(980, 720)),
       panel(p), row(r) {
+  BuildEditSession();
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *contentSizer = new wxBoxSizer(wxVERTICAL);
   wxBoxSizer *topRowSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -124,47 +152,82 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   gdtfConfiguration.physicalProperties.title = "Physical properties";
   gdtfConfiguration.modes.visible = false;
   gdtfEditorPanel->Configure(gdtfConfiguration);
+  const auto &sessionValues =
+      gdtfEditSession ? gdtfEditSession->CurrentValues()
+                      : gdtf::GdtfEditableValues{};
   gdtfEditorPanel->SetPresentation({
       false,
       {},
       {
           {GdtfTypeIdentityField::Manufacturer, "Manufacturer",
-           tableValue(TrussColumn::Manufacturer)},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::Manufacturer,
+               tableValue(TrussColumn::Manufacturer)),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(
+                   *gdtfEditSession, gdtf::GdtfFieldId::Manufacturer)},
           {GdtfTypeIdentityField::ModelName, "Model",
-           tableValue(TrussColumn::Model)},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::ModelName,
+               tableValue(TrussColumn::Model)),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(*gdtfEditSession,
+                                             gdtf::GdtfFieldId::ModelName)},
       },
       {
           {GdtfPhysicalPropertyField::Length, "Length",
-           tableValue(TrussColumn::Length)},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::TrussLength,
+               tableValue(TrussColumn::Length)),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(*gdtfEditSession,
+                                             gdtf::GdtfFieldId::TrussLength)},
           {GdtfPhysicalPropertyField::Width, "Width",
-           tableValue(TrussColumn::Width)},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::TrussWidth,
+               tableValue(TrussColumn::Width)),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(*gdtfEditSession,
+                                             gdtf::GdtfFieldId::TrussWidth)},
           {GdtfPhysicalPropertyField::Height, "Height",
-           tableValue(TrussColumn::Height)},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::TrussHeight,
+               tableValue(TrussColumn::Height)),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(*gdtfEditSession,
+                                             gdtf::GdtfFieldId::TrussHeight)},
           {GdtfPhysicalPropertyField::Weight, "Weight",
-           tableValue(TrussColumn::Weight)},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::Weight,
+               tableValue(TrussColumn::Weight)),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(*gdtfEditSession,
+                                             gdtf::GdtfFieldId::Weight)},
           {GdtfPhysicalPropertyField::CrossSection, "Cross section",
-           std::string(crossSection.ToUTF8())},
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::TrussCrossSection,
+               std::string(crossSection.ToUTF8())),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(
+                   *gdtfEditSession, gdtf::GdtfFieldId::TrussCrossSection)},
       },
       {}});
   gdtfEditorPanel->SetIdentityChangeCallback(
-      [this](GdtfTypeIdentityField field, const std::string &) {
-        if (field == GdtfTypeIdentityField::Manufacturer)
-          MarkColumnModified(ColumnIndex(TrussColumn::Manufacturer));
-        else if (field == GdtfTypeIdentityField::ModelName)
-          MarkColumnModified(ColumnIndex(TrussColumn::Model));
+      [this](GdtfTypeIdentityField field, const std::string &value) {
+        if (auto fieldId = gui::gdtf_binding::ToFieldId(field))
+          SetSessionValue(*fieldId, value);
       });
   gdtfEditorPanel->SetPhysicalPropertyChangeCallback(
-      [this](GdtfPhysicalPropertyField field, const std::string &) {
-        if (field == GdtfPhysicalPropertyField::Length)
-          MarkColumnModified(ColumnIndex(TrussColumn::Length));
-        else if (field == GdtfPhysicalPropertyField::Width)
-          MarkColumnModified(ColumnIndex(TrussColumn::Width));
-        else if (field == GdtfPhysicalPropertyField::Height)
-          MarkColumnModified(ColumnIndex(TrussColumn::Height));
-        else if (field == GdtfPhysicalPropertyField::Weight)
-          MarkColumnModified(ColumnIndex(TrussColumn::Weight));
-        else if (field == GdtfPhysicalPropertyField::CrossSection)
-          crossSectionModified = true;
+      [this](GdtfPhysicalPropertyField field, const std::string &value) {
+        if (auto fieldId = gui::gdtf_binding::ToFieldId(field))
+          SetSessionValue(*fieldId, value);
       });
 
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, 6);
@@ -211,12 +274,104 @@ void TrussEditDialog::MarkColumnModified(size_t index) {
     modifiedColumns[index] = true;
 }
 
+// Mirrors authoritative session dirty fields into legacy table-column flags.
+void TrussEditDialog::SyncSessionDirtyToLegacyFlags() {
+  if (!gdtfEditSession)
+    return;
+  auto setFlag = [this](TrussColumn column, gdtf::GdtfFieldId fieldId) {
+    const size_t index = static_cast<size_t>(ColumnIndex(column));
+    if (index < modifiedColumns.size())
+      modifiedColumns[index] = gdtfEditSession->IsFieldDirty(fieldId);
+  };
+  setFlag(TrussColumn::Manufacturer, gdtf::GdtfFieldId::Manufacturer);
+  setFlag(TrussColumn::Model, gdtf::GdtfFieldId::ModelName);
+  setFlag(TrussColumn::Length, gdtf::GdtfFieldId::TrussLength);
+  setFlag(TrussColumn::Width, gdtf::GdtfFieldId::TrussWidth);
+  setFlag(TrussColumn::Height, gdtf::GdtfFieldId::TrussHeight);
+  setFlag(TrussColumn::Weight, gdtf::GdtfFieldId::Weight);
+  crossSectionModified =
+      gdtfEditSession->IsFieldDirty(gdtf::GdtfFieldId::TrussCrossSection);
+}
+
+// Clears session validation tooltips from the GDTF editor presentation.
+void TrussEditDialog::ClearSessionValidation() {
+  if (!gdtfEditorPanel)
+    return;
+  for (const auto field : {GdtfPhysicalPropertyField::Length,
+                           GdtfPhysicalPropertyField::Width,
+                           GdtfPhysicalPropertyField::Height,
+                           GdtfPhysicalPropertyField::Weight,
+                           GdtfPhysicalPropertyField::CrossSection})
+    gdtfEditorPanel->SetPhysicalPropertyValidation(field, {});
+}
+
+// Stores a supported panel edit in the session and mirrors dirty state.
+bool TrussEditDialog::SetSessionValue(gdtf::GdtfFieldId fieldId,
+                                      const std::string &value) {
+  if (!gdtfEditSession)
+    return false;
+  ClearSessionValidation();
+  const bool accepted = gdtfEditSession->SetValue(fieldId, value);
+  if (!accepted) {
+    hasRejectedSessionInput = true;
+    auto physicalField = GdtfPhysicalPropertyField::Weight;
+    if (fieldId == gdtf::GdtfFieldId::TrussLength)
+      physicalField = GdtfPhysicalPropertyField::Length;
+    else if (fieldId == gdtf::GdtfFieldId::TrussWidth)
+      physicalField = GdtfPhysicalPropertyField::Width;
+    else if (fieldId == gdtf::GdtfFieldId::TrussHeight)
+      physicalField = GdtfPhysicalPropertyField::Height;
+    gdtfEditorPanel->SetPhysicalPropertyValidation(
+        physicalField, "Enter a valid numeric value.");
+    SyncSessionDirtyToLegacyFlags();
+    return false;
+  }
+  hasRejectedSessionInput = false;
+  SyncSessionDirtyToLegacyFlags();
+  return true;
+}
+
+// Validates session state before any legacy apply mutation starts.
+bool TrussEditDialog::ValidateSessionBeforeApply() {
+  if (!gdtfEditSession)
+    return true;
+  ClearSessionValidation();
+  if (hasRejectedSessionInput) {
+    wxMessageBox("Fix malformed GDTF editor values before applying.",
+                 "GDTF validation", wxOK | wxICON_WARNING, this);
+    return false;
+  }
+  const auto diagnostics = gdtfEditSession->Validate();
+  if (diagnostics.empty())
+    return true;
+  std::string message = "Fix GDTF editor validation errors before applying.";
+  for (const auto &diagnostic : diagnostics) {
+    message += "\n- " + diagnostic.message;
+    if (diagnostic.fieldId == gdtf::GdtfFieldId::TrussLength)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::Length, diagnostic.message);
+    else if (diagnostic.fieldId == gdtf::GdtfFieldId::TrussWidth)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::Width, diagnostic.message);
+    else if (diagnostic.fieldId == gdtf::GdtfFieldId::TrussHeight)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::Height, diagnostic.message);
+    else if (diagnostic.fieldId == gdtf::GdtfFieldId::Weight)
+      gdtfEditorPanel->SetPhysicalPropertyValidation(
+          GdtfPhysicalPropertyField::Weight, diagnostic.message);
+  }
+  wxMessageBox(wxString::FromUTF8(message), "GDTF validation",
+               wxOK | wxICON_WARNING, this);
+  return false;
+}
+
 // Applies edits without closing the dialog.
 void TrussEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
 
 // Applies edits and closes the dialog.
 void TrussEditDialog::OnOk(wxCommandEvent &) {
-  ApplyChanges();
+  if (!ApplyChanges())
+    return;
   EndModal(wxID_OK);
 }
 
@@ -315,15 +470,18 @@ bool TrussEditDialog::EnsureGdtfForEditedTruss() {
 }
 
 // Applies edited control values to the table and scene data model.
-void TrussEditDialog::ApplyChanges() {
+bool TrussEditDialog::ApplyChanges() {
   if (!panel || !panel->table)
-    return;
+    return true;
+  SyncSessionDirtyToLegacyFlags();
+  if (!ValidateSessionBeforeApply())
+    return false;
 
   const bool hasTableChanges =
       std::any_of(modifiedColumns.begin(), modifiedColumns.end(),
                   [](bool modified) { return modified; });
   if (!hasTableChanges && !crossSectionModified)
-    return;
+    return true;
 
   bool gdtfColumnChanged = crossSectionModified;
   for (size_t i = 0; i < modifiedColumns.size(); ++i)
@@ -398,5 +556,8 @@ void TrussEditDialog::ApplyChanges() {
 
   std::fill(modifiedColumns.begin(), modifiedColumns.end(), false);
   crossSectionModified = false;
+  if (gdtfEditSession)
+    BuildEditSession();
   applied = true;
+  return true;
 }
