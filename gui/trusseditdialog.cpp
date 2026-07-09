@@ -114,7 +114,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     return std::string(value.GetString().ToUTF8());
   };
 
-  gdtfEditorPanel = new GdtfEditorPanel(this);
+  gdtfEditorPanel = new GdtfEditorPanel(gdtfSizer->GetStaticBox());
   GdtfEditorPanelConfiguration gdtfConfiguration;
   gdtfConfiguration.layout = GdtfEditorPanelLayout::SingleColumn;
   gdtfConfiguration.metadata.title = "GDTF metadata";

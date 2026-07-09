@@ -187,15 +187,17 @@ void GdtfEditorPanel::BuildSections() {
   rightColumnSizer = new wxBoxSizer(wxVERTICAL);
   SetSizer(rootSizer);
 
-  metadataPanel = new GdtfMetadataPanel(this);
-  typeIdentityPanel = new GdtfTypeIdentityPanel(this);
-  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(this);
-  modesPanel = new GdtfModesPanel(this);
-
   metadataSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
   typeIdentitySection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
   physicalPropertiesSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
   modesSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
+
+  metadataPanel = new GdtfMetadataPanel(metadataSection->GetStaticBox());
+  typeIdentityPanel =
+      new GdtfTypeIdentityPanel(typeIdentitySection->GetStaticBox());
+  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(
+      physicalPropertiesSection->GetStaticBox());
+  modesPanel = new GdtfModesPanel(modesSection->GetStaticBox());
 
   metadataSection->Add(metadataPanel, 0, wxEXPAND | wxALL, kSectionPadding);
   typeIdentitySection->Add(typeIdentityPanel, 0, wxEXPAND | wxALL, kSectionPadding);

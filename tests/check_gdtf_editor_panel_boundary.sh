@@ -32,11 +32,36 @@ for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel
     echo "GdtfEditorPanel must own exactly one ${child} pointer." >&2
     exit 1
   fi
-  if ! rg -q "new ${child}\(this\)" "$panel_source"; then
-    echo "GdtfEditorPanel must create ${child} exactly once with wx parent ownership." >&2
+  if [[ $(rg -c "new ${child}\(" "$panel_source") -ne 1 ]]; then
+    echo "GdtfEditorPanel must instantiate ${child} exactly once." >&2
+    exit 1
+  fi
+  if rg -q "new ${child}\(this\)" "$panel_source"; then
+    echo "GdtfEditorPanel child panels must be parented to their section static boxes, not the composite panel." >&2
     exit 1
   fi
 done
+
+python3 - <<'PY_CHECK'
+from pathlib import Path
+source = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
+checks = [
+    ('metadataSection', 'metadataPanel', 'GdtfMetadataPanel', 'metadataSection->GetStaticBox()'),
+    ('typeIdentitySection', 'typeIdentityPanel', 'GdtfTypeIdentityPanel', 'typeIdentitySection->GetStaticBox()'),
+    ('physicalPropertiesSection', 'physicalPropertiesPanel', 'GdtfPhysicalPropertiesPanel', 'physicalPropertiesSection->GetStaticBox()'),
+    ('modesSection', 'modesPanel', 'GdtfModesPanel', 'modesSection->GetStaticBox()'),
+]
+for section, member, child, parent in checks:
+    section_token = f'{section} = new wxStaticBoxSizer'
+    section_index = source.find(section_token)
+    child_index = source.find(f'{member} =', section_index)
+    new_index = source.find(f'new {child}', child_index)
+    parent_index = source.find(parent, new_index)
+    if (section_index < 0 or child_index < 0 or new_index < 0 or
+            parent_index < 0 or section_index > child_index):
+        raise SystemExit(
+            f'{child} must be created after {section} and parented with {parent}.')
+PY_CHECK
 
 for token in GdtfEditorPanelLayout GdtfEditorSectionConfiguration GdtfEditorPanelConfiguration GdtfEditorPanelPresentation metadataAvailable identityFields physicalFields; do
   if ! rg -q "$token" "$panel_header"; then
@@ -107,7 +132,7 @@ for header in "$fixture_header" "$truss_header"; do
   fi
 done
 for source in "$fixture_source" "$truss_source"; do
-  if [[ $(rg -c "new GdtfEditorPanel\(this\)" "$source") -ne 1 ]]; then
+  if [[ $(rg -c "new GdtfEditorPanel\(" "$source") -ne 1 ]]; then
     echo "${source} must instantiate exactly one GdtfEditorPanel with wx parent ownership." >&2
     exit 1
   fi
@@ -118,6 +143,14 @@ for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel
     exit 1
   fi
 done
+if ! rg -q "new GdtfEditorPanel\(gdtfGeneralSizer->GetStaticBox\(\)\)" "$fixture_source"; then
+  echo "Fixture Edit must parent its composite to the surrounding static box." >&2
+  exit 1
+fi
+if ! rg -q "new GdtfEditorPanel\(gdtfSizer->GetStaticBox\(\)\)" "$truss_source"; then
+  echo "Truss Edit must parent its composite to the surrounding static box." >&2
+  exit 1
+fi
 if ! rg -q "gdtfConfiguration.modes.title = \"Modes and channels\"" "$fixture_source"; then
   echo "Fixture Edit must keep the composite modes section visible with a host title." >&2
   exit 1

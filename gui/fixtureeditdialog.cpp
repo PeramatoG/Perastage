@@ -371,7 +371,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   table->GetValue(modeValue, row, FixtureTableColumns::ToIndex(
                                FixtureTableColumns::Column::Mode));
 
-  gdtfEditorPanel = new GdtfEditorPanel(this);
+  gdtfEditorPanel = new GdtfEditorPanel(gdtfGeneralSizer->GetStaticBox());
   GdtfEditorPanelConfiguration gdtfConfiguration;
   gdtfConfiguration.layout = GdtfEditorPanelLayout::SingleColumn;
   gdtfConfiguration.metadata.title = "GDTF metadata";
