@@ -89,6 +89,17 @@ if ! rg -q "AddSingleColumnSections" "$panel_source" || ! rg -q "AddTwoColumnSec
   echo "Composite must implement deterministic single-column and two-column layouts." >&2
   exit 1
 fi
+if ! rg -Fq "SetSizer(rootSizer)" "$panel_source" || \
+   ! rg -Fq "rootSizer->Add(twoColumnSizer, 1, wxEXPAND)" "$panel_source" || \
+   ! rg -Fq "twoColumnSizer->Add(leftColumnSizer" "$panel_source" || \
+   ! rg -Fq "twoColumnSizer->Add(rightColumnSizer" "$panel_source"; then
+  echo "Composite layout container sizers must have stable parent-sizer ownership after construction." >&2
+  exit 1
+fi
+if rg -q "Detach\(twoColumnSizer\)|Detach\(leftColumnSizer\)|Detach\(rightColumnSizer\)" "$panel_source"; then
+  echo "Composite layout must not detach permanently owned container sizers." >&2
+  exit 1
+fi
 if ! rg -q "AddSection\(leftColumnSizer, metadataSection" "$panel_source" || \
    ! rg -q "AddSection\(leftColumnSizer, typeIdentitySection" "$panel_source" || \
    ! rg -q "AddSection\(rightColumnSizer, physicalPropertiesSection" "$panel_source" || \
@@ -203,10 +214,21 @@ if rg -q "Clear\(false\)" "$panel_source"; then
 fi
 if ! rg -q "DetachReusableLayoutSizers" "$panel_header" "$panel_source" || \
    ! rg -q "rootSizer->Detach\(metadataSection\)" "$panel_source" || \
-   ! rg -q "twoColumnSizer->Detach\(leftColumnSizer\)" "$panel_source" || \
+   ! rg -q "rootSizer->Detach\(modesSection\)" "$panel_source" || \
    ! rg -q "leftColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "leftColumnSizer->Detach\(modesSection\)" "$panel_source" || \
+   ! rg -q "rightColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
    ! rg -q "rightColumnSizer->Detach\(modesSection\)" "$panel_source"; then
-  echo "Composite layout rebuild must detach all reusable section and column sizers before re-adding them." >&2
+  echo "Composite layout rebuild must detach reusable section sizers before re-adding them." >&2
+  exit 1
+fi
+if ! rg -Fq "root->Show(twoColumnSizer, false, true)" "$panel_source" || \
+   ! rg -Fq "root->Show(twoColumnSizer, true, true)" "$panel_source"; then
+  echo "Composite layout must hide the stable two-column container in single-column mode and show it in two-column mode." >&2
+  exit 1
+fi
+if rg -q "delete .*Sizer|delete rootSizer|delete twoColumnSizer|delete leftColumnSizer|delete rightColumnSizer" "$panel_source"; then
+  echo "Composite layout must not manually delete wx-owned sizers." >&2
   exit 1
 fi
 

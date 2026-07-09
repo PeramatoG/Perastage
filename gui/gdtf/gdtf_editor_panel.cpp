@@ -204,6 +204,10 @@ void GdtfEditorPanel::BuildSections() {
   physicalPropertiesSection->Add(physicalPropertiesPanel, 0,
                                  wxEXPAND | wxALL, kSectionPadding);
   modesSection->Add(modesPanel, 1, wxEXPAND | wxALL, kSectionPadding);
+
+  twoColumnSizer->Add(leftColumnSizer, 1, wxEXPAND | wxRIGHT, kSectionGap);
+  twoColumnSizer->Add(rightColumnSizer, 1, wxEXPAND);
+  rootSizer->Add(twoColumnSizer, 1, wxEXPAND);
 }
 
 // Applies one section label and window visibility from typed configuration.
@@ -215,16 +219,12 @@ void GdtfEditorPanel::ApplySectionConfiguration(
   section->GetStaticBox()->Show(sectionConfiguration.visible);
 }
 
-// Detaches reusable child sizers before rebuilding the layout arrangement.
+// Detaches reusable section sizers before rebuilding the layout arrangement.
 void GdtfEditorPanel::DetachReusableLayoutSizers() {
   rootSizer->Detach(metadataSection);
   rootSizer->Detach(typeIdentitySection);
   rootSizer->Detach(physicalPropertiesSection);
   rootSizer->Detach(modesSection);
-  rootSizer->Detach(twoColumnSizer);
-
-  twoColumnSizer->Detach(leftColumnSizer);
-  twoColumnSizer->Detach(rightColumnSizer);
 
   leftColumnSizer->Detach(metadataSection);
   leftColumnSizer->Detach(typeIdentitySection);
@@ -267,6 +267,7 @@ void GdtfEditorPanel::AddSection(wxBoxSizer *target, wxStaticBoxSizer *section,
 
 // Adds visible sections in the documented single-column order.
 void GdtfEditorPanel::AddSingleColumnSections(wxBoxSizer *root) {
+  root->Show(twoColumnSizer, false, true);
   AddSection(root, metadataSection, configuration.metadata, 0);
   AddSection(root, typeIdentitySection, configuration.typeIdentity, 0);
   AddSection(root, physicalPropertiesSection, configuration.physicalProperties, 0);
@@ -280,7 +281,5 @@ void GdtfEditorPanel::AddTwoColumnSections(wxBoxSizer *root) {
   AddSection(rightColumnSizer, physicalPropertiesSection,
              configuration.physicalProperties, 0);
   AddSection(rightColumnSizer, modesSection, configuration.modes, 1);
-  twoColumnSizer->Add(leftColumnSizer, 1, wxEXPAND | wxRIGHT, kSectionGap);
-  twoColumnSizer->Add(rightColumnSizer, 1, wxEXPAND);
-  root->Add(twoColumnSizer, 1, wxEXPAND);
+  root->Show(twoColumnSizer, true, true);
 }
