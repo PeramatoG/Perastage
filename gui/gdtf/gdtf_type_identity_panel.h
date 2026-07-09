@@ -60,6 +60,7 @@ public:
   std::optional<std::string> GetFieldValue(GdtfTypeIdentityField field) const;
   std::map<GdtfTypeIdentityField, std::string> GetValues() const;
   void SetFieldEditable(GdtfTypeIdentityField field, bool editable);
+  void SetFieldValidation(GdtfTypeIdentityField field, const std::string &message);
   void SetChangeCallback(ChangeCallback callback);
   void SetActionCallback(ActionCallback callback);
 

@@ -177,3 +177,21 @@ Fixture Edit configures metadata, fixture type/source identity, power/weight phy
 The migration does not move host context decisions into the composite. Fixture Edit still owns fixture source-path fallback, GDTF browsing, preview, symbols, thumbnail, mode application, table writes, derivative creation, physical-property mutation, revision/audit behavior, shared-property propagation, undo, hoist/load recalculation prompts, and Viewer2D/Viewer3D refresh. Truss Edit still owns resource resolution, geometry-only preview behavior, truss GDTF generation policy, model/source updates, scene mutation, undo, table reload, and viewer refresh.
 
 Direct `GdtfEditSession` binding and context/apply adapters remain intentionally deferred. Checkpoint 08 is the next controlled step and should introduce the adapter migration without changing the Checkpoint 07 host-composition ownership boundary.
+
+## Checkpoint 08A host session binding boundary
+
+Checkpoint 08A binds the existing Fixture Edit and Truss Edit hosts to `gdtf::GdtfEditSession` without moving write/apply side effects out of those hosts. Each dialog owns one session for its lifetime, builds that session through the existing project context/session builders, and feeds supported editable/context values to `GdtfEditorPanel` from `GdtfEditSession::CurrentValues()` plus active `GdtfFieldCapability` editability.
+
+Fixture Edit session-supported fields are fixture type, source file reference, selected mode, power consumption, and weight. Truss Edit session-supported fields are manufacturer, model, length, width, height, weight, and cross section, with source reference remaining a context-selection value. Channel count and truss load remain derived/read-only, while MVR/project-only fields remain on the existing host modified-column tracking.
+
+Typed panel callbacks now route supported fields to `GdtfEditSession::SetValue(...)`. Session dirty state is mirrored back into the legacy modified-column flags consumed by the existing Apply implementations, so restoring a value to the initial snapshot clears both session dirty state and the corresponding compatibility flag. Malformed numeric input is rejected before it enters the session and is tracked by the host so Apply/OK are blocked until corrected. Negative supported numeric values enter the session but fail `Validate()` before any legacy mutation starts.
+
+Fixture Browse remains a host user action. It rebinds the active session context/document to the selected source, then explicitly sets source, fixture type, loaded power/weight, available modes, and selected mode through the session while preserving unrelated current session values and without mutating the project. Metadata, symbols, thumbnail, channel rows, preview, and mode-list refresh continue through the existing host services.
+
+All write behavior remains on the current legacy paths in this checkpoint: table writes, project/scene updates, fixture derivative creation, `SetGdtfProperties(...)`, shared physical-property propagation, mode application, truss GDTF generation, undo state, project dirty state, hoist/load recalculation, preview refresh, and Viewer2D/Viewer3D refresh. No Fixture Apply adapter or Truss Apply adapter is introduced. Checkpoint 08B remains the Fixture Apply adapter migration, and Checkpoint 08C remains the Truss Apply adapter migration.
+
+### Checkpoint 08A fixture source-resolution correction
+
+Fixture Edit keeps portable project references and operational filesystem paths separate. `Fixture::gdtfSpec` may remain a relative project/MVR reference, while `GdtfEditorContext::sourcePath` and the host active-path helper carry the resolved path used for all GDTF file I/O. The host resolves initial fixture sources through `gui::fixtures::ResolveFixtureGdtfDeterministic(...)` and only loads documents from existing resolved paths.
+
+The source-reference panel field is presentation/input state only. Metadata loading, modes, channels, preview, symbols, thumbnails, derivative selection, physical-property mutation, and mode application use the resolved operational path helper instead of reading the visible source text back from the panel. Unresolved sources produce unavailable presentation and resolver diagnostics without passing the bare file name to legacy readers.

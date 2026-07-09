@@ -22,6 +22,7 @@ gdtf::GdtfEditorContext MakeFixtureContext() {
   gdtf::ProjectFixtureGdtfContextInput input;
   input.fixture = fixture;
   input.resolvedGdtfPath = "/tmp/profile.gdtf";
+  input.editorSourceFileReference = "/tmp/profile.gdtf";
   return gdtf::BuildProjectFixtureGdtfEditorContext(input);
 }
 
@@ -105,6 +106,105 @@ void AssertDirtyTracking() {
   const auto resetRequest = session.BuildApplyRequest();
   assert(resetRequest.changedDocumentFields.empty());
   assert(resetRequest.changedContextFields.empty());
+}
+
+// Verifies fixture sessions classify all checkpoint 08A supported fields.
+void AssertFixtureSessionCheckpoint08A() {
+  auto context = MakeFixtureContext();
+  gdtf::GdtfEditSession editable(context);
+  assert(editable.Context().stableHostId == "fixture-uuid");
+  assert(!editable.IsDirty());
+  assert(editable.SetValue(gdtf::GdtfFieldId::FixtureTypeName, "Wash"));
+  assert(editable.IsFieldDirty(gdtf::GdtfFieldId::FixtureTypeName));
+  assert(editable.BuildApplyRequest().changedContextFields.count(
+      gdtf::GdtfFieldId::FixtureTypeName));
+  assert(editable.SetValue(gdtf::GdtfFieldId::SourceFileReference,
+                           "other.gdtf"));
+  assert(editable.IsFieldDirty(gdtf::GdtfFieldId::SourceFileReference));
+  assert(editable.SetValue(gdtf::GdtfFieldId::ModeName, "Mode 2"));
+  assert(editable.IsFieldDirty(gdtf::GdtfFieldId::ModeName));
+  assert(editable.SetValue(gdtf::GdtfFieldId::PowerConsumption, "650"));
+  assert(editable.BuildApplyRequest().changedDocumentFields.count(
+      gdtf::GdtfFieldId::PowerConsumption));
+  assert(!editable.SetValue(gdtf::GdtfFieldId::Weight, "bad"));
+  assert(editable.SetValue(gdtf::GdtfFieldId::Weight, "-2"));
+  assert(!editable.Validate().empty());
+  assert(editable.SetValue(gdtf::GdtfFieldId::Weight, "20"));
+  assert(!editable.IsFieldDirty(gdtf::GdtfFieldId::Weight));
+}
+
+// Verifies truss sessions classify checkpoint 08A type-generation fields.
+void AssertTrussSessionCheckpoint08A() {
+  Truss truss;
+  truss.uuid = "truss-uuid";
+  truss.manufacturer = "A";
+  truss.model = "B";
+  truss.lengthMm = 1000.0f;
+  truss.widthMm = 200.0f;
+  truss.heightMm = 300.0f;
+  truss.weightKg = 40.0f;
+  truss.crossSection = "box";
+  truss.gdtfSpec = "truss.gdtf";
+  gdtf::ProjectTrussGdtfContextInput input;
+  input.truss = truss;
+  auto session = gdtf::BuildProjectTrussGdtfEditSession(input);
+  assert(session.Context().stableHostId == "truss-uuid");
+  assert(!session.IsDirty());
+  assert(session.SetValue(gdtf::GdtfFieldId::Manufacturer, "C"));
+  assert(session.SetValue(gdtf::GdtfFieldId::ModelName, "D"));
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussLength, "1100"));
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussWidth, "220"));
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussHeight, "330"));
+  assert(session.SetValue(gdtf::GdtfFieldId::Weight, "45"));
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussCrossSection, "triangle"));
+  assert(session.BuildApplyRequest().changedDocumentFields.count(
+      gdtf::GdtfFieldId::TrussCrossSection));
+  assert(session.SetValue(gdtf::GdtfFieldId::SourceFileReference,
+                          "new-truss.gdtf"));
+  assert(session.BuildApplyRequest().changedContextFields.count(
+      gdtf::GdtfFieldId::SourceFileReference));
+  assert(!session.SetValue(gdtf::GdtfFieldId::TrussName, "MVR only"));
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussLength, "-1"));
+  assert(!session.Validate().empty());
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussLength, "1000"));
+  assert(!session.IsFieldDirty(gdtf::GdtfFieldId::TrussLength));
+}
+
+// Verifies source rebinding replaces document context without changing baseline.
+void AssertSourceRebindingCheckpoint08A() {
+  gdtf::GdtfEditSession session(MakeFixtureContext());
+  assert(session.SetValue(gdtf::GdtfFieldId::PowerConsumption, "700"));
+  auto rebound = MakeFixtureContext();
+  rebound.sourcePath = "/tmp/other.gdtf";
+  session.RebindContextPreservingValues(std::move(rebound));
+  assert(session.Context().sourcePath == std::filesystem::path("/tmp/other.gdtf"));
+  assert(session.IsFieldDirty(gdtf::GdtfFieldId::PowerConsumption));
+  session.AcceptCurrentValues();
+  assert(!session.IsDirty());
+  assert(session.SetValue(gdtf::GdtfFieldId::PowerConsumption, "800"));
+  assert(session.IsFieldDirty(gdtf::GdtfFieldId::PowerConsumption));
+  session.Reset();
+  assert(!session.IsDirty());
+}
+
+// Verifies resolved fixture source presentation does not use a portable reference.
+void AssertFixtureResolvedSourcePresentation() {
+  Fixture fixture;
+  fixture.uuid = "fixture-relative";
+  fixture.typeName = "Profile";
+  fixture.gdtfSpec = "Fixture.gdtf";
+  gdtf::ProjectFixtureGdtfContextInput input;
+  input.fixture = fixture;
+  input.resolvedGdtfPath = "/tmp/scene/Fixture.gdtf";
+  input.editorSourceFileReference = input.resolvedGdtfPath.string();
+  auto session = gdtf::BuildProjectFixtureGdtfEditSession(input);
+  assert(session.Context().sourcePath ==
+         std::filesystem::path("/tmp/scene/Fixture.gdtf"));
+  assert(session.CurrentValues().sourceFileReference);
+  assert(*session.CurrentValues().sourceFileReference ==
+         "/tmp/scene/Fixture.gdtf");
+  assert(*session.CurrentValues().sourceFileReference != fixture.gdtfSpec);
+  assert(!session.IsDirty());
 }
 
 // Verifies validation only applies to supported active-context values.
@@ -261,6 +361,10 @@ int main() {
   AssertTrussFieldClassification();
   AssertRejectedFixtureSessionFields();
   AssertDirtyTracking();
+  AssertFixtureSessionCheckpoint08A();
+  AssertTrussSessionCheckpoint08A();
+  AssertSourceRebindingCheckpoint08A();
+  AssertFixtureResolvedSourcePresentation();
   AssertValidationBehavior();
   AssertProjectFixtureCapabilities();
   AssertProjectTrussCapabilities();

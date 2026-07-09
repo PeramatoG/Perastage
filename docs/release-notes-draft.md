@@ -17,6 +17,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Fixture Edit GDTF source resolution so project-relative fixture references are resolved before metadata, modes, channels, previews, symbols, thumbnails, and GDTF mutation paths use them, preventing bare file-name open errors after the Checkpoint 08A session binding.
 - Fixed GDTF imports with Unicode resource filenames whose ZIP entries omit UTF-8 filename metadata, allowing affected fixtures to insert with their real models, refresh tables and viewports immediately, reopen without stalling during mode resolution, and report a concise compatibility warning while leaving the original archive unchanged.
 - Fixed adding downloaded GDTF Share fixtures to a project by validating the archive with non-throwing read diagnostics before opening Add Fixture, while preserving the downloaded file unchanged.
 - Improved downloaded GDTF fixture insertion compatibility by preserving WiringObject-based power fallback metadata, resolving wheel media resources from standard `wheels/` archive entries, and reporting empty `description.xml` files with clearer diagnostics.
@@ -60,6 +61,7 @@ Changes since **v1.4.0**.
 
 - Completed the GDTF editor Checkpoint 06 composition step by adding a reusable presentation-only `GdtfEditorPanel` that arranges the existing metadata, type identity, physical properties, and modes panels without changing Fixture Edit or Truss Edit behavior.
 - Completed the GDTF editor Checkpoint 07 host-composition migration by moving Fixture Edit and Truss Edit onto the reusable presentation-only `GdtfEditorPanel` while keeping project apply, mutation, preview, undo, and viewer behavior host-owned, and corrected static-box parenting so the migrated dialogs open without wxWidgets containment warnings.
+- Completed the GDTF editor Checkpoint 08A host-session binding by making Fixture Edit and Truss Edit use existing `GdtfEditSession` state, validation, and reversible dirty tracking for supported GDTF/context fields while keeping all write/apply side effects on the legacy host paths.
 - Completed the GDTF editor Checkpoint 05 panel extraction by adding reusable physical properties, type identity, and modes panels while preserving existing Fixture Edit and Truss Edit apply behavior.
 
 - Improved GDTF geometry loading and symbol-cache validation by sharing one cached geometry build, caching primitive meshes by dimensions, reusing fixture bounds during symbol generation, and switching generated-symbol manifests to a versioned semantic GDTF fingerprint that is stable across ZIP repackaging.

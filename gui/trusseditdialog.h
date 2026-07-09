@@ -18,18 +18,22 @@
 #pragma once
 
 #include <array>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "gdtf/editor/gdtf_field_registry.h"
 #include <wx/wx.h>
 
 class FixturePreviewPanel;
 class GdtfEditorPanel;
 class TrussTablePanel;
+namespace gdtf { class GdtfEditSession; }
 
 class TrussEditDialog : public wxDialog {
 public:
   TrussEditDialog(TrussTablePanel *panel, int row);
+  ~TrussEditDialog() override;
   bool WasApplied() const { return applied; }
 
 private:
@@ -37,18 +41,25 @@ private:
   void OnApply(wxCommandEvent &event);
   void OnOk(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
-  void ApplyChanges();
+  bool ApplyChanges();
   bool EnsureGdtfForEditedTruss();
   std::string ResolveCurrentGdtfPath() const;
   void UpdateMetadataSummary();
   void UpdatePreview();
+  void BuildEditSession();
+  void SyncSessionDirtyToLegacyFlags();
+  bool SetSessionValue(gdtf::GdtfFieldId fieldId, const std::string &value);
+  bool ValidateSessionBeforeApply();
+  void ClearSessionValidation();
 
   TrussTablePanel *panel = nullptr;
   int row = -1;
   std::vector<wxControl *> ctrls;
   GdtfEditorPanel *gdtfEditorPanel = nullptr;
+  std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
   FixturePreviewPanel *preview = nullptr;
   std::vector<bool> modifiedColumns;
   bool crossSectionModified = false;
+  bool hasRejectedSessionInput = false;
   bool applied = false;
 };

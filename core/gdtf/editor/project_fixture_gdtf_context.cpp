@@ -23,7 +23,11 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
   context.initialValues.modeName = input.fixture.gdtfMode;
   context.initialValues.weightKg = input.fixture.weightKg;
   context.initialValues.powerConsumptionW = input.fixture.powerConsumptionW;
-  context.initialValues.sourceFileReference = input.fixture.gdtfSpec;
+  context.initialValues.sourceFileReference =
+      !input.editorSourceFileReference.empty()
+          ? input.editorSourceFileReference
+          : (!input.resolvedGdtfPath.empty() ? input.resolvedGdtfPath.string()
+                                             : input.fixture.gdtfSpec);
   context.fieldCapabilities[GdtfFieldId::FixtureTypeName] =
       MakeContextSelectionCapability();
   context.fieldCapabilities[GdtfFieldId::ModeName] =

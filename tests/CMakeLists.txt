@@ -65,6 +65,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_panel_boundary.sh)
     add_test(NAME GdtfEditorCoreBoundary
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_core_boundary.sh)
+    add_test(NAME GdtfEditorCheckpoint08ABinding
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08a_binding.sh)
     add_test(NAME ProjectRestoreImportOptions
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
@@ -1616,3 +1618,4 @@ endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
 
 add_test(NAME GdtfReusablePanelsBoundary COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_reusable_panels_boundary.sh)
+add_test(NAME GdtfEditorCheckpoint08ABinding COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08a_binding.sh)

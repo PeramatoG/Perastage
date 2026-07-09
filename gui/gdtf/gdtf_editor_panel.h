@@ -78,6 +78,8 @@ public:
 
   void SetIdentityValue(GdtfTypeIdentityField field, const std::string &value);
   void SetIdentityFieldEditable(GdtfTypeIdentityField field, bool editable);
+  void SetIdentityFieldValidation(GdtfTypeIdentityField field,
+                                  const std::string &message);
   void SetPhysicalPropertyValue(GdtfPhysicalPropertyField field,
                                 const std::string &value);
   void SetPhysicalPropertyEditable(GdtfPhysicalPropertyField field, bool editable);

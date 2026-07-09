@@ -114,6 +114,12 @@ void GdtfEditorPanel::SetIdentityFieldEditable(GdtfTypeIdentityField field,
   typeIdentityPanel->SetFieldEditable(field, editable);
 }
 
+// Forwards validation feedback for a visible identity field.
+void GdtfEditorPanel::SetIdentityFieldValidation(GdtfTypeIdentityField field,
+                                                 const std::string &message) {
+  typeIdentityPanel->SetFieldValidation(field, message);
+}
+
 // Sets one physical property value without notifying callbacks.
 void GdtfEditorPanel::SetPhysicalPropertyValue(GdtfPhysicalPropertyField field,
                                                const std::string &value) {
