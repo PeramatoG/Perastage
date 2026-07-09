@@ -68,6 +68,8 @@ struct GdtfEditorContext {
 struct GdtfApplyRequest {
   GdtfEditorContextKind contextKind = GdtfEditorContextKind::StandaloneFile;
   std::filesystem::path sourcePath;
+  GdtfSourceKind sourceKind = GdtfSourceKind::Unknown;
+  std::string stableHostId;
   GdtfWritePolicy writePolicy = GdtfWritePolicy::ReadOnly;
   GdtfEditableValues values;
   std::set<GdtfFieldId> changedDocumentFields;

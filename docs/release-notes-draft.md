@@ -59,6 +59,8 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
+- Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
+
 - Completed the GDTF editor Checkpoint 06 composition step by adding a reusable presentation-only `GdtfEditorPanel` that arranges the existing metadata, type identity, physical properties, and modes panels without changing Fixture Edit or Truss Edit behavior.
 - Completed the GDTF editor Checkpoint 07 host-composition migration by moving Fixture Edit and Truss Edit onto the reusable presentation-only `GdtfEditorPanel` while keeping project apply, mutation, preview, undo, and viewer behavior host-owned, and corrected static-box parenting so the migrated dialogs open without wxWidgets containment warnings.
 - Completed the GDTF editor Checkpoint 08A host-session binding by making Fixture Edit and Truss Edit use existing `GdtfEditSession` state, validation, and reversible dirty tracking for supported GDTF/context fields while keeping all write/apply side effects on the legacy host paths.
@@ -145,6 +147,8 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
 
 ## Internal changes
+
+- Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
 
 - Isolated volatile build version and diagnostic metadata into a dedicated build-info translation unit so version-only changes no longer force broad C++ recompilation.
 - Moved GDTF metadata summary loading into the shared core layer and documented the current GDTF editor architecture boundaries for future reusable editor work.

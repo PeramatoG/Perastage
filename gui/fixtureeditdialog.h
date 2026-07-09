@@ -24,6 +24,7 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <map>
 #include "gdtf/editor/gdtf_field_registry.h"
 #include "symbols/PerastageSvgSymbol.h"
 
@@ -70,7 +71,7 @@ private:
     std::array<bool, 3> symbolAvailability{};
     std::array<PerastageSvgSymbolData, 3> symbolData{};
     bool applied = false;
-    bool hasRejectedSessionInput = false;
+    std::map<gdtf::GdtfFieldId, std::string> rejectedSessionInputs;
     std::filesystem::path pendingSelectedGdtfPath;
     wxString originalType;
     float originalPowerW = 0.0f;

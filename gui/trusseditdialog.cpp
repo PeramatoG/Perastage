@@ -320,10 +320,9 @@ bool TrussEditDialog::SetSessionValue(gdtf::GdtfFieldId fieldId,
                                       const std::string &value) {
   if (!gdtfEditSession)
     return false;
-  ClearSessionValidation();
   const bool accepted = gdtfEditSession->SetValue(fieldId, value);
   if (!accepted) {
-    hasRejectedSessionInput = true;
+    rejectedSessionInputs[fieldId] = "Enter a valid numeric value.";
     auto physicalField = GdtfPhysicalPropertyField::Weight;
     if (fieldId == gdtf::GdtfFieldId::TrussLength)
       physicalField = GdtfPhysicalPropertyField::Length;
@@ -336,7 +335,20 @@ bool TrussEditDialog::SetSessionValue(gdtf::GdtfFieldId fieldId,
     SyncSessionDirtyToLegacyFlags();
     return false;
   }
-  hasRejectedSessionInput = false;
+  rejectedSessionInputs.erase(fieldId);
+  ClearSessionValidation();
+  for (const auto &entry : rejectedSessionInputs) {
+    auto physicalField = GdtfPhysicalPropertyField::Weight;
+    if (entry.first == gdtf::GdtfFieldId::TrussLength)
+      physicalField = GdtfPhysicalPropertyField::Length;
+    else if (entry.first == gdtf::GdtfFieldId::TrussWidth)
+      physicalField = GdtfPhysicalPropertyField::Width;
+    else if (entry.first == gdtf::GdtfFieldId::TrussHeight)
+      physicalField = GdtfPhysicalPropertyField::Height;
+    else if (entry.first == gdtf::GdtfFieldId::TrussCrossSection)
+      physicalField = GdtfPhysicalPropertyField::CrossSection;
+    gdtfEditorPanel->SetPhysicalPropertyValidation(physicalField, entry.second);
+  }
   SyncSessionDirtyToLegacyFlags();
   return true;
 }
@@ -346,7 +358,7 @@ bool TrussEditDialog::ValidateSessionBeforeApply() {
   if (!gdtfEditSession)
     return true;
   ClearSessionValidation();
-  if (hasRejectedSessionInput) {
+  if (!rejectedSessionInputs.empty()) {
     wxMessageBox("Fix malformed GDTF editor values before applying.",
                  "GDTF validation", wxOK | wxICON_WARNING, this);
     return false;

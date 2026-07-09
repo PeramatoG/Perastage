@@ -195,3 +195,11 @@ All write behavior remains on the current legacy paths in this checkpoint: table
 Fixture Edit keeps portable project references and operational filesystem paths separate. `Fixture::gdtfSpec` may remain a relative project/MVR reference, while `GdtfEditorContext::sourcePath` and the host active-path helper carry the resolved path used for all GDTF file I/O. The host resolves initial fixture sources through `gui::fixtures::ResolveFixtureGdtfDeterministic(...)` and only loads documents from existing resolved paths.
 
 The source-reference panel field is presentation/input state only. Metadata loading, modes, channels, preview, symbols, thumbnails, derivative selection, physical-property mutation, and mode application use the resolved operational path helper instead of reading the visible source text back from the panel. Unresolved sources produce unavailable presentation and resolver diagnostics without passing the bare file name to legacy readers.
+
+## Checkpoint 08B Project Fixture apply boundary
+
+Checkpoint 08B introduces `core/gdtf/editor/project_fixture_gdtf_apply_adapter.{h,cpp}` as the non-GUI boundary for Project Fixture GDTF apply work. The adapter consumes `GdtfApplyRequest`, uses the stable fixture UUID carried by the request, applies fixture type/source/mode context values to project data, routes Weight and PowerConsumption document writes through injected mutation services, and returns a structured Fixture result containing a common `GdtfApplyResult` plus affected fixture UUIDs and hoist position names.
+
+The adapter has no wxWidgets, table, dialog, viewer, or message-box dependencies. Fixture Edit remains responsible for presenting validation, synchronizing visible table rows, refreshing previews/viewers/hoists, and rebaselining the host-owned session after success. Truss Apply remains on the legacy host path for Checkpoint 08C.
+
+Checkpoint 08B also corrects host-side rejected input tracking so Fixture Edit and Truss Edit keep rejected values per `GdtfFieldId`. Correcting one field clears only that field, while other malformed values continue blocking Apply/OK. Derived ChannelCount presentation is refreshed from mode/source, but `UpdateChannels()` no longer marks ChannelCount as an independent dirty field.
