@@ -19,6 +19,7 @@
 
 #include <array>
 #include <memory>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,6 @@ private:
   FixturePreviewPanel *preview = nullptr;
   std::vector<bool> modifiedColumns;
   bool crossSectionModified = false;
-  bool hasRejectedSessionInput = false;
+  std::map<gdtf::GdtfFieldId, std::string> rejectedSessionInputs;
   bool applied = false;
 };

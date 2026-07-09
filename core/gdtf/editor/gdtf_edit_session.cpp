@@ -136,6 +136,8 @@ GdtfApplyRequest GdtfEditSession::BuildApplyRequest() const {
   GdtfApplyRequest request;
   request.contextKind = context_.kind;
   request.sourcePath = context_.sourcePath;
+  request.sourceKind = context_.sourceKind;
+  request.stableHostId = context_.stableHostId;
   request.writePolicy = context_.writePolicy;
   request.values = currentValues_;
   for (const auto fieldId : dirtyFields_) {

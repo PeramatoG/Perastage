@@ -74,13 +74,13 @@ if rg -q "GdtfEditSession|GdtfApplyRequest|BuildProjectFixtureGdtf|BuildProjectT
   echo "GdtfEditorPanel must remain presentation-only and session-free." >&2
   exit 1
 fi
-if rg -q "FixtureApplyAdapter|TrussApplyAdapter|GdtfApplyResult" "$fixture_source" "$truss_source" gui/gdtf; then
-  echo "Checkpoint 08A must not introduce Fixture/Truss Apply adapters." >&2
+if rg -q "TrussApplyAdapter" "$fixture_source" "$truss_source" gui/gdtf core/gdtf/editor; then
+  echo "Checkpoint 08A/08B must not introduce a Truss Apply adapter." >&2
   exit 1
 fi
-for token in SetGdtfProperties CreateOrUpdatePerastageLibraryDerivative ApplySharedPhysicalPropertyEdit ApplyModeForGdtf EnsureGdtfForEditedTruss BuildTrussGdtfFromInstance; do
-  if ! rg -q "$token" "$fixture_source" "$truss_source"; then
-    echo "Existing write function must remain in host paths: $token" >&2
+for token in EnsureGdtfForEditedTruss BuildTrussGdtfFromInstance; do
+  if ! rg -q "$token" "$truss_source"; then
+    echo "Existing Truss legacy write function must remain in Truss host path: $token" >&2
     exit 1
   fi
 done

@@ -129,3 +129,11 @@ A GDTF mutation change is accepted only if all conditions below hold:
   - mandatory architecture/module boundary consistency check.
 - `tests/check_no_configmanager_get_in_gui.sh`
   - mandatory guardrail for GUI access patterns.
+
+## Project Fixture Apply adapter policy (Checkpoint 08B)
+
+Project Fixture Weight and PowerConsumption edits are now owned by a non-GUI apply adapter. The adapter consumes a session-built apply request, validates the stable fixture UUID, resolved operational GDTF path, selected mode, finite non-negative physical values, and explicit `GdtfWritePolicy` before mutating files or project data.
+
+`ReadOnly` rejects document mutation. `OverwriteOwnedFile` is reserved for verified Perastage-owned files. `CreateDerivativeBeforeMutation` creates or updates the stable Perastage derivative through the existing dictionary behavior before applying physical values, keeping the original source unchanged. Unsupported policies fail without project attachment. Any derivative created before a later write failure is reported as a partial external side effect and is not attached to the project.
+
+After a successful physical write, the adapter propagates Weight and PowerConsumption to fixtures in the resulting source/type family using fixture UUIDs, marks the values as GDTF-sourced, clears physical dirty state, and reports only positions whose effective Weight changed. Type, source reference, and mode context selections are applied to the target fixture; selected mode is not propagated to unrelated fixtures.

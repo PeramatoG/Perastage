@@ -236,3 +236,9 @@ Checkpoint 08B should migrate Fixture Apply behavior to a dedicated adapter. Che
 ### Checkpoint 08A fixture source-resolution correction
 
 The Checkpoint 08A binding now preserves the distinction between portable fixture source references and resolved operational paths. Fixture sessions use an explicit editor source reference supplied by the host, and Fixture Edit resolves project-relative sources through the existing deterministic resolver before calling shared document readers or legacy preview/mode/metadata services. The composite panel remains presentation-only and is no longer an authority for GDTF file I/O paths.
+
+## Checkpoint 08B audit update
+
+The Project Fixture apply path now has a dedicated non-GUI adapter in `core/gdtf/editor/project_fixture_gdtf_apply_adapter.{h,cpp}`. Its request boundary is `GdtfApplyRequest`, extended with stable host identity and source classification so adapters do not infer fixture identity from table rows. Its result boundary is `ProjectFixtureGdtfApplyResult`, which embeds `GdtfApplyResult` and reports resulting type, mode, source reference, resolved path, physical values, affected fixture UUIDs, changed weight positions, derivative/write status, and refresh flags.
+
+The adapter enforces write policy before project mutation: read-only document edits fail, owned-file overwrites require an explicit overwrite policy, derivative-required edits use an injected derivative service before Weight/Power mutation, and unsupported policies fail safely. Physical-property propagation is matched by the resulting source/type family and uses stable fixture UUIDs; mode selection remains fixture-local and is not propagated. UI, viewer, hoist, undo presentation, and error dialogs remain host-owned. Truss Apply is intentionally unchanged and remains the next checkpoint.

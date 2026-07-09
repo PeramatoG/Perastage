@@ -284,6 +284,18 @@ target_link_libraries(gdtf_fixture_insertion_preparation_test PRIVATE
 add_test(NAME GdtfFixtureInsertionPreparation
          COMMAND gdtf_fixture_insertion_preparation_test)
 
+
+add_executable(project_fixture_gdtf_apply_adapter_test
+               project_fixture_gdtf_apply_adapter_test.cpp
+               ../core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp
+               ../core/gdtf/editor/gdtf_editor_context.cpp
+               ../core/gdtf/editor/gdtf_editable_values.cpp
+               ../core/gdtf/editor/gdtf_field_registry.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(project_fixture_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
+add_test(NAME ProjectFixtureGdtfApplyAdapter COMMAND project_fixture_gdtf_apply_adapter_test)
+add_test(NAME GdtfEditorCheckpoint08BFixtureApplyAdapter COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08b_fixture_apply_adapter.sh)
+
 add_executable(gdtf_editor_context_test
                gdtf_editor_context_test.cpp
                ../core/gdtf_archive_reader.cpp
