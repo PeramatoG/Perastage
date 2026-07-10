@@ -1,5 +1,6 @@
 #include "gdtf/gdtf_mode_browser_presenter.h"
 
+#include <initializer_list>
 #include <sstream>
 #include <set>
 
@@ -62,6 +63,29 @@ std::string JoinLabels(const std::vector<std::string> &labels) {
   return result;
 }
 
+
+// Returns a readable terminal label from GDTF reference-like function text.
+std::string NormalizeChannelFunctionLabel(const std::string &value) {
+  std::string text = value;
+  const size_t slash = text.find_last_of("/\\");
+  if (slash != std::string::npos && slash + 1 < text.size())
+    text = text.substr(slash + 1);
+  const size_t dot = text.find_last_of('.');
+  if (dot != std::string::npos && dot + 1 < text.size())
+    text = text.substr(dot + 1);
+  return text;
+}
+
+// Returns the first readable function label from ordered candidates.
+std::string FirstFunctionLabel(std::initializer_list<std::string> candidates) {
+  for (const auto &candidate : candidates) {
+    const std::string normalized = NormalizeChannelFunctionLabel(candidate);
+    if (!normalized.empty())
+      return normalized;
+  }
+  return {};
+}
+
 // Returns display names for the coarse/fine bytes of one resolved channel name.
 std::vector<std::string> ExpandResolutionNames(const std::string &baseName,
                                                int resolution) {
@@ -84,13 +108,12 @@ std::vector<std::string> CollectChannelFunctionNames(
       names.push_back(name);
   };
   for (const auto &logical : channel.logicalChannels) {
-    addName(logical.attribute);
-    for (const auto &function : logical.channelFunctions) {
-      addName(function.attribute.empty() ? function.name : function.attribute);
-      addName(function.name);
-    }
+    addName(NormalizeChannelFunctionLabel(logical.attribute));
+    for (const auto &function : logical.channelFunctions)
+      addName(FirstFunctionLabel({function.attribute, function.originalAttribute,
+                                  function.name}));
   }
-  addName(channel.initialFunction);
+  addName(NormalizeChannelFunctionLabel(channel.initialFunction));
   return names;
 }
 
@@ -158,6 +181,14 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
       lc.id = logical.id;
       lc.parentId = channel.id;
       lc.item = DisplayName(logical.attribute);
+      lc.address = NormalizeChannelFunctionLabel(logical.attribute);
+      if (lc.address.empty()) {
+        std::vector<std::string> logicalNames;
+        for (const auto &function : logical.channelFunctions)
+          logicalNames.push_back(FirstFunctionLabel(
+              {function.attribute, function.originalAttribute, function.name}));
+        lc.address = JoinLabels(logicalNames);
+      }
       lc.unit = logical.attributeInfo.physicalUnit;
       Detail(lc, "Attribute", RawOrNotSpecified(logical.attribute));
       Detail(lc, "Pretty", RawOrNotSpecified(logical.attributeInfo.pretty));
@@ -175,6 +206,7 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
         f.id = fn.id;
         f.parentId = logical.id;
         f.item = DisplayName(fn.name.empty() ? fn.attribute : fn.name);
+        f.address = FirstFunctionLabel({fn.attribute, fn.originalAttribute, fn.name});
         f.dmxRange = FormatDmxRange(fn.effectiveDmxRange);
         f.physicalRange = FormatPhysicalRange(fn.effectivePhysicalRange);
         f.unit = fn.physicalUnit.empty() ? logical.attributeInfo.physicalUnit : fn.physicalUnit;
@@ -201,6 +233,7 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
           s.id = set.id;
           s.parentId = fn.id;
           s.item = DisplayName(set.name);
+          s.address = f.address;
           s.dmxRange = FormatDmxRange(set.effectiveDmxRange);
           s.physicalRange = FormatPhysicalRange(set.effectivePhysicalRange);
           s.unit = f.unit;
@@ -218,6 +251,7 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
             ss.id = sub.id;
             ss.parentId = set.id;
             ss.item = DisplayName(sub.name);
+            ss.address = f.address;
             ss.physicalRange = RawOrNotSpecified(sub.physicalFrom) + " -> " + RawOrNotSpecified(sub.physicalTo);
             ss.unit = sub.subPhysicalUnit;
             Detail(ss, "Name", RawOrNotSpecified(sub.name));
