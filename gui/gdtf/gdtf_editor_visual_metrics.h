@@ -67,4 +67,20 @@ inline double ClampRatio(double ratio, double fallback = 0.5) {
   return std::clamp(ratio, 0.15, 0.85);
 }
 
+// Converts a normalized splitter ratio to a clamped sash position.
+inline int RatioToSash(int total, int minFirst, int minSecond, double ratio) {
+  if (total <= minFirst + minSecond)
+    return std::max(1, minFirst);
+  const int raw = static_cast<int>(total * ClampRatio(ratio));
+  return std::clamp(raw, minFirst, total - minSecond);
+}
+
+// Converts a sash position to a normalized splitter ratio.
+inline double SashToRatio(int sash, int total, double fallback) {
+  if (total <= 0)
+    return fallback;
+  return ClampRatio(static_cast<double>(sash) / static_cast<double>(total),
+                    fallback);
+}
+
 } // namespace gui::gdtf_layout

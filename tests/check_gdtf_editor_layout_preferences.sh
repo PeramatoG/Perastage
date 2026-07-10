@@ -10,11 +10,14 @@ def require(condition, message):
     if not condition:
         raise SystemExit(message)
 
-for token in ['ClampDialogSize', 'ClampSplitterRatio', 'RatioToSash', 'SashToRatio']:
+for token in ['ClampDialogSize', 'ClampSplitterRatio']:
     require(token in header and token in source, f'Missing layout preference clamp helper: {token}.')
+metrics = Path('gui/gdtf/gdtf_editor_visual_metrics.h').read_text()
+for token in ['RatioToSash', 'SashToRatio']:
+    require(token in metrics, f'Missing shared splitter conversion helper: {token}.')
 require('std::strtod' in source and 'std::strtol' in source,
         'Layout preferences must ignore malformed persisted numbers safely.')
-require('std::clamp(ratio, 0.15, 0.85)' in Path('gui/gdtf/gdtf_editor_visual_metrics.h').read_text(),
+require('std::clamp(ratio, 0.15, 0.85)' in metrics,
         'Splitter ratio clamp must prevent fully collapsed panes.')
 require('display.GetClientArea()' in source and 'ClampDialogSize(' in source,
         'Dialog restore sizes must be clamped to the current display work area.')

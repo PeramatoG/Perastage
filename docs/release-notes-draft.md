@@ -19,6 +19,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.
+
 - Fixed Fixture Edit GDTF source resolution so project-relative fixture references are resolved before metadata, modes, channels, previews, symbols, thumbnails, and GDTF mutation paths use them, preventing bare file-name open errors after the Checkpoint 08A session binding.
 - Fixed GDTF imports with Unicode resource filenames whose ZIP entries omit UTF-8 filename metadata, allowing affected fixtures to insert with their real models, refresh tables and viewports immediately, reopen without stalling during mode resolution, and report a concise compatibility warning while leaving the original archive unchanged.
 - Fixed adding downloaded GDTF Share fixtures to a project by validating the archive with non-throwing read diagnostics before opening Add Fixture, while preserving the downloaded file unchanged.
