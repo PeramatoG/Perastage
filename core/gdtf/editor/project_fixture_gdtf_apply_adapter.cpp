@@ -114,8 +114,7 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
       (request.sourcePath.empty() || !std::filesystem::is_regular_file(request.sourcePath, ec)))
     return Fail("Resolved GDTF source path is not an existing regular file.");
 
-  auto preparedFixtures = *input.fixtures;
-  auto preparedTargetIt = preparedFixtures.find(request.stableHostId);
+  std::unordered_map<std::string, Fixture> preparedUpdates;
 
   ProjectFixtureGdtfApplyResult result;
   result.common.success = true;
@@ -140,7 +139,7 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
       if (!services_.createDerivative)
         return Fail("Derivative creation service is not available.");
       std::string diagnostic;
-      if (!services_.createDerivative(request.sourcePath, writablePath, diagnostic))
+      if (!services_.createDerivative(request.sourcePath, resultingType, resultingMode, writablePath, diagnostic))
         return Fail(diagnostic.empty() ? "Could not create a writable GDTF derivative." : diagnostic);
       result.common.derivativeCreated = writablePath != request.sourcePath;
       result.externalFileCreatedOrModified = true;
@@ -166,32 +165,36 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
     result.common.changedGdtfFields = request.changedDocumentFields;
   }
 
-  preparedTargetIt->second.typeName = resultingType;
-  preparedTargetIt->second.gdtfMode = resultingMode;
-  preparedTargetIt->second.gdtfSpec = result.resultingSourceReference;
+  Fixture preparedTarget = original;
+  preparedTarget.typeName = resultingType;
+  preparedTarget.gdtfMode = resultingMode;
+  preparedTarget.gdtfSpec = result.resultingSourceReference;
   result.contextSelectionChanged = typeChanged || sourceChanged || modeChanged || result.common.derivativeCreated;
 
   if (documentChanged) {
-    for (auto &[uuid, fixture] : preparedFixtures) {
+    for (const auto &[uuid, fixture] : *input.fixtures) {
       if (!MatchesResultingFamily(fixture, original.gdtfSpec,
                                   result.resultingSourceReference,
                                   resultingType) &&
           uuid != request.stableHostId)
         continue;
-      if (std::fabs(fixture.weightKg - resultingWeight) > 0.001f) {
+      Fixture updated = fixture;
+      if (std::fabs(updated.weightKg - resultingWeight) > 0.001f) {
         result.weightChangedFixtureUuids.insert(uuid);
-        result.changedWeightPositionNames.insert(EffectivePositionName(fixture));
+        result.changedWeightPositionNames.insert(EffectivePositionName(updated));
       }
-      fixture.typeName = resultingType;
-      fixture.gdtfSpec = result.resultingSourceReference;
-      fixture.weightKg = resultingWeight;
-      fixture.powerConsumptionW = resultingPower;
-      fixture.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
-      fixture.physicalPropertiesDirty = false;
+      updated.typeName = resultingType;
+      updated.gdtfSpec = result.resultingSourceReference;
+      updated.weightKg = resultingWeight;
+      updated.powerConsumptionW = resultingPower;
+      updated.physicalPropertiesSource = FixturePhysicalPropertiesSource::Gdtf;
+      updated.physicalPropertiesDirty = false;
+      preparedUpdates.emplace(uuid, std::move(updated));
       result.affectedFixtureUuids.insert(uuid);
     }
     result.physicalPropagationOccurred = !result.affectedFixtureUuids.empty();
   } else if (result.contextSelectionChanged) {
+    preparedUpdates.emplace(request.stableHostId, std::move(preparedTarget));
     result.affectedFixtureUuids.insert(request.stableHostId);
   }
 
@@ -200,7 +203,7 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
   result.common.viewerRefreshRequired = changed;
   result.common.hoistLoadRecalculationRequired = !result.changedWeightPositionNames.empty();
   result.common.projectDirtyStateMustBeUpdated = changed;
-  *input.fixtures = std::move(preparedFixtures);
+  result.updatedFixtures = std::move(preparedUpdates);
   return result;
 }
 

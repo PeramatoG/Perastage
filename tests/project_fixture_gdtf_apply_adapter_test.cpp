@@ -32,8 +32,11 @@ gdtf::ProjectFixtureGdtfApplyServices MakeServices(bool failDerivative = false,
     return mode == "Mode B" ? 12 : 8;
   };
   services.createDerivative = [failDerivative](const std::filesystem::path &source,
+                                               const std::string &fixtureType,
+                                               const std::string &,
                                                std::filesystem::path &out,
                                                std::string &diagnostic) {
+    assert(!fixtureType.empty());
     if (failDerivative) {
       diagnostic = "Derivative failed.";
       return false;
@@ -90,7 +93,9 @@ int main() {
   request.values.modeName = "Mode B";
   result = adapter.Apply({request, &fixtures});
   assert(result.common.success);
-  assert(fixtures["a"].gdtfMode == "Mode B");
+  assert(fixtures["a"].gdtfMode == "Mode A");
+  assert(result.updatedFixtures.at("a").gdtfMode == "Mode B");
+  fixtures["a"] = result.updatedFixtures.at("a");
   assert(fixtures["b"].gdtfMode == "Mode A");
   assert(result.derivedChannelCount == 12);
 
@@ -106,8 +111,11 @@ int main() {
   request.values.weightKg = 12.0f;
   result = adapter.Apply({request, &fixtures});
   assert(result.common.success);
-  assert(std::fabs(fixtures["a"].weightKg - 12.0f) < 0.001f);
-  assert(std::fabs(fixtures["b"].weightKg - 12.0f) < 0.001f);
+  assert(std::fabs(fixtures["a"].weightKg - 10.0f) < 0.001f);
+  assert(std::fabs(result.updatedFixtures.at("a").weightKg - 12.0f) < 0.001f);
+  assert(std::fabs(result.updatedFixtures.at("b").weightKg - 12.0f) < 0.001f);
+  for (const auto &[uuid, fixture] : result.updatedFixtures)
+    fixtures[uuid] = fixture;
   assert(result.changedWeightPositionNames.count("Front") == 1);
   assert(result.changedWeightPositionNames.count("Back") == 1);
 
@@ -120,7 +128,8 @@ int main() {
   result = adapter.Apply({request, &fixtures});
   assert(result.common.success);
   assert(result.common.derivativeCreated);
-  assert(fixtures["a"].gdtfSpec.find("derived.gdtf") != std::string::npos);
+  assert(fixtures["a"].gdtfSpec.find("derived.gdtf") == std::string::npos);
+  assert(result.updatedFixtures.at("a").gdtfSpec.find("derived.gdtf") != std::string::npos);
 
   request.stableHostId = "missing";
   result = adapter.Apply({request, &fixtures});

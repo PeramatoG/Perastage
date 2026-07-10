@@ -456,6 +456,30 @@ bool TrussEditDialog::ApplyChanges() {
     gdtfColumnChanged =
         gdtfColumnChanged || (modifiedColumns[i] && IsGdtfTrussColumn(i));
 
+  if (gdtfColumnChanged && gdtfEditSession) {
+    auto request = gdtfEditSession->BuildApplyRequest();
+    if (!request.changedDocumentFields.empty() || !request.changedContextFields.empty()) {
+      const auto &scene =
+          GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+      gdtf::ProjectTrussGdtfApplyAdapter adapter(gui::MakeTrussGdtfApplyServices());
+      gdtf::ProjectTrussGdtfApplyInput applyInput;
+      applyInput.request = request;
+      applyInput.trusses = &scene.trusses;
+      applyInput.projectResourceBasePath = PathUtils::PathFromUtf8(scene.basePath);
+      applyInput.outputRoot =
+          PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"));
+      trussApplyResult = adapter.Apply(applyInput);
+      if (!trussApplyResult.common.success) {
+        const std::string message = trussApplyResult.common.diagnostics.empty()
+                                        ? "Could not apply truss GDTF changes."
+                                        : trussApplyResult.common.diagnostics.front();
+        wxMessageBox(wxString::FromUTF8(message), "Truss GDTF",
+                     wxOK | wxICON_WARNING, this);
+        return false;
+      }
+    }
+  }
+
   for (size_t i = 0; i < ctrls.size(); ++i) {
     if (!modifiedColumns[i])
       continue;
@@ -490,31 +514,12 @@ bool TrussEditDialog::ApplyChanges() {
     }
   }
 
-  if (gdtfColumnChanged && gdtfEditSession) {
-    auto request = gdtfEditSession->BuildApplyRequest();
-    if (!request.changedDocumentFields.empty() || !request.changedContextFields.empty()) {
-      const auto &scene =
-          GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-      gdtf::ProjectTrussGdtfApplyAdapter adapter(gui::MakeTrussGdtfApplyServices());
-      gdtf::ProjectTrussGdtfApplyInput applyInput;
-      applyInput.request = request;
-      applyInput.trusses = &scene.trusses;
-      applyInput.projectResourceBasePath = PathUtils::PathFromUtf8(scene.basePath);
-      applyInput.outputRoot =
-          PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"));
-      trussApplyResult = adapter.Apply(applyInput);
-      if (!trussApplyResult.common.success) {
-        const std::string message = trussApplyResult.common.diagnostics.empty()
-                                        ? "Could not apply truss GDTF changes."
-                                        : trussApplyResult.common.diagnostics.front();
-        wxMessageBox(wxString::FromUTF8(message), "Truss GDTF",
-                     wxOK | wxICON_WARNING, this);
-        return false;
-      }
-    }
-  }
 
   panel->UpdateSceneData(true);
+
+  if (trussApplyResult.resultingTruss && !hasTableChanges)
+    GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(
+        "edit truss");
 
   if (trussApplyResult.resultingTruss && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {

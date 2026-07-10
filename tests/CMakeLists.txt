@@ -305,6 +305,7 @@ add_executable(project_truss_gdtf_apply_adapter_test
 target_include_directories(project_truss_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
 add_test(NAME ProjectTrussGdtfApplyAdapter COMMAND project_truss_gdtf_apply_adapter_test)
 add_test(NAME GdtfEditorCheckpoint08CTrussApplyAdapter COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08c_truss_apply_adapter.sh)
+add_test(NAME GdtfEditorCheckpoint08DStabilization COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08d_stabilization.sh)
 
 add_executable(gdtf_editor_context_test
                gdtf_editor_context_test.cpp

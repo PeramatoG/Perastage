@@ -16,12 +16,12 @@ struct ProjectFixtureGdtfApplyServices {
   std::function<bool(const std::filesystem::path &, const std::string &)> modeExists;
   std::function<int(const std::filesystem::path &, const std::string &)> channelCount;
   std::function<bool(const std::filesystem::path &, float, float, std::string &)> writePhysicalProperties;
-  std::function<bool(const std::filesystem::path &, std::filesystem::path &, std::string &)> createDerivative;
+  std::function<bool(const std::filesystem::path &, const std::string &, const std::string &, std::filesystem::path &, std::string &)> createDerivative;
 };
 
 struct ProjectFixtureGdtfApplyInput {
   GdtfApplyRequest request;
-  std::unordered_map<std::string, Fixture> *fixtures = nullptr;
+  const std::unordered_map<std::string, Fixture> *fixtures = nullptr;
 };
 
 struct ProjectFixtureGdtfApplyResult {
@@ -29,6 +29,7 @@ struct ProjectFixtureGdtfApplyResult {
   std::set<std::string> affectedFixtureUuids;
   std::set<std::string> weightChangedFixtureUuids;
   std::set<std::string> changedWeightPositionNames;
+  std::unordered_map<std::string, Fixture> updatedFixtures;
   std::string resultingType;
   std::string resultingMode;
   std::string resultingSourceReference;
