@@ -400,8 +400,10 @@ std::string TrussEditDialog::ResolveCurrentGdtfPath() const {
   auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
   if (it == scene.trusses.end())
     return {};
-  const auto resolved = ResolveTrussResourcePath(scene.basePath, it->second.gdtfSpec);
-  return IsExistingRegularFile(resolved) ? resolved : std::string();
+  std::filesystem::path resolved = PathUtils::PathFromUtf8(it->second.gdtfSpec);
+  if (resolved.is_relative() && !scene.basePath.empty())
+    resolved = PathUtils::PathFromUtf8(scene.basePath) / resolved;
+  return IsExistingRegularFile(resolved) ? PathUtils::PathToUtf8(resolved) : std::string();
 }
 
 // Updates the read-only GDTF metadata section from the current GDTF.
@@ -494,10 +496,13 @@ bool TrussEditDialog::ApplyChanges() {
       const auto &scene =
           GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
       gdtf::ProjectTrussGdtfApplyAdapter adapter(gui::MakeTrussGdtfApplyServices());
-      trussApplyResult = adapter.Apply(
-          {request, &scene.trusses,
-           PathUtils::PathFromUtf8(scene.basePath),
-           PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"))});
+      gdtf::ProjectTrussGdtfApplyInput applyInput;
+      applyInput.request = request;
+      applyInput.trusses = &scene.trusses;
+      applyInput.projectResourceBasePath = PathUtils::PathFromUtf8(scene.basePath);
+      applyInput.outputRoot =
+          PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"));
+      trussApplyResult = adapter.Apply(applyInput);
       if (!trussApplyResult.common.success) {
         const std::string message = trussApplyResult.common.diagnostics.empty()
                                         ? "Could not apply truss GDTF changes."

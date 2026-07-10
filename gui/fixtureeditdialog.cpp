@@ -1043,7 +1043,6 @@ bool FixtureEditDialog::ApplyChanges() {
 
   std::unordered_set<std::string> changedWeightPositions;
   gdtf::ProjectFixtureGdtfApplyResult fixtureApplyResult;
-  bool fixtureAdapterApplied = false;
   if (gdtfEditSession) {
     auto request = gdtfEditSession->BuildApplyRequest();
     const bool hasAdapterChanges = !request.changedDocumentFields.empty() ||
@@ -1051,8 +1050,11 @@ bool FixtureEditDialog::ApplyChanges() {
     if (hasAdapterChanges) {
       gdtf::ProjectFixtureGdtfApplyAdapter adapter(
           gui::MakeFixtureGdtfApplyServices());
-      fixtureApplyResult = adapter.Apply(
-          {request, &GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures});
+      gdtf::ProjectFixtureGdtfApplyInput applyInput;
+      applyInput.request = request;
+      applyInput.fixtures =
+          &GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+      fixtureApplyResult = adapter.Apply(applyInput);
       if (!fixtureApplyResult.common.success) {
         const std::string message = fixtureApplyResult.common.diagnostics.empty()
                                         ? "Could not apply fixture GDTF changes."
@@ -1061,7 +1063,6 @@ bool FixtureEditDialog::ApplyChanges() {
                      wxOK | wxICON_WARNING, this);
         return false;
       }
-      fixtureAdapterApplied = true;
       gdtfPath = fixtureApplyResult.common.resultingGdtfPath.empty()
                      ? gdtfPath
                      : fixtureApplyResult.common.resultingGdtfPath;

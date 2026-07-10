@@ -165,4 +165,4 @@ If you encounter any problems installing or running Perastage, please open an is
 
 ## Internal changes
 
-- Completed Checkpoint 08 GDTF editor apply architecture by routing Fixture and Truss GDTF type edits through non-GUI apply adapters, preserving no-op and MVR-only behavior, and preventing failed generation or mutation from committing project state.
+- Completed Checkpoint 08 GDTF editor apply architecture by routing Fixture and Truss GDTF type edits through non-GUI apply adapters, preserving no-op and MVR-only behavior, and preventing failed generation or mutation from committing project state, and preserving Windows build compatibility for the new adapter host calls.
