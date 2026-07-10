@@ -51,6 +51,7 @@
 #include <tinyxml2.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <wx/bmpbndl.h>
 #include <wx/clrpicker.h>
 #include <wx/datetime.h>
 #include <wx/dcbuffer.h>
@@ -63,6 +64,7 @@
 #include <wx/scrolwin.h>
 #include <wx/splitter.h>
 #include <wx/wfstream.h>
+#include <wx/statline.h>
 #include <wx/zipstrm.h>
 
 namespace {
@@ -226,6 +228,75 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
     canvas.Paste(image, (kPreviewSize - image.GetWidth()) / 2,
                  (kPreviewSize - image.GetHeight()) / 2);
     outBitmap = wxBitmap(canvas);
+    return outBitmap.IsOk();
+  }
+  return false;
+}
+
+// Loads the official SVG thumbnail resource from the GDTF archive root.
+bool LoadGdtfOfficialSvgSymbol(const std::string &gdtfPath,
+                               wxBitmap &outBitmap) {
+  if (gdtfPath.empty())
+    return false;
+
+  wxFileInputStream input(wxString::FromUTF8(gdtfPath));
+  if (!input.IsOk())
+    return false;
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::unordered_map<std::string, std::string> entries;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    wxString name = entry->GetName();
+    std::string content;
+    char buffer[4096];
+    while (true) {
+      zipInput.Read(buffer, sizeof(buffer));
+      size_t count = zipInput.LastRead();
+      if (count == 0)
+        break;
+      content.append(buffer, buffer + count);
+    }
+    entries.emplace(std::string(name.ToUTF8()), std::move(content));
+  }
+
+  auto descriptionIt = entries.find("description.xml");
+  if (descriptionIt == entries.end())
+    return false;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionIt->second.c_str(), descriptionIt->second.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    return false;
+  }
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  else
+    fixtureType = doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return false;
+
+  const char *thumbnailAttr = fixtureType->Attribute("Thumbnail");
+  const std::string thumbnailBase = thumbnailAttr ? thumbnailAttr : "";
+  if (thumbnailBase.empty())
+    return false;
+
+  std::vector<std::string> candidates;
+  candidates.push_back(thumbnailBase);
+  candidates.push_back(thumbnailBase + ".svg");
+  for (const auto &candidate : candidates) {
+    if (candidate.find('/') != std::string::npos ||
+        candidate.find('\\') != std::string::npos)
+      continue;
+    auto it = entries.find(candidate);
+    if (it == entries.end())
+      continue;
+    const wxSize desiredSize(220, 120);
+    wxBitmapBundle bundle =
+        wxBitmapBundle::FromSVG(it->second.c_str(), desiredSize);
+    outBitmap = bundle.GetBitmap(desiredSize);
     return outBitmap.IsOk();
   }
   return false;
@@ -544,12 +615,26 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   preview = new FixturePreviewPanel(previewPage);
   preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumVisualPaneWidth(this),
                              gui::gdtf_layout::MinimumPreviewHeight(this)));
-  previewSizer->Add(preview, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
-  visualNotebook->AddPage(previewPage, "3D Preview");
+  previewSizer->Add(preview, 2, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  previewSizer->Add(new wxStaticLine(previewPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
+                    gui::gdtf_layout::SectionPadding(this));
+  fixtureImagePreview = new wxStaticBitmap(previewPage, wxID_ANY, wxBitmap(220, 220));
+  previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
+                    gui::gdtf_layout::SectionPadding(this));
+  visualNotebook->AddPage(previewPage, "Preview");
 
   auto *symbolPage = new wxPanel(visualNotebook, wxID_ANY);
+  wxBoxSizer *symbolRootSizer = new wxBoxSizer(wxVERTICAL);
+  symbolPage->SetSizer(symbolRootSizer);
+  officialSymbolPreview =
+      new wxStaticBitmap(symbolPage, wxID_ANY, wxBitmap(220, 120));
+  symbolRootSizer->Add(officialSymbolPreview, 0, wxALIGN_CENTER | wxALL,
+                       gui::gdtf_layout::SectionPadding(this));
+  symbolRootSizer->Add(new wxStaticLine(symbolPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
+                       gui::gdtf_layout::SectionPadding(this));
   wxBoxSizer *symbolSizer = new wxBoxSizer(wxHORIZONTAL);
-  symbolPage->SetSizer(symbolSizer);
+  symbolRootSizer->Add(symbolSizer, 1, wxEXPAND | wxALL,
+                       gui::gdtf_layout::SectionPadding(this));
   wxWindow *symbolParent = symbolPage;
   const std::array<wxString, 3> symbolLabels = {"Top", "Front", "Side"};
   for (size_t i = 0; i < symbolPanels.size(); ++i) {
@@ -566,14 +651,6 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   }
   visualNotebook->AddPage(symbolPage, "Symbols");
 
-  auto *imagePage = new wxPanel(visualNotebook, wxID_ANY);
-  auto *imageSizer = new wxBoxSizer(wxVERTICAL);
-  imagePage->SetSizer(imageSizer);
-  fixtureImagePreview = new wxStaticBitmap(imagePage, wxID_ANY, wxBitmap(220, 220));
-  imageSizer->AddStretchSpacer(1);
-  imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, gui::gdtf_layout::SectionPadding(this));
-  imageSizer->AddStretchSpacer(1);
-  visualNotebook->AddPage(imagePage, "Fixture Image");
   visualSizer->Add(visualNotebook, 1, wxEXPAND);
   visualPanel->SetMinSize(wxSize(gui::gdtf_layout::MinimumVisualPaneWidth(this), -1));
 
@@ -885,6 +962,25 @@ void FixtureEditDialog::UpdateVisualizers() {
       symbolData[i] = std::move(loaded);
     if (symbolPanels[i])
       symbolPanels[i]->Refresh();
+  }
+
+  if (officialSymbolPreview) {
+    wxBitmap officialSymbol;
+    if (LoadGdtfOfficialSvgSymbol(path, officialSymbol)) {
+      officialSymbolPreview->SetBitmap(officialSymbol);
+      officialSymbolPreview->SetToolTip("Official GDTF SVG thumbnail resource.");
+    } else {
+      wxBitmap fallback(220, 120);
+      wxMemoryDC dc(fallback);
+      dc.SetBackground(*wxLIGHT_GREY_BRUSH);
+      dc.Clear();
+      dc.SetTextForeground(*wxBLACK);
+      dc.DrawLabel("No official SVG", wxRect(0, 0, 220, 120), wxALIGN_CENTER);
+      dc.SelectObject(wxNullBitmap);
+      officialSymbolPreview->SetBitmap(fallback);
+      officialSymbolPreview->SetToolTip(
+          "No official SVG thumbnail resource found in this GDTF.");
+    }
   }
 
   if (fixtureImagePreview) {

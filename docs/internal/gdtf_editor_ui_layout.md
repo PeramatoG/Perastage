@@ -26,11 +26,10 @@ The Fixture GDTF section order is configured with typed placements:
 
 The visual resources are native notebook tabs:
 
-- `3D Preview`
-- `Symbols`
-- `Fixture Image`
+- `Preview`: 3D Preview in the upper area and Fixture Image below it.
+- `Symbols`: the official GDTF SVG thumbnail resource, when available, above the three Perastage-generated Top, Front, and Side symbol views.
 
-The tabs reuse the existing preview, symbol, and image controls. Switching tabs does not parse GDTF data or recreate the underlying resources.
+The GDTF specification defines the optional `FixtureType` `Thumbnail` resource as a file in the archive root, with `.png` for raster images or `.svg` for vector graphics. The Symbols tab uses that root-level SVG resource as the official symbol preview when present. Switching tabs does not parse GDTF data or recreate the underlying resources.
 
 ## Truss Edit layout
 
@@ -57,7 +56,7 @@ Modes remain hidden in Truss Edit.
 
 ## Persistence and clamping
 
-Layout preferences use normalized splitter ratios and dialog sizes under independent keys:
+Layout preferences use normalized splitter ratios, dialog sizes, and the selected two-tab Fixture visual pane under independent keys:
 
 - Fixture: `gdtf_editor/fixture/dialog_width`, `dialog_height`, `context_ratio`, `visual_ratio`, `gdtf_ratio`, and `visual_tab`.
 - Truss: `gdtf_editor/truss/dialog_width`, `dialog_height`, `context_ratio`, `preview_ratio`, and `gdtf_ratio`.

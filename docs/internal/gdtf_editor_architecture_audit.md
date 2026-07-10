@@ -260,3 +260,6 @@ Checkpoint 08E1 is visual and compositional only. Fixture Edit now has a compact
 Flat section containers replace the previous heavy nested static-box sections. The reusable panel remains presentation-only and has no `ConfigManager`, project, session, adapter, loader, viewer, undo, or table dependency. Layout persistence remains host-owned through the narrow GUI layout-preferences helper.
 
 The current mode/channel text representation remains intentionally unchanged in 08E1. The dedicated Modes and Channels pane is the documented extension point for Checkpoint 08E2, which will introduce the hierarchical Mode and Channel Browser.
+
+
+Checkpoint 08E1 visual follow-up keeps the two-pane editor architecture but increases gutter spacing between GDTF columns. Fixture visual resources now use two tabs: Preview combines the 3D preview above the fixture image, and Symbols shows an official root-level GDTF SVG thumbnail resource above the three Perastage-generated Top, Front, and Side symbol views when the archive exposes that SVG through the `FixtureType` `Thumbnail` resource.

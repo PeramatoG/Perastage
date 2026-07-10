@@ -29,10 +29,14 @@ require('wxScrolledWindow(contextSplitter' in fixture and 'Fixture instance' in 
         'Fixture Edit must use a compact scrollable Fixture instance pane.')
 require('wxNotebook* visualNotebook' in fixture_h and 'new wxNotebook' in fixture,
         'Fixture Edit must use a native visual-resource notebook.')
-for tab in ['3D Preview', 'Symbols', 'Fixture Image']:
+for tab in ['Preview', 'Symbols']:
     require(f'AddPage' in fixture and tab in fixture, f'Missing Fixture visual-resource tab: {tab}.')
-require(fixture.count('visualNotebook->AddPage') == 3,
-        'Fixture visual-resource notebook must have exactly three tabs in 08E1.')
+require(fixture.count('visualNotebook->AddPage') == 2,
+        'Fixture visual-resource notebook must have exactly Preview and Symbols tabs.')
+require('fixtureImagePreview = new wxStaticBitmap(previewPage' in fixture,
+        'Fixture image must be placed below the 3D preview on the Preview tab.')
+require('officialSymbolPreview' in fixture_h and 'LoadGdtfOfficialSvgSymbol' in fixture,
+        'Symbols tab must include an official GDTF SVG thumbnail preview above Perastage symbols.')
 require(fixture.count('new GdtfEditorPanel(') == 1,
         'Fixture Edit must instantiate exactly one GdtfEditorPanel.')
 for child in ['GdtfMetadataPanel', 'GdtfTypeIdentityPanel', 'GdtfPhysicalPropertiesPanel', 'GdtfModesPanel']:
@@ -95,7 +99,7 @@ require('gdtfConfiguration.modes.visible = false' in truss,
 
 require('wxTE_MULTILINE | wxTE_READONLY' in modes and 'wxTreeCtrl' not in modes and 'wxDataViewCtrl' not in modes,
         'GdtfModesPanel must remain the read-only multiline text representation for 08E1.')
-for forbidden in ['wxTreeCtrl', 'wxDataViewCtrl', 'wxSlider', 'GdtfWheel', 'WheelThumbnail']:
+for forbidden in ['wxTreeCtrl', 'wxDataViewCtrl', 'wxSlider', 'GdtfWheel']:
     require(forbidden not in fixture + truss + panel + modes,
             f'08E1 must not introduce future browser/resource controls: {forbidden}.')
 for forbidden in ['GdtfApplyRequest', 'ProjectFixtureGdtfApplyAdapter', 'ProjectTrussGdtfApplyAdapter', 'GdtfEditSession']:

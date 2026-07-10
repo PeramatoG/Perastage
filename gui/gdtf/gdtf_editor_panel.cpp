@@ -312,8 +312,16 @@ void GdtfEditorPanel::AddSection(wxBoxSizer *target, GdtfEditorSection section,
   const auto &sectionConfiguration = SectionConfiguration(section);
   if (!sectionConfiguration.visible)
     return;
-  target->Add(SectionWindow(section), sectionConfiguration.expanded ? growProportion : 0,
-              wxEXPAND | wxBOTTOM, gui::gdtf_layout::SectionGap(this));
+  int borderFlags = wxEXPAND | wxBOTTOM;
+  if (configuration.layout == GdtfEditorPanelLayout::TwoPane) {
+    if (target == overviewSizer)
+      borderFlags |= wxRIGHT;
+    else if (target == workspaceSizer)
+      borderFlags |= wxLEFT;
+  }
+  target->Add(SectionWindow(section),
+              sectionConfiguration.expanded ? growProportion : 0, borderFlags,
+              gui::gdtf_layout::SectionGap(this));
 }
 
 // Adds visible sections in the configured single-column order.

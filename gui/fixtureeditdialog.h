@@ -71,6 +71,7 @@ private:
     std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
+    wxStaticBitmap* officialSymbolPreview = nullptr;
     wxSplitterWindow* contextSplitter = nullptr;
     wxSplitterWindow* visualSplitter = nullptr;
     wxNotebook* visualNotebook = nullptr;

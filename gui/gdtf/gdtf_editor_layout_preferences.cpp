@@ -100,7 +100,7 @@ FixtureLayoutPreferences LoadFixtureLayoutPreferences(ConfigManager &config,
   preferences.contextRatio = ClampSplitterRatio(ReadDouble(config, kFixtureContext, 0.2), 0.2);
   preferences.visualRatio = ClampSplitterRatio(ReadDouble(config, kFixtureVisual, 0.75), 0.75);
   preferences.gdtfRatio = ClampSplitterRatio(ReadDouble(config, kFixtureGdtf, 0.45), 0.45);
-  preferences.visualTab = std::clamp(ReadInt(config, kFixtureVisualTab, 0), 0, 2);
+  preferences.visualTab = std::clamp(ReadInt(config, kFixtureVisualTab, 0), 0, 1);
   return preferences;
 }
 
@@ -112,7 +112,7 @@ void SaveFixtureLayoutPreferences(ConfigManager &config,
   Write(config, kFixtureContext, std::to_string(ClampSplitterRatio(preferences.contextRatio, 0.2)));
   Write(config, kFixtureVisual, std::to_string(ClampSplitterRatio(preferences.visualRatio, 0.75)));
   Write(config, kFixtureGdtf, std::to_string(ClampSplitterRatio(preferences.gdtfRatio, 0.45)));
-  Write(config, kFixtureVisualTab, std::to_string(std::clamp(preferences.visualTab, 0, 2)));
+  Write(config, kFixtureVisualTab, std::to_string(std::clamp(preferences.visualTab, 0, 1)));
   config.SaveUserConfig();
 }
 
