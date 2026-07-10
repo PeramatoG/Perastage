@@ -5,7 +5,7 @@
 
 #include <filesystem>
 #include <functional>
-#include <map>
+#include <unordered_map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,7 +19,7 @@ struct ProjectTrussGdtfApplyServices {
 
 struct ProjectTrussGdtfApplyInput {
   GdtfApplyRequest request;
-  const std::map<std::string, Truss> *trusses = nullptr;
+  const std::unordered_map<std::string, Truss> *trusses = nullptr;
   std::filesystem::path projectResourceBasePath;
   std::filesystem::path outputRoot;
 };

@@ -3,7 +3,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 
 namespace {
 
@@ -51,7 +51,7 @@ gdtf::ProjectTrussGdtfApplyServices MakeServices(bool failGeneration = false,
 int main() {
   const auto root = std::filesystem::temp_directory_path() / "perastage-truss-adapter-ü";
   std::filesystem::create_directories(root);
-  std::map<std::string, Truss> trusses;
+  std::unordered_map<std::string, Truss> trusses;
   trusses.emplace("other", MakeTruss("other"));
   trusses.emplace("target", MakeTruss("target"));
 
