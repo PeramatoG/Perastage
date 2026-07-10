@@ -12,7 +12,7 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
-- Added a read-only hierarchical GDTF mode and channel browser with DMX ranges, physical ranges, units, details, parser diagnostics, cached source loading, a larger quick channel summary below Physical properties with per-channel rows, and efficient readable channel functions on browser channel rows for Fixture Edit.
+- Added a read-only hierarchical GDTF mode and channel browser with DMX ranges, physical ranges, units, details, parser diagnostics, cached source loading, a larger quick channel summary below Physical properties with per-channel rows, and readable normalized channel functions in the browser for Fixture Edit.
 - Made Truss Edit open more compactly and gave the official Fixture SVG symbol region the same vertical priority as the generated Top, Front, and Side symbol previews.
 - Improved Truss Edit spacing and composition so type and metadata stay in the second column while the 3D preview sits above physical properties in the third column.
 - Improved Fixture Edit visual resources by combining 3D preview and fixture image into one Preview tab, adding an official GDTF SVG symbol preview above Perastage-generated symbols when available, and increasing GDTF column spacing for readability.
@@ -25,6 +25,7 @@ Changes since **v1.4.0**.
 ## Fixes
 
 - Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.
+- Kept the GDTF mode/channel browser responsive by avoiding expensive nested container-column redraws during Fixture Edit opening and mouse hover.
 
 - Fixed Fixture Edit GDTF source resolution so project-relative fixture references are resolved before metadata, modes, channels, previews, symbols, thumbnails, and GDTF mutation paths use them, preventing bare file-name open errors after the Checkpoint 08A session binding.
 - Fixed GDTF imports with Unicode resource filenames whose ZIP entries omit UTF-8 filename metadata, allowing affected fixtures to insert with their real models, refresh tables and viewports immediately, reopen without stalling during mode resolution, and report a concise compatibility warning while leaving the original archive unchanged.

@@ -152,8 +152,6 @@ void GdtfModesPanel::SetChannels(const std::vector<GdtfModeChannelPresentation> 
 void GdtfModesPanel::SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes) {
   RememberExpandedItems();
   updating = true;
-  if (browserCtrl)
-    browserCtrl->Freeze();
   browserModel->SetNodes(nodes);
   RestoreExpandedItems();
   wxDataViewItem selected;
@@ -168,8 +166,6 @@ void GdtfModesPanel::SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresen
   if (selected.IsOk())
     browserCtrl->Select(selected);
   UpdateDetails(browserModel->GetNode(selected));
-  if (browserCtrl)
-    browserCtrl->Thaw();
   updating = false;
 }
 

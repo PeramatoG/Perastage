@@ -97,14 +97,6 @@ bool GdtfModeDataViewModel::IsContainer(const wxDataViewItem &item) const {
   return !static_cast<Node *>(item.GetID())->children.empty();
 }
 
-// Allows only top-level channel containers to show browser data in every column.
-bool GdtfModeDataViewModel::HasContainerColumns(const wxDataViewItem &item) const {
-  if (!item.IsOk())
-    return false;
-  auto *node = static_cast<Node *>(item.GetID());
-  return node->parent == nullptr && !node->presentation.address.empty();
-}
-
 // Returns child items in the original GDTF source order.
 unsigned int GdtfModeDataViewModel::GetChildren(const wxDataViewItem &item, wxDataViewItemArray &children) const {
   const auto &source = item.IsOk() ? static_cast<Node *>(item.GetID())->children : roots;

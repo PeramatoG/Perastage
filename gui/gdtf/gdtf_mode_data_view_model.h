@@ -25,7 +25,6 @@ public:
   bool SetValue(const wxVariant &variant, const wxDataViewItem &item, unsigned int col) override;
   wxDataViewItem GetParent(const wxDataViewItem &item) const override;
   bool IsContainer(const wxDataViewItem &item) const override;
-  bool HasContainerColumns(const wxDataViewItem &item) const override;
   unsigned int GetChildren(const wxDataViewItem &item, wxDataViewItemArray &children) const override;
 
 private:
