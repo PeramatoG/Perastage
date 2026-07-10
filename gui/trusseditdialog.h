@@ -43,7 +43,6 @@ private:
   void OnOk(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
   bool ApplyChanges();
-  bool EnsureGdtfForEditedTruss();
   std::string ResolveCurrentGdtfPath() const;
   void UpdateMetadataSummary();
   void UpdatePreview();

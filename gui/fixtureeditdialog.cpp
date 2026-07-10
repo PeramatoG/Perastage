@@ -19,6 +19,7 @@
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #include "fixturepreviewpanel.h"
+#include "fixture_gdtf_apply_services.h"
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
@@ -27,6 +28,7 @@
 #include "gdtf_mutation_audit.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtf/editor/gdtf_document.h"
+#include "gdtf/editor/project_fixture_gdtf_apply_adapter.h"
 #include "gdtf/editor/project_fixture_gdtf_context.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
@@ -106,64 +108,6 @@ bool IsExistingRegularFile(const std::filesystem::path &path) {
 // Converts a wx path string to a filesystem path for operational I/O.
 std::filesystem::path PathFromWxString(const wxString &path) {
   return PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
-}
-
-// Checks whether two fixture records use the same GDTF type-level physical
-// values.
-bool MatchesPhysicalPropertyType(const Fixture &fixture,
-                                 const std::string &gdtfSpec,
-                                 const std::string &typeName) {
-  if (!gdtfSpec.empty() && fixture.gdtfSpec == gdtfSpec)
-    return true;
-  return !typeName.empty() && fixture.typeName == typeName;
-}
-
-// Mirrors a GDTF physical-property edit to every row and fixture of the same
-// type.
-std::unordered_set<std::string> ApplySharedPhysicalPropertyEdit(
-    wxDataViewListCtrl *table, const std::vector<std::string> &rowUuids,
-    const std::string &sourceUuid, float weightKg, float powerW) {
-  std::unordered_set<std::string> changedWeightPositions;
-  if (!table || sourceUuid.empty())
-    return changedWeightPositions;
-
-  auto &scene = GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-  const auto sourceIt = scene.fixtures.find(sourceUuid);
-  if (sourceIt == scene.fixtures.end())
-    return changedWeightPositions;
-
-  const std::string gdtfSpec = sourceIt->second.gdtfSpec;
-  const std::string typeName = sourceIt->second.typeName;
-  const auto weightUnitSystem = Units::ParseWeightUnitSystem(
-      GetDefaultGuiConfigServices().LegacyConfigManager().GetValue(
-          "ui_weight_unit_system"));
-  const wxVariant powerValue(wxString::Format("%.1f", powerW));
-  const wxVariant weightValue(
-      wxString::FromUTF8(Units::FormatWeightFromKilograms(
-      weightKg, weightUnitSystem, Units::ValueFormatContext::Table)));
-
-  const size_t count =
-      std::min(static_cast<size_t>(table->GetItemCount()), rowUuids.size());
-  for (size_t rowIndex = 0; rowIndex < count; ++rowIndex) {
-    const auto fixtureIt = scene.fixtures.find(rowUuids[rowIndex]);
-    if (fixtureIt == scene.fixtures.end() ||
-        !MatchesPhysicalPropertyType(fixtureIt->second, gdtfSpec, typeName))
-      continue;
-
-    if (!Units::NearlyEqualWeightKilograms(fixtureIt->second.weightKg, weightKg,
-                                           0.001))
-      changedWeightPositions.insert(fixtureIt->second.positionName.empty()
-                                        ? "Unassigned"
-                                        : fixtureIt->second.positionName);
-    fixtureIt->second.weightKg = weightKg;
-    fixtureIt->second.powerConsumptionW = powerW;
-    fixtureIt->second.physicalPropertiesSource =
-        FixturePhysicalPropertiesSource::Gdtf;
-    fixtureIt->second.physicalPropertiesDirty = false;
-    table->SetValue(powerValue, rowIndex, 16);
-    table->SetValue(weightValue, rowIndex, 17);
-  }
-  return changedWeightPositions;
 }
 
 // Parses a floating-point value while preserving the previous value on failure.
@@ -1098,78 +1042,35 @@ bool FixtureEditDialog::ApplyChanges() {
   }
 
   std::unordered_set<std::string> changedWeightPositions;
-
-  if (!gdtfPath.empty()) {
-    if (ctrls.size() > 17) {
-      float newPowerW = originalPowerW;
-      float newWeightKg = originalWeightKg;
-      if (gdtfEditorPanel) {
-        ParseFloatOrDefault(
-            wxString::FromUTF8(gdtfEditorPanel
-                                   ->GetPhysicalPropertyValue(GdtfPhysicalPropertyField::PowerConsumption)
-                                   .value_or(std::string())),
-            newPowerW);
-        ParseFloatOrDefault(
-            wxString::FromUTF8(gdtfEditorPanel
-                                   ->GetPhysicalPropertyValue(GdtfPhysicalPropertyField::Weight)
-                                   .value_or(std::string())),
-            newWeightKg);
+  gdtf::ProjectFixtureGdtfApplyResult fixtureApplyResult;
+  if (gdtfEditSession) {
+    auto request = gdtfEditSession->BuildApplyRequest();
+    const bool hasAdapterChanges = !request.changedDocumentFields.empty() ||
+                                   !request.changedContextFields.empty();
+    if (hasAdapterChanges) {
+      gdtf::ProjectFixtureGdtfApplyAdapter adapter(
+          gui::MakeFixtureGdtfApplyServices());
+      gdtf::ProjectFixtureGdtfApplyInput applyInput;
+      applyInput.request = request;
+      applyInput.fixtures =
+          &GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+      fixtureApplyResult = adapter.Apply(applyInput);
+      if (!fixtureApplyResult.common.success) {
+        const std::string message = fixtureApplyResult.common.diagnostics.empty()
+                                        ? "Could not apply fixture GDTF changes."
+                                        : fixtureApplyResult.common.diagnostics.front();
+        wxMessageBox(wxString::FromUTF8(message), "GDTF update",
+                     wxOK | wxICON_WARNING, this);
+        return false;
       }
-      const bool gdtfPhysicalChanged =
-          std::fabs(newPowerW - originalPowerW) > 0.01f ||
-          std::fabs(newWeightKg - originalWeightKg) > 0.01f;
-      if (gdtfPhysicalCandidateChanged && gdtfPhysicalChanged) {
-        std::string writableGdtfPath = PathUtils::PathToUtf8(gdtfPath);
-        if (IsUserFixtureLibraryPath(writableGdtfPath)) {
-          auto derivative =
-              GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
-              std::string(originalType.ToUTF8()), writableGdtfPath);
-          if (derivative && !derivative->path.empty()) {
-            writableGdtfPath = derivative->path;
-            gdtfPath = PathUtils::PathFromUtf8(derivative->path);
-            pendingSelectedGdtfPath = gdtfPath;
-            if (gdtfEditorPanel)
-              gdtfEditorPanel->SetIdentityValue(
-                  GdtfTypeIdentityField::SourceFileReference,
-                  PathUtils::PathToUtf8(gdtfPath));
-            if (gdtfEditSession)
-              gdtfEditSession->SetValue(gdtf::GdtfFieldId::SourceFileReference,
-                                        PathUtils::PathToUtf8(gdtfPath));
-            if (panel && row >= 0) {
-              if (static_cast<size_t>(row) >= panel->gdtfPaths.size())
-                panel->gdtfPaths.resize(static_cast<size_t>(row) + 1);
-              panel->gdtfPaths[static_cast<size_t>(row)] =
-                  wxString::FromUTF8(PathUtils::PathToUtf8(gdtfPath));
-              table->SetValue(wxVariant(wxFileName(wxString::FromUTF8(
-                                            PathUtils::PathToUtf8(gdtfPath))).GetFullName()),
-                              row, 9);
-            }
-          }
-        }
-        if (!SetGdtfProperties(writableGdtfPath, newWeightKg, newPowerW,
-                               GdtfMutationAudit::BuildPerastageModifiedBy())) {
-          wxMessageBox("Could not update GDTF physical properties "
-                       "(Weight/PowerConsumption).",
-              "GDTF update", wxOK | wxICON_WARNING, this);
-        } else {
-          if (row >= 0 && static_cast<size_t>(row) < panel->rowUuids.size())
-            changedWeightPositions = ApplySharedPhysicalPropertyEdit(
-                table, panel->rowUuids,
-                panel->rowUuids[static_cast<size_t>(row)], newWeightKg,
-                newPowerW);
-          originalPowerW = newPowerW;
-          originalWeightKg = newWeightKg;
-        }
-      }
-    }
-
-    if (gdtfMetadataChanged) {
-      std::string mode =
-          gdtfEditorPanel ? gdtfEditorPanel->GetSelectedMode() : std::string();
-      // Project fixture metadata edits stay project-scoped and do not promote
-      // files into the user library.
-      panel->ApplyModeForGdtf(wxString::FromUTF8(PathUtils::PathToUtf8(gdtfPath)),
-                              wxString::FromUTF8(mode.c_str()));
+      gdtfPath = fixtureApplyResult.common.resultingGdtfPath.empty()
+                     ? gdtfPath
+                     : fixtureApplyResult.common.resultingGdtfPath;
+      pendingSelectedGdtfPath = gdtfPath;
+      for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
+        changedWeightPositions.insert(position);
+      originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;
+      originalWeightKg = fixtureApplyResult.resultingWeightKg;
     }
   }
   if (fixtureColorChanged) {

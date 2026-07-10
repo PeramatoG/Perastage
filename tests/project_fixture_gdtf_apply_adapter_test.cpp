@@ -4,7 +4,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 
 namespace {
 
@@ -65,7 +65,7 @@ std::filesystem::path MakeTempGdtf() {
 // Exercises no-op, context, mutation, propagation, failure, and stable UUID behavior.
 int main() {
   const auto source = MakeTempGdtf();
-  std::map<std::string, Fixture> fixtures;
+  std::unordered_map<std::string, Fixture> fixtures;
   fixtures.emplace("b", MakeFixture("b", "Other", "other.gdtf"));
   fixtures.emplace("a", MakeFixture("a", "Type", "source.gdtf"));
 

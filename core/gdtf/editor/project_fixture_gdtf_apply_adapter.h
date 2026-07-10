@@ -5,7 +5,7 @@
 
 #include <filesystem>
 #include <functional>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <string>
 #include <vector>
@@ -21,7 +21,7 @@ struct ProjectFixtureGdtfApplyServices {
 
 struct ProjectFixtureGdtfApplyInput {
   GdtfApplyRequest request;
-  std::map<std::string, Fixture> *fixtures = nullptr;
+  std::unordered_map<std::string, Fixture> *fixtures = nullptr;
 };
 
 struct ProjectFixtureGdtfApplyResult {
