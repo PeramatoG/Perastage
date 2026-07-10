@@ -97,6 +97,11 @@ bool GdtfModeDataViewModel::IsContainer(const wxDataViewItem &item) const {
   return !static_cast<Node *>(item.GetID())->children.empty();
 }
 
+// Allows container rows to show browser data in every column.
+bool GdtfModeDataViewModel::HasContainerColumns(const wxDataViewItem &) const {
+  return true;
+}
+
 // Returns child items in the original GDTF source order.
 unsigned int GdtfModeDataViewModel::GetChildren(const wxDataViewItem &item, wxDataViewItemArray &children) const {
   const auto &source = item.IsOk() ? static_cast<Node *>(item.GetID())->children : roots;
