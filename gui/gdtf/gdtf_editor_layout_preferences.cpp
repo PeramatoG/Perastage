@@ -124,9 +124,9 @@ TrussLayoutPreferences LoadTrussLayoutPreferences(ConfigManager &config,
   preferences.dialogSize = ClampDialogSize(
       window, wxSize(ReadInt(config, kTrussWidth, 0),
                      ReadInt(config, kTrussHeight, 0)),
-      wxSize(static_cast<int>(area.GetWidth() * 0.8),
-             static_cast<int>(area.GetHeight() * 0.8)),
-      wxSize(Dip(window, 900), Dip(window, 650)));
+      wxSize(static_cast<int>(area.GetWidth() * 0.78),
+             static_cast<int>(area.GetHeight() * 0.65)),
+      wxSize(Dip(window, 900), Dip(window, 560)));
   preferences.contextRatio = ClampSplitterRatio(ReadDouble(config, kTrussContext, 0.25), 0.25);
   preferences.previewRatio = ClampSplitterRatio(ReadDouble(config, kTrussPreview, 0.55), 0.55);
   preferences.gdtfRatio = ClampSplitterRatio(ReadDouble(config, kTrussGdtf, 0.55), 0.55);

@@ -27,13 +27,13 @@ The Fixture GDTF section order is configured with typed placements:
 The visual resources are native notebook tabs:
 
 - `Preview`: 3D Preview in the upper area and Fixture Image below it.
-- `Symbols`: the official GDTF SVG thumbnail resource, when available, above the three Perastage-generated Top, Front, and Side symbol views.
+- `Symbols`: the official GDTF SVG thumbnail resource, when available, above the three Perastage-generated Top, Front, and Side symbol views with equal vertical area for the official and generated symbol regions.
 
 The GDTF specification defines the optional `FixtureType` `Thumbnail` resource as a file in the archive root, with `.png` for raster images or `.svg` for vector graphics. The Symbols tab uses that root-level SVG resource as the official symbol preview when present. Switching tabs does not parse GDTF data or recreate the underlying resources.
 
 ## Truss Edit layout
 
-Truss Edit uses nested splitters:
+Truss Edit uses a compact default height and nested splitters:
 
 1. `contextSplitter`: compact MVR instance pane vs. the right workspace.
 2. `GdtfEditorPanel` internal splitter: Truss type and metadata overview vs. a workspace column containing the 3D Preview above Physical properties.

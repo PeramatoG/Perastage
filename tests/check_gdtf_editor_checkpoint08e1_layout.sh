@@ -37,8 +37,8 @@ require('fixtureImagePreview = new wxStaticBitmap(previewPage' in fixture,
         'Fixture image must be placed below the 3D preview on the Preview tab.')
 require('officialSymbolPreview' in fixture_h and 'LoadGdtfOfficialSvgSymbol' in fixture,
         'Symbols tab must include an official GDTF SVG thumbnail preview above Perastage symbols.')
-require('wxBitmap(220, 70)' in fixture,
-        'Official SVG thumbnail preview must match the height of Top/Front/Side symbol views.')
+require('symbolRootSizer->Add(officialSymbolPreview, 1' in fixture and 'symbolRootSizer->Add(symbolSizer, 1' in fixture,
+        'Official SVG thumbnail area must receive the same vertical proportion as the Top/Front/Side symbol area.')
 require(fixture.count('new GdtfEditorPanel(') == 1,
         'Fixture Edit must instantiate exactly one GdtfEditorPanel.')
 for child in ['GdtfMetadataPanel', 'GdtfTypeIdentityPanel', 'GdtfPhysicalPropertiesPanel', 'GdtfModesPanel']:

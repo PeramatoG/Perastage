@@ -42,6 +42,8 @@ require(not set(fixture_keys) & set(truss_keys),
         'Fixture and Truss preference keys must remain independent.')
 require('std::clamp(ReadInt(config, kFixtureVisualTab, 0), 0, 1)' in source,
         'Fixture visual tab restore must clamp to the two current tabs.')
+require('static_cast<int>(area.GetHeight() * 0.65)' in source and 'Dip(window, 560)' in source,
+        'Truss Edit default and minimum heights must stay compact.')
 require('config.SaveUserConfig();' in source,
         'Layout preference saves must flush through the existing configuration abstraction.')
 print('OK: GDTF editor layout preference helper checks passed.')

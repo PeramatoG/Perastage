@@ -293,7 +293,7 @@ bool LoadGdtfOfficialSvgSymbol(const std::string &gdtfPath,
     auto it = entries.find(candidate);
     if (it == entries.end())
       continue;
-    const wxSize desiredSize(220, 70);
+    const wxSize desiredSize(220, 220);
     wxBitmapBundle bundle =
         wxBitmapBundle::FromSVG(it->second.c_str(), desiredSize);
     outBitmap = bundle.GetBitmap(desiredSize);
@@ -627,8 +627,8 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   wxBoxSizer *symbolRootSizer = new wxBoxSizer(wxVERTICAL);
   symbolPage->SetSizer(symbolRootSizer);
   officialSymbolPreview =
-      new wxStaticBitmap(symbolPage, wxID_ANY, wxBitmap(220, 70));
-  symbolRootSizer->Add(officialSymbolPreview, 0, wxALIGN_CENTER | wxALL,
+      new wxStaticBitmap(symbolPage, wxID_ANY, wxBitmap(220, 220));
+  symbolRootSizer->Add(officialSymbolPreview, 1, wxALIGN_CENTER | wxALL,
                        gui::gdtf_layout::SectionPadding(this));
   symbolRootSizer->Add(new wxStaticLine(symbolPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
                        gui::gdtf_layout::SectionPadding(this));
@@ -970,12 +970,12 @@ void FixtureEditDialog::UpdateVisualizers() {
       officialSymbolPreview->SetBitmap(officialSymbol);
       officialSymbolPreview->SetToolTip("Official GDTF SVG thumbnail resource.");
     } else {
-      wxBitmap fallback(220, 70);
+      wxBitmap fallback(220, 220);
       wxMemoryDC dc(fallback);
       dc.SetBackground(*wxLIGHT_GREY_BRUSH);
       dc.Clear();
       dc.SetTextForeground(*wxBLACK);
-      dc.DrawLabel("No official SVG", wxRect(0, 0, 220, 70), wxALIGN_CENTER);
+      dc.DrawLabel("No official SVG", wxRect(0, 0, 220, 220), wxALIGN_CENTER);
       dc.SelectObject(wxNullBitmap);
       officialSymbolPreview->SetBitmap(fallback);
       officialSymbolPreview->SetToolTip(

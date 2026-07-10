@@ -177,7 +177,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   wxSizer *previewSizer = previewHost->GetSizer();
   preview = new FixturePreviewPanel(previewHost);
   preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
-                             gui::gdtf_layout::MinimumPreviewHeight(this)));
+                             gui::gdtf_layout::Dip(this, 160)));
   previewSizer->Add(preview, 1, wxEXPAND);
   gdtfEditorPanel->Configure(gdtfConfiguration);
   const auto &sessionValues =
@@ -289,7 +289,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
 
   SetSizer(topSizer);
   RestoreLayoutPreferences();
-  SetMinSize(gui::gdtf_layout::ClampDialogSize(this, wxSize(900, 650), wxSize(900, 650), wxSize(1, 1)));
+  SetMinSize(gui::gdtf_layout::ClampDialogSize(this, wxSize(900, 560), wxSize(900, 560), wxSize(1, 1)));
   UpdateMetadataSummary();
   UpdatePreview();
 }
