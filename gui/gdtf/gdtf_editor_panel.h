@@ -87,6 +87,8 @@ public:
   void SetUnavailable();
   void SetTwoPaneSplitterRatio(double ratio);
   double GetTwoPaneSplitterRatio() const;
+  void SetModeBrowserSplitterRatio(double ratio);
+  double GetModeBrowserSplitterRatio() const;
   wxWindow *GetWorkspaceHeaderHost() const;
 
   void SetIdentityChangeCallback(GdtfTypeIdentityPanel::ChangeCallback callback);
@@ -114,6 +116,7 @@ public:
   void SetSelectedMode(const std::string &mode);
   void SetChannelCount(const std::string &channelCount);
   void SetChannels(const std::vector<GdtfModeChannelPresentation> &channels);
+  void SetModeBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes);
   void ClearModeDetails();
   void SetModeSelectionEnabled(bool enabled);
   void SetMetadata(const GdtfMetadataSummary &summary);

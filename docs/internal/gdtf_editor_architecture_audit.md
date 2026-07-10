@@ -266,3 +266,6 @@ Checkpoint 08E1 visual follow-up keeps the two-pane editor architecture but incr
 
 
 Checkpoint 08E1 truss follow-up changes the right-side Truss workspace into two GDTF columns: the second column contains only Truss type and GDTF metadata, and the third column contains the host-owned 3D preview above the reusable Physical properties section. The reusable composite exposes only a generic workspace header host for this preview and still does not expose child GDTF panels to the dialogs.
+## Checkpoint 08E2 mode/channel browser audit
+
+08E2 adds a core-only hierarchical GDTF mode/channel reader, a GUI formatting adapter, and a dedicated read-only `wxDataViewModel`. `FixtureEditDialog` owns source caching and archive loading; reusable panels remain presentation-only and ConfigManager-free. The GUI model performs no XML or archive parsing, and the core parser emits structured diagnostics rather than using `ConsolePanel` or GUI event-loop exceptions.

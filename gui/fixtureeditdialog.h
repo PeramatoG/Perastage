@@ -26,6 +26,7 @@
 #include <memory>
 #include <map>
 #include "gdtf/editor/gdtf_field_registry.h"
+#include "gdtf/gdtf_mode_channel_browser.h"
 #include "symbols/PerastageSvgSymbol.h"
 
 class FixtureTablePanel;
@@ -54,6 +55,7 @@ private:
     void UpdateChannels(bool markChannelCountDirty = false);
     void UpdateVisualizers();
     void UpdateMetadataSummary();
+    void ReloadModeChannelDocument();
     bool ApplyChanges();
     void BuildEditSession();
     std::filesystem::path GetActiveResolvedGdtfPath() const;
@@ -81,6 +83,8 @@ private:
     bool applied = false;
     std::map<gdtf::GdtfFieldId, std::string> rejectedSessionInputs;
     std::filesystem::path pendingSelectedGdtfPath;
+    std::filesystem::path cachedModeChannelSource;
+    gdtf::GdtfModeChannelDocument cachedModeChannelDocument;
     wxString originalType;
     float originalPowerW = 0.0f;
     float originalWeightKg = 0.0f;

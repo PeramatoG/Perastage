@@ -39,6 +39,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_editor_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_editor_layout_preferences.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_metadata_panel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_browser_presenter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_data_view_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_modes_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_physical_properties_panel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_type_identity_panel.cpp

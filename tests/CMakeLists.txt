@@ -67,6 +67,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_core_boundary.sh)
     add_test(NAME GdtfEditorCheckpoint08ABinding
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08a_binding.sh)
+    add_test(NAME GdtfEditorCheckpoint08E2ModeBrowser
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e2_mode_browser.sh)
     add_test(NAME ProjectRestoreImportOptions
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
@@ -272,6 +274,13 @@ add_executable(gdtf_read_services_test
 target_include_directories(gdtf_read_services_test PRIVATE ../core)
 target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
+add_executable(gdtf_mode_channel_browser_test
+               gdtf_mode_channel_browser_test.cpp
+               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+target_include_directories(gdtf_mode_channel_browser_test PRIVATE ../core)
+target_link_libraries(gdtf_mode_channel_browser_test PRIVATE tinyxml2::tinyxml2)
+add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
+
 
 add_executable(gdtf_fixture_insertion_preparation_test
                gdtf_fixture_insertion_preparation_test.cpp
@@ -1639,6 +1648,3 @@ if(WIN32)
     target_link_libraries(mvr_xchange_protocol_test PRIVATE iphlpapi ws2_32)
 endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
-
-add_test(NAME GdtfReusablePanelsBoundary COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_reusable_panels_boundary.sh)
-add_test(NAME GdtfEditorCheckpoint08ABinding COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08a_binding.sh)

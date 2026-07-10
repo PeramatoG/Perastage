@@ -62,6 +62,18 @@ void GdtfEditorPanel::SetUnavailable() {
   modesPanel->SetPresentation({});
 }
 
+
+// Sets the nested mode browser splitter ratio without owning persistence.
+void GdtfEditorPanel::SetModeBrowserSplitterRatio(double ratio) {
+  if (modesPanel)
+    modesPanel->SetBrowserSplitterRatio(ratio);
+}
+
+// Returns the nested mode browser splitter ratio for host-owned persistence.
+double GdtfEditorPanel::GetModeBrowserSplitterRatio() const {
+  return modesPanel ? modesPanel->GetBrowserSplitterRatio() : 0.68;
+}
+
 // Registers the forwarded type identity change callback.
 void GdtfEditorPanel::SetIdentityChangeCallback(
     GdtfTypeIdentityPanel::ChangeCallback callback) {
@@ -164,6 +176,13 @@ void GdtfEditorPanel::SetChannelCount(const std::string &channelCount) {
 void GdtfEditorPanel::SetChannels(
     const std::vector<GdtfModeChannelPresentation> &channels) {
   modesPanel->SetChannels(channels);
+}
+
+
+// Sets the visible hierarchical mode browser nodes without notifying callbacks.
+void GdtfEditorPanel::SetModeBrowserNodes(
+    const std::vector<GdtfModeBrowserNodePresentation> &nodes) {
+  modesPanel->SetBrowserNodes(nodes);
 }
 
 // Clears derived mode details without notifying callbacks.

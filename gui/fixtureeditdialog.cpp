@@ -24,6 +24,8 @@
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_mode_browser_presenter.h"
+#include "gdtf_archive_reader.h"
 #include "gdtf/gdtf_editor_layout_preferences.h"
 #include "gdtf/gdtf_editor_visual_metrics.h"
 #include "gdtf/gdtf_session_panel_binding.h"
@@ -785,6 +787,7 @@ bool FixtureEditDialog::ValidateSessionBeforeApply() {
   return false;
 }
 
+// Handles selecting a replacement GDTF source and refreshing dependent presentations.
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   wxString fixDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
@@ -794,6 +797,8 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     return;
   wxString path = fdlg.GetPath();
   pendingSelectedGdtfPath = PathFromWxString(path);
+  cachedModeChannelSource.clear();
+  cachedModeChannelDocument = {};
   if (gdtfEditSession && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
     const auto &scene =
@@ -1015,6 +1020,7 @@ void FixtureEditDialog::UpdateMetadataSummary() {
   Layout();
 }
 
+// Updates the cached hierarchical mode browser and channel footprint presentation.
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   wxString mode = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetSelectedMode()) : wxString();
@@ -1025,23 +1031,31 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
       gdtfEditorPanel->ClearModeDetails();
     return;
   }
-  auto channels =
-      GetGdtfModeChannels(PathUtils::PathToUtf8(gdtfPath), std::string(mode.ToUTF8()));
-  std::vector<GdtfModeChannelPresentation> channelRows;
-  for (const auto &ch : channels) {
-    channelRows.push_back({
-        ch.isVirtual ? std::string("V") :
-                       std::string(wxString::Format("%d", ch.channel).ToUTF8()),
-        FormatGdtfModeFunctionLabel(ch.function),
-    });
-  }
+  if (cachedModeChannelSource != gdtfPath)
+    ReloadModeChannelDocument();
+  const std::string modeName(mode.ToUTF8());
+  const auto *modeNode = cachedModeChannelDocument.FindMode(modeName);
   if (gdtfEditorPanel)
-    gdtfEditorPanel->SetChannels(channelRows);
-  int chCount =
-      GetGdtfModeChannelCount(PathUtils::PathToUtf8(gdtfPath), std::string(mode.ToUTF8()));
+    gdtfEditorPanel->SetModeBrowserNodes(BuildGdtfModeBrowserPresentation(modeNode));
+  const int chCount = modeNode ? modeNode->calculatedFootprint
+                               : GetGdtfModeChannelCount(PathUtils::PathToUtf8(gdtfPath), modeName);
   if (gdtfEditorPanel)
     gdtfEditorPanel->SetChannelCount(chCount >= 0 ? std::string(wxString::Format("%d", chCount).ToUTF8()) : std::string());
   (void)markChannelCountDirty;
+}
+
+// Reloads the cached hierarchical GDTF mode/channel document for the active source.
+void FixtureEditDialog::ReloadModeChannelDocument() {
+  cachedModeChannelSource.clear();
+  cachedModeChannelDocument = {};
+  const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
+  if (gdtfPath.empty())
+    return;
+  auto archive = gdtf::ReadGdtfArchive(gdtfPath);
+  if (!archive.Success())
+    return;
+  cachedModeChannelDocument = gdtf::ReadGdtfModeChannelDocument(archive.descriptionXml);
+  cachedModeChannelSource = gdtfPath;
 }
 
 
@@ -1056,8 +1070,10 @@ void FixtureEditDialog::SaveLayoutPreferences() {
   if (visualSplitter)
     preferences.visualRatio = gui::gdtf_layout::SashToRatio(
         visualSplitter->GetSashPosition(), visualSplitter->GetClientSize().GetWidth(), 0.75);
-  if (gdtfEditorPanel)
+  if (gdtfEditorPanel) {
     preferences.gdtfRatio = gdtfEditorPanel->GetTwoPaneSplitterRatio();
+    preferences.modeBrowserRatio = gdtfEditorPanel->GetModeBrowserSplitterRatio();
+  }
   if (visualNotebook)
     preferences.visualTab = visualNotebook->GetSelection();
   gui::gdtf_layout::SaveFixtureLayoutPreferences(config, preferences);
@@ -1079,8 +1095,10 @@ void FixtureEditDialog::RestoreLayoutPreferences() {
         visualSplitter->GetClientSize().GetWidth(),
         gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
         gui::gdtf_layout::MinimumVisualPaneWidth(this), preferences.visualRatio));
-  if (gdtfEditorPanel)
+  if (gdtfEditorPanel) {
     gdtfEditorPanel->SetTwoPaneSplitterRatio(preferences.gdtfRatio);
+    gdtfEditorPanel->SetModeBrowserSplitterRatio(preferences.modeBrowserRatio);
+  }
   if (visualNotebook)
     visualNotebook->SetSelection(preferences.visualTab);
 }
@@ -1147,6 +1165,8 @@ bool FixtureEditDialog::ApplyChanges() {
                      ? gdtfPath
                      : fixtureApplyResult.common.resultingGdtfPath;
       pendingSelectedGdtfPath = gdtfPath;
+      cachedModeChannelSource.clear();
+      cachedModeChannelDocument = {};
       for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
         changedWeightPositions.insert(position);
       originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;

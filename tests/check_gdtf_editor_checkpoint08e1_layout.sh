@@ -99,9 +99,9 @@ require('GdtfEditorPane::Workspace, GdtfEditorSection::PhysicalProperties' in tr
 require('gdtfConfiguration.modes.visible = false' in truss,
         'Truss Edit must keep Modes hidden.')
 
-require('wxTE_MULTILINE | wxTE_READONLY' in modes and 'wxTreeCtrl' not in modes and 'wxDataViewCtrl' not in modes,
-        'GdtfModesPanel must remain the read-only multiline text representation for 08E1.')
-for forbidden in ['wxTreeCtrl', 'wxDataViewCtrl', 'wxSlider', 'GdtfWheel']:
+require('wxDataViewCtrl' in modes and 'Mode and channel browser' in modes,
+        'GdtfModesPanel must use the 08E2 read-only mode/channel browser after 08E1.')
+for forbidden in ['wxTreeCtrl', 'wxSlider', 'GdtfWheel']:
     require(forbidden not in fixture + truss + panel + modes,
             f'08E1 must not introduce future browser/resource controls: {forbidden}.')
 for forbidden in ['GdtfApplyRequest', 'ProjectFixtureGdtfApplyAdapter', 'ProjectTrussGdtfApplyAdapter', 'GdtfEditSession']:

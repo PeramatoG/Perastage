@@ -17,7 +17,11 @@
  */
 #pragma once
 
+#include "gdtf/gdtf_mode_browser_presenter.h"
+
 #include <functional>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -25,7 +29,10 @@
 #include <wx/string.h>
 
 class wxChoice;
+class wxDataViewCtrl;
+class wxSplitterWindow;
 class wxTextCtrl;
+class GdtfModeDataViewModel;
 
 struct GdtfModeChannelPresentation {
   std::string channelLabel;
@@ -54,15 +61,27 @@ public:
   void SetModeSelectionCallback(ModeSelectionCallback callback);
   void SetChannelCount(const std::string &channelCount);
   void SetChannels(const std::vector<GdtfModeChannelPresentation> &channels);
+  void SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes);
+  void SetBrowserSplitterRatio(double ratio);
+  double GetBrowserSplitterRatio() const;
   void ClearModeDetails();
   void SetModeSelectionEnabled(bool enabled);
 
 private:
   void NotifyModeChanged();
+  void UpdateDetails(const GdtfModeBrowserNodePresentation *node);
+  void RememberExpandedItems();
+  void RestoreExpandedItems();
 
   wxChoice *modeChoice = nullptr;
   wxTextCtrl *channelCountCtrl = nullptr;
-  wxTextCtrl *channelListCtrl = nullptr;
+  wxSplitterWindow *browserSplitter = nullptr;
+  wxDataViewCtrl *browserCtrl = nullptr;
+  wxTextCtrl *detailsCtrl = nullptr;
+  GdtfModeDataViewModel *browserModel = nullptr;
+  std::map<std::string, std::set<std::string>> expandedByMode;
+  std::map<std::string, std::string> selectedByMode;
+  double browserSplitterRatio = 0.68;
   ModeSelectionCallback selectionCallback;
   bool updating = false;
 };

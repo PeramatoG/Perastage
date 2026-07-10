@@ -26,6 +26,7 @@ constexpr const char *kFixtureContext = "gdtf_editor/fixture/context_ratio";
 constexpr const char *kFixtureVisual = "gdtf_editor/fixture/visual_ratio";
 constexpr const char *kFixtureGdtf = "gdtf_editor/fixture/gdtf_ratio";
 constexpr const char *kFixtureVisualTab = "gdtf_editor/fixture/visual_tab";
+constexpr const char *kFixtureModeBrowser = "gdtf_editor/fixture/mode_browser_ratio";
 constexpr const char *kTrussWidth = "gdtf_editor/truss/dialog_width";
 constexpr const char *kTrussHeight = "gdtf_editor/truss/dialog_height";
 constexpr const char *kTrussContext = "gdtf_editor/truss/context_ratio";
@@ -100,6 +101,7 @@ FixtureLayoutPreferences LoadFixtureLayoutPreferences(ConfigManager &config,
   preferences.contextRatio = ClampSplitterRatio(ReadDouble(config, kFixtureContext, 0.2), 0.2);
   preferences.visualRatio = ClampSplitterRatio(ReadDouble(config, kFixtureVisual, 0.75), 0.75);
   preferences.gdtfRatio = ClampSplitterRatio(ReadDouble(config, kFixtureGdtf, 0.45), 0.45);
+  preferences.modeBrowserRatio = ClampSplitterRatio(ReadDouble(config, kFixtureModeBrowser, 0.68), 0.68);
   preferences.visualTab = std::clamp(ReadInt(config, kFixtureVisualTab, 0), 0, 1);
   return preferences;
 }
@@ -112,6 +114,7 @@ void SaveFixtureLayoutPreferences(ConfigManager &config,
   Write(config, kFixtureContext, std::to_string(ClampSplitterRatio(preferences.contextRatio, 0.2)));
   Write(config, kFixtureVisual, std::to_string(ClampSplitterRatio(preferences.visualRatio, 0.75)));
   Write(config, kFixtureGdtf, std::to_string(ClampSplitterRatio(preferences.gdtfRatio, 0.45)));
+  Write(config, kFixtureModeBrowser, std::to_string(ClampSplitterRatio(preferences.modeBrowserRatio, 0.68)));
   Write(config, kFixtureVisualTab, std::to_string(std::clamp(preferences.visualTab, 0, 1)));
   config.SaveUserConfig();
 }
