@@ -218,6 +218,11 @@ private:
   wxPanel *content = nullptr;
 };
 
+// Returns the optional host area shown above workspace-pane sections.
+wxWindow *GdtfEditorPanel::GetWorkspaceHeaderHost() const {
+  return workspaceHeaderHost;
+}
+
 // Creates each child panel exactly once and places it inside a flat section.
 void GdtfEditorPanel::BuildSections() {
   rootSizer = new wxBoxSizer(wxVERTICAL);
@@ -228,6 +233,8 @@ void GdtfEditorPanel::BuildSections() {
                                          wxSP_LIVE_UPDATE | wxSP_3DSASH);
   overviewPane = new wxPanel(twoPaneSplitter, wxID_ANY);
   workspacePane = new wxPanel(twoPaneSplitter, wxID_ANY);
+  workspaceHeaderHost = new wxPanel(workspacePane, wxID_ANY);
+  workspaceHeaderHost->SetSizer(new wxBoxSizer(wxVERTICAL));
   overviewSizer = new wxBoxSizer(wxVERTICAL);
   workspaceSizer = new wxBoxSizer(wxVERTICAL);
   overviewPane->SetSizer(overviewSizer);
@@ -276,6 +283,7 @@ void GdtfEditorPanel::DetachReusableSections() {
   overviewSizer->Detach(typeIdentitySection);
   overviewSizer->Detach(physicalPropertiesSection);
   overviewSizer->Detach(modesSection);
+  workspaceSizer->Detach(workspaceHeaderHost);
   workspaceSizer->Detach(metadataSection);
   workspaceSizer->Detach(typeIdentitySection);
   workspaceSizer->Detach(physicalPropertiesSection);
@@ -313,15 +321,14 @@ void GdtfEditorPanel::AddSection(wxBoxSizer *target, GdtfEditorSection section,
   if (!sectionConfiguration.visible)
     return;
   int borderFlags = wxEXPAND | wxBOTTOM;
+  int border = gui::gdtf_layout::SectionGap(this);
   if (configuration.layout == GdtfEditorPanelLayout::TwoPane) {
-    if (target == overviewSizer)
-      borderFlags |= wxRIGHT;
-    else if (target == workspaceSizer)
-      borderFlags |= wxLEFT;
+    borderFlags |= wxLEFT | wxRIGHT;
+    border = gui::gdtf_layout::ColumnGutter(this);
   }
   target->Add(SectionWindow(section),
               sectionConfiguration.expanded ? growProportion : 0, borderFlags,
-              gui::gdtf_layout::SectionGap(this));
+              border);
 }
 
 // Adds visible sections in the configured single-column order.
@@ -332,6 +339,9 @@ void GdtfEditorPanel::AddSingleColumnSections() {
 
 // Adds visible sections in the configured overview/workspace pane order.
 void GdtfEditorPanel::AddTwoPaneSections() {
+  if (workspaceHeaderHost && !workspaceHeaderHost->GetChildren().IsEmpty())
+    workspaceSizer->Add(workspaceHeaderHost, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
+                        gui::gdtf_layout::ColumnGutter(this));
   for (const auto &placement : configuration.twoPaneOrder) {
     wxBoxSizer *target = placement.pane == GdtfEditorPane::Overview
                              ? overviewSizer

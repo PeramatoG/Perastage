@@ -62,7 +62,6 @@ private:
   std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
   FixturePreviewPanel *preview = nullptr;
   wxSplitterWindow *contextSplitter = nullptr;
-  wxSplitterWindow *previewSplitter = nullptr;
   std::vector<bool> modifiedColumns;
   bool crossSectionModified = false;
   std::map<gdtf::GdtfFieldId, std::string> rejectedSessionInputs;

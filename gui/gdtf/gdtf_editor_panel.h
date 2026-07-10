@@ -87,6 +87,7 @@ public:
   void SetUnavailable();
   void SetTwoPaneSplitterRatio(double ratio);
   double GetTwoPaneSplitterRatio() const;
+  wxWindow *GetWorkspaceHeaderHost() const;
 
   void SetIdentityChangeCallback(GdtfTypeIdentityPanel::ChangeCallback callback);
   void SetIdentityActionCallback(GdtfTypeIdentityPanel::ActionCallback callback);
@@ -144,6 +145,7 @@ private:
   wxSplitterWindow *twoPaneSplitter = nullptr;
   wxPanel *overviewPane = nullptr;
   wxPanel *workspacePane = nullptr;
+  wxPanel *workspaceHeaderHost = nullptr;
   wxBoxSizer *overviewSizer = nullptr;
   wxBoxSizer *workspaceSizer = nullptr;
 

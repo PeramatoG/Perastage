@@ -37,20 +37,22 @@ require('fixtureImagePreview = new wxStaticBitmap(previewPage' in fixture,
         'Fixture image must be placed below the 3D preview on the Preview tab.')
 require('officialSymbolPreview' in fixture_h and 'LoadGdtfOfficialSvgSymbol' in fixture,
         'Symbols tab must include an official GDTF SVG thumbnail preview above Perastage symbols.')
+require('wxBitmap(220, 70)' in fixture,
+        'Official SVG thumbnail preview must match the height of Top/Front/Side symbol views.')
 require(fixture.count('new GdtfEditorPanel(') == 1,
         'Fixture Edit must instantiate exactly one GdtfEditorPanel.')
 for child in ['GdtfMetadataPanel', 'GdtfTypeIdentityPanel', 'GdtfPhysicalPropertiesPanel', 'GdtfModesPanel']:
     require(child not in fixture_h and f'new {child}' not in fixture,
             f'Fixture host must not directly own or construct {child}.')
 
-require('wxSplitterWindow *contextSplitter' in truss_h and 'wxSplitterWindow *previewSplitter' in truss_h,
-        'Truss Edit must own compact context and preview/GDTF splitters.')
-require('new wxSplitterWindow(contentPanel' in truss and 'new wxSplitterWindow(rightWorkspace' in truss,
-        'Truss Edit must build compact context and preview/GDTF split layout.')
+require('wxSplitterWindow *contextSplitter' in truss_h,
+        'Truss Edit must own the compact context splitter.')
+require('new wxSplitterWindow(contentPanel' in truss and 'GetWorkspaceHeaderHost' in truss,
+        'Truss Edit must build compact context plus GDTF workspace-header preview layout.')
 require('wxScrolledWindow(contextSplitter' in truss and 'MVR instance' in truss,
         'Truss Edit must use a compact scrollable MVR instance pane.')
-require('SplitHorizontally(previewPanel, gdtfPanelHost)' in truss,
-        'Truss Edit must place preview above the GDTF workspace.')
+require('preview = new FixturePreviewPanel(previewHost)' in truss,
+        'Truss Edit must place preview in the third GDTF column above physical properties.')
 require(truss.count('new GdtfEditorPanel(') == 1,
         'Truss Edit must instantiate exactly one GdtfEditorPanel.')
 for child in ['GdtfMetadataPanel', 'GdtfTypeIdentityPanel', 'GdtfPhysicalPropertiesPanel', 'GdtfModesPanel']:
@@ -93,7 +95,7 @@ positions = [truss_block.find(token) for token in expected_truss]
 require(all(pos >= 0 for pos in positions) and positions == sorted(positions),
         'Truss section order must be Type, Metadata in overview and Physical in workspace.')
 require('GdtfEditorPane::Workspace, GdtfEditorSection::PhysicalProperties' in truss_block,
-        'Truss physical properties must occupy the second GDTF pane.')
+        'Truss physical properties must occupy the third GDTF column under the preview.')
 require('gdtfConfiguration.modes.visible = false' in truss,
         'Truss Edit must keep Modes hidden.')
 

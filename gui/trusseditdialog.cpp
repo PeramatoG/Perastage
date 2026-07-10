@@ -160,15 +160,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   auto *rightWorkspace = new wxPanel(contextSplitter, wxID_ANY);
   auto *rightWorkspaceSizer = new wxBoxSizer(wxVERTICAL);
   rightWorkspace->SetSizer(rightWorkspaceSizer);
-  previewSplitter = new wxSplitterWindow(rightWorkspace, wxID_ANY, wxDefaultPosition,
-                                         wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3DSASH);
-  auto *previewPanel = new wxPanel(previewSplitter, wxID_ANY);
-  auto *previewSizer = new wxBoxSizer(wxVERTICAL);
-  previewPanel->SetSizer(previewSizer);
-  auto *gdtfPanelHost = new wxPanel(previewSplitter, wxID_ANY);
-  auto *gdtfSizer = new wxBoxSizer(wxVERTICAL);
-  gdtfPanelHost->SetSizer(gdtfSizer);
-  gdtfEditorPanel = new GdtfEditorPanel(gdtfPanelHost);
+  gdtfEditorPanel = new GdtfEditorPanel(rightWorkspace);
   GdtfEditorPanelConfiguration gdtfConfiguration;
   gdtfConfiguration.layout = GdtfEditorPanelLayout::TwoPane;
   gdtfConfiguration.twoPaneInitialRatio = 0.55;
@@ -180,6 +172,13 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   gdtfConfiguration.typeIdentity.title = "Truss type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
   gdtfConfiguration.modes.visible = false;
+  gdtfEditorPanel->Configure(gdtfConfiguration);
+  wxWindow *previewHost = gdtfEditorPanel->GetWorkspaceHeaderHost();
+  wxSizer *previewSizer = previewHost->GetSizer();
+  preview = new FixturePreviewPanel(previewHost);
+  preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
+                             gui::gdtf_layout::MinimumPreviewHeight(this)));
+  previewSizer->Add(preview, 1, wxEXPAND);
   gdtfEditorPanel->Configure(gdtfConfiguration);
   const auto &sessionValues =
       gdtfEditSession ? gdtfEditSession->CurrentValues()
@@ -261,19 +260,13 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
 
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   mvrScroll->SetMinSize(wxSize(gui::gdtf_layout::MinimumContextPaneWidth(this), -1));
-  gdtfSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
-  gdtfSizer->Add(
-      new wxStaticText(gdtfPanelHost, wxID_ANY,
+  rightWorkspaceSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL,
+                           gui::gdtf_layout::SectionPadding(this));
+  rightWorkspaceSizer->Add(
+      new wxStaticText(rightWorkspace, wxID_ANY,
                        "Editing these fields creates or updates the truss "
                        "GDTF. MVR-only fields remain project-scoped."),
       0, wxLEFT | wxRIGHT | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
-  preview = new FixturePreviewPanel(previewPanel);
-  preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
-                             gui::gdtf_layout::MinimumPreviewHeight(this)));
-  previewSizer->Add(preview, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
-  previewSplitter->SplitHorizontally(previewPanel, gdtfPanelHost);
-  previewSplitter->SetMinimumPaneSize(gui::gdtf_layout::MinimumPreviewHeight(this));
-  rightWorkspaceSizer->Add(previewSplitter, 1, wxEXPAND);
   contextSplitter->SplitVertically(mvrScroll, rightWorkspace);
   contextSplitter->SetMinimumPaneSize(gui::gdtf_layout::MinimumContextPaneWidth(this));
   contentSizer->Add(contextSplitter, 1, wxEXPAND);
@@ -420,9 +413,6 @@ void TrussEditDialog::SaveLayoutPreferences() {
   if (contextSplitter)
     preferences.contextRatio = gui::gdtf_layout::SashToRatio(
         contextSplitter->GetSashPosition(), contextSplitter->GetClientSize().GetWidth(), 0.25);
-  if (previewSplitter)
-    preferences.previewRatio = gui::gdtf_layout::SashToRatio(
-        previewSplitter->GetSashPosition(), previewSplitter->GetClientSize().GetHeight(), 0.55);
   if (gdtfEditorPanel)
     preferences.gdtfRatio = gdtfEditorPanel->GetTwoPaneSplitterRatio();
   gui::gdtf_layout::SaveTrussLayoutPreferences(config, preferences);
@@ -439,11 +429,6 @@ void TrussEditDialog::RestoreLayoutPreferences() {
         contextSplitter->GetClientSize().GetWidth(),
         gui::gdtf_layout::MinimumContextPaneWidth(this),
         gui::gdtf_layout::MinimumWorkspacePaneWidth(this), preferences.contextRatio));
-  if (previewSplitter)
-    previewSplitter->SetSashPosition(gui::gdtf_layout::RatioToSash(
-        previewSplitter->GetClientSize().GetHeight(),
-        gui::gdtf_layout::MinimumPreviewHeight(this),
-        gui::gdtf_layout::MinimumPreviewHeight(this), preferences.previewRatio));
   if (gdtfEditorPanel)
     gdtfEditorPanel->SetTwoPaneSplitterRatio(preferences.gdtfRatio);
 }

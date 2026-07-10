@@ -11,6 +11,7 @@ Changes since **v1.4.0**.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
+- Improved Truss Edit spacing and composition so type and metadata stay in the second column while the 3D preview sits above physical properties in the third column.
 - Improved Fixture Edit visual resources by combining 3D preview and fixture image into one Preview tab, adding an official GDTF SVG symbol preview above Perastage-generated symbols when available, and increasing GDTF column spacing for readability.
 - Refined Fixture Edit and Truss Edit GDTF editor layouts with compact instance panes, resizable splitters, flatter GDTF sections, larger metadata and preview areas, Fixture visual-resource tabs, and persisted layout preferences while preserving existing apply behavior.
 

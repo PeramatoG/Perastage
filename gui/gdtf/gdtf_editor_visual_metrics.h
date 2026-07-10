@@ -30,6 +30,9 @@ inline int PaneGap(wxWindow *window) { return Dip(window, 8); }
 // Returns the standard gap between flat sections.
 inline int SectionGap(wxWindow *window) { return Dip(window, 10); }
 
+// Returns the wider gutter used between GDTF editor columns.
+inline int ColumnGutter(wxWindow *window) { return Dip(window, 24); }
+
 // Returns the standard internal padding for flat sections.
 inline int SectionPadding(wxWindow *window) { return Dip(window, 6); }
 

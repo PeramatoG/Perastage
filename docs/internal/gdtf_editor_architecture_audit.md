@@ -263,3 +263,6 @@ The current mode/channel text representation remains intentionally unchanged in 
 
 
 Checkpoint 08E1 visual follow-up keeps the two-pane editor architecture but increases gutter spacing between GDTF columns. Fixture visual resources now use two tabs: Preview combines the 3D preview above the fixture image, and Symbols shows an official root-level GDTF SVG thumbnail resource above the three Perastage-generated Top, Front, and Side symbol views when the archive exposes that SVG through the `FixtureType` `Thumbnail` resource.
+
+
+Checkpoint 08E1 truss follow-up changes the right-side Truss workspace into two GDTF columns: the second column contains only Truss type and GDTF metadata, and the third column contains the host-owned 3D preview above the reusable Physical properties section. The reusable composite exposes only a generic workspace header host for this preview and still does not expose child GDTF panels to the dialogs.

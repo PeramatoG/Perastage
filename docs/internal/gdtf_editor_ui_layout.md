@@ -36,15 +36,14 @@ The GDTF specification defines the optional `FixtureType` `Thumbnail` resource a
 Truss Edit uses nested splitters:
 
 1. `contextSplitter`: compact MVR instance pane vs. the right workspace.
-2. `previewSplitter`: 3D Preview above the GDTF area.
-3. `GdtfEditorPanel` internal splitter: Truss type and metadata overview vs. Physical properties workspace.
+2. `GdtfEditorPanel` internal splitter: Truss type and metadata overview vs. a workspace column containing the 3D Preview above Physical properties.
 
 The MVR instance pane is a vertically scrollable compact form titled `MVR instance`.
 
 The Truss GDTF section order is configured with typed placements:
 
 - Overview pane: Truss type, GDTF metadata.
-- Workspace pane: Physical properties.
+- Workspace pane: 3D Preview host followed by Physical properties.
 
 Modes remain hidden in Truss Edit.
 
