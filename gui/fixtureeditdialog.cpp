@@ -517,9 +517,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   gdtfConfiguration.twoPaneInitialRatio = 0.45;
   gdtfConfiguration.twoPaneOrder = {
       {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
-      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
-      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 1},
       {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Fixture type";

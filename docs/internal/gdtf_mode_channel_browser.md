@@ -47,4 +47,6 @@ Core parsing has no wxWidgets dependency and does not use GUI diagnostics. The G
 
 ## Quick channel summary
 
-The Fixture editor keeps a compact read-only Mode channels summary below Physical properties for fast scanning. It is presentation-only and is populated from the same cached hierarchical mode document as the browser. The browser column labelled `Channel name` shows readable logical/function channel names when available; raw offset and break values remain in the details inspector.
+The Fixture editor keeps a compact read-only Mode channels summary below Physical properties for fast scanning. It is presentation-only and is populated from the same cached hierarchical mode document as the browser. The browser column labelled `Channel function` shows readable logical/function channel names when available; raw offset and break values remain in the details inspector.
+
+The quick summary intentionally expands multi-byte channels into separate physical channel rows, such as `1: Pan` and `2: Pan Fine`, while the hierarchical browser can still show the grouped channel function text on the parent DMX Channel row.

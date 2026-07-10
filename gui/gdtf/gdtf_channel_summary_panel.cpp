@@ -20,9 +20,9 @@ GdtfChannelSummaryPanel::GdtfChannelSummaryPanel(wxWindow *parent)
   auto *root = new wxBoxSizer(wxVERTICAL);
   channelListCtrl = new wxTextCtrl(
       this, wxID_ANY, wxString(), wxDefaultPosition,
-      wxSize(-1, gui::gdtf_layout::Dip(this, 150)),
+      wxSize(-1, gui::gdtf_layout::Dip(this, 220)),
       wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
-  channelListCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 120)));
+  channelListCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 180)));
   root->Add(channelListCtrl, 1, wxEXPAND);
   SetSizer(root);
 }
