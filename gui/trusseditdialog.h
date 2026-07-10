@@ -28,6 +28,7 @@
 
 class FixturePreviewPanel;
 class GdtfEditorPanel;
+class wxSplitterWindow;
 class TrussTablePanel;
 namespace gdtf { class GdtfEditSession; }
 
@@ -51,6 +52,8 @@ private:
   bool SetSessionValue(gdtf::GdtfFieldId fieldId, const std::string &value);
   bool ValidateSessionBeforeApply();
   void ClearSessionValidation();
+  void SaveLayoutPreferences();
+  void RestoreLayoutPreferences();
 
   TrussTablePanel *panel = nullptr;
   int row = -1;
@@ -58,6 +61,7 @@ private:
   GdtfEditorPanel *gdtfEditorPanel = nullptr;
   std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
   FixturePreviewPanel *preview = nullptr;
+  wxSplitterWindow *contextSplitter = nullptr;
   std::vector<bool> modifiedColumns;
   bool crossSectionModified = false;
   std::map<gdtf::GdtfFieldId, std::string> rejectedSessionInputs;

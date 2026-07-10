@@ -32,6 +32,8 @@ class FixtureTablePanel;
 class FixturePreviewPanel;
 class wxStaticBitmap;
 class wxPanel;
+class wxNotebook;
+class wxSplitterWindow;
 class GdtfEditorPanel;
 namespace gdtf { class GdtfEditSession; }
 
@@ -59,6 +61,8 @@ private:
     bool SetSessionValue(gdtf::GdtfFieldId fieldId, const std::string& value);
     bool ValidateSessionBeforeApply();
     void ClearSessionValidation();
+    void SaveLayoutPreferences();
+    void RestoreLayoutPreferences();
 
     FixtureTablePanel* panel;
     int row;
@@ -67,6 +71,10 @@ private:
     std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
     FixturePreviewPanel* preview = nullptr;
     wxStaticBitmap* fixtureImagePreview = nullptr;
+    wxStaticBitmap* officialSymbolPreview = nullptr;
+    wxSplitterWindow* contextSplitter = nullptr;
+    wxSplitterWindow* visualSplitter = nullptr;
+    wxNotebook* visualNotebook = nullptr;
     std::array<wxPanel*, 3> symbolPanels{};
     std::array<bool, 3> symbolAvailability{};
     std::array<PerastageSvgSymbolData, 3> symbolData{};

@@ -11,11 +11,18 @@ Changes since **v1.4.0**.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
+- Made Truss Edit open more compactly and gave the official Fixture SVG symbol region the same vertical priority as the generated Top, Front, and Side symbol previews.
+- Improved Truss Edit spacing and composition so type and metadata stay in the second column while the 3D preview sits above physical properties in the third column.
+- Improved Fixture Edit visual resources by combining 3D preview and fixture image into one Preview tab, adding an official GDTF SVG symbol preview above Perastage-generated symbols when available, and increasing GDTF column spacing for readability.
+- Refined Fixture Edit and Truss Edit GDTF editor layouts with compact instance panes, resizable splitters, flatter GDTF sections, larger metadata and preview areas, Fixture visual-resource tabs, and persisted layout preferences while preserving existing apply behavior.
+
 
 - Improved exported truss GDTF files so Perastage-generated or Perastage-normalized trusses use canonical `Manufacturer@Model@Perastage.gdtf` archive names, stricter GDTF truss structure metadata, and preserve edited truss values across save/reopen roundtrips, share edited type metadata across trusses from the same source, and show the active GDTF in the truss model-file column when available, while keeping model-file replacements scoped to the selected trusses.
 - MVR-xchange now labels the default Perastage station with the local computer name, preferring the full host name when available, making it easier to identify in other applications.
 
 ## Fixes
+
+- Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.
 
 - Fixed Fixture Edit GDTF source resolution so project-relative fixture references are resolved before metadata, modes, channels, previews, symbols, thumbnails, and GDTF mutation paths use them, preventing bare file-name open errors after the Checkpoint 08A session binding.
 - Fixed GDTF imports with Unicode resource filenames whose ZIP entries omit UTF-8 filename metadata, allowing affected fixtures to insert with their real models, refresh tables and viewports immediately, reopen without stalling during mode resolution, and report a concise compatibility warning while leaving the original archive unchanged.

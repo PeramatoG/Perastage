@@ -37,7 +37,7 @@ for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel
     exit 1
   fi
   if rg -q "new ${child}\(this\)" "$panel_source"; then
-    echo "GdtfEditorPanel child panels must be parented to their section static boxes, not the composite panel." >&2
+    echo "GdtfEditorPanel child panels must be parented to flat section content hosts." >&2
     exit 1
   fi
 done
@@ -45,31 +45,17 @@ done
 python3 - <<'PY_CHECK'
 from pathlib import Path
 source = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
-checks = [
-    ('metadataSection', 'metadataPanel', 'GdtfMetadataPanel', 'metadataSection->GetStaticBox()'),
-    ('typeIdentitySection', 'typeIdentityPanel', 'GdtfTypeIdentityPanel', 'typeIdentitySection->GetStaticBox()'),
-    ('physicalPropertiesSection', 'physicalPropertiesPanel', 'GdtfPhysicalPropertiesPanel', 'physicalPropertiesSection->GetStaticBox()'),
-    ('modesSection', 'modesPanel', 'GdtfModesPanel', 'modesSection->GetStaticBox()'),
-]
-for section, member, child, parent in checks:
-    section_token = f'{section} = new wxStaticBoxSizer'
-    section_index = source.find(section_token)
-    child_index = source.find(f'{member} =', section_index)
-    new_index = source.find(f'new {child}', child_index)
-    parent_index = source.find(parent, new_index)
-    if (section_index < 0 or child_index < 0 or new_index < 0 or
-            parent_index < 0 or section_index > child_index):
-        raise SystemExit(
-            f'{child} must be created after {section} and parented with {parent}.')
+for section in ['metadataSection', 'typeIdentitySection', 'physicalPropertiesSection', 'modesSection']:
+    if section not in source or f'{section}->Content()' not in source:
+        raise SystemExit(f'{section} must be a flat section with a content host.')
 PY_CHECK
-
-for token in GdtfEditorPanelLayout GdtfEditorSectionConfiguration GdtfEditorPanelConfiguration GdtfEditorPanelPresentation metadataAvailable identityFields physicalFields; do
+for token in GdtfEditorPanelLayout GdtfEditorSection GdtfEditorPane GdtfEditorSectionPlacement GdtfEditorSectionConfiguration GdtfEditorPanelConfiguration GdtfEditorPanelPresentation metadataAvailable identityFields physicalFields; do
   if ! rg -q "$token" "$panel_header"; then
     echo "Missing composite configuration or presentation token: $token" >&2
     exit 1
   fi
 done
-for api in Configure SetPresentation SetUnavailable SetIdentityChangeCallback SetIdentityActionCallback SetPhysicalPropertyChangeCallback SetModeSelectionCallback GetIdentityValue GetPhysicalPropertyValue GetSelectedMode SetIdentityValue SetPhysicalPropertyValue SetPhysicalPropertyValidation SetModesPresentation SetModes SetSelectedMode SetChannelCount SetChannels ClearModeDetails SetMetadata SetMetadataUnavailable; do
+for api in Configure SetPresentation SetUnavailable SetTwoPaneSplitterRatio GetTwoPaneSplitterRatio SetIdentityChangeCallback SetIdentityActionCallback SetPhysicalPropertyChangeCallback SetModeSelectionCallback GetIdentityValue GetPhysicalPropertyValue GetSelectedMode SetIdentityValue SetPhysicalPropertyValue SetPhysicalPropertyValidation SetModesPresentation SetModes SetSelectedMode SetChannelCount SetChannels ClearModeDetails SetMetadata SetMetadataUnavailable; do
   if ! rg -q "$api" "$panel_header"; then
     echo "Missing public forwarding API: $api" >&2
     exit 1
@@ -81,45 +67,24 @@ if ! rg -q "GDTF metadata" "$panel_header" || ! rg -q "Type identity" "$panel_he
   echo "Default section titles must be declared in the typed configuration." >&2
   exit 1
 fi
-if ! rg -q "wxStaticBoxSizer" "$panel_header" "$panel_source"; then
-  echo "Composite sections must use static box sizers for visual grouping." >&2
+if ! rg -q "class GdtfEditorFlatSection" "$panel_source" || ! rg -q "wxStaticLine" "$panel_source"; then
+  echo "Composite sections must use flat title/line containers for visual grouping." >&2
   exit 1
 fi
-if ! rg -q "AddSingleColumnSections" "$panel_source" || ! rg -q "AddTwoColumnSections" "$panel_source"; then
-  echo "Composite must implement deterministic single-column and two-column layouts." >&2
+if rg -q "wxStaticBoxSizer" "$panel_header" "$panel_source"; then
+  echo "Composite sections must not use the previous heavy static-box sections." >&2
   exit 1
 fi
-if ! rg -Fq "SetSizer(rootSizer)" "$panel_source" || \
-   ! rg -Fq "rootSizer->Add(twoColumnSizer, 1, wxEXPAND)" "$panel_source" || \
-   ! rg -Fq "twoColumnSizer->Add(leftColumnSizer" "$panel_source" || \
-   ! rg -Fq "twoColumnSizer->Add(rightColumnSizer" "$panel_source"; then
-  echo "Composite layout container sizers must have stable parent-sizer ownership after construction." >&2
+if ! rg -q "AddSingleColumnSections" "$panel_source" || ! rg -q "AddTwoPaneSections" "$panel_source"; then
+  echo "Composite must implement deterministic single-column and two-pane layouts." >&2
   exit 1
 fi
-if rg -q "Detach\(twoColumnSizer\)|Detach\(leftColumnSizer\)|Detach\(rightColumnSizer\)" "$panel_source"; then
-  echo "Composite layout must not detach permanently owned container sizers." >&2
-  exit 1
-fi
-if ! rg -q "AddSection\(leftColumnSizer, metadataSection" "$panel_source" || \
-   ! rg -q "AddSection\(leftColumnSizer, typeIdentitySection" "$panel_source" || \
-   ! rg -q "AddSection\(rightColumnSizer, physicalPropertiesSection" "$panel_source" || \
-   ! rg -q "AddSection\(rightColumnSizer, modesSection" "$panel_source"; then
-  echo "Two-column layout must keep the documented stable arrangement." >&2
-  exit 1
-fi
-if ! rg -q "AddSection\(root, metadataSection" "$panel_source" || \
-   ! rg -q "AddSection\(root, typeIdentitySection" "$panel_source" || \
-   ! rg -q "AddSection\(root, physicalPropertiesSection" "$panel_source" || \
-   ! rg -q "AddSection\(root, modesSection" "$panel_source"; then
-  echo "Single-column layout must keep the documented stable order." >&2
+if ! rg -q "wxSplitterWindow \*twoPaneSplitter" "$panel_header" || ! rg -q "SplitVertically\(overviewPane, workspacePane" "$panel_source"; then
+  echo "Two-pane GDTF layout must use a native splitter." >&2
   exit 1
 fi
 if ! rg -q "if \(!sectionConfiguration.visible\)" "$panel_source"; then
   echo "Hidden sections must be skipped by layout insertion." >&2
-  exit 1
-fi
-if ! rg -q "modesSection.*1, wxEXPAND" "$panel_source"; then
-  echo "Modes section must be added with growable vertical proportion inside its section." >&2
   exit 1
 fi
 if ! rg -q "gdtf/gdtf_editor_panel.cpp" "$cmake_file"; then
@@ -154,47 +119,6 @@ for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel
     exit 1
   fi
 done
-if ! rg -q "new GdtfEditorPanel\(gdtfGeneralSizer->GetStaticBox\(\)\)" "$fixture_source"; then
-  echo "Fixture Edit must parent its composite to the surrounding static box." >&2
-  exit 1
-fi
-if ! rg -q "new GdtfEditorPanel\(gdtfSizer->GetStaticBox\(\)\)" "$truss_source"; then
-  echo "Truss Edit must parent its composite to the surrounding static box." >&2
-  exit 1
-fi
-if ! rg -q "new wxStaticText\(gdtfGeneralSizer->GetStaticBox\(\)" "$fixture_source"; then
-  echo "Fixture Edit GDTF explanatory text must be parented to the surrounding static box." >&2
-  exit 1
-fi
-if ! rg -q "new wxStaticText\(gdtfSizer->GetStaticBox\(\)" "$truss_source"; then
-  echo "Truss Edit GDTF explanatory text must be parented to the surrounding static box." >&2
-  exit 1
-fi
-for token in \
-  "wxWindow \*fixtureSpecificParent = fixtureSpecificSizer->GetStaticBox\(\)" \
-  "new wxChoice\(fixtureSpecificParent" \
-  "new wxColourPickerCtrl\(fixtureSpecificParent" \
-  "new wxTextCtrl\(fixtureSpecificParent" \
-  "new wxStaticText\(fixtureSpecificParent" \
-  "wxWindow \*symbolParent = symbolSizer->GetStaticBox\(\)" \
-  "new wxStaticText\(symbolParent" \
-  "new wxPanel\(symbolParent" \
-  "new wxStaticBitmap\(imageSizer->GetStaticBox\(\)"; do
-  if ! rg -q "$token" "$fixture_source"; then
-    echo "Fixture Edit static-box contents must use static-box parents: $token" >&2
-    exit 1
-  fi
-done
-for token in \
-  "wxWindow \*mvrParent = mvrSizer->GetStaticBox\(\)" \
-  "new wxTextCtrl\(mvrParent" \
-  "new wxStaticText\(mvrParent" \
-  "new FixturePreviewPanel\(previewSizer->GetStaticBox\(\)"; do
-  if ! rg -q "$token" "$truss_source"; then
-    echo "Truss Edit static-box contents must use static-box parents: $token" >&2
-    exit 1
-  fi
-done
 if ! rg -q "gdtfConfiguration.modes.title = \"Modes and channels\"" "$fixture_source"; then
   echo "Fixture Edit must keep the composite modes section visible with a host title." >&2
   exit 1
@@ -207,34 +131,16 @@ if rg -q "gdtf/gdtf_(metadata|type_identity|physical_properties|modes)_panel\.h"
   echo "Host sources must not include obsolete direct child-panel headers." >&2
   exit 1
 fi
-
-if rg -q "Clear\(false\)" "$panel_source"; then
-  echo "Composite layout must detach reusable sizers instead of clearing and deleting them." >&2
-  exit 1
-fi
-if ! rg -q "DetachReusableLayoutSizers" "$panel_header" "$panel_source" || \
-   ! rg -q "rootSizer->Detach\(metadataSection\)" "$panel_source" || \
-   ! rg -q "rootSizer->Detach\(modesSection\)" "$panel_source" || \
-   ! rg -q "leftColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
-   ! rg -q "leftColumnSizer->Detach\(modesSection\)" "$panel_source" || \
-   ! rg -q "rightColumnSizer->Detach\(metadataSection\)" "$panel_source" || \
-   ! rg -q "rightColumnSizer->Detach\(modesSection\)" "$panel_source"; then
-  echo "Composite layout rebuild must detach reusable section sizers before re-adding them." >&2
-  exit 1
-fi
-if ! rg -Fq "root->Show(twoColumnSizer, false, true)" "$panel_source" || \
-   ! rg -Fq "root->Show(twoColumnSizer, true, true)" "$panel_source"; then
-  echo "Composite layout must hide the stable two-column container in single-column mode and show it in two-column mode." >&2
-  exit 1
-fi
-if rg -q "delete .*Sizer|delete rootSizer|delete twoColumnSizer|delete leftColumnSizer|delete rightColumnSizer" "$panel_source"; then
-  echo "Composite layout must not manually delete wx-owned sizers." >&2
+if rg -q "Clear\(false\)|Reparent\(" "$panel_source"; then
+  echo "Composite layout must not clear reusable windows destructively or reparent them at runtime." >&2
   exit 1
 fi
 
-if rg -q "Fit\(" "$panel_source"; then
-  echo "Composite layout must not repeatedly fit parent windows." >&2
+if ! rg -q "DetachReusableSections" "$panel_header" "$panel_source" || \
+   ! rg -q "overviewSizer->Detach\(metadataSection\)" "$panel_source" || \
+   ! rg -q "workspaceSizer->Detach\(modesSection\)" "$panel_source"; then
+  echo "Composite must detach reusable flat sections before reconfiguring layout." >&2
   exit 1
 fi
 
-echo "OK: GDTF editor panel Checkpoint 07 composition boundary checks passed."
+echo "OK: GDTF editor panel boundary passed."

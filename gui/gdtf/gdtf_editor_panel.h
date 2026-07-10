@@ -6,14 +6,6 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * Perastage is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
 
@@ -28,16 +20,34 @@
 
 #include <wx/panel.h>
 
+class GdtfEditorFlatSection;
 class wxBoxSizer;
-class wxStaticBoxSizer;
+class wxSplitterWindow;
 
 // Selects the top-level arrangement used by the reusable GDTF editor panel.
-enum class GdtfEditorPanelLayout { SingleColumn, TwoColumn };
+enum class GdtfEditorPanelLayout { SingleColumn, TwoPane };
+
+// Identifies a reusable presentation-only GDTF editor section.
+enum class GdtfEditorSection {
+  TypeIdentity,
+  Metadata,
+  PhysicalProperties,
+  Modes
+};
+
+// Identifies a pane in the typed two-pane GDTF editor layout.
+enum class GdtfEditorPane { Overview, Workspace };
 
 struct GdtfEditorSectionConfiguration {
   bool visible = true;
   bool expanded = true;
   std::string title;
+};
+
+struct GdtfEditorSectionPlacement {
+  GdtfEditorPane pane = GdtfEditorPane::Overview;
+  GdtfEditorSection section = GdtfEditorSection::Metadata;
+  int growProportion = 0;
 };
 
 struct GdtfEditorPanelConfiguration {
@@ -47,6 +57,17 @@ struct GdtfEditorPanelConfiguration {
   GdtfEditorSectionConfiguration physicalProperties{true, true,
                                                     "Physical properties"};
   GdtfEditorSectionConfiguration modes{true, true, "Modes and channels"};
+  std::vector<GdtfEditorSectionPlacement> singleColumnOrder{
+      {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
+      {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Modes, 1}};
+  std::vector<GdtfEditorSectionPlacement> twoPaneOrder{
+      {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
+      {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
+  double twoPaneInitialRatio = 0.45;
 };
 
 struct GdtfEditorPanelPresentation {
@@ -64,6 +85,9 @@ public:
   void Configure(const GdtfEditorPanelConfiguration &configuration);
   void SetPresentation(const GdtfEditorPanelPresentation &presentation);
   void SetUnavailable();
+  void SetTwoPaneSplitterRatio(double ratio);
+  double GetTwoPaneSplitterRatio() const;
+  wxWindow *GetWorkspaceHeaderHost() const;
 
   void SetIdentityChangeCallback(GdtfTypeIdentityPanel::ChangeCallback callback);
   void SetIdentityActionCallback(GdtfTypeIdentityPanel::ActionCallback callback);
@@ -97,15 +121,20 @@ public:
 
 private:
   void BuildSections();
-  void ApplySectionConfiguration(wxStaticBoxSizer *section,
-                                 const GdtfEditorSectionConfiguration &configuration);
-  void DetachReusableLayoutSizers();
+  void ApplySectionConfiguration(
+      GdtfEditorFlatSection *section,
+      const GdtfEditorSectionConfiguration &configuration);
+  void DetachReusableSections();
   void RebuildLayout();
-  void AddSection(wxBoxSizer *target, wxStaticBoxSizer *section,
-                  const GdtfEditorSectionConfiguration &configuration,
+  void AddSection(wxBoxSizer *target, GdtfEditorSection section,
                   int growProportion);
-  void AddSingleColumnSections(wxBoxSizer *root);
-  void AddTwoColumnSections(wxBoxSizer *root);
+  void AddSingleColumnSections();
+  void AddTwoPaneSections();
+  wxWindow *InitialParentForSection(GdtfEditorSection section) const;
+  GdtfEditorFlatSection *SectionWindow(GdtfEditorSection section) const;
+  const GdtfEditorSectionConfiguration &SectionConfiguration(
+      GdtfEditorSection section) const;
+  int SectionGrow(const GdtfEditorSectionPlacement &placement) const;
 
   GdtfMetadataPanel *metadataPanel = nullptr;
   GdtfTypeIdentityPanel *typeIdentityPanel = nullptr;
@@ -113,14 +142,17 @@ private:
   GdtfModesPanel *modesPanel = nullptr;
 
   wxBoxSizer *rootSizer = nullptr;
-  wxBoxSizer *twoColumnSizer = nullptr;
-  wxBoxSizer *leftColumnSizer = nullptr;
-  wxBoxSizer *rightColumnSizer = nullptr;
+  wxSplitterWindow *twoPaneSplitter = nullptr;
+  wxPanel *overviewPane = nullptr;
+  wxPanel *workspacePane = nullptr;
+  wxPanel *workspaceHeaderHost = nullptr;
+  wxBoxSizer *overviewSizer = nullptr;
+  wxBoxSizer *workspaceSizer = nullptr;
 
-  wxStaticBoxSizer *metadataSection = nullptr;
-  wxStaticBoxSizer *typeIdentitySection = nullptr;
-  wxStaticBoxSizer *physicalPropertiesSection = nullptr;
-  wxStaticBoxSizer *modesSection = nullptr;
+  GdtfEditorFlatSection *metadataSection = nullptr;
+  GdtfEditorFlatSection *typeIdentitySection = nullptr;
+  GdtfEditorFlatSection *physicalPropertiesSection = nullptr;
+  GdtfEditorFlatSection *modesSection = nullptr;
 
   GdtfEditorPanelConfiguration configuration;
 };

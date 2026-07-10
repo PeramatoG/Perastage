@@ -19,25 +19,26 @@
 
 #include <utility>
 
+#include "gdtf/gdtf_editor_visual_metrics.h"
+
+#include <algorithm>
+
 #include <wx/sizer.h>
-#include <wx/statbox.h>
+#include <wx/splitter.h>
+#include <wx/statline.h>
+#include <wx/stattext.h>
 #include <wx/string.h>
 
-namespace {
-constexpr int kSectionGap = 8;
-constexpr int kSectionPadding = 6;
-}
 
 // Creates the reusable composite GDTF editor panel and its child panels.
-GdtfEditorPanel::GdtfEditorPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
-  BuildSections();
-  RebuildLayout();
-}
+GdtfEditorPanel::GdtfEditorPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {}
 
 // Applies section titles, visibility, and the selected column layout.
 void GdtfEditorPanel::Configure(
     const GdtfEditorPanelConfiguration &newConfiguration) {
   configuration = newConfiguration;
+  if (!rootSizer)
+    BuildSections();
   RebuildLayout();
 }
 
@@ -185,62 +186,108 @@ void GdtfEditorPanel::SetMetadataUnavailable() {
   metadataPanel->SetUnavailable();
 }
 
-// Creates each child panel exactly once and places it inside a section box.
+// Provides a flat titled section without a nested static-box border.
+class GdtfEditorFlatSection : public wxPanel {
+public:
+  GdtfEditorFlatSection(wxWindow *parent, const wxString &title)
+      : wxPanel(parent, wxID_ANY) {
+    auto *root = new wxBoxSizer(wxVERTICAL);
+    titleLabel = new wxStaticText(this, wxID_ANY, title);
+    wxFont titleFont = titleLabel->GetFont();
+    titleFont.SetWeight(wxFONTWEIGHT_BOLD);
+    titleLabel->SetFont(titleFont);
+    root->Add(titleLabel, 0, wxEXPAND | wxBOTTOM,
+              gui::gdtf_layout::SectionPadding(this) / 2);
+    root->Add(new wxStaticLine(this), 0, wxEXPAND | wxBOTTOM,
+              gui::gdtf_layout::SectionPadding(this));
+    content = new wxPanel(this, wxID_ANY);
+    auto *contentSizer = new wxBoxSizer(wxVERTICAL);
+    content->SetSizer(contentSizer);
+    root->Add(content, 1, wxEXPAND);
+    SetSizer(root);
+  }
+
+  // Returns the content host used as the parent for one reusable child panel.
+  wxPanel *Content() const { return content; }
+
+  // Updates the visible section title.
+  void SetTitle(const wxString &title) { titleLabel->SetLabel(title); }
+
+private:
+  wxStaticText *titleLabel = nullptr;
+  wxPanel *content = nullptr;
+};
+
+// Returns the optional host area shown above workspace-pane sections.
+wxWindow *GdtfEditorPanel::GetWorkspaceHeaderHost() const {
+  return workspaceHeaderHost;
+}
+
+// Creates each child panel exactly once and places it inside a flat section.
 void GdtfEditorPanel::BuildSections() {
   rootSizer = new wxBoxSizer(wxVERTICAL);
-  twoColumnSizer = new wxBoxSizer(wxHORIZONTAL);
-  leftColumnSizer = new wxBoxSizer(wxVERTICAL);
-  rightColumnSizer = new wxBoxSizer(wxVERTICAL);
   SetSizer(rootSizer);
 
-  metadataSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
-  typeIdentitySection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
-  physicalPropertiesSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
-  modesSection = new wxStaticBoxSizer(wxVERTICAL, this, wxString());
+  twoPaneSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition,
+                                         wxDefaultSize,
+                                         wxSP_LIVE_UPDATE | wxSP_3DSASH);
+  overviewPane = new wxPanel(twoPaneSplitter, wxID_ANY);
+  workspacePane = new wxPanel(twoPaneSplitter, wxID_ANY);
+  workspaceHeaderHost = new wxPanel(workspacePane, wxID_ANY);
+  workspaceHeaderHost->SetSizer(new wxBoxSizer(wxVERTICAL));
+  overviewSizer = new wxBoxSizer(wxVERTICAL);
+  workspaceSizer = new wxBoxSizer(wxVERTICAL);
+  overviewPane->SetSizer(overviewSizer);
+  workspacePane->SetSizer(workspaceSizer);
+  twoPaneSplitter->SetMinimumPaneSize(
+      gui::gdtf_layout::MinimumOverviewPaneWidth(this));
+  twoPaneSplitter->SplitVertically(overviewPane, workspacePane,
+                                   gui::gdtf_layout::InitialContextPaneWidth(this));
+  rootSizer->Add(twoPaneSplitter, 1, wxEXPAND);
 
-  metadataPanel = new GdtfMetadataPanel(metadataSection->GetStaticBox());
-  typeIdentityPanel =
-      new GdtfTypeIdentityPanel(typeIdentitySection->GetStaticBox());
-  physicalPropertiesPanel = new GdtfPhysicalPropertiesPanel(
-      physicalPropertiesSection->GetStaticBox());
-  modesPanel = new GdtfModesPanel(modesSection->GetStaticBox());
+  metadataSection = new GdtfEditorFlatSection(
+      InitialParentForSection(GdtfEditorSection::Metadata), "GDTF metadata");
+  typeIdentitySection = new GdtfEditorFlatSection(
+      InitialParentForSection(GdtfEditorSection::TypeIdentity), "Type identity");
+  physicalPropertiesSection = new GdtfEditorFlatSection(
+      InitialParentForSection(GdtfEditorSection::PhysicalProperties),
+      "Physical properties");
+  modesSection = new GdtfEditorFlatSection(
+      InitialParentForSection(GdtfEditorSection::Modes), "Modes and channels");
 
-  metadataSection->Add(metadataPanel, 0, wxEXPAND | wxALL, kSectionPadding);
-  typeIdentitySection->Add(typeIdentityPanel, 0, wxEXPAND | wxALL, kSectionPadding);
-  physicalPropertiesSection->Add(physicalPropertiesPanel, 0,
-                                 wxEXPAND | wxALL, kSectionPadding);
-  modesSection->Add(modesPanel, 1, wxEXPAND | wxALL, kSectionPadding);
+  metadataPanel = new GdtfMetadataPanel(metadataSection->Content());
+  typeIdentityPanel = new GdtfTypeIdentityPanel(typeIdentitySection->Content());
+  physicalPropertiesPanel =
+      new GdtfPhysicalPropertiesPanel(physicalPropertiesSection->Content());
+  modesPanel = new GdtfModesPanel(modesSection->Content());
 
-  twoColumnSizer->Add(leftColumnSizer, 1, wxEXPAND | wxRIGHT, kSectionGap);
-  twoColumnSizer->Add(rightColumnSizer, 1, wxEXPAND);
-  rootSizer->Add(twoColumnSizer, 1, wxEXPAND);
+  metadataSection->Content()->GetSizer()->Add(metadataPanel, 1, wxEXPAND);
+  typeIdentitySection->Content()->GetSizer()->Add(typeIdentityPanel, 0,
+                                                  wxEXPAND);
+  physicalPropertiesSection->Content()->GetSizer()->Add(physicalPropertiesPanel,
+                                                        0, wxEXPAND);
+  modesSection->Content()->GetSizer()->Add(modesPanel, 1, wxEXPAND);
 }
 
 // Applies one section label and window visibility from typed configuration.
 void GdtfEditorPanel::ApplySectionConfiguration(
-    wxStaticBoxSizer *section,
+    GdtfEditorFlatSection *section,
     const GdtfEditorSectionConfiguration &sectionConfiguration) {
-  section->GetStaticBox()->SetLabel(wxString::FromUTF8(sectionConfiguration.title));
-  section->ShowItems(sectionConfiguration.visible);
-  section->GetStaticBox()->Show(sectionConfiguration.visible);
+  section->SetTitle(wxString::FromUTF8(sectionConfiguration.title));
+  section->Show(sectionConfiguration.visible);
 }
 
-// Detaches reusable section sizers before rebuilding the layout arrangement.
-void GdtfEditorPanel::DetachReusableLayoutSizers() {
-  rootSizer->Detach(metadataSection);
-  rootSizer->Detach(typeIdentitySection);
-  rootSizer->Detach(physicalPropertiesSection);
-  rootSizer->Detach(modesSection);
-
-  leftColumnSizer->Detach(metadataSection);
-  leftColumnSizer->Detach(typeIdentitySection);
-  leftColumnSizer->Detach(physicalPropertiesSection);
-  leftColumnSizer->Detach(modesSection);
-
-  rightColumnSizer->Detach(metadataSection);
-  rightColumnSizer->Detach(typeIdentitySection);
-  rightColumnSizer->Detach(physicalPropertiesSection);
-  rightColumnSizer->Detach(modesSection);
+// Detaches reusable section windows before rebuilding the layout arrangement.
+void GdtfEditorPanel::DetachReusableSections() {
+  overviewSizer->Detach(metadataSection);
+  overviewSizer->Detach(typeIdentitySection);
+  overviewSizer->Detach(physicalPropertiesSection);
+  overviewSizer->Detach(modesSection);
+  workspaceSizer->Detach(workspaceHeaderHost);
+  workspaceSizer->Detach(metadataSection);
+  workspaceSizer->Detach(typeIdentitySection);
+  workspaceSizer->Detach(physicalPropertiesSection);
+  workspaceSizer->Detach(modesSection);
 }
 
 // Rebuilds only the top-level sizer arrangement while preserving child panels.
@@ -251,41 +298,127 @@ void GdtfEditorPanel::RebuildLayout() {
                             configuration.physicalProperties);
   ApplySectionConfiguration(modesSection, configuration.modes);
 
-  DetachReusableLayoutSizers();
+  DetachReusableSections();
 
-  if (configuration.layout == GdtfEditorPanelLayout::TwoColumn)
-    AddTwoColumnSections(rootSizer);
-  else
-    AddSingleColumnSections(rootSizer);
+  const bool useTwoPane = configuration.layout == GdtfEditorPanelLayout::TwoPane;
+  if (useTwoPane) {
+    if (!twoPaneSplitter->IsSplit())
+      twoPaneSplitter->SplitVertically(overviewPane, workspacePane);
+    AddTwoPaneSections();
+  } else {
+    if (twoPaneSplitter->IsSplit())
+      twoPaneSplitter->Unsplit(workspacePane);
+    AddSingleColumnSections();
+  }
 
   Layout();
 }
 
 // Adds a visible section to a target sizer with deterministic grow behavior.
-void GdtfEditorPanel::AddSection(wxBoxSizer *target, wxStaticBoxSizer *section,
-                                 const GdtfEditorSectionConfiguration &sectionConfiguration,
+void GdtfEditorPanel::AddSection(wxBoxSizer *target, GdtfEditorSection section,
                                  int growProportion) {
+  const auto &sectionConfiguration = SectionConfiguration(section);
   if (!sectionConfiguration.visible)
     return;
-  target->Add(section, sectionConfiguration.expanded ? growProportion : 0,
-              wxEXPAND | wxBOTTOM, kSectionGap);
+  int borderFlags = wxEXPAND | wxBOTTOM;
+  int border = gui::gdtf_layout::SectionGap(this);
+  if (configuration.layout == GdtfEditorPanelLayout::TwoPane) {
+    borderFlags |= wxLEFT | wxRIGHT;
+    border = gui::gdtf_layout::ColumnGutter(this);
+  }
+  target->Add(SectionWindow(section),
+              sectionConfiguration.expanded ? growProportion : 0, borderFlags,
+              border);
 }
 
-// Adds visible sections in the documented single-column order.
-void GdtfEditorPanel::AddSingleColumnSections(wxBoxSizer *root) {
-  root->Show(twoColumnSizer, false, true);
-  AddSection(root, metadataSection, configuration.metadata, 0);
-  AddSection(root, typeIdentitySection, configuration.typeIdentity, 0);
-  AddSection(root, physicalPropertiesSection, configuration.physicalProperties, 0);
-  AddSection(root, modesSection, configuration.modes, 1);
+// Adds visible sections in the configured single-column order.
+void GdtfEditorPanel::AddSingleColumnSections() {
+  for (const auto &placement : configuration.singleColumnOrder)
+    AddSection(overviewSizer, placement.section, SectionGrow(placement));
 }
 
-// Adds visible sections in the documented balanced two-column arrangement.
-void GdtfEditorPanel::AddTwoColumnSections(wxBoxSizer *root) {
-  AddSection(leftColumnSizer, metadataSection, configuration.metadata, 0);
-  AddSection(leftColumnSizer, typeIdentitySection, configuration.typeIdentity, 0);
-  AddSection(rightColumnSizer, physicalPropertiesSection,
-             configuration.physicalProperties, 0);
-  AddSection(rightColumnSizer, modesSection, configuration.modes, 1);
-  root->Show(twoColumnSizer, true, true);
+// Adds visible sections in the configured overview/workspace pane order.
+void GdtfEditorPanel::AddTwoPaneSections() {
+  if (workspaceHeaderHost && !workspaceHeaderHost->GetChildren().IsEmpty())
+    workspaceSizer->Add(workspaceHeaderHost, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
+                        gui::gdtf_layout::ColumnGutter(this));
+  for (const auto &placement : configuration.twoPaneOrder) {
+    wxBoxSizer *target = placement.pane == GdtfEditorPane::Overview
+                             ? overviewSizer
+                             : workspaceSizer;
+    AddSection(target, placement.section, SectionGrow(placement));
+  }
+  SetTwoPaneSplitterRatio(configuration.twoPaneInitialRatio);
+}
+
+
+// Returns the initial pane parent for a section from typed placement.
+wxWindow *GdtfEditorPanel::InitialParentForSection(
+    GdtfEditorSection section) const {
+  if (configuration.layout != GdtfEditorPanelLayout::TwoPane)
+    return overviewPane;
+  for (const auto &placement : configuration.twoPaneOrder) {
+    if (placement.section == section)
+      return placement.pane == GdtfEditorPane::Workspace ? workspacePane
+                                                         : overviewPane;
+  }
+  return overviewPane;
+}
+
+// Returns the flat section window for a typed section identifier.
+GdtfEditorFlatSection *GdtfEditorPanel::SectionWindow(
+    GdtfEditorSection section) const {
+  switch (section) {
+  case GdtfEditorSection::TypeIdentity:
+    return typeIdentitySection;
+  case GdtfEditorSection::Metadata:
+    return metadataSection;
+  case GdtfEditorSection::PhysicalProperties:
+    return physicalPropertiesSection;
+  case GdtfEditorSection::Modes:
+    return modesSection;
+  }
+  return metadataSection;
+}
+
+// Returns the configuration for a typed section identifier.
+const GdtfEditorSectionConfiguration &
+GdtfEditorPanel::SectionConfiguration(GdtfEditorSection section) const {
+  switch (section) {
+  case GdtfEditorSection::TypeIdentity:
+    return configuration.typeIdentity;
+  case GdtfEditorSection::Metadata:
+    return configuration.metadata;
+  case GdtfEditorSection::PhysicalProperties:
+    return configuration.physicalProperties;
+  case GdtfEditorSection::Modes:
+    return configuration.modes;
+  }
+  return configuration.metadata;
+}
+
+// Returns the grow proportion requested by one placement.
+int GdtfEditorPanel::SectionGrow(
+    const GdtfEditorSectionPlacement &placement) const {
+  return std::max(0, placement.growProportion);
+}
+
+// Restores the internal two-pane splitter ratio after panes exist.
+void GdtfEditorPanel::SetTwoPaneSplitterRatio(double ratio) {
+  if (!twoPaneSplitter || !twoPaneSplitter->IsSplit())
+    return;
+  const int total = twoPaneSplitter->GetClientSize().GetWidth();
+  const int minFirst = gui::gdtf_layout::MinimumOverviewPaneWidth(this);
+  const int minSecond = gui::gdtf_layout::MinimumWorkspacePaneWidth(this);
+  twoPaneSplitter->SetSashPosition(
+      gui::gdtf_layout::RatioToSash(total, minFirst, minSecond, ratio));
+}
+
+// Returns the current internal two-pane splitter ratio.
+double GdtfEditorPanel::GetTwoPaneSplitterRatio() const {
+  if (!twoPaneSplitter)
+    return configuration.twoPaneInitialRatio;
+  return gui::gdtf_layout::SashToRatio(
+      twoPaneSplitter->GetSashPosition(), twoPaneSplitter->GetClientSize().GetWidth(),
+      configuration.twoPaneInitialRatio);
 }

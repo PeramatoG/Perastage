@@ -24,6 +24,8 @@
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_editor_layout_preferences.h"
+#include "gdtf/gdtf_editor_visual_metrics.h"
 #include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_metadata_summary.h"
@@ -49,6 +51,7 @@
 #include <tinyxml2.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <wx/bmpbndl.h>
 #include <wx/clrpicker.h>
 #include <wx/datetime.h>
 #include <wx/dcbuffer.h>
@@ -57,7 +60,11 @@
 #include <wx/graphics.h>
 #include <wx/log.h>
 #include <wx/mstream.h>
+#include <wx/notebook.h>
+#include <wx/scrolwin.h>
+#include <wx/splitter.h>
 #include <wx/wfstream.h>
+#include <wx/statline.h>
 #include <wx/zipstrm.h>
 
 namespace {
@@ -226,6 +233,75 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
   return false;
 }
 
+// Loads the official SVG thumbnail resource from the GDTF archive root.
+bool LoadGdtfOfficialSvgSymbol(const std::string &gdtfPath,
+                               wxBitmap &outBitmap) {
+  if (gdtfPath.empty())
+    return false;
+
+  wxFileInputStream input(wxString::FromUTF8(gdtfPath));
+  if (!input.IsOk())
+    return false;
+
+  wxZipInputStream zipInput(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::unordered_map<std::string, std::string> entries;
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    wxString name = entry->GetName();
+    std::string content;
+    char buffer[4096];
+    while (true) {
+      zipInput.Read(buffer, sizeof(buffer));
+      size_t count = zipInput.LastRead();
+      if (count == 0)
+        break;
+      content.append(buffer, buffer + count);
+    }
+    entries.emplace(std::string(name.ToUTF8()), std::move(content));
+  }
+
+  auto descriptionIt = entries.find("description.xml");
+  if (descriptionIt == entries.end())
+    return false;
+
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(descriptionIt->second.c_str(), descriptionIt->second.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    return false;
+  }
+
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  else
+    fixtureType = doc.FirstChildElement("FixtureType");
+  if (!fixtureType)
+    return false;
+
+  const char *thumbnailAttr = fixtureType->Attribute("Thumbnail");
+  const std::string thumbnailBase = thumbnailAttr ? thumbnailAttr : "";
+  if (thumbnailBase.empty())
+    return false;
+
+  std::vector<std::string> candidates;
+  candidates.push_back(thumbnailBase);
+  candidates.push_back(thumbnailBase + ".svg");
+  for (const auto &candidate : candidates) {
+    if (candidate.find('/') != std::string::npos ||
+        candidate.find('\\') != std::string::npos)
+      continue;
+    auto it = entries.find(candidate);
+    if (it == entries.end())
+      continue;
+    const wxSize desiredSize(220, 220);
+    wxBitmapBundle bundle =
+        wxBitmapBundle::FromSVG(it->second.c_str(), desiredSize);
+    outBitmap = bundle.GetBitmap(desiredSize);
+    return outBitmap.IsOk();
+  }
+  return false;
+}
+
 
 } // namespace
 
@@ -311,18 +387,27 @@ std::filesystem::path FixtureEditDialog::GetActiveResolvedGdtfPath() const {
 
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
-               wxSize(900, 740)),
+               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       panel(p), row(r) {
   BuildEditSession();
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
-  wxBoxSizer *hSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxStaticBoxSizer *fixtureSpecificSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "Fixture-specific");
-  wxStaticBoxSizer *gdtfGeneralSizer = new wxStaticBoxSizer(
-      wxVERTICAL, this, "GDTF (shared for this fixture type)");
-  wxFlexGridSizer *fixtureGrid = new wxFlexGridSizer(2, 5, 5);
+  auto *contentPanel = new wxPanel(this, wxID_ANY);
+  auto *contentSizer = new wxBoxSizer(wxVERTICAL);
+  contentPanel->SetSizer(contentSizer);
+  contextSplitter = new wxSplitterWindow(contentPanel, wxID_ANY, wxDefaultPosition,
+                                         wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3DSASH);
+  auto *fixtureScroll = new wxScrolledWindow(contextSplitter, wxID_ANY);
+  fixtureScroll->SetScrollRate(0, gui::gdtf_layout::Dip(this, 12));
+  auto *fixtureSpecificSizer = new wxBoxSizer(wxVERTICAL);
+  fixtureScroll->SetSizer(fixtureSpecificSizer);
+  auto *fixtureTitle = new wxStaticText(fixtureScroll, wxID_ANY, "Fixture instance");
+  wxFont fixtureTitleFont = fixtureTitle->GetFont();
+  fixtureTitleFont.SetWeight(wxFONTWEIGHT_BOLD);
+  fixtureTitle->SetFont(fixtureTitleFont);
+  fixtureSpecificSizer->Add(fixtureTitle, 0, wxEXPAND | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
+  wxFlexGridSizer *fixtureGrid = new wxFlexGridSizer(2, gui::gdtf_layout::CompactFieldGap(this), gui::gdtf_layout::CompactLabelGap(this));
   fixtureGrid->AddGrowableCol(1, 1);
-  wxWindow *fixtureSpecificParent = fixtureSpecificSizer->GetStaticBox();
+  wxWindow *fixtureSpecificParent = fixtureScroll;
 
   auto *table = panel->table; // friend access
   ctrls.resize(panel->columnLabels.size(), nullptr);
@@ -416,9 +501,23 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   table->GetValue(modeValue, row, FixtureTableColumns::ToIndex(
                                FixtureTableColumns::Column::Mode));
 
-  gdtfEditorPanel = new GdtfEditorPanel(gdtfGeneralSizer->GetStaticBox());
+  auto *workspacePanel = new wxPanel(contextSplitter, wxID_ANY);
+  auto *workspaceSizer = new wxBoxSizer(wxVERTICAL);
+  workspacePanel->SetSizer(workspaceSizer);
+  visualSplitter = new wxSplitterWindow(workspacePanel, wxID_ANY, wxDefaultPosition,
+                                        wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3DSASH);
+  auto *gdtfPanelHost = new wxPanel(visualSplitter, wxID_ANY);
+  auto *gdtfHostSizer = new wxBoxSizer(wxVERTICAL);
+  gdtfPanelHost->SetSizer(gdtfHostSizer);
+  gdtfEditorPanel = new GdtfEditorPanel(gdtfPanelHost);
   GdtfEditorPanelConfiguration gdtfConfiguration;
-  gdtfConfiguration.layout = GdtfEditorPanelLayout::SingleColumn;
+  gdtfConfiguration.layout = GdtfEditorPanelLayout::TwoPane;
+  gdtfConfiguration.twoPaneInitialRatio = 0.45;
+  gdtfConfiguration.twoPaneOrder = {
+      {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
+      {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Fixture type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
@@ -498,31 +597,45 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     UpdateChannels(true);
   });
 
-  fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, 6);
+  fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  fixtureScroll->SetMinSize(wxSize(gui::gdtf_layout::MinimumContextPaneWidth(this), -1));
 
-  gdtfGeneralSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, 6);
-  gdtfGeneralSizer->Add(new wxStaticText(gdtfGeneralSizer->GetStaticBox(), wxID_ANY,
-                                         "Type, source, and mode controls select project fixture context. Power and weight edits update the GDTF file and append a revision entry."),
-                        0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
+  gdtfHostSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  gdtfHostSizer->Add(new wxStaticText(gdtfPanelHost, wxID_ANY,
+                                      "Type, source, and mode controls select project fixture context. Power and weight edits update the GDTF file and append a revision entry."),
+                     0, wxLEFT | wxRIGHT | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
 
-  wxBoxSizer *formSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxBoxSizer *leftColumnSizer = new wxBoxSizer(wxVERTICAL);
-  leftColumnSizer->SetMinSize(wxSize(320, -1));
-  leftColumnSizer->Add(fixtureSpecificSizer, 1, wxEXPAND);
-  gdtfGeneralSizer->SetMinSize(wxSize(320, -1));
-  formSizer->Add(leftColumnSizer, 1, wxRIGHT | wxEXPAND, 8);
-  formSizer->Add(gdtfGeneralSizer, 1, wxLEFT | wxEXPAND, 8);
-  formSizer->SetMinSize(wxSize(680, -1));
-  hSizer->Add(formSizer, 3, wxALL | wxEXPAND, 10);
+  auto *visualPanel = new wxPanel(visualSplitter, wxID_ANY);
+  auto *visualSizer = new wxBoxSizer(wxVERTICAL);
+  visualPanel->SetSizer(visualSizer);
+  visualNotebook = new wxNotebook(visualPanel, wxID_ANY);
+  auto *previewPage = new wxPanel(visualNotebook, wxID_ANY);
+  auto *previewSizer = new wxBoxSizer(wxVERTICAL);
+  previewPage->SetSizer(previewSizer);
+  preview = new FixturePreviewPanel(previewPage);
+  preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumVisualPaneWidth(this),
+                             gui::gdtf_layout::MinimumPreviewHeight(this)));
+  previewSizer->Add(preview, 2, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  previewSizer->Add(new wxStaticLine(previewPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
+                    gui::gdtf_layout::SectionPadding(this));
+  fixtureImagePreview = new wxStaticBitmap(previewPage, wxID_ANY, wxBitmap(220, 220));
+  previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
+                    gui::gdtf_layout::SectionPadding(this));
+  visualNotebook->AddPage(previewPage, "Preview");
 
-  wxBoxSizer *rightSizer = new wxBoxSizer(wxVERTICAL);
-  preview = new FixturePreviewPanel(this);
-  preview->SetMinSize(wxSize(240, 220));
-  rightSizer->Add(preview, 1, wxEXPAND | wxBOTTOM, 5);
-
-  wxStaticBoxSizer *symbolSizer =
-      new wxStaticBoxSizer(wxHORIZONTAL, this, "Symbols");
-  wxWindow *symbolParent = symbolSizer->GetStaticBox();
+  auto *symbolPage = new wxPanel(visualNotebook, wxID_ANY);
+  wxBoxSizer *symbolRootSizer = new wxBoxSizer(wxVERTICAL);
+  symbolPage->SetSizer(symbolRootSizer);
+  officialSymbolPreview =
+      new wxStaticBitmap(symbolPage, wxID_ANY, wxBitmap(220, 220));
+  symbolRootSizer->Add(officialSymbolPreview, 1, wxALIGN_CENTER | wxALL,
+                       gui::gdtf_layout::SectionPadding(this));
+  symbolRootSizer->Add(new wxStaticLine(symbolPage), 0, wxEXPAND | wxLEFT | wxRIGHT,
+                       gui::gdtf_layout::SectionPadding(this));
+  wxBoxSizer *symbolSizer = new wxBoxSizer(wxHORIZONTAL);
+  symbolRootSizer->Add(symbolSizer, 1, wxEXPAND | wxALL,
+                       gui::gdtf_layout::SectionPadding(this));
+  wxWindow *symbolParent = symbolPage;
   const std::array<wxString, 3> symbolLabels = {"Top", "Front", "Side"};
   for (size_t i = 0; i < symbolPanels.size(); ++i) {
     wxBoxSizer *symbolColumn = new wxBoxSizer(wxVERTICAL);
@@ -536,33 +649,37 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     symbolColumn->Add(symbolPanels[i], 1, wxEXPAND);
     symbolSizer->Add(symbolColumn, 1, wxEXPAND | wxRIGHT, i < 2 ? 6 : 0);
   }
-  rightSizer->Add(symbolSizer, 0, wxEXPAND | wxBOTTOM, 5);
+  visualNotebook->AddPage(symbolPage, "Symbols");
 
-  wxStaticBoxSizer *imageSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "Fixture image");
-  fixtureImagePreview = new wxStaticBitmap(imageSizer->GetStaticBox(), wxID_ANY,
-                                           wxBitmap(220, 220));
-  imageSizer->Add(fixtureImagePreview, 0, wxALIGN_CENTER | wxALL, 4);
-  rightSizer->Add(imageSizer, 0, wxEXPAND | wxBOTTOM, 5);
-  rightSizer->SetMinSize(wxSize(280, -1));
+  visualSizer->Add(visualNotebook, 1, wxEXPAND);
+  visualPanel->SetMinSize(wxSize(gui::gdtf_layout::MinimumVisualPaneWidth(this), -1));
 
-  hSizer->Add(rightSizer, 0, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 10);
-
-  topSizer->Add(hSizer, 1, wxEXPAND);
+  visualSplitter->SplitVertically(gdtfPanelHost, visualPanel);
+  visualSplitter->SetMinimumPaneSize(gui::gdtf_layout::MinimumVisualPaneWidth(this));
+  workspaceSizer->Add(visualSplitter, 1, wxEXPAND);
+  contextSplitter->SplitVertically(fixtureScroll, workspacePanel);
+  contextSplitter->SetMinimumPaneSize(gui::gdtf_layout::MinimumContextPaneWidth(this));
+  contentSizer->Add(contextSplitter, 1, wxEXPAND);
+  topSizer->Add(contentPanel, 1, wxEXPAND | wxALL, gui::gdtf_layout::OuterMargin(this));
 
   wxStdDialogButtonSizer *btns = new wxStdDialogButtonSizer();
   btns->AddButton(new wxButton(this, wxID_APPLY));
   btns->AddButton(new wxButton(this, wxID_OK));
   btns->AddButton(new wxButton(this, wxID_CANCEL));
   btns->Realize();
-  topSizer->Add(btns, 0, wxALL | wxEXPAND, 10);
+  topSizer->Add(btns, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, gui::gdtf_layout::ButtonRowMargin(this));
 
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnApply, this, wxID_APPLY);
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnOk, this, wxID_OK);
   Bind(wxEVT_BUTTON, &FixtureEditDialog::OnCancel, this, wxID_CANCEL);
+  Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent &event) {
+    SaveLayoutPreferences();
+    event.Skip();
+  });
 
-  SetSizerAndFit(topSizer);
-  SetMinSize(GetSize());
+  SetSizer(topSizer);
+  RestoreLayoutPreferences();
+  SetMinSize(gui::gdtf_layout::ClampDialogSize(this, wxSize(1100, 700), wxSize(1100, 700), wxSize(1, 1)));
   UpdateChannels(false);
   UpdateVisualizers();
   UpdateMetadataSummary();
@@ -847,6 +964,25 @@ void FixtureEditDialog::UpdateVisualizers() {
       symbolPanels[i]->Refresh();
   }
 
+  if (officialSymbolPreview) {
+    wxBitmap officialSymbol;
+    if (LoadGdtfOfficialSvgSymbol(path, officialSymbol)) {
+      officialSymbolPreview->SetBitmap(officialSymbol);
+      officialSymbolPreview->SetToolTip("Official GDTF SVG thumbnail resource.");
+    } else {
+      wxBitmap fallback(220, 220);
+      wxMemoryDC dc(fallback);
+      dc.SetBackground(*wxLIGHT_GREY_BRUSH);
+      dc.Clear();
+      dc.SetTextForeground(*wxBLACK);
+      dc.DrawLabel("No official SVG", wxRect(0, 0, 220, 220), wxALIGN_CENTER);
+      dc.SelectObject(wxNullBitmap);
+      officialSymbolPreview->SetBitmap(fallback);
+      officialSymbolPreview->SetToolTip(
+          "No official SVG thumbnail resource found in this GDTF.");
+    }
+  }
+
   if (fixtureImagePreview) {
     wxBitmap image;
     if (LoadGdtfThumbnail(path, image)) {
@@ -908,15 +1044,60 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   (void)markChannelCountDirty;
 }
 
+
+// Saves the Fixture Edit visual layout preferences on dialog close paths.
+void FixtureEditDialog::SaveLayoutPreferences() {
+  auto &config = GetDefaultGuiConfigServices().LegacyConfigManager();
+  gui::gdtf_layout::FixtureLayoutPreferences preferences;
+  preferences.dialogSize = GetSize();
+  if (contextSplitter)
+    preferences.contextRatio = gui::gdtf_layout::SashToRatio(
+        contextSplitter->GetSashPosition(), contextSplitter->GetClientSize().GetWidth(), 0.2);
+  if (visualSplitter)
+    preferences.visualRatio = gui::gdtf_layout::SashToRatio(
+        visualSplitter->GetSashPosition(), visualSplitter->GetClientSize().GetWidth(), 0.75);
+  if (gdtfEditorPanel)
+    preferences.gdtfRatio = gdtfEditorPanel->GetTwoPaneSplitterRatio();
+  if (visualNotebook)
+    preferences.visualTab = visualNotebook->GetSelection();
+  gui::gdtf_layout::SaveFixtureLayoutPreferences(config, preferences);
+}
+
+// Restores Fixture Edit size, splitters, and visual tab with display clamping.
+void FixtureEditDialog::RestoreLayoutPreferences() {
+  auto &config = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto preferences = gui::gdtf_layout::LoadFixtureLayoutPreferences(config, this);
+  SetSize(preferences.dialogSize);
+  Layout();
+  if (contextSplitter)
+    contextSplitter->SetSashPosition(gui::gdtf_layout::RatioToSash(
+        contextSplitter->GetClientSize().GetWidth(),
+        gui::gdtf_layout::MinimumContextPaneWidth(this),
+        gui::gdtf_layout::MinimumWorkspacePaneWidth(this), preferences.contextRatio));
+  if (visualSplitter)
+    visualSplitter->SetSashPosition(gui::gdtf_layout::RatioToSash(
+        visualSplitter->GetClientSize().GetWidth(),
+        gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
+        gui::gdtf_layout::MinimumVisualPaneWidth(this), preferences.visualRatio));
+  if (gdtfEditorPanel)
+    gdtfEditorPanel->SetTwoPaneSplitterRatio(preferences.gdtfRatio);
+  if (visualNotebook)
+    visualNotebook->SetSelection(preferences.visualTab);
+}
+
 void FixtureEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
 
 void FixtureEditDialog::OnOk(wxCommandEvent &) {
   if (!ApplyChanges())
     return;
+  SaveLayoutPreferences();
   EndModal(wxID_OK);
 }
 
-void FixtureEditDialog::OnCancel(wxCommandEvent &) { EndModal(wxID_CANCEL); }
+void FixtureEditDialog::OnCancel(wxCommandEvent &) {
+  SaveLayoutPreferences();
+  EndModal(wxID_CANCEL);
+}
 
 // Applies fixture edits only after GDTF adapter preparation succeeds.
 bool FixtureEditDialog::ApplyChanges() {

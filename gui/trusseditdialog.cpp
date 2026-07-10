@@ -21,6 +21,8 @@
 #include "fixturepreviewpanel.h"
 #include "filesystem_path_utils.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_editor_layout_preferences.h"
+#include "gdtf/gdtf_editor_visual_metrics.h"
 #include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtf/editor/gdtf_document.h"
@@ -39,6 +41,9 @@
 #include <algorithm>
 #include <filesystem>
 #include <optional>
+
+#include <wx/scrolwin.h>
+#include <wx/splitter.h>
 
 namespace {
 using TrussColumn = TrussTableColumns::Column;
@@ -95,19 +100,27 @@ void TrussEditDialog::BuildEditSession() {
 
 // Builds the truss editing dialog with MVR and GDTF fields.
 TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
-    : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxSize(980, 720)),
+    : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxDefaultSize,
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       panel(p), row(r) {
   BuildEditSession();
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
+  auto *contentPanel = new wxPanel(this, wxID_ANY);
   wxBoxSizer *contentSizer = new wxBoxSizer(wxVERTICAL);
-  wxBoxSizer *topRowSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxBoxSizer *bottomRowSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxStaticBoxSizer *mvrSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "MVR instance");
-  wxStaticBoxSizer *gdtfSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "GDTF truss type");
-  wxWindow *mvrParent = mvrSizer->GetStaticBox();
-  wxFlexGridSizer *mvrGrid = new wxFlexGridSizer(2, 5, 5);
+  contentPanel->SetSizer(contentSizer);
+  contextSplitter = new wxSplitterWindow(contentPanel, wxID_ANY, wxDefaultPosition,
+                                         wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3DSASH);
+  auto *mvrScroll = new wxScrolledWindow(contextSplitter, wxID_ANY);
+  mvrScroll->SetScrollRate(0, gui::gdtf_layout::Dip(this, 12));
+  auto *mvrSizer = new wxBoxSizer(wxVERTICAL);
+  mvrScroll->SetSizer(mvrSizer);
+  auto *mvrTitle = new wxStaticText(mvrScroll, wxID_ANY, "MVR instance");
+  wxFont mvrTitleFont = mvrTitle->GetFont();
+  mvrTitleFont.SetWeight(wxFONTWEIGHT_BOLD);
+  mvrTitle->SetFont(mvrTitleFont);
+  mvrSizer->Add(mvrTitle, 0, wxEXPAND | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
+  wxWindow *mvrParent = mvrScroll;
+  wxFlexGridSizer *mvrGrid = new wxFlexGridSizer(2, gui::gdtf_layout::CompactFieldGap(this), gui::gdtf_layout::CompactLabelGap(this));
   mvrGrid->AddGrowableCol(1, 1);
 
   auto *table = panel->table;
@@ -144,13 +157,28 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     return std::string(value.GetString().ToUTF8());
   };
 
-  gdtfEditorPanel = new GdtfEditorPanel(gdtfSizer->GetStaticBox());
+  auto *rightWorkspace = new wxPanel(contextSplitter, wxID_ANY);
+  auto *rightWorkspaceSizer = new wxBoxSizer(wxVERTICAL);
+  rightWorkspace->SetSizer(rightWorkspaceSizer);
+  gdtfEditorPanel = new GdtfEditorPanel(rightWorkspace);
   GdtfEditorPanelConfiguration gdtfConfiguration;
-  gdtfConfiguration.layout = GdtfEditorPanelLayout::SingleColumn;
+  gdtfConfiguration.layout = GdtfEditorPanelLayout::TwoPane;
+  gdtfConfiguration.twoPaneInitialRatio = 0.55;
+  gdtfConfiguration.twoPaneOrder = {
+      {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
+      {GdtfEditorPane::Workspace, GdtfEditorSection::PhysicalProperties, 0}};
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Truss type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
   gdtfConfiguration.modes.visible = false;
+  gdtfEditorPanel->Configure(gdtfConfiguration);
+  wxWindow *previewHost = gdtfEditorPanel->GetWorkspaceHeaderHost();
+  wxSizer *previewSizer = previewHost->GetSizer();
+  preview = new FixturePreviewPanel(previewHost);
+  preview->SetMinSize(wxSize(gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
+                             gui::gdtf_layout::Dip(this, 160)));
+  previewSizer->Add(preview, 1, wxEXPAND);
   gdtfEditorPanel->Configure(gdtfConfiguration);
   const auto &sessionValues =
       gdtfEditSession ? gdtfEditSession->CurrentValues()
@@ -230,40 +258,38 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
           SetSessionValue(*fieldId, value);
       });
 
-  mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, 6);
-  gdtfSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, 6);
-  gdtfSizer->Add(
-      new wxStaticText(gdtfSizer->GetStaticBox(), wxID_ANY,
+  mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  mvrScroll->SetMinSize(wxSize(gui::gdtf_layout::MinimumContextPaneWidth(this), -1));
+  rightWorkspaceSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL,
+                           gui::gdtf_layout::SectionPadding(this));
+  rightWorkspaceSizer->Add(
+      new wxStaticText(rightWorkspace, wxID_ANY,
                        "Editing these fields creates or updates the truss "
                        "GDTF. MVR-only fields remain project-scoped."),
-      0, wxLEFT | wxRIGHT | wxBOTTOM, 6);
-  wxStaticBoxSizer *previewSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "3D preview");
-  previewSizer->SetMinSize(wxSize(360, 190));
-  preview = new FixturePreviewPanel(previewSizer->GetStaticBox());
-  preview->SetMinSize(wxSize(320, 160));
-  previewSizer->Add(preview, 1, wxEXPAND | wxALL, 6);
-
-  topRowSizer->Add(previewSizer, 1, wxEXPAND | wxALL, 10);
-  bottomRowSizer->Add(mvrSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
-  bottomRowSizer->Add(gdtfSizer, 1, wxEXPAND | wxRIGHT | wxBOTTOM, 10);
-  contentSizer->Add(topRowSizer, 0, wxEXPAND);
-  contentSizer->Add(bottomRowSizer, 1, wxEXPAND);
-  topSizer->Add(contentSizer, 1, wxEXPAND);
+      0, wxLEFT | wxRIGHT | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
+  contextSplitter->SplitVertically(mvrScroll, rightWorkspace);
+  contextSplitter->SetMinimumPaneSize(gui::gdtf_layout::MinimumContextPaneWidth(this));
+  contentSizer->Add(contextSplitter, 1, wxEXPAND);
+  topSizer->Add(contentPanel, 1, wxEXPAND | wxALL, gui::gdtf_layout::OuterMargin(this));
 
   wxStdDialogButtonSizer *buttons = new wxStdDialogButtonSizer();
   buttons->AddButton(new wxButton(this, wxID_APPLY));
   buttons->AddButton(new wxButton(this, wxID_OK));
   buttons->AddButton(new wxButton(this, wxID_CANCEL));
   buttons->Realize();
-  topSizer->Add(buttons, 0, wxALL | wxEXPAND, 10);
+  topSizer->Add(buttons, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, gui::gdtf_layout::ButtonRowMargin(this));
 
   Bind(wxEVT_BUTTON, &TrussEditDialog::OnApply, this, wxID_APPLY);
   Bind(wxEVT_BUTTON, &TrussEditDialog::OnOk, this, wxID_OK);
   Bind(wxEVT_BUTTON, &TrussEditDialog::OnCancel, this, wxID_CANCEL);
+  Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent &event) {
+    SaveLayoutPreferences();
+    event.Skip();
+  });
 
-  SetSizerAndFit(topSizer);
-  SetMinSize(GetSize());
+  SetSizer(topSizer);
+  RestoreLayoutPreferences();
+  SetMinSize(gui::gdtf_layout::ClampDialogSize(this, wxSize(900, 560), wxSize(900, 560), wxSize(1, 1)));
   UpdateMetadataSummary();
   UpdatePreview();
 }
@@ -378,17 +404,50 @@ bool TrussEditDialog::ValidateSessionBeforeApply() {
 }
 
 // Applies edits without closing the dialog.
+
+// Saves the Truss Edit visual layout preferences on dialog close paths.
+void TrussEditDialog::SaveLayoutPreferences() {
+  auto &config = GetDefaultGuiConfigServices().LegacyConfigManager();
+  gui::gdtf_layout::TrussLayoutPreferences preferences;
+  preferences.dialogSize = GetSize();
+  if (contextSplitter)
+    preferences.contextRatio = gui::gdtf_layout::SashToRatio(
+        contextSplitter->GetSashPosition(), contextSplitter->GetClientSize().GetWidth(), 0.25);
+  if (gdtfEditorPanel)
+    preferences.gdtfRatio = gdtfEditorPanel->GetTwoPaneSplitterRatio();
+  gui::gdtf_layout::SaveTrussLayoutPreferences(config, preferences);
+}
+
+// Restores Truss Edit size and splitter preferences with display clamping.
+void TrussEditDialog::RestoreLayoutPreferences() {
+  auto &config = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto preferences = gui::gdtf_layout::LoadTrussLayoutPreferences(config, this);
+  SetSize(preferences.dialogSize);
+  Layout();
+  if (contextSplitter)
+    contextSplitter->SetSashPosition(gui::gdtf_layout::RatioToSash(
+        contextSplitter->GetClientSize().GetWidth(),
+        gui::gdtf_layout::MinimumContextPaneWidth(this),
+        gui::gdtf_layout::MinimumWorkspacePaneWidth(this), preferences.contextRatio));
+  if (gdtfEditorPanel)
+    gdtfEditorPanel->SetTwoPaneSplitterRatio(preferences.gdtfRatio);
+}
+
 void TrussEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
 
 // Applies edits and closes the dialog.
 void TrussEditDialog::OnOk(wxCommandEvent &) {
   if (!ApplyChanges())
     return;
+  SaveLayoutPreferences();
   EndModal(wxID_OK);
 }
 
 // Closes the dialog without applying pending edits.
-void TrussEditDialog::OnCancel(wxCommandEvent &) { EndModal(wxID_CANCEL); }
+void TrussEditDialog::OnCancel(wxCommandEvent &) {
+  SaveLayoutPreferences();
+  EndModal(wxID_CANCEL);
+}
 
 // Resolves the current truss GDTF path for metadata and preview display.
 std::string TrussEditDialog::ResolveCurrentGdtfPath() const {
