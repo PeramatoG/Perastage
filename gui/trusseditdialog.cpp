@@ -171,6 +171,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Truss type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
+  gdtfConfiguration.channelSummary.visible = false;
   gdtfConfiguration.modes.visible = false;
   gdtfEditorPanel->Configure(gdtfConfiguration);
   wxWindow *previewHost = gdtfEditorPanel->GetWorkspaceHeaderHost();

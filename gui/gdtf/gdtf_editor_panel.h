@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include "gdtf_channel_summary_panel.h"
 #include "gdtf_metadata_panel.h"
 #include "gdtf_modes_panel.h"
 #include "gdtf_physical_properties_panel.h"
@@ -32,6 +33,7 @@ enum class GdtfEditorSection {
   TypeIdentity,
   Metadata,
   PhysicalProperties,
+  ChannelSummary,
   Modes
 };
 
@@ -56,16 +58,20 @@ struct GdtfEditorPanelConfiguration {
   GdtfEditorSectionConfiguration typeIdentity{true, true, "Type identity"};
   GdtfEditorSectionConfiguration physicalProperties{true, true,
                                                     "Physical properties"};
+  GdtfEditorSectionConfiguration channelSummary{true, true,
+                                                "Mode channel summary"};
   GdtfEditorSectionConfiguration modes{true, true, "Modes and channels"};
   std::vector<GdtfEditorSectionPlacement> singleColumnOrder{
       {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
       {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::Modes, 1}};
   std::vector<GdtfEditorSectionPlacement> twoPaneOrder{
       {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
       {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 0},
       {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
   double twoPaneInitialRatio = 0.45;
 };
@@ -142,6 +148,7 @@ private:
   GdtfMetadataPanel *metadataPanel = nullptr;
   GdtfTypeIdentityPanel *typeIdentityPanel = nullptr;
   GdtfPhysicalPropertiesPanel *physicalPropertiesPanel = nullptr;
+  GdtfChannelSummaryPanel *channelSummaryPanel = nullptr;
   GdtfModesPanel *modesPanel = nullptr;
 
   wxBoxSizer *rootSizer = nullptr;
@@ -155,6 +162,7 @@ private:
   GdtfEditorFlatSection *metadataSection = nullptr;
   GdtfEditorFlatSection *typeIdentitySection = nullptr;
   GdtfEditorFlatSection *physicalPropertiesSection = nullptr;
+  GdtfEditorFlatSection *channelSummarySection = nullptr;
   GdtfEditorFlatSection *modesSection = nullptr;
 
   GdtfEditorPanelConfiguration configuration;

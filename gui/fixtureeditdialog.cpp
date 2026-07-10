@@ -519,10 +519,12 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
       {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 0},
       {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Fixture type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
+  gdtfConfiguration.channelSummary.title = "Mode channels";
   gdtfConfiguration.modes.title = "Modes and channels";
   gdtfEditorPanel->Configure(gdtfConfiguration);
   const auto &sessionValues =
@@ -1035,8 +1037,10 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
     ReloadModeChannelDocument();
   const std::string modeName(mode.ToUTF8());
   const auto *modeNode = cachedModeChannelDocument.FindMode(modeName);
-  if (gdtfEditorPanel)
+  if (gdtfEditorPanel) {
     gdtfEditorPanel->SetModeBrowserNodes(BuildGdtfModeBrowserPresentation(modeNode));
+    gdtfEditorPanel->SetChannels(BuildGdtfModeChannelSummaryPresentation(modeNode));
+  }
   const int chCount = modeNode ? modeNode->calculatedFootprint
                                : GetGdtfModeChannelCount(PathUtils::PathToUtf8(gdtfPath), modeName);
   if (gdtfEditorPanel)

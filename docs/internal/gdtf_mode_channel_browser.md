@@ -44,3 +44,7 @@ Core parsing has no wxWidgets dependency and does not use GUI diagnostics. The G
 ## Read-only status and 08E3 extension points
 
 08E2 intentionally does not implement wheels, gobos, color swatches, sliders, live DMX, simulation, editing, or XML writing. Wheel and attribute-rich inspection remains reserved for Checkpoint 08E3.
+
+## Quick channel summary
+
+The Fixture editor keeps a compact read-only Mode channels summary below Physical properties for fast scanning. It is presentation-only and is populated from the same cached hierarchical mode document as the browser. The browser column labelled `Channel name` shows readable logical/function channel names when available; raw offset and break values remain in the details inspector.

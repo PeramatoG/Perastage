@@ -1,6 +1,7 @@
 #include "gdtf/gdtf_mode_browser_presenter.h"
 
 #include <sstream>
+#include <set>
 
 namespace {
 // Returns a fallback label for empty GDTF names without modifying source data.
@@ -41,6 +42,75 @@ std::string FormatOffsets(const std::vector<gdtf::GdtfDmxValue> &offsets) {
   return result.empty() ? "Not specified" : result;
 }
 
+
+// Joins non-empty labels with a comma separator while preserving order.
+std::string JoinLabels(const std::vector<std::string> &labels) {
+  std::string result;
+  for (const auto &label : labels) {
+    if (label.empty())
+      continue;
+    if (!result.empty())
+      result += ", ";
+    result += label;
+  }
+  return result;
+}
+
+// Returns display names for the coarse/fine bytes of one resolved channel name.
+std::vector<std::string> ExpandResolutionNames(const std::string &baseName,
+                                               int resolution) {
+  if (baseName.empty())
+    return {};
+  std::vector<std::string> names{baseName};
+  static const char *kSuffixes[] = {" Fine", " Ultra", " Ultra Fine"};
+  for (int i = 1; i < resolution && i <= 3; ++i)
+    names.push_back(baseName + kSuffixes[i - 1]);
+  return names;
+}
+
+// Returns readable channel names from logical channels and functions when possible.
+std::string FormatChannelNames(const gdtf::GdtfDmxChannelNode &channel) {
+  std::vector<std::string> names;
+  std::set<std::string> seen;
+  auto addName = [&](const std::string &name) {
+    if (!name.empty() && seen.insert(name).second)
+      names.push_back(name);
+  };
+  for (const auto &logical : channel.logicalChannels) {
+    addName(logical.attribute);
+    for (const auto &function : logical.channelFunctions)
+      addName(function.attribute.empty() ? function.name : function.attribute);
+  }
+  if (names.size() == 1 && channel.resolution > 1)
+    names = ExpandResolutionNames(names.front(), channel.resolution);
+  const std::string joined = JoinLabels(names);
+  if (!joined.empty())
+    return joined;
+  return channel.virtualChannel ? "Virtual" : "Not specified";
+}
+
+// Returns the legacy-style channel row label from offsets or virtual state.
+std::string FormatChannelSummaryAddress(const gdtf::GdtfDmxChannelNode &channel) {
+  return channel.virtualChannel ? "V" : FormatOffsets(channel.offsets);
+}
+
+// Returns a concise function summary for the quick channel summary panel.
+std::string FormatChannelSummaryFunctions(const gdtf::GdtfDmxChannelNode &channel) {
+  std::vector<std::string> labels;
+  std::set<std::string> seen;
+  auto addLabel = [&](const std::string &label) {
+    if (!label.empty() && seen.insert(label).second)
+      labels.push_back(label);
+  };
+  for (const auto &logical : channel.logicalChannels) {
+    addLabel(logical.attribute);
+    for (const auto &function : logical.channelFunctions)
+      addLabel(function.name.empty() ? function.attribute : function.name);
+  }
+  const std::string joined = JoinLabels(labels);
+  return joined.empty() ? "-" : joined;
+}
+
 // Adds a detail row to a presentation node.
 void Detail(GdtfModeBrowserNodePresentation &node, std::string key, std::string value) {
   node.details.push_back({std::move(key), std::move(value)});
@@ -57,7 +127,7 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
     GdtfModeBrowserNodePresentation ch;
     ch.id = channel.id;
     ch.item = channel.virtualChannel ? "Virtual DMX Channel" : "DMX Channel " + FormatOffsets(channel.offsets);
-    ch.address = channel.virtualChannel ? "Virtual" : ("Break " + RawOrNotSpecified(channel.rawDmxBreak) + ", Offset " + RawOrNotSpecified(channel.rawOffset));
+    ch.address = FormatChannelNames(channel);
     Detail(ch, "raw DMXBreak", RawOrNotSpecified(channel.rawDmxBreak));
     Detail(ch, "raw Offset", RawOrNotSpecified(channel.rawOffset));
     Detail(ch, "parsed offsets", FormatOffsets(channel.offsets));
@@ -66,6 +136,7 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
     Detail(ch, "InitialFunction", RawOrNotSpecified(channel.initialFunction));
     Detail(ch, "Highlight", RawOrNotSpecified(channel.highlight));
     Detail(ch, "Geometry", RawOrNotSpecified(channel.geometry));
+    Detail(ch, "Channel names", ch.address);
     rows.push_back(ch);
     for (const auto &logical : channel.logicalChannels) {
       GdtfModeBrowserNodePresentation lc;
@@ -143,6 +214,19 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
         }
       }
     }
+  }
+  return rows;
+}
+
+// Builds the quick legacy-style channel summary presentation for a mode.
+std::vector<GdtfModeChannelPresentation>
+BuildGdtfModeChannelSummaryPresentation(const gdtf::GdtfDmxModeNode *mode) {
+  std::vector<GdtfModeChannelPresentation> rows;
+  if (!mode)
+    return rows;
+  for (const auto &channel : mode->channels) {
+    rows.push_back({FormatChannelSummaryAddress(channel),
+                    FormatChannelSummaryFunctions(channel)});
   }
   return rows;
 }

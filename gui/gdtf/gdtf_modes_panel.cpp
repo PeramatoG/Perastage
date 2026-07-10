@@ -75,7 +75,7 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   browserCtrl = new wxDataViewCtrl(browserSplitter, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, wxDV_ROW_LINES | wxDV_VERT_RULES);
   browserCtrl->AppendTextColumn("Item", GdtfModeDataViewModel::Item, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 180), wxALIGN_LEFT, 0);
-  browserCtrl->AppendTextColumn("Address", GdtfModeDataViewModel::Address, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 120), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn("Channel name", GdtfModeDataViewModel::Address, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 120), wxALIGN_LEFT, 0);
   browserCtrl->AppendTextColumn("DMX range", GdtfModeDataViewModel::DmxRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 90), wxALIGN_LEFT, 0);
   browserCtrl->AppendTextColumn("Physical range", GdtfModeDataViewModel::PhysicalRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 130), wxALIGN_LEFT, 0);
   browserCtrl->AppendTextColumn("Unit", GdtfModeDataViewModel::Unit, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 80), wxALIGN_LEFT, 0);
@@ -145,10 +145,8 @@ void GdtfModesPanel::SetChannelCount(const std::string &channelCount) {
   updating = false;
 }
 
-// Accepts legacy flat rows by clearing the hierarchical browser.
-void GdtfModesPanel::SetChannels(const std::vector<GdtfModeChannelPresentation> &) {
-  SetBrowserNodes({});
-}
+// Ignores legacy summary rows because they are displayed by GdtfChannelSummaryPanel.
+void GdtfModesPanel::SetChannels(const std::vector<GdtfModeChannelPresentation> &) {}
 
 // Sets the ordered read-only hierarchical browser nodes.
 void GdtfModesPanel::SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes) {

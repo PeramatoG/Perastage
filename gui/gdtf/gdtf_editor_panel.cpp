@@ -51,6 +51,7 @@ void GdtfEditorPanel::SetPresentation(
     metadataPanel->SetUnavailable();
   typeIdentityPanel->ConfigureFields(presentation.identityFields);
   physicalPropertiesPanel->ConfigureFields(presentation.physicalFields);
+  channelSummaryPanel->SetChannels(presentation.modes.channels);
   modesPanel->SetPresentation(presentation.modes);
 }
 
@@ -59,6 +60,7 @@ void GdtfEditorPanel::SetUnavailable() {
   metadataPanel->SetUnavailable();
   typeIdentityPanel->ConfigureFields({});
   physicalPropertiesPanel->ConfigureFields({});
+  channelSummaryPanel->ClearChannels();
   modesPanel->SetPresentation({});
 }
 
@@ -154,6 +156,7 @@ void GdtfEditorPanel::SetPhysicalPropertyValidation(
 // Applies modes and channels presentation without notifying callbacks.
 void GdtfEditorPanel::SetModesPresentation(
     const GdtfModesPresentation &presentation) {
+  channelSummaryPanel->SetChannels(presentation.channels);
   modesPanel->SetPresentation(presentation);
 }
 
@@ -175,6 +178,7 @@ void GdtfEditorPanel::SetChannelCount(const std::string &channelCount) {
 // Sets the visible channel rows without notifying callbacks.
 void GdtfEditorPanel::SetChannels(
     const std::vector<GdtfModeChannelPresentation> &channels) {
+  channelSummaryPanel->SetChannels(channels);
   modesPanel->SetChannels(channels);
 }
 
@@ -187,6 +191,7 @@ void GdtfEditorPanel::SetModeBrowserNodes(
 
 // Clears derived mode details without notifying callbacks.
 void GdtfEditorPanel::ClearModeDetails() {
+  channelSummaryPanel->ClearChannels();
   modesPanel->ClearModeDetails();
 }
 
@@ -271,6 +276,9 @@ void GdtfEditorPanel::BuildSections() {
   physicalPropertiesSection = new GdtfEditorFlatSection(
       InitialParentForSection(GdtfEditorSection::PhysicalProperties),
       "Physical properties");
+  channelSummarySection = new GdtfEditorFlatSection(
+      InitialParentForSection(GdtfEditorSection::ChannelSummary),
+      "Mode channel summary");
   modesSection = new GdtfEditorFlatSection(
       InitialParentForSection(GdtfEditorSection::Modes), "Modes and channels");
 
@@ -278,6 +286,8 @@ void GdtfEditorPanel::BuildSections() {
   typeIdentityPanel = new GdtfTypeIdentityPanel(typeIdentitySection->Content());
   physicalPropertiesPanel =
       new GdtfPhysicalPropertiesPanel(physicalPropertiesSection->Content());
+  channelSummaryPanel =
+      new GdtfChannelSummaryPanel(channelSummarySection->Content());
   modesPanel = new GdtfModesPanel(modesSection->Content());
 
   metadataSection->Content()->GetSizer()->Add(metadataPanel, 1, wxEXPAND);
@@ -285,6 +295,8 @@ void GdtfEditorPanel::BuildSections() {
                                                   wxEXPAND);
   physicalPropertiesSection->Content()->GetSizer()->Add(physicalPropertiesPanel,
                                                         0, wxEXPAND);
+  channelSummarySection->Content()->GetSizer()->Add(channelSummaryPanel, 1,
+                                                    wxEXPAND);
   modesSection->Content()->GetSizer()->Add(modesPanel, 1, wxEXPAND);
 }
 
@@ -301,11 +313,13 @@ void GdtfEditorPanel::DetachReusableSections() {
   overviewSizer->Detach(metadataSection);
   overviewSizer->Detach(typeIdentitySection);
   overviewSizer->Detach(physicalPropertiesSection);
+  overviewSizer->Detach(channelSummarySection);
   overviewSizer->Detach(modesSection);
   workspaceSizer->Detach(workspaceHeaderHost);
   workspaceSizer->Detach(metadataSection);
   workspaceSizer->Detach(typeIdentitySection);
   workspaceSizer->Detach(physicalPropertiesSection);
+  workspaceSizer->Detach(channelSummarySection);
   workspaceSizer->Detach(modesSection);
 }
 
@@ -315,6 +329,8 @@ void GdtfEditorPanel::RebuildLayout() {
   ApplySectionConfiguration(typeIdentitySection, configuration.typeIdentity);
   ApplySectionConfiguration(physicalPropertiesSection,
                             configuration.physicalProperties);
+  ApplySectionConfiguration(channelSummarySection,
+                            configuration.channelSummary);
   ApplySectionConfiguration(modesSection, configuration.modes);
 
   DetachReusableSections();
@@ -394,6 +410,8 @@ GdtfEditorFlatSection *GdtfEditorPanel::SectionWindow(
     return metadataSection;
   case GdtfEditorSection::PhysicalProperties:
     return physicalPropertiesSection;
+  case GdtfEditorSection::ChannelSummary:
+    return channelSummarySection;
   case GdtfEditorSection::Modes:
     return modesSection;
   }
@@ -410,6 +428,8 @@ GdtfEditorPanel::SectionConfiguration(GdtfEditorSection section) const {
     return configuration.metadata;
   case GdtfEditorSection::PhysicalProperties:
     return configuration.physicalProperties;
+  case GdtfEditorSection::ChannelSummary:
+    return configuration.channelSummary;
   case GdtfEditorSection::Modes:
     return configuration.modes;
   }

@@ -5,6 +5,11 @@
 #include <string>
 #include <vector>
 
+struct GdtfModeChannelPresentation {
+  std::string channelLabel;
+  std::string functionLabel;
+};
+
 struct GdtfModeBrowserDetailRow {
   std::string key;
   std::string value;
@@ -23,3 +28,5 @@ struct GdtfModeBrowserNodePresentation {
 
 std::vector<GdtfModeBrowserNodePresentation>
 BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode);
+std::vector<GdtfModeChannelPresentation>
+BuildGdtfModeChannelSummaryPresentation(const gdtf::GdtfDmxModeNode *mode);

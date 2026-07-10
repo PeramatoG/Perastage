@@ -34,11 +34,6 @@ class wxSplitterWindow;
 class wxTextCtrl;
 class GdtfModeDataViewModel;
 
-struct GdtfModeChannelPresentation {
-  std::string channelLabel;
-  std::string functionLabel;
-};
-
 struct GdtfModesPresentation {
   std::vector<std::string> modes;
   std::string selectedMode;

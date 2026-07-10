@@ -79,12 +79,13 @@ fixture_order = fixture.find('gdtfConfiguration.twoPaneOrder')
 require(fixture_order >= 0, 'Fixture must configure typed two-pane section order.')
 fixture_block = fixture[fixture_order:fixture.find('};', fixture_order)+2]
 expected_fixture = ['GdtfEditorSection::TypeIdentity', 'GdtfEditorSection::Metadata',
-                    'GdtfEditorSection::PhysicalProperties', 'GdtfEditorSection::Modes']
+                    'GdtfEditorSection::PhysicalProperties', 'GdtfEditorSection::ChannelSummary',
+                    'GdtfEditorSection::Modes']
 positions = [fixture_block.find(token) for token in expected_fixture]
 require(all(pos >= 0 for pos in positions) and positions == sorted(positions),
         'Fixture section order must be Type, Metadata, Physical in overview and Modes in workspace.')
 require(fixture_block.count('GdtfEditorPane::Workspace') == 1 and 'GdtfEditorSection::Modes' in fixture_block,
-        'Fixture Modes and Channels must be isolated in the workspace pane.')
+        'Fixture browser must be isolated in the workspace pane while the quick summary stays in overview.')
 
 truss_order = truss.find('gdtfConfiguration.twoPaneOrder')
 require(truss_order >= 0, 'Truss must configure typed two-pane section order.')
@@ -96,8 +97,8 @@ require(all(pos >= 0 for pos in positions) and positions == sorted(positions),
         'Truss section order must be Type, Metadata in overview and Physical in workspace.')
 require('GdtfEditorPane::Workspace, GdtfEditorSection::PhysicalProperties' in truss_block,
         'Truss physical properties must occupy the third GDTF column under the preview.')
-require('gdtfConfiguration.modes.visible = false' in truss,
-        'Truss Edit must keep Modes hidden.')
+require('gdtfConfiguration.channelSummary.visible = false' in truss and 'gdtfConfiguration.modes.visible = false' in truss,
+        'Truss Edit must keep Modes and channel summary hidden.')
 
 require('wxDataViewCtrl' in modes and 'Mode and channel browser' in modes,
         'GdtfModesPanel must use the 08E2 read-only mode/channel browser after 08E1.')
