@@ -265,12 +265,13 @@ void FixtureEditDialog::BuildEditSession() {
   input.fixture = fixture;
   input.resolvedGdtfPath = resolvedPath;
   input.editorSourceFileReference =
-      !resolvedPath.empty() ? resolvedPath.string() : fixture.gdtfSpec;
+      !resolvedPath.empty() ? PathUtils::PathToUtf8(resolvedPath) : fixture.gdtfSpec;
   if (IsExistingRegularFile(input.resolvedGdtfPath))
     input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
-  input.sourceKind = IsUserFixtureLibraryPath(input.resolvedGdtfPath.string())
-                         ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
-                         : gdtf::GdtfSourceKind::Unknown;
+  input.sourceKind =
+      IsUserFixtureLibraryPath(PathUtils::PathToUtf8(input.resolvedGdtfPath))
+          ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
+          : gdtf::GdtfSourceKind::Unknown;
   input.writePolicy = gdtf::GdtfWritePolicy::CreateDerivativeBeforeMutation;
   gdtfEditSession = std::make_unique<gdtf::GdtfEditSession>(
       gdtf::BuildProjectFixtureGdtfEditSession(input));
@@ -441,7 +442,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
           {GdtfTypeIdentityField::SourceFileReference, "Model file",
            gui::gdtf_binding::ValueText(
                sessionValues, gdtf::GdtfFieldId::SourceFileReference,
-               initialGdtfPath.string()),
+               PathUtils::PathToUtf8(initialGdtfPath)),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(
@@ -469,7 +470,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
            "kg"},
       },
       {initialGdtfPath.empty() ? std::vector<std::string>()
-                               : GetGdtfModes(initialGdtfPath.string()),
+                               : GetGdtfModes(PathUtils::PathToUtf8(initialGdtfPath)),
        gui::gdtf_binding::ValueText(
            sessionValues, gdtf::GdtfFieldId::ModeName,
            std::string(modeValue.GetString().ToUTF8())),
@@ -685,11 +686,11 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
       gdtf::ProjectFixtureGdtfContextInput input;
       input.fixture = it->second;
       input.resolvedGdtfPath = pendingSelectedGdtfPath;
-      input.editorSourceFileReference = input.resolvedGdtfPath.string();
+      input.editorSourceFileReference = PathUtils::PathToUtf8(input.resolvedGdtfPath);
       if (IsExistingRegularFile(input.resolvedGdtfPath))
         input.document = gdtf::LoadGdtfDocument(input.resolvedGdtfPath);
       input.sourceKind =
-          IsUserFixtureLibraryPath(input.resolvedGdtfPath.string())
+          IsUserFixtureLibraryPath(PathUtils::PathToUtf8(input.resolvedGdtfPath))
               ? gdtf::GdtfSourceKind::PerastageFixtureLibraryFile
               : gdtf::GdtfSourceKind::Unknown;
       input.writePolicy = gdtf::GdtfWritePolicy::CreateDerivativeBeforeMutation;
@@ -833,7 +834,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
 }
 
 void FixtureEditDialog::UpdateVisualizers() {
-  const std::string path = GetActiveResolvedGdtfPath().string();
+  const std::string path = PathUtils::PathToUtf8(GetActiveResolvedGdtfPath());
   const std::array<SymbolViewKind, 3> views = {
       SymbolViewKind::Bottom, SymbolViewKind::Front, SymbolViewKind::Left};
   for (size_t i = 0; i < views.size(); ++i) {
@@ -867,7 +868,7 @@ void FixtureEditDialog::UpdateVisualizers() {
 }
 
 void FixtureEditDialog::UpdateMetadataSummary() {
-  const std::string path = GetActiveResolvedGdtfPath().string();
+  const std::string path = PathUtils::PathToUtf8(GetActiveResolvedGdtfPath());
   GdtfMetadataSummary metadata;
   if (LoadGdtfMetadataSummary(path, metadata)) {
     if (gdtfEditorPanel)
@@ -917,6 +918,7 @@ void FixtureEditDialog::OnOk(wxCommandEvent &) {
 
 void FixtureEditDialog::OnCancel(wxCommandEvent &) { EndModal(wxID_CANCEL); }
 
+// Applies fixture edits only after GDTF adapter preparation succeeds.
 bool FixtureEditDialog::ApplyChanges() {
   if (!panel)
     return true;
@@ -936,6 +938,40 @@ bool FixtureEditDialog::ApplyChanges() {
                                           [](bool modified) { return modified; });
   if (!hasUserChanges)
     return true;
+
+  std::unordered_set<std::string> changedWeightPositions;
+  gdtf::ProjectFixtureGdtfApplyResult fixtureApplyResult;
+  if (gdtfEditSession) {
+    auto request = gdtfEditSession->BuildApplyRequest();
+    const bool hasAdapterChanges = !request.changedDocumentFields.empty() ||
+                                   !request.changedContextFields.empty();
+    if (hasAdapterChanges) {
+      gdtf::ProjectFixtureGdtfApplyAdapter adapter(
+          gui::MakeFixtureGdtfApplyServices());
+      const auto &scene =
+          GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+      gdtf::ProjectFixtureGdtfApplyInput applyInput;
+      applyInput.request = request;
+      applyInput.fixtures = &scene.fixtures;
+      fixtureApplyResult = adapter.Apply(applyInput);
+      if (!fixtureApplyResult.common.success) {
+        const std::string message = fixtureApplyResult.common.diagnostics.empty()
+                                        ? "Could not apply fixture GDTF changes."
+                                        : fixtureApplyResult.common.diagnostics.front();
+        wxMessageBox(wxString::FromUTF8(message), "GDTF update",
+                     wxOK | wxICON_WARNING, this);
+        return false;
+      }
+      gdtfPath = fixtureApplyResult.common.resultingGdtfPath.empty()
+                     ? gdtfPath
+                     : fixtureApplyResult.common.resultingGdtfPath;
+      pendingSelectedGdtfPath = gdtfPath;
+      for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
+        changedWeightPositions.insert(position);
+      originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;
+      originalWeightKg = fixtureApplyResult.resultingWeightKg;
+    }
+  }
 
   for (size_t i = 0; i < ctrls.size(); ++i) {
     if (i >= modifiedColumns.size() || !modifiedColumns[i])
@@ -1041,38 +1077,6 @@ bool FixtureEditDialog::ApplyChanges() {
     }
   }
 
-  std::unordered_set<std::string> changedWeightPositions;
-  gdtf::ProjectFixtureGdtfApplyResult fixtureApplyResult;
-  if (gdtfEditSession) {
-    auto request = gdtfEditSession->BuildApplyRequest();
-    const bool hasAdapterChanges = !request.changedDocumentFields.empty() ||
-                                   !request.changedContextFields.empty();
-    if (hasAdapterChanges) {
-      gdtf::ProjectFixtureGdtfApplyAdapter adapter(
-          gui::MakeFixtureGdtfApplyServices());
-      gdtf::ProjectFixtureGdtfApplyInput applyInput;
-      applyInput.request = request;
-      applyInput.fixtures =
-          &GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
-      fixtureApplyResult = adapter.Apply(applyInput);
-      if (!fixtureApplyResult.common.success) {
-        const std::string message = fixtureApplyResult.common.diagnostics.empty()
-                                        ? "Could not apply fixture GDTF changes."
-                                        : fixtureApplyResult.common.diagnostics.front();
-        wxMessageBox(wxString::FromUTF8(message), "GDTF update",
-                     wxOK | wxICON_WARNING, this);
-        return false;
-      }
-      gdtfPath = fixtureApplyResult.common.resultingGdtfPath.empty()
-                     ? gdtfPath
-                     : fixtureApplyResult.common.resultingGdtfPath;
-      pendingSelectedGdtfPath = gdtfPath;
-      for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
-        changedWeightPositions.insert(position);
-      originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;
-      originalWeightKg = fixtureApplyResult.resultingWeightKg;
-    }
-  }
   if (fixtureColorChanged) {
     wxDataViewItemArray colorSource;
     colorSource.Add(table->RowToItem(row));
@@ -1091,6 +1095,12 @@ bool FixtureEditDialog::ApplyChanges() {
         FixtureTablePanel::UpdateTypeForColumn(static_cast<int>(i)));
   }
   panel->UpdateSceneData(true, updateType);
+  if (!fixtureApplyResult.updatedFixtures.empty()) {
+    auto &fixtures =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene().fixtures;
+    for (const auto &[uuid, fixture] : fixtureApplyResult.updatedFixtures)
+      fixtures[uuid] = fixture;
+  }
   HoistLoadRecalculationPrompt::PromptAndApply(
       GetDefaultGuiConfigServices().LegacyConfigManager(), panel,
       changedWeightPositions);

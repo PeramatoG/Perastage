@@ -141,3 +141,7 @@ After a successful physical write, the adapter propagates Weight and PowerConsum
 ## Checkpoint 08 apply adapters
 
 Checkpoint 08 is complete: Fixture Edit now routes session-backed type, source, mode, Weight, and PowerConsumption changes through the non-GUI ProjectFixtureGdtfApplyAdapter, and Project Truss GDTF type edits route through ProjectTrussGdtfApplyAdapter. Truss generation is controlled by dirty GDTF type fields; geometry-only and MVR-only edits remain non-generating. Operational resource paths are resolved separately from portable project references. Adapter failures do not commit project, table, or session state, while UI messages, preview refresh, and viewer refresh remain host-owned. StartupRouter and direct .gdtf opening remain Checkpoint 09 work.
+
+## Checkpoint 08D Apply transaction policy
+
+Adapters validate requests, perform required external file preparation, and return prepared project mutations. Hosts create one project undo checkpoint only after adapter success and before committing the prepared mutation to the project model. Existing verified Perastage derivatives may be overwritten; ordinary library, external, or extracted sources must create a derivative before physical mutation. UTF-8 path boundaries must use `PathUtils::PathToUtf8(...)` and `PathUtils::PathFromUtf8(...)`. External file changes cannot be undone by project undo and must be reported separately from project commits.

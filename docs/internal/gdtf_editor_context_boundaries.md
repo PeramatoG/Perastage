@@ -207,3 +207,7 @@ Checkpoint 08B also corrects host-side rejected input tracking so Fixture Edit a
 ## Checkpoint 08 completion
 
 Fixture Edit now invokes the non-GUI fixture apply adapter at the host integration boundary instead of performing physical GDTF mutation directly. Project Truss Apply uses a non-GUI adapter that consumes GdtfApplyRequest, returns a typed result containing GdtfApplyResult, and keeps generation policy outside TrussEditDialog. Dirty GDTF type fields are the only trigger for truss generation; no-op, Cancel, geometry-only open, and MVR-only edits do not generate archives.
+
+## Checkpoint 08D transaction boundary
+
+Fixture and Truss apply adapters prepare validated project mutations and perform required external GDTF file operations, but hosts own the project commit, table refresh, GUI messages, viewer refresh, and session rebaseline. A successful Apply establishes one project undo checkpoint after external file preparation and before project model mutation; external GDTF file writes are explicitly outside project undo.

@@ -246,3 +246,7 @@ The adapter enforces write policy before project mutation: read-only document ed
 ## Checkpoint 08C audit update
 
 The prior Checkpoint 08B merge was incomplete because FixtureEditDialog still performed the legacy fixture GDTF apply flow directly and the guard could pass by finding the adapter token in its own implementation file. The guard now inspects FixtureEditDialog itself for adapter construction, BuildApplyRequest(), result success handling, and absence of migrated legacy operations. Checkpoint 08C adds ProjectTrussGdtfApplyAdapter for controlled non-GUI truss generation and leaves StartupRouter/direct .gdtf opening to Checkpoint 09.
+
+## Checkpoint 08D stabilization audit
+
+Checkpoint 08D stabilizes the runtime transaction order for Fixture and Truss Edit. Tables are no longer used as pre-commit transaction buffers before adapter success, Fixture adapter results carry prepared fixture mutations instead of committing the live collection, and hosts reconcile row caches and sessions to the actual resulting GDTF source. Checkpoint 08 is therefore stabilized; Checkpoint 08E is the next UI-only refinement, while startup routing remains after stabilization and UI review.
