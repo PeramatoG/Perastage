@@ -250,3 +250,13 @@ The prior Checkpoint 08B merge was incomplete because FixtureEditDialog still pe
 ## Checkpoint 08D stabilization audit
 
 Checkpoint 08D stabilizes the runtime transaction order for Fixture and Truss Edit. Tables are no longer used as pre-commit transaction buffers before adapter success, Fixture adapter results carry prepared fixture mutations instead of committing the live collection, and hosts reconcile row caches and sessions to the actual resulting GDTF source. Checkpoint 08 is therefore stabilized; Checkpoint 08E is the next UI-only refinement, while startup routing remains after stabilization and UI review.
+
+## Checkpoint 08E1 layout refinement audit
+
+Checkpoint 08E1 is visual and compositional only. Fixture Edit now has a compact scrollable Fixture instance pane, a primary GDTF workspace, and a native tabbed visual-resource pane. Truss Edit now has a compact scrollable MVR instance pane and a right workspace split between a taller 3D preview and the GDTF editor.
+
+`GdtfEditorPanel` keeps the reusable child-panel ownership boundary from Checkpoint 07: it still constructs one metadata panel, one type identity panel, one physical properties panel, and one modes panel. The composite now uses typed section placements and a native splitter for overview/workspace arrangements. Fixture orders Type, Metadata, Physical in the overview and Modes in the workspace. Truss orders Type and Metadata in the overview and Physical properties in the workspace.
+
+Flat section containers replace the previous heavy nested static-box sections. The reusable panel remains presentation-only and has no `ConfigManager`, project, session, adapter, loader, viewer, undo, or table dependency. Layout persistence remains host-owned through the narrow GUI layout-preferences helper.
+
+The current mode/channel text representation remains intentionally unchanged in 08E1. The dedicated Modes and Channels pane is the documented extension point for Checkpoint 08E2, which will introduce the hierarchical Mode and Channel Browser.

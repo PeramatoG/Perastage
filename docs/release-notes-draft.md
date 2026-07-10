@@ -11,6 +11,8 @@ Changes since **v1.4.0**.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
+- Refined Fixture Edit and Truss Edit GDTF editor layouts with compact instance panes, resizable splitters, flatter GDTF sections, larger metadata and preview areas, Fixture visual-resource tabs, and persisted layout preferences while preserving existing apply behavior.
+
 
 - Improved exported truss GDTF files so Perastage-generated or Perastage-normalized trusses use canonical `Manufacturer@Model@Perastage.gdtf` archive names, stricter GDTF truss structure metadata, and preserve edited truss values across save/reopen roundtrips, share edited type metadata across trusses from the same source, and show the active GDTF in the truss model-file column when available, while keeping model-file replacements scoped to the selected trusses.
 - MVR-xchange now labels the default Perastage station with the local computer name, preferring the full host name when available, making it easier to identify in other applications.

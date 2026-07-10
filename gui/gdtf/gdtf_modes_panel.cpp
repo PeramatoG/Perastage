@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtf_modes_panel.h"
+#include "gdtf/gdtf_editor_visual_metrics.h"
 
 #include <utility>
 
@@ -67,8 +68,9 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   root->Add(new wxStaticText(this, wxID_ANY, "Mode channels"), 0,
             wxBOTTOM, 3);
   channelListCtrl = new wxTextCtrl(this, wxID_ANY, wxString(),
-                                   wxDefaultPosition, wxSize(-1, 150),
+                                   wxDefaultPosition, wxSize(-1, gui::gdtf_layout::Dip(this, 260)),
                                    wxTE_MULTILINE | wxTE_READONLY);
+  channelListCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 220)));
   root->Add(channelListCtrl, 1, wxEXPAND);
   modeChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) {
     NotifyModeChanged();

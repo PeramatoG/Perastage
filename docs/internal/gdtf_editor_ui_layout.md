@@ -1,0 +1,73 @@
+# GDTF Editor UI Layout
+
+Checkpoint 08E1 refines Fixture Edit and Truss Edit layout only. It does not change GDTF parsing, apply transactions, edit-session ownership, adapters, undo ordering, preview loading, metadata parsing, mode parsing, or channel parsing.
+
+## Shared visual conventions
+
+- GDTF editor dialogs use `gui/gdtf/gdtf_editor_visual_metrics.h` for DPI-aware margins, pane gaps, section spacing, compact form spacing, minimum pane sizes, preview height, and action-row margins.
+- Reusable GDTF sections use a flat title, divider line, and content host instead of nested static-box borders.
+- The reusable `GdtfEditorPanel` remains presentation-only and owns exactly one metadata, type identity, physical properties, and modes panel.
+- Dialog layout persistence is host-owned through `gui/gdtf/gdtf_editor_layout_preferences.*`, not inside reusable child panels.
+
+## Fixture Edit layout
+
+Fixture Edit uses nested splitters:
+
+1. `contextSplitter`: left compact Fixture instance pane vs. the rest of the workspace.
+2. `visualSplitter`: GDTF workspace vs. visual-resource pane.
+3. `GdtfEditorPanel` internal splitter: overview pane vs. Modes and Channels workspace pane.
+
+The Fixture instance pane is a vertically scrollable compact form titled `Fixture instance`. It is intended to open around 300 logical pixels wide and remains user-resizable.
+
+The Fixture GDTF section order is configured with typed placements:
+
+- Overview pane: Fixture type, GDTF metadata, Physical properties.
+- Workspace pane: Modes and channels.
+
+The visual resources are native notebook tabs:
+
+- `3D Preview`
+- `Symbols`
+- `Fixture Image`
+
+The tabs reuse the existing preview, symbol, and image controls. Switching tabs does not parse GDTF data or recreate the underlying resources.
+
+## Truss Edit layout
+
+Truss Edit uses nested splitters:
+
+1. `contextSplitter`: compact MVR instance pane vs. the right workspace.
+2. `previewSplitter`: 3D Preview above the GDTF area.
+3. `GdtfEditorPanel` internal splitter: Truss type and metadata overview vs. Physical properties workspace.
+
+The MVR instance pane is a vertically scrollable compact form titled `MVR instance`.
+
+The Truss GDTF section order is configured with typed placements:
+
+- Overview pane: Truss type, GDTF metadata.
+- Workspace pane: Physical properties.
+
+Modes remain hidden in Truss Edit.
+
+## Metadata and Modes presentation
+
+`GdtfMetadataPanel` now gives the read-only Description field more vertical room and keeps static values wrapped for narrow overview panes. It still displays the unavailable fallback and does not add editing or new parsed fields.
+
+`GdtfModesPanel` remains the existing 08E1 text representation: mode selector, read-only channel count, and read-only multiline channel text. The dedicated workspace pane is the extension point for Checkpoint 08E2, where the mode/channel browser can replace the text control without redesigning the surrounding dialog.
+
+## Persistence and clamping
+
+Layout preferences use normalized splitter ratios and dialog sizes under independent keys:
+
+- Fixture: `gdtf_editor/fixture/dialog_width`, `dialog_height`, `context_ratio`, `visual_ratio`, `gdtf_ratio`, and `visual_tab`.
+- Truss: `gdtf_editor/truss/dialog_width`, `dialog_height`, `context_ratio`, `preview_ratio`, and `gdtf_ratio`.
+
+Saved sizes are clamped to the current display work area before restore. Splitter ratios are clamped so panes cannot restore fully collapsed after monitor or DPI changes.
+
+## Responsive and DPI expectations
+
+All new spacing and minimum-size constants are converted with `FromDIP()` through the shared metrics helper. The intended minimums keep the dialogs usable at approximately 1366x768 while scaling cleanly at 100%, 125%, and 150% DPI.
+
+## Next checkpoint
+
+Checkpoint 08E2 is the Mode and Channel Browser. It will replace the current text-based mode/channel representation with a hierarchical browser, while preserving the host-owned session and apply boundaries established through Checkpoint 08D and kept unchanged in 08E1.

@@ -19,17 +19,19 @@
 
 #include <algorithm>
 
+#include "gdtf/gdtf_editor_visual_metrics.h"
+
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
 namespace {
 constexpr const char *kUnavailableValue = "-";
-constexpr int kDescriptionHeight = 90;
+constexpr int kDescriptionHeight = 130;
 constexpr int kMinimumValueWrapWidth = 120;
 constexpr int kInitialValueWrapWidth = 300;
-constexpr int kLabelColumnWidth = 110;
-constexpr int kSizerPadding = 24;
+constexpr int kLabelColumnWidth = 105;
+constexpr int kSizerPadding = 20;
 
 // Returns metadata field labels in display order.
 std::array<wxString, 8> MetadataFieldLabels() {
@@ -53,10 +55,10 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
     if (i == 1) {
       descriptionCtrl = new wxTextCtrl(this, wxID_ANY, kUnavailableValue,
                                        wxDefaultPosition,
-                                       wxSize(-1, kDescriptionHeight),
+                                       wxSize(-1, gui::gdtf_layout::Dip(this, kDescriptionHeight)),
                                        wxTE_MULTILINE | wxTE_READONLY);
       descriptionCtrl->SetMinSize(
-          wxSize(kInitialValueWrapWidth, kDescriptionHeight));
+          wxSize(-1, gui::gdtf_layout::Dip(this, kDescriptionHeight)));
       descriptionCtrl->ShowPosition(0);
       valueLabels[i] = nullptr;
       grid->Add(descriptionCtrl, 1, wxEXPAND);
@@ -69,7 +71,7 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
   }
 
   SetSizer(grid);
-  SetMinSize(wxSize(360, 190));
+  SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 240)));
   Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
     RewrapValueLabels();
     event.Skip();
@@ -135,6 +137,6 @@ int GdtfMetadataPanel::WrapWidth() const {
   if (clientWidth <= 0)
     return kInitialValueWrapWidth;
 
-  const int valueWidth = clientWidth - kLabelColumnWidth - kSizerPadding;
+  const int valueWidth = clientWidth - gui::gdtf_layout::Dip(const_cast<GdtfMetadataPanel *>(this), kLabelColumnWidth + kSizerPadding);
   return std::max(kMinimumValueWrapWidth, valueWidth);
 }
