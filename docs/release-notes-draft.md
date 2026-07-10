@@ -162,3 +162,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Encapsulated Layout 2D view preview capture and rasterization behind focused services while preserving the existing Viewer2D-based rendering path and PDF export separation.
 - Added visible, non-printing diagnostics for failed Layout 2D preview textures while keeping PDF export behavior unchanged.
 - Fixed Windows build compatibility for Layout 2D preview diagnostics.
+
+## Internal changes
+
+- Completed Checkpoint 08 GDTF editor apply architecture by routing Fixture and Truss GDTF type edits through non-GUI apply adapters, preserving no-op and MVR-only behavior, and preventing failed generation or mutation from committing project state.

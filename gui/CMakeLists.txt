@@ -27,6 +27,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/exportobjectdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exporttrussdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtureeditdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_apply_services.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturepatchdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturepreviewpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturetable/fixture_table_columns.cpp
@@ -110,6 +111,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tableprinter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_creation_source.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trusseditdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_apply_services.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trusstablepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/update/app_update_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/update/update_check_preferences.cpp

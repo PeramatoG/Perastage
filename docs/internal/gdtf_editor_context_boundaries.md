@@ -203,3 +203,7 @@ Checkpoint 08B introduces `core/gdtf/editor/project_fixture_gdtf_apply_adapter.{
 The adapter has no wxWidgets, table, dialog, viewer, or message-box dependencies. Fixture Edit remains responsible for presenting validation, synchronizing visible table rows, refreshing previews/viewers/hoists, and rebaselining the host-owned session after success. Truss Apply remains on the legacy host path for Checkpoint 08C.
 
 Checkpoint 08B also corrects host-side rejected input tracking so Fixture Edit and Truss Edit keep rejected values per `GdtfFieldId`. Correcting one field clears only that field, while other malformed values continue blocking Apply/OK. Derived ChannelCount presentation is refreshed from mode/source, but `UpdateChannels()` no longer marks ChannelCount as an independent dirty field.
+
+## Checkpoint 08 completion
+
+Fixture Edit now invokes the non-GUI fixture apply adapter at the host integration boundary instead of performing physical GDTF mutation directly. Project Truss Apply uses a non-GUI adapter that consumes GdtfApplyRequest, returns a typed result containing GdtfApplyResult, and keeps generation policy outside TrussEditDialog. Dirty GDTF type fields are the only trigger for truss generation; no-op, Cancel, geometry-only open, and MVR-only edits do not generate archives.

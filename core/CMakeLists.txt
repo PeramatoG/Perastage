@@ -29,6 +29,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/project_fixture_gdtf_context.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/project_truss_gdtf_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/project_truss_gdtf_apply_adapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/standalone_gdtf_context.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp

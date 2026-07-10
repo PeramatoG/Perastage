@@ -295,6 +295,16 @@ add_executable(project_fixture_gdtf_apply_adapter_test
 target_include_directories(project_fixture_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
 add_test(NAME ProjectFixtureGdtfApplyAdapter COMMAND project_fixture_gdtf_apply_adapter_test)
 add_test(NAME GdtfEditorCheckpoint08BFixtureApplyAdapter COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08b_fixture_apply_adapter.sh)
+add_executable(project_truss_gdtf_apply_adapter_test
+               project_truss_gdtf_apply_adapter_test.cpp
+               ../core/gdtf/editor/project_truss_gdtf_apply_adapter.cpp
+               ../core/gdtf/editor/gdtf_editor_context.cpp
+               ../core/gdtf/editor/gdtf_editable_values.cpp
+               ../core/gdtf/editor/gdtf_field_registry.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(project_truss_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
+add_test(NAME ProjectTrussGdtfApplyAdapter COMMAND project_truss_gdtf_apply_adapter_test)
+add_test(NAME GdtfEditorCheckpoint08CTrussApplyAdapter COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08c_truss_apply_adapter.sh)
 
 add_executable(gdtf_editor_context_test
                gdtf_editor_context_test.cpp

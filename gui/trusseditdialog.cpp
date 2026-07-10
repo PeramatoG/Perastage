@@ -19,17 +19,19 @@
 
 #include "configmanager.h"
 #include "fixturepreviewpanel.h"
+#include "filesystem_path_utils.h"
 #include "gdtf/gdtf_editor_panel.h"
 #include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_metadata_summary.h"
 #include "gdtf/editor/gdtf_document.h"
+#include "gdtf/editor/project_truss_gdtf_apply_adapter.h"
 #include "gdtf/editor/project_truss_gdtf_context.h"
 #include "gdtfdictionary.h"
 #include "guiconfigservices.h"
 #include "projectutils.h"
 #include "preview_resource.h"
 #include "table_column_indices.h"
-#include "truss_gdtf_builder.h"
+#include "truss_gdtf_apply_services.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -54,18 +56,6 @@ bool IsGdtfTrussColumn(size_t index) {
          index == static_cast<size_t>(ColumnIndex(TrussColumn::Width)) ||
          index == static_cast<size_t>(ColumnIndex(TrussColumn::Height)) ||
          index == static_cast<size_t>(ColumnIndex(TrussColumn::Weight));
-}
-
-// Resolves a scene resource path to an absolute path for GDTF generation.
-std::string ResolveTrussResourcePath(const std::string &basePath,
-                                     const std::string &path) {
-  namespace fs = std::filesystem;
-  if (path.empty())
-    return {};
-  fs::path resolved(path);
-  if (resolved.is_relative() && !basePath.empty())
-    resolved = fs::path(basePath) / resolved;
-  return resolved.string();
 }
 
 // Checks whether a path points to an existing regular file without throwing.
@@ -444,54 +434,6 @@ void TrussEditDialog::UpdatePreview() {
       gui::ResolveTrussPreviewResourcePath(it->second, scene.basePath));
 }
 
-// Creates or refreshes the Perastage-authored truss GDTF.
-bool TrussEditDialog::EnsureGdtfForEditedTruss() {
-  if (!panel || row < 0 || static_cast<size_t>(row) >= panel->rowUuids.size())
-    return false;
-
-  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
-  auto &scene = cfg.GetScene();
-  auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
-  if (it == scene.trusses.end())
-    return false;
-
-  Truss exportTruss = it->second;
-  exportTruss.symbolFile =
-      ResolveTrussResourcePath(scene.basePath, exportTruss.symbolFile);
-  exportTruss.modelFile =
-      ResolveTrussResourcePath(scene.basePath, exportTruss.modelFile);
-
-  const std::string canonicalFileName =
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
-          exportTruss.manufacturer,
-          exportTruss.model.empty() ? exportTruss.name : exportTruss.model,
-          exportTruss.name);
-  std::filesystem::path outPath =
-      std::filesystem::path(ProjectUtils::GetWritableLibraryPath("trusses")) /
-      canonicalFileName;
-
-  std::string error;
-  if (!BuildTrussGdtfFromInstance(exportTruss, outPath, &error)) {
-    wxMessageBox(error.empty() ? "Failed to create truss GDTF." : error,
-                 "Truss GDTF", wxOK | wxICON_WARNING, this);
-    return false;
-  }
-
-  it->second.gdtfSpec = outPath.string();
-  it->second.modelFile = outPath.string();
-  it->second.perastageAuxGdtfArchivePath = canonicalFileName;
-  it->second.gdtfMode =
-      it->second.gdtfMode.empty() ? "Default" : it->second.gdtfMode;
-  if (static_cast<size_t>(row) >= panel->modelPaths.size())
-    panel->modelPaths.resize(static_cast<size_t>(row) + 1);
-  panel->modelPaths[static_cast<size_t>(row)] =
-      wxString::FromUTF8(outPath.string());
-  panel->table->SetValue(
-      wxVariant(wxString::FromUTF8(outPath.filename().string())), row,
-      ColumnIndex(TrussColumn::ModelFile));
-  return true;
-}
-
 // Applies edited control values to the table and scene data model.
 bool TrussEditDialog::ApplyChanges() {
   if (!panel || !panel->table)
@@ -507,6 +449,7 @@ bool TrussEditDialog::ApplyChanges() {
     return true;
 
   bool gdtfColumnChanged = crossSectionModified;
+  gdtf::ProjectTrussGdtfApplyResult trussApplyResult;
   for (size_t i = 0; i < modifiedColumns.size(); ++i)
     gdtfColumnChanged =
         gdtfColumnChanged || (modifiedColumns[i] && IsGdtfTrussColumn(i));
@@ -545,27 +488,36 @@ bool TrussEditDialog::ApplyChanges() {
     }
   }
 
-  panel->UpdateSceneData(true);
-
-  if (crossSectionModified && row >= 0 &&
-      static_cast<size_t>(row) < panel->rowUuids.size()) {
-    auto &scene =
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-    auto it = scene.trusses.find(panel->rowUuids[static_cast<size_t>(row)]);
-    if (it != scene.trusses.end()) {
-      if (!hasTableChanges)
-        GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(
-            "edit truss GDTF metadata");
-      auto value = gdtfEditorPanel
-                       ? gdtfEditorPanel->GetPhysicalPropertyValue(
-                             GdtfPhysicalPropertyField::CrossSection)
-                       : std::optional<std::string>();
-      it->second.crossSection = value.value_or(std::string());
+  if (gdtfColumnChanged && gdtfEditSession) {
+    auto request = gdtfEditSession->BuildApplyRequest();
+    if (!request.changedDocumentFields.empty() || !request.changedContextFields.empty()) {
+      const auto &scene =
+          GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+      gdtf::ProjectTrussGdtfApplyAdapter adapter(gui::MakeTrussGdtfApplyServices());
+      trussApplyResult = adapter.Apply(
+          {request, &scene.trusses,
+           PathUtils::PathFromUtf8(scene.basePath),
+           PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"))});
+      if (!trussApplyResult.common.success) {
+        const std::string message = trussApplyResult.common.diagnostics.empty()
+                                        ? "Could not apply truss GDTF changes."
+                                        : trussApplyResult.common.diagnostics.front();
+        wxMessageBox(wxString::FromUTF8(message), "Truss GDTF",
+                     wxOK | wxICON_WARNING, this);
+        return false;
+      }
     }
   }
 
-  if (gdtfColumnChanged)
-    EnsureGdtfForEditedTruss();
+  panel->UpdateSceneData(true);
+
+  if (trussApplyResult.resultingTruss && row >= 0 &&
+      static_cast<size_t>(row) < panel->rowUuids.size()) {
+    auto &scene =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+    scene.trusses[panel->rowUuids[static_cast<size_t>(row)]] =
+        *trussApplyResult.resultingTruss;
+  }
 
   UpdateMetadataSummary();
   UpdatePreview();

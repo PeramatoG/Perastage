@@ -3,6 +3,7 @@
 #include "filesystem_path_utils.h"
 
 #include <cmath>
+#include <string>
 #include <system_error>
 #include <utility>
 
@@ -14,12 +15,38 @@ bool ContainsField(const std::set<GdtfFieldId> &fields, GdtfFieldId field) {
   return fields.count(field) > 0;
 }
 
+// Checks whether all changed fields are owned by the fixture adapter.
+bool HasOnlySupportedFields(const GdtfApplyRequest &request,
+                            std::string &unsupportedField) {
+  const std::set<GdtfFieldId> documentFields = {
+      GdtfFieldId::Weight, GdtfFieldId::PowerConsumption};
+  const std::set<GdtfFieldId> contextFields = {
+      GdtfFieldId::FixtureTypeName, GdtfFieldId::SourceFileReference,
+      GdtfFieldId::ModeName};
+  for (const auto field : request.changedDocumentFields) {
+    if (!documentFields.count(field)) {
+      unsupportedField = std::to_string(static_cast<int>(field));
+      return false;
+    }
+  }
+  for (const auto field : request.changedContextFields) {
+    if (!contextFields.count(field)) {
+      unsupportedField = std::to_string(static_cast<int>(field));
+      return false;
+    }
+  }
+  return true;
+}
+
 // Reports whether the fixture belongs to the same resulting type/source family.
-bool MatchesResultingFamily(const Fixture &fixture, const std::string &source,
-                            const std::string &type) {
-  if (!source.empty() && fixture.gdtfSpec == source)
+bool MatchesResultingFamily(const Fixture &fixture,
+                            const std::string &originalSource,
+                            const std::string &resultingSource,
+                            const std::string &resultingType) {
+  if (!resultingSource.empty() && fixture.gdtfSpec == resultingSource)
     return true;
-  return !type.empty() && fixture.typeName == type;
+  return !originalSource.empty() && fixture.gdtfSpec == originalSource &&
+         !resultingType.empty() && fixture.typeName == resultingType;
 }
 
 // Adds a validation message to a failed fixture apply result.
@@ -56,6 +83,10 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
   auto targetIt = input.fixtures->find(request.stableHostId);
   if (targetIt == input.fixtures->end())
     return Fail("Target fixture UUID was not found.");
+  std::string unsupportedField;
+  if (!HasOnlySupportedFields(request, unsupportedField))
+    return Fail("Fixture apply request contains unsupported field: " +
+                unsupportedField + ".");
 
   const bool weightChanged = ContainsField(request.changedDocumentFields, GdtfFieldId::Weight);
   const bool powerChanged = ContainsField(request.changedDocumentFields, GdtfFieldId::PowerConsumption);
@@ -82,6 +113,9 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
   if ((documentChanged || sourceChanged || modeChanged) &&
       (request.sourcePath.empty() || !std::filesystem::is_regular_file(request.sourcePath, ec)))
     return Fail("Resolved GDTF source path is not an existing regular file.");
+
+  auto preparedFixtures = *input.fixtures;
+  auto preparedTargetIt = preparedFixtures.find(request.stableHostId);
 
   ProjectFixtureGdtfApplyResult result;
   result.common.success = true;
@@ -114,6 +148,8 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
       result.resultingSourceReference = PathUtils::PathToUtf8(writablePath);
     } else if (request.writePolicy != GdtfWritePolicy::OverwriteOwnedFile) {
       return Fail("The GDTF write policy is not supported for fixture mutation.");
+    } else if (request.sourceKind != GdtfSourceKind::PerastageGeneratedDerivative) {
+      return Fail("OverwriteOwnedFile requires an explicitly owned Perastage derivative source.");
     }
     if (!services_.writePhysicalProperties)
       return Fail("Physical-property mutation service is not available.");
@@ -130,14 +166,17 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
     result.common.changedGdtfFields = request.changedDocumentFields;
   }
 
-  targetIt->second.typeName = resultingType;
-  targetIt->second.gdtfMode = resultingMode;
-  targetIt->second.gdtfSpec = result.resultingSourceReference;
+  preparedTargetIt->second.typeName = resultingType;
+  preparedTargetIt->second.gdtfMode = resultingMode;
+  preparedTargetIt->second.gdtfSpec = result.resultingSourceReference;
   result.contextSelectionChanged = typeChanged || sourceChanged || modeChanged || result.common.derivativeCreated;
 
   if (documentChanged) {
-    for (auto &[uuid, fixture] : *input.fixtures) {
-      if (!MatchesResultingFamily(fixture, result.resultingSourceReference, resultingType) && uuid != request.stableHostId)
+    for (auto &[uuid, fixture] : preparedFixtures) {
+      if (!MatchesResultingFamily(fixture, original.gdtfSpec,
+                                  result.resultingSourceReference,
+                                  resultingType) &&
+          uuid != request.stableHostId)
         continue;
       if (std::fabs(fixture.weightKg - resultingWeight) > 0.001f) {
         result.weightChangedFixtureUuids.insert(uuid);
@@ -161,6 +200,7 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
   result.common.viewerRefreshRequired = changed;
   result.common.hoistLoadRecalculationRequired = !result.changedWeightPositionNames.empty();
   result.common.projectDirtyStateMustBeUpdated = changed;
+  *input.fixtures = std::move(preparedFixtures);
   return result;
 }
 

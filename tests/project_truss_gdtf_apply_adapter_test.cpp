@@ -1,0 +1,96 @@
+#include "gdtf/editor/project_truss_gdtf_apply_adapter.h"
+
+#include <cassert>
+#include <filesystem>
+#include <fstream>
+#include <map>
+
+namespace {
+
+// Creates a minimal truss record for adapter tests.
+Truss MakeTruss(std::string uuid) {
+  Truss truss;
+  truss.uuid = std::move(uuid);
+  truss.name = "Type A";
+  truss.manufacturer = "Maker";
+  truss.model = "Model";
+  truss.lengthMm = 1000.0f;
+  truss.widthMm = 200.0f;
+  truss.heightMm = 300.0f;
+  truss.weightKg = 12.0f;
+  truss.crossSection = "Box";
+  truss.gdtfMode = "Default";
+  return truss;
+}
+
+// Creates deterministic fake services for truss adapter tests.
+gdtf::ProjectTrussGdtfApplyServices MakeServices(bool failGeneration = false,
+                                                 int *calls = nullptr) {
+  gdtf::ProjectTrussGdtfApplyServices services;
+  services.canonicalFileName = [](const std::string &, const std::string &model,
+                                  const std::string &) {
+    return model + "@Perastage.gdtf";
+  };
+  services.generateGdtf = [failGeneration, calls](const Truss &, const std::filesystem::path &out,
+                                                  std::string &diagnostic) {
+    if (calls)
+      ++*calls;
+    if (failGeneration) {
+      diagnostic = "generation failed";
+      return false;
+    }
+    std::ofstream(out).put('g');
+    return true;
+  };
+  return services;
+}
+
+} // namespace
+
+// Exercises validation, no-op, generation, failure, paths, and stable UUID behavior.
+int main() {
+  const auto root = std::filesystem::temp_directory_path() / "perastage-truss-adapter-ü";
+  std::filesystem::create_directories(root);
+  std::map<std::string, Truss> trusses;
+  trusses.emplace("other", MakeTruss("other"));
+  trusses.emplace("target", MakeTruss("target"));
+
+  gdtf::GdtfApplyRequest request;
+  request.contextKind = gdtf::GdtfEditorContextKind::ProjectTruss;
+  request.stableHostId = "target";
+  request.writePolicy = gdtf::GdtfWritePolicy::ProjectControlledGeneration;
+  request.values.modelName = "Model";
+  int calls = 0;
+  gdtf::ProjectTrussGdtfApplyAdapter adapter(MakeServices(false, &calls));
+  auto result = adapter.Apply({request, &trusses, root, root});
+  assert(result.common.success);
+  assert(!result.generationOccurred);
+  assert(calls == 0);
+
+  request.changedDocumentFields.insert(gdtf::GdtfFieldId::ModelName);
+  request.values.modelName = "ModelB";
+  result = adapter.Apply({request, &trusses, root, root});
+  assert(result.common.success);
+  assert(result.generationOccurred);
+  assert(calls == 1);
+  assert(result.resultingTruss);
+  assert(result.resultingTruss->model == "ModelB");
+  assert(result.resultingTruss->gdtfSpec.find("ModelB@Perastage.gdtf") != std::string::npos);
+  assert(trusses["target"].model == "Model");
+
+  request.values.weightKg = -1.0f;
+  request.changedDocumentFields.insert(gdtf::GdtfFieldId::Weight);
+  result = adapter.Apply({request, &trusses, root, root});
+  assert(!result.common.success);
+
+  request.values.weightKg = 13.0f;
+  gdtf::ProjectTrussGdtfApplyAdapter failing(MakeServices(true, &calls));
+  result = failing.Apply({request, &trusses, root, root});
+  assert(!result.common.success);
+  assert(trusses["target"].weightKg == 12.0f);
+
+  request.contextKind = gdtf::GdtfEditorContextKind::ProjectFixture;
+  result = adapter.Apply({request, &trusses, root, root});
+  assert(!result.common.success);
+  return 0;
+}

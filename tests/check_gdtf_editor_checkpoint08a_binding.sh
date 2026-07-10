@@ -74,13 +74,13 @@ if rg -q "GdtfEditSession|GdtfApplyRequest|BuildProjectFixtureGdtf|BuildProjectT
   echo "GdtfEditorPanel must remain presentation-only and session-free." >&2
   exit 1
 fi
-if rg -q "TrussApplyAdapter" "$fixture_source" "$truss_source" gui/gdtf core/gdtf/editor; then
-  echo "Checkpoint 08A/08B must not introduce a Truss Apply adapter." >&2
+if ! rg -q "ProjectTrussGdtfApplyAdapter" "$truss_source"; then
+  echo "Checkpoint 08C requires Truss host integration through the apply adapter." >&2
   exit 1
 fi
 for token in EnsureGdtfForEditedTruss BuildTrussGdtfFromInstance; do
-  if ! rg -q "$token" "$truss_source"; then
-    echo "Existing Truss legacy write function must remain in Truss host path: $token" >&2
+  if rg -q "$token" "$truss_source"; then
+    echo "Truss host path must not use legacy generation after Checkpoint 08C: $token" >&2
     exit 1
   fi
 done
