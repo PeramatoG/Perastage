@@ -71,6 +71,8 @@ Changes since **v1.4.0**.
 - Improved Windows crash dumps so native access violations are captured from the original exception context before best-effort text stack reporting.
 
 ## Internal changes
+
+- Added internal GDTF Wheel and Attribute Inspector architecture for read-only wheel, slot, filter, graphic-wheel, CIE color, resource, and DMX value inspection.
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -161,6 +163,7 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
 
 ## Internal changes
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -179,6 +182,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Fixed Windows build compatibility for Layout 2D preview diagnostics.
 
 ## Internal changes
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Completed Checkpoint 08 GDTF editor apply architecture by routing Fixture and Truss GDTF type edits through non-GUI apply adapters, preserving no-op and MVR-only behavior, and preventing failed generation or mutation from committing project state, and preserving Windows build compatibility for the new adapter host calls and project collection types.

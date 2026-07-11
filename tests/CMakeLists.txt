@@ -69,6 +69,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08a_binding.sh)
     add_test(NAME GdtfEditorCheckpoint08E2ModeBrowser
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e2_mode_browser.sh)
+    add_test(NAME GdtfEditorCheckpoint08E3WheelAttributeInspector
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e3_wheel_attribute_inspector.sh)
     add_test(NAME ProjectRestoreImportOptions
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
@@ -280,6 +282,17 @@ add_executable(gdtf_mode_channel_browser_test
 target_include_directories(gdtf_mode_channel_browser_test PRIVATE ../core)
 target_link_libraries(gdtf_mode_channel_browser_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
+
+add_executable(gdtf_wheel_attribute_inspector_test
+               gdtf_wheel_attribute_inspector_test.cpp
+               ../core/gdtf/gdtf_color_cie.cpp
+               ../core/gdtf/gdtf_wheel_catalog.cpp
+               ../core/gdtf/gdtf_dmx_inspector.cpp
+               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+target_include_directories(gdtf_wheel_attribute_inspector_test PRIVATE ../core)
+target_link_libraries(gdtf_wheel_attribute_inspector_test PRIVATE tinyxml2::tinyxml2)
+add_test(NAME GdtfWheelAttributeInspector COMMAND gdtf_wheel_attribute_inspector_test)
+
 
 
 add_executable(gdtf_fixture_insertion_preparation_test

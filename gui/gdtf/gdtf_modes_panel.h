@@ -30,7 +30,9 @@
 
 class wxChoice;
 class wxDataViewCtrl;
+class wxSlider;
 class wxSplitterWindow;
+class wxStaticText;
 class wxTextCtrl;
 class GdtfModeDataViewModel;
 
@@ -60,6 +62,7 @@ public:
   void SetBrowserSplitterRatio(double ratio);
   double GetBrowserSplitterRatio() const;
   void ClearModeDetails();
+  void SetInspectionValueText(const std::string &text);
   void SetModeSelectionEnabled(bool enabled);
 
 private:
@@ -70,6 +73,8 @@ private:
 
   wxChoice *modeChoice = nullptr;
   wxTextCtrl *channelCountCtrl = nullptr;
+  wxStaticText *inspectionValueLabel = nullptr;
+  wxSlider *inspectionSlider = nullptr;
   wxSplitterWindow *browserSplitter = nullptr;
   wxDataViewCtrl *browserCtrl = nullptr;
   wxTextCtrl *detailsCtrl = nullptr;

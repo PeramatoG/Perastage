@@ -17,6 +17,7 @@
 #include <wx/choice.h>
 #include <wx/dataview.h>
 #include <wx/sizer.h>
+#include <wx/slider.h>
 #include <wx/splitter.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
@@ -66,6 +67,13 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
             wxALIGN_CENTER_VERTICAL);
   grid->Add(channelCountCtrl, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxBOTTOM, 6);
+  auto *inspectionRow = new wxBoxSizer(wxHORIZONTAL);
+  inspectionRow->Add(new wxStaticText(this, wxID_ANY, "DMX inspection"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
+  inspectionSlider = new wxSlider(this, wxID_ANY, 0, 0, 65535, wxDefaultPosition, wxDefaultSize);
+  inspectionValueLabel = new wxStaticText(this, wxID_ANY, "Value 0 / 0x00 / 0.00% / bytes 0");
+  inspectionRow->Add(inspectionSlider, 1, wxEXPAND | wxRIGHT, 6);
+  inspectionRow->Add(inspectionValueLabel, 0, wxALIGN_CENTER_VERTICAL);
+  root->Add(inspectionRow, 0, wxEXPAND | wxBOTTOM, 6);
   root->Add(new wxStaticText(this, wxID_ANY, "Mode and channel browser"), 0,
             wxBOTTOM, 3);
 
@@ -90,6 +98,14 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   root->Add(browserSplitter, 1, wxEXPAND);
 
   modeChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { NotifyModeChanged(); });
+  inspectionSlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent &event) {
+    const int value = event.GetInt();
+    const double percent = static_cast<double>(value) * 100.0 / 65535.0;
+    inspectionValueLabel->SetLabel(wxString::Format("Value %d / 0x%04X / %.2f%% / bytes %u,%u",
+                                                    value, value, percent,
+                                                    static_cast<unsigned>((value >> 8) & 0xff),
+                                                    static_cast<unsigned>(value & 0xff)));
+  });
   browserCtrl->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, [this](wxDataViewEvent &event) {
     const auto *node = browserModel ? browserModel->GetNode(event.GetItem()) : nullptr;
     if (node)
@@ -188,12 +204,22 @@ double GdtfModesPanel::GetBrowserSplitterRatio() const {
   return ClampBrowserRatio(static_cast<double>(browserSplitter->GetSashPosition()) / height);
 }
 
+// Sets the read-only DMX inspection value label.
+void GdtfModesPanel::SetInspectionValueText(const std::string &text) {
+  if (inspectionValueLabel)
+    inspectionValueLabel->SetLabel(wxString::FromUTF8(text));
+}
+
 // Clears the derived channel presentation.
 void GdtfModesPanel::ClearModeDetails() {
   updating = true;
   channelCountCtrl->SetValue(wxString());
   browserModel->SetNodes({});
   detailsCtrl->SetValue(wxString());
+  if (inspectionSlider)
+    inspectionSlider->SetValue(0);
+  if (inspectionValueLabel)
+    inspectionValueLabel->SetLabel("Value 0 / 0x00 / 0.00% / bytes 0");
   updating = false;
 }
 
