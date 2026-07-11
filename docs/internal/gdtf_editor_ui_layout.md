@@ -69,3 +69,8 @@ All new spacing and minimum-size constants are converted with `FromDIP()` throug
 ## Next checkpoint
 
 Checkpoint 08E2 is the Mode and Channel Browser. It will replace the current text-based mode/channel representation with a hierarchical browser, while preserving the host-owned session and apply boundaries established through Checkpoint 08D and kept unchanged in 08E1.
+## Checkpoint 08E2 mode browser
+
+The Fixture editor Modes and Channels section now hosts a read-only hierarchical `wxDataViewCtrl` and a read-only details inspector behind an internal horizontal splitter. The browser shows Item, DMX range, Physical range, and Unit while preserving the 08E1 outer splitters, compact fixture pane, visual notebook, Truss layout, preview tabs, and action buttons. The nested browser/details splitter persists through the host-owned `gdtf_editor/fixture/mode_browser_ratio` preference. Truss Edit continues to hide Modes.
+
+Checkpoint 08E2 also keeps a compact legacy-style read-only Mode channels summary in the overview column immediately below Physical properties, so users can quickly scan channel content without expanding the hierarchical browser. The browser no longer includes the experimental Channel function column; channel-function text remains in the quick summary where it is useful for scanning. The presentation normalizes reference-like channel function labels, so paths such as `Yoke_Pan.Pan.Pan` display as `Pan` and expand to fine/ultra-fine byte rows when required.

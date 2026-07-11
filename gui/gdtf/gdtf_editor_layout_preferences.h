@@ -24,6 +24,7 @@ struct FixtureLayoutPreferences {
   double contextRatio = 0.2;
   double visualRatio = 0.75;
   double gdtfRatio = 0.45;
+  double modeBrowserRatio = 0.68;
   int visualTab = 0;
 };
 

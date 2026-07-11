@@ -24,6 +24,8 @@
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_mode_browser_presenter.h"
+#include "gdtf_archive_reader.h"
 #include "gdtf/gdtf_editor_layout_preferences.h"
 #include "gdtf/gdtf_editor_visual_metrics.h"
 #include "gdtf/gdtf_session_panel_binding.h"
@@ -62,6 +64,7 @@
 #include <wx/mstream.h>
 #include <wx/notebook.h>
 #include <wx/scrolwin.h>
+#include <wx/settings.h>
 #include <wx/splitter.h>
 #include <wx/wfstream.h>
 #include <wx/statline.h>
@@ -144,8 +147,47 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
   table->SetValue(colorValue, row, 19);
 }
 
+// Resolves the themed background color used by preview placeholders and margins.
+wxColour ResolvePreviewBackground(wxWindow *window) {
+  for (wxWindow *current = window; current; current = current->GetParent()) {
+    const wxColour colour = current->GetBackgroundColour();
+    if (colour.IsOk())
+      return colour;
+  }
+  return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+}
+
+// Draws a bitmap centered on a themed square preview canvas.
+wxBitmap ComposePreviewBitmap(const wxBitmap &content, int size,
+                              const wxColour &background) {
+  wxBitmap canvas(size, size);
+  wxMemoryDC dc(canvas);
+  dc.SetBackground(wxBrush(background));
+  dc.Clear();
+  if (content.IsOk()) {
+    dc.DrawBitmap(content, (size - content.GetWidth()) / 2,
+                  (size - content.GetHeight()) / 2, true);
+  }
+  dc.SelectObject(wxNullBitmap);
+  return canvas;
+}
+
+// Creates a themed placeholder bitmap with centered text.
+wxBitmap CreatePreviewPlaceholder(const wxString &label, const wxColour &background) {
+  constexpr int kPreviewSize = 220;
+  wxBitmap fallback(kPreviewSize, kPreviewSize);
+  wxMemoryDC dc(fallback);
+  dc.SetBackground(wxBrush(background));
+  dc.Clear();
+  dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
+  dc.DrawLabel(label, wxRect(0, 0, kPreviewSize, kPreviewSize), wxALIGN_CENTER);
+  dc.SelectObject(wxNullBitmap);
+  return fallback;
+}
+
 // Loads the thumbnail bitmap from a GDTF archive when available.
-bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
+bool LoadGdtfThumbnail(const std::string &gdtfPath, const wxColour &background,
+                       wxBitmap &outBitmap) {
   if (gdtfPath.empty())
     return false;
 
@@ -223,11 +265,7 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
     if (dstW != srcW || dstH != srcH)
       image.Rescale(dstW, dstH, wxIMAGE_QUALITY_HIGH);
 
-    wxImage canvas(kPreviewSize, kPreviewSize);
-    canvas.SetRGB(wxRect(0, 0, kPreviewSize, kPreviewSize), 255, 255, 255);
-    canvas.Paste(image, (kPreviewSize - image.GetWidth()) / 2,
-                 (kPreviewSize - image.GetHeight()) / 2);
-    outBitmap = wxBitmap(canvas);
+    outBitmap = ComposePreviewBitmap(wxBitmap(image), kPreviewSize, background);
     return outBitmap.IsOk();
   }
   return false;
@@ -235,6 +273,7 @@ bool LoadGdtfThumbnail(const std::string &gdtfPath, wxBitmap &outBitmap) {
 
 // Loads the official SVG thumbnail resource from the GDTF archive root.
 bool LoadGdtfOfficialSvgSymbol(const std::string &gdtfPath,
+                               const wxColour &background,
                                wxBitmap &outBitmap) {
   if (gdtfPath.empty())
     return false;
@@ -296,7 +335,8 @@ bool LoadGdtfOfficialSvgSymbol(const std::string &gdtfPath,
     const wxSize desiredSize(220, 220);
     wxBitmapBundle bundle =
         wxBitmapBundle::FromSVG(it->second.c_str(), desiredSize);
-    outBitmap = bundle.GetBitmap(desiredSize);
+    outBitmap = ComposePreviewBitmap(bundle.GetBitmap(desiredSize),
+                                     desiredSize.GetWidth(), background);
     return outBitmap.IsOk();
   }
   return false;
@@ -515,12 +555,14 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   gdtfConfiguration.twoPaneInitialRatio = 0.45;
   gdtfConfiguration.twoPaneOrder = {
       {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
-      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 1},
+      {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
+      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 1},
       {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Fixture type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
+  gdtfConfiguration.channelSummary.title = "Mode channels";
   gdtfConfiguration.modes.title = "Modes and channels";
   gdtfEditorPanel->Configure(gdtfConfiguration);
   const auto &sessionValues =
@@ -785,6 +827,7 @@ bool FixtureEditDialog::ValidateSessionBeforeApply() {
   return false;
 }
 
+// Handles selecting a replacement GDTF source and refreshing dependent presentations.
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   wxString fixDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
@@ -794,6 +837,8 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
     return;
   wxString path = fdlg.GetPath();
   pendingSelectedGdtfPath = PathFromWxString(path);
+  cachedModeChannelSource.clear();
+  cachedModeChannelDocument = {};
   if (gdtfEditSession && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
     const auto &scene =
@@ -880,7 +925,9 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
     return;
 
   wxAutoBufferedPaintDC dc(panelWindow);
-  dc.SetBackground(*wxWHITE_BRUSH);
+  const wxColour background = ResolvePreviewBackground(panelWindow->GetParent());
+  wxBrush backgroundBrush(background);
+  dc.SetBackground(backgroundBrush);
   dc.Clear();
 
   if (!symbolAvailability[panelIndex]) {
@@ -904,7 +951,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
       rect.GetY() + (rect.GetHeight() - svg.viewBoxHeight * scale) * 0.5;
 
   gc->SetPen(wxPen(wxColour(210, 210, 210), 1));
-  gc->SetBrush(*wxWHITE_BRUSH);
+  gc->SetBrush(backgroundBrush);
   gc->DrawRectangle(rect.GetX(), rect.GetY(), rect.GetWidth(),
                     rect.GetHeight());
   gc->SetPen(*wxTRANSPARENT_PEN);
@@ -920,7 +967,7 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
                           originY + poly.points[i].y * scale);
     path.CloseSubpath();
     gc->FillPath(path);
-    gc->SetBrush(*wxWHITE_BRUSH);
+    gc->SetBrush(backgroundBrush);
     for (const auto &hole : poly.holes) {
       if (hole.size() < 3)
         continue;
@@ -966,18 +1013,14 @@ void FixtureEditDialog::UpdateVisualizers() {
 
   if (officialSymbolPreview) {
     wxBitmap officialSymbol;
-    if (LoadGdtfOfficialSvgSymbol(path, officialSymbol)) {
+    const wxColour background =
+        ResolvePreviewBackground(officialSymbolPreview->GetParent());
+    if (LoadGdtfOfficialSvgSymbol(path, background, officialSymbol)) {
       officialSymbolPreview->SetBitmap(officialSymbol);
       officialSymbolPreview->SetToolTip("Official GDTF SVG thumbnail resource.");
     } else {
-      wxBitmap fallback(220, 220);
-      wxMemoryDC dc(fallback);
-      dc.SetBackground(*wxLIGHT_GREY_BRUSH);
-      dc.Clear();
-      dc.SetTextForeground(*wxBLACK);
-      dc.DrawLabel("No official SVG", wxRect(0, 0, 220, 220), wxALIGN_CENTER);
-      dc.SelectObject(wxNullBitmap);
-      officialSymbolPreview->SetBitmap(fallback);
+      officialSymbolPreview->SetBitmap(
+          CreatePreviewPlaceholder("No official SVG", background));
       officialSymbolPreview->SetToolTip(
           "No official SVG thumbnail resource found in this GDTF.");
     }
@@ -985,18 +1028,13 @@ void FixtureEditDialog::UpdateVisualizers() {
 
   if (fixtureImagePreview) {
     wxBitmap image;
-    if (LoadGdtfThumbnail(path, image)) {
+    const wxColour background =
+        ResolvePreviewBackground(fixtureImagePreview->GetParent());
+    if (LoadGdtfThumbnail(path, background, image)) {
       fixtureImagePreview->SetBitmap(image);
       fixtureImagePreview->SetToolTip("");
     } else {
-      wxBitmap fallback(220, 220);
-      wxMemoryDC dc(fallback);
-      dc.SetBackground(*wxLIGHT_GREY_BRUSH);
-      dc.Clear();
-      dc.SetTextForeground(*wxBLACK);
-      dc.DrawLabel("No image", wxRect(0, 0, 220, 220), wxALIGN_CENTER);
-      dc.SelectObject(wxNullBitmap);
-      fixtureImagePreview->SetBitmap(fallback);
+      fixtureImagePreview->SetBitmap(CreatePreviewPlaceholder("No image", background));
       fixtureImagePreview->SetToolTip("No thumbnail image found in this GDTF.");
     }
     Layout();
@@ -1015,6 +1053,7 @@ void FixtureEditDialog::UpdateMetadataSummary() {
   Layout();
 }
 
+// Updates the cached hierarchical mode browser and channel footprint presentation.
 void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   wxString mode = gdtfEditorPanel ? wxString::FromUTF8(gdtfEditorPanel->GetSelectedMode()) : wxString();
@@ -1025,23 +1064,33 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
       gdtfEditorPanel->ClearModeDetails();
     return;
   }
-  auto channels =
-      GetGdtfModeChannels(PathUtils::PathToUtf8(gdtfPath), std::string(mode.ToUTF8()));
-  std::vector<GdtfModeChannelPresentation> channelRows;
-  for (const auto &ch : channels) {
-    channelRows.push_back({
-        ch.isVirtual ? std::string("V") :
-                       std::string(wxString::Format("%d", ch.channel).ToUTF8()),
-        FormatGdtfModeFunctionLabel(ch.function),
-    });
+  if (cachedModeChannelSource != gdtfPath)
+    ReloadModeChannelDocument();
+  const std::string modeName(mode.ToUTF8());
+  const auto *modeNode = cachedModeChannelDocument.FindMode(modeName);
+  if (gdtfEditorPanel) {
+    gdtfEditorPanel->SetModeBrowserNodes(BuildGdtfModeBrowserPresentation(modeNode));
+    gdtfEditorPanel->SetChannels(BuildGdtfModeChannelSummaryPresentation(modeNode));
   }
-  if (gdtfEditorPanel)
-    gdtfEditorPanel->SetChannels(channelRows);
-  int chCount =
-      GetGdtfModeChannelCount(PathUtils::PathToUtf8(gdtfPath), std::string(mode.ToUTF8()));
+  const int chCount = modeNode ? modeNode->calculatedFootprint
+                               : GetGdtfModeChannelCount(PathUtils::PathToUtf8(gdtfPath), modeName);
   if (gdtfEditorPanel)
     gdtfEditorPanel->SetChannelCount(chCount >= 0 ? std::string(wxString::Format("%d", chCount).ToUTF8()) : std::string());
   (void)markChannelCountDirty;
+}
+
+// Reloads the cached hierarchical GDTF mode/channel document for the active source.
+void FixtureEditDialog::ReloadModeChannelDocument() {
+  cachedModeChannelSource.clear();
+  cachedModeChannelDocument = {};
+  const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
+  if (gdtfPath.empty())
+    return;
+  auto archive = gdtf::ReadGdtfArchive(gdtfPath);
+  if (!archive.Success())
+    return;
+  cachedModeChannelDocument = gdtf::ReadGdtfModeChannelDocument(archive.descriptionXml);
+  cachedModeChannelSource = gdtfPath;
 }
 
 
@@ -1056,8 +1105,10 @@ void FixtureEditDialog::SaveLayoutPreferences() {
   if (visualSplitter)
     preferences.visualRatio = gui::gdtf_layout::SashToRatio(
         visualSplitter->GetSashPosition(), visualSplitter->GetClientSize().GetWidth(), 0.75);
-  if (gdtfEditorPanel)
+  if (gdtfEditorPanel) {
     preferences.gdtfRatio = gdtfEditorPanel->GetTwoPaneSplitterRatio();
+    preferences.modeBrowserRatio = gdtfEditorPanel->GetModeBrowserSplitterRatio();
+  }
   if (visualNotebook)
     preferences.visualTab = visualNotebook->GetSelection();
   gui::gdtf_layout::SaveFixtureLayoutPreferences(config, preferences);
@@ -1079,8 +1130,10 @@ void FixtureEditDialog::RestoreLayoutPreferences() {
         visualSplitter->GetClientSize().GetWidth(),
         gui::gdtf_layout::MinimumWorkspacePaneWidth(this),
         gui::gdtf_layout::MinimumVisualPaneWidth(this), preferences.visualRatio));
-  if (gdtfEditorPanel)
+  if (gdtfEditorPanel) {
     gdtfEditorPanel->SetTwoPaneSplitterRatio(preferences.gdtfRatio);
+    gdtfEditorPanel->SetModeBrowserSplitterRatio(preferences.modeBrowserRatio);
+  }
   if (visualNotebook)
     visualNotebook->SetSelection(preferences.visualTab);
 }
@@ -1147,6 +1200,8 @@ bool FixtureEditDialog::ApplyChanges() {
                      ? gdtfPath
                      : fixtureApplyResult.common.resultingGdtfPath;
       pendingSelectedGdtfPath = gdtfPath;
+      cachedModeChannelSource.clear();
+      cachedModeChannelDocument = {};
       for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
         changedWeightPositions.insert(position);
       originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;

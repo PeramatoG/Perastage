@@ -6,24 +6,25 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * Perastage is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtf_modes_panel.h"
 #include "gdtf/gdtf_editor_visual_metrics.h"
+#include "gdtf/gdtf_mode_data_view_model.h"
 
+#include <algorithm>
 #include <utility>
 
 #include <wx/choice.h>
+#include <wx/dataview.h>
 #include <wx/sizer.h>
+#include <wx/splitter.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
+
+namespace {
+// Clamps the browser splitter ratio to a usable normalized range.
+double ClampBrowserRatio(double ratio) { return std::clamp(ratio, 0.25, 0.85); }
+}
 
 // Formats a raw GDTF channel function label for display.
 std::string FormatGdtfModeFunctionLabel(const std::string &functionText) {
@@ -65,15 +66,35 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
             wxALIGN_CENTER_VERTICAL);
   grid->Add(channelCountCtrl, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxBOTTOM, 6);
-  root->Add(new wxStaticText(this, wxID_ANY, "Mode channels"), 0,
+  root->Add(new wxStaticText(this, wxID_ANY, "Mode and channel browser"), 0,
             wxBOTTOM, 3);
-  channelListCtrl = new wxTextCtrl(this, wxID_ANY, wxString(),
-                                   wxDefaultPosition, wxSize(-1, gui::gdtf_layout::Dip(this, 260)),
-                                   wxTE_MULTILINE | wxTE_READONLY);
-  channelListCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 220)));
-  root->Add(channelListCtrl, 1, wxEXPAND);
-  modeChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) {
-    NotifyModeChanged();
+
+  browserSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition,
+                                         wxSize(-1, gui::gdtf_layout::Dip(this, 300)),
+                                         wxSP_LIVE_UPDATE | wxSP_3DSASH);
+  browserCtrl = new wxDataViewCtrl(browserSplitter, wxID_ANY, wxDefaultPosition,
+                                   wxDefaultSize, wxDV_ROW_LINES | wxDV_VERT_RULES);
+  browserCtrl->AppendTextColumn("Item", GdtfModeDataViewModel::Item, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 180), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn("DMX range", GdtfModeDataViewModel::DmxRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 90), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn("Physical range", GdtfModeDataViewModel::PhysicalRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 130), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn("Unit", GdtfModeDataViewModel::Unit, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 80), wxALIGN_LEFT, 0);
+  browserModel = new GdtfModeDataViewModel();
+  browserCtrl->AssociateModel(browserModel);
+  browserModel->DecRef();
+  detailsCtrl = new wxTextCtrl(browserSplitter, wxID_ANY, wxString(), wxDefaultPosition,
+                               wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
+  browserCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 180)));
+  detailsCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 90)));
+  browserSplitter->SplitHorizontally(browserCtrl, detailsCtrl,
+      gui::gdtf_layout::Dip(this, 204));
+  root->Add(browserSplitter, 1, wxEXPAND);
+
+  modeChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { NotifyModeChanged(); });
+  browserCtrl->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, [this](wxDataViewEvent &event) {
+    const auto *node = browserModel ? browserModel->GetNode(event.GetItem()) : nullptr;
+    if (node)
+      selectedByMode[GetSelectedMode()] = node->id;
+    UpdateDetails(node);
   });
   SetSizer(root);
 }
@@ -123,35 +144,105 @@ void GdtfModesPanel::SetChannelCount(const std::string &channelCount) {
   updating = false;
 }
 
-// Sets the ordered channel display rows.
-void GdtfModesPanel::SetChannels(
-    const std::vector<GdtfModeChannelPresentation> &channels) {
-  wxString text;
-  for (const auto &channel : channels) {
-    text += wxString::FromUTF8(channel.channelLabel) + ": " +
-            wxString::FromUTF8(channel.functionLabel) + "\n";
-  }
+// Ignores legacy summary rows because they are displayed by GdtfChannelSummaryPanel.
+void GdtfModesPanel::SetChannels(const std::vector<GdtfModeChannelPresentation> &) {}
+
+// Sets the ordered read-only hierarchical browser nodes.
+void GdtfModesPanel::SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes) {
+  RememberExpandedItems();
   updating = true;
-  channelListCtrl->SetValue(text);
+  browserModel->SetNodes(nodes);
+  RestoreExpandedItems();
+  wxDataViewItem selected;
+  auto selectedIt = selectedByMode.find(GetSelectedMode());
+  if (selectedIt != selectedByMode.end())
+    selected = browserModel->GetItemById(selectedIt->second);
+  if (!selected.IsOk()) {
+    auto roots = browserModel->GetTopLevelItems();
+    if (!roots.empty())
+      selected = roots.front();
+  }
+  if (selected.IsOk())
+    browserCtrl->Select(selected);
+  UpdateDetails(browserModel->GetNode(selected));
   updating = false;
+}
+
+// Sets the normalized browser/details splitter ratio.
+void GdtfModesPanel::SetBrowserSplitterRatio(double ratio) {
+  browserSplitterRatio = ClampBrowserRatio(ratio);
+  if (!browserSplitter)
+    return;
+  const int height = browserSplitter->GetClientSize().GetHeight();
+  if (height > 0)
+    browserSplitter->SetSashPosition(static_cast<int>(height * browserSplitterRatio));
+}
+
+// Returns the current normalized browser/details splitter ratio.
+double GdtfModesPanel::GetBrowserSplitterRatio() const {
+  if (!browserSplitter)
+    return browserSplitterRatio;
+  const int height = browserSplitter->GetClientSize().GetHeight();
+  if (height <= 0)
+    return browserSplitterRatio;
+  return ClampBrowserRatio(static_cast<double>(browserSplitter->GetSashPosition()) / height);
 }
 
 // Clears the derived channel presentation.
 void GdtfModesPanel::ClearModeDetails() {
   updating = true;
   channelCountCtrl->SetValue(wxString());
-  channelListCtrl->SetValue(wxString());
+  browserModel->SetNodes({});
+  detailsCtrl->SetValue(wxString());
   updating = false;
 }
 
 // Enables or disables mode selection.
-void GdtfModesPanel::SetModeSelectionEnabled(bool enabled) {
-  modeChoice->Enable(enabled);
-}
+void GdtfModesPanel::SetModeSelectionEnabled(bool enabled) { modeChoice->Enable(enabled); }
 
 // Notifies the host about a genuine user mode selection.
 void GdtfModesPanel::NotifyModeChanged() {
   if (updating || !selectionCallback)
     return;
+  RememberExpandedItems();
   selectionCallback(GetSelectedMode());
+}
+
+// Updates the read-only key/value details inspector for the selected node.
+void GdtfModesPanel::UpdateDetails(const GdtfModeBrowserNodePresentation *node) {
+  wxString text;
+  if (node) {
+    for (const auto &row : node->details)
+      text += wxString::FromUTF8(row.key) + ": " + wxString::FromUTF8(row.value) + "\n";
+  }
+  detailsCtrl->SetValue(text);
+}
+
+// Remembers expanded browser item identities for the active mode.
+void GdtfModesPanel::RememberExpandedItems() {
+  if (!browserModel || !browserCtrl)
+    return;
+  auto &expanded = expandedByMode[GetSelectedMode()];
+  expanded.clear();
+  wxDataViewItemArray children;
+  browserModel->GetChildren(wxDataViewItem(), children);
+  for (auto item : children) {
+    if (browserCtrl->IsExpanded(item)) {
+      if (const auto *node = browserModel->GetNode(item))
+        expanded.insert(node->id);
+    }
+  }
+}
+
+// Restores mode-specific expansion or expands DMX Channel roots initially.
+void GdtfModesPanel::RestoreExpandedItems() {
+  if (!browserModel || !browserCtrl)
+    return;
+  const auto mode = GetSelectedMode();
+  const auto it = expandedByMode.find(mode);
+  for (auto item : browserModel->GetTopLevelItems()) {
+    const auto *node = browserModel->GetNode(item);
+    if (it == expandedByMode.end() || (node && it->second.count(node->id)))
+      browserCtrl->Expand(item);
+  }
 }
