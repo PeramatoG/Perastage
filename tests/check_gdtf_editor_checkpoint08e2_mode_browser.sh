@@ -29,14 +29,15 @@ require('tinyxml2' not in model_h + model and 'ReadGdtfArchive' not in model_h +
 require('#include <wx/' not in core_h + core and 'wx' not in core_h, 'Core parser must have no wxWidgets dependency.')
 for token in ['DMXMode', 'DMXChannel', 'LogicalChannel', 'ChannelFunction', 'ChannelSet', 'SubChannelSet', 'ParseGdtfDmxValue']:
     require(token in core_h + core, f'Core hierarchy/parser missing {token}.')
-for col in ['Item', 'Channel function', 'DMX range', 'Physical range', 'Unit']:
+for col in ['Item', 'DMX range', 'Physical range', 'Unit']:
     require(col in modes, f'Missing browser column {col}.')
+require('Channel function' not in modes, 'Mode browser must not expose the removed Channel function column.')
 require('detailsCtrl' in modes_h + modes and 'UpdateDetails' in modes, 'Details inspector must exist.')
 summary = Path('gui/gdtf/gdtf_channel_summary_panel.cpp').read_text()
 editor = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
 require('wxTE_MULTILINE | wxTE_READONLY' in summary and 'channelSummaryPanel' in editor, 'Legacy quick channel summary panel must be restored below physical properties.')
-require('BuildPerByteChannelFunctionNames' in presenter and 'FormatGroupedChannelFunctions' in presenter, 'Summary must show per-byte functions while browser keeps grouped channel functions.')
-require('NormalizeChannelFunctionLabel' in presenter and 'originalAttribute' in presenter, 'Channel function display must normalize reference-like labels and use function metadata fallbacks.')
+require('BuildPerByteChannelFunctionNames' in presenter and 'FormatGroupedChannelFunctions' in presenter, 'Summary must show per-byte functions without adding a browser Channel function column.')
+require('address' not in Path('gui/gdtf/gdtf_mode_browser_presenter.h').read_text(), 'Browser presentation must not keep removed Channel function column data.')
 require('HasContainerColumns' not in model_h + model, 'Browser model must keep default container columns to avoid slow nested redraws.')
 require('SetBrowserSplitterRatio' in modes_h + modes and 'GetBrowserSplitterRatio' in modes_h + modes, 'Browser ratio API must exist.')
 require('gdtf_editor/fixture/mode_browser_ratio' in prefs, 'Browser ratio persistence key must exist.')

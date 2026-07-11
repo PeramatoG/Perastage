@@ -19,7 +19,6 @@ struct GdtfModeBrowserNodePresentation {
   std::string id;
   std::string parentId;
   std::string item;
-  std::string address;
   std::string dmxRange;
   std::string physicalRange;
   std::string unit;

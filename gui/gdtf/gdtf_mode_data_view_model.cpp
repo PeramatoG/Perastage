@@ -71,7 +71,6 @@ void GdtfModeDataViewModel::GetValue(wxVariant &variant, const wxDataViewItem &i
   }
   switch (col) {
   case Item: variant = wxString::FromUTF8(node->item); break;
-  case Address: variant = wxString::FromUTF8(node->address); break;
   case DmxRange: variant = wxString::FromUTF8(node->dmxRange); break;
   case PhysicalRange: variant = wxString::FromUTF8(node->physicalRange); break;
   case Unit: variant = wxString::FromUTF8(node->unit); break;

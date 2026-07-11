@@ -10,7 +10,7 @@
 
 class GdtfModeDataViewModel : public wxDataViewModel {
 public:
-  enum Column { Item = 0, Address, DmxRange, PhysicalRange, Unit, ColumnCount };
+  enum Column { Item = 0, DmxRange, PhysicalRange, Unit, ColumnCount };
 
   GdtfModeDataViewModel();
 

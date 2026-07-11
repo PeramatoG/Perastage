@@ -165,7 +165,6 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
     GdtfModeBrowserNodePresentation ch;
     ch.id = channel.id;
     ch.item = channel.virtualChannel ? "Virtual DMX Channel" : "DMX Channel " + FormatOffsets(channel.offsets);
-    ch.address = FormatGroupedChannelFunctions(channel);
     Detail(ch, "raw DMXBreak", RawOrNotSpecified(channel.rawDmxBreak));
     Detail(ch, "raw Offset", RawOrNotSpecified(channel.rawOffset));
     Detail(ch, "parsed offsets", FormatOffsets(channel.offsets));
@@ -174,21 +173,12 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
     Detail(ch, "InitialFunction", RawOrNotSpecified(channel.initialFunction));
     Detail(ch, "Highlight", RawOrNotSpecified(channel.highlight));
     Detail(ch, "Geometry", RawOrNotSpecified(channel.geometry));
-    Detail(ch, "Channel functions", ch.address);
     rows.push_back(ch);
     for (const auto &logical : channel.logicalChannels) {
       GdtfModeBrowserNodePresentation lc;
       lc.id = logical.id;
       lc.parentId = channel.id;
       lc.item = DisplayName(logical.attribute);
-      lc.address = NormalizeChannelFunctionLabel(logical.attribute);
-      if (lc.address.empty()) {
-        std::vector<std::string> logicalNames;
-        for (const auto &function : logical.channelFunctions)
-          logicalNames.push_back(FirstFunctionLabel(
-              {function.attribute, function.originalAttribute, function.name}));
-        lc.address = JoinLabels(logicalNames);
-      }
       lc.unit = logical.attributeInfo.physicalUnit;
       Detail(lc, "Attribute", RawOrNotSpecified(logical.attribute));
       Detail(lc, "Pretty", RawOrNotSpecified(logical.attributeInfo.pretty));
@@ -206,7 +196,6 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
         f.id = fn.id;
         f.parentId = logical.id;
         f.item = DisplayName(fn.name.empty() ? fn.attribute : fn.name);
-        f.address = FirstFunctionLabel({fn.attribute, fn.originalAttribute, fn.name});
         f.dmxRange = FormatDmxRange(fn.effectiveDmxRange);
         f.physicalRange = FormatPhysicalRange(fn.effectivePhysicalRange);
         f.unit = fn.physicalUnit.empty() ? logical.attributeInfo.physicalUnit : fn.physicalUnit;
@@ -233,7 +222,6 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
           s.id = set.id;
           s.parentId = fn.id;
           s.item = DisplayName(set.name);
-          s.address = f.address;
           s.dmxRange = FormatDmxRange(set.effectiveDmxRange);
           s.physicalRange = FormatPhysicalRange(set.effectivePhysicalRange);
           s.unit = f.unit;
@@ -251,7 +239,6 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
             ss.id = sub.id;
             ss.parentId = set.id;
             ss.item = DisplayName(sub.name);
-            ss.address = f.address;
             ss.physicalRange = RawOrNotSpecified(sub.physicalFrom) + " -> " + RawOrNotSpecified(sub.physicalTo);
             ss.unit = sub.subPhysicalUnit;
             Detail(ss, "Name", RawOrNotSpecified(sub.name));
