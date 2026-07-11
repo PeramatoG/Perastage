@@ -56,6 +56,39 @@ bool ParseUInt(const std::string &text, std::uint64_t &out) {
   return true;
 }
 
+// Parses a signed integer attribute without throwing.
+bool ParseIntText(const std::string &text, int &out) {
+  if (text.empty())
+    return false;
+  size_t pos = 0;
+  bool negative = false;
+  if (text[pos] == '-' || text[pos] == '+') {
+    negative = text[pos] == '-';
+    ++pos;
+  }
+  if (pos >= text.size())
+    return false;
+  std::uint64_t magnitude = 0;
+  for (; pos < text.size(); ++pos) {
+    const unsigned char c = static_cast<unsigned char>(text[pos]);
+    if (!std::isdigit(c))
+      return false;
+    const std::uint64_t digit = c - '0';
+    if (magnitude > (static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + (negative ? 1u : 0u) - digit) / 10)
+      return false;
+    magnitude = magnitude * 10 + digit;
+  }
+  if (negative) {
+    if (magnitude == static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1u)
+      out = std::numeric_limits<int>::min();
+    else
+      out = -static_cast<int>(magnitude);
+  } else {
+    out = static_cast<int>(magnitude);
+  }
+  return true;
+}
+
 // Returns the maximum raw DMX value for a resolution byte count.
 std::uint64_t MaxForBytes(int bytes) {
   if (bytes <= 0)
@@ -123,6 +156,100 @@ std::vector<GdtfDmxValue> ParseOffsets(const std::string &raw, GdtfModeChannelDo
     values.push_back(std::move(parsed));
   }
   return values;
+}
+
+// Finds a geometry element by exact Name below a geometry subtree.
+const tinyxml2::XMLElement *FindGeometryByName(const tinyxml2::XMLElement *node,
+                                               const std::string &name) {
+  if (!node || name.empty())
+    return nullptr;
+  if (Attr(node, "Name") == name)
+    return node;
+  for (const auto *child = node->FirstChildElement(); child;
+       child = child->NextSiblingElement()) {
+    if (const auto *found = FindGeometryByName(child, name))
+      return found;
+  }
+  return nullptr;
+}
+
+// Collects DMX offset shifts introduced by GeometryReference nodes.
+void CollectGeometryReferenceOffsets(const tinyxml2::XMLElement *node,
+                                     std::map<std::string, std::vector<int>> &offsets,
+                                     GdtfModeChannelDocument &doc,
+                                     const std::string &modeId) {
+  if (!node)
+    return;
+  if (std::string(node->Name()) == "GeometryReference") {
+    const std::string referencedGeometry = Attr(node, "Geometry");
+    if (!referencedGeometry.empty()) {
+      bool hadBreak = false;
+      for (const auto *br = node->FirstChildElement("Break"); br;
+           br = br->NextSiblingElement("Break")) {
+        hadBreak = true;
+        int dmxOffset = 1;
+        const std::string rawOffset = Attr(br, "DMXOffset");
+        if (!rawOffset.empty() && !ParseIntText(Trim(rawOffset), dmxOffset))
+          AddDiagnostic(doc, GdtfDiagnosticSeverity::Warning,
+                        "Malformed GeometryReference DMXOffset.",
+                        "GeometryReference", rawOffset, modeId);
+        offsets[referencedGeometry].push_back(std::max(0, dmxOffset - 1));
+      }
+      if (!hadBreak)
+        offsets[referencedGeometry].push_back(0);
+    }
+  }
+  for (const auto *child = node->FirstChildElement(); child;
+       child = child->NextSiblingElement()) {
+    CollectGeometryReferenceOffsets(child, offsets, doc, modeId);
+  }
+}
+
+// Builds per-geometry DMX offset shifts for the selected mode root geometry.
+std::map<std::string, std::vector<int>> BuildGeometryReferenceOffsets(
+    const tinyxml2::XMLElement *geometries, const std::string &rootGeometryName,
+    GdtfModeChannelDocument &doc, const std::string &modeId) {
+  std::map<std::string, std::vector<int>> offsets;
+  if (!geometries || rootGeometryName.empty())
+    return offsets;
+  const tinyxml2::XMLElement *rootGeometry = nullptr;
+  for (const auto *geometry = geometries->FirstChildElement(); geometry && !rootGeometry;
+       geometry = geometry->NextSiblingElement()) {
+    rootGeometry = FindGeometryByName(geometry, rootGeometryName);
+  }
+  CollectGeometryReferenceOffsets(rootGeometry, offsets, doc, modeId);
+  return offsets;
+}
+
+// Returns offsets shifted by a GeometryReference DMXOffset value.
+std::vector<GdtfDmxValue> ShiftOffsets(const std::vector<GdtfDmxValue> &offsets,
+                                       int shift) {
+  std::vector<GdtfDmxValue> shifted = offsets;
+  for (auto &offset : shifted) {
+    if (!offset.valid || !offset.normalized)
+      continue;
+    offset.normalized = *offset.normalized + static_cast<std::uint64_t>(std::max(0, shift));
+  }
+  return shifted;
+}
+
+// Rebuilds stable child identities after a GeometryReference expansion clone.
+void RebaseChannelIds(GdtfDmxChannelNode &channel, const std::string &channelId) {
+  channel.id = channelId;
+  for (size_t l = 0; l < channel.logicalChannels.size(); ++l) {
+    auto &logical = channel.logicalChannels[l];
+    logical.id = ChildId(channel.id, "logical", static_cast<int>(l));
+    for (size_t f = 0; f < logical.channelFunctions.size(); ++f) {
+      auto &fn = logical.channelFunctions[f];
+      fn.id = ChildId(logical.id, "function", static_cast<int>(f));
+      for (size_t s = 0; s < fn.channelSets.size(); ++s) {
+        auto &set = fn.channelSets[s];
+        set.id = ChildId(fn.id, "set", static_cast<int>(s));
+        for (size_t sub = 0; sub < set.subChannelSets.size(); ++sub)
+          set.subChannelSets[sub].id = ChildId(set.id, "subset", static_cast<int>(sub));
+      }
+    }
+  }
 }
 
 // Calculates ordered ranges for channel functions and channel sets.
@@ -253,6 +380,7 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
   const auto *root = xml.FirstChildElement("GDTF");
   const auto *fixtureType = root ? root->FirstChildElement("FixtureType") : nullptr;
   const auto *dmxModes = fixtureType ? fixtureType->FirstChildElement("DMXModes") : nullptr;
+  const auto *geometries = fixtureType ? fixtureType->FirstChildElement("Geometries") : nullptr;
   if (!dmxModes) {
     AddDiagnostic(result, GdtfDiagnosticSeverity::Error, "Missing DMXModes element.");
     return result;
@@ -267,6 +395,8 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
     mode.description = Attr(modeXml, "Description");
     mode.geometry = Attr(modeXml, "Geometry");
     mode.id = "mode[" + std::to_string(modeIndex) + "]:" + mode.name;
+    const auto geometryReferenceOffsets =
+        BuildGeometryReferenceOffsets(geometries, mode.geometry, result, mode.id);
     const auto *channelsXml = modeXml->FirstChildElement("DMXChannels");
     int channelIndex = 0;
     for (const auto *channelXml = channelsXml ? channelsXml->FirstChildElement("DMXChannel") : nullptr;
@@ -374,7 +504,25 @@ GdtfModeChannelDocument ReadGdtfModeChannelDocument(const std::string &descripti
         channel.logicalChannels.push_back(std::move(logical));
       }
       CalculateRanges(channel, result);
-      mode.channels.push_back(std::move(channel));
+      auto geometryShifts = geometryReferenceOffsets.find(channel.geometry);
+      if (!channel.virtualChannel && geometryShifts != geometryReferenceOffsets.end() &&
+          !geometryShifts->second.empty()) {
+        for (size_t shiftIndex = 0; shiftIndex < geometryShifts->second.size(); ++shiftIndex) {
+          GdtfDmxChannelNode expanded = channel;
+          expanded.geometryReferenceIndex = static_cast<int>(shiftIndex + 1);
+          expanded.offsets = ShiftOffsets(channel.offsets, geometryShifts->second[shiftIndex]);
+          RebaseChannelIds(expanded, channel.id + "/geometryReference[" +
+                                         std::to_string(shiftIndex) + "]");
+          for (const auto &offset : expanded.offsets) {
+            if (offset.valid && offset.normalized)
+              mode.calculatedFootprint = std::max(mode.calculatedFootprint,
+                                                  static_cast<int>(*offset.normalized));
+          }
+          mode.channels.push_back(std::move(expanded));
+        }
+      } else {
+        mode.channels.push_back(std::move(channel));
+      }
     }
     result.modes.push_back(std::move(mode));
   }

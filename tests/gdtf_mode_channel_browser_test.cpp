@@ -17,6 +17,13 @@ int main() {
       <Attribute Name="Dimmer" Pretty="Dimmer pretty" PhysicalUnit="Percent" Feature="Dim" ActivationGroup="Intensity" MainAttribute="Dimmer" Color="0,1,1"/>
       <Attribute Name="Pan" Pretty="Pan pretty" PhysicalUnit="Degree" Feature="Position"/>
     </Attributes></AttributeDefinitions>
+    <Geometries>
+      <Geometry Name="Base">
+        <GeometryReference Name="Head ref 1" Geometry="Head"><Break DMXBreak="1" DMXOffset="10"/></GeometryReference>
+        <GeometryReference Name="Head ref 2" Geometry="Head"><Break DMXBreak="1" DMXOffset="20"/></GeometryReference>
+      </Geometry>
+      <Geometry Name="Head"/>
+    </Geometries>
     <DMXModes>
       <DMXMode Name="Mode Ω" Description="Desc" Geometry="Base"><DMXChannels>
         <DMXChannel DMXBreak="1" Offset="1,2" InitialFunction="Dim" Highlight="255/1" Geometry="Head">
@@ -36,9 +43,14 @@ int main() {
   auto doc = gdtf::ReadGdtfModeChannelDocument(xml);
   assert(doc.modes.size() == 2);
   const auto *mode = doc.FindMode("Mode Ω");
-  assert(mode && mode->channels.size() == 2);
+  assert(mode && mode->channels.size() == 3);
   assert(mode->channels[0].resolution == 2);
-  assert(mode->channels[1].virtualChannel);
+  assert(mode->channels[0].geometryReferenceIndex == 1);
+  assert(mode->channels[0].offsets[0].normalized == 10);
+  assert(mode->channels[1].geometryReferenceIndex == 2);
+  assert(mode->channels[1].offsets[0].normalized == 20);
+  assert(mode->calculatedFootprint == 21);
+  assert(mode->channels[2].virtualChannel);
   const auto &logical = mode->channels[0].logicalChannels[0];
   assert(logical.attributeInfo.physicalUnit == "Percent");
   const auto &fn = logical.channelFunctions[0];

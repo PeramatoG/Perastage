@@ -27,6 +27,7 @@ Changes since **v1.4.0**.
 - Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.
 - Kept the GDTF mode/channel browser responsive by avoiding expensive nested container-column redraws during Fixture Edit opening and mouse hover.
 - Removed the experimental Channel function column from the GDTF mode/channel browser because the quick Mode channels summary already provides the useful channel-function scan.
+- Fixed GDTF mode/channel summaries for matrix fixtures by applying GeometryReference DMX offsets, so repeated RGBW pixel channels appear at their effective addresses instead of restarting at channel 1.
 
 - Fixed Fixture Edit GDTF source resolution so project-relative fixture references are resolved before metadata, modes, channels, previews, symbols, thumbnails, and GDTF mutation paths use them, preventing bare file-name open errors after the Checkpoint 08A session binding.
 - Fixed GDTF imports with Unicode resource filenames whose ZIP entries omit UTF-8 filename metadata, allowing affected fixtures to insert with their real models, refresh tables and viewports immediately, reopen without stalling during mode resolution, and report a concise compatibility warning while leaving the original archive unchanged.

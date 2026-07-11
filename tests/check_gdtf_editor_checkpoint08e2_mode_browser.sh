@@ -29,6 +29,7 @@ require('tinyxml2' not in model_h + model and 'ReadGdtfArchive' not in model_h +
 require('#include <wx/' not in core_h + core and 'wx' not in core_h, 'Core parser must have no wxWidgets dependency.')
 for token in ['DMXMode', 'DMXChannel', 'LogicalChannel', 'ChannelFunction', 'ChannelSet', 'SubChannelSet', 'ParseGdtfDmxValue']:
     require(token in core_h + core, f'Core hierarchy/parser missing {token}.')
+require('GeometryReference' in core and 'DMXOffset' in core and 'geometryReferenceIndex' in core_h + core, 'Core reader must expand GeometryReference DMX offsets for matrix fixtures.')
 for col in ['Item', 'DMX range', 'Physical range', 'Unit']:
     require(col in modes, f'Missing browser column {col}.')
 require('Channel function' not in modes, 'Mode browser must not expose the removed Channel function column.')

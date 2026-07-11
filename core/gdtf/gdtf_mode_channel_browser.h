@@ -141,6 +141,7 @@ struct GdtfDmxChannelNode {
   std::string initialFunction;
   std::string highlight;
   std::string geometry;
+  int geometryReferenceIndex = 0;
   int sourceIndex = 0;
   std::vector<GdtfLogicalChannelNode> logicalChannels;
 };

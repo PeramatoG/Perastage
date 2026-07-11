@@ -73,6 +73,18 @@ std::string NormalizeChannelFunctionLabel(const std::string &value) {
   const size_t dot = text.find_last_of('.');
   if (dot != std::string::npos && dot + 1 < text.size())
     text = text.substr(dot + 1);
+  if (text == "ColorAdd_R")
+    return "Red";
+  if (text == "ColorAdd_G")
+    return "Green";
+  if (text == "ColorAdd_B")
+    return "Blue";
+  if (text == "ColorAdd_W")
+    return "White";
+  if (text == "Shutter1Strobe")
+    return "Strobe";
+  if (text == "FixtureGlobalReset")
+    return "Control";
   return text;
 }
 
@@ -143,9 +155,14 @@ std::string FormatGroupedChannelFunctions(
 
 // Returns the summary label for one physical channel byte.
 std::string FormatSummaryFunctionAt(
-    const std::vector<std::string> &names, size_t index) {
-  if (index < names.size() && !names[index].empty())
+    const std::vector<std::string> &names, size_t index, int geometryReferenceIndex) {
+  if (index < names.size() && !names[index].empty()) {
+    if (geometryReferenceIndex > 0 &&
+        (names[index] == "Red" || names[index] == "Green" ||
+         names[index] == "Blue" || names[index] == "White"))
+      return names[index] + " " + std::to_string(geometryReferenceIndex);
     return names[index];
+  }
   return "-";
 }
 
@@ -268,7 +285,7 @@ BuildGdtfModeChannelSummaryPresentation(const gdtf::GdtfDmxModeNode *mode) {
     }
     for (size_t i = 0; i < channel.offsets.size(); ++i) {
       rows.push_back({FormatOffsetLabel(channel.offsets[i]),
-                      FormatSummaryFunctionAt(names, i)});
+                      FormatSummaryFunctionAt(names, i, channel.geometryReferenceIndex)});
     }
   }
   return rows;
