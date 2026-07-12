@@ -26,6 +26,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed a Windows build conflict between the new GDTF wheel catalog types and the existing GDTF description snapshot wheel types.
+
 - Fixed the internal GDTF resource bitmap cache header so it uses the portable wxWidgets size declaration on Windows builds.
 
 - Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.

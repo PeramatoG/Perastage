@@ -17,7 +17,7 @@
 
 namespace gdtf {
 
-struct GdtfWheelSlotInfo {
+struct GdtfCatalogWheelSlotInfo {
   std::string id;
   int index = 0;
   std::string name;
@@ -33,17 +33,17 @@ struct GdtfWheelSlotInfo {
   std::vector<GdtfModeDiagnostic> diagnostics;
 };
 
-struct GdtfWheelInfo {
+struct GdtfCatalogWheelInfo {
   std::string id;
   std::string name;
   int sourceIndex = 0;
   std::string type;
   bool graphicWheel = false;
-  std::vector<GdtfWheelSlotInfo> slots;
+  std::vector<GdtfCatalogWheelSlotInfo> slots;
   std::vector<GdtfModeDiagnostic> diagnostics;
 };
 
-struct GdtfFilterInfo {
+struct GdtfCatalogFilterInfo {
   std::string id;
   std::string name;
   std::string rawColor;
@@ -52,11 +52,11 @@ struct GdtfFilterInfo {
 };
 
 struct GdtfWheelCatalog {
-  std::vector<GdtfWheelInfo> wheels;
-  std::vector<GdtfFilterInfo> filters;
+  std::vector<GdtfCatalogWheelInfo> wheels;
+  std::vector<GdtfCatalogFilterInfo> filters;
   std::vector<GdtfModeDiagnostic> diagnostics;
-  const GdtfWheelInfo *FindWheel(const std::string &name) const;
-  const GdtfFilterInfo *FindFilter(const std::string &name) const;
+  const GdtfCatalogWheelInfo *FindWheel(const std::string &name) const;
+  const GdtfCatalogFilterInfo *FindFilter(const std::string &name) const;
 };
 
 GdtfWheelCatalog ReadGdtfWheelCatalog(const std::string &descriptionXml);

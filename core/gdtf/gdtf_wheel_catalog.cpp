@@ -61,7 +61,7 @@ const tinyxml2::XMLElement *FindSection(const tinyxml2::XMLElement *fixtureType,
 } // namespace
 
 // Finds a wheel by exact GDTF name.
-const GdtfWheelInfo *GdtfWheelCatalog::FindWheel(const std::string &name) const {
+const GdtfCatalogWheelInfo *GdtfWheelCatalog::FindWheel(const std::string &name) const {
   for (const auto &wheel : wheels) {
     if (wheel.name == name)
       return &wheel;
@@ -70,7 +70,7 @@ const GdtfWheelInfo *GdtfWheelCatalog::FindWheel(const std::string &name) const 
 }
 
 // Finds a filter by exact GDTF name.
-const GdtfFilterInfo *GdtfWheelCatalog::FindFilter(const std::string &name) const {
+const GdtfCatalogFilterInfo *GdtfWheelCatalog::FindFilter(const std::string &name) const {
   for (const auto &filter : filters) {
     if (filter.name == name)
       return &filter;
@@ -93,7 +93,7 @@ GdtfWheelCatalog ReadGdtfWheelCatalog(const std::string &descriptionXml) {
   int filterIndex = 0;
   for (const auto *filterXml = filters ? filters->FirstChildElement("Filter") : nullptr;
        filterXml; filterXml = filterXml->NextSiblingElement("Filter"), ++filterIndex) {
-    GdtfFilterInfo filter;
+    GdtfCatalogFilterInfo filter;
     filter.sourceIndex = filterIndex;
     filter.id = "filter[" + std::to_string(filterIndex) + "]:" + Attr(filterXml, "Name");
     filter.name = Attr(filterXml, "Name");
@@ -108,7 +108,7 @@ GdtfWheelCatalog ReadGdtfWheelCatalog(const std::string &descriptionXml) {
   int wheelIndex = 0;
   for (const auto *wheelXml = wheels ? wheels->FirstChildElement("Wheel") : nullptr;
        wheelXml; wheelXml = wheelXml->NextSiblingElement("Wheel"), ++wheelIndex) {
-    GdtfWheelInfo wheel;
+    GdtfCatalogWheelInfo wheel;
     wheel.sourceIndex = wheelIndex;
     wheel.name = Attr(wheelXml, "Name");
     wheel.type = Attr(wheelXml, "Type");
@@ -117,7 +117,7 @@ GdtfWheelCatalog ReadGdtfWheelCatalog(const std::string &descriptionXml) {
     int slotIndex = 0;
     for (const auto *slotXml = wheelXml->FirstChildElement("WheelSlot"); slotXml;
          slotXml = slotXml->NextSiblingElement("WheelSlot"), ++slotIndex) {
-      GdtfWheelSlotInfo slot;
+      GdtfCatalogWheelSlotInfo slot;
       slot.index = slotIndex + 1;
       slot.id = ChildId(wheel.id, "slot", slotIndex);
       slot.name = Attr(slotXml, "Name");

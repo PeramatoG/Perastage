@@ -31,9 +31,9 @@ struct GdtfDmxInspectorMapping {
   bool physicalApproximate = false;
   bool modeMasterConditional = false;
   std::string modeMaster;
-  const GdtfWheelInfo *wheel = nullptr;
-  const GdtfWheelSlotInfo *slot = nullptr;
-  const GdtfFilterInfo *filter = nullptr;
+  const GdtfCatalogWheelInfo *wheel = nullptr;
+  const GdtfCatalogWheelSlotInfo *slot = nullptr;
+  const GdtfCatalogFilterInfo *filter = nullptr;
   std::string mediaResource;
   std::string graphicWheelResource;
   std::vector<GdtfModeDiagnostic> diagnostics;

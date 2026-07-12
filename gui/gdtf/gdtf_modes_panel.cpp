@@ -375,8 +375,8 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
 
   GdtfWheelInspectorPresentation presentation;
   presentation.activeText = active.str();
-  const gdtf::GdtfWheelInfo *galleryWheel = nullptr;
-  const gdtf::GdtfWheelSlotInfo *selectedSlot = nullptr;
+  const gdtf::GdtfCatalogWheelInfo *galleryWheel = nullptr;
+  const gdtf::GdtfCatalogWheelSlotInfo *selectedSlot = nullptr;
   for (const auto &mapping : result.mappings) {
     if (mapping.wheel) {
       galleryWheel = mapping.wheel;
