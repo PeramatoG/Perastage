@@ -101,7 +101,7 @@ void TrussEditDialog::BuildEditSession() {
 // Builds the truss editing dialog with MVR and GDTF fields.
 TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Truss", wxDefaultPosition, wxDefaultSize,
-               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX),
       panel(p), row(r) {
   BuildEditSession();
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);

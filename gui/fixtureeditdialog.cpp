@@ -449,7 +449,7 @@ std::filesystem::path FixtureEditDialog::GetActiveResolvedGdtfPath() const {
 // Builds the fixture editing dialog and arranges fixture, GDTF, and preview panels.
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
-               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX),
       panel(p), row(r) {
   BuildEditSession();
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);

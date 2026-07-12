@@ -13,6 +13,7 @@
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
 #include <wx/stattext.h>
+#include <wx/font.h>
 
 namespace {
 constexpr int kSlotThumbnailSize = 48;
@@ -82,23 +83,14 @@ void GdtfWheelInspectorPanel::SetPresentation(
                 previewDetailControls,
                 MergeDetailRows(presentation.previewRows, presentation.previewStatus));
 
-  slotList->DeleteAllItems();
-  slotImages->RemoveAll();
-  long selectedIndex = -1;
+  highlightedSlotIndex = -1;
   for (size_t i = 0; i < currentSlots.size(); ++i) {
-    const auto &slot = currentSlots[i];
-    wxBitmap image = slot.hasThumbnail ? slot.thumbnail
-                     : slot.hasSwatch && slot.mediaResource.empty()
-                         ? CreateSwatchBitmap(slot.swatch, wxSize(kSlotThumbnailSize, kSlotThumbnailSize))
-                         : CreatePlaceholderBitmap(wxSize(kSlotThumbnailSize, kSlotThumbnailSize));
-    const int imageIndex = slotImages->Add(image);
-    const long row = slotList->InsertItem(static_cast<long>(i), wxString::FromUTF8(slot.label), imageIndex);
-    if (slot.selected)
-      selectedIndex = row;
+    if (currentSlots[i].selected) {
+      highlightedSlotIndex = static_cast<long>(i);
+      break;
+    }
   }
-  if (selectedIndex >= 0)
-    slotList->SetItemState(selectedIndex, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED,
-                           wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+  RefreshSlotList();
 }
 
 // Clears the wheel inspector to an unavailable read-only state.
@@ -113,6 +105,7 @@ void GdtfWheelInspectorPanel::ClearPresentation() {
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
   currentSlots.clear();
+  highlightedSlotIndex = -1;
 }
 
 // Applies a clicked wheel-slot preview without changing the resolved DMX mapping.
@@ -131,11 +124,43 @@ void GdtfWheelInspectorPanel::ApplySlotPreview(const GdtfWheelInspectorSlotPrese
                 MergeDetailRows(slot.detailRows, slot.previewStatus));
 }
 
+// Rebuilds the slot gallery while keeping selection emphasis on text only.
+void GdtfWheelInspectorPanel::RefreshSlotList() {
+  slotList->DeleteAllItems();
+  slotImages->RemoveAll();
+  const wxFont normalFont = slotList->GetFont();
+  wxFont highlightedFont = normalFont;
+  highlightedFont.SetWeight(wxFONTWEIGHT_BOLD);
+  for (size_t i = 0; i < currentSlots.size(); ++i) {
+    const auto &slot = currentSlots[i];
+    wxBitmap image = slot.hasThumbnail ? slot.thumbnail
+                     : slot.hasSwatch && slot.mediaResource.empty()
+                         ? CreateSwatchBitmap(slot.swatch, wxSize(kSlotThumbnailSize, kSlotThumbnailSize))
+                         : CreatePlaceholderBitmap(wxSize(kSlotThumbnailSize, kSlotThumbnailSize));
+    const int imageIndex = slotImages->Add(image);
+    const long row = slotList->InsertItem(static_cast<long>(i), wxString::FromUTF8(slot.label), imageIndex);
+    slotList->SetItemFont(row, row == highlightedSlotIndex ? highlightedFont : normalFont);
+  }
+}
+
+// Updates the selected slot emphasis without applying native row highlight colors.
+void GdtfWheelInspectorPanel::UpdateSlotHighlight(long row) {
+  highlightedSlotIndex = row;
+  const wxFont normalFont = slotList->GetFont();
+  wxFont highlightedFont = normalFont;
+  highlightedFont.SetWeight(wxFONTWEIGHT_BOLD);
+  for (long i = 0; i < static_cast<long>(currentSlots.size()); ++i) {
+    slotList->SetItemFont(i, i == highlightedSlotIndex ? highlightedFont : normalFont);
+    slotList->SetItemState(i, 0, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+  }
+}
+
 // Updates the preview pane when the user selects a wheel slot row.
 void GdtfWheelInspectorPanel::OnSlotSelected(wxListEvent &event) {
   const long row = event.GetIndex();
   if (row < 0 || static_cast<size_t>(row) >= currentSlots.size())
     return;
+  UpdateSlotHighlight(row);
   ApplySlotPreview(currentSlots[static_cast<size_t>(row)]);
 }
 
