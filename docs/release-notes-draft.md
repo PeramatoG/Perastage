@@ -13,7 +13,7 @@ Changes since **v1.4.0**.
 ## Improvements
 
 - Added visual GDTF wheel previews in Fixture Edit, including static gobo/graphic-wheel thumbnails and approximate color/filter swatches for wheel slots.
-- Refined Fixture Edit DMX inspection with structured detail tables, a cleaner wheel-slot preview summary, and resolution-matched slider ranges, so exact DMX values, selected mode-browser details, percentages, and active function or set ranges stay readable and aligned with the selected channel.
+- Refined Fixture Edit DMX inspection with structured wrapping detail panels, a cleaner wheel-slot preview summary, no duplicate mode-browser detail pane, and resolution-matched slider ranges, so exact DMX values, selected mode-browser details, percentages, and active function or set ranges stay readable and aligned with the selected channel.
 
 - Connected the GDTF Wheel and Attribute Inspector to Fixture Edit so selecting a channel and moving the read-only DMX slider shows the active function, set, wheel, slot, media, filter, and graphic-wheel information in a new visual-column wheels page.
 

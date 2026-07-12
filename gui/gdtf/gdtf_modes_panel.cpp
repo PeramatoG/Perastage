@@ -23,7 +23,6 @@
 #include <wx/sizer.h>
 #include <wx/slider.h>
 #include <wx/statbox.h>
-#include <wx/splitter.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
@@ -227,11 +226,9 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   root->Add(new wxStaticText(this, wxID_ANY, "Mode and channel browser"), 0,
             wxBOTTOM, 3);
 
-  browserSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition,
-                                         wxSize(-1, gui::gdtf_layout::Dip(this, 300)),
-                                         wxSP_LIVE_UPDATE | wxSP_3DSASH);
-  browserCtrl = new wxDataViewCtrl(browserSplitter, wxID_ANY, wxDefaultPosition,
-                                   wxDefaultSize, wxDV_ROW_LINES | wxDV_VERT_RULES);
+  browserCtrl = new wxDataViewCtrl(this, wxID_ANY, wxDefaultPosition,
+                                   wxSize(-1, gui::gdtf_layout::Dip(this, 300)),
+                                   wxDV_ROW_LINES | wxDV_VERT_RULES);
   browserCtrl->AppendTextColumn("Item", GdtfModeDataViewModel::Item, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 180), wxALIGN_LEFT, 0);
   browserCtrl->AppendTextColumn("DMX range", GdtfModeDataViewModel::DmxRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 90), wxALIGN_LEFT, 0);
   browserCtrl->AppendTextColumn("Physical range", GdtfModeDataViewModel::PhysicalRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 130), wxALIGN_LEFT, 0);
@@ -239,13 +236,8 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   browserModel = new GdtfModeDataViewModel();
   browserCtrl->AssociateModel(browserModel);
   browserModel->DecRef();
-  detailsCtrl = new wxTextCtrl(browserSplitter, wxID_ANY, wxString(), wxDefaultPosition,
-                               wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
   browserCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 180)));
-  detailsCtrl->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 90)));
-  browserSplitter->SplitHorizontally(browserCtrl, detailsCtrl,
-      gui::gdtf_layout::Dip(this, 204));
-  root->Add(browserSplitter, 1, wxEXPAND);
+  root->Add(browserCtrl, 1, wxEXPAND);
 
   modeChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { NotifyModeChanged(); });
   inspectionSlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent &) { UpdateInspectionFromSlider(); });
@@ -352,21 +344,11 @@ void GdtfModesPanel::SetInspectionData(const gdtf::GdtfDmxModeNode *mode,
 // Sets the normalized browser/details splitter ratio.
 void GdtfModesPanel::SetBrowserSplitterRatio(double ratio) {
   browserSplitterRatio = ClampBrowserRatio(ratio);
-  if (!browserSplitter)
-    return;
-  const int height = browserSplitter->GetClientSize().GetHeight();
-  if (height > 0)
-    browserSplitter->SetSashPosition(static_cast<int>(height * browserSplitterRatio));
 }
 
-// Returns the current normalized browser/details splitter ratio.
+// Returns the stored browser/details splitter ratio for layout preference compatibility.
 double GdtfModesPanel::GetBrowserSplitterRatio() const {
-  if (!browserSplitter)
-    return browserSplitterRatio;
-  const int height = browserSplitter->GetClientSize().GetHeight();
-  if (height <= 0)
-    return browserSplitterRatio;
-  return ClampBrowserRatio(static_cast<double>(browserSplitter->GetSashPosition()) / height);
+  return browserSplitterRatio;
 }
 
 // Sets the read-only DMX inspection value label.
@@ -386,7 +368,6 @@ void GdtfModesPanel::ClearModeDetails() {
   updating = true;
   channelCountCtrl->SetValue(wxString());
   browserModel->SetNodes({});
-  detailsCtrl->SetValue(wxString());
   selectedInspectionChannelId.clear();
   if (inspectionSlider) {
     UpdateInspectionSliderRange();
@@ -418,8 +399,6 @@ void GdtfModesPanel::UpdateDetails(const GdtfModeBrowserNodePresentation *node) 
     for (const auto &row : node->details)
       selectedInspectionDetails.push_back({row.key, row.value});
   }
-  detailsCtrl->SetValue(node ? wxString("Selected item details are shown in DMX inspection details.")
-                             : wxString());
   if (!updating && hasInspectionData && !selectedInspectionChannelId.empty())
     UpdateInspectionFromSlider();
 }

@@ -19,7 +19,9 @@
 
 class wxListEvent;
 class wxImageList;
+class wxBoxSizer;
 class wxListCtrl;
+class wxScrolledWindow;
 class wxStaticBitmap;
 struct GdtfWheelInspectorDetailRow {
   std::string label;
@@ -67,16 +69,24 @@ private:
   wxBitmap CreateSwatchBitmap(const wxColour &colour, const wxSize &size) const;
   wxBitmap CreatePlaceholderBitmap(const wxSize &size) const;
 
-  void SetDetailRows(wxListCtrl *list, const std::vector<GdtfWheelInspectorDetailRow> &rows);
+  void SetDetailRows(wxScrolledWindow *panel, wxBoxSizer *sizer,
+                     std::vector<GdtfWheelInspectorDetailRow> &storedRows,
+                     const std::vector<GdtfWheelInspectorDetailRow> &rows);
+  void ApplyDetailRows(wxScrolledWindow *panel, wxBoxSizer *sizer,
+                       const std::vector<GdtfWheelInspectorDetailRow> &rows);
   std::vector<GdtfWheelInspectorDetailRow> BuildStatusRows(const std::string &status) const;
   std::vector<GdtfWheelInspectorDetailRow> MergeDetailRows(
       const std::vector<GdtfWheelInspectorDetailRow> &details,
       const std::string &status) const;
 
-  wxListCtrl *activeDetailsList = nullptr;
+  wxScrolledWindow *activeDetailsPanel = nullptr;
+  wxBoxSizer *activeDetailsSizer = nullptr;
   wxStaticBitmap *activePreviewBitmap = nullptr;
-  wxListCtrl *previewDetailsList = nullptr;
+  wxScrolledWindow *previewDetailsPanel = nullptr;
+  wxBoxSizer *previewDetailsSizer = nullptr;
   wxListCtrl *slotList = nullptr;
   wxImageList *slotImages = nullptr;
+  std::vector<GdtfWheelInspectorDetailRow> activeDetailRows;
+  std::vector<GdtfWheelInspectorDetailRow> previewDetailRows;
   std::vector<GdtfWheelInspectorSlotPresentation> currentSlots;
 };

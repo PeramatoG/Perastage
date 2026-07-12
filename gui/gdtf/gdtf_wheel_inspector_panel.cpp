@@ -8,6 +8,7 @@
 #include <wx/imaglist.h>
 #include <wx/listctrl.h>
 #include <wx/event.h>
+#include <wx/scrolwin.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
@@ -23,21 +24,31 @@ GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
   auto *root = new wxBoxSizer(wxVERTICAL);
   root->Add(new wxStaticText(this, wxID_ANY, "DMX inspection details"), 0, wxBOTTOM, 3);
-  activeDetailsList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition,
-                                     wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-  activeDetailsList->AppendColumn("Field", wxLIST_FORMAT_LEFT, 140);
-  activeDetailsList->AppendColumn("Value", wxLIST_FORMAT_LEFT, 420);
-  root->Add(activeDetailsList, 1, wxEXPAND | wxBOTTOM, 6);
+  activeDetailsPanel = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
+                                            wxDefaultSize, wxBORDER_SIMPLE | wxVSCROLL);
+  activeDetailsPanel->SetScrollRate(0, 8);
+  activeDetailsSizer = new wxBoxSizer(wxVERTICAL);
+  activeDetailsPanel->SetSizer(activeDetailsSizer);
+  activeDetailsPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    ApplyDetailRows(activeDetailsPanel, activeDetailsSizer, activeDetailRows);
+    event.Skip();
+  });
+  root->Add(activeDetailsPanel, 1, wxEXPAND | wxBOTTOM, 6);
 
   auto *previewRow = new wxBoxSizer(wxHORIZONTAL);
   activePreviewBitmap = new wxStaticBitmap(this, wxID_ANY,
                                            CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
   previewRow->Add(activePreviewBitmap, 0, wxRIGHT, 6);
-  previewDetailsList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition,
-                                      wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-  previewDetailsList->AppendColumn("Field", wxLIST_FORMAT_LEFT, 120);
-  previewDetailsList->AppendColumn("Value", wxLIST_FORMAT_LEFT, 320);
-  previewRow->Add(previewDetailsList, 1, wxEXPAND);
+  previewDetailsPanel = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
+                                             wxDefaultSize, wxBORDER_SIMPLE | wxVSCROLL);
+  previewDetailsPanel->SetScrollRate(0, 8);
+  previewDetailsSizer = new wxBoxSizer(wxVERTICAL);
+  previewDetailsPanel->SetSizer(previewDetailsSizer);
+  previewDetailsPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    ApplyDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows);
+    event.Skip();
+  });
+  previewRow->Add(previewDetailsPanel, 1, wxEXPAND);
   root->Add(previewRow, 0, wxEXPAND | wxBOTTOM, 6);
 
   root->Add(new wxStaticText(this, wxID_ANY, "Wheel slots"), 0, wxBOTTOM, 3);
@@ -56,9 +67,9 @@ GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
 void GdtfWheelInspectorPanel::SetPresentation(
     const GdtfWheelInspectorPresentation &presentation) {
   currentSlots = presentation.slots;
-  SetDetailRows(activeDetailsList, presentation.detailRows.empty()
-                                       ? BuildStatusRows(presentation.activeText)
-                                       : presentation.detailRows);
+  SetDetailRows(activeDetailsPanel, activeDetailsSizer, activeDetailRows,
+                presentation.detailRows.empty() ? BuildStatusRows(presentation.activeText)
+                                                : presentation.detailRows);
   if (presentation.hasActivePreview)
     activePreviewBitmap->SetBitmap(presentation.activePreview);
   else if (presentation.hasActiveSwatch)
@@ -66,8 +77,8 @@ void GdtfWheelInspectorPanel::SetPresentation(
                                                       wxSize(kActivePreviewSize, kActivePreviewSize)));
   else
     activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
-  SetDetailRows(previewDetailsList, MergeDetailRows(presentation.previewRows,
-                                                    presentation.previewStatus));
+  SetDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows,
+                MergeDetailRows(presentation.previewRows, presentation.previewStatus));
 
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
@@ -90,9 +101,10 @@ void GdtfWheelInspectorPanel::SetPresentation(
 
 // Clears the wheel inspector to an unavailable read-only state.
 void GdtfWheelInspectorPanel::ClearPresentation() {
-  SetDetailRows(activeDetailsList,
+  SetDetailRows(activeDetailsPanel, activeDetailsSizer, activeDetailRows,
                 {{"Status", "Select a DMX channel and move the inspection slider to resolve the active function, set, wheel, and slot."}});
-  SetDetailRows(previewDetailsList, {{"Preview", "No wheel slot preview is available yet."}});
+  SetDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows,
+                {{"Preview", "No wheel slot preview is available yet."}});
   activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
@@ -110,7 +122,8 @@ void GdtfWheelInspectorPanel::ApplySlotPreview(const GdtfWheelInspectorSlotPrese
   else
     activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
 
-  SetDetailRows(previewDetailsList, MergeDetailRows(slot.detailRows, slot.previewStatus));
+  SetDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows,
+                MergeDetailRows(slot.detailRows, slot.previewStatus));
 }
 
 // Updates the preview pane when the user selects a wheel slot row.
@@ -121,16 +134,39 @@ void GdtfWheelInspectorPanel::OnSlotSelected(wxListEvent &event) {
   ApplySlotPreview(currentSlots[static_cast<size_t>(row)]);
 }
 
-// Applies key/value detail rows to a report list.
+// Stores and applies key/value detail rows to a wrapping details panel.
 void GdtfWheelInspectorPanel::SetDetailRows(
-    wxListCtrl *list, const std::vector<GdtfWheelInspectorDetailRow> &rows) {
-  if (!list)
+    wxScrolledWindow *panel, wxBoxSizer *sizer,
+    std::vector<GdtfWheelInspectorDetailRow> &storedRows,
+    const std::vector<GdtfWheelInspectorDetailRow> &rows) {
+  storedRows = rows;
+  ApplyDetailRows(panel, sizer, storedRows);
+}
+
+// Applies key/value detail rows with wrapped value text.
+void GdtfWheelInspectorPanel::ApplyDetailRows(
+    wxScrolledWindow *panel, wxBoxSizer *sizer,
+    const std::vector<GdtfWheelInspectorDetailRow> &rows) {
+  if (!panel || !sizer)
     return;
-  list->DeleteAllItems();
-  for (size_t i = 0; i < rows.size(); ++i) {
-    const long row = list->InsertItem(static_cast<long>(i), wxString::FromUTF8(rows[i].label));
-    list->SetItem(row, 1, wxString::FromUTF8(rows[i].value));
+  sizer->Clear(true);
+  const int labelWidth = 118;
+  const int wrapWidth = std::max(160, panel->GetClientSize().GetWidth() - labelWidth - 18);
+  for (const auto &detail : rows) {
+    auto *rowSizer = new wxBoxSizer(wxHORIZONTAL);
+    auto *label = new wxStaticText(panel, wxID_ANY, wxString::FromUTF8(detail.label));
+    label->SetMinSize(wxSize(labelWidth, -1));
+    auto labelFont = label->GetFont();
+    labelFont.SetWeight(wxFONTWEIGHT_BOLD);
+    label->SetFont(labelFont);
+    auto *value = new wxStaticText(panel, wxID_ANY, wxString::FromUTF8(detail.value));
+    value->Wrap(wrapWidth);
+    rowSizer->Add(label, 0, wxRIGHT | wxBOTTOM, 8);
+    rowSizer->Add(value, 1, wxEXPAND | wxBOTTOM, 8);
+    sizer->Add(rowSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
   }
+  panel->FitInside();
+  panel->Layout();
 }
 
 // Converts a multi-line status string into displayable detail rows.

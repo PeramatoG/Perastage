@@ -35,7 +35,6 @@
 class wxChoice;
 class wxDataViewCtrl;
 class wxSlider;
-class wxSplitterWindow;
 class wxStaticText;
 class wxTextCtrl;
 class GdtfModeDataViewModel;
@@ -91,9 +90,7 @@ private:
   wxStaticText *inspectionValueLabel = nullptr;
   wxTextCtrl *inspectionMappingLabel = nullptr;
   wxSlider *inspectionSlider = nullptr;
-  wxSplitterWindow *browserSplitter = nullptr;
   wxDataViewCtrl *browserCtrl = nullptr;
-  wxTextCtrl *detailsCtrl = nullptr;
   GdtfModeDataViewModel *browserModel = nullptr;
   std::map<std::string, std::set<std::string>> expandedByMode;
   std::map<std::string, std::string> selectedByMode;
