@@ -45,8 +45,9 @@ require('gdtf_editor/fixture/mode_browser_ratio' in prefs, 'Browser ratio persis
 require('gdtfConfiguration.modes.visible = false' in truss, 'Truss must keep Modes hidden.')
 require('cachedModeChannelDocument' in fixture_h + fixture and 'ReloadModeChannelDocument' in fixture, 'Fixture Edit must cache parsed hierarchical document.')
 require('GdtfModeDataViewModel::Item' in modes and 'wxDATAVIEW_CELL_INERT' in modes, 'Columns must be inert and read-only.')
-for forbidden in ['wxSlider', 'Gobo', 'ImageList', 'ColourPicker', 'DMX simulation', 'SetDropTarget']:
+for forbidden in ['ImageList', 'ColourPicker', 'DMX simulation', 'SetDropTarget']:
     require(forbidden not in modes_h + modes + model_h + model, f'08E2 must not introduce {forbidden}.')
+require('wxSlider' in modes_h + modes and Path('tests/check_gdtf_editor_checkpoint08e3_wheel_attribute_inspector.sh').exists(), '08E3 owns the read-only DMX inspection slider.')
 require('gdtf_mode_channel_browser.cpp' in cmake_core, 'Core browser reader must be registered.')
 require('gdtf_mode_data_view_model.cpp' in cmake_gui and 'gdtf_mode_browser_presenter.cpp' in cmake_gui, 'GUI browser files must be registered.')
 for guard in ['check_gdtf_editor_checkpoint08e1_layout.sh', 'check_gdtf_editor_panel_boundary.sh', 'check_gdtf_reusable_panels_boundary.sh']:

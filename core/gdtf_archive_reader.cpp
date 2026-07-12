@@ -207,6 +207,146 @@ std::string ArchiveFileName(const std::string &path) {
   return slash == std::string::npos ? path : path.substr(slash + 1);
 }
 
+
+// Converts UTF-8 archive-style text to a filesystem path component.
+std::filesystem::path PathFromUtf8(const std::string &path) {
+  std::u8string utf8(path.begin(), path.end());
+  return std::filesystem::path(utf8);
+}
+
+// Builds preferred wheel resource paths for standard and compatible lookup.
+std::vector<std::string> BuildResourcePreferredPaths(const std::string &normalizedRequest) {
+  std::vector<std::string> preferred;
+  auto addPath = [&](const std::string &path) {
+    const std::string normalized = NormalizeArchivePath(path);
+    if (std::find(preferred.begin(), preferred.end(), normalized) == preferred.end())
+      preferred.push_back(normalized);
+  };
+  addPath(normalizedRequest);
+  const bool hasDirectory = normalizedRequest.find('/') != std::string::npos;
+  const bool hasExtension = ArchiveFileName(normalizedRequest).find('.') != std::string::npos;
+  static const char *extensions[] = {".png", ".svg", ".jpg", ".jpeg", ".bmp"};
+  static const char *directories[] = {"wheels/", "wheels/gobos/", "wheels/animation/",
+                                      "wheels/graphic/", "graphics/"};
+  if (!hasDirectory) {
+    for (const char *directory : directories) {
+      addPath(std::string(directory) + normalizedRequest);
+      if (!hasExtension) {
+        for (const char *extension : extensions)
+          addPath(std::string(directory) + normalizedRequest + extension);
+      }
+    }
+  } else if (!hasExtension) {
+    for (const char *extension : extensions)
+      addPath(normalizedRequest + extension);
+  }
+  return preferred;
+}
+
+// Reads a bounded filesystem resource from an already-exploded GDTF resource root.
+bool TryReadExplodedGdtfResource(const std::filesystem::path &sourcePath,
+                                 const std::string &normalizedRequest,
+                                 const std::vector<std::string> &preferredPaths,
+                                 const std::vector<std::filesystem::path> &extraResourceRoots,
+                                 std::uint64_t maxBytes,
+                                 GdtfResourceReadResult &result) {
+  std::vector<std::filesystem::path> roots;
+  for (const auto &root : extraResourceRoots) {
+    if (!root.empty())
+      roots.push_back(root);
+  }
+  std::error_code ec;
+  if (std::filesystem::is_directory(sourcePath, ec) && !ec)
+    roots.push_back(sourcePath);
+  const std::filesystem::path parent = sourcePath.parent_path();
+  if (!parent.empty()) {
+    roots.push_back(parent / sourcePath.stem());
+    roots.push_back(parent);
+  }
+
+  struct FilesystemCandidate { std::filesystem::path root; std::string relative; };
+  std::vector<FilesystemCandidate> candidates;
+  auto addCandidate = [&](const std::filesystem::path &root, const std::string &relative) {
+    if (root.empty() || relative.empty() || IsUnsafeArchivePath(relative))
+      return;
+    std::error_code rootEc;
+    const auto canonicalRoot = std::filesystem::weakly_canonical(root, rootEc);
+    if (rootEc)
+      return;
+    const std::filesystem::path candidatePath = root / PathFromUtf8(relative);
+    std::error_code fileEc;
+    if (!std::filesystem::is_regular_file(candidatePath, fileEc) || fileEc)
+      return;
+    const auto canonicalCandidate = std::filesystem::weakly_canonical(candidatePath, fileEc);
+    if (fileEc)
+      return;
+    const auto rootText = canonicalRoot.native();
+    const auto candidateText = canonicalCandidate.native();
+    if (candidateText.size() < rootText.size() ||
+        !std::equal(rootText.begin(), rootText.end(), candidateText.begin()))
+      return;
+    const std::string normalizedRelative = NormalizeArchivePath(relative);
+    auto exists = std::find_if(candidates.begin(), candidates.end(), [&](const FilesystemCandidate &candidate) {
+      return LowerAscii(candidate.relative) == LowerAscii(normalizedRelative);
+    });
+    if (exists == candidates.end())
+      candidates.push_back({root, normalizedRelative});
+  };
+
+  for (const auto &root : roots) {
+    for (const auto &relative : preferredPaths)
+      addCandidate(root, relative);
+    addCandidate(root, normalizedRequest);
+  }
+
+  if (candidates.empty())
+    return false;
+  if (candidates.size() > 1) {
+    result.diagnostics.push_back({ArchiveDiagnosticCode::ResourcePathAmbiguous,
+                                  "Requested GDTF resource path is ambiguous in extracted resource folders.",
+                                  normalizedRequest});
+    return true;
+  }
+
+  const auto &candidate = candidates.front();
+  const std::filesystem::path filePath = candidate.root / PathFromUtf8(candidate.relative);
+  std::error_code sizeEc;
+  const auto fileSize = std::filesystem::file_size(filePath, sizeEc);
+  if (sizeEc || fileSize > maxBytes) {
+    result.diagnostics.push_back({sizeEc ? ArchiveDiagnosticCode::ResourceReadFailed
+                                         : ArchiveDiagnosticCode::ResourceEntryTooLarge,
+                                  sizeEc ? "Could not read extracted GDTF resource size."
+                                         : "Requested extracted GDTF resource exceeds the safe read limit.",
+                                  candidate.relative});
+    return true;
+  }
+
+  std::ifstream input(filePath, std::ios::binary);
+  if (!input) {
+    result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceReadFailed,
+                                  "Could not open extracted GDTF resource.", candidate.relative});
+    return true;
+  }
+  std::vector<unsigned char> bytes(static_cast<std::size_t>(fileSize));
+  if (!bytes.empty())
+    input.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  if (!input && !input.eof()) {
+    result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceReadFailed,
+                                  "Could not read extracted GDTF resource.", candidate.relative});
+    return true;
+  }
+
+  result.entryPath = candidate.relative;
+  result.bytes = std::move(bytes);
+  result.size = static_cast<std::uint64_t>(result.bytes.size());
+  result.mediaKind = LowerAscii(ArchiveFileName(result.entryPath));
+  result.caseInsensitiveFallback = true;
+  result.filesystemFallback = true;
+  result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
+                                "Using extracted GDTF resource folder fallback.", result.entryPath});
+  return true;
+}
+
 // Adds a structured diagnostic to the archive result.
 void AddDiagnostic(ArchiveReadResult &result, ArchiveDiagnosticCode code,
                    std::string message, std::string entryPath = {}) {
@@ -234,6 +374,12 @@ bool IsFatalDiagnostic(ArchiveDiagnosticCode code) {
   case ArchiveDiagnosticCode::UnexpectedException:
   case ArchiveDiagnosticCode::FilenameDecodeFailed:
   case ArchiveDiagnosticCode::FilenameEncodingAmbiguous:
+  case ArchiveDiagnosticCode::ResourceNotFound:
+  case ArchiveDiagnosticCode::ResourcePathAmbiguous:
+  case ArchiveDiagnosticCode::ResourceEntryTooLarge:
+  case ArchiveDiagnosticCode::ResourceReadFailed:
+  case ArchiveDiagnosticCode::UnsafeResourcePath:
+  case ArchiveDiagnosticCode::ResourceFilenameDecodeFailed:
     return true;
   case ArchiveDiagnosticCode::Utf8FlagMissing:
   case ArchiveDiagnosticCode::Utf8FallbackUsed:
@@ -500,6 +646,132 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
                   "Unknown error while reading GDTF archive.");
   }
 
+  return result;
+}
+
+// Reports whether a resource read found one usable bounded entry payload.
+bool GdtfResourceReadResult::Success() const {
+  return !entryPath.empty() && !bytes.empty() &&
+         std::none_of(diagnostics.begin(), diagnostics.end(),
+                      [](const ArchiveDiagnostic &diagnostic) {
+                        return IsFatalDiagnostic(diagnostic.code);
+                      });
+}
+
+// Reads one requested GDTF archive resource without extracting the archive.
+GdtfResourceReadResult ReadGdtfArchiveResource(
+    const std::filesystem::path &sourcePath,
+    const std::string &requestedPath,
+    std::uint64_t maxBytes,
+    const std::vector<std::filesystem::path> &extraResourceRoots) {
+  GdtfResourceReadResult result;
+  result.sourcePath = sourcePath;
+  result.requestedPath = requestedPath;
+  const std::string normalizedRequest = NormalizeArchivePath(requestedPath);
+  if (sourcePath.empty() || normalizedRequest.empty()) {
+    result.diagnostics.push_back({ArchiveDiagnosticCode::EmptySourcePath,
+                                  "GDTF source path or resource path is empty.", normalizedRequest});
+    return result;
+  }
+  if (IsUnsafeArchivePath(normalizedRequest)) {
+    result.diagnostics.push_back({ArchiveDiagnosticCode::UnsafeResourcePath,
+                                  "Requested GDTF resource path is unsafe.", normalizedRequest});
+    return result;
+  }
+  const std::vector<std::string> preferredPaths = BuildResourcePreferredPaths(normalizedRequest);
+  wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
+  if (!input.IsOk()) {
+    if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, extraResourceRoots, maxBytes, result))
+      return result;
+    result.diagnostics.push_back({ArchiveDiagnosticCode::OpenFailed,
+                                  "Could not open GDTF archive.", normalizedRequest});
+    return result;
+  }
+
+  const std::string lowerRequest = LowerAscii(normalizedRequest);
+  const std::string requestFile = LowerAscii(ArchiveFileName(normalizedRequest));
+  std::vector<std::string> lowerPreferredPaths;
+  lowerPreferredPaths.reserve(preferredPaths.size());
+  for (const auto &path : preferredPaths)
+    lowerPreferredPaths.push_back(LowerAscii(path));
+  struct Candidate { std::string path; bool exact = false; bool preferred = false; };
+  std::vector<Candidate> candidates;
+  wxZipInputStream inventory(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(inventory.GetNextEntry())), entry) {
+    const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+    const std::string path = NormalizeArchivePath(utf8 ? std::string(utf8.data()) : std::string());
+    if (entry->IsDir() || IsUnsafeArchivePath(path))
+      continue;
+    const std::string lowerPath = LowerAscii(path);
+    const std::string lowerFile = LowerAscii(ArchiveFileName(path));
+    const bool preferred = std::find(lowerPreferredPaths.begin(), lowerPreferredPaths.end(), lowerPath) != lowerPreferredPaths.end();
+    if (path == normalizedRequest)
+      candidates.push_back({path, true, preferred});
+    else if (preferred || lowerPath == lowerRequest || lowerFile == requestFile ||
+             (!requestFile.empty() && lowerFile.rfind(requestFile + ".", 0) == 0))
+      candidates.push_back({path, false, preferred});
+  }
+  auto exact = std::find_if(candidates.begin(), candidates.end(), [](const Candidate &candidate) {
+    return candidate.exact;
+  });
+  if (exact != candidates.end()) {
+    result.entryPath = exact->path;
+  } else {
+    std::vector<Candidate> preferredCandidates;
+    for (const auto &candidate : candidates) {
+      if (candidate.preferred)
+        preferredCandidates.push_back(candidate);
+    }
+    if (preferredCandidates.size() == 1) {
+      result.entryPath = preferredCandidates.front().path;
+      result.caseInsensitiveFallback = true;
+      result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
+                                    "Using canonical wheel resource path fallback.", result.entryPath});
+    } else if (candidates.size() == 1) {
+      result.entryPath = candidates.front().path;
+      result.caseInsensitiveFallback = true;
+      result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
+                                    "Using unambiguous compatible resource path fallback.", result.entryPath});
+    } else if (candidates.empty()) {
+      if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, extraResourceRoots, maxBytes, result))
+        return result;
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceNotFound,
+                                    "Requested GDTF resource is missing.", normalizedRequest});
+      return result;
+    } else {
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourcePathAmbiguous,
+                                    "Requested GDTF resource path is ambiguous.", normalizedRequest});
+      return result;
+    }
+  }
+
+  wxFileInputStream dataInput(wxString::FromUTF8(PathToUtf8(sourcePath)));
+  wxZipInputStream zipInput(dataInput);
+  while ((entry.reset(zipInput.GetNextEntry())), entry) {
+    const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+    const std::string path = NormalizeArchivePath(utf8 ? std::string(utf8.data()) : std::string());
+    if (path != result.entryPath)
+      continue;
+    const wxFileOffset knownSize = entry->GetSize();
+    if (knownSize >= 0 && static_cast<std::uint64_t>(knownSize) > maxBytes) {
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceEntryTooLarge,
+                                    "Requested GDTF resource exceeds the safe read limit.", result.entryPath});
+      return result;
+    }
+    std::string bytes;
+    if (!ReadCurrentEntry(zipInput, bytes, maxBytes)) {
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceReadFailed,
+                                    "Could not read requested GDTF resource.", result.entryPath});
+      return result;
+    }
+    result.bytes.assign(bytes.begin(), bytes.end());
+    result.size = static_cast<std::uint64_t>(result.bytes.size());
+    result.mediaKind = LowerAscii(ArchiveFileName(result.entryPath));
+    return result;
+  }
+  result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceReadFailed,
+                                "Requested GDTF resource disappeared during read.", result.entryPath});
   return result;
 }
 

@@ -269,3 +269,7 @@ Checkpoint 08E1 truss follow-up changes the right-side Truss workspace into two 
 ## Checkpoint 08E2 mode/channel browser audit
 
 08E2 adds a core-only hierarchical GDTF mode/channel reader, a GUI formatting adapter, and a dedicated read-only `wxDataViewModel`. `FixtureEditDialog` owns source caching and archive loading; reusable panels remain presentation-only and ConfigManager-free. The GUI model performs no XML or archive parsing, and the core parser emits structured diagnostics rather than using `ConsolePanel` or GUI event-loop exceptions.
+
+## Checkpoint 08E3 wheel inspector audit
+
+Checkpoint 08E3 keeps wheel/catalog parsing, CIE conversion, lazy archive resource reads, and DMX inspection in non-GUI core modules. `gui/gdtf/gdtf_resource_bitmap_cache.*` is the only bitmap-specific layer and contains no XML parsing, session access, project mutation, Apply logic, live DMX, or XML writer behavior. Future editing must add writer adapters separately rather than mutating the read-only inspector state.

@@ -12,6 +12,10 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
+- Added visual GDTF wheel previews in Fixture Edit, including static gobo/graphic-wheel thumbnails and approximate color/filter swatches for wheel slots.
+
+- Connected the GDTF Wheel and Attribute Inspector to Fixture Edit so selecting a channel and moving the read-only DMX slider shows the active function, set, wheel, slot, media, filter, and graphic-wheel information in a new visual-column wheels page.
+
 - Added a read-only hierarchical GDTF mode and channel browser with DMX ranges, physical ranges, units, details, parser diagnostics, cached source loading, and a larger quick channel summary below Physical properties with per-channel rows and readable normalized channel functions for Fixture Edit.
 - Made Truss Edit open more compactly and gave the official Fixture SVG symbol region the same vertical priority as the generated Top, Front, and Side symbol previews.
 - Improved Truss Edit spacing and composition so type and metadata stay in the second column while the 3D preview sits above physical properties in the third column.
@@ -23,6 +27,20 @@ Changes since **v1.4.0**.
 - MVR-xchange now labels the default Perastage station with the local computer name, preferring the full host name when available, making it easier to identify in other applications.
 
 ## Fixes
+
+- Fixed GDTF wheel PNG previews so failed decodes are reported separately from placeholders, standard `wheels/<MediaFileName>.png` resources are preferred, cached extracted GDTF resource folders from restored MVR/project data are used as a safe read-only fallback, transparent gobo artwork is composed over a visible checkerboard background, clicking a wheel-slot row shows a larger slot preview or diagnostic directly, and repeated image-handler initialization no longer triggers wxWidgets debug assertions.
+
+- Fixed GDTF wheel PNG preview decoding by initializing wxWidgets image handlers before thumbnail creation.
+
+- Fixed GDTF wheel media lookup so extensionless `MediaFileName` values resolve to canonical wheel resource files such as `wheels/name.png`, restoring gobo and graphic-wheel thumbnails.
+
+- Fixed GDTF wheel parsing for fixtures that use standard `Slot` elements, enabling gobo thumbnails and color swatches to appear for those wheel slots.
+
+- Fixed the GDTF wheel preview panel build by including the wxWidgets static-bitmap declaration used by the active slot preview.
+
+- Fixed a Windows build conflict between the new GDTF wheel catalog types and the existing GDTF description snapshot wheel types.
+
+- Fixed the internal GDTF resource bitmap cache header so it uses the portable wxWidgets size declaration on Windows builds.
 
 - Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.
 - Kept the GDTF mode/channel browser responsive by avoiding expensive nested container-column redraws during Fixture Edit opening and mouse hover.
@@ -71,6 +89,8 @@ Changes since **v1.4.0**.
 - Improved Windows crash dumps so native access violations are captured from the original exception context before best-effort text stack reporting.
 
 ## Internal changes
+
+- Added internal GDTF Wheel and Attribute Inspector architecture for read-only wheel, slot, filter, graphic-wheel, CIE color, resource, and DMX value inspection.
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -161,6 +181,7 @@ sudo pacman -U Perastage-1.4.0-arch-x86_64.pkg.tar.zst
 If you encounter any problems installing or running Perastage, please open an issue on GitHub or contact the developer. Including a diagnostic report (available from the Help menu) makes it much easier to investigate problems.
 
 ## Internal changes
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -179,6 +200,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Fixed Windows build compatibility for Layout 2D preview diagnostics.
 
 ## Internal changes
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Completed Checkpoint 08 GDTF editor apply architecture by routing Fixture and Truss GDTF type edits through non-GUI apply adapters, preserving no-op and MVR-only behavior, and preventing failed generation or mutation from committing project state, and preserving Windows build compatibility for the new adapter host calls and project collection types.

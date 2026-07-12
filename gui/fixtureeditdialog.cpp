@@ -23,7 +23,9 @@
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "gdtf/gdtf_color_cie.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_wheel_inspector_panel.h"
 #include "gdtf/gdtf_mode_browser_presenter.h"
 #include "gdtf_archive_reader.h"
 #include "gdtf/gdtf_editor_layout_preferences.h"
@@ -49,6 +51,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
+#include <sstream>
 #include <set>
 #include <tinyxml2.h>
 #include <unordered_map>
@@ -118,6 +121,22 @@ bool IsExistingRegularFile(const std::filesystem::path &path) {
 // Converts a wx path string to a filesystem path for operational I/O.
 std::filesystem::path PathFromWxString(const wxString &path) {
   return PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
+}
+
+// Builds a stable source fingerprint for cached GDTF preview resources.
+std::string BuildGdtfSourceFingerprint(const std::filesystem::path &path) {
+  if (path.empty())
+    return {};
+  std::error_code canonicalError;
+  const auto canonical = std::filesystem::weakly_canonical(path, canonicalError);
+  std::error_code sizeError;
+  const auto size = std::filesystem::file_size(path, sizeError);
+  std::error_code timeError;
+  const auto timestamp = std::filesystem::last_write_time(path, timeError).time_since_epoch().count();
+  std::ostringstream out;
+  out << PathUtils::PathToUtf8(canonicalError ? path : canonical) << "|"
+      << (sizeError ? 0 : size) << "|" << (timeError ? 0 : timestamp);
+  return out.str();
 }
 
 // Parses a floating-point value while preserving the previous value on failure.
@@ -638,6 +657,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     SetSessionValue(gdtf::GdtfFieldId::ModeName, value);
     UpdateChannels(true);
   });
+  gdtfEditorPanel->SetWheelInspectionCallback([this](const GdtfWheelInspectorPresentation &presentation) {
+    if (gdtfWheelInspectorPanel)
+      gdtfWheelInspectorPanel->SetPresentation(BuildWheelInspectorVisualPresentation(presentation));
+  });
 
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   fixtureScroll->SetMinSize(wxSize(gui::gdtf_layout::MinimumContextPaneWidth(this), -1));
@@ -664,6 +687,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
                     gui::gdtf_layout::SectionPadding(this));
   visualNotebook->AddPage(previewPage, "Preview");
+
+  gdtfWheelInspectorPanel = new GdtfWheelInspectorPanel(visualNotebook);
+  visualNotebook->AddPage(gdtfWheelInspectorPanel, "GDTF wheels");
 
   auto *symbolPage = new wxPanel(visualNotebook, wxID_ANY);
   wxBoxSizer *symbolRootSizer = new wxBoxSizer(wxVERTICAL);
@@ -839,6 +865,8 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   pendingSelectedGdtfPath = PathFromWxString(path);
   cachedModeChannelSource.clear();
   cachedModeChannelDocument = {};
+  cachedWheelCatalog = {};
+  wheelBitmapCache.Clear();
   if (gdtfEditSession && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
     const auto &scene =
@@ -1060,8 +1088,10 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   if (preview)
     preview->LoadFixture(PathUtils::PathToUtf8(gdtfPath));
   if (gdtfPath.empty() || mode.empty()) {
-    if (gdtfEditorPanel)
+    if (gdtfEditorPanel) {
       gdtfEditorPanel->ClearModeDetails();
+      gdtfEditorPanel->SetInspectionData(nullptr, nullptr);
+    }
     return;
   }
   if (cachedModeChannelSource != gdtfPath)
@@ -1069,6 +1099,7 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   const std::string modeName(mode.ToUTF8());
   const auto *modeNode = cachedModeChannelDocument.FindMode(modeName);
   if (gdtfEditorPanel) {
+    gdtfEditorPanel->SetInspectionData(modeNode, &cachedWheelCatalog);
     gdtfEditorPanel->SetModeBrowserNodes(BuildGdtfModeBrowserPresentation(modeNode));
     gdtfEditorPanel->SetChannels(BuildGdtfModeChannelSummaryPresentation(modeNode));
   }
@@ -1079,10 +1110,126 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   (void)markChannelCountDirty;
 }
 
+// Enriches wheel inspection rows with lazy media thumbnails and color swatches.
+GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPresentation(
+    const GdtfWheelInspectorPresentation &presentation) {
+  GdtfWheelInspectorPresentation enriched = presentation;
+  const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
+  const std::string sourceId = BuildGdtfSourceFingerprint(gdtfPath);
+  std::vector<std::filesystem::path> resourceRoots;
+  const std::string extractedRoot = GetCachedGdtfExtractionDirectory(PathUtils::PathToUtf8(gdtfPath));
+  if (!extractedRoot.empty())
+    resourceRoots.push_back(PathUtils::PathFromUtf8(extractedRoot));
+  auto applyColor = [](GdtfWheelInspectorSlotPresentation &slot) {
+    if (slot.rawColor.empty())
+      return;
+    const auto cie = gdtf::ParseGdtfColorCie(slot.rawColor, gdtf::GdtfValueOrigin::Explicit);
+    const auto srgb = gdtf::ConvertCieXyyToSrgb(cie);
+    if (!srgb.valid)
+      return;
+    slot.swatch = wxColour(static_cast<unsigned char>(std::clamp(srgb.red, 0.0, 1.0) * 255.0),
+                           static_cast<unsigned char>(std::clamp(srgb.green, 0.0, 1.0) * 255.0),
+                           static_cast<unsigned char>(std::clamp(srgb.blue, 0.0, 1.0) * 255.0));
+    slot.hasSwatch = true;
+  };
+
+  enriched.previewStatus = "No wheel slot preview is available for the current mapping.";
+  for (auto &slot : enriched.slots) {
+    applyColor(slot);
+    std::vector<std::pair<std::string, std::string>> resourceAttempts;
+    if (!slot.mediaResource.empty())
+      resourceAttempts.push_back({"standard MediaFileName", slot.mediaResource});
+    if (!slot.graphicResource.empty() && slot.graphicResource != slot.mediaResource)
+      resourceAttempts.push_back({"compatibility graphic resource", slot.graphicResource});
+    std::string slotStatus;
+    std::string selectedStatus;
+    if (!resourceAttempts.empty() && gdtfPath.empty()) {
+      slotStatus = "Resource resolution/read failed. Active GDTF source path is unavailable.";
+      if (slot.selected)
+        selectedStatus = slotStatus;
+    }
+    for (const auto &[resourceOrigin, resource] : resourceAttempts) {
+      if (resource.empty() || gdtfPath.empty())
+        continue;
+      const auto resourceRead = gdtf::ReadGdtfArchiveResource(
+          gdtfPath, resource, 4ull * 1024ull * 1024ull, resourceRoots);
+      std::string status = "Raw resource (" + resourceOrigin + "): " + resource;
+      bool decodedThumbnail = false;
+      if (resourceRead.Success()) {
+        const auto thumb = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
+                                                        resourceRead.bytes, wxSize(48, 48),
+                                                        wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        decodedThumbnail = thumb.decoded;
+        status += "\nResolved archive entry: " + resourceRead.entryPath;
+        const bool standardCanonical = resourceOrigin == "standard MediaFileName" &&
+                                       resourceRead.entryPath == "wheels/" + resource + ".png";
+        if (resourceRead.filesystemFallback)
+          status += "\nResolution: extracted resource folder fallback";
+        else if (standardCanonical)
+          status += "\nResolution: standard canonical wheel resource";
+        else
+          status += resourceRead.caseInsensitiveFallback ? "\nResolution: compatibility fallback"
+                                                         : "\nResolution: exact supplied path";
+        status += "\nResource bytes: " + std::to_string(resourceRead.size);
+        status += "\nDecode result: " + thumb.diagnostic;
+        if (thumb.decoded) {
+          status += "\nImage dimensions: " + std::to_string(thumb.sourceWidth) + "x" + std::to_string(thumb.sourceHeight);
+          slot.thumbnail = thumb.bitmap;
+          slot.hasThumbnail = true;
+          const auto preview = wheelBitmapCache.GetOrCreate(
+              sourceId, resourceRead.entryPath, resourceRead.bytes, wxSize(180, 180),
+              wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+          if (preview.decoded) {
+            slot.preview = preview.bitmap;
+            slot.hasPreview = true;
+          } else {
+            status += "\nLarge preview decode failed: " + preview.diagnostic;
+          }
+        }
+      } else {
+        status += "\nResource resolution/read failed.";
+        for (const auto &diagnostic : resourceRead.diagnostics)
+          status += "\n" + diagnostic.message;
+      }
+      slotStatus += slotStatus.empty() ? status : "\n\n" + status;
+      if (slot.selected) {
+        selectedStatus += selectedStatus.empty() ? status : "\n\n" + status;
+        if (resourceRead.Success()) {
+          if (slot.hasPreview && !enriched.hasActivePreview) {
+            enriched.activePreview = slot.preview;
+            enriched.hasActivePreview = true;
+          } else if (!slot.hasPreview) {
+            selectedStatus += "\nActive preview decode failed or unavailable.";
+          }
+        }
+      }
+      if (decodedThumbnail)
+        break;
+    }
+    if (resourceAttempts.empty() && slot.hasSwatch) {
+      slotStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
+      if (slot.selected)
+        selectedStatus = slotStatus;
+    }
+    if (!slotStatus.empty())
+      slot.previewStatus = slotStatus;
+    if (slot.selected && !selectedStatus.empty())
+      enriched.previewStatus = selectedStatus;
+    if (slot.selected && slot.hasSwatch && !enriched.hasActivePreview && resourceAttempts.empty()) {
+      enriched.activeSwatch = slot.swatch;
+      enriched.hasActiveSwatch = true;
+      enriched.previewStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
+    }
+  }
+  return enriched;
+}
+
 // Reloads the cached hierarchical GDTF mode/channel document for the active source.
 void FixtureEditDialog::ReloadModeChannelDocument() {
   cachedModeChannelSource.clear();
   cachedModeChannelDocument = {};
+  cachedWheelCatalog = {};
+  wheelBitmapCache.Clear();
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   if (gdtfPath.empty())
     return;
@@ -1090,6 +1237,7 @@ void FixtureEditDialog::ReloadModeChannelDocument() {
   if (!archive.Success())
     return;
   cachedModeChannelDocument = gdtf::ReadGdtfModeChannelDocument(archive.descriptionXml);
+  cachedWheelCatalog = gdtf::ReadGdtfWheelCatalog(archive.descriptionXml);
   cachedModeChannelSource = gdtfPath;
 }
 
@@ -1202,6 +1350,8 @@ bool FixtureEditDialog::ApplyChanges() {
       pendingSelectedGdtfPath = gdtfPath;
       cachedModeChannelSource.clear();
       cachedModeChannelDocument = {};
+      cachedWheelCatalog = {};
+      wheelBitmapCache.Clear();
       for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
         changedWeightPositions.insert(position);
       originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;

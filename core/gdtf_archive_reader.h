@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace gdtf {
 
@@ -27,7 +28,13 @@ enum class ArchiveDiagnosticCode {
   Utf8FallbackUsed,
   LegacyFilenameEncodingUsed,
   FilenameDecodeFailed,
-  FilenameEncodingAmbiguous
+  FilenameEncodingAmbiguous,
+  ResourceNotFound,
+  ResourcePathAmbiguous,
+  ResourceEntryTooLarge,
+  ResourceReadFailed,
+  UnsafeResourcePath,
+  ResourceFilenameDecodeFailed
 };
 
 struct ArchiveDiagnostic {
@@ -44,6 +51,19 @@ struct ArchiveEntry {
   bool nameUsedUtf8CompatibilityFallback = false;
 };
 
+struct GdtfResourceReadResult {
+  std::filesystem::path sourcePath;
+  std::string requestedPath;
+  std::string entryPath;
+  std::vector<unsigned char> bytes;
+  std::uint64_t size = 0;
+  std::string mediaKind;
+  std::vector<ArchiveDiagnostic> diagnostics;
+  bool caseInsensitiveFallback = false;
+  bool filesystemFallback = false;
+  bool Success() const;
+};
+
 struct ArchiveReadResult {
   std::filesystem::path sourcePath;
   std::string descriptionXml;
@@ -58,6 +78,12 @@ struct ArchiveReadResult {
 };
 
 ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath);
+
+GdtfResourceReadResult ReadGdtfArchiveResource(
+    const std::filesystem::path &sourcePath,
+    const std::string &requestedPath,
+    std::uint64_t maxBytes = 4ull * 1024ull * 1024ull,
+    const std::vector<std::filesystem::path> &extraResourceRoots = {});
 
 ArchiveReadResult
 ExtractGdtfArchive(const std::filesystem::path &sourcePath,
