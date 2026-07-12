@@ -28,6 +28,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF wheel PNG previews so failed decodes are reported separately from placeholders, standard `wheels/<MediaFileName>.png` resources are preferred, and transparent gobo artwork is composed over a visible checkerboard background.
+
 - Fixed GDTF wheel PNG preview decoding by initializing wxWidgets image handlers before thumbnail creation.
 
 - Fixed GDTF wheel media lookup so extensionless `MediaFileName` values resolve to canonical wheel resource files such as `wheels/name.png`, restoring gobo and graphic-wheel thumbnails.

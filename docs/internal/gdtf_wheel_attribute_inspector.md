@@ -53,3 +53,11 @@ The Fixture Edit `GDTF wheels` page now resolves selected WheelSlot media and gr
 The wheel catalog accepts both `Slot` and legacy `WheelSlot` child elements so fixtures using standard wheel slot markup can populate the visual gallery and DMX slot resolver.
 
 Extensionless wheel media names are resolved through canonical wheel locations first, including `wheels/<name>.png`, before compatibility fallbacks. This keeps common GDTF `MediaFileName` values such as `99015494-09(1)` connected to their PNG archive entries.
+
+## Preview decode diagnostics
+
+The GUI bitmap cache returns an explicit decode result instead of treating every placeholder bitmap as a successful image. `hasThumbnail` and `hasActivePreview` are set only when wxWidgets decodes an actual image; empty data, unsupported image bytes, invalid dimensions, oversized images, and decode failures remain visible as status text without being reported as successful previews.
+
+Decoded wheel images are aspect-fit into the requested preview size, preserve alpha, and are composed over a neutral checkerboard background so black-and-transparent gobo artwork remains visible in dark application themes. The cache key includes a source fingerprint based on the canonical archive path, file size, and last-write timestamp so replacing a GDTF at the same path invalidates stale previews.
+
+Standard GDTF 1.2 resolution prefers `Slot/@MediaFileName` and `wheels/<MediaFileName>.png`. Non-standard graphic-wheel resource attributes are documented compatibility metadata and are attempted only after the standard media resource is missing or cannot produce a decoded preview.

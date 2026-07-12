@@ -234,6 +234,12 @@ bool IsFatalDiagnostic(ArchiveDiagnosticCode code) {
   case ArchiveDiagnosticCode::UnexpectedException:
   case ArchiveDiagnosticCode::FilenameDecodeFailed:
   case ArchiveDiagnosticCode::FilenameEncodingAmbiguous:
+  case ArchiveDiagnosticCode::ResourceNotFound:
+  case ArchiveDiagnosticCode::ResourcePathAmbiguous:
+  case ArchiveDiagnosticCode::ResourceEntryTooLarge:
+  case ArchiveDiagnosticCode::ResourceReadFailed:
+  case ArchiveDiagnosticCode::UnsafeResourcePath:
+  case ArchiveDiagnosticCode::ResourceFilenameDecodeFailed:
     return true;
   case ArchiveDiagnosticCode::Utf8FlagMissing:
   case ArchiveDiagnosticCode::Utf8FallbackUsed:
@@ -526,7 +532,7 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
     return result;
   }
   if (IsUnsafeArchivePath(normalizedRequest)) {
-    result.diagnostics.push_back({ArchiveDiagnosticCode::UnsafeEntryPath,
+    result.diagnostics.push_back({ArchiveDiagnosticCode::UnsafeResourcePath,
                                   "Requested GDTF resource path is unsafe.", normalizedRequest});
     return result;
   }
@@ -607,11 +613,11 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
       result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
                                     "Using unambiguous compatible resource path fallback.", result.entryPath});
     } else if (candidates.empty()) {
-      result.diagnostics.push_back({ArchiveDiagnosticCode::MissingDescriptionXml,
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceNotFound,
                                     "Requested GDTF resource is missing.", normalizedRequest});
       return result;
     } else {
-      result.diagnostics.push_back({ArchiveDiagnosticCode::AmbiguousDescriptionXml,
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourcePathAmbiguous,
                                     "Requested GDTF resource path is ambiguous.", normalizedRequest});
       return result;
     }
@@ -626,13 +632,13 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
       continue;
     const wxFileOffset knownSize = entry->GetSize();
     if (knownSize >= 0 && static_cast<std::uint64_t>(knownSize) > maxBytes) {
-      result.diagnostics.push_back({ArchiveDiagnosticCode::EntryTooLarge,
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceEntryTooLarge,
                                     "Requested GDTF resource exceeds the safe read limit.", result.entryPath});
       return result;
     }
     std::string bytes;
     if (!ReadCurrentEntry(zipInput, bytes, maxBytes)) {
-      result.diagnostics.push_back({ArchiveDiagnosticCode::EntryReadFailed,
+      result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceReadFailed,
                                     "Could not read requested GDTF resource.", result.entryPath});
       return result;
     }
@@ -641,7 +647,7 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
     result.mediaKind = LowerAscii(ArchiveFileName(result.entryPath));
     return result;
   }
-  result.diagnostics.push_back({ArchiveDiagnosticCode::EntryReadFailed,
+  result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceReadFailed,
                                 "Requested GDTF resource disappeared during read.", result.entryPath});
   return result;
 }

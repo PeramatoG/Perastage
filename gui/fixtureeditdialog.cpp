@@ -51,6 +51,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
+#include <sstream>
 #include <set>
 #include <tinyxml2.h>
 #include <unordered_map>
@@ -120,6 +121,22 @@ bool IsExistingRegularFile(const std::filesystem::path &path) {
 // Converts a wx path string to a filesystem path for operational I/O.
 std::filesystem::path PathFromWxString(const wxString &path) {
   return PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
+}
+
+// Builds a stable source fingerprint for cached GDTF preview resources.
+std::string BuildGdtfSourceFingerprint(const std::filesystem::path &path) {
+  if (path.empty())
+    return {};
+  std::error_code canonicalError;
+  const auto canonical = std::filesystem::weakly_canonical(path, canonicalError);
+  std::error_code sizeError;
+  const auto size = std::filesystem::file_size(path, sizeError);
+  std::error_code timeError;
+  const auto timestamp = std::filesystem::last_write_time(path, timeError).time_since_epoch().count();
+  std::ostringstream out;
+  out << PathUtils::PathToUtf8(canonicalError ? path : canonical) << "|"
+      << (sizeError ? 0 : size) << "|" << (timeError ? 0 : timestamp);
+  return out.str();
 }
 
 // Parses a floating-point value while preserving the previous value on failure.
@@ -1098,7 +1115,7 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
     const GdtfWheelInspectorPresentation &presentation) {
   GdtfWheelInspectorPresentation enriched = presentation;
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
-  const std::string sourceId = PathUtils::PathToUtf8(gdtfPath);
+  const std::string sourceId = BuildGdtfSourceFingerprint(gdtfPath);
   auto applyColor = [](GdtfWheelInspectorSlotPresentation &slot) {
     if (slot.rawColor.empty())
       return;
@@ -1115,32 +1132,66 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
   enriched.previewStatus = "No wheel slot preview is available for the current mapping.";
   for (auto &slot : enriched.slots) {
     applyColor(slot);
-    const std::string resource = !slot.graphicResource.empty() ? slot.graphicResource
-                                                               : slot.mediaResource;
-    if (!resource.empty() && !gdtfPath.empty()) {
+    std::vector<std::pair<std::string, std::string>> resourceAttempts;
+    if (!slot.mediaResource.empty())
+      resourceAttempts.push_back({"standard MediaFileName", slot.mediaResource});
+    if (!slot.graphicResource.empty() && slot.graphicResource != slot.mediaResource)
+      resourceAttempts.push_back({"compatibility graphic resource", slot.graphicResource});
+    std::string selectedStatus;
+    for (const auto &[resourceOrigin, resource] : resourceAttempts) {
+      if (resource.empty() || gdtfPath.empty())
+        continue;
       const auto resourceRead = gdtf::ReadGdtfArchiveResource(gdtfPath, resource);
+      std::string status = "Raw resource (" + resourceOrigin + "): " + resource;
+      bool decodedThumbnail = false;
       if (resourceRead.Success()) {
-        slot.thumbnail = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
-                                                      resourceRead.bytes, wxSize(48, 48),
-                                                      wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-        slot.hasThumbnail = slot.thumbnail.IsOk();
+        const auto thumb = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
+                                                        resourceRead.bytes, wxSize(48, 48),
+                                                        wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        decodedThumbnail = thumb.decoded;
+        status += "\nResolved archive entry: " + resourceRead.entryPath;
+        const bool standardCanonical = resourceOrigin == "standard MediaFileName" &&
+                                       resourceRead.entryPath == "wheels/" + resource + ".png";
+        if (standardCanonical)
+          status += "\nResolution: standard canonical wheel resource";
+        else
+          status += resourceRead.caseInsensitiveFallback ? "\nResolution: compatibility fallback"
+                                                         : "\nResolution: exact supplied path";
+        status += "\nResource bytes: " + std::to_string(resourceRead.size);
+        status += "\nDecode result: " + thumb.diagnostic;
+        if (thumb.decoded) {
+          status += "\nImage dimensions: " + std::to_string(thumb.sourceWidth) + "x" + std::to_string(thumb.sourceHeight);
+          slot.thumbnail = thumb.bitmap;
+          slot.hasThumbnail = true;
+        }
+      } else {
+        status += "\nResource resolution/read failed.";
+        for (const auto &diagnostic : resourceRead.diagnostics)
+          status += "\n" + diagnostic.message;
       }
       if (slot.selected) {
-        enriched.previewStatus = resourceRead.Success()
-                                     ? "Preview resource: " + resourceRead.entryPath
-                                     : "Preview resource unavailable: " + resource;
+        selectedStatus += selectedStatus.empty() ? status : "\n\n" + status;
         if (resourceRead.Success()) {
-          enriched.activePreview = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
-                                                                resourceRead.bytes, wxSize(180, 180),
-                                                                wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-          enriched.hasActivePreview = enriched.activePreview.IsOk();
+          const auto active = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
+                                                          resourceRead.bytes, wxSize(180, 180),
+                                                          wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+          if (active.decoded && !enriched.hasActivePreview) {
+            enriched.activePreview = active.bitmap;
+            enriched.hasActivePreview = true;
+          } else if (!active.decoded) {
+            selectedStatus += "\nActive preview decode failed: " + active.diagnostic;
+          }
         }
       }
+      if (decodedThumbnail)
+        break;
     }
+    if (slot.selected && !selectedStatus.empty())
+      enriched.previewStatus = selectedStatus;
     if (slot.selected && slot.hasSwatch && !enriched.hasActivePreview) {
       enriched.activeSwatch = slot.swatch;
       enriched.hasActiveSwatch = true;
-      if (resource.empty())
+      if (resourceAttempts.empty())
         enriched.previewStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
     }
   }

@@ -17,23 +17,49 @@
 #include <wx/bitmap.h>
 #include <wx/colour.h>
 #include <wx/gdicmn.h>
+#include <wx/image.h>
+
+enum class GdtfBitmapDecodeStatus {
+  Success,
+  EmptyResourceData,
+  UnsupportedImage,
+  DecodeFailure,
+  InvalidDimensions,
+  DimensionsTooLarge
+};
+
+struct GdtfBitmapDecodeResult {
+  wxBitmap bitmap;
+  GdtfBitmapDecodeStatus status = GdtfBitmapDecodeStatus::DecodeFailure;
+  bool decoded = false;
+  int sourceWidth = 0;
+  int sourceHeight = 0;
+  std::string diagnostic;
+};
 
 class GdtfResourceBitmapCache {
 public:
   explicit GdtfResourceBitmapCache(std::size_t maxBytes = 16u * 1024u * 1024u);
   void Clear();
-  wxBitmap GetOrCreate(const std::string &sourceId, const std::string &entryPath,
-                       const std::vector<unsigned char> &bytes, const wxSize &targetSize,
-                       const wxColour &placeholderColor);
+  GdtfBitmapDecodeResult GetOrCreate(const std::string &sourceFingerprint,
+                                     const std::string &entryPath,
+                                     const std::vector<unsigned char> &bytes,
+                                     const wxSize &targetSize,
+                                     const wxColour &placeholderColor);
 
 private:
   struct Entry {
-    wxBitmap bitmap;
+    GdtfBitmapDecodeResult result;
     std::size_t bytes = 0;
   };
-  std::string MakeKey(const std::string &sourceId, const std::string &entryPath,
+  std::string MakeKey(const std::string &sourceFingerprint,
+                      const std::string &entryPath,
                       const wxSize &targetSize) const;
+  wxBitmap ComposePreviewBitmap(const wxImage &image, const wxSize &targetSize) const;
   wxBitmap MakePlaceholder(const wxSize &targetSize, const wxColour &color) const;
+  GdtfBitmapDecodeResult DecodeResource(const std::vector<unsigned char> &bytes,
+                                        const wxSize &targetSize,
+                                        const wxColour &placeholderColor) const;
   void EnforceLimit();
 
   std::map<std::string, Entry> entries;

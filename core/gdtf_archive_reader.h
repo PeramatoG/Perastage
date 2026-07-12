@@ -28,7 +28,13 @@ enum class ArchiveDiagnosticCode {
   Utf8FallbackUsed,
   LegacyFilenameEncodingUsed,
   FilenameDecodeFailed,
-  FilenameEncodingAmbiguous
+  FilenameEncodingAmbiguous,
+  ResourceNotFound,
+  ResourcePathAmbiguous,
+  ResourceEntryTooLarge,
+  ResourceReadFailed,
+  UnsafeResourcePath,
+  ResourceFilenameDecodeFailed
 };
 
 struct ArchiveDiagnostic {
