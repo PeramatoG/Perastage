@@ -94,6 +94,7 @@ private:
   GdtfModeDataViewModel *browserModel = nullptr;
   std::map<std::string, std::set<std::string>> expandedByMode;
   std::map<std::string, std::string> selectedByMode;
+  std::map<std::string, std::uint64_t> inspectionValueByChannel;
   double browserSplitterRatio = 0.68;
   ModeSelectionCallback selectionCallback;
   WheelInspectionCallback wheelInspectionCallback;

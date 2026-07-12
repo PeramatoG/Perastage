@@ -335,6 +335,7 @@ void GdtfModesPanel::SetInspectionData(const gdtf::GdtfDmxModeNode *mode,
   inspectionMode = mode ? *mode : gdtf::GdtfDmxModeNode{};
   inspectionCatalog = catalog ? *catalog : gdtf::GdtfWheelCatalog{};
   selectedInspectionChannelId.clear();
+  inspectionValueByChannel.clear();
   UpdateInspectionSliderRange();
   SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
   if (wheelInspectionCallback)
@@ -369,6 +370,7 @@ void GdtfModesPanel::ClearModeDetails() {
   channelCountCtrl->SetValue(wxString());
   browserModel->SetNodes({});
   selectedInspectionChannelId.clear();
+  inspectionValueByChannel.clear();
   if (inspectionSlider) {
     UpdateInspectionSliderRange();
     inspectionSlider->SetValue(0);
@@ -414,23 +416,12 @@ void GdtfModesPanel::SelectInspectionNode(const std::string &nodeId) {
   }
   selectedInspectionChannelId = channel->id;
   UpdateInspectionSliderRange();
-  std::uint64_t startValue = 0;
-  for (const auto &logical : channel->logicalChannels) {
-    for (const auto &function : logical.channelFunctions) {
-      if (function.id == nodeId && function.effectiveDmxRange) {
-        startValue = function.effectiveDmxRange->start;
-        break;
-      }
-      for (const auto &set : function.channelSets) {
-        if (set.id == nodeId && set.effectiveDmxRange) {
-          startValue = set.effectiveDmxRange->start;
-          break;
-        }
-      }
-    }
-  }
+  const auto cachedValue = inspectionValueByChannel.find(selectedInspectionChannelId);
+  const std::uint64_t restoredValue = cachedValue == inspectionValueByChannel.end()
+                                          ? 0
+                                          : cachedValue->second;
   if (inspectionSlider)
-    inspectionSlider->SetValue(SliderValueFromDmxValue(startValue));
+    inspectionSlider->SetValue(SliderValueFromDmxValue(restoredValue));
   UpdateInspectionFromSlider();
 }
 
@@ -441,6 +432,8 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
   const double percent = maxValue > 0
                              ? static_cast<double>(value) * 100.0 / static_cast<double>(maxValue)
                              : 0.0;
+  if (!selectedInspectionChannelId.empty())
+    inspectionValueByChannel[selectedInspectionChannelId] = value;
   if (inspectionValueLabel) {
     inspectionValueLabel->SetLabel(wxString::FromUTF8(FormatInspectionValueSummary(value, maxValue, percent)));
   }

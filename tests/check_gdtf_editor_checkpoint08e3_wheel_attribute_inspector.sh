@@ -22,6 +22,7 @@ require_rg "FormatInspectionValueSummary" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "FormatInspectionRange" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "wxTE_WORDWRAP" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "UpdateInspectionSliderRange" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "inspectionValueByChannel" gui/gdtf/gdtf_modes_panel.h
 require_rg "SetRange" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "GdtfWheelInspectorDetailRow" gui/gdtf/gdtf_wheel_inspector_panel.h
 require_rg "DMX inspection details" gui/gdtf/gdtf_wheel_inspector_panel.cpp
