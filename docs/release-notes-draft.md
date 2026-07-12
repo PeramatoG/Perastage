@@ -28,6 +28,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed the GDTF wheel preview panel build by including the wxWidgets static-bitmap declaration used by the active slot preview.
+
 - Fixed a Windows build conflict between the new GDTF wheel catalog types and the existing GDTF description snapshot wheel types.
 
 - Fixed the internal GDTF resource bitmap cache header so it uses the portable wxWidgets size declaration on Windows builds.
