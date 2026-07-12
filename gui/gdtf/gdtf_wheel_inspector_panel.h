@@ -72,6 +72,8 @@ public:
 
 private:
   void ApplySlotPreview(const GdtfWheelInspectorSlotPresentation &slot);
+  void RefreshSlotList();
+  void UpdateSlotHighlight(long row);
   void OnSlotSelected(wxListEvent &event);
   wxBitmap CreateSwatchBitmap(const wxColour &colour, const wxSize &size) const;
   wxBitmap CreatePlaceholderBitmap(const wxSize &size) const;
@@ -105,4 +107,5 @@ private:
   std::vector<GdtfWheelInspectorDetailControls> activeDetailControls;
   std::vector<GdtfWheelInspectorDetailControls> previewDetailControls;
   std::vector<GdtfWheelInspectorSlotPresentation> currentSlots;
+  long highlightedSlotIndex = -1;
 };
