@@ -79,9 +79,11 @@ struct ArchiveReadResult {
 
 ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath);
 
-GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sourcePath,
-                                               const std::string &requestedPath,
-                                               std::uint64_t maxBytes = 4ull * 1024ull * 1024ull);
+GdtfResourceReadResult ReadGdtfArchiveResource(
+    const std::filesystem::path &sourcePath,
+    const std::string &requestedPath,
+    std::uint64_t maxBytes = 4ull * 1024ull * 1024ull,
+    const std::vector<std::filesystem::path> &extraResourceRoots = {});
 
 ArchiveReadResult
 ExtractGdtfArchive(const std::filesystem::path &sourcePath,

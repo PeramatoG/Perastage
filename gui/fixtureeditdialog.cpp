@@ -1116,6 +1116,10 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
   GdtfWheelInspectorPresentation enriched = presentation;
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   const std::string sourceId = BuildGdtfSourceFingerprint(gdtfPath);
+  std::vector<std::filesystem::path> resourceRoots;
+  const std::string extractedRoot = GetCachedGdtfExtractionDirectory(PathUtils::PathToUtf8(gdtfPath));
+  if (!extractedRoot.empty())
+    resourceRoots.push_back(PathUtils::PathFromUtf8(extractedRoot));
   auto applyColor = [](GdtfWheelInspectorSlotPresentation &slot) {
     if (slot.rawColor.empty())
       return;
@@ -1147,7 +1151,8 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
     for (const auto &[resourceOrigin, resource] : resourceAttempts) {
       if (resource.empty() || gdtfPath.empty())
         continue;
-      const auto resourceRead = gdtf::ReadGdtfArchiveResource(gdtfPath, resource);
+      const auto resourceRead = gdtf::ReadGdtfArchiveResource(
+          gdtfPath, resource, 4ull * 1024ull * 1024ull, resourceRoots);
       std::string status = "Raw resource (" + resourceOrigin + "): " + resource;
       bool decodedThumbnail = false;
       if (resourceRead.Success()) {

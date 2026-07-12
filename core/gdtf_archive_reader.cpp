@@ -247,9 +247,14 @@ std::vector<std::string> BuildResourcePreferredPaths(const std::string &normaliz
 bool TryReadExplodedGdtfResource(const std::filesystem::path &sourcePath,
                                  const std::string &normalizedRequest,
                                  const std::vector<std::string> &preferredPaths,
+                                 const std::vector<std::filesystem::path> &extraResourceRoots,
                                  std::uint64_t maxBytes,
                                  GdtfResourceReadResult &result) {
   std::vector<std::filesystem::path> roots;
+  for (const auto &root : extraResourceRoots) {
+    if (!root.empty())
+      roots.push_back(root);
+  }
   std::error_code ec;
   if (std::filesystem::is_directory(sourcePath, ec) && !ec)
     roots.push_back(sourcePath);
@@ -654,9 +659,11 @@ bool GdtfResourceReadResult::Success() const {
 }
 
 // Reads one requested GDTF archive resource without extracting the archive.
-GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sourcePath,
-                                               const std::string &requestedPath,
-                                               std::uint64_t maxBytes) {
+GdtfResourceReadResult ReadGdtfArchiveResource(
+    const std::filesystem::path &sourcePath,
+    const std::string &requestedPath,
+    std::uint64_t maxBytes,
+    const std::vector<std::filesystem::path> &extraResourceRoots) {
   GdtfResourceReadResult result;
   result.sourcePath = sourcePath;
   result.requestedPath = requestedPath;
@@ -674,7 +681,7 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
   const std::vector<std::string> preferredPaths = BuildResourcePreferredPaths(normalizedRequest);
   wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
   if (!input.IsOk()) {
-    if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, maxBytes, result))
+    if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, extraResourceRoots, maxBytes, result))
       return result;
     result.diagnostics.push_back({ArchiveDiagnosticCode::OpenFailed,
                                   "Could not open GDTF archive.", normalizedRequest});
@@ -727,7 +734,7 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
       result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
                                     "Using unambiguous compatible resource path fallback.", result.entryPath});
     } else if (candidates.empty()) {
-      if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, maxBytes, result))
+      if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, extraResourceRoots, maxBytes, result))
         return result;
       result.diagnostics.push_back({ArchiveDiagnosticCode::ResourceNotFound,
                                     "Requested GDTF resource is missing.", normalizedRequest});

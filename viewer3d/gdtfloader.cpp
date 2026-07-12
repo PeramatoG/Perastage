@@ -1910,6 +1910,21 @@ std::vector<std::string> GetGdtfModes(const std::string& gdtfPath)
     }
 }
 
+
+// Returns the cached extraction directory for a GDTF file when available.
+std::string GetCachedGdtfExtractionDirectory(const std::string& gdtfPath)
+{
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        if (!entry)
+            return {};
+        return entry->extractedDir;
+    } catch (...) {
+        return {};
+    }
+}
+
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(
     const std::string& gdtfPath,
     const std::string& modeName)

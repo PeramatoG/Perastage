@@ -22,6 +22,7 @@ require_rg "Value .*0x" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "FindWheel\(activeFunction->wheel\)" core/gdtf/gdtf_dmx_inspector.cpp
 require_rg "ReadGdtfArchiveResource" core/gdtf_archive_reader.cpp
 require_rg "TryReadExplodedGdtfResource" core/gdtf_archive_reader.cpp
+require_rg "GetCachedGdtfExtractionDirectory" viewer3d/gdtfloader.h
 require_rg "ResourceNotFound" core/gdtf_archive_reader.h
 require_rg "filesystemFallback" core/gdtf_archive_reader.h
 require_rg "wxImage" gui/gdtf/gdtf_resource_bitmap_cache.cpp
@@ -32,6 +33,7 @@ require_rg "check_no_configmanager_get_in_gui" tests/CMakeLists.txt
 require_rg "check_perastage_tree_modules" tests/CMakeLists.txt
 require_rg "Truss Modes" docs/internal/gdtf_wheel_attribute_inspector.md
 require_rg "ReadGdtfArchiveResource" gui/fixtureeditdialog.cpp
+require_rg "resourceRoots" gui/fixtureeditdialog.cpp
 require_rg "hasThumbnail" gui/gdtf/gdtf_wheel_inspector_panel.h
 require_rg "GdtfBitmapDecodeResult" gui/gdtf/gdtf_resource_bitmap_cache.h
 require_rg "decoded" gui/fixtureeditdialog.cpp

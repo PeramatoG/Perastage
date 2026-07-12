@@ -82,6 +82,9 @@ std::vector<GdtfChannelInfo> GetGdtfModeChannels(
 // vector when the file cannot be parsed or contains no modes.
 std::vector<std::string> GetGdtfModes(const std::string& gdtfPath);
 
+// Returns the temporary extraction directory currently cached for a GDTF file.
+std::string GetCachedGdtfExtractionDirectory(const std::string& gdtfPath);
+
 // Returns the fixture type name defined in a GDTF file. Returns an empty
 // string when the name cannot be determined or the file cannot be parsed.
 std::string GetGdtfFixtureName(const std::string& gdtfPath);
