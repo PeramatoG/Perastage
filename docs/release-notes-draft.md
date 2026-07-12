@@ -30,6 +30,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF wheel color swatches so CIE xyY luminance values authored on the common 0-100 scale are normalized before sRGB preview conversion, avoiding washed-out or incorrectly white wheel colors.
 - Fixed GDTF wheel PNG previews so failed decodes are reported separately from placeholders, standard `wheels/<MediaFileName>.png` resources are preferred, cached extracted GDTF resource folders from restored MVR/project data are used as a safe read-only fallback, transparent gobo artwork is composed over a visible checkerboard background, clicking a wheel-slot row shows a larger slot preview or diagnostic directly, and repeated image-handler initialization no longer triggers wxWidgets debug assertions.
 
 - Fixed GDTF wheel PNG preview decoding by initializing wxWidgets image handlers before thumbnail creation.

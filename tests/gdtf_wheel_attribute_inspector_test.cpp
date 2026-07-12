@@ -39,6 +39,17 @@ int main() {
   const auto malformed = gdtf::ParseGdtfColorCie("bad", gdtf::GdtfValueOrigin::Explicit);
   assert(!malformed.valid);
 
+  const auto amber = gdtf::ConvertCieXyyToSrgb(
+      gdtf::ParseGdtfColorCie("0.508965,0.402112,31.96653", gdtf::GdtfValueOrigin::Explicit));
+  assert(amber.valid);
+  assert(amber.red > amber.green && amber.green > amber.blue);
+  assert(amber.blue < 0.35);
+  const auto lavender = gdtf::ConvertCieXyyToSrgb(
+      gdtf::ParseGdtfColorCie("0.314294,0.193831,4.499678", gdtf::GdtfValueOrigin::Explicit));
+  assert(lavender.valid);
+  assert(lavender.blue > lavender.green);
+  assert(lavender.red > lavender.green);
+
   const auto doc = gdtf::ReadGdtfModeChannelDocument(kXml);
   const auto *mode = doc.FindMode("Mode");
   assert(mode);

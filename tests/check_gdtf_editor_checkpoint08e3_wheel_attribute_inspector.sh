@@ -6,6 +6,7 @@ require_rg() { rg -q "$1" "$root/$2" || { echo "missing pattern $1 in $2" >&2; e
 require_file core/gdtf/gdtf_wheel_catalog.h
 require_file core/gdtf/gdtf_wheel_catalog.cpp
 require_file core/gdtf/gdtf_color_cie.h
+require_rg "NormalizeDisplayLuminance" core/gdtf/gdtf_color_cie.cpp
 require_file core/gdtf/gdtf_dmx_inspector.h
 require_file core/gdtf/gdtf_dmx_inspector.cpp
 require_file gui/gdtf/gdtf_resource_bitmap_cache.h

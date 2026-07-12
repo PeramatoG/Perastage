@@ -26,7 +26,7 @@ Truss Modes remain hidden and truss editing must not load wheel resources.
 
 ## CIE preview limitation
 
-The CIE model keeps raw values unchanged. xyY values are validated, converted to XYZ, transformed to display sRGB, transferred through the sRGB curve, and clipped safely. The swatch is only an approximate monitor preview and is not a replacement for the raw GDTF color value or a spectral simulation.
+The CIE model keeps raw values unchanged. xyY values are validated, 0-100 luminance values are normalized to display-relative luminance for preview, converted to XYZ, transformed to display sRGB, transferred through the sRGB curve, and clipped safely. The swatch is only an approximate monitor preview and is not a replacement for the raw GDTF color value or a spectral simulation.
 
 ## DMX resolver behavior
 
