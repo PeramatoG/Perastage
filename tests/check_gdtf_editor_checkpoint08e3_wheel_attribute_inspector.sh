@@ -26,6 +26,7 @@ require_rg "GetCachedGdtfExtractionDirectory" viewer3d/gdtfloader.h
 require_rg "ResourceNotFound" core/gdtf_archive_reader.h
 require_rg "filesystemFallback" core/gdtf_archive_reader.h
 require_rg "wxImage" gui/gdtf/gdtf_resource_bitmap_cache.cpp
+require_rg "FindHandler" gui/gdtf/gdtf_resource_bitmap_cache.cpp
 ! rg -q "tinyxml|XMLDocument|GdtfEditSession|Apply|Save|Undo|Art-Net|sACN|XmlWriter|XMLPrinter" "$root/gui/gdtf/gdtf_resource_bitmap_cache.cpp"
 require_rg "GdtfWheelAttributeInspector" tests/CMakeLists.txt
 require_rg "check_gdtf_editor_checkpoint08e2_mode_browser" tests/CMakeLists.txt
@@ -35,6 +36,7 @@ require_rg "Truss Modes" docs/internal/gdtf_wheel_attribute_inspector.md
 require_rg "ReadGdtfArchiveResource" gui/fixtureeditdialog.cpp
 require_rg "resourceRoots" gui/fixtureeditdialog.cpp
 require_rg "hasThumbnail" gui/gdtf/gdtf_wheel_inspector_panel.h
+require_rg "hasPreview" gui/gdtf/gdtf_wheel_inspector_panel.h
 require_rg "GdtfBitmapDecodeResult" gui/gdtf/gdtf_resource_bitmap_cache.h
 require_rg "decoded" gui/fixtureeditdialog.cpp
 require_rg "ComposePreviewBitmap" gui/gdtf/gdtf_resource_bitmap_cache.cpp

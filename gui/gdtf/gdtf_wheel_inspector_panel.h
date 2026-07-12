@@ -32,6 +32,8 @@ struct GdtfWheelInspectorSlotPresentation {
   bool selected = false;
   bool hasThumbnail = false;
   wxBitmap thumbnail;
+  bool hasPreview = false;
+  wxBitmap preview;
   bool hasSwatch = false;
   wxColour swatch;
 };

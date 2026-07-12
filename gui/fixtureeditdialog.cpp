@@ -1176,6 +1176,15 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
           status += "\nImage dimensions: " + std::to_string(thumb.sourceWidth) + "x" + std::to_string(thumb.sourceHeight);
           slot.thumbnail = thumb.bitmap;
           slot.hasThumbnail = true;
+          const auto preview = wheelBitmapCache.GetOrCreate(
+              sourceId, resourceRead.entryPath, resourceRead.bytes, wxSize(180, 180),
+              wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+          if (preview.decoded) {
+            slot.preview = preview.bitmap;
+            slot.hasPreview = true;
+          } else {
+            status += "\nLarge preview decode failed: " + preview.diagnostic;
+          }
         }
       } else {
         status += "\nResource resolution/read failed.";
@@ -1186,14 +1195,11 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
       if (slot.selected) {
         selectedStatus += selectedStatus.empty() ? status : "\n\n" + status;
         if (resourceRead.Success()) {
-          const auto active = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
-                                                          resourceRead.bytes, wxSize(180, 180),
-                                                          wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-          if (active.decoded && !enriched.hasActivePreview) {
-            enriched.activePreview = active.bitmap;
+          if (slot.hasPreview && !enriched.hasActivePreview) {
+            enriched.activePreview = slot.preview;
             enriched.hasActivePreview = true;
-          } else if (!active.decoded) {
-            selectedStatus += "\nActive preview decode failed: " + active.diagnostic;
+          } else if (!slot.hasPreview) {
+            selectedStatus += "\nActive preview decode failed or unavailable.";
           }
         }
       }

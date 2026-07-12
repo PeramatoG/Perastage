@@ -17,7 +17,8 @@ constexpr int kCheckerSize = 8;
 // Ensures wx image handlers are available before decoding archive PNG/JPEG resources.
 void EnsureImageHandlersInitialized() {
   static const bool initialized = []() {
-    wxInitAllImageHandlers();
+    if (!wxImage::FindHandler(wxBITMAP_TYPE_PNG))
+      wxInitAllImageHandlers();
     return true;
   }();
   (void)initialized;
@@ -88,7 +89,7 @@ wxBitmap GdtfResourceBitmapCache::ComposePreviewBitmap(const wxImage &image,
                                                        const wxSize &targetSize) const {
   const int targetWidth = std::max(1, targetSize.GetWidth());
   const int targetHeight = std::max(1, targetSize.GetHeight());
-  wxBitmap composed(targetWidth, targetHeight, 32);
+  wxBitmap composed(targetWidth, targetHeight);
   wxMemoryDC dc(composed);
   const wxColour light(210, 210, 210);
   const wxColour dark(145, 145, 145);
@@ -117,7 +118,7 @@ wxBitmap GdtfResourceBitmapCache::ComposePreviewBitmap(const wxImage &image,
 // Creates a plain placeholder bitmap using the system theme color supplied by the caller.
 wxBitmap GdtfResourceBitmapCache::MakePlaceholder(const wxSize &targetSize,
                                                   const wxColour &color) const {
-  wxBitmap bitmap(std::max(1, targetSize.GetWidth()), std::max(1, targetSize.GetHeight()), 32);
+  wxBitmap bitmap(std::max(1, targetSize.GetWidth()), std::max(1, targetSize.GetHeight()));
   wxMemoryDC dc(bitmap);
   dc.SetBackground(wxBrush(color));
   dc.Clear();

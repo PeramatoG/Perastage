@@ -60,7 +60,7 @@ The GUI bitmap cache returns an explicit decode result instead of treating every
 
 Decoded wheel images are aspect-fit into the requested preview size, preserve alpha, and are composed over a neutral checkerboard background so black-and-transparent gobo artwork remains visible in dark application themes. The cache key includes a source fingerprint based on the canonical archive path, file size, and last-write timestamp so replacing a GDTF at the same path invalidates stale previews.
 
-Selecting a row in the Wheel slots gallery previews that slot directly and shows its resource-resolution or decode diagnostic without changing the read-only DMX inspection value. Media slots that cannot decode a thumbnail show the themed placeholder rather than a misleading color swatch.
+Selecting a row in the Wheel slots gallery previews that slot directly with a larger preview bitmap and shows its resource-resolution or decode diagnostic without changing the read-only DMX inspection value. Media slots that cannot decode a thumbnail show the themed placeholder rather than a misleading color swatch.
 
 Standard GDTF 1.2 resolution prefers `Slot/@MediaFileName` and `wheels/<MediaFileName>.png`. Non-standard graphic-wheel resource attributes are documented compatibility metadata and are attempted only after the standard media resource is missing or cannot produce a decoded preview.
 

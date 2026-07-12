@@ -95,7 +95,9 @@ void GdtfWheelInspectorPanel::ClearPresentation() {
 
 // Applies a clicked wheel-slot preview without changing the resolved DMX mapping.
 void GdtfWheelInspectorPanel::ApplySlotPreview(const GdtfWheelInspectorSlotPresentation &slot) {
-  if (slot.hasThumbnail)
+  if (slot.hasPreview)
+    activePreviewBitmap->SetBitmap(slot.preview);
+  else if (slot.hasThumbnail)
     activePreviewBitmap->SetBitmap(slot.thumbnail);
   else if (slot.hasSwatch && slot.mediaResource.empty())
     activePreviewBitmap->SetBitmap(CreateSwatchBitmap(slot.swatch, wxSize(kActivePreviewSize, kActivePreviewSize)));
@@ -117,7 +119,7 @@ void GdtfWheelInspectorPanel::OnSlotSelected(wxListEvent &event) {
 // Creates a bitmap filled with the approximate display color for one slot.
 wxBitmap GdtfWheelInspectorPanel::CreateSwatchBitmap(const wxColour &colour,
                                                      const wxSize &size) const {
-  wxBitmap bitmap(std::max(1, size.GetWidth()), std::max(1, size.GetHeight()), 32);
+  wxBitmap bitmap(std::max(1, size.GetWidth()), std::max(1, size.GetHeight()));
   wxMemoryDC dc(bitmap);
   dc.SetBackground(wxBrush(colour));
   dc.Clear();
