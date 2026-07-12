@@ -20,7 +20,7 @@ Changes since **v1.4.0**.
 - Made Truss Edit open more compactly and gave the official Fixture SVG symbol region the same vertical priority as the generated Top, Front, and Side symbol previews.
 - Improved Truss Edit spacing and composition so type and metadata stay in the second column while the 3D preview sits above physical properties in the third column.
 - Improved Fixture Edit visual resources by combining 3D preview and fixture image into one Preview tab, adding an official GDTF SVG symbol preview above Perastage-generated symbols when available, and increasing GDTF column spacing for readability.
-- Moved Fixture Edit's Mode channels summary into the Fixture instance pane, giving GDTF metadata more room to display longer text.
+- Moved Fixture Edit's Mode channels summary into the Fixture instance pane and let GDTF metadata use the freed overview-column height for longer text.
 - Refined Fixture Edit and Truss Edit GDTF editor layouts with compact instance panes, resizable splitters, flatter GDTF sections, larger metadata and preview areas, Fixture visual-resource tabs, and persisted layout preferences while preserving existing apply behavior.
 
 
