@@ -53,6 +53,11 @@ std::string FormatInspectionPercent(double percent) {
   return out.str();
 }
 
+// Returns the wxSlider maximum for a DMX value domain.
+int InspectionSliderMaxForDmxMax(std::uint64_t maxValue) {
+  return static_cast<int>(std::min<std::uint64_t>(maxValue, 65535));
+}
+
 // Formats a compact value and percentage summary for the DMX inspection panel.
 std::string FormatInspectionValueSummary(std::uint64_t value, std::uint64_t maxValue, double percent) {
   std::ostringstream out;
@@ -277,6 +282,7 @@ void GdtfModesPanel::SetInspectionData(const gdtf::GdtfDmxModeNode *mode,
   inspectionMode = mode ? *mode : gdtf::GdtfDmxModeNode{};
   inspectionCatalog = catalog ? *catalog : gdtf::GdtfWheelCatalog{};
   selectedInspectionChannelId.clear();
+  UpdateInspectionSliderRange();
   SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
   if (wheelInspectionCallback)
     wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});
@@ -320,12 +326,14 @@ void GdtfModesPanel::ClearModeDetails() {
   channelCountCtrl->SetValue(wxString());
   browserModel->SetNodes({});
   detailsCtrl->SetValue(wxString());
-  if (inspectionSlider)
+  selectedInspectionChannelId.clear();
+  if (inspectionSlider) {
+    UpdateInspectionSliderRange();
     inspectionSlider->SetValue(0);
+  }
   if (inspectionValueLabel)
     inspectionValueLabel->SetLabel("DMX value 0 of 65,535 · 0.00%");
   SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
-  selectedInspectionChannelId.clear();
   if (wheelInspectionCallback)
     wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});
   updating = false;
@@ -357,10 +365,12 @@ void GdtfModesPanel::SelectInspectionNode(const std::string &nodeId) {
   const auto *channel = FindOwningChannel(nodeId);
   if (!channel) {
     selectedInspectionChannelId.clear();
+    UpdateInspectionSliderRange();
     SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
     return;
   }
   selectedInspectionChannelId = channel->id;
+  UpdateInspectionSliderRange();
   std::uint64_t startValue = 0;
   for (const auto &logical : channel->logicalChannels) {
     for (const auto &function : logical.channelFunctions) {
@@ -463,6 +473,13 @@ const gdtf::GdtfDmxChannelNode *GdtfModesPanel::FindOwningChannel(
       return &channel;
   }
   return nullptr;
+}
+
+// Updates the slider range to match the selected DMX channel resolution.
+void GdtfModesPanel::UpdateInspectionSliderRange() {
+  if (!inspectionSlider)
+    return;
+  inspectionSlider->SetRange(0, InspectionSliderMaxForDmxMax(SelectedInspectionMaxValue()));
 }
 
 // Returns the current slider value as an inspection DMX value.

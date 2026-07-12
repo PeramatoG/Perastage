@@ -21,6 +21,8 @@ require_rg "wxSlider" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "FormatInspectionValueSummary" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "FormatInspectionRange" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "wxTE_WORDWRAP" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "UpdateInspectionSliderRange" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "SetRange" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "FindWheel\(activeFunction->wheel\)" core/gdtf/gdtf_dmx_inspector.cpp
 require_rg "ReadGdtfArchiveResource" core/gdtf_archive_reader.cpp
 require_rg "TryReadExplodedGdtfResource" core/gdtf_archive_reader.cpp

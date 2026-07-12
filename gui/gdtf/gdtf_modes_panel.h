@@ -77,6 +77,7 @@ private:
   void UpdateDetails(const GdtfModeBrowserNodePresentation *node);
   void SelectInspectionNode(const std::string &nodeId);
   void UpdateInspectionFromSlider();
+  void UpdateInspectionSliderRange();
   void SetInspectionMappingText(const std::string &text);
   const gdtf::GdtfDmxChannelNode *FindOwningChannel(const std::string &nodeId) const;
   std::uint64_t CurrentInspectionValue() const;
