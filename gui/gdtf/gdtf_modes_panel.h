@@ -77,6 +77,7 @@ private:
   void UpdateDetails(const GdtfModeBrowserNodePresentation *node);
   void SelectInspectionNode(const std::string &nodeId);
   void UpdateInspectionFromSlider();
+  void SetInspectionMappingText(const std::string &text);
   const gdtf::GdtfDmxChannelNode *FindOwningChannel(const std::string &nodeId) const;
   std::uint64_t CurrentInspectionValue() const;
   std::uint64_t SelectedInspectionMaxValue() const;
@@ -87,7 +88,7 @@ private:
   wxChoice *modeChoice = nullptr;
   wxTextCtrl *channelCountCtrl = nullptr;
   wxStaticText *inspectionValueLabel = nullptr;
-  wxStaticText *inspectionMappingLabel = nullptr;
+  wxTextCtrl *inspectionMappingLabel = nullptr;
   wxSlider *inspectionSlider = nullptr;
   wxSplitterWindow *browserSplitter = nullptr;
   wxDataViewCtrl *browserCtrl = nullptr;

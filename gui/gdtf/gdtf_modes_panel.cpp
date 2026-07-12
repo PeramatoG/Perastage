@@ -22,6 +22,7 @@
 #include <wx/dataview.h>
 #include <wx/sizer.h>
 #include <wx/slider.h>
+#include <wx/statbox.h>
 #include <wx/splitter.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
@@ -30,17 +31,49 @@ namespace {
 // Returns a readable fallback for empty inspection text.
 std::string InspectText(const std::string &value) { return value.empty() ? "-" : value; }
 
+// Formats an integer with grouped thousands for compact inspection labels.
+std::string FormatInspectionNumber(std::uint64_t value) {
+  std::string text = std::to_string(value);
+  for (int pos = static_cast<int>(text.size()) - 3; pos > 0; pos -= 3)
+    text.insert(static_cast<size_t>(pos), ",");
+  return text;
+}
+
 // Formats a DMX range for active state feedback.
 std::string FormatInspectionRange(const std::optional<gdtf::GdtfDmxRange> &range) {
   if (!range)
     return "-";
-  return std::to_string(range->start) + "-" + std::to_string(range->end);
+  return FormatInspectionNumber(range->start) + "-" + FormatInspectionNumber(range->end);
 }
 
 // Formats a percentage with stable precision for inspection labels.
 std::string FormatInspectionPercent(double percent) {
   std::ostringstream out;
   out << std::fixed << std::setprecision(2) << percent << "%";
+  return out.str();
+}
+
+// Formats a compact value and percentage summary for the DMX inspection panel.
+std::string FormatInspectionValueSummary(std::uint64_t value, std::uint64_t maxValue, double percent) {
+  std::ostringstream out;
+  out << "DMX value " << FormatInspectionNumber(value) << " of "
+      << FormatInspectionNumber(maxValue) << " · " << FormatInspectionPercent(percent);
+  return out.str();
+}
+
+// Formats the active mapping as compact, wrapped rows.
+std::string FormatActiveMappingSummary(const gdtf::GdtfDmxInspectorMapping &mapping) {
+  std::ostringstream out;
+  out << "Function: " << InspectText(mapping.channelFunctionName)
+      << " [" << FormatInspectionRange(mapping.channelFunctionDmxRange) << "]";
+  if (!mapping.channelSetName.empty() || mapping.channelSetDmxRange)
+    out << "\nState: " << InspectText(mapping.channelSetName)
+        << " [" << FormatInspectionRange(mapping.channelSetDmxRange) << "]";
+  if (mapping.wheel || mapping.slot) {
+    out << "\nWheel: " << (mapping.wheel ? InspectText(mapping.wheel->name) : "-");
+    if (mapping.slot)
+      out << " / Slot " << mapping.slot->index << " " << InspectText(mapping.slot->name);
+  }
   return out.str();
 }
 
@@ -107,15 +140,24 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
             wxALIGN_CENTER_VERTICAL);
   grid->Add(channelCountCtrl, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxBOTTOM, 6);
-  auto *inspectionRow = new wxBoxSizer(wxHORIZONTAL);
-  inspectionRow->Add(new wxStaticText(this, wxID_ANY, "DMX inspection"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
+  auto *inspectionBox = new wxStaticBoxSizer(wxVERTICAL, this, "DMX inspection");
   inspectionSlider = new wxSlider(this, wxID_ANY, 0, 0, 65535, wxDefaultPosition, wxDefaultSize);
-  inspectionValueLabel = new wxStaticText(this, wxID_ANY, "DMX 0 / 0.00%");
-  inspectionRow->Add(inspectionSlider, 1, wxEXPAND | wxRIGHT, 6);
-  inspectionRow->Add(inspectionValueLabel, 0, wxALIGN_CENTER_VERTICAL);
-  root->Add(inspectionRow, 0, wxEXPAND | wxBOTTOM, 3);
-  inspectionMappingLabel = new wxStaticText(this, wxID_ANY, "Select a DMX channel to inspect its active function and wheel slot.");
-  root->Add(inspectionMappingLabel, 0, wxEXPAND | wxBOTTOM, 6);
+  inspectionBox->Add(inspectionSlider, 0, wxEXPAND | wxBOTTOM, 4);
+  auto *inspectionDetails = new wxFlexGridSizer(2, 4, 8);
+  inspectionDetails->AddGrowableCol(1, 1);
+  inspectionValueLabel = new wxStaticText(this, wxID_ANY, "DMX value 0 of 65,535 · 0.00%");
+  inspectionDetails->Add(new wxStaticText(this, wxID_ANY, "Value"), 0, wxALIGN_TOP | wxTOP, 2);
+  inspectionDetails->Add(inspectionValueLabel, 1, wxEXPAND);
+  inspectionMappingLabel = new wxTextCtrl(this, wxID_ANY, "Select a DMX channel to inspect its active function and wheel slot.",
+                                          wxDefaultPosition, wxSize(-1, gui::gdtf_layout::Dip(this, 72)),
+                                          wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE | wxTE_WORDWRAP);
+  inspectionMappingLabel->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 72)));
+  inspectionMappingLabel->SetBackgroundColour(GetBackgroundColour());
+  inspectionMappingLabel->SetForegroundColour(GetForegroundColour());
+  inspectionDetails->Add(new wxStaticText(this, wxID_ANY, "Active"), 0, wxALIGN_TOP | wxTOP, 2);
+  inspectionDetails->Add(inspectionMappingLabel, 1, wxEXPAND);
+  inspectionBox->Add(inspectionDetails, 0, wxEXPAND);
+  root->Add(inspectionBox, 0, wxEXPAND | wxBOTTOM, 6);
   root->Add(new wxStaticText(this, wxID_ANY, "Mode and channel browser"), 0,
             wxBOTTOM, 3);
 
@@ -235,8 +277,7 @@ void GdtfModesPanel::SetInspectionData(const gdtf::GdtfDmxModeNode *mode,
   inspectionMode = mode ? *mode : gdtf::GdtfDmxModeNode{};
   inspectionCatalog = catalog ? *catalog : gdtf::GdtfWheelCatalog{};
   selectedInspectionChannelId.clear();
-  if (inspectionMappingLabel)
-    inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+  SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
   if (wheelInspectionCallback)
     wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});
 }
@@ -267,6 +308,12 @@ void GdtfModesPanel::SetInspectionValueText(const std::string &text) {
     inspectionValueLabel->SetLabel(wxString::FromUTF8(text));
 }
 
+// Sets the wrapped DMX inspection active-mapping summary.
+void GdtfModesPanel::SetInspectionMappingText(const std::string &text) {
+  if (inspectionMappingLabel)
+    inspectionMappingLabel->ChangeValue(wxString::FromUTF8(text));
+}
+
 // Clears the derived channel presentation.
 void GdtfModesPanel::ClearModeDetails() {
   updating = true;
@@ -276,9 +323,8 @@ void GdtfModesPanel::ClearModeDetails() {
   if (inspectionSlider)
     inspectionSlider->SetValue(0);
   if (inspectionValueLabel)
-    inspectionValueLabel->SetLabel("DMX 0 / 0.00%");
-  if (inspectionMappingLabel)
-    inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+    inspectionValueLabel->SetLabel("DMX value 0 of 65,535 · 0.00%");
+  SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
   selectedInspectionChannelId.clear();
   if (wheelInspectionCallback)
     wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});
@@ -311,8 +357,7 @@ void GdtfModesPanel::SelectInspectionNode(const std::string &nodeId) {
   const auto *channel = FindOwningChannel(nodeId);
   if (!channel) {
     selectedInspectionChannelId.clear();
-    if (inspectionMappingLabel)
-      inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+    SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
     return;
   }
   selectedInspectionChannelId = channel->id;
@@ -344,13 +389,10 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
                              ? static_cast<double>(value) * 100.0 / static_cast<double>(maxValue)
                              : 0.0;
   if (inspectionValueLabel) {
-    std::ostringstream valueText;
-    valueText << "DMX " << value << " / " << FormatInspectionPercent(percent);
-    inspectionValueLabel->SetLabel(wxString::FromUTF8(valueText.str()));
+    inspectionValueLabel->SetLabel(wxString::FromUTF8(FormatInspectionValueSummary(value, maxValue, percent)));
   }
   if (!hasInspectionData || selectedInspectionChannelId.empty()) {
-    if (inspectionMappingLabel)
-      inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+    SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
     return;
   }
   const auto result = gdtf::InspectGdtfDmxValue(inspectionMode, selectedInspectionChannelId,
@@ -367,19 +409,9 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
     active << "Diagnostic: " << diagnostic.message << "\n";
 
   std::string label = "No active mapping for this value.";
-  if (!result.mappings.empty()) {
-    const auto &mapping = result.mappings.front();
-    label = "Active: " + InspectText(mapping.channelFunctionName) +
-            " [" + FormatInspectionRange(mapping.channelFunctionDmxRange) + "] / " +
-            InspectText(mapping.channelSetName) +
-            " [" + FormatInspectionRange(mapping.channelSetDmxRange) + "]";
-    if (mapping.wheel)
-      label += " / Wheel " + InspectText(mapping.wheel->name);
-    if (mapping.slot)
-      label += " / Slot " + std::to_string(mapping.slot->index) + " " + InspectText(mapping.slot->name);
-  }
-  if (inspectionMappingLabel)
-    inspectionMappingLabel->SetLabel(wxString::FromUTF8(label));
+  if (!result.mappings.empty())
+    label = FormatActiveMappingSummary(result.mappings.front());
+  SetInspectionMappingText(label);
 
   GdtfWheelInspectorPresentation presentation;
   presentation.activeText = active.str();
