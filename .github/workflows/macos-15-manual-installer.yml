@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           brew update
-          brew install autoconf autoconf-archive automake libtool ninja dylibbundler
+          brew install autoconf autoconf-archive automake gettext libtool ninja dylibbundler
 
       # ── 4. Cache vcpkg installed tree + downloads ───────────────────────────
       - name: Cache vcpkg

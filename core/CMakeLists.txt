@@ -41,6 +41,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/hoistpresetlibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_weight_distribution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/library/library_bootstrap.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/localization/app_language.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/localization/localization_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutCollection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutDefaultsLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutManager.cpp

@@ -95,6 +95,11 @@ jobs:
             --x-packages-root="$env:VCPKG_PACKAGES" `
             --downloads-root="$env:VCPKG_DOWNLOADS"
 
+      - name: Install gettext
+        shell: pwsh
+        run: |
+          choco install gettext -y
+
       # ── 5. Configure CMake ──────────────────────────────────────────────────
       # VCPKG_INSTALLED_DIR tells the vcpkg toolchain where to find the
       # installed packages. Without it, CMake looks in vcpkg/installed (the

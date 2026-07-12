@@ -219,6 +219,29 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API=1
 )
 
+set(PERASTAGE_ES_PO "${CMAKE_SOURCE_DIR}/resources/locale/es/LC_MESSAGES/perastage.po")
+set(PERASTAGE_GENERATED_LOCALE_DIR "${CMAKE_BINARY_DIR}/generated/locale")
+set(PERASTAGE_ES_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES/perastage.mo")
+find_package(Gettext QUIET)
+if(GETTEXT_MSGFMT_EXECUTABLE)
+    add_custom_command(
+        OUTPUT "${PERASTAGE_ES_MO}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES"
+        COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
+        DEPENDS "${PERASTAGE_ES_PO}"
+        COMMENT "Generating Spanish gettext catalog"
+        VERBATIM
+    )
+    add_custom_target(perastage_translations DEPENDS "${PERASTAGE_ES_MO}")
+    add_dependencies(${PROJECT_NAME} perastage_translations)
+else()
+    message(WARNING "Gettext msgfmt was not found. Spanish UI catalog generation is disabled; install gettext/msgfmt to build localized runtime catalogs.")
+    add_custom_target(perastage_translations
+        COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/PerastageMissingMsgfmt.cmake"
+    )
+endif()
+add_custom_target(perastage_update_catalogs DEPENDS perastage_translations)
+
 set_source_files_properties("${PERASTAGE_GENERATED_BUILD_INFO_CPP}" PROPERTIES
     COMPILE_DEFINITIONS "PERASTAGE_BUILD_CONFIGURATION=\"$<CONFIG>\""
 )
@@ -357,6 +380,14 @@ else()
 endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
+if(GETTEXT_MSGFMT_EXECUTABLE)
+    if(APPLE)
+        set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/locale/es/LC_MESSAGES")
+    else()
+        set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/resources/locale/es/LC_MESSAGES")
+    endif()
+    install(FILES "${PERASTAGE_ES_MO}" DESTINATION "${PERASTAGE_INSTALL_LOCALE_DEST}")
+endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 endif()
@@ -539,6 +570,20 @@ else()
         COMMAND ${CMAKE_COMMAND} -E copy_directory
                 ${CMAKE_SOURCE_DIR}/resources
                 ${PERASTAGE_RUNTIME_ASSET_DIR}/resources
+    )
+endif()
+
+if(GETTEXT_MSGFMT_EXECUTABLE)
+    if(APPLE)
+        set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/locale/es/LC_MESSAGES")
+    else()
+        set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/resources/locale/es/LC_MESSAGES")
+    endif()
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_RUNTIME_LOCALE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${PERASTAGE_ES_MO}"
+                "${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
     )
 endif()
 

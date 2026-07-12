@@ -17,6 +17,7 @@
  */
 #include "build_info.h"
 #include "filesystem_path_utils.h"
+#include "localization/localization_manager.h"
 #include "app_version.h"
 #include "configmanager.h"
 #include "diagnostics/CrashHandler.h"
@@ -253,10 +254,7 @@ bool MyApp::OnInit() {
   // Enable dark mode for Windows (if supported by wxWidgets)
   wxSystemOptions::SetOption("msw.useDarkMode", 1);
 
-  SplashScreen::Show();
-  SplashScreen::SetMessage("Initializing logger...");
-
-  // Initialize logging and crash reporting before creating the main window.
+  // Initialize logging and crash reporting before creating user-facing windows.
   diagnostics::DiagnosticLogger::Initialize();
   diagnostics::CrashHandler::Initialize();
   diagnostics::DiagnosticLogger::Info(
@@ -270,6 +268,20 @@ bool MyApp::OnInit() {
   if (!localeSetup.note.empty())
     diagnostics::DiagnosticLogger::Warning("Startup text locale: " + localeSetup.note);
 
+  // Load preferences before UI localization; localization preserves LC_NUMERIC for technical data.
+  ConfigManager &config = ConfigManager::Get();
+  const localization::AppLanguage requestedLanguage =
+      localization::ParseAppLanguageCode(
+          config.GetValue(localization::kUiLanguageConfigKey).value_or(""));
+  const localization::LocalizationInitResult localizationResult =
+      localization::LocalizationManager::Get().Initialize(requestedLanguage);
+  if (!localizationResult.diagnostic.empty() &&
+      localizationResult.activeLanguage != localizationResult.requestedLanguage) {
+    diagnostics::DiagnosticLogger::Warning("Startup localization: " +
+                                          localizationResult.diagnostic);
+  }
+
+  SplashScreen::Show();
   SplashScreen::SetMessage("Running library bootstrap...");
   ProjectUtils::RunStartupLibraryBootstrap();
 

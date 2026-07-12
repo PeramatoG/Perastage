@@ -96,6 +96,16 @@ include_directories(
 )
 
 
+
+add_executable(localization_app_language_test
+               localization_app_language_test.cpp
+               ../core/localization/app_language.cpp
+               ../core/localization/localization_manager.cpp
+               localization_diagnostic_logger_stub.cpp)
+target_include_directories(localization_app_language_test PRIVATE ../core ../third_party)
+target_link_libraries(localization_app_language_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME LocalizationAppLanguage COMMAND localization_app_language_test)
+
 add_executable(platform_locale_test
                platform_locale_test.cpp
                ../core/platform_locale.cpp)

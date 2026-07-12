@@ -6,6 +6,7 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added the first phase of desktop localization, including a persistent interface-language preference, restart-based language switching, packaged gettext catalog resources, and a minimal Spanish catalog for the new language settings.
 - Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.
 - Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
@@ -111,11 +112,13 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
+- Included localization catalogs in development, installed, and packaged runtime resource layouts, with build-tree gettext catalog generation for maintainers and packaged builds.
 - Added the mdns vcpkg port to installer CI dependency setup so MVR-xchange mDNS-enabled builds can configure reliably on all packaged platforms.
 - Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and the vcpkg mdns discovery backend, explicit mDNS interface selection, and detailed TCP/protocol diagnostics, remote station tracking, and the active mDNS group discovery, group-qualified service instance names, canonical UUID reuse, non-blocking diagnostics, and outgoing join-flow pieces needed to distinguish incoming and outgoing MVR-xchange handshakes without repeated modal message boxes, and visible advertised IP/port status in the dialog.
 
 ## Documentation
 
+- Added localization documentation covering the `ui_language` preference, catalog locations, translation boundaries, and catalog regeneration.
 - Added internal documentation for tolerant GDTF Unicode ZIP filename decoding, extraction, diagnostics, path safety, and standards-compliant write expectations.
 - Added Viewer2D state ownership documentation to clarify runtime-only, user preference/config, and project/Layout definition boundaries before future offscreen rendering refactors.
 - Updated the MVR-xchange documentation with a compliance summary, supported official flows, conservative latest-request behavior, and explicit out-of-scope notes for WebSocket Mode and private live synchronization.
