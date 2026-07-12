@@ -39,12 +39,29 @@ int main() {
   const auto malformed = gdtf::ParseGdtfColorCie("bad", gdtf::GdtfValueOrigin::Explicit);
   assert(!malformed.valid);
 
+  const auto amber = gdtf::ConvertCieXyyToSrgb(
+      gdtf::ParseGdtfColorCie("0.508965,0.402112,31.96653", gdtf::GdtfValueOrigin::Explicit));
+  assert(amber.valid);
+  assert(amber.red > amber.green && amber.green > amber.blue);
+  assert(amber.blue < 0.35);
+  const auto lavender = gdtf::ConvertCieXyyToSrgb(
+      gdtf::ParseGdtfColorCie("0.314294,0.193831,4.499678", gdtf::GdtfValueOrigin::Explicit));
+  assert(lavender.valid);
+  assert(lavender.blue > lavender.green);
+  assert(lavender.red > lavender.green);
+
   const auto doc = gdtf::ReadGdtfModeChannelDocument(kXml);
   const auto *mode = doc.FindMode("Mode");
   assert(mode);
   auto first = gdtf::InspectGdtfDmxValue(*mode, mode->channels[0].id, 128, catalog);
   assert(first.bytes.size() == 1 && first.bytes[0] == 128);
   assert(first.mappings.size() == 1);
+  assert(first.mappings[0].channelFunctionDmxRange);
+  assert(first.mappings[0].channelFunctionDmxRange->start == 0);
+  assert(first.mappings[0].channelFunctionDmxRange->end == 255);
+  assert(first.mappings[0].channelSetDmxRange);
+  assert(first.mappings[0].channelSetDmxRange->start == 128);
+  assert(first.mappings[0].channelSetDmxRange->end == 255);
   assert(first.mappings[0].slot && first.mappings[0].slot->index == 2);
   assert(first.mappings[0].filter && first.mappings[0].filter->name == "Fílter Blue");
   assert(first.mappings[0].mediaResource == "wheels/gobo.png");

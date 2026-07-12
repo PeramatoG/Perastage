@@ -6,6 +6,7 @@ require_rg() { rg -q "$1" "$root/$2" || { echo "missing pattern $1 in $2" >&2; e
 require_file core/gdtf/gdtf_wheel_catalog.h
 require_file core/gdtf/gdtf_wheel_catalog.cpp
 require_file core/gdtf/gdtf_color_cie.h
+require_rg "NormalizeDisplayLuminance" core/gdtf/gdtf_color_cie.cpp
 require_file core/gdtf/gdtf_dmx_inspector.h
 require_file core/gdtf/gdtf_dmx_inspector.cpp
 require_file gui/gdtf/gdtf_resource_bitmap_cache.h
@@ -18,7 +19,20 @@ require_file gui/gdtf/gdtf_wheel_inspector_panel.cpp
 require_file gui/gdtf/gdtf_wheel_inspector_panel.h
 require_rg "WheelSlotIndex" core/gdtf/gdtf_dmx_inspector.cpp
 require_rg "wxSlider" gui/gdtf/gdtf_modes_panel.cpp
-require_rg "Value .*0x" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "FormatInspectionValueSummary" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "FormatInspectionRange" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "wxTE_WORDWRAP" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "UpdateInspectionSliderRange" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "inspectionValueByChannel" gui/gdtf/gdtf_modes_panel.h
+require_rg "SetRange" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "GdtfWheelInspectorDetailRow" gui/gdtf/gdtf_wheel_inspector_panel.h
+require_rg "DMX inspection details" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "wxScrolledWindow" gui/gdtf/gdtf_wheel_inspector_panel.h
+require_rg "UpdateDetailRowValues" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "RebuildDetailRows" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "BuildActiveInspectorRows" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "selectedInspectionDetails" gui/gdtf/gdtf_modes_panel.h
+! rg -q "detailsCtrl" "$root/gui/gdtf/gdtf_modes_panel.cpp"
 require_rg "FindWheel\(activeFunction->wheel\)" core/gdtf/gdtf_dmx_inspector.cpp
 require_rg "ReadGdtfArchiveResource" core/gdtf_archive_reader.cpp
 require_rg "TryReadExplodedGdtfResource" core/gdtf_archive_reader.cpp

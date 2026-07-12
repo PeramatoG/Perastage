@@ -21,6 +21,11 @@ bool ParseTriple(const std::string &raw, double &x, double &y, double &Y) {
   return (input >> x >> y >> Y) && input.eof();
 }
 
+// Returns display-relative luminance from GDTF CIE xyY luminance.
+double NormalizeDisplayLuminance(double value) {
+  return value > 1.0 ? value / 100.0 : value;
+}
+
 // Applies the display sRGB transfer function.
 double EncodeSrgb(double value) {
   if (value <= 0.0031308)
@@ -62,11 +67,12 @@ GdtfSrgbPreview ConvertCieXyyToSrgb(const GdtfColorCie &color) {
                        "No valid CIE xyY value is available for preview.", color.raw);
     return preview;
   }
-  const double X = color.x * color.Y / color.y;
-  const double Z = (1.0 - color.x - color.y) * color.Y / color.y;
-  double r = 3.2406 * X - 1.5372 * color.Y - 0.4986 * Z;
-  double g = -0.9689 * X + 1.8758 * color.Y + 0.0415 * Z;
-  double b = 0.0557 * X - 0.2040 * color.Y + 1.0570 * Z;
+  const double luminance = NormalizeDisplayLuminance(color.Y);
+  const double X = color.x * luminance / color.y;
+  const double Z = (1.0 - color.x - color.y) * luminance / color.y;
+  double r = 3.2406 * X - 1.5372 * luminance - 0.4986 * Z;
+  double g = -0.9689 * X + 1.8758 * luminance + 0.0415 * Z;
+  double b = 0.0557 * X - 0.2040 * luminance + 1.0570 * Z;
   auto clip = [&](double value) {
     if (value < 0.0 || value > 1.0)
       preview.clipped = true;

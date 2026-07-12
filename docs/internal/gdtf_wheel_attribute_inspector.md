@@ -26,7 +26,7 @@ Truss Modes remain hidden and truss editing must not load wheel resources.
 
 ## CIE preview limitation
 
-The CIE model keeps raw values unchanged. xyY values are validated, converted to XYZ, transformed to display sRGB, transferred through the sRGB curve, and clipped safely. The swatch is only an approximate monitor preview and is not a replacement for the raw GDTF color value or a spectral simulation.
+The CIE model keeps raw values unchanged. xyY values are validated, 0-100 luminance values are normalized to display-relative luminance for preview, converted to XYZ, transformed to display sRGB, transferred through the sRGB curve, and clipped safely. The swatch is only an approximate monitor preview and is not a replacement for the raw GDTF color value or a spectral simulation.
 
 ## DMX resolver behavior
 
@@ -36,7 +36,7 @@ The resolver uses the effective DMX ranges calculated by the 08E2 mode/channel b
 DMX value -> active ChannelFunction -> active ChannelSet -> ChannelFunction.Wheel -> ChannelSet.WheelSlotIndex -> exact WheelSlot -> media, color, filter, or graphic-wheel resource
 ```
 
-It preserves multiple LogicalChannels in source order, decomposes normalized values into bytes, resolves active ChannelFunctions and ChannelSets by containment, validates `WheelSlotIndex` as 1-based, and never guesses a slot from names, labels, physical values, or ChannelSet order. ModeMaster results are marked conditional. DMXProfile references make physical output approximate or unavailable. Increasing and decreasing physical ranges are interpolated only when numeric values are reliable.
+It preserves multiple LogicalChannels in source order, decomposes normalized values into bytes, resolves active ChannelFunctions and ChannelSets by containment, exposes the active Function and Set DMX ranges for UI state feedback, validates `WheelSlotIndex` as 1-based, and never guesses a slot from names, labels, physical values, or ChannelSet order. ModeMaster results are marked conditional. DMXProfile references make physical output approximate or unavailable. Increasing and decreasing physical ranges are interpolated only when numeric values are reliable.
 
 ## Read-only and future editing boundary
 
@@ -44,7 +44,7 @@ The inspector state is typed and read-only: selected channel, current inspection
 
 ## Connected Fixture Edit presentation
 
-Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Selecting a DMX channel, LogicalChannel, ChannelFunction, or ChannelSet in the modes browser chooses the owning DMXChannel for inspection. Moving the DMX inspection slider calls the pure resolver and updates the active mapping label plus the wheel panel with Function, Set, Wheel, 1-based Slot, media, filter, graphic resource, ModeMaster, DMXProfile, and diagnostics. The panel lists the resolved wheel slots in source order and emphasizes the active slot; it remains read-only and does not write XML, send DMX, or mutate the edit session.
+Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Selecting a DMX channel, LogicalChannel, ChannelFunction, or ChannelSet in the modes browser chooses the owning DMXChannel for inspection. Moving the DMX inspection slider uses the selected channel resolution as the visual slider range when it fits in the native control, remembers the current value per selected DMX channel for the lifetime of the editor session, shows the exact resolution-aware DMX value and percentage in a dedicated value row, calls the pure resolver, and updates structured wrapping detail panels in place with the active Function and Set ranges, selected mode-browser details, and wheel-slot preview metadata including Function, Set, Wheel, 1-based Slot, media, filter, graphic resource, ModeMaster, DMXProfile, and diagnostics; the former raw mode-browser detail pane is omitted to avoid duplicated dense text. The panel lists the resolved wheel slots in source order and emphasizes the active slot; it remains read-only and does not write XML, send DMX, or mutate the edit session.
 
 ## Visual previews
 

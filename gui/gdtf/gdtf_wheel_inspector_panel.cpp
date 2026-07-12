@@ -1,17 +1,18 @@
 #include "gdtf_wheel_inspector_panel.h"
 
 #include <algorithm>
+#include <sstream>
 
 #include <wx/brush.h>
 #include <wx/dcmemory.h>
 #include <wx/imaglist.h>
 #include <wx/listctrl.h>
 #include <wx/event.h>
+#include <wx/scrolwin.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
 #include <wx/stattext.h>
-#include <wx/textctrl.h>
 
 namespace {
 constexpr int kSlotThumbnailSize = 48;
@@ -22,20 +23,32 @@ constexpr int kActivePreviewSize = 180;
 GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
   auto *root = new wxBoxSizer(wxVERTICAL);
-  root->Add(new wxStaticText(this, wxID_ANY, "Active DMX mapping"), 0, wxBOTTOM, 3);
-  activeTextCtrl = new wxTextCtrl(this, wxID_ANY, wxString(), wxDefaultPosition,
-                                  wxDefaultSize,
-                                  wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
-  root->Add(activeTextCtrl, 1, wxEXPAND | wxBOTTOM, 6);
+  root->Add(new wxStaticText(this, wxID_ANY, "DMX inspection details"), 0, wxBOTTOM, 3);
+  activeDetailsPanel = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
+                                            wxDefaultSize, wxBORDER_SIMPLE | wxVSCROLL);
+  activeDetailsPanel->SetScrollRate(0, 8);
+  activeDetailsSizer = new wxBoxSizer(wxVERTICAL);
+  activeDetailsPanel->SetSizer(activeDetailsSizer);
+  activeDetailsPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    RewrapDetailRows(activeDetailsPanel, activeDetailControls);
+    event.Skip();
+  });
+  root->Add(activeDetailsPanel, 1, wxEXPAND | wxBOTTOM, 6);
 
   auto *previewRow = new wxBoxSizer(wxHORIZONTAL);
   activePreviewBitmap = new wxStaticBitmap(this, wxID_ANY,
                                            CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
   previewRow->Add(activePreviewBitmap, 0, wxRIGHT, 6);
-  previewStatusCtrl = new wxTextCtrl(this, wxID_ANY, wxString(), wxDefaultPosition,
-                                     wxDefaultSize,
-                                     wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
-  previewRow->Add(previewStatusCtrl, 1, wxEXPAND);
+  previewDetailsPanel = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
+                                             wxDefaultSize, wxBORDER_SIMPLE | wxVSCROLL);
+  previewDetailsPanel->SetScrollRate(0, 8);
+  previewDetailsSizer = new wxBoxSizer(wxVERTICAL);
+  previewDetailsPanel->SetSizer(previewDetailsSizer);
+  previewDetailsPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent &event) {
+    RewrapDetailRows(previewDetailsPanel, previewDetailControls);
+    event.Skip();
+  });
+  previewRow->Add(previewDetailsPanel, 1, wxEXPAND);
   root->Add(previewRow, 0, wxEXPAND | wxBOTTOM, 6);
 
   root->Add(new wxStaticText(this, wxID_ANY, "Wheel slots"), 0, wxBOTTOM, 3);
@@ -54,7 +67,10 @@ GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
 void GdtfWheelInspectorPanel::SetPresentation(
     const GdtfWheelInspectorPresentation &presentation) {
   currentSlots = presentation.slots;
-  activeTextCtrl->SetValue(wxString::FromUTF8(presentation.activeText));
+  SetDetailRows(activeDetailsPanel, activeDetailsSizer, activeDetailRows,
+                activeDetailControls,
+                presentation.detailRows.empty() ? BuildStatusRows(presentation.activeText)
+                                                : presentation.detailRows);
   if (presentation.hasActivePreview)
     activePreviewBitmap->SetBitmap(presentation.activePreview);
   else if (presentation.hasActiveSwatch)
@@ -62,7 +78,9 @@ void GdtfWheelInspectorPanel::SetPresentation(
                                                       wxSize(kActivePreviewSize, kActivePreviewSize)));
   else
     activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
-  previewStatusCtrl->SetValue(wxString::FromUTF8(presentation.previewStatus));
+  SetDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows,
+                previewDetailControls,
+                MergeDetailRows(presentation.previewRows, presentation.previewStatus));
 
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
@@ -85,8 +103,12 @@ void GdtfWheelInspectorPanel::SetPresentation(
 
 // Clears the wheel inspector to an unavailable read-only state.
 void GdtfWheelInspectorPanel::ClearPresentation() {
-  activeTextCtrl->SetValue("Select a DMX channel and move the inspection slider to resolve the active function, set, wheel, and slot.");
-  previewStatusCtrl->SetValue("No wheel slot preview is available yet.");
+  SetDetailRows(activeDetailsPanel, activeDetailsSizer, activeDetailRows,
+                activeDetailControls,
+                {{"Status", "Select a DMX channel and move the inspection slider to resolve the active function, set, wheel, and slot."}});
+  SetDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows,
+                previewDetailControls,
+                {{"Preview", "No wheel slot preview is available yet."}});
   activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
@@ -104,8 +126,9 @@ void GdtfWheelInspectorPanel::ApplySlotPreview(const GdtfWheelInspectorSlotPrese
   else
     activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
 
-  if (!slot.previewStatus.empty())
-    previewStatusCtrl->SetValue(wxString::FromUTF8(slot.previewStatus));
+  SetDetailRows(previewDetailsPanel, previewDetailsSizer, previewDetailRows,
+                previewDetailControls,
+                MergeDetailRows(slot.detailRows, slot.previewStatus));
 }
 
 // Updates the preview pane when the user selects a wheel slot row.
@@ -114,6 +137,127 @@ void GdtfWheelInspectorPanel::OnSlotSelected(wxListEvent &event) {
   if (row < 0 || static_cast<size_t>(row) >= currentSlots.size())
     return;
   ApplySlotPreview(currentSlots[static_cast<size_t>(row)]);
+}
+
+// Stores detail rows and updates existing controls when row labels are unchanged.
+void GdtfWheelInspectorPanel::SetDetailRows(
+    wxScrolledWindow *panel, wxBoxSizer *sizer,
+    std::vector<GdtfWheelInspectorDetailRow> &storedRows,
+    std::vector<GdtfWheelInspectorDetailControls> &controls,
+    const std::vector<GdtfWheelInspectorDetailRow> &rows) {
+  const bool sameStructure =
+      storedRows.size() == rows.size() &&
+      std::equal(storedRows.begin(), storedRows.end(), rows.begin(),
+                 [](const auto &lhs, const auto &rhs) { return lhs.label == rhs.label; });
+  storedRows = rows;
+  if (sameStructure)
+    UpdateDetailRowValues(panel, controls, storedRows);
+  else
+    RebuildDetailRows(panel, sizer, controls, storedRows);
+}
+
+// Rebuilds detail row controls when the row structure changes.
+void GdtfWheelInspectorPanel::RebuildDetailRows(
+    wxScrolledWindow *panel, wxBoxSizer *sizer,
+    std::vector<GdtfWheelInspectorDetailControls> &controls,
+    const std::vector<GdtfWheelInspectorDetailRow> &rows) {
+  if (!panel || !sizer)
+    return;
+  panel->Freeze();
+  sizer->Clear(true);
+  controls.clear();
+  const int labelWidth = 118;
+  for (const auto &detail : rows) {
+    GdtfWheelInspectorDetailControls row;
+    row.rowSizer = new wxBoxSizer(wxHORIZONTAL);
+    row.label = new wxStaticText(panel, wxID_ANY, wxString::FromUTF8(detail.label));
+    row.label->SetMinSize(wxSize(labelWidth, -1));
+    auto labelFont = row.label->GetFont();
+    labelFont.SetWeight(wxFONTWEIGHT_BOLD);
+    row.label->SetFont(labelFont);
+    row.value = new wxStaticText(panel, wxID_ANY, wxString::FromUTF8(detail.value));
+    row.rowSizer->Add(row.label, 0, wxRIGHT | wxBOTTOM, 8);
+    row.rowSizer->Add(row.value, 1, wxEXPAND | wxBOTTOM, 8);
+    sizer->Add(row.rowSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
+    controls.push_back(row);
+  }
+  RewrapDetailRows(panel, controls);
+  panel->FitInside();
+  panel->Layout();
+  panel->Thaw();
+}
+
+// Updates existing detail row values without recreating their labels.
+void GdtfWheelInspectorPanel::UpdateDetailRowValues(
+    wxScrolledWindow *panel,
+    std::vector<GdtfWheelInspectorDetailControls> &controls,
+    const std::vector<GdtfWheelInspectorDetailRow> &rows) {
+  if (!panel)
+    return;
+  bool changed = false;
+  for (size_t i = 0; i < rows.size() && i < controls.size(); ++i) {
+    if (!controls[i].value)
+      continue;
+    const wxString value = wxString::FromUTF8(rows[i].value);
+    if (controls[i].value->GetLabel() != value) {
+      controls[i].value->SetLabel(value);
+      changed = true;
+    }
+  }
+  if (changed) {
+    RewrapDetailRows(panel, controls);
+    panel->FitInside();
+    panel->Layout();
+  }
+}
+
+// Re-applies wrapping widths without rebuilding detail row controls.
+void GdtfWheelInspectorPanel::RewrapDetailRows(
+    wxScrolledWindow *panel,
+    const std::vector<GdtfWheelInspectorDetailControls> &controls) {
+  if (!panel)
+    return;
+  const int labelWidth = 118;
+  const int wrapWidth = std::max(160, panel->GetClientSize().GetWidth() - labelWidth - 18);
+  for (const auto &control : controls) {
+    if (control.value)
+      control.value->Wrap(wrapWidth);
+  }
+  panel->FitInside();
+  panel->Layout();
+}
+
+// Converts a multi-line status string into displayable detail rows.
+std::vector<GdtfWheelInspectorDetailRow> GdtfWheelInspectorPanel::BuildStatusRows(
+    const std::string &status) const {
+  std::vector<GdtfWheelInspectorDetailRow> rows;
+  std::stringstream input(status);
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty())
+      continue;
+    const auto separator = line.find(':');
+    if (separator == std::string::npos)
+      rows.push_back({"Info", line});
+    else
+      rows.push_back({line.substr(0, separator), line.substr(separator + 1)});
+  }
+  if (rows.empty())
+    rows.push_back({"Info", "-"});
+  return rows;
+}
+
+// Combines structured detail rows with optional status diagnostics.
+std::vector<GdtfWheelInspectorDetailRow> GdtfWheelInspectorPanel::MergeDetailRows(
+    const std::vector<GdtfWheelInspectorDetailRow> &details,
+    const std::string &status) const {
+  std::vector<GdtfWheelInspectorDetailRow> rows = details;
+  const auto statusRows = BuildStatusRows(status);
+  if (!status.empty())
+    rows.insert(rows.end(), statusRows.begin(), statusRows.end());
+  if (rows.empty())
+    rows.push_back({"Info", "-"});
+  return rows;
 }
 
 // Creates a bitmap filled with the approximate display color for one slot.

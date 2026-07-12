@@ -13,6 +13,7 @@ Changes since **v1.4.0**.
 ## Improvements
 
 - Added visual GDTF wheel previews in Fixture Edit, including static gobo/graphic-wheel thumbnails and approximate color/filter swatches for wheel slots.
+- Refined Fixture Edit DMX inspection with structured wrapping detail panels that update values in place while dragging the slider, per-channel slider value memory during the edit session, a cleaner wheel-slot preview summary, no duplicate mode-browser detail pane, and resolution-matched slider ranges, so exact DMX values, selected mode-browser details, percentages, and active function or set ranges stay readable and aligned with the selected channel.
 
 - Connected the GDTF Wheel and Attribute Inspector to Fixture Edit so selecting a channel and moving the read-only DMX slider shows the active function, set, wheel, slot, media, filter, and graphic-wheel information in a new visual-column wheels page.
 
@@ -29,6 +30,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF wheel color swatches so CIE xyY luminance values authored on the common 0-100 scale are normalized before sRGB preview conversion, avoiding washed-out or incorrectly white wheel colors.
 - Fixed GDTF wheel PNG previews so failed decodes are reported separately from placeholders, standard `wheels/<MediaFileName>.png` resources are preferred, cached extracted GDTF resource folders from restored MVR/project data are used as a safe read-only fallback, transparent gobo artwork is composed over a visible checkerboard background, clicking a wheel-slot row shows a larger slot preview or diagnostic directly, and repeated image-handler initialization no longer triggers wxWidgets debug assertions.
 
 - Fixed GDTF wheel PNG preview decoding by initializing wxWidgets image handlers before thumbnail creation.
