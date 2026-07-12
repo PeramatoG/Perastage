@@ -79,6 +79,8 @@ private:
   void UpdateInspectionFromSlider();
   const gdtf::GdtfDmxChannelNode *FindOwningChannel(const std::string &nodeId) const;
   std::uint64_t CurrentInspectionValue() const;
+  std::uint64_t SelectedInspectionMaxValue() const;
+  int SliderValueFromDmxValue(std::uint64_t value) const;
   void RememberExpandedItems();
   void RestoreExpandedItems();
 

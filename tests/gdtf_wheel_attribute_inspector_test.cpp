@@ -45,6 +45,12 @@ int main() {
   auto first = gdtf::InspectGdtfDmxValue(*mode, mode->channels[0].id, 128, catalog);
   assert(first.bytes.size() == 1 && first.bytes[0] == 128);
   assert(first.mappings.size() == 1);
+  assert(first.mappings[0].channelFunctionDmxRange);
+  assert(first.mappings[0].channelFunctionDmxRange->start == 0);
+  assert(first.mappings[0].channelFunctionDmxRange->end == 255);
+  assert(first.mappings[0].channelSetDmxRange);
+  assert(first.mappings[0].channelSetDmxRange->start == 128);
+  assert(first.mappings[0].channelSetDmxRange->end == 255);
   assert(first.mappings[0].slot && first.mappings[0].slot->index == 2);
   assert(first.mappings[0].filter && first.mappings[0].filter->name == "Fílter Blue");
   assert(first.mappings[0].mediaResource == "wheels/gobo.png");

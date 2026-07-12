@@ -24,8 +24,10 @@ struct GdtfDmxInspectorMapping {
   std::string logicalAttribute;
   std::string channelFunctionId;
   std::string channelFunctionName;
+  std::optional<GdtfDmxRange> channelFunctionDmxRange;
   std::string channelSetId;
   std::string channelSetName;
+  std::optional<GdtfDmxRange> channelSetDmxRange;
   std::string physicalValue;
   std::string physicalUnit;
   bool physicalApproximate = false;

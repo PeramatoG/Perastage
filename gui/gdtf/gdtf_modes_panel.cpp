@@ -12,6 +12,9 @@
 #include "gdtf/gdtf_mode_data_view_model.h"
 
 #include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <optional>
 #include <sstream>
 #include <utility>
 
@@ -27,15 +30,18 @@ namespace {
 // Returns a readable fallback for empty inspection text.
 std::string InspectText(const std::string &value) { return value.empty() ? "-" : value; }
 
-// Joins numeric DMX bytes for compact inspection feedback.
-std::string FormatInspectionBytes(const std::vector<unsigned int> &bytes) {
-  std::string result;
-  for (const auto value : bytes) {
-    if (!result.empty())
-      result += ",";
-    result += std::to_string(value);
-  }
-  return result.empty() ? "-" : result;
+// Formats a DMX range for active state feedback.
+std::string FormatInspectionRange(const std::optional<gdtf::GdtfDmxRange> &range) {
+  if (!range)
+    return "-";
+  return std::to_string(range->start) + "-" + std::to_string(range->end);
+}
+
+// Formats a percentage with stable precision for inspection labels.
+std::string FormatInspectionPercent(double percent) {
+  std::ostringstream out;
+  out << std::fixed << std::setprecision(2) << percent << "%";
+  return out.str();
 }
 
 // Formats one active mapping for the side inspector.
@@ -104,7 +110,7 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   auto *inspectionRow = new wxBoxSizer(wxHORIZONTAL);
   inspectionRow->Add(new wxStaticText(this, wxID_ANY, "DMX inspection"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
   inspectionSlider = new wxSlider(this, wxID_ANY, 0, 0, 65535, wxDefaultPosition, wxDefaultSize);
-  inspectionValueLabel = new wxStaticText(this, wxID_ANY, "Value 0 / 0x00 / 0.00% / bytes 0");
+  inspectionValueLabel = new wxStaticText(this, wxID_ANY, "DMX 0 / 0.00%");
   inspectionRow->Add(inspectionSlider, 1, wxEXPAND | wxRIGHT, 6);
   inspectionRow->Add(inspectionValueLabel, 0, wxALIGN_CENTER_VERTICAL);
   root->Add(inspectionRow, 0, wxEXPAND | wxBOTTOM, 3);
@@ -270,7 +276,7 @@ void GdtfModesPanel::ClearModeDetails() {
   if (inspectionSlider)
     inspectionSlider->SetValue(0);
   if (inspectionValueLabel)
-    inspectionValueLabel->SetLabel("Value 0 / 0x00 / 0.00% / bytes 0");
+    inspectionValueLabel->SetLabel("DMX 0 / 0.00%");
   if (inspectionMappingLabel)
     inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
   selectedInspectionChannelId.clear();
@@ -326,20 +332,20 @@ void GdtfModesPanel::SelectInspectionNode(const std::string &nodeId) {
     }
   }
   if (inspectionSlider)
-    inspectionSlider->SetValue(static_cast<int>(std::min<std::uint64_t>(startValue, 65535)));
+    inspectionSlider->SetValue(SliderValueFromDmxValue(startValue));
   UpdateInspectionFromSlider();
 }
 
 // Updates the read-only inspection labels and wheel panel from the slider value.
 void GdtfModesPanel::UpdateInspectionFromSlider() {
   const std::uint64_t value = CurrentInspectionValue();
-  const double percent = static_cast<double>(value) * 100.0 / 65535.0;
+  const std::uint64_t maxValue = SelectedInspectionMaxValue();
+  const double percent = maxValue > 0
+                             ? static_cast<double>(value) * 100.0 / static_cast<double>(maxValue)
+                             : 0.0;
   if (inspectionValueLabel) {
     std::ostringstream valueText;
-    valueText << "Value " << value << " / 0x" << std::uppercase << std::hex << value
-              << std::dec << " / " << percent << "% / bytes "
-              << static_cast<unsigned>((value >> 8) & 0xff) << ","
-              << static_cast<unsigned>(value & 0xff);
+    valueText << "DMX " << value << " / " << FormatInspectionPercent(percent);
     inspectionValueLabel->SetLabel(wxString::FromUTF8(valueText.str()));
   }
   if (!hasInspectionData || selectedInspectionChannelId.empty()) {
@@ -350,8 +356,8 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
   const auto result = gdtf::InspectGdtfDmxValue(inspectionMode, selectedInspectionChannelId,
                                                value, inspectionCatalog);
   std::ostringstream active;
-  active << "DMX value: " << result.normalizedValue << " / bytes "
-         << FormatInspectionBytes(result.bytes) << "\n";
+  active << "DMX value: " << result.normalizedValue << " / "
+         << FormatInspectionPercent(percent) << "\n";
   for (size_t i = 0; i < result.mappings.size(); ++i) {
     if (i > 0)
       active << "\n";
@@ -363,8 +369,10 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
   std::string label = "No active mapping for this value.";
   if (!result.mappings.empty()) {
     const auto &mapping = result.mappings.front();
-    label = "Active: " + InspectText(mapping.channelFunctionName) + " / " +
-            InspectText(mapping.channelSetName);
+    label = "Active: " + InspectText(mapping.channelFunctionName) +
+            " [" + FormatInspectionRange(mapping.channelFunctionDmxRange) + "] / " +
+            InspectText(mapping.channelSetName) +
+            " [" + FormatInspectionRange(mapping.channelSetDmxRange) + "]";
     if (mapping.wheel)
       label += " / Wheel " + InspectText(mapping.wheel->name);
     if (mapping.slot)
@@ -427,7 +435,36 @@ const gdtf::GdtfDmxChannelNode *GdtfModesPanel::FindOwningChannel(
 
 // Returns the current slider value as an inspection DMX value.
 std::uint64_t GdtfModesPanel::CurrentInspectionValue() const {
-  return inspectionSlider ? static_cast<std::uint64_t>(inspectionSlider->GetValue()) : 0;
+  if (!inspectionSlider)
+    return 0;
+  const std::uint64_t maxValue = SelectedInspectionMaxValue();
+  const std::uint64_t sliderValue = static_cast<std::uint64_t>(inspectionSlider->GetValue());
+  if (maxValue <= 65535)
+    return std::min(sliderValue, maxValue);
+  const long double scaled = static_cast<long double>(sliderValue) *
+                             static_cast<long double>(maxValue) / 65535.0L;
+  return static_cast<std::uint64_t>(std::llround(scaled));
+}
+
+// Returns the selected channel maximum value for resolution-aware inspection.
+std::uint64_t GdtfModesPanel::SelectedInspectionMaxValue() const {
+  const auto *channel = FindOwningChannel(selectedInspectionChannelId);
+  if (!channel)
+    return 65535;
+  const int resolution = std::max(1, channel->resolution);
+  if (resolution >= 8)
+    return UINT64_MAX;
+  return (std::uint64_t{1} << (8 * resolution)) - 1;
+}
+
+// Converts an exact DMX value to the fixed slider scale.
+int GdtfModesPanel::SliderValueFromDmxValue(std::uint64_t value) const {
+  const std::uint64_t maxValue = SelectedInspectionMaxValue();
+  if (maxValue <= 65535)
+    return static_cast<int>(std::min(value, maxValue));
+  const long double scaled = static_cast<long double>(std::min(value, maxValue)) *
+                             65535.0L / static_cast<long double>(maxValue);
+  return static_cast<int>(std::llround(scaled));
 }
 
 // Remembers expanded browser item identities for the active mode.

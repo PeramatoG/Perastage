@@ -36,7 +36,7 @@ The resolver uses the effective DMX ranges calculated by the 08E2 mode/channel b
 DMX value -> active ChannelFunction -> active ChannelSet -> ChannelFunction.Wheel -> ChannelSet.WheelSlotIndex -> exact WheelSlot -> media, color, filter, or graphic-wheel resource
 ```
 
-It preserves multiple LogicalChannels in source order, decomposes normalized values into bytes, resolves active ChannelFunctions and ChannelSets by containment, validates `WheelSlotIndex` as 1-based, and never guesses a slot from names, labels, physical values, or ChannelSet order. ModeMaster results are marked conditional. DMXProfile references make physical output approximate or unavailable. Increasing and decreasing physical ranges are interpolated only when numeric values are reliable.
+It preserves multiple LogicalChannels in source order, decomposes normalized values into bytes, resolves active ChannelFunctions and ChannelSets by containment, exposes the active Function and Set DMX ranges for UI state feedback, validates `WheelSlotIndex` as 1-based, and never guesses a slot from names, labels, physical values, or ChannelSet order. ModeMaster results are marked conditional. DMXProfile references make physical output approximate or unavailable. Increasing and decreasing physical ranges are interpolated only when numeric values are reliable.
 
 ## Read-only and future editing boundary
 
@@ -44,7 +44,7 @@ The inspector state is typed and read-only: selected channel, current inspection
 
 ## Connected Fixture Edit presentation
 
-Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Selecting a DMX channel, LogicalChannel, ChannelFunction, or ChannelSet in the modes browser chooses the owning DMXChannel for inspection. Moving the DMX inspection slider calls the pure resolver and updates the active mapping label plus the wheel panel with Function, Set, Wheel, 1-based Slot, media, filter, graphic resource, ModeMaster, DMXProfile, and diagnostics. The panel lists the resolved wheel slots in source order and emphasizes the active slot; it remains read-only and does not write XML, send DMX, or mutate the edit session.
+Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Selecting a DMX channel, LogicalChannel, ChannelFunction, or ChannelSet in the modes browser chooses the owning DMXChannel for inspection. Moving the DMX inspection slider shows the exact resolution-aware DMX value and percentage, calls the pure resolver, and updates the active mapping label with the active Function and Set ranges plus the wheel panel with Function, Set, Wheel, 1-based Slot, media, filter, graphic resource, ModeMaster, DMXProfile, and diagnostics. The panel lists the resolved wheel slots in source order and emphasizes the active slot; it remains read-only and does not write XML, send DMX, or mutate the edit session.
 
 ## Visual previews
 

@@ -127,6 +127,7 @@ GdtfDmxInspectionResult InspectGdtfDmxValue(const GdtfDmxModeNode &mode,
     mapping.logicalAttribute = logical.attribute;
     mapping.channelFunctionId = activeFunction->id;
     mapping.channelFunctionName = activeFunction->name.empty() ? activeFunction->attribute : activeFunction->name;
+    mapping.channelFunctionDmxRange = activeFunction->effectiveDmxRange;
     mapping.physicalUnit = activeFunction->physicalUnit.empty() ? logical.attributeInfo.physicalUnit : activeFunction->physicalUnit;
     mapping.modeMaster = activeFunction->modeMaster;
     mapping.modeMasterConditional = !activeFunction->modeMaster.empty();
@@ -150,6 +151,7 @@ GdtfDmxInspectionResult InspectGdtfDmxValue(const GdtfDmxModeNode &mode,
     if (activeSet) {
       mapping.channelSetId = activeSet->id;
       mapping.channelSetName = activeSet->name;
+      mapping.channelSetDmxRange = activeSet->effectiveDmxRange;
       if (activeSet->effectiveDmxRange) {
         const std::string setPhysical = InterpolatePhysical(*activeSet->effectiveDmxRange,
                                                             activeSet->effectivePhysicalRange,
