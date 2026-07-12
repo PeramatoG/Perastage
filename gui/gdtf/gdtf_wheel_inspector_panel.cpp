@@ -6,6 +6,7 @@
 #include <wx/dcmemory.h>
 #include <wx/imaglist.h>
 #include <wx/listctrl.h>
+#include <wx/event.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
@@ -44,6 +45,7 @@ GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
   slotImages = new wxImageList(kSlotThumbnailSize, kSlotThumbnailSize, true);
   slotList->AssignImageList(slotImages, wxIMAGE_LIST_SMALL);
   root->Add(slotList, 1, wxEXPAND);
+  slotList->Bind(wxEVT_LIST_ITEM_SELECTED, &GdtfWheelInspectorPanel::OnSlotSelected, this);
   SetSizer(root);
   ClearPresentation();
 }
@@ -51,6 +53,7 @@ GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
 // Applies the current read-only wheel inspection presentation.
 void GdtfWheelInspectorPanel::SetPresentation(
     const GdtfWheelInspectorPresentation &presentation) {
+  currentSlots = presentation.slots;
   activeTextCtrl->SetValue(wxString::FromUTF8(presentation.activeText));
   if (presentation.hasActivePreview)
     activePreviewBitmap->SetBitmap(presentation.activePreview);
@@ -64,11 +67,12 @@ void GdtfWheelInspectorPanel::SetPresentation(
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
   long selectedIndex = -1;
-  for (size_t i = 0; i < presentation.slots.size(); ++i) {
-    const auto &slot = presentation.slots[i];
+  for (size_t i = 0; i < currentSlots.size(); ++i) {
+    const auto &slot = currentSlots[i];
     wxBitmap image = slot.hasThumbnail ? slot.thumbnail
-                     : slot.hasSwatch ? CreateSwatchBitmap(slot.swatch, wxSize(kSlotThumbnailSize, kSlotThumbnailSize))
-                                      : CreatePlaceholderBitmap(wxSize(kSlotThumbnailSize, kSlotThumbnailSize));
+                     : slot.hasSwatch && slot.mediaResource.empty()
+                         ? CreateSwatchBitmap(slot.swatch, wxSize(kSlotThumbnailSize, kSlotThumbnailSize))
+                         : CreatePlaceholderBitmap(wxSize(kSlotThumbnailSize, kSlotThumbnailSize));
     const int imageIndex = slotImages->Add(image);
     const long row = slotList->InsertItem(static_cast<long>(i), wxString::FromUTF8(slot.label), imageIndex);
     if (slot.selected)
@@ -86,6 +90,28 @@ void GdtfWheelInspectorPanel::ClearPresentation() {
   activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
   slotList->DeleteAllItems();
   slotImages->RemoveAll();
+  currentSlots.clear();
+}
+
+// Applies a clicked wheel-slot preview without changing the resolved DMX mapping.
+void GdtfWheelInspectorPanel::ApplySlotPreview(const GdtfWheelInspectorSlotPresentation &slot) {
+  if (slot.hasThumbnail)
+    activePreviewBitmap->SetBitmap(slot.thumbnail);
+  else if (slot.hasSwatch && slot.mediaResource.empty())
+    activePreviewBitmap->SetBitmap(CreateSwatchBitmap(slot.swatch, wxSize(kActivePreviewSize, kActivePreviewSize)));
+  else
+    activePreviewBitmap->SetBitmap(CreatePlaceholderBitmap(wxSize(kActivePreviewSize, kActivePreviewSize)));
+
+  if (!slot.previewStatus.empty())
+    previewStatusCtrl->SetValue(wxString::FromUTF8(slot.previewStatus));
+}
+
+// Updates the preview pane when the user selects a wheel slot row.
+void GdtfWheelInspectorPanel::OnSlotSelected(wxListEvent &event) {
+  const long row = event.GetIndex();
+  if (row < 0 || static_cast<size_t>(row) >= currentSlots.size())
+    return;
+  ApplySlotPreview(currentSlots[static_cast<size_t>(row)]);
 }
 
 // Creates a bitmap filled with the approximate display color for one slot.

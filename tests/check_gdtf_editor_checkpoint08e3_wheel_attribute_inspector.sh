@@ -35,4 +35,5 @@ require_rg "GdtfBitmapDecodeResult" gui/gdtf/gdtf_resource_bitmap_cache.h
 require_rg "decoded" gui/fixtureeditdialog.cpp
 require_rg "ComposePreviewBitmap" gui/gdtf/gdtf_resource_bitmap_cache.cpp
 require_rg "CreateSwatchBitmap" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "OnSlotSelected" gui/gdtf/gdtf_wheel_inspector_panel.cpp
 require_rg "GetOrCreate" gui/fixtureeditdialog.cpp

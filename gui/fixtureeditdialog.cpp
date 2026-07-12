@@ -1137,7 +1137,13 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
       resourceAttempts.push_back({"standard MediaFileName", slot.mediaResource});
     if (!slot.graphicResource.empty() && slot.graphicResource != slot.mediaResource)
       resourceAttempts.push_back({"compatibility graphic resource", slot.graphicResource});
+    std::string slotStatus;
     std::string selectedStatus;
+    if (!resourceAttempts.empty() && gdtfPath.empty()) {
+      slotStatus = "Resource resolution/read failed. Active GDTF source path is unavailable.";
+      if (slot.selected)
+        selectedStatus = slotStatus;
+    }
     for (const auto &[resourceOrigin, resource] : resourceAttempts) {
       if (resource.empty() || gdtfPath.empty())
         continue;
@@ -1169,6 +1175,7 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
         for (const auto &diagnostic : resourceRead.diagnostics)
           status += "\n" + diagnostic.message;
       }
+      slotStatus += slotStatus.empty() ? status : "\n\n" + status;
       if (slot.selected) {
         selectedStatus += selectedStatus.empty() ? status : "\n\n" + status;
         if (resourceRead.Success()) {
@@ -1186,13 +1193,19 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
       if (decodedThumbnail)
         break;
     }
+    if (resourceAttempts.empty() && slot.hasSwatch) {
+      slotStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
+      if (slot.selected)
+        selectedStatus = slotStatus;
+    }
+    if (!slotStatus.empty())
+      slot.previewStatus = slotStatus;
     if (slot.selected && !selectedStatus.empty())
       enriched.previewStatus = selectedStatus;
-    if (slot.selected && slot.hasSwatch && !enriched.hasActivePreview) {
+    if (slot.selected && slot.hasSwatch && !enriched.hasActivePreview && resourceAttempts.empty()) {
       enriched.activeSwatch = slot.swatch;
       enriched.hasActiveSwatch = true;
-      if (resourceAttempts.empty())
-        enriched.previewStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
+      enriched.previewStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
     }
   }
   return enriched;

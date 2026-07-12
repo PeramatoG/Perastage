@@ -17,6 +17,7 @@
 #include <wx/gdicmn.h>
 #include <wx/panel.h>
 
+class wxListEvent;
 class wxImageList;
 class wxListCtrl;
 class wxStaticBitmap;
@@ -27,6 +28,7 @@ struct GdtfWheelInspectorSlotPresentation {
   std::string mediaResource;
   std::string graphicResource;
   std::string rawColor;
+  std::string previewStatus;
   bool selected = false;
   bool hasThumbnail = false;
   wxBitmap thumbnail;
@@ -52,6 +54,8 @@ public:
   void ClearPresentation();
 
 private:
+  void ApplySlotPreview(const GdtfWheelInspectorSlotPresentation &slot);
+  void OnSlotSelected(wxListEvent &event);
   wxBitmap CreateSwatchBitmap(const wxColour &colour, const wxSize &size) const;
   wxBitmap CreatePlaceholderBitmap(const wxSize &size) const;
 
@@ -60,4 +64,5 @@ private:
   wxTextCtrl *previewStatusCtrl = nullptr;
   wxListCtrl *slotList = nullptr;
   wxImageList *slotImages = nullptr;
+  std::vector<GdtfWheelInspectorSlotPresentation> currentSlots;
 };
