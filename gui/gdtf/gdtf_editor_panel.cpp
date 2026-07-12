@@ -100,6 +100,12 @@ void GdtfEditorPanel::SetModeSelectionCallback(
   modesPanel->SetModeSelectionCallback(std::move(callback));
 }
 
+// Registers the forwarded wheel-inspection callback.
+void GdtfEditorPanel::SetWheelInspectionCallback(
+    GdtfModesPanel::WheelInspectionCallback callback) {
+  modesPanel->SetWheelInspectionCallback(std::move(callback));
+}
+
 // Returns the current value for a visible identity field.
 std::optional<std::string>
 GdtfEditorPanel::GetIdentityValue(GdtfTypeIdentityField field) const {
@@ -187,6 +193,12 @@ void GdtfEditorPanel::SetChannels(
 void GdtfEditorPanel::SetModeBrowserNodes(
     const std::vector<GdtfModeBrowserNodePresentation> &nodes) {
   modesPanel->SetBrowserNodes(nodes);
+}
+
+// Applies typed inspection data to the nested modes panel.
+void GdtfEditorPanel::SetInspectionData(const gdtf::GdtfDmxModeNode *mode,
+                                        const gdtf::GdtfWheelCatalog *catalog) {
+  modesPanel->SetInspectionData(mode, catalog);
 }
 
 // Clears derived mode details without notifying callbacks.

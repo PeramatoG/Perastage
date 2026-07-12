@@ -41,3 +41,7 @@ It preserves multiple LogicalChannels in source order, decomposes normalized val
 ## Read-only and future editing boundary
 
 The inspector state is typed and read-only: selected channel, current inspection value, active function/set, wheel, slot, resource, and diagnostics are represented without exposing mutable XML nodes. Checkpoint 08E3 does not add editable cells, Save, dirty state, undo commands, add/delete/reorder behavior, XML writing, live DMX, animation playback, prism rendering, or project/session mutation.
+
+## Connected Fixture Edit presentation
+
+Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Selecting a DMX channel, LogicalChannel, ChannelFunction, or ChannelSet in the modes browser chooses the owning DMXChannel for inspection. Moving the DMX inspection slider calls the pure resolver and updates the active mapping label plus the wheel panel with Function, Set, Wheel, 1-based Slot, media, filter, graphic resource, ModeMaster, DMXProfile, and diagnostics. The panel lists the resolved wheel slots in source order and emphasizes the active slot; it remains read-only and does not write XML, send DMX, or mutate the edit session.

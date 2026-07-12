@@ -102,6 +102,7 @@ public:
   void SetPhysicalPropertyChangeCallback(
       GdtfPhysicalPropertiesPanel::ChangeCallback callback);
   void SetModeSelectionCallback(GdtfModesPanel::ModeSelectionCallback callback);
+  void SetWheelInspectionCallback(GdtfModesPanel::WheelInspectionCallback callback);
 
   std::optional<std::string> GetIdentityValue(GdtfTypeIdentityField field) const;
   std::optional<std::string> GetPhysicalPropertyValue(
@@ -123,6 +124,7 @@ public:
   void SetChannelCount(const std::string &channelCount);
   void SetChannels(const std::vector<GdtfModeChannelPresentation> &channels);
   void SetModeBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes);
+  void SetInspectionData(const gdtf::GdtfDmxModeNode *mode, const gdtf::GdtfWheelCatalog *catalog);
   void ClearModeDetails();
   void SetModeSelectionEnabled(bool enabled);
   void SetMetadata(const GdtfMetadataSummary &summary);

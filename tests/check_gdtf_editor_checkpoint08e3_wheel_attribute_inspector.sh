@@ -10,6 +10,12 @@ require_file core/gdtf/gdtf_dmx_inspector.h
 require_file core/gdtf/gdtf_dmx_inspector.cpp
 require_file gui/gdtf/gdtf_resource_bitmap_cache.h
 require_file gui/gdtf/gdtf_resource_bitmap_cache.cpp
+require_rg "SetWheelInspectionCallback" gui/fixtureeditdialog.cpp
+require_rg "GDTF wheels" gui/fixtureeditdialog.cpp
+require_rg "InspectGdtfDmxValue" gui/gdtf/gdtf_modes_panel.cpp
+require_rg "SetInspectionData" gui/gdtf/gdtf_modes_panel.cpp
+require_file gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_file gui/gdtf/gdtf_wheel_inspector_panel.h
 require_rg "WheelSlotIndex" core/gdtf/gdtf_dmx_inspector.cpp
 require_rg "wxSlider" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "Value .*0x" gui/gdtf/gdtf_modes_panel.cpp

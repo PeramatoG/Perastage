@@ -24,6 +24,7 @@
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf/gdtf_editor_panel.h"
+#include "gdtf/gdtf_wheel_inspector_panel.h"
 #include "gdtf/gdtf_mode_browser_presenter.h"
 #include "gdtf_archive_reader.h"
 #include "gdtf/gdtf_editor_layout_preferences.h"
@@ -638,6 +639,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     SetSessionValue(gdtf::GdtfFieldId::ModeName, value);
     UpdateChannels(true);
   });
+  gdtfEditorPanel->SetWheelInspectionCallback([this](const GdtfWheelInspectorPresentation &presentation) {
+    if (gdtfWheelInspectorPanel)
+      gdtfWheelInspectorPanel->SetPresentation(presentation);
+  });
 
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   fixtureScroll->SetMinSize(wxSize(gui::gdtf_layout::MinimumContextPaneWidth(this), -1));
@@ -664,6 +669,9 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
                     gui::gdtf_layout::SectionPadding(this));
   visualNotebook->AddPage(previewPage, "Preview");
+
+  gdtfWheelInspectorPanel = new GdtfWheelInspectorPanel(visualNotebook);
+  visualNotebook->AddPage(gdtfWheelInspectorPanel, "GDTF wheels");
 
   auto *symbolPage = new wxPanel(visualNotebook, wxID_ANY);
   wxBoxSizer *symbolRootSizer = new wxBoxSizer(wxVERTICAL);
@@ -839,6 +847,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   pendingSelectedGdtfPath = PathFromWxString(path);
   cachedModeChannelSource.clear();
   cachedModeChannelDocument = {};
+  cachedWheelCatalog = {};
   if (gdtfEditSession && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
     const auto &scene =
@@ -1060,8 +1069,10 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   if (preview)
     preview->LoadFixture(PathUtils::PathToUtf8(gdtfPath));
   if (gdtfPath.empty() || mode.empty()) {
-    if (gdtfEditorPanel)
+    if (gdtfEditorPanel) {
       gdtfEditorPanel->ClearModeDetails();
+      gdtfEditorPanel->SetInspectionData(nullptr, nullptr);
+    }
     return;
   }
   if (cachedModeChannelSource != gdtfPath)
@@ -1069,6 +1080,7 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   const std::string modeName(mode.ToUTF8());
   const auto *modeNode = cachedModeChannelDocument.FindMode(modeName);
   if (gdtfEditorPanel) {
+    gdtfEditorPanel->SetInspectionData(modeNode, &cachedWheelCatalog);
     gdtfEditorPanel->SetModeBrowserNodes(BuildGdtfModeBrowserPresentation(modeNode));
     gdtfEditorPanel->SetChannels(BuildGdtfModeChannelSummaryPresentation(modeNode));
   }
@@ -1083,6 +1095,7 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
 void FixtureEditDialog::ReloadModeChannelDocument() {
   cachedModeChannelSource.clear();
   cachedModeChannelDocument = {};
+  cachedWheelCatalog = {};
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   if (gdtfPath.empty())
     return;
@@ -1090,6 +1103,7 @@ void FixtureEditDialog::ReloadModeChannelDocument() {
   if (!archive.Success())
     return;
   cachedModeChannelDocument = gdtf::ReadGdtfModeChannelDocument(archive.descriptionXml);
+  cachedWheelCatalog = gdtf::ReadGdtfWheelCatalog(archive.descriptionXml);
   cachedModeChannelSource = gdtfPath;
 }
 
@@ -1202,6 +1216,7 @@ bool FixtureEditDialog::ApplyChanges() {
       pendingSelectedGdtfPath = gdtfPath;
       cachedModeChannelSource.clear();
       cachedModeChannelDocument = {};
+      cachedWheelCatalog = {};
       for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
         changedWeightPositions.insert(position);
       originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;

@@ -52,3 +52,7 @@ The Fixture editor keeps a compact read-only Mode channels summary below Physica
 The core reader expands DMX channels referenced through mode-root `GeometryReference` nodes by applying their `Break` `DMXOffset` shifts. This keeps matrix and pixel fixtures in their effective DMX order instead of repeatedly showing the source-local offsets for each referenced geometry.
 
 The quick summary intentionally expands multi-byte channels into separate physical channel rows, such as `1: Pan` and `2: Pan Fine`. Repeated RGBW pixel channels are labeled with the geometry-reference instance number, such as `Red 1`, `Green 1`, `Blue 1`, and `White 1`. The presentation normalizes reference-like channel function labels, so paths such as `Yoke_Pan.Pan.Pan` display as `Pan` and expand to fine/ultra-fine byte rows when required.
+
+## Connected wheel inspection feedback
+
+The DMX inspection slider is connected to the selected browser node through its owning DMXChannel. Slider movement keeps the tree selection stable, resolves the active mapping through the non-GUI DMX inspector, updates a compact label below the slider, and forwards a read-only presentation to the `GDTF wheels` panel in Fixture Edit.

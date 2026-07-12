@@ -18,7 +18,11 @@
 #pragma once
 
 #include "gdtf/gdtf_mode_browser_presenter.h"
+#include "gdtf/gdtf_dmx_inspector.h"
+#include "gdtf/gdtf_wheel_catalog.h"
+#include "gdtf_wheel_inspector_panel.h"
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <set>
@@ -48,6 +52,7 @@ std::string FormatGdtfModeFunctionLabel(const std::string &functionText);
 class GdtfModesPanel : public wxPanel {
 public:
   using ModeSelectionCallback = std::function<void(const std::string &mode)>;
+  using WheelInspectionCallback = std::function<void(const GdtfWheelInspectorPresentation &presentation)>;
 
   explicit GdtfModesPanel(wxWindow *parent);
 
@@ -56,9 +61,11 @@ public:
   void SetSelectedMode(const std::string &mode);
   std::string GetSelectedMode() const;
   void SetModeSelectionCallback(ModeSelectionCallback callback);
+  void SetWheelInspectionCallback(WheelInspectionCallback callback);
   void SetChannelCount(const std::string &channelCount);
   void SetChannels(const std::vector<GdtfModeChannelPresentation> &channels);
   void SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresentation> &nodes);
+  void SetInspectionData(const gdtf::GdtfDmxModeNode *mode, const gdtf::GdtfWheelCatalog *catalog);
   void SetBrowserSplitterRatio(double ratio);
   double GetBrowserSplitterRatio() const;
   void ClearModeDetails();
@@ -68,12 +75,17 @@ public:
 private:
   void NotifyModeChanged();
   void UpdateDetails(const GdtfModeBrowserNodePresentation *node);
+  void SelectInspectionNode(const std::string &nodeId);
+  void UpdateInspectionFromSlider();
+  const gdtf::GdtfDmxChannelNode *FindOwningChannel(const std::string &nodeId) const;
+  std::uint64_t CurrentInspectionValue() const;
   void RememberExpandedItems();
   void RestoreExpandedItems();
 
   wxChoice *modeChoice = nullptr;
   wxTextCtrl *channelCountCtrl = nullptr;
   wxStaticText *inspectionValueLabel = nullptr;
+  wxStaticText *inspectionMappingLabel = nullptr;
   wxSlider *inspectionSlider = nullptr;
   wxSplitterWindow *browserSplitter = nullptr;
   wxDataViewCtrl *browserCtrl = nullptr;
@@ -83,5 +95,10 @@ private:
   std::map<std::string, std::string> selectedByMode;
   double browserSplitterRatio = 0.68;
   ModeSelectionCallback selectionCallback;
+  WheelInspectionCallback wheelInspectionCallback;
+  gdtf::GdtfDmxModeNode inspectionMode;
+  gdtf::GdtfWheelCatalog inspectionCatalog;
+  std::string selectedInspectionChannelId;
+  bool hasInspectionData = false;
   bool updating = false;
 };

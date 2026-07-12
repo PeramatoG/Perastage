@@ -78,3 +78,7 @@ Checkpoint 08E2 also keeps a compact legacy-style read-only Mode channels summar
 ## Wheel and Attribute Inspector layout
 
 The lower GDTF mode browser area may be split into details, active mapping, preview, and ordered WheelSlot gallery regions. Only normalized layout ratios are persisted through the existing layout-preferences helper. Slider values and resolved resources are not project data. Resource previews are loaded lazily and cached by source, archive entry, and target size.
+
+## Fixture visual-column wheel page
+
+Fixture Edit exposes the Wheel and Attribute Inspector in the visual column as a `GDTF wheels` notebook page. The page shows the active DMX mapping and an ordered wheel-slot list while preserving the existing Preview and Symbols pages.

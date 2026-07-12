@@ -12,6 +12,7 @@
 #include "gdtf/gdtf_mode_data_view_model.h"
 
 #include <algorithm>
+#include <sstream>
 #include <utility>
 
 #include <wx/choice.h>
@@ -23,6 +24,39 @@
 #include <wx/textctrl.h>
 
 namespace {
+// Returns a readable fallback for empty inspection text.
+std::string InspectText(const std::string &value) { return value.empty() ? "-" : value; }
+
+// Joins numeric DMX bytes for compact inspection feedback.
+std::string FormatInspectionBytes(const std::vector<unsigned int> &bytes) {
+  std::string result;
+  for (const auto value : bytes) {
+    if (!result.empty())
+      result += ",";
+    result += std::to_string(value);
+  }
+  return result.empty() ? "-" : result;
+}
+
+// Formats one active mapping for the side inspector.
+void AppendMappingText(std::ostringstream &out, const gdtf::GdtfDmxInspectorMapping &mapping) {
+  out << "Attribute: " << InspectText(mapping.logicalAttribute) << "\n";
+  out << "Function: " << InspectText(mapping.channelFunctionName) << "\n";
+  out << "Set: " << InspectText(mapping.channelSetName) << "\n";
+  out << "Physical: " << InspectText(mapping.physicalValue) << " " << InspectText(mapping.physicalUnit) << "\n";
+  out << "Wheel: " << (mapping.wheel ? InspectText(mapping.wheel->name) : "-") << "\n";
+  out << "Slot: " << (mapping.slot ? std::to_string(mapping.slot->index) + " - " + InspectText(mapping.slot->name) : "-") << "\n";
+  out << "Filter: " << (mapping.filter ? InspectText(mapping.filter->name) : "-") << "\n";
+  out << "Media: " << InspectText(mapping.mediaResource) << "\n";
+  out << "Graphic resource: " << InspectText(mapping.graphicWheelResource) << "\n";
+  if (mapping.modeMasterConditional)
+    out << "ModeMaster: conditional on " << InspectText(mapping.modeMaster) << "\n";
+  if (mapping.physicalApproximate)
+    out << "DMXProfile: physical value is approximate\n";
+  for (const auto &diagnostic : mapping.diagnostics)
+    out << "Diagnostic: " << diagnostic.message << "\n";
+}
+
 // Clamps the browser splitter ratio to a usable normalized range.
 double ClampBrowserRatio(double ratio) { return std::clamp(ratio, 0.25, 0.85); }
 }
@@ -73,7 +107,9 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   inspectionValueLabel = new wxStaticText(this, wxID_ANY, "Value 0 / 0x00 / 0.00% / bytes 0");
   inspectionRow->Add(inspectionSlider, 1, wxEXPAND | wxRIGHT, 6);
   inspectionRow->Add(inspectionValueLabel, 0, wxALIGN_CENTER_VERTICAL);
-  root->Add(inspectionRow, 0, wxEXPAND | wxBOTTOM, 6);
+  root->Add(inspectionRow, 0, wxEXPAND | wxBOTTOM, 3);
+  inspectionMappingLabel = new wxStaticText(this, wxID_ANY, "Select a DMX channel to inspect its active function and wheel slot.");
+  root->Add(inspectionMappingLabel, 0, wxEXPAND | wxBOTTOM, 6);
   root->Add(new wxStaticText(this, wxID_ANY, "Mode and channel browser"), 0,
             wxBOTTOM, 3);
 
@@ -98,18 +134,13 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   root->Add(browserSplitter, 1, wxEXPAND);
 
   modeChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent &) { NotifyModeChanged(); });
-  inspectionSlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent &event) {
-    const int value = event.GetInt();
-    const double percent = static_cast<double>(value) * 100.0 / 65535.0;
-    inspectionValueLabel->SetLabel(wxString::Format("Value %d / 0x%04X / %.2f%% / bytes %u,%u",
-                                                    value, value, percent,
-                                                    static_cast<unsigned>((value >> 8) & 0xff),
-                                                    static_cast<unsigned>(value & 0xff)));
-  });
+  inspectionSlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent &) { UpdateInspectionFromSlider(); });
   browserCtrl->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, [this](wxDataViewEvent &event) {
     const auto *node = browserModel ? browserModel->GetNode(event.GetItem()) : nullptr;
-    if (node)
+    if (node) {
       selectedByMode[GetSelectedMode()] = node->id;
+      SelectInspectionNode(node->id);
+    }
     UpdateDetails(node);
   });
   SetSizer(root);
@@ -153,6 +184,11 @@ void GdtfModesPanel::SetModeSelectionCallback(ModeSelectionCallback callback) {
   selectionCallback = std::move(callback);
 }
 
+// Registers the host wheel-inspection presentation callback.
+void GdtfModesPanel::SetWheelInspectionCallback(WheelInspectionCallback callback) {
+  wheelInspectionCallback = std::move(callback);
+}
+
 // Sets the derived channel count text.
 void GdtfModesPanel::SetChannelCount(const std::string &channelCount) {
   updating = true;
@@ -180,8 +216,23 @@ void GdtfModesPanel::SetBrowserNodes(const std::vector<GdtfModeBrowserNodePresen
   }
   if (selected.IsOk())
     browserCtrl->Select(selected);
+  if (const auto *node = browserModel->GetNode(selected))
+    SelectInspectionNode(node->id);
   UpdateDetails(browserModel->GetNode(selected));
   updating = false;
+}
+
+// Applies the typed inspection model used by the read-only slider resolver.
+void GdtfModesPanel::SetInspectionData(const gdtf::GdtfDmxModeNode *mode,
+                                       const gdtf::GdtfWheelCatalog *catalog) {
+  hasInspectionData = mode && catalog;
+  inspectionMode = mode ? *mode : gdtf::GdtfDmxModeNode{};
+  inspectionCatalog = catalog ? *catalog : gdtf::GdtfWheelCatalog{};
+  selectedInspectionChannelId.clear();
+  if (inspectionMappingLabel)
+    inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+  if (wheelInspectionCallback)
+    wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});
 }
 
 // Sets the normalized browser/details splitter ratio.
@@ -220,6 +271,11 @@ void GdtfModesPanel::ClearModeDetails() {
     inspectionSlider->SetValue(0);
   if (inspectionValueLabel)
     inspectionValueLabel->SetLabel("Value 0 / 0x00 / 0.00% / bytes 0");
+  if (inspectionMappingLabel)
+    inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+  selectedInspectionChannelId.clear();
+  if (wheelInspectionCallback)
+    wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});
   updating = false;
 }
 
@@ -242,6 +298,125 @@ void GdtfModesPanel::UpdateDetails(const GdtfModeBrowserNodePresentation *node) 
       text += wxString::FromUTF8(row.key) + ": " + wxString::FromUTF8(row.value) + "\n";
   }
   detailsCtrl->SetValue(text);
+}
+
+// Selects the owning DMX channel for the selected browser node.
+void GdtfModesPanel::SelectInspectionNode(const std::string &nodeId) {
+  const auto *channel = FindOwningChannel(nodeId);
+  if (!channel) {
+    selectedInspectionChannelId.clear();
+    if (inspectionMappingLabel)
+      inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+    return;
+  }
+  selectedInspectionChannelId = channel->id;
+  std::uint64_t startValue = 0;
+  for (const auto &logical : channel->logicalChannels) {
+    for (const auto &function : logical.channelFunctions) {
+      if (function.id == nodeId && function.effectiveDmxRange) {
+        startValue = function.effectiveDmxRange->start;
+        break;
+      }
+      for (const auto &set : function.channelSets) {
+        if (set.id == nodeId && set.effectiveDmxRange) {
+          startValue = set.effectiveDmxRange->start;
+          break;
+        }
+      }
+    }
+  }
+  if (inspectionSlider)
+    inspectionSlider->SetValue(static_cast<int>(std::min<std::uint64_t>(startValue, 65535)));
+  UpdateInspectionFromSlider();
+}
+
+// Updates the read-only inspection labels and wheel panel from the slider value.
+void GdtfModesPanel::UpdateInspectionFromSlider() {
+  const std::uint64_t value = CurrentInspectionValue();
+  const double percent = static_cast<double>(value) * 100.0 / 65535.0;
+  if (inspectionValueLabel) {
+    std::ostringstream valueText;
+    valueText << "Value " << value << " / 0x" << std::uppercase << std::hex << value
+              << std::dec << " / " << percent << "% / bytes "
+              << static_cast<unsigned>((value >> 8) & 0xff) << ","
+              << static_cast<unsigned>(value & 0xff);
+    inspectionValueLabel->SetLabel(wxString::FromUTF8(valueText.str()));
+  }
+  if (!hasInspectionData || selectedInspectionChannelId.empty()) {
+    if (inspectionMappingLabel)
+      inspectionMappingLabel->SetLabel("Select a DMX channel to inspect its active function and wheel slot.");
+    return;
+  }
+  const auto result = gdtf::InspectGdtfDmxValue(inspectionMode, selectedInspectionChannelId,
+                                               value, inspectionCatalog);
+  std::ostringstream active;
+  active << "DMX value: " << result.normalizedValue << " / bytes "
+         << FormatInspectionBytes(result.bytes) << "\n";
+  for (size_t i = 0; i < result.mappings.size(); ++i) {
+    if (i > 0)
+      active << "\n";
+    AppendMappingText(active, result.mappings[i]);
+  }
+  for (const auto &diagnostic : result.diagnostics)
+    active << "Diagnostic: " << diagnostic.message << "\n";
+
+  std::string label = "No active mapping for this value.";
+  if (!result.mappings.empty()) {
+    const auto &mapping = result.mappings.front();
+    label = "Active: " + InspectText(mapping.channelFunctionName) + " / " +
+            InspectText(mapping.channelSetName);
+    if (mapping.wheel)
+      label += " / Wheel " + InspectText(mapping.wheel->name);
+    if (mapping.slot)
+      label += " / Slot " + std::to_string(mapping.slot->index) + " " + InspectText(mapping.slot->name);
+  }
+  if (inspectionMappingLabel)
+    inspectionMappingLabel->SetLabel(wxString::FromUTF8(label));
+
+  GdtfWheelInspectorPresentation presentation;
+  presentation.activeText = active.str();
+  const gdtf::GdtfWheelInfo *galleryWheel = nullptr;
+  const gdtf::GdtfWheelSlotInfo *selectedSlot = nullptr;
+  for (const auto &mapping : result.mappings) {
+    if (mapping.wheel) {
+      galleryWheel = mapping.wheel;
+      selectedSlot = mapping.slot;
+      break;
+    }
+  }
+  if (galleryWheel) {
+    for (const auto &slot : galleryWheel->slots) {
+      std::string slotText = std::to_string(slot.index) + ". " + InspectText(slot.name);
+      if (!slot.mediaFileName.empty())
+        slotText += " | media " + slot.mediaFileName;
+      if (!slot.rawColor.empty())
+        slotText += " | color " + slot.rawColor;
+      if (!slot.rawFilter.empty())
+        slotText += " | filter " + slot.rawFilter;
+      if (!slot.graphicWheelResource.empty())
+        slotText += " | graphic " + slot.graphicWheelResource;
+      presentation.slots.push_back({slotText, selectedSlot && selectedSlot->id == slot.id});
+    }
+  }
+  if (wheelInspectionCallback)
+    wheelInspectionCallback(presentation);
+}
+
+// Finds the DMX channel that owns a browser node id.
+const gdtf::GdtfDmxChannelNode *GdtfModesPanel::FindOwningChannel(
+    const std::string &nodeId) const {
+  if (!hasInspectionData)
+    return nullptr;
+  for (const auto &channel : inspectionMode.channels) {
+    if (nodeId == channel.id || nodeId.rfind(channel.id + "/", 0) == 0)
+      return &channel;
+  }
+  return nullptr;
+}
+
+// Returns the current slider value as an inspection DMX value.
+std::uint64_t GdtfModesPanel::CurrentInspectionValue() const {
+  return inspectionSlider ? static_cast<std::uint64_t>(inspectionSlider->GetValue()) : 0;
 }
 
 // Remembers expanded browser item identities for the active mode.

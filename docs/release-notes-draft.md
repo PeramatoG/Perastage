@@ -12,6 +12,8 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
+- Connected the GDTF Wheel and Attribute Inspector to Fixture Edit so selecting a channel and moving the read-only DMX slider shows the active function, set, wheel, slot, media, filter, and graphic-wheel information in a new visual-column wheels page.
+
 - Added a read-only hierarchical GDTF mode and channel browser with DMX ranges, physical ranges, units, details, parser diagnostics, cached source loading, and a larger quick channel summary below Physical properties with per-channel rows and readable normalized channel functions for Fixture Edit.
 - Made Truss Edit open more compactly and gave the official Fixture SVG symbol region the same vertical priority as the generated Top, Front, and Side symbol previews.
 - Improved Truss Edit spacing and composition so type and metadata stay in the second column while the 3D preview sits above physical properties in the third column.
