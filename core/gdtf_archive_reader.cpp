@@ -539,7 +539,35 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
 
   const std::string lowerRequest = LowerAscii(normalizedRequest);
   const std::string requestFile = LowerAscii(ArchiveFileName(normalizedRequest));
-  struct Candidate { std::string path; bool exact = false; };
+  auto buildPreferredPaths = [&]() {
+    std::vector<std::string> preferred;
+    auto addPath = [&](const std::string &path) {
+      const std::string lower = LowerAscii(NormalizeArchivePath(path));
+      if (std::find(preferred.begin(), preferred.end(), lower) == preferred.end())
+        preferred.push_back(lower);
+    };
+    addPath(normalizedRequest);
+    const bool hasDirectory = normalizedRequest.find('/') != std::string::npos;
+    const bool hasExtension = ArchiveFileName(normalizedRequest).find('.') != std::string::npos;
+    static const char *extensions[] = {".png", ".svg", ".jpg", ".jpeg", ".bmp"};
+    static const char *directories[] = {"wheels/", "wheels/gobos/", "wheels/animation/",
+                                        "wheels/graphic/", "graphics/"};
+    if (!hasDirectory) {
+      for (const char *directory : directories) {
+        addPath(std::string(directory) + normalizedRequest);
+        if (!hasExtension) {
+          for (const char *extension : extensions)
+            addPath(std::string(directory) + normalizedRequest + extension);
+        }
+      }
+    } else if (!hasExtension) {
+      for (const char *extension : extensions)
+        addPath(normalizedRequest + extension);
+    }
+    return preferred;
+  };
+  const std::vector<std::string> preferredPaths = buildPreferredPaths();
+  struct Candidate { std::string path; bool exact = false; bool preferred = false; };
   std::vector<Candidate> candidates;
   wxZipInputStream inventory(input);
   std::unique_ptr<wxZipEntry> entry;
@@ -550,30 +578,43 @@ GdtfResourceReadResult ReadGdtfArchiveResource(const std::filesystem::path &sour
       continue;
     const std::string lowerPath = LowerAscii(path);
     const std::string lowerFile = LowerAscii(ArchiveFileName(path));
+    const bool preferred = std::find(preferredPaths.begin(), preferredPaths.end(), lowerPath) != preferredPaths.end();
     if (path == normalizedRequest)
-      candidates.push_back({path, true});
-    else if (lowerPath == lowerRequest || lowerFile == requestFile ||
+      candidates.push_back({path, true, preferred});
+    else if (preferred || lowerPath == lowerRequest || lowerFile == requestFile ||
              (!requestFile.empty() && lowerFile.rfind(requestFile + ".", 0) == 0))
-      candidates.push_back({path, false});
+      candidates.push_back({path, false, preferred});
   }
   auto exact = std::find_if(candidates.begin(), candidates.end(), [](const Candidate &candidate) {
     return candidate.exact;
   });
   if (exact != candidates.end()) {
     result.entryPath = exact->path;
-  } else if (candidates.size() == 1) {
-    result.entryPath = candidates.front().path;
-    result.caseInsensitiveFallback = true;
-    result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
-                                  "Using unambiguous compatible resource path fallback.", result.entryPath});
-  } else if (candidates.empty()) {
-    result.diagnostics.push_back({ArchiveDiagnosticCode::MissingDescriptionXml,
-                                  "Requested GDTF resource is missing.", normalizedRequest});
-    return result;
   } else {
-    result.diagnostics.push_back({ArchiveDiagnosticCode::AmbiguousDescriptionXml,
-                                  "Requested GDTF resource path is ambiguous.", normalizedRequest});
-    return result;
+    std::vector<Candidate> preferredCandidates;
+    for (const auto &candidate : candidates) {
+      if (candidate.preferred)
+        preferredCandidates.push_back(candidate);
+    }
+    if (preferredCandidates.size() == 1) {
+      result.entryPath = preferredCandidates.front().path;
+      result.caseInsensitiveFallback = true;
+      result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
+                                    "Using canonical wheel resource path fallback.", result.entryPath});
+    } else if (candidates.size() == 1) {
+      result.entryPath = candidates.front().path;
+      result.caseInsensitiveFallback = true;
+      result.diagnostics.push_back({ArchiveDiagnosticCode::Utf8FallbackUsed,
+                                    "Using unambiguous compatible resource path fallback.", result.entryPath});
+    } else if (candidates.empty()) {
+      result.diagnostics.push_back({ArchiveDiagnosticCode::MissingDescriptionXml,
+                                    "Requested GDTF resource is missing.", normalizedRequest});
+      return result;
+    } else {
+      result.diagnostics.push_back({ArchiveDiagnosticCode::AmbiguousDescriptionXml,
+                                    "Requested GDTF resource path is ambiguous.", normalizedRequest});
+      return result;
+    }
   }
 
   wxFileInputStream dataInput(wxString::FromUTF8(PathToUtf8(sourcePath)));
