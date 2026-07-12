@@ -23,9 +23,16 @@ class wxBoxSizer;
 class wxListCtrl;
 class wxScrolledWindow;
 class wxStaticBitmap;
+class wxStaticText;
 struct GdtfWheelInspectorDetailRow {
   std::string label;
   std::string value;
+};
+
+struct GdtfWheelInspectorDetailControls {
+  wxBoxSizer *rowSizer = nullptr;
+  wxStaticText *label = nullptr;
+  wxStaticText *value = nullptr;
 };
 
 struct GdtfWheelInspectorSlotPresentation {
@@ -71,9 +78,16 @@ private:
 
   void SetDetailRows(wxScrolledWindow *panel, wxBoxSizer *sizer,
                      std::vector<GdtfWheelInspectorDetailRow> &storedRows,
+                     std::vector<GdtfWheelInspectorDetailControls> &controls,
                      const std::vector<GdtfWheelInspectorDetailRow> &rows);
-  void ApplyDetailRows(wxScrolledWindow *panel, wxBoxSizer *sizer,
-                       const std::vector<GdtfWheelInspectorDetailRow> &rows);
+  void RebuildDetailRows(wxScrolledWindow *panel, wxBoxSizer *sizer,
+                         std::vector<GdtfWheelInspectorDetailControls> &controls,
+                         const std::vector<GdtfWheelInspectorDetailRow> &rows);
+  void UpdateDetailRowValues(wxScrolledWindow *panel,
+                             std::vector<GdtfWheelInspectorDetailControls> &controls,
+                             const std::vector<GdtfWheelInspectorDetailRow> &rows);
+  void RewrapDetailRows(wxScrolledWindow *panel,
+                        const std::vector<GdtfWheelInspectorDetailControls> &controls);
   std::vector<GdtfWheelInspectorDetailRow> BuildStatusRows(const std::string &status) const;
   std::vector<GdtfWheelInspectorDetailRow> MergeDetailRows(
       const std::vector<GdtfWheelInspectorDetailRow> &details,
@@ -88,5 +102,7 @@ private:
   wxImageList *slotImages = nullptr;
   std::vector<GdtfWheelInspectorDetailRow> activeDetailRows;
   std::vector<GdtfWheelInspectorDetailRow> previewDetailRows;
+  std::vector<GdtfWheelInspectorDetailControls> activeDetailControls;
+  std::vector<GdtfWheelInspectorDetailControls> previewDetailControls;
   std::vector<GdtfWheelInspectorSlotPresentation> currentSlots;
 };

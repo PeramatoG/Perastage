@@ -26,7 +26,8 @@ require_rg "SetRange" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "GdtfWheelInspectorDetailRow" gui/gdtf/gdtf_wheel_inspector_panel.h
 require_rg "DMX inspection details" gui/gdtf/gdtf_wheel_inspector_panel.cpp
 require_rg "wxScrolledWindow" gui/gdtf/gdtf_wheel_inspector_panel.h
-require_rg "ApplyDetailRows" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "UpdateDetailRowValues" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "RebuildDetailRows" gui/gdtf/gdtf_wheel_inspector_panel.cpp
 require_rg "BuildActiveInspectorRows" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "selectedInspectionDetails" gui/gdtf/gdtf_modes_panel.h
 ! rg -q "detailsCtrl" "$root/gui/gdtf/gdtf_modes_panel.cpp"
