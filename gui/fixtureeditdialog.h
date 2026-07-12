@@ -38,6 +38,7 @@ class wxStaticBitmap;
 class wxPanel;
 class wxNotebook;
 class wxSplitterWindow;
+class GdtfChannelSummaryPanel;
 class GdtfEditorPanel;
 namespace gdtf { class GdtfEditSession; }
 
@@ -74,6 +75,7 @@ private:
     FixtureTablePanel* panel;
     int row;
     std::vector<wxControl*> ctrls;
+    GdtfChannelSummaryPanel* fixtureChannelSummaryPanel = nullptr;
     GdtfEditorPanel* gdtfEditorPanel = nullptr;
     GdtfWheelInspectorPanel* gdtfWheelInspectorPanel = nullptr;
     std::unique_ptr<gdtf::GdtfEditSession> gdtfEditSession;
