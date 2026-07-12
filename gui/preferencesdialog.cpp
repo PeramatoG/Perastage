@@ -43,6 +43,17 @@ Units::DistanceUnitSystem DistanceUnitSystemFromChoice(const wxChoice *choice) {
   return Units::DistanceUnitSystem::Metric;
 }
 
+// Returns the translatable display label for a supported language option.
+wxString TranslatedLanguageDisplayName(localization::AppLanguage language) {
+  switch (language) {
+  case localization::AppLanguage::Spanish:
+    return _("Español");
+  case localization::AppLanguage::English:
+  default:
+    return _("English");
+  }
+}
+
 } // namespace
 
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
@@ -166,8 +177,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
                     0, wxALIGN_CENTER_VERTICAL);
   interfaceLanguageChoice = new wxChoice(languagePanel, wxID_ANY);
   for (const auto &option : localization::SupportedAppLanguages()) {
-    interfaceLanguageChoice->Append(_(wxString::FromUTF8(
-        option.displayName.data(), option.displayName.size())));
+    interfaceLanguageChoice->Append(TranslatedLanguageDisplayName(option.language));
   }
   const auto configuredLanguage = localization::ParseAppLanguageCode(
       cfg.GetValue(localization::kUiLanguageConfigKey).value_or(""));
