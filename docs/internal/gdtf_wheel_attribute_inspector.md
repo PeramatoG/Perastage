@@ -63,3 +63,5 @@ Decoded wheel images are aspect-fit into the requested preview size, preserve al
 Selecting a row in the Wheel slots gallery previews that slot directly and shows its resource-resolution or decode diagnostic without changing the read-only DMX inspection value. Media slots that cannot decode a thumbnail show the themed placeholder rather than a misleading color swatch.
 
 Standard GDTF 1.2 resolution prefers `Slot/@MediaFileName` and `wheels/<MediaFileName>.png`. Non-standard graphic-wheel resource attributes are documented compatibility metadata and are attempted only after the standard media resource is missing or cannot produce a decoded preview.
+
+When restored projects or MVR imports provide an already-exploded GDTF resource folder beside the `.gdtf` archive, the reader can use that existing folder as a read-only compatibility fallback after the archive lookup reports the resource missing. This fallback reads only the requested file, keeps path containment checks, and reports the fallback in the slot diagnostic.

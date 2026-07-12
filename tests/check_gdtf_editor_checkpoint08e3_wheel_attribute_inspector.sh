@@ -21,7 +21,9 @@ require_rg "wxSlider" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "Value .*0x" gui/gdtf/gdtf_modes_panel.cpp
 require_rg "FindWheel\(activeFunction->wheel\)" core/gdtf/gdtf_dmx_inspector.cpp
 require_rg "ReadGdtfArchiveResource" core/gdtf_archive_reader.cpp
+require_rg "TryReadExplodedGdtfResource" core/gdtf_archive_reader.cpp
 require_rg "ResourceNotFound" core/gdtf_archive_reader.h
+require_rg "filesystemFallback" core/gdtf_archive_reader.h
 require_rg "wxImage" gui/gdtf/gdtf_resource_bitmap_cache.cpp
 ! rg -q "tinyxml|XMLDocument|GdtfEditSession|Apply|Save|Undo|Art-Net|sACN|XmlWriter|XMLPrinter" "$root/gui/gdtf/gdtf_resource_bitmap_cache.cpp"
 require_rg "GdtfWheelAttributeInspector" tests/CMakeLists.txt

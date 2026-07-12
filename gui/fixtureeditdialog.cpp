@@ -1158,7 +1158,9 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
         status += "\nResolved archive entry: " + resourceRead.entryPath;
         const bool standardCanonical = resourceOrigin == "standard MediaFileName" &&
                                        resourceRead.entryPath == "wheels/" + resource + ".png";
-        if (standardCanonical)
+        if (resourceRead.filesystemFallback)
+          status += "\nResolution: extracted resource folder fallback";
+        else if (standardCanonical)
           status += "\nResolution: standard canonical wheel resource";
         else
           status += resourceRead.caseInsensitiveFallback ? "\nResolution: compatibility fallback"

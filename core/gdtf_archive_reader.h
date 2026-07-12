@@ -60,6 +60,7 @@ struct GdtfResourceReadResult {
   std::string mediaKind;
   std::vector<ArchiveDiagnostic> diagnostics;
   bool caseInsensitiveFallback = false;
+  bool filesystemFallback = false;
   bool Success() const;
 };
 
