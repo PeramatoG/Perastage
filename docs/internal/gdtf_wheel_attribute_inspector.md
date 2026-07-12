@@ -45,3 +45,7 @@ The inspector state is typed and read-only: selected channel, current inspection
 ## Connected Fixture Edit presentation
 
 Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Selecting a DMX channel, LogicalChannel, ChannelFunction, or ChannelSet in the modes browser chooses the owning DMXChannel for inspection. Moving the DMX inspection slider calls the pure resolver and updates the active mapping label plus the wheel panel with Function, Set, Wheel, 1-based Slot, media, filter, graphic resource, ModeMaster, DMXProfile, and diagnostics. The panel lists the resolved wheel slots in source order and emphasizes the active slot; it remains read-only and does not write XML, send DMX, or mutate the edit session.
+
+## Visual previews
+
+The Fixture Edit `GDTF wheels` page now resolves selected WheelSlot media and graphic-wheel resources through the lazy archive reader, decodes them through the GUI bitmap cache, and displays thumbnails in the ordered slot list plus a larger active-slot preview. Slots without usable media show an approximate CIE xyY swatch when slot or filter color data is available. Missing or unreadable resources keep a safe placeholder and status text.

@@ -28,6 +28,8 @@
 #include "gdtf/editor/gdtf_field_registry.h"
 #include "gdtf/gdtf_mode_channel_browser.h"
 #include "gdtf/gdtf_wheel_catalog.h"
+#include "gdtf/gdtf_resource_bitmap_cache.h"
+#include "gdtf/gdtf_wheel_inspector_panel.h"
 #include "symbols/PerastageSvgSymbol.h"
 
 class FixtureTablePanel;
@@ -37,7 +39,6 @@ class wxPanel;
 class wxNotebook;
 class wxSplitterWindow;
 class GdtfEditorPanel;
-class GdtfWheelInspectorPanel;
 namespace gdtf { class GdtfEditSession; }
 
 class FixtureEditDialog : public wxDialog {
@@ -67,6 +68,8 @@ private:
     void ClearSessionValidation();
     void SaveLayoutPreferences();
     void RestoreLayoutPreferences();
+    GdtfWheelInspectorPresentation BuildWheelInspectorVisualPresentation(
+        const GdtfWheelInspectorPresentation &presentation);
 
     FixtureTablePanel* panel;
     int row;
@@ -89,6 +92,7 @@ private:
     std::filesystem::path cachedModeChannelSource;
     gdtf::GdtfModeChannelDocument cachedModeChannelDocument;
     gdtf::GdtfWheelCatalog cachedWheelCatalog;
+    GdtfResourceBitmapCache wheelBitmapCache;
     wxString originalType;
     float originalPowerW = 0.0f;
     float originalWeightKg = 0.0f;

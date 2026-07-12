@@ -23,6 +23,7 @@
 #include "fixturetable/fixture_table_columns.h"
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "gdtf/gdtf_color_cie.h"
 #include "gdtf/gdtf_editor_panel.h"
 #include "gdtf/gdtf_wheel_inspector_panel.h"
 #include "gdtf/gdtf_mode_browser_presenter.h"
@@ -641,7 +642,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   });
   gdtfEditorPanel->SetWheelInspectionCallback([this](const GdtfWheelInspectorPresentation &presentation) {
     if (gdtfWheelInspectorPanel)
-      gdtfWheelInspectorPanel->SetPresentation(presentation);
+      gdtfWheelInspectorPanel->SetPresentation(BuildWheelInspectorVisualPresentation(presentation));
   });
 
   fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
@@ -848,6 +849,7 @@ void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   cachedModeChannelSource.clear();
   cachedModeChannelDocument = {};
   cachedWheelCatalog = {};
+  wheelBitmapCache.Clear();
   if (gdtfEditSession && panel && row >= 0 &&
       static_cast<size_t>(row) < panel->rowUuids.size()) {
     const auto &scene =
@@ -1091,11 +1093,66 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   (void)markChannelCountDirty;
 }
 
+// Enriches wheel inspection rows with lazy media thumbnails and color swatches.
+GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPresentation(
+    const GdtfWheelInspectorPresentation &presentation) {
+  GdtfWheelInspectorPresentation enriched = presentation;
+  const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
+  const std::string sourceId = PathUtils::PathToUtf8(gdtfPath);
+  auto applyColor = [](GdtfWheelInspectorSlotPresentation &slot) {
+    if (slot.rawColor.empty())
+      return;
+    const auto cie = gdtf::ParseGdtfColorCie(slot.rawColor, gdtf::GdtfValueOrigin::Explicit);
+    const auto srgb = gdtf::ConvertCieXyyToSrgb(cie);
+    if (!srgb.valid)
+      return;
+    slot.swatch = wxColour(static_cast<unsigned char>(std::clamp(srgb.red, 0.0, 1.0) * 255.0),
+                           static_cast<unsigned char>(std::clamp(srgb.green, 0.0, 1.0) * 255.0),
+                           static_cast<unsigned char>(std::clamp(srgb.blue, 0.0, 1.0) * 255.0));
+    slot.hasSwatch = true;
+  };
+
+  enriched.previewStatus = "No wheel slot preview is available for the current mapping.";
+  for (auto &slot : enriched.slots) {
+    applyColor(slot);
+    const std::string resource = !slot.graphicResource.empty() ? slot.graphicResource
+                                                               : slot.mediaResource;
+    if (!resource.empty() && !gdtfPath.empty()) {
+      const auto resourceRead = gdtf::ReadGdtfArchiveResource(gdtfPath, resource);
+      if (resourceRead.Success()) {
+        slot.thumbnail = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
+                                                      resourceRead.bytes, wxSize(48, 48),
+                                                      wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        slot.hasThumbnail = slot.thumbnail.IsOk();
+      }
+      if (slot.selected) {
+        enriched.previewStatus = resourceRead.Success()
+                                     ? "Preview resource: " + resourceRead.entryPath
+                                     : "Preview resource unavailable: " + resource;
+        if (resourceRead.Success()) {
+          enriched.activePreview = wheelBitmapCache.GetOrCreate(sourceId, resourceRead.entryPath,
+                                                                resourceRead.bytes, wxSize(180, 180),
+                                                                wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+          enriched.hasActivePreview = enriched.activePreview.IsOk();
+        }
+      }
+    }
+    if (slot.selected && slot.hasSwatch && !enriched.hasActivePreview) {
+      enriched.activeSwatch = slot.swatch;
+      enriched.hasActiveSwatch = true;
+      if (resource.empty())
+        enriched.previewStatus = "Approximate CIE xyY color preview: " + slot.rawColor;
+    }
+  }
+  return enriched;
+}
+
 // Reloads the cached hierarchical GDTF mode/channel document for the active source.
 void FixtureEditDialog::ReloadModeChannelDocument() {
   cachedModeChannelSource.clear();
   cachedModeChannelDocument = {};
   cachedWheelCatalog = {};
+  wheelBitmapCache.Clear();
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
   if (gdtfPath.empty())
     return;
@@ -1217,6 +1274,7 @@ bool FixtureEditDialog::ApplyChanges() {
       cachedModeChannelSource.clear();
       cachedModeChannelDocument = {};
       cachedWheelCatalog = {};
+      wheelBitmapCache.Clear();
       for (const auto &position : fixtureApplyResult.changedWeightPositionNames)
         changedWeightPositions.insert(position);
       originalPowerW = fixtureApplyResult.resultingPowerConsumptionW;

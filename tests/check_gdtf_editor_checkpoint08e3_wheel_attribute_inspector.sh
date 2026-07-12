@@ -28,3 +28,7 @@ require_rg "check_gdtf_editor_checkpoint08e2_mode_browser" tests/CMakeLists.txt
 require_rg "check_no_configmanager_get_in_gui" tests/CMakeLists.txt
 require_rg "check_perastage_tree_modules" tests/CMakeLists.txt
 require_rg "Truss Modes" docs/internal/gdtf_wheel_attribute_inspector.md
+require_rg "ReadGdtfArchiveResource" gui/fixtureeditdialog.cpp
+require_rg "hasThumbnail" gui/gdtf/gdtf_wheel_inspector_panel.h
+require_rg "CreateSwatchBitmap" gui/gdtf/gdtf_wheel_inspector_panel.cpp
+require_rg "GetOrCreate" gui/fixtureeditdialog.cpp

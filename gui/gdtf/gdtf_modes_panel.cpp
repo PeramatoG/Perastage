@@ -395,7 +395,18 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
         slotText += " | filter " + slot.rawFilter;
       if (!slot.graphicWheelResource.empty())
         slotText += " | graphic " + slot.graphicWheelResource;
-      presentation.slots.push_back({slotText, selectedSlot && selectedSlot->id == slot.id});
+      std::string rawColor = slot.rawColor;
+      if (rawColor.empty() && !slot.rawFilter.empty()) {
+        if (const auto *slotFilter = inspectionCatalog.FindFilter(slot.rawFilter))
+          rawColor = slotFilter->rawColor;
+      }
+      GdtfWheelInspectorSlotPresentation slotPresentation;
+      slotPresentation.label = slotText;
+      slotPresentation.mediaResource = slot.mediaFileName;
+      slotPresentation.graphicResource = slot.graphicWheelResource;
+      slotPresentation.rawColor = rawColor;
+      slotPresentation.selected = selectedSlot && selectedSlot->id == slot.id;
+      presentation.slots.push_back(std::move(slotPresentation));
     }
   }
   if (wheelInspectionCallback)

@@ -82,3 +82,7 @@ The lower GDTF mode browser area may be split into details, active mapping, prev
 ## Fixture visual-column wheel page
 
 Fixture Edit exposes the Wheel and Attribute Inspector in the visual column as a `GDTF wheels` notebook page. The page shows the active DMX mapping and an ordered wheel-slot list while preserving the existing Preview and Symbols pages.
+
+## Wheel preview thumbnails
+
+The `GDTF wheels` visual-column page includes an active preview area and an ordered thumbnail list. Gobo and graphic-wheel media are shown as static images, while color/filter-only slots are shown as approximate swatches.
