@@ -49,3 +49,5 @@ Fixture Edit now hosts a read-only `GDTF wheels` page in the visual column. Sele
 ## Visual previews
 
 The Fixture Edit `GDTF wheels` page now resolves selected WheelSlot media and graphic-wheel resources through the lazy archive reader, decodes them through the GUI bitmap cache, and displays thumbnails in the ordered slot list plus a larger active-slot preview. Slots without usable media show an approximate CIE xyY swatch when slot or filter color data is available. Missing or unreadable resources keep a safe placeholder and status text.
+
+The wheel catalog accepts both `Slot` and legacy `WheelSlot` child elements so fixtures using standard wheel slot markup can populate the visual gallery and DMX slot resolver.

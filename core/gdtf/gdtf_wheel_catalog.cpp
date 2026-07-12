@@ -115,8 +115,11 @@ GdtfWheelCatalog ReadGdtfWheelCatalog(const std::string &descriptionXml) {
     wheel.id = "wheel[" + std::to_string(wheelIndex) + "]:" + wheel.name;
     wheel.graphicWheel = IsGraphicWheelText(wheel.type) || IsGraphicWheelText(wheel.name);
     int slotIndex = 0;
-    for (const auto *slotXml = wheelXml->FirstChildElement("WheelSlot"); slotXml;
-         slotXml = slotXml->NextSiblingElement("WheelSlot"), ++slotIndex) {
+    for (const auto *slotXml = wheelXml->FirstChildElement(); slotXml;
+         slotXml = slotXml->NextSiblingElement()) {
+      const std::string slotElementName = slotXml->Name() ? slotXml->Name() : "";
+      if (slotElementName != "Slot" && slotElementName != "WheelSlot")
+        continue;
       GdtfCatalogWheelSlotInfo slot;
       slot.index = slotIndex + 1;
       slot.id = ChildId(wheel.id, "slot", slotIndex);
@@ -141,6 +144,7 @@ GdtfWheelCatalog ReadGdtfWheelCatalog(const std::string &descriptionXml) {
                       "WheelSlot filter reference could not be resolved exactly.",
                       "WheelSlot", slot.rawFilter, slot.id);
       wheel.slots.push_back(std::move(slot));
+      ++slotIndex;
     }
     catalog.wheels.push_back(std::move(wheel));
   }

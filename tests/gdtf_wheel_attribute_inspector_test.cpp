@@ -12,7 +12,7 @@ const char *kXml = R"xml(<GDTF><FixtureType>
   <AttributeDefinitions><Attributes><Attribute Name="Gobo1" PhysicalUnit="None"/></Attributes></AttributeDefinitions>
   <Filters><Filter Name="Fílter Blue" Color="0.15,0.06,0.4"/></Filters>
   <Wheels>
-    <Wheel Name="GoboWheel" Type="Gobo"><WheelSlot Name="Open" Color="0.3127,0.3290,1"/><WheelSlot Name="Góbø" MediaFileName="wheels/gobo.png" Filter="Fílter Blue"><PrismFacet Name="FacetA"/></WheelSlot></Wheel>
+    <Wheel Name="GoboWheel" Type="Gobo"><Slot Name="Open" Color="0.3127,0.3290,1"/><Slot Name="Góbø" MediaFileName="wheels/gobo.png" Filter="Fílter Blue"><PrismFacet Name="FacetA"/></Slot></Wheel>
     <Wheel Name="GraphicWheel" Type="Graphic"><WheelSlot Name="GraphicSlot" MediaFileName="graphics/pattern.png" GraphicWheelResource="graphics/pattern.png"><AnimationSystem Name="AnimA"/></WheelSlot></Wheel>
   </Wheels>
   <DMXModes><DMXMode Name="Mode" Geometry="Body"><DMXChannels>

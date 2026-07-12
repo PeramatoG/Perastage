@@ -28,6 +28,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF wheel parsing for fixtures that use standard `Slot` elements, enabling gobo thumbnails and color swatches to appear for those wheel slots.
+
 - Fixed the GDTF wheel preview panel build by including the wxWidgets static-bitmap declaration used by the active slot preview.
 
 - Fixed a Windows build conflict between the new GDTF wheel catalog types and the existing GDTF description snapshot wheel types.
