@@ -24,6 +24,7 @@
 #include "fixturetablepanel.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "gdtf/gdtf_color_cie.h"
+#include "gdtf/gdtf_channel_summary_panel.h"
 #include "gdtf/gdtf_editor_panel.h"
 #include "gdtf/gdtf_wheel_inspector_panel.h"
 #include "gdtf/gdtf_mode_browser_presenter.h"
@@ -69,6 +70,7 @@
 #include <wx/scrolwin.h>
 #include <wx/settings.h>
 #include <wx/splitter.h>
+#include <wx/statbox.h>
 #include <wx/wfstream.h>
 #include <wx/statline.h>
 #include <wx/zipstrm.h>
@@ -444,6 +446,7 @@ std::filesystem::path FixtureEditDialog::GetActiveResolvedGdtfPath() const {
   return {};
 }
 
+// Builds the fixture editing dialog and arranges fixture, GDTF, and preview panels.
 FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     : wxDialog(p, wxID_ANY, "Edit Fixture", wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
@@ -576,11 +579,11 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       {GdtfEditorPane::Overview, GdtfEditorSection::TypeIdentity, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::Metadata, 0},
       {GdtfEditorPane::Overview, GdtfEditorSection::PhysicalProperties, 0},
-      {GdtfEditorPane::Overview, GdtfEditorSection::ChannelSummary, 1},
       {GdtfEditorPane::Workspace, GdtfEditorSection::Modes, 1}};
   gdtfConfiguration.metadata.title = "GDTF metadata";
   gdtfConfiguration.typeIdentity.title = "Fixture type";
   gdtfConfiguration.physicalProperties.title = "Physical properties";
+  gdtfConfiguration.channelSummary.visible = false;
   gdtfConfiguration.channelSummary.title = "Mode channels";
   gdtfConfiguration.modes.title = "Modes and channels";
   gdtfEditorPanel->Configure(gdtfConfiguration);
@@ -662,7 +665,14 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       gdtfWheelInspectorPanel->SetPresentation(BuildWheelInspectorVisualPresentation(presentation));
   });
 
-  fixtureSpecificSizer->Add(fixtureGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  fixtureSpecificSizer->Add(fixtureGrid, 0, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
+  auto *modeChannelsSizer = new wxStaticBoxSizer(wxVERTICAL, fixtureScroll,
+                                                 "Mode channels");
+  fixtureChannelSummaryPanel = new GdtfChannelSummaryPanel(fixtureScroll);
+  modeChannelsSizer->Add(fixtureChannelSummaryPanel, 1, wxEXPAND | wxALL,
+                         gui::gdtf_layout::SectionPadding(this));
+  fixtureSpecificSizer->Add(modeChannelsSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,
+                            gui::gdtf_layout::SectionPadding(this));
   fixtureScroll->SetMinSize(wxSize(gui::gdtf_layout::MinimumContextPaneWidth(this), -1));
 
   gdtfHostSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
@@ -1092,6 +1102,8 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
       gdtfEditorPanel->ClearModeDetails();
       gdtfEditorPanel->SetInspectionData(nullptr, nullptr);
     }
+    if (fixtureChannelSummaryPanel)
+      fixtureChannelSummaryPanel->ClearChannels();
     return;
   }
   if (cachedModeChannelSource != gdtfPath)
@@ -1099,9 +1111,12 @@ void FixtureEditDialog::UpdateChannels(bool markChannelCountDirty) {
   const std::string modeName(mode.ToUTF8());
   const auto *modeNode = cachedModeChannelDocument.FindMode(modeName);
   if (gdtfEditorPanel) {
+    const auto channelSummary = BuildGdtfModeChannelSummaryPresentation(modeNode);
     gdtfEditorPanel->SetInspectionData(modeNode, &cachedWheelCatalog);
     gdtfEditorPanel->SetModeBrowserNodes(BuildGdtfModeBrowserPresentation(modeNode));
-    gdtfEditorPanel->SetChannels(BuildGdtfModeChannelSummaryPresentation(modeNode));
+    gdtfEditorPanel->SetChannels(channelSummary);
+    if (fixtureChannelSummaryPanel)
+      fixtureChannelSummaryPanel->SetChannels(channelSummary);
   }
   const int chCount = modeNode ? modeNode->calculatedFootprint
                                : GetGdtfModeChannelCount(PathUtils::PathToUtf8(gdtfPath), modeName);
