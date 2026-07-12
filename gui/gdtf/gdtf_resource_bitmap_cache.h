@@ -16,7 +16,7 @@
 
 #include <wx/bitmap.h>
 #include <wx/colour.h>
-#include <wx/size.h>
+#include <wx/gdicmn.h>
 
 class GdtfResourceBitmapCache {
 public:

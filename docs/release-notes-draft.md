@@ -24,6 +24,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed the internal GDTF resource bitmap cache header so it uses the portable wxWidgets size declaration on Windows builds.
+
 - Fixed the GDTF editor layout helper declarations so the split-pane layout builds correctly on Windows toolchains.
 - Kept the GDTF mode/channel browser responsive by avoiding expensive nested container-column redraws during Fixture Edit opening and mouse hover.
 - Removed the experimental Channel function column from the GDTF mode/channel browser because the quick Mode channels summary already provides the useful channel-function scan.
