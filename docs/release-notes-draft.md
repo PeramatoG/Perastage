@@ -28,6 +28,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF wheel PNG preview decoding by initializing wxWidgets image handlers before thumbnail creation.
+
 - Fixed GDTF wheel media lookup so extensionless `MediaFileName` values resolve to canonical wheel resource files such as `wheels/name.png`, restoring gobo and graphic-wheel thumbnails.
 
 - Fixed GDTF wheel parsing for fixtures that use standard `Slot` elements, enabling gobo thumbnails and color swatches to appear for those wheel slots.

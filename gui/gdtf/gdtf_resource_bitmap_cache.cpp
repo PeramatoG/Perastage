@@ -6,7 +6,19 @@
 #include <wx/dcmemory.h>
 #include <wx/brush.h>
 #include <wx/image.h>
+#include <wx/init.h>
 #include <wx/mstream.h>
+
+namespace {
+// Ensures wx image handlers are available before decoding archive PNG/JPEG resources.
+void EnsureImageHandlersInitialized() {
+  static const bool initialized = []() {
+    wxInitAllImageHandlers();
+    return true;
+  }();
+  (void)initialized;
+}
+} // namespace
 
 // Creates a bounded GUI-only bitmap cache for GDTF resource previews.
 GdtfResourceBitmapCache::GdtfResourceBitmapCache(std::size_t maxBytes)
@@ -24,6 +36,7 @@ wxBitmap GdtfResourceBitmapCache::GetOrCreate(const std::string &sourceId,
                                               const std::vector<unsigned char> &bytes,
                                               const wxSize &targetSize,
                                               const wxColour &placeholderColor) {
+  EnsureImageHandlersInitialized();
   const std::string key = MakeKey(sourceId, entryPath, targetSize);
   auto it = entries.find(key);
   if (it != entries.end())
