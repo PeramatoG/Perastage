@@ -103,6 +103,7 @@ private:
   gdtf::GdtfDmxModeNode inspectionMode;
   gdtf::GdtfWheelCatalog inspectionCatalog;
   std::string selectedInspectionChannelId;
+  std::vector<GdtfWheelInspectorDetailRow> selectedInspectionDetails;
   bool hasInspectionData = false;
   bool updating = false;
 };

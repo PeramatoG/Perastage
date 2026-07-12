@@ -82,6 +82,67 @@ std::string FormatActiveMappingSummary(const gdtf::GdtfDmxInspectorMapping &mapp
   return out.str();
 }
 
+// Adds a non-empty detail row using a readable fallback.
+void AddInspectorDetailRow(std::vector<GdtfWheelInspectorDetailRow> &rows,
+                           std::string label, std::string value) {
+  rows.push_back({std::move(label), InspectText(value)});
+}
+
+// Adds diagnostics to the detail table.
+void AddInspectorDiagnosticRows(std::vector<GdtfWheelInspectorDetailRow> &rows,
+                                const std::vector<gdtf::GdtfModeDiagnostic> &diagnostics) {
+  for (const auto &diagnostic : diagnostics)
+    AddInspectorDetailRow(rows, "Diagnostic", diagnostic.message);
+}
+
+// Builds the structured active-inspection table rows.
+std::vector<GdtfWheelInspectorDetailRow> BuildActiveInspectorRows(
+    const gdtf::GdtfDmxInspectionResult &result, double percent,
+    const std::vector<GdtfWheelInspectorDetailRow> &selectedDetails) {
+  std::vector<GdtfWheelInspectorDetailRow> rows;
+  AddInspectorDetailRow(rows, "DMX value",
+                        FormatInspectionNumber(result.normalizedValue) + " · " +
+                            FormatInspectionPercent(percent));
+  if (result.mappings.empty()) {
+    AddInspectorDetailRow(rows, "Active", "No active mapping for this value.");
+  } else {
+    const auto &mapping = result.mappings.front();
+    AddInspectorDetailRow(rows, "Attribute", mapping.logicalAttribute);
+    AddInspectorDetailRow(rows, "Function", mapping.channelFunctionName);
+    AddInspectorDetailRow(rows, "Function range", FormatInspectionRange(mapping.channelFunctionDmxRange));
+    AddInspectorDetailRow(rows, "State", mapping.channelSetName);
+    AddInspectorDetailRow(rows, "State range", FormatInspectionRange(mapping.channelSetDmxRange));
+    AddInspectorDetailRow(rows, "Physical", mapping.physicalValue.empty()
+                                        ? "-"
+                                        : mapping.physicalValue + " " + InspectText(mapping.physicalUnit));
+    if (mapping.wheel)
+      AddInspectorDetailRow(rows, "Wheel", mapping.wheel->name);
+    if (mapping.slot)
+      AddInspectorDetailRow(rows, "Slot", std::to_string(mapping.slot->index) + " - " + mapping.slot->name);
+    AddInspectorDetailRow(rows, "Media", mapping.mediaResource);
+    AddInspectorDetailRow(rows, "Graphic resource", mapping.graphicWheelResource);
+    AddInspectorDiagnosticRows(rows, mapping.diagnostics);
+  }
+  AddInspectorDiagnosticRows(rows, result.diagnostics);
+  if (!selectedDetails.empty()) {
+    AddInspectorDetailRow(rows, "Selected item", "Mode browser details");
+    rows.insert(rows.end(), selectedDetails.begin(), selectedDetails.end());
+  }
+  return rows;
+}
+
+// Builds readable rows for a wheel slot preview.
+std::vector<GdtfWheelInspectorDetailRow> BuildSlotInspectorRows(
+    const gdtf::GdtfCatalogWheelSlotInfo &slot, const std::string &rawColor) {
+  std::vector<GdtfWheelInspectorDetailRow> rows;
+  AddInspectorDetailRow(rows, "Slot", std::to_string(slot.index) + " - " + slot.name);
+  AddInspectorDetailRow(rows, "Media", slot.mediaFileName);
+  AddInspectorDetailRow(rows, "Color", rawColor);
+  AddInspectorDetailRow(rows, "Filter", slot.rawFilter);
+  AddInspectorDetailRow(rows, "Graphic resource", slot.graphicWheelResource);
+  return rows;
+}
+
 // Formats one active mapping for the side inspector.
 void AppendMappingText(std::ostringstream &out, const gdtf::GdtfDmxInspectorMapping &mapping) {
   out << "Attribute: " << InspectText(mapping.logicalAttribute) << "\n";
@@ -352,12 +413,15 @@ void GdtfModesPanel::NotifyModeChanged() {
 
 // Updates the read-only key/value details inspector for the selected node.
 void GdtfModesPanel::UpdateDetails(const GdtfModeBrowserNodePresentation *node) {
-  wxString text;
+  selectedInspectionDetails.clear();
   if (node) {
     for (const auto &row : node->details)
-      text += wxString::FromUTF8(row.key) + ": " + wxString::FromUTF8(row.value) + "\n";
+      selectedInspectionDetails.push_back({row.key, row.value});
   }
-  detailsCtrl->SetValue(text);
+  detailsCtrl->SetValue(node ? wxString("Selected item details are shown in DMX inspection details.")
+                             : wxString());
+  if (!updating && hasInspectionData && !selectedInspectionChannelId.empty())
+    UpdateInspectionFromSlider();
 }
 
 // Selects the owning DMX channel for the selected browser node.
@@ -425,6 +489,7 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
 
   GdtfWheelInspectorPresentation presentation;
   presentation.activeText = active.str();
+  presentation.detailRows = BuildActiveInspectorRows(result, percent, selectedInspectionDetails);
   const gdtf::GdtfCatalogWheelInfo *galleryWheel = nullptr;
   const gdtf::GdtfCatalogWheelSlotInfo *selectedSlot = nullptr;
   for (const auto &mapping : result.mappings) {
@@ -452,10 +517,13 @@ void GdtfModesPanel::UpdateInspectionFromSlider() {
       }
       GdtfWheelInspectorSlotPresentation slotPresentation;
       slotPresentation.label = slotText;
+      slotPresentation.detailRows = BuildSlotInspectorRows(slot, rawColor);
       slotPresentation.mediaResource = slot.mediaFileName;
       slotPresentation.graphicResource = slot.graphicWheelResource;
       slotPresentation.rawColor = rawColor;
       slotPresentation.selected = selectedSlot && selectedSlot->id == slot.id;
+      if (slotPresentation.selected)
+        presentation.previewRows = slotPresentation.detailRows;
       presentation.slots.push_back(std::move(slotPresentation));
     }
   }
