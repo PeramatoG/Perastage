@@ -31,6 +31,7 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf/gdtf_editor_layout_preferences.h"
 #include "gdtf/gdtf_editor_visual_metrics.h"
+#include "gdtf_source_fingerprint.h"
 #include "gdtf/gdtf_session_panel_binding.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_metadata_summary.h"
@@ -123,22 +124,6 @@ bool IsExistingRegularFile(const std::filesystem::path &path) {
 // Converts a wx path string to a filesystem path for operational I/O.
 std::filesystem::path PathFromWxString(const wxString &path) {
   return PathUtils::PathFromUtf8(std::string(path.ToUTF8()));
-}
-
-// Builds a stable source fingerprint for cached GDTF preview resources.
-std::string BuildGdtfSourceFingerprint(const std::filesystem::path &path) {
-  if (path.empty())
-    return {};
-  std::error_code canonicalError;
-  const auto canonical = std::filesystem::weakly_canonical(path, canonicalError);
-  std::error_code sizeError;
-  const auto size = std::filesystem::file_size(path, sizeError);
-  std::error_code timeError;
-  const auto timestamp = std::filesystem::last_write_time(path, timeError).time_since_epoch().count();
-  std::ostringstream out;
-  out << PathUtils::PathToUtf8(canonicalError ? path : canonical) << "|"
-      << (sizeError ? 0 : size) << "|" << (timeError ? 0 : timestamp);
-  return out.str();
 }
 
 // Parses a floating-point value while preserving the previous value on failure.
@@ -1130,7 +1115,7 @@ GdtfWheelInspectorPresentation FixtureEditDialog::BuildWheelInspectorVisualPrese
     const GdtfWheelInspectorPresentation &presentation) {
   GdtfWheelInspectorPresentation enriched = presentation;
   const std::filesystem::path gdtfPath = GetActiveResolvedGdtfPath();
-  const std::string sourceId = BuildGdtfSourceFingerprint(gdtfPath);
+  const std::string sourceId = gui::BuildGdtfSourceFingerprint(gdtfPath);
   std::vector<std::filesystem::path> resourceRoots;
   const std::string extractedRoot = GetCachedGdtfExtractionDirectory(PathUtils::PathToUtf8(gdtfPath));
   if (!extractedRoot.empty())
