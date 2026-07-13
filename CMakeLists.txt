@@ -293,7 +293,7 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES"
         COMMAND ${CMAKE_COMMAND} -E echo "Generating Spanish gettext catalog: ${PERASTAGE_ES_PO} -> ${PERASTAGE_ES_MO}"
         COMMAND ${CMAKE_COMMAND} -E echo "Spanish gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}"
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_MSGFMT_ENV_PATH}" "${PERASTAGE_MSGFMT_EXECUTABLE}" --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
+        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_MSGFMT_ENV_PATH}" "${PERASTAGE_MSGFMT_EXECUTABLE}" --check -o "${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
         COMMAND ${CMAKE_COMMAND} -E echo "Spanish catalog generated: ${PERASTAGE_ES_MO}"
         DEPENDS "${PERASTAGE_ES_PO}"
         COMMENT "Generating Spanish gettext catalog"

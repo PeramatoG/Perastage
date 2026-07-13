@@ -32,6 +32,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Windows catalog generation argument quoting so `msgfmt` writes `perastage.mo` to the generated build-tree path during Ninja and Visual Studio builds.
 - Fixed Spanish localization startup so the proof strings load from the generated catalog on Windows, with native language names shown safely, required build-time catalog generation when localization is enabled, and clearer catalog diagnostics.
 - Fixed the language selector build on wxWidgets configurations that require literal translation message IDs.
 - Fixed Wheel slots selection emphasis so highlighting no longer changes thumbnail or swatch colors.
