@@ -64,8 +64,8 @@ private:
   wxChoice *updateCheckModeChoice = nullptr;
   wxChoice *mvrTrussGeometryExportModeChoice = nullptr;
   wxChoice *interfaceLanguageChoice = nullptr;
-  wxString initialDistanceUnit;
-  wxString initialWeightUnit;
+  int initialDistanceUnitSelection = wxNOT_FOUND;
+  int initialWeightUnitSelection = wxNOT_FOUND;
   localization::AppLanguage lastRestartNoticeLanguage =
       localization::DefaultAppLanguage();
   GdtfCredentialsPanel *gdtfCredentialsPanel = nullptr;

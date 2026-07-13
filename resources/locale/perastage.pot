@@ -1,16 +1,21 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the Perastage package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.3.0\n"
+"Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-07-13 11:09+0000\n"
-"PO-Revision-Date: 2026-07-12 00:00+0000\n"
-"Last-Translator: Perastage Team\n"
-"Language-Team: Spanish\n"
-"Language: es\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: gui/about_dialog.cpp:137
 msgid ""
@@ -18,872 +23,862 @@ msgid ""
 "integrated 2D/3D visualization, MVR import/export, and Create from Text "
 "tools."
 msgstr ""
-"Visor/editor MVR libre y de código abierto para proyectos de iluminación y "
-"escenario, con visualización 2D/3D integrada, importación/exportación MVR y "
-"herramientas Crear desde texto."
 
 #: gui/about_dialog.cpp:144
 msgid "Website"
-msgstr "Sitio web"
+msgstr ""
 
 #: gui/about_dialog.cpp:151
 msgid "License"
-msgstr "Licencia"
+msgstr ""
 
 #: gui/about_dialog.cpp:152
 msgid "This software is licensed under the GNU General Public License v3.0."
-msgstr "Este software está licenciado bajo la GNU General Public License v3.0."
+msgstr ""
 
 #: gui/about_dialog.cpp:153
 msgid "Author"
-msgstr "Autor"
+msgstr ""
 
 #: gui/about_dialog.cpp:155
 msgid "Open-source software notice"
-msgstr "Aviso sobre software de código abierto"
+msgstr ""
 
 #: gui/about_dialog.cpp:156
 msgid ""
 "Perastage is built with open-source technologies. Full dependency and "
 "license details are available in the project repository."
 msgstr ""
-"Perastage está construido con tecnologías de código abierto. Los detalles "
-"completos de dependencias y licencias están disponibles en el repositorio "
-"del proyecto."
 
 #: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:123
 msgid "About Perastage"
-msgstr "Acerca de Perastage"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:273
 msgid "Add Fixture"
-msgstr "Añadir aparato"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:29
 msgid "Units:"
-msgstr "Unidades:"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:35
 msgid "Placement:"
-msgstr "Colocación:"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:38 gui/addsceneobjectdialog.cpp:26
 #: gui/addtrussdialog.cpp:97
 msgid "Place continuously in the viewer"
-msgstr "Colocar continuamente en el visor"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:40
 msgid ""
 "Left-click places each fixture; right-click or Escape cancels the fixture "
 "currently attached to the pointer."
 msgstr ""
-"El clic izquierdo coloca cada aparato; el clic derecho o Escape cancela el "
-"aparato asociado al puntero."
 
 #: gui/addfixturedialog.cpp:45
 msgid "Name:"
-msgstr "Nombre:"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:29
 msgid "Fixture ID:"
-msgstr "ID de aparato:"
+msgstr ""
 
 #: gui/addfixturedialog.cpp:53
 msgid "Mode:"
-msgstr "Modo:"
+msgstr ""
 
 #: gui/addressdialog.cpp:21
 msgid "Edit Address"
-msgstr "Editar dirección"
+msgstr ""
 
 #: gui/addressdialog.cpp:26 gui/fixturepatchdialog.cpp:39
 msgid "Universe:"
-msgstr "Universo:"
+msgstr ""
 
 #: gui/addressdialog.cpp:30 gui/fixturepatchdialog.cpp:43
 msgid "Channel:"
-msgstr "Canal:"
+msgstr ""
 
 #: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:280
 msgid "Add Scene Object"
-msgstr "Añadir objeto de escena"
+msgstr ""
 
 #: gui/addsceneobjectdialog.cpp:17 gui/addtrussdialog.cpp:79
 msgid "Quantity:"
-msgstr "Cantidad:"
+msgstr ""
 
 #: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:276
 msgid "Add Truss"
-msgstr "Añadir truss"
+msgstr ""
 
 #: gui/addtrussdialog.cpp:91
 msgid "Create group"
-msgstr "Crear grupo"
+msgstr ""
 
 #: gui/columnselectiondialog.cpp:24
 msgid "Select Columns"
-msgstr "Seleccionar columnas"
+msgstr ""
 
 #: gui/columnselectiondialog.cpp:53
 msgid "Up"
-msgstr "Subir"
+msgstr ""
 
 #: gui/columnselectiondialog.cpp:54
 msgid "Down"
-msgstr "Bajar"
+msgstr ""
 
 #: gui/columnselectiondialog.cpp:62
 msgid "Select All"
-msgstr "Seleccionar todo"
+msgstr ""
 
 #: gui/columnselectiondialog.cpp:63
 msgid "Deselect All"
-msgstr "Deseleccionar todo"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:12
 msgid "Fixture ID"
-msgstr "ID de aparato"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:12
 msgid "Name"
-msgstr "Nombre"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:13
 msgid "Type"
-msgstr "Tipo"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:13
 msgid "Layer"
-msgstr "Capa"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:14
 msgid "Hang Pos"
-msgstr "Posición de cuelgue"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:14
 msgid "Universe"
-msgstr "Universo"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:15
 msgid "Channel"
-msgstr "Canal"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:15
 msgid "Mode"
-msgstr "Modo"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:16
 msgid "Ch Count"
-msgstr "N.º canales"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:16
 msgid "Model file"
-msgstr "Archivo de modelo"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:17
 msgid "Pos X"
-msgstr "Pos X"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:17
 msgid "Pos Y"
-msgstr "Pos Y"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:18
 msgid "Pos Z"
-msgstr "Pos Z"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:18
 msgid "Roll (X)"
-msgstr "Alabeo (X)"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:19
 msgid "Pitch (Y)"
-msgstr "Cabeceo (Y)"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:19
 msgid "Yaw (Z)"
-msgstr "Guiñada (Z)"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:20
 msgid "Power (W)"
-msgstr "Potencia (W)"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:20
 msgid "Weight (kg)"
-msgstr "Peso (kg)"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:21
 msgid "Category"
-msgstr "Categoría"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:21
 msgid "Type Color"
-msgstr "Color de tipo"
+msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:22
 msgid "Color Filter"
-msgstr "Filtro de color"
+msgstr ""
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"
-msgstr "Inicio de sesión en GDTF Share"
+msgstr ""
 
 #: gui/logindialog.cpp:28
 msgid ""
 "You must be registered at https://gdtf-share.com/ to download GDTF files."
 msgstr ""
-"Debe estar registrado en https://gdtf-share.com/ para descargar archivos "
-"GDTF."
 
 #: gui/logindialog.cpp:33
 msgid "Username:"
-msgstr "Usuario:"
+msgstr ""
 
 #: gui/logindialog.cpp:38
 msgid "Password:"
-msgstr "Contraseña:"
+msgstr ""
 
 #: gui/mainwindow.cpp:851 gui/mainwindow.cpp:1016
 msgid "Loading project file..."
-msgstr "Cargando archivo de proyecto..."
+msgstr ""
 
 #: gui/mainwindow.cpp:879
 msgid "Building scene..."
-msgstr "Construyendo escena..."
+msgstr ""
 
 #: gui/mainwindow.cpp:888
 msgid "Applying saved layout..."
-msgstr "Aplicando layout guardado..."
+msgstr ""
 
 #: gui/mainwindow.cpp:916
 msgid "Reloading fixture/truss/support tables..."
-msgstr "Recargando tablas de aparatos, trusses y soportes..."
+msgstr ""
 
 #: gui/mainwindow.cpp:930
 msgid "Updating 3D viewport..."
-msgstr "Actualizando visor 3D..."
+msgstr ""
 
 #: gui/mainwindow.cpp:944
 msgid "Updating 2D viewport..."
-msgstr "Actualizando visor 2D..."
+msgstr ""
 
 #: gui/mainwindow.cpp:959 gui/mainwindow.cpp:1538
 msgid "Refreshing panels..."
-msgstr "Actualizando paneles..."
+msgstr ""
 
 #: gui/mainwindow.cpp:961
 msgid "Refreshing rigging..."
-msgstr "Actualizando rigging..."
+msgstr ""
 
 #: gui/mainwindow.cpp:966 gui/mainwindow.cpp:1542
 msgid "Creating fixture symbols..."
-msgstr "Creando símbolos de aparatos..."
+msgstr ""
 
 #: gui/mainwindow.cpp:981
 msgid "Updating window title..."
-msgstr "Actualizando título de la ventana..."
+msgstr ""
 
 #: gui/mainwindow.cpp:984
 msgid "Finalizing project load..."
-msgstr "Finalizando carga del proyecto..."
+msgstr ""
 
 #: gui/mainwindow.cpp:1502
 msgid "Loading tables..."
-msgstr "Cargando tablas..."
+msgstr ""
 
 #: gui/mainwindow_fixture_symbol_autoupdate.cpp:518
 msgid "Ready"
-msgstr "Listo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:154
 msgid "New"
-msgstr "Nuevo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:156
 msgid "Create a new project"
-msgstr "Crear un proyecto nuevo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:157
 msgid "Open"
-msgstr "Abrir"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:159
 msgid "Open an existing project"
-msgstr "Abrir un proyecto existente"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:160
 msgid "Save"
-msgstr "Guardar"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:162
 msgid "Save the current project"
-msgstr "Guardar el proyecto actual"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:163
 msgid "Save As"
-msgstr "Guardar como"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:165
 msgid "Save the current project with a new name"
-msgstr "Guardar el proyecto actual con un nombre nuevo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:166
 msgid "Import MVR"
-msgstr "Importar MVR"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:168
 msgid "Import an MVR file"
-msgstr "Importar un archivo MVR"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:169
 msgid "Export MVR"
-msgstr "Exportar MVR"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:171
 msgid "Export the project to MVR"
-msgstr "Exportar el proyecto a MVR"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:172
 msgid "Print"
-msgstr "Imprimir"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:174
 msgid "Choose what to print"
-msgstr "Elegir qué imprimir"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:179
 msgid "File"
-msgstr "Archivo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:186
 msgid "Undo"
-msgstr "Deshacer"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:188
 msgid "Undo last action"
-msgstr "Deshacer la última acción"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:189
 msgid "Redo"
-msgstr "Rehacer"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:191
 msgid "Redo last undone action"
-msgstr "Rehacer la última acción deshecha"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:195
 msgid "Edit"
-msgstr "Editar"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:202 gui/mainwindow_menu_builders.cpp:63
 msgid "3D Layout View"
-msgstr "Vista de layout 3D"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:204
 msgid "Switch to 3D Layout View"
-msgstr "Cambiar a la vista de layout 3D"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:206 gui/mainwindow_menu_builders.cpp:64
 msgid "2D Layout View"
-msgstr "Vista de layout 2D"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:208
 msgid "Switch to 2D Layout View"
-msgstr "Cambiar a la vista de layout 2D"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:210
 msgid "Layout Mode"
-msgstr "Modo de layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:212
 msgid "Switch to Layout Mode View"
-msgstr "Cambiar a la vista de modo de layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:215
 msgid "Top View"
-msgstr "Vista superior"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:217
 msgid "Apply top view to active viewport"
-msgstr "Aplicar la vista superior al visor activo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:219
 msgid "Front View"
-msgstr "Vista frontal"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:221
 msgid "Apply front view to active viewport"
-msgstr "Aplicar la vista frontal al visor activo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:223
 msgid "Side View"
-msgstr "Vista lateral"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:225
 msgid "Apply side view to active viewport"
-msgstr "Aplicar la vista lateral al visor activo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:228
 msgid "Select Tool"
-msgstr "Herramienta de selección"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:230
 msgid "Switch to standard selection mode"
-msgstr "Cambiar al modo de selección estándar"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:232
 msgid "Measure Tool"
-msgstr "Herramienta de medición"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:234
 msgid "Toggle center-to-center measure tool"
-msgstr "Activar o desactivar la medición de centro a centro"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:236
 msgid "Axis Lock"
-msgstr "Bloqueo de eje"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:237
 msgid "Toggle axis-constrained selection movement"
-msgstr "Activar o desactivar el movimiento de selección restringido por eje"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:240
 msgid "Drag Move"
-msgstr "Mover arrastrando"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:241
 msgid "Toggle left-click selection dragging"
-msgstr "Activar o desactivar el arrastre de selección con clic izquierdo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:244
 msgid "Magnet"
-msgstr "Imán"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:245
 msgid "Toggle Magnet snapping while dragging"
-msgstr "Activar o desactivar el ajuste magnético al arrastrar"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:266 gui/mainwindow_menu_builders.cpp:81
 msgid "Layout Views"
-msgstr "Vistas de layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:275
 msgid "Insert a new fixture"
-msgstr "Insertar un aparato nuevo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:278
 msgid "Insert a new truss"
-msgstr "Insertar un truss nuevo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:281
 msgid "Insert a new scene object"
-msgstr "Insertar un objeto de escena nuevo"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:283 gui/mainwindow_menu.cpp:285
 msgid "Download GDTF"
-msgstr "Descargar GDTF"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:286 gui/mainwindow_menu.cpp:288
 msgid "Create from text"
-msgstr "Crear desde texto"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:292
 msgid "Tools"
-msgstr "Herramientas"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:300
 msgid "Add 2D View"
-msgstr "Añadir vista 2D"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:301
 msgid "Add 2D View to Layout"
-msgstr "Añadir vista 2D al layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:302
 msgid "Add Legend"
-msgstr "Añadir leyenda"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:304
 msgid "Add fixture legend to layout"
-msgstr "Añadir leyenda de aparatos al layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:306
 msgid "Add Event Table"
-msgstr "Añadir tabla de evento"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:307
 msgid "Add event table to layout"
-msgstr "Añadir tabla de evento al layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:308
 msgid "Add Text"
-msgstr "Añadir texto"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:310
 msgid "Add text box to layout"
-msgstr "Añadir cuadro de texto al layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:311
 msgid "Add Image"
-msgstr "Añadir imagen"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:313
 msgid "Add image to layout"
-msgstr "Añadir imagen al layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:317
 msgid "Layout"
-msgstr "Layout"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:996
 msgid "Language:"
-msgstr "Idioma:"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:13
 msgid "New\tCtrl+N"
-msgstr "Nuevo\tCtrl+N"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:15
 msgid "Load\tCtrl+L"
-msgstr "Abrir\tCtrl+L"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:16
 msgid "Save\tCtrl+S"
-msgstr "Guardar\tCtrl+S"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:17
 msgid "Save As..."
-msgstr "Guardar como..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:19
 msgid "Import MVR..."
-msgstr "Importar MVR..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:20
 msgid "Export MVR..."
-msgstr "Exportar MVR..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:21
 msgid "MVR-xchange..."
-msgstr "MVR-xchange..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:22
 msgid "Print Viewer 2D..."
-msgstr "Imprimir visor 2D..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:23
 msgid "Print Layout..."
-msgstr "Imprimir layout..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:24
 msgid "Print Table..."
-msgstr "Imprimir tabla..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:25
 msgid "Export CSV..."
-msgstr "Exportar CSV..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:27
 msgid "Close\tCtrl+Q"
-msgstr "Cerrar\tCtrl+Q"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:34
 msgid "Sphere..."
-msgstr "Esfera..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:35
 msgid "Cube..."
-msgstr "Cubo..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:36
 msgid "Cylinder..."
-msgstr "Cilindro..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:43
 msgid "Undo\tCtrl+Z"
-msgstr "Deshacer\tCtrl+Z"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:44
 msgid "Redo\tCtrl+Y"
-msgstr "Rehacer\tCtrl+Y"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:46
 msgid "Add fixture..."
-msgstr "Añadir aparato..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:47
 msgid "Add truss..."
-msgstr "Añadir truss..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:48
 msgid "Add scene object..."
-msgstr "Añadir objeto de escena..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:49
 msgid "Add basic geometry"
-msgstr "Añadir geometría básica"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:51
 msgid "Delete\tDel"
-msgstr "Eliminar\tSupr"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:52
 msgid "Group\tCtrl+G"
-msgstr "Agrupar\tCtrl+G"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:53
 msgid "Ungroup\tCtrl+U"
-msgstr "Desagrupar\tCtrl+U"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:54
 msgid "Replace fixtures..."
-msgstr "Reemplazar aparatos..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:56
 msgid "Preferences..."
-msgstr "Preferencias..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:65
 msgid "Layout Mode View"
-msgstr "Vista de modo de layout"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:72
 msgid "Console"
-msgstr "Consola"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:73
 msgid "Fixtures"
-msgstr "Aparatos"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:74
 msgid "3D Viewport"
-msgstr "Visor 3D"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:75
 msgid "2D Viewport"
-msgstr "Visor 2D"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:76
 msgid "2D Render Options"
-msgstr "Opciones de render 2D"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:77
 msgid "Layers"
-msgstr "Capas"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:78
 msgid "Layouts"
-msgstr "Layouts"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:79
 msgid "Summary"
-msgstr "Resumen"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:80
 msgid "Rigging"
-msgstr "Rigging"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:88
 msgid "Download GDTF fixture..."
-msgstr "Descargar aparato GDTF..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:89
 msgid "Edit dictionaries..."
-msgstr "Editar diccionarios..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:91
 msgid "Open user library folder"
-msgstr "Abrir carpeta de biblioteca de usuario"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:92
 msgid "Create from text..."
-msgstr "Crear desde texto..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:94
 msgid "Distribute hoist weights..."
-msgstr "Distribuir pesos en motores..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:95
 msgid "Export Fixture..."
-msgstr "Exportar aparato..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:96
 msgid "Export Truss..."
-msgstr "Exportar truss..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:97
 msgid "Export Scene Object..."
-msgstr "Exportar objeto de escena..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:98
 msgid "Auto patch"
-msgstr "Autopatchear"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:99
 msgid "Auto color"
-msgstr "Color automático"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:100
 msgid "Convert to Hoist"
-msgstr "Convertir en motor"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:103
 msgid "Generate Fixture Symbols..."
-msgstr "Generar símbolos de aparatos..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:107
 msgid "Auto-assign categories to selected fixtures..."
-msgstr "Asignar categorías automáticamente a los aparatos seleccionados..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:115
 msgid "Help\tF1"
-msgstr "Ayuda\tF1"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:116
 msgid "Online Documentation"
-msgstr "Documentación en línea"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:117
 msgid "Check for Updates..."
-msgstr "Buscar actualizaciones..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:119
 msgid "Open Logs Folder"
-msgstr "Abrir carpeta de registros"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:121
 msgid "Export Diagnostic Report..."
-msgstr "Exportar informe de diagnóstico..."
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:132
 msgid "&File"
-msgstr "&Archivo"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:133
 msgid "&Edit"
-msgstr "&Editar"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:134
 msgid "&View"
-msgstr "&Ver"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:135
 msgid "&Tools"
-msgstr "&Herramientas"
+msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:136
 msgid "&Help"
-msgstr "A&yuda"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:66
 #: tests/localization_catalog_integration_test.cpp:72
 #: tests/localization_catalog_integration_test.cpp:84
 msgid "Preferences"
-msgstr "Preferencias"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:77
 msgid "Auto patch after import"
-msgstr "Autopatchear después de importar"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:83
 msgid "Auto-create layers by position"
-msgstr "Crear capas automáticamente por posición"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:86
 msgid "Auto-create layers by fixture type"
-msgstr "Crear capas automáticamente por tipo de aparato"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:102
 #, c-format
 msgid "LX%d height:"
-msgstr "Altura LX%d:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:113
 #, c-format
 msgid "LX%d position:"
-msgstr "Posición LX%d:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:124
 #, c-format
 msgid "LX%d margin:"
-msgstr "Margen LX%d:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:136
 msgid "Rider Import"
-msgstr "Importación de rider"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:144
 msgid "Distance system:"
-msgstr "Sistema de distancia:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:147 gui/preferencesdialog.cpp:164
 msgid "Metric"
-msgstr "Métrico"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:148 gui/preferencesdialog.cpp:165
 msgid "Imperial"
-msgstr "Imperial"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:161
 msgid "Weight system:"
-msgstr "Sistema de peso:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:174
 msgid "Units"
-msgstr "Unidades"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:182
 msgid "Interface language:"
-msgstr "Idioma de la interfaz:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:205 gui/preferencesdialog.cpp:576
 msgid "Language changes will be applied after restarting Perastage."
-msgstr "Los cambios de idioma se aplicarán después de reiniciar Perastage."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:211
 #: tests/localization_catalog_integration_test.cpp:86
 msgid "Language"
-msgstr "Idioma"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:219
 msgid "Automatic update checks:"
-msgstr "Búsqueda automática de actualizaciones:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:222
 msgid "Check on startup (recommended)"
-msgstr "Comprobar al iniciar (recomendado)"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:223
 msgid "Manual only"
-msgstr "Solo manual"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:234
 msgid "Manual checks are always available from Help -> Check for Updates."
-msgstr "Las comprobaciones manuales siempre están disponibles desde Ayuda -> Buscar actualizaciones."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:237
 msgid "Updates"
-msgstr "Actualizaciones"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:242
 msgid "GDTF"
-msgstr "GDTF"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:248
 msgid "Export"
-msgstr "Exportación"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:252
 msgid "Truss geometry export mode:"
-msgstr "Modo de exportación de geometría de truss:"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:256
 msgid "Standard MVR representation"
-msgstr "Representación MVR estándar"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:257
 msgid "Direct Geometry3D for truss symbols"
-msgstr "Geometry3D directa para símbolos de truss"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:268
 msgid ""
@@ -891,73 +886,72 @@ msgid ""
 "when possible.\n"
 "Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
 "into direct Geometry3D entries for broader importer compatibility."
-msgstr "Representación MVR estándar: conserva las referencias Symbol/Symdef importadas cuando es posible.\n"
-"Geometry3D directa para símbolos de truss: expande las referencias Symbol/Symdef de truss en entradas Geometry3D directas para mayor compatibilidad con importadores."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:276
 msgid "MVR Import / Export"
-msgstr "Importación / exportación MVR"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:283 gui/preferencesdialog.cpp:392
 msgid "3D Viewer"
-msgstr "Visor 3D"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:292
 msgid ""
 "Customize camera interaction and visualize the current navigation shortcuts."
-msgstr "Personaliza la interacción de cámara y muestra los atajos de navegación actuales."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:301
 msgid "Navigation"
-msgstr "Navegación"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:304
 msgid "Invert orbit/rotate vertical direction"
-msgstr "Invertir dirección vertical de órbita/rotación"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:312
 msgid "Disabled by default to preserve the current behavior."
-msgstr "Desactivado de forma predeterminada para conservar el comportamiento actual."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:322
 msgid "Render mode"
-msgstr "Modo de render"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:324
 msgid "Standard"
-msgstr "Estándar"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:327
 msgid "White"
-msgstr "Blanco"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:329
 msgid "Sketch mode"
-msgstr "Modo boceto"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:331
 msgid "Textured"
-msgstr "Texturizado"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:333
 msgid "Wireframe"
-msgstr "Alámbrico"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:335
 msgid "By device type"
-msgstr "Por tipo de dispositivo"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:337
 msgid "By layer"
-msgstr "Por capa"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:339
 msgid "By universe"
-msgstr "Por universo"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:371
 msgid "Current mouse and keyboard shortcuts"
-msgstr "Atajos actuales de ratón y teclado"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:374
 msgid ""
@@ -965,58 +959,55 @@ msgid ""
 "Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
 "Zoom: Mouse wheel.\n"
 "Selection rectangle: Ctrl + Left drag."
-msgstr "Órbita: arrastrar con botón izquierdo o derecho.\n"
-"Panorámica: arrastrar con botón central, Mayús + arrastrar o Mayús + botón izquierdo.\n"
-"Zoom: rueda del ratón.\n"
-"Rectángulo de selección: Ctrl + arrastrar con botón izquierdo."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:383
 msgid "Informational only: shortcut remapping is not available yet."
-msgstr "Solo informativo: la reasignación de atajos aún no está disponible."
+msgstr ""
 
 #: gui/preferencesdialog.cpp:513
 #, c-format
 msgid "LX%d height (%s):"
-msgstr "Altura LX%d (%s):"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:515
 #, c-format
 msgid "LX%d position (%s):"
-msgstr "Posición LX%d (%s):"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:517
 #, c-format
 msgid "LX%d margin (%s):"
-msgstr "Margen LX%d (%s):"
+msgstr ""
 
 #: gui/preferencesdialog.cpp:577
 msgid "Restart required"
-msgstr "Reinicio necesario"
+msgstr ""
 
 #: gui/selectfixturetypedialog.cpp:21
 msgid "Select Fixture Type"
-msgstr "Seleccionar tipo de aparato"
+msgstr ""
 
 #: gui/selectfixturetypedialog.cpp:24
 msgid "Choose a fixture type:"
-msgstr "Elija un tipo de aparato:"
+msgstr ""
 
 #: gui/selectfixturetypedialog.cpp:35 gui/selectnamedialog.cpp:38
 msgid "Add from file..."
-msgstr "Añadir desde archivo..."
+msgstr ""
 
 #: main.cpp:290
 msgid "Running library bootstrap..."
-msgstr "Ejecutando inicialización de la biblioteca..."
+msgstr ""
 
 #: main.cpp:293
 msgid "Creating main window..."
-msgstr "Creando ventana principal..."
+msgstr ""
 
 #: main.cpp:303
 msgid "Loading last project..."
-msgstr "Cargando último proyecto..."
+msgstr ""
 
 #: tests/localization_catalog_integration_test.cpp:77
 msgid "Spanish"
-msgstr "Español"
+msgstr ""

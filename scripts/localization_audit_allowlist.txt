@@ -1,0 +1,5 @@
+# Stable localization audit exceptions.
+# Format: source/path.cpp|exact literal|category|reason
+# Valid categories include diagnostic-log, command-syntax, serialization-key,
+# resource-path, technical-identifier, external-data, and test-fixture.
+# Do not add localization-debt entries; unresolved user-visible UI text must be marked.

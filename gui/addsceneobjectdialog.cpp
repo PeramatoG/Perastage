@@ -8,13 +8,13 @@
 
 // Creates the add-scene-object options dialog.
 AddSceneObjectDialog::AddSceneObjectDialog(wxWindow *parent)
-    : wxDialog(parent, wxID_ANY, "Add Scene Object", wxDefaultPosition,
+    : wxDialog(parent, wxID_ANY, _("Add Scene Object"), wxDefaultPosition,
                wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   auto *root = new wxBoxSizer(wxVERTICAL);
   auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
   grid->AddGrowableCol(1, 1);
 
-  grid->Add(new wxStaticText(this, wxID_ANY, "Quantity:"), 0,
+  grid->Add(new wxStaticText(this, wxID_ANY, _("Quantity:")), 0,
             wxALIGN_CENTER_VERTICAL);
   quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
   quantityCtrl_->SetRange(1, 1000);
@@ -23,7 +23,7 @@ AddSceneObjectDialog::AddSceneObjectDialog(wxWindow *parent)
 
   grid->AddSpacer(1);
   continuousPlacementCtrl_ =
-      new wxCheckBox(this, wxID_ANY, "Place continuously in the viewer");
+      new wxCheckBox(this, wxID_ANY, _("Place continuously in the viewer"));
   grid->Add(continuousPlacementCtrl_, 1, wxEXPAND);
   continuousPlacementCtrl_->Bind(
       wxEVT_CHECKBOX, &AddSceneObjectDialog::OnContinuousPlacementChanged,

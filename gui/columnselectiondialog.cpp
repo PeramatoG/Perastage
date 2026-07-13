@@ -21,7 +21,7 @@
 ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent,
                                              const std::vector<std::string>& columns,
                                              const std::vector<int>& selected)
-    : wxDialog(parent, wxID_ANY, "Select Columns", wxDefaultPosition, wxDefaultSize)
+    : wxDialog(parent, wxID_ANY, _("Select Columns"), wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer* listSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -50,8 +50,8 @@ ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent,
     listSizer->Add(list, 1, wxEXPAND);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxVERTICAL);
-    wxButton* upBtn = new wxButton(this, wxID_ANY, "Up");
-    wxButton* downBtn = new wxButton(this, wxID_ANY, "Down");
+    wxButton* upBtn = new wxButton(this, wxID_ANY, _("Up"));
+    wxButton* downBtn = new wxButton(this, wxID_ANY, _("Down"));
     btnSizer->Add(upBtn, 0, wxEXPAND | wxBOTTOM, 5);
     btnSizer->Add(downBtn, 0, wxEXPAND);
     listSizer->Add(btnSizer, 0, wxLEFT, 5);
@@ -59,8 +59,8 @@ ColumnSelectionDialog::ColumnSelectionDialog(wxWindow* parent,
     mainSizer->Add(listSizer, 1, wxEXPAND | wxALL, 10);
 
     wxBoxSizer* selSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxButton* selectAllBtn = new wxButton(this, wxID_ANY, "Select All");
-    wxButton* deselectAllBtn = new wxButton(this, wxID_ANY, "Deselect All");
+    wxButton* selectAllBtn = new wxButton(this, wxID_ANY, _("Select All"));
+    wxButton* deselectAllBtn = new wxButton(this, wxID_ANY, _("Deselect All"));
     selSizer->Add(selectAllBtn, 0, wxRIGHT, 5);
     selSizer->Add(deselectAllBtn, 0);
     mainSizer->Add(selSizer, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT | wxBOTTOM, 10);

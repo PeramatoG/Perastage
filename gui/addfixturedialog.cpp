@@ -21,37 +21,36 @@
 AddFixtureDialog::AddFixtureDialog(wxWindow* parent,
                                    const wxString& defaultName,
                                    const std::vector<std::string>& modes)
-    : wxDialog(parent, wxID_ANY, "Add Fixture", wxDefaultPosition, wxDefaultSize)
+    : wxDialog(parent, wxID_ANY, _("Add Fixture"), wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     wxFlexGridSizer* grid = new wxFlexGridSizer(2, 5, 5);
-    grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Units:")), 0, wxALIGN_CENTER_VERTICAL);
     unitsCtrl = new wxSpinCtrl(this, wxID_ANY);
     unitsCtrl->SetRange(1, 9999);
     unitsCtrl->SetValue(1);
     grid->Add(unitsCtrl, 1, wxEXPAND);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Placement:"), 0,
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Placement:")), 0,
               wxALIGN_CENTER_VERTICAL);
     continuousPlacementCtrl =
-        new wxCheckBox(this, wxID_ANY, "Place continuously in the viewer");
+        new wxCheckBox(this, wxID_ANY, _("Place continuously in the viewer"));
     continuousPlacementCtrl->SetToolTip(
-        "Left-click places each fixture; right-click or Escape cancels the "
-        "fixture currently attached to the pointer.");
+        _("Left-click places each fixture; right-click or Escape cancels the fixture currently attached to the pointer."));
     continuousPlacementCtrl->Bind(
         wxEVT_CHECKBOX, &AddFixtureDialog::OnContinuousPlacementChanged, this);
     grid->Add(continuousPlacementCtrl, 1, wxEXPAND);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Name:"), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Name:")), 0, wxALIGN_CENTER_VERTICAL);
     nameCtrl = new wxTextCtrl(this, wxID_ANY, defaultName);
     grid->Add(nameCtrl, 1, wxEXPAND);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Fixture ID:"), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Fixture ID:")), 0, wxALIGN_CENTER_VERTICAL);
     idCtrl = new wxTextCtrl(this, wxID_ANY, "0");
     grid->Add(idCtrl, 1, wxEXPAND);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Mode:"), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Mode:")), 0, wxALIGN_CENTER_VERTICAL);
     wxArrayString choices;
     for (const auto& m : modes)
         choices.push_back(wxString::FromUTF8(m));

@@ -221,14 +221,17 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>
 )
 
-set(PERASTAGE_ES_PO "${CMAKE_SOURCE_DIR}/resources/locale/es/LC_MESSAGES/perastage.po")
+set(PERASTAGE_TRANSLATION_LANGUAGES es)
+set(PERASTAGE_LOCALE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/resources/locale")
+set(PERASTAGE_POT_FILE "${PERASTAGE_LOCALE_SOURCE_DIR}/perastage.pot")
 set(PERASTAGE_GENERATED_LOCALE_DIR "${CMAKE_BINARY_DIR}/generated/locale")
-set(PERASTAGE_ES_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES/perastage.mo")
+set(PERASTAGE_TRANSLATION_OUTPUTS "")
 set(PERASTAGE_MSGFMT_HINTS "")
 set(PERASTAGE_GETTEXT_PROVIDER "")
 set(PERASTAGE_VCPKG_INSTALLED_ROOT "")
 set(PERASTAGE_VCPKG_GETTEXT_TRIPLET "")
 set(PERASTAGE_EXPECTED_VCPKG_MSGFMT "")
+set(PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR "")
 if(WIN32)
     if(DEFINED VCPKG_INSTALLED_DIR AND NOT "${VCPKG_INSTALLED_DIR}" STREQUAL "")
         set(PERASTAGE_VCPKG_INSTALLED_ROOT "${VCPKG_INSTALLED_DIR}")
@@ -249,11 +252,26 @@ if(WIN32)
     if(NOT PERASTAGE_VCPKG_INSTALLED_ROOT STREQUAL "")
         set(PERASTAGE_EXPECTED_VCPKG_MSGFMT
             "${PERASTAGE_VCPKG_INSTALLED_ROOT}/${PERASTAGE_VCPKG_GETTEXT_TRIPLET}/tools/gettext/bin/msgfmt.exe")
-        get_filename_component(PERASTAGE_EXPECTED_VCPKG_MSGFMT_DIR
+        get_filename_component(PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR
             "${PERASTAGE_EXPECTED_VCPKG_MSGFMT}" DIRECTORY)
         find_program(PERASTAGE_MSGFMT_EXECUTABLE
             NAMES msgfmt.exe
-            HINTS "${PERASTAGE_EXPECTED_VCPKG_MSGFMT_DIR}"
+            HINTS "${PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR}"
+            NO_DEFAULT_PATH
+        )
+        find_program(PERASTAGE_XGETTEXT_EXECUTABLE
+            NAMES xgettext.exe
+            HINTS "${PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR}"
+            NO_DEFAULT_PATH
+        )
+        find_program(PERASTAGE_MSGMERGE_EXECUTABLE
+            NAMES msgmerge.exe
+            HINTS "${PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR}"
+            NO_DEFAULT_PATH
+        )
+        find_program(PERASTAGE_MSGATTRIB_EXECUTABLE
+            NAMES msgattrib.exe
+            HINTS "${PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR}"
             NO_DEFAULT_PATH
         )
         if(PERASTAGE_MSGFMT_EXECUTABLE)
@@ -263,6 +281,9 @@ if(WIN32)
 else()
     find_package(Gettext QUIET)
     find_program(PERASTAGE_MSGFMT_EXECUTABLE NAMES msgfmt)
+    find_program(PERASTAGE_XGETTEXT_EXECUTABLE NAMES xgettext)
+    find_program(PERASTAGE_MSGMERGE_EXECUTABLE NAMES msgmerge)
+    find_program(PERASTAGE_MSGATTRIB_EXECUTABLE NAMES msgattrib)
     if(GETTEXT_MSGFMT_EXECUTABLE AND NOT PERASTAGE_MSGFMT_EXECUTABLE)
         set(PERASTAGE_MSGFMT_EXECUTABLE "${GETTEXT_MSGFMT_EXECUTABLE}")
     endif()
@@ -281,26 +302,72 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
             message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but GNU gettext msgfmt was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Install gettext/msgfmt and reconfigure: on macOS use Homebrew gettext; on Linux install the gettext package. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
         endif()
     endif()
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(NOT Python3_EXECUTABLE)
+        message(WARNING "Python3 was not found; gettext catalog compilation remains available, but perastage_update_pot, perastage_update_po, and perastage_check_translations will report that Python3 is required.")
+    endif()
     message(STATUS "Perastage gettext provider: ${PERASTAGE_GETTEXT_PROVIDER}")
     message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
+    message(STATUS "Perastage gettext xgettext: ${PERASTAGE_XGETTEXT_EXECUTABLE}")
+    message(STATUS "Perastage gettext msgmerge: ${PERASTAGE_MSGMERGE_EXECUTABLE}")
     if(WIN32)
         set(PERASTAGE_MSGFMT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}$<SEMICOLON>$ENV{PATH}")
+        set(PERASTAGE_GETTEXT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}$<SEMICOLON>$ENV{PATH}")
     else()
         set(PERASTAGE_MSGFMT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}:$ENV{PATH}")
+        set(PERASTAGE_GETTEXT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}:$ENV{PATH}")
     endif()
-    add_custom_command(
-        OUTPUT "${PERASTAGE_ES_MO}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES"
-        COMMAND ${CMAKE_COMMAND} -E echo "Generating Spanish gettext catalog: ${PERASTAGE_ES_PO} -> ${PERASTAGE_ES_MO}"
-        COMMAND ${CMAKE_COMMAND} -E echo "Spanish gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}"
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_MSGFMT_ENV_PATH}" "${PERASTAGE_MSGFMT_EXECUTABLE}" --check -o "${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
-        COMMAND ${CMAKE_COMMAND} -E echo "Spanish catalog generated: ${PERASTAGE_ES_MO}"
-        DEPENDS "${PERASTAGE_ES_PO}"
-        COMMENT "Generating Spanish gettext catalog"
-        VERBATIM
-    )
-    add_custom_target(perastage_translations DEPENDS "${PERASTAGE_ES_MO}")
+    foreach(PERASTAGE_TRANSLATION_LANGUAGE IN LISTS PERASTAGE_TRANSLATION_LANGUAGES)
+        set(PERASTAGE_PO_FILE "${PERASTAGE_LOCALE_SOURCE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.po")
+        set(PERASTAGE_MO_FILE "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.mo")
+        add_custom_command(
+            OUTPUT "${PERASTAGE_MO_FILE}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES"
+            COMMAND ${CMAKE_COMMAND} -E echo "Generating gettext catalog: ${PERASTAGE_PO_FILE} -> ${PERASTAGE_MO_FILE}"
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_MSGFMT_ENV_PATH}" "${PERASTAGE_MSGFMT_EXECUTABLE}" --check -o "${PERASTAGE_MO_FILE}" "${PERASTAGE_PO_FILE}"
+            DEPENDS "${PERASTAGE_PO_FILE}"
+            COMMENT "Generating ${PERASTAGE_TRANSLATION_LANGUAGE} gettext catalog"
+            VERBATIM
+        )
+        list(APPEND PERASTAGE_TRANSLATION_OUTPUTS "${PERASTAGE_MO_FILE}")
+    endforeach()
+    add_custom_target(perastage_translations DEPENDS ${PERASTAGE_TRANSLATION_OUTPUTS})
     add_dependencies(${PROJECT_NAME} perastage_translations)
+    if(Python3_EXECUTABLE)
+        add_custom_target(perastage_update_pot
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-pot --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Updating gettext POT template"
+            VERBATIM
+        )
+        add_custom_target(perastage_update_po
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Merging gettext POT template into PO catalogs"
+            VERBATIM
+        )
+        add_custom_target(perastage_check_translations
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" check-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" audit
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" self-test
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Checking gettext catalogs and high-confidence UI string marking"
+            VERBATIM
+        )
+    else()
+        add_custom_target(perastage_update_pot
+            COMMAND ${CMAKE_COMMAND} -E echo "Python3 is required to update Perastage gettext templates."
+            COMMAND ${CMAKE_COMMAND} -E false
+        )
+        add_custom_target(perastage_update_po
+            COMMAND ${CMAKE_COMMAND} -E echo "Python3 is required to merge Perastage gettext catalogs."
+            COMMAND ${CMAKE_COMMAND} -E false
+        )
+        add_custom_target(perastage_check_translations
+            COMMAND ${CMAKE_COMMAND} -E echo "Python3 is required to run Perastage translation checks."
+            COMMAND ${CMAKE_COMMAND} -E false
+        )
+    endif()
 else()
     message(STATUS "Perastage UI localization is disabled; building English-only UI.")
     add_custom_target(perastage_translations)
@@ -446,12 +513,14 @@ endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
 if(PERASTAGE_ENABLE_LOCALIZATION)
-    if(APPLE)
-        set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/locale/es/LC_MESSAGES")
-    else()
-        set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/resources/locale/es/LC_MESSAGES")
-    endif()
-    install(FILES "${PERASTAGE_ES_MO}" DESTINATION "${PERASTAGE_INSTALL_LOCALE_DEST}")
+    foreach(PERASTAGE_TRANSLATION_LANGUAGE IN LISTS PERASTAGE_TRANSLATION_LANGUAGES)
+        if(APPLE)
+            set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/locale/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES")
+        else()
+            set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/resources/locale/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES")
+        endif()
+        install(FILES "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.mo" DESTINATION "${PERASTAGE_INSTALL_LOCALE_DEST}")
+    endforeach()
 endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
@@ -639,23 +708,25 @@ else()
 endif()
 
 if(PERASTAGE_ENABLE_LOCALIZATION)
-    if(APPLE)
-        set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/locale/es/LC_MESSAGES")
-    else()
-        set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/resources/locale/es/LC_MESSAGES")
-    endif()
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_RUNTIME_LOCALE_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E echo "Copying Spanish runtime catalog: ${PERASTAGE_ES_MO} -> ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${PERASTAGE_ES_MO}"
-                "${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-        COMMAND ${CMAKE_COMMAND} -E echo "Verifying Spanish runtime catalog: ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-        COMMAND ${CMAKE_COMMAND}
-                -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-                -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
-        COMMAND ${CMAKE_COMMAND} -E echo "Spanish runtime catalog copied: ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-    )
+    foreach(PERASTAGE_TRANSLATION_LANGUAGE IN LISTS PERASTAGE_TRANSLATION_LANGUAGES)
+        if(APPLE)
+            set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/locale/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES")
+        else()
+            set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/resources/locale/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES")
+        endif()
+        set(PERASTAGE_RUNTIME_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.mo")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_RUNTIME_LOCALE_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E echo "Copying runtime catalog: ${PERASTAGE_RUNTIME_MO} -> ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${PERASTAGE_RUNTIME_MO}"
+                    "${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+            COMMAND ${CMAKE_COMMAND} -E echo "Verifying runtime catalog: ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+            COMMAND ${CMAKE_COMMAND}
+                    -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+                    -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
+        )
+    endforeach()
 endif()
 
 # Copy help documentation to the platform runtime asset directory.

@@ -35,7 +35,7 @@ SelectNameDialog::SelectNameDialog(wxWindow* parent,
     sizer->Add(listCtrl, 1, wxALL | wxEXPAND, 5);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* openBtn = new wxButton(this, wxID_OPEN, "Add from file...");
+    auto* openBtn = new wxButton(this, wxID_OPEN, _("Add from file..."));
     openBtn->Bind(wxEVT_BUTTON, &SelectNameDialog::OnOpen, this);
     btnSizer->Add(openBtn, 0, wxRIGHT, 5);
     btnSizer->AddStretchSpacer();

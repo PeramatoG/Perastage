@@ -68,7 +68,7 @@ wxSpinCtrlDouble *AddCoordinateRow(wxWindow *parent, wxFlexGridSizer *grid,
 
 // Creates the add-truss options dialog.
 AddTrussDialog::AddTrussDialog(wxWindow *parent)
-    : wxDialog(parent, wxID_ANY, "Add Truss", wxDefaultPosition, wxDefaultSize,
+    : wxDialog(parent, wxID_ANY, _("Add Truss"), wxDefaultPosition, wxDefaultSize,
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
   const auto unitSystem = ResolveDistanceUnitSystem();
 
@@ -76,7 +76,7 @@ AddTrussDialog::AddTrussDialog(wxWindow *parent)
   auto *grid = new wxFlexGridSizer(6, 2, 8, 8);
   grid->AddGrowableCol(1, 1);
 
-  grid->Add(new wxStaticText(this, wxID_ANY, "Quantity:"), 0,
+  grid->Add(new wxStaticText(this, wxID_ANY, _("Quantity:")), 0,
             wxALIGN_CENTER_VERTICAL);
   quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
   quantityCtrl_->SetRange(1, 1000);
@@ -88,13 +88,13 @@ AddTrussDialog::AddTrussDialog(wxWindow *parent)
   zCtrl_ = AddCoordinateRow(this, grid, "Z", unitSystem);
 
   grid->AddSpacer(1);
-  createGroupCtrl_ = new wxCheckBox(this, wxID_ANY, "Create group");
+  createGroupCtrl_ = new wxCheckBox(this, wxID_ANY, _("Create group"));
   createGroupCtrl_->SetValue(true);
   grid->Add(createGroupCtrl_, 1, wxEXPAND);
 
   grid->AddSpacer(1);
   continuousPlacementCtrl_ =
-      new wxCheckBox(this, wxID_ANY, "Place continuously in the viewer");
+      new wxCheckBox(this, wxID_ANY, _("Place continuously in the viewer"));
   grid->Add(continuousPlacementCtrl_, 1, wxEXPAND);
   continuousPlacementCtrl_->Bind(
       wxEVT_CHECKBOX, &AddTrussDialog::OnContinuousPlacementChanged, this);

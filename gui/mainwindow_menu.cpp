@@ -88,7 +88,6 @@
 #include "scene_grouping.h"
 #include "scene_object_primitive_creation.h"
 #include "scene_object_primitive_dialogs.h"
-#include "truss_creation_source.h"
 #include "sceneobjecttablepanel.h"
 #include "selectfixturetypedialog.h"
 #include "selection_movement_settings.h"
@@ -96,6 +95,7 @@
 #include "support.h"
 #include "tools/fixture_category_assignment_tool.h"
 #include "tools/fixture_symbol_generation_tool.h"
+#include "truss_creation_source.h"
 #include "trussloader.h"
 #include "trusstablepanel.h"
 #include "ui_feature_flags.h"
@@ -151,91 +151,98 @@ void MainWindow::CreateToolBars() {
                   .GetBitmap(wxSize(16, 16)));
         }
       };
-  fileToolBar->AddTool(ID_File_New, "New", loadToolbarIcon("file", wxART_NEW),
-                       "Create a new project");
-  fileToolBar->AddTool(ID_File_Load, "Open",
+  fileToolBar->AddTool(ID_File_New, _("New"),
+                       loadToolbarIcon("file", wxART_NEW),
+                       _("Create a new project"));
+  fileToolBar->AddTool(ID_File_Load, _("Open"),
                        loadToolbarIcon("folder-open", wxART_FILE_OPEN),
-                       "Open an existing project");
-  fileToolBar->AddTool(ID_File_Save, "Save",
+                       _("Open an existing project"));
+  fileToolBar->AddTool(ID_File_Save, _("Save"),
                        loadToolbarIcon("save", wxART_FILE_SAVE),
-                       "Save the current project");
-  fileToolBar->AddTool(ID_File_SaveAs, "Save As",
+                       _("Save the current project"));
+  fileToolBar->AddTool(ID_File_SaveAs, _("Save As"),
                        loadToolbarIcon("save-all", wxART_FILE_SAVE),
-                       "Save the current project with a new name");
-  fileToolBar->AddTool(ID_File_ImportMVR, "Import MVR",
+                       _("Save the current project with a new name"));
+  fileToolBar->AddTool(ID_File_ImportMVR, _("Import MVR"),
                        loadToolbarIcon("file-input", wxART_FILE_OPEN),
-                       "Import an MVR file");
-  fileToolBar->AddTool(ID_File_ExportMVR, "Export MVR",
+                       _("Import an MVR file"));
+  fileToolBar->AddTool(ID_File_ExportMVR, _("Export MVR"),
                        loadToolbarIcon("file-output", wxART_FILE_SAVE),
-                       "Export the project to MVR");
-  fileToolBar->AddTool(ID_File_PrintMenu, "Print",
+                       _("Export the project to MVR"));
+  fileToolBar->AddTool(ID_File_PrintMenu, _("Print"),
                        loadToolbarIcon("printer", wxART_PRINT),
-                       "Choose what to print");
+                       _("Choose what to print"));
   fileToolBar->Realize();
 
-  auiManager->AddPane(
-      fileToolBar,
-      wxAuiPaneInfo().Name("FileToolbar").Caption("File").ToolbarPane().Top());
+  auiManager->AddPane(fileToolBar, wxAuiPaneInfo()
+                                       .Name("FileToolbar")
+                                       .Caption(_("File"))
+                                       .ToolbarPane()
+                                       .Top());
 
   editToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, toolbarStyle);
   editToolBar->SetToolBitmapSize(wxSize(16, 16));
-  editToolBar->AddTool(ID_Edit_Undo, "Undo",
+  editToolBar->AddTool(ID_Edit_Undo, _("Undo"),
                        loadToolbarIcon("undo-2", wxART_UNDO),
-                       "Undo last action");
-  editToolBar->AddTool(ID_Edit_Redo, "Redo",
+                       _("Undo last action"));
+  editToolBar->AddTool(ID_Edit_Redo, _("Redo"),
                        loadToolbarIcon("redo-2", wxART_REDO),
-                       "Redo last undone action");
+                       _("Redo last undone action"));
   editToolBar->Realize();
-  auiManager->AddPane(
-      editToolBar,
-      wxAuiPaneInfo().Name("EditToolbar").Caption("Edit").ToolbarPane().Top());
+  auiManager->AddPane(editToolBar, wxAuiPaneInfo()
+                                       .Name("EditToolbar")
+                                       .Caption(_("Edit"))
+                                       .ToolbarPane()
+                                       .Top());
 
   layoutViewsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                         wxDefaultSize, toolbarStyle);
   layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
-  layoutViewsToolBar->AddTool(ID_View_Layout_Default, "Vista layout 3D",
+  layoutViewsToolBar->AddTool(ID_View_Layout_Default, _("3D Layout View"),
                               loadToolbarIcon("box", wxART_MISSING_IMAGE),
-                              "Switch to 3D Layout View");
+                              _("Switch to 3D Layout View"));
   layoutViewsToolBar->AddTool(
-      ID_View_Layout_2D, "Vista layout 2D",
+      ID_View_Layout_2D, _("2D Layout View"),
       loadToolbarIcon("panels-right-bottom", wxART_MISSING_IMAGE),
-                              "Switch to 2D Layout View");
+      _("Switch to 2D Layout View"));
   layoutViewsToolBar->AddTool(
-      ID_View_Layout_Mode, "Modo layout",
+      ID_View_Layout_Mode, _("Layout Mode"),
       loadToolbarIcon("square-asterisk", wxART_MISSING_IMAGE),
-                              "Switch to Layout Mode View");
+      _("Switch to Layout Mode View"));
   layoutViewsToolBar->AddSeparator();
   layoutViewsToolBar->AddTool(
-      ID_View_Viewport_Top, "Top View",
+      ID_View_Viewport_Top, _("Top View"),
       loadToolbarIcon("cube-view-top", wxART_MISSING_IMAGE),
-                              "Apply top view to active viewport");
+      _("Apply top view to active viewport"));
   layoutViewsToolBar->AddTool(
-      ID_View_Viewport_Front, "Front View",
+      ID_View_Viewport_Front, _("Front View"),
       loadToolbarIcon("cube-view-front", wxART_MISSING_IMAGE),
-                              "Apply front view to active viewport");
+      _("Apply front view to active viewport"));
   layoutViewsToolBar->AddTool(
-      ID_View_Viewport_Side, "Side View",
+      ID_View_Viewport_Side, _("Side View"),
       loadToolbarIcon("cube-view-side", wxART_MISSING_IMAGE),
-                              "Apply side view to active viewport");
+      _("Apply side view to active viewport"));
   layoutViewsToolBar->AddSeparator();
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_SelectTool,
-                          "Select Tool", "mouse-pointer-2", wxART_NORMAL_FILE,
-                          "Switch to standard selection mode", wxITEM_CHECK);
-  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_MeasureTool,
-                          "Measure Tool", "ruler-dimension-line",
-                          wxART_MISSING_IMAGE,
-                          "Toggle center-to-center measure tool", wxITEM_CHECK);
+                          _("Select Tool"), "mouse-pointer-2",
+                          wxART_NORMAL_FILE,
+                          _("Switch to standard selection mode"), wxITEM_CHECK);
+  addToolWithDisabledIcon(
+      layoutViewsToolBar, ID_View_Viewport_MeasureTool, _("Measure Tool"),
+      "ruler-dimension-line", wxART_MISSING_IMAGE,
+      _("Toggle center-to-center measure tool"), wxITEM_CHECK);
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_AxisConstraint,
-                          "Axis Lock", "move-3d", wxART_MISSING_IMAGE,
-                          "Toggle axis-constrained selection movement",
+                          _("Axis Lock"), "move-3d", wxART_MISSING_IMAGE,
+                          _("Toggle axis-constrained selection movement"),
                           wxITEM_CHECK);
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_LeftDragMove,
-                          "Drag Move", "move", wxART_MISSING_IMAGE,
-                          "Toggle left-click selection dragging", wxITEM_CHECK);
-  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_Magnet, "Magnet",
-                          "magnet", wxART_MISSING_IMAGE,
-                          "Toggle Magnet snapping while dragging",
+                          _("Drag Move"), "move", wxART_MISSING_IMAGE,
+                          _("Toggle left-click selection dragging"),
+                          wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_Magnet,
+                          _("Magnet"), "magnet", wxART_MISSING_IMAGE,
+                          _("Toggle Magnet snapping while dragging"),
                           wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
@@ -255,57 +262,61 @@ void MainWindow::CreateToolBars() {
           magnet_snap::kMagnetEnabledConfigKey) == "1");
   layoutViewsToolBar->Realize();
   auiManager->AddPane(layoutViewsToolBar, wxAuiPaneInfo()
-                              .Name("LayoutViewsToolbar")
-                              .Caption("Layout Views")
-                              .ToolbarPane()
-                              .Top());
+                                              .Name("LayoutViewsToolbar")
+                                              .Caption(_("Layout Views"))
+                                              .ToolbarPane()
+                                              .Top());
 
   toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, toolbarStyle);
   toolsToolBar->SetToolBitmapSize(wxSize(16, 16));
-  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddFixture, "Add Fixture",
-                          "spotlight", wxART_MISSING_IMAGE, "Add fixture");
-  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddTruss, "Add Truss", "truss",
-                          wxART_MISSING_IMAGE, "Add truss");
-  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddSceneObject, "Add Object",
-                          "guitar", wxART_MISSING_IMAGE, "Add object");
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddFixture, _("Add Fixture"),
+                          "spotlight", wxART_MISSING_IMAGE,
+                          _("Insert a new fixture"));
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddTruss, _("Add Truss"),
+                          "truss", wxART_MISSING_IMAGE,
+                          _("Insert a new truss"));
+  addToolWithDisabledIcon(toolsToolBar, ID_Edit_AddSceneObject,
+                          _("Add Scene Object"), "guitar", wxART_MISSING_IMAGE,
+                          _("Insert a new scene object"));
   toolsToolBar->AddSeparator();
-  toolsToolBar->AddTool(ID_Tools_DownloadGdtf, "Download GDTF",
+  toolsToolBar->AddTool(ID_Tools_DownloadGdtf, _("Download GDTF"),
                         loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
-                        "Download GDTF");
-  toolsToolBar->AddTool(ID_Tools_ImportRiderText, "Create from text",
+                        _("Download GDTF"));
+  toolsToolBar->AddTool(ID_Tools_ImportRiderText, _("Create from text"),
                         loadToolbarIcon("notepad-text", wxART_TIP),
-                        "Create from text");
+                        _("Create from text"));
   toolsToolBar->Realize();
   auiManager->AddPane(toolsToolBar, wxAuiPaneInfo()
-                        .Name("ToolsToolbar")
-                        .Caption("Tools")
-                        .ToolbarPane()
-                        .Top());
+                                        .Name("ToolsToolbar")
+                                        .Caption(_("Tools"))
+                                        .ToolbarPane()
+                                        .Top());
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
                                    wxDefaultSize, toolbarStyle);
   layoutToolBar->SetToolBitmapSize(wxSize(16, 16));
   addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_2DView,
-                          "Añadir vista 2D", "panel-top-bottom-dashed",
-                          wxART_MISSING_IMAGE, "Add 2D View to Layout");
-  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Legend,
-                          "Añadir leyenda", "layout-list", wxART_MISSING_IMAGE,
-                          "Add fixture legend to layout");
+                          _("Add 2D View"), "panel-top-bottom-dashed",
+                          wxART_MISSING_IMAGE, _("Add 2D View to Layout"));
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Legend, _("Add Legend"),
+                          "layout-list", wxART_MISSING_IMAGE,
+                          _("Add fixture legend to layout"));
   addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_EventTable,
-                          "Añadir tabla de evento", "table", wxART_LIST_VIEW,
-                          "Add event table to layout");
-  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Text, "Añadir texto",
-                          "text-select", wxART_TIP, "Add text box to layout");
-  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Image, "Añadir imagen",
+                          _("Add Event Table"), "table", wxART_LIST_VIEW,
+                          _("Add event table to layout"));
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Text, _("Add Text"),
+                          "text-select", wxART_TIP,
+                          _("Add text box to layout"));
+  addToolWithDisabledIcon(layoutToolBar, ID_View_Layout_Image, _("Add Image"),
                           "image-plus", wxART_MISSING_IMAGE,
-                          "Add image to layout");
+                          _("Add image to layout"));
   layoutToolBar->Realize();
   auiManager->AddPane(layoutToolBar, wxAuiPaneInfo()
-                         .Name("LayoutToolbar")
-                         .Caption("Layout")
-                         .ToolbarPane()
-                         .Top());
+                                         .Name("LayoutToolbar")
+                                         .Caption(_("Layout"))
+                                         .ToolbarPane()
+                                         .Top());
 
   UpdateToolBarAvailability();
 }
@@ -378,8 +389,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   const auto catalogResolveElapsedMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - catalogResolveStart)
-                                            .count();
+          std::chrono::steady_clock::now() - catalogResolveStart)
+          .count();
 
   std::string effectiveListData = "{}";
   std::string effectiveUpdatedAt = "unknown";
@@ -426,7 +437,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         long loginHttpCode = 0;
         const bool loginOk =
             GdtfLogin(activeCredentials->username, activeCredentials->password,
-                                       cookieFile, loginHttpCode);
+                      cookieFile, loginHttpCode);
         if (!loginOk || loginHttpCode != 200) {
           refreshResult.failureDetails =
               wxString::Format("Login failed (HTTP %ld).", loginHttpCode)
@@ -559,7 +570,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           int addNow =
               wxMessageBox("GDTF downloaded successfully. Do you want to add "
                            "it to the project now?",
-              "Success", wxYES_NO | wxICON_QUESTION, this);
+                           "Success", wxYES_NO | wxICON_QUESTION, this);
           if (addNow == wxYES)
             AddFixtureFromGdtfPath(WxToUtf8(dest));
         } else {
@@ -648,7 +659,7 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
 
   wxSingleChoiceDialog dialog(
       this, "Select hang position(s) to distribute hoist weights.",
-                              "Distribute hoist weights", choices);
+      "Distribute hoist weights", choices);
   dialog.SetSelection(0);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -815,7 +826,7 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     Support s;
     s.uuid =
         wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId), idx++)
-                .ToStdString();
+            .ToStdString();
     s.name = fixture.instanceName;
     s.gdtfSpec = fixture.gdtfSpec;
     s.gdtfMode = fixture.gdtfMode;
@@ -858,7 +869,7 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
 
   wxMessageBox(
       wxString::Format("Converted %zu fixture(s) to hoists.", newIds.size()),
-               "Convert to Hoist", wxOK | wxICON_INFORMATION);
+      "Convert to Hoist", wxOK | wxICON_INFORMATION);
 }
 
 // Runs the fixture symbol generation tool when the feature is enabled.
@@ -982,8 +993,7 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxStaticText *langLabel =
-        new wxStaticText(&dlg, wxID_ANY, wxString::FromUTF8("Language:"));
+    wxStaticText *langLabel = new wxStaticText(&dlg, wxID_ANY, _("Language:"));
     wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
     langChoice->Append(wxString::FromUTF8("English"));
     langChoice->Append(wxString::FromUTF8("Español"));
@@ -1074,7 +1084,7 @@ void MainWindow::OnExportDiagnosticReport(wxCommandEvent &WXUNUSED(event)) {
   diagnostics::DiagnosticLogger::Info("Diagnostic report exported.");
   wxMessageBox(
       wxString::FromUTF8("Diagnostic report exported successfully.\n\n" +
-                                  reportPath.string()),
+                         reportPath.string()),
       wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_INFORMATION,
       this);
 }
@@ -1100,9 +1110,9 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
         wxString message = "Could not check for updates.\n\n";
         message +=
             result.errorMessage.empty()
-                       ? wxString::FromUTF8(
-                             "Please verify your network connection and try again.")
-                       : wxString::FromUTF8(result.errorMessage);
+                ? wxString::FromUTF8(
+                      "Please verify your network connection and try again.")
+                : wxString::FromUTF8(result.errorMessage);
         wxMessageBox(message, title, wxOK | wxICON_WARNING, this);
         return;
       }
@@ -1165,8 +1175,7 @@ void MainWindow::OnPreferences(wxCommandEvent &WXUNUSED(event)) {
 // Undoes the last action and refreshes dependent UI panels.
 void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
   const bool placementUndoHandled =
-      (viewport2DPanel &&
-       viewport2DPanel->UndoContinuousPlacement()) ||
+      (viewport2DPanel && viewport2DPanel->UndoContinuousPlacement()) ||
       (viewportPanel && viewportPanel->UndoContinuousPlacement());
   if (placementUndoHandled) {
     if (consolePanel)
@@ -1228,10 +1237,8 @@ void MainWindow::OnUndo(wxCommandEvent &WXUNUSED(event)) {
 
 // Redoes the last undone action and refreshes dependent UI panels.
 void MainWindow::OnRedo(wxCommandEvent &WXUNUSED(event)) {
-  if ((viewport2DPanel &&
-       viewport2DPanel->IsContinuousPlacementActive()) ||
-      (viewportPanel &&
-       viewportPanel->IsContinuousPlacementActive())) {
+  if ((viewport2DPanel && viewport2DPanel->IsContinuousPlacementActive()) ||
+      (viewportPanel && viewportPanel->IsContinuousPlacementActive())) {
     return;
   }
 
@@ -1367,8 +1374,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
       wxFileDialog fdlg(
           this, "Select Truss file", trussDir, wxEmptyString,
-                        wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
-                        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+          wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
+          wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
       wxFileName fn(fdlg.GetPath());
@@ -1386,8 +1393,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(
         this, "Select Truss file", trussDir, wxEmptyString,
-                      wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
-                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
+        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
     wxFileName fn(fdlg.GetPath());
@@ -1504,11 +1511,11 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
   }
   if (continuousPlacement && !addedTrussUuids.empty()) {
     if (viewport2DPanel && viewport2DPanel->IsShownOnScreen()) {
-      viewport2DPanel->BeginContinuousPlacement(
-          ContinuousPlacementType::Truss, addedTrussUuids.front());
+      viewport2DPanel->BeginContinuousPlacement(ContinuousPlacementType::Truss,
+                                                addedTrussUuids.front());
     } else if (viewportPanel && viewportPanel->IsShownOnScreen()) {
-      viewportPanel->BeginContinuousPlacement(
-          ContinuousPlacementType::Truss, addedTrussUuids.front());
+      viewportPanel->BeginContinuousPlacement(ContinuousPlacementType::Truss,
+                                              addedTrussUuids.front());
     }
   }
   RefreshSummary();
@@ -1518,8 +1525,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 // official GLB resources.
 std::string
 NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
-                                                  const std::string &sceneBasePath,
-                                                  std::string &consoleError) {
+                                      const std::string &sceneBasePath,
+                                      std::string &consoleError) {
   namespace fs = std::filesystem;
   fs::path sourcePath = PathUtils::PathFromUtf8(selectedPath);
   std::string ext = sourcePath.extension().string();

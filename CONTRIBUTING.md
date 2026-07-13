@@ -141,3 +141,7 @@ Just open an issue and explain the problem as clearly as you can. Screenshots, s
 By contributing to Perastage, you agree that your contributions will be released under the same license as the project.
 
 Please only contribute code, files or documentation that you have the right to share.
+
+## Localization
+
+New user-facing UI text must be marked for gettext translation in the same change that introduces it, while project data, imported data, identifiers, serialization keys, protocol values, and diagnostic-only logs remain stable and untranslated. See `docs/localization.md` for the marking, catalog-update, audit, and translator workflows, and `docs/localization_glossary.md` for preferred Spanish terminology.

@@ -7,11 +7,15 @@ Changes since **v1.4.0**.
 ## New features
 
 - Added the first phase of desktop localization, including a persistent interface-language preference, restart-based language switching, packaged gettext catalog resources, and a minimal Spanish catalog for the new language settings.
+- Expanded desktop localization coverage with translated main toolbar labels, fixture-table column headers, and a larger professional Spanish catalog while preserving stable project and import data values.
 - Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.
 - Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
 
 ## Improvements
+
+- Expanded Spanish localization coverage for core creation and selection dialogs, About dialog text, GDTF Share login labels, and related startup translation checks while keeping imported names and user-entered data unchanged.
+- Expanded Preferences localization coverage for Rider Import, Units, Updates, MVR export, and 3D Viewer settings while preserving stable configuration values and selection-index based behavior.
 
 - Added maximize and restore support to the Edit Fixture and Edit Truss dialogs for more flexible editing on large screens.
 - Added visual GDTF wheel previews in Fixture Edit, including static gobo/graphic-wheel thumbnails and approximate color/filter swatches for wheel slots.
@@ -98,6 +102,10 @@ Changes since **v1.4.0**.
 - Improved Windows crash dumps so native access violations are captured from the original exception context before best-effort text stack reporting.
 
 ## Internal changes
+
+- Tightened localization maintenance checks so POT generation scans root-level C/C++ sources, dynamic labels use extraction markers, catalog checks validate synchronization and accelerators, and audit exceptions require durable reasons instead of line-number debt entries.
+
+- Added maintainer localization workflow targets for POT generation, PO merging, translation validation, and high-confidence UI string audits, plus a Spanish terminology glossary for future translation reviews.
 
 - Added internal GDTF Wheel and Attribute Inspector architecture for read-only wheel, slot, filter, graphic-wheel, CIE color, resource, and DMX value inspection.
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
@@ -194,6 +202,7 @@ If you encounter any problems installing or running Perastage, please open an is
 
 ## Internal changes
 
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -212,6 +221,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Fixed Windows build compatibility for Layout 2D preview diagnostics.
 
 ## Internal changes
+
 
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
