@@ -125,11 +125,15 @@ function Install-PerastageDependencies {
     & $VcpkgExe install $packages
 
     $vcpkgRoot = Split-Path -Parent $VcpkgExe
-    $msgfmt = Join-Path $vcpkgRoot 'installed\x64-windows\tools\gettext\bin\msgfmt.exe'
-    if (-not (Test-Path $msgfmt)) {
-        throw "vcpkg gettext msgfmt.exe was not found at: $msgfmt"
+    $gettextBin = Join-Path $vcpkgRoot 'installed\x64-windows\tools\gettext\bin'
+    foreach ($tool in @('msgfmt.exe', 'xgettext.exe', 'msgmerge.exe', 'msgattrib.exe')) {
+        $toolPath = Join-Path $gettextBin $tool
+        if (-not (Test-Path $toolPath)) {
+            throw "vcpkg gettext tool was not found at: $toolPath"
+        }
+        Write-Host "vcpkg gettext tool: $toolPath"
+        & $toolPath --version | Select-Object -First 1
     }
-    Write-Host "vcpkg msgfmt: $msgfmt"
 }
 
 # Resolves the CMake configure and build presets for the selected configuration.

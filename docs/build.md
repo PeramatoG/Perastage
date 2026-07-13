@@ -42,6 +42,8 @@ Install the required Windows dependencies with:
 C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows "gettext[tools]:x64-windows"
 ```
 
+Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
+
 If your vcpkg installation is not in `C:/vcpkg`, use one of these options:
 
 1. Edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json`.

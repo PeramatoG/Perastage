@@ -54,6 +54,13 @@ jobs:
           set -euo pipefail
           brew update
           brew install autoconf autoconf-archive automake gettext libtool ninja dylibbundler
+          GETTEXT_PREFIX="$(brew --prefix gettext)"
+          echo "Homebrew gettext prefix: $GETTEXT_PREFIX"
+          echo "$GETTEXT_PREFIX/bin" >> "$GITHUB_PATH"
+          for tool in msgfmt xgettext msgmerge msgattrib; do
+            test -x "$GETTEXT_PREFIX/bin/$tool" || { echo "Missing Homebrew gettext tool: $GETTEXT_PREFIX/bin/$tool"; exit 1; }
+            "$GETTEXT_PREFIX/bin/$tool" --version | head -n 1
+          done
 
       # ── 4. Cache vcpkg installed tree + downloads ───────────────────────────
       - name: Cache vcpkg

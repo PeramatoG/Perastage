@@ -24,6 +24,7 @@ makedepends=(
   'base-devel'
   'cmake'
   'desktop-file-utils'
+  'gettext'
   'git'
   'ninja'
   'pkgconf'
@@ -107,6 +108,7 @@ package() {
 
   test -x "$pkgdir/opt/perastage/Perastage"
   test -d "$pkgdir/opt/perastage/resources"
+  test -f "$pkgdir/opt/perastage/resources/locale/es/LC_MESSAGES/perastage.mo"
   test -d "$pkgdir/opt/perastage/library"
   test -d "$pkgdir/opt/perastage/licenses"
   test -f "$pkgdir/opt/perastage/help.md"

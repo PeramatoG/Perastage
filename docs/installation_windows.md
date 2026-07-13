@@ -33,6 +33,8 @@ Install the required Windows dependencies with:
 C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows "gettext[tools]:x64-windows"
 ```
 
+The gettext tools are build-time only. CMake uses the vcpkg-provided `msgfmt.exe` to generate `perastage.mo`, but gettext tools and DLLs are not Perastage runtime dependencies for users.
+
 ## Configure and Build with Visual Studio
 
 Open the repository folder in Visual Studio.
