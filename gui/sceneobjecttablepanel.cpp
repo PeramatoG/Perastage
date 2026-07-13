@@ -262,9 +262,9 @@ void SceneObjectTablePanel::InitializeTable() {
   columnLabels = {_("Name"),
                   _("Layer"),
                   _("Model File"),
-                  ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix),
-                  ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix),
-                  ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix),
+                  ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix),
+                  ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix),
+                  ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix),
                   _("Roll (X)"),
                   _("Pitch (Y)"),
                   _("Yaw (Z)")};
@@ -285,9 +285,9 @@ void SceneObjectTablePanel::ReloadData() {
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const wxString distanceSuffix =
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
-  columnLabels[ColumnIndex(SceneObjectColumn::PositionX)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
-  columnLabels[ColumnIndex(SceneObjectColumn::PositionY)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
-  columnLabels[ColumnIndex(SceneObjectColumn::PositionZ)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionX)] = ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix);
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionY)] = ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix);
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionZ)] = ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix);
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);

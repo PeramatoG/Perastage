@@ -121,26 +121,26 @@ int main() {
                   wxString::FromUTF8("Introduzca el nombre de la nueva capa:"),
               "Layer prompt did not translate correctly.");
 
-  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), "kg") ==
+  ok &= Check(ui::LocalizedLabelWithUnit(_("Weight"), "kg") ==
                   wxString("Peso (kg)"),
               "Spanish metric fixture weight label regressed.");
-  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), "lb") ==
+  ok &= Check(ui::LocalizedLabelWithUnit(_("Weight"), "lb") ==
                   wxString("Peso (lb)"),
               "Spanish imperial fixture weight label regressed.");
-  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), "m") ==
+  ok &= Check(ui::LocalizedLabelWithUnit(_("Length"), "m") ==
                   wxString("Longitud (m)"),
               "Spanish metric truss length label regressed.");
-  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), "ft") ==
+  ok &= Check(ui::LocalizedLabelWithUnit(_("Length"), "ft") ==
                   wxString("Longitud (ft)"),
               "Spanish imperial truss length label regressed.");
-  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), "kg") ==
+  ok &= Check(ui::LocalizedLabelWithUnit(_("Capacity"), "kg") ==
                   wxString("Capacidad (kg)"),
               "Spanish metric hoist capacity label regressed.");
-  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), "lb") ==
+  ok &= Check(ui::LocalizedLabelWithUnit(_("Capacity"), "lb") ==
                   wxString("Capacidad (lb)"),
               "Spanish imperial hoist capacity label regressed.");
   const wxString riggingWeight =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Fixture Weight"), "kg");
+      ui::LocalizedLabelWithUnit(_("Fixture Weight"), "kg");
   ok &= Check(riggingWeight == wxString("Peso de aparatos (kg)"),
               "Spanish rigging dynamic weight header regressed.");
 

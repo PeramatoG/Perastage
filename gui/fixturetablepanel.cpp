@@ -269,16 +269,16 @@ void FixtureTablePanel::InitializeTable() {
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionX)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
+      ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionY)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
+      ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionZ)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
+      ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::Weight)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
+      ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix);
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
 }
 
@@ -300,16 +300,16 @@ void FixtureTablePanel::ReloadData() {
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionX)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
+      ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionY)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
+      ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionZ)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
+      ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::Weight)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
+      ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix);
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);

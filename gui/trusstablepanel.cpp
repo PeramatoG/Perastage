@@ -284,10 +284,10 @@ void TrussTablePanel::InitializeTable()
     const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     const wxString weightSuffix = wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
     columnLabels = {_("Name"), _("Layer"), _("Model File"), _("Hang Pos"),
-                    ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix),
+                    ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix), ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix), ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix),
                     "Roll (X)", "Pitch (Y)", "Yaw (Z)",
                     _("Manufacturer"), _("Model"),
-                    ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Width"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Height"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Load"), weightSuffix)};
+                    ui::LocalizedLabelWithUnit(_("Length"), distanceSuffix), ui::LocalizedLabelWithUnit(_("Width"), distanceSuffix), ui::LocalizedLabelWithUnit(_("Height"), distanceSuffix), ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix), ui::LocalizedLabelWithUnit(_("Load"), weightSuffix)};
     std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
                                80, 80, 80,
@@ -316,13 +316,13 @@ void TrussTablePanel::ReloadData()
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     const wxString weightSuffix =
         wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[ColumnIndex(TrussColumn::PositionX)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
-  columnLabels[ColumnIndex(TrussColumn::PositionY)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
-  columnLabels[ColumnIndex(TrussColumn::PositionZ)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
-  columnLabels[ColumnIndex(TrussColumn::Length)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), distanceSuffix);
-  columnLabels[ColumnIndex(TrussColumn::Width)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Width"), distanceSuffix);
-  columnLabels[ColumnIndex(TrussColumn::Height)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Height"), distanceSuffix);
-  columnLabels[ColumnIndex(TrussColumn::Weight)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
+  columnLabels[ColumnIndex(TrussColumn::PositionX)] = ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::PositionY)] = ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::PositionZ)] = ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Length)] = ui::LocalizedLabelWithUnit(_("Length"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Width)] = ui::LocalizedLabelWithUnit(_("Width"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Height)] = ui::LocalizedLabelWithUnit(_("Height"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Weight)] = ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix);
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);

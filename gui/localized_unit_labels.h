@@ -4,9 +4,9 @@
 
 namespace ui {
 
-wxString LocalizedLabelWithUnit(const wxString &sourceLabel,
+wxString LocalizedLabelWithUnit(const wxString &translatedLabel,
                                 const wxString &unitSuffix);
-wxString LocalizedLabelWithUnitColon(const wxString &sourceLabel,
+wxString LocalizedLabelWithUnitColon(const wxString &translatedLabel,
                                      const wxString &unitSuffix);
 
 } // namespace ui

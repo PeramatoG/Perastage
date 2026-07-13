@@ -38,6 +38,7 @@ Changes since **v1.4.0**.
 ## Fixes
 
 - Fixed unit-aware table header refreshes so translated fixture, truss, hoist, scene-object, and rigging labels are not overwritten with English after reloads or unit preference changes.
+- Fixed localized unit-label composition on wxWidgets builds that enforce literal translation message IDs.
 - Fixed Windows catalog generation argument quoting so `msgfmt` writes `perastage.mo` to the generated build-tree path during Ninja and Visual Studio builds.
 - Fixed Spanish localization startup so the proof strings load from the generated catalog on Windows, with native language names shown safely, required build-time catalog generation when localization is enabled, and clearer catalog diagnostics.
 - Fixed the language selector build on wxWidgets configurations that require literal translation message IDs.

@@ -60,11 +60,10 @@ double DisplayDistanceToMillimeters(double displayValue,
 }
 
 // Builds a localized distance label with the active unit suffix.
-wxString DistanceLabel(const char *baseLabel,
+wxString DistanceLabel(const wxString &baseLabel,
                        Units::DistanceUnitSystem unitSystem) {
   const std::string suffix = UiUnitUtils::DistanceUnitSuffix(unitSystem);
-  return ui::LocalizedLabelWithUnitColon(wxString::FromUTF8(baseLabel),
-                                        wxString::FromUTF8(suffix));
+  return ui::LocalizedLabelWithUnitColon(baseLabel, wxString::FromUTF8(suffix));
 }
 
 // Adds a name editor row to a primitive dialog.
@@ -79,7 +78,7 @@ wxTextCtrl *AddNameRow(wxWindow *parent, wxFlexGridSizer *grid,
 
 // Adds an unsigned distance editor row to a primitive dialog.
 wxSpinCtrlDouble *AddDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
-                                 const char *label, double meters,
+                                 const wxString &label, double meters,
                                  Units::DistanceUnitSystem unitSystem) {
   grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
             0, wxALIGN_CENTER_VERTICAL);
@@ -95,9 +94,9 @@ wxSpinCtrlDouble *AddDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
 
 // Adds a generic numeric spin row to a primitive dialog.
 wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
-                               const char *label, double value, double minValue,
+                               const wxString &label, double value, double minValue,
                                double maxValue, double increment) {
-  grid->Add(new wxStaticText(parent, wxID_ANY, _(label)), 0,
+  grid->Add(new wxStaticText(parent, wxID_ANY, label), 0,
             wxALIGN_CENTER_VERTICAL);
   auto *ctrl = new wxSpinCtrlDouble(parent, wxID_ANY);
   ctrl->SetRange(minValue, maxValue);
@@ -110,7 +109,7 @@ wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
 
 // Adds a signed millimeter distance spin row using the active project unit.
 wxSpinCtrlDouble *AddSignedDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
-                                       const char *label, double millimeters,
+                                       const wxString &label, double millimeters,
                                        Units::DistanceUnitSystem unitSystem) {
   grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
             0, wxALIGN_CENTER_VERTICAL);
@@ -181,7 +180,7 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(includeQuantity ? 3 : 8, 2, 8, 8);
     nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
-    radiusCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Radius"), initialRequest.radiusMeters,
+    radiusCtrl_ = AddDistanceRow(this, grid, _("Radius"), initialRequest.radiusMeters,
                                  unitSystem_);
     AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
@@ -235,14 +234,14 @@ private:
       return;
     }
     positionXCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position X"), placement_->positionXMeters, unitSystem_);
+        this, grid, _("Position X"), placement_->positionXMeters, unitSystem_);
     positionYCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position Y"), placement_->positionYMeters, unitSystem_);
+        this, grid, _("Position Y"), placement_->positionYMeters, unitSystem_);
     positionZCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position Z"), placement_->positionZMeters, unitSystem_);
-    rotationXCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
-    rotationYCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
-    rotationZCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+        this, grid, _("Position Z"), placement_->positionZMeters, unitSystem_);
+    rotationXCtrl_ = AddNumberRow(this, grid, _("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, _("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, _("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
   }
 
   void OnSaveDefault(wxCommandEvent &) {
@@ -295,9 +294,9 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(includeQuantity ? 5 : 10, 2, 8, 8);
     nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
-    lengthCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Length"), initialRequest.lengthMeters, unitSystem_);
-    heightCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Height"), initialRequest.heightMeters, unitSystem_);
-    widthCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Width"), initialRequest.widthMeters, unitSystem_);
+    lengthCtrl_ = AddDistanceRow(this, grid, _("Length"), initialRequest.lengthMeters, unitSystem_);
+    heightCtrl_ = AddDistanceRow(this, grid, _("Height"), initialRequest.heightMeters, unitSystem_);
+    widthCtrl_ = AddDistanceRow(this, grid, _("Width"), initialRequest.widthMeters, unitSystem_);
     AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -353,14 +352,14 @@ private:
       return;
     }
     positionXCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position X"), placement_->positionXMeters, unitSystem_);
+        this, grid, _("Position X"), placement_->positionXMeters, unitSystem_);
     positionYCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position Y"), placement_->positionYMeters, unitSystem_);
+        this, grid, _("Position Y"), placement_->positionYMeters, unitSystem_);
     positionZCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position Z"), placement_->positionZMeters, unitSystem_);
-    rotationXCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
-    rotationYCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
-    rotationZCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+        this, grid, _("Position Z"), placement_->positionZMeters, unitSystem_);
+    rotationXCtrl_ = AddNumberRow(this, grid, _("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, _("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, _("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
   }
 
   void OnSaveDefault(wxCommandEvent &) {
@@ -419,9 +418,9 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(includeQuantity ? 5 : 10, 2, 8, 8);
     nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
-    topRadiusCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Top radius"), initialRequest.topRadiusMeters, unitSystem_);
-    bottomRadiusCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Bottom radius"), initialRequest.bottomRadiusMeters, unitSystem_);
-    heightCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Height"), initialRequest.heightMeters, unitSystem_);
+    topRadiusCtrl_ = AddDistanceRow(this, grid, _("Top radius"), initialRequest.topRadiusMeters, unitSystem_);
+    bottomRadiusCtrl_ = AddDistanceRow(this, grid, _("Bottom radius"), initialRequest.bottomRadiusMeters, unitSystem_);
+    heightCtrl_ = AddDistanceRow(this, grid, _("Height"), initialRequest.heightMeters, unitSystem_);
     AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -477,14 +476,14 @@ private:
       return;
     }
     positionXCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position X"), placement_->positionXMeters, unitSystem_);
+        this, grid, _("Position X"), placement_->positionXMeters, unitSystem_);
     positionYCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position Y"), placement_->positionYMeters, unitSystem_);
+        this, grid, _("Position Y"), placement_->positionYMeters, unitSystem_);
     positionZCtrl_ = AddSignedDistanceRow(
-        this, grid, wxTRANSLATE("Position Z"), placement_->positionZMeters, unitSystem_);
-    rotationXCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
-    rotationYCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
-    rotationZCtrl_ = AddNumberRow(this, grid, wxTRANSLATE("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+        this, grid, _("Position Z"), placement_->positionZMeters, unitSystem_);
+    rotationXCtrl_ = AddNumberRow(this, grid, _("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, _("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, _("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
   }
 
   void OnSaveDefault(wxCommandEvent &) {
@@ -539,8 +538,8 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
 
-    widthCtrl_ = AddDimensionRow(grid, wxTRANSLATE("Width"), initial.widthMeters);
-    heightCtrl_ = AddDimensionRow(grid, wxTRANSLATE("Height"), initial.heightMeters);
+    widthCtrl_ = AddDimensionRow(grid, _("Width"), initial.widthMeters);
+    heightCtrl_ = AddDimensionRow(grid, _("Height"), initial.heightMeters);
 
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -561,7 +560,7 @@ public:
 
 private:
   // Adds a screen dimension row using the active project distance unit.
-  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
+  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const wxString &label,
                                     double defaultValue) {
     return AddDistanceRow(this, grid, label, defaultValue, unitSystem_);
   }
@@ -581,7 +580,7 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(1, 2, 8, 8);
 
-    lengthCtrl_ = AddDistanceRow(this, grid, wxTRANSLATE("Length"), initial.lengthMeters,
+    lengthCtrl_ = AddDistanceRow(this, grid, _("Length"), initial.lengthMeters,
                                  unitSystem_);
 
     grid->AddGrowableCol(1, 1);

@@ -190,22 +190,22 @@ RiggingPanel::RiggingPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
                           wxDATAVIEW_COL_RESIZABLE);
   table->AppendTextColumn(_("Hoists"), wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn(ui::LocalizedLabelWithUnit(wxTRANSLATE("Fixture Weight"), weightSuffix),
+  table->AppendTextColumn(ui::LocalizedLabelWithUnit(_("Fixture Weight"), weightSuffix),
                           wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn(ui::LocalizedLabelWithUnit(wxTRANSLATE("Truss Weight"), weightSuffix),
+  table->AppendTextColumn(ui::LocalizedLabelWithUnit(_("Truss Weight"), weightSuffix),
                           wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn(ui::LocalizedLabelWithUnit(wxTRANSLATE("Hoists Weight"), weightSuffix),
+  table->AppendTextColumn(ui::LocalizedLabelWithUnit(_("Hoists Weight"), weightSuffix),
                           wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn(ui::LocalizedLabelWithUnit(wxTRANSLATE("Extra Weight"), weightSuffix),
+  table->AppendTextColumn(ui::LocalizedLabelWithUnit(_("Extra Weight"), weightSuffix),
                           wxDATAVIEW_CELL_EDITABLE, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn(ui::LocalizedLabelWithUnit(wxTRANSLATE("Total Weight"), weightSuffix),
+  table->AppendTextColumn(ui::LocalizedLabelWithUnit(_("Total Weight"), weightSuffix),
                           wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
-  table->AppendTextColumn(ui::LocalizedLabelWithUnit(wxTRANSLATE("Rounded Total Weight +5%"), weightSuffix),
+  table->AppendTextColumn(ui::LocalizedLabelWithUnit(_("Rounded Total Weight +5%"), weightSuffix),
                           wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE,
                           wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
 
@@ -255,17 +255,17 @@ void RiggingPanel::RefreshData() {
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   if (table->GetColumnCount() >= 10) {
     table->GetColumn(ColumnIndex(RiggingColumn::FixtureWeight))
-        ->SetTitle(ui::LocalizedLabelWithUnit(wxTRANSLATE("Fixture Weight"), weightSuffix));
+        ->SetTitle(ui::LocalizedLabelWithUnit(_("Fixture Weight"), weightSuffix));
     table->GetColumn(ColumnIndex(RiggingColumn::TrussWeight))
-        ->SetTitle(ui::LocalizedLabelWithUnit(wxTRANSLATE("Truss Weight"), weightSuffix));
+        ->SetTitle(ui::LocalizedLabelWithUnit(_("Truss Weight"), weightSuffix));
     table->GetColumn(ColumnIndex(RiggingColumn::HoistWeight))
-        ->SetTitle(ui::LocalizedLabelWithUnit(wxTRANSLATE("Hoists Weight"), weightSuffix));
+        ->SetTitle(ui::LocalizedLabelWithUnit(_("Hoists Weight"), weightSuffix));
     table->GetColumn(ColumnIndex(RiggingColumn::ExtraWeight))
-        ->SetTitle(ui::LocalizedLabelWithUnit(wxTRANSLATE("Extra Weight"), weightSuffix));
+        ->SetTitle(ui::LocalizedLabelWithUnit(_("Extra Weight"), weightSuffix));
     table->GetColumn(ColumnIndex(RiggingColumn::TotalWeight))
-        ->SetTitle(ui::LocalizedLabelWithUnit(wxTRANSLATE("Total Weight"), weightSuffix));
+        ->SetTitle(ui::LocalizedLabelWithUnit(_("Total Weight"), weightSuffix));
     table->GetColumn(ColumnIndex(RiggingColumn::RoundedTotalWeight))
-        ->SetTitle(ui::LocalizedLabelWithUnit(wxTRANSLATE("Rounded Total Weight +5%"), weightSuffix));
+        ->SetTitle(ui::LocalizedLabelWithUnit(_("Rounded Total Weight +5%"), weightSuffix));
   }
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto &scene = cfg.GetScene();

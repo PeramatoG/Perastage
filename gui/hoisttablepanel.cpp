@@ -470,16 +470,16 @@ void HoistTablePanel::InitializeTable() {
       _("Dummy Preset"),
       _("Layer"),
       _("Hang Pos"),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix),
       _("Roll (X)"),
       _("Pitch (Y)"),
       _("Yaw (Z)"),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Chain Length"), distanceSuffix),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), weightSuffix),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix),
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Load"), weightSuffix)};
+      ui::LocalizedLabelWithUnit(_("Chain Length"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(_("Capacity"), weightSuffix),
+      ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix),
+      ui::LocalizedLabelWithUnit(_("Load"), weightSuffix)};
   std::vector<int> widths = {70, 150, 120, 120, 130, 150, 100, 120, 80,
                              80, 80,  80,  80,  80,  110, 110, 100, 100};
   if (columnLabels.size() != TableColumnIndices::Count<HoistColumn>() ||
@@ -501,14 +501,14 @@ void HoistTablePanel::ReloadData() {
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[ColumnIndex(HoistColumn::PositionX)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
-  columnLabels[ColumnIndex(HoistColumn::PositionY)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
-  columnLabels[ColumnIndex(HoistColumn::PositionZ)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::PositionX)] = ui::LocalizedLabelWithUnit(_("Pos X"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::PositionY)] = ui::LocalizedLabelWithUnit(_("Pos Y"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::PositionZ)] = ui::LocalizedLabelWithUnit(_("Pos Z"), distanceSuffix);
   columnLabels[ColumnIndex(HoistColumn::ChainLength)] =
-      ui::LocalizedLabelWithUnit(wxTRANSLATE("Chain Length"), distanceSuffix);
-  columnLabels[ColumnIndex(HoistColumn::Capacity)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), weightSuffix);
-  columnLabels[ColumnIndex(HoistColumn::Weight)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
-  columnLabels[ColumnIndex(HoistColumn::Load)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Load"), weightSuffix);
+      ui::LocalizedLabelWithUnit(_("Chain Length"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::Capacity)] = ui::LocalizedLabelWithUnit(_("Capacity"), weightSuffix);
+  columnLabels[ColumnIndex(HoistColumn::Weight)] = ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix);
+  columnLabels[ColumnIndex(HoistColumn::Load)] = ui::LocalizedLabelWithUnit(_("Load"), weightSuffix);
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
