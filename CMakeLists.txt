@@ -333,26 +333,41 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     endforeach()
     add_custom_target(perastage_translations DEPENDS ${PERASTAGE_TRANSLATION_OUTPUTS})
     add_dependencies(${PROJECT_NAME} perastage_translations)
-    add_custom_target(perastage_update_pot
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-pot --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        COMMENT "Updating gettext POT template"
-        VERBATIM
-    )
-    add_custom_target(perastage_update_po
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        COMMENT "Merging gettext POT template into PO catalogs"
-        VERBATIM
-    )
-    add_custom_target(perastage_check_translations
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" check-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" audit
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" self-test
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        COMMENT "Checking gettext catalogs and high-confidence UI string marking"
-        VERBATIM
-    )
+    if(Python3_EXECUTABLE)
+        add_custom_target(perastage_update_pot
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-pot --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Updating gettext POT template"
+            VERBATIM
+        )
+        add_custom_target(perastage_update_po
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Merging gettext POT template into PO catalogs"
+            VERBATIM
+        )
+        add_custom_target(perastage_check_translations
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" check-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" audit
+            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" self-test
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Checking gettext catalogs and high-confidence UI string marking"
+            VERBATIM
+        )
+    else()
+        add_custom_target(perastage_update_pot
+            COMMAND ${CMAKE_COMMAND} -E echo "Python3 is required to update Perastage gettext templates."
+            COMMAND ${CMAKE_COMMAND} -E false
+        )
+        add_custom_target(perastage_update_po
+            COMMAND ${CMAKE_COMMAND} -E echo "Python3 is required to merge Perastage gettext catalogs."
+            COMMAND ${CMAKE_COMMAND} -E false
+        )
+        add_custom_target(perastage_check_translations
+            COMMAND ${CMAKE_COMMAND} -E echo "Python3 is required to run Perastage translation checks."
+            COMMAND ${CMAKE_COMMAND} -E false
+        )
+    endif()
 else()
     message(STATUS "Perastage UI localization is disabled; building English-only UI.")
     add_custom_target(perastage_translations)

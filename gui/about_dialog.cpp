@@ -29,6 +29,7 @@
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/hyperlink.h>
+#include <wx/intl.h>
 #include <wx/image.h>
 #include <wx/sizer.h>
 #include <wx/statbmp.h>
@@ -133,29 +134,26 @@ wxSizer *CreateAboutContent(wxDialog *dialog) {
 
   auto *description = new wxStaticText(
       dialog, wxID_ANY,
-      "Free and open-source MVR viewer/editor for lighting and stage projects, "
-      "with integrated 2D/3D visualization, MVR import/export, and Create from "
-      "Text tools.");
+      _("Free and open-source MVR viewer/editor for lighting and stage projects, with integrated 2D/3D visualization, MVR import/export, and Create from Text tools."));
   description->Wrap(dialog->FromDIP(380));
   contentSizer->Add(description, 0, wxEXPAND | wxTOP, dialog->FromDIP(8));
 
   contentSizer->Add(new wxStaticLine(dialog), 0, wxEXPAND | wxTOP | wxBOTTOM,
                     dialog->FromDIP(12));
 
-  contentSizer->Add(CreateSectionLabel(dialog, "Website"), 0, wxBOTTOM,
+  contentSizer->Add(CreateSectionLabel(dialog, _("Website")), 0, wxBOTTOM,
                     dialog->FromDIP(3));
   contentSizer->Add(new wxHyperlinkCtrl(dialog, wxID_ANY, kProjectWebsiteUrl,
                                         kProjectWebsiteUrl),
                     0, wxEXPAND);
 
   AddSection(
-      dialog, contentSizer, "License",
-      "This software is licensed under the GNU General Public License v3.0.");
-  AddSection(dialog, contentSizer, "Author", "Luisma Peramato");
+      dialog, contentSizer, _("License"),
+      _("This software is licensed under the GNU General Public License v3.0."));
+  AddSection(dialog, contentSizer, _("Author"), wxString::FromUTF8("Luisma Peramato"));
   AddSection(
-      dialog, contentSizer, "Open-source software notice",
-      "Perastage is built with open-source technologies. Full dependency "
-      "and license details are available in the project repository.");
+      dialog, contentSizer, _("Open-source software notice"),
+      _("Perastage is built with open-source technologies. Full dependency and license details are available in the project repository."));
 
   rootSizer->Add(contentSizer, 1, wxEXPAND);
   return rootSizer;
@@ -165,7 +163,7 @@ wxSizer *CreateAboutContent(wxDialog *dialog) {
 
 // Shows the modern Perastage About dialog.
 void gui::ShowAboutDialog(wxWindow *parent) {
-  wxDialog dialog(parent, wxID_ANY, "About Perastage", wxDefaultPosition,
+  wxDialog dialog(parent, wxID_ANY, _("About Perastage"), wxDefaultPosition,
                   wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 
   auto *dialogSizer = new wxBoxSizer(wxVERTICAL);

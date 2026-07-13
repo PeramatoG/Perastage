@@ -26,7 +26,7 @@ UI_CALLEES = {
     "AppendTextColumn", "AppendToggleColumn", "AddPage", "Caption", "AddTool",
     "wxFileDialog", "wxDirDialog", "wxTextEntryDialog", "wxSingleChoiceDialog",
     "wxStaticText", "wxButton", "wxCheckBox", "wxRadioButton", "wxStaticBox",
-    "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem", "AppendText",
+    "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem",
 }
 REPRESENTATIVE_MESSAGES = {
     "Running library bootstrap...": "root main.cpp splash message",
@@ -217,11 +217,21 @@ def line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def translated_spans(expression: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    wrapper_pattern = re.compile(r"\b(" + "|".join(re.escape(wrapper) for wrapper in TRANSLATION_WRAPPERS) + r")\s*\(")
+    for match in wrapper_pattern.finditer(expression):
+        end, _ = find_matching_call(expression, match.start())
+        if end > match.start():
+            spans.append((match.start(), end))
+    return spans
+
+
 def string_literals(expression: str) -> list[tuple[str, int]]:
     literals: list[tuple[str, int]] = []
+    wrapped = translated_spans(expression)
     for match in re.finditer(r'"(?:\\.|[^"\\])*"', expression):
-        prefix = expression[max(0, match.start() - 48):match.start()]
-        if any(re.search(rf"\b{re.escape(wrapper)}\s*\($", prefix) for wrapper in TRANSLATION_WRAPPERS):
+        if any(start <= match.start() < end for start, end in wrapped):
             continue
         try:
             value = ast.literal_eval(match.group(0))
@@ -247,7 +257,7 @@ def audit() -> int:
             if not expression:
                 continue
             for literal, local_offset in string_literals(expression):
-                if not literal or literal in {"", "?"}:
+                if not literal or not literal.strip() or literal in {"", "?", "[CMD] "}:
                     continue
                 if (rel, literal) in allowlist:
                     continue

@@ -18,24 +18,24 @@
 #include "logindialog.h"
 
 GdtfLoginDialog::GdtfLoginDialog(wxWindow* parent, const std::string& user, const std::string& pass)
-    : wxDialog(parent, wxID_ANY, "GDTF Share Login", wxDefaultPosition, wxDefaultSize)
+    : wxDialog(parent, wxID_ANY, _("GDTF Share Login"), wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     wxBoxSizer* headerSizer = new wxBoxSizer(wxHORIZONTAL);
     headerSizer->AddStretchSpacer(1);
     wxButton* helpButton = new wxButton(this, wxID_ANY, "?", wxDefaultPosition, wxSize(22, 22), wxBU_EXACTFIT);
-    helpButton->SetToolTip("You must be registered at https://gdtf-share.com/ to download GDTF files.");
+    helpButton->SetToolTip(_("You must be registered at https://gdtf-share.com/ to download GDTF files."));
     headerSizer->Add(helpButton, 0);
     sizer->Add(headerSizer, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, 10);
 
     wxFlexGridSizer* grid = new wxFlexGridSizer(2, 5, 5);
-    grid->Add(new wxStaticText(this, wxID_ANY, "Username:"), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Username:")), 0, wxALIGN_CENTER_VERTICAL);
     userCtrl = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(user),
                               wxDefaultPosition, wxSize(250, -1));
     grid->Add(userCtrl, 1, wxEXPAND);
 
-    grid->Add(new wxStaticText(this, wxID_ANY, "Password:"), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, _("Password:")), 0, wxALIGN_CENTER_VERTICAL);
     passCtrl = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(pass),
                               wxDefaultPosition, wxSize(250, -1), wxTE_PASSWORD);
     grid->Add(passCtrl, 1, wxEXPAND);

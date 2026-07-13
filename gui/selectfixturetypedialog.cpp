@@ -18,10 +18,10 @@
 #include "selectfixturetypedialog.h"
 
 SelectFixtureTypeDialog::SelectFixtureTypeDialog(wxWindow* parent, const std::vector<std::string>& types)
-    : wxDialog(parent, wxID_ANY, "Select Fixture Type", wxDefaultPosition, wxDefaultSize)
+    : wxDialog(parent, wxID_ANY, _("Select Fixture Type"), wxDefaultPosition, wxDefaultSize)
 {
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(new wxStaticText(this, wxID_ANY, "Choose a fixture type:"), 0, wxALL, 5);
+    sizer->Add(new wxStaticText(this, wxID_ANY, _("Choose a fixture type:")), 0, wxALL, 5);
 
     wxArrayString items;
     for (const auto& t : types)
@@ -32,7 +32,7 @@ SelectFixtureTypeDialog::SelectFixtureTypeDialog(wxWindow* parent, const std::ve
     sizer->Add(listCtrl, 1, wxALL | wxEXPAND, 5);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    auto* openBtn = new wxButton(this, wxID_OPEN, "Add from file...");
+    auto* openBtn = new wxButton(this, wxID_OPEN, _("Add from file..."));
     openBtn->Bind(wxEVT_BUTTON, &SelectFixtureTypeDialog::OnOpen, this);
     btnSizer->Add(openBtn, 0, wxRIGHT, 5);
     btnSizer->AddStretchSpacer();

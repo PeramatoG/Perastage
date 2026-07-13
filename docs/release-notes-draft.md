@@ -14,6 +14,8 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
+- Expanded Spanish localization coverage for core creation and selection dialogs, About dialog text, GDTF Share login labels, and related startup translation checks while keeping imported names and user-entered data unchanged.
+
 - Added maximize and restore support to the Edit Fixture and Edit Truss dialogs for more flexible editing on large screens.
 - Added visual GDTF wheel previews in Fixture Edit, including static gobo/graphic-wheel thumbnails and approximate color/filter swatches for wheel slots.
 - Refined Fixture Edit DMX inspection with structured wrapping detail panels that update values in place while dragging the slider, per-channel slider value memory during the edit session, a cleaner wheel-slot preview summary, no duplicate mode-browser detail pane, and resolution-matched slider ranges, so exact DMX values, selected mode-browser details, percentages, and active function or set ranges stay readable and aligned with the selected channel.

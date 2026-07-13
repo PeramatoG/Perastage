@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 10:33+0000\n"
+"POT-Creation-Date: 2026-07-13 10:52+0000\n"
 "PO-Revision-Date: 2026-07-12 00:00+0000\n"
 "Last-Translator: Perastage Team\n"
 "Language-Team: Spanish\n"
@@ -11,6 +11,134 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: gui/about_dialog.cpp:137
+msgid ""
+"Free and open-source MVR viewer/editor for lighting and stage projects, with "
+"integrated 2D/3D visualization, MVR import/export, and Create from Text "
+"tools."
+msgstr ""
+"Visor/editor MVR libre y de código abierto para proyectos de iluminación y "
+"escenario, con visualización 2D/3D integrada, importación/exportación MVR y "
+"herramientas Crear desde texto."
+
+#: gui/about_dialog.cpp:144
+msgid "Website"
+msgstr "Sitio web"
+
+#: gui/about_dialog.cpp:151
+msgid "License"
+msgstr "Licencia"
+
+#: gui/about_dialog.cpp:152
+msgid "This software is licensed under the GNU General Public License v3.0."
+msgstr "Este software está licenciado bajo la GNU General Public License v3.0."
+
+#: gui/about_dialog.cpp:153
+msgid "Author"
+msgstr "Autor"
+
+#: gui/about_dialog.cpp:155
+msgid "Open-source software notice"
+msgstr "Aviso sobre software de código abierto"
+
+#: gui/about_dialog.cpp:156
+msgid ""
+"Perastage is built with open-source technologies. Full dependency and "
+"license details are available in the project repository."
+msgstr ""
+"Perastage está construido con tecnologías de código abierto. Los detalles "
+"completos de dependencias y licencias están disponibles en el repositorio "
+"del proyecto."
+
+#: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:123
+msgid "About Perastage"
+msgstr "Acerca de Perastage"
+
+#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:273
+msgid "Add Fixture"
+msgstr "Añadir aparato"
+
+#: gui/addfixturedialog.cpp:29
+msgid "Units:"
+msgstr "Unidades:"
+
+#: gui/addfixturedialog.cpp:35
+msgid "Placement:"
+msgstr "Colocación:"
+
+#: gui/addfixturedialog.cpp:38 gui/addsceneobjectdialog.cpp:26
+#: gui/addtrussdialog.cpp:97
+msgid "Place continuously in the viewer"
+msgstr "Colocar continuamente en el visor"
+
+#: gui/addfixturedialog.cpp:40
+msgid ""
+"Left-click places each fixture; right-click or Escape cancels the fixture "
+"currently attached to the pointer."
+msgstr ""
+"El clic izquierdo coloca cada aparato; el clic derecho o Escape cancela el "
+"aparato asociado al puntero."
+
+#: gui/addfixturedialog.cpp:45
+msgid "Name:"
+msgstr "Nombre:"
+
+#: gui/addfixturedialog.cpp:49 gui/fixturepatchdialog.cpp:29
+msgid "Fixture ID:"
+msgstr "ID de aparato:"
+
+#: gui/addfixturedialog.cpp:53
+msgid "Mode:"
+msgstr "Modo:"
+
+#: gui/addressdialog.cpp:21
+msgid "Edit Address"
+msgstr "Editar dirección"
+
+#: gui/addressdialog.cpp:26 gui/fixturepatchdialog.cpp:39
+msgid "Universe:"
+msgstr "Universo:"
+
+#: gui/addressdialog.cpp:30 gui/fixturepatchdialog.cpp:43
+msgid "Channel:"
+msgstr "Canal:"
+
+#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:280
+msgid "Add Scene Object"
+msgstr "Añadir objeto de escena"
+
+#: gui/addsceneobjectdialog.cpp:17 gui/addtrussdialog.cpp:79
+msgid "Quantity:"
+msgstr "Cantidad:"
+
+#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:276
+msgid "Add Truss"
+msgstr "Añadir truss"
+
+#: gui/addtrussdialog.cpp:91
+msgid "Create group"
+msgstr "Crear grupo"
+
+#: gui/columnselectiondialog.cpp:24
+msgid "Select Columns"
+msgstr "Seleccionar columnas"
+
+#: gui/columnselectiondialog.cpp:53
+msgid "Up"
+msgstr "Subir"
+
+#: gui/columnselectiondialog.cpp:54
+msgid "Down"
+msgstr "Bajar"
+
+#: gui/columnselectiondialog.cpp:62
+msgid "Select All"
+msgstr "Seleccionar todo"
+
+#: gui/columnselectiondialog.cpp:63
+msgid "Deselect All"
+msgstr "Deseleccionar todo"
 
 #: gui/fixturetable/fixture_table_columns.cpp:12
 msgid "Fixture ID"
@@ -95,6 +223,25 @@ msgstr "Color de tipo"
 #: gui/fixturetable/fixture_table_columns.cpp:22
 msgid "Color Filter"
 msgstr "Filtro de color"
+
+#: gui/logindialog.cpp:21
+msgid "GDTF Share Login"
+msgstr "Inicio de sesión en GDTF Share"
+
+#: gui/logindialog.cpp:28
+msgid ""
+"You must be registered at https://gdtf-share.com/ to download GDTF files."
+msgstr ""
+"Debe estar registrado en https://gdtf-share.com/ para descargar archivos "
+"GDTF."
+
+#: gui/logindialog.cpp:33
+msgid "Username:"
+msgstr "Usuario:"
+
+#: gui/logindialog.cpp:38
+msgid "Password:"
+msgstr "Contraseña:"
 
 #: gui/mainwindow.cpp:851 gui/mainwindow.cpp:1016
 msgid "Loading project file..."
@@ -320,25 +467,13 @@ msgstr "Activar o desactivar el ajuste magnético al arrastrar"
 msgid "Layout Views"
 msgstr "Vistas de layout"
 
-#: gui/mainwindow_menu.cpp:273
-msgid "Add Fixture"
-msgstr "Añadir aparato"
-
 #: gui/mainwindow_menu.cpp:275
 msgid "Insert a new fixture"
 msgstr "Insertar un aparato nuevo"
 
-#: gui/mainwindow_menu.cpp:276
-msgid "Add Truss"
-msgstr "Añadir truss"
-
 #: gui/mainwindow_menu.cpp:278
 msgid "Insert a new truss"
 msgstr "Insertar un truss nuevo"
-
-#: gui/mainwindow_menu.cpp:280
-msgid "Add Scene Object"
-msgstr "Añadir objeto de escena"
 
 #: gui/mainwindow_menu.cpp:281
 msgid "Insert a new scene object"
@@ -620,10 +755,6 @@ msgstr "Abrir carpeta de registros"
 msgid "Export Diagnostic Report..."
 msgstr "Exportar informe de diagnóstico..."
 
-#: gui/mainwindow_menu_builders.cpp:123
-msgid "About Perastage"
-msgstr "Acerca de Perastage"
-
 #: gui/mainwindow_menu_builders.cpp:132
 msgid "&File"
 msgstr "&Archivo"
@@ -666,6 +797,18 @@ msgstr "Idioma"
 #: gui/preferencesdialog.cpp:571
 msgid "Restart required"
 msgstr "Reinicio necesario"
+
+#: gui/selectfixturetypedialog.cpp:21
+msgid "Select Fixture Type"
+msgstr "Seleccionar tipo de aparato"
+
+#: gui/selectfixturetypedialog.cpp:24
+msgid "Choose a fixture type:"
+msgstr "Elija un tipo de aparato:"
+
+#: gui/selectfixturetypedialog.cpp:35 gui/selectnamedialog.cpp:38
+msgid "Add from file..."
+msgstr "Añadir desde archivo..."
 
 #: main.cpp:290
 msgid "Running library bootstrap..."
