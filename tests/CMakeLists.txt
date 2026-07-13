@@ -296,6 +296,13 @@ target_link_libraries(gdtf_canonicalizer_test PRIVATE ${wxWidgets_LIBRARIES} tin
 add_test(NAME GdtfCanonicalizerExportRules COMMAND gdtf_canonicalizer_test)
 
 
+add_executable(gdtf_source_fingerprint_test
+               gdtf_source_fingerprint_test.cpp
+               ../gui/gdtf_source_fingerprint.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(gdtf_source_fingerprint_test PRIVATE ../gui ../core)
+add_test(NAME GdtfSourceFingerprint COMMAND gdtf_source_fingerprint_test)
+
 add_executable(gdtf_metadata_summary_test
                gdtf_metadata_summary_test.cpp
                ../core/gdtf_archive_reader.cpp
