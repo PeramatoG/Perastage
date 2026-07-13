@@ -100,6 +100,8 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
+- Added maintainer localization workflow targets for POT generation, PO merging, translation validation, and high-confidence UI string audits, plus a Spanish terminology glossary for future translation reviews.
+
 - Added internal GDTF Wheel and Attribute Inspector architecture for read-only wheel, slot, filter, graphic-wheel, CIE color, resource, and DMX value inspection.
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
@@ -195,6 +197,7 @@ If you encounter any problems installing or running Perastage, please open an is
 
 ## Internal changes
 
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -213,6 +216,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Fixed Windows build compatibility for Layout 2D preview diagnostics.
 
 ## Internal changes
+
 
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 

@@ -26,6 +26,33 @@ When a value is both a stable internal identifier and a visible UI label, keep t
 
 Mark complete English source messages with `_()` or `wxGetTranslation()` at the presentation boundary. Translate formatted messages as complete format strings before inserting dynamic values, and keep filenames, imported names, layer names, UUIDs, paths, numeric values, and technical details as unmodified parameters. Use the wxWidgets plural gettext API for true singular/plural cases instead of concatenating translated fragments.
 
+## Developer workflow
+
+Mark new Perastage-created user-facing UI text in the same change that introduces it. Use `_()` for literal UI strings, `wxGetTranslation()` when translating an existing `wxString` source identifier at a UI boundary, and the wxWidgets plural gettext API for true singular/plural messages. Keep complete English sentences or labels in the source; do not build translated sentences from separately translated fragments.
+
+For formatted UI text, translate the complete format string first and then insert dynamic values. Dynamic values such as filenames, imported names, UUIDs, protocol values, fixture names, layer names, object names, paths, numeric values, and technical error details are parameters and must not be translated or normalized.
+
+Internal diagnostic logs are not the same as the user-visible Console panel. Diagnostic logs used for crash reports, files, debugging, protocol traces, and developer troubleshooting should normally stay stable English technical text. Console text that explains actions, errors, help, progress, or results to the user should be translated, while stable prefixes such as `[INFO]`, `[WARNING]`, `[ERROR]`, `[CMD]`, and `[METRIC]` remain unchanged for styling and parsing.
+
+Use the terminology in [localization_glossary.md](localization_glossary.md) for recurring technical terms. Preserve official standards and identifiers such as MVR, GDTF, DMX, Art-Net, UUID, XML, Geometry3D, Symbol, and Symdef when translating would reduce precision.
+
+## Catalog maintenance
+
+Normal application builds compile `.po` files into generated `.mo` files in the build tree and do not rewrite committed translation sources. Use explicit developer targets for source updates and checks:
+
+```sh
+cmake --build build --target perastage_update_pot
+cmake --build build --target perastage_update_po
+cmake --build build --target perastage_check_translations
+cmake --build build --target perastage_translations
+```
+
+The helper script behind these targets is `scripts/localization_catalog.py`. It generates `resources/locale/perastage.pot` with `xgettext`, merges source changes into enabled PO catalogs with `msgmerge`, validates catalogs with `msgfmt --check`, rejects fuzzy or empty active translations, and runs a conservative audit for high-confidence unmarked wxWidgets UI strings. The audit baseline is documented in `scripts/localization_audit_allowlist.txt`; remove entries as strings are converted, and only add new entries for stable technical strings or documented exceptions.
+
+Developers may edit PO files directly or with Poedit. External translators can submit pull requests that change only `resources/locale/<language>/LC_MESSAGES/perastage.po`; maintainers should run `perastage_check_translations` and `perastage_translations` before merging.
+
+To add a new language, add it to the supported-language registry and native display-name list in code, initialize `resources/locale/<language>/LC_MESSAGES/perastage.po` from `resources/locale/perastage.pot`, add the language code to `PERASTAGE_TRANSLATION_LANGUAGES` in CMake, provide complete translations, and add or update localization tests for language selection, catalog loading, fallback behavior, and packaging paths.
+
 ## Regenerating catalogs
 
 Editable translations live in `.po` files. Generated `.mo` catalogs are build artifacts and are not committed. CMake generates the Spanish catalog at `generated/locale/es/LC_MESSAGES/perastage.mo` inside the build directory when gettext `msgfmt` is available.
