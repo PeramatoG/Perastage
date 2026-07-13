@@ -123,6 +123,14 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     add_test(NAME LocalizationCatalogIntegration COMMAND localization_catalog_integration_test)
     set_tests_properties(LocalizationCatalogIntegration PROPERTIES
                          ENVIRONMENT "PERASTAGE_LOCALE_ROOT=${PERASTAGE_GENERATED_LOCALE_DIR}")
+    add_test(NAME GettextHelperRegression
+             COMMAND "${CMAKE_COMMAND}"
+                     "-DHELPER_SCRIPT=${CMAKE_SOURCE_DIR}/cmake/PerastageCompileGettextCatalog.cmake"
+                     "-DMSGFMT_EXECUTABLE=${PERASTAGE_MSGFMT_EXECUTABLE}"
+                     "-DGETTEXT_BIN_DIR=${PERASTAGE_MSGFMT_DIRECTORY}"
+                     "-DINPUT_PO=${CMAKE_SOURCE_DIR}/resources/locale/es/LC_MESSAGES/perastage.po"
+                     "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+                     -P "${CMAKE_CURRENT_SOURCE_DIR}/PerastageGettextHelperRegression.cmake")
 endif()
 
 add_executable(platform_locale_test

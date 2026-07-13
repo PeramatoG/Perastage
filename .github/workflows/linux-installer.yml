@@ -297,6 +297,7 @@ jobs:
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
+          test -f squashfs-root/usr/bin/resources/locale/es/LC_MESSAGES/perastage.mo || { echo "Extracted AppImage Spanish catalog is missing"; exit 1; }
 
           echo "---- Extracted Perastage RPATH ----"
           patchelf --print-rpath squashfs-root/usr/bin/Perastage || true

@@ -120,3 +120,7 @@ Default log locations are:
 - Linux: `${XDG_STATE_HOME}/perastage/logs/perastage.log`, or `~/.local/state/perastage/logs/perastage.log` when `XDG_STATE_HOME` is not set
 
 Crash reports are written under the `crash_reports` folder inside the same logs folder. Use **Help -> Export Diagnostic Report** to create a plain-text report that includes build information, platform details, captured OpenGL information when available, and recent log lines. Share this file manually only if you are comfortable sending it to the developer.
+
+## Localization catalog generation
+
+If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, install `gettext[tools]:x64-windows` with the same vcpkg root and installed directory used by CMake. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.

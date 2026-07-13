@@ -308,8 +308,10 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     endif()
     message(STATUS "Perastage gettext provider: ${PERASTAGE_GETTEXT_PROVIDER}")
     message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
+    message(STATUS "Perastage gettext bin dir: ${PERASTAGE_MSGFMT_DIRECTORY}")
     message(STATUS "Perastage gettext xgettext: ${PERASTAGE_XGETTEXT_EXECUTABLE}")
     message(STATUS "Perastage gettext msgmerge: ${PERASTAGE_MSGMERGE_EXECUTABLE}")
+    message(STATUS "Perastage gettext msgattrib: ${PERASTAGE_MSGATTRIB_EXECUTABLE}")
     if(WIN32)
         set(PERASTAGE_MSGFMT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}$<SEMICOLON>$ENV{PATH}")
         set(PERASTAGE_GETTEXT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}$<SEMICOLON>$ENV{PATH}")
@@ -322,10 +324,15 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
         set(PERASTAGE_MO_FILE "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.mo")
         add_custom_command(
             OUTPUT "${PERASTAGE_MO_FILE}"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES"
-            COMMAND ${CMAKE_COMMAND} -E echo "Generating gettext catalog: ${PERASTAGE_PO_FILE} -> ${PERASTAGE_MO_FILE}"
-            COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_MSGFMT_ENV_PATH}" "${PERASTAGE_MSGFMT_EXECUTABLE}" --check -o "${PERASTAGE_MO_FILE}" "${PERASTAGE_PO_FILE}"
-            DEPENDS "${PERASTAGE_PO_FILE}"
+            COMMAND "${CMAKE_COMMAND}"
+                    "-DMSGFMT_EXECUTABLE=${PERASTAGE_MSGFMT_EXECUTABLE}"
+                    "-DGETTEXT_BIN_DIR=${PERASTAGE_MSGFMT_DIRECTORY}"
+                    "-DINPUT_PO=${PERASTAGE_PO_FILE}"
+                    "-DOUTPUT_MO=${PERASTAGE_MO_FILE}"
+                    -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCompileGettextCatalog.cmake"
+            DEPENDS
+                    "${PERASTAGE_PO_FILE}"
+                    "${CMAKE_SOURCE_DIR}/cmake/PerastageCompileGettextCatalog.cmake"
             COMMENT "Generating ${PERASTAGE_TRANSLATION_LANGUAGE} gettext catalog"
             VERBATIM
         )
@@ -673,8 +680,8 @@ add_custom_target(perastage_stage
 if(WIN32 AND MSVC)
     add_custom_target(perastage_symbols
         COMMAND ${CMAKE_COMMAND}
-            -DPDB_SOURCE=$<TARGET_PDB_FILE:${PROJECT_NAME}>
-            -DPDB_DESTINATION="${PERASTAGE_SYMBOLS_DIR}"
+            "-DPDB_SOURCE=$<TARGET_PDB_FILE:${PROJECT_NAME}>"
+            "-DPDB_DESTINATION=${PERASTAGE_SYMBOLS_DIR}"
             -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCopySymbols.cmake"
         DEPENDS ${PROJECT_NAME}
     )
@@ -716,15 +723,14 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
         endif()
         set(PERASTAGE_RUNTIME_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.mo")
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_RUNTIME_LOCALE_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E echo "Copying runtime catalog: ${PERASTAGE_RUNTIME_MO} -> ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${PERASTAGE_RUNTIME_MO}"
-                    "${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-            COMMAND ${CMAKE_COMMAND} -E echo "Verifying runtime catalog: ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
-            COMMAND ${CMAKE_COMMAND}
-                    -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+            COMMAND "${CMAKE_COMMAND}"
+                    "-DSOURCE_MO=${PERASTAGE_RUNTIME_MO}"
+                    "-DDESTINATION_MO=${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+                    -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCopyRuntimeCatalog.cmake"
+            COMMAND "${CMAKE_COMMAND}"
+                    "-DEXPECTED_FILE=${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
                     -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
+            VERBATIM
         )
     endforeach()
 endif()
