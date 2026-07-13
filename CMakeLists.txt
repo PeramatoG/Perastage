@@ -225,30 +225,60 @@ set(PERASTAGE_ES_PO "${CMAKE_SOURCE_DIR}/resources/locale/es/LC_MESSAGES/perasta
 set(PERASTAGE_GENERATED_LOCALE_DIR "${CMAKE_BINARY_DIR}/generated/locale")
 set(PERASTAGE_ES_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES/perastage.mo")
 set(PERASTAGE_MSGFMT_HINTS "")
+set(PERASTAGE_GETTEXT_PROVIDER "")
+set(PERASTAGE_VCPKG_INSTALLED_ROOT "")
+set(PERASTAGE_VCPKG_GETTEXT_TRIPLET "")
+set(PERASTAGE_EXPECTED_VCPKG_MSGFMT "")
 if(WIN32)
-    list(APPEND PERASTAGE_MSGFMT_HINTS
-        "$ENV{ChocolateyInstall}/bin"
-        "$ENV{ProgramData}/chocolatey/bin"
-    )
-    if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
-        list(APPEND PERASTAGE_MSGFMT_HINTS
-            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/gettext/bin"
-            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/gettext"
-        )
+    if(DEFINED VCPKG_INSTALLED_DIR AND NOT "${VCPKG_INSTALLED_DIR}" STREQUAL "")
+        set(PERASTAGE_VCPKG_INSTALLED_ROOT "${VCPKG_INSTALLED_DIR}")
+    elseif(DEFINED CMAKE_TOOLCHAIN_FILE AND
+           CMAKE_TOOLCHAIN_FILE MATCHES "[/\\]scripts[/\\]buildsystems[/\\]vcpkg\\.cmake$")
+        get_filename_component(_perastage_vcpkg_buildsystems_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+        get_filename_component(_perastage_vcpkg_scripts_dir "${_perastage_vcpkg_buildsystems_dir}" DIRECTORY)
+        get_filename_component(_perastage_vcpkg_root "${_perastage_vcpkg_scripts_dir}" DIRECTORY)
+        set(PERASTAGE_VCPKG_INSTALLED_ROOT "${_perastage_vcpkg_root}/installed")
     endif()
-endif()
-find_package(Gettext QUIET)
-find_program(PERASTAGE_MSGFMT_EXECUTABLE
-    NAMES msgfmt msgfmt.exe
-    HINTS ${PERASTAGE_MSGFMT_HINTS}
-)
-if(GETTEXT_MSGFMT_EXECUTABLE AND NOT PERASTAGE_MSGFMT_EXECUTABLE)
-    set(PERASTAGE_MSGFMT_EXECUTABLE "${GETTEXT_MSGFMT_EXECUTABLE}")
+
+    if(DEFINED VCPKG_TARGET_TRIPLET AND NOT "${VCPKG_TARGET_TRIPLET}" STREQUAL "")
+        set(PERASTAGE_VCPKG_GETTEXT_TRIPLET "${VCPKG_TARGET_TRIPLET}")
+    else()
+        set(PERASTAGE_VCPKG_GETTEXT_TRIPLET "x64-windows")
+    endif()
+
+    if(NOT PERASTAGE_VCPKG_INSTALLED_ROOT STREQUAL "")
+        set(PERASTAGE_EXPECTED_VCPKG_MSGFMT
+            "${PERASTAGE_VCPKG_INSTALLED_ROOT}/${PERASTAGE_VCPKG_GETTEXT_TRIPLET}/tools/gettext/bin/msgfmt.exe")
+        get_filename_component(PERASTAGE_EXPECTED_VCPKG_MSGFMT_DIR
+            "${PERASTAGE_EXPECTED_VCPKG_MSGFMT}" DIRECTORY)
+        find_program(PERASTAGE_MSGFMT_EXECUTABLE
+            NAMES msgfmt.exe
+            HINTS "${PERASTAGE_EXPECTED_VCPKG_MSGFMT_DIR}"
+            NO_DEFAULT_PATH
+        )
+        if(PERASTAGE_MSGFMT_EXECUTABLE)
+            set(PERASTAGE_GETTEXT_PROVIDER "vcpkg")
+        endif()
+    endif()
+else()
+    find_package(Gettext QUIET)
+    find_program(PERASTAGE_MSGFMT_EXECUTABLE NAMES msgfmt)
+    if(GETTEXT_MSGFMT_EXECUTABLE AND NOT PERASTAGE_MSGFMT_EXECUTABLE)
+        set(PERASTAGE_MSGFMT_EXECUTABLE "${GETTEXT_MSGFMT_EXECUTABLE}")
+    endif()
+    if(PERASTAGE_MSGFMT_EXECUTABLE)
+        set(PERASTAGE_GETTEXT_PROVIDER "system")
+    endif()
 endif()
 if(PERASTAGE_ENABLE_LOCALIZATION)
     if(NOT PERASTAGE_MSGFMT_EXECUTABLE)
-        message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but GNU gettext msgfmt was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Install gettext/msgfmt and reconfigure: on Windows use Chocolatey gettext or provide msgfmt on PATH; on macOS use Homebrew gettext; on Linux install the gettext package. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
+        if(WIN32)
+            message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but vcpkg gettext msgfmt.exe was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Expected msgfmt.exe: ${PERASTAGE_EXPECTED_VCPKG_MSGFMT}. Active vcpkg installed root: ${PERASTAGE_VCPKG_INSTALLED_ROOT}. Active vcpkg triplet: ${PERASTAGE_VCPKG_GETTEXT_TRIPLET}. For the default setup, run: C:\\vcpkg\\vcpkg.exe install \"gettext[tools]:x64-windows\". If you use another vcpkg root, run the equivalent command with that configured vcpkg.exe. Then clear the affected CMake cache and reconfigure. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
+        else()
+            message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but GNU gettext msgfmt was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Install gettext/msgfmt and reconfigure: on macOS use Homebrew gettext; on Linux install the gettext package. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
+        endif()
     endif()
+    message(STATUS "Perastage gettext provider: ${PERASTAGE_GETTEXT_PROVIDER}")
     message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
     add_custom_command(
         OUTPUT "${PERASTAGE_ES_MO}"

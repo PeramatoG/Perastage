@@ -65,10 +65,18 @@ function Install-PerastageDependencies {
         'podofo:x64-windows',
         'zlib:x64-windows',
         'backward-cpp:x64-windows',
-        'mdns:x64-windows'
+        'mdns:x64-windows',
+        'gettext[tools]:x64-windows'
     )
 
     & $VcpkgExe install $packages
+
+    $vcpkgRoot = Split-Path -Parent $VcpkgExe
+    $msgfmt = Join-Path $vcpkgRoot 'installed\x64-windows\tools\gettext\bin\msgfmt.exe'
+    if (-not (Test-Path $msgfmt)) {
+        throw "vcpkg gettext msgfmt.exe was not found at: $msgfmt"
+    }
+    Write-Host "vcpkg msgfmt: $msgfmt"
 }
 
 # Resolves the CMake configure and build presets for the selected configuration.

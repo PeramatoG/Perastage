@@ -114,6 +114,7 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
+- Added vcpkg classic-mode gettext tools to the Windows setup, installer workflow, and dependency documentation so Spanish catalogs are generated from the configured vcpkg installation.
 - Included localization catalogs in development, installed, and packaged runtime resource layouts, with build-tree gettext catalog generation for maintainers and packaged builds.
 - Added the mdns vcpkg port to installer CI dependency setup so MVR-xchange mDNS-enabled builds can configure reliably on all packaged platforms.
 - Improved the MVR-xchange TCP publisher with safer dialog shutdown, specification-aligned JSON responses, commit broadcasting, and the vcpkg mdns discovery backend, explicit mDNS interface selection, and detailed TCP/protocol diagnostics, remote station tracking, and the active mDNS group discovery, group-qualified service instance names, canonical UUID reuse, non-blocking diagnostics, and outgoing join-flow pieces needed to distinguish incoming and outgoing MVR-xchange handshakes without repeated modal message boxes, and visible advertised IP/port status in the dialog.
