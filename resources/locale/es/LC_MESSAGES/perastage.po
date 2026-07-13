@@ -32,3 +32,267 @@ msgstr "Idioma"
 
 msgid "Preferences"
 msgstr "Preferencias"
+
+msgid "New"
+msgstr "Nuevo"
+
+msgid "Create a new project"
+msgstr "Crear un proyecto nuevo"
+
+msgid "Open"
+msgstr "Abrir"
+
+msgid "Open an existing project"
+msgstr "Abrir un proyecto existente"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Save the current project"
+msgstr "Guardar el proyecto actual"
+
+msgid "Save As"
+msgstr "Guardar como"
+
+msgid "Save the current project with a new name"
+msgstr "Guardar el proyecto actual con un nombre nuevo"
+
+msgid "Import MVR"
+msgstr "Importar MVR"
+
+msgid "Import an MVR file"
+msgstr "Importar un archivo MVR"
+
+msgid "Export MVR"
+msgstr "Exportar MVR"
+
+msgid "Export the project to MVR"
+msgstr "Exportar el proyecto a MVR"
+
+msgid "Print"
+msgstr "Imprimir"
+
+msgid "Choose what to print"
+msgstr "Elegir qué imprimir"
+
+msgid "File"
+msgstr "Archivo"
+
+msgid "Undo"
+msgstr "Deshacer"
+
+msgid "Undo last action"
+msgstr "Deshacer la última acción"
+
+msgid "Redo"
+msgstr "Rehacer"
+
+msgid "Redo last undone action"
+msgstr "Rehacer la última acción deshecha"
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "3D Layout View"
+msgstr "Vista de layout 3D"
+
+msgid "Switch to 3D Layout View"
+msgstr "Cambiar a la vista de layout 3D"
+
+msgid "2D Layout View"
+msgstr "Vista de layout 2D"
+
+msgid "Switch to 2D Layout View"
+msgstr "Cambiar a la vista de layout 2D"
+
+msgid "Layout Mode"
+msgstr "Modo de layout"
+
+msgid "Switch to Layout Mode View"
+msgstr "Cambiar a la vista de modo de layout"
+
+msgid "Top View"
+msgstr "Vista superior"
+
+msgid "Apply top view to active viewport"
+msgstr "Aplicar la vista superior al visor activo"
+
+msgid "Front View"
+msgstr "Vista frontal"
+
+msgid "Apply front view to active viewport"
+msgstr "Aplicar la vista frontal al visor activo"
+
+msgid "Side View"
+msgstr "Vista lateral"
+
+msgid "Apply side view to active viewport"
+msgstr "Aplicar la vista lateral al visor activo"
+
+msgid "Fixture ID"
+msgstr "ID de aparato"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Layer"
+msgstr "Capa"
+
+msgid "Hang Pos"
+msgstr "Posición de cuelgue"
+
+msgid "Universe"
+msgstr "Universo"
+
+msgid "Channel"
+msgstr "Canal"
+
+msgid "Mode"
+msgstr "Modo"
+
+msgid "Ch Count"
+msgstr "N.º canales"
+
+msgid "Model file"
+msgstr "Archivo de modelo"
+
+msgid "Pos X"
+msgstr "Pos X"
+
+msgid "Pos Y"
+msgstr "Pos Y"
+
+msgid "Pos Z"
+msgstr "Pos Z"
+
+msgid "Roll (X)"
+msgstr "Alabeo (X)"
+
+msgid "Pitch (Y)"
+msgstr "Cabeceo (Y)"
+
+msgid "Yaw (Z)"
+msgstr "Guiñada (Z)"
+
+msgid "Power (W)"
+msgstr "Potencia (W)"
+
+msgid "Weight (kg)"
+msgstr "Peso (kg)"
+
+msgid "Category"
+msgstr "Categoría"
+
+msgid "Type Color"
+msgstr "Color de tipo"
+
+msgid "Color Filter"
+msgstr "Filtro de color"
+
+msgid "Select Tool"
+msgstr "Herramienta de selección"
+
+msgid "Switch to standard selection mode"
+msgstr "Cambiar al modo de selección estándar"
+
+msgid "Measure Tool"
+msgstr "Herramienta de medición"
+
+msgid "Toggle center-to-center measure tool"
+msgstr "Activar o desactivar la medición de centro a centro"
+
+msgid "Axis Lock"
+msgstr "Bloqueo de eje"
+
+msgid "Toggle axis-constrained selection movement"
+msgstr "Activar o desactivar el movimiento de selección restringido por eje"
+
+msgid "Drag Move"
+msgstr "Mover arrastrando"
+
+msgid "Toggle left-click selection dragging"
+msgstr "Activar o desactivar el arrastre de selección con clic izquierdo"
+
+msgid "Magnet"
+msgstr "Imán"
+
+msgid "Toggle Magnet snapping while dragging"
+msgstr "Activar o desactivar el ajuste magnético al arrastrar"
+
+msgid "Layout Views"
+msgstr "Vistas de layout"
+
+msgid "Tools"
+msgstr "Herramientas"
+
+msgid "Add Fixture"
+msgstr "Añadir aparato"
+
+msgid "Insert a new fixture"
+msgstr "Insertar un aparato nuevo"
+
+msgid "Add Truss"
+msgstr "Añadir truss"
+
+msgid "Insert a new truss"
+msgstr "Insertar un truss nuevo"
+
+msgid "Add Scene Object"
+msgstr "Añadir objeto de escena"
+
+msgid "Insert a new scene object"
+msgstr "Insertar un objeto de escena nuevo"
+
+msgid "Create from Text"
+msgstr "Crear desde texto"
+
+msgid "Create from text"
+msgstr "Crear desde texto"
+
+msgid "Layout"
+msgstr "Layout"
+
+msgid "Add Text"
+msgstr "Añadir texto"
+
+msgid "Add text to layout"
+msgstr "Añadir texto al layout"
+
+msgid "Add Image"
+msgstr "Añadir imagen"
+
+msgid "Add image to layout"
+msgstr "Añadir imagen al layout"
+
+msgid "Download GDTF"
+msgstr "Descargar GDTF"
+
+msgid "Download a fixture profile from GDTF Share"
+msgstr "Descargar un perfil de aparato desde GDTF Share"
+
+msgid "Language:"
+msgstr "Idioma:"
+
+msgid "Add 2D View"
+msgstr "Añadir vista 2D"
+
+msgid "Add 2D View to Layout"
+msgstr "Añadir vista 2D al layout"
+
+msgid "Add Legend"
+msgstr "Añadir leyenda"
+
+msgid "Add fixture legend to layout"
+msgstr "Añadir leyenda de aparatos al layout"
+
+msgid "Add Event Table"
+msgstr "Añadir tabla de evento"
+
+msgid "Add event table to layout"
+msgstr "Añadir tabla de evento al layout"
+
+msgid "Add text box to layout"
+msgstr "Añadir cuadro de texto al layout"

@@ -4,14 +4,15 @@
 #include "columnutils.h"
 
 #include <array>
+#include <wx/intl.h>
 
 namespace FixtureTableColumns {
 namespace {
 constexpr std::array<const char *, Count()> kLabels = {
-    "Fixture ID", "Name",      "Type",        "Layer",    "Hang Pos",
-    "Universe",   "Channel",   "Mode",        "Ch Count", "Model file",
-    "Pos X",      "Pos Y",     "Pos Z",       "Roll (X)", "Pitch (Y)",
-    "Yaw (Z)",    "Power (W)", "Weight (kg)", "Category", "Type Color",
+    "Fixture ID",  "Name",      "Type",        "Layer",    "Hang Pos",
+    "Universe",    "Channel",   "Mode",        "Ch Count", "Model file",
+    "Pos X",       "Pos Y",     "Pos Z",       "Roll (X)", "Pitch (Y)",
+    "Yaw (Z)",     "Power (W)", "Weight (kg)", "Category", "Type Color",
     "Color Filter"};
 constexpr std::array<int, Count()> kWidths = {90,  150, 180, 100, 120, 80, 80,
                                               120, 80,  180, 80,  80,  80, 80,
@@ -29,7 +30,11 @@ std::optional<Column> FromIndex(int index) {
 
 // Returns the default visible labels in stable fixture model order.
 std::vector<wxString> DefaultLabels() {
-  return {kLabels.begin(), kLabels.end()};
+  std::vector<wxString> labels;
+  labels.reserve(kLabels.size());
+  for (const char *label : kLabels)
+    labels.push_back(wxGetTranslation(wxString::FromUTF8(label)));
+  return labels;
 }
 
 // Returns the default visible widths in stable fixture model order.
@@ -37,7 +42,8 @@ std::vector<int> DefaultWidths() { return {kWidths.begin(), kWidths.end()}; }
 
 // Returns the default label for a fixture column.
 wxString Label(Column column) {
-  return wxString::FromUTF8(kLabels[static_cast<size_t>(ToIndex(column))]);
+  return wxGetTranslation(
+      wxString::FromUTF8(kLabels[static_cast<size_t>(ToIndex(column))]));
 }
 
 // Returns the default width for a fixture column.
@@ -122,14 +128,14 @@ void ConfigureColumns(wxDataViewListCtrl *table,
   }
 
   for (const Column column : {Column::VisualColor, Column::MvrColor}) {
-  auto *colorRenderer =
-      new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
-  colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
+    auto *colorRenderer =
+        new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
+    colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
     const int colorColumn = ToIndex(column);
-  table->AppendColumn(new wxDataViewColumn(
-      columnLabels[static_cast<size_t>(colorColumn)], colorRenderer,
-      colorColumn, widths[static_cast<size_t>(colorColumn)], wxALIGN_LEFT,
-      flags));
+    table->AppendColumn(new wxDataViewColumn(
+        columnLabels[static_cast<size_t>(colorColumn)], colorRenderer,
+        colorColumn, widths[static_cast<size_t>(colorColumn)], wxALIGN_LEFT,
+        flags));
   }
 
   ColumnUtils::EnforceMinColumnWidth(table);

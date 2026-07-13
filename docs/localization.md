@@ -20,7 +20,11 @@ Catalogs use the standard gettext layout `locale/<language>/LC_MESSAGES/perastag
 - Linux installs: `resources/locale` next to the executable in the current install layout, with a `../share/locale` candidate reserved for distro-style layouts.
 - macOS bundles: `Contents/Resources/locale` inside the application bundle.
 
-Only user-facing interface labels should be marked for translation. Serialization keys, language codes, MVR/GDTF XML names, UUIDs, file paths, official enum values, project data, and technical file formats must remain stable and untranslated. UI localization must not change numeric serialization; Perastage keeps technical numeric formats locale-independent.
+Only user-facing interface text should be marked for translation. Text that comes from projects, imports, user input, file names, object names, fixture names, layer names, UUIDs, protocol values, and other domain data is displayed exactly as stored. Serialization keys, language codes, MVR/GDTF XML names, UUIDs, file paths, official enum values, project data, and technical file formats must remain stable and untranslated. UI localization must not change numeric serialization; Perastage keeps technical numeric formats locale-independent.
+
+When a value is both a stable internal identifier and a visible UI label, keep the identifier in the model or serializer unchanged and add a presentation-only display-label mapping at the UI boundary. Reusable UI mappings, such as table-column label helpers, should translate the display label with wxWidgets gettext while preserving the stable order, enum, or client-data value used by application logic. Do not compare translated text for dispatch or persistence.
+
+Mark complete English source messages with `_()` or `wxGetTranslation()` at the presentation boundary. Translate formatted messages as complete format strings before inserting dynamic values, and keep filenames, imported names, layer names, UUIDs, paths, numeric values, and technical details as unmodified parameters. Use the wxWidgets plural gettext API for true singular/plural cases instead of concatenating translated fragments.
 
 ## Regenerating catalogs
 
