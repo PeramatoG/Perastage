@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 16:26+0000\n"
+"POT-Creation-Date: 2026-07-13 16:58+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -58,7 +58,9 @@ msgstr ""
 msgid "Add Fixture"
 msgstr ""
 
-#: gui/addfixturedialog.cpp:29
+#: gui/addfixturedialog.cpp:29 gui/scene_object_primitive_dialogs.cpp:223
+#: gui/scene_object_primitive_dialogs.cpp:341
+#: gui/scene_object_primitive_dialogs.cpp:465
 msgid "Units:"
 msgstr ""
 
@@ -77,7 +79,7 @@ msgid ""
 "currently attached to the pointer."
 msgstr ""
 
-#: gui/addfixturedialog.cpp:45
+#: gui/addfixturedialog.cpp:45 gui/scene_object_primitive_dialogs.cpp:68
 msgid "Name:"
 msgstr ""
 
@@ -140,6 +142,22 @@ msgstr ""
 
 #: gui/columnselectiondialog.cpp:63
 msgid "Deselect All"
+msgstr ""
+
+#: gui/consolepanel.cpp:166
+msgid "Console commands:"
+msgstr ""
+
+#: gui/consolepanel.cpp:171
+msgid "Examples:"
+msgstr ""
+
+#: gui/consolepanel.cpp:201
+msgid "Show available console commands and examples."
+msgstr ""
+
+#: gui/consolepanel.cpp:221 tests/localization_catalog_integration_test.cpp:110
+msgid "Console commands"
 msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:12
@@ -293,6 +311,110 @@ msgstr ""
 msgid "Channel out of range (1-512)"
 msgstr ""
 
+#: gui/gdtfsearchdialog.cpp:165
+#: tests/localization_catalog_integration_test.cpp:114
+msgid "Search GDTF"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:177
+#: tests/localization_catalog_integration_test.cpp:116
+msgid "Manufacturer:"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:181
+msgid "Fixture:"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:191
+msgid "< Prev"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:192
+msgid "Next >"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:193
+msgid "Page 1/1"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:203 gui/trusstablepanel.cpp:289
+msgid "Manufacturer"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:205
+msgid "Fixture"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:207
+msgid "Modes"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:209
+msgid "Creator"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:211
+msgid "Uploader"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:213
+msgid "Creation Date"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:215
+msgid "Revision"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:217
+msgid "Last Modified"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:219
+msgid "Version"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:221
+msgid "Rating"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:227
+#: tests/localization_catalog_integration_test.cpp:118
+msgid "Download"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:228 gui/scene_object_primitive_dialogs.cpp:132
+msgid "Cancel"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:393
+#, c-format
+msgid "Page %zu/%zu (%zu results)"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:517 gui/gdtfsearchdialog.cpp:553
+#, c-format
+msgid "Showing local catalog (last updated: %s)"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:524
+#, c-format
+msgid ""
+"Online GDTF catalog refresh failed.\n"
+"%s"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:526
+msgid "GDTF catalog refresh"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:540
+msgid "Updating online catalog..."
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:550
+msgid "Showing local catalog."
+msgstr ""
+
 #: gui/hoisttablepanel.cpp:250
 msgid "Use automatic value"
 msgstr ""
@@ -405,6 +527,32 @@ msgstr ""
 msgid "Password:"
 msgstr ""
 
+#: gui/mainwindow.cpp:525 gui/mainwindow_menu_builders.cpp:74
+msgid "3D Viewport"
+msgstr ""
+
+#: gui/mainwindow.cpp:566 gui/mainwindow_menu_builders.cpp:75
+msgid "2D Viewport"
+msgstr ""
+
+#: gui/mainwindow.cpp:582 gui/mainwindow_menu_builders.cpp:76
+msgid "2D Render Options"
+msgstr ""
+
+#: gui/mainwindow.cpp:739
+#, c-format
+msgid "Do you want to save changes before %s?"
+msgstr ""
+
+#: gui/mainwindow.cpp:796
+#, c-format
+msgid "Please wait until the startup project loading finishes before %s."
+msgstr ""
+
+#: gui/mainwindow.cpp:798
+msgid "Perastage is still loading"
+msgstr ""
+
 #: gui/mainwindow.cpp:851 gui/mainwindow.cpp:1016
 msgid "Loading project file..."
 msgstr ""
@@ -505,7 +653,7 @@ msgstr ""
 msgid "Export the project to MVR"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:172
+#: gui/mainwindow_menu.cpp:172 gui/mainwindow_print.cpp:213
 msgid "Print"
 msgstr ""
 
@@ -693,7 +841,7 @@ msgstr ""
 msgid "Add image to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:317
+#: gui/mainwindow_menu.cpp:317 gui/mainwindow_print.cpp:208
 msgid "Layout"
 msgstr ""
 
@@ -813,21 +961,9 @@ msgstr ""
 msgid "Console"
 msgstr ""
 
-#: gui/mainwindow_menu_builders.cpp:73 gui/riggingpanel.cpp:185
-#: gui/summarypanel.cpp:135
+#: gui/mainwindow_menu_builders.cpp:73 gui/mainwindow_print.cpp:627
+#: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:135
 msgid "Fixtures"
-msgstr ""
-
-#: gui/mainwindow_menu_builders.cpp:74
-msgid "3D Viewport"
-msgstr ""
-
-#: gui/mainwindow_menu_builders.cpp:75
-msgid "2D Viewport"
-msgstr ""
-
-#: gui/mainwindow_menu_builders.cpp:76
-msgid "2D Render Options"
 msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:77
@@ -936,6 +1072,125 @@ msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:136
 msgid "&Help"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:209
+msgid "2D View"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:210
+msgid "Table"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:212
+msgid "Select what to print:"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:233 gui/mainwindow_print.cpp:380
+msgid "2D viewport is not available."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:233 gui/mainwindow_print.cpp:263
+#: gui/mainwindow_print.cpp:293 gui/mainwindow_print.cpp:331
+#: gui/mainwindow_print.cpp:335
+msgid "Print Viewer 2D"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:253
+msgid "Save 2D view as"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:254 gui/mainwindow_print.cpp:404
+msgid "PDF files (*.pdf)|*.pdf"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:262
+msgid "Please choose a destination file for the 2D view."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:276
+msgid "Printing 2D view..."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:292
+msgid "Unable to capture the 2D view for printing."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:328
+#, c-format
+msgid "Failed to generate PDF plan: %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:330 gui/mainwindow_print.cpp:541
+msgid "Print failed. Please review the error and try again."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:334
+#, c-format
+msgid "2D view saved to %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:349
+msgid "No layout is selected."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:349 gui/mainwindow_print.cpp:362
+#: gui/mainwindow_print.cpp:372 gui/mainwindow_print.cpp:380
+#: gui/mainwindow_print.cpp:413 gui/mainwindow_print.cpp:542
+#: gui/mainwindow_print.cpp:546
+msgid "Print Layout"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:362
+msgid "Selected layout is not available."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:371
+msgid "The selected layout is empty."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:403
+msgid "Save layout as"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:412
+msgid "Please choose a destination file for the layout."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:538
+#, c-format
+msgid "Failed to generate layout PDF: %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:545
+#, c-format
+msgid "Layout saved to %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:614
+msgid "Printing layout..."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:630 gui/riggingpanel.cpp:188
+#: gui/summarypanel.cpp:164
+msgid "Trusses"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:633 gui/riggingpanel.cpp:191
+#: gui/summarypanel.cpp:174
+msgid "Hoists"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:636 gui/summarypanel.cpp:191
+msgid "Objects"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:645
+msgid "Select table"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:645
+msgid "Print Table"
 msgstr ""
 
 #: gui/preferencesdialog.cpp:66
@@ -1156,14 +1411,6 @@ msgstr ""
 msgid "Position"
 msgstr ""
 
-#: gui/riggingpanel.cpp:188 gui/summarypanel.cpp:164
-msgid "Trusses"
-msgstr ""
-
-#: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:174
-msgid "Hoists"
-msgstr ""
-
 #: gui/riggingpanel.cpp:193 gui/riggingpanel.cpp:258
 #: tests/localization_catalog_integration_test.cpp:108
 #: tests/localization_catalog_integration_test.cpp:143
@@ -1190,6 +1437,123 @@ msgstr ""
 msgid "Rounded Total Weight +5%"
 msgstr ""
 
+#: gui/scene_object_primitive_dialogs.cpp:123
+msgid "Save as Default"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:125
+msgid "Load Default"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:129
+msgid "Apply"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:131
+msgid "OK"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:177
+msgid "Radius"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:231
+#: gui/scene_object_primitive_dialogs.cpp:349
+#: gui/scene_object_primitive_dialogs.cpp:473
+msgid "Position X"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:233
+#: gui/scene_object_primitive_dialogs.cpp:351
+#: gui/scene_object_primitive_dialogs.cpp:475
+msgid "Position Y"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:235
+#: gui/scene_object_primitive_dialogs.cpp:353
+#: gui/scene_object_primitive_dialogs.cpp:477
+msgid "Position Z"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:236
+#: gui/scene_object_primitive_dialogs.cpp:354
+#: gui/scene_object_primitive_dialogs.cpp:478
+msgid "Rotation X (deg):"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:237
+#: gui/scene_object_primitive_dialogs.cpp:355
+#: gui/scene_object_primitive_dialogs.cpp:479
+msgid "Rotation Y (deg):"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:238
+#: gui/scene_object_primitive_dialogs.cpp:356
+#: gui/scene_object_primitive_dialogs.cpp:480
+msgid "Rotation Z (deg):"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:291
+#: gui/scene_object_primitive_dialogs.cpp:577 gui/trusstablepanel.cpp:290
+#: gui/trusstablepanel.cpp:322
+#: tests/localization_catalog_integration_test.cpp:130
+#: tests/localization_catalog_integration_test.cpp:133
+msgid "Length"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:292
+#: gui/scene_object_primitive_dialogs.cpp:417
+#: gui/scene_object_primitive_dialogs.cpp:536 gui/trusstablepanel.cpp:290
+#: gui/trusstablepanel.cpp:324
+msgid "Height"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:293
+#: gui/scene_object_primitive_dialogs.cpp:535 gui/trusstablepanel.cpp:290
+#: gui/trusstablepanel.cpp:323
+msgid "Width"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:415
+msgid "Top radius"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:416
+msgid "Bottom radius"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:528
+msgid "Edit Screen"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:570
+msgid "Edit Pipe"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:637
+msgid "Add Sphere"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:651
+msgid "Add Cube"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:665
+msgid "Add Cylinder"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:676
+msgid "Edit Sphere"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:689
+msgid "Edit Cube"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:702
+msgid "Edit Cylinder"
+msgstr ""
+
 #: gui/sceneobjecttablepanel.cpp:264 gui/trusstablepanel.cpp:286
 msgid "Model File"
 msgstr ""
@@ -1206,35 +1570,13 @@ msgstr ""
 msgid "Add from file..."
 msgstr ""
 
-#: gui/summarypanel.cpp:191
-msgid "Objects"
-msgstr ""
-
 #: gui/summarypanel.cpp:252 gui/summarypanel.cpp:261 gui/summarypanel.cpp:311
 #: gui/summarypanel.cpp:341 tests/localization_catalog_integration_test.cpp:104
 msgid "Count"
 msgstr ""
 
 #: gui/trusstablepanel.cpp:289
-msgid "Manufacturer"
-msgstr ""
-
-#: gui/trusstablepanel.cpp:289
 msgid "Model"
-msgstr ""
-
-#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:322
-#: tests/localization_catalog_integration_test.cpp:130
-#: tests/localization_catalog_integration_test.cpp:133
-msgid "Length"
-msgstr ""
-
-#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:323
-msgid "Width"
-msgstr ""
-
-#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:324
-msgid "Height"
 msgstr ""
 
 #: main.cpp:290
@@ -1253,22 +1595,6 @@ msgstr ""
 msgid "Spanish"
 msgstr ""
 
-#: tests/localization_catalog_integration_test.cpp:110
-msgid "Console commands"
-msgstr ""
-
 #: tests/localization_catalog_integration_test.cpp:112
 msgid "Create scene from text"
-msgstr ""
-
-#: tests/localization_catalog_integration_test.cpp:114
-msgid "Search GDTF"
-msgstr ""
-
-#: tests/localization_catalog_integration_test.cpp:116
-msgid "Manufacturer:"
-msgstr ""
-
-#: tests/localization_catalog_integration_test.cpp:118
-msgid "Download"
 msgstr ""

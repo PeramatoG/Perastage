@@ -36,6 +36,7 @@
 #include <optional>
 #include <sstream>
 #include <vector>
+#include <wx/intl.h>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 
@@ -149,6 +150,7 @@ wxString ExtractConsoleSection(const wxString &markdown,
   return result.Trim();
 }
 
+// Builds localized fallback console help when bundled help text is unavailable.
 wxString BuildConsoleHelpContent() {
   wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
   helpPath.SetFullName("help.md");
@@ -163,19 +165,15 @@ wxString BuildConsoleHelpContent() {
   if (!section.IsEmpty())
     return section;
 
-  return "Console commands:\n"
-         "- clear\n"
-         "- f ...\n"
-         "- t ...\n"
-         "- pos x|y|z <values>\n"
-         "- pos <x>,<y>,<z>\n"
-         "- x|y|z <values>\n"
-         "- rot x|y|z <values> [--group|--g] [pivotX,pivotY,pivotZ]\n"
-         "Examples:\n"
-         "- f 1-5\n"
-         "- pos x 1 4\n"
-         "- rot z -- 10\n"
-         "- rot y ++45 --g -2.5,0,0";
+  wxString help = _("Console commands:");
+  help += "\n- clear\n- f ...\n- t ...\n";
+  help += "- pos x|y|z <values>\n- pos <x>,<y>,<z>\n";
+  help += "- x|y|z <values>\n";
+  help += "- rot x|y|z <values> [--group|--g] [pivotX,pivotY,pivotZ]\n";
+  help += _("Examples:");
+  help += "\n- f 1-5\n- pos x 1 4\n- rot z -- 10\n";
+  help += "- rot y ++45 --g -2.5,0,0";
+  return help;
 }
 
 } // namespace
@@ -202,7 +200,7 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   m_helpButton = new wxButton(this, wxID_ANY, "?", wxDefaultPosition,
                               wxSize(24, 24), wxBU_EXACTFIT);
   m_helpButton->SetToolTip(
-      "Show available console commands and examples.");
+      _("Show available console commands and examples."));
   m_helpButton->Bind(wxEVT_BUTTON, &ConsolePanel::OnHelpButton, this);
 
   wxBoxSizer *inputSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -222,7 +220,7 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
 }
 
 void ConsolePanel::OnHelpButton(wxCommandEvent &) {
-  wxDialog helpDialog(this, wxID_ANY, "Console commands", wxDefaultPosition,
+  wxDialog helpDialog(this, wxID_ANY, _("Console commands"), wxDefaultPosition,
                       wxSize(620, 420),
                       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
   auto *dialogSizer = new wxBoxSizer(wxVERTICAL);

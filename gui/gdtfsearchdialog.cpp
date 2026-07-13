@@ -22,6 +22,7 @@
 #include <array>
 #include <chrono>
 #include <mutex>
+#include <wx/intl.h>
 #include <wx/datetime.h>
 #include <wx/log.h>
 
@@ -162,7 +163,7 @@ constexpr size_t kDefaultPageSize = 500;
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
                                    const std::string& cachedUpdatedAt,
                                    RefreshCatalogFn refreshCatalogFnIn)
-    : wxDialog(parent, wxID_ANY, "Search GDTF", wxDefaultPosition,
+    : wxDialog(parent, wxID_ANY, _("Search GDTF"), wxDefaultPosition,
                wxSize(1000,700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       currentListData(listData),
@@ -174,11 +175,11 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
-    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Manufacturer:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, _("Manufacturer:")), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
     manufacturerCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
                                      wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(manufacturerCtrl, 1, wxRIGHT, 10);
-    searchSizer->Add(new wxStaticText(this, wxID_ANY, "Fixture:"), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, _("Fixture:")), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
     fixtureCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
                                  wxDefaultSize, wxTE_PROCESS_ENTER);
     searchSizer->Add(fixtureCtrl, 1);
@@ -188,9 +189,9 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     sizer->Add(statusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* pageSizer = new wxBoxSizer(wxHORIZONTAL);
-    prevPageButton = new wxButton(this, wxID_ANY, "< Prev");
-    nextPageButton = new wxButton(this, wxID_ANY, "Next >");
-    pageInfoLabel = new wxStaticText(this, wxID_ANY, "Page 1/1");
+    prevPageButton = new wxButton(this, wxID_ANY, _("< Prev"));
+    nextPageButton = new wxButton(this, wxID_ANY, _("Next >"));
+    pageInfoLabel = new wxStaticText(this, wxID_ANY, _("Page 1/1"));
     pageSizer->Add(prevPageButton, 0, wxRIGHT, 8);
     pageSizer->Add(nextPageButton, 0, wxRIGHT, 10);
     pageSizer->Add(pageInfoLabel, 0, wxALIGN_CENTER_VERTICAL);
@@ -200,32 +201,32 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     resultTable = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                          wxDefaultSize, wxDV_ROW_LINES);
     int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-    resultTable->AppendTextColumn("Manufacturer", wxDATAVIEW_CELL_INERT, 150,
+    resultTable->AppendTextColumn(_("Manufacturer"), wxDATAVIEW_CELL_INERT, 150,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Fixture", wxDATAVIEW_CELL_INERT, 200,
+    resultTable->AppendTextColumn(_("Fixture"), wxDATAVIEW_CELL_INERT, 200,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Modes", wxDATAVIEW_CELL_INERT, 60,
+    resultTable->AppendTextColumn(_("Modes"), wxDATAVIEW_CELL_INERT, 60,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Creator", wxDATAVIEW_CELL_INERT, 120,
+    resultTable->AppendTextColumn(_("Creator"), wxDATAVIEW_CELL_INERT, 120,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Uploader", wxDATAVIEW_CELL_INERT, 100,
+    resultTable->AppendTextColumn(_("Uploader"), wxDATAVIEW_CELL_INERT, 100,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Creation Date", wxDATAVIEW_CELL_INERT, 110,
+    resultTable->AppendTextColumn(_("Creation Date"), wxDATAVIEW_CELL_INERT, 110,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Revision", wxDATAVIEW_CELL_INERT, 90,
+    resultTable->AppendTextColumn(_("Revision"), wxDATAVIEW_CELL_INERT, 90,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Last Modified", wxDATAVIEW_CELL_INERT, 110,
+    resultTable->AppendTextColumn(_("Last Modified"), wxDATAVIEW_CELL_INERT, 110,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Version", wxDATAVIEW_CELL_INERT, 80,
+    resultTable->AppendTextColumn(_("Version"), wxDATAVIEW_CELL_INERT, 80,
                                   wxALIGN_LEFT, flags);
-    resultTable->AppendTextColumn("Rating", wxDATAVIEW_CELL_INERT, 60,
+    resultTable->AppendTextColumn(_("Rating"), wxDATAVIEW_CELL_INERT, 60,
                                   wxALIGN_LEFT, flags);
     ColumnUtils::EnforceMinColumnWidth(resultTable);
     sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxButton* downloadBtn = new wxButton(this, wxID_OK, "Download");
-    wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
+    wxButton* downloadBtn = new wxButton(this, wxID_OK, _("Download"));
+    wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, _("Cancel"));
     btnSizer->AddStretchSpacer(1);
     btnSizer->Add(downloadBtn, 0, wxRIGHT, 5);
     btnSizer->Add(cancelBtn, 0);
@@ -390,7 +391,7 @@ void GdtfSearchDialog::UpdatePaginationControls()
 
     prevPageButton->Enable(currentPage > 0);
     nextPageButton->Enable((currentPage + 1) < pageCount);
-    pageInfoLabel->SetLabel(wxString::Format("Page %zu/%zu (%zu results)",
+    pageInfoLabel->SetLabel(wxString::Format(_("Page %zu/%zu (%zu results)"),
                                              currentPage + 1, pageCount, totalRows));
 }
 
@@ -513,16 +514,17 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
         return;
     }
 
-    wxString fallbackDetails = "Showing local catalog (last updated: " +
-                               wxString::FromUTF8(lastUpdatedAt) + ")";
+    wxString fallbackDetails = wxString::Format(
+        _("Showing local catalog (last updated: %s)"),
+        wxString::FromUTF8(lastUpdatedAt));
     if (!result.failureDetails.empty())
-        fallbackDetails += " - " + wxString::FromUTF8(result.failureDetails);
+        fallbackDetails += wxString::Format(" - %s", wxString::FromUTF8(result.failureDetails));
     UpdateStatusMessage(false, fallbackDetails);
 
     if (entries.empty() && !result.failureDetails.empty()) {
-        wxMessageBox("Online GDTF catalog refresh failed.\n" +
-                         wxString::FromUTF8(result.failureDetails),
-                     "GDTF catalog refresh", wxOK | wxICON_WARNING, this);
+        wxMessageBox(wxString::Format(_("Online GDTF catalog refresh failed.\n%s"),
+                         wxString::FromUTF8(result.failureDetails)),
+                     _("GDTF catalog refresh"), wxOK | wxICON_WARNING, this);
     }
 }
 
@@ -536,7 +538,7 @@ void GdtfSearchDialog::MaybeLogVerboseCatalogTrace(const wxString& message) cons
 void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& details)
 {
     if (refreshing) {
-        statusLabel->SetLabel("Updating online catalog...");
+        statusLabel->SetLabel(_("Updating online catalog..."));
         return;
     }
 
@@ -546,8 +548,9 @@ void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& deta
     }
 
     if (lastUpdatedAt.empty())
-        statusLabel->SetLabel("Showing local catalog.");
+        statusLabel->SetLabel(_("Showing local catalog."));
     else
-        statusLabel->SetLabel("Showing local catalog (last updated: " +
-                              wxString::FromUTF8(lastUpdatedAt) + ")");
+        statusLabel->SetLabel(wxString::Format(
+            _("Showing local catalog (last updated: %s)"),
+            wxString::FromUTF8(lastUpdatedAt)));
 }

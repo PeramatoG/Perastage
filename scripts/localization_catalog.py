@@ -17,7 +17,7 @@ LANGUAGES = ["es"]
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 EXCLUDED_PREFIXES = ("third_party/", "build/", "build-", "cmake-build", ".git/")
 AUDIT_ALLOWLIST = ROOT / "scripts" / "localization_audit_allowlist.txt"
-AUDIT_SOURCE_PREFIXES = ("gui/fixturetablepanel.cpp", "gui/trusstablepanel.cpp", "gui/hoisttablepanel.cpp", "gui/sceneobjecttablepanel.cpp", "gui/riggingpanel.cpp", "gui/layerpanel.cpp", "gui/summarypanel.cpp", "gui/addtrussdialog.cpp")
+AUDIT_SOURCE_PREFIXES = ("gui/fixturetablepanel.cpp", "gui/trusstablepanel.cpp", "gui/hoisttablepanel.cpp", "gui/sceneobjecttablepanel.cpp", "gui/riggingpanel.cpp", "gui/layerpanel.cpp", "gui/summarypanel.cpp", "gui/addtrussdialog.cpp", "gui/gdtfsearchdialog.cpp", "gui/scene_object_primitive_dialogs.cpp", "gui/mainwindow.cpp", "gui/mainwindow_print.cpp", "gui/consolepanel.cpp")
 
 TRANSLATION_WRAPPERS = {"_", "wxGetTranslation", "wxTRANSLATE", "wxPLURAL"}
 UI_CALLEES = {
@@ -48,6 +48,11 @@ REPRESENTATIVE_MESSAGES = {
     "Manufacturer:": "GDTF and metadata label",
     "Download": "download action label",
     "Enter new layer name:": "layer prompt label",
+    "Add Cube": "scene-object primitive dialog title",
+    "Select what to print:": "print choice dialog prompt",
+    "Do you want to save changes before %s?": "exit/save confirmation",
+    "Show available console commands and examples.": "console help tooltip",
+    "Online GDTF catalog refresh failed.\n%s": "GDTF refresh warning",
 }
 
 class Tools:
