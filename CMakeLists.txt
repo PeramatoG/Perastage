@@ -270,6 +270,9 @@ else()
         set(PERASTAGE_GETTEXT_PROVIDER "system")
     endif()
 endif()
+if(PERASTAGE_MSGFMT_EXECUTABLE)
+    get_filename_component(PERASTAGE_MSGFMT_DIRECTORY "${PERASTAGE_MSGFMT_EXECUTABLE}" DIRECTORY)
+endif()
 if(PERASTAGE_ENABLE_LOCALIZATION)
     if(NOT PERASTAGE_MSGFMT_EXECUTABLE)
         if(WIN32)
@@ -280,10 +283,17 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     endif()
     message(STATUS "Perastage gettext provider: ${PERASTAGE_GETTEXT_PROVIDER}")
     message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
+    if(WIN32)
+        set(PERASTAGE_MSGFMT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}$<SEMICOLON>$ENV{PATH}")
+    else()
+        set(PERASTAGE_MSGFMT_ENV_PATH "PATH=${PERASTAGE_MSGFMT_DIRECTORY}:$ENV{PATH}")
+    endif()
     add_custom_command(
         OUTPUT "${PERASTAGE_ES_MO}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES"
-        COMMAND ${PERASTAGE_MSGFMT_EXECUTABLE} --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
+        COMMAND ${CMAKE_COMMAND} -E echo "Generating Spanish gettext catalog: ${PERASTAGE_ES_PO} -> ${PERASTAGE_ES_MO}"
+        COMMAND ${CMAKE_COMMAND} -E echo "Spanish gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}"
+        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_MSGFMT_ENV_PATH}" "${PERASTAGE_MSGFMT_EXECUTABLE}" --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
         COMMAND ${CMAKE_COMMAND} -E echo "Spanish catalog generated: ${PERASTAGE_ES_MO}"
         DEPENDS "${PERASTAGE_ES_PO}"
         COMMENT "Generating Spanish gettext catalog"
@@ -636,9 +646,11 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     endif()
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_RUNTIME_LOCALE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E echo "Copying Spanish runtime catalog: ${PERASTAGE_ES_MO} -> ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${PERASTAGE_ES_MO}"
                 "${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+        COMMAND ${CMAKE_COMMAND} -E echo "Verifying Spanish runtime catalog: ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
         COMMAND ${CMAKE_COMMAND}
                 -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
                 -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
