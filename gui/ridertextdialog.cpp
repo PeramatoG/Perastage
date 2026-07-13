@@ -30,6 +30,7 @@
 #include <wx/listbox.h>
 #include <wx/settings.h>
 #include <wx/font.h>
+#include <wx/intl.h>
 #include <exception>
 #include <filesystem>
 
@@ -41,6 +42,13 @@ namespace {
 
 bool StartsWithInsensitive(const wxString &text, const wxString &prefix) {
   return text.Lower().StartsWith(prefix.Lower());
+}
+
+// Builds the displayed source loading status while preserving the source name.
+wxString BuildSourceStatusLabel(const wxString &sourceName) {
+  if (sourceName.empty())
+    return _("No source loaded.");
+  return wxString::Format(_("Loaded: %s"), sourceName);
 }
 
 } // namespace
@@ -62,16 +70,16 @@ wxEND_EVENT_TABLE()
 RiderTextDialog::RiderTextDialog(wxWindow *parent,
                                  const wxString &initialText,
                                  const wxString &initialSource)
-    : wxDialog(parent, wxID_ANY, "Create scene from text",
+    : wxDialog(parent, wxID_ANY, _("Create scene from text"),
                wxDefaultPosition, wxSize(900, 700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       sourceLabel(initialSource) {
-  SetTitle("Create from text");
+  SetTitle(_("Create from text"));
   SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
 
-  wxStaticText *titleText = new wxStaticText(this, wxID_ANY, "Create scene from text");
+  wxStaticText *titleText = new wxStaticText(this, wxID_ANY, _("Create scene from text"));
   wxFont titleFont = titleText->GetFont();
   titleFont.MakeBold();
   titleFont.SetPointSize(titleFont.GetPointSize() + 2);
@@ -80,29 +88,27 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
 
   wxStaticText *subtitleText = new wxStaticText(
       this, wxID_ANY,
-      "Paste rider content or load a .txt/.pdf file, then refine before creating the scene.");
+      _("Paste rider content or load a .txt/.pdf file, then refine before creating the scene."));
   subtitleText->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   mainSizer->Add(subtitleText, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
   mainSizer->Add(new wxStaticLine(this, wxID_ANY), 0,
                  wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
   wxStaticBoxSizer *sourceSizer =
-      new wxStaticBoxSizer(wxHORIZONTAL, this, "Source");
-  const wxString sourceTextLabel =
-      sourceLabel.empty() ? wxString("No source loaded.")
-                          : wxString("Loaded: ") + sourceLabel;
+      new wxStaticBoxSizer(wxHORIZONTAL, this, _("Source"));
+  const wxString sourceTextLabel = BuildSourceStatusLabel(sourceLabel);
   sourceText = new wxStaticText(sourceSizer->GetStaticBox(), wxID_ANY, sourceTextLabel);
   sourceSizer->Add(sourceText, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   wxButton *loadButton =
-      new wxButton(sourceSizer->GetStaticBox(), ID_RiderText_Load, "Load rider...");
+      new wxButton(sourceSizer->GetStaticBox(), ID_RiderText_Load, _("Load rider..."));
   sourceSizer->Add(loadButton, 0);
   wxButton *exampleButton =
-      new wxButton(sourceSizer->GetStaticBox(), ID_RiderText_Example, "Use example");
+      new wxButton(sourceSizer->GetStaticBox(), ID_RiderText_Example, _("Use example"));
   sourceSizer->Add(exampleButton, 0, wxLEFT, 8);
   mainSizer->Add(sourceSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
   wxStaticBoxSizer *editorSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "Rider text");
+      new wxStaticBoxSizer(wxVERTICAL, this, _("Rider text"));
   textCtrl = new wxTextCtrl(editorSizer->GetStaticBox(), wxID_ANY, initialText,
                             wxDefaultPosition, wxDefaultSize,
                             wxTE_MULTILINE | wxTE_RICH2 | wxTE_NOHIDESEL);
@@ -111,8 +117,7 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
 
   wxStaticText *autocompleteHelp = new wxStaticText(
       editorSizer->GetStaticBox(), wxID_ANY,
-      "Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. "
-      "Ranking: exact > prefix > fuzzy + recent use + context.");
+      _("Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. Ranking: exact > prefix > fuzzy + recent use + context."));
   autocompleteHelp->SetForegroundColour(
       wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   autocompleteHelp->Wrap(820);
@@ -142,9 +147,9 @@ RiderTextDialog::RiderTextDialog(wxWindow *parent,
 
   wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
   wxButton *filterButton =
-      new wxButton(this, ID_RiderText_ApplyFilter, "Apply filter");
-  wxButton *applyButton = new wxButton(this, ID_RiderText_Apply, "Create");
-  wxButton *cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+      new wxButton(this, ID_RiderText_ApplyFilter, _("Apply filter"));
+  wxButton *applyButton = new wxButton(this, ID_RiderText_Apply, _("Create"));
+  wxButton *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
   buttonSizer->AddStretchSpacer();
   buttonSizer->Add(filterButton, 0, wxRIGHT, 8);
   buttonSizer->Add(applyButton, 0, wxRIGHT, 8);
@@ -193,8 +198,8 @@ bool RiderTextDialog::TryGetCurrentText(std::string &outText) const {
 void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
-  wxFileDialog dlg(this, "Import Rider", miscDir, "",
-                   "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
+  wxFileDialog dlg(this, _("Import Rider"), miscDir, "",
+                   _("Rider files (*.txt;*.pdf)|*.txt;*.pdf"),
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -210,13 +215,13 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
       console->AppendMessage("Rider import exception: " +
                              wxString::FromUTF8(ex.what()));
     }
-    wxMessageBox("Unexpected error while loading rider file.", "Error",
+    wxMessageBox(_("Unexpected error while loading rider file."), _("Error"),
                  wxICON_ERROR);
     return;
   } catch (...) {
     if (ConsolePanel *console = ConsolePanel::Instance())
       console->AppendMessage("Rider import exception: unknown error.");
-    wxMessageBox("Unexpected unknown error while loading rider file.", "Error",
+    wxMessageBox(_("Unexpected unknown error while loading rider file."), _("Error"),
                  wxICON_ERROR);
     return;
   }
@@ -225,7 +230,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
       console->AppendMessage("Rider import: no visible text extracted from " +
                              dlg.GetFilename());
     }
-    wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
+    wxMessageBox(_("Failed to import rider."), _("Error"), wxICON_ERROR);
     return;
   }
   wxString loadedText = wxString::FromUTF8(text.data(), text.size());
@@ -237,14 +242,14 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
       console->AppendMessage("Rider import: extracted text could not be "
                              "decoded for " + dlg.GetFilename());
     }
-    wxMessageBox("Loaded rider text could not be decoded.", "Error",
+    wxMessageBox(_("Loaded rider text could not be decoded."), _("Error"),
                  wxICON_ERROR);
     return;
   }
   sourceLabel = dlg.GetFilename();
   sourceLoadedFromFile = true;
   if (sourceText)
-    sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
+    sourceText->SetLabel(BuildSourceStatusLabel(sourceLabel));
   textCtrl->ChangeValue(loadedText);
   currentTextIsFilteredPreview = false;
   autocompleteProvider.RefreshDynamicTerms();
@@ -299,10 +304,10 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
       "4 MOTOR 1000Kg FOR SIDES\n"
       "4 MOTOR 1000Kg FOR SCREEN\n";
   textCtrl->ChangeValue(exampleText);
-  sourceLabel = "Example text";
+  sourceLabel = _("Example text");
   sourceLoadedFromFile = false;
   if (sourceText)
-    sourceText->SetLabel(wxString("Loaded: ") + sourceLabel);
+    sourceText->SetLabel(BuildSourceStatusLabel(sourceLabel));
   autocompleteProvider.RefreshDynamicTerms();
   currentTextIsFilteredPreview = false;
 }
@@ -311,15 +316,14 @@ void RiderTextDialog::OnLoadExample(wxCommandEvent &WXUNUSED(event)) {
 void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
   std::string text;
   if (!TryGetCurrentText(text) || text.empty()) {
-    wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
+    wxMessageBox(_("Rider text is empty."), _("Error"), wxICON_ERROR);
     return;
   }
 
   const std::string filtered = RiderImporter::BuildFixtureFilterPreview(text);
   if (filtered.empty()) {
-    wxMessageBox("No fixture lines were detected with the current parser "
-                 "rules after filtering.",
-                 "Apply filter", wxICON_INFORMATION);
+    wxMessageBox(_("No fixture lines were detected with the current parser rules after filtering."),
+                 _("Apply filter"), wxICON_INFORMATION);
     return;
   }
 
@@ -327,7 +331,7 @@ void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
   if (filteredText.empty() && !filtered.empty())
     filteredText = wxString::From8BitData(filtered.data(), filtered.size());
   if (filteredText.empty()) {
-    wxMessageBox("Filtered text could not be decoded.", "Error",
+    wxMessageBox(_("Filtered text could not be decoded."), _("Error"),
                  wxICON_ERROR);
     return;
   }
@@ -339,7 +343,7 @@ void RiderTextDialog::OnApplyFilter(wxCommandEvent &WXUNUSED(event)) {
 void RiderTextDialog::OnApply(wxCommandEvent &WXUNUSED(event)) {
   std::string text;
   if (!TryGetCurrentText(text) || text.empty()) {
-    wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
+    wxMessageBox(_("Rider text is empty."), _("Error"), wxICON_ERROR);
     return;
   }
   selectedRiderTextUtf8 = std::move(text);

@@ -53,6 +53,11 @@ REPRESENTATIVE_MESSAGES = {
     "Do you want to save changes before %s?": "exit/save confirmation",
     "Show available console commands and examples.": "console help tooltip",
     "Online GDTF catalog refresh failed.\n%s": "GDTF refresh warning",
+    "Create scene from text": "rider text dialog title",
+    "Load rider...": "rider text load button",
+    "Open as new project": "MVR import choice",
+    "Resolve GDTF source conflicts": "MVR GDTF conflict dialog title",
+    "GDTF download queue": "MVR GDTF download queue title",
 }
 
 class Tools:

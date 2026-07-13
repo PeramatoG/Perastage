@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 17:13+0000\n"
+"POT-Creation-Date: 2026-07-13 17:31+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -149,21 +149,149 @@ msgstr "Seleccionar todo"
 msgid "Deselect All"
 msgstr "Deseleccionar todo"
 
+#: gui/consolepanel.cpp:157
+msgid ""
+"The console works on the current selection. If fixtures are selected, "
+"position and rotation commands apply to fixtures; otherwise they apply to "
+"trusses."
+msgstr "La consola trabaja sobre la selección actual. Si hay aparatos seleccionados, los comandos de posición y rotación se aplican a los aparatos; de lo contrario se aplican a los trusses."
+
+#: gui/consolepanel.cpp:159
+msgid "Selection"
+msgstr "Selección"
+
+#: gui/consolepanel.cpp:161
+msgid "Command    Description"
+msgstr "Comando    Descripción"
+
+#: gui/consolepanel.cpp:163
+msgid "Clears all selections (fixtures, trusses, scene objects)."
+msgstr "Limpia todas las selecciones (aparatos, trusses y objetos de escena)."
+
+#: gui/consolepanel.cpp:164
+msgid "Select fixtures by ID."
+msgstr "Selecciona aparatos por ID."
+
+#: gui/consolepanel.cpp:165
+msgid "Select trusses by unit number (clears current truss selection first)."
+msgstr "Selecciona trusses por número de unidad (limpia primero la selección actual de trusses)."
+
+#: gui/consolepanel.cpp:166
+msgid "Selection syntax supports:"
+msgstr "La sintaxis de selección admite:"
+
 #: gui/consolepanel.cpp:168
+msgid "Single IDs: `f 12`"
+msgstr "ID únicos: `f 12`"
+
+#: gui/consolepanel.cpp:169
+msgid "Ranges: `f 1-5`, `f 1 thru 5`, `f 1 t 5`"
+msgstr "Rangos: `f 1-5`, `f 1 thru 5`, `f 1 t 5`"
+
+#: gui/consolepanel.cpp:170
+msgid "Add/remove: `f + 10 - 3`"
+msgstr "Añadir/quitar: `f + 10 - 3`"
+
+#: gui/consolepanel.cpp:171
+msgid "Mixed tokens: `f 1 3 5 7-9`"
+msgstr "Tokens combinados: `f 1 3 5 7-9`"
+
+#: gui/consolepanel.cpp:172
+msgid "Position and rotation"
+msgstr "Posición y rotación"
+
+#: gui/consolepanel.cpp:174
+msgid "Command          Description"
+msgstr "Comando          Descripción"
+
+#: gui/consolepanel.cpp:176
+msgid "Set X positions for the selection."
+msgstr "Define las posiciones X de la selección."
+
+#: gui/consolepanel.cpp:177
+msgid "Set Y positions for the selection."
+msgstr "Define las posiciones Y de la selección."
+
+#: gui/consolepanel.cpp:178
+msgid "Set Z positions for the selection."
+msgstr "Define las posiciones Z de la selección."
+
+#: gui/consolepanel.cpp:179
+msgid "Set X/Y/Z in one command."
+msgstr "Define X/Y/Z en un solo comando."
+
+#: gui/consolepanel.cpp:180
+msgid "Shortcut for `pos x`."
+msgstr "Atajo para `pos x`."
+
+#: gui/consolepanel.cpp:181
+msgid "Shortcut for `pos y`."
+msgstr "Atajo para `pos y`."
+
+#: gui/consolepanel.cpp:182
+msgid "Shortcut for `pos z`."
+msgstr "Atajo para `pos z`."
+
+#: gui/consolepanel.cpp:183
+msgid "Set rotation around X (roll)."
+msgstr "Define la rotación alrededor de X (roll)."
+
+#: gui/consolepanel.cpp:184
+msgid "Set rotation around Y (pitch)."
+msgstr "Define la rotación alrededor de Y (pitch)."
+
+#: gui/consolepanel.cpp:185
+msgid "Set rotation around Z (yaw)."
+msgstr "Define la rotación alrededor de Z (yaw)."
+
+#: gui/consolepanel.cpp:186
+msgid "Rotate the full selection as one group around a pivot."
+msgstr "Rota toda la selección como un grupo alrededor de un pivote."
+
+#: gui/consolepanel.cpp:187
+msgid "Alias of `--group`."
+msgstr "Alias de `--group`."
+
+#: gui/consolepanel.cpp:188
+msgid "Notes:"
+msgstr "Notas:"
+
+#: gui/consolepanel.cpp:190
+msgid "Provide one value to apply it to all selected items."
+msgstr "Indique un valor para aplicarlo a todos los elementos seleccionados."
+
+#: gui/consolepanel.cpp:191
+msgid ""
+"Provide two values to linearly distribute from start to end across the "
+"selection."
+msgstr "Indique dos valores para distribuir linealmente de principio a fin en la selección."
+
+#: gui/consolepanel.cpp:192
+msgid "Use `++` / `--` to apply relative offsets."
+msgstr "Use `++` / `--` para aplicar desplazamientos relativos."
+
+#: gui/consolepanel.cpp:193
+msgid ""
+"You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for "
+"`pos`."
+msgstr "También puede escribir una terna separada por comas como `1, 2, 3` como atajo para `pos`."
+
+#: gui/consolepanel.cpp:199 gui/consolepanel.cpp:270
+#: tests/localization_catalog_integration_test.cpp:110
+msgid "Console commands"
+msgstr "Comandos de consola"
+
+#: gui/consolepanel.cpp:215
 msgid "Console commands:"
 msgstr "Comandos de consola:"
 
-#: gui/consolepanel.cpp:173
+#: gui/consolepanel.cpp:220
 msgid "Examples:"
 msgstr "Ejemplos:"
 
-#: gui/consolepanel.cpp:203
+#: gui/consolepanel.cpp:250
 msgid "Show available console commands and examples."
 msgstr "Mostrar comandos y ejemplos disponibles de la consola."
-
-#: gui/consolepanel.cpp:223 tests/localization_catalog_integration_test.cpp:110
-msgid "Console commands"
-msgstr "Comandos de consola"
 
 #: gui/fixturetable/fixture_table_columns.cpp:12
 msgid "Fixture ID"
@@ -175,7 +303,7 @@ msgid "Name"
 msgstr "Nombre"
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:467
-#: gui/summarypanel.cpp:254 gui/summarypanel.cpp:263
+#: gui/summarypanel.cpp:254 gui/summarypanel.cpp:263 mvr/mvrimporter.cpp:668
 msgid "Type"
 msgstr "Tipo"
 
@@ -297,10 +425,14 @@ msgstr "Valor numérico no válido"
 #: gui/fixturetablepanel.cpp:1075 gui/fixturetablepanel.cpp:1082
 #: gui/hoisttablepanel.cpp:881 gui/hoisttablepanel.cpp:886
 #: gui/hoisttablepanel.cpp:892 gui/hoisttablepanel.cpp:899
-#: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
-#: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
-#: gui/trusstablepanel.cpp:683 gui/trusstablepanel.cpp:688
-#: gui/trusstablepanel.cpp:694 gui/trusstablepanel.cpp:701
+#: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
+#: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
+#: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
+#: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:545
+#: gui/sceneobjecttablepanel.cpp:550 gui/sceneobjecttablepanel.cpp:556
+#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:683
+#: gui/trusstablepanel.cpp:688 gui/trusstablepanel.cpp:694
+#: gui/trusstablepanel.cpp:701
 msgid "Error"
 msgstr "Error"
 
@@ -387,7 +519,8 @@ msgstr "Valoración"
 msgid "Download"
 msgstr "Descargar"
 
-#: gui/gdtfsearchdialog.cpp:229 gui/scene_object_primitive_dialogs.cpp:138
+#: gui/gdtfsearchdialog.cpp:229 gui/ridertextdialog.cpp:152
+#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:3685
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -534,6 +667,31 @@ msgstr "Usuario:"
 msgid "Password:"
 msgstr "Contraseña:"
 
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:147
+msgid "Open as new project"
+msgstr "Abrir como proyecto nuevo"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:148
+msgid "Merge into current project"
+msgstr "Fusionar en el proyecto actual"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:150
+msgid "Choose how Perastage should import the selected MVR file."
+msgstr "Elija cómo debe importar Perastage el archivo MVR seleccionado."
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
+#: gui/mainwindow_menu.cpp:166
+msgid "Import MVR"
+msgstr "Importar MVR"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
+msgid "loading a project"
+msgstr "cargar un proyecto"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
+msgid "Open Project"
+msgstr "Abrir proyecto"
+
 #: gui/mainwindow.cpp:525 gui/mainwindow_menu_builders.cpp:74
 msgid "3D Viewport"
 msgstr "Visor 3D"
@@ -643,10 +801,6 @@ msgstr "Guardar como"
 #: gui/mainwindow_menu.cpp:165
 msgid "Save the current project with a new name"
 msgstr "Guardar el proyecto actual con otro nombre"
-
-#: gui/mainwindow_menu.cpp:166
-msgid "Import MVR"
-msgstr "Importar MVR"
 
 #: gui/mainwindow_menu.cpp:168
 msgid "Import an MVR file"
@@ -799,10 +953,12 @@ msgid "Insert a new scene object"
 msgstr "Insertar un nuevo objeto de escena"
 
 #: gui/mainwindow_menu.cpp:283 gui/mainwindow_menu.cpp:285
+#: mvr/mvrimporter.cpp:672
 msgid "Download GDTF"
 msgstr "Descargar GDTF"
 
 #: gui/mainwindow_menu.cpp:286 gui/mainwindow_menu.cpp:288
+#: gui/ridertextdialog.cpp:77
 msgid "Create from text"
 msgstr "Crear desde texto"
 
@@ -853,6 +1009,22 @@ msgstr "Añadir una imagen al layout"
 #: gui/mainwindow_menu.cpp:317 gui/mainwindow_print.cpp:209
 msgid "Layout"
 msgstr "Layout"
+
+#: gui/mainwindow_menu.cpp:329 gui/mainwindow_menu.cpp:332
+msgid "creating a new project"
+msgstr "crear un proyecto nuevo"
+
+#: gui/mainwindow_menu.cpp:332
+msgid "New Project"
+msgstr "Proyecto nuevo"
+
+#: gui/mainwindow_menu.cpp:904
+msgid "exiting"
+msgstr "salir"
+
+#: gui/mainwindow_menu.cpp:904
+msgid "Exit"
+msgstr "Salir"
 
 #: gui/mainwindow_menu.cpp:996
 msgid "Language:"
@@ -1430,6 +1602,97 @@ msgstr "Margen LX%d (%s):"
 msgid "Restart required"
 msgstr "Reinicio necesario"
 
+#: gui/ridertextdialog.cpp:50
+msgid "No source loaded."
+msgstr "No hay ninguna fuente cargada."
+
+#: gui/ridertextdialog.cpp:51
+#, c-format
+msgid "Loaded: %s"
+msgstr "Cargado: %s"
+
+#: gui/ridertextdialog.cpp:73 gui/ridertextdialog.cpp:82
+#: tests/localization_catalog_integration_test.cpp:112
+msgid "Create scene from text"
+msgstr "Crear escena desde texto"
+
+#: gui/ridertextdialog.cpp:91
+msgid ""
+"Paste rider content or load a .txt/.pdf file, then refine before creating "
+"the scene."
+msgstr "Pegue el contenido del rider o cargue un archivo .txt/.pdf y después ajústelo antes de crear la escena."
+
+#: gui/ridertextdialog.cpp:98
+msgid "Source"
+msgstr "Fuente"
+
+#: gui/ridertextdialog.cpp:103
+msgid "Load rider..."
+msgstr "Cargar rider..."
+
+#: gui/ridertextdialog.cpp:106
+msgid "Use example"
+msgstr "Usar ejemplo"
+
+#: gui/ridertextdialog.cpp:111
+msgid "Rider text"
+msgstr "Texto del rider"
+
+#: gui/ridertextdialog.cpp:120
+msgid ""
+"Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. "
+"Ranking: exact > prefix > fuzzy + recent use + context."
+msgstr "Autocompletar: Arriba/Abajo mueve, Intro/Tab acepta, Esc cierra las sugerencias. Orden: exacto > prefijo > difuso + uso reciente + contexto."
+
+#: gui/ridertextdialog.cpp:150 gui/ridertextdialog.cpp:326
+msgid "Apply filter"
+msgstr "Aplicar filtro"
+
+#: gui/ridertextdialog.cpp:151
+msgid "Create"
+msgstr "Crear"
+
+#: gui/ridertextdialog.cpp:201
+msgid "Import Rider"
+msgstr "Importar rider"
+
+#: gui/ridertextdialog.cpp:202
+msgid "Rider files (*.txt;*.pdf)|*.txt;*.pdf"
+msgstr "Archivos de rider (*.txt;*.pdf)|*.txt;*.pdf"
+
+#: gui/ridertextdialog.cpp:218
+msgid "Unexpected error while loading rider file."
+msgstr "Error inesperado al cargar el archivo de rider."
+
+#: gui/ridertextdialog.cpp:224
+msgid "Unexpected unknown error while loading rider file."
+msgstr "Error desconocido inesperado al cargar el archivo de rider."
+
+#: gui/ridertextdialog.cpp:233
+msgid "Failed to import rider."
+msgstr "No se pudo importar el rider."
+
+#: gui/ridertextdialog.cpp:245
+msgid "Loaded rider text could not be decoded."
+msgstr "No se pudo decodificar el texto del rider cargado."
+
+#: gui/ridertextdialog.cpp:307
+msgid "Example text"
+msgstr "Texto de ejemplo"
+
+#: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:346
+msgid "Rider text is empty."
+msgstr "El texto del rider está vacío."
+
+#: gui/ridertextdialog.cpp:325
+msgid ""
+"No fixture lines were detected with the current parser rules after filtering."
+msgstr "No se detectaron líneas de aparatos con las reglas actuales del analizador después de filtrar."
+
+#: gui/ridertextdialog.cpp:334
+msgid "Filtered text could not be decoded."
+msgstr "No se pudo decodificar el texto filtrado."
+
 #: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:106
 msgid "Position"
 msgstr "Posición"
@@ -1472,7 +1735,7 @@ msgstr "Cargar predeterminado"
 msgid "Apply"
 msgstr "Aplicar"
 
-#: gui/scene_object_primitive_dialogs.cpp:137
+#: gui/scene_object_primitive_dialogs.cpp:137 mvr/mvrimporter.cpp:3687
 msgid "OK"
 msgstr "Aceptar"
 
@@ -1614,10 +1877,180 @@ msgstr "Creando la ventana principal..."
 msgid "Loading last project..."
 msgstr "Cargando el último proyecto..."
 
+#: mvr/mvrimporter.cpp:658
+msgid "Resolve GDTF source conflicts"
+msgstr "Resolver conflictos de origen GDTF"
+
+#: mvr/mvrimporter.cpp:661
+msgid "Choose which source to keep for each fixture type."
+msgstr "Elija qué origen conservar para cada tipo de aparato."
+
+#: mvr/mvrimporter.cpp:669
+msgid "MVR"
+msgstr "MVR"
+
+#: mvr/mvrimporter.cpp:670
+msgid "App"
+msgstr "Aplicación"
+
+#: mvr/mvrimporter.cpp:684 mvr/mvrimporter.cpp:685 mvr/mvrimporter.cpp:687
+msgid "Select all"
+msgstr "Seleccionar todo"
+
+#: mvr/mvrimporter.cpp:3612
+msgid "GDTF download queue"
+msgstr "Cola de descarga GDTF"
+
+#: mvr/mvrimporter.cpp:3641
+msgid "Selected fixture types for download"
+msgstr "Tipos de aparatos seleccionados para descargar"
+
+#: mvr/mvrimporter.cpp:3647
+msgid "Preparing download queue..."
+msgstr "Preparando la cola de descarga..."
+
+#: mvr/mvrimporter.cpp:3663
+msgid "Fixture type"
+msgstr "Tipo de aparato"
+
+#: mvr/mvrimporter.cpp:3665
+msgid "Selected GDTF"
+msgstr "GDTF seleccionado"
+
+#: mvr/mvrimporter.cpp:3667
+msgid "Status"
+msgstr "Estado"
+
+#: mvr/mvrimporter.cpp:3669
+msgid "Progress"
+msgstr "Progreso"
+
+#: mvr/mvrimporter.cpp:3671
+msgid "Details"
+msgstr "Detalles"
+
+#: mvr/mvrimporter.cpp:3676
+msgid "0 processed  |  0 downloaded  |  0 fallback"
+msgstr "0 procesados  |  0 descargados  |  0 fallback"
+
+#: mvr/mvrimporter.cpp:3716
+msgid "Cancel requested. Finishing current transfer..."
+msgstr "Cancelación solicitada. Terminando la transferencia actual..."
+
+#: mvr/mvrimporter.cpp:3772
+#, c-format
+msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
+msgstr "%d/%zu procesados  |  %d descargados  |  %d fallback  |  %d cancelados"
+
+#: mvr/mvrimporter.cpp:3882
+msgid "Pending"
+msgstr "Pendiente"
+
+#: mvr/mvrimporter.cpp:3885
+msgid "Waiting to match catalog entry"
+msgstr "Esperando coincidencia en el catálogo"
+
+#: mvr/mvrimporter.cpp:3895
+msgid "Loading GDTF catalog..."
+msgstr "Cargando catálogo GDTF..."
+
+#: mvr/mvrimporter.cpp:3977
+#, c-format
+msgid "Selected fixture types for download (catalog entries: %zu)"
+msgstr "Tipos de aparatos seleccionados para descargar (entradas de catálogo: %zu)"
+
+#: mvr/mvrimporter.cpp:3980
+msgid "Downloading selected fixtures..."
+msgstr "Descargando aparatos seleccionados..."
+
+#: mvr/mvrimporter.cpp:4007 mvr/mvrimporter.cpp:4140
+msgid "Fallback to App"
+msgstr "Fallback a la aplicación"
+
+#: mvr/mvrimporter.cpp:4008 mvr/mvrimporter.cpp:4140 mvr/mvrimporter.cpp:4169
+msgid "Fallback to MVR"
+msgstr "Fallback al MVR"
+
+#: mvr/mvrimporter.cpp:4009
+msgid "No catalog match found"
+msgstr "No se encontró coincidencia en el catálogo"
+
+#: mvr/mvrimporter.cpp:4048 mvr/mvrimporter.cpp:4088
+msgid "Downloading"
+msgstr "Descargando"
+
+#: mvr/mvrimporter.cpp:4049 mvr/mvrimporter.cpp:4090
+msgid "Fetching fixture package"
+msgstr "Obteniendo paquete de aparato"
+
+#: mvr/mvrimporter.cpp:4100
+msgid "Downloaded and assigned"
+msgstr "Descargado y asignado"
+
+#: mvr/mvrimporter.cpp:4103
+#, c-format
+msgid " (Mode: %s)"
+msgstr " (Modo: %s)"
+
+#: mvr/mvrimporter.cpp:4113
+msgid "Success"
+msgstr "Correcto"
+
+#: mvr/mvrimporter.cpp:4123 mvr/mvrimporter.cpp:4152
+msgid "Canceled"
+msgstr "Cancelado"
+
+#: mvr/mvrimporter.cpp:4127
+msgid "Canceled by user"
+msgstr "Cancelado por el usuario"
+
+#: mvr/mvrimporter.cpp:4144
+msgid "Download failed"
+msgstr "Descarga fallida"
+
+#: mvr/mvrimporter.cpp:4153
+msgid "Canceled before download start"
+msgstr "Cancelado antes de iniciar la descarga"
+
+#: mvr/mvrimporter.cpp:4158
+msgid "Queue canceled. Keeping downloaded fixtures."
+msgstr "Cola cancelada. Se conservan los aparatos descargados."
+
+#: mvr/mvrimporter.cpp:4160
+msgid "Queue finished."
+msgstr "Cola finalizada."
+
+#: mvr/mvrimporter.cpp:4164
+msgid "Catalog fetch/parsing failed."
+msgstr "Falló la descarga o el análisis del catálogo."
+
+#: mvr/mvrimporter.cpp:4166
+#, c-format
+msgid "Selected fixture types for download (catalog load failed: %s)"
+msgstr "Tipos de aparatos seleccionados para descargar (falló la carga del catálogo: %s)"
+
+#: mvr/mvrimporter.cpp:4170
+msgid "Failed to load catalog list"
+msgstr "No se pudo cargar la lista del catálogo"
+
+#: mvr/mvrimporter.cpp:4175
+#, c-format
+msgid "Catalog load failed. %s. Keeping MVR originals."
+msgstr "Falló la carga del catálogo. %s. Se conservan los originales del MVR."
+
+#: mvr/mvrimporter.cpp:4181
+#, c-format
+msgid "%s - queue finished"
+msgstr "%s - cola finalizada"
+
+#: mvr/mvrimporter.cpp:4186
+msgid "Login failed. Verify credentials in Preferences."
+msgstr "Error de inicio de sesión. Verifique las credenciales en Preferencias."
+
+#: mvr/mvrimporter.cpp:4187
+msgid "GDTF Share login"
+msgstr "Inicio de sesión en GDTF Share"
+
 #: tests/localization_catalog_integration_test.cpp:78
 msgid "Spanish"
 msgstr "Español"
-
-#: tests/localization_catalog_integration_test.cpp:112
-msgid "Create scene from text"
-msgstr "Crear escena desde texto"

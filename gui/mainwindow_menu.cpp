@@ -326,10 +326,10 @@ void MainWindow::CreateMenuBar() { SetMenuBar(BuildMainWindowMenuBar()); }
 
 // Starts a new project after guarding startup and save state.
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
-  if (!GuardStartupProjectLoadAction("creating a new project"))
+  if (!GuardStartupProjectLoadAction(_("creating a new project")))
     return;
 
-  if (!ConfirmSaveIfDirty("creating a new project", "New Project"))
+  if (!ConfirmSaveIfDirty(_("creating a new project"), _("New Project")))
     return;
 
   ResetProject(true);
@@ -901,7 +901,7 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 // runtime services.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   SaveUserConfigWithViewport2DState();
-  if (!ConfirmSaveIfDirty("exiting", "Exit")) {
+  if (!ConfirmSaveIfDirty(_("exiting"), _("Exit"))) {
     event.Veto();
     return;
   }

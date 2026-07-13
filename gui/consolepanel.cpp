@@ -150,8 +150,55 @@ wxString ExtractConsoleSection(const wxString &markdown,
   return result.Trim();
 }
 
+
+// Builds localized console help while preserving executable command syntax.
+wxString BuildLocalizedConsoleHelpContent() {
+  wxString help;
+  help += _("The console works on the current selection. If fixtures are selected, position and rotation commands apply to fixtures; otherwise they apply to trusses.");
+  help += "\n\n";
+  help += _("Selection");
+  help += "\n\n";
+  help += _("Command    Description");
+  help += "\n";
+  help += "`clear`    " + _("Clears all selections (fixtures, trusses, scene objects).") + "\n";
+  help += "`f ...`    " + _("Select fixtures by ID.") + "\n";
+  help += "`t ...`    " + _("Select trusses by unit number (clears current truss selection first).") + "\n\n";
+  help += _("Selection syntax supports:");
+  help += "\n\n";
+  help += "- " + _("Single IDs: `f 12`") + "\n";
+  help += "- " + _("Ranges: `f 1-5`, `f 1 thru 5`, `f 1 t 5`") + "\n";
+  help += "- " + _("Add/remove: `f + 10 - 3`") + "\n";
+  help += "- " + _("Mixed tokens: `f 1 3 5 7-9`") + "\n\n";
+  help += _("Position and rotation");
+  help += "\n\n";
+  help += _("Command          Description");
+  help += "\n";
+  help += "`pos x <values>`  " + _("Set X positions for the selection.") + "\n";
+  help += "`pos y <values>`  " + _("Set Y positions for the selection.") + "\n";
+  help += "`pos z <values>`  " + _("Set Z positions for the selection.") + "\n";
+  help += "`pos <x>,<y>,<z>` " + _("Set X/Y/Z in one command.") + "\n";
+  help += "`x <values>`      " + _("Shortcut for `pos x`.") + "\n";
+  help += "`y <values>`      " + _("Shortcut for `pos y`.") + "\n";
+  help += "`z <values>`      " + _("Shortcut for `pos z`.") + "\n";
+  help += "`rot x <values>`  " + _("Set rotation around X (roll).") + "\n";
+  help += "`rot y <values>`  " + _("Set rotation around Y (pitch).") + "\n";
+  help += "`rot z <values>`  " + _("Set rotation around Z (yaw).") + "\n";
+  help += "`rot x y z <values> --group`  " + _("Rotate the full selection as one group around a pivot.") + "\n";
+  help += "`rot x y z <values> --g`      " + _("Alias of `--group`.") + "\n\n";
+  help += _("Notes:");
+  help += "\n\n";
+  help += "- " + _("Provide one value to apply it to all selected items.") + "\n";
+  help += "- " + _("Provide two values to linearly distribute from start to end across the selection.") + "\n";
+  help += "- " + _("Use `++` / `--` to apply relative offsets.") + "\n";
+  help += "- " + _("You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for `pos`.") + "\n";
+  return help;
+}
+
 // Builds localized fallback console help when bundled help text is unavailable.
 wxString BuildConsoleHelpContent() {
+  if (_("Console commands") != wxString("Console commands"))
+    return BuildLocalizedConsoleHelpContent();
+
   wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
   helpPath.SetFullName("help.md");
   const wxString markdown = ReadUtf8File(helpPath.GetFullPath());
