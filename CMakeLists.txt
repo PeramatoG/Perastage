@@ -81,7 +81,6 @@ else()
     find_package(tinyxml2 REQUIRED)
 endif()
 find_package(OpenGL REQUIRED)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
@@ -303,6 +302,10 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
             message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but GNU gettext msgfmt was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Install gettext/msgfmt and reconfigure: on macOS use Homebrew gettext; on Linux install the gettext package. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
         endif()
     endif()
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(NOT Python3_EXECUTABLE)
+        message(WARNING "Python3 was not found; gettext catalog compilation remains available, but perastage_update_pot, perastage_update_po, and perastage_check_translations will report that Python3 is required.")
+    endif()
     message(STATUS "Perastage gettext provider: ${PERASTAGE_GETTEXT_PROVIDER}")
     message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
     message(STATUS "Perastage gettext xgettext: ${PERASTAGE_XGETTEXT_EXECUTABLE}")
@@ -331,20 +334,21 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
     add_custom_target(perastage_translations DEPENDS ${PERASTAGE_TRANSLATION_OUTPUTS})
     add_dependencies(${PROJECT_NAME} perastage_translations)
     add_custom_target(perastage_update_pot
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-pot
+        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-pot --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         COMMENT "Updating gettext POT template"
         VERBATIM
     )
     add_custom_target(perastage_update_po
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-po
+        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" update-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         COMMENT "Merging gettext POT template into PO catalogs"
         VERBATIM
     )
     add_custom_target(perastage_check_translations
-        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" check-po
+        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" check-po --xgettext "${PERASTAGE_XGETTEXT_EXECUTABLE}" --msgmerge "${PERASTAGE_MSGMERGE_EXECUTABLE}" --msgfmt "${PERASTAGE_MSGFMT_EXECUTABLE}" --msgattrib "${PERASTAGE_MSGATTRIB_EXECUTABLE}"
         COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" audit
+        COMMAND ${CMAKE_COMMAND} -E env "${PERASTAGE_GETTEXT_ENV_PATH}" "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/localization_catalog.py" self-test
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         COMMENT "Checking gettext catalogs and high-confidence UI string marking"
         VERBATIM

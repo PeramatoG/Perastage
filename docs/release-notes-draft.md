@@ -100,6 +100,8 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
+- Tightened localization maintenance checks so POT generation scans root-level C/C++ sources, dynamic labels use extraction markers, catalog checks validate synchronization and accelerators, and audit exceptions require durable reasons instead of line-number debt entries.
+
 - Added maintainer localization workflow targets for POT generation, PO merging, translation validation, and high-confidence UI string audits, plus a Spanish terminology glossary for future translation reviews.
 
 - Added internal GDTF Wheel and Attribute Inspector architecture for read-only wheel, slot, filter, graphic-wheel, CIE color, resource, and DMX value inspection.

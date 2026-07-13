@@ -47,7 +47,7 @@ cmake --build build --target perastage_check_translations
 cmake --build build --target perastage_translations
 ```
 
-The helper script behind these targets is `scripts/localization_catalog.py`. It generates `resources/locale/perastage.pot` with `xgettext`, merges source changes into enabled PO catalogs with `msgmerge`, validates catalogs with `msgfmt --check`, rejects fuzzy or empty active translations, and runs a conservative audit for high-confidence unmarked wxWidgets UI strings. The audit baseline is documented in `scripts/localization_audit_allowlist.txt`; remove entries as strings are converted, and only add new entries for stable technical strings or documented exceptions.
+The helper script behind these targets is `scripts/localization_catalog.py`. It discovers tracked repository C/C++ sources with `git ls-files`, including root files such as `main.cpp`, generates `resources/locale/perastage.pot` with `xgettext`, merges source changes into enabled PO catalogs with `msgmerge`, validates catalogs with `msgfmt --check` and accelerator checks, rejects active fuzzy or untranslated entries through gettext tooling, and compares a temporary POT with the committed POT so stale templates fail the check. The audit inspects balanced wxWidgets UI call expressions across multiple lines for unmarked string literals. `scripts/localization_audit_allowlist.txt` accepts only documented stable exceptions in `path|literal|category|reason` format; localization-debt entries are rejected.
 
 Developers may edit PO files directly or with Poedit. External translators can submit pull requests that change only `resources/locale/<language>/LC_MESSAGES/perastage.po`; maintainers should run `perastage_check_translations` and `perastage_translations` before merging.
 

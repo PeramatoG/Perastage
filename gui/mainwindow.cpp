@@ -848,7 +848,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   } else {
     blockingProjectLoadOverlay.reset();
   }
-  reportProjectLoadProgress("Loading project file...");
+  reportProjectLoadProgress(_("Loading project file..."));
 
   LockViewportInteraction();
   auto finishLoad = [this]() { UnlockViewportInteraction(); };
@@ -876,7 +876,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
       GetDefaultGuiConfigServices().LegacyConfigManager());
 
   loadProfiler.BeginPhase("scene_setup");
-  reportProjectLoadProgress("Building scene...", true);
+  reportProjectLoadProgress(_("Building scene..."), true);
   Ensure3DViewport();
   loadProfiler.EndPhase();
 
@@ -885,7 +885,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   ProjectUtils::SaveLastProjectPath(currentProjectPath);
 
   loadProfiler.BeginPhase("layout_selection_reload");
-  reportProjectLoadProgress("Applying saved layout...", true);
+  reportProjectLoadProgress(_("Applying saved layout..."), true);
   activeLayoutName.clear();
   const std::string startupLayoutName = ResolveProjectStartupLayoutName(
       GetDefaultGuiConfigServices().LegacyConfigManager());
@@ -913,7 +913,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   loadProfiler.EndPhase();
 
   loadProfiler.BeginPhase("data_panels_reload");
-  reportProjectLoadProgress("Reloading fixture/truss/support tables...", true);
+  reportProjectLoadProgress(_("Reloading fixture/truss/support tables..."), true);
   if (consolePanel)
     consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
   if (fixturePanel)
@@ -927,7 +927,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
 
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("viewport_refresh");
-  reportProjectLoadProgress("Updating 3D viewport...", true);
+  reportProjectLoadProgress(_("Updating 3D viewport..."), true);
   if (viewportPanel) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     Viewer3DCamera &cam = viewportPanel->GetCamera();
@@ -941,7 +941,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     viewportPanel->Refresh();
   }
 
-  reportProjectLoadProgress("Updating 2D viewport...", true);
+  reportProjectLoadProgress(_("Updating 2D viewport..."), true);
   if (viewport2DPanel) {
     if (!HasActiveLayout2DView())
       viewport2DPanel->LoadViewFromConfig();
@@ -956,14 +956,14 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
 
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("summary_rigging_refresh");
-  reportProjectLoadProgress("Refreshing panels...", true);
+  reportProjectLoadProgress(_("Refreshing panels..."), true);
   RefreshSummary();
-  reportProjectLoadProgress("Refreshing rigging...", true);
+  reportProjectLoadProgress(_("Refreshing rigging..."), true);
   RefreshRigging();
   GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("fixture_symbol_startup");
-  reportProjectLoadProgress("Creating fixture symbols...", true);
+  reportProjectLoadProgress(_("Creating fixture symbols..."), true);
 
   if (showBlockingLoadUi) {
     auto previousCompletionCallback = fixtureSymbolAutoUpdateCompletionCallback;
@@ -978,10 +978,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   StartFixtureSymbolAutoUpdateForLoadedScene();
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("finalize_project_load");
-  reportProjectLoadProgress("Updating window title...", true);
+  reportProjectLoadProgress(_("Updating window title..."), true);
   UpdateTitle();
   projectLoadProgressStep = kProjectLoadProgressSteps;
-  reportProjectLoadProgress("Finalizing project load...");
+  reportProjectLoadProgress(_("Finalizing project load..."));
   projectLoadProgressDialog.reset();
   finishLoad();
   loadProfiler.Finish("project_load_completed");
@@ -1013,7 +1013,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     RequestStartupSplashCompletion();
   };
 
-  SplashScreen::SetMessage("Loading project file...");
+  SplashScreen::SetMessage(_("Loading project file..."));
   wxYieldIfNeeded();
   if (!LoadProjectFromPath(path, false)) {
     fixtureSymbolAutoUpdateCompletionCallback = nullptr;
@@ -1499,7 +1499,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     }
     if (consolePanel)
       consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
-    SplashScreen::SetMessage("Loading tables...");
+    SplashScreen::SetMessage(_("Loading tables..."));
     if (fixturePanel)
       fixturePanel->ReloadData();
     if (trussPanel)
@@ -1535,11 +1535,11 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
         (viewportPanel && viewportPanel->IsMeasureToolEnabled()));
     if (layerPanel)
       layerPanel->ReloadLayers();
-    SplashScreen::SetMessage("Refreshing panels...");
+    SplashScreen::SetMessage(_("Refreshing panels..."));
     RefreshSummary();
     RefreshRigging();
     GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
-    SplashScreen::SetMessage("Creating fixture symbols...");
+    SplashScreen::SetMessage(_("Creating fixture symbols..."));
     fixtureSymbolAutoUpdateCompletionCallback = [this]() {
       RequestStartupSplashCompletion();
     };

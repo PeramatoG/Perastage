@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.5.0\n"
+"Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 09:49+0000\n"
+"POT-Creation-Date: 2026-07-13 10:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,6 +16,142 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: gui/fixturetable/fixture_table_columns.cpp:12
+msgid "Fixture ID"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:12
+msgid "Name"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:13
+msgid "Type"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:13
+msgid "Layer"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:14
+msgid "Hang Pos"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:14
+msgid "Universe"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:15
+msgid "Channel"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:15
+msgid "Mode"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:16
+msgid "Ch Count"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:16
+msgid "Model file"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:17
+msgid "Pos X"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:17
+msgid "Pos Y"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:18
+msgid "Pos Z"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:18
+msgid "Roll (X)"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:19
+msgid "Pitch (Y)"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:19
+msgid "Yaw (Z)"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:20
+msgid "Power (W)"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:20
+msgid "Weight (kg)"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:21
+msgid "Category"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:21
+msgid "Type Color"
+msgstr ""
+
+#: gui/fixturetable/fixture_table_columns.cpp:22
+msgid "Color Filter"
+msgstr ""
+
+#: gui/mainwindow.cpp:851 gui/mainwindow.cpp:1016
+msgid "Loading project file..."
+msgstr ""
+
+#: gui/mainwindow.cpp:879
+msgid "Building scene..."
+msgstr ""
+
+#: gui/mainwindow.cpp:888
+msgid "Applying saved layout..."
+msgstr ""
+
+#: gui/mainwindow.cpp:916
+msgid "Reloading fixture/truss/support tables..."
+msgstr ""
+
+#: gui/mainwindow.cpp:930
+msgid "Updating 3D viewport..."
+msgstr ""
+
+#: gui/mainwindow.cpp:944
+msgid "Updating 2D viewport..."
+msgstr ""
+
+#: gui/mainwindow.cpp:959 gui/mainwindow.cpp:1538
+msgid "Refreshing panels..."
+msgstr ""
+
+#: gui/mainwindow.cpp:961
+msgid "Refreshing rigging..."
+msgstr ""
+
+#: gui/mainwindow.cpp:966 gui/mainwindow.cpp:1542
+msgid "Creating fixture symbols..."
+msgstr ""
+
+#: gui/mainwindow.cpp:981
+msgid "Updating window title..."
+msgstr ""
+
+#: gui/mainwindow.cpp:984
+msgid "Finalizing project load..."
+msgstr ""
+
+#: gui/mainwindow.cpp:1502
+msgid "Loading tables..."
+msgstr ""
+
+#: gui/mainwindow_fixture_symbol_autoupdate.cpp:518
+msgid "Ready"
+msgstr ""
 
 #: gui/mainwindow_menu.cpp:154
 msgid "New"
@@ -514,6 +650,8 @@ msgid "&Help"
 msgstr ""
 
 #: gui/preferencesdialog.cpp:64
+#: tests/localization_catalog_integration_test.cpp:72
+#: tests/localization_catalog_integration_test.cpp:84
 msgid "Preferences"
 msgstr ""
 
@@ -526,9 +664,26 @@ msgid "Language changes will be applied after restarting Perastage."
 msgstr ""
 
 #: gui/preferencesdialog.cpp:209
+#: tests/localization_catalog_integration_test.cpp:86
 msgid "Language"
 msgstr ""
 
 #: gui/preferencesdialog.cpp:571
 msgid "Restart required"
+msgstr ""
+
+#: main.cpp:290
+msgid "Running library bootstrap..."
+msgstr ""
+
+#: main.cpp:293
+msgid "Creating main window..."
+msgstr ""
+
+#: main.cpp:303
+msgid "Loading last project..."
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:77
+msgid "Spanish"
 msgstr ""

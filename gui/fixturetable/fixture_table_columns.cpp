@@ -9,11 +9,17 @@
 namespace FixtureTableColumns {
 namespace {
 constexpr std::array<const char *, Count()> kLabels = {
-    "Fixture ID",  "Name",      "Type",        "Layer",    "Hang Pos",
-    "Universe",    "Channel",   "Mode",        "Ch Count", "Model file",
-    "Pos X",       "Pos Y",     "Pos Z",       "Roll (X)", "Pitch (Y)",
-    "Yaw (Z)",     "Power (W)", "Weight (kg)", "Category", "Type Color",
-    "Color Filter"};
+    wxTRANSLATE("Fixture ID"),  wxTRANSLATE("Name"),
+    wxTRANSLATE("Type"),        wxTRANSLATE("Layer"),
+    wxTRANSLATE("Hang Pos"),    wxTRANSLATE("Universe"),
+    wxTRANSLATE("Channel"),     wxTRANSLATE("Mode"),
+    wxTRANSLATE("Ch Count"),    wxTRANSLATE("Model file"),
+    wxTRANSLATE("Pos X"),       wxTRANSLATE("Pos Y"),
+    wxTRANSLATE("Pos Z"),       wxTRANSLATE("Roll (X)"),
+    wxTRANSLATE("Pitch (Y)"),   wxTRANSLATE("Yaw (Z)"),
+    wxTRANSLATE("Power (W)"),   wxTRANSLATE("Weight (kg)"),
+    wxTRANSLATE("Category"),    wxTRANSLATE("Type Color"),
+    wxTRANSLATE("Color Filter")};
 constexpr std::array<int, Count()> kWidths = {90,  150, 180, 100, 120, 80, 80,
                                               120, 80,  180, 80,  80,  80, 80,
                                               80,  80,  100, 100, 120, 90, 90};

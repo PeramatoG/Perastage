@@ -287,10 +287,10 @@ bool MyApp::OnInit() {
   }
 
   SplashScreen::Show();
-  SplashScreen::SetMessage("Running library bootstrap...");
+  SplashScreen::SetMessage(_("Running library bootstrap..."));
   ProjectUtils::RunStartupLibraryBootstrap();
 
-  SplashScreen::SetMessage("Creating main window...");
+  SplashScreen::SetMessage(_("Creating main window..."));
   MainWindow *mainWindow = new MainWindow(app::kName);
   mainWindow->Show(true);
   // Start maximized so minimize and restore buttons remain available
@@ -300,7 +300,7 @@ bool MyApp::OnInit() {
                                            localizationResult.activeLanguage);
   });
 
-  SplashScreen::SetMessage("Loading last project...");
+  SplashScreen::SetMessage(_("Loading last project..."));
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
   auto lastPathOpt = ProjectUtils::LoadLastProjectPath();
   std::optional<std::string> cliStartupPath =

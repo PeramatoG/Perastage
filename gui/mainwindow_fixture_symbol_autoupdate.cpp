@@ -515,7 +515,7 @@ void MainWindow::CompleteStartupSplashInitialization() {
     return;
 
   startupSplashInitializationPending = false;
-  SplashScreen::SetMessage("Ready");
+  SplashScreen::SetMessage(_("Ready"));
   SplashScreen::Hide();
 
   if (deferredStartupOpenPath && !deferredStartupOpenPath->empty()) {
