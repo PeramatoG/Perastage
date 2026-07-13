@@ -112,10 +112,11 @@ add_test(NAME LocalizationAppLanguage COMMAND localization_app_language_test)
 if(PERASTAGE_ENABLE_LOCALIZATION)
     add_executable(localization_catalog_integration_test
                    localization_catalog_integration_test.cpp
+                   ../gui/localized_unit_labels.cpp
                    ../core/localization/app_language.cpp
                    ../core/localization/localization_manager.cpp
                    localization_diagnostic_logger_stub.cpp)
-    target_include_directories(localization_catalog_integration_test PRIVATE ../core ../third_party)
+    target_include_directories(localization_catalog_integration_test PRIVATE ../core ../gui ../third_party)
     target_compile_definitions(localization_catalog_integration_test PRIVATE
                                PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
     target_link_libraries(localization_catalog_integration_test PRIVATE ${wxWidgets_LIBRARIES})

@@ -28,6 +28,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <wx/intl.h>
 #include <wx/choicdlg.h>
 
 #include "configmanager.h"
@@ -205,12 +206,12 @@ std::optional<LayoutImageExportData> BuildLayoutImageExportData(
 
 void MainWindow::OnPrintMenu(wxCommandEvent &WXUNUSED(event)) {
   wxArrayString choices;
-  choices.Add("Layout");
-  choices.Add("2D View");
-  choices.Add("Table");
+  choices.Add(_("Layout"));
+  choices.Add(_("2D View"));
+  choices.Add(_("Table"));
 
-  wxSingleChoiceDialog dialog(this, "Select what to print:",
-                              "Print", choices);
+  wxSingleChoiceDialog dialog(this, _("Select what to print:"),
+                              _("Print"), choices);
   if (dialog.ShowModal() != wxID_OK)
     return;
 
@@ -230,7 +231,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   Viewer2DPanel *capturePanel =
       offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
   if (!capturePanel) {
-    wxMessageBox("2D viewport is not available.", "Print Viewer 2D",
+    wxMessageBox(_("2D viewport is not available."), _("Print Viewer 2D"),
                  wxOK | wxICON_ERROR);
     return;
   }
@@ -250,8 +251,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   settings.includeGrid = true;
   settings.SaveToConfig(cfg);
 
-  wxFileDialog dlg(this, "Save 2D view as", "", "viewer2d.pdf",
-                   "PDF files (*.pdf)|*.pdf",
+  wxFileDialog dlg(this, _("Save 2D view as"), "", "viewer2d.pdf",
+                   _("PDF files (*.pdf)|*.pdf"),
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() != wxID_OK)
     return;
@@ -259,8 +260,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   wxString outputPathWx = dlg.GetPath();
   outputPathWx.Trim(true).Trim(false);
   if (outputPathWx.empty()) {
-    wxMessageBox("Please choose a destination file for the 2D view.",
-                 "Print Viewer 2D", wxOK | wxICON_WARNING);
+    wxMessageBox(_("Please choose a destination file for the 2D view."),
+                 _("Print Viewer 2D"), wxOK | wxICON_WARNING);
     return;
   }
 
@@ -273,7 +274,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   std::filesystem::path outputPath(
       std::filesystem::path(outputPathWx.ToStdWstring()));
   wxString outputPathDisplay = outputPathWx;
-  SetPrintStatus(this, "Printing 2D view...");
+  SetPrintStatus(this, _("Printing 2D view..."));
 
   wxSize captureSize = viewport2DPanel ? viewport2DPanel->GetClientSize()
                                        : GetClientSize();
@@ -289,8 +290,8 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
       [this, capturePanel, opts, outputPath, outputPathDisplay](
           CommandBuffer buffer, Viewer2DViewState state) {
         if (buffer.commands.empty()) {
-          wxMessageBox("Unable to capture the 2D view for printing.",
-                       "Print Viewer 2D", wxOK | wxICON_ERROR);
+          wxMessageBox(_("Unable to capture the 2D view for printing."),
+                       _("Print Viewer 2D"), wxOK | wxICON_ERROR);
           return;
         }
 
@@ -325,14 +326,14 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
 
           wxTheApp->CallAfter([this, res, outputPathDisplay]() {
             if (!res.success) {
-              wxString msg = "Failed to generate PDF plan: " +
-                             wxString::FromUTF8(res.message);
-              SetPrintStatus(this, "Print failed. Please review the error and try again.");
-              wxMessageBox(msg, "Print Viewer 2D", wxOK | wxICON_ERROR, this);
+              wxString msg = wxString::Format(_("Failed to generate PDF plan: %s"),
+                                           wxString::FromUTF8(res.message));
+              SetPrintStatus(this, _("Print failed. Please review the error and try again."));
+              wxMessageBox(msg, _("Print Viewer 2D"), wxOK | wxICON_ERROR, this);
             } else {
               SetPrintStatus(this, "");
-              wxMessageBox("2D view saved to " + outputPathDisplay,
-                           "Print Viewer 2D", wxOK | wxICON_INFORMATION, this);
+              wxMessageBox(wxString::Format(_("2D view saved to %s"), outputPathDisplay),
+                           _("Print Viewer 2D"), wxOK | wxICON_INFORMATION, this);
             }
           });
         }).detach();
@@ -346,7 +347,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   // scale frames to the output, and capture views sequentially before exporting
   // to PDF (ordering guarantees consistent renderer/caches during export).
   if (activeLayoutName.empty()) {
-    wxMessageBox("No layout is selected.", "Print Layout", wxOK | wxICON_WARNING,
+    wxMessageBox(_("No layout is selected."), _("Print Layout"), wxOK | wxICON_WARNING,
                  this);
     return;
   }
@@ -359,7 +360,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
     }
   }
   if (!layout) {
-    wxMessageBox("Selected layout is not available.", "Print Layout", wxOK,
+    wxMessageBox(_("Selected layout is not available."), _("Print Layout"), wxOK,
                  this);
     return;
   }
@@ -368,8 +369,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
       layout->eventTables.empty() && layout->textViews.empty() &&
       layout->imageViews.empty();
   if (layoutIsEmpty) {
-    wxMessageBox("The selected layout is empty.",
-                 "Print Layout", wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(_("The selected layout is empty."),
+                 _("Print Layout"), wxOK | wxICON_INFORMATION, this);
     return;
   }
 
@@ -377,7 +378,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   Viewer2DPanel *capturePanel =
       offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
   if (!capturePanel) {
-    wxMessageBox("2D viewport is not available.", "Print Layout", wxOK,
+    wxMessageBox(_("2D viewport is not available."), _("Print Layout"), wxOK,
                  this);
     return;
   }
@@ -400,8 +401,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   settings.includeGrid = true;
   settings.SaveToConfig(cfg);
 
-  wxFileDialog dlg(this, "Save layout as", "", "layout.pdf",
-                   "PDF files (*.pdf)|*.pdf",
+  wxFileDialog dlg(this, _("Save layout as"), "", "layout.pdf",
+                   _("PDF files (*.pdf)|*.pdf"),
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() != wxID_OK)
     return;
@@ -409,8 +410,8 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   wxString outputPathWx = dlg.GetPath();
   outputPathWx.Trim(true).Trim(false);
   if (outputPathWx.empty()) {
-    wxMessageBox("Please choose a destination file for the layout.",
-                 "Print Layout", wxOK | wxICON_WARNING, this);
+    wxMessageBox(_("Please choose a destination file for the layout."),
+                 _("Print Layout"), wxOK | wxICON_WARNING, this);
     return;
   }
 
@@ -535,15 +536,15 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
 
             wxTheApp->CallAfter([this, res, outputPathDisplay]() {
               if (!res.success) {
-                wxString msg = "Failed to generate layout PDF: " +
-                               wxString::FromUTF8(res.message);
+                wxString msg = wxString::Format(_("Failed to generate layout PDF: %s"),
+                                             wxString::FromUTF8(res.message));
                 SetPrintStatus(this,
-                               "Print failed. Please review the error and try again.");
-                wxMessageBox(msg, "Print Layout", wxOK | wxICON_ERROR, this);
+                               _("Print failed. Please review the error and try again."));
+                wxMessageBox(msg, _("Print Layout"), wxOK | wxICON_ERROR, this);
               } else {
                 SetPrintStatus(this, "");
-                wxString successMessage = "Layout saved to " + outputPathDisplay;
-                wxMessageBox(successMessage, "Print Layout",
+                wxString successMessage = wxString::Format(_("Layout saved to %s"), outputPathDisplay);
+                wxMessageBox(successMessage, _("Print Layout"),
                              wxOK | wxICON_INFORMATION, this);
               }
             });
@@ -611,44 +612,47 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
             useSimplifiedFootprints, includeGrid);
       };
 
-  SetPrintStatus(this, "Printing layout...");
+  SetPrintStatus(this, _("Printing layout..."));
   (*captureNext)(0);
 }
 
 void MainWindow::OnPrintTable(wxCommandEvent &WXUNUSED(event)) {
-  wxArrayString options;
+  struct PrintableTableChoice {
+    wxString label;
+    wxDataViewListCtrl *ctrl = nullptr;
+    TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
+  };
+
+  std::vector<PrintableTableChoice> tableChoices;
   if (fixturePanel)
-    options.Add("Fixtures");
+    tableChoices.push_back({_("Fixtures"), fixturePanel->GetTableCtrl(),
+                            TablePrinter::TableType::Fixtures});
   if (trussPanel)
-    options.Add("Trusses");
+    tableChoices.push_back({_("Trusses"), trussPanel->GetTableCtrl(),
+                            TablePrinter::TableType::Trusses});
   if (hoistPanel)
-    options.Add("Hoists");
+    tableChoices.push_back({_("Hoists"), hoistPanel->GetTableCtrl(),
+                            TablePrinter::TableType::Supports});
   if (sceneObjPanel)
-    options.Add("Objects");
-  if (options.IsEmpty())
+    tableChoices.push_back({_("Objects"), sceneObjPanel->GetTableCtrl(),
+                            TablePrinter::TableType::SceneObjects});
+  if (tableChoices.empty())
     return;
 
-  wxSingleChoiceDialog dlg(this, "Select table", "Print Table", options);
+  wxArrayString options;
+  for (const auto &choice : tableChoices)
+    options.Add(choice.label);
+
+  wxSingleChoiceDialog dlg(this, _("Select table"), _("Print Table"), options);
   if (dlg.ShowModal() != wxID_OK)
     return;
 
-  wxString choice = dlg.GetStringSelection();
-  wxDataViewListCtrl *ctrl = nullptr;
-  TablePrinter::TableType type = TablePrinter::TableType::Fixtures;
-  if (choice == "Fixtures" && fixturePanel) {
-    ctrl = fixturePanel->GetTableCtrl();
-    type = TablePrinter::TableType::Fixtures;
-  } else if (choice == "Trusses" && trussPanel) {
-    ctrl = trussPanel->GetTableCtrl();
-    type = TablePrinter::TableType::Trusses;
-  } else if (choice == "Hoists" && hoistPanel) {
-    ctrl = hoistPanel->GetTableCtrl();
-    type = TablePrinter::TableType::Supports;
-  } else if (choice == "Objects" && sceneObjPanel) {
-    ctrl = sceneObjPanel->GetTableCtrl();
-    type = TablePrinter::TableType::SceneObjects;
-  }
+  const int selection = dlg.GetSelection();
+  if (selection < 0 || static_cast<size_t>(selection) >= tableChoices.size())
+    return;
 
-  if (ctrl)
-    TablePrinter::Print(this, ctrl, type, GetDefaultGuiConfigServices().LegacyConfigManager());
+  const auto &choice = tableChoices[static_cast<size_t>(selection)];
+  if (choice.ctrl)
+    TablePrinter::Print(this, choice.ctrl, choice.type,
+                        GetDefaultGuiConfigServices().LegacyConfigManager());
 }

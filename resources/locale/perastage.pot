@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.4.85\n"
+"Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 11:09+0000\n"
+"POT-Creation-Date: 2026-07-13 17:31+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -58,7 +58,9 @@ msgstr ""
 msgid "Add Fixture"
 msgstr ""
 
-#: gui/addfixturedialog.cpp:29
+#: gui/addfixturedialog.cpp:29 gui/scene_object_primitive_dialogs.cpp:229
+#: gui/scene_object_primitive_dialogs.cpp:347
+#: gui/scene_object_primitive_dialogs.cpp:471
 msgid "Units:"
 msgstr ""
 
@@ -77,7 +79,7 @@ msgid ""
 "currently attached to the pointer."
 msgstr ""
 
-#: gui/addfixturedialog.cpp:45
+#: gui/addfixturedialog.cpp:45 gui/scene_object_primitive_dialogs.cpp:72
 msgid "Name:"
 msgstr ""
 
@@ -109,6 +111,11 @@ msgstr ""
 msgid "Quantity:"
 msgstr ""
 
+#: gui/addtrussdialog.cpp:45
+#, c-format
+msgid "Insertion point %s"
+msgstr ""
+
 #: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:276
 msgid "Add Truss"
 msgstr ""
@@ -137,23 +144,173 @@ msgstr ""
 msgid "Deselect All"
 msgstr ""
 
+#: gui/consolepanel.cpp:157
+msgid ""
+"The console works on the current selection. If fixtures are selected, "
+"position and rotation commands apply to fixtures; otherwise they apply to "
+"trusses."
+msgstr ""
+
+#: gui/consolepanel.cpp:159
+msgid "Selection"
+msgstr ""
+
+#: gui/consolepanel.cpp:161
+msgid "Command    Description"
+msgstr ""
+
+#: gui/consolepanel.cpp:163
+msgid "Clears all selections (fixtures, trusses, scene objects)."
+msgstr ""
+
+#: gui/consolepanel.cpp:164
+msgid "Select fixtures by ID."
+msgstr ""
+
+#: gui/consolepanel.cpp:165
+msgid "Select trusses by unit number (clears current truss selection first)."
+msgstr ""
+
+#: gui/consolepanel.cpp:166
+msgid "Selection syntax supports:"
+msgstr ""
+
+#: gui/consolepanel.cpp:168
+msgid "Single IDs: `f 12`"
+msgstr ""
+
+#: gui/consolepanel.cpp:169
+msgid "Ranges: `f 1-5`, `f 1 thru 5`, `f 1 t 5`"
+msgstr ""
+
+#: gui/consolepanel.cpp:170
+msgid "Add/remove: `f + 10 - 3`"
+msgstr ""
+
+#: gui/consolepanel.cpp:171
+msgid "Mixed tokens: `f 1 3 5 7-9`"
+msgstr ""
+
+#: gui/consolepanel.cpp:172
+msgid "Position and rotation"
+msgstr ""
+
+#: gui/consolepanel.cpp:174
+msgid "Command          Description"
+msgstr ""
+
+#: gui/consolepanel.cpp:176
+msgid "Set X positions for the selection."
+msgstr ""
+
+#: gui/consolepanel.cpp:177
+msgid "Set Y positions for the selection."
+msgstr ""
+
+#: gui/consolepanel.cpp:178
+msgid "Set Z positions for the selection."
+msgstr ""
+
+#: gui/consolepanel.cpp:179
+msgid "Set X/Y/Z in one command."
+msgstr ""
+
+#: gui/consolepanel.cpp:180
+msgid "Shortcut for `pos x`."
+msgstr ""
+
+#: gui/consolepanel.cpp:181
+msgid "Shortcut for `pos y`."
+msgstr ""
+
+#: gui/consolepanel.cpp:182
+msgid "Shortcut for `pos z`."
+msgstr ""
+
+#: gui/consolepanel.cpp:183
+msgid "Set rotation around X (roll)."
+msgstr ""
+
+#: gui/consolepanel.cpp:184
+msgid "Set rotation around Y (pitch)."
+msgstr ""
+
+#: gui/consolepanel.cpp:185
+msgid "Set rotation around Z (yaw)."
+msgstr ""
+
+#: gui/consolepanel.cpp:186
+msgid "Rotate the full selection as one group around a pivot."
+msgstr ""
+
+#: gui/consolepanel.cpp:187
+msgid "Alias of `--group`."
+msgstr ""
+
+#: gui/consolepanel.cpp:188
+msgid "Notes:"
+msgstr ""
+
+#: gui/consolepanel.cpp:190
+msgid "Provide one value to apply it to all selected items."
+msgstr ""
+
+#: gui/consolepanel.cpp:191
+msgid ""
+"Provide two values to linearly distribute from start to end across the "
+"selection."
+msgstr ""
+
+#: gui/consolepanel.cpp:192
+msgid "Use `++` / `--` to apply relative offsets."
+msgstr ""
+
+#: gui/consolepanel.cpp:193
+msgid ""
+"You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for "
+"`pos`."
+msgstr ""
+
+#: gui/consolepanel.cpp:199 gui/consolepanel.cpp:270
+#: tests/localization_catalog_integration_test.cpp:110
+msgid "Console commands"
+msgstr ""
+
+#: gui/consolepanel.cpp:215
+msgid "Console commands:"
+msgstr ""
+
+#: gui/consolepanel.cpp:220
+msgid "Examples:"
+msgstr ""
+
+#: gui/consolepanel.cpp:250
+msgid "Show available console commands and examples."
+msgstr ""
+
 #: gui/fixturetable/fixture_table_columns.cpp:12
 msgid "Fixture ID"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:12
+#: gui/fixturetable/fixture_table_columns.cpp:12 gui/hoisttablepanel.cpp:466
+#: gui/sceneobjecttablepanel.cpp:262 gui/trusstablepanel.cpp:286
 msgid "Name"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:13
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:467
+#: gui/summarypanel.cpp:254 gui/summarypanel.cpp:263 mvr/mvrimporter.cpp:668
 msgid "Type"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:13
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:471
+#: gui/hoisttablepanel.cpp:786 gui/layerpanel.cpp:82
+#: gui/sceneobjecttablepanel.cpp:263 gui/sceneobjecttablepanel.cpp:427
+#: gui/trusstablepanel.cpp:286
 msgid "Layer"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:14
+#: gui/fixturetable/fixture_table_columns.cpp:14 gui/hoisttablepanel.cpp:472
+#: gui/trusstablepanel.cpp:286
 msgid "Hang Pos"
 msgstr ""
 
@@ -177,27 +334,42 @@ msgstr ""
 msgid "Model file"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:17
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:272
+#: gui/fixturetablepanel.cpp:303 gui/hoisttablepanel.cpp:473
+#: gui/hoisttablepanel.cpp:504 gui/sceneobjecttablepanel.cpp:265
+#: gui/sceneobjecttablepanel.cpp:288 gui/trusstablepanel.cpp:287
+#: gui/trusstablepanel.cpp:319
 msgid "Pos X"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:17
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:275
+#: gui/fixturetablepanel.cpp:306 gui/hoisttablepanel.cpp:474
+#: gui/hoisttablepanel.cpp:505 gui/sceneobjecttablepanel.cpp:266
+#: gui/sceneobjecttablepanel.cpp:289 gui/trusstablepanel.cpp:287
+#: gui/trusstablepanel.cpp:320
 msgid "Pos Y"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:18
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:278
+#: gui/fixturetablepanel.cpp:309 gui/hoisttablepanel.cpp:475
+#: gui/hoisttablepanel.cpp:506 gui/sceneobjecttablepanel.cpp:267
+#: gui/sceneobjecttablepanel.cpp:290 gui/trusstablepanel.cpp:287
+#: gui/trusstablepanel.cpp:321
 msgid "Pos Z"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:18
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/hoisttablepanel.cpp:476
+#: gui/sceneobjecttablepanel.cpp:268
 msgid "Roll (X)"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:19
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:477
+#: gui/sceneobjecttablepanel.cpp:269
 msgid "Pitch (Y)"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:19
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:478
+#: gui/sceneobjecttablepanel.cpp:270
 msgid "Yaw (Z)"
 msgstr ""
 
@@ -206,6 +378,7 @@ msgid "Power (W)"
 msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:20
+#: tests/localization_catalog_integration_test.cpp:96
 msgid "Weight (kg)"
 msgstr ""
 
@@ -219,6 +392,255 @@ msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:22
 msgid "Color Filter"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:281 gui/fixturetablepanel.cpp:312
+#: gui/hoisttablepanel.cpp:481 gui/hoisttablepanel.cpp:510
+#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:325
+#: tests/localization_catalog_integration_test.cpp:124
+#: tests/localization_catalog_integration_test.cpp:127
+msgid "Weight"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:956 gui/hoisttablepanel.cpp:833
+#: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:637
+msgid "Edit value:"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1007 gui/fixturetablepanel.cpp:1012
+#: gui/hoisttablepanel.cpp:881 gui/hoisttablepanel.cpp:886
+#: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
+#: gui/trusstablepanel.cpp:683 gui/trusstablepanel.cpp:688
+msgid "Invalid numeric value"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1007 gui/fixturetablepanel.cpp:1012
+#: gui/fixturetablepanel.cpp:1019 gui/fixturetablepanel.cpp:1025
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1039
+#: gui/fixturetablepanel.cpp:1075 gui/fixturetablepanel.cpp:1082
+#: gui/hoisttablepanel.cpp:881 gui/hoisttablepanel.cpp:886
+#: gui/hoisttablepanel.cpp:892 gui/hoisttablepanel.cpp:899
+#: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
+#: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
+#: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
+#: gui/ridertextdialog.cpp:346 gui/sceneobjecttablepanel.cpp:545
+#: gui/sceneobjecttablepanel.cpp:550 gui/sceneobjecttablepanel.cpp:556
+#: gui/sceneobjecttablepanel.cpp:563 gui/trusstablepanel.cpp:683
+#: gui/trusstablepanel.cpp:688 gui/trusstablepanel.cpp:694
+#: gui/trusstablepanel.cpp:701
+msgid "Error"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1019 gui/fixturetablepanel.cpp:1033
+#: gui/fixturetablepanel.cpp:1075 gui/fixturetablepanel.cpp:1082
+#: gui/hoisttablepanel.cpp:892 gui/hoisttablepanel.cpp:899
+#: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
+#: gui/trusstablepanel.cpp:694 gui/trusstablepanel.cpp:701
+msgid "Invalid value"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1025 gui/fixturetablepanel.cpp:1039
+msgid "Channel out of range (1-512)"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:166
+#: tests/localization_catalog_integration_test.cpp:114
+msgid "Search GDTF"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:178
+#: tests/localization_catalog_integration_test.cpp:116
+msgid "Manufacturer:"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:182
+msgid "Fixture:"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:192
+msgid "< Prev"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:193
+msgid "Next >"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:194
+msgid "Page 1/1"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:204 gui/trusstablepanel.cpp:289
+msgid "Manufacturer"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:206
+msgid "Fixture"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:208
+msgid "Modes"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:210
+msgid "Creator"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:212
+msgid "Uploader"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:214
+msgid "Creation Date"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:216
+msgid "Revision"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:218
+msgid "Last Modified"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:220
+msgid "Version"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:222
+msgid "Rating"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:228
+#: tests/localization_catalog_integration_test.cpp:118
+msgid "Download"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:229 gui/ridertextdialog.cpp:152
+#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:3685
+msgid "Cancel"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:394
+#, c-format
+msgid "Page %zu/%zu (%zu results)"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:518 gui/gdtfsearchdialog.cpp:554
+#, c-format
+msgid "Showing local catalog (last updated: %s)"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:525
+#, c-format
+msgid ""
+"Online GDTF catalog refresh failed.\n"
+"%s"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:527
+msgid "GDTF catalog refresh"
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:541
+msgid "Updating online catalog..."
+msgstr ""
+
+#: gui/gdtfsearchdialog.cpp:551
+msgid "Showing local catalog."
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:250
+msgid "Use automatic value"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:465
+#: tests/localization_catalog_integration_test.cpp:98
+msgid "Hoist ID"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:468 gui/hoisttablepanel.cpp:702
+#: gui/hoisttablepanel.cpp:713
+msgid "Function"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:469
+msgid "Motor"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:470 gui/hoisttablepanel.cpp:742
+#: gui/hoisttablepanel.cpp:766
+msgid "Dummy Preset"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:479 gui/hoisttablepanel.cpp:508
+#: tests/localization_catalog_integration_test.cpp:100
+msgid "Chain Length"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:480 gui/hoisttablepanel.cpp:509
+#: tests/localization_catalog_integration_test.cpp:136
+#: tests/localization_catalog_integration_test.cpp:139
+msgid "Capacity"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:482 gui/hoisttablepanel.cpp:511
+#: gui/trusstablepanel.cpp:290
+msgid "Load"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:765
+msgid ""
+"Dummy preset can only be assigned when there is no linked motor fixture."
+msgstr ""
+
+#: gui/layerpanel.cpp:81 gui/layerpanel.cpp:97 gui/summarypanel.cpp:250
+#: gui/summarypanel.cpp:310 tests/localization_catalog_integration_test.cpp:102
+msgid "Visible"
+msgstr ""
+
+#: gui/layerpanel.cpp:84 gui/layerpanel.cpp:98 gui/summarypanel.cpp:258
+#: gui/summarypanel.cpp:312
+msgid "Color"
+msgstr ""
+
+#: gui/layerpanel.cpp:123
+msgid "Add"
+msgstr ""
+
+#: gui/layerpanel.cpp:124
+msgid "Delete"
+msgstr ""
+
+#: gui/layerpanel.cpp:300 gui/layerpanel.cpp:477
+#: tests/localization_catalog_integration_test.cpp:120
+msgid "Enter new layer name:"
+msgstr ""
+
+#: gui/layerpanel.cpp:300 gui/layerpanel.cpp:312
+msgid "Add Layer"
+msgstr ""
+
+#: gui/layerpanel.cpp:312 gui/layerpanel.cpp:491
+msgid "Layer already exists."
+msgstr ""
+
+#: gui/layerpanel.cpp:339
+msgid "Cannot delete default layer."
+msgstr ""
+
+#: gui/layerpanel.cpp:339 gui/layerpanel.cpp:372
+msgid "Delete Layer"
+msgstr ""
+
+#: gui/layerpanel.cpp:371
+msgid "Layer is not empty. Delete all elements?"
+msgstr ""
+
+#: gui/layerpanel.cpp:472
+msgid "Cannot rename default layer."
+msgstr ""
+
+#: gui/layerpanel.cpp:472 gui/layerpanel.cpp:477 gui/layerpanel.cpp:491
+msgid "Rename Layer"
 msgstr ""
 
 #: gui/logindialog.cpp:21
@@ -236,6 +658,57 @@ msgstr ""
 
 #: gui/logindialog.cpp:38
 msgid "Password:"
+msgstr ""
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:147
+msgid "Open as new project"
+msgstr ""
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:148
+msgid "Merge into current project"
+msgstr ""
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:150
+msgid "Choose how Perastage should import the selected MVR file."
+msgstr ""
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
+#: gui/mainwindow_menu.cpp:166
+msgid "Import MVR"
+msgstr ""
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
+msgid "loading a project"
+msgstr ""
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
+msgid "Open Project"
+msgstr ""
+
+#: gui/mainwindow.cpp:525 gui/mainwindow_menu_builders.cpp:74
+msgid "3D Viewport"
+msgstr ""
+
+#: gui/mainwindow.cpp:566 gui/mainwindow_menu_builders.cpp:75
+msgid "2D Viewport"
+msgstr ""
+
+#: gui/mainwindow.cpp:582 gui/mainwindow_menu_builders.cpp:76
+msgid "2D Render Options"
+msgstr ""
+
+#: gui/mainwindow.cpp:739
+#, c-format
+msgid "Do you want to save changes before %s?"
+msgstr ""
+
+#: gui/mainwindow.cpp:796
+#, c-format
+msgid "Please wait until the startup project loading finishes before %s."
+msgstr ""
+
+#: gui/mainwindow.cpp:798
+msgid "Perastage is still loading"
 msgstr ""
 
 #: gui/mainwindow.cpp:851 gui/mainwindow.cpp:1016
@@ -322,10 +795,6 @@ msgstr ""
 msgid "Save the current project with a new name"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:166
-msgid "Import MVR"
-msgstr ""
-
 #: gui/mainwindow_menu.cpp:168
 msgid "Import an MVR file"
 msgstr ""
@@ -338,7 +807,7 @@ msgstr ""
 msgid "Export the project to MVR"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:172
+#: gui/mainwindow_menu.cpp:172 gui/mainwindow_print.cpp:214
 msgid "Print"
 msgstr ""
 
@@ -475,10 +944,12 @@ msgid "Insert a new scene object"
 msgstr ""
 
 #: gui/mainwindow_menu.cpp:283 gui/mainwindow_menu.cpp:285
+#: mvr/mvrimporter.cpp:672
 msgid "Download GDTF"
 msgstr ""
 
 #: gui/mainwindow_menu.cpp:286 gui/mainwindow_menu.cpp:288
+#: gui/ridertextdialog.cpp:77
 msgid "Create from text"
 msgstr ""
 
@@ -526,8 +997,24 @@ msgstr ""
 msgid "Add image to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:317
+#: gui/mainwindow_menu.cpp:317 gui/mainwindow_print.cpp:209
 msgid "Layout"
+msgstr ""
+
+#: gui/mainwindow_menu.cpp:329 gui/mainwindow_menu.cpp:332
+msgid "creating a new project"
+msgstr ""
+
+#: gui/mainwindow_menu.cpp:332
+msgid "New Project"
+msgstr ""
+
+#: gui/mainwindow_menu.cpp:904
+msgid "exiting"
+msgstr ""
+
+#: gui/mainwindow_menu.cpp:904
+msgid "Exit"
 msgstr ""
 
 #: gui/mainwindow_menu.cpp:996
@@ -646,20 +1133,9 @@ msgstr ""
 msgid "Console"
 msgstr ""
 
-#: gui/mainwindow_menu_builders.cpp:73
+#: gui/mainwindow_menu_builders.cpp:73 gui/mainwindow_print.cpp:628
+#: gui/riggingpanel.cpp:185 gui/summarypanel.cpp:135
 msgid "Fixtures"
-msgstr ""
-
-#: gui/mainwindow_menu_builders.cpp:74
-msgid "3D Viewport"
-msgstr ""
-
-#: gui/mainwindow_menu_builders.cpp:75
-msgid "2D Viewport"
-msgstr ""
-
-#: gui/mainwindow_menu_builders.cpp:76
-msgid "2D Render Options"
 msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:77
@@ -670,7 +1146,7 @@ msgstr ""
 msgid "Layouts"
 msgstr ""
 
-#: gui/mainwindow_menu_builders.cpp:79
+#: gui/mainwindow_menu_builders.cpp:79 gui/summarypanel.cpp:111
 msgid "Summary"
 msgstr ""
 
@@ -770,9 +1246,128 @@ msgstr ""
 msgid "&Help"
 msgstr ""
 
+#: gui/mainwindow_print.cpp:210
+msgid "2D View"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:211
+msgid "Table"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:213
+msgid "Select what to print:"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:234 gui/mainwindow_print.cpp:381
+msgid "2D viewport is not available."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:234 gui/mainwindow_print.cpp:264
+#: gui/mainwindow_print.cpp:294 gui/mainwindow_print.cpp:332
+#: gui/mainwindow_print.cpp:336
+msgid "Print Viewer 2D"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:254
+msgid "Save 2D view as"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:255 gui/mainwindow_print.cpp:405
+msgid "PDF files (*.pdf)|*.pdf"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:263
+msgid "Please choose a destination file for the 2D view."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:277
+msgid "Printing 2D view..."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:293
+msgid "Unable to capture the 2D view for printing."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:329
+#, c-format
+msgid "Failed to generate PDF plan: %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:331 gui/mainwindow_print.cpp:542
+msgid "Print failed. Please review the error and try again."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:335
+#, c-format
+msgid "2D view saved to %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:350
+msgid "No layout is selected."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:350 gui/mainwindow_print.cpp:363
+#: gui/mainwindow_print.cpp:373 gui/mainwindow_print.cpp:381
+#: gui/mainwindow_print.cpp:414 gui/mainwindow_print.cpp:543
+#: gui/mainwindow_print.cpp:547
+msgid "Print Layout"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:363
+msgid "Selected layout is not available."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:372
+msgid "The selected layout is empty."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:404
+msgid "Save layout as"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:413
+msgid "Please choose a destination file for the layout."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:539
+#, c-format
+msgid "Failed to generate layout PDF: %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:546
+#, c-format
+msgid "Layout saved to %s"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:615
+msgid "Printing layout..."
+msgstr ""
+
+#: gui/mainwindow_print.cpp:631 gui/riggingpanel.cpp:188
+#: gui/summarypanel.cpp:164
+msgid "Trusses"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:634 gui/riggingpanel.cpp:191
+#: gui/summarypanel.cpp:174
+msgid "Hoists"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:637 gui/summarypanel.cpp:191
+msgid "Objects"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:646
+msgid "Select table"
+msgstr ""
+
+#: gui/mainwindow_print.cpp:646
+msgid "Print Table"
+msgstr ""
+
 #: gui/preferencesdialog.cpp:66
-#: tests/localization_catalog_integration_test.cpp:72
-#: tests/localization_catalog_integration_test.cpp:84
+#: tests/localization_catalog_integration_test.cpp:73
+#: tests/localization_catalog_integration_test.cpp:85
 msgid "Preferences"
 msgstr ""
 
@@ -836,7 +1431,7 @@ msgid "Language changes will be applied after restarting Perastage."
 msgstr ""
 
 #: gui/preferencesdialog.cpp:211
-#: tests/localization_catalog_integration_test.cpp:86
+#: tests/localization_catalog_integration_test.cpp:87
 msgid "Language"
 msgstr ""
 
@@ -984,6 +1579,248 @@ msgstr ""
 msgid "Restart required"
 msgstr ""
 
+#: gui/ridertextdialog.cpp:50
+msgid "No source loaded."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:51
+#, c-format
+msgid "Loaded: %s"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:73 gui/ridertextdialog.cpp:82
+#: tests/localization_catalog_integration_test.cpp:112
+msgid "Create scene from text"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:91
+msgid ""
+"Paste rider content or load a .txt/.pdf file, then refine before creating "
+"the scene."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:98
+msgid "Source"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:103
+msgid "Load rider..."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:106
+msgid "Use example"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:111
+msgid "Rider text"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:120
+msgid ""
+"Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. "
+"Ranking: exact > prefix > fuzzy + recent use + context."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:150 gui/ridertextdialog.cpp:326
+msgid "Apply filter"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:151
+msgid "Create"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:201
+msgid "Import Rider"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:202
+msgid "Rider files (*.txt;*.pdf)|*.txt;*.pdf"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:218
+msgid "Unexpected error while loading rider file."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:224
+msgid "Unexpected unknown error while loading rider file."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:233
+msgid "Failed to import rider."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:245
+msgid "Loaded rider text could not be decoded."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:307
+msgid "Example text"
+msgstr ""
+
+#: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:346
+msgid "Rider text is empty."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:325
+msgid ""
+"No fixture lines were detected with the current parser rules after filtering."
+msgstr ""
+
+#: gui/ridertextdialog.cpp:334
+msgid "Filtered text could not be decoded."
+msgstr ""
+
+#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:106
+msgid "Position"
+msgstr ""
+
+#: gui/riggingpanel.cpp:193 gui/riggingpanel.cpp:258
+#: tests/localization_catalog_integration_test.cpp:108
+#: tests/localization_catalog_integration_test.cpp:143
+msgid "Fixture Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:196 gui/riggingpanel.cpp:260
+msgid "Truss Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:199 gui/riggingpanel.cpp:262
+msgid "Hoists Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:202 gui/riggingpanel.cpp:264
+msgid "Extra Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:205 gui/riggingpanel.cpp:266
+msgid "Total Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:208 gui/riggingpanel.cpp:268
+msgid "Rounded Total Weight +5%"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:129
+msgid "Save as Default"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:131
+msgid "Load Default"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:135
+msgid "Apply"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:137 mvr/mvrimporter.cpp:3687
+msgid "OK"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:183
+msgid "Radius"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:237
+#: gui/scene_object_primitive_dialogs.cpp:355
+#: gui/scene_object_primitive_dialogs.cpp:479
+msgid "Position X"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:239
+#: gui/scene_object_primitive_dialogs.cpp:357
+#: gui/scene_object_primitive_dialogs.cpp:481
+msgid "Position Y"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:241
+#: gui/scene_object_primitive_dialogs.cpp:359
+#: gui/scene_object_primitive_dialogs.cpp:483
+msgid "Position Z"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:242
+#: gui/scene_object_primitive_dialogs.cpp:360
+#: gui/scene_object_primitive_dialogs.cpp:484
+msgid "Rotation X (deg):"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:243
+#: gui/scene_object_primitive_dialogs.cpp:361
+#: gui/scene_object_primitive_dialogs.cpp:485
+msgid "Rotation Y (deg):"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:244
+#: gui/scene_object_primitive_dialogs.cpp:362
+#: gui/scene_object_primitive_dialogs.cpp:486
+msgid "Rotation Z (deg):"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:297
+#: gui/scene_object_primitive_dialogs.cpp:583 gui/trusstablepanel.cpp:290
+#: gui/trusstablepanel.cpp:322
+#: tests/localization_catalog_integration_test.cpp:130
+#: tests/localization_catalog_integration_test.cpp:133
+msgid "Length"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:298
+#: gui/scene_object_primitive_dialogs.cpp:423
+#: gui/scene_object_primitive_dialogs.cpp:542 gui/trusstablepanel.cpp:290
+#: gui/trusstablepanel.cpp:324
+msgid "Height"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:299
+#: gui/scene_object_primitive_dialogs.cpp:541 gui/trusstablepanel.cpp:290
+#: gui/trusstablepanel.cpp:323
+msgid "Width"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:421
+msgid "Top radius"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:422
+msgid "Bottom radius"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:534
+msgid "Edit Screen"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:576
+msgid "Edit Pipe"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:643
+msgid "Add Sphere"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:657
+msgid "Add Cube"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:671
+msgid "Add Cylinder"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:682
+msgid "Edit Sphere"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:695
+msgid "Edit Cube"
+msgstr ""
+
+#: gui/scene_object_primitive_dialogs.cpp:708
+msgid "Edit Cylinder"
+msgstr ""
+
+#: gui/sceneobjecttablepanel.cpp:264 gui/trusstablepanel.cpp:286
+msgid "Model File"
+msgstr ""
+
 #: gui/selectfixturetypedialog.cpp:21
 msgid "Select Fixture Type"
 msgstr ""
@@ -994,6 +1831,15 @@ msgstr ""
 
 #: gui/selectfixturetypedialog.cpp:35 gui/selectnamedialog.cpp:38
 msgid "Add from file..."
+msgstr ""
+
+#: gui/summarypanel.cpp:252 gui/summarypanel.cpp:261 gui/summarypanel.cpp:311
+#: gui/summarypanel.cpp:341 tests/localization_catalog_integration_test.cpp:104
+msgid "Count"
+msgstr ""
+
+#: gui/trusstablepanel.cpp:289
+msgid "Model"
 msgstr ""
 
 #: main.cpp:290
@@ -1008,6 +1854,180 @@ msgstr ""
 msgid "Loading last project..."
 msgstr ""
 
-#: tests/localization_catalog_integration_test.cpp:77
+#: mvr/mvrimporter.cpp:658
+msgid "Resolve GDTF source conflicts"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:661
+msgid "Choose which source to keep for each fixture type."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:669
+msgid "MVR"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:670
+msgid "App"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:684 mvr/mvrimporter.cpp:685 mvr/mvrimporter.cpp:687
+msgid "Select all"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3612
+msgid "GDTF download queue"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3641
+msgid "Selected fixture types for download"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3647
+msgid "Preparing download queue..."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3663
+msgid "Fixture type"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3665
+msgid "Selected GDTF"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3667
+msgid "Status"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3669
+msgid "Progress"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3671
+msgid "Details"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3676
+msgid "0 processed  |  0 downloaded  |  0 fallback"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3716
+msgid "Cancel requested. Finishing current transfer..."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3772
+#, c-format
+msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3882
+msgid "Pending"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3885
+msgid "Waiting to match catalog entry"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3895
+msgid "Loading GDTF catalog..."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3977
+#, c-format
+msgid "Selected fixture types for download (catalog entries: %zu)"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:3980
+msgid "Downloading selected fixtures..."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4007 mvr/mvrimporter.cpp:4140
+msgid "Fallback to App"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4008 mvr/mvrimporter.cpp:4140 mvr/mvrimporter.cpp:4169
+msgid "Fallback to MVR"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4009
+msgid "No catalog match found"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4048 mvr/mvrimporter.cpp:4088
+msgid "Downloading"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4049 mvr/mvrimporter.cpp:4090
+msgid "Fetching fixture package"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4100
+msgid "Downloaded and assigned"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4103
+#, c-format
+msgid " (Mode: %s)"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4113
+msgid "Success"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4123 mvr/mvrimporter.cpp:4152
+msgid "Canceled"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4127
+msgid "Canceled by user"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4144
+msgid "Download failed"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4153
+msgid "Canceled before download start"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4158
+msgid "Queue canceled. Keeping downloaded fixtures."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4160
+msgid "Queue finished."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4164
+msgid "Catalog fetch/parsing failed."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4166
+#, c-format
+msgid "Selected fixture types for download (catalog load failed: %s)"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4170
+msgid "Failed to load catalog list"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4175
+#, c-format
+msgid "Catalog load failed. %s. Keeping MVR originals."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4181
+#, c-format
+msgid "%s - queue finished"
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4186
+msgid "Login failed. Verify credentials in Preferences."
+msgstr ""
+
+#: mvr/mvrimporter.cpp:4187
+msgid "GDTF Share login"
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:78
 msgid "Spanish"
 msgstr ""

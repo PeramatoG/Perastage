@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "addtrussdialog.h"
+#include "localized_unit_labels.h"
 
 #include "configmanager.h"
 #include "guiconfigservices.h"
@@ -41,10 +42,9 @@ Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
 
 // Builds a coordinate label with the active distance unit suffix.
 wxString CoordinateLabel(const char *axis, Units::DistanceUnitSystem unitSystem) {
-  const std::string label = Units::LabelWithUnit(
-      std::string("Insertion point ") + axis,
-      UiUnitUtils::DistanceUnitSuffix(unitSystem));
-  return wxString::FromUTF8(label + ":");
+  const wxString baseLabel = wxString::Format(_("Insertion point %s"), wxString::FromUTF8(axis));
+  return ui::LocalizedLabelWithUnitColon(
+      baseLabel, wxString::FromUTF8(UiUnitUtils::DistanceUnitSuffix(unitSystem)));
 }
 
 // Adds a signed world-coordinate editor row to the dialog grid.

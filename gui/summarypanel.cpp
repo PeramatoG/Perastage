@@ -108,7 +108,7 @@ void SummaryPanel::UpdatePaneCaption(const wxString& suffix) {
         return;
 
     const wxString caption = suffix.empty()
-                                 ? wxString("Summary")
+                                 ? wxString(_("Summary"))
                                  : wxString::Format("Summary - %s", suffix);
     if (pane.caption == caption)
         return;
@@ -132,7 +132,7 @@ void SummaryPanel::ShowSummary(
 }
 
 void SummaryPanel::ShowFixtureSummary() {
-    UpdatePaneCaption("Fixtures");
+    UpdatePaneCaption(_("Fixtures"));
   if (!table || !store)
     return;
     std::map<std::string, FixtureSummaryRow> grouped;
@@ -161,7 +161,7 @@ void SummaryPanel::ShowFixtureSummary() {
 }
 
 void SummaryPanel::ShowTrussSummary() {
-    UpdatePaneCaption("Trusses");
+    UpdatePaneCaption(_("Trusses"));
     std::map<std::string,int> counts;
     const auto& trusses = (*visibilityConfigManager).GetScene().trusses;
     for (const auto& [uuid, truss] : trusses)
@@ -171,7 +171,7 @@ void SummaryPanel::ShowTrussSummary() {
 }
 
 void SummaryPanel::ShowHoistSummary() {
-    UpdatePaneCaption("Hoists");
+    UpdatePaneCaption(_("Hoists"));
   if (!table)
     return;
 
@@ -188,7 +188,7 @@ void SummaryPanel::ShowHoistSummary() {
 }
 
 void SummaryPanel::ShowSceneObjectSummary() {
-    UpdatePaneCaption("Objects");
+    UpdatePaneCaption(_("Objects"));
     std::map<std::string,int> counts;
     const auto& objs = (*visibilityConfigManager).GetScene().sceneObjects;
     for (const auto& [uuid, obj] : objs)
@@ -247,20 +247,20 @@ void SummaryPanel::EnsureColumnsForMode(SummaryMode requestedMode) {
         return;
 
     if (requestedMode == SummaryMode::Fixture) {
-        table->AppendToggleColumn("Visible", wxDATAVIEW_CELL_ACTIVATABLE, 70,
+        table->AppendToggleColumn(_("Visible"), wxDATAVIEW_CELL_ACTIVATABLE, 70,
                                   wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
-        table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT,
+        table->AppendTextColumn(_("Count"), wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT,
                                 wxDATAVIEW_COL_RESIZABLE);
-        table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT,
+        table->AppendTextColumn(_("Type"), wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT,
                                 wxDATAVIEW_COL_RESIZABLE);
         auto* colorRenderer = new wxDataViewIconTextRenderer();
         table->AppendColumn(new wxDataViewColumn(
-        "Color", colorRenderer, FixtureColumnIndex(FixtureSummaryColumn::Color),
+        _("Color"), colorRenderer, FixtureColumnIndex(FixtureSummaryColumn::Color),
         80, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE));
     } else {
-        table->AppendTextColumn("Count", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT,
+        table->AppendTextColumn(_("Count"), wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT,
                                 wxDATAVIEW_COL_RESIZABLE);
-        table->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT,
+        table->AppendTextColumn(_("Type"), wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT,
                                 wxDATAVIEW_COL_RESIZABLE);
     }
     mode = requestedMode;
@@ -307,9 +307,9 @@ void SummaryPanel::ApplyInitialColumnWidths() {
         int visibleLabelWidth = 0;
         int countLabelWidth = 0;
         int colorLabelWidth = 0;
-        dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
-        dc.GetTextExtent("Count", &countLabelWidth, nullptr);
-        dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
+        dc.GetTextExtent(_("Visible"), &visibleLabelWidth, nullptr);
+        dc.GetTextExtent(_("Count"), &countLabelWidth, nullptr);
+        dc.GetTextExtent(_("Color"), &colorLabelWidth, nullptr);
 
         const int visibleWidth = visibleLabelWidth + 30;
         const int countWidth = countLabelWidth + 20;
@@ -338,7 +338,7 @@ void SummaryPanel::ApplyInitialColumnWidths() {
     wxClientDC dc(table);
     dc.SetFont(table->GetFont());
     int countLabelWidth = 0;
-    dc.GetTextExtent("Count", &countLabelWidth, nullptr);
+    dc.GetTextExtent(_("Count"), &countLabelWidth, nullptr);
     const int countWidth = countLabelWidth + 20;
     const int typeWidth = std::max(120, tableWidth - countWidth - 8);
     countColumn->SetMinWidth(countWidth);

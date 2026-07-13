@@ -522,7 +522,7 @@ void MainWindow::Ensure3DViewport() {
   viewportPanel->LoadCameraFromConfig();
   auiManager->AddPane(viewportPanel, wxAuiPaneInfo()
                                          .Name("3DViewport")
-                                         .Caption("3D Viewport")
+                                         .Caption(_("3D Viewport"))
                                          .Center()
                                          .Dockable(true)
                                          .CaptionVisible(true)
@@ -563,7 +563,7 @@ void MainWindow::Ensure2DViewport() {
   viewport2DPanel->LoadViewFromConfig();
   auiManager->AddPane(viewport2DPanel, wxAuiPaneInfo()
                                            .Name("2DViewport")
-                                           .Caption("2D Viewport")
+                                           .Caption(_("2D Viewport"))
                                            .Center()
                                            .Dockable(true)
                                            .CaptionVisible(true)
@@ -579,7 +579,7 @@ void MainWindow::Ensure2DViewport() {
   Viewer2DRenderPanel::SetInstance(viewport2DRenderPanel);
   auiManager->AddPane(viewport2DRenderPanel, wxAuiPaneInfo()
                                                  .Name("2DRenderOptions")
-                                                 .Caption("2D Render Options")
+                                                 .Caption(_("2D Render Options"))
                                                  .Right()
                                                  .Layer(0)
                                                  .Row(0)
@@ -735,8 +735,8 @@ bool MainWindow::ConfirmSaveIfDirty(const wxString &actionLabel,
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().IsDirty())
     return true;
 
-  wxMessageDialog dlg(this,
-      "Do you want to save changes before " + actionLabel + "?",
+  wxMessageDialog dlg(
+      this, wxString::Format(_("Do you want to save changes before %s?"), actionLabel),
       dialogTitle, wxYES_NO | wxCANCEL | wxICON_QUESTION);
 
   int res = dlg.ShowModal();
@@ -793,9 +793,9 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
     return true;
 
   wxMessageBox(
-      "Please wait until the startup project loading finishes before " +
-                   actionLabel + ".",
-               "Perastage is still loading", wxOK | wxICON_INFORMATION, this);
+      wxString::Format(_("Please wait until the startup project loading finishes before %s."),
+                       actionLabel),
+      _("Perastage is still loading"), wxOK | wxICON_INFORMATION, this);
   return false;
 }
 

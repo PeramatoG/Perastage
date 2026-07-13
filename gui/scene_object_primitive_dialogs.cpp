@@ -1,4 +1,5 @@
 #include "scene_object_primitive_dialogs.h"
+#include "localized_unit_labels.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "ui_unit_utils.h"
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include <wx/dialog.h>
+#include <wx/intl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/button.h>
@@ -25,12 +27,14 @@ constexpr int kSaveDefaultButtonId = wxID_HIGHEST + 211;
 constexpr int kLoadDefaultButtonId = wxID_HIGHEST + 212;
 constexpr int kApplyPrimitiveButtonId = wxID_HIGHEST + 213;
 
+// Resolves the active project distance unit for primitive dialogs.
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   return UiUnitUtils::ParseDistanceUnitSystem(
       cfg.GetValue("ui_distance_unit_system"));
 }
 
+// Converts meters to the active display distance unit.
 double MetersToDisplayDistance(double meters, Units::DistanceUnitSystem unitSystem) {
   return UiUnitUtils::DistanceMillimetersToDisplay(meters * kMetersToMillimeters,
                                                    unitSystem);
@@ -42,6 +46,7 @@ double MillimetersToDisplayDistance(double millimeters,
   return UiUnitUtils::DistanceMillimetersToDisplay(millimeters, unitSystem);
 }
 
+// Converts a display distance value to meters.
 double DisplayDistanceToMeters(double displayValue,
                                Units::DistanceUnitSystem unitSystem) {
   return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem) /
@@ -54,24 +59,26 @@ double DisplayDistanceToMillimeters(double displayValue,
   return UiUnitUtils::DistanceDisplayToMillimeters(displayValue, unitSystem);
 }
 
-wxString DistanceLabel(const char *baseLabel,
+// Builds a localized distance label with the active unit suffix.
+wxString DistanceLabel(const wxString &baseLabel,
                        Units::DistanceUnitSystem unitSystem) {
   const std::string suffix = UiUnitUtils::DistanceUnitSuffix(unitSystem);
-  return wxString::Format("%s (%s):", baseLabel,
-                          suffix.c_str());
+  return ui::LocalizedLabelWithUnitColon(baseLabel, wxString::FromUTF8(suffix));
 }
 
+// Adds a name editor row to a primitive dialog.
 wxTextCtrl *AddNameRow(wxWindow *parent, wxFlexGridSizer *grid,
                        const std::string &name) {
-  grid->Add(new wxStaticText(parent, wxID_ANY, "Name:"), 0,
+  grid->Add(new wxStaticText(parent, wxID_ANY, _("Name:")), 0,
             wxALIGN_CENTER_VERTICAL);
   auto *ctrl = new wxTextCtrl(parent, wxID_ANY, wxString::FromUTF8(name));
   grid->Add(ctrl, 1, wxEXPAND);
   return ctrl;
 }
 
+// Adds an unsigned distance editor row to a primitive dialog.
 wxSpinCtrlDouble *AddDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
-                                 const char *label, double meters,
+                                 const wxString &label, double meters,
                                  Units::DistanceUnitSystem unitSystem) {
   grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
             0, wxALIGN_CENTER_VERTICAL);
@@ -87,7 +94,7 @@ wxSpinCtrlDouble *AddDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
 
 // Adds a generic numeric spin row to a primitive dialog.
 wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
-                               const char *label, double value, double minValue,
+                               const wxString &label, double value, double minValue,
                                double maxValue, double increment) {
   grid->Add(new wxStaticText(parent, wxID_ANY, label), 0,
             wxALIGN_CENTER_VERTICAL);
@@ -102,7 +109,7 @@ wxSpinCtrlDouble *AddNumberRow(wxWindow *parent, wxFlexGridSizer *grid,
 
 // Adds a signed millimeter distance spin row using the active project unit.
 wxSpinCtrlDouble *AddSignedDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
-                                       const char *label, double millimeters,
+                                       const wxString &label, double millimeters,
                                        Units::DistanceUnitSystem unitSystem) {
   grid->Add(new wxStaticText(parent, wxID_ANY, DistanceLabel(label, unitSystem)),
             0, wxALIGN_CENTER_VERTICAL);
@@ -116,18 +123,19 @@ wxSpinCtrlDouble *AddSignedDistanceRow(wxWindow *parent, wxFlexGridSizer *grid,
   return ctrl;
 }
 
+// Creates the shared primitive dialog button row.
 wxSizer *CreatePrimitiveButtonSizer(wxWindow *parent, bool includeApply) {
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
-  buttons->Add(new wxButton(parent, kSaveDefaultButtonId, "Save as Default"), 0,
+  buttons->Add(new wxButton(parent, kSaveDefaultButtonId, _("Save as Default")), 0,
                wxRIGHT, 6);
-  buttons->Add(new wxButton(parent, kLoadDefaultButtonId, "Load Default"), 0,
+  buttons->Add(new wxButton(parent, kLoadDefaultButtonId, _("Load Default")), 0,
                wxRIGHT, 6);
   buttons->AddStretchSpacer(1);
   if (includeApply)
-    buttons->Add(new wxButton(parent, kApplyPrimitiveButtonId, "Apply"), 0,
+    buttons->Add(new wxButton(parent, kApplyPrimitiveButtonId, _("Apply")), 0,
                  wxRIGHT, 6);
-  buttons->Add(new wxButton(parent, wxID_OK, "OK"), 0, wxRIGHT, 6);
-  buttons->Add(new wxButton(parent, wxID_CANCEL, "Cancel"), 0);
+  buttons->Add(new wxButton(parent, wxID_OK, _("OK")), 0, wxRIGHT, 6);
+  buttons->Add(new wxButton(parent, wxID_CANCEL, _("Cancel")), 0);
   return buttons;
 }
 
@@ -172,7 +180,7 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(includeQuantity ? 3 : 8, 2, 8, 8);
     nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
-    radiusCtrl_ = AddDistanceRow(this, grid, "Radius", initialRequest.radiusMeters,
+    radiusCtrl_ = AddDistanceRow(this, grid, _("Radius"), initialRequest.radiusMeters,
                                  unitSystem_);
     AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
@@ -218,7 +226,7 @@ private:
   // Adds quantity controls for creation or placement controls for editing.
   void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
     if (includeQuantity_) {
-      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+      grid->Add(new wxStaticText(this, wxID_ANY, _("Units:")), 0, wxALIGN_CENTER_VERTICAL);
       quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
       quantityCtrl_->SetRange(1, 1000);
       quantityCtrl_->SetValue(quantity);
@@ -226,14 +234,14 @@ private:
       return;
     }
     positionXCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position X", placement_->positionXMeters, unitSystem_);
+        this, grid, _("Position X"), placement_->positionXMeters, unitSystem_);
     positionYCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position Y", placement_->positionYMeters, unitSystem_);
+        this, grid, _("Position Y"), placement_->positionYMeters, unitSystem_);
     positionZCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position Z", placement_->positionZMeters, unitSystem_);
-    rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
-    rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
-    rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+        this, grid, _("Position Z"), placement_->positionZMeters, unitSystem_);
+    rotationXCtrl_ = AddNumberRow(this, grid, _("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, _("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, _("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
   }
 
   void OnSaveDefault(wxCommandEvent &) {
@@ -286,9 +294,9 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(includeQuantity ? 5 : 10, 2, 8, 8);
     nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
-    lengthCtrl_ = AddDistanceRow(this, grid, "Length", initialRequest.lengthMeters, unitSystem_);
-    heightCtrl_ = AddDistanceRow(this, grid, "Height", initialRequest.heightMeters, unitSystem_);
-    widthCtrl_ = AddDistanceRow(this, grid, "Width", initialRequest.widthMeters, unitSystem_);
+    lengthCtrl_ = AddDistanceRow(this, grid, _("Length"), initialRequest.lengthMeters, unitSystem_);
+    heightCtrl_ = AddDistanceRow(this, grid, _("Height"), initialRequest.heightMeters, unitSystem_);
+    widthCtrl_ = AddDistanceRow(this, grid, _("Width"), initialRequest.widthMeters, unitSystem_);
     AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -336,7 +344,7 @@ private:
   // Adds quantity controls for creation or placement controls for editing.
   void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
     if (includeQuantity_) {
-      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+      grid->Add(new wxStaticText(this, wxID_ANY, _("Units:")), 0, wxALIGN_CENTER_VERTICAL);
       quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
       quantityCtrl_->SetRange(1, 1000);
       quantityCtrl_->SetValue(quantity);
@@ -344,14 +352,14 @@ private:
       return;
     }
     positionXCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position X", placement_->positionXMeters, unitSystem_);
+        this, grid, _("Position X"), placement_->positionXMeters, unitSystem_);
     positionYCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position Y", placement_->positionYMeters, unitSystem_);
+        this, grid, _("Position Y"), placement_->positionYMeters, unitSystem_);
     positionZCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position Z", placement_->positionZMeters, unitSystem_);
-    rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
-    rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
-    rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+        this, grid, _("Position Z"), placement_->positionZMeters, unitSystem_);
+    rotationXCtrl_ = AddNumberRow(this, grid, _("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, _("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, _("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
   }
 
   void OnSaveDefault(wxCommandEvent &) {
@@ -410,9 +418,9 @@ public:
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(includeQuantity ? 5 : 10, 2, 8, 8);
     nameCtrl_ = AddNameRow(this, grid, initialRequest.name);
-    topRadiusCtrl_ = AddDistanceRow(this, grid, "Top radius", initialRequest.topRadiusMeters, unitSystem_);
-    bottomRadiusCtrl_ = AddDistanceRow(this, grid, "Bottom radius", initialRequest.bottomRadiusMeters, unitSystem_);
-    heightCtrl_ = AddDistanceRow(this, grid, "Height", initialRequest.heightMeters, unitSystem_);
+    topRadiusCtrl_ = AddDistanceRow(this, grid, _("Top radius"), initialRequest.topRadiusMeters, unitSystem_);
+    bottomRadiusCtrl_ = AddDistanceRow(this, grid, _("Bottom radius"), initialRequest.bottomRadiusMeters, unitSystem_);
+    heightCtrl_ = AddDistanceRow(this, grid, _("Height"), initialRequest.heightMeters, unitSystem_);
     AddQuantityAndPlacementRows(grid, initialRequest.quantity);
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -460,7 +468,7 @@ private:
   // Adds quantity controls for creation or placement controls for editing.
   void AddQuantityAndPlacementRows(wxFlexGridSizer *grid, int quantity) {
     if (includeQuantity_) {
-      grid->Add(new wxStaticText(this, wxID_ANY, "Units:"), 0, wxALIGN_CENTER_VERTICAL);
+      grid->Add(new wxStaticText(this, wxID_ANY, _("Units:")), 0, wxALIGN_CENTER_VERTICAL);
       quantityCtrl_ = new wxSpinCtrl(this, wxID_ANY);
       quantityCtrl_->SetRange(1, 1000);
       quantityCtrl_->SetValue(quantity);
@@ -468,14 +476,14 @@ private:
       return;
     }
     positionXCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position X", placement_->positionXMeters, unitSystem_);
+        this, grid, _("Position X"), placement_->positionXMeters, unitSystem_);
     positionYCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position Y", placement_->positionYMeters, unitSystem_);
+        this, grid, _("Position Y"), placement_->positionYMeters, unitSystem_);
     positionZCtrl_ = AddSignedDistanceRow(
-        this, grid, "Position Z", placement_->positionZMeters, unitSystem_);
-    rotationXCtrl_ = AddNumberRow(this, grid, "Rotation X (deg):", placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
-    rotationYCtrl_ = AddNumberRow(this, grid, "Rotation Y (deg):", placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
-    rotationZCtrl_ = AddNumberRow(this, grid, "Rotation Z (deg):", placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
+        this, grid, _("Position Z"), placement_->positionZMeters, unitSystem_);
+    rotationXCtrl_ = AddNumberRow(this, grid, _("Rotation X (deg):"), placement_->rotationXDegrees, -3600.0, 3600.0, 1.0);
+    rotationYCtrl_ = AddNumberRow(this, grid, _("Rotation Y (deg):"), placement_->rotationYDegrees, -3600.0, 3600.0, 1.0);
+    rotationZCtrl_ = AddNumberRow(this, grid, _("Rotation Z (deg):"), placement_->rotationZDegrees, -3600.0, 3600.0, 1.0);
   }
 
   void OnSaveDefault(wxCommandEvent &) {
@@ -523,15 +531,15 @@ private:
 class ScreenEditDialog : public wxDialog {
 public:
   ScreenEditDialog(wxWindow *parent, const ScreenEditRequest &initial)
-      : wxDialog(parent, wxID_ANY, "Edit Screen", wxDefaultPosition,
+      : wxDialog(parent, wxID_ANY, _("Edit Screen"), wxDefaultPosition,
                  wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
         unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(2, 2, 8, 8);
 
-    widthCtrl_ = AddDimensionRow(grid, "Width", initial.widthMeters);
-    heightCtrl_ = AddDimensionRow(grid, "Height", initial.heightMeters);
+    widthCtrl_ = AddDimensionRow(grid, _("Width"), initial.widthMeters);
+    heightCtrl_ = AddDimensionRow(grid, _("Height"), initial.heightMeters);
 
     grid->AddGrowableCol(1, 1);
     root->Add(grid, 1, wxALL | wxEXPAND, 12);
@@ -552,7 +560,7 @@ public:
 
 private:
   // Adds a screen dimension row using the active project distance unit.
-  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const char *label,
+  wxSpinCtrlDouble *AddDimensionRow(wxFlexGridSizer *grid, const wxString &label,
                                     double defaultValue) {
     return AddDistanceRow(this, grid, label, defaultValue, unitSystem_);
   }
@@ -565,14 +573,14 @@ private:
 class PipeEditDialog : public wxDialog {
 public:
   PipeEditDialog(wxWindow *parent, const PipeEditRequest &initial)
-      : wxDialog(parent, wxID_ANY, "Edit Pipe", wxDefaultPosition,
+      : wxDialog(parent, wxID_ANY, _("Edit Pipe"), wxDefaultPosition,
                  wxDefaultSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
         unitSystem_(ResolveDistanceUnitSystem()) {
     auto *root = new wxBoxSizer(wxVERTICAL);
     auto *grid = new wxFlexGridSizer(1, 2, 8, 8);
 
-    lengthCtrl_ = AddDistanceRow(this, grid, "Length", initial.lengthMeters,
+    lengthCtrl_ = AddDistanceRow(this, grid, _("Length"), initial.lengthMeters,
                                  unitSystem_);
 
     grid->AddGrowableCol(1, 1);
@@ -632,7 +640,7 @@ bool ShowSphereDialog(wxWindow *parent, SphereRequest &outRequest) {
   SphereRequest defaults;
   defaults.name = ReadProjectString("primitive_sphere_default_name", "Sphere");
   defaults.radiusMeters = ReadProjectDistance("primitive_sphere_default_radius_m", 1.0);
-  SphereDialog dialog(parent, "Add Sphere", defaults, true);
+  SphereDialog dialog(parent, _("Add Sphere"), defaults, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -646,7 +654,7 @@ bool ShowCubeDialog(wxWindow *parent, CubeRequest &outRequest) {
   defaults.lengthMeters = ReadProjectDistance("primitive_cube_default_length_m", 1.0);
   defaults.heightMeters = ReadProjectDistance("primitive_cube_default_height_m", 1.0);
   defaults.widthMeters = ReadProjectDistance("primitive_cube_default_width_m", 1.0);
-  CubeDialog dialog(parent, "Add Cube", defaults, true);
+  CubeDialog dialog(parent, _("Add Cube"), defaults, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -660,7 +668,7 @@ bool ShowCylinderDialog(wxWindow *parent, CylinderRequest &outRequest) {
   defaults.topRadiusMeters = ReadProjectDistance("primitive_cylinder_default_top_radius_m", 0.5);
   defaults.bottomRadiusMeters = ReadProjectDistance("primitive_cylinder_default_bottom_radius_m", 0.5);
   defaults.heightMeters = ReadProjectDistance("primitive_cylinder_default_height_m", 1.0);
-  CylinderDialog dialog(parent, "Add Cylinder", defaults, true);
+  CylinderDialog dialog(parent, _("Add Cylinder"), defaults, true);
   if (dialog.ShowModal() != wxID_OK)
     return false;
 
@@ -671,7 +679,7 @@ bool ShowCylinderDialog(wxWindow *parent, CylinderRequest &outRequest) {
 bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest,
                           PrimitivePlacementRequest &inOutPlacement,
                           const PrimitiveApplyCallback &applyCallback) {
-  SphereDialog dialog(parent, "Edit Sphere", inOutRequest, false,
+  SphereDialog dialog(parent, _("Edit Sphere"), inOutRequest, false,
                       &inOutPlacement, &inOutRequest, applyCallback);
   if (dialog.ShowModal() != wxID_OK)
     return false;
@@ -684,7 +692,7 @@ bool ShowSphereEditDialog(wxWindow *parent, SphereRequest &inOutRequest,
 bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest,
                         PrimitivePlacementRequest &inOutPlacement,
                         const PrimitiveApplyCallback &applyCallback) {
-  CubeDialog dialog(parent, "Edit Cube", inOutRequest, false,
+  CubeDialog dialog(parent, _("Edit Cube"), inOutRequest, false,
                     &inOutPlacement, &inOutRequest, applyCallback);
   if (dialog.ShowModal() != wxID_OK)
     return false;
@@ -697,7 +705,7 @@ bool ShowCubeEditDialog(wxWindow *parent, CubeRequest &inOutRequest,
 bool ShowCylinderEditDialog(wxWindow *parent, CylinderRequest &inOutRequest,
                             PrimitivePlacementRequest &inOutPlacement,
                             const PrimitiveApplyCallback &applyCallback) {
-  CylinderDialog dialog(parent, "Edit Cylinder", inOutRequest, false,
+  CylinderDialog dialog(parent, _("Edit Cylinder"), inOutRequest, false,
                         &inOutPlacement, &inOutRequest, applyCallback);
   if (dialog.ShowModal() != wxID_OK)
     return false;

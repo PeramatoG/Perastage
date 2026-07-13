@@ -7,6 +7,7 @@
 #include <wx/choicdlg.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
+#include <wx/intl.h>
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>
 #include <wx/utils.h>
@@ -143,11 +144,11 @@ std::string FormatMvrMergePatchAddressWarningSummary(
 // Shows the user-facing MVR import mode selection dialog.
 MvrImportChoice ShowMvrImportChoiceDialog(wxWindow *parent) {
   wxArrayString choices;
-  choices.Add("Open as new project");
-  choices.Add("Merge into current project");
+  choices.Add(_("Open as new project"));
+  choices.Add(_("Merge into current project"));
   wxSingleChoiceDialog dialog(
-      parent, "Choose how Perastage should import the selected MVR file.",
-      "Import MVR", choices);
+      parent, _("Choose how Perastage should import the selected MVR file."),
+      _("Import MVR"), choices);
   dialog.SetSelection(0);
 
   if (dialog.ShowModal() != wxID_OK)
@@ -639,7 +640,7 @@ bool MainWindowIoController::OpenPathFromCommandLine(
         (owner->deferredStartupOpenPath.has_value() &&
          owner->currentProjectPath.empty());
     if (!shouldSkipDirtyConfirmation &&
-        !owner->ConfirmSaveIfDirty("loading a project", "Open Project"))
+        !owner->ConfirmSaveIfDirty(_("loading a project"), _("Open Project")))
       return false;
 
     if (!owner->LoadProjectFromPath(pathUtf8)) {
