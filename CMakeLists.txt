@@ -222,12 +222,33 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 set(PERASTAGE_ES_PO "${CMAKE_SOURCE_DIR}/resources/locale/es/LC_MESSAGES/perastage.po")
 set(PERASTAGE_GENERATED_LOCALE_DIR "${CMAKE_BINARY_DIR}/generated/locale")
 set(PERASTAGE_ES_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES/perastage.mo")
+set(PERASTAGE_MSGFMT_HINTS "")
+if(WIN32)
+    list(APPEND PERASTAGE_MSGFMT_HINTS
+        "$ENV{ChocolateyInstall}/bin"
+        "$ENV{ProgramData}/chocolatey/bin"
+    )
+    if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+        list(APPEND PERASTAGE_MSGFMT_HINTS
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/gettext/bin"
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/gettext"
+        )
+    endif()
+endif()
 find_package(Gettext QUIET)
-if(GETTEXT_MSGFMT_EXECUTABLE)
+find_program(PERASTAGE_MSGFMT_EXECUTABLE
+    NAMES msgfmt msgfmt.exe
+    HINTS ${PERASTAGE_MSGFMT_HINTS}
+)
+if(GETTEXT_MSGFMT_EXECUTABLE AND NOT PERASTAGE_MSGFMT_EXECUTABLE)
+    set(PERASTAGE_MSGFMT_EXECUTABLE "${GETTEXT_MSGFMT_EXECUTABLE}")
+endif()
+if(PERASTAGE_MSGFMT_EXECUTABLE)
+    message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
     add_custom_command(
         OUTPUT "${PERASTAGE_ES_MO}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES"
-        COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
+        COMMAND ${PERASTAGE_MSGFMT_EXECUTABLE} --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
         DEPENDS "${PERASTAGE_ES_PO}"
         COMMENT "Generating Spanish gettext catalog"
         VERBATIM
@@ -235,7 +256,7 @@ if(GETTEXT_MSGFMT_EXECUTABLE)
     add_custom_target(perastage_translations DEPENDS "${PERASTAGE_ES_MO}")
     add_dependencies(${PROJECT_NAME} perastage_translations)
 else()
-    message(WARNING "Gettext msgfmt was not found. Spanish UI catalog generation is disabled; install gettext/msgfmt to build localized runtime catalogs.")
+    message(WARNING "Gettext msgfmt was not found. Perastage will build, but Spanish translations will not be generated or available at runtime. Install gettext/msgfmt (for example Chocolatey gettext on Windows, Homebrew gettext on macOS, or the gettext package on Linux) and reconfigure to enable Spanish catalog generation.")
     add_custom_target(perastage_translations
         COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/PerastageMissingMsgfmt.cmake"
     )
@@ -380,7 +401,7 @@ else()
 endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
-if(GETTEXT_MSGFMT_EXECUTABLE)
+if(PERASTAGE_MSGFMT_EXECUTABLE)
     if(APPLE)
         set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/locale/es/LC_MESSAGES")
     else()
@@ -573,7 +594,7 @@ else()
     )
 endif()
 
-if(GETTEXT_MSGFMT_EXECUTABLE)
+if(PERASTAGE_MSGFMT_EXECUTABLE)
     if(APPLE)
         set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/locale/es/LC_MESSAGES")
     else()
@@ -584,6 +605,9 @@ if(GETTEXT_MSGFMT_EXECUTABLE)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${PERASTAGE_ES_MO}"
                 "${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+        COMMAND ${CMAKE_COMMAND}
+                -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+                -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
     )
 endif()
 

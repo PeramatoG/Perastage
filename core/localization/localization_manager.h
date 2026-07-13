@@ -14,7 +14,9 @@ namespace localization {
 struct LocalizationInitResult {
   AppLanguage requestedLanguage = AppLanguage::English;
   AppLanguage activeLanguage = AppLanguage::English;
+  bool catalogFound = false;
   bool catalogLoaded = false;
+  std::string catalogPath;
   std::string diagnostic;
 };
 

@@ -1,0 +1,6 @@
+if(NOT DEFINED EXPECTED_FILE OR EXPECTED_FILE STREQUAL "")
+    message(FATAL_ERROR "EXPECTED_FILE was not provided.")
+endif()
+if(NOT EXISTS "${EXPECTED_FILE}")
+    message(FATAL_ERROR "Expected generated localization catalog was not created: ${EXPECTED_FILE}")
+endif()

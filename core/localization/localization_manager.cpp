@@ -3,6 +3,8 @@
 #include "diagnostics/DiagnosticLogger.h"
 
 #include <clocale>
+#include <cstdlib>
+#include <sstream>
 #include <string>
 #include <system_error>
 
@@ -49,6 +51,51 @@ int WxLanguageId(AppLanguage language) {
   }
 }
 
+// Returns the expected gettext catalog path below a locale root.
+std::filesystem::path CatalogPathForRoot(const std::filesystem::path &root,
+                                         AppLanguage language) {
+  return root / std::string(AppLanguageCode(language)) / "LC_MESSAGES" /
+         "perastage.mo";
+}
+
+// Converts a path to UTF-8 text for wxWidgets APIs.
+std::string PathToUtf8String(const std::filesystem::path &path) {
+  const auto pathUtf8 = path.u8string();
+  return std::string(pathUtf8.begin(), pathUtf8.end());
+}
+
+// Returns a short catalog path suffix suitable for diagnostics.
+std::string CatalogPathForLog(const std::filesystem::path &path) {
+  std::vector<std::string> parts;
+  for (const auto &part : path) {
+    const auto partUtf8 = part.u8string();
+    if (!partUtf8.empty())
+      parts.emplace_back(partUtf8.begin(), partUtf8.end());
+  }
+  const std::size_t start = parts.size() > 4 ? parts.size() - 4 : 0;
+  std::ostringstream out;
+  if (start > 0)
+    out << ".../";
+  for (std::size_t i = start; i < parts.size(); ++i) {
+    if (i > start)
+      out << '/';
+    out << parts[i];
+  }
+  return out.str();
+}
+
+// Joins expected catalog paths into one diagnostic string.
+std::string ExpectedCatalogPathsForLog(
+    const std::vector<std::filesystem::path> &paths) {
+  std::ostringstream out;
+  for (std::size_t i = 0; i < paths.size(); ++i) {
+    if (i > 0)
+      out << "; ";
+    out << CatalogPathForLog(paths[i]);
+  }
+  return out.str();
+}
+
 } // namespace
 
 // Returns deterministic locale roots for a supplied executable path and working directory.
@@ -75,7 +122,12 @@ std::vector<std::filesystem::path> ResolveLocaleRootCandidates() {
   const auto executablePath =
       WxPathToFilesystemPath(wxStandardPaths::Get().GetExecutablePath());
   const auto workingDirectory = WxPathToFilesystemPath(wxFileName::GetCwd());
-  return ResolveLocaleRootCandidatesForPaths(executablePath, workingDirectory);
+  auto roots = ResolveLocaleRootCandidatesForPaths(executablePath, workingDirectory);
+  if (const char *localeRoot = std::getenv("PERASTAGE_LOCALE_ROOT")) {
+    if (*localeRoot)
+      AddUniquePath(roots, std::filesystem::u8path(localeRoot));
+  }
+  return roots;
 }
 
 // Returns the process-wide localization manager owned for application lifetime.
@@ -94,33 +146,54 @@ LocalizationInitResult LocalizationManager::Initialize(AppLanguage language) {
 
   if (IsSourceLanguage(language)) {
     result.diagnostic = "using built-in English source strings";
-    diagnostics::DiagnosticLogger::Info("Localization initialized: language=en catalog=builtin");
+    diagnostics::DiagnosticLogger::Info(
+        "Localization initialized: requested=en active=en catalog_loaded=1 catalog=builtin");
     return result;
   }
 
   auto locale = std::make_unique<wxLocale>();
   if (!locale->Init(WxLanguageId(language), wxLOCALE_DONT_LOAD_DEFAULT)) {
     result.diagnostic = "wxLocale initialization failed; using English";
-    diagnostics::DiagnosticLogger::Warning("Localization warning: language=" +
-                                          std::string(AppLanguageCode(language)) +
-                                          " init_failed=1");
+    diagnostics::DiagnosticLogger::Warning(
+        "Localization initialized: requested=" +
+        std::string(AppLanguageCode(language)) +
+        " active=en catalog_found=0 catalog_loaded=0 reason=wxLocale_init_failed");
     return result;
   }
 
   // UI language setup may adjust process locale categories; keep numeric serialization stable.
   std::setlocale(LC_NUMERIC, "C");
 
+  std::vector<std::filesystem::path> expectedCatalogPaths;
   for (const auto &root : ResolveLocaleRootCandidates()) {
-    const auto rootUtf8 = root.u8string();
-    const std::string rootText(rootUtf8.begin(), rootUtf8.end());
-    locale->AddCatalogLookupPathPrefix(wxString::FromUTF8(rootText));
+    locale->AddCatalogLookupPathPrefix(wxString::FromUTF8(PathToUtf8String(root)));
+    expectedCatalogPaths.push_back(CatalogPathForRoot(root, language));
   }
 
-  if (!locale->AddCatalog(kCatalogName)) {
-    result.diagnostic = "translation catalog was not found or could not be loaded; using English";
-    diagnostics::DiagnosticLogger::Warning("Localization warning: language=" +
-                                          std::string(AppLanguageCode(language)) +
-                                          " catalog_loaded=0 fallback=en");
+  std::filesystem::path selectedCatalogPath;
+  for (const auto &catalogPath : expectedCatalogPaths) {
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(catalogPath, ec)) {
+      selectedCatalogPath = catalogPath;
+      result.catalogFound = true;
+      result.catalogPath = CatalogPathForLog(catalogPath);
+      break;
+    }
+  }
+
+  const bool catalogLoaded = locale->AddCatalog(kCatalogName);
+  if (!catalogLoaded) {
+    result.diagnostic = result.catalogFound
+                            ? "translation catalog was found but could not be loaded; using English"
+                            : "translation catalog was not found; using English";
+    diagnostics::DiagnosticLogger::Warning(
+        "Localization initialized: requested=" +
+        std::string(AppLanguageCode(language)) +
+        " active=en catalog_found=" +
+        std::string(result.catalogFound ? "1" : "0") +
+        " catalog_loaded=0 catalog_path=" +
+        (result.catalogFound ? result.catalogPath : std::string("none")) +
+        " expected_paths=" + ExpectedCatalogPathsForLog(expectedCatalogPaths));
     return result;
   }
 
@@ -128,10 +201,18 @@ LocalizationInitResult LocalizationManager::Initialize(AppLanguage language) {
   locale_ = std::move(locale);
   result.activeLanguage = language;
   result.catalogLoaded = true;
+  if (!result.catalogFound && !expectedCatalogPaths.empty()) {
+    result.catalogPath = ExpectedCatalogPathsForLog(expectedCatalogPaths);
+  }
   result.diagnostic = "translation catalog loaded";
-  diagnostics::DiagnosticLogger::Info("Localization initialized: language=" +
-                                      std::string(AppLanguageCode(language)) +
-                                      " catalog_loaded=1");
+  diagnostics::DiagnosticLogger::Info(
+      "Localization initialized: requested=" +
+      std::string(AppLanguageCode(result.requestedLanguage)) + " active=" +
+      std::string(AppLanguageCode(result.activeLanguage)) +
+      " catalog_found=" + std::string(result.catalogFound ? "1" : "0") +
+      " catalog_loaded=1 catalog_path=" +
+      (result.catalogPath.empty() ? std::string("wx-catalog-lookup")
+                                  : result.catalogPath));
   return result;
 }
 

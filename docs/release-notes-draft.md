@@ -32,6 +32,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Spanish localization startup so the proof strings load from the generated catalog on Windows, with correct `Español` text from the UTF-8 catalog and clearer catalog diagnostics.
 - Fixed the language selector build on wxWidgets configurations that require literal translation message IDs.
 - Fixed Wheel slots selection emphasis so highlighting no longer changes thumbnail or swatch colors.
 - Fixed GDTF wheel color swatches so CIE xyY luminance values authored on the common 0-100 scale are normalized before sRGB preview conversion, avoiding washed-out or incorrectly white wheel colors.

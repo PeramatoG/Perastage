@@ -32,4 +32,6 @@ Regenerate catalogs through CMake so outputs stay in the build tree:
 cmake --build build --target perastage_translations
 ```
 
-The application target depends on `perastage_translations` when `msgfmt` is available, then copies the generated `.mo` into the runtime locale directory for development builds. Install and packaging rules install the same generated file into the packaged runtime locale directory. If `msgfmt` is missing, normal source configuration continues with a warning, and the explicit translation target fails with a clear message explaining that gettext/msgfmt is required.
+The application target depends on `perastage_translations` when `msgfmt` is available, then copies the generated `.mo` into the runtime locale directory for development builds and verifies that the runtime file exists. Install and packaging rules install the same generated file into the packaged runtime locale directory. If `msgfmt` is missing, normal source configuration continues with a prominent warning that Spanish translations will not be available, and the explicit translation target fails with a clear message explaining that gettext/msgfmt is required.
+
+Localization startup diagnostics report the requested language, active language, catalog-found state, catalog-load result, and the selected or expected catalog path suffixes. For Spanish startup, a successful run reports `requested=es active=es` and `catalog_loaded=1`.

@@ -9,7 +9,7 @@ namespace localization {
 namespace {
 const std::vector<AppLanguageOption> kSupportedLanguages = {
     {AppLanguage::English, "en", "English"},
-    {AppLanguage::Spanish, "es", "Español"},
+    {AppLanguage::Spanish, "es", "Spanish"},
 };
 
 // Returns an ASCII-lowercase copy of a persisted language code.

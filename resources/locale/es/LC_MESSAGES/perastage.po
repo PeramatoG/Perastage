@@ -18,7 +18,7 @@ msgstr "Idioma de la interfaz:"
 msgid "English"
 msgstr "Inglés"
 
-msgid "Español"
+msgid "Spanish"
 msgstr "Español"
 
 msgid "Language changes will be applied after restarting Perastage."

@@ -47,7 +47,7 @@ Units::DistanceUnitSystem DistanceUnitSystemFromChoice(const wxChoice *choice) {
 wxString TranslatedLanguageDisplayName(localization::AppLanguage language) {
   switch (language) {
   case localization::AppLanguage::Spanish:
-    return _("Español");
+    return _("Spanish");
   case localization::AppLanguage::English:
   default:
     return _("English");
