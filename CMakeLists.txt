@@ -21,6 +21,7 @@ set(PERASTAGE_APP_VERSION "${PROJECT_VERSION}")
 set(PERASTAGE_APP_VERSION_DISPLAY "${PROJECT_VERSION}")
 option(PERASTAGE_ASSOCIATE_PSTG "Register .pstg file association during packaging/installation where supported" ON)
 option(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS "Enable MVR-xchange mDNS discovery using the vcpkg mdns package" ON)
+option(PERASTAGE_ENABLE_LOCALIZATION "Enable gettext-based UI localization catalogs" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -217,6 +218,7 @@ endif()
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API=1
+    PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>
 )
 
 set(PERASTAGE_ES_PO "${CMAKE_SOURCE_DIR}/resources/locale/es/LC_MESSAGES/perastage.po")
@@ -243,12 +245,16 @@ find_program(PERASTAGE_MSGFMT_EXECUTABLE
 if(GETTEXT_MSGFMT_EXECUTABLE AND NOT PERASTAGE_MSGFMT_EXECUTABLE)
     set(PERASTAGE_MSGFMT_EXECUTABLE "${GETTEXT_MSGFMT_EXECUTABLE}")
 endif()
-if(PERASTAGE_MSGFMT_EXECUTABLE)
+if(PERASTAGE_ENABLE_LOCALIZATION)
+    if(NOT PERASTAGE_MSGFMT_EXECUTABLE)
+        message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but GNU gettext msgfmt was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Install gettext/msgfmt and reconfigure: on Windows use Chocolatey gettext or provide msgfmt on PATH; on macOS use Homebrew gettext; on Linux install the gettext package. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
+    endif()
     message(STATUS "Perastage gettext msgfmt: ${PERASTAGE_MSGFMT_EXECUTABLE}")
     add_custom_command(
         OUTPUT "${PERASTAGE_ES_MO}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PERASTAGE_GENERATED_LOCALE_DIR}/es/LC_MESSAGES"
         COMMAND ${PERASTAGE_MSGFMT_EXECUTABLE} --check --output-file="${PERASTAGE_ES_MO}" "${PERASTAGE_ES_PO}"
+        COMMAND ${CMAKE_COMMAND} -E echo "Spanish catalog generated: ${PERASTAGE_ES_MO}"
         DEPENDS "${PERASTAGE_ES_PO}"
         COMMENT "Generating Spanish gettext catalog"
         VERBATIM
@@ -256,10 +262,8 @@ if(PERASTAGE_MSGFMT_EXECUTABLE)
     add_custom_target(perastage_translations DEPENDS "${PERASTAGE_ES_MO}")
     add_dependencies(${PROJECT_NAME} perastage_translations)
 else()
-    message(WARNING "Gettext msgfmt was not found. Perastage will build, but Spanish translations will not be generated or available at runtime. Install gettext/msgfmt (for example Chocolatey gettext on Windows, Homebrew gettext on macOS, or the gettext package on Linux) and reconfigure to enable Spanish catalog generation.")
-    add_custom_target(perastage_translations
-        COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/PerastageMissingMsgfmt.cmake"
-    )
+    message(STATUS "Perastage UI localization is disabled; building English-only UI.")
+    add_custom_target(perastage_translations)
 endif()
 add_custom_target(perastage_update_catalogs DEPENDS perastage_translations)
 
@@ -401,7 +405,7 @@ else()
 endif()
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${PERASTAGE_INSTALL_RESOURCE_DEST})
-if(PERASTAGE_MSGFMT_EXECUTABLE)
+if(PERASTAGE_ENABLE_LOCALIZATION)
     if(APPLE)
         set(PERASTAGE_INSTALL_LOCALE_DEST "${PERASTAGE_INSTALL_RESOURCE_DEST}/locale/es/LC_MESSAGES")
     else()
@@ -594,7 +598,7 @@ else()
     )
 endif()
 
-if(PERASTAGE_MSGFMT_EXECUTABLE)
+if(PERASTAGE_ENABLE_LOCALIZATION)
     if(APPLE)
         set(PERASTAGE_RUNTIME_LOCALE_DIR "${PERASTAGE_RUNTIME_ASSET_DIR}/locale/es/LC_MESSAGES")
     else()
@@ -608,6 +612,7 @@ if(PERASTAGE_MSGFMT_EXECUTABLE)
         COMMAND ${CMAKE_COMMAND}
                 -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
                 -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
+        COMMAND ${CMAKE_COMMAND} -E echo "Spanish runtime catalog copied: ${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
     )
 endif()
 

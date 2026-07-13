@@ -9,7 +9,9 @@ namespace localization {
 namespace {
 const std::vector<AppLanguageOption> kSupportedLanguages = {
     {AppLanguage::English, "en", "English"},
+#if PERASTAGE_ENABLE_LOCALIZATION
     {AppLanguage::Spanish, "es", "Spanish"},
+#endif
 };
 
 // Returns an ASCII-lowercase copy of a persisted language code.

@@ -3,6 +3,10 @@
 #include <string_view>
 #include <vector>
 
+#ifndef PERASTAGE_ENABLE_LOCALIZATION
+#define PERASTAGE_ENABLE_LOCALIZATION 1
+#endif
+
 namespace localization {
 
 enum class AppLanguage { English, Spanish };

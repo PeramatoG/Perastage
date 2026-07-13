@@ -110,7 +110,6 @@ std::vector<std::filesystem::path> ResolveLocaleRootCandidatesForPaths(
   AddUniquePath(roots, executableDir / "locale");
   AddUniquePath(roots, executableDir / ".." / "share" / "locale");
   AddUniquePath(roots, executableDir / ".." / "Resources" / "locale");
-  AddUniquePath(roots, executableDir / "resources" / "resources" / "locale");
   AddUniquePath(roots, workingDirectory / "resources" / "locale");
   AddUniquePath(roots, workingDirectory / ".." / "resources" / "locale");
   AddUniquePath(roots, workingDirectory / ".." / ".." / "resources" / "locale");

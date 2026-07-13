@@ -1,9 +1,9 @@
 #include "localization/app_language.h"
 #include "localization/localization_manager.h"
 
-#include <cassert>
 #include <cstdlib>
 #include <filesystem>
+#include <iostream>
 #include <string>
 
 #include <wx/filename.h>
@@ -13,49 +13,84 @@
 
 namespace {
 
-// Returns the UTF-8 bytes for a wxString.
-std::string ToUtf8(const wxString &text) {
-  const wxScopedCharBuffer utf8 = text.ToUTF8();
-  return utf8 ? std::string(utf8.data(), utf8.length()) : std::string();
+// Reports a failed test condition and returns false.
+bool Check(bool condition, const std::string &message) {
+  if (condition)
+    return true;
+  std::cerr << "LocalizationCatalogIntegration: " << message << '\n';
+  return false;
 }
 
-// Returns the expected Spanish label bytes without using a translated source literal.
-std::string ExpectedSpanishLanguageName() {
-  return std::string("Espa") + std::string("\xC3\xB1") + "ol";
+// Returns the expected Spanish label using explicit Unicode code points.
+wxString ExpectedSpanishLanguageName() {
+  wxString text("Espa");
+  text += wxUniChar(0x00F1);
+  text += "ol";
+  return text;
+}
+
+// Returns true when the text contains mojibake markers for UTF-8 ñ.
+bool ContainsSpanishMojibake(const wxString &text) {
+  return text.Find(wxUniChar(0x00C3)) != wxNOT_FOUND ||
+         text.Find(wxUniChar(0x00B1)) != wxNOT_FOUND;
 }
 
 } // namespace
 
 // Verifies Spanish catalog loading and safe fallback without creating GUI windows.
 int main() {
+  bool ok = true;
   wxInitializer initializer;
-  assert(initializer.IsOk());
+  ok &= Check(initializer.IsOk(), "wxWidgets initialization failed.");
+  if (!ok)
+    return 1;
 
   const char *localeRoot = std::getenv("PERASTAGE_LOCALE_ROOT");
-  assert(localeRoot && *localeRoot);
+  ok &= Check(localeRoot && *localeRoot,
+              "PERASTAGE_LOCALE_ROOT must point to the generated locale root.");
+  if (!ok)
+    return 1;
+
   const std::filesystem::path catalogPath =
       std::filesystem::u8path(localeRoot) / "es" / "LC_MESSAGES" /
       "perastage.mo";
-  assert(std::filesystem::is_regular_file(catalogPath));
+  ok &= Check(std::filesystem::is_regular_file(catalogPath),
+              "Generated Spanish catalog is missing: " + catalogPath.string());
 
   auto &manager = localization::LocalizationManager::Get();
   wxSetEnv("PERASTAGE_LOCALE_ROOT",
            wxFileName::GetTempDir() + "/perastage-empty-locale-root");
   const auto fallbackResult = manager.Initialize(localization::AppLanguage::Spanish);
-  assert(!fallbackResult.catalogFound);
-  assert(!fallbackResult.catalogLoaded);
-  assert(fallbackResult.activeLanguage == localization::AppLanguage::English);
-  assert(manager.ActiveLanguage() == localization::AppLanguage::English);
-  assert(ToUtf8(_("Preferences")) == "Preferences");
+  ok &= Check(!fallbackResult.catalogFound,
+              "Missing-catalog scenario unexpectedly found a catalog.");
+  ok &= Check(!fallbackResult.catalogLoaded,
+              "Missing-catalog scenario unexpectedly loaded a catalog.");
+  ok &= Check(fallbackResult.activeLanguage == localization::AppLanguage::English,
+              "Missing-catalog scenario did not fall back to English.");
+  ok &= Check(manager.ActiveLanguage() == localization::AppLanguage::English,
+              "Manager active language is not English after missing-catalog fallback.");
+  ok &= Check(_("Preferences") == wxString("Preferences"),
+              "Missing-catalog fallback did not return English source text.");
 
   wxSetEnv("PERASTAGE_LOCALE_ROOT", wxString::FromUTF8(localeRoot));
   const auto spanishResult = manager.Initialize(localization::AppLanguage::Spanish);
-  assert(spanishResult.catalogFound);
-  assert(spanishResult.catalogLoaded);
-  assert(spanishResult.activeLanguage == localization::AppLanguage::Spanish);
-  assert(manager.ActiveLanguage() == localization::AppLanguage::Spanish);
-  assert(ToUtf8(_("Preferences")) == "Preferencias");
-  assert(ToUtf8(_("Spanish")) == ExpectedSpanishLanguageName());
+  const wxString spanishName = _("Spanish");
+  ok &= Check(spanishResult.catalogFound, "Spanish catalog was not found.");
+  ok &= Check(spanishResult.catalogLoaded, "Spanish catalog was not loaded.");
+  ok &= Check(spanishResult.activeLanguage == localization::AppLanguage::Spanish,
+              "Spanish did not become the active language after catalog loading.");
+  ok &= Check(manager.ActiveLanguage() == localization::AppLanguage::Spanish,
+              "Manager active language is not Spanish after catalog loading.");
+  ok &= Check(_("Preferences") == wxString("Preferencias"),
+              "Preferences did not translate to Preferencias.");
+  ok &= Check(_("Language") == wxString("Idioma"),
+              "Language did not translate to Idioma.");
+  ok &= Check(spanishName == ExpectedSpanishLanguageName(),
+              "Spanish did not translate to the expected native language name.");
+  ok &= Check(spanishName.Find(wxUniChar(0x00F1)) != wxNOT_FOUND,
+              "Spanish native name does not contain U+00F1.");
+  ok &= Check(!ContainsSpanishMojibake(spanishName),
+              "Spanish native name contains mojibake markers.");
 
-  return 0;
+  return ok ? 0 : 1;
 }

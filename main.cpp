@@ -75,12 +75,16 @@ private:
   void QueueProjectLoadedEvent(const wxWeakRef<MainWindow> &mainWindowRef,
                                bool loaded, bool clearLastProject,
                                const std::string &path = {});
+  void ShowLocalizationFallbackWarningIfNeeded(
+      const std::string &configuredLanguageCode,
+      localization::AppLanguage activeLanguage);
 
   std::string last_event_summary_;
   std::atomic<bool> project_load_event_sent_{false};
   std::atomic<bool> startup_resolution_pending_{true};
   std::optional<std::string> explicit_startup_open_path_;
   std::deque<std::string> pending_external_open_paths_;
+  bool localization_fallback_warning_shown_ = false;
 };
 
 namespace {
@@ -270,9 +274,10 @@ bool MyApp::OnInit() {
 
   // Load preferences before UI localization; localization preserves LC_NUMERIC for technical data.
   ConfigManager &config = ConfigManager::Get();
+  const std::string configuredLanguageCode =
+      config.GetValue(localization::kUiLanguageConfigKey).value_or("");
   const localization::AppLanguage requestedLanguage =
-      localization::ParseAppLanguageCode(
-          config.GetValue(localization::kUiLanguageConfigKey).value_or(""));
+      localization::ParseAppLanguageCode(configuredLanguageCode);
   const localization::LocalizationInitResult localizationResult =
       localization::LocalizationManager::Get().Initialize(requestedLanguage);
   if (!localizationResult.diagnostic.empty() &&
@@ -290,6 +295,10 @@ bool MyApp::OnInit() {
   mainWindow->Show(true);
   // Start maximized so minimize and restore buttons remain available
   mainWindow->Maximize(true);
+  mainWindow->CallAfter([this, configuredLanguageCode, localizationResult]() {
+    ShowLocalizationFallbackWarningIfNeeded(configuredLanguageCode,
+                                           localizationResult.activeLanguage);
+  });
 
   SplashScreen::SetMessage("Loading last project...");
   wxWeakRef<MainWindow> mainWindowRef(mainWindow);
@@ -347,6 +356,22 @@ void MyApp::FinalizeStartupOpenResolution(
   diagnostics::DiagnosticLogger::Info("Startup empty project selected.");
   QueueProjectLoadedEvent(mainWindowRef, false, false);
   startup_resolution_pending_.store(false);
+}
+
+
+// Shows a single user-facing warning when a configured translation falls back to English.
+void MyApp::ShowLocalizationFallbackWarningIfNeeded(
+    const std::string &configuredLanguageCode,
+    localization::AppLanguage activeLanguage) {
+  if (localization_fallback_warning_shown_ || configuredLanguageCode != "es" ||
+      activeLanguage == localization::AppLanguage::Spanish) {
+    return;
+  }
+  localization_fallback_warning_shown_ = true;
+  wxMessageBox(
+      "The Spanish translation catalog is not available in this build. "
+      "Perastage is using English.",
+      "Translation catalog unavailable", wxOK | wxICON_WARNING);
 }
 
 // Routes a single macOS file-open request to the shared external-open handler.

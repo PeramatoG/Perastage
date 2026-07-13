@@ -10,14 +10,22 @@ int main() {
   using namespace localization;
 
   assert(ParseAppLanguageCode("en") == AppLanguage::English);
+#if PERASTAGE_ENABLE_LOCALIZATION
   assert(ParseAppLanguageCode("es") == AppLanguage::Spanish);
+#else
+  assert(ParseAppLanguageCode("es") == AppLanguage::English);
+#endif
   assert(ParseAppLanguageCode("") == AppLanguage::English);
   assert(ParseAppLanguageCode("fr") == AppLanguage::English);
   assert(AppLanguageCode(AppLanguage::English) == "en");
+#if PERASTAGE_ENABLE_LOCALIZATION
   assert(AppLanguageCode(AppLanguage::Spanish) == "es");
+#endif
   assert(DefaultAppLanguage() == AppLanguage::English);
   assert(IsSourceLanguage(AppLanguage::English));
+#if PERASTAGE_ENABLE_LOCALIZATION
   assert(!IsSourceLanguage(AppLanguage::Spanish));
+#endif
 
   const auto roots = ResolveLocaleRootCandidatesForPaths(
       std::filesystem::path("/opt/perastage/Perastage"),
