@@ -91,9 +91,19 @@ jobs:
             meshoptimizer:x64-windows `
             backward-cpp:x64-windows `
             mdns:x64-windows `
+            gettext[tools]:x64-windows `
             --x-install-root="$env:VCPKG_INSTALLED" `
             --x-packages-root="$env:VCPKG_PACKAGES" `
             --downloads-root="$env:VCPKG_DOWNLOADS"
+
+      - name: Validate vcpkg gettext tools
+        shell: pwsh
+        run: |
+          $msgfmt = Join-Path $env:VCPKG_INSTALLED 'x64-windows\tools\gettext\bin\msgfmt.exe'
+          if (-not (Test-Path $msgfmt)) {
+              throw "vcpkg gettext msgfmt.exe was not found at: $msgfmt"
+          }
+          Write-Host "vcpkg msgfmt: $msgfmt"
 
       # ── 5. Configure CMake ──────────────────────────────────────────────────
       # VCPKG_INSTALLED_DIR tells the vcpkg toolchain where to find the
@@ -123,6 +133,7 @@ jobs:
         shell: pwsh
         run: |
           cmake --build build --config Release --target perastage_stage
+          if (-not (Test-Path "out/install/Release/resources/locale/es/LC_MESSAGES/perastage.mo")) { throw "Missing staged Spanish catalog" }
           Get-ChildItem out\install\Release
 
       - name: Collect Windows symbols

@@ -27,6 +27,59 @@ function Assert-CommandAvailable {
     }
 }
 
+
+# Finds the latest Visual Studio installation through vswhere.
+function Get-VisualStudioInstallationPath {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (-not (Test-Path $vswhere)) {
+        throw "vswhere.exe was not found at '$vswhere'. Install Visual Studio with C++ desktop tools."
+    }
+
+    $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    if (-not $installationPath) {
+        throw 'No Visual Studio installation with x64 C++ tools was found.'
+    }
+    return $installationPath.Trim()
+}
+
+# Imports the Visual Studio x64 developer environment into this PowerShell session.
+function Initialize-X64MsvcEnvironment {
+    $visualStudioPath = Get-VisualStudioInstallationPath
+    $devCmd = Join-Path $visualStudioPath 'Common7\Tools\VsDevCmd.bat'
+    if (-not (Test-Path $devCmd)) {
+        throw "VsDevCmd.bat was not found at '$devCmd'."
+    }
+
+    Write-Host "Initializing Visual Studio x64 developer environment from: $devCmd"
+    $environmentLines = cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to initialize the Visual Studio x64 developer environment.'
+    }
+
+    foreach ($line in $environmentLines) {
+        $separator = $line.IndexOf('=')
+        if ($separator -le 0) {
+            continue
+        }
+        $name = $line.Substring(0, $separator)
+        $value = $line.Substring($separator + 1)
+        Set-Item -Path "Env:$name" -Value $value
+    }
+
+    $clCommand = Get-Command cl.exe -ErrorAction SilentlyContinue
+    if (-not $clCommand) {
+        throw 'cl.exe was not found after initializing the Visual Studio x64 developer environment.'
+    }
+
+    $clOutput = & cl.exe 2>&1 | Out-String
+    if ($clOutput -notmatch 'x64') {
+        throw "cl.exe does not appear to be the x64 compiler after initialization. Output: $clOutput"
+    }
+
+    Write-Host "MSVC compiler: $($clCommand.Source)"
+    Write-Host 'MSVC compiler architecture: x64'
+}
+
 # Verifies that the expected vcpkg installation exists.
 function Assert-VcpkgAvailable {
     param(
@@ -65,10 +118,18 @@ function Install-PerastageDependencies {
         'podofo:x64-windows',
         'zlib:x64-windows',
         'backward-cpp:x64-windows',
-        'mdns:x64-windows'
+        'mdns:x64-windows',
+        'gettext[tools]:x64-windows'
     )
 
     & $VcpkgExe install $packages
+
+    $vcpkgRoot = Split-Path -Parent $VcpkgExe
+    $msgfmt = Join-Path $vcpkgRoot 'installed\x64-windows\tools\gettext\bin\msgfmt.exe'
+    if (-not (Test-Path $msgfmt)) {
+        throw "vcpkg gettext msgfmt.exe was not found at: $msgfmt"
+    }
+    Write-Host "vcpkg msgfmt: $msgfmt"
 }
 
 # Resolves the CMake configure and build presets for the selected configuration.
@@ -116,6 +177,7 @@ $repoRoot = Get-RepositoryRoot
 Set-Location $repoRoot
 
 Assert-CommandAvailable -CommandName 'cmake'
+Initialize-X64MsvcEnvironment
 
 $vcpkgExePath = Assert-VcpkgAvailable -Root $VcpkgRoot
 Install-PerastageDependencies -VcpkgExe $vcpkgExePath

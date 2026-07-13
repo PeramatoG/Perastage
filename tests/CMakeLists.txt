@@ -96,6 +96,35 @@ include_directories(
 )
 
 
+
+add_executable(localization_app_language_test
+               localization_app_language_test.cpp
+               ../core/localization/app_language.cpp
+               ../core/localization/localization_manager.cpp
+               localization_diagnostic_logger_stub.cpp)
+target_include_directories(localization_app_language_test PRIVATE ../core ../third_party)
+target_compile_definitions(localization_app_language_test PRIVATE
+                           PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
+target_link_libraries(localization_app_language_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME LocalizationAppLanguage COMMAND localization_app_language_test)
+
+
+if(PERASTAGE_ENABLE_LOCALIZATION)
+    add_executable(localization_catalog_integration_test
+                   localization_catalog_integration_test.cpp
+                   ../core/localization/app_language.cpp
+                   ../core/localization/localization_manager.cpp
+                   localization_diagnostic_logger_stub.cpp)
+    target_include_directories(localization_catalog_integration_test PRIVATE ../core ../third_party)
+    target_compile_definitions(localization_catalog_integration_test PRIVATE
+                               PERASTAGE_ENABLE_LOCALIZATION=$<BOOL:${PERASTAGE_ENABLE_LOCALIZATION}>)
+    target_link_libraries(localization_catalog_integration_test PRIVATE ${wxWidgets_LIBRARIES})
+    add_dependencies(localization_catalog_integration_test perastage_translations)
+    add_test(NAME LocalizationCatalogIntegration COMMAND localization_catalog_integration_test)
+    set_tests_properties(LocalizationCatalogIntegration PROPERTIES
+                         ENVIRONMENT "PERASTAGE_LOCALE_ROOT=${PERASTAGE_GENERATED_LOCALE_DIR}")
+endif()
+
 add_executable(platform_locale_test
                platform_locale_test.cpp
                ../core/platform_locale.cpp)

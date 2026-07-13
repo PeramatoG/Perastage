@@ -401,3 +401,5 @@ peraviz/
 /.vscode/extensions.json
 /.vscode/launch.json
 /.vscode/settings.json
+# Generated gettext catalogs
+resources/locale/**/LC_MESSAGES/*.mo

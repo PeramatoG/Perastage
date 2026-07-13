@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "preferencesdialog.h"
+#include "localization/localization_manager.h"
 #include "preferences/gdtf_credentials_panel.h"
 #include "configmanager.h"
 #include "mvr_preferences.h"
@@ -42,10 +43,25 @@ Units::DistanceUnitSystem DistanceUnitSystemFromChoice(const wxChoice *choice) {
   return Units::DistanceUnitSystem::Metric;
 }
 
+// Returns the native display label for a supported language option.
+wxString NativeLanguageDisplayName(localization::AppLanguage language) {
+  switch (language) {
+  case localization::AppLanguage::Spanish: {
+    wxString name("Espa");
+    name += wxUniChar(0x00F1);
+    name += "ol";
+    return name;
+  }
+  case localization::AppLanguage::English:
+  default:
+    return "English";
+  }
+}
+
 } // namespace
 
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
-    : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition,
+    : wxDialog(parent, wxID_ANY, _("Preferences"), wxDefaultPosition,
                wxDefaultSize) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   wxNotebook *book = new wxNotebook(this, wxID_ANY);
@@ -154,6 +170,43 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   unitsSizer->Add(unitsGrid, 0, wxALL | wxEXPAND, 10);
   unitsPanel->SetSizer(unitsSizer);
   book->AddPage(unitsPanel, "Units");
+
+  // Language page
+  wxPanel *languagePanel = new wxPanel(book);
+  wxBoxSizer *languageSizer = new wxBoxSizer(wxVERTICAL);
+  wxFlexGridSizer *languageGrid = new wxFlexGridSizer(1, 2, 10, 10);
+  languageGrid->AddGrowableCol(1, 1);
+  languageGrid->Add(new wxStaticText(languagePanel, wxID_ANY,
+                                     _("Interface language:")),
+                    0, wxALIGN_CENTER_VERTICAL);
+  interfaceLanguageChoice = new wxChoice(languagePanel, wxID_ANY);
+  for (const auto &option : localization::SupportedAppLanguages()) {
+    interfaceLanguageChoice->Append(NativeLanguageDisplayName(option.language));
+  }
+  const auto configuredLanguage = localization::ParseAppLanguageCode(
+      cfg.GetValue(localization::kUiLanguageConfigKey).value_or(""));
+  int languageSelection = 0;
+  const auto &languages = localization::SupportedAppLanguages();
+  for (std::size_t i = 0; i < languages.size(); ++i) {
+    if (languages[i].language == configuredLanguage) {
+      languageSelection = static_cast<int>(i);
+      break;
+    }
+  }
+  interfaceLanguageChoice->SetSelection(languageSelection);
+  lastRestartNoticeLanguage =
+      localization::LocalizationManager::Get().ActiveLanguage();
+  languageGrid->Add(interfaceLanguageChoice, 1, wxEXPAND);
+  languageSizer->Add(languageGrid, 0, wxALL | wxEXPAND, 10);
+  wxStaticText *languageHint = new wxStaticText(
+      languagePanel, wxID_ANY,
+      _("Language changes will be applied after restarting Perastage."));
+  languageHint->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  languageHint->Wrap(740);
+  languageSizer->Add(languageHint, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
+  languagePanel->SetSizer(languageSizer);
+  book->AddPage(languagePanel, _("Language"));
 
   // Updates page
   wxPanel *updatesPanel = new wxPanel(book);
@@ -366,6 +419,7 @@ void PreferencesDialog::OnOkButton(wxCommandEvent &WXUNUSED(event)) {
 // Writes all preference fields to persistent user configuration storage.
 bool PreferencesDialog::ApplyPreferences() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const ConfigManager::DirtyState originalDirtyState = cfg.CaptureDirtyState();
   const auto distanceUnitSystem = DistanceUnitSystemFromChoice(distanceUnitChoice);
   for (int i = 0; i < 6; ++i) {
     const auto heightMm = Units::ParseDistanceToMillimeters(
@@ -393,6 +447,15 @@ bool PreferencesDialog::ApplyPreferences() {
                                                        : "metric");
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
+  localization::AppLanguage selectedLanguage = localization::DefaultAppLanguage();
+  const auto &languageOptions = localization::SupportedAppLanguages();
+  if (interfaceLanguageChoice) {
+    const int selection = interfaceLanguageChoice->GetSelection();
+    if (selection >= 0 && static_cast<std::size_t>(selection) < languageOptions.size())
+      selectedLanguage = languageOptions[static_cast<std::size_t>(selection)].language;
+  }
+  cfg.SetValue(localization::kUiLanguageConfigKey,
+               std::string(localization::AppLanguageCode(selectedLanguage)));
   auto &preferences = GetDefaultGuiConfigServices().Preferences();
   if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 1)
     gui::update::WriteStartupCheckMode(preferences,
@@ -432,7 +495,11 @@ bool PreferencesDialog::ApplyPreferences() {
   if (gdtfCredentialsPanel)
     gdtfCredentialsPanel->ApplyCredentials();
 
-  return cfg.SaveUserConfig();
+  const bool saved = cfg.SaveUserConfig();
+  cfg.RestoreDirtyState(originalDirtyState);
+  if (saved)
+    ShowLanguageRestartNoticeIfNeeded(selectedLanguage);
+  return saved;
 }
 
 void PreferencesDialog::RefreshRiderImportDistanceLabels() {
@@ -489,4 +556,17 @@ void PreferencesDialog::NotifyUnitsChanged() {
 void PreferencesDialog::NotifyPreferencesApplied() {
   wxCommandEvent event(EVT_UI_PREFERENCES_APPLIED);
   wxPostEvent(GetParent(), event);
+}
+
+// Shows the restart-required language notification once for each selected change.
+void PreferencesDialog::ShowLanguageRestartNoticeIfNeeded(
+    localization::AppLanguage selectedLanguage) {
+  const localization::AppLanguage activeLanguage =
+      localization::LocalizationManager::Get().ActiveLanguage();
+  if (selectedLanguage == activeLanguage ||
+      selectedLanguage == lastRestartNoticeLanguage)
+    return;
+  lastRestartNoticeLanguage = selectedLanguage;
+  wxMessageBox(_("Language changes will be applied after restarting Perastage."),
+               _("Restart required"), wxOK | wxICON_INFORMATION, this);
 }
