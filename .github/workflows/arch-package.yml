@@ -156,7 +156,9 @@ jobs:
           tar -tf "$OUTPUT_NAME" | tee arch-package-contents.txt
           grep -q '^opt/perastage/Perastage$' arch-package-contents.txt
           grep -q '^opt/perastage/resources/' arch-package-contents.txt
-          grep -q '^opt/perastage/resources/locale/es/LC_MESSAGES/perastage.mo$' arch-package-contents.txt
+          for lang in es zh_CN; do
+            grep -q "^opt/perastage/resources/locale/${lang}/LC_MESSAGES/perastage.mo$" arch-package-contents.txt || { echo "Missing Arch package catalog for ${lang}"; exit 1; }
+          done
           grep -q '^opt/perastage/library/' arch-package-contents.txt
           grep -q '^opt/perastage/licenses/' arch-package-contents.txt
           grep -q '^opt/perastage/help.md$' arch-package-contents.txt

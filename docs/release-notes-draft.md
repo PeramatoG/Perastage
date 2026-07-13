@@ -106,6 +106,8 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
+- Added Simplified Chinese localization scaffolding, including language selection, catalog generation, packaging validation, draft-catalog checks, Unicode smoke coverage, and documentation for the translation completion process.
+
 - Normalized GDTF source cache fingerprints to use portable filesystem timestamp values across supported C++ standard libraries.
 
 - Hardened gettext catalog generation, runtime copying, CMake helper argument validation, and installer/package validation so Spanish localization catalogs are generated and staged reliably across Linux, Windows, macOS, and Arch builds.
@@ -210,6 +212,7 @@ If you encounter any problems installing or running Perastage, please open an is
 ## Internal changes
 
 
+
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.
 
 - Improved the internal GDTF editor architecture by moving Project Fixture apply decisions toward a non-GUI adapter, adding structured apply results, preserving per-field validation errors, and making derived Channel Count dirty tracking reversible while leaving Truss apply migration for the next checkpoint.
@@ -228,6 +231,7 @@ If you encounter any problems installing or running Perastage, please open an is
 - Fixed Windows build compatibility for Layout 2D preview diagnostics.
 
 ## Internal changes
+
 
 
 - Stabilized GDTF editor Apply transactions for Fixture and Truss editing so project changes are committed only after adapter success, with clearer undo ordering, derivative reconciliation, and UTF-8 path handling.

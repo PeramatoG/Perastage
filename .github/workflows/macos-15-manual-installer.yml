@@ -234,7 +234,9 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
-          test -f out/install/Release/Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo || { echo "Missing staged Spanish catalog"; exit 1; }
+          for lang in es zh_CN; do
+            test -f "out/install/Release/Perastage.app/Contents/Resources/locale/${lang}/LC_MESSAGES/perastage.mo" || { echo "Missing staged ${lang} catalog"; exit 1; }
+          done
           test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
           test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
 
@@ -269,7 +271,9 @@ jobs:
           test -f out/install/Release/Perastage.app/Contents/Resources/Perastage.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageProject.icns
           test -f out/install/Release/Perastage.app/Contents/Resources/PerastageMVR.icns
-          test -f out/install/Release/Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo || { echo "Missing staged Spanish catalog"; exit 1; }
+          for lang in es zh_CN; do
+            test -f "out/install/Release/Perastage.app/Contents/Resources/locale/${lang}/LC_MESSAGES/perastage.mo" || { echo "Missing staged ${lang} catalog"; exit 1; }
+          done
           test -f out/install/Release/Perastage.app/Contents/Resources/resources/Perastage_logo.png
           test -d out/install/Release/Perastage.app/Contents/Resources/resources/icons
           ls -l out/install/Release/Perastage.app/Contents/MacOS/

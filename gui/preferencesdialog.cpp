@@ -53,6 +53,14 @@ wxString NativeLanguageDisplayName(localization::AppLanguage language) {
     name += "ol";
     return name;
   }
+  case localization::AppLanguage::SimplifiedChinese: {
+    wxString name;
+    name += wxUniChar(0x7B80);
+    name += wxUniChar(0x4F53);
+    name += wxUniChar(0x4E2D);
+    name += wxUniChar(0x6587);
+    return name;
+  }
   case localization::AppLanguage::English:
   default:
     return "English";

@@ -11,20 +11,30 @@ const std::vector<AppLanguageOption> kSupportedLanguages = {
     {AppLanguage::English, "en", "English"},
 #if PERASTAGE_ENABLE_LOCALIZATION
     {AppLanguage::Spanish, "es", "Spanish"},
+    {AppLanguage::SimplifiedChinese, "zh_CN", "Simplified Chinese"},
 #endif
 };
 
-// Returns an ASCII-lowercase copy of a persisted language code.
+// Returns a normalized language code for alias matching.
 std::string NormalizeLanguageCode(std::string_view code) {
-  std::string normalized(code);
-  normalized.erase(
-      std::remove_if(normalized.begin(), normalized.end(), [](unsigned char c) {
-        return std::isspace(c) != 0;
-      }),
-      normalized.end());
-  std::transform(normalized.begin(), normalized.end(), normalized.begin(),
-                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  std::string normalized;
+  normalized.reserve(code.size());
+  for (const unsigned char c : code) {
+    if (std::isspace(c) != 0)
+      continue;
+    normalized.push_back(c == '-' ? '_' : static_cast<char>(std::tolower(c)));
+  }
   return normalized;
+}
+
+// Returns true when a normalized code matches a supported language option.
+bool NormalizedCodeMatchesLanguage(std::string_view normalized,
+                                   const AppLanguageOption &option) {
+  const std::string optionCode = NormalizeLanguageCode(option.code);
+  if (normalized == optionCode)
+    return true;
+  return option.language == AppLanguage::SimplifiedChinese &&
+         normalized == "zh_hans";
 }
 } // namespace
 
@@ -40,7 +50,7 @@ const std::vector<AppLanguageOption> &SupportedAppLanguages() {
 AppLanguage ParseAppLanguageCode(std::string_view code) {
   const std::string normalized = NormalizeLanguageCode(code);
   for (const auto &option : kSupportedLanguages) {
-    if (normalized == option.code)
+    if (NormalizedCodeMatchesLanguage(normalized, option))
       return option.language;
   }
   return DefaultAppLanguage();
