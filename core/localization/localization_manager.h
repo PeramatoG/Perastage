@@ -20,6 +20,9 @@ struct LocalizationInitResult {
   std::string diagnostic;
 };
 
+// Returns the wxWidgets language id for a supported application language.
+int WxLanguageId(AppLanguage language);
+
 // Returns deterministic locale roots for the current runtime layout.
 std::vector<std::filesystem::path> ResolveLocaleRootCandidates();
 

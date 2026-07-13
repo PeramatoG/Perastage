@@ -13,7 +13,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POT = ROOT / "resources" / "locale" / "perastage.pot"
-LANGUAGES = ["es"]
+COMPLETE_LANGUAGES = ["es"]
+DRAFT_LANGUAGES = ["zh_CN"]
+LANGUAGES = COMPLETE_LANGUAGES + DRAFT_LANGUAGES
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 EXCLUDED_PREFIXES = ("third_party/", "build/", "build-", "cmake-build", ".git/")
 AUDIT_ALLOWLIST = ROOT / "scripts" / "localization_audit_allowlist.txt"
@@ -185,8 +187,11 @@ def check_po(tools: Tools) -> int:
         subprocess.run([tools.msgfmt, "--check", "--check-accelerators=&", "-o", os.devnull, str(path)], cwd=ROOT, check=True)
         if gettext_output_has_entries([tools.msgattrib, "--only-fuzzy", str(path)]):
             failures.append(f"{path}: active fuzzy translations remain")
-        if gettext_output_has_entries([tools.msgattrib, "--untranslated", str(path)]):
+        has_untranslated = gettext_output_has_entries([tools.msgattrib, "--untranslated", str(path)])
+        if has_untranslated and language in COMPLETE_LANGUAGES:
             failures.append(f"{path}: active untranslated entries remain")
+        elif has_untranslated and language in DRAFT_LANGUAGES:
+            print(f"{language}: draft catalog has untranslated entries and is not release-ready")
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1

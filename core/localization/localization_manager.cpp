@@ -40,17 +40,22 @@ void AddUniquePath(std::vector<std::filesystem::path> &paths,
   paths.push_back(std::move(path));
 }
 
+} // namespace
+
 // Returns the wxWidgets language id for a supported application language.
 int WxLanguageId(AppLanguage language) {
   switch (language) {
   case AppLanguage::Spanish:
     return wxLANGUAGE_SPANISH;
+  case AppLanguage::SimplifiedChinese:
+    return wxLANGUAGE_CHINESE_SIMPLIFIED;
   case AppLanguage::English:
   default:
     return wxLANGUAGE_ENGLISH;
   }
 }
 
+namespace {
 // Returns the expected gettext catalog path below a locale root.
 std::filesystem::path CatalogPathForRoot(const std::filesystem::path &root,
                                          AppLanguage language) {

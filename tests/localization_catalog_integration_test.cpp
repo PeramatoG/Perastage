@@ -30,10 +30,46 @@ wxString ExpectedSpanishLanguageName() {
   return text;
 }
 
+// Returns the expected Simplified Chinese native language label.
+wxString ExpectedChineseLanguageName() {
+  wxString text;
+  text += wxUniChar(0x7B80);
+  text += wxUniChar(0x4F53);
+  text += wxUniChar(0x4E2D);
+  text += wxUniChar(0x6587);
+  return text;
+}
+
 // Returns true when the text contains mojibake markers for UTF-8 ñ.
 bool ContainsSpanishMojibake(const wxString &text) {
   return text.Find(wxUniChar(0x00C3)) != wxNOT_FOUND ||
          text.Find(wxUniChar(0x00B1)) != wxNOT_FOUND;
+}
+
+// Returns true when text contains Unicode replacement characters.
+bool ContainsReplacementCharacter(const wxString &text) {
+  return text.Find(wxUniChar(0xFFFD)) != wxNOT_FOUND;
+}
+
+// Builds a wxString from explicit Unicode code points.
+wxString ChineseFixture(std::initializer_list<unsigned int> codePoints) {
+  wxString text;
+  for (const unsigned int codePoint : codePoints)
+    text += wxUniChar(codePoint);
+  return text;
+}
+
+// Verifies Simplified Chinese fixture text round-trips through UTF-8.
+bool CheckChineseRoundTrip(const wxString &text, const std::string &label) {
+  const wxScopedCharBuffer utf8 = text.ToUTF8();
+  if (!utf8)
+    return Check(false, label + " did not convert to UTF-8.");
+  const wxString roundTrip = wxString::FromUTF8(utf8.data(), utf8.length());
+  bool ok = true;
+  ok &= Check(roundTrip == text, label + " did not round-trip through UTF-8.");
+  ok &= Check(!ContainsReplacementCharacter(roundTrip),
+              label + " contains a replacement character.");
+  return ok;
 }
 
 } // namespace
@@ -57,6 +93,12 @@ int main() {
       "perastage.mo";
   ok &= Check(std::filesystem::is_regular_file(catalogPath),
               "Generated Spanish catalog is missing: " + catalogPath.string());
+  const std::filesystem::path chineseCatalogPath =
+      std::filesystem::u8path(localeRoot) / "zh_CN" / "LC_MESSAGES" /
+      "perastage.mo";
+  ok &= Check(std::filesystem::is_regular_file(chineseCatalogPath),
+              "Generated Simplified Chinese catalog is missing: " +
+                  chineseCatalogPath.string());
 
   auto &manager = localization::LocalizationManager::Get();
   wxSetEnv("PERASTAGE_LOCALE_ROOT",
@@ -72,6 +114,35 @@ int main() {
               "Manager active language is not English after missing-catalog fallback.");
   ok &= Check(_("Preferences") == wxString("Preferences"),
               "Missing-catalog fallback did not return English source text.");
+
+  wxSetEnv("PERASTAGE_LOCALE_ROOT", wxString::FromUTF8(localeRoot));
+  const auto chineseResult =
+      manager.Initialize(localization::AppLanguage::SimplifiedChinese);
+  ok &= Check(chineseResult.catalogFound,
+              "Simplified Chinese draft catalog was not found.");
+  ok &= Check(chineseResult.catalogLoaded,
+              "Simplified Chinese draft catalog was not loaded.");
+  ok &= Check(chineseResult.activeLanguage ==
+                  localization::AppLanguage::SimplifiedChinese,
+              "Simplified Chinese did not become active after catalog loading.");
+  ok &= Check(_("Preferences") == wxString("Preferences"),
+              "Draft Simplified Chinese catalog should fall back to English source text.");
+  ok &= Check(ExpectedChineseLanguageName() ==
+                  ChineseFixture({0x7B80, 0x4F53, 0x4E2D, 0x6587}),
+              "Simplified Chinese native language name code points regressed.");
+  ok &= CheckChineseRoundTrip(ExpectedChineseLanguageName(),
+                              "Simplified Chinese native language name");
+  ok &= CheckChineseRoundTrip(ChineseFixture({0x9996, 0x9009, 0x9879}),
+                              "Simplified Chinese Preferences fixture");
+  ok &= CheckChineseRoundTrip(ChineseFixture({0x8BED, 0x8A00}),
+                              "Simplified Chinese Language fixture");
+  ok &= CheckChineseRoundTrip(ChineseFixture({0x8BBE, 0x5907}),
+                              "Simplified Chinese Equipment fixture");
+  ok &= CheckChineseRoundTrip(ChineseFixture({0x6841, 0x67B6}),
+                              "Simplified Chinese Truss fixture");
+  ok &= CheckChineseRoundTrip(
+      ChineseFixture({0x573A, 0x666F, 0x5BF9, 0x8C61}),
+      "Simplified Chinese scene object fixture");
 
   wxSetEnv("PERASTAGE_LOCALE_ROOT", wxString::FromUTF8(localeRoot));
   const auto spanishResult = manager.Initialize(localization::AppLanguage::Spanish);

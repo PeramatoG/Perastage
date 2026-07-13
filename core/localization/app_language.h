@@ -9,7 +9,7 @@
 
 namespace localization {
 
-enum class AppLanguage { English, Spanish };
+enum class AppLanguage { English, Spanish, SimplifiedChinese };
 
 struct AppLanguageOption {
   AppLanguage language;

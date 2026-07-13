@@ -138,7 +138,9 @@ jobs:
         shell: pwsh
         run: |
           cmake --build build --config Release --target perastage_stage
-          if (-not (Test-Path "out/install/Release/resources/locale/es/LC_MESSAGES/perastage.mo")) { throw "Missing staged Spanish catalog" }
+          foreach ($lang in @('es', 'zh_CN')) {
+            if (-not (Test-Path "out/install/Release/resources/locale/$lang/LC_MESSAGES/perastage.mo")) { throw "Missing staged $lang catalog" }
+          }
           Get-ChildItem out\install\Release
 
       - name: Collect Windows symbols

@@ -150,7 +150,9 @@ jobs:
           test -f "out/Perastage-$VERSION-Linux-symbols.zip" || { echo "Linux symbols ZIP was not created"; exit 1; }
           test -x "$STAGE_DIR/Perastage" || { echo "Staged executable is not executable"; exit 1; }
           test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
-          test -f "$STAGE_DIR/resources/locale/es/LC_MESSAGES/perastage.mo" || { echo "Missing staged Spanish catalog"; exit 1; }
+          for lang in es zh_CN; do
+            test -f "$STAGE_DIR/resources/locale/${lang}/LC_MESSAGES/perastage.mo" || { echo "Missing staged ${lang} catalog"; exit 1; }
+          done
           test -d "$STAGE_DIR/library" || { echo "Missing staged library directory"; exit 1; }
           test -d "$STAGE_DIR/licenses" || { echo "Missing staged licenses directory"; exit 1; }
           ls -la "$STAGE_DIR"
@@ -182,7 +184,9 @@ jobs:
 
           test -f "$STAGE_DIR/Perastage" || { echo "Missing staged executable: $STAGE_DIR/Perastage"; exit 1; }
           test -d "$STAGE_DIR/resources" || { echo "Missing staged resources directory"; exit 1; }
-          test -f "$STAGE_DIR/resources/locale/es/LC_MESSAGES/perastage.mo" || { echo "Missing staged Spanish catalog"; exit 1; }
+          for lang in es zh_CN; do
+            test -f "$STAGE_DIR/resources/locale/${lang}/LC_MESSAGES/perastage.mo" || { echo "Missing staged ${lang} catalog"; exit 1; }
+          done
           test -d "$STAGE_DIR/library" || { echo "Missing staged library directory"; exit 1; }
           test -d "$STAGE_DIR/licenses" || { echo "Missing staged licenses directory"; exit 1; }
           test -f "resources/Perastage_logo_1024.png" || { echo "Missing icon: resources/Perastage_logo_1024.png"; exit 1; }
@@ -297,7 +301,9 @@ jobs:
           test -f squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "Extracted MIME metadata is missing"; exit 1; }
           grep -q 'application/x-perastage-mvr' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .mvr is missing"; exit 1; }
           grep -q 'application/x-perastage-project' squashfs-root/usr/share/mime/packages/perastage-mime.xml || { echo "MIME type for .pstg is missing"; exit 1; }
-          test -f squashfs-root/usr/bin/resources/locale/es/LC_MESSAGES/perastage.mo || { echo "Extracted AppImage Spanish catalog is missing"; exit 1; }
+          for lang in es zh_CN; do
+            test -f "squashfs-root/usr/bin/resources/locale/${lang}/LC_MESSAGES/perastage.mo" || { echo "Extracted AppImage ${lang} catalog is missing"; exit 1; }
+          done
 
           echo "---- Extracted Perastage RPATH ----"
           patchelf --print-rpath squashfs-root/usr/bin/Perastage || true
