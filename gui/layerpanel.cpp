@@ -78,10 +78,10 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     : wxPanel(parent, wxID_ANY), configManager(config ? config : &GetDefaultGuiConfigServices().LegacyConfigManager())
 {
     list = new wxDataViewListCtrl(this, wxID_ANY);
-    auto* visibleColumn = list->AppendToggleColumn("Visible");
-    auto* layerColumn = list->AppendTextColumn("Layer");
+    auto* visibleColumn = list->AppendToggleColumn(_("Visible"));
+    auto* layerColumn = list->AppendTextColumn(_("Layer"));
     auto* colorRenderer = new wxDataViewIconTextRenderer();
-    auto* colorColumn = new wxDataViewColumn("Color", colorRenderer,
+    auto* colorColumn = new wxDataViewColumn(_("Color"), colorRenderer,
                                              ColumnIndex(LayerColumn::Color), 40, wxALIGN_CENTER,
                                              wxDATAVIEW_COL_RESIZABLE);
     list->AppendColumn(colorColumn);
@@ -94,8 +94,8 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
         dc.SetFont(list->GetFont());
         int visibleLabelWidth = 0;
         int colorLabelWidth = 0;
-        dc.GetTextExtent("Visible", &visibleLabelWidth, nullptr);
-        dc.GetTextExtent("Color", &colorLabelWidth, nullptr);
+        dc.GetTextExtent(_("Visible"), &visibleLabelWidth, nullptr);
+        dc.GetTextExtent(_("Color"), &colorLabelWidth, nullptr);
 
     const int visibleWidth =
         visibleLabelWidth + 28; // checkbox + header padding
@@ -120,8 +120,8 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     wxButton* delBtn = nullptr;
     if (showButtons) {
         wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-        addBtn = new wxButton(this, wxID_ADD, "Add");
-        delBtn = new wxButton(this, wxID_DELETE, "Delete");
+        addBtn = new wxButton(this, wxID_ADD, _("Add"));
+        delBtn = new wxButton(this, wxID_DELETE, _("Delete"));
         btnSizer->Add(addBtn, 0, wxALL, 5);
         btnSizer->Add(delBtn, 0, wxALL, 5);
         sizer->Add(btnSizer, 0, wxALIGN_LEFT);
@@ -297,7 +297,7 @@ void LayerPanel::OnContext(wxDataViewEvent &evt) {
 
 // Adds a new named layer to the scene.
 void LayerPanel::OnAddLayer(wxCommandEvent &) {
-    wxTextEntryDialog dlg(this, "Enter new layer name:", "Add Layer");
+    wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Add Layer"));
     if (dlg.ShowModal() != wxID_OK)
         return;
     std::string name = dlg.GetValue().ToStdString();
@@ -309,7 +309,7 @@ void LayerPanel::OnAddLayer(wxCommandEvent &) {
     for (const auto& [uuid, layer] : scene.layers)
         if (layer.name == name)
         {
-            wxMessageBox("Layer already exists.", "Add Layer", wxOK | wxICON_ERROR, this);
+            wxMessageBox(_("Layer already exists."), _("Add Layer"), wxOK | wxICON_ERROR, this);
             return;
         }
 
@@ -336,7 +336,7 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     std::string name = wname.ToStdString();
     if (name == DEFAULT_LAYER_NAME)
     {
-        wxMessageBox("Cannot delete default layer.", "Delete Layer", wxOK | wxICON_ERROR, this);
+        wxMessageBox(_("Cannot delete default layer."), _("Delete Layer"), wxOK | wxICON_ERROR, this);
         return;
     }
 
@@ -368,8 +368,8 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
 
     if (!empty)
     {
-        int res = wxMessageBox("Layer is not empty. Delete all elements?",
-                               "Delete Layer", wxYES_NO | wxICON_WARNING, this);
+        int res = wxMessageBox(_("Layer is not empty. Delete all elements?"),
+                               _("Delete Layer"), wxYES_NO | wxICON_WARNING, this);
         if (res != wxYES)
             return;
     }
@@ -469,12 +469,12 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
   wxString oldW = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
     std::string oldName = oldW.ToStdString();
   if (oldName == DEFAULT_LAYER_NAME) {
-    wxMessageBox("Cannot rename default layer.", "Rename Layer",
+    wxMessageBox(_("Cannot rename default layer."), _("Rename Layer"),
                  wxOK | wxICON_ERROR, this);
         return;
     }
 
-    wxTextEntryDialog dlg(this, "Enter new layer name:", "Rename Layer", oldW);
+    wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Rename Layer"), oldW);
     if (dlg.ShowModal() != wxID_OK)
         return;
     std::string newName = dlg.GetValue().ToStdString();
@@ -488,7 +488,7 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
     for (const auto& [u, layer] : scene.layers)
         if (layer.name == newName)
         {
-            wxMessageBox("Layer already exists.", "Rename Layer", wxOK | wxICON_ERROR, this);
+            wxMessageBox(_("Layer already exists."), _("Rename Layer"), wxOK | wxICON_ERROR, this);
             return;
         }
 

@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.4.85\n"
+"Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 11:09+0000\n"
+"POT-Creation-Date: 2026-07-13 16:26+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -109,6 +109,11 @@ msgstr ""
 msgid "Quantity:"
 msgstr ""
 
+#: gui/addtrussdialog.cpp:45
+#, c-format
+msgid "Insertion point %s"
+msgstr ""
+
 #: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:276
 msgid "Add Truss"
 msgstr ""
@@ -141,19 +146,25 @@ msgstr ""
 msgid "Fixture ID"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:12
+#: gui/fixturetable/fixture_table_columns.cpp:12 gui/hoisttablepanel.cpp:466
+#: gui/sceneobjecttablepanel.cpp:262 gui/trusstablepanel.cpp:286
 msgid "Name"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:13
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:467
+#: gui/summarypanel.cpp:254 gui/summarypanel.cpp:263
 msgid "Type"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:13
+#: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:471
+#: gui/hoisttablepanel.cpp:786 gui/layerpanel.cpp:82
+#: gui/sceneobjecttablepanel.cpp:263 gui/sceneobjecttablepanel.cpp:427
+#: gui/trusstablepanel.cpp:286
 msgid "Layer"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:14
+#: gui/fixturetable/fixture_table_columns.cpp:14 gui/hoisttablepanel.cpp:472
+#: gui/trusstablepanel.cpp:286
 msgid "Hang Pos"
 msgstr ""
 
@@ -177,27 +188,42 @@ msgstr ""
 msgid "Model file"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:17
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:272
+#: gui/fixturetablepanel.cpp:303 gui/hoisttablepanel.cpp:473
+#: gui/hoisttablepanel.cpp:504 gui/sceneobjecttablepanel.cpp:265
+#: gui/sceneobjecttablepanel.cpp:288 gui/trusstablepanel.cpp:287
+#: gui/trusstablepanel.cpp:319
 msgid "Pos X"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:17
+#: gui/fixturetable/fixture_table_columns.cpp:17 gui/fixturetablepanel.cpp:275
+#: gui/fixturetablepanel.cpp:306 gui/hoisttablepanel.cpp:474
+#: gui/hoisttablepanel.cpp:505 gui/sceneobjecttablepanel.cpp:266
+#: gui/sceneobjecttablepanel.cpp:289 gui/trusstablepanel.cpp:287
+#: gui/trusstablepanel.cpp:320
 msgid "Pos Y"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:18
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/fixturetablepanel.cpp:278
+#: gui/fixturetablepanel.cpp:309 gui/hoisttablepanel.cpp:475
+#: gui/hoisttablepanel.cpp:506 gui/sceneobjecttablepanel.cpp:267
+#: gui/sceneobjecttablepanel.cpp:290 gui/trusstablepanel.cpp:287
+#: gui/trusstablepanel.cpp:321
 msgid "Pos Z"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:18
+#: gui/fixturetable/fixture_table_columns.cpp:18 gui/hoisttablepanel.cpp:476
+#: gui/sceneobjecttablepanel.cpp:268
 msgid "Roll (X)"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:19
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:477
+#: gui/sceneobjecttablepanel.cpp:269
 msgid "Pitch (Y)"
 msgstr ""
 
-#: gui/fixturetable/fixture_table_columns.cpp:19
+#: gui/fixturetable/fixture_table_columns.cpp:19 gui/hoisttablepanel.cpp:478
+#: gui/sceneobjecttablepanel.cpp:270
 msgid "Yaw (Z)"
 msgstr ""
 
@@ -206,6 +232,7 @@ msgid "Power (W)"
 msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:20
+#: tests/localization_catalog_integration_test.cpp:96
 msgid "Weight (kg)"
 msgstr ""
 
@@ -219,6 +246,146 @@ msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:22
 msgid "Color Filter"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:281 gui/fixturetablepanel.cpp:312
+#: gui/hoisttablepanel.cpp:481 gui/hoisttablepanel.cpp:510
+#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:325
+#: tests/localization_catalog_integration_test.cpp:124
+#: tests/localization_catalog_integration_test.cpp:127
+msgid "Weight"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:956 gui/hoisttablepanel.cpp:833
+#: gui/sceneobjecttablepanel.cpp:499 gui/trusstablepanel.cpp:637
+msgid "Edit value:"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1007 gui/fixturetablepanel.cpp:1012
+#: gui/hoisttablepanel.cpp:881 gui/hoisttablepanel.cpp:886
+#: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
+#: gui/trusstablepanel.cpp:683 gui/trusstablepanel.cpp:688
+msgid "Invalid numeric value"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1007 gui/fixturetablepanel.cpp:1012
+#: gui/fixturetablepanel.cpp:1019 gui/fixturetablepanel.cpp:1025
+#: gui/fixturetablepanel.cpp:1033 gui/fixturetablepanel.cpp:1039
+#: gui/fixturetablepanel.cpp:1075 gui/fixturetablepanel.cpp:1082
+#: gui/hoisttablepanel.cpp:881 gui/hoisttablepanel.cpp:886
+#: gui/hoisttablepanel.cpp:892 gui/hoisttablepanel.cpp:899
+#: gui/sceneobjecttablepanel.cpp:545 gui/sceneobjecttablepanel.cpp:550
+#: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
+#: gui/trusstablepanel.cpp:683 gui/trusstablepanel.cpp:688
+#: gui/trusstablepanel.cpp:694 gui/trusstablepanel.cpp:701
+msgid "Error"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1019 gui/fixturetablepanel.cpp:1033
+#: gui/fixturetablepanel.cpp:1075 gui/fixturetablepanel.cpp:1082
+#: gui/hoisttablepanel.cpp:892 gui/hoisttablepanel.cpp:899
+#: gui/sceneobjecttablepanel.cpp:556 gui/sceneobjecttablepanel.cpp:563
+#: gui/trusstablepanel.cpp:694 gui/trusstablepanel.cpp:701
+msgid "Invalid value"
+msgstr ""
+
+#: gui/fixturetablepanel.cpp:1025 gui/fixturetablepanel.cpp:1039
+msgid "Channel out of range (1-512)"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:250
+msgid "Use automatic value"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:465
+#: tests/localization_catalog_integration_test.cpp:98
+msgid "Hoist ID"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:468 gui/hoisttablepanel.cpp:702
+#: gui/hoisttablepanel.cpp:713
+msgid "Function"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:469
+msgid "Motor"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:470 gui/hoisttablepanel.cpp:742
+#: gui/hoisttablepanel.cpp:766
+msgid "Dummy Preset"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:479 gui/hoisttablepanel.cpp:508
+#: tests/localization_catalog_integration_test.cpp:100
+msgid "Chain Length"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:480 gui/hoisttablepanel.cpp:509
+#: tests/localization_catalog_integration_test.cpp:136
+#: tests/localization_catalog_integration_test.cpp:139
+msgid "Capacity"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:482 gui/hoisttablepanel.cpp:511
+#: gui/trusstablepanel.cpp:290
+msgid "Load"
+msgstr ""
+
+#: gui/hoisttablepanel.cpp:765
+msgid ""
+"Dummy preset can only be assigned when there is no linked motor fixture."
+msgstr ""
+
+#: gui/layerpanel.cpp:81 gui/layerpanel.cpp:97 gui/summarypanel.cpp:250
+#: gui/summarypanel.cpp:310 tests/localization_catalog_integration_test.cpp:102
+msgid "Visible"
+msgstr ""
+
+#: gui/layerpanel.cpp:84 gui/layerpanel.cpp:98 gui/summarypanel.cpp:258
+#: gui/summarypanel.cpp:312
+msgid "Color"
+msgstr ""
+
+#: gui/layerpanel.cpp:123
+msgid "Add"
+msgstr ""
+
+#: gui/layerpanel.cpp:124
+msgid "Delete"
+msgstr ""
+
+#: gui/layerpanel.cpp:300 gui/layerpanel.cpp:477
+#: tests/localization_catalog_integration_test.cpp:120
+msgid "Enter new layer name:"
+msgstr ""
+
+#: gui/layerpanel.cpp:300 gui/layerpanel.cpp:312
+msgid "Add Layer"
+msgstr ""
+
+#: gui/layerpanel.cpp:312 gui/layerpanel.cpp:491
+msgid "Layer already exists."
+msgstr ""
+
+#: gui/layerpanel.cpp:339
+msgid "Cannot delete default layer."
+msgstr ""
+
+#: gui/layerpanel.cpp:339 gui/layerpanel.cpp:372
+msgid "Delete Layer"
+msgstr ""
+
+#: gui/layerpanel.cpp:371
+msgid "Layer is not empty. Delete all elements?"
+msgstr ""
+
+#: gui/layerpanel.cpp:472
+msgid "Cannot rename default layer."
+msgstr ""
+
+#: gui/layerpanel.cpp:472 gui/layerpanel.cpp:477 gui/layerpanel.cpp:491
+msgid "Rename Layer"
 msgstr ""
 
 #: gui/logindialog.cpp:21
@@ -646,7 +813,8 @@ msgstr ""
 msgid "Console"
 msgstr ""
 
-#: gui/mainwindow_menu_builders.cpp:73
+#: gui/mainwindow_menu_builders.cpp:73 gui/riggingpanel.cpp:185
+#: gui/summarypanel.cpp:135
 msgid "Fixtures"
 msgstr ""
 
@@ -670,7 +838,7 @@ msgstr ""
 msgid "Layouts"
 msgstr ""
 
-#: gui/mainwindow_menu_builders.cpp:79
+#: gui/mainwindow_menu_builders.cpp:79 gui/summarypanel.cpp:111
 msgid "Summary"
 msgstr ""
 
@@ -771,8 +939,8 @@ msgid "&Help"
 msgstr ""
 
 #: gui/preferencesdialog.cpp:66
-#: tests/localization_catalog_integration_test.cpp:72
-#: tests/localization_catalog_integration_test.cpp:84
+#: tests/localization_catalog_integration_test.cpp:73
+#: tests/localization_catalog_integration_test.cpp:85
 msgid "Preferences"
 msgstr ""
 
@@ -836,7 +1004,7 @@ msgid "Language changes will be applied after restarting Perastage."
 msgstr ""
 
 #: gui/preferencesdialog.cpp:211
-#: tests/localization_catalog_integration_test.cpp:86
+#: tests/localization_catalog_integration_test.cpp:87
 msgid "Language"
 msgstr ""
 
@@ -984,6 +1152,48 @@ msgstr ""
 msgid "Restart required"
 msgstr ""
 
+#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:106
+msgid "Position"
+msgstr ""
+
+#: gui/riggingpanel.cpp:188 gui/summarypanel.cpp:164
+msgid "Trusses"
+msgstr ""
+
+#: gui/riggingpanel.cpp:191 gui/summarypanel.cpp:174
+msgid "Hoists"
+msgstr ""
+
+#: gui/riggingpanel.cpp:193 gui/riggingpanel.cpp:258
+#: tests/localization_catalog_integration_test.cpp:108
+#: tests/localization_catalog_integration_test.cpp:143
+msgid "Fixture Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:196 gui/riggingpanel.cpp:260
+msgid "Truss Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:199 gui/riggingpanel.cpp:262
+msgid "Hoists Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:202 gui/riggingpanel.cpp:264
+msgid "Extra Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:205 gui/riggingpanel.cpp:266
+msgid "Total Weight"
+msgstr ""
+
+#: gui/riggingpanel.cpp:208 gui/riggingpanel.cpp:268
+msgid "Rounded Total Weight +5%"
+msgstr ""
+
+#: gui/sceneobjecttablepanel.cpp:264 gui/trusstablepanel.cpp:286
+msgid "Model File"
+msgstr ""
+
 #: gui/selectfixturetypedialog.cpp:21
 msgid "Select Fixture Type"
 msgstr ""
@@ -994,6 +1204,37 @@ msgstr ""
 
 #: gui/selectfixturetypedialog.cpp:35 gui/selectnamedialog.cpp:38
 msgid "Add from file..."
+msgstr ""
+
+#: gui/summarypanel.cpp:191
+msgid "Objects"
+msgstr ""
+
+#: gui/summarypanel.cpp:252 gui/summarypanel.cpp:261 gui/summarypanel.cpp:311
+#: gui/summarypanel.cpp:341 tests/localization_catalog_integration_test.cpp:104
+msgid "Count"
+msgstr ""
+
+#: gui/trusstablepanel.cpp:289
+msgid "Manufacturer"
+msgstr ""
+
+#: gui/trusstablepanel.cpp:289
+msgid "Model"
+msgstr ""
+
+#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:322
+#: tests/localization_catalog_integration_test.cpp:130
+#: tests/localization_catalog_integration_test.cpp:133
+msgid "Length"
+msgstr ""
+
+#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:323
+msgid "Width"
+msgstr ""
+
+#: gui/trusstablepanel.cpp:290 gui/trusstablepanel.cpp:324
+msgid "Height"
 msgstr ""
 
 #: main.cpp:290
@@ -1008,6 +1249,26 @@ msgstr ""
 msgid "Loading last project..."
 msgstr ""
 
-#: tests/localization_catalog_integration_test.cpp:77
+#: tests/localization_catalog_integration_test.cpp:78
 msgid "Spanish"
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:110
+msgid "Console commands"
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:112
+msgid "Create scene from text"
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:114
+msgid "Search GDTF"
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:116
+msgid "Manufacturer:"
+msgstr ""
+
+#: tests/localization_catalog_integration_test.cpp:118
+msgid "Download"
 msgstr ""

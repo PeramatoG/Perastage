@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "sceneobjecttablepanel.h"
+#include "localized_unit_labels.h"
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
@@ -258,18 +259,15 @@ void SceneObjectTablePanel::InitializeTable() {
     const auto distanceUnit = ResolveDistanceUnitSystem();
   const wxString distanceSuffix =
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
-  columnLabels = {"Name",
-                  "Layer",
-                  "Model File",
-                  wxString::FromUTF8(Units::LabelWithUnit(
-                      "Pos X", std::string(distanceSuffix.ToUTF8()))),
-                  wxString::FromUTF8(Units::LabelWithUnit(
-                      "Pos Y", std::string(distanceSuffix.ToUTF8()))),
-                  wxString::FromUTF8(Units::LabelWithUnit(
-                      "Pos Z", std::string(distanceSuffix.ToUTF8()))),
-                  "Roll (X)",
-                  "Pitch (Y)",
-                  "Yaw (Z)"};
+  columnLabels = {_("Name"),
+                  _("Layer"),
+                  _("Model File"),
+                  ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix),
+                  ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix),
+                  ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix),
+                  _("Roll (X)"),
+                  _("Pitch (Y)"),
+                  _("Yaw (Z)")};
   std::vector<int> widths = {150, 100, 180, 80, 80, 80, 80, 80, 80};
   if (columnLabels.size() != TableColumnIndices::Count<SceneObjectColumn>() ||
       widths.size() != TableColumnIndices::Count<SceneObjectColumn>())
@@ -287,12 +285,9 @@ void SceneObjectTablePanel::ReloadData() {
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const wxString distanceSuffix =
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
-  columnLabels[ColumnIndex(SceneObjectColumn::PositionX)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(SceneObjectColumn::PositionY)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(SceneObjectColumn::PositionZ)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionX)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionY)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
+  columnLabels[ColumnIndex(SceneObjectColumn::PositionZ)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);
@@ -429,7 +424,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxArrayString choices;
         for (const auto& n : layers)
             choices.push_back(wxString::FromUTF8(n));
-        wxSingleChoiceDialog sdlg(this, "Select layer", "Layer", choices);
+        wxSingleChoiceDialog sdlg(this, "Select layer", _("Layer"), choices);
         if (sdlg.ShowModal() != wxID_OK)
             return;
         wxString sel = sdlg.GetStringSelection();
@@ -501,7 +496,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         return;
     }
 
-  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+  wxTextEntryDialog dlg(this, _("Edit value:"), columnLabels[col],
                         current.GetString());
     if (dlg.ShowModal() != wxID_OK)
         return;
@@ -547,25 +542,25 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
             RangeParts range = SplitRangeParts(value);
             wxArrayString parts = range.parts;
       if (parts.size() == 0 || parts.size() > 2) {
-                wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
                 return;
             }
             if (range.usedSeparator && parts.size() != 2 &&
           !(parts.size() == 1 && range.trailingSeparator)) {
-                wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
                 return;
             }
 
             double v1, v2 = 0.0;
       if (!parts[0].ToDouble(&v1)) {
-                wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
                 return;
             }
             bool interp = false;
             bool sequential = false;
       if (parts.size() == 2) {
         if (!parts[1].ToDouble(&v2)) {
-                    wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+                    wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
                     return;
                 }
                 interp = selections.size() > 1;

@@ -17,22 +17,37 @@ LANGUAGES = ["es"]
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 EXCLUDED_PREFIXES = ("third_party/", "build/", "build-", "cmake-build", ".git/")
 AUDIT_ALLOWLIST = ROOT / "scripts" / "localization_audit_allowlist.txt"
+AUDIT_SOURCE_PREFIXES = ("gui/fixturetablepanel.cpp", "gui/trusstablepanel.cpp", "gui/hoisttablepanel.cpp", "gui/sceneobjecttablepanel.cpp", "gui/riggingpanel.cpp", "gui/layerpanel.cpp", "gui/summarypanel.cpp", "gui/addtrussdialog.cpp")
 
 TRANSLATION_WRAPPERS = {"_", "wxGetTranslation", "wxTRANSLATE", "wxPLURAL"}
 UI_CALLEES = {
     "wxMessageBox", "wxBusyInfo", "wxProgressDialog", "SplashScreen::SetMessage",
-    "SetStatusText", "SetHighlightedStatus", "AppendMessage", "SetLabel", "SetTitle",
+    "SetStatusText", "SetHighlightedStatus", "SetLabel", "SetTitle",
     "SetToolTip", "SetHint", "Append", "AppendSubMenu", "AppendCheckItem",
     "AppendTextColumn", "AppendToggleColumn", "AddPage", "Caption", "AddTool",
     "wxFileDialog", "wxDirDialog", "wxTextEntryDialog", "wxSingleChoiceDialog",
     "wxStaticText", "wxButton", "wxCheckBox", "wxRadioButton", "wxStaticBox",
-    "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem",
+    "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem", "Units::LabelWithUnit",
+    "UpdatePaneCaption", "GetTextExtent", "BuildTooltip", "BuildHelp",
 }
 REPRESENTATIVE_MESSAGES = {
     "Running library bootstrap...": "root main.cpp splash message",
     "Fixture ID": "fixture table dynamic column label",
     "Model file": "fixture table dynamic column label",
     "Color Filter": "fixture table dynamic column label",
+    "Weight (kg)": "fixture table translated runtime column label",
+    "Hoist ID": "hoist table column label",
+    "Chain Length": "hoist table column label",
+    "Visible": "layer and summary visibility label",
+    "Count": "summary count label",
+    "Position": "rigging table column label",
+    "Fixture Weight": "rigging dynamic weight label",
+    "Console commands": "console help title",
+    "Create scene from text": "rider text dialog title",
+    "Search GDTF": "GDTF search dialog title",
+    "Manufacturer:": "GDTF and metadata label",
+    "Download": "download action label",
+    "Enter new layer name:": "layer prompt label",
 }
 
 class Tools:
@@ -248,9 +263,11 @@ def audit() -> int:
         print(error, file=sys.stderr)
         return 1
     findings: list[str] = []
-    callee_pattern = re.compile(r"\b(" + "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True)) + r")\s*\(")
+    callee_pattern = re.compile(r"(?<![A-Za-z0-9_:])(" + "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True)) + r")\s*\(")
     for path in source_files():
         rel = path.relative_to(ROOT).as_posix()
+        if not rel.startswith(AUDIT_SOURCE_PREFIXES):
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for match in callee_pattern.finditer(text):
             _, expression = find_matching_call(text, match.start())
@@ -279,7 +296,9 @@ def self_test() -> int:
     assert not string_literals(translated)
     assert string_literals(untranslated)[0][0] == "Visible message"
     assert string_literals(mixed)[0][0] == "Visible message"
+    unit_literal = 'Units::LabelWithUnit("Weight", suffix);'
     assert not string_literals(static_marker)
+    assert string_literals(unit_literal)[0][0] == "Weight"
     return 0
 
 

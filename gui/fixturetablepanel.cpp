@@ -21,6 +21,7 @@
 #include "consolepanel.h"
 #include "fixtureeditdialog.h"
 #include "fixturetable/fixture_table_columns.h"
+#include "localized_unit_labels.h"
 #include "fixturetable/fixture_table_edit_service.h"
 #include "fixturetable/fixture_table_parser.h"
 #include "fixturetablepanel_ui_helpers.h"
@@ -268,20 +269,16 @@ void FixtureTablePanel::InitializeTable() {
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionX)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionY)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionZ)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::Weight)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
 }
 
@@ -303,20 +300,16 @@ void FixtureTablePanel::ReloadData() {
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionX)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionY)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::PositionZ)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
   columnLabels[FixtureTableColumns::ToIndex(
       FixtureTableColumns::Column::Weight)] =
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
@@ -960,7 +953,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     return;
   }
 
-  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+  wxTextEntryDialog dlg(this, _("Edit value:"), columnLabels[col],
                         current.GetString());
   if (dlg.ShowModal() != wxID_OK)
     return;
@@ -1011,25 +1004,25 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       auto range = FixtureTableParser::SplitRangeParts(value);
       wxArrayString parts = range.parts;
       if (parts.size() == 0 || parts.size() > 2) {
-        wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+        wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
         return;
       }
       if (range.usedSeparator && parts.size() != 2 &&
           !(parts.size() == 1 && range.trailingSeparator)) {
-        wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+        wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
         return;
       }
 
       if (intCol) {
         long v1, v2 = 0;
         if (!parts[0].ToLong(&v1)) {
-          wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+          wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
           return;
         }
         if (col == FixtureTableColumns::ToIndex(
                        FixtureTableColumns::Column::Channel) &&
             (v1 < 1 || v1 > 512)) {
-          wxMessageBox("Channel out of range (1-512)", "Error",
+          wxMessageBox(_("Channel out of range (1-512)"), _("Error"),
                        wxOK | wxICON_ERROR);
           return;
         }
@@ -1037,13 +1030,13 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         bool sequential = false;
         if (parts.size() == 2) {
           if (!parts[1].ToLong(&v2)) {
-            wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+            wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
             return;
           }
           if (col == FixtureTableColumns::ToIndex(
                          FixtureTableColumns::Column::Channel) &&
               (v2 < 1 || v2 > 512)) {
-            wxMessageBox("Channel out of range (1-512)", "Error",
+            wxMessageBox(_("Channel out of range (1-512)"), _("Error"),
                          wxOK | wxICON_ERROR);
             return;
           }
@@ -1079,14 +1072,14 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
       {
         double v1, v2 = 0.0;
         if (!parts[0].ToDouble(&v1)) {
-          wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+          wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
           return;
         }
         bool interp = false;
         bool sequential = false;
         if (parts.size() == 2) {
           if (!parts[1].ToDouble(&v2)) {
-            wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+            wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
             return;
           }
           interp = selections.size() > 1;

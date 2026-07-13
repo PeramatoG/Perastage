@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "hoisttablepanel.h"
+#include "localized_unit_labels.h"
 
 #include "colorfulrenderers.h"
 #include "columnutils.h"
@@ -246,7 +247,7 @@ public:
 
     auto *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
     auto *recalculateButton =
-        new wxButton(this, wxID_ANY, "Use automatic value");
+        new wxButton(this, wxID_ANY, _("Use automatic value"));
     buttonSizer->Add(recalculateButton, 0, wxRIGHT, 8);
     buttonSizer->AddStretchSpacer();
     auto *okButton = new wxButton(this, wxID_OK);
@@ -461,30 +462,24 @@ void HoistTablePanel::InitializeTable() {
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
   columnLabels = {
-      "Hoist ID",
-      "Name",
-      "Type",
-      "Function",
-      "Motor",
-      "Dummy Preset",
-      "Layer",
-      "Hang Pos",
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))),
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))),
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
-      "Roll (X)",
-      "Pitch (Y)",
-      "Yaw (Z)",
-      "Chain Length (m)",
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8()))),
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))),
-      wxString::FromUTF8(
-          Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
+      _("Hoist ID"),
+      _("Name"),
+      _("Type"),
+      _("Function"),
+      _("Motor"),
+      _("Dummy Preset"),
+      _("Layer"),
+      _("Hang Pos"),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix),
+      _("Roll (X)"),
+      _("Pitch (Y)"),
+      _("Yaw (Z)"),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Chain Length"), distanceSuffix),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), weightSuffix),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix),
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Load"), weightSuffix)};
   std::vector<int> widths = {70, 150, 120, 120, 130, 150, 100, 120, 80,
                              80, 80,  80,  80,  80,  110, 110, 100, 100};
   if (columnLabels.size() != TableColumnIndices::Count<HoistColumn>() ||
@@ -506,18 +501,14 @@ void HoistTablePanel::ReloadData() {
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
   const wxString weightSuffix =
       wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[ColumnIndex(HoistColumn::PositionX)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(HoistColumn::PositionY)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(HoistColumn::PositionZ)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(HoistColumn::Capacity)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Capacity", std::string(weightSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(HoistColumn::Weight)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(HoistColumn::Load)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(HoistColumn::PositionX)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::PositionY)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::PositionZ)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::ChainLength)] =
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Chain Length"), distanceSuffix);
+  columnLabels[ColumnIndex(HoistColumn::Capacity)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), weightSuffix);
+  columnLabels[ColumnIndex(HoistColumn::Weight)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
+  columnLabels[ColumnIndex(HoistColumn::Load)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Load"), weightSuffix);
   for (size_t i = 0; i < columnLabels.size(); ++i) {
     if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
       column->SetTitle(columnLabels[i]);
@@ -708,7 +699,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
       choices.push_back(wxString::FromUTF8(option));
     choices.push_back("Other...");
 
-    wxSingleChoiceDialog sdlg(this, "Select function", "Function", choices);
+    wxSingleChoiceDialog sdlg(this, "Select function", _("Function"), choices);
     // With the following code:
     int selIdx = choices.Index(current.GetString());
     if (selIdx != wxNOT_FOUND)
@@ -719,7 +710,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
       return;
     wxString sel = sdlg.GetStringSelection();
     if (sel == "Other...") {
-      wxTextEntryDialog otherDlg(this, "Enter function", "Function",
+      wxTextEntryDialog otherDlg(this, "Enter function", _("Function"),
                                  current.GetString());
       if (otherDlg.ShowModal() != wxID_OK)
         return;
@@ -748,7 +739,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     const auto &supports = cfg.GetScene().supports;
 
     wxArrayString choices = BuildDummyPresetChoices();
-    wxSingleChoiceDialog sdlg(this, "Select dummy preset", "Dummy Preset",
+    wxSingleChoiceDialog sdlg(this, "Select dummy preset", _("Dummy Preset"),
                               choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
@@ -771,9 +762,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 
     if (!updatedAnyRow) {
-      wxMessageBox("Dummy preset can only be assigned when there is no linked "
-                   "motor fixture.",
-                   "Dummy Preset", wxOK | wxICON_INFORMATION, this);
+      wxMessageBox(_("Dummy preset can only be assigned when there is no linked motor fixture."),
+                   _("Dummy Preset"), wxOK | wxICON_INFORMATION, this);
       return;
     }
 
@@ -793,7 +783,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxArrayString choices;
     for (const auto &n : layers)
       choices.push_back(wxString::FromUTF8(n));
-    wxSingleChoiceDialog sdlg(this, "Select layer", "Layer", choices);
+    wxSingleChoiceDialog sdlg(this, "Select layer", _("Layer"), choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
     wxString sel = sdlg.GetStringSelection();
@@ -840,7 +830,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (*namedColumn == HoistColumn::Load) {
     value = current.GetString().Trim(true).Trim(false);
   } else {
-    wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+    wxTextEntryDialog dlg(this, _("Edit value:"), columnLabels[col],
                           current.GetString());
     if (dlg.ShowModal() != wxID_OK)
       return;
@@ -888,25 +878,25 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
       RangeParts range = SplitRangeParts(value);
       wxArrayString parts = range.parts;
       if (parts.size() == 0 || parts.size() > 2) {
-        wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+        wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
         return;
       }
       if (range.usedSeparator && parts.size() != 2 &&
           !(parts.size() == 1 && range.trailingSeparator)) {
-        wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+        wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
         return;
       }
 
       double v1, v2 = 0.0;
       if (!parts[0].ToDouble(&v1)) {
-        wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+        wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
         return;
       }
       bool interp = false;
       bool sequential = false;
       if (parts.size() == 2) {
         if (!parts[1].ToDouble(&v2)) {
-          wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+          wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
           return;
         }
         interp = selections.size() > 1;

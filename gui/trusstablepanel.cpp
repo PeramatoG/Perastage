@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trusstablepanel.h"
+#include "localized_unit_labels.h"
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
@@ -282,11 +283,11 @@ void TrussTablePanel::InitializeTable()
     const auto weightUnit = ResolveWeightUnitSystem();
     const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     const wxString weightSuffix = wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-    columnLabels = {"Name", "Layer", "Model File", "Hang Pos",
-                    wxString::FromUTF8(Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8()))),
+    columnLabels = {_("Name"), _("Layer"), _("Model File"), _("Hang Pos"),
+                    ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix),
                     "Roll (X)", "Pitch (Y)", "Yaw (Z)",
-                    "Manufacturer", "Model",
-                    wxString::FromUTF8(Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8()))), wxString::FromUTF8(Units::LabelWithUnit("Load", std::string(weightSuffix.ToUTF8())))};
+                    _("Manufacturer"), _("Model"),
+                    ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Width"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Height"), distanceSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix), ui::LocalizedLabelWithUnit(wxTRANSLATE("Load"), weightSuffix)};
     std::vector<int> widths = {150, 100, 180, 120,
                                80, 80, 80,
                                80, 80, 80,
@@ -315,20 +316,13 @@ void TrussTablePanel::ReloadData()
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
     const wxString weightSuffix =
         wxString::FromUTF8(Units::WeightUnitSuffix(weightUnit));
-  columnLabels[ColumnIndex(TrussColumn::PositionX)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos X", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(TrussColumn::PositionY)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Y", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(TrussColumn::PositionZ)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Pos Z", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(TrussColumn::Length)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Length", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(TrussColumn::Width)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Width", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(TrussColumn::Height)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Height", std::string(distanceSuffix.ToUTF8())));
-  columnLabels[ColumnIndex(TrussColumn::Weight)] = wxString::FromUTF8(
-      Units::LabelWithUnit("Weight", std::string(weightSuffix.ToUTF8())));
+  columnLabels[ColumnIndex(TrussColumn::PositionX)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos X"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::PositionY)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Y"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::PositionZ)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Pos Z"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Length)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Width)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Width"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Height)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Height"), distanceSuffix);
+  columnLabels[ColumnIndex(TrussColumn::Weight)] = ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), weightSuffix);
     for (size_t i = 0; i < columnLabels.size(); ++i) {
         if (auto *column = table->GetColumn(static_cast<unsigned int>(i)))
             column->SetTitle(columnLabels[i]);
@@ -640,7 +634,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         return;
     }
 
-  wxTextEntryDialog dlg(this, "Edit value:", columnLabels[col],
+  wxTextEntryDialog dlg(this, _("Edit value:"), columnLabels[col],
                         current.GetString());
     if (dlg.ShowModal() != wxID_OK)
         return;
@@ -686,25 +680,25 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
             RangeParts range = SplitRangeParts(value);
             wxArrayString parts = range.parts;
       if (parts.size() == 0 || parts.size() > 2) {
-                wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
                 return;
             }
             if (range.usedSeparator && parts.size() != 2 &&
           !(parts.size() == 1 && range.trailingSeparator)) {
-                wxMessageBox("Invalid numeric value", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox(_("Invalid numeric value"), _("Error"), wxOK | wxICON_ERROR);
                 return;
             }
 
             double v1, v2 = 0.0;
       if (!parts[0].ToDouble(&v1)) {
-                wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+                wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
                 return;
             }
             bool interp = false;
             bool sequential = false;
       if (parts.size() == 2) {
         if (!parts[1].ToDouble(&v2)) {
-                    wxMessageBox("Invalid value", "Error", wxOK | wxICON_ERROR);
+                    wxMessageBox(_("Invalid value"), _("Error"), wxOK | wxICON_ERROR);
                     return;
                 }
                 interp = selections.size() > 1;

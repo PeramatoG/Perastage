@@ -1,5 +1,6 @@
 #include "localization/app_language.h"
 #include "localization/localization_manager.h"
+#include "localized_unit_labels.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -91,6 +92,57 @@ int main() {
               "Spanish native name does not contain U+00F1.");
   ok &= Check(!ContainsSpanishMojibake(spanishName),
               "Spanish native name contains mojibake markers.");
+
+  ok &= Check(_("Weight (kg)") == wxString("Peso (kg)"),
+              "Weight (kg) did not translate to Peso (kg).");
+  ok &= Check(_("Hoist ID") == wxString("ID del motor"),
+              "Hoist ID did not translate to ID del motor.");
+  ok &= Check(_("Chain Length") == wxString("Longitud de cadena"),
+              "Chain Length did not translate to Longitud de cadena.");
+  ok &= Check(_("Visible") == wxString("Visible"),
+              "Visible did not stay localized as Visible.");
+  ok &= Check(_("Count") == wxString("Cantidad"),
+              "Count did not translate to Cantidad.");
+  ok &= Check(_("Position") == wxString::FromUTF8("Posición"),
+              "Position did not translate to Posición.");
+  ok &= Check(_("Fixture Weight") == wxString("Peso de aparatos"),
+              "Fixture Weight did not translate to Peso de aparatos.");
+  ok &= Check(_("Console commands") == wxString("Comandos de consola"),
+              "Console commands did not translate to Comandos de consola.");
+  ok &= Check(_("Create scene from text") == wxString("Crear escena desde texto"),
+              "Create scene from text did not translate correctly.");
+  ok &= Check(_("Search GDTF") == wxString("Buscar GDTF"),
+              "Search GDTF did not translate to Buscar GDTF.");
+  ok &= Check(_("Manufacturer:") == wxString("Fabricante:"),
+              "Manufacturer: did not translate to Fabricante:.");
+  ok &= Check(_("Download") == wxString("Descargar"),
+              "Download did not translate to Descargar.");
+  ok &= Check(_("Enter new layer name:") ==
+                  wxString::FromUTF8("Introduzca el nombre de la nueva capa:"),
+              "Layer prompt did not translate correctly.");
+
+  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), "kg") ==
+                  wxString("Peso (kg)"),
+              "Spanish metric fixture weight label regressed.");
+  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Weight"), "lb") ==
+                  wxString("Peso (lb)"),
+              "Spanish imperial fixture weight label regressed.");
+  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), "m") ==
+                  wxString("Longitud (m)"),
+              "Spanish metric truss length label regressed.");
+  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Length"), "ft") ==
+                  wxString("Longitud (ft)"),
+              "Spanish imperial truss length label regressed.");
+  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), "kg") ==
+                  wxString("Capacidad (kg)"),
+              "Spanish metric hoist capacity label regressed.");
+  ok &= Check(ui::LocalizedLabelWithUnit(wxTRANSLATE("Capacity"), "lb") ==
+                  wxString("Capacidad (lb)"),
+              "Spanish imperial hoist capacity label regressed.");
+  const wxString riggingWeight =
+      ui::LocalizedLabelWithUnit(wxTRANSLATE("Fixture Weight"), "kg");
+  ok &= Check(riggingWeight == wxString("Peso de aparatos (kg)"),
+              "Spanish rigging dynamic weight header regressed.");
 
   return ok ? 0 : 1;
 }

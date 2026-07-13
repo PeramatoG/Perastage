@@ -14,6 +14,7 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
+- Expanded desktop Spanish localization coverage for remaining table headers, layer and summary controls, rigging weight headers, and unit-aware labels so unit changes preserve translated UI text.
 - Expanded Spanish localization coverage for core creation and selection dialogs, About dialog text, GDTF Share login labels, and related startup translation checks while keeping imported names and user-entered data unchanged.
 - Expanded Preferences localization coverage for Rider Import, Units, Updates, MVR export, and 3D Viewer settings while preserving stable configuration values and selection-index based behavior.
 
@@ -36,6 +37,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed unit-aware table header refreshes so translated fixture, truss, hoist, scene-object, and rigging labels are not overwritten with English after reloads or unit preference changes.
 - Fixed Windows catalog generation argument quoting so `msgfmt` writes `perastage.mo` to the generated build-tree path during Ninja and Visual Studio builds.
 - Fixed Spanish localization startup so the proof strings load from the generated catalog on Windows, with native language names shown safely, required build-time catalog generation when localization is enabled, and clearer catalog diagnostics.
 - Fixed the language selector build on wxWidgets configurations that require literal translation message IDs.
