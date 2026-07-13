@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 10:52+0000\n"
+"POT-Creation-Date: 2026-07-13 11:09+0000\n"
 "PO-Revision-Date: 2026-07-12 00:00+0000\n"
 "Last-Translator: Perastage Team\n"
 "Language-Team: Spanish\n"
@@ -775,26 +775,221 @@ msgstr "&Herramientas"
 msgid "&Help"
 msgstr "A&yuda"
 
-#: gui/preferencesdialog.cpp:64
+#: gui/preferencesdialog.cpp:66
 #: tests/localization_catalog_integration_test.cpp:72
 #: tests/localization_catalog_integration_test.cpp:84
 msgid "Preferences"
 msgstr "Preferencias"
 
-#: gui/preferencesdialog.cpp:180
+#: gui/preferencesdialog.cpp:77
+msgid "Auto patch after import"
+msgstr "Autopatchear después de importar"
+
+#: gui/preferencesdialog.cpp:83
+msgid "Auto-create layers by position"
+msgstr "Crear capas automáticamente por posición"
+
+#: gui/preferencesdialog.cpp:86
+msgid "Auto-create layers by fixture type"
+msgstr "Crear capas automáticamente por tipo de aparato"
+
+#: gui/preferencesdialog.cpp:102
+#, c-format
+msgid "LX%d height:"
+msgstr "Altura LX%d:"
+
+#: gui/preferencesdialog.cpp:113
+#, c-format
+msgid "LX%d position:"
+msgstr "Posición LX%d:"
+
+#: gui/preferencesdialog.cpp:124
+#, c-format
+msgid "LX%d margin:"
+msgstr "Margen LX%d:"
+
+#: gui/preferencesdialog.cpp:136
+msgid "Rider Import"
+msgstr "Importación de rider"
+
+#: gui/preferencesdialog.cpp:144
+msgid "Distance system:"
+msgstr "Sistema de distancia:"
+
+#: gui/preferencesdialog.cpp:147 gui/preferencesdialog.cpp:164
+msgid "Metric"
+msgstr "Métrico"
+
+#: gui/preferencesdialog.cpp:148 gui/preferencesdialog.cpp:165
+msgid "Imperial"
+msgstr "Imperial"
+
+#: gui/preferencesdialog.cpp:161
+msgid "Weight system:"
+msgstr "Sistema de peso:"
+
+#: gui/preferencesdialog.cpp:174
+msgid "Units"
+msgstr "Unidades"
+
+#: gui/preferencesdialog.cpp:182
 msgid "Interface language:"
 msgstr "Idioma de la interfaz:"
 
-#: gui/preferencesdialog.cpp:203 gui/preferencesdialog.cpp:570
+#: gui/preferencesdialog.cpp:205 gui/preferencesdialog.cpp:576
 msgid "Language changes will be applied after restarting Perastage."
 msgstr "Los cambios de idioma se aplicarán después de reiniciar Perastage."
 
-#: gui/preferencesdialog.cpp:209
+#: gui/preferencesdialog.cpp:211
 #: tests/localization_catalog_integration_test.cpp:86
 msgid "Language"
 msgstr "Idioma"
 
-#: gui/preferencesdialog.cpp:571
+#: gui/preferencesdialog.cpp:219
+msgid "Automatic update checks:"
+msgstr "Búsqueda automática de actualizaciones:"
+
+#: gui/preferencesdialog.cpp:222
+msgid "Check on startup (recommended)"
+msgstr "Comprobar al iniciar (recomendado)"
+
+#: gui/preferencesdialog.cpp:223
+msgid "Manual only"
+msgstr "Solo manual"
+
+#: gui/preferencesdialog.cpp:234
+msgid "Manual checks are always available from Help -> Check for Updates."
+msgstr "Las comprobaciones manuales siempre están disponibles desde Ayuda -> Buscar actualizaciones."
+
+#: gui/preferencesdialog.cpp:237
+msgid "Updates"
+msgstr "Actualizaciones"
+
+#: gui/preferencesdialog.cpp:242
+msgid "GDTF"
+msgstr "GDTF"
+
+#: gui/preferencesdialog.cpp:248
+msgid "Export"
+msgstr "Exportación"
+
+#: gui/preferencesdialog.cpp:252
+msgid "Truss geometry export mode:"
+msgstr "Modo de exportación de geometría de truss:"
+
+#: gui/preferencesdialog.cpp:256
+msgid "Standard MVR representation"
+msgstr "Representación MVR estándar"
+
+#: gui/preferencesdialog.cpp:257
+msgid "Direct Geometry3D for truss symbols"
+msgstr "Geometry3D directa para símbolos de truss"
+
+#: gui/preferencesdialog.cpp:268
+msgid ""
+"Standard MVR representation: preserves imported Symbol/Symdef references "
+"when possible.\n"
+"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
+"into direct Geometry3D entries for broader importer compatibility."
+msgstr "Representación MVR estándar: conserva las referencias Symbol/Symdef importadas cuando es posible.\n"
+"Geometry3D directa para símbolos de truss: expande las referencias Symbol/Symdef de truss en entradas Geometry3D directas para mayor compatibilidad con importadores."
+
+#: gui/preferencesdialog.cpp:276
+msgid "MVR Import / Export"
+msgstr "Importación / exportación MVR"
+
+#: gui/preferencesdialog.cpp:283 gui/preferencesdialog.cpp:392
+msgid "3D Viewer"
+msgstr "Visor 3D"
+
+#: gui/preferencesdialog.cpp:292
+msgid ""
+"Customize camera interaction and visualize the current navigation shortcuts."
+msgstr "Personaliza la interacción de cámara y muestra los atajos de navegación actuales."
+
+#: gui/preferencesdialog.cpp:301
+msgid "Navigation"
+msgstr "Navegación"
+
+#: gui/preferencesdialog.cpp:304
+msgid "Invert orbit/rotate vertical direction"
+msgstr "Invertir dirección vertical de órbita/rotación"
+
+#: gui/preferencesdialog.cpp:312
+msgid "Disabled by default to preserve the current behavior."
+msgstr "Desactivado de forma predeterminada para conservar el comportamiento actual."
+
+#: gui/preferencesdialog.cpp:322
+msgid "Render mode"
+msgstr "Modo de render"
+
+#: gui/preferencesdialog.cpp:324
+msgid "Standard"
+msgstr "Estándar"
+
+#: gui/preferencesdialog.cpp:327
+msgid "White"
+msgstr "Blanco"
+
+#: gui/preferencesdialog.cpp:329
+msgid "Sketch mode"
+msgstr "Modo boceto"
+
+#: gui/preferencesdialog.cpp:331
+msgid "Textured"
+msgstr "Texturizado"
+
+#: gui/preferencesdialog.cpp:333
+msgid "Wireframe"
+msgstr "Alámbrico"
+
+#: gui/preferencesdialog.cpp:335
+msgid "By device type"
+msgstr "Por tipo de dispositivo"
+
+#: gui/preferencesdialog.cpp:337
+msgid "By layer"
+msgstr "Por capa"
+
+#: gui/preferencesdialog.cpp:339
+msgid "By universe"
+msgstr "Por universo"
+
+#: gui/preferencesdialog.cpp:371
+msgid "Current mouse and keyboard shortcuts"
+msgstr "Atajos actuales de ratón y teclado"
+
+#: gui/preferencesdialog.cpp:374
+msgid ""
+"Orbit: Left drag or Right drag.\n"
+"Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
+"Zoom: Mouse wheel.\n"
+"Selection rectangle: Ctrl + Left drag."
+msgstr "Órbita: arrastrar con botón izquierdo o derecho.\n"
+"Panorámica: arrastrar con botón central, Mayús + arrastrar o Mayús + botón izquierdo.\n"
+"Zoom: rueda del ratón.\n"
+"Rectángulo de selección: Ctrl + arrastrar con botón izquierdo."
+
+#: gui/preferencesdialog.cpp:383
+msgid "Informational only: shortcut remapping is not available yet."
+msgstr "Solo informativo: la reasignación de atajos aún no está disponible."
+
+#: gui/preferencesdialog.cpp:513
+#, c-format
+msgid "LX%d height (%s):"
+msgstr "Altura LX%d (%s):"
+
+#: gui/preferencesdialog.cpp:515
+#, c-format
+msgid "LX%d position (%s):"
+msgstr "Posición LX%d (%s):"
+
+#: gui/preferencesdialog.cpp:517
+#, c-format
+msgid "LX%d margin (%s):"
+msgstr "Margen LX%d (%s):"
+
+#: gui/preferencesdialog.cpp:577
 msgid "Restart required"
 msgstr "Reinicio necesario"
 

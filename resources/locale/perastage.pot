@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 10:52+0000\n"
+"POT-Creation-Date: 2026-07-13 11:09+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -770,26 +770,217 @@ msgstr ""
 msgid "&Help"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:64
+#: gui/preferencesdialog.cpp:66
 #: tests/localization_catalog_integration_test.cpp:72
 #: tests/localization_catalog_integration_test.cpp:84
 msgid "Preferences"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:180
+#: gui/preferencesdialog.cpp:77
+msgid "Auto patch after import"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:83
+msgid "Auto-create layers by position"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:86
+msgid "Auto-create layers by fixture type"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:102
+#, c-format
+msgid "LX%d height:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:113
+#, c-format
+msgid "LX%d position:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:124
+#, c-format
+msgid "LX%d margin:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:136
+msgid "Rider Import"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:144
+msgid "Distance system:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:147 gui/preferencesdialog.cpp:164
+msgid "Metric"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:148 gui/preferencesdialog.cpp:165
+msgid "Imperial"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:161
+msgid "Weight system:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:174
+msgid "Units"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:182
 msgid "Interface language:"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:203 gui/preferencesdialog.cpp:570
+#: gui/preferencesdialog.cpp:205 gui/preferencesdialog.cpp:576
 msgid "Language changes will be applied after restarting Perastage."
 msgstr ""
 
-#: gui/preferencesdialog.cpp:209
+#: gui/preferencesdialog.cpp:211
 #: tests/localization_catalog_integration_test.cpp:86
 msgid "Language"
 msgstr ""
 
-#: gui/preferencesdialog.cpp:571
+#: gui/preferencesdialog.cpp:219
+msgid "Automatic update checks:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:222
+msgid "Check on startup (recommended)"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:223
+msgid "Manual only"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:234
+msgid "Manual checks are always available from Help -> Check for Updates."
+msgstr ""
+
+#: gui/preferencesdialog.cpp:237
+msgid "Updates"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:242
+msgid "GDTF"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:248
+msgid "Export"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:252
+msgid "Truss geometry export mode:"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:256
+msgid "Standard MVR representation"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:257
+msgid "Direct Geometry3D for truss symbols"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:268
+msgid ""
+"Standard MVR representation: preserves imported Symbol/Symdef references "
+"when possible.\n"
+"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
+"into direct Geometry3D entries for broader importer compatibility."
+msgstr ""
+
+#: gui/preferencesdialog.cpp:276
+msgid "MVR Import / Export"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:283 gui/preferencesdialog.cpp:392
+msgid "3D Viewer"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:292
+msgid ""
+"Customize camera interaction and visualize the current navigation shortcuts."
+msgstr ""
+
+#: gui/preferencesdialog.cpp:301
+msgid "Navigation"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:304
+msgid "Invert orbit/rotate vertical direction"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:312
+msgid "Disabled by default to preserve the current behavior."
+msgstr ""
+
+#: gui/preferencesdialog.cpp:322
+msgid "Render mode"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:324
+msgid "Standard"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:327
+msgid "White"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:329
+msgid "Sketch mode"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:331
+msgid "Textured"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:333
+msgid "Wireframe"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:335
+msgid "By device type"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:337
+msgid "By layer"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:339
+msgid "By universe"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:371
+msgid "Current mouse and keyboard shortcuts"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:374
+msgid ""
+"Orbit: Left drag or Right drag.\n"
+"Pan: Middle drag, Shift + drag, or Shift + Left drag.\n"
+"Zoom: Mouse wheel.\n"
+"Selection rectangle: Ctrl + Left drag."
+msgstr ""
+
+#: gui/preferencesdialog.cpp:383
+msgid "Informational only: shortcut remapping is not available yet."
+msgstr ""
+
+#: gui/preferencesdialog.cpp:513
+#, c-format
+msgid "LX%d height (%s):"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:515
+#, c-format
+msgid "LX%d position (%s):"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:517
+#, c-format
+msgid "LX%d margin (%s):"
+msgstr ""
+
+#: gui/preferencesdialog.cpp:577
 msgid "Restart required"
 msgstr ""
 

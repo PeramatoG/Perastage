@@ -15,6 +15,7 @@ Changes since **v1.4.0**.
 ## Improvements
 
 - Expanded Spanish localization coverage for core creation and selection dialogs, About dialog text, GDTF Share login labels, and related startup translation checks while keeping imported names and user-entered data unchanged.
+- Expanded Preferences localization coverage for Rider Import, Units, Updates, MVR export, and 3D Viewer settings while preserving stable configuration values and selection-index based behavior.
 
 - Added maximize and restore support to the Edit Fixture and Edit Truss dialogs for more flexible editing on large screens.
 - Added visual GDTF wheel previews in Fixture Edit, including static gobo/graphic-wheel thumbnails and approximate color/filter swatches for wheel slots.
