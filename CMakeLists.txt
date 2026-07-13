@@ -325,10 +325,10 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
         add_custom_command(
             OUTPUT "${PERASTAGE_MO_FILE}"
             COMMAND "${CMAKE_COMMAND}"
-                    -DMSGFMT_EXECUTABLE="${PERASTAGE_MSGFMT_EXECUTABLE}"
-                    -DGETTEXT_BIN_DIR="${PERASTAGE_MSGFMT_DIRECTORY}"
-                    -DINPUT_PO="${PERASTAGE_PO_FILE}"
-                    -DOUTPUT_MO="${PERASTAGE_MO_FILE}"
+                    "-DMSGFMT_EXECUTABLE=${PERASTAGE_MSGFMT_EXECUTABLE}"
+                    "-DGETTEXT_BIN_DIR=${PERASTAGE_MSGFMT_DIRECTORY}"
+                    "-DINPUT_PO=${PERASTAGE_PO_FILE}"
+                    "-DOUTPUT_MO=${PERASTAGE_MO_FILE}"
                     -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCompileGettextCatalog.cmake"
             DEPENDS
                     "${PERASTAGE_PO_FILE}"
@@ -680,8 +680,8 @@ add_custom_target(perastage_stage
 if(WIN32 AND MSVC)
     add_custom_target(perastage_symbols
         COMMAND ${CMAKE_COMMAND}
-            -DPDB_SOURCE=$<TARGET_PDB_FILE:${PROJECT_NAME}>
-            -DPDB_DESTINATION="${PERASTAGE_SYMBOLS_DIR}"
+            "-DPDB_SOURCE=$<TARGET_PDB_FILE:${PROJECT_NAME}>"
+            "-DPDB_DESTINATION=${PERASTAGE_SYMBOLS_DIR}"
             -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCopySymbols.cmake"
         DEPENDS ${PROJECT_NAME}
     )
@@ -724,11 +724,11 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
         set(PERASTAGE_RUNTIME_MO "${PERASTAGE_GENERATED_LOCALE_DIR}/${PERASTAGE_TRANSLATION_LANGUAGE}/LC_MESSAGES/perastage.mo")
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND "${CMAKE_COMMAND}"
-                    -DSOURCE_MO="${PERASTAGE_RUNTIME_MO}"
-                    -DDESTINATION_MO="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+                    "-DSOURCE_MO=${PERASTAGE_RUNTIME_MO}"
+                    "-DDESTINATION_MO=${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
                     -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCopyRuntimeCatalog.cmake"
             COMMAND "${CMAKE_COMMAND}"
-                    -DEXPECTED_FILE="${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
+                    "-DEXPECTED_FILE=${PERASTAGE_RUNTIME_LOCALE_DIR}/perastage.mo"
                     -P "${CMAKE_SOURCE_DIR}/cmake/PerastageVerifyFileExists.cmake"
             VERBATIM
         )

@@ -1,8 +1,12 @@
+include("${CMAKE_CURRENT_LIST_DIR}/PerastageValidateCMakeArguments.cmake")
+
 foreach(_required_var IN ITEMS MSGFMT_EXECUTABLE GETTEXT_BIN_DIR INPUT_PO OUTPUT_MO)
     if(NOT DEFINED ${_required_var} OR "${${_required_var}}" STREQUAL "")
         message(FATAL_ERROR "${_required_var} was not provided.")
     endif()
 endforeach()
+perastage_reject_quoted_path_values(MSGFMT_EXECUTABLE GETTEXT_BIN_DIR INPUT_PO OUTPUT_MO)
+
 
 if(NOT EXISTS "${MSGFMT_EXECUTABLE}")
     message(FATAL_ERROR "msgfmt executable was not found: ${MSGFMT_EXECUTABLE}")

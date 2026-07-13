@@ -103,7 +103,7 @@ Changes since **v1.4.0**.
 
 ## Internal changes
 
-- Hardened gettext catalog generation, runtime copying, and installer/package validation so Spanish localization catalogs are generated and staged reliably across Linux, Windows, macOS, and Arch builds.
+- Hardened gettext catalog generation, runtime copying, CMake helper argument validation, and installer/package validation so Spanish localization catalogs are generated and staged reliably across Linux, Windows, macOS, and Arch builds.
 
 - Tightened localization maintenance checks so POT generation scans root-level C/C++ sources, dynamic labels use extraction markers, catalog checks validate synchronization and accelerators, and audit exceptions require durable reasons instead of line-number debt entries.
 
