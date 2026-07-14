@@ -40,6 +40,8 @@
 #include "viewer3dpanel.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstdlib>
 #include <filesystem>
 #include <optional>
 
@@ -86,6 +88,19 @@ Units::WeightUnitSystem ResolveWeightUnitSystem() {
   return Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
 }
 
+// Parses a fully consumed double value from editor session storage.
+std::optional<double> ParseSessionDouble(const std::string &rawValue) {
+  if (rawValue.empty())
+    return std::nullopt;
+
+  errno = 0;
+  char *endPtr = nullptr;
+  const double value = std::strtod(rawValue.c_str(), &endPtr);
+  if (endPtr != rawValue.c_str() + rawValue.size() || errno == ERANGE)
+    return std::nullopt;
+  return value;
+}
+
 // Formats a truss dimension from stored millimeters into active display units.
 std::string FormatTrussDimensionForEditor(
     const gdtf::GdtfEditableValues &values, gdtf::GdtfFieldId fieldId,
@@ -95,10 +110,7 @@ std::string FormatTrussDimensionForEditor(
     return fallback;
   if (rawValue->empty())
     return {};
-  if (const auto parsed =
-          Units::ParseDistanceToMillimeters(
-              *rawValue, Units::DistanceUnitSystem::Metric);
-      parsed.has_value())
+  if (const auto parsed = ParseSessionDouble(*rawValue); parsed.has_value())
     return Units::FormatDistanceFromMillimeters(
         *parsed, unitSystem, Units::ValueFormatContext::Table);
   return *rawValue;
