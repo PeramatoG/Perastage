@@ -2484,6 +2484,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const GdtfFixtureMetadata &metadata =
               getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
+          if (fixture.typeName.empty()) {
+            fixture.typeName =
+                mvr::gdtf_import_matching::SelectFallbackFixtureTypeName(
+                    rawFixtureNodeName, rawGdtfSpec);
+          }
           if (metadata.hasProperties) {
             if (metadata.weightKg > 0.0f)
               fixture.weightKg = metadata.weightKg;

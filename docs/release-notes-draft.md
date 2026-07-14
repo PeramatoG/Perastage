@@ -37,6 +37,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed MVR imports so fixture types whose declared GDTF archive is missing remain available in the GDTF conflict resolver and can be matched through Download GDTF before falling back to dummy fixtures.
 - Fixed unit-aware table header refreshes so translated fixture, truss, hoist, scene-object, and rigging labels are not overwritten with English after reloads or unit preference changes.
 - Fixed localized unit-label composition on wxWidgets builds that enforce literal translation message IDs.
 - Fixed Windows catalog generation argument quoting so `msgfmt` writes `perastage.mo` to the generated build-tree path during Ninja and Visual Studio builds.

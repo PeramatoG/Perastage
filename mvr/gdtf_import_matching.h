@@ -53,5 +53,14 @@ inline std::string SelectRequestedFixtureName(const std::string &rawFixtureNodeN
   return ExtractFixtureNameFromGdtfSpec(rawGdtfSpec);
 }
 
+// Selects a stable fixture type name when the referenced GDTF file is unavailable.
+inline std::string SelectFallbackFixtureTypeName(const std::string &rawFixtureNodeName,
+                                                 const std::string &rawGdtfSpec) {
+  const std::string specFixtureName = ExtractFixtureNameFromGdtfSpec(rawGdtfSpec);
+  if (!specFixtureName.empty())
+    return specFixtureName;
+  return gdtf_catalog_matcher::TrimFixtureIdentity(rawFixtureNodeName);
+}
+
 } // namespace gdtf_import_matching
 } // namespace mvr
