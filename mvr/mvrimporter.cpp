@@ -2075,17 +2075,29 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         PathUtils::PathFromUtf8(resolveGdtfPathCached(normalized)));
   };
 
+  auto resolvedGdtfFileExists = [](const std::string &gdtfPath) {
+    if (gdtfPath.empty())
+      return false;
+    std::error_code ec;
+    return fs::is_regular_file(PathUtils::PathFromUtf8(gdtfPath), ec) && !ec;
+  };
+
   auto getGdtfModesCached =
       [&](const std::string &gdtfPath) -> const std::vector<std::string> & {
     auto cacheIt = gdtfModesCache.find(gdtfPath);
     if (cacheIt != gdtfModesCache.end())
       return cacheIt->second;
+    if (!resolvedGdtfFileExists(gdtfPath))
+      return gdtfModesCache.emplace(gdtfPath, std::vector<std::string>{})
+          .first->second;
     return gdtfModesCache.emplace(gdtfPath, GetGdtfModes(gdtfPath))
         .first->second;
   };
 
   auto getGdtfModeChannelCountCached = [&](const std::string &gdtfPath,
                                            const std::string &modeName) {
+    if (!resolvedGdtfFileExists(gdtfPath))
+      return -1;
     auto &channelCountByMode = gdtfModeChannelCountCache[gdtfPath];
     auto countIt = channelCountByMode.find(modeName);
     if (countIt != channelCountByMode.end())
@@ -2152,7 +2164,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   const GdtfFixtureMetadata kEmptyFixtureMetadata{};
   auto getFixtureMetadata =
       [&](const std::string &resolvedGdtfPath) -> const GdtfFixtureMetadata & {
-    if (resolvedGdtfPath.empty())
+    if (resolvedGdtfPath.empty() || !resolvedGdtfFileExists(resolvedGdtfPath))
       return kEmptyFixtureMetadata;
 
     auto it = gdtfFixtureMetadataCache.find(resolvedGdtfPath);
@@ -2484,6 +2496,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const GdtfFixtureMetadata &metadata =
               getFixtureMetadata(resolvedGdtfPath);
           fixture.typeName = metadata.fixtureName;
+          if (fixture.typeName.empty()) {
+            fixture.typeName =
+                mvr::gdtf_import_matching::SelectFallbackFixtureTypeName(
+                    rawFixtureNodeName, rawGdtfSpec);
+          }
           if (metadata.hasProperties) {
             if (metadata.weightKg > 0.0f)
               fixture.weightKg = metadata.weightKg;
@@ -3502,8 +3519,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         reportProgress("Conflict dialog:hide");
         if (!choices.empty()) {
           std::unordered_map<std::string, std::string> selectedPathByType;
-          std::unordered_map<std::string, std::string>
-              downloadFallbackPathByType;
           std::unordered_map<std::string, std::string> selectedModeByType;
           std::vector<GdtfConflict> downloadRequests;
           for (const auto &conflict : gdtfConflicts) {
@@ -3518,7 +3533,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               const std::string fallbackPath =
                   GetDownloadFallbackPath(conflict);
               selectedPathByType[conflict.type] = fallbackPath;
-              downloadFallbackPathByType[conflict.type] = fallbackPath;
             }
           }
 
@@ -3825,6 +3839,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 refreshFooterSummary();
                 refreshBytesSummary();
               };
+              auto fallbackStatusText = [&](const GdtfConflict &request) {
+                if (!request.appPath.empty() &&
+                    resolvedGdtfFileExists(
+                        resolveFixtureGdtfPathForRead(request.appPath)))
+                  return wxString(_("Fallback to App"));
+                if (!request.mvrPath.empty() &&
+                    resolvedGdtfFileExists(
+                        resolveFixtureGdtfPathForRead(request.mvrPath)))
+                  return wxString(_("Fallback to MVR"));
+                return wxString(_("Fallback to dummy"));
+              };
+
               auto updateProgressGauge = [&]() {
                 long long downloaded = 0;
                 long long knownTotal = 0;
@@ -4000,12 +4026,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                   formatBytes(
                                       rowProgressByType[req.type].totalBytes)
                             : wxString("0 B / ? B");
-                    const bool fallsBackToApp =
-                        downloadFallbackPathByType[req.type] == req.appPath &&
-                        !req.appPath.empty();
-                    updateStatusRow(req.type, "-",
-                                    fallsBackToApp ? _("Fallback to App")
-                                                                   : _("Fallback to MVR"),
+                    updateStatusRow(req.type, "-", fallbackStatusText(req),
                                     progressText, _("No catalog match found"),
                                     DownloadRowState::Fallback);
                     updateProgressGauge();
@@ -4132,12 +4153,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                             ? formatBytes(
                                   rowProgressByType[req.type].totalBytes)
                             : wxString("? B");
-                    const bool fallsBackToApp =
-                        downloadFallbackPathByType[req.type] == req.appPath &&
-                        !req.appPath.empty();
                     updateStatusRow(
-                        req.type, selectedFixtureName,
-                        fallsBackToApp ? _("Fallback to App") : _("Fallback to MVR"),
+                        req.type, selectedFixtureName, fallbackStatusText(req),
                         formatBytes(
                             rowProgressByType[req.type].downloadedBytes) +
                                         " / " + totalText,
@@ -4166,13 +4183,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     _("Selected fixture types for download (catalog load failed: %s)"),
                     wxString::FromUTF8(catalogFailureReason)));
                 for (const GdtfConflict &req : downloadRequests) {
-                  updateStatusRow(req.type, "-", _("Fallback to MVR"), "0 B / ? B",
+                  updateStatusRow(req.type, "-", fallbackStatusText(req),
+                                  "0 B / ? B",
                                   _("Failed to load catalog list"),
                                   DownloadRowState::Fallback);
                 }
                 updateProgressGauge();
                 progressPhaseText->SetLabel(wxString::Format(
-                    _("Catalog load failed. %s. Keeping MVR originals."),
+                    _("Catalog load failed. %s. Keeping available fallbacks."),
                     wxString::FromUTF8(catalogFailureReason)));
               }
               isDownloadInfoFinished = true;
@@ -4229,8 +4247,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   scene.basePath,
                   PathUtils::PathFromUtf8(
                       resolveFixtureGdtfPathForRead(f.gdtfSpec)));
-              std::string parsed = Trim(GetGdtfFixtureName(
-                  resolveFixtureGdtfPathForRead(f.gdtfSpec)));
+              const std::string selectedResolvedGdtfPath =
+                  resolveFixtureGdtfPathForRead(f.gdtfSpec);
+              std::string parsed =
+                  resolvedGdtfFileExists(selectedResolvedGdtfPath)
+                      ? Trim(GetGdtfFixtureName(selectedResolvedGdtfPath))
+                      : std::string{};
             if (!parsed.empty())
               f.typeName = parsed;
             const auto &dictEntry = getDictionaryEntryCached(typeKey);
@@ -4364,7 +4386,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       }
 
       GdtfFixtureCategory::InferenceResult inferred;
-      if (!resolvedCategoryPath.empty()) {
+      if (!resolvedCategoryPath.empty() &&
+          resolvedGdtfFileExists(resolvedCategoryPath)) {
         auto inferenceCacheIt =
             categoryInferenceByResolvedPath.find(resolvedCategoryPath);
         if (inferenceCacheIt != categoryInferenceByResolvedPath.end()) {
@@ -4375,7 +4398,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                                   inferred);
         }
       } else {
-        inferred = GdtfFixtureCategory::InferFromGdtf(resolvedCategoryPath);
+        inferred.reason = "GDTF file is missing";
       }
 
       fixture.category =

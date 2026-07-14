@@ -53,6 +53,17 @@ static void VerifyResolvedTypeFallback() {
          "BLED Standard mode 12CH");
 }
 
+
+// Verifies missing GDTF files keep the declared spec identity available as a fixture type.
+static void VerifyMissingGdtfTypeFallbackPrefersSpecBasename() {
+  assert(import_matching::SelectFallbackFixtureTypeName(
+             "Fixture 101", "Fixtures/Super Storm 1500.gdtf") ==
+         "Super Storm 1500");
+  assert(import_matching::SelectFallbackFixtureTypeName(
+             "Aleda K10 B-EYE", "") ==
+         "Aleda K10 B-EYE");
+}
+
 // Verifies name confidence outranks footprint matches.
 static void VerifyExactNameWithoutFootprintBeatsPartialNameWithFootprint() {
   const auto exactTier = catalog::ComputeFixtureNameMatchTier("My Beam 200",
@@ -149,6 +160,7 @@ int main() {
   VerifyDistinctOriginalNamesBeatSharedPlaceholderMetadata();
   VerifySpecBasenameFallback();
   VerifyResolvedTypeFallback();
+  VerifyMissingGdtfTypeFallbackPrefersSpecBasename();
   VerifyExactNameWithoutFootprintBeatsPartialNameWithFootprint();
   VerifyManufacturerMatchBeatsRecencyInsideSameNameAndFootprintTier();
   VerifyStandardModeDigitSignatureBeatsNewerFootprintOnlyMatch();
