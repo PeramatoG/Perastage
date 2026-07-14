@@ -26,6 +26,8 @@ The active UI systems are stored in user config:
 
 These keys drive formatting/parsing in dialogs and tables (fixtures/trusses/hoists/objects, rider import fields, support labels, etc.).
 
+Truss Edit physical properties follow the same preferences: length, width, and height display with the active distance suffix (`m` or `ft`) and accept plain values in that unit system while preserving millimeters internally.
+
 ## Display and conversion rules
 
 ### Distance

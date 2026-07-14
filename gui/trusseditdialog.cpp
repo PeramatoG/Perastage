@@ -35,6 +35,7 @@
 #include "table_column_indices.h"
 #include "truss_gdtf_apply_services.h"
 #include "trusstablepanel.h"
+#include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 
@@ -70,6 +71,74 @@ bool IsExistingRegularFile(const std::filesystem::path &path) {
   std::error_code ec;
   return std::filesystem::exists(path, ec) && !ec &&
          std::filesystem::is_regular_file(path, ec) && !ec;
+}
+
+// Resolves the active distance unit system from the shared UI preference.
+Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  return Units::ParseDistanceUnitSystem(
+      cfg.GetValue("ui_distance_unit_system"));
+}
+
+// Resolves the active weight unit system from the shared UI preference.
+Units::WeightUnitSystem ResolveWeightUnitSystem() {
+  auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  return Units::ParseWeightUnitSystem(cfg.GetValue("ui_weight_unit_system"));
+}
+
+// Formats a truss dimension from stored millimeters into active display units.
+std::string FormatTrussDimensionForEditor(
+    const gdtf::GdtfEditableValues &values, gdtf::GdtfFieldId fieldId,
+    const std::string &fallback, Units::DistanceUnitSystem unitSystem) {
+  const auto rawValue = gdtf::GetEditableValue(values, fieldId);
+  if (!rawValue.has_value())
+    return fallback;
+  if (rawValue->empty())
+    return {};
+  if (const auto parsed =
+          Units::ParseDistanceToMillimeters(
+              *rawValue, Units::DistanceUnitSystem::Metric);
+      parsed.has_value())
+    return Units::FormatDistanceFromMillimeters(
+        *parsed, unitSystem, Units::ValueFormatContext::Table);
+  return *rawValue;
+}
+
+// Formats a truss weight from stored kilograms into active display units.
+std::string FormatTrussWeightForEditor(const gdtf::GdtfEditableValues &values,
+                                       gdtf::GdtfFieldId fieldId,
+                                       const std::string &fallback,
+                                       Units::WeightUnitSystem unitSystem) {
+  const auto rawValue = gdtf::GetEditableValue(values, fieldId);
+  if (!rawValue.has_value())
+    return fallback;
+  if (rawValue->empty())
+    return {};
+  if (const auto parsed =
+          Units::ParseWeightToKilograms(
+              *rawValue, Units::WeightUnitSystem::Metric);
+      parsed.has_value())
+    return Units::FormatWeightFromKilograms(
+        *parsed, unitSystem, Units::ValueFormatContext::Table);
+  return *rawValue;
+}
+
+// Parses an editor dimension value back to the session's millimeter storage.
+std::optional<std::string> ParseEditorDimensionToSessionValue(
+    const std::string &value, Units::DistanceUnitSystem unitSystem) {
+  const auto parsed = Units::ParseDistanceToMillimeters(value, unitSystem);
+  if (!parsed.has_value())
+    return std::nullopt;
+  return std::to_string(static_cast<float>(*parsed));
+}
+
+// Parses an editor weight value back to the session's kilogram storage.
+std::optional<std::string> ParseEditorWeightToSessionValue(
+    const std::string &value, Units::WeightUnitSystem unitSystem) {
+  const auto parsed = Units::ParseWeightToKilograms(value, unitSystem);
+  if (!parsed.has_value())
+    return std::nullopt;
+  return std::to_string(static_cast<float>(*parsed));
 }
 } // namespace
 
@@ -184,6 +253,10 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   const auto &sessionValues =
       gdtfEditSession ? gdtfEditSession->CurrentValues()
                       : gdtf::GdtfEditableValues{};
+  const auto distanceUnit = ResolveDistanceUnitSystem();
+  const auto weightUnit = ResolveWeightUnitSystem();
+  const std::string distanceSuffix = Units::DistanceUnitSuffix(distanceUnit);
+  const std::string weightSuffix = Units::WeightUnitSuffix(weightUnit);
   gdtfEditorPanel->SetPresentation({
       false,
       {},
@@ -207,37 +280,41 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
       },
       {
           {GdtfPhysicalPropertyField::Length, "Length",
-           gui::gdtf_binding::ValueText(
+           FormatTrussDimensionForEditor(
                sessionValues, gdtf::GdtfFieldId::TrussLength,
-               tableValue(TrussColumn::Length)),
+               tableValue(TrussColumn::Length), distanceUnit),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(*gdtfEditSession,
-                                             gdtf::GdtfFieldId::TrussLength)},
+                                             gdtf::GdtfFieldId::TrussLength),
+           distanceSuffix},
           {GdtfPhysicalPropertyField::Width, "Width",
-           gui::gdtf_binding::ValueText(
+           FormatTrussDimensionForEditor(
                sessionValues, gdtf::GdtfFieldId::TrussWidth,
-               tableValue(TrussColumn::Width)),
+               tableValue(TrussColumn::Width), distanceUnit),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(*gdtfEditSession,
-                                             gdtf::GdtfFieldId::TrussWidth)},
+                                             gdtf::GdtfFieldId::TrussWidth),
+           distanceSuffix},
           {GdtfPhysicalPropertyField::Height, "Height",
-           gui::gdtf_binding::ValueText(
+           FormatTrussDimensionForEditor(
                sessionValues, gdtf::GdtfFieldId::TrussHeight,
-               tableValue(TrussColumn::Height)),
+               tableValue(TrussColumn::Height), distanceUnit),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(*gdtfEditSession,
-                                             gdtf::GdtfFieldId::TrussHeight)},
+                                             gdtf::GdtfFieldId::TrussHeight),
+           distanceSuffix},
           {GdtfPhysicalPropertyField::Weight, "Weight",
-           gui::gdtf_binding::ValueText(
+           FormatTrussWeightForEditor(
                sessionValues, gdtf::GdtfFieldId::Weight,
-               tableValue(TrussColumn::Weight)),
+               tableValue(TrussColumn::Weight), weightUnit),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(*gdtfEditSession,
-                                             gdtf::GdtfFieldId::Weight)},
+                                             gdtf::GdtfFieldId::Weight),
+           weightSuffix},
           {GdtfPhysicalPropertyField::CrossSection, "Cross section",
            gui::gdtf_binding::ValueText(
                sessionValues, gdtf::GdtfFieldId::TrussCrossSection,
@@ -337,7 +414,25 @@ bool TrussEditDialog::SetSessionValue(gdtf::GdtfFieldId fieldId,
                                       const std::string &value) {
   if (!gdtfEditSession)
     return false;
-  const bool accepted = gdtfEditSession->SetValue(fieldId, value);
+  std::string sessionValue = value;
+  if (fieldId == gdtf::GdtfFieldId::TrussLength ||
+      fieldId == gdtf::GdtfFieldId::TrussWidth ||
+      fieldId == gdtf::GdtfFieldId::TrussHeight) {
+    const auto parsed =
+        ParseEditorDimensionToSessionValue(value, ResolveDistanceUnitSystem());
+    if (!parsed.has_value())
+      sessionValue = value;
+    else
+      sessionValue = *parsed;
+  } else if (fieldId == gdtf::GdtfFieldId::Weight) {
+    const auto parsed =
+        ParseEditorWeightToSessionValue(value, ResolveWeightUnitSystem());
+    if (!parsed.has_value())
+      sessionValue = value;
+    else
+      sessionValue = *parsed;
+  }
+  const bool accepted = gdtfEditSession->SetValue(fieldId, sessionValue);
   if (!accepted) {
     rejectedSessionInputs[fieldId] = "Enter a valid numeric value.";
     auto physicalField = GdtfPhysicalPropertyField::Weight;
@@ -404,8 +499,6 @@ bool TrussEditDialog::ValidateSessionBeforeApply() {
   return false;
 }
 
-// Applies edits without closing the dialog.
-
 // Saves the Truss Edit visual layout preferences on dialog close paths.
 void TrussEditDialog::SaveLayoutPreferences() {
   auto &config = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -434,6 +527,7 @@ void TrussEditDialog::RestoreLayoutPreferences() {
     gdtfEditorPanel->SetTwoPaneSplitterRatio(preferences.gdtfRatio);
 }
 
+// Applies edits without closing the dialog.
 void TrussEditDialog::OnApply(wxCommandEvent &) { ApplyChanges(); }
 
 // Applies edits and closes the dialog.
