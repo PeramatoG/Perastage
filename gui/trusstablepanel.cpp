@@ -254,10 +254,10 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                 &TrussTablePanel::OnSelectionChanged, this);
   table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
-              &TrussTablePanel::OnItemActivated, this);
+              &TrussTablePanel::OnContextMenu, this);
 
-  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &TrussTablePanel::OnContextMenu,
-              this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
+              &TrussTablePanel::OnItemActivated, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &TrussTablePanel::OnColumnSorted,
               this);
 

@@ -225,18 +225,17 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
     table->Bind(wxEVT_LEFT_DOWN, &SceneObjectTablePanel::OnLeftDown, this);
-    table->Bind(wxEVT_LEFT_DCLICK, &SceneObjectTablePanel::OnLeftDClick, this);
     table->Bind(wxEVT_LEFT_UP, &SceneObjectTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &SceneObjectTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                 &SceneObjectTablePanel::OnSelectionChanged, this);
 
     table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
-                &SceneObjectTablePanel::OnContextMenu, this);
+                &SceneObjectTablePanel::OnItemActivated, this);
     table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
                 &SceneObjectTablePanel::OnColumnSorted, this);
     table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
-                &SceneObjectTablePanel::OnItemActivated, this);
+                &SceneObjectTablePanel::OnContextMenu, this);
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
 

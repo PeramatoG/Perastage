@@ -233,9 +233,9 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
               &FixtureTablePanel::OnSelectionChanged, this);
 
   table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
-              &FixtureTablePanel::OnContextMenu, this);
-  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
               &FixtureTablePanel::OnItemActivated, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+              &FixtureTablePanel::OnContextMenu, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
 

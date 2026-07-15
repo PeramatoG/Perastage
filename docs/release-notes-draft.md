@@ -14,6 +14,7 @@ Changes since **v1.4.0**.
 
 ## Improvements
 
+- Swapped Data Views table mouse behavior so left double-click now opens cell-editing actions, while right-click opens row-level edit dialogs such as Edit Fixture, Edit Truss, and primitive object editors.
 - Added a shared Hang Position editor for fixtures, trusses, and hoists so users can select existing positions, add missing ones, rename positions across all affected table rows, or remove positions from one dialog.
 - Expanded desktop Spanish localization coverage for remaining table headers, layer and summary controls, rigging weight headers, GDTF search, Create from Text, MVR import, GDTF download queue, primitive object, console help, print, and save-confirmation dialogs, and unit-aware labels so unit changes preserve translated UI text.
 - Expanded Spanish localization coverage for core creation and selection dialogs, About dialog text, GDTF Share login labels, and related startup translation checks while keeping imported names and user-entered data unchanged.

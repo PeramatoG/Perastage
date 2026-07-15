@@ -431,7 +431,7 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &HoistTablePanel::OnSelectionChanged, this);
 
-  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &HoistTablePanel::OnContextMenu,
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &HoistTablePanel::OnContextMenu,
               this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &HoistTablePanel::OnColumnSorted,
               this);
