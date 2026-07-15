@@ -178,11 +178,11 @@ void LayerPanel::ReloadLayers() {
     const bool vis = hidden.find(entry.name) == hidden.end();
     wxVector<wxVariant> cols;
     cols.push_back(wxVariant(vis));
-    cols.push_back(wxVariant(Utf8ToWx(entry.name)));
+    cols.push_back(wxVariant(wxtext::FromUtf8(entry.name)));
     wxBitmap bmp(16, 16);
     wxColour c;
     if (!entry.color.empty())
-      c.Set(Utf8ToWx(entry.color));
+      c.Set(wxtext::FromUtf8(entry.color));
     else
       c.Set(128, 128, 128);
     wxMemoryDC dc(bmp);
@@ -260,17 +260,17 @@ void LayerPanel::OnContext(wxDataViewEvent &evt) {
     const std::string name = layerIt->second.name;
     wxColourData data;
     if (!layerIt->second.color.empty())
-        data.SetColour(wxColour(Utf8ToWx(layerIt->second.color)));
+        data.SetColour(wxColour(wxtext::FromUtf8(layerIt->second.color)));
     wxColourDialog dlg(this, &data);
     if (dlg.ShowModal() != wxID_OK)
         return;
     wxColour col = dlg.GetColourData().GetColour();
-  std::string hex = WxToUtf8(
+  std::string hex = wxtext::ToUtf8(
       wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue()));
     auto result = layerdomain::SetLayerColor(*configManager, uuid, hex);
     if (result.status != layerdomain::LayerStatus::Success &&
         result.status != layerdomain::LayerStatus::NoChange) {
-        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+        wxMessageBox(wxtext::FromUtf8(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
                      _("Layer Color"), wxOK | wxICON_ERROR, this);
         return;
     }
@@ -298,10 +298,10 @@ void LayerPanel::OnAddLayer(wxCommandEvent &) {
     wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Add Layer"));
     if (dlg.ShowModal() != wxID_OK)
         return;
-    auto result = layerdomain::CreateLayer(*configManager, WxToUtf8(dlg.GetValue()));
+    auto result = layerdomain::CreateLayer(*configManager, wxtext::ToUtf8(dlg.GetValue()));
     if (result.status != layerdomain::LayerStatus::Success &&
         result.status != layerdomain::LayerStatus::NoChange) {
-        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+        wxMessageBox(wxtext::FromUtf8(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
                      _("Add Layer"), wxOK | wxICON_ERROR, this);
         return;
     }
@@ -357,7 +357,7 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     }
     auto result = layerdomain::DeleteLayer(*configManager, uuid);
     if (result.status != layerdomain::LayerStatus::Success) {
-        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+        wxMessageBox(wxtext::FromUtf8(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
                      _("Delete Layer"), wxOK | wxICON_ERROR, this);
         return;
     }
@@ -398,14 +398,14 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
         return;
     }
 
-    wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Rename Layer"), Utf8ToWx(oldName));
+    wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Rename Layer"), wxtext::FromUtf8(oldName));
     if (dlg.ShowModal() != wxID_OK)
         return;
-    auto result = layerdomain::RenameLayer(*configManager, uuid, WxToUtf8(dlg.GetValue()));
+    auto result = layerdomain::RenameLayer(*configManager, uuid, wxtext::ToUtf8(dlg.GetValue()));
     if (result.status == layerdomain::LayerStatus::NoChange)
         return;
     if (result.status != layerdomain::LayerStatus::Success) {
-        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+        wxMessageBox(wxtext::FromUtf8(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
                      _("Rename Layer"), wxOK | wxICON_ERROR, this);
         return;
     }
