@@ -1,6 +1,7 @@
 #include "utf8_utils.h"
 
 #include <array>
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 

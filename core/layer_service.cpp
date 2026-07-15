@@ -1,5 +1,6 @@
 #include "layer_service.h"
 
+#include "configmanager.h"
 #include "utf8_utils.h"
 #include "uuidutils.h"
 

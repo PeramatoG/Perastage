@@ -3403,7 +3403,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (!IsValidUtf8(layerStr)) {
       const auto repairedLayerName = RepairWindows1252AsUtf8(layerStr);
       if (repairedLayerName) {
-        LogMessage(Logger::Level::Warning,
+        LogMessage(Logger::Level::Warn,
                    "Repaired legacy Windows-1252 layer name bytes at Layer uuid=" +
                        std::string(layer->Attribute("uuid") ? layer->Attribute("uuid") : "") +
                        " offset=" + std::to_string(ValidateUtf8(layerStr).errorOffset));
@@ -3451,7 +3451,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   const auto reconcileResult = layerdomain::ReconcileLegacyLayers(scene);
   if (reconcileResult.status == layerdomain::LayerStatus::Success) {
-    LogMessage(Logger::Level::Warning,
+    LogMessage(Logger::Level::Warn,
                "Reconciled legacy layer metadata: " + reconcileResult.message);
   }
 
