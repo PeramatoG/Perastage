@@ -1,18 +1,31 @@
 #include "gdtf_editable_values.h"
 
-#include <charconv>
+#include <cmath>
+#include <locale>
+#include <sstream>
 
 namespace gdtf {
 namespace {
 
 // Parses a floating-point value for editable numeric GDTF fields.
 std::optional<float> ParseFloat(const std::string &text) {
-  float value = 0.0f;
-  const auto *begin = text.data();
-  const auto *end = text.data() + text.size();
-  const auto result = std::from_chars(begin, end, value);
-  if (result.ec != std::errc() || result.ptr != end)
+  if (text.empty())
     return std::nullopt;
+
+  std::istringstream stream(text);
+  stream.imbue(std::locale::classic());
+  stream >> std::noskipws;
+
+  float value = 0.0f;
+  if (!(stream >> value))
+    return std::nullopt;
+
+  if (stream.peek() != std::char_traits<char>::eof())
+    return std::nullopt;
+
+  if (!std::isfinite(value))
+    return std::nullopt;
+
   return value;
 }
 

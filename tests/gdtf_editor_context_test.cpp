@@ -5,7 +5,9 @@
 
 #include <cassert>
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -106,6 +108,62 @@ void AssertDirtyTracking() {
   const auto resetRequest = session.BuildApplyRequest();
   assert(resetRequest.changedDocumentFields.empty());
   assert(resetRequest.changedContextFields.empty());
+}
+
+// Verifies editable numeric fields parse portable finite floating-point text.
+void AssertEditableNumericParsing() {
+  const std::vector<std::string> validValues = {"0", "12", "12.5", "-0.25",
+                                                "1e3", "1.25e-2"};
+  for (const auto &value : validValues) {
+    gdtf::GdtfEditableValues values;
+    assert(gdtf::SetEditableValue(values, gdtf::GdtfFieldId::Weight, value));
+    assert(gdtf::GetEditableValue(values, gdtf::GdtfFieldId::Weight));
+  }
+
+  const std::vector<std::string> invalidValues = {"",     " ",   " 12",
+                                                  "12 ", "12abc", "12,5",
+                                                  "nan", "NaN",  "inf",
+                                                  "-inf"};
+  for (const auto &value : invalidValues) {
+    gdtf::GdtfEditableValues values;
+    assert(gdtf::SetEditableValue(values, gdtf::GdtfFieldId::Weight, "12.5"));
+    const auto before = gdtf::GetEditableValue(values, gdtf::GdtfFieldId::Weight);
+    assert(!gdtf::SetEditableValue(values, gdtf::GdtfFieldId::Weight, value));
+    assert(gdtf::GetEditableValue(values, gdtf::GdtfFieldId::Weight) == before);
+  }
+
+  gdtf::GdtfEditableValues supported;
+  assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::Weight, "12.5"));
+  assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::PowerConsumption,
+                                "12.5"));
+  assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::TrussLength,
+                                "12.5"));
+  assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::TrussWidth,
+                                "12.5"));
+  assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::TrussHeight,
+                                "12.5"));
+  assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::FixtureTypeName,
+                                "12,5"));
+  assert(gdtf::GetEditableValue(supported, gdtf::GdtfFieldId::FixtureTypeName) ==
+         std::optional<std::string>("12,5"));
+}
+
+// Verifies invalid numeric edits preserve session state and dirty tracking.
+void AssertEditableNumericSessionSemantics() {
+  gdtf::GdtfEditSession session(MakeFixtureContext());
+  assert(session.SetValue(gdtf::GdtfFieldId::Weight, "12.5"));
+  assert(session.IsFieldDirty(gdtf::GdtfFieldId::Weight));
+  const auto before = gdtf::GetEditableValue(session.CurrentValues(),
+                                             gdtf::GdtfFieldId::Weight);
+  assert(!session.SetValue(gdtf::GdtfFieldId::Weight, "12abc"));
+  assert(gdtf::GetEditableValue(session.CurrentValues(),
+                                gdtf::GdtfFieldId::Weight) == before);
+  assert(session.IsFieldDirty(gdtf::GdtfFieldId::Weight));
+
+  const auto dirty = session.CurrentValues();
+  auto equal = dirty;
+  assert(equal == dirty);
+  assert(!(equal != dirty));
 }
 
 // Verifies fixture sessions classify all checkpoint 08A supported fields.
@@ -361,6 +419,8 @@ int main() {
   AssertTrussFieldClassification();
   AssertRejectedFixtureSessionFields();
   AssertDirtyTracking();
+  AssertEditableNumericParsing();
+  AssertEditableNumericSessionSemantics();
   AssertFixtureSessionCheckpoint08A();
   AssertTrussSessionCheckpoint08A();
   AssertSourceRebindingCheckpoint08A();
