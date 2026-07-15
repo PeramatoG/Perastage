@@ -212,4 +212,4 @@ Users do not need these files to run Perastage. They are uploaded with release a
 
 - [Build and dependency guide](build.md)
 - [Storage policy (installation vs user profile)](storage_policy.md)
-- [Troubleshooting](troubleshooting.md)
+- [Troubleshooting](../user/troubleshooting.md)

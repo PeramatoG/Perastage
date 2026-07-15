@@ -12,7 +12,7 @@ For the latest documentation, visit **https://perastage.luismaperamato.com/**. I
 
 ## Documentation synchronization
 
-For maintainers updating user workflows or parser behavior, follow the [Documentation synchronization checklist](docs/documentation_policy.md#documentation-synchronization-checklist) before merging.
+For maintainers updating user workflows or parser behavior, follow the [Documentation synchronization checklist](docs/developer/documentation_policy.md#documentation-synchronization-checklist) before merging.
 
 ## Project Files
 
@@ -49,7 +49,7 @@ Examples:
 - Entering `5' 6"` always parses as feet/inches distance.
 - Metric weight active: entering `120` means `120 kg`; imperial means `120 lb`.
 
-Formatting precision depends on UI context (table/label/inspector). See [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) for complete parsing and rounding rules.
+Formatting precision depends on UI context (table/label/inspector). See [`docs/developer/ui_unit_systems.md`](docs/developer/ui_unit_systems.md) for complete parsing and rounding rules.
 
 ## Tools > Create from text... (quick guide)
 
@@ -71,7 +71,7 @@ Minimal examples:
 - If you use **Apply filter** first, then **Create**, creation uses the filtered text currently shown in the dialog.
 - Coordinate/margin tokens such as `(0, -1, 9)` and `[0.8]` are preserved by the filter step, so their effect remains when creating.
 
-For the full technical contract (all parsing and placement rules), see [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
+For the full technical contract (all parsing and placement rules), see [`docs/developer/text_to_scene_rules.md`](docs/developer/text_to_scene_rules.md).
 
 Pipe/vara keywords currently accepted by the parser:
 
@@ -329,7 +329,7 @@ Ejemplos:
 - `5' 6"` siempre se interpreta como pies/pulgadas.
 - Peso en metric: `120` se interpreta como `120 kg`; en imperial como `120 lb`.
 
-La precisión de redondeo/formato depende del contexto (tabla/label/inspector). Consulta [`docs/ui_unit_systems.md`](docs/ui_unit_systems.md) para reglas completas de parseo y redondeo.
+La precisión de redondeo/formato depende del contexto (tabla/label/inspector). Consulta [`docs/developer/ui_unit_systems.md`](docs/developer/ui_unit_systems.md) para reglas completas de parseo y redondeo.
 
 ## Tools > Create from text... (guía rápida)
 
@@ -351,7 +351,7 @@ Relación entre **Apply filter** y **Create**:
 - Si primero usas **Apply filter** y luego **Create**, la creación usa el texto filtrado que quedó visible en el diálogo.
 - Tokens de coordenadas/margen como `(0, -1, 9)` y `[0.8]` se preservan durante el filtrado, así que su efecto se mantiene al crear.
 
-Para el contrato técnico completo (todas las reglas de parseo y placement), consulta [`docs/text_to_scene_rules.md`](docs/text_to_scene_rules.md).
+Para el contrato técnico completo (todas las reglas de parseo y placement), consulta [`docs/developer/text_to_scene_rules.md`](docs/developer/text_to_scene_rules.md).
 
 Keywords de pipes/varas aceptadas por el parser:
 

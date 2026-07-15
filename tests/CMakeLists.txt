@@ -75,6 +75,12 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
 endif()
 
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME DocsLinks
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
+endif()
+
 include_directories(
     .
     ../core

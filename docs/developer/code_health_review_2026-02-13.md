@@ -14,7 +14,7 @@ What was reviewed:
 ## What is in a good place
 
 1. **Repository layout is coherent and documented.**
-   - The top-level map and module responsibilities are clearly defined in `docs/perastage_tree.md` and aligned with `docs/architecture.md`.
+   - The top-level map and module responsibilities are clearly defined in `docs/developer/perastage_tree.md` and aligned with `docs/developer/architecture.md`.
    - Main domains (`core`, `gui`, `viewer2d`, `viewer3d`, `models`, `mvr`) are separated cleanly.
 
 2. **Build organization follows modular conventions.**

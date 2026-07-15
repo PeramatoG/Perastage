@@ -72,7 +72,7 @@ Examples:
 
 ## Release Notes
 
-Perastage maintains a curated working draft for the next release in [`release-notes-draft.md`](release-notes-draft.md).
+Perastage maintains a curated working draft for the next release in [`release-notes-draft.md`](../release-notes-draft.md).
 Update that draft whenever a merged PR includes a meaningful user-facing change, such as a feature, bug fix, performance improvement, stability improvement, packaging change, or documentation update.
 Internal-only changes can be omitted or recorded under the internal section when they may help maintainers review the release.
 

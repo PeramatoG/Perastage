@@ -2,7 +2,7 @@
 
 > **Scope (high-level view):** this document summarizes the main modules and submodules only. For full file-level detail, use `rg --files` or your IDE tree view.
 
-This map is aligned with the terminology used in `README.md` and `docs/architecture.md`: functional modules (`core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
+This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
 
 ## Top-level structure
 
@@ -61,12 +61,12 @@ Perastage/
 - `CMakeLists.txt`: primary build orchestration.
 - `CMakePresets.json`: supported local configure/build presets.
 - `README.md`: functional/documentation reference.
-- `docs/architecture.md`: repository structure conventions.
-- `docs/documentation_policy.md`: documentation organization and synchronization rules.
+- `docs/developer/architecture.md`: repository structure conventions.
+- `docs/developer/documentation_policy.md`: documentation organization and synchronization rules.
 
 ## Maintenance guidance
 
-- Keep module/submodule names consistent with `README.md`, `docs/architecture.md`, and `docs/repository_layout.md`.
+- Keep module/submodule names consistent with `README.md`, `docs/developer/architecture.md`, and `docs/developer/repository_layout.md`.
 - Avoid listing all individual files except truly critical entry points.
 - If repository layout changes, update this document in the same PR.
 - If a new top-level source module is introduced, update the architecture guard scripts under `tests/` when appropriate.

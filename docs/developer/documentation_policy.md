@@ -12,12 +12,12 @@ This document defines how Perastage documentation should be organized and mainta
 
 Use dedicated documents for deeper topics:
 
-- `docs/features.md` for feature breakdowns and workflow summaries.
-- `docs/build.md` for dependency, CMake, and advanced build options.
-- `docs/installation_windows.md` for Windows-specific setup notes.
-- `docs/packaging.md` for installer and desktop integration behavior.
-- `docs/troubleshooting.md` for platform-specific failure modes and fixes.
-- Existing policy/spec files (for example `docs/text_to_scene_rules.md` and `docs/gdtf_mutation_policy.md`) for behavior contracts.
+- `docs/user/features.md` for feature breakdowns and workflow summaries.
+- `docs/developer/build.md` for dependency, CMake, and advanced build options.
+- `docs/user/installation-windows.md` for Windows-specific setup notes.
+- `docs/developer/packaging.md` for installer and desktop integration behavior.
+- `docs/user/troubleshooting.md` for platform-specific failure modes and fixes.
+- Existing policy/spec files (for example `docs/developer/text_to_scene_rules.md` and `docs/developer/gdtf_mutation_policy.md`) for behavior contracts.
 
 ## Formatting Rules
 
@@ -73,9 +73,9 @@ Update `help.md` when a change is visible to operators in normal workflows, incl
 - Build-gated visibility changes that affect what users can access in Debug vs Release.
 - Any user-visible warning, limitation, or prerequisite needed to avoid incorrect usage.
 
-### 2) Detailed rules that remain in `docs/text_to_scene_rules.md`
+### 2) Detailed rules that remain in `docs/developer/text_to_scene_rules.md`
 
-Keep parser/scene-generation contracts in `docs/text_to_scene_rules.md` as the technical source of truth, including:
+Keep parser/scene-generation contracts in `docs/developer/text_to_scene_rules.md` as the technical source of truth, including:
 
 - Token grammar and normalization expectations (headers, separators, accepted aliases).
 - Parsing precedence and conflict resolution rules.
@@ -83,22 +83,22 @@ Keep parser/scene-generation contracts in `docs/text_to_scene_rules.md` as the t
 - Coordinate/unit parsing semantics and value interpretation rules.
 - Error handling, skipped-line policy, and deterministic behavior requirements.
 
-`help.md` should summarize only operator-facing behavior. Avoid duplicating the full parser contract there; link to `docs/text_to_scene_rules.md` for details.
+`help.md` should summarize only operator-facing behavior. Avoid duplicating the full parser contract there; link to `docs/developer/text_to_scene_rules.md` for details.
 
 ### 3) Criteria for updating both files in the same PR
 
-Update **both** `help.md` and `docs/text_to_scene_rules.md` in the same PR when **any** of the following is true:
+Update **both** `help.md` and `docs/developer/text_to_scene_rules.md` in the same PR when **any** of the following is true:
 
 - A text-to-scene/rider parsing or scene-generation change is visible to users.
 - The same feature requires both a user workflow explanation and an update to parsing/placement technical rules.
 - UI labels/help examples must change to stay consistent with updated parser behavior.
 
-If the change is purely internal and does not alter user-visible behavior, update only `docs/text_to_scene_rules.md` when the technical contract changes.
+If the change is purely internal and does not alter user-visible behavior, update only `docs/developer/text_to_scene_rules.md` when the technical contract changes.
 
 ### PR self-check (required before merge)
 
 - [ ] I reviewed this checklist and updated `help.md` where user-facing behavior changed.
-- [ ] I updated `docs/text_to_scene_rules.md` where parser/scene-generation rules changed.
+- [ ] I updated `docs/developer/text_to_scene_rules.md` where parser/scene-generation rules changed.
 - [ ] I updated both files in the same PR when both criteria applied.
 - [ ] I added cross-links instead of duplicating long rule sections.
 
@@ -110,8 +110,8 @@ Use this short checklist for PRs that claim **no functional change**:
 - [ ] No functional change confirmed (behavior, outputs, and user workflows unchanged).
 - [ ] One-line English comments added/maintained above touched function definitions.
 - [ ] CMake source lists updated explicitly when files are split or moved (no implicit source discovery).
-- [ ] If text-to-scene parsing or scene-generation behavior changed, `docs/text_to_scene_rules.md` was updated in the same PR.
-- [ ] If GUI shortcut mappings/scope/precedence changed, `docs/gui_shortcut_architecture.md` was updated in the same PR.
+- [ ] If text-to-scene parsing or scene-generation behavior changed, `docs/developer/text_to_scene_rules.md` was updated in the same PR.
+- [ ] If GUI shortcut mappings/scope/precedence changed, `docs/developer/../developer/gui_shortcut_architecture.md` was updated in the same PR.
 - [ ] Hotspot growth was avoided by extracting responsibilities when touching near-limit files.
 
 ## Assets and Media

@@ -16,7 +16,7 @@
       function getMarkdownFromQuery() {
         const params = new URLSearchParams(window.location.search);
         const requested = params.get('md');
-        return requested && requested.endsWith('.md') ? requested : 'quick-start.md';
+        return requested && requested.endsWith('.md') ? requested : 'user/quick-start.md';
       }
 
       const mdFile = getMarkdownFromQuery();

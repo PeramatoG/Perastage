@@ -103,7 +103,7 @@ std::string GetGdtfModelColor(const std::string& gdtfPath);
 // Updates Weight/PowerConsumption values in description.xml and appends a
 // revision entry with timestamp and modifier metadata.
 // Behavior and non-regression criteria are documented in
-// docs/gdtf_mutation_policy.md.
+// docs/developer/gdtf_mutation_policy.md.
 bool SetGdtfProperties(const std::string& gdtfPath,
                        float weightKg,
                        float powerW,

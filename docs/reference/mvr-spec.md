@@ -1153,7 +1153,7 @@ This node defines a custom command for the linked GDTF.
 Node name: `CustomCommand`
 
 The Custom command contains the command that will be executed on the fixture. The definition from the syntax for the command
-aligns with the DIN SPEC 15800:2022-02, 11.2.1.2.3, Channel Functions, [for command based control systems](https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#channel-function). 
+aligns with the DIN SPEC 15800:2022-02, 11.2.1.2.3, Channel Functions, [for command based control systems](https://github.com/mvrdevelopment/spec/blob/main/reference/gdtf-spec.md#channel-function). 
 
 With this feature you can also control static properties for fixture that cannot be controlled via DMX.
 
@@ -1212,8 +1212,8 @@ Node name: `Connection`
 
 | Attribute Name | Attribute Value Type                      | Default Value               | Description                                           |
 | -------------- | ----------------------------------------- | --------------------------- | ----------------------------------------------------- |
-| own            | [String](#user-content-attrtype-string)     | Mandatory                  | Node Link to the Geometry with DIN SPEC 15800 Type [Wiring Object](https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#geometry-type-wiring-object) . Starting point is the Geometry Collect of the linked GDTF.                                     |
-| other          | [String](#user-content-attrtype-string)     | Mandatory                  | Node Link to the Geometry with DIN SPEC 15800 Type [Wiring Object](https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#geometry-type-wiring-object) . Starting point is the Geometry Collect of the linked GDTF of the object defined in `toObject`. |
+| own            | [String](#user-content-attrtype-string)     | Mandatory                  | Node Link to the Geometry with DIN SPEC 15800 Type [Wiring Object](https://github.com/mvrdevelopment/spec/blob/main/reference/gdtf-spec.md#geometry-type-wiring-object) . Starting point is the Geometry Collect of the linked GDTF.                                     |
+| other          | [String](#user-content-attrtype-string)     | Mandatory                  | Node Link to the Geometry with DIN SPEC 15800 Type [Wiring Object](https://github.com/mvrdevelopment/spec/blob/main/reference/gdtf-spec.md#geometry-type-wiring-object) . Starting point is the Geometry Collect of the linked GDTF of the object defined in `toObject`. |
 | toObject       | [UUID](#user-content-attrtype-uuid)       | Mandatory                  | UUID of an other object in the scene.                                                                                                                                                                                                           |
 
 ### Node Definition: Mappings

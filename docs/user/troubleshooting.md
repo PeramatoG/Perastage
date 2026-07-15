@@ -28,6 +28,8 @@ On Windows, the default path is:
 
 - Recheck the scene in 2D before exporting.
 - Verify table values for fixtures/trusses/hoists/objects.
+- If PDF export fails, choose a writable destination, avoid empty filenames, and retry after confirming the Viewer 2D print preferences.
+- Invalid numeric preferences are ignored and replaced with safe defaults, so reset preferences if exports still look inconsistent.
 - Export PDF again after confirming layout adjustments.
 
 ## Scene seems inconsistent after many edits

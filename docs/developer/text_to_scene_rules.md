@@ -545,7 +545,7 @@ stable across releases:
 
 When changing any text-to-scene parsing or placement behavior:
 
-1. Update this file (`docs/text_to_scene_rules.md`) in the same PR.
+1. Update this file (`docs/developer/text_to_scene_rules.md`) in the same PR.
 2. If user-visible behavior changes, update Help/README references.
 3. Add or update tests under `tests/` covering the new/changed rule.
 4. Mention the exact rule change in the PR description.

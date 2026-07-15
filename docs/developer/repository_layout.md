@@ -49,14 +49,17 @@ Perastage documentation is intentionally split by audience and responsibility:
 | `README.md` | Short project overview, highlights, and entry links. |
 | `help.md` | In-app help content. |
 | [perastage_tree.md](perastage_tree.md) | High-level repository map used by architecture guard scripts. |
-| `docs/build.md` | Build requirements, dependency setup, and local CMake workflows. |
-| `docs/packaging.md` | Release packaging, installers, desktop integration, and platform distribution notes. |
-| `docs/troubleshooting.md` | Known failure modes and practical fixes. |
-| `docs/documentation_policy.md` | Documentation organization and synchronization rules. |
-| `docs/architecture.md` | Architecture boundaries and project structure conventions. |
+| `docs/developer/build.md` | Build requirements, dependency setup, and local CMake workflows. |
+| `docs/developer/packaging.md` | Release packaging, installers, desktop integration, and platform distribution notes. |
+| `docs/user/troubleshooting.md` | Known failure modes and practical fixes. |
+| `docs/developer/documentation_policy.md` | Documentation organization and synchronization rules. |
+| `docs/developer/architecture.md` | Architecture boundaries and project structure conventions. |
 | `docs/assets/` | Assets used by the documentation website. |
 | `docs/*.html` | Static documentation website entry points and shells. |
-| `docs/*.md` | Markdown documentation sources and technical guides. |
+| `docs/user/` | User-facing guides shown in the public documentation flow. |
+| `docs/developer/` | Build, architecture, packaging, policy, and maintainer guides. |
+| `docs/developer/technical-notes/` | Active implementation contracts and maintainer-only technical notes. |
+| `docs/reference/` | Intentionally maintained local reference/specification material. |
 
 Avoid duplicating long sections across documentation files. Prefer one source of truth and link to it from related pages.
 

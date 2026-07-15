@@ -1,20 +1,34 @@
 const docsPages = [
-  { md: 'installation.md', html: 'installation.html', title: 'Installation', icon: '🛠️', summary: 'Set up dependencies and install Perastage on your platform.' },
-  { md: 'quick-start.md', html: 'quick-start.html', title: 'Quick Start', icon: '🚀', summary: 'Learn the fastest path to open a project and navigate the app.' },
-  { md: 'opening-mvr-files.md', html: 'opening-mvr-files.html', title: 'Opening MVR Files', icon: '📁', summary: 'Import MVR scenes and inspect fixtures, trusses, and objects.' },
-  { md: 'gdtf-download.md', html: 'gdtf-download.html', title: 'GDTF Download', icon: '⬇️', summary: 'Download and manage GDTF fixture profiles from supported sources.' },
-  { md: 'views.md', html: 'views.html', title: 'Views', icon: '🧭', summary: 'Understand 2D, 3D, and layout views for scene review workflows.' },
-  { md: 'preferences.md', html: 'preferences.html', title: 'Preferences', icon: '⚙️', summary: 'Configure application behavior, units, and user-facing defaults.' },
-  { md: 'troubleshooting.md', html: 'troubleshooting.html', title: 'Troubleshooting', icon: '🩺', summary: 'Resolve common setup, import, and rendering issues quickly.' },
-  { md: 'faq.md', html: 'faq.html', title: 'FAQ', icon: '❓', summary: 'Find concise answers to frequent workflow and feature questions.' },
-  { md: 'features.md', html: 'features.html', title: 'Feature overview', icon: '✨', summary: 'Explore key capabilities and practical tools available in Perastage.' },
-  { md: 'build.md', html: 'build.html', title: 'Build guide', icon: '🏗️', summary: 'Compile Perastage from source with the supported toolchains.' },
-  { md: 'repository_layout.md', html: 'repository_layout.html', title: 'Repository layout', icon: '🧩', summary: 'Understand module boundaries and where each subsystem lives.' },
-  { md: 'architecture.md', html: 'doc.html?md=architecture.md', title: 'Architecture', icon: '🏛️', summary: 'Review high-level design decisions and subsystem responsibilities.' },
-  { md: 'shortcuts-and-command-bar.md', html: 'doc.html?md=shortcuts-and-command-bar.md', title: 'Shortcuts and commands', icon: '⌨️', summary: 'Use keyboard shortcuts and command-bar actions to work faster.' }
+  { md: 'user/installation.md', html: 'installation.html', title: 'Installation', icon: '🛠️', summary: 'Set up dependencies and install Perastage on your platform.' },
+  { md: 'user/quick-start.md', html: 'quick-start.html', title: 'Quick Start', icon: '🚀', summary: 'Learn the fastest path to open a project and navigate the app.' },
+  { md: 'user/opening-mvr-files.md', html: 'opening-mvr-files.html', title: 'Opening MVR Files', icon: '📁', summary: 'Import MVR scenes and inspect fixtures, trusses, and objects.' },
+  { md: 'user/gdtf-download.md', html: 'gdtf-download.html', title: 'GDTF Download', icon: '⬇️', summary: 'Download and manage GDTF fixture profiles from supported sources.' },
+  { md: 'user/views.md', html: 'views.html', title: 'Views', icon: '🧭', summary: 'Understand 2D, 3D, and layout views for scene review workflows.' },
+  { md: 'user/preferences.md', html: 'preferences.html', title: 'Preferences', icon: '⚙️', summary: 'Configure application behavior, units, and user-facing defaults.' },
+  { md: 'user/troubleshooting.md', html: 'troubleshooting.html', title: 'Troubleshooting', icon: '🩺', summary: 'Resolve common setup, import, and rendering issues quickly.' },
+  { md: 'user/faq.md', html: 'faq.html', title: 'FAQ', icon: '❓', summary: 'Find concise answers to frequent workflow and feature questions.' },
+  { md: 'user/features.md', html: 'features.html', title: 'Feature overview', icon: '✨', summary: 'Explore key capabilities and practical tools available in Perastage.' },
+  { md: 'developer/build.md', html: 'build.html', title: 'Build guide', icon: '🏗️', summary: 'Compile Perastage from source with the supported toolchains.' },
+  { md: 'developer/index.md', html: 'doc.html?md=developer/index.md', title: 'Developer docs', icon: '🧩', summary: 'Find architecture, packaging, policy, and technical notes.' }
 ];
 
 const mdToHtmlMap = new Map(docsPages.map((page) => [page.md, page.html]));
+
+// Normalizes documentation markdown paths so website links can use nested folders safely.
+function normalizeMarkdownPath(markdownPath) {
+  const stack = [];
+  markdownPath.split('/').forEach((part) => {
+    if (!part || part === '.') {
+      return;
+    }
+    if (part === '..') {
+      stack.pop();
+      return;
+    }
+    stack.push(part);
+  });
+  return stack.join('/');
+}
 
 // Builds a shared navigation list and highlights the active HTML page.
 function renderNav(activeHtml) {
@@ -52,20 +66,22 @@ function renderDocShell(activeHtml) {
   });
 }
 
-// Resolves a markdown file name from either explicit mapping or a generic .md to doc shell route.
-function resolveMarkdownHref(markdownName) {
-  const mappedTarget = mdToHtmlMap.get(markdownName);
+// Resolves a markdown path from either explicit mapping or a generic markdown shell route.
+function resolveMarkdownHref(markdownPath) {
+  const normalizedPath = normalizeMarkdownPath(markdownPath);
+  const mappedTarget = mdToHtmlMap.get(normalizedPath);
   if (mappedTarget) {
     return mappedTarget;
   }
-  if (markdownName && markdownName.endsWith('.md')) {
-    return `doc.html?md=${encodeURIComponent(markdownName)}`;
+  if (normalizedPath && normalizedPath.endsWith('.md')) {
+    return `doc.html?md=${encodeURIComponent(normalizedPath)}`;
   }
   return null;
 }
 
 // Converts documentation Markdown links to their HTML shell counterparts.
-function rewriteMarkdownLinks(contentElement) {
+function rewriteMarkdownLinks(contentElement, currentMdFile) {
+  const currentFolder = currentMdFile.includes('/') ? currentMdFile.replace(/\/[^/]+$/, '') : '';
   const links = contentElement.querySelectorAll('a[href]');
   links.forEach((link) => {
     const href = link.getAttribute('href');
@@ -74,17 +90,16 @@ function rewriteMarkdownLinks(contentElement) {
     }
     try {
       const parsed = new URL(href, window.location.href);
-      const markdownName = parsed.pathname.split('/').pop();
-      const htmlTarget = resolveMarkdownHref(markdownName);
+      if (!parsed.pathname.endsWith('.md')) {
+        return;
+      }
+      const rawLink = href.split('#')[0];
+      const rawPath = rawLink.startsWith('/') ? rawLink.replace(/^\/+/g, '') : `${currentFolder}/${rawLink}`;
+      const htmlTarget = resolveMarkdownHref(rawPath);
       if (!htmlTarget) {
         return;
       }
-      if (htmlTarget.includes('?')) {
-        link.setAttribute('href', htmlTarget);
-        return;
-      }
-      parsed.pathname = parsed.pathname.replace(/[^/]+$/, htmlTarget);
-      link.setAttribute('href', `${parsed.pathname}${parsed.search}${parsed.hash}`);
+      link.setAttribute('href', `${htmlTarget}${parsed.hash}`);
     } catch (_unused) {
       // Ignores invalid URLs and keeps their original href value.
     }
@@ -98,7 +113,7 @@ function loadMarkdown(mdFile) {
     .then((md) => {
       const contentElement = document.getElementById('content');
       contentElement.innerHTML = marked.parse(md);
-      rewriteMarkdownLinks(contentElement);
+      rewriteMarkdownLinks(contentElement, mdFile);
     })
     .catch((err) => {
       document.getElementById('content').innerHTML = `<p>Could not load documentation file: ${mdFile}</p>`;
