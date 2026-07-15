@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-doc_file="$repo_root/docs/viewer2d_state_ownership.md"
+doc_file="$repo_root/docs/developer/technical-notes/viewer2d_state_ownership.md"
 state_header="$repo_root/viewer2d/viewer2dstate.h"
 state_source="$repo_root/viewer2d/viewer2dstate.cpp"
 capture_file="$repo_root/gui/layout_2d_view_capture_service.cpp"
@@ -11,7 +11,7 @@ pdf_dir="$repo_root/viewer2d/pdf"
 layout_panel="$repo_root/gui/layoutviewerpanel.cpp"
 
 if [[ ! -f "$doc_file" ]]; then
-  echo "Missing Viewer2D state ownership documentation: docs/viewer2d_state_ownership.md" >&2
+  echo "Missing Viewer2D state ownership documentation: docs/developer/technical-notes/viewer2d_state_ownership.md" >&2
   exit 1
 fi
 

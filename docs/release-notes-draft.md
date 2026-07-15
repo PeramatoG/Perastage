@@ -142,6 +142,7 @@ Changes since **v1.4.0**.
 
 ## Documentation
 
+- Reorganized the documentation into clearer user, developer, technical-note, and reference sections, with updated website navigation and README entry points.
 - Added localization documentation covering the `ui_language` preference, catalog locations, translation boundaries, and catalog regeneration.
 - Added internal documentation for tolerant GDTF Unicode ZIP filename decoding, extraction, diagnostics, path safety, and standards-compliant write expectations.
 - Added Viewer2D state ownership documentation to clarify runtime-only, user preference/config, and project/Layout definition boundaries before future offscreen rendering refactors.

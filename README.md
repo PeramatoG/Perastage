@@ -59,7 +59,7 @@ The recommended way to install Perastage is to download the latest release from 
 
 If you want to build from source, setup and dependency notes are available in the documentation under `docs/`.
 
-Recent 3D optimization updates depend on `meshoptimizer`; if you prepare dependencies manually, include it in your toolchain setup (see `docs/build.md` and `setup_windows.ps1`).
+Recent 3D optimization updates depend on `meshoptimizer`; if you prepare dependencies manually, include it in your toolchain setup (see `docs/developer/build.md` and `setup_windows.ps1`).
 
 ## Basic usage
 
@@ -79,23 +79,15 @@ Recent 3D optimization updates depend on `meshoptimizer`; if you prepare depende
 
 ## Documentation
 
-The README is intentionally kept fairly compact. More detailed documentation lives in `docs/`:
+The README is intentionally compact. Use these entry points for detailed documentation:
 
-- [Documentation policy](docs/documentation_policy.md)
-- [Feature overview](docs/features.md)
-- [Opening and merging MVR files](docs/opening-mvr-files.md)
-- [MVR exporter warning behavior](docs/mvr_exporter.md)
-- [MVR-xchange TCP Mode publisher](docs/mvr_xchange.md)
-- [Changes since beta 0.1.0](docs/changes_since_beta_0_1_0.md)
-- [Build and dependency guide](docs/build.md)
-- [Windows installation notes](docs/installation_windows.md)
-- [Packaging and platform integration](docs/packaging.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Repository structure](docs/repository_layout.md)
-- [Text-to-scene parsing rules](docs/text_to_scene_rules.md)
-- [GDTF mutation policy](docs/gdtf_mutation_policy.md)
-- [Preferences](docs/preferences.md)
-- [GUI shortcut architecture](docs/gui_shortcut_architecture.md)
+- [Help website / user guide](docs/index.html)
+- [Quick Start](docs/user/quick-start.md)
+- [Feature overview](docs/user/features.md)
+- [Troubleshooting](docs/user/troubleshooting.md)
+- [Build guide](docs/developer/build.md)
+- [Architecture and developer docs](docs/developer/index.md)
+- [Packaging and platform integration](docs/developer/packaging.md)
 
 ## Contributing
 

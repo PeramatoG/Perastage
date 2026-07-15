@@ -26,4 +26,4 @@ These rules apply to everything under `gui/`.
 
 5. **Shortcut changes must update docs**
    - If you add, remove, or modify keyboard shortcuts in `gui/` or their routing,
-     update `docs/gui_shortcut_architecture.md` in the same change.
+     update `docs/developer/gui_shortcut_architecture.md` in the same change.

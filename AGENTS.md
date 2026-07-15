@@ -1,7 +1,7 @@
 # AGENTS.md (global)
 
 ## Objective
-Keep Perastage clean and modular while continuing to deliver new features, following `docs/code_health_review_2026-02-13.md`.
+Keep Perastage clean and modular while continuing to deliver new features, following `docs/developer/code_health_review_2026-02-13.md`.
 
 ## Mandatory global rules
 
@@ -15,7 +15,7 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
 
 3. **Architecture and build conventions**
    - Keep explicit source ownership in CMake (no `GLOB_RECURSE` for project source registration).
-   - Respect module boundaries described in `docs/architecture.md` and `docs/perastage_tree.md`.
+   - Respect module boundaries described in `docs/developer/architecture.md` and `docs/developer/perastage_tree.md`.
 
 4. **Mandatory checks before closing changes**
    - Run and keep green:
@@ -33,12 +33,12 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
 
 7. **Text-to-scene rule documentation policy**
    - Any change that affects rider/text parsing or scene-generation behavior
-     must update `docs/text_to_scene_rules.md` in the same PR.
+     must update `docs/developer/text_to_scene_rules.md` in the same PR.
    - If behavior becomes user-visible, also update Help/README references.
 
 8. **Shortcut documentation policy**
    - Any change that adds, removes, or remaps GUI shortcuts must update
-     `docs/gui_shortcut_architecture.md` in the same PR.
+     `docs/developer/gui_shortcut_architecture.md` in the same PR.
    - If shortcut scope/priority/focus behavior changes, document the
      resolution and precedence impact in that file.
 

@@ -52,4 +52,4 @@ Local editor shortcuts:
 - Cross-check placement in both 2D and 3D views.
 - Save the project, then export MVR when exchange is needed.
 
-For full parser detail and normalization rules, see [Text-to-scene rules](text_to_scene_rules.md).
+For full parser detail and normalization rules, see [Text-to-scene rules](../developer/text_to_scene_rules.md).

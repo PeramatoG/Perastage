@@ -2,7 +2,7 @@
 
 This guide covers practical setup for building and running Perastage on Windows. It is intentionally concise and focused on the recommended Windows workflow.
 
-For the complete build and dependency reference, see [Build and Dependency Guide](build.md).
+For the complete build and dependency reference, see [Build and Dependency Guide](../developer/build.md).
 
 ## Recommended Toolchain
 
@@ -23,7 +23,7 @@ The shared Windows presets in `CMakePresets.json` use this path directly.
 
 This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
 
-If your vcpkg installation is in another location, either edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json` or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](build.md) for details.
+If your vcpkg installation is in another location, either edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json` or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
 
 ## Install dependencies
 

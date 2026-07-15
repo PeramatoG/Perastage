@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TREE_DOC="$ROOT_DIR/docs/perastage_tree.md"
+TREE_DOC="$ROOT_DIR/docs/developer/perastage_tree.md"
 
 required_dirs=(
   core
@@ -39,7 +39,7 @@ for dir in "${required_dirs[@]}"; do
 done
 
 if [[ ${#missing_sections[@]} -gt 0 ]]; then
-  echo "ERROR: docs/perastage_tree.md is missing sections for existing modules: ${missing_sections[*]}" >&2
+  echo "ERROR: docs/developer/perastage_tree.md is missing sections for existing modules: ${missing_sections[*]}" >&2
   exit 1
 fi
 
@@ -53,4 +53,4 @@ if ! rg -q "rg --files" "$TREE_DOC"; then
   exit 1
 fi
 
-echo "OK: docs/perastage_tree.md keeps module sections and scope note aligned."
+echo "OK: docs/developer/perastage_tree.md keeps module sections and scope note aligned."

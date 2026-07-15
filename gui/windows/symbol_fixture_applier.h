@@ -30,7 +30,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                                std::string &errorMessage);
 
 // Applies generated SVG symbol views into fixture GDTF archives.
-// This mutation path must comply with docs/gdtf_mutation_policy.md
+// This mutation path must comply with docs/developer/gdtf_mutation_policy.md
 // (Perastage audit metadata, revision stamping, and compatibility fallback).
 bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
                                const std::string &fixtureUuid,

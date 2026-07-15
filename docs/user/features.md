@@ -58,7 +58,7 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 - GDTF-Share download flow is available from the Tools menu.
 - Export packages GDTFs under `gdtf/` with archive-relative forward-slash paths.
 - Filename collisions are handled deterministically (`name (1).gdtf`, etc.) and references are updated.
-- Policy details for mutation, revisions, and schema fallback are maintained in [GDTF mutation policy](gdtf_mutation_policy.md).
+- Policy details for mutation, revisions, and schema fallback are maintained in [GDTF mutation policy](../developer/gdtf_mutation_policy.md).
 
 ## Rider and Text-to-Scene Generation
 
@@ -71,7 +71,7 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 
 ### Rules contract
 
-- Parsing and placement behavior is governed by [Text-to-scene rules](text_to_scene_rules.md).
+- Parsing and placement behavior is governed by [Text-to-scene rules](../developer/text_to_scene_rules.md).
 - Any parser behavior changes must update the rules document in the same change set.
 
 ## Dictionary Portability and Asset Handling
@@ -175,7 +175,7 @@ Additional safeguards include:
 ### Shortcut and interaction model
 
 - Keyboard/mouse interaction includes viewer navigation, selection, and layout editing actions.
-- Detailed precedence and scope are tracked in [GUI shortcut architecture](gui_shortcut_architecture.md).
+- Detailed precedence and scope are tracked in [GUI shortcut architecture](../developer/gui_shortcut_architecture.md).
 
 ## Future/Experimental
 
@@ -184,8 +184,8 @@ Additional safeguards include:
 
 ## Related Documents
 
-- [Changes since beta 0.1.0](changes_since_beta_0_1_0.md)
-- [Build and dependency guide](build.md)
-- [Packaging and platform integration](packaging.md)
+- [Changes since beta 0.1.0]()
+- [Build and dependency guide](../developer/build.md)
+- [Packaging and platform integration](../developer/packaging.md)
 - [Build troubleshooting](troubleshooting.md)
-- [Documentation policy and synchronization checklist](documentation_policy.md#documentation-synchronization-checklist)
+- [Documentation policy and synchronization checklist](../developer/documentation_policy.md#documentation-synchronization-checklist)
