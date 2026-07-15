@@ -68,6 +68,8 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ## Important fixes
 
+- Fixed a Windows build issue in the Local Axes 3D viewport integration.
+
 ### MVR, GDTF, and project data
 
 - Improved Windows file identity handling so differently capitalized paths to the same GDTF or truss resource share the correct cache and export information.

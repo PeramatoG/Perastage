@@ -2520,11 +2520,11 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
         .supports = {},
         .sceneObjects = m_dragSceneObjectUuids};
     const auto targets = scene_grouping::BuildTransformTargets(
-        ConfigManager::Instance().GetScene(), selection);
+        ConfigManager::Get().GetScene(), selection);
     if (targets.empty())
         return worldAxis;
     const Matrix transform = scene_grouping::GetTargetWorldTransform(
-        ConfigManager::Instance().GetScene(), targets.front());
+        ConfigManager::Get().GetScene(), targets.front());
     return transform_space::TransformDirection(
         transform_space::ExtractOrientation(transform), worldAxis);
 }
