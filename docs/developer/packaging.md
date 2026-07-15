@@ -199,14 +199,33 @@ GitHub Actions artifacts are downloaded as ZIP files, which may preserve or add 
 
 ## Release debug symbols
 
-Release workflows preserve matching debug symbols as separate ZIP assets for maintainers:
+Release workflows preserve matching debug symbols for crash analysis, but per-platform symbol artifacts are internal GitHub Actions artifacts only. The public GitHub Release attaches one developer-only archive named `Perastage-<version>-Debug-Symbols-Developers-Only.zip`. Users do not need this archive to install or run Perastage.
 
-- Windows: `Perastage-<version>-Windows-symbols.zip` contains collected `.pdb` files.
-- Linux AppImage: `Perastage-<version>-Linux-symbols.zip` contains separated debug data for the staged executable.
-- macOS: `Perastage-<version>-macOS-symbols.zip` contains the generated `.dSYM` bundle.
-- Arch Linux: `Perastage-<version>-ArchLinux-symbols.zip` contains the generated debug package when makepkg produces one.
+Platform symbol locations during CI are:
 
-Users do not need these files to run Perastage. They are uploaded with release assets so maintainers can match a local crash report to the exact binary build that shipped.
+- Windows: `out/symbols/windows/` contains generated `.pdb` files. These files are intentionally outside `out/install/Release`, so the staged Windows distribution and Inno Setup installer do not contain PDB files or a `symbols` directory.
+- Linux AppImage: `out/symbols/linux/Perastage.debug` contains separated debug data for the staged executable.
+- Arch Linux: `out/symbols/archlinux/` contains the generated `perastage-debug-*.pkg.tar.zst` package when makepkg produces one.
+- macOS 15 Apple Silicon: `out/symbols/macos15/Perastage.dSYM` contains symbols for the macOS 15-compatible build.
+- macOS 26 Apple Silicon: `out/symbols/macos26/Perastage.dSYM` contains symbols for the current-generation macOS 26 build.
+
+Minor releases build both Apple Silicon DMG variants automatically:
+
+- `Perastage-<version>-macOS15-arm64.dmg` from the `macos-15` runner with deployment target `15.0`.
+- `Perastage-<version>-macOS26-arm64.dmg` from the regular `macos-26` runner.
+
+The unified developer-only debug-symbol archive has this top-level layout:
+
+```text
+README.txt
+Windows-x64/
+Linux-AppImage-x86_64/
+ArchLinux-x86_64/
+macOS15-arm64/
+macOS26-arm64/
+```
+
+Symbols must match the exact released binary, version, platform, architecture, and build variant. The macOS 15 and macOS 26 `.dSYM` bundles are separate build outputs and are not interchangeable. Do not rename or alter symbol files before crash analysis.
 
 ## Related Documents
 

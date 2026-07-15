@@ -147,21 +147,21 @@ jobs:
         shell: pwsh
         run: |
           cmake --build build --config Release --target perastage_symbols
-          $version = (Get-Content VERSION -Raw).Trim()
-          $symbolsDir = "$env:GITHUB_WORKSPACE\out\install\Release\symbols"
+          $symbolsDir = "$env:GITHUB_WORKSPACE\out\symbols\windows"
           if (!(Test-Path $symbolsDir)) { throw "Symbols directory not found: $symbolsDir" }
-          $pdbs = Get-ChildItem -Path $symbolsDir -Recurse -Filter "*.pdb"
+          $pdbs = @(Get-ChildItem -Path $symbolsDir -Recurse -Filter "*.pdb" -File)
           if ($pdbs.Count -lt 1) { throw "No PDB files were collected" }
-          $zipPath = "$env:GITHUB_WORKSPACE\Perastage-$version-Windows-symbols.zip"
-          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-          Compress-Archive -Path "$symbolsDir\*" -DestinationPath $zipPath -Force
-          Get-Item $zipPath
+          $stageDir = "$env:GITHUB_WORKSPACE\out\install\Release"
+          $pdbsInStage = @(Get-ChildItem -Path $stageDir -Recurse -Filter "*.pdb" -File)
+          if ($pdbsInStage.Count -ne 0) { throw "Windows staged distribution unexpectedly contains PDB files" }
+          if (Test-Path (Join-Path $stageDir "symbols")) { throw "Windows staged distribution unexpectedly contains a symbols directory" }
+          Get-ChildItem -Path $symbolsDir -Recurse
 
       - name: Upload Windows symbols
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-windows-symbols
-          path: Perastage-*-Windows-symbols.zip
+          path: out/symbols/windows
 
       # ── 8. Upload staged build ───────────────────────────────────────────────
       - name: Upload staged distribution
@@ -169,6 +169,15 @@ jobs:
         with:
           name: Perastage-windows-staged
           path: out/install/Release
+
+
+      - name: Verify Windows installer input tree is clean
+        shell: pwsh
+        run: |
+          $stageDir = "$env:GITHUB_WORKSPACE\out\install\Release"
+          $pdbsInStage = @(Get-ChildItem -Path $stageDir -Recurse -Filter "*.pdb" -File)
+          if ($pdbsInStage.Count -ne 0) { throw "Windows staged distribution unexpectedly contains PDB files" }
+          if (Test-Path (Join-Path $stageDir "symbols")) { throw "Windows staged distribution unexpectedly contains a symbols directory" }
 
       # ── 9. Install Inno Setup ────────────────────────────────────────────────
       - name: Install Inno Setup
@@ -180,6 +189,10 @@ jobs:
       - name: Build Windows installer
         shell: pwsh
         run: |
+          $stageDir = "$env:GITHUB_WORKSPACE\out\install\Release"
+          $pdbsInStage = @(Get-ChildItem -Path $stageDir -Recurse -Filter "*.pdb" -File)
+          if ($pdbsInStage.Count -ne 0) { throw "Windows staged distribution unexpectedly contains PDB files" }
+          if (Test-Path (Join-Path $stageDir "symbols")) { throw "Windows staged distribution unexpectedly contains a symbols directory" }
           New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\out\installer" -Force | Out-Null
 
           # Extract version from the repository root VERSION file via the helper CMake script

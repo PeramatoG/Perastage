@@ -4,6 +4,12 @@
 name: macOS 15 Manual Installer Build
 
 on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Git ref to build from when called as a reusable workflow.
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       source_ref:
@@ -246,19 +252,18 @@ jobs:
           set -euo pipefail
           VERSION="$(tr -d '[:space:]' < VERSION)"
           APP_BIN="out/install/Release/Perastage.app/Contents/MacOS/Perastage"
-          SYMBOLS_DIR="out/symbols/macos"
+          SYMBOLS_DIR="out/symbols/macos15"
           rm -rf "$SYMBOLS_DIR"
           mkdir -p "$SYMBOLS_DIR"
           dsymutil "$APP_BIN" -o "$SYMBOLS_DIR/Perastage.dSYM"
           strip -S "$APP_BIN" || true
-          (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-macOS-symbols.zip" .)
-          test -f "out/Perastage-$VERSION-macOS-symbols.zip"
+          test -d "$SYMBOLS_DIR/Perastage.dSYM"
 
       - name: Upload macOS symbols
         uses: actions/upload-artifact@v4
         with:
           name: Perastage-macos15-symbols
-          path: out/Perastage-*-macOS-symbols.zip
+          path: out/symbols/macos15/Perastage.dSYM
 
       # ── 13. Validate staged app bundle ──────────────────────────────────────
       - name: Validate staged app bundle
@@ -436,7 +441,7 @@ jobs:
           set -euo pipefail
           APP_PATH="out/install/Release/Perastage.app"
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
-          DMG_NAME="Perastage-${VERSION}-macos-arm64.dmg"
+          DMG_NAME="Perastage-${VERSION}-macOS15-arm64.dmg"
           DMG_ROOT="$(mktemp -d)"
 
           cp -R "$APP_PATH" "$DMG_ROOT/Perastage.app"
@@ -458,9 +463,11 @@ jobs:
       - name: Validate generated DMG
         run: |
           set -euo pipefail
-          DMG_FILE="$(find out/installer -name "*.dmg" -print -quit)"
-          if [ -z "$DMG_FILE" ]; then
-            echo "DMG not found"
+          EXPECTED_DMG="Perastage-$(tr -d '[:space:]' < VERSION)-macOS15-arm64.dmg"
+          DMG_FILE="out/installer/$EXPECTED_DMG"
+          if [ ! -f "$DMG_FILE" ]; then
+            echo "Expected DMG not found: $DMG_FILE"
+            find out/installer -name "*.dmg" -print || true
             exit 1
           fi
 
@@ -486,8 +493,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out/installer
-          dmg_file="$(find out/installer -name "*.dmg" -print -quit)"
-          if [ -z "$dmg_file" ]; then
+          dmg_file="out/installer/Perastage-$(tr -d '[:space:]' < VERSION)-macOS15-arm64.dmg"
+          if [ ! -f "$dmg_file" ]; then
             echo "DMG not found under out/installer"
             exit 1
           fi

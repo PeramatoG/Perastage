@@ -138,6 +138,13 @@ jobs:
     with:
       source_ref: ${{ needs.prepare-release.outputs.new_tag }}
 
+  macos15-installer:
+    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
+    needs: prepare-release
+    uses: ./.github/workflows/macos-15-manual-installer.yml
+    with:
+      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
+
   macos-installer:
     if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
     needs: prepare-release
@@ -158,6 +165,7 @@ jobs:
       - prepare-release
       - windows-installer
       - linux-installer
+      - macos15-installer
       - macos-installer
       - arch-package
     runs-on: ubuntu-latest
@@ -174,40 +182,38 @@ jobs:
           path: release-assets
           pattern: Perastage-*
 
-      - name: Prepare final installer assets
+      - name: Prepare final installer assets and debug symbols
         id: assets
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.new_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.new_tag }}
         run: |
           set -euo pipefail
 
           FINAL_DIR="release-assets/final"
           EXTRACT_DIR="release-assets/.extracted-zips"
+          SYMBOLS_FINAL_DIR="release-assets/symbols-final"
+          SYMBOL_ARCHIVE="$FINAL_DIR/Perastage-$RELEASE_VERSION-Debug-Symbols-Developers-Only.zip"
 
-          rm -rf "$FINAL_DIR" "$EXTRACT_DIR"
-          mkdir -p "$FINAL_DIR" "$EXTRACT_DIR"
+          rm -rf "$FINAL_DIR" "$EXTRACT_DIR" "$SYMBOLS_FINAL_DIR"
+          mkdir -p "$FINAL_DIR" "$EXTRACT_DIR" "$SYMBOLS_FINAL_DIR"
 
           echo "Downloaded artifact tree (release-assets):"
           find release-assets -mindepth 1 -maxdepth 4 -print | sort
 
-          mapfile -t ZIP_FILES < <(find release-assets -type f -name '*.zip' ! -name '*-symbols.zip' | sort)
-          if [ "${#ZIP_FILES[@]}" -gt 0 ]; then
-            echo "Found zip files in release-assets; extracting to temporary directory"
-            for zip_file in "${ZIP_FILES[@]}"; do
-              zip_base="$(basename "$zip_file" .zip)"
-              target_dir="$EXTRACT_DIR/$zip_base"
-              mkdir -p "$target_dir"
-              unzip -q "$zip_file" -d "$target_dir"
-            done
-          else
-            echo "No zip files found in release-assets"
-          fi
+          mapfile -t ZIP_FILES < <(find release-assets -type f -name '*.zip' | sort)
+          for zip_file in "${ZIP_FILES[@]}"; do
+            zip_base="$(basename "$zip_file" .zip)"
+            target_dir="$EXTRACT_DIR/$zip_base"
+            mkdir -p "$target_dir"
+            unzip -q "$zip_file" -d "$target_dir"
+          done
 
-          # Finds exactly one release asset for a platform and keeps the match for staging.
           collect_single_asset() {
             local label="$1"
             local pattern="$2"
             local -n matches_ref="$3"
-
-            mapfile -t matches_ref < <(find release-assets -type f -name "$pattern" | sort)
+            mapfile -t matches_ref < <(find release-assets "$EXTRACT_DIR" -type f -name "$pattern" | sort -u)
             if [ "${#matches_ref[@]}" -ne 1 ]; then
               echo "${label} matches (${#matches_ref[@]}): ${matches_ref[*]:-none}"
               return 1
@@ -217,52 +223,103 @@ jobs:
           asset_errors=0
           collect_single_asset "Windows installer" 'Perastage_*_Setup.exe' WIN_MATCHES || asset_errors=1
           collect_single_asset "Linux AppImage" 'Perastage-*-x86_64.AppImage' LINUX_MATCHES || asset_errors=1
-          collect_single_asset "macOS DMG" 'Perastage-*-macos-arm64.dmg' MAC_MATCHES || asset_errors=1
+          collect_single_asset "macOS 15 DMG" 'Perastage-*-macOS15-arm64.dmg' MAC15_MATCHES || asset_errors=1
+          collect_single_asset "macOS 26 DMG" 'Perastage-*-macOS26-arm64.dmg' MAC26_MATCHES || asset_errors=1
           collect_single_asset "Arch Linux package" 'Perastage-*-arch-x86_64.pkg.tar.zst' ARCH_MATCHES || asset_errors=1
-          collect_single_asset "Windows symbols" 'Perastage-*-Windows-symbols.zip' WIN_SYMBOL_MATCHES || asset_errors=1
-          collect_single_asset "Linux symbols" 'Perastage-*-Linux-symbols.zip' LINUX_SYMBOL_MATCHES || asset_errors=1
-          collect_single_asset "macOS symbols" 'Perastage-*-macOS-symbols.zip' MAC_SYMBOL_MATCHES || asset_errors=1
-          collect_single_asset "Arch Linux symbols" 'Perastage-*-ArchLinux-symbols.zip' ARCH_SYMBOL_MATCHES || asset_errors=1
-
           if [ "$asset_errors" -ne 0 ]; then
-            echo "Expected exactly one installer and symbols asset for Windows, Linux, macOS, and Arch Linux"
+            echo "Expected exactly one installer/package asset for each platform and symbol artifacts"
             exit 1
           fi
 
           cp "${WIN_MATCHES[0]}" "$FINAL_DIR/"
           cp "${LINUX_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${MAC_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${MAC15_MATCHES[0]}" "$FINAL_DIR/"
+          cp "${MAC26_MATCHES[0]}" "$FINAL_DIR/"
           cp "${ARCH_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${WIN_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${LINUX_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${MAC_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${ARCH_SYMBOL_MATCHES[0]}" "$FINAL_DIR/"
 
-          if find "$FINAL_DIR" -type f -name '*.zip' ! -name '*-symbols.zip' | grep -q .; then
-            echo "Final asset directory must contain only symbol ZIP files"
+          mkdir -p "$SYMBOLS_FINAL_DIR/Windows-x64" "$SYMBOLS_FINAL_DIR/Linux-AppImage-x86_64" "$SYMBOLS_FINAL_DIR/ArchLinux-x86_64" "$SYMBOLS_FINAL_DIR/macOS15-arm64" "$SYMBOLS_FINAL_DIR/macOS26-arm64"
+
+          mapfile -t WINDOWS_PDBS < <(find release-assets/Perastage-windows-symbols -type f -name '*.pdb' | sort)
+          if [ "${#WINDOWS_PDBS[@]}" -lt 1 ]; then
+            echo "Windows symbols artifact must contain at least one PDB file"
+            exit 1
+          fi
+          cp "${WINDOWS_PDBS[@]}" "$SYMBOLS_FINAL_DIR/Windows-x64/"
+
+          collect_single_asset "Linux debug symbols" 'Perastage.debug' LINUX_DEBUG_MATCHES || exit 1
+          cp "${LINUX_DEBUG_MATCHES[0]}" "$SYMBOLS_FINAL_DIR/Linux-AppImage-x86_64/"
+
+          mapfile -t ARCH_DEBUG_MATCHES < <(find release-assets "$EXTRACT_DIR" -type f -name 'perastage-debug-*.pkg.tar.zst' | sort -u)
+          if [ "${#ARCH_DEBUG_MATCHES[@]}" -lt 1 ]; then
+            echo "Arch Linux symbols artifact must contain at least one debug package"
+            exit 1
+          fi
+          cp "${ARCH_DEBUG_MATCHES[@]}" "$SYMBOLS_FINAL_DIR/ArchLinux-x86_64/"
+
+          cp -a "release-assets/Perastage-macos15-symbols/Perastage.dSYM" "$SYMBOLS_FINAL_DIR/macOS15-arm64/"
+          cp -a "release-assets/Perastage-macos26-symbols/Perastage.dSYM" "$SYMBOLS_FINAL_DIR/macOS26-arm64/"
+
+          cat > "$SYMBOLS_FINAL_DIR/README.txt" <<EOF
+          Perastage Debug Symbols
+          =======================
+
+          These files are debugging symbols for crash analysis.
+
+          They are not application resources and are not required to install or run
+          Perastage. Download this archive only when requested by the developer or when
+          performing crash analysis for the exact matching Perastage version.
+
+          Each directory contains symbols for a different release binary. Symbols must
+          only be used with the exact matching version, platform, architecture, and build
+          variant.
+
+          Version: $RELEASE_VERSION
+          Release tag: $RELEASE_TAG
+
+          Directories:
+          - Windows-x64: PDB files for the Windows x64 installer build.
+          - Linux-AppImage-x86_64: Perastage.debug for the Linux AppImage build.
+          - ArchLinux-x86_64: perastage-debug package for the Arch Linux package build.
+          - macOS15-arm64: Perastage.dSYM for the macOS 15 Apple Silicon build.
+          - macOS26-arm64: Perastage.dSYM for the macOS 26 Apple Silicon build.
+
+          The macOS 15 and macOS 26 symbols are different build variants and are not
+          interchangeable. Do not rename or alter files before crash analysis.
+          EOF
+
+          test -s "$SYMBOLS_FINAL_DIR/README.txt"
+          test -n "$(find "$SYMBOLS_FINAL_DIR/Windows-x64" -type f -name '*.pdb' -print -quit)"
+          test -f "$SYMBOLS_FINAL_DIR/Linux-AppImage-x86_64/Perastage.debug"
+          test -n "$(find "$SYMBOLS_FINAL_DIR/ArchLinux-x86_64" -type f -name 'perastage-debug-*.pkg.tar.zst' -print -quit)"
+          test -d "$SYMBOLS_FINAL_DIR/macOS15-arm64/Perastage.dSYM"
+          test -d "$SYMBOLS_FINAL_DIR/macOS26-arm64/Perastage.dSYM"
+
+          (cd "$SYMBOLS_FINAL_DIR" && zip -yr "../final/$(basename "$SYMBOL_ARCHIVE")" .)
+          test -s "$SYMBOL_ARCHIVE"
+
+          if find "$FINAL_DIR" -type f -name '*-symbols.zip' | grep -q .; then
+            echo "Final release assets must not contain separate platform symbol ZIP files"
             exit 1
           fi
 
+          echo "Unified debug-symbol archive listing:"
+          unzip -l "$SYMBOL_ARCHIVE"
+
           WIN_ASSET="$FINAL_DIR/$(basename "${WIN_MATCHES[0]}")"
           LINUX_ASSET="$FINAL_DIR/$(basename "${LINUX_MATCHES[0]}")"
-          MAC_ASSET="$FINAL_DIR/$(basename "${MAC_MATCHES[0]}")"
+          MAC15_ASSET="$FINAL_DIR/$(basename "${MAC15_MATCHES[0]}")"
+          MAC26_ASSET="$FINAL_DIR/$(basename "${MAC26_MATCHES[0]}")"
           ARCH_INSTALLER_ASSET="$FINAL_DIR/$(basename "${ARCH_MATCHES[0]}")"
-          WIN_SYMBOL_ASSET="$FINAL_DIR/$(basename "${WIN_SYMBOL_MATCHES[0]}")"
-          LINUX_SYMBOL_ASSET="$FINAL_DIR/$(basename "${LINUX_SYMBOL_MATCHES[0]}")"
-          MAC_SYMBOL_ASSET="$FINAL_DIR/$(basename "${MAC_SYMBOL_MATCHES[0]}")"
-          ARCH_SYMBOL_ASSET="$FINAL_DIR/$(basename "${ARCH_SYMBOL_MATCHES[0]}")"
 
           echo "Final release assets (release-assets/final):"
           find "$FINAL_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort
 
           echo "win_asset=$WIN_ASSET" >> "$GITHUB_OUTPUT"
           echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
-          echo "mac_asset=$MAC_ASSET" >> "$GITHUB_OUTPUT"
+          echo "mac15_asset=$MAC15_ASSET" >> "$GITHUB_OUTPUT"
+          echo "mac26_asset=$MAC26_ASSET" >> "$GITHUB_OUTPUT"
           echo "arch_installer_asset=$ARCH_INSTALLER_ASSET" >> "$GITHUB_OUTPUT"
-          echo "win_symbol_asset=$WIN_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
-          echo "linux_symbol_asset=$LINUX_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
-          echo "mac_symbol_asset=$MAC_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
-          echo "arch_symbol_asset=$ARCH_SYMBOL_ASSET" >> "$GITHUB_OUTPUT"
+          echo "symbol_archive=$SYMBOL_ARCHIVE" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release with curated notes
         env:
@@ -273,12 +330,10 @@ jobs:
           PRERELEASE: ${{ needs.prepare-release.outputs.prerelease }}
           WIN_ASSET: ${{ steps.assets.outputs.win_asset }}
           LINUX_ASSET: ${{ steps.assets.outputs.linux_asset }}
-          MAC_ASSET: ${{ steps.assets.outputs.mac_asset }}
+          MAC15_ASSET: ${{ steps.assets.outputs.mac15_asset }}
+          MAC26_ASSET: ${{ steps.assets.outputs.mac26_asset }}
           ARCH_INSTALLER_ASSET: ${{ steps.assets.outputs.arch_installer_asset }}
-          WIN_SYMBOL_ASSET: ${{ steps.assets.outputs.win_symbol_asset }}
-          LINUX_SYMBOL_ASSET: ${{ steps.assets.outputs.linux_symbol_asset }}
-          MAC_SYMBOL_ASSET: ${{ steps.assets.outputs.mac_symbol_asset }}
-          ARCH_SYMBOL_ASSET: ${{ steps.assets.outputs.arch_symbol_asset }}
+          SYMBOL_ARCHIVE: ${{ steps.assets.outputs.symbol_archive }}
         run: |
           set -euo pipefail
 
@@ -286,7 +341,7 @@ jobs:
 
           echo "Creating draft release in $GH_REPO"
 
-          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC_ASSET" "$ARCH_INSTALLER_ASSET" "$WIN_SYMBOL_ASSET" "$LINUX_SYMBOL_ASSET" "$MAC_SYMBOL_ASSET" "$ARCH_SYMBOL_ASSET" --draft --title "$RELEASE_TITLE")
+          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC15_ASSET" "$MAC26_ASSET" "$ARCH_INSTALLER_ASSET" "$SYMBOL_ARCHIVE" --draft --title "$RELEASE_TITLE")
           if [ -s "$RELEASE_NOTES_FILE" ]; then
             echo "Using curated release notes from $RELEASE_NOTES_FILE"
             cmd+=(--notes-file "$RELEASE_NOTES_FILE")
