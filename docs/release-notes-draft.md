@@ -6,6 +6,7 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added a Cross-table Actions viewport toolbar toggle that lets 2D and 3D hover, selection, measuring, and compatible tools work across fixtures, trusses, hoists, and scene objects instead of only the active Data Views table.
 - Added the first phase of desktop localization, including a persistent interface-language preference, restart-based language switching, packaged gettext catalog resources, and a minimal Spanish catalog for the new language settings.
 - Expanded desktop localization coverage with translated main toolbar labels, fixture-table column headers, and a larger professional Spanish catalog while preserving stable project and import data values.
 - Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.

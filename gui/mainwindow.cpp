@@ -384,6 +384,7 @@ EVT_MENU(ID_View_Viewport_MeasureTool, MainWindow::OnViewportMeasureTool)
 EVT_MENU(ID_View_Viewport_AxisConstraint, MainWindow::OnViewportAxisConstraint)
 EVT_MENU(ID_View_Viewport_LeftDragMove, MainWindow::OnViewportLeftDragMove)
 EVT_MENU(ID_View_Viewport_Magnet, MainWindow::OnViewportMagnet)
+EVT_MENU(ID_View_Viewport_CrossTableActions, MainWindow::OnViewportCrossTableActions)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)
 EVT_MENU(ID_View_Layout_Legend, MainWindow::OnLayoutAddLegend)
 EVT_MENU(ID_View_Layout_EventTable, MainWindow::OnLayoutAddEventTable)
@@ -1218,6 +1219,8 @@ void MainWindow::UpdateToolBarAvailability() {
                                    enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_Magnet,
                                    enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_CrossTableActions,
+                                   enableViewportTools);
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_SelectTool,
         enableViewportTools ? "Switch to standard selection mode"
@@ -1237,6 +1240,10 @@ void MainWindow::UpdateToolBarAvailability() {
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_Magnet, enableViewportTools
                                      ? "Toggle Magnet snapping while dragging"
+                            : "Disabled while editing Layout views");
+    layoutViewsToolBar->SetToolShortHelp(
+        ID_View_Viewport_CrossTableActions,
+        enableViewportTools ? "Toggle viewport actions across all tables"
                             : "Disabled while editing Layout views");
     layoutViewsToolBar->Refresh();
   }

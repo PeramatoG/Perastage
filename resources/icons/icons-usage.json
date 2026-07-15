@@ -61,6 +61,12 @@
       "group": "LayoutViewsToolbar"
     },
     {
+      "name": "Cross-table Actions",
+      "icon": "outline/layers.svg",
+      "description": "Toggles viewport actions across all table types.",
+      "group": "LayoutViewsToolbar"
+    },
+    {
       "name": "Layout 2D View",
       "icon": "outline/panel-top-bottom-dashed.svg",
       "description": "Toggles or applies the 2D view layout.",

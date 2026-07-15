@@ -47,6 +47,7 @@
 #include "continuous_placement_scene.h"
 #include "diagnostics/DiagnosticReport.h"
 #include "selection_movement_settings.h"
+#include "viewport_interaction_scope.h"
 #include "scene_grouping.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"
@@ -87,6 +88,12 @@
 
 // Pixels per meter at default zoom level.
 static constexpr float PIXELS_PER_METER = 25.0f;
+
+// Reports whether viewport interactions should ignore the active table scope.
+static bool IsCrossTableViewportActionsEnabled() {
+  return ConfigManager::Get().GetValue(
+             viewport_interaction_scope::kCrossTableActionsConfigKey) == "1";
+}
 
 namespace {
 constexpr size_t kMaxCapturePixels = 8192u * 8192u;
@@ -2614,6 +2621,7 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
   if (!m_enableSelection || !IsShownOnScreen() || m_dragMode != DragMode::None)
     return false;
 
+  const bool crossTableActions = IsCrossTableViewportActionsEnabled();
   const bool fixtureActive =
       FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage();
   const bool trussActive =
@@ -2622,7 +2630,8 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
                                  SceneObjectTablePanel::Instance()->IsActivePage();
   const bool hoistActive =
       HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage();
-  if (hoistActive || (!fixtureActive && !trussActive && !sceneObjectActive))
+  if (!crossTableActions &&
+      (hoistActive || (!fixtureActive && !trussActive && !sceneObjectActive)))
     return false;
 
   const RenderSize renderSize = ResolveRenderSize(this);
@@ -2644,11 +2653,16 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
 
   const auto &scene = ConfigManager::Get().GetScene();
   std::string newUuid;
-  if (fixtureActive && scene.fixtures.find(pickedUuid) != scene.fixtures.end())
+  if ((crossTableActions || fixtureActive) &&
+      scene.fixtures.find(pickedUuid) != scene.fixtures.end())
     newUuid = pickedUuid;
-  else if (trussActive && scene.trusses.find(pickedUuid) != scene.trusses.end())
+  else if ((crossTableActions || trussActive) &&
+           scene.trusses.find(pickedUuid) != scene.trusses.end())
     newUuid = pickedUuid;
-  else if (sceneObjectActive &&
+  else if ((crossTableActions || hoistActive) &&
+           scene.supports.find(pickedUuid) != scene.supports.end())
+    newUuid = pickedUuid;
+  else if ((crossTableActions || sceneObjectActive) &&
            scene.sceneObjects.find(pickedUuid) != scene.sceneObjects.end())
     newUuid = pickedUuid;
 
@@ -2691,7 +2705,9 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   std::string newUuid;
   bool found = false;
 
-  if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
+  if (IsCrossTableViewportActionsEnabled()) {
+    found = TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, newUuid);
+  } else if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
     found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w, h,
                                          hiddenLayersHash, false, newUuid);
     if (found) {
@@ -3065,8 +3081,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
     bool found = false;
-    if (FixtureTablePanel::Instance() &&
-        FixtureTablePanel::Instance()->IsActivePage())
+    if (IsCrossTableViewportActionsEnabled())
+      found = TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, uuid);
+    else if (FixtureTablePanel::Instance() &&
+             FixtureTablePanel::Instance()->IsActivePage())
       found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w,
                                            h, hiddenLayersHash, true, uuid);
     else if (TrussTablePanel::Instance() &&
@@ -3156,7 +3174,71 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
       bool additive = event.ShiftDown() || event.ControlDown();
       const bool addOnly = event.ControlDown();
       std::vector<std::string> selection;
-      if (FixtureTablePanel::Instance() &&
+      if (IsCrossTableViewportActionsEnabled()) {
+        auto updateSelection = [&](std::vector<std::string> current) {
+          if (additive) {
+            auto it = std::find(current.begin(), current.end(), uuid);
+            if (it != current.end() && !addOnly)
+              current.erase(it);
+            else if (it == current.end())
+              current.push_back(uuid);
+            return current;
+          }
+          return std::vector<std::string>{uuid};
+        };
+        const auto &scene = cfg.GetScene();
+        if (scene.fixtures.find(uuid) != scene.fixtures.end()) {
+          selection = updateSelection(additive ? cfg.GetSelectedFixtures()
+                                               : std::vector<std::string>{});
+          if (selection != cfg.GetSelectedFixtures()) {
+            cfg.PushUndoState("fixture selection");
+            cfg.SetSelectedFixtures(selection);
+            selectionChanged = true;
+          }
+          if (FixtureTablePanel::Instance())
+            FixtureTablePanel::Instance()->SelectByUuid(selection, false);
+        } else if (scene.trusses.find(uuid) != scene.trusses.end()) {
+          selection = updateSelection(additive ? cfg.GetSelectedTrusses()
+                                               : std::vector<std::string>{});
+          if (selection != cfg.GetSelectedTrusses()) {
+            cfg.PushUndoState("truss selection");
+            cfg.SetSelectedTrusses(selection);
+            selectionChanged = true;
+          }
+          if (TrussTablePanel::Instance())
+            TrussTablePanel::Instance()->SelectByUuid(selection, false);
+        } else if (scene.supports.find(uuid) != scene.supports.end()) {
+          selection = updateSelection(additive ? cfg.GetSelectedSupports()
+                                               : std::vector<std::string>{});
+          if (selection != cfg.GetSelectedSupports()) {
+            cfg.PushUndoState("support selection");
+            cfg.SetSelectedSupports(selection);
+            selectionChanged = true;
+          }
+          if (HoistTablePanel::Instance())
+            HoistTablePanel::Instance()->SelectByUuid(selection, false);
+        } else if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end()) {
+          selection = updateSelection(additive ? cfg.GetSelectedSceneObjects()
+                                               : std::vector<std::string>{});
+          if (selection != cfg.GetSelectedSceneObjects()) {
+            cfg.PushUndoState("scene object selection");
+            cfg.SetSelectedSceneObjects(selection);
+            selectionChanged = true;
+          }
+          if (SceneObjectTablePanel::Instance())
+            SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
+        }
+        std::vector<std::string> mergedSelection;
+        const auto appendSelection = [&](const std::vector<std::string> &source) {
+          mergedSelection.insert(mergedSelection.end(), source.begin(),
+                                 source.end());
+        };
+        appendSelection(cfg.GetSelectedFixtures());
+        appendSelection(cfg.GetSelectedTrusses());
+        appendSelection(cfg.GetSelectedSupports());
+        appendSelection(cfg.GetSelectedSceneObjects());
+        m_controller.SetSelectedUuids(mergedSelection);
+      } else if (FixtureTablePanel::Instance() &&
           FixtureTablePanel::Instance()->IsActivePage()) {
         if (additive)
           selection = cfg.GetSelectedFixtures();

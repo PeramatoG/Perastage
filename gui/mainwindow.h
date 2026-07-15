@@ -89,6 +89,7 @@ public:
   void SyncViewportToolToggleState(bool measureEnabled);
   void SyncAxisConstraintToolToggleState();
   void SyncLeftDragMoveToolToggleState();
+  void SyncCrossTableActionsToolToggleState();
   void ApplyViewportMovementToolState();
   void Ensure2DViewportAvailable();
   Viewer2DPanel *GetLayoutCapturePanel() const;
@@ -220,6 +221,7 @@ private:
   void OnViewportSelectTool(wxCommandEvent &event);
   void OnViewportMeasureTool(wxCommandEvent &event);
   void OnViewportMagnet(wxCommandEvent &event);
+  void OnViewportCrossTableActions(wxCommandEvent &event);
   void OnViewportLeftDragMove(wxCommandEvent &event);
   void OnViewportAxisConstraint(wxCommandEvent &event);
 
