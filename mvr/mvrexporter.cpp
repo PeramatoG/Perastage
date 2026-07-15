@@ -1943,7 +1943,10 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
 
 // Returns true when a truss carries Perastage-specific metadata for export.
 static bool HasTrussInfoMetadata(const Truss &truss) {
-  return truss.hasManualLoadOverride || !truss.crossSection.empty() ||
+  return truss.hasManualLoadOverride || !truss.gdtfDescription.empty() ||
+         (!truss.crossSectionType.empty() &&
+          truss.crossSectionType != "TrussFramework") ||
+         !truss.crossSection.empty() ||
          !truss.modelFile.empty() || !truss.positionName.empty() ||
          !truss.manufacturer.empty() || !truss.model.empty() ||
          truss.lengthMm > 0.0f || truss.widthMm > 0.0f ||
@@ -1989,6 +1992,8 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
     addTxt("Height", std::to_string(truss.heightMm));
   if (truss.weightKg > 0.0f)
     addTxt("Weight", std::to_string(truss.weightKg));
+  addTxt("GdtfDescription", truss.gdtfDescription);
+  addTxt("CrossSectionType", truss.crossSectionType.empty() ? "TrussFramework" : truss.crossSectionType);
   addTxt("CrossSection", truss.crossSection);
   addTxt("ModelFile", SanitizeArchiveFileName(truss.modelFile, ""));
   addTxt("PositionName", truss.positionName);

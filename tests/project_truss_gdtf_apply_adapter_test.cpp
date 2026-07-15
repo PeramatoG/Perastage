@@ -3,6 +3,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <string>
 #include <unordered_map>
 
 namespace {
@@ -25,14 +26,17 @@ Truss MakeTruss(std::string uuid) {
 
 // Creates deterministic fake services for truss adapter tests.
 gdtf::ProjectTrussGdtfApplyServices MakeServices(bool failGeneration = false,
-                                                 int *calls = nullptr) {
+                                                 int *calls = nullptr, std::string *revisionText = nullptr) {
   gdtf::ProjectTrussGdtfApplyServices services;
   services.canonicalFileName = [](const std::string &, const std::string &model,
                                   const std::string &) {
     return model + "@Perastage.gdtf";
   };
-  services.generateGdtf = [failGeneration, calls](const Truss &, const std::filesystem::path &out,
-                                                  std::string &diagnostic) {
+  services.generateGdtf = [failGeneration, calls, revisionText](
+      const Truss &, const std::filesystem::path &out,
+      const std::string &text, std::string &diagnostic) {
+    if (revisionText)
+      *revisionText = text;
     if (calls)
       ++*calls;
     if (failGeneration) {
@@ -75,7 +79,8 @@ int main() {
   request.writePolicy = gdtf::GdtfWritePolicy::ProjectControlledGeneration;
   request.values.modelName = "Model";
   int calls = 0;
-  gdtf::ProjectTrussGdtfApplyAdapter adapter(MakeServices(false, &calls));
+  std::string revisionText;
+  gdtf::ProjectTrussGdtfApplyAdapter adapter(MakeServices(false, &calls, &revisionText));
   auto result = adapter.Apply({request, &trusses, root, root});
   assert(result.common.success);
   assert(!result.generationOccurred);
@@ -89,6 +94,7 @@ int main() {
   assert(calls == 1);
   assert(result.resultingTruss);
   assert(result.resultingTruss->model == "ModelB");
+  assert(revisionText.find("Model") != std::string::npos);
   assert(result.resultingTruss->gdtfSpec.find("ModelB@Perastage.gdtf") != std::string::npos);
   assert(result.resultingTrusses.size() == 2);
   bool sawTarget = false;
@@ -105,6 +111,12 @@ int main() {
   assert(sawTarget);
   assert(sawShared);
   assert(trusses["target"].model == "Model");
+
+  request.changedDocumentFields.insert(gdtf::GdtfFieldId::FixtureTypeDescription);
+  request.values.fixtureTypeDescription = "New description";
+  result = adapter.Apply({request, &trusses, root, root});
+  assert(result.common.success);
+  assert(revisionText.find("FixtureType Description") != std::string::npos);
 
   request.values.weightKg = -1.0f;
   request.changedDocumentFields.insert(gdtf::GdtfFieldId::Weight);

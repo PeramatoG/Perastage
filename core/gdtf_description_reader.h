@@ -59,6 +59,8 @@ struct GdtfDescriptionSnapshot {
   bool powerConsumptionWPresent = false;
   float powerConsumptionW = 0.0f;
   std::string modelColorHex;
+  std::string trussCrossSectionType;
+  std::string trussCrossSection;
   std::vector<GdtfRevisionInfo> revisions;
   std::vector<std::string> dmxModeNames;
   std::vector<GdtfWheelInfo> wheels;

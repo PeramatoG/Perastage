@@ -94,6 +94,12 @@ void GdtfEditorPanel::SetPhysicalPropertyChangeCallback(
   physicalPropertiesPanel->SetChangeCallback(std::move(callback));
 }
 
+// Registers the forwarded metadata description change callback.
+void GdtfEditorPanel::SetMetadataDescriptionChangeCallback(
+    GdtfMetadataPanel::DescriptionChangeCallback callback) {
+  metadataPanel->SetDescriptionChangeCallback(std::move(callback));
+}
+
 // Registers the forwarded mode selection callback.
 void GdtfEditorPanel::SetModeSelectionCallback(
     GdtfModesPanel::ModeSelectionCallback callback) {
@@ -215,6 +221,11 @@ void GdtfEditorPanel::SetModeSelectionEnabled(bool enabled) {
 // Applies metadata presentation to the metadata section.
 void GdtfEditorPanel::SetMetadata(const GdtfMetadataSummary &summary) {
   metadataPanel->SetMetadata(summary);
+}
+
+// Sets metadata description editability without exposing the child control.
+void GdtfEditorPanel::SetMetadataDescriptionEditable(bool editable) {
+  metadataPanel->SetDescriptionEditable(editable);
 }
 
 // Applies the metadata unavailable fallback presentation.

@@ -21,6 +21,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <string>
 
 #include <wx/panel.h>
@@ -31,19 +32,26 @@ class wxTextCtrl;
 
 class GdtfMetadataPanel : public wxPanel {
 public:
+  using DescriptionChangeCallback = std::function<void(const std::string &value)>;
+
   explicit GdtfMetadataPanel(wxWindow *parent);
 
   void SetMetadata(const GdtfMetadataSummary &summary);
   void SetUnavailable();
+  void SetDescriptionEditable(bool editable);
+  void SetDescriptionChangeCallback(DescriptionChangeCallback callback);
 
 private:
   wxString ValueOrFallback(const std::string &value) const;
   void SetValues(const std::array<wxString, 8> &values);
   void RewrapValueLabels(bool force = false);
   int WrapWidth() const;
+  void NotifyDescriptionChanged();
 
   wxTextCtrl *descriptionCtrl = nullptr;
   std::array<wxStaticText *, 8> valueLabels{};
   std::array<wxString, 8> currentValues{};
   int lastAppliedWrapWidth = -1;
+  DescriptionChangeCallback descriptionChangeCallback;
+  bool updating = false;
 };

@@ -30,6 +30,7 @@
 #include <cerrno>
 #include <charconv>
 #include <cstdlib>
+#include <optional>
 #include <string_view>
 #include <tinyxml2.h>
 #include <wx/wx.h>
@@ -2060,10 +2061,10 @@ tinyxml2::XMLElement* EnsurePropertiesNode(tinyxml2::XMLElement* fixtureType,
 
 } // namespace
 
-bool SetGdtfProperties(const std::string& gdtfPath,
-                       float weightKg,
-                       float powerW,
-                       const std::string& modifiedByProgram)
+// Mutates selected FixtureType document fields in one extracted archive transaction.
+bool MutateGdtfDocument(const std::string& gdtfPath,
+                        const GdtfDocumentMutationRequest& request,
+                        const std::string& modifiedByProgram)
 {
     if (gdtfPath.empty())
         return false;
@@ -2081,28 +2082,26 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     if (!fixtureType)
         return false;
 
-    tinyxml2::XMLElement* properties = EnsurePropertiesNode(fixtureType, doc);
-    if (!properties)
-        return false;
-
-    tinyxml2::XMLElement* weightNode = properties->FirstChildElement("Weight");
-    if (!weightNode) {
-        weightNode = doc.NewElement("Weight");
-        properties->InsertEndChild(weightNode);
+    bool mutated = false;
+    if (request.descriptionSet) {
+        fixtureType->SetAttribute("Description", request.description.c_str());
+        mutated = true;
     }
-    weightNode->SetAttribute("Value", wxString::Format("%.3f", weightKg).ToStdString().c_str());
-
-    tinyxml2::XMLElement* powerNode =
-        properties->FirstChildElement("PowerConsumption");
-    if (!powerNode) {
-        powerNode = doc.NewElement("PowerConsumption");
-        properties->InsertEndChild(powerNode);
+    if (request.weightSet || request.powerSet) {
+        mutated = GdtfMutationAudit::ApplyPhysicalProperties(
+                      fixtureType, doc,
+                      request.weightSet ? std::optional<float>(request.weightKg) : std::nullopt,
+                      request.powerSet ? std::optional<float>(request.powerW) : std::nullopt) ||
+                  mutated;
     }
-    powerNode->SetAttribute("Value", wxString::Format("%.3f", powerW).ToStdString().c_str());
+    if (!mutated)
+        return true;
 
     GdtfMutationAudit::AppendRevision(
         fixtureType, doc,
-        "Updated fixture physical properties (Weight/PowerConsumption) from Perastage",
+        request.revisionText.empty()
+            ? "Updated GDTF document fields from Perastage"
+            : request.revisionText,
         modifiedByProgram);
 
     GdtfCanonicalizer::Options canonicalOptions;
@@ -2121,4 +2120,19 @@ bool SetGdtfProperties(const std::string& gdtfPath,
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
     g_gdtfCache.erase(gdtfPath);
     return true;
+}
+
+bool SetGdtfProperties(const std::string& gdtfPath,
+                       float weightKg,
+                       float powerW,
+                       const std::string& modifiedByProgram)
+{
+    GdtfDocumentMutationRequest request;
+    request.weightSet = true;
+    request.weightKg = weightKg;
+    request.powerSet = true;
+    request.powerW = powerW;
+    request.revisionText =
+        "Updated fixture physical properties (Weight/PowerConsumption) from Perastage";
+    return MutateGdtfDocument(gdtfPath, request, modifiedByProgram);
 }

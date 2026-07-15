@@ -31,7 +31,7 @@ gdtf::GdtfEditorContext MakeFixtureContext() {
 // Verifies fixture field ownership and value kind are independent concepts.
 void AssertFixtureFieldClassification() {
   const auto fields = gdtf::CurrentFixtureEditFieldDescriptors();
-  assert(fields.size() == 21);
+  assert(fields.size() == 22);
   const auto *fixtureId =
       gdtf::FindGdtfFieldDescriptor(gdtf::GdtfFieldId::FixtureId);
   assert(fixtureId->ownership ==
@@ -45,20 +45,22 @@ void AssertFixtureFieldClassification() {
   assert(mode->sessionValueSupported);
   assert(fields[8].id == gdtf::GdtfFieldId::ChannelCount);
   assert(fields[8].derived);
-  assert(fields[18].ownership ==
+  assert(fields[19].ownership ==
          gdtf::GdtfFieldOwnership::ProjectClassificationOverride);
 }
 
 // Verifies truss field ownership and value kind match the current edit split.
 void AssertTrussFieldClassification() {
   const auto fields = gdtf::CurrentTrussEditFieldDescriptors();
-  assert(fields.size() == 18);
+  assert(fields.size() == 20);
   assert(fields[10].id == gdtf::GdtfFieldId::Manufacturer);
   assert(fields[10].ownership == gdtf::GdtfFieldOwnership::GdtfTypeLevel);
   assert(fields[10].defaultValueKind == gdtf::GdtfFieldValueKind::DocumentValue);
-  assert(fields[16].id == gdtf::GdtfFieldId::TrussLoad);
-  assert(fields[16].defaultValueKind == gdtf::GdtfFieldValueKind::DerivedReadOnly);
-  assert(fields[17].id == gdtf::GdtfFieldId::TrussCrossSection);
+  assert(fields[16].id == gdtf::GdtfFieldId::FixtureTypeDescription);
+  assert(fields[17].id == gdtf::GdtfFieldId::TrussLoad);
+  assert(fields[17].defaultValueKind == gdtf::GdtfFieldValueKind::DerivedReadOnly);
+  assert(fields[18].id == gdtf::GdtfFieldId::TrussCrossSectionType);
+  assert(fields[19].id == gdtf::GdtfFieldId::TrussCrossSection);
 }
 
 // Verifies unsupported and host-only fields cannot mutate session values.
@@ -144,6 +146,18 @@ void AssertEditableNumericParsing() {
                                 "12.5"));
   assert(gdtf::SetEditableValue(supported, gdtf::GdtfFieldId::FixtureTypeName,
                                 "12,5"));
+  assert(gdtf::SetEditableValue(supported,
+                                gdtf::GdtfFieldId::FixtureTypeDescription,
+                                "Line 1\nŁine 2"));
+  assert(gdtf::SetEditableValue(supported,
+                                gdtf::GdtfFieldId::TrussCrossSectionType,
+                                "TrussFramework"));
+  assert(gdtf::SetEditableValue(supported,
+                                gdtf::GdtfFieldId::TrussCrossSectionType,
+                                "Tube"));
+  assert(!gdtf::SetEditableValue(supported,
+                                 gdtf::GdtfFieldId::TrussCrossSectionType,
+                                 "Round"));
   assert(gdtf::GetEditableValue(supported, gdtf::GdtfFieldId::FixtureTypeName) ==
          std::optional<std::string>("12,5"));
 }
@@ -214,9 +228,17 @@ void AssertTrussSessionCheckpoint08A() {
   assert(session.SetValue(gdtf::GdtfFieldId::TrussWidth, "220"));
   assert(session.SetValue(gdtf::GdtfFieldId::TrussHeight, "330"));
   assert(session.SetValue(gdtf::GdtfFieldId::Weight, "45"));
+  assert(session.SetValue(gdtf::GdtfFieldId::FixtureTypeDescription,
+                          "Multiline\nDescription"));
+  assert(session.SetValue(gdtf::GdtfFieldId::TrussCrossSectionType, "Tube"));
+  assert(!session.SetValue(gdtf::GdtfFieldId::TrussCrossSectionType, "Round"));
   assert(session.SetValue(gdtf::GdtfFieldId::TrussCrossSection, "triangle"));
   assert(session.BuildApplyRequest().changedDocumentFields.count(
       gdtf::GdtfFieldId::TrussCrossSection));
+  assert(session.BuildApplyRequest().changedDocumentFields.count(
+      gdtf::GdtfFieldId::TrussCrossSectionType));
+  assert(session.BuildApplyRequest().changedDocumentFields.count(
+      gdtf::GdtfFieldId::FixtureTypeDescription));
   assert(session.SetValue(gdtf::GdtfFieldId::SourceFileReference,
                           "new-truss.gdtf"));
   assert(session.BuildApplyRequest().changedContextFields.count(

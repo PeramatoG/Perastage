@@ -18,6 +18,7 @@
 #include "gdtf/gdtf_metadata_panel.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "gdtf/gdtf_editor_visual_metrics.h"
 
@@ -56,10 +57,14 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
       descriptionCtrl = new wxTextCtrl(this, wxID_ANY, kUnavailableValue,
                                        wxDefaultPosition,
                                        wxSize(-1, gui::gdtf_layout::Dip(this, kDescriptionHeight)),
-                                       wxTE_MULTILINE | wxTE_READONLY);
+                                       wxTE_MULTILINE);
       descriptionCtrl->SetMinSize(
           wxSize(-1, gui::gdtf_layout::Dip(this, kDescriptionHeight)));
       descriptionCtrl->ShowPosition(0);
+      descriptionCtrl->SetToolTip("GDTF FixtureType description.");
+      descriptionCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent &) {
+        NotifyDescriptionChanged();
+      });
       valueLabels[i] = nullptr;
       grid->Add(descriptionCtrl, 1, wxEXPAND);
       continue;
@@ -81,7 +86,7 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
 // Displays a successfully loaded metadata summary.
 void GdtfMetadataPanel::SetMetadata(const GdtfMetadataSummary &summary) {
   SetValues({ValueOrFallback(summary.manufacturer),
-             ValueOrFallback(summary.description),
+             wxString::FromUTF8(summary.description),
              ValueOrFallback(summary.creationDate),
              ValueOrFallback(summary.userId),
              ValueOrFallback(summary.modifiedBy),
@@ -108,8 +113,10 @@ wxString GdtfMetadataPanel::ValueOrFallback(const std::string &value) const {
 void GdtfMetadataPanel::SetValues(const std::array<wxString, 8> &values) {
   currentValues = values;
   if (descriptionCtrl) {
+    updating = true;
     descriptionCtrl->SetValue(currentValues[1]);
     descriptionCtrl->ShowPosition(0);
+    updating = false;
   }
   RewrapValueLabels(true);
   Layout();
@@ -139,4 +146,23 @@ int GdtfMetadataPanel::WrapWidth() const {
 
   const int valueWidth = clientWidth - gui::gdtf_layout::Dip(const_cast<GdtfMetadataPanel *>(this), kLabelColumnWidth + kSizerPadding);
   return std::max(kMinimumValueWrapWidth, valueWidth);
+}
+
+// Enables or disables editing of the FixtureType description value.
+void GdtfMetadataPanel::SetDescriptionEditable(bool editable) {
+  if (descriptionCtrl)
+    descriptionCtrl->SetEditable(editable);
+}
+
+// Registers a callback for user edits to the FixtureType description.
+void GdtfMetadataPanel::SetDescriptionChangeCallback(
+    DescriptionChangeCallback callback) {
+  descriptionChangeCallback = std::move(callback);
+}
+
+// Notifies the host when the user changes the FixtureType description.
+void GdtfMetadataPanel::NotifyDescriptionChanged() {
+  if (updating || !descriptionChangeCallback || !descriptionCtrl)
+    return;
+  descriptionChangeCallback(std::string(descriptionCtrl->GetValue().ToUTF8()));
 }

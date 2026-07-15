@@ -8,6 +8,7 @@
 #include <set>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace gdtf {
 namespace {
@@ -61,6 +62,8 @@ Truss BuildGeneratedTypeUpdate(const Truss &instance, const Truss &generatedType
   updated.widthMm = generatedType.widthMm;
   updated.heightMm = generatedType.heightMm;
   updated.weightKg = generatedType.weightKg;
+  updated.gdtfDescription = generatedType.gdtfDescription;
+  updated.crossSectionType = generatedType.crossSectionType;
   updated.crossSection = generatedType.crossSection;
   updated.gdtfSpec = generatedType.gdtfSpec;
   updated.modelFile = generatedType.modelFile;
@@ -79,8 +82,8 @@ bool ContainsField(const std::set<GdtfFieldId> &fields, GdtfFieldId field) {
 bool HasOnlySupportedFields(const GdtfApplyRequest &request) {
   const std::set<GdtfFieldId> supported = {
       GdtfFieldId::Manufacturer, GdtfFieldId::ModelName,
-      GdtfFieldId::TrussLength, GdtfFieldId::TrussWidth,
-      GdtfFieldId::TrussHeight, GdtfFieldId::Weight,
+      GdtfFieldId::FixtureTypeDescription, GdtfFieldId::TrussLength, GdtfFieldId::TrussWidth,
+      GdtfFieldId::TrussHeight, GdtfFieldId::Weight, GdtfFieldId::TrussCrossSectionType,
       GdtfFieldId::TrussCrossSection};
   for (const auto field : request.changedDocumentFields) {
     if (!supported.count(field))
@@ -112,11 +115,51 @@ bool IsRegularFile(const std::filesystem::path &path) {
 bool HasGenerationFieldChange(const GdtfApplyRequest &request) {
   return ContainsField(request.changedDocumentFields, GdtfFieldId::Manufacturer) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::ModelName) ||
+         ContainsField(request.changedDocumentFields, GdtfFieldId::FixtureTypeDescription) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussLength) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussWidth) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussHeight) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::Weight) ||
+         ContainsField(request.changedDocumentFields, GdtfFieldId::TrussCrossSectionType) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussCrossSection);
+}
+
+// Appends a changed GDTF field label to the revision summary list.
+void AddChangedFieldLabel(const GdtfApplyRequest &request, GdtfFieldId field,
+                          const char *label, std::vector<std::string> &labels) {
+  if (ContainsField(request.changedDocumentFields, field))
+    labels.emplace_back(label);
+}
+
+// Joins changed field labels into a concise revision summary fragment.
+std::string JoinFieldLabels(const std::vector<std::string> &labels) {
+  std::string joined;
+  for (size_t i = 0; i < labels.size(); ++i) {
+    if (i > 0)
+      joined += (i + 1 == labels.size()) ? " and " : ", ";
+    joined += labels[i];
+  }
+  return joined;
+}
+
+// Builds the truss generation revision text from the dirty document fields.
+std::string BuildTrussRevisionText(const GdtfApplyRequest &request) {
+  std::vector<std::string> labels;
+  AddChangedFieldLabel(request, GdtfFieldId::FixtureTypeDescription,
+                       "FixtureType Description", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::Manufacturer, "Manufacturer", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::ModelName, "Model", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussLength, "Length", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussWidth, "Width", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussHeight, "Height", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::Weight, "Weight", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussCrossSectionType,
+                       "CrossSectionType", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussCrossSection,
+                       "TrussCrossSection", labels);
+  if (labels.empty())
+    return "Generated canonical Perastage truss GDTF";
+  return "Updated truss GDTF " + JoinFieldLabels(labels) + " from Perastage";
 }
 
 } // namespace
@@ -157,6 +200,8 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   prepared.widthMm = request.values.trussWidthMm.value_or(prepared.widthMm);
   prepared.heightMm = request.values.trussHeightMm.value_or(prepared.heightMm);
   prepared.weightKg = request.values.weightKg.value_or(prepared.weightKg);
+  prepared.gdtfDescription = request.values.fixtureTypeDescription.value_or(prepared.gdtfDescription);
+  prepared.crossSectionType = request.values.trussCrossSectionType.value_or(prepared.crossSectionType.empty() ? "TrussFramework" : prepared.crossSectionType);
   prepared.crossSection = request.values.trussCrossSection.value_or(prepared.crossSection);
 
   if (!std::isfinite(prepared.lengthMm) || prepared.lengthMm < 0.0f ||
@@ -165,6 +210,8 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
     return Fail("Truss dimensions must be finite and non-negative.");
   if (!std::isfinite(prepared.weightKg) || prepared.weightKg < 0.0f)
     return Fail("Truss weight must be finite and non-negative.");
+  if (prepared.crossSectionType != "TrussFramework" && prepared.crossSectionType != "Tube")
+    return Fail("Truss cross-section type must be TrussFramework or Tube.");
 
   ProjectTrussGdtfApplyResult result;
   result.common.success = true;
@@ -199,7 +246,8 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   const std::filesystem::path outputPath = input.outputRoot / canonical;
   const bool existedBefore = std::filesystem::exists(outputPath, ec) && !ec;
   std::string diagnostic;
-  if (!services_.generateGdtf(exportTruss, outputPath, diagnostic)) {
+  const std::string revisionText = BuildTrussRevisionText(request);
+  if (!services_.generateGdtf(exportTruss, outputPath, revisionText, diagnostic)) {
     auto failed = Fail(diagnostic.empty() ? "Failed to create truss GDTF." : diagnostic);
     failed.externalFileCreatedOrModified = !existedBefore && std::filesystem::exists(outputPath, ec) && !ec;
     return failed;

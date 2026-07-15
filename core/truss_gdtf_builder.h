@@ -29,3 +29,8 @@ bool ConvertLegacyGtrussToGdtf(const std::filesystem::path &gtrussPath,
 bool BuildTrussGdtfFromInstance(const Truss &truss,
                                 const std::filesystem::path &outGdtfPath,
                                 std::string *outError);
+
+bool BuildTrussGdtfFromInstance(const Truss &truss,
+                                const std::filesystem::path &outGdtfPath,
+                                std::string *outError,
+                                const std::string &revisionText);

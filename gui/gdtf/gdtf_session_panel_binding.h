@@ -39,6 +39,8 @@ ToFieldId(GdtfPhysicalPropertyField field) {
     return gdtf::GdtfFieldId::TrussWidth;
   case GdtfPhysicalPropertyField::Height:
     return gdtf::GdtfFieldId::TrussHeight;
+  case GdtfPhysicalPropertyField::CrossSectionType:
+    return gdtf::GdtfFieldId::TrussCrossSectionType;
   case GdtfPhysicalPropertyField::CrossSection:
     return gdtf::GdtfFieldId::TrussCrossSection;
   }

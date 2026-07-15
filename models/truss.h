@@ -46,6 +46,8 @@ struct Truss {
     float widthMm = 0.0f;
     float heightMm = 0.0f;
     float weightKg = 0.0f;
+    std::string gdtfDescription;
+    std::string crossSectionType = "TrussFramework";
     std::string crossSection;
 
     // Load state is instance metadata and is never part of the truss GDTF.

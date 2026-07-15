@@ -16,8 +16,10 @@ gdtf::ProjectTrussGdtfApplyServices MakeTrussGdtfApplyServices() {
   };
   services.generateGdtf = [](const Truss &truss,
                              const std::filesystem::path &outputPath,
+                             const std::string &revisionText,
                              std::string &diagnostic) {
-    return BuildTrussGdtfFromInstance(truss, outputPath, &diagnostic);
+    return BuildTrussGdtfFromInstance(truss, outputPath, &diagnostic,
+                                      revisionText);
   };
   return services;
 }

@@ -5,7 +5,7 @@
 namespace gdtf {
 namespace {
 
-constexpr std::array<GdtfFieldDescriptor, 29> kDescriptors = {{
+constexpr std::array<GdtfFieldDescriptor, 31> kDescriptors = {{
     {GdtfFieldId::FixtureId, GdtfFieldOwnership::MvrProjectInstanceLevel,
      GdtfFieldValueKind::HostProjectValue, "fixture_id", "Fixture ID", true,
      false, false, false},
@@ -90,8 +90,14 @@ constexpr std::array<GdtfFieldDescriptor, 29> kDescriptors = {{
     {GdtfFieldId::TrussHeight, GdtfFieldOwnership::GdtfTypeLevel,
      GdtfFieldValueKind::DocumentValue, "truss_height", "Height", true, true,
      false, false},
+    {GdtfFieldId::FixtureTypeDescription, GdtfFieldOwnership::GdtfTypeLevel,
+     GdtfFieldValueKind::DocumentValue, "fixture_type_description", "Description",
+     true, true, false, false},
+    {GdtfFieldId::TrussCrossSectionType, GdtfFieldOwnership::GdtfTypeLevel,
+     GdtfFieldValueKind::DocumentValue, "truss_cross_section_type", "Cross-section type",
+     true, true, false, false},
     {GdtfFieldId::TrussCrossSection, GdtfFieldOwnership::GdtfTypeLevel,
-     GdtfFieldValueKind::DocumentValue, "truss_cross_section", "Cross section",
+     GdtfFieldValueKind::DocumentValue, "truss_cross_section", "Truss cross-section name",
      true, true, false, false},
     {GdtfFieldId::TrussLoad, GdtfFieldOwnership::DerivedReadOnly,
      GdtfFieldValueKind::DerivedReadOnly, "truss_load", "Load", false, false,
@@ -127,6 +133,7 @@ std::vector<GdtfFieldDescriptor> CurrentFixtureEditFieldDescriptors() {
            *FindGdtfFieldDescriptor(GdtfFieldId::Roll),
            *FindGdtfFieldDescriptor(GdtfFieldId::Pitch),
            *FindGdtfFieldDescriptor(GdtfFieldId::Yaw),
+           *FindGdtfFieldDescriptor(GdtfFieldId::FixtureTypeDescription),
            *FindGdtfFieldDescriptor(GdtfFieldId::PowerConsumption),
            *FindGdtfFieldDescriptor(GdtfFieldId::Weight),
            *FindGdtfFieldDescriptor(GdtfFieldId::FixtureCategory),
@@ -152,7 +159,9 @@ std::vector<GdtfFieldDescriptor> CurrentTrussEditFieldDescriptors() {
            *FindGdtfFieldDescriptor(GdtfFieldId::TrussWidth),
            *FindGdtfFieldDescriptor(GdtfFieldId::TrussHeight),
            *FindGdtfFieldDescriptor(GdtfFieldId::Weight),
+           *FindGdtfFieldDescriptor(GdtfFieldId::FixtureTypeDescription),
            *FindGdtfFieldDescriptor(GdtfFieldId::TrussLoad),
+           *FindGdtfFieldDescriptor(GdtfFieldId::TrussCrossSectionType),
            *FindGdtfFieldDescriptor(GdtfFieldId::TrussCrossSection)}};
 }
 

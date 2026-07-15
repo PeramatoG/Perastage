@@ -15,7 +15,7 @@ namespace gdtf {
 
 struct ProjectTrussGdtfApplyServices {
   std::function<std::string(const std::string &, const std::string &, const std::string &)> canonicalFileName;
-  std::function<bool(const Truss &, const std::filesystem::path &, std::string &)> generateGdtf;
+  std::function<bool(const Truss &, const std::filesystem::path &, const std::string &, std::string &)> generateGdtf;
 };
 
 struct ProjectTrussGdtfApplyInput {

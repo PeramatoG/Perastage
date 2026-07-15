@@ -145,3 +145,9 @@ Checkpoint 08 is complete: Fixture Edit now routes session-backed type, source, 
 ## Checkpoint 08D Apply transaction policy
 
 Adapters validate requests, perform required external file preparation, and return prepared project mutations. Hosts create one project undo checkpoint only after adapter success and before committing the prepared mutation to the project model. Existing verified Perastage derivatives may be overwritten; ordinary library, external, or extracted sources must create a derivative before physical mutation. UTF-8 path boundaries must use `PathUtils::PathToUtf8(...)` and `PathUtils::PathFromUtf8(...)`. External file changes cannot be undone by project undo and must be reported separately from project commits.
+
+## Editable document fields and truss cross-section metadata
+
+Perastage GDTF edit sessions now expose `FixtureType/@Description` as a document-level editable string for project fixtures and project trusses. Fixture edits submit Description, Weight, and PowerConsumption through a shared document mutation request so one Apply operation rewrites `description.xml` at most once and appends at most one standard `Revision` for the combined document changes. Revision `Text` summarizes the actual edited fields, including FixtureType Description when it changed.
+
+Project truss generation appends a standard revision whose `Text` summarizes the dirty GDTF fields instead of always using the initial generation text. Project truss generation records `Structure/@CrossSectionType` using the official GDTF 1.2 enum values `TrussFramework` and `Tube`. `Structure/@TrussCrossSection` is preserved as the truss cross-section name and is written only when CrossSectionType is `TrussFramework`; when CrossSectionType is `Tube`, the editor/project state preserves the name but generated GDTF omits the attribute. Tube-specific `CrossSectionHeight` and `CrossSectionWallThickness` remain unsupported.

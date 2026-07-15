@@ -21,6 +21,7 @@
 
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/choice.h>
 #include <wx/textctrl.h>
 
 // Creates the physical properties panel layout.
@@ -43,16 +44,30 @@ void GdtfPhysicalPropertiesPanel::ConfigureFields(
       continue;
     FieldControls row;
     row.label = new wxStaticText(this, wxID_ANY, wxString::FromUTF8(field.label));
-    row.value = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(field.value));
-    row.value->Enable(field.editable);
-    row.value->Bind(wxEVT_TEXT, [this, id = field.field](wxCommandEvent &) {
-      NotifyFieldChanged(id);
-    });
     row.suffix = new wxStaticText(this, wxID_ANY, wxString::FromUTF8(field.unitSuffix));
-    if (!field.helpText.empty())
-      row.value->SetToolTip(wxString::FromUTF8(field.helpText));
     grid->Add(row.label, 0, wxALIGN_CENTER_VERTICAL);
-    grid->Add(row.value, 1, wxEXPAND);
+    if (!field.choices.empty()) {
+      row.choice = new wxChoice(this, wxID_ANY);
+      for (const auto &choice : field.choices)
+        row.choice->Append(wxString::FromUTF8(choice));
+      row.choice->SetStringSelection(wxString::FromUTF8(field.value));
+      row.choice->Enable(field.editable);
+      row.choice->Bind(wxEVT_CHOICE, [this, id = field.field](wxCommandEvent &) {
+        NotifyFieldChanged(id);
+      });
+      if (!field.helpText.empty())
+        row.choice->SetToolTip(wxString::FromUTF8(field.helpText));
+      grid->Add(row.choice, 1, wxEXPAND);
+    } else {
+      row.value = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(field.value));
+      row.value->Enable(field.editable);
+      row.value->Bind(wxEVT_TEXT, [this, id = field.field](wxCommandEvent &) {
+        NotifyFieldChanged(id);
+      });
+      if (!field.helpText.empty())
+        row.value->SetToolTip(wxString::FromUTF8(field.helpText));
+      grid->Add(row.value, 1, wxEXPAND);
+    }
     grid->Add(row.suffix, 0, wxALIGN_CENTER_VERTICAL);
     controls.emplace(field.field, row);
   }
@@ -64,10 +79,13 @@ void GdtfPhysicalPropertiesPanel::ConfigureFields(
 void GdtfPhysicalPropertiesPanel::SetFieldValue(
     GdtfPhysicalPropertyField field, const std::string &value) {
   auto it = controls.find(field);
-  if (it == controls.end() || !it->second.value)
+  if (it == controls.end())
     return;
   updating = true;
-  it->second.value->SetValue(wxString::FromUTF8(value));
+  if (it->second.value)
+    it->second.value->SetValue(wxString::FromUTF8(value));
+  if (it->second.choice)
+    it->second.choice->SetStringSelection(wxString::FromUTF8(value));
   updating = false;
 }
 
@@ -75,9 +93,13 @@ void GdtfPhysicalPropertiesPanel::SetFieldValue(
 std::optional<std::string> GdtfPhysicalPropertiesPanel::GetFieldValue(
     GdtfPhysicalPropertyField field) const {
   auto it = controls.find(field);
-  if (it == controls.end() || !it->second.value)
+  if (it == controls.end())
     return std::nullopt;
-  return std::string(it->second.value->GetValue().ToUTF8());
+  if (it->second.value)
+    return std::string(it->second.value->GetValue().ToUTF8());
+  if (it->second.choice)
+    return std::string(it->second.choice->GetStringSelection().ToUTF8());
+  return std::nullopt;
 }
 
 // Returns all currently visible field values.
@@ -87,6 +109,8 @@ GdtfPhysicalPropertiesPanel::GetValues() const {
   for (const auto &[field, row] : controls) {
     if (row.value)
       values[field] = std::string(row.value->GetValue().ToUTF8());
+    else if (row.choice)
+      values[field] = std::string(row.choice->GetStringSelection().ToUTF8());
   }
   return values;
 }
@@ -97,6 +121,8 @@ void GdtfPhysicalPropertiesPanel::SetFieldEditable(
   auto it = controls.find(field);
   if (it != controls.end() && it->second.value)
     it->second.value->Enable(editable);
+  if (it != controls.end() && it->second.choice)
+    it->second.choice->Enable(editable);
 }
 
 // Displays validation feedback supplied by the host as a tooltip.
@@ -105,6 +131,8 @@ void GdtfPhysicalPropertiesPanel::SetFieldValidation(
   auto it = controls.find(field);
   if (it != controls.end() && it->second.value)
     it->second.value->SetToolTip(wxString::FromUTF8(message));
+  if (it != controls.end() && it->second.choice)
+    it->second.choice->SetToolTip(wxString::FromUTF8(message));
 }
 
 // Registers the host field-change callback.

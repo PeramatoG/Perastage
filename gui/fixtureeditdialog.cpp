@@ -575,6 +575,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   const auto &sessionValues =
       gdtfEditSession ? gdtfEditSession->CurrentValues()
                       : gdtf::GdtfEditableValues{};
+  gdtfEditorPanel->SetMetadataDescriptionEditable(
+      gdtfEditSession && gui::gdtf_binding::IsEditable(
+                             *gdtfEditSession,
+                             gdtf::GdtfFieldId::FixtureTypeDescription));
   gdtfEditorPanel->SetPresentation({
       false,
       {},
@@ -640,6 +644,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
       [this](GdtfPhysicalPropertyField field, const std::string &value) {
         if (auto fieldId = gui::gdtf_binding::ToFieldId(field))
           SetSessionValue(*fieldId, value);
+      });
+  gdtfEditorPanel->SetMetadataDescriptionChangeCallback(
+      [this](const std::string &value) {
+        SetSessionValue(gdtf::GdtfFieldId::FixtureTypeDescription, value);
       });
   gdtfEditorPanel->SetModeSelectionCallback([this](const std::string &value) {
     SetSessionValue(gdtf::GdtfFieldId::ModeName, value);

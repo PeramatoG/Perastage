@@ -2656,6 +2656,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (TryParseFloat(wei->GetText(), parsed))
           truss.weightKg = parsed;
       }
+    if (tinyxml2::XMLElement *desc = info->FirstChildElement("GdtfDescription"))
+      if (desc->GetText())
+        truss.gdtfDescription = desc->GetText();
+    if (tinyxml2::XMLElement *cst = info->FirstChildElement("CrossSectionType"))
+      if (cst->GetText()) {
+        const std::string value = Trim(cst->GetText());
+        truss.crossSectionType = (value == "Tube") ? "Tube" : "TrussFramework";
+      }
     if (tinyxml2::XMLElement *cs = info->FirstChildElement("CrossSection"))
       if (cs->GetText())
         truss.crossSection = Trim(cs->GetText());
