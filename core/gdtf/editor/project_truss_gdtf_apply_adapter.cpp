@@ -8,6 +8,7 @@
 #include <set>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace gdtf {
 namespace {
@@ -123,6 +124,44 @@ bool HasGenerationFieldChange(const GdtfApplyRequest &request) {
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussCrossSection);
 }
 
+// Appends a changed GDTF field label to the revision summary list.
+void AddChangedFieldLabel(const GdtfApplyRequest &request, GdtfFieldId field,
+                          const char *label, std::vector<std::string> &labels) {
+  if (ContainsField(request.changedDocumentFields, field))
+    labels.emplace_back(label);
+}
+
+// Joins changed field labels into a concise revision summary fragment.
+std::string JoinFieldLabels(const std::vector<std::string> &labels) {
+  std::string joined;
+  for (size_t i = 0; i < labels.size(); ++i) {
+    if (i > 0)
+      joined += (i + 1 == labels.size()) ? " and " : ", ";
+    joined += labels[i];
+  }
+  return joined;
+}
+
+// Builds the truss generation revision text from the dirty document fields.
+std::string BuildTrussRevisionText(const GdtfApplyRequest &request) {
+  std::vector<std::string> labels;
+  AddChangedFieldLabel(request, GdtfFieldId::FixtureTypeDescription,
+                       "FixtureType Description", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::Manufacturer, "Manufacturer", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::ModelName, "Model", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussLength, "Length", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussWidth, "Width", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussHeight, "Height", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::Weight, "Weight", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussCrossSectionType,
+                       "CrossSectionType", labels);
+  AddChangedFieldLabel(request, GdtfFieldId::TrussCrossSection,
+                       "TrussCrossSection", labels);
+  if (labels.empty())
+    return "Generated canonical Perastage truss GDTF";
+  return "Updated truss GDTF " + JoinFieldLabels(labels) + " from Perastage";
+}
+
 } // namespace
 
 // Stores injected services used for non-GUI truss GDTF apply operations.
@@ -207,7 +246,8 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   const std::filesystem::path outputPath = input.outputRoot / canonical;
   const bool existedBefore = std::filesystem::exists(outputPath, ec) && !ec;
   std::string diagnostic;
-  if (!services_.generateGdtf(exportTruss, outputPath, diagnostic)) {
+  const std::string revisionText = BuildTrussRevisionText(request);
+  if (!services_.generateGdtf(exportTruss, outputPath, revisionText, diagnostic)) {
     auto failed = Fail(diagnostic.empty() ? "Failed to create truss GDTF." : diagnostic);
     failed.externalFileCreatedOrModified = !existedBefore && std::filesystem::exists(outputPath, ec) && !ec;
     return failed;

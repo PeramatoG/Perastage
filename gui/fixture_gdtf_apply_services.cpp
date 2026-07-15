@@ -6,6 +6,48 @@
 #include "filesystem_path_utils.h"
 
 #include <algorithm>
+#include <string>
+#include <vector>
+
+namespace {
+
+// Adds a changed fixture document field label when the request contains it.
+void AddChangedDocumentFieldLabel(const gdtf::GdtfApplyRequest &request,
+                                  gdtf::GdtfFieldId field, const char *label,
+                                  std::vector<std::string> &labels) {
+  if (request.changedDocumentFields.count(field) > 0)
+    labels.emplace_back(label);
+}
+
+// Joins changed fixture document field labels for revision text.
+std::string JoinDocumentFieldLabels(const std::vector<std::string> &labels) {
+  std::string joined;
+  for (size_t i = 0; i < labels.size(); ++i) {
+    if (i > 0)
+      joined += (i + 1 == labels.size()) ? " and " : ", ";
+    joined += labels[i];
+  }
+  return joined;
+}
+
+// Builds a concise revision summary for fixture document mutations.
+std::string BuildFixtureDocumentRevisionText(
+    const gdtf::GdtfApplyRequest &request) {
+  std::vector<std::string> labels;
+  AddChangedDocumentFieldLabel(request,
+                               gdtf::GdtfFieldId::FixtureTypeDescription,
+                               "FixtureType Description", labels);
+  AddChangedDocumentFieldLabel(request, gdtf::GdtfFieldId::Weight, "Weight",
+                               labels);
+  AddChangedDocumentFieldLabel(request,
+                               gdtf::GdtfFieldId::PowerConsumption,
+                               "PowerConsumption", labels);
+  if (labels.empty())
+    return "Updated GDTF fixture type document fields from Perastage";
+  return "Updated GDTF " + JoinDocumentFieldLabels(labels) + " from Perastage";
+}
+
+} // namespace
 
 namespace gui {
 
@@ -33,7 +75,7 @@ gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
     mutation.powerSet = request.changedDocumentFields.count(
                             gdtf::GdtfFieldId::PowerConsumption) > 0;
     mutation.powerW = request.values.powerConsumptionW.value_or(0.0f);
-    mutation.revisionText = "Updated GDTF fixture type document fields from Perastage";
+    mutation.revisionText = BuildFixtureDocumentRevisionText(request);
     return MutateGdtfDocument(PathUtils::PathToUtf8(path), mutation,
                               GdtfMutationAudit::BuildPerastageModifiedBy());
   };

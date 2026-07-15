@@ -90,6 +90,7 @@ struct TrussSourceData {
   std::string description;
   std::string crossSectionType = "TrussFramework";
   std::string crossSection;
+  std::string revisionText;
 };
 
 static std::string Trim(std::string value) {
@@ -362,7 +363,9 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   fixtureType->InsertEndChild(dmxModes);
 
   GdtfMutationAudit::AppendRevision(
-      fixtureType, doc, "Generated canonical Perastage truss GDTF",
+      fixtureType, doc,
+      data.revisionText.empty() ? "Generated canonical Perastage truss GDTF"
+                                : data.revisionText,
       GdtfMutationAudit::BuildPerastageModifiedBy());
 
   tinyxml2::XMLPrinter printer;
@@ -428,6 +431,13 @@ bool ConvertLegacyGtrussToGdtf(const fs::path &gtrussPath,
 // Builds a Perastage-authored GDTF archive for one truss instance.
 bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
                                 std::string *outError) {
+  return BuildTrussGdtfFromInstance(truss, outGdtfPath, outError, {});
+}
+
+// Builds a Perastage-authored GDTF archive with an explicit revision summary.
+bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
+                                std::string *outError,
+                                const std::string &revisionText) {
   TrussSourceData source;
   source.manufacturer = truss.manufacturer;
   source.model = truss.model.empty() ? truss.name : truss.model;
@@ -439,6 +449,7 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.description = truss.gdtfDescription;
   source.crossSectionType = truss.crossSectionType.empty() ? "TrussFramework" : truss.crossSectionType;
   source.crossSection = truss.crossSection;
+  source.revisionText = revisionText;
 
   auto pickGeometry = [&](const std::string &path) {
     fs::path p = PathUtils::PathFromUtf8(path);

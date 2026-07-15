@@ -203,4 +203,5 @@ Please open an issue on GitHub if you encounter a problem. Include the Perastage
 You can also contact the project at **perastage.app@gmail.com**.
 
 ## Improvements
+- Improved GDTF revision messages so fixture and truss description edits identify FixtureType Description as the changed field instead of showing generic generation text.
 - Added GDTF editor support for FixtureType descriptions and truss cross-section type metadata, including Tube output that omits truss cross-section names as required by GDTF.
