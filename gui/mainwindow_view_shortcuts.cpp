@@ -6,7 +6,7 @@
 #include "selection_movement_settings.h"
 #include "guiconfigservices.h"
 #include "magnet_snap.h"
-#include "viewport_interaction_scope.h"
+#include "../viewport_interaction_scope.h"
 
 namespace {
 

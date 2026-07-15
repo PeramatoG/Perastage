@@ -47,7 +47,7 @@
 #include "continuous_placement_scene.h"
 #include "diagnostics/DiagnosticReport.h"
 #include "selection_movement_settings.h"
-#include "viewport_interaction_scope.h"
+#include "../viewport_interaction_scope.h"
 #include "scene_grouping.h"
 #include "canvas2d.h"
 #include "fixturetablepanel.h"

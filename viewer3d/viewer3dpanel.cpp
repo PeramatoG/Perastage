@@ -52,7 +52,7 @@
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
 #include "selection_movement_settings.h"
-#include "viewport_interaction_scope.h"
+#include "../viewport_interaction_scope.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
 #include "fixturepatchdialog.h"

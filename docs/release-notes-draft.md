@@ -40,6 +40,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Windows builds for the Cross-table Actions viewport toggle by using include paths that resolve from GUI and viewport source directories.
 - Hardened layer editing and MVR persistence so layer names are treated as validated UTF-8, legacy Windows-1252 layer-name corruption can be recovered without losing objects, layer edits target stable UUIDs, and exported scene XML is re-parsed before archive writing.
 
 - Fixed GDTF editor numeric text parsing so fixture power, fixture weight, and truss dimensions compile with the macOS 15 / Xcode 16.4 toolchain while preserving locale-independent validation.
