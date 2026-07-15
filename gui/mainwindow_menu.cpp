@@ -908,8 +908,8 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   cfg.SetSelectedSceneObjects({});
   cfg.SetSelectedTrusses(result.convertedUuids);
 
-  if (sceneObjectPanel)
-    sceneObjectPanel->ReloadData();
+  if (sceneObjPanel)
+    sceneObjPanel->ReloadData();
   if (trussPanel)
     trussPanel->ReloadData();
   if (viewportPanel) {

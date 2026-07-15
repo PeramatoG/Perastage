@@ -44,6 +44,7 @@ Changes since **v1.4.0**.
 - Fixed Edit Truss so converting a model-only MVR truss from a shared `.3ds` geometry into a Perastage-generated GDTF updates every truss that still used that same source geometry, while preserving each truss instance placement and load state.
 - Fixed Ctrl-left rectangle selection so the Cross-table Actions toggle makes it select across all object tables without also requiring Shift.
 - Fixed Windows builds for the Cross-table Actions viewport toggle by using include paths that resolve from GUI and viewport source directories.
+- Fixed the Scene Object to Truss conversion command so it refreshes the existing scene-object table member correctly on Windows builds.
 - Hardened layer editing and MVR persistence so layer names are treated as validated UTF-8, legacy Windows-1252 layer-name corruption can be recovered without losing objects, layer edits target stable UUIDs, and exported scene XML is re-parsed before archive writing.
 
 - Fixed GDTF editor numeric text parsing so fixture power, fixture weight, and truss dimensions compile with the macOS 15 / Xcode 16.4 toolchain while preserving locale-independent validation.
