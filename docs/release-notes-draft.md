@@ -41,7 +41,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
-- Fixed Windows GDTF and truss resource identity so differently cased paths to the same file share extraction, import, and export cache entries while preserving user-visible file spelling, and clarified Viewer2D cursor hit-test diagnostics separately from stale-selection integrity warnings.
+- Fixed Windows GDTF and truss resource identity so differently cased paths to the same file share extraction, import, and export cache entries while preserving user-visible file spelling, and clarified Viewer2D cursor hit-test diagnostics so they are not mistaken for persistent-selection restoration failures.
 - Fixed Edit Truss so converting a model-only MVR truss from a shared `.3ds` geometry into a Perastage-generated GDTF updates every truss that still used that same source geometry, while preserving each truss instance placement and load state.
 - Fixed Ctrl-left rectangle selection so the Cross-table Actions toggle makes it select across all object tables without also requiring Shift.
 - Fixed Windows builds for the Cross-table Actions viewport toggle by using include paths that resolve from GUI and viewport source directories.
