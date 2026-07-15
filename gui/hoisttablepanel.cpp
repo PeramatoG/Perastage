@@ -421,7 +421,6 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &HoistTablePanel::OnLeftDown, this);
-  table->Bind(wxEVT_LEFT_DCLICK, &HoistTablePanel::OnLeftDClick, this);
   table->Bind(wxEVT_LEFT_UP, &HoistTablePanel::OnLeftUp, this);
   BindTableHoverEvents(table, this, &HoistTablePanel::OnMouseMove,
                        &HoistTablePanel::OnMouseLeave);
@@ -432,7 +431,7 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &HoistTablePanel::OnSelectionChanged, this);
 
-  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &HoistTablePanel::OnContextMenu,
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &HoistTablePanel::OnContextMenu,
               this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &HoistTablePanel::OnColumnSorted,
               this);
@@ -659,13 +658,7 @@ void HoistTablePanel::ReloadData() {
     RiggingPanel::Instance()->RefreshData();
 }
 
-// Keeps right-click reserved for row-level actions without opening cell editors.
 void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
-  event.Skip(false);
-}
-
-// Handles cell editing workflows and avoids expensive refreshes when no row values change.
-void HoistTablePanel::OnCellEditRequested(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   const auto namedColumn = TableColumnIndices::FromIndex<HoistColumn>(col);
@@ -968,7 +961,6 @@ void HoistTablePanel::OnCellEditRequested(wxDataViewEvent &event) {
   }
 }
 
-// Captures mouse focus for drag selection inside the hoist table.
 void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
   wxDataViewItem item;
   wxDataViewColumn *col;
@@ -983,24 +975,6 @@ void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
   evt.Skip();
 }
 
-// Starts the cell editing workflow for the double-clicked table cell.
-void HoistTablePanel::OnLeftDClick(wxMouseEvent &evt) {
-  wxDataViewItem item;
-  wxDataViewColumn *column = nullptr;
-  table->HitTest(evt.GetPosition(), item, column);
-  if (!item.IsOk() || column == nullptr) {
-    evt.Skip();
-    return;
-  }
-
-  wxDataViewEvent editEvent(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, table->GetId());
-  editEvent.SetEventObject(table);
-  editEvent.SetItem(item);
-  editEvent.SetColumn(table->GetColumnPosition(column));
-  OnCellEditRequested(editEvent);
-}
-
-// Releases drag-selection capture after hoist table mouse interactions.
 void HoistTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
     dragSelecting = false;

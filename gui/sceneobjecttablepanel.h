@@ -70,7 +70,6 @@ private:
     void InitializeTable();
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);
-    void OnCellEditRequested(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();
     std::string UuidForItem(const wxDataViewItem& item) const;

@@ -104,7 +104,6 @@ private:
 
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);
-    void OnCellEditRequested(wxDataViewEvent& event);
     void OnItemActivated(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();
@@ -114,7 +113,6 @@ private:
                     const std::vector<std::string>& selectedUuids,
                     const std::vector<wxString>* oldPaths = nullptr);
     void OnLeftDown(wxMouseEvent& evt);
-    void OnLeftDClick(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnMouseLeave(wxMouseEvent& evt);

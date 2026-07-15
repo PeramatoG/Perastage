@@ -233,8 +233,9 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
               &FixtureTablePanel::OnSelectionChanged, this);
 
   table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
+              &FixtureTablePanel::OnItemActivated, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
               &FixtureTablePanel::OnContextMenu, this);
-  table->Bind(wxEVT_LEFT_DCLICK, &FixtureTablePanel::OnLeftDClick, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
 
@@ -480,14 +481,9 @@ void FixtureTablePanel::ReloadData() {
   table->Thaw();
 }
 
-// Opens the fixture edit dialog for the right-clicked table row.
-void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
-  OnItemActivated(event);
-}
-
-// Handles cell editing actions and only applies scene updates when data
+// Handles context-menu editing actions and only applies scene updates when data
 // actually changes.
-void FixtureTablePanel::OnCellEditRequested(wxDataViewEvent &event) {
+void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   const auto namedColumn = FixtureTableColumns::FromIndex(col);
@@ -1496,23 +1492,6 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
 
 // Captures mouse focus for drag-style interactions inside the table.
 void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) { evt.Skip(); }
-
-// Starts the cell editing workflow for the double-clicked table cell.
-void FixtureTablePanel::OnLeftDClick(wxMouseEvent &evt) {
-  wxDataViewItem item;
-  wxDataViewColumn *column = nullptr;
-  table->HitTest(evt.GetPosition(), item, column);
-  if (!item.IsOk() || column == nullptr) {
-    evt.Skip();
-    return;
-  }
-
-  wxDataViewEvent editEvent(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, table->GetId());
-  editEvent.SetEventObject(table);
-  editEvent.SetItem(item);
-  editEvent.SetColumn(table->GetColumnPosition(column));
-  OnCellEditRequested(editEvent);
-}
 
 // Releases mouse capture after table drag-style interactions finish.
 void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) { evt.Skip(); }

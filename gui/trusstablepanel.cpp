@@ -249,13 +249,15 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
-  table->Bind(wxEVT_LEFT_DCLICK, &TrussTablePanel::OnLeftDClick, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                 &TrussTablePanel::OnSelectionChanged, this);
-  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &TrussTablePanel::OnContextMenu,
-              this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+              &TrussTablePanel::OnContextMenu, this);
+
+  table->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,
+              &TrussTablePanel::OnItemActivated, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &TrussTablePanel::OnColumnSorted,
               this);
 
@@ -466,14 +468,9 @@ void TrussTablePanel::ReloadData()
         SummaryPanel::Instance()->ShowTrussSummary();
 }
 
-// Opens the truss edit dialog for the right-clicked table row.
-void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
-  OnItemActivated(event);
-}
-
-// Handles cell editing workflows and avoids expensive refreshes when no
+// Handles context-menu editing workflows and avoids expensive refreshes when no
 // row values change.
-void TrussTablePanel::OnCellEditRequested(wxDataViewEvent &event) {
+void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
   const auto namedColumn = TableColumnIndices::FromIndex<TrussColumn>(col);
@@ -769,7 +766,6 @@ void TrussTablePanel::OnCellEditRequested(wxDataViewEvent &event) {
     }
 }
 
-// Captures mouse focus for drag selection inside the truss table.
 void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
     wxDataViewItem item;
@@ -786,24 +782,6 @@ void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
     evt.Skip();
 }
 
-// Starts the cell editing workflow for the double-clicked table cell.
-void TrussTablePanel::OnLeftDClick(wxMouseEvent &evt) {
-  wxDataViewItem item;
-  wxDataViewColumn *column = nullptr;
-  table->HitTest(evt.GetPosition(), item, column);
-  if (!item.IsOk() || column == nullptr) {
-    evt.Skip();
-    return;
-  }
-
-  wxDataViewEvent editEvent(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, table->GetId());
-  editEvent.SetEventObject(table);
-  editEvent.SetItem(item);
-  editEvent.SetColumn(table->GetColumnPosition(column));
-  OnCellEditRequested(editEvent);
-}
-
-// Releases drag-selection capture after truss table mouse interactions.
 void TrussTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
         dragSelecting = false;
