@@ -6,6 +6,7 @@ Changes since **v1.4.0**.
 
 ## New features
 
+- Added a Cross-table Actions viewport toolbar toggle that lets 2D and 3D hover, selection, measuring, and compatible tools work across fixtures, trusses, hoists, and scene objects instead of only the active Data Views table.
 - Added the first phase of desktop localization, including a persistent interface-language preference, restart-based language switching, packaged gettext catalog resources, and a minimal Spanish catalog for the new language settings.
 - Expanded desktop localization coverage with translated main toolbar labels, fixture-table column headers, and a larger professional Spanish catalog while preserving stable project and import data values.
 - Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.
@@ -39,6 +40,8 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Ctrl-left rectangle selection so the Cross-table Actions toggle makes it select across all object tables without also requiring Shift.
+- Fixed Windows builds for the Cross-table Actions viewport toggle by using include paths that resolve from GUI and viewport source directories.
 - Hardened layer editing and MVR persistence so layer names are treated as validated UTF-8, legacy Windows-1252 layer-name corruption can be recovered without losing objects, layer edits target stable UUIDs, and exported scene XML is re-parsed before archive writing.
 
 - Fixed GDTF editor numeric text parsing so fixture power, fixture weight, and truss dimensions compile with the macOS 15 / Xcode 16.4 toolchain while preserving locale-independent validation.

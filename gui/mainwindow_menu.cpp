@@ -78,6 +78,7 @@
 #include "logger.h"
 #include "logindialog.h"
 #include "magnet_snap.h"
+#include "../viewport_interaction_scope.h"
 #include "mainwindow_gdtf_credentials.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
@@ -244,6 +245,12 @@ void MainWindow::CreateToolBars() {
                           _("Magnet"), "magnet", wxART_MISSING_IMAGE,
                           _("Toggle Magnet snapping while dragging"),
                           wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar,
+                          ID_View_Viewport_CrossTableActions,
+                          _("Cross-table Actions"), "layers",
+                          wxART_MISSING_IMAGE,
+                          _("Toggle viewport actions across all tables"),
+                          wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
   layoutViewsToolBar->ToggleTool(
@@ -260,6 +267,10 @@ void MainWindow::CreateToolBars() {
       ID_View_Viewport_Magnet,
       GetDefaultGuiConfigServices().Preferences().GetValue(
           magnet_snap::kMagnetEnabledConfigKey) == "1");
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_CrossTableActions,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          viewport_interaction_scope::kCrossTableActionsConfigKey) == "1");
   layoutViewsToolBar->Realize();
   auiManager->AddPane(layoutViewsToolBar, wxAuiPaneInfo()
                                               .Name("LayoutViewsToolbar")

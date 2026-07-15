@@ -6,6 +6,7 @@
 #include "selection_movement_settings.h"
 #include "guiconfigservices.h"
 #include "magnet_snap.h"
+#include "../viewport_interaction_scope.h"
 
 namespace {
 
@@ -79,6 +80,17 @@ void MainWindow::SyncLeftDragMoveToolToggleState() {
           "1");
 }
 
+
+// Synchronizes the cross-table viewport-actions toolbar toggle with project settings.
+void MainWindow::SyncCrossTableActionsToolToggleState() {
+  if (!layoutViewsToolBar)
+    return;
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_CrossTableActions,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          viewport_interaction_scope::kCrossTableActionsConfigKey) == "1");
+}
+
 // Applies the persisted movement tool state to the toolbar and active viewports.
 void MainWindow::ApplyViewportMovementToolState() {
   auto &preferences = GetDefaultGuiConfigServices().Preferences();
@@ -105,6 +117,7 @@ void MainWindow::ApplyViewportMovementToolState() {
   }
   SyncAxisConstraintToolToggleState();
   SyncLeftDragMoveToolToggleState();
+  SyncCrossTableActionsToolToggleState();
   if (layoutViewsToolBar) {
     layoutViewsToolBar->ToggleTool(ID_View_Viewport_Magnet, magnetEnabled);
     layoutViewsToolBar->Refresh();
@@ -209,4 +222,21 @@ void MainWindow::OnViewportMagnet(wxCommandEvent &WXUNUSED(event)) {
                        enabled ? "1" : "0");
   preferences.SaveUserConfig();
   ApplyViewportMovementToolState();
+}
+
+// Toggles viewport actions across all table types and persists the preference.
+void MainWindow::OnViewportCrossTableActions(wxCommandEvent &WXUNUSED(event)) {
+  auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  const bool enabled =
+      preferences.GetValue(
+          viewport_interaction_scope::kCrossTableActionsConfigKey) == "1";
+  preferences.SetValue(
+      viewport_interaction_scope::kCrossTableActionsConfigKey,
+      enabled ? "0" : "1");
+  preferences.SaveUserConfig();
+  SyncCrossTableActionsToolToggleState();
+  if (viewport2DPanel)
+    viewport2DPanel->Refresh();
+  if (viewportPanel)
+    viewportPanel->Refresh();
 }

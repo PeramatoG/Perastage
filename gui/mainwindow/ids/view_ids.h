@@ -27,3 +27,4 @@ constexpr int ID_View_Viewport_MeasureTool = ID_View_Viewport_SelectTool + 1;
 constexpr int ID_View_Viewport_AxisConstraint = ID_View_Viewport_MeasureTool + 1;
 constexpr int ID_View_Viewport_LeftDragMove = ID_View_Viewport_AxisConstraint + 1;
 constexpr int ID_View_Viewport_Magnet = ID_View_Viewport_LeftDragMove + 1;
+constexpr int ID_View_Viewport_CrossTableActions = ID_View_Viewport_Magnet + 1;

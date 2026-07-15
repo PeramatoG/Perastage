@@ -52,6 +52,7 @@
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
 #include "selection_movement_settings.h"
+#include "../viewport_interaction_scope.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
 #include "fixturepatchdialog.h"
@@ -677,6 +678,13 @@ Viewer3DController::HoverPickTarget ToHoverPickTarget(Viewer3DPanel::HoverTarget
     }
 }
 
+// Reports whether viewport interactions should ignore the active table scope.
+bool IsCrossTableViewportActionsEnabled()
+{
+    return ConfigManager::Get().GetValue(
+               viewport_interaction_scope::kCrossTableActionsConfigKey) == "1";
+}
+
 // Runs a guarded hover pick query for the requested target table.
 bool QueryHoverUuid(Viewer3DController& controller,
                     Viewer3DPanel::HoverTargetTable target,
@@ -703,6 +711,29 @@ bool QueryHoverUuid(Viewer3DController& controller,
     if (!found)
         outUuid.clear();
     return found;
+}
+
+// Runs hover pick queries across all selectable object tables in priority order.
+bool QueryHoverUuidAcrossTables(Viewer3DController& controller, int mouseX,
+                                int mouseY, int width, int height,
+                                std::string& outUuid,
+                                Viewer3DPanel::HoverTargetTable& outTarget,
+                                bool confirmDepth = false)
+{
+    const Viewer3DPanel::HoverTargetTable targets[] = {
+        Viewer3DPanel::HoverTargetTable::Fixtures,
+        Viewer3DPanel::HoverTargetTable::Trusses,
+        Viewer3DPanel::HoverTargetTable::SceneObjects};
+    for (const auto target : targets) {
+        if (QueryHoverUuid(controller, target, mouseX, mouseY, width, height,
+                           outUuid, confirmDepth)) {
+            outTarget = target;
+            return true;
+        }
+    }
+    outTarget = Viewer3DPanel::HoverTargetTable::None;
+    outUuid.clear();
+    return false;
 }
 
 // Projects a world-space point to framebuffer-space pixels using current GL matrices.
@@ -1093,7 +1124,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_lastHiddenLayersFingerprint = hiddenLayersFingerprint;
     }
 
-    const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
+    const HoverTargetTable activeTable = IsCrossTableViewportActionsEnabled() ? HoverTargetTable::Fixtures : ResolveActiveHoverTargetTable();
 
     if (activeTable != m_lastHoverTargetTable) {
         m_forceHoverQuery = true;
@@ -1130,8 +1161,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     if (shouldRunHoverQuery) {
         const auto hoverQueryStart = std::chrono::steady_clock::now();
-        found = QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y,
-                               w, h, newUuid);
+        HoverTargetTable pickedTable = activeTable;
+        if (IsCrossTableViewportActionsEnabled())
+            found = QueryHoverUuidAcrossTables(m_controller, pickPos.x, pickPos.y,
+                                               w, h, newUuid, pickedTable);
+        else
+            found = QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y,
+                                   w, h, newUuid);
         const auto hoverQueryElapsedMs =
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - hoverQueryStart)
@@ -1658,7 +1694,8 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
     {
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
-            m_rectSelectionAcrossAllTables = event.ShiftDown();
+            m_rectSelectionAcrossAllTables =
+                event.ShiftDown() || IsCrossTableViewportActionsEnabled();
             m_controller.SetInteracting(true);
             m_isInteracting = true;
             m_cameraMoving = true;
@@ -1787,8 +1824,15 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
             return;
         std::string uuid;
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-        const HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
-        bool found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
+        HoverTargetTable activeTable = ResolveActiveHoverTargetTable();
+        if (IsCrossTableViewportActionsEnabled())
+            activeTable = HoverTargetTable::Fixtures;
+        HoverTargetTable pickedTable = activeTable;
+        bool found = IsCrossTableViewportActionsEnabled()
+                         ? QueryHoverUuidAcrossTables(m_controller, pickPos.x,
+                                                       pickPos.y, w, h, uuid,
+                                                       pickedTable, true)
+                         : QueryHoverUuid(m_controller, activeTable, pickPos.x,
                                     pickPos.y, w, h, uuid, true);
         if (!found && !m_hoverUuid.empty()) {
             uuid = m_hoverUuid;
@@ -1798,15 +1842,19 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         ConfigManager& cfg = ConfigManager::Get();
         if (m_measureToolEnabled) {
             if (!found) {
-                found = QueryHoverUuid(m_controller, activeTable, pickPos.x,
-                                       pickPos.y, w, h, uuid, false);
+                found = IsCrossTableViewportActionsEnabled()
+                            ? QueryHoverUuidAcrossTables(m_controller, pickPos.x,
+                                                          pickPos.y, w, h, uuid,
+                                                          pickedTable, false)
+                            : QueryHoverUuid(m_controller, activeTable, pickPos.x,
+                                             pickPos.y, w, h, uuid, false);
             }
             if (!found && !m_hoverUuid.empty()) {
                 uuid = m_hoverUuid;
                 found = true;
             }
             if (found) {
-                const auto worldPos = ResolveMeasureWorldFromUuid(activeTable, uuid);
+                const auto worldPos = ResolveMeasureWorldFromUuid(pickedTable, uuid);
                 if (worldPos) {
                     if (!m_measureHasAnchor || m_measureHasCommittedTarget) {
                         ResetMeasureState();
