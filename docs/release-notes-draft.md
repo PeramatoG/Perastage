@@ -12,6 +12,7 @@ Changes since **v1.4.0**.
 - Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.
 - Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
+- Added a Scene Object to Truss conversion tool in the Tools menu and 2D/3D scene-object context menus, converting all scene objects that share the selected model file into trusses while updating tables, viewports, and rigging calculations.
 
 ## Improvements
 
@@ -43,6 +44,7 @@ Changes since **v1.4.0**.
 - Fixed Edit Truss so converting a model-only MVR truss from a shared `.3ds` geometry into a Perastage-generated GDTF updates every truss that still used that same source geometry, while preserving each truss instance placement and load state.
 - Fixed Ctrl-left rectangle selection so the Cross-table Actions toggle makes it select across all object tables without also requiring Shift.
 - Fixed Windows builds for the Cross-table Actions viewport toggle by using include paths that resolve from GUI and viewport source directories.
+- Fixed the Scene Object to Truss conversion command so it refreshes the existing scene-object table member correctly on Windows builds.
 - Hardened layer editing and MVR persistence so layer names are treated as validated UTF-8, legacy Windows-1252 layer-name corruption can be recovered without losing objects, layer edits target stable UUIDs, and exported scene XML is re-parsed before archive writing.
 
 - Fixed GDTF editor numeric text parsing so fixture power, fixture weight, and truss dimensions compile with the macOS 15 / Xcode 16.4 toolchain while preserving locale-independent validation.

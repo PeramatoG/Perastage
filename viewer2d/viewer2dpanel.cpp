@@ -42,6 +42,7 @@
 
 #include "viewer2dpanel.h"
 #include "mainwindow.h"
+#include "../gui/mainwindow/ids/tools_ids.h"
 #include "editable_focus_utils.h"
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
@@ -3375,11 +3376,6 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     return;
   }
 
-  if (!(FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())) {
-    event.Skip();
-    return;
-  }
-
   const RenderSize renderSize = ResolveRenderSize(this);
   const int w = renderSize.width;
   const int h = renderSize.height;
@@ -3395,6 +3391,27 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   wxPoint pos;
   std::string hitUuid;
   const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
+  std::string sceneObjectUuid;
+  if (m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label,
+                                         pos, &sceneObjectUuid)) {
+    wxMenu menu;
+    constexpr int kConvertSceneObjectToTrussId = wxID_HIGHEST + 1300;
+    menu.Append(kConvertSceneObjectToTrussId, "Convert to Truss");
+    const int selectedId = GetPopupMenuSelectionFromUser(menu, event.GetPosition());
+    if (selectedId == kConvertSceneObjectToTrussId) {
+      ConfigManager::Get().SetSelectedSceneObjects({sceneObjectUuid});
+      wxCommandEvent command(wxEVT_MENU, ID_Tools_ConvertSceneObjectsToTruss);
+      if (MainWindow::Instance())
+        MainWindow::Instance()->ProcessWindowEvent(command);
+    }
+    return;
+  }
+
+  if (!(FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())) {
+    event.Skip();
+    return;
+  }
+
   if (m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label,
                                      pos, &hitUuid, true)) {
     event.Skip();
