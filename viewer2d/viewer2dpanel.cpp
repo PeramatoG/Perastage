@@ -2527,11 +2527,12 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
     case PickQueryKind::None:
       break;
     }
+    // This diagnostic only reports cursor hit-testing after a scene refresh.
     Logger::Instance().Log(
         Logger::Level::Debug,
-        "Viewer2DPanel: first pick after scene update; updateSceneRequested=true reload=" +
+        "Viewer2DPanel: first cursor hit-test after scene update; reloadRequested=" +
             std::string(m_lastUpdateSceneReloadRequested ? "true" : "false") +
-            " query='" + queryName + "' found=" +
+            " query='" + queryName + "' objectUnderCursor=" +
             std::string(found ? "true" : "false") + " sceneGeneration=" +
             std::to_string(m_pickCacheSceneGeneration) + ".");
     m_logFirstPickAfterSceneUpdate = false;

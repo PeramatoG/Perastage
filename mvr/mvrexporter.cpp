@@ -2490,7 +2490,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       src = PathUtils::PathFromUtf8(scene.basePath) / src;
     std::error_code ec;
     fs::path weak = fs::weakly_canonical(src, ec);
-    return ec ? fs::absolute(src).generic_string() : weak.generic_string();
+    if (!ec)
+      return PathUtils::PathToUtf8(weak);
+    ec.clear();
+    fs::path absolute = fs::absolute(src, ec);
+    return PathUtils::PathToUtf8(ec ? src.lexically_normal()
+                                    : absolute.lexically_normal());
+  };
+
+  auto buildSourceIdentityKey = [&](const std::string &sourcePath) {
+    return PathUtils::BuildFilesystemIdentityKey(
+        PathUtils::PathFromUtf8(sourcePath));
   };
 
   auto findSceneResourceByFileName =
@@ -2558,14 +2568,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     std::string normalizedSource = resolveExistingResourceSourcePath(rawSource);
     if (normalizedSource.empty())
       normalizedSource = normalizeSourcePath(rawSource);
-    auto srcIt = sourceToArchivePath.find(normalizedSource);
+    const std::string sourceIdentityKey = buildSourceIdentityKey(normalizedSource);
+    auto srcIt = sourceToArchivePath.find(sourceIdentityKey);
     if (allowReuseBySource && srcIt != sourceToArchivePath.end())
       return srcIt->second;
 
     std::string archivePath =
         EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
     if (allowReuseBySource)
-      sourceToArchivePath[normalizedSource] = archivePath;
+      sourceToArchivePath[sourceIdentityKey] = archivePath;
     resourceEntries.push_back({fs::path(normalizedSource), archivePath});
     return archivePath;
   };
@@ -3192,7 +3203,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     std::string fixtureGdtfArchivePath;
     if (needsPhysicalPatch) {
       std::ostringstream patchKey;
-      patchKey << normalizeSourcePath(fixtureSourceGdtf) << '|'
+      patchKey << buildSourceIdentityKey(normalizeSourcePath(fixtureSourceGdtf))
+               << '|'
                << (fixtureOverrides.hasWeightKg ? fixtureOverrides.weightKg
                                                 : -1.0f)
                << '|'

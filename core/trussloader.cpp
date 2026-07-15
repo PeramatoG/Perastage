@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <fstream>
@@ -179,25 +180,33 @@ static bool ExtractArchive(const fs::path &archivePath, const fs::path &destinat
 }
 
 
+// Computes a deterministic FNV-1a hash for extraction cache directory names.
+static std::string StableHashString(const std::string &text) {
+  uint64_t hash = 14695981039346656037ull;
+  for (unsigned char c : text) {
+    hash ^= c;
+    hash *= 1099511628211ull;
+  }
+  std::ostringstream out;
+  out << std::hex << hash;
+  return out.str();
+}
+
 // Builds a stable extraction cache path for a GDTF archive.
 static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
-  std::error_code ec;
-  fs::path normalized = fs::weakly_canonical(gdtfPath, ec);
-  if (ec)
-    normalized = fs::absolute(gdtfPath, ec);
-  if (ec)
-    normalized = gdtfPath;
-
-  std::string key = normalized.generic_string();
+  std::string key = PathUtils::BuildFilesystemIdentityKey(gdtfPath);
   std::error_code timeEc;
   const auto writeTime = fs::last_write_time(gdtfPath, timeEc);
   if (!timeEc)
     key += "#" +
            std::to_string(static_cast<long long>(writeTime.time_since_epoch().count()));
+  std::error_code sizeEc;
+  const auto size = fs::file_size(gdtfPath, sizeEc);
+  if (!sizeEc)
+    key += "#" + std::to_string(static_cast<unsigned long long>(size));
 
-  const std::size_t hashValue = std::hash<std::string>{}(key);
   fs::path cacheRoot = fs::temp_directory_path() / "perastage-truss-gdtf-cache";
-  return cacheRoot / std::to_string(hashValue);
+  return cacheRoot / StableHashString(key);
 }
 
 // Finds the first candidate path that exists below the provided base directory.
@@ -225,6 +234,11 @@ static void LogTrussDefinitionLoadResult(const fs::path &path, const std::string
 }
 
 } // namespace
+
+// Returns the extraction cache directory used for a GDTF archive in tests.
+fs::path BuildGdtfExtractionCacheDirForTesting(const fs::path &gdtfPath) {
+  return BuildGdtfExtractionCacheDir(gdtfPath);
+}
 
 // Returns the file dialog wildcard matching the supported truss loader inputs.
 std::string GetTrussDefinitionFileDialogWildcard() {
