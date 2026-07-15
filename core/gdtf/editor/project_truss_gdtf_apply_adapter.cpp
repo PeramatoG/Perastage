@@ -2,6 +2,8 @@
 
 #include "filesystem_path_utils.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <set>
 #include <system_error>
@@ -17,6 +19,55 @@ ProjectTrussGdtfApplyResult Fail(std::string message) {
   result.common.validationErrors.push_back(message);
   result.common.diagnostics.push_back(std::move(message));
   return result;
+}
+
+// Trims ASCII whitespace from a resource reference.
+std::string TrimResourceReference(std::string value) {
+  auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
+  value.erase(value.begin(),
+              std::find_if(value.begin(), value.end(), [&](char ch) {
+                return !isSpace(static_cast<unsigned char>(ch));
+              }));
+  value.erase(std::find_if(value.rbegin(), value.rend(), [&](char ch) {
+                return !isSpace(static_cast<unsigned char>(ch));
+              }).base(),
+              value.end());
+  return value;
+}
+
+// Builds a comparison key for scene resource references.
+std::string NormalizeResourceReferenceKey(std::string value) {
+  value = TrimResourceReference(std::move(value));
+  std::replace(value.begin(), value.end(), '\\', '/');
+  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return value;
+}
+
+// Checks whether a truss still uses the same source-only geometry.
+bool MatchesSourceOnlyTrussGeometry(const Truss &truss,
+                                    const std::string &sourceSymbolKey) {
+  return !sourceSymbolKey.empty() && TrimResourceReference(truss.gdtfSpec).empty() &&
+         NormalizeResourceReferenceKey(truss.symbolFile) == sourceSymbolKey;
+}
+
+// Copies generated type metadata while preserving instance data.
+Truss BuildGeneratedTypeUpdate(const Truss &instance, const Truss &generatedType) {
+  Truss updated = instance;
+  updated.manufacturer = generatedType.manufacturer;
+  updated.model = generatedType.model;
+  updated.lengthMm = generatedType.lengthMm;
+  updated.widthMm = generatedType.widthMm;
+  updated.heightMm = generatedType.heightMm;
+  updated.weightKg = generatedType.weightKg;
+  updated.crossSection = generatedType.crossSection;
+  updated.gdtfSpec = generatedType.gdtfSpec;
+  updated.modelFile = generatedType.modelFile;
+  updated.perastageAuxGdtfArchivePath = generatedType.perastageAuxGdtfArchivePath;
+  updated.gdtfMode = generatedType.gdtfMode.empty() ? instance.gdtfMode
+                                                    : generatedType.gdtfMode;
+  return updated;
 }
 
 // Checks whether a changed-field set contains a field.
@@ -93,7 +144,13 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   if (!HasOnlySupportedFields(request))
     return Fail("Truss apply request contains unsupported changed fields.");
 
-  Truss prepared = it->second;
+  const Truss original = it->second;
+  const std::string originalSymbolKey =
+      TrimResourceReference(original.gdtfSpec).empty()
+          ? NormalizeResourceReferenceKey(original.symbolFile)
+          : std::string();
+
+  Truss prepared = original;
   prepared.manufacturer = request.values.manufacturer.value_or(prepared.manufacturer);
   prepared.model = request.values.modelName.value_or(prepared.model);
   prepared.lengthMm = request.values.trussLengthMm.value_or(prepared.lengthMm);
@@ -156,12 +213,25 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
 
   result.resultingTruss = prepared;
   result.resultingProjectReference = prepared.gdtfSpec;
+  if (input.trusses) {
+    for (const auto &[uuid, truss] : *input.trusses) {
+      if (uuid == request.stableHostId) {
+        result.resultingTrusses.emplace_back(uuid, prepared);
+      } else if (MatchesSourceOnlyTrussGeometry(truss, originalSymbolKey)) {
+        result.resultingTrusses.emplace_back(
+            uuid, BuildGeneratedTypeUpdate(truss, prepared));
+      }
+    }
+  }
   result.canonicalFileName = canonical;
   result.generationOccurred = true;
   result.existingOwnedFileUpdated = existedBefore;
   result.newFileCreated = !existedBefore;
   result.externalFileCreatedOrModified = true;
-  result.affectedTrussUuids.push_back(request.stableHostId);
+  for (const auto &[uuid, truss] : result.resultingTrusses)
+    result.affectedTrussUuids.push_back(uuid);
+  if (result.affectedTrussUuids.empty())
+    result.affectedTrussUuids.push_back(request.stableHostId);
   result.tableResynchronizationRequired = true;
   result.previewRefreshRequired = true;
   result.common.changedGdtfFields = request.changedDocumentFields;
