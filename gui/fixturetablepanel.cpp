@@ -31,6 +31,7 @@
 #include "gdtfloader.h"
 #include "guiconfigservices.h"
 #include "hoist_load_recalculation_prompt.h"
+#include "hang_position_dialog.h"
 #include "layerpanel.h"
 #include "mainwindow.h"
 #include "matrixutils.h"
@@ -950,6 +951,24 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     const auto updateType = UpdateTypeForColumn(col);
     UpdateSceneData(true, updateType);
     RefreshViewersForFixtureUpdate(updateType);
+    return;
+  }
+
+  if (*namedColumn == FixtureTableColumns::Column::HangPosition) {
+    std::vector<unsigned int> selectedRows;
+    for (const auto &it : selections) {
+      const int row = table->ItemToRow(it);
+      if (row != wxNOT_FOUND)
+        selectedRows.push_back(static_cast<unsigned int>(row));
+    }
+
+    HangPositionDialogResult result;
+    if (!ShowHangPositionDialog(this, current.GetString(), &result))
+      return;
+    ApplySharedHangPositionChanges(result, true, selectedRows, false, {}, false,
+                                    {});
+    ResyncRows(oldOrder, selectedUuids);
+    RefreshViewersForFixtureUpdate(SceneDataUpdateType::kMetadataOnly);
     return;
   }
 

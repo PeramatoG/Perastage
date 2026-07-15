@@ -25,6 +25,7 @@
 #include "dummyprofilelibrary.h"
 #include "editable_focus_utils.h"
 #include "guiconfigservices.h"
+#include "hang_position_dialog.h"
 #include "hoist_load_recalculation_prompt.h"
 #include "hoist_weight_distribution.h"
 #include "layerpanel.h"
@@ -829,6 +830,21 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   wxString value;
   if (*namedColumn == HoistColumn::Load) {
     value = current.GetString().Trim(true).Trim(false);
+  } else if (*namedColumn == HoistColumn::HangPosition) {
+    std::vector<unsigned int> selectedRows;
+    for (const auto &it : selections) {
+      const int row = table->ItemToRow(it);
+      if (row != wxNOT_FOUND)
+        selectedRows.push_back(static_cast<unsigned int>(row));
+    }
+
+    HangPositionDialogResult result;
+    if (!ShowHangPositionDialog(this, current.GetString(), &result))
+      return;
+    ApplySharedHangPositionChanges(result, false, {}, false, {}, true,
+                                    selectedRows);
+    ResyncRows(oldOrder, selectedUuids);
+    return;
   } else {
     wxTextEntryDialog dlg(this, _("Edit value:"), columnLabels[col],
                           current.GetString());

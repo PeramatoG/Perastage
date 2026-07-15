@@ -22,6 +22,7 @@
 #include "configmanager.h"
 #include "selection_origin_token.h"
 #include "guiconfigservices.h"
+#include "hang_position_dialog.h"
 #include "consolepanel.h"
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
@@ -633,6 +634,23 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
         return;
     }
+
+  if (*namedColumn == TrussColumn::HangPosition) {
+    std::vector<unsigned int> selectedRows;
+    for (const auto &it : selections) {
+      const int row = table->ItemToRow(it);
+      if (row != wxNOT_FOUND)
+        selectedRows.push_back(static_cast<unsigned int>(row));
+    }
+
+    HangPositionDialogResult result;
+    if (!ShowHangPositionDialog(this, current.GetString(), &result))
+      return;
+    ApplySharedHangPositionChanges(result, false, {}, true, selectedRows, false,
+                                    {});
+    ResyncRows(oldOrder, selectedUuids);
+    return;
+  }
 
   wxTextEntryDialog dlg(this, _("Edit value:"), columnLabels[col],
                         current.GetString());

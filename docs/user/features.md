@@ -98,6 +98,7 @@ Additional safeguards include:
 ### Data tables
 
 - Dedicated tables for fixtures, trusses, hoists, and objects.
+- Fixture, truss, and hoist Hang Position cells use the shared Hang Position dialog, which lists existing MVR positions and can add, rename, or delete positions across affected rigging items when confirmed.
 - Add Fixture, Add Truss, and Add Object offer a continuous placement mode that
   disables the fixed quantity field and attaches one new element at a time to
   the pointer in the visible 2D or 3D viewer. Left-click confirms each element
