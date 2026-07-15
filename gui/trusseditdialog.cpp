@@ -687,8 +687,13 @@ bool TrussEditDialog::ApplyChanges() {
     GetDefaultGuiConfigServices().LegacyConfigManager().PushUndoState(
         "edit truss");
 
-  if (trussApplyResult.resultingTruss && row >= 0 &&
-      static_cast<size_t>(row) < panel->rowUuids.size()) {
+  if (!trussApplyResult.resultingTrusses.empty()) {
+    auto &scene =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+    for (const auto &[uuid, truss] : trussApplyResult.resultingTrusses)
+      scene.trusses[uuid] = truss;
+  } else if (trussApplyResult.resultingTruss && row >= 0 &&
+             static_cast<size_t>(row) < panel->rowUuids.size()) {
     auto &scene =
         GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
     scene.trusses[panel->rowUuids[static_cast<size_t>(row)]] =

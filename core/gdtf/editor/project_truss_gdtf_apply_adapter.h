@@ -7,6 +7,7 @@
 #include <functional>
 #include <unordered_map>
 #include <optional>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,7 @@ struct ProjectTrussGdtfApplyInput {
 struct ProjectTrussGdtfApplyResult {
   GdtfApplyResult common;
   std::optional<Truss> resultingTruss;
+  std::vector<std::pair<std::string, Truss>> resultingTrusses;
   std::string resultingProjectReference;
   std::string canonicalFileName;
   std::vector<std::string> affectedTrussUuids;

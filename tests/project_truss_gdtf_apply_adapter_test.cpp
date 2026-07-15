@@ -50,10 +50,24 @@ gdtf::ProjectTrussGdtfApplyServices MakeServices(bool failGeneration = false,
 // Exercises validation, no-op, generation, failure, paths, and stable UUID behavior.
 int main() {
   const auto root = std::filesystem::temp_directory_path() / "perastage-truss-adapter-ü";
-  std::filesystem::create_directories(root);
+  std::filesystem::create_directories(root / "models");
+  std::ofstream(root / "models" / "shared.3ds").put('s');
+  std::ofstream(root / "models" / "other.3ds").put('o');
   std::unordered_map<std::string, Truss> trusses;
-  trusses.emplace("other", MakeTruss("other"));
-  trusses.emplace("target", MakeTruss("target"));
+  Truss other = MakeTruss("other");
+  other.symbolFile = "models/other.3ds";
+  trusses.emplace("other", other);
+  Truss target = MakeTruss("target");
+  target.symbolFile = "models/shared.3ds";
+  trusses.emplace("target", target);
+  Truss shared = MakeTruss("shared");
+  shared.symbolFile = "models\\shared.3ds";
+  shared.transform.o[0] = 42.0f;
+  trusses.emplace("shared", shared);
+  Truss alreadyGdtf = MakeTruss("already-gdtf");
+  alreadyGdtf.symbolFile = "models/shared.3ds";
+  alreadyGdtf.gdtfSpec = "existing.gdtf";
+  trusses.emplace("already-gdtf", alreadyGdtf);
 
   gdtf::GdtfApplyRequest request;
   request.contextKind = gdtf::GdtfEditorContextKind::ProjectTruss;
@@ -76,6 +90,20 @@ int main() {
   assert(result.resultingTruss);
   assert(result.resultingTruss->model == "ModelB");
   assert(result.resultingTruss->gdtfSpec.find("ModelB@Perastage.gdtf") != std::string::npos);
+  assert(result.resultingTrusses.size() == 2);
+  bool sawTarget = false;
+  bool sawShared = false;
+  for (const auto &[uuid, truss] : result.resultingTrusses) {
+    if (uuid == "target")
+      sawTarget = truss.model == "ModelB" && !truss.gdtfSpec.empty();
+    if (uuid == "shared")
+      sawShared = truss.model == "ModelB" && !truss.gdtfSpec.empty() &&
+                  truss.transform.o[0] == 42.0f;
+    assert(uuid != "already-gdtf");
+    assert(uuid != "other");
+  }
+  assert(sawTarget);
+  assert(sawShared);
   assert(trusses["target"].model == "Model");
 
   request.values.weightKg = -1.0f;
