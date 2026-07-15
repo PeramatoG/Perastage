@@ -40,6 +40,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed Ctrl-left rectangle selection so the Cross-table Actions toggle makes it select across all object tables without also requiring Shift.
 - Fixed Windows builds for the Cross-table Actions viewport toggle by using include paths that resolve from GUI and viewport source directories.
 - Hardened layer editing and MVR persistence so layer names are treated as validated UTF-8, legacy Windows-1252 layer-name corruption can be recovered without losing objects, layer edits target stable UUIDs, and exported scene XML is re-parsed before archive writing.
 

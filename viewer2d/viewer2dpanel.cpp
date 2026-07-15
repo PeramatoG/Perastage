@@ -2821,7 +2821,8 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     if (event.ControlDown()) {
       m_dragMode = DragMode::RectSelection;
       m_rectSelecting = true;
-      m_rectSelectionAcrossAllTables = event.ShiftDown();
+      m_rectSelectionAcrossAllTables =
+          event.ShiftDown() || IsCrossTableViewportActionsEnabled();
       m_rectSelectStart = m_lastMousePos;
       m_rectSelectEnd = m_lastMousePos;
       return;

@@ -1694,7 +1694,8 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
     {
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
-            m_rectSelectionAcrossAllTables = event.ShiftDown();
+            m_rectSelectionAcrossAllTables =
+                event.ShiftDown() || IsCrossTableViewportActionsEnabled();
             m_controller.SetInteracting(true);
             m_isInteracting = true;
             m_cameraMoving = true;
