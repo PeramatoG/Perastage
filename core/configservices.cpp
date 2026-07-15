@@ -27,37 +27,6 @@ class wxZipStreamLink;
 namespace {
 namespace fs = std::filesystem;
 
-// Appends missing selected UUIDs for one scene entity type to the integrity report.
-template <typename MapT>
-void AppendSelectionIntegrityIssue(std::vector<SelectionIntegrityIssue> &issues,
-                                   const std::string &entityType,
-                                   const std::vector<std::string> &selected,
-                                   const MapT &entities,
-                                   std::size_t sampleLimit) {
-  SelectionIntegrityIssue issue;
-  issue.entityType = entityType;
-  for (const std::string &uuid : selected) {
-    if (entities.find(uuid) != entities.end())
-      continue;
-    ++issue.missingCount;
-    if (issue.sampleUuids.size() < sampleLimit)
-      issue.sampleUuids.push_back(uuid);
-  }
-  if (issue.missingCount > 0)
-    issues.push_back(std::move(issue));
-}
-
-// Joins a bounded list of UUIDs for concise diagnostics.
-std::string JoinUuidSample(const std::vector<std::string> &uuids) {
-  std::ostringstream out;
-  for (std::size_t i = 0; i < uuids.size(); ++i) {
-    if (i > 0)
-      out << ",";
-    out << uuids[i];
-  }
-  return out.str();
-}
-
 std::string Utf8StringFromPath(const fs::path &path) {
   const auto utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
@@ -552,40 +521,6 @@ bool UserPreferencesStore::SaveUserConfig() const {
   return SaveToFile(GetUserConfigFile());
 }
 
-
-// Finds selected UUIDs that no longer exist in the loaded scene containers.
-std::vector<SelectionIntegrityIssue> FindStaleSelectionUuids(
-    const MvrScene &scene, const SelectionState &selection,
-    std::size_t sampleLimit) {
-  std::vector<SelectionIntegrityIssue> issues;
-  AppendSelectionIntegrityIssue(issues, "fixtures", selection.GetSelectedFixtures(),
-                                scene.fixtures, sampleLimit);
-  AppendSelectionIntegrityIssue(issues, "trusses", selection.GetSelectedTrusses(),
-                                scene.trusses, sampleLimit);
-  AppendSelectionIntegrityIssue(issues, "supports", selection.GetSelectedSupports(),
-                                scene.supports, sampleLimit);
-  AppendSelectionIntegrityIssue(issues, "sceneObjects",
-                                selection.GetSelectedSceneObjects(),
-                                scene.sceneObjects, sampleLimit);
-  return issues;
-}
-
-// Logs a bounded post-reload warning when persisted selections reference missing UUIDs.
-void LogSelectionIntegrityAfterSceneReload(const MvrScene &scene,
-                                           const SelectionState &selection) {
-  const auto issues = FindStaleSelectionUuids(scene, selection);
-  if (issues.empty())
-    return;
-
-  std::ostringstream msg;
-  msg << "Selection integrity after scene reload: stale selected UUIDs found; "
-      << "action=preserved";
-  for (const auto &issue : issues) {
-    msg << " " << issue.entityType << " missing=" << issue.missingCount
-        << " sample=[" << JoinUuidSample(issue.sampleUuids) << "]";
-  }
-  Logger::Instance().Log(Logger::Level::Warn, msg.str());
-}
 
 const std::vector<std::string> &SelectionState::GetSelectedFixtures() const {
   return selectedFixtures;
