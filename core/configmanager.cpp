@@ -690,7 +690,8 @@ bool ConfigManager::SaveUserConfig() const {
 
 void ConfigManager::PushUndoState(const std::string &description) {
   historyManager.PushUndoState(projectSession.GetScene(), selectionState,
-                               description, GetValue(kLayoutsConfigKey));
+                               description, GetValue(kLayoutsConfigKey),
+                               &layerVisibilityState);
   projectSession.Touch();
 }
 
@@ -702,7 +703,7 @@ std::string ConfigManager::Undo() {
   std::optional<std::string> layoutsCollection;
   std::string action =
       historyManager.Undo(projectSession.GetScene(), selectionState,
-                          &layoutsCollection);
+                          &layoutsCollection, &layerVisibilityState);
   if (!action.empty() || layoutsCollection.has_value()) {
     if (layoutsCollection.has_value())
       SetValue(kLayoutsConfigKey, *layoutsCollection);
@@ -718,7 +719,7 @@ std::string ConfigManager::Redo() {
   std::optional<std::string> layoutsCollection;
   std::string action =
       historyManager.Redo(projectSession.GetScene(), selectionState,
-                          &layoutsCollection);
+                          &layoutsCollection, &layerVisibilityState);
   if (!action.empty() || layoutsCollection.has_value()) {
     if (layoutsCollection.has_value())
       SetValue(kLayoutsConfigKey, *layoutsCollection);

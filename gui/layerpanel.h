@@ -20,6 +20,8 @@
 #include <wx/wx.h>
 #include <wx/dataview.h>
 #include <wx/colordlg.h>
+#include <string>
+#include <vector>
 
 class ConfigManager;
 
@@ -39,7 +41,9 @@ private:
     void OnAddLayer(wxCommandEvent& evt);
     void OnDeleteLayer(wxCommandEvent& evt);
     void OnRenameLayer(wxDataViewEvent& evt);
+    std::string LayerUuidForRow(int row) const;
     wxDataViewListCtrl* list = nullptr;
+    std::vector<std::string> rowLayerUuids;
     static LayerPanel* s_instance;
     ConfigManager* configManager = nullptr;
 };

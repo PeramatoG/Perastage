@@ -33,6 +33,8 @@
 #include "gdtf_fixture_category.h"
 #include "gdtf_import_matching.h"
 #include "gdtfloader.h"
+#include "layer_service.h"
+#include "utf8_utils.h"
 #include "groupobject.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
@@ -3398,6 +3400,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
        layer; layer = layer->NextSiblingElement("Layer")) {
     const char *layerName = layer->Attribute("name");
     std::string layerStr = layerName ? layerName : "";
+    if (!IsValidUtf8(layerStr)) {
+      const auto repairedLayerName = RepairWindows1252AsUtf8(layerStr);
+      if (repairedLayerName) {
+        LogMessage(Logger::Level::Warn,
+                   "Repaired legacy Windows-1252 layer name bytes at Layer uuid=" +
+                       std::string(layer->Attribute("uuid") ? layer->Attribute("uuid") : "") +
+                       " offset=" + std::to_string(ValidateUtf8(layerStr).errorOffset));
+        layerStr = *repairedLayerName;
+      } else {
+        LogMessage(Logger::Level::Error,
+                   "Rejected invalid UTF-8 layer name at Layer uuid=" +
+                       std::string(layer->Attribute("uuid") ? layer->Attribute("uuid") : "") +
+                       " offset=" + std::to_string(ValidateUtf8(layerStr).errorOffset));
+        layerStr.clear();
+      }
+    }
     bool isDefaultLayer = layerStr.empty();
 
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
@@ -3429,6 +3447,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       }
       scene.layers[l.uuid] = l;
     }
+  }
+
+  const auto reconcileResult = layerdomain::ReconcileLegacyLayers(scene);
+  if (reconcileResult.status == layerdomain::LayerStatus::Success) {
+    LogMessage(Logger::Level::Warn,
+               "Reconciled legacy layer metadata: " + reconcileResult.message);
   }
 
   if (preservedGroupObjectCount > 0) {

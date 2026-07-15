@@ -26,6 +26,8 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "logger.h"
+#include "layer_service.h"
+#include "utf8_utils.h"
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "primitive_model_resources.h"
@@ -4193,6 +4195,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     ++plannedArchiveEntries[entry.archivePath];
   }
 
+  const auto layerValidation = layerdomain::ValidateSceneLayers(scene);
+  if (layerValidation.status != layerdomain::LayerStatus::Success) {
+    zip.Close();
+    return failExport("ValidateLayers", "GeneralSceneDescription.xml", {},
+                      layerValidation.message.empty()
+                          ? layerdomain::StatusMessage(layerValidation.status)
+                          : layerValidation.message);
+  }
+
   if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries,
                            &m_exportWarnings)) {
     zip.Close();
@@ -4203,6 +4214,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   tinyxml2::XMLPrinter printer;
   doc.Print(&printer);
   std::string xmlData = printer.CStr();
+  if (!IsValidUtf8(xmlData)) {
+    zip.Close();
+    return failExport("ValidateXmlUtf8", "GeneralSceneDescription.xml", {},
+                      "serialized XML is not valid UTF-8");
+  }
+  tinyxml2::XMLDocument strictParse;
+  if (strictParse.Parse(xmlData.c_str(), xmlData.size()) != tinyxml2::XML_SUCCESS) {
+    zip.Close();
+    return failExport("ValidateXmlParse", "GeneralSceneDescription.xml", {},
+                      "serialized XML failed strict parse");
+  }
 
   std::unordered_set<std::string> writtenArchiveEntries;
   {

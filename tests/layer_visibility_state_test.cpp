@@ -10,8 +10,12 @@ int main() {
   assert(!layers.IsLayerVisible("Layer A"));
   assert(layers.IsLayerVisible("Layer B"));
 
-  layers.SetLayerColor(scene, "Layer A", "#ff0000");
-  assert(layers.GetLayerColor(scene, "Layer A").value() == "#ff0000");
+  Layer layer;
+  layer.uuid = "11111111-1111-1111-1111-111111111111";
+  layer.name = "Layer A";
+  scene.layers[layer.uuid] = layer;
+  layers.SetLayerColor(scene, "Layer A", "#FF0000");
+  assert(layers.GetLayerColor(scene, "Layer A").value() == "#FF0000");
 
   layers.SetCurrentLayer("Layer B");
   assert(layers.GetCurrentLayer() == "Layer B");

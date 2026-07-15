@@ -79,6 +79,8 @@ private:
   std::vector<std::string> selectedSceneObjects;
 };
 
+class LayerVisibilityState;
+
 class HistoryManager {
 public:
   struct Snapshot {
@@ -89,18 +91,23 @@ public:
     std::vector<std::string> selSceneObjects;
     std::string description;
     std::optional<std::string> layoutsCollection;
+    std::unordered_set<std::string> hiddenLayers;
+    std::string currentLayer;
   };
 
   void PushUndoState(const MvrScene &scene, const SelectionState &selection,
                      const std::string &description = "",
                      const std::optional<std::string> &layoutsCollection =
-                         std::nullopt);
+                         std::nullopt,
+                     const LayerVisibilityState *layerState = nullptr);
   bool CanUndo() const;
   bool CanRedo() const;
   std::string Undo(MvrScene &scene, SelectionState &selection,
-                   std::optional<std::string> *layoutsCollection = nullptr);
+                   std::optional<std::string> *layoutsCollection = nullptr,
+                   LayerVisibilityState *layerState = nullptr);
   std::string Redo(MvrScene &scene, SelectionState &selection,
-                   std::optional<std::string> *layoutsCollection = nullptr);
+                   std::optional<std::string> *layoutsCollection = nullptr,
+                   LayerVisibilityState *layerState = nullptr);
   void ClearHistory();
 
 private:
