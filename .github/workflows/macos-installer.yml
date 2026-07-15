@@ -241,19 +241,18 @@ jobs:
           set -euo pipefail
           VERSION="$(tr -d '[:space:]' < VERSION)"
           APP_BIN="out/install/Release/Perastage.app/Contents/MacOS/Perastage"
-          SYMBOLS_DIR="out/symbols/macos"
+          SYMBOLS_DIR="out/symbols/macos26"
           rm -rf "$SYMBOLS_DIR"
           mkdir -p "$SYMBOLS_DIR"
           dsymutil "$APP_BIN" -o "$SYMBOLS_DIR/Perastage.dSYM"
           strip -S "$APP_BIN" || true
-          (cd "$SYMBOLS_DIR" && zip -r "../../Perastage-$VERSION-macOS-symbols.zip" .)
-          test -f "out/Perastage-$VERSION-macOS-symbols.zip"
+          test -d "$SYMBOLS_DIR/Perastage.dSYM"
 
       - name: Upload macOS symbols
         uses: actions/upload-artifact@v4
         with:
-          name: Perastage-macos-symbols
-          path: out/Perastage-*-macOS-symbols.zip
+          name: Perastage-macos26-symbols
+          path: out/symbols/macos26/Perastage.dSYM
 
       # ── 12. Validate and prepare staged macOS app bundle ─────────────────────
       - name: Validate staged app bundle
@@ -332,7 +331,7 @@ jobs:
       - name: Upload staged distribution
         uses: actions/upload-artifact@v4
         with:
-          name: Perastage-macos-staged
+          name: Perastage-macos26-staged
           path: out/install/Release
 
       # ── 14. Build DMG package ───────────────────────────────────────────────
@@ -340,7 +339,7 @@ jobs:
         run: |
           APP_PATH="out/install/Release/Perastage.app"
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
-          DMG_NAME="Perastage-${VERSION}-macos-arm64.dmg"
+          DMG_NAME="Perastage-${VERSION}-macOS26-arm64.dmg"
           DMG_ROOT="$(mktemp -d)"
 
           cp -R "$APP_PATH" "$DMG_ROOT/Perastage.app"
@@ -361,9 +360,11 @@ jobs:
       # ── 15. Validate generated DMG ───────────────────────────────────────────
       - name: Validate generated DMG
         run: |
-          DMG_FILE="$(find out/installer -name "*.dmg" -print -quit)"
-          if [ -z "$DMG_FILE" ]; then
-            echo "DMG not found"
+          EXPECTED_DMG="Perastage-$(tr -d '[:space:]' < VERSION)-macOS26-arm64.dmg"
+          DMG_FILE="out/installer/$EXPECTED_DMG"
+          if [ ! -f "$DMG_FILE" ]; then
+            echo "Expected DMG not found: $DMG_FILE"
+            find out/installer -name "*.dmg" -print || true
             exit 1
           fi
 
@@ -388,8 +389,8 @@ jobs:
       - name: Collect macOS DMG
         run: |
           mkdir -p out/installer
-          dmg_file="$(find out/installer -name "*.dmg" -print -quit)"
-          if [ -z "$dmg_file" ]; then
+          dmg_file="out/installer/Perastage-$(tr -d '[:space:]' < VERSION)-macOS26-arm64.dmg"
+          if [ ! -f "$dmg_file" ]; then
             echo "DMG not found under build/"
             exit 1
           fi
@@ -401,5 +402,5 @@ jobs:
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: Perastage-macos-dmg
+          name: Perastage-macos26-dmg
           path: out/installer/*.dmg

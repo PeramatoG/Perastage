@@ -145,6 +145,7 @@ Changes since **v1.4.0**.
 
 ## Build, packaging and CI
 
+- Refined release packaging so Windows PDB files stay out of the installer, minor releases include distinct macOS 15 and macOS 26 Apple Silicon DMGs, and public debug symbols are published as one developer-only archive.
 - Added vcpkg classic-mode gettext tools to the Windows setup, installer workflow, and dependency documentation so Spanish catalogs are generated from the configured vcpkg installation.
 - Included localization catalogs in development, installed, and packaged runtime resource layouts, with build-tree gettext catalog generation for maintainers and packaged builds.
 - Added the mdns vcpkg port to installer CI dependency setup so MVR-xchange mDNS-enabled builds can configure reliably on all packaged platforms.
@@ -169,12 +170,13 @@ Choose the package that matches your operating system:
 | Operating system | Download |
 |------------------|----------|
 | **Windows** | `Perastage-1.4.0_Setup.exe` |
-| **macOS (Apple Silicon)** | `Perastage-1.4.0-macos-arm64.dmg` |
+| **macOS 15 (Apple Silicon)** | `Perastage-1.4.0-macOS15-arm64.dmg` |
+| **macOS 26/current (Apple Silicon)** | `Perastage-1.4.0-macOS26-arm64.dmg` |
 | **Linux** | `Perastage-1.4.0-x86_64.AppImage` |
 | **Arch Linux** | `Perastage-1.4.0-arch-x86_64.pkg.tar.zst` |
 
-> **Do not download the `*-symbols.zip` files unless you have been asked to do so by the developer.**
-> These files contain debugging symbols used to investigate crash reports and are **not required** to install or run Perastage.
+> **Do not download `Perastage-1.4.0-Debug-Symbols-Developers-Only.zip` unless you have been asked to do so by the developer.**
+> This archive contains debugging symbols used to investigate crash reports and is **not required** to install or run Perastage.
 
 ### Installation notes
 
