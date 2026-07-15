@@ -70,6 +70,7 @@ private:
   void InitializeTable();
   void OnSelectionChanged(wxDataViewEvent &evt);
   void OnContextMenu(wxDataViewEvent &event);
+  void OnCellEditRequested(wxDataViewEvent &event);
   void OnColumnSorted(wxDataViewEvent &event);
   void RebuildRowCachesFromRowKeys();
   std::string UuidForItem(const wxDataViewItem &item) const;
@@ -78,6 +79,7 @@ private:
   void ResyncRows(const std::vector<std::string> &oldOrder,
                   const std::vector<std::string> &selectedUuids);
   void OnLeftDown(wxMouseEvent &evt);
+  void OnLeftDClick(wxMouseEvent &evt);
   void OnLeftUp(wxMouseEvent &evt);
   void OnMouseMove(wxMouseEvent &evt);
   void OnMouseLeave(wxMouseEvent &evt);

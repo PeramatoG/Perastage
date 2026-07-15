@@ -235,9 +235,6 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
                 &SceneObjectTablePanel::OnContextMenu, this);
     table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED,
                 &SceneObjectTablePanel::OnColumnSorted, this);
-    table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
-                &SceneObjectTablePanel::OnItemActivated, this);
-
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
 
     InitializeTable();
@@ -381,9 +378,14 @@ void SceneObjectTablePanel::ReloadData() {
         SummaryPanel::Instance()->ShowSceneObjectSummary();
 }
 
-// Handles context-menu edits and updates scene/rendering only when an actual
-// table value changes.
+// Opens the scene-object edit dialog for the right-clicked table row.
 void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
+    OnItemActivated(event);
+}
+
+// Handles cell edits and updates scene/rendering only when an actual
+// table value changes.
+void SceneObjectTablePanel::OnCellEditRequested(wxDataViewEvent &event) {
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
   const auto namedColumn =
@@ -604,6 +606,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 }
 
+// Captures mouse focus for drag selection inside the scene-object table.
 void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
     wxDataViewItem item;
@@ -620,35 +623,24 @@ void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
     evt.Skip();
 }
 
+// Starts the cell editing workflow for the double-clicked table cell.
 void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
-    const int row = table->ItemToRow(item);
-    if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {
+    if (!item.IsOk() || col == nullptr) {
         evt.Skip();
         return;
     }
 
-    const std::string uuid = rowUuids[static_cast<size_t>(row)];
-    ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  const bool edited =
-      scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
-    if (edited) {
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        } else if (Viewer2DPanel::Instance()) {
-            Viewer2DPanel::Instance()->UpdateScene();
-        }
-        ReloadData();
-        SelectByUuid({uuid});
-        return;
-    }
-
-    evt.Skip();
+    wxDataViewEvent editEvent(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, table->GetId());
+    editEvent.SetEventObject(table);
+    editEvent.SetItem(item);
+    editEvent.SetColumn(table->GetColumnPosition(col));
+    OnCellEditRequested(editEvent);
 }
 
+// Releases drag-selection capture after scene-object table mouse interactions.
 void SceneObjectTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
         dragSelecting = false;
