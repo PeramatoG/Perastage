@@ -111,3 +111,19 @@ Notes:
 | `↑` / `↓` | Move through suggestions |
 | `Enter` or `Tab` | Accept selected suggestion |
 | `Esc` | Close suggestions without closing dialog |
+
+
+### Transform spaces
+
+World axes are the default for command-bar transforms. Relative position and rotation commands can opt into local axes with `--local` or `-l`:
+
+```text
+f 1
+pos x ++ 1
+pos x ++ 1 --local
+rot y ++ 45
+rot y ++ 45 -l
+rot z ++ 30 --group --local
+```
+
+Transform-space modifiers affect incremental operations (`++` and `--`). Absolute position commands still set world coordinates, and absolute rotation commands keep the existing Euler-angle behavior. The **Local Axes** toolbar button is persistent and affects viewport transforms only; command-bar history and scripts stay deterministic and do not inherit that toolbar state.

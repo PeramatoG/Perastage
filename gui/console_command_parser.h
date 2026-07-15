@@ -20,9 +20,22 @@
 #include <string>
 #include <vector>
 
+#include "transform_space.h"
+
 namespace gui::console {
 
 // Parses console position and rotation value lists, including optional range separators.
+struct TransformCommandSegment {
+  std::vector<float> values;
+  bool relative = false;
+  bool group = false;
+  transform_space::TransformSpace space = transform_space::TransformSpace::World;
+  std::string remainder;
+};
+
+// Parses console transform values and modifiers from one command segment.
+TransformCommandSegment ParseTransformCommandSegment(const std::string &text);
+
 std::vector<float> ParseTransformValues(const std::string &text,
                                         bool &relative);
 

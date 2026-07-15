@@ -1,4 +1,5 @@
 #include "matrixutils.h"
+#include "transform_space.h"
 
 #include <cmath>
 #include <iostream>
@@ -55,6 +56,60 @@ int main() {
         !Near(updated.o[1], 500.0f) || !Near(updated.o[2], 600.0f)) {
       std::cerr << "ApplyRotationPreservingScale did not keep source scale\n";
       return 1;
+    }
+  }
+
+
+
+  {
+    Matrix rotated = MatrixUtils::EulerToMatrix(90.0f, 0.0f, 0.0f);
+    Matrix worldMoved = transform_space::ApplyIncrementalTranslation(
+        rotated, {1000.0f, 0.0f, 0.0f}, transform_space::TransformSpace::World);
+    Matrix localMoved = transform_space::ApplyIncrementalTranslation(
+        rotated, {1000.0f, 0.0f, 0.0f}, transform_space::TransformSpace::Local);
+    if (!Near(worldMoved.o[0], 1000.0f) || !Near(worldMoved.o[1], 0.0f) ||
+        !Near(localMoved.o[0], 0.0f, 1e-3f) || !Near(localMoved.o[1], -1000.0f, 1e-3f)) {
+      std::cerr << "Transform-space translation mismatch\n";
+      return 1;
+    }
+  }
+
+  {
+    Matrix source = MatrixUtils::EulerToMatrix(30.0f, 20.0f, 10.0f);
+    source.o = {10.0f, 20.0f, 30.0f};
+    for (int i = 0; i < 3; ++i) {
+      source.u[i] *= 2.0f;
+      source.v[i] *= 3.0f;
+      source.w[i] *= 4.0f;
+    }
+    Matrix delta = MatrixUtils::EulerToMatrix(0.0f, 0.0f, 45.0f);
+    Matrix worldRotated = transform_space::ApplyIncrementalRotation(
+        source, delta, transform_space::TransformSpace::World);
+    Matrix localRotated = transform_space::ApplyIncrementalRotation(
+        source, delta, transform_space::TransformSpace::Local);
+    auto worldScale = MatrixUtils::ExtractScale(worldRotated);
+    auto localScale = MatrixUtils::ExtractScale(localRotated);
+    if (Near(worldRotated.v[0], localRotated.v[0], 1e-4f) ||
+        !Near(worldRotated.o[0], 10.0f) || !Near(worldRotated.o[1], 20.0f) ||
+        !Near(worldScale[0], 2.0f, 1e-4f) || !Near(worldScale[1], 3.0f, 1e-4f) ||
+        !Near(localScale[2], 4.0f, 1e-4f)) {
+      std::cerr << "Transform-space rotation did not preserve expected state\n";
+      return 1;
+    }
+  }
+
+  {
+    Matrix degenerate;
+    degenerate.u = {0.0f, 0.0f, 0.0f};
+    Matrix rotated = transform_space::ApplyIncrementalRotation(
+        degenerate, MatrixUtils::EulerToMatrix(0.0f, 45.0f, 0.0f),
+        transform_space::TransformSpace::Local);
+    for (float value : {rotated.u[0], rotated.u[1], rotated.u[2], rotated.v[0],
+                        rotated.v[1], rotated.v[2], rotated.w[0], rotated.w[1], rotated.w[2]}) {
+      if (!std::isfinite(value)) {
+        std::cerr << "Degenerate transform produced non-finite output\n";
+        return 1;
+      }
     }
   }
 

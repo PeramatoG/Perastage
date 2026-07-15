@@ -2505,7 +2505,31 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
     return true;
 }
 
-// Projects the world drag axes into screen space for axis-constrained dragging.
+
+// Returns the active world-space vector for a selection drag axis.
+std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
+    viewer3d::SelectionDragAxis axis) const {
+    const auto worldAxis = AxisVectorFromSelectionDragAxis(axis);
+    if (m_transformSpace != transform_space::TransformSpace::Local ||
+        axis == viewer3d::SelectionDragAxis::None || m_dragSelectionUuids.empty()) {
+        return worldAxis;
+    }
+    const scene_grouping::ObjectSelection selection{
+        .fixtures = m_dragFixtureUuids,
+        .trusses = m_dragTrussUuids,
+        .supports = {},
+        .sceneObjects = m_dragSceneObjectUuids};
+    const auto targets = scene_grouping::BuildTransformTargets(
+        ConfigManager::Instance().GetScene(), selection);
+    if (targets.empty())
+        return worldAxis;
+    const Matrix transform = scene_grouping::GetTargetWorldTransform(
+        ConfigManager::Instance().GetScene(), targets.front());
+    return transform_space::TransformDirection(
+        transform_space::ExtractOrientation(transform), worldAxis);
+}
+
+// Projects the active drag axes into screen space for axis-constrained dragging.
 std::array<viewer3d::ProjectedAxis, 3>
 Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
 {
@@ -2530,9 +2554,9 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
     }
 
     const std::array<std::array<float, 3>, 3> axisWorldVectors{{
-        {1.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f},
+        GetSelectionDragAxisVector(viewer3d::SelectionDragAxis::X),
+        GetSelectionDragAxisVector(viewer3d::SelectionDragAxis::Y),
+        GetSelectionDragAxisVector(viewer3d::SelectionDragAxis::Z),
     }};
 
     for (size_t i = 0; i < axisWorldVectors.size(); ++i) {
@@ -3011,7 +3035,7 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 
     glBegin(GL_LINES);
     for (size_t i = 0; i < colors.size(); ++i) {
-        const auto axis = AxisVectorFromSelectionDragAxis(
+        const auto axis = GetSelectionDragAxisVector(
             i == 0 ? viewer3d::SelectionDragAxis::X
                    : i == 1 ? viewer3d::SelectionDragAxis::Y
                             : viewer3d::SelectionDragAxis::Z);
@@ -3025,7 +3049,7 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
     glEnd();
 
     for (size_t i = 0; i < colors.size(); ++i) {
-        const auto axis = AxisVectorFromSelectionDragAxis(
+        const auto axis = GetSelectionDragAxisVector(
             i == 0 ? viewer3d::SelectionDragAxis::X
                    : i == 1 ? viewer3d::SelectionDragAxis::Y
                             : viewer3d::SelectionDragAxis::Z);
@@ -3137,7 +3161,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                         dx, -dy, m_selectionDragAxis, projectedAxes);
                 if (axisDeltaMeters != 0.0) {
                     const auto axis =
-                        AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                        GetSelectionDragAxisVector(m_selectionDragAxis);
                     ApplySelectionDragDelta(
                         {axis[0] * static_cast<float>(axisDeltaMeters),
                          axis[1] * static_cast<float>(axisDeltaMeters),
@@ -3210,7 +3234,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                         dx, -dy, m_selectionDragAxis, projectedAxes);
                     if (axisDeltaMeters != 0.0) {
                         const auto axisVector =
-                            AxisVectorFromSelectionDragAxis(m_selectionDragAxis);
+                            GetSelectionDragAxisVector(m_selectionDragAxis);
                         const std::array<float, 3> worldDelta{
                             axisVector[0] * static_cast<float>(axisDeltaMeters),
                             axisVector[1] * static_cast<float>(axisDeltaMeters),

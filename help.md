@@ -157,12 +157,13 @@ Selection syntax supports:
 | `rot z <values>` | Set rotation around Z (yaw). |
 | `rot x|y|z <values> --group` | Rotate the full selection as one group around a pivot. |
 | `rot x|y|z <values> --g` | Alias of `--group`. |
+| `pos/rot ... --local` | Apply relative transform offsets in local axes (`-l` is equivalent). |
 
 Notes:
 
 - Provide **one value** to apply it to all selected items.
 - Provide **two values** to linearly distribute from start to end across the selection.
-- Use `++` / `--` to apply relative offsets (example: `pos x ++ 1.5`, `rot z -- 10`).
+- Use `++` / `--` to apply relative offsets (example: `pos x ++ 1.5`, `rot z -- 10`). Relative CLI transforms use world axes by default; add `--local` or `-l` for local axes, for example `pos x ++ 1 --local`, `rot y ++ 45 -l`, or `rot z ++ 30 --group --local`. Absolute `pos` and `rot` commands keep their existing world-coordinate/Euler semantics. The persistent Local Axes toolbar toggle affects viewport transforms only and does not change CLI defaults.
 - You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for `pos`.
 - Group rotation (`--group`/`--g`) uses the current selection **bbox center** as default pivot.
 - Add a trailing `x,y,z` triplet (in meters) to override pivot, for example: `rot y ++45 --g -2.5,0,0`.
@@ -422,12 +423,13 @@ La sintaxis de selección admite:
 | `rot z <valores>` | Rota alrededor de Z (yaw). |
 | `rot x|y|z <valores> --group` | Rota toda la selección como un grupo alrededor de un pivote. |
 | `rot x|y|z <valores> --g` | Alias de `--group`. |
+| `pos/rot ... --local` | Aplica incrementos relativos usando ejes locales (`-l` es equivalente). |
 
 Notas:
 
 - Un **solo valor** se aplica a toda la selección.
 - **Dos valores** se distribuyen linealmente de inicio a fin.
-- Usa `++` / `--` para aplicar incrementos relativos (ej.: `pos x ++ 1.5`, `rot z -- 10`).
+- Usa `++` / `--` para aplicar incrementos relativos (ej.: `pos x ++ 1.5`, `rot z -- 10`). La CLI usa ejes globales por defecto; añade `--local` o `-l` para ejes locales, por ejemplo `pos x ++ 1 --local`, `rot y ++ 45 -l` o `rot z ++ 30 --group --local`. Los comandos absolutos `pos` y `rot` mantienen sus semánticas actuales de coordenadas globales/Euler. El botón persistente Local Axes solo afecta a las transformaciones en los visores y no cambia los valores predeterminados de la CLI.
 - También puedes escribir un triplete separado por comas como `1, 2, 3`.
 - La rotación de grupo (`--group`/`--g`) usa por defecto el **centro del bbox** de la selección.
 - Puedes añadir al final un triplete `x,y,z` (en metros) para forzar pivote, por ejemplo: `rot y ++45 --g -2.5,0,0`.

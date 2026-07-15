@@ -89,6 +89,7 @@ public:
   void SyncViewportToolToggleState(bool measureEnabled);
   void SyncAxisConstraintToolToggleState();
   void SyncLeftDragMoveToolToggleState();
+  void SyncLocalAxesToolToggleState();
   void SyncCrossTableActionsToolToggleState();
   void ApplyViewportMovementToolState();
   void Ensure2DViewportAvailable();
@@ -224,6 +225,7 @@ private:
   void OnViewportMagnet(wxCommandEvent &event);
   void OnViewportCrossTableActions(wxCommandEvent &event);
   void OnViewportLeftDragMove(wxCommandEvent &event);
+  void OnViewportLocalAxes(wxCommandEvent &event);
   void OnViewportAxisConstraint(wxCommandEvent &event);
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder

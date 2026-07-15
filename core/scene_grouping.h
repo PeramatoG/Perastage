@@ -18,6 +18,7 @@
 #pragma once
 
 #include "mvrscene.h"
+#include "transform_space.h"
 
 #include <array>
 #include <cstddef>
@@ -84,13 +85,17 @@ void SetTargetWorldTransform(MvrScene &scene,
 
 // Translates effective selection targets by a millimeter delta.
 void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
-                        const std::array<float, 3> &deltaMm);
+                        const std::array<float, 3> &deltaMm,
+                        transform_space::TransformSpace space =
+                            transform_space::TransformSpace::World);
 
 // Rotates effective selection targets around a millimeter pivot.
 void RotateSelectionAroundPivot(MvrScene &scene,
                                 const ObjectSelection &selection, int axis,
                                 float angleDeg,
-                                const std::array<float, 3> &pivotMm);
+                                const std::array<float, 3> &pivotMm,
+                                transform_space::TransformSpace space =
+                                    transform_space::TransformSpace::World);
 
 // Expands UUID highlights so selecting one group member highlights its full
 // root group.

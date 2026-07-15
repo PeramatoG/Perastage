@@ -48,6 +48,18 @@ bool IsRangeSeparator(const std::string &token) {
   return lower == "t" || lower == "thru";
 }
 
+
+// Returns true when the token is a transform-space modifier.
+bool IsLocalModifier(const std::string &token) {
+  const std::string lower = ToLower(token);
+  return lower == "--local" || lower == "-l";
+}
+
+// Returns true when the token is a group-rotation modifier.
+bool IsGroupModifier(const std::string &token) {
+  const std::string lower = ToLower(token);
+  return lower == "--group" || lower == "--g";
+}
 // Parses a floating-point token and requires the full token to be consumed.
 bool TryParseFloat(const std::string &token, float &value) {
   if (token.empty())
@@ -65,34 +77,56 @@ bool TryParseFloat(const std::string &token, float &value) {
 
 } // namespace
 
-// Parses console position and rotation value lists, including optional range separators.
-std::vector<float> ParseTransformValues(const std::string &text,
-                                        bool &relative) {
-  relative = false;
+// Parses console transform values and modifiers from one command segment.
+TransformCommandSegment ParseTransformCommandSegment(const std::string &text) {
+  TransformCommandSegment result;
   std::string remaining = Trim(text);
   float sign = 1.0f;
   if (remaining.rfind("++", 0) == 0) {
-    relative = true;
+    result.relative = true;
     remaining = Trim(remaining.substr(2));
-  } else if (remaining.rfind("--", 0) == 0) {
-    relative = true;
+  } else if (remaining.rfind("--", 0) == 0 &&
+             (remaining.size() == 2 || std::isspace(static_cast<unsigned char>(remaining[2])))) {
+    result.relative = true;
     sign = -1.0f;
     remaining = Trim(remaining.substr(2));
   }
 
   std::stringstream stream(remaining);
-  std::vector<float> values;
   std::string token;
+  bool collectingRemainder = false;
   while (stream >> token) {
-    if (IsRangeSeparator(token))
+    if (!collectingRemainder && IsLocalModifier(token)) {
+      result.space = transform_space::TransformSpace::Local;
+      continue;
+    }
+    if (!collectingRemainder && IsGroupModifier(token)) {
+      result.group = true;
+      continue;
+    }
+    if (!collectingRemainder && IsRangeSeparator(token))
       continue;
 
     float value = 0.0f;
-    if (!TryParseFloat(token, value))
-      break;
-    values.push_back(sign * value);
+    if (!collectingRemainder && TryParseFloat(token, value)) {
+      result.values.push_back(sign * value);
+      continue;
+    }
+
+    if (!result.remainder.empty())
+      result.remainder += ' ';
+    result.remainder += token;
+    collectingRemainder = true;
   }
-  return values;
+  return result;
+}
+
+// Parses console position and rotation value lists, including optional range separators.
+std::vector<float> ParseTransformValues(const std::string &text,
+                                        bool &relative) {
+  const auto segment = ParseTransformCommandSegment(text);
+  relative = segment.relative;
+  return segment.values;
 }
 
 } // namespace gui::console

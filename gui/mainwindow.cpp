@@ -283,6 +283,7 @@ const std::vector<std::string> &GetPreferencesDialogConfigKeys() {
       magnet_snap::kMagnetEnabledConfigKey,
       selection_movement_settings::kAxisConstrainedMovementConfigKey,
       selection_movement_settings::kLeftDragSelectionMovementConfigKey,
+      selection_movement_settings::kLocalTransformSpaceConfigKey,
   };
   return kKeys;
 }
@@ -383,6 +384,7 @@ EVT_MENU(ID_View_Viewport_SelectTool, MainWindow::OnViewportSelectTool)
 EVT_MENU(ID_View_Viewport_MeasureTool, MainWindow::OnViewportMeasureTool)
 EVT_MENU(ID_View_Viewport_AxisConstraint, MainWindow::OnViewportAxisConstraint)
 EVT_MENU(ID_View_Viewport_LeftDragMove, MainWindow::OnViewportLeftDragMove)
+EVT_MENU(ID_View_Viewport_LocalAxes, MainWindow::OnViewportLocalAxes)
 EVT_MENU(ID_View_Viewport_Magnet, MainWindow::OnViewportMagnet)
 EVT_MENU(ID_View_Viewport_CrossTableActions, MainWindow::OnViewportCrossTableActions)
 EVT_MENU(ID_View_Layout_2DView, MainWindow::OnLayoutAdd2DView)

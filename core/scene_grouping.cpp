@@ -560,7 +560,8 @@ void SynchronizeGroupChildrenWorldTransforms(MvrScene &scene,
 // matrix.
 Matrix RotateTransformAroundPivot(const Matrix &source, const Matrix &rotation,
                                   const std::array<float, 3> &pivotMm) {
-  Matrix rotated = MatrixUtils::Multiply(rotation, source);
+  Matrix rotated = transform_space::ApplyIncrementalRotation(
+      source, rotation, transform_space::TransformSpace::World);
   const std::array<float, 3> relative = {source.o[0] - pivotMm[0],
                                          source.o[1] - pivotMm[1],
                                          source.o[2] - pivotMm[2]};
@@ -924,13 +925,14 @@ void SetTargetWorldTransform(MvrScene &scene,
 
 // Translates selected effective targets by the supplied millimeter delta.
 void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
-                        const std::array<float, 3> &deltaMm) {
+                        const std::array<float, 3> &deltaMm,
+                        transform_space::TransformSpace space) {
   const auto targets = BuildTransformTargets(scene, selection);
   for (const auto &target : targets) {
-    Matrix transform = GetTargetWorldTransform(scene, target);
-    for (int axis = 0; axis < 3; ++axis)
-      transform.o[axis] += deltaMm[axis];
-    SetTargetWorldTransform(scene, target, transform);
+    const Matrix transform = GetTargetWorldTransform(scene, target);
+    SetTargetWorldTransform(
+        scene, target,
+        transform_space::ApplyIncrementalTranslation(transform, deltaMm, space));
   }
 }
 
@@ -938,7 +940,8 @@ void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
 void RotateSelectionAroundPivot(MvrScene &scene,
                                 const ObjectSelection &selection, int axis,
                                 float angleDeg,
-                                const std::array<float, 3> &pivotMm) {
+                                const std::array<float, 3> &pivotMm,
+                                transform_space::TransformSpace space) {
   Matrix rotation = MatrixUtils::Identity();
   if (axis == 0)
     rotation = MatrixUtils::EulerToMatrix(0.0f, 0.0f, angleDeg);
@@ -948,11 +951,18 @@ void RotateSelectionAroundPivot(MvrScene &scene,
     rotation = MatrixUtils::EulerToMatrix(angleDeg, 0.0f, 0.0f);
 
   const auto targets = BuildTransformTargets(scene, selection);
+  Matrix effectiveRotation = rotation;
+  if (space == transform_space::TransformSpace::Local && !targets.empty()) {
+    const Matrix reference = transform_space::ExtractOrientation(
+        GetTargetWorldTransform(scene, targets.front()));
+    effectiveRotation = MatrixUtils::Multiply(
+        MatrixUtils::Multiply(reference, rotation), InverseMatrix(reference));
+  }
   for (const auto &target : targets) {
     const Matrix transform = GetTargetWorldTransform(scene, target);
     SetTargetWorldTransform(
         scene, target,
-        RotateTransformAroundPivot(transform, rotation, pivotMm));
+        RotateTransformAroundPivot(transform, effectiveRotation, pivotMm));
   }
 }
 

@@ -2030,3 +2030,15 @@ msgstr "登录 GDTF Share"
 msgid "Spanish"
 msgstr "西班牙语"
 
+
+#: gui/mainwindow_menu.cpp
+msgid "Local Axes"
+msgstr "本地轴"
+
+#: gui/mainwindow_menu.cpp
+msgid "Use local axes for viewport transforms"
+msgstr "视口变换使用本地轴"
+
+#: gui/consolepanel.cpp
+msgid "Use local axes for relative transforms."
+msgstr "相对变换使用本地轴。"

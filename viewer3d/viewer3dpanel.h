@@ -31,6 +31,7 @@
 #include "viewer3dcontroller.h"
 #include "ui_render_size.h"
 #include "magnet_snap.h"
+#include "transform_space.h"
 #include <array>
 #include <memory>
 #include <string>
@@ -93,6 +94,7 @@ public:
         return m_leftDragSelectionMovementEnabled;
     }
     void SetAxisConstrainedMovementEnabled(bool enabled);
+    void SetTransformSpace(transform_space::TransformSpace space);
     // Returns whether 3D selection movement is constrained to axes.
     bool IsAxisConstrainedMovementEnabled() const {
         return m_axisConstrainedMovementEnabled;
@@ -125,6 +127,8 @@ private:
     bool m_magnetEnabled = false;
     bool m_leftDragSelectionMovementEnabled = false;
     bool m_axisConstrainedMovementEnabled = true;
+    transform_space::TransformSpace m_transformSpace =
+        transform_space::TransformSpace::World;
     std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
     wxLongLong m_selectionDragPressTime = 0;
     HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;
@@ -206,6 +210,8 @@ private:
     void EndContinuousPlacementState();
     void RefreshContinuousPlacementViews();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
+    std::array<float, 3> GetSelectionDragAxisVector(
+        viewer3d::SelectionDragAxis axis) const;
 
     // Renders the full scene
     void Render(const RenderSize& renderSize);

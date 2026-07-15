@@ -2054,3 +2054,15 @@ msgstr "Inicio de sesión en GDTF Share"
 #: tests/localization_catalog_integration_test.cpp:78
 msgid "Spanish"
 msgstr "Español"
+
+#: gui/mainwindow_menu.cpp
+msgid "Local Axes"
+msgstr "Ejes locales"
+
+#: gui/mainwindow_menu.cpp
+msgid "Use local axes for viewport transforms"
+msgstr "Usar ejes locales para transformaciones en los visores"
+
+#: gui/consolepanel.cpp
+msgid "Use local axes for relative transforms."
+msgstr "Usa ejes locales para transformaciones relativas."

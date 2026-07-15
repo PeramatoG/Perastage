@@ -2031,3 +2031,15 @@ msgstr ""
 #: tests/localization_catalog_integration_test.cpp:78
 msgid "Spanish"
 msgstr ""
+
+#: gui/mainwindow_menu.cpp
+msgid "Local Axes"
+msgstr ""
+
+#: gui/mainwindow_menu.cpp
+msgid "Use local axes for viewport transforms"
+msgstr ""
+
+#: gui/consolepanel.cpp
+msgid "Use local axes for relative transforms."
+msgstr ""
