@@ -564,14 +564,17 @@ void SelectionState::Clear() {
 void HistoryManager::PushUndoState(
     const MvrScene &scene, const SelectionState &selection,
     const std::string &description,
-    const std::optional<std::string> &layoutsCollection) {
+    const std::optional<std::string> &layoutsCollection,
+    const LayerVisibilityState *layerState) {
   Snapshot snap{scene,
                 selection.GetSelectedFixtures(),
                 selection.GetSelectedTrusses(),
                 selection.GetSelectedSupports(),
                 selection.GetSelectedSceneObjects(),
                 description,
-                layoutsCollection};
+                layoutsCollection,
+                layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
+                layerState ? layerState->GetCurrentLayer() : std::string{}};
   undoStack.push_back(std::move(snap));
   if (undoStack.size() > maxHistory)
     undoStack.erase(undoStack.begin());
@@ -584,7 +587,8 @@ bool HistoryManager::CanRedo() const { return !redoStack.empty(); }
 
 std::string HistoryManager::Undo(
     MvrScene &scene, SelectionState &selection,
-    std::optional<std::string> *layoutsCollection) {
+    std::optional<std::string> *layoutsCollection,
+    LayerVisibilityState *layerState) {
   if (undoStack.empty())
     return {};
   const Snapshot snap = undoStack.back();
@@ -594,7 +598,9 @@ std::string HistoryManager::Undo(
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
                        snap.description,
-                       snap.layoutsCollection});
+                       snap.layoutsCollection,
+                       layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
+                       layerState ? layerState->GetCurrentLayer() : std::string{}});
   scene = snap.scene;
   if (layoutsCollection)
     *layoutsCollection = snap.layoutsCollection;
@@ -602,13 +608,19 @@ std::string HistoryManager::Undo(
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
   selection.SetSelectedSceneObjects(snap.selSceneObjects);
+  if (layerState) {
+    layerState->SetHiddenLayers(snap.hiddenLayers);
+    if (!snap.currentLayer.empty())
+      layerState->SetCurrentLayer(snap.currentLayer);
+  }
   undoStack.pop_back();
   return snap.description;
 }
 
 std::string HistoryManager::Redo(
     MvrScene &scene, SelectionState &selection,
-    std::optional<std::string> *layoutsCollection) {
+    std::optional<std::string> *layoutsCollection,
+    LayerVisibilityState *layerState) {
   if (redoStack.empty())
     return {};
   const Snapshot snap = redoStack.back();
@@ -618,7 +630,9 @@ std::string HistoryManager::Redo(
                        selection.GetSelectedSupports(),
                        selection.GetSelectedSceneObjects(),
                        snap.description,
-                       snap.layoutsCollection});
+                       snap.layoutsCollection,
+                       layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
+                       layerState ? layerState->GetCurrentLayer() : std::string{}});
   scene = snap.scene;
   if (layoutsCollection)
     *layoutsCollection = snap.layoutsCollection;
@@ -626,6 +640,11 @@ std::string HistoryManager::Redo(
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
   selection.SetSelectedSceneObjects(snap.selSceneObjects);
+  if (layerState) {
+    layerState->SetHiddenLayers(snap.hiddenLayers);
+    if (!snap.currentLayer.empty())
+      layerState->SetCurrentLayer(snap.currentLayer);
+  }
   redoStack.pop_back();
   return snap.description;
 }
@@ -652,21 +671,12 @@ bool LayerVisibilityState::IsLayerVisible(const std::string &layer) const {
 void LayerVisibilityState::SetLayerColor(MvrScene &scene, const std::string &layer,
                                          const std::string &color) {
   std::string name = layer.empty() ? DEFAULT_LAYER_NAME : layer;
-  std::string layerUuid;
   for (auto &[uuid, l] : scene.layers) {
+    (void)uuid;
     if (l.name == name) {
-      layerUuid = uuid;
-      break;
+      l.color = color;
+      return;
     }
-  }
-  if (layerUuid.empty()) {
-    Layer l;
-    l.name = name;
-    l.color = color;
-    l.uuid = "layer_" + std::to_string(scene.layers.size() + 1);
-    scene.layers[l.uuid] = l;
-  } else {
-    scene.layers[layerUuid].color = color;
   }
 }
 
@@ -698,6 +708,8 @@ LayerVisibilityState::GetLayerNames(const MvrScene &scene) const {
     collect(s.layer);
   for (const auto &[u, o] : scene.sceneObjects)
     collect(o.layer);
+  for (const auto &[u, g] : scene.groupObjects)
+    collect(g.layer);
   names.insert(DEFAULT_LAYER_NAME);
   return {names.begin(), names.end()};
 }

@@ -18,6 +18,9 @@
 #include "layerpanel.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "hoisttablepanel.h"
+#include "layer_service.h"
+#include "wx_text_utils.h"
 #include "fixturetablepanel.h"
 #include "sceneobjecttablepanel.h"
 #include "table_column_indices.h"
@@ -25,7 +28,6 @@
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <set>
-#include <chrono>
 #include <algorithm>
 #include <functional>
 #include <wx/dcmemory.h>
@@ -163,69 +165,58 @@ void LayerPanel::SetInstance(LayerPanel *p) { s_instance = p; }
 void LayerPanel::ReloadLayers() {
   if (!list)
     return;
-    list->DeleteAllItems();
+  list->DeleteAllItems();
+  rowLayerUuids.clear();
 
-    std::set<std::string> names;
-    auto& scene = (*configManager).GetScene();
-    for (const auto& [uuid, layer] : scene.layers)
-        names.insert(layer.name);
+  auto &scene = (*configManager).GetScene();
+  auto hidden = (*configManager).GetHiddenLayers();
+  std::string current = (*configManager).GetCurrentLayer();
+  int idx = 0;
+  int sel = -1;
 
-    auto collect = [&](const std::string& ln) {
-        if (!ln.empty())
-            names.insert(ln);
-    };
-  for (const auto &[u, f] : scene.fixtures)
-    collect(f.layer);
-  for (const auto &[u, t] : scene.trusses)
-    collect(t.layer);
-  for (const auto &[u, o] : scene.sceneObjects)
-    collect(o.layer);
-    names.insert(DEFAULT_LAYER_NAME);
+  auto addRow = [&](const layerdomain::LayerEntry &entry) {
+    const bool vis = hidden.find(entry.name) == hidden.end();
+    wxVector<wxVariant> cols;
+    cols.push_back(wxVariant(vis));
+    cols.push_back(wxVariant(Utf8ToWx(entry.name)));
+    wxBitmap bmp(16, 16);
+    wxColour c;
+    if (!entry.color.empty())
+      c.Set(Utf8ToWx(entry.color));
+    else
+      c.Set(128, 128, 128);
+    wxMemoryDC dc(bmp);
+    dc.SetBrush(wxBrush(c));
+    dc.SetPen(*wxBLACK_PEN);
+    dc.DrawRectangle(0, 0, 16, 16);
+    dc.SelectObject(wxNullBitmap);
+    wxDataViewIconText icon("", bmp);
+    cols.push_back(wxVariant(icon));
+    list->AppendItem(cols);
+    rowLayerUuids.push_back(entry.uuid);
+    if (entry.name == current)
+      sel = idx;
+    ++idx;
+  };
 
-    auto hidden = (*configManager).GetHiddenLayers();
-    std::string current = (*configManager).GetCurrentLayer();
-    int idx = 0;
-    int sel = -1;
+  for (const auto &entry : layerdomain::EnumerateLayers(scene))
+    addRow(entry);
 
-    auto addRow = [&](const std::string& n){
-        bool vis = hidden.find(n) == hidden.end();
-        wxVector<wxVariant> cols;
-        cols.push_back(wxVariant(vis));
-        cols.push_back(wxVariant(wxString::FromUTF8(n)));
-        wxBitmap bmp(16,16);
-        wxColour c;
-        auto opt = (*configManager).GetLayerColor(n);
-        if (opt)
-            c.Set(wxString::FromUTF8(opt->c_str()));
-        else
-            c.Set(128,128,128);
-        wxMemoryDC dc(bmp);
-        dc.SetBrush(wxBrush(c));
-        dc.SetPen(*wxBLACK_PEN);
-        dc.DrawRectangle(0,0,16,16);
-        dc.SelectObject(wxNullBitmap);
-        wxDataViewIconText icon("", bmp);
-        cols.push_back(wxVariant(icon));
-        list->AppendItem(cols);
-        if (n == current)
-            sel = idx;
-        ++idx;
-    };
+  if (sel < 0 && list->GetItemCount() > 0)
+    sel = 0;
+  if (sel >= 0) {
+    list->SelectRow(sel);
+    const std::string uuid = LayerUuidForRow(sel);
+    if (!uuid.empty())
+      layerdomain::SetCurrentLayer(*configManager, uuid);
+  }
+}
 
-    if (names.find(DEFAULT_LAYER_NAME) != names.end()) {
-        addRow(DEFAULT_LAYER_NAME);
-        names.erase(DEFAULT_LAYER_NAME);
-    }
-    for (const auto& n : names)
-        addRow(n);
-
-    if (sel < 0 && list->GetItemCount() > 0)
-        sel = 0;
-    if (sel >= 0) {
-        list->SelectRow(sel);
-    wxString wname = list->GetTextValue(sel, ColumnIndex(LayerColumn::Layer));
-        (*configManager).SetCurrentLayer(wname.ToStdString());
-    }
+// Returns the stable layer UUID bound to a visible row.
+std::string LayerPanel::LayerUuidForRow(int row) const {
+  if (row < 0 || row >= static_cast<int>(rowLayerUuids.size()))
+    return {};
+  return rowLayerUuids[static_cast<size_t>(row)];
 }
 
 // Applies visibility checkbox changes to the hidden-layer set.
@@ -234,18 +225,15 @@ void LayerPanel::OnCheck(wxDataViewEvent &evt) {
   if (idx == wxNOT_FOUND || idx < 0 ||
       idx >= static_cast<int>(list->GetItemCount()))
         return;
-  wxString wname = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
-    std::string name = wname.ToStdString();
+  const std::string uuid = LayerUuidForRow(idx);
+    if (uuid.empty())
+        return;
     wxVariant v;
   list->GetValue(v, idx, ColumnIndex(LayerColumn::Visible));
     bool checked = v.GetBool();
-    auto hidden = (*configManager).GetHiddenLayers();
-    if (checked)
-        hidden.erase(name);
-    else
-        hidden.insert(name);
-    (*configManager).SetHiddenLayers(hidden);
-    RefreshVisibleViewers();
+    auto result = layerdomain::SetLayerVisibility(*configManager, uuid, checked);
+    if (result.status == layerdomain::LayerStatus::Success)
+        RefreshVisibleViewers();
 }
 
 // Updates the current layer when the selected row changes.
@@ -253,8 +241,9 @@ void LayerPanel::OnSelect(wxDataViewEvent &evt) {
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
-  wxString wname = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
-    (*configManager).SetCurrentLayer(wname.ToStdString());
+  const std::string uuid = LayerUuidForRow(static_cast<int>(idx));
+    if (!uuid.empty())
+        layerdomain::SetCurrentLayer(*configManager, uuid);
 }
 
 // Opens the layer color picker for the context-menu row.
@@ -262,20 +251,29 @@ void LayerPanel::OnContext(wxDataViewEvent &evt) {
     unsigned int idx = list->ItemToRow(evt.GetItem());
     if (idx == wxNOT_FOUND)
         return;
-  wxString wname = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
-    std::string name = wname.ToStdString();
+  const std::string uuid = LayerUuidForRow(static_cast<int>(idx));
+    if (uuid.empty())
+        return;
+    const auto layerIt = (*configManager).GetScene().layers.find(uuid);
+    if (layerIt == (*configManager).GetScene().layers.end())
+        return;
+    const std::string name = layerIt->second.name;
     wxColourData data;
-    if (auto c = (*configManager).GetLayerColor(name))
-        data.SetColour(wxColour(wxString::FromUTF8(c->c_str())));
+    if (!layerIt->second.color.empty())
+        data.SetColour(wxColour(Utf8ToWx(layerIt->second.color)));
     wxColourDialog dlg(this, &data);
     if (dlg.ShowModal() != wxID_OK)
         return;
     wxColour col = dlg.GetColourData().GetColour();
-  std::string hex =
-      wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue())
-          .ToStdString();
-    (*configManager).PushUndoState("change layer color");
-    (*configManager).SetLayerColor(name, hex);
+  std::string hex = WxToUtf8(
+      wxString::Format("#%02X%02X%02X", col.Red(), col.Green(), col.Blue()));
+    auto result = layerdomain::SetLayerColor(*configManager, uuid, hex);
+    if (result.status != layerdomain::LayerStatus::Success &&
+        result.status != layerdomain::LayerStatus::NoChange) {
+        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+                     _("Layer Color"), wxOK | wxICON_ERROR, this);
+        return;
+    }
     wxBitmap bmp(16,16);
     wxMemoryDC dc(bmp);
     dc.SetBrush(wxBrush(col));
@@ -300,26 +298,13 @@ void LayerPanel::OnAddLayer(wxCommandEvent &) {
     wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Add Layer"));
     if (dlg.ShowModal() != wxID_OK)
         return;
-    std::string name = dlg.GetValue().ToStdString();
-    if (name.empty() || name == DEFAULT_LAYER_NAME)
+    auto result = layerdomain::CreateLayer(*configManager, WxToUtf8(dlg.GetValue()));
+    if (result.status != layerdomain::LayerStatus::Success &&
+        result.status != layerdomain::LayerStatus::NoChange) {
+        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+                     _("Add Layer"), wxOK | wxICON_ERROR, this);
         return;
-
-    ConfigManager& cfg = (*configManager);
-    auto& scene = cfg.GetScene();
-    for (const auto& [uuid, layer] : scene.layers)
-        if (layer.name == name)
-        {
-            wxMessageBox(_("Layer already exists."), _("Add Layer"), wxOK | wxICON_ERROR, this);
-            return;
-        }
-
-    cfg.PushUndoState("add layer");
-    Layer layer;
-    auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-    layer.uuid = wxString::Format("layer_%lld", static_cast<long long>(baseId)).ToStdString();
-    layer.name = name;
-    scene.layers[layer.uuid] = layer;
-    cfg.SetCurrentLayer(name);
+    }
     ReloadLayers();
 }
 
@@ -331,40 +316,32 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
     int sel = list->GetSelectedRow();
     if (sel == wxNOT_FOUND)
         return;
-    wxString wname =
-        list->GetTextValue(sel, ColumnIndex(LayerColumn::Layer));
-    std::string name = wname.ToStdString();
+    const std::string uuid = LayerUuidForRow(sel);
+    auto &scene = (*configManager).GetScene();
+    auto layerIt = scene.layers.find(uuid);
+    if (uuid.empty() || layerIt == scene.layers.end()) {
+        wxMessageBox(_("Layer no longer exists."), _("Delete Layer"), wxOK | wxICON_ERROR, this);
+        return;
+    }
+    const std::string name = layerIt->second.name;
     if (name == DEFAULT_LAYER_NAME)
     {
         wxMessageBox(_("Cannot delete default layer."), _("Delete Layer"), wxOK | wxICON_ERROR, this);
         return;
     }
 
-    ConfigManager& cfg = (*configManager);
-    auto& scene = cfg.GetScene();
-    std::string layerUuid;
-    for (const auto& [uuid, layer] : scene.layers)
-        if (layer.name == name)
-        {
-            layerUuid = uuid;
-            break;
-        }
-
     bool empty = true;
-    for (const auto& [u, f] : scene.fixtures)
-        if (f.layer == name) { empty = false; break; }
-    if (empty)
-        for (const auto& [u, t] : scene.trusses)
-            if (t.layer == name) { empty = false; break; }
-    if (empty)
-        for (const auto& [u, o] : scene.sceneObjects)
-            if (o.layer == name) { empty = false; break; }
-    if (empty)
-        for (const auto& [u, s] : scene.supports)
-            if (s.layer == name) { empty = false; break; }
-    if (empty)
-        for (const auto& [u, g] : scene.groupObjects)
-            if (g.layer == name) { empty = false; break; }
+    auto contains = [&](const auto &container) {
+        for (const auto &[u, obj] : container) {
+            (void)u;
+            if (obj.layer == name)
+                return true;
+        }
+        return false;
+    };
+    empty = !(contains(scene.fixtures) || contains(scene.trusses) ||
+              contains(scene.sceneObjects) || contains(scene.supports) ||
+              contains(scene.groupObjects));
 
     if (!empty)
     {
@@ -374,72 +351,16 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
             return;
     }
 
-    cfg.PushUndoState("delete layer");
-
-    for (auto it = scene.fixtures.begin(); it != scene.fixtures.end();) {
-        if (it->second.layer == name)
-            it = scene.fixtures.erase(it);
-        else
-            ++it;
+    if (scene.layers.find(uuid) == scene.layers.end()) {
+        wxMessageBox(_("Layer no longer exists."), _("Delete Layer"), wxOK | wxICON_ERROR, this);
+        return;
     }
-    for (auto it = scene.trusses.begin(); it != scene.trusses.end();) {
-        if (it->second.layer == name)
-            it = scene.trusses.erase(it);
-        else
-            ++it;
+    auto result = layerdomain::DeleteLayer(*configManager, uuid);
+    if (result.status != layerdomain::LayerStatus::Success) {
+        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+                     _("Delete Layer"), wxOK | wxICON_ERROR, this);
+        return;
     }
-    for (auto it = scene.sceneObjects.begin(); it != scene.sceneObjects.end();) {
-        if (it->second.layer == name)
-            it = scene.sceneObjects.erase(it);
-        else
-            ++it;
-    }
-    for (auto it = scene.supports.begin(); it != scene.supports.end();) {
-        if (it->second.layer == name)
-            it = scene.supports.erase(it);
-        else
-            ++it;
-    }
-    for (auto it = scene.groupObjects.begin(); it != scene.groupObjects.end();) {
-        if (it->second.layer == name)
-            it = scene.groupObjects.erase(it);
-        else
-            ++it;
-    }
-
-    if (!layerUuid.empty())
-        scene.layers.erase(layerUuid);
-
-    auto hidden = cfg.GetHiddenLayers();
-    hidden.erase(name);
-    cfg.SetHiddenLayers(hidden);
-    if (cfg.GetCurrentLayer() == name)
-        cfg.SetCurrentLayer(DEFAULT_LAYER_NAME);
-
-    auto selFix = cfg.GetSelectedFixtures();
-    selFix.erase(std::remove_if(selFix.begin(), selFix.end(),
-                              [&](const std::string &u) {
-                                return scene.fixtures.find(u) ==
-                                       scene.fixtures.end();
-                              }),
-               selFix.end());
-    cfg.SetSelectedFixtures(selFix);
-    auto selTr = cfg.GetSelectedTrusses();
-    selTr.erase(std::remove_if(selTr.begin(), selTr.end(),
-                             [&](const std::string &u) {
-                               return scene.trusses.find(u) ==
-                                      scene.trusses.end();
-                             }),
-              selTr.end());
-    cfg.SetSelectedTrusses(selTr);
-    auto selObj = cfg.GetSelectedSceneObjects();
-    selObj.erase(std::remove_if(selObj.begin(), selObj.end(),
-                              [&](const std::string &u) {
-                                return scene.sceneObjects.find(u) ==
-                                       scene.sceneObjects.end();
-                              }),
-               selObj.end());
-    cfg.SetSelectedSceneObjects(selObj);
 
     ReloadLayers();
     if (FixtureTablePanel::Instance())
@@ -448,10 +369,9 @@ void LayerPanel::OnDeleteLayer(wxCommandEvent&)
         TrussTablePanel::Instance()->ReloadData();
     if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->ReloadData();
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-    }
+    if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->ReloadData();
+    RefreshVisibleViewers();
 }
 
 // Renames the activated layer when the layer-name column is activated.
@@ -466,61 +386,29 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
     if (idx == wxNOT_FOUND)
         return;
 
-  wxString oldW = list->GetTextValue(idx, ColumnIndex(LayerColumn::Layer));
-    std::string oldName = oldW.ToStdString();
-  if (oldName == DEFAULT_LAYER_NAME) {
-    wxMessageBox(_("Cannot rename default layer."), _("Rename Layer"),
-                 wxOK | wxICON_ERROR, this);
+    const std::string uuid = LayerUuidForRow(static_cast<int>(idx));
+    auto &scene = (*configManager).GetScene();
+    auto layerIt = scene.layers.find(uuid);
+    if (uuid.empty() || layerIt == scene.layers.end())
+        return;
+    const std::string oldName = layerIt->second.name;
+    if (oldName == DEFAULT_LAYER_NAME) {
+        wxMessageBox(_("Cannot rename default layer."), _("Rename Layer"),
+                     wxOK | wxICON_ERROR, this);
         return;
     }
 
-    wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Rename Layer"), oldW);
+    wxTextEntryDialog dlg(this, _("Enter new layer name:"), _("Rename Layer"), Utf8ToWx(oldName));
     if (dlg.ShowModal() != wxID_OK)
         return;
-    std::string newName = dlg.GetValue().ToStdString();
-    if (newName.empty() || newName == DEFAULT_LAYER_NAME || newName == oldName)
+    auto result = layerdomain::RenameLayer(*configManager, uuid, WxToUtf8(dlg.GetValue()));
+    if (result.status == layerdomain::LayerStatus::NoChange)
         return;
-
-    ConfigManager& cfg = (*configManager);
-    auto& scene = cfg.GetScene();
-
-    // check duplicate
-    for (const auto& [u, layer] : scene.layers)
-        if (layer.name == newName)
-        {
-            wxMessageBox(_("Layer already exists."), _("Rename Layer"), wxOK | wxICON_ERROR, this);
-            return;
-        }
-
-    std::string layerUuid;
-    for (const auto& [uuid, layer] : scene.layers)
-        if (layer.name == oldName)
-        {
-            layerUuid = uuid;
-            break;
-        }
-
-    cfg.PushUndoState("rename layer");
-
-    if (!layerUuid.empty())
-        scene.layers[layerUuid].name = newName;
-    auto rename = [&](auto& container){
-        for (auto& [u, obj] : container)
-            if (obj.layer == oldName)
-                obj.layer = newName;
-    };
-    rename(scene.fixtures);
-    rename(scene.trusses);
-    rename(scene.sceneObjects);
-    rename(scene.supports);
-    rename(scene.groupObjects);
-
-    auto hidden = cfg.GetHiddenLayers();
-    if (hidden.erase(oldName))
-        hidden.insert(newName);
-    cfg.SetHiddenLayers(hidden);
-    if (cfg.GetCurrentLayer() == oldName)
-        cfg.SetCurrentLayer(newName);
+    if (result.status != layerdomain::LayerStatus::Success) {
+        wxMessageBox(Utf8ToWx(result.message.empty() ? layerdomain::StatusMessage(result.status) : result.message),
+                     _("Rename Layer"), wxOK | wxICON_ERROR, this);
+        return;
+    }
 
     ReloadLayers();
     if (FixtureTablePanel::Instance())
@@ -529,8 +417,7 @@ void LayerPanel::OnRenameLayer(wxDataViewEvent &evt) {
         TrussTablePanel::Instance()->ReloadData();
     if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->ReloadData();
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-    }
+    if (HoistTablePanel::Instance())
+        HoistTablePanel::Instance()->ReloadData();
+    RefreshVisibleViewers();
 }

@@ -1712,3 +1712,13 @@ if(WIN32)
     target_link_libraries(mvr_xchange_protocol_test PRIVATE iphlpapi ws2_32)
 endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
+
+add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
+               ../core/layer_service.cpp
+               ../core/configservices.cpp
+               ../core/utf8_utils.cpp
+               ../core/uuidutils.cpp
+               ../models/layer.cpp)
+target_include_directories(layer_service_utf8_test PRIVATE ../core ../models)
+target_link_libraries(layer_service_utf8_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME LayerServiceUtf8 COMMAND layer_service_utf8_test)

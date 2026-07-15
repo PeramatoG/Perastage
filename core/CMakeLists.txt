@@ -49,6 +49,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutImageResourceRegistry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplateSerializer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewpresets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layer_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/markdown.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/magnet_snap.cpp
@@ -73,6 +74,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/trussloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_render_size.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_unit_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utf8_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/unit_label_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/uuidutils.cpp
