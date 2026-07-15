@@ -79,6 +79,18 @@ private:
   std::vector<std::string> selectedSceneObjects;
 };
 
+struct SelectionIntegrityIssue {
+  std::string entityType;
+  std::size_t missingCount = 0;
+  std::vector<std::string> sampleUuids;
+};
+
+std::vector<SelectionIntegrityIssue> FindStaleSelectionUuids(
+    const MvrScene &scene, const SelectionState &selection,
+    std::size_t sampleLimit = 3);
+void LogSelectionIntegrityAfterSceneReload(const MvrScene &scene,
+                                           const SelectionState &selection);
+
 class LayerVisibilityState;
 
 class HistoryManager {

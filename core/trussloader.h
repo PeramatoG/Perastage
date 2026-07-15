@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 #include "truss.h"
@@ -26,3 +27,5 @@ bool IsSupportedTrussDefinitionExtension(const std::string &path);
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss);
 bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss);
 bool LoadTrussDefinition(const std::string &path, Truss &outTruss);
+std::filesystem::path BuildGdtfExtractionCacheDirForTesting(
+    const std::filesystem::path &gdtfPath);

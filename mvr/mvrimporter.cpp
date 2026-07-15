@@ -2084,15 +2084,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return fs::is_regular_file(PathUtils::PathFromUtf8(gdtfPath), ec) && !ec;
   };
 
+  auto buildResolvedGdtfIdentityKey = [&](const std::string &gdtfPath) {
+    if (gdtfPath.empty())
+      return std::string{};
+    return PathUtils::BuildFilesystemIdentityKey(
+        PathUtils::PathFromUtf8(gdtfPath));
+  };
+
   auto getGdtfModesCached =
       [&](const std::string &gdtfPath) -> const std::vector<std::string> & {
-    auto cacheIt = gdtfModesCache.find(gdtfPath);
+    const std::string cacheKey = buildResolvedGdtfIdentityKey(gdtfPath);
+    auto cacheIt = gdtfModesCache.find(cacheKey);
     if (cacheIt != gdtfModesCache.end())
       return cacheIt->second;
     if (!resolvedGdtfFileExists(gdtfPath))
-      return gdtfModesCache.emplace(gdtfPath, std::vector<std::string>{})
+      return gdtfModesCache.emplace(cacheKey, std::vector<std::string>{})
           .first->second;
-    return gdtfModesCache.emplace(gdtfPath, GetGdtfModes(gdtfPath))
+    return gdtfModesCache.emplace(cacheKey, GetGdtfModes(gdtfPath))
         .first->second;
   };
 
@@ -2100,7 +2108,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                            const std::string &modeName) {
     if (!resolvedGdtfFileExists(gdtfPath))
       return -1;
-    auto &channelCountByMode = gdtfModeChannelCountCache[gdtfPath];
+    const std::string cacheKey = buildResolvedGdtfIdentityKey(gdtfPath);
+    auto &channelCountByMode = gdtfModeChannelCountCache[cacheKey];
     auto countIt = channelCountByMode.find(modeName);
     if (countIt != channelCountByMode.end())
       return countIt->second;
@@ -2169,7 +2178,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (resolvedGdtfPath.empty() || !resolvedGdtfFileExists(resolvedGdtfPath))
       return kEmptyFixtureMetadata;
 
-    auto it = gdtfFixtureMetadataCache.find(resolvedGdtfPath);
+    const std::string cacheKey = buildResolvedGdtfIdentityKey(resolvedGdtfPath);
+    auto it = gdtfFixtureMetadataCache.find(cacheKey);
     if (it != gdtfFixtureMetadataCache.end())
       return it->second;
 
@@ -2178,7 +2188,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
     return gdtfFixtureMetadataCache
-        .emplace(resolvedGdtfPath, std::move(metadata))
+        .emplace(cacheKey, std::move(metadata))
         .first->second;
   };
 
@@ -2188,14 +2198,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (resolvedGdtfPath.empty())
       return false;
 
-    auto it = trussDefinitionCache.find(resolvedGdtfPath);
+    const std::string cacheKey = buildResolvedGdtfIdentityKey(resolvedGdtfPath);
+    auto it = trussDefinitionCache.find(cacheKey);
     if (it == trussDefinitionCache.end()) {
       Truss loaded;
       if (LoadTrussDefinition(resolvedGdtfPath, loaded))
-        it = trussDefinitionCache.emplace(resolvedGdtfPath, std::move(loaded))
-                 .first;
+        it = trussDefinitionCache.emplace(cacheKey, std::move(loaded)).first;
       else
-        it = trussDefinitionCache.emplace(resolvedGdtfPath, std::nullopt).first;
+        it = trussDefinitionCache.emplace(cacheKey, std::nullopt).first;
     }
 
     if (!it->second.has_value())
@@ -2824,7 +2834,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     : PathUtils::PathFromUtf8(scene.basePath) /
                           PathUtils::PathFromUtf8(typeIt->second);
             Truss sidecar;
-            if (LoadTrussDefinition(ToString(auxPath.u8string()), sidecar)) {
+            if (loadTrussDefinitionCached(PathUtils::PathToUtf8(auxPath), sidecar)) {
               if (truss.manufacturer.empty())
                 truss.manufacturer = sidecar.manufacturer;
               if (truss.model.empty())

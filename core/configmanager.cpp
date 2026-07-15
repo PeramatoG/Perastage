@@ -645,6 +645,8 @@ bool ConfigManager::LoadProject(const std::string &path,
     SetHiddenFixtureTypes(
         DeserializeStringSet(GetValue(kHiddenFixtureTypesConfigKey)));
     restoreUserPreferences();
+    LogSelectionIntegrityAfterSceneReload(projectSession.GetScene(),
+                                           selectionState);
     ClearHistory();
     selectionState.Clear();
     projectSession.ResetDirty();

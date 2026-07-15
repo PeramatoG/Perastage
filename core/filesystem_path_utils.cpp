@@ -1,6 +1,9 @@
 #include "filesystem_path_utils.h"
 
+#include <algorithm>
+#include <cwctype>
 #include <stdexcept>
+#include <system_error>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -10,6 +13,39 @@
 #endif
 
 namespace PathUtils {
+
+
+// Resolves a path for identity-key generation without throwing on filesystem errors.
+static std::filesystem::path ResolveIdentityPath(const std::filesystem::path &path) {
+  if (path.empty())
+    return {};
+
+  std::error_code ec;
+  std::filesystem::path resolved = std::filesystem::weakly_canonical(path, ec);
+  if (ec) {
+    ec.clear();
+    resolved = std::filesystem::absolute(path, ec);
+  }
+  if (ec)
+    resolved = path;
+  return resolved.lexically_normal();
+}
+
+// Normalizes platform path spelling for cache identity while preserving UTF-8 validity.
+static std::string NormalizeIdentityText(std::filesystem::path path) {
+  path.make_preferred();
+  std::string text = PathToUtf8(path.lexically_normal());
+  std::replace(text.begin(), text.end(), '\\', '/');
+#ifdef _WIN32
+  std::wstring wide = path.lexically_normal().wstring();
+  std::replace(wide.begin(), wide.end(), L'\\', L'/');
+  std::transform(wide.begin(), wide.end(), wide.begin(),
+                 [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
+  return PathToUtf8(std::filesystem::path(wide));
+#else
+  return text;
+#endif
+}
 
 // Creates a filesystem path from UTF-8 text using the native platform encoding.
 std::filesystem::path PathFromUtf8(const std::string &text) {
@@ -61,6 +97,27 @@ std::string PathToUtf8(const std::filesystem::path &path) {
 #else
   return path.string();
 #endif
+}
+
+
+// Builds an internal filesystem identity key for cache and deduplication lookups.
+std::string BuildFilesystemIdentityKey(const std::filesystem::path &path) {
+  return NormalizeIdentityText(ResolveIdentityPath(path));
+}
+
+// Builds an internal filesystem identity key from UTF-8 path text.
+std::string BuildFilesystemIdentityKey(const std::string &utf8Path) {
+  return BuildFilesystemIdentityKey(PathFromUtf8(utf8Path));
+}
+
+// Builds an internal identity key after resolving a relative path against a base path.
+std::string BuildFilesystemIdentityKey(const std::filesystem::path &path,
+                                       const std::filesystem::path &basePath) {
+  if (path.empty())
+    return {};
+  if (path.is_relative() && !basePath.empty())
+    return BuildFilesystemIdentityKey(basePath / path);
+  return BuildFilesystemIdentityKey(path);
 }
 
 } // namespace PathUtils

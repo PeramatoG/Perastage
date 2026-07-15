@@ -1576,6 +1576,31 @@ target_include_directories(project_session_test PRIVATE ../core ../models ../thi
 target_link_libraries(project_session_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSession COMMAND project_session_test)
 
+
+add_executable(filesystem_identity_test
+               filesystem_identity_test.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/trussloader.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/logger.cpp
+               ../core/apppaths.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp)
+target_include_directories(filesystem_identity_test PRIVATE ../core ../models ../third_party)
+target_link_libraries(filesystem_identity_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME FilesystemIdentity COMMAND filesystem_identity_test)
+
+add_executable(selection_integrity_test
+               selection_integrity_test.cpp
+               ../core/configservices.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
+target_include_directories(selection_integrity_test PRIVATE ../core ../models ../third_party)
+target_link_libraries(selection_integrity_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME SelectionIntegrity COMMAND selection_integrity_test)
+
 add_executable(selection_state_test
                selection_state_test.cpp
                ../core/configservices.cpp)
