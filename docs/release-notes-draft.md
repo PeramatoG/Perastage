@@ -37,6 +37,7 @@ Changes since **v1.4.0**.
 
 ## Fixes
 
+- Fixed GDTF editor numeric text parsing so fixture power, fixture weight, and truss dimensions compile with the macOS 15 / Xcode 16.4 toolchain while preserving locale-independent validation.
 - Fixed Edit Truss physical-property dimensions so stored millimeter values are converted before display and editing, keeping length, width, and height aligned with the active UI distance units and visible unit suffixes.
 - Fixed MVR imports so fixture types whose declared GDTF archive is missing remain available in the GDTF conflict resolver, can be matched through Download GDTF, and report a clear dummy fallback instead of a raw missing-file error when no online match is found.
 - Fixed unit-aware table header refreshes so translated fixture, truss, hoist, scene-object, and rigging labels are not overwritten with English after reloads or unit preference changes.
