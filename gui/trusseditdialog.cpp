@@ -269,6 +269,10 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   const auto weightUnit = ResolveWeightUnitSystem();
   const std::string distanceSuffix = Units::DistanceUnitSuffix(distanceUnit);
   const std::string weightSuffix = Units::WeightUnitSuffix(weightUnit);
+  gdtfEditorPanel->SetMetadataDescriptionEditable(
+      gdtfEditSession && gui::gdtf_binding::IsEditable(
+                             *gdtfEditSession,
+                             gdtf::GdtfFieldId::FixtureTypeDescription));
   gdtfEditorPanel->SetPresentation({
       false,
       {},
@@ -327,14 +331,30 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
                gui::gdtf_binding::IsEditable(*gdtfEditSession,
                                              gdtf::GdtfFieldId::Weight),
            weightSuffix},
-          {GdtfPhysicalPropertyField::CrossSection, "Cross section",
+          {GdtfPhysicalPropertyField::CrossSectionType, "Cross-section type",
+           gui::gdtf_binding::ValueText(
+               sessionValues, gdtf::GdtfFieldId::TrussCrossSectionType,
+               "TrussFramework"),
+           true,
+           gdtfEditSession &&
+               gui::gdtf_binding::IsEditable(
+                   *gdtfEditSession, gdtf::GdtfFieldId::TrussCrossSectionType),
+           "",
+           "GDTF structure cross-section type. Official values are TrussFramework and Tube.",
+           {"TrussFramework", "Tube"}},
+          {GdtfPhysicalPropertyField::CrossSection, "Truss cross-section name",
            gui::gdtf_binding::ValueText(
                sessionValues, gdtf::GdtfFieldId::TrussCrossSection,
                std::string(crossSection.ToUTF8())),
            true,
            gdtfEditSession &&
                gui::gdtf_binding::IsEditable(
-                   *gdtfEditSession, gdtf::GdtfFieldId::TrussCrossSection)},
+                   *gdtfEditSession, gdtf::GdtfFieldId::TrussCrossSection) &&
+               gui::gdtf_binding::ValueText(
+                   sessionValues, gdtf::GdtfFieldId::TrussCrossSectionType,
+                   "TrussFramework") == "TrussFramework",
+           "",
+           "Manufacturer or structural cross-section identifier. Used only when the cross-section type is TrussFramework, for example H40V, F34 or GenericTruss"},
       },
       {}});
   gdtfEditorPanel->SetIdentityChangeCallback(
@@ -344,8 +364,17 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
       });
   gdtfEditorPanel->SetPhysicalPropertyChangeCallback(
       [this](GdtfPhysicalPropertyField field, const std::string &value) {
-        if (auto fieldId = gui::gdtf_binding::ToFieldId(field))
+        if (auto fieldId = gui::gdtf_binding::ToFieldId(field)) {
           SetSessionValue(*fieldId, value);
+          if (*fieldId == gdtf::GdtfFieldId::TrussCrossSectionType)
+            gdtfEditorPanel->SetPhysicalPropertyEditable(
+                GdtfPhysicalPropertyField::CrossSection,
+                value == "TrussFramework");
+        }
+      });
+  gdtfEditorPanel->SetMetadataDescriptionChangeCallback(
+      [this](const std::string &value) {
+        SetSessionValue(gdtf::GdtfFieldId::FixtureTypeDescription, value);
       });
 
   mvrSizer->Add(mvrGrid, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
@@ -406,7 +435,9 @@ void TrussEditDialog::SyncSessionDirtyToLegacyFlags() {
   setFlag(TrussColumn::Height, gdtf::GdtfFieldId::TrussHeight);
   setFlag(TrussColumn::Weight, gdtf::GdtfFieldId::Weight);
   crossSectionModified =
-      gdtfEditSession->IsFieldDirty(gdtf::GdtfFieldId::TrussCrossSection);
+      gdtfEditSession->IsFieldDirty(gdtf::GdtfFieldId::TrussCrossSection) ||
+      gdtfEditSession->IsFieldDirty(gdtf::GdtfFieldId::TrussCrossSectionType) ||
+      gdtfEditSession->IsFieldDirty(gdtf::GdtfFieldId::FixtureTypeDescription);
 }
 
 // Clears session validation tooltips from the GDTF editor presentation.
@@ -417,6 +448,7 @@ void TrussEditDialog::ClearSessionValidation() {
                            GdtfPhysicalPropertyField::Width,
                            GdtfPhysicalPropertyField::Height,
                            GdtfPhysicalPropertyField::Weight,
+                           GdtfPhysicalPropertyField::CrossSectionType,
                            GdtfPhysicalPropertyField::CrossSection})
     gdtfEditorPanel->SetPhysicalPropertyValidation(field, {});
 }
@@ -469,6 +501,8 @@ bool TrussEditDialog::SetSessionValue(gdtf::GdtfFieldId fieldId,
       physicalField = GdtfPhysicalPropertyField::Width;
     else if (entry.first == gdtf::GdtfFieldId::TrussHeight)
       physicalField = GdtfPhysicalPropertyField::Height;
+    else if (entry.first == gdtf::GdtfFieldId::TrussCrossSectionType)
+      physicalField = GdtfPhysicalPropertyField::CrossSectionType;
     else if (entry.first == gdtf::GdtfFieldId::TrussCrossSection)
       physicalField = GdtfPhysicalPropertyField::CrossSection;
     gdtfEditorPanel->SetPhysicalPropertyValidation(physicalField, entry.second);

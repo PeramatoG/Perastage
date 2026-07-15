@@ -21,11 +21,21 @@ gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
                              const std::string &mode) {
     return GetGdtfModeChannelCount(PathUtils::PathToUtf8(path), mode);
   };
-  services.writePhysicalProperties = [](const std::filesystem::path &path,
-                                        float weightKg, float powerW,
-                                        std::string &) {
-    return SetGdtfProperties(PathUtils::PathToUtf8(path), weightKg, powerW,
-                             GdtfMutationAudit::BuildPerastageModifiedBy());
+  services.writeDocumentMutation = [](const std::filesystem::path &path,
+                                       const gdtf::GdtfApplyRequest &request,
+                                       std::string &) {
+    GdtfDocumentMutationRequest mutation;
+    mutation.descriptionSet = request.changedDocumentFields.count(
+                                  gdtf::GdtfFieldId::FixtureTypeDescription) > 0;
+    mutation.description = request.values.fixtureTypeDescription.value_or(std::string());
+    mutation.weightSet = request.changedDocumentFields.count(gdtf::GdtfFieldId::Weight) > 0;
+    mutation.weightKg = request.values.weightKg.value_or(0.0f);
+    mutation.powerSet = request.changedDocumentFields.count(
+                            gdtf::GdtfFieldId::PowerConsumption) > 0;
+    mutation.powerW = request.values.powerConsumptionW.value_or(0.0f);
+    mutation.revisionText = "Updated GDTF fixture type document fields from Perastage";
+    return MutateGdtfDocument(PathUtils::PathToUtf8(path), mutation,
+                              GdtfMutationAudit::BuildPerastageModifiedBy());
   };
   services.createDerivative = [](const std::filesystem::path &source,
                                  const std::string &fixtureType,

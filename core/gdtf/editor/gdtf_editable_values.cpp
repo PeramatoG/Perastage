@@ -52,6 +52,9 @@ bool SetEditableValue(GdtfEditableValues &values, GdtfFieldId fieldId,
   case GdtfFieldId::ModeName:
     values.modeName = value;
     return true;
+  case GdtfFieldId::FixtureTypeDescription:
+    values.fixtureTypeDescription = value;
+    return true;
   case GdtfFieldId::Weight:
     if (auto parsed = ParseFloat(value)) {
       values.weightKg = *parsed;
@@ -82,6 +85,11 @@ bool SetEditableValue(GdtfEditableValues &values, GdtfFieldId fieldId,
       return true;
     }
     return false;
+  case GdtfFieldId::TrussCrossSectionType:
+    if (value != "TrussFramework" && value != "Tube")
+      return false;
+    values.trussCrossSectionType = value;
+    return true;
   case GdtfFieldId::TrussCrossSection:
     values.trussCrossSection = value;
     return true;
@@ -105,6 +113,8 @@ std::optional<std::string> GetEditableValue(const GdtfEditableValues &values,
     return values.modelName;
   case GdtfFieldId::ModeName:
     return values.modeName;
+  case GdtfFieldId::FixtureTypeDescription:
+    return values.fixtureTypeDescription;
   case GdtfFieldId::Weight:
     return values.weightKg
                ? std::optional<std::string>(FormatFloat(*values.weightKg))
@@ -125,6 +135,8 @@ std::optional<std::string> GetEditableValue(const GdtfEditableValues &values,
     return values.trussHeightMm
                ? std::optional<std::string>(FormatFloat(*values.trussHeightMm))
                : std::nullopt;
+  case GdtfFieldId::TrussCrossSectionType:
+    return values.trussCrossSectionType;
   case GdtfFieldId::TrussCrossSection:
     return values.trussCrossSection;
   case GdtfFieldId::SourceFileReference:
@@ -139,11 +151,13 @@ bool operator==(const GdtfEditableValues &lhs, const GdtfEditableValues &rhs) {
   return lhs.fixtureTypeName == rhs.fixtureTypeName &&
          lhs.manufacturer == rhs.manufacturer &&
          lhs.modelName == rhs.modelName && lhs.modeName == rhs.modeName &&
+         lhs.fixtureTypeDescription == rhs.fixtureTypeDescription &&
          lhs.weightKg == rhs.weightKg &&
          lhs.powerConsumptionW == rhs.powerConsumptionW &&
          lhs.trussLengthMm == rhs.trussLengthMm &&
          lhs.trussWidthMm == rhs.trussWidthMm &&
          lhs.trussHeightMm == rhs.trussHeightMm &&
+         lhs.trussCrossSectionType == rhs.trussCrossSectionType &&
          lhs.trussCrossSection == rhs.trussCrossSection &&
          lhs.sourceFileReference == rhs.sourceFileReference;
 }

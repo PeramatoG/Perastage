@@ -27,6 +27,7 @@
 
 class wxFlexGridSizer;
 class wxStaticText;
+class wxChoice;
 class wxTextCtrl;
 
 // Identifies supported reusable GDTF physical/type property fields.
@@ -36,6 +37,7 @@ enum class GdtfPhysicalPropertyField {
   Length,
   Width,
   Height,
+  CrossSectionType,
   CrossSection
 };
 
@@ -47,6 +49,7 @@ struct GdtfPhysicalPropertyPresentation {
   bool editable = true;
   std::string unitSuffix;
   std::string helpText;
+  std::vector<std::string> choices;
 };
 
 class GdtfPhysicalPropertiesPanel : public wxPanel {
@@ -68,6 +71,7 @@ private:
   struct FieldControls {
     wxStaticText *label = nullptr;
     wxTextCtrl *value = nullptr;
+    wxChoice *choice = nullptr;
     wxStaticText *suffix = nullptr;
     wxStaticText *validation = nullptr;
   };

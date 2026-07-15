@@ -20,11 +20,21 @@ BuildProjectTrussGdtfEditorContext(const ProjectTrussGdtfContextInput &input) {
   context.initialValues.manufacturer = input.truss.manufacturer;
   context.initialValues.modelName = input.truss.model;
   context.initialValues.modeName = input.truss.gdtfMode;
+  context.initialValues.fixtureTypeDescription = input.truss.gdtfDescription.empty()
+                                                     ? input.document.Description().description
+                                                     : input.truss.gdtfDescription;
   context.initialValues.weightKg = input.truss.weightKg;
   context.initialValues.trussLengthMm = input.truss.lengthMm;
   context.initialValues.trussWidthMm = input.truss.widthMm;
   context.initialValues.trussHeightMm = input.truss.heightMm;
-  context.initialValues.trussCrossSection = input.truss.crossSection;
+  context.initialValues.trussCrossSectionType = input.truss.crossSectionType.empty()
+                                                   ? (input.document.Description().trussCrossSectionType.empty()
+                                                          ? "TrussFramework"
+                                                          : input.document.Description().trussCrossSectionType)
+                                                   : input.truss.crossSectionType;
+  context.initialValues.trussCrossSection = input.truss.crossSection.empty()
+                                                ? input.document.Description().trussCrossSection
+                                                : input.truss.crossSection;
   context.initialValues.sourceFileReference = input.truss.gdtfSpec.empty()
                                                   ? input.truss.modelFile
                                                   : input.truss.gdtfSpec;
@@ -37,7 +47,11 @@ BuildProjectTrussGdtfEditorContext(const ProjectTrussGdtfContextInput &input) {
       MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::TrussHeight] =
       MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::FixtureTypeDescription] =
+      MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::Weight] = MakeDocumentEditCapability();
+  context.fieldCapabilities[GdtfFieldId::TrussCrossSectionType] =
+      MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::TrussCrossSection] =
       MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::SourceFileReference] =

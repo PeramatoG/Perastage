@@ -87,6 +87,8 @@ struct TrussSourceData {
   fs::path geometryPath;
   fs::path symbolPath;
   std::string typeKey;
+  std::string description;
+  std::string crossSectionType = "TrussFramework";
   std::string crossSection;
 };
 
@@ -261,6 +263,7 @@ static std::string BuildStableFixtureTypeId(const TrussSourceData &data) {
   seed << "perastage-truss-type:v2|" << data.typeKey << '|'
        << Slug(data.manufacturer, "manufacturer") << '|'
        << Slug(data.model, "model") << '|'
+       << Slug(data.crossSectionType, "cross_section_type") << '|'
        << Slug(data.crossSection, "cross_section") << '|'
        << Slug(data.geometryPath.generic_string(), "geometry") << '|'
        << Slug(data.symbolPath.generic_string(), "symbol") << '|'
@@ -294,6 +297,8 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   fixtureType->SetAttribute("ShortName", fixtureName.c_str());
   fixtureType->SetAttribute("LongName", fixtureName.c_str());
   fixtureType->SetAttribute("Manufacturer", manufacturer.c_str());
+  if (!data.description.empty())
+    fixtureType->SetAttribute("Description", data.description.c_str());
   fixtureType->SetAttribute("FixtureTypeID", BuildStableFixtureTypeId(data).c_str());
   root->InsertEndChild(fixtureType);
 
@@ -336,8 +341,10 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
   structure->SetAttribute("Name", "Root");
   structure->SetAttribute("Model", "Main");
   structure->SetAttribute("StructureType", "Detail");
-  structure->SetAttribute("CrossSectionType", "TrussFramework");
-  structure->SetAttribute("TrussCrossSection", trussCrossSection.c_str());
+  const std::string crossSectionType = data.crossSectionType == "Tube" ? "Tube" : "TrussFramework";
+  structure->SetAttribute("CrossSectionType", crossSectionType.c_str());
+  if (crossSectionType == "TrussFramework")
+    structure->SetAttribute("TrussCrossSection", trussCrossSection.c_str());
   geometries->InsertEndChild(structure);
   fixtureType->InsertEndChild(geometries);
 
@@ -429,6 +436,8 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.heightMm = truss.heightMm;
   source.weightKg = truss.weightKg;
   source.typeKey = truss.perastageTypeKey;
+  source.description = truss.gdtfDescription;
+  source.crossSectionType = truss.crossSectionType.empty() ? "TrussFramework" : truss.crossSectionType;
   source.crossSection = truss.crossSection;
 
   auto pickGeometry = [&](const std::string &path) {

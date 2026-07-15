@@ -108,6 +108,12 @@ std::vector<GdtfValidationDiagnostic> GdtfEditSession::Validate() const {
       currentValues_.fixtureTypeName && currentValues_.fixtureTypeName->empty())
     diagnostics.push_back(
         {GdtfFieldId::FixtureTypeName, "Fixture type name cannot be empty."});
+  if (SupportsValidation(context_, GdtfFieldId::TrussCrossSectionType) &&
+      currentValues_.trussCrossSectionType &&
+      *currentValues_.trussCrossSectionType != "TrussFramework" &&
+      *currentValues_.trussCrossSectionType != "Tube")
+    diagnostics.push_back({GdtfFieldId::TrussCrossSectionType,
+                           "Cross-section type must be TrussFramework or Tube."});
   return diagnostics;
 }
 

@@ -201,3 +201,6 @@ sudo pacman -U Perastage-1.5.0-arch-x86_64.pkg.tar.zst
 Please open an issue on GitHub if you encounter a problem. Include the Perastage version, operating system, steps to reproduce the issue, and a diagnostic report from the **Help** menu whenever possible.
 
 You can also contact the project at **perastage.app@gmail.com**.
+
+## Improvements
+- Added GDTF editor support for FixtureType descriptions and truss cross-section type metadata, including Tube output that omits truss cross-section names as required by GDTF.

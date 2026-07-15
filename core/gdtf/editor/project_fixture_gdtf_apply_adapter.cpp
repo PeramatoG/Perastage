@@ -19,7 +19,8 @@ bool ContainsField(const std::set<GdtfFieldId> &fields, GdtfFieldId field) {
 bool HasOnlySupportedFields(const GdtfApplyRequest &request,
                             std::string &unsupportedField) {
   const std::set<GdtfFieldId> documentFields = {
-      GdtfFieldId::Weight, GdtfFieldId::PowerConsumption};
+      GdtfFieldId::FixtureTypeDescription, GdtfFieldId::Weight,
+      GdtfFieldId::PowerConsumption};
   const std::set<GdtfFieldId> contextFields = {
       GdtfFieldId::FixtureTypeName, GdtfFieldId::SourceFileReference,
       GdtfFieldId::ModeName};
@@ -88,9 +89,11 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
     return Fail("Fixture apply request contains unsupported field: " +
                 unsupportedField + ".");
 
+  const bool descriptionChanged = ContainsField(
+      request.changedDocumentFields, GdtfFieldId::FixtureTypeDescription);
   const bool weightChanged = ContainsField(request.changedDocumentFields, GdtfFieldId::Weight);
   const bool powerChanged = ContainsField(request.changedDocumentFields, GdtfFieldId::PowerConsumption);
-  const bool documentChanged = weightChanged || powerChanged;
+  const bool documentChanged = descriptionChanged || weightChanged || powerChanged;
   const bool typeChanged = ContainsField(request.changedContextFields, GdtfFieldId::FixtureTypeName);
   const bool sourceChanged = ContainsField(request.changedContextFields, GdtfFieldId::SourceFileReference);
   const bool modeChanged = ContainsField(request.changedContextFields, GdtfFieldId::ModeName);
@@ -150,11 +153,11 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
     } else if (request.sourceKind != GdtfSourceKind::PerastageGeneratedDerivative) {
       return Fail("OverwriteOwnedFile requires an explicitly owned Perastage derivative source.");
     }
-    if (!services_.writePhysicalProperties)
-      return Fail("Physical-property mutation service is not available.");
+    if (!services_.writeDocumentMutation)
+      return Fail("GDTF document mutation service is not available.");
     std::string diagnostic;
-    if (!services_.writePhysicalProperties(writablePath, resultingWeight, resultingPower, diagnostic)) {
-      auto failed = Fail(diagnostic.empty() ? "Could not update GDTF physical properties." : diagnostic);
+    if (!services_.writeDocumentMutation(writablePath, request, diagnostic)) {
+      auto failed = Fail(diagnostic.empty() ? "Could not update GDTF document fields." : diagnostic);
       failed.common.derivativeCreated = result.common.derivativeCreated;
       failed.externalFileCreatedOrModified = result.externalFileCreatedOrModified;
       failed.common.resultingGdtfPath = writablePath;

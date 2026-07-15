@@ -354,6 +354,16 @@ GdtfDescriptionSnapshot ReadGdtfDescription(
       }
     }
   }
+  if (const tinyxml2::XMLElement *geometries =
+          fixtureType->FirstChildElement("Geometries")) {
+    if (const tinyxml2::XMLElement *structure =
+            geometries->FirstChildElement("Structure")) {
+      snapshot.trussCrossSectionType =
+          FirstAttribute(structure, {"CrossSectionType"});
+      snapshot.trussCrossSection = FirstAttribute(structure, {"TrussCrossSection"});
+    }
+  }
+
   if (!snapshot.powerConsumptionWPresent) {
     const tinyxml2::XMLElement *geometries =
         fixtureType->FirstChildElement("Geometries");

@@ -21,6 +21,7 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
                           : input.fixture.instanceName;
   context.initialValues.fixtureTypeName = input.fixture.typeName;
   context.initialValues.modeName = input.fixture.gdtfMode;
+  context.initialValues.fixtureTypeDescription = input.document.Description().description;
   context.initialValues.weightKg = input.fixture.weightKg;
   context.initialValues.powerConsumptionW = input.fixture.powerConsumptionW;
   context.initialValues.sourceFileReference =
@@ -34,6 +35,8 @@ GdtfEditorContext BuildProjectFixtureGdtfEditorContext(
       MakeContextSelectionCapability();
   context.fieldCapabilities[GdtfFieldId::SourceFileReference] =
       MakeContextSelectionCapability();
+  context.fieldCapabilities[GdtfFieldId::FixtureTypeDescription] =
+      MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::Weight] = MakeDocumentEditCapability();
   context.fieldCapabilities[GdtfFieldId::PowerConsumption] =
       MakeDocumentEditCapability();

@@ -15,7 +15,7 @@ namespace gdtf {
 struct ProjectFixtureGdtfApplyServices {
   std::function<bool(const std::filesystem::path &, const std::string &)> modeExists;
   std::function<int(const std::filesystem::path &, const std::string &)> channelCount;
-  std::function<bool(const std::filesystem::path &, float, float, std::string &)> writePhysicalProperties;
+  std::function<bool(const std::filesystem::path &, const GdtfApplyRequest &, std::string &)> writeDocumentMutation;
   std::function<bool(const std::filesystem::path &, const std::string &, const std::string &, std::filesystem::path &, std::string &)> createDerivative;
 };
 

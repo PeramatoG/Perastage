@@ -45,10 +45,11 @@ gdtf::ProjectFixtureGdtfApplyServices MakeServices(bool failDerivative = false,
     std::ofstream(out).put('d');
     return true;
   };
-  services.writePhysicalProperties = [failWrite](const std::filesystem::path &, float,
-                                                 float, std::string &diagnostic) {
+  services.writeDocumentMutation = [failWrite](const std::filesystem::path &,
+                                            const gdtf::GdtfApplyRequest &,
+                                            std::string &diagnostic) {
     if (failWrite) {
-      diagnostic = "Physical write failed.";
+      diagnostic = "Document write failed.";
       return false;
     }
     return true;

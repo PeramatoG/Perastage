@@ -12,11 +12,13 @@ struct GdtfEditableValues {
   std::optional<std::string> manufacturer;
   std::optional<std::string> modelName;
   std::optional<std::string> modeName;
+  std::optional<std::string> fixtureTypeDescription;
   std::optional<float> weightKg;
   std::optional<float> powerConsumptionW;
   std::optional<float> trussLengthMm;
   std::optional<float> trussWidthMm;
   std::optional<float> trussHeightMm;
+  std::optional<std::string> trussCrossSectionType;
   std::optional<std::string> trussCrossSection;
   std::optional<std::string> sourceFileReference;
 };

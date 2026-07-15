@@ -33,6 +33,8 @@ enum class GdtfFieldId {
   TrussLength,
   TrussWidth,
   TrussHeight,
+  FixtureTypeDescription,
+  TrussCrossSectionType,
   TrussCrossSection,
   TrussLoad
 };

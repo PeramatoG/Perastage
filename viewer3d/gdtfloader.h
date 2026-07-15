@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -99,6 +100,21 @@ bool GetGdtfProperties(const std::string& gdtfPath,
 // (e.g., "#RRGGBB"). Returns an empty string when no color is specified or
 // the file cannot be parsed.
 std::string GetGdtfModelColor(const std::string& gdtfPath);
+
+struct GdtfDocumentMutationRequest {
+    bool descriptionSet = false;
+    std::string description;
+    bool weightSet = false;
+    float weightKg = 0.0f;
+    bool powerSet = false;
+    float powerW = 0.0f;
+    std::string revisionText;
+};
+
+// Updates document-level FixtureType and physical-property values in one archive transaction.
+bool MutateGdtfDocument(const std::string& gdtfPath,
+                        const GdtfDocumentMutationRequest& request,
+                        const std::string& modifiedByProgram);
 
 // Updates Weight/PowerConsumption values in description.xml and appends a
 // revision entry with timestamp and modifier metadata.

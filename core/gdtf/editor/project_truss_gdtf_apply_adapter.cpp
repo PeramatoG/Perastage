@@ -61,6 +61,8 @@ Truss BuildGeneratedTypeUpdate(const Truss &instance, const Truss &generatedType
   updated.widthMm = generatedType.widthMm;
   updated.heightMm = generatedType.heightMm;
   updated.weightKg = generatedType.weightKg;
+  updated.gdtfDescription = generatedType.gdtfDescription;
+  updated.crossSectionType = generatedType.crossSectionType;
   updated.crossSection = generatedType.crossSection;
   updated.gdtfSpec = generatedType.gdtfSpec;
   updated.modelFile = generatedType.modelFile;
@@ -79,8 +81,8 @@ bool ContainsField(const std::set<GdtfFieldId> &fields, GdtfFieldId field) {
 bool HasOnlySupportedFields(const GdtfApplyRequest &request) {
   const std::set<GdtfFieldId> supported = {
       GdtfFieldId::Manufacturer, GdtfFieldId::ModelName,
-      GdtfFieldId::TrussLength, GdtfFieldId::TrussWidth,
-      GdtfFieldId::TrussHeight, GdtfFieldId::Weight,
+      GdtfFieldId::FixtureTypeDescription, GdtfFieldId::TrussLength, GdtfFieldId::TrussWidth,
+      GdtfFieldId::TrussHeight, GdtfFieldId::Weight, GdtfFieldId::TrussCrossSectionType,
       GdtfFieldId::TrussCrossSection};
   for (const auto field : request.changedDocumentFields) {
     if (!supported.count(field))
@@ -112,10 +114,12 @@ bool IsRegularFile(const std::filesystem::path &path) {
 bool HasGenerationFieldChange(const GdtfApplyRequest &request) {
   return ContainsField(request.changedDocumentFields, GdtfFieldId::Manufacturer) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::ModelName) ||
+         ContainsField(request.changedDocumentFields, GdtfFieldId::FixtureTypeDescription) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussLength) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussWidth) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussHeight) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::Weight) ||
+         ContainsField(request.changedDocumentFields, GdtfFieldId::TrussCrossSectionType) ||
          ContainsField(request.changedDocumentFields, GdtfFieldId::TrussCrossSection);
 }
 
@@ -157,6 +161,8 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   prepared.widthMm = request.values.trussWidthMm.value_or(prepared.widthMm);
   prepared.heightMm = request.values.trussHeightMm.value_or(prepared.heightMm);
   prepared.weightKg = request.values.weightKg.value_or(prepared.weightKg);
+  prepared.gdtfDescription = request.values.fixtureTypeDescription.value_or(prepared.gdtfDescription);
+  prepared.crossSectionType = request.values.trussCrossSectionType.value_or(prepared.crossSectionType.empty() ? "TrussFramework" : prepared.crossSectionType);
   prepared.crossSection = request.values.trussCrossSection.value_or(prepared.crossSection);
 
   if (!std::isfinite(prepared.lengthMm) || prepared.lengthMm < 0.0f ||
@@ -165,6 +171,8 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
     return Fail("Truss dimensions must be finite and non-negative.");
   if (!std::isfinite(prepared.weightKg) || prepared.weightKg < 0.0f)
     return Fail("Truss weight must be finite and non-negative.");
+  if (prepared.crossSectionType != "TrussFramework" && prepared.crossSectionType != "Tube")
+    return Fail("Truss cross-section type must be TrussFramework or Tube.");
 
   ProjectTrussGdtfApplyResult result;
   result.common.success = true;

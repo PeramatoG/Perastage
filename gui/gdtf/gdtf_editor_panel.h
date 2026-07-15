@@ -101,6 +101,8 @@ public:
   void SetIdentityActionCallback(GdtfTypeIdentityPanel::ActionCallback callback);
   void SetPhysicalPropertyChangeCallback(
       GdtfPhysicalPropertiesPanel::ChangeCallback callback);
+  void SetMetadataDescriptionChangeCallback(
+      GdtfMetadataPanel::DescriptionChangeCallback callback);
   void SetModeSelectionCallback(GdtfModesPanel::ModeSelectionCallback callback);
   void SetWheelInspectionCallback(GdtfModesPanel::WheelInspectionCallback callback);
 
@@ -129,6 +131,7 @@ public:
   void SetModeSelectionEnabled(bool enabled);
   void SetMetadata(const GdtfMetadataSummary &summary);
   void SetMetadataUnavailable();
+  void SetMetadataDescriptionEditable(bool editable);
 
 private:
   void BuildSections();
