@@ -41,6 +41,7 @@
 
 #include "viewer3dpanel.h"
 #include "mainwindow.h"
+#include "../gui/mainwindow/ids/tools_ids.h"
 #include "editable_focus_utils.h"
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
@@ -2002,6 +2003,12 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     std::set<std::string> positionNames;
     bool hasNoPosition = false;
     bool showSelectionSubmenus = false;
+    std::string hitSceneObjectUuid;
+    if (TryBindGlContextForInteraction("OnRightUp")) {
+        const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
+        QueryHoverUuid(m_controller, HoverTargetTable::SceneObjects, pickPos.x,
+                       pickPos.y, w, h, hitSceneObjectUuid);
+    }
     if (fixturePageActive && !scene.fixtures.empty() &&
         TryBindGlContextForInteraction("OnRightUp")) {
         std::string hitUuid;
@@ -2038,6 +2045,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     constexpr int kRenderStyleByLayerId = wxID_HIGHEST + 1206;
     constexpr int kRenderStyleByUniverseId = wxID_HIGHEST + 1207;
     constexpr int kExportImagePngId = wxID_HIGHEST + 1208;
+    constexpr int kConvertSceneObjectToTrussId = wxID_HIGHEST + 1209;
 
     typeSubmenu->Append(kSelectTypeAllId, "All fixtures");
     std::vector<std::string> orderedTypes;
@@ -2094,6 +2102,10 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
             break;
     }
 
+    if (!hitSceneObjectUuid.empty()) {
+        rootMenu.Append(kConvertSceneObjectToTrussId, "Convert to Truss");
+        rootMenu.AppendSeparator();
+    }
     if (showSelectionSubmenus) {
         rootMenu.AppendSubMenu(typeSubmenu.release(), "Select by fixture type");
         rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
@@ -2106,6 +2118,14 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
         return;
+
+    if (selectedId == kConvertSceneObjectToTrussId) {
+        ConfigManager::Get().SetSelectedSceneObjects({hitSceneObjectUuid});
+        wxCommandEvent command(wxEVT_MENU, ID_Tools_ConvertSceneObjectsToTruss);
+        if (MainWindow::Instance())
+            MainWindow::Instance()->ProcessWindowEvent(command);
+        return;
+    }
 
     auto applyRenderStyleSelection = [this](Viewer3DRenderStyle style) {
         ConfigManager::Get().SetValue("viewer3d_render_style", ToConfigValue(style));

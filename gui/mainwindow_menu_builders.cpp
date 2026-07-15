@@ -98,6 +98,8 @@ wxMenu *BuildToolsMenu() {
   toolsMenu->Append(ID_Tools_AutoPatch, _("Auto patch"));
   toolsMenu->Append(ID_Tools_AutoColor, _("Auto color"));
   toolsMenu->Append(ID_Tools_ConvertToHoist, _("Convert to Hoist"));
+  toolsMenu->Append(ID_Tools_ConvertSceneObjectsToTruss,
+                    _("Convert Scene Objects to Truss"));
   if (ui::IsFeatureEnabled(ui::FeatureFlag::GenerateFixtureSymbols)) {
     toolsMenu->Append(ID_Tools_GenerateFixtureSymbols,
                       _("Generate Fixture Symbols..."));

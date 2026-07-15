@@ -87,6 +87,7 @@
 #include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
 #include "scene_grouping.h"
+#include "scene_object_truss_converter.h"
 #include "scene_object_primitive_creation.h"
 #include "scene_object_primitive_dialogs.h"
 #include "sceneobjecttablepanel.h"
@@ -881,6 +882,51 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   wxMessageBox(
       wxString::Format("Converted %zu fixture(s) to hoists.", newIds.size()),
       "Convert to Hoist", wxOK | wxICON_INFORMATION);
+}
+
+
+// Converts selected scene objects sharing the same model file into trusses.
+void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
+  ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+  const auto selected = cfg.GetSelectedSceneObjects();
+  if (selected.empty()) {
+    wxMessageBox("Please select a scene object to convert first.",
+                 "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+    return;
+  }
+
+  cfg.PushUndoState("convert scene objects to trusses");
+  auto &scene = cfg.GetScene();
+  const SceneObjectToTrussConversionResult result =
+      ConvertSceneObjectsWithSameModelToTrusses(scene, selected.front());
+  if (result.convertedUuids.empty()) {
+    wxMessageBox("No scene objects with a valid model file were converted.",
+                 "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+    return;
+  }
+
+  cfg.SetSelectedSceneObjects({});
+  cfg.SetSelectedTrusses(result.convertedUuids);
+
+  if (sceneObjectPanel)
+    sceneObjectPanel->ReloadData();
+  if (trussPanel)
+    trussPanel->ReloadData();
+  if (viewportPanel) {
+    viewportPanel->UpdateScene();
+    viewportPanel->Refresh();
+  }
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+  RefreshSummary();
+  RefreshRigging();
+
+  wxMessageBox(wxString::Format("Converted %zu scene object(s) with model '%s' to truss.",
+                                result.convertedUuids.size(),
+                                wxString::FromUTF8(result.modelFile).c_str()),
+               "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
 }
 
 // Runs the fixture symbol generation tool when the feature is enabled.

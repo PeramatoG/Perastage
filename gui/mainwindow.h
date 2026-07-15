@@ -170,6 +170,7 @@ private:
   void OnAutoPatch(wxCommandEvent &event);         // Auto patch fixtures
   void OnAutoColor(wxCommandEvent &event);         // Auto assign colors
   void OnConvertToHoist(wxCommandEvent &event);    // Convert fixtures to hoists
+  void OnConvertSceneObjectsToTruss(wxCommandEvent &event); // Convert scene objects to trusses
   void OnGenerateFixtureSymbols(wxCommandEvent &event); // Generate fixture symbols
   void OnAssignSelectedFixtureCategory(wxCommandEvent &event); // Debug category assignment
   void OnPrintViewer2D(wxCommandEvent &event); // Print 2D view to PDF

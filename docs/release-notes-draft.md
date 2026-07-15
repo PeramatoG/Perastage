@@ -12,6 +12,7 @@ Changes since **v1.4.0**.
 - Added an Edit Truss dialog from double-clicking the Trusses table, including MVR instance fields, GDTF metadata, a reusable 3D preview arranged above the GDTF truss type fields, and automatic Perastage GDTF creation when type metadata is edited on a model-only truss.
 - Added MVR-xchange remote file requests with a larger selectable advertised-MVR list, Console-styled transfer log, corrected station-name alignment, and the standard import choice to open as a new project or merge into the current project.
 - Added the first MVR-xchange TCP Mode publisher so Perastage can manually publish the current scene as an MVR revision for compatible clients.
+- Added a Scene Object to Truss conversion tool in the Tools menu and 2D/3D scene-object context menus, converting all scene objects that share the selected model file into trusses while updating tables, viewports, and rigging calculations.
 
 ## Improvements
 
