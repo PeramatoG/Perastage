@@ -232,7 +232,7 @@ void MainWindow::CreateToolBars() {
                           _("Switch to standard selection mode"), wxITEM_CHECK);
   addToolWithDisabledIcon(
       layoutViewsToolBar, ID_View_Viewport_MeasureTool, _("Measure Tool"),
-      "ruler-dimension-line", wxART_MISSING_IMAGE,
+      "ruler-dimension-line-center", wxART_MISSING_IMAGE,
       _("Toggle center-to-center measure tool"), wxITEM_CHECK);
   addToolWithDisabledIcon(
       layoutViewsToolBar, ID_View_Viewport_GapMeasureTool, _("Gap Measure Tool"),
