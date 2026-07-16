@@ -68,7 +68,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ## Important fixes
 
-- Fixed a Windows build issue in the Local Axes 3D viewport integration.
+- Fixed Windows build and linker issues in the Local Axes viewport integration.
 
 ### MVR, GDTF, and project data
 

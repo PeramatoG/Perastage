@@ -2234,6 +2234,12 @@ void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled)
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
 }
 
+// Sets whether axis-constrained viewport transforms use world or local axes.
+void Viewer3DPanel::SetTransformSpace(transform_space::TransformSpace space)
+{
+    m_transformSpace = space;
+}
+
 // Resets interaction state after wxWidgets reports lost mouse capture.
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
 {

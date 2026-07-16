@@ -812,6 +812,11 @@ void Viewer2DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
     m_dragAxis = DragAxis::None;
 }
 
+// Sets whether axis-constrained viewport transforms use world or local axes.
+void Viewer2DPanel::SetTransformSpace(transform_space::TransformSpace space) {
+  m_transformSpace = space;
+}
+
 // Converts a mouse position in window coordinates into the current 2D world position.
 std::optional<std::array<float, 3>>
 Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
