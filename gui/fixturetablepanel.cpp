@@ -242,9 +242,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
   multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
-      table, [this](const wxDataViewItem &item, int column,
-             const std::vector<int> &selectionRows) {
-        EditSelectedCell(item, column, &selectionRows);
+      table, [this](const wxDataViewItem &item, int column) {
+        EditSelectedCell(item, column);
       });
 
   InitializeTable();
@@ -498,25 +497,16 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
 }
 
 // Routes table activation through the existing batch cell editor.
-void FixtureTablePanel::EditSelectedCell(const wxDataViewItem &item, int col,
-                                 const std::vector<int> *selectionRows) {
+void FixtureTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   const auto namedColumn = FixtureTableColumns::FromIndex(col);
   if (!item.IsOk() || !namedColumn ||
       static_cast<size_t>(col) >= columnLabels.size())
     return;
 
   wxDataViewItemArray selections;
-  if (selectionRows) {
-    for (const int row : *selectionRows) {
-      if (row >= 0 && row < static_cast<int>(table->GetItemCount()))
-        selections.push_back(table->RowToItem(static_cast<unsigned int>(row)));
-    }
-  }
-  if (selections.empty()) {
-    table->GetSelections(selections);
-    if (selections.empty())
-      selections.push_back(item);
-  }
+  table->GetSelections(selections);
+  if (selections.empty())
+    selections.push_back(item);
 
   std::vector<std::string> selectedUuids;
   for (const auto &itSel : selections) {

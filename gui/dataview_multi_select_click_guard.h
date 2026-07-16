@@ -18,14 +18,12 @@
 #pragma once
 
 #include <functional>
-#include <vector>
 #include <wx/dataview.h>
 #include <wx/timer.h>
 
 class DataViewMultiSelectClickGuard : public wxEvtHandler {
 public:
-  using DoubleClickHandler =
-      std::function<void(const wxDataViewItem &, int, const std::vector<int> &)>;
+  using DoubleClickHandler = std::function<void(const wxDataViewItem &, int)>;
 
   DataViewMultiSelectClickGuard(wxDataViewListCtrl *table,
                                 DoubleClickHandler doubleClickHandler);
@@ -38,12 +36,8 @@ public:
 
 private:
   void OnTimer(wxTimerEvent &event);
-  void OnSelectionChanged(wxDataViewEvent &event);
   bool ShouldDelayClick(const wxMouseEvent &event, const wxDataViewItem &item,
                         int row) const;
-  void RestorePendingSelectionSilently() const;
-  std::vector<int> CurrentSelectionRows() const;
-  bool ContainsRow(const std::vector<int> &rows, int row) const;
   int DoubleClickIntervalMs() const;
 
   wxDataViewListCtrl *table = nullptr;
@@ -52,6 +46,4 @@ private:
   wxDataViewItem pendingItem;
   wxDataViewColumn *pendingColumn = nullptr;
   int pendingRow = wxNOT_FOUND;
-  std::vector<int> pendingSelectionRows;
-  std::vector<int> lastMultiSelectionRows;
 };

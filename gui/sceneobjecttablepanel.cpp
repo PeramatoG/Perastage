@@ -239,9 +239,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
     table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                 &SceneObjectTablePanel::OnContextMenu, this);
   multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
-      table, [this](const wxDataViewItem &item, int column,
-             const std::vector<int> &selectionRows) {
-        EditSelectedCell(item, column, &selectionRows);
+      table, [this](const wxDataViewItem &item, int column) {
+        EditSelectedCell(item, column);
       });
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
@@ -396,8 +395,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
 }
 
 // Routes table activation through the existing batch cell editor.
-void SceneObjectTablePanel::EditSelectedCell(const wxDataViewItem &item, int col,
-                                 const std::vector<int> *selectionRows) {
+void SceneObjectTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   const auto namedColumn =
       TableColumnIndices::FromIndex<SceneObjectColumn>(col);
   if (!item.IsOk() || !namedColumn ||
@@ -411,19 +409,9 @@ void SceneObjectTablePanel::EditSelectedCell(const wxDataViewItem &item, int col
     wxWindowUpdateLocker locker(table);
 
     wxDataViewItemArray selections;
-    if (selectionRows) {
-        for (const int selectedRow : *selectionRows) {
-            if (selectedRow >= 0 &&
-                selectedRow < static_cast<int>(table->GetItemCount()))
-                selections.push_back(
-                    table->RowToItem(static_cast<unsigned int>(selectedRow)));
-        }
-    }
-    if (selections.empty()) {
-        table->GetSelections(selections);
-        if (selections.empty())
-            selections.push_back(item);
-    }
+    table->GetSelections(selections);
+    if (selections.empty())
+        selections.push_back(item);
 
     // Preserve selection and current row order before edits
     std::vector<std::string> selectedUuids;
