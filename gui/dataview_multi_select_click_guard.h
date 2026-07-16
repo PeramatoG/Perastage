@@ -24,7 +24,7 @@
 class DataViewMultiSelectClickGuard : public wxEvtHandler {
 public:
   using DoubleClickHandler =
-      std::function<void(const wxDataViewItem &, wxDataViewColumn *)>;
+      std::function<void(const wxDataViewItem &, int)>;
 
   DataViewMultiSelectClickGuard(wxDataViewListCtrl *table,
                                 DoubleClickHandler doubleClickHandler);

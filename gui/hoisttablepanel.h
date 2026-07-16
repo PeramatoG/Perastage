@@ -19,6 +19,7 @@
 
 #include <wx/dataview.h>
 #include <wx/wx.h>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -27,6 +28,7 @@
 #include "hoist_load_limit_utils.h"
 #include "positionvalueupdate.h"
 
+class DataViewMultiSelectClickGuard;
 class IGuiConfigServices;
 
 class HoistTablePanel : public wxPanel {
@@ -66,10 +68,12 @@ private:
   bool dragSelecting = false;
   int startRow = -1;
   IGuiConfigServices *guiConfigServices = nullptr;
+  std::unique_ptr<DataViewMultiSelectClickGuard> multiSelectClickGuard;
 
   void InitializeTable();
   void OnSelectionChanged(wxDataViewEvent &evt);
   void OnContextMenu(wxDataViewEvent &event);
+  void EditSelectedCell(const wxDataViewItem &item, int column);
   void OnColumnSorted(wxDataViewEvent &event);
   void RebuildRowCachesFromRowKeys();
   std::string UuidForItem(const wxDataViewItem &item) const;
@@ -78,6 +82,7 @@ private:
   void ResyncRows(const std::vector<std::string> &oldOrder,
                   const std::vector<std::string> &selectedUuids);
   void OnLeftDown(wxMouseEvent &evt);
+  void OnLeftDClick(wxMouseEvent &evt);
   void OnLeftUp(wxMouseEvent &evt);
   void OnMouseMove(wxMouseEvent &evt);
   void OnMouseLeave(wxMouseEvent &evt);

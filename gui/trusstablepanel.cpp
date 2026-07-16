@@ -263,7 +263,7 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &TrussTablePanel::OnColumnSorted,
               this);
   multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
-      table, [this](const wxDataViewItem &item, wxDataViewColumn *column) {
+      table, [this](const wxDataViewItem &item, int column) {
         EditSelectedCell(item, column);
       });
 
@@ -480,8 +480,11 @@ void TrussTablePanel::ReloadData()
 // Handles context-menu editing workflows and avoids expensive refreshes when no
 // row values change.
 void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
-    wxDataViewItem item = event.GetItem();
-    int col = event.GetColumn();
+  EditSelectedCell(event.GetItem(), event.GetColumn());
+}
+
+// Routes table activation through the existing batch cell editor.
+void TrussTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   const auto namedColumn = TableColumnIndices::FromIndex<TrussColumn>(col);
   if (!item.IsOk() || !namedColumn ||
       static_cast<size_t>(col) >= columnLabels.size())
@@ -815,6 +818,8 @@ void TrussTablePanel::OnLeftUp(wxMouseEvent &evt) {
 }
 
 void TrussTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+    if (multiSelectClickGuard)
+        multiSelectClickGuard->CancelPendingClick();
     dragSelecting = false;
 }
 
@@ -940,19 +945,6 @@ void TrussTablePanel::ApplyPositionValueUpdates(
         table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
                         ColumnIndex(TrussColumn::PositionZ));
     }
-}
-
-
-// Routes deferred double-clicks through the existing truss table batch editor.
-void TrussTablePanel::EditSelectedCell(const wxDataViewItem &item,
-                                       wxDataViewColumn *column) {
-  if (!item.IsOk() || !column)
-    return;
-  wxDataViewEvent event(wxEVT_DATAVIEW_ITEM_ACTIVATED, table->GetId());
-  event.SetEventObject(table);
-  event.SetItem(item);
-  event.SetColumn(table->GetColumnPosition(column));
-  OnContextMenu(event);
 }
 
 // Opens the truss edit dialog for the activated table row.

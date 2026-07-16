@@ -20,12 +20,14 @@
 #include <wx/wx.h>
 #include <wx/dataview.h>
 #include <wx/time.h>
+#include <memory>
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
+class DataViewMultiSelectClickGuard;
 class IGuiConfigServices;
 
 class SceneObjectTablePanel : public wxPanel
@@ -67,9 +69,11 @@ private:
     bool modelFileEditCommitPending = false;
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;
+    std::unique_ptr<DataViewMultiSelectClickGuard> multiSelectClickGuard;
     void InitializeTable();
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);
+    void EditSelectedCell(const wxDataViewItem& item, int column);
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();
     std::string UuidForItem(const wxDataViewItem& item) const;

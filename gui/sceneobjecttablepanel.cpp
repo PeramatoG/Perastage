@@ -20,6 +20,7 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "dataview_multi_select_click_guard.h"
 #include "selection_origin_token.h"
 #include "guiconfigservices.h"
 #include "layerpanel.h"
@@ -225,6 +226,7 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
     table->Bind(wxEVT_LEFT_DOWN, &SceneObjectTablePanel::OnLeftDown, this);
+    table->Bind(wxEVT_LEFT_DCLICK, &SceneObjectTablePanel::OnLeftDClick, this);
     table->Bind(wxEVT_LEFT_UP, &SceneObjectTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &SceneObjectTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
@@ -236,6 +238,10 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
                 &SceneObjectTablePanel::OnColumnSorted, this);
     table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                 &SceneObjectTablePanel::OnContextMenu, this);
+  multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
+      table, [this](const wxDataViewItem &item, int column) {
+        EditSelectedCell(item, column);
+      });
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
 
@@ -249,6 +255,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
 // Releases table resources and detaches the scene-object pane from AUI layout
 // management.
 SceneObjectTablePanel::~SceneObjectTablePanel() {
+    if (multiSelectClickGuard)
+        multiSelectClickGuard->CancelPendingClick();
     if (wxAuiManager *manager = wxAuiManager::GetManager(this))
         manager->DetachPane(this);
     store = nullptr;
@@ -383,8 +391,11 @@ void SceneObjectTablePanel::ReloadData() {
 // Handles context-menu edits and updates scene/rendering only when an actual
 // table value changes.
 void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
-    wxDataViewItem item = event.GetItem();
-    int col = event.GetColumn();
+  EditSelectedCell(event.GetItem(), event.GetColumn());
+}
+
+// Routes table activation through the existing batch cell editor.
+void SceneObjectTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   const auto namedColumn =
       TableColumnIndices::FromIndex<SceneObjectColumn>(col);
   if (!item.IsOk() || !namedColumn ||
@@ -603,8 +614,12 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 }
 
+// Starts immediate or deferred left-click selection handling for the table.
 void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
+    if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDown(evt))
+        return;
+
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
@@ -619,7 +634,11 @@ void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
     evt.Skip();
 }
 
+// Opens the primitive editor or deferred batch editor for double-clicks.
 void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
+    if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDClick(evt))
+        return;
+
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
@@ -648,7 +667,10 @@ void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
     evt.Skip();
 }
 
+// Releases mouse capture after table drag-style interactions finish.
 void SceneObjectTablePanel::OnLeftUp(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HasPendingClick())
+    return;
   if (dragSelecting) {
         dragSelecting = false;
         ReleaseMouse();
@@ -656,8 +678,11 @@ void SceneObjectTablePanel::OnLeftUp(wxMouseEvent &evt) {
     evt.Skip();
 }
 
+// Resets capture state when the system forces mouse capture loss.
 void SceneObjectTablePanel::OnCaptureLost(
     wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+    if (multiSelectClickGuard)
+        multiSelectClickGuard->CancelPendingClick();
     dragSelecting = false;
 }
 

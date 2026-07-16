@@ -70,10 +70,12 @@ bool DataViewMultiSelectClickGuard::HandleLeftDClick(wxMouseEvent &event) {
   }
 
   wxDataViewColumn *editColumn = column ? column : pendingColumn;
+  const int editColumnIndex = editColumn ? table->GetColumnPosition(editColumn)
+                                        : wxNOT_FOUND;
   wxDataViewItem editItem = item.IsOk() ? item : pendingItem;
   CancelPendingClick();
   if (doubleClickHandler)
-    doubleClickHandler(editItem, editColumn);
+    doubleClickHandler(editItem, editColumnIndex);
   return true;
 }
 

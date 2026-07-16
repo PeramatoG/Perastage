@@ -242,7 +242,7 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
   multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
-      table, [this](const wxDataViewItem &item, wxDataViewColumn *column) {
+      table, [this](const wxDataViewItem &item, int column) {
         EditSelectedCell(item, column);
       });
 
@@ -493,8 +493,11 @@ void FixtureTablePanel::ReloadData() {
 // Handles context-menu editing actions and only applies scene updates when data
 // actually changes.
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
-  wxDataViewItem item = event.GetItem();
-  int col = event.GetColumn();
+  EditSelectedCell(event.GetItem(), event.GetColumn());
+}
+
+// Routes table activation through the existing batch cell editor.
+void FixtureTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   const auto namedColumn = FixtureTableColumns::FromIndex(col);
   if (!item.IsOk() || !namedColumn ||
       static_cast<size_t>(col) >= columnLabels.size())
@@ -1499,19 +1502,6 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   dlg.ShowModal();
 }
 
-
-// Routes deferred double-clicks through the existing fixture table batch editor.
-void FixtureTablePanel::EditSelectedCell(const wxDataViewItem &item,
-                                         wxDataViewColumn *column) {
-  if (!item.IsOk() || !column)
-    return;
-  wxDataViewEvent event(wxEVT_DATAVIEW_ITEM_ACTIVATED, table->GetId());
-  event.SetEventObject(table);
-  event.SetItem(item);
-  event.SetColumn(table->GetColumnPosition(column));
-  OnContextMenu(event);
-}
-
 // Captures mouse focus for drag-style interactions inside the table.
 void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
   if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDown(evt))
@@ -1535,6 +1525,8 @@ void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
 
 // Resets capture state when the system forces mouse capture loss.
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+  if (multiSelectClickGuard)
+    multiSelectClickGuard->CancelPendingClick();
   dragSelecting = false;
   startRow = wxNOT_FOUND;
 }

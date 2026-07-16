@@ -22,6 +22,7 @@
 #include "columnutils.h"
 #include "configmanager.h"
 #include "dataview_edit_commit.h"
+#include "dataview_multi_select_click_guard.h"
 #include "dummyprofilelibrary.h"
 #include "editable_focus_utils.h"
 #include "guiconfigservices.h"
@@ -421,6 +422,7 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &HoistTablePanel::OnLeftDown, this);
+  table->Bind(wxEVT_LEFT_DCLICK, &HoistTablePanel::OnLeftDClick, this);
   table->Bind(wxEVT_LEFT_UP, &HoistTablePanel::OnLeftUp, this);
   BindTableHoverEvents(table, this, &HoistTablePanel::OnMouseMove,
                        &HoistTablePanel::OnMouseLeave);
@@ -435,6 +437,10 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
               this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &HoistTablePanel::OnColumnSorted,
               this);
+  multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
+      table, [this](const wxDataViewItem &item, int column) {
+        EditSelectedCell(item, column);
+      });
 
   Bind(wxEVT_MOUSE_CAPTURE_LOST, &HoistTablePanel::OnCaptureLost, this);
 
@@ -448,6 +454,8 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
 // Releases table resources and detaches the hoist pane from AUI layout
 // management.
 HoistTablePanel::~HoistTablePanel() {
+  if (multiSelectClickGuard)
+    multiSelectClickGuard->CancelPendingClick();
   if (wxAuiManager *manager = wxAuiManager::GetManager(this))
     manager->DetachPane(this);
   if (s_instance == this)
@@ -658,9 +666,13 @@ void HoistTablePanel::ReloadData() {
     RiggingPanel::Instance()->RefreshData();
 }
 
+// Handles context-menu edits and forwards them to the shared batch editor.
 void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
-  wxDataViewItem item = event.GetItem();
-  int col = event.GetColumn();
+  EditSelectedCell(event.GetItem(), event.GetColumn());
+}
+
+// Routes table activation through the existing batch cell editor.
+void HoistTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   const auto namedColumn = TableColumnIndices::FromIndex<HoistColumn>(col);
   if (!item.IsOk() || !namedColumn ||
       static_cast<size_t>(col) >= columnLabels.size())
@@ -961,7 +973,11 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 }
 
+// Starts immediate or deferred left-click selection handling for the table.
 void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDown(evt))
+    return;
+
   wxDataViewItem item;
   wxDataViewColumn *col;
   table->HitTest(evt.GetPosition(), item, col);
@@ -975,7 +991,17 @@ void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
   evt.Skip();
 }
 
+// Opens the existing batch cell editor when a pending multi-select click becomes a double-click.
+void HoistTablePanel::OnLeftDClick(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDClick(evt))
+    return;
+  evt.Skip();
+}
+
+// Releases mouse capture after table drag-style interactions finish.
 void HoistTablePanel::OnLeftUp(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HasPendingClick())
+    return;
   if (dragSelecting) {
     dragSelecting = false;
     ReleaseMouse();
@@ -983,7 +1009,10 @@ void HoistTablePanel::OnLeftUp(wxMouseEvent &evt) {
   evt.Skip();
 }
 
+// Resets capture state when the system forces mouse capture loss.
 void HoistTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+  if (multiSelectClickGuard)
+    multiSelectClickGuard->CancelPendingClick();
   dragSelecting = false;
 }
 
