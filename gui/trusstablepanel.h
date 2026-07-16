@@ -23,9 +23,11 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <memory>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
+class DataViewMultiSelectClickGuard;
 class IGuiConfigServices;
 class TrussEditDialog;
 
@@ -69,6 +71,7 @@ private:
     bool dragSelecting = false;
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;
+    std::unique_ptr<DataViewMultiSelectClickGuard> multiSelectClickGuard;
     void InitializeTable(); // Set up columns
     void OnSelectionChanged(wxDataViewEvent& evt);
     void OnContextMenu(wxDataViewEvent& event);
@@ -80,10 +83,12 @@ private:
     void ResyncRows(const std::vector<std::string>& oldOrder,
                     const std::vector<std::string>& selectedUuids);
     void OnLeftDown(wxMouseEvent& evt);
+    void OnLeftDClick(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
     void OnItemActivated(wxDataViewEvent& event);
+    void EditSelectedCell(const wxDataViewItem& item, wxDataViewColumn* column);
     void UpdateSelectionHighlight();
 
     friend class TrussEditDialog;

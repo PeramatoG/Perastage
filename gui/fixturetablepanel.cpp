@@ -18,6 +18,7 @@
 #include "fixturetablepanel.h"
 #include "addressdialog.h"
 #include "configmanager.h"
+#include "dataview_multi_select_click_guard.h"
 #include "consolepanel.h"
 #include "fixtureeditdialog.h"
 #include "fixturetable/fixture_table_columns.h"
@@ -225,6 +226,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
   store->SetSelectionColours(selectionBackground, selectionForeground);
   BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
                        &FixtureTablePanel::OnMouseLeave);
+  table->Bind(wxEVT_LEFT_DOWN, &FixtureTablePanel::OnLeftDown, this);
+  table->Bind(wxEVT_LEFT_DCLICK, &FixtureTablePanel::OnLeftDClick, this);
   table->CallAfter([this]() {
     BindTableHoverEvents(table, this, &FixtureTablePanel::OnMouseMove,
                          &FixtureTablePanel::OnMouseLeave);
@@ -238,6 +241,10 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
               &FixtureTablePanel::OnContextMenu, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
+  multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
+      table, [this](const wxDataViewItem &item, wxDataViewColumn *column) {
+        EditSelectedCell(item, column);
+      });
 
   InitializeTable();
   ReloadData();
@@ -248,6 +255,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
 
 // Releases singleton ownership when the fixture table panel is destroyed.
 FixtureTablePanel::~FixtureTablePanel() {
+  if (multiSelectClickGuard)
+    multiSelectClickGuard->CancelPendingClick();
   if (wxAuiManager *manager = wxAuiManager::GetManager(this))
     manager->DetachPane(this);
   if (HasCapture())
@@ -1490,11 +1499,39 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   dlg.ShowModal();
 }
 
+
+// Routes deferred double-clicks through the existing fixture table batch editor.
+void FixtureTablePanel::EditSelectedCell(const wxDataViewItem &item,
+                                         wxDataViewColumn *column) {
+  if (!item.IsOk() || !column)
+    return;
+  wxDataViewEvent event(wxEVT_DATAVIEW_ITEM_ACTIVATED, table->GetId());
+  event.SetEventObject(table);
+  event.SetItem(item);
+  event.SetColumn(table->GetColumnPosition(column));
+  OnContextMenu(event);
+}
+
 // Captures mouse focus for drag-style interactions inside the table.
-void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) { evt.Skip(); }
+void FixtureTablePanel::OnLeftDown(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDown(evt))
+    return;
+  evt.Skip();
+}
+
+// Opens the existing batch cell editor when a pending multi-select click becomes a double-click.
+void FixtureTablePanel::OnLeftDClick(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDClick(evt))
+    return;
+  evt.Skip();
+}
 
 // Releases mouse capture after table drag-style interactions finish.
-void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) { evt.Skip(); }
+void FixtureTablePanel::OnLeftUp(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HasPendingClick())
+    return;
+  evt.Skip();
+}
 
 // Resets capture state when the system forces mouse capture loss.
 void FixtureTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {

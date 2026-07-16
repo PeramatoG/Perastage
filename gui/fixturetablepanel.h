@@ -24,10 +24,12 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <memory>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
 
 class FixtureEditDialog; // forward declaration
+class DataViewMultiSelectClickGuard;
 class IGuiConfigServices;
 
 class FixtureTablePanel : public wxPanel
@@ -101,10 +103,12 @@ private:
     std::vector<std::string> selectionOrderUuids;
     std::unordered_set<std::string> manualCategoryUuidsPending;
     IGuiConfigServices *guiConfigServices = nullptr;
+    std::unique_ptr<DataViewMultiSelectClickGuard> multiSelectClickGuard;
 
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);
     void OnItemActivated(wxDataViewEvent& event);
+    void EditSelectedCell(const wxDataViewItem& item, wxDataViewColumn* column);
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();
     std::string UuidForItem(const wxDataViewItem& item) const;
@@ -113,6 +117,7 @@ private:
                     const std::vector<std::string>& selectedUuids,
                     const std::vector<wxString>* oldPaths = nullptr);
     void OnLeftDown(wxMouseEvent& evt);
+    void OnLeftDClick(wxMouseEvent& evt);
     void OnLeftUp(wxMouseEvent& evt);
     void OnMouseMove(wxMouseEvent& evt);
     void OnMouseLeave(wxMouseEvent& evt);

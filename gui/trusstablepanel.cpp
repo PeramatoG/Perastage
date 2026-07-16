@@ -20,6 +20,7 @@
 #include "columnutils.h"
 #include "colorfulrenderers.h"
 #include "configmanager.h"
+#include "dataview_multi_select_click_guard.h"
 #include "selection_origin_token.h"
 #include "guiconfigservices.h"
 #include "hang_position_dialog.h"
@@ -249,6 +250,7 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
   const wxColour selectionForeground(0, 0, 0);
   store->SetSelectionColours(selectionBackground, selectionForeground);
   table->Bind(wxEVT_LEFT_DOWN, &TrussTablePanel::OnLeftDown, this);
+  table->Bind(wxEVT_LEFT_DCLICK, &TrussTablePanel::OnLeftDClick, this);
     table->Bind(wxEVT_LEFT_UP, &TrussTablePanel::OnLeftUp, this);
     table->Bind(wxEVT_MOTION, &TrussTablePanel::OnMouseMove, this);
     table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
@@ -260,6 +262,10 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
               &TrussTablePanel::OnItemActivated, this);
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &TrussTablePanel::OnColumnSorted,
               this);
+  multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
+      table, [this](const wxDataViewItem &item, wxDataViewColumn *column) {
+        EditSelectedCell(item, column);
+      });
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &TrussTablePanel::OnCaptureLost, this);
 
@@ -270,14 +276,17 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     SetSizer(sizer);
 }
 
-// Releases table resources and detaches the truss pane from AUI layout management.
+// Releases table resources, detaches the pane, and cancels delayed table actions.
 TrussTablePanel::~TrussTablePanel()
 {
+    if (multiSelectClickGuard)
+        multiSelectClickGuard->CancelPendingClick();
     if (wxAuiManager *manager = wxAuiManager::GetManager(this))
         manager->DetachPane(this);
     store = nullptr;
 }
 
+// Configures truss table columns and unit-aware header labels.
 void TrussTablePanel::InitializeTable()
 {
     const auto distanceUnit = ResolveDistanceUnitSystem();
@@ -766,8 +775,12 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 }
 
+// Starts immediate or deferred left-click selection handling for the table.
 void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
+    if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDown(evt))
+        return;
+
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
@@ -782,7 +795,18 @@ void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
     evt.Skip();
 }
 
+// Opens the existing batch cell editor when a pending multi-select click becomes a double-click.
+void TrussTablePanel::OnLeftDClick(wxMouseEvent& evt)
+{
+    if (multiSelectClickGuard && multiSelectClickGuard->HandleLeftDClick(evt))
+        return;
+    evt.Skip();
+}
+
+// Releases mouse capture after table drag-style interactions finish.
 void TrussTablePanel::OnLeftUp(wxMouseEvent &evt) {
+  if (multiSelectClickGuard && multiSelectClickGuard->HasPendingClick())
+    return;
   if (dragSelecting) {
         dragSelecting = false;
         ReleaseMouse();
@@ -916,6 +940,19 @@ void TrussTablePanel::ApplyPositionValueUpdates(
         table->SetValue(wxVariant(wxString::FromUTF8(update.posZ)), row,
                         ColumnIndex(TrussColumn::PositionZ));
     }
+}
+
+
+// Routes deferred double-clicks through the existing truss table batch editor.
+void TrussTablePanel::EditSelectedCell(const wxDataViewItem &item,
+                                       wxDataViewColumn *column) {
+  if (!item.IsOk() || !column)
+    return;
+  wxDataViewEvent event(wxEVT_DATAVIEW_ITEM_ACTIVATED, table->GetId());
+  event.SetEventObject(table);
+  event.SetItem(item);
+  event.SetColumn(table->GetColumnPosition(column));
+  OnContextMenu(event);
 }
 
 // Opens the truss edit dialog for the activated table row.
