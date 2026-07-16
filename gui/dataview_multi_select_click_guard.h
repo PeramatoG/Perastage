@@ -38,9 +38,12 @@ public:
 
 private:
   void OnTimer(wxTimerEvent &event);
+  void OnSelectionChanged(wxDataViewEvent &event);
   bool ShouldDelayClick(const wxMouseEvent &event, const wxDataViewItem &item,
                         int row) const;
   void RestorePendingSelectionSilently() const;
+  std::vector<int> CurrentSelectionRows() const;
+  bool ContainsRow(const std::vector<int> &rows, int row) const;
   int DoubleClickIntervalMs() const;
 
   wxDataViewListCtrl *table = nullptr;
@@ -50,4 +53,5 @@ private:
   wxDataViewColumn *pendingColumn = nullptr;
   int pendingRow = wxNOT_FOUND;
   std::vector<int> pendingSelectionRows;
+  std::vector<int> lastMultiSelectionRows;
 };

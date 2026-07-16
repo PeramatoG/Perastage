@@ -27,17 +27,22 @@ DataViewMultiSelectClickGuard::DataViewMultiSelectClickGuard(
     : table(table), doubleClickHandler(std::move(doubleClickHandler)),
       pendingTimer(this) {
   Bind(wxEVT_TIMER, &DataViewMultiSelectClickGuard::OnTimer, this);
+  if (table)
+    table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+                &DataViewMultiSelectClickGuard::OnSelectionChanged, this);
 }
 
 // Cancels pending work before the guarded table owner is destroyed.
 DataViewMultiSelectClickGuard::~DataViewMultiSelectClickGuard() {
   CancelPendingClick();
   Unbind(wxEVT_TIMER, &DataViewMultiSelectClickGuard::OnTimer, this);
+  if (table)
+    table->Unbind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+                  &DataViewMultiSelectClickGuard::OnSelectionChanged, this);
 }
 
 // Defers plain clicks on already-selected rows when a multi-selection is active.
 bool DataViewMultiSelectClickGuard::HandleLeftDown(wxMouseEvent &event) {
-  CancelPendingClick();
   if (!table)
     return false;
 
@@ -45,18 +50,18 @@ bool DataViewMultiSelectClickGuard::HandleLeftDown(wxMouseEvent &event) {
   wxDataViewColumn *column = nullptr;
   table->HitTest(event.GetPosition(), item, column);
   const int row = item.IsOk() ? table->ItemToRow(item) : wxNOT_FOUND;
+  if (HasPendingClick()) {
+    if (row == pendingRow && !event.ControlDown() && !event.ShiftDown())
+      return true;
+    CancelPendingClick();
+  }
+
   if (!ShouldDelayClick(event, item, row))
     return false;
 
-  wxDataViewItemArray selections;
-  table->GetSelections(selections);
-  pendingSelectionRows.clear();
-  pendingSelectionRows.reserve(selections.size());
-  for (const auto &selection : selections) {
-    const int selectedRow = table->ItemToRow(selection);
-    if (selectedRow != wxNOT_FOUND)
-      pendingSelectionRows.push_back(selectedRow);
-  }
+  pendingSelectionRows = CurrentSelectionRows();
+  if (pendingSelectionRows.size() <= 1 && ContainsRow(lastMultiSelectionRows, row))
+    pendingSelectionRows = lastMultiSelectionRows;
 
   pendingItem = item;
   pendingColumn = column;
@@ -113,6 +118,7 @@ void DataViewMultiSelectClickGuard::OnTimer(wxTimerEvent &WXUNUSED(event)) {
 
   const int row = pendingRow;
   CancelPendingClick();
+  lastMultiSelectionRows.clear();
   table->UnselectAll();
   if (row != wxNOT_FOUND && row < static_cast<int>(table->GetItemCount()))
     table->SelectRow(static_cast<unsigned int>(row));
@@ -125,14 +131,19 @@ bool DataViewMultiSelectClickGuard::ShouldDelayClick(
       event.ShiftDown())
     return false;
 
-  wxDataViewItemArray selections;
-  table->GetSelections(selections);
-  if (selections.size() <= 1)
-    return false;
+  const std::vector<int> currentRows = CurrentSelectionRows();
+  if (currentRows.size() > 1)
+    return ContainsRow(currentRows, row);
 
-  return std::any_of(selections.begin(), selections.end(), [&](const auto &sel) {
-    return table->ItemToRow(sel) == row;
-  });
+  return ContainsRow(lastMultiSelectionRows, row);
+}
+
+// Tracks the most recent multi-row selection before native controls collapse it.
+void DataViewMultiSelectClickGuard::OnSelectionChanged(wxDataViewEvent &event) {
+  const std::vector<int> rows = CurrentSelectionRows();
+  if (rows.size() > 1)
+    lastMultiSelectionRows = rows;
+  event.Skip();
 }
 
 // Restores the captured multi-selection without notifying selection observers.
@@ -151,6 +162,29 @@ void DataViewMultiSelectClickGuard::RestorePendingSelectionSilently() const {
     if (row >= 0 && row < static_cast<int>(table->GetItemCount()))
       table->SelectRow(static_cast<unsigned int>(row));
   }
+}
+
+// Returns the currently selected table row indexes.
+std::vector<int> DataViewMultiSelectClickGuard::CurrentSelectionRows() const {
+  std::vector<int> rows;
+  if (!table)
+    return rows;
+
+  wxDataViewItemArray selections;
+  table->GetSelections(selections);
+  rows.reserve(selections.size());
+  for (const auto &selection : selections) {
+    const int row = table->ItemToRow(selection);
+    if (row != wxNOT_FOUND)
+      rows.push_back(row);
+  }
+  return rows;
+}
+
+// Returns true when the row index exists in the provided row list.
+bool DataViewMultiSelectClickGuard::ContainsRow(const std::vector<int> &rows,
+                                                int row) const {
+  return std::find(rows.begin(), rows.end(), row) != rows.end();
 }
 
 // Returns the platform double-click interval exposed by wxWidgets.
