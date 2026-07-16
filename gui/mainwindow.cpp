@@ -382,6 +382,7 @@ EVT_MENU(ID_View_Viewport_Front, MainWindow::OnViewportFrontView)
 EVT_MENU(ID_View_Viewport_Side, MainWindow::OnViewportSideView)
 EVT_MENU(ID_View_Viewport_SelectTool, MainWindow::OnViewportSelectTool)
 EVT_MENU(ID_View_Viewport_MeasureTool, MainWindow::OnViewportMeasureTool)
+EVT_MENU(ID_View_Viewport_GapMeasureTool, MainWindow::OnViewportGapMeasureTool)
 EVT_MENU(ID_View_Viewport_AxisConstraint, MainWindow::OnViewportAxisConstraint)
 EVT_MENU(ID_View_Viewport_LeftDragMove, MainWindow::OnViewportLeftDragMove)
 EVT_MENU(ID_View_Viewport_LocalAxes, MainWindow::OnViewportLocalAxes)
@@ -1216,6 +1217,8 @@ void MainWindow::UpdateToolBarAvailability() {
                                    enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_MeasureTool,
                                    enableViewportTools);
+    layoutViewsToolBar->EnableTool(ID_View_Viewport_GapMeasureTool,
+                                   enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_AxisConstraint,
                                    enableViewportTools);
     layoutViewsToolBar->EnableTool(ID_View_Viewport_LeftDragMove,
@@ -1231,6 +1234,10 @@ void MainWindow::UpdateToolBarAvailability() {
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_MeasureTool,
         enableViewportTools ? "Toggle center-to-center measure tool"
+                            : "Disabled while editing Layout views");
+    layoutViewsToolBar->SetToolShortHelp(
+        ID_View_Viewport_GapMeasureTool,
+        enableViewportTools ? "Toggle edge-to-edge gap measure tool"
                             : "Disabled while editing Layout views");
     layoutViewsToolBar->SetToolShortHelp(
         ID_View_Viewport_AxisConstraint,
@@ -1540,9 +1547,15 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     if (viewport2DRenderPanel)
       viewport2DRenderPanel->ApplyConfig();
     ApplyViewportMovementToolState();
-    SyncViewportToolToggleState(
+    const bool measureEnabled =
         (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
-        (viewportPanel && viewportPanel->IsMeasureToolEnabled()));
+        (viewportPanel && viewportPanel->IsMeasureToolEnabled());
+    const Viewer2DMeasureMode measureMode =
+        viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()
+            ? viewport2DPanel->GetMeasureToolMode()
+            : (viewportPanel ? viewportPanel->GetMeasureToolMode()
+                             : Viewer2DMeasureMode::CenterToCenter);
+    SyncViewportToolToggleState(measureEnabled, measureMode);
     if (layerPanel)
       layerPanel->ReloadLayers();
     SplashScreen::SetMessage(_("Refreshing panels..."));

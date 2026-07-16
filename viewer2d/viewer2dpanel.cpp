@@ -191,7 +191,7 @@ void DrawMeasureOverlay(Viewer3DController &controller,
                         float offsetY, Units::DistanceUnitSystem distanceUnitSystem,
                         bool darkMode,
                         const std::optional<std::array<float, 2>> &targetScreenOverride) {
-  const auto startPx = Viewer2DMeasureWorldToScreen(measureState.anchorWorld, view, width,
+  const auto startPx = Viewer2DMeasureWorldToScreen(measureState.anchorMeasureWorld, view, width,
                                                     height, zoom, offsetX, offsetY);
   const auto endPx = targetScreenOverride.has_value()
                          ? targetScreenOverride
@@ -216,16 +216,16 @@ void DrawMeasureOverlay(Viewer3DController &controller,
     switch (view) {
     case Viewer2DView::Top:
     case Viewer2DView::Bottom:
-      du = targetWorld[0] - measureState.anchorWorld[0];
-      dv = targetWorld[1] - measureState.anchorWorld[1];
+      du = targetWorld[0] - measureState.anchorMeasureWorld[0];
+      dv = targetWorld[1] - measureState.anchorMeasureWorld[1];
       break;
     case Viewer2DView::Front:
-      du = targetWorld[0] - measureState.anchorWorld[0];
-      dv = targetWorld[2] - measureState.anchorWorld[2];
+      du = targetWorld[0] - measureState.anchorMeasureWorld[0];
+      dv = targetWorld[2] - measureState.anchorMeasureWorld[2];
       break;
     case Viewer2DView::Side:
-      du = targetWorld[1] - measureState.anchorWorld[1];
-      dv = targetWorld[2] - measureState.anchorWorld[2];
+      du = targetWorld[1] - measureState.anchorMeasureWorld[1];
+      dv = targetWorld[2] - measureState.anchorMeasureWorld[2];
       break;
     }
     distanceMeters = std::sqrt(du * du + dv * dv);
@@ -781,10 +781,16 @@ void Viewer2DPanel::SetRenderOverrides(
 
 // Toggles the measurement tool mode and resets temporary measurement state.
 void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
+  SetMeasureToolEnabled(enabled, m_measureToolState.mode);
+}
+
+// Toggles the measurement tool mode and applies the requested measuring mode.
+void Viewer2DPanel::SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode) {
   m_measureToolState.enabled = enabled;
+  m_measureToolState.mode = mode;
   ResetViewer2DMeasure(m_measureToolState);
   if (MainWindow::Instance())
-    MainWindow::Instance()->SyncViewportToolToggleState(enabled);
+    MainWindow::Instance()->SyncViewportToolToggleState(enabled, m_measureToolState.mode);
   SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
   RequestRepaint();
 }
@@ -1290,13 +1296,13 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
         switch (m_view) {
         case Viewer2DView::Top:
         case Viewer2DView::Bottom:
-          (*targetWorld)[2] = m_measureToolState.anchorWorld[2];
+          (*targetWorld)[2] = m_measureToolState.anchorMeasureWorld[2];
           break;
         case Viewer2DView::Front:
-          (*targetWorld)[1] = m_measureToolState.anchorWorld[1];
+          (*targetWorld)[1] = m_measureToolState.anchorMeasureWorld[1];
           break;
         case Viewer2DView::Side:
-          (*targetWorld)[0] = m_measureToolState.anchorWorld[0];
+          (*targetWorld)[0] = m_measureToolState.anchorMeasureWorld[0];
           break;
         }
       }
@@ -1306,7 +1312,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
           static_cast<float>(framebufferMousePos.y)};
     }
     if (targetWorld) {
-      DrawMeasureOverlay(m_controller, m_measureToolState, *targetWorld, m_view, w,
+      DrawMeasureOverlay(m_controller, m_measureToolState,
+                         m_measureToolState.hasCommittedTarget ? m_measureToolState.committedTargetMeasureWorld : *targetWorld, m_view, w,
                          h, m_zoom, m_offsetX, m_offsetY, distanceUnitSystem,
                          darkMode, targetScreenOverride);
     }
@@ -3132,6 +3139,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             m_measureToolState.hasAnchor = true;
             m_measureToolState.anchorUuid = uuid;
             m_measureToolState.anchorWorld = *center;
+            m_measureToolState.anchorMeasureWorld = *center;
             const RenderSize anchorRenderSize = ResolveRenderSize(this);
             if (anchorRenderSize.IsValid()) {
               const auto anchorScreen = Viewer2DMeasureWorldToScreen(
@@ -3147,27 +3155,39 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           } else {
             m_measureToolState.hasCommittedTarget = true;
             m_measureToolState.committedTargetWorld = *center;
+            m_measureToolState.committedTargetMeasureWorld = *center;
+            if (m_measureToolState.mode == Viewer2DMeasureMode::EdgeToEdge) {
+              const auto anchorBounds = ResolveSceneElementBoundsByUuid(
+                  m_controller, cfg, m_measureToolState.anchorUuid);
+              const auto targetBounds = ResolveSceneElementBoundsByUuid(m_controller, cfg, uuid);
+              if (anchorBounds && targetBounds) {
+                const auto nearest = ComputeNearestProjectedBoundsPoints(
+                    *anchorBounds, *targetBounds, m_view);
+                m_measureToolState.anchorMeasureWorld = nearest.first;
+                m_measureToolState.committedTargetMeasureWorld = nearest.second;
+              }
+            }
             float du = 0.0f;
             float dv = 0.0f;
             switch (m_view) {
             case Viewer2DView::Top:
             case Viewer2DView::Bottom:
-              du = m_measureToolState.committedTargetWorld[0] -
-                   m_measureToolState.anchorWorld[0];
-              dv = m_measureToolState.committedTargetWorld[1] -
-                   m_measureToolState.anchorWorld[1];
+              du = m_measureToolState.committedTargetMeasureWorld[0] -
+                   m_measureToolState.anchorMeasureWorld[0];
+              dv = m_measureToolState.committedTargetMeasureWorld[1] -
+                   m_measureToolState.anchorMeasureWorld[1];
               break;
             case Viewer2DView::Front:
-              du = m_measureToolState.committedTargetWorld[0] -
-                   m_measureToolState.anchorWorld[0];
-              dv = m_measureToolState.committedTargetWorld[2] -
-                   m_measureToolState.anchorWorld[2];
+              du = m_measureToolState.committedTargetMeasureWorld[0] -
+                   m_measureToolState.anchorMeasureWorld[0];
+              dv = m_measureToolState.committedTargetMeasureWorld[2] -
+                   m_measureToolState.anchorMeasureWorld[2];
               break;
             case Viewer2DView::Side:
-              du = m_measureToolState.committedTargetWorld[1] -
-                   m_measureToolState.anchorWorld[1];
-              dv = m_measureToolState.committedTargetWorld[2] -
-                   m_measureToolState.anchorWorld[2];
+              du = m_measureToolState.committedTargetMeasureWorld[1] -
+                   m_measureToolState.anchorMeasureWorld[1];
+              dv = m_measureToolState.committedTargetMeasureWorld[2] -
+                   m_measureToolState.anchorMeasureWorld[2];
               break;
             }
             const float distanceMeters = std::sqrt(du * du + dv * dv);
@@ -3179,7 +3199,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
                 " " + Units::DistanceUnitSuffix(distanceUnitSystem);
             if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar()) {
               MainWindow::Instance()->SetStatusText(
-                  wxString::FromUTF8("Measure: " + distanceText), 0);
+                  wxString::FromUTF8((m_measureToolState.mode == Viewer2DMeasureMode::EdgeToEdge
+                                       ? "Gap measure: "
+                                       : "Measure: ") +
+                                      distanceText), 0);
             }
           }
         }

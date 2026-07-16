@@ -19,6 +19,7 @@
 
 #include "edit_ids.h"
 #include "viewer2dstate.h"
+#include "../viewer2d/viewer2d_measure_tool.h"
 #include "shortcut_registry.h"
 #include <wx/aui/aui.h>
 #include <wx/frame.h>
@@ -86,7 +87,7 @@ public:
   void EnableShortcuts(bool enable);
   void FocusConsoleForQuickCommand(const wxString &prefill);
   bool ApplyShortcutDecision(const gui::ShortcutExecutionDecision &decision);
-  void SyncViewportToolToggleState(bool measureEnabled);
+  void SyncViewportToolToggleState(bool measureEnabled, Viewer2DMeasureMode mode = Viewer2DMeasureMode::CenterToCenter);
   void SyncAxisConstraintToolToggleState();
   void SyncLeftDragMoveToolToggleState();
   void SyncLocalAxesToolToggleState();
@@ -222,6 +223,7 @@ private:
   void OnViewportSideView(wxCommandEvent &event);
   void OnViewportSelectTool(wxCommandEvent &event);
   void OnViewportMeasureTool(wxCommandEvent &event);
+  void OnViewportGapMeasureTool(wxCommandEvent &event);
   void OnViewportMagnet(wxCommandEvent &event);
   void OnViewportCrossTableActions(wxCommandEvent &event);
   void OnViewportLeftDragMove(wxCommandEvent &event);
