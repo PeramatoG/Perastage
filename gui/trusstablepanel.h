@@ -88,7 +88,8 @@ private:
     void OnMouseMove(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
     void OnItemActivated(wxDataViewEvent& event);
-    void EditSelectedCell(const wxDataViewItem& item, int column);
+    void EditSelectedCell(const wxDataViewItem& item, int column,
+                          const std::vector<int>* selectionRows = nullptr);
     void UpdateSelectionHighlight();
 
     friend class TrussEditDialog;

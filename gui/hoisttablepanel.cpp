@@ -438,8 +438,9 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &HoistTablePanel::OnColumnSorted,
               this);
   multiSelectClickGuard = std::make_unique<DataViewMultiSelectClickGuard>(
-      table, [this](const wxDataViewItem &item, int column) {
-        EditSelectedCell(item, column);
+      table, [this](const wxDataViewItem &item, int column,
+             const std::vector<int> &selectionRows) {
+        EditSelectedCell(item, column, &selectionRows);
       });
 
   Bind(wxEVT_MOUSE_CAPTURE_LOST, &HoistTablePanel::OnCaptureLost, this);
@@ -672,7 +673,8 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
 }
 
 // Routes table activation through the existing batch cell editor.
-void HoistTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
+void HoistTablePanel::EditSelectedCell(const wxDataViewItem &item, int col,
+                                 const std::vector<int> *selectionRows) {
   const auto namedColumn = TableColumnIndices::FromIndex<HoistColumn>(col);
   if (!item.IsOk() || !namedColumn ||
       static_cast<size_t>(col) >= columnLabels.size())
@@ -687,9 +689,17 @@ void HoistTablePanel::EditSelectedCell(const wxDataViewItem &item, int col) {
   wxWindowUpdateLocker locker(table);
 
   wxDataViewItemArray selections;
-  table->GetSelections(selections);
-  if (selections.empty())
-    selections.push_back(item);
+  if (selectionRows) {
+    for (const int row : *selectionRows) {
+      if (row >= 0 && row < static_cast<int>(table->GetItemCount()))
+        selections.push_back(table->RowToItem(static_cast<unsigned int>(row)));
+    }
+  }
+  if (selections.empty()) {
+    table->GetSelections(selections);
+    if (selections.empty())
+      selections.push_back(item);
+  }
 
   std::vector<std::string> selectedUuids;
   for (const auto &it : selections) {

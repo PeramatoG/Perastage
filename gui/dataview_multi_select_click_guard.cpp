@@ -48,6 +48,16 @@ bool DataViewMultiSelectClickGuard::HandleLeftDown(wxMouseEvent &event) {
   if (!ShouldDelayClick(event, item, row))
     return false;
 
+  wxDataViewItemArray selections;
+  table->GetSelections(selections);
+  pendingSelectionRows.clear();
+  pendingSelectionRows.reserve(selections.size());
+  for (const auto &selection : selections) {
+    const int selectedRow = table->ItemToRow(selection);
+    if (selectedRow != wxNOT_FOUND)
+      pendingSelectionRows.push_back(selectedRow);
+  }
+
   pendingItem = item;
   pendingColumn = column;
   pendingRow = row;
@@ -73,9 +83,11 @@ bool DataViewMultiSelectClickGuard::HandleLeftDClick(wxMouseEvent &event) {
   const int editColumnIndex = editColumn ? table->GetColumnPosition(editColumn)
                                         : wxNOT_FOUND;
   wxDataViewItem editItem = item.IsOk() ? item : pendingItem;
+  std::vector<int> editSelectionRows = pendingSelectionRows;
+  RestorePendingSelectionSilently();
   CancelPendingClick();
   if (doubleClickHandler)
-    doubleClickHandler(editItem, editColumnIndex);
+    doubleClickHandler(editItem, editColumnIndex, editSelectionRows);
   return true;
 }
 
@@ -86,6 +98,7 @@ void DataViewMultiSelectClickGuard::CancelPendingClick() {
   pendingItem = wxDataViewItem();
   pendingColumn = nullptr;
   pendingRow = wxNOT_FOUND;
+  pendingSelectionRows.clear();
 }
 
 // Returns true when a delayed single-click action is waiting for resolution.
@@ -120,6 +133,24 @@ bool DataViewMultiSelectClickGuard::ShouldDelayClick(
   return std::any_of(selections.begin(), selections.end(), [&](const auto &sel) {
     return table->ItemToRow(sel) == row;
   });
+}
+
+// Restores the captured multi-selection without notifying selection observers.
+void DataViewMultiSelectClickGuard::RestorePendingSelectionSilently() const {
+  if (!table || pendingSelectionRows.empty())
+    return;
+
+  wxDataViewItemArray currentSelections;
+  table->GetSelections(currentSelections);
+  if (currentSelections.size() == pendingSelectionRows.size())
+    return;
+
+  wxEventBlocker blocker(table, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  table->UnselectAll();
+  for (const int row : pendingSelectionRows) {
+    if (row >= 0 && row < static_cast<int>(table->GetItemCount()))
+      table->SelectRow(static_cast<unsigned int>(row));
+  }
 }
 
 // Returns the platform double-click interval exposed by wxWidgets.

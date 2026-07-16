@@ -108,7 +108,8 @@ private:
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);
     void OnItemActivated(wxDataViewEvent& event);
-    void EditSelectedCell(const wxDataViewItem& item, int column);
+    void EditSelectedCell(const wxDataViewItem& item, int column,
+                          const std::vector<int>* selectionRows = nullptr);
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();
     std::string UuidForItem(const wxDataViewItem& item) const;
