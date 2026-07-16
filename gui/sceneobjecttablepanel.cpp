@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "sceneobjecttablepanel.h"
+#include "dataview_deferred_selection_guard.h"
 #include "localized_unit_labels.h"
 #include "columnutils.h"
 #include "colorfulrenderers.h"
@@ -218,6 +219,18 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &SceneObjectTablePanel::OnCaptureLost, this);
 
+    deferredSelectionGuard = std::make_unique<gui::DataViewDeferredSelectionGuard>(
+            this, table,
+            [this](const wxDataViewItem &item) { return UuidForItem(item); },
+            [this](const std::string &uuid) {
+                auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+                if (pos == rowUuids.end())
+                    return wxDataViewItem();
+                return table->RowToItem(static_cast<unsigned int>(pos - rowUuids.begin()));
+            },
+            [this]() { SyncSelectionFromTable(); },
+            [this]() { UpdateSelectionHighlight(); });
+
     InitializeTable();
     ReloadData();
 
@@ -260,6 +273,8 @@ void SceneObjectTablePanel::InitializeTable() {
 }
 
 void SceneObjectTablePanel::ReloadData() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const wxString distanceSuffix =
         wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
@@ -362,6 +377,8 @@ void SceneObjectTablePanel::ReloadData() {
 // Handles context-menu edits and updates scene/rendering only when an actual
 // table value changes.
 void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyItemActivated(event.GetItem(), event.GetColumn());
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
   const auto namedColumn =
@@ -396,7 +413,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     wxVariant current;
     table->GetValue(current, row, col);
-    
+
   if (*namedColumn == SceneObjectColumn::Layer) {
         auto layers = guiConfigServices->LegacyConfigManager().GetLayerNames();
         wxArrayString choices;
@@ -582,8 +599,6 @@ void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
     if (startRow != wxNOT_FOUND)
     {
         dragSelecting = true;
-        table->UnselectAll();
-        table->SelectRow(startRow);
         CaptureMouse();
     }
     evt.Skip();
@@ -636,6 +651,8 @@ void SceneObjectTablePanel::OnMouseMove(wxMouseEvent &evt) {
     table->HitTest(evt.GetPosition(), item, col);
     int row = table->ItemToRow(item);
   if (row != wxNOT_FOUND) {
+        if (deferredSelectionGuard)
+            deferredSelectionGuard->NotifyDragStarted();
         int minRow = std::min(startRow, row);
         int maxRow = std::max(startRow, row);
         table->UnselectAll();
@@ -645,14 +662,23 @@ void SceneObjectTablePanel::OnMouseMove(wxMouseEvent &evt) {
     evt.Skip();
 }
 
+// Handles table selection events and defers transient single-click collapses.
 void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  if (deferredSelectionGuard && deferredSelectionGuard->HandleSelectionChanged())
+    return;
+
+  SyncSelectionFromTable();
+  evt.Skip();
+}
+
+// Synchronizes selected table rows with the shared scene selection state.
+void SceneObjectTablePanel::SyncSelectionFromTable() {
     RebuildRowCachesFromRowKeys();
     const selection::Origin origin = selection::CurrentOrigin();
     if (origin == selection::Origin::Viewer2D ||
         origin == selection::Origin::Viewer3D) {
         UpdateSelectionHighlight();
-        evt.Skip();
-        return;
+              return;
     }
 
     wxDataViewItemArray selections;
@@ -683,7 +709,7 @@ void SceneObjectTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     UpdateSelectionHighlight();
-    evt.Skip();
+
 }
 
 void SceneObjectTablePanel::UpdateSelectionHighlight() {
@@ -951,6 +977,8 @@ void SceneObjectTablePanel::HighlightObject(
 }
 
 void SceneObjectTablePanel::ClearSelection() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     table->UnselectAll();
     UpdateSelectionHighlight();
 }
@@ -992,6 +1020,8 @@ void SceneObjectTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
 }
 
 void SceneObjectTablePanel::DeleteSelected(bool pushUndoState) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     RebuildRowCachesFromRowKeys();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -1117,6 +1147,8 @@ void SceneObjectTablePanel::SetModelPathForRow(unsigned int row,
 
 // Reapplies UUID-based selection after user-driven column sorting changes row order.
 void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     RebuildRowCachesFromRowKeys();
     const std::vector<std::string> selectedUuids =
         guiConfigServices->LegacyConfigManager().GetSelectedSceneObjects();
@@ -1126,6 +1158,8 @@ void SceneObjectTablePanel::OnColumnSorted(wxDataViewEvent &event) {
 }
 
 void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContextActionStarted();
     const wxDataViewItem item = event.GetItem();
     const int row = table->ItemToRow(item);
     if (row == wxNOT_FOUND || static_cast<size_t>(row) >= rowUuids.size()) {

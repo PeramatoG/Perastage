@@ -21,6 +21,7 @@
 #include <wx/dataview.h>
 #include <wx/time.h>
 #include <vector>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -28,6 +29,8 @@
 #include "positionvalueupdate.h"
 
 class FixtureEditDialog; // forward declaration
+namespace gui { class DataViewDeferredSelectionGuard; }
+
 class IGuiConfigServices;
 
 class FixtureTablePanel : public wxPanel
@@ -101,6 +104,7 @@ private:
     std::vector<std::string> selectionOrderUuids;
     std::unordered_set<std::string> manualCategoryUuidsPending;
     IGuiConfigServices *guiConfigServices = nullptr;
+    std::unique_ptr<gui::DataViewDeferredSelectionGuard> deferredSelectionGuard;
 
     void InitializeTable(); // Set up columns
     void OnContextMenu(wxDataViewEvent& event);
@@ -118,6 +122,7 @@ private:
     void OnMouseLeave(wxMouseEvent& evt);
     void OnCaptureLost(wxMouseCaptureLostEvent& evt);
     void OnSelectionChanged(wxDataViewEvent& evt);
+    void SyncSelectionFromTable();
     void UpdateHoverTooltip(const wxPoint& position);
     void UpdateSelectionHighlight();
     void PropagateTypeValues(const wxDataViewItemArray& selections, int col);

@@ -21,10 +21,13 @@
 #include <wx/dataview.h>
 #include <wx/time.h>
 #include <vector>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
+
+namespace gui { class DataViewDeferredSelectionGuard; }
 
 class IGuiConfigServices;
 
@@ -67,8 +70,10 @@ private:
     bool modelFileEditCommitPending = false;
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;
+    std::unique_ptr<gui::DataViewDeferredSelectionGuard> deferredSelectionGuard;
     void InitializeTable();
     void OnSelectionChanged(wxDataViewEvent& evt);
+    void SyncSelectionFromTable();
     void OnContextMenu(wxDataViewEvent& event);
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();

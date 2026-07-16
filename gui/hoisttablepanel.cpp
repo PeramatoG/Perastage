@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "hoisttablepanel.h"
+#include "dataview_deferred_selection_guard.h"
 #include "localized_unit_labels.h"
 
 #include "colorfulrenderers.h"
@@ -438,6 +439,18 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
 
   Bind(wxEVT_MOUSE_CAPTURE_LOST, &HoistTablePanel::OnCaptureLost, this);
 
+  deferredSelectionGuard = std::make_unique<gui::DataViewDeferredSelectionGuard>(
+      this, table,
+      [this](const wxDataViewItem &item) { return UuidForItem(item); },
+      [this](const std::string &uuid) {
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+        if (pos == rowUuids.end())
+          return wxDataViewItem();
+        return table->RowToItem(static_cast<unsigned int>(pos - rowUuids.begin()));
+      },
+      [this]() { SyncSelectionFromTable(); },
+      [this]() { UpdateSelectionHighlight(); });
+
   InitializeTable();
   ReloadData();
 
@@ -496,6 +509,8 @@ void HoistTablePanel::InitializeTable() {
 }
 
 void HoistTablePanel::ReloadData() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   const auto distanceUnit = ResolveDistanceUnitSystem();
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString distanceSuffix =
@@ -659,6 +674,8 @@ void HoistTablePanel::ReloadData() {
 }
 
 void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyItemActivated(event.GetItem(), event.GetColumn());
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   const auto namedColumn = TableColumnIndices::FromIndex<HoistColumn>(col);
@@ -968,8 +985,6 @@ void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
   startRow = table->ItemToRow(item);
   if (startRow != wxNOT_FOUND) {
     dragSelecting = true;
-    table->UnselectAll();
-    table->SelectRow(startRow);
     CaptureMouse();
   }
   evt.Skip();
@@ -999,6 +1014,8 @@ void HoistTablePanel::OnMouseMove(wxMouseEvent &evt) {
   table->HitTest(NormalizeMousePositionForTable(table, evt), item, col);
   int row = table->ItemToRow(item);
   if (row != wxNOT_FOUND) {
+    if (deferredSelectionGuard)
+      deferredSelectionGuard->NotifyDragStarted();
     int minRow = std::min(startRow, row);
     int maxRow = std::max(startRow, row);
     table->UnselectAll();
@@ -1056,14 +1073,23 @@ void HoistTablePanel::UpdateHoverTooltip(const wxPoint &position) {
   activeHoverTooltip = tooltip;
 }
 
+// Handles table selection events and defers transient single-click collapses.
 void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  if (deferredSelectionGuard && deferredSelectionGuard->HandleSelectionChanged())
+    return;
+
+  SyncSelectionFromTable();
+  evt.Skip();
+}
+
+// Synchronizes selected table rows with the shared scene selection state.
+void HoistTablePanel::SyncSelectionFromTable() {
   RebuildRowCachesFromRowKeys();
   const selection::Origin origin = selection::CurrentOrigin();
   if (origin == selection::Origin::Viewer2D ||
       origin == selection::Origin::Viewer3D) {
     UpdateSelectionHighlight();
-    evt.Skip();
-    return;
+      return;
   }
 
   wxDataViewItemArray selections;
@@ -1094,7 +1120,7 @@ void HoistTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   if (Viewer2DPanel::Instance())
     Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
   UpdateSelectionHighlight();
-  evt.Skip();
+
 }
 
 void HoistTablePanel::UpdateSelectionHighlight() {
@@ -1435,6 +1461,8 @@ void HoistTablePanel::HighlightHoist(
 }
 
 void HoistTablePanel::ClearSelection() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   table->UnselectAll();
   UpdateSelectionHighlight();
 }
@@ -1476,6 +1504,8 @@ void HoistTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
 }
 
 void HoistTablePanel::DeleteSelected(bool pushUndoState) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   RebuildRowCachesFromRowKeys();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
@@ -1598,6 +1628,8 @@ void HoistTablePanel::SetLoadStateForRow(
 
 // Reapplies UUID-based selection after user-driven column sorting changes row order.
 void HoistTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   RebuildRowCachesFromRowKeys();
   const std::vector<std::string> selectedUuids =
       guiConfigServices->LegacyConfigManager().GetSelectedSupports();

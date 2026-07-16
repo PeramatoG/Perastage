@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "trusstablepanel.h"
+#include "dataview_deferred_selection_guard.h"
 #include "localized_unit_labels.h"
 #include "columnutils.h"
 #include "colorfulrenderers.h"
@@ -264,6 +265,18 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
 
     Bind(wxEVT_MOUSE_CAPTURE_LOST, &TrussTablePanel::OnCaptureLost, this);
 
+    deferredSelectionGuard = std::make_unique<gui::DataViewDeferredSelectionGuard>(
+            this, table,
+            [this](const wxDataViewItem &item) { return UuidForItem(item); },
+            [this](const std::string &uuid) {
+                auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+                if (pos == rowUuids.end())
+                    return wxDataViewItem();
+                return table->RowToItem(static_cast<unsigned int>(pos - rowUuids.begin()));
+            },
+            [this]() { SyncSelectionFromTable(); },
+            [this]() { UpdateSelectionHighlight(); });
+
     InitializeTable();
     ReloadData();
 
@@ -308,8 +321,9 @@ void TrussTablePanel::InitializeTable()
 }
 
 // Refreshes truss table rows from the current project data.
-void TrussTablePanel::ReloadData()
-{
+void TrussTablePanel::ReloadData() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     const std::vector<std::string> selectedTrusses = cfg.GetSelectedTrusses();
     const auto distanceUnit = ResolveDistanceUnitSystem();
@@ -472,6 +486,8 @@ void TrussTablePanel::ReloadData()
 // Handles context-menu editing workflows and avoids expensive refreshes when no
 // row values change.
 void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyItemActivated(event.GetItem(), event.GetColumn());
     wxDataViewItem item = event.GetItem();
     int col = event.GetColumn();
   const auto namedColumn = TableColumnIndices::FromIndex<TrussColumn>(col);
@@ -776,8 +792,6 @@ void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
     if (startRow != wxNOT_FOUND)
     {
         dragSelecting = true;
-        table->UnselectAll();
-        table->SelectRow(startRow);
         CaptureMouse();
     }
     evt.Skip();
@@ -805,6 +819,8 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent &evt) {
     table->HitTest(evt.GetPosition(), item, col);
     int row = table->ItemToRow(item);
   if (row != wxNOT_FOUND) {
+        if (deferredSelectionGuard)
+            deferredSelectionGuard->NotifyDragStarted();
         int minRow = std::min(startRow, row);
         int maxRow = std::max(startRow, row);
         table->UnselectAll();
@@ -814,14 +830,23 @@ void TrussTablePanel::OnMouseMove(wxMouseEvent &evt) {
     evt.Skip();
 }
 
+// Handles table selection events and defers transient single-click collapses.
 void TrussTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  if (deferredSelectionGuard && deferredSelectionGuard->HandleSelectionChanged())
+    return;
+
+  SyncSelectionFromTable();
+  evt.Skip();
+}
+
+// Synchronizes selected table rows with the shared scene selection state.
+void TrussTablePanel::SyncSelectionFromTable() {
     RebuildRowCachesFromRowKeys();
     const selection::Origin origin = selection::CurrentOrigin();
     if (origin == selection::Origin::Viewer2D ||
         origin == selection::Origin::Viewer3D) {
         UpdateSelectionHighlight();
-        evt.Skip();
-        return;
+              return;
     }
 
     wxDataViewItemArray selections;
@@ -852,7 +877,7 @@ void TrussTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
     if (Viewer2DPanel::Instance())
         Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     UpdateSelectionHighlight();
-    evt.Skip();
+
 }
 
 void TrussTablePanel::UpdateSelectionHighlight() {
@@ -921,6 +946,8 @@ void TrussTablePanel::ApplyPositionValueUpdates(
 
 // Opens the truss edit dialog for the activated table row.
 void TrussTablePanel::OnItemActivated(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContextActionStarted();
   const wxDataViewItem item =
       event.GetItem().IsOk() ? event.GetItem() : table->GetSelection();
   if (!item.IsOk())
@@ -1286,6 +1313,8 @@ void TrussTablePanel::HighlightTruss(
 }
 
 void TrussTablePanel::ClearSelection() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     table->UnselectAll();
     UpdateSelectionHighlight();
 }
@@ -1327,6 +1356,8 @@ void TrussTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
 }
 
 void TrussTablePanel::DeleteSelected(bool pushUndoState) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     RebuildRowCachesFromRowKeys();
     wxDataViewItemArray selections;
     table->GetSelections(selections);
@@ -1462,6 +1493,8 @@ void TrussTablePanel::SetModelPathsForRow(unsigned int row,
 
 // Reapplies UUID-based selection after user-driven column sorting changes row order.
 void TrussTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
     RebuildRowCachesFromRowKeys();
     const std::vector<std::string> selectedUuids =
         guiConfigServices->LegacyConfigManager().GetSelectedTrusses();
