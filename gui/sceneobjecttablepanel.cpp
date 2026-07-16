@@ -33,6 +33,8 @@
 #include "table_column_indices.h"
 #include "scene_view_refresh.h"
 #include "dataview_edit_commit.h"
+#include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
 #include <wx/aui/aui.h>
@@ -413,10 +415,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        }
+        RefreshSceneObjectVisuals();
         return;
     }
 
@@ -465,10 +464,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         modelFileEditCommitPending = true;
         UpdateSceneData();
         modelFileEditCommitPending = false;
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        }
+        RefreshSceneObjectVisuals();
         return;
     }
 
@@ -574,10 +570,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
     ResyncRows(oldOrder, selectedUuids);
 
     UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-    }
+    RefreshSceneObjectVisuals();
 }
 
 void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
@@ -611,12 +604,7 @@ void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
   const bool edited =
       scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
     if (edited) {
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        } else if (Viewer2DPanel::Instance()) {
-            Viewer2DPanel::Instance()->UpdateScene();
-        }
+        RefreshSceneObjectVisuals();
         ReloadData();
         SelectByUuid({uuid});
         return;
@@ -1058,12 +1046,11 @@ void SceneObjectTablePanel::DeleteSelected(bool pushUndoState) {
 
     if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
-        Viewer2DPanel::Instance()->UpdateScene();
     }
+    if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
+    }
+    RefreshSceneObjectVisuals();
 
     if (SummaryPanel::Instance())
         SummaryPanel::Instance()->ShowSceneObjectSummary();
@@ -1153,12 +1140,7 @@ void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event) {
     if (!edited)
         return;
 
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->UpdateScene();
-    }
+    RefreshSceneObjectVisuals();
 
     ReloadData();
     SelectByUuid({uuid});
