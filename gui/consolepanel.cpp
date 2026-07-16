@@ -184,7 +184,8 @@ wxString BuildLocalizedConsoleHelpContent() {
   help += "`rot y <values>`  " + _("Set rotation around Y (pitch).") + "\n";
   help += "`rot z <values>`  " + _("Set rotation around Z (yaw).") + "\n";
   help += "`rot x y z <values> --group`  " + _("Rotate the full selection as one group around a pivot.") + "\n";
-  help += "`rot x y z <values> --g`      " + _("Alias of `--group`.") + "\n\n";
+  help += "`rot x y z <values> --g`      " + _("Alias of `--group`.") + "\n";
+  help += "`pos/rot ... --local|-l` " + _("Use local axes for relative transforms.") + "\n\n";
   help += _("Notes:");
   help += "\n\n";
   help += "- " + _("Provide one value to apply it to all selected items.") + "\n";
@@ -218,8 +219,8 @@ wxString BuildConsoleHelpContent() {
   help += "- x|y|z <values>\n";
   help += "- rot x|y|z <values> [--group|--g] [pivotX,pivotY,pivotZ]\n";
   help += _("Examples:");
-  help += "\n- f 1-5\n- pos x 1 4\n- rot z -- 10\n";
-  help += "- rot y ++45 --g -2.5,0,0";
+  help += "\n- f 1-5\n- pos x 1 4\n- pos x ++ 1 --local\n- rot z -- 10\n";
+  help += "- rot y ++45 --g --local -2.5,0,0";
   return help;
 }
 
@@ -919,7 +920,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     };
 
     auto applyPosEffective = [&](int axis, const std::vector<float> &vals,
-                                 bool relative) {
+                                 bool relative,
+                                 transform_space::TransformSpace space =
+                                     transform_space::TransformSpace::World) {
       if (vals.empty())
         return;
       auto &scene = cfg.GetScene();
@@ -936,16 +939,21 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                               static_cast<float>(n - 1)
                                 : start;
         Matrix transform = scene_grouping::GetTargetWorldTransform(scene, targets[i]);
-        if (relative)
-          transform.o[axis] += value;
-        else
+        if (relative) {
+          std::array<float, 3> delta{0.0f, 0.0f, 0.0f};
+          delta[axis] = value;
+          transform = transform_space::ApplyIncrementalTranslation(transform, delta, space);
+        } else {
           transform.o[axis] = value;
+        }
         scene_grouping::SetTargetWorldTransform(scene, targets[i], transform);
       }
     };
 
     auto applyRotEffective = [&](int axis, const std::vector<float> &vals,
-                                 bool relative) {
+                                 bool relative,
+                                 transform_space::TransformSpace space =
+                                     transform_space::TransformSpace::World) {
       if (vals.empty())
         return;
       auto &scene = cfg.GetScene();
@@ -968,25 +976,39 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                               static_cast<float>(n - 1)
                                 : start;
         Matrix transform = scene_grouping::GetTargetWorldTransform(scene, targets[i]);
-        auto e = MatrixUtils::MatrixToEuler(transform);
-        if (relative)
-          e[eAxis] += angle;
-        else
+        Matrix rotated;
+        if (relative) {
+          Matrix delta = MatrixUtils::Identity();
+          if (axis == 0)
+            delta = MatrixUtils::EulerToMatrix(0.0f, 0.0f, angle);
+          else if (axis == 1)
+            delta = MatrixUtils::EulerToMatrix(0.0f, angle, 0.0f);
+          else
+            delta = MatrixUtils::EulerToMatrix(angle, 0.0f, 0.0f);
+          rotated = transform_space::ApplyIncrementalRotation(transform, delta, space);
+        } else {
+          auto e = MatrixUtils::MatrixToEuler(transform);
           e[eAxis] = angle;
-        Matrix rotated = MatrixUtils::EulerToMatrix(e[0], e[1], e[2]);
-        rotated.o = transform.o;
+          rotated = MatrixUtils::ApplyRotationPreservingScale(
+              transform, MatrixUtils::EulerToMatrix(e[0], e[1], e[2]), transform.o);
+        }
         scene_grouping::SetTargetWorldTransform(scene, targets[i], rotated);
       }
     };
 
     auto rotateEffectiveAroundPivot = [&](int axis, float angleDeg,
-                                          const std::array<float, 3> &pivotMm) {
+                                          const std::array<float, 3> &pivotMm,
+                                          transform_space::TransformSpace space) {
       scene_grouping::RotateSelectionAroundPivot(cfg.GetScene(),
                                                  buildEffectiveSelection(), axis,
-                                                 angleDeg, pivotMm);
+                                                 angleDeg, pivotMm, space);
     };
 
 
+
+    auto parseSegment = [](const std::string &s) {
+      return gui::console::ParseTransformCommandSegment(s);
+    };
 
     auto parseVals = [](const std::string &s, bool &relative) {
       return gui::console::ParseTransformValues(s, relative);
@@ -1096,20 +1118,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           segmentTokens.push_back(tokens[k]);
 
         bool useGroupRotation = false;
-        if (isRot) {
-          std::vector<std::string> filteredTokens;
-          filteredTokens.reserve(segmentTokens.size());
-          for (const auto &segmentToken : segmentTokens) {
-            if (segmentToken == "--group" || segmentToken == "--g")
-              useGroupRotation = true;
-            else
-              filteredTokens.push_back(segmentToken);
-          }
-          segmentTokens = std::move(filteredTokens);
-        }
 
         std::optional<std::array<float, 3>> explicitPivotMm;
-        if (isRot && useGroupRotation && segmentTokens.size() > 1) {
+        if (isRot && segmentTokens.size() > 1) {
           std::array<float, 3> parsedPivotMm{};
           if (parsePivotToken(segmentTokens.back(), parsedPivotMm)) {
             explicitPivotMm = parsedPivotMm;
@@ -1130,12 +1141,11 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         if (rest.find(',') != std::string::npos) {
           auto parts = split(rest, ',');
           for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx) {
-            bool rel = false;
-            auto vals = parseVals(parts[idx], rel);
+            const auto segment = parseSegment(parts[idx]);
             if (isRot) {
-              applyRotEffective((int)idx, vals, rel);
+              applyRotEffective((int)idx, segment.values, segment.relative, segment.space);
             } else {
-              applyPosEffective((int)idx, vals, rel);
+              applyPosEffective((int)idx, segment.values, segment.relative, segment.space);
             }
           }
         } else {
@@ -1155,20 +1165,20 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           std::string valsStr;
           std::getline(ps, valsStr);
           valsStr = trim(valsStr);
-          bool rel = false;
-          auto vals = parseVals(valsStr, rel);
+          const auto segment = parseSegment(valsStr);
+          useGroupRotation = segment.group;
           if (isRot && useGroupRotation) {
-            if (!vals.empty()) {
+            if (!segment.values.empty()) {
               const auto pivotMm =
                   explicitPivotMm.value_or(computeSelectionBoundsCenterMm().value_or(
                       std::array<float, 3>{0.0f, 0.0f, 0.0f}));
-              const float angleDeg = vals[0];
-              rotateEffectiveAroundPivot(axis, angleDeg, pivotMm);
+              const float angleDeg = segment.values[0];
+              rotateEffectiveAroundPivot(axis, angleDeg, pivotMm, segment.space);
             }
           } else if (isRot) {
-            applyRotEffective(axis, vals, rel);
+            applyRotEffective(axis, segment.values, segment.relative, segment.space);
           } else {
-            applyPosEffective(axis, vals, rel);
+            applyPosEffective(axis, segment.values, segment.relative, segment.space);
           }
         }
         refreshSelectionAfterTransform();
@@ -1185,9 +1195,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         const auto selSupports = cfg.GetSelectedSupports();
         const auto selSceneObjects = cfg.GetSelectedSceneObjects();
         int axis = (lw == "x") ? 0 : (lw == "y" ? 1 : 2);
-        bool rel = false;
-        auto vals = parseVals(rest, rel);
-        applyPosEffective(axis, vals, rel);
+        const auto segment = parseSegment(rest);
+        applyPosEffective(axis, segment.values, segment.relative, segment.space);
         refreshSelectionAfterTransform();
       } else if (!lw.empty() && (std::isdigit(lw[0]) || lw[0] == '-' ||
                                  lw[0] == '+') &&

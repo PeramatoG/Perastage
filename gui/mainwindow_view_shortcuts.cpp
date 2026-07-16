@@ -6,6 +6,7 @@
 #include "selection_movement_settings.h"
 #include "guiconfigservices.h"
 #include "magnet_snap.h"
+#include "transform_space.h"
 #include "../viewport_interaction_scope.h"
 
 namespace {
@@ -80,6 +81,17 @@ void MainWindow::SyncLeftDragMoveToolToggleState() {
           "1");
 }
 
+// Synchronizes the local axes toolbar toggle with user preferences.
+void MainWindow::SyncLocalAxesToolToggleState() {
+  if (!layoutViewsToolBar)
+    return;
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_LocalAxes,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          selection_movement_settings::kLocalTransformSpaceConfigKey) ==
+          "1");
+}
+
 
 // Synchronizes the cross-table viewport-actions toolbar toggle with project settings.
 void MainWindow::SyncCrossTableActionsToolToggleState() {
@@ -104,19 +116,29 @@ void MainWindow::ApplyViewportMovementToolState() {
       "1";
   const bool magnetEnabled =
       preferences.GetValue(magnet_snap::kMagnetEnabledConfigKey) == "1";
+  const bool localAxesEnabled =
+      preferences.GetValue(
+          selection_movement_settings::kLocalTransformSpaceConfigKey) == "1";
 
   if (viewport2DPanel) {
     viewport2DPanel->SetAxisConstrainedMovementEnabled(axisConstraintEnabled);
     viewport2DPanel->SetLeftDragSelectionMovementEnabled(leftDragMoveEnabled);
     viewport2DPanel->SetMagnetEnabled(magnetEnabled, false);
+    viewport2DPanel->SetTransformSpace(localAxesEnabled
+                                           ? transform_space::TransformSpace::Local
+                                           : transform_space::TransformSpace::World);
   }
   if (viewportPanel) {
     viewportPanel->SetAxisConstrainedMovementEnabled(axisConstraintEnabled);
     viewportPanel->SetLeftDragSelectionMovementEnabled(leftDragMoveEnabled);
     viewportPanel->SetMagnetEnabled(magnetEnabled, false);
+    viewportPanel->SetTransformSpace(localAxesEnabled
+                                         ? transform_space::TransformSpace::Local
+                                         : transform_space::TransformSpace::World);
   }
   SyncAxisConstraintToolToggleState();
   SyncLeftDragMoveToolToggleState();
+  SyncLocalAxesToolToggleState();
   SyncCrossTableActionsToolToggleState();
   if (layoutViewsToolBar) {
     layoutViewsToolBar->ToggleTool(ID_View_Viewport_Magnet, magnetEnabled);
@@ -170,6 +192,18 @@ void MainWindow::OnViewportLeftDragMove(wxCommandEvent &WXUNUSED(event)) {
   preferences.SetValue(
       selection_movement_settings::kLeftDragSelectionMovementConfigKey,
       enabled ? "0" : "1");
+  preferences.SaveUserConfig();
+  ApplyViewportMovementToolState();
+}
+
+// Toggles user-level local axes for viewport transforms.
+void MainWindow::OnViewportLocalAxes(wxCommandEvent &WXUNUSED(event)) {
+  auto &preferences = GetDefaultGuiConfigServices().Preferences();
+  const bool enabled =
+      preferences.GetValue(
+          selection_movement_settings::kLocalTransformSpaceConfigKey) == "1";
+  preferences.SetValue(selection_movement_settings::kLocalTransformSpaceConfigKey,
+                       enabled ? "0" : "1");
   preferences.SaveUserConfig();
   ApplyViewportMovementToolState();
 }

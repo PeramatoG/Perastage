@@ -190,7 +190,7 @@ add_executable(mvr_merge_analyzer_applier_test
 add_test(NAME MvrMergeAnalyzerApplier COMMAND mvr_merge_analyzer_applier_test)
 
 add_executable(matrixutils_test matrixutils_test.cpp)
-target_include_directories(matrixutils_test PRIVATE ../models)
+target_include_directories(matrixutils_test PRIVATE ../models ../core)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
 
 add_executable(scene_grouping_test scene_grouping_test.cpp
@@ -271,7 +271,7 @@ add_test(NAME MainWindowCliShortcutRouter COMMAND mainwindow_cli_shortcut_router
 add_executable(console_command_parser_test
                console_command_parser_test.cpp
                ../gui/console_command_parser.cpp)
-target_include_directories(console_command_parser_test PRIVATE .. ../gui)
+target_include_directories(console_command_parser_test PRIVATE .. ../gui ../core ../models)
 add_test(NAME ConsoleCommandParser COMMAND console_command_parser_test)
 
 add_executable(editable_focus_utils_test

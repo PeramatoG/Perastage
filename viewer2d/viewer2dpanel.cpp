@@ -812,6 +812,11 @@ void Viewer2DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
     m_dragAxis = DragAxis::None;
 }
 
+// Sets whether axis-constrained viewport transforms use world or local axes.
+void Viewer2DPanel::SetTransformSpace(transform_space::TransformSpace space) {
+  m_transformSpace = space;
+}
+
 // Converts a mouse position in window coordinates into the current 2D world position.
 std::optional<std::array<float, 3>>
 Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
@@ -1698,7 +1703,18 @@ void Viewer2DPanel::ApplySelectionDelta(
   selection.supports = m_dragSupportUuids;
   selection.sceneObjects = m_dragSceneObjectUuids;
   const auto previousSnap = RestorePendingMagnetSnapPreview();
-  scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
+  std::array<float, 3> deltaMm{dxMm, dyMm, dzMm};
+  if (m_transformSpace == transform_space::TransformSpace::Local &&
+      m_axisConstrainedMovementEnabled && m_dragAxis != DragAxis::None) {
+    const auto targets = scene_grouping::BuildTransformTargets(cfg.GetScene(), selection);
+    if (!targets.empty()) {
+      const Matrix referenceTransform = scene_grouping::GetTargetWorldTransform(
+          cfg.GetScene(), targets.front());
+      deltaMm = transform_space::TransformDirection(
+          transform_space::ExtractOrientation(referenceTransform), deltaMm);
+    }
+  }
+  scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm);
   if (auto snap = FindActiveMagnetSnap()) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
     m_pendingMagnetSnap = snap;

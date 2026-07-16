@@ -43,5 +43,19 @@ int main() {
   assert(relative);
   assert(EqualValues(values, {-1.5f, -3.5f}));
 
+  auto localLong = gui::console::ParseTransformCommandSegment("++ 1 --local");
+  assert(localLong.relative);
+  assert(localLong.space == transform_space::TransformSpace::Local);
+  auto localShort = gui::console::ParseTransformCommandSegment("++ 2 -l");
+  assert(localShort.space == transform_space::TransformSpace::Local);
+  auto grouped = gui::console::ParseTransformCommandSegment("++ 30 --group -l");
+  assert(grouped.group);
+  assert(grouped.space == transform_space::TransformSpace::Local);
+  auto negative = gui::console::ParseTransformCommandSegment("-7 thru 7");
+  assert(EqualValues(negative.values, {-7.0f, 7.0f}));
+  auto relativeNegative = gui::console::ParseTransformCommandSegment("-- 1.5");
+  assert(relativeNegative.relative);
+  assert(EqualValues(relativeNegative.values, {-1.5f}));
+
   return 0;
 }

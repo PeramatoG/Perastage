@@ -29,6 +29,7 @@
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
 #include "magnet_snap.h"
+#include "transform_space.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
@@ -160,6 +161,7 @@ public:
     return m_leftDragSelectionMovementEnabled;
   }
   void SetAxisConstrainedMovementEnabled(bool enabled);
+  void SetTransformSpace(transform_space::TransformSpace space);
   // Returns whether selection movement is constrained to axes.
   bool IsAxisConstrainedMovementEnabled() const {
     return m_axisConstrainedMovementEnabled;
@@ -322,6 +324,8 @@ private:
   bool m_magnetEnabled = false;
   bool m_leftDragSelectionMovementEnabled = false;
   bool m_axisConstrainedMovementEnabled = true;
+  transform_space::TransformSpace m_transformSpace =
+      transform_space::TransformSpace::World;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
   bool m_draggedSincePress = false;
   bool m_continuousPlacementActive = false;

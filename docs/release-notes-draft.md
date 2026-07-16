@@ -19,6 +19,8 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 - Added interface-language selection for **English** and **Spanish**. The selected language is stored in Preferences and is applied after restarting the application.
 - Added **Cross-table Actions** to the viewport toolbar. When enabled, hover, selection, measurement, and compatible tools can work across all supported object types instead of being limited to the active Data Views table.
+- Added a persistent **Local Axes** viewport toolbar toggle and `--local`/`-l` command-bar modifiers for relative position and rotation transforms, while keeping world axes as the default.
+- Corrected the **Local Axes** toolbar icon to use the official Lucide `file-axis-3d` artwork.
 - Added a shared **Hang Position editor** for fixtures, trusses, and hoists. Positions can be selected, created, renamed across affected objects, or removed from one dialog.
 - Updated Data Views interactions:
   - Double-clicking with the left mouse button opens cell-specific editing actions.
@@ -66,6 +68,8 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Published MVR revisions now use readable project-based file names instead of exposing internal UUIDs.
 
 ## Important fixes
+
+- Fixed Windows build and linker issues in the Local Axes viewport integration.
 
 ### MVR, GDTF, and project data
 

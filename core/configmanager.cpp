@@ -57,7 +57,10 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
            selection_movement_settings::kAxisConstrainedMovementConfigKey)},
       {selection_movement_settings::kLeftDragSelectionMovementConfigKey,
        config.GetValue(
-           selection_movement_settings::kLeftDragSelectionMovementConfigKey)}};
+           selection_movement_settings::kLeftDragSelectionMovementConfigKey)},
+      {selection_movement_settings::kLocalTransformSpaceConfigKey,
+       config.GetValue(
+           selection_movement_settings::kLocalTransformSpaceConfigKey)}};
 }
 
 // Restores user-level interaction preferences after project config loading.

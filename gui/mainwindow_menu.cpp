@@ -242,6 +242,11 @@ void MainWindow::CreateToolBars() {
                           _("Drag Move"), "move", wxART_MISSING_IMAGE,
                           _("Toggle left-click selection dragging"),
                           wxITEM_CHECK);
+  addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_LocalAxes,
+                          _("Local Axes"), "file-axis-3d",
+                          wxART_MISSING_IMAGE,
+                          _("Use local axes for viewport transforms"),
+                          wxITEM_CHECK);
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_Magnet,
                           _("Magnet"), "magnet", wxART_MISSING_IMAGE,
                           _("Toggle Magnet snapping while dragging"),
@@ -263,6 +268,11 @@ void MainWindow::CreateToolBars() {
       ID_View_Viewport_LeftDragMove,
       GetDefaultGuiConfigServices().Preferences().GetValue(
           selection_movement_settings::kLeftDragSelectionMovementConfigKey) ==
+          "1");
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_LocalAxes,
+      GetDefaultGuiConfigServices().Preferences().GetValue(
+          selection_movement_settings::kLocalTransformSpaceConfigKey) ==
           "1");
   layoutViewsToolBar->ToggleTool(
       ID_View_Viewport_Magnet,
