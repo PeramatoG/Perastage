@@ -85,6 +85,7 @@
 #include <new>
 #include <set>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 // Pixels per meter at default zoom level.
@@ -167,6 +168,62 @@ ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uui
   return std::nullopt;
 }
 
+// Finds cached world bounds for any selectable scene element UUID.
+std::optional<ISelectionContext::BoundingBox> ResolveSceneElementBoundsByUuid(
+    const ISelectionContext &selectionContext, const ConfigManager &cfg,
+    const std::string &uuid) {
+  if (const auto *bounds = selectionContext.FindFixtureBounds(uuid))
+    return *bounds;
+  if (const auto *bounds = selectionContext.FindTrussBounds(uuid))
+    return *bounds;
+  if (const auto *bounds = selectionContext.FindObjectBounds(uuid))
+    return *bounds;
+  if (const auto center = ResolveSceneElementCenterByUuid(cfg, uuid))
+    return ISelectionContext::BoundingBox{*center, *center};
+  return std::nullopt;
+}
+
+// Computes nearest points between two bounds in the active 2D projection plane.
+std::pair<std::array<float, 3>, std::array<float, 3>>
+ComputeNearestProjectedBoundsPoints(const ISelectionContext::BoundingBox &a,
+                                    const ISelectionContext::BoundingBox &b,
+                                    Viewer2DView view) {
+  std::array<float, 3> start{0.5f * (a.min[0] + a.max[0]),
+                             0.5f * (a.min[1] + a.max[1]),
+                             0.5f * (a.min[2] + a.max[2])};
+  std::array<float, 3> end{0.5f * (b.min[0] + b.max[0]),
+                           0.5f * (b.min[1] + b.max[1]),
+                           0.5f * (b.min[2] + b.max[2])};
+  const auto assignAxis = [&](int axis) {
+    if (a.max[axis] < b.min[axis]) {
+      start[axis] = a.max[axis];
+      end[axis] = b.min[axis];
+    } else if (b.max[axis] < a.min[axis]) {
+      start[axis] = a.min[axis];
+      end[axis] = b.max[axis];
+    } else {
+      const float overlap = std::max(a.min[axis], b.min[axis]);
+      start[axis] = overlap;
+      end[axis] = overlap;
+    }
+  };
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    assignAxis(0);
+    assignAxis(1);
+    break;
+  case Viewer2DView::Front:
+    assignAxis(0);
+    assignAxis(2);
+    break;
+  case Viewer2DView::Side:
+    assignAxis(1);
+    assignAxis(2);
+    break;
+  }
+  return {start, end};
+}
 
 // Draws a 2D triangular arrowhead in screen-space overlay coordinates.
 void DrawSelectionDragArrowhead2D(float baseX, float baseY, float dirX, float dirY,

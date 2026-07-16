@@ -105,6 +105,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Fixed table selection so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed objects selected.
 - Fixed fixture multi-selection actions so the original selection order is preserved after sorting.
 - Fixed Cross-table rectangle selection when using **Ctrl + left drag**.
+- Fixed the new **Gap Measure Tool** bounds helpers so the 2D viewport build can resolve edge-to-edge measurement points correctly.
 - Fixed Layers visibility double-clicks so they no longer open the rename dialog.
 - Fixed Layout View so opening another project does not briefly reuse the previous project's cached preview.
 - Improved 3D fixture picking and highlighting:
