@@ -35,8 +35,9 @@ FixtureTablePanel::SceneDataUpdateType UpdateTypeForColumnImpl(int column) {
     return SceneDataUpdateType::kMetadataOnly;
   case Column::FixtureId:
     return SceneDataUpdateType::kFixtureIdOnly;
-  case Column::Type:
   case Column::Layer:
+    return SceneDataUpdateType::kGeneral;
+  case Column::Type:
   case Column::HangPosition:
   case Column::Mode:
   case Column::ModelFile:

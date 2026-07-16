@@ -21,6 +21,7 @@
 #include "colorfulrenderers.h"
 #include "configmanager.h"
 #include "selection_origin_token.h"
+#include "scene_view_refresh.h"
 #include "guiconfigservices.h"
 #include "hang_position_dialog.h"
 #include "consolepanel.h"
@@ -1220,6 +1221,9 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
 
     if (RiggingPanel::Instance())
         RiggingPanel::Instance()->RefreshData();
+
+    gui::sceneviewrefresh::RefreshSceneViewsAfterTableEdit(
+        this, gui::sceneviewrefresh::SceneUpdateScope::Full);
 }
 
 TrussTablePanel* TrussTablePanel::Instance()

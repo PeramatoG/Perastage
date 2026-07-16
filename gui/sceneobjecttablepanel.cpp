@@ -31,7 +31,7 @@
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "table_column_indices.h"
-#include "layoutviewerpanel.h"
+#include "scene_view_refresh.h"
 #include "dataview_edit_commit.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -95,31 +95,10 @@ bool IsNumChar(char c) {
            c == '+';
 }
 
-LayoutViewerPanel *FindLayoutViewerPanel(wxWindow *root) {
-    if (!root)
-        return nullptr;
-
-    if (auto *layoutViewer = dynamic_cast<LayoutViewerPanel *>(root))
-        return layoutViewer;
-
-    for (wxWindow *child : root->GetChildren()) {
-        if (auto *layoutViewer = FindLayoutViewerPanel(child))
-            return layoutViewer;
-    }
-    return nullptr;
-}
-
+// Refreshes all scene previews after scene-object table edits.
 void RefreshSceneObjectVisuals() {
-    if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->InvalidateBottomSymbolCache();
-        Viewer2DPanel::Instance()->UpdateScene();
-        Viewer2DPanel::Instance()->Refresh();
-    }
-
-    wxWindow *topLevel = wxGetTopLevelParent(SceneObjectTablePanel::Instance());
-    if (auto *layoutViewer = FindLayoutViewerPanel(topLevel)) {
-        layoutViewer->RefreshAfterSceneContentUpdate();
-    }
+    gui::sceneviewrefresh::RefreshSceneViewsAfterTableEdit(
+        SceneObjectTablePanel::Instance(), gui::sceneviewrefresh::SceneUpdateScope::Full);
 }
 
 RangeParts SplitRangeParts(const wxString &value) {
@@ -436,10 +415,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
         ResyncRows(oldOrder, selectedUuids);
         UpdateSceneData();
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        }
+        RefreshSceneObjectVisuals();
         return;
     }
 
@@ -488,10 +464,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         modelFileEditCommitPending = true;
         UpdateSceneData();
         modelFileEditCommitPending = false;
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        }
+        RefreshSceneObjectVisuals();
         return;
     }
 
@@ -597,10 +570,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
     ResyncRows(oldOrder, selectedUuids);
 
     UpdateSceneData();
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-    }
+    RefreshSceneObjectVisuals();
 }
 
 void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
@@ -634,12 +604,7 @@ void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
   const bool edited =
       scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
     if (edited) {
-        if (Viewer3DPanel::Instance()) {
-            Viewer3DPanel::Instance()->UpdateScene();
-            Viewer3DPanel::Instance()->Refresh();
-        } else if (Viewer2DPanel::Instance()) {
-            Viewer2DPanel::Instance()->UpdateScene();
-        }
+        RefreshSceneObjectVisuals();
         ReloadData();
         SelectByUuid({uuid});
         return;
@@ -1081,12 +1046,11 @@ void SceneObjectTablePanel::DeleteSelected(bool pushUndoState) {
 
     if (Viewer3DPanel::Instance()) {
         Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
-        Viewer2DPanel::Instance()->UpdateScene();
     }
+    if (Viewer2DPanel::Instance()) {
+        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
+    }
+    RefreshSceneObjectVisuals();
 
     if (SummaryPanel::Instance())
         SummaryPanel::Instance()->ShowSceneObjectSummary();
@@ -1176,12 +1140,7 @@ void SceneObjectTablePanel::OnItemActivated(wxDataViewEvent &event) {
     if (!edited)
         return;
 
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-    } else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->UpdateScene();
-    }
+    RefreshSceneObjectVisuals();
 
     ReloadData();
     SelectByUuid({uuid});
