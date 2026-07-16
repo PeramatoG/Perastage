@@ -31,10 +31,8 @@
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "table_column_indices.h"
-#include "layoutviewerpanel.h"
+#include "scene_view_refresh.h"
 #include "dataview_edit_commit.h"
-#include "viewer2dpanel.h"
-#include "viewer3dpanel.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
 #include <wx/aui/aui.h>
@@ -95,31 +93,10 @@ bool IsNumChar(char c) {
            c == '+';
 }
 
-LayoutViewerPanel *FindLayoutViewerPanel(wxWindow *root) {
-    if (!root)
-        return nullptr;
-
-    if (auto *layoutViewer = dynamic_cast<LayoutViewerPanel *>(root))
-        return layoutViewer;
-
-    for (wxWindow *child : root->GetChildren()) {
-        if (auto *layoutViewer = FindLayoutViewerPanel(child))
-            return layoutViewer;
-    }
-    return nullptr;
-}
-
+// Refreshes all scene previews after scene-object table edits.
 void RefreshSceneObjectVisuals() {
-    if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->InvalidateBottomSymbolCache();
-        Viewer2DPanel::Instance()->UpdateScene();
-        Viewer2DPanel::Instance()->Refresh();
-    }
-
-    wxWindow *topLevel = wxGetTopLevelParent(SceneObjectTablePanel::Instance());
-    if (auto *layoutViewer = FindLayoutViewerPanel(topLevel)) {
-        layoutViewer->RefreshAfterSceneContentUpdate();
-    }
+    gui::sceneviewrefresh::RefreshSceneViewsAfterTableEdit(
+        SceneObjectTablePanel::Instance(), gui::sceneviewrefresh::SceneUpdateScope::Full);
 }
 
 RangeParts SplitRangeParts(const wxString &value) {

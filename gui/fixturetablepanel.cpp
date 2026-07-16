@@ -39,6 +39,7 @@
 #include "projectutils.h"
 #include "riggingpanel.h"
 #include "selection_origin_token.h"
+#include "scene_view_refresh.h"
 #include "stringutils.h"
 #include "summarypanel.h"
 #include "units/unit_label_utils.h"
@@ -119,17 +120,10 @@ void RefreshViewersForFixtureUpdate(
     FixtureTablePanel::SceneDataUpdateType updateType) {
   const bool requiresFullSceneUpdate =
       FixtureTablePanel::RequiresFullViewerSceneUpdate(updateType);
-  if (Viewer3DPanel::Instance()) {
-    if (requiresFullSceneUpdate) {
-      Viewer3DPanel::Instance()->UpdateScene();
-    }
-    Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
-    if (requiresFullSceneUpdate)
-      Viewer2DPanel::Instance()->UpdateScene();
-    else
-      Viewer2DPanel::Instance()->UpdateScene(false);
-  }
+  gui::sceneviewrefresh::RefreshSceneViewsAfterTableEdit(
+      FixtureTablePanel::Instance(),
+      requiresFullSceneUpdate ? gui::sceneviewrefresh::SceneUpdateScope::Full
+                              : gui::sceneviewrefresh::SceneUpdateScope::Light);
 }
 
 // Determines whether a scene update type requires rigging panel refresh.
