@@ -23,9 +23,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <memory>
 #include "colorstore.h"
 #include "hoist_load_limit_utils.h"
 #include "positionvalueupdate.h"
+
+namespace gui { class DataViewDeferredSelectionGuard; }
 
 class IGuiConfigServices;
 
@@ -66,9 +69,11 @@ private:
   bool dragSelecting = false;
   int startRow = -1;
   IGuiConfigServices *guiConfigServices = nullptr;
+    std::unique_ptr<gui::DataViewDeferredSelectionGuard> deferredSelectionGuard;
 
   void InitializeTable();
   void OnSelectionChanged(wxDataViewEvent &evt);
+  void SyncSelectionFromTable();
   void OnContextMenu(wxDataViewEvent &event);
   void OnColumnSorted(wxDataViewEvent &event);
   void RebuildRowCachesFromRowKeys();

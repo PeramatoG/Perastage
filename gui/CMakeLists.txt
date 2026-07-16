@@ -13,6 +13,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_selection_controls.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_export_conflict_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dataview_edit_commit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dataview_deferred_selection_guard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/editable_focus_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/fixture_gdtf_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixture_symbol_generation_tool.cpp

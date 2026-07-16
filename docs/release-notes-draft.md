@@ -24,6 +24,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Added a shared **Hang Position editor** for fixtures, trusses, and hoists. Positions can be selected, created, renamed across affected objects, or removed from one dialog.
 - Updated Data Views interactions:
   - Double-clicking with the left mouse button opens cell-specific editing actions.
+  - Double-clicking a cell inside an existing multi-selection now keeps that selection and applies the existing bulk-edit behavior to all selected rows without requiring Shift.
   - Right-clicking opens row-level editors and context actions.
 - Edit Fixture and Edit Truss can now be maximized and use resizable layouts whose proportions are remembered between sessions.
 

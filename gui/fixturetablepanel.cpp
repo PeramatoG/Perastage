@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "fixturetablepanel.h"
+#include "dataview_deferred_selection_guard.h"
 #include "addressdialog.h"
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -233,6 +234,18 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
   table->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FixtureTablePanel::OnColumnSorted,
               this);
 
+  deferredSelectionGuard = std::make_unique<gui::DataViewDeferredSelectionGuard>(
+      this, table,
+      [this](const wxDataViewItem &item) { return UuidForItem(item); },
+      [this](const std::string &uuid) {
+        auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
+        if (pos == rowUuids.end())
+          return wxDataViewItem();
+        return table->RowToItem(static_cast<unsigned int>(pos - rowUuids.begin()));
+      },
+      [this]() { SyncSelectionFromTable(); },
+      [this]() { UpdateSelectionHighlight(); });
+
   InitializeTable();
   ReloadData();
 
@@ -279,6 +292,8 @@ void FixtureTablePanel::InitializeTable() {
 
 // Rebuilds table rows from scene fixtures and reapplies validation highlights.
 void FixtureTablePanel::ReloadData() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   if (!table || !store)
     return;
   table->Freeze();
@@ -478,6 +493,8 @@ void FixtureTablePanel::ReloadData() {
 // Handles context-menu editing actions and only applies scene updates when data
 // actually changes.
 void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyItemActivated(event.GetItem(), event.GetColumn());
   wxDataViewItem item = event.GetItem();
   int col = event.GetColumn();
   const auto namedColumn = FixtureTableColumns::FromIndex(col);
@@ -1333,6 +1350,8 @@ void FixtureTablePanel::HighlightPatchConflicts() {
 
 // Clears all current table row selections.
 void FixtureTablePanel::ClearSelection() {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   table->UnselectAll();
   selectionOrderUuids.clear();
   UpdateSelectionHighlight();
@@ -1378,6 +1397,8 @@ void FixtureTablePanel::SelectByUuid(const std::vector<std::string> &uuids,
 
 // Deletes selected fixtures from the scene and refreshes related panels.
 void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   RebuildRowCachesFromRowKeys();
   wxDataViewItemArray selections;
   table->GetSelections(selections);
@@ -1449,6 +1470,8 @@ void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
 
 // Commits inline cell edits and propagates resulting scene updates.
 void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContextActionStarted();
   wxDataViewItem item = event.GetItem();
   if (!item.IsOk()) {
     event.Skip();
@@ -1544,13 +1567,21 @@ void FixtureTablePanel::UpdateHoverTooltip(const wxPoint &position) {
 
 // Syncs cross-panel selection state when table selection changes.
 void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
+  if (deferredSelectionGuard && deferredSelectionGuard->HandleSelectionChanged())
+    return;
+
+  SyncSelectionFromTable();
+  evt.Skip();
+}
+
+// Synchronizes selected table rows with the shared scene selection state.
+void FixtureTablePanel::SyncSelectionFromTable() {
   RebuildRowCachesFromRowKeys();
   const selection::Origin origin = selection::CurrentOrigin();
   if (origin == selection::Origin::Viewer2D ||
       origin == selection::Origin::Viewer3D) {
     UpdateSelectionHighlight();
-    evt.Skip();
-    return;
+      return;
   }
 
   wxDataViewItemArray selections;
@@ -1600,7 +1631,7 @@ void FixtureTablePanel::OnSelectionChanged(wxDataViewEvent &evt) {
   if (Viewer2DPanel::Instance())
     Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
   UpdateSelectionHighlight();
-  evt.Skip();
+
 }
 
 // Reapplies row highlight styling based on current selection state.
@@ -1960,6 +1991,8 @@ void FixtureTablePanel::SetGdtfPathForRow(unsigned int row,
 
 // Rebuilds row caches after user-driven column sorting changes row order.
 void FixtureTablePanel::OnColumnSorted(wxDataViewEvent &event) {
+  if (deferredSelectionGuard)
+    deferredSelectionGuard->NotifyContentChanged();
   RebuildRowCachesFromRowKeys();
   const std::vector<std::string> selectedUuids =
       guiConfigServices->LegacyConfigManager().GetSelectedFixtures();

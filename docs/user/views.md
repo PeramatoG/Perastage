@@ -36,5 +36,6 @@ You can export layout-oriented output as PDF for sharing or printing.
 Best practice is to combine visual review with table review:
 
 - Validate elements in Fixtures, Trusses, Hoists, and Objects tables.
+- Double-click a cell inside an existing multi-selection to edit that column for all selected elements. A single click on one selected row still reduces the selection to that row after the normal system double-click interval when no second click follows.
 - Cross-check selected elements in 2D and 3D.
 - Confirm updates before saving or exporting MVR.
