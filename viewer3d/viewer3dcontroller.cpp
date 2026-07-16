@@ -86,6 +86,7 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -115,6 +116,8 @@ struct Viewer3DController::Impl {
       visibleSortedObjects;
   std::unordered_set<std::string> lastHiddenLayers;
   std::unordered_set<std::string> lastHiddenFixtureTypes;
+  size_t sceneLayerMembershipFingerprint = 0;
+  bool hasSceneLayerMembershipFingerprint = false;
   size_t hiddenLayersVersion = 0;
   bool sortedListsDirty = true;
   bool sortedListsLastWas2D = false;
@@ -328,6 +331,31 @@ static uint32_t HashString(std::string_view value) {
     hash *= 16777619u;
   }
   return hash;
+}
+
+// Combines one value into a stable size_t hash accumulator.
+static void CombineHashValue(size_t &seed, size_t value) {
+  seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+}
+
+// Computes a stable fingerprint for scene elements whose layer controls visibility.
+static size_t ComputeSceneLayerMembershipFingerprint(const MvrScene &scene) {
+  std::vector<std::string> entries;
+  entries.reserve(scene.fixtures.size() + scene.trusses.size() +
+                  scene.sceneObjects.size());
+  for (const auto &entry : scene.fixtures)
+    entries.push_back("f:" + entry.first + ":" + entry.second.layer + ":" +
+                      entry.second.typeName);
+  for (const auto &entry : scene.trusses)
+    entries.push_back("t:" + entry.first + ":" + entry.second.layer);
+  for (const auto &entry : scene.sceneObjects)
+    entries.push_back("o:" + entry.first + ":" + entry.second.layer);
+  std::sort(entries.begin(), entries.end());
+
+  size_t seed = 0;
+  for (const auto &entry : entries)
+    CombineHashValue(seed, std::hash<std::string>{}(entry));
+  return seed;
 }
 
 // Converts to RGB.
@@ -847,6 +875,20 @@ void Viewer3DController::UpdateFrameStateLightweight() {
     Logger::Instance().Log("visibility dirty reason: hidden fixture types "
                            "changed vs last frame snapshot");
     m_impl->visibilityChangedDirty = true;
+    MarkResourceSyncPending();
+  }
+
+  const size_t layerMembershipFingerprint =
+      ComputeSceneLayerMembershipFingerprint(cfg.GetScene());
+  if (!m_impl->hasSceneLayerMembershipFingerprint ||
+      layerMembershipFingerprint != m_impl->sceneLayerMembershipFingerprint) {
+    Logger::Instance().Log("visibility dirty reason: scene layer membership "
+                           "changed vs last frame snapshot");
+    m_impl->sceneLayerMembershipFingerprint = layerMembershipFingerprint;
+    m_impl->hasSceneLayerMembershipFingerprint = true;
+    m_impl->visibilityChangedDirty = true;
+    ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
+        m_impl->layerVisibleCandidatesSceneVersion);
     MarkResourceSyncPending();
   }
 }

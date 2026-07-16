@@ -70,7 +70,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ## Important fixes
 
-- Fixed Data Views table edits so moving fixtures, trusses, or scene objects between visible and hidden layers rebuilds the relevant viewer resources and immediately refreshes both the 2D and 3D viewports, including layout previews.
+- Fixed Data Views table edits so moving fixtures, trusses, or scene objects between visible and hidden layers rebuilds the relevant viewer resources, invalidates stale 3D visible-set caches, and immediately refreshes both the 2D and 3D viewports, including layout previews.
 - Fixed Windows build and linker issues in the Local Axes viewport integration.
 
 ### MVR, GDTF, and project data
