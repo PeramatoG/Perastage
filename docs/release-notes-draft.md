@@ -36,6 +36,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
   - A reusable 3D preview.
   - Support for creating a Perastage-generated GDTF when compatible metadata is edited on a model-only truss.
 - Expanded **Edit Fixture** with a clearer and more structured GDTF inspection interface:
+  - More informative top-level DMX channel labels in the mode/channel browser for faster scanning.
   - DMX modes and channels.
   - Effective channel addresses for matrix fixtures.
   - Logical and channel functions.

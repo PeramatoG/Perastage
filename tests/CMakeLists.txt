@@ -335,6 +335,14 @@ target_include_directories(gdtf_mode_channel_browser_test PRIVATE ../core)
 target_link_libraries(gdtf_mode_channel_browser_test PRIVATE tinyxml2::tinyxml2)
 add_test(NAME GdtfModeChannelBrowser COMMAND gdtf_mode_channel_browser_test)
 
+add_executable(gdtf_mode_browser_presenter_test
+               gdtf_mode_browser_presenter_test.cpp
+               ../gui/gdtf/gdtf_mode_browser_presenter.cpp
+               ../core/gdtf/gdtf_mode_channel_browser.cpp)
+target_include_directories(gdtf_mode_browser_presenter_test PRIVATE ../core ../gui)
+target_link_libraries(gdtf_mode_browser_presenter_test PRIVATE tinyxml2::tinyxml2)
+add_test(NAME GdtfModeBrowserPresenter COMMAND gdtf_mode_browser_presenter_test)
+
 add_executable(gdtf_wheel_attribute_inspector_test
                gdtf_wheel_attribute_inspector_test.cpp
                ../core/gdtf/gdtf_color_cie.cpp

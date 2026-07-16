@@ -153,6 +153,20 @@ std::string FormatGroupedChannelFunctions(
   return channel.virtualChannel ? "Virtual" : "Not specified";
 }
 
+// Formats a compact channel label for the hierarchical browser root row.
+std::string FormatBrowserChannelRootItem(
+    const gdtf::GdtfDmxChannelNode &channel) {
+  if (channel.virtualChannel)
+    return "Virtual DMX Channel - " + FormatGroupedChannelFunctions(channel);
+
+  const std::string offsets = FormatOffsets(channel.offsets);
+  const std::string functions = FormatGroupedChannelFunctions(channel);
+  std::string label = "Ch " + offsets;
+  if (!functions.empty())
+    label += " - " + functions;
+  return label;
+}
+
 // Returns the summary label for one physical channel byte.
 std::string FormatSummaryFunctionAt(
     const std::vector<std::string> &names, size_t index, int geometryReferenceIndex) {
@@ -181,7 +195,7 @@ BuildGdtfModeBrowserPresentation(const gdtf::GdtfDmxModeNode *mode) {
   for (const auto &channel : mode->channels) {
     GdtfModeBrowserNodePresentation ch;
     ch.id = channel.id;
-    ch.item = channel.virtualChannel ? "Virtual DMX Channel" : "DMX Channel " + FormatOffsets(channel.offsets);
+    ch.item = FormatBrowserChannelRootItem(channel);
     Detail(ch, "raw DMXBreak", RawOrNotSpecified(channel.rawDmxBreak));
     Detail(ch, "raw Offset", RawOrNotSpecified(channel.rawOffset));
     Detail(ch, "parsed offsets", FormatOffsets(channel.offsets));
