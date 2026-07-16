@@ -128,9 +128,13 @@ void DataViewMultiSelectClickGuard::OnTimer(wxTimerEvent &WXUNUSED(event)) {
     return;
 
   const int row = pendingRow;
+  const wxDataViewItem item = pendingItem;
   CancelPendingClick();
+  table->SetFocus();
   table->UnselectAll();
-  if (row != wxNOT_FOUND && row < static_cast<int>(table->GetItemCount()))
+  if (item.IsOk())
+    table->Select(item);
+  else if (row != wxNOT_FOUND && row < static_cast<int>(table->GetItemCount()))
     table->SelectRow(static_cast<unsigned int>(row));
 }
 
