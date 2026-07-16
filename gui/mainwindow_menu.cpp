@@ -232,8 +232,12 @@ void MainWindow::CreateToolBars() {
                           _("Switch to standard selection mode"), wxITEM_CHECK);
   addToolWithDisabledIcon(
       layoutViewsToolBar, ID_View_Viewport_MeasureTool, _("Measure Tool"),
-      "ruler-dimension-line", wxART_MISSING_IMAGE,
+      "ruler-dimension-line-center", wxART_MISSING_IMAGE,
       _("Toggle center-to-center measure tool"), wxITEM_CHECK);
+  addToolWithDisabledIcon(
+      layoutViewsToolBar, ID_View_Viewport_GapMeasureTool, _("Gap Measure Tool"),
+      "ruler-dimension-line", wxART_MISSING_IMAGE,
+      _("Toggle edge-to-edge gap measure tool"), wxITEM_CHECK);
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_AxisConstraint,
                           _("Axis Lock"), "move-3d", wxART_MISSING_IMAGE,
                           _("Toggle axis-constrained selection movement"),
@@ -259,6 +263,7 @@ void MainWindow::CreateToolBars() {
                           wxITEM_CHECK);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, true);
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, false);
+  layoutViewsToolBar->ToggleTool(ID_View_Viewport_GapMeasureTool, false);
   layoutViewsToolBar->ToggleTool(
       ID_View_Viewport_AxisConstraint,
       GetDefaultGuiConfigServices().Preferences().GetValue(

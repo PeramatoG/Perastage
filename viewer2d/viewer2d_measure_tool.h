@@ -6,14 +6,19 @@
 
 #include "../viewer3d/viewer3d_types.h"
 
-// Stores the interaction state for the 2D center-to-center measurement tool.
+enum class Viewer2DMeasureMode { CenterToCenter, EdgeToEdge };
+
+// Stores the interaction state for the 2D measurement tools.
 struct Viewer2DMeasureToolState {
+  Viewer2DMeasureMode mode = Viewer2DMeasureMode::CenterToCenter;
   bool enabled = false;
   bool hasAnchor = false;
   std::string anchorUuid;
   std::array<float, 3> anchorWorld{0.0f, 0.0f, 0.0f};
+  std::array<float, 3> anchorMeasureWorld{0.0f, 0.0f, 0.0f};
   bool hasCommittedTarget = false;
   std::array<float, 3> committedTargetWorld{0.0f, 0.0f, 0.0f};
+  std::array<float, 3> committedTargetMeasureWorld{0.0f, 0.0f, 0.0f};
 };
 
 // Clears the current measure and keeps the enabled/disabled tool state untouched.

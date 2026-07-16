@@ -50,11 +50,16 @@ void MainWindow::OnViewportSideView(wxCommandEvent &WXUNUSED(event)) {
 }
 
 // Synchronizes Select/Measure toolbar toggle buttons with the active viewport tool mode.
-void MainWindow::SyncViewportToolToggleState(bool measureEnabled) {
+void MainWindow::SyncViewportToolToggleState(bool measureEnabled, Viewer2DMeasureMode mode) {
   if (!layoutViewsToolBar)
     return;
   layoutViewsToolBar->ToggleTool(ID_View_Viewport_SelectTool, !measureEnabled);
-  layoutViewsToolBar->ToggleTool(ID_View_Viewport_MeasureTool, measureEnabled);
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_MeasureTool,
+      measureEnabled && mode == Viewer2DMeasureMode::CenterToCenter);
+  layoutViewsToolBar->ToggleTool(
+      ID_View_Viewport_GapMeasureTool,
+      measureEnabled && mode == Viewer2DMeasureMode::EdgeToEdge);
   ApplyViewportMovementToolState();
   layoutViewsToolBar->Refresh();
 }
@@ -158,14 +163,32 @@ void MainWindow::OnViewportSelectTool(wxCommandEvent &WXUNUSED(event)) {
 // Enables or disables the viewport measure tool and syncs toolbar toggle state.
 void MainWindow::OnViewportMeasureTool(wxCommandEvent &WXUNUSED(event)) {
   const bool measureEnabled =
-      (viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled()) ||
-      (viewportPanel && viewportPanel->IsMeasureToolEnabled());
+      ((viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled() &&
+        viewport2DPanel->GetMeasureToolMode() == Viewer2DMeasureMode::CenterToCenter) ||
+       (viewportPanel && viewportPanel->IsMeasureToolEnabled() &&
+        viewportPanel->GetMeasureToolMode() == Viewer2DMeasureMode::CenterToCenter));
   const bool enableMeasure = !measureEnabled;
   if (viewport2DPanel)
-    viewport2DPanel->SetMeasureToolEnabled(enableMeasure);
+    viewport2DPanel->SetMeasureToolEnabled(enableMeasure, Viewer2DMeasureMode::CenterToCenter);
   if (viewportPanel)
-    viewportPanel->SetMeasureToolEnabled(enableMeasure);
-  SyncViewportToolToggleState(enableMeasure);
+    viewportPanel->SetMeasureToolEnabled(enableMeasure, Viewer2DMeasureMode::CenterToCenter);
+  SyncViewportToolToggleState(enableMeasure, Viewer2DMeasureMode::CenterToCenter);
+}
+
+
+// Enables or disables the viewport gap measure tool and syncs toolbar toggle state.
+void MainWindow::OnViewportGapMeasureTool(wxCommandEvent &WXUNUSED(event)) {
+  const bool measureEnabled =
+      ((viewport2DPanel && viewport2DPanel->IsMeasureToolEnabled() &&
+        viewport2DPanel->GetMeasureToolMode() == Viewer2DMeasureMode::EdgeToEdge) ||
+       (viewportPanel && viewportPanel->IsMeasureToolEnabled() &&
+        viewportPanel->GetMeasureToolMode() == Viewer2DMeasureMode::EdgeToEdge));
+  const bool enableMeasure = !measureEnabled;
+  if (viewport2DPanel)
+    viewport2DPanel->SetMeasureToolEnabled(enableMeasure, Viewer2DMeasureMode::EdgeToEdge);
+  if (viewportPanel)
+    viewportPanel->SetMeasureToolEnabled(enableMeasure, Viewer2DMeasureMode::EdgeToEdge);
+  SyncViewportToolToggleState(enableMeasure, Viewer2DMeasureMode::EdgeToEdge);
 }
 
 // Toggles project-level axis-constrained selection movement.

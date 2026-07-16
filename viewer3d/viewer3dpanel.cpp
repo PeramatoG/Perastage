@@ -1512,10 +1512,17 @@ void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fov
 // Toggles the 3D measurement tool and refreshes tool state.
 void Viewer3DPanel::SetMeasureToolEnabled(bool enabled)
 {
+    SetMeasureToolEnabled(enabled, m_measureMode);
+}
+
+// Toggles the 3D measurement tool and applies the requested measuring mode.
+void Viewer3DPanel::SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode)
+{
     m_measureToolEnabled = enabled;
+    m_measureMode = mode;
     ResetMeasureState();
     if (MainWindow::Instance())
-        MainWindow::Instance()->SyncViewportToolToggleState(enabled);
+        MainWindow::Instance()->SyncViewportToolToggleState(enabled, m_measureMode);
     SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
     Refresh();
 }
@@ -1562,6 +1569,55 @@ std::optional<std::array<float, 3>> Viewer3DPanel::ResolveMeasureWorldFromUuid(
     return std::nullopt;
 }
 
+// Resolves cached world bounds for a 3D measurement target.
+std::optional<ISelectionContext::BoundingBox> Viewer3DPanel::ResolveMeasureBoundsFromUuid(
+    HoverTargetTable target, const std::string& uuid) const
+{
+    const auto& selectionContext = static_cast<const ISelectionContext&>(m_controller);
+    const ISelectionContext::BoundingBox* bounds = nullptr;
+    if (target == HoverTargetTable::Fixtures)
+        bounds = selectionContext.FindFixtureBounds(uuid);
+    else if (target == HoverTargetTable::Trusses)
+        bounds = selectionContext.FindTrussBounds(uuid);
+    else if (target == HoverTargetTable::SceneObjects)
+        bounds = selectionContext.FindObjectBounds(uuid);
+    if (!bounds) {
+        if (const auto* fixtureBounds = selectionContext.FindFixtureBounds(uuid))
+            bounds = fixtureBounds;
+        else if (const auto* trussBounds = selectionContext.FindTrussBounds(uuid))
+            bounds = trussBounds;
+        else if (const auto* objectBounds = selectionContext.FindObjectBounds(uuid))
+            bounds = objectBounds;
+    }
+    if (bounds)
+        return *bounds;
+    if (const auto center = ResolveMeasureWorldFromUuid(target, uuid))
+        return ISelectionContext::BoundingBox{*center, *center};
+    return std::nullopt;
+}
+
+// Computes the nearest points between two 3D world-space bounding boxes.
+std::pair<std::array<float, 3>, std::array<float, 3>> Viewer3DPanel::ComputeNearestBoundsPoints(
+    const ISelectionContext::BoundingBox& a, const ISelectionContext::BoundingBox& b) const
+{
+    std::array<float, 3> start{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> end{0.0f, 0.0f, 0.0f};
+    for (int axis = 0; axis < 3; ++axis) {
+        if (a.max[axis] < b.min[axis]) {
+            start[axis] = a.max[axis];
+            end[axis] = b.min[axis];
+        } else if (b.max[axis] < a.min[axis]) {
+            start[axis] = a.min[axis];
+            end[axis] = b.max[axis];
+        } else {
+            const float overlap = std::max(a.min[axis], b.min[axis]);
+            start[axis] = overlap;
+            end[axis] = overlap;
+        }
+    }
+    return {start, end};
+}
+
 // Draws the active 3D measurement line and distance text when two elements are fixed.
 // Draws the active 3D measurement line and distance label.
 void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
@@ -1569,22 +1625,22 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     if (!m_measureToolEnabled || !m_measureHasAnchor || !renderSize.IsValid())
         return;
 
-    const auto anchorFramebuffer = ProjectWorldToFramebuffer(m_measureAnchorWorldMeters);
+    const auto anchorFramebuffer = ProjectWorldToFramebuffer(m_measureAnchorDrawWorldMeters);
     if (!anchorFramebuffer)
         return;
 
     float endX = (*anchorFramebuffer)[0];
     float endY = (*anchorFramebuffer)[1];
     bool showDistanceLabel = false;
-    std::array<float, 3> lineEndWorld = m_measureAnchorWorldMeters;
+    std::array<float, 3> lineEndWorld = m_measureAnchorDrawWorldMeters;
     if (m_measureHasCommittedTarget) {
         const auto targetFramebuffer =
-            ProjectWorldToFramebuffer(m_measureCommittedTargetWorldMeters);
+            ProjectWorldToFramebuffer(m_measureCommittedTargetDrawWorldMeters);
         if (!targetFramebuffer)
             return;
         endX = (*targetFramebuffer)[0];
         endY = (*targetFramebuffer)[1];
-        lineEndWorld = m_measureCommittedTargetWorldMeters;
+        lineEndWorld = m_measureCommittedTargetDrawWorldMeters;
         showDistanceLabel = true;
     } else if (m_measureHasPreviewMousePos) {
         const wxPoint previewFramebuffer =
@@ -1644,9 +1700,9 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     if (!showDistanceLabel)
         return;
 
-    const float dx = lineEndWorld[0] - m_measureAnchorWorldMeters[0];
-    const float dy = lineEndWorld[1] - m_measureAnchorWorldMeters[1];
-    const float dz = lineEndWorld[2] - m_measureAnchorWorldMeters[2];
+    const float dx = lineEndWorld[0] - m_measureAnchorDrawWorldMeters[0];
+    const float dy = lineEndWorld[1] - m_measureAnchorDrawWorldMeters[1];
+    const float dz = lineEndWorld[2] - m_measureAnchorDrawWorldMeters[2];
     const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
     const auto distanceUnitSystem =
         Units::ParseDistanceUnitSystem(ConfigManager::Get().GetValue("ui_distance_unit_system"));
@@ -1862,9 +1918,21 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                         m_measureHasAnchor = true;
                         m_measureAnchorUuid = uuid;
                         m_measureAnchorWorldMeters = *worldPos;
+                        m_measureAnchorDrawWorldMeters = *worldPos;
                     } else {
                         m_measureHasCommittedTarget = true;
                         m_measureCommittedTargetWorldMeters = *worldPos;
+                        m_measureCommittedTargetDrawWorldMeters = *worldPos;
+                        if (m_measureMode == Viewer2DMeasureMode::EdgeToEdge) {
+                            const auto anchorBounds = ResolveMeasureBoundsFromUuid(
+                                pickedTable, m_measureAnchorUuid);
+                            const auto targetBounds = ResolveMeasureBoundsFromUuid(pickedTable, uuid);
+                            if (anchorBounds && targetBounds) {
+                                const auto nearest = ComputeNearestBoundsPoints(*anchorBounds, *targetBounds);
+                                m_measureAnchorDrawWorldMeters = nearest.first;
+                                m_measureCommittedTargetDrawWorldMeters = nearest.second;
+                            }
+                        }
                     }
                     Refresh();
                 }

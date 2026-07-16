@@ -26,6 +26,7 @@
 
 #include "continuous_placement_type.h"
 #include <wx/glcanvas.h>
+#include "../viewer2d/viewer2d_measure_tool.h"
 #include "interaction/selection_drag_math.h"
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
@@ -35,6 +36,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <utility>
 #include <thread>
 #include <atomic>
 #include <chrono>
@@ -82,8 +84,12 @@ public:
 
     // Toggles the 3D measure tool mode and resets its transient state.
     void SetMeasureToolEnabled(bool enabled);
+    // Toggles the 3D measure tool with the requested measuring mode.
+    void SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode);
     // Returns whether the 3D measure tool is currently enabled.
     bool IsMeasureToolEnabled() const { return m_measureToolEnabled; }
+    // Returns the active 3D measure mode.
+    Viewer2DMeasureMode GetMeasureToolMode() const { return m_measureMode; }
     // Enables or disables Magnet snapping for 3D selection dragging.
     void SetMagnetEnabled(bool enabled, bool persist = true);
     // Returns whether Magnet snapping is currently enabled for 3D selection dragging.
@@ -260,11 +266,14 @@ private:
     // True when the mouse moved since the last paint
 
     bool m_measureToolEnabled = false;
+    Viewer2DMeasureMode m_measureMode = Viewer2DMeasureMode::CenterToCenter;
     bool m_measureHasAnchor = false;
     std::string m_measureAnchorUuid;
     std::array<float, 3> m_measureAnchorWorldMeters{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> m_measureAnchorDrawWorldMeters{0.0f, 0.0f, 0.0f};
     bool m_measureHasCommittedTarget = false;
     std::array<float, 3> m_measureCommittedTargetWorldMeters{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> m_measureCommittedTargetDrawWorldMeters{0.0f, 0.0f, 0.0f};
     wxPoint m_measurePreviewMousePos;
     bool m_measureHasPreviewMousePos = false;
 
@@ -273,6 +282,12 @@ private:
     // Resolves the world-space center position of an element uuid on the active table.
     std::optional<std::array<float, 3>> ResolveMeasureWorldFromUuid(
         HoverTargetTable target, const std::string& uuid) const;
+    // Resolves the world-space bounds of an element uuid on the active table.
+    std::optional<ISelectionContext::BoundingBox> ResolveMeasureBoundsFromUuid(
+        HoverTargetTable target, const std::string& uuid) const;
+    // Computes nearest points between two world-space bounds for gap measuring.
+    std::pair<std::array<float, 3>, std::array<float, 3>> ComputeNearestBoundsPoints(
+        const ISelectionContext::BoundingBox& a, const ISelectionContext::BoundingBox& b) const;
     // Draws the 3D measurement line and optional distance overlay.
     void DrawMeasureOverlay(const RenderSize& renderSize);
     bool m_mouseMoved = false;

@@ -152,7 +152,9 @@ public:
   void SetRenderOverrides(
       const std::optional<Viewer2DRenderOverrides> &overrides);
   void SetMeasureToolEnabled(bool enabled);
+  void SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode);
   bool IsMeasureToolEnabled() const { return m_measureToolState.enabled; }
+  Viewer2DMeasureMode GetMeasureToolMode() const { return m_measureToolState.mode; }
   void SetMagnetEnabled(bool enabled, bool persist = true);
   bool IsMagnetEnabled() const { return m_magnetEnabled; }
   void SetLeftDragSelectionMovementEnabled(bool enabled);
