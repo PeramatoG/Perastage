@@ -36,9 +36,17 @@ public:
 
 private:
   void OnTimer(wxTimerEvent &event);
+  void OnBoundLeftDown(wxMouseEvent &event);
+  void OnBoundLeftDClick(wxMouseEvent &event);
+  void OnBoundLeftUp(wxMouseEvent &event);
   bool ShouldDelayClick(const wxMouseEvent &event, const wxDataViewItem &item,
                         int row) const;
   int DoubleClickIntervalMs() const;
+  wxPoint TablePosition(const wxMouseEvent &event) const;
+  void BindMouseEvents();
+  void UnbindMouseEvents();
+  void BindMouseEvents(wxWindow *window);
+  void UnbindMouseEvents(wxWindow *window);
 
   wxDataViewListCtrl *table = nullptr;
   DoubleClickHandler doubleClickHandler;

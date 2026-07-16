@@ -27,12 +27,35 @@ DataViewMultiSelectClickGuard::DataViewMultiSelectClickGuard(
     : table(table), doubleClickHandler(std::move(doubleClickHandler)),
       pendingTimer(this) {
   Bind(wxEVT_TIMER, &DataViewMultiSelectClickGuard::OnTimer, this);
+  BindMouseEvents();
 }
 
 // Cancels pending work before the guarded table owner is destroyed.
 DataViewMultiSelectClickGuard::~DataViewMultiSelectClickGuard() {
   CancelPendingClick();
   Unbind(wxEVT_TIMER, &DataViewMultiSelectClickGuard::OnTimer, this);
+  UnbindMouseEvents();
+}
+
+// Handles bound left-down events before the native table changes selection.
+void DataViewMultiSelectClickGuard::OnBoundLeftDown(wxMouseEvent &event) {
+  if (HandleLeftDown(event))
+    return;
+  event.Skip();
+}
+
+// Handles bound double-click events before the native table changes selection.
+void DataViewMultiSelectClickGuard::OnBoundLeftDClick(wxMouseEvent &event) {
+  if (HandleLeftDClick(event))
+    return;
+  event.Skip();
+}
+
+// Suppresses left-up while a click is pending so native selection waits too.
+void DataViewMultiSelectClickGuard::OnBoundLeftUp(wxMouseEvent &event) {
+  if (HasPendingClick())
+    return;
+  event.Skip();
 }
 
 // Defers plain clicks on already-selected rows when a multi-selection is active.
@@ -42,7 +65,7 @@ bool DataViewMultiSelectClickGuard::HandleLeftDown(wxMouseEvent &event) {
 
   wxDataViewItem item;
   wxDataViewColumn *column = nullptr;
-  table->HitTest(event.GetPosition(), item, column);
+  table->HitTest(TablePosition(event), item, column);
   const int row = item.IsOk() ? table->ItemToRow(item) : wxNOT_FOUND;
 
   if (HasPendingClick()) {
@@ -68,7 +91,7 @@ bool DataViewMultiSelectClickGuard::HandleLeftDClick(wxMouseEvent &event) {
 
   wxDataViewItem item;
   wxDataViewColumn *column = nullptr;
-  table->HitTest(event.GetPosition(), item, column);
+  table->HitTest(TablePosition(event), item, column);
   const int row = item.IsOk() ? table->ItemToRow(item) : wxNOT_FOUND;
   if (row != pendingRow) {
     CancelPendingClick();
@@ -132,4 +155,55 @@ bool DataViewMultiSelectClickGuard::ShouldDelayClick(
 int DataViewMultiSelectClickGuard::DoubleClickIntervalMs() const {
   const int interval = wxSystemSettings::GetMetric(wxSYS_DCLICK_MSEC);
   return interval > 0 ? interval : 250;
+}
+
+// Converts mouse coordinates from child windows into table client coordinates.
+wxPoint DataViewMultiSelectClickGuard::TablePosition(
+    const wxMouseEvent &event) const {
+  wxWindow *sourceWindow = dynamic_cast<wxWindow *>(event.GetEventObject());
+  if (!table || !sourceWindow || sourceWindow == table)
+    return event.GetPosition();
+  return table->ScreenToClient(sourceWindow->ClientToScreen(event.GetPosition()));
+}
+
+// Binds mouse interception to the table and its native child windows.
+void DataViewMultiSelectClickGuard::BindMouseEvents() {
+  BindMouseEvents(table);
+  if (!table)
+    return;
+  for (wxWindow *child : table->GetChildren())
+    BindMouseEvents(child);
+}
+
+// Unbinds mouse interception from the table and its native child windows.
+void DataViewMultiSelectClickGuard::UnbindMouseEvents() {
+  UnbindMouseEvents(table);
+  if (!table)
+    return;
+  for (wxWindow *child : table->GetChildren())
+    UnbindMouseEvents(child);
+}
+
+// Binds mouse interception to one table window.
+void DataViewMultiSelectClickGuard::BindMouseEvents(wxWindow *window) {
+  if (!window)
+    return;
+  window->Bind(wxEVT_LEFT_DOWN, &DataViewMultiSelectClickGuard::OnBoundLeftDown,
+               this);
+  window->Bind(wxEVT_LEFT_DCLICK,
+               &DataViewMultiSelectClickGuard::OnBoundLeftDClick, this);
+  window->Bind(wxEVT_LEFT_UP, &DataViewMultiSelectClickGuard::OnBoundLeftUp,
+               this);
+}
+
+// Unbinds mouse interception from one table window.
+void DataViewMultiSelectClickGuard::UnbindMouseEvents(wxWindow *window) {
+  if (!window)
+    return;
+  window->Unbind(wxEVT_LEFT_DOWN,
+                 &DataViewMultiSelectClickGuard::OnBoundLeftDown, this);
+  window->Unbind(wxEVT_LEFT_DCLICK,
+                 &DataViewMultiSelectClickGuard::OnBoundLeftDClick, this);
+  window->Unbind(wxEVT_LEFT_UP, &DataViewMultiSelectClickGuard::OnBoundLeftUp,
+                 this);
 }
