@@ -25,8 +25,24 @@
 #include <unordered_map>
 
 namespace GdtfDictionary {
+    enum class LoadOutcome {
+        LoadedActiveDictionary,
+        ActiveDictionaryMissing,
+        ActiveDictionaryInvalid,
+        TemporaryFallbackUsed,
+        ManagedDefaultRecreated
+    };
+
     struct LoadStatus {
+        LoadOutcome outcome = LoadOutcome::LoadedActiveDictionary;
+        bool loadedActiveDictionary = false;
+        bool activeDictionaryMissing = false;
+        bool activeDictionaryInvalid = false;
+        bool temporaryFallbackUsed = false;
+        bool managedDefaultRecreated = false;
         bool usedDefaultDictionary = false;
+        std::string activePath;
+        std::string fallbackPath;
         std::string error;
     };
 

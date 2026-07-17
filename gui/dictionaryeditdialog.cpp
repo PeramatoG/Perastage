@@ -1367,33 +1367,61 @@ bool DictionaryEditDialog::ConfirmDirtyChangesBeforeReload(
 }
 
 void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
-  bool shouldShowFallbackMessage = false;
-  std::string errorMessage;
+  wxString message;
+  bool hasError = false;
+
+  const auto appendStatus = [&](const wxString &label, bool invalid,
+                                bool missing, bool fallback, bool recreated,
+                                const std::string &activePath,
+                                const std::string &fallbackPath,
+                                const std::string &error) {
+    if (!invalid && !missing && !fallback && !recreated && error.empty())
+      return;
+    if (!message.empty())
+      message += "\n\n";
+    message += label + ": ";
+    if (recreated) {
+      message += "the managed default dictionary was recreated from application defaults.";
+    } else if (fallback) {
+      message += "a temporary application-default fallback was loaded without changing the active dictionary.";
+    } else if (invalid) {
+      message += "the active dictionary is invalid and was left unchanged.";
+    } else if (missing) {
+      message += "the active dictionary file is missing.";
+    } else {
+      message += "dictionary loading reported a warning.";
+    }
+    if (!activePath.empty())
+      message += "\nActive: " + wxString::FromUTF8(activePath);
+    if (fallback && !fallbackPath.empty())
+      message += "\nFallback: " + wxString::FromUTF8(fallbackPath);
+    if (!error.empty())
+      message += "\nDetails: " + wxString::FromUTF8(error);
+    hasError = hasError || invalid || missing;
+  };
 
   const GdtfDictionary::LoadStatus fixturesStatus =
       GdtfDictionary::GetLastLoadStatus();
-  if (fixturesStatus.usedDefaultDictionary)
-    shouldShowFallbackMessage = true;
-  if (!fixturesStatus.error.empty())
-    errorMessage = fixturesStatus.error;
+  appendStatus("Fixtures", fixturesStatus.activeDictionaryInvalid,
+               fixturesStatus.activeDictionaryMissing,
+               fixturesStatus.temporaryFallbackUsed,
+               fixturesStatus.managedDefaultRecreated,
+               fixturesStatus.activePath, fixturesStatus.fallbackPath,
+               fixturesStatus.error);
 
   const TrussDictionary::LoadStatus trussStatus =
       TrussDictionary::GetLastLoadStatus();
-  if (trussStatus.usedDefaultDictionary)
-    shouldShowFallbackMessage = true;
-  if (errorMessage.empty() && !trussStatus.error.empty())
-    errorMessage = trussStatus.error;
+  appendStatus("Trusses", trussStatus.activeDictionaryInvalid,
+               trussStatus.activeDictionaryMissing,
+               trussStatus.temporaryFallbackUsed,
+               trussStatus.managedDefaultRecreated,
+               trussStatus.activePath, trussStatus.fallbackPath,
+               trussStatus.error);
 
-  if (!errorMessage.empty()) {
-    wxMessageBox(wxString::FromUTF8(errorMessage), "Dictionary load error",
-                 wxICON_ERROR | wxOK, this);
-    return;
-  }
-
-  if (shouldShowFallbackMessage) {
-    wxMessageBox("Loaded default dictionary because the user dictionary file "
-                 "had an error.",
-                 "Dictionary warning", wxICON_WARNING | wxOK, this);
+  if (!message.empty()) {
+    wxMessageBox(message, hasError ? "Dictionary load error"
+                                   : "Dictionary warning",
+                 wxOK | (hasError ? wxICON_ERROR : wxICON_WARNING), this);
   }
 }
 
@@ -1465,7 +1493,7 @@ void DictionaryEditDialog::OnNewFixturesDictionary(
     return;
   wxArrayString choices;
   choices.Add("Empty dictionary");
-  choices.Add("From application defaults");
+  choices.Add("From application defaults (seed once)");
   wxSingleChoiceDialog choiceDialog(
       this, "Choose how to create the new fixtures dictionary.",
       "New fixtures dictionary", choices);
@@ -1505,7 +1533,7 @@ void DictionaryEditDialog::OnNewTrussesDictionary(
     return;
   wxArrayString choices;
   choices.Add("Empty dictionary");
-  choices.Add("From application defaults");
+  choices.Add("From application defaults (seed once)");
   wxSingleChoiceDialog choiceDialog(
       this, "Choose how to create the new trusses dictionary.",
       "New trusses dictionary", choices);
@@ -2405,13 +2433,26 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
 }
 
 bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
-  if (wxMessageBox("Reset fixtures dictionary to application defaults?\n"
-                   "Current entries will be replaced.",
+  if (wxMessageBox("Reset active fixtures dictionary to application defaults?\n"
+                   "Current entries will be replaced after a backup is created.",
                    "Reset fixtures dictionary",
                    wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
     return false;
   }
 
+  const std::filesystem::path activePath =
+      PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
+  if (!activePath.empty() && std::filesystem::exists(activePath)) {
+    std::error_code ec;
+    std::filesystem::copy_file(
+        activePath, activePath.string() + ".bak",
+        std::filesystem::copy_options::overwrite_existing, ec);
+    if (ec) {
+      wxMessageBox("Could not create a backup before resetting the fixtures dictionary.",
+                   "Reset fixtures dictionary", wxOK | wxICON_ERROR, this);
+      return false;
+    }
+  }
   const std::filesystem::path basePath =
       ProjectUtils::GetBaseLibraryPath("fixtures") / "gdtf_dictionary.json";
   const auto result = GdtfDictionary::ApplyImportFromFile(
@@ -2428,13 +2469,26 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
 }
 
 bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
-  if (wxMessageBox("Reset trusses dictionary to application defaults?\n"
-                   "Current entries will be replaced.",
+  if (wxMessageBox("Reset active trusses dictionary to application defaults?\n"
+                   "Current entries will be replaced after a backup is created.",
                    "Reset trusses dictionary",
                    wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
     return false;
   }
 
+  const std::filesystem::path activePath =
+      PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
+  if (!activePath.empty() && std::filesystem::exists(activePath)) {
+    std::error_code ec;
+    std::filesystem::copy_file(
+        activePath, activePath.string() + ".bak",
+        std::filesystem::copy_options::overwrite_existing, ec);
+    if (ec) {
+      wxMessageBox("Could not create a backup before resetting the trusses dictionary.",
+                   "Reset trusses dictionary", wxOK | wxICON_ERROR, this);
+      return false;
+    }
+  }
   const std::filesystem::path basePath =
       ProjectUtils::GetBaseLibraryPath("trusses") / "truss_dictionary.json";
   const auto result = TrussDictionary::ApplyImportFromFile(
