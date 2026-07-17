@@ -78,9 +78,8 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 
 Perastage dictionary import/export supports multiple transport levels:
 
-- JSON snapshot (references only),
-- JSON snapshot with optional copied assets,
-- portable ZIP bundle with manifest and assets.
+- JSON Snapshot, which stores file references only,
+- Portable ZIP Bundle, which stores a manifest-backed bundle with referenced assets.
 
 Additional safeguards include:
 
@@ -88,7 +87,7 @@ Additional safeguards include:
 - missing-reference reporting,
 - collision policy prompts for differing file content,
 - custom active dictionaries store newly owned fixture and truss assets in a sibling `<dictionary name>_assets` folder so the JSON and assets can be moved together;
-- **Duplicate Current...** in the Dictionary Editor creates an independent copy of the active fixture or truss dictionary, including resolvable referenced assets, and can optionally activate the copy after validation.
+- The Dictionary Editor keeps common actions visible while moving less frequent active-dictionary actions into **More...**. **Duplicate Current...** creates an independent copy of the active fixture or truss dictionary, including resolvable referenced assets, and can optionally activate the copy after validation. **Export...** clearly offers **JSON Snapshot** or **Portable ZIP Bundle** without changing the active dictionary.
 
 ## Patch, Data Tables, and Editing Helpers
 

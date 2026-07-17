@@ -6,10 +6,9 @@ Perastage keeps JSON dictionary snapshots for backward compatibility and also su
 
 - Existing `.json` snapshots are still valid for import/export.
 - The **Import into active...** action accepts both JSON snapshots and ZIP bundles and merges them into the active dictionary without changing the active path.
-- The **Export snapshot...** action still writes JSON snapshots of the active dictionary.
-- The **Export portable bundle...** action writes a ZIP bundle that includes dictionary data and required assets.
-- JSON snapshot export can optionally copy referenced files to a sibling
-  `<snapshot>_assets/assets/` folder and write `assets/...` relative paths.
+- The **Export...** action offers exactly two choices: **JSON Snapshot** and **Portable ZIP Bundle**.
+- **JSON Snapshot** writes a JSON snapshot with file references only.
+- **Portable ZIP Bundle** writes a manifest-backed ZIP bundle that includes dictionary data and required assets.
 
 
 ## Read-only load and lookup rules
@@ -25,7 +24,7 @@ The Dictionary Editor exposes separate actions for active dictionary management:
 - **Duplicate Current...** creates an independent working copy of the active dictionary, copies resolvable owned assets into the duplicate's storage location, preserves unresolved references with a summary, validates the duplicate before activation, and lets the user choose whether to activate it immediately.
 - **Use Default** switches back to the managed user dictionary path for the current page type. It does not reset dictionary contents.
 
-These actions are distinct from importing snapshots, exporting snapshots, exporting portable bundles, and resetting the active dictionary contents.
+These actions are grouped under the active dictionary section: **Open...** and **New...** stay visible, while **Duplicate Current...**, **Use Default**, and **Reset Contents...** live in **More...**. They are distinct from importing snapshots, exporting snapshots, exporting portable bundles, and resetting the active dictionary contents.
 
 ## Preflight validation and warnings
 

@@ -364,30 +364,6 @@ bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
   return confirmDialog.ShowModal() == wxID_OK;
 }
 
-bool AskCopyReferencedAssets(wxWindow *parent, const wxString &title,
-                             bool &copyAssetsOut) {
-  wxDialog optionsDialog(parent, wxID_ANY, title);
-  wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
-  wxCheckBox *copyAssetsCheckbox =
-      new wxCheckBox(&optionsDialog, wxID_ANY, "Copy referenced files too");
-  copyAssetsCheckbox->SetValue(false);
-
-  topSizer->Add(
-      new wxStaticText(
-          &optionsDialog, wxID_ANY,
-          "Exporting without copying files keeps the previous behavior."),
-      0, wxALL, 10);
-  topSizer->Add(copyAssetsCheckbox, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
-  topSizer->Add(optionsDialog.CreateSeparatedButtonSizer(wxOK | wxCANCEL), 0,
-                wxEXPAND | wxALL, 10);
-  optionsDialog.SetSizerAndFit(topSizer);
-
-  if (optionsDialog.ShowModal() != wxID_OK)
-    return false;
-  copyAssetsOut = copyAssetsCheckbox->GetValue();
-  return true;
-}
-
 std::optional<std::string> CopySnapshotAsset(
     const std::filesystem::path &sourcePath,
     const std::filesystem::path &targetAssetsDir,
@@ -1039,6 +1015,10 @@ void DictionaryEditDialog::BuildLayout() {
       [this]() {
         wxCommandEvent dummy;
         OnUseDefaultFixturesDictionary(dummy);
+      },
+      [this]() {
+        wxCommandEvent dummy;
+        OnResetDictionary(dummy);
       });
   fixtureSizer->Add(fixtureTable, 1, wxEXPAND | wxALL, 8);
   fixturePanel->SetSizer(fixtureSizer);
@@ -1080,6 +1060,10 @@ void DictionaryEditDialog::BuildLayout() {
       [this]() {
         wxCommandEvent dummy;
         OnUseDefaultTrussesDictionary(dummy);
+      },
+      [this]() {
+        wxCommandEvent dummy;
+        OnResetDictionary(dummy);
       });
   trussSizer->Add(trussTable, 1, wxEXPAND | wxALL, 8);
   trussPanel->SetSizer(trussSizer);
@@ -1092,11 +1076,9 @@ void DictionaryEditDialog::BuildLayout() {
   wxBoxSizer *btnSizer = new wxBoxSizer(wxHORIZONTAL);
   addBtn = new wxButton(this, wxID_ADD, "Add");
   deleteBtn = new wxButton(this, wxID_DELETE, "Delete");
-  downloadBtn = new wxButton(this, wxID_ANY, "Download GDTF");
-  importBtn = new wxButton(this, wxID_ANY, "Import into active...");
-  exportBtn = new wxButton(this, wxID_ANY, "Export snapshot...");
-  exportPortableBtn = new wxButton(this, wxID_ANY, "Export portable bundle...");
-  resetBtn = new wxButton(this, wxID_ANY, "Reset contents");
+  downloadBtn = new wxButton(this, wxID_ANY, "Download Fixture GDTF...");
+  importBtn = new wxButton(this, wxID_ANY, "Import...");
+  exportBtn = new wxButton(this, wxID_ANY, "Export...");
   okBtn = new wxButton(this, wxID_OK, "OK");
   cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
 
@@ -1104,9 +1086,7 @@ void DictionaryEditDialog::BuildLayout() {
   btnSizer->Add(deleteBtn, 0, wxRIGHT, 5);
   btnSizer->Add(downloadBtn, 0, wxRIGHT, 10);
   btnSizer->Add(importBtn, 0, wxRIGHT, 10);
-  btnSizer->Add(exportBtn, 0, wxRIGHT, 5);
-  btnSizer->Add(exportPortableBtn, 0, wxRIGHT, 5);
-  btnSizer->Add(resetBtn, 0, wxRIGHT, 10);
+  btnSizer->Add(exportBtn, 0, wxRIGHT, 10);
   btnSizer->AddStretchSpacer(1);
   btnSizer->Add(okBtn, 0, wxRIGHT, 5);
   btnSizer->Add(cancelBtn, 0);
@@ -1122,18 +1102,32 @@ void DictionaryEditDialog::BuildLayout() {
                   this);
   exportBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnExportDictionary,
                   this);
-  exportPortableBtn->Bind(wxEVT_BUTTON,
-                          &DictionaryEditDialog::OnExportPortableBundle, this);
-  resetBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnResetDictionary, this);
+  notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent &event) {
+    UpdatePageActionState();
+    event.Skip();
+  });
   okBtn->Bind(wxEVT_BUTTON, &DictionaryEditDialog::OnOk, this);
   fixtureTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                      &DictionaryEditDialog::OnItemActivated, this);
   trussTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
                    &DictionaryEditDialog::OnItemActivated, this);
+  UpdatePageActionState();
 }
 
+// Returns whether the fixtures dictionary page is selected.
 bool DictionaryEditDialog::IsFixturesPage() const {
   return notebook->GetSelection() == 0;
+}
+
+// Updates actions whose availability depends on the selected dictionary page.
+void DictionaryEditDialog::UpdatePageActionState() {
+  if (!downloadBtn)
+    return;
+
+  const bool fixturePage = IsFixturesPage();
+  downloadBtn->Show(fixturePage);
+  downloadBtn->Enable(fixturePage);
+  Layout();
 }
 
 void DictionaryEditDialog::OnFixtureTableMouseMove(wxMouseEvent &event) {
@@ -1370,35 +1364,36 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
   wxString message;
   bool hasError = false;
 
-  const auto appendStatus = [&](const wxString &label, bool invalid,
-                                bool missing, bool fallback, bool recreated,
-                                const std::string &activePath,
-                                const std::string &fallbackPath,
-                                const std::string &error) {
-    if (!invalid && !missing && !fallback && !recreated && error.empty())
-      return;
-    if (!message.empty())
-      message += "\n\n";
-    message += label + ": ";
-    if (recreated) {
-      message += "the managed default dictionary was recreated from application defaults.";
-    } else if (fallback) {
-      message += "a temporary application-default fallback was loaded without changing the active dictionary.";
-    } else if (invalid) {
-      message += "the active dictionary is invalid and was left unchanged.";
-    } else if (missing) {
-      message += "the active dictionary file is missing.";
-    } else {
-      message += "dictionary loading reported a warning.";
-    }
-    if (!activePath.empty())
-      message += "\nActive: " + wxString::FromUTF8(activePath);
-    if (fallback && !fallbackPath.empty())
-      message += "\nFallback: " + wxString::FromUTF8(fallbackPath);
-    if (!error.empty())
-      message += "\nDetails: " + wxString::FromUTF8(error);
-    hasError = hasError || invalid || missing;
-  };
+  const auto appendStatus =
+      [&](const wxString &label, bool invalid, bool missing, bool fallback,
+          bool recreated, const std::string &activePath,
+          const std::string &fallbackPath, const std::string &error) {
+        if (!invalid && !missing && !fallback && !recreated && error.empty())
+          return;
+        if (!message.empty())
+          message += "\n\n";
+        message += label + ": ";
+        if (recreated) {
+          message += "the managed default dictionary was recreated from "
+                     "application defaults.";
+        } else if (fallback) {
+          message += "a temporary application-default fallback was loaded "
+                     "without changing the active dictionary.";
+        } else if (invalid) {
+          message += "the active dictionary is invalid and was left unchanged.";
+        } else if (missing) {
+          message += "the active dictionary file is missing.";
+        } else {
+          message += "dictionary loading reported a warning.";
+        }
+        if (!activePath.empty())
+          message += "\nActive: " + wxString::FromUTF8(activePath);
+        if (fallback && !fallbackPath.empty())
+          message += "\nFallback: " + wxString::FromUTF8(fallbackPath);
+        if (!error.empty())
+          message += "\nDetails: " + wxString::FromUTF8(error);
+        hasError = hasError || invalid || missing;
+      };
 
   const GdtfDictionary::LoadStatus fixturesStatus =
       GdtfDictionary::GetLastLoadStatus();
@@ -1414,13 +1409,12 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
   appendStatus("Trusses", trussStatus.activeDictionaryInvalid,
                trussStatus.activeDictionaryMissing,
                trussStatus.temporaryFallbackUsed,
-               trussStatus.managedDefaultRecreated,
-               trussStatus.activePath, trussStatus.fallbackPath,
-               trussStatus.error);
+               trussStatus.managedDefaultRecreated, trussStatus.activePath,
+               trussStatus.fallbackPath, trussStatus.error);
 
   if (!message.empty()) {
-    wxMessageBox(message, hasError ? "Dictionary load error"
-                                   : "Dictionary warning",
+    wxMessageBox(message,
+                 hasError ? "Dictionary load error" : "Dictionary warning",
                  wxOK | (hasError ? wxICON_ERROR : wxICON_WARNING), this);
   }
 }
@@ -2218,16 +2212,26 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   return !result.HasErrors();
 }
 
+// Opens the export format chooser and runs the selected export workflow.
 void DictionaryEditDialog::OnExportDictionary(wxCommandEvent &WXUNUSED(event)) {
-  if (IsFixturesPage()) {
-    (void)ExportFixturesDictionary();
+  const wxString choices[] = {"JSON Snapshot", "Portable ZIP Bundle"};
+  wxSingleChoiceDialog dialog(
+      this,
+      "Export does not change the active dictionary. Choose the export format.",
+      "Export dictionary", WXSIZEOF(choices), choices);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+
+  const int selection = dialog.GetSelection();
+  if (selection == 0) {
+    if (IsFixturesPage()) {
+      (void)ExportFixturesDictionary();
+      return;
+    }
+    (void)ExportTrussesDictionary();
     return;
   }
-  (void)ExportTrussesDictionary();
-}
 
-void DictionaryEditDialog::OnExportPortableBundle(
-    wxCommandEvent &WXUNUSED(event)) {
   if (IsFixturesPage()) {
     (void)ExportFixturesPortableBundle();
     return;
@@ -2246,6 +2250,7 @@ void DictionaryEditDialog::OnResetDictionary(wxCommandEvent &WXUNUSED(event)) {
   (void)ResetTrussesDictionaryToDefault();
 }
 
+// Exports the active fixtures dictionary as a JSON snapshot.
 bool DictionaryEditDialog::ExportFixturesDictionary() {
   if (HasFixtureChanges() && !SaveFixtures())
     return false;
@@ -2271,12 +2276,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
-  bool copyReferencedAssets = false;
-  if (!AskCopyReferencedAssets(this, "Export fixtures dictionary options",
-                               copyReferencedAssets)) {
-    return false;
-  }
-
+  const bool copyReferencedAssets = false;
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
   SnapshotExportResult exportResult;
   if (!SaveFixturesSnapshotToFile(this, outputPath, *dictOpt,
@@ -2304,6 +2304,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
   return true;
 }
 
+// Exports the active trusses dictionary as a JSON snapshot.
 bool DictionaryEditDialog::ExportTrussesDictionary() {
   if (HasTrussChanges() && !SaveTrusses())
     return false;
@@ -2329,12 +2330,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
-  bool copyReferencedAssets = false;
-  if (!AskCopyReferencedAssets(this, "Export trusses dictionary options",
-                               copyReferencedAssets)) {
-    return false;
-  }
-
+  const bool copyReferencedAssets = false;
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
   SnapshotExportResult exportResult;
   if (!SaveTrussesSnapshotToFile(this, outputPath, *dictOpt,
@@ -2362,6 +2358,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   return true;
 }
 
+// Exports the active fixtures dictionary as a portable ZIP bundle.
 bool DictionaryEditDialog::ExportFixturesPortableBundle() {
   if (HasFixtureChanges() && !SaveFixtures())
     return false;
@@ -2376,17 +2373,17 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
   const wxString fixturesDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, "Export portable fixtures bundle", fixturesDir,
-                          "gdtf_dictionary_bundle.json",
-                          "JSON files (*.json)|*.json",
+                          "gdtf_dictionary_bundle.zip",
+                          "ZIP files (*.zip)|*.zip",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  SnapshotExportResult exportResult;
-  if (!SaveFixturesSnapshotToFile(this, outputPath, *dictOpt, true,
-                                  exportResult)) {
-    wxMessageBox("Could not write fixtures portable bundle.",
+  std::string error;
+  if (!DictionaryBundle::ExportFixturesBundle(*dictOpt, outputPath, error)) {
+    wxMessageBox("Could not write fixtures portable bundle.\n" +
+                     wxString::FromUTF8(error),
                  "Export portable fixtures bundle", wxICON_ERROR | wxOK, this);
     return false;
   }
@@ -2397,6 +2394,7 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
   return true;
 }
 
+// Exports the active trusses dictionary as a portable ZIP bundle.
 bool DictionaryEditDialog::ExportTrussesPortableBundle() {
   if (HasTrussChanges() && !SaveTrusses())
     return false;
@@ -2411,17 +2409,17 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
   const wxString trussesDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, "Export portable trusses bundle", trussesDir,
-                          "truss_dictionary_bundle.json",
-                          "JSON files (*.json)|*.json",
+                          "truss_dictionary_bundle.zip",
+                          "ZIP files (*.zip)|*.zip",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  SnapshotExportResult exportResult;
-  if (!SaveTrussesSnapshotToFile(this, outputPath, *dictOpt, true,
-                                 exportResult)) {
-    wxMessageBox("Could not write trusses portable bundle.",
+  std::string error;
+  if (!DictionaryBundle::ExportTrussesBundle(*dictOpt, outputPath, error)) {
+    wxMessageBox("Could not write trusses portable bundle.\n" +
+                     wxString::FromUTF8(error),
                  "Export portable trusses bundle", wxICON_ERROR | wxOK, this);
     return false;
   }
@@ -2433,10 +2431,11 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
 }
 
 bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
-  if (wxMessageBox("Reset active fixtures dictionary to application defaults?\n"
-                   "Current entries will be replaced after a backup is created.",
-                   "Reset fixtures dictionary",
-                   wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
+  if (wxMessageBox(
+          "Reset active fixtures dictionary to application defaults?\n"
+          "Current entries will be replaced after a backup is created.",
+          "Reset fixtures dictionary", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+          this) != wxYES) {
     return false;
   }
 
@@ -2448,8 +2447,9 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
         activePath, activePath.string() + ".bak",
         std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
-      wxMessageBox("Could not create a backup before resetting the fixtures dictionary.",
-                   "Reset fixtures dictionary", wxOK | wxICON_ERROR, this);
+      wxMessageBox(
+          "Could not create a backup before resetting the fixtures dictionary.",
+          "Reset fixtures dictionary", wxOK | wxICON_ERROR, this);
       return false;
     }
   }
@@ -2469,10 +2469,11 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
 }
 
 bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
-  if (wxMessageBox("Reset active trusses dictionary to application defaults?\n"
-                   "Current entries will be replaced after a backup is created.",
-                   "Reset trusses dictionary",
-                   wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
+  if (wxMessageBox(
+          "Reset active trusses dictionary to application defaults?\n"
+          "Current entries will be replaced after a backup is created.",
+          "Reset trusses dictionary", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+          this) != wxYES) {
     return false;
   }
 
@@ -2484,8 +2485,9 @@ bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
         activePath, activePath.string() + ".bak",
         std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
-      wxMessageBox("Could not create a backup before resetting the trusses dictionary.",
-                   "Reset trusses dictionary", wxOK | wxICON_ERROR, this);
+      wxMessageBox(
+          "Could not create a backup before resetting the trusses dictionary.",
+          "Reset trusses dictionary", wxOK | wxICON_ERROR, this);
       return false;
     }
   }
