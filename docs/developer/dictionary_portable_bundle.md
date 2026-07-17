@@ -12,6 +12,10 @@ Perastage keeps JSON dictionary snapshots for backward compatibility and also su
   `<snapshot>_assets/assets/` folder and write `assets/...` relative paths.
 
 
+## Read-only load and lookup rules
+
+Dictionary loading and ordinary lookup operations must be side-effect free. Missing fixture and truss asset references remain in the active dictionary so the Dictionary Editor can display, repair, replace, or delete them explicitly. Lookups that validate asset paths return no match for unresolved references, but they must not delete entries, save the dictionary, create backups, normalize truss keys on disk, or migrate legacy truss assets during load. Truss legacy/model conversion belongs only in explicit import, add, replace, repair, or save workflows that own the asset-copy transaction.
+
 ## Active dictionary workflows
 
 The Dictionary Editor exposes separate actions for active dictionary management:

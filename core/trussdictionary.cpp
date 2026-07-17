@@ -43,6 +43,7 @@ namespace TrussDictionary {
 namespace {
 
 LoadStatus g_lastLoadStatus;
+size_t g_saveCallCountForTesting = 0;
 constexpr const char *kTrussDictionaryPathConfigKey =
     "trusses_dictionary_active_path";
 
@@ -274,7 +275,6 @@ LoadFromFile(const fs::path &file, std::string &error) {
   }
 
   const nlohmann::json &entries = **entriesOpt;
-  bool changed = false;
 
   auto resolveEntryPath = [&file](const nlohmann::json &value, fs::path &entryPath,
                                   std::string &entryError,
@@ -317,24 +317,13 @@ LoadFromFile(const fs::path &file, std::string &error) {
       return false;
     }
 
-    if (!fs::exists(path)) {
-      if (!PathUtils::PathFromUtf8(rawPath).is_absolute()) {
-        std::cerr << "Warning: trusses dictionary " << sourceLabel
-                  << " references missing relative path '" << rawPath
-                  << "' resolved from '" << file.string() << "'."
-                  << std::endl;
-      }
-      return true;
+    if (!fs::exists(path) && !PathUtils::PathFromUtf8(rawPath).is_absolute()) {
+      std::cerr << "Warning: trusses dictionary " << sourceLabel
+                << " references missing relative path '" << rawPath
+                << "' resolved from '" << file.string() << "'."
+                << std::endl;
     }
-
-    std::string migrationError;
-    fs::path migrated = path;
-    if (!EnsureMigratedToGdtf(migrated, migrationError))
-      return true;
-
-    if (migrated != path || normalizedKey != rawKey)
-      changed = true;
-    dict[normalizedKey] = ToUtf8String(migrated);
+    dict[normalizedKey] = ToUtf8String(path);
     return true;
   };
 
@@ -361,12 +350,9 @@ LoadFromFile(const fs::path &file, std::string &error) {
     }
   }
 
-  if (changed) {
-    WriteDictionaryBackup(file);
-    Save(dict);
-  }
   return dict;
 }
+
 
 DictionaryImportSummary MergeDictionaryEntries(
     std::unordered_map<std::string, std::string> &current,
@@ -728,14 +714,11 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
       ActiveDictionaryStorage::DictionaryKind::Trusses, file, GetUserDictFile());
   for (const auto &model : keys) {
     fs::path p = PathUtils::PathFromUtf8(normalizedDict.at(model));
-    fs::path forced = p;
-    if (forced.extension() != ".gdtf")
-      forced.replace_extension(".gdtf");
 
     nlohmann::json entry;
-    entry["file"] = ActiveDictionaryStorage::MakeSerializedReference(layout, forced);
+    entry["file"] = ActiveDictionaryStorage::MakeSerializedReference(layout, p);
     entry["imported_at"] = FileImportUtils::NowUtcIso8601();
-    if (const auto sha = FileImportUtils::ComputeFileSha256(forced))
+    if (const auto sha = FileImportUtils::ComputeFileSha256(p))
       entry["sha256"] = *sha;
     entries[model] = std::move(entry);
   }
@@ -762,6 +745,7 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
                   file.string();
     return false;
   }
+  ++g_saveCallCountForTesting;
   return true;
 }
 
@@ -795,11 +779,8 @@ std::optional<std::string> Get(const std::string &model) {
   if (it == dict.end())
     return std::nullopt;
 
-  if (!fs::exists(PathUtils::PathFromUtf8(it->second))) {
-    dict.erase(it);
-    Save(dict);
+  if (!fs::exists(PathUtils::PathFromUtf8(it->second)))
     return std::nullopt;
-  }
 
   return it->second;
 }
@@ -847,6 +828,7 @@ DictionaryImportSummary PreviewImportFromFile(const std::string &filePath,
   return MergeDictionaryEntries(current, *importedOpt, policy, false);
 }
 
+// Applies a truss dictionary import file to the active dictionary.
 DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
                                             DictionaryImportPolicy policy) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
@@ -872,6 +854,18 @@ DictionaryImportSummary ApplyImportFromFile(const std::string &filePath,
   if (!Save(current, &saveError))
     summary.errors.push_back("Failed to save current dictionary: " + saveError);
   return summary;
+}
+
+// Returns the number of active truss dictionary saves performed during tests.
+size_t GetSaveCallCountForTesting() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  return g_saveCallCountForTesting;
+}
+
+// Resets the active truss dictionary save counter used by tests.
+void ResetSaveCallCountForTesting() {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  g_saveCallCountForTesting = 0;
 }
 
 } // namespace TrussDictionary

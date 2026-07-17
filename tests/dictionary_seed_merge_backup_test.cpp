@@ -113,6 +113,66 @@ void VerifyTrussLoadIsReadOnly(const fs::path &root) {
   assert(!fs::exists(userPath.string() + ".bak"));
 }
 
+
+void VerifyMissingFixtureLookupIsReadOnly(const fs::path &root) {
+  const fs::path userPath = root / "fixtures" / "gdtf_dictionary.json";
+  const fs::path missingAsset = userPath.parent_path() / "missing_fixture.gdtf";
+  nlohmann::json entries = nlohmann::json::object();
+  entries["MISSING FIXTURE KEEP"] = {{"file", missingAsset.filename().string()},
+                                      {"mode", "Default"}};
+  WriteFile(userPath, DictionaryJsonContract::MakeRoot("fixtures", entries).dump(2));
+  const std::string before = ReadFile(userPath);
+  const auto timeBefore = fs::last_write_time(userPath);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+  GdtfDictionary::ResetSaveCallCountForTesting();
+  auto loadedOpt = GdtfDictionary::Load();
+  assert(loadedOpt.has_value());
+  assert(loadedOpt->find("MISSING FIXTURE KEEP") != loadedOpt->end());
+  assert(!GdtfDictionary::Get("MISSING FIXTURE KEEP").has_value());
+  assert(!GdtfDictionary::FindInLoadedDictionary(*loadedOpt, "MISSING FIXTURE KEEP").has_value());
+  assert(GdtfDictionary::FindInLoadedDictionary(*loadedOpt, "MISSING FIXTURE KEEP", false).has_value());
+  assert(ReadFile(userPath) == before);
+  assert(fs::last_write_time(userPath) == timeBefore);
+  assert(!fs::exists(userPath.string() + ".bak"));
+  assert(GdtfDictionary::GetSaveCallCountForTesting() == 0);
+}
+
+void VerifyMissingTrussEntriesSurviveLookupAndSave(const fs::path &root) {
+  const fs::path userPath = root / "trusses" / "truss_dictionary.json";
+  nlohmann::json entries = nlohmann::json::object();
+  entries["MISSING TRUSS A"] = {{"file", "missing_a.gtruss"}};
+  entries["MISSING TRUSS B"] = {{"file", "missing_b.glb"}};
+  WriteFile(userPath, DictionaryJsonContract::MakeRoot("trusses", entries).dump(2));
+  const std::string before = ReadFile(userPath);
+  const auto timeBefore = fs::last_write_time(userPath);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+  TrussDictionary::ResetSaveCallCountForTesting();
+  auto loadedOpt = TrussDictionary::Load();
+  assert(loadedOpt.has_value());
+  assert(loadedOpt->find(TrussDictionary::NormalizeModelKey("MISSING TRUSS A")) != loadedOpt->end());
+  assert(loadedOpt->find(TrussDictionary::NormalizeModelKey("MISSING TRUSS B")) != loadedOpt->end());
+  assert(!TrussDictionary::Get("MISSING TRUSS A").has_value());
+  assert(!TrussDictionary::FindInLoadedDictionary(*loadedOpt, "MISSING TRUSS A").has_value());
+  assert(TrussDictionary::FindInLoadedDictionary(*loadedOpt, "MISSING TRUSS A", false).has_value());
+  assert(ReadFile(userPath) == before);
+  assert(fs::last_write_time(userPath) == timeBefore);
+  assert(!fs::exists(userPath.string() + ".bak"));
+  assert(TrussDictionary::GetSaveCallCountForTesting() == 0);
+
+  assert(TrussDictionary::Save(*loadedOpt));
+  auto reloadedOpt = TrussDictionary::Load();
+  assert(reloadedOpt.has_value());
+  assert(reloadedOpt->size() == 2);
+  reloadedOpt->erase(TrussDictionary::NormalizeModelKey("MISSING TRUSS A"));
+  assert(TrussDictionary::Save(*reloadedOpt));
+  auto afterDeleteOpt = TrussDictionary::Load();
+  assert(afterDeleteOpt.has_value());
+  assert(afterDeleteOpt->find(TrussDictionary::NormalizeModelKey("MISSING TRUSS A")) == afterDeleteOpt->end());
+  assert(afterDeleteOpt->find(TrussDictionary::NormalizeModelKey("MISSING TRUSS B")) != afterDeleteOpt->end());
+}
+
 void VerifyManagedDefaultRecoveryCreatesBackup(const fs::path &root) {
   const fs::path userPath = root / "fixtures" / "gdtf_dictionary.json";
   WriteFile(userPath, "{ invalid json");
@@ -155,6 +215,8 @@ int main() {
   SetLibraryPathEnv(tempRoot.string());
   VerifyFixtureLoadIsReadOnly(tempRoot);
   VerifyTrussLoadIsReadOnly(tempRoot);
+  VerifyMissingFixtureLookupIsReadOnly(tempRoot);
+  VerifyMissingTrussEntriesSurviveLookupAndSave(tempRoot);
   VerifyManagedDefaultRecoveryCreatesBackup(tempRoot);
   VerifyInvalidCustomDictionaryIsPreserved(tempRoot);
 
