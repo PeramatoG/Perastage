@@ -3,13 +3,16 @@
  */
 #include <cassert>
 #include "filesystem_path_utils.h"
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <thread>
 
 #include <wx/init.h>
 
+#include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "gdtfdictionary.h"
 #include "json.hpp"
@@ -28,6 +31,7 @@ std::string ReadFile(const fs::path &path) {
 }
 
 void WriteFile(const fs::path &path, const std::string &content) {
+  fs::create_directories(path.parent_path());
   std::ofstream out(path, std::ios::binary | std::ios::trunc);
   assert(out.is_open());
   out << content;
@@ -59,47 +63,41 @@ std::string FirstEntryKeyFromBase(const fs::path &baseDictionaryPath,
   return entries.begin().key();
 }
 
-void VerifyFixturesMergeAndBackup(const fs::path &writableRoot) {
-  const fs::path writableFixturesDir = writableRoot / "fixtures";
-  fs::create_directories(writableFixturesDir);
-  const fs::path userPath = writableFixturesDir / "gdtf_dictionary.json";
-
-  nlohmann::json userEntries = nlohmann::json::object();
-  userEntries["CUSTOM FIXTURE KEEP"] = { {"color", "#112233"} };
-  WriteFile(userPath,
-            DictionaryJsonContract::MakeRoot("fixtures", std::move(userEntries)).dump(2));
+void VerifyFixtureLoadIsReadOnly(const fs::path &root) {
+  const fs::path userPath = root / "fixtures" / "gdtf_dictionary.json";
+  nlohmann::json entries = nlohmann::json::object();
+  entries["CUSTOM FIXTURE KEEP"] = {{"color", "#112233"}};
+  WriteFile(userPath, DictionaryJsonContract::MakeRoot("fixtures", entries).dump(2));
   const std::string before = ReadFile(userPath);
+  const auto timeBefore = fs::last_write_time(userPath);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
   const fs::path basePath =
       ProjectUtils::GetBaseLibraryPath("fixtures") / "gdtf_dictionary.json";
   const std::string seedKey = FirstEntryKeyFromBase(basePath, "fixtures");
   assert(seedKey != "CUSTOM FIXTURE KEEP");
+  GdtfDictionary::ResetSaveCallCountForTesting();
 
   auto loadedOpt = GdtfDictionary::Load();
   assert(loadedOpt.has_value());
-  const auto &loaded = *loadedOpt;
-  assert(loaded.find("CUSTOM FIXTURE KEEP") != loaded.end());
-  assert(loaded.find(seedKey) != loaded.end());
-
-  const fs::path backupPath = userPath.string() + ".bak";
-  assert(fs::exists(backupPath));
-  const std::string backupText = ReadFile(backupPath);
-  assert(backupText == before);
+  assert(loadedOpt->find("CUSTOM FIXTURE KEEP") != loadedOpt->end());
+  assert(loadedOpt->find(seedKey) == loadedOpt->end());
+  assert(ReadFile(userPath) == before);
+  assert(fs::last_write_time(userPath) == timeBefore);
+  assert(!fs::exists(userPath.string() + ".bak"));
+  assert(GdtfDictionary::GetSaveCallCountForTesting() == 0);
 }
 
-void VerifyTrussesMergeAndBackup(const fs::path &writableRoot) {
-  const fs::path writableTrussesDir = writableRoot / "trusses";
-  fs::create_directories(writableTrussesDir);
-  const fs::path userPath = writableTrussesDir / "truss_dictionary.json";
-
-  const fs::path customAsset = writableTrussesDir / "custom.gdtf";
+void VerifyTrussLoadIsReadOnly(const fs::path &root) {
+  const fs::path userPath = root / "trusses" / "truss_dictionary.json";
+  const fs::path customAsset = userPath.parent_path() / "custom.gdtf";
   WriteFile(customAsset, "custom");
-
-  nlohmann::json userEntries = nlohmann::json::object();
-  userEntries["CUSTOM TRUSS KEEP"] = { {"file", customAsset.filename().string()} };
-  WriteFile(userPath,
-            DictionaryJsonContract::MakeRoot("trusses", std::move(userEntries)).dump(2));
+  nlohmann::json entries = nlohmann::json::object();
+  entries["CUSTOM TRUSS KEEP"] = {{"file", customAsset.filename().string()}};
+  WriteFile(userPath, DictionaryJsonContract::MakeRoot("trusses", entries).dump(2));
   const std::string before = ReadFile(userPath);
+  const auto timeBefore = fs::last_write_time(userPath);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
   const fs::path basePath =
       ProjectUtils::GetBaseLibraryPath("trusses") / "truss_dictionary.json";
@@ -108,14 +106,37 @@ void VerifyTrussesMergeAndBackup(const fs::path &writableRoot) {
 
   auto loadedOpt = TrussDictionary::Load();
   assert(loadedOpt.has_value());
-  const auto &loaded = *loadedOpt;
-  assert(loaded.find(TrussDictionary::NormalizeModelKey("CUSTOM TRUSS KEEP")) != loaded.end());
-  assert(loaded.find(TrussDictionary::NormalizeModelKey(seedKey)) != loaded.end());
+  assert(loadedOpt->find(TrussDictionary::NormalizeModelKey("CUSTOM TRUSS KEEP")) != loadedOpt->end());
+  assert(loadedOpt->find(TrussDictionary::NormalizeModelKey(seedKey)) == loadedOpt->end());
+  assert(ReadFile(userPath) == before);
+  assert(fs::last_write_time(userPath) == timeBefore);
+  assert(!fs::exists(userPath.string() + ".bak"));
+}
 
-  const fs::path backupPath = userPath.string() + ".bak";
-  assert(fs::exists(backupPath));
-  const std::string backupText = ReadFile(backupPath);
-  assert(backupText == before);
+void VerifyManagedDefaultRecoveryCreatesBackup(const fs::path &root) {
+  const fs::path userPath = root / "fixtures" / "gdtf_dictionary.json";
+  WriteFile(userPath, "{ invalid json");
+  assert(GdtfDictionary::Load().has_value());
+  const auto status = GdtfDictionary::GetLastLoadStatus();
+  assert(status.managedDefaultRecreated);
+  assert(status.activeDictionaryInvalid);
+  assert(fs::exists(userPath.string() + ".bak"));
+}
+
+void VerifyInvalidCustomDictionaryIsPreserved(const fs::path &root) {
+  const fs::path customPath = root / "custom" / "bad_gdtf_dictionary.json";
+  WriteFile(customPath, "{ invalid json");
+  ConfigManager::Get().SetValue("fixtures_dictionary_active_path",
+                                customPath.string());
+  const std::string before = ReadFile(customPath);
+  assert(GdtfDictionary::Load().has_value());
+  const auto status = GdtfDictionary::GetLastLoadStatus();
+  assert(status.activeDictionaryInvalid);
+  assert(status.temporaryFallbackUsed);
+  assert(!status.managedDefaultRecreated);
+  assert(ReadFile(customPath) == before);
+  assert(!fs::exists(customPath.string() + ".bak"));
+  ConfigManager::Get().RemoveKey("fixtures_dictionary_active_path");
 }
 
 } // namespace
@@ -130,9 +151,12 @@ int main() {
   fs::remove_all(tempRoot, ec);
   fs::create_directories(tempRoot);
 
+  ConfigManager::Get().Reset();
   SetLibraryPathEnv(tempRoot.string());
-  VerifyFixturesMergeAndBackup(tempRoot);
-  VerifyTrussesMergeAndBackup(tempRoot);
+  VerifyFixtureLoadIsReadOnly(tempRoot);
+  VerifyTrussLoadIsReadOnly(tempRoot);
+  VerifyManagedDefaultRecoveryCreatesBackup(tempRoot);
+  VerifyInvalidCustomDictionaryIsPreserved(tempRoot);
 
   fs::remove_all(tempRoot, ec);
   return 0;

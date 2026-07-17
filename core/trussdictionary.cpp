@@ -149,11 +149,19 @@ static fs::path GetBaseDictFile() {
   return ProjectUtils::GetBaseLibraryPath("trusses") / "truss_dictionary.json";
 }
 
+static bool WriteDictionaryBackup(const fs::path &sourceFile);
+
 static bool RecreateUserDictionaryFromBase(const fs::path &userFile,
-                                           const fs::path &baseFile) {
+                                           const fs::path &baseFile,
+                                           bool backupExisting) {
   if (userFile.empty() || baseFile.empty() || !fs::exists(baseFile))
     return false;
   std::error_code ec;
+  fs::create_directories(userFile.parent_path(), ec);
+  if (ec)
+    return false;
+  if (backupExisting && fs::exists(userFile) && !WriteDictionaryBackup(userFile))
+    return false;
   fs::copy_file(baseFile, userFile, fs::copy_options::overwrite_existing, ec);
   if (!ec)
     return true;
@@ -193,26 +201,6 @@ static bool WriteDictionaryBackup(const fs::path &sourceFile) {
   std::error_code ec;
   fs::copy_file(sourceFile, backupFile, fs::copy_options::overwrite_existing, ec);
   return !ec;
-}
-
-static bool MergeSeedEntriesIntoUserDictionary(
-    std::unordered_map<std::string, std::string> &userDict,
-    const std::unordered_map<std::string, std::string> &baseDict,
-    bool *changedOut = nullptr) {
-  if (changedOut)
-    *changedOut = false;
-
-  bool changed = false;
-  for (const auto &[seedKey, seedPath] : baseDict) {
-    if (userDict.find(seedKey) != userDict.end())
-      continue;
-    userDict[seedKey] = seedPath;
-    changed = true;
-  }
-
-  if (changedOut)
-    *changedOut = changed;
-  return true;
 }
 
 static fs::path ResolveImportedPath(const fs::path &jsonFile,
@@ -614,7 +602,7 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
   }
 
   if (resolvedPath == defaultPath && !fs::exists(resolvedPath))
-    RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile());
+    RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile(), false);
 
   std::string loadError;
   if (!LoadFromFile(resolvedPath, loadError)) {
@@ -650,36 +638,56 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   g_lastLoadStatus = {};
 
   const fs::path userFile = GetConfiguredUserDictFile(&g_lastLoadStatus.error);
+  const fs::path defaultFile = GetUserDictFile();
   const fs::path baseFile = GetBaseDictFile();
-  std::string userError;
-  if (auto userDict = LoadFromFile(userFile, userError)) {
-    bool mergedSeedEntries = false;
-    std::string baseError;
-    if (auto baseDict = LoadFromFile(baseFile, baseError)) {
-      MergeSeedEntriesIntoUserDictionary(*userDict, *baseDict, &mergedSeedEntries);
-      if (mergedSeedEntries) {
-        WriteDictionaryBackup(userFile);
-        Save(*userDict);
-      }
-    }
-    return userDict;
-  }
+  const bool isManagedDefault = userFile == defaultFile;
+  g_lastLoadStatus.activePath = userFile.string();
+  g_lastLoadStatus.fallbackPath = baseFile.string();
 
-  std::cerr << "Warning: failed to load user truss dictionary '" << userFile.string()
-            << "': " << userError << ". Falling back to base dictionary."
-            << std::endl;
+  std::error_code ec;
+  if (!fs::exists(userFile, ec)) {
+    g_lastLoadStatus.activeDictionaryMissing = true;
+    g_lastLoadStatus.outcome = LoadOutcome::ActiveDictionaryMissing;
+    if (isManagedDefault && RecreateUserDictionaryFromBase(userFile, baseFile, false)) {
+      g_lastLoadStatus.managedDefaultRecreated = true;
+      g_lastLoadStatus.outcome = LoadOutcome::ManagedDefaultRecreated;
+      std::string recreatedError;
+      if (auto recreatedDict = LoadFromFile(userFile, recreatedError))
+        return recreatedDict;
+      g_lastLoadStatus.error = recreatedError;
+    }
+  } else {
+    std::string userError;
+    if (auto userDict = LoadFromFile(userFile, userError)) {
+      g_lastLoadStatus.loadedActiveDictionary = true;
+      g_lastLoadStatus.outcome = LoadOutcome::LoadedActiveDictionary;
+      return userDict;
+    }
+    g_lastLoadStatus.activeDictionaryInvalid = true;
+    g_lastLoadStatus.outcome = LoadOutcome::ActiveDictionaryInvalid;
+    g_lastLoadStatus.error = userError;
+    if (isManagedDefault && RecreateUserDictionaryFromBase(userFile, baseFile, true)) {
+      g_lastLoadStatus.managedDefaultRecreated = true;
+      g_lastLoadStatus.outcome = LoadOutcome::ManagedDefaultRecreated;
+      std::string recreatedError;
+      if (auto recreatedDict = LoadFromFile(userFile, recreatedError))
+        return recreatedDict;
+      g_lastLoadStatus.error = recreatedError;
+    }
+  }
 
   std::string baseError;
   if (auto baseDict = LoadFromFile(baseFile, baseError)) {
+    g_lastLoadStatus.temporaryFallbackUsed = true;
     g_lastLoadStatus.usedDefaultDictionary = true;
-    RecreateUserDictionaryFromBase(userFile, baseFile);
+    g_lastLoadStatus.outcome = LoadOutcome::TemporaryFallbackUsed;
+    if (g_lastLoadStatus.error.empty())
+      g_lastLoadStatus.error = baseError.empty() ? "Active trusses dictionary is unavailable" : baseError;
     return baseDict;
   }
 
-  g_lastLoadStatus.error =
-      "Failed to load user truss dictionary ('" + userFile.string() +
-      "'): " + userError + ". Failed to load base truss dictionary ('" +
-      baseFile.string() + "'): " + baseError;
+  g_lastLoadStatus.error += ". Failed to load base truss dictionary ('" +
+                            baseFile.string() + "'): " + baseError;
   std::cerr << "Error: " << g_lastLoadStatus.error << std::endl;
   return std::nullopt;
 }
