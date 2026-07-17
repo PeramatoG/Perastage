@@ -12,14 +12,16 @@ struct DictionarySelectionControls {
   wxStaticText *activePathLabel = nullptr;
   wxButton *openButton = nullptr;
   wxButton *newButton = nullptr;
+  wxButton *duplicateButton = nullptr;
   wxButton *useDefaultButton = nullptr;
 };
 
 DictionarySelectionControls BuildDictionarySelectionControls(
     wxWindow *parent, wxSizer *parentSizer, const wxString &title,
     const std::function<void()> &onOpen, const std::function<void()> &onNew,
+    const std::function<void()> &onDuplicate,
     const std::function<void()> &onUseDefault);
 
-void UpdateDictionarySelectionControls(const DictionarySelectionControls &controls,
-                                       const wxString &fileName,
-                                       const wxString &fullPath);
+void UpdateDictionarySelectionControls(
+    const DictionarySelectionControls &controls, const wxString &fileName,
+    const wxString &fullPath);
