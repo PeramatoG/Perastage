@@ -483,11 +483,105 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
   return true;
 }
 
+
+// Validates that a trusses dictionary file can be loaded without changing configuration.
+bool ValidateDictionaryFile(const std::string &path, std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  std::string loadError;
+  if (!LoadFromFile(PathUtils::PathFromUtf8(path), loadError)) {
+    if (errorOut)
+      *errorOut = loadError;
+    return false;
+  }
+  return true;
+}
+
+// Creates an empty trusses dictionary file with the supported JSON contract.
+bool CreateEmptyDictionaryFile(const std::string &path, std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path target = PathUtils::PathFromUtf8(path);
+  if (target.empty()) {
+    if (errorOut)
+      *errorOut = "Dictionary file path is empty";
+    return false;
+  }
+  std::error_code ec;
+  fs::create_directories(target.parent_path(), ec);
+  if (ec) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary folder: " + ec.message();
+    return false;
+  }
+  if (fs::exists(target) && !WriteDictionaryBackup(target)) {
+    if (errorOut)
+      *errorOut = "Could not create a backup before replacing dictionary";
+    return false;
+  }
+  std::ofstream out(target, std::ios::binary | std::ios::trunc);
+  if (!out.is_open()) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary file";
+    return false;
+  }
+  out << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object()).dump(4);
+  out.close();
+  return ValidateDictionaryFile(target.string(), errorOut);
+}
+
+// Creates a trusses dictionary from application defaults with copied assets.
+bool CreateDictionaryFileFromDefaults(const std::string &path,
+                                      std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path target = PathUtils::PathFromUtf8(path);
+  if (target.empty()) {
+    if (errorOut)
+      *errorOut = "Dictionary file path is empty";
+    return false;
+  }
+  if (fs::exists(target) && !WriteDictionaryBackup(target)) {
+    if (errorOut)
+      *errorOut = "Could not create a backup before replacing dictionary";
+    return false;
+  }
+  std::string baseError;
+  auto baseDict = LoadFromFile(GetBaseDictFile(), baseError);
+  if (!baseDict) {
+    if (errorOut)
+      *errorOut = "Could not load default trusses dictionary: " + baseError;
+    return false;
+  }
+  std::unordered_map<std::string, std::string> customDict = *baseDict;
+  CopySeedAssetsIntoCustomDictionary(target, *baseDict, customDict);
+  const auto previousValue =
+      ConfigManager::Get().GetValue(kTrussDictionaryPathConfigKey);
+  ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, target.string());
+  std::string saveError;
+  const bool saved = Save(customDict, &saveError);
+  if (previousValue)
+    ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, *previousValue);
+  else
+    ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
+  if (!saved) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary from defaults: " + saveError;
+    return false;
+  }
+  return ValidateDictionaryFile(target.string(), errorOut);
+}
+
+// Returns the active trusses dictionary path.
 std::string GetActiveDictionaryFilePath() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   return GetConfiguredUserDictFile().string();
 }
 
+// Returns the active trusses dictionary file name.
 std::string GetActiveDictionaryFileName() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const fs::path path = GetConfiguredUserDictFile();
@@ -496,6 +590,7 @@ std::string GetActiveDictionaryFileName() {
   return path.filename().string();
 }
 
+// Changes the active trusses dictionary after validating the selected file.
 bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut) {
   if (errorOut)
     errorOut->clear();
@@ -518,14 +613,24 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
     return false;
   }
 
+  if (resolvedPath == defaultPath && !fs::exists(resolvedPath))
+    RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile());
+
+  std::string loadError;
+  if (!LoadFromFile(resolvedPath, loadError)) {
+    if (errorOut)
+      *errorOut = "Could not load selected trusses dictionary: " + loadError;
+    return false;
+  }
+
   const auto previousValue =
       ConfigManager::Get().GetValue(kTrussDictionaryPathConfigKey);
+
   const std::string trimmedInput = TrimAsciiWhitespace(path);
   if (trimmedInput.empty() || resolvedPath == defaultPath) {
     ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
   } else {
-    ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey,
-                                  resolvedPath.string());
+    ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, resolvedPath.string());
   }
 
   if (!ConfigManager::Get().SaveUserConfig()) {
@@ -537,48 +642,6 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
       *errorOut = "Could not persist dictionary selection in user config";
     return false;
   }
-
-  const bool creatingDictionary = !fs::exists(resolvedPath);
-  if (creatingDictionary) {
-    if (!RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile())) {
-      std::string createError;
-      if (!Save({}, &createError)) {
-        if (previousValue)
-          ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, *previousValue);
-        else
-          ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
-        ConfigManager::Get().SaveUserConfig();
-        if (errorOut)
-          *errorOut = "Could not create selected trusses dictionary file: " +
-                      createError;
-        return false;
-      }
-    }
-  }
-
-  if (creatingDictionary && resolvedPath != defaultPath) {
-    std::string baseError;
-    std::string customError;
-    auto baseDict = LoadFromFile(GetBaseDictFile(), baseError);
-    auto customDict = LoadFromFile(resolvedPath, customError);
-    if (baseDict && customDict &&
-        CopySeedAssetsIntoCustomDictionary(resolvedPath, *baseDict, *customDict)) {
-      Save(*customDict);
-    }
-  }
-
-  std::string loadError;
-  if (!LoadFromFile(resolvedPath, loadError)) {
-    if (previousValue)
-      ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, *previousValue);
-    else
-      ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
-    ConfigManager::Get().SaveUserConfig();
-    if (errorOut)
-      *errorOut = "Could not load selected trusses dictionary: " + loadError;
-    return false;
-  }
-
   return true;
 }
 

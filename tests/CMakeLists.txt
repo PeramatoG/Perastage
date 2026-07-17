@@ -493,6 +493,28 @@ target_link_libraries(dictionary_seed_merge_backup_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME DictionarySeedMergeBackup COMMAND dictionary_seed_merge_backup_test)
 
+add_executable(active_dictionary_workflow_test
+               active_dictionary_workflow_test.cpp
+               mvr_io_stubs.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/trussdictionary.cpp
+               ../models/truss.cpp
+               ../models/mvrscene.cpp)
+target_include_directories(active_dictionary_workflow_test PRIVATE
+                           . ../core ../models ../third_party)
+target_link_libraries(active_dictionary_workflow_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME ActiveDictionaryWorkflow COMMAND active_dictionary_workflow_test)
+
 add_executable(layout_template_serializer_test
                layout_template_serializer_test.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp)
