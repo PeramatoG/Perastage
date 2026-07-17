@@ -199,6 +199,57 @@ void VerifyInvalidCustomDictionaryIsPreserved(const fs::path &root) {
   ConfigManager::Get().RemoveKey("fixtures_dictionary_active_path");
 }
 
+
+// Verifies explicit custom recovery preserves files or creates backups.
+void VerifyExplicitCustomRecoveryActionsPreserveOrBackupInvalidFiles(
+    const fs::path &root) {
+  const fs::path fixturePath = root / "custom" / "recover_gdtf_dictionary.json";
+  const fs::path trussPath = root / "custom" / "recover_truss_dictionary.json";
+  WriteFile(fixturePath, "{ invalid fixture json");
+  WriteFile(trussPath, "{ invalid truss json");
+  const std::string fixtureBefore = ReadFile(fixturePath);
+  const std::string trussBefore = ReadFile(trussPath);
+
+  ConfigManager::Get().SetValue("fixtures_dictionary_active_path",
+                                fixturePath.string());
+  ConfigManager::Get().SetValue("truss_dictionary_active_path",
+                                trussPath.string());
+  assert(GdtfDictionary::Load().has_value());
+  assert(TrussDictionary::Load().has_value());
+  assert(ReadFile(fixturePath) == fixtureBefore);
+  assert(ReadFile(trussPath) == trussBefore);
+
+  std::string error;
+  assert(GdtfDictionary::SetActiveDictionaryFilePath({}, &error));
+  assert(ReadFile(fixturePath) == fixtureBefore);
+  assert(!fs::exists(fixturePath.string() + ".bak"));
+
+  assert(TrussDictionary::SetActiveDictionaryFilePath({}, &error));
+  assert(ReadFile(trussPath) == trussBefore);
+  assert(!fs::exists(trussPath.string() + ".bak"));
+
+  ConfigManager::Get().SetValue("fixtures_dictionary_active_path",
+                                fixturePath.string());
+  ConfigManager::Get().SetValue("truss_dictionary_active_path",
+                                trussPath.string());
+  assert(GdtfDictionary::CreateDictionaryFileFromDefaults(fixturePath.string(),
+                                                          &error));
+  assert(TrussDictionary::CreateDictionaryFileFromDefaults(trussPath.string(),
+                                                           &error));
+  assert(fs::exists(fixturePath.string() + ".bak"));
+  assert(fs::exists(trussPath.string() + ".bak"));
+  assert(ReadFile(fixturePath.string() + ".bak") == fixtureBefore);
+  assert(ReadFile(trussPath.string() + ".bak") == trussBefore);
+  assert(GdtfDictionary::SetActiveDictionaryFilePath(fixturePath.string(),
+                                                     &error));
+  assert(TrussDictionary::SetActiveDictionaryFilePath(trussPath.string(),
+                                                      &error));
+  assert(GdtfDictionary::Load().has_value());
+  assert(TrussDictionary::Load().has_value());
+  ConfigManager::Get().RemoveKey("fixtures_dictionary_active_path");
+  ConfigManager::Get().RemoveKey("truss_dictionary_active_path");
+}
+
 } // namespace
 
 int main() {
@@ -219,6 +270,7 @@ int main() {
   VerifyMissingTrussEntriesSurviveLookupAndSave(tempRoot);
   VerifyManagedDefaultRecoveryCreatesBackup(tempRoot);
   VerifyInvalidCustomDictionaryIsPreserved(tempRoot);
+  VerifyExplicitCustomRecoveryActionsPreserveOrBackupInvalidFiles(tempRoot);
 
   fs::remove_all(tempRoot, ec);
   return 0;

@@ -1321,19 +1321,24 @@ bool DictionaryEditDialog::HasTrussChanges() const {
   return BuildTrussSnapshotFromUi() != trussSnapshotAtLoad;
 }
 
-// Prompts for pending table edits before a reload or dictionary mutation
-// continues.
+// Prompts for pending edits on one dictionary page before continuing.
 bool DictionaryEditDialog::ConfirmDirtyChangesBeforeReload(
+    DictionaryEditorState::DictionaryEditorPage page,
     const wxString &operationLabel) {
   const bool fixtureChanged = HasFixtureChanges();
   const bool trussChanged = HasTrussChanges();
-  const bool hasChanges = fixtureChanged || trussChanged;
+  const bool hasChanges =
+      DictionaryEditorState::HasPageChanges(page, fixtureChanged, trussChanged);
   if (!hasChanges)
     return true;
 
+  const wxString pageLabel =
+      page == DictionaryEditorState::DictionaryEditorPage::Fixtures ? "fixtures"
+                                                                   : "trusses";
   wxMessageDialog dialog(
       this,
-      "The Dictionary Editor has unsaved table edits. Save them before " +
+      "The " + pageLabel +
+          " dictionary page has unsaved table edits. Save them before " +
           operationLabel + "?",
       "Unsaved dictionary edits",
       wxYES_NO | wxCANCEL | wxCANCEL_DEFAULT | wxICON_WARNING);
@@ -1348,16 +1353,131 @@ bool DictionaryEditDialog::ConfirmDirtyChangesBeforeReload(
 
   bool saveSucceeded = false;
   if (choice == DictionaryEditorState::DirtyGuardChoice::Save) {
-    saveSucceeded = true;
-    if (fixtureChanged)
-      saveSucceeded = SaveFixtures() && saveSucceeded;
-    if (trussChanged)
-      saveSucceeded = SaveTrusses() && saveSucceeded;
+    if (!EnsurePageCanWrite(page))
+      return false;
+    saveSucceeded = page == DictionaryEditorState::DictionaryEditorPage::Fixtures
+                        ? SaveFixtures()
+                        : SaveTrusses();
   }
 
-  return DictionaryEditorState::ResolveDirtyGuard(hasChanges, choice,
-                                                  saveSucceeded) ==
-         DictionaryEditorState::DirtyGuardResult::Continue;
+  const auto result = DictionaryEditorState::ResolveDirtyGuard(
+      hasChanges, choice, saveSucceeded);
+  if (result != DictionaryEditorState::DirtyGuardResult::Continue)
+    return false;
+
+  if (choice == DictionaryEditorState::DirtyGuardChoice::Discard)
+    ReloadPage(page);
+  return true;
+}
+
+// Reloads one dictionary editor page from its active dictionary.
+void DictionaryEditDialog::ReloadPage(
+    DictionaryEditorState::DictionaryEditorPage page) {
+  if (page == DictionaryEditorState::DictionaryEditorPage::Fixtures)
+    LoadFixtures();
+  else
+    LoadTrusses();
+}
+
+// Ensures the active dictionary page is safe to mutate before a write.
+bool DictionaryEditDialog::EnsurePageCanWrite(
+    DictionaryEditorState::DictionaryEditorPage page) {
+  DictionaryEditorState::LoadRecoveryStatus status;
+  if (page == DictionaryEditorState::DictionaryEditorPage::Fixtures) {
+    const auto loadStatus = GdtfDictionary::GetLastLoadStatus();
+    status = {loadStatus.activeDictionaryInvalid,
+              loadStatus.activeDictionaryMissing,
+              loadStatus.temporaryFallbackUsed};
+  } else {
+    const auto loadStatus = TrussDictionary::GetLastLoadStatus();
+    status = {loadStatus.activeDictionaryInvalid,
+              loadStatus.activeDictionaryMissing,
+              loadStatus.temporaryFallbackUsed};
+  }
+  if (!DictionaryEditorState::RequiresWriteRecovery(status))
+    return true;
+  return RecoverInvalidActiveDictionary(page);
+}
+
+// Runs explicit recovery for an invalid or missing active custom dictionary.
+bool DictionaryEditDialog::RecoverInvalidActiveDictionary(
+    DictionaryEditorState::DictionaryEditorPage page) {
+  const bool fixtures =
+      page == DictionaryEditorState::DictionaryEditorPage::Fixtures;
+  const wxString label = fixtures ? "fixtures" : "trusses";
+  const wxString choices[] = {
+      "Open Another Dictionary...",
+      "Use Default",
+      "Recreate Active Custom Dictionary From Application Defaults...",
+      "Cancel"};
+  wxSingleChoiceDialog dialog(
+      this,
+      wxString("The active ") + label +
+          " dictionary is invalid or missing, so writes are blocked until "
+          "you choose an explicit recovery action.",
+      wxString("Recover ") + label + " dictionary", WXSIZEOF(choices),
+      choices);
+  if (dialog.ShowModal() != wxID_OK || dialog.GetSelection() == 3)
+    return false;
+
+  std::string error;
+  if (dialog.GetSelection() == 0) {
+    const std::filesystem::path currentPath = PathUtils::PathFromUtf8(
+        fixtures ? GdtfDictionary::GetActiveDictionaryFilePath()
+                 : TrussDictionary::GetActiveDictionaryFilePath());
+    wxFileDialog fileDialog(this, wxString("Open ") + label + " dictionary",
+                            wxString::FromUTF8(
+                                currentPath.parent_path().string()),
+                            wxString(),
+                            "JSON dictionary files (*.json)|*.json",
+                            wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (fileDialog.ShowModal() != wxID_OK)
+      return false;
+    const std::string selected = std::string(fileDialog.GetPath().ToUTF8());
+    const bool opened = fixtures
+                            ? GdtfDictionary::SetActiveDictionaryFilePath(
+                                  selected, &error)
+                            : TrussDictionary::SetActiveDictionaryFilePath(
+                                  selected, &error);
+    if (!opened) {
+      wxMessageBox("Could not open the selected dictionary.\n\n" +
+                       wxString::FromUTF8(error),
+                   "Recover dictionary", wxOK | wxICON_ERROR, this);
+      RefreshDictionarySelectionLabels();
+      return false;
+    }
+  } else if (dialog.GetSelection() == 1) {
+    const bool setDefault = fixtures
+                                ? GdtfDictionary::SetActiveDictionaryFilePath(
+                                      {}, &error)
+                                : TrussDictionary::SetActiveDictionaryFilePath(
+                                      {}, &error);
+    if (!setDefault) {
+      wxMessageBox("Could not switch to the default dictionary.\n\n" +
+                       wxString::FromUTF8(error),
+                   "Recover dictionary", wxOK | wxICON_ERROR, this);
+      return false;
+    }
+  } else {
+    const std::string activePath =
+        fixtures ? GdtfDictionary::GetActiveDictionaryFilePath()
+                 : TrussDictionary::GetActiveDictionaryFilePath();
+    const bool recreated = fixtures
+                               ? GdtfDictionary::CreateDictionaryFileFromDefaults(
+                                     activePath, &error)
+                               : TrussDictionary::CreateDictionaryFileFromDefaults(
+                                     activePath, &error);
+    if (!recreated) {
+      wxMessageBox("Could not recreate the active dictionary.\n\n" +
+                       wxString::FromUTF8(error),
+                   "Recover dictionary", wxOK | wxICON_ERROR, this);
+      return false;
+    }
+  }
+
+  ReloadPage(page);
+  RefreshDictionarySelectionLabels();
+  return true;
 }
 
 void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
@@ -1433,7 +1553,7 @@ void DictionaryEditDialog::RefreshDictionarySelectionLabels() {
 // Opens an existing fixtures dictionary after validating its contract.
 void DictionaryEditDialog::OnOpenFixturesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("opening a fixtures dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Fixtures, "opening a fixtures dictionary"))
     return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
@@ -1458,7 +1578,7 @@ void DictionaryEditDialog::OnOpenFixturesDictionary(
 // Opens an existing trusses dictionary after validating its contract.
 void DictionaryEditDialog::OnOpenTrussesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("opening a trusses dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Trusses, "opening a trusses dictionary"))
     return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
@@ -1483,7 +1603,7 @@ void DictionaryEditDialog::OnOpenTrussesDictionary(
 // Creates and activates a new fixtures dictionary.
 void DictionaryEditDialog::OnNewFixturesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("creating a fixtures dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Fixtures, "creating a fixtures dictionary"))
     return;
   wxArrayString choices;
   choices.Add("Empty dictionary");
@@ -1523,7 +1643,7 @@ void DictionaryEditDialog::OnNewFixturesDictionary(
 // Creates and activates a new trusses dictionary.
 void DictionaryEditDialog::OnNewTrussesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("creating a trusses dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Trusses, "creating a trusses dictionary"))
     return;
   wxArrayString choices;
   choices.Add("Empty dictionary");
@@ -1563,7 +1683,7 @@ void DictionaryEditDialog::OnNewTrussesDictionary(
 // Duplicates the active fixtures dictionary and optionally activates it.
 void DictionaryEditDialog::OnDuplicateFixturesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("duplicating the fixtures dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Fixtures, "duplicating the fixtures dictionary"))
     return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
@@ -1622,7 +1742,7 @@ void DictionaryEditDialog::OnDuplicateFixturesDictionary(
 // Duplicates the active trusses dictionary and optionally activates it.
 void DictionaryEditDialog::OnDuplicateTrussesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("duplicating the trusses dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Trusses, "duplicating the trusses dictionary"))
     return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
@@ -1681,6 +1801,7 @@ void DictionaryEditDialog::OnDuplicateTrussesDictionary(
 void DictionaryEditDialog::OnUseDefaultFixturesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
   if (!ConfirmDirtyChangesBeforeReload(
+          DictionaryEditorState::DictionaryEditorPage::Fixtures,
           "using the default fixtures dictionary path"))
     return;
   std::string error;
@@ -1697,6 +1818,7 @@ void DictionaryEditDialog::OnUseDefaultFixturesDictionary(
 void DictionaryEditDialog::OnUseDefaultTrussesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
   if (!ConfirmDirtyChangesBeforeReload(
+          DictionaryEditorState::DictionaryEditorPage::Trusses,
           "using the default trusses dictionary path"))
     return;
   std::string error;
@@ -1711,6 +1833,9 @@ void DictionaryEditDialog::OnUseDefaultTrussesDictionary(
 
 // Persists fixture table rows without dropping unresolved entries.
 bool DictionaryEditDialog::SaveFixtures() {
+  if (!EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage::Fixtures))
+    return false;
+
   std::vector<FixtureRow> rows;
   int count = fixtureTable->GetItemCount();
   rows.reserve(static_cast<size_t>(count));
@@ -1789,6 +1914,9 @@ bool DictionaryEditDialog::SaveFixtures() {
 
 // Persists truss table rows without dropping unresolved entries.
 bool DictionaryEditDialog::SaveTrusses() {
+  if (!EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage::Trusses))
+    return false;
+
   std::vector<TrussRow> rows;
   int count = trussTable->GetItemCount();
   rows.reserve(static_cast<size_t>(count));
@@ -1834,7 +1962,14 @@ bool DictionaryEditDialog::SaveTrusses() {
   return true;
 }
 
+// Adds a fixture or truss row to the selected dictionary page.
 void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
+  const auto page = IsFixturesPage()
+                        ? DictionaryEditorState::DictionaryEditorPage::Fixtures
+                        : DictionaryEditorState::DictionaryEditorPage::Trusses;
+  if (!EnsurePageCanWrite(page))
+    return;
+
   if (IsFixturesPage()) {
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
@@ -1893,7 +2028,14 @@ void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
   }
 }
 
+// Deletes selected rows from the selected dictionary page.
 void DictionaryEditDialog::OnDelete(wxCommandEvent &WXUNUSED(event)) {
+  const auto page = IsFixturesPage()
+                        ? DictionaryEditorState::DictionaryEditorPage::Fixtures
+                        : DictionaryEditorState::DictionaryEditorPage::Trusses;
+  if (!EnsurePageCanWrite(page))
+    return;
+
   if (IsFixturesPage()) {
     wxDataViewItemArray selections;
     fixtureTable->GetSelections(selections);
@@ -2049,7 +2191,10 @@ void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
 
 // Imports into the active dictionary after resolving unsaved table edits.
 void DictionaryEditDialog::OnImportDictionary(wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("importing a dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(
+      IsFixturesPage() ? DictionaryEditorState::DictionaryEditorPage::Fixtures
+                       : DictionaryEditorState::DictionaryEditorPage::Trusses,
+      "importing a dictionary"))
     return;
   if (IsFixturesPage()) {
     (void)ImportFixturesDictionary();
@@ -2058,7 +2203,11 @@ void DictionaryEditDialog::OnImportDictionary(wxCommandEvent &WXUNUSED(event)) {
   (void)ImportTrussesDictionary();
 }
 
+// Imports entries into the active fixtures dictionary.
 bool DictionaryEditDialog::ImportFixturesDictionary() {
+  if (!EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage::Fixtures))
+    return false;
+
   const wxString fixturesDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, "Import fixtures dictionary", fixturesDir,
@@ -2135,7 +2284,11 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   return !result.HasErrors();
 }
 
+// Imports entries into the active trusses dictionary.
 bool DictionaryEditDialog::ImportTrussesDictionary() {
+  if (!EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage::Trusses))
+    return false;
+
   const wxString trussesDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, "Import trusses dictionary", trussesDir,
@@ -2241,7 +2394,10 @@ void DictionaryEditDialog::OnExportDictionary(wxCommandEvent &WXUNUSED(event)) {
 
 // Resets the active dictionary after resolving unsaved table edits.
 void DictionaryEditDialog::OnResetDictionary(wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("resetting a dictionary"))
+  if (!ConfirmDirtyChangesBeforeReload(
+      IsFixturesPage() ? DictionaryEditorState::DictionaryEditorPage::Fixtures
+                       : DictionaryEditorState::DictionaryEditorPage::Trusses,
+      "resetting a dictionary"))
     return;
   if (IsFixturesPage()) {
     (void)ResetFixturesDictionaryToDefault();
@@ -2430,7 +2586,11 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
   return true;
 }
 
+// Resets the active fixtures dictionary contents to application defaults.
 bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
+  if (!EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage::Fixtures))
+    return false;
+
   if (wxMessageBox(
           "Reset active fixtures dictionary to application defaults?\n"
           "Current entries will be replaced after a backup is created.",
@@ -2468,7 +2628,11 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
   return !result.HasErrors();
 }
 
+// Resets the active trusses dictionary contents to application defaults.
 bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
+  if (!EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage::Trusses))
+    return false;
+
   if (wxMessageBox(
           "Reset active trusses dictionary to application defaults?\n"
           "Current entries will be replaced after a backup is created.",
@@ -2505,7 +2669,14 @@ bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
   return !result.HasErrors();
 }
 
+// Opens the page-specific editor for the activated table cell.
 void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
+  const auto page = IsFixturesPage()
+                        ? DictionaryEditorState::DictionaryEditorPage::Fixtures
+                        : DictionaryEditorState::DictionaryEditorPage::Trusses;
+  if (!EnsurePageCanWrite(page))
+    return;
+
   wxDataViewListCtrl *table = IsFixturesPage() ? fixtureTable : trussTable;
   if (!table)
     return;

@@ -5,6 +5,7 @@
 #include <vector>
 
 namespace {
+using DictionaryEditorState::DictionaryEditorPage;
 using DictionaryEditorState::DirtyGuardChoice;
 using DictionaryEditorState::DirtyGuardResult;
 using DictionaryEditorState::FixtureSnapshotRow;
@@ -50,6 +51,57 @@ void UnresolvedFixtureEntriesRemainRepresented() {
          snapshot[1].find("Missing A") != std::string::npos);
 }
 
+
+// Verifies fixture operations do not inspect truss dirty state.
+void FixtureGuardIgnoresDirtyTrusses() {
+  assert(!DictionaryEditorState::HasPageChanges(DictionaryEditorPage::Fixtures,
+                                                false, true));
+  assert(DictionaryEditorState::HasPageChanges(DictionaryEditorPage::Fixtures,
+                                               true, false));
+}
+
+// Verifies truss operations do not inspect fixture dirty state.
+void TrussGuardIgnoresDirtyFixtures() {
+  assert(!DictionaryEditorState::HasPageChanges(DictionaryEditorPage::Trusses,
+                                                true, false));
+  assert(DictionaryEditorState::HasPageChanges(DictionaryEditorPage::Trusses,
+                                               false, true));
+}
+
+// Verifies discard can continue without implying a save succeeded.
+void DiscardDoesNotRequireSaveSuccess() {
+  assert(DictionaryEditorState::ResolveDirtyGuard(
+             true, DirtyGuardChoice::Discard, false) ==
+         DirtyGuardResult::Continue);
+}
+
+// Verifies invalid active dictionary statuses block normal writes.
+void InvalidDictionaryStatusRequiresRecovery() {
+  assert(DictionaryEditorState::RequiresWriteRecovery({true, false, false}));
+  assert(DictionaryEditorState::RequiresWriteRecovery({false, true, false}));
+  assert(DictionaryEditorState::RequiresWriteRecovery({false, false, true}));
+  assert(!DictionaryEditorState::RequiresWriteRecovery({false, false, false}));
+}
+
+// Verifies save sequencing stops after the first changed-page failure.
+void FailedSavePreventsLaterSaveCallbacks() {
+  int calls = 0;
+  bool previousSucceeded = true;
+  auto saveFirst = [&] {
+    ++calls;
+    return false;
+  };
+  auto saveSecond = [&] {
+    ++calls;
+    return true;
+  };
+  if (DictionaryEditorState::ShouldRunPageSave(previousSucceeded, true))
+    previousSucceeded = saveFirst();
+  if (DictionaryEditorState::ShouldRunPageSave(previousSucceeded, true))
+    previousSucceeded = saveSecond();
+  assert(calls == 1);
+}
+
 // Verifies a failed dirty-save decision aborts the close or reload path.
 void FailedSaveAbortsGuardedPath() {
   assert(DictionaryEditorState::ResolveDirtyGuard(
@@ -78,6 +130,11 @@ int main() {
   DeletingMissingFixtureEntryIsDirty();
   DeletingMissingTrussEntryIsDirty();
   UnresolvedFixtureEntriesRemainRepresented();
+  FixtureGuardIgnoresDirtyTrusses();
+  TrussGuardIgnoresDirtyFixtures();
+  DiscardDoesNotRequireSaveSuccess();
+  InvalidDictionaryStatusRequiresRecovery();
+  FailedSavePreventsLaterSaveCallbacks();
   FailedSaveAbortsGuardedPath();
   DirtyGuardDecisionHandlingIsDialogIndependent();
   return 0;

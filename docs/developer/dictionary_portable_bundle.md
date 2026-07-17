@@ -23,6 +23,8 @@ The Dictionary Editor exposes separate actions for active dictionary management:
 - **New...** creates either an empty dictionary or a self-contained dictionary from application defaults, then activates it after validation succeeds.
 - **Duplicate Current...** creates an independent working copy of the active dictionary, copies resolvable owned assets into the duplicate's storage location, preserves unresolved references with a summary, validates the duplicate before activation, and lets the user choose whether to activate it immediately.
 - **Use Default** switches back to the managed user dictionary path for the current page type. It does not reset dictionary contents.
+- Dirty prompts and discard/reload behavior are scoped to the current page type, so fixture actions do not prompt for truss edits and truss actions do not prompt for fixture edits.
+- If an active custom dictionary is invalid or missing, normal writes are blocked until the user explicitly opens another dictionary, switches to the managed default, or recreates the active custom dictionary from application defaults.
 
 These actions are grouped under the active dictionary section: **Open...** and **New...** stay visible, while **Duplicate Current...**, **Use Default**, and **Reset Contents...** live in **More...**. They are distinct from importing snapshots, exporting snapshots, exporting portable bundles, and resetting the active dictionary contents.
 
