@@ -19,6 +19,7 @@
 
 #include "dictionary_import.h"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -61,6 +62,7 @@ bool SetActiveDictionaryFilePath(const std::string &path,
                                  std::string *errorOut = nullptr);
 bool Save(const std::unordered_map<std::string, std::string> &dict,
           std::string *errorOut = nullptr);
+// Returns the stored path for a model when the referenced file exists.
 std::optional<std::string> Get(const std::string &model);
 // Looks up a model in an already loaded dictionary without reloading from disk.
 std::optional<std::string> FindInLoadedDictionary(
@@ -73,4 +75,6 @@ DictionaryImportSummary PreviewImportFromFile(
     const std::string &filePath, DictionaryImportPolicy policy);
 DictionaryImportSummary ApplyImportFromFile(
     const std::string &filePath, DictionaryImportPolicy policy);
+size_t GetSaveCallCountForTesting();
+void ResetSaveCallCountForTesting();
 } // namespace TrussDictionary

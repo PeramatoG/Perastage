@@ -1020,11 +1020,8 @@ std::optional<Entry> Get(const std::string &type) {
   if (!keyOpt)
     return std::nullopt;
   auto it = dict.find(*keyOpt);
-  if (!it->second.path.empty() && !fs::exists(it->second.path)) {
-    dict.erase(it);
-    Save(dict);
+  if (!it->second.path.empty() && !fs::exists(it->second.path))
     return std::nullopt;
-  }
   return it->second;
 }
 

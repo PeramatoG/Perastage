@@ -73,8 +73,8 @@ namespace GdtfDictionary {
     // Returns false and optionally fills errorOut when writing fails.
     bool Save(const std::unordered_map<std::string, Entry>& dict,
               std::string* errorOut = nullptr);
-    // Returns the stored entry for a given type if it exists and file exists.
-    // If the file is missing, the entry is removed and std::nullopt returned.
+    // Returns the stored entry for a given type when the referenced file exists.
+    // Missing referenced files return std::nullopt without mutating the dictionary.
     std::optional<Entry> Get(const std::string& type);
     // Looks up a type in an already loaded dictionary without reloading from disk.
     std::optional<Entry> FindInLoadedDictionary(
