@@ -1,4 +1,7 @@
 #include "dictionary_bundle.h"
+#include "active_dictionary_storage.h"
+#include "gdtfdictionary.h"
+#include "trussdictionary.h"
 #include "filesystem_path_utils.h"
 
 #include "dictionary_json_contract.h"
@@ -514,10 +517,13 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
     return result;
   }
 
-  const fs::path libraryDir = PathUtils::PathFromUtf8(
-      ProjectUtils::GetWritableLibraryPath(expectedTypeText));
-  std::error_code ec;
-  fs::create_directories(libraryDir, ec);
+  const bool isFixtures = expectedTypeText == "fixtures";
+  const fs::path activeDictionaryPath = PathUtils::PathFromUtf8(
+      isFixtures ? GdtfDictionary::GetActiveDictionaryFilePath()
+                 : TrussDictionary::GetActiveDictionaryFilePath());
+  const fs::path defaultDictionaryPath =
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(expectedTypeText)) /
+      (isFixtures ? "gdtf_dictionary.json" : "truss_dictionary.json");
 
   for (const auto &assetJson : manifest["assets"]) {
     if (!assetJson.is_object()) {
@@ -553,17 +559,18 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
       continue;
     }
 
-    const fs::path destPath = libraryDir / extractedPath.filename();
-    std::error_code copyEc;
-    fs::copy_file(extractedPath, destPath, fs::copy_options::overwrite_existing,
-                  copyEc);
-    if (copyEc) {
-      result.errors.push_back("Could not copy bundle asset into library: " +
-                              destPath.string());
+    const auto copied = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+        {isFixtures ? ActiveDictionaryStorage::DictionaryKind::Fixtures
+                    : ActiveDictionaryStorage::DictionaryKind::Trusses,
+         activeDictionaryPath, defaultDictionaryPath, extractedPath, {},
+         FileImportUtils::ConflictPolicy::Overwrite});
+    if (!copied.success) {
+      result.errors.push_back("Could not copy bundle asset into dictionary storage: " +
+                              extractedPath.string());
       continue;
     }
 
-    importedAssetToLibraryPath[archivePath] = destPath.string();
+    importedAssetToLibraryPath[archivePath] = copied.finalPath.string();
   }
 
   if (!result.errors.empty())

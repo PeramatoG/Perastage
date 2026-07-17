@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
+#include "active_dictionary_storage.h"
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
@@ -436,6 +437,32 @@ bool RecreateUserDictionaryFromBase(const fs::path &userFile,
   return true;
 }
 
+// Copies default seed assets into a newly created custom dictionary.
+bool CopySeedAssetsIntoCustomDictionary(
+    const fs::path &customFile, const std::unordered_map<std::string, Entry> &seedDict,
+    std::unordered_map<std::string, Entry> &targetDict) {
+  bool changed = false;
+  for (const auto &[key, seedEntry] : seedDict) {
+    if (seedEntry.path.empty())
+      continue;
+    const fs::path seedPath = PathUtils::PathFromUtf8(seedEntry.path);
+    if (!fs::exists(seedPath))
+      continue;
+    const auto copied = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+        {ActiveDictionaryStorage::DictionaryKind::Fixtures, customFile, GetUserDictFile(),
+         seedPath, {}, FileImportUtils::ConflictPolicy::Rename});
+    if (!copied.success)
+      continue;
+    Entry ownedEntry = seedEntry;
+    ownedEntry.path = copied.finalPath.string();
+    if (!copied.finalSha256.empty())
+      ownedEntry.sha256 = copied.finalSha256;
+    targetDict[key] = std::move(ownedEntry);
+    changed = true;
+  }
+  return changed;
+}
+
 bool WriteDictionaryBackup(const fs::path &sourceFile) {
   if (sourceFile.empty() || !fs::exists(sourceFile))
     return false;
@@ -469,20 +496,7 @@ bool MergeSeedEntriesIntoUserDictionary(
 
 fs::path ResolveImportedPath(const fs::path &jsonFile,
                              const std::string &rawPathText) {
-  const fs::path parsedPath = PathUtils::PathFromUtf8(rawPathText);
-  if (parsedPath.is_absolute())
-    return parsedPath;
-
-  const fs::path jsonDir = jsonFile.parent_path();
-  const fs::path directPath = jsonDir / parsedPath;
-  if (fs::exists(directPath))
-    return directPath;
-
-  const fs::path snapshotAssetsPath =
-      jsonDir / (jsonFile.stem().string() + "_assets") / parsedPath;
-  if (fs::exists(snapshotAssetsPath))
-    return snapshotAssetsPath;
-  return directPath;
+  return ActiveDictionaryStorage::ResolveReference(jsonFile, rawPathText);
 }
 
 std::optional<std::unordered_map<std::string, Entry>>
@@ -734,7 +748,8 @@ bool SetActiveDictionaryFilePath(const std::string &path,
     return false;
   }
 
-  if (!fs::exists(resolvedPath)) {
+  const bool creatingDictionary = !fs::exists(resolvedPath);
+  if (creatingDictionary) {
     if (!RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile())) {
       std::string createError;
       if (!Save({}, &createError)) {
@@ -749,6 +764,17 @@ bool SetActiveDictionaryFilePath(const std::string &path,
                       createError;
         return false;
       }
+    }
+  }
+
+  if (creatingDictionary && resolvedPath != defaultPath) {
+    std::string baseError;
+    std::string customError;
+    auto baseDict = LoadFromFile(GetBaseDictFile(), baseError);
+    auto customDict = LoadFromFile(resolvedPath, customError);
+    if (baseDict && customDict &&
+        CopySeedAssetsIntoCustomDictionary(resolvedPath, *baseDict, *customDict)) {
+      Save(*customDict);
     }
   }
 
@@ -831,6 +857,8 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
   for (const auto &[type, entry] : dict)
     keys.push_back(type);
   std::sort(keys.begin(), keys.end());
+  const auto layout = ActiveDictionaryStorage::BuildLayout(
+      ActiveDictionaryStorage::DictionaryKind::Fixtures, file, GetUserDictFile());
   for (const auto &type : keys) {
     const auto &entry = dict.at(type);
     if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
@@ -838,10 +866,11 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
       continue;
     nlohmann::json obj;
     if (!entry.path.empty()) {
-      fs::path p = PathUtils::PathFromUtf8(entry.path);
-      const std::string fileName = p.filename().string();
-      if (!fileName.empty())
-        obj["file"] = fileName;
+      const fs::path p = PathUtils::PathFromUtf8(entry.path);
+      const std::string serialized =
+          ActiveDictionaryStorage::MakeSerializedReference(layout, p);
+      if (!serialized.empty())
+        obj["file"] = serialized;
     }
     if (!entry.mode.empty())
       obj["mode"] = entry.mode;
@@ -1016,13 +1045,13 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
   if (file.empty())
     return std::nullopt;
 
-  const fs::path dest =
+  const fs::path destinationName =
       IsPerastageNamedGdtfFilePath(src)
-          ? file.parent_path() / src.filename()
-          : file.parent_path() /
-                BuildPerastageCanonicalGdtfFileName(src.string());
-  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
-      src, dest, FileImportUtils::ConflictPolicy::Overwrite);
+          ? src.filename()
+          : fs::path(BuildPerastageCanonicalGdtfFileName(src.string()));
+  const auto copyResult = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+      {ActiveDictionaryStorage::DictionaryKind::Fixtures, file, GetUserDictFile(),
+       src, destinationName, FileImportUtils::ConflictPolicy::Overwrite});
   if (!copyResult.success)
     return std::nullopt;
 

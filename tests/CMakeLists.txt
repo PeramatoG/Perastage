@@ -25,6 +25,13 @@ add_library(perastage_test_path_utils STATIC
             ../core/filesystem_path_utils.cpp)
 target_include_directories(perastage_test_path_utils PRIVATE ../core)
 
+
+add_library(perastage_test_active_dictionary_storage STATIC
+            ../core/active_dictionary_storage.cpp
+            ../core/file_import_utils.cpp
+            ../core/filesystem_path_utils.cpp)
+target_include_directories(perastage_test_active_dictionary_storage PRIVATE ../core ../third_party)
+
 add_library(perastage_test_gdtf_archive_reader STATIC
             ../core/gdtf_archive_reader.cpp)
 target_include_directories(perastage_test_gdtf_archive_reader PRIVATE ../core)
@@ -81,6 +88,8 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME DocsLinks
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
 endif()
+
+link_libraries(perastage_test_active_dictionary_storage)
 
 include_directories(
     .
@@ -1752,3 +1761,8 @@ add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
 target_include_directories(layer_service_utf8_test PRIVATE ../core ../models)
 target_link_libraries(layer_service_utf8_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME LayerServiceUtf8 COMMAND layer_service_utf8_test)
+
+add_executable(active_dictionary_storage_test active_dictionary_storage_test.cpp)
+target_include_directories(active_dictionary_storage_test PRIVATE ../core ../third_party)
+target_link_libraries(active_dictionary_storage_test PRIVATE perastage_test_active_dictionary_storage)
+add_test(NAME ActiveDictionaryStorage COMMAND active_dictionary_storage_test)

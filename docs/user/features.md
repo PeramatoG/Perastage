@@ -86,7 +86,8 @@ Additional safeguards include:
 
 - preflight path validation,
 - missing-reference reporting,
-- collision policy prompts for differing file content.
+- collision policy prompts for differing file content,
+- custom active dictionaries store newly owned fixture and truss assets in a sibling `<dictionary name>_assets` folder so the JSON and assets can be moved together.
 
 ## Patch, Data Tables, and Editing Helpers
 
