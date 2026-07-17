@@ -22,6 +22,7 @@
 #include <wx/wx.h>
 
 #include "dictionary_selection_controls.h"
+#include "dictionary_editor_state.h"
 
 #include <string>
 #include <vector>
@@ -42,6 +43,7 @@ private:
   std::vector<std::string> BuildTrussSnapshotFromUi() const;
   bool HasFixtureChanges() const;
   bool HasTrussChanges() const;
+  bool ConfirmDirtyChangesBeforeReload(const wxString &operationLabel);
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
   void SyncFixtureVisualColorForFileAndMode(int row);

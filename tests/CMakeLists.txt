@@ -141,6 +141,11 @@ if(PERASTAGE_ENABLE_LOCALIZATION)
                      -P "${CMAKE_CURRENT_SOURCE_DIR}/PerastageGettextHelperRegression.cmake")
 endif()
 
+
+add_executable(dictionary_editor_state_test dictionary_editor_state_test.cpp)
+target_include_directories(dictionary_editor_state_test PRIVATE ../gui)
+add_test(NAME DictionaryEditorState COMMAND dictionary_editor_state_test)
+
 add_executable(platform_locale_test
                platform_locale_test.cpp
                ../core/platform_locale.cpp)

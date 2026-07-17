@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "dictionaryeditdialog.h"
+#include "dictionary_editor_state.h"
 #include "filesystem_path_utils.h"
 
 #include "colorfulrenderers.h"
@@ -1201,64 +1202,51 @@ void DictionaryEditDialog::LoadTrusses() {
   trussSnapshotAtLoad = BuildTrussSnapshotFromUi();
 }
 
+// Builds a dirty-state snapshot for every editable fixture row.
 std::vector<std::string>
 DictionaryEditDialog::BuildFixtureSnapshotFromUi() const {
-  std::vector<std::string> snapshot;
+  std::vector<DictionaryEditorState::FixtureSnapshotRow> rows;
   if (!fixtureTable)
-    return snapshot;
+    return {};
 
   const int count = fixtureTable->GetItemCount();
-  snapshot.reserve(static_cast<size_t>(count));
+  rows.reserve(static_cast<size_t>(count));
   for (int i = 0; i < count; ++i) {
-    wxVariant nameVar;
-    fixtureTable->GetValue(nameVar, i, kFixtureNameColumn);
-    const std::string name = std::string(nameVar.GetString().ToUTF8());
-    if (name.empty())
-      continue;
     if (static_cast<size_t>(i) >= fixturePaths.size())
       continue;
-    const std::string &path = fixturePaths[i];
-    if (path.empty())
-      continue;
-    if (!std::filesystem::exists(path))
-      continue;
+    wxVariant nameVar;
+    fixtureTable->GetValue(nameVar, i, kFixtureNameColumn);
     wxVariant modeVar;
     fixtureTable->GetValue(modeVar, i, kFixtureModeColumn);
-    const std::string mode = std::string(modeVar.GetString().ToUTF8());
+    wxVariant categoryVar;
+    fixtureTable->GetValue(categoryVar, i, kFixtureCategoryColumn);
     wxVariant colorVar;
     fixtureTable->GetValue(colorVar, i, kFixtureVisualColorColumn);
-    const std::string color = ExtractFixtureVisualColorText(colorVar);
-    snapshot.push_back(name + '\n' + path + '\n' + mode + '\n' + color);
+    rows.push_back({std::string(nameVar.GetString().ToUTF8()), fixturePaths[i],
+                    std::string(modeVar.GetString().ToUTF8()),
+                    std::string(categoryVar.GetString().ToUTF8()),
+                    ExtractFixtureVisualColorText(colorVar)});
   }
-  std::sort(snapshot.begin(), snapshot.end());
-  return snapshot;
+  return DictionaryEditorState::BuildFixtureSnapshot(std::move(rows));
 }
 
+// Builds a dirty-state snapshot for every editable truss row.
 std::vector<std::string>
 DictionaryEditDialog::BuildTrussSnapshotFromUi() const {
-  std::vector<std::string> snapshot;
+  std::vector<DictionaryEditorState::TrussSnapshotRow> rows;
   if (!trussTable)
-    return snapshot;
+    return {};
 
   const int count = trussTable->GetItemCount();
-  snapshot.reserve(static_cast<size_t>(count));
+  rows.reserve(static_cast<size_t>(count));
   for (int i = 0; i < count; ++i) {
-    wxVariant nameVar;
-    trussTable->GetValue(nameVar, i, kTrussNameColumn);
-    const std::string name = std::string(nameVar.GetString().ToUTF8());
-    if (name.empty())
-      continue;
     if (static_cast<size_t>(i) >= trussPaths.size())
       continue;
-    const std::string &path = trussPaths[i];
-    if (path.empty())
-      continue;
-    if (!std::filesystem::exists(path))
-      continue;
-    snapshot.push_back(name + '\n' + path);
+    wxVariant nameVar;
+    trussTable->GetValue(nameVar, i, kTrussNameColumn);
+    rows.push_back({std::string(nameVar.GetString().ToUTF8()), trussPaths[i]});
   }
-  std::sort(snapshot.begin(), snapshot.end());
-  return snapshot;
+  return DictionaryEditorState::BuildTrussSnapshot(std::move(rows));
 }
 
 bool DictionaryEditDialog::HasFixtureChanges() const {
@@ -1267,6 +1255,44 @@ bool DictionaryEditDialog::HasFixtureChanges() const {
 
 bool DictionaryEditDialog::HasTrussChanges() const {
   return BuildTrussSnapshotFromUi() != trussSnapshotAtLoad;
+}
+
+// Prompts for pending table edits before a reload or dictionary mutation continues.
+bool DictionaryEditDialog::ConfirmDirtyChangesBeforeReload(
+    const wxString &operationLabel) {
+  const bool fixtureChanged = HasFixtureChanges();
+  const bool trussChanged = HasTrussChanges();
+  const bool hasChanges = fixtureChanged || trussChanged;
+  if (!hasChanges)
+    return true;
+
+  wxMessageDialog dialog(
+      this,
+      "The Dictionary Editor has unsaved table edits. Save them before " +
+          operationLabel + "?",
+      "Unsaved dictionary edits",
+      wxYES_NO | wxCANCEL | wxCANCEL_DEFAULT | wxICON_WARNING);
+  dialog.SetYesNoCancelLabels("Save", "Discard", "Cancel");
+  const int response = dialog.ShowModal();
+  DictionaryEditorState::DirtyGuardChoice choice =
+      DictionaryEditorState::DirtyGuardChoice::Cancel;
+  if (response == wxID_YES)
+    choice = DictionaryEditorState::DirtyGuardChoice::Save;
+  else if (response == wxID_NO)
+    choice = DictionaryEditorState::DirtyGuardChoice::Discard;
+
+  bool saveSucceeded = false;
+  if (choice == DictionaryEditorState::DirtyGuardChoice::Save) {
+    saveSucceeded = true;
+    if (fixtureChanged)
+      saveSucceeded = SaveFixtures() && saveSucceeded;
+    if (trussChanged)
+      saveSucceeded = SaveTrusses() && saveSucceeded;
+  }
+
+  return DictionaryEditorState::ResolveDirtyGuard(hasChanges, choice,
+                                                  saveSucceeded) ==
+         DictionaryEditorState::DirtyGuardResult::Continue;
 }
 
 void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
@@ -1311,8 +1337,11 @@ void DictionaryEditDialog::RefreshDictionarySelectionLabels() {
       wxString::FromUTF8(TrussDictionary::GetActiveDictionaryFilePath()));
 }
 
+// Opens a file picker for changing the active fixtures dictionary.
 void DictionaryEditDialog::OnSelectFixturesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("selecting a fixtures dictionary"))
+    return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
   const wxString initialDir = wxString::FromUTF8(
@@ -1346,8 +1375,11 @@ void DictionaryEditDialog::OnSelectFixturesDictionary(
   LoadFixtures();
 }
 
+// Opens a file picker for changing the active trusses dictionary.
 void DictionaryEditDialog::OnSelectTrussesDictionary(
     wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("selecting a trusses dictionary"))
+    return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
   const wxString initialDir = wxString::FromUTF8(
@@ -1381,6 +1413,7 @@ void DictionaryEditDialog::OnSelectTrussesDictionary(
   LoadTrusses();
 }
 
+// Persists fixture table rows without dropping unresolved entries.
 bool DictionaryEditDialog::SaveFixtures() {
   std::vector<FixtureRow> rows;
   int count = fixtureTable->GetItemCount();
@@ -1396,14 +1429,20 @@ bool DictionaryEditDialog::SaveFixtures() {
     const std::string &path = fixturePaths[i];
     if (path.empty())
       continue;
-    if (!std::filesystem::exists(path))
-      continue;
     wxVariant modeVar;
     fixtureTable->GetValue(modeVar, i, kFixtureModeColumn);
     std::string mode = std::string(modeVar.GetString().ToUTF8());
-    auto copied = CopyToLibrary(this, path, "fixtures");
-    if (!copied)
-      continue;
+    CopiedLibraryAsset asset{path, {}};
+    if (std::filesystem::exists(path)) {
+      auto copied = CopyToLibrary(this, path, "fixtures");
+      if (!copied) {
+        wxMessageBox("Could not copy fixture file into the library. The "
+                     "dictionary was not saved.",
+                     "Save fixtures dictionary", wxICON_ERROR | wxOK, this);
+        return false;
+      }
+      asset = *copied;
+    }
     wxVariant categoryVar;
     fixtureTable->GetValue(categoryVar, i, kFixtureCategoryColumn);
     const std::string category = GdtfFixtureCategory::NormalizeCategory(
@@ -1420,7 +1459,7 @@ bool DictionaryEditDialog::SaveFixtures() {
       return false;
     }
     rows.push_back(
-        {name, copied->path, mode, category, *normalizedColor, copied->sha256});
+        {name, asset.path, mode, category, *normalizedColor, asset.sha256});
   }
 
   SortFixtureRows(rows);
@@ -1452,6 +1491,7 @@ bool DictionaryEditDialog::SaveFixtures() {
   return true;
 }
 
+// Persists truss table rows without dropping unresolved entries.
 bool DictionaryEditDialog::SaveTrusses() {
   std::vector<TrussRow> rows;
   int count = trussTable->GetItemCount();
@@ -1467,12 +1507,18 @@ bool DictionaryEditDialog::SaveTrusses() {
     const std::string &path = trussPaths[i];
     if (path.empty())
       continue;
-    if (!std::filesystem::exists(path))
-      continue;
-    auto copied = CopyToLibrary(this, path, "trusses");
-    if (!copied)
-      continue;
-    rows.push_back({name, copied->path});
+    std::string savedPath = path;
+    if (std::filesystem::exists(path)) {
+      auto copied = CopyToLibrary(this, path, "trusses");
+      if (!copied) {
+        wxMessageBox("Could not copy truss file into the library. The "
+                     "dictionary was not saved.",
+                     "Save trusses dictionary", wxICON_ERROR | wxOK, this);
+        return false;
+      }
+      savedPath = copied->path;
+    }
+    rows.push_back({name, savedPath});
   }
 
   SortTrussRows(rows);
@@ -1671,6 +1717,7 @@ void DictionaryEditDialog::SyncFixtureVisualColorForFileAndMode(int row) {
   }
 }
 
+// Propagates a fixture category edit to matching visible table rows.
 void DictionaryEditDialog::UpdateFixtureCategoryForFile(
     int row, const std::string &category) {
   if (!fixtureTable || row < 0 ||
@@ -1680,7 +1727,6 @@ void DictionaryEditDialog::UpdateFixtureCategoryForFile(
   if (targetPath.empty())
     return;
 
-  std::vector<std::string> matchingNames;
   const int rowCount = fixtureTable->GetItemCount();
   for (int i = 0; i < rowCount; ++i) {
     if (static_cast<size_t>(i) >= fixturePaths.size())
@@ -1690,50 +1736,25 @@ void DictionaryEditDialog::UpdateFixtureCategoryForFile(
 
     fixtureTable->SetValue(wxVariant(wxString::FromUTF8(category)), i,
                            kFixtureCategoryColumn);
-    wxVariant nameVar;
-    fixtureTable->GetValue(nameVar, i, kFixtureNameColumn);
-    const std::string name = std::string(nameVar.GetString().ToUTF8());
-    if (!name.empty())
-      matchingNames.push_back(name);
   }
-
-  if (matchingNames.empty())
-    return;
-  auto dictOpt = GdtfDictionary::Load();
-  if (!dictOpt)
-    return;
-  auto &dict = *dictOpt;
-  bool changed = false;
-  for (const auto &name : matchingNames) {
-    auto it = dict.find(name);
-    if (it == dict.end())
-      continue;
-    if (it->second.category == category)
-      continue;
-    it->second.category = category;
-    changed = true;
-  }
-  if (changed)
-    GdtfDictionary::Save(dict);
 }
 
+// Saves changed dictionaries and closes only after every save succeeds.
 void DictionaryEditDialog::OnOk(wxCommandEvent &WXUNUSED(event)) {
   const bool fixtureChanged = HasFixtureChanges();
   const bool trussChanged = HasTrussChanges();
 
-  if (!fixtureChanged && !trussChanged) {
-    EndModal(wxID_OK);
+  if (fixtureChanged && !SaveFixtures())
     return;
-  }
-
-  if (fixtureChanged)
-    (void)SaveFixtures();
-  if (trussChanged)
-    (void)SaveTrusses();
+  if (trussChanged && !SaveTrusses())
+    return;
   EndModal(wxID_OK);
 }
 
+// Imports into the active dictionary after resolving unsaved table edits.
 void DictionaryEditDialog::OnImportDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("importing a dictionary"))
+    return;
   if (IsFixturesPage()) {
     (void)ImportFixturesDictionary();
     return;
@@ -1912,7 +1933,10 @@ void DictionaryEditDialog::OnExportPortableBundle(
   (void)ExportTrussesPortableBundle();
 }
 
+// Resets the active dictionary after resolving unsaved table edits.
 void DictionaryEditDialog::OnResetDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("resetting a dictionary"))
+    return;
   if (IsFixturesPage()) {
     (void)ResetFixturesDictionaryToDefault();
     return;
