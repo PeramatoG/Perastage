@@ -59,8 +59,12 @@ private:
                                 wxString &activeTooltip,
                                 const wxPoint &position);
   void RefreshDictionarySelectionLabels();
-  void OnSelectFixturesDictionary(wxCommandEvent &event);
-  void OnSelectTrussesDictionary(wxCommandEvent &event);
+  void OnOpenFixturesDictionary(wxCommandEvent &event);
+  void OnOpenTrussesDictionary(wxCommandEvent &event);
+  void OnNewFixturesDictionary(wxCommandEvent &event);
+  void OnNewTrussesDictionary(wxCommandEvent &event);
+  void OnUseDefaultFixturesDictionary(wxCommandEvent &event);
+  void OnUseDefaultTrussesDictionary(wxCommandEvent &event);
 
   void OnAdd(wxCommandEvent &event);
   void OnDelete(wxCommandEvent &event);

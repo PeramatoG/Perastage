@@ -690,11 +690,112 @@ MergeDictionaryEntries(std::unordered_map<std::string, Entry> &current,
 
 } // namespace
 
+
+// Validates that a fixtures dictionary file can be loaded without changing configuration.
+bool ValidateDictionaryFile(const std::string &path, std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  std::string loadError;
+  if (!LoadFromFile(PathUtils::PathFromUtf8(path), loadError)) {
+    if (errorOut)
+      *errorOut = loadError;
+    return false;
+  }
+  return true;
+}
+
+// Creates an empty fixtures dictionary file with the supported JSON contract.
+bool CreateEmptyDictionaryFile(const std::string &path, std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path target = PathUtils::PathFromUtf8(path);
+  if (target.empty()) {
+    if (errorOut)
+      *errorOut = "Dictionary file path is empty";
+    return false;
+  }
+  std::error_code ec;
+  fs::create_directories(target.parent_path(), ec);
+  if (ec) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary folder: " + ec.message();
+    return false;
+  }
+  if (fs::exists(target) && !WriteDictionaryBackup(target)) {
+    if (errorOut)
+      *errorOut = "Could not create a backup before replacing dictionary";
+    return false;
+  }
+  std::ofstream out(target, std::ios::binary | std::ios::trunc);
+  if (!out.is_open()) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary file";
+    return false;
+  }
+  out << DictionaryJsonContract::MakeRoot("fixtures", nlohmann::json::object()).dump(4);
+  out.close();
+  return ValidateDictionaryFile(target.string(), errorOut);
+}
+
+// Creates a fixtures dictionary from application defaults with copied assets.
+bool CreateDictionaryFileFromDefaults(const std::string &path,
+                                      std::string *errorOut) {
+  if (errorOut)
+    errorOut->clear();
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  const fs::path target = PathUtils::PathFromUtf8(path);
+  if (target.empty()) {
+    if (errorOut)
+      *errorOut = "Dictionary file path is empty";
+    return false;
+  }
+  std::error_code ec;
+  fs::create_directories(target.parent_path(), ec);
+  if (ec) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary folder: " + ec.message();
+    return false;
+  }
+  if (fs::exists(target) && !WriteDictionaryBackup(target)) {
+    if (errorOut)
+      *errorOut = "Could not create a backup before replacing dictionary";
+    return false;
+  }
+  std::string baseError;
+  auto baseDict = LoadFromFile(GetBaseDictFile(), baseError);
+  if (!baseDict) {
+    if (errorOut)
+      *errorOut = "Could not load default fixtures dictionary: " + baseError;
+    return false;
+  }
+  std::unordered_map<std::string, Entry> customDict = *baseDict;
+  CopySeedAssetsIntoCustomDictionary(target, *baseDict, customDict);
+  const auto previousValue =
+      ConfigManager::Get().GetValue(kFixturesDictionaryPathConfigKey);
+  ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, target.string());
+  std::string saveError;
+  const bool saved = Save(customDict, &saveError);
+  if (previousValue)
+    ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey, *previousValue);
+  else
+    ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
+  if (!saved) {
+    if (errorOut)
+      *errorOut = "Could not create dictionary from defaults: " + saveError;
+    return false;
+  }
+  return ValidateDictionaryFile(target.string(), errorOut);
+}
+
+// Returns the active fixtures dictionary path.
 std::string GetActiveDictionaryFilePath() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   return GetConfiguredUserDictFile().string();
 }
 
+// Returns the active fixtures dictionary file name.
 std::string GetActiveDictionaryFileName() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
   const fs::path path = GetConfiguredUserDictFile();
@@ -703,6 +804,7 @@ std::string GetActiveDictionaryFileName() {
   return path.filename().string();
 }
 
+// Changes the active fixtures dictionary after validating the selected file.
 bool SetActiveDictionaryFilePath(const std::string &path,
                                  std::string *errorOut) {
   if (errorOut)
@@ -726,6 +828,16 @@ bool SetActiveDictionaryFilePath(const std::string &path,
     return false;
   }
 
+  if (resolvedPath == defaultPath && !fs::exists(resolvedPath))
+    RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile());
+
+  std::string loadError;
+  if (!LoadFromFile(resolvedPath, loadError)) {
+    if (errorOut)
+      *errorOut = "Could not load selected fixtures dictionary: " + loadError;
+    return false;
+  }
+
   const auto previousValue =
       ConfigManager::Get().GetValue(kFixturesDictionaryPathConfigKey);
 
@@ -745,49 +857,6 @@ bool SetActiveDictionaryFilePath(const std::string &path,
       ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
     if (errorOut)
       *errorOut = "Could not persist dictionary selection in user config";
-    return false;
-  }
-
-  const bool creatingDictionary = !fs::exists(resolvedPath);
-  if (creatingDictionary) {
-    if (!RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile())) {
-      std::string createError;
-      if (!Save({}, &createError)) {
-        if (previousValue)
-          ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey,
-                                        *previousValue);
-        else
-          ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
-        ConfigManager::Get().SaveUserConfig();
-        if (errorOut)
-          *errorOut = "Could not create selected fixtures dictionary file: " +
-                      createError;
-        return false;
-      }
-    }
-  }
-
-  if (creatingDictionary && resolvedPath != defaultPath) {
-    std::string baseError;
-    std::string customError;
-    auto baseDict = LoadFromFile(GetBaseDictFile(), baseError);
-    auto customDict = LoadFromFile(resolvedPath, customError);
-    if (baseDict && customDict &&
-        CopySeedAssetsIntoCustomDictionary(resolvedPath, *baseDict, *customDict)) {
-      Save(*customDict);
-    }
-  }
-
-  std::string loadError;
-  if (!LoadFromFile(resolvedPath, loadError)) {
-    if (previousValue)
-      ConfigManager::Get().SetValue(kFixturesDictionaryPathConfigKey,
-                                    *previousValue);
-    else
-      ConfigManager::Get().RemoveKey(kFixturesDictionaryPathConfigKey);
-    ConfigManager::Get().SaveUserConfig();
-    if (errorOut)
-      *errorOut = "Could not load selected fixtures dictionary: " + loadError;
     return false;
   }
 

@@ -991,9 +991,17 @@ void DictionaryEditDialog::BuildLayout() {
   ColumnUtils::EnforceMinColumnWidth(fixtureTable);
   fixturesSelection = BuildDictionarySelectionControls(
       fixturePanel, fixtureSizer, "Active fixtures dictionary",
-      "Select dictionary...", [this]() {
+      [this]() {
         wxCommandEvent dummy;
-        OnSelectFixturesDictionary(dummy);
+        OnOpenFixturesDictionary(dummy);
+      },
+      [this]() {
+        wxCommandEvent dummy;
+        OnNewFixturesDictionary(dummy);
+      },
+      [this]() {
+        wxCommandEvent dummy;
+        OnUseDefaultFixturesDictionary(dummy);
       });
   fixtureSizer->Add(fixtureTable, 1, wxEXPAND | wxALL, 8);
   fixturePanel->SetSizer(fixtureSizer);
@@ -1020,9 +1028,17 @@ void DictionaryEditDialog::BuildLayout() {
   ColumnUtils::EnforceMinColumnWidth(trussTable);
   trussesSelection = BuildDictionarySelectionControls(
       trussPanel, trussSizer, "Active trusses dictionary",
-      "Select dictionary...", [this]() {
+      [this]() {
         wxCommandEvent dummy;
-        OnSelectTrussesDictionary(dummy);
+        OnOpenTrussesDictionary(dummy);
+      },
+      [this]() {
+        wxCommandEvent dummy;
+        OnNewTrussesDictionary(dummy);
+      },
+      [this]() {
+        wxCommandEvent dummy;
+        OnUseDefaultTrussesDictionary(dummy);
       });
   trussSizer->Add(trussTable, 1, wxEXPAND | wxALL, 8);
   trussPanel->SetSizer(trussSizer);
@@ -1036,10 +1052,10 @@ void DictionaryEditDialog::BuildLayout() {
   addBtn = new wxButton(this, wxID_ADD, "Add");
   deleteBtn = new wxButton(this, wxID_DELETE, "Delete");
   downloadBtn = new wxButton(this, wxID_ANY, "Download GDTF");
-  importBtn = new wxButton(this, wxID_ANY, "Import dictionary...");
-  exportBtn = new wxButton(this, wxID_ANY, "Export dictionary...");
+  importBtn = new wxButton(this, wxID_ANY, "Import into active...");
+  exportBtn = new wxButton(this, wxID_ANY, "Export snapshot...");
   exportPortableBtn = new wxButton(this, wxID_ANY, "Export portable bundle...");
-  resetBtn = new wxButton(this, wxID_ANY, "Reset to default");
+  resetBtn = new wxButton(this, wxID_ANY, "Reset contents");
   okBtn = new wxButton(this, wxID_OK, "OK");
   cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
 
@@ -1350,77 +1366,147 @@ void DictionaryEditDialog::RefreshDictionarySelectionLabels() {
       wxString::FromUTF8(TrussDictionary::GetActiveDictionaryFilePath()));
 }
 
-// Opens a file picker for changing the active fixtures dictionary.
-void DictionaryEditDialog::OnSelectFixturesDictionary(
-    wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("selecting a fixtures dictionary"))
+// Opens an existing fixtures dictionary after validating its contract.
+void DictionaryEditDialog::OnOpenFixturesDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("opening a fixtures dictionary"))
     return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
-  const wxString initialDir = wxString::FromUTF8(
-      (currentPath.empty()
-           ? PathUtils::PathFromUtf8(
-                                 ProjectUtils::GetWritableLibraryPath("fixtures"))
-                           : currentPath.parent_path())
-          .string());
-  const wxString initialFile =
-      currentPath.empty() ? wxString("gdtf_dictionary.json")
-                                   : wxString::FromUTF8(currentPath.filename().string());
-  wxFileDialog dialog(this, "Select fixtures dictionary file", initialDir,
-                      initialFile, "JSON files (*.json)|*.json",
-                      wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  wxFileDialog dialog(this, "Open fixtures dictionary",
+                      wxString::FromUTF8(currentPath.parent_path().string()),
+                      wxString(), "JSON dictionary files (*.json)|*.json",
+                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dialog.ShowModal() != wxID_OK)
     return;
-
   std::string error;
-  std::filesystem::path selectedPath =
-      PathUtils::PathFromUtf8(std::string(dialog.GetPath().ToUTF8()));
-  if (!selectedPath.has_extension())
-    selectedPath += ".json";
-  const std::string selected = selectedPath.string();
+  const std::string selected = std::string(dialog.GetPath().ToUTF8());
   if (!GdtfDictionary::SetActiveDictionaryFilePath(selected, &error)) {
-    wxMessageBox("Could not select fixtures dictionary.\n\n" +
+    wxMessageBox("Could not open fixtures dictionary.\n\n" +
                      wxString::FromUTF8(error),
-                 "Dictionary selection", wxOK | wxICON_ERROR, this);
+                 "Open dictionary", wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
   LoadFixtures();
 }
 
-// Opens a file picker for changing the active trusses dictionary.
-void DictionaryEditDialog::OnSelectTrussesDictionary(
-    wxCommandEvent &WXUNUSED(event)) {
-  if (!ConfirmDirtyChangesBeforeReload("selecting a trusses dictionary"))
+// Opens an existing trusses dictionary after validating its contract.
+void DictionaryEditDialog::OnOpenTrussesDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("opening a trusses dictionary"))
     return;
   const std::filesystem::path currentPath =
       PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
-  const wxString initialDir = wxString::FromUTF8(
-      (currentPath.empty()
-           ? PathUtils::PathFromUtf8(
-                                 ProjectUtils::GetWritableLibraryPath("trusses"))
-                           : currentPath.parent_path())
-          .string());
-  const wxString initialFile =
-      currentPath.empty() ? wxString("truss_dictionary.json")
-                                   : wxString::FromUTF8(currentPath.filename().string());
-  wxFileDialog dialog(this, "Select trusses dictionary file", initialDir,
-                      initialFile, "JSON files (*.json)|*.json",
+  wxFileDialog dialog(this, "Open trusses dictionary",
+                      wxString::FromUTF8(currentPath.parent_path().string()),
+                      wxString(), "JSON dictionary files (*.json)|*.json",
+                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+  std::string error;
+  const std::string selected = std::string(dialog.GetPath().ToUTF8());
+  if (!TrussDictionary::SetActiveDictionaryFilePath(selected, &error)) {
+    wxMessageBox("Could not open trusses dictionary.\n\n" +
+                     wxString::FromUTF8(error),
+                 "Open dictionary", wxOK | wxICON_ERROR, this);
+    RefreshDictionarySelectionLabels();
+    return;
+  }
+  LoadTrusses();
+}
+
+// Creates and activates a new fixtures dictionary.
+void DictionaryEditDialog::OnNewFixturesDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("creating a fixtures dictionary"))
+    return;
+  wxArrayString choices;
+  choices.Add("Empty dictionary");
+  choices.Add("From application defaults");
+  wxSingleChoiceDialog choiceDialog(this, "Choose how to create the new fixtures dictionary.",
+                                    "New fixtures dictionary", choices);
+  if (choiceDialog.ShowModal() != wxID_OK)
+    return;
+  wxFileDialog dialog(this, "Create fixtures dictionary", wxString(),
+                      "gdtf_dictionary.json",
+                      "JSON dictionary files (*.json)|*.json",
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dialog.ShowModal() != wxID_OK)
     return;
-
-  std::string error;
   std::filesystem::path selectedPath =
       PathUtils::PathFromUtf8(std::string(dialog.GetPath().ToUTF8()));
   if (!selectedPath.has_extension())
     selectedPath += ".json";
-  const std::string selected = selectedPath.string();
-  if (!TrussDictionary::SetActiveDictionaryFilePath(selected, &error)) {
-    wxMessageBox("Could not select trusses dictionary.\n\n" +
+  std::string error;
+  const bool created = choiceDialog.GetSelection() == 0
+                           ? GdtfDictionary::CreateEmptyDictionaryFile(selectedPath.string(), &error)
+                           : GdtfDictionary::CreateDictionaryFileFromDefaults(selectedPath.string(), &error);
+  if (!created || !GdtfDictionary::SetActiveDictionaryFilePath(selectedPath.string(), &error)) {
+    wxMessageBox("Could not create fixtures dictionary.\n\n" +
                      wxString::FromUTF8(error),
-                 "Dictionary selection", wxOK | wxICON_ERROR, this);
+                 "New dictionary", wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
+    return;
+  }
+  LoadFixtures();
+}
+
+// Creates and activates a new trusses dictionary.
+void DictionaryEditDialog::OnNewTrussesDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("creating a trusses dictionary"))
+    return;
+  wxArrayString choices;
+  choices.Add("Empty dictionary");
+  choices.Add("From application defaults");
+  wxSingleChoiceDialog choiceDialog(this, "Choose how to create the new trusses dictionary.",
+                                    "New trusses dictionary", choices);
+  if (choiceDialog.ShowModal() != wxID_OK)
+    return;
+  wxFileDialog dialog(this, "Create trusses dictionary", wxString(),
+                      "truss_dictionary.json",
+                      "JSON dictionary files (*.json)|*.json",
+                      wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+  if (dialog.ShowModal() != wxID_OK)
+    return;
+  std::filesystem::path selectedPath =
+      PathUtils::PathFromUtf8(std::string(dialog.GetPath().ToUTF8()));
+  if (!selectedPath.has_extension())
+    selectedPath += ".json";
+  std::string error;
+  const bool created = choiceDialog.GetSelection() == 0
+                           ? TrussDictionary::CreateEmptyDictionaryFile(selectedPath.string(), &error)
+                           : TrussDictionary::CreateDictionaryFileFromDefaults(selectedPath.string(), &error);
+  if (!created || !TrussDictionary::SetActiveDictionaryFilePath(selectedPath.string(), &error)) {
+    wxMessageBox("Could not create trusses dictionary.\n\n" +
+                     wxString::FromUTF8(error),
+                 "New dictionary", wxOK | wxICON_ERROR, this);
+    RefreshDictionarySelectionLabels();
+    return;
+  }
+  LoadTrusses();
+}
+
+// Switches fixtures back to the managed default dictionary path.
+void DictionaryEditDialog::OnUseDefaultFixturesDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("using the default fixtures dictionary path"))
+    return;
+  std::string error;
+  if (!GdtfDictionary::SetActiveDictionaryFilePath({}, &error)) {
+    wxMessageBox("Could not use the default fixtures dictionary path.\n\n" +
+                     wxString::FromUTF8(error),
+                 "Use Default", wxOK | wxICON_ERROR, this);
+    return;
+  }
+  LoadFixtures();
+}
+
+// Switches trusses back to the managed default dictionary path.
+void DictionaryEditDialog::OnUseDefaultTrussesDictionary(wxCommandEvent &WXUNUSED(event)) {
+  if (!ConfirmDirtyChangesBeforeReload("using the default trusses dictionary path"))
+    return;
+  std::string error;
+  if (!TrussDictionary::SetActiveDictionaryFilePath({}, &error)) {
+    wxMessageBox("Could not use the default trusses dictionary path.\n\n" +
+                     wxString::FromUTF8(error),
+                 "Use Default", wxOK | wxICON_ERROR, this);
     return;
   }
   LoadTrusses();

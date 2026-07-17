@@ -35,6 +35,12 @@ LoadStatus GetLastLoadStatus();
 
 std::string GetActiveDictionaryFilePath();
 std::string GetActiveDictionaryFileName();
+bool ValidateDictionaryFile(const std::string &path,
+                            std::string *errorOut = nullptr);
+bool CreateEmptyDictionaryFile(const std::string &path,
+                               std::string *errorOut = nullptr);
+bool CreateDictionaryFileFromDefaults(const std::string &path,
+                                      std::string *errorOut = nullptr);
 bool SetActiveDictionaryFilePath(const std::string &path,
                                  std::string *errorOut = nullptr);
 bool Save(const std::unordered_map<std::string, std::string> &dict,

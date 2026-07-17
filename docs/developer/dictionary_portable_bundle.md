@@ -5,11 +5,22 @@ Perastage keeps JSON dictionary snapshots for backward compatibility and also su
 ## Backward compatibility
 
 - Existing `.json` snapshots are still valid for import/export.
-- The current **Import dictionary...** action accepts both JSON snapshots and ZIP bundles.
-- The current **Export dictionary...** action still writes JSON snapshots.
-- A new **Export portable bundle...** action writes a ZIP bundle that includes dictionary data and required assets.
+- The **Import into active...** action accepts both JSON snapshots and ZIP bundles and merges them into the active dictionary without changing the active path.
+- The **Export snapshot...** action still writes JSON snapshots of the active dictionary.
+- The **Export portable bundle...** action writes a ZIP bundle that includes dictionary data and required assets.
 - JSON snapshot export can optionally copy referenced files to a sibling
   `<snapshot>_assets/assets/` folder and write `assets/...` relative paths.
+
+
+## Active dictionary workflows
+
+The Dictionary Editor exposes separate actions for active dictionary management:
+
+- **Open...** validates an existing JSON dictionary and switches the active path only after the selected file matches the current page type.
+- **New...** creates either an empty dictionary or a self-contained dictionary from application defaults, then activates it after validation succeeds.
+- **Use Default** switches back to the managed user dictionary path for the current page type. It does not reset dictionary contents.
+
+These actions are distinct from importing snapshots, exporting snapshots, exporting portable bundles, and resetting the active dictionary contents.
 
 ## Preflight validation and warnings
 
