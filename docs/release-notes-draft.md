@@ -75,6 +75,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 - Improved Dictionary Editor reliability so fixture and truss edits are saved transactionally, unresolved file references remain visible and savable, dirty-state checks catch category/color/path/name changes, and failed saves keep the editor open.
 - Fixed dictionary lookups and truss dictionary loading so missing asset references remain visible for repair and no longer trigger silent saves, entry deletion, backups, or load-time truss migration.
+- Improved Dictionary Editor safety by scoping dirty-edit prompts to the affected fixture or truss page, making **Discard** reload only that page, stopping saves after the first failure, and blocking writes to invalid or missing custom dictionaries until an explicit recovery action is chosen.
 - Replaced the Dictionary Editor dictionary chooser with explicit **Open**, **New**, **Duplicate Current**, and **Use Default** workflows for fixture and truss dictionaries, including type validation before changing the active path and safe duplication of referenced assets.
 - Simplified the Dictionary Editor controls so common actions stay visible, less frequent active-dictionary actions are grouped under **More...**, fixture GDTF download is shown only on the fixtures page, and **Export...** offers only JSON Snapshot or Portable ZIP Bundle.
 - Fixed custom fixture and truss dictionaries so newly owned GDTF assets are stored in a sibling `_assets` folder and remain portable when the dictionary is moved with that folder.

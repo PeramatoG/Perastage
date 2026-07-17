@@ -43,7 +43,13 @@ private:
   std::vector<std::string> BuildTrussSnapshotFromUi() const;
   bool HasFixtureChanges() const;
   bool HasTrussChanges() const;
-  bool ConfirmDirtyChangesBeforeReload(const wxString &operationLabel);
+  bool ConfirmDirtyChangesBeforeReload(
+      DictionaryEditorState::DictionaryEditorPage page,
+      const wxString &operationLabel);
+  bool EnsurePageCanWrite(DictionaryEditorState::DictionaryEditorPage page);
+  bool RecoverInvalidActiveDictionary(
+      DictionaryEditorState::DictionaryEditorPage page);
+  void ReloadPage(DictionaryEditorState::DictionaryEditorPage page);
   void ShowDictionaryLoadStatusMessages();
   bool IsFixturesPage() const;
   void SyncFixtureVisualColorForFileAndMode(int row);
