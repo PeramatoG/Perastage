@@ -18,6 +18,7 @@
 #include "trussdictionary.h"
 #include "filesystem_path_utils.h"
 
+#include "active_dictionary_storage.h"
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
@@ -164,6 +165,26 @@ static bool RecreateUserDictionaryFromBase(const fs::path &userFile,
   return true;
 }
 
+// Copies default seed assets into a newly created custom dictionary.
+static bool CopySeedAssetsIntoCustomDictionary(
+    const fs::path &customFile, const std::unordered_map<std::string, std::string> &seedDict,
+    std::unordered_map<std::string, std::string> &targetDict) {
+  bool changed = false;
+  for (const auto &[key, seedPathText] : seedDict) {
+    const fs::path seedPath = PathUtils::PathFromUtf8(seedPathText);
+    if (!fs::exists(seedPath))
+      continue;
+    const auto copied = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+        {ActiveDictionaryStorage::DictionaryKind::Trusses, customFile, GetUserDictFile(),
+         seedPath, {}, FileImportUtils::ConflictPolicy::Rename});
+    if (!copied.success)
+      continue;
+    targetDict[key] = copied.finalPath.string();
+    changed = true;
+  }
+  return changed;
+}
+
 static bool WriteDictionaryBackup(const fs::path &sourceFile) {
   if (sourceFile.empty() || !fs::exists(sourceFile))
     return false;
@@ -196,20 +217,7 @@ static bool MergeSeedEntriesIntoUserDictionary(
 
 static fs::path ResolveImportedPath(const fs::path &jsonFile,
                                     const std::string &rawPathText) {
-  const fs::path parsedPath = PathUtils::PathFromUtf8(rawPathText);
-  if (parsedPath.is_absolute())
-    return parsedPath;
-
-  const fs::path jsonDir = jsonFile.parent_path();
-  const fs::path directPath = jsonDir / parsedPath;
-  if (fs::exists(directPath))
-    return directPath;
-
-  const fs::path snapshotAssetsPath =
-      jsonDir / (jsonFile.stem().string() + "_assets") / parsedPath;
-  if (fs::exists(snapshotAssetsPath))
-    return snapshotAssetsPath;
-  return directPath;
+  return ActiveDictionaryStorage::ResolveReference(jsonFile, rawPathText);
 }
 
 static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
@@ -459,14 +467,13 @@ bool ImportTrussFile(const std::string &inputPath, std::string &storedPath,
     return false;
   }
 
-  fs::path dir = dictFile.parent_path();
   fs::path working = src;
   if (!EnsureMigratedToGdtf(working, error))
     return false;
 
-  const fs::path dest = dir / working.filename();
-  const auto copyResult = FileImportUtils::CopyWithConflictPolicy(
-      working, dest, FileImportUtils::ConflictPolicy::Rename);
+  const auto copyResult = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+      {ActiveDictionaryStorage::DictionaryKind::Trusses, dictFile, GetUserDictFile(),
+       working, {}, FileImportUtils::ConflictPolicy::Rename});
   if (!copyResult.success) {
     error = "Failed to copy truss file into library";
     return false;
@@ -531,7 +538,8 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
     return false;
   }
 
-  if (!fs::exists(resolvedPath)) {
+  const bool creatingDictionary = !fs::exists(resolvedPath);
+  if (creatingDictionary) {
     if (!RecreateUserDictionaryFromBase(resolvedPath, GetBaseDictFile())) {
       std::string createError;
       if (!Save({}, &createError)) {
@@ -545,6 +553,17 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
                       createError;
         return false;
       }
+    }
+  }
+
+  if (creatingDictionary && resolvedPath != defaultPath) {
+    std::string baseError;
+    std::string customError;
+    auto baseDict = LoadFromFile(GetBaseDictFile(), baseError);
+    auto customDict = LoadFromFile(resolvedPath, customError);
+    if (baseDict && customDict &&
+        CopySeedAssetsIntoCustomDictionary(resolvedPath, *baseDict, *customDict)) {
+      Save(*customDict);
     }
   }
 
@@ -634,6 +653,8 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
     keys.push_back(model);
   std::sort(keys.begin(), keys.end());
 
+  const auto layout = ActiveDictionaryStorage::BuildLayout(
+      ActiveDictionaryStorage::DictionaryKind::Trusses, file, GetUserDictFile());
   for (const auto &model : keys) {
     fs::path p = PathUtils::PathFromUtf8(normalizedDict.at(model));
     fs::path forced = p;
@@ -641,7 +662,7 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
       forced.replace_extension(".gdtf");
 
     nlohmann::json entry;
-    entry["file"] = forced.filename().string();
+    entry["file"] = ActiveDictionaryStorage::MakeSerializedReference(layout, forced);
     entry["imported_at"] = FileImportUtils::NowUtcIso8601();
     if (const auto sha = FileImportUtils::ComputeFileSha256(forced))
       entry["sha256"] = *sha;

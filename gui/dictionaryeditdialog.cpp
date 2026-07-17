@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "dictionaryeditdialog.h"
+#include "active_dictionary_storage.h"
 #include "dictionary_editor_state.h"
 #include "filesystem_path_utils.h"
 
@@ -678,12 +679,22 @@ std::optional<CopiedLibraryAsset> CopyToLibrary(wxWindow *parent,
   if (!std::filesystem::exists(src))
     return std::nullopt;
 
-  const std::filesystem::path dir = PathUtils::PathFromUtf8(
-      ProjectUtils::GetWritableLibraryPath(libraryName));
-  if (dir.empty())
+  const bool isFixtures = std::string(libraryName) == "fixtures";
+  const std::filesystem::path activeDictionaryPath = PathUtils::PathFromUtf8(
+      isFixtures ? GdtfDictionary::GetActiveDictionaryFilePath()
+                 : TrussDictionary::GetActiveDictionaryFilePath());
+  const std::filesystem::path defaultDictionaryPath =
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(libraryName)) /
+      (isFixtures ? "gdtf_dictionary.json" : "truss_dictionary.json");
+  if (activeDictionaryPath.empty() || defaultDictionaryPath.empty())
     return CopiedLibraryAsset{path, {}};
+  const auto layout = ActiveDictionaryStorage::BuildLayout(
+      isFixtures ? ActiveDictionaryStorage::DictionaryKind::Fixtures
+                 : ActiveDictionaryStorage::DictionaryKind::Trusses,
+      activeDictionaryPath, defaultDictionaryPath);
 
-  const std::filesystem::path dest = dir / src.filename();
+  const std::filesystem::path dest =
+      ActiveDictionaryStorage::GetAssetDestination(layout, src);
   FileImportUtils::ConflictPolicy policy =
       FileImportUtils::ConflictPolicy::Overwrite;
 
@@ -700,8 +711,10 @@ std::optional<CopiedLibraryAsset> CopyToLibrary(wxWindow *parent,
     }
   }
 
-  const auto copyResult =
-      FileImportUtils::CopyWithConflictPolicy(src, dest, policy);
+  const auto copyResult = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+      {isFixtures ? ActiveDictionaryStorage::DictionaryKind::Fixtures
+                  : ActiveDictionaryStorage::DictionaryKind::Trusses,
+       activeDictionaryPath, defaultDictionaryPath, src, {}, policy});
   if (!copyResult.success)
     return std::nullopt;
 
