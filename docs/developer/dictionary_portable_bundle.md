@@ -18,6 +18,7 @@ The Dictionary Editor exposes separate actions for active dictionary management:
 
 - **Open...** validates an existing JSON dictionary and switches the active path only after the selected file matches the current page type.
 - **New...** creates either an empty dictionary or a self-contained dictionary from application defaults, then activates it after validation succeeds.
+- **Duplicate Current...** creates an independent working copy of the active dictionary, copies resolvable owned assets into the duplicate's storage location, preserves unresolved references with a summary, validates the duplicate before activation, and lets the user choose whether to activate it immediately.
 - **Use Default** switches back to the managed user dictionary path for the current page type. It does not reset dictionary contents.
 
 These actions are distinct from importing snapshots, exporting snapshots, exporting portable bundles, and resetting the active dictionary contents.

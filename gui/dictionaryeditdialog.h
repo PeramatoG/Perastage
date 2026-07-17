@@ -21,8 +21,8 @@
 #include <wx/notebook.h>
 #include <wx/wx.h>
 
-#include "dictionary_selection_controls.h"
 #include "dictionary_editor_state.h"
+#include "dictionary_selection_controls.h"
 
 #include <string>
 #include <vector>
@@ -63,6 +63,8 @@ private:
   void OnOpenTrussesDictionary(wxCommandEvent &event);
   void OnNewFixturesDictionary(wxCommandEvent &event);
   void OnNewTrussesDictionary(wxCommandEvent &event);
+  void OnDuplicateFixturesDictionary(wxCommandEvent &event);
+  void OnDuplicateTrussesDictionary(wxCommandEvent &event);
   void OnUseDefaultFixturesDictionary(wxCommandEvent &event);
   void OnUseDefaultTrussesDictionary(wxCommandEvent &event);
 

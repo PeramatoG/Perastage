@@ -1784,6 +1784,16 @@ target_include_directories(layer_service_utf8_test PRIVATE ../core ../models)
 target_link_libraries(layer_service_utf8_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME LayerServiceUtf8 COMMAND layer_service_utf8_test)
 
+
+add_executable(dictionary_duplicate_test
+               dictionary_duplicate_test.cpp
+               ../core/dictionary_duplicate.cpp
+               ../core/active_dictionary_storage.cpp
+               ../core/file_import_utils.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(dictionary_duplicate_test PRIVATE ../core ../third_party)
+add_test(NAME DictionaryDuplicate COMMAND dictionary_duplicate_test)
+
 add_executable(active_dictionary_storage_test active_dictionary_storage_test.cpp)
 target_include_directories(active_dictionary_storage_test PRIVATE ../core ../third_party)
 target_link_libraries(active_dictionary_storage_test PRIVATE perastage_test_active_dictionary_storage)

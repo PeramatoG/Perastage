@@ -10,6 +10,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticPaths.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticReport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_bundle.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_duplicate.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/file_import_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
