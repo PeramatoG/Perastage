@@ -73,12 +73,12 @@ private:
   void OnDownloadGdtf(wxCommandEvent &event);
   void OnImportDictionary(wxCommandEvent &event);
   void OnExportDictionary(wxCommandEvent &event);
-  void OnExportPortableBundle(wxCommandEvent &event);
   void OnResetDictionary(wxCommandEvent &event);
   void OnOk(wxCommandEvent &event);
   void OnItemActivated(wxDataViewEvent &event);
   bool ImportFixturesDictionary();
   bool ImportTrussesDictionary();
+  void UpdatePageActionState();
   bool ExportFixturesDictionary();
   bool ExportTrussesDictionary();
   bool ExportFixturesPortableBundle();
@@ -96,8 +96,6 @@ private:
   wxButton *downloadBtn = nullptr;
   wxButton *importBtn = nullptr;
   wxButton *exportBtn = nullptr;
-  wxButton *exportPortableBtn = nullptr;
-  wxButton *resetBtn = nullptr;
   wxButton *okBtn = nullptr;
   wxButton *cancelBtn = nullptr;
   DictionarySelectionControls fixturesSelection;

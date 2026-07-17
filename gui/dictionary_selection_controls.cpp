@@ -2,6 +2,10 @@
 
 namespace {
 
+constexpr int kDuplicateCurrentMenuId = wxID_HIGHEST + 410;
+constexpr int kUseDefaultMenuId = wxID_HIGHEST + 411;
+constexpr int kResetContentsMenuId = wxID_HIGHEST + 412;
+
 // Binds a button click to an optional callback.
 void BindButton(wxButton *button, const std::function<void()> &callback) {
   if (!button || !callback)
@@ -16,7 +20,8 @@ DictionarySelectionControls BuildDictionarySelectionControls(
     wxWindow *parent, wxSizer *parentSizer, const wxString &title,
     const std::function<void()> &onOpen, const std::function<void()> &onNew,
     const std::function<void()> &onDuplicate,
-    const std::function<void()> &onUseDefault) {
+    const std::function<void()> &onUseDefault,
+    const std::function<void()> &onReset) {
   DictionarySelectionControls controls;
   if (!parent || !parentSizer)
     return controls;
@@ -26,18 +31,23 @@ DictionarySelectionControls BuildDictionarySelectionControls(
   auto *buttonRow = new wxBoxSizer(wxHORIZONTAL);
 
   controls.activeFileLabel =
-      new wxStaticText(parent, wxID_ANY, "Dictionary: -");
-  controls.activePathLabel = new wxStaticText(parent, wxID_ANY, "Path: -");
+      new wxStaticText(parent, wxID_ANY, "Dictionary: -", wxDefaultPosition,
+                       wxDefaultSize, wxST_ELLIPSIZE_MIDDLE);
+  controls.activePathLabel =
+      new wxStaticText(parent, wxID_ANY, "Path: -", wxDefaultPosition,
+                       wxDefaultSize, wxST_ELLIPSIZE_MIDDLE);
   controls.openButton = new wxButton(parent, wxID_ANY, "Open...");
   controls.newButton = new wxButton(parent, wxID_ANY, "New...");
-  controls.duplicateButton =
-      new wxButton(parent, wxID_ANY, "Duplicate Current...");
-  controls.useDefaultButton = new wxButton(parent, wxID_ANY, "Use Default");
+  controls.moreButton = new wxButton(parent, wxID_ANY, "More...");
+  controls.moreMenu = new wxMenu;
+  controls.moreMenu->Append(kDuplicateCurrentMenuId, "Duplicate Current...");
+  controls.moreMenu->Append(kUseDefaultMenuId, "Use Default");
+  controls.moreMenu->AppendSeparator();
+  controls.moreMenu->Append(kResetContentsMenuId, "Reset Contents...");
 
   buttonRow->Add(controls.openButton, 0, wxRIGHT, 5);
   buttonRow->Add(controls.newButton, 0, wxRIGHT, 5);
-  buttonRow->Add(controls.duplicateButton, 0, wxRIGHT, 5);
-  buttonRow->Add(controls.useDefaultButton, 0);
+  buttonRow->Add(controls.moreButton, 0);
 
   row->Add(controls.activeFileLabel, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 10);
   row->Add(buttonRow, 0, wxALIGN_CENTER_VERTICAL);
@@ -49,8 +59,26 @@ DictionarySelectionControls BuildDictionarySelectionControls(
 
   BindButton(controls.openButton, onOpen);
   BindButton(controls.newButton, onNew);
-  BindButton(controls.duplicateButton, onDuplicate);
-  BindButton(controls.useDefaultButton, onUseDefault);
+  if (controls.moreButton) {
+    controls.moreButton->Bind(wxEVT_BUTTON,
+                              [button = controls.moreButton,
+                               menu = controls.moreMenu](wxCommandEvent &) {
+                                if (button && menu)
+                                  button->PopupMenu(menu);
+                              });
+  }
+  if (onDuplicate)
+    parent->Bind(
+        wxEVT_MENU, [onDuplicate](wxCommandEvent &) { onDuplicate(); },
+        kDuplicateCurrentMenuId);
+  if (onUseDefault)
+    parent->Bind(
+        wxEVT_MENU, [onUseDefault](wxCommandEvent &) { onUseDefault(); },
+        kUseDefaultMenuId);
+  if (onReset)
+    parent->Bind(
+        wxEVT_MENU, [onReset](wxCommandEvent &) { onReset(); },
+        kResetContentsMenuId);
   return controls;
 }
 
