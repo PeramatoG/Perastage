@@ -324,6 +324,60 @@ bool WriteBundle(const fs::path &outputZipPath,
   return true;
 }
 
+
+// Returns true when a ZIP archive path is relative and cannot escape staging.
+bool IsSafeArchivePath(const std::string &name) {
+  if (name.empty())
+    return false;
+  const fs::path path = PathUtils::PathFromUtf8(name);
+  if (path.is_absolute())
+    return false;
+  for (const auto &part : path) {
+    const std::string text = part.string();
+    if (text == ".." || text.empty())
+      return false;
+  }
+  return true;
+}
+
+// Removes a path without surfacing cleanup failures.
+void RemoveIfExists(const fs::path &path) {
+  if (path.empty())
+    return;
+  std::error_code ec;
+  fs::remove_all(path, ec);
+}
+
+// Moves an existing file or directory aside for transactional rollback.
+bool BackupPath(const fs::path &path, fs::path &backupPath) {
+  std::error_code ec;
+  if (!fs::exists(path, ec) || ec)
+    return true;
+  backupPath = path;
+  backupPath += ".bundle-import.bak";
+  RemoveIfExists(backupPath);
+  fs::rename(path, backupPath, ec);
+  if (!ec)
+    return true;
+  ec.clear();
+  fs::copy(path, backupPath,
+           fs::copy_options::recursive | fs::copy_options::overwrite_existing,
+           ec);
+  if (ec)
+    return false;
+  RemoveIfExists(path);
+  return true;
+}
+
+// Restores a previously backed up path after a failed transaction.
+void RestoreBackup(const fs::path &backupPath, const fs::path &targetPath) {
+  if (backupPath.empty())
+    return;
+  RemoveIfExists(targetPath);
+  std::error_code ec;
+  fs::rename(backupPath, targetPath, ec);
+}
+
 bool ExtractArchive(const fs::path &zipPath, const fs::path &destination,
                     std::string &error) {
   wxFileInputStream input(zipPath.string());
@@ -338,8 +392,13 @@ bool ExtractArchive(const fs::path &zipPath, const fs::path &destination,
     if (entry->IsDir())
       continue;
 
+    const std::string entryName = entry->GetName().ToStdString();
+    if (!IsSafeArchivePath(entryName)) {
+      error = "ZIP entry uses an unsafe path: " + entryName;
+      return false;
+    }
     const fs::path outPath =
-        destination / PathUtils::PathFromUtf8(entry->GetName().ToStdString());
+        destination / PathUtils::PathFromUtf8(entryName);
     std::error_code ec;
     fs::create_directories(outPath.parent_path(), ec);
 
@@ -423,8 +482,10 @@ bool ExportFixturesBundle(
   if (!error.empty())
     return false;
 
-  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "fixtures",
-                     entries, assets, error);
+  if (!WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "fixtures",
+                   entries, assets, error))
+    return false;
+  return ValidateBundleFile(outputZipPath, Type::Fixtures, error);
 }
 
 bool ExportTrussesBundle(
@@ -435,13 +496,16 @@ bool ExportTrussesBundle(
   if (!error.empty())
     return false;
 
-  return WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "trusses", entries,
-                     assets, error);
+  if (!WriteBundle(PathUtils::PathFromUtf8(outputZipPath), "trusses", entries,
+                   assets, error))
+    return false;
+  return ValidateBundleFile(outputZipPath, Type::Trusses, error);
 }
 
 PreparedImport PrepareBundleImport(const std::string &importPath,
                                    Type expectedType) {
   PreparedImport result;
+  result.type = expectedType;
 
   const fs::path path = PathUtils::PathFromUtf8(importPath);
   if (!fs::exists(path))
@@ -512,18 +576,11 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
   }
 
   std::unordered_map<std::string, std::string> importedAssetToLibraryPath;
+  std::unordered_map<std::string, std::pair<std::string, uintmax_t>> seenAssets;
   if (!manifest.contains("assets") || !manifest["assets"].is_array()) {
     result.errors.push_back("Bundle manifest missing 'assets' array");
     return result;
   }
-
-  const bool isFixtures = expectedTypeText == "fixtures";
-  const fs::path activeDictionaryPath = PathUtils::PathFromUtf8(
-      isFixtures ? GdtfDictionary::GetActiveDictionaryFilePath()
-                 : TrussDictionary::GetActiveDictionaryFilePath());
-  const fs::path defaultDictionaryPath =
-      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(expectedTypeText)) /
-      (isFixtures ? "gdtf_dictionary.json" : "truss_dictionary.json");
 
   for (const auto &assetJson : manifest["assets"]) {
     if (!assetJson.is_object()) {
@@ -537,8 +594,26 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
     }
 
     const std::string archivePath = assetJson["path"].get<std::string>();
+    if (!IsSafeArchivePath(archivePath)) {
+      result.errors.push_back("Bundle asset uses an unsafe path: " + archivePath);
+      continue;
+    }
     const std::string expectedChecksum =
         assetJson["checksum"].get<std::string>();
+    const uintmax_t expectedSize =
+        assetJson.contains("size") && assetJson["size"].is_number_unsigned()
+            ? assetJson["size"].get<uintmax_t>()
+            : 0;
+    auto seenIt = seenAssets.find(archivePath);
+    if (seenIt != seenAssets.end() &&
+        (seenIt->second.first != expectedChecksum ||
+         seenIt->second.second != expectedSize)) {
+      result.errors.push_back("Bundle asset has inconsistent duplicate metadata: " +
+                              archivePath);
+      continue;
+    }
+    seenAssets[archivePath] = {expectedChecksum, expectedSize};
+
     const fs::path extractedPath =
         stagingDir / PathUtils::PathFromUtf8(archivePath);
     if (!fs::exists(extractedPath)) {
@@ -552,6 +627,10 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
                               archivePath);
       continue;
     }
+    if (expectedSize != 0 && bytes.size() != expectedSize) {
+      result.errors.push_back("Size mismatch for asset: " + archivePath);
+      continue;
+    }
 
     const std::string actualChecksum = BuildChecksumLabel(bytes);
     if (actualChecksum != expectedChecksum) {
@@ -559,18 +638,7 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
       continue;
     }
 
-    const auto copied = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
-        {isFixtures ? ActiveDictionaryStorage::DictionaryKind::Fixtures
-                    : ActiveDictionaryStorage::DictionaryKind::Trusses,
-         activeDictionaryPath, defaultDictionaryPath, extractedPath, {},
-         FileImportUtils::ConflictPolicy::Overwrite});
-    if (!copied.success) {
-      result.errors.push_back("Could not copy bundle asset into dictionary storage: " +
-                              extractedPath.string());
-      continue;
-    }
-
-    importedAssetToLibraryPath[archivePath] = copied.finalPath.string();
+    importedAssetToLibraryPath[archivePath] = extractedPath.string();
   }
 
   if (!result.errors.empty())
@@ -624,6 +692,162 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
   out << rewrittenRoot.dump(2);
   result.rewritten_snapshot_path = rewrittenPath;
 
+  return result;
+}
+
+
+// Validates a ZIP bundle without copying files into active dictionary storage.
+bool ValidateBundleFile(const std::string &bundlePath, Type expectedType,
+                        std::string &error) {
+  error.clear();
+  PreparedImport prepared = PrepareBundleImport(bundlePath, expectedType);
+  const bool isValid = prepared.is_bundle && prepared.errors.empty() &&
+                       !prepared.rewritten_snapshot_path.empty();
+  if (!isValid) {
+    if (!prepared.errors.empty())
+      error = prepared.errors.front();
+    else
+      error = "File is not a valid Perastage dictionary ZIP bundle";
+  }
+  CleanupPreparedImport(prepared);
+  return isValid;
+}
+
+// Applies a prepared bundle import after the user has confirmed the operation.
+ApplyResult ApplyPreparedBundleImport(const PreparedImport &preparedImport,
+                                      DictionaryImportPolicy policy) {
+  ApplyResult result;
+  if (!preparedImport.is_bundle || preparedImport.rewritten_snapshot_path.empty()) {
+    result.summary.errors.push_back("No prepared bundle import is available");
+    return result;
+  }
+
+  const bool isFixtures = preparedImport.type == Type::Fixtures;
+  const fs::path activeDictionaryPath = PathUtils::PathFromUtf8(
+      isFixtures ? GdtfDictionary::GetActiveDictionaryFilePath()
+                 : TrussDictionary::GetActiveDictionaryFilePath());
+  const fs::path defaultDictionaryPath =
+      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath(
+          isFixtures ? "fixtures" : "trusses")) /
+      (isFixtures ? "gdtf_dictionary.json" : "truss_dictionary.json");
+  const auto kind = isFixtures ? ActiveDictionaryStorage::DictionaryKind::Fixtures
+                              : ActiveDictionaryStorage::DictionaryKind::Trusses;
+  const auto layout = ActiveDictionaryStorage::BuildLayout(
+      kind, activeDictionaryPath, defaultDictionaryPath);
+
+  nlohmann::json root;
+  std::string error;
+  if (!ReadJsonFile(preparedImport.rewritten_snapshot_path, root, error)) {
+    result.summary.errors.push_back(error);
+    return result;
+  }
+  auto entriesPtr = DictionaryJsonContract::GetEntriesForType(
+      root, isFixtures ? "fixtures" : "trusses", error);
+  if (!entriesPtr || (!(*entriesPtr)->is_object() && !(*entriesPtr)->is_array())) {
+    result.summary.errors.push_back(
+        error.empty() ? "Prepared bundle entries are invalid" : error);
+    return result;
+  }
+
+  fs::path stagingAssets =
+      layout.ownedAssetDirectory.string() + ".bundle-import.tmp";
+  fs::path stagedJson = activeDictionaryPath.string() + ".bundle-import.tmp";
+  RemoveIfExists(stagingAssets);
+  RemoveIfExists(stagedJson);
+  std::error_code ec;
+  if (fs::exists(layout.ownedAssetDirectory, ec) && !ec)
+    fs::copy(layout.ownedAssetDirectory, stagingAssets,
+             fs::copy_options::recursive |
+                 fs::copy_options::skip_existing,
+             ec);
+  fs::create_directories(stagingAssets, ec);
+  if (ec) {
+    result.summary.errors.push_back("Could not create staged asset directory");
+    RemoveIfExists(stagingAssets);
+    return result;
+  }
+  nlohmann::json entries = **entriesPtr;
+  ActiveDictionaryStorage::AssetStorageLayout stagingLayout = layout;
+  stagingLayout.ownedAssetDirectory = stagingAssets;
+  auto stageEntryAsset = [&](nlohmann::json &entryJson) {
+    std::string stagedPathText;
+    if (!ResolveEntryFileField(entryJson, stagedPathText))
+      return true;
+    const fs::path stagedSource = PathUtils::PathFromUtf8(stagedPathText);
+    const auto copied = FileImportUtils::CopyWithConflictPolicy(
+        stagedSource, stagingAssets / stagedSource.filename(),
+        FileImportUtils::ConflictPolicy::Rename);
+    if (!copied.success) {
+      result.summary.errors.push_back("Could not stage bundle asset: " +
+                                      stagedPathText);
+      return false;
+    }
+    RewriteEntryFileField(
+        entryJson, ActiveDictionaryStorage::MakeSerializedReference(
+                       stagingLayout, copied.finalPath));
+    return true;
+  };
+  if (entries.is_object()) {
+    for (auto it = entries.begin(); it != entries.end(); ++it) {
+      if (!stageEntryAsset(it.value())) {
+        RemoveIfExists(stagingAssets);
+        return result;
+      }
+    }
+  } else {
+    for (auto &entryJson : entries) {
+      if (!stageEntryAsset(entryJson)) {
+        RemoveIfExists(stagingAssets);
+        return result;
+      }
+    }
+  }
+
+  const nlohmann::json stagedRoot = DictionaryJsonContract::MakeRoot(
+      isFixtures ? "fixtures" : "trusses", entries);
+  std::ofstream out(stagedJson, std::ios::binary | std::ios::trunc);
+  if (!out.is_open()) {
+    result.summary.errors.push_back("Could not write staged bundle dictionary JSON");
+    RemoveIfExists(stagingAssets);
+    return result;
+  }
+  out << stagedRoot.dump(2);
+  out.close();
+  result.staged_snapshot_path = stagedJson;
+
+  result.summary = isFixtures
+                       ? GdtfDictionary::PreviewImportFromFile(stagedJson.string(), policy)
+                       : TrussDictionary::PreviewImportFromFile(stagedJson.string(), policy);
+  if (result.summary.HasErrors()) {
+    RemoveIfExists(stagingAssets);
+    RemoveIfExists(stagedJson);
+    return result;
+  }
+
+  fs::path assetBackup;
+  if (!BackupPath(layout.ownedAssetDirectory, assetBackup)) {
+    result.summary.errors.push_back("Could not back up active dictionary assets");
+    RemoveIfExists(stagingAssets);
+    RemoveIfExists(stagedJson);
+    return result;
+  }
+  fs::rename(stagingAssets, layout.ownedAssetDirectory, ec);
+  if (ec) {
+    result.summary.errors.push_back("Could not install bundled dictionary assets");
+    RestoreBackup(assetBackup, layout.ownedAssetDirectory);
+    RemoveIfExists(stagingAssets);
+    RemoveIfExists(stagedJson);
+    return result;
+  }
+
+  result.summary = isFixtures
+                       ? GdtfDictionary::ApplyImportFromFile(stagedJson.string(), policy)
+                       : TrussDictionary::ApplyImportFromFile(stagedJson.string(), policy);
+  if (result.summary.HasErrors())
+    RestoreBackup(assetBackup, layout.ownedAssetDirectory);
+  else
+    RemoveIfExists(assetBackup);
+  RemoveIfExists(stagedJson);
   return result;
 }
 

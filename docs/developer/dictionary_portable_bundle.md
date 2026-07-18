@@ -80,26 +80,21 @@ No custom file extension is required.
 
 ## Import behavior for ZIP bundles
 
-When a bundle is imported:
+Portable ZIP bundle import has two separate core phases:
 
-1. The ZIP is extracted to a temporary staging directory.
-2. `manifest.json` is validated (`kind`, `dictionary_type`, required fields).
-3. Every declared `assets[]` item is validated with its checksum.
-4. Assets are copied to the target library directory:
-   - fixtures -> `library/fixtures`
-   - trusses -> `library/trusses`
-5. Dictionary entries are rewritten so `file` references point to the imported library assets.
-6. The rewritten dictionary is imported using the same import policy flow used for JSON snapshots.
+1. **Prepare** identifies ZIP input, extracts it to a unique temporary staging directory, rejects unsafe archive paths, validates `manifest.json`, validates required files, checks declared sizes and checksums, rejects inconsistent duplicate asset metadata, and writes a staged preview snapshot whose asset references still point at staging. Preparation is read-only with respect to active dictionary JSON and active asset storage. Cancelling after prepare must not leave copied assets, backups, rewritten active JSON, or other active-storage side effects.
+2. **Apply** runs only after the user selects the import policy and confirms. It stages destination assets, reuses same-content assets, deterministically renames different-content filename conflicts, rewrites entries to final owned references, validates the staged result, backs up active asset storage, installs assets, applies the dictionary merge policy, and restores the asset backup if the import fails.
+
+JSON snapshots remain separate from portable ZIP bundles. Snapshot import continues to use the existing JSON workflow and never changes the active dictionary path.
+
+Exported portable ZIP bundles are validated through the same side-effect-free bundle validation path after creation. Export validation must not copy the exported bundle back into active storage.
 
 ## Collision policy when copying into library
 
-When a source file would overwrite an existing filename in the target library
-(`library/fixtures` or `library/trusses`) and contents differ, the user is
-prompted to choose one policy:
-
-- **Rename** to a deterministic `<basename>_<hash>.<ext>` target.
-- **Overwrite** existing file.
-- **Cancel** import for that asset.
+Bundle preparation never overwrites active assets. During Apply, same-content
+assets reuse the existing final file. If a staged bundle asset has the same
+filename as an unrelated active asset, the imported asset is renamed
+deterministically to `<basename>_<hash>.<ext>`.
 
 Fixture and truss dictionary entries may include optional provenance/hash
 metadata to aid diagnostics:
