@@ -73,12 +73,11 @@ Then verify that the required packages are installed with the `x64-windows` trip
 C:\vcpkg\vcpkg.exe list
 ```
 
-If needed, install the dependencies again:
+If needed, install the dependencies again through the manifest and the same installed root used by CMake:
 
 ```powershell
 cd C:\path\to\Perastage
-C:\vcpkg\vcpkg.exe install --triplet x64-windows
-C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
+.\setup_windows.ps1 -Configuration Debug -CleanBuild
 ```
 
 If the CMake error path contains Visual Studio's internal vcpkg, for example:
@@ -127,7 +126,7 @@ Crash reports are written under the `crash_reports` folder inside the same logs 
 
 ## Localization catalog generation
 
-If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, install `gettext[tools]:x64-windows` with the same vcpkg root and installed directory used by CMake. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.
+If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, run `setup_windows.ps1` or an equivalent manifest install with the same explicit installed root passed to CMake as `VCPKG_INSTALLED_DIR`. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.
 
 ## GDTF Share password is not saved
 

@@ -32,7 +32,7 @@ jobs:
       VCPKG_INSTALLED:   ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS:   ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
-      VCPKG_CACHE_SCHEMA: securestore-v1
+      VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_PACKAGES:    ${{ github.workspace }}/.vcpkg-cache/packages
       VCPKG_TRIPLET:     arm64-osx
 
@@ -75,9 +75,9 @@ jobs:
             .vcpkg-cache/downloads
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: macos-26-xcode-26-v2-vcpkg-securestore-v1-${{ env.VCPKG_BASELINE }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
+          key: macos-26-xcode-26-v2-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
           restore-keys: |
-            macos-26-xcode-26-v2-vcpkg-securestore-v1-${{ env.VCPKG_BASELINE }}-arm64-osx-
+            macos-26-xcode-26-v2-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-arm64-osx-
 
       # ── 5. Prepare vcpkg cache folders ──────────────────────────────────────
       # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
@@ -168,7 +168,13 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
-            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
+            -DBUILD_TESTING=ON
+
+      - name: Build and run release-gate tests
+        run: |
+          cmake --build build --target gdtf_share_security_test credential_store_native_roundtrip_test
+          ctest --test-dir build -L release-gate --output-on-failure
 
       # ── 10. Build project ───────────────────────────────────────────────────
       - name: Build project

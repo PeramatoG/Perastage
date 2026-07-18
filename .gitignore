@@ -403,3 +403,7 @@ peraviz/
 /.vscode/settings.json
 # Generated gettext catalogs
 resources/locale/**/LC_MESSAGES/*.mo
+
+# Perastage-local dependency tools and manifest install tree
+.tools/
+vcpkg_installed/

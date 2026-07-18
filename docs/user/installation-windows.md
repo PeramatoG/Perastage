@@ -27,17 +27,16 @@ If your vcpkg installation is in another location, either edit the Windows `CMAK
 
 ## Install dependencies
 
-Install the required Windows dependencies from the repository root with manifest mode:
+Install Windows dependencies through the root vcpkg manifest by running the setup script:
 
 ```powershell
 cd C:\path\to\Perastage
-C:\vcpkg\vcpkg.exe install --triplet x64-windows
-C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
+.\setup_windows.ps1 -Configuration Release -CleanBuild
 ```
 
-The manifest requests `wxwidgets[secretstore]` so GDTF Share passwords can be stored in Windows Credential Manager. If wxWidgets was previously installed without this feature, run `C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse`, delete the affected Perastage build directory, and configure again.
+The script pins and bootstraps a Perastage-specific vcpkg checkout, installs all manifest dependencies into `vcpkg_installed`, and configures CMake against that same installed tree. The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for localization catalog generation. Do not run a separate gettext install command from the repository root.
 
-The gettext tools are build-time only. CMake uses the vcpkg-provided `msgfmt.exe` to generate `perastage.mo`, but gettext tools and DLLs are not Perastage runtime dependencies for users.
+If wxWidgets was previously built without secure-store support, use `-CleanBuild` so CMake probes the rebuilt manifest dependencies instead of a stale build cache.
 
 ## Configure and Build with Visual Studio
 
@@ -144,3 +143,7 @@ Editing library content does not require administrator privileges because writes
 ## Checking Windows Credential Manager support
 
 After installing or rebuilding dependencies, save valid GDTF Share credentials, restart Perastage, and open the GDTF download workflow. A normal Windows build should not show a secure-storage unavailable warning, and the credentials should not be requested again solely because the application restarted. You can also verify that Windows Credential Manager contains an entry created by Perastage for the saved test credentials.
+
+## Manual Credential Manager validation
+
+A successful CMake secure-store probe confirms that wxWidgets was compiled with `wxUSE_SECRETSTORE`, but release validation should also exercise Windows Credential Manager at runtime. Save valid GDTF Share credentials, restart Perastage, open GDTF download, confirm the online catalog loads without asking for credentials again, download one GDTF, verify the Perastage Credential Manager entry exists, clear credentials from Perastage, and confirm the native entry is removed. Repeat once with a password containing a double quote, a backslash, and Unicode text.

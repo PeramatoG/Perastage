@@ -22,35 +22,18 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 
 ## Windows vcpkg dependency setup
 
-Perastage uses the repository `vcpkg.json` manifest for common C++ dependencies. On Windows, the recommended local convention is to install vcpkg in:
+Perastage uses the root `vcpkg.json` manifest as the dependency source of truth. The manifest pins the vcpkg builtin baseline and requests both `wxwidgets[secretstore]` and the Windows-only host dependency `gettext[tools]`, so Windows localization tools and secure-store-enabled wxWidgets are installed by one manifest install.
 
-```text
-C:/vcpkg
-```
-
-The shared Windows presets in `CMakePresets.json` use this default path directly:
-
-```text
-C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-```
-
-This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
-
-Install the required Windows dependencies from the repository root with manifest mode:
+The recommended Windows setup is:
 
 ```powershell
 cd C:\path\to\Perastage
-C:\vcpkg\vcpkg.exe install --triplet x64-windows
-C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
+.\setup_windows.ps1 -Configuration Debug -CleanBuild
 ```
 
-The manifest pins the vcpkg baseline and requests `wxwidgets[secretstore]`, which enables `wxUSE_SECRETSTORE` for Windows Credential Manager integration. If an existing vcpkg tree was built without the feature, repair it explicitly with:
+By default, `setup_windows.ps1` creates or reuses the Perastage-specific checkout at `.tools\vcpkg`, checks out the pinned baseline in detached HEAD mode, bootstraps vcpkg after checkout, installs the manifest into the repository-local `vcpkg_installed` tree, and passes that same path to CMake as `VCPKG_INSTALLED_DIR`. Use `-VcpkgRoot C:\path\to\dedicated\vcpkg` only when you intentionally want another checkout. The script refuses to change a dirty vcpkg checkout; clean or stash that checkout or use the default Perastage-local checkout.
 
-```powershell
-C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse
-```
-
-After changing wxWidgets features, delete the affected Perastage build directory and reconfigure so the CMake secure-store probe uses the rebuilt wxWidgets configuration.
+If an older build was configured against wxWidgets without `secretstore` or another installed root, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Do not run a separate package-argument gettext install from the repository root.
 
 Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
@@ -300,3 +283,38 @@ For a manual Windows functional check after rebuilding dependencies:
 4. Confirm no secure-storage persistence warning appears.
 5. Confirm credentials are not requested again solely because the application restarted.
 6. Confirm the test entry is present in Windows Credential Manager.
+
+### Release-gate credential/security tests
+
+Use a focused test build when validating GDTF Share credential storage for release:
+
+```powershell
+cmake -S . -B build-security -G Ninja `
+  -DCMAKE_BUILD_TYPE=Debug `
+  -DCMAKE_TOOLCHAIN_FILE=".tools\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=x64-windows `
+  -DVCPKG_INSTALLED_DIR="$PWD\vcpkg_installed" `
+  -DBUILD_TESTING=ON `
+  -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+cmake --build build-security --target gdtf_share_security_test credential_store_native_roundtrip_test
+ctest --test-dir build-security -L release-gate --output-on-failure
+```
+
+The native credential-store round-trip test uses a unique `Perastage/Test/SecureStore/...` service name, never uses the production `Perastage/GDTF Share/gdtf-share.com` entry, and may report a CTest skip when the runner does not expose Windows Credential Manager, macOS Keychain, or a Linux Secret Service provider. A compile-time secure-store probe is required for official builds, but it does not replace a manual save, restart, download, and clear validation on a real Windows desktop.
+
+Manual Windows release validation:
+
+1. Start from a build configured with `wxUSE_SECRETSTORE` enabled.
+2. Open Preferences -> GDTF Share credentials.
+3. Enter and validate valid credentials.
+4. Confirm no secure-storage warning appears.
+5. Close Perastage completely.
+6. Reopen Perastage.
+7. Open GDTF download.
+8. Confirm the online catalog loads.
+9. Select and download one GDTF.
+10. Confirm credentials are not requested again.
+11. Confirm a Perastage entry exists in Windows Credential Manager.
+12. Clear credentials from Perastage.
+13. Confirm the native entry is removed.
+14. Repeat with a password containing a double quote, a backslash, and Unicode text.
