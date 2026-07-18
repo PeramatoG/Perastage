@@ -38,6 +38,7 @@
 #include "groupobject.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
+#include "runtime_storage.h"
 #include "projectutils.h"
 #include "scene_grouping.h"
 #include "sceneobject.h"
@@ -1187,7 +1188,12 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
 
   reportProgress("Extracting package resources...");
 
-  std::string tempDir = CreateTemporaryDirectory();
+  runtime_storage::TemporaryWorkspace importWorkspace("mvr-import");
+  if (!importWorkspace.IsValid()) {
+    LogMessage("Failed to create MVR import workspace.");
+    return false;
+  }
+  std::string tempDir = ToString(importWorkspace.Path().u8string());
   std::string mvrPath = ToString(path.u8string());
   fs::path tempPath(tempDir);
   if (!ExtractMvrZip(mvrPath, tempDir)) {
@@ -1246,6 +1252,9 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   if (!parsed)
     return false;
 
+  importResult.scene.runtimeResourceLeases.push_back(
+      importWorkspace.TransferToSceneLease());
+
   if (mode == MvrImportMode::ReplaceProject) {
     ConfigManager::Get().Reset();
     ConfigManager::Get().GetScene() = importResult.scene;
@@ -1269,29 +1278,6 @@ MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
   if (it != pathRemap.end())
     return it->second;
   return archivePath;
-}
-
-// Creates a temporary extraction directory for the current MVR import.
-std::string MvrImporter::CreateTemporaryDirectory() {
-  fs::path tempBase = fs::temp_directory_path();
-  for (int attempt = 0; attempt < 32; ++attempt) {
-    fs::path fullPath = tempBase / ("ps_" + GenerateShortToken());
-    std::error_code ec;
-    if (fs::create_directory(fullPath, ec) && !ec) {
-      // Return the path encoded as UTF-8 so it can safely be converted back
-      // using PathUtils::PathFromUtf8 or passed to wxWidgets APIs expecting
-      // UTF-8 strings.
-      return ToString(fullPath.u8string());
-    }
-  }
-
-  fs::path fallback =
-      tempBase /
-      ("ps_" +
-       std::to_string(
-                                      std::chrono::system_clock::now().time_since_epoch().count()));
-  fs::create_directory(fallback);
-  return ToString(fallback.u8string());
 }
 
 // Extracts an MVR zip archive into the destination directory.

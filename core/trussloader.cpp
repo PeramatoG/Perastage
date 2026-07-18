@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "runtime_storage.h"
 #include "trussloader.h"
 #include "filesystem_path_utils.h"
 
@@ -205,7 +206,7 @@ static fs::path BuildGdtfExtractionCacheDir(const fs::path &gdtfPath) {
   if (!sizeEc)
     key += "#" + std::to_string(static_cast<unsigned long long>(size));
 
-  fs::path cacheRoot = fs::temp_directory_path() / "perastage-truss-gdtf-cache";
+  fs::path cacheRoot = runtime_storage::GetPerastageCacheRoot() / "truss-gdtf";
   return cacheRoot / StableHashString(key);
 }
 

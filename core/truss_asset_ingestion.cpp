@@ -1,3 +1,4 @@
+#include "runtime_storage.h"
 #include "truss_asset_ingestion.h"
 
 #include "active_dictionary_storage.h"
@@ -98,8 +99,8 @@ Result Ingest(const Request &request) {
   fs::path stagingDir;
   std::error_code ec;
   if (ext != ".gdtf") {
-    stagingDir = fs::temp_directory_path() /
-                 ("perastage-truss-ingest-" + request.sourcePath.stem().string());
+    stagingDir = runtime_storage::GetPerastageOperationRoot() /
+                 ("truss-ingest-" + request.sourcePath.stem().string());
     fs::remove_all(stagingDir, ec);
     fs::create_directories(stagingDir, ec);
     if (ec) {

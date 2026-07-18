@@ -31,6 +31,7 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "primitive_model_resources.h"
+#include "runtime_storage.h"
 #include "projectutils.h"
 #include "support.h"
 #include "truss_gdtf_builder.h"
@@ -2129,12 +2130,8 @@ static std::string HexToCie(const std::string &hex) {
   return colStr.str();
 }
 
-static std::string CreateTempDir() {
-  auto now = std::chrono::system_clock::now().time_since_epoch().count();
-  fs::path base = fs::temp_directory_path();
-  fs::path full = base / ("GDTF_" + std::to_string(now));
-  fs::create_directory(full);
-  return full.string();
+static runtime_storage::TemporaryWorkspace CreateExportWorkspace(const std::string &kind) {
+  return runtime_storage::TemporaryWorkspace(kind);
 }
 
 static bool ExtractZip(const std::string &zipPath, const std::string &destDir) {
@@ -2239,7 +2236,10 @@ static tinyxml2::XMLElement *InsertGdtfFixtureTypeChildInOrder(
 // Creates a temporary patched GDTF copy for intentional MVR export overrides.
 static std::string CreatePatchedGdtf(const std::string &gdtfPath,
                                      const GdtfOverrides &ov) {
-  std::string tempDir = CreateTempDir();
+  auto tempWorkspace = CreateExportWorkspace("mvr-export-gdtf-patch");
+  if (!tempWorkspace.IsValid())
+    return {};
+  std::string tempDir = tempWorkspace.Path().string();
   if (!ExtractZip(gdtfPath, tempDir))
     return {};
   std::string descPath = tempDir + "/description.xml";
@@ -2307,7 +2307,8 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
   }
 
   doc.SaveFile(descPath.c_str());
-  std::string outPath = tempDir + ".gdtf";
+  std::string outPath = (tempWorkspace.Path().parent_path() /
+                         (tempWorkspace.Path().filename().string() + ".gdtf")).string();
   if (!ZipDir(tempDir, outPath))
     return {};
   return outPath;
@@ -2332,6 +2333,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   std::unordered_set<std::string> usedPositionUuids;
   std::unordered_set<std::string> usedSymbolUuids;
+  std::vector<fs::path> exportGeneratedFiles;
+  std::vector<runtime_storage::SceneResourceLeasePtr> exportWorkspaceLeases;
+  struct ExportGeneratedCleanup {
+    std::vector<fs::path> &paths;
+    ~ExportGeneratedCleanup() {
+      for (const auto &path : paths)
+        runtime_storage::RemoveOwnedPath(path, "MVR export generated file");
+    }
+  } exportGeneratedCleanup{exportGeneratedFiles};
 
   auto reserveCanonicalPositionUuid = [&](const std::string &candidate,
                                           const std::string &seedBase) {
@@ -2487,7 +2497,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   std::unordered_map<std::string, std::string> trussInstanceToTypeKey;
   std::unordered_map<std::string, std::string> primitiveSourceByToken;
   std::unordered_set<std::string> reservedArchivePaths;
-  const std::string primitiveTempDir = CreateTempDir();
+  auto primitiveWorkspace = CreateExportWorkspace("mvr-export-primitives");
+  const std::string primitiveTempDir = primitiveWorkspace.IsValid()
+                                           ? primitiveWorkspace.Path().string()
+                                           : std::string{};
+  if (primitiveWorkspace.IsValid())
+    exportWorkspaceLeases.push_back(primitiveWorkspace.TransferToSceneLease());
 
   auto normalizeSourcePath = [&](const std::string &rawPath) {
     fs::path src = PathUtils::PathFromUtf8(rawPath);
@@ -3337,13 +3352,17 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
               Truss::GeometryRepresentation::SymbolSymdef ||
           t.sourceRepresentation == Truss::GeometryRepresentation::Geometry3D;
       if (trussSourceGdtf.empty() && !importedFromMvrGeometry) {
-        fs::path tempPath =
-            fs::temp_directory_path() /
-            ("perastage-truss-export-" +
-             (t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf");
+        auto trussWorkspace = CreateExportWorkspace("mvr-export-truss");
+        fs::path tempPath = trussWorkspace.IsValid()
+                                ? trussWorkspace.Path() / ((t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf")
+                                : fs::path{};
         std::string conversionError;
-        if (BuildTrussGdtfFromInstance(effectiveTruss, tempPath, &conversionError))
+        if (!tempPath.empty() &&
+            BuildTrussGdtfFromInstance(effectiveTruss, tempPath, &conversionError)) {
           trussSourceGdtf = tempPath.string();
+          exportGeneratedFiles.push_back(tempPath);
+          exportWorkspaceLeases.push_back(trussWorkspace.TransferToSceneLease());
+        }
       }
 
       std::string trussPreferredName = BuildTrussGdtfArchiveName(effectiveTruss);
@@ -4184,14 +4203,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     if (cit != gdtfOverrides.end()) {
       std::string tmp =
           CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
-      if (!tmp.empty())
+      if (!tmp.empty()) {
         entry.sourcePath = fs::path(tmp);
+        exportGeneratedFiles.push_back(entry.sourcePath);
+      }
     }
     if (ToLowerAscii(fs::path(entry.archivePath).extension().string()) == ".gdtf") {
-      fs::path canonicalPath =
-          fs::temp_directory_path() /
-          ("perastage-canonical-" +
-           SanitizeArchiveFileName(entry.archivePath, "fixture.gdtf"));
+      auto canonicalWorkspace = CreateExportWorkspace("mvr-export-canonical");
+      fs::path canonicalPath = canonicalWorkspace.IsValid()
+                                   ? canonicalWorkspace.Path() / SanitizeArchiveFileName(entry.archivePath, "fixture.gdtf")
+                                   : fs::path{};
       GdtfCanonicalizer::Options canonicalOptions;
       canonicalOptions.allowFixtureTypeIdRepair = true;
       canonicalOptions.stableIdSeed = entry.archivePath + "|" + entry.sourcePath.string();
@@ -4208,6 +4229,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                           "canonicalizer reported errors");
       }
       entry.sourcePath = canonicalPath;
+      exportGeneratedFiles.push_back(canonicalPath);
+      exportWorkspaceLeases.push_back(canonicalWorkspace.TransferToSceneLease());
     }
     ++plannedArchiveEntries[entry.archivePath];
   }
@@ -4341,12 +4364,12 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
 bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
                                  const MvrExportOptions &options) {
   outBytes.clear();
-  wxFileName tempFile =
-      wxFileName::CreateTempFileName("perastage_mvr_export_buffer");
-  if (!tempFile.IsOk())
+  runtime_storage::TemporaryWorkspace bufferWorkspace("mvr-export-buffer");
+  if (!bufferWorkspace.IsValid())
     return false;
-
-  const std::string tempPath = tempFile.GetFullPath().ToStdString();
+  const std::string tempPath =
+      (bufferWorkspace.Path() / "export-buffer.mvr").string();
+  wxFileName tempFile(wxString::FromUTF8(tempPath));
   const bool exported = ExportToFile(tempPath, options);
   if (!exported) {
     Logger::Instance().Log(Logger::Level::Error,

@@ -1,64 +1,44 @@
-# Storage Policy (Source of Truth)
+# Perastage runtime storage policy
 
-This document defines where Perastage stores data at runtime and which locations are writable.
+Perastage separates persistent user data from runtime artifacts so imports, exports, generated resources, and caches have an explicit owner.
 
-## Intent
+## Persistent user data
 
-Perastage uses a split storage model:
+Project files, user dictionaries, fixture libraries, downloaded fixture assets, preferences, and user-selected source files remain in the existing Perastage user-data and project locations. Runtime cleanup must never delete these paths.
 
-- **Installation tree** is the immutable base content distributed with the application.
-- **User profile tree** is the writable source of truth for user-specific and editable data.
+## Runtime root layout
 
-A developer should be able to answer, without ambiguity: **Perastage stores user data in the user profile tree, not in the installation tree.**
+New runtime artifacts are created below the Perastage-owned system temporary root:
 
-## Installation tree (read-only at runtime)
+```text
+<SystemTemp>/Perastage/
+  sessions/<session-id>/
+    cache/v1/
+  operations/
+```
 
-The installation tree contains application-owned assets that ship with Perastage.
+The runtime storage subsystem in `core/runtime_storage.{h,cpp}` is the authoritative API for this layout. Tests may inject a separate root so they do not use the developer's real temporary folders.
 
-Typical contents:
+## Operation temporaries
 
-- Executables and runtime binaries.
-- Base resources required for the application to start.
-- A seed library used as bundled defaults.
+Operation workspaces are represented by move-only RAII workspaces. They are unique directories below `operations/` and are deleted recursively on success, failure, cancellation, and exception unwind. Cleanup validates that the target remains inside the Perastage runtime root and logs failures instead of throwing from destructors.
 
-Runtime policy:
+## Scene and session resources
 
-- Treat installation files as **read-only**.
-- Do not persist user edits or generated artifacts into installation paths.
+Imported MVR extraction roots, merge resource roots, and converted scene-object resources may outlive the operation that created them. These directories are transferred from an operation workspace into shared scene resource leases. `MvrScene` stores these runtime-only leases; copied scenes and Undo/Redo snapshots share the same lease, and the directory is released when the final scene owner disappears. The lease list is not serialized to MVR, PSTG, JSON, dictionaries, or UserData.
 
-## User profile tree (read/write at runtime)
+## Session caches
 
-The user profile tree is Perastage's writable storage and user-data source of truth.
+GDTF loader extractions, truss-generated GDTF cache entries, and primitive preview models use a session-scoped cache under `sessions/<session-id>/cache/v1/`. Cache keys include source identity where applicable so unchanged files are reused within a session. Removing a cache entry releases its owned files. Session caches are deleted on clean shutdown through normal lease/workspace destruction and recovered on the next startup when marked stale.
 
-It contains:
+## Persistent bounded caches
 
-- Editable library content:
-  - `fixtures/`
-  - `trusses/`
-  - `scene_objects/`
-  - `misc/`
-  - `projects/`
-  - `default_layouts/`
-- Dictionaries.
-- Configuration.
-- Logs.
-- Credentials/secrets.
+No new persistent runtime cache is introduced by this policy. Cross-run caches must use a versioned cache root, last-access metadata, documented size limits, and explicit eviction before being added.
 
-Runtime policy:
+## Crash recovery and legacy cleanup
 
-- User-created or user-modified data is stored here.
-- Application updates must not assume this content can be replaced.
+Each new session directory contains a Perastage marker file. Stale cleanup removes only marked session directories below the Perastage runtime root and never scans or deletes outside that root. Legacy direct children of the system temporary directory with broad prefixes such as `ps_` or `GDTF_` are not deleted automatically because those names are too generic; they may be reported for manual review. Unambiguous future legacy cleanup must require exact Perastage-owned patterns, age checks, containment checks, and link-safety checks.
 
-## Runtime resolution order
+## Archive extraction security
 
-When loading runtime data that may exist in both locations, Perastage resolves in this order:
-
-1. **User profile tree first**.
-2. **Installed base content second (fallback only)**.
-
-This guarantees user overrides are respected while still allowing bundled defaults to work when user copies do not exist.
-
-## Practical rule of thumb
-
-- If data is shipped by the installer and expected to be static: keep it in installation content.
-- If data can be edited, generated, personalized, or is operational state: keep it in user profile storage.
+ZIP-derived workflows must use the shared safe archive extraction policy where compatible. Extraction rejects empty names when inappropriate, absolute paths, drive/root escape forms, `..` components, unsafe normalized destinations, and entries that exceed documented count or size limits. Incomplete workspaces remain operation-owned and are removed automatically on failure.

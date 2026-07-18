@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "runtime_storage.h"
 #include "truss_gdtf_builder.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
@@ -189,8 +190,8 @@ static bool ReadLegacyGtruss(const fs::path &gtrussPath, TrussSourceData &out,
   std::unique_ptr<wxZipEntry> entry;
   std::string metadata;
 
-  fs::path tempDir = fs::temp_directory_path() /
-                     ("perastage-gtruss-" + Slug(gtrussPath.stem().string(), "truss"));
+  fs::path tempDir = runtime_storage::GetPerastageOperationRoot() /
+                     ("gtruss-" + Slug(gtrussPath.stem().string(), "truss"));
   std::error_code ec;
   fs::create_directories(tempDir, ec);
 
@@ -384,8 +385,8 @@ static bool BuildFromSourceData(const TrussSourceData &data,
     return false;
   }
 
-  fs::path tmpDir = fs::temp_directory_path() /
-                    ("perastage-truss-gdtf-" + Slug(outGdtfPath.stem().string(), "truss"));
+  fs::path tmpDir = runtime_storage::GetPerastageOperationRoot() /
+                    ("truss-gdtf-" + Slug(outGdtfPath.stem().string(), "truss"));
   std::error_code ec;
   fs::remove_all(tmpDir, ec);
   fs::create_directories(tmpDir, ec);
