@@ -37,7 +37,7 @@ If an older build was configured against wxWidgets without `secretstore` or anot
 
 Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
-The shared Windows presets point at `.tools/vcpkg` and `vcpkg_installed`, matching the default setup script. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to `setup_windows.ps1` or create a local `CMakeUserPresets.json` file that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`.
+The shared Windows presets keep `C:/vcpkg` as a stable fallback so Visual Studio can open the project before the setup script has created local tools. `setup_windows.ps1` writes an ignored `CMakeUserPresets.json` for the selected checkout and `vcpkg_installed` tree, so Visual Studio uses the prepared repository-local paths after setup. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to `setup_windows.ps1` or maintain a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`.
 
 `CMakeUserPresets.json` is local to each developer machine and should not be committed. Run Ninja presets from a Visual Studio Developer PowerShell or through `setup_windows.ps1`; otherwise CMake may report `CMAKE_CXX_COMPILER not set` because `cl.exe` is not initialized.
 
@@ -114,11 +114,11 @@ Example for a Windows machine using vcpkg in `D:/tools/vcpkg`:
 }
 ```
 
-For the recommended `.tools/vcpkg` setup, this local file is not required.
+For the recommended setup-script workflow, this file is generated automatically when it is missing.
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, run `setup_windows.ps1` first and use the shared Windows presets directly. The presets deliberately set `VCPKG_MANIFEST_MODE=OFF` because the setup script already ran the one manifest install into `vcpkg_installed`; this prevents CMake configure from launching a second vcpkg install into another tree.
+For the standard Windows setup, run `setup_windows.ps1` first, then use the generated local Windows presets in Visual Studio. The presets deliberately set `VCPKG_MANIFEST_MODE=OFF` because the setup script already ran the one manifest install into `vcpkg_installed`; this prevents CMake configure from launching a second vcpkg install into another tree.
 
 Typical setup:
 
@@ -270,7 +270,7 @@ If the error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the Perastage-local `.tools/vcpkg` checkout. Make sure the updated `CMakePresets.json` is being used, clear the CMake cache, and remove stale `.vs` or build folders if needed.
+then Visual Studio is using its own vcpkg instance instead of the expected setup-managed checkout or explicit `C:/vcpkg` fallback. Run `setup_windows.ps1`, make sure `CMakeUserPresets.json` points at the selected checkout, clear the CMake cache, and remove stale `.vs` or build folders if needed.
 
 ## Secure credential-store verification
 

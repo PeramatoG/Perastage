@@ -13,7 +13,7 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 
 ## Recommended vcpkg location
 
-The shared Windows presets use the Perastage-local `.tools/vcpkg` checkout and `vcpkg_installed` tree prepared by `setup_windows.ps1`. This avoids conflicts with Visual Studio's internal vcpkg and prevents CMake from creating a second dependency tree during configure. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to the setup script or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
+The shared Windows presets keep `C:/vcpkg` as a stable fallback so Visual Studio does not fail on a missing repository-local toolchain before setup has run. The setup script creates `.tools/vcpkg` by default, installs dependencies into `vcpkg_installed`, and writes an ignored `CMakeUserPresets.json` so Visual Studio can use those prepared local paths. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to the setup script or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
 
 ## Install dependencies
 
@@ -24,7 +24,7 @@ cd C:\path\to\Perastage
 .\setup_windows.ps1 -Configuration Release -CleanBuild
 ```
 
-The script pins and bootstraps a Perastage-specific vcpkg checkout, installs all manifest dependencies into `vcpkg_installed`, and configures CMake against that same installed tree. The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for localization catalog generation. Do not run a separate gettext install command from the repository root.
+The script pins and bootstraps a Perastage-specific vcpkg checkout, installs all manifest dependencies into `vcpkg_installed`, writes local CMake presets for that same tree, and configures CMake against it. The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for localization catalog generation. Do not run a separate gettext install command from the repository root.
 
 If wxWidgets was previously built without secure-store support, use `-CleanBuild` so CMake probes the rebuilt manifest dependencies instead of a stale build cache.
 

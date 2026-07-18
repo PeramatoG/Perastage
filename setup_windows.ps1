@@ -171,6 +171,67 @@ function Install-PerastageDependencies {
     }
 }
 
+
+# Writes local CMake presets for the selected vcpkg checkout without changing shared presets.
+function Write-PerastageCMakeUserPresets {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepositoryRoot,
+        [Parameter(Mandatory = $true)][string]$VcpkgRoot,
+        [Parameter(Mandatory = $true)][string]$InstalledRoot
+    )
+
+    $userPresetsPath = Join-Path $RepositoryRoot 'CMakeUserPresets.json'
+    if (Test-Path -LiteralPath $userPresetsPath) {
+        Write-Host "CMakeUserPresets.json already exists; leaving local presets unchanged. Ensure it points to: $VcpkgRoot"
+        return
+    }
+
+    $toolchainPath = (Join-Path $VcpkgRoot 'scripts\buildsystems\vcpkg.cmake').Replace('\', '/')
+    $installedPath = $InstalledRoot.Replace('\', '/')
+    $presetDocument = [ordered]@{
+        version = 3
+        configurePresets = @(
+            [ordered]@{
+                name = 'local-win-x64-debug-ninja'
+                displayName = 'Local Windows x64 Debug (Ninja)'
+                inherits = 'win-x64-debug-ninja'
+                cacheVariables = [ordered]@{
+                    CMAKE_TOOLCHAIN_FILE = $toolchainPath
+                    VCPKG_INSTALLED_DIR = $installedPath
+                    VCPKG_MANIFEST_MODE = 'OFF'
+                }
+            },
+            [ordered]@{
+                name = 'local-win-x64-release-ninja'
+                displayName = 'Local Windows x64 Release (Ninja)'
+                inherits = 'win-x64-release-ninja'
+                cacheVariables = [ordered]@{
+                    CMAKE_TOOLCHAIN_FILE = $toolchainPath
+                    VCPKG_INSTALLED_DIR = $installedPath
+                    VCPKG_MANIFEST_MODE = 'OFF'
+                }
+            }
+        )
+        buildPresets = @(
+            [ordered]@{
+                name = 'local-win-debug-build-ninja'
+                displayName = 'Local Build Windows Debug (Ninja)'
+                configurePreset = 'local-win-x64-debug-ninja'
+                jobs = 8
+            },
+            [ordered]@{
+                name = 'local-win-release-build-ninja'
+                displayName = 'Local Build Windows Release (Ninja)'
+                configurePreset = 'local-win-x64-release-ninja'
+                jobs = 8
+            }
+        )
+    }
+
+    $presetDocument | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $userPresetsPath -Encoding UTF8
+    Write-Host "Wrote local CMake presets: $userPresetsPath"
+}
+
 # Resolves the CMake configure and build presets for the selected configuration.
 function Get-CMakePresetNames {
     param([Parameter(Mandatory = $true)][ValidateSet('Debug', 'Release')][string]$Configuration)
@@ -224,6 +285,7 @@ Write-Host "repository manifest path: $(Join-Path $repoRoot 'vcpkg.json')"
 Write-Host "vcpkg installed root: $installedRoot"
 Write-Host "target triplet: $PerastageVcpkgTriplet"
 Install-PerastageDependencies -VcpkgExe $vcpkgExePath -RepositoryRoot $repoRoot -InstalledRoot $installedRoot
+Write-PerastageCMakeUserPresets -RepositoryRoot $repoRoot -VcpkgRoot $resolvedVcpkgRoot -InstalledRoot $installedRoot
 
 Write-Host 'Perastage dependency summary:'
 Write-Host "  vcpkg root: $resolvedVcpkgRoot"
@@ -234,7 +296,8 @@ Write-Host '  wxWidgets feature: secretstore'
 Write-Host '  secure-store requirement: ON'
 Write-Host '  secure-store probe: enforced during configure'
 Write-Host '  CMake vcpkg manifest mode: OFF after explicit manifest install'
-Write-Host "  build directory: build/$($presets.Configure)"
+Write-Host "  shared build directory: build/$($presets.Configure)"
+Write-Host "  local CMake presets: CMakeUserPresets.json"
 Write-Host 'Use -CleanBuild to delete only the selected Perastage build directory before reconfiguring.'
 Invoke-PerastageBuild `
     -ConfigurePreset $presets.Configure `

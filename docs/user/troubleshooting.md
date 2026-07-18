@@ -54,7 +54,7 @@ Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 
 or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, CMake is probably using a different vcpkg installation than the one where Perastage dependencies were installed.
 
-On Windows, Perastage expects the setup-managed `.tools/vcpkg` checkout and repository-local `vcpkg_installed` tree unless you intentionally pass `-VcpkgRoot` and mirror that override in local presets. Verify the default paths from the repository root:
+On Windows, run `setup_windows.ps1` before using Visual Studio presets. The shared presets keep `C:/vcpkg` as a fallback, while the setup script writes `CMakeUserPresets.json` for the selected checkout and repository-local `vcpkg_installed` tree. Verify the default setup-script paths from the repository root:
 
 ```powershell
 Test-Path ".\.tools\vcpkg\vcpkg.exe"
@@ -75,11 +75,11 @@ If the CMake error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the Perastage-local `.tools/vcpkg` checkout.
+then Visual Studio is using its own vcpkg instance instead of the setup-managed checkout or explicit `C:/vcpkg` fallback.
 
 In that case:
 
-1. Make sure the current `CMakePresets.json` uses `.tools/vcpkg/scripts/buildsystems/vcpkg.cmake`, `vcpkg_installed`, and `VCPKG_MANIFEST_MODE=OFF` for Windows presets.
+1. Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so `CMakeUserPresets.json` points to the selected vcpkg checkout, `vcpkg_installed`, and `VCPKG_MANIFEST_MODE=OFF`.
 2. Close Visual Studio.
 3. Remove stale CMake state.
 4. Reopen the repository folder in Visual Studio.
@@ -97,7 +97,7 @@ Remove-Item -Recurse -Force .\out\build\x64-Debug -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\out\build\x64-Release -ErrorAction SilentlyContinue
 ```
 
-If your vcpkg installation is intentionally located somewhere else, pass `-VcpkgRoot` to `setup_windows.ps1` or create a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`. The shared presets expect the setup-managed `.tools/vcpkg` checkout and `vcpkg_installed` tree.
+If your vcpkg installation is intentionally located somewhere else, pass `-VcpkgRoot` to `setup_windows.ps1` or create a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`. The shared presets keep `C:/vcpkg` only as a stable fallback; the setup-script workflow should use generated local presets for custom or repository-local paths.
 
 ## Export diagnostics after a crash or bug
 
