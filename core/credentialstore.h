@@ -44,6 +44,14 @@ struct LoadResult : Result {
     bool migrationSucceeded = false;
 };
 
+struct SecureStoreCapability {
+    bool compiledSupport = false;
+    bool runtimeAvailable = false;
+    std::string backendName;
+    std::string failureReason;
+    std::string platform;
+};
+
 class CredentialBackend {
 public:
     virtual ~CredentialBackend() = default;
@@ -60,6 +68,7 @@ extern const int kGdtfCredentialMetadataSchemaVersion;
 void SetCredentialBackendForTesting(std::shared_ptr<CredentialBackend> backend);
 void SetCredentialMetadataPathForTesting(const std::string& path);
 std::string StatusName(Status status);
+SecureStoreCapability GetSecureStoreCapability();
 Result Save(const Credentials& cred);
 Result SaveUsernameMetadataOnly(const std::string& username);
 LoadResult LoadDetailed();

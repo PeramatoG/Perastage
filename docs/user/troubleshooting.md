@@ -76,7 +76,9 @@ C:\vcpkg\vcpkg.exe list
 If needed, install the dependencies again:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows "gettext[tools]:x64-windows"
+cd C:\path\to\Perastage
+C:\vcpkg\vcpkg.exe install --triplet x64-windows
+C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
 ```
 
 If the CMake error path contains Visual Studio's internal vcpkg, for example:
@@ -126,3 +128,13 @@ Crash reports are written under the `crash_reports` folder inside the same logs 
 ## Localization catalog generation
 
 If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, install `gettext[tools]:x64-windows` with the same vcpkg root and installed directory used by CMake. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.
+
+## GDTF Share password is not saved
+
+Official Perastage builds require wxWidgets to be compiled with `wxUSE_SECRETSTORE`. If CMake reports that secure credential storage is missing, rebuild dependencies with the repository manifest or repair an existing Windows vcpkg tree with:
+
+```powershell
+C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse
+```
+
+Then delete the affected Perastage build directory and configure again so the secure-store probe sees the rebuilt wxWidgets package. On Linux, install `libsecret-1-dev` before building wxWidgets with vcpkg. At runtime, Linux password persistence also needs a Secret Service provider such as GNOME Keyring or KWallet; a headless or minimal desktop can report the runtime store as unavailable even when the feature was compiled correctly.

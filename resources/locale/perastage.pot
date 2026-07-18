@@ -2171,3 +2171,20 @@ msgstr ""
 #: tests/localization_catalog_integration_test.cpp:149
 msgid "Spanish"
 msgstr ""
+
+#: gui/mainwindow_menu.cpp
+msgid "This build does not include secure password storage. The username was saved, but the password must be entered again after restart."
+msgstr ""
+
+#: gui/mainwindow_menu.cpp
+msgid "The native secure password store is unavailable. The username was saved, but the password must be entered again after restart."
+msgstr ""
+
+#: gui/mainwindow_menu.cpp
+msgid "GDTF Share credentials were authenticated for this operation, but the non-secret username metadata could not be saved."
+msgstr ""
+
+#: gui/mainwindow_menu.cpp
+#, c-format
+msgid "GDTF Share credentials were authenticated for this operation, but the password was not saved (%s)."
+msgstr ""

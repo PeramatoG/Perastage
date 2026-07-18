@@ -2203,3 +2203,20 @@ msgstr "西班牙语"
 
 #~ msgid "Login failed. Verify credentials in Preferences."
 #~ msgstr "登录失败。请在首选项中检查凭据。"
+
+#: gui/mainwindow_menu.cpp
+msgid "This build does not include secure password storage. The username was saved, but the password must be entered again after restart."
+msgstr "此构建未包含安全密码存储支持。用户名已保存，但重启后必须重新输入密码。"
+
+#: gui/mainwindow_menu.cpp
+msgid "The native secure password store is unavailable. The username was saved, but the password must be entered again after restart."
+msgstr "原生安全密码存储不可用。用户名已保存，但重启后必须重新输入密码。"
+
+#: gui/mainwindow_menu.cpp
+msgid "GDTF Share credentials were authenticated for this operation, but the non-secret username metadata could not be saved."
+msgstr "GDTF Share 凭据已通过本次操作的身份验证，但无法保存非机密用户名元数据。"
+
+#: gui/mainwindow_menu.cpp
+#, c-format
+msgid "GDTF Share credentials were authenticated for this operation, but the password was not saved (%s)."
+msgstr "GDTF Share 凭据已通过本次操作的身份验证，但未保存密码（%s）。"

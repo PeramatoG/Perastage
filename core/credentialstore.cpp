@@ -163,7 +163,12 @@ public:
         std::string error; if (!IsAvailable(error)) { r.status = Status::SecureStoreUnavailable; r.message = error; return r; }
         wxSecretStore store = wxSecretStore::GetDefault(); wxString user; wxSecretValue secret;
         if (!store.Load(wxString::FromUTF8(service), user, secret)) { r.status = Status::NotFound; return r; }
-        r.credentials = Credentials{user.ToStdString(), secret.GetAsString(wxMBConvUTF8()).ToStdString()}; return r;
+        const auto usernameUtf8 = user.ToUTF8();
+        const wxString passwordString = secret.GetAsString(wxMBConvUTF8());
+        const auto passwordUtf8 = passwordString.ToUTF8();
+        r.credentials = Credentials{usernameUtf8 ? std::string(usernameUtf8.data()) : std::string(),
+                                    passwordUtf8 ? std::string(passwordUtf8.data()) : std::string()};
+        return r;
 #else
         (void)service; r.status = Status::SecureStoreUnavailable; r.message = "wxSecretStore support is disabled in this wxWidgets build"; return r;
 #endif
@@ -182,6 +187,28 @@ public:
     }
 };
 
+// Returns a stable platform name for secure-store diagnostics.
+std::string SecureStorePlatformName() {
+#if defined(_WIN32)
+    return "windows";
+#elif defined(__APPLE__)
+    return "macos";
+#elif defined(__linux__)
+    return "linux";
+#else
+    return "unknown";
+#endif
+}
+
+// Returns whether wxSecretStore support was compiled into wxWidgets.
+bool WxSecretStoreCompiledSupport() {
+#if defined(wxUSE_SECRETSTORE) && wxUSE_SECRETSTORE
+    return true;
+#else
+    return false;
+#endif
+}
+
 // Returns the active credential backend.
 std::shared_ptr<CredentialBackend> Backend() { static std::shared_ptr<CredentialBackend> b = std::make_shared<WxSecretCredentialBackend>(); return g_backendOverride ? g_backendOverride : b; }
 }
@@ -195,8 +222,26 @@ void SetCredentialMetadataPathForTesting(const std::string& path) { g_metadataPa
 // Converts credential store status to stable diagnostics text.
 std::string StatusName(Status status) { switch (status) { case Status::Success: return "Success"; case Status::NotFound: return "NotFound"; case Status::SecureStoreUnavailable: return "SecureStoreUnavailable"; case Status::SecureStoreAccessFailed: return "SecureStoreAccessFailed"; case Status::MetadataReadFailed: return "MetadataReadFailed"; case Status::MetadataWriteFailed: return "MetadataWriteFailed"; case Status::LegacyDataInvalid: return "LegacyDataInvalid"; case Status::MigrationFailed: return "MigrationFailed"; } return "Unknown"; }
 
+// Reports compiled and runtime secure credential-store capability without exposing credentials.
+SecureStoreCapability GetSecureStoreCapability() {
+    SecureStoreCapability capability;
+    auto backend = Backend();
+    capability.backendName = backend->Name();
+    capability.compiledSupport = WxSecretStoreCompiledSupport();
+    capability.platform = SecureStorePlatformName();
+    capability.runtimeAvailable = backend->IsAvailable(capability.failureReason);
+    diagnostics::DiagnosticLogger::Info(
+        "GDTF credential secure-store capability: compiled_support=" + std::string(capability.compiledSupport ? "true" : "false") +
+        " runtime_available=" + std::string(capability.runtimeAvailable ? "true" : "false") +
+        " backend=" + capability.backendName +
+        " platform=" + capability.platform +
+        (capability.failureReason.empty() ? std::string() : " reason=" + capability.failureReason));
+    return capability;
+}
+
 // Saves GDTF Share credentials without writing the password to JSON metadata.
 Result Save(const Credentials& cred) {
+    (void)GetSecureStoreCapability();
     auto b = Backend();
     std::string error;
     if (!b->IsAvailable(error)) {
@@ -218,6 +263,7 @@ Result SaveUsernameMetadataOnly(const std::string& username) { return WriteMetad
 
 // Loads credentials and safely migrates legacy recoverable values when needed.
 LoadResult LoadDetailed() {
+    (void)GetSecureStoreCapability();
     Status metadataStatus = Status::Success;
     std::optional<nlohmann::json> metadata = ReadMetadata(metadataStatus);
     std::optional<std::string> usernameHint;

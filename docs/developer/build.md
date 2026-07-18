@@ -22,7 +22,7 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 
 ## Windows vcpkg dependency setup
 
-Perastage can be built with vcpkg in classic mode. On Windows, the recommended local convention is to install vcpkg in:
+Perastage uses the repository `vcpkg.json` manifest for common C++ dependencies. On Windows, the recommended local convention is to install vcpkg in:
 
 ```text
 C:/vcpkg
@@ -36,11 +36,21 @@ C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
 
-Install the required Windows dependencies with:
+Install the required Windows dependencies from the repository root with manifest mode:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows "gettext[tools]:x64-windows"
+cd C:\path\to\Perastage
+C:\vcpkg\vcpkg.exe install --triplet x64-windows
+C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
 ```
+
+The manifest pins the vcpkg baseline and requests `wxwidgets[secretstore]`, which enables `wxUSE_SECRETSTORE` for Windows Credential Manager integration. If an existing vcpkg tree was built without the feature, repair it explicitly with:
+
+```powershell
+C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse
+```
+
+After changing wxWidgets features, delete the affected Perastage build directory and reconfigure so the CMake secure-store probe uses the rebuilt wxWidgets configuration.
 
 Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
@@ -129,7 +139,7 @@ For the standard Windows setup, install vcpkg in `C:/vcpkg` and use the shared W
 Typical setup:
 
 1. Install vcpkg in `C:/vcpkg`.
-2. Install the required vcpkg dependencies.
+2. Install the required vcpkg dependencies from the manifest, including `wxwidgets[secretstore]`.
 3. Open the repository folder in Visual Studio.
 4. Select `Local Machine`.
 5. Select a Windows configure preset such as `Windows x64 Debug (Ninja)`.
@@ -259,7 +269,7 @@ or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `p
 First verify that the dependency is installed in the intended vcpkg instance. For example:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows
+C:\vcpkg\vcpkg.exe install --triplet x64-windows
 ```
 
 Then verify that the expected vcpkg instance exists:
@@ -277,3 +287,16 @@ C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsyst
 ```
 
 then Visual Studio is using its own vcpkg instance instead of the recommended `C:/vcpkg` installation. Make sure the updated `CMakePresets.json` is being used, clear the CMake cache, and remove stale `.vs` or build folders if needed.
+
+## Secure credential-store verification
+
+Official Windows and macOS presets require `PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON`. Official Linux packaging workflows also pass this option explicitly. When the option is enabled, CMake compiles a small `wx/setup.h` probe and fails if `wxUSE_SECRETSTORE` is disabled. On Linux, building wxWidgets with this feature requires libsecret development headers such as `libsecret-1-dev`; runtime persistence still depends on a running Freedesktop Secret Service provider such as GNOME Keyring or KWallet.
+
+For a manual Windows functional check after rebuilding dependencies:
+
+1. Save valid GDTF Share credentials in Perastage.
+2. Restart Perastage.
+3. Open the GDTF download workflow.
+4. Confirm no secure-storage persistence warning appears.
+5. Confirm credentials are not requested again solely because the application restarted.
+6. Confirm the test entry is present in Windows Credential Manager.

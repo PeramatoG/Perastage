@@ -527,10 +527,21 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     auto showPersistenceWarning = [&](const CredentialStore::Result &result) {
       if (result.Succeeded())
         return;
-      const wxString message = result.status == CredentialStore::Status::SecureStoreUnavailable
-          ? _("The username was saved, but secure password storage is unavailable. The password must be entered again after restart.")
-          : wxString::Format(_("GDTF Share credentials were authenticated for this operation, but were not saved (%s)."),
-                             wxString::FromUTF8(CredentialStore::StatusName(result.status)));
+      clearGdtfDownloadBlockingUi();
+      wxString message;
+      if (result.status == CredentialStore::Status::SecureStoreUnavailable) {
+        const wxString detail = wxString::FromUTF8(result.message);
+        if (detail.Contains("disabled")) {
+          message = _("This build does not include secure password storage. The username was saved, but the password must be entered again after restart.");
+        } else {
+          message = _("The native secure password store is unavailable. The username was saved, but the password must be entered again after restart.");
+        }
+      } else if (result.status == CredentialStore::Status::MetadataWriteFailed) {
+        message = _("GDTF Share credentials were authenticated for this operation, but the non-secret username metadata could not be saved.");
+      } else {
+        message = wxString::Format(_("GDTF Share credentials were authenticated for this operation, but the password was not saved (%s)."),
+                                   wxString::FromUTF8(CredentialStore::StatusName(result.status)));
+      }
       wxMessageBox(message, _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
     };
     auto ensureAuthenticated = [&](GdtfShareResult &loginResult) -> bool {

@@ -2240,3 +2240,20 @@ msgstr "Español"
 #~ msgid "Login failed. Verify credentials in Preferences."
 #~ msgstr ""
 #~ "Error de inicio de sesión. Verifique las credenciales en Preferencias."
+
+#: gui/mainwindow_menu.cpp
+msgid "This build does not include secure password storage. The username was saved, but the password must be entered again after restart."
+msgstr "Esta compilación no incluye almacenamiento seguro de contraseñas. El nombre de usuario se guardó, pero la contraseña debe introducirse de nuevo después de reiniciar."
+
+#: gui/mainwindow_menu.cpp
+msgid "The native secure password store is unavailable. The username was saved, but the password must be entered again after restart."
+msgstr "El almacén seguro nativo de contraseñas no está disponible. El nombre de usuario se guardó, pero la contraseña debe introducirse de nuevo después de reiniciar."
+
+#: gui/mainwindow_menu.cpp
+msgid "GDTF Share credentials were authenticated for this operation, but the non-secret username metadata could not be saved."
+msgstr "Las credenciales de GDTF Share se autenticaron para esta operación, pero no se pudieron guardar los metadatos no secretos del nombre de usuario."
+
+#: gui/mainwindow_menu.cpp
+#, c-format
+msgid "GDTF Share credentials were authenticated for this operation, but the password was not saved (%s)."
+msgstr "Las credenciales de GDTF Share se autenticaron para esta operación, pero no se guardó la contraseña (%s)."
