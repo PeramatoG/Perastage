@@ -75,7 +75,7 @@ std::optional<Credentials> LoadLegacyJson(Status& status) {
 
 // Loads and decodes the older ConfigManager credential keys in memory only.
 std::optional<Credentials> LoadLegacyConfig() {
-    ConfigManager cfg;
+    ConfigManager &cfg = ConfigManager::Get();
     Credentials c{cfg.GetValue("gdtf_username").value_or(""), SimpleCrypt::Decode(cfg.GetValue("gdtf_password").value_or(""))};
     if (c.username.empty() || c.password.empty()) return std::nullopt;
     return c;
@@ -159,7 +159,7 @@ LoadResult LoadDetailed() {
     Result saveResult = Save(*legacy); if (!saveResult.Succeeded()) { secure.status = Status::MigrationFailed; secure.message = saveResult.message; return secure; }
     LoadResult verify = b->Load(kGdtfShareCredentialService);
     if (!verify.credentials || verify.credentials->username != legacy->username || verify.credentials->password != legacy->password) { secure.status = Status::MigrationFailed; secure.message = "Secure-store verification failed"; return secure; }
-    ConfigManager cfg; cfg.SetValue("gdtf_username", legacy->username); cfg.SetValue("gdtf_password", ""); WriteMetadata(legacy->username);
+    ConfigManager &cfg = ConfigManager::Get(); cfg.SetValue("gdtf_username", legacy->username); cfg.SetValue("gdtf_password", ""); WriteMetadata(legacy->username);
     verify.migrationAttempted = true; verify.migrationSucceeded = true; diagnostics::DiagnosticLogger::Info("GDTF credential migration succeeded."); return verify;
 }
 
@@ -169,7 +169,7 @@ std::optional<Credentials> Load() { return LoadDetailed().credentials; }
 // Clears secure credentials, metadata, and legacy password values centrally.
 Result ClearDetailed() {
     Result br = Backend()->Clear(kGdtfShareCredentialService); const std::string file = GetCredFile(); std::error_code ec; if (!file.empty()) fs::remove(file, ec);
-    ConfigManager cfg; cfg.SetValue("gdtf_username", ""); cfg.SetValue("gdtf_password", ""); diagnostics::DiagnosticLogger::Info("GDTF credential clear: status=" + StatusName(br.status)); return br.status == Status::SecureStoreUnavailable ? Result{} : br;
+    ConfigManager &cfg = ConfigManager::Get(); cfg.SetValue("gdtf_username", ""); cfg.SetValue("gdtf_password", ""); diagnostics::DiagnosticLogger::Info("GDTF credential clear: status=" + StatusName(br.status)); return br.status == Status::SecureStoreUnavailable ? Result{} : br;
 }
 
 // Clears credentials through the compatibility boolean interface.
