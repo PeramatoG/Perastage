@@ -133,6 +133,7 @@ AssetCopyResult CopyAssetIntoDictionaryStorage(const AssetCopyRequest &request) 
   result.finalPath = copyResult.finalPath;
   result.serializedPath = MakeSerializedReference(layout, copyResult.finalPath);
   result.finalSha256 = copyResult.finalSha256;
+  result.reusedExisting = copyResult.reusedExisting;
   return result;
 }
 

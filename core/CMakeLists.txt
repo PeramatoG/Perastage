@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticReport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_bundle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_duplicate.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_reset_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/file_import_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
@@ -73,6 +74,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/PerastageSvgSymbol.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/truss_asset_ingestion.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_builder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_render_size.cpp

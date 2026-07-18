@@ -40,6 +40,7 @@ struct AssetCopyResult {
   std::filesystem::path finalPath;
   std::string serializedPath;
   std::string finalSha256;
+  bool reusedExisting = false;
 };
 
 std::filesystem::path GetOwnedAssetDirectory(
