@@ -18,6 +18,7 @@
 #pragma once
 #include <string>
 
+// SimpleCrypt remains only as a legacy decoder for credential migration; do not use it for new password writes.
 namespace SimpleCrypt {
     std::string Encode(const std::string& data);
     std::string Decode(const std::string& data);

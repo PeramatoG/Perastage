@@ -372,12 +372,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   std::optional<CredentialStore::Credentials> activeCredentials =
       LoadGdtfCredentialsForGui(configManager);
 
-  wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_session.txt";
-  std::string cookieFile = WxToUtf8(cookieFileWx);
-  auto removeCookieFileIfPresent = [&]() {
-    if (wxFileExists(cookieFileWx))
-      wxRemoveFile(cookieFileWx);
-  };
+  GdtfShareClient gdtfClient;
 
   const auto catalogResolveStart = std::chrono::steady_clock::now();
   GdtfCatalogService catalogService;
@@ -398,16 +393,14 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
               return false;
             }
 
-            long loginHttpCode = 0;
-            const bool loginOk = GdtfLogin(activeCredentials->username,
-                                           activeCredentials->password,
-                                           cookieFile, loginHttpCode);
-            if (!loginOk || loginHttpCode != 200)
+            const GdtfShareResult loginResult = gdtfClient.Login(
+                activeCredentials->username, activeCredentials->password);
+            if (!loginResult.Succeeded())
               return false;
 
-            long listHttpCode = 0;
-            return GdtfGetList(cookieFile, onlineListData, &listHttpCode) &&
-                   listHttpCode == 200 && !onlineListData.empty();
+            const GdtfShareResult listResult = gdtfClient.GetCatalog();
+            onlineListData = listResult.payload;
+            return listResult.Succeeded() && !onlineListData.empty();
           },
           nowUtc, 0);
 
@@ -461,26 +454,21 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           return refreshResult;
         }
 
-        long loginHttpCode = 0;
-        const bool loginOk =
-            GdtfLogin(activeCredentials->username, activeCredentials->password,
-                      cookieFile, loginHttpCode);
-        if (!loginOk || loginHttpCode != 200) {
+        const GdtfShareResult loginResult = gdtfClient.Login(
+            activeCredentials->username, activeCredentials->password);
+        if (!loginResult.Succeeded()) {
           refreshResult.failureDetails =
-              wxString::Format("Login failed (HTTP %ld).", loginHttpCode)
-                  .ToStdString();
+              FormatGdtfShareUserMessage(loginResult, "login");
           return refreshResult;
         }
 
-        long listHttpCode = 0;
-        if (GdtfGetList(cookieFile, refreshResult.listData, &listHttpCode) &&
-            listHttpCode == 200 && !refreshResult.listData.empty()) {
+        const GdtfShareResult listResult = gdtfClient.GetCatalog();
+        refreshResult.listData = listResult.payload;
+        if (listResult.Succeeded() && !refreshResult.listData.empty()) {
           refreshResult.success = true;
         } else {
           refreshResult.failureDetails =
-              wxString::Format("Catalog request failed (HTTP %ld, bytes=%zu).",
-                               listHttpCode, refreshResult.listData.size())
-                  .ToStdString();
+              FormatGdtfShareUserMessage(listResult, "catalog");
         }
         return refreshResult;
       });
@@ -535,7 +523,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       activeCredentials = dialogCredentials;
       return true;
     };
-    auto tryLogin = [&](long &httpCode) -> bool {
+    auto tryLogin = [&](GdtfShareResult &loginResult) -> bool {
       if (!activeCredentials || activeCredentials->username.empty() ||
           activeCredentials->password.empty()) {
         return false;
@@ -545,21 +533,21 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         consolePanel->AppendMessage(
             "[INFO] Logging into GDTF Share using libcurl");
       updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
-      return GdtfLogin(activeCredentials->username, activeCredentials->password,
-                       cookieFile, httpCode);
+      loginResult = gdtfClient.Login(activeCredentials->username, activeCredentials->password);
+      return loginResult.Succeeded();
     };
 
-    long loginHttpCode = 0;
-    bool loginConnected = tryLogin(loginHttpCode);
-    if (!loginConnected || IsAuthenticationFailureHttpCode(loginHttpCode)) {
+    GdtfShareResult loginResult;
+    bool loginConnected = tryLogin(loginResult);
+    if (!loginConnected || loginResult.category == GdtfShareResultCategory::AuthenticationRejected) {
       if (!requestCredentialsFromDialog()) {
-        removeCookieFileIfPresent();
         return;
       }
-      loginConnected = tryLogin(loginHttpCode);
-      if (!loginConnected || loginHttpCode != 200) {
-        showGdtfDownloadError("Login failed.", "Login Error");
-        removeCookieFileIfPresent();
+      loginConnected = tryLogin(loginResult);
+      if (!loginConnected) {
+        showGdtfDownloadError(wxString::FromUTF8(
+                                  FormatGdtfShareUserMessage(loginResult, "login")),
+                              "Login Error");
         return;
       }
     }
@@ -583,9 +571,10 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         if (consolePanel)
           consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
                                       rid);
-        long dlCode = 0;
-        bool ok =
-            GdtfDownload(WxToUtf8(rid), WxToUtf8(dest), cookieFile, dlCode);
+        const GdtfShareResult downloadResult =
+            gdtfClient.DownloadRevision(WxToUtf8(rid), WxToUtf8(dest));
+        long dlCode = downloadResult.httpStatus;
+        bool ok = downloadResult.Succeeded();
         clearGdtfDownloadBlockingUi();
         if (consolePanel)
           consolePanel->AppendMessage(
@@ -603,7 +592,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         } else {
           diagnostics::DiagnosticLogger::Error("GDTF download failed: http=" +
                                                std::to_string(dlCode));
-          wxMessageBox("Failed to download GDTF.", "Error",
+          wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(downloadResult, "download")), "Error",
                        wxOK | wxICON_ERROR);
         }
       } else {
@@ -613,7 +602,6 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     }
   }
 
-  removeCookieFileIfPresent();
 }
 
 // Opens the dictionary editor dialog.
