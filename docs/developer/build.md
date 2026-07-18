@@ -319,3 +319,17 @@ Manual Windows release validation:
 12. Clear credentials from Perastage.
 13. Confirm the native entry is removed.
 14. Repeat with a password containing a double quote, a backslash, and Unicode text.
+
+### Windows Ninja x64 compiler validation
+
+Windows Ninja presets whose names contain `win-x64` request an external x64 Visual Studio environment. Visual Studio uses that preset metadata to source x64 tools before invoking CMake, and `setup_windows.ps1` separately verifies that `cl.exe`, `link.exe`, `VSCMD_ARG_HOST_ARCH`, `VSCMD_ARG_TGT_ARCH`, and the compiler banner all identify an x64 toolchain before configuring.
+
+A `LNK4272` message saying x64 libraries conflict with an x86 target, especially during `CMakeTestCXXCompiler.cmake`, means an old build directory cached an x86 compiler or a compiler from a different Visual Studio installation while the current environment points at x64 libraries. The setup script checks `CMakeCache.txt` before configure and removes only the selected build directory when it finds an incompatible x86 compiler path, different Visual Studio root, different generator, different toolchain, or different vcpkg triplet.
+
+Use `-CleanBuild` to force the same safe cleanup for the selected build directory:
+
+```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
+```
+
+Use `-VisualStudioPath` or `-VisualStudioVersion` to make multi-install selection explicit. The cleanup does not delete source files, `.tools\vcpkg`, `vcpkg_installed`, global vcpkg downloads, or shared vcpkg checkouts.

@@ -130,3 +130,33 @@ Then delete the affected Perastage build directory and configure again so the se
 ### CMake reports CMAKE_CXX_COMPILER not set on Windows
 
 Run Ninja presets from a Visual Studio Developer PowerShell or run `setup_windows.ps1`, which imports the x64 MSVC environment before configuring CMake. If this appears after a failed dependency configure, rerun `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so the pinned vcpkg checkout, `vcpkg_installed` root, and CMake cache are aligned.
+
+### LNK4272 reports x64 libraries conflicting with an x86 target
+
+`LNK4272: library machine type 'x64' conflicts with target machine type 'x86'`, unresolved `__RTC_InitBase`, unresolved `__RTC_Shutdown`, or unresolved `_mainCRTStartup` during CMake's compiler test means the build directory captured an x86 MSVC compiler or linker while the active environment points at x64 SDK/runtime libraries. This is a mixed compiler/cache/environment problem, not a Perastage source, credential-store, or vcpkg target problem.
+
+Use the setup script so it validates the x64 MSVC tools and refreshes only the selected build directory when an incompatible cache is detected:
+
+```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
+```
+
+To inspect the active compiler manually from the same shell, run:
+
+```powershell
+where cl
+where link
+cl
+$env:VSCMD_ARG_HOST_ARCH
+$env:VSCMD_ARG_TGT_ARCH
+```
+
+The compiler banner must say `for x64`, and both `VSCMD_ARG_HOST_ARCH` and `VSCMD_ARG_TGT_ARCH` must be `x64`. Deleting the selected Perastage build directory is safe; deleting `.tools\vcpkg`, `vcpkg_installed`, global vcpkg downloads, or a shared developer vcpkg checkout is not required for this compiler-cache problem.
+
+If multiple Visual Studio installations are present, select one explicitly:
+
+```powershell
+.\setup_windows.ps1 -Configuration Debug -VisualStudioPath "C:\Program Files\Microsoft Visual Studio\2022\Community" -CleanBuild -SkipBuild
+```
+
+You can also use `-VisualStudioVersion` with a vswhere-compatible version range when you prefer version selection over a full path.

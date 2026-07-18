@@ -93,6 +93,9 @@ if(BASH_EXECUTABLE)
     add_test(NAME SecureStoreBuildPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_securestore_build_policy.sh)
     set_tests_properties(SecureStoreBuildPolicy PROPERTIES LABELS "secure-store;security;release-gate")
+    add_test(NAME WindowsNinjaX64Policy
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh)
+    set_tests_properties(WindowsNinjaX64Policy PROPERTIES LABELS "windows;x64;release-gate")
 endif()
 
 find_package(Python3 COMPONENTS Interpreter)

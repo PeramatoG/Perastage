@@ -5,6 +5,10 @@ param(
 
     [string]$VcpkgRoot = '',
 
+    [string]$VisualStudioPath = '',
+
+    [string]$VisualStudioVersion = '',
+
     [switch]$SkipBuild,
 
     [switch]$CleanBuild
@@ -28,23 +32,74 @@ function Assert-CommandAvailable {
     }
 }
 
-# Finds the latest Visual Studio installation through vswhere.
+# Prints PATH resolution diagnostics for MSVC tools.
+function Write-MsvcToolDiagnostics {
+    Write-Host 'where.exe cl:'
+    where.exe cl 2>&1 | ForEach-Object { Write-Host "  $_" }
+    Write-Host 'where.exe link:'
+    where.exe link 2>&1 | ForEach-Object { Write-Host "  $_" }
+}
+
+# Normalizes a path for case-insensitive Windows prefix comparisons.
+function ConvertTo-NormalizedPathText {
+    param([string]$PathText)
+
+    if ([string]::IsNullOrWhiteSpace($PathText)) {
+        return ''
+    }
+    return $PathText.Trim('"').Replace('/', '\').TrimEnd('\').ToLowerInvariant()
+}
+
+# Finds the requested Visual Studio installation through vswhere.
 function Get-VisualStudioInstallationPath {
+    param(
+        [string]$RequestedPath,
+        [string]$RequestedVersion
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($RequestedPath)) {
+        if (-not (Test-Path -LiteralPath $RequestedPath)) {
+            throw "Requested Visual Studio installation path does not exist: $RequestedPath"
+        }
+        return (Resolve-Path -LiteralPath $RequestedPath).Path
+    }
+
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     if (-not (Test-Path $vswhere)) {
         throw "vswhere.exe was not found at '$vswhere'. Install Visual Studio with C++ desktop tools."
     }
 
-    $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    $arguments = @('-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath')
+    if (-not [string]::IsNullOrWhiteSpace($RequestedVersion)) {
+        $arguments = @('-version', $RequestedVersion, '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath')
+    }
+
+    $installationPath = & $vswhere @arguments
     if (-not $installationPath) {
-        throw 'No Visual Studio installation with x64 C++ tools was found.'
+        throw 'No Visual Studio installation with x64 C++ tools was found for the requested selection.'
     }
     return $installationPath.Trim()
 }
 
-# Imports the Visual Studio x64 developer environment into this PowerShell session.
+# Reads the installed MSVC tools version from the Visual Studio installation when available.
+function Get-MsvcToolsVersion {
+    param([Parameter(Mandatory = $true)][string]$VisualStudioRoot)
+
+    $versionFile = Join-Path $VisualStudioRoot 'VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt'
+    if (Test-Path -LiteralPath $versionFile) {
+        return (Get-Content -LiteralPath $versionFile -Raw).Trim()
+    }
+    return ''
+}
+
+# Imports and validates the Visual Studio x64 developer environment.
 function Initialize-X64MsvcEnvironment {
-    $visualStudioPath = Get-VisualStudioInstallationPath
+    param(
+        [string]$RequestedPath,
+        [string]$RequestedVersion
+    )
+
+    $visualStudioPath = Get-VisualStudioInstallationPath -RequestedPath $RequestedPath -RequestedVersion $RequestedVersion
     $devCmd = Join-Path $visualStudioPath 'Common7\Tools\VsDevCmd.bat'
     if (-not (Test-Path $devCmd)) {
         throw "VsDevCmd.bat was not found at '$devCmd'."
@@ -67,12 +122,57 @@ function Initialize-X64MsvcEnvironment {
     }
 
     $clCommand = Get-Command cl.exe -ErrorAction SilentlyContinue
-    if (-not $clCommand) {
-        throw 'cl.exe was not found after initializing the Visual Studio x64 developer environment. Run from a Visual Studio Developer PowerShell or install the C++ desktop workload.'
+    $linkCommand = Get-Command link.exe -ErrorAction SilentlyContinue
+    $hostArch = $env:VSCMD_ARG_HOST_ARCH
+    $targetArch = $env:VSCMD_ARG_TGT_ARCH
+    $normalizedVsRoot = ConvertTo-NormalizedPathText $visualStudioPath
+    $normalizedCl = ConvertTo-NormalizedPathText $clCommand.Source
+    $normalizedLink = ConvertTo-NormalizedPathText $linkCommand.Source
+    $validationErrors = @()
+
+    if (-not $clCommand) { $validationErrors += 'cl.exe was not found after initializing the Visual Studio environment.' }
+    if (-not $linkCommand) { $validationErrors += 'link.exe was not found after initializing the Visual Studio environment.' }
+    if ($hostArch -ne 'x64') { $validationErrors += "VSCMD_ARG_HOST_ARCH is '$hostArch', expected 'x64'." }
+    if ($targetArch -ne 'x64') { $validationErrors += "VSCMD_ARG_TGT_ARCH is '$targetArch', expected 'x64'." }
+    if ($clCommand -and -not $normalizedCl.StartsWith($normalizedVsRoot)) { $validationErrors += "cl.exe is outside the selected Visual Studio installation: $($clCommand.Source)" }
+    if ($linkCommand -and -not $normalizedLink.StartsWith($normalizedVsRoot)) { $validationErrors += "link.exe is outside the selected Visual Studio installation: $($linkCommand.Source)" }
+    if ($clCommand -and $normalizedCl -notmatch 'hostx64\\x64') { $validationErrors += "cl.exe is not the preferred Hostx64\\x64 tool: $($clCommand.Source)" }
+    if ($linkCommand -and $normalizedLink -notmatch 'hostx64\\x64') { $validationErrors += "link.exe is not the preferred Hostx64\\x64 tool: $($linkCommand.Source)" }
+
+    $clOutput = ''
+    if ($clCommand) {
+        $clOutput = (& cl.exe 2>&1 | Out-String)
+        if ($LASTEXITCODE -ne 0 -and $clOutput -notmatch 'Microsoft.*C/C\+\+') {
+            $validationErrors += 'cl.exe did not produce the expected compiler banner.'
+        }
+        if ($clOutput -notmatch '(?i)for\s+x64') {
+            $validationErrors += 'cl.exe banner does not identify an x64 target.'
+        }
     }
 
+    if ($validationErrors.Count -gt 0) {
+        Write-Host 'MSVC x64 environment validation failed:'
+        $validationErrors | ForEach-Object { Write-Host "  $_" }
+        Write-MsvcToolDiagnostics
+        throw 'Visual Studio x64 compiler environment is invalid; refusing to configure an x64 Ninja build with mixed tools.'
+    }
+
+    $toolsVersion = Get-MsvcToolsVersion -VisualStudioRoot $visualStudioPath
+    Write-Host "Visual Studio installation: $visualStudioPath"
+    Write-Host "MSVC tools version: $toolsVersion"
     Write-Host "MSVC compiler: $($clCommand.Source)"
-    Write-Host 'MSVC compiler architecture: x64'
+    Write-Host "MSVC linker: $($linkCommand.Source)"
+    Write-Host "MSVC host architecture: $hostArch"
+    Write-Host "MSVC target architecture: $targetArch"
+
+    return [pscustomobject]@{
+        VisualStudioRoot = $visualStudioPath
+        CompilerPath = $clCommand.Source
+        LinkerPath = $linkCommand.Source
+        ToolsVersion = $toolsVersion
+        HostArchitecture = $hostArch
+        TargetArchitecture = $targetArch
+    }
 }
 
 # Reads the pinned baseline from the repository manifest.
@@ -171,6 +271,31 @@ function Install-PerastageDependencies {
     }
 }
 
+# Returns true when a CMake user preset document contains the required local presets.
+function Test-PerastageLocalPresetsCompatible {
+    param(
+        [Parameter(Mandatory = $true)][string]$PresetPath,
+        [Parameter(Mandatory = $true)][string]$ExpectedVcpkgRoot,
+        [Parameter(Mandatory = $true)][string]$ExpectedInstalledRoot
+    )
+
+    $document = Get-Content -LiteralPath $PresetPath -Raw | ConvertFrom-Json
+    $buildNames = @($document.buildPresets | ForEach-Object { $_.name })
+    if ($buildNames -notcontains 'local-win-debug-build-ninja' -or $buildNames -notcontains 'local-win-release-build-ninja') {
+        return $false
+    }
+
+    $expectedToolchain = (Join-Path $ExpectedVcpkgRoot 'scripts\buildsystems\vcpkg.cmake').Replace('\', '/')
+    $expectedInstalled = $ExpectedInstalledRoot.Replace('\', '/')
+    foreach ($name in @('local-win-x64-debug-ninja', 'local-win-x64-release-ninja')) {
+        $preset = @($document.configurePresets | Where-Object { $_.name -eq $name }) | Select-Object -First 1
+        if (-not $preset) { return $false }
+        if ($preset.cacheVariables.CMAKE_TOOLCHAIN_FILE -ne $expectedToolchain) { return $false }
+        if ($preset.cacheVariables.VCPKG_INSTALLED_DIR -ne $expectedInstalled) { return $false }
+        if ($preset.cacheVariables.VCPKG_MANIFEST_MODE -ne 'OFF') { return $false }
+    }
+    return $true
+}
 
 # Writes local CMake presets for the selected vcpkg checkout without changing shared presets.
 function Write-PerastageCMakeUserPresets {
@@ -182,7 +307,10 @@ function Write-PerastageCMakeUserPresets {
 
     $userPresetsPath = Join-Path $RepositoryRoot 'CMakeUserPresets.json'
     if (Test-Path -LiteralPath $userPresetsPath) {
-        Write-Host "CMakeUserPresets.json already exists; leaving local presets unchanged. Ensure it points to: $VcpkgRoot"
+        if (-not (Test-PerastageLocalPresetsCompatible -PresetPath $userPresetsPath -ExpectedVcpkgRoot $VcpkgRoot -ExpectedInstalledRoot $InstalledRoot)) {
+            throw "CMakeUserPresets.json exists but does not define compatible Perastage local Windows presets. Add local-win-x64-debug-ninja/local-win-x64-release-ninja entries pointing to '$VcpkgRoot' and '$InstalledRoot', or move the file aside so setup_windows.ps1 can generate them. The file was not modified."
+        }
+        Write-Host 'CMakeUserPresets.json already contains Perastage local presets; leaving user content unchanged.'
         return
     }
 
@@ -195,6 +323,7 @@ function Write-PerastageCMakeUserPresets {
                 name = 'local-win-x64-debug-ninja'
                 displayName = 'Local Windows x64 Debug (Ninja)'
                 inherits = 'win-x64-debug-ninja'
+                architecture = [ordered]@{ value = 'x64'; strategy = 'external' }
                 cacheVariables = [ordered]@{
                     CMAKE_TOOLCHAIN_FILE = $toolchainPath
                     VCPKG_INSTALLED_DIR = $installedPath
@@ -205,6 +334,7 @@ function Write-PerastageCMakeUserPresets {
                 name = 'local-win-x64-release-ninja'
                 displayName = 'Local Windows x64 Release (Ninja)'
                 inherits = 'win-x64-release-ninja'
+                architecture = [ordered]@{ value = 'x64'; strategy = 'external' }
                 cacheVariables = [ordered]@{
                     CMAKE_TOOLCHAIN_FILE = $toolchainPath
                     VCPKG_INSTALLED_DIR = $installedPath
@@ -237,26 +367,101 @@ function Get-CMakePresetNames {
     param([Parameter(Mandatory = $true)][ValidateSet('Debug', 'Release')][string]$Configuration)
 
     if ($Configuration -eq 'Release') {
-        return @{ Configure = 'win-x64-release-ninja'; Build = 'win-release-build-ninja' }
+        return @{ Configure = 'local-win-x64-release-ninja'; Build = 'local-win-release-build-ninja' }
     }
-    return @{ Configure = 'win-x64-debug-ninja'; Build = 'win-debug-build-ninja' }
+    return @{ Configure = 'local-win-x64-debug-ninja'; Build = 'local-win-debug-build-ninja' }
 }
 
-# Configures and optionally builds Perastage using CMake presets.
+# Returns cache entries from a CMakeCache.txt file.
+function Read-CMakeCacheEntries {
+    param([Parameter(Mandatory = $true)][string]$CachePath)
+
+    $entries = @{}
+    foreach ($line in Get-Content -LiteralPath $CachePath) {
+        if ($line -match '^([^#/][^:]*):[^=]*=(.*)$') {
+            $entries[$matches[1]] = $matches[2]
+        }
+    }
+    return $entries
+}
+
+# Returns the Visual Studio installation root inferred from an MSVC compiler path.
+function Get-VisualStudioRootFromCompilerPath {
+    param([string]$CompilerPath)
+
+    if ([string]::IsNullOrWhiteSpace($CompilerPath)) {
+        return ''
+    }
+    $normalized = $CompilerPath.Replace('/', '\')
+    $marker = '\VC\Tools\MSVC\'
+    $index = $normalized.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase)
+    if ($index -lt 0) {
+        return ''
+    }
+    return $normalized.Substring(0, $index)
+}
+
+# Removes the selected build directory when an old cache cannot produce a valid x64 build.
+function Reset-IncompatibleCMakeCache {
+    param(
+        [Parameter(Mandatory = $true)][string]$BuildDirectory,
+        [Parameter(Mandatory = $true)][object]$MsvcEnvironment,
+        [Parameter(Mandatory = $true)][string]$ExpectedToolchainFile,
+        [Parameter(Mandatory = $true)][string]$ExpectedTriplet,
+        [Parameter(Mandatory = $true)][bool]$ForceClean
+    )
+
+    if ($ForceClean) {
+        if (Test-Path -LiteralPath $BuildDirectory) {
+            Write-Host "-CleanBuild selected; removing build directory: $BuildDirectory"
+            Remove-Item -LiteralPath $BuildDirectory -Recurse -Force
+        }
+        return
+    }
+
+    $cachePath = Join-Path $BuildDirectory 'CMakeCache.txt'
+    if (-not (Test-Path -LiteralPath $cachePath)) {
+        return
+    }
+
+    $entries = Read-CMakeCacheEntries -CachePath $cachePath
+    $cachedCxx = $entries['CMAKE_CXX_COMPILER']
+    $cachedC = $entries['CMAKE_C_COMPILER']
+    $cachedGenerator = $entries['CMAKE_GENERATOR']
+    $cachedToolchain = $entries['CMAKE_TOOLCHAIN_FILE']
+    $cachedTriplet = $entries['VCPKG_TARGET_TRIPLET']
+    $cachedVsRoot = Get-VisualStudioRootFromCompilerPath -CompilerPath $cachedCxx
+    $expectedVsRoot = $MsvcEnvironment.VisualStudioRoot
+    $reasons = @()
+
+    if ($cachedGenerator -and $cachedGenerator -ne 'Ninja') { $reasons += "cached generator is '$cachedGenerator', expected 'Ninja'" }
+    if ($cachedTriplet -and $cachedTriplet -ne $ExpectedTriplet) { $reasons += "cached vcpkg triplet is '$cachedTriplet', expected '$ExpectedTriplet'" }
+    if ($cachedToolchain -and (ConvertTo-NormalizedPathText $cachedToolchain) -ne (ConvertTo-NormalizedPathText $ExpectedToolchainFile)) { $reasons += "cached toolchain '$cachedToolchain' differs from requested '$ExpectedToolchainFile'" }
+    if ($cachedCxx -and (ConvertTo-NormalizedPathText $cachedCxx) -match 'hostx86\\x86|\\x86\\cl\.exe$') { $reasons += "cached C++ compiler targets x86: $cachedCxx" }
+    if ($cachedC -and (ConvertTo-NormalizedPathText $cachedC) -match 'hostx86\\x86|\\x86\\cl\.exe$') { $reasons += "cached C compiler targets x86: $cachedC" }
+    if ($cachedVsRoot -and (ConvertTo-NormalizedPathText $cachedVsRoot) -ne (ConvertTo-NormalizedPathText $expectedVsRoot)) { $reasons += "cached compiler Visual Studio root '$cachedVsRoot' differs from selected '$expectedVsRoot'" }
+
+    if ($reasons.Count -gt 0) {
+        Write-Host 'Detected incompatible CMake cache for requested Windows x64 Ninja build:'
+        $reasons | ForEach-Object { Write-Host "  $_" }
+        Write-Host "Cached CMAKE_CXX_COMPILER: $cachedCxx"
+        Write-Host "Cached CMAKE_C_COMPILER: $cachedC"
+        Write-Host "Selected compiler: $($MsvcEnvironment.CompilerPath)"
+        Write-Host "Selected linker: $($MsvcEnvironment.LinkerPath)"
+        Write-Host "Removing only selected build directory: $BuildDirectory"
+        Remove-Item -LiteralPath $BuildDirectory -Recurse -Force
+    }
+}
+
+# Configures and optionally builds Perastage using generated local CMake presets.
 function Invoke-PerastageBuild {
     param(
         [Parameter(Mandatory = $true)][string]$ConfigurePreset,
         [Parameter(Mandatory = $true)][string]$BuildPreset,
-        [Parameter(Mandatory = $true)][string]$VcpkgRoot,
-        [Parameter(Mandatory = $true)][string]$InstalledRoot,
         [Parameter(Mandatory = $true)][bool]$ShouldBuild
     )
 
     cmake --preset $ConfigurePreset `
-        -DCMAKE_TOOLCHAIN_FILE="$VcpkgRoot\scripts\buildsystems\vcpkg.cmake" `
-        -DVCPKG_TARGET_TRIPLET=$script:PerastageVcpkgTriplet `
-        -DVCPKG_INSTALLED_DIR="$InstalledRoot" `
-        -DVCPKG_MANIFEST_MODE=OFF `
         -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
     Write-Host 'Secure-store CMake probe result: passed'
 
@@ -269,17 +474,12 @@ $repoRoot = Get-RepositoryRoot
 Set-Location $repoRoot
 Assert-CommandAvailable -CommandName 'cmake'
 Assert-CommandAvailable -CommandName 'git'
-Initialize-X64MsvcEnvironment
+$msvcEnvironment = Initialize-X64MsvcEnvironment -RequestedPath $VisualStudioPath -RequestedVersion $VisualStudioVersion
 
 $PerastageVcpkgBaseline = Get-PinnedVcpkgBaseline -RepositoryRoot $repoRoot
 $resolvedVcpkgRoot = Resolve-VcpkgRoot -RepositoryRoot $repoRoot -RequestedRoot $VcpkgRoot
 $installedRoot = Join-Path $repoRoot 'vcpkg_installed'
-$presets = Get-CMakePresetNames -Configuration $Configuration
-$buildDir = Join-Path $repoRoot "build\$($presets.Configure)"
-if ($CleanBuild -and (Test-Path $buildDir)) {
-    Remove-Item -LiteralPath $buildDir -Recurse -Force
-}
-
+$vcpkgToolchainFile = Join-Path $resolvedVcpkgRoot 'scripts\buildsystems\vcpkg.cmake'
 $vcpkgExePath = Sync-AndBootstrapVcpkg -Root $resolvedVcpkgRoot -Baseline $PerastageVcpkgBaseline
 Write-Host "repository manifest path: $(Join-Path $repoRoot 'vcpkg.json')"
 Write-Host "vcpkg installed root: $installedRoot"
@@ -287,7 +487,32 @@ Write-Host "target triplet: $PerastageVcpkgTriplet"
 Install-PerastageDependencies -VcpkgExe $vcpkgExePath -RepositoryRoot $repoRoot -InstalledRoot $installedRoot
 Write-PerastageCMakeUserPresets -RepositoryRoot $repoRoot -VcpkgRoot $resolvedVcpkgRoot -InstalledRoot $installedRoot
 
+$presets = Get-CMakePresetNames -Configuration $Configuration
+$buildDir = Join-Path $repoRoot "build\$($presets.Configure)"
+Reset-IncompatibleCMakeCache `
+    -BuildDirectory $buildDir `
+    -MsvcEnvironment $msvcEnvironment `
+    -ExpectedToolchainFile $vcpkgToolchainFile `
+    -ExpectedTriplet $PerastageVcpkgTriplet `
+    -ForceClean ([bool]$CleanBuild)
+
+$cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
+$ninjaCommand = Get-Command ninja -ErrorAction SilentlyContinue
 Write-Host 'Perastage dependency summary:'
+Write-Host "  Visual Studio root: $($msvcEnvironment.VisualStudioRoot)"
+Write-Host "  MSVC compiler: $($msvcEnvironment.CompilerPath)"
+Write-Host "  MSVC linker: $($msvcEnvironment.LinkerPath)"
+Write-Host "  MSVC host architecture: $($msvcEnvironment.HostArchitecture)"
+Write-Host "  MSVC target architecture: $($msvcEnvironment.TargetArchitecture)"
+Write-Host "  MSVC tools version: $($msvcEnvironment.ToolsVersion)"
+Write-Host "  CMake executable: $($cmakeCommand.Source)"
+cmake --version | Select-Object -First 1
+if ($ninjaCommand) {
+    Write-Host "  Ninja executable: $($ninjaCommand.Source)"
+    ninja --version | Select-Object -First 1
+} else {
+    Write-Host '  Ninja executable: not found in PATH before configure'
+}
 Write-Host "  vcpkg root: $resolvedVcpkgRoot"
 Write-Host "  pinned baseline: $PerastageVcpkgBaseline"
 Write-Host "  installed root: $installedRoot"
@@ -296,13 +521,12 @@ Write-Host '  wxWidgets feature: secretstore'
 Write-Host '  secure-store requirement: ON'
 Write-Host '  secure-store probe: enforced during configure'
 Write-Host '  CMake vcpkg manifest mode: OFF after explicit manifest install'
-Write-Host "  shared build directory: build/$($presets.Configure)"
-Write-Host "  local CMake presets: CMakeUserPresets.json"
+Write-Host "  configure preset: $($presets.Configure)"
+Write-Host "  build preset: $($presets.Build)"
+Write-Host "  binary directory: $buildDir"
 Write-Host 'Use -CleanBuild to delete only the selected Perastage build directory before reconfiguring.'
 Invoke-PerastageBuild `
     -ConfigurePreset $presets.Configure `
     -BuildPreset $presets.Build `
-    -VcpkgRoot $resolvedVcpkgRoot `
-    -InstalledRoot $installedRoot `
     -ShouldBuild (-not $SkipBuild)
 Write-Host 'Perastage Windows setup completed successfully.'
