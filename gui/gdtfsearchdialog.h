@@ -24,6 +24,12 @@
 #include <vector>
 #include "json.hpp"
 
+enum class GdtfCatalogDisplaySource {
+    None,
+    Cached,
+    Online
+};
+
 struct GdtfEntry {
     std::string manufacturer;
     std::string fixture;
@@ -53,12 +59,15 @@ public:
         std::string failureDetails;
         long long refreshMs = 0;
         long long parseMs = 0;
+        GdtfCatalogDisplaySource source = GdtfCatalogDisplaySource::None;
     };
     using RefreshCatalogFn = std::function<RefreshResult()>;
 
     GdtfSearchDialog(wxWindow* parent, const std::string& listData,
                      const std::string& cachedUpdatedAt,
-                     RefreshCatalogFn refreshCatalogFn);
+                     RefreshCatalogFn refreshCatalogFn,
+                     GdtfCatalogDisplaySource initialSource = GdtfCatalogDisplaySource::Cached,
+                     bool downloadRequiresAuthentication = false);
     ~GdtfSearchDialog() override;
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;
@@ -79,6 +88,7 @@ private:
     void TriggerAutoRefreshOnce();
     void OnAutoRefreshThreadEvent(wxThreadEvent& evt);
     void OnAutoRefreshFinished(const RefreshResult& result);
+    bool FinishRefreshBeforeModalClose();
     void UpdateStatusMessage(bool refreshing, const wxString& details = {});
     void MaybeLogVerboseCatalogTrace(const wxString& message) const;
 
@@ -89,6 +99,7 @@ private:
     wxButton* prevPageButton = nullptr;
     wxButton* nextPageButton = nullptr;
     wxStaticText* pageInfoLabel = nullptr;
+    wxButton* downloadButton = nullptr;
     std::vector<GdtfEntry> entries;
     std::vector<int> filteredIndices;
     std::vector<int> visible;
@@ -98,6 +109,9 @@ private:
     std::string currentListData;
     std::string lastUpdatedAt;
     RefreshCatalogFn refreshCatalogFn;
+    GdtfCatalogDisplaySource catalogSource = GdtfCatalogDisplaySource::None;
+    bool downloadRequiresAuthentication = false;
+    bool autoRefreshInProgress = false;
     bool autoRefreshTriggered = false;
     std::thread autoRefreshThread;
     wxTimer searchDebounceTimer;

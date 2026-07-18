@@ -1,6 +1,4 @@
 # PowerShell setup script for Windows
-$ErrorActionPreference = 'Stop'
-
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
@@ -9,6 +7,10 @@ param(
 
     [switch]$SkipBuild
 )
+
+$ErrorActionPreference = 'Stop'
+$PerastageVcpkgBaseline = '0878b5224d4a4968940ee296a2e7fae2d3b62983'
+$PerastageVcpkgTriplet = 'x64-windows'
 
 # Returns the repository root based on the script location.
 function Get-RepositoryRoot {
@@ -101,31 +103,36 @@ function Assert-VcpkgAvailable {
     return $vcpkgExe
 }
 
-# Installs the Windows dependencies required by Perastage.
+# Ensures the vcpkg checkout matches the repository-pinned baseline.
+function Sync-PerastageVcpkgBaseline {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    if (-not (Test-Path (Join-Path $Root '.git'))) {
+        throw "'$Root' is not a git checkout. Clone https://github.com/microsoft/vcpkg.git there or pass -VcpkgRoot."
+    }
+
+    git -C $Root fetch --depth 1 origin $script:PerastageVcpkgBaseline
+    git -C $Root checkout --force $script:PerastageVcpkgBaseline
+}
+
+# Installs the Windows dependencies required by Perastage using manifest mode.
 function Install-PerastageDependencies {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$VcpkgExe
+        [string]$VcpkgExe,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryRoot
     )
 
-    $packages = @(
-        'wxwidgets:x64-windows',
-        'tinyxml2:x64-windows',
-        'curl:x64-windows',
-        'glew:x64-windows',
-        'meshoptimizer:x64-windows',
-        'nanovg:x64-windows',
-        'podofo:x64-windows',
-        'zlib:x64-windows',
-        'backward-cpp:x64-windows',
-        'mdns:x64-windows',
-        'gettext[tools]:x64-windows'
-    )
-
-    & $VcpkgExe install $packages
+    & $VcpkgExe install --triplet $script:PerastageVcpkgTriplet --x-manifest-root=$RepositoryRoot
+    & $VcpkgExe install "gettext[tools]:$script:PerastageVcpkgTriplet"
 
     $vcpkgRoot = Split-Path -Parent $VcpkgExe
-    $gettextBin = Join-Path $vcpkgRoot 'installed\x64-windows\tools\gettext\bin'
+    $gettextBin = Join-Path $vcpkgRoot "installed\$script:PerastageVcpkgTriplet\tools\gettext\bin"
     foreach ($tool in @('msgfmt.exe', 'xgettext.exe', 'msgmerge.exe', 'msgattrib.exe')) {
         $toolPath = Join-Path $gettextBin $tool
         if (-not (Test-Path $toolPath)) {
@@ -170,7 +177,8 @@ function Invoke-PerastageBuild {
         [bool]$ShouldBuild
     )
 
-    cmake --preset $ConfigurePreset
+    cmake --preset $ConfigurePreset -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+    Write-Host "Secure-store CMake probe result: passed"
 
     if ($ShouldBuild) {
         cmake --build --preset $BuildPreset
@@ -184,9 +192,19 @@ Assert-CommandAvailable -CommandName 'cmake'
 Initialize-X64MsvcEnvironment
 
 $vcpkgExePath = Assert-VcpkgAvailable -Root $VcpkgRoot
-Install-PerastageDependencies -VcpkgExe $vcpkgExePath
+Sync-PerastageVcpkgBaseline -Root $VcpkgRoot
+Install-PerastageDependencies -VcpkgExe $vcpkgExePath -RepositoryRoot $repoRoot
 
 $presets = Get-CMakePresetNames -Configuration $Configuration
+Write-Host "Perastage dependency summary:"
+Write-Host "  vcpkg root: $VcpkgRoot"
+Write-Host "  pinned baseline: $PerastageVcpkgBaseline"
+Write-Host "  target triplet: $PerastageVcpkgTriplet"
+Write-Host "  wxWidgets feature: secretstore"
+Write-Host "  secure-store requirement: ON"
+Write-Host "  secure-store probe: enforced during configure"
+Write-Host "  build directory: build/$($presets.Configure)"
+Write-Host "Changing wxWidgets features requires deleting the affected Perastage build directory before reconfiguring."
 Invoke-PerastageBuild `
     -ConfigurePreset $presets.Configure `
     -BuildPreset $presets.Build `

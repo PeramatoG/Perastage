@@ -27,11 +27,15 @@ If your vcpkg installation is in another location, either edit the Windows `CMAK
 
 ## Install dependencies
 
-Install the required Windows dependencies with:
+Install the required Windows dependencies from the repository root with manifest mode:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install wxwidgets:x64-windows tinyxml2:x64-windows curl:x64-windows glew:x64-windows meshoptimizer:x64-windows nanovg:x64-windows podofo:x64-windows zlib:x64-windows backward-cpp:x64-windows mdns:x64-windows "gettext[tools]:x64-windows"
+cd C:\path\to\Perastage
+C:\vcpkg\vcpkg.exe install --triplet x64-windows
+C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
 ```
+
+The manifest requests `wxwidgets[secretstore]` so GDTF Share passwords can be stored in Windows Credential Manager. If wxWidgets was previously installed without this feature, run `C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse`, delete the affected Perastage build directory, and configure again.
 
 The gettext tools are build-time only. CMake uses the vcpkg-provided `msgfmt.exe` to generate `perastage.mo`, but gettext tools and DLLs are not Perastage runtime dependencies for users.
 
@@ -136,3 +140,7 @@ Editing library content does not require administrator privileges because writes
 - Remove stale build directories and reconfigure.
 - If Visual Studio keeps stale state, close Visual Studio and remove the local `.vs` folder.
 - Follow the detailed fix paths in [Troubleshooting](troubleshooting.md).
+
+## Checking Windows Credential Manager support
+
+After installing or rebuilding dependencies, save valid GDTF Share credentials, restart Perastage, and open the GDTF download workflow. A normal Windows build should not show a secure-storage unavailable warning, and the credentials should not be requested again solely because the application restarted. You can also verify that Windows Credential Manager contains an entry created by Perastage for the saved test credentials.

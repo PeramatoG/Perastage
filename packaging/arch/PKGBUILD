@@ -17,6 +17,7 @@ depends=(
   'gtk3'
   'hicolor-icon-theme'
   'libglvnd'
+  'libsecret'
   'shared-mime-info'
   'zlib'
 )
@@ -28,6 +29,7 @@ makedepends=(
   'git'
   'ninja'
   'pkgconf'
+  'libsecret'
 )
 source=()
 sha256sums=()
@@ -65,6 +67,7 @@ build() {
     -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
     -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=OFF
     -DCURL_NO_CURL_CMAKE=ON
+    -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=${PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE:-ON}
   )
 
   if [[ -n "${VCPKG_ROOT:-}" ]]; then

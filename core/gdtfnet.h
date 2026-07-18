@@ -21,7 +21,9 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <filesystem>
 
 struct GdtfDownloadProgress {
     long long downloadedBytes = 0;
@@ -86,9 +88,17 @@ public:
 
     GdtfShareClient(const GdtfShareClient&) = delete;
     GdtfShareClient& operator=(const GdtfShareClient&) = delete;
+    GdtfShareClient(GdtfShareClient&&) noexcept;
+    GdtfShareClient& operator=(GdtfShareClient&&) noexcept;
 
     GdtfShareResult Login(const std::string& user, const std::string& password);
     GdtfShareResult GetCatalog();
+    void ResetSession();
+    bool IsAuthenticated() const;
+    std::optional<std::string> AuthenticatedUsername() const;
+    const std::filesystem::path& CookiePathForTesting() const;
+    bool OwnsCookieForTesting() const;
+
     GdtfShareResult DownloadRevision(
         const std::string& rid,
         const std::string& destFile,
@@ -100,6 +110,8 @@ private:
     std::unique_ptr<Impl> impl;
 };
 
+// Deprecated compatibility wrappers. Prefer GdtfShareClient for persistent sessions;
+// separate wrapper calls only share a caller-owned external cookie path.
 bool GdtfLogin(const std::string& user,
                const std::string& password,
                const std::string& cookieFile,

@@ -82,6 +82,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e3_wheel_attribute_inspector.sh)
     add_test(NAME ProjectRestoreImportOptions
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
+    add_test(NAME SecureStoreBuildPolicy
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_securestore_build_policy.sh)
 endif()
 
 find_package(Python3 COMPONENTS Interpreter)

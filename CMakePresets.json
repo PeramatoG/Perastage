@@ -20,7 +20,8 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_CXX_EXTENSIONS": "OFF"
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
       },
       "condition": {
         "type": "equals",
@@ -42,7 +43,8 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_CXX_EXTENSIONS": "OFF"
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
       },
       "condition": {
         "type": "equals",
@@ -68,7 +70,8 @@
         "CMAKE_FIND_PACKAGE_PREFER_CONFIG": "OFF",
         "CURL_NO_CURL_CMAKE": "ON",
         "CMAKE_IGNORE_PREFIX_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows",
-        "CMAKE_IGNORE_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows"
+        "CMAKE_IGNORE_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "OFF"
       },
       "condition": {
         "type": "equals",
@@ -94,7 +97,8 @@
         "CMAKE_FIND_PACKAGE_PREFER_CONFIG": "OFF",
         "CURL_NO_CURL_CMAKE": "ON",
         "CMAKE_IGNORE_PREFIX_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows",
-        "CMAKE_IGNORE_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows"
+        "CMAKE_IGNORE_PATH": "/mnt/c;/mnt/c/vcpkg;/mnt/c/vcpkg/installed;/mnt/c/vcpkg/installed/x64-windows",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "OFF"
       },
       "condition": {
         "type": "equals",
@@ -115,7 +119,8 @@
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
       },
       "condition": {
         "type": "equals",
@@ -140,7 +145,8 @@
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
       },
       "condition": {
         "type": "equals",
@@ -165,7 +171,8 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_CXX_EXTENSIONS": "OFF"
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
       },
       "condition": {
         "type": "equals",
@@ -186,7 +193,8 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_CXX_EXTENSIONS": "OFF"
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
       },
       "condition": {
         "type": "equals",

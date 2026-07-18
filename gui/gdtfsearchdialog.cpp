@@ -162,13 +162,17 @@ constexpr size_t kDefaultPageSize = 500;
 
 GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData,
                                    const std::string& cachedUpdatedAt,
-                                   RefreshCatalogFn refreshCatalogFnIn)
+                                   RefreshCatalogFn refreshCatalogFnIn,
+                                   GdtfCatalogDisplaySource initialSource,
+                                   bool downloadRequiresAuthenticationIn)
     : wxDialog(parent, wxID_ANY, _("Search GDTF"), wxDefaultPosition,
                wxSize(1000,700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       currentListData(listData),
       lastUpdatedAt(cachedUpdatedAt),
       refreshCatalogFn(std::move(refreshCatalogFnIn)),
+      catalogSource(initialSource),
+      downloadRequiresAuthentication(downloadRequiresAuthenticationIn),
       searchDebounceTimer(this)
 {
     pageSize = kDefaultPageSize;
@@ -225,10 +229,10 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     sizer->Add(resultTable, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    wxButton* downloadBtn = new wxButton(this, wxID_OK, _("Download"));
+    downloadButton = new wxButton(this, wxID_OK, _("Download"));
     wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, _("Cancel"));
     btnSizer->AddStretchSpacer(1);
-    btnSizer->Add(downloadBtn, 0, wxRIGHT, 5);
+    btnSizer->Add(downloadButton, 0, wxRIGHT, 5);
     btnSizer->Add(cancelBtn, 0);
     sizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
@@ -240,7 +244,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     fixtureCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     manufacturerCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
     fixtureCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
-    downloadBtn->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
+    downloadButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     prevPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnPrevPage, this);
     nextPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnNextPage, this);
     resultTable->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
@@ -415,6 +419,8 @@ void GdtfSearchDialog::OnNextPage(wxCommandEvent& WXUNUSED(evt))
 
 void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
 {
+    if (!FinishRefreshBeforeModalClose())
+        return;
     wxDataViewItem item = resultTable->GetSelection();
     int row = resultTable->ItemToRow(item);
     if (row != wxNOT_FOUND && row < static_cast<int>(visible.size())) {
@@ -463,6 +469,9 @@ void GdtfSearchDialog::TriggerAutoRefreshOnce()
     if (autoRefreshTriggered || !refreshCatalogFn)
         return;
     autoRefreshTriggered = true;
+    autoRefreshInProgress = true;
+    if (downloadButton)
+        downloadButton->Disable();
     UpdateStatusMessage(true);
 
     autoRefreshThread = std::thread([this, refreshFn = refreshCatalogFn]() {
@@ -487,7 +496,12 @@ void GdtfSearchDialog::TriggerAutoRefreshOnce()
 
 void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
 {
+    if (autoRefreshThread.joinable())
+        autoRefreshThread.join();
+    autoRefreshInProgress = false;
     OnAutoRefreshFinished(evt.GetPayload<RefreshResult>());
+    if (downloadButton)
+        downloadButton->Enable(!entries.empty());
 }
 
 // Applies refreshed catalog data and updates status text after the background refresh completes.
@@ -502,6 +516,10 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
     if (result.success && !result.listData.empty() && !result.parsedEntries.empty()) {
         currentListData = result.listData;
         lastUpdatedAt = result.updatedAt;
+        catalogSource = result.source == GdtfCatalogDisplaySource::None
+                            ? GdtfCatalogDisplaySource::Online
+                            : result.source;
+        downloadRequiresAuthentication = false;
 
         {
             std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
@@ -514,9 +532,12 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
         return;
     }
 
-    wxString fallbackDetails = wxString::Format(
-        _("Showing local catalog (last updated: %s)"),
-        wxString::FromUTF8(lastUpdatedAt));
+    catalogSource = entries.empty() ? GdtfCatalogDisplaySource::None : GdtfCatalogDisplaySource::Cached;
+    wxString fallbackDetails = lastUpdatedAt.empty()
+        ? _("Showing cached GDTF catalog. Sign in is required to download.")
+        : wxString::Format(
+              _("Showing cached GDTF catalog (last updated: %s). Sign in is required to download."),
+              wxString::FromUTF8(lastUpdatedAt));
     if (!result.failureDetails.empty())
         fallbackDetails += wxString::Format(" - %s", wxString::FromUTF8(result.failureDetails));
     UpdateStatusMessage(false, fallbackDetails);
@@ -526,6 +547,14 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
                          wxString::FromUTF8(result.failureDetails)),
                      _("GDTF catalog refresh"), wxOK | wxICON_WARNING, this);
     }
+}
+
+bool GdtfSearchDialog::FinishRefreshBeforeModalClose()
+{
+    if (!autoRefreshInProgress)
+        return true;
+    UpdateStatusMessage(false, _("Please wait for the online catalog refresh to finish before downloading."));
+    return false;
 }
 
 void GdtfSearchDialog::MaybeLogVerboseCatalogTrace(const wxString& message) const
@@ -547,10 +576,30 @@ void GdtfSearchDialog::UpdateStatusMessage(bool refreshing, const wxString& deta
         return;
     }
 
+    if (catalogSource == GdtfCatalogDisplaySource::Online) {
+        statusLabel->SetLabel(_("Showing online GDTF catalog."));
+        return;
+    }
+
+    if (catalogSource == GdtfCatalogDisplaySource::None || entries.empty()) {
+        statusLabel->SetLabel(_("No GDTF catalog is available."));
+        return;
+    }
+
+    if (downloadRequiresAuthentication) {
+        if (lastUpdatedAt.empty())
+            statusLabel->SetLabel(_("Showing cached GDTF catalog. Sign in is required to download."));
+        else
+            statusLabel->SetLabel(wxString::Format(
+                _("Showing cached GDTF catalog (last updated: %s). Sign in is required to download."),
+                wxString::FromUTF8(lastUpdatedAt)));
+        return;
+    }
+
     if (lastUpdatedAt.empty())
-        statusLabel->SetLabel(_("Showing local catalog."));
+        statusLabel->SetLabel(_("Showing cached GDTF catalog."));
     else
         statusLabel->SetLabel(wxString::Format(
-            _("Showing local catalog (last updated: %s)"),
+            _("Showing cached GDTF catalog (last updated: %s)."),
             wxString::FromUTF8(lastUpdatedAt)));
 }

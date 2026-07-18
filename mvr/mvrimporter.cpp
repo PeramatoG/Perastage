@@ -122,39 +122,6 @@ static std::string BuildSceneObjectGeometryInstanceKey(
   return key.str();
 }
 
-static std::string DecodeLegacyCredentialValue(const std::string &encoded) {
-  constexpr unsigned char kKey = 0x5A;
-  std::string out;
-  out.reserve(encoded.size() / 2);
-  for (size_t i = 0; i + 1 < encoded.size(); i += 2) {
-    unsigned int value = 0;
-    std::istringstream iss(encoded.substr(i, 2));
-    iss >> std::hex >> value;
-    out.push_back(
-        static_cast<char>((static_cast<unsigned char>(value)) ^ kKey));
-  }
-  return out;
-}
-
-static std::optional<std::pair<std::string, std::string>>
-LoadStoredGdtfShareCredentials() {
-  const fs::path credPath =
-      AppPaths::GetUserDataDir() / "gdtf_credentials.json";
-  std::ifstream in(credPath);
-  if (!in.is_open())
-    return std::nullopt;
-
-  nlohmann::json j = nlohmann::json::parse(in, nullptr, false);
-  if (j.is_discarded())
-    return std::nullopt;
-
-  const std::string username = j.value("username", "");
-  const std::string encodedPassword = j.value("password", "");
-  if (username.empty())
-    return std::nullopt;
-  return std::make_pair(username, DecodeLegacyCredentialValue(encodedPassword));
-}
-
 static std::string ToLowerCopy(std::string s) {
   std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
@@ -3620,12 +3587,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             reportProgress("Conflict dialog:show");
             reportProgress("Trying to download selected GDTFs...");
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
+            CredentialStore::LoadResult loadedCredentials =
+                CredentialStore::LoadDetailed();
             std::optional<CredentialStore::Credentials> activeCredentials =
-                CredentialStore::Load();
+                loadedCredentials.credentials;
+            GdtfShareClient gdtfClient;
             auto requestCredentials = [&]() -> bool {
               const std::string initialUser = activeCredentials
                                                   ? activeCredentials->username
-                                                  : std::string();
+                                                  : loadedCredentials.usernameHint.value_or(std::string());
               const std::string initialPass = activeCredentials
                                                   ? activeCredentials->password
                                                   : std::string();
@@ -3637,30 +3607,42 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               entered.password = loginDlg.GetPassword();
               if (entered.username.empty() || entered.password.empty())
                 return false;
-              CredentialStore::Save(entered);
               activeCredentials = entered;
               return true;
             };
 
-            wxString cookieFileWx =
-                wxFileName::CreateTempFileName("gdtf_mvr_import_");
-            if (wxFileExists(cookieFileWx))
-              wxRemoveFile(cookieFileWx);
-            const std::string cookieFile = cookieFileWx.ToStdString();
-            long loginHttpCode = 0;
-            bool loginOk = activeCredentials.has_value() &&
-                           GdtfLogin(activeCredentials->username,
-                                     activeCredentials->password, cookieFile,
-                                     loginHttpCode);
-            if (!loginOk || loginHttpCode == 401 || loginHttpCode == 403) {
+            GdtfShareResult loginResult;
+            bool loginOk = false;
+            if (activeCredentials.has_value()) {
+              loginResult = gdtfClient.Login(activeCredentials->username,
+                                             activeCredentials->password);
+              loginOk = loginResult.Succeeded();
+            }
+            if (!loginOk && (!activeCredentials ||
+                             loginResult.category ==
+                                 GdtfShareResultCategory::AuthenticationRejected)) {
               if (requestCredentials()) {
-                loginOk = GdtfLogin(activeCredentials->username,
-                                    activeCredentials->password, cookieFile,
-                                    loginHttpCode);
+                gdtfClient.ResetSession();
+                loginResult = gdtfClient.Login(activeCredentials->username,
+                                               activeCredentials->password);
+                loginOk = loginResult.Succeeded();
+                if (loginOk) {
+                  const CredentialStore::Result saveResult =
+                      CredentialStore::Save(*activeCredentials);
+                  if (!saveResult.Succeeded()) {
+                    reportProgress("[WARN] GDTF Share credentials authenticated but the password was not persisted: " +
+                                   CredentialStore::StatusName(saveResult.status));
+                    wxMessageBox(saveResult.status == CredentialStore::Status::SecureStoreUnavailable
+                                     ? _("The username was saved, but secure password storage is unavailable. The password must be entered again after restart.")
+                                     : wxString::Format(_("GDTF Share credentials were authenticated for this operation, but were not saved (%s)."),
+                                                        wxString::FromUTF8(CredentialStore::StatusName(saveResult.status))),
+                                 _("GDTF Share credentials"), wxOK | wxICON_WARNING);
+                  }
+                }
               }
             }
 
-            if (loginOk && loginHttpCode == 200) {
+            if (loginOk) {
               wxWindow *dialogParent =
                   wxTheApp ? wxDynamicCast(wxTheApp->GetTopWindow(), wxWindow)
                            : nullptr;
@@ -3964,7 +3946,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               wxYieldIfNeeded();
 
               std::string listPayload;
-              long listHttpCode = 0;
+              GdtfShareResult listResult;
               reportProgress("Downloading selected GDTFs: loading catalog...");
 
               GdtfCatalogService catalogService;
@@ -3973,9 +3955,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               const GdtfCatalogRefreshResult catalogResult =
                   catalogService.RefreshCatalogIfStale(
                       [&](std::string &onlineListData) {
-                        return GdtfGetList(cookieFile, onlineListData,
-                                           &listHttpCode) &&
-                               listHttpCode == 200;
+                        listResult = gdtfClient.GetCatalog();
+                        onlineListData = listResult.payload;
+                        return listResult.Succeeded() && !onlineListData.empty();
                       },
                       refreshNowUtc);
               if (catalogResult.snapshot) {
@@ -4006,9 +3988,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 const GdtfCatalogRefreshResult forcedCatalogResult =
                     catalogService.RefreshCatalogIfStale(
                         [&](std::string &onlineListData) {
-                          return GdtfGetList(cookieFile, onlineListData,
-                                             &listHttpCode) &&
-                                 listHttpCode == 200;
+                          listResult = gdtfClient.GetCatalog();
+                          onlineListData = listResult.payload;
+                          return listResult.Succeeded() && !onlineListData.empty();
                         },
                         refreshNowUtc, 0);
                 if (forcedCatalogResult.snapshot) {
@@ -4026,18 +4008,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               }
 
               if (catalogEntries.empty()) {
-                const std::string preview = listPayload.substr(
-                    0, std::min<size_t>(listPayload.size(), 180));
                 catalogFailureReason =
                     wxString::Format(
-                        "Catalog fetch/parsing failed (HTTP %ld, bytes=%zu)",
-                                     listHttpCode, listPayload.size())
+                        "Catalog fetch/parsing failed (%s, HTTP %ld, bytes=%zu)",
+                                     wxString::FromUTF8(GdtfShareResultCategoryName(listResult.category)),
+                                     listResult.httpStatus, listPayload.size())
                         .ToStdString();
                 reportProgress("[WARN] " + catalogFailureReason);
-                if (!preview.empty()) {
-                  reportProgress("[WARN] GDTF catalog payload preview: " +
-                                 preview);
-                }
               }
 
               if (!catalogEntries.empty()) {
@@ -4091,7 +4068,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   const std::string filePath =
                       (fs::path(baseFixturesPath) / (req.type + ".gdtf"))
                           .string();
-                  long downloadHttpCode = 0;
+                  GdtfShareResult downloadResult;
                   wxString selectedFixtureName = wxString::FromUTF8(req.type);
                   for (const auto &entry : catalogEntries) {
                     if (entry.rid == bestMatch.rid) {
@@ -4127,8 +4104,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                     return bytesText;
                   };
-                  if (GdtfDownload(
-                          bestMatch.rid, filePath, cookieFile, downloadHttpCode,
+                  downloadResult = gdtfClient.DownloadRevision(
+                          bestMatch.rid, filePath,
                                    [&](const GdtfDownloadProgress &progress) {
                                      const long long downloadedBytes =
                                 std::max<long long>(0,
@@ -4155,8 +4132,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                        updateProgressGauge();
                                      });
                                    },
-                                   [&]() { return cancelRequested.load(); }) &&
-                      downloadHttpCode == 200) {
+                                   [&]() { return cancelRequested.load(); });
+                  if (downloadResult.Succeeded()) {
                     selectedPathByType[req.type] = filePath;
                     if (!bestMatch.modeName.empty())
                       selectedModeByType[req.type] = bestMatch.modeName;
@@ -4243,11 +4220,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               ackButton->Enable();
               downloadInfoDialog.Hide();
             } else {
-              wxMessageBox(_("Login failed. Verify credentials in Preferences."),
+              wxMessageBox(wxString::FromUTF8(
+                             FormatGdtfShareUserMessage(loginResult, "login")),
                            _("GDTF Share login"), wxOK | wxICON_WARNING);
             }
-            if (wxFileExists(cookieFileWx))
-              wxRemoveFile(cookieFileWx);
 #else
             wxMessageBox(
                 "GDTF Share download is unavailable in this build target.",

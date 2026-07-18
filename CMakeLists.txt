@@ -22,6 +22,7 @@ set(PERASTAGE_APP_VERSION_DISPLAY "${PROJECT_VERSION}")
 option(PERASTAGE_ASSOCIATE_PSTG "Register .pstg file association during packaging/installation where supported" ON)
 option(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS "Enable MVR-xchange mDNS discovery using the vcpkg mdns package" ON)
 option(PERASTAGE_ENABLE_LOCALIZATION "Enable gettext-based UI localization catalogs" ON)
+option(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE "Require wxSecretStore support in the wxWidgets build" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -124,6 +125,44 @@ if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
 else()
     message(WARNING "MVR-xchange mDNS backend disabled by PERASTAGE_ENABLE_MVR_XCHANGE_MDNS=OFF.")
 endif()
+# Verifies that the configured wxWidgets build exposes wxSecretStore support.
+function(perastage_probe_wx_secretstore out_var)
+    include(CheckCXXSourceCompiles)
+    set(_previous_required_includes "${CMAKE_REQUIRED_INCLUDES}")
+    set(_probe_includes ${_wx_includes})
+    foreach(_wx_target wx::base wx::core)
+        if(TARGET ${_wx_target})
+            get_target_property(_target_includes ${_wx_target} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_target_includes)
+                list(APPEND _probe_includes ${_target_includes})
+            endif()
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES _probe_includes)
+    set(CMAKE_REQUIRED_INCLUDES ${_probe_includes})
+    check_cxx_source_compiles("#include <wx/setup.h>
+#if !defined(wxUSE_SECRETSTORE) || !wxUSE_SECRETSTORE
+#error wxSecretStore support is disabled
+#endif
+int main() { return 0; }
+" PERASTAGE_WX_SECRETSTORE_COMPILES)
+    set(CMAKE_REQUIRED_INCLUDES "${_previous_required_includes}")
+    set(${out_var} ${PERASTAGE_WX_SECRETSTORE_COMPILES} PARENT_SCOPE)
+endfunction()
+
+perastage_probe_wx_secretstore(PERASTAGE_WX_SECRETSTORE_ENABLED)
+message(STATUS "Perastage secure credential store requirement: ${PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE}")
+message(STATUS "Perastage target platform: ${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+message(STATUS "wxUSE_SECRETSTORE enabled: ${PERASTAGE_WX_SECRETSTORE_ENABLED}")
+if(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE AND NOT PERASTAGE_WX_SECRETSTORE_ENABLED)
+    message(FATAL_ERROR
+        "wxSecretStore support is missing from the configured wxWidgets build. "
+        "Official Perastage builds require native credential-store support. "
+        "When using vcpkg, install wxwidgets[secretstore] via the repository vcpkg manifest. "
+        "On Linux, wxWidgets also needs libsecret development support (for example libsecret-1-dev) when it is built."
+    )
+endif()
+
 
 execute_process(
     COMMAND git rev-parse --short=12 HEAD

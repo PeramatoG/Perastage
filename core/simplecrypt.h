@@ -20,6 +20,12 @@
 
 // SimpleCrypt remains only as a legacy decoder for credential migration; do not use it for new password writes.
 namespace SimpleCrypt {
+    struct DecodeResult {
+        bool success = false;
+        std::string value;
+        std::string error;
+    };
     std::string Encode(const std::string& data);
     std::string Decode(const std::string& data);
+    DecodeResult DecodeStrict(const std::string& data);
 }

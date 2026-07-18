@@ -32,13 +32,24 @@ enum class Status {
 struct Result {
     Status status = Status::Success;
     std::string message;
+    bool metadataWritten = false;
+    bool secretWritten = false;
     bool Succeeded() const { return status == Status::Success; }
 };
 
 struct LoadResult : Result {
     std::optional<Credentials> credentials;
+    std::optional<std::string> usernameHint;
     bool migrationAttempted = false;
     bool migrationSucceeded = false;
+};
+
+struct SecureStoreCapability {
+    bool compiledSupport = false;
+    bool runtimeAvailable = false;
+    std::string backendName;
+    std::string failureReason;
+    std::string platform;
 };
 
 class CredentialBackend {
@@ -57,7 +68,9 @@ extern const int kGdtfCredentialMetadataSchemaVersion;
 void SetCredentialBackendForTesting(std::shared_ptr<CredentialBackend> backend);
 void SetCredentialMetadataPathForTesting(const std::string& path);
 std::string StatusName(Status status);
+SecureStoreCapability GetSecureStoreCapability();
 Result Save(const Credentials& cred);
+Result SaveUsernameMetadataOnly(const std::string& username);
 LoadResult LoadDetailed();
 std::optional<Credentials> Load();
 Result ClearDetailed();

@@ -32,6 +32,8 @@ jobs:
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_BASELINE: 0878b5224d4a4968940ee296a2e7fae2d3b62983
+      VCPKG_CACHE_SCHEMA: securestore-v1
       VCPKG_TARGET_TRIPLET: x64-linux
 
     steps:
@@ -72,7 +74,8 @@ jobs:
             tar \
             unzip \
             zip \
-            zlib
+            zlib \
+            libsecret
 
       - name: Verify autotools for vcpkg
         run: |
@@ -92,11 +95,12 @@ jobs:
       - name: Bootstrap vcpkg
         run: |
           if [ -d "$VCPKG_ROOT/.git" ]; then
-            git -C "$VCPKG_ROOT" fetch --depth 1 origin master
-            git -C "$VCPKG_ROOT" checkout --force FETCH_HEAD
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_BASELINE"
+            git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           else
             rm -rf "$VCPKG_ROOT"
-            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+            git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+            git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
@@ -106,17 +110,7 @@ jobs:
           rm -rf "$VCPKG_PACKAGES"/gperf_* "$VCPKG_INSTALLED"/vcpkg/issue_body.md
           # Perastage still uses vcpkg for Linux CI because nanovg, PoDoFo, and
           # meshoptimizer availability can vary across distro repositories.
-          "$VCPKG_ROOT/vcpkg" install \
-            wxwidgets:x64-linux \
-            tinyxml2:x64-linux \
-            glew:x64-linux \
-            curl:x64-linux \
-            zlib:x64-linux \
-            nanovg:x64-linux \
-            podofo:x64-linux \
-            meshoptimizer:x64-linux \
-            backward-cpp:x64-linux \
-            mdns:x64-linux \
+          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-manifest-root="$GITHUB_WORKSPACE" \
             --x-install-root="$VCPKG_INSTALLED" \
             --x-packages-root="$VCPKG_PACKAGES" \
             --downloads-root="$VCPKG_DOWNLOADS"
@@ -128,7 +122,7 @@ jobs:
 
       - name: Build Arch package
         run: |
-          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET'; cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --force --noconfirm --nodeps"
+          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON; cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --force --noconfirm --nodeps"
 
       - name: Collect Arch package
         run: |

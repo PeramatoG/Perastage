@@ -110,6 +110,23 @@ std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot() {
   return snapshot;
 }
 
+fs::path MakeUniqueCacheSibling(const fs::path &cachePath,
+                                const std::string &tag) {
+  for (int attempt = 0; attempt < 64; ++attempt) {
+    const fs::path candidate = cachePath.parent_path() /
+        (cachePath.filename().string() + tag +
+         std::to_string(std::chrono::steady_clock::now()
+                            .time_since_epoch()
+                            .count()) +
+         "_" + std::to_string(attempt));
+    std::error_code existsError;
+    if (!fs::exists(candidate, existsError))
+      return candidate;
+  }
+  return cachePath.parent_path() /
+         (cachePath.filename().string() + tag + "fallback");
+}
+
 bool SaveCacheSnapshot(const GdtfCatalogSnapshot &snapshot) {
   const fs::path cachePath = GetCatalogCachePath();
   std::error_code mkdirError;
@@ -121,12 +138,50 @@ bool SaveCacheSnapshot(const GdtfCatalogSnapshot &snapshot) {
   root["last_successful_refresh_at"] = snapshot.lastSuccessfulRefreshAt;
   root["list_data"] = snapshot.listData;
 
-  std::ofstream output(cachePath, std::ios::binary | std::ios::trunc);
-  if (!output)
-    return false;
+  const fs::path tmpPath = MakeUniqueCacheSibling(cachePath, ".tmp.");
+  {
+    std::ofstream output(tmpPath, std::ios::binary | std::ios::trunc);
+    if (!output)
+      return false;
+    output << root.dump();
+    output.flush();
+    if (!output.good()) {
+      std::error_code removeError;
+      fs::remove(tmpPath, removeError);
+      return false;
+    }
+  }
 
-  output << root.dump();
-  return output.good();
+  std::error_code renameError;
+  fs::rename(tmpPath, cachePath, renameError);
+  if (!renameError)
+    return true;
+
+  const fs::path backupPath = MakeUniqueCacheSibling(cachePath, ".backup.");
+  std::error_code backupError;
+  if (fs::exists(cachePath, backupError)) {
+    fs::rename(cachePath, backupPath, backupError);
+    if (backupError) {
+      std::error_code removeError;
+      fs::remove(tmpPath, removeError);
+      return false;
+    }
+  }
+
+  std::error_code publishError;
+  fs::rename(tmpPath, cachePath, publishError);
+  if (publishError) {
+    std::error_code restoreError;
+    if (fs::exists(backupPath, restoreError))
+      fs::rename(backupPath, cachePath, restoreError);
+    std::error_code removeError;
+    fs::remove(tmpPath, removeError);
+    return false;
+  }
+
+  std::error_code removeBackupError;
+  fs::remove(backupPath, removeBackupError);
+  return true;
 }
 
 } // namespace
@@ -142,6 +197,8 @@ GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
   result.snapshot = LoadCacheSnapshot();
   result.metrics.cacheHit = result.snapshot.has_value();
   result.metrics.cacheMiss = !result.metrics.cacheHit;
+  result.source = result.snapshot ? GdtfCatalogResultSource::Cache
+                                  : GdtfCatalogResultSource::None;
 
   if (result.snapshot) {
     const std::optional<long long> ageSeconds =
@@ -161,6 +218,8 @@ GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
   std::string refreshedListData;
   if (!refreshCatalogFn || !refreshCatalogFn(refreshedListData) ||
       refreshedListData.empty()) {
+    result.staleFallback = result.snapshot.has_value();
+    result.failureMessage = "Online catalog refresh failed";
     return result;
   }
 
@@ -169,8 +228,10 @@ GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
   refreshedSnapshot.updatedAt = nowUtcIso;
   refreshedSnapshot.lastSuccessfulRefreshAt = nowUtcIso;
 
-  SaveCacheSnapshot(refreshedSnapshot);
+  if (!SaveCacheSnapshot(refreshedSnapshot))
+    result.failureMessage = "Catalog cache write failed";
   result.snapshot = refreshedSnapshot;
+  result.source = GdtfCatalogResultSource::Online;
 
   result.metrics.refreshSucceeded = true;
   result.metrics.cacheHit = result.snapshot.has_value();

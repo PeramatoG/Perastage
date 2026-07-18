@@ -1,0 +1,22 @@
+{
+  "name": "perastage",
+  "version-string": "development",
+  "builtin-baseline": "0878b5224d4a4968940ee296a2e7fae2d3b62983",
+  "dependencies": [
+    {
+      "name": "wxwidgets",
+      "features": [
+        "secretstore"
+      ]
+    },
+    "tinyxml2",
+    "curl",
+    "glew",
+    "zlib",
+    "nanovg",
+    "podofo",
+    "meshoptimizer",
+    "backward-cpp",
+    "mdns"
+  ]
+}
