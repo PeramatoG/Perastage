@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <memory>
 #include "fixture.h"
 #include "truss.h"
 #include "sceneobject.h"
@@ -41,6 +42,7 @@ public:
     // Base directory where the MVR archive was extracted. All relative
     // resource paths (e.g. 3D models) are resolved against this path.
     std::string basePath;
+    std::vector<std::shared_ptr<void>> runtimeResourceLeases;
 
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;

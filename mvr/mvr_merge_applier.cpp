@@ -18,9 +18,9 @@
 #include "mvr_merge_applier.h"
 
 #include "mvr_merge_resource_rewriter.h"
+#include "runtime_storage.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
 #include <filesystem>
 #include <string>
@@ -48,35 +48,16 @@ std::string ToLowerAscii(std::string value) {
   return value;
 }
 
-// Creates a temporary resource root for merges into unsaved scenes.
-std::string CreateTemporaryMergeResourceBasePath() {
-  namespace fs = std::filesystem;
-  std::error_code tempEc;
-  const fs::path tempBase = fs::temp_directory_path(tempEc);
-  if (tempEc)
-    return {};
-
-  for (int attempt = 0; attempt < 32; ++attempt) {
-    const fs::path fullPath =
-        tempBase / ("ps_mvr_merge_" +
-                    std::to_string(
-                        std::chrono::steady_clock::now()
-                            .time_since_epoch()
-                            .count()) +
-                    "_" + std::to_string(attempt));
-    std::error_code ec;
-    if (fs::create_directory(fullPath, ec) && !ec)
-      return fullPath.string();
-  }
-  return {};
-}
-
 // Ensures imported resources have a target base path before merge rewriting.
 void EnsureMergeResourceBasePath(MvrScene &target, const MvrScene &imported) {
   if (!target.basePath.empty() || imported.basePath.empty())
     return;
 
-  target.basePath = CreateTemporaryMergeResourceBasePath();
+  runtime_storage::TemporaryWorkspace workspace("mvr-merge");
+  if (!workspace.IsValid())
+    return;
+  target.basePath = workspace.Path().string();
+  target.runtimeResourceLeases.push_back(workspace.TransferToSceneLease());
 }
 
 // Normalizes fixture type names for merge decision lookup.

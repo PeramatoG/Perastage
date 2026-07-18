@@ -2,8 +2,10 @@
 
 #include "dictionary_import.h"
 #include "gdtfdictionary.h"
+#include "runtime_storage.h"
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -19,6 +21,7 @@ struct PreparedImport {
   bool is_bundle = false;
   std::filesystem::path rewritten_snapshot_path;
   std::filesystem::path staging_directory;
+  std::shared_ptr<runtime_storage::SceneResourceLease> staging_lease;
   Type type = Type::Fixtures;
   std::vector<std::string> errors;
 };

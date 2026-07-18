@@ -85,6 +85,7 @@
 #include "preferencesdialog.h"
 #include "projectutils.h"
 #include "resource_path_utils.h"
+#include "runtime_storage.h"
 #include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
 #include "scene_grouping.h"
@@ -1662,7 +1663,8 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
 std::string
 NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
                                       const std::string &sceneBasePath,
-                                      std::string &consoleError) {
+                                      std::string &consoleError,
+                                      runtime_storage::SceneResourceLeasePtr *outLease = nullptr) {
   namespace fs = std::filesystem;
   fs::path sourcePath = PathUtils::PathFromUtf8(selectedPath);
   std::string ext = sourcePath.extension().string();
@@ -1673,10 +1675,9 @@ NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
     return selectedPath;
 
   std::error_code ec;
-  const fs::path tempRoot = fs::temp_directory_path(ec);
-  const fs::path importTempDir = tempRoot / "perastage_imported_objects";
-  fs::create_directories(importTempDir, ec);
-  if (ec) {
+  runtime_storage::TemporaryWorkspace importWorkspace("obj-import");
+  const fs::path importTempDir = importWorkspace.Path();
+  if (!importWorkspace.IsValid()) {
     consoleError =
         "Failed preparing temporary directory for OBJ import conversion";
     return selectedPath;
@@ -1705,6 +1706,8 @@ NormalizeImportedObjectModelPathToGlb(const std::string &selectedPath,
     }
   }
 
+  if (outLease)
+    *outLease = importWorkspace.TransferToSceneLease();
   return targetPath.string();
 }
 
@@ -1783,7 +1786,11 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       templateObject != nullptr && !templateObject->geometries.empty();
   if (!useTemplateGeometry) {
     std::string conversionError;
-    path = NormalizeImportedObjectModelPathToGlb(path, base, conversionError);
+    runtime_storage::SceneResourceLeasePtr convertedObjLease;
+    path = NormalizeImportedObjectModelPathToGlb(path, base, conversionError,
+                                                &convertedObjLease);
+    if (convertedObjLease)
+      scene.runtimeResourceLeases.push_back(convertedObjLease);
     if (!conversionError.empty() && ConsolePanel::Instance())
       ConsolePanel::Instance()->AppendMessage(
           wxString::FromUTF8(conversionError));

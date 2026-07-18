@@ -23,6 +23,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
+#include "runtime_storage.h"
 #include "meshprimitives.h"
 #include "consolepanel.h"
 
@@ -189,6 +190,7 @@ struct GdtfCacheEntry
 {
     fs::file_time_type timestamp;
     std::string extractedDir;
+    runtime_storage::SceneResourceLeasePtr extractionLease;
     std::unique_ptr<tinyxml2::XMLDocument> doc;
     tinyxml2::XMLElement* fixtureType = nullptr;
     std::vector<std::string> modes;
@@ -411,55 +413,33 @@ static std::string FindModelFile(const std::string& baseDir,
 }
 
 // Creates a unique temporary extraction directory without throwing.
-static std::string CreateTempDir()
-{
-    std::error_code ec;
-    fs::path base = fs::temp_directory_path(ec);
-    if (ec || base.empty())
-        return {};
-
-    const auto now = std::chrono::system_clock::now().time_since_epoch().count();
-    for (int attempt = 0; attempt < 32; ++attempt) {
-        fs::path full = base / ("GDTF_" + std::to_string(now) + "_" +
-                                std::to_string(attempt));
-        if (fs::create_directory(full, ec))
-            return full.string();
-        if (ec && !fs::exists(full, ec))
-            return {};
-        ec.clear();
-    }
-    return {};
-}
 
 struct TempExtraction
 {
     // Extracts a GDTF archive into a temporary directory for legacy loading.
     explicit TempExtraction(const std::string& zipPath)
     {
-        dir = CreateTempDir();
-        if (dir.empty())
+        workspace = runtime_storage::TemporaryWorkspace("gdtf-load");
+        if (!workspace.IsValid())
             return;
+        dir = workspace.Path().string();
         extracted = ExtractZip(zipPath, dir);
     }
 
     // Removes temporary extraction data without throwing during cleanup.
     ~TempExtraction()
     {
-        if (!dir.empty()) {
-            std::error_code ec;
-            fs::remove_all(dir, ec);
-        }
+        workspace.Cleanup();
     }
 
     // Reports whether archive extraction completed successfully.
     bool IsValid() const { return extracted; }
 
     // Releases ownership of the extraction directory to the caller.
-    std::string Release()
+    runtime_storage::SceneResourceLeasePtr ReleaseLease()
     {
-        std::string out = std::move(dir);
         dir.clear();
-        return out;
+        return workspace.TransferToSceneLease();
     }
 
     // Returns the temporary extraction directory path.
@@ -467,6 +447,7 @@ struct TempExtraction
 
 private:
     std::string dir;
+    runtime_storage::TemporaryWorkspace workspace;
     bool extracted = false;
 };
 
@@ -1295,7 +1276,6 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
             return &it->second;
         }
 
-        fs::remove_all(it->second.extractedDir, ec);
         g_gdtfCache.erase(it);
     }
 
@@ -1308,19 +1288,20 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
-    entry.extractedDir = extraction.Release();
+    entry.extractedDir = extraction.Path();
+    entry.extractionLease = extraction.ReleaseLease();
 
     entry.doc = std::make_unique<tinyxml2::XMLDocument>();
     std::string descPath = FindExtractedDescriptionPath(entry.extractedDir);
     if (descPath.empty()) {
-        fs::remove_all(entry.extractedDir, ec);
+        entry.extractionLease.reset();
         g_failedGdtfCache[stableKey] = timestamp;
         setReason("Missing or ambiguous description.xml inside GDTF file");
         g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
         return nullptr;
     }
     if (!ParseXmlWithEscapedControlFallback(descPath, *entry.doc)) {
-        fs::remove_all(entry.extractedDir, ec);
+        entry.extractionLease.reset();
         g_failedGdtfCache[stableKey] = timestamp;
         setReason("Missing or invalid description.xml inside GDTF file");
         g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";
@@ -1329,7 +1310,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     entry.fixtureType = GetFixtureType(*entry.doc);
     if (!entry.fixtureType) {
-        fs::remove_all(entry.extractedDir, ec);
+        entry.extractionLease.reset();
         g_failedGdtfCache[stableKey] = timestamp;
         setReason("GDTF description.xml is missing a <FixtureType> element");
         g_gdtfFailureReasons[stableKey] = failureReason ? *failureReason : "unknown error";

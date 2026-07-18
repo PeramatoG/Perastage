@@ -26,6 +26,14 @@ add_library(perastage_test_path_utils STATIC
             ../core/filesystem_path_utils.cpp)
 target_include_directories(perastage_test_path_utils PRIVATE ../core)
 
+add_executable(runtime_storage_test
+               runtime_storage_test.cpp
+               ../core/runtime_storage.cpp
+               ../core/logger.cpp)
+target_include_directories(runtime_storage_test PRIVATE ../core)
+target_link_libraries(runtime_storage_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME RuntimeStorageTest COMMAND runtime_storage_test)
+
 
 add_library(perastage_test_active_dictionary_storage STATIC
             ../core/active_dictionary_storage.cpp
@@ -612,6 +620,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -647,6 +656,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -707,6 +717,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
@@ -746,6 +757,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -778,6 +790,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -814,6 +827,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -850,6 +864,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -885,6 +900,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -923,6 +939,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -959,6 +976,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -1003,6 +1021,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
@@ -1468,6 +1487,7 @@ add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test
 
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1491,6 +1511,7 @@ set_library_env(Loader3dsNativeDimensions)
 
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1506,6 +1527,7 @@ set_library_env(GdtfLoaderChannelModeSummaries)
 
 add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1521,6 +1543,7 @@ set_library_env(GdtfLoaderGeometryRoots)
 
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1549,6 +1572,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/uuidutils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../core/logger.cpp
@@ -1587,6 +1611,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
@@ -1637,6 +1662,7 @@ add_executable(filesystem_identity_test
                build_info_stub.cpp
                ../core/filesystem_path_utils.cpp
                ../core/trussloader.cpp
+               ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
@@ -1741,14 +1767,16 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_path_utils" AND
        PERASTAGE_TEST_SOURCES AND
-       ("../viewer3d/gdtfloader.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+       ("../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
         "../viewer3d/loader3ds.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
         "../viewer3d/loaderglb.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
         target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_path_utils)
     endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_gdtf_archive_reader" AND
        PERASTAGE_TEST_SOURCES AND
-       "../viewer3d/gdtfloader.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       "../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
        NOT ("../core/gdtf_archive_reader.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
         target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_gdtf_archive_reader)
     endif()

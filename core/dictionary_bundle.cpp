@@ -1,4 +1,5 @@
 #include "dictionary_bundle.h"
+#include "runtime_storage.h"
 #include "active_dictionary_storage.h"
 #include "gdtfdictionary.h"
 #include "trussdictionary.h"
@@ -144,16 +145,8 @@ std::string BaseNameForArchive(const fs::path &path, size_t fallbackIndex) {
   return "asset_" + std::to_string(fallbackIndex) + ".bin";
 }
 
-fs::path MakeTempStagingDir() {
-  const auto timestamp =
-      std::chrono::system_clock::now().time_since_epoch().count();
-  fs::path dir = fs::temp_directory_path() /
-                 ("perastage-dictionary-bundle-" + std::to_string(timestamp));
-  std::error_code ec;
-  fs::create_directories(dir, ec);
-  if (ec)
-    return {};
-  return dir;
+runtime_storage::TemporaryWorkspace MakeTempStagingWorkspace() {
+  return runtime_storage::TemporaryWorkspace("dictionary-bundle");
 }
 
 bool SerializeJsonToBytes(const nlohmann::json &json,
@@ -538,24 +531,25 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
   if (lowerExt != ".zip" && !IsZipByHeader(path))
     return result;
 
-  const fs::path stagingDir = MakeTempStagingDir();
+  auto stagingWorkspace = MakeTempStagingWorkspace();
+  fs::path stagingDir = stagingWorkspace.Path();
   if (stagingDir.empty()) {
     result.errors.push_back(
         "Could not create temporary staging directory for bundle import");
     return result;
   }
 
+  result.staging_directory = stagingDir;
+  result.staging_lease = stagingWorkspace.TransferToSceneLease();
+
   std::string extractError;
   if (!ExtractArchive(path, stagingDir, extractError)) {
     result.errors.push_back(extractError);
-    result.staging_directory = stagingDir;
     return result;
   }
 
   const fs::path manifestPath = stagingDir / "manifest.json";
   if (!fs::exists(manifestPath)) {
-    std::error_code cleanupEc;
-    fs::remove_all(stagingDir, cleanupEc);
     return result;
   }
 
@@ -563,20 +557,16 @@ PreparedImport PrepareBundleImport(const std::string &importPath,
   std::string parseError;
   if (!ReadJsonFile(manifestPath, manifest, parseError)) {
     result.errors.push_back(parseError);
-    result.staging_directory = stagingDir;
     result.is_bundle = true;
     return result;
   }
 
   if (!manifest.contains("kind") || !manifest["kind"].is_string() ||
       manifest["kind"].get<std::string>() != kBundleKind) {
-    std::error_code cleanupEc;
-    fs::remove_all(stagingDir, cleanupEc);
     return result;
   }
 
   result.is_bundle = true;
-  result.staging_directory = stagingDir;
 
   if (!manifest.contains("dictionary_type") ||
       !manifest["dictionary_type"].is_string()) {
@@ -926,10 +916,8 @@ ApplyResult ApplyPreparedBundleImport(const PreparedImport &preparedImport,
 }
 
 void CleanupPreparedImport(const PreparedImport &preparedImport) {
-  if (preparedImport.staging_directory.empty())
-    return;
-  std::error_code ec;
-  fs::remove_all(preparedImport.staging_directory, ec);
+  runtime_storage::RemoveOwnedPath(preparedImport.staging_directory,
+                                   "dictionary prepared import");
 }
 
 } // namespace DictionaryBundle

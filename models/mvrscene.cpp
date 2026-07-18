@@ -32,6 +32,7 @@ void MvrScene::Clear() {
     provider.clear();
     providerVersion.clear();
     basePath.clear();
+    runtimeResourceLeases.clear();
     versionMajor = 1;
     versionMinor = 6;
 }

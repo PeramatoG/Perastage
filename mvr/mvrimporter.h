@@ -115,7 +115,6 @@ private:
     std::unordered_map<std::string, std::string> fixtureUuidRemap;
 
     // Creates a temporary directory for extracting the contents of the MVR archive
-    std::string CreateTemporaryDirectory();
 
     // Extracts the .mvr (ZIP) contents into the given destination directory
     bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir);

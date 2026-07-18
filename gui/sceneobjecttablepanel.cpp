@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "runtime_storage.h"
 #include "sceneobjecttablepanel.h"
 #include "dataview_deferred_selection_guard.h"
 #include "localized_unit_labels.h"
@@ -171,7 +172,7 @@ wxString ResolvePrimitivePreviewPath(const SceneObject &object,
     }
 
   std::filesystem::path cacheDir =
-      std::filesystem::temp_directory_path() / "perastage_primitive_preview";
+      runtime_storage::GetPerastageCacheRoot() / "primitive-preview";
     std::error_code ec;
     std::filesystem::create_directories(cacheDir, ec);
   std::string fileName =
