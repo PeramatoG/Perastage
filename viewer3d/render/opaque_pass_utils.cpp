@@ -1,10 +1,12 @@
 #include "opaque_pass_utils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 
 namespace fs = std::filesystem;
 
+// Normalizes path separators for cache keys.
 static std::string NormalizePath(const std::string &p) {
   std::string out = p;
   char sep = static_cast<char>(fs::path::preferred_separator);
@@ -12,6 +14,7 @@ static std::string NormalizePath(const std::string &p) {
   return out;
 }
 
+// Normalizes model paths before they are used as symbol keys.
 std::string NormalizeModelKey(const std::string &p) {
   if (p.empty())
     return {};
@@ -20,10 +23,12 @@ std::string NormalizeModelKey(const std::string &p) {
   return NormalizePath(path.string());
 }
 
+// Resolves a path reference into the stable cache-key form.
 std::string ResolveCacheKey(const std::string &pathRef) {
   return NormalizeModelKey(pathRef);
 }
 
+// Computes 2D command bounds including render-safe stroke padding.
 SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
   SymbolBounds bounds{};
   bool hasPoint = false;
@@ -87,6 +92,7 @@ SymbolBounds ComputeSymbolBounds(const CommandBuffer &buffer) {
   return bounds;
 }
 
+// Converts a fixture matrix into an OpenGL-compatible column-major array.
 void MatrixToArray(const Matrix &m, float out[16]) {
   out[0] = m.u[0];
   out[1] = m.u[1];
@@ -106,6 +112,7 @@ void MatrixToArray(const Matrix &m, float out[16]) {
   out[15] = 1.0f;
 }
 
+// Transforms a local 3D point by the provided matrix.
 std::array<float, 3> TransformPoint(const Matrix &m,
                                     const std::array<float, 3> &p) {
   return {m.u[0] * p[0] + m.v[0] * p[1] + m.w[0] * p[2] + m.o[0],
@@ -113,6 +120,7 @@ std::array<float, 3> TransformPoint(const Matrix &m,
           m.u[2] * p[0] + m.v[2] * p[1] + m.w[2] * p[2] + m.o[2]};
 }
 
+// Builds the legacy fixed-view 2D instance transform for a matrix.
 Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
   Transform2D t{};
   switch (view) {
@@ -143,4 +151,109 @@ Transform2D BuildInstanceTransform2D(const Matrix &m, Viewer2DView view) {
     break;
   }
   return t;
+}
+
+namespace {
+constexpr float kFixtureSymbolProjectionAreaEpsilon = 1.0e-6f;
+
+// Projects a world-space vector into the requested layout view coordinates.
+std::array<float, 2> ProjectVectorToLayout(const std::array<float, 3> &v,
+                                           Viewer2DView view) {
+  switch (view) {
+  case Viewer2DView::Top:
+  case Viewer2DView::Bottom:
+    return {v[0], v[1]};
+  case Viewer2DView::Front:
+    return {v[0], v[2]};
+  case Viewer2DView::Side:
+    return {-v[1], v[2]};
+  }
+  return {v[0], v[1]};
+}
+
+// Projects the fixture origin into the requested layout view coordinates.
+std::array<float, 2> ProjectOriginToLayout(const Matrix &m, Viewer2DView view) {
+  return ProjectVectorToLayout({m.o[0], m.o[1], m.o[2]}, view);
+}
+
+// Maps the resolved representative plane to the SVG resource view.
+SymbolViewKind SymbolViewForPlane(FixtureSymbolPlane plane,
+                                  bool forceBottomViewForTopFixtures) {
+  switch (plane) {
+  case FixtureSymbolPlane::Top:
+    return forceBottomViewForTopFixtures ? SymbolViewKind::Bottom
+                                         : SymbolViewKind::Top;
+  case FixtureSymbolPlane::Front:
+    return SymbolViewKind::Front;
+  case FixtureSymbolPlane::Side:
+    return SymbolViewKind::Left;
+  }
+  return SymbolViewKind::Top;
+}
+} // namespace
+
+// Resolves the visible fixture symbol plane and its matching 2D transform.
+FixtureSymbolProjection ResolveFixtureSymbolProjection(
+    const Matrix &fixtureTransform, Viewer2DView targetView,
+    bool forceBottomViewForTopFixtures) {
+  struct Candidate {
+    FixtureSymbolPlane plane;
+    std::array<float, 3> u;
+    std::array<float, 3> v;
+  };
+
+  const Candidate candidates[] = {
+      {FixtureSymbolPlane::Top,
+       {fixtureTransform.u[0], fixtureTransform.u[1], fixtureTransform.u[2]},
+       {fixtureTransform.v[0], fixtureTransform.v[1], fixtureTransform.v[2]}},
+      {FixtureSymbolPlane::Front,
+       {fixtureTransform.u[0], fixtureTransform.u[1], fixtureTransform.u[2]},
+       {fixtureTransform.w[0], fixtureTransform.w[1], fixtureTransform.w[2]}},
+      {FixtureSymbolPlane::Side,
+       {-fixtureTransform.v[0], -fixtureTransform.v[1], -fixtureTransform.v[2]},
+       {fixtureTransform.w[0], fixtureTransform.w[1], fixtureTransform.w[2]}},
+  };
+
+  FixtureSymbolProjection best{};
+  const auto origin = ProjectOriginToLayout(fixtureTransform, targetView);
+  best.instanceTransform.tx = origin[0];
+  best.instanceTransform.ty = origin[1];
+
+  for (const Candidate &candidate : candidates) {
+    const auto projectedU = ProjectVectorToLayout(candidate.u, targetView);
+    const auto projectedV = ProjectVectorToLayout(candidate.v, targetView);
+    const float determinant =
+        projectedU[0] * projectedV[1] - projectedU[1] * projectedV[0];
+    const float area = std::abs(determinant);
+    if (area <= kFixtureSymbolProjectionAreaEpsilon)
+      continue;
+    if (best.valid && area <= best.projectedArea)
+      continue;
+
+    best.plane = candidate.plane;
+    best.symbolView =
+        SymbolViewForPlane(candidate.plane, forceBottomViewForTopFixtures);
+    best.instanceTransform.a = projectedU[0];
+    best.instanceTransform.b = projectedU[1];
+    best.instanceTransform.c = projectedV[0];
+    best.instanceTransform.d = projectedV[1];
+    best.instanceTransform.tx = origin[0];
+    best.instanceTransform.ty = origin[1];
+    best.projectedArea = area;
+    best.valid = true;
+  }
+
+  if (!best.valid) {
+    best = FixtureSymbolProjection{};
+    best.symbolView =
+        SymbolViewForPlane(best.plane, forceBottomViewForTopFixtures);
+    best.instanceTransform =
+        BuildInstanceTransform2D(fixtureTransform, targetView);
+    best.projectedArea =
+        std::abs(best.instanceTransform.a * best.instanceTransform.d -
+                 best.instanceTransform.b * best.instanceTransform.c);
+    best.valid = best.projectedArea > 0.0f;
+  }
+
+  return best;
 }

@@ -114,12 +114,13 @@ struct SvgSymbolCacheKeyHasher {
   }
 };
 
+// Encodes fixture symbol color and projection schema into the style key.
 uint32_t BuildFixtureSymbolStyleVersion(float r, float g, float b) {
   auto toByte = [](float value) -> uint32_t {
     const float clamped = std::clamp(value, 0.0f, 1.0f);
     return static_cast<uint32_t>(std::lround(clamped * 255.0f));
   };
-  return 0x1000000u | (toByte(r) << 16) | (toByte(g) << 8) | toByte(b);
+  return 0x2000000u | (toByte(r) << 16) | (toByte(g) << 8) | toByte(b);
 }
 
 std::vector<SymbolViewKind>
@@ -888,9 +889,8 @@ void OpaqueFixturePass::Render(
     bool renderedPerastageSvg = false;
     const bool captureRecordingActive =
         controller.m_captureCanvas && !skipCapture;
-    const bool preferLayoutSvg = context.preferPerastageSvgSymbolsForLayouts &&
-                                 is2DViewer && !captureRecordingActive &&
-                                 mode != Viewer2DRenderMode::Wireframe;
+    const bool preferLayoutSvg = false;
+    (void)captureRecordingActive;
     if (preferLayoutSvg && !svgSourcePath.empty()) {
       const Viewer2DView fixtureView =
           isTopView2D && forceBottomViewForTopFixtures ? Viewer2DView::Bottom
@@ -937,7 +937,13 @@ void OpaqueFixturePass::Render(
 
         SymbolKey symbolKey;
         symbolKey.modelKey = modelKey;
-        symbolKey.viewKind = resolveSymbolView(fixtureCaptureView);
+        const FixtureSymbolProjection symbolProjection =
+            ResolveFixtureSymbolProjection(fixtureTransform, fixtureCaptureView,
+                                           forceBottomViewForTopFixtures);
+        if (!symbolProjection.valid)
+          continue;
+
+        symbolKey.viewKind = symbolProjection.symbolView;
         symbolKey.styleVersion = BuildFixtureSymbolStyleVersion(r, g, b);
 
         const auto &symbol = controller.m_bottomSymbolCache.GetOrCreate(
@@ -1018,10 +1024,8 @@ void OpaqueFixturePass::Render(
               return definition;
             });
 
-        Transform2D instanceTransform =
-            BuildInstanceTransform2D(fixtureTransform, fixtureCaptureView);
-        controller.m_captureCanvas->PlaceSymbolInstance(symbol.symbolId,
-                                                        instanceTransform);
+        controller.m_captureCanvas->PlaceSymbolInstance(
+            symbol.symbolId, symbolProjection.instanceTransform);
         placedSymbolInstance = true;
       }
     }

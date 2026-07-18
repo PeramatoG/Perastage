@@ -427,39 +427,15 @@ void RenderCommandBuffer(wxGCDC &dc, const CommandBuffer &buffer,
       if (it == symbols->end())
         continue;
       const Transform2D combined = ComposeTransform(localTransform, instance->transform);
-      bool renderedSvg = false;
-
-      if (!it->second.key.modelKey.empty()) {
-        if (debugInfo)
-          debugInfo->svgLookupAttempts += 1;
-        if (!renderedSvg) {
-          if (const PerastageSvgSymbolData *svg =
-                  FindSvgSymbolForView(it->second.key.modelKey, sourceKey,
-                                       it->second.key.viewKind, svgCache,
-                                       resolvedModelKeyCache)) {
-            const Transform2D svgTransform =
-                ComposeTransform(combined,
-                                 BuildSvgToSymbolTransform(*svg, it->second.bounds));
-            DrawSvgSymbol(dc, mapping, svgTransform, *svg);
-            renderedSvg = true;
-            if (debugInfo)
-              debugInfo->svgResolved += 1;
-          }
-        }
-      }
-      if (!renderedSvg && renderSvgSymbolsOnly)
+      if (renderSvgSymbolsOnly)
         continue;
-
-      if (!renderedSvg) {
-        if (kDisableFallbackSymbolRenderingForDebug)
-          continue;
-        if (debugInfo)
-          debugInfo->fallbackRenderCount += 1;
-        RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
-                            svgCache, resolvedModelKeyCache, debugInfo,
-                            combined, currentTransform,
-                            renderSvgSymbolsOnly);
-      }
+      if (kDisableFallbackSymbolRenderingForDebug)
+        continue;
+      if (debugInfo)
+        debugInfo->fallbackRenderCount += 1;
+      RenderCommandBuffer(dc, it->second.localCommands, mapping, symbols,
+                          svgCache, resolvedModelKeyCache, debugInfo, combined,
+                          currentTransform, renderSvgSymbolsOnly);
     } else if (const auto *save = std::get_if<SaveCommand>(&cmd)) {
       (void)save;
       transformStack.push_back(currentTransform);
