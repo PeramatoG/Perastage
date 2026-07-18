@@ -109,7 +109,8 @@ bool IsInsideRuntimeRoot(const fs::path &path) {
     target = fs::absolute(path, ec);
   const auto rootText = root.lexically_normal().string();
   const auto targetText = target.lexically_normal().string();
-  return targetText == rootText || targetText.rfind(rootText + fs::path::preferred_separator, 0) == 0;
+  const std::string rootPrefix = rootText + fs::path::preferred_separator;
+  return targetText == rootText || targetText.rfind(rootPrefix, 0) == 0;
 }
 
 // Removes an owned runtime path after validating containment.
