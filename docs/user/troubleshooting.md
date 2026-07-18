@@ -54,23 +54,12 @@ Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 
 or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, CMake is probably using a different vcpkg installation than the one where Perastage dependencies were installed.
 
-On Windows, the recommended vcpkg location for Perastage is:
-
-```text
-C:/vcpkg
-```
-
-First verify that the expected vcpkg instance exists:
+On Windows, Perastage expects the setup-managed `.tools/vcpkg` checkout and repository-local `vcpkg_installed` tree unless you intentionally pass `-VcpkgRoot` and mirror that override in local presets. Verify the default paths from the repository root:
 
 ```powershell
-Test-Path "C:\vcpkg\vcpkg.exe"
-Test-Path "C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
-```
-
-Then verify that the required packages are installed with the `x64-windows` triplet:
-
-```powershell
-C:\vcpkg\vcpkg.exe list
+Test-Path ".\.tools\vcpkg\vcpkg.exe"
+Test-Path ".\.tools\vcpkg\scripts\buildsystems\vcpkg.cmake"
+Test-Path ".\vcpkg_installed\x64-windows"
 ```
 
 If needed, install the dependencies again through the manifest and the same installed root used by CMake:
@@ -86,11 +75,11 @@ If the CMake error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the recommended `C:/vcpkg` installation.
+then Visual Studio is using its own vcpkg instance instead of the Perastage-local `.tools/vcpkg` checkout.
 
 In that case:
 
-1. Make sure the current `CMakePresets.json` uses `C:/vcpkg/scripts/buildsystems/vcpkg.cmake` for Windows presets.
+1. Make sure the current `CMakePresets.json` uses `.tools/vcpkg/scripts/buildsystems/vcpkg.cmake`, `vcpkg_installed`, and `VCPKG_MANIFEST_MODE=OFF` for Windows presets.
 2. Close Visual Studio.
 3. Remove stale CMake state.
 4. Reopen the repository folder in Visual Studio.
@@ -108,7 +97,7 @@ Remove-Item -Recurse -Force .\out\build\x64-Debug -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\out\build\x64-Release -ErrorAction SilentlyContinue
 ```
 
-If your vcpkg installation is intentionally located somewhere else, either edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json` or create a local `CMakeUserPresets.json`.
+If your vcpkg installation is intentionally located somewhere else, pass `-VcpkgRoot` to `setup_windows.ps1` or create a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`. The shared presets expect the setup-managed `.tools/vcpkg` checkout and `vcpkg_installed` tree.
 
 ## Export diagnostics after a crash or bug
 
@@ -137,3 +126,7 @@ C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse
 ```
 
 Then delete the affected Perastage build directory and configure again so the secure-store probe sees the rebuilt wxWidgets package. On Linux, install `libsecret-1-dev` before building wxWidgets with vcpkg. At runtime, Linux password persistence also needs a Secret Service provider such as GNOME Keyring or KWallet; a headless or minimal desktop can report the runtime store as unavailable even when the feature was compiled correctly.
+
+### CMake reports CMAKE_CXX_COMPILER not set on Windows
+
+Run Ninja presets from a Visual Studio Developer PowerShell or run `setup_windows.ps1`, which imports the x64 MSVC environment before configuring CMake. If this appears after a failed dependency configure, rerun `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so the pinned vcpkg checkout, `vcpkg_installed` root, and CMake cache are aligned.

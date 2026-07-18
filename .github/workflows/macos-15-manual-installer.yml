@@ -177,6 +177,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
+            -DVCPKG_MANIFEST_MODE=OFF \
             -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
             -DBUILD_TESTING=ON
 

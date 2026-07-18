@@ -117,6 +117,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows `
             -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
+            -DVCPKG_MANIFEST_MODE=OFF `
             -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
 
       # ── 6. Build ────────────────────────────────────────────────────────────
@@ -272,6 +273,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows `
             -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
+            -DVCPKG_MANIFEST_MODE=OFF `
             -DBUILD_TESTING=ON `
             -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
 

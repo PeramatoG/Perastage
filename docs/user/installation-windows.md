@@ -9,21 +9,11 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 - Visual Studio 2022 with the C++ desktop workload.
 - CMake, either bundled with Visual Studio or installed separately.
 - Ninja, either bundled with Visual Studio or installed separately.
-- vcpkg installed in `C:/vcpkg`.
+- The Perastage-local vcpkg checkout created by `setup_windows.ps1` in `.tools/vcpkg`.
 
 ## Recommended vcpkg location
 
-On Windows, the recommended Perastage vcpkg location is:
-
-```text
-C:/vcpkg
-```
-
-The shared Windows presets in `CMakePresets.json` use this path directly.
-
-This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
-
-If your vcpkg installation is in another location, either edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json` or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
+The shared Windows presets use the Perastage-local `.tools/vcpkg` checkout and `vcpkg_installed` tree prepared by `setup_windows.ps1`. This avoids conflicts with Visual Studio's internal vcpkg and prevents CMake from creating a second dependency tree during configure. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to the setup script or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
 
 ## Install dependencies
 
@@ -69,9 +59,10 @@ Build Windows Release (Ninja)
 
 ## Configure and Build from PowerShell
 
-From the repository root, configure a Debug build:
+From a Visual Studio Developer PowerShell in the repository root, prepare dependencies and configure a Debug build:
 
 ```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 cmake --preset win-x64-debug-ninja
 ```
 
@@ -134,8 +125,8 @@ Editing library content does not require administrator privileges because writes
 
 ## If Configuration Fails
 
-- Verify that vcpkg exists at `C:/vcpkg`.
-- Verify that the required dependencies are installed with the `x64-windows` triplet.
+- Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` from the repository root.
+- Verify that `.tools/vcpkg/vcpkg.exe` and `vcpkg_installed/x64-windows` exist, or verify the equivalent paths from your explicit `-VcpkgRoot` override.
 - Remove stale build directories and reconfigure.
 - If Visual Studio keeps stale state, close Visual Studio and remove the local `.vs` folder.
 - Follow the detailed fix paths in [Troubleshooting](troubleshooting.md).

@@ -36,7 +36,8 @@ rg -q 'PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE.*ON|PERASTAGE_REQUIRE_SECURE_CR
 rg -q 'bootstrap-vcpkg\.bat' setup_windows.ps1
 rg -q 'checkout --detach' setup_windows.ps1 .github/workflows/windows-installer.yml
 rg -q -- '--x-install-root' setup_windows.ps1 .github/workflows/windows-installer.yml
-rg -q 'VCPKG_INSTALLED_DIR' setup_windows.ps1 .github/workflows/windows-installer.yml
+rg -q 'VCPKG_INSTALLED_DIR' setup_windows.ps1 CMakePresets.json .github/workflows/windows-installer.yml
+rg -q 'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF' setup_windows.ps1 CMakePresets.json .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q 'securestore-v2' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q '0878b5224d4a4968940ee296a2e7fae2d3b62983' vcpkg.json setup_windows.ps1 .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q 'ctest --test-dir .* -L release-gate' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
@@ -45,5 +46,17 @@ rg -q 'credential_store_native_roundtrip_test' .github/workflows/windows-install
 rg -q 'libsecret-1-dev' .github/workflows/linux-installer.yml
 rg -q "'libsecret'" packaging/arch/PKGBUILD
 rg -q -- '--x-manifest-root' .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
+
+python3 - <<'PY'
+import json
+from pathlib import Path
+presets = json.loads(Path('CMakePresets.json').read_text())
+for preset in presets['configurePresets']:
+    if preset['name'].startswith('win-x64-'):
+        cache = preset.get('cacheVariables', {})
+        assert cache.get('CMAKE_TOOLCHAIN_FILE') == '${sourceDir}/.tools/vcpkg/scripts/buildsystems/vcpkg.cmake', preset['name']
+        assert cache.get('VCPKG_INSTALLED_DIR') == '${sourceDir}/vcpkg_installed', preset['name']
+        assert cache.get('VCPKG_MANIFEST_MODE') == 'OFF', preset['name']
+PY
 
 echo 'OK: secure-store build, manifest, workflow, and release-gate policies are enforced.'

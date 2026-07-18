@@ -122,7 +122,7 @@ jobs:
 
       - name: Run Arch release-gate tests
         run: |
-          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET'; cd '$GITHUB_WORKSPACE' && cmake -S . -B build-release-gate -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE='$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake' -DVCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' -DVCPKG_INSTALLED_DIR='$VCPKG_INSTALLED' -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON"
+          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET'; cd '$GITHUB_WORKSPACE' && cmake -S . -B build-release-gate -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE='$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake' -DVCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' -DVCPKG_INSTALLED_DIR='$VCPKG_INSTALLED' -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON"
           su builder -c "cd '$GITHUB_WORKSPACE' && cmake --build build-release-gate --target gdtf_share_security_test credential_store_native_roundtrip_test"
           su builder -c "cd '$GITHUB_WORKSPACE' && ctest --test-dir build-release-gate -L release-gate --output-on-failure"
 

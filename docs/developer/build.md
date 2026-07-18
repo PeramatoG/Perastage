@@ -37,12 +37,9 @@ If an older build was configured against wxWidgets without `secretstore` or anot
 
 Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
-If your vcpkg installation is not in `C:/vcpkg`, use one of these options:
+The shared Windows presets point at `.tools/vcpkg` and `vcpkg_installed`, matching the default setup script. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to `setup_windows.ps1` or create a local `CMakeUserPresets.json` file that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`.
 
-1. Edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json`.
-2. Create a local `CMakeUserPresets.json` file that overrides `CMAKE_TOOLCHAIN_FILE`.
-
-`CMakeUserPresets.json` is local to each developer machine and should not be committed.
+`CMakeUserPresets.json` is local to each developer machine and should not be committed. Run Ninja presets from a Visual Studio Developer PowerShell or through `setup_windows.ps1`; otherwise CMake may report `CMAKE_CXX_COMPILER not set` because `cl.exe` is not initialized.
 
 ## CMake presets strategy
 
@@ -59,7 +56,7 @@ CMakeUserPresets.json
 
 ## Optional local Windows user presets
 
-If your vcpkg installation is not located at `C:/vcpkg`, create a local file named:
+If you intentionally use a vcpkg checkout outside `.tools/vcpkg`, create a local file named:
 
 ```text
 CMakeUserPresets.json
@@ -81,7 +78,9 @@ Example for a Windows machine using vcpkg in `D:/tools/vcpkg`:
       "description": "Local Debug Ninja build using a custom vcpkg installation.",
       "inherits": "win-x64-debug-ninja",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "VCPKG_MANIFEST_MODE": "OFF"
       }
     },
     {
@@ -90,7 +89,9 @@ Example for a Windows machine using vcpkg in `D:/tools/vcpkg`:
       "description": "Local Release Ninja build using a custom vcpkg installation.",
       "inherits": "win-x64-release-ninja",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "VCPKG_MANIFEST_MODE": "OFF"
       }
     }
   ],
@@ -113,20 +114,19 @@ Example for a Windows machine using vcpkg in `D:/tools/vcpkg`:
 }
 ```
 
-For the recommended `C:/vcpkg` setup, this local file is not required.
+For the recommended `.tools/vcpkg` setup, this local file is not required.
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, install vcpkg in `C:/vcpkg` and use the shared Windows presets directly.
+For the standard Windows setup, run `setup_windows.ps1` first and use the shared Windows presets directly. The presets deliberately set `VCPKG_MANIFEST_MODE=OFF` because the setup script already ran the one manifest install into `vcpkg_installed`; this prevents CMake configure from launching a second vcpkg install into another tree.
 
 Typical setup:
 
-1. Install vcpkg in `C:/vcpkg`.
-2. Install the required vcpkg dependencies from the manifest, including `wxwidgets[secretstore]`.
-3. Open the repository folder in Visual Studio.
-4. Select `Local Machine`.
-5. Select a Windows configure preset such as `Windows x64 Debug (Ninja)`.
-6. Select a Windows build preset such as `Build Windows Debug (Ninja)`.
+1. Run `setup_windows.ps1 -Configuration Debug -CleanBuild` from the repository root.
+2. Open the repository folder in Visual Studio.
+3. Select `Local Machine`.
+4. Select a Windows configure preset such as `Windows x64 Debug (Ninja)`.
+5. Select a Windows build preset such as `Build Windows Debug (Ninja)`.
 
 If Visual Studio shows stale configuration errors after changing presets, close Visual Studio and remove the local `.vs` folder and the affected build directory before configuring again.
 
@@ -138,9 +138,10 @@ List available presets:
 cmake --list-presets
 ```
 
-Configure a Windows Debug Ninja build:
+Configure a Windows Debug Ninja build from a Visual Studio Developer PowerShell after running the setup script:
 
 ```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 cmake --preset win-x64-debug-ninja
 ```
 
@@ -269,7 +270,7 @@ If the error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the recommended `C:/vcpkg` installation. Make sure the updated `CMakePresets.json` is being used, clear the CMake cache, and remove stale `.vs` or build folders if needed.
+then Visual Studio is using its own vcpkg instance instead of the Perastage-local `.tools/vcpkg` checkout. Make sure the updated `CMakePresets.json` is being used, clear the CMake cache, and remove stale `.vs` or build folders if needed.
 
 ## Secure credential-store verification
 
