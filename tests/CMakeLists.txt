@@ -1785,6 +1785,33 @@ target_link_libraries(layer_service_utf8_test PRIVATE ${wxWidgets_LIBRARIES} tin
 add_test(NAME LayerServiceUtf8 COMMAND layer_service_utf8_test)
 
 
+add_executable(dictionary_reset_transaction_test
+               dictionary_reset_transaction_test.cpp
+               mvr_io_stubs.cpp
+               ../core/active_dictionary_storage.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/dictionary_reset_service.cpp
+               ../core/file_import_utils.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/gdtfdictionary.cpp
+               ../core/layouts/LayoutManager.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutDefaultsLoader.cpp
+               ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/logger.cpp
+               ../core/trussdictionary.cpp
+               ../models/mvrscene.cpp
+               ../models/truss.cpp)
+target_include_directories(dictionary_reset_transaction_test PRIVATE
+                           . ../core ../models ../third_party)
+target_link_libraries(dictionary_reset_transaction_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME DictionaryResetTransaction COMMAND dictionary_reset_transaction_test)
+
 add_executable(dictionary_duplicate_test
                dictionary_duplicate_test.cpp
                ../core/dictionary_duplicate.cpp

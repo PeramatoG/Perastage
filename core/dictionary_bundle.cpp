@@ -14,8 +14,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <iomanip>
 #include <sstream>
+#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -346,6 +348,27 @@ void RemoveIfExists(const fs::path &path) {
     return;
   std::error_code ec;
   fs::remove_all(path, ec);
+}
+
+
+// Returns a unique sibling path for transaction staging or backup files.
+fs::path MakeUniqueSiblingPath(const fs::path &basePath, const std::string &suffix) {
+  const auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+  return basePath.parent_path() /
+         (basePath.filename().string() + suffix + "." + std::to_string(seed));
+}
+
+// Returns true when two existing files contain the same bytes.
+bool FilesHaveSameContent(const fs::path &lhs, const fs::path &rhs) {
+  std::error_code ec;
+  if (!fs::exists(lhs, ec) || ec || !fs::exists(rhs, ec) || ec)
+    return false;
+  if (fs::file_size(lhs, ec) != fs::file_size(rhs, ec) || ec)
+    return false;
+  std::ifstream a(lhs, std::ios::binary);
+  std::ifstream b(rhs, std::ios::binary);
+  return std::equal(std::istreambuf_iterator<char>(a), {},
+                    std::istreambuf_iterator<char>(b));
 }
 
 // Moves an existing file or directory aside for transactional rollback.
@@ -750,16 +773,15 @@ ApplyResult ApplyPreparedBundleImport(const PreparedImport &preparedImport,
   }
 
   fs::path stagingAssets =
-      layout.ownedAssetDirectory.string() + ".bundle-import.tmp";
-  fs::path stagedJson = activeDictionaryPath.string() + ".bundle-import.tmp";
+      MakeUniqueSiblingPath(layout.ownedAssetDirectory, ".bundle-import-assets.tmp");
+  fs::path stagedJson =
+      MakeUniqueSiblingPath(activeDictionaryPath, ".bundle-import-json.tmp");
   RemoveIfExists(stagingAssets);
   RemoveIfExists(stagedJson);
   std::error_code ec;
-  if (fs::exists(layout.ownedAssetDirectory, ec) && !ec)
+  if (!layout.isDefaultManagedDictionary && fs::exists(layout.ownedAssetDirectory, ec) && !ec)
     fs::copy(layout.ownedAssetDirectory, stagingAssets,
-             fs::copy_options::recursive |
-                 fs::copy_options::skip_existing,
-             ec);
+             fs::copy_options::recursive | fs::copy_options::skip_existing, ec);
   fs::create_directories(stagingAssets, ec);
   if (ec) {
     result.summary.errors.push_back("Could not create staged asset directory");
@@ -824,17 +846,60 @@ ApplyResult ApplyPreparedBundleImport(const PreparedImport &preparedImport,
     return result;
   }
 
+  fs::path jsonBackup;
   fs::path assetBackup;
-  if (!BackupPath(layout.ownedAssetDirectory, assetBackup)) {
-    result.summary.errors.push_back("Could not back up active dictionary assets");
+  std::vector<std::pair<fs::path, fs::path>> fileBackups;
+  if (!BackupPath(activeDictionaryPath, jsonBackup) ||
+      (!layout.isDefaultManagedDictionary &&
+       !BackupPath(layout.ownedAssetDirectory, assetBackup))) {
+    result.summary.errors.push_back("Could not back up active dictionary files");
+    RestoreBackup(jsonBackup, activeDictionaryPath);
+    RestoreBackup(assetBackup, layout.ownedAssetDirectory);
     RemoveIfExists(stagingAssets);
     RemoveIfExists(stagedJson);
     return result;
   }
-  fs::rename(stagingAssets, layout.ownedAssetDirectory, ec);
+
+  if (!jsonBackup.empty()) {
+    fs::copy_file(jsonBackup, activeDictionaryPath,
+                  fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+      result.summary.errors.push_back("Could not restore active dictionary JSON for import");
+      RestoreBackup(jsonBackup, activeDictionaryPath);
+      RestoreBackup(assetBackup, layout.ownedAssetDirectory);
+      RemoveIfExists(stagingAssets);
+      RemoveIfExists(stagedJson);
+      return result;
+    }
+  }
+
+  if (layout.isDefaultManagedDictionary) {
+    fs::create_directories(layout.ownedAssetDirectory, ec);
+    for (const auto &entry : fs::directory_iterator(stagingAssets)) {
+      const fs::path destination = layout.ownedAssetDirectory / entry.path().filename();
+      if (FilesHaveSameContent(entry.path(), destination))
+        continue;
+      fs::path backup;
+      if (!BackupPath(destination, backup)) {
+        ec = std::make_error_code(std::errc::io_error);
+        break;
+      }
+      if (!backup.empty())
+        fileBackups.push_back({backup, destination});
+      fs::copy_file(entry.path(), destination, fs::copy_options::overwrite_existing, ec);
+      if (ec)
+        break;
+    }
+    RemoveIfExists(stagingAssets);
+  } else {
+    fs::rename(stagingAssets, layout.ownedAssetDirectory, ec);
+  }
   if (ec) {
-    result.summary.errors.push_back("Could not install bundled dictionary assets");
+    result.summary.errors.push_back("Could not install bundled dictionary files");
+    RestoreBackup(jsonBackup, activeDictionaryPath);
     RestoreBackup(assetBackup, layout.ownedAssetDirectory);
+    for (auto it = fileBackups.rbegin(); it != fileBackups.rend(); ++it)
+      RestoreBackup(it->first, it->second);
     RemoveIfExists(stagingAssets);
     RemoveIfExists(stagedJson);
     return result;
@@ -843,10 +908,19 @@ ApplyResult ApplyPreparedBundleImport(const PreparedImport &preparedImport,
   result.summary = isFixtures
                        ? GdtfDictionary::ApplyImportFromFile(stagedJson.string(), policy)
                        : TrussDictionary::ApplyImportFromFile(stagedJson.string(), policy);
-  if (result.summary.HasErrors())
+  if (result.summary.HasErrors()) {
+    RestoreBackup(jsonBackup, activeDictionaryPath);
     RestoreBackup(assetBackup, layout.ownedAssetDirectory);
-  else
-    RemoveIfExists(assetBackup);
+    for (auto it = fileBackups.rbegin(); it != fileBackups.rend(); ++it)
+      RestoreBackup(it->first, it->second);
+    RemoveIfExists(stagedJson);
+    return result;
+  }
+
+  RemoveIfExists(jsonBackup);
+  RemoveIfExists(assetBackup);
+  for (const auto &backup : fileBackups)
+    RemoveIfExists(backup.first);
   RemoveIfExists(stagedJson);
   return result;
 }

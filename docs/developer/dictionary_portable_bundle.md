@@ -83,11 +83,18 @@ No custom file extension is required.
 Portable ZIP bundle import has two separate core phases:
 
 1. **Prepare** identifies ZIP input, extracts it to a unique temporary staging directory, rejects unsafe archive paths, validates `manifest.json`, validates required files, checks declared sizes and checksums, rejects inconsistent duplicate asset metadata, and writes a staged preview snapshot whose asset references still point at staging. Preparation is read-only with respect to active dictionary JSON and active asset storage. Cancelling after prepare must not leave copied assets, backups, rewritten active JSON, or other active-storage side effects.
-2. **Apply** runs only after the user selects the import policy and confirms. It stages destination assets, reuses same-content assets, deterministically renames different-content filename conflicts, rewrites entries to final owned references, validates the staged result, backs up active asset storage, installs assets, applies the dictionary merge policy, and restores the asset backup if the import fails.
+2. **Apply** runs only after the user selects the import policy and confirms. It builds the final JSON in sibling staging, stages destination assets outside replaceable active storage, reuses same-content assets, deterministically renames different-content filename conflicts, rewrites entries to final owned references, validates the staged result, backs up the active JSON independently, and rolls back JSON plus assets if installation fails. Custom dictionaries may transactionally replace their sibling `<dictionary_stem>_assets` directory. Managed default dictionaries must not replace the whole parent directory because it also contains the active JSON; they install only the individual owned asset files touched by the operation.
 
 JSON snapshots remain separate from portable ZIP bundles. Snapshot import continues to use the existing JSON workflow and never changes the active dictionary path.
 
 Exported portable ZIP bundles are validated through the same side-effect-free bundle validation path after creation. Export validation must not copy the exported bundle back into active storage.
+
+
+## Reset contents transaction rules
+
+Reset Contents rebuilds the active dictionary from the application base dictionary in staging before touching active files. Fixture entries may be stored as strings or objects and may use the current `file` field or the legacy `path` field; reset always writes the canonical `file` field while preserving fixture metadata such as mode, category, visual color, import timestamp, and hashes. A reset that cannot stage every valid default entry, validates to an empty result, or fails parser validation must leave the active JSON and existing assets unchanged.
+
+For managed default dictionaries, reset follows the same parent-directory rule as ZIP apply: the JSON is backed up independently, temporary JSON and assets live in unique sibling paths, and only the individual owned asset files involved in the reset are installed. Existing destination files are replaced through explicit backup and copy steps rather than relying on platform-specific rename-over-existing behavior.
 
 ## Collision policy when copying into library
 
