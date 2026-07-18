@@ -73,6 +73,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ## Important fixes
 
+- Hardened GDTF Share sign-in, credential storage, diagnostics, and download handling so passwords use the operating system credential store when available, login errors are reported more accurately, and failed downloads no longer replace existing files.
 - Improved Dictionary Editor reliability so fixture and truss edits are saved transactionally, unresolved file references remain visible and savable, dirty-state checks catch category/color/path/name changes, and failed saves keep the editor open.
 - Improved Dictionary Editor asset ownership so saved truss additions and replacements ingest supported source files as owned GDTF assets, and fixture/truss resets create portable self-contained dictionaries with rollback.
 - Fixed portable dictionary ZIP import so previewing or cancelling a bundle no longer copies assets into the active dictionary storage; bundle assets are staged and installed only after final confirmation with rollback for both JSON and assets.

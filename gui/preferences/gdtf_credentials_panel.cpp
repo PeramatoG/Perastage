@@ -7,8 +7,6 @@
 #include "mainwindow_gdtf_credentials.h"
 
 #include <wx/button.h>
-#include <wx/filefn.h>
-#include <wx/filename.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -70,8 +68,13 @@ bool GdtfCredentialsPanel::ApplyCredentials() {
       GetDefaultGuiConfigServices().LegacyConfigManager();
   const CredentialStore::Credentials credentials =
       ReadUiCredentials(usernameCtrl, passwordCtrl);
-  PersistGdtfCredentialsForGui(credentials, configManager);
-  return true;
+  const CredentialStore::Result result = credentials.username.empty()
+      ? CredentialStore::ClearDetailed()
+      : CredentialStore::Save(credentials);
+  configManager.SetValue("gdtf_username", credentials.username);
+  configManager.SetValue("gdtf_password", "");
+  return result.Succeeded() ||
+         result.status == CredentialStore::Status::SecureStoreUnavailable;
 }
 
 void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)) {
@@ -83,28 +86,23 @@ void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)
     return;
   }
 
-  wxString cookieFileWx = wxFileName::GetTempDir() + "/gdtf_validate_session.txt";
-  std::string cookieFile = std::string(cookieFileWx.ToUTF8());
-  long httpCode = 0;
-  const bool connected =
-      GdtfLogin(credentials.username, credentials.password, cookieFile, httpCode);
-  wxRemoveFile(cookieFileWx);
-
-  if (!connected) {
-    wxMessageBox("Failed to connect to GDTF Share.", "Validate credentials",
-                 wxOK | wxICON_ERROR, this);
+  GdtfShareClient client;
+  const GdtfShareResult loginResult =
+      client.Login(credentials.username, credentials.password);
+  if (!loginResult.Succeeded()) {
+    wxMessageBox(wxString::FromUTF8(
+                     FormatGdtfShareUserMessage(loginResult, "login")),
+                 "Validate credentials", wxOK | wxICON_WARNING, this);
     return;
   }
 
-  if (httpCode == 200) {
-    PersistGdtfCredentialsForGui(
-        credentials, GetDefaultGuiConfigServices().LegacyConfigManager());
-    wxMessageBox("Credentials are valid and were saved.",
-                 "Validate credentials", wxOK | wxICON_INFORMATION, this);
+  const CredentialStore::Result saveResult = CredentialStore::Save(credentials);
+  if (!saveResult.Succeeded()) {
+    wxMessageBox("The credentials are valid, but secure storage is unavailable, "
+                 "so the password was not saved.",
+                 "Validate credentials", wxOK | wxICON_WARNING, this);
     return;
   }
-
-  const wxString message =
-      wxString::Format("Credentials are invalid (HTTP %ld).", httpCode);
-  wxMessageBox(message, "Validate credentials", wxOK | wxICON_WARNING, this);
+  wxMessageBox("Credentials are valid and were saved.",
+               "Validate credentials", wxOK | wxICON_INFORMATION, this);
 }

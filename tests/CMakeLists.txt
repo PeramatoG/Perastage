@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 
 enable_testing()
 
@@ -1832,3 +1833,19 @@ add_executable(active_dictionary_storage_test active_dictionary_storage_test.cpp
 target_include_directories(active_dictionary_storage_test PRIVATE ../core ../third_party)
 target_link_libraries(active_dictionary_storage_test PRIVATE perastage_test_active_dictionary_storage)
 add_test(NAME ActiveDictionaryStorage COMMAND active_dictionary_storage_test)
+
+add_executable(gdtf_share_security_test
+               gdtf_share_security_test.cpp
+               ../core/gdtfnet.cpp
+               ../core/credentialstore.cpp
+               ../core/simplecrypt.cpp
+               ../core/apppaths.cpp
+               ../core/configmanager.cpp
+               ../core/configservices.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/diagnostics/DiagnosticLogger.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp)
+target_include_directories(gdtf_share_security_test PRIVATE ../core ../third_party)
+target_link_libraries(gdtf_share_security_test PRIVATE ${wxWidgets_LIBRARIES} CURL::libcurl)
+add_test(NAME GdtfShareSecurity COMMAND gdtf_share_security_test)
