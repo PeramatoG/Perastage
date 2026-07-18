@@ -87,6 +87,8 @@ Additional safeguards include:
 - missing-reference reporting,
 - collision policy prompts for differing file content,
 - custom active dictionaries store newly owned fixture and truss assets in a sibling `<dictionary name>_assets` folder so the JSON and assets can be moved together;
+- truss Add/Replace selections remain pending until the Dictionary Editor is saved, then supported `.gdtf`, `.gtruss`, `.3ds`, and `.glb` sources are ingested as real owned GDTF assets;
+- **More... → Reset Contents...** rebuilds fixture and truss dictionaries from application defaults into dictionary-owned storage, reports missing default assets, and keeps **Use Default** as a separate active-dictionary selection action;
 - The Dictionary Editor keeps common actions visible while moving less frequent active-dictionary actions into **More...**. **Duplicate Current...** creates an independent copy of the active fixture or truss dictionary, including resolvable referenced assets, and can optionally activate the copy after validation. **Export...** clearly offers **JSON Snapshot** or **Portable ZIP Bundle** without changing the active dictionary.
 
 ## Patch, Data Tables, and Editing Helpers

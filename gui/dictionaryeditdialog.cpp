@@ -27,6 +27,7 @@
 #include "dictionary_bundle.h"
 #include "dictionary_export_conflict_dialog.h"
 #include "dictionary_json_contract.h"
+#include "dictionary_reset_service.h"
 #include "dictionary_selection_controls.h"
 #include "file_import_utils.h"
 #include "gdtf_fixture_category.h"
@@ -37,6 +38,7 @@
 #include "projectutils.h"
 #include "table_column_indices.h"
 #include "trussdictionary.h"
+#include "truss_asset_ingestion.h"
 
 #include <algorithm>
 #include <cctype>
@@ -1920,6 +1922,13 @@ bool DictionaryEditDialog::SaveTrusses() {
   std::vector<TrussRow> rows;
   int count = trussTable->GetItemCount();
   rows.reserve(static_cast<size_t>(count));
+  std::vector<std::filesystem::path> ingestedPaths;
+  auto cleanupIngestedPaths = [&ingestedPaths]() {
+    for (const auto &ingestedPath : ingestedPaths) {
+      std::error_code ec;
+      std::filesystem::remove(ingestedPath, ec);
+    }
+  };
   for (int i = 0; i < count; ++i) {
     wxVariant nameVar;
     trussTable->GetValue(nameVar, i, kTrussNameColumn);
@@ -1933,14 +1942,22 @@ bool DictionaryEditDialog::SaveTrusses() {
       continue;
     std::string savedPath = path;
     if (std::filesystem::exists(path)) {
-      auto copied = CopyToLibrary(this, path, "trusses");
-      if (!copied) {
-        wxMessageBox("Could not copy truss file into the library. The "
-                     "dictionary was not saved.",
+      const auto ingested = TrussAssetIngestion::Ingest(
+          {PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath()),
+           PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses")) /
+               "truss_dictionary.json",
+           PathUtils::PathFromUtf8(path)});
+      if (!ingested.success) {
+        wxMessageBox("Could not ingest the truss file into dictionary-owned "
+                     "GDTF storage. The dictionary was not saved.\n\n" +
+                         wxString::FromUTF8(ingested.error),
                      "Save trusses dictionary", wxICON_ERROR | wxOK, this);
+        cleanupIngestedPaths();
         return false;
       }
-      savedPath = copied->path;
+      if (!ingested.reusedExisting)
+        ingestedPaths.push_back(ingested.finalPath);
+      savedPath = ingested.finalPath.string();
     }
     rows.push_back({name, savedPath});
   }
@@ -1952,6 +1969,7 @@ bool DictionaryEditDialog::SaveTrusses() {
     dict[row.name] = row.path;
   std::string saveError;
   if (!TrussDictionary::Save(dict, &saveError)) {
+    cleanupIngestedPaths();
     wxMessageBox("Could not save trusses dictionary.\n\n" +
                      wxString::FromUTF8(saveError),
                  "Save trusses dictionary", wxICON_ERROR | wxOK, this);
@@ -2601,26 +2619,17 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
 
   const std::filesystem::path activePath =
       PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
-  if (!activePath.empty() && std::filesystem::exists(activePath)) {
-    std::error_code ec;
-    std::filesystem::copy_file(
-        activePath, activePath.string() + ".bak",
-        std::filesystem::copy_options::overwrite_existing, ec);
-    if (ec) {
-      wxMessageBox(
-          "Could not create a backup before resetting the fixtures dictionary.",
-          "Reset fixtures dictionary", wxOK | wxICON_ERROR, this);
-      return false;
-    }
-  }
   const std::filesystem::path basePath =
       ProjectUtils::GetBaseLibraryPath("fixtures") / "gdtf_dictionary.json";
-  const auto result = GdtfDictionary::ApplyImportFromFile(
-      basePath.string(), DictionaryImportPolicy::ReplaceAll);
+  const auto result = DictionaryResetService::ResetToDefaults(
+      {ActiveDictionaryStorage::DictionaryKind::Fixtures, activePath,
+       PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures")) /
+           "gdtf_dictionary.json",
+       basePath});
   LoadFixtures();
-  const bool hasErrors = result.HasErrors();
+  const bool hasErrors = result.HasErrors() || result.missing_files_count > 0;
   wxMessageBox((hasErrors
-                    ? "Fixtures dictionary reset finished with errors.\n\n"
+                    ? "Fixtures dictionary reset finished with issues.\n\n"
                     : "Fixtures dictionary restored to defaults.\n\n") +
                    BuildSummaryText(result),
                "Reset fixtures dictionary",
@@ -2643,25 +2652,16 @@ bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
 
   const std::filesystem::path activePath =
       PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
-  if (!activePath.empty() && std::filesystem::exists(activePath)) {
-    std::error_code ec;
-    std::filesystem::copy_file(
-        activePath, activePath.string() + ".bak",
-        std::filesystem::copy_options::overwrite_existing, ec);
-    if (ec) {
-      wxMessageBox(
-          "Could not create a backup before resetting the trusses dictionary.",
-          "Reset trusses dictionary", wxOK | wxICON_ERROR, this);
-      return false;
-    }
-  }
   const std::filesystem::path basePath =
       ProjectUtils::GetBaseLibraryPath("trusses") / "truss_dictionary.json";
-  const auto result = TrussDictionary::ApplyImportFromFile(
-      basePath.string(), DictionaryImportPolicy::ReplaceAll);
+  const auto result = DictionaryResetService::ResetToDefaults(
+      {ActiveDictionaryStorage::DictionaryKind::Trusses, activePath,
+       PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses")) /
+           "truss_dictionary.json",
+       basePath});
   LoadTrusses();
-  const bool hasErrors = result.HasErrors();
-  wxMessageBox((hasErrors ? "Trusses dictionary reset finished with errors.\n\n"
+  const bool hasErrors = result.HasErrors() || result.missing_files_count > 0;
+  wxMessageBox((hasErrors ? "Trusses dictionary reset finished with issues.\n\n"
                           : "Trusses dictionary restored to defaults.\n\n") +
                    BuildSummaryText(result),
                "Reset trusses dictionary",
