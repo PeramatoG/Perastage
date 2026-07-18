@@ -1,57 +1,211 @@
 {
-  "schemaVersion": 1,
-  "resources": {
-    "imagePathPolicy": "preserve_original_path"
-  },
   "layouts": [
     {
+      "eventTables": [
+        {
+          "fields": {
+            "date": "",
+            "design": "",
+            "location": "",
+            "mail": "",
+            "stage": "",
+            "venue": "",
+            "version": ""
+          },
+          "frame": {
+            "height": 120,
+            "width": 195,
+            "x": 640,
+            "y": 445
+          },
+          "id": 1,
+          "zIndex": 4
+        }
+      ],
+      "imageViews": [
+        {
+          "aspectRatio": 1.0,
+          "frame": {
+            "height": 65,
+            "width": 65,
+            "x": 705,
+            "y": 15
+          },
+          "id": 1,
+          "originalPath": "C:\\codigoscpp\\Perastage\\build\\local-win-x64-debug-ninja\\resources\\Perastage_logo.png",
+          "path": "C:\\codigoscpp\\Perastage\\build\\local-win-x64-debug-ninja\\resources\\Perastage_logo.png",
+          "projectResource": "resources/layout_images/image_46809d1419f72940.png",
+          "zIndex": 1
+        }
+      ],
+      "legendViews": [
+        {
+          "frame": {
+            "height": 215,
+            "width": 195,
+            "x": 640,
+            "y": 85
+          },
+          "id": 1,
+          "itemSettings": [
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "MAC Quantum Profile",
+              "visible": true
+            },
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "Aleda B-EYE K10",
+              "visible": true
+            },
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "XBEAM 17 CMY",
+              "visible": true
+            },
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "BLINDER 4 PRO",
+              "visible": true
+            },
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "PIXEL STROBE 400 RGB",
+              "visible": true
+            },
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "PAR PRO 270 5-IN-1",
+              "visible": true
+            },
+            {
+              "customName": "",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "Tour Hazer II",
+              "visible": true
+            },
+            {
+              "customName": "Turbine",
+              "showBottomSymbol": true,
+              "showFrontSymbol": true,
+              "showSideSymbol": false,
+              "typeName": "theFAN",
+              "visible": true
+            }
+          ],
+          "showChannelColumn": true,
+          "zIndex": 2
+        }
+      ],
       "name": "Plan View",
       "pageSetup": {
-        "pageSize": "A4",
-        "landscape": true
+        "landscape": true,
+        "pageSize": "A4"
       },
       "resources": {
-        "imagePathPolicy": "preserve_original_path"
+        "imagePathPolicy": "package_project_resources"
       },
+      "textViews": [
+        {
+          "drawFrame": false,
+          "frame": {
+            "height": 30,
+            "width": 240,
+            "x": 10,
+            "y": 15
+          },
+          "id": 1,
+          "richText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<richtext version=\"1.0.0.0\" xmlns=\"http://www.wxwidgets.org\">\n  <paragraphlayout textcolor=\"#FFFFFF\">\n    <paragraph>\n      <text textcolor=\"#000000\" fontpointsize=\"15\" fontweight=\"700\">P</text>\n      <text textcolor=\"#FFFFFF\" fontpointsize=\"15\" fontweight=\"700\">LAN VIEW</text>\n    </paragraph>\n  </paragraphlayout>\n</richtext>\n",
+          "solidBackground": false,
+          "text": "PLAN VIEW",
+          "zIndex": 3
+        },
+        {
+          "drawFrame": false,
+          "frame": {
+            "height": 25,
+            "width": 160,
+            "x": 675,
+            "y": 565
+          },
+          "id": 2,
+          "richText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<richtext version=\"1.0.0.0\" xmlns=\"http://www.wxwidgets.org\">\n  <paragraphlayout textcolor=\"#FFFFFF\">\n    <paragraph alignment=\"3\">\n      <text textcolor=\"#000000\" fontpointsize=\"10\" fontstyle=\"93\" fontweight=\"700\">p</text>\n      <text textcolor=\"#FFFFFF\" fontpointsize=\"10\" fontstyle=\"93\" fontweight=\"700\">erastage.luismaperamato.com</text>\n    </paragraph>\n  </paragraphlayout>\n</richtext>\n",
+          "solidBackground": false,
+          "text": "perastage.luismaperamato.com",
+          "zIndex": 5
+        }
+      ],
       "view2dViews": [
         {
-          "id": 1,
-          "zIndex": 0,
+          "camera": {
+            "offsetPixelsX": -3.000000106112566e-06,
+            "offsetPixelsY": -72.39942169189453,
+            "view": 0,
+            "viewportHeight": 570,
+            "viewportWidth": 620,
+            "zoom": 1.610509991645813
+          },
           "drawFrame": true,
           "frame": {
-            "x": 10,
-            "y": 10,
+            "height": 570,
             "width": 620,
-            "height": 570
+            "x": 10,
+            "y": 10
           },
-          "camera": {
-            "offsetPixelsX": -0.000003000000106112566,
-            "offsetPixelsY": -72.39942169189453,
-            "zoom": 1.610509991645813,
-            "viewportWidth": 620,
-            "viewportHeight": 570,
-            "view": 0
-          },
+          "id": 1,
           "layers": {
+            "hiddenFixtureTypes": [],
             "hiddenLayers": [
               "rig Audio",
               "rig Lighting"
-            ],
-            "hiddenFixtureTypes": []
+            ]
           },
           "renderOptions": {
-            "renderMode": 2,
             "darkMode": true,
-            "showGrid": true,
-            "gridStyle": 2,
-            "gridColorR": 0.7529410123825073,
-            "gridColorG": 0.7529410123825073,
+            "forceBottomViewForTopFixtures": true,
             "gridColorB": 0.7529410123825073,
+            "gridColorG": 0.7529410123825073,
+            "gridColorR": 0.7529410123825073,
             "gridDrawAbove": false,
-            "showRuler": true,
-            "rulerColorR": [
-              0.0,
-              0.0,
+            "gridSpacingMeters": 1.0,
+            "gridStyle": 2,
+            "labelFontSizeDmx": 4.0,
+            "labelFontSizeId": 2.0,
+            "labelFontSizeName": 3.0,
+            "labelOffsetAngle": [
+              180.0,
+              180.0,
+              180.0
+            ],
+            "labelOffsetDistance": [
+              0.5,
+              0.5,
+              0.5
+            ],
+            "renderMode": 2,
+            "rulerColorB": [
+              1.0,
+              1.0,
               0.0
             ],
             "rulerColorG": [
@@ -59,12 +213,13 @@
               0.5019609928131104,
               0.0
             ],
-            "rulerColorB": [
-              1.0,
-              1.0,
+            "rulerColorR": [
+              0.0,
+              0.0,
               0.0
             ],
-            "showLabelName": [
+            "showGrid": true,
+            "showLabelDmx": [
               true,
               true,
               true
@@ -74,172 +229,20 @@
               true,
               true
             ],
-            "showLabelDmx": [
+            "showLabelName": [
               true,
               true,
               true
             ],
-            "labelFontSizeName": 3.0,
-            "labelFontSizeId": 2.0,
-            "labelFontSizeDmx": 4.0,
-            "labelOffsetDistance": [
-              0.5,
-              0.5,
-              0.5
-            ],
-            "labelOffsetAngle": [
-              180.0,
-              180.0,
-              180.0
-            ],
-            "forceBottomViewForTopFixtures": true
-          }
-        }
-      ],
-      "imageViews": [
-        {
-          "id": 1,
-          "zIndex": 1,
-          "frame": {
-            "x": 705,
-            "y": 15,
-            "width": 65,
-            "height": 65
+            "showRuler": true
           },
-          "path": "resources/Perastage_logo.png",
-          "aspectRatio": 1.0
-        }
-      ],
-      "legendViews": [
-        {
-          "id": 1,
-          "zIndex": 2,
-          "frame": {
-            "x": 640,
-            "y": 85,
-            "width": 195,
-            "height": 215
-          },
-          "showChannelColumn": true,
-          "itemSettings": [
-            {
-              "typeName": "MAC Quantum Profile",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "Aleda B-EYE K10",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "XBEAM 17 CMY",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "BLINDER 4 PRO",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "PIXEL STROBE 400 RGB",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "PAR PRO 270 5-IN-1",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "Tour Hazer II",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": ""
-            },
-            {
-              "typeName": "theFAN",
-              "visible": true,
-              "showBottomSymbol": true,
-              "showFrontSymbol": true,
-              "showSideSymbol": false,
-              "customName": "Turbine"
-            }
-          ]
-        }
-      ],
-      "textViews": [
-        {
-          "id": 1,
-          "zIndex": 3,
-          "frame": {
-            "x": 10,
-            "y": 15,
-            "width": 240,
-            "height": 30
-          },
-          "text": "PLAN VIEW",
-          "richText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<richtext version=\"1.0.0.0\" xmlns=\"http://www.wxwidgets.org\">\n  <paragraphlayout textcolor=\"#FFFFFF\">\n    <paragraph>\n      <text textcolor=\"#000000\" fontpointsize=\"15\" fontweight=\"700\">P</text>\n      <text textcolor=\"#FFFFFF\" fontpointsize=\"15\" fontweight=\"700\">LAN VIEW</text>\n    </paragraph>\n  </paragraphlayout>\n</richtext>\n",
-          "solidBackground": false,
-          "drawFrame": false
-        },
-        {
-          "id": 2,
-          "zIndex": 5,
-          "frame": {
-            "x": 680,
-            "y": 565,
-            "width": 160,
-            "height": 25
-          },
-          "text": "www.luismaperamato.com",
-          "richText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<richtext version=\"1.0.0.0\" xmlns=\"http://www.wxwidgets.org\">\n  <paragraphlayout textcolor=\"#FFFFFF\">\n    <paragraph alignment=\"3\">\n      <text textcolor=\"#000000\" fontstyle=\"93\" fontweight=\"400\">w</text>\n      <text textcolor=\"#FFFFFF\" fontstyle=\"93\" fontweight=\"400\">ww.luismaperamato.com</text>\n    </paragraph>\n  </paragraphlayout>\n</richtext>\n",
-          "solidBackground": false,
-          "drawFrame": false
-        }
-      ],
-      "eventTables": [
-        {
-          "id": 1,
-          "zIndex": 4,
-          "frame": {
-            "x": 640,
-            "y": 445,
-            "width": 195,
-            "height": 120
-          },
-          "fields": {
-            "venue": "",
-            "location": "",
-            "date": "",
-            "stage": "",
-            "version": "",
-            "design": "",
-            "mail": ""
-          }
+          "zIndex": 0
         }
       ]
     }
-  ]
+  ],
+  "resources": {
+    "imagePathPolicy": "package_project_resources"
+  },
+  "schemaVersion": 1
 }
