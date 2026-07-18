@@ -22,11 +22,20 @@
 
 #include <curl/curl.h>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdio>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <sstream>
+#include <thread>
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -74,20 +83,83 @@ int ReportDownloadProgress(void* clientp, curl_off_t dltotal, curl_off_t dlnow,
     return 0;
 }
 
-// Removes a temporary file when the session object leaves scope.
-class ScopedTempCookieFile {
+// Owns or references the cookie jar path used by one GDTF Share session.
+class SessionCookieJar {
 public:
-    explicit ScopedTempCookieFile(const std::string& requestedPath = {}) {
-        if (!requestedPath.empty()) {
-            path = requestedPath;
-            return;
+    // Creates a unique temporary cookie path owned by this session.
+    static SessionCookieJar CreateOwnedTemporary() {
+        const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        std::random_device rd;
+        std::uniform_int_distribution<unsigned long long> dist;
+        for (int attempt = 0; attempt < 32; ++attempt) {
+            const std::string token = std::to_string(now) + "_" +
+                std::to_string(dist(rd)) + "_" + std::to_string(attempt);
+            fs::path candidate = fs::temp_directory_path() /
+                fs::path("perastage_gdtf_cookie_" + token + ".txt");
+            std::error_code ec;
+            if (!fs::exists(candidate, ec))
+                return SessionCookieJar(std::move(candidate), true);
         }
-        const fs::path temp = fs::temp_directory_path() /
-            fs::path("perastage_gdtf_cookie_" + std::to_string(reinterpret_cast<std::uintptr_t>(this)) + ".txt");
-        path = temp.string();
+        return SessionCookieJar(fs::temp_directory_path() /
+            fs::path("perastage_gdtf_cookie_fallback_" + std::to_string(now) + ".txt"), true);
     }
-    ~ScopedTempCookieFile() { std::error_code ec; fs::remove(path, ec); }
-    std::string path;
+
+    // References a cookie path owned by the caller.
+    static SessionCookieJar UseExternalPath(fs::path path) {
+        return SessionCookieJar(std::move(path), false);
+    }
+
+    // Removes only owned temporary cookie files.
+    ~SessionCookieJar() { Cleanup(); }
+
+    SessionCookieJar(const SessionCookieJar&) = delete;
+    SessionCookieJar& operator=(const SessionCookieJar&) = delete;
+
+    // Transfers cookie-file ownership exactly once.
+    SessionCookieJar(SessionCookieJar&& other) noexcept
+        : path_(std::move(other.path_)), owned_(other.owned_) { other.owned_ = false; }
+
+    // Replaces this cookie jar, cleaning any currently owned path first.
+    SessionCookieJar& operator=(SessionCookieJar&& other) noexcept {
+        if (this != &other) {
+            Cleanup();
+            path_ = std::move(other.path_);
+            owned_ = other.owned_;
+            other.owned_ = false;
+        }
+        return *this;
+    }
+
+    // Returns the cookie file path without exposing its contents.
+    const fs::path& Path() const { return path_; }
+
+    // Reports whether this object owns and will delete the cookie path.
+    bool IsOwned() const { return owned_; }
+
+    // Applies owner-only permissions when the cookie file exists.
+    void HardenExistingFilePermissions() const {
+#ifndef _WIN32
+        std::error_code ec;
+        if (fs::exists(path_, ec))
+            ::chmod(path_.c_str(), S_IRUSR | S_IWUSR);
+#endif
+    }
+
+private:
+    // Stores the path and its ownership flag.
+    SessionCookieJar(fs::path path, bool owned) : path_(std::move(path)), owned_(owned) {}
+
+    // Removes the cookie path when this object owns it.
+    void Cleanup() {
+        if (!owned_ || path_.empty())
+            return;
+        std::error_code ec;
+        fs::remove(path_, ec);
+        owned_ = false;
+    }
+
+    fs::path path_;
+    bool owned_ = false;
 };
 
 // Installs libcurl options shared by all GDTF Share requests.
@@ -135,7 +207,9 @@ void LogResult(const std::string& operation, const GdtfShareResult& result) {
 
 // Returns true when a response looks like an API JSON error instead of a GDTF package.
 bool IsJsonErrorPayload(const std::string& path, const std::string& contentType) {
-    if (contentType.find("json") != std::string::npos)
+    std::string lowerContentType = contentType;
+    std::transform(lowerContentType.begin(), lowerContentType.end(), lowerContentType.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    if (lowerContentType.find("json") != std::string::npos || lowerContentType.find("text/") != std::string::npos)
         return true;
     std::ifstream in(path, std::ios::binary);
     char first = 0;
@@ -146,10 +220,64 @@ bool IsJsonErrorPayload(const std::string& path, const std::string& contentType)
     return false;
 }
 
+// Returns true when a downloaded file starts with a ZIP-compatible signature.
+bool HasZipSignature(const fs::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::array<unsigned char, 4> sig{};
+    in.read(reinterpret_cast<char*>(sig.data()), static_cast<std::streamsize>(sig.size()));
+    if (in.gcount() < 4)
+        return false;
+    return sig[0] == 0x50 && sig[1] == 0x4b &&
+           ((sig[2] == 0x03 && sig[3] == 0x04) ||
+            (sig[2] == 0x05 && sig[3] == 0x06) ||
+            (sig[2] == 0x07 && sig[3] == 0x08));
+}
+
 // Returns a temporary download path next to the final destination.
-fs::path MakePartialPath(const fs::path& dest) {
-    return dest.parent_path() / (dest.filename().string() + ".part." +
-           std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+fs::path MakeSiblingPath(const fs::path& dest, const std::string& tag) {
+    return dest.parent_path() / (dest.filename().string() + tag +
+           std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "_" +
+           std::to_string(reinterpret_cast<std::uintptr_t>(&dest)));
+}
+
+// Returns a temporary download path next to the final destination.
+fs::path MakePartialPath(const fs::path& dest) { return MakeSiblingPath(dest, ".part."); }
+
+// Publishes a validated sibling file while preserving any previous destination.
+bool PublishDownloadedFile(const fs::path& source, const fs::path& dest, std::string& message) {
+    std::error_code ec;
+    const std::uintmax_t expectedSize = fs::file_size(source, ec);
+    if (ec) { message = "Could not inspect staged download"; return false; }
+    fs::path publishSource = source;
+    fs::path staged;
+    fs::path backup;
+    auto cleanup = [&]() { std::error_code ignore; if (!staged.empty()) fs::remove(staged, ignore); if (!backup.empty()) fs::remove(backup, ignore); };
+    const bool existed = fs::exists(dest, ec);
+    if (existed) {
+        backup = MakeSiblingPath(dest, ".backup.");
+        fs::rename(dest, backup, ec);
+        if (ec) { message = "Could not create backup for existing download"; cleanup(); return false; }
+    }
+    fs::rename(publishSource, dest, ec);
+    if (ec) {
+        staged = MakeSiblingPath(dest, ".stage.");
+        ec.clear();
+        fs::copy_file(source, staged, fs::copy_options::none, ec);
+        if (!ec && fs::file_size(staged, ec) == expectedSize) {
+            ec.clear(); fs::rename(staged, dest, ec);
+        }
+    }
+    if (ec || !fs::exists(dest, ec) || fs::file_size(dest, ec) != expectedSize) {
+        std::error_code restoreEc;
+        fs::remove(dest, restoreEc);
+        if (!backup.empty()) fs::rename(backup, dest, restoreEc);
+        cleanup();
+        message = restoreEc ? "Could not publish download and rollback failed" : "Could not publish download";
+        return false;
+    }
+    if (!backup.empty()) { std::error_code removeEc; fs::remove(backup, removeEc); }
+    std::error_code removeEc; fs::remove(source, removeEc); cleanup();
+    return true;
 }
 } // namespace
 
@@ -312,17 +440,29 @@ GdtfShareResult MakeGdtfShareTimeoutResult(int transportCode, const std::string&
 }
 
 struct GdtfShareClient::Impl {
-    ScopedTempCookieFile cookie;
+    SessionCookieJar cookie = SessionCookieJar::CreateOwnedTemporary();
 };
 
 // Creates a GDTF Share client with an isolated temporary cookie jar.
 GdtfShareClient::GdtfShareClient() : impl(std::make_unique<Impl>()) {}
 
 // Creates a GDTF Share client with a caller-provided cookie jar.
-GdtfShareClient::GdtfShareClient(const std::string& cookieFile) : impl(std::make_unique<Impl>()) { impl->cookie.path = cookieFile; }
+GdtfShareClient::GdtfShareClient(const std::string& cookieFile) : impl(std::make_unique<Impl>()) { impl->cookie = SessionCookieJar::UseExternalPath(cookieFile); }
 
 // Cleans up the temporary GDTF Share session cookie.
 GdtfShareClient::~GdtfShareClient() = default;
+
+// Moves a GDTF Share client and its session ownership.
+GdtfShareClient::GdtfShareClient(GdtfShareClient&&) noexcept = default;
+
+// Move-assigns a GDTF Share client and its session ownership.
+GdtfShareClient& GdtfShareClient::operator=(GdtfShareClient&&) noexcept = default;
+
+// Returns the session cookie path for tests without exposing cookie contents.
+const fs::path& GdtfShareClient::CookiePathForTesting() const { return impl->cookie.Path(); }
+
+// Reports whether this client owns the session cookie for tests.
+bool GdtfShareClient::OwnsCookieForTesting() const { return impl->cookie.IsOwned(); }
 
 // Authenticates against GDTF Share and stores the session cookie internally.
 GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::string& password) {
@@ -331,7 +471,8 @@ GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::strin
         return MakeGdtfShareTransportResult(CURLE_FAILED_INIT, "Could not initialize libcurl", 0);
     std::string response;
     char errorBuffer[CURL_ERROR_SIZE];
-    ConfigureCommonCurl(curl, impl->cookie.path, response, errorBuffer);
+    const std::string cookiePath = impl->cookie.Path().string();
+    ConfigureCommonCurl(curl, cookiePath, response, errorBuffer);
     const std::string body = BuildGdtfLoginRequestBody(user, password);
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -360,7 +501,8 @@ GdtfShareResult GdtfShareClient::GetCatalog() {
         return MakeGdtfShareTransportResult(CURLE_FAILED_INIT, "Could not initialize libcurl", 0);
     std::string response;
     char errorBuffer[CURL_ERROR_SIZE];
-    ConfigureCommonCurl(curl, impl->cookie.path, response, errorBuffer);
+    const std::string cookiePath = impl->cookie.Path().string();
+    ConfigureCommonCurl(curl, cookiePath, response, errorBuffer);
     curl_easy_setopt(curl, CURLOPT_URL, kListUrl);
     const auto start = std::chrono::steady_clock::now();
     const CURLcode code = curl_easy_perform(curl);
@@ -398,8 +540,9 @@ GdtfShareResult GdtfShareClient::DownloadRevision(const std::string& rid, const 
     char errorBuffer[CURL_ERROR_SIZE];
     errorBuffer[0] = '\0';
     const std::string url = std::string(kDownloadUrl) + rid;
+    const std::string cookiePath = impl->cookie.Path().string();
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_COOKIEFILE, impl->cookie.path.c_str());
+    curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookiePath.c_str());
     curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
@@ -431,11 +574,15 @@ GdtfShareResult GdtfShareClient::DownloadRevision(const std::string& rid, const 
     else if (code != CURLE_OK) result.category = GdtfShareResultCategory::TransportError;
     else if (result.httpStatus == 401 || result.httpStatus == 403) result.category = GdtfShareResultCategory::AuthenticationRejected;
     else if (result.httpStatus < 200 || result.httpStatus >= 300) result.category = result.httpStatus >= 500 ? GdtfShareResultCategory::HttpError : GdtfShareResultCategory::ApiRejected;
-    else if (result.responseBytes == 0 || IsJsonErrorPayload(partial.string(), result.contentType)) result.category = GdtfShareResultCategory::ApiRejected;
+    else if (result.responseBytes == 0 || IsJsonErrorPayload(partial.string(), result.contentType) || !HasZipSignature(partial)) { result.category = GdtfShareResultCategory::ApiRejected; result.transportMessage = "Downloaded payload is not a valid GDTF ZIP archive"; }
     else {
-        fs::rename(partial, dest, ec);
-        if (ec) { fs::copy_file(partial, dest, fs::copy_options::overwrite_existing, ec); fs::remove(partial, ec); }
-        result.category = ec ? GdtfShareResultCategory::LocalFileError : GdtfShareResultCategory::Success;
+        std::string publishMessage;
+        if (!PublishDownloadedFile(partial, dest, publishMessage)) {
+            result.category = GdtfShareResultCategory::LocalFileError;
+            result.transportMessage = publishMessage;
+        } else {
+            result.category = GdtfShareResultCategory::Success;
+        }
         LogResult("download", result);
         return result;
     }

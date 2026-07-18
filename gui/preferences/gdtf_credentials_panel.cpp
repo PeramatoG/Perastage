@@ -57,9 +57,14 @@ GdtfCredentialsPanel::GdtfCredentialsPanel(wxWindow *parent)
 void GdtfCredentialsPanel::LoadCredentials() {
   ConfigManager &configManager =
       GetDefaultGuiConfigServices().LegacyConfigManager();
-  if (const auto credentials = LoadGdtfCredentialsForGui(configManager)) {
-    usernameCtrl->SetValue(wxString::FromUTF8(credentials->username));
-    passwordCtrl->SetValue(wxString::FromUTF8(credentials->password));
+  const CredentialStore::LoadResult loaded =
+      LoadGdtfCredentialsForGuiDetailed(configManager);
+  if (loaded.credentials) {
+    usernameCtrl->SetValue(wxString::FromUTF8(loaded.credentials->username));
+    passwordCtrl->SetValue(wxString::FromUTF8(loaded.credentials->password));
+  } else if (loaded.usernameHint) {
+    usernameCtrl->SetValue(wxString::FromUTF8(*loaded.usernameHint));
+    passwordCtrl->Clear();
   }
 }
 
@@ -73,8 +78,17 @@ bool GdtfCredentialsPanel::ApplyCredentials() {
       : CredentialStore::Save(credentials);
   configManager.SetValue("gdtf_username", credentials.username);
   configManager.SetValue("gdtf_password", "");
-  return result.Succeeded() ||
-         result.status == CredentialStore::Status::SecureStoreUnavailable;
+  if (result.Succeeded())
+    return true;
+  if (result.status == CredentialStore::Status::SecureStoreUnavailable) {
+    wxMessageBox(_("The username was saved, but secure password storage is unavailable. The password must be entered again after restart."),
+                 _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
+    return true;
+  }
+  wxMessageBox(wxString::Format(_("GDTF Share credentials were not saved (%s)."),
+                                wxString::FromUTF8(CredentialStore::StatusName(result.status))),
+               _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
+  return false;
 }
 
 void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)) {

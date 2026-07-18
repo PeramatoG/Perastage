@@ -32,11 +32,14 @@ enum class Status {
 struct Result {
     Status status = Status::Success;
     std::string message;
+    bool metadataWritten = false;
+    bool secretWritten = false;
     bool Succeeded() const { return status == Status::Success; }
 };
 
 struct LoadResult : Result {
     std::optional<Credentials> credentials;
+    std::optional<std::string> usernameHint;
     bool migrationAttempted = false;
     bool migrationSucceeded = false;
 };

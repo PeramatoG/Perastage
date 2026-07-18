@@ -369,8 +369,10 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   diagnostics::DiagnosticLogger::Info("GDTF download workflow opened.");
   ConfigManager &configManager =
       GetDefaultGuiConfigServices().LegacyConfigManager();
+  CredentialStore::LoadResult loadedCredentials =
+      LoadGdtfCredentialsForGuiDetailed(configManager);
   std::optional<CredentialStore::Credentials> activeCredentials =
-      LoadGdtfCredentialsForGui(configManager);
+      loadedCredentials.credentials;
 
   GdtfShareClient gdtfClient;
 
@@ -496,7 +498,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     };
     auto requestCredentialsFromDialog = [&]() -> bool {
       const std::string initialUser =
-          activeCredentials ? activeCredentials->username : std::string();
+          activeCredentials ? activeCredentials->username :
+          loadedCredentials.usernameHint.value_or(std::string());
       const std::string initialPassword =
           activeCredentials ? activeCredentials->password : std::string();
 
@@ -519,7 +522,6 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         return false;
       }
 
-      PersistGdtfCredentialsForGui(dialogCredentials, configManager);
       activeCredentials = dialogCredentials;
       return true;
     };
@@ -539,17 +541,27 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
     GdtfShareResult loginResult;
     bool loginConnected = tryLogin(loginResult);
-    if (!loginConnected || loginResult.category == GdtfShareResultCategory::AuthenticationRejected) {
+    if (!loginConnected && (!activeCredentials ||
+                           loginResult.category == GdtfShareResultCategory::AuthenticationRejected)) {
       if (!requestCredentialsFromDialog()) {
         return;
       }
       loginConnected = tryLogin(loginResult);
+      if (loginConnected)
+        PersistGdtfCredentialsForGui(*activeCredentials, configManager);
       if (!loginConnected) {
         showGdtfDownloadError(wxString::FromUTF8(
                                   FormatGdtfShareUserMessage(loginResult, "login")),
                               "Login Error");
         return;
       }
+    }
+
+    if (!loginConnected) {
+      showGdtfDownloadError(wxString::FromUTF8(
+                                FormatGdtfShareUserMessage(loginResult, "login")),
+                            "Login Error");
+      return;
     }
 
     wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());

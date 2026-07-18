@@ -27,4 +27,6 @@ Use GDTF download when fixtures appear generic, missing, or visually incorrect a
 
 When available, Perastage stores the GDTF Share password in the operating system's secure credential store through wxWidgets. The username may remain in non-secret Perastage metadata so the sign-in field can be prefilled. The password is not written to `gdtf_credentials.json` or application configuration.
 
-On systems where the operating-system credential store is unavailable or wxWidgets was built without secure-store support, Perastage can still validate credentials for the current operation, but it does not persist the password. You will need to enter the password again in a later session.
+On systems where the operating-system credential store is unavailable or wxWidgets was built without secure-store support, Perastage can still validate credentials for the current operation, but it does not persist the password. Perastage shows a warning in this state, may keep the username as a non-secret hint, and will ask for the password again in a later session.
+
+Downloads are written to temporary sibling files first and are published only after the response is successful and ZIP-compatible. If a download, cancellation, or local publication step fails, an existing destination GDTF file is preserved.

@@ -6,6 +6,7 @@
 
 class ConfigManager;
 
+CredentialStore::LoadResult LoadGdtfCredentialsForGuiDetailed(ConfigManager &configManager);
 std::optional<CredentialStore::Credentials>
 LoadGdtfCredentialsForGui(ConfigManager &configManager);
 

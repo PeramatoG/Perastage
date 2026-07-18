@@ -11,11 +11,16 @@ void ClearLegacyCredentialValues(ConfigManager &configManager) {
 }
 } // namespace
 
-// Loads GDTF credentials for GUI workflows through the centralized store.
+// Loads detailed GDTF credential state for GUI workflows through the centralized store.
+CredentialStore::LoadResult LoadGdtfCredentialsForGuiDetailed(ConfigManager &configManager) {
+  (void)configManager;
+  return CredentialStore::LoadDetailed();
+}
+
+// Loads complete GDTF credentials for GUI workflows through the centralized store.
 std::optional<CredentialStore::Credentials>
 LoadGdtfCredentialsForGui(ConfigManager &configManager) {
-  (void)configManager;
-  return CredentialStore::Load();
+  return LoadGdtfCredentialsForGuiDetailed(configManager).credentials;
 }
 
 // Persists or clears GDTF credentials for GUI workflows through the centralized store.
