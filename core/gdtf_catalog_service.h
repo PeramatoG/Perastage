@@ -18,9 +18,18 @@ struct GdtfCatalogRefreshMetrics {
   long long cacheAgeSeconds = -1;
 };
 
+enum class GdtfCatalogResultSource {
+  None,
+  Cache,
+  Online
+};
+
 struct GdtfCatalogRefreshResult {
   std::optional<GdtfCatalogSnapshot> snapshot;
   GdtfCatalogRefreshMetrics metrics;
+  GdtfCatalogResultSource source = GdtfCatalogResultSource::None;
+  bool staleFallback = false;
+  std::string failureMessage;
 };
 
 class GdtfCatalogService {

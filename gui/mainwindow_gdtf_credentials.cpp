@@ -24,14 +24,15 @@ LoadGdtfCredentialsForGui(ConfigManager &configManager) {
 }
 
 // Persists or clears GDTF credentials for GUI workflows through the centralized store.
-void PersistGdtfCredentialsForGui(const CredentialStore::Credentials &credentials,
+CredentialStore::Result PersistGdtfCredentialsForGui(const CredentialStore::Credentials &credentials,
                                   ConfigManager &configManager) {
   if (credentials.username.empty()) {
     CredentialStore::ClearDetailed();
     ClearLegacyCredentialValues(configManager);
-    return;
+    return {};
   }
-  CredentialStore::Save(credentials);
+  CredentialStore::Result result = CredentialStore::Save(credentials);
   configManager.SetValue("gdtf_username", credentials.username);
   configManager.SetValue("gdtf_password", "");
+  return result;
 }

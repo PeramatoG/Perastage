@@ -10,6 +10,7 @@
 #include "simplecrypt.h"
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 #if __has_include(<wx/secretstore.h>)
 #include <wx/secretstore.h>
 #endif
@@ -37,19 +38,61 @@ std::string GetCredFile() {
     return target.string();
 }
 
+// Returns a unique sibling path for credential metadata transactions.
+fs::path MakeUniqueMetadataSibling(const fs::path& file, const std::string& tag) {
+    for (int attempt = 0; attempt < 64; ++attempt) {
+        fs::path candidate = file.parent_path() / (file.filename().string() + tag +
+            std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+            "_" + std::to_string(attempt));
+        std::error_code existsEc;
+        if (!fs::exists(candidate, existsEc))
+            return candidate;
+    }
+    return file.parent_path() / (file.filename().string() + tag + "fallback");
+}
+
 // Writes non-secret credential metadata atomically.
 Result WriteMetadata(const std::string& username) {
-    const std::string file = GetCredFile();
-    if (file.empty()) return {Status::MetadataWriteFailed, "Credential metadata path unavailable"};
-    fs::create_directories(fs::path(file).parent_path());
+    const std::string fileText = GetCredFile();
+    if (fileText.empty()) return {Status::MetadataWriteFailed, "Credential metadata path unavailable"};
+    const fs::path file(fileText);
+    std::error_code mkdirEc;
+    fs::create_directories(file.parent_path(), mkdirEc);
+    if (mkdirEc) return {Status::MetadataWriteFailed, "Could not create credential metadata directory"};
     nlohmann::json j{{"schema_version", kGdtfCredentialMetadataSchemaVersion}, {"backend", "wx_secret_store"}, {"service", kGdtfShareCredentialService}, {"username", username}};
-    const fs::path tmp = fs::path(file).string() + ".tmp";
-    { std::ofstream out(tmp); if (!out.is_open()) return {Status::MetadataWriteFailed, "Could not write credential metadata"}; out << j.dump(4); }
+    const fs::path tmp = MakeUniqueMetadataSibling(file, ".tmp.");
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        if (!out.is_open()) return {Status::MetadataWriteFailed, "Could not write credential metadata"};
+        out << j.dump(4);
+        out.flush();
+        if (!out.good()) { std::error_code removeEc; fs::remove(tmp, removeEc); return {Status::MetadataWriteFailed, "Could not flush credential metadata"}; }
+    }
 #ifndef _WIN32
     std::error_code permEc; fs::permissions(tmp, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::replace, permEc);
 #endif
-    std::error_code ec; fs::rename(tmp, file, ec); if (ec) { fs::copy_file(tmp, file, fs::copy_options::overwrite_existing, ec); fs::remove(tmp, ec); }
-    if (ec) return {Status::MetadataWriteFailed, "Could not replace credential metadata"};
+    std::error_code renameEc;
+    fs::rename(tmp, file, renameEc);
+    if (!renameEc) { Result result; result.metadataWritten = true; return result; }
+
+    const fs::path backup = MakeUniqueMetadataSibling(file, ".backup.");
+    std::error_code backupEc;
+    if (fs::exists(file, backupEc)) {
+        fs::rename(file, backup, backupEc);
+        if (backupEc) { std::error_code removeEc; fs::remove(tmp, removeEc); return {Status::MetadataWriteFailed, "Could not preserve previous credential metadata"}; }
+    }
+    std::error_code publishEc;
+    fs::rename(tmp, file, publishEc);
+    if (publishEc) {
+        std::error_code restoreEc;
+        if (fs::exists(backup, restoreEc))
+            fs::rename(backup, file, restoreEc);
+        std::error_code removeEc;
+        fs::remove(tmp, removeEc);
+        return {Status::MetadataWriteFailed, restoreEc ? "Could not publish credential metadata; previous metadata backup was retained" : "Could not publish credential metadata"};
+    }
+    std::error_code cleanupEc;
+    fs::remove(backup, cleanupEc);
     Result result; result.metadataWritten = true; return result;
 }
 
@@ -169,6 +212,9 @@ Result Save(const Credentials& cred) {
     diagnostics::DiagnosticLogger::Info("GDTF credential save: backend=" + b->Name() + " status=" + StatusName(mr.status));
     return mr;
 }
+
+// Saves only non-secret username metadata for credential prompts.
+Result SaveUsernameMetadataOnly(const std::string& username) { return WriteMetadata(username); }
 
 // Loads credentials and safely migrates legacy recoverable values when needed.
 LoadResult LoadDetailed() {

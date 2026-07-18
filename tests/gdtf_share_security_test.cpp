@@ -1,5 +1,6 @@
 #include "credentialstore.h"
 #include "gdtfnet.h"
+#include "gdtf_share_workflow.h"
 #include "json.hpp"
 #include "simplecrypt.h"
 #include <cassert>
@@ -99,6 +100,31 @@ void TestStrictLegacyDecode() {
     assert(!SimpleCrypt::DecodeStrict("").success);
 }
 
+
+// Verifies credential prompt decisions do not treat transport failures as bad credentials.
+void TestWorkflowPromptDecisions() {
+    using namespace gdtf_share_workflow;
+    CredentialStore::LoadResult none;
+    assert(DetermineCredentialAvailability(none) == CredentialAvailability::None);
+    none.usernameHint = "operator";
+    assert(DetermineCredentialAvailability(none) == CredentialAvailability::UsernameHintOnly);
+    none.credentials = CredentialStore::Credentials{"operator", "secret"};
+    assert(DetermineCredentialAvailability(none) == CredentialAvailability::Complete);
+
+    assert(PromptReasonForAuthenticationResult(false, std::nullopt) ==
+           CredentialPromptReason::MissingCredentials);
+    GdtfShareResult transport;
+    transport.category = GdtfShareResultCategory::TransportError;
+    assert(PromptReasonForAuthenticationResult(true, transport) ==
+           CredentialPromptReason::None);
+    GdtfShareResult rejected;
+    rejected.category = GdtfShareResultCategory::AuthenticationRejected;
+    assert(PromptReasonForAuthenticationResult(true, rejected) ==
+           CredentialPromptReason::RejectedCredentials);
+    assert(PromptReasonForAuthenticationResult(true, transport, true) ==
+           CredentialPromptReason::ExpiredSession);
+}
+
 // Verifies credential storage orchestration and metadata omit passwords.
 void TestCredentialStorage() {
     namespace fs = std::filesystem;
@@ -184,6 +210,7 @@ int main() {
     TestResponseMapping();
     TestCookieOwnership();
     TestStrictLegacyDecode();
+    TestWorkflowPromptDecisions();
     TestCredentialStorage();
     TestLegacyMigration();
     TestRedaction();

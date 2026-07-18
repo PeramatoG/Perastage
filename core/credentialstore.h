@@ -61,6 +61,7 @@ void SetCredentialBackendForTesting(std::shared_ptr<CredentialBackend> backend);
 void SetCredentialMetadataPathForTesting(const std::string& path);
 std::string StatusName(Status status);
 Result Save(const Credentials& cred);
+Result SaveUsernameMetadataOnly(const std::string& username);
 LoadResult LoadDetailed();
 std::optional<Credentials> Load();
 Result ClearDetailed();

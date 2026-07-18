@@ -21,6 +21,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <filesystem>
 
@@ -92,6 +93,9 @@ public:
 
     GdtfShareResult Login(const std::string& user, const std::string& password);
     GdtfShareResult GetCatalog();
+    void ResetSession();
+    bool IsAuthenticated() const;
+    std::optional<std::string> AuthenticatedUsername() const;
     const std::filesystem::path& CookiePathForTesting() const;
     bool OwnsCookieForTesting() const;
 

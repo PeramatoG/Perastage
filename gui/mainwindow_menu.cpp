@@ -67,6 +67,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
+#include "gdtf_share_workflow.h"
 #include "gdtfsearchdialog.h"
 #include "guiconfigservices.h"
 #include "hoist_weight_distribution.h"
@@ -375,6 +376,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       loadedCredentials.credentials;
 
   GdtfShareClient gdtfClient;
+  gdtf_share_workflow::WorkflowState gdtfWorkflowState;
+  gdtfWorkflowState.credentialAvailability =
+      gdtf_share_workflow::DetermineCredentialAvailability(loadedCredentials);
 
   const auto catalogResolveStart = std::chrono::steady_clock::now();
   GdtfCatalogService catalogService;
@@ -387,6 +391,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       std::make_unique<wxBusyInfo>("Updating GDTF catalog...");
   wxYieldIfNeeded();
 
+  GdtfShareResult initialLoginResult;
+  GdtfShareResult initialCatalogResult;
+  bool initialLoginAttempted = false;
   const GdtfCatalogRefreshResult catalogResult =
       catalogService.RefreshCatalogIfStale(
           [&](std::string &onlineListData) {
@@ -395,14 +402,19 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
               return false;
             }
 
-            const GdtfShareResult loginResult = gdtfClient.Login(
-                activeCredentials->username, activeCredentials->password);
-            if (!loginResult.Succeeded())
+            initialLoginAttempted = true;
+            initialLoginResult = gdtfClient.Login(activeCredentials->username,
+                                                  activeCredentials->password);
+            gdtfWorkflowState.lastAuthenticationResult = initialLoginResult;
+            if (!initialLoginResult.Succeeded())
               return false;
+            gdtfWorkflowState.sessionAuthenticated = true;
+            gdtfWorkflowState.authenticatedUsername = activeCredentials->username;
 
-            const GdtfShareResult listResult = gdtfClient.GetCatalog();
-            onlineListData = listResult.payload;
-            return listResult.Succeeded() && !onlineListData.empty();
+            initialCatalogResult = gdtfClient.GetCatalog();
+            gdtfWorkflowState.lastCatalogResult = initialCatalogResult;
+            onlineListData = initialCatalogResult.payload;
+            return initialCatalogResult.Succeeded() && !onlineListData.empty();
           },
           nowUtc, 0);
 
@@ -419,6 +431,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   if (catalogResult.snapshot) {
     effectiveListData = catalogResult.snapshot->listData;
     effectiveUpdatedAt = catalogResult.snapshot->updatedAt;
+    gdtfWorkflowState.catalogSource = catalogResult.metrics.refreshSucceeded
+        ? gdtf_share_workflow::CatalogSource::Online
+        : gdtf_share_workflow::CatalogSource::Cached;
   }
   diagnostics::DiagnosticLogger::Info(
       std::string("GDTF catalog resolved: cache_hit=") +
@@ -426,7 +441,14 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       " refresh_attempted=" +
       (catalogResult.metrics.refreshAttempted ? "true" : "false") +
       " refresh_succeeded=" +
-      (catalogResult.metrics.refreshSucceeded ? "true" : "false"));
+      (catalogResult.metrics.refreshSucceeded ? "true" : "false") +
+      " credential_state=" +
+      gdtf_share_workflow::CredentialAvailabilityName(
+          gdtfWorkflowState.credentialAvailability) +
+      " catalog_source=" +
+      gdtf_share_workflow::CatalogSourceName(gdtfWorkflowState.catalogSource) +
+      " session_authenticated=" +
+      (gdtfWorkflowState.sessionAuthenticated ? "true" : "false"));
 
   if (consolePanel) {
     consolePanel->AppendMessage(wxString::Format(
@@ -444,36 +466,13 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       std::make_unique<wxBusyInfo>("Loading GDTF catalog...");
   wxYieldIfNeeded();
   GdtfSearchDialog searchDlg(
-      this, effectiveListData, effectiveUpdatedAt,
-      [&]() -> GdtfSearchDialog::RefreshResult {
-        GdtfSearchDialog::RefreshResult refreshResult;
-        refreshResult.updatedAt =
-            WxToUtf8(wxDateTime::UNow().FormatISOCombined(' '));
-        if (!activeCredentials || activeCredentials->username.empty() ||
-            activeCredentials->password.empty()) {
-          refreshResult.failureDetails =
-              "No stored GDTF credentials configured.";
-          return refreshResult;
-        }
-
-        const GdtfShareResult loginResult = gdtfClient.Login(
-            activeCredentials->username, activeCredentials->password);
-        if (!loginResult.Succeeded()) {
-          refreshResult.failureDetails =
-              FormatGdtfShareUserMessage(loginResult, "login");
-          return refreshResult;
-        }
-
-        const GdtfShareResult listResult = gdtfClient.GetCatalog();
-        refreshResult.listData = listResult.payload;
-        if (listResult.Succeeded() && !refreshResult.listData.empty()) {
-          refreshResult.success = true;
-        } else {
-          refreshResult.failureDetails =
-              FormatGdtfShareUserMessage(listResult, "catalog");
-        }
-        return refreshResult;
-      });
+      this, effectiveListData, effectiveUpdatedAt, nullptr,
+      gdtfWorkflowState.catalogSource == gdtf_share_workflow::CatalogSource::Online
+          ? GdtfCatalogDisplaySource::Online
+          : (gdtfWorkflowState.catalogSource == gdtf_share_workflow::CatalogSource::Cached
+                 ? GdtfCatalogDisplaySource::Cached
+                 : GdtfCatalogDisplaySource::None),
+      !gdtfWorkflowState.sessionAuthenticated);
   preparingCatalogOverlay.reset();
 
   const int searchDialogResult = searchDlg.ShowModal();
@@ -525,39 +524,78 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       activeCredentials = dialogCredentials;
       return true;
     };
-    auto tryLogin = [&](GdtfShareResult &loginResult) -> bool {
+    auto showPersistenceWarning = [&](const CredentialStore::Result &result) {
+      if (result.Succeeded())
+        return;
+      const wxString message = result.status == CredentialStore::Status::SecureStoreUnavailable
+          ? _("The username was saved, but secure password storage is unavailable. The password must be entered again after restart.")
+          : wxString::Format(_("GDTF Share credentials were authenticated for this operation, but were not saved (%s)."),
+                             wxString::FromUTF8(CredentialStore::StatusName(result.status)));
+      wxMessageBox(message, _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
+    };
+    auto ensureAuthenticated = [&](GdtfShareResult &loginResult) -> bool {
+      if (activeCredentials && gdtfClient.IsAuthenticated() &&
+          gdtfClient.AuthenticatedUsername() == activeCredentials->username) {
+        diagnostics::DiagnosticLogger::Info(
+            "GDTF download auth: reused_existing_session=true");
+        return true;
+      }
       if (!activeCredentials || activeCredentials->username.empty() ||
           activeCredentials->password.empty()) {
-        return false;
+        diagnostics::DiagnosticLogger::Info(
+            "GDTF download auth prompt reason=missing_credentials");
+        if (!requestCredentialsFromDialog())
+          return false;
       }
-
+      if (!activeCredentials)
+        return false;
+      if (initialLoginAttempted &&
+          initialLoginResult.category == GdtfShareResultCategory::AuthenticationRejected) {
+        diagnostics::DiagnosticLogger::Info(
+            "GDTF download auth prompt reason=rejected_credentials");
+        if (!requestCredentialsFromDialog())
+          return false;
+      }
+      gdtfClient.ResetSession();
       if (consolePanel)
         consolePanel->AppendMessage(
             "[INFO] Logging into GDTF Share using libcurl");
       updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
-      loginResult = gdtfClient.Login(activeCredentials->username, activeCredentials->password);
+      loginResult = gdtfClient.Login(activeCredentials->username,
+                                     activeCredentials->password);
+      gdtfWorkflowState.lastAuthenticationResult = loginResult;
+      gdtfWorkflowState.sessionAuthenticated = loginResult.Succeeded();
+      if (loginResult.Succeeded()) {
+        gdtfWorkflowState.authenticatedUsername = activeCredentials->username;
+        const CredentialStore::Result persistResult =
+            PersistGdtfCredentialsForGui(*activeCredentials, configManager);
+        loadedCredentials.usernameHint = activeCredentials->username;
+        loadedCredentials.credentials = activeCredentials;
+        showPersistenceWarning(persistResult);
+      } else if (loginResult.category == GdtfShareResultCategory::AuthenticationRejected) {
+        diagnostics::DiagnosticLogger::Info(
+            "GDTF download auth prompt reason=rejected_credentials");
+        if (!requestCredentialsFromDialog())
+          return false;
+        gdtfClient.ResetSession();
+        loginResult = gdtfClient.Login(activeCredentials->username,
+                                       activeCredentials->password);
+        gdtfWorkflowState.lastAuthenticationResult = loginResult;
+        gdtfWorkflowState.sessionAuthenticated = loginResult.Succeeded();
+        if (loginResult.Succeeded()) {
+          gdtfWorkflowState.authenticatedUsername = activeCredentials->username;
+          const CredentialStore::Result persistResult =
+              PersistGdtfCredentialsForGui(*activeCredentials, configManager);
+          loadedCredentials.usernameHint = activeCredentials->username;
+          loadedCredentials.credentials = activeCredentials;
+          showPersistenceWarning(persistResult);
+        }
+      }
       return loginResult.Succeeded();
     };
 
     GdtfShareResult loginResult;
-    bool loginConnected = tryLogin(loginResult);
-    if (!loginConnected && (!activeCredentials ||
-                           loginResult.category == GdtfShareResultCategory::AuthenticationRejected)) {
-      if (!requestCredentialsFromDialog()) {
-        return;
-      }
-      loginConnected = tryLogin(loginResult);
-      if (loginConnected)
-        PersistGdtfCredentialsForGui(*activeCredentials, configManager);
-      if (!loginConnected) {
-        showGdtfDownloadError(wxString::FromUTF8(
-                                  FormatGdtfShareUserMessage(loginResult, "login")),
-                              "Login Error");
-        return;
-      }
-    }
-
-    if (!loginConnected) {
+    if (!ensureAuthenticated(loginResult)) {
       showGdtfDownloadError(wxString::FromUTF8(
                                 FormatGdtfShareUserMessage(loginResult, "login")),
                             "Login Error");
@@ -583,8 +621,23 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         if (consolePanel)
           consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
                                       rid);
-        const GdtfShareResult downloadResult =
+        GdtfShareResult downloadResult =
             gdtfClient.DownloadRevision(WxToUtf8(rid), WxToUtf8(dest));
+        if (downloadResult.category == GdtfShareResultCategory::AuthenticationRejected) {
+          diagnostics::DiagnosticLogger::Info(
+              "GDTF download auth prompt reason=expired_session");
+          activeCredentials.reset();
+          if (requestCredentialsFromDialog()) {
+            gdtfClient.ResetSession();
+            GdtfShareResult retryLogin;
+            if (ensureAuthenticated(retryLogin)) {
+              downloadResult =
+                  gdtfClient.DownloadRevision(WxToUtf8(rid), WxToUtf8(dest));
+            } else {
+              downloadResult = retryLogin;
+            }
+          }
+        }
         long dlCode = downloadResult.httpStatus;
         bool ok = downloadResult.Succeeded();
         clearGdtfDownloadBlockingUi();

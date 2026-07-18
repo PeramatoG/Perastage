@@ -3622,6 +3622,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                              loginResult.category ==
                                  GdtfShareResultCategory::AuthenticationRejected)) {
               if (requestCredentials()) {
+                gdtfClient.ResetSession();
                 loginResult = gdtfClient.Login(activeCredentials->username,
                                                activeCredentials->password);
                 loginOk = loginResult.Succeeded();
@@ -3631,6 +3632,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   if (!saveResult.Succeeded()) {
                     reportProgress("[WARN] GDTF Share credentials authenticated but the password was not persisted: " +
                                    CredentialStore::StatusName(saveResult.status));
+                    wxMessageBox(saveResult.status == CredentialStore::Status::SecureStoreUnavailable
+                                     ? _("The username was saved, but secure password storage is unavailable. The password must be entered again after restart.")
+                                     : wxString::Format(_("GDTF Share credentials were authenticated for this operation, but were not saved (%s)."),
+                                                        wxString::FromUTF8(CredentialStore::StatusName(saveResult.status))),
+                                 _("GDTF Share credentials"), wxOK | wxICON_WARNING);
                   }
                 }
               }

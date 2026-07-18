@@ -31,6 +31,8 @@
 #include <fstream>
 #include <random>
 #include <sstream>
+#include <iomanip>
+#include <stdexcept>
 #include <thread>
 #ifndef _WIN32
 #include <sys/stat.h>
@@ -88,20 +90,24 @@ class SessionCookieJar {
 public:
     // Creates a unique temporary cookie path owned by this session.
     static SessionCookieJar CreateOwnedTemporary() {
-        const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
         std::random_device rd;
         std::uniform_int_distribution<unsigned long long> dist;
-        for (int attempt = 0; attempt < 32; ++attempt) {
-            const std::string token = std::to_string(now) + "_" +
-                std::to_string(dist(rd)) + "_" + std::to_string(attempt);
+        for (int attempt = 0; attempt < 64; ++attempt) {
+            std::ostringstream token;
+            token << std::chrono::steady_clock::now().time_since_epoch().count()
+                  << '_' << std::hex << dist(rd) << '_' << dist(rd) << '_' << attempt;
             fs::path candidate = fs::temp_directory_path() /
-                fs::path("perastage_gdtf_cookie_" + token + ".txt");
-            std::error_code ec;
-            if (!fs::exists(candidate, ec))
-                return SessionCookieJar(std::move(candidate), true);
+                fs::path("perastage_gdtf_cookie_" + token.str() + ".txt");
+            std::ofstream reserve(candidate, std::ios::binary | std::ios::out | std::ios::app);
+            if (!reserve)
+                continue;
+            reserve.close();
+#ifndef _WIN32
+            ::chmod(candidate.c_str(), S_IRUSR | S_IWUSR);
+#endif
+            return SessionCookieJar(std::move(candidate), true);
         }
-        return SessionCookieJar(fs::temp_directory_path() /
-            fs::path("perastage_gdtf_cookie_fallback_" + std::to_string(now) + ".txt"), true);
+        throw std::runtime_error("Could not create a unique GDTF Share cookie file");
     }
 
     // References a cookie path owned by the caller.
@@ -235,9 +241,18 @@ bool HasZipSignature(const fs::path& path) {
 
 // Returns a temporary download path next to the final destination.
 fs::path MakeSiblingPath(const fs::path& dest, const std::string& tag) {
+    std::random_device rd;
+    std::uniform_int_distribution<unsigned long long> dist;
+    for (int attempt = 0; attempt < 64; ++attempt) {
+        const fs::path candidate = dest.parent_path() / (dest.filename().string() + tag +
+            std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "_" +
+            std::to_string(dist(rd)) + "_" + std::to_string(attempt));
+        std::error_code ec;
+        if (!fs::exists(candidate, ec))
+            return candidate;
+    }
     return dest.parent_path() / (dest.filename().string() + tag +
-           std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "_" +
-           std::to_string(reinterpret_cast<std::uintptr_t>(&dest)));
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "_fallback");
 }
 
 // Returns a temporary download path next to the final destination.
@@ -251,12 +266,12 @@ bool PublishDownloadedFile(const fs::path& source, const fs::path& dest, std::st
     fs::path publishSource = source;
     fs::path staged;
     fs::path backup;
-    auto cleanup = [&]() { std::error_code ignore; if (!staged.empty()) fs::remove(staged, ignore); if (!backup.empty()) fs::remove(backup, ignore); };
+    auto cleanupStaged = [&]() { std::error_code ignore; if (!staged.empty()) fs::remove(staged, ignore); };
     const bool existed = fs::exists(dest, ec);
     if (existed) {
         backup = MakeSiblingPath(dest, ".backup.");
         fs::rename(dest, backup, ec);
-        if (ec) { message = "Could not create backup for existing download"; cleanup(); return false; }
+        if (ec) { message = "Could not create backup for existing download"; cleanupStaged(); return false; }
     }
     fs::rename(publishSource, dest, ec);
     if (ec) {
@@ -268,15 +283,22 @@ bool PublishDownloadedFile(const fs::path& source, const fs::path& dest, std::st
         }
     }
     if (ec || !fs::exists(dest, ec) || fs::file_size(dest, ec) != expectedSize) {
+        std::error_code removeDestEc;
+        fs::remove(dest, removeDestEc);
         std::error_code restoreEc;
-        fs::remove(dest, restoreEc);
-        if (!backup.empty()) fs::rename(backup, dest, restoreEc);
-        cleanup();
-        message = restoreEc ? "Could not publish download and rollback failed" : "Could not publish download";
+        if (!backup.empty())
+            fs::rename(backup, dest, restoreEc);
+        cleanupStaged();
+        if (restoreEc) {
+            message = "Could not publish download; rollback failed and backup was retained: " + backup.filename().string();
+        } else {
+            message = "Could not publish download; previous file was restored";
+            backup.clear();
+        }
         return false;
     }
     if (!backup.empty()) { std::error_code removeEc; fs::remove(backup, removeEc); }
-    std::error_code removeEc; fs::remove(source, removeEc); cleanup();
+    std::error_code removeEc; fs::remove(source, removeEc); cleanupStaged();
     return true;
 }
 } // namespace
@@ -441,6 +463,7 @@ GdtfShareResult MakeGdtfShareTimeoutResult(int transportCode, const std::string&
 
 struct GdtfShareClient::Impl {
     SessionCookieJar cookie = SessionCookieJar::CreateOwnedTemporary();
+    std::optional<std::string> authenticatedUsername;
 };
 
 // Creates a GDTF Share client with an isolated temporary cookie jar.
@@ -457,6 +480,18 @@ GdtfShareClient::GdtfShareClient(GdtfShareClient&&) noexcept = default;
 
 // Move-assigns a GDTF Share client and its session ownership.
 GdtfShareClient& GdtfShareClient::operator=(GdtfShareClient&&) noexcept = default;
+
+// Resets the cookie jar and clears authentication state.
+void GdtfShareClient::ResetSession() {
+    impl->cookie = SessionCookieJar::CreateOwnedTemporary();
+    impl->authenticatedUsername.reset();
+}
+
+// Reports whether the current session has authenticated successfully.
+bool GdtfShareClient::IsAuthenticated() const { return impl->authenticatedUsername.has_value(); }
+
+// Returns the authenticated username for the current session when known.
+std::optional<std::string> GdtfShareClient::AuthenticatedUsername() const { return impl->authenticatedUsername; }
 
 // Returns the session cookie path for tests without exposing cookie contents.
 const fs::path& GdtfShareClient::CookiePathForTesting() const { return impl->cookie.Path(); }
@@ -490,6 +525,11 @@ GdtfShareResult GdtfShareClient::Login(const std::string& user, const std::strin
         result = MapGdtfShareResponse(result.httpStatus, code, "", response, result.contentType, elapsed, true);
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
+    if (result.Succeeded())
+        impl->authenticatedUsername = user;
+    else if (result.category == GdtfShareResultCategory::AuthenticationRejected)
+        impl->authenticatedUsername.reset();
+    impl->cookie.HardenExistingFilePermissions();
     LogResult("login", result);
     return result;
 }
@@ -512,6 +552,9 @@ GdtfShareResult GdtfShareClient::GetCatalog() {
     if (code == CURLE_OK)
         result = MapGdtfShareResponse(result.httpStatus, code, "", response, result.contentType, elapsed, true);
     curl_easy_cleanup(curl);
+    if (result.category == GdtfShareResultCategory::AuthenticationRejected)
+        impl->authenticatedUsername.reset();
+    impl->cookie.HardenExistingFilePermissions();
     LogResult("catalog", result);
     return result;
 }
@@ -583,10 +626,16 @@ GdtfShareResult GdtfShareClient::DownloadRevision(const std::string& rid, const 
         } else {
             result.category = GdtfShareResultCategory::Success;
         }
+        if (result.category == GdtfShareResultCategory::AuthenticationRejected)
+            impl->authenticatedUsername.reset();
+        impl->cookie.HardenExistingFilePermissions();
         LogResult("download", result);
         return result;
     }
+    if (result.category == GdtfShareResultCategory::AuthenticationRejected)
+        impl->authenticatedUsername.reset();
     fs::remove(partial, ec);
+    impl->cookie.HardenExistingFilePermissions();
     LogResult("download", result);
     return result;
 }

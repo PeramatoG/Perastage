@@ -73,9 +73,18 @@ bool GdtfCredentialsPanel::ApplyCredentials() {
       GetDefaultGuiConfigServices().LegacyConfigManager();
   const CredentialStore::Credentials credentials =
       ReadUiCredentials(usernameCtrl, passwordCtrl);
-  const CredentialStore::Result result = credentials.username.empty()
-      ? CredentialStore::ClearDetailed()
-      : CredentialStore::Save(credentials);
+  CredentialStore::Result result;
+  if (credentials.username.empty()) {
+    result = CredentialStore::ClearDetailed();
+  } else if (credentials.password.empty()) {
+    result = CredentialStore::SaveUsernameMetadataOnly(credentials.username);
+    if (result.Succeeded()) {
+      wxMessageBox(_("Only the username was saved. Enter a password to update the stored GDTF Share credentials."),
+                   _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
+    }
+  } else {
+    result = CredentialStore::Save(credentials);
+  }
   configManager.SetValue("gdtf_username", credentials.username);
   configManager.SetValue("gdtf_password", "");
   if (result.Succeeded())
@@ -112,9 +121,11 @@ void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)
 
   const CredentialStore::Result saveResult = CredentialStore::Save(credentials);
   if (!saveResult.Succeeded()) {
-    wxMessageBox("The credentials are valid, but secure storage is unavailable, "
-                 "so the password was not saved.",
-                 "Validate credentials", wxOK | wxICON_WARNING, this);
+    wxMessageBox(saveResult.status == CredentialStore::Status::SecureStoreUnavailable
+                     ? _("The credentials are valid, but secure storage is unavailable, so the password was not saved.")
+                     : wxString::Format(_("The credentials are valid, but they were not saved (%s)."),
+                                        wxString::FromUTF8(CredentialStore::StatusName(saveResult.status))),
+                 _("Validate credentials"), wxOK | wxICON_WARNING, this);
     return;
   }
   wxMessageBox("Credentials are valid and were saved.",
