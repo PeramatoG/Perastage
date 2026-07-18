@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dictionary_import.h"
 #include "gdtfdictionary.h"
 
 #include <filesystem>
@@ -18,7 +19,13 @@ struct PreparedImport {
   bool is_bundle = false;
   std::filesystem::path rewritten_snapshot_path;
   std::filesystem::path staging_directory;
+  Type type = Type::Fixtures;
   std::vector<std::string> errors;
+};
+
+struct ApplyResult {
+  DictionaryImportSummary summary;
+  std::filesystem::path staged_snapshot_path;
 };
 
 bool ExportFixturesBundle(
@@ -29,6 +36,10 @@ bool ExportTrussesBundle(
     const std::string &outputZipPath, std::string &error);
 
 PreparedImport PrepareBundleImport(const std::string &importPath, Type expectedType);
+ApplyResult ApplyPreparedBundleImport(const PreparedImport &preparedImport,
+                                      DictionaryImportPolicy policy);
+bool ValidateBundleFile(const std::string &bundlePath, Type expectedType,
+                        std::string &error);
 void CleanupPreparedImport(const PreparedImport &preparedImport);
 
 } // namespace DictionaryBundle

@@ -2289,7 +2289,10 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
     return false;
   }
 
-  const auto result = GdtfDictionary::ApplyImportFromFile(importPath, policy);
+  const auto result =
+      preparedImport.is_bundle
+          ? DictionaryBundle::ApplyPreparedBundleImport(preparedImport, policy).summary
+          : GdtfDictionary::ApplyImportFromFile(importPath, policy);
   DictionaryBundle::CleanupPreparedImport(preparedImport);
   LoadFixtures();
   const bool hasErrors = result.HasErrors();
@@ -2370,7 +2373,10 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
     return false;
   }
 
-  const auto result = TrussDictionary::ApplyImportFromFile(importPath, policy);
+  const auto result =
+      preparedImport.is_bundle
+          ? DictionaryBundle::ApplyPreparedBundleImport(preparedImport, policy).summary
+          : TrussDictionary::ApplyImportFromFile(importPath, policy);
   DictionaryBundle::CleanupPreparedImport(preparedImport);
   LoadTrusses();
   const bool hasErrors = result.HasErrors();
