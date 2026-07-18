@@ -47,7 +47,7 @@ rg -qi 'hostx64.*x64' setup_windows.ps1
 rg -qi 'hostx86.*x86' setup_windows.ps1
 rg -q 'cached compiler Visual Studio root' setup_windows.ps1
 rg -q 'leaving user content unchanged|file was not modified|The file was not modified' setup_windows.ps1
-rg -q 'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF' setup_windows.ps1 CMakePresets.json .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
+rg -q 'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF' setup_windows.ps1 .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q 'securestore-v2' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q '0878b5224d4a4968940ee296a2e7fae2d3b62983' vcpkg.json setup_windows.ps1 .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q 'ctest --test-dir .* -L release-gate' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
@@ -66,7 +66,7 @@ for preset in presets['configurePresets']:
         cache = preset.get('cacheVariables', {})
         assert cache.get('CMAKE_TOOLCHAIN_FILE') == 'C:/vcpkg/scripts/buildsystems/vcpkg.cmake', preset['name']
         assert cache.get('VCPKG_INSTALLED_DIR') == '${sourceDir}/vcpkg_installed', preset['name']
-        assert cache.get('VCPKG_MANIFEST_MODE') == 'OFF', preset['name']
+        assert 'VCPKG_MANIFEST_MODE' not in cache, preset['name']
     if preset['name'] in {'win-x64-release-ninja', 'win-x64-debug-ninja'}:
         arch = preset.get('architecture', {})
         assert arch.get('value') == 'x64', preset['name']

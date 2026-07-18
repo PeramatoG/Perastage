@@ -121,8 +121,7 @@
         "CMAKE_CXX_EXTENSIONS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
-        "VCPKG_MANIFEST_MODE": "OFF"
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
       },
       "condition": {
         "type": "equals",
@@ -149,8 +148,7 @@
         "CMAKE_CXX_EXTENSIONS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
-        "VCPKG_MANIFEST_MODE": "OFF"
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
       },
       "condition": {
         "type": "equals",
@@ -177,8 +175,7 @@
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_CXX_EXTENSIONS": "OFF",
         "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
-        "VCPKG_MANIFEST_MODE": "OFF"
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
       },
       "condition": {
         "type": "equals",
@@ -205,8 +202,7 @@
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_CXX_EXTENSIONS": "OFF",
         "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
-        "VCPKG_MANIFEST_MODE": "OFF"
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
       },
       "condition": {
         "type": "equals",
