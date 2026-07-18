@@ -224,6 +224,7 @@ You can also contact the project at **perastage.app@gmail.com**.
 ## Improvements
 - Improved GDTF revision messages so fixture and truss description edits identify FixtureType Description as the changed field instead of showing generic generation text.
 - Added GDTF editor support for FixtureType descriptions and truss cross-section type metadata, including Tube output that omits truss cross-section names as required by GDTF.
+- Fixed embedded Layout 2D fixture symbols so rotated GDTF fixtures choose the visible representative symbol plane and preserve the same orientation in preview and PDF export.
 
 ## Internal changes
 - Dictionary loading is now read-only for valid custom fixture and truss dictionaries; default seeding, reset, and managed-default recovery are explicit operations.

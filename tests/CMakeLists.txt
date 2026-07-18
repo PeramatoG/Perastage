@@ -1451,6 +1451,13 @@ add_test(NAME RiderImportBenchmark COMMAND rider_import_benchmark
 set_library_env(RiderImportBenchmark)
 
 
+add_executable(fixture_symbol_projection_test fixture_symbol_projection_test.cpp
+               ../viewer3d/render/opaque_pass_utils.cpp)
+target_include_directories(fixture_symbol_projection_test PRIVATE
+                           ../viewer3d ../viewer3d/render ../viewer2d ../models)
+add_test(NAME FixtureSymbolProjection COMMAND fixture_symbol_projection_test)
+add_test(NAME FixtureSymbolProjectionParity COMMAND ${CMAKE_SOURCE_DIR}/tests/check_fixture_symbol_projection_parity.sh)
+
 add_executable(meshprimitives_cube_normals_test meshprimitives_cube_normals_test.cpp
                ../viewer3d/meshprimitives.cpp)
 target_include_directories(meshprimitives_cube_normals_test PRIVATE ../viewer3d)

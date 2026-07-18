@@ -23,6 +23,7 @@
 #include "guiconfigservices.h"
 
 namespace {
+constexpr int kLayoutFixtureSymbolProjectionVersion = 2;
 // Mixes a value into an aggregate hash seed.
 void HashCombine(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -114,6 +115,7 @@ size_t LayoutViewerPanel::ComputeSceneContentHash() const {
   const auto &scene =
       GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
   size_t hash = 0;
+  HashCombine(hash, std::hash<int>{}(kLayoutFixtureSymbolProjectionVersion));
   HashCombine(hash, HashSceneMapWithValues(scene.fixtures, HashFixtureValue));
   HashCombine(hash, HashSceneMapWithValues(scene.trusses, HashTrussValue));
   HashCombine(hash,
