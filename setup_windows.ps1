@@ -1,9 +1,9 @@
-# PowerShell setup script for Windows.
+# PowerShell setup script for validating and building the Windows Ninja workflow.
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
 
-    [string]$VcpkgRoot = '',
+    [string]$VcpkgRoot = 'C:\vcpkg',
 
     [string]$VisualStudioPath = '',
 
@@ -15,7 +15,6 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PerastageVcpkgBaseline = '0878b5224d4a4968940ee296a2e7fae2d3b62983'
 $PerastageVcpkgTriplet = 'x64-windows'
 
 # Returns the repository root based on the script location.
@@ -126,8 +125,8 @@ function Initialize-X64MsvcEnvironment {
     $hostArch = $env:VSCMD_ARG_HOST_ARCH
     $targetArch = $env:VSCMD_ARG_TGT_ARCH
     $normalizedVsRoot = ConvertTo-NormalizedPathText $visualStudioPath
-    $normalizedCl = ConvertTo-NormalizedPathText $clCommand.Source
-    $normalizedLink = ConvertTo-NormalizedPathText $linkCommand.Source
+    $normalizedCl = if ($clCommand) { ConvertTo-NormalizedPathText $clCommand.Source } else { '' }
+    $normalizedLink = if ($linkCommand) { ConvertTo-NormalizedPathText $linkCommand.Source } else { '' }
     $validationErrors = @()
 
     if (-not $clCommand) { $validationErrors += 'cl.exe was not found after initializing the Visual Studio environment.' }
@@ -136,8 +135,8 @@ function Initialize-X64MsvcEnvironment {
     if ($targetArch -ne 'x64') { $validationErrors += "VSCMD_ARG_TGT_ARCH is '$targetArch', expected 'x64'." }
     if ($clCommand -and -not $normalizedCl.StartsWith($normalizedVsRoot)) { $validationErrors += "cl.exe is outside the selected Visual Studio installation: $($clCommand.Source)" }
     if ($linkCommand -and -not $normalizedLink.StartsWith($normalizedVsRoot)) { $validationErrors += "link.exe is outside the selected Visual Studio installation: $($linkCommand.Source)" }
-    if ($clCommand -and $normalizedCl -notmatch 'hostx64\\x64') { $validationErrors += "cl.exe is not the preferred Hostx64\\x64 tool: $($clCommand.Source)" }
-    if ($linkCommand -and $normalizedLink -notmatch 'hostx64\\x64') { $validationErrors += "link.exe is not the preferred Hostx64\\x64 tool: $($linkCommand.Source)" }
+    if ($clCommand -and $normalizedCl -notmatch 'hostx64\\x64') { $validationErrors += "cl.exe is not the preferred Hostx64\x64 tool: $($clCommand.Source)" }
+    if ($linkCommand -and $normalizedLink -notmatch 'hostx64\\x64') { $validationErrors += "link.exe is not the preferred Hostx64\x64 tool: $($linkCommand.Source)" }
 
     $clOutput = ''
     if ($clCommand) {
@@ -175,191 +174,93 @@ function Initialize-X64MsvcEnvironment {
     }
 }
 
-# Reads the pinned baseline from the repository manifest.
-function Get-PinnedVcpkgBaseline {
-    param([Parameter(Mandatory = $true)][string]$RepositoryRoot)
-
-    return (Get-Content (Join-Path $RepositoryRoot 'vcpkg.json') -Raw | ConvertFrom-Json).'builtin-baseline'
-}
-
-# Returns true when a vcpkg checkout contains local changes that must be preserved.
-function Test-VcpkgCheckoutDirty {
+# Resolves and validates the selected classic vcpkg installation.
+function Resolve-ClassicVcpkgInstallation {
     param([Parameter(Mandatory = $true)][string]$Root)
 
-    $status = git -C $Root status --porcelain=v1
-    return [bool]$status
-}
-
-# Ensures a repository-local vcpkg checkout exists unless the user supplied a root.
-function Resolve-VcpkgRoot {
-    param(
-        [Parameter(Mandatory = $true)][string]$RepositoryRoot,
-        [string]$RequestedRoot
-    )
-
-    if (-not [string]::IsNullOrWhiteSpace($RequestedRoot)) {
-        if (-not (Test-Path -LiteralPath $RequestedRoot)) {
-            throw "The requested vcpkg root does not exist: $RequestedRoot"
-        }
-        return (Resolve-Path -LiteralPath $RequestedRoot).Path
+    if (-not (Test-Path -LiteralPath $Root)) {
+        throw "The vcpkg root does not exist: $Root. Install dependencies once into C:\vcpkg or pass -VcpkgRoot to an existing classic vcpkg checkout."
     }
 
-    $root = Join-Path $RepositoryRoot '.tools\vcpkg'
-    if (-not (Test-Path $root)) {
-        git clone https://github.com/microsoft/vcpkg.git $root
-    }
-    return $root
-}
+    $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
+    $vcpkgExe = Join-Path $resolvedRoot 'vcpkg.exe'
+    $toolchainFile = Join-Path $resolvedRoot 'scripts\buildsystems\vcpkg.cmake'
+    $installedTriplet = Join-Path $resolvedRoot "installed\$script:PerastageVcpkgTriplet"
+    $errors = @()
 
-# Checks out the pinned vcpkg baseline without destroying local work, then bootstraps vcpkg.
-function Sync-AndBootstrapVcpkg {
-    param(
-        [Parameter(Mandatory = $true)][string]$Root,
-        [Parameter(Mandatory = $true)][string]$Baseline
-    )
+    if (-not (Test-Path -LiteralPath $vcpkgExe)) { $errors += "Missing vcpkg executable: $vcpkgExe" }
+    if (-not (Test-Path -LiteralPath $toolchainFile)) { $errors += "Missing vcpkg CMake toolchain: $toolchainFile" }
+    if (-not (Test-Path -LiteralPath $installedTriplet)) { $errors += "Missing installed triplet directory: $installedTriplet" }
 
-    if (-not (Test-Path (Join-Path $Root '.git'))) {
-        throw "'$Root' is not a git checkout. Use a dedicated vcpkg checkout or pass -VcpkgRoot to one."
+    if ($errors.Count -gt 0) {
+        $errors | ForEach-Object { Write-Host "  $_" }
+        throw "The selected vcpkg root is not ready for the Perastage classic Windows workflow. Install the required x64-windows dependencies manually in '$resolvedRoot'; setup_windows.ps1 does not modify vcpkg."
     }
 
-    $current = git -C $Root rev-parse HEAD
-    Write-Host "vcpkg current commit before synchronization: $current"
-    Write-Host "vcpkg expected baseline: $Baseline"
-
-    if (Test-VcpkgCheckoutDirty -Root $Root) {
-        throw "The vcpkg checkout at '$Root' has local modifications or untracked files. Clean or stash them, or rerun with the default Perastage-local checkout. No checkout was changed."
-    }
-
-    git -C $Root fetch --depth 1 origin $Baseline
-    git -C $Root checkout --detach $Baseline
-
-    $bootstrap = Join-Path $Root 'bootstrap-vcpkg.bat'
-    & $bootstrap -disableMetrics
-
-    $vcpkgExe = Join-Path $Root 'vcpkg.exe'
-    if (-not (Test-Path $vcpkgExe)) {
-        throw "vcpkg.exe was not created at '$vcpkgExe'."
-    }
-
-    Write-Host "vcpkg final commit: $(git -C $Root rev-parse HEAD)"
+    Write-Host "vcpkg root: $resolvedRoot"
     Write-Host "vcpkg executable: $vcpkgExe"
     & $vcpkgExe version
-    return $vcpkgExe
+    return [pscustomobject]@{
+        Root = $resolvedRoot
+        Executable = $vcpkgExe
+        ToolchainFile = $toolchainFile
+        InstalledTriplet = $installedTriplet
+    }
 }
 
-# Installs manifest dependencies into the one explicit installed root used by CMake.
-function Install-PerastageDependencies {
-    param(
-        [Parameter(Mandatory = $true)][string]$VcpkgExe,
-        [Parameter(Mandatory = $true)][string]$RepositoryRoot,
-        [Parameter(Mandatory = $true)][string]$InstalledRoot
+# Validates representative headers, libraries, and build tools from the classic vcpkg triplet.
+function Test-PerastageVcpkgDependencies {
+    param([Parameter(Mandatory = $true)][object]$Vcpkg)
+
+    $checks = @(
+        @{ Name = 'wxWidgets'; Path = 'include\wx\secretstore.h' },
+        @{ Name = 'CURL'; Path = 'include\curl\curl.h' },
+        @{ Name = 'tinyxml2'; Path = 'include\tinyxml2.h' },
+        @{ Name = 'ZLIB'; Path = 'include\zlib.h' },
+        @{ Name = 'GLEW'; Path = 'include\GL\glew.h' },
+        @{ Name = 'NanoVG'; Path = 'include\nanovg.h' },
+        @{ Name = 'PoDoFo'; Path = 'include\podofo\podofo.h' },
+        @{ Name = 'meshoptimizer'; Path = 'include\meshoptimizer.h' },
+        @{ Name = 'Backward'; Path = 'include\backward.hpp' },
+        @{ Name = 'mdns'; Path = 'include\mdns.h' },
+        @{ Name = 'gettext msgfmt'; Path = 'tools\gettext\bin\msgfmt.exe' },
+        @{ Name = 'gettext xgettext'; Path = 'tools\gettext\bin\xgettext.exe' },
+        @{ Name = 'gettext msgmerge'; Path = 'tools\gettext\bin\msgmerge.exe' },
+        @{ Name = 'gettext msgattrib'; Path = 'tools\gettext\bin\msgattrib.exe' }
     )
 
-    & $VcpkgExe install `
-        --triplet $script:PerastageVcpkgTriplet `
-        --x-manifest-root="$RepositoryRoot" `
-        --x-install-root="$InstalledRoot"
+    $missing = @()
+    foreach ($check in $checks) {
+        $path = Join-Path $Vcpkg.InstalledTriplet $check.Path
+        if (-not (Test-Path -LiteralPath $path)) {
+            $missing += "$($check.Name): $path"
+        }
+    }
 
-    $gettextBin = Join-Path $InstalledRoot "$script:PerastageVcpkgTriplet\tools\gettext\bin"
+    if ($missing.Count -gt 0) {
+        Write-Host 'Missing required vcpkg files:'
+        $missing | ForEach-Object { Write-Host "  $_" }
+        throw "Install the missing x64-windows packages into '$($Vcpkg.Root)' before configuring. The setup script validates dependencies but never installs or rebuilds them."
+    }
+
+    $setupCandidates = @(
+        (Join-Path $Vcpkg.InstalledTriplet 'include\wx\msw\setup.h'),
+        (Join-Path $Vcpkg.InstalledTriplet 'include\wx\setup.h')
+    )
+    $setupHeader = $setupCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $setupHeader) {
+        throw "Unable to find wxWidgets setup.h under '$($Vcpkg.InstalledTriplet)'."
+    }
+    if ((Get-Content -LiteralPath $setupHeader -Raw) -notmatch '#\s*define\s+wxUSE_SECRETSTORE\s+1') {
+        throw "wxWidgets was found, but wxUSE_SECRETSTORE is not enabled in '$setupHeader'. Rebuild wxWidgets with the secretstore feature in the selected vcpkg installation."
+    }
+
+    $gettextBin = Join-Path $Vcpkg.InstalledTriplet 'tools\gettext\bin'
     foreach ($tool in @('msgfmt.exe', 'xgettext.exe', 'msgmerge.exe', 'msgattrib.exe')) {
         $toolPath = Join-Path $gettextBin $tool
-        if (-not (Test-Path $toolPath)) {
-            throw "vcpkg gettext tool was not found at: $toolPath"
-        }
-        Write-Host "vcpkg gettext tool: $toolPath"
+        Write-Host "gettext tool: $toolPath"
         & $toolPath --version | Select-Object -First 1
     }
-}
-
-# Returns true when a CMake user preset document contains the required local presets.
-function Test-PerastageLocalPresetsCompatible {
-    param(
-        [Parameter(Mandatory = $true)][string]$PresetPath,
-        [Parameter(Mandatory = $true)][string]$ExpectedVcpkgRoot,
-        [Parameter(Mandatory = $true)][string]$ExpectedInstalledRoot
-    )
-
-    $document = Get-Content -LiteralPath $PresetPath -Raw | ConvertFrom-Json
-    $buildNames = @($document.buildPresets | ForEach-Object { $_.name })
-    if ($buildNames -notcontains 'local-win-debug-build-ninja' -or $buildNames -notcontains 'local-win-release-build-ninja') {
-        return $false
-    }
-
-    $expectedToolchain = (Join-Path $ExpectedVcpkgRoot 'scripts\buildsystems\vcpkg.cmake').Replace('\', '/')
-    $expectedInstalled = $ExpectedInstalledRoot.Replace('\', '/')
-    foreach ($name in @('local-win-x64-debug-ninja', 'local-win-x64-release-ninja')) {
-        $preset = @($document.configurePresets | Where-Object { $_.name -eq $name }) | Select-Object -First 1
-        if (-not $preset) { return $false }
-        if ($preset.cacheVariables.CMAKE_TOOLCHAIN_FILE -ne $expectedToolchain) { return $false }
-        if ($preset.cacheVariables.VCPKG_INSTALLED_DIR -ne $expectedInstalled) { return $false }
-        if ($preset.cacheVariables.VCPKG_MANIFEST_MODE -ne 'OFF') { return $false }
-    }
-    return $true
-}
-
-# Writes local CMake presets for the selected vcpkg checkout without changing shared presets.
-function Write-PerastageCMakeUserPresets {
-    param(
-        [Parameter(Mandatory = $true)][string]$RepositoryRoot,
-        [Parameter(Mandatory = $true)][string]$VcpkgRoot,
-        [Parameter(Mandatory = $true)][string]$InstalledRoot
-    )
-
-    $userPresetsPath = Join-Path $RepositoryRoot 'CMakeUserPresets.json'
-    if (Test-Path -LiteralPath $userPresetsPath) {
-        if (-not (Test-PerastageLocalPresetsCompatible -PresetPath $userPresetsPath -ExpectedVcpkgRoot $VcpkgRoot -ExpectedInstalledRoot $InstalledRoot)) {
-            throw "CMakeUserPresets.json exists but does not define compatible Perastage local Windows presets. Add local-win-x64-debug-ninja/local-win-x64-release-ninja entries pointing to '$VcpkgRoot' and '$InstalledRoot', or move the file aside so setup_windows.ps1 can generate them. The file was not modified."
-        }
-        Write-Host 'CMakeUserPresets.json already contains Perastage local presets; leaving user content unchanged.'
-        return
-    }
-
-    $toolchainPath = (Join-Path $VcpkgRoot 'scripts\buildsystems\vcpkg.cmake').Replace('\', '/')
-    $installedPath = $InstalledRoot.Replace('\', '/')
-    $presetDocument = [ordered]@{
-        version = 3
-        configurePresets = @(
-            [ordered]@{
-                name = 'local-win-x64-debug-ninja'
-                displayName = 'Local Windows x64 Debug (Ninja)'
-                inherits = 'win-x64-debug-ninja'
-                architecture = [ordered]@{ value = 'x64'; strategy = 'external' }
-                cacheVariables = [ordered]@{
-                    CMAKE_TOOLCHAIN_FILE = $toolchainPath
-                    VCPKG_INSTALLED_DIR = $installedPath
-                    VCPKG_MANIFEST_MODE = 'OFF'
-                }
-            },
-            [ordered]@{
-                name = 'local-win-x64-release-ninja'
-                displayName = 'Local Windows x64 Release (Ninja)'
-                inherits = 'win-x64-release-ninja'
-                architecture = [ordered]@{ value = 'x64'; strategy = 'external' }
-                cacheVariables = [ordered]@{
-                    CMAKE_TOOLCHAIN_FILE = $toolchainPath
-                    VCPKG_INSTALLED_DIR = $installedPath
-                    VCPKG_MANIFEST_MODE = 'OFF'
-                }
-            }
-        )
-        buildPresets = @(
-            [ordered]@{
-                name = 'local-win-debug-build-ninja'
-                displayName = 'Local Build Windows Debug (Ninja)'
-                configurePreset = 'local-win-x64-debug-ninja'
-                jobs = 8
-            },
-            [ordered]@{
-                name = 'local-win-release-build-ninja'
-                displayName = 'Local Build Windows Release (Ninja)'
-                configurePreset = 'local-win-x64-release-ninja'
-                jobs = 8
-            }
-        )
-    }
-
-    $presetDocument | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $userPresetsPath -Encoding UTF8
-    Write-Host "Wrote local CMake presets: $userPresetsPath"
 }
 
 # Resolves the CMake configure and build presets for the selected configuration.
@@ -367,9 +268,9 @@ function Get-CMakePresetNames {
     param([Parameter(Mandatory = $true)][ValidateSet('Debug', 'Release')][string]$Configuration)
 
     if ($Configuration -eq 'Release') {
-        return @{ Configure = 'local-win-x64-release-ninja'; Build = 'local-win-release-build-ninja' }
+        return @{ Configure = 'win-x64-release-ninja'; Build = 'win-release-build-ninja' }
     }
-    return @{ Configure = 'local-win-x64-debug-ninja'; Build = 'local-win-debug-build-ninja' }
+    return @{ Configure = 'win-x64-debug-ninja'; Build = 'win-debug-build-ninja' }
 }
 
 # Returns cache entries from a CMakeCache.txt file.
@@ -401,7 +302,7 @@ function Get-VisualStudioRootFromCompilerPath {
     return $normalized.Substring(0, $index)
 }
 
-# Removes the selected build directory when an old cache cannot produce a valid x64 build.
+# Removes the selected build directory when an old cache cannot produce a valid x64 classic-vcpkg build.
 function Reset-IncompatibleCMakeCache {
     param(
         [Parameter(Mandatory = $true)][string]$BuildDirectory,
@@ -430,6 +331,9 @@ function Reset-IncompatibleCMakeCache {
     $cachedGenerator = $entries['CMAKE_GENERATOR']
     $cachedToolchain = $entries['CMAKE_TOOLCHAIN_FILE']
     $cachedTriplet = $entries['VCPKG_TARGET_TRIPLET']
+    $cachedManifestMode = $entries['VCPKG_MANIFEST_MODE']
+    $cachedManifestInstall = $entries['VCPKG_MANIFEST_INSTALL']
+    $cachedInstalledDir = $entries['VCPKG_INSTALLED_DIR']
     $cachedVsRoot = Get-VisualStudioRootFromCompilerPath -CompilerPath $cachedCxx
     $expectedVsRoot = $MsvcEnvironment.VisualStudioRoot
     $reasons = @()
@@ -437,6 +341,9 @@ function Reset-IncompatibleCMakeCache {
     if ($cachedGenerator -and $cachedGenerator -ne 'Ninja') { $reasons += "cached generator is '$cachedGenerator', expected 'Ninja'" }
     if ($cachedTriplet -and $cachedTriplet -ne $ExpectedTriplet) { $reasons += "cached vcpkg triplet is '$cachedTriplet', expected '$ExpectedTriplet'" }
     if ($cachedToolchain -and (ConvertTo-NormalizedPathText $cachedToolchain) -ne (ConvertTo-NormalizedPathText $ExpectedToolchainFile)) { $reasons += "cached toolchain '$cachedToolchain' differs from requested '$ExpectedToolchainFile'" }
+    if ($cachedManifestMode -and $cachedManifestMode -ne 'OFF') { $reasons += "cached VCPKG_MANIFEST_MODE is '$cachedManifestMode', expected 'OFF'" }
+    if ($cachedManifestInstall -and $cachedManifestInstall -ne 'OFF') { $reasons += "cached VCPKG_MANIFEST_INSTALL is '$cachedManifestInstall', expected 'OFF'" }
+    if ($cachedInstalledDir) { $reasons += "cached VCPKG_INSTALLED_DIR is '$cachedInstalledDir', but the local classic workflow must use the selected vcpkg root" }
     if ($cachedCxx -and (ConvertTo-NormalizedPathText $cachedCxx) -match 'hostx86\\x86|\\x86\\cl\.exe$') { $reasons += "cached C++ compiler targets x86: $cachedCxx" }
     if ($cachedC -and (ConvertTo-NormalizedPathText $cachedC) -match 'hostx86\\x86|\\x86\\cl\.exe$') { $reasons += "cached C compiler targets x86: $cachedC" }
     if ($cachedVsRoot -and (ConvertTo-NormalizedPathText $cachedVsRoot) -ne (ConvertTo-NormalizedPathText $expectedVsRoot)) { $reasons += "cached compiler Visual Studio root '$cachedVsRoot' differs from selected '$expectedVsRoot'" }
@@ -453,7 +360,7 @@ function Reset-IncompatibleCMakeCache {
     }
 }
 
-# Configures and optionally builds Perastage using generated local CMake presets.
+# Configures and optionally builds Perastage using the shared Windows Ninja presets.
 function Invoke-PerastageBuild {
     param(
         [Parameter(Mandatory = $true)][string]$ConfigurePreset,
@@ -462,7 +369,9 @@ function Invoke-PerastageBuild {
     )
 
     cmake --preset $ConfigurePreset `
-        -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+        -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON `
+        -DVCPKG_MANIFEST_MODE=OFF `
+        -DVCPKG_MANIFEST_INSTALL=OFF
     Write-Host 'Secure-store CMake probe result: passed'
 
     if ($ShouldBuild) {
@@ -473,32 +382,22 @@ function Invoke-PerastageBuild {
 $repoRoot = Get-RepositoryRoot
 Set-Location $repoRoot
 Assert-CommandAvailable -CommandName 'cmake'
-Assert-CommandAvailable -CommandName 'git'
 $msvcEnvironment = Initialize-X64MsvcEnvironment -RequestedPath $VisualStudioPath -RequestedVersion $VisualStudioVersion
-
-$PerastageVcpkgBaseline = Get-PinnedVcpkgBaseline -RepositoryRoot $repoRoot
-$resolvedVcpkgRoot = Resolve-VcpkgRoot -RepositoryRoot $repoRoot -RequestedRoot $VcpkgRoot
-$installedRoot = Join-Path $repoRoot 'vcpkg_installed'
-$vcpkgToolchainFile = Join-Path $resolvedVcpkgRoot 'scripts\buildsystems\vcpkg.cmake'
-$vcpkgExePath = Sync-AndBootstrapVcpkg -Root $resolvedVcpkgRoot -Baseline $PerastageVcpkgBaseline
-Write-Host "repository manifest path: $(Join-Path $repoRoot 'vcpkg.json')"
-Write-Host "vcpkg installed root: $installedRoot"
-Write-Host "target triplet: $PerastageVcpkgTriplet"
-Install-PerastageDependencies -VcpkgExe $vcpkgExePath -RepositoryRoot $repoRoot -InstalledRoot $installedRoot
-Write-PerastageCMakeUserPresets -RepositoryRoot $repoRoot -VcpkgRoot $resolvedVcpkgRoot -InstalledRoot $installedRoot
+$resolvedVcpkg = Resolve-ClassicVcpkgInstallation -Root $VcpkgRoot
+Test-PerastageVcpkgDependencies -Vcpkg $resolvedVcpkg
 
 $presets = Get-CMakePresetNames -Configuration $Configuration
 $buildDir = Join-Path $repoRoot "build\$($presets.Configure)"
 Reset-IncompatibleCMakeCache `
     -BuildDirectory $buildDir `
     -MsvcEnvironment $msvcEnvironment `
-    -ExpectedToolchainFile $vcpkgToolchainFile `
+    -ExpectedToolchainFile $resolvedVcpkg.ToolchainFile `
     -ExpectedTriplet $PerastageVcpkgTriplet `
     -ForceClean ([bool]$CleanBuild)
 
 $cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
 $ninjaCommand = Get-Command ninja -ErrorAction SilentlyContinue
-Write-Host 'Perastage dependency summary:'
+Write-Host 'Perastage Windows classic-vcpkg summary:'
 Write-Host "  Visual Studio root: $($msvcEnvironment.VisualStudioRoot)"
 Write-Host "  MSVC compiler: $($msvcEnvironment.CompilerPath)"
 Write-Host "  MSVC linker: $($msvcEnvironment.LinkerPath)"
@@ -513,14 +412,13 @@ if ($ninjaCommand) {
 } else {
     Write-Host '  Ninja executable: not found in PATH before configure'
 }
-Write-Host "  vcpkg root: $resolvedVcpkgRoot"
-Write-Host "  pinned baseline: $PerastageVcpkgBaseline"
-Write-Host "  installed root: $installedRoot"
+Write-Host "  vcpkg root: $($resolvedVcpkg.Root)"
+Write-Host "  vcpkg installed triplet: $($resolvedVcpkg.InstalledTriplet)"
 Write-Host "  target triplet: $PerastageVcpkgTriplet"
-Write-Host '  wxWidgets feature: secretstore'
+Write-Host '  wxWidgets feature: secretstore validated in classic vcpkg installation'
 Write-Host '  secure-store requirement: ON'
-Write-Host '  secure-store probe: enforced during configure'
-Write-Host '  CMake vcpkg manifest mode: OFF after explicit manifest install'
+Write-Host '  CMake vcpkg manifest mode: OFF'
+Write-Host '  CMake vcpkg manifest install: OFF'
 Write-Host "  configure preset: $($presets.Configure)"
 Write-Host "  build preset: $($presets.Build)"
 Write-Host "  binary directory: $buildDir"
@@ -529,4 +427,4 @@ Invoke-PerastageBuild `
     -ConfigurePreset $presets.Configure `
     -BuildPreset $presets.Build `
     -ShouldBuild (-not $SkipBuild)
-Write-Host 'Perastage Windows setup completed successfully.'
+Write-Host 'Perastage Windows setup validation completed successfully.'

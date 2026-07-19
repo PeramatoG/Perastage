@@ -32,8 +32,8 @@
             "y": 15
           },
           "id": 1,
-          "originalPath": "C:\\codigoscpp\\Perastage\\build\\local-win-x64-debug-ninja\\resources\\Perastage_logo.png",
-          "path": "C:\\codigoscpp\\Perastage\\build\\local-win-x64-debug-ninja\\resources\\Perastage_logo.png",
+          "originalPath": "C:\\codigoscpp\\Perastage\\build\\win-x64-debug-ninja\\resources\\Perastage_logo.png",
+          "path": "C:\\codigoscpp\\Perastage\\build\\win-x64-debug-ninja\\resources\\Perastage_logo.png",
           "projectResource": "resources/layout_images/image_46809d1419f72940.png",
           "zIndex": 1
         }

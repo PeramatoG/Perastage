@@ -9,24 +9,25 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 - Visual Studio 2022 with the C++ desktop workload.
 - CMake, either bundled with Visual Studio or installed separately.
 - Ninja, either bundled with Visual Studio or installed separately.
-- The Perastage-local vcpkg checkout created by `setup_windows.ps1` in `.tools/vcpkg`.
+- A classic vcpkg installation at `C:\vcpkg` with dependencies installed under `C:\vcpkg\installed\x64-windows`.
 
 ## Recommended vcpkg location
 
-The shared Windows presets keep `C:/vcpkg` as a stable fallback and allow vcpkg manifest mode so Visual Studio can install missing dependencies into the normal `C:/vcpkg/installed` tree when setup has not been run. The setup script creates `.tools/vcpkg` by default, installs dependencies into `vcpkg_installed`, and writes an ignored `CMakeUserPresets.json` with manifest mode disabled so Visual Studio can use those prepared local paths. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to the setup script or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
+The normal local Windows workflow uses the existing classic vcpkg installation at `C:\vcpkg`. The shared Windows Ninja presets point to `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, disable vcpkg manifest mode, disable manifest auto-install, and reuse `C:/vcpkg/installed/x64-windows`. Opening the repository in Visual Studio should not run vcpkg install, should not build packages, and should not create a `vcpkg_installed` directory in the repository or build tree.
+
+CI remains separate: GitHub Actions still uses the repository manifest, isolated installed roots, caches, and the pinned baseline for reproducible release builds.
 
 ## Install dependencies
 
-Install Windows dependencies through the root vcpkg manifest by running the setup script:
+Install Windows dependencies once into the classic `C:\vcpkg` tree before configuring:
 
 ```powershell
-cd C:\path\to\Perastage
-.\setup_windows.ps1 -Configuration Release -CleanBuild
+C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
-The script pins and bootstraps a Perastage-specific vcpkg checkout, installs all manifest dependencies into `vcpkg_installed`, writes local CMake presets for that same tree, and configures CMake against it. The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for localization catalog generation. Do not run a separate gettext install command from the repository root.
+The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for CI and dependency documentation. For local Windows builds, `setup_windows.ps1` validates that the installed tree is ready; it does not install or rebuild packages.
 
-If wxWidgets was previously built without secure-store support, use `-CleanBuild` so CMake probes the rebuilt manifest dependencies instead of a stale build cache.
+If wxWidgets was previously built without secure-store support, repair that package in `C:\vcpkg`, then use `-CleanBuild` so CMake probes the rebuilt classic dependency instead of a stale build cache.
 
 ## Configure and Build with Visual Studio
 
@@ -38,7 +39,7 @@ Select:
 Local Machine
 ```
 
-Then select a Windows configure preset, for example:
+Then select a Windows configure preset:
 
 ```text
 Windows x64 Debug (Ninja)
@@ -59,7 +60,7 @@ Build Windows Release (Ninja)
 
 ## Configure and Build from PowerShell
 
-From a Visual Studio Developer PowerShell in the repository root, prepare dependencies and configure a Debug build:
+From a Visual Studio Developer PowerShell in the repository root, validate dependencies and configure a Debug build:
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
@@ -75,6 +76,7 @@ cmake --build --preset win-debug-build-ninja
 For a Release build:
 
 ```powershell
+.\setup_windows.ps1 -Configuration Release -CleanBuild -SkipBuild
 cmake --preset win-x64-release-ninja
 cmake --build --preset win-release-build-ninja
 ```
@@ -126,7 +128,7 @@ Editing library content does not require administrator privileges because writes
 ## If Configuration Fails
 
 - Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` from the repository root.
-- Verify that `.tools/vcpkg/vcpkg.exe` and `vcpkg_installed/x64-windows` exist, or verify the equivalent paths from your explicit `-VcpkgRoot` override.
+- Verify that `C:/vcpkg/vcpkg.exe`, `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, and `C:/vcpkg/installed/x64-windows` exist, or pass `-VcpkgRoot` to validate another existing classic vcpkg installation.
 - Remove stale build directories and reconfigure.
 - If Visual Studio keeps stale state, close Visual Studio and remove the local `.vs` folder.
 - Follow the detailed fix paths in [Troubleshooting](troubleshooting.md).

@@ -52,21 +52,23 @@ or:
 Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 ```
 
-or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, CMake is probably using a different vcpkg installation than the one where Perastage dependencies were installed.
+or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, CMake is probably not resolving the classic vcpkg installation at `C:/vcpkg/installed/x64-windows`.
 
-On Windows, shared presets keep `C:/vcpkg` as a fallback and leave manifest mode enabled so Visual Studio can install missing packages into the normal `C:/vcpkg/installed` tree. Run `setup_windows.ps1` when you want the repository-local `.tools/vcpkg` checkout; the script writes `CMakeUserPresets.json` for the selected checkout and repository-local `vcpkg_installed` tree. Verify the default setup-script paths from the repository root:
+The Windows Ninja presets intentionally disable vcpkg manifest mode and manifest auto-install. Visual Studio/CMake should not print `-- Running vcpkg install`, should not build packages during configure, and should not create a `vcpkg_installed` directory in the repository or build tree. Verify the expected classic vcpkg paths:
 
 ```powershell
-Test-Path ".\.tools\vcpkg\vcpkg.exe"
-Test-Path ".\.tools\vcpkg\scripts\buildsystems\vcpkg.cmake"
-Test-Path ".\vcpkg_installed\x64-windows"
+Test-Path "C:\vcpkg\vcpkg.exe"
+Test-Path "C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+Test-Path "C:\vcpkg\installed\x64-windows\include\wx\secretstore.h"
+Test-Path "C:\vcpkg\installed\x64-windows\tools\gettext\bin\msgfmt.exe"
+Test-Path ".\vcpkg_installed"
+Test-Path ".\build\win-x64-debug-ninja\vcpkg_installed"
 ```
 
-If needed, install the dependencies again through the manifest and the same installed root used by CMake:
+The first four checks should be `True`; the final two checks should normally be `False` for local Windows builds. If a required package is missing, install or repair it manually in the existing `C:\vcpkg` installation before configuring again. A typical one-time command is:
 
 ```powershell
-cd C:\path\to\Perastage
-.\setup_windows.ps1 -Configuration Debug -CleanBuild
+C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
 If the CMake error path contains Visual Studio's internal vcpkg, for example:
@@ -75,29 +77,25 @@ If the CMake error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the setup-managed checkout or explicit `C:/vcpkg` fallback.
+then Visual Studio is using its own vcpkg instance instead of the required `C:/vcpkg` toolchain. Select `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`, then run the validation helper from a Visual Studio Developer PowerShell:
 
-In that case:
-
-1. Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so `CMakeUserPresets.json` points to the selected vcpkg checkout, `vcpkg_installed`, and `VCPKG_MANIFEST_MODE=OFF`.
-2. Close Visual Studio.
-3. Remove stale CMake state.
-4. Reopen the repository folder in Visual Studio.
-5. Select the Windows configure and build presets again.
+```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
+```
 
 Useful cleanup commands from the repository root:
 
 ```powershell
 Remove-Item -Recurse -Force .\.vs -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\build\win-x64-debug -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force .\build\win-x64-release -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\build\win-x64-debug-ninja -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\build\win-x64-release-ninja -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\out\build\x64-Debug -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\out\build\x64-Release -ErrorAction SilentlyContinue
 ```
 
-If your vcpkg installation is intentionally located somewhere else, pass `-VcpkgRoot` to `setup_windows.ps1` or create a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`. The shared presets keep `C:/vcpkg` only as a stable fallback; the setup-script workflow should use generated local presets for custom or repository-local paths.
+Deleting `.vs` or the selected build directory is safe. Deleting `C:\vcpkg\installed`, vcpkg downloads, packages, or buildtrees is not part of normal troubleshooting.
+
+If your vcpkg installation is intentionally located somewhere else, pass `-VcpkgRoot` to `setup_windows.ps1` for validation, and create your own local CMake user preset only if you fully own that machine-specific override. Perastage does not generate or depend on `CMakeUserPresets.json`.
 
 ## Export diagnostics after a crash or bug
 
@@ -115,7 +113,7 @@ Crash reports are written under the `crash_reports` folder inside the same logs 
 
 ## Localization catalog generation
 
-If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, run `setup_windows.ps1` or an equivalent manifest install with the same explicit installed root passed to CMake as `VCPKG_INSTALLED_DIR`. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.
+If localization catalog generation fails during configure, build, or packaging, verify that gettext tools are installed as build-time tools and visible to CMake. On Windows, `msgfmt.exe`, `xgettext.exe`, `msgmerge.exe`, and `msgattrib.exe` should exist under `C:\vcpkg\installed\x64-windows\tools\gettext\bin`; run `setup_windows.ps1 -SkipBuild` to validate them without installing packages. On macOS, run `brew --prefix gettext` and add its `bin` directory to `PATH` before configuring because Homebrew gettext is keg-only. The generated `perastage.mo` catalog should be staged under `resources/locale/es/LC_MESSAGES/perastage.mo` on Windows/Linux and `Perastage.app/Contents/Resources/locale/es/LC_MESSAGES/perastage.mo` on macOS.
 
 ## GDTF Share password is not saved
 
@@ -129,7 +127,7 @@ Then delete the affected Perastage build directory and configure again so the se
 
 ### CMake reports CMAKE_CXX_COMPILER not set on Windows
 
-Run Ninja presets from a Visual Studio Developer PowerShell or run `setup_windows.ps1`, which imports the x64 MSVC environment before configuring CMake. If this appears after a failed dependency configure, rerun `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so the pinned vcpkg checkout, `vcpkg_installed` root, and CMake cache are aligned.
+Run Ninja presets from a Visual Studio Developer PowerShell or run `setup_windows.ps1`, which imports the x64 MSVC environment before configuring CMake. If this appears after a failed dependency configure, rerun `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` so the selected build directory is refreshed while the existing `C:\vcpkg` installation remains untouched.
 
 ### LNK4272 reports x64 libraries conflicting with an x86 target
 
@@ -151,7 +149,7 @@ $env:VSCMD_ARG_HOST_ARCH
 $env:VSCMD_ARG_TGT_ARCH
 ```
 
-The compiler banner must say `for x64`, and both `VSCMD_ARG_HOST_ARCH` and `VSCMD_ARG_TGT_ARCH` must be `x64`. Deleting the selected Perastage build directory is safe; deleting `.tools\vcpkg`, `vcpkg_installed`, global vcpkg downloads, or a shared developer vcpkg checkout is not required for this compiler-cache problem.
+The compiler banner must say `for x64`, and both `VSCMD_ARG_HOST_ARCH` and `VSCMD_ARG_TGT_ARCH` must be `x64`. Deleting the selected Perastage build directory is safe; deleting `C:\vcpkg`, `C:\vcpkg\installed`, global vcpkg downloads, packages, or buildtrees is not required for this compiler-cache problem.
 
 If multiple Visual Studio installations are present, select one explicitly:
 
@@ -163,10 +161,10 @@ You can also use `-VisualStudioVersion` with a vswhere-compatible version range 
 
 ### wxWidgetsConfig.cmake is missing on Windows
 
-If CMake reports that `wxWidgetsConfig.cmake` or `wxwidgets-config.cmake` is missing from `C:/vcpkg`, it usually means dependencies were not installed into the installed tree used by the active preset. The shared Windows presets leave vcpkg manifest mode enabled and do not override `VCPKG_INSTALLED_DIR`, so Visual Studio uses the normal `C:/vcpkg/installed` tree. If you are using generated local presets from `setup_windows.ps1`, run the setup script again because those local presets set `VCPKG_MANIFEST_MODE=OFF` after the explicit install into `vcpkg_installed` has already completed.
+If CMake reports that `wxWidgetsConfig.cmake` or `wxwidgets-config.cmake` is missing from `C:/vcpkg`, it usually means wxWidgets is missing from `C:/vcpkg/installed/x64-windows` or the wrong toolchain file is active. The shared Windows Ninja presets disable manifest mode, so CMake will fail clearly instead of installing packages automatically.
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 ```
 
-Do not run a separate package-argument gettext install from the repository root. The manifest installs `wxwidgets[secretstore]` and Windows gettext tools together.
+Do not delete or replace the vcpkg installation to fix this. Install or repair the missing classic `x64-windows` package in `C:\vcpkg`, then rerun `setup_windows.ps1 -CleanBuild -SkipBuild`.

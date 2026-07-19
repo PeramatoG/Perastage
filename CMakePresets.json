@@ -107,58 +107,6 @@
       }
     },
     {
-      "name": "win-x64-release",
-      "displayName": "Windows x64 Release (Visual Studio)",
-      "description": "Release build using the Visual Studio generator and vcpkg",
-      "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "architecture": {
-        "value": "x64",
-        "strategy": "set"
-      }
-    },
-    {
-      "name": "win-x64-debug",
-      "displayName": "Windows x64 Debug (Visual Studio)",
-      "description": "Debug build using the Visual Studio generator and vcpkg",
-      "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "architecture": {
-        "value": "x64",
-        "strategy": "set"
-      }
-    },
-    {
       "name": "win-x64-release-ninja",
       "displayName": "Windows x64 Release (Ninja)",
       "description": "Release build using Ninja, MSVC and vcpkg",
@@ -172,7 +120,9 @@
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON",
+        "VCPKG_MANIFEST_MODE": "OFF",
+        "VCPKG_MANIFEST_INSTALL": "OFF"
       },
       "condition": {
         "type": "equals",
@@ -198,7 +148,9 @@
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON"
+        "PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE": "ON",
+        "VCPKG_MANIFEST_MODE": "OFF",
+        "VCPKG_MANIFEST_INSTALL": "OFF"
       },
       "condition": {
         "type": "equals",
@@ -212,27 +164,6 @@
     }
   ],
   "buildPresets": [
-    {
-      "name": "win-release-stage",
-      "displayName": "Stage Windows Release",
-      "description": "Builds the Windows release and stages runtime resources for packaging",
-      "configurePreset": "win-x64-release",
-      "targets": [
-        "perastage_stage"
-      ],
-      "jobs": 8,
-      "verbose": false,
-      "configuration": "Release"
-    },
-    {
-      "name": "win-debug-build",
-      "displayName": "Build Windows Debug",
-      "description": "Builds the Windows debug version",
-      "configurePreset": "win-x64-debug",
-      "jobs": 8,
-      "verbose": false,
-      "configuration": "Debug"
-    },
     {
       "name": "mac-release-build",
       "displayName": "Build macOS ARM64 Release",
@@ -287,6 +218,17 @@
       "description": "Builds the Windows debug with Ninja",
       "configurePreset": "win-x64-debug-ninja",
       "jobs": 8
+    },
+    {
+      "name": "win-release-stage-ninja",
+      "displayName": "Stage Windows Release (Ninja)",
+      "description": "Builds the Windows release with Ninja and stages runtime resources for packaging",
+      "configurePreset": "win-x64-release-ninja",
+      "targets": [
+        "perastage_stage"
+      ],
+      "jobs": 8,
+      "verbose": false
     }
   ]
 }
