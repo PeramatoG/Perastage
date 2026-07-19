@@ -27,6 +27,7 @@
 #include <set>
 #include <sstream>
 
+#include <wx/filename.h>
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
@@ -47,25 +48,149 @@ constexpr std::uintmax_t kMaxTotalImageBytes = 256 * 1024 * 1024;
 constexpr int kMaxEntries = 4096;
 std::vector<runtime_storage::SceneResourceLeasePtr> g_layoutResourceLeases;
 
+struct ParsedLayoutPackage {
+  LayoutDefinition layout;
+  std::map<std::string, std::vector<std::uint8_t>> resources;
+  std::vector<std::string> warnings;
+};
+
 // Converts a filesystem path to a UTF-8 string for portable metadata.
 std::string ToUtf8String(const fs::path &path) {
   const auto utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
 }
 
-// Returns true when an archive entry is a safe relative path.
-bool IsSafeArchivePath(const std::string &name) {
-  if (name.empty() || name.find('\\') != std::string::npos)
+// Converts a wxString to UTF-8 package metadata text.
+std::string WxStringToUtf8(const wxString &text) {
+  const wxScopedCharBuffer utf8 = text.utf8_str();
+  return utf8.data() == nullptr ? std::string() : std::string(utf8.data());
+}
+
+// Returns a display-safe archive entry name for diagnostics.
+std::string QuoteEntryForError(const std::string &name) {
+  std::ostringstream out;
+  out << '"';
+  for (const unsigned char ch : name) {
+    if (ch == '"' || ch == '\\') {
+      out << '\\' << static_cast<char>(ch);
+    } else if (ch >= 0x20 && ch != 0x7f) {
+      out << static_cast<char>(ch);
+    } else {
+      out << "\\x" << std::hex << std::setw(2) << std::setfill('0')
+          << static_cast<int>(ch) << std::dec;
+    }
+  }
+  out << '"';
+  return out.str();
+}
+
+// Returns true when text contains unsupported control characters.
+bool ContainsControlCharacter(const std::string &text) {
+  return std::any_of(text.begin(), text.end(), [](unsigned char ch) {
+    return ch < 0x20 || ch == 0x7f;
+  });
+}
+
+// Validates common canonical archive path components.
+bool ValidateArchivePathComponents(const std::string &canonicalName,
+                                   bool allowTrailingSlash,
+                                   std::string *reason) {
+  if (canonicalName.empty()) {
+    if (reason)
+      *reason = "empty path";
     return false;
-  const fs::path path(name);
-  if (path.is_absolute())
+  }
+  if (ContainsControlCharacter(canonicalName)) {
+    if (reason)
+      *reason = "control character";
     return false;
-  for (const auto &part : path) {
-    const std::string text = part.generic_string();
-    if (text.empty() || text == "." || text == "..")
+  }
+  if (canonicalName.find('\\') != std::string::npos) {
+    if (reason)
+      *reason = "non-canonical separator";
+    return false;
+  }
+  if (canonicalName.front() == '/') {
+    if (reason)
+      *reason = "absolute path";
+    return false;
+  }
+  if (canonicalName.size() >= 2 && std::isalpha(static_cast<unsigned char>(canonicalName[0])) &&
+      canonicalName[1] == ':') {
+    if (reason)
+      *reason = "drive-prefixed path";
+    return false;
+  }
+  if (canonicalName.rfind("//", 0) == 0) {
+    if (reason)
+      *reason = "UNC-style path";
+    return false;
+  }
+  if (!allowTrailingSlash && canonicalName.back() == '/') {
+    if (reason)
+      *reason = "file path has trailing slash";
+    return false;
+  }
+
+  const size_t end = allowTrailingSlash && canonicalName.back() == '/'
+                         ? canonicalName.size() - 1
+                         : canonicalName.size();
+  size_t componentStart = 0;
+  while (componentStart < end) {
+    const size_t separator = canonicalName.find('/', componentStart);
+    const size_t componentEnd = separator == std::string::npos
+                                    ? end
+                                    : std::min(separator, end);
+    const std::string component = canonicalName.substr(componentStart,
+                                                       componentEnd - componentStart);
+    if (component.empty()) {
+      if (reason)
+        *reason = "empty path component";
       return false;
+    }
+    if (component == "." || component == "..") {
+      if (reason)
+        *reason = "traversal component";
+      return false;
+    }
+    if (separator == std::string::npos || separator >= end)
+      break;
+    componentStart = separator + 1;
   }
   return true;
+}
+
+// Validates a canonical archive file entry path.
+bool ValidateArchiveFilePath(const std::string &canonicalName,
+                             std::string *reason) {
+  return ValidateArchivePathComponents(canonicalName, false, reason);
+}
+
+// Validates a canonical archive directory entry and returns its normalized key.
+bool ValidateArchiveDirectoryPath(const std::string &canonicalName,
+                                  std::string *normalizedDirectory,
+                                  std::string *reason) {
+  if (canonicalName.empty() || canonicalName.back() != '/') {
+    if (reason)
+      *reason = "directory path must end with slash";
+    return false;
+  }
+  if (!ValidateArchivePathComponents(canonicalName, true, reason))
+    return false;
+  if (normalizedDirectory)
+    *normalizedDirectory = canonicalName.substr(0, canonicalName.size() - 1);
+  return true;
+}
+
+// Reports whether a canonical package resource path is valid for image payloads.
+bool IsSafePackageFilePath(const std::string &name) {
+  std::string reason;
+  return ValidateArchiveFilePath(name, &reason);
+}
+
+// Extracts a ZIP entry name using explicit Unix path semantics.
+std::string GetCanonicalArchiveEntryName(const wxArchiveEntry &entry) {
+  return WxStringToUtf8(entry.GetName(wxPATH_UNIX));
 }
 
 // Reads a complete filesystem file into memory.
@@ -119,9 +244,12 @@ bool ReadCurrentEntry(wxZipInputStream &zip, std::vector<std::uint8_t> &out,
 // Writes one byte payload to a ZIP package entry.
 bool WriteEntry(wxZipOutputStream &zip, const std::string &name,
                 const std::vector<std::uint8_t> &bytes) {
-  if (!IsSafeArchivePath(name))
+  std::string reason;
+  if (!ValidateArchiveFilePath(name, &reason))
     return false;
-  if (!zip.PutNextEntry(wxString::FromUTF8(name.c_str())))
+  auto *entry = new wxZipEntry();
+  entry->SetName(wxString::FromUTF8(name.c_str()), wxPATH_UNIX);
+  if (!zip.PutNextEntry(entry))
     return false;
   if (!bytes.empty()) {
     zip.Write(bytes.data(), bytes.size());
@@ -202,7 +330,7 @@ bool MaterializeImages(LayoutDefinition &layout,
     const std::string resource = image.projectResourcePath.empty()
                                      ? image.imagePath
                                      : image.projectResourcePath;
-    if (resource.rfind(kImagePrefix, 0) != 0 || !IsSafeArchivePath(resource)) {
+    if (resource.rfind(kImagePrefix, 0) != 0 || !IsSafePackageFilePath(resource)) {
       if (error)
         *error = "Layout image references an invalid package resource.";
       return false;
@@ -235,6 +363,164 @@ bool MaterializeImages(LayoutDefinition &layout,
   g_layoutResourceLeases.push_back(workspace.TransferToSceneLease());
   return true;
 }
+
+// Reads and validates a portable package without materializing resources.
+bool ReadAndValidatePortablePackage(const std::string &sourcePath,
+                                    ParsedLayoutPackage &result,
+                                    std::string *error) {
+  wxFFileInputStream input(wxString::FromUTF8(sourcePath.c_str()));
+  if (!input.IsOk()) {
+    if (error)
+      *error = "Could not open layout package.";
+    return false;
+  }
+  wxZipInputStream zip(input);
+  std::map<std::string, std::vector<std::uint8_t>> entries;
+  std::set<std::string> fileEntries;
+  std::set<std::string> directoryEntries;
+  std::unique_ptr<wxZipEntry> entry;
+  int count = 0;
+  std::uintmax_t totalImages = 0;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    const std::string name = GetCanonicalArchiveEntryName(*entry);
+    if (++count > kMaxEntries) {
+      if (error)
+        *error = "Layout package contains too many archive entries.";
+      return false;
+    }
+
+    const bool isDirectory = entry->IsDir() || (!name.empty() && name.back() == '/');
+    if (isDirectory) {
+      std::string normalizedDirectory;
+      std::string reason;
+      if (!ValidateArchiveDirectoryPath(name, &normalizedDirectory, &reason)) {
+        if (error)
+          *error = "Layout package contains an invalid directory entry: " +
+                   QuoteEntryForError(name) + ".";
+        return false;
+      }
+      if (fileEntries.count(normalizedDirectory) > 0) {
+        if (error)
+          *error = "Layout package contains file/directory ambiguity: " +
+                   QuoteEntryForError(name) + ".";
+        return false;
+      }
+      directoryEntries.insert(normalizedDirectory);
+      continue;
+    }
+
+    std::string reason;
+    if (!ValidateArchiveFilePath(name, &reason)) {
+      if (error)
+        *error = "Layout package contains an unsafe archive entry: " +
+                 QuoteEntryForError(name) + ".";
+      return false;
+    }
+    if (directoryEntries.count(name) > 0) {
+      if (error)
+        *error = "Layout package contains file/directory ambiguity: " +
+                 QuoteEntryForError(name) + ".";
+      return false;
+    }
+    if (!fileEntries.insert(name).second) {
+      if (error)
+        *error = "Layout package contains a duplicate archive entry: " +
+                 QuoteEntryForError(name) + ".";
+      return false;
+    }
+
+    const bool isManifest = name == kManifestPath;
+    const bool isLayout = name == kLayoutPath;
+    const bool isImage = name.rfind(kImagePrefix, 0) == 0;
+    if (!isManifest && !isLayout && !isImage)
+      continue;
+    std::vector<std::uint8_t> bytes;
+    const auto limit = isManifest ? kMaxManifestBytes : isLayout ? kMaxLayoutBytes : kMaxImageBytes;
+    if (!ReadCurrentEntry(zip, bytes, limit)) {
+      if (error)
+        *error = "Layout package entry exceeds the supported size limit: " +
+                 QuoteEntryForError(name) + ".";
+      return false;
+    }
+    if (isImage) {
+      totalImages += bytes.size();
+      if (totalImages > kMaxTotalImageBytes) {
+        if (error)
+          *error = "Layout package image resources exceed the supported size limit.";
+        return false;
+      }
+    }
+    entries[name] = std::move(bytes);
+  }
+  auto manifestIt = entries.find(kManifestPath);
+  if (manifestIt == entries.end()) {
+    if (error)
+      *error = "Layout package is missing manifest.json.";
+    return false;
+  }
+  nlohmann::json manifest;
+  try {
+    manifest = nlohmann::json::parse(manifestIt->second.begin(), manifestIt->second.end());
+  } catch (const std::exception &ex) {
+    if (error)
+      *error = ex.what();
+    return false;
+  }
+  if (manifest.value("format", "") != kPackageFormat) {
+    if (error)
+      *error = "Unsupported layout package format.";
+    return false;
+  }
+  if (manifest.value("packageVersion", 0) != kPackageVersion) {
+    if (error)
+      *error = "Unsupported layout package version.";
+    return false;
+  }
+  const std::string entryPoint = manifest.value("entryPoint", "");
+  std::string reason;
+  if (!ValidateArchiveFilePath(entryPoint, &reason)) {
+    if (error)
+      *error = "Layout package declares an invalid entry point.";
+    return false;
+  }
+  auto layoutIt = entries.find(entryPoint);
+  if (layoutIt == entries.end()) {
+    if (error)
+      *error = "Layout package is missing its layout entry point.";
+    return false;
+  }
+  nlohmann::json parsed;
+  try {
+    parsed = nlohmann::json::parse(layoutIt->second.begin(), layoutIt->second.end());
+  } catch (const std::exception &ex) {
+    if (error)
+      *error = ex.what();
+    return false;
+  }
+  std::vector<LayoutDefinition> layouts;
+  LayoutTemplateImportReport report;
+  std::string parseError;
+  if (!FromTemplateDocument(parsed, layouts, &report, &parseError) || layouts.size() != 1) {
+    if (error)
+      *error = parseError.empty() ? "Layout package must contain exactly one layout." : parseError;
+    return false;
+  }
+  result.layout = layouts.front();
+  result.resources = std::move(entries);
+  result.warnings = report.warnings;
+  return true;
+}
+
+// Materializes a validated package into runtime resources for real imports.
+bool MaterializeImportedPackage(ParsedLayoutPackage &&package,
+                                LayoutTemplateImportResult &result,
+                                std::string *error) {
+  result.layout = std::move(package.layout);
+  result.sourceFormat = LayoutTemplateSourceFormat::PortablePackage;
+  result.warnings = std::move(package.warnings);
+  return MaterializeImages(result.layout, package.resources, error);
+}
+
 
 } // namespace
 
@@ -296,8 +582,8 @@ bool LayoutTemplatePackageService::ExportPackage(
       return false;
     }
   }
-  LayoutTemplateImportResult validation;
-  if (!ImportPortablePackage(ToUtf8String(temp), validation, error)) {
+  ParsedLayoutPackage validation;
+  if (!ReadAndValidatePortablePackage(ToUtf8String(temp), validation, error)) {
     fs::remove(temp, ec);
     return false;
   }
@@ -327,107 +613,21 @@ bool LayoutTemplatePackageService::ImportFile(
   return ImportLegacyJson(sourcePath, result, error);
 }
 
+// Validates a portable .pslayout ZIP package without import side effects.
+bool LayoutTemplatePackageService::ValidatePortablePackage(
+    const std::string &sourcePath, std::string *error) {
+  ParsedLayoutPackage package;
+  return ReadAndValidatePortablePackage(sourcePath, package, error);
+}
+
 // Imports and validates a portable .pslayout ZIP package.
 bool LayoutTemplatePackageService::ImportPortablePackage(
     const std::string &sourcePath, LayoutTemplateImportResult &result,
     std::string *error) {
-  wxFFileInputStream input(wxString::FromUTF8(sourcePath.c_str()));
-  if (!input.IsOk()) {
-    if (error)
-      *error = "Could not open layout package.";
+  ParsedLayoutPackage package;
+  if (!ReadAndValidatePortablePackage(sourcePath, package, error))
     return false;
-  }
-  wxZipInputStream zip(input);
-  std::map<std::string, std::vector<std::uint8_t>> entries;
-  std::set<std::string> seen;
-  std::unique_ptr<wxZipEntry> entry;
-  int count = 0;
-  std::uintmax_t totalImages = 0;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    const std::string name = entry->GetName().ToStdString();
-    if (++count > kMaxEntries || !IsSafeArchivePath(name) || !seen.insert(name).second) {
-      if (error)
-        *error = "Layout package contains unsafe or duplicate archive entries.";
-      return false;
-    }
-    const bool isManifest = name == kManifestPath;
-    const bool isLayout = name == kLayoutPath;
-    const bool isImage = name.rfind(kImagePrefix, 0) == 0;
-    if (!isManifest && !isLayout && !isImage)
-      continue;
-    std::vector<std::uint8_t> bytes;
-    const auto limit = isManifest ? kMaxManifestBytes : isLayout ? kMaxLayoutBytes : kMaxImageBytes;
-    if (!ReadCurrentEntry(zip, bytes, limit)) {
-      if (error)
-        *error = "Layout package entry exceeds the supported size limit.";
-      return false;
-    }
-    if (isImage) {
-      totalImages += bytes.size();
-      if (totalImages > kMaxTotalImageBytes) {
-        if (error)
-          *error = "Layout package image resources exceed the supported size limit.";
-        return false;
-      }
-    }
-    entries[name] = std::move(bytes);
-  }
-  auto manifestIt = entries.find(kManifestPath);
-  if (manifestIt == entries.end()) {
-    if (error)
-      *error = "Layout package is missing manifest.json.";
-    return false;
-  }
-  nlohmann::json manifest;
-  try {
-    manifest = nlohmann::json::parse(manifestIt->second.begin(), manifestIt->second.end());
-  } catch (const std::exception &ex) {
-    if (error)
-      *error = ex.what();
-    return false;
-  }
-  if (manifest.value("format", "") != kPackageFormat) {
-    if (error)
-      *error = "Unsupported layout package format.";
-    return false;
-  }
-  if (manifest.value("packageVersion", 0) != kPackageVersion) {
-    if (error)
-      *error = "Unsupported layout package version.";
-    return false;
-  }
-  const std::string entryPoint = manifest.value("entryPoint", "");
-  if (!IsSafeArchivePath(entryPoint)) {
-    if (error)
-      *error = "Layout package declares an invalid entry point.";
-    return false;
-  }
-  auto layoutIt = entries.find(entryPoint);
-  if (layoutIt == entries.end()) {
-    if (error)
-      *error = "Layout package is missing its layout entry point.";
-    return false;
-  }
-  nlohmann::json parsed;
-  try {
-    parsed = nlohmann::json::parse(layoutIt->second.begin(), layoutIt->second.end());
-  } catch (const std::exception &ex) {
-    if (error)
-      *error = ex.what();
-    return false;
-  }
-  std::vector<LayoutDefinition> layouts;
-  LayoutTemplateImportReport report;
-  std::string parseError;
-  if (!FromTemplateDocument(parsed, layouts, &report, &parseError) || layouts.size() != 1) {
-    if (error)
-      *error = parseError.empty() ? "Layout package must contain exactly one layout." : parseError;
-    return false;
-  }
-  result.layout = layouts.front();
-  result.sourceFormat = LayoutTemplateSourceFormat::PortablePackage;
-  result.warnings = report.warnings;
-  return MaterializeImages(result.layout, entries, error);
+  return MaterializeImportedPackage(std::move(package), result, error);
 }
 
 // Imports a legacy standalone JSON layout template for compatibility.
@@ -467,7 +667,8 @@ bool LayoutTemplatePackageService::ImportLegacyJson(
       result.warnings.push_back("Legacy JSON image could not be resolved: " + image.imagePath);
   }
   result.sourceFormat = LayoutTemplateSourceFormat::LegacyJson;
-  result.warnings = report.warnings;
+  result.warnings.insert(result.warnings.begin(), report.warnings.begin(),
+                         report.warnings.end());
   return true;
 }
 

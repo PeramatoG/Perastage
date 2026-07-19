@@ -52,6 +52,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutImageResourceRegistry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplateSerializer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplatePackageService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutSelectionPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewpresets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layer_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/logger.cpp

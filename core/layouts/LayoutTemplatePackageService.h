@@ -27,6 +27,8 @@ struct LayoutTemplateImportResult {
 
 class LayoutTemplatePackageService {
 public:
+  static bool ValidatePortablePackage(const std::string &sourcePath,
+                                      std::string *error);
   static bool ExportPackage(const LayoutDefinition &layout,
                             const std::string &destinationPath,
                             std::string *error);
