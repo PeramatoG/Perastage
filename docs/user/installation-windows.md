@@ -9,35 +9,25 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 - Visual Studio 2022 with the C++ desktop workload.
 - CMake, either bundled with Visual Studio or installed separately.
 - Ninja, either bundled with Visual Studio or installed separately.
-- vcpkg installed in `C:/vcpkg`.
+- A classic vcpkg installation at `C:\vcpkg` with dependencies installed under `C:\vcpkg\installed\x64-windows`.
 
 ## Recommended vcpkg location
 
-On Windows, the recommended Perastage vcpkg location is:
+The normal local Windows workflow uses the existing classic vcpkg installation at `C:\vcpkg`. The shared Windows Ninja presets point to `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, disable vcpkg manifest mode, disable manifest auto-install, and reuse `C:/vcpkg/installed/x64-windows`. Opening the repository in Visual Studio should not run vcpkg install, should not build packages, and should not create a `vcpkg_installed` directory in the repository or build tree.
 
-```text
-C:/vcpkg
-```
-
-The shared Windows presets in `CMakePresets.json` use this path directly.
-
-This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
-
-If your vcpkg installation is in another location, either edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json` or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
+CI remains separate: GitHub Actions still uses the repository manifest, isolated installed roots, caches, and the pinned baseline for reproducible release builds.
 
 ## Install dependencies
 
-Install the required Windows dependencies from the repository root with manifest mode:
+Install Windows dependencies once into the classic `C:\vcpkg` tree before configuring:
 
 ```powershell
-cd C:\path\to\Perastage
-C:\vcpkg\vcpkg.exe install --triplet x64-windows
-C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
+C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
-The manifest requests `wxwidgets[secretstore]` so GDTF Share passwords can be stored in Windows Credential Manager. If wxWidgets was previously installed without this feature, run `C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse`, delete the affected Perastage build directory, and configure again.
+The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for CI and dependency documentation. For local Windows builds, `setup_windows.ps1` validates that the installed tree is ready; it does not install or rebuild packages.
 
-The gettext tools are build-time only. CMake uses the vcpkg-provided `msgfmt.exe` to generate `perastage.mo`, but gettext tools and DLLs are not Perastage runtime dependencies for users.
+If wxWidgets was previously built without secure-store support, repair that package in `C:\vcpkg`, then use `-CleanBuild` so CMake probes the rebuilt classic dependency instead of a stale build cache.
 
 ## Configure and Build with Visual Studio
 
@@ -49,7 +39,7 @@ Select:
 Local Machine
 ```
 
-Then select a Windows configure preset, for example:
+Then select a Windows configure preset:
 
 ```text
 Windows x64 Debug (Ninja)
@@ -70,9 +60,10 @@ Build Windows Release (Ninja)
 
 ## Configure and Build from PowerShell
 
-From the repository root, configure a Debug build:
+From a Visual Studio Developer PowerShell in the repository root, validate dependencies and configure a Debug build:
 
 ```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 cmake --preset win-x64-debug-ninja
 ```
 
@@ -85,6 +76,7 @@ cmake --build --preset win-debug-build-ninja
 For a Release build:
 
 ```powershell
+.\setup_windows.ps1 -Configuration Release -CleanBuild -SkipBuild
 cmake --preset win-x64-release-ninja
 cmake --build --preset win-release-build-ninja
 ```
@@ -135,8 +127,8 @@ Editing library content does not require administrator privileges because writes
 
 ## If Configuration Fails
 
-- Verify that vcpkg exists at `C:/vcpkg`.
-- Verify that the required dependencies are installed with the `x64-windows` triplet.
+- Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` from the repository root.
+- Verify that `C:/vcpkg/vcpkg.exe`, `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, and `C:/vcpkg/installed/x64-windows` exist, or pass `-VcpkgRoot` to validate another existing classic vcpkg installation.
 - Remove stale build directories and reconfigure.
 - If Visual Studio keeps stale state, close Visual Studio and remove the local `.vs` folder.
 - Follow the detailed fix paths in [Troubleshooting](troubleshooting.md).
@@ -144,3 +136,7 @@ Editing library content does not require administrator privileges because writes
 ## Checking Windows Credential Manager support
 
 After installing or rebuilding dependencies, save valid GDTF Share credentials, restart Perastage, and open the GDTF download workflow. A normal Windows build should not show a secure-storage unavailable warning, and the credentials should not be requested again solely because the application restarted. You can also verify that Windows Credential Manager contains an entry created by Perastage for the saved test credentials.
+
+## Manual Credential Manager validation
+
+A successful CMake secure-store probe confirms that wxWidgets was compiled with `wxUSE_SECRETSTORE`, but release validation should also exercise Windows Credential Manager at runtime. Save valid GDTF Share credentials, restart Perastage, open GDTF download, confirm the online catalog loads without asking for credentials again, download one GDTF, verify the Perastage Credential Manager entry exists, clear credentials from Perastage, and confirm the native entry is removed. Repeat once with a password containing a double quote, a backslash, and Unicode text.

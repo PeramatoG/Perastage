@@ -22,44 +22,33 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 
 ## Windows vcpkg dependency setup
 
-Perastage uses the repository `vcpkg.json` manifest for common C++ dependencies. On Windows, the recommended local convention is to install vcpkg in:
+Perastage keeps the root `vcpkg.json` manifest as the dependency source of truth for CI and for documenting the required packages. The normal local Windows workflow is intentionally classic vcpkg: install dependencies once into `C:\vcpkg\installed\x64-windows`, then configure with the shared Ninja presets. Visual Studio and CMake must not run an automatic vcpkg install during local configure.
 
-```text
-C:/vcpkg
+The canonical local Windows presets are:
+
+- `win-x64-debug-ninja`
+- `win-x64-release-ninja`
+
+Both presets use `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. This makes CMake resolve already-installed packages from `C:/vcpkg/installed/x64-windows` and prevents `-- Running vcpkg install` during a clean Visual Studio configure.
+
+Install or repair dependencies manually before configuring if they are missing. A typical one-time command is:
+
+```powershell
+C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
-The shared Windows presets in `CMakePresets.json` use this default path directly:
+Gettext tools are build-time dependencies for localization catalog generation. On Windows they should resolve from `C:\vcpkg\installed\x64-windows\tools\gettext\bin`. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
-```text
-C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-```
-
-This avoids conflicts with Visual Studio Developer PowerShell, which may set `VCPKG_ROOT` to Visual Studio's internal vcpkg directory.
-
-Install the required Windows dependencies from the repository root with manifest mode:
+Use the setup script as a validator/build helper, not as an installer:
 
 ```powershell
 cd C:\path\to\Perastage
-C:\vcpkg\vcpkg.exe install --triplet x64-windows
-C:\vcpkg\vcpkg.exe install "gettext[tools]:x64-windows"
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 ```
 
-The manifest pins the vcpkg baseline and requests `wxwidgets[secretstore]`, which enables `wxUSE_SECRETSTORE` for Windows Credential Manager integration. If an existing vcpkg tree was built without the feature, repair it explicitly with:
+By default, `setup_windows.ps1` validates `C:\vcpkg`, `vcpkg.exe`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
 
-```powershell
-C:\vcpkg\vcpkg.exe install "wxwidgets[secretstore]:x64-windows" --recurse
-```
-
-After changing wxWidgets features, delete the affected Perastage build directory and reconfigure so the CMake secure-store probe uses the rebuilt wxWidgets configuration.
-
-Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
-
-If your vcpkg installation is not in `C:/vcpkg`, use one of these options:
-
-1. Edit the Windows `CMAKE_TOOLCHAIN_FILE` values in `CMakePresets.json`.
-2. Create a local `CMakeUserPresets.json` file that overrides `CMAKE_TOOLCHAIN_FILE`.
-
-`CMakeUserPresets.json` is local to each developer machine and should not be committed.
+If an older build was configured against wxWidgets without `secretstore`, manifest mode, another installed root, or an x86 compiler, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Deleting `.vs` or `build` does not require reinstalling packages, and deleting `C:\vcpkg\installed` is not part of normal troubleshooting.
 
 ## CMake presets strategy
 
@@ -70,82 +59,24 @@ CMakePresets.json
 CMakeUserPresets.json
 ```
 
-`CMakePresets.json` is the shared project-level preset file and is tracked in Git.
+`CMakePresets.json` is the shared project-level preset file and is tracked in Git. Windows local builds expose one x64 Ninja path with Debug and Release configure presets plus matching build/stage presets.
 
-`CMakeUserPresets.json` is local to each developer machine. Use it only when local toolchain paths or environment overrides are needed.
-
-## Optional local Windows user presets
-
-If your vcpkg installation is not located at `C:/vcpkg`, create a local file named:
-
-```text
-CMakeUserPresets.json
-```
-
-in the repository root.
-
-This file should not be committed. It should contain local machine settings only.
-
-Example for a Windows machine using vcpkg in `D:/tools/vcpkg`:
-
-```json
-{
-  "version": 3,
-  "configurePresets": [
-    {
-      "name": "local-win-x64-debug-ninja",
-      "displayName": "Local Windows x64 Debug (Ninja)",
-      "description": "Local Debug Ninja build using a custom vcpkg installation.",
-      "inherits": "win-x64-debug-ninja",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
-      }
-    },
-    {
-      "name": "local-win-x64-release-ninja",
-      "displayName": "Local Windows x64 Release (Ninja)",
-      "description": "Local Release Ninja build using a custom vcpkg installation.",
-      "inherits": "win-x64-release-ninja",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "D:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
-      }
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "local-win-debug-build-ninja",
-      "displayName": "Local Build Windows Debug (Ninja)",
-      "description": "Build the local Windows Debug Ninja configuration.",
-      "configurePreset": "local-win-x64-debug-ninja",
-      "jobs": 8
-    },
-    {
-      "name": "local-win-release-build-ninja",
-      "displayName": "Local Build Windows Release (Ninja)",
-      "description": "Build the local Windows Release Ninja configuration.",
-      "configurePreset": "local-win-x64-release-ninja",
-      "jobs": 8
-    }
-  ]
-}
-```
-
-For the recommended `C:/vcpkg` setup, this local file is not required.
+`CMakeUserPresets.json` is local to each developer machine and should not be committed. Perastage no longer generates this file. Use it only if you intentionally need local machine overrides, and do not use it to create another vcpkg checkout or repository-local installed tree for the normal Windows workflow.
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, install vcpkg in `C:/vcpkg` and use the shared Windows presets directly.
+For the standard Windows setup, install dependencies once in `C:\vcpkg`, run `setup_windows.ps1` to validate the environment if desired, then open the repository folder in Visual Studio and select one of the canonical Ninja presets. Because manifest mode and manifest auto-install are disabled in the shared Windows presets, Visual Studio/CMake reuses `C:\vcpkg\installed\x64-windows` and should not print `-- Running vcpkg install`.
 
 Typical setup:
 
-1. Install vcpkg in `C:/vcpkg`.
-2. Install the required vcpkg dependencies from the manifest, including `wxwidgets[secretstore]`.
+1. Install the required `x64-windows` dependencies in `C:\vcpkg` once.
+2. Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` from the repository root to validate the toolchain and selected build directory.
 3. Open the repository folder in Visual Studio.
 4. Select `Local Machine`.
-5. Select a Windows configure preset such as `Windows x64 Debug (Ninja)`.
-6. Select a Windows build preset such as `Build Windows Debug (Ninja)`.
+5. Select `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`.
+6. Select the matching Ninja build preset.
 
-If Visual Studio shows stale configuration errors after changing presets, close Visual Studio and remove the local `.vs` folder and the affected build directory before configuring again.
+If Visual Studio shows stale configuration errors after changing presets, close Visual Studio and run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` or remove only the affected `build\win-x64-*-ninja` directory before configuring again.
 
 ## Command-line build
 
@@ -155,9 +86,10 @@ List available presets:
 cmake --list-presets
 ```
 
-Configure a Windows Debug Ninja build:
+Configure a Windows Debug Ninja build from a Visual Studio Developer PowerShell after installing dependencies in `C:\vcpkg`:
 
 ```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 cmake --preset win-x64-debug-ninja
 ```
 
@@ -286,7 +218,7 @@ If the error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the recommended `C:/vcpkg` installation. Make sure the updated `CMakePresets.json` is being used, clear the CMake cache, and remove stale `.vs` or build folders if needed.
+then Visual Studio is using its own vcpkg instance instead of the required `C:/vcpkg` toolchain. Select the canonical Windows Ninja preset, clear the affected CMake cache with `setup_windows.ps1 -CleanBuild -SkipBuild`, and verify that `CMAKE_TOOLCHAIN_FILE` still points at `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`.
 
 ## Secure credential-store verification
 
@@ -300,3 +232,53 @@ For a manual Windows functional check after rebuilding dependencies:
 4. Confirm no secure-storage persistence warning appears.
 5. Confirm credentials are not requested again solely because the application restarted.
 6. Confirm the test entry is present in Windows Credential Manager.
+
+### Release-gate credential/security tests
+
+Use a focused test build when validating GDTF Share credential storage for release:
+
+```powershell
+cmake -S . -B build-security -G Ninja `
+  -DCMAKE_BUILD_TYPE=Debug `
+  -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=x64-windows `
+  -DVCPKG_MANIFEST_MODE=OFF `
+  -DVCPKG_MANIFEST_INSTALL=OFF `
+  -DBUILD_TESTING=ON `
+  -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+cmake --build build-security --target gdtf_share_security_test credential_store_native_roundtrip_test
+ctest --test-dir build-security -L release-gate --output-on-failure
+```
+
+The native credential-store round-trip test uses a unique `Perastage/Test/SecureStore/...` service name, never uses the production `Perastage/GDTF Share/gdtf-share.com` entry, and may report a CTest skip when the runner does not expose Windows Credential Manager, macOS Keychain, or a Linux Secret Service provider. A compile-time secure-store probe is required for official builds, but it does not replace a manual save, restart, download, and clear validation on a real Windows desktop.
+
+Manual Windows release validation:
+
+1. Start from a build configured with `wxUSE_SECRETSTORE` enabled.
+2. Open Preferences -> GDTF Share credentials.
+3. Enter and validate valid credentials.
+4. Confirm no secure-storage warning appears.
+5. Close Perastage completely.
+6. Reopen Perastage.
+7. Open GDTF download.
+8. Confirm the online catalog loads.
+9. Select and download one GDTF.
+10. Confirm credentials are not requested again.
+11. Confirm a Perastage entry exists in Windows Credential Manager.
+12. Clear credentials from Perastage.
+13. Confirm the native entry is removed.
+14. Repeat with a password containing a double quote, a backslash, and Unicode text.
+
+### Windows Ninja x64 compiler validation
+
+Windows Ninja presets whose names contain `win-x64` request an external x64 Visual Studio environment. Visual Studio uses that preset metadata to source x64 tools before invoking CMake, and `setup_windows.ps1` separately verifies that `cl.exe`, `link.exe`, `VSCMD_ARG_HOST_ARCH`, `VSCMD_ARG_TGT_ARCH`, and the compiler banner all identify an x64 toolchain before configuring.
+
+A `LNK4272` message saying x64 libraries conflict with an x86 target, especially during `CMakeTestCXXCompiler.cmake`, means an old build directory cached an x86 compiler or a compiler from a different Visual Studio installation while the current environment points at x64 libraries. The setup script checks `CMakeCache.txt` before configure and removes only the selected build directory when it finds an incompatible x86 compiler path, different Visual Studio root, different generator, different toolchain, or different vcpkg triplet.
+
+Use `-CleanBuild` to force the same safe cleanup for the selected build directory:
+
+```powershell
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
+```
+
+Use `-VisualStudioPath` or `-VisualStudioVersion` to make multi-install selection explicit. The cleanup does not delete source files, `C:\vcpkg`, `C:\vcpkg\installed`, global vcpkg downloads, packages, buildtrees, or unrelated build directories.

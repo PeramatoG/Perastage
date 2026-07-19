@@ -43,14 +43,7 @@ For local packaging work, first make sure the normal Windows Release build works
 Recommended local staging flow:
 
 ```powershell
-cmake --preset win-x64-release
-cmake --build --preset win-release-build
-cmake --build --preset win-release-stage
-```
-
-If using the Ninja Release preset instead:
-
-```powershell
+.\setup_windows.ps1 -Configuration Release -CleanBuild -SkipBuild
 cmake --preset win-x64-release-ninja
 cmake --build --preset win-release-build-ninja
 cmake --build --preset win-release-stage-ninja

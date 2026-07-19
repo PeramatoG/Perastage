@@ -92,6 +92,10 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
     add_test(NAME SecureStoreBuildPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_securestore_build_policy.sh)
+    set_tests_properties(SecureStoreBuildPolicy PROPERTIES LABELS "secure-store;security;release-gate")
+    add_test(NAME WindowsNinjaX64Policy
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh)
+    set_tests_properties(WindowsNinjaX64Policy PROPERTIES LABELS "windows;x64;release-gate")
 endif()
 
 find_package(Python3 COMPONENTS Interpreter)
@@ -1879,3 +1883,12 @@ add_executable(gdtf_share_security_test
 target_include_directories(gdtf_share_security_test PRIVATE ../core ../third_party)
 target_link_libraries(gdtf_share_security_test PRIVATE ${wxWidgets_LIBRARIES} CURL::libcurl)
 add_test(NAME GdtfShareSecurity COMMAND gdtf_share_security_test)
+set_tests_properties(GdtfShareSecurity PROPERTIES LABELS "gdtf-share;security;secure-store;release-gate")
+
+add_executable(credential_store_native_roundtrip_test
+               credential_store_native_roundtrip_test.cpp)
+target_link_libraries(credential_store_native_roundtrip_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME CredentialStoreNativeRoundTrip COMMAND credential_store_native_roundtrip_test)
+set_tests_properties(CredentialStoreNativeRoundTrip PROPERTIES
+                     LABELS "gdtf-share;security;secure-store;release-gate"
+                     SKIP_REGULAR_EXPRESSION "^SKIP:")

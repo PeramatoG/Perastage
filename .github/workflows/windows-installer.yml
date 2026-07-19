@@ -31,7 +31,7 @@ jobs:
       VCPKG_INSTALLED:    ${{ github.workspace }}\.vcpkg-cache\installed
       VCPKG_DOWNLOADS:    ${{ github.workspace }}\.vcpkg-cache\downloads
       VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
-      VCPKG_CACHE_SCHEMA: securestore-v1
+      VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_PACKAGES:     ${{ github.workspace }}\.vcpkg-cache\packages
 
     steps:
@@ -52,9 +52,9 @@ jobs:
             .vcpkg-cache\downloads
             .vcpkg-cache\installed
             .vcpkg-cache\packages
-          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v1-${{ env.VCPKG_BASELINE }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v1-${{ env.VCPKG_BASELINE }}-x64-windows-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-x64-windows-
 
       # ── 3. Bootstrap vcpkg (always needed; the binary is never cached) ──────
       - name: Bootstrap vcpkg
@@ -84,10 +84,6 @@ jobs:
           New-Item -ItemType Directory -Path $env:VCPKG_PACKAGES    -Force | Out-Null
 
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows --x-manifest-root="$env:GITHUB_WORKSPACE" `
-            --x-install-root="$env:VCPKG_INSTALLED" `
-            --x-packages-root="$env:VCPKG_PACKAGES" `
-            --downloads-root="$env:VCPKG_DOWNLOADS"
-          & "$env:VCPKG_ROOT\vcpkg.exe" install "gettext[tools]:x64-windows" `
             --x-install-root="$env:VCPKG_INSTALLED" `
             --x-packages-root="$env:VCPKG_PACKAGES" `
             --downloads-root="$env:VCPKG_DOWNLOADS"
@@ -121,6 +117,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows `
             -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
+            -DVCPKG_MANIFEST_MODE=OFF `
             -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
 
       # ── 6. Build ────────────────────────────────────────────────────────────
@@ -216,3 +213,76 @@ jobs:
         with:
           name: Perastage-windows-installer
           path: out/installer
+
+
+  test-windows-secure-store:
+    runs-on: windows-latest
+
+    env:
+      VCPKG_ROOT:         ${{ github.workspace }}\vcpkg
+      VCPKG_INSTALLED:    ${{ github.workspace }}\.vcpkg-cache\installed
+      VCPKG_DOWNLOADS:    ${{ github.workspace }}\.vcpkg-cache\downloads
+      VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
+      VCPKG_CACHE_SCHEMA: securestore-v2
+      VCPKG_PACKAGES:     ${{ github.workspace }}\.vcpkg-cache\packages
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            .vcpkg-cache\downloads
+            .vcpkg-cache\installed
+            .vcpkg-cache\packages
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-tests-${{ env.VCPKG_BASELINE }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-tests-${{ env.VCPKG_BASELINE }}-x64-windows-
+
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:VCPKG_ROOT\.git") {
+            git -C $env:VCPKG_ROOT fetch --depth 1 origin $env:VCPKG_BASELINE
+            git -C $env:VCPKG_ROOT checkout --detach $env:VCPKG_BASELINE
+          } else {
+            if (Test-Path $env:VCPKG_ROOT) { Remove-Item $env:VCPKG_ROOT -Recurse -Force }
+            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+            git -C $env:VCPKG_ROOT checkout --detach $env:VCPKG_BASELINE
+          }
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+
+      - name: Install vcpkg packages
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path $env:VCPKG_DOWNLOADS,$env:VCPKG_INSTALLED,$env:VCPKG_PACKAGES -Force | Out-Null
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows --x-manifest-root="$env:GITHUB_WORKSPACE" `
+            --x-install-root="$env:VCPKG_INSTALLED" `
+            --x-packages-root="$env:VCPKG_PACKAGES" `
+            --downloads-root="$env:VCPKG_DOWNLOADS"
+
+      - name: Configure focused security tests
+        shell: pwsh
+        run: |
+          cmake -S . -B build-security -G Ninja `
+            -DCMAKE_BUILD_TYPE=Debug `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
+            -DVCPKG_MANIFEST_MODE=OFF `
+            -DBUILD_TESTING=ON `
+            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+
+      - name: Build focused security tests
+        shell: pwsh
+        run: |
+          cmake --build build-security --target gdtf_share_security_test credential_store_native_roundtrip_test
+
+      - name: Run release-gate tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build-security -L release-gate --output-on-failure

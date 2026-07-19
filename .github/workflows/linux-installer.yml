@@ -31,7 +31,7 @@ jobs:
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
-      VCPKG_CACHE_SCHEMA: securestore-v1
+      VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
 
     steps:
@@ -92,9 +92,9 @@ jobs:
             .vcpkg-cache/downloads
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-latest-vcpkg-securestore-v1-${{ env.VCPKG_BASELINE }}-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-installer.yml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-latest-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/linux-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-ubuntu-latest-vcpkg-securestore-v1-${{ env.VCPKG_BASELINE }}-x64-linux-
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-latest-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-x64-linux-
 
       - name: Prepare vcpkg folders
         run: |
@@ -126,7 +126,14 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
             -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
-            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+            -DVCPKG_MANIFEST_MODE=OFF \
+            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
+            -DBUILD_TESTING=ON
+
+      - name: Build and run release-gate tests
+        run: |
+          cmake --build --preset wsl-release-build --target gdtf_share_security_test credential_store_native_roundtrip_test
+          ctest --test-dir build/wsl-x64-release -L release-gate --output-on-failure
 
       - name: Build staged distribution
         run: |

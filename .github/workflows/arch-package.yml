@@ -33,7 +33,7 @@ jobs:
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
       VCPKG_BASELINE: 0878b5224d4a4968940ee296a2e7fae2d3b62983
-      VCPKG_CACHE_SCHEMA: securestore-v1
+      VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_TARGET_TRIPLET: x64-linux
 
     steps:
@@ -120,9 +120,20 @@ jobs:
           useradd --create-home --shell /bin/bash builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
+      - name: Run Arch release-gate tests
+        run: |
+          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET'; cd '$GITHUB_WORKSPACE' && cmake -S . -B build-release-gate -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE='$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake' -DVCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' -DVCPKG_INSTALLED_DIR='$VCPKG_INSTALLED' -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON"
+          su builder -c "cd '$GITHUB_WORKSPACE' && cmake --build build-release-gate --target gdtf_share_security_test credential_store_native_roundtrip_test"
+          su builder -c "cd '$GITHUB_WORKSPACE' && ctest --test-dir build-release-gate -L release-gate --output-on-failure"
+
       - name: Build Arch package
         run: |
           su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON; cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --force --noconfirm --nodeps"
+
+      - name: Validate release-gate policy and package dependency
+        run: |
+          su builder -c "cd '$GITHUB_WORKSPACE' && bash tests/check_securestore_build_policy.sh"
+          grep -q "libsecret" packaging/arch/PKGBUILD
 
       - name: Collect Arch package
         run: |
