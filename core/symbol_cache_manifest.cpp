@@ -12,8 +12,10 @@
 #include <iomanip>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <utility>
+#include <unordered_map>
 #include <vector>
 
 #include <wx/wfstream.h>
@@ -336,9 +338,37 @@ static void UpdateFnv1a(std::uint64_t &hash, const void *data, size_t size) {
   }
 }
 
+struct FingerprintCacheEntry {
+  std::uintmax_t fileSize = 0;
+  std::filesystem::file_time_type lastWriteTime{};
+  std::string fingerprint;
+};
+
+std::mutex g_fingerprintCacheMutex;
+std::unordered_map<std::string, FingerprintCacheEntry> g_fingerprintCache;
+SemanticFingerprintCacheStats g_fingerprintCacheStats;
+
+// Returns the canonical cache path used for in-process semantic fingerprint memoization.
+std::string NormalizeFingerprintCachePath(const std::string &path) {
+  std::error_code ec;
+  const std::filesystem::path fsPath = std::filesystem::weakly_canonical(path, ec);
+  return (ec ? std::filesystem::absolute(path, ec) : fsPath).generic_string();
+}
+
+// Reads file metadata that must match before a cached semantic fingerprint is reused.
+bool ReadFingerprintFileMetadata(const std::string &path, std::uintmax_t &fileSize,
+                                 std::filesystem::file_time_type &lastWriteTime) {
+  std::error_code ec;
+  fileSize = std::filesystem::file_size(path, ec);
+  if (ec)
+    return false;
+  lastWriteTime = std::filesystem::last_write_time(path, ec);
+  return !ec;
+}
+
 // Computes a versioned semantic fingerprint over symbol-relevant uncompressed GDTF entries.
-std::string ComputeGdtfSemanticFingerprint(const std::string &path,
-                                           std::string &errorMessage) {
+static std::string ComputeGdtfSemanticFingerprintUncached(const std::string &path,
+                                                          std::string &errorMessage) {
   wxFileInputStream input(WxStringFromUtf8Path(path));
   if (!input.IsOk()) {
     errorMessage = "Could not open GDTF archive for semantic fingerprinting.";
@@ -398,6 +428,51 @@ std::string ComputeGdtfSemanticFingerprint(const std::string &path,
   out << "gdtfsymfnv1a64v1:" << std::hex << std::setw(16) << std::setfill('0')
       << hash << ":" << std::dec << entries.size() << ":" << payloadSize;
   return out.str();
+}
+
+// Computes a memoized semantic GDTF content fingerprint for unchanged files.
+std::string ComputeGdtfSemanticFingerprint(const std::string &path,
+                                           std::string &errorMessage) {
+  const std::string cachePath = NormalizeFingerprintCachePath(path);
+  std::uintmax_t fileSize = 0;
+  std::filesystem::file_time_type lastWriteTime{};
+  if (ReadFingerprintFileMetadata(path, fileSize, lastWriteTime)) {
+    std::lock_guard<std::mutex> lock(g_fingerprintCacheMutex);
+    const auto it = g_fingerprintCache.find(cachePath);
+    if (it != g_fingerprintCache.end() && it->second.fileSize == fileSize &&
+        it->second.lastWriteTime == lastWriteTime) {
+      ++g_fingerprintCacheStats.hits;
+      errorMessage.clear();
+      return it->second.fingerprint;
+    }
+    ++g_fingerprintCacheStats.misses;
+  }
+
+  std::string fingerprint = ComputeGdtfSemanticFingerprintUncached(path, errorMessage);
+  if (!fingerprint.empty() && ReadFingerprintFileMetadata(path, fileSize, lastWriteTime)) {
+    std::lock_guard<std::mutex> lock(g_fingerprintCacheMutex);
+    g_fingerprintCache[cachePath] = FingerprintCacheEntry{fileSize, lastWriteTime, fingerprint};
+  }
+  return fingerprint;
+}
+
+// Invalidates the cached semantic fingerprint for one GDTF path.
+void InvalidateGdtfSemanticFingerprintCache(const std::string &path) {
+  std::lock_guard<std::mutex> lock(g_fingerprintCacheMutex);
+  g_fingerprintCache.erase(NormalizeFingerprintCachePath(path));
+}
+
+// Clears all cached semantic fingerprints and cache counters.
+void ClearGdtfSemanticFingerprintCache() {
+  std::lock_guard<std::mutex> lock(g_fingerprintCacheMutex);
+  g_fingerprintCache.clear();
+  g_fingerprintCacheStats = {};
+}
+
+// Returns semantic fingerprint cache hit/miss counters.
+SemanticFingerprintCacheStats GetGdtfSemanticFingerprintCacheStats() {
+  std::lock_guard<std::mutex> lock(g_fingerprintCacheMutex);
+  return g_fingerprintCacheStats;
 }
 
 // Computes the current semantic GDTF content fingerprint used by symbol cache validation.

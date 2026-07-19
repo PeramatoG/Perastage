@@ -17,8 +17,14 @@ public:
   FramebufferCaptureTarget(FramebufferCaptureTarget &&other) noexcept;
   FramebufferCaptureTarget &operator=(FramebufferCaptureTarget &&other) noexcept;
 
+  // Creates or reuses the framebuffer resources for the requested size.
+  bool EnsureSize(int width, int height);
+
   // Creates the framebuffer, color texture, and depth/stencil attachment.
   bool Initialize(int width, int height);
+
+  // Releases all OpenGL resources owned by this target.
+  void Release();
 
   // Binds the framebuffer so callers can render into the capture target.
   void BindForRendering() const;
@@ -38,6 +44,9 @@ public:
   // Returns the most recent creation or completeness diagnostic.
   const std::string &Diagnostic() const { return diagnostic_; }
 
+  // Returns how many framebuffer allocations were needed by this target.
+  int AllocationCount() const { return allocationCount_; }
+
 private:
   // Releases any OpenGL objects owned by this target.
   void Reset();
@@ -47,6 +56,7 @@ private:
   GLuint depthStencilRenderbuffer_ = 0;
   int width_ = 0;
   int height_ = 0;
+  int allocationCount_ = 0;
   bool complete_ = false;
   std::string diagnostic_;
 };

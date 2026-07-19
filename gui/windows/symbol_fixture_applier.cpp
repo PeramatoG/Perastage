@@ -27,6 +27,7 @@
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
+#include "symbol_cache_manifest.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace fs = std::filesystem;
@@ -470,6 +471,7 @@ bool VerifyArchiveEntries(const fs::path &archivePath,
   return true;
 }
 
+// Rewrites a fixture GDTF archive with generated SVG symbols and updated metadata.
 bool RewriteGdtf(const fs::path &sourcePath,
                  const std::unordered_map<std::string, SymbolPayload> &payloads,
                  const std::string &topPath,
@@ -571,9 +573,12 @@ bool RewriteGdtf(const fs::path &sourcePath,
   fs::rename(tempPath, sourcePath, ec);
 #endif
   if (ec) {
+    fs::remove(tempPath);
     errorMessage = "Could not replace the original GDTF file.";
     return false;
   }
+
+  symbol_cache::InvalidateGdtfSemanticFingerprintCache(sourcePath.string());
 
   if (!VerifyArchiveEntries(sourcePath, payloads)) {
     errorMessage = "GDTF was saved but generated SVG views were not found in archive.";

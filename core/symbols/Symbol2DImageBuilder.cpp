@@ -5,10 +5,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <future>
 #include <iterator>
 #include <optional>
 #include <queue>
 #include <set>
+#include <thread>
 #include <limits>
 #include <unordered_map>
 
@@ -696,43 +698,80 @@ std::vector<Polyline2D> ExtractPolylines(const PixelMask &skeleton,
 
 } // namespace
 
-std::vector<Symbol2D>
-Symbol2DImageBuilder::BuildFromRenderedImages(
+// Converts one rendered RGBA image into one 2D symbol without shared mutable state.
+std::optional<Symbol2D> Symbol2DImageBuilder::BuildFromRenderedImage(
+    const RenderedSymbolImage &render, const ImageBuildParams &params) {
+  const size_t expectedBytes = static_cast<size_t>(render.width) *
+                               static_cast<size_t>(render.height) * 4;
+  if (render.width <= 0 || render.height <= 0 || render.rgba.size() < expectedBytes)
+    return std::nullopt;
+
+  PixelMask fillMask = BuildFillMask(render, params);
+  PixelMask lineMask = BuildLineMask(render, params);
+  CloseMaskGaps(fillMask, params.fillGapClosurePixels);
+  CloseMaskGaps(lineMask, params.lineGapClosurePixels);
+  ThinZhangSuen(lineMask);
+
+  Symbol2D symbol;
+  symbol.view = render.view;
+  symbol.strokeWidthPx = params.previewStrokeWidthPx;
+
+  symbol.fill = ExtractFillPolygons(fillMask);
+  symbol.strokes = ExtractPolylines(lineMask, params);
+  AddFillBoundaryStrokeFallback(symbol);
+
+  for (const auto &polygon : symbol.fill)
+    for (const auto &p : polygon.outer)
+      ExtendBounds(symbol.bounds, p);
+  for (const auto &line : symbol.strokes)
+    for (const auto &p : line)
+      ExtendBounds(symbol.bounds, p);
+
+  return symbol;
+}
+
+// Converts rendered images sequentially for deterministic tests and fallback.
+std::vector<Symbol2D> Symbol2DImageBuilder::BuildFromRenderedImagesSequential(
     const std::vector<RenderedSymbolImage> &renders, const ImageBuildParams &params) {
   std::vector<Symbol2D> symbols;
   symbols.reserve(renders.size());
-
   for (const auto &render : renders) {
-    const size_t expectedBytes = static_cast<size_t>(render.width) *
-                                 static_cast<size_t>(render.height) * 4;
-    if (render.width <= 0 || render.height <= 0 || render.rgba.size() < expectedBytes)
-      continue;
+    auto symbol = BuildFromRenderedImage(render, params);
+    if (symbol)
+      symbols.push_back(std::move(*symbol));
+  }
+  return symbols;
+}
 
-    PixelMask fillMask = BuildFillMask(render, params);
-    PixelMask lineMask = BuildLineMask(render, params);
-    CloseMaskGaps(fillMask, params.fillGapClosurePixels);
-    CloseMaskGaps(lineMask, params.lineGapClosurePixels);
-    ThinZhangSuen(lineMask);
+// Converts rendered images in bounded parallel tasks while preserving input order.
+std::vector<Symbol2D> Symbol2DImageBuilder::BuildFromRenderedImages(
+    const std::vector<RenderedSymbolImage> &renders, const ImageBuildParams &params) {
+  const unsigned int hardware = std::thread::hardware_concurrency();
+  if (renders.size() < 2 || hardware < 2)
+    return BuildFromRenderedImagesSequential(renders, params);
 
-    Symbol2D symbol;
-    symbol.view = render.view;
-    symbol.strokeWidthPx = params.previewStrokeWidthPx;
+  const size_t workerCount =
+      std::min(renders.size(), static_cast<size_t>(std::max(2u, hardware)));
+  std::vector<std::optional<Symbol2D>> ordered(renders.size());
+  std::vector<std::future<void>> futures;
+  futures.reserve(workerCount);
 
-    symbol.fill = ExtractFillPolygons(fillMask);
-
-    symbol.strokes = ExtractPolylines(lineMask, params);
-    AddFillBoundaryStrokeFallback(symbol);
-
-    for (const auto &polygon : symbol.fill)
-      for (const auto &p : polygon.outer)
-        ExtendBounds(symbol.bounds, p);
-    for (const auto &line : symbol.strokes)
-      for (const auto &p : line)
-        ExtendBounds(symbol.bounds, p);
-
-    symbols.push_back(std::move(symbol));
+  for (size_t worker = 0; worker < workerCount; ++worker) {
+    futures.push_back(std::async(std::launch::async, [&, worker]() {
+      for (size_t index = worker; index < renders.size(); index += workerCount)
+        ordered[index] = BuildFromRenderedImage(renders[index], params);
+    }));
   }
 
+  for (auto &future : futures)
+    future.get();
+
+  std::vector<Symbol2D> symbols;
+  symbols.reserve(renders.size());
+  for (auto &symbol : ordered) {
+    if (symbol)
+      symbols.push_back(std::move(*symbol));
+  }
   return symbols;
 }
 

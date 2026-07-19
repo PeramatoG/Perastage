@@ -595,6 +595,10 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
 }
 
 Viewer2DPanel::~Viewer2DPanel() {
+  if (m_glContext) {
+    SetCurrent(*m_glContext);
+    ReleaseCaptureFramebufferTarget();
+  }
   if (HasCapture())
     ReleaseMouse();
   if (g_instance == this)
@@ -1471,10 +1475,13 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
 
-  glcapture::FramebufferCaptureTarget target;
+  if (!m_captureFramebufferTarget)
+    m_captureFramebufferTarget = std::make_unique<glcapture::FramebufferCaptureTarget>();
+
+  glcapture::FramebufferCaptureTarget &target = *m_captureFramebufferTarget;
   ScopedReadBufferPackAlignmentState readStateGuard;
   glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
-  if (!target.Initialize(w, h) || !target.IsComplete()) {
+  if (!target.EnsureSize(w, h) || !target.IsComplete()) {
     const std::string diagnostic = target.Diagnostic();
     diagnostics::DiagnosticReport::RecordViewer2DBackBufferFallback(
         w, h, diagnostic.empty() ? "FBO unavailable" : diagnostic);
@@ -1502,6 +1509,12 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   diagnostics::DiagnosticReport::RecordViewer2DFboCapture(w, h);
 
   return true;
+}
+
+// Releases reusable capture framebuffer resources while the GL context is current.
+void Viewer2DPanel::ReleaseCaptureFramebufferTarget() {
+  if (m_captureFramebufferTarget)
+    m_captureFramebufferTarget->Release();
 }
 
 // Captures RGBA pixels from the legacy back buffer path when FBO capture fails.
