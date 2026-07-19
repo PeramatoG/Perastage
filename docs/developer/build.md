@@ -282,3 +282,13 @@ Use `-CleanBuild` to force the same safe cleanup for the selected build director
 ```
 
 Use `-VisualStudioPath` or `-VisualStudioVersion` to make multi-install selection explicit. The cleanup does not delete source files, `C:\vcpkg`, `C:\vcpkg\installed`, global vcpkg downloads, packages, buildtrees, or unrelated build directories.
+
+## CI vcpkg retry, cache, and diagnostics policy
+
+Installer and package workflows keep `vcpkg.json` as the single source of truth for the pinned vcpkg `builtin-baseline`. Each workflow reads and validates that 40-character baseline before checking out vcpkg, so dependency cache keys and the vcpkg checkout cannot drift from the manifest.
+
+All GitHub Actions installer workflows run vcpkg through `.github/scripts/vcpkg_install_retry.py` instead of invoking `vcpkg install` directly. The helper retries only failures that match transient download or network signatures, such as HTTP 408, 425, 429, 500, 502, 503, or 504 responses, DNS failures, timeouts, connection resets, refused connections, and temporary proxy or remote-server failures. Configure, compile, link, manifest, ABI, patch, and package-validation failures are treated as permanent and fail without hiding the original vcpkg exit code.
+
+The workflows keep source downloads separate from toolchain-sensitive installed and package trees. Downloads are restored with broad baseline-aware restore prefixes and are saved even after a failed install, allowing later runs to reuse any archives that were fetched before an outage. Installed trees, package directories, and vcpkg binary-cache archives remain keyed by operating system, architecture, triplet, SDK/toolchain scope, the manifest/configuration hash, and the current cache schema so incompatible binaries are not shared across platforms or macOS SDK generations.
+
+The retry helper always writes a complete UTF-8 log under `out/ci-logs/` while streaming vcpkg output live to the Actions log. Failure diagnostics upload `out/ci-logs/**`, vcpkg buildtree logs, vcpkg issue bodies, and CMake logs when CMake was reached. Missing CMake logs after an earlier vcpkg download failure are expected and should not be treated as a separate diagnostic problem.

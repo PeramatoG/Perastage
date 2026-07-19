@@ -1,4 +1,4 @@
-# Main branch patch version bump and test installer dispatch workflow.
+# Main branch patch version bump and tracked installer validation workflow.
 
 name: Main Patch Version and Test Installer Builds
 
@@ -10,14 +10,14 @@ on:
 
 permissions:
   contents: write
-  actions: write
+  actions: read
 
 concurrency:
   group: main-patch-version-bump
   cancel-in-progress: false
 
 jobs:
-  bump-and-dispatch:
+  bump-version:
     if: >
       github.event_name == 'workflow_dispatch' ||
       (
@@ -26,10 +26,12 @@ jobs:
         !contains(github.event.head_commit.message, '[skip version-bump]')
       )
     runs-on: ubuntu-latest
+    outputs:
+      source_ref: ${{ steps.commit.outputs.source_ref }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
@@ -38,41 +40,44 @@ jobs:
         id: bump
         run: |
           set -euo pipefail
-
           VERSION_RAW="$(tr -d '[:space:]' < VERSION)"
           if ! [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION_RAW'"
             exit 1
           fi
-
           IFS='.' read -r major minor patch <<< "$VERSION_RAW"
-          next_patch=$((patch + 1))
-          NEW_VERSION="${major}.${minor}.${next_patch}"
-
+          NEW_VERSION="${major}.${minor}.$((patch + 1))"
           printf '%s\n' "$NEW_VERSION" > VERSION
-
           echo "previous_version=$VERSION_RAW" >> "$GITHUB_OUTPUT"
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push VERSION bump
+        id: commit
         env:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add VERSION
           git commit -m "chore: bump patch version to ${NEW_VERSION} [skip version-bump]"
           git push origin HEAD:main
+          echo "source_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch installer workflows
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
+  windows-installer:
+    needs: bump-version
+    uses: ./.github/workflows/windows-installer.yml
+    with:
+      source_ref: ${{ needs.bump-version.outputs.source_ref }}
 
-          gh workflow run windows-installer.yml --ref main
-          gh workflow run linux-installer.yml --ref main
-          gh workflow run macos-installer.yml --ref main
+  linux-installer:
+    needs: bump-version
+    uses: ./.github/workflows/linux-installer.yml
+    with:
+      source_ref: ${{ needs.bump-version.outputs.source_ref }}
+
+  macos-installer:
+    needs: bump-version
+    uses: ./.github/workflows/macos-installer.yml
+    with:
+      source_ref: ${{ needs.bump-version.outputs.source_ref }}

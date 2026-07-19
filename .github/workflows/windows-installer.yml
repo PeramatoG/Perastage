@@ -30,31 +30,53 @@ jobs:
       VCPKG_ROOT:         ${{ github.workspace }}\vcpkg
       VCPKG_INSTALLED:    ${{ github.workspace }}\.vcpkg-cache\installed
       VCPKG_DOWNLOADS:    ${{ github.workspace }}\.vcpkg-cache\downloads
-      VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
       VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_PACKAGES:     ${{ github.workspace }}\.vcpkg-cache\packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache\binary
+      CI_LOG_DIR: ${{ github.workspace }}\out\ci-logs
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.vcpkg-cache\binary,readwrite
 
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      - name: Read vcpkg baseline
+        id: vcpkg-baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
+          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
 
       # ── 2. Cache vcpkg installed tree + downloads ───────────────────────────
       # The cache key includes the workflow file itself so a change in the
       # package list busts the cache automatically.
-      - name: Cache vcpkg
-        uses: actions/cache@v4
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            .vcpkg-cache/downloads
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-
+
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
         id: vcpkg-cache
         with:
           path: |
-            .vcpkg-cache\downloads
             .vcpkg-cache\installed
             .vcpkg-cache\packages
-          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
+            .vcpkg-cache\binary
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-x64-windows-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-
 
       # ── 3. Bootstrap vcpkg (always needed; the binary is never cached) ──────
       - name: Bootstrap vcpkg
@@ -83,10 +105,35 @@ jobs:
           New-Item -ItemType Directory -Path $env:VCPKG_INSTALLED   -Force | Out-Null
           New-Item -ItemType Directory -Path $env:VCPKG_PACKAGES    -Force | Out-Null
 
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows --x-manifest-root="$env:GITHUB_WORKSPACE" `
-            --x-install-root="$env:VCPKG_INSTALLED" `
-            --x-packages-root="$env:VCPKG_PACKAGES" `
-            --downloads-root="$env:VCPKG_DOWNLOADS"
+          # The wrapper forwards --x-install-root, --x-packages-root, and --downloads-root to vcpkg.
+          python .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
+            --install-root "$env:VCPKG_INSTALLED" `
+            --packages-root "$env:VCPKG_PACKAGES" `
+            --downloads-root "$env:VCPKG_DOWNLOADS" `
+            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
+            --log "$env:CI_LOG_DIR\vcpkg-install-x64-windows.log"
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+
+      - name: Upload CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.job }}-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
+            build/**/*.log
+            build/**/CMakeOutput.log
+            build/**/CMakeError.log
 
       - name: Validate vcpkg gettext tools
         shell: pwsh
@@ -152,14 +199,14 @@ jobs:
           Get-ChildItem -Path $symbolsDir -Recurse
 
       - name: Upload Windows symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-windows-symbols
           path: out/symbols/windows
 
       # ── 8. Upload staged build ───────────────────────────────────────────────
       - name: Upload staged distribution
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-windows-staged
           path: out/install/Release
@@ -209,39 +256,62 @@ jobs:
 
       # ── 12. Upload installer artifact ────────────────────────────────────────
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-windows-installer
           path: out/installer
 
 
   test-windows-secure-store:
+    needs: build-windows-installer
     runs-on: windows-latest
 
     env:
       VCPKG_ROOT:         ${{ github.workspace }}\vcpkg
       VCPKG_INSTALLED:    ${{ github.workspace }}\.vcpkg-cache\installed
       VCPKG_DOWNLOADS:    ${{ github.workspace }}\.vcpkg-cache\downloads
-      VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
       VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_PACKAGES:     ${{ github.workspace }}\.vcpkg-cache\packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache\binary
+      CI_LOG_DIR: ${{ github.workspace }}\out\ci-logs
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.vcpkg-cache\binary,readwrite
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
+      - name: Read vcpkg baseline
+        id: vcpkg-baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
+          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
+
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
         with:
           path: |
-            .vcpkg-cache\downloads
+            .vcpkg-cache/downloads
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-
+
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        with:
+          path: |
             .vcpkg-cache\installed
             .vcpkg-cache\packages
-          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-tests-${{ env.VCPKG_BASELINE }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
+            .vcpkg-cache\binary
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-tests-${{ env.VCPKG_BASELINE }}-x64-windows-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-
 
       - name: Bootstrap vcpkg
         shell: pwsh
@@ -260,10 +330,35 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path $env:VCPKG_DOWNLOADS,$env:VCPKG_INSTALLED,$env:VCPKG_PACKAGES -Force | Out-Null
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows --x-manifest-root="$env:GITHUB_WORKSPACE" `
-            --x-install-root="$env:VCPKG_INSTALLED" `
-            --x-packages-root="$env:VCPKG_PACKAGES" `
-            --downloads-root="$env:VCPKG_DOWNLOADS"
+          python .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
+            --install-root "$env:VCPKG_INSTALLED" `
+            --packages-root "$env:VCPKG_PACKAGES" `
+            --downloads-root "$env:VCPKG_DOWNLOADS" `
+            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
+            --log "$env:CI_LOG_DIR\vcpkg-install-x64-windows.log"
+
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+
+      - name: Upload CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.job }}-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
+            build/**/*.log
+            build/**/CMakeOutput.log
+            build/**/CMakeError.log
 
       - name: Configure focused security tests
         shell: pwsh

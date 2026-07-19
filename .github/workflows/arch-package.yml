@@ -32,7 +32,9 @@ jobs:
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
-      VCPKG_BASELINE: 0878b5224d4a4968940ee296a2e7fae2d3b62983
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
+      CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
       VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_TARGET_TRIPLET: x64-linux
 
@@ -43,9 +45,18 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      - name: Read vcpkg baseline
+        id: vcpkg-baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
+          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
 
       - name: Install Arch build dependencies
         run: |
@@ -88,6 +99,25 @@ jobs:
           command -v libtoolize
           command -v autopoint
 
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ runner.os }}-${{ runner.arch }}-arch-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-arch-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-arch-vcpkg-downloads-
+
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: ${{ runner.os }}-${{ runner.arch }}-arch-vcpkg-installed-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+
       - name: Prepare vcpkg folders
         run: |
           mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
@@ -110,10 +140,34 @@ jobs:
           rm -rf "$VCPKG_PACKAGES"/gperf_* "$VCPKG_INSTALLED"/vcpkg/issue_body.md
           # Perastage still uses vcpkg for Linux CI because nanovg, PoDoFo, and
           # meshoptimizer availability can vary across distro repositories.
-          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-manifest-root="$GITHUB_WORKSPACE" \
-            --x-install-root="$VCPKG_INSTALLED" \
-            --x-packages-root="$VCPKG_PACKAGES" \
-            --downloads-root="$VCPKG_DOWNLOADS"
+          python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
+            --install-root "$VCPKG_INSTALLED" \
+            --packages-root "$VCPKG_PACKAGES" \
+            --downloads-root "$VCPKG_DOWNLOADS" \
+            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
+            --log "$CI_LOG_DIR/vcpkg-install-x64-linux.log"
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+
+      - name: Upload CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.job }}-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
+            build/**/*.log
+            build/**/CMakeOutput.log
+            build/**/CMakeError.log
 
       - name: Create makepkg user
         run: |
@@ -189,13 +243,13 @@ jobs:
           test -f "out/Perastage-$VERSION-ArchLinux-symbols.zip"
 
       - name: Upload Arch Linux symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-archlinux-symbols
           path: out/Perastage-*-ArchLinux-symbols.zip
 
       - name: Upload Arch package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-arch-package
           path: Perastage-*-arch-x86_64.pkg.tar.zst

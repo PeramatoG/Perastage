@@ -27,9 +27,11 @@ jobs:
       VCPKG_ROOT:        ${{ github.workspace }}/vcpkg
       VCPKG_INSTALLED:   ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS:   ${{ github.workspace }}/.vcpkg-cache/downloads
-      VCPKG_BASELINE:     0878b5224d4a4968940ee296a2e7fae2d3b62983
       VCPKG_CACHE_SCHEMA: securestore-v2
       VCPKG_PACKAGES:    ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
+      CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
       VCPKG_TRIPLET:     arm64-osx
 
       # Keep this workflow compatible with macOS 15.x Apple Silicon systems.
@@ -38,9 +40,18 @@ jobs:
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      - name: Read vcpkg baseline
+        id: vcpkg-baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
+          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
 
       # ── 2. Record macOS toolchain diagnostics ───────────────────────────────
       - name: Record macOS toolchain diagnostics
@@ -71,17 +82,28 @@ jobs:
           done
 
       # ── 4. Cache vcpkg installed tree + downloads ───────────────────────────
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        id: vcpkg-cache
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             .vcpkg-cache/downloads
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-
+
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        id: vcpkg-cache
+        with:
+          path: |
             .vcpkg-cache/installed
             .vcpkg-cache/packages
-          key: macos-15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-15-manual-installer.yml') }}
+            .vcpkg-cache/binary
+          key: macos-15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-15-manual-installer.yml') }}
           restore-keys: |
-            macos-15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-vcpkg-securestore-v2-${{ env.VCPKG_BASELINE }}-arm64-osx-
+            macos-15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-
 
       # ── 5. Prepare vcpkg cache folders ──────────────────────────────────────
       # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
@@ -156,10 +178,35 @@ jobs:
             echo "No stale macOS SDK path metadata found in the restored vcpkg cache."
           fi
 
-          "$VCPKG_ROOT/vcpkg" install --triplet arm64-osx --x-manifest-root="$GITHUB_WORKSPACE" \
-            --x-install-root="$VCPKG_INSTALLED" \
-            --x-packages-root="$VCPKG_PACKAGES" \
-            --downloads-root="$VCPKG_DOWNLOADS"
+          python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet arm64-osx --manifest-root "$GITHUB_WORKSPACE" \
+            --install-root "$VCPKG_INSTALLED" \
+            --packages-root "$VCPKG_PACKAGES" \
+            --downloads-root "$VCPKG_DOWNLOADS" \
+            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
+            --log "$CI_LOG_DIR/vcpkg-install-arm64-osx.log"
+
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+
+      - name: Upload CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.job }}-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
+            build/**/*.log
+            build/**/CMakeOutput.log
+            build/**/CMakeError.log
 
       # ── 9. Configure CMake ──────────────────────────────────────────────────
       - name: Configure CMake
@@ -220,7 +267,7 @@ jobs:
 
       - name: Upload macOS build diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-macos15-build-diagnostics
           if-no-files-found: warn
@@ -261,7 +308,7 @@ jobs:
           test -d "$SYMBOLS_DIR/Perastage.dSYM"
 
       - name: Upload macOS symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-macos15-symbols
           path: out/symbols/macos15/Perastage.dSYM
@@ -431,7 +478,7 @@ jobs:
 
       # ── 16. Upload staged build ─────────────────────────────────────────────
       - name: Upload staged distribution
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-macos15-staged
           path: out/install/Release
@@ -505,7 +552,7 @@ jobs:
 
       # ── 20. Upload DMG package ──────────────────────────────────────────────
       - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Perastage-macos15-dmg
           path: out/installer/*.dmg
