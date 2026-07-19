@@ -231,5 +231,6 @@ You can also contact the project at **perastage.app@gmail.com**.
 - Fixed embedded Layout 2D fixture symbols so rotated GDTF fixtures choose the visible representative symbol plane and preserve the same orientation in preview and PDF export.
 
 ## Internal changes
+- Improved fixture symbol generation performance by avoiding redundant 2D scene reloads during orthographic capture, reusing offscreen framebuffer resources, memoizing unchanged GDTF semantic fingerprints in-process, and converting independent rendered symbol views in bounded parallel workers while preserving exact generated geometry.
 - Refactored runtime temporary storage so imports, exports, generated resources, and session caches use explicit Perastage-owned lifecycles.
 - Dictionary loading is now read-only for valid custom fixture and truss dictionaries; default seeding, reset, and managed-default recovery are explicit operations.

@@ -1,6 +1,7 @@
 #include "tools/scene_model_symbol_capture_service.h"
 
 #include <array>
+#include <chrono>
 #include <string>
 #include <unordered_map>
 
@@ -66,15 +67,10 @@ public:
                                  bool alignToLocalAxes)
       : cfg_(cfg) {
     auto &scene = cfg_.GetScene();
-    originalFixtures_ = scene.fixtures;
-    originalTrusses_ = scene.trusses;
-    originalSceneObjects_ = scene.sceneObjects;
-    originalSupports_ = scene.supports;
-
-    scene.fixtures.clear();
-    scene.trusses.clear();
-    scene.sceneObjects.clear();
-    scene.supports.clear();
+    originalFixtures_.swap(scene.fixtures);
+    originalTrusses_.swap(scene.trusses);
+    originalSceneObjects_.swap(scene.sceneObjects);
+    originalSupports_.swap(scene.supports);
 
     switch (target.kind) {
     case SceneModelKind::Fixture: {
@@ -116,10 +112,14 @@ public:
   // Restores the original scene content after isolated capture is complete.
   ~ScopedSingleModelSceneOverride() {
     auto &scene = cfg_.GetScene();
-    scene.fixtures = std::move(originalFixtures_);
-    scene.trusses = std::move(originalTrusses_);
-    scene.sceneObjects = std::move(originalSceneObjects_);
-    scene.supports = std::move(originalSupports_);
+    scene.fixtures.clear();
+    scene.trusses.clear();
+    scene.sceneObjects.clear();
+    scene.supports.clear();
+    scene.fixtures.swap(originalFixtures_);
+    scene.trusses.swap(originalTrusses_);
+    scene.sceneObjects.swap(originalSceneObjects_);
+    scene.supports.swap(originalSupports_);
   }
 
 private:
@@ -163,7 +163,7 @@ public:
     panel_.SetRenderOverrides(renderOverrides_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
-    panel_.UpdateScene(true);
+    panel_.UpdateScene(false);
   }
 
 private:
@@ -291,6 +291,7 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
+  capturePanel->UpdateScene(true);
 
   {
     std::vector<unsigned char> warmupPixels;
@@ -344,7 +345,6 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     capturePanel->SetRenderOverrides(renderOverrides);
     capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     capturePanel->SetView(request.view);
-    capturePanel->UpdateScene(true);
     capturePanel->FitViewToScene();
 
     symbols::RenderedSymbolImage render;

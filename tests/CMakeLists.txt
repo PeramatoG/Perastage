@@ -1750,6 +1750,13 @@ add_executable(support_resolution_test
 target_include_directories(support_resolution_test PRIVATE ../models)
 add_test(NAME SupportResolution COMMAND support_resolution_test)
 
+add_executable(symbol2d_image_builder_parallel_test
+               symbol2d_image_builder_parallel_test.cpp
+               ../core/symbols/Symbol2DImageBuilder.cpp)
+target_include_directories(symbol2d_image_builder_parallel_test PRIVATE ../core)
+add_test(NAME Symbol2DImageBuilderParallelExactEquality
+         COMMAND symbol2d_image_builder_parallel_test)
+
 add_executable(symbol_cache_manifest_test symbol_cache_manifest_test.cpp
                ../core/symbol_cache_manifest.cpp
                ../core/filesystem_path_utils.cpp)

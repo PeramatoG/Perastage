@@ -62,6 +62,7 @@ FramebufferCaptureTarget &FramebufferCaptureTarget::operator=(
   depthStencilRenderbuffer_ = other.depthStencilRenderbuffer_;
   width_ = other.width_;
   height_ = other.height_;
+  allocationCount_ = other.allocationCount_;
   complete_ = other.complete_;
   diagnostic_ = std::move(other.diagnostic_);
 
@@ -70,9 +71,19 @@ FramebufferCaptureTarget &FramebufferCaptureTarget::operator=(
   other.depthStencilRenderbuffer_ = 0;
   other.width_ = 0;
   other.height_ = 0;
+  other.allocationCount_ = 0;
   other.complete_ = false;
   other.diagnostic_.clear();
   return *this;
+}
+
+// Creates or reuses framebuffer resources when the requested size is unchanged.
+bool FramebufferCaptureTarget::EnsureSize(int width, int height) {
+  if (complete_ && width_ == width && height_ == height) {
+    diagnostic_.clear();
+    return true;
+  }
+  return Initialize(width, height);
 }
 
 // Creates the framebuffer, color texture, and depth/stencil attachment.
@@ -130,6 +141,7 @@ bool FramebufferCaptureTarget::Initialize(int width, int height) {
   }
 
   complete_ = true;
+  ++allocationCount_;
   diagnostic_.clear();
   return true;
 }
@@ -144,6 +156,9 @@ void FramebufferCaptureTarget::BindForReading() const {
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
   glReadBuffer(GL_COLOR_ATTACHMENT0);
 }
+
+// Releases all OpenGL resources owned by this target.
+void FramebufferCaptureTarget::Release() { Reset(); }
 
 // Releases any OpenGL objects owned by this target.
 void FramebufferCaptureTarget::Reset() {

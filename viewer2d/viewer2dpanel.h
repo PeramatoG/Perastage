@@ -65,6 +65,10 @@ struct Viewer2DRenderOverrides {
   std::optional<bool> symbolCaptureIncludeCoplanarEdges;
 };
 
+namespace glcapture {
+class FramebufferCaptureTarget;
+}
+
 class Viewer2DPanel : public wxGLCanvas {
 public:
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
@@ -214,6 +218,7 @@ private:
   void TrackRefreshTelemetry();
   bool RenderToRGBABackBufferFallback(std::vector<unsigned char> &pixels,
                                       int width, int height);
+  void ReleaseCaptureFramebufferTarget();
 
   std::array<float, 3> MapDragDelta(float dxMeters, float dyMeters) const;
   std::optional<std::array<float, 3>> ComputeSelectionDragCenterMeters() const;
@@ -397,6 +402,7 @@ private:
   std::optional<wxSize> m_layoutEditBaseSize;
   std::optional<wxSize> m_layoutEditViewportSize;
   std::optional<wxSize> m_captureFramebufferSizeOverride;
+  std::unique_ptr<glcapture::FramebufferCaptureTarget> m_captureFramebufferTarget;
   float m_layoutEditScale = 1.0f;
   bool m_preferPerastageSvgSymbolsForLayouts = false;
   std::optional<Viewer2DRenderOverrides> m_renderOverrides;

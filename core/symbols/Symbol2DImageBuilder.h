@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "Symbol2D.h"
@@ -26,6 +27,15 @@ struct ImageBuildParams {
 
 class Symbol2DImageBuilder {
 public:
+  static std::optional<Symbol2D>
+  BuildFromRenderedImage(const RenderedSymbolImage &render,
+                         const ImageBuildParams &params = ImageBuildParams{});
+
+  static std::vector<Symbol2D>
+  BuildFromRenderedImagesSequential(
+      const std::vector<RenderedSymbolImage> &renders,
+      const ImageBuildParams &params = ImageBuildParams{});
+
   static std::vector<Symbol2D>
   BuildFromRenderedImages(const std::vector<RenderedSymbolImage> &renders,
                           const ImageBuildParams &params = ImageBuildParams{});
