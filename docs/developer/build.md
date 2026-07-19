@@ -37,7 +37,7 @@ If an older build was configured against wxWidgets without `secretstore` or anot
 
 Gettext tools are build-time dependencies for localization catalog generation. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
-The shared Windows presets keep `C:/vcpkg` as a stable fallback and leave vcpkg manifest mode enabled so opening the project directly in Visual Studio can install missing manifest dependencies into `vcpkg_installed`. `setup_windows.ps1` writes an ignored `CMakeUserPresets.json` for the selected checkout and `vcpkg_installed` tree; those generated local presets set `VCPKG_MANIFEST_MODE=OFF` because setup already performed the explicit manifest install. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to `setup_windows.ps1` or maintain a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`.
+The shared Windows presets keep `C:/vcpkg` as a stable fallback and leave vcpkg manifest mode enabled so opening the project directly in Visual Studio can install missing manifest dependencies into the normal `C:/vcpkg/installed` tree. `setup_windows.ps1` writes an ignored `CMakeUserPresets.json` for the selected checkout and `vcpkg_installed` tree; those generated local presets set `VCPKG_MANIFEST_MODE=OFF` because setup already performed the explicit manifest install. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to `setup_windows.ps1` or maintain a local `CMakeUserPresets.json` that overrides both `CMAKE_TOOLCHAIN_FILE` and `VCPKG_INSTALLED_DIR`.
 
 `CMakeUserPresets.json` is local to each developer machine and should not be committed. Run Ninja presets from a Visual Studio Developer PowerShell or through `setup_windows.ps1`; otherwise CMake may report `CMAKE_CXX_COMPILER not set` because `cl.exe` is not initialized.
 
@@ -118,7 +118,7 @@ For the recommended setup-script workflow, this file is generated automatically 
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, run `setup_windows.ps1` first, then use the generated local Windows presets in Visual Studio. The generated local presets deliberately set `VCPKG_MANIFEST_MODE=OFF` because the setup script already ran the one manifest install into `vcpkg_installed`; this prevents CMake configure from launching a second vcpkg install into another tree. If you use only the shared presets without running setup, CMake/vcpkg manifest mode remains enabled so dependencies such as wxWidgets can be installed automatically.
+For the standard Windows setup, run `setup_windows.ps1` first, then use the generated local Windows presets in Visual Studio. The generated local presets deliberately set `VCPKG_MANIFEST_MODE=OFF` because the setup script already ran the one manifest install into `vcpkg_installed`; this prevents CMake configure from launching a second vcpkg install into another tree. If you use only the shared presets without running setup, CMake/vcpkg manifest mode remains enabled and uses `C:/vcpkg/installed` so dependencies such as wxWidgets can be installed automatically without depending on the setup-script `vcpkg_installed` tree.
 
 Typical setup:
 

@@ -13,7 +13,7 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 
 ## Recommended vcpkg location
 
-The shared Windows presets keep `C:/vcpkg` as a stable fallback and allow vcpkg manifest mode so Visual Studio can install missing dependencies into `vcpkg_installed` when setup has not been run. The setup script creates `.tools/vcpkg` by default, installs dependencies into `vcpkg_installed`, and writes an ignored `CMakeUserPresets.json` with manifest mode disabled so Visual Studio can use those prepared local paths. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to the setup script or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
+The shared Windows presets keep `C:/vcpkg` as a stable fallback and allow vcpkg manifest mode so Visual Studio can install missing dependencies into the normal `C:/vcpkg/installed` tree when setup has not been run. The setup script creates `.tools/vcpkg` by default, installs dependencies into `vcpkg_installed`, and writes an ignored `CMakeUserPresets.json` with manifest mode disabled so Visual Studio can use those prepared local paths. If you intentionally use another vcpkg checkout, pass `-VcpkgRoot` to the setup script or create a local `CMakeUserPresets.json`. See [Build and Dependency Guide](../developer/build.md) for details.
 
 ## Install dependencies
 

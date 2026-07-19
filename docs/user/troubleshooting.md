@@ -54,7 +54,7 @@ Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 
 or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, CMake is probably using a different vcpkg installation than the one where Perastage dependencies were installed.
 
-On Windows, shared presets keep `C:/vcpkg` as a fallback and leave manifest mode enabled so Visual Studio can install missing packages into `vcpkg_installed`. Run `setup_windows.ps1` when you want the repository-local `.tools/vcpkg` checkout; the script writes `CMakeUserPresets.json` for the selected checkout and repository-local `vcpkg_installed` tree. Verify the default setup-script paths from the repository root:
+On Windows, shared presets keep `C:/vcpkg` as a fallback and leave manifest mode enabled so Visual Studio can install missing packages into the normal `C:/vcpkg/installed` tree. Run `setup_windows.ps1` when you want the repository-local `.tools/vcpkg` checkout; the script writes `CMakeUserPresets.json` for the selected checkout and repository-local `vcpkg_installed` tree. Verify the default setup-script paths from the repository root:
 
 ```powershell
 Test-Path ".\.tools\vcpkg\vcpkg.exe"
@@ -163,7 +163,7 @@ You can also use `-VisualStudioVersion` with a vswhere-compatible version range 
 
 ### wxWidgetsConfig.cmake is missing on Windows
 
-If CMake reports that `wxWidgetsConfig.cmake` or `wxwidgets-config.cmake` is missing from `C:/vcpkg`, it usually means dependencies were not installed into the `VCPKG_INSTALLED_DIR` used by the active preset. The shared Windows presets leave vcpkg manifest mode enabled, so Visual Studio can install missing manifest dependencies into `vcpkg_installed` during configure. If you are using generated local presets from `setup_windows.ps1`, run the setup script again because those local presets set `VCPKG_MANIFEST_MODE=OFF` after the explicit install has already completed.
+If CMake reports that `wxWidgetsConfig.cmake` or `wxwidgets-config.cmake` is missing from `C:/vcpkg`, it usually means dependencies were not installed into the installed tree used by the active preset. The shared Windows presets leave vcpkg manifest mode enabled and do not override `VCPKG_INSTALLED_DIR`, so Visual Studio uses the normal `C:/vcpkg/installed` tree. If you are using generated local presets from `setup_windows.ps1`, run the setup script again because those local presets set `VCPKG_MANIFEST_MODE=OFF` after the explicit install into `vcpkg_installed` has already completed.
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild

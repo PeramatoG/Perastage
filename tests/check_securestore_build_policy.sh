@@ -36,7 +36,7 @@ rg -q 'PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE.*ON|PERASTAGE_REQUIRE_SECURE_CR
 rg -q 'bootstrap-vcpkg\.bat' setup_windows.ps1
 rg -q 'checkout --detach' setup_windows.ps1 .github/workflows/windows-installer.yml
 rg -q -- '--x-install-root' setup_windows.ps1 .github/workflows/windows-installer.yml
-rg -q 'VCPKG_INSTALLED_DIR' setup_windows.ps1 CMakePresets.json .github/workflows/windows-installer.yml
+rg -q 'VCPKG_INSTALLED_DIR' setup_windows.ps1 .github/workflows/windows-installer.yml
 rg -q 'Write-PerastageCMakeUserPresets' setup_windows.ps1
 rg -q 'Test-PerastageLocalPresetsCompatible' setup_windows.ps1
 rg -q 'Initialize-X64MsvcEnvironment' setup_windows.ps1
@@ -65,7 +65,7 @@ for preset in presets['configurePresets']:
     if preset['name'].startswith('win-x64-'):
         cache = preset.get('cacheVariables', {})
         assert cache.get('CMAKE_TOOLCHAIN_FILE') == 'C:/vcpkg/scripts/buildsystems/vcpkg.cmake', preset['name']
-        assert cache.get('VCPKG_INSTALLED_DIR') == '${sourceDir}/vcpkg_installed', preset['name']
+        assert 'VCPKG_INSTALLED_DIR' not in cache, preset['name']
         assert 'VCPKG_MANIFEST_MODE' not in cache, preset['name']
     if preset['name'] in {'win-x64-release-ninja', 'win-x64-debug-ninja'}:
         arch = preset.get('architecture', {})
