@@ -267,7 +267,7 @@ bool LayoutTemplatePackageService::ExportPackage(
   std::error_code ec;
   fs::remove(temp, ec);
   {
-    wxFFileOutputStream out(WxString::FromUTF8(ToUtf8String(temp).c_str()));
+    wxFFileOutputStream out(wxString::FromUTF8(ToUtf8String(temp).c_str()));
     if (!out.IsOk()) {
       if (error)
         *error = "Could not open temporary package file.";
@@ -331,7 +331,7 @@ bool LayoutTemplatePackageService::ImportFile(
 bool LayoutTemplatePackageService::ImportPortablePackage(
     const std::string &sourcePath, LayoutTemplateImportResult &result,
     std::string *error) {
-  wxFFileInputStream input(WxString::FromUTF8(sourcePath.c_str()));
+  wxFFileInputStream input(wxString::FromUTF8(sourcePath.c_str()));
   if (!input.IsOk()) {
     if (error)
       *error = "Could not open layout package.";
