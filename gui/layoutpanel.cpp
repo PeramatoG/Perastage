@@ -97,7 +97,9 @@ void LayoutPanel::ReloadLayouts() {
   }
   repairingSelection = false;
 
-  EnsureValidSelection(true);
+  const int selectedRow = EnsureValidSelection(false);
+  if (selectedRow != wxNOT_FOUND && !currentLayout.empty())
+    EmitLayoutSelected(currentLayout);
   UpdateActionAvailability();
 }
 
