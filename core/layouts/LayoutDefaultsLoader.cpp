@@ -1,6 +1,7 @@
 #include "LayoutDefaultsLoader.h"
 #include "filesystem_path_utils.h"
 
+#include "LayoutTemplatePackageService.h"
 #include "LayoutTemplateSerializer.h"
 #include "json.hpp"
 #include "projectutils.h"
@@ -15,14 +16,25 @@ namespace layouts {
 namespace {
 namespace fs = std::filesystem;
 
+// Converts a filesystem path to UTF-8 text for layout services.
 std::string ToUtf8String(const fs::path &path) {
   const std::u8string utf8 = path.u8string();
   return std::string(utf8.begin(), utf8.end());
 }
 
-bool IsJsonTemplateFile(const fs::path &filePath) {
+// Reports whether a file extension is a supported default layout template.
+bool IsSupportedTemplateFile(const fs::path &filePath) {
   if (!filePath.has_extension())
     return false;
+  std::string ext = filePath.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return ext == ".pslayout" || ext == ".json";
+}
+
+// Reports whether a default template is a legacy JSON file.
+bool IsLegacyJsonTemplateFile(const fs::path &filePath) {
   std::string ext = filePath.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
@@ -30,6 +42,7 @@ bool IsJsonTemplateFile(const fs::path &filePath) {
   return ext == ".json";
 }
 
+// Removes the app-resource prefix accepted by legacy JSON templates.
 std::string StripResourcesPrefix(const std::string &relativePath) {
   constexpr const char *kPrefixForward = "resources/";
   constexpr const char *kPrefixBackward = "resources\\";
@@ -40,6 +53,7 @@ std::string StripResourcesPrefix(const std::string &relativePath) {
   return relativePath;
 }
 
+// Resolves a legacy JSON image path against supported template roots.
 std::string ResolveImagePath(const std::string &rawPath,
                              const fs::path &templateDir) {
   if (rawPath.empty())
@@ -89,6 +103,7 @@ std::string ResolveImagePath(const std::string &rawPath,
   return rawPath;
 }
 
+// Resolves all legacy JSON image paths in loaded default layouts.
 void ResolveLayoutImagePaths(std::vector<LayoutDefinition> &loadedLayouts,
                              const fs::path &templateDir) {
   for (auto &layout : loadedLayouts) {
@@ -99,6 +114,7 @@ void ResolveLayoutImagePaths(std::vector<LayoutDefinition> &loadedLayouts,
 
 } // namespace
 
+// Loads default layout templates from the configured library directory.
 LayoutDefaultsLoadResult LoadLayoutDefaultsFromLibrary(
     const std::string &librarySubdir) {
   LayoutDefaultsLoadResult result;
@@ -121,7 +137,7 @@ LayoutDefaultsLoadResult LoadLayoutDefaultsFromLibrary(
       break;
     if (!entry.is_regular_file())
       continue;
-    if (!IsJsonTemplateFile(entry.path()))
+    if (!IsSupportedTemplateFile(entry.path()))
       continue;
     templateFiles.push_back(entry.path());
   }
@@ -129,6 +145,18 @@ LayoutDefaultsLoadResult LoadLayoutDefaultsFromLibrary(
 
   for (const fs::path &templateFile : templateFiles) {
     ++result.filesScanned;
+
+    if (!IsLegacyJsonTemplateFile(templateFile)) {
+      LayoutTemplateImportResult importResult;
+      std::string importError;
+      if (!LayoutTemplatePackageService::ImportPortablePackage(
+              ToUtf8String(templateFile), importResult, &importError)) {
+        continue;
+      }
+      result.filesImported++;
+      result.layouts.push_back(std::move(importResult.layout));
+      continue;
+    }
 
     std::ifstream in(templateFile, std::ios::binary);
     if (!in.is_open())

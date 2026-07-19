@@ -44,6 +44,11 @@ public:
   std::vector<ResourceEntry> UsedResources() const;
   int UsageCount(const std::string &archivePath) const;
   bool HasResourceBytes(const std::string &archivePath) const;
+  bool GetResourceBytes(const std::string &archivePath,
+                        std::vector<std::uint8_t> &out) const;
+  void RegisterResourceBytes(const std::string &archivePath,
+                             const std::string &originalPath,
+                             const std::vector<std::uint8_t> &bytes);
 
 private:
   LayoutImageResourceRegistry() = default;

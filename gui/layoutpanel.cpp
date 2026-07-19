@@ -280,9 +280,9 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
     return;
 
   const wxString selectedName = list->GetTextValue(sel, 0);
-  wxFileDialog saveDialog(this, "Export layout template", wxEmptyString,
-                          selectedName + ".json",
-                          "JSON files (*.json)|*.json",
+  wxFileDialog saveDialog(this, "Export layout package", wxEmptyString,
+                          selectedName + ".pslayout",
+                          "Perastage layout packages (*.pslayout)|*.pslayout",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDialog.ShowModal() != wxID_OK)
     return;
@@ -291,16 +291,20 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
   if (!layouts::LayoutManager::Get().ExportLayoutTemplate(
           selectedName.ToStdString(), saveDialog.GetPath().ToStdString(),
           &error)) {
-    wxMessageBox("Could not export layout template.\n" +
+    wxMessageBox("Could not export layout package.\n" +
                      wxString::FromUTF8(error),
-                 "Export template", wxOK | wxICON_ERROR, this);
+                 "Export layout package", wxOK | wxICON_ERROR, this);
     return;
   }
+
+  wxMessageBox("Layout package exported successfully.",
+               "Export layout package", wxOK | wxICON_INFORMATION, this);
 }
 
 void LayoutPanel::OnImportLayoutTemplate(wxCommandEvent &) {
   wxFileDialog openDialog(this, "Import layout template", wxEmptyString,
-                          wxEmptyString, "JSON files (*.json)|*.json",
+                          wxEmptyString,
+                          "All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (openDialog.ShowModal() != wxID_OK)
     return;

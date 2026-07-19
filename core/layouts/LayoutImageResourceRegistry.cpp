@@ -167,4 +167,26 @@ bool LayoutImageResourceRegistry::HasResourceBytes(
   return it != resources.end() && !it->second.bytes.empty();
 }
 
+// Copies a registered resource payload for callers that need to package it.
+bool LayoutImageResourceRegistry::GetResourceBytes(
+    const std::string &archivePath, std::vector<std::uint8_t> &out) const {
+  auto it = resources.find(archivePath);
+  if (it == resources.end() || it->second.bytes.empty())
+    return false;
+  out = it->second.bytes;
+  return true;
+}
+
+// Registers already materialized packaged resource bytes without reading source files.
+void LayoutImageResourceRegistry::RegisterResourceBytes(
+    const std::string &archivePath, const std::string &originalPath,
+    const std::vector<std::uint8_t> &bytes) {
+  if (archivePath.empty() || bytes.empty())
+    return;
+  auto &entry = resources[archivePath];
+  entry.archivePath = archivePath;
+  entry.originalPath = originalPath;
+  entry.bytes = bytes;
+}
+
 } // namespace layouts

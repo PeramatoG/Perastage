@@ -16,7 +16,8 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 ### Project files and defaults
 
 - Perastage projects use the `.pstg` format.
-- New projects can load default layout templates from `library/default_layouts/`.
+- New projects can load default layout templates from `library/default_layouts/`; portable `.pslayout` packages are preferred, with legacy `.json` templates still accepted for compatibility.
+- Layout template export uses `.pslayout`, a self-contained ZIP-based package that includes layout JSON and referenced layout images. Legacy `.json` layout templates can still be imported, but standalone JSON export is no longer offered.
 - Save, Save As, and Load workflows preserve scene and user-facing project context.
 
 ### Layer-aware organization

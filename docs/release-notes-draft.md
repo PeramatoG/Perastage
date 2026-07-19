@@ -17,6 +17,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ### Interface and workflow
 
+- Replaced standalone JSON layout-template export with portable `.pslayout` packages. Layout packages are ZIP-based, self-contained, include referenced layout images, and remain importable alongside legacy JSON templates for compatibility.
 - Added interface-language selection for **English** and **Spanish**. The selected language is stored in Preferences and is applied after restarting the application.
 - Added **Cross-table Actions** to the viewport toolbar. When enabled, hover, selection, measurement, and compatible tools can work across all supported object types instead of being limited to the active Data Views table.
 - Added a **Gap Measure Tool** to the viewport toolbar for measuring the nearest edge-to-edge space between two scene objects, complementing the existing center-to-center measurement tool.
