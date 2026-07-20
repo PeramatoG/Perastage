@@ -10,6 +10,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Added the new **Edit Truss** dialog and significantly expanded the GDTF information available in **Edit Fixture**.
 - Added **Cross-table Actions**, allowing compatible 2D and 3D tools to work across fixtures, trusses, hoists, and scene objects.
 - Added a **Scene Object to Truss** conversion tool.
+- Added 2D and 3D viewer context-menu shortcuts for selecting trusses by model/source file or hang position from the **Trusses** table.
 - Added a **Spanish interface**, selectable from Preferences and applied after restarting Perastage.
 - Improved MVR/GDTF compatibility, 3D picking stability, Unicode handling, crash diagnostics, and release packaging.
 
