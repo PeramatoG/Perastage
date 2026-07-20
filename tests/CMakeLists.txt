@@ -1963,7 +1963,6 @@ add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
 
 add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
                ../core/layer_service.cpp
-               ../core/configservices.cpp
                ../core/utf8_utils.cpp
                ../core/uuidutils.cpp
                ../models/layer.cpp
