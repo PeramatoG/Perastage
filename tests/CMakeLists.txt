@@ -960,12 +960,16 @@ set_library_env(MvrLayerAppearanceUserData)
 
 
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -996,12 +1000,16 @@ add_test(NAME MvrFixtureCategoryRoundtrip COMMAND mvr_fixture_category_roundtrip
 set_library_env(MvrFixtureCategoryRoundtrip)
 
 add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_identity_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -1015,6 +1023,8 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../mvr/primitive_model_resources.cpp
                ../viewer3d/culling/bounds_cache_system.cpp
                ../viewer3d/culling/primitive_bounds_utils.cpp
+               ../viewer3d/meshprimitives.cpp
+               resource_sync_key_stub.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
@@ -1035,12 +1045,16 @@ add_test(NAME MvrSceneObjectSymbolIdentity COMMAND mvr_sceneobject_symbol_identi
 set_library_env(MvrSceneObjectSymbolIdentity)
 
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -1071,13 +1085,16 @@ add_test(NAME MvrTrussRoundtripStructure COMMAND mvr_truss_roundtrip_structure_t
 set_library_env(MvrTrussRoundtripStructure)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
-               ${PERASTAGE_GENERATED_BUILD_INFO_CPP}
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
