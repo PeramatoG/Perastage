@@ -1993,13 +1993,15 @@ add_executable(dictionary_reset_transaction_test
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/projectutils.cpp
-               ../core/apppaths.cpp
                ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../core/trussdictionary.cpp
                ../models/mvrscene.cpp
-               ../models/truss.cpp)
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
 target_include_directories(dictionary_reset_transaction_test PRIVATE
                            . ../core ../models ../third_party)
 target_link_libraries(dictionary_reset_transaction_test PRIVATE
@@ -2026,8 +2028,7 @@ add_executable(gdtf_share_security_test
                ../core/credentialstore.cpp
                ../core/simplecrypt.cpp
                ../core/apppaths.cpp
-               ../core/configmanager.cpp
-               ../core/configservices.cpp
+               configmanager_layoutmanager_stub.cpp
                ../core/filesystem_path_utils.cpp
                ../core/logger.cpp
                ../core/diagnostics/DiagnosticLogger.cpp
