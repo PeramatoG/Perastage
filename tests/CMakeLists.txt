@@ -1125,6 +1125,7 @@ add_test(NAME MvrExporterCompliance COMMAND mvr_exporter_compliance_test)
 set_library_env(MvrExporterCompliance)
 
 add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
+               build_info_stub.cpp
                pdftext_stub.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
@@ -1140,6 +1141,9 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/utf8_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/layer_service.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp

@@ -39,6 +39,11 @@ std::optional<std::unordered_map<std::string, Entry>> Load() { return std::unord
 bool Save(const std::unordered_map<std::string, Entry> &, std::string *) { return true; }
 // Returns no entry because lookup is intentionally stubbed.
 std::optional<Entry> Get(const std::string &) { return std::nullopt; }
+// Returns no entry because loaded-dictionary lookup is intentionally stubbed.
+std::optional<Entry> FindInLoadedDictionary(
+    const std::unordered_map<std::string, Entry> &, const std::string &, bool) {
+  return std::nullopt;
+}
 // Performs no operation because dictionary updates are intentionally stubbed.
 void Update(const std::string &, const std::string &, const std::string &, const std::string &) {}
 // Performs no operation because category updates are intentionally stubbed.
@@ -60,6 +65,12 @@ std::optional<std::unordered_map<std::string, std::string>> Load() { return std:
 void Save(const std::unordered_map<std::string, std::string> &) {}
 // Returns no value because lookup is intentionally stubbed.
 std::optional<std::string> Get(const std::string &) { return std::nullopt; }
+// Returns no value because loaded-dictionary lookup is intentionally stubbed.
+std::optional<std::string> FindInLoadedDictionary(
+    const std::unordered_map<std::string, std::string> &, const std::string &,
+    bool) {
+  return std::nullopt;
+}
 // Performs no operation because dictionary updates are intentionally stubbed.
 void Update(const std::string &, const std::string &) {}
 // Returns false because truss-file import is intentionally disabled in this stub.
@@ -73,10 +84,25 @@ bool LoadTrussArchive(const std::string &, Truss &) { return false; }
 bool MvrImporter::ImportFromFile(const std::string &, bool, bool, ProgressCallback) { return false; }
 // Returns false because register-based MVR import is intentionally disabled in this stub.
 bool MvrImporter::ImportAndRegister(const std::string &, bool, bool, ProgressCallback) { return false; }
+// Returns false because option-based MVR import is intentionally disabled in this stub.
+bool MvrImporter::ImportAndRegister(const std::string &,
+                                    const MvrImportOptions &,
+                                    ProgressCallback) {
+  return false;
+}
 // Returns false because file-based MVR export is intentionally disabled in this stub.
 bool MvrExporter::ExportToFile(const std::string &) { return false; }
 // Returns false because buffer-based MVR export is intentionally disabled in this stub.
 bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &) { return false; }
+// Returns false because option-based buffer MVR export is intentionally disabled in this stub.
+bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &,
+                                  const MvrExportOptions &) {
+  return false;
+}
+// Returns collected export warnings for the stub exporter.
+const std::vector<std::string> &MvrExporter::GetExportWarnings() const {
+  return m_exportWarnings;
+}
 
 
 // Returns false because truss GDTF loading is intentionally disabled in this stub.
