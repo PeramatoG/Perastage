@@ -517,10 +517,14 @@ add_executable(dictionary_seed_merge_backup_test
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/trussdictionary.cpp
                ../models/truss.cpp
                ../models/mvrscene.cpp)
@@ -542,7 +546,11 @@ add_executable(active_dictionary_workflow_test
                ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/trussdictionary.cpp
                ../models/truss.cpp
                ../models/mvrscene.cpp)
