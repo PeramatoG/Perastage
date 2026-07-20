@@ -837,6 +837,7 @@ target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr)
 add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
+               build_info_stub.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -847,6 +848,9 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -874,12 +878,16 @@ set_library_env(MvrDmxAddressConversion)
 
 
 add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -911,12 +919,16 @@ set_library_env(MvrSupportUserDataRoundtrip)
 
 
 add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
