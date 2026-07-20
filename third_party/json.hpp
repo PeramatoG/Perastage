@@ -2398,7 +2398,12 @@ JSON_HEDLEY_DIAGNOSTIC_POP
 #endif
 
 #ifdef __has_include
-    #if __has_include(<version>)
+    #if defined(_MSC_VER)
+        // MSVC exposes feature-test macros through yvals_core without including extensionless <version>.
+        #if __has_include(<yvals_core.h>)
+            #include <yvals_core.h>
+        #endif
+    #elif __has_include(<version>)
         #include <version>
     #endif
 #endif
