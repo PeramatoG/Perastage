@@ -343,6 +343,7 @@ add_test(NAME UiUnitUtilsRoundTrip COMMAND ui_unit_utils_test)
 
 add_executable(gdtf_canonicalizer_test
                gdtf_canonicalizer_test.cpp
+               build_info_stub.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp)
 target_include_directories(gdtf_canonicalizer_test PRIVATE ../core ../third_party)

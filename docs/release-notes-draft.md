@@ -77,6 +77,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 ## Important fixes
 
 - Fixed the GDTF canonicalizer test so it builds with TinyXML2 versions whose document type is non-copyable.
+- Fixed the GDTF canonicalizer test target so mutation-audit build metadata resolves during full rebuilds.
 - Fixed GDTF loader regression tests so they include the real viewer loader API instead of the lightweight test stub during full rebuilds.
 - Fixed Windows builds that could accidentally include a local project `version` file while third-party JSON feature detection probes standard library headers.
 - Fixed the symbol cache manifest test so Windows rebuilds see the standard file-stream declaration.
