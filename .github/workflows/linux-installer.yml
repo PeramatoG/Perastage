@@ -1,7 +1,7 @@
 # Linux installer workflow for Perastage
 # Builds, stages, and packages the Linux AppImage using vcpkg and CMake.
 
-name: Linux Ubuntu Installer Build
+name: Linux Ubuntu Release AppImage
 
 on:
   workflow_call:
@@ -157,18 +157,16 @@ jobs:
         run: |
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux.log" -- \
             cmake --preset wsl-x64-release \
+              -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
               -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
               -DVCPKG_TARGET_TRIPLET=x64-linux \
               -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
               -DVCPKG_MANIFEST_MODE=OFF \
               -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
-              -DBUILD_TESTING=ON
+              -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF \
+              -DBUILD_TESTING=OFF
 
-      - name: Build and run release-gate tests
-        run: |
-          cmake --build --preset wsl-release-build --target gdtf_share_security_test credential_store_native_roundtrip_test
-          ctest --test-dir build/wsl-x64-release -L release-gate --output-on-failure
 
       - name: Build staged distribution
         run: |

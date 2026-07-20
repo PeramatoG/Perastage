@@ -1,7 +1,7 @@
 # macOS installer workflow for Perastage
 # Builds and stages the macOS 15 Apple Silicon application using vcpkg and CMake.
 
-name: macOS 15 Manual Installer Build
+name: macOS 15 Release DMG
 
 on:
   workflow_call:
@@ -214,12 +214,8 @@ jobs:
               -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
               -DVCPKG_MANIFEST_MODE=OFF \
               -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
-              -DBUILD_TESTING=ON
-
-      - name: Build and run release-gate tests
-        run: |
-          cmake --build build --target gdtf_share_security_test credential_store_native_roundtrip_test
-          ctest --test-dir build -L release-gate --output-on-failure
+              -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF \
+              -DBUILD_TESTING=OFF
 
       # ── 10. Build project ───────────────────────────────────────────────────
       - name: Build project

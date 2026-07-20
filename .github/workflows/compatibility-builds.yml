@@ -1,0 +1,61 @@
+name: Weekly Compatibility Packages
+
+on:
+  schedule:
+    - cron: '27 3 * * 2'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Optional exact branch, tag, or commit to build. Defaults to main.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: compatibility-packages-${{ inputs.source_ref || 'main' }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-source:
+    runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.resolve.outputs.source_sha }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || 'main' }}
+          fetch-depth: 0
+      - id: resolve
+        run: |
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+  macos15-installer:
+    needs: resolve-source
+    uses: ./.github/workflows/macos-15-manual-installer.yml
+    with:
+      source_ref: ${{ needs.resolve-source.outputs.source_sha }}
+  arch-package:
+    needs: resolve-source
+    uses: ./.github/workflows/arch-package.yml
+    with:
+      source_ref: ${{ needs.resolve-source.outputs.source_sha }}
+  summarize:
+    if: ${{ always() }}
+    needs: [resolve-source, macos15-installer, arch-package]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # Weekly compatibility packages
+          Source SHA: ${{ needs.resolve-source.outputs.source_sha }}
+          Version: ${{ needs.resolve-source.outputs.version }}
+          macOS 15 package: Perastage-*-macOS15-arm64.dmg (${{ needs.macos15-installer.result }})
+          Arch package: Perastage-*-arch-x86_64.pkg.tar.zst (${{ needs.arch-package.result }})
+          EOF
+          test "${{ needs.macos15-installer.result }}" = success
+          test "${{ needs.arch-package.result }}" = success

@@ -13,3 +13,4 @@ This section collects maintainer-facing build, architecture, packaging, policy, 
 - [GDTF Mutation Policy](gdtf_mutation_policy.md)
 - [GUI Shortcut Architecture](gui_shortcut_architecture.md)
 - [Technical Notes](technical-notes/index.md)
+- [GitHub Actions workflow architecture](github_actions_workflows.md)

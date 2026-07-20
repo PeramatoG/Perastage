@@ -9,6 +9,33 @@
 #include <map>
 #include <vector>
 
+// Returns true when any JSON string value equals the provided sentinel.
+bool ContainsJsonStringValue(const nlohmann::json& value, const std::string& sentinel) {
+    if (value.is_string()) return value.get<std::string>() == sentinel;
+    if (value.is_array()) {
+        for (const auto& item : value) { if (ContainsJsonStringValue(item, sentinel)) return true; }
+        return false;
+    }
+    if (value.is_object()) {
+        for (const auto& item : value.items()) { if (ContainsJsonStringValue(item.value(), sentinel)) return true; }
+    }
+    return false;
+}
+
+// Returns true when any JSON object key equals the provided field name.
+bool ContainsJsonObjectKey(const nlohmann::json& value, const std::string& fieldName) {
+    if (value.is_array()) {
+        for (const auto& item : value) { if (ContainsJsonObjectKey(item, fieldName)) return true; }
+        return false;
+    }
+    if (value.is_object()) {
+        for (const auto& item : value.items()) {
+            if (item.key() == fieldName || ContainsJsonObjectKey(item.value(), fieldName)) return true;
+        }
+    }
+    return false;
+}
+
 class FakeBackend final : public CredentialStore::CredentialBackend {
 public:
     bool available = true;
@@ -133,22 +160,31 @@ void TestCredentialStorage() {
     CredentialStore::SetCredentialMetadataPathForTesting((dir / "gdtf_credentials.json").string());
     auto backend = std::make_shared<FakeBackend>();
     CredentialStore::SetCredentialBackendForTesting(backend);
-    CredentialStore::Credentials cred{"user", "secret"};
+    const std::string username = "perastage-test-user";
+    const std::string password = "perastage-test-password-gdtf-share-security-sentinel";
+    CredentialStore::Credentials cred{username, password};
     CredentialStore::Result save = CredentialStore::Save(cred);
     assert(save.Succeeded());
     assert(save.metadataWritten);
     assert(save.secretWritten);
     auto loaded = CredentialStore::LoadDetailed();
-    assert(loaded.credentials && loaded.credentials->password == "secret");
+    assert(loaded.credentials && loaded.credentials->password == password);
     backend->stored.reset();
     auto usernameOnly = CredentialStore::LoadDetailed();
     assert(!usernameOnly.credentials);
-    assert(usernameOnly.usernameHint && *usernameOnly.usernameHint == "user");
+    assert(usernameOnly.usernameHint && *usernameOnly.usernameHint == username);
     backend->stored = cred;
     std::ifstream in(dir / "gdtf_credentials.json");
-    std::string meta((std::istreambuf_iterator<char>(in)), {});
-    assert(meta.find("secret") == std::string::npos);
-    assert(meta.find("password") == std::string::npos);
+    const auto metadata = nlohmann::json::parse(in);
+    assert(metadata.is_object());
+    assert(metadata.size() == 4);
+    assert(metadata.at("schema_version") == 1);
+    assert(metadata.at("backend") == "wx_secret_store");
+    assert(metadata.at("service") == CredentialStore::kGdtfShareCredentialService);
+    assert(metadata.at("username") == username);
+    assert(!ContainsJsonObjectKey(metadata, "password"));
+    assert(!ContainsJsonObjectKey(metadata, "secret"));
+    assert(!ContainsJsonStringValue(metadata, password));
     assert(CredentialStore::ClearDetailed().Succeeded());
     assert(!CredentialStore::LoadDetailed().credentials);
     backend->available = false;
@@ -158,7 +194,7 @@ void TestCredentialStorage() {
     assert(!unavailableSave.secretWritten);
     auto hintOnly = CredentialStore::LoadDetailed();
     assert(!hintOnly.credentials);
-    assert(hintOnly.usernameHint && *hintOnly.usernameHint == "user");
+    assert(hintOnly.usernameHint && *hintOnly.usernameHint == username);
     CredentialStore::SetCredentialBackendForTesting(nullptr);
     CredentialStore::SetCredentialMetadataPathForTesting("");
     fs::remove_all(dir);

@@ -1,6 +1,4 @@
-# Main branch patch version bump and tracked installer validation workflow.
-
-name: Main Patch Version and Test Installer Builds
+name: Main Patch Release Artifacts
 
 on:
   push:
@@ -28,29 +26,24 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       source_ref: ${{ steps.commit.outputs.source_ref }}
-
+      previous_version: ${{ steps.bump.outputs.previous_version }}
+      new_version: ${{ steps.bump.outputs.new_version }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
-
       - name: Bump patch version in VERSION
         id: bump
         run: |
           set -euo pipefail
           VERSION_RAW="$(tr -d '[:space:]' < VERSION)"
-          if ! [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION_RAW'"
-            exit 1
-          fi
+          [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION_RAW"; exit 1; }
           IFS='.' read -r major minor patch <<< "$VERSION_RAW"
           NEW_VERSION="${major}.${minor}.$((patch + 1))"
           printf '%s\n' "$NEW_VERSION" > VERSION
           echo "previous_version=$VERSION_RAW" >> "$GITHUB_OUTPUT"
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Commit and push VERSION bump
         id: commit
         env:
@@ -69,15 +62,39 @@ jobs:
     uses: ./.github/workflows/windows-installer.yml
     with:
       source_ref: ${{ needs.bump-version.outputs.source_ref }}
-
   linux-installer:
     needs: bump-version
     uses: ./.github/workflows/linux-installer.yml
     with:
       source_ref: ${{ needs.bump-version.outputs.source_ref }}
-
   macos-installer:
     needs: bump-version
     uses: ./.github/workflows/macos-installer.yml
     with:
       source_ref: ${{ needs.bump-version.outputs.source_ref }}
+  summarize:
+    if: ${{ always() && needs.bump-version.result == 'success' }}
+    needs: [bump-version, windows-installer, linux-installer, macos-installer]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write patch artifact summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # Main patch release artifacts
+          Previous version: ${{ needs.bump-version.outputs.previous_version }}
+          Generated patch version: ${{ needs.bump-version.outputs.new_version }}
+          Source commit SHA: ${{ needs.bump-version.outputs.source_ref }}
+
+          Required builders:
+          - Windows Release installer: ${{ needs.windows-installer.result }}
+          - Ubuntu Release AppImage: ${{ needs.linux-installer.result }}
+          - Current macOS Release DMG: ${{ needs.macos-installer.result }}
+
+          Expected artifact names:
+          - Perastage-windows-installer
+          - Perastage-linux-appimage
+          - Perastage-macos26-dmg
+          EOF
+          test "${{ needs.windows-installer.result }}" = success
+          test "${{ needs.linux-installer.result }}" = success
+          test "${{ needs.macos-installer.result }}" = success
