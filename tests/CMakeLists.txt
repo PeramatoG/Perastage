@@ -1862,7 +1862,9 @@ add_executable(layout_image_resource_registry_test
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
