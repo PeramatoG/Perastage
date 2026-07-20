@@ -23,6 +23,7 @@ private:
   void OnOk(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
   void OnShow(wxShowEvent &event);
+  void OnCharHook(wxKeyEvent &event);
   void OnScaleChanged(wxCommandEvent &event);
   void UpdateScaleLabel();
 

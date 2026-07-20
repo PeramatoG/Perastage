@@ -126,6 +126,12 @@ before executing panel-level actions, avoiding divergent focus checks:
 - `Viewer3DPanel::OnKeyDown(...)`
 - `LayoutViewerPanel::OnKeyDown(...)`
 
+The modal **2D View Editor** additionally routes `←`, `→`, `↑`, `↓`, and their
+`Alt` zoom variants through the embedded `Viewer2DPanel` even when focus is in
+the editor side panels. Editable text controls keep priority and receive their
+normal key input. This makes keyboard pan/zoom behavior match the standalone 2D
+viewport while preserving text-editing safety.
+
 This keeps key behavior consistent while editing text or cell editors, and
 prevents global-style actions from stealing keys during edit sessions.
 

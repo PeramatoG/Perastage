@@ -1,6 +1,7 @@
 #include "layout2dviewdialog.h"
 
 #include "configmanager.h"
+#include "editable_focus_utils.h"
 #include "layerpanel.h"
 #include "summarypanel.h"
 #include "viewer2dpanel.h"
@@ -15,6 +16,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
+// Builds the modal editor for a layout 2D view.
 Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
                                        ConfigManager *visibilityConfig,
                                        ConfigManager *colorConfig)
@@ -72,18 +74,22 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   CentreOnParent();
 
   Bind(wxEVT_SHOW, &Layout2DViewDialog::OnShow, this);
+  Bind(wxEVT_CHAR_HOOK, &Layout2DViewDialog::OnCharHook, this);
 }
 
+// Accepts the edited layout 2D view state.
 void Layout2DViewDialog::OnOk(wxCommandEvent &event) {
   EndModal(wxID_OK);
   event.Skip();
 }
 
+// Cancels the layout 2D view editing session.
 void Layout2DViewDialog::OnCancel(wxCommandEvent &event) {
   EndModal(wxID_CANCEL);
   event.Skip();
 }
 
+// Synchronizes the viewer and side panels when the dialog is shown.
 void Layout2DViewDialog::OnShow(wxShowEvent &event) {
   if (event.IsShown() && !initialShowSyncDone) {
     initialShowSyncDone = true;
@@ -129,6 +135,22 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
   event.Skip();
 }
 
+// Routes navigation shortcuts to the embedded 2D viewport.
+void Layout2DViewDialog::OnCharHook(wxKeyEvent &event) {
+  if (!viewerPanel || gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
+    event.Skip();
+    return;
+  }
+
+  if (viewerPanel->TryHandleViewportNavigationKey(event.GetKeyCode(),
+                                                 event.AltDown())) {
+    return;
+  }
+
+  event.Skip();
+}
+
+// Applies the selected layout frame scale to the embedded viewer.
 void Layout2DViewDialog::OnScaleChanged(wxCommandEvent &event) {
   if (viewerPanel && scaleSlider) {
     const float scale =
@@ -139,6 +161,7 @@ void Layout2DViewDialog::OnScaleChanged(wxCommandEvent &event) {
   event.Skip();
 }
 
+// Refreshes the frame scale percentage label.
 void Layout2DViewDialog::UpdateScaleLabel() {
   if (!scaleValueLabel || !scaleSlider)
     return;

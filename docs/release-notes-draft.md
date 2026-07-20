@@ -31,6 +31,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
   - Double-clicking a cell inside an existing multi-selection now keeps that selection and applies the existing bulk-edit behavior to all selected rows without requiring Shift.
   - Right-clicking opens row-level editors and context actions.
 - Edit Fixture and Edit Truss can now be maximized and use resizable layouts whose proportions are remembered between sessions.
+- The 2D View Editor now uses the same arrow-key pan and Alt+arrow zoom navigation as the standalone 2D viewport, even when focus is in the editor side panels.
 
 ### Fixture and truss editing
 
