@@ -258,6 +258,7 @@ You can also contact the project at **perastage.app@gmail.com**.
 - Fixed embedded Layout 2D fixture symbols so rotated GDTF fixtures choose the visible representative symbol plane and preserve the same orientation in preview and PDF export.
 
 ## Internal changes
+- Reorganized GitHub Actions into separate Debug CI, main patch artifact, compatibility package, and transactional minor release workflows.
 
 - Hardened installer CI configuration so test-enabled builds configure C and C++ from the project root, Windows secure-store Ninja jobs use the MSVC x64 toolchain, and final failure diagnostics include modern CMake configure logs.
 - Hardened installer and release CI dependency installation with transient vcpkg retry handling, separated caches, improved failure diagnostics, and Node 24-compatible GitHub Actions.

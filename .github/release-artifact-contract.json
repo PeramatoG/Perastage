@@ -1,0 +1,21 @@
+{
+  "packages": {
+    "windows": "Perastage_*_Setup.exe",
+    "linux": "Perastage-*-x86_64.AppImage",
+    "macos15": "Perastage-*-macOS15-arm64.dmg",
+    "macos26": "Perastage-*-macOS26-arm64.dmg",
+    "arch": "Perastage-*-arch-x86_64.pkg.tar.zst"
+  },
+  "artifacts": {
+    "windowsPackage": "Perastage-windows-installer",
+    "linuxPackage": "Perastage-linux-appimage",
+    "macos15Package": "Perastage-macos15-dmg",
+    "macos26Package": "Perastage-macos26-dmg",
+    "archPackage": "Perastage-arch-package",
+    "windowsSymbols": "Perastage-windows-symbols",
+    "linuxSymbols": "Perastage-linux-symbols",
+    "macos15Symbols": "Perastage-macos15-symbols",
+    "macos26Symbols": "Perastage-macos26-symbols",
+    "archSymbols": "Perastage-archlinux-symbols"
+  }
+}

@@ -25,16 +25,15 @@ for path in all_cmake:
     if re.search(r'(?m)^\s*enable_language\s*\(', text):
         raise SystemExit(f'Nested enable_language() is not allowed: {path}')
 
-windows = Path('.github/workflows/windows-installer.yml').read_text()
+ci = Path('.github/workflows/ci-tests.yml').read_text()
 required_windows = [
     'VsDevCmd.bat', '-host_arch=x64 -arch=x64', 'CMAKE_C_COMPILER=cl.exe',
-    'CMAKE_CXX_COMPILER=cl.exe', 'CMAKE_C_COMPILER_ID:INTERNAL=MSVC',
-    'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC', 'c:[\\\\/](mingw64|msys64)',
-    'CMakeConfigureLog.yaml', 'cmake-configure-windows-security.log',
+    'CMAKE_CXX_COMPILER=cl.exe', 'VCPKG_TARGET_TRIPLET=x64-windows',
+    'CMakeConfigureLog.yaml', 'cmake-configure-windows-debug.log',
 ]
 for needle in required_windows:
-    if needle not in windows:
-        raise SystemExit(f'Windows secure-store workflow is missing policy marker: {needle}')
+    if needle not in ci:
+        raise SystemExit(f'Windows Debug CI is missing policy marker: {needle}')
 
 workflow_paths = [
     Path('.github/workflows/windows-installer.yml'), Path('.github/workflows/linux-installer.yml'),
@@ -52,19 +51,16 @@ for path in workflow_paths:
     final_upload = text.rfind('Upload final CI diagnostics')
     last_operation = max(text.rfind('cmake '), text.rfind('ctest '), text.rfind('makepkg'), text.rfind('appimagetool'), text.rfind('ISCC'))
     if final_upload < last_operation:
-        raise SystemExit(f'{path} final diagnostic upload must be after build/package/test operations.')
+        raise SystemExit(f'{path} final diagnostic upload must be after build/package operations.')
+    if '-DBUILD_TESTING=ON' in text or 'release-gate' in text:
+        raise SystemExit(f'{path} must be a Release-only package builder without release-gate tests.')
+    if 'PERASTAGE_ENABLE_COMPILER_CACHE=OFF' not in text:
+        raise SystemExit(f'{path} must disable uncontrolled compiler-cache discovery.')
+    if path.name != 'arch-package.yml' and '-DBUILD_TESTING=OFF' not in text:
+        raise SystemExit(f'{path} must configure with BUILD_TESTING=OFF.')
 
-release_gate_configs = {
-    '.github/workflows/linux-installer.yml': 'cmake-configure-linux.log',
-    '.github/workflows/macos-installer.yml': 'cmake-configure-macos26.log',
-    '.github/workflows/macos-15-manual-installer.yml': 'cmake-configure-macos15.log',
-    '.github/workflows/arch-package.yml': 'cmake-configure-arch-release-gate.log',
-    '.github/workflows/windows-installer.yml': 'cmake-configure-windows-security.log',
-}
-for path, log_name in release_gate_configs.items():
-    text = Path(path).read_text()
-    if log_name not in text or '-DBUILD_TESTING=ON' not in text:
-        raise SystemExit(f'{path} must keep BUILD_TESTING=ON and configure logging for release-gate paths.')
+if 'CMAKE_BUILD_TYPE=Debug' not in ci or '-DBUILD_TESTING=ON' not in ci or 'must not compile with NDEBUG' not in ci:
+    raise SystemExit('ci-tests.yml must be the Debug test owner and must protect assert-based tests.')
 
 print('OK: CI CMake language, compiler, diagnostics, and release-gate policies are enforced.')
 PY

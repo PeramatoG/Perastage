@@ -1,7 +1,7 @@
 # Windows installer workflow for Perastage
 # Builds, stages and packages the Windows installer with Inno Setup.
 
-name: Windows Installer Build
+name: Windows Release Installer
 
 on:
   workflow_call:
@@ -154,7 +154,9 @@ jobs:
               -DVCPKG_TARGET_TRIPLET=x64-windows `
               -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
               -DVCPKG_MANIFEST_MODE=OFF `
-              -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+              -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON `
+              -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF `
+              -DBUILD_TESTING=OFF
 
       # ── 6. Build ────────────────────────────────────────────────────────────
       - name: Build project
@@ -255,160 +257,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: windows-release-installer-diagnostics
-          if-no-files-found: ignore
-          path: |
-            out/ci-logs/**
-            **/CMakeFiles/CMakeConfigureLog.yaml
-            **/CMakeCache.txt
-            **/CMakeFiles/CMakeOutput.log
-            **/CMakeFiles/CMakeError.log
-            build/**/*.log
-            build-*/**/*.log
-            vcpkg/buildtrees/**/*.log
-            vcpkg/buildtrees/**/config-*.txt
-            vcpkg/buildtrees/**/issue_body.md
-            .vcpkg-cache/installed/vcpkg/issue_body.md
-
-
-  test-windows-secure-store:
-    needs: build-windows-installer
-    runs-on: windows-latest
-
-    env:
-      VCPKG_ROOT:         ${{ github.workspace }}\vcpkg
-      VCPKG_INSTALLED:    ${{ github.workspace }}\.vcpkg-cache\installed
-      VCPKG_DOWNLOADS:    ${{ github.workspace }}\.vcpkg-cache\downloads
-      VCPKG_CACHE_SCHEMA: securestore-v2
-      VCPKG_PACKAGES:     ${{ github.workspace }}\.vcpkg-cache\packages
-      VCPKG_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache\binary
-      CI_LOG_DIR: ${{ github.workspace }}\out\ci-logs
-      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.vcpkg-cache\binary,readwrite
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
-
-      - name: Prepare CI log directory
-        shell: bash
-        run: mkdir -p "$CI_LOG_DIR"
-
-      - name: Read vcpkg baseline
-        id: vcpkg-baseline
-        shell: bash
-        run: |
-          set -euo pipefail
-          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
-          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
-          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
-
-      - name: Restore vcpkg downloads
-        id: vcpkg-downloads-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            .vcpkg-cache/downloads
-          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-
-
-      - name: Cache vcpkg installed packages and binary archives
-        uses: actions/cache@v5
-        with:
-          path: |
-            .vcpkg-cache\installed
-            .vcpkg-cache\packages
-            .vcpkg-cache\binary
-          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/windows-installer.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-
-
-      - name: Bootstrap vcpkg
-        shell: pwsh
-        run: |
-          if (Test-Path "$env:VCPKG_ROOT\.git") {
-            git -C $env:VCPKG_ROOT fetch --depth 1 origin $env:VCPKG_BASELINE
-            git -C $env:VCPKG_ROOT checkout --detach $env:VCPKG_BASELINE
-          } else {
-            if (Test-Path $env:VCPKG_ROOT) { Remove-Item $env:VCPKG_ROOT -Recurse -Force }
-            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
-            git -C $env:VCPKG_ROOT checkout --detach $env:VCPKG_BASELINE
-          }
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
-
-      - name: Install vcpkg packages
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path $env:VCPKG_DOWNLOADS,$env:VCPKG_INSTALLED,$env:VCPKG_PACKAGES -Force | Out-Null
-          python .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
-            --install-root "$env:VCPKG_INSTALLED" `
-            --packages-root "$env:VCPKG_PACKAGES" `
-            --downloads-root "$env:VCPKG_DOWNLOADS" `
-            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
-            --log "$env:CI_LOG_DIR\vcpkg-install-x64-windows.log"
-
-      - name: Save vcpkg downloads cache
-        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v5
-        with:
-          path: .vcpkg-cache/downloads
-          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
-
-      - name: Configure focused security tests
-        shell: pwsh
-        run: |
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          if (-not (Test-Path $vswhere)) { throw "vswhere.exe was not found at: $vswhere" }
-          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
-          if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No Visual Studio installation with x64 C++ tools was found.' }
-          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
-          if (-not (Test-Path $devCmd)) { throw "VsDevCmd.bat was not found at: $devCmd" }
-          cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set" | ForEach-Object {
-            $separator = $_.IndexOf('=')
-            if ($separator -gt 0) { Set-Item -Path "Env:$($_.Substring(0, $separator))" -Value $_.Substring($separator + 1) }
-          }
-          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
-          if (-not $cl) { throw 'cl.exe was not found after initializing the Visual Studio x64 developer environment.' }
-          $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
-          if ($normalizedCl -match 'c:[\\/](mingw64|msys64)') { throw "Refusing to configure x64-windows with MinGW/MSYS compiler: $($cl.Source)" }
-          if (-not $normalizedCl.Contains('hostx64\x64')) { throw "cl.exe is not the preferred Hostx64\x64 tool: $($cl.Source)" }
-          if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio environment is not host x64/target x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
-
-          python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-security.log" -- `
-            cmake -S . -B build-security -G Ninja `
-              -DCMAKE_C_COMPILER=cl.exe `
-              -DCMAKE_CXX_COMPILER=cl.exe `
-              -DCMAKE_BUILD_TYPE=Debug `
-              -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-              -DVCPKG_TARGET_TRIPLET=x64-windows `
-              -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
-              -DVCPKG_MANIFEST_MODE=OFF `
-              -DBUILD_TESTING=ON `
-              -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
-
-          $cache = Get-Content build-security\CMakeCache.txt -Raw
-          foreach ($required in @('CMAKE_C_COMPILER_ID:INTERNAL=MSVC', 'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC')) {
-            if ($cache -notmatch [regex]::Escape($required)) { throw "CMake cache is missing expected MSVC compiler identity: $required" }
-          }
-          if ($cache -match '(?i)c:[\\/](mingw64|msys64)|mingw|gnu') { throw 'CMake cache contains MinGW/GNU compiler markers for x64-windows.' }
-
-      - name: Build focused security tests
-        shell: pwsh
-        run: |
-          cmake --build build-security --target gdtf_share_security_test credential_store_native_roundtrip_test
-
-      - name: Run release-gate tests
-        shell: pwsh
-        run: |
-          ctest --test-dir build-security -L release-gate --output-on-failure
-
-      - name: Upload final CI diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-secure-store-diagnostics
           if-no-files-found: ignore
           path: |
             out/ci-logs/**

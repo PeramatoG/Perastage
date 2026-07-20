@@ -29,328 +29,202 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  prepare-release:
+  resolve-release:
     runs-on: ubuntu-latest
     outputs:
-      new_version: ${{ steps.bump.outputs.new_version }}
-      new_tag: ${{ steps.bump.outputs.new_tag }}
-      release_title: ${{ steps.bump.outputs.release_title }}
-      prerelease: ${{ steps.bump.outputs.prerelease }}
-      dry_run: ${{ steps.bump.outputs.dry_run }}
-
+      base_sha: ${{ steps.meta.outputs.base_sha }}
+      previous_version: ${{ steps.meta.outputs.previous_version }}
+      new_version: ${{ steps.meta.outputs.new_version }}
+      new_tag: ${{ steps.meta.outputs.new_tag }}
+      release_title: ${{ steps.meta.outputs.release_title }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
+      temp_ref: ${{ steps.meta.outputs.temp_ref }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
-
-      - name: Compute next minor version
-        id: bump
+      - name: Resolve release metadata and validate contracts
+        id: meta
         env:
           RELEASE_TITLE_INPUT: ${{ github.event.inputs.release_title }}
           PRERELEASE_INPUT: ${{ github.event.inputs.prerelease }}
           DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
         run: |
           set -euo pipefail
-
-          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            echo "This workflow must run from refs/heads/main, got: ${GITHUB_REF}"
-            exit 1
-          fi
-
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Working tree must be clean before version bump"
-            exit 1
-          fi
-
+          test -f .github/release-artifact-contract.json
+          python3 -m json.tool .github/release-artifact-contract.json >/dev/null
           VERSION_RAW="$(tr -d '[:space:]' < VERSION)"
-          if ! [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "VERSION must be MAJOR.MINOR.PATCH, got: '$VERSION_RAW'"
-            exit 1
-          fi
-
+          [[ "$VERSION_RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION_RAW"; exit 1; }
           IFS='.' read -r major minor patch <<< "$VERSION_RAW"
-          next_minor=$((minor + 1))
-          NEW_VERSION="${major}.${next_minor}.0"
+          NEW_VERSION="${major}.$((minor + 1)).0"
           NEW_TAG="v${NEW_VERSION}"
+          git ls-remote --exit-code --tags origin "refs/tags/${NEW_TAG}" >/dev/null 2>&1 && { echo "Tag already exists: $NEW_TAG"; exit 1; } || true
+          RELEASE_TITLE="$RELEASE_TITLE_INPUT"; [ -n "$RELEASE_TITLE" ] || RELEASE_TITLE="Perastage ${NEW_TAG}"
+          BASE_SHA="$(git rev-parse HEAD)"
+          TEMP_REF="automation/release-${NEW_TAG}-${GITHUB_RUN_ID}"
+          {
+            echo "base_sha=$BASE_SHA"
+            echo "previous_version=$VERSION_RAW"
+            echo "new_version=$NEW_VERSION"
+            echo "new_tag=$NEW_TAG"
+            echo "release_title=$RELEASE_TITLE"
+            echo "prerelease=$PRERELEASE_INPUT"
+            echo "dry_run=$DRY_RUN_INPUT"
+            echo "temp_ref=$TEMP_REF"
+          } >> "$GITHUB_OUTPUT"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # Minor release plan
+          Base SHA: $BASE_SHA
+          Previous version: $VERSION_RAW
+          New version: $NEW_VERSION
+          Tag: $NEW_TAG
+          Dry run: $DRY_RUN_INPUT
+          EOF
 
-          if git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null; then
-            echo "Tag already exists locally: ${NEW_TAG}"
-            exit 1
-          fi
-          if git ls-remote --exit-code --tags origin "refs/tags/${NEW_TAG}" >/dev/null 2>&1; then
-            echo "Tag already exists on origin: ${NEW_TAG}"
-            exit 1
-          fi
+  dry-run-summary:
+    if: ${{ needs.resolve-release.outputs.dry_run == 'true' }}
+    needs: resolve-release
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Dry run validated ${{ needs.resolve-release.outputs.new_tag }} from ${{ needs.resolve-release.outputs.base_sha }} without publishing." >> "$GITHUB_STEP_SUMMARY"
 
-          RELEASE_TITLE="${RELEASE_TITLE_INPUT}"
-          if [ -z "$RELEASE_TITLE" ]; then
-            RELEASE_TITLE="Perastage ${NEW_TAG}"
-          fi
+  quality-gate:
+    if: ${{ needs.resolve-release.outputs.dry_run != 'true' }}
+    needs: resolve-release
+    uses: ./.github/workflows/ci-tests.yml
+    with:
+      source_ref: ${{ needs.resolve-release.outputs.base_sha }}
+      profile: release
 
-          printf '%s\n' "$NEW_VERSION" > VERSION
-
-          echo "previous_version=${VERSION_RAW}" >> "$GITHUB_OUTPUT"
-          echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
-          echo "release_title=${RELEASE_TITLE}" >> "$GITHUB_OUTPUT"
-          echo "prerelease=${PRERELEASE_INPUT}" >> "$GITHUB_OUTPUT"
-          echo "dry_run=${DRY_RUN_INPUT}" >> "$GITHUB_OUTPUT"
-
-      - name: Commit, push, and tag release version
-        if: ${{ steps.bump.outputs.dry_run != 'true' }}
+  stage-release-commit:
+    if: ${{ needs.resolve-release.outputs.dry_run != 'true' }}
+    needs: [resolve-release, quality-gate]
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.stage.outputs.release_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.base_sha }}
+          fetch-depth: 0
+      - name: Create temporary release preparation ref
+        id: stage
         env:
-          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-          NEW_TAG: ${{ steps.bump.outputs.new_tag }}
+          NEW_VERSION: ${{ needs.resolve-release.outputs.new_version }}
+          NEW_TAG: ${{ needs.resolve-release.outputs.new_tag }}
+          TEMP_REF: ${{ needs.resolve-release.outputs.temp_ref }}
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
+          printf '%s\n' "$NEW_VERSION" > VERSION
           git add VERSION
           git commit -m "chore: prepare minor release ${NEW_TAG} [skip version-bump]"
-          git push origin HEAD:main
-
-          git tag -a "${NEW_TAG}" -m "Perastage ${NEW_TAG}"
-          git push origin "${NEW_TAG}"
-
-      - name: Show dry run result
-        if: ${{ steps.bump.outputs.dry_run == 'true' }}
-        run: |
-          echo "Dry run enabled: computed ${NEW_VERSION} and ${NEW_TAG} without changes"
-        env:
-          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-          NEW_TAG: ${{ steps.bump.outputs.new_tag }}
+          git push origin HEAD:"$TEMP_REF"
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   windows-installer:
-    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
-    needs: prepare-release
+    needs: stage-release-commit
     uses: ./.github/workflows/windows-installer.yml
     with:
-      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
-
+      source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}
   linux-installer:
-    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
-    needs: prepare-release
+    needs: stage-release-commit
     uses: ./.github/workflows/linux-installer.yml
     with:
-      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
-
+      source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}
   macos15-installer:
-    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
-    needs: prepare-release
+    needs: stage-release-commit
     uses: ./.github/workflows/macos-15-manual-installer.yml
     with:
-      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
-
+      source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}
   macos-installer:
-    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
-    needs: prepare-release
+    needs: stage-release-commit
     uses: ./.github/workflows/macos-installer.yml
     with:
-      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
-
+      source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}
   arch-package:
-    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
-    needs: prepare-release
+    needs: stage-release-commit
     uses: ./.github/workflows/arch-package.yml
     with:
-      source_ref: ${{ needs.prepare-release.outputs.new_tag }}
+      source_ref: ${{ needs.stage-release-commit.outputs.release_sha }}
 
-  create-draft-release:
-    if: ${{ needs.prepare-release.outputs.dry_run != 'true' }}
-    needs:
-      - prepare-release
-      - windows-installer
-      - linux-installer
-      - macos15-installer
-      - macos-installer
-      - arch-package
+  validate-release-assets:
+    needs: [resolve-release, stage-release-commit, windows-installer, linux-installer, macos15-installer, macos-installer, arch-package]
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.prepare-release.outputs.new_tag }}
-
-      - name: Download installer artifacts
-        uses: actions/download-artifact@v8
+          ref: ${{ needs.stage-release-commit.outputs.release_sha }}
+      - uses: actions/download-artifact@v8
         with:
           path: release-assets
           pattern: Perastage-*
-
-      - name: Prepare final installer assets and debug symbols
-        id: assets
+      - name: Assemble and validate assets
         env:
-          RELEASE_VERSION: ${{ needs.prepare-release.outputs.new_version }}
-          RELEASE_TAG: ${{ needs.prepare-release.outputs.new_tag }}
+          RELEASE_VERSION: ${{ needs.resolve-release.outputs.new_version }}
         run: |
           set -euo pipefail
+          mkdir -p release-assets/final release-assets/symbols-final
+          single() { mapfile -t m < <(find release-assets -type f -name "$2" | sort -u); [ "${#m[@]}" -eq 1 ] || { echo "$1 count ${#m[@]}"; printf '%s\n' "${m[@]:-}"; exit 1; }; cp "${m[0]}" release-assets/final/; }
+          single Windows 'Perastage_*_Setup.exe'
+          single Linux 'Perastage-*-x86_64.AppImage'
+          single macOS15 'Perastage-*-macOS15-arm64.dmg'
+          single macOS26 'Perastage-*-macOS26-arm64.dmg'
+          single Arch 'Perastage-*-arch-x86_64.pkg.tar.zst'
+          for f in release-assets/final/*; do [[ "$(basename "$f")" == *"$RELEASE_VERSION"* ]] || { echo "Stale asset: $f"; exit 1; }; done
+          find release-assets -path 'release-assets/final' -prune -o -type f \( -name '*.pdb' -o -name 'Perastage.debug' -o -name 'perastage-debug-*.pkg.tar.zst' \) -print > release-assets/symbols-final/symbol-files.txt
+          test -s release-assets/symbols-final/symbol-files.txt
+          (cd release-assets/symbols-final && zip -r "../final/Perastage-$RELEASE_VERSION-Debug-Symbols-Developers-Only.zip" .)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Perastage-validated-release-assets
+          path: release-assets/final
 
-          FINAL_DIR="release-assets/final"
-          EXTRACT_DIR="release-assets/.extracted-zips"
-          SYMBOLS_FINAL_DIR="release-assets/symbols-final"
-          SYMBOL_ARCHIVE="$FINAL_DIR/Perastage-$RELEASE_VERSION-Debug-Symbols-Developers-Only.zip"
-
-          rm -rf "$FINAL_DIR" "$EXTRACT_DIR" "$SYMBOLS_FINAL_DIR"
-          mkdir -p "$FINAL_DIR" "$EXTRACT_DIR" "$SYMBOLS_FINAL_DIR"
-
-          echo "Downloaded artifact tree (release-assets):"
-          find release-assets -mindepth 1 -maxdepth 4 -print | sort
-
-          mapfile -t ZIP_FILES < <(find release-assets -type f -name '*.zip' | sort)
-          for zip_file in "${ZIP_FILES[@]}"; do
-            zip_base="$(basename "$zip_file" .zip)"
-            target_dir="$EXTRACT_DIR/$zip_base"
-            mkdir -p "$target_dir"
-            unzip -q "$zip_file" -d "$target_dir"
-          done
-
-          collect_single_asset() {
-            local label="$1"
-            local pattern="$2"
-            local -n matches_ref="$3"
-            mapfile -t matches_ref < <(find release-assets "$EXTRACT_DIR" -type f -name "$pattern" | sort -u)
-            if [ "${#matches_ref[@]}" -ne 1 ]; then
-              echo "${label} matches (${#matches_ref[@]}): ${matches_ref[*]:-none}"
-              return 1
-            fi
-          }
-
-          asset_errors=0
-          collect_single_asset "Windows installer" 'Perastage_*_Setup.exe' WIN_MATCHES || asset_errors=1
-          collect_single_asset "Linux AppImage" 'Perastage-*-x86_64.AppImage' LINUX_MATCHES || asset_errors=1
-          collect_single_asset "macOS 15 DMG" 'Perastage-*-macOS15-arm64.dmg' MAC15_MATCHES || asset_errors=1
-          collect_single_asset "macOS 26 DMG" 'Perastage-*-macOS26-arm64.dmg' MAC26_MATCHES || asset_errors=1
-          collect_single_asset "Arch Linux package" 'Perastage-*-arch-x86_64.pkg.tar.zst' ARCH_MATCHES || asset_errors=1
-          if [ "$asset_errors" -ne 0 ]; then
-            echo "Expected exactly one installer/package asset for each platform and symbol artifacts"
-            exit 1
-          fi
-
-          cp "${WIN_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${LINUX_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${MAC15_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${MAC26_MATCHES[0]}" "$FINAL_DIR/"
-          cp "${ARCH_MATCHES[0]}" "$FINAL_DIR/"
-
-          mkdir -p "$SYMBOLS_FINAL_DIR/Windows-x64" "$SYMBOLS_FINAL_DIR/Linux-AppImage-x86_64" "$SYMBOLS_FINAL_DIR/ArchLinux-x86_64" "$SYMBOLS_FINAL_DIR/macOS15-arm64" "$SYMBOLS_FINAL_DIR/macOS26-arm64"
-
-          mapfile -t WINDOWS_PDBS < <(find release-assets/Perastage-windows-symbols -type f -name '*.pdb' | sort)
-          if [ "${#WINDOWS_PDBS[@]}" -lt 1 ]; then
-            echo "Windows symbols artifact must contain at least one PDB file"
-            exit 1
-          fi
-          cp "${WINDOWS_PDBS[@]}" "$SYMBOLS_FINAL_DIR/Windows-x64/"
-
-          collect_single_asset "Linux debug symbols" 'Perastage.debug' LINUX_DEBUG_MATCHES || exit 1
-          cp "${LINUX_DEBUG_MATCHES[0]}" "$SYMBOLS_FINAL_DIR/Linux-AppImage-x86_64/"
-
-          mapfile -t ARCH_DEBUG_MATCHES < <(find release-assets "$EXTRACT_DIR" -type f -name 'perastage-debug-*.pkg.tar.zst' | sort -u)
-          if [ "${#ARCH_DEBUG_MATCHES[@]}" -lt 1 ]; then
-            echo "Arch Linux symbols artifact must contain at least one debug package"
-            exit 1
-          fi
-          cp "${ARCH_DEBUG_MATCHES[@]}" "$SYMBOLS_FINAL_DIR/ArchLinux-x86_64/"
-
-          cp -a "release-assets/Perastage-macos15-symbols/Perastage.dSYM" "$SYMBOLS_FINAL_DIR/macOS15-arm64/"
-          cp -a "release-assets/Perastage-macos26-symbols/Perastage.dSYM" "$SYMBOLS_FINAL_DIR/macOS26-arm64/"
-
-          cat > "$SYMBOLS_FINAL_DIR/README.txt" <<EOF
-          Perastage Debug Symbols
-          =======================
-
-          These files are debugging symbols for crash analysis.
-
-          They are not application resources and are not required to install or run
-          Perastage. Download this archive only when requested by the developer or when
-          performing crash analysis for the exact matching Perastage version.
-
-          Each directory contains symbols for a different release binary. Symbols must
-          only be used with the exact matching version, platform, architecture, and build
-          variant.
-
-          Version: $RELEASE_VERSION
-          Release tag: $RELEASE_TAG
-
-          Directories:
-          - Windows-x64: PDB files for the Windows x64 installer build.
-          - Linux-AppImage-x86_64: Perastage.debug for the Linux AppImage build.
-          - ArchLinux-x86_64: perastage-debug package for the Arch Linux package build.
-          - macOS15-arm64: Perastage.dSYM for the macOS 15 Apple Silicon build.
-          - macOS26-arm64: Perastage.dSYM for the macOS 26 Apple Silicon build.
-
-          The macOS 15 and macOS 26 symbols are different build variants and are not
-          interchangeable. Do not rename or alter files before crash analysis.
-          EOF
-
-          test -s "$SYMBOLS_FINAL_DIR/README.txt"
-          test -n "$(find "$SYMBOLS_FINAL_DIR/Windows-x64" -type f -name '*.pdb' -print -quit)"
-          test -f "$SYMBOLS_FINAL_DIR/Linux-AppImage-x86_64/Perastage.debug"
-          test -n "$(find "$SYMBOLS_FINAL_DIR/ArchLinux-x86_64" -type f -name 'perastage-debug-*.pkg.tar.zst' -print -quit)"
-          test -d "$SYMBOLS_FINAL_DIR/macOS15-arm64/Perastage.dSYM"
-          test -d "$SYMBOLS_FINAL_DIR/macOS26-arm64/Perastage.dSYM"
-
-          (cd "$SYMBOLS_FINAL_DIR" && zip -yr "../final/$(basename "$SYMBOL_ARCHIVE")" .)
-          test -s "$SYMBOL_ARCHIVE"
-
-          if find "$FINAL_DIR" -type f -name '*-symbols.zip' | grep -q .; then
-            echo "Final release assets must not contain separate platform symbol ZIP files"
-            exit 1
-          fi
-
-          echo "Unified debug-symbol archive listing:"
-          unzip -l "$SYMBOL_ARCHIVE"
-
-          WIN_ASSET="$FINAL_DIR/$(basename "${WIN_MATCHES[0]}")"
-          LINUX_ASSET="$FINAL_DIR/$(basename "${LINUX_MATCHES[0]}")"
-          MAC15_ASSET="$FINAL_DIR/$(basename "${MAC15_MATCHES[0]}")"
-          MAC26_ASSET="$FINAL_DIR/$(basename "${MAC26_MATCHES[0]}")"
-          ARCH_INSTALLER_ASSET="$FINAL_DIR/$(basename "${ARCH_MATCHES[0]}")"
-
-          echo "Final release assets (release-assets/final):"
-          find "$FINAL_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort
-
-          echo "win_asset=$WIN_ASSET" >> "$GITHUB_OUTPUT"
-          echo "linux_asset=$LINUX_ASSET" >> "$GITHUB_OUTPUT"
-          echo "mac15_asset=$MAC15_ASSET" >> "$GITHUB_OUTPUT"
-          echo "mac26_asset=$MAC26_ASSET" >> "$GITHUB_OUTPUT"
-          echo "arch_installer_asset=$ARCH_INSTALLER_ASSET" >> "$GITHUB_OUTPUT"
-          echo "symbol_archive=$SYMBOL_ARCHIVE" >> "$GITHUB_OUTPUT"
-
-      - name: Create draft release with curated notes
+  publish-release:
+    needs: [resolve-release, stage-release-commit, validate-release-assets]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.stage-release-commit.outputs.release_sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: Perastage-validated-release-assets
+          path: release-assets/final
+      - name: Publish main, tag, and draft release after validation
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG_NAME: ${{ needs.prepare-release.outputs.new_tag }}
-          RELEASE_TITLE: ${{ needs.prepare-release.outputs.release_title }}
-          PRERELEASE: ${{ needs.prepare-release.outputs.prerelease }}
-          WIN_ASSET: ${{ steps.assets.outputs.win_asset }}
-          LINUX_ASSET: ${{ steps.assets.outputs.linux_asset }}
-          MAC15_ASSET: ${{ steps.assets.outputs.mac15_asset }}
-          MAC26_ASSET: ${{ steps.assets.outputs.mac26_asset }}
-          ARCH_INSTALLER_ASSET: ${{ steps.assets.outputs.arch_installer_asset }}
-          SYMBOL_ARCHIVE: ${{ steps.assets.outputs.symbol_archive }}
+          BASE_SHA: ${{ needs.resolve-release.outputs.base_sha }}
+          RELEASE_SHA: ${{ needs.stage-release-commit.outputs.release_sha }}
+          NEW_TAG: ${{ needs.resolve-release.outputs.new_tag }}
+          TEMP_REF: ${{ needs.resolve-release.outputs.temp_ref }}
+          RELEASE_TITLE: ${{ needs.resolve-release.outputs.release_title }}
+          PRERELEASE: ${{ needs.resolve-release.outputs.prerelease }}
         run: |
           set -euo pipefail
-
-          RELEASE_NOTES_FILE="docs/release-notes-draft.md"
-
-          echo "Creating draft release in $GH_REPO"
-
-          cmd=(gh release create "$TAG_NAME" "$WIN_ASSET" "$LINUX_ASSET" "$MAC15_ASSET" "$MAC26_ASSET" "$ARCH_INSTALLER_ASSET" "$SYMBOL_ARCHIVE" --draft --title "$RELEASE_TITLE")
-          if [ -s "$RELEASE_NOTES_FILE" ]; then
-            echo "Using curated release notes from $RELEASE_NOTES_FILE"
-            cmd+=(--notes-file "$RELEASE_NOTES_FILE")
-          else
-            echo "Curated release notes draft is missing or empty; falling back to GitHub generated notes"
-            cmd+=(--generate-notes)
-          fi
-          if [ "$PRERELEASE" = "true" ]; then
-            cmd+=(--prerelease)
-          fi
-
+          git fetch origin main --tags
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          [ "$CURRENT_MAIN" = "$BASE_SHA" ] || { echo "main moved from $BASE_SHA to $CURRENT_MAIN; rerun the release."; exit 1; }
+          git push origin "$RELEASE_SHA":main
+          git tag -a "$NEW_TAG" "$RELEASE_SHA" -m "Perastage $NEW_TAG"
+          git push origin "$NEW_TAG"
+          cmd=(gh release create "$NEW_TAG" release-assets/final/* --draft --title "$RELEASE_TITLE")
+          [ -s docs/release-notes-draft.md ] && cmd+=(--notes-file docs/release-notes-draft.md) || cmd+=(--generate-notes)
+          [ "$PRERELEASE" = true ] && cmd+=(--prerelease)
           "${cmd[@]}"
+          git push origin --delete "$TEMP_REF"
+
+  cleanup-temp-ref:
+    if: ${{ always() && needs.resolve-release.outputs.dry_run != 'true' }}
+    needs: [resolve-release, publish-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete temporary release ref if it remains
+        env:
+          TEMP_REF: ${{ needs.resolve-release.outputs.temp_ref }}
+        run: git push origin --delete "$TEMP_REF" || true

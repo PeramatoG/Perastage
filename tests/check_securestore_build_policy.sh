@@ -34,7 +34,7 @@ rg -q 'PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE.*ON|PERASTAGE_REQUIRE_SECURE_CR
   setup_windows.ps1 \
   packaging/arch/PKGBUILD
 rg -q 'bootstrap-vcpkg\.bat' .github/workflows/windows-installer.yml
-rg -q 'checkout --detach' .github/workflows/windows-installer.yml
+rg -q 'checkout --force|checkout --detach' .github/workflows/windows-installer.yml
 rg -q -- '--x-install-root' .github/workflows/windows-installer.yml
 rg -q 'VCPKG_INSTALLED_DIR' .github/workflows/windows-installer.yml
 rg -q 'Initialize-X64MsvcEnvironment' setup_windows.ps1
@@ -48,9 +48,9 @@ rg -q 'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF' setup_windows.ps1 CMake
 rg -q 'securestore-v2' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
 rg -q '0878b5224d4a4968940ee296a2e7fae2d3b62983' vcpkg.json
 rg -q 'get_vcpkg_baseline.py vcpkg.json' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/arch-package.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
-rg -q 'ctest --test-dir .* -L release-gate' .github/workflows/windows-installer.yml .github/workflows/linux-installer.yml .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
-rg -q 'gdtf_share_security_test' .github/workflows/windows-installer.yml tests/CMakeLists.txt
-rg -q 'credential_store_native_roundtrip_test' .github/workflows/windows-installer.yml tests/CMakeLists.txt
+rg -q 'ctest --test-dir .* -L release-gate' .github/workflows/ci-tests.yml
+rg -q 'gdtf_share_security_test' .github/workflows/ci-tests.yml tests/CMakeLists.txt
+rg -q 'credential_store_native_roundtrip_test' .github/workflows/ci-tests.yml tests/CMakeLists.txt
 rg -q 'libsecret-1-dev' .github/workflows/linux-installer.yml
 rg -q "'libsecret'" packaging/arch/PKGBUILD
 rg -q -- '--manifest-root' .github/workflows/macos-installer.yml .github/workflows/macos-15-manual-installer.yml
@@ -74,4 +74,4 @@ for preset in presets['configurePresets']:
         assert arch.get('strategy') == 'external', preset['name']
 PY
 
-echo 'OK: secure-store build, manifest, workflow, and release-gate policies are enforced.'
+echo 'OK: secure-store build, manifest, workflow, and Debug CI and Release builder policies are enforced.'
