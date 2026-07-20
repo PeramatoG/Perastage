@@ -180,6 +180,14 @@ add_test(NAME PlatformLocaleSetup COMMAND platform_locale_test)
 
 add_executable(trussloader_validation_test
                trussloader_validation_test.cpp
+               ../core/apppaths.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/trussloader.cpp
                ../models/truss.cpp)
 target_include_directories(trussloader_validation_test PRIVATE
                            . ../core ../models ../third_party)
