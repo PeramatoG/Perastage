@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "gdtfloader.h"
+#include "../viewer3d/gdtfloader.h"
 
 #include <cassert>
 #include <filesystem>

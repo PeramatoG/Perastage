@@ -31,6 +31,8 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
   - Double-clicking a cell inside an existing multi-selection now keeps that selection and applies the existing bulk-edit behavior to all selected rows without requiring Shift.
   - Right-clicking opens row-level editors and context actions.
 - Edit Fixture and Edit Truss can now be maximized and use resizable layouts whose proportions are remembered between sessions.
+- The 2D View Editor now uses the same arrow-key pan and Alt+arrow zoom navigation as the standalone 2D viewport, even when focus is in the editor side panels.
+- The 2D View Editor now also honors the `Z` fit-view shortcut when focus is in non-editable editor controls.
 
 ### Fixture and truss editing
 
@@ -75,6 +77,26 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ## Important fixes
 
+- Fixed the GDTF canonicalizer test so it builds with TinyXML2 versions whose document type is non-copyable.
+- Fixed the GDTF canonicalizer test target so mutation-audit build metadata resolves during full rebuilds.
+- Fixed GDTF loader regression tests so they include the real viewer loader API instead of the lightweight test stub during full rebuilds.
+- Fixed Windows builds that could accidentally include a local project `version` file while third-party JSON feature detection probes standard library headers.
+- Fixed the symbol cache manifest test so Windows rebuilds see the standard file-stream declaration.
+- Fixed the truss loader validation test target so it links the loader implementation, build-info stub, and supporting core sources during full rebuilds.
+- Fixed the MVR merge analyzer/applier test target so it links runtime storage support required by merge resource workspace handling.
+- Fixed the fixture label override reconciliation test target so layout template import/export dependencies link during full rebuilds.
+- Fixed GDTF dictionary color tests so layout template import/export dependencies link during full rebuilds.
+- Fixed active dictionary workflow and dictionary seed backup test targets so layout template dependencies link during full rebuilds.
+- Fixed the layout template package service test target so layout image registry dependencies link during full rebuilds.
+- Fixed project roundtrip and truss path regression test targets so MVR, layer, UTF-8, grouping, and truss loader dependencies link during full rebuilds.
+- Fixed MVR address, support userdata, and layer appearance test targets so build metadata, layer validation, UTF-8, and grouping dependencies link during full rebuilds.
+- Fixed additional MVR roundtrip and exporter test targets so full rebuilds link build metadata, layer validation, UTF-8 helpers, grouping synchronization, primitive bounds, and GDTF resource key helpers.
+- Fixed rider import and save roundtrip test targets so dictionary lookup stubs and project MVR import/export helpers link during full rebuilds.
+- Fixed GDTF loader test targets so runtime storage logging, build metadata, and archive extraction dependencies link during full rebuilds.
+- Fixed symbol fixture applier and patched GDTF export test targets so MVR, layer, UTF-8, build metadata, and GDTF archive dependencies link during full rebuilds.
+- Fixed the layout image resource registry test target so layout package import/export and runtime storage dependencies link during full rebuilds.
+- Fixed dictionary reset and layer service UTF-8 test targets so app paths, layout package, runtime storage, and focused ConfigManager layer-selection stubs link during full rebuilds.
+- Fixed dictionary reset and GDTF Share security test targets so app-path stubs and lightweight ConfigManager dependencies no longer conflict with full rebuild linkage.
 - Improved portable layout package export with images by using canonical ZIP entry paths, clearer archive validation diagnostics, and side-effect-free export self-validation. The Layout panel now restores and reapplies an active layout selection when layouts exist so default layouts render after startup and reload and export, rename, and delete actions do not silently do nothing after selection loss.
 - Hardened GDTF Share sign-in, credential storage, diagnostics, and download handling so passwords use the operating system credential store when available, login errors are reported more accurately, and failed downloads no longer replace existing files.
 - Improved GDTF Share session handling for fixture downloads and MVR import, including clearer online-versus-cached catalog status, reuse of authenticated catalog sessions for downloads, safer cookie ownership, transactional replacement of existing GDTF files, strict legacy credential migration, username-only credential hints, and clearer warnings when secure password storage is unavailable.
@@ -91,6 +113,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Fixed custom fixture and truss dictionaries so newly owned GDTF assets are stored in a sibling `_assets` folder and remain portable when the dictionary is moved with that folder.
 - Fixed Data Views table edits so moving fixtures, trusses, or scene objects between visible and hidden layers rebuilds the relevant viewer resources, invalidates stale 3D visible-set caches, and immediately refreshes both the 2D and 3D viewports, including layout previews.
 - Fixed Windows build and linker issues in the Local Axes viewport integration.
+- Fixed a debug-only shutdown warning caused by attempting to make a hidden 2D OpenGL canvas current during cleanup.
 
 ### MVR, GDTF, and project data
 

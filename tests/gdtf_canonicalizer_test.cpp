@@ -13,10 +13,8 @@
 namespace {
 
 // Parses XML text into a TinyXML document for canonicalizer checks.
-tinyxml2::XMLDocument Parse(const std::string &xml) {
-  tinyxml2::XMLDocument doc;
+void ParseInto(tinyxml2::XMLDocument &doc, const std::string &xml) {
   assert(doc.Parse(xml.c_str(), xml.size()) == tinyxml2::XML_SUCCESS);
-  return doc;
 }
 
 // Collects FixtureType child names in document order.
@@ -88,7 +86,8 @@ bool ArchiveContainsEntry(const std::filesystem::path &path,
 // Verifies that legacy FixtureType structure is canonicalized for export.
 int main() {
   {
-    tinyxml2::XMLDocument doc = Parse(MinimalGdtf(
+    tinyxml2::XMLDocument doc;
+    ParseInto(doc, MinimalGdtf(
         "<AttributeDefinitions/><Models/><PerastageMutationAudit SchemaVersion=\"1\"/>"
         "<PhysicalDescriptions/><Geometries/><DMXModes/>"));
     GdtfCanonicalizer::Result result = GdtfCanonicalizer::CanonicalizeDescription(doc);
@@ -110,10 +109,13 @@ int main() {
   }
 
   {
-    tinyxml2::XMLDocument doc = Parse(
-        "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Truss 300\" Manufacturer=\"Perastage\" "
-        "FixtureTypeID=\"00000000-0000-0000-0000-000000000001\">"
-        "<AttributeDefinitions/><Geometries/><DMXModes/></FixtureType></GDTF>");
+    tinyxml2::XMLDocument doc;
+    ParseInto(doc,
+              "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Truss 300\" "
+              "Manufacturer=\"Perastage\" "
+              "FixtureTypeID=\"00000000-0000-0000-0000-000000000001\">"
+              "<AttributeDefinitions/><Geometries/><DMXModes/></FixtureType>"
+              "</GDTF>");
     GdtfCanonicalizer::Options options;
     options.allowFixtureTypeIdRepair = true;
     options.stableIdSeed = "truss:300:12kg";
@@ -127,7 +129,8 @@ int main() {
   }
 
   {
-    tinyxml2::XMLDocument doc = Parse(MinimalGdtf(
+    tinyxml2::XMLDocument doc;
+    ParseInto(doc, MinimalGdtf(
         "<AttributeDefinitions/><PhysicalDescriptions/><Models/><Geometries/><DMXModes/>"));
     GdtfCanonicalizer::Result result = GdtfCanonicalizer::CanonicalizeDescription(doc);
     assert(result.success);

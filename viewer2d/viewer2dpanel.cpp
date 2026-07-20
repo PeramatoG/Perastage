@@ -594,9 +594,11 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
   }
 }
 
+// Releases timers, interaction state, and GL resources owned by the 2D panel.
 Viewer2DPanel::~Viewer2DPanel() {
-  if (m_glContext) {
-    SetCurrent(*m_glContext);
+  if (m_glContext && IsShownOnScreen() &&
+      gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer2DPanel",
+                                  "destructor cleanup")) {
     ReleaseCaptureFramebufferTarget();
   }
   if (HasCapture())
@@ -3807,6 +3809,49 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
   RequestRepaint();
 }
 
+// Applies keyboard pan and zoom navigation to the 2D viewport.
+bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
+  const float panStep = 10.0f / m_zoom;
+
+  switch (keyCode) {
+  case WXK_LEFT:
+    if (altDown)
+      m_zoom *= 1.1f;
+    else
+      m_offsetX += panStep;
+    break;
+  case WXK_RIGHT:
+    if (altDown)
+      m_zoom /= 1.1f;
+    else
+      m_offsetX -= panStep;
+    break;
+  case WXK_UP:
+    if (altDown)
+      m_zoom *= 1.1f;
+    else
+      m_offsetY -= panStep;
+    break;
+  case WXK_DOWN:
+    if (altDown)
+      m_zoom /= 1.1f;
+    else
+      m_offsetY += panStep;
+    break;
+  default:
+    return false;
+  }
+
+  if (m_zoom < 0.1f)
+    m_zoom = 0.1f;
+  InvalidatePickCache();
+  if (m_persistViewState)
+    SaveViewToConfig();
+  RequestRepaint();
+  return true;
+}
+
+// Handles local keyboard shortcuts when the 2D viewport owns focus.
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
   if (m_continuousPlacementActive && event.GetKeyCode() == WXK_ESCAPE) {
     CancelContinuousPlacement();
@@ -3821,9 +3866,6 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     return;
   }
 
-  bool alt = event.AltDown();
-  float panStep = 10.0f / m_zoom;
-
   switch (event.GetKeyCode()) {
   case WXK_ESCAPE:
     if (m_measureToolState.enabled) {
@@ -3836,30 +3878,6 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
   case 'm':
     SetMeasureToolEnabled(!m_measureToolState.enabled);
     return;
-  case WXK_LEFT:
-    if (alt)
-      m_zoom *= 1.1f;
-    else
-      m_offsetX += panStep;
-    break;
-  case WXK_RIGHT:
-    if (alt)
-      m_zoom /= 1.1f;
-    else
-      m_offsetX -= panStep;
-    break;
-  case WXK_UP:
-    if (alt)
-      m_zoom *= 1.1f;
-    else
-      m_offsetY -= panStep;
-    break;
-  case WXK_DOWN:
-    if (alt)
-      m_zoom /= 1.1f;
-    else
-      m_offsetY += panStep;
-    break;
   case WXK_DELETE:
   case WXK_NUMPAD_DELETE: {
     if (MainWindow::Instance()) {
@@ -3871,16 +3889,11 @@ void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
     return;
   }
   default:
+    if (TryHandleViewportNavigationKey(event.GetKeyCode(), event.AltDown()))
+      return;
     event.Skip();
     return;
   }
-
-  if (m_zoom < 0.1f)
-    m_zoom = 0.1f;
-  InvalidatePickCache();
-  if (m_persistViewState)
-    SaveViewToConfig();
-  RequestRepaint();
 }
 
 void Viewer2DPanel::OnMouseEnter(wxMouseEvent &event) {

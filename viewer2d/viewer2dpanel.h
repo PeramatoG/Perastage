@@ -139,6 +139,7 @@ public:
   // Accessor for the current viewport state so exporters can match what the
   // user is seeing on screen.
   Viewer2DViewState GetViewState() const;
+  bool TryHandleViewportNavigationKey(int keyCode, bool altDown);
 
   std::shared_ptr<const SymbolDefinitionSnapshot>
   GetBottomSymbolCacheSnapshot() const;

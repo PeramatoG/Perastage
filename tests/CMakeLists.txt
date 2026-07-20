@@ -180,6 +180,15 @@ add_test(NAME PlatformLocaleSetup COMMAND platform_locale_test)
 
 add_executable(trussloader_validation_test
                trussloader_validation_test.cpp
+               build_info_stub.cpp
+               ../core/apppaths.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
+               ../core/truss_gdtf_builder.cpp
+               ../core/trussloader.cpp
                ../models/truss.cpp)
 target_include_directories(trussloader_validation_test PRIVATE
                            . ../core ../models ../third_party)
@@ -216,6 +225,10 @@ add_executable(mvr_merge_analyzer_applier_test
                ../mvr/mvr_merge_applier.cpp
                ../mvr/mvr_merge_resource_rewriter.cpp
                ../mvr/mvrscenemerger.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/uuidutils.cpp
                ../models/mvrscene.cpp)
 add_test(NAME MvrMergeAnalyzerApplier COMMAND mvr_merge_analyzer_applier_test)
@@ -258,11 +271,13 @@ add_executable(fixture_label_overrides_reconcile_test
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -328,6 +343,7 @@ add_test(NAME UiUnitUtilsRoundTrip COMMAND ui_unit_utils_test)
 
 add_executable(gdtf_canonicalizer_test
                gdtf_canonicalizer_test.cpp
+               build_info_stub.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp)
 target_include_directories(gdtf_canonicalizer_test PRIVATE ../core ../third_party)
@@ -449,11 +465,13 @@ add_executable(gdtf_dictionary_color_roundtrip_test
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -471,11 +489,13 @@ add_executable(gdtf_dictionary_color_mode_propagation_test
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -497,10 +517,14 @@ add_executable(dictionary_seed_merge_backup_test
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/trussdictionary.cpp
                ../models/truss.cpp
                ../models/mvrscene.cpp)
@@ -522,7 +546,11 @@ add_executable(active_dictionary_workflow_test
                ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/trussdictionary.cpp
                ../models/truss.cpp
                ../models/mvrscene.cpp)
@@ -549,6 +577,7 @@ add_test(NAME LayoutSelectionPolicy
 
 add_executable(layout_template_package_service_test
                layout_template_package_service_test.cpp
+               ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/layouts/LayoutImageResourceRegistry.cpp
@@ -657,12 +686,16 @@ add_test(NAME AutoPatchUniverseWrap COMMAND autopatcher_universe_wrap_test)
 set_library_env(AutoPatchUniverseWrap)
 
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -693,12 +726,16 @@ add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
 set_library_env(SaveLoadRoundtrip)
 
 add_executable(project_support_userdata_roundtrip_test project_support_userdata_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -730,12 +767,18 @@ set_library_env(ProjectSupportUserDataRoundtrip)
 
 add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
+               build_info_stub.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/projectutils.cpp
                ../core/apppaths.cpp
                ../core/filesystem_path_utils.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
+               ../core/truss_gdtf_builder.cpp
                ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
                ../models/truss.cpp)
 target_include_directories(truss_path_encoding_regression_test PRIVATE
                            . ../core ../models ../third_party)
@@ -745,6 +788,7 @@ add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression
 
 add_executable(rider_truss_dictionary_normalization_test
                rider_truss_dictionary_normalization_test.cpp
+               build_info_stub.cpp
                pdftext_stub.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
@@ -760,6 +804,9 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -790,6 +837,7 @@ target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr)
 add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
+               build_info_stub.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -800,6 +848,9 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -827,12 +878,16 @@ set_library_env(MvrDmxAddressConversion)
 
 
 add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -864,12 +919,16 @@ set_library_env(MvrSupportUserDataRoundtrip)
 
 
 add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -901,12 +960,16 @@ set_library_env(MvrLayerAppearanceUserData)
 
 
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -937,12 +1000,16 @@ add_test(NAME MvrFixtureCategoryRoundtrip COMMAND mvr_fixture_category_roundtrip
 set_library_env(MvrFixtureCategoryRoundtrip)
 
 add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_identity_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -956,6 +1023,8 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../mvr/primitive_model_resources.cpp
                ../viewer3d/culling/bounds_cache_system.cpp
                ../viewer3d/culling/primitive_bounds_utils.cpp
+               ../viewer3d/meshprimitives.cpp
+               resource_sync_key_stub.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
@@ -976,12 +1045,16 @@ add_test(NAME MvrSceneObjectSymbolIdentity COMMAND mvr_sceneobject_symbol_identi
 set_library_env(MvrSceneObjectSymbolIdentity)
 
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -1012,13 +1085,16 @@ add_test(NAME MvrTrussRoundtripStructure COMMAND mvr_truss_roundtrip_structure_t
 set_library_env(MvrTrussRoundtripStructure)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
-               ${PERASTAGE_GENERATED_BUILD_INFO_CPP}
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -1049,6 +1125,7 @@ add_test(NAME MvrExporterCompliance COMMAND mvr_exporter_compliance_test)
 set_library_env(MvrExporterCompliance)
 
 add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
+               build_info_stub.cpp
                pdftext_stub.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
@@ -1064,6 +1141,9 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/utf8_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/layer_service.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -1531,8 +1611,10 @@ target_include_directories(meshprimitives_cube_normals_test PRIVATE ../viewer3d)
 add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test)
 
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
+               build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1541,7 +1623,7 @@ add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_primitive_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
 
@@ -1557,6 +1639,7 @@ set_library_env(Loader3dsNativeDimensions)
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1566,13 +1649,15 @@ add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_channel_modes_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderChannelModeSummaries COMMAND gdtfloader_channel_modes_test)
 set_library_env(GdtfLoaderChannelModeSummaries)
 
 add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
+               build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1582,13 +1667,15 @@ add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
 target_include_directories(gdtfloader_geometry_roots_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_geometry_roots_test PRIVATE
-                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderGeometryRoots COMMAND gdtfloader_geometry_roots_test)
 set_library_env(GdtfLoaderGeometryRoots)
 
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
+               build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1597,11 +1684,12 @@ add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_set_properties_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_test)
 set_library_env(GdtfLoaderSetPropertiesMutation)
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
+               build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../gui/windows/symbol_preview_exporter.cpp
@@ -1610,6 +1698,9 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/guiconfigservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/utf8_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/layer_service.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
@@ -1639,11 +1730,12 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ${LAYOUT_SOURCES})
 target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
                            . .. ../core ../models ../gui ../viewer3d ../third_party)
-target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
 set_library_env(SymbolFixtureApplierGdtfMutation)
 
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
+               build_info_stub.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/configmanager.cpp
@@ -1652,6 +1744,9 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/utf8_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/layer_service.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/trussdictionary.cpp
@@ -1677,7 +1772,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_patched_gdtf_export_test PRIVATE
                            . .. ../core ../models ../mvr ../gui ../viewer3d ../third_party)
-target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME MvrPatchedGdtfExportMutation COMMAND mvr_patched_gdtf_export_test)
 set_library_env(MvrPatchedGdtfExportMutation)
 
@@ -1767,7 +1862,9 @@ add_executable(layout_image_resource_registry_test
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -1866,10 +1963,14 @@ add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
 
 add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
                ../core/layer_service.cpp
-               ../core/configservices.cpp
                ../core/utf8_utils.cpp
                ../core/uuidutils.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               configmanager_layoutmanager_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp)
 target_include_directories(layer_service_utf8_test PRIVATE ../core ../models)
 target_link_libraries(layer_service_utf8_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME LayerServiceUtf8 COMMAND layer_service_utf8_test)
@@ -1890,12 +1991,17 @@ add_executable(dictionary_reset_transaction_test
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../core/trussdictionary.cpp
                ../models/mvrscene.cpp
-               ../models/truss.cpp)
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp
+               ../models/layer.cpp)
 target_include_directories(dictionary_reset_transaction_test PRIVATE
                            . ../core ../models ../third_party)
 target_link_libraries(dictionary_reset_transaction_test PRIVATE
@@ -1922,8 +2028,7 @@ add_executable(gdtf_share_security_test
                ../core/credentialstore.cpp
                ../core/simplecrypt.cpp
                ../core/apppaths.cpp
-               ../core/configmanager.cpp
-               ../core/configservices.cpp
+               configmanager_layoutmanager_stub.cpp
                ../core/filesystem_path_utils.cpp
                ../core/logger.cpp
                ../core/diagnostics/DiagnosticLogger.cpp
