@@ -465,11 +465,13 @@ add_executable(gdtf_dictionary_color_roundtrip_test
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -487,11 +489,13 @@ add_executable(gdtf_dictionary_color_mode_propagation_test
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
