@@ -1689,6 +1689,7 @@ add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_
 set_library_env(GdtfLoaderSetPropertiesMutation)
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
+               build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../gui/windows/symbol_preview_exporter.cpp
@@ -1697,6 +1698,9 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/guiconfigservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/utf8_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/layer_service.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
@@ -1726,11 +1730,12 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ${LAYOUT_SOURCES})
 target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
                            . .. ../core ../models ../gui ../viewer3d ../third_party)
-target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
 set_library_env(SymbolFixtureApplierGdtfMutation)
 
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
+               build_info_stub.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/configmanager.cpp
@@ -1739,6 +1744,9 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/utf8_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/layer_service.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/trussdictionary.cpp
@@ -1764,7 +1772,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_patched_gdtf_export_test PRIVATE
                            . .. ../core ../models ../mvr ../gui ../viewer3d ../third_party)
-target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME MvrPatchedGdtfExportMutation COMMAND mvr_patched_gdtf_export_test)
 set_library_env(MvrPatchedGdtfExportMutation)
 
