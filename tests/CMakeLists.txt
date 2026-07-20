@@ -91,13 +91,24 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
     add_test(NAME SecureStoreBuildPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_securestore_build_policy.sh)
-    set_tests_properties(SecureStoreBuildPolicy PROPERTIES LABELS "secure-store;security;release-gate")
+    set_tests_properties(SecureStoreBuildPolicy PROPERTIES
+                         LABELS "secure-store;security;release-gate"
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     add_test(NAME WindowsNinjaX64Policy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh)
-    set_tests_properties(WindowsNinjaX64Policy PROPERTIES LABELS "windows;x64;release-gate")
+    set_tests_properties(WindowsNinjaX64Policy PROPERTIES
+                         LABELS "windows;x64;release-gate"
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     add_test(NAME CiCMakeLanguagePolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy.sh)
-    set_tests_properties(CiCMakeLanguagePolicy PROPERTIES LABELS "ci;cmake;release-gate")
+    set_tests_properties(CiCMakeLanguagePolicy PROPERTIES
+                         LABELS "ci;cmake;release-gate"
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    add_test(NAME ReleaseGatePolicyPortability
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_release_gate_policy_portability.sh)
+    set_tests_properties(ReleaseGatePolicyPortability PROPERTIES
+                         LABELS "ci;policy;release-gate"
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 endif()
 
 find_package(Python3 COMPONENTS Interpreter)

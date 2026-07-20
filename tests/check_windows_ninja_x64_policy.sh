@@ -5,8 +5,15 @@ cd "$repo_root"
 
 python3 - <<'PY'
 import json
+import re
 from pathlib import Path
-presets = json.loads(Path('CMakePresets.json').read_text())
+
+ROOT = Path('.')
+
+def read(path):
+    return (ROOT / path).read_text(errors='ignore')
+
+presets = json.loads(read('CMakePresets.json'))
 windows_configure = [preset for preset in presets['configurePresets'] if preset['name'].startswith('win-')]
 assert {preset['name'] for preset in windows_configure} == {'win-x64-debug-ninja', 'win-x64-release-ninja'}, windows_configure
 for preset in windows_configure:
@@ -22,18 +29,15 @@ for preset in windows_configure:
     assert 'VCPKG_INSTALLED_DIR' not in cache, name
 windows_build = [preset for preset in presets['buildPresets'] if preset['name'].startswith('win-')]
 assert {preset['configurePreset'] for preset in windows_build} <= {'win-x64-debug-ninja', 'win-x64-release-ninja'}, windows_build
-PY
 
-python3 - <<'PY'
-from pathlib import Path
-script = Path('setup_windows.ps1').read_text()
+script = read('setup_windows.ps1')
 required = [
     "[string]$VcpkgRoot = 'C:\\vcpkg'",
     'VSCMD_ARG_HOST_ARCH',
     'VSCMD_ARG_TGT_ARCH',
     'cl.exe banner does not identify an x64 target',
-    'hostx64\\\\x64',
-    'hostx86\\\\x86',
+    r'hostx64\\x64',
+    r'hostx86\\x86',
     'cached compiler Visual Studio root',
     'VCPKG_MANIFEST_MODE=OFF',
     'VCPKG_MANIFEST_INSTALL=OFF',
@@ -56,20 +60,21 @@ for forbidden in [
 ]:
     assert forbidden not in script, forbidden
 assert "Write-Host 'MSVC compiler architecture: x64'" not in script, 'setup must not print unconditional x64 status'
-PY
 
-if rg -n 'local''-win-'; then
-  echo 'Tracked files must not reference generated local Windows presets.' >&2
-  exit 1
-fi
+ignored_roots = {'.git', 'build', 'out', 'vcpkg', '.vcpkg-cache'}
+for path in ROOT.rglob('*'):
+    if not path.is_file() or ignored_roots.intersection(path.parts) or path == ROOT / 'tests/check_windows_ninja_x64_policy.sh':
+        continue
+    try:
+        text = path.read_text(errors='ignore')
+    except OSError:
+        continue
+    if 'local-win-' in text:
+        raise SystemExit(f'Tracked files must not reference generated local Windows presets: {path}')
 
-python3 - <<'PY_SETUP'
-import re
-from pathlib import Path
-script = Path('setup_windows.ps1').read_text()
 for pattern in [r'&\s+\$[^\n]*vcpkg[^\n]*\s+install\b', r"vcpkg(?:\.exe)?[\"\']?\s+install\b"]:
     match = re.search(pattern, script, re.IGNORECASE)
     assert not match, match.group(0)
-PY_SETUP
+PY
 
 echo 'OK: Windows Ninja presets and setup script enforce classic x64 vcpkg validation policy.'

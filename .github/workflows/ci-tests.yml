@@ -401,7 +401,7 @@ jobs:
       - name: Build release-gate and macOS tests
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target gdtf_share_security_test credential_store_native_roundtrip_test --verbose
       - name: Run release-gate and macOS tests
-        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-on-failure
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-on-failure --verbose
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
