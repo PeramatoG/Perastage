@@ -17,6 +17,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ### Interface and workflow
 
+- Layout Viewer now fits pages reliably after opening Layout Mode, switching layouts, loading projects, changing page setup, or restoring a visible layout perspective, while preserving user zoom and pan during routine content edits.
 - Replaced standalone JSON layout-template export with portable `.pslayout` packages. Layout packages are ZIP-based, self-contained, include referenced layout images, and remain importable alongside legacy JSON templates for compatibility.
 - Added interface-language selection for **English** and **Spanish**. The selected language is stored in Preferences and is applied after restarting the application.
 - Added **Cross-table Actions** to the viewport toolbar. When enabled, hover, selection, measurement, and compatible tools can work across all supported object types instead of being limited to the active Data Views table.

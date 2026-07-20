@@ -68,6 +68,8 @@ if(BASH_EXECUTABLE)
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
     add_test(NAME LayoutProjectLoadCacheReset
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
+    add_test(NAME LayoutViewerFitLifecycle
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
     add_test(NAME LibraryUserDataPolicy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_test(NAME DictionaryPathsPolicy

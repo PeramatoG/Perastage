@@ -497,13 +497,11 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
   glContext_ = new wxGLContext(this);
   currentLayout.pageSetup.pageSize = print::PageSize::A4;
   currentLayout.pageSetup.landscape = true;
-  pendingFitOnResize = true;
   loadingTimer_.SetOwner(this, kLoadingTimerId);
   renderDelayTimer_.SetOwner(this, kRenderDelayTimerId);
   Bind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this, kLoadingTimerId);
   Bind(wxEVT_TIMER, &LayoutViewerPanel::OnRenderDelayTimer, this,
        kRenderDelayTimerId);
-  ResetViewToFit();
 }
 
 LayoutViewerPanel::~LayoutViewerPanel() {
@@ -519,6 +517,12 @@ LayoutViewerPanel::~LayoutViewerPanel() {
   loadingTimer_.Stop();
   renderDelayTimer_.Stop();
   delete glContext_;
+}
+
+// Requests a deferred automatic fit once the pane has a stable visible size.
+void LayoutViewerPanel::RequestFitToViewport() {
+  pendingFitOnResize = true;
+  SchedulePendingFitToViewport();
 }
 
 // Clears project-scoped Layout preview render caches before applying a new project.
@@ -668,8 +672,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
     legendItems_.clear();
     legendDataHash = 0;
     legendDataDirty_ = false;
-    pendingFitOnResize = true;
-    ResetViewToFit();
     Refresh();
     NotifyRenderReady();
     return;
@@ -678,8 +680,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
   loadingRequested = false;
   legendDataDirty_ = true;
   RefreshLegendData();
-  pendingFitOnResize = true;
-  ResetViewToFit();
   InvalidateRenderIfFrameChanged(true);
   RequestRenderRebuild();
   Refresh();
@@ -1340,13 +1340,10 @@ void LayoutViewerPanel::DrawSelectionHandles(const wxRect &frameRect) const {
 
 // Updates cached render state and repaint scheduling after viewport size changes.
 void LayoutViewerPanel::OnSize(wxSizeEvent &) {
-  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  if (pendingFitOnResize && size.GetWidth() > 0 && size.GetHeight() > 0) {
-    ResetViewToFit();
-    pendingFitOnResize = false;
-  } else {
-    InvalidateRenderIfFrameChanged(false);
-  }
+  if (TryCompletePendingFitToViewport())
+    return;
+
+  InvalidateRenderIfFrameChanged(false);
   RequestRenderRebuild();
   Refresh();
 }
@@ -1493,9 +1490,11 @@ void LayoutViewerPanel::OnKeyDown(wxKeyEvent &event) {
   event.Skip();
 }
 
+// Handles pane visibility changes and resumes pending automatic fits.
 void LayoutViewerPanel::OnShow(wxShowEvent &event) {
   if (event.IsShown()) {
     InitGL();
+    SchedulePendingFitToViewport();
     if (isReadyToRender_ && NeedsRenderRebuild()) {
       RequestRenderRebuild();
     }
@@ -1957,6 +1956,45 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
   renderDirty = true;
   RequestRenderRebuild();
   Refresh();
+}
+
+// Reports whether the current client area can produce a reliable automatic fit.
+bool LayoutViewerPanel::IsViewportReadyForAutomaticFit() const {
+  constexpr int kMinimumStableFitSizePx = 100;
+  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
+  return size.GetWidth() >= kMinimumStableFitSizePx &&
+         size.GetHeight() >= kMinimumStableFitSizePx && IsShownOnScreen();
+}
+
+// Attempts to consume the pending automatic fit with the current viewport.
+bool LayoutViewerPanel::TryCompletePendingFitToViewport() {
+  if (!pendingFitOnResize || !IsViewportReadyForAutomaticFit())
+    return false;
+
+  ResetViewToFit();
+  pendingFitOnResize = false;
+  InvalidateRenderIfFrameChanged(false);
+  RequestRenderRebuild();
+  Refresh();
+  return true;
+}
+
+// Schedules at most one deferred automatic-fit attempt for the pending request.
+void LayoutViewerPanel::SchedulePendingFitToViewport() {
+  if (!pendingFitOnResize || deferredFitToViewportScheduled_)
+    return;
+
+  deferredFitToViewportScheduled_ = true;
+  wxWeakRef<LayoutViewerPanel> weakThis(this);
+  CallAfter([weakThis]() {
+    if (!weakThis)
+      return;
+    LayoutViewerPanel *panel = weakThis.get();
+    if (!panel)
+      return;
+    panel->deferredFitToViewportScheduled_ = false;
+    panel->TryCompletePendingFitToViewport();
+  });
 }
 
 // Resets the layout camera so the page fits within the current viewport.

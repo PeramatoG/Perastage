@@ -46,6 +46,7 @@ public:
   ~LayoutViewerPanel();
 
   void SetLayoutDefinition(const layouts::LayoutDefinition &layout);
+  void RequestFitToViewport();
   void ResetPreviewCachesForProjectLoad();
   layouts::Layout2DViewDefinition *GetEditableView();
   const layouts::Layout2DViewDefinition *GetEditableView() const;
@@ -197,6 +198,9 @@ private:
   void ClearLoadingTextTexture();
 
   void ResetViewToFit();
+  bool IsViewportReadyForAutomaticFit() const;
+  bool TryCompletePendingFitToViewport();
+  void SchedulePendingFitToViewport();
   wxRect GetPageRect() const;
   bool GetFrameRect(const layouts::Layout2DViewFrame &frame,
                     wxRect &rect) const;
@@ -375,7 +379,8 @@ private:
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool legendDataDirty_ = true;
-  bool pendingFitOnResize = true;
+  bool pendingFitOnResize = false;
+  bool deferredFitToViewportScheduled_ = false;
   bool pendingFrameCommit_ = false;
   SelectionIndexCache selectionIndexCache_;
 
