@@ -1966,7 +1966,12 @@ add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
                ../core/configservices.cpp
                ../core/utf8_utils.cpp
                ../core/uuidutils.cpp
-               ../models/layer.cpp)
+               ../models/layer.cpp
+               configmanager_layoutmanager_stub.cpp
+               ../models/mvrscene.cpp
+               ../models/fixture.cpp
+               ../models/truss.cpp
+               ../models/sceneobject.cpp)
 target_include_directories(layer_service_utf8_test PRIVATE ../core ../models)
 target_link_libraries(layer_service_utf8_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME LayerServiceUtf8 COMMAND layer_service_utf8_test)
@@ -1987,7 +1992,10 @@ add_executable(dictionary_reset_transaction_test
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/projectutils.cpp
+               ../core/apppaths.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../core/trussdictionary.cpp
