@@ -77,6 +77,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 ## Important fixes
 
 - Fixed the GDTF canonicalizer test so it builds with TinyXML2 versions whose document type is non-copyable.
+- Fixed GDTF loader regression tests so they include the real viewer loader API instead of the lightweight test stub during full rebuilds.
 - Improved portable layout package export with images by using canonical ZIP entry paths, clearer archive validation diagnostics, and side-effect-free export self-validation. The Layout panel now restores and reapplies an active layout selection when layouts exist so default layouts render after startup and reload and export, rename, and delete actions do not silently do nothing after selection loss.
 - Hardened GDTF Share sign-in, credential storage, diagnostics, and download handling so passwords use the operating system credential store when available, login errors are reported more accurately, and failed downloads no longer replace existing files.
 - Improved GDTF Share session handling for fixture downloads and MVR import, including clearer online-versus-cached catalog status, reuse of authenticated catalog sessions for downloads, safer cookie ownership, transactional replacement of existing GDTF files, strict legacy credential migration, username-only credential hints, and clearer warnings when secure password storage is unavailable.
