@@ -577,6 +577,7 @@ add_test(NAME LayoutSelectionPolicy
 
 add_executable(layout_template_package_service_test
                layout_template_package_service_test.cpp
+               ../core/layouts/LayoutCollection.cpp
                ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/layouts/LayoutImageResourceRegistry.cpp
