@@ -49,6 +49,10 @@ jobs:
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
 
+      - name: Prepare CI log directory
+        shell: bash
+        run: mkdir -p "$CI_LOG_DIR"
+
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: bash
@@ -153,22 +157,6 @@ jobs:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
 
-      - name: Upload CI diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ github.job }}-diagnostics
-          if-no-files-found: ignore
-          path: |
-            out/ci-logs/**
-            vcpkg/buildtrees/**/*.log
-            vcpkg/buildtrees/**/config-*.txt
-            vcpkg/buildtrees/**/issue_body.md
-            .vcpkg-cache/installed/vcpkg/issue_body.md
-            build/**/*.log
-            build/**/CMakeOutput.log
-            build/**/CMakeError.log
-
       - name: Create makepkg user
         run: |
           useradd --create-home --shell /bin/bash builder
@@ -176,7 +164,7 @@ jobs:
 
       - name: Run Arch release-gate tests
         run: |
-          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET'; cd '$GITHUB_WORKSPACE' && cmake -S . -B build-release-gate -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE='$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake' -DVCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' -DVCPKG_INSTALLED_DIR='$VCPKG_INSTALLED' -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON"
+          su builder -c "export VCPKG_ROOT='$VCPKG_ROOT' VCPKG_INSTALLED='$VCPKG_INSTALLED' VCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' CI_LOG_DIR='$CI_LOG_DIR'; cd '$GITHUB_WORKSPACE' && python3 .github/scripts/run_and_log.py --log '$CI_LOG_DIR/cmake-configure-arch-release-gate.log' -- cmake -S . -B build-release-gate -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE='$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake' -DVCPKG_TARGET_TRIPLET='$VCPKG_TARGET_TRIPLET' -DVCPKG_INSTALLED_DIR='$VCPKG_INSTALLED' -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON"
           su builder -c "cd '$GITHUB_WORKSPACE' && cmake --build build-release-gate --target gdtf_share_security_test credential_store_native_roundtrip_test"
           su builder -c "cd '$GITHUB_WORKSPACE' && ctest --test-dir build-release-gate -L release-gate --output-on-failure"
 
@@ -253,3 +241,22 @@ jobs:
         with:
           name: Perastage-arch-package
           path: Perastage-*-arch-x86_64.pkg.tar.zst
+
+      - name: Upload final CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: arch-package-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            **/CMakeFiles/CMakeConfigureLog.yaml
+            **/CMakeCache.txt
+            **/CMakeFiles/CMakeOutput.log
+            **/CMakeFiles/CMakeError.log
+            build/**/*.log
+            build-*/**/*.log
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md

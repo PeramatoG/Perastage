@@ -43,6 +43,10 @@ jobs:
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
 
+      - name: Prepare CI log directory
+        shell: bash
+        run: mkdir -p "$CI_LOG_DIR"
+
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: bash
@@ -119,22 +123,6 @@ jobs:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
 
-      - name: Upload CI diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ github.job }}-diagnostics
-          if-no-files-found: ignore
-          path: |
-            out/ci-logs/**
-            vcpkg/buildtrees/**/*.log
-            vcpkg/buildtrees/**/config-*.txt
-            vcpkg/buildtrees/**/issue_body.md
-            .vcpkg-cache/installed/vcpkg/issue_body.md
-            build/**/*.log
-            build/**/CMakeOutput.log
-            build/**/CMakeError.log
-
       - name: Validate vcpkg gettext tools
         shell: pwsh
         run: |
@@ -159,13 +147,14 @@ jobs:
           $cmakeHelp = cmake --help
           $generator = if ($cmakeHelp -match 'Visual Studio 18 2026') { 'Visual Studio 18 2026' } else { 'Visual Studio 17 2022' }
           Write-Host "Using CMake generator: $generator"
-          cmake -S . -B build -G $generator -A x64 `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
-            -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
-            -DVCPKG_MANIFEST_MODE=OFF `
-            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+          python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-release.log" -- `
+            cmake -S . -B build -G $generator -A x64 `
+              -DCMAKE_BUILD_TYPE=Release `
+              -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+              -DVCPKG_TARGET_TRIPLET=x64-windows `
+              -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
+              -DVCPKG_MANIFEST_MODE=OFF `
+              -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
 
       # ── 6. Build ────────────────────────────────────────────────────────────
       - name: Build project
@@ -261,6 +250,25 @@ jobs:
           name: Perastage-windows-installer
           path: out/installer
 
+      - name: Upload final CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-release-installer-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            **/CMakeFiles/CMakeConfigureLog.yaml
+            **/CMakeCache.txt
+            **/CMakeFiles/CMakeOutput.log
+            **/CMakeFiles/CMakeError.log
+            build/**/*.log
+            build-*/**/*.log
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
+
 
   test-windows-secure-store:
     needs: build-windows-installer
@@ -281,6 +289,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+
+      - name: Prepare CI log directory
+        shell: bash
+        run: mkdir -p "$CI_LOG_DIR"
 
       - name: Read vcpkg baseline
         id: vcpkg-baseline
@@ -344,33 +356,43 @@ jobs:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
 
-      - name: Upload CI diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ github.job }}-diagnostics
-          if-no-files-found: ignore
-          path: |
-            out/ci-logs/**
-            vcpkg/buildtrees/**/*.log
-            vcpkg/buildtrees/**/config-*.txt
-            vcpkg/buildtrees/**/issue_body.md
-            .vcpkg-cache/installed/vcpkg/issue_body.md
-            build/**/*.log
-            build/**/CMakeOutput.log
-            build/**/CMakeError.log
-
       - name: Configure focused security tests
         shell: pwsh
         run: |
-          cmake -S . -B build-security -G Ninja `
-            -DCMAKE_BUILD_TYPE=Debug `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
-            -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
-            -DVCPKG_MANIFEST_MODE=OFF `
-            -DBUILD_TESTING=ON `
-            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "vswhere.exe was not found at: $vswhere" }
+          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No Visual Studio installation with x64 C++ tools was found.' }
+          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
+          if (-not (Test-Path $devCmd)) { throw "VsDevCmd.bat was not found at: $devCmd" }
+          cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set" | ForEach-Object {
+            $separator = $_.IndexOf('=')
+            if ($separator -gt 0) { Set-Item -Path "Env:$($_.Substring(0, $separator))" -Value $_.Substring($separator + 1) }
+          }
+          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
+          if (-not $cl) { throw 'cl.exe was not found after initializing the Visual Studio x64 developer environment.' }
+          $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
+          if ($normalizedCl -match 'c:[\\/](mingw64|msys64)') { throw "Refusing to configure x64-windows with MinGW/MSYS compiler: $($cl.Source)" }
+          if (-not $normalizedCl.Contains('hostx64\x64')) { throw "cl.exe is not the preferred Hostx64\x64 tool: $($cl.Source)" }
+          if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio environment is not host x64/target x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
+
+          python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-security.log" -- `
+            cmake -S . -B build-security -G Ninja `
+              -DCMAKE_C_COMPILER=cl.exe `
+              -DCMAKE_CXX_COMPILER=cl.exe `
+              -DCMAKE_BUILD_TYPE=Debug `
+              -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+              -DVCPKG_TARGET_TRIPLET=x64-windows `
+              -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" `
+              -DVCPKG_MANIFEST_MODE=OFF `
+              -DBUILD_TESTING=ON `
+              -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON
+
+          $cache = Get-Content build-security\CMakeCache.txt -Raw
+          foreach ($required in @('CMAKE_C_COMPILER_ID:INTERNAL=MSVC', 'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC')) {
+            if ($cache -notmatch [regex]::Escape($required)) { throw "CMake cache is missing expected MSVC compiler identity: $required" }
+          }
+          if ($cache -match '(?i)c:[\\/](mingw64|msys64)|mingw|gnu') { throw 'CMake cache contains MinGW/GNU compiler markers for x64-windows.' }
 
       - name: Build focused security tests
         shell: pwsh
@@ -381,3 +403,22 @@ jobs:
         shell: pwsh
         run: |
           ctest --test-dir build-security -L release-gate --output-on-failure
+
+      - name: Upload final CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-secure-store-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            **/CMakeFiles/CMakeConfigureLog.yaml
+            **/CMakeCache.txt
+            **/CMakeFiles/CMakeOutput.log
+            **/CMakeFiles/CMakeError.log
+            build/**/*.log
+            build-*/**/*.log
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md

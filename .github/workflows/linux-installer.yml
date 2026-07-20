@@ -42,6 +42,10 @@ jobs:
         with:
           ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
 
+      - name: Prepare CI log directory
+        shell: bash
+        run: mkdir -p "$CI_LOG_DIR"
+
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: bash
@@ -149,32 +153,17 @@ jobs:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
 
-      - name: Upload CI diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ github.job }}-diagnostics
-          if-no-files-found: ignore
-          path: |
-            out/ci-logs/**
-            vcpkg/buildtrees/**/*.log
-            vcpkg/buildtrees/**/config-*.txt
-            vcpkg/buildtrees/**/issue_body.md
-            .vcpkg-cache/installed/vcpkg/issue_body.md
-            build/**/*.log
-            build/**/CMakeOutput.log
-            build/**/CMakeError.log
-
       - name: Configure CMake
         run: |
-          cmake --preset wsl-x64-release \
-            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_TARGET_TRIPLET=x64-linux \
-            -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
-            -DVCPKG_MANIFEST_MODE=OFF \
-            -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
-            -DBUILD_TESTING=ON
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux.log" -- \
+            cmake --preset wsl-x64-release \
+              -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g" \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=x64-linux \
+              -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" \
+              -DVCPKG_MANIFEST_MODE=OFF \
+              -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON \
+              -DBUILD_TESTING=ON
 
       - name: Build and run release-gate tests
         run: |
@@ -363,3 +352,22 @@ jobs:
         with:
           name: Perastage-linux-appimage
           path: Perastage-*-x86_64.AppImage
+
+      - name: Upload final CI diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-appimage-diagnostics
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/**
+            **/CMakeFiles/CMakeConfigureLog.yaml
+            **/CMakeCache.txt
+            **/CMakeFiles/CMakeOutput.log
+            **/CMakeFiles/CMakeError.log
+            build/**/*.log
+            build-*/**/*.log
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
