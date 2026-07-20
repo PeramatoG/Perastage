@@ -2,8 +2,6 @@
 from pathlib import Path
 import json
 import re
-import sys
-
 import subprocess
 
 WORKFLOWS = Path('.github/workflows')
@@ -14,7 +12,34 @@ ci = (WORKFLOWS / 'ci-tests.yml').read_text()
 for needle in ['name: CI Debug Tests', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:
     assert needle in ci, f'ci-tests.yml is missing {needle}'
 assert '-DNDEBUG' in ci and 'must not compile with NDEBUG' in ci
-assert 'Refusing non-MSVC compiler' in ci and '(?i)mingw|msys|strawberry' in ci, 'Windows Debug CI must reject MinGW, MSYS, and Strawberry tools'
+assert 'Refusing non-MSVC compiler' in ci and all(token in ci.lower() for token in ['mingw', 'msys', 'strawberry']), 'Windows Debug CI must reject MinGW, MSYS, and Strawberry tools'
+
+sections = {
+    'linux': ci[ci.index('  linux-debug:'):ci.index('\n  windows-debug:')],
+    'windows': ci[ci.index('  windows-debug:'):ci.index('\n  macos-debug:')],
+    'macos': ci[ci.index('  macos-debug:'):],
+}
+for platform, text in sections.items():
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Cache vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=OFF']:
+        assert needle in text, f'{platform} Debug is missing {needle}'
+    assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
+    assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
+    assert 'debug-v1' in text or 'macos-26-xcode-26-debug-v1' in text, f'{platform} installed cache key must be Debug/toolchain scoped'
+    assert 'run_and_log.py --log' in text and 'ctest-' in text, f'{platform} build and test logs must be captured'
+
+linux = sections['linux']
+for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated']:
+    assert needle in linux, f'Linux Debug is missing {needle}'
+assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'
+
+windows = sections['windows']
+for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'CMAKE_C_COMPILER_ID:INTERNAL=MSVC', 'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC']:
+    assert needle in windows, f'Windows Debug environment persistence is missing {needle}'
+assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
+
+macos = sections['macos']
+for needle in ['macos-26-xcode-26-debug-v1', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', 'Stale macOS SDK path metadata']:
+    assert needle in macos, f'macOS Debug is missing {needle}'
 
 builders = ['windows-installer.yml','linux-installer.yml','macos-installer.yml','macos-15-manual-installer.yml','arch-package.yml']
 for name in builders:

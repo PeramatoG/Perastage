@@ -70,26 +70,82 @@ jobs:
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
-      - name: Prepare diagnostics summary
-        run: mkdir -p "$CI_LOG_DIR" && { uname -a; cmake --version; ninja --version || true; } > "$CI_LOG_DIR/environment.txt"
+      - name: Prepare vcpkg and diagnostics directories
+        run: |
+          mkdir -p "$CI_LOG_DIR" "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
+          { uname -a; cmake --version; ninja --version || true; } > "$CI_LOG_DIR/environment-linux-debug.txt"
+      - name: Read vcpkg baseline
+        id: vcpkg-baseline
+        run: |
+          set -euo pipefail
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
+          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
       - name: Install Linux test dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build pkg-config gettext autopoint autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libxkbcommon-dev libgl1-mesa-dev libglu1-mesa-dev
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-linux-
+      - name: Bootstrap vcpkg
+        run: |
+          set -euo pipefail
+          if [ -d "$VCPKG_ROOT/.git" ]; then
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_BASELINE"
+            git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
+          else
+            rm -rf "$VCPKG_ROOT"
+            git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+            git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
+          fi
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Install vcpkg packages
+        run: |
+          python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
+            --install-root "$VCPKG_INSTALLED" \
+            --packages-root "$VCPKG_PACKAGES" \
+            --downloads-root "$VCPKG_DOWNLOADS" \
+            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
+            --log "$CI_LOG_DIR/vcpkg-install-linux-debug.log"
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
       - name: Configure Debug tests
         run: |
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
-          if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json 2>/dev/null; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+          test -f build/linux-debug/compile_commands.json || { echo "Debug compile_commands.json was not generated"; exit 1; }
+          if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
       - name: Build complete test target set
-        run: cmake --build build/linux-debug --target all --verbose
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-linux-debug.log" -- cmake --build build/linux-debug --target all --verbose
       - name: Run complete CTest suite
-        run: ctest --test-dir build/linux-debug --output-on-failure
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-linux-debug.log" -- ctest --test-dir build/linux-debug --output-on-failure
       - name: Run repository policy tests
         run: |
           bash tests/check_perastage_tree_modules.sh
@@ -107,6 +163,8 @@ jobs:
             **/CMakeCache.txt
             build/**/*.log
             vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
             .vcpkg-cache/installed/vcpkg/issue_body.md
 
   windows-debug:
@@ -117,56 +175,114 @@ jobs:
       VCPKG_INSTALLED: ${{ github.workspace }}\.vcpkg-cache\installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}\.vcpkg-cache\downloads
       VCPKG_PACKAGES: ${{ github.workspace }}\.vcpkg-cache\packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache\binary
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.vcpkg-cache\binary,readwrite
       CI_LOG_DIR: ${{ github.workspace }}\out\ci-logs
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
-      - name: Initialize Visual Studio Hostx64 x64
+      - name: Prepare vcpkg and diagnostics directories
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path $env:CI_LOG_DIR -Force | Out-Null
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
-          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
-          cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set" | ForEach-Object { $p=$_.IndexOf('='); if ($p -gt 0) { Set-Item -Path "Env:$($_.Substring(0,$p))" -Value $_.Substring($p+1) } }
-          $cl=(Get-Command cl.exe).Source; if ($cl -match '(?i)mingw|msys|strawberry') { throw "Refusing non-MSVC compiler: $cl" }
-          if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw 'Visual Studio is not Hostx64/x64.' }
-          cmake --version | Out-File "$env:CI_LOG_DIR\environment.txt"
+          New-Item -ItemType Directory -Path $env:CI_LOG_DIR,$env:VCPKG_DOWNLOADS,$env:VCPKG_INSTALLED,$env:VCPKG_PACKAGES,$env:VCPKG_BINARY_CACHE -Force | Out-Null
+          cmake --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt"
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: bash
         run: |
+          set -euo pipefail
           baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
           echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        with:
+          path: |
+            .vcpkg-cache\installed
+            .vcpkg-cache\packages
+            .vcpkg-cache\binary
+          key: ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-msvc-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-msvc-
       - name: Bootstrap vcpkg
         shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
-          git -C $env:VCPKG_ROOT checkout --force $env:VCPKG_BASELINE
+          if (Test-Path "$env:VCPKG_ROOT\.git") {
+            git -C $env:VCPKG_ROOT fetch --depth 1 origin $env:VCPKG_BASELINE
+            git -C $env:VCPKG_ROOT checkout --force $env:VCPKG_BASELINE
+          } else {
+            if (Test-Path $env:VCPKG_ROOT) { Remove-Item $env:VCPKG_ROOT -Recurse -Force }
+            git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+            git -C $env:VCPKG_ROOT checkout --force $env:VCPKG_BASELINE
+          }
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
       - name: Install vcpkg packages
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path $env:VCPKG_DOWNLOADS,$env:VCPKG_INSTALLED,$env:VCPKG_PACKAGES -Force | Out-Null
           python .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
             --install-root "$env:VCPKG_INSTALLED" `
             --packages-root "$env:VCPKG_PACKAGES" `
             --downloads-root "$env:VCPKG_DOWNLOADS" `
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
-            --log "$env:CI_LOG_DIR\vcpkg-install-x64-windows.log"
+            --log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log"
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Persist Visual Studio Hostx64 x64 environment
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No Visual Studio installation with x64 C++ tools was found.' }
+          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
+          if (-not (Test-Path $devCmd)) { throw "VsDevCmd.bat was not found at: $devCmd" }
+          $envDump = cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set"
+          $envNames = @('INCLUDE','LIB','LIBPATH','Path','VSCMD_ARG_HOST_ARCH','VSCMD_ARG_TGT_ARCH','WindowsSdkDir','WindowsSDKVersion','VCINSTALLDIR','VCToolsInstallDir')
+          foreach ($line in $envDump) {
+            $separator = $line.IndexOf('=')
+            if ($separator -le 0) { continue }
+            $name = $line.Substring(0, $separator)
+            $value = $line.Substring($separator + 1)
+            Set-Item -Path "Env:$name" -Value $value
+            if ($envNames -contains $name) {
+              if ($name -ieq 'Path') { $value.Split(';') | Where-Object { $_ } | ForEach-Object { $_ | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 } }
+              else { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+            }
+          }
+          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
+          if (-not $cl) { throw 'cl.exe was not found after initializing the Visual Studio environment.' }
+          $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
+          if ($normalizedCl -match 'c:[\\/](mingw64|msys64)|mingw|msys|strawberry') { throw "Refusing non-MSVC compiler: $($cl.Source)" }
+          if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio is not Hostx64/x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
       - name: Configure Windows Debug tests
         shell: pwsh
         run: |
+          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
+          if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
           python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+          $cache = Get-Content build-windows-debug\CMakeCache.txt -Raw
+          foreach ($required in @('CMAKE_C_COMPILER_ID:INTERNAL=MSVC', 'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC')) {
+            if ($cache -notmatch [regex]::Escape($required)) { throw "CMake cache is missing expected MSVC compiler identity: $required" }
+          }
       - name: Build Windows Debug tests
         shell: pwsh
-        run: cmake --build build-windows-debug --target all --verbose
+        run: python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\build-windows-debug.log" -- cmake --build build-windows-debug --target all --verbose
       - name: Run Windows CTest suite
         shell: pwsh
-        run: ctest --test-dir build-windows-debug --output-on-failure
+        run: python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\ctest-windows-debug.log" -- ctest --test-dir build-windows-debug --output-on-failure
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -179,6 +295,9 @@ jobs:
             **/CMakeCache.txt
             build*/**/*.log
             vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
 
   macos-debug:
     needs: resolve-source
@@ -188,43 +307,96 @@ jobs:
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
-      - name: Prepare macOS debug environment
-        run: mkdir -p "$CI_LOG_DIR" && { sw_vers; uname -m; xcodebuild -version; } > "$CI_LOG_DIR/environment.txt"
-      - name: Install macOS test tools
-        run: brew update && brew install autoconf autoconf-archive automake gettext libtool ninja
+      - name: Prepare vcpkg and diagnostics directories
+        run: |
+          mkdir -p "$CI_LOG_DIR" "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
+          { sw_vers; uname -m; xcodebuild -version; xcrun --sdk macosx --show-sdk-path; } > "$CI_LOG_DIR/environment-macos-debug.txt"
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         run: |
+          set -euo pipefail
           baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
           echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
+      - name: Install macOS test tools
+        run: brew update && brew install autoconf autoconf-archive automake gettext libtool ninja
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: macos-26-arm64-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            macos-26-arm64-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Cache vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: macos-26-xcode-26-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          restore-keys: |
+            macos-26-xcode-26-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-
       - name: Bootstrap vcpkg
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
+          set -euo pipefail
+          if [ -d "$VCPKG_ROOT/.git" ]; then
+            git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_BASELINE"
+            git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
+          else
+            rm -rf "$VCPKG_ROOT"
+            git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+            git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
+          fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Diagnose restored vcpkg SDK metadata
+        run: |
+          set -euo pipefail
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          stale_sdk_paths="$(
+            for cache_dir in "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"; do
+              if [ -d "$cache_dir" ]; then
+                grep -R -h -o -E "/Applications/Xcode_[^[:space:]]*/SDKs/MacOSX\.sdk" "$cache_dir" 2>/dev/null || true
+              fi
+            done | sort -u | grep -F -v -x "$current_sdk_path" || true
+          )"
+          if [ -n "$stale_sdk_paths" ]; then
+            echo "Stale macOS SDK path metadata was found in the restored vcpkg cache."
+            echo "Current SDK path: $current_sdk_path"
+            echo "$stale_sdk_paths"
+            exit 1
+          fi
       - name: Install vcpkg packages
         run: |
-          mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet arm64-osx --manifest-root "$GITHUB_WORKSPACE" \
             --install-root "$VCPKG_INSTALLED" \
             --packages-root "$VCPKG_PACKAGES" \
             --downloads-root "$VCPKG_DOWNLOADS" \
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
-            --log "$CI_LOG_DIR/vcpkg-install-arm64-osx.log"
+            --log "$CI_LOG_DIR/vcpkg-install-macos-debug.log"
+      - name: Save vcpkg downloads cache
+        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
       - name: Configure macOS Debug tests
         run: |
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
       - name: Build release-gate and macOS tests
-        run: cmake --build build/macos-debug --target gdtf_share_security_test credential_store_native_roundtrip_test --verbose
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target gdtf_share_security_test credential_store_native_roundtrip_test --verbose
       - name: Run release-gate and macOS tests
-        run: ctest --test-dir build/macos-debug -L release-gate --output-on-failure
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-on-failure
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -237,3 +409,6 @@ jobs:
             **/CMakeCache.txt
             build/**/*.log
             vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/config-*.txt
+            vcpkg/buildtrees/**/issue_body.md
+            .vcpkg-cache/installed/vcpkg/issue_body.md
