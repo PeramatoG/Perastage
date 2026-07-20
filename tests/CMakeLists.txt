@@ -271,11 +271,13 @@ add_executable(fixture_label_overrides_reconcile_test
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/layouts/LayoutManager.cpp
-    ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
                ../core/layouts/LayoutDefaultsLoader.cpp
                ../core/layouts/LayoutCollection.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
                ../core/layouts/LayoutTemplateSerializer.cpp
                ../core/projectutils.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
