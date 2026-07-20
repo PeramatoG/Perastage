@@ -32,6 +32,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
   - Right-clicking opens row-level editors and context actions.
 - Edit Fixture and Edit Truss can now be maximized and use resizable layouts whose proportions are remembered between sessions.
 - The 2D View Editor now uses the same arrow-key pan and Alt+arrow zoom navigation as the standalone 2D viewport, even when focus is in the editor side panels.
+- The 2D View Editor now also honors the `Z` fit-view shortcut when focus is in non-editable editor controls.
 
 ### Fixture and truss editing
 
@@ -112,6 +113,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Fixed custom fixture and truss dictionaries so newly owned GDTF assets are stored in a sibling `_assets` folder and remain portable when the dictionary is moved with that folder.
 - Fixed Data Views table edits so moving fixtures, trusses, or scene objects between visible and hidden layers rebuilds the relevant viewer resources, invalidates stale 3D visible-set caches, and immediately refreshes both the 2D and 3D viewports, including layout previews.
 - Fixed Windows build and linker issues in the Local Axes viewport integration.
+- Fixed a debug-only shutdown warning caused by attempting to make a hidden 2D OpenGL canvas current during cleanup.
 
 ### MVR, GDTF, and project data
 

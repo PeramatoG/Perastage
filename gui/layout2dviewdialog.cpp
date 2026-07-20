@@ -16,6 +16,19 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
+namespace {
+
+// Reports whether the key event requests a viewer fit without command modifiers.
+bool IsFitViewShortcut(const wxKeyEvent &event) {
+  if (event.ControlDown() || event.AltDown() || event.MetaDown())
+    return false;
+
+  const int keyCode = event.GetKeyCode();
+  return keyCode == 'Z' || keyCode == 'z';
+}
+
+} // namespace
+
 // Builds the modal editor for a layout 2D view.
 Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
                                        ConfigManager *visibilityConfig,
@@ -135,12 +148,15 @@ void Layout2DViewDialog::OnShow(wxShowEvent &event) {
   event.Skip();
 }
 
-// Routes navigation shortcuts to the embedded 2D viewport.
+// Routes local viewport shortcuts to the embedded 2D viewport.
 void Layout2DViewDialog::OnCharHook(wxKeyEvent &event) {
   if (!viewerPanel || gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
     event.Skip();
     return;
   }
+
+  if (IsFitViewShortcut(event) && viewerPanel->FitViewToScene())
+    return;
 
   if (viewerPanel->TryHandleViewportNavigationKey(event.GetKeyCode(),
                                                  event.AltDown())) {

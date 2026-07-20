@@ -594,9 +594,11 @@ Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
   }
 }
 
+// Releases timers, interaction state, and GL resources owned by the 2D panel.
 Viewer2DPanel::~Viewer2DPanel() {
-  if (m_glContext) {
-    SetCurrent(*m_glContext);
+  if (m_glContext && IsShownOnScreen() &&
+      gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer2DPanel",
+                                  "destructor cleanup")) {
     ReleaseCaptureFramebufferTarget();
   }
   if (HasCapture())
