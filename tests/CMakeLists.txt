@@ -686,12 +686,16 @@ add_test(NAME AutoPatchUniverseWrap COMMAND autopatcher_universe_wrap_test)
 set_library_env(AutoPatchUniverseWrap)
 
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -722,12 +726,16 @@ add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
 set_library_env(SaveLoadRoundtrip)
 
 add_executable(project_support_userdata_roundtrip_test project_support_userdata_roundtrip_test.cpp
+               build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
@@ -759,12 +767,18 @@ set_library_env(ProjectSupportUserDataRoundtrip)
 
 add_executable(truss_path_encoding_regression_test
                truss_path_encoding_regression_test.cpp
+               build_info_stub.cpp
                configmanager_layoutmanager_stub.cpp
                ../core/projectutils.cpp
                ../core/apppaths.cpp
                ../core/filesystem_path_utils.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
+               ../core/truss_gdtf_builder.cpp
                ../core/trussdictionary.cpp
+               ../core/trussloader.cpp
                ../models/truss.cpp)
 target_include_directories(truss_path_encoding_regression_test PRIVATE
                            . ../core ../models ../third_party)
@@ -774,6 +788,7 @@ add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression
 
 add_executable(rider_truss_dictionary_normalization_test
                rider_truss_dictionary_normalization_test.cpp
+               build_info_stub.cpp
                pdftext_stub.cpp
                gdtfloader_stub.cpp
                consolepanel_stub.cpp
@@ -789,6 +804,9 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/runtime_storage.cpp
