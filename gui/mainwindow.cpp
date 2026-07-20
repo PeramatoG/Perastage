@@ -780,6 +780,23 @@ void MainWindow::SetStartupProjectLoadPending(bool pending) {
   }
 }
 
+// Reapplies the active/default layout after startup selection events are unblocked.
+void MainWindow::ReapplyStartupLayoutAfterProjectLoad() {
+  if (startupProjectLoadPending)
+    return;
+
+  std::string layoutName = activeLayoutName;
+  const auto &availableLayouts = layouts::LayoutManager::Get().GetLayouts().Items();
+  if (layoutName.empty() && !availableLayouts.empty())
+    layoutName = availableLayouts.front().name;
+  if (layoutName.empty())
+    return;
+
+  ActivateLayoutView(layoutName);
+  if (layoutPanel)
+    layoutPanel->SetCurrentLayout(layoutName);
+}
+
 // Cancels pending startup-project loading and defers an external file-open
 // path.
 void MainWindow::CancelStartupProjectLoadForExternalOpenPath(
@@ -1010,6 +1027,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
     SetStartupProjectLoadPending(false);
+    ReapplyStartupLayoutAfterProjectLoad();
     RequestStartupSplashCompletion();
     return;
   }
@@ -1028,6 +1046,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   }
 
   SetStartupProjectLoadPending(false);
+  ReapplyStartupLayoutAfterProjectLoad();
 }
 
 // Resets project state, UI-bound data, and active layout context for a fresh
@@ -1577,10 +1596,12 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     // can be processed deterministically after startup reset.
     CallAfter([this]() { CompleteStartupSplashInitialization(); });
     SetStartupProjectLoadPending(false);
+    ReapplyStartupLayoutAfterProjectLoad();
     RequestStartupSplashCompletion();
     return;
   }
   SetStartupProjectLoadPending(false);
+  ReapplyStartupLayoutAfterProjectLoad();
 }
 
 void MainWindow::OnUiUnitsChanged(wxCommandEvent &WXUNUSED(event)) {
