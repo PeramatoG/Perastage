@@ -524,6 +524,11 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 
   layoutModeActive = layoutMode;
 
+  if (layoutMode && layoutViewerPanel &&
+      IsPaneShown(auiManager, "LayoutViewer")) {
+    layoutViewerPanel->RequestFitToViewport();
+  }
+
   if (persistPerspective) {
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
     cfg.SetValue("layout_view_mode", preset.name);

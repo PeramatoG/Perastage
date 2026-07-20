@@ -1420,6 +1420,7 @@ void MainWindow::ActivateLayoutView(const std::string &layoutName) {
         else
           Update();
         layoutViewerPanel->SetLayoutDefinition(layout);
+        layoutViewerPanel->RequestFitToViewport();
         appliedLayout = true;
       }
       break;
