@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 3.21)
-project(PerastageTests LANGUAGES C CXX)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -98,6 +95,9 @@ if(BASH_EXECUTABLE)
     add_test(NAME WindowsNinjaX64Policy
              COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh)
     set_tests_properties(WindowsNinjaX64Policy PROPERTIES LABELS "windows;x64;release-gate")
+    add_test(NAME CiCMakeLanguagePolicy
+             COMMAND ${BASH_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy.sh)
+    set_tests_properties(CiCMakeLanguagePolicy PROPERTIES LABELS "ci;cmake;release-gate")
 endif()
 
 find_package(Python3 COMPONENTS Interpreter)
