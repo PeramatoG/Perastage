@@ -186,7 +186,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path $env:CI_LOG_DIR,$env:VCPKG_DOWNLOADS,$env:VCPKG_INSTALLED,$env:VCPKG_PACKAGES,$env:VCPKG_BINARY_CACHE -Force | Out-Null
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "PERASTAGE_PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           cmake --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt"
+          & $python --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt" -Append
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: bash
@@ -229,7 +232,7 @@ jobs:
       - name: Install vcpkg packages
         shell: pwsh
         run: |
-          python .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
+          & "$env:PERASTAGE_PYTHON" .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
             --install-root "$env:VCPKG_INSTALLED" `
             --packages-root "$env:VCPKG_PACKAGES" `
             --downloads-root "$env:VCPKG_DOWNLOADS" `
@@ -272,17 +275,19 @@ jobs:
         run: |
           $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
           if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
-          python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
           $cache = Get-Content build-windows-debug\CMakeCache.txt -Raw
           foreach ($required in @('CMAKE_C_COMPILER_ID:INTERNAL=MSVC', 'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC')) {
             if ($cache -notmatch [regex]::Escape($required)) { throw "CMake cache is missing expected MSVC compiler identity: $required" }
           }
       - name: Build Windows Debug tests
         shell: pwsh
-        run: python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\build-windows-debug.log" -- cmake --build build-windows-debug --target all --verbose
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\build-windows-debug.log" -- cmake --build build-windows-debug --target all --verbose
       - name: Run Windows CTest suite
         shell: pwsh
-        run: python .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\ctest-windows-debug.log" -- ctest --test-dir build-windows-debug --output-on-failure
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\ctest-windows-debug.log" -- ctest --test-dir build-windows-debug --output-on-failure
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
