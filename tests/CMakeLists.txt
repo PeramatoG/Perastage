@@ -1611,8 +1611,10 @@ target_include_directories(meshprimitives_cube_normals_test PRIVATE ../viewer3d)
 add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test)
 
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
+               build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1621,7 +1623,7 @@ add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_primitive_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
 
@@ -1637,6 +1639,7 @@ set_library_env(Loader3dsNativeDimensions)
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1646,13 +1649,15 @@ add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_channel_modes_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtfloader_channel_modes_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderChannelModeSummaries COMMAND gdtfloader_channel_modes_test)
 set_library_env(GdtfLoaderChannelModeSummaries)
 
 add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
+               build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1662,13 +1667,15 @@ add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
 target_include_directories(gdtfloader_geometry_roots_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_geometry_roots_test PRIVATE
-                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderGeometryRoots COMMAND gdtfloader_geometry_roots_test)
 set_library_env(GdtfLoaderGeometryRoots)
 
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
+               build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
+               ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
                ../viewer3d/loader3ds.cpp
@@ -1677,7 +1684,7 @@ add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_set_properties_test PRIVATE
                            . ../viewer3d ../models ../gui ../third_party)
-target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_test)
 set_library_env(GdtfLoaderSetPropertiesMutation)
 
