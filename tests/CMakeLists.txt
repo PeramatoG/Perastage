@@ -224,6 +224,10 @@ add_executable(mvr_merge_analyzer_applier_test
                ../mvr/mvr_merge_applier.cpp
                ../mvr/mvr_merge_resource_rewriter.cpp
                ../mvr/mvrscenemerger.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/logger.cpp
+               ../core/runtime_storage.cpp
                ../core/uuidutils.cpp
                ../models/mvrscene.cpp)
 add_test(NAME MvrMergeAnalyzerApplier COMMAND mvr_merge_analyzer_applier_test)
