@@ -180,6 +180,7 @@ add_test(NAME PlatformLocaleSetup COMMAND platform_locale_test)
 
 add_executable(trussloader_validation_test
                trussloader_validation_test.cpp
+               build_info_stub.cpp
                ../core/apppaths.cpp
                ../core/diagnostics/DiagnosticPaths.cpp
                ../core/filesystem_path_utils.cpp
