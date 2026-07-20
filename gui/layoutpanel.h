@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include <wx/dataview.h>
@@ -41,9 +42,17 @@ private:
   void OnDeleteLayout(wxCommandEvent &evt);
   void OnExportLayoutTemplate(wxCommandEvent &evt);
   void OnImportLayoutTemplate(wxCommandEvent &evt);
+  int FindLayoutRow(const std::string &layoutName) const;
+  int EnsureValidSelection(bool emitSelectionEvent, int preferredRow = -1);
+  std::optional<std::string> GetSelectedLayoutNameOrRestore();
+  void UpdateActionAvailability();
   void EmitLayoutSelected(const std::string &layoutName);
 
   wxDataViewListCtrl *list = nullptr;
+  wxButton *renameButton = nullptr;
+  wxButton *deleteButton = nullptr;
+  wxButton *exportTemplateButton = nullptr;
+  bool repairingSelection = false;
   std::string currentLayout;
 
   static LayoutPanel *s_instance;

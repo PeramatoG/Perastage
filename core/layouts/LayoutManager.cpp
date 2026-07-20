@@ -19,6 +19,7 @@
 #include "LayoutImageResourceRegistry.h"
 
 #include "LayoutDefaultsLoader.h"
+#include "LayoutTemplatePackageService.h"
 #include "LayoutTemplateSerializer.h"
 #include "configmanager.h"
 #include "json.hpp"
@@ -338,6 +339,7 @@ bool LayoutManager::MoveLayoutImage(const std::string &name, int imageId,
   return true;
 }
 
+// Exports the named layout as a portable layout package.
 bool LayoutManager::ExportLayoutTemplate(const std::string &name,
                                          const std::string &filePath,
                                          std::string *error) const {
@@ -351,61 +353,19 @@ bool LayoutManager::ExportLayoutTemplate(const std::string &name,
       *error = "Layout not found.";
     return false;
   }
-
-  std::ofstream out(filePath, std::ios::binary);
-  if (!out.is_open()) {
-    if (error)
-      *error = "Could not open destination file.";
-    return false;
-  }
-
-  const nlohmann::json doc = ToTemplateDocument({*it});
-  out << doc.dump(2);
-  if (!out.good()) {
-    if (error)
-      *error = "Could not write template file.";
-    return false;
-  }
-
-  return true;
+  return LayoutTemplatePackageService::ExportPackage(*it, filePath, error);
 }
 
+// Imports a portable package or legacy JSON template and adds it as a layout.
 bool LayoutManager::ImportLayoutTemplate(const std::string &filePath,
                                          const std::string &preferredName,
                                          std::string *createdLayoutName,
                                          std::string *error) {
-  std::ifstream in(filePath, std::ios::binary);
-  if (!in.is_open()) {
-    if (error)
-      *error = "Could not open template file.";
+  LayoutTemplateImportResult importResult;
+  if (!LayoutTemplatePackageService::ImportFile(filePath, importResult, error))
     return false;
-  }
 
-  const std::string fileContent((std::istreambuf_iterator<char>(in)),
-                                std::istreambuf_iterator<char>());
-  nlohmann::json parsed;
-  try {
-    parsed = nlohmann::json::parse(fileContent);
-  } catch (const std::exception &ex) {
-    if (error)
-      *error = ex.what();
-    return false;
-  }
-
-  std::vector<LayoutDefinition> loaded;
-  std::string parseError;
-  if (!FromTemplateDocument(parsed, loaded, &parseError)) {
-    if (error)
-      *error = parseError;
-    return false;
-  }
-  if (loaded.empty()) {
-    if (error)
-      *error = "Template does not contain any layouts.";
-    return false;
-  }
-
-  LayoutDefinition imported = loaded.front();
+  LayoutDefinition imported = importResult.layout;
   EnsureUniqueViewIds(imported);
   EnsureUniqueLegendIds(imported);
   EnsureUniqueEventTableIds(imported);

@@ -535,6 +535,33 @@ add_executable(layout_template_serializer_test
                ../core/layouts/LayoutTemplateSerializer.cpp)
 add_test(NAME LayoutTemplateSerializer COMMAND layout_template_serializer_test)
 
+
+
+add_executable(layout_selection_policy_test
+               layout_selection_policy_test.cpp
+               ../core/layouts/LayoutSelectionPolicy.cpp)
+target_include_directories(layout_selection_policy_test PRIVATE
+                           ../core/layouts)
+add_test(NAME LayoutSelectionPolicy
+         COMMAND layout_selection_policy_test)
+
+add_executable(layout_template_package_service_test
+               layout_template_package_service_test.cpp
+               ../core/layouts/LayoutTemplatePackageService.cpp
+               ../core/layouts/LayoutTemplateSerializer.cpp
+               ../core/layouts/LayoutImageResourceRegistry.cpp
+               ../core/runtime_storage.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/projectutils.cpp
+               ../core/library/library_bootstrap.cpp
+               ../core/logger.cpp)
+target_include_directories(layout_template_package_service_test PRIVATE
+                           . ../core ../core/layouts ../third_party)
+target_link_libraries(layout_template_package_service_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME LayoutTemplatePackageService
+         COMMAND layout_template_package_service_test)
+
 add_executable(layout_collection_zorder_test
                layout_collection_zorder_test.cpp
                ../core/layouts/LayoutCollection.cpp)
@@ -550,7 +577,11 @@ add_executable(layout_template_import_name_collision_test
                ../core/logger.cpp
                ../core/library/library_bootstrap.cpp
                ../core/layouts/LayoutCollection.cpp
-               ../core/layouts/LayoutTemplateSerializer.cpp)
+               ../core/layouts/LayoutTemplateSerializer.cpp
+    ../core/layouts/LayoutTemplatePackageService.cpp
+    ../core/layouts/LayoutSelectionPolicy.cpp
+    ../core/runtime_storage.cpp
+    ../core/filesystem_path_utils.cpp)
 target_link_libraries(layout_template_import_name_collision_test
                       PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME LayoutTemplateImportNameCollision
@@ -566,7 +597,11 @@ add_executable(layout_defaults_load_from_empty_config_test
                ../core/logger.cpp
                ../core/library/library_bootstrap.cpp
                ../core/layouts/LayoutCollection.cpp
-               ../core/layouts/LayoutTemplateSerializer.cpp)
+               ../core/layouts/LayoutTemplateSerializer.cpp
+    ../core/layouts/LayoutTemplatePackageService.cpp
+    ../core/layouts/LayoutSelectionPolicy.cpp
+    ../core/runtime_storage.cpp
+    ../core/filesystem_path_utils.cpp)
 target_link_libraries(layout_defaults_load_from_empty_config_test
                       PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME LayoutDefaultsLoadFromEmptyConfig
@@ -581,7 +616,11 @@ set(LAYOUT_SOURCES
     ../core/layouts/LayoutImageResourceRegistry.cpp
     ../core/layouts/LayoutDefaultsLoader.cpp
     ../core/layouts/LayoutCollection.cpp
-    ../core/layouts/LayoutTemplateSerializer.cpp)
+    ../core/layouts/LayoutTemplateSerializer.cpp
+    ../core/layouts/LayoutTemplatePackageService.cpp
+    ../core/layouts/LayoutSelectionPolicy.cpp
+    ../core/runtime_storage.cpp
+    ../core/filesystem_path_utils.cpp)
 
 if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)

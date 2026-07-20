@@ -17,6 +17,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ### Interface and workflow
 
+- Replaced standalone JSON layout-template export with portable `.pslayout` packages. Layout packages are ZIP-based, self-contained, include referenced layout images, and remain importable alongside legacy JSON templates for compatibility.
 - Added interface-language selection for **English** and **Spanish**. The selected language is stored in Preferences and is applied after restarting the application.
 - Added **Cross-table Actions** to the viewport toolbar. When enabled, hover, selection, measurement, and compatible tools can work across all supported object types instead of being limited to the active Data Views table.
 - Added a **Gap Measure Tool** to the viewport toolbar for measuring the nearest edge-to-edge space between two scene objects, complementing the existing center-to-center measurement tool.
@@ -73,6 +74,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ## Important fixes
 
+- Improved portable layout package export with images by using canonical ZIP entry paths, clearer archive validation diagnostics, and side-effect-free export self-validation. The Layout panel now restores and reapplies an active layout selection when layouts exist so default layouts render after startup and reload and export, rename, and delete actions do not silently do nothing after selection loss.
 - Hardened GDTF Share sign-in, credential storage, diagnostics, and download handling so passwords use the operating system credential store when available, login errors are reported more accurately, and failed downloads no longer replace existing files.
 - Improved GDTF Share session handling for fixture downloads and MVR import, including clearer online-versus-cached catalog status, reuse of authenticated catalog sessions for downloads, safer cookie ownership, transactional replacement of existing GDTF files, strict legacy credential migration, username-only credential hints, and clearer warnings when secure password storage is unavailable.
 - Updated official Windows, Linux, Arch, and macOS build paths to require wxWidgets secure credential-store support so GDTF Share passwords can persist through the native platform store in release builds.

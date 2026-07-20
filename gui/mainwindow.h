@@ -277,6 +277,7 @@ private:
   void SyncSceneData();
   void SyncLayerVisibilityPanels();
   void SetStartupProjectLoadPending(bool pending);
+  void ReapplyStartupLayoutAfterProjectLoad();
   bool GuardStartupProjectLoadAction(const wxString &actionLabel);
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
