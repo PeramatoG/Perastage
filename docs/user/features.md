@@ -128,6 +128,7 @@ Additional safeguards include:
 - **Auto color** can assign colors by layer/type while preserving explicit colors.
 - **Convert to Hoist** transforms selected fixtures into supports while retaining scene context.
 - **Replace fixtures** (Edit menu) swaps selected fixtures to a chosen fixture source (scene fixture, dictionary fixture, or GDTF file) while preserving placement and patch identity fields.
+- **Replace trusses** (Edit menu) swaps selected trusses to a chosen truss source (scene truss, dictionary truss, GDTF truss, GTruss, GLB, or 3DS model) while preserving placement, grouping, hang-position, and instance identity fields.
 
 ## Visualization and Layout Production
 

@@ -24,4 +24,5 @@ constexpr int ID_Edit_Delete = ID_Edit_AddPrimitiveCylinder + 1;
 constexpr int ID_Edit_Group = ID_Edit_Delete + 1;
 constexpr int ID_Edit_Ungroup = ID_Edit_Group + 1;
 constexpr int ID_Edit_ReplaceFixtures = ID_Edit_Ungroup + 1;
-constexpr int ID_Edit_Preferences = ID_Edit_ReplaceFixtures + 1;
+constexpr int ID_Edit_ReplaceTrusses = ID_Edit_ReplaceFixtures + 1;
+constexpr int ID_Edit_Preferences = ID_Edit_ReplaceTrusses + 1;
