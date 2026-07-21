@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+require_ripgrep
 
 file="core/gdtf_metadata_summary.cpp"
 if rg -n "wxZip|zipstrm|GetNextEntry|description\.xml" "$file" >/dev/null; then

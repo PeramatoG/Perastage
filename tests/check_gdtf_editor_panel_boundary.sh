@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+require_ripgrep
 
 panel_header="gui/gdtf/gdtf_editor_panel.h"
 panel_source="gui/gdtf/gdtf_editor_panel.cpp"

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="${PERASTAGE_POLICY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$repo_root"
 
 python3 - <<'PY'
 from pathlib import Path
 import re
 
-root = Path('CMakeLists.txt').read_text()
+root_path = Path('CMakeLists.txt')
+root = root_path.read_text()
 project_match = re.search(r'project\s*\((.*?)\)', root, re.S)
 if not project_match:
     raise SystemExit('Root CMakeLists.txt does not declare project().')
@@ -17,11 +18,24 @@ if 'LANGUAGES C CXX' not in project_body:
 if 'CMP0177' not in root or 'cmake_policy(SET CMP0177 NEW)' not in root:
     raise SystemExit('Root CMakeLists.txt must set CMP0177 to NEW behind a policy guard.')
 
-tests_cmake = Path('tests/CMakeLists.txt').read_text()
-if re.search(r'(?m)^\s*(project|enable_language)\s*\(', tests_cmake):
-    raise SystemExit('tests/CMakeLists.txt must not unconditionally call project() or enable_language().')
+excluded_roots = {'.git', '.vcpkg-cache', 'vcpkg', 'build', 'out', 'third_party'}
+excluded_prefixes = ('build-', 'cmake-build-')
 
-all_cmake = [p for p in Path('.').rglob('CMakeLists.txt') if '.git' not in p.parts and p != Path('CMakeLists.txt')]
+def is_first_party_cmake(path: Path) -> bool:
+    parts = path.parts
+    if any(part in excluded_roots for part in parts):
+        return False
+    if any(part.startswith(excluded_prefixes) for part in parts):
+        return False
+    return True
+
+tests_cmake = Path('tests/CMakeLists.txt')
+if tests_cmake.exists():
+    text = tests_cmake.read_text()
+    if re.search(r'(?m)^\s*(project|enable_language)\s*\(', text):
+        raise SystemExit('tests/CMakeLists.txt must not unconditionally call project() or enable_language().')
+
+all_cmake = [p for p in Path('.').rglob('CMakeLists.txt') if p != Path('CMakeLists.txt') and is_first_party_cmake(p)]
 for path in all_cmake:
     text = path.read_text(errors='ignore')
     if re.search(r'(?m)^\s*enable_language\s*\(', text):
@@ -32,6 +46,7 @@ required_windows = [
     'VsDevCmd.bat', '-host_arch=x64 -arch=x64', 'CMAKE_C_COMPILER=cl.exe',
     'CMAKE_CXX_COMPILER=cl.exe', 'VCPKG_TARGET_TRIPLET=x64-windows',
     'CMakeConfigureLog.yaml', 'cmake-configure-windows-debug.log',
+    'validate_cmake_toolchain.py',
 ]
 for needle in required_windows:
     if needle not in ci:

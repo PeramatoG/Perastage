@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+require_ripgrep
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 require_file() { test -f "$root/$1" || { echo "missing $1" >&2; exit 1; }; }
 require_rg() { rg -q "$1" "$root/$2" || { echo "missing pattern $1 in $2" >&2; exit 1; }; }
