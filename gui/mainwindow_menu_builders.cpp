@@ -52,6 +52,7 @@ wxMenu *BuildEditMenu() {
   editMenu->Append(ID_Edit_Group, _("Group\tCtrl+G"));
   editMenu->Append(ID_Edit_Ungroup, _("Ungroup\tCtrl+U"));
   editMenu->Append(ID_Edit_ReplaceFixtures, _("Replace fixtures..."));
+  editMenu->Append(ID_Edit_ReplaceTrusses, _("Replace trusses..."));
   editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_Preferences, _("Preferences..."));
   return editMenu;

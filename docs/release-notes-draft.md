@@ -37,6 +37,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 
 ### Fixture and truss editing
 
+- Added **Replace trusses** to the Edit menu for swapping selected trusses with a scene truss, dictionary truss, GDTF truss, GTruss archive, GLB, or 3DS model while preserving instance placement and identity.
 - Added a dedicated **Edit Truss** dialog with:
   - MVR instance properties.
   - GDTF identity and metadata.

@@ -244,6 +244,7 @@ private:
   void OnGroupSelection(wxCommandEvent &event);  // Group selected scene items
   void OnUngroupSelection(wxCommandEvent &event); // Ungroup selected scene items
   void OnReplaceSelectedFixtures(wxCommandEvent &event); // Replace selected fixtures
+  void OnReplaceSelectedTrusses(wxCommandEvent &event); // Replace selected trusses
   void OnLayoutAdd2DView(wxCommandEvent &event); // Layout 2D view creation
   void OnLayoutAddLegend(wxCommandEvent &event); // Layout legend creation
   void OnLayoutAddEventTable(wxCommandEvent &event); // Layout event table
