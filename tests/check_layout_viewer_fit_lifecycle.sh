@@ -21,7 +21,7 @@ if ! rg -q "void RequestFitToViewport\(\);" "$panel_h"; then
   exit 1
 fi
 
-request_body="$(python3 - "$panel_cpp" <<'PY'
+request_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -39,7 +39,7 @@ for token in "pendingFitOnResize = true" "SchedulePendingFitToViewport"; do
   fi
 done
 
-ready_body="$(python3 - "$panel_cpp" <<'PY'
+ready_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -57,7 +57,7 @@ for token in "GetLogicalClientSize" "kMinimumStableFitSizePx" "IsShownOnScreen";
   fi
 done
 
-attempt_body="$(python3 - "$panel_cpp" <<'PY'
+attempt_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -75,7 +75,7 @@ for token in "pendingFitOnResize" "IsViewportReadyForAutomaticFit" "ResetViewToF
   fi
 done
 
-schedule_body="$(python3 - "$panel_cpp" <<'PY'
+schedule_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -93,7 +93,7 @@ for token in "deferredFitToViewportScheduled_" "wxWeakRef<LayoutViewerPanel>" "C
   fi
 done
 
-onsize_body="$(python3 - "$panel_cpp" <<'PY'
+onsize_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -113,7 +113,7 @@ if [[ "$onsize_body" == *"ResetViewToFit"* ]]; then
   exit 1
 fi
 
-python3 - "$panel_cpp" <<'PYCHECK'
+run_test_python - "$panel_cpp" <<'PYCHECK'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()

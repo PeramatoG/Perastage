@@ -100,6 +100,7 @@ else()
 endif()
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
 if(WIN32)
@@ -136,6 +137,22 @@ else()
 endif()
 find_package(ZLIB REQUIRED)
 find_package(Backward CONFIG REQUIRED)
+
+set(PERASTAGE_DUMMY_GDTF_DESCRIPTION "${CMAKE_SOURCE_DIR}/library/fixtures/Dummy 1ch.description.xml")
+set(PERASTAGE_DUMMY_GDTF_ARCHIVE "${CMAKE_SOURCE_DIR}/library/fixtures/Dummy 1ch.gdtf")
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/cmake/PerastageGenerateGdtfArchive.py"
+            "${PERASTAGE_DUMMY_GDTF_DESCRIPTION}"
+            "${PERASTAGE_DUMMY_GDTF_ARCHIVE}"
+    RESULT_VARIABLE PERASTAGE_DUMMY_GDTF_RESULT
+    OUTPUT_VARIABLE PERASTAGE_DUMMY_GDTF_OUTPUT
+    ERROR_VARIABLE PERASTAGE_DUMMY_GDTF_ERROR
+)
+if(NOT PERASTAGE_DUMMY_GDTF_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to generate Dummy 1ch.gdtf: ${PERASTAGE_DUMMY_GDTF_OUTPUT}${PERASTAGE_DUMMY_GDTF_ERROR}")
+endif()
+
 if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
     find_package(mdns CONFIG REQUIRED)
     message(STATUS "MVR-xchange mDNS backend enabled: vcpkg mdns")

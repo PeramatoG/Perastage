@@ -20,7 +20,7 @@ if ! rg -n "ResetPreviewCachesForProjectLoad" "$panel_h" "$panel_cpp" >/dev/null
   exit 1
 fi
 
-helper_body="$(python3 - "$panel_cpp" <<'PY'
+helper_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -53,7 +53,7 @@ for token in \
   fi
 done
 
-load_body="$(python3 - "$mainwindow_cpp" <<'PY'
+load_body="$(run_test_python - "$mainwindow_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()

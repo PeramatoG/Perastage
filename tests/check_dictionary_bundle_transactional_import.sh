@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 require_ripgrep
 
-prepare_body=$(python3 - <<'PY'
+prepare_body=$(run_test_python - <<'PY'
 from pathlib import Path
 s=Path('core/dictionary_bundle.cpp').read_text()
 start=s.index('PreparedImport PrepareBundleImport(')

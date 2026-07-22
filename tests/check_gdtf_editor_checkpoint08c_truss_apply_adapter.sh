@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 cd "$(dirname "$0")/.."
-python3 - <<'PY'
+run_test_python - <<'PY'
 from pathlib import Path
 adapter_h = Path('core/gdtf/editor/project_truss_gdtf_apply_adapter.h')
 adapter_cpp = Path('core/gdtf/editor/project_truss_gdtf_apply_adapter.cpp')

@@ -265,6 +265,8 @@ You can also contact the project at **perastage.app@gmail.com**.
 
 ## Internal changes
 
+- Strengthened the internal test foundation with portable Python resolution, clearer CTest labels, and documented fixture categories for standards-focused GDTF and MVR tests.
+
 - Added explicit wxWidgets filesystem path conversion utilities for safer Unicode path handling at file API boundaries, including native wide-path conversion on Windows.
 - Made layout z-order updates and legacy layer-name repair deterministic for cross-platform Debug tests.
 - Hardened Windows Debug test execution by preparing ripgrep separately, forcing Git Bash for shell checks, routing shell tests through one CMake helper, and disabling modal assertion reporting in test executables.

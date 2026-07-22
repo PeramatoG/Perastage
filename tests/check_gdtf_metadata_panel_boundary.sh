@@ -106,7 +106,7 @@ if rg -q "std::max\(kMinimumWrapWidth" "$panel_source"; then
   echo "GdtfMetadataPanel must not force a 300-pixel width for narrow value columns." >&2
   exit 1
 fi
-if ! python3 - <<'PY'
+if ! run_test_python - <<'PY'
 from pathlib import Path
 source = Path('gui/gdtf/gdtf_metadata_panel.cpp').read_text()
 labels = ['Manufacturer', 'Description', 'Creation date', 'UserID', 'ModifiedBy', 'Revision', 'Last modified', 'Version']

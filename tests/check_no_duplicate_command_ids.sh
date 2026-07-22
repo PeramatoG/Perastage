@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 
 # Detects duplicate resolved numeric values among MainWindow command IDs.
-python3 - <<'PY'
+run_test_python - <<'PY'
 import re
 import sys
 from collections import defaultdict
