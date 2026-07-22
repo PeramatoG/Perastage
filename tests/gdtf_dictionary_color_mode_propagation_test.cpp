@@ -3,6 +3,8 @@
  */
 #include "filesystem_path_utils.h"
 #include <cassert>
+#include <cstdlib>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -10,10 +12,12 @@
 
 #include <wx/init.h>
 
+#include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "gdtfdictionary.h"
 #include "json.hpp"
 #include "projectutils.h"
+#include "support/gdtf_test_fixture_builder.h"
 
 namespace {
 
@@ -31,26 +35,40 @@ void WriteFile(const std::filesystem::path &path, const std::string &content) {
   assert(out.good());
 }
 
+// Points the test at an isolated writable library root.
+void SetLibraryPathEnv(const std::filesystem::path &value) {
+#ifdef _WIN32
+  _putenv_s("PERASTAGE_LIBRARY_PATH", value.string().c_str());
+#else
+  setenv("PERASTAGE_LIBRARY_PATH", value.string().c_str(), 1);
+#endif
+}
+
+// Returns a unique temporary root for dictionary isolation.
+std::filesystem::path MakeIsolatedRoot(const char *name) {
+  return std::filesystem::temp_directory_path() /
+         (std::string(name) + "_" +
+          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+}
+
 } // namespace
 
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
 
-  const std::filesystem::path fixturesDir =
-      PathUtils::PathFromUtf8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+  const std::filesystem::path isolatedRoot = MakeIsolatedRoot("perastage_dictionary_gdtf_test");
+  SetLibraryPathEnv(isolatedRoot);
+  const std::filesystem::path fixturesDir = isolatedRoot / "fixtures";
   std::filesystem::create_directories(fixturesDir);
   const std::filesystem::path dictPath = fixturesDir / "gdtf_dictionary.json";
-  const bool hadOriginal = std::filesystem::exists(dictPath);
-  const std::string originalContent =
-      hadOriginal ? ReadFile(dictPath) : std::string{};
-
+  ConfigManager::Get().SetValue("fixtures_dictionary_active_path", dictPath.string());
   const std::filesystem::path fixtureFile =
       fixturesDir / "mode_shared_fixture.gdtf";
-  WriteFile(fixtureFile, "fixture");
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(fixtureFile);
   const std::filesystem::path fixtureFileNew =
       fixturesDir / "mode_shared_fixture_new.gdtf";
-  WriteFile(fixtureFileNew, "fixture-new");
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(fixtureFileNew);
 
   nlohmann::json entries = nlohmann::json::object();
   entries["TypeA"] = {
@@ -140,10 +158,7 @@ int main() {
 
   std::filesystem::remove(fixtureFileNew);
   std::filesystem::remove(fixtureFile);
-  if (hadOriginal)
-    WriteFile(dictPath, originalContent);
-  else
-    std::filesystem::remove(dictPath);
+  std::filesystem::remove_all(isolatedRoot);
 
   return 0;
 }

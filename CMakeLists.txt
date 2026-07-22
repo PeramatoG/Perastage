@@ -100,6 +100,7 @@ else()
 endif()
 find_package(OpenGL REQUIRED)
 find_package(CURL REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
 if(WIN32)
@@ -136,6 +137,25 @@ else()
 endif()
 find_package(ZLIB REQUIRED)
 find_package(Backward CONFIG REQUIRED)
+
+set(PERASTAGE_DUMMY_GDTF_DESCRIPTION "${CMAKE_SOURCE_DIR}/cmake/fixtures/Dummy1ch.description.xml")
+set(PERASTAGE_GENERATED_LIBRARY_DIR "${CMAKE_BINARY_DIR}/generated/library")
+set(PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE "${PERASTAGE_GENERATED_LIBRARY_DIR}/fixtures/Dummy 1ch.gdtf")
+add_custom_command(
+    OUTPUT "${PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE}"
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/cmake/PerastageGenerateGdtfArchive.py"
+            "${PERASTAGE_DUMMY_GDTF_DESCRIPTION}"
+            "${PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE}"
+    DEPENDS
+            "${CMAKE_SOURCE_DIR}/cmake/PerastageGenerateGdtfArchive.py"
+            "${PERASTAGE_DUMMY_GDTF_DESCRIPTION}"
+    VERBATIM
+)
+add_custom_target(perastage_generated_dummy_gdtf ALL
+    DEPENDS "${PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE}"
+)
+
 if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
     find_package(mdns CONFIG REQUIRED)
     message(STATUS "MVR-xchange mDNS backend enabled: vcpkg mdns")
@@ -351,6 +371,8 @@ endif()
 if(PERASTAGE_MSGFMT_EXECUTABLE)
     get_filename_component(PERASTAGE_MSGFMT_DIRECTORY "${PERASTAGE_MSGFMT_EXECUTABLE}" DIRECTORY)
 endif()
+add_dependencies(${PROJECT_NAME} perastage_generated_dummy_gdtf)
+
 if(PERASTAGE_ENABLE_LOCALIZATION)
     if(NOT PERASTAGE_MSGFMT_EXECUTABLE)
         if(WIN32)
@@ -589,6 +611,8 @@ endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/library")
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/library DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 endif()
+install(FILES "${PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE}"
+        DESTINATION "${PERASTAGE_INSTALL_ASSET_DEST}/library/fixtures")
 if(EXISTS "${CMAKE_SOURCE_DIR}/licenses")
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/licenses DESTINATION ${PERASTAGE_INSTALL_ASSET_DEST})
 endif()
@@ -817,6 +841,11 @@ foreach(subdir IN LISTS LIBRARY_SUBDIRS)
         )
     endif()
 endforeach()
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            "${PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE}"
+            "${PERASTAGE_RUNTIME_ASSET_DIR}/library/fixtures/Dummy 1ch.gdtf"
+)
 
 set(CPACK_PACKAGE_NAME "Perastage")
 set(CPACK_PACKAGE_VENDOR "Perastage")

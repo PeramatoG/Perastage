@@ -31,7 +31,7 @@ for token in \
   fi
 done
 
-render_body="$(python3 - "$panel_cpp" <<'PY'
+render_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -82,7 +82,7 @@ if ! rg -n "Viewer2DOffscreenRenderer" "$offscreen_cpp" "$repo_root/viewer2d/vie
   exit 1
 fi
 
-fallback_body="$(python3 - "$panel_cpp" <<'PY'
+fallback_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()

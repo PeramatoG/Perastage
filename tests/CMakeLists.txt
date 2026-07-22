@@ -5,6 +5,7 @@ find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html)
 include(${wxWidgets_USE_FILE})
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(CURL REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
@@ -36,6 +37,26 @@ function(validate_bash_executable bash_path)
     endif()
 endfunction()
 
+function(set_perastage_test_labels test_name)
+    set(options)
+    set(oneValueArgs LAYER)
+    set(multiValueArgs DOMAINS EXTRA)
+    cmake_parse_arguments(TEST_LABEL "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    set(labels)
+    if(TEST_LABEL_LAYER)
+        list(APPEND labels "${TEST_LABEL_LAYER}")
+    endif()
+    if(TEST_LABEL_DOMAINS)
+        list(APPEND labels ${TEST_LABEL_DOMAINS})
+    endif()
+    if(TEST_LABEL_EXTRA)
+        list(APPEND labels ${TEST_LABEL_EXTRA})
+    endif()
+    if(labels)
+        set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
+    endif()
+endfunction()
+
 function(add_bash_policy_test test_name script_path)
     set(options)
     set(oneValueArgs)
@@ -43,12 +64,13 @@ function(add_bash_policy_test test_name script_path)
     cmake_parse_arguments(POLICY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_test(NAME ${test_name}
              COMMAND "${BASH_EXECUTABLE}" "${script_path}" ${POLICY_ARGS})
-    set(properties WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    set_tests_properties(${test_name} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
-        list(APPEND properties LABELS "${labels}")
+        set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
     endif()
-    set_tests_properties(${test_name} PROPERTIES ${properties})
 endfunction()
 
 function(add_repository_policy_test test_name command_path)
@@ -58,12 +80,13 @@ function(add_repository_policy_test test_name command_path)
     cmake_parse_arguments(POLICY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_test(NAME ${test_name}
              COMMAND "${command_path}" ${POLICY_ARGS})
-    set(properties WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    set_tests_properties(${test_name} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
-        list(APPEND properties LABELS "${labels}")
+        set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
     endif()
-    set_tests_properties(${test_name} PROPERTIES ${properties})
 endfunction()
 
 
@@ -131,9 +154,9 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(WindowsNinjaX64Policy ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh LABELS windows x64 release-gate)
     add_bash_policy_test(CiCMakeLanguagePolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy.sh LABELS ci cmake release-gate)
     add_bash_policy_test(ReleaseGatePolicyPortability ${CMAKE_CURRENT_SOURCE_DIR}/check_release_gate_policy_portability.sh LABELS ci policy release-gate)
+    add_bash_policy_test(PythonResolvedInterpreterPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_python_resolved_interpreter_policy.sh LABELS standard-strict policy)
 endif()
 
-find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
@@ -436,6 +459,41 @@ add_executable(gdtf_read_services_test
 target_include_directories(gdtf_read_services_test PRIVATE ../core)
 target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
+set_perastage_test_labels(GdtfReadServices LAYER tolerant-recovery DOMAINS gdtf zip)
+
+add_executable(gdtf_test_fixture_builder_test
+               gdtf_test_fixture_builder_test.cpp
+               support/gdtf_test_fixture_builder.cpp)
+target_include_directories(gdtf_test_fixture_builder_test PRIVATE .)
+target_link_libraries(gdtf_test_fixture_builder_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME GdtfTestFixtureBuilder COMMAND gdtf_test_fixture_builder_test)
+
+add_test(NAME DummyGdtfFallbackArchiveStructure
+         COMMAND "${Python3_EXECUTABLE}"
+                 ${CMAKE_CURRENT_SOURCE_DIR}/check_dummy_gdtf_fallback.py
+                 "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_tests_properties(DummyGdtfFallbackArchiveStructure PROPERTIES
+                     REQUIRED_FILES "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_perastage_test_labels(DummyGdtfFallbackArchiveStructure LAYER standard-strict DOMAINS gdtf zip)
+
+add_executable(dummy_gdtf_fallback_integration_test
+               dummy_gdtf_fallback_integration_test.cpp
+               build_info_stub.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               ../core/wx_path_utils.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(dummy_gdtf_fallback_integration_test PRIVATE ../core)
+target_link_libraries(dummy_gdtf_fallback_integration_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_dependencies(dummy_gdtf_fallback_integration_test perastage_generated_dummy_gdtf)
+add_test(NAME DummyGdtfFallbackIntegration
+         COMMAND dummy_gdtf_fallback_integration_test
+                 "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_tests_properties(DummyGdtfFallbackIntegration PROPERTIES
+                     REQUIRED_FILES "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_perastage_test_labels(DummyGdtfFallbackIntegration LAYER perastage-extension DOMAINS gdtf export)
+set_perastage_test_labels(GdtfTestFixtureBuilder LAYER standard-strict DOMAINS gdtf zip)
 add_executable(gdtf_mode_channel_browser_test
                gdtf_mode_channel_browser_test.cpp
                ../core/gdtf/gdtf_mode_channel_browser.cpp)
@@ -525,6 +583,7 @@ add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
 
 add_executable(gdtf_dictionary_color_roundtrip_test
                gdtf_dictionary_color_roundtrip_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
@@ -546,9 +605,11 @@ target_link_libraries(gdtf_dictionary_color_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES}
                       tinyxml2::tinyxml2)
 add_test(NAME GdtfDictionaryColorRoundtrip COMMAND gdtf_dictionary_color_roundtrip_test)
+set_perastage_test_labels(GdtfDictionaryColorRoundtrip LAYER perastage-extension DOMAINS gdtf project)
 
 add_executable(gdtf_dictionary_color_mode_propagation_test
                gdtf_dictionary_color_mode_propagation_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
@@ -571,6 +632,7 @@ target_link_libraries(gdtf_dictionary_color_mode_propagation_test PRIVATE
                       tinyxml2::tinyxml2)
 add_test(NAME GdtfDictionaryColorModePropagation
          COMMAND gdtf_dictionary_color_mode_propagation_test)
+set_perastage_test_labels(GdtfDictionaryColorModePropagation LAYER perastage-extension DOMAINS gdtf project)
 
 add_executable(dictionary_seed_merge_backup_test
                dictionary_seed_merge_backup_test.cpp
@@ -1156,6 +1218,7 @@ target_include_directories(mvr_truss_roundtrip_structure_test PRIVATE
 target_link_libraries(mvr_truss_roundtrip_structure_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrTrussRoundtripStructure COMMAND mvr_truss_roundtrip_structure_test)
+set_perastage_test_labels(MvrTrussRoundtripStructure LAYER standard-strict DOMAINS mvr gdtf)
 set_library_env(MvrTrussRoundtripStructure)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
@@ -1244,6 +1307,7 @@ target_include_directories(rider_save_roundtrip_test PRIVATE
 target_link_libraries(rider_save_roundtrip_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME RiderSaveRoundtrip COMMAND rider_save_roundtrip_test
          ${CMAKE_CURRENT_SOURCE_DIR}/data/rider_fixtureid_basic.txt)
+set_perastage_test_labels(RiderSaveRoundtrip LAYER perastage-extension DOMAINS rider project gdtf)
 set_library_env(RiderSaveRoundtrip)
 
 add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp

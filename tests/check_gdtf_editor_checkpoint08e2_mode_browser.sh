@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 require_ripgrep
-python3 - <<'PY'
+run_test_python - <<'PY'
 from pathlib import Path
 
 def require(condition, message):

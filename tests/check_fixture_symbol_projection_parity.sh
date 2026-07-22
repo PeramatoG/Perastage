@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 
-python3 - <<'PY'
+run_test_python - <<'PY'
 from pathlib import Path
 
 fixture = Path('viewer3d/render/opaque_fixture_pass.cpp').read_text()

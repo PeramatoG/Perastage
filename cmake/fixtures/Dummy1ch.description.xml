@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GDTF DataVersion="1.2">
+  <FixtureType Name="Dummy 1ch" ShortName="Dummy 1ch" Manufacturer="Perastage" FixtureTypeID="11111111-2222-4333-8444-555555555555">
+    <AttributeDefinitions>
+      <ActivationGroups/>
+      <FeatureGroups>
+        <FeatureGroup Name="Dimmer" Pretty="Dimmer">
+          <Feature Name="Dimmer"/>
+        </FeatureGroup>
+      </FeatureGroups>
+      <Attributes>
+        <Attribute Name="Dimmer" Pretty="Dimmer" Feature="Dimmer.Dimmer" PhysicalUnit="LuminousIntensity"/>
+      </Attributes>
+    </AttributeDefinitions>
+    <Wheels/>
+    <PhysicalDescriptions>
+      <Emitters/>
+      <Filters/>
+      <ColorSpace Mode="sRGB"/>
+      <DMXProfiles/>
+      <CRIs/>
+      <Connectors/>
+    </PhysicalDescriptions>
+    <Models>
+      <Model Name="Body" Length="0.1" Width="0.1" Height="0.1" PrimitiveType="Cube"/>
+    </Models>
+    <Geometries>
+      <Geometry Name="Root" Model="Body"/>
+    </Geometries>
+    <DMXModes>
+      <DMXMode Name="Default" Geometry="Root">
+        <DMXChannels>
+          <DMXChannel Offset="1" Geometry="Root">
+            <LogicalChannel Attribute="Dimmer">
+              <ChannelFunction Name="Dimmer" Attribute="Dimmer" DMXFrom="0/1"/>
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+      </DMXMode>
+    </DMXModes>
+  </FixtureType>
+</GDTF>

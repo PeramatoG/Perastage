@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 require_ripgrep
 cd "$(dirname "$0")/.."
-python3 - <<'PY'
+run_test_python - <<'PY'
 from pathlib import Path
 import re
 

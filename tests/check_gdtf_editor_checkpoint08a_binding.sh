@@ -39,7 +39,7 @@ if ! rg -q "GetActiveResolvedGdtfPath" "$fixture_header" "$fixture_source"; then
   echo "Fixture Edit must expose one active resolved-path helper." >&2
   exit 1
 fi
-python3 - <<'PY_CHECK'
+run_test_python - <<'PY_CHECK'
 from pathlib import Path
 source = Path('gui/fixtureeditdialog.cpp').read_text()
 for name in ['UpdateChannels', 'UpdateVisualizers', 'UpdateMetadataSummary', 'ApplyChanges']:
