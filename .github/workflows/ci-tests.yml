@@ -208,14 +208,29 @@ jobs:
           "PERASTAGE_PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           cmake --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt"
           & $python --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt" -Append
+      - name: Resolve Git Bash for Windows tests
+        id: git-bash
+        shell: pwsh
+        run: |
+          $git = (Get-Command git.exe -ErrorAction Stop).Source
+          $gitRoot = Split-Path -Parent (Split-Path -Parent $git)
+          $bash = Join-Path $gitRoot 'bin\bash.exe'
+          if (-not (Test-Path $bash)) { throw "Git Bash was not found at expected path: $bash" }
+          $normalized = $bash.Replace('/', '\').ToLowerInvariant()
+          if ($normalized -match '\\windowsapps\\bash\.exe$' -or $normalized -match '\\system32\\bash\.exe$') { throw "Refusing WSL bash launcher: $bash" }
+          if ($normalized -notmatch '\\git\\.*\\bash\.exe$') { throw "Refusing Bash outside Git for Windows: $bash" }
+          & $bash --version | Out-File "$env:CI_LOG_DIR\git-bash-windows-debug.txt" -Encoding utf8
+          & $bash -lc 'printf "git-bash-ok\n"; command -v rg' | Out-File "$env:CI_LOG_DIR\git-bash-windows-debug.txt" -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Git Bash preflight failed.' }
+          "PERASTAGE_GIT_BASH=$bash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "path=$bash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Read vcpkg baseline
         id: vcpkg-baseline
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
-          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
-          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
+          $baseline = (& "$env:PERASTAGE_PYTHON" .github/scripts/get_vcpkg_baseline.py vcpkg.json).Trim()
+          "baseline=$baseline" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "VCPKG_BASELINE=$baseline" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -293,7 +308,7 @@ jobs:
         run: |
           $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
           if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
-          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBASH_EXECUTABLE="$env:PERASTAGE_GIT_BASH"
           & "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug
       - name: Build Windows Debug tests
         shell: pwsh

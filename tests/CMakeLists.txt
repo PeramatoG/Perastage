@@ -8,13 +8,56 @@ find_package(CURL REQUIRED)
 
 enable_testing()
 
-function(add_repository_policy_test test_name script_path)
+add_library(perastage_test_no_dialog OBJECT windows_no_dialog_runtime.cpp)
+link_libraries($<TARGET_OBJECTS:perastage_test_no_dialog>)
+
+function(validate_bash_executable bash_path)
+    if(NOT bash_path)
+        message(FATAL_ERROR "BASH_EXECUTABLE is required for shell policy tests.")
+    endif()
+    if(WIN32)
+        string(TOLOWER "${bash_path}" bash_path_lower)
+        if(bash_path_lower MATCHES "windowsapps[/\\]bash\\.exe$" OR
+           bash_path_lower MATCHES "system32[/\\]bash\\.exe$")
+            message(FATAL_ERROR "BASH_EXECUTABLE must be Git Bash on Windows, not a WSL launcher: ${bash_path}")
+        endif()
+        if(NOT bash_path_lower MATCHES "[/\\]git[/\\].*[/\\]bash\\.exe$")
+            message(FATAL_ERROR "BASH_EXECUTABLE must come from Git for Windows: ${bash_path}")
+        endif()
+    endif()
+    execute_process(
+        COMMAND "${bash_path}" -lc "printf 'cmake-bash-ok\n'"
+        RESULT_VARIABLE bash_result
+        OUTPUT_VARIABLE bash_output
+        ERROR_VARIABLE bash_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT bash_result EQUAL 0 OR NOT bash_output STREQUAL "cmake-bash-ok")
+        message(FATAL_ERROR "BASH_EXECUTABLE could not run a trivial shell script: ${bash_path} output='${bash_output}' error='${bash_error}'")
+    endif()
+endfunction()
+
+function(add_bash_policy_test test_name script_path)
     set(options)
     set(oneValueArgs)
     set(multiValueArgs LABELS ARGS)
     cmake_parse_arguments(POLICY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_test(NAME ${test_name}
-             COMMAND ${script_path} ${POLICY_ARGS})
+             COMMAND "${BASH_EXECUTABLE}" "${script_path}" ${POLICY_ARGS})
+    set(properties WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    if(POLICY_LABELS)
+        list(JOIN POLICY_LABELS ";" labels)
+        list(APPEND properties LABELS "${labels}")
+    endif()
+    set_tests_properties(${test_name} PROPERTIES ${properties})
+endfunction()
+
+function(add_repository_policy_test test_name command_path)
+    set(options)
+    set(oneValueArgs)
+    set(multiValueArgs LABELS ARGS)
+    cmake_parse_arguments(POLICY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    add_test(NAME ${test_name}
+             COMMAND "${command_path}" ${POLICY_ARGS})
     set(properties WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
@@ -61,32 +104,33 @@ target_link_libraries(perastage_test_gdtf_archive_reader PRIVATE ${wxWidgets_LIB
 
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
-    add_repository_policy_test(DocsPerastageTreeModules ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
-    add_repository_policy_test(GuiNoConfigManagerGet ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
-    add_repository_policy_test(OpenGLLifecycleCentralized ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
-    add_repository_policy_test(Layout2DRasterizationBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
-    add_repository_policy_test(Layout2DViewCaptureBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
-    add_repository_policy_test(Viewer2DStateOwnershipBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
-    add_repository_policy_test(Viewer2DRenderToRGBAFboBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
-    add_repository_policy_test(Viewer2DFboCaptureDiagnostics ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_fbo_capture_diagnostics.sh)
-    add_repository_policy_test(LayoutPreviewFailureDiagnostics ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
-    add_repository_policy_test(LayoutProjectLoadCacheReset ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
-    add_repository_policy_test(LayoutViewerFitLifecycle ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
-    add_repository_policy_test(LibraryUserDataPolicy ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
-    add_repository_policy_test(DictionaryPathsPolicy ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
-    add_repository_policy_test(GdtfMetadataSummaryBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
-    add_repository_policy_test(GdtfMetadataPanelBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_panel_boundary.sh)
-    add_repository_policy_test(GdtfReusablePanelsBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_reusable_panels_boundary.sh)
-    add_repository_policy_test(GdtfEditorPanelBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_panel_boundary.sh)
-    add_repository_policy_test(GdtfEditorCoreBoundary ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_core_boundary.sh)
-    add_repository_policy_test(GdtfEditorCheckpoint08ABinding ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08a_binding.sh)
-    add_repository_policy_test(GdtfEditorCheckpoint08E2ModeBrowser ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e2_mode_browser.sh)
-    add_repository_policy_test(GdtfEditorCheckpoint08E3WheelAttributeInspector ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e3_wheel_attribute_inspector.sh)
-    add_repository_policy_test(ProjectRestoreImportOptions ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
-    add_repository_policy_test(SecureStoreBuildPolicy ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_securestore_build_policy.sh LABELS secure-store security release-gate)
-    add_repository_policy_test(WindowsNinjaX64Policy ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh LABELS windows x64 release-gate)
-    add_repository_policy_test(CiCMakeLanguagePolicy ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy.sh LABELS ci cmake release-gate)
-    add_repository_policy_test(ReleaseGatePolicyPortability ${BASH_EXECUTABLE} ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_release_gate_policy_portability.sh LABELS ci policy release-gate)
+    validate_bash_executable("${BASH_EXECUTABLE}")
+    add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
+    add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
+    add_bash_policy_test(OpenGLLifecycleCentralized ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
+    add_bash_policy_test(Layout2DRasterizationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
+    add_bash_policy_test(Layout2DViewCaptureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
+    add_bash_policy_test(Viewer2DStateOwnershipBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
+    add_bash_policy_test(Viewer2DRenderToRGBAFboBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
+    add_bash_policy_test(Viewer2DFboCaptureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_fbo_capture_diagnostics.sh)
+    add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
+    add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
+    add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
+    add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
+    add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
+    add_bash_policy_test(GdtfMetadataSummaryBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
+    add_bash_policy_test(GdtfMetadataPanelBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_panel_boundary.sh)
+    add_bash_policy_test(GdtfReusablePanelsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_reusable_panels_boundary.sh)
+    add_bash_policy_test(GdtfEditorPanelBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_panel_boundary.sh)
+    add_bash_policy_test(GdtfEditorCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_core_boundary.sh)
+    add_bash_policy_test(GdtfEditorCheckpoint08ABinding ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08a_binding.sh)
+    add_bash_policy_test(GdtfEditorCheckpoint08E2ModeBrowser ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e2_mode_browser.sh)
+    add_bash_policy_test(GdtfEditorCheckpoint08E3WheelAttributeInspector ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_checkpoint08e3_wheel_attribute_inspector.sh)
+    add_bash_policy_test(ProjectRestoreImportOptions ${CMAKE_CURRENT_SOURCE_DIR}/check_project_restore_import_options.sh)
+    add_bash_policy_test(SecureStoreBuildPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_securestore_build_policy.sh LABELS secure-store security release-gate)
+    add_bash_policy_test(WindowsNinjaX64Policy ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy.sh LABELS windows x64 release-gate)
+    add_bash_policy_test(CiCMakeLanguagePolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy.sh LABELS ci cmake release-gate)
+    add_bash_policy_test(ReleaseGatePolicyPortability ${CMAKE_CURRENT_SOURCE_DIR}/check_release_gate_policy_portability.sh LABELS ci policy release-gate)
 endif()
 
 find_package(Python3 COMPONENTS Interpreter)
@@ -99,14 +143,16 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_wx_filesystem_path_boundaries.py)
     add_repository_policy_test(ReleaseWorkflowsUntouched ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_release_workflows_untouched.py)
+    add_repository_policy_test(BashTestRegistration ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_bash_test_registration.py)
     add_repository_policy_test(CMakeToolchainValidator ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_validate_cmake_toolchain.py)
     add_repository_policy_test(CiCMakeLanguagePolicyFixtures ${Python3_EXECUTABLE}
-                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy_fixtures.py)
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy_fixtures.py --bash ${BASH_EXECUTABLE})
     add_repository_policy_test(PolicyWorkingDirectories ${Python3_EXECUTABLE}
-                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_policy_working_directories.py)
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_policy_working_directories.py --bash ${BASH_EXECUTABLE})
     add_repository_policy_test(MissingRipgrepBehavior ${Python3_EXECUTABLE}
-                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_missing_ripgrep_behavior.py)
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_missing_ripgrep_behavior.py --bash ${BASH_EXECUTABLE})
     add_repository_policy_test(CtestFailureSummary ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_summarize_ctest_failures.py)
 endif()
@@ -436,7 +482,7 @@ add_executable(project_fixture_gdtf_apply_adapter_test
                ../core/filesystem_path_utils.cpp)
 target_include_directories(project_fixture_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
 add_test(NAME ProjectFixtureGdtfApplyAdapter COMMAND project_fixture_gdtf_apply_adapter_test)
-add_test(NAME GdtfEditorCheckpoint08BFixtureApplyAdapter COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08b_fixture_apply_adapter.sh)
+add_bash_policy_test(GdtfEditorCheckpoint08BFixtureApplyAdapter ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08b_fixture_apply_adapter.sh)
 set_tests_properties(GdtfEditorCheckpoint08BFixtureApplyAdapter PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 add_executable(project_truss_gdtf_apply_adapter_test
                project_truss_gdtf_apply_adapter_test.cpp
@@ -447,9 +493,9 @@ add_executable(project_truss_gdtf_apply_adapter_test
                ../core/filesystem_path_utils.cpp)
 target_include_directories(project_truss_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
 add_test(NAME ProjectTrussGdtfApplyAdapter COMMAND project_truss_gdtf_apply_adapter_test)
-add_test(NAME GdtfEditorCheckpoint08CTrussApplyAdapter COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08c_truss_apply_adapter.sh)
+add_bash_policy_test(GdtfEditorCheckpoint08CTrussApplyAdapter ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08c_truss_apply_adapter.sh)
 set_tests_properties(GdtfEditorCheckpoint08CTrussApplyAdapter PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-add_test(NAME GdtfEditorCheckpoint08DStabilization COMMAND ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08d_stabilization.sh)
+add_bash_policy_test(GdtfEditorCheckpoint08DStabilization ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08d_stabilization.sh)
 set_tests_properties(GdtfEditorCheckpoint08DStabilization PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
 add_executable(gdtf_editor_context_test
@@ -1631,7 +1677,7 @@ add_executable(fixture_symbol_projection_test fixture_symbol_projection_test.cpp
 target_include_directories(fixture_symbol_projection_test PRIVATE
                            ../viewer3d ../viewer3d/render ../viewer2d ../models)
 add_test(NAME FixtureSymbolProjection COMMAND fixture_symbol_projection_test)
-add_test(NAME FixtureSymbolProjectionParity COMMAND ${CMAKE_SOURCE_DIR}/tests/check_fixture_symbol_projection_parity.sh)
+add_bash_policy_test(FixtureSymbolProjectionParity ${CMAKE_SOURCE_DIR}/tests/check_fixture_symbol_projection_parity.sh)
 set_tests_properties(FixtureSymbolProjectionParity PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
 add_executable(meshprimitives_cube_normals_test meshprimitives_cube_normals_test.cpp
