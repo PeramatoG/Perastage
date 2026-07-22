@@ -64,13 +64,13 @@ function(add_bash_policy_test test_name script_path)
     cmake_parse_arguments(POLICY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_test(NAME ${test_name}
              COMMAND "${BASH_EXECUTABLE}" "${script_path}" ${POLICY_ARGS})
-    set(properties WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-                   ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
+    set_tests_properties(${test_name} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
-        list(APPEND properties LABELS "${labels}")
+        set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
     endif()
-    set_tests_properties(${test_name} PROPERTIES ${properties})
 endfunction()
 
 function(add_repository_policy_test test_name command_path)
@@ -80,13 +80,13 @@ function(add_repository_policy_test test_name command_path)
     cmake_parse_arguments(POLICY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_test(NAME ${test_name}
              COMMAND "${command_path}" ${POLICY_ARGS})
-    set(properties WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-                   ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
+    set_tests_properties(${test_name} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
-        list(APPEND properties LABELS "${labels}")
+        set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
     endif()
-    set_tests_properties(${test_name} PROPERTIES ${properties})
 endfunction()
 
 
@@ -467,6 +467,12 @@ add_executable(gdtf_test_fixture_builder_test
 target_include_directories(gdtf_test_fixture_builder_test PRIVATE .)
 target_link_libraries(gdtf_test_fixture_builder_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfTestFixtureBuilder COMMAND gdtf_test_fixture_builder_test)
+
+add_test(NAME DummyGdtfFallbackCompliance
+         COMMAND ${CMAKE_COMMAND} -E env "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}"
+                 ${CMAKE_CURRENT_SOURCE_DIR}/check_dummy_gdtf_fallback.sh
+                 "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_perastage_test_labels(DummyGdtfFallbackCompliance LAYER standard-strict DOMAINS gdtf packaging)
 set_perastage_test_labels(GdtfTestFixtureBuilder LAYER standard-strict DOMAINS gdtf zip)
 add_executable(gdtf_mode_channel_browser_test
                gdtf_mode_channel_browser_test.cpp

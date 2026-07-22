@@ -12,8 +12,6 @@ public:
   FixtureBuilder();
   FixtureBuilder &WithDmxMode(std::string name, std::string geometry);
   FixtureBuilder &WithFixtureCategorySignals();
-  FixtureBuilder &WithWheelMedia(std::string wheelName, std::string slotName);
-  FixtureBuilder &WithModelResource(std::string modelName, std::string resourcePath);
   std::string BuildDescriptionXml() const;
   void WriteArchive(const std::filesystem::path &archivePath) const;
 private:
