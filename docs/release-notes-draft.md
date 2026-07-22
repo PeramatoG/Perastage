@@ -14,6 +14,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Added a **Spanish interface**, selectable from Preferences and applied after restarting Perastage.
 - Improved MVR/GDTF compatibility, 3D picking stability, Unicode handling, crash diagnostics, and release packaging.
 - Improved Debug CI stability by rebuilding stale macOS SDK caches instead of failing on equivalent SDK aliases.
+- Improved Debug CI test reliability by making release-gate policy portability checks independent of hard-coded Unix paths, symbolic links, caller working directories, and unresolved Python aliases.
 
 ## New features and improvements
 
