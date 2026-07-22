@@ -265,6 +265,8 @@ You can also contact the project at **perastage.app@gmail.com**.
 
 ## Internal changes
 
+- Fixed manual fixture symbol application for fixtures that resolve to an absolute GDTF path by creating the expected project-owned scene copy before writing the generated symbols.
+
 - Strengthened the internal test foundation with portable Python resolution, clearer CTest labels, and documented fixture categories for standards-focused GDTF and MVR tests.
 
 - Added explicit wxWidgets filesystem path conversion utilities for safer Unicode path handling at file API boundaries, including native wide-path conversion on Windows.

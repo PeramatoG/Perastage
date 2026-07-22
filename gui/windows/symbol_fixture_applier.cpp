@@ -763,9 +763,9 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   std::string writableScenePath = scenePath;
   bool sceneUpdated = false;
   if (options.updateSceneCopy && !scene.basePath.empty() &&
-      (!scenePath.empty() &&
-       !IsPathWithinDirectory(fs::path(scenePath), fs::path(scene.basePath)))) {
-    if (!EnsureSceneLocalGdtfCopy(fs::path(scenePath), fs::path(scene.basePath),
+      !writableScenePath.empty() &&
+      !IsPathWithinDirectory(fs::path(writableScenePath), fs::path(scene.basePath))) {
+    if (!EnsureSceneLocalGdtfCopy(fs::path(writableScenePath), fs::path(scene.basePath),
                                   fixtureIt->second, writableScenePath,
                                   errorMessage)) {
       return false;
@@ -773,11 +773,14 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   }
 
   if (options.updateSceneCopy && writableScenePath.empty() && !scene.basePath.empty() &&
-      !libraryPath.empty() && !options.updateLibraryCopy) {
-    if (!EnsureSceneLocalGdtfCopy(fs::path(libraryPath), fs::path(scene.basePath),
-                                  fixtureIt->second, writableScenePath,
-                                  errorMessage)) {
-      return false;
+      (libraryPath.empty() || !options.updateLibraryCopy)) {
+    const std::string copySourcePath = !inspectPath.empty() ? inspectPath : libraryPath;
+    if (!copySourcePath.empty()) {
+      if (!EnsureSceneLocalGdtfCopy(fs::path(copySourcePath), fs::path(scene.basePath),
+                                    fixtureIt->second, writableScenePath,
+                                    errorMessage)) {
+        return false;
+      }
     }
   }
 
