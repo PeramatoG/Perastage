@@ -23,7 +23,7 @@ inline std::filesystem::path FilesystemPathFromWxString(const wxString &value) {
   if (value.empty())
     return std::filesystem::path();
 #if defined(_WIN32)
-  return std::filesystem::path(value.wc_str().data());
+  return std::filesystem::path(value.wc_str());
 #else
   const wxScopedCharBuffer utf8 = value.utf8_str();
   return std::filesystem::path(reinterpret_cast<const char8_t *>(utf8.data()));
