@@ -111,6 +111,14 @@ void TestRegularUpdateKeepsExistingZIndex() {
   assert(updated != nullptr);
   assert(updated->view2dViews.size() == 1);
   assert(updated->view2dViews.front().zIndex == 1);
+
+  layouts::LayoutTextDefinition editedText = text;
+  editedText.text = "Updated";
+  editedText.zIndex = 100;
+  assert(collection.UpdateLayoutText("Persist z", editedText));
+  updated = FindLayout(collection, "Persist z");
+  assert(updated != nullptr);
+  assert(updated->textViews.front().zIndex == 5);
 }
 
 } // namespace

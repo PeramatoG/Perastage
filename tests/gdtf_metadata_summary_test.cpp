@@ -1,3 +1,4 @@
+#include "wx_path_utils.h"
 #include <cassert>
 #include <filesystem>
 #include <string>
@@ -12,7 +13,7 @@ namespace fs = std::filesystem;
 
 // Writes a minimal GDTF archive containing description.xml.
 static bool WriteGdtf(const fs::path &path, const std::string &descriptionXml) {
-  wxFileOutputStream output(path.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!output.IsOk())
     return false;
 

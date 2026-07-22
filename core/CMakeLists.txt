@@ -82,6 +82,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_render_size.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_unit_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utf8_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/wx_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/unit_label_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/uuidutils.cpp

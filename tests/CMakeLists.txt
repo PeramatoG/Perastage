@@ -93,6 +93,12 @@ find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
+    add_repository_policy_test(MacosSdkCacheGuard ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_macos_sdk_cache_guard.py)
+    add_repository_policy_test(WxFilesystemPathBoundaries ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_wx_filesystem_path_boundaries.py)
+    add_repository_policy_test(ReleaseWorkflowsUntouched ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_release_workflows_untouched.py)
     add_repository_policy_test(CMakeToolchainValidator ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_validate_cmake_toolchain.py)
     add_repository_policy_test(CiCMakeLanguagePolicyFixtures ${Python3_EXECUTABLE}
@@ -171,6 +177,13 @@ add_executable(dictionary_editor_state_test dictionary_editor_state_test.cpp)
 target_include_directories(dictionary_editor_state_test PRIVATE ../gui)
 add_test(NAME DictionaryEditorState COMMAND dictionary_editor_state_test)
 
+
+add_executable(wx_path_utils_test wx_path_utils_test.cpp
+               ../core/wx_path_utils.cpp)
+target_include_directories(wx_path_utils_test PRIVATE ../core)
+target_link_libraries(wx_path_utils_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME WxPathUtilsRoundTrip COMMAND wx_path_utils_test)
+
 add_executable(platform_locale_test
                platform_locale_test.cpp
                ../core/platform_locale.cpp)
@@ -188,6 +201,7 @@ add_executable(trussloader_validation_test
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../models/truss.cpp)
 target_include_directories(trussloader_validation_test PRIVATE
                            . ../core ../models ../third_party)
@@ -700,6 +714,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -740,6 +755,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -781,6 +797,7 @@ add_executable(truss_path_encoding_regression_test
                ../core/truss_gdtf_builder.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../models/truss.cpp)
 target_include_directories(truss_path_encoding_regression_test PRIVATE
                            . ../core ../models ../third_party)
@@ -811,6 +828,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
@@ -855,6 +873,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -892,6 +911,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -933,6 +953,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -974,6 +995,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -1014,6 +1036,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -1059,6 +1082,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -1099,6 +1123,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -1148,6 +1173,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/layer_service.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
@@ -1711,6 +1737,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/uuidutils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
@@ -1754,6 +1781,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/uuidutils.cpp
@@ -1805,6 +1833,7 @@ add_executable(filesystem_identity_test
                build_info_stub.cpp
                ../core/filesystem_path_utils.cpp
                ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/gdtf_mutation_audit.cpp

@@ -1,3 +1,4 @@
+#include "wx_path_utils.h"
 #include "gdtf_canonicalizer.h"
 
 #include "gdtf_mutation_audit.h"
@@ -73,7 +74,7 @@ bool ReadCurrentZipEntry(wxZipInputStream &zip, std::string &out) {
 // Reads all non-directory entries from a ZIP archive.
 bool ReadZipEntries(const fs::path &path, std::vector<ZipEntryData> &entries,
                     Result &result) {
-  wxFileInputStream input(path.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!input.IsOk()) {
     result.errors.push_back("Could not open GDTF archive: " + path.string());
     return false;
@@ -102,7 +103,7 @@ bool WriteZipEntries(const fs::path &path, std::vector<ZipEntryData> entries,
     return a.name < b.name;
   });
 
-  wxFileOutputStream output(path.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!output.IsOk()) {
     result.errors.push_back("Could not create canonical GDTF archive: " +
                             path.string());

@@ -1,3 +1,4 @@
+#include "wx_path_utils.h"
 #include "LayoutImageResourceRegistry.h"
 #include "LayoutManager.h"
 #include "configmanager.h"
@@ -37,7 +38,7 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
 // Reads all file entries from a ZIP archive into a name-to-payload map.
 std::map<std::string, std::string> ReadArchiveEntries(const fs::path &archivePath) {
   std::map<std::string, std::string> entries;
-  wxFileInputStream input(archivePath.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   assert(input.IsOk());
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;

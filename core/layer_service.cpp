@@ -10,6 +10,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <vector>
 #include <unordered_map>
 
 namespace layerdomain {
@@ -337,28 +338,56 @@ LayerResult ValidateSceneLayers(const MvrScene &scene) {
   return {};
 }
 
-// Repairs known legacy Windows-1252 layer-name corruption without merging layers.
+// Repairs known legacy Windows-1252 layer-name corruption without merging valid layers.
 LayerResult ReconcileLegacyLayers(MvrScene &scene) {
-  bool repaired = false;
-  std::set<std::string> names;
-  for (auto &[uuid, layer] : scene.layers) {
-    if (!IsValidUtf8(layer.name)) {
-      const auto repairedName = RepairWindows1252AsUtf8(layer.name);
-      if (!repairedName)
-        return {LayerStatus::InvalidUtf8, "Layer name cannot be repaired", uuid};
-      layer.name = *repairedName;
-      repaired = true;
+  struct RepairCandidate {
+    std::string uuid;
+    std::string originalName;
+    std::string repairedName;
+  };
+
+  std::set<std::string> reservedNames;
+  std::vector<RepairCandidate> repairs;
+  for (const auto &[uuid, layer] : scene.layers) {
+    if (IsValidUtf8(layer.name)) {
+      reservedNames.insert(TrimLayerName(layer.name));
+      continue;
     }
-    std::string unique = layer.name;
-    for (int suffix = 2; names.count(unique) > 0; ++suffix)
-      unique = layer.name + " (Recovered " + std::to_string(suffix) + ")";
-    if (unique != layer.name) {
-      RenameObjectLayers(scene, layer.name, unique);
-      layer.name = unique;
-      repaired = true;
-    }
-    names.insert(layer.name);
+    const auto repairedName = RepairWindows1252AsUtf8(layer.name);
+    if (!repairedName)
+      return {LayerStatus::InvalidUtf8, "Layer name cannot be repaired", uuid};
+    repairs.push_back({uuid, layer.name, TrimLayerName(*repairedName)});
   }
+
+  if (repairs.empty())
+    return {LayerStatus::NoChange, "No legacy repairs needed"};
+
+  bool repaired = false;
+  int recoveredSuffix = 2;
+  for (const auto &repair : repairs) {
+    auto layerIt = scene.layers.find(repair.uuid);
+    if (layerIt == scene.layers.end())
+      continue;
+
+    std::string finalName = repair.repairedName;
+    if (finalName.empty())
+      return {LayerStatus::ValidationFailure, "Layer name is empty", repair.uuid};
+    if (reservedNames.count(finalName) > 0) {
+      do {
+        finalName = repair.repairedName + " (Recovered " +
+                    std::to_string(recoveredSuffix++) + ")";
+      } while (reservedNames.count(finalName) > 0);
+    }
+
+    RenameObjectLayers(scene, repair.originalName, finalName);
+    layerIt->second.name = finalName;
+    reservedNames.insert(finalName);
+    repaired = true;
+  }
+
+  const auto validation = ValidateSceneLayers(scene);
+  if (validation.status != LayerStatus::Success)
+    return validation;
   return {repaired ? LayerStatus::Success : LayerStatus::NoChange,
           repaired ? "Legacy layer data repaired" : "No legacy repairs needed"};
 }

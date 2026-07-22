@@ -18,6 +18,7 @@
 #include "runtime_storage.h"
 #include "trussloader.h"
 #include "filesystem_path_utils.h"
+#include "wx_path_utils.h"
 
 #include "truss_gdtf_builder.h"
 #include "logger.h"
@@ -136,7 +137,7 @@ static bool ResolveArchiveEntryTarget(const fs::path &archivePath,
 
 // Extracts a ZIP-based archive into the requested destination directory.
 static bool ExtractArchive(const fs::path &archivePath, const fs::path &destination) {
-  wxFileInputStream input(archivePath.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   if (!input.IsOk())
     return false;
 
@@ -161,10 +162,12 @@ static bool ExtractArchive(const fs::path &archivePath, const fs::path &destinat
     if (target.empty())
       continue;
     if (entry->IsDir()) {
-      wxFileName::Mkdir(target.string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+      wxFileName::Mkdir(WxPathUtils::WxStringFromFilesystemPath(target),
+                       wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
       continue;
     }
-    wxFileName::Mkdir(target.parent_path().string(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+    wxFileName::Mkdir(WxPathUtils::WxStringFromFilesystemPath(target.parent_path()),
+                     wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
     std::ofstream out(target, std::ios::binary);
     if (!out.is_open())
       return false;
