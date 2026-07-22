@@ -268,12 +268,7 @@ TrussTablePanel::TrussTablePanel(wxWindow* parent, IGuiConfigServices* services)
     deferredSelectionGuard = std::make_unique<gui::DataViewDeferredSelectionGuard>(
             this, table,
             [this](const wxDataViewItem &item) { return UuidForItem(item); },
-            [this](const std::string &uuid) {
-                auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
-                if (pos == rowUuids.end())
-                    return wxDataViewItem();
-                return table->RowToItem(static_cast<unsigned int>(pos - rowUuids.begin()));
-            },
+            [this](const std::string &uuid) { return ItemForUuid(uuid); },
             [this]() { SyncSelectionFromTable(); },
             [this]() { UpdateSelectionHighlight(); });
 
@@ -351,6 +346,7 @@ void TrussTablePanel::ReloadData() {
     rowUuids.clear();
     modelPaths.clear();
     symbolPaths.clear();
+    identityIndex.Clear();
     rowUuidByKey.clear();
     modelPathByKey.clear();
     symbolPathByKey.clear();
@@ -466,6 +462,9 @@ void TrussTablePanel::ReloadData() {
             store->SetCellTextColour(store->GetCount() - 1,
                                      ColumnIndex(TrussColumn::Load), *wxRED);
         rowUuids.push_back(uuid);
+        const gui::DataViewResourceMetadata metadata{
+            std::string(modelFull.ToUTF8()), symbolFullPath};
+        identityIndex.Add(rowKey, uuid, metadata);
         rowUuidByKey[rowKey] = uuid;
         modelPathByKey[rowKey] = modelFull;
         symbolPathByKey[rowKey] = wxString::FromUTF8(symbolFullPath);
@@ -885,12 +884,14 @@ void TrussTablePanel::UpdateSelectionHighlight() {
     std::vector<bool> selectedRows(rowCount, false);
     wxDataViewItemArray selections;
     table->GetSelections(selections);
+  std::vector<wxUIntPtr> selectedKeys;
   for (const auto &it : selections) {
-        int r = table->ItemToRow(it);
-        if (r != wxNOT_FOUND && static_cast<size_t>(r) < rowCount)
-            selectedRows[r] = true;
+        const wxUIntPtr rowKey = store->GetItemData(it);
+        if (rowKey != 0)
+            selectedKeys.push_back(rowKey);
     }
-    store->SetSelectedRows(selectedRows);
+    (void)selectedRows;
+    store->SetSelectedItemKeys(selectedKeys);
 }
 
 void TrussTablePanel::UpdatePositionValues(
@@ -912,11 +913,9 @@ void TrussTablePanel::UpdatePositionValues(
         wxString posY = wxString::Format("%.3f", posArr[1] / 1000.0f);
         wxString posZ = wxString::Format("%.3f", posArr[2] / 1000.0f);
 
-        auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
-        if (pos == rowUuids.end())
+        int row = RowForUuid(uuid);
+        if (row == wxNOT_FOUND)
             continue;
-
-        int row = static_cast<int>(pos - rowUuids.begin());
     table->SetValue(wxVariant(posX), row, ColumnIndex(TrussColumn::PositionX));
     table->SetValue(wxVariant(posY), row, ColumnIndex(TrussColumn::PositionY));
     table->SetValue(wxVariant(posZ), row, ColumnIndex(TrussColumn::PositionZ));
@@ -930,11 +929,9 @@ void TrussTablePanel::ApplyPositionValueUpdates(
 
     wxWindowUpdateLocker locker(table);
     for (const auto& update : updates) {
-        auto pos = std::find(rowUuids.begin(), rowUuids.end(), update.uuid);
-        if (pos == rowUuids.end())
+        int row = RowForUuid(update.uuid);
+        if (row == wxNOT_FOUND)
             continue;
-
-        int row = static_cast<int>(pos - rowUuids.begin());
         table->SetValue(wxVariant(wxString::FromUTF8(update.posX)), row,
                         ColumnIndex(TrussColumn::PositionX));
         table->SetValue(wxVariant(wxString::FromUTF8(update.posY)), row,
@@ -970,6 +967,7 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
 
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
     auto& scene = cfg.GetScene();
+    RebuildRowCachesFromRowKeys();
     size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
 
     struct Dim {
@@ -1282,29 +1280,17 @@ void TrussTablePanel::HighlightTruss(
     if (uuid == highlightedUuid && relatedUuids == highlightedRelatedUuids)
         return;
 
-    auto findRow = [&](const std::string& candidate) -> int {
-        if (candidate.empty())
-            return wxNOT_FOUND;
-        auto it = std::find(rowUuids.begin(), rowUuids.end(), candidate);
-        if (it == rowUuids.end())
-            return wxNOT_FOUND;
-        int row = static_cast<int>(std::distance(rowUuids.begin(), it));
-        if (row < 0 || row >= static_cast<int>(table->GetItemCount()))
-            return wxNOT_FOUND;
-        return row;
-    };
-
-    std::vector<bool> primaryRows(table->GetItemCount(), false);
-    std::vector<bool> secondaryRows(table->GetItemCount(), false);
-    const int currentRow = findRow(uuid);
-    if (currentRow != wxNOT_FOUND)
-        primaryRows[static_cast<size_t>(currentRow)] = true;
+    std::vector<wxUIntPtr> primaryKeys;
+    std::vector<wxUIntPtr> secondaryKeys;
+    const auto currentKey = identityIndex.KeyForUuid(uuid);
+    if (currentKey)
+        primaryKeys.push_back(static_cast<wxUIntPtr>(*currentKey));
     for (const auto& relatedUuid : relatedUuids) {
-        const int relatedRow = findRow(relatedUuid);
-        if (relatedRow != wxNOT_FOUND && relatedRow != currentRow)
-            secondaryRows[static_cast<size_t>(relatedRow)] = true;
+        const auto relatedKey = identityIndex.KeyForUuid(relatedUuid);
+        if (relatedKey && relatedKey != currentKey)
+            secondaryKeys.push_back(static_cast<wxUIntPtr>(*relatedKey));
     }
-    store->SetHighlightRows(primaryRows, secondaryRows, wxColour(170, 220, 0),
+    store->SetHighlightItemKeys(primaryKeys, secondaryKeys, wxColour(170, 220, 0),
                             wxColour(110, 210, 150), wxColour(0, 0, 0));
 
     highlightedUuid = uuid;
@@ -1325,10 +1311,9 @@ std::vector<std::string> TrussTablePanel::GetSelectedUuids() const {
     std::vector<std::string> uuids;
     uuids.reserve(selections.size());
     for (const auto& it : selections) {
-        const wxUIntPtr rowKey = store->GetItemData(it);
-        auto keyIt = rowUuidByKey.find(rowKey);
-        if (keyIt != rowUuidByKey.end())
-            uuids.push_back(keyIt->second);
+        const std::string uuid = UuidForItem(it);
+        if (!uuid.empty())
+            uuids.push_back(uuid);
     }
     return uuids;
 }
@@ -1344,15 +1329,12 @@ void TrussTablePanel::SelectByUuid(const std::vector<std::string>& uuids,
     table->UnselectAll();
     std::vector<bool> selectedRows(table->GetItemCount(), false);
     for (const auto& u : uuids) {
-        auto pos = std::find(rowUuids.begin(), rowUuids.end(), u);
-        if (pos != rowUuids.end()) {
-            int row = static_cast<int>(pos - rowUuids.begin());
-            table->SelectRow(row);
-            if (row >= 0 && static_cast<size_t>(row) < selectedRows.size())
-                selectedRows[row] = true;
-        }
+        const wxDataViewItem item = ItemForUuid(u);
+        if (item.IsOk())
+            table->Select(item);
     }
-    store->SetSelectedRows(selectedRows);
+    (void)selectedRows;
+    UpdateSelectionHighlight();
 }
 
 void TrussTablePanel::DeleteSelected(bool pushUndoState) {
@@ -1388,7 +1370,10 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState) {
         if ((size_t)r < rowUuids.size()) {
             wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
             const wxUIntPtr rowKey = store->GetItemData(rowItem);
-            scene.trusses.erase(rowUuids[r]);
+            const std::string uuid = UuidForItem(rowItem);
+            if (!uuid.empty())
+                scene.trusses.erase(uuid);
+            identityIndex.RemoveKey(rowKey);
             rowUuidByKey.erase(rowKey);
             modelPathByKey.erase(rowKey);
             symbolPathByKey.erase(rowKey);
@@ -1409,14 +1394,8 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState) {
     appendSelection(cfg.GetSelectedSupports());
     appendSelection(cfg.GetSelectedSceneObjects());
 
-    if (Viewer3DPanel::Instance()) {
-        Viewer3DPanel::Instance()->SetSelectedFixtures(mergedSelection);
-        Viewer3DPanel::Instance()->UpdateScene();
-        Viewer3DPanel::Instance()->Refresh();
-  } else if (Viewer2DPanel::Instance()) {
-        Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
-        Viewer2DPanel::Instance()->UpdateScene();
-    }
+    gui::sceneviewrefresh::RefreshSceneViewsAfterTableEdit(
+        this, gui::sceneviewrefresh::SceneUpdateScope::Full);
 
     if (SummaryPanel::Instance())
         SummaryPanel::Instance()->ShowTrussSummary();
@@ -1435,9 +1414,9 @@ void TrussTablePanel::ResyncRows(
 
     table->UnselectAll();
   for (const auto &uuid : selectedUuids) {
-        auto pos = std::find(rowUuids.begin(), rowUuids.end(), uuid);
-        if (pos != rowUuids.end())
-            table->SelectRow(static_cast<int>(pos - rowUuids.begin()));
+        const wxDataViewItem item = ItemForUuid(uuid);
+        if (item.IsOk())
+            table->Select(item);
     }
     UpdateSelectionHighlight();
 }
@@ -1468,10 +1447,33 @@ std::string TrussTablePanel::UuidForItem(const wxDataViewItem& item) const {
     if (!store || !item.IsOk())
         return {};
     const wxUIntPtr rowKey = store->GetItemData(item);
+    const std::string uuid = identityIndex.UuidForKey(rowKey);
+    if (!uuid.empty())
+        return uuid;
     auto it = rowUuidByKey.find(rowKey);
     if (it == rowUuidByKey.end())
         return {};
     return it->second;
+}
+
+// Resolves a scene UUID to the current table item without using row order as identity.
+wxDataViewItem TrussTablePanel::ItemForUuid(const std::string& uuid) const {
+    const auto key = identityIndex.KeyForUuid(uuid);
+    if (!key || !table || !store)
+        return wxDataViewItem();
+    const unsigned int count = table->GetItemCount();
+    for (unsigned int row = 0; row < count; ++row) {
+        wxDataViewItem item = table->RowToItem(row);
+        if (item.IsOk() && store->GetItemData(item) == static_cast<wxUIntPtr>(*key))
+            return item;
+    }
+    return wxDataViewItem();
+}
+
+// Resolves a scene UUID to the current presentation row for one table operation.
+int TrussTablePanel::RowForUuid(const std::string& uuid) const {
+    const wxDataViewItem item = ItemForUuid(uuid);
+    return item.IsOk() ? table->ItemToRow(item) : wxNOT_FOUND;
 }
 
 void TrussTablePanel::SetModelPathsForRow(unsigned int row,
@@ -1487,6 +1489,8 @@ void TrussTablePanel::SetModelPathsForRow(unsigned int row,
     symbolPaths[row] = symbolPath;
     wxDataViewItem item = table->RowToItem(row);
     const wxUIntPtr rowKey = store->GetItemData(item);
+    identityIndex.SetMetadata(rowKey, {std::string(modelPath.ToUTF8()),
+                                       std::string(symbolPath.ToUTF8())});
     modelPathByKey[rowKey] = modelPath;
     symbolPathByKey[rowKey] = symbolPath;
 }

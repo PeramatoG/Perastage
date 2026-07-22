@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
+#include "stable_dataview_identity_index.h"
 
 namespace gui { class DataViewDeferredSelectionGuard; }
 
@@ -62,6 +63,7 @@ private:
     std::vector<wxString> columnLabels;
     std::vector<std::string> rowUuids;
     std::vector<std::string> highlightedRelatedUuids;
+    gui::StableDataViewIdentityIndex identityIndex;
     std::unordered_map<wxUIntPtr, std::string> rowUuidByKey;
     std::unordered_map<wxUIntPtr, wxString> modelPathByKey;
     std::unordered_map<wxUIntPtr, wxString> symbolPathByKey;
@@ -80,6 +82,8 @@ private:
     void OnColumnSorted(wxDataViewEvent& event);
     void RebuildRowCachesFromRowKeys();
     std::string UuidForItem(const wxDataViewItem& item) const;
+    wxDataViewItem ItemForUuid(const std::string& uuid) const;
+    int RowForUuid(const std::string& uuid) const;
     void SetModelPathsForRow(unsigned int row, const wxString& modelPath,
                              const wxString& symbolPath);
     void ResyncRows(const std::vector<std::string>& oldOrder,

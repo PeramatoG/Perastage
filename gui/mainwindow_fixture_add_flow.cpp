@@ -17,6 +17,7 @@
  */
 #include "filesystem_path_utils.h"
 #include "mainwindow.h"
+#include "uuidutils.h"
 
 #include <chrono>
 #include <filesystem>
@@ -176,10 +177,12 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   if (startId <= 0)
     startId = maxId + 1;
 
+  std::string firstAddedFixtureUuid;
   for (int i = 0; i < count; ++i) {
     Fixture f;
-    f.uuid = wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId), i)
-                 .ToStdString();
+    f.uuid = GenerateUuid();
+    if (firstAddedFixtureUuid.empty())
+      firstAddedFixtureUuid = f.uuid;
     f.instanceName = name;
     f.typeName = defaultName;
     f.fixtureId = startId + i;
@@ -195,10 +198,7 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
   }
 
   const std::string continuousFixtureUuid =
-      continuousPlacement
-          ? wxString::Format("uuid_%lld_0", static_cast<long long>(baseId))
-                .ToStdString()
-          : std::string();
+      continuousPlacement ? firstAddedFixtureUuid : std::string();
 
   RefreshAfterSceneChange(true);
   if (continuousPlacement) {

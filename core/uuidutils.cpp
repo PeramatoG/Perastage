@@ -25,6 +25,7 @@
 
 namespace {
 
+// Computes a stable 64-bit FNV-1a hash for deterministic UUID seeds.
 uint64_t Fnv1a64(const std::string &value, uint64_t seed) {
   uint64_t hash = 1469598103934665603ull ^ seed;
   for (unsigned char c : value) {
@@ -34,6 +35,7 @@ uint64_t Fnv1a64(const std::string &value, uint64_t seed) {
   return hash;
 }
 
+// Formats 16 UUID bytes into lowercase canonical text.
 std::string BytesToUuid(const std::array<uint8_t, 16> &bytes) {
   static constexpr char kHex[] = "0123456789abcdef";
   std::string out;
@@ -49,21 +51,24 @@ std::string BytesToUuid(const std::array<uint8_t, 16> &bytes) {
 
 } // namespace
 
+// Generates an RFC 4122 version 4 UUID string.
 std::string GenerateUuid() {
-  static std::mt19937_64 rng{std::random_device{}()};
-  static std::uniform_int_distribution<int> dist(0, 15);
-  const char *v = "0123456789abcdef";
-  int groups[] = {8, 4, 4, 4, 12};
-  std::string out;
-  for (int g = 0; g < 5; ++g) {
-    if (g)
-      out.push_back('-');
-    for (int i = 0; i < groups[g]; ++i)
-      out.push_back(v[dist(rng)]);
-  }
-  return out;
+  static std::random_device rd;
+  static std::mt19937_64 rng{rd()};
+  static std::uniform_int_distribution<int> dist(0, 255);
+
+  std::array<uint8_t, 16> bytes{};
+  for (auto &byte : bytes)
+    byte = static_cast<uint8_t>(dist(rng));
+
+  // Encode as RFC 4122 variant and version 4 random UUID.
+  bytes[6] = static_cast<uint8_t>((bytes[6] & 0x0Fu) | 0x40u);
+  bytes[8] = static_cast<uint8_t>((bytes[8] & 0x3Fu) | 0x80u);
+
+  return BytesToUuid(bytes);
 }
 
+// Normalizes UUID text to lowercase canonical form when valid.
 std::string CanonicalizeUuid(const std::string &rawUuid) {
   std::string hex;
   hex.reserve(32);
@@ -88,6 +93,12 @@ std::string CanonicalizeUuid(const std::string &rawUuid) {
   return out;
 }
 
+// Returns whether UUID text can be canonicalized.
+bool IsValidUuid(const std::string &rawUuid) {
+  return !CanonicalizeUuid(rawUuid).empty();
+}
+
+// Derives a deterministic RFC 4122-compatible UUID from stable seed text.
 std::string DeriveDeterministicUuid(const std::string &seed) {
   const uint64_t a = Fnv1a64(seed, 0x9e3779b97f4a7c15ull);
   const uint64_t b = Fnv1a64(seed, 0xc2b2ae3d27d4eb4full);

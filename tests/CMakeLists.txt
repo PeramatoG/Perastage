@@ -2125,3 +2125,13 @@ add_test(NAME CredentialStoreNativeRoundTrip COMMAND credential_store_native_rou
 set_tests_properties(CredentialStoreNativeRoundTrip PROPERTIES
                      LABELS "gdtf-share;security;secure-store;release-gate"
                      SKIP_REGULAR_EXPRESSION "^SKIP:")
+
+add_executable(stable_dataview_identity_index_test stable_dataview_identity_index_test.cpp
+               ../gui/stable_dataview_identity_index.cpp)
+target_include_directories(stable_dataview_identity_index_test PRIVATE ../gui)
+add_test(NAME StableDataViewIdentityIndex COMMAND stable_dataview_identity_index_test)
+
+add_executable(uuidutils_rfc4122_test uuidutils_rfc4122_test.cpp
+               ../core/uuidutils.cpp)
+target_include_directories(uuidutils_rfc4122_test PRIVATE ../core)
+add_test(NAME UuidUtilsRfc4122 COMMAND uuidutils_rfc4122_test)

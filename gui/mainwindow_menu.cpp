@@ -23,6 +23,7 @@
 #include "mainwindow_menu_helpers.h"
 #include "mainwindow_menu_text_utils.h"
 #include "mainwindow_view_controller.h"
+#include "uuidutils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -916,9 +917,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     const auto &fixture = it->second;
 
     Support s;
-    s.uuid =
-        wxString::Format("uuid_%lld_%d", static_cast<long long>(baseId), idx++)
-            .ToStdString();
+    (void)idx++;
+    s.uuid = GenerateUuid();
     s.name = fixture.instanceName;
     s.gdtfSpec = fixture.gdtfSpec;
     s.gdtfMode = fixture.gdtfMode;
@@ -1603,8 +1603,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       baseTruss.lengthMm > 0.0f ? baseTruss.lengthMm : 0.0f;
   for (long i = 0; i < qty; ++i) {
     Truss t = baseTruss;
-    t.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
-                 .ToStdString();
+    t.uuid = GenerateUuid();
     if (qty > 1)
       t.name = defaultName + " " + std::to_string(i + 1);
     else
@@ -1823,8 +1822,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   addedObjectUuids.reserve(static_cast<size_t>(qty));
   for (long i = 0; i < qty; ++i) {
     SceneObject obj;
-    obj.uuid = wxString::Format("uuid_%lld", static_cast<long long>(baseId + i))
-                   .ToStdString();
+    obj.uuid = GenerateUuid();
     if (qty > 1)
       obj.name = defaultName + " " + std::to_string(i + 1);
     else
