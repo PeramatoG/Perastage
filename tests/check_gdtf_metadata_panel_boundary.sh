@@ -65,8 +65,23 @@ if rg -q "configmanager|guiconfigservices|FixtureTablePanel|TrussTablePanel|view
   echo "GdtfMetadataPanel must not depend on project, table, viewer, mutation, or editor-session services." >&2
   exit 1
 fi
-if ! rg -q "wxTE_MULTILINE \| wxTE_READONLY" "$panel_source"; then
-  echo "Description control must remain multiline and read-only." >&2
+if ! rg -q "wxTE_MULTILINE" "$panel_source"; then
+  echo "Description control must remain multiline." >&2
+  exit 1
+fi
+if ! rg -q "SetDescriptionEditable" "$panel_header" "$panel_source" || \
+   ! rg -q "SetDescriptionChangeCallback" "$panel_header" "$panel_source" || \
+   ! rg -q "if (updating || !descriptionChangeCallback || !descriptionCtrl)" "$panel_source"; then
+  echo "Description editability must be controlled through the public panel API without callbacks during programmatic updates." >&2
+  exit 1
+fi
+if ! rg -q "metadataPanel->SetDescriptionEditable" gui/gdtf/gdtf_editor_panel.cpp || \
+   ! rg -q "metadataPanel->SetDescriptionChangeCallback" gui/gdtf/gdtf_editor_panel.cpp; then
+  echo "GdtfEditorPanel must be the host-facing metadata description editing boundary." >&2
+  exit 1
+fi
+if ! rg -q "SetEditable\(editable\)" "$panel_source"; then
+  echo "Read-only mode must remain selectable through SetDescriptionEditable(false)." >&2
   exit 1
 fi
 

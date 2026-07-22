@@ -101,6 +101,8 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_policy_working_directories.py)
     add_repository_policy_test(MissingRipgrepBehavior ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_missing_ripgrep_behavior.py)
+    add_repository_policy_test(CtestFailureSummary ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_summarize_ctest_failures.py)
 endif()
 
 link_libraries(perastage_test_active_dictionary_storage)

@@ -260,7 +260,7 @@ You can also contact the project at **perastage.app@gmail.com**.
 
 ## Internal changes
 
-- Improved Debug CI reliability by validating CMake toolchain metadata from generated files, declaring Linux test tools and locales explicitly, running Linux CTest under Xvfb, normalizing repository-policy test working directories, and keeping CMake language policy checks focused on first-party source.
+- Improved Debug CI reliability by validating CMake toolchain metadata from generated files, declaring Linux test tools and locales explicitly, running Linux CTest under a verified Xvfb display, bounding non-interactive Windows CTest runs, normalizing repository-policy test working directories, and keeping CMake language policy checks focused on first-party source.
 - Strengthened CI release-gate tests so policy scripts are portable without ripgrep and credential metadata checks validate JSON fields without flagging safe backend identifiers.
 - Reorganized GitHub Actions into separate Debug CI, main patch artifact, compatibility package, and transactional minor release workflows, with Debug dependency setup aligned to the pinned vcpkg toolchain and Windows CI preserving the Python and MSVC environments across steps.
 

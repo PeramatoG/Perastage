@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <system_error>
 #include <string>
 
 #include <wx/filename.h>
@@ -101,8 +102,14 @@ int main() {
                   chineseCatalogPath.string());
 
   auto &manager = localization::LocalizationManager::Get();
+  const std::filesystem::path emptyLocaleRoot =
+      std::filesystem::temp_directory_path() / "perastage-empty-locale-root" /
+      std::to_string(wxGetProcessId());
+  std::error_code localeRootEc;
+  std::filesystem::remove_all(emptyLocaleRoot, localeRootEc);
+  std::filesystem::create_directories(emptyLocaleRoot, localeRootEc);
   wxSetEnv("PERASTAGE_LOCALE_ROOT",
-           wxFileName::GetTempDir() + "/perastage-empty-locale-root");
+           wxString::FromUTF8(emptyLocaleRoot.string().c_str()));
   const auto fallbackResult = manager.Initialize(localization::AppLanguage::Spanish);
   ok &= Check(!fallbackResult.catalogFound,
               "Missing-catalog scenario unexpectedly found a catalog.");
@@ -115,6 +122,14 @@ int main() {
   ok &= Check(_("Preferences") == wxString("Preferences"),
               "Missing-catalog fallback did not return English source text.");
 
+  wxSetEnv("PERASTAGE_LOCALE_ROOT", wxString::FromUTF8(localeRoot));
+  const auto overrideRoots = localization::ResolveLocaleRootCandidates();
+  ok &= Check(overrideRoots.size() == 1 &&
+                  overrideRoots.front() == std::filesystem::weakly_canonical(std::filesystem::u8path(localeRoot)),
+              "PERASTAGE_LOCALE_ROOT did not act as an exclusive override.");
+  wxSetEnv("PERASTAGE_LOCALE_ROOT", "");
+  ok &= Check(localization::ResolveLocaleRootCandidates().size() > 1,
+              "Empty PERASTAGE_LOCALE_ROOT did not restore normal locale candidates.");
   wxSetEnv("PERASTAGE_LOCALE_ROOT", wxString::FromUTF8(localeRoot));
   const auto chineseResult =
       manager.Initialize(localization::AppLanguage::SimplifiedChinese);
@@ -215,5 +230,10 @@ int main() {
   ok &= Check(riggingWeight == wxString("Peso de aparatos (kg)"),
               "Spanish rigging dynamic weight header regressed.");
 
+  const auto repeatedEnglish = manager.Initialize(localization::AppLanguage::English);
+  ok &= Check(repeatedEnglish.activeLanguage == localization::AppLanguage::English,
+              "Repeated language change did not reset the active catalog to English.");
+  wxUnsetEnv("PERASTAGE_LOCALE_ROOT");
+  std::filesystem::remove_all(emptyLocaleRoot, localeRootEc);
   return ok ? 0 : 1;
 }

@@ -79,10 +79,11 @@ int main() {
   firstImage.imagePath = usedImage.string();
   assert(manager.UpdateLayoutImage(layoutName, firstImage));
 
-  const auto &storedFirstImage = manager.GetLayouts().Items().front().imageViews.front();
-  assert(!storedFirstImage.projectResourcePath.empty());
+  const auto storedFirstResourcePath =
+      manager.GetLayouts().Items().front().imageViews.front().projectResourcePath;
+  assert(!storedFirstResourcePath.empty());
   assert(layouts::LayoutImageResourceRegistry::Get().UsageCount(
-             storedFirstImage.projectResourcePath) == 1);
+             storedFirstResourcePath) == 1);
 
   layouts::LayoutImageDefinition secondImage;
   secondImage.id = 2;
@@ -127,8 +128,8 @@ int main() {
   assert(saved);
 
   const auto entries = ReadArchiveEntries(projectPath);
-  assert(entries.find(storedFirstImage.projectResourcePath) != entries.end());
-  assert(entries.at(storedFirstImage.projectResourcePath) == "used-image-bytes");
+  assert(entries.find(storedFirstResourcePath) != entries.end());
+  assert(entries.at(storedFirstResourcePath) == "used-image-bytes");
   assert(entries.find(unusedResourcePath) == entries.end());
 
   layouts::LayoutImageResourceRegistry::Get().Clear();

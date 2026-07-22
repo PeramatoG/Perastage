@@ -11,19 +11,57 @@
 
 namespace {
 
+class FocusTestApp : public wxApp {
+public:
+  // Initializes the minimal wx application used by the focus utility test.
+  bool OnInit() override { return true; }
+};
+
+wxIMPLEMENT_APP_NO_MAIN(FocusTestApp);
+
 class CustomTextEditor : public wxTextCtrl {
 public:
+  // Creates a custom text editor used to verify derived editable controls.
   CustomTextEditor(wxWindow *parent, wxWindowID id)
       : wxTextCtrl(parent, id) {}
 };
 
+class WxAppScope {
+public:
+  // Starts a GUI-capable wxWidgets application lifetime for GTK widget creation.
+  WxAppScope() {
+    int argc = 0;
+    char **argv = nullptr;
+    started_ = wxEntryStart(argc, argv);
+    if (started_ && wxTheApp)
+      initialized_ = wxTheApp->CallOnInit();
+  }
+
+  // Cleans up the wxWidgets application lifetime started for the test.
+  ~WxAppScope() {
+    if (initialized_ && wxTheApp)
+      wxTheApp->OnExit();
+    if (started_)
+      wxEntryCleanup();
+  }
+
+  // Reports whether wxWidgets is ready for GUI widget creation.
+  bool IsOk() const { return started_ && initialized_; }
+
+private:
+  bool started_ = false;
+  bool initialized_ = false;
+};
+
+// Returns the condition value with a named helper for breakpoint-friendly checks.
 bool Expect(bool condition) { return condition; }
 
 } // namespace
 
+// Verifies editable focus detection across native wxWidgets control types.
 int main() {
-  wxInitializer initializer;
-  if (!initializer.IsOk())
+  WxAppScope app;
+  if (!app.IsOk())
     return 1;
 
   wxFrame frame(nullptr, wxID_ANY, "focus-test");

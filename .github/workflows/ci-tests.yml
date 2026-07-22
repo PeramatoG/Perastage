@@ -91,7 +91,7 @@ jobs:
       - name: Install Linux test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build pkg-config gettext autopoint autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libxkbcommon-dev libgl1-mesa-dev libglu1-mesa-dev ripgrep xvfb locales
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config gettext autopoint autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libxkbcommon-dev libgl1-mesa-dev libglu1-mesa-dev ripgrep xvfb xauth x11-utils locales
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -140,9 +140,10 @@ jobs:
       - name: Validate Linux test tools and locale
         run: |
           set -euo pipefail
-          sudo locale-gen es_ES.UTF-8
+          sudo locale-gen es_ES.UTF-8 zh_CN.UTF-8
           locale -a | grep -qi '^es_ES.utf8$' || { echo "es_ES.UTF-8 locale was not generated"; exit 1; }
-          for tool in rg xvfb-run locale; do command -v "$tool" >/dev/null || { echo "Required Linux test tool is missing: $tool"; exit 1; }; done
+          locale -a | grep -qi '^zh_CN.utf8$' || { echo "zh_CN.UTF-8 locale was not generated"; exit 1; }
+          for tool in rg xvfb-run locale xdpyinfo; do command -v "$tool" >/dev/null || { echo "Required Linux test tool is missing: $tool"; exit 1; }; done
       - name: Configure Debug tests
         run: |
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
@@ -150,18 +151,24 @@ jobs:
           if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
       - name: Build complete test target set
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-linux-debug.log" -- cmake --build build/linux-debug --target all --verbose
+      - name: Validate Linux Xvfb display
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'echo "DISPLAY=$DISPLAY" > "$CI_LOG_DIR/xvfb-linux-debug.txt"; test -n "$DISPLAY"; xdpyinfo >> "$CI_LOG_DIR/xvfb-linux-debug.txt"'
       - name: Run complete CTest suite
-        run: LC_ALL=C.UTF-8 LANG=C.UTF-8 LANGUAGE=es_ES:es python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-linux-debug.log" -- xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build/linux-debug --output-on-failure --verbose
-      - name: Summarize Linux CTest failures
-        if: ${{ always() }}
-        run: python3 .github/scripts/summarize_ctest_failures.py --platform linux --log "$CI_LOG_DIR/ctest-linux-debug.log" --output "$CI_LOG_DIR/ctest-linux-debug-failures.csv"
+        run: |
+          set +e
+          LC_ALL=C.UTF-8 LANG=C.UTF-8 xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build/linux-debug --output-log "$CI_LOG_DIR/ctest-linux-debug.log" --output-junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --output-on-failure --verbose
+          ctest_exit=$?
+          python3 .github/scripts/summarize_ctest_failures.py --platform linux --junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --log "$CI_LOG_DIR/ctest-linux-debug.log" --last-tests-failed build/linux-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-linux-debug-failures.csv"
+          exit $ctest_exit
       - name: Run repository policy tests
         run: |
           bash tests/check_perastage_tree_modules.sh
           bash tests/check_no_configmanager_get_in_gui.sh
           bash tests/check_ci_cmake_language_policy.sh
       - name: Upload failure diagnostics
-        if: ${{ failure() }}
+        if: ${{ always() && (failure() || cancelled()) }}
         uses: actions/upload-artifact@v7
         with:
           name: ci-linux-debug-diagnostics
@@ -171,12 +178,14 @@ jobs:
             **/CMakeFiles/CMakeConfigureLog.yaml
             **/CMakeCache.txt
             build/**/*.log
+            build/**/Testing/Temporary/**
             vcpkg/buildtrees/**/*.log
             vcpkg/buildtrees/**/config-*.txt
             vcpkg/buildtrees/**/issue_body.md
             .vcpkg-cache/installed/vcpkg/issue_body.md
 
   windows-debug:
+    timeout-minutes: 180
     needs: resolve-source
     runs-on: windows-latest
     env:
@@ -293,14 +302,12 @@ jobs:
       - name: Run Windows CTest suite
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\ctest-windows-debug.log" -- ctest --test-dir build-windows-debug --output-on-failure --verbose
-      - name: Summarize Windows CTest failures
-        if: ${{ always() }}
-        shell: pwsh
-        run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_failures.py --platform windows --log "$env:CI_LOG_DIR\ctest-windows-debug.log" --output "$env:CI_LOG_DIR\ctest-windows-debug-failures.csv"
+          & ctest --test-dir build-windows-debug --output-log "$env:CI_LOG_DIR\ctest-windows-debug.log" --output-junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120
+          $ctestExit = $LASTEXITCODE
+          & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_failures.py --platform windows --junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --log "$env:CI_LOG_DIR\ctest-windows-debug.log" --last-tests-failed build-windows-debug\Testing\Temporary\LastTestsFailed.log --output "$env:CI_LOG_DIR\ctest-windows-debug-failures.csv"
+          exit $ctestExit
       - name: Upload failure diagnostics
-        if: ${{ failure() }}
+        if: ${{ always() && (failure() || cancelled()) }}
         uses: actions/upload-artifact@v7
         with:
           name: ci-windows-debug-diagnostics
@@ -310,6 +317,7 @@ jobs:
             **/CMakeFiles/CMakeConfigureLog.yaml
             **/CMakeCache.txt
             build*/**/*.log
+            build*/**/Testing/Temporary/**
             vcpkg/buildtrees/**/*.log
             vcpkg/buildtrees/**/config-*.txt
             vcpkg/buildtrees/**/issue_body.md
@@ -417,7 +425,7 @@ jobs:
         if: ${{ always() }}
         run: python3 .github/scripts/summarize_ctest_failures.py --platform macos --log "$CI_LOG_DIR/ctest-macos-debug.log" --output "$CI_LOG_DIR/ctest-macos-debug-failures.csv"
       - name: Upload failure diagnostics
-        if: ${{ failure() }}
+        if: ${{ always() && (failure() || cancelled()) }}
         uses: actions/upload-artifact@v7
         with:
           name: ci-macos-debug-diagnostics
@@ -427,6 +435,7 @@ jobs:
             **/CMakeFiles/CMakeConfigureLog.yaml
             **/CMakeCache.txt
             build/**/*.log
+            build/**/Testing/Temporary/**
             vcpkg/buildtrees/**/*.log
             vcpkg/buildtrees/**/config-*.txt
             vcpkg/buildtrees/**/issue_body.md

@@ -241,6 +241,14 @@ fs::path BuildGdtfExtractionCacheDirForTesting(const fs::path &gdtfPath) {
   return BuildGdtfExtractionCacheDir(gdtfPath);
 }
 
+// Reports whether a raw truss archive entry resolves safely below a destination root.
+bool IsTrussArchiveEntryTargetSafeForTesting(const std::string &entryName,
+                                             const std::filesystem::path &destinationRoot) {
+  fs::path target;
+  return ResolveArchiveEntryTarget(fs::path("test.gdtf"), destinationRoot.lexically_normal(),
+                                   entryName, target);
+}
+
 // Returns the file dialog wildcard matching the supported truss loader inputs.
 std::string GetTrussDefinitionFileDialogWildcard() {
   return kSupportedTrussFileDialogWildcard;
