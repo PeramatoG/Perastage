@@ -30,7 +30,7 @@
     <DMXModes>
       <DMXMode Name="Default" Geometry="Root">
         <DMXChannels>
-          <DMXChannel Geometry="Root">
+          <DMXChannel Offset="1" Geometry="Root">
             <LogicalChannel Attribute="Dimmer">
               <ChannelFunction Name="Dimmer" Attribute="Dimmer" DMXFrom="0/1"/>
             </LogicalChannel>

@@ -12,8 +12,6 @@ public:
   FixtureBuilder();
   FixtureBuilder &WithDmxMode(std::string name, std::string geometry);
   FixtureBuilder &WithFixtureCategorySignals();
-  FixtureBuilder &WithWheelMedia(std::string wheelName, std::string slotName);
-  FixtureBuilder &WithModelResource(std::string modelName, std::string resourcePath);
   std::string BuildDescriptionXml() const;
   void WriteArchive(const std::filesystem::path &archivePath) const;
 private:
@@ -25,4 +23,7 @@ FixtureBuilder BuildMinimalValidFixture();
 void WriteMissingMandatorySectionsArchive(const std::filesystem::path &archivePath);
 void WriteInvalidGuidArchive(const std::filesystem::path &archivePath);
 void WriteMalformedXmlArchive(const std::filesystem::path &archivePath);
+bool IsPortableArchiveEntryPathForTesting(const std::string &path);
+void WriteArchiveEntryForTesting(const std::filesystem::path &archivePath,
+                                 const std::string &entryPath);
 } // namespace tests::gdtf

@@ -403,6 +403,3 @@ peraviz/
 /.vscode/settings.json
 # Generated gettext catalogs
 resources/locale/**/LC_MESSAGES/*.mo
-
-# Generated from library/fixtures/Dummy 1ch.description.xml by CMake.
-library/fixtures/Dummy 1ch.gdtf

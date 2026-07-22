@@ -282,3 +282,5 @@ You can also contact the project at **perastage.app@gmail.com**.
 - Improved fixture symbol generation performance by avoiding redundant 2D scene reloads during orthographic capture, reusing offscreen framebuffer resources, memoizing unchanged GDTF semantic fingerprints in-process, and converting independent rendered symbol views in bounded parallel workers while preserving exact generated geometry.
 - Refactored runtime temporary storage so imports, exports, generated resources, and session caches use explicit Perastage-owned lifecycles.
 - Dictionary loading is now read-only for valid custom fixture and truss dictionaries; default seeding, reset, and managed-default recovery are explicit operations.
+- Corrected the generated Dummy 1ch fallback fixture pipeline so deterministic GDTF output is produced in the build tree, staged and installed as a runtime asset, and kept out of the source checkout.
+- Strengthened GDTF test fixtures and Python test interpreter checks, including one-address DMX validation, isolated dictionary test libraries, and interpreter paths containing spaces.
