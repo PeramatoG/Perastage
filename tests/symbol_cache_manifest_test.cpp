@@ -1,6 +1,7 @@
 #include "symbol_cache_manifest.h"
 
 #include <cassert>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -193,6 +194,37 @@ void TestSemanticFingerprintIgnoresZipPackaging() {
   assert(errorB.empty());
   assert(hashA == hashB);
   assert(hashA.rfind("gdtfsymfnv1a64v1:", 0) == 0);
+
+  const auto bytes = [](const std::string &value) {
+    return std::vector<std::uint8_t>(value.begin(), value.end());
+  };
+  std::string memoryError;
+  const std::string memoryHash =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(
+          {{"MODELS\\SVG\\front.svg", bytes(svg)},
+           {"irrelevant.txt", bytes("ignored")},
+           {"description.xml", bytes(description)},
+           {"models/glb/body.glb", bytes(glb)}},
+          memoryError);
+  assert(memoryError.empty());
+  assert(memoryHash == hashA);
+
+  std::string reorderedError;
+  const std::string reorderedHash =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(
+          {{"models/glb/body.glb", bytes(glb)},
+           {"description.xml", bytes(description)},
+           {"models/svg/front.svg", bytes(svg)}},
+          reorderedError);
+  assert(reorderedError.empty());
+  assert(reorderedHash == hashA);
+
+  std::string changedMemoryError;
+  assert(symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(
+             {{"description.xml", bytes(description)},
+              {"models/svg/front.svg", bytes(svg + " ")},
+              {"models/glb/body.glb", bytes(glb)}},
+             changedMemoryError) != hashA);
 
   const fs::path changedDescription = tempRoot / "changed_description.gdtf";
   const fs::path changedSvg = tempRoot / "changed_svg.gdtf";

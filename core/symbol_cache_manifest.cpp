@@ -294,7 +294,7 @@ const std::vector<FixtureSymbolCacheEntry> &SymbolCacheManifest::Entries() const
 }
 
 // Normalizes a ZIP entry path for deterministic GDTF semantic fingerprinting.
-static std::string NormalizeGdtfEntryPath(std::string path) {
+std::string NormalizeGdtfEntryPath(std::string path) {
   std::replace(path.begin(), path.end(), '\\', '/');
   while (!path.empty() && path.front() == '/')
     path.erase(path.begin());
@@ -314,7 +314,7 @@ static std::string NormalizeGdtfEntryPath(std::string path) {
 }
 
 // Reports whether a normalized GDTF entry affects generated Perastage symbols.
-static bool IsSymbolRelevantGdtfEntry(const std::string &path) {
+bool IsSymbolRelevantGdtfEntry(const std::string &path) {
   if (path == "description.xml")
     return true;
   constexpr std::array<const char *, 10> prefixes = {
@@ -366,43 +366,15 @@ bool ReadFingerprintFileMetadata(const std::string &path, std::uintmax_t &fileSi
   return !ec;
 }
 
-// Computes a versioned semantic fingerprint over symbol-relevant uncompressed GDTF entries.
-static std::string ComputeGdtfSemanticFingerprintUncached(const std::string &path,
-                                                          std::string &errorMessage) {
-  wxFileInputStream input(WxStringFromUtf8Path(path));
-  if (!input.IsOk()) {
-    errorMessage = "Could not open GDTF archive for semantic fingerprinting.";
-    return {};
-  }
-
-  wxZipInputStream zip(input);
-  if (!zip.IsOk()) {
-    errorMessage = "Could not read GDTF archive for semantic fingerprinting.";
-    return {};
-  }
-
-  std::map<std::string, std::vector<unsigned char>> entries;
-  while (true) {
-    std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry());
-    if (!entry)
-      break;
-    if (entry->IsDir())
-      continue;
-    const std::string normalized = NormalizeGdtfEntryPath(entry->GetName().ToStdString());
-    if (!IsSymbolRelevantGdtfEntry(normalized))
-      continue;
-
-    std::vector<unsigned char> bytes;
-    std::array<char, 8192> buffer{};
-    while (true) {
-      zip.Read(buffer.data(), buffer.size());
-      const size_t count = zip.LastRead();
-      if (count == 0)
-        break;
-      const auto *begin = reinterpret_cast<const unsigned char *>(buffer.data());
-      bytes.insert(bytes.end(), begin, begin + count);
-    }
-    entries[normalized] = std::move(bytes);
+// Computes a versioned semantic fingerprint over normalized symbol-relevant entries.
+std::string ComputeGdtfSemanticFingerprintFromEntries(
+    const std::vector<GdtfSemanticFingerprintEntry> &inputEntries,
+    std::string &errorMessage) {
+  std::map<std::string, std::vector<std::uint8_t>> entries;
+  for (const auto &entry : inputEntries) {
+    const std::string normalized = NormalizeGdtfEntryPath(entry.normalizedPath);
+    if (IsSymbolRelevantGdtfEntry(normalized))
+      entries[normalized] = entry.bytes;
   }
 
   if (entries.find("description.xml") == entries.end()) {
@@ -427,7 +399,51 @@ static std::string ComputeGdtfSemanticFingerprintUncached(const std::string &pat
   std::ostringstream out;
   out << "gdtfsymfnv1a64v1:" << std::hex << std::setw(16) << std::setfill('0')
       << hash << ":" << std::dec << entries.size() << ":" << payloadSize;
+  errorMessage.clear();
   return out.str();
+}
+
+// Computes a versioned semantic fingerprint over symbol-relevant uncompressed GDTF entries.
+static std::string ComputeGdtfSemanticFingerprintUncached(const std::string &path,
+                                                          std::string &errorMessage) {
+  wxFileInputStream input(WxStringFromUtf8Path(path));
+  if (!input.IsOk()) {
+    errorMessage = "Could not open GDTF archive for semantic fingerprinting.";
+    return {};
+  }
+
+  wxZipInputStream zip(input);
+  if (!zip.IsOk()) {
+    errorMessage = "Could not read GDTF archive for semantic fingerprinting.";
+    return {};
+  }
+
+  std::vector<GdtfSemanticFingerprintEntry> entries;
+  while (true) {
+    std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry());
+    if (!entry)
+      break;
+    if (entry->IsDir())
+      continue;
+    const std::string normalized = NormalizeGdtfEntryPath(entry->GetName().ToStdString());
+    if (!IsSymbolRelevantGdtfEntry(normalized))
+      continue;
+
+    GdtfSemanticFingerprintEntry fingerprintEntry;
+    fingerprintEntry.normalizedPath = normalized;
+    std::array<char, 8192> buffer{};
+    while (true) {
+      zip.Read(buffer.data(), buffer.size());
+      const size_t count = zip.LastRead();
+      if (count == 0)
+        break;
+      const auto *begin = reinterpret_cast<const std::uint8_t *>(buffer.data());
+      fingerprintEntry.bytes.insert(fingerprintEntry.bytes.end(), begin, begin + count);
+    }
+    entries.push_back(std::move(fingerprintEntry));
+  }
+
+  return ComputeGdtfSemanticFingerprintFromEntries(entries, errorMessage);
 }
 
 // Computes a memoized semantic GDTF content fingerprint for unchanged files.
@@ -454,6 +470,18 @@ std::string ComputeGdtfSemanticFingerprint(const std::string &path,
     g_fingerprintCache[cachePath] = FingerprintCacheEntry{fileSize, lastWriteTime, fingerprint};
   }
   return fingerprint;
+}
+
+// Publishes a known semantic fingerprint for the current on-disk file metadata.
+void PublishGdtfSemanticFingerprintCache(const std::string &path,
+                                         const std::string &fingerprint) {
+  std::uintmax_t fileSize = 0;
+  std::filesystem::file_time_type lastWriteTime{};
+  if (fingerprint.empty() || !ReadFingerprintFileMetadata(path, fileSize, lastWriteTime))
+    return;
+  std::lock_guard<std::mutex> lock(g_fingerprintCacheMutex);
+  g_fingerprintCache[NormalizeFingerprintCachePath(path)] =
+      FingerprintCacheEntry{fileSize, lastWriteTime, fingerprint};
 }
 
 // Invalidates the cached semantic fingerprint for one GDTF path.

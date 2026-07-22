@@ -14,6 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -34,6 +35,19 @@ namespace fs = std::filesystem;
 
 namespace symbol_preview {
 namespace {
+
+struct GdtfRewriteResult {
+  bool success = false;
+  fs::path finalArchivePath;
+  bool atomicReplacementCompleted = false;
+  std::set<std::string> normalizedGeneratedSvgPaths;
+  bool requiredPathsConfirmed = false;
+  std::string finalSemanticFingerprint;
+  std::uintmax_t finalFileSize = 0;
+  fs::file_time_type finalModificationTime{};
+  bool externalVerificationRequired = false;
+  std::string diagnostic;
+};
 
 struct SymbolPayload {
   std::string archivePath;
@@ -62,6 +76,79 @@ bool IsPerastageEditorValue(const char *editorValue) {
     return false;
   const std::string editor = editorValue;
   return editor == "Perastage" || editor.rfind("Perastage ", 0) == 0;
+}
+
+// Resolves the FixtureType element from a parsed GDTF description document.
+tinyxml2::XMLElement *ResolveFixtureType(tinyxml2::XMLDocument &doc) {
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  if (fixtureType)
+    fixtureType = fixtureType->FirstChildElement("FixtureType");
+  if (!fixtureType)
+    fixtureType = doc.FirstChildElement("FixtureType");
+  return fixtureType;
+}
+
+// Resolves the preferred GDTF model using Main first and the first model as fallback.
+tinyxml2::XMLElement *ResolvePreferredModel(tinyxml2::XMLElement *fixtureType) {
+  if (!fixtureType)
+    return nullptr;
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  if (!models)
+    return nullptr;
+  tinyxml2::XMLElement *targetModel = nullptr;
+  for (tinyxml2::XMLElement *model = models->FirstChildElement("Model"); model;
+       model = model->NextSiblingElement("Model")) {
+    const char *name = model->Attribute("Name");
+    if (name && std::string(name) == "Main")
+      return model;
+    if (!targetModel)
+      targetModel = model;
+  }
+  return targetModel;
+}
+
+// Resolves the model SVG basename from File, Name, or the standard main fallback.
+std::string ResolveModelSvgBasenameFromFixtureType(tinyxml2::XMLElement *fixtureType,
+                                                   std::string &errorMessage) {
+  if (!fixtureType) {
+    errorMessage = "Could not find FixtureType node in description.xml.";
+    return {};
+  }
+  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
+  if (!models) {
+    errorMessage = "Could not find Models node in description.xml.";
+    return {};
+  }
+  tinyxml2::XMLElement *targetModel = ResolvePreferredModel(fixtureType);
+  if (!targetModel) {
+    errorMessage = "Could not find any Model node in description.xml.";
+    return {};
+  }
+  const char *fileAttr = targetModel->Attribute("File");
+  if (fileAttr && std::string(fileAttr).size() > 0)
+    return std::string(fileAttr);
+  const char *nameAttr = targetModel->Attribute("Name");
+  if (nameAttr && std::string(nameAttr).size() > 0)
+    return std::string(nameAttr);
+  return "main";
+}
+
+// Builds the normalized SVG paths required for a complete Perastage symbol set.
+std::unordered_set<std::string> BuildRequiredSymbolPaths(const std::string &modelSvgBase) {
+  return {NormalizeArchivePath("models/svg/" + modelSvgBase + ".svg"),
+          NormalizeArchivePath("models/svg/" + modelSvgBase + "_bottom.svg"),
+          NormalizeArchivePath("models/svg_side/" + modelSvgBase + ".svg"),
+          NormalizeArchivePath("models/svg_front/" + modelSvgBase + ".svg")};
+}
+
+// Returns whether every required SVG path is present in the scanned archive entries.
+bool HasRequiredSymbolPaths(const std::unordered_set<std::string> &archiveEntries,
+                            const std::unordered_set<std::string> &requiredPaths) {
+  for (const std::string &path : requiredPaths) {
+    if (archiveEntries.find(path) == archiveEntries.end())
+      return false;
+  }
+  return true;
 }
 
 bool IsPerastageModifiedByValue(const char *modifiedByValue) {
@@ -248,48 +335,8 @@ std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
     return {};
   }
 
-  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
-  if (fixtureType)
-    fixtureType = fixtureType->FirstChildElement("FixtureType");
-  if (!fixtureType)
-    fixtureType = doc.FirstChildElement("FixtureType");
-  if (!fixtureType) {
-    errorMessage = "Could not find FixtureType node in description.xml.";
-    return {};
-  }
-
-  tinyxml2::XMLElement *models = fixtureType->FirstChildElement("Models");
-  if (!models) {
-    errorMessage = "Could not find Models node in description.xml.";
-    return {};
-  }
-
-  tinyxml2::XMLElement *targetModel = nullptr;
-  for (tinyxml2::XMLElement *model = models->FirstChildElement("Model"); model;
-       model = model->NextSiblingElement("Model")) {
-    const char *name = model->Attribute("Name");
-    if (name && std::string(name) == "Main") {
-      targetModel = model;
-      break;
-    }
-    if (!targetModel)
-      targetModel = model;
-  }
-
-  if (!targetModel) {
-    errorMessage = "Could not find any Model node in description.xml.";
-    return {};
-  }
-
-  const char *fileAttr = targetModel->Attribute("File");
-  if (fileAttr && std::string(fileAttr).size() > 0)
-    return std::string(fileAttr);
-
-  const char *nameAttr = targetModel->Attribute("Name");
-  if (nameAttr && std::string(nameAttr).size() > 0)
-    return std::string(nameAttr);
-
-  return "main";
+  tinyxml2::XMLElement *fixtureType = ResolveFixtureType(doc);
+  return ResolveModelSvgBasenameFromFixtureType(fixtureType, errorMessage);
 }
 
 const symbols::Symbol2D *FindSymbol(const std::vector<symbols::Symbol2D> &symbols,
@@ -443,7 +490,7 @@ bool AppendMutationAuditMetadata(std::string &descriptionXml,
 }
 
 bool VerifyArchiveEntries(const fs::path &archivePath,
-                        const std::unordered_map<std::string, SymbolPayload> &payloads) {
+                          const std::unordered_map<std::string, SymbolPayload> &payloads) {
   wxFileInputStream input(archivePath.string());
   if (!input.IsOk())
     return false;
@@ -472,13 +519,16 @@ bool VerifyArchiveEntries(const fs::path &archivePath,
 }
 
 // Rewrites a fixture GDTF archive with generated SVG symbols and updated metadata.
-bool RewriteGdtf(const fs::path &sourcePath,
-                 const std::unordered_map<std::string, SymbolPayload> &payloads,
-                 const std::string &topPath,
-                 const std::string &sidePath,
-                 const std::string &frontPath,
-                 const std::string &bottomPath,
-                 std::string &errorMessage) {
+GdtfRewriteResult RewriteGdtfWithProof(
+    const fs::path &sourcePath,
+    const std::unordered_map<std::string, SymbolPayload> &payloads,
+    const std::string &topPath,
+    const std::string &sidePath,
+    const std::string &frontPath,
+    const std::string &bottomPath) {
+  GdtfRewriteResult result;
+  result.finalArchivePath = sourcePath;
+  std::string errorMessage;
   std::vector<std::pair<std::string, std::string>> entries;
   std::vector<std::string> sampleEntries;
   bool foundCaseInsensitiveVariant = false;
@@ -486,7 +536,8 @@ bool RewriteGdtf(const fs::path &sourcePath,
     wxFileInputStream input(sourcePath.string());
     if (!input.IsOk()) {
       errorMessage = "Could not open fixture GDTF file for reading.";
-      return false;
+      result.diagnostic = errorMessage;
+      return result;
     }
 
     wxZipInputStream zipInput(input);
@@ -515,17 +566,20 @@ bool RewriteGdtf(const fs::path &sourcePath,
   if (descriptionIt == entries.end()) {
     errorMessage = BuildDescriptionMissingMessage(sourcePath, sampleEntries,
                                                   foundCaseInsensitiveVariant);
-    return false;
+    result.diagnostic = errorMessage;
+    return result;
   }
 
   std::string updatedDescription;
   if (!PatchDescriptionXml(descriptionIt->second, payloads, topPath, sidePath,
                            frontPath, updatedDescription, errorMessage)) {
-    return false;
+    result.diagnostic = errorMessage;
+    return result;
   }
   if (!AppendMutationAuditMetadata(updatedDescription, payloads, topPath, sidePath,
                                    frontPath, bottomPath, errorMessage)) {
-    return false;
+    result.diagnostic = errorMessage;
+    return result;
   }
 
   descriptionIt->second = std::move(updatedDescription);
@@ -542,12 +596,42 @@ bool RewriteGdtf(const fs::path &sourcePath,
       entries.emplace_back(normalizedPath, payload.svg);
   }
 
+  std::unordered_set<std::string> finalEntrySet;
+  std::vector<symbol_cache::GdtfSemanticFingerprintEntry> fingerprintEntries;
+  for (const auto &[name, content] : entries) {
+    const std::string normalizedName = NormalizeArchivePath(name);
+    finalEntrySet.insert(normalizedName);
+    symbol_cache::GdtfSemanticFingerprintEntry fingerprintEntry;
+    fingerprintEntry.normalizedPath = normalizedName;
+    fingerprintEntry.bytes.assign(content.begin(), content.end());
+    fingerprintEntries.push_back(std::move(fingerprintEntry));
+  }
+  const std::unordered_set<std::string> requiredPaths = {
+      NormalizeArchivePath(topPath), NormalizeArchivePath(sidePath),
+      NormalizeArchivePath(frontPath), NormalizeArchivePath(bottomPath)};
+  result.requiredPathsConfirmed = HasRequiredSymbolPaths(finalEntrySet, requiredPaths);
+  for (const auto &[path, payload] : payloads) {
+    (void)payload;
+    result.normalizedGeneratedSvgPaths.insert(NormalizeArchivePath(path));
+  }
+  if (!result.requiredPathsConfirmed) {
+    result.diagnostic = "Generated SVG views were not present in the final archive entry set.";
+    return result;
+  }
+  result.finalSemanticFingerprint =
+      symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(fingerprintEntries, errorMessage);
+  if (result.finalSemanticFingerprint.empty()) {
+    result.diagnostic = errorMessage;
+    return result;
+  }
+
   const fs::path tempPath = sourcePath.string() + ".tmp";
   {
     wxFileOutputStream output(tempPath.string());
     if (!output.IsOk()) {
       errorMessage = "Could not open temporary GDTF file for writing.";
-      return false;
+      result.diagnostic = errorMessage;
+      return result;
     }
 
     wxZipOutputStream zipOutput(output);
@@ -575,17 +659,34 @@ bool RewriteGdtf(const fs::path &sourcePath,
   if (ec) {
     fs::remove(tempPath);
     errorMessage = "Could not replace the original GDTF file.";
-    return false;
+    result.diagnostic = errorMessage;
+    return result;
   }
 
-  symbol_cache::InvalidateGdtfSemanticFingerprintCache(sourcePath.string());
+  result.atomicReplacementCompleted = true;
+  std::error_code metadataError;
+  result.finalFileSize = fs::file_size(sourcePath, metadataError);
+  metadataError.clear();
+  result.finalModificationTime = fs::last_write_time(sourcePath, metadataError);
+  symbol_cache::PublishGdtfSemanticFingerprintCache(
+      sourcePath.string(), result.finalSemanticFingerprint);
 
-  if (!VerifyArchiveEntries(sourcePath, payloads)) {
-    errorMessage = "GDTF was saved but generated SVG views were not found in archive.";
-    return false;
-  }
+  result.success = true;
+  return result;
+}
 
-  return true;
+// Rewrites a fixture GDTF archive and returns a compatibility boolean result.
+bool RewriteGdtf(const fs::path &sourcePath,
+                 const std::unordered_map<std::string, SymbolPayload> &payloads,
+                 const std::string &topPath,
+                 const std::string &sidePath,
+                 const std::string &frontPath,
+                 const std::string &bottomPath,
+                 std::string &errorMessage) {
+  GdtfRewriteResult result = RewriteGdtfWithProof(sourcePath, payloads, topPath,
+                                                  sidePath, frontPath, bottomPath);
+  errorMessage = result.diagnostic;
+  return result.success;
 }
 
 } // namespace
@@ -751,17 +852,18 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
   wxZipInputStream zipInput(input);
   std::unique_ptr<wxZipEntry> entry;
   std::string descriptionXml;
+  std::unordered_set<std::string> archiveEntries;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
     const std::string entryName = NormalizeArchivePath(entry->GetName().ToStdString());
+    archiveEntries.insert(entryName);
     if (!IsDescriptionXmlPath(entryName))
       continue;
     if (!ReadAllBytes(zipInput, descriptionXml)) {
       errorMessage = "Could not read description.xml from the GDTF file.";
       return false;
     }
-    break;
   }
 
   if (descriptionXml.empty())
@@ -771,11 +873,7 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
   if (doc.Parse(descriptionXml.c_str(), descriptionXml.size()) != tinyxml2::XML_SUCCESS)
     return true;
 
-  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
-  if (fixtureType)
-    fixtureType = fixtureType->FirstChildElement("FixtureType");
-  if (!fixtureType)
-    fixtureType = doc.FirstChildElement("FixtureType");
+  tinyxml2::XMLElement *fixtureType = ResolveFixtureType(doc);
   if (!fixtureType)
     return true;
 
@@ -793,35 +891,17 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                  ? (revisionModifiedByPerastage || editorIsPerastage)
                  : false);
 
-  std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
+  std::string modelSvgBase =
+      ResolveModelSvgBasenameFromFixtureType(fixtureType, errorMessage);
   if (modelSvgBase.empty()) {
     errorMessage.clear();
     return true;
   }
 
-  const std::unordered_set<std::string> requiredPaths = {
-      NormalizeArchivePath("models/svg/" + modelSvgBase + ".svg"),
-      NormalizeArchivePath("models/svg/" + modelSvgBase + "_bottom.svg"),
-      NormalizeArchivePath("models/svg_side/" + modelSvgBase + ".svg"),
-      NormalizeArchivePath("models/svg_front/" + modelSvgBase + ".svg")};
-
-  std::unordered_set<std::string> foundPaths;
-  wxFileInputStream inputSymbols(inspectPath);
-  if (!inputSymbols.IsOk())
-    return true;
-
-  wxZipInputStream zipSymbols(inputSymbols);
-  while ((entry.reset(zipSymbols.GetNextEntry())), entry) {
-    if (entry->IsDir())
-      continue;
-    const std::string normalized =
-        NormalizeArchivePath(entry->GetName().ToStdString());
-    if (requiredPaths.find(normalized) != requiredPaths.end())
-      foundPaths.insert(normalized);
-  }
-
+  const std::unordered_set<std::string> requiredPaths =
+      BuildRequiredSymbolPaths(modelSvgBase);
   result.hasValidSvgSymbolSet =
-      result.editorIsPerastage && foundPaths.size() == requiredPaths.size();
+      result.editorIsPerastage && HasRequiredSymbolPaths(archiveEntries, requiredPaths);
   result.requiresSymbolGeneration = !result.hasValidSvgSymbolSet;
   return true;
 }

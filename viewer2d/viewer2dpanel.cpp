@@ -1562,20 +1562,20 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     return false;
   }
 
-  if (!m_captureFramebufferTarget)
-    m_captureFramebufferTarget = std::make_unique<glcapture::FramebufferCaptureTarget>();
+  if (!m_captureFramebufferTargets)
+    m_captureFramebufferTargets = std::make_unique<glcapture::FramebufferCaptureTargetCache>();
 
-  glcapture::FramebufferCaptureTarget &target = *m_captureFramebufferTarget;
+  glcapture::FramebufferCaptureTarget *target = m_captureFramebufferTargets->Acquire(w, h);
   ScopedReadBufferPackAlignmentState readStateGuard;
   glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
-  if (!target.EnsureSize(w, h) || !target.IsComplete()) {
-    const std::string diagnostic = target.Diagnostic();
+  if (!target || !target->IsComplete()) {
+    const std::string diagnostic = m_captureFramebufferTargets->Diagnostic();
     diagnostics::DiagnosticReport::RecordViewer2DBackBufferFallback(
         w, h, diagnostic.empty() ? "FBO unavailable" : diagnostic);
     return RenderToRGBABackBufferFallback(pixels, w, h);
   }
 
-  target.BindForRendering();
+  target->BindForRendering();
   {
     struct CaptureSizeOverrideGuard {
       Viewer2DPanel &panel;
@@ -1590,7 +1590,7 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
     RenderInternal(false);
   }
 
-  target.BindForReading();
+  target->BindForReading();
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
   diagnostics::DiagnosticReport::RecordViewer2DFboCapture(w, h);
@@ -1600,8 +1600,8 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
 
 // Releases reusable capture framebuffer resources while the GL context is current.
 void Viewer2DPanel::ReleaseCaptureFramebufferTarget() {
-  if (m_captureFramebufferTarget)
-    m_captureFramebufferTarget->Release();
+  if (m_captureFramebufferTargets)
+    m_captureFramebufferTargets->Release();
 }
 
 // Captures RGBA pixels from the legacy back buffer path when FBO capture fails.

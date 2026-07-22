@@ -1,5 +1,6 @@
 #include "gl_framebuffer_capture_target.h"
 
+#include <iterator>
 #include <sstream>
 #include <utility>
 
@@ -175,6 +176,63 @@ void FramebufferCaptureTarget::Reset() {
   width_ = 0;
   height_ = 0;
   complete_ = false;
+}
+
+// Creates a bounded framebuffer target cache.
+FramebufferCaptureTargetCache::FramebufferCaptureTargetCache(size_t capacity)
+    : capacity_(capacity == 0 ? 1 : capacity) {}
+
+// Releases cached OpenGL resources before the cache is destroyed.
+FramebufferCaptureTargetCache::~FramebufferCaptureTargetCache() { Release(); }
+
+// Returns a complete target for the requested size and records cache diagnostics.
+FramebufferCaptureTarget *FramebufferCaptureTargetCache::Acquire(int width, int height) {
+  const SizeKey key{width, height};
+  const auto found = index_.find(key);
+  if (found != index_.end()) {
+    entries_.splice(entries_.begin(), entries_, found->second);
+    ++stats_.hits;
+    diagnostic_.clear();
+    return &entries_.front().target;
+  }
+
+  ++stats_.misses;
+  CacheEntry created;
+  created.key = key;
+  if (!created.target.EnsureSize(width, height) || !created.target.IsComplete()) {
+    diagnostic_ = created.target.Diagnostic();
+    return nullptr;
+  }
+  stats_.allocations += created.target.AllocationCount();
+
+  entries_.push_front(std::move(created));
+  index_[key] = entries_.begin();
+  while (entries_.size() > capacity_) {
+    auto last = std::prev(entries_.end());
+    index_.erase(last->key);
+    last->target.Release();
+    entries_.erase(last);
+    ++stats_.evictions;
+  }
+  stats_.entries = static_cast<int>(entries_.size());
+  diagnostic_.clear();
+  return &entries_.front().target;
+}
+
+// Releases all cached targets and clears lookup state.
+void FramebufferCaptureTargetCache::Release() {
+  for (auto &entry : entries_)
+    entry.target.Release();
+  entries_.clear();
+  index_.clear();
+  stats_.entries = 0;
+}
+
+// Returns a snapshot of current cache counters.
+FramebufferCaptureCacheStats FramebufferCaptureTargetCache::Stats() const {
+  FramebufferCaptureCacheStats stats = stats_;
+  stats.entries = static_cast<int>(entries_.size());
+  return stats;
 }
 
 } // namespace glcapture
