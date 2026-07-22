@@ -468,11 +468,31 @@ target_include_directories(gdtf_test_fixture_builder_test PRIVATE .)
 target_link_libraries(gdtf_test_fixture_builder_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfTestFixtureBuilder COMMAND gdtf_test_fixture_builder_test)
 
-add_test(NAME DummyGdtfFallbackCompliance
-         COMMAND ${CMAKE_COMMAND} -E env "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}"
-                 ${CMAKE_CURRENT_SOURCE_DIR}/check_dummy_gdtf_fallback.sh
+add_test(NAME DummyGdtfFallbackArchiveStructure
+         COMMAND "${Python3_EXECUTABLE}"
+                 ${CMAKE_CURRENT_SOURCE_DIR}/check_dummy_gdtf_fallback.py
                  "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
-set_perastage_test_labels(DummyGdtfFallbackCompliance LAYER standard-strict DOMAINS gdtf packaging)
+set_tests_properties(DummyGdtfFallbackArchiveStructure PROPERTIES
+                     REQUIRED_FILES "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_perastage_test_labels(DummyGdtfFallbackArchiveStructure LAYER standard-strict DOMAINS gdtf zip)
+
+add_executable(dummy_gdtf_fallback_integration_test
+               dummy_gdtf_fallback_integration_test.cpp
+               build_info_stub.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp
+               ../core/wx_path_utils.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(dummy_gdtf_fallback_integration_test PRIVATE ../core)
+target_link_libraries(dummy_gdtf_fallback_integration_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_dependencies(dummy_gdtf_fallback_integration_test perastage_generated_dummy_gdtf)
+add_test(NAME DummyGdtfFallbackIntegration
+         COMMAND dummy_gdtf_fallback_integration_test
+                 "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_tests_properties(DummyGdtfFallbackIntegration PROPERTIES
+                     REQUIRED_FILES "${CMAKE_BINARY_DIR}/generated/library/fixtures/Dummy 1ch.gdtf")
+set_perastage_test_labels(DummyGdtfFallbackIntegration LAYER perastage-extension DOMAINS gdtf export)
 set_perastage_test_labels(GdtfTestFixtureBuilder LAYER standard-strict DOMAINS gdtf zip)
 add_executable(gdtf_mode_channel_browser_test
                gdtf_mode_channel_browser_test.cpp
@@ -563,6 +583,7 @@ add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
 
 add_executable(gdtf_dictionary_color_roundtrip_test
                gdtf_dictionary_color_roundtrip_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp
@@ -588,6 +609,7 @@ set_perastage_test_labels(GdtfDictionaryColorRoundtrip LAYER perastage-extension
 
 add_executable(gdtf_dictionary_color_mode_propagation_test
                gdtf_dictionary_color_mode_propagation_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
                ../core/gdtfdictionary.cpp

@@ -23,4 +23,7 @@ FixtureBuilder BuildMinimalValidFixture();
 void WriteMissingMandatorySectionsArchive(const std::filesystem::path &archivePath);
 void WriteInvalidGuidArchive(const std::filesystem::path &archivePath);
 void WriteMalformedXmlArchive(const std::filesystem::path &archivePath);
+bool IsPortableArchiveEntryPathForTesting(const std::string &path);
+void WriteArchiveEntryForTesting(const std::filesystem::path &archivePath,
+                                 const std::string &entryPath);
 } // namespace tests::gdtf

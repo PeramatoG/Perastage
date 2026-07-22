@@ -152,7 +152,7 @@ add_custom_command(
             "${PERASTAGE_DUMMY_GDTF_DESCRIPTION}"
     VERBATIM
 )
-add_custom_target(perastage_generated_dummy_gdtf
+add_custom_target(perastage_generated_dummy_gdtf ALL
     DEPENDS "${PERASTAGE_GENERATED_DUMMY_GDTF_ARCHIVE}"
 )
 

@@ -58,6 +58,7 @@ void WriteArchiveEntries(const std::filesystem::path &archivePath,
     return left.path < right.path;
   });
 
+  std::filesystem::create_directories(archivePath.parent_path());
   wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   if (!output.IsOk()) {
     throw std::runtime_error("Could not open GDTF archive for writing: " +
@@ -142,6 +143,22 @@ void WriteInvalidGuidArchive(const std::filesystem::path &archivePath) {
 // Writes an archive with intentionally malformed XML.
 void WriteMalformedXmlArchive(const std::filesystem::path &archivePath) {
   WriteArchiveEntries(archivePath, {{"description.xml", "<GDTF DataVersion=\"1.2\"><FixtureType>"}});
+}
+
+// Returns whether a test archive entry path is portable and relative.
+bool IsPortableArchiveEntryPathForTesting(const std::string &path) {
+  try {
+    ValidateArchivePath(path);
+    return true;
+  } catch (const std::invalid_argument &) {
+    return false;
+  }
+}
+
+// Writes a single test archive entry after applying test-support path validation.
+void WriteArchiveEntryForTesting(const std::filesystem::path &archivePath,
+                                 const std::string &entryPath) {
+  WriteArchiveEntries(archivePath, {{entryPath, "test"}});
 }
 
 } // namespace tests::gdtf

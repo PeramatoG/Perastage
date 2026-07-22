@@ -4,6 +4,8 @@
 #include "wx_path_utils.h"
 #include "filesystem_path_utils.h"
 #include <cassert>
+#include <cstdlib>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -13,10 +15,12 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "gdtfdictionary.h"
 #include "json.hpp"
 #include "projectutils.h"
+#include "support/gdtf_test_fixture_builder.h"
 
 namespace {
 
@@ -50,26 +54,40 @@ void WriteNestedDescriptionGdtf(const std::filesystem::path &path) {
   assert(zip.Close());
 }
 
+// Points the test at an isolated writable library root.
+void SetLibraryPathEnv(const std::filesystem::path &value) {
+#ifdef _WIN32
+  _putenv_s("PERASTAGE_LIBRARY_PATH", value.string().c_str());
+#else
+  setenv("PERASTAGE_LIBRARY_PATH", value.string().c_str(), 1);
+#endif
+}
+
+// Returns a unique temporary root for dictionary isolation.
+std::filesystem::path MakeIsolatedRoot(const char *name) {
+  return std::filesystem::temp_directory_path() /
+         (std::string(name) + "_" +
+          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+}
+
 } // namespace
 
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
 
-  const std::filesystem::path fixturesDir =
-      PathUtils::PathFromUtf8(ProjectUtils::GetDefaultLibraryPath("fixtures"));
+  const std::filesystem::path isolatedRoot = MakeIsolatedRoot("perastage_dictionary_gdtf_test");
+  SetLibraryPathEnv(isolatedRoot);
+  const std::filesystem::path fixturesDir = isolatedRoot / "fixtures";
   std::filesystem::create_directories(fixturesDir);
   const std::filesystem::path dictPath = fixturesDir / "gdtf_dictionary.json";
-
-  const bool hadOriginal = std::filesystem::exists(dictPath);
-  const std::string originalContent =
-      hadOriginal ? ReadFile(dictPath) : std::string{};
+  ConfigManager::Get().SetValue("fixtures_dictionary_active_path", dictPath.string());
 
   const std::filesystem::path fixtureFile = fixturesDir / "color_fixture.gdtf";
   const std::filesystem::path unknownFixtureFile = fixturesDir / "mystery_fixture.gdtf";
   const std::filesystem::path nestedDummyFixtureFile =
       fixturesDir / "Dummy 1ch.gdtf";
-  WriteFile(fixtureFile, "fixture");
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(fixtureFile);
   WriteFile(unknownFixtureFile, "not a zip archive");
   WriteNestedDescriptionGdtf(nestedDummyFixtureFile);
 
@@ -127,13 +145,7 @@ int main() {
   assert(!savedRoot["entries"]["ColorOnlyType"].contains("color"));
   assert(!savedRoot["entries"]["FullType"].contains("color"));
 
-  std::filesystem::remove(fixtureFile);
-  std::filesystem::remove(unknownFixtureFile);
-  std::filesystem::remove(nestedDummyFixtureFile);
-  if (hadOriginal)
-    WriteFile(dictPath, originalContent);
-  else
-    std::filesystem::remove(dictPath);
+  std::filesystem::remove_all(isolatedRoot);
 
   return 0;
 }
