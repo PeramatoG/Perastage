@@ -66,7 +66,7 @@ struct Viewer2DRenderOverrides {
 };
 
 namespace glcapture {
-class FramebufferCaptureTarget;
+class FramebufferCaptureTargetCache;
 }
 
 class Viewer2DPanel : public wxGLCanvas {
@@ -404,7 +404,7 @@ private:
   std::optional<wxSize> m_layoutEditBaseSize;
   std::optional<wxSize> m_layoutEditViewportSize;
   std::optional<wxSize> m_captureFramebufferSizeOverride;
-  std::unique_ptr<glcapture::FramebufferCaptureTarget> m_captureFramebufferTarget;
+  std::unique_ptr<glcapture::FramebufferCaptureTargetCache> m_captureFramebufferTargets;
   float m_layoutEditScale = 1.0f;
   bool m_preferPerastageSvgSymbolsForLayouts = false;
   std::optional<Viewer2DRenderOverrides> m_renderOverrides;

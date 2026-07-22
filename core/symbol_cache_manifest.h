@@ -88,8 +88,18 @@ struct SemanticFingerprintCacheStats {
   int misses = 0;
 };
 
+struct GdtfSemanticFingerprintEntry {
+  std::string normalizedPath;
+  std::vector<std::uint8_t> bytes;
+};
+
+std::string ComputeGdtfSemanticFingerprintFromEntries(
+    const std::vector<GdtfSemanticFingerprintEntry> &entries,
+    std::string &errorMessage);
 std::string ComputeGdtfSemanticFingerprint(const std::string &path,
                                            std::string &errorMessage);
+void PublishGdtfSemanticFingerprintCache(const std::string &path,
+                                         const std::string &fingerprint);
 void InvalidateGdtfSemanticFingerprintCache(const std::string &path);
 void ClearGdtfSemanticFingerprintCache();
 SemanticFingerprintCacheStats GetGdtfSemanticFingerprintCacheStats();
