@@ -208,20 +208,52 @@ jobs:
           "PERASTAGE_PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           cmake --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt"
           & $python --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt" -Append
+      - name: Prepare Windows Debug test tools
+        id: windows-test-tools
+        shell: pwsh
+        run: |
+          $log = "$env:CI_LOG_DIR\windows-test-tools.txt"
+          $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+          if (-not $rgCommand) {
+            $choco = Get-Command choco.exe -ErrorAction SilentlyContinue
+            if (-not $choco) { throw 'ripgrep is not installed and Chocolatey is unavailable.' }
+            & $choco.Source install ripgrep -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'ripgrep installation failed.' }
+            $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
+            $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $rgCommand) { throw 'ripgrep is not installed after Windows Debug test-tool preparation.' }
+          $rgPath = $rgCommand.Source
+          $rgDir = Split-Path -Parent $rgPath
+          $env:PATH = "$rgDir;$env:PATH"
+          $rgDir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "rg=$rgPath" | Out-File -FilePath $log -Encoding utf8
+          & $rgPath --version | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "ripgrep failed to run from PowerShell: $rgPath" }
+          "PERASTAGE_RG=$rgPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Resolve Git Bash for Windows tests
         id: git-bash
         shell: pwsh
         run: |
+          $log = "$env:CI_LOG_DIR\git-bash-windows-debug.txt"
           $git = (Get-Command git.exe -ErrorAction Stop).Source
           $gitRoot = Split-Path -Parent (Split-Path -Parent $git)
           $bash = Join-Path $gitRoot 'bin\bash.exe'
+          "git=$git" | Out-File -FilePath $log -Encoding utf8
+          "bash=$bash" | Out-File -FilePath $log -Append -Encoding utf8
+          "rg=$env:PERASTAGE_RG" | Out-File -FilePath $log -Append -Encoding utf8
           if (-not (Test-Path $bash)) { throw "Git Bash was not found at expected path: $bash" }
           $normalized = $bash.Replace('/', '\').ToLowerInvariant()
           if ($normalized -match '\\windowsapps\\bash\.exe$' -or $normalized -match '\\system32\\bash\.exe$') { throw "Refusing WSL bash launcher: $bash" }
           if ($normalized -notmatch '\\git\\.*\\bash\.exe$') { throw "Refusing Bash outside Git for Windows: $bash" }
-          & $bash --version | Out-File "$env:CI_LOG_DIR\git-bash-windows-debug.txt" -Encoding utf8
-          & $bash -lc 'printf "git-bash-ok\n"; command -v rg' | Out-File "$env:CI_LOG_DIR\git-bash-windows-debug.txt" -Append -Encoding utf8
-          if ($LASTEXITCODE -ne 0) { throw 'Git Bash preflight failed.' }
+          & $bash --version | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Git Bash identity probe failed: $bash" }
+          & $bash --noprofile --norc -c 'printf "git-bash-ok\n"' | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Git Bash cannot execute a non-login shell: $bash" }
+          & $env:PERASTAGE_RG --version | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "ripgrep failed to run from PowerShell: $env:PERASTAGE_RG" }
+          & $bash --noprofile --norc -c 'command -v rg && rg --version' | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "ripgrep was not inherited by Git Bash: $env:PERASTAGE_RG" }
           "PERASTAGE_GIT_BASH=$bash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "path=$bash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Read vcpkg baseline

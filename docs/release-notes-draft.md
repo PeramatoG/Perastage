@@ -263,7 +263,7 @@ You can also contact the project at **perastage.app@gmail.com**.
 
 - Added explicit wxWidgets filesystem path conversion utilities for safer Unicode path handling at file API boundaries, including native wide-path conversion on Windows.
 - Made layout z-order updates and legacy layer-name repair deterministic for cross-platform Debug tests.
-- Hardened Windows Debug test execution by forcing Git Bash for shell checks, routing shell tests through one CMake helper, and disabling modal assertion reporting in test executables.
+- Hardened Windows Debug test execution by preparing ripgrep separately, forcing Git Bash for shell checks, routing shell tests through one CMake helper, and disabling modal assertion reporting in test executables.
 - Corrected Debug test expectations and lifetimes for Simplified Chinese localization fallback checks and credential metadata cleanup on Windows.
 
 

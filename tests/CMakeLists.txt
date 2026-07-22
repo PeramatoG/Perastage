@@ -145,6 +145,8 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_release_workflows_untouched.py)
     add_repository_policy_test(BashTestRegistration ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_bash_test_registration.py)
+    add_repository_policy_test(WindowsDebugToolPreflight ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_debug_tool_preflight.py)
     add_repository_policy_test(CMakeToolchainValidator ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_validate_cmake_toolchain.py)
     add_repository_policy_test(CiCMakeLanguagePolicyFixtures ${Python3_EXECUTABLE}
