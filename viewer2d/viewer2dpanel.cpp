@@ -517,15 +517,27 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
 }
 
 
-// Returns the display key used to group trusses by model or source file.
+// Returns a canonical resource key used to group trusses by type or source.
 std::string BuildTrussModelSelectionKey(const Truss &truss) {
+  auto normalize = [](std::string value) {
+    std::replace(value.begin(), value.end(), '\\', '/');
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+      return static_cast<char>(std::tolower(c));
+    });
+    return value;
+  };
+
+  if (!truss.perastageTypeKey.empty())
+    return "perastage-type:" + normalize(truss.perastageTypeKey);
+  if (!truss.gdtfSpec.empty())
+    return "gdtf:" + normalize(truss.gdtfSpec);
+  if (!truss.modelFile.empty())
+    return "model-file:" + normalize(truss.modelFile);
+  if (!truss.symbolFile.empty())
+    return "symbol-file:" + normalize(truss.symbolFile);
   if (!truss.model.empty())
-    return truss.model;
-  std::string fileName = !truss.modelFile.empty() ? truss.modelFile : truss.symbolFile;
-  const size_t slash = fileName.find_last_of("/\\");
-  if (slash != std::string::npos)
-    fileName = fileName.substr(slash + 1);
-  return fileName;
+    return "display-model:" + normalize(truss.model);
+  return {};
 }
 
 // Builds truss UUIDs filtered by model-or-source-file key for selection workflows.

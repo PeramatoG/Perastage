@@ -23,6 +23,9 @@
 // Generate a random UUID4 string
 std::string GenerateUuid();
 
+// Returns true when text can be normalized to an RFC 4122 UUID.
+bool IsValidUuid(const std::string &rawUuid);
+
 // Returns the lowercase canonical UUID form (8-4-4-4-12) or empty string if
 // the input cannot be interpreted as a UUID.
 std::string CanonicalizeUuid(const std::string &rawUuid);

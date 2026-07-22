@@ -17,6 +17,7 @@
  */
 #pragma once
 #include <algorithm>
+#include <unordered_set>
 #include <vector>
 #include <wx/dataview.h>
 
@@ -27,6 +28,9 @@ public:
   std::vector<bool> selectionRows;
   std::vector<bool> primaryHighlightRows;
   std::vector<bool> secondaryHighlightRows;
+  std::unordered_set<wxUIntPtr> selectedItemKeys;
+  std::unordered_set<wxUIntPtr> primaryHighlightItemKeys;
+  std::unordered_set<wxUIntPtr> secondaryHighlightItemKeys;
   wxColour selectionBackground;
   wxColour selectionForeground;
   wxColour primaryHighlightBackground;
@@ -54,8 +58,11 @@ public:
       hasTextColour = attr.HasColour();
     }
 
+    const wxDataViewItem rowItem = GetItem(row);
+    const wxUIntPtr itemKey = rowItem.IsOk() ? GetItemData(rowItem) : 0;
     bool isSelected =
-        row < selectionRows.size() && selectionRows[row] &&
+        ((itemKey != 0 && selectedItemKeys.contains(itemKey)) ||
+         (row < selectionRows.size() && selectionRows[row])) &&
         (selectionBackgroundEnabled || selectionForegroundEnabled);
     if (isSelected) {
       if (!hasAttr)
@@ -68,9 +75,11 @@ public:
     }
 
     const bool isPrimaryHighlight =
-        row < primaryHighlightRows.size() && primaryHighlightRows[row];
+        (itemKey != 0 && primaryHighlightItemKeys.contains(itemKey)) ||
+        (row < primaryHighlightRows.size() && primaryHighlightRows[row]);
     const bool isSecondaryHighlight =
-        row < secondaryHighlightRows.size() && secondaryHighlightRows[row];
+        (itemKey != 0 && secondaryHighlightItemKeys.contains(itemKey)) ||
+        (row < secondaryHighlightRows.size() && secondaryHighlightRows[row]);
     if ((isPrimaryHighlight || isSecondaryHighlight) &&
         (highlightBackgroundEnabled || highlightForegroundEnabled)) {
       if (!hasAttr)
@@ -138,6 +147,9 @@ public:
     selectionRows.clear();
     primaryHighlightRows.clear();
     secondaryHighlightRows.clear();
+    selectedItemKeys.clear();
+    primaryHighlightItemKeys.clear();
+    secondaryHighlightItemKeys.clear();
   }
 
   void SetRowBackgroundColour(unsigned row, const wxColour &colour) {
@@ -210,6 +222,14 @@ public:
     selectionForegroundEnabled = true;
   }
 
+  void SetSelectedItemKeys(const std::vector<wxUIntPtr> &itemKeys) {
+    selectedItemKeys.clear();
+    selectedItemKeys.insert(itemKeys.begin(), itemKeys.end());
+    const size_t itemCount = GetItemCount();
+    for (size_t i = 0; i < itemCount; ++i)
+      RowChanged(i);
+  }
+
   void SetSelectedRows(const std::vector<bool> &rows) {
     std::vector<bool> oldRows = selectionRows;
     size_t oldSize = oldRows.size();
@@ -227,6 +247,26 @@ public:
       if (oldVal != newVal)
         RowChanged(i);
     }
+  }
+
+  // Applies primary and secondary item-key highlights using selection-style colors.
+  void SetHighlightItemKeys(const std::vector<wxUIntPtr> &primaryKeys,
+                            const std::vector<wxUIntPtr> &secondaryKeys,
+                            const wxColour &primaryBackground,
+                            const wxColour &secondaryBackground,
+                            const wxColour &foreground) {
+    primaryHighlightItemKeys.clear();
+    secondaryHighlightItemKeys.clear();
+    primaryHighlightItemKeys.insert(primaryKeys.begin(), primaryKeys.end());
+    secondaryHighlightItemKeys.insert(secondaryKeys.begin(), secondaryKeys.end());
+    primaryHighlightBackground = primaryBackground;
+    secondaryHighlightBackground = secondaryBackground;
+    highlightForeground = foreground;
+    highlightBackgroundEnabled = true;
+    highlightForegroundEnabled = true;
+    const size_t itemCount = GetItemCount();
+    for (size_t i = 0; i < itemCount; ++i)
+      RowChanged(i);
   }
 
   // Applies primary and secondary row highlights using selection-style colors.

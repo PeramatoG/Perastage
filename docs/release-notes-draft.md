@@ -115,6 +115,9 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Simplified the Dictionary Editor controls so common actions stay visible, less frequent active-dictionary actions are grouped under **More...**, fixture GDTF download is shown only on the fixtures page, and **Export...** offers only JSON Snapshot or Portable ZIP Bundle.
 - Fixed custom fixture and truss dictionaries so newly owned GDTF assets are stored in a sibling `_assets` folder and remain portable when the dictionary is moved with that folder.
 - Fixed Data Views table edits so moving fixtures, trusses, or scene objects between visible and hidden layers rebuilds the relevant viewer resources, invalidates stale 3D visible-set caches, and immediately refreshes both the 2D and 3D viewports, including layout previews.
+- Hardened truss selection identity so sorting, replacement, deletion, insertion, reloads, and hover highlights stay attached to persistent scene UUIDs across the Trusses table and both 2D and 3D viewers.
+- Improved generated scene-object, fixture, truss, and support identifiers to use RFC 4122-compatible UUIDs for better MVR interoperability.
+- Fixed Data Views highlight rendering on wxWidgets builds where row-to-item conversion is exposed through the list-store item API.
 - Fixed Windows build and linker issues in the Local Axes viewport integration.
 - Fixed a debug-only shutdown warning caused by attempting to make a hidden 2D OpenGL canvas current during cleanup.
 
