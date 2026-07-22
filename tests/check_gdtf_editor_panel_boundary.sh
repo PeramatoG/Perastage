@@ -44,7 +44,7 @@ for child in GdtfMetadataPanel GdtfTypeIdentityPanel GdtfPhysicalPropertiesPanel
   fi
 done
 
-python3 - <<'PY_CHECK'
+run_test_python - <<'PY_CHECK'
 from pathlib import Path
 source = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
 for section in ['metadataSection', 'typeIdentitySection', 'physicalPropertiesSection', 'modesSection']:

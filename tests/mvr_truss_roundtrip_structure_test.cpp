@@ -122,6 +122,35 @@ static void AssertGeneratedTrussGdtfStructure(const fs::path &gdtfPath,
   assert(revisions->FirstChildElement("Revision") != nullptr);
 }
 
+
+// Finds the MVR scene layer by name.
+static tinyxml2::XMLElement *FindLayerByName(tinyxml2::XMLElement *sceneNode,
+                                             const std::string &layerName) {
+  tinyxml2::XMLElement *layers = sceneNode ? sceneNode->FirstChildElement("Layers") : nullptr;
+  assert(layers != nullptr);
+  assert(layers->FirstChildElement("ChildList") == nullptr);
+  for (tinyxml2::XMLElement *layer = layers->FirstChildElement("Layer"); layer;
+       layer = layer->NextSiblingElement("Layer")) {
+    const char *name = layer->Attribute("name");
+    if (name && layerName == name)
+      return layer;
+  }
+  return nullptr;
+}
+
+// Returns the ChildList for the named MVR scene layer.
+static tinyxml2::XMLElement *FindLayerChildList(tinyxml2::XMLElement *sceneNode,
+                                                const std::string &layerName) {
+  tinyxml2::XMLElement *layer = FindLayerByName(sceneNode, layerName);
+  assert(layer != nullptr);
+  const char *uuid = layer->Attribute("uuid");
+  assert(uuid != nullptr);
+  assert(CanonicalizeUuid(uuid) == std::string(uuid));
+  tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
+  assert(childList != nullptr);
+  return childList;
+}
+
 // Returns the first Symbol UUID exported in GeneralSceneDescription.xml.
 static std::string ReadFirstSymbolUuid(const fs::path &mvrPath) {
   const auto entries = ReadArchiveTextEntries(mvrPath);
@@ -222,10 +251,7 @@ int main() {
       xml.FirstChildElement("GeneralSceneDescription")->FirstChildElement("Scene");
   assert(sceneNode != nullptr);
 
-  tinyxml2::XMLElement *layers = sceneNode->FirstChildElement("Layers");
-  assert(layers != nullptr);
-  tinyxml2::XMLElement *rootChildList = layers->FirstChildElement("ChildList");
-  assert(rootChildList != nullptr);
+  tinyxml2::XMLElement *rootChildList = FindLayerChildList(sceneNode, DEFAULT_LAYER_NAME);
   tinyxml2::XMLElement *groupNode = rootChildList->FirstChildElement("GroupObject");
   assert(groupNode != nullptr);
   tinyxml2::XMLElement *groupChildList = groupNode->FirstChildElement("ChildList");
@@ -288,10 +314,10 @@ int main() {
          tinyxml2::XML_SUCCESS);
   tinyxml2::XMLElement *directSceneNode =
       directXml.FirstChildElement("GeneralSceneDescription")->FirstChildElement("Scene");
+  tinyxml2::XMLElement *directRootChildList =
+      FindLayerChildList(directSceneNode, DEFAULT_LAYER_NAME);
   tinyxml2::XMLElement *directTrussNode =
-      directSceneNode->FirstChildElement("Layers")
-          ->FirstChildElement("ChildList")
-          ->FirstChildElement("GroupObject")
+      directRootChildList->FirstChildElement("GroupObject")
           ->FirstChildElement("ChildList")
           ->FirstChildElement("Truss");
   tinyxml2::XMLElement *directGeos = directTrussNode->FirstChildElement("Geometries");

@@ -29,7 +29,7 @@ if ! rg -n "gl_framebuffer_capture_target\.cpp" "$cmake_file" >/dev/null; then
   exit 1
 fi
 
-render_body="$(python3 - "$panel_cpp" <<'PY'
+render_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -55,7 +55,7 @@ if [[ "$render_body" == *"GL_BACK"* ]]; then
   exit 1
 fi
 
-render_internal_body="$(python3 - "$panel_cpp" <<'PY'
+render_internal_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -73,7 +73,7 @@ if [[ "$render_internal_body" != *"if (m_captureFramebufferSizeOverride)"* ||
   exit 1
 fi
 
-capture_branch="$(python3 - "$panel_cpp" <<'PY'
+capture_branch="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()
@@ -100,7 +100,7 @@ if ! rg -n "RenderToRGBABackBufferFallback" "$panel_cpp" "$panel_h" >/dev/null; 
   exit 1
 fi
 
-fallback_body="$(python3 - "$panel_cpp" <<'PY'
+fallback_body="$(run_test_python - "$panel_cpp" <<'PY'
 import re
 import sys
 text = open(sys.argv[1], encoding='utf-8').read()

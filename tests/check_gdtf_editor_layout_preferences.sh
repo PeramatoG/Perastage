@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
 
-python3 - <<'PY'
+run_test_python - <<'PY'
 from pathlib import Path
 source = Path('gui/gdtf/gdtf_editor_layout_preferences.cpp').read_text()
 header = Path('gui/gdtf/gdtf_editor_layout_preferences.h').read_text()
