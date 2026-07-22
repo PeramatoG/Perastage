@@ -178,7 +178,7 @@ void TestCredentialStorage() {
     const auto metadata = nlohmann::json::parse(in);
     assert(metadata.is_object());
     assert(metadata.size() == 4);
-    assert(metadata.at("schema_version") == 1);
+    assert(metadata.at("schema_version") == CredentialStore::kGdtfCredentialMetadataSchemaVersion);
     assert(metadata.at("backend") == "wx_secret_store");
     assert(metadata.at("service") == CredentialStore::kGdtfShareCredentialService);
     assert(metadata.at("username") == username);

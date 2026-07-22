@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+require_ripgrep
 
 fixture_header="gui/fixtureeditdialog.h"
 fixture_source="gui/fixtureeditdialog.cpp"

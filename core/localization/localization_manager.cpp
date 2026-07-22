@@ -126,12 +126,14 @@ std::vector<std::filesystem::path> ResolveLocaleRootCandidates() {
   const auto executablePath =
       WxPathToFilesystemPath(wxStandardPaths::Get().GetExecutablePath());
   const auto workingDirectory = WxPathToFilesystemPath(wxFileName::GetCwd());
-  auto roots = ResolveLocaleRootCandidatesForPaths(executablePath, workingDirectory);
   if (const char *localeRoot = std::getenv("PERASTAGE_LOCALE_ROOT")) {
-    if (*localeRoot)
-      AddUniquePath(roots, std::filesystem::u8path(localeRoot));
+    if (*localeRoot) {
+      std::vector<std::filesystem::path> explicitRoots;
+      AddUniquePath(explicitRoots, std::filesystem::u8path(localeRoot));
+      return explicitRoots;
+    }
   }
-  return roots;
+  return ResolveLocaleRootCandidatesForPaths(executablePath, workingDirectory);
 }
 
 // Returns the process-wide localization manager owned for application lifetime.

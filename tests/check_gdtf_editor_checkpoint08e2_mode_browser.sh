@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
+require_ripgrep
 python3 - <<'PY'
 from pathlib import Path
 
@@ -33,7 +35,7 @@ require('GeometryReference' in core and 'DMXOffset' in core and 'geometryReferen
 for col in ['Item', 'DMX range', 'Physical range', 'Unit']:
     require(col in modes, f'Missing browser column {col}.')
 require('Channel function' not in modes, 'Mode browser must not expose the removed Channel function column.')
-require('detailsCtrl' in modes_h + modes and 'UpdateDetails' in modes, 'Details inspector must exist.')
+require('inspectionMappingLabel' in modes_h + modes and 'UpdateDetails' in modes and 'selectedInspectionDetails' in modes_h + modes, 'Structured DMX inspection details must exist.')
 summary = Path('gui/gdtf/gdtf_channel_summary_panel.cpp').read_text()
 editor = Path('gui/gdtf/gdtf_editor_panel.cpp').read_text()
 require('wxTE_MULTILINE | wxTE_READONLY' in summary and 'channelSummaryPanel' in editor, 'Legacy quick channel summary panel must be restored below physical properties.')

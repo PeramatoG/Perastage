@@ -25,15 +25,15 @@ for platform, text in sections.items():
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
     assert 'debug-v1' in text or 'macos-26-xcode-26-debug-v1' in text, f'{platform} installed cache key must be Debug/toolchain scoped'
-    assert 'run_and_log.py --log' in text and 'ctest-' in text, f'{platform} build and test logs must be captured'
+    assert ('run_and_log.py --log' in text or '--output-log' in text) and 'ctest-' in text, f'{platform} build and test logs must be captured'
 
 linux = sections['linux']
-for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated']:
+for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'ripgrep', 'xvfb', 'locales', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xauth', 'x11-utils', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose']:
     assert needle in linux, f'Linux Debug is missing {needle}'
 assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'
 
 windows = sections['windows']
-for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'CMAKE_C_COMPILER_ID:INTERNAL=MSVC', 'CMAKE_CXX_COMPILER_ID:INTERNAL=MSVC']:
+for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'validate_cmake_toolchain.py', '--expected-c-id MSVC', '--expected-cxx-id MSVC', '--interactive-debug-mode 0', '--timeout 120', '--output-junit', 'timeout-minutes: 180']:
     assert needle in windows, f'Windows Debug environment persistence is missing {needle}'
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
 

@@ -29,3 +29,6 @@ bool LoadTrussArchive(const std::string &archivePath, Truss &outTruss);
 bool LoadTrussDefinition(const std::string &path, Truss &outTruss);
 std::filesystem::path BuildGdtfExtractionCacheDirForTesting(
     const std::filesystem::path &gdtfPath);
+
+bool IsTrussArchiveEntryTargetSafeForTesting(const std::string &entryName,
+                                             const std::filesystem::path &destinationRoot);
