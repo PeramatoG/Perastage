@@ -22,9 +22,9 @@ constexpr float kPrimaryHighlightR = 0.78f;
 constexpr float kPrimaryHighlightG = 1.0f;
 constexpr float kPrimaryHighlightB = 0.0f;
 
-constexpr float kGroupHighlightR = 0.25f;
-constexpr float kGroupHighlightG = 0.78f;
-constexpr float kGroupHighlightB = 0.55f;
+constexpr float kGroupHighlightR = 0.0f;
+constexpr float kGroupHighlightG = 0.45f;
+constexpr float kGroupHighlightB = 0.85f;
 
 void DrawBoxEdges(float x0, float x1, float y0, float y1, float z0, float z1) {
   glBegin(GL_LINES);

@@ -160,6 +160,7 @@ private:
     bool m_cameraMoving = false;
     std::chrono::steady_clock::time_point m_lastResourceSyncCheck{};
     std::vector<std::string> m_lastAppliedSelectionUuids;
+    std::vector<std::string> m_lastAppliedPrimarySelectionUuids;
 
     // Initializes OpenGL settings
     bool InitGL();

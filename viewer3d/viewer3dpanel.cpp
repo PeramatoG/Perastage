@@ -3771,12 +3771,14 @@ void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
     const std::vector<std::string> expandedUuids =
         scene_grouping::ExpandSelectionForGroupHighlights(
             ConfigManager::Get().GetScene(), typedSelection);
-    if (expandedUuids == m_lastAppliedSelectionUuids)
+    if (expandedUuids == m_lastAppliedSelectionUuids &&
+        uuids == m_lastAppliedPrimarySelectionUuids)
         return;
     m_lastAppliedSelectionUuids = expandedUuids;
+    m_lastAppliedPrimarySelectionUuids = uuids;
     ++m_selectionRevision;
     m_selectionRefreshPending = true;
-    m_controller.SetSelectedUuids(expandedUuids);
+    m_controller.SetSelectedUuids(expandedUuids, uuids);
     Refresh();
 }
 

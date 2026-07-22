@@ -24,9 +24,9 @@ namespace {
 constexpr float kPrimaryHighlightR = 0.78f;
 constexpr float kPrimaryHighlightG = 1.0f;
 constexpr float kPrimaryHighlightB = 0.0f;
-constexpr float kGroupHighlightR = 0.25f;
-constexpr float kGroupHighlightG = 0.78f;
-constexpr float kGroupHighlightB = 0.55f;
+constexpr float kGroupHighlightR = 0.0f;
+constexpr float kGroupHighlightG = 0.45f;
+constexpr float kGroupHighlightB = 0.85f;
 
 struct InkColor {
   float r = 1.0f;

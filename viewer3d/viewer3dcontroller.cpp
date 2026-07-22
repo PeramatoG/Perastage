@@ -128,6 +128,7 @@ struct Viewer3DController::Impl {
   std::string highlightUuid;
   std::unordered_set<std::string> groupHighlightUuids;
   std::unordered_set<std::string> selectedUuids;
+  std::unordered_set<std::string> primarySelectedUuids;
   NVGcontext *vg = nullptr;
   int font = -1;
   int fontBold = -1;
@@ -686,6 +687,7 @@ Viewer3DController::Viewer3DController()
       m_highlightUuid(m_impl->highlightUuid),
       m_groupHighlightUuids(m_impl->groupHighlightUuids),
       m_selectedUuids(m_impl->selectedUuids),
+      m_primarySelectedUuids(m_impl->primarySelectedUuids),
       m_captureCanvas(m_impl->captureCanvas),
       m_captureView(m_impl->captureView),
       m_captureIncludeGrid(m_impl->captureIncludeGrid),
@@ -809,6 +811,13 @@ void Viewer3DController::SetSelectedUuids(
   m_impl->selectionSystem->SetSelectedUuids(uuids);
 }
 
+// Sets selected UUIDs and the subset selected directly in source tables.
+void Viewer3DController::SetSelectedUuids(
+    const std::vector<std::string> &uuids,
+    const std::vector<std::string> &primaryUuids) {
+  ReplaceSelectedUuids(uuids, primaryUuids);
+}
+
 // Applies highlight UUID.
 void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
   m_impl->highlightUuid = uuid;
@@ -822,9 +831,19 @@ void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
 // Replaces selected UUIDs.
 void Viewer3DController::ReplaceSelectedUuids(
     const std::vector<std::string> &uuids) {
+  ReplaceSelectedUuids(uuids, uuids);
+}
+
+// Replaces selected UUIDs while preserving directly selected UUIDs separately.
+void Viewer3DController::ReplaceSelectedUuids(
+    const std::vector<std::string> &uuids,
+    const std::vector<std::string> &primaryUuids) {
   m_impl->selectedUuids.clear();
   for (const auto &u : uuids)
     m_impl->selectedUuids.insert(u);
+  m_impl->primarySelectedUuids.clear();
+  for (const auto &u : primaryUuids)
+    m_impl->primarySelectedUuids.insert(u);
 }
 
 const Viewer3DController::BoundingBox *
@@ -2088,14 +2107,19 @@ bool Viewer3DController::IsUuidHighlighted(const std::string &uuid) const {
 
 // Checks whether the UUID is highlighted as a hovered group sibling.
 bool Viewer3DController::IsUuidGroupHighlighted(const std::string &uuid) const {
-  return !uuid.empty() && m_impl->groupHighlightUuids.find(uuid) !=
-                              m_impl->groupHighlightUuids.end();
+  return !uuid.empty() &&
+         (m_impl->groupHighlightUuids.find(uuid) !=
+              m_impl->groupHighlightUuids.end() ||
+          (m_impl->selectedUuids.find(uuid) != m_impl->selectedUuids.end() &&
+           m_impl->primarySelectedUuids.find(uuid) ==
+               m_impl->primarySelectedUuids.end()));
 }
 
 // Checks whether uUID Selected.
 bool Viewer3DController::IsUuidSelected(const std::string &uuid) const {
   return !uuid.empty() &&
-         m_impl->selectedUuids.find(uuid) != m_impl->selectedUuids.end();
+         m_impl->primarySelectedUuids.find(uuid) !=
+             m_impl->primarySelectedUuids.end();
 }
 
 // Checks whether capture Only.

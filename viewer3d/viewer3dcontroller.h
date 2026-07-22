@@ -106,6 +106,8 @@ public:
 
   void SetHighlightUuid(const std::string &uuid);
   void SetSelectedUuids(const std::vector<std::string> &uuids);
+  void SetSelectedUuids(const std::vector<std::string> &uuids,
+                        const std::vector<std::string> &primaryUuids);
 
   void DrawFixtureLabels(int width, int height);
   void DrawTrussLabels(int width, int height);
@@ -185,6 +187,7 @@ private:
   std::string &m_highlightUuid;
   std::unordered_set<std::string> &m_groupHighlightUuids;
   std::unordered_set<std::string> &m_selectedUuids;
+  std::unordered_set<std::string> &m_primarySelectedUuids;
   ICanvas2D *&m_captureCanvas;
   Viewer2DView &m_captureView;
   bool &m_captureIncludeGrid;
@@ -297,6 +300,8 @@ private:
 
   void ApplyHighlightUuid(const std::string &uuid) override;
   void ReplaceSelectedUuids(const std::vector<std::string> &uuids) override;
+  void ReplaceSelectedUuids(const std::vector<std::string> &uuids,
+                            const std::vector<std::string> &primaryUuids);
   const BoundingBox *FindFixtureBounds(const std::string &uuid) const override;
   const BoundingBox *FindTrussBounds(const std::string &uuid) const override;
   const BoundingBox *FindObjectBounds(const std::string &uuid) const override;
