@@ -122,12 +122,15 @@ void OpaqueTrussPass::Render(
     const bool highlight = !context.idOnlyPass &&
                            !controller.m_highlightUuid.empty() &&
                            uuid == controller.m_highlightUuid;
-    const bool groupHighlight = !context.idOnlyPass &&
-                                controller.m_groupHighlightUuids.find(uuid) !=
-                                    controller.m_groupHighlightUuids.end();
     const bool selected =
-        !context.idOnlyPass && controller.m_selectedUuids.find(uuid) !=
-                                   controller.m_selectedUuids.end();
+        !context.idOnlyPass && controller.m_primarySelectedUuids.find(uuid) !=
+                                   controller.m_primarySelectedUuids.end();
+    const bool groupHighlight =
+        !context.idOnlyPass &&
+        (controller.m_groupHighlightUuids.find(uuid) !=
+             controller.m_groupHighlightUuids.end() ||
+         (controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end() &&
+          !selected));
 
     float matrix[16];
     MatrixToArray(t.transform, matrix);

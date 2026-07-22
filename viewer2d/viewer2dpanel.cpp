@@ -599,6 +599,15 @@ std::vector<std::string> MergeSelectionAdditive(
   return selection;
 }
 
+// Combines all directly selected entity UUID lists into a stable unique sequence.
+std::vector<std::string> BuildDirectSelection(const ConfigManager &cfg) {
+  std::vector<std::string> selection;
+  selection = MergeSelectionAdditive(selection, cfg.GetSelectedFixtures());
+  selection = MergeSelectionAdditive(selection, cfg.GetSelectedTrusses());
+  selection = MergeSelectionAdditive(selection, cfg.GetSelectedSupports());
+  return MergeSelectionAdditive(selection, cfg.GetSelectedSceneObjects());
+}
+
 // Combines all selected entity UUID lists into a stable unique sequence.
 std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
   const scene_grouping::ObjectSelection selection{
@@ -745,7 +754,8 @@ void Viewer2DPanel::UpdateScene(bool reload) {
     m_controller.Update();
   if (m_enableSelection) {
     ConfigManager &cfg = ConfigManager::Get();
-    m_controller.SetSelectedUuids(BuildCombinedSelection(cfg));
+    m_controller.SetSelectedUuids(BuildCombinedSelection(cfg),
+                                  BuildDirectSelection(cfg));
   }
   InvalidatePickCache();
   RequestRepaint();
@@ -773,10 +783,12 @@ void Viewer2DPanel::SetSelectedUuids(
   const std::vector<std::string> expandedSelection =
       scene_grouping::ExpandSelectionForGroupHighlights(
           ConfigManager::Get().GetScene(), typedSelection);
-  if (expandedSelection == m_lastAppliedSelectionUuids)
+  if (expandedSelection == m_lastAppliedSelectionUuids &&
+      selection == m_lastAppliedPrimarySelectionUuids)
     return;
   m_lastAppliedSelectionUuids = expandedSelection;
-  m_controller.SetSelectedUuids(expandedSelection);
+  m_lastAppliedPrimarySelectionUuids = selection;
+  m_controller.SetSelectedUuids(expandedSelection, selection);
   RequestRepaint();
 }
 
@@ -2182,7 +2194,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
         Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
     }
     m_controller.SetSelectedUuids(
-        BuildViewerSelectionForTableSelection(cfg, selection, additive));
+        BuildViewerSelectionForTableSelection(cfg, selection, additive),
+        additive ? BuildDirectSelection(cfg) : selection);
     if (selection.empty())
       FixtureTablePanel::Instance()->ClearSelection();
     else
@@ -2200,7 +2213,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       cfg.SetSelectedTrusses(selection);
     }
     m_controller.SetSelectedUuids(
-        BuildViewerSelectionForTableSelection(cfg, selection, additive));
+        BuildViewerSelectionForTableSelection(cfg, selection, additive),
+        additive ? BuildDirectSelection(cfg) : selection);
     if (selection.empty())
       TrussTablePanel::Instance()->ClearSelection();
     else
@@ -2217,7 +2231,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       cfg.SetSelectedSupports(selection);
     }
     m_controller.SetSelectedUuids(
-        BuildViewerSelectionForTableSelection(cfg, selection, additive));
+        BuildViewerSelectionForTableSelection(cfg, selection, additive),
+        additive ? BuildDirectSelection(cfg) : selection);
     if (selection.empty())
       HoistTablePanel::Instance()->ClearSelection();
     else
@@ -2233,7 +2248,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       cfg.SetSelectedSceneObjects(selection);
     }
     m_controller.SetSelectedUuids(
-        BuildViewerSelectionForTableSelection(cfg, selection, additive));
+        BuildViewerSelectionForTableSelection(cfg, selection, additive),
+        additive ? BuildDirectSelection(cfg) : selection);
     if (selection.empty())
       SceneObjectTablePanel::Instance()->ClearSelection();
     else
@@ -3446,7 +3462,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
         }
         m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive));
+            BuildViewerSelectionForTableSelection(cfg, selection, additive),
+            additive ? BuildDirectSelection(cfg) : selection);
         FixtureTablePanel::Instance()->SelectByUuid(selection, false);
       } else if (TrussTablePanel::Instance() &&
                  TrussTablePanel::Instance()->IsActivePage()) {
@@ -3467,7 +3484,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           selectionChanged = true;
         }
         m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive));
+            BuildViewerSelectionForTableSelection(cfg, selection, additive),
+            additive ? BuildDirectSelection(cfg) : selection);
         TrussTablePanel::Instance()->SelectByUuid(selection, false);
       } else if (HoistTablePanel::Instance() &&
                  HoistTablePanel::Instance()->IsActivePage()) {
@@ -3488,7 +3506,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           selectionChanged = true;
         }
         m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive));
+            BuildViewerSelectionForTableSelection(cfg, selection, additive),
+            additive ? BuildDirectSelection(cfg) : selection);
         HoistTablePanel::Instance()->SelectByUuid(selection, false);
       } else if (SceneObjectTablePanel::Instance() &&
                  SceneObjectTablePanel::Instance()->IsActivePage()) {
@@ -3509,7 +3528,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           selectionChanged = true;
         }
         m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive));
+            BuildViewerSelectionForTableSelection(cfg, selection, additive),
+            additive ? BuildDirectSelection(cfg) : selection);
         SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
       }
     } else {

@@ -373,6 +373,7 @@ private:
   bool m_enableSelection = true;
   Viewer2DMeasureToolState m_measureToolState;
   std::vector<std::string> m_lastAppliedSelectionUuids;
+  std::vector<std::string> m_lastAppliedPrimarySelectionUuids;
   std::string m_hoverUuid;
   CursorWorldPositionCallback m_cursorWorldPositionCallback;
 
