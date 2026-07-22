@@ -1,3 +1,4 @@
+#include "wx_path_utils.h"
 #include "LayoutTemplatePackageService.h"
 #include "LayoutTemplateSerializer.h"
 #include "LayoutImageResourceRegistry.h"
@@ -35,7 +36,7 @@ void WriteFile(const fs::path &path, const std::string &bytes) {
 
 // Reads a package into an entry map for package assertions.
 std::map<std::string, std::string> ReadZipEntries(const fs::path &path) {
-  wxFFileInputStream input(path.string());
+  wxFFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
   wxZipInputStream zip(input);
   std::map<std::string, std::string> entries;
   std::unique_ptr<wxZipEntry> entry;

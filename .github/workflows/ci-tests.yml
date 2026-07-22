@@ -208,14 +208,61 @@ jobs:
           "PERASTAGE_PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           cmake --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt"
           & $python --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt" -Append
+      - name: Prepare Windows Debug test tools
+        id: windows-test-tools
+        shell: pwsh
+        run: |
+          $log = "$env:CI_LOG_DIR\windows-test-tools.txt"
+          $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+          if (-not $rgCommand) {
+            $choco = Get-Command choco.exe -ErrorAction SilentlyContinue
+            if (-not $choco) { throw 'ripgrep is not installed and Chocolatey is unavailable.' }
+            & $choco.Source install ripgrep -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'ripgrep installation failed.' }
+            $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
+            $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $rgCommand) { throw 'ripgrep is not installed after Windows Debug test-tool preparation.' }
+          $rgPath = $rgCommand.Source
+          $rgDir = Split-Path -Parent $rgPath
+          $env:PATH = "$rgDir;$env:PATH"
+          $rgDir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "rg=$rgPath" | Out-File -FilePath $log -Encoding utf8
+          & $rgPath --version | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "ripgrep failed to run from PowerShell: $rgPath" }
+          "PERASTAGE_RG=$rgPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Resolve Git Bash for Windows tests
+        id: git-bash
+        shell: pwsh
+        run: |
+          $log = "$env:CI_LOG_DIR\git-bash-windows-debug.txt"
+          $git = (Get-Command git.exe -ErrorAction Stop).Source
+          $gitRoot = Split-Path -Parent (Split-Path -Parent $git)
+          $bash = Join-Path $gitRoot 'bin\bash.exe'
+          "git=$git" | Out-File -FilePath $log -Encoding utf8
+          "bash=$bash" | Out-File -FilePath $log -Append -Encoding utf8
+          "rg=$env:PERASTAGE_RG" | Out-File -FilePath $log -Append -Encoding utf8
+          if (-not (Test-Path $bash)) { throw "Git Bash was not found at expected path: $bash" }
+          $normalized = $bash.Replace('/', '\').ToLowerInvariant()
+          if ($normalized -match '\\windowsapps\\bash\.exe$' -or $normalized -match '\\system32\\bash\.exe$') { throw "Refusing WSL bash launcher: $bash" }
+          if ($normalized -notmatch '\\git\\.*\\bash\.exe$') { throw "Refusing Bash outside Git for Windows: $bash" }
+          & $bash --version | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Git Bash identity probe failed: $bash" }
+          & $bash --noprofile --norc -c 'printf "git-bash-ok\n"' | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Git Bash cannot execute a non-login shell: $bash" }
+          & $env:PERASTAGE_RG --version | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "ripgrep failed to run from PowerShell: $env:PERASTAGE_RG" }
+          & $bash --noprofile --norc -c 'command -v rg && rg --version' | Out-File -FilePath $log -Append -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "ripgrep was not inherited by Git Bash: $env:PERASTAGE_RG" }
+          "PERASTAGE_GIT_BASH=$bash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "path=$bash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Read vcpkg baseline
         id: vcpkg-baseline
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
-          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
-          echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
+          $baseline = (& "$env:PERASTAGE_PYTHON" .github/scripts/get_vcpkg_baseline.py vcpkg.json).Trim()
+          "baseline=$baseline" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "VCPKG_BASELINE=$baseline" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -293,7 +340,7 @@ jobs:
         run: |
           $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
           if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
-          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBASH_EXECUTABLE="$env:PERASTAGE_GIT_BASH"
           & "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug
       - name: Build Windows Debug tests
         shell: pwsh
@@ -349,6 +396,17 @@ jobs:
           baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
           echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
+      - name: Resolve macOS SDK cache identity
+        id: macos-sdk
+        run: |
+          set -euo pipefail
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          current_sdk_realpath="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "$current_sdk_path")"
+          xcode_version="$(xcodebuild -version | tr '\n' '-' | sed 's/-$//')"
+          sdk_identity="$(printf '%s|%s' "$xcode_version" "$current_sdk_realpath" | shasum -a 256 | awk '{print $1}')"
+          echo "identity=${sdk_identity}" >> "$GITHUB_OUTPUT"
+          echo "MACOS_SDK_PATH=${current_sdk_path}" >> "$GITHUB_ENV"
+          echo "MACOS_SDK_REALPATH=${current_sdk_realpath}" >> "$GITHUB_ENV"
       - name: Install macOS test tools
         run: brew update && brew install autoconf autoconf-archive automake gettext libtool ninja
       - name: Restore vcpkg downloads
@@ -367,9 +425,9 @@ jobs:
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: macos-26-xcode-26-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          key: macos-26-sdk-${{ steps.macos-sdk.outputs.identity }}-debug-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
           restore-keys: |
-            macos-26-xcode-26-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-
+            macos-26-sdk-${{ steps.macos-sdk.outputs.identity }}-debug-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-
       - name: Bootstrap vcpkg
         run: |
           set -euo pipefail
@@ -385,20 +443,14 @@ jobs:
       - name: Diagnose restored vcpkg SDK metadata
         run: |
           set -euo pipefail
-          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
-          stale_sdk_paths="$(
-            for cache_dir in "$VCPKG_INSTALLED" "$VCPKG_PACKAGES"; do
-              if [ -d "$cache_dir" ]; then
-                grep -R -h -o -E "/Applications/Xcode_[^[:space:]]*/SDKs/MacOSX\.sdk" "$cache_dir" 2>/dev/null || true
-              fi
-            done | sort -u | grep -F -v -x "$current_sdk_path" || true
-          )"
-          if [ -n "$stale_sdk_paths" ]; then
-            echo "Stale macOS SDK path metadata was found in the restored vcpkg cache."
-            echo "Current SDK path: $current_sdk_path"
-            echo "$stale_sdk_paths"
-            exit 1
-          fi
+          python3 .github/scripts/macos_sdk_cache_guard.py \
+            --current-sdk "$MACOS_SDK_PATH" \
+            --scan-root "$VCPKG_INSTALLED" \
+            --scan-root "$VCPKG_PACKAGES" \
+            --scan-root "$VCPKG_BINARY_CACHE" \
+            --purge-root "$VCPKG_INSTALLED" \
+            --purge-root "$VCPKG_PACKAGES" \
+            --purge-root "$VCPKG_BINARY_CACHE"
       - name: Install vcpkg packages
         run: |
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet arm64-osx --manifest-root "$GITHUB_WORKSPACE" \

@@ -140,8 +140,11 @@ int main() {
   ok &= Check(chineseResult.activeLanguage ==
                   localization::AppLanguage::SimplifiedChinese,
               "Simplified Chinese did not become active after catalog loading.");
-  ok &= Check(_("Preferences") == wxString("Preferences"),
-              "Draft Simplified Chinese catalog should fall back to English source text.");
+  ok &= Check(_("Preferences") == ChineseFixture({0x9996, 0x9009, 0x9879}),
+              "Simplified Chinese catalog did not translate Preferences to 首选项.");
+  ok &= Check(_("Perastage missing localization sentinel") ==
+                  wxString("Perastage missing localization sentinel"),
+              "Missing Simplified Chinese message did not fall back to source text.");
   ok &= Check(ExpectedChineseLanguageName() ==
                   ChineseFixture({0x7B80, 0x4F53, 0x4E2D, 0x6587}),
               "Simplified Chinese native language name code points regressed.");

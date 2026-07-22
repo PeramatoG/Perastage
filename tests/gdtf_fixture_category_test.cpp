@@ -1,3 +1,4 @@
+#include "wx_path_utils.h"
 #include <cassert>
 #include <filesystem>
 #include <string>
@@ -33,7 +34,7 @@ static std::string WrapDescription(const std::string &name,
 }
 
 static bool WriteGdtf(const fs::path &path, const std::string &descriptionXml) {
-  wxFileOutputStream output(path.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!output.IsOk())
     return false;
 

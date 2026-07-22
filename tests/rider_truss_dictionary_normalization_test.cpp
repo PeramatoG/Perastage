@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "wx_path_utils.h"
 #include <cassert>
 #include "filesystem_path_utils.h"
 #include <cstdlib>
@@ -53,7 +54,7 @@ bool WriteArchive(const fs::path &archivePath) {
   wxFileName::Mkdir(archivePath.parent_path().string(), wxS_DIR_DEFAULT,
                     wxPATH_MKDIR_FULL);
 
-  wxFileOutputStream output(archivePath.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   if (!output.IsOk())
     return false;
 

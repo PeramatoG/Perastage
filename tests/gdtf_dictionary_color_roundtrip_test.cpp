@@ -1,6 +1,7 @@
 /*
  * This file is part of Perastage.
  */
+#include "wx_path_utils.h"
 #include "filesystem_path_utils.h"
 #include <cassert>
 #include <filesystem>
@@ -35,7 +36,7 @@ void WriteFile(const std::filesystem::path &path, const std::string &content) {
 
 // Writes a GDTF archive with description.xml stored below a root folder.
 void WriteNestedDescriptionGdtf(const std::filesystem::path &path) {
-  wxFileOutputStream output(path.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   assert(output.IsOk());
   wxZipOutputStream zip(output);
   auto *entry = new wxZipEntry("Dummy 1ch/description.xml");

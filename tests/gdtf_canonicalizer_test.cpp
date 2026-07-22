@@ -1,3 +1,4 @@
+#include "wx_path_utils.h"
 #include "gdtf_canonicalizer.h"
 
 #include <cassert>
@@ -54,7 +55,7 @@ std::string MinimalGdtf(const std::string &fixtureTypeInner) {
 
 // Writes a test GDTF archive with description.xml in a nested root folder.
 void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
-  wxFileOutputStream output(path.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   assert(output.IsOk());
   wxZipOutputStream zip(output);
   auto *entry = new wxZipEntry("Dummy 1ch/description.xml");
@@ -70,7 +71,7 @@ void WriteNestedDescriptionArchive(const std::filesystem::path &path) {
 // Returns whether a ZIP archive contains an entry with the requested name.
 bool ArchiveContainsEntry(const std::filesystem::path &path,
                           const std::string &entryName) {
-  wxFileInputStream input(path.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
   assert(input.IsOk());
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;

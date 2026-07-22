@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include "wx_path_utils.h"
 #include "filesystem_path_utils.h"
 #include "trussloader.h"
 
@@ -48,7 +49,7 @@ bool Check(bool condition, const std::string &message) {
 
 // Writes a ZIP archive with the provided text entries.
 bool WriteZipArchive(const fs::path &path, const std::map<std::string, std::string> &entries) {
-  wxFileOutputStream output(path.string());
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!output.IsOk())
     return false;
 

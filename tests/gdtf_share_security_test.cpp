@@ -6,6 +6,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <vector>
 
@@ -174,18 +175,27 @@ void TestCredentialStorage() {
     assert(!usernameOnly.credentials);
     assert(usernameOnly.usernameHint && *usernameOnly.usernameHint == username);
     backend->stored = cred;
-    std::ifstream in(dir / "gdtf_credentials.json");
-    const auto metadata = nlohmann::json::parse(in);
-    assert(metadata.is_object());
-    assert(metadata.size() == 4);
-    assert(metadata.at("schema_version") == CredentialStore::kGdtfCredentialMetadataSchemaVersion);
-    assert(metadata.at("backend") == "wx_secret_store");
-    assert(metadata.at("service") == CredentialStore::kGdtfShareCredentialService);
-    assert(metadata.at("username") == username);
-    assert(!ContainsJsonObjectKey(metadata, "password"));
-    assert(!ContainsJsonObjectKey(metadata, "secret"));
-    assert(!ContainsJsonStringValue(metadata, password));
-    assert(CredentialStore::ClearDetailed().Succeeded());
+    {
+        std::ifstream in(dir / "gdtf_credentials.json");
+        const auto metadata = nlohmann::json::parse(in);
+        assert(metadata.is_object());
+        assert(metadata.size() == 4);
+        assert(metadata.at("schema_version") == CredentialStore::kGdtfCredentialMetadataSchemaVersion);
+        assert(metadata.at("backend") == "wx_secret_store");
+        assert(metadata.at("service") == CredentialStore::kGdtfShareCredentialService);
+        assert(metadata.at("username") == username);
+        assert(!ContainsJsonObjectKey(metadata, "password"));
+        assert(!ContainsJsonObjectKey(metadata, "secret"));
+        assert(!ContainsJsonStringValue(metadata, password));
+    }
+    const CredentialStore::Result clearResult = CredentialStore::ClearDetailed();
+    if (!clearResult.Succeeded()) {
+        std::cerr << "Credential metadata clear failed: status="
+                  << static_cast<int>(clearResult.status)
+                  << " message=" << clearResult.message << '\n';
+    }
+    assert(clearResult.Succeeded());
+    assert(!fs::exists(dir / "gdtf_credentials.json"));
     assert(!CredentialStore::LoadDetailed().credentials);
     backend->available = false;
     CredentialStore::Result unavailableSave = CredentialStore::Save(cred);
