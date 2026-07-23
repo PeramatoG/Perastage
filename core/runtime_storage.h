@@ -19,7 +19,7 @@ class SceneResourceLease;
 class TemporaryWorkspace {
 public:
   explicit TemporaryWorkspace(const std::string &kind = "operation");
-  ~TemporaryWorkspace();
+  ~TemporaryWorkspace() noexcept;
   TemporaryWorkspace(TemporaryWorkspace &&other) noexcept;
   TemporaryWorkspace &operator=(TemporaryWorkspace &&other) noexcept;
   TemporaryWorkspace(const TemporaryWorkspace &) = delete;
@@ -27,7 +27,7 @@ public:
 
   const std::filesystem::path &Path() const { return path_; }
   bool IsValid() const { return !path_.empty(); }
-  void Cleanup();
+  void Cleanup() noexcept;
   std::shared_ptr<SceneResourceLease> TransferToSceneLease();
 
 private:
@@ -37,10 +37,11 @@ private:
 class SceneResourceLease {
 public:
   explicit SceneResourceLease(std::filesystem::path path = {});
-  ~SceneResourceLease();
+  ~SceneResourceLease() noexcept;
   SceneResourceLease(const SceneResourceLease &) = delete;
   SceneResourceLease &operator=(const SceneResourceLease &) = delete;
   const std::filesystem::path &Path() const { return path_; }
+  void Cleanup() noexcept;
 
 private:
   std::filesystem::path path_;
@@ -49,6 +50,6 @@ private:
 using SceneResourceLeasePtr = std::shared_ptr<SceneResourceLease>;
 
 bool IsInsideRuntimeRoot(const std::filesystem::path &path);
-void RemoveOwnedPath(const std::filesystem::path &path, const std::string &label);
+void RemoveOwnedPath(const std::filesystem::path &path, const std::string &label) noexcept;
 
 } // namespace runtime_storage

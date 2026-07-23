@@ -47,6 +47,25 @@ static void TestSceneLeaseLifetime(const fs::path &root) {
   assert(!fs::exists(created));
 }
 
+// Verifies that scene leases can be cleaned repeatedly without throwing.
+static void TestSceneLeaseRepeatedCleanup(const fs::path &root) {
+  fs::path created = runtime_storage::GetPerastageOperationRoot() / "lease-repeat";
+  std::error_code ec;
+  fs::create_directories(created, ec);
+  runtime_storage::SceneResourceLease lease(created);
+  lease.Cleanup();
+  lease.Cleanup();
+  assert(!fs::exists(created));
+}
+
+// Verifies that empty and missing lease paths do not throw during cleanup.
+static void TestSceneLeaseMissingAndEmptyCleanup(const fs::path &root) {
+  runtime_storage::SceneResourceLease emptyLease;
+  emptyLease.Cleanup();
+  runtime_storage::SceneResourceLease missingLease(root / "operations" / "missing");
+  missingLease.Cleanup();
+}
+
 // Verifies that containment checks reject paths outside the runtime root.
 static void TestContainment(const fs::path &root) {
   assert(runtime_storage::IsInsideRuntimeRoot(root / "operations" / "x"));
@@ -62,6 +81,8 @@ int main() {
   TestWorkspaceDestructorCleanup(root);
   TestWorkspaceMoveOwnership(root);
   TestSceneLeaseLifetime(root);
+  TestSceneLeaseRepeatedCleanup(root);
+  TestSceneLeaseMissingAndEmptyCleanup(root);
   TestContainment(root);
   fs::remove_all(root, ec);
   return 0;

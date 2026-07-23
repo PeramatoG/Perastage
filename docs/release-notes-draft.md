@@ -13,6 +13,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Added 2D and 3D viewer context-menu shortcuts for selecting trusses by model/source file or hang position from the **Trusses** table.
 - Added a **Spanish interface**, selectable from Preferences and applied after restarting Perastage.
 - Improved MVR/GDTF compatibility, 3D picking stability, Unicode handling, crash diagnostics, and release packaging.
+- Improved macOS shutdown reliability by releasing cached GDTF extraction resources before framework teardown and using safer late-crash diagnostics.
 - Improved Debug CI stability by rebuilding stale macOS SDK caches instead of failing on equivalent SDK aliases.
 - Improved Debug CI test reliability by making release-gate policy checks independent of hard-coded Unix paths, symbolic links, caller working directories, unresolved Python aliases, and generated-cache traversal costs, while preserving CTest result and inventory diagnostics for baseline audits.
 - Improved local Windows Debug bootstrap reliability by resolving Git Bash from Git for Windows instead of PATH launchers and by validating the MSVC Hostx64/x64 compiler banner without PowerShell stderr conversion issues.
@@ -267,6 +268,9 @@ You can also contact the project at **perastage.app@gmail.com**.
 - Fixed embedded Layout 2D fixture symbols so rotated GDTF fixtures choose the visible representative symbol plane and preserve the same orientation in preview and PDF export.
 
 ## Internal changes
+
+- Hardened C++ test include paths so repository files cannot shadow standard library headers on case-insensitive file systems.
+- Added regression coverage for test include-directory policy and runtime resource lease cleanup behavior.
 
 - Fixed manual fixture symbol application for fixtures that resolve to an absolute GDTF path by creating the expected project-owned scene copy before writing the generated symbols.
 

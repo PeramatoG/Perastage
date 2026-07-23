@@ -10,8 +10,10 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 #include <sstream>
 #include <string>
+#include <system_error>
 
 #include <backward.hpp>
 
@@ -24,6 +26,7 @@
 namespace diagnostics {
 namespace {
 std::atomic_flag g_handlingCrash = ATOMIC_FLAG_INIT;
+std::atomic_bool g_runtimeTeardownStarted{false};
 #if defined(_WIN32)
 void *g_vectoredExceptionHandler = nullptr;
 #endif
@@ -189,6 +192,33 @@ void WriteWindowsExceptionCrashReport(const std::filesystem::path &reportPath,
 }
 #endif
 
+
+// Writes a minimal crash report without wxWidgets, logger, or application singletons.
+void WriteMinimalCrashReport(const std::string &reason, const std::string &details,
+                             const std::string &stackTrace) noexcept {
+  try {
+    const std::filesystem::path directory =
+        std::filesystem::temp_directory_path() / "Perastage" / "crash-reports";
+    std::error_code ec;
+    std::filesystem::create_directories(directory, ec);
+    if (ec)
+      return;
+    const auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+    const std::filesystem::path reportPath =
+        directory / ("perastage-late-crash-" + std::to_string(stamp) + ".txt");
+    std::ofstream out(reportPath, std::ios::out | std::ios::trunc);
+    if (!out.is_open())
+      return;
+    out << "Perastage late-teardown crash report\n";
+    out << "Reason: " << reason << "\n";
+    if (!details.empty())
+      out << "Details: " << details << "\n";
+    if (!stackTrace.empty())
+      out << "Stack trace:\n" << stackTrace << "\n";
+  } catch (...) {
+  }
+}
+
 // Writes a crash report without involving GUI objects.
 void WriteCrashReport(const std::string &reason, const std::string &details,
                       const std::string &stackTrace,
@@ -286,7 +316,10 @@ void HandleSignal(int signalNumber) {
   std::ostringstream details;
   details << "Fatal signal: " << SignalName(signalNumber) << " ("
           << signalNumber << ')';
-  WriteCrashReport("Fatal signal", details.str(), CaptureStackTrace());
+  if (g_runtimeTeardownStarted.load())
+    WriteMinimalCrashReport("Fatal signal", details.str(), CaptureStackTrace());
+  else
+    WriteCrashReport("Fatal signal", details.str(), CaptureStackTrace());
 
   std::signal(signalNumber, SIG_DFL);
   std::raise(signalNumber);
@@ -298,7 +331,10 @@ void HandleTerminate() {
   if (g_handlingCrash.test_and_set())
     std::_Exit(EXIT_FAILURE);
 
-  WriteCrashReport("Unhandled C++ exception or terminate", {}, CaptureStackTrace());
+  if (g_runtimeTeardownStarted.load())
+    WriteMinimalCrashReport("Unhandled C++ exception or terminate", {}, CaptureStackTrace());
+  else
+    WriteCrashReport("Unhandled C++ exception or terminate", {}, CaptureStackTrace());
   std::abort();
 }
 
@@ -332,6 +368,9 @@ void CrashHandler::Initialize() {
   std::set_terminate(HandleTerminate);
   DiagnosticLogger::Info("Crash handler initialized.");
 }
+
+// Marks subsequent fatal reports as late-teardown reports.
+void CrashHandler::PrepareForRuntimeTeardown() { g_runtimeTeardownStarted.store(true); }
 
 // Writes a crash-style report for wxWidgets exception hooks.
 void CrashHandler::WriteExceptionReport(const std::string &reason,

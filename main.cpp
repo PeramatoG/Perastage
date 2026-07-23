@@ -17,6 +17,7 @@
  */
 #include "build_info.h"
 #include "filesystem_path_utils.h"
+#include "gdtfloader.h"
 #include "localization/localization_manager.h"
 #include "app_version.h"
 #include "configmanager.h"
@@ -464,13 +465,18 @@ std::optional<std::string> MyApp::ConsumePendingExternalOpenPath() {
 
 // Releases application-level resources before process shutdown.
 int MyApp::OnExit() {
-  diagnostics::DiagnosticLogger::ShutdownForExit("Perastage shutdown started.");
-  // Release application-level singletons before CRT leak reporting runs in
-  // debug builds on Windows.
-  ConfigManager::Get().Reset();
-  ConfigManager::Get().ClearHistory();
-  wxImage::CleanUpHandlers();
-  return wxApp::OnExit();
+  diagnostics::DiagnosticLogger::Info("Perastage shutdown started.");
+  ShutdownGdtfCache();
+  diagnostics::CrashHandler::PrepareForRuntimeTeardown();
+#if defined(_MSC_VER) && defined(_DEBUG)
+  const char *requestedLeakCheck = std::getenv("PERASTAGE_CRT_LEAK_CHECK");
+  if (requestedLeakCheck && std::string(requestedLeakCheck) == "1") {
+    ConfigManager::Get().Reset();
+  }
+#endif
+  const int result = wxApp::OnExit();
+  diagnostics::DiagnosticLogger::ShutdownForExit("Perastage shutdown completed.");
+  return result;
 }
 
 // Queues a single startup project-loaded event to avoid duplicate startup routing.

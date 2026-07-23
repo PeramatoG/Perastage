@@ -8,6 +8,7 @@ namespace diagnostics {
 class CrashHandler {
 public:
   static void Initialize();
+  static void PrepareForRuntimeTeardown();
   static void WriteExceptionReport(const std::string &reason,
                                    const std::string &details = {});
 };

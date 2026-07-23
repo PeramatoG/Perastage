@@ -97,6 +97,9 @@ bool GetGdtfProperties(const std::string& gdtfPath,
                        float& outWeightKg,
                        float& outPowerW);
 
+// Releases cached GDTF documents and extraction leases during controlled shutdown.
+void ShutdownGdtfCache() noexcept;
+
 // Returns the default model color defined in a GDTF file as a hex RGB string
 // (e.g., "#RRGGBB"). Returns an empty string when no color is specified or
 // the file cannot be parsed.

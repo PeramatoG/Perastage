@@ -222,12 +222,21 @@ struct CachedGdtfHash
     uint64_t contentHash = 0;
 };
 
-static std::unordered_map<std::string, GdtfCacheEntry> g_gdtfCache;
+using GdtfCacheMap = std::unordered_map<std::string, GdtfCacheEntry>;
+
+// Returns the process-lifetime GDTF cache without registering resource-owning static destructors.
+static GdtfCacheMap& GdtfCache()
+{
+    static auto* cache = new GdtfCacheMap();
+    return *cache;
+}
+
 static std::unordered_map<std::string, fs::file_time_type> g_failedGdtfCache;
 static std::unordered_map<std::string, size_t> g_gdtfFailedAttempts;
 static std::unordered_map<std::string, std::string> g_gdtfFailureReasons;
 static std::unordered_map<std::string, CachedGdtfHash> g_gdtfHashCache;
 static std::recursive_mutex g_gdtfCacheMutex;
+static bool g_gdtfCacheShutdown = false;
 
 struct MissingModelLog
 {
@@ -1218,6 +1227,11 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         *cachedFailure = false;
     if (fromCache)
         *fromCache = false;
+    if (g_gdtfCacheShutdown) {
+        setReason("GDTF cache is shut down");
+        return nullptr;
+    }
+
     if (gdtfPath.empty())
     {
         setReason("Empty GDTF path");
@@ -1274,15 +1288,16 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
         return nullptr;
     }
 
-    auto it = g_gdtfCache.find(stableKey);
-    if (it != g_gdtfCache.end()) {
+    auto& cache = GdtfCache();
+    auto it = cache.find(stableKey);
+    if (it != cache.end()) {
         if (it->second.doc && it->second.fixtureType) {
             if (fromCache)
                 *fromCache = true;
             return &it->second;
         }
 
-        g_gdtfCache.erase(it);
+        cache.erase(it);
     }
 
     GdtfCacheEntry entry;
@@ -1330,7 +1345,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     entry.modelColor = ParseModelColor(entry.fixtureType);
     entry.modelColorParsed = true;
 
-    auto res = g_gdtfCache.emplace(stableKey, std::move(entry));
+    auto res = cache.emplace(stableKey, std::move(entry));
     g_failedGdtfCache.erase(stableKey);
     g_gdtfFailureReasons.erase(stableKey);
     return res.second ? &res.first->second : nullptr;
@@ -1711,6 +1726,21 @@ static bool BuildGdtfFlatObjectsFromCache(GdtfCacheEntry& entry,
     outObjects = flat;
     entry.flatObjectCache[modeKey] = std::move(flat);
     return !outObjects.empty();
+}
+
+// Releases cached GDTF documents and extraction leases during controlled application shutdown.
+void ShutdownGdtfCache() noexcept
+{
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+        g_gdtfCacheShutdown = true;
+        GdtfCache().clear();
+        g_failedGdtfCache.clear();
+        g_gdtfFailedAttempts.clear();
+        g_gdtfFailureReasons.clear();
+        g_gdtfHashCache.clear();
+    } catch (...) {
+    }
 }
 
 // Loads the default GDTF geometry hierarchy using the first usable DMX mode.
@@ -2309,7 +2339,7 @@ GdtfDocumentMutationResult MutateGdtfDocumentWithResult(
     result.atomicReplacementCompleted = true;
 
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
-    g_gdtfCache.erase(gdtfPath);
+    GdtfCache().erase(gdtfPath);
     result.success = true;
     return result;
 }
