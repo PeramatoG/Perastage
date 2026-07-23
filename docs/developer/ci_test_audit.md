@@ -46,3 +46,37 @@ The configure step failed before test generation because this container does not
 3. Classify every current failing test using the project classification taxonomy before changing assertions.
 4. Split `tests/CMakeLists.txt` into domain modules only after current behavior and root causes are understood.
 5. Implement functional PR and full/release CI profiles without hiding known failures.
+
+## Phase 1 CI baseline update for PR #2204
+
+Branch base SHA: `ec6dee42371f51dc02520e3eb9fc4bea4d0daeca`.
+Current reviewed head before this follow-up: `4732460bc10bd2e312bb2714d8a6e82f617c5a01`.
+Current final head after this follow-up: recorded in PR #2204 after the final commit for this task.
+CI Debug Tests run inspected: `29961799720` (`https://github.com/PeramatoG/Perastage/actions/runs/29961799720`).
+
+As of the API inspection performed from this workspace on 2026-07-22, run `29961799720` had not completed. The workflow run status was `in_progress`, with `linux-debug`, `windows-debug`, and `macos-debug` also still `in_progress`; only `resolve-source` had completed successfully. Therefore no completed configure/build/CTest baseline, pass/fail/skip/not-run counts, or current failing-test list can be recorded from that run yet. This must not be represented as a test failure because the jobs had not reached a completed result.
+
+| Platform | Configure result | Build result | CTest result | Passed | Failed | Skipped | Not run | Current failing tests | Log or artifact reference |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| Linux | Pending in run `29961799720` | Pending in run `29961799720` | Pending in run `29961799720` | Not available | Not available | Not available | Not available | Not available until completion | `ci-linux-debug-ctest-inventory`; `ci-linux-debug-diagnostics` on failure |
+| Windows | Pending in run `29961799720` | Pending in run `29961799720` | Pending in run `29961799720` | Not available | Not available | Not available | Not available | Not available until completion | `ci-windows-debug-ctest-inventory`; `ci-windows-debug-diagnostics` on failure |
+| macOS | Pending in run `29961799720` | Pending in run `29961799720` | Pending in run `29961799720` | Not available | Not available | Not available | Not available | Not available until completion | `ci-macos-debug-ctest-inventory`; `ci-macos-debug-diagnostics` on failure |
+
+### Focused harness validation status
+
+- Local Linux restricted-path validation passes for `ReleaseGatePolicyPortability`.
+- Cross-runner Linux, Windows Git Bash, and macOS validation remains pending because run `29961799720` had not completed when inspected.
+- `UnresolvedPythonInvocations` passes locally and is registered for CI.
+- Windows Microsoft Store Python launcher avoidance remains pending runner confirmation; the policy test and existing `PythonResolvedInterpreterPolicy` are the focused checks intended to prove it.
+- The portability harness directly runs the release-gate scripts from the repository root and an unrelated temporary working directory with a restricted PATH.
+
+### Diagnostics baseline
+
+- Linux CTest diagnostics are configured to preserve JUnit output, the full CTest log, `LastTestsFailed.log`, and the concise failure CSV in `out/ci-logs` and the build `Testing/Temporary` tree.
+- Windows CTest diagnostics are configured to preserve JUnit output, the full CTest log, `LastTestsFailed.log`, and the concise failure CSV in `out/ci-logs` and the build `Testing/Temporary` tree.
+- macOS now preserves CTest JSON inventory plus both the wrapper log and CTest `--output-log` file, and it writes JUnit output for release-gate tests so the same failure-summary path can include structured test results.
+- Linux, Windows, and macOS now generate `ctest --show-only=json-v1` inventory files under `out/ci-logs` after a successful configure/build and before running tests. These generated inventory files are uploaded as dedicated CI diagnostic artifacts and are not committed to the repository.
+
+### Baseline boundary
+
+This follow-up remains at Safe Merge Point A until a completed CI run confirms the focused harness checks on all three platforms. No production code, product assertions, golden outputs, GDTF/MVR behavior, or rider expectations were changed.
