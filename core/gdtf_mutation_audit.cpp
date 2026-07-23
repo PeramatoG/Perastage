@@ -1,5 +1,7 @@
 #include "gdtf_mutation_audit.h"
 
+#include <cstdio>
+
 #include "app_version.h"
 #include "build_info.h"
 
@@ -10,6 +12,13 @@
 
 namespace GdtfMutationAudit {
 namespace {
+
+// Formats GDTF floating-point mutations without exposing binary float noise.
+std::string FormatGdtfMutationFloat(float value) {
+  char buffer[64];
+  std::snprintf(buffer, sizeof(buffer), "%.6g", static_cast<double>(value));
+  return buffer;
+}
 
 // Builds the current UTC timestamp in the GDTF revision date format.
 std::string BuildIsoTimestampUtcNow() {
@@ -246,7 +255,8 @@ bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
     tinyxml2::XMLElement *weightNode = properties->FirstChildElement("Weight");
     if (!weightNode)
       weightNode = properties->InsertNewChildElement("Weight");
-    weightNode->SetAttribute("Value", *weightKg);
+    const std::string formattedWeight = FormatGdtfMutationFloat(*weightKg);
+    weightNode->SetAttribute("Value", formattedWeight.c_str());
     mutated = true;
   }
 
@@ -255,7 +265,8 @@ bool ApplyPhysicalProperties(tinyxml2::XMLElement *fixtureType,
         properties->FirstChildElement("PowerConsumption");
     if (!powerNode)
       powerNode = properties->InsertNewChildElement("PowerConsumption");
-    powerNode->SetAttribute("Value", *powerConsumptionW);
+    const std::string formattedPower = FormatGdtfMutationFloat(*powerConsumptionW);
+    powerNode->SetAttribute("Value", formattedPower.c_str());
     mutated = true;
   }
 
