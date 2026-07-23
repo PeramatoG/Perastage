@@ -9,6 +9,8 @@ param(
 
     [string]$VisualStudioVersion = '',
 
+    [string]$BashExecutable = $env:BASH_EXECUTABLE,
+
     [switch]$SkipBuild,
 
     [switch]$CleanBuild
@@ -16,6 +18,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $PerastageVcpkgTriplet = 'x64-windows'
+$BootstrapModulePath = Join-Path (Split-Path -Parent $MyInvocation.ScriptName) 'scripts\windows\PerastageWindowsBootstrap.psm1'
+Import-Module $BootstrapModulePath -Force
 
 # Returns the repository root based on the script location.
 function Get-RepositoryRoot {
@@ -43,10 +47,7 @@ function Write-MsvcToolDiagnostics {
 function ConvertTo-NormalizedPathText {
     param([string]$PathText)
 
-    if ([string]::IsNullOrWhiteSpace($PathText)) {
-        return ''
-    }
-    return $PathText.Trim('"').Replace('/', '\').TrimEnd('\').ToLowerInvariant()
+    return ConvertTo-PerastageNormalizedPathText $PathText
 }
 
 # Finds the requested Visual Studio installation through vswhere.
@@ -140,8 +141,9 @@ function Initialize-X64MsvcEnvironment {
 
     $clOutput = ''
     if ($clCommand) {
-        $clOutput = (& cl.exe 2>&1 | Out-String)
-        if ($LASTEXITCODE -ne 0 -and $clOutput -notmatch 'Microsoft.*C/C\+\+') {
+        $clCapture = Invoke-PerastageNativeCommandCapture -FilePath $clCommand.Source
+        $clOutput = $clCapture.Combined
+        if ($clCapture.ExitCode -ne 0 -and $clOutput -notmatch 'Microsoft.*C/C\+\+') {
             $validationErrors += 'cl.exe did not produce the expected compiler banner.'
         }
         if ($clOutput -notmatch '(?i)for\s+x64') {
@@ -365,10 +367,12 @@ function Invoke-PerastageBuild {
     param(
         [Parameter(Mandatory = $true)][string]$ConfigurePreset,
         [Parameter(Mandatory = $true)][string]$BuildPreset,
-        [Parameter(Mandatory = $true)][bool]$ShouldBuild
+        [Parameter(Mandatory = $true)][bool]$ShouldBuild,
+        [Parameter(Mandatory = $true)][string]$GitBashPath
     )
 
     cmake --preset $ConfigurePreset `
+        -DBASH_EXECUTABLE="$GitBashPath" `
         -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON `
         -DVCPKG_MANIFEST_MODE=OFF `
         -DVCPKG_MANIFEST_INSTALL=OFF
@@ -385,6 +389,7 @@ Assert-CommandAvailable -CommandName 'cmake'
 $msvcEnvironment = Initialize-X64MsvcEnvironment -RequestedPath $VisualStudioPath -RequestedVersion $VisualStudioVersion
 $resolvedVcpkg = Resolve-ClassicVcpkgInstallation -Root $VcpkgRoot
 Test-PerastageVcpkgDependencies -Vcpkg $resolvedVcpkg
+$resolvedGitBash = Resolve-PerastageGitBash -ExplicitBash $BashExecutable
 
 $presets = Get-CMakePresetNames -Configuration $Configuration
 $buildDir = Join-Path $repoRoot "build\$($presets.Configure)"
@@ -415,6 +420,7 @@ if ($ninjaCommand) {
 Write-Host "  vcpkg root: $($resolvedVcpkg.Root)"
 Write-Host "  vcpkg installed triplet: $($resolvedVcpkg.InstalledTriplet)"
 Write-Host "  target triplet: $PerastageVcpkgTriplet"
+Write-Host "  Git Bash executable: $resolvedGitBash"
 Write-Host '  wxWidgets feature: secretstore validated in classic vcpkg installation'
 Write-Host '  secure-store requirement: ON'
 Write-Host '  CMake vcpkg manifest mode: OFF'
@@ -426,5 +432,6 @@ Write-Host 'Use -CleanBuild to delete only the selected Perastage build director
 Invoke-PerastageBuild `
     -ConfigurePreset $presets.Configure `
     -BuildPreset $presets.Build `
-    -ShouldBuild (-not $SkipBuild)
+    -ShouldBuild (-not $SkipBuild) `
+    -GitBashPath $resolvedGitBash
 Write-Host 'Perastage Windows setup validation completed successfully.'

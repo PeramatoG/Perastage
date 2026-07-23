@@ -13,7 +13,7 @@ parser.add_argument('--bash', required=True)
 args = parser.parse_args()
 BASH = args.bash
 SCRIPT = ROOT / 'tests/check_windows_ninja_x64_policy.sh'
-NEEDED = ['CMakePresets.json', 'setup_windows.ps1']
+NEEDED = ['CMakePresets.json', 'setup_windows.ps1', 'scripts/windows/PerastageWindowsBootstrap.psm1']
 
 
 def write_policy_root(repo: Path) -> None:

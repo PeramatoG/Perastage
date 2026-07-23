@@ -47,6 +47,13 @@ required = [
     'Remove-Item -LiteralPath $BuildDirectory -Recurse -Force',
     'Resolve-ClassicVcpkgInstallation',
     'Test-PerastageVcpkgDependencies',
+    'Import-Module $BootstrapModulePath -Force',
+    'Resolve-PerastageGitBash',
+    '-DBASH_EXECUTABLE=',
+    'Invoke-PerastageNativeCommandCapture',
+    '[string]$BashExecutable = $env:BASH_EXECUTABLE',
+    'Resolve-PerastageGitBash -ExplicitBash $BashExecutable',
+    'PerastageWindowsBootstrap.psm1',
 ]
 for needle in required:
     assert needle in script, needle
@@ -63,6 +70,23 @@ for forbidden in [
 ]:
     assert forbidden not in script, forbidden
 assert "Write-Host 'MSVC compiler architecture: x64'" not in script, 'setup must not print unconditional x64 status'
+
+assert '(& cl.exe 2>&1 | Out-String)' not in script, 'cl.exe banner capture must not depend on PowerShell error stream conversion'
+assert '-DBASH_EXECUTABLE="$GitBashPath"' in script, 'setup must pass resolved Git Bash into CMake configure'
+assert "Resolve-PerastageGitBash" in script, 'setup must resolve Git Bash explicitly'
+bootstrap = read('scripts/windows/PerastageWindowsBootstrap.psm1')
+for needle in [
+    'System.Diagnostics.ProcessStartInfo',
+    'Join-PerastageNativeArguments',
+    'RedirectStandardOutput = $true',
+    'RedirectStandardError = $true',
+    '$startInfo.Arguments = Join-PerastageNativeArguments',
+    'ReadToEndAsync()',
+    'Get-PerastageGitBashCandidatesFromGit',
+    'Test-PerastageRejectedWindowsBashPath',
+    'WindowsApps bash launchers are not supported',
+]:
+    assert needle in bootstrap, needle
 
 excluded_roots = {'.git', '.vcpkg-cache', '.vcpkg-root', '.tools', 'build', 'out', 'third_party', 'vcpkg', 'vcpkg_installed'}
 excluded_prefixes = ('build-', 'cmake-build-')
