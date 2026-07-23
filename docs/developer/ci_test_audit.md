@@ -141,3 +141,80 @@ The small `ci-<platform>-debug-test-results` artifacts are uploaded with `if: al
 ### Safe merge status
 
 Safe Merge Point A is reached for the local harness repair and baseline documentation. Safe Merge Point B requires the next CI run for this follow-up commit to confirm that `ReleaseGatePolicyPortability` passes on Windows Git Bash as well as Linux/macOS and that all per-platform result artifacts are present.
+
+## Phase 2 follow-up for CI run 29988207383
+
+Base SHA: `ec6dee42371f51dc02520e3eb9fc4bea4d0daeca`.
+Reviewed head for run `29988207383`: `6575fc25792f45264a0092fcd69994a87b87da59`.
+Current follow-up head: recorded in PR #2204 after the final commit for this task.
+Workflow run: `29988207383` (`https://github.com/PeramatoG/Perastage/actions/runs/29988207383`).
+
+All jobs completed dependency installation and CMake configuration. Linux and Windows built the complete test target set. macOS remained intentionally reduced to the release-gate profile and must not be described as full macOS platform parity.
+
+| Platform | Configure result | Build result | CTest result | Inventory total | Passed | Failed | Skipped | Disabled/not run | Selected labels/profile | Result artifact |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Linux | Passed | Passed complete test target set | Failed | 159 | 133 | 25 | 1 | 0 | Full Debug suite | `ci-linux-debug-test-results` |
+| Windows | Passed | Passed complete MSVC Hostx64/x64 Ninja test target set | Failed | 159 | 129 | 30 | 0 | 0 | Full Debug suite | `ci-windows-debug-test-results` |
+| macOS | Passed | Passed requested release-gate executables | Passed | Reduced profile only | 6 | 0 | 0 | 0 | `release-gate` | `ci-macos-debug-test-results` |
+
+### Confirmed remaining harness root cause
+
+The remaining Windows harness failure in run `29988207383` was `ReleaseGatePolicyPortability`. The focused timing evidence showed `WindowsNinjaX64Policy` passed as an independent CTest in approximately 94.74 seconds. Inside `ReleaseGatePolicyPortability`, `check_windows_ninja_x64_policy.sh` completed its repository-root execution in approximately 90 seconds, then the wrapper timed out at the existing 120-second CTest timeout before the unrelated-working-directory execution completed. `check_ci_cmake_language_policy.sh` completed in under one second, proving it was no longer the bottleneck.
+
+The root cause is the Windows policy scanner's unpruned `Path.rglob('*')` traversal. It filtered `.git`, `.vcpkg-cache`, `vcpkg`, `build`, `out`, and similar roots only after descending through them. On Windows CI, the checkout contains large generated/cache/dependency trees, so the scanner spent most of its time traversing files that were never part of the first-party policy contract.
+
+### Remediation in this follow-up
+
+`check_windows_ninja_x64_policy.sh` now uses a deterministic top-down `os.walk` traversal and mutates `dirnames` before descent to prune `.git`, `.vcpkg-cache`, `.vcpkg-root`, `.tools`, `build`, `build-*`, `cmake-build-*`, `out`, `third_party`, `vcpkg`, and `vcpkg_installed`. It still scans first-party files for forbidden generated local Windows preset references such as `local Windows preset marker`, reports a concise inspected-file count and elapsed scan time, uses `PERASTAGE_POLICY_ROOT` only for deterministic fixture testing, and continues to use the resolved Python interpreter supplied by the harness.
+
+A new `WindowsNinjaX64PolicyFixtures` policy fixture proves that forbidden `local Windows preset marker` text in excluded generated/vendor/cache roots is ignored, a first-party nested violation is still detected, and the scanner emits an observable first-party inspected-file count. No broad first-party exclusions, timeout increase, skip, `continue-on-error`, or exit-code masking were introduced.
+
+### Current failure sets preserved for Phase 3
+
+The 25 common Linux/Windows domain failures remain untouched and unclassified beyond baseline preservation:
+
+- `Viewer2DFboCaptureDiagnostics`
+- `EditableFocusUtils`
+- `GdtfReadServices`
+- `GdtfFixtureCategoryFallback`
+- `LayoutTemplatePackageService`
+- `PdfTextComparison`
+- `SaveLoadRoundtrip`
+- `ProjectSupportUserDataRoundtrip`
+- `TrussPathEncodingRegression`
+- `RiderTrussDictionaryNormalization`
+- `MvrSupportUserDataRoundtrip`
+- `MvrFixtureCategoryRoundtrip`
+- `MvrTrussRoundtripStructure`
+- `MvrExporterCompliance`
+- `RiderImportLinearOrder`
+- `RiderFilterPreview`
+- `RiderComments`
+- `RiderLedScreenObject`
+- `RiderHoistImport`
+- `RiderLxSidesImport`
+- `RiderPipeImport`
+- `Loader3dsNativeDimensions`
+- `GdtfLoaderSetPropertiesMutation`
+- `SymbolFixtureApplierGdtfMutation`
+- `MvrPatchedGdtfExportMutation`
+
+The Windows-only domain failures remain untouched and unclassified:
+
+- `PdfWriterSerialization`
+- `GdtfFixtureInsertionPreparation`
+- `LayoutImageResourceRegistry`
+- `GdtfShareSecurity`
+
+`ReleaseGatePolicyPortability` is the only Windows-only failure addressed in this task, and it was addressed as a harness traversal defect.
+
+### Future MVR/GDTF I/O policy for Phase 3 branches
+
+- Be permissive on input: Perastage should recover safely and deterministically from damaged, incomplete, legacy, or non-conforming MVR/GDTF files whenever possible, preserve useful data, and emit structured diagnostics instead of rejecting recoverable files unnecessarily.
+- Be canonical on output: every MVR or GDTF archive generated or rewritten by Perastage must conform to the current supported standards target, currently GDTF 1.2 and MVR 1.6, normalize recoverable input, and must not reproduce malformed source structures.
+- Keep standard-strict, legacy-compatibility, tolerant-recovery, and Perastage-extension code paths and tests explicitly separated.
+- Never make the reader less compatible merely to make a strict writer test pass.
+
+### Safe Merge Point B decision
+
+Safe Merge Point B is pending until a completed CI run for the follow-up commit confirms that `ReleaseGatePolicyPortability` passes on Windows Git Bash within the unchanged 120-second timeout and that the domain failure set is unchanged except for removing the harness timeout. Safe Merge Point B must not be declared from local Linux-only evidence.

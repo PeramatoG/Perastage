@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_tool_requirements.sh"
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="${PERASTAGE_POLICY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$repo_root"
 
 run_test_python - <<'PY'
 import json
+import os
 import re
+import time
 from pathlib import Path
 
 ROOT = Path('.')
@@ -62,16 +64,36 @@ for forbidden in [
     assert forbidden not in script, forbidden
 assert "Write-Host 'MSVC compiler architecture: x64'" not in script, 'setup must not print unconditional x64 status'
 
-ignored_roots = {'.git', 'build', 'out', 'vcpkg', '.vcpkg-cache'}
-for path in ROOT.rglob('*'):
-    if not path.is_file() or ignored_roots.intersection(path.parts) or path == ROOT / 'tests/check_windows_ninja_x64_policy.sh':
+excluded_roots = {'.git', '.vcpkg-cache', '.vcpkg-root', '.tools', 'build', 'out', 'third_party', 'vcpkg', 'vcpkg_installed'}
+excluded_prefixes = ('build-', 'cmake-build-')
+
+def is_excluded_dirname(name):
+    return name in excluded_roots or any(name.startswith(prefix) for prefix in excluded_prefixes)
+
+def iter_first_party_files(root):
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if not is_excluded_dirname(name)]
+        current = Path(current_root)
+        for filename in filenames:
+            path = current / filename
+            if path == ROOT / 'tests/check_windows_ninja_x64_policy.sh':
+                continue
+            yield path
+
+scan_start = time.monotonic()
+scanned_files = 0
+for path in iter_first_party_files(ROOT):
+    if not path.is_file():
         continue
+    scanned_files += 1
     try:
         text = path.read_text(errors='ignore')
     except OSError:
         continue
     if 'local-win-' in text:
         raise SystemExit(f'Tracked files must not reference generated local Windows presets: {path}')
+scan_elapsed = time.monotonic() - scan_start
+print(f'Checked {scanned_files} first-party files for generated Windows preset references in {scan_elapsed:.3f}s.')
 
 for pattern in [r'&\s+\$[^\n]*vcpkg[^\n]*\s+install\b', r"vcpkg(?:\.exe)?[\"\']?\s+install\b"]:
     match = re.search(pattern, script, re.IGNORECASE)
