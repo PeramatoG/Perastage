@@ -9,33 +9,10 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
+include(${CMAKE_SOURCE_DIR}/cmake/PerastageGitBashResolver.cmake)
+
 add_library(perastage_test_no_dialog OBJECT windows_no_dialog_runtime.cpp)
 link_libraries($<TARGET_OBJECTS:perastage_test_no_dialog>)
-
-function(validate_bash_executable bash_path)
-    if(NOT bash_path)
-        message(FATAL_ERROR "BASH_EXECUTABLE is required for shell policy tests.")
-    endif()
-    if(WIN32)
-        string(TOLOWER "${bash_path}" bash_path_lower)
-        if(bash_path_lower MATCHES "windowsapps[/\\]bash\\.exe$" OR
-           bash_path_lower MATCHES "system32[/\\]bash\\.exe$")
-            message(FATAL_ERROR "BASH_EXECUTABLE must be Git Bash on Windows, not a WSL launcher: ${bash_path}")
-        endif()
-        if(NOT bash_path_lower MATCHES "[/\\]git[/\\].*[/\\]bash\\.exe$")
-            message(FATAL_ERROR "BASH_EXECUTABLE must come from Git for Windows: ${bash_path}")
-        endif()
-    endif()
-    execute_process(
-        COMMAND "${bash_path}" -lc "printf 'cmake-bash-ok\n'"
-        RESULT_VARIABLE bash_result
-        OUTPUT_VARIABLE bash_output
-        ERROR_VARIABLE bash_error
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT bash_result EQUAL 0 OR NOT bash_output STREQUAL "cmake-bash-ok")
-        message(FATAL_ERROR "BASH_EXECUTABLE could not run a trivial shell script: ${bash_path} output='${bash_output}' error='${bash_error}'")
-    endif()
-endfunction()
 
 function(set_perastage_test_labels test_name)
     set(options)
@@ -125,9 +102,9 @@ add_library(perastage_test_gdtf_archive_reader STATIC
 target_include_directories(perastage_test_gdtf_archive_reader PRIVATE ../core)
 target_link_libraries(perastage_test_gdtf_archive_reader PRIVATE ${wxWidgets_LIBRARIES})
 
-find_program(BASH_EXECUTABLE bash)
+perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
+set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
-    validate_bash_executable("${BASH_EXECUTABLE}")
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(OpenGLLifecycleCentralized ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
@@ -189,6 +166,21 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(UnresolvedPythonInvocations ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_unresolved_python_invocations.py
                                LABELS standard-strict policy)
+    add_repository_policy_test(GitBashResolverContract ${CMAKE_COMMAND}
+                               ARGS -DREPO_ROOT=${CMAKE_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_git_bash_resolver.cmake
+                               LABELS standard-strict policy windows)
+    find_program(PERASTAGE_POWERSHELL_51 powershell.exe)
+    if(PERASTAGE_POWERSHELL_51)
+        add_repository_policy_test(PowerShellNativeCaptureWindowsPowerShell ${Python3_EXECUTABLE}
+                                   ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_powershell_native_command_capture.py --powershell ${PERASTAGE_POWERSHELL_51}
+                                   LABELS standard-strict policy windows)
+    endif()
+    find_program(PERASTAGE_POWERSHELL_7 pwsh.exe)
+    if(PERASTAGE_POWERSHELL_7)
+        add_repository_policy_test(PowerShellNativeCapturePowerShell7 ${Python3_EXECUTABLE}
+                                   ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_powershell_native_command_capture.py --powershell ${PERASTAGE_POWERSHELL_7}
+                                   LABELS standard-strict policy windows)
+    endif()
 endif()
 
 link_libraries(perastage_test_active_dictionary_storage)

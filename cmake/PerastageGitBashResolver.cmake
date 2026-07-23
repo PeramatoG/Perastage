@@ -1,0 +1,123 @@
+# Resolves Git Bash without selecting WSL or application-alias launchers on Windows.
+function(perastage_is_rejected_windows_bash_path bash_path out_var)
+    set(rejected FALSE)
+    if(bash_path)
+        string(TOLOWER "${bash_path}" bash_path_lower)
+        if(bash_path_lower MATCHES "[/\\]system32[/\\]bash\\.exe$" OR
+           bash_path_lower MATCHES "[/\\]windowsapps[/\\]bash\\.exe$")
+            set(rejected TRUE)
+        endif()
+    endif()
+    set(${out_var} ${rejected} PARENT_SCOPE)
+endfunction()
+
+# Verifies that a Bash candidate runs a non-login, non-profile probe.
+function(perastage_validate_bash_probe bash_path out_var out_message_var)
+    if(NOT bash_path OR NOT EXISTS "${bash_path}")
+        set(${out_var} FALSE PARENT_SCOPE)
+        set(${out_message_var} "Bash candidate does not exist: ${bash_path}" PARENT_SCOPE)
+        return()
+    endif()
+    execute_process(
+        COMMAND "${bash_path}" --noprofile --norc -c "printf 'perastage-git-bash-ok\\n'"
+        RESULT_VARIABLE bash_result
+        OUTPUT_VARIABLE bash_output
+        ERROR_VARIABLE bash_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(bash_result EQUAL 0 AND bash_output STREQUAL "perastage-git-bash-ok")
+        set(${out_var} TRUE PARENT_SCOPE)
+        set(${out_message_var} "" PARENT_SCOPE)
+    else()
+        set(${out_var} FALSE PARENT_SCOPE)
+        set(${out_message_var} "Bash candidate failed probe: ${bash_path}; output='${bash_output}'; error='${bash_error}'" PARENT_SCOPE)
+    endif()
+endfunction()
+
+# Derives likely Git Bash locations from a resolved Git for Windows executable.
+function(perastage_git_for_windows_bash_candidates git_executable out_var)
+    set(candidates)
+    if(git_executable)
+        get_filename_component(git_bin "${git_executable}" DIRECTORY)
+        get_filename_component(git_root "${git_bin}" DIRECTORY)
+        list(APPEND candidates
+            "${git_root}/bin/bash.exe"
+            "${git_root}/usr/bin/bash.exe")
+        get_filename_component(git_parent "${git_root}" DIRECTORY)
+        if(git_parent)
+            list(APPEND candidates
+                "${git_parent}/bin/bash.exe"
+                "${git_parent}/usr/bin/bash.exe")
+        endif()
+    endif()
+    list(REMOVE_DUPLICATES candidates)
+    set(${out_var} ${candidates} PARENT_SCOPE)
+endfunction()
+
+# Resolves Bash using the Windows Git Bash contract, or PATH on non-Windows hosts.
+function(perastage_resolve_git_bash out_var)
+    set(options REQUIRED_FOR_TESTING FORCE_WINDOWS)
+    cmake_parse_arguments(RESOLVE "${options}" "" "" ${ARGN})
+
+    set(is_windows ${WIN32})
+    if(RESOLVE_FORCE_WINDOWS OR PERASTAGE_GIT_BASH_RESOLVER_FORCE_WINDOWS)
+        set(is_windows TRUE)
+    endif()
+
+    set(explicit_bash "")
+    if(DEFINED BASH_EXECUTABLE)
+        set(explicit_bash "${BASH_EXECUTABLE}")
+    endif()
+    if(DEFINED CACHE{BASH_EXECUTABLE})
+        set(explicit_bash "$CACHE{BASH_EXECUTABLE}")
+    endif()
+
+    if(NOT is_windows)
+        if(NOT explicit_bash)
+            find_program(explicit_bash bash)
+        endif()
+        if(explicit_bash)
+            perastage_validate_bash_probe("${explicit_bash}" bash_ok bash_message)
+            if(bash_ok)
+                set(${out_var} "${explicit_bash}" PARENT_SCOPE)
+                return()
+            endif()
+        endif()
+        if(RESOLVE_REQUIRED_FOR_TESTING)
+            message(FATAL_ERROR "Bash is required for shell policy tests: ${bash_message}")
+        endif()
+        set(${out_var} "" PARENT_SCOPE)
+        return()
+    endif()
+
+    if(explicit_bash)
+        perastage_is_rejected_windows_bash_path("${explicit_bash}" rejected)
+        if(rejected)
+            message(FATAL_ERROR "BASH_EXECUTABLE must be Git Bash on Windows, not a WSL or application-alias launcher: ${explicit_bash}")
+        endif()
+        perastage_validate_bash_probe("${explicit_bash}" bash_ok bash_message)
+        if(NOT bash_ok)
+            message(FATAL_ERROR "Explicit BASH_EXECUTABLE is not usable Git Bash: ${bash_message}")
+        endif()
+        set(${out_var} "${explicit_bash}" PARENT_SCOPE)
+        return()
+    endif()
+
+    find_program(git_executable NAMES git.exe git PATHS ENV PATH NO_DEFAULT_PATH)
+    perastage_git_for_windows_bash_candidates("${git_executable}" candidates)
+    foreach(candidate IN LISTS candidates)
+        perastage_is_rejected_windows_bash_path("${candidate}" rejected)
+        if(rejected)
+            continue()
+        endif()
+        perastage_validate_bash_probe("${candidate}" bash_ok bash_message)
+        if(bash_ok)
+            set(${out_var} "${candidate}" PARENT_SCOPE)
+            return()
+        endif()
+    endforeach()
+
+    if(RESOLVE_REQUIRED_FOR_TESTING)
+        message(FATAL_ERROR "Git Bash could not be resolved for Windows shell policy tests. Install Git for Windows or pass -DBASH_EXECUTABLE=<Git for Windows bash.exe>; WSL and WindowsApps bash launchers are not supported.")
+    endif()
+    set(${out_var} "" PARENT_SCOPE)
+endfunction()

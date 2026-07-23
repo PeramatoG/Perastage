@@ -223,7 +223,7 @@ Safe Merge Point B is pending until a completed CI run for the follow-up commit 
 
 Base branch verification for this Phase 3 task: the local task branch started at `dea118f7bb2dcdf04e0c415c891b4aa0c305153c`, matching the requested current `main` reviewed for this task. The local checkout has no `origin` remote configured, so `git fetch origin main` could not be completed in this container; the commit graph still shows `dea118f7` immediately after merge commit `381fb1ae` and tested commit `cf10f50`. The only file changed from `cf10f50184376d32c0806d9b5b6de9d186637449` to `dea118f7bb2dcdf04e0c415c891b4aa0c305153c` is `VERSION`, bumped from `1.4.148` to `1.4.149`, so run `29995392074` remains the authoritative baseline for current code and tests.
 
-Run `29995392074` (`https://github.com/PeramatoG/Perastage/actions/runs/29995392074`) is the current authoritative Phase 2 closure baseline. PR #2204 was merged by merge commit `381fb1ae7dcac1936c39072615fc097ef5c51e6b`. Safe Merge Point B is reached. Safe Merge Point C is reached by this documentation-only classification once the 29-test reconciliation below remains valid.
+Run `29995392074` (`https://github.com/PeramatoG/Perastage/actions/runs/29995392074`) is the current authoritative Phase 2 closure baseline. PR #2204 was merged by merge commit `381fb1ae7dcac1936c39072615fc097ef5c51e6b`. Safe Merge Point B is reached. Safe Merge Point C is not declared yet. This follow-up keeps the classification record reviewable while noting entries whose exact artifact diffs, Windows exits, or source-level call paths still need focused Phase 4 evidence before a safe merge decision can be made.
 
 | Platform | Inventory | Executed profile | Passed | Failed | Skipped | Notes |
 | --- | ---: | --- | ---: | ---: | ---: | --- |
@@ -251,10 +251,10 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 - Intended current contract: GDTF archive input must be permissive and diagnosable; Unicode ZIP names should be accepted when decoded safely.
 - Relevant GDTF/MVR requirement or internal Perastage contract: GDTF archive ZIP with description.xml; internal tolerant input policy.
 - Shared root-cause group: GDTF Unicode/archive tolerant-read divergence.
-- Confidence: `high`.
-- Evidence supporting the category: Run notes identify two different subtests; test source constructs Unicode ZIP/path cases.
-- Evidence still missing: Full artifact download was unavailable locally because gh is not installed; preserve CI artifact names as evidence.
-- Recommended follow-up phase and action: Phase 4A: split Windows path-access defect from Linux stale expectation.
+- Confidence: `provisional`.
+- Evidence supporting the category: Run 29995392074 shows a platform split: Linux reaches the Unicode ZIP filename subtest and the tolerant read succeeds despite the old negative expectation, while Windows fails an earlier Unicode/inaccessible path read. The entry therefore records a Linux stale-expectation hypothesis and a separate Windows path-access/recovery hypothesis under one CTest name.
+- Evidence still missing: Full downloaded JUnit/log segments and the canonicalizer/path diagnostics must be attached before assigning one common root cause.
+- Recommended follow-up phase and action: Phase 4A: split Windows path-access evidence from Linux tolerant-read expectation before changing reader behavior or assertions.
 
 #### `GdtfFixtureCategoryFallback`
 
@@ -298,7 +298,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `GdtfLoaderSetPropertiesMutation`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Mutation roundtrip assertion fails after GDTF loader set-properties publication.
+- First meaningful failure per affected platform: Both platforms fail at the `SetGdtfProperties(...)` call before a later publication/roundtrip assertion can prove the exact writer defect.
 - Source test file and assertion or exit point: `tests/gdtfloader_set_properties_test.cpp`.
 - Production components and call path under test: GDTF loader/editor mutation -> canonicalizer -> archive writer.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfLoaderSetPropertiesMutation$' --output-on-failure --verbose`.
@@ -309,8 +309,8 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 - Relevant GDTF/MVR requirement or internal Perastage contract: GDTF 1.2 output archive must contain canonical description.xml and valid fixture metadata.
 - Shared root-cause group: GDTF mutation/canonical publication.
 - Confidence: `medium`.
-- Evidence supporting the category: Cross-platform failure in writer/mutation domain indicates deterministic contract mismatch.
-- Evidence still missing: Exact XML diff from artifacts/golden not available locally.
+- Evidence supporting the category: The observed failing stage is the set-properties mutation call itself; canonicalizer/writer diagnostics are the next trace point, not yet a proven exact defect.
+- Evidence still missing: Exact `SetGdtfProperties(...)` diagnostic path and generated XML/archive diff are still missing.
 - Recommended follow-up phase and action: Phase 4A: inspect generated archive and normalize writer or assertions per strict output contract.
 
 #### `SymbolFixtureApplierGdtfMutation`
@@ -336,7 +336,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrPatchedGdtfExportMutation`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Exported MVR with patched GDTF fails mutation/compliance assertion.
+- First meaningful failure per affected platform: Exporter fails during `CanonicalizeGdtf` for the generated/patched truss GDTF.
 - Source test file and assertion or exit point: `tests/mvr_patched_gdtf_export_test.cpp`.
 - Production components and call path under test: MVR exporter -> patched embedded GDTF writer -> archive validation.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrPatchedGdtfExportMutation$' --output-on-failure --verbose`.
@@ -355,39 +355,39 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrSupportUserDataRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: MVR roundtrip loses or relocates support user data.
+- First meaningful failure per affected platform: Exporter reports `MVR export failed during CanonicalizeGdtf ... canonicalizer reported errors`; the test fails before the intended support user-data roundtrip assertion is reached.
 - Source test file and assertion or exit point: `tests/mvr_support_userdata_roundtrip_test.cpp`.
-- Production components and call path under test: MVR importer/exporter -> GeneralSceneDescription -> UserData preservation.
+- Production components and call path under test: MVR exporter -> embedded GDTF canonicalizer -> roundtrip test setup before UserData assertion.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrSupportUserDataRoundtrip$' --output-on-failure --verbose`.
 - Primary classification: `production-defect`.
 - Fixture category: `valid`.
 - Policy layer: `standard-strict`.
-- Intended current contract: Writers must preserve valid unrelated user data where the mutation contract allows it.
+- Intended current contract: The intended later contract is valid user-data preservation, but the observed contract failure is canonical GDTF publication during export.
 - Relevant GDTF/MVR requirement or internal Perastage contract: MVR 1.6 GeneralSceneDescription and user data preservation.
-- Shared root-cause group: MVR GeneralSceneDescription identity/user-data preservation.
-- Confidence: `medium`.
-- Evidence supporting the category: Cross-platform deterministic MVR roundtrip failure.
-- Evidence still missing: Exact missing node/attribute unavailable.
-- Recommended follow-up phase and action: Phase 4C: repair scene/user-data preservation.
+- Shared root-cause group: GDTF mutation/canonical publication.
+- Confidence: `provisional`.
+- Evidence supporting the category: Both platforms fail at export/canonicalization before user-data comparison, tying this test to the GDTF canonical-publication group.
+- Evidence still missing: Canonicalizer errors from the MVR export artifact must be traced before auditing user-data preservation.
+- Recommended follow-up phase and action: Phase 4A: repair or classify embedded GDTF canonicalization first; rerun before auditing user-data roundtrip.
 
 #### `MvrFixtureCategoryRoundtrip`
 
 - Exact CTest name: `MvrFixtureCategoryRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Fixture category is not preserved through MVR roundtrip.
+- First meaningful failure per affected platform: Exporter reports `MVR export failed during CanonicalizeGdtf ... canonicalizer reported errors`; the test fails before the intended fixture-category roundtrip assertion is reached.
 - Source test file and assertion or exit point: `tests/mvr_fixture_category_roundtrip_test.cpp`.
-- Production components and call path under test: fixture model -> MVR exporter/importer -> category mapping.
+- Production components and call path under test: fixture model -> MVR exporter -> embedded GDTF canonicalizer before category mapping assertion.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrFixtureCategoryRoundtrip$' --output-on-failure --verbose`.
 - Primary classification: `production-defect`.
 - Fixture category: `valid`.
 - Policy layer: `standard-strict`.
-- Intended current contract: Valid fixture category metadata must roundtrip through MVR and project save/load consistently.
+- Intended current contract: The intended later contract is category roundtrip, but the observed failure is canonical GDTF publication during export.
 - Relevant GDTF/MVR requirement or internal Perastage contract: MVR fixture metadata plus Perastage category contract.
-- Shared root-cause group: Category propagation and fallback contract.
-- Confidence: `medium`.
-- Evidence supporting the category: Cross-platform and related to category/save/load failures.
-- Evidence still missing: Need exact expected/actual category.
-- Recommended follow-up phase and action: Phase 4B: fix category mapping across GDTF, MVR, and project save.
+- Shared root-cause group: GDTF mutation/canonical publication.
+- Confidence: `provisional`.
+- Evidence supporting the category: Both platforms fail before category comparison, so category loss is unproven for this CTest in run 29995392074.
+- Evidence still missing: Need canonicalizer errors and a rerun after export succeeds before category roundtrip can be evaluated.
+- Recommended follow-up phase and action: Phase 4A first: resolve embedded GDTF canonicalization; then Phase 4B can audit category mapping if still failing.
 
 #### `MvrTrussRoundtripStructure`
 
@@ -431,58 +431,58 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `SaveLoadRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Project save/load roundtrip assertion fails.
+- First meaningful failure per affected platform: Immediate assertion is `categoryPropagationA.has_value()`.
 - Source test file and assertion or exit point: `tests/save_load_roundtrip_test.cpp`.
-- Production components and call path under test: Project serializer -> loader -> fixture/truss/support/category state.
+- Production components and call path under test: category propagation setup -> project serializer/loader path only after categoryPropagationA exists.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^SaveLoadRoundtrip$' --output-on-failure --verbose`.
 - Primary classification: `production-defect`.
 - Fixture category: `generated`.
 - Policy layer: `perastage-extension`.
 - Intended current contract: Perastage project save/load must preserve internal scene state deterministically.
 - Relevant GDTF/MVR requirement or internal Perastage contract: Internal project persistence contract.
-- Shared root-cause group: Project persistence/category propagation.
+- Shared root-cause group: Category propagation and fallback contract.
 - Confidence: `medium`.
-- Evidence supporting the category: Cross-platform project roundtrip failure with support/category neighbors.
-- Evidence still missing: Exact field mismatch missing.
-- Recommended follow-up phase and action: Phase 4B: repair after category contract is documented.
+- Evidence supporting the category: The failure occurs before generic save/load comparison and specifically blocks on category propagation setup.
+- Evidence still missing: Need categoryPropagationA setup trace and dictionary/category fallback evidence.
+- Recommended follow-up phase and action: Phase 4B: trace category propagation before changing project persistence.
 
 #### `ProjectSupportUserDataRoundtrip`
 
 - Exact CTest name: `ProjectSupportUserDataRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Project support user data roundtrip assertion fails.
+- First meaningful failure per affected platform: Project save fails because scene MVR serialization reports `ValidateLayers entry='GeneralSceneDescription.xml': Layer UUID is malformed`.
 - Source test file and assertion or exit point: `tests/project_support_userdata_roundtrip_test.cpp`.
-- Production components and call path under test: Project serializer/loader -> Support/UserData fields.
+- Production components and call path under test: Project save -> MVR scene serialization -> ValidateLayers for GeneralSceneDescription.xml before support UserData assertion.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^ProjectSupportUserDataRoundtrip$' --output-on-failure --verbose`.
 - Primary classification: `production-defect`.
 - Fixture category: `generated`.
 - Policy layer: `perastage-extension`.
-- Intended current contract: Project persistence must preserve support user data without depending on MVR-only structures.
+- Intended current contract: Project save must serialize a scene with canonical, well-formed layer UUIDs before support user data can be roundtripped.
 - Relevant GDTF/MVR requirement or internal Perastage contract: Internal Perastage project support data contract.
-- Shared root-cause group: Project persistence/category propagation.
+- Shared root-cause group: Category propagation and fallback contract.
 - Confidence: `medium`.
-- Evidence supporting the category: Cross-platform save/load data-loss pattern.
-- Evidence still missing: Exact serialized JSON/XML diff missing.
-- Recommended follow-up phase and action: Phase 4B: fix project support preservation.
+- Evidence supporting the category: The first proven root cause is malformed layer UUID during MVR serialization, not support data loss.
+- Evidence still missing: Need the malformed layer UUID source and whether it is generated scene identity or stale fixture setup.
+- Recommended follow-up phase and action: Phase 4C: repair malformed scene/layer identity, then rerun support user-data roundtrip.
 
 #### `GdtfShareSecurity`
 
 - Exact CTest name: `GdtfShareSecurity`.
 - Affected platform or platforms: Windows.
-- First meaningful failure per affected platform: Windows-only secure-store/GDTF Share security process exits failed; not a macOS release-gate failure.
+- First meaningful failure per affected platform: Fake-backend functional sequence completes, then Windows Debug exits failed after `Detected memory leaks!`.
 - Source test file and assertion or exit point: `tests/gdtf_share_security_test.cpp`.
-- Production components and call path under test: GDTF Share security -> credential store abstraction -> platform secure storage test harness.
+- Production components and call path under test: GDTF Share fake backend security test -> Windows Debug CRT leak detection at process exit.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfShareSecurity$' --output-on-failure --verbose`.
 - Primary classification: `platform-specific-contract`.
 - Fixture category: `not-applicable`.
 - Policy layer: `platform-specific`.
-- Intended current contract: Security tests must use deterministic platform credential-store behavior and report unsupported stores as skips only by explicit contract.
+- Intended current contract: The fake-backend security behavior is observed passing; the current failure contract is Windows Debug lifecycle/leak cleanup.
 - Relevant GDTF/MVR requirement or internal Perastage contract: Internal secure-store policy; platform-specific credential APIs.
 - Shared root-cause group: Windows secure-store/debug lifecycle.
 - Confidence: `medium`.
-- Evidence supporting the category: Windows-only; macOS reduced release-gate profile passed.
-- Evidence still missing: Complete Windows segment/exit detail missing locally.
-- Recommended follow-up phase and action: Phase 4F: inspect Windows secure store availability and exit path.
+- Evidence supporting the category: Windows artifact shows the functional sequence completes and the first failing exit cause is the debug leak report.
+- Evidence still missing: Need allocation stack or ownership trace for leaked objects.
+- Recommended follow-up phase and action: Phase 4F: repair or suppress only proven test-owned Windows Debug leak after ownership trace.
 
 #### `RiderTrussDictionaryNormalization`
 
@@ -640,20 +640,20 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `Viewer2DFboCaptureDiagnostics`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Policy script reports Viewer2D FBO capture diagnostics registration/diagnostic contract failure.
+- First meaningful failure per affected platform: Policy failure reports `RenderToRGBA must record fallback usage with the FBO diagnostic reason`.
 - Source test file and assertion or exit point: `tests/check_viewer2d_fbo_capture_diagnostics.sh:112`.
-- Production components and call path under test: Viewer2D FBO capture diagnostics policy script -> CMake/test registration/source checks.
+- Production components and call path under test: Viewer2D RenderToRGBA fallback diagnostic integration -> source-pattern policy check.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^Viewer2DFboCaptureDiagnostics$' --output-on-failure --verbose`.
 - Primary classification: `test-harness-defect`.
 - Fixture category: `not-applicable`.
 - Policy layer: `not-applicable`.
-- Intended current contract: Policy checks should match current diagnostic integration points without requiring production changes.
+- Intended current contract: RenderToRGBA fallback paths should record FBO diagnostic reasons, unless the policy source pattern is stale relative to an equivalent diagnostic call.
 - Relevant GDTF/MVR requirement or internal Perastage contract: Internal diagnostic-policy test contract.
 - Shared root-cause group: Viewer2D fallback diagnostic policy.
 - Confidence: `medium`.
-- Evidence supporting the category: This is a bash policy test, not a rendering executable; failure likely reflects stale source-pattern check.
-- Evidence still missing: Exact policy stderr from run unavailable.
-- Recommended follow-up phase and action: Phase 4G: update policy only after confirming intended diagnostic contract.
+- Evidence supporting the category: The observed evidence is a source-policy failure; it does not yet prove whether production diagnostics are missing or the policy pattern is stale.
+- Evidence still missing: Need source trace from RenderToRGBA fallback paths to determine if diagnostic recording exists under a different helper.
+- Recommended follow-up phase and action: Phase 4G: trace Viewer2D fallback diagnostic call sites before changing policy or production.
 
 #### `EditableFocusUtils`
 
@@ -669,8 +669,8 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 - Intended current contract: Headless GUI tests must create/destroy wx objects deterministically and assert utility behavior independent of desktop services.
 - Relevant GDTF/MVR requirement or internal Perastage contract: Internal GUI utility contract; wx lifecycle constraints.
 - Shared root-cause group: wxWidgets lifecycle/headless focus.
-- Confidence: `medium`.
-- Evidence supporting the category: Fails on both platforms; Linux warning absent on Windows, so warning is not shared cause.
+- Confidence: `provisional`.
+- Evidence supporting the category: Fails on both platforms; Linux AT-SPI/DBus warning is non-causal because Windows fails without it, but Windows provides no differentiated assertion output.
 - Evidence still missing: Exact assertion missing; need focused local GUI environment.
 - Recommended follow-up phase and action: Phase 4F: isolate wx lifecycle from utility assertions.
 
@@ -716,20 +716,20 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `PdfTextComparison`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: PDF text comparison expected textual output differs from generated PDF extraction.
+- First meaningful failure per affected platform: PoDoFo reports `PdfErrorCode::InvalidDataType` and `Unsupported PdfContentType` while processing `translated.pdf`.
 - Source test file and assertion or exit point: `tests/pdf_text_comparison_test.cpp`.
-- Production components and call path under test: PDF exporter/text extraction comparator -> formatting/golden text assertions.
+- Production components and call path under test: PDF text extraction/comparison -> PoDoFo parser handling of translated.pdf content streams.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^PdfTextComparison$' --output-on-failure --verbose`.
 - Primary classification: `stale-expectation`.
 - Fixture category: `generated`.
 - Policy layer: `perastage-extension`.
-- Intended current contract: PDF text tests should assert stable semantic content, not brittle formatting unless formatting is the explicit contract.
+- Intended current contract: PDF comparison must first distinguish invalid/obsolete fixture content from a PoDoFo compatibility issue or production extraction defect.
 - Relevant GDTF/MVR requirement or internal Perastage contract: Internal PDF serialization/text comparison contract.
 - Shared root-cause group: PDF formatting versus brittle text expectations.
 - Confidence: `medium`.
-- Evidence supporting the category: Cross-platform text comparison failure points to deterministic expectation drift.
-- Evidence still missing: Need extracted text diff.
-- Recommended follow-up phase and action: Phase 4H: define PDF text contract before updating golden/assertions.
+- Evidence supporting the category: The first failure is a PoDoFo data-type/content-type error, so stale text expectation is only a follow-up hypothesis.
+- Evidence still missing: Need fixture validity review for translated.pdf and PoDoFo compatibility notes before changing expectations.
+- Recommended follow-up phase and action: Phase 4H: validate translated.pdf fixture and PoDoFo support path before changing golden text.
 
 #### `PdfWriterSerialization`
 
@@ -794,7 +794,7 @@ Distinct current failures classified: 29. Linux and Windows share 25 failures; W
 
 Classification counts by primary category:
 
-- `production-defect`: 11.
+- `production-defect`: 10.
 - `stale-expectation`: 11.
 - `platform-specific-contract`: 5.
 - `test-harness-defect`: 2.
@@ -815,4 +815,4 @@ Root-cause groups ordered by expected Phase 4 impact and dependency:
 8. Viewer2D fallback diagnostic policy: `Viewer2DFboCaptureDiagnostics`.
 9. 3DS axis/dimension convention: `Loader3dsNativeDimensions`.
 
-Recommended branch boundaries: keep each root-cause group in its own Phase 4 branch; do not mix MVR/GDTF strict-output fixes with rider parser expectation updates or Windows lifecycle work. Remaining uncertainties are the exact XML/text/path diffs from downloadable artifacts, Windows CRT leak-versus-assertion exits for `TrussPathEncodingRegression` and `PdfWriterSerialization`, and the normative 3DS axis convention. Safe Merge Point C decision: reached for the audit record because every current failure has explicit fields and the 29-test reconciliation is complete; this decision does not authorize Phase 4 implementation.
+Recommended branch boundaries: keep each root-cause group in its own Phase 4 branch; do not mix MVR/GDTF strict-output fixes with rider parser expectation updates or Windows lifecycle work. Remaining uncertainties are the exact XML/text/path diffs from downloadable artifacts, Windows CRT leak-versus-assertion exits for `TrussPathEncodingRegression` and `PdfWriterSerialization`, and the normative 3DS axis convention. Safe Merge Point C decision: not reached yet. The audit now reconciles the 29 entries, but several entries remain provisional until the downloadable artifact segments, Windows exit paths, and source-level diagnostic traces are attached and reviewed; this decision does not authorize Phase 4 implementation.

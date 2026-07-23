@@ -15,6 +15,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Improved MVR/GDTF compatibility, 3D picking stability, Unicode handling, crash diagnostics, and release packaging.
 - Improved Debug CI stability by rebuilding stale macOS SDK caches instead of failing on equivalent SDK aliases.
 - Improved Debug CI test reliability by making release-gate policy checks independent of hard-coded Unix paths, symbolic links, caller working directories, unresolved Python aliases, and generated-cache traversal costs, while preserving CTest result and inventory diagnostics for baseline audits.
+- Improved local Windows Debug bootstrap reliability by resolving Git Bash from Git for Windows instead of PATH launchers and by validating the MSVC Hostx64/x64 compiler banner without PowerShell stderr conversion issues.
 
 ## New features and improvements
 

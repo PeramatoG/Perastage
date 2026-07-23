@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.21)
+include("${REPO_ROOT}/cmake/PerastageGitBashResolver.cmake")
+set(ENV{PATH} "${TEST_PATH}")
+unset(BASH_EXECUTABLE CACHE)
+perastage_resolve_git_bash(_resolved FORCE_WINDOWS REQUIRED_FOR_TESTING)
