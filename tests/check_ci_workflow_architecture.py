@@ -24,21 +24,23 @@ for platform, text in sections.items():
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
-    assert 'debug-v1' in text or 'macos-26-xcode-26-debug-v1' in text, f'{platform} installed cache key must be Debug/toolchain scoped'
+    assert 'debug-v1' in text or 'debug-v2' in text or 'macos-26-xcode-26-debug-v1' in text, f'{platform} installed cache key must be Debug/toolchain scoped'
     assert ('run_and_log.py --log' in text or '--output-log' in text) and 'ctest-' in text, f'{platform} build and test logs must be captured'
 
 linux = sections['linux']
-for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'ripgrep', 'xvfb', 'locales', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xauth', 'x11-utils', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose']:
+for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'ripgrep', 'xvfb', 'locales', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xauth', 'x11-utils', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
     assert needle in linux, f'Linux Debug is missing {needle}'
+assert 'summarize_ctest_results.py' in ci, 'CI Debug must produce compact result summaries'
+assert 'LastTestsDisabled.log' in ci, 'CI Debug test-result artifacts must retain disabled-test diagnostics when present'
 assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'
 
 windows = sections['windows']
-for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'validate_cmake_toolchain.py', '--expected-c-id MSVC', '--expected-cxx-id MSVC', '--interactive-debug-mode 0', '--timeout 120', '--output-junit', 'timeout-minutes: 180']:
+for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'validate_cmake_toolchain.py', '--expected-c-id MSVC', '--expected-cxx-id MSVC', '--interactive-debug-mode 0', '--timeout 120', '--output-junit', 'timeout-minutes: 180', 'ctest-inventory-windows-debug.txt', 'ctest-windows-debug-results.json', 'ci-windows-debug-test-results']:
     assert needle in windows, f'Windows Debug environment persistence is missing {needle}'
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
 
 macos = sections['macos']
-for needle in ['macos-26-xcode-26-debug-v1', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', 'Stale macOS SDK path metadata']:
+for needle in ['debug-v2', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', '--output-junit', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
     assert needle in macos, f'macOS Debug is missing {needle}'
 
 builders = ['windows-installer.yml','linux-installer.yml','macos-installer.yml','macos-15-manual-installer.yml','arch-package.yml']

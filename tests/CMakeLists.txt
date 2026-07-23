@@ -180,6 +180,9 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_missing_ripgrep_behavior.py --bash ${BASH_EXECUTABLE})
     add_repository_policy_test(CtestFailureSummary ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_summarize_ctest_failures.py)
+    add_repository_policy_test(CtestResultSummary ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_summarize_ctest_results.py
+                               LABELS standard-strict policy ci)
     add_repository_policy_test(UnresolvedPythonInvocations ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_unresolved_python_invocations.py
                                LABELS standard-strict policy)

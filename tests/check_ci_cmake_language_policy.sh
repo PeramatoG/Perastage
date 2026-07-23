@@ -6,7 +6,9 @@ cd "$repo_root"
 
 run_test_python - <<'PY'
 from pathlib import Path
+import os
 import re
+import time
 
 root_path = Path('CMakeLists.txt')
 root = root_path.read_text()
@@ -22,13 +24,17 @@ if 'CMP0177' not in root or 'cmake_policy(SET CMP0177 NEW)' not in root:
 excluded_roots = {'.git', '.vcpkg-cache', 'vcpkg', 'build', 'out', 'third_party'}
 excluded_prefixes = ('build-', 'cmake-build-')
 
-def is_first_party_cmake(path: Path) -> bool:
-    parts = path.parts
-    if any(part in excluded_roots for part in parts):
-        return False
-    if any(part.startswith(excluded_prefixes) for part in parts):
-        return False
-    return True
+def is_excluded_dirname(name: str) -> bool:
+    return name in excluded_roots or any(name.startswith(prefix) for prefix in excluded_prefixes)
+
+def iter_first_party_cmake_lists(root: Path):
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if not is_excluded_dirname(name)]
+        current = Path(current_root)
+        if current == root:
+            continue
+        if 'CMakeLists.txt' in filenames:
+            yield current / 'CMakeLists.txt'
 
 tests_cmake = Path('tests/CMakeLists.txt')
 if tests_cmake.exists():
@@ -36,7 +42,10 @@ if tests_cmake.exists():
     if re.search(r'(?m)^\s*(project|enable_language)\s*\(', text):
         raise SystemExit('tests/CMakeLists.txt must not unconditionally call project() or enable_language().')
 
-all_cmake = [p for p in Path('.').rglob('CMakeLists.txt') if p != Path('CMakeLists.txt') and is_first_party_cmake(p)]
+scan_start = time.monotonic()
+all_cmake = list(iter_first_party_cmake_lists(Path('.')))
+scan_elapsed = time.monotonic() - scan_start
+print(f'Checked {len(all_cmake)} first-party CMakeLists.txt files in {scan_elapsed:.3f}s.')
 for path in all_cmake:
     text = path.read_text(errors='ignore')
     if re.search(r'(?m)^\s*enable_language\s*\(', text):

@@ -47,36 +47,97 @@ The configure step failed before test generation because this container does not
 4. Split `tests/CMakeLists.txt` into domain modules only after current behavior and root causes are understood.
 5. Implement functional PR and full/release CI profiles without hiding known failures.
 
-## Phase 1 CI baseline update for PR #2204
+## Completed baseline from CI run 29961799720
 
 Branch base SHA: `ec6dee42371f51dc02520e3eb9fc4bea4d0daeca`.
-Current reviewed head before this follow-up: `4732460bc10bd2e312bb2714d8a6e82f617c5a01`.
-Current final head after this follow-up: recorded in PR #2204 after the final commit for this task.
-CI Debug Tests run inspected: `29961799720` (`https://github.com/PeramatoG/Perastage/actions/runs/29961799720`).
+Reviewed head for run `29961799720`: `4732460bc10bd2e312bb2714d8a6e82f617c5a01`.
+Current follow-up head: recorded in PR #2204 after the final commit for this task.
+Workflow: `CI Debug Tests`.
+Run: `29961799720` (`https://github.com/PeramatoG/Perastage/actions/runs/29961799720`).
 
-As of the API inspection performed from this workspace on 2026-07-22, run `29961799720` had not completed. The workflow run status was `in_progress`, with `linux-debug`, `windows-debug`, and `macos-debug` also still `in_progress`; only `resolve-source` had completed successfully. Therefore no completed configure/build/CTest baseline, pass/fail/skip/not-run counts, or current failing-test list can be recorded from that run yet. This must not be represented as a test failure because the jobs had not reached a completed result.
+All three platform jobs completed dependency installation, CMake configuration, and their requested builds. Linux and Windows then failed during CTest execution. macOS passed its reduced release-gate CTest profile. The macOS job is not a full-suite platform-parity run.
 
-| Platform | Configure result | Build result | CTest result | Passed | Failed | Skipped | Not run | Current failing tests | Log or artifact reference |
-| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
-| Linux | Pending in run `29961799720` | Pending in run `29961799720` | Pending in run `29961799720` | Not available | Not available | Not available | Not available | Not available until completion | `ci-linux-debug-ctest-inventory`; `ci-linux-debug-diagnostics` on failure |
-| Windows | Pending in run `29961799720` | Pending in run `29961799720` | Pending in run `29961799720` | Not available | Not available | Not available | Not available | Not available until completion | `ci-windows-debug-ctest-inventory`; `ci-windows-debug-diagnostics` on failure |
-| macOS | Pending in run `29961799720` | Pending in run `29961799720` | Pending in run `29961799720` | Not available | Not available | Not available | Not available | Not available until completion | `ci-macos-debug-ctest-inventory`; `ci-macos-debug-diagnostics` on failure |
+| Platform | Configure result | Build result | CTest result | Total executed | Passed | Failed | Skipped | Not run | Artifact/log reference |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Linux | Passed | Passed | Failed | 158 | 132 | 25 | 1 | 0 | `ci-linux-debug-diagnostics` from run `29961799720`; `out/ci-logs/ctest-linux-debug.log`; `out/ci-logs/ctest-linux-debug.junit.xml`; `out/ci-logs/ctest-linux-debug-failures.csv`; `build/linux-debug/Testing/Temporary/LastTestsFailed.log` |
+| Windows | Passed | Passed | Failed | 158 | 128 | 30 | 0 | 0 | `ci-windows-debug-diagnostics` from run `29961799720`; `out/ci-logs/ctest-windows-debug.log`; `out/ci-logs/ctest-windows-debug.junit.xml`; `out/ci-logs/ctest-windows-debug-failures.csv`; `build-windows-debug/Testing/Temporary/LastTestsFailed.log` |
+| macOS | Passed | Passed two requested release-gate executables | Passed reduced `release-gate` label profile | 6 | 6 | 0 | 0 | Full suite not run | Successful run `29961799720`; prior workflow uploaded detailed artifacts only on failure, so no JUnit/result artifact was retained for the passing macOS job |
 
-### Focused harness validation status
+### Harness checks verified by run 29961799720
 
-- Local Linux restricted-path validation passes for `ReleaseGatePolicyPortability`.
-- Cross-runner Linux, Windows Git Bash, and macOS validation remains pending because run `29961799720` had not completed when inspected.
-- `UnresolvedPythonInvocations` passes locally and is registered for CI.
-- Windows Microsoft Store Python launcher avoidance remains pending runner confirmation; the policy test and existing `PythonResolvedInterpreterPolicy` are the focused checks intended to prove it.
-- The portability harness directly runs the release-gate scripts from the repository root and an unrelated temporary working directory with a restricted PATH.
+- Linux `ReleaseGatePolicyPortability` passed in approximately 5.6 seconds.
+- Linux `PythonResolvedInterpreterPolicy` passed.
+- Linux `UnresolvedPythonInvocations` passed.
+- Windows `PythonResolvedInterpreterPolicy` passed, confirming the resolved interpreter was used instead of the Microsoft Store launcher.
+- Windows `UnresolvedPythonInvocations` passed.
+- macOS six release-gate tests passed.
 
-### Diagnostics baseline
+### Confirmed harness defect from run 29961799720
 
-- Linux CTest diagnostics are configured to preserve JUnit output, the full CTest log, `LastTestsFailed.log`, and the concise failure CSV in `out/ci-logs` and the build `Testing/Temporary` tree.
-- Windows CTest diagnostics are configured to preserve JUnit output, the full CTest log, `LastTestsFailed.log`, and the concise failure CSV in `out/ci-logs` and the build `Testing/Temporary` tree.
-- macOS now preserves CTest JSON inventory plus both the wrapper log and CTest `--output-log` file, and it writes JUnit output for release-gate tests so the same failure-summary path can include structured test results.
-- Linux, Windows, and macOS now generate `ctest --show-only=json-v1` inventory files under `out/ci-logs` after a successful configure/build and before running tests. These generated inventory files are uploaded as dedicated CI diagnostic artifacts and are not committed to the repository.
+| Test | Platform | First meaningful failure line | Evidence | Remediation |
+| --- | --- | --- | --- | --- |
+| `ReleaseGatePolicyPortability` | Windows Git Bash | `ReleaseGatePolicyPortability ...***Timeout 120.00 sec` after completing `check_windows_ninja_x64_policy.sh` and before `check_ci_cmake_language_policy.sh` completed | `ci-windows-debug-diagnostics`, `out/ci-logs/ctest-windows-debug.log`, `build-windows-debug/Testing/Temporary/LastTestsFailed.log` | The likely slow path was verified locally as the CMake language policy's unpruned `Path('.').rglob('CMakeLists.txt')` traversal. The policy now prunes generated/vendor directory names before descent and the portability harness prints low-noise per-child timings. |
 
-### Baseline boundary
+### Common Linux and Windows unclassified domain failures
 
-This follow-up remains at Safe Merge Point A until a completed CI run confirms the focused harness checks on all three platforms. No production code, product assertions, golden outputs, GDTF/MVR behavior, or rider expectations were changed.
+These failures are current baseline failures only. They are intentionally not classified as production defects, stale expectations, or invalid fixtures until the next domain-specific audit phase traces each contract.
+
+| Test | First meaningful failure line | Reproduction command | Artifact/log reference |
+| --- | --- | --- | --- |
+| `Viewer2DFboCaptureDiagnostics` | `Viewer2DFboCaptureDiagnostics ...***Failed` | `ctest --test-dir <build-dir> -R '^Viewer2DFboCaptureDiagnostics$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `EditableFocusUtils` | `EditableFocusUtils ...***Failed`; Linux output also included an AT-SPI/DBus warning before the failure | `ctest --test-dir <build-dir> -R '^EditableFocusUtils$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `GdtfReadServices` | `GdtfReadServices ...***Failed` | `ctest --test-dir <build-dir> -R '^GdtfReadServices$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `GdtfFixtureCategoryFallback` | `GdtfFixtureCategoryFallback ...***Failed` | `ctest --test-dir <build-dir> -R '^GdtfFixtureCategoryFallback$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `LayoutTemplatePackageService` | `LayoutTemplatePackageService ...***Failed` | `ctest --test-dir <build-dir> -R '^LayoutTemplatePackageService$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `PdfTextComparison` | `PdfTextComparison ...***Failed` | `ctest --test-dir <build-dir> -R '^PdfTextComparison$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `SaveLoadRoundtrip` | `SaveLoadRoundtrip ...***Failed` | `ctest --test-dir <build-dir> -R '^SaveLoadRoundtrip$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `ProjectSupportUserDataRoundtrip` | `ProjectSupportUserDataRoundtrip ...***Failed` | `ctest --test-dir <build-dir> -R '^ProjectSupportUserDataRoundtrip$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `TrussPathEncodingRegression` | `TrussPathEncodingRegression ...***Failed` | `ctest --test-dir <build-dir> -R '^TrussPathEncodingRegression$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderTrussDictionaryNormalization` | `RiderTrussDictionaryNormalization ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderTrussDictionaryNormalization$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `MvrSupportUserDataRoundtrip` | `MvrSupportUserDataRoundtrip ...***Failed` | `ctest --test-dir <build-dir> -R '^MvrSupportUserDataRoundtrip$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `MvrFixtureCategoryRoundtrip` | `MvrFixtureCategoryRoundtrip ...***Failed` | `ctest --test-dir <build-dir> -R '^MvrFixtureCategoryRoundtrip$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `MvrTrussRoundtripStructure` | `MvrTrussRoundtripStructure ...***Failed` | `ctest --test-dir <build-dir> -R '^MvrTrussRoundtripStructure$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `MvrExporterCompliance` | `MvrExporterCompliance ...***Failed` | `ctest --test-dir <build-dir> -R '^MvrExporterCompliance$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderImportLinearOrder` | `RiderImportLinearOrder ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderImportLinearOrder$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderFilterPreview` | `RiderFilterPreview ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderFilterPreview$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderComments` | `RiderComments ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderComments$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderLedScreenObject` | `RiderLedScreenObject ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderLedScreenObject$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderHoistImport` | `RiderHoistImport ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderHoistImport$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderLxSidesImport` | `RiderLxSidesImport ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderLxSidesImport$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `RiderPipeImport` | `RiderPipeImport ...***Failed` | `ctest --test-dir <build-dir> -R '^RiderPipeImport$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `Loader3dsNativeDimensions` | `Loader3dsNativeDimensions ...***Failed` | `ctest --test-dir <build-dir> -R '^Loader3dsNativeDimensions$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `GdtfLoaderSetPropertiesMutation` | `GdtfLoaderSetPropertiesMutation ...***Failed` | `ctest --test-dir <build-dir> -R '^GdtfLoaderSetPropertiesMutation$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `SymbolFixtureApplierGdtfMutation` | `SymbolFixtureApplierGdtfMutation ...***Failed` | `ctest --test-dir <build-dir> -R '^SymbolFixtureApplierGdtfMutation$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+| `MvrPatchedGdtfExportMutation` | `MvrPatchedGdtfExportMutation ...***Failed` | `ctest --test-dir <build-dir> -R '^MvrPatchedGdtfExportMutation$' --output-on-failure --verbose` | Linux/Windows CTest log and failure CSV from run `29961799720` |
+
+### Additional Windows-only failures
+
+| Test | First meaningful failure line | Reproduction command | Artifact/log reference |
+| --- | --- | --- | --- |
+| `ReleaseGatePolicyPortability` | `ReleaseGatePolicyPortability ...***Timeout 120.00 sec` | `ctest --test-dir build-windows-debug -R '^ReleaseGatePolicyPortability$' --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120` | `ci-windows-debug-diagnostics` from run `29961799720` |
+| `PdfWriterSerialization` | `PdfWriterSerialization ...***Failed` | `ctest --test-dir build-windows-debug -R '^PdfWriterSerialization$' --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120` | `ci-windows-debug-diagnostics` from run `29961799720` |
+| `GdtfFixtureInsertionPreparation` | `GdtfFixtureInsertionPreparation ...***Failed` | `ctest --test-dir build-windows-debug -R '^GdtfFixtureInsertionPreparation$' --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120` | `ci-windows-debug-diagnostics` from run `29961799720` |
+| `LayoutImageResourceRegistry` | `LayoutImageResourceRegistry ...***Failed` | `ctest --test-dir build-windows-debug -R '^LayoutImageResourceRegistry$' --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120` | `ci-windows-debug-diagnostics` from run `29961799720` |
+| `GdtfShareSecurity` | `GdtfShareSecurity ...***Failed` | `ctest --test-dir build-windows-debug -R '^GdtfShareSecurity$' --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120` | `ci-windows-debug-diagnostics` from run `29961799720` |
+
+### EditableFocusUtils Phase 2 note
+
+`EditableFocusUtils` remains an unclassified GUI/headless failure. Linux output includes an AT-SPI/DBus warning, but the available baseline does not prove whether that warning is causal or merely environmental noise before a separate wx lifecycle or focus assertion failure. Windows reports the test as failed without a differentiated first assertion in the baseline summary. The focused reproduction command is `ctest --test-dir <build-dir> -R '^EditableFocusUtils$' --output-on-failure --verbose`. No stderr suppression, skip, assertion change, or product-code change was made in this task.
+
+### Result and inventory artifact contract after this follow-up
+
+Each platform now writes both human-readable and machine-readable inventory/results under `out/ci-logs`:
+
+- `ctest-inventory-<platform>-debug.txt` from `ctest -N -V`.
+- `ctest-inventory-<platform>-debug.json` from `ctest --show-only=json-v1`.
+- `ctest-<platform>-debug.junit.xml`.
+- `ctest-<platform>-debug.log` and, for macOS, the wrapper/full CTest logs.
+- `ctest-<platform>-debug-failures.csv`.
+- `ctest-<platform>-debug-results.json` containing total, passed, failed, skipped, disabled/not-run, selected labels/profile, and tested SHA.
+- `LastTestsFailed.log` and `LastTestsDisabled.log` when CTest produces them.
+
+The small `ci-<platform>-debug-test-results` artifacts are uploaded with `if: always()`. The existing heavy `ci-<platform>-debug-diagnostics` artifacts remain failure-only. Result collection preserves CTest exit codes and does not hide failing suites.
+
+### Safe merge status
+
+Safe Merge Point A is reached for the local harness repair and baseline documentation. Safe Merge Point B requires the next CI run for this follow-up commit to confirm that `ReleaseGatePolicyPortability` passes on Windows Git Bash as well as Linux/macOS and that all per-platform result artifacts are present.

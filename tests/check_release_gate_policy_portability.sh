@@ -59,8 +59,15 @@ scripts=(
 )
 
 for script in "${scripts[@]}"; do
+  script_name="$(basename "$script")"
+  start_seconds="$SECONDS"
   (cd "$repo_root" && PATH="$tmp_bin" PERASTAGE_TEST_PYTHON="$python_path" "$bash_path" "$script")
+  root_elapsed=$((SECONDS - start_seconds))
+  echo "${script_name} from repository root completed in ${root_elapsed}s."
+  start_seconds="$SECONDS"
   (cd "$tmp_root" && PATH="$tmp_bin" PERASTAGE_TEST_PYTHON="$python_path" "$bash_path" "$script")
+  unrelated_elapsed=$((SECONDS - start_seconds))
+  echo "${script_name} from unrelated working directory completed in ${unrelated_elapsed}s."
 done
 
 if PATH="$tmp_bin" command -v rg >/dev/null 2>&1; then
