@@ -839,3 +839,33 @@ Affected test classification:
 Focused command used in this environment: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --target gdtf_canonicalizer_test gdtfloader_set_properties_test symbol_fixture_applier_gdtf_test mvr_patched_gdtf_export_test -j2`. Result: configure failed before compilation because wxWidgets development files are not installed in the container (`Could NOT find wxWidgets`). No test result was hidden, skipped, disabled, or converted to continue-on-error.
 
 D1 status: not fully reached in this container because cross-platform GitHub Actions evidence and local wxWidgets-backed execution are unavailable here. The source repair keeps input tolerance unchanged, corrects the strict fixtures, adds mutation diagnostics for the viewer3d mutation path, and replaces direct GDTF rewrite with sibling temporary archive publication before atomic replacement.
+
+### Follow-up after CI run 30027673580
+
+Authoritative validation run for reviewed head `2693f9058e4a2e68f79b39e41121ba01dacf301f`: `30027673580`.
+
+Platform evidence from that run:
+
+- Linux Debug Tests configured and built successfully; result totals were 161 total, 136 passed, 24 failed, and 1 skipped.
+- Windows Debug Tests configured and built successfully; result totals were 163 total, 135 passed, and 28 failed.
+- macOS configured, built, and passed the current reduced release-gate profile with 6 passed and 0 failed. This is not full macOS test parity.
+- `GitBashResolverContract` passed on Linux and Windows.
+- `PowerShellNativeCaptureWindowsPowerShell` and `PowerShellNativeCapturePowerShell7` passed on Windows.
+- `GdtfCanonicalizerExportRules` and `GdtfTestFixtureBuilder` passed on Linux and Windows.
+- `MvrPatchedGdtfExportMutation` passed on Linux and Windows after the strict fixture repair.
+- `GdtfLoaderSetPropertiesMutation` still failed only on the stale lexical float assertion for `PowerConsumption Value="678.900"`; mutation success, changed status, empty errors, and atomic replacement were already reached.
+- `SymbolFixtureApplierGdtfMutation` still failed at `ApplySymbolsToFixtureGdtf(...)` because the test used an arbitrary absolute temporary file with no project base path while requesting a scene-copy-only mutation.
+
+Safe Merge Point C is verified for classification and harness purposes: the Bash resolver and PowerShell native-capture infrastructure is stable across the covered platforms, Linux/Windows configure and build are functional, the macOS reduced release-gate profile is functional, and no new harness regression is visible. Provisional domain classifications remain refinable inside their focused Phase 4 repair branches.
+
+Phase 4A D1 follow-up classifications:
+
+| Test | Before run `30027673580` | Evidence from run `30027673580` | Follow-up repair | Expected D1 status |
+|---|---|---|---|---|
+| `GdtfLoaderSetPropertiesMutation` | Mixed fixture/production-publication candidate. | Publication succeeded; only exact trailing-zero float spelling failed. | Compare GDTF Float values numerically with strict token validation, preserve sentinel resource bytes, validate final archive, and prove injected publication failure preserves original bytes. | Should pass for standards-based semantic reasons. |
+| `SymbolFixtureApplierGdtfMutation` | Invalid/obsolete fixture candidate. | Strict fixture was repaired, but setup violated source ownership by using an external absolute path with no project base. | Use a temporary project base and project-relative source so production resolves or creates a writable project-owned scene copy; emit the service diagnostic before assertion. | Should pass without weakening external/library ownership. |
+| `MvrPatchedGdtfExportMutation` | Invalid/obsolete fixture. | Passed on Linux and Windows. | No additional MVR/export production change in this follow-up. | Remains passing. |
+
+Publication failure-preservation evidence added in source: `GdtfLoaderSetPropertiesMutation` now injects a deterministic failure before atomic replacement, asserts `success == false`, checks that structured errors name `BeforeAtomicReplace`, verifies the original archive bytes are unchanged, and verifies no unique sibling mutation temporary archive remains. The success path also verifies unrelated resource bytes survive mutation and the final archive validates through the canonicalizer export rules.
+
+Schema cross-check: the shared strict fixture shape was compared against the fetched `mvrdevelopment/tools:gdtf.xsd` artifact with Python `lxml.etree.XMLSchema`; after adding the required `ChannelFunction Default="0/1"` attribute, the generated minimal fixture structure validates against that XSD. This check validates the standard-strict default fixture shape only; the category-signal helper remains a test extension helper and is not used as the baseline strict fixture.

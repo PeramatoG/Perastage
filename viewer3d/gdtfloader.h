@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -110,6 +111,11 @@ struct GdtfDocumentMutationResult {
     bool atomicReplacementCompleted = false;
 };
 
+
+struct GdtfDocumentMutationPublicationHooks {
+    std::function<bool(const std::string &stage, std::string &error)> beforeStage;
+};
+
 struct GdtfDocumentMutationRequest {
     bool descriptionSet = false;
     std::string description;
@@ -121,9 +127,11 @@ struct GdtfDocumentMutationRequest {
 };
 
 // Updates document-level FixtureType and physical-property values with structured diagnostics.
-GdtfDocumentMutationResult MutateGdtfDocumentWithResult(const std::string& gdtfPath,
-                                                        const GdtfDocumentMutationRequest& request,
-                                                        const std::string& modifiedByProgram);
+GdtfDocumentMutationResult MutateGdtfDocumentWithResult(
+    const std::string& gdtfPath,
+    const GdtfDocumentMutationRequest& request,
+    const std::string& modifiedByProgram,
+    const GdtfDocumentMutationPublicationHooks* publicationHooks = nullptr);
 
 // Updates document-level FixtureType and physical-property values in one archive transaction.
 bool MutateGdtfDocument(const std::string& gdtfPath,

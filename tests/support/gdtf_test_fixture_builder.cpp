@@ -99,6 +99,12 @@ FixtureBuilder &FixtureBuilder::WithFixtureCategorySignals() {
   return *this;
 }
 
+// Adds an extra portable archive entry that must be preserved by rewrite tests.
+FixtureBuilder &FixtureBuilder::WithArchiveEntry(std::string path, std::string bytes) {
+  archiveEntries.emplace_back(std::move(path), std::move(bytes));
+  return *this;
+}
+
 // Builds the description.xml payload for the fixture.
 std::string FixtureBuilder::BuildDescriptionXml() const {
   const std::string category = categorySignals ? " FixtureTypeCategory=\"Conventional\"" : "";
@@ -114,14 +120,17 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "    <Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>\n"
          "    <DMXModes><DMXMode Name=\"" +
          modeName + "\" Geometry=\"" + modeGeometry +
-         "\"><DMXChannels><DMXChannel Offset=\"1\" Geometry=\"Root\"><LogicalChannel Attribute=\"Dimmer\"><ChannelFunction Name=\"Dimmer\" Attribute=\"Dimmer\" DMXFrom=\"0/1\"/></LogicalChannel></DMXChannel></DMXChannels></DMXMode></DMXModes>\n"
+         "\"><DMXChannels><DMXChannel Offset=\"1\" Geometry=\"Root\"><LogicalChannel Attribute=\"Dimmer\"><ChannelFunction Name=\"Dimmer\" Attribute=\"Dimmer\" Default=\"0/1\" DMXFrom=\"0/1\"/></LogicalChannel></DMXChannel></DMXChannels></DMXMode></DMXModes>\n"
          "  </FixtureType>\n"
          "</GDTF>\n";
 }
 
 // Writes the fixture as a deterministic GDTF ZIP archive.
 void FixtureBuilder::WriteArchive(const std::filesystem::path &archivePath) const {
-  WriteArchiveEntries(archivePath, {{"description.xml", BuildDescriptionXml()}});
+  std::vector<ArchiveEntry> entries = {{"description.xml", BuildDescriptionXml()}};
+  for (const auto &entry : archiveEntries)
+    entries.push_back({entry.first, entry.second});
+  WriteArchiveEntries(archivePath, std::move(entries));
 }
 
 // Writes an archive with intentionally missing mandatory sections.
