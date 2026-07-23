@@ -44,6 +44,8 @@ Use the setup script as a validator/build helper, not as an installer:
 ```powershell
 cd C:\path\to\Perastage
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
+# Optional explicit Git Bash override:
+.\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild -BashExecutable "C:\Program Files\Git\bin\bash.exe"
 ```
 
 By default, `setup_windows.ps1` validates `C:\vcpkg`, `vcpkg.exe`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
@@ -55,7 +57,7 @@ If an older build was configured against wxWidgets without `secretstore`, manife
 
 `setup_windows.ps1` is the canonical local Windows x64 Ninja entry point. A generic Visual Studio Developer PowerShell can expose Hostx86/x86 tools depending on how it was launched, so the script always imports `VsDevCmd.bat -host_arch=x64 -arch=x64` itself and verifies that `cl.exe`, `link.exe`, `VSCMD_ARG_HOST_ARCH`, and `VSCMD_ARG_TGT_ARCH` all describe Hostx64/x64 before CMake configure starts.
 
-Git Bash does not need to be first on `PATH`. The setup script resolves Git for Windows, derives `bash.exe` from that installation, rejects WSL/System32 and WindowsApps launchers, runs a non-login shell probe, and passes the resolved path to CMake as `-DBASH_EXECUTABLE=...`. If Git for Windows is missing or only a launcher is available, the expected failure is:
+Git Bash does not need to be first on `PATH`. The setup script accepts an optional explicit override through `-BashExecutable` or the `BASH_EXECUTABLE` environment variable; a valid explicit Git Bash wins over automatic discovery. Without an override, the script resolves Git for Windows, derives `bash.exe` from that installation, rejects WSL/System32 and WindowsApps launchers, runs a non-login shell probe, and passes the resolved path to CMake as `-DBASH_EXECUTABLE=...`. If Git for Windows is missing or only a launcher is available, the expected failure is:
 
 ```text
 Git Bash could not be resolved. Install Git for Windows or pass -DBASH_EXECUTABLE=<Git for Windows bash.exe>; WSL and WindowsApps bash launchers are not supported.

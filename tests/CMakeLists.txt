@@ -167,7 +167,7 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_unresolved_python_invocations.py
                                LABELS standard-strict policy)
     add_repository_policy_test(GitBashResolverContract ${CMAKE_COMMAND}
-                               ARGS -DREPO_ROOT=${CMAKE_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_git_bash_resolver.cmake
+                               ARGS -DREPO_ROOT=${CMAKE_SOURCE_DIR} -DBASH_EXECUTABLE=${BASH_EXECUTABLE} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_git_bash_resolver.cmake
                                LABELS standard-strict policy windows)
     find_program(PERASTAGE_POWERSHELL_51 powershell.exe)
     if(PERASTAGE_POWERSHELL_51)

@@ -33,9 +33,11 @@ function Invoke-PerastageNativeCommandCapture {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $startInfo
     [void]$process.Start()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
     $process.WaitForExit()
+    $stdout = $stdoutTask.Result
+    $stderr = $stderrTask.Result
 
     return [pscustomobject]@{
         StdOut = $stdout

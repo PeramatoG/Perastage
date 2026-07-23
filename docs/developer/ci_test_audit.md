@@ -235,13 +235,16 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 `ReleaseGatePolicyPortability` is recorded separately as fixed: primary classification `test-harness-defect`, fixed by PR #2204, absent from the current Windows failure set, and verified passing on Linux, Windows, and macOS in run `29995392074`. It is not counted among the 29 current domain failures.
 
+Current validation follow-up: run `30010572238` is retained as a blocking Phase 2/3 infrastructure failure because macOS failed during configure before CTest inventory, build, or tests when non-Windows Bash discovery was blocked by an empty `find_program` result variable. This resolver defect is addressed by the follow-up bootstrap commit and must be verified by a later completed CI run before Safe Merge Point C can be declared.
+
+
 ### Phase 3 classification entries
 
 #### `GdtfReadServices`
 
 - Exact CTest name: `GdtfReadServices`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Linux: TestUnicodeZipFilenameCompatibility assertion expected !read.Success() but tolerant ZIP read succeeds; Windows: earlier inaccessible Unicode path read.Success() false.
+- First meaningful failure per affected platform: Linux: `gdtf_read_services_test.cpp:492 ... Assertion '!read.Success()' failed.` Windows: `Assertion failed: read.Success(), ... gdtf_read_services_test.cpp, line 402`.
 - Source test file and assertion or exit point: `tests/gdtf_read_services_test.cpp:402,492`.
 - Production components and call path under test: gdtf read services -> wxZipInputStream/std::filesystem path conversion -> structured diagnostics.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfReadServices$' --output-on-failure --verbose`.
@@ -260,7 +263,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `GdtfFixtureCategoryFallback`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Generated fixture category inference assertion differs from current fallback result.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion ... inferred.category == testCase.expected ... line 177`.
 - Source test file and assertion or exit point: `tests/gdtf_fixture_category_test.cpp:177`.
 - Production components and call path under test: fixture category parser -> GDTF metadata/category inference -> dictionary fallback.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfFixtureCategoryFallback$' --output-on-failure --verbose`.
@@ -279,7 +282,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `GdtfFixtureInsertionPreparation`.
 - Affected platform or platforms: Windows.
-- First meaningful failure per affected platform: Windows-only failure while preparing insertion diagnostics for GDTF fixture path/archive.
+- First meaningful failure per affected platform: Windows: `error reading zip local header`; `Assertion failed: preparation.success ... line 211`, followed by CRT leak output.
 - Source test file and assertion or exit point: `tests/gdtf_fixture_insertion_preparation_test.cpp:61`.
 - Production components and call path under test: GUI insertion preparation service -> GDTF metadata read -> diagnostics collection.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfFixtureInsertionPreparation$' --output-on-failure --verbose`.
@@ -298,7 +301,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `GdtfLoaderSetPropertiesMutation`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Both platforms fail at the `SetGdtfProperties(...)` call before a later publication/roundtrip assertion can prove the exact writer defect.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion SetGdtfProperties(gdtfPath, 12.345f, 678.9f, "Perastage Tests") ... line 69`. The failure occurs at the mutation call before a later output assertion.
 - Source test file and assertion or exit point: `tests/gdtfloader_set_properties_test.cpp`.
 - Production components and call path under test: GDTF loader/editor mutation -> canonicalizer -> archive writer.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfLoaderSetPropertiesMutation$' --output-on-failure --verbose`.
@@ -317,7 +320,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `SymbolFixtureApplierGdtfMutation`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Symbol fixture applier GDTF mutation output assertion fails.
+- First meaningful failure per affected platform: Linux: `Assertion symbol_preview::ApplySymbolsToFixtureGdtf(...) ... line 162`. Windows: same assertion at line 163.
 - Source test file and assertion or exit point: `tests/symbol_fixture_applier_gdtf_test.cpp`.
 - Production components and call path under test: symbol fixture applier -> GDTF apply adapter -> archive mutation/writer.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^SymbolFixtureApplierGdtfMutation$' --output-on-failure --verbose`.
@@ -336,7 +339,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrPatchedGdtfExportMutation`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Exporter fails during `CanonicalizeGdtf` for the generated/patched truss GDTF.
+- First meaningful failure per affected platform: Linux/Windows: `MVR export failed during CanonicalizeGdtf entry='Perastage_QA@Truss_QA_Model@Perastage.gdtf' ... canonicalizer reported errors`; final assertion at line 125.
 - Source test file and assertion or exit point: `tests/mvr_patched_gdtf_export_test.cpp`.
 - Production components and call path under test: MVR exporter -> patched embedded GDTF writer -> archive validation.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrPatchedGdtfExportMutation$' --output-on-failure --verbose`.
@@ -355,7 +358,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrSupportUserDataRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Exporter reports `MVR export failed during CanonicalizeGdtf ... canonicalizer reported errors`; the test fails before the intended support user-data roundtrip assertion is reached.
+- First meaningful failure per affected platform: Linux/Windows: `MVR export failed during CanonicalizeGdtf entry='Unknown@fixture@Perastage.gdtf' ... canonicalizer reported errors`; final assertion: `exporter.ExportToFile(...) ... line 176`. The intended UserData roundtrip assertion is not reached.
 - Source test file and assertion or exit point: `tests/mvr_support_userdata_roundtrip_test.cpp`.
 - Production components and call path under test: MVR exporter -> embedded GDTF canonicalizer -> roundtrip test setup before UserData assertion.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrSupportUserDataRoundtrip$' --output-on-failure --verbose`.
@@ -374,7 +377,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrFixtureCategoryRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Exporter reports `MVR export failed during CanonicalizeGdtf ... canonicalizer reported errors`; the test fails before the intended fixture-category roundtrip assertion is reached.
+- First meaningful failure per affected platform: Linux/Windows: `MVR export failed during CanonicalizeGdtf entry='Unknown@fixture@Perastage.gdtf' ... canonicalizer reported errors`; final assertion at line 147. The intended category roundtrip assertion is not reached.
 - Source test file and assertion or exit point: `tests/mvr_fixture_category_roundtrip_test.cpp`.
 - Production components and call path under test: fixture model -> MVR exporter -> embedded GDTF canonicalizer before category mapping assertion.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrFixtureCategoryRoundtrip$' --output-on-failure --verbose`.
@@ -393,7 +396,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrTrussRoundtripStructure`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: MVR truss hierarchy/reference assertion fails.
+- First meaningful failure per affected platform: Linux: `FindLayerChildList ... Assertion 'uuid != nullptr' failed ... line 147`. Windows: `Assertion failed: uuid != nullptr ... line 147`.
 - Source test file and assertion or exit point: `tests/mvr_truss_roundtrip_structure_test.cpp`.
 - Production components and call path under test: truss model -> MVR GeneralSceneDescription hierarchy -> importer.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrTrussRoundtripStructure$' --output-on-failure --verbose`.
@@ -412,7 +415,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `MvrExporterCompliance`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: MVR compliance assertion fails for exported scene/archive.
+- First meaningful failure per affected platform: Linux: `MVR export failed during CanonicalizeGdtf entry='Unknown@Same@Perastage.gdtf' ... canonicalizer reported errors`. Windows: `MVR export failed during CanonicalizeGdtf entry='Unknown@caseonly@Perastage.gdtf' ... canonicalizer reported errors`; final assertion at line 521.
 - Source test file and assertion or exit point: `tests/mvr_exporter_compliance_test.cpp`.
 - Production components and call path under test: MVR exporter -> UUID/scene identity/archive compliance checks.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrExporterCompliance$' --output-on-failure --verbose`.
@@ -431,7 +434,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `SaveLoadRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Immediate assertion is `categoryPropagationA.has_value()`.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion ... categoryPropagationA.has_value() ... line 98`.
 - Source test file and assertion or exit point: `tests/save_load_roundtrip_test.cpp`.
 - Production components and call path under test: category propagation setup -> project serializer/loader path only after categoryPropagationA exists.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^SaveLoadRoundtrip$' --output-on-failure --verbose`.
@@ -450,7 +453,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `ProjectSupportUserDataRoundtrip`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Project save fails because scene MVR serialization reports `ValidateLayers entry='GeneralSceneDescription.xml': Layer UUID is malformed`.
+- First meaningful failure per affected platform: Linux/Windows first production diagnostic: `MVR export failed during ValidateLayers entry='GeneralSceneDescription.xml': Layer UUID is malformed`; final assertion: `cfg.SaveProject(projectPath.string()) ... line 102`.
 - Source test file and assertion or exit point: `tests/project_support_userdata_roundtrip_test.cpp`.
 - Production components and call path under test: Project save -> MVR scene serialization -> ValidateLayers for GeneralSceneDescription.xml before support UserData assertion.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^ProjectSupportUserDataRoundtrip$' --output-on-failure --verbose`.
@@ -469,7 +472,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `GdtfShareSecurity`.
 - Affected platform or platforms: Windows.
-- First meaningful failure per affected platform: Fake-backend functional sequence completes, then Windows Debug exits failed after `Detected memory leaks!`.
+- First meaningful failure per affected platform: Windows fake-backend save, clear, unavailable-store, and migration operations log success; remaining output begins with `Detected memory leaks!`.
 - Source test file and assertion or exit point: `tests/gdtf_share_security_test.cpp`.
 - Production components and call path under test: GDTF Share fake backend security test -> Windows Debug CRT leak detection at process exit.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfShareSecurity$' --output-on-failure --verbose`.
@@ -488,7 +491,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderTrussDictionaryNormalization`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for truss dictionary normalization under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion '!truss.symbolFile.empty()' failed ... line 92`.
 - Source test file and assertion or exit point: `tests/rider_truss_dictionary_normalization_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderTrussDictionaryNormalization$' --output-on-failure --verbose`.
@@ -507,7 +510,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderImportLinearOrder`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for linear object ordering under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion std::abs(lx1Fixtures[i]->transform.o[1] - expectedYOffsets[i]) < 1e-3f ... line 51`.
 - Source test file and assertion or exit point: `tests/rider_import_linear_order_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderImportLinearOrder$' --output-on-failure --verbose`.
@@ -526,7 +529,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderFilterPreview`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for filter preview extraction under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Unexpected filtered preview output.` The retained expected/actual text differs primarily in blank-line structure.
 - Source test file and assertion or exit point: `tests/rider_filter_preview_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderFilterPreview$' --output-on-failure --verbose`.
@@ -545,7 +548,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderComments`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for comment preservation/filtering under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion preview == expectedPreview ... line 30`.
 - Source test file and assertion or exit point: `tests/rider_comments_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderComments$' --output-on-failure --verbose`.
@@ -564,7 +567,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderLedScreenObject`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for LED screen object placement under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion std::fabs(screenScale.u[0] - (8.0f / 0.3f)) < kTolerance ... line 41`.
 - Source test file and assertion or exit point: `tests/rider_led_screen_object_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderLedScreenObject$' --output-on-failure --verbose`.
@@ -583,7 +586,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderHoistImport`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for hoist import placement under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion countByPosition["SIDEFILL"] == 2 ... line 55`.
 - Source test file and assertion or exit point: `tests/rider_hoist_import_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderHoistImport$' --output-on-failure --verbose`.
@@ -602,7 +605,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderLxSidesImport`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for LX side import under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion NearlyEqual(truss.transform.o[2], 5000.0f) ... line 46`.
 - Source test file and assertion or exit point: `tests/rider_lx_sides_import_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderLxSidesImport$' --output-on-failure --verbose`.
@@ -621,7 +624,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `RiderPipeImport`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Rider importer assertion fails for pipe import under current parser output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion lx1Count == 1 ... line 91`.
 - Source test file and assertion or exit point: `tests/rider_pipe_import_test.cpp`.
 - Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderPipeImport$' --output-on-failure --verbose`.
@@ -640,7 +643,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `Viewer2DFboCaptureDiagnostics`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Policy failure reports `RenderToRGBA must record fallback usage with the FBO diagnostic reason`.
+- First meaningful failure per affected platform: Linux/Windows: `RenderToRGBA must record fallback usage with the FBO diagnostic reason`.
 - Source test file and assertion or exit point: `tests/check_viewer2d_fbo_capture_diagnostics.sh:112`.
 - Production components and call path under test: Viewer2D RenderToRGBA fallback diagnostic integration -> source-pattern policy check.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^Viewer2DFboCaptureDiagnostics$' --output-on-failure --verbose`.
@@ -659,7 +662,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `EditableFocusUtils`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Editable focus utility assertion fails; Linux AT-SPI/DBus warning is non-causal noise.
+- First meaningful failure per affected platform: Linux system-out includes `AT-SPI: Error retrieving accessibility bus address ... org.a11y.Bus ...`; Windows system-out is empty. No differentiated assertion is retained in the JUnit evidence.
 - Source test file and assertion or exit point: `tests/editable_focus_utils_test.cpp`.
 - Production components and call path under test: GUI editable-focus utility -> wxWidgets focus/window lifecycle.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^EditableFocusUtils$' --output-on-failure --verbose`.
@@ -678,7 +681,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `LayoutTemplatePackageService`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Portable layout package import/export validation assertion fails.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion ... imageEntryCount == 1 ... line 141`.
 - Source test file and assertion or exit point: `tests/layout_template_package_service_test.cpp:107`.
 - Production components and call path under test: LayoutTemplatePackageService -> image registry -> zip/json portable paths.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^LayoutTemplatePackageService$' --output-on-failure --verbose`.
@@ -697,7 +700,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `LayoutImageResourceRegistry`.
 - Affected platform or platforms: Windows.
-- First meaningful failure per affected platform: Windows-only layout image resource registry assertion fails.
+- First meaningful failure per affected platform: Windows: `Assertion failed: entries.find(storedFirstResourcePath) != entries.end() ... line 132`, followed by CRT leak output.
 - Source test file and assertion or exit point: `tests/layout_image_resource_registry_test.cpp:86`.
 - Production components and call path under test: LayoutImageResourceRegistry singleton -> path normalization/dedup usage counts.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^LayoutImageResourceRegistry$' --output-on-failure --verbose`.
@@ -716,7 +719,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `PdfTextComparison`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: PoDoFo reports `PdfErrorCode::InvalidDataType` and `Unsupported PdfContentType` while processing `translated.pdf`.
+- First meaningful failure per affected platform: Linux: `translated.pdf` expected `Foo Bar`, actual `FooBar`. Windows first reports `PdfErrorCode::InvalidDataType` and `Unsupported PdfContentType`, then expected `Foo Bar`, actual empty.
 - Source test file and assertion or exit point: `tests/pdf_text_comparison_test.cpp`.
 - Production components and call path under test: PDF text extraction/comparison -> PoDoFo parser handling of translated.pdf content streams.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^PdfTextComparison$' --output-on-failure --verbose`.
@@ -735,7 +738,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `PdfWriterSerialization`.
 - Affected platform or platforms: Windows.
-- First meaningful failure per affected platform: Windows-only pdf writer executable exits failed with little CTest output.
+- First meaningful failure per affected platform: Windows: JUnit system-out is empty; no retained assertion or diagnostic identifies the cause.
 - Source test file and assertion or exit point: `tests/pdf_writer_test.cpp`.
 - Production components and call path under test: PDF writer serialization -> file output/runtime cleanup.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^PdfWriterSerialization$' --output-on-failure --verbose`.
@@ -754,7 +757,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `TrussPathEncodingRegression`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: Linux: ProjectUtils::LoadLastProjectPath equality assertion; Windows: invalid UTF-8/debug leak output may be exit cause.
+- First meaningful failure per affected platform: Linux: `Assertion 'ProjectUtils::LoadLastProjectPath() == expectedPath' failed ... line 120`. Windows: no assertion in JUnit; output contains invalid UTF-8-related allocations and `Detected memory leaks!`.
 - Source test file and assertion or exit point: `tests/truss_path_encoding_regression_test.cpp`.
 - Production components and call path under test: ProjectUtils last-project-path persistence -> UTF-8/path conversion -> ConfigManager.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^TrussPathEncodingRegression$' --output-on-failure --verbose`.
@@ -773,7 +776,7 @@ Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-d
 
 - Exact CTest name: `Loader3dsNativeDimensions`.
 - Affected platform or platforms: Linux, Windows.
-- First meaningful failure per affected platform: 3DS native dimensions assertion differs from loader output.
+- First meaningful failure per affected platform: Linux/Windows: `Assertion NearlyEqual(MeshAxisSize(nativeMesh, 2), 290.0f) ... line 129`.
 - Source test file and assertion or exit point: `tests/loader3ds_native_dimensions_test.cpp`.
 - Production components and call path under test: 3DS loader -> axis conversion/native dimensions calculation.
 - Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^Loader3dsNativeDimensions$' --output-on-failure --verbose`.

@@ -9,6 +9,8 @@ param(
 
     [string]$VisualStudioVersion = '',
 
+    [string]$BashExecutable = $env:BASH_EXECUTABLE,
+
     [switch]$SkipBuild,
 
     [switch]$CleanBuild
@@ -387,7 +389,7 @@ Assert-CommandAvailable -CommandName 'cmake'
 $msvcEnvironment = Initialize-X64MsvcEnvironment -RequestedPath $VisualStudioPath -RequestedVersion $VisualStudioVersion
 $resolvedVcpkg = Resolve-ClassicVcpkgInstallation -Root $VcpkgRoot
 Test-PerastageVcpkgDependencies -Vcpkg $resolvedVcpkg
-$resolvedGitBash = Resolve-PerastageGitBash
+$resolvedGitBash = Resolve-PerastageGitBash -ExplicitBash $BashExecutable
 
 $presets = Get-CMakePresetNames -Configuration $Configuration
 $buildDir = Join-Path $repoRoot "build\$($presets.Configure)"

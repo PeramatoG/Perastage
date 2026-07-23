@@ -51,6 +51,8 @@ required = [
     'Resolve-PerastageGitBash',
     '-DBASH_EXECUTABLE=',
     'Invoke-PerastageNativeCommandCapture',
+    '[string]$BashExecutable = $env:BASH_EXECUTABLE',
+    'Resolve-PerastageGitBash -ExplicitBash $BashExecutable',
     'PerastageWindowsBootstrap.psm1',
 ]
 for needle in required:
@@ -79,6 +81,7 @@ for needle in [
     'RedirectStandardOutput = $true',
     'RedirectStandardError = $true',
     '$startInfo.Arguments = Join-PerastageNativeArguments',
+    'ReadToEndAsync()',
     'Get-PerastageGitBashCandidatesFromGit',
     'Test-PerastageRejectedWindowsBashPath',
     'WindowsApps bash launchers are not supported',

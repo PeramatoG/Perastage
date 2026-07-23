@@ -16,18 +16,20 @@ with tempfile.TemporaryDirectory() as tmp:
         "import sys\n"
         "sys.stdout.write('stdout-marker\\n')\n"
         "sys.stderr.write('stderr-marker\\n')\n"
+        "sys.stdout.write('space-arg=' + sys.argv[2] + '\\n')\n"
         "sys.exit(int(sys.argv[1]))\n"
     )
     script = tmp_path / 'capture_test.ps1'
     script.write_text(f"""
 $ErrorActionPreference = 'Stop'
 Import-Module '{(ROOT / 'scripts/windows/PerastageWindowsBootstrap.psm1').as_posix()}' -Force
-$ok = Invoke-PerastageNativeCommandCapture -FilePath '{Path(__import__('sys').executable).as_posix()}' -ArgumentList @('{child.as_posix()}', '0')
+$ok = Invoke-PerastageNativeCommandCapture -FilePath '{Path(__import__('sys').executable).as_posix()}' -ArgumentList @('{child.as_posix()}', '0', 'value with spaces')
 if ($ok.ExitCode -ne 0) {{ throw 'zero exit code was not captured' }}
 if ($ok.StdOut -notmatch 'stdout-marker') {{ throw 'stdout was not captured' }}
+if ($ok.StdOut -notmatch 'space-arg=value with spaces') {{ throw 'argument with spaces was not preserved' }}
 if ($ok.StdErr -notmatch 'stderr-marker') {{ throw 'stderr was not captured' }}
 if ($ok.Combined -notmatch 'stdout-marker' -or $ok.Combined -notmatch 'stderr-marker') {{ throw 'combined output was not captured' }}
-$bad = Invoke-PerastageNativeCommandCapture -FilePath '{Path(__import__('sys').executable).as_posix()}' -ArgumentList @('{child.as_posix()}', '7')
+$bad = Invoke-PerastageNativeCommandCapture -FilePath '{Path(__import__('sys').executable).as_posix()}' -ArgumentList @('{child.as_posix()}', '7', 'nonzero value')
 if ($bad.ExitCode -ne 7) {{ throw 'non-zero exit code was not captured' }}
 if ($bad.StdErr -notmatch 'stderr-marker') {{ throw 'non-zero stderr was not captured' }}
 Write-Host 'OK: PowerShell native command capture preserves stdout, stderr, combined text, and exit codes.'
