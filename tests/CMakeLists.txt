@@ -137,6 +137,9 @@ endif()
 if(Python3_Interpreter_FOUND)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
+    add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_test_targets_no_source_root_includes.py
+                               LABELS standard-strict policy cmake)
     add_repository_policy_test(MacosSdkCacheGuard ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_macos_sdk_cache_guard.py)
     add_repository_policy_test(WxFilesystemPathBoundaries ${Python3_EXECUTABLE}
@@ -388,7 +391,7 @@ add_test(NAME PdfWriterSerialization COMMAND pdf_writer_test)
 add_executable(fixture_table_parser_test
                fixture_table_parser_test.cpp
                ../gui/fixturetable/fixture_table_parser.cpp)
-target_include_directories(fixture_table_parser_test PRIVATE .. ../gui)
+target_include_directories(fixture_table_parser_test PRIVATE ../gui)
 target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
@@ -396,26 +399,26 @@ add_executable(mainwindow_cli_shortcut_router_test
                mainwindow_cli_shortcut_router_test.cpp
                ../gui/mainwindow_cli_shortcut_router.cpp
                ../gui/shortcut_registry.cpp)
-target_include_directories(mainwindow_cli_shortcut_router_test PRIVATE .. ../gui)
+target_include_directories(mainwindow_cli_shortcut_router_test PRIVATE ../gui)
 add_test(NAME MainWindowCliShortcutRouter COMMAND mainwindow_cli_shortcut_router_test)
 
 add_executable(console_command_parser_test
                console_command_parser_test.cpp
                ../gui/console_command_parser.cpp)
-target_include_directories(console_command_parser_test PRIVATE .. ../gui ../core ../models)
+target_include_directories(console_command_parser_test PRIVATE ../gui ../core ../models)
 add_test(NAME ConsoleCommandParser COMMAND console_command_parser_test)
 
 add_executable(editable_focus_utils_test
                editable_focus_utils_test.cpp
                ../gui/editable_focus_utils.cpp)
-target_include_directories(editable_focus_utils_test PRIVATE .. ../gui)
+target_include_directories(editable_focus_utils_test PRIVATE ../gui)
 target_link_libraries(editable_focus_utils_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME EditableFocusUtils COMMAND editable_focus_utils_test)
 
 add_executable(shortcut_registry_test
                shortcut_registry_test.cpp
                ../gui/shortcut_registry.cpp)
-target_include_directories(shortcut_registry_test PRIVATE .. ../gui)
+target_include_directories(shortcut_registry_test PRIVATE ../gui)
 add_test(NAME ShortcutRegistry COMMAND shortcut_registry_test)
 
 
@@ -541,7 +544,7 @@ add_executable(project_fixture_gdtf_apply_adapter_test
                ../core/gdtf/editor/gdtf_editable_values.cpp
                ../core/gdtf/editor/gdtf_field_registry.cpp
                ../core/filesystem_path_utils.cpp)
-target_include_directories(project_fixture_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
+target_include_directories(project_fixture_gdtf_apply_adapter_test PRIVATE ../core ../models)
 add_test(NAME ProjectFixtureGdtfApplyAdapter COMMAND project_fixture_gdtf_apply_adapter_test)
 add_bash_policy_test(GdtfEditorCheckpoint08BFixtureApplyAdapter ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08b_fixture_apply_adapter.sh)
 set_tests_properties(GdtfEditorCheckpoint08BFixtureApplyAdapter PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
@@ -552,7 +555,7 @@ add_executable(project_truss_gdtf_apply_adapter_test
                ../core/gdtf/editor/gdtf_editable_values.cpp
                ../core/gdtf/editor/gdtf_field_registry.cpp
                ../core/filesystem_path_utils.cpp)
-target_include_directories(project_truss_gdtf_apply_adapter_test PRIVATE .. ../core ../models)
+target_include_directories(project_truss_gdtf_apply_adapter_test PRIVATE ../core ../models)
 add_test(NAME ProjectTrussGdtfApplyAdapter COMMAND project_truss_gdtf_apply_adapter_test)
 add_bash_policy_test(GdtfEditorCheckpoint08CTrussApplyAdapter ${CMAKE_SOURCE_DIR}/tests/check_gdtf_editor_checkpoint08c_truss_apply_adapter.sh)
 set_tests_properties(GdtfEditorCheckpoint08CTrussApplyAdapter PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
@@ -571,7 +574,7 @@ add_executable(gdtf_editor_context_test
                ../core/gdtf/editor/project_fixture_gdtf_context.cpp
                ../core/gdtf/editor/project_truss_gdtf_context.cpp
                ../core/gdtf/editor/standalone_gdtf_context.cpp)
-target_include_directories(gdtf_editor_context_test PRIVATE .. ../core)
+target_include_directories(gdtf_editor_context_test PRIVATE ../core)
 target_link_libraries(gdtf_editor_context_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfEditorContext COMMAND gdtf_editor_context_test)
 
@@ -1874,7 +1877,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                consolepanel_stub.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
-                           . .. ../core ../models ../gui ../viewer3d ../third_party)
+                           . ../core ../models ../gui ../viewer3d ../third_party)
 target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
 set_library_env(SymbolFixtureApplierGdtfMutation)
@@ -1918,7 +1921,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                consolepanel_stub.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_patched_gdtf_export_test PRIVATE
-                           . .. ../core ../models ../mvr ../gui ../viewer3d ../third_party)
+                           . ../core ../models ../mvr ../gui ../viewer3d ../third_party)
 target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME MvrPatchedGdtfExportMutation COMMAND mvr_patched_gdtf_export_test)
 set_library_env(MvrPatchedGdtfExportMutation)
@@ -1984,7 +1987,7 @@ add_executable(continuous_placement_scene_test
                continuous_placement_scene_test.cpp
                ../models/continuous_placement_scene.cpp)
 target_include_directories(continuous_placement_scene_test PRIVATE
-                           .. ../models)
+                           ../models)
 add_test(NAME ContinuousPlacementScene COMMAND continuous_placement_scene_test)
 
 add_executable(layer_visibility_state_test

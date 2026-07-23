@@ -31,10 +31,14 @@ bool CreateDirectories(const fs::path &path) {
 }
 
 // Returns the canonical runtime root for containment checks.
-fs::path RuntimeRootForChecks() {
-  std::error_code ec;
-  fs::path root = fs::weakly_canonical(GetPerastageRuntimeRoot(), ec);
-  return ec ? GetPerastageRuntimeRoot() : root;
+fs::path RuntimeRootForChecks() noexcept {
+  try {
+    std::error_code ec;
+    fs::path root = fs::weakly_canonical(GetPerastageRuntimeRoot(), ec);
+    return ec ? GetPerastageRuntimeRoot() : root;
+  } catch (...) {
+    return {};
+  }
 }
 } // namespace
 
@@ -102,32 +106,41 @@ void CleanupStaleRuntimeStorage() {
 
 // Returns true when a path resolves below the Perastage runtime root.
 bool IsInsideRuntimeRoot(const fs::path &path) {
-  std::error_code ec;
-  const fs::path root = RuntimeRootForChecks();
-  fs::path target = fs::weakly_canonical(path, ec);
-  if (ec)
-    target = fs::absolute(path, ec);
-  const auto rootText = root.lexically_normal().string();
-  const auto targetText = target.lexically_normal().string();
-  std::string rootPrefix = rootText;
-  rootPrefix.push_back(static_cast<char>(fs::path::preferred_separator));
-  return targetText == rootText || targetText.rfind(rootPrefix, 0) == 0;
+  try {
+    std::error_code ec;
+    const fs::path root = RuntimeRootForChecks();
+    if (root.empty())
+      return false;
+    fs::path target = fs::weakly_canonical(path, ec);
+    if (ec)
+      target = fs::absolute(path, ec);
+    const auto rootText = root.lexically_normal().string();
+    const auto targetText = target.lexically_normal().string();
+    std::string rootPrefix = rootText;
+    rootPrefix.push_back(static_cast<char>(fs::path::preferred_separator));
+    return targetText == rootText || targetText.rfind(rootPrefix, 0) == 0;
+  } catch (...) {
+    return false;
+  }
 }
 
 // Removes an owned runtime path after validating containment.
-void RemoveOwnedPath(const fs::path &path, const std::string &label) {
-  if (path.empty())
-    return;
-  if (!IsInsideRuntimeRoot(path)) {
-    Logger::Instance().Log(Logger::Level::Warn,
-                           "Refusing to remove non-runtime " + label + ": " + path.string());
-    return;
+void RemoveOwnedPath(const fs::path &path, const std::string &label) noexcept {
+  try {
+    if (path.empty())
+      return;
+    if (!IsInsideRuntimeRoot(path)) {
+      Logger::Instance().Log(Logger::Level::Warn,
+                             "Refusing to remove non-runtime " + label + ": " + path.string());
+      return;
+    }
+    std::error_code ec;
+    const auto count = fs::remove_all(path, ec);
+    Logger::Instance().Log(ec ? Logger::Level::Warn : Logger::Level::Info,
+                           (ec ? "Failed removing " : "Removed ") + label + ": " +
+                               path.string() + " entries=" + std::to_string(count));
+  } catch (...) {
   }
-  std::error_code ec;
-  const auto count = fs::remove_all(path, ec);
-  Logger::Instance().Log(ec ? Logger::Level::Warn : Logger::Level::Info,
-                         (ec ? "Failed removing " : "Removed ") + label + ": " +
-                             path.string() + " entries=" + std::to_string(count));
 }
 
 // Creates a unique operation-scoped workspace.
@@ -145,7 +158,7 @@ TemporaryWorkspace::TemporaryWorkspace(const std::string &kind) {
 }
 
 // Removes the owned temporary workspace.
-TemporaryWorkspace::~TemporaryWorkspace() { Cleanup(); }
+TemporaryWorkspace::~TemporaryWorkspace() noexcept { Cleanup(); }
 
 // Moves temporary workspace ownership.
 TemporaryWorkspace::TemporaryWorkspace(TemporaryWorkspace &&other) noexcept : path_(std::move(other.path_)) { other.path_.clear(); }
@@ -161,7 +174,7 @@ TemporaryWorkspace &TemporaryWorkspace::operator=(TemporaryWorkspace &&other) no
 }
 
 // Removes the workspace immediately when still owned.
-void TemporaryWorkspace::Cleanup() {
+void TemporaryWorkspace::Cleanup() noexcept {
   RemoveOwnedPath(path_, "temporary workspace");
   path_.clear();
 }
@@ -177,6 +190,12 @@ std::shared_ptr<SceneResourceLease> TemporaryWorkspace::TransferToSceneLease() {
 SceneResourceLease::SceneResourceLease(fs::path path) : path_(std::move(path)) {}
 
 // Releases scene/session runtime resources when the final shared owner disappears.
-SceneResourceLease::~SceneResourceLease() { RemoveOwnedPath(path_, "scene resource workspace"); }
+SceneResourceLease::~SceneResourceLease() noexcept { Cleanup(); }
+
+// Removes scene/session runtime resources immediately when still owned.
+void SceneResourceLease::Cleanup() noexcept {
+  RemoveOwnedPath(path_, "scene resource workspace");
+  path_.clear();
+}
 
 } // namespace runtime_storage
