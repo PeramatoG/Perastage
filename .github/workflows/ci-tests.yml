@@ -149,6 +149,10 @@ jobs:
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
           test -f build/linux-debug/compile_commands.json || { echo "Debug compile_commands.json was not generated"; exit 1; }
           if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
+      - name: Generate Linux CTest inventory
+        run: |
+          ctest --test-dir build/linux-debug -N -V > "$CI_LOG_DIR/ctest-inventory-linux-debug.txt"
+          ctest --test-dir build/linux-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-linux-debug.json"
       - name: Build complete test target set
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-linux-debug.log" -- cmake --build build/linux-debug --target all --verbose
       - name: Validate Linux Xvfb display
@@ -161,12 +165,27 @@ jobs:
           LC_ALL=C.UTF-8 LANG=C.UTF-8 xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build/linux-debug --output-log "$CI_LOG_DIR/ctest-linux-debug.log" --output-junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --output-on-failure --verbose
           ctest_exit=$?
           python3 .github/scripts/summarize_ctest_failures.py --platform linux --junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --log "$CI_LOG_DIR/ctest-linux-debug.log" --last-tests-failed build/linux-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-linux-debug-failures.csv"
+          python3 .github/scripts/summarize_ctest_results.py --platform linux --junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --output "$CI_LOG_DIR/ctest-linux-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE"
           exit $ctest_exit
       - name: Run repository policy tests
         run: |
           bash tests/check_perastage_tree_modules.sh
           bash tests/check_no_configmanager_get_in_gui.sh
           bash tests/check_ci_cmake_language_policy.sh
+      - name: Upload Linux test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-linux-debug-test-results
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/ctest-inventory-linux-debug.*
+            out/ci-logs/ctest-linux-debug.junit.xml
+            out/ci-logs/ctest-linux-debug.log
+            out/ci-logs/ctest-linux-debug-failures.csv
+            out/ci-logs/ctest-linux-debug-results.json
+            build/linux-debug/Testing/Temporary/LastTestsFailed.log
+            build/linux-debug/Testing/Temporary/LastTestsDisabled.log
       - name: Upload failure diagnostics
         if: ${{ always() && (failure() || cancelled()) }}
         uses: actions/upload-artifact@v7
@@ -342,6 +361,11 @@ jobs:
           if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
           & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBASH_EXECUTABLE="$env:PERASTAGE_GIT_BASH"
           & "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug
+      - name: Generate Windows CTest inventory
+        shell: pwsh
+        run: |
+          ctest --test-dir build-windows-debug -N -V | Out-File -FilePath "$env:CI_LOG_DIR\ctest-inventory-windows-debug.txt" -Encoding utf8
+          ctest --test-dir build-windows-debug --show-only=json-v1 | Out-File -FilePath "$env:CI_LOG_DIR\ctest-inventory-windows-debug.json" -Encoding utf8
       - name: Build Windows Debug tests
         shell: pwsh
         run: |
@@ -352,7 +376,22 @@ jobs:
           & ctest --test-dir build-windows-debug --output-log "$env:CI_LOG_DIR\ctest-windows-debug.log" --output-junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120
           $ctestExit = $LASTEXITCODE
           & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_failures.py --platform windows --junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --log "$env:CI_LOG_DIR\ctest-windows-debug.log" --last-tests-failed build-windows-debug\Testing\Temporary\LastTestsFailed.log --output "$env:CI_LOG_DIR\ctest-windows-debug-failures.csv"
+          & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_results.py --platform windows --junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --output "$env:CI_LOG_DIR\ctest-windows-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$env:PERASTAGE_CI_PROFILE"
           exit $ctestExit
+      - name: Upload Windows test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-windows-debug-test-results
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/ctest-inventory-windows-debug.*
+            out/ci-logs/ctest-windows-debug.junit.xml
+            out/ci-logs/ctest-windows-debug.log
+            out/ci-logs/ctest-windows-debug-failures.csv
+            out/ci-logs/ctest-windows-debug-results.json
+            build-windows-debug/Testing/Temporary/LastTestsFailed.log
+            build-windows-debug/Testing/Temporary/LastTestsDisabled.log
       - name: Upload failure diagnostics
         if: ${{ always() && (failure() || cancelled()) }}
         uses: actions/upload-artifact@v7
@@ -469,13 +508,34 @@ jobs:
         run: |
           current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+      - name: Generate macOS CTest inventory
+        run: |
+          ctest --test-dir build/macos-debug -N -V > "$CI_LOG_DIR/ctest-inventory-macos-debug.txt"
+          ctest --test-dir build/macos-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-macos-debug.json"
       - name: Build release-gate and macOS tests
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target gdtf_share_security_test credential_store_native_roundtrip_test --verbose
       - name: Run release-gate and macOS tests
-        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-on-failure --verbose
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-log "$CI_LOG_DIR/ctest-macos-debug-full.log" --output-junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output-on-failure --verbose
       - name: Summarize macOS CTest failures
         if: ${{ always() }}
-        run: python3 .github/scripts/summarize_ctest_failures.py --platform macos --log "$CI_LOG_DIR/ctest-macos-debug.log" --output "$CI_LOG_DIR/ctest-macos-debug-failures.csv"
+        run: python3 .github/scripts/summarize_ctest_failures.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --log "$CI_LOG_DIR/ctest-macos-debug.log" --last-tests-failed build/macos-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-macos-debug-failures.csv"
+      - name: Summarize macOS CTest results
+        if: ${{ always() }}
+        run: python3 .github/scripts/summarize_ctest_results.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output "$CI_LOG_DIR/ctest-macos-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE" --labels release-gate
+      - name: Upload macOS test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-macos-debug-test-results
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/ctest-inventory-macos-debug.*
+            out/ci-logs/ctest-macos-debug.junit.xml
+            out/ci-logs/ctest-macos-debug*.log
+            out/ci-logs/ctest-macos-debug-failures.csv
+            out/ci-logs/ctest-macos-debug-results.json
+            build/macos-debug/Testing/Temporary/LastTestsFailed.log
+            build/macos-debug/Testing/Temporary/LastTestsDisabled.log
       - name: Upload failure diagnostics
         if: ${{ always() && (failure() || cancelled()) }}
         uses: actions/upload-artifact@v7

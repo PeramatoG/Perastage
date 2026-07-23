@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import argparse
+import os
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +21,7 @@ with tempfile.TemporaryDirectory() as tmp:
     build.mkdir(parents=True, exist_ok=True)
     for cwd in [ROOT, build, Path(tmp)]:
         for script in SCRIPTS:
-            result = subprocess.run([BASH, str(script)], cwd=cwd, text=True, capture_output=True)
+            env = {**os.environ, 'PERASTAGE_TEST_PYTHON': os.environ.get('PERASTAGE_TEST_PYTHON', sys.executable)}
+            result = subprocess.run([BASH, str(script)], cwd=cwd, env=env, text=True, capture_output=True)
             assert result.returncode == 0, f'{script.name} failed from {cwd}:\n{result.stdout}\n{result.stderr}'
 print('OK: representative policy scripts resolve repository paths from root, build, and temporary working directories.')

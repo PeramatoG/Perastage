@@ -66,7 +66,7 @@ function(add_bash_policy_test test_name script_path)
              COMMAND "${BASH_EXECUTABLE}" "${script_path}" ${POLICY_ARGS})
     set_tests_properties(${test_name} PROPERTIES
                          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
+                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE};PERASTAGE_TEST_BASH=${BASH_EXECUTABLE}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
         set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
@@ -82,7 +82,7 @@ function(add_repository_policy_test test_name command_path)
              COMMAND "${command_path}" ${POLICY_ARGS})
     set_tests_properties(${test_name} PROPERTIES
                          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE}")
+                         ENVIRONMENT "PERASTAGE_TEST_PYTHON=${Python3_EXECUTABLE};PERASTAGE_TEST_BASH=${BASH_EXECUTABLE}")
     if(POLICY_LABELS)
         list(JOIN POLICY_LABELS ";" labels)
         set_tests_properties(${test_name} PROPERTIES LABELS "${labels}")
@@ -174,12 +174,21 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_validate_cmake_toolchain.py)
     add_repository_policy_test(CiCMakeLanguagePolicyFixtures ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy_fixtures.py --bash ${BASH_EXECUTABLE})
+    add_repository_policy_test(WindowsNinjaX64PolicyFixtures ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_ninja_x64_policy_fixtures.py --bash ${BASH_EXECUTABLE}
+                               LABELS standard-strict policy windows)
     add_repository_policy_test(PolicyWorkingDirectories ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_policy_working_directories.py --bash ${BASH_EXECUTABLE})
     add_repository_policy_test(MissingRipgrepBehavior ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_missing_ripgrep_behavior.py --bash ${BASH_EXECUTABLE})
     add_repository_policy_test(CtestFailureSummary ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_summarize_ctest_failures.py)
+    add_repository_policy_test(CtestResultSummary ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_summarize_ctest_results.py
+                               LABELS standard-strict policy ci)
+    add_repository_policy_test(UnresolvedPythonInvocations ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_unresolved_python_invocations.py
+                               LABELS standard-strict policy)
 endif()
 
 link_libraries(perastage_test_active_dictionary_storage)
