@@ -2,7 +2,9 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include <chrono>
 #include <filesystem>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -13,6 +15,8 @@
 #include <wx/init.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
+
+#include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/configmanager.h"
 #include "../core/gdtf_mutation_audit.h"
@@ -25,6 +29,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
+// Reads the current ZIP entry contents as bytes.
 std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   std::string content;
   char buffer[4096];
@@ -38,32 +43,14 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   return content;
 }
 
-std::string MakeFixtureGdtf() {
-  wxFileName tempName(wxFileName::CreateTempFileName("gdtf_symbol_apply_"));
-  const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
-  wxRemoveFile(tempName.GetFullPath());
-
-  wxFFileOutputStream fileOut(outPath);
-  assert(fileOut.IsOk());
-  wxZipOutputStream zipOut(fileOut);
-
-  zipOut.PutNextEntry("description.xml");
-  const std::string xml =
-      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GDTF DataVersion=\"1.2\">"
-      "<FixtureType Name=\"SymbolFixture\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
-      "<Models>"
-      "<Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\" Length=\"1\" Width=\"1\" Height=\"1\"/>"
-      "</Models>"
-      "<Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>"
-      "</FixtureType>"
-      "</GDTF>";
-  zipOut.Write(xml.data(), xml.size());
-  zipOut.Close();
-
-  return outPath;
+// Writes a canonical minimal GDTF 1.2 archive for symbol mutation tests.
+std::string MakeFixtureGdtf(const fs::path &directory) {
+  const fs::path outPath = directory / "SourceFixture.gdtf";
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(outPath);
+  return outPath.filename().string();
 }
 
+// Writes a compatibility fixture with caller-provided FixtureType XML.
 std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml) {
   wxFileName tempName(wxFileName::CreateTempFileName("gdtf_symbol_compat_"));
   const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
@@ -93,6 +80,7 @@ std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml)
   return outPath;
 }
 
+// Inspects symbol compatibility for a fixture path in the current scene.
 symbol_preview::FixtureSymbolInspectionResult InspectFixturePath(const std::string &fixtureUuid,
                                                                  const std::string &gdtfPath) {
   auto &cfg = ConfigManager::Get();
@@ -110,6 +98,7 @@ symbol_preview::FixtureSymbolInspectionResult InspectFixturePath(const std::stri
   return inspection;
 }
 
+// Builds one simple symbol payload for each supported fixture view.
 std::vector<symbols::Symbol2D> BuildSymbols() {
   auto makeView = [](symbols::SymbolView view) {
     symbols::Symbol2D symbol;
@@ -129,8 +118,27 @@ std::vector<symbols::Symbol2D> BuildSymbols() {
   };
 }
 
+// Removes a temporary project directory when the test scope exits.
+class ScopedTempProject {
+public:
+  // Creates a unique temporary project directory.
+  ScopedTempProject() {
+    path = fs::temp_directory_path() /
+           (std::string("symbol_fixture_project_") +
+            std::to_string(std::chrono::system_clock::now().time_since_epoch().count()));
+    fs::create_directories(path);
+  }
+  // Removes the temporary project directory.
+  ~ScopedTempProject() {
+    std::error_code ec;
+    fs::remove_all(path, ec);
+  }
+  fs::path path;
+};
+
 } // namespace
 
+// Runs the symbol-to-GDTF mutation ownership and compatibility regression test.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -138,13 +146,16 @@ int main() {
   auto &cfg = ConfigManager::Get();
   cfg.Reset();
   MvrScene &scene = cfg.GetScene();
+  ScopedTempProject project;
+  scene.basePath = project.path.string();
 
-  const std::string gdtfPath = MakeFixtureGdtf();
+  const std::string gdtfSpec = MakeFixtureGdtf(project.path);
+  const std::string gdtfPath = (project.path / gdtfSpec).string();
 
   Fixture fixture;
   fixture.uuid = "fixture-symbol-test";
   fixture.typeName = "SymbolFixture";
-  fixture.gdtfSpec = gdtfPath;
+  fixture.gdtfSpec = gdtfSpec;
   scene.fixtures[fixture.uuid] = fixture;
 
   symbol_preview::FixtureSymbolInspectionResult before{};
@@ -159,11 +170,17 @@ int main() {
   symbol_preview::ApplySymbolsOptions options;
   options.updateSceneCopy = true;
   options.updateLibraryCopy = false;
-  assert(symbol_preview::ApplySymbolsToFixtureGdtf(symbols, fixture.uuid, errorMessage,
-                                                   options));
+  if (!symbol_preview::ApplySymbolsToFixtureGdtf(symbols, fixture.uuid, errorMessage,
+                                                 options)) {
+    std::cerr << "ApplySymbolsToFixtureGdtf failed: " << errorMessage << std::endl;
+    assert(false);
+  }
   assert(errorMessage.empty());
 
-  wxFileInputStream input(gdtfPath);
+  const std::string mutatedPath =
+      (project.path / scene.fixtures.at(fixture.uuid).gdtfSpec).string();
+
+  wxFileInputStream input(mutatedPath);
   assert(input.IsOk());
   wxZipInputStream zipInput(input);
 
@@ -251,11 +268,10 @@ int main() {
 
   std::vector<GdtfObject> objects;
   std::string loadError;
-  assert(LoadGdtf(gdtfPath, objects, &loadError));
+  assert(LoadGdtf(mutatedPath, objects, &loadError));
   assert(loadError.empty());
 
   std::error_code ec;
-  fs::remove(gdtfPath, ec);
   fs::remove(currentVersionPath, ec);
   fs::remove(unknownVersionPath, ec);
   cfg.Reset();

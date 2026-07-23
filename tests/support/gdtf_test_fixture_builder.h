@@ -2,6 +2,8 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace tests::gdtf {
 
@@ -12,12 +14,14 @@ public:
   FixtureBuilder();
   FixtureBuilder &WithDmxMode(std::string name, std::string geometry);
   FixtureBuilder &WithFixtureCategorySignals();
+  FixtureBuilder &WithArchiveEntry(std::string path, std::string bytes);
   std::string BuildDescriptionXml() const;
   void WriteArchive(const std::filesystem::path &archivePath) const;
 private:
   std::string modeName;
   std::string modeGeometry;
   bool categorySignals = false;
+  std::vector<std::pair<std::string, std::string>> archiveEntries;
 };
 FixtureBuilder BuildMinimalValidFixture();
 void WriteMissingMandatorySectionsArchive(const std::filesystem::path &archivePath);

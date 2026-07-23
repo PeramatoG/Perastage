@@ -819,3 +819,53 @@ Root-cause groups ordered by expected Phase 4 impact and dependency:
 9. 3DS axis/dimension convention: `Loader3dsNativeDimensions`.
 
 Recommended branch boundaries: keep each root-cause group in its own Phase 4 branch; do not mix MVR/GDTF strict-output fixes with rider parser expectation updates or Windows lifecycle work. Remaining uncertainties are the exact XML/text/path diffs from downloadable artifacts, Windows CRT leak-versus-assertion exits for `TrussPathEncodingRegression` and `PdfWriterSerialization`, and the normative 3DS axis convention. Safe Merge Point C decision: not reached yet. The audit now reconciles the 29 entries, but several entries remain provisional until the downloadable artifact segments, Windows exit paths, and source-level diagnostic traces are attached and reviewed; this decision does not authorize Phase 4 implementation.
+
+## Phase 4A D1 evidence: GDTF mutation and canonical publication
+
+Baseline for this branch: local `main` was available at `9acdfed2e9f49b11c8579bbb996d41ee68a7447c`; network fetch could not be used because no `origin` remote is configured in the execution checkout. The diff between merged task head `7a31d1c86a159bef739a6b5beec2e38845fd69da` and reviewed main `9acdfed2e9f49b11c8579bbb996d41ee68a7447c` is limited to `VERSION`, confirming the automatic version bump in this checkout.
+
+Gate 1 evidence in this local environment is limited to source and local configure inspection: the merged Bash/PowerShell harness changes remain present, no test was skipped or converted to continue-on-error by this branch, and the mandatory policy tests remain required. Full cross-platform CI artifacts for run `30015091475` must be attached by GitHub Actions before final merge because this checkout has no configured GitHub remote and cannot inspect workflow artifacts directly.
+
+GDTF 1.2 XSD conclusion used for Phase 4A: the authoritative GDTF 1.2 schema referenced by the GDTF Hub defines `FixtureType` children as an ordered `xs:sequence`; `AttributeDefinitions`, `Geometries`, and `DMXModes` each have `minOccurs="1"`, while `Wheels`, `PhysicalDescriptions`, `Models`, `Revisions`, `FTPresets`, and `Protocols` have `minOccurs="0"`. The same `FixtureType` complex type marks `Name`, `Manufacturer`, `Description`, and `FixtureTypeID` as required attributes. Therefore the previous ad-hoc strict mutation fixtures were invalid/obsolete strict fixtures, although tolerant readers may still recover useful data from them.
+
+Affected test classification:
+
+| Test | Old classification | First local/root evidence | Final classification | Repair |
+|---|---|---|---|---|
+| `GdtfLoaderSetPropertiesMutation` | production-defect candidate | Test fixture omitted required `FixtureTypeID`, `Description`, `AttributeDefinitions`, and `DMXModes`; canonicalizer rejected publication after mutation. | mixed root cause: invalid-or-obsolete-fixture plus production diagnostic/publication weakness | Replaced the strict fixture with the shared canonical GDTF 1.2 test builder and routed mutation through structured diagnostics plus sibling temporary archive publication. |
+| `SymbolFixtureApplierGdtfMutation` | production-defect candidate | Test fixture used the same incomplete strict shape; symbol mutation expected strict output from invalid input. | invalid-or-obsolete-fixture | Replaced the strict fixture with the shared canonical GDTF 1.2 test builder while keeping legacy `PerastageMutationAudit` compatibility fixtures separate. |
+| `MvrPatchedGdtfExportMutation` | production-defect candidate | Test source GDTF omitted required strict fields/sections before MVR export patching. | invalid-or-obsolete-fixture | Replaced the strict source fixture with the shared canonical GDTF 1.2 test builder; export canonicalization remains on the derived embedded copy and does not rewrite the source archive. |
+
+Focused command used in this environment: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --target gdtf_canonicalizer_test gdtfloader_set_properties_test symbol_fixture_applier_gdtf_test mvr_patched_gdtf_export_test -j2`. Result: configure failed before compilation because wxWidgets development files are not installed in the container (`Could NOT find wxWidgets`). No test result was hidden, skipped, disabled, or converted to continue-on-error.
+
+D1 status: not fully reached in this container because cross-platform GitHub Actions evidence and local wxWidgets-backed execution are unavailable here. The source repair keeps input tolerance unchanged, corrects the strict fixtures, adds mutation diagnostics for the viewer3d mutation path, and replaces direct GDTF rewrite with sibling temporary archive publication before atomic replacement.
+
+### Follow-up after CI run 30027673580
+
+Authoritative validation run for reviewed head `2693f9058e4a2e68f79b39e41121ba01dacf301f`: `30027673580`.
+
+Platform evidence from that run:
+
+- Linux Debug Tests configured and built successfully; result totals were 161 total, 136 passed, 24 failed, and 1 skipped.
+- Windows Debug Tests configured and built successfully; result totals were 163 total, 135 passed, and 28 failed.
+- macOS configured, built, and passed the current reduced release-gate profile with 6 passed and 0 failed. This is not full macOS test parity.
+- `GitBashResolverContract` passed on Linux and Windows.
+- `PowerShellNativeCaptureWindowsPowerShell` and `PowerShellNativeCapturePowerShell7` passed on Windows.
+- `GdtfCanonicalizerExportRules` and `GdtfTestFixtureBuilder` passed on Linux and Windows.
+- `MvrPatchedGdtfExportMutation` passed on Linux and Windows after the strict fixture repair.
+- `GdtfLoaderSetPropertiesMutation` still failed only on the stale lexical float assertion for `PowerConsumption Value="678.900"`; mutation success, changed status, empty errors, and atomic replacement were already reached.
+- `SymbolFixtureApplierGdtfMutation` still failed at `ApplySymbolsToFixtureGdtf(...)` because the test used an arbitrary absolute temporary file with no project base path while requesting a scene-copy-only mutation.
+
+Safe Merge Point C is verified for classification and harness purposes: the Bash resolver and PowerShell native-capture infrastructure is stable across the covered platforms, Linux/Windows configure and build are functional, the macOS reduced release-gate profile is functional, and no new harness regression is visible. Provisional domain classifications remain refinable inside their focused Phase 4 repair branches.
+
+Phase 4A D1 follow-up classifications:
+
+| Test | Before run `30027673580` | Evidence from run `30027673580` | Follow-up repair | Expected D1 status |
+|---|---|---|---|---|
+| `GdtfLoaderSetPropertiesMutation` | Mixed fixture/production-publication candidate. | Publication succeeded; only exact trailing-zero float spelling failed. | Compare GDTF Float values numerically with strict token validation, preserve sentinel resource bytes, validate final archive, and prove injected publication failure preserves original bytes. | Should pass for standards-based semantic reasons. |
+| `SymbolFixtureApplierGdtfMutation` | Invalid/obsolete fixture candidate. | Strict fixture was repaired, but setup violated source ownership by using an external absolute path with no project base. | Use a temporary project base and project-relative source so production resolves or creates a writable project-owned scene copy; emit the service diagnostic before assertion. | Should pass without weakening external/library ownership. |
+| `MvrPatchedGdtfExportMutation` | Invalid/obsolete fixture. | Passed on Linux and Windows. | No additional MVR/export production change in this follow-up. | Remains passing. |
+
+Publication failure-preservation evidence added in source: `GdtfLoaderSetPropertiesMutation` now injects a deterministic failure before atomic replacement, asserts `success == false`, checks that structured errors name `BeforeAtomicReplace`, verifies the original archive bytes are unchanged, and verifies no unique sibling mutation temporary archive remains. The success path also verifies unrelated resource bytes survive mutation and the final archive validates through the canonicalizer export rules.
+
+Schema cross-check: the shared strict fixture shape was compared against the fetched `mvrdevelopment/tools:gdtf.xsd` artifact with Python `lxml.etree.XMLSchema`; after adding the required `ChannelFunction Default="0/1"` attribute, the generated minimal fixture structure validates against that XSD. This check validates the standard-strict default fixture shape only; the category-signal helper remains a test extension helper and is not used as the baseline strict fixture.

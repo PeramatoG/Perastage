@@ -6,6 +6,7 @@
 #include "filesystem_path_utils.h"
 
 #include <algorithm>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,30 @@ std::string BuildFixtureDocumentRevisionText(
   return "Updated GDTF " + JoinDocumentFieldLabels(labels) + " from Perastage";
 }
 
+// Joins mutation diagnostics into one actionable service message.
+std::string BuildMutationDiagnostic(const std::filesystem::path &path,
+                                    const GdtfDocumentMutationResult &result) {
+  std::ostringstream out;
+  out << "Could not publish GDTF document mutation for '" << path.string() << "'";
+  if (!result.errors.empty()) {
+    out << ": ";
+    for (size_t i = 0; i < result.errors.size(); ++i) {
+      if (i > 0)
+        out << "; ";
+      out << result.errors[i];
+    }
+  }
+  if (!result.warnings.empty()) {
+    out << " Warnings: ";
+    for (size_t i = 0; i < result.warnings.size(); ++i) {
+      if (i > 0)
+        out << "; ";
+      out << result.warnings[i];
+    }
+  }
+  return out.str();
+}
+
 } // namespace
 
 namespace gui {
@@ -65,7 +90,7 @@ gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
   };
   services.writeDocumentMutation = [](const std::filesystem::path &path,
                                        const gdtf::GdtfApplyRequest &request,
-                                       std::string &) {
+                                       std::string &diagnostic) {
     GdtfDocumentMutationRequest mutation;
     mutation.descriptionSet = request.changedDocumentFields.count(
                                   gdtf::GdtfFieldId::FixtureTypeDescription) > 0;
@@ -76,8 +101,12 @@ gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
                             gdtf::GdtfFieldId::PowerConsumption) > 0;
     mutation.powerW = request.values.powerConsumptionW.value_or(0.0f);
     mutation.revisionText = BuildFixtureDocumentRevisionText(request);
-    return MutateGdtfDocument(PathUtils::PathToUtf8(path), mutation,
-                              GdtfMutationAudit::BuildPerastageModifiedBy());
+    const GdtfDocumentMutationResult result = MutateGdtfDocumentWithResult(
+        PathUtils::PathToUtf8(path), mutation,
+        GdtfMutationAudit::BuildPerastageModifiedBy());
+    if (!result.success)
+      diagnostic = BuildMutationDiagnostic(path, result);
+    return result.success;
   };
   services.createDerivative = [](const std::filesystem::path &source,
                                  const std::string &fixtureType,
