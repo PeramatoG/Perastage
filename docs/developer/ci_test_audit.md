@@ -819,3 +819,23 @@ Root-cause groups ordered by expected Phase 4 impact and dependency:
 9. 3DS axis/dimension convention: `Loader3dsNativeDimensions`.
 
 Recommended branch boundaries: keep each root-cause group in its own Phase 4 branch; do not mix MVR/GDTF strict-output fixes with rider parser expectation updates or Windows lifecycle work. Remaining uncertainties are the exact XML/text/path diffs from downloadable artifacts, Windows CRT leak-versus-assertion exits for `TrussPathEncodingRegression` and `PdfWriterSerialization`, and the normative 3DS axis convention. Safe Merge Point C decision: not reached yet. The audit now reconciles the 29 entries, but several entries remain provisional until the downloadable artifact segments, Windows exit paths, and source-level diagnostic traces are attached and reviewed; this decision does not authorize Phase 4 implementation.
+
+## Phase 4A D1 evidence: GDTF mutation and canonical publication
+
+Baseline for this branch: local `main` was available at `9acdfed2e9f49b11c8579bbb996d41ee68a7447c`; network fetch could not be used because no `origin` remote is configured in the execution checkout. The diff between merged task head `7a31d1c86a159bef739a6b5beec2e38845fd69da` and reviewed main `9acdfed2e9f49b11c8579bbb996d41ee68a7447c` is limited to `VERSION`, confirming the automatic version bump in this checkout.
+
+Gate 1 evidence in this local environment is limited to source and local configure inspection: the merged Bash/PowerShell harness changes remain present, no test was skipped or converted to continue-on-error by this branch, and the mandatory policy tests remain required. Full cross-platform CI artifacts for run `30015091475` must be attached by GitHub Actions before final merge because this checkout has no configured GitHub remote and cannot inspect workflow artifacts directly.
+
+GDTF 1.2 XSD conclusion used for Phase 4A: the authoritative GDTF 1.2 schema referenced by the GDTF Hub defines `FixtureType` children as an ordered `xs:sequence`; `AttributeDefinitions`, `Geometries`, and `DMXModes` each have `minOccurs="1"`, while `Wheels`, `PhysicalDescriptions`, `Models`, `Revisions`, `FTPresets`, and `Protocols` have `minOccurs="0"`. The same `FixtureType` complex type marks `Name`, `Manufacturer`, `Description`, and `FixtureTypeID` as required attributes. Therefore the previous ad-hoc strict mutation fixtures were invalid/obsolete strict fixtures, although tolerant readers may still recover useful data from them.
+
+Affected test classification:
+
+| Test | Old classification | First local/root evidence | Final classification | Repair |
+|---|---|---|---|---|
+| `GdtfLoaderSetPropertiesMutation` | production-defect candidate | Test fixture omitted required `FixtureTypeID`, `Description`, `AttributeDefinitions`, and `DMXModes`; canonicalizer rejected publication after mutation. | mixed root cause: invalid-or-obsolete-fixture plus production diagnostic/publication weakness | Replaced the strict fixture with the shared canonical GDTF 1.2 test builder and routed mutation through structured diagnostics plus sibling temporary archive publication. |
+| `SymbolFixtureApplierGdtfMutation` | production-defect candidate | Test fixture used the same incomplete strict shape; symbol mutation expected strict output from invalid input. | invalid-or-obsolete-fixture | Replaced the strict fixture with the shared canonical GDTF 1.2 test builder while keeping legacy `PerastageMutationAudit` compatibility fixtures separate. |
+| `MvrPatchedGdtfExportMutation` | production-defect candidate | Test source GDTF omitted required strict fields/sections before MVR export patching. | invalid-or-obsolete-fixture | Replaced the strict source fixture with the shared canonical GDTF 1.2 test builder; export canonicalization remains on the derived embedded copy and does not rewrite the source archive. |
+
+Focused command used in this environment: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --target gdtf_canonicalizer_test gdtfloader_set_properties_test symbol_fixture_applier_gdtf_test mvr_patched_gdtf_export_test -j2`. Result: configure failed before compilation because wxWidgets development files are not installed in the container (`Could NOT find wxWidgets`). No test result was hidden, skipped, disabled, or converted to continue-on-error.
+
+D1 status: not fully reached in this container because cross-platform GitHub Actions evidence and local wxWidgets-backed execution are unavailable here. The source repair keeps input tolerance unchanged, corrects the strict fixtures, adds mutation diagnostics for the viewer3d mutation path, and replaces direct GDTF rewrite with sibling temporary archive publication before atomic replacement.

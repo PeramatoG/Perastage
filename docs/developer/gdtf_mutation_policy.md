@@ -7,6 +7,8 @@ This document defines how Perastage writes and version-stamps GDTF files, with a
 
 Perastage is permissive when importing GDTF/MVR data and strict when exporting it. Loading a legacy or externally generated GDTF must not rewrite the user's source file just because it was read, but every GDTF that leaves Perastage is normalized through the shared `core/gdtf_canonicalizer` layer before it is written directly or embedded in an MVR archive.
 
+The GDTF 1.2 XSD is the controlling schema for canonical publication. Its `FixtureType` sequence requires exactly one `AttributeDefinitions`, `Geometries`, and `DMXModes` container and requires the `Name`, `Manufacturer`, `Description`, and `FixtureTypeID` attributes. `Wheels`, `PhysicalDescriptions`, `Models`, `Revisions`, `FTPresets`, and `Protocols` are optional containers, but when present they must remain in the official sequence.
+
 The canonicalizer enforces the official GDTF `FixtureType` child order (`AttributeDefinitions`, `Wheels`, `PhysicalDescriptions`, `Models`, `Geometries`, `DMXModes`, `Revisions`, `FTPresets`, `Protocols`), removes non-standard `FixtureType` children such as legacy `PerastageMutationAudit`, preserves valid standard sections and resources, validates required root/fixture structure, and repairs Perastage-owned placeholder `FixtureTypeID` values with deterministic stable IDs when safe.
 
 Any canonicalization mutation is recorded with a standard GDTF `Revision` only. Perastage-specific GDTF metadata must not use custom XML nodes; legacy `PerastageMutationAudit` is read-only compatibility metadata and is never written on export. Perastage-specific MVR metadata remains restricted to root-level `GeneralSceneDescription/UserData/Data[@provider="Perastage"]`; object-level MVR `UserData` is not exported for Fixture, SceneObject, Support, Truss, or GroupObject.
@@ -17,7 +19,7 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 | Module | File | Function(s) | Mutation scope |
 |---|---|---|---|
-| Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, rewrites `.gdtf`. |
+| Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)`, `MutateGdtfDocumentWithResult(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, reports structured diagnostics, and publishes through a sibling temporary archive before atomic replacement. |
 | GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, appends a standard `Revision`, rewrites `.gdtf`. |
 | Project symbol cache manifest | `core/symbol_cache_manifest.cpp` | `SymbolCacheManifest::ValidateFixture(...)`, `MarkFixtureSymbolsValid(...)` | Stores project-level metadata in `.pstg` packages so startup can skip deep GDTF inspection only when the referenced GDTF hash and required view metadata still match. |
 | Truss GDTF generation | `core/truss_gdtf_builder.cpp` | `BuildTrussGdtfFromInstance(...)`, `ConvertLegacyGtrussToGdtf(...)`; `gui/trusseditdialog.cpp` calls the builder when truss type fields are edited | Creates Perastage-owned truss GDTF archives with a standard `Structure` root geometry, deterministic `FixtureTypeID`, standard `Revision`, and no custom XML nodes. |

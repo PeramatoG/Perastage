@@ -39,6 +39,11 @@
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
 #include <wx/filename.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 #include <filesystem>
 #include <unordered_map>
@@ -2042,26 +2047,59 @@ tinyxml2::XMLElement* EnsurePropertiesNode(tinyxml2::XMLElement* fixtureType,
 
 } // namespace
 
-// Mutates selected FixtureType document fields in one extracted archive transaction.
-bool MutateGdtfDocument(const std::string& gdtfPath,
-                        const GdtfDocumentMutationRequest& request,
-                        const std::string& modifiedByProgram)
+// Replaces the target archive with a completed sibling archive.
+static bool ReplaceArchiveAtomically(const fs::path& tempPath, const fs::path& targetPath,
+                                     std::string& error)
 {
-    if (gdtfPath.empty())
+    std::error_code ec;
+#ifdef _WIN32
+    const std::wstring tempWide = tempPath.wstring();
+    const std::wstring targetWide = targetPath.wstring();
+    const BOOL moved = MoveFileExW(tempWide.c_str(), targetWide.c_str(),
+                                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+    if (!moved)
+        ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+#else
+    fs::rename(tempPath, targetPath, ec);
+#endif
+    if (ec) {
+        error = ec.message();
+        fs::remove(tempPath, ec);
         return false;
+    }
+    return true;
+}
+
+// Mutates selected FixtureType document fields in one extracted archive transaction.
+GdtfDocumentMutationResult MutateGdtfDocumentWithResult(const std::string& gdtfPath,
+                                                        const GdtfDocumentMutationRequest& request,
+                                                        const std::string& modifiedByProgram)
+{
+    GdtfDocumentMutationResult result;
+    result.publicationPath = gdtfPath;
+    if (gdtfPath.empty()) {
+        result.errors.push_back("GDTF path is empty");
+        return result;
+    }
 
     TempExtraction extraction(gdtfPath);
-    if (!extraction.IsValid())
-        return false;
+    if (!extraction.IsValid()) {
+        result.errors.push_back("Could not extract GDTF archive");
+        return result;
+    }
 
     const std::string descPath = extraction.Path() + "/description.xml";
     tinyxml2::XMLDocument doc;
-    if (!ParseXmlWithEscapedControlFallback(descPath, doc))
-        return false;
+    if (!ParseXmlWithEscapedControlFallback(descPath, doc)) {
+        result.errors.push_back("Could not parse description.xml");
+        return result;
+    }
 
     tinyxml2::XMLElement* fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
-    if (!fixtureType)
-        return false;
+    if (!fixtureType) {
+        result.errors.push_back("description.xml is missing FixtureType");
+        return result;
+    }
 
     bool mutated = false;
     if (request.descriptionSet) {
@@ -2075,8 +2113,10 @@ bool MutateGdtfDocument(const std::string& gdtfPath,
                       request.powerSet ? std::optional<float>(request.powerW) : std::nullopt) ||
                   mutated;
     }
-    if (!mutated)
-        return true;
+    if (!mutated) {
+        result.success = true;
+        return result;
+    }
 
     GdtfMutationAudit::AppendRevision(
         fixtureType, doc,
@@ -2091,16 +2131,46 @@ bool MutateGdtfDocument(const std::string& gdtfPath,
     canonicalOptions.sourceLabel = gdtfPath;
     const GdtfCanonicalizer::Result canonicalResult =
         GdtfCanonicalizer::CanonicalizeDescription(doc, canonicalOptions);
-    if (!canonicalResult.success)
-        return false;
+    result.changed = canonicalResult.changed || mutated;
+    result.warnings = canonicalResult.warnings;
+    if (!canonicalResult.success) {
+        result.errors = canonicalResult.errors;
+        return result;
+    }
 
-    doc.SaveFile(descPath.c_str());
-    if (!ZipDir(extraction.Path(), gdtfPath))
-        return false;
+    if (doc.SaveFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
+        result.errors.push_back("Could not save canonical description.xml");
+        return result;
+    }
+
+    const fs::path targetPath(gdtfPath);
+    const fs::path tempArchive = targetPath.string() + ".tmp";
+    fs::remove(tempArchive);
+    if (!ZipDir(extraction.Path(), tempArchive.string())) {
+        result.errors.push_back("Could not write temporary GDTF archive");
+        fs::remove(tempArchive);
+        return result;
+    }
+
+    std::string replaceError;
+    if (!ReplaceArchiveAtomically(tempArchive, targetPath, replaceError)) {
+        result.errors.push_back("Could not atomically replace GDTF archive: " + replaceError);
+        return result;
+    }
+    result.atomicReplacementCompleted = true;
 
     std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
     g_gdtfCache.erase(gdtfPath);
-    return true;
+    result.success = true;
+    return result;
+}
+
+// Mutates selected FixtureType document fields through the compatibility boolean API.
+bool MutateGdtfDocument(const std::string& gdtfPath,
+                        const GdtfDocumentMutationRequest& request,
+                        const std::string& modifiedByProgram)
+{
+    return MutateGdtfDocumentWithResult(gdtfPath, request, modifiedByProgram).success;
 }
 
 bool SetGdtfProperties(const std::string& gdtfPath,

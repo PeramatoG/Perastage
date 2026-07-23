@@ -1814,6 +1814,7 @@ add_test(NAME GdtfLoaderGeometryRoots COMMAND gdtfloader_geometry_roots_test)
 set_library_env(GdtfLoaderGeometryRoots)
 
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
                ../core/runtime_storage.cpp
@@ -1825,12 +1826,13 @@ add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                ../viewer3d/meshprimitives.cpp
                consolepanel_stub.cpp)
 target_include_directories(gdtfloader_set_properties_test PRIVATE
-                           . ../viewer3d ../models ../gui ../third_party)
+                           . ../core ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_test)
 set_library_env(GdtfLoaderSetPropertiesMutation)
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
@@ -1878,6 +1880,7 @@ add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gd
 set_library_env(SymbolFixtureApplierGdtfMutation)
 
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../mvr/mvrexporter.cpp
                ../mvr/primitive_model_resources.cpp

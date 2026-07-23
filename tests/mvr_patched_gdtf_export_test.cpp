@@ -16,6 +16,8 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include "support/gdtf_test_fixture_builder.h"
+
 #include "../core/configmanager.h"
 #include "../models/truss.h"
 #include "../mvr/mvrexporter.h"
@@ -53,30 +55,13 @@ std::unordered_map<std::string, std::string> ReadArchiveEntries(const fs::path &
   return entries;
 }
 
+// Writes a canonical minimal GDTF 1.2 archive for mutation tests.
 std::string MakeBaseGdtf() {
-  const fs::path outPath =
-      fs::temp_directory_path() /
-      ("mvr_truss_source_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) +
-       ".gdtf");
-
-  wxFFileOutputStream fileOut(outPath.string());
-  assert(fileOut.IsOk());
-  wxZipOutputStream zipOut(fileOut);
-
-  zipOut.PutNextEntry("description.xml");
-  const std::string xml =
-      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GDTF DataVersion=\"1.2\">"
-      "<FixtureType Name=\"OriginalTruss\" Manufacturer=\"OriginalMaker\">"
-      "<Models>"
-      "<Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\" Length=\"1\" Width=\"1\" Height=\"1\"/>"
-      "</Models>"
-      "<Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>"
-      "</FixtureType>"
-      "</GDTF>";
-  zipOut.Write(xml.data(), xml.size());
-  zipOut.Close();
-
+  const fs::path outPath = fs::temp_directory_path() /
+                           (std::string("makebasegdtf_") +
+                            std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) +
+                            ".gdtf");
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(outPath);
   return outPath.string();
 }
 

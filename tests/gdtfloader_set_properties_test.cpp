@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -13,6 +14,8 @@
 #include <wx/init.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
+
+#include "support/gdtf_test_fixture_builder.h"
 
 #include "../viewer3d/gdtfloader.h"
 
@@ -33,30 +36,14 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   return content;
 }
 
+// Writes a canonical minimal GDTF 1.2 archive for mutation tests.
 std::string MakeBaseGdtf() {
-  wxFileName tempName(wxFileName::CreateTempFileName("gdtf_set_properties_"));
-  const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
-  wxRemoveFile(tempName.GetFullPath());
-
-  wxFFileOutputStream fileOut(outPath);
-  assert(fileOut.IsOk());
-  wxZipOutputStream zipOut(fileOut);
-
-  zipOut.PutNextEntry("description.xml");
-  const std::string xml =
-      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GDTF DataVersion=\"1.2\">"
-      "<FixtureType Name=\"SetPropertiesFixture\" Manufacturer=\"Acme\">"
-      "<Models>"
-      "<Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\" Length=\"1\" Width=\"1\" Height=\"1\"/>"
-      "</Models>"
-      "<Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>"
-      "</FixtureType>"
-      "</GDTF>";
-  zipOut.Write(xml.data(), xml.size());
-  zipOut.Close();
-
-  return outPath;
+  const fs::path outPath = fs::temp_directory_path() /
+                           (std::string("makebasegdtf_") +
+                            std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) +
+                            ".gdtf");
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(outPath);
+  return outPath.string();
 }
 
 } // namespace
@@ -66,7 +53,19 @@ int main() {
   assert(initializer.IsOk());
 
   const std::string gdtfPath = MakeBaseGdtf();
-  assert(SetGdtfProperties(gdtfPath, 12.345f, 678.9f, "Perastage Tests"));
+  GdtfDocumentMutationRequest request;
+  request.weightSet = true;
+  request.weightKg = 12.345f;
+  request.powerSet = true;
+  request.powerW = 678.9f;
+  request.revisionText =
+      "Updated fixture physical properties (Weight/PowerConsumption) from Perastage";
+  const GdtfDocumentMutationResult mutation =
+      MutateGdtfDocumentWithResult(gdtfPath, request, "Perastage Tests");
+  assert(mutation.success);
+  assert(mutation.changed);
+  assert(mutation.errors.empty());
+  assert(mutation.atomicReplacementCompleted);
 
   wxFileInputStream input(gdtfPath);
   assert(input.IsOk());

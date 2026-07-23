@@ -101,6 +101,15 @@ bool GetGdtfProperties(const std::string& gdtfPath,
 // the file cannot be parsed.
 std::string GetGdtfModelColor(const std::string& gdtfPath);
 
+struct GdtfDocumentMutationResult {
+    bool success = false;
+    bool changed = false;
+    std::vector<std::string> warnings;
+    std::vector<std::string> errors;
+    std::string publicationPath;
+    bool atomicReplacementCompleted = false;
+};
+
 struct GdtfDocumentMutationRequest {
     bool descriptionSet = false;
     std::string description;
@@ -110,6 +119,11 @@ struct GdtfDocumentMutationRequest {
     float powerW = 0.0f;
     std::string revisionText;
 };
+
+// Updates document-level FixtureType and physical-property values with structured diagnostics.
+GdtfDocumentMutationResult MutateGdtfDocumentWithResult(const std::string& gdtfPath,
+                                                        const GdtfDocumentMutationRequest& request,
+                                                        const std::string& modifiedByProgram);
 
 // Updates document-level FixtureType and physical-property values in one archive transaction.
 bool MutateGdtfDocument(const std::string& gdtfPath,

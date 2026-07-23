@@ -104,7 +104,7 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
   const std::string category = categorySignals ? " FixtureTypeCategory=\"Conventional\"" : "";
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<GDTF DataVersion=\"1.2\">\n"
-         "  <FixtureType Name=\"Perastage Minimal 1ch\" ShortName=\"Minimal 1ch\" Manufacturer=\"Perastage\" FixtureTypeID=\"" +
+         "  <FixtureType Name=\"Perastage Minimal 1ch\" ShortName=\"Minimal 1ch\" Manufacturer=\"Perastage\" Description=\"Minimal canonical GDTF 1.2 fixture for tests\" FixtureTypeID=\"" +
          std::string(kMinimalFixtureTypeId) + category +
          "\">\n"
          "    <AttributeDefinitions><ActivationGroups/><FeatureGroups><FeatureGroup Name=\"Dimmer\" Pretty=\"Dimmer\"><Feature Name=\"Dimmer\"/></FeatureGroup></FeatureGroups><Attributes><Attribute Name=\"Dimmer\" Pretty=\"Dimmer\" Feature=\"Dimmer.Dimmer\" PhysicalUnit=\"LuminousIntensity\"/></Attributes></AttributeDefinitions>\n"

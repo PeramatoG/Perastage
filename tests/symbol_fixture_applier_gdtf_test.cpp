@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -13,6 +14,8 @@
 #include <wx/init.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
+
+#include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/configmanager.h"
 #include "../core/gdtf_mutation_audit.h"
@@ -38,30 +41,14 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   return content;
 }
 
+// Writes a canonical minimal GDTF 1.2 archive for symbol mutation tests.
 std::string MakeFixtureGdtf() {
-  wxFileName tempName(wxFileName::CreateTempFileName("gdtf_symbol_apply_"));
-  const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
-  wxRemoveFile(tempName.GetFullPath());
-
-  wxFFileOutputStream fileOut(outPath);
-  assert(fileOut.IsOk());
-  wxZipOutputStream zipOut(fileOut);
-
-  zipOut.PutNextEntry("description.xml");
-  const std::string xml =
-      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GDTF DataVersion=\"1.2\">"
-      "<FixtureType Name=\"SymbolFixture\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
-      "<Models>"
-      "<Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\" Length=\"1\" Width=\"1\" Height=\"1\"/>"
-      "</Models>"
-      "<Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>"
-      "</FixtureType>"
-      "</GDTF>";
-  zipOut.Write(xml.data(), xml.size());
-  zipOut.Close();
-
-  return outPath;
+  const fs::path outPath = fs::temp_directory_path() /
+                           (std::string("makefixturegdtf_") +
+                            std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) +
+                            ".gdtf");
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(outPath);
+  return outPath.string();
 }
 
 std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml) {
