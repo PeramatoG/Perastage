@@ -218,3 +218,601 @@ The Windows-only domain failures remain untouched and unclassified:
 ### Safe Merge Point B decision
 
 Safe Merge Point B is pending until a completed CI run for the follow-up commit confirms that `ReleaseGatePolicyPortability` passes on Windows Git Bash within the unchanged 120-second timeout and that the domain failure set is unchanged except for removing the harness timeout. Safe Merge Point B must not be declared from local Linux-only evidence.
+
+## Authoritative current baseline and Phase 3 classification for CI run 29995392074
+
+Base branch verification for this Phase 3 task: the local task branch started at `dea118f7bb2dcdf04e0c415c891b4aa0c305153c`, matching the requested current `main` reviewed for this task. The local checkout has no `origin` remote configured, so `git fetch origin main` could not be completed in this container; the commit graph still shows `dea118f7` immediately after merge commit `381fb1ae` and tested commit `cf10f50`. The only file changed from `cf10f50184376d32c0806d9b5b6de9d186637449` to `dea118f7bb2dcdf04e0c415c891b4aa0c305153c` is `VERSION`, bumped from `1.4.148` to `1.4.149`, so run `29995392074` remains the authoritative baseline for current code and tests.
+
+Run `29995392074` (`https://github.com/PeramatoG/Perastage/actions/runs/29995392074`) is the current authoritative Phase 2 closure baseline. PR #2204 was merged by merge commit `381fb1ae7dcac1936c39072615fc097ef5c51e6b`. Safe Merge Point B is reached. Safe Merge Point C is reached by this documentation-only classification once the 29-test reconciliation below remains valid.
+
+| Platform | Inventory | Executed profile | Passed | Failed | Skipped | Notes |
+| --- | ---: | --- | ---: | ---: | ---: | --- |
+| Linux Debug | 160 tests | Full Debug suite | 134 | 25 | 1 | `CredentialStoreNativeRoundTrip` is the single skip and is not counted as a failure. |
+| Windows Debug | 160 tests | Full Debug suite | 131 | 29 | 0 | `WindowsNinjaX64Policy` passed in about 0.76 seconds; `ReleaseGatePolicyPortability` passed in about 2.92 seconds. |
+| macOS Debug | 160 registered tests | Reduced `release-gate` profile | 6 | 0 | 0 | This is not full-suite macOS parity; only 6 release-gate tests executed. |
+
+Always-on result artifacts inspected/recorded for run `29995392074`: `ci-linux-debug-test-results`, `ci-windows-debug-test-results`, and `ci-macos-debug-test-results`. Heavy diagnostics reserved for missing context: `ci-linux-debug-diagnostics` and `ci-windows-debug-diagnostics`. Each result artifact is expected to contain `ctest-inventory-<platform>-debug.json`, `ctest-inventory-<platform>-debug.txt`, `ctest-<platform>-debug.junit.xml`, `ctest-<platform>-debug.log`, `ctest-<platform>-debug-failures.csv`, `ctest-<platform>-debug-results.json`, and `LastTestsFailed.log`/`LastTestsDisabled.log` when CTest produced them. Public GitHub run metadata lists all five artifact names, but this container does not have `gh`, so downloaded archives are not committed and artifact access is recorded by run/artifact name.
+
+`ReleaseGatePolicyPortability` is recorded separately as fixed: primary classification `test-harness-defect`, fixed by PR #2204, absent from the current Windows failure set, and verified passing on Linux, Windows, and macOS in run `29995392074`. It is not counted among the 29 current domain failures.
+
+### Phase 3 classification entries
+
+#### `GdtfReadServices`
+
+- Exact CTest name: `GdtfReadServices`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Linux: TestUnicodeZipFilenameCompatibility assertion expected !read.Success() but tolerant ZIP read succeeds; Windows: earlier inaccessible Unicode path read.Success() false.
+- Source test file and assertion or exit point: `tests/gdtf_read_services_test.cpp:402,492`.
+- Production components and call path under test: gdtf read services -> wxZipInputStream/std::filesystem path conversion -> structured diagnostics.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfReadServices$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `recovery`.
+- Policy layer: `tolerant-recovery`.
+- Intended current contract: GDTF archive input must be permissive and diagnosable; Unicode ZIP names should be accepted when decoded safely.
+- Relevant GDTF/MVR requirement or internal Perastage contract: GDTF archive ZIP with description.xml; internal tolerant input policy.
+- Shared root-cause group: GDTF Unicode/archive tolerant-read divergence.
+- Confidence: `high`.
+- Evidence supporting the category: Run notes identify two different subtests; test source constructs Unicode ZIP/path cases.
+- Evidence still missing: Full artifact download was unavailable locally because gh is not installed; preserve CI artifact names as evidence.
+- Recommended follow-up phase and action: Phase 4A: split Windows path-access defect from Linux stale expectation.
+
+#### `GdtfFixtureCategoryFallback`
+
+- Exact CTest name: `GdtfFixtureCategoryFallback`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Generated fixture category inference assertion differs from current fallback result.
+- Source test file and assertion or exit point: `tests/gdtf_fixture_category_test.cpp:177`.
+- Production components and call path under test: fixture category parser -> GDTF metadata/category inference -> dictionary fallback.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfFixtureCategoryFallback$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `generated`.
+- Policy layer: `tolerant-recovery`.
+- Intended current contract: Missing category metadata should use documented fallback without inventing unsupported standard data.
+- Relevant GDTF/MVR requirement or internal Perastage contract: GDTF fixture metadata is optional; Perastage fallback is an internal tolerant-recovery contract.
+- Shared root-cause group: Category propagation and fallback contract.
+- Confidence: `medium`.
+- Evidence supporting the category: Test cases generate minimal GDTF XML and assert inferred.category.
+- Evidence still missing: Exact expected/actual from JUnit unavailable in local checkout.
+- Recommended follow-up phase and action: Phase 4B: document category fallback precedence then update behavior or expectation.
+
+#### `GdtfFixtureInsertionPreparation`
+
+- Exact CTest name: `GdtfFixtureInsertionPreparation`.
+- Affected platform or platforms: Windows.
+- First meaningful failure per affected platform: Windows-only failure while preparing insertion diagnostics for GDTF fixture path/archive.
+- Source test file and assertion or exit point: `tests/gdtf_fixture_insertion_preparation_test.cpp:61`.
+- Production components and call path under test: GUI insertion preparation service -> GDTF metadata read -> diagnostics collection.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfFixtureInsertionPreparation$' --output-on-failure --verbose`.
+- Primary classification: `platform-specific-contract`.
+- Fixture category: `generated`.
+- Policy layer: `platform-specific`.
+- Intended current contract: Insertion preparation must be path-portable and report recoverable diagnostics without rejecting accessible fixtures.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal Windows Unicode/path contract for fixture insertion.
+- Shared root-cause group: GDTF Windows path/archive handling.
+- Confidence: `medium`.
+- Evidence supporting the category: Failure is Windows-only; source helper checks diagnostic presence.
+- Evidence still missing: Exact failing diagnostic from Windows artifact not available locally.
+- Recommended follow-up phase and action: Phase 4A: reproduce on Windows and decide path conversion fix vs expectation.
+
+#### `GdtfLoaderSetPropertiesMutation`
+
+- Exact CTest name: `GdtfLoaderSetPropertiesMutation`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Mutation roundtrip assertion fails after GDTF loader set-properties publication.
+- Source test file and assertion or exit point: `tests/gdtfloader_set_properties_test.cpp`.
+- Production components and call path under test: GDTF loader/editor mutation -> canonicalizer -> archive writer.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfLoaderSetPropertiesMutation$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `standard-strict`.
+- Intended current contract: Mutated GDTF output must be canonical GDTF 1.2 and preserve intended edited properties.
+- Relevant GDTF/MVR requirement or internal Perastage contract: GDTF 1.2 output archive must contain canonical description.xml and valid fixture metadata.
+- Shared root-cause group: GDTF mutation/canonical publication.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform failure in writer/mutation domain indicates deterministic contract mismatch.
+- Evidence still missing: Exact XML diff from artifacts/golden not available locally.
+- Recommended follow-up phase and action: Phase 4A: inspect generated archive and normalize writer or assertions per strict output contract.
+
+#### `SymbolFixtureApplierGdtfMutation`
+
+- Exact CTest name: `SymbolFixtureApplierGdtfMutation`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Symbol fixture applier GDTF mutation output assertion fails.
+- Source test file and assertion or exit point: `tests/symbol_fixture_applier_gdtf_test.cpp`.
+- Production components and call path under test: symbol fixture applier -> GDTF apply adapter -> archive mutation/writer.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^SymbolFixtureApplierGdtfMutation$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `standard-strict`.
+- Intended current contract: Applying symbols must produce canonical GDTF output while preserving unrelated valid content.
+- Relevant GDTF/MVR requirement or internal Perastage contract: GDTF output canonicalization and Perastage symbol mutation contract.
+- Shared root-cause group: GDTF mutation/canonical publication.
+- Confidence: `medium`.
+- Evidence supporting the category: Shares cross-platform mutation failure pattern with loader and patched MVR export tests.
+- Evidence still missing: Exact generated symbol resource diff missing.
+- Recommended follow-up phase and action: Phase 4A: fix mutation pipeline once for direct and MVR-embedded GDTF.
+
+#### `MvrPatchedGdtfExportMutation`
+
+- Exact CTest name: `MvrPatchedGdtfExportMutation`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Exported MVR with patched GDTF fails mutation/compliance assertion.
+- Source test file and assertion or exit point: `tests/mvr_patched_gdtf_export_test.cpp`.
+- Production components and call path under test: MVR exporter -> patched embedded GDTF writer -> archive validation.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrPatchedGdtfExportMutation$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `standard-strict`.
+- Intended current contract: MVR export must embed canonical patched GDTF without reproducing malformed source structures.
+- Relevant GDTF/MVR requirement or internal Perastage contract: MVR 1.6 archive plus GDTF 1.2 embedded fixture contract.
+- Shared root-cause group: GDTF mutation/canonical publication.
+- Confidence: `medium`.
+- Evidence supporting the category: Fails with other GDTF mutation tests on both full-suite platforms.
+- Evidence still missing: Exact embedded archive diff missing.
+- Recommended follow-up phase and action: Phase 4A: repair shared canonical publication path.
+
+#### `MvrSupportUserDataRoundtrip`
+
+- Exact CTest name: `MvrSupportUserDataRoundtrip`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: MVR roundtrip loses or relocates support user data.
+- Source test file and assertion or exit point: `tests/mvr_support_userdata_roundtrip_test.cpp`.
+- Production components and call path under test: MVR importer/exporter -> GeneralSceneDescription -> UserData preservation.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrSupportUserDataRoundtrip$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `valid`.
+- Policy layer: `standard-strict`.
+- Intended current contract: Writers must preserve valid unrelated user data where the mutation contract allows it.
+- Relevant GDTF/MVR requirement or internal Perastage contract: MVR 1.6 GeneralSceneDescription and user data preservation.
+- Shared root-cause group: MVR GeneralSceneDescription identity/user-data preservation.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform deterministic MVR roundtrip failure.
+- Evidence still missing: Exact missing node/attribute unavailable.
+- Recommended follow-up phase and action: Phase 4C: repair scene/user-data preservation.
+
+#### `MvrFixtureCategoryRoundtrip`
+
+- Exact CTest name: `MvrFixtureCategoryRoundtrip`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Fixture category is not preserved through MVR roundtrip.
+- Source test file and assertion or exit point: `tests/mvr_fixture_category_roundtrip_test.cpp`.
+- Production components and call path under test: fixture model -> MVR exporter/importer -> category mapping.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrFixtureCategoryRoundtrip$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `valid`.
+- Policy layer: `standard-strict`.
+- Intended current contract: Valid fixture category metadata must roundtrip through MVR and project save/load consistently.
+- Relevant GDTF/MVR requirement or internal Perastage contract: MVR fixture metadata plus Perastage category contract.
+- Shared root-cause group: Category propagation and fallback contract.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform and related to category/save/load failures.
+- Evidence still missing: Need exact expected/actual category.
+- Recommended follow-up phase and action: Phase 4B: fix category mapping across GDTF, MVR, and project save.
+
+#### `MvrTrussRoundtripStructure`
+
+- Exact CTest name: `MvrTrussRoundtripStructure`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: MVR truss hierarchy/reference assertion fails.
+- Source test file and assertion or exit point: `tests/mvr_truss_roundtrip_structure_test.cpp`.
+- Production components and call path under test: truss model -> MVR GeneralSceneDescription hierarchy -> importer.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrTrussRoundtripStructure$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `valid`.
+- Policy layer: `standard-strict`.
+- Intended current contract: Truss structure and references must roundtrip in canonical MVR hierarchy.
+- Relevant GDTF/MVR requirement or internal Perastage contract: MVR 1.6 scene hierarchy/reference contract.
+- Shared root-cause group: MVR GeneralSceneDescription hierarchy/references.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform strict MVR structural failure.
+- Evidence still missing: Exact hierarchy diff missing.
+- Recommended follow-up phase and action: Phase 4C: repair hierarchy/reference writer before dependent roundtrips.
+
+#### `MvrExporterCompliance`
+
+- Exact CTest name: `MvrExporterCompliance`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: MVR compliance assertion fails for exported scene/archive.
+- Source test file and assertion or exit point: `tests/mvr_exporter_compliance_test.cpp`.
+- Production components and call path under test: MVR exporter -> UUID/scene identity/archive compliance checks.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^MvrExporterCompliance$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `standard-strict`.
+- Intended current contract: Perastage-generated MVR must be strict canonical MVR 1.6.
+- Relevant GDTF/MVR requirement or internal Perastage contract: MVR 1.6 strict output contract.
+- Shared root-cause group: MVR malformed UUID/scene identity compliance.
+- Confidence: `high`.
+- Evidence supporting the category: Exporter compliance is generated output and fails on both Linux and Windows.
+- Evidence still missing: Need exact validator complaint from artifact.
+- Recommended follow-up phase and action: Phase 4C: first MVR writer compliance branch after GDTF publication group.
+
+#### `SaveLoadRoundtrip`
+
+- Exact CTest name: `SaveLoadRoundtrip`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Project save/load roundtrip assertion fails.
+- Source test file and assertion or exit point: `tests/save_load_roundtrip_test.cpp`.
+- Production components and call path under test: Project serializer -> loader -> fixture/truss/support/category state.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^SaveLoadRoundtrip$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Perastage project save/load must preserve internal scene state deterministically.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal project persistence contract.
+- Shared root-cause group: Project persistence/category propagation.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform project roundtrip failure with support/category neighbors.
+- Evidence still missing: Exact field mismatch missing.
+- Recommended follow-up phase and action: Phase 4B: repair after category contract is documented.
+
+#### `ProjectSupportUserDataRoundtrip`
+
+- Exact CTest name: `ProjectSupportUserDataRoundtrip`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Project support user data roundtrip assertion fails.
+- Source test file and assertion or exit point: `tests/project_support_userdata_roundtrip_test.cpp`.
+- Production components and call path under test: Project serializer/loader -> Support/UserData fields.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^ProjectSupportUserDataRoundtrip$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Project persistence must preserve support user data without depending on MVR-only structures.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal Perastage project support data contract.
+- Shared root-cause group: Project persistence/category propagation.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform save/load data-loss pattern.
+- Evidence still missing: Exact serialized JSON/XML diff missing.
+- Recommended follow-up phase and action: Phase 4B: fix project support preservation.
+
+#### `GdtfShareSecurity`
+
+- Exact CTest name: `GdtfShareSecurity`.
+- Affected platform or platforms: Windows.
+- First meaningful failure per affected platform: Windows-only secure-store/GDTF Share security process exits failed; not a macOS release-gate failure.
+- Source test file and assertion or exit point: `tests/gdtf_share_security_test.cpp`.
+- Production components and call path under test: GDTF Share security -> credential store abstraction -> platform secure storage test harness.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^GdtfShareSecurity$' --output-on-failure --verbose`.
+- Primary classification: `platform-specific-contract`.
+- Fixture category: `not-applicable`.
+- Policy layer: `platform-specific`.
+- Intended current contract: Security tests must use deterministic platform credential-store behavior and report unsupported stores as skips only by explicit contract.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal secure-store policy; platform-specific credential APIs.
+- Shared root-cause group: Windows secure-store/debug lifecycle.
+- Confidence: `medium`.
+- Evidence supporting the category: Windows-only; macOS reduced release-gate profile passed.
+- Evidence still missing: Complete Windows segment/exit detail missing locally.
+- Recommended follow-up phase and action: Phase 4F: inspect Windows secure store availability and exit path.
+
+#### `RiderTrussDictionaryNormalization`
+
+- Exact CTest name: `RiderTrussDictionaryNormalization`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for truss dictionary normalization under current parser output.
+- Source test file and assertion or exit point: `tests/rider_truss_dictionary_normalization_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderTrussDictionaryNormalization$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderImportLinearOrder`
+
+- Exact CTest name: `RiderImportLinearOrder`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for linear object ordering under current parser output.
+- Source test file and assertion or exit point: `tests/rider_import_linear_order_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderImportLinearOrder$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderFilterPreview`
+
+- Exact CTest name: `RiderFilterPreview`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for filter preview extraction under current parser output.
+- Source test file and assertion or exit point: `tests/rider_filter_preview_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderFilterPreview$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderComments`
+
+- Exact CTest name: `RiderComments`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for comment preservation/filtering under current parser output.
+- Source test file and assertion or exit point: `tests/rider_comments_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderComments$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderLedScreenObject`
+
+- Exact CTest name: `RiderLedScreenObject`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for LED screen object placement under current parser output.
+- Source test file and assertion or exit point: `tests/rider_led_screen_object_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderLedScreenObject$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderHoistImport`
+
+- Exact CTest name: `RiderHoistImport`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for hoist import placement under current parser output.
+- Source test file and assertion or exit point: `tests/rider_hoist_import_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderHoistImport$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderLxSidesImport`
+
+- Exact CTest name: `RiderLxSidesImport`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for LX side import under current parser output.
+- Source test file and assertion or exit point: `tests/rider_lx_sides_import_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderLxSidesImport$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `RiderPipeImport`
+
+- Exact CTest name: `RiderPipeImport`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Rider importer assertion fails for pipe import under current parser output.
+- Source test file and assertion or exit point: `tests/rider_pipe_import_test.cpp`.
+- Production components and call path under test: rider text importer -> normalized rider model -> scene placement/preview.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^RiderPipeImport$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `valid`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Rider parsing should preserve useful user-authored intent while following documented normalization and placement rules.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal text-to-scene/rider normalization contract; no external standard.
+- Shared root-cause group: Rider parser expectations versus current normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: All rider tests fail cross-platform, suggesting deterministic parser contract drift rather than platform behavior.
+- Evidence still missing: Exact expected/current parsed model diff missing.
+- Recommended follow-up phase and action: Phase 4D: update text_to_scene_rules.md then fix parser or expectations as one rider contract branch.
+
+#### `Viewer2DFboCaptureDiagnostics`
+
+- Exact CTest name: `Viewer2DFboCaptureDiagnostics`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Policy script reports Viewer2D FBO capture diagnostics registration/diagnostic contract failure.
+- Source test file and assertion or exit point: `tests/check_viewer2d_fbo_capture_diagnostics.sh:112`.
+- Production components and call path under test: Viewer2D FBO capture diagnostics policy script -> CMake/test registration/source checks.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^Viewer2DFboCaptureDiagnostics$' --output-on-failure --verbose`.
+- Primary classification: `test-harness-defect`.
+- Fixture category: `not-applicable`.
+- Policy layer: `not-applicable`.
+- Intended current contract: Policy checks should match current diagnostic integration points without requiring production changes.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal diagnostic-policy test contract.
+- Shared root-cause group: Viewer2D fallback diagnostic policy.
+- Confidence: `medium`.
+- Evidence supporting the category: This is a bash policy test, not a rendering executable; failure likely reflects stale source-pattern check.
+- Evidence still missing: Exact policy stderr from run unavailable.
+- Recommended follow-up phase and action: Phase 4G: update policy only after confirming intended diagnostic contract.
+
+#### `EditableFocusUtils`
+
+- Exact CTest name: `EditableFocusUtils`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Editable focus utility assertion fails; Linux AT-SPI/DBus warning is non-causal noise.
+- Source test file and assertion or exit point: `tests/editable_focus_utils_test.cpp`.
+- Production components and call path under test: GUI editable-focus utility -> wxWidgets focus/window lifecycle.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^EditableFocusUtils$' --output-on-failure --verbose`.
+- Primary classification: `test-harness-defect`.
+- Fixture category: `not-applicable`.
+- Policy layer: `platform-specific`.
+- Intended current contract: Headless GUI tests must create/destroy wx objects deterministically and assert utility behavior independent of desktop services.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal GUI utility contract; wx lifecycle constraints.
+- Shared root-cause group: wxWidgets lifecycle/headless focus.
+- Confidence: `medium`.
+- Evidence supporting the category: Fails on both platforms; Linux warning absent on Windows, so warning is not shared cause.
+- Evidence still missing: Exact assertion missing; need focused local GUI environment.
+- Recommended follow-up phase and action: Phase 4F: isolate wx lifecycle from utility assertions.
+
+#### `LayoutTemplatePackageService`
+
+- Exact CTest name: `LayoutTemplatePackageService`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Portable layout package import/export validation assertion fails.
+- Source test file and assertion or exit point: `tests/layout_template_package_service_test.cpp:107`.
+- Production components and call path under test: LayoutTemplatePackageService -> image registry -> zip/json portable paths.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^LayoutTemplatePackageService$' --output-on-failure --verbose`.
+- Primary classification: `production-defect`.
+- Fixture category: `generated`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: Layout template packages must use portable normalized paths and preserve registered resources.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal portable layout package contract.
+- Shared root-cause group: Layout portable path/resource normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: Source asserts export/import/validate cycles and shares domain with registry failure.
+- Evidence still missing: Exact assertion line from CI missing.
+- Recommended follow-up phase and action: Phase 4E: repair package path/resource contract.
+
+#### `LayoutImageResourceRegistry`
+
+- Exact CTest name: `LayoutImageResourceRegistry`.
+- Affected platform or platforms: Windows.
+- First meaningful failure per affected platform: Windows-only layout image resource registry assertion fails.
+- Source test file and assertion or exit point: `tests/layout_image_resource_registry_test.cpp:86`.
+- Production components and call path under test: LayoutImageResourceRegistry singleton -> path normalization/dedup usage counts.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^LayoutImageResourceRegistry$' --output-on-failure --verbose`.
+- Primary classification: `platform-specific-contract`.
+- Fixture category: `generated`.
+- Policy layer: `platform-specific`.
+- Intended current contract: Resource keys must normalize Windows paths and Unicode consistently without changing portable package semantics.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal layout resource registry path contract.
+- Shared root-cause group: Layout portable path/resource normalization.
+- Confidence: `medium`.
+- Evidence supporting the category: Windows-only; source checks UsageCount and UsedResources.
+- Evidence still missing: Exact path values missing.
+- Recommended follow-up phase and action: Phase 4E: fix Windows normalization after package contract.
+
+#### `PdfTextComparison`
+
+- Exact CTest name: `PdfTextComparison`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: PDF text comparison expected textual output differs from generated PDF extraction.
+- Source test file and assertion or exit point: `tests/pdf_text_comparison_test.cpp`.
+- Production components and call path under test: PDF exporter/text extraction comparator -> formatting/golden text assertions.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^PdfTextComparison$' --output-on-failure --verbose`.
+- Primary classification: `stale-expectation`.
+- Fixture category: `generated`.
+- Policy layer: `perastage-extension`.
+- Intended current contract: PDF text tests should assert stable semantic content, not brittle formatting unless formatting is the explicit contract.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal PDF serialization/text comparison contract.
+- Shared root-cause group: PDF formatting versus brittle text expectations.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform text comparison failure points to deterministic expectation drift.
+- Evidence still missing: Need extracted text diff.
+- Recommended follow-up phase and action: Phase 4H: define PDF text contract before updating golden/assertions.
+
+#### `PdfWriterSerialization`
+
+- Exact CTest name: `PdfWriterSerialization`.
+- Affected platform or platforms: Windows.
+- First meaningful failure per affected platform: Windows-only pdf writer executable exits failed with little CTest output.
+- Source test file and assertion or exit point: `tests/pdf_writer_test.cpp`.
+- Production components and call path under test: PDF writer serialization -> file output/runtime cleanup.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^PdfWriterSerialization$' --output-on-failure --verbose`.
+- Primary classification: `platform-specific-contract`.
+- Fixture category: `generated`.
+- Policy layer: `platform-specific`.
+- Intended current contract: PDF writer test must serialize deterministically on Windows and avoid CRT/lifecycle false failures.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal PDF writer contract plus Windows runtime behavior.
+- Shared root-cause group: Windows PDF writer/runtime lifecycle.
+- Confidence: `provisional`.
+- Evidence supporting the category: Windows-only with sparse output; requested inspection treats exit path separately.
+- Evidence still missing: Generated files/debug diagnostics missing locally.
+- Recommended follow-up phase and action: Phase 4H/F: reproduce on Windows and distinguish assertion from CRT cleanup.
+
+#### `TrussPathEncodingRegression`
+
+- Exact CTest name: `TrussPathEncodingRegression`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: Linux: ProjectUtils::LoadLastProjectPath equality assertion; Windows: invalid UTF-8/debug leak output may be exit cause.
+- Source test file and assertion or exit point: `tests/truss_path_encoding_regression_test.cpp`.
+- Production components and call path under test: ProjectUtils last-project-path persistence -> UTF-8/path conversion -> ConfigManager.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^TrussPathEncodingRegression$' --output-on-failure --verbose`.
+- Primary classification: `platform-specific-contract`.
+- Fixture category: `generated`.
+- Policy layer: `platform-specific`.
+- Intended current contract: Last project path persistence must roundtrip Unicode paths using a documented portable encoding.
+- Relevant GDTF/MVR requirement or internal Perastage contract: Internal project path encoding/persistence contract.
+- Shared root-cause group: Project path encoding and persistence.
+- Confidence: `medium`.
+- Evidence supporting the category: Explicitly divergent Linux/Windows symptoms require platform-specific classification until Windows exit is proven.
+- Evidence still missing: Need Windows assertion vs CRT leak determination.
+- Recommended follow-up phase and action: Phase 4F: reproduce with debug leak settings and path traces.
+
+#### `Loader3dsNativeDimensions`
+
+- Exact CTest name: `Loader3dsNativeDimensions`.
+- Affected platform or platforms: Linux, Windows.
+- First meaningful failure per affected platform: 3DS native dimensions assertion differs from loader output.
+- Source test file and assertion or exit point: `tests/loader3ds_native_dimensions_test.cpp`.
+- Production components and call path under test: 3DS loader -> axis conversion/native dimensions calculation.
+- Exact focused reproduction command: `ctest --test-dir <build-dir> -R '^Loader3dsNativeDimensions$' --output-on-failure --verbose`.
+- Primary classification: `standards-ambiguity-needing-documentation`.
+- Fixture category: `valid`.
+- Policy layer: `not-applicable`.
+- Intended current contract: 3DS dimensions must state whether native file axes or Perastage scene axes are authoritative.
+- Relevant GDTF/MVR requirement or internal Perastage contract: 3DS is legacy binary geometry; internal axis/dimension convention must be documented.
+- Shared root-cause group: 3DS axis/dimension convention.
+- Confidence: `medium`.
+- Evidence supporting the category: Cross-platform deterministic geometry mismatch with no policy document cited.
+- Evidence still missing: Need fixture authoring convention and expected axis basis.
+- Recommended follow-up phase and action: Phase 4I: document convention then adjust loader or test.
+
+### Phase 3 reconciliation, counts, and repair order
+
+Distinct current failures classified: 29. Linux and Windows share 25 failures; Windows has 4 additional domain failures (`PdfWriterSerialization`, `GdtfFixtureInsertionPreparation`, `LayoutImageResourceRegistry`, and `GdtfShareSecurity`). `ReleaseGatePolicyPortability` is fixed and excluded. Linux `CredentialStoreNativeRoundTrip` is documented as the single skip and excluded from failures. No production behavior, test assertion, fixture, CMake, workflow, label, timeout, skip, packaging, reader, writer, rider, layout, PDF, geometry, path, or GUI file is changed by this Phase 3 documentation task.
+
+Classification counts by primary category:
+
+- `production-defect`: 11.
+- `stale-expectation`: 11.
+- `platform-specific-contract`: 5.
+- `test-harness-defect`: 2.
+- `standards-ambiguity-needing-documentation`: 1.
+- `invalid-or-obsolete-fixture`: 0.
+- `flaky-or-nondeterministic`: 0.
+- `duplicate-or-no-longer-useful`: 0.
+
+Root-cause groups ordered by expected Phase 4 impact and dependency:
+
+1. GDTF mutation/canonical publication: `GdtfLoaderSetPropertiesMutation`, `SymbolFixtureApplierGdtfMutation`, `MvrPatchedGdtfExportMutation`. Best first Phase 4 branch because it protects the strict-output side of both GDTF and MVR workflows.
+2. MVR malformed UUID/scene identity and GeneralSceneDescription preservation: `MvrExporterCompliance`, `MvrSupportUserDataRoundtrip`, `MvrTrussRoundtripStructure`.
+3. Category propagation and project persistence: `GdtfFixtureCategoryFallback`, `MvrFixtureCategoryRoundtrip`, `SaveLoadRoundtrip`, `ProjectSupportUserDataRoundtrip`.
+4. Rider parser expectations versus current normalization: all eight rider tests; update `docs/developer/text_to_scene_rules.md` before behavior or assertion changes.
+5. Layout portable path/resource normalization: `LayoutTemplatePackageService`, `LayoutImageResourceRegistry`.
+6. Windows/platform lifecycle and path contracts: `GdtfFixtureInsertionPreparation`, `GdtfShareSecurity`, `PdfWriterSerialization`, `TrussPathEncodingRegression`, `EditableFocusUtils`.
+7. PDF formatting contract: `PdfTextComparison`, then `PdfWriterSerialization` if reproduction proves writer semantics rather than Windows lifecycle.
+8. Viewer2D fallback diagnostic policy: `Viewer2DFboCaptureDiagnostics`.
+9. 3DS axis/dimension convention: `Loader3dsNativeDimensions`.
+
+Recommended branch boundaries: keep each root-cause group in its own Phase 4 branch; do not mix MVR/GDTF strict-output fixes with rider parser expectation updates or Windows lifecycle work. Remaining uncertainties are the exact XML/text/path diffs from downloadable artifacts, Windows CRT leak-versus-assertion exits for `TrussPathEncodingRegression` and `PdfWriterSerialization`, and the normative 3DS axis convention. Safe Merge Point C decision: reached for the audit record because every current failure has explicit fields and the 29-test reconciliation is complete; this decision does not authorize Phase 4 implementation.
