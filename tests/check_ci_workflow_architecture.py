@@ -92,16 +92,21 @@ assert 'uses: ./.github/workflows/ci-tests.yml' not in minor, 'minor package cre
 assert re.search(r'stage-release-commit:[\s\S]+needs: resolve-release', minor), 'stage-release-commit must depend only on release metadata resolution'
 assert 'validate-release-assets' in minor and 'publish-release' in minor
 assert 'python3 .github/scripts/assemble_debug_symbols.py' in minor
+assert 'validate_final_release_assets.py' in minor and 'release-provenance.json' in minor
 assert 'symbol-files.txt' not in minor, 'final symbol archive must not be a path list only'
 assert re.search(r'publish-release:[\s\S]+needs: \[resolve-release, stage-release-commit, validate-release-assets\]', minor)
 assert minor.find('git tag -a') > minor.find('validate-release-assets'), 'final tag must be created after asset validation'
-assert 'git push origin "$RELEASE_SHA":main' in minor and 'main moved' in minor
+assert 'git push --atomic origin' in minor, 'normal publication must use atomic branch and tag push'
+assert '"${RELEASE_SHA}:refs/heads/main"' in minor and '"refs/tags/${NEW_TAG}:refs/tags/${NEW_TAG}"' in minor
+assert 'git push origin "$RELEASE_SHA":main' not in minor, 'normal publication must not push main before tagging'
+assert 'git config user.name "github-actions[bot]"' in minor and minor.find('git config user.name "github-actions[bot]"', minor.find('publish-release:')) < minor.find('git tag -a', minor.find('publish-release:'))
+assert 'refs/tags/${NEW_TAG}^{commit}' in minor, 'annotated tags must be compared by peeled commit target'
+assert 'Unsupported publication state' in minor and 'Git publication is already complete' in minor
 assert 'TEMP_REF="refs/heads/automation/release-${NEW_TAG}-${GITHUB_RUN_ID}"' in minor, 'minor release temp ref must be fully qualified under refs/heads/automation/release-'
 assert 'TEMP_REF="automation/release-' not in minor, 'minor release must not use a short temporary branch name'
 assert re.search(r'echo\s+"Creating temporary release ref:\s+\$\{TEMP_REF\}"', minor), 'staging must log the exact temporary ref before push'
 assert re.search(r'git\s+push\s+origin\s+"HEAD:\$\{TEMP_REF\}"', minor), 'staging must push detached HEAD with an explicit fully qualified refspec'
 assert 'git push origin HEAD:"$TEMP_REF"' not in minor, 'staging must not use the old ambiguous short destination syntax'
-assert 'git push origin "$RELEASE_SHA":main' in minor and 'main moved' in minor
 assert re.search(r'git\s+push\s+origin\s+":\$\{TEMP_REF\}"', minor), 'successful publication must delete the exact temporary refspec'
 assert 'git push origin --delete "$TEMP_REF"' not in minor, 'minor release must not delete temporary refs through short-name guessing'
 cleanup = minor[minor.index('  cleanup-temp-ref:'):]
@@ -111,6 +116,24 @@ assert re.search(r'git\s+ls-remote\s+--exit-code\s+origin\s+"\$\{TEMP_REF\}"', c
 assert re.search(r'git\s+push\s+origin\s+":\$\{TEMP_REF\}"', cleanup), 'fallback cleanup must delete the exact temporary refspec'
 assert not re.search(r'automation/\*|refs/heads/automation/\*|for\s+.+automation|git\s+branch\s+-r[\s\S]+automation', cleanup), 'fallback cleanup must not enumerate or wildcard-delete automation branches'
 assert 'git push origin --delete "$TEMP_REF" || true' not in cleanup
+
+
+recover = (WORKFLOWS / 'recover-minor-release.yml').read_text()
+assert 'name: Recover Validated Minor Release' in recover
+assert 'workflow_dispatch:' in recover and 'source_run_id:' in recover and 'dry_run:' in recover
+assert 'contents: write' in recover and 'actions: read' in recover
+assert 'perastage-minor-release-recovery' in recover
+assert 'c857665b99aacf9f466edd4416584dfb56ac1a1f' in recover and 'default: 1.5.0' in recover
+assert 'git fetch origin "$RELEASE_SHA"' in recover, 'recovery must fetch the exact supplied SHA'
+assert 'git show "${RELEASE_SHA}:VERSION"' in recover, 'recovery must read VERSION from the exact supplied commit'
+assert 'git merge-base --is-ancestor "$RELEASE_SHA" origin/main' in recover
+assert 'git push --atomic' not in recover and 'refs/heads/main' not in recover and ':main' not in recover, 'recovery must never update main'
+assert 'Perastage-validated-release-assets' in recover and 'gh run download "$SOURCE_RUN_ID" --name Perastage-validated-release-assets' in recover
+assert 'validate_final_release_assets.py' in recover and '--validate-provenance' in recover
+assert 'if [ "$DRY_RUN" = true ]; then' in recover
+assert recover.find('if [ "$DRY_RUN" = true ]; then') < recover.find('git tag -a "$TAG"'), 'dry run must exit before writes'
+assert 'git config user.name "github-actions[bot]"' in recover and recover.find('git config user.name "github-actions[bot]"') < recover.find('git tag -a "$TAG"')
+assert 'gh release view "$TAG"' in recover and 'gh release upload "$TAG" "${public_assets[@]}" --clobber' in recover
 
 contract = json.loads(Path('.github/release-artifact-contract.json').read_text())
 patterns = contract['packages']

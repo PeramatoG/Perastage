@@ -168,8 +168,19 @@ jobs:
           single macOS15 'Perastage-*-macOS15-arm64.dmg'
           single macOS26 'Perastage-*-macOS26-arm64.dmg'
           single Arch 'Perastage-*-arch-x86_64.pkg.tar.zst'
-          for f in release-assets/final/*; do [[ "$(basename "$f")" == *"$RELEASE_VERSION"* ]] || { echo "Stale asset: $f"; exit 1; }; done
           python3 .github/scripts/assemble_debug_symbols.py --artifacts release-assets --version "$RELEASE_VERSION" --output-dir release-assets/final
+          python3 .github/scripts/validate_final_release_assets.py \
+            --assets-dir release-assets/final \
+            --version "$RELEASE_VERSION" \
+            --contract .github/release-artifact-contract.json \
+            --checksums-output release-assets/final/SHA256SUMS.txt \
+            --provenance-output release-assets/final/release-provenance.json \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-run-id "${GITHUB_RUN_ID}" \
+            --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --base-sha "${{ needs.resolve-release.outputs.base_sha }}" \
+            --release-sha "${{ needs.stage-release-commit.outputs.release_sha }}"
+          cat release-assets/final/SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: Perastage-validated-release-assets
@@ -200,14 +211,40 @@ jobs:
           set -euo pipefail
           git fetch origin main --tags
           CURRENT_MAIN="$(git rev-parse origin/main)"
-          [ "$CURRENT_MAIN" = "$BASE_SHA" ] || { echo "main moved from $BASE_SHA to $CURRENT_MAIN; rerun the release."; exit 1; }
-          git push origin "$RELEASE_SHA":main
-          git tag -a "$NEW_TAG" "$RELEASE_SHA" -m "Perastage $NEW_TAG"
-          git push origin "$NEW_TAG"
-          cmd=(gh release create "$NEW_TAG" release-assets/final/* --draft --title "$RELEASE_TITLE")
-          [ -s docs/release-notes-draft.md ] && cmd+=(--notes-file docs/release-notes-draft.md) || cmd+=(--generate-notes)
-          [ "$PRERELEASE" = true ] && cmd+=(--prerelease)
-          "${cmd[@]}"
+          TAG_TARGET=""
+          if git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null; then
+            TAG_TARGET="$(git rev-parse "refs/tags/${NEW_TAG}^{commit}")"
+            [ "$TAG_TARGET" = "$RELEASE_SHA" ] || { echo "Tag ${NEW_TAG} points to ${TAG_TARGET}, not ${RELEASE_SHA}."; exit 1; }
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "$CURRENT_MAIN" = "$BASE_SHA" ] && [ -z "$TAG_TARGET" ]; then
+            git tag -a "$NEW_TAG" "$RELEASE_SHA" -m "Perastage $NEW_TAG"
+            git push --atomic origin \
+              "${RELEASE_SHA}:refs/heads/main" \
+              "refs/tags/${NEW_TAG}:refs/tags/${NEW_TAG}"
+          elif [ "$CURRENT_MAIN" = "$RELEASE_SHA" ] && [ "$TAG_TARGET" = "$RELEASE_SHA" ]; then
+            echo "Git publication is already complete for ${NEW_TAG}."
+          elif [ "$CURRENT_MAIN" = "$RELEASE_SHA" ] && [ -z "$TAG_TARGET" ]; then
+            git tag -a "$NEW_TAG" "$RELEASE_SHA" -m "Perastage $NEW_TAG"
+            git push origin "refs/tags/${NEW_TAG}:refs/tags/${NEW_TAG}"
+          else
+            echo "Unsupported publication state: origin/main=${CURRENT_MAIN}, base=${BASE_SHA}, release=${RELEASE_SHA}, tag=${TAG_TARGET:-absent}."
+            exit 1
+          fi
+          mapfile -t public_assets < <(find release-assets/final -maxdepth 1 -type f ! -name release-provenance.json ! -name SHA256SUMS.txt | sort)
+          release_json="$(mktemp)"
+          if gh release view "$NEW_TAG" --json isDraft,isPrerelease,name --jq . > "$release_json" 2>/dev/null; then
+            is_draft="$(python3 -c 'import json,sys; print(str(json.load(open(sys.argv[1]))["isDraft"]).lower())' "$release_json")"
+            [ "$is_draft" = true ] || { echo "Release ${NEW_TAG} already exists and is not a draft."; exit 1; }
+            gh release edit "$NEW_TAG" --draft --title "$RELEASE_TITLE" $([ "$PRERELEASE" = true ] && printf '%s' --prerelease || printf '%s' --latest=false)
+            gh release upload "$NEW_TAG" "${public_assets[@]}" --clobber
+          else
+            cmd=(gh release create "$NEW_TAG" "${public_assets[@]}" --draft --title "$RELEASE_TITLE")
+            [ -s docs/release-notes-draft.md ] && cmd+=(--notes-file docs/release-notes-draft.md) || cmd+=(--generate-notes)
+            [ "$PRERELEASE" = true ] && cmd+=(--prerelease)
+            "${cmd[@]}"
+          fi
           git push origin ":${TEMP_REF}"
 
   cleanup-temp-ref:
