@@ -18,6 +18,7 @@ Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multi
 - Improved Debug CI test reliability by making release-gate policy checks independent of hard-coded Unix paths, symbolic links, caller working directories, unresolved Python aliases, and generated-cache traversal costs, while preserving CTest result and inventory diagnostics for baseline audits.
 - Improved local Windows Debug bootstrap reliability by resolving Git Bash from Git for Windows instead of PATH launchers and by validating the MSVC Hostx64/x64 compiler banner without PowerShell stderr conversion issues.
 - Improved GDTF mutation reliability by validating strict test fixtures against GDTF 1.2 requirements and publishing mutated archives through an atomic replacement path with clearer diagnostics.
+- Improved GDTF physical-property mutation output by avoiding binary floating-point noise in exported Weight and PowerConsumption values.
 
 ## New features and improvements
 
