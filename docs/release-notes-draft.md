@@ -2,213 +2,188 @@
 
 Changes since **v1.4.0**.
 
-Perastage 1.5.0 is a substantial update focused on GDTF and truss editing, multilingual support, MVR-xchange interoperability, workflow improvements, and application stability.
+Perastage 1.5.0 is a major update focused on interoperability, truss and GDTF workflows, editing efficiency, and application reliability.
+
+It also introduces the foundations of a multilingual interface and includes extensive internal work to improve MVR/GDTF handling, diagnostics, testing, and release packaging.
 
 ## Highlights
 
-- Added an early implementation of **MVR-xchange TCP Mode** for discovering compatible applications, requesting MVR files, and manually publishing the current scene.
-- Added the new **Edit Truss** dialog and significantly expanded the GDTF information available in **Edit Fixture**.
-- Added **Cross-table Actions**, allowing compatible 2D and 3D tools to work across fixtures, trusses, hoists, and scene objects.
-- Added a **Scene Object to Truss** conversion tool.
-- Added 2D and 3D viewer context-menu shortcuts for selecting trusses by model/source file or hang position from the **Trusses** table.
-- Added a **Spanish interface**, selectable from Preferences and applied after restarting Perastage.
-- Improved MVR/GDTF compatibility, 3D picking stability, Unicode handling, crash diagnostics, and release packaging.
-- Improved macOS shutdown reliability by releasing cached GDTF extraction resources before framework teardown and using safer late-crash diagnostics.
-- Improved Debug CI stability by rebuilding stale macOS SDK caches instead of failing on equivalent SDK aliases.
-- Improved release packaging reliability by keeping Debug CI diagnostic and non-blocking for patch and minor package creation while preserving blocking package validation and transactional draft publication.
-- Restored the developer-only debug-symbol release archive so it contains the actual platform symbol files and macOS dSYM bundles needed for crash analysis.
-- Improved Debug CI test reliability by making release-gate policy checks independent of hard-coded Unix paths, symbolic links, caller working directories, unresolved Python aliases, and generated-cache traversal costs, while preserving CTest result and inventory diagnostics for baseline audits.
-- Improved local Windows Debug bootstrap reliability by resolving Git Bash from Git for Windows instead of PATH launchers and by validating the MSVC Hostx64/x64 compiler banner without PowerShell stderr conversion issues.
-- Improved GDTF mutation reliability by validating strict test fixtures against GDTF 1.2 requirements and publishing mutated archives through an atomic replacement path with clearer diagnostics.
-- Improved GDTF physical-property mutation output by avoiding binary floating-point noise in exported Weight and PowerConsumption values.
+### MVR-xchange support
 
-## New features and improvements
+Perastage now includes an initial implementation of **MVR-xchange TCP Mode**.
 
-### Interface and workflow
+MVR-xchange is an emerging interoperability workflow already being adopted by professional lighting applications. It allows compatible software on the same network to discover each other and exchange MVR revisions without relying on manual file transfers.
 
-- Layout Viewer now fits pages reliably after opening Layout Mode, switching layouts, loading projects, changing page setup, or restoring a visible layout perspective, while preserving user zoom and pan during routine content edits.
-- Replaced standalone JSON layout-template export with portable `.pslayout` packages. Layout packages are ZIP-based, self-contained, include referenced layout images, and remain importable alongside legacy JSON templates for compatibility.
-- Added interface-language selection for **English** and **Spanish**. The selected language is stored in Preferences and is applied after restarting the application.
-- Added **Cross-table Actions** to the viewport toolbar. When enabled, hover, selection, measurement, and compatible tools can work across all supported object types instead of being limited to the active Data Views table.
-- Added a **Gap Measure Tool** to the viewport toolbar for measuring the nearest edge-to-edge space between two scene objects, complementing the existing center-to-center measurement tool.
-- Updated the center-to-center **Measure Tool** toolbar icon to use a dedicated Lucide dimension-ruler artwork, keeping it visually distinct from the Gap Measure Tool icon.
-- Added a persistent **Local Axes** viewport toolbar toggle and `--local`/`-l` command-bar modifiers for relative position and rotation transforms, while keeping world axes as the default.
-- Corrected the **Local Axes** toolbar icon to use the official Lucide `file-axis-3d` artwork.
+Perastage can now:
+
+- Advertise itself through mDNS/DNS-SD.
+- Discover compatible stations in the selected MVR-xchange group.
+- Request an advertised MVR and open it as a new project or merge it into the current project.
+- Manually publish the current scene as a new MVR revision.
+- Maintain compatible peer connections for commit announcements.
+- Display network interface information, remote-station status, and a detailed transfer log.
+
+Published revisions use readable project-based file names instead of internal UUIDs.
+
+> MVR-xchange support is new and experimental. See [Current limitations](#current-limitations) before using it in a production workflow.
+
+### Expanded truss and GDTF workflows
+
+Truss support has been significantly expanded, with particular attention to trusses represented as **GDTF files**.
+
+Main additions include:
+
+- A dedicated, resizable **Edit Truss** dialog with MVR instance data, GDTF metadata, physical properties, dimensions, and a reusable 3D preview.
+- Support for creating a Perastage-generated GDTF when compatible metadata is edited on a model-only truss.
+- Better preservation of shared type information for trusses using the same GDTF source.
+- **Replace Trusses**, which swaps selected trusses while preserving their placement and scene identity.
+- Replacement sources from the scene, dictionaries, GDTF, GTruss, GLB, and 3DS files.
+- **Scene Object to Truss**, for converting scene objects that use the selected model into trusses.
+- Context-menu actions for selecting trusses by model, source file, or hang position.
+- More reliable truss selection after sorting, replacing, deleting, inserting, or reloading project data.
+
+Geometry-only trusses remain usable when no GDTF is available, including previews, naming, and rigging weight warnings.
+
+### Multilingual interface foundation
+
+Perastage is being prepared for additional interface languages.
+
+- **English**, **Spanish**, and **Simplified Chinese** language catalogs are included.
+- The interface language can be selected in Preferences and is applied after restarting Perastage.
+- English remains the reference language.
+- Spanish and Simplified Chinese are still under review and may contain incomplete or inaccurate translations.
+
+Translation corrections and feedback are welcome.
+
+## User-facing improvements
+
+### Editing and navigation
+
+- Added **Cross-table Actions**, allowing compatible selection, hover, measurement, and editing tools to work across fixtures, trusses, hoists, and scene objects instead of being restricted to the active Data Views table.
+- Added a **Gap Measure Tool** for measuring the nearest edge-to-edge distance between scene objects.
+- Added a persistent **Local Axes** toggle, plus `--local` and `-l` command-bar modifiers, for relative position and rotation transforms. World axes remain the default.
 - Added a shared **Hang Position editor** for fixtures, trusses, and hoists. Positions can be selected, created, renamed across affected objects, or removed from one dialog.
-- Updated Data Views interactions:
-  - Double-clicking with the left mouse button opens cell-specific editing actions.
-  - Double-clicking a cell inside an existing multi-selection now keeps that selection and applies the existing bulk-edit behavior to all selected rows without requiring Shift.
-  - Right-clicking opens row-level editors and context actions.
-- Edit Fixture and Edit Truss can now be maximized and use resizable layouts whose proportions are remembered between sessions.
-- The 2D View Editor now uses the same arrow-key pan and Alt+arrow zoom navigation as the standalone 2D viewport, even when focus is in the editor side panels.
-- The 2D View Editor now also honors the `Z` fit-view shortcut when focus is in non-editable editor controls.
+- Double-clicking a Data Views cell inside an existing multi-selection now preserves that selection and applies the bulk-edit behavior to all selected rows without requiring Shift.
+- Right-click actions remain associated with the row that was clicked.
+- **Edit Fixture** and **Edit Truss** can now be maximized, resized, and remember their layout proportions.
+- The 2D View Editor now supports arrow-key panning, Alt+arrow zooming, and the `Z` fit-view shortcut while focus is in compatible side-panel controls.
 
-### Fixture and truss editing
+### GDTF inspection and editing
 
-- Added **Replace trusses** to the Edit menu for swapping selected trusses with a scene truss, dictionary truss, GDTF truss, GTruss archive, GLB, or 3DS model while preserving instance placement and identity.
-- Added a dedicated **Edit Truss** dialog with:
-  - MVR instance properties.
-  - GDTF identity and metadata.
-  - Physical properties and dimensions.
-  - A reusable 3D preview.
-  - Support for creating a Perastage-generated GDTF when compatible metadata is edited on a model-only truss.
-- Expanded **Edit Fixture** with a clearer and more structured GDTF inspection interface:
-  - More informative top-level DMX channel labels in the mode/channel browser for faster scanning.
-  - DMX modes and channels.
-  - Effective channel addresses for matrix fixtures.
-  - Logical and channel functions.
-  - DMX and physical ranges.
-  - Active functions and channel sets for selected DMX values.
-  - Wheel, slot, filter, media, and graphic-wheel information.
-- Added visual previews for GDTF wheel slots, including gobo thumbnails and approximate color or filter swatches.
-- Improved fixture and truss preview layouts with larger metadata areas, official GDTF SVG symbols when available, generated Top/Front/Side symbols, and more consistent dark-theme presentation.
-- Improved Perastage-generated and normalized truss GDTF files:
-  - More consistent archive names and metadata.
-  - Better preservation of edited values after saving and reopening.
-  - Shared type metadata for trusses that use the same source.
-  - Correct conversion of physical dimensions to the active interface units.
+**Edit Fixture** now presents GDTF information in a clearer and more detailed structure, including:
 
-### Scene Object to Truss conversion
+- DMX modes, channels, logical channels, and channel functions.
+- More informative channel labels and effective addresses for matrix fixtures.
+- DMX and physical ranges, active functions, and channel sets.
+- Wheels, slots, filters, media, and graphic-wheel information.
+- Gobo thumbnails and approximate color or filter previews.
 
-- Added **Scene Object to Truss** to the Tools menu and the 2D/3D scene-object context menus.
-- The command converts all scene objects that use the selected model file into trusses and updates tables, viewports, and rigging calculations.
+Fixture and truss previews now provide larger metadata areas, official GDTF SVG symbols when available, generated Top/Front/Side symbols, and more consistent dark-theme presentation.
 
-### MVR-xchange — early implementation
+Additional editing improvements include FixtureType descriptions, truss cross-section metadata, clearer revision messages, cleaner physical values, and safer archive replacement when saving modified GDTF files.
 
-- Added an initial **MVR-xchange TCP Mode** implementation for compatible applications on the local network.
-- Perastage can:
-  - Advertise itself through mDNS/DNS-SD.
-  - Discover stations in the selected MVR-xchange group.
-  - Request an advertised MVR and either open it as a new project or merge it into the current project.
-  - Manually publish the current scene as a new MVR revision.
-  - Keep compatible peer connections available for commit announcements.
-- Added interface selection, advertised address and port information, remote-station status, and a detailed transfer log to help diagnose network or compatibility problems.
-- Published MVR revisions now use readable project-based file names instead of exposing internal UUIDs.
+### Layouts
 
-## Important fixes
+- Replaced standalone JSON layout-template export with portable `.pslayout` packages.
+- Layout packages are self-contained ZIP-based files and can include referenced images.
+- Legacy JSON layout templates remain importable.
+- Layout View now fits pages more reliably after opening Layout Mode, switching layouts, loading projects, changing page setup, or restoring a visible layout perspective.
+- Routine content edits continue to preserve the user's zoom and pan.
+- Default and active layout selections are restored more reliably after startup and project reload.
+- Fixed rotated GDTF fixture symbols so their representative plane and orientation remain consistent in Layout previews and PDF exports.
+- Opening another project no longer briefly reuses the previous project's cached layout preview.
 
-- Fixed the GDTF canonicalizer test so it builds with TinyXML2 versions whose document type is non-copyable.
-- Fixed the GDTF canonicalizer test target so mutation-audit build metadata resolves during full rebuilds.
-- Fixed GDTF loader regression tests so they include the real viewer loader API instead of the lightweight test stub during full rebuilds.
-- Fixed Windows builds that could accidentally include a local project `version` file while third-party JSON feature detection probes standard library headers.
-- Fixed the symbol cache manifest test so Windows rebuilds see the standard file-stream declaration.
-- Fixed the truss loader validation test target so it links the loader implementation, build-info stub, and supporting core sources during full rebuilds.
-- Fixed the MVR merge analyzer/applier test target so it links runtime storage support required by merge resource workspace handling.
-- Fixed the fixture label override reconciliation test target so layout template import/export dependencies link during full rebuilds.
-- Fixed GDTF dictionary color tests so layout template import/export dependencies link during full rebuilds.
-- Fixed active dictionary workflow and dictionary seed backup test targets so layout template dependencies link during full rebuilds.
-- Fixed the layout template package service test target so layout image registry dependencies link during full rebuilds.
-- Fixed project roundtrip and truss path regression test targets so MVR, layer, UTF-8, grouping, and truss loader dependencies link during full rebuilds.
-- Fixed MVR address, support userdata, and layer appearance test targets so build metadata, layer validation, UTF-8, and grouping dependencies link during full rebuilds.
-- Fixed additional MVR roundtrip and exporter test targets so full rebuilds link build metadata, layer validation, UTF-8 helpers, grouping synchronization, primitive bounds, and GDTF resource key helpers.
-- Fixed rider import and save roundtrip test targets so dictionary lookup stubs and project MVR import/export helpers link during full rebuilds.
-- Fixed GDTF loader test targets so runtime storage logging, build metadata, and archive extraction dependencies link during full rebuilds.
-- Fixed symbol fixture applier and patched GDTF export test targets so MVR, layer, UTF-8, build metadata, and GDTF archive dependencies link during full rebuilds.
-- Fixed the layout image resource registry test target so layout package import/export and runtime storage dependencies link during full rebuilds.
-- Fixed dictionary reset and layer service UTF-8 test targets so app paths, layout package, runtime storage, and focused ConfigManager layer-selection stubs link during full rebuilds.
-- Fixed dictionary reset and GDTF Share security test targets so app-path stubs and lightweight ConfigManager dependencies no longer conflict with full rebuild linkage.
-- Improved portable layout package export with images by using canonical ZIP entry paths, clearer archive validation diagnostics, and side-effect-free export self-validation. The Layout panel now restores and reapplies an active layout selection when layouts exist so default layouts render after startup and reload and export, rename, and delete actions do not silently do nothing after selection loss.
-- Hardened GDTF Share sign-in, credential storage, diagnostics, and download handling so passwords use the operating system credential store when available, login errors are reported more accurately, and failed downloads no longer replace existing files.
-- Improved GDTF Share session handling for fixture downloads and MVR import, including clearer online-versus-cached catalog status, reuse of authenticated catalog sessions for downloads, safer cookie ownership, transactional replacement of existing GDTF files, strict legacy credential migration, username-only credential hints, and clearer warnings when secure password storage is unavailable.
-- Updated official Windows, Linux, Arch, and macOS build paths to require wxWidgets secure credential-store support so GDTF Share passwords can persist through the native platform store in release builds.
-- Finalized secure credential-storage release gates by separating CI manifest dependency installs from the local Windows classic `C:/vcpkg` workflow, preventing Visual Studio/CMake from rebuilding vcpkg packages during local configure, validating Windows Ninja x64 MSVC environments, adding focused credential tests to CI, and documenting Windows Credential Manager validation.
-- Improved Dictionary Editor reliability so fixture and truss edits are saved transactionally, unresolved file references remain visible and savable, dirty-state checks catch category/color/path/name changes, and failed saves keep the editor open.
-- Improved Dictionary Editor asset ownership so saved truss additions and replacements ingest supported source files as owned GDTF assets, and fixture/truss resets create portable self-contained dictionaries with rollback.
-- Fixed portable dictionary ZIP import so previewing or cancelling a bundle no longer copies assets into the active dictionary storage; bundle assets are staged and installed only after final confirmation with rollback for both JSON and assets.
-- Fixed Dictionary Editor reset reliability for fixture and truss defaults, including legacy fixture `path` references, canonical `file` output, parser validation before installation, and safer managed-default asset replacement on Windows.
-- Fixed dictionary lookups and truss dictionary loading so missing asset references remain visible for repair and no longer trigger silent saves, entry deletion, backups, or load-time truss migration.
-- Improved Dictionary Editor safety by scoping dirty-edit prompts to the affected fixture or truss page, making **Discard** reload only that page, stopping saves after the first failure, and blocking writes to invalid or missing custom dictionaries until an explicit recovery action is chosen.
-- Replaced the Dictionary Editor dictionary chooser with explicit **Open**, **New**, **Duplicate Current**, and **Use Default** workflows for fixture and truss dictionaries, including type validation before changing the active path and safe duplication of referenced assets.
-- Simplified the Dictionary Editor controls so common actions stay visible, less frequent active-dictionary actions are grouped under **More...**, fixture GDTF download is shown only on the fixtures page, and **Export...** offers only JSON Snapshot or Portable ZIP Bundle.
-- Fixed custom fixture and truss dictionaries so newly owned GDTF assets are stored in a sibling `_assets` folder and remain portable when the dictionary is moved with that folder.
-- Fixed Data Views table edits so moving fixtures, trusses, or scene objects between visible and hidden layers rebuilds the relevant viewer resources, invalidates stale 3D visible-set caches, and immediately refreshes both the 2D and 3D viewports, including layout previews.
-- Hardened truss selection identity so sorting, replacement, deletion, insertion, reloads, and hover highlights stay attached to persistent scene UUIDs across the Trusses table and both 2D and 3D viewers.
-- Improved generated scene-object, fixture, truss, and support identifiers to use RFC 4122-compatible UUIDs for better MVR interoperability.
-- Fixed Data Views highlight rendering on wxWidgets builds where row-to-item conversion is exposed through the list-store item API.
-- Improved 2D and 3D group-selection highlighting so directly selected items remain bright cyan while other members of the same selected group use a darker blue highlight.
-- Fixed Windows build and linker issues in the Local Axes viewport integration.
-- Fixed a debug-only shutdown warning caused by attempting to make a hidden 2D OpenGL canvas current during cleanup.
+### Dictionary Editor and GDTF Share
+
+The Dictionary Editor now provides clearer **Open**, **New**, **Duplicate Current**, and **Use Default** workflows, with safer validation and transactional saving.
+
+Portable dictionary bundles now stage their files before installation, preserve missing references for repair, and keep custom assets in a sibling `_assets` folder so dictionaries remain portable when moved together with their assets. Valid dictionaries are no longer modified silently while being loaded.
+
+GDTF Share authentication and downloads have also been hardened:
+
+- Passwords use the operating system credential store when available.
+- Login and catalog errors provide clearer diagnostics.
+- Authenticated sessions are reused more reliably.
+- Existing files are not replaced by failed or invalid downloads.
+- Downloaded GDTF files are validated before installation.
+- Online and cached catalog states are reported more clearly.
+
+Official release builds require native secure credential-store support on Windows, Linux, Arch Linux, and macOS.
+
+## Compatibility, stability, and performance
 
 ### MVR, GDTF, and project data
 
-- Improved Windows file identity handling so differently capitalized paths to the same GDTF or truss resource share the correct cache and export information.
-- Hardened layer editing and MVR persistence:
-  - Layer names are validated as UTF-8.
-  - Some legacy Windows-1252 name corruption can be recovered.
-  - Layer edits use stable UUIDs.
-  - Exported scene XML is validated before the MVR archive is written.
-- Fixed MVR imports when a declared GDTF archive is missing. The fixture type remains available in the conflict resolver and can still be matched through Download GDTF.
-- Improved compatibility with GDTF archives containing Unicode resource names without correct UTF-8 ZIP metadata. The original archive is left unchanged.
-- Fixed MVR merge imports so incoming models, symbols, GDTF files, and other resources are copied into a valid project resource location before being referenced.
-- Fixed MVR export when fixture numeric IDs are duplicated. Perastage now assigns the next available number and reports a non-blocking warning.
-- Improved downloaded GDTF validation and error reporting, including clearer diagnostics for invalid or empty `description.xml` files.
-- Fixed geometry-only MVR trusses so previews, names, and rigging weight warnings remain available without requiring a generated GDTF.
-- Fixed shared truss weight updates and reduced unnecessary hoist-load recalculation prompts.
+- Improved compatibility with GDTF archives containing Unicode resource names without correct UTF-8 ZIP metadata while leaving the original archives unchanged.
+- Improved Unicode filesystem handling and Windows path identity, including differently capitalized references to the same resource.
+- Hardened layer editing with UTF-8 validation, stable UUIDs, and limited recovery of legacy Windows-1252 corruption.
+- Exported scene XML is now validated before writing the MVR archive.
+- Missing GDTF files no longer remove fixture types from the MVR conflict resolver.
+- MVR merge imports now copy models, symbols, GDTF files, and other resources into valid project-owned locations before referencing them.
+- Duplicate fixture numeric IDs are corrected during export with a non-blocking warning.
+- Generated identifiers for scene objects, fixtures, trusses, and supports now use RFC 4122-compatible UUIDs for improved MVR interoperability.
+- Downloaded GDTF validation reports invalid or empty `description.xml` files more clearly.
+- Shared truss weight updates are handled more consistently, with fewer unnecessary hoist-load recalculation prompts.
 
-### GDTF inspection and previews
+### Viewers and selection
 
-- Fixed wheel parsing for standard GDTF `Slot` elements.
-- Fixed extensionless wheel media references and canonical `wheels/` resource lookup.
-- Improved color-wheel preview conversion for commonly used CIE xyY luminance ranges.
-- Improved transparent gobo presentation and added larger previews or diagnostics when selecting a wheel slot.
-- Fixed matrix-fixture channel summaries so GeometryReference offsets produce the effective DMX addresses.
-- Reduced expensive redraws when opening or hovering over large mode/channel trees.
+- Table and viewport selections remain attached to the same UUID-backed objects after sorting and other table changes.
+- Truss selection and hover highlighting are more reliable after replacement, deletion, insertion, and reload.
+- Moving objects between visible and hidden layers immediately refreshes the 2D view, 3D view, and layout previews.
+- Directly selected group members and indirectly highlighted group members now use distinct highlight levels.
+- Corrected Cross-table rectangle selection with **Ctrl + left drag** and Layers visibility double-click behavior.
+- 3D picking now handles malformed meshes and incomplete ID-buffer framebuffers more safely, with ray-based fallback where required.
+- Unsafe pixel/depth reads are avoided on affected Intel Windows drivers, and OpenGL state restoration is more defensive on Windows and macOS.
+- Recoverable picking fallbacks no longer display blocking warning dialogs.
 
-### Selection, layout, and rendering
+### Performance and diagnostics
 
-- Fixed table selection so sorting fixtures, trusses, hoists, or scene objects keeps the same UUID-backed objects selected.
-- Fixed fixture multi-selection actions so the original selection order is preserved after sorting.
-- Fixed Cross-table rectangle selection when using **Ctrl + left drag**.
-- Fixed the new **Gap Measure Tool** bounds helpers so the 2D viewport build can resolve edge-to-edge measurement points correctly.
-- Fixed Layers visibility double-clicks so they no longer open the rename dialog.
-- Fixed Layout View so opening another project does not briefly reuse the previous project's cached preview.
-- Improved 3D fixture picking and highlighting:
-  - Malformed mesh triangles are skipped safely.
-  - Incomplete ID-buffer framebuffers fall back to ray-based selection.
-  - Unsafe pixel and depth reads are avoided on affected Intel Windows drivers.
-  - OpenGL state is restored more defensively on Windows and macOS.
-  - Recoverable picking fallbacks no longer show blocking warning dialogs.
-
-### Application behavior and diagnostics
-
+- Reduced unnecessary redraws in large GDTF mode and channel trees.
+- Improved fixture-symbol generation by reducing scene reloads, reusing rendering resources, sharing archive inspection, caching semantic fingerprints, and using bounded parallel conversion.
+- Refactored temporary files, imports, exports, generated resources, and session caches around explicit Perastage-owned lifecycles.
+- Improved shutdown reliability, especially on macOS.
+- Windows crash reports now include a matching `.dmp` minidump for use with release debug symbols.
+- Diagnostic reports include improved Windows version information and focused logs for Viewer2D capture and MVR-xchange transfers.
 - Fixed the Updates dialog so **Yes** and **No** close it correctly and reminder suppression can be saved.
-- Windows crash reports now include a matching `.dmp` minidump for use with the release debug symbols.
-- Improved Windows version information in diagnostic reports.
-- Added additional low-noise diagnostics for Viewer2D capture and MVR-xchange transfers.
 
-## Experimental features and current limitations
+## Current limitations
 
 ### MVR-xchange
 
-MVR-xchange support is **new and still experimental**. It currently implements a conservative subset of TCP Mode and has mainly been developed around the official protocol and compatibility testing with applications such as grandMA3.
+MVR-xchange currently implements a conservative subset of TCP Mode and has mainly been developed against the official protocol and compatibility testing with applications such as grandMA3.
 
-Current limitations include:
+Current limitations:
 
 - Publishing is manual; project edits are not synchronized automatically.
 - WebSocket Mode is not implemented.
 - Object-level live synchronization is not implemented.
 - Compatibility may vary between applications, versions, firewall configurations, and network interfaces.
 
-Please report interoperability problems with the MVR-xchange log and a Perastage diagnostic report whenever possible.
+When reporting an interoperability problem, include the MVR-xchange log and a Perastage diagnostic report whenever possible.
 
 ### GDTF editing
 
-The shared GDTF editor architecture and the Edit Truss workflow are still under active development. Version 1.5.0 substantially improves inspection and editing, but unusual GDTF files or complex MVR roundtrips may still reveal cases that have not been tested.
+The shared GDTF editor architecture and the Edit Truss workflow are still under active development.
 
-Keep a backup of important MVR and GDTF files before modifying them and report any unexpected changes.
+Version 1.5.0 significantly expands inspection and editing, but unusual GDTF files or complex MVR roundtrips may still expose untested cases. Keep a backup of important MVR and GDTF files before modifying them.
 
-### Simplified Chinese
+### Translations
 
-Simplified Chinese language support is currently an **incomplete preview**. The infrastructure and draft catalog are included for development and testing, but the translation must not yet be considered production-ready.
+Spanish and Simplified Chinese are available for testing but are still being reviewed. English remains the reference language when a translation is unclear or incomplete.
 
 ### macOS
 
-The provided macOS packages are for **Apple Silicon (`arm64`)**. Separate builds are provided for macOS 15 and macOS 26.
+The provided macOS packages support **Apple Silicon (`arm64`)**. Separate packages are provided for macOS 15 and macOS 26.
 
-## Build and packaging changes
+## Technical and packaging changes
 
-- Windows PDB debug files are no longer included in the Windows installer.
-- Minor releases now provide separate Apple Silicon packages for **macOS 15** and **macOS 26**.
+- Reorganized GitHub Actions into clearer Debug CI, patch artifact, compatibility package, and transactional minor-release workflows.
+- Improved dependency caching, transient vcpkg retry handling, platform toolchain validation, failure diagnostics, and Node 24-compatible actions.
+- Strengthened GDTF/MVR regression tests, standards-focused fixtures, Unicode path handling, and runtime resource cleanup coverage.
+- Made test and release scripts less dependent on hard-coded paths, working directories, symbolic links, ripgrep, or unresolved Python aliases.
+- Corrected full-rebuild linkage and environment issues across Windows, Linux, Arch Linux, and macOS test targets.
+- Generated fallback GDTF assets are now produced deterministically in the build tree and kept out of the source checkout.
+- Windows PDB files are no longer included in the installer.
 - Debug symbols for all release platforms are grouped into one clearly marked developer-only archive.
 - Localization catalogs are included and validated in packaged builds.
 - Documentation has been reorganized into clearer user, developer, technical-note, and reference sections.
@@ -218,16 +193,16 @@ The provided macOS packages are for **Apple Silicon (`arm64`)**. Separate builds
 Choose the package that matches your operating system:
 
 | Operating system | Download |
-|------------------|----------|
+|---|---|
 | **Windows 64-bit** | `Perastage_1.5.0_Setup.exe` |
 | **macOS 15 — Apple Silicon** | `Perastage-1.5.0-macOS15-arm64.dmg` |
 | **macOS 26 — Apple Silicon** | `Perastage-1.5.0-macOS26-arm64.dmg` |
 | **Linux x86-64** | `Perastage-1.5.0-x86_64.AppImage` |
 | **Arch Linux x86-64** | `Perastage-1.5.0-arch-x86_64.pkg.tar.zst` |
 
-> **Do not download `Perastage-1.5.0-Debug-Symbols-Developers-Only.zip` unless requested by the developer or needed for crash analysis.**
+> **Do not download `Perastage-1.5.0-Debug-Symbols-Developers-Only.zip` unless it is requested for crash analysis or you specifically need the developer debug information.**
 >
-> It contains debugging information and is not required to install or run Perastage.
+> This archive is not required to install or run Perastage.
 
 ### Windows
 
@@ -261,38 +236,8 @@ sudo pacman -U Perastage-1.5.0-arch-x86_64.pkg.tar.zst
 
 ## Need help?
 
-Please open an issue on GitHub if you encounter a problem. Include the Perastage version, operating system, steps to reproduce the issue, and a diagnostic report from the **Help** menu whenever possible.
+Please open a GitHub issue if you encounter a problem. Include the Perastage version, operating system, clear steps to reproduce the issue, and a diagnostic report from the **Help** menu whenever possible.
 
-You can also contact the project at **perastage.app@gmail.com**.
+For MVR-xchange interoperability problems, also include the transfer log.
 
-## Improvements
-- Improved GDTF revision messages so fixture and truss description edits identify FixtureType Description as the changed field instead of showing generic generation text.
-- Added GDTF editor support for FixtureType descriptions and truss cross-section type metadata, including Tube output that omits truss cross-section names as required by GDTF.
-- Fixed embedded Layout 2D fixture symbols so rotated GDTF fixtures choose the visible representative symbol plane and preserve the same orientation in preview and PDF export.
-
-## Internal changes
-
-- Hardened C++ test include paths so repository files cannot shadow standard library headers on case-insensitive file systems.
-- Added regression coverage for test include-directory policy and runtime resource lease cleanup behavior.
-
-- Fixed manual fixture symbol application for fixtures that resolve to an absolute GDTF path by creating the expected project-owned scene copy before writing the generated symbols.
-
-- Strengthened the internal test foundation with portable Python resolution, clearer CTest labels, and documented fixture categories for standards-focused GDTF and MVR tests.
-
-- Added explicit wxWidgets filesystem path conversion utilities for safer Unicode path handling at file API boundaries, including native wide-path conversion on Windows.
-- Made layout z-order updates and legacy layer-name repair deterministic for cross-platform Debug tests.
-- Hardened Windows Debug test execution by preparing ripgrep separately, forcing Git Bash for shell checks, routing shell tests through one CMake helper, and disabling modal assertion reporting in test executables.
-- Corrected Debug test expectations and lifetimes for Simplified Chinese localization fallback checks and credential metadata cleanup on Windows.
-
-
-- Improved Debug CI reliability by validating CMake toolchain metadata from generated files, declaring Linux test tools and locales explicitly, running Linux CTest under a verified Xvfb display, bounding non-interactive Windows CTest runs, normalizing repository-policy test working directories, and keeping CMake language policy checks focused on first-party source.
-- Strengthened CI release-gate tests so policy scripts are portable without ripgrep and credential metadata checks validate JSON fields without flagging safe backend identifiers.
-- Reorganized GitHub Actions into separate Debug CI, main patch artifact, compatibility package, and transactional minor release workflows, with Debug dependency setup aligned to the pinned vcpkg toolchain and Windows CI preserving the Python and MSVC environments across steps.
-
-- Hardened installer CI configuration so test-enabled builds configure C and C++ from the project root, Windows secure-store Ninja jobs use the MSVC x64 toolchain, and final failure diagnostics include modern CMake configure logs.
-- Hardened installer and release CI dependency installation with transient vcpkg retry handling, separated caches, improved failure diagnostics, and Node 24-compatible GitHub Actions.
-- Improved fixture symbol generation performance by avoiding redundant 2D scene reloads during orthographic capture, reusing offscreen framebuffer resources across repeated capture sizes, memoizing unchanged GDTF semantic fingerprints in-process, sharing fingerprint calculation with in-memory archive entries, reducing GDTF symbol inspection to one archive scan, and converting independent rendered symbol views in bounded parallel workers while preserving exact generated geometry.
-- Refactored runtime temporary storage so imports, exports, generated resources, and session caches use explicit Perastage-owned lifecycles.
-- Dictionary loading is now read-only for valid custom fixture and truss dictionaries; default seeding, reset, and managed-default recovery are explicit operations.
-- Corrected the generated Dummy 1ch fallback fixture pipeline so deterministic GDTF output is produced in the build tree, staged and installed as a runtime asset, and kept out of the source checkout.
-- Strengthened GDTF test fixtures and Python test interpreter checks, including one-address DMX validation, isolated dictionary test libraries, and interpreter paths containing spaces.
+You can contact the project at **perastage.app@gmail.com**.
