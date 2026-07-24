@@ -1,0 +1,155 @@
+name: Recover Validated Minor Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Failed Minor Draft Release run containing Perastage-validated-release-assets.
+        required: true
+        type: string
+      release_sha:
+        description: Exact release commit SHA to publish.
+        required: true
+        type: string
+        default: c857665b99aacf9f466edd4416584dfb56ac1a1f
+      release_version:
+        description: Exact semantic version already present at the release commit.
+        required: true
+        type: string
+        default: 1.5.0
+      release_title:
+        description: Draft release title.
+        required: false
+        type: string
+        default: Perastage v1.5.0
+      prerelease:
+        description: Mark the draft release as a prerelease.
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: Validate without creating tags or releases.
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: perastage-minor-release-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Validate release identity
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "release_sha must be a full 40-character lowercase hexadecimal SHA."; exit 1; }
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "release_version must use MAJOR.MINOR.PATCH format."; exit 1; }
+          git fetch origin main --tags
+          git fetch origin "$RELEASE_SHA"
+          ACTUAL_VERSION="$(git show "${RELEASE_SHA}:VERSION" | tr -d '[:space:]')"
+          [ "$ACTUAL_VERSION" = "$RELEASE_VERSION" ] || { echo "VERSION at ${RELEASE_SHA} is ${ACTUAL_VERSION}, not ${RELEASE_VERSION}."; exit 1; }
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main || { echo "${RELEASE_SHA} is not reachable from origin/main."; exit 1; }
+          echo "TAG=v${RELEASE_VERSION}" >> "$GITHUB_ENV"
+      - name: Validate source workflow run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          run_json="$(mktemp)"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" > "$run_json"
+          repo="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["repository"]["full_name"])' "$run_json")"
+          name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("name") or json.load(open(sys.argv[1])).get("display_title"))' "$run_json")"
+          status="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$run_json")"
+          [ "$repo" = "$GITHUB_REPOSITORY" ] || { echo "Source run repository mismatch: ${repo}."; exit 1; }
+          [ "$name" = "Minor Draft Release" ] || { echo "Source run is ${name}, not Minor Draft Release."; exit 1; }
+          [ "$status" = "completed" ] || { echo "Source run status is ${status}, not completed."; exit 1; }
+          artifacts_json="$(mktemp)"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" > "$artifacts_json"
+          python3 - "$artifacts_json" <<'PY'
+          import json, sys
+          artifacts = json.load(open(sys.argv[1]))["artifacts"]
+          matches = [a for a in artifacts if a["name"] == "Perastage-validated-release-assets"]
+          if len(matches) != 1:
+              raise SystemExit(f"Expected one Perastage-validated-release-assets artifact, found {len(matches)}")
+          if matches[0].get("expired"):
+              raise SystemExit("Perastage-validated-release-assets is expired")
+          PY
+      - name: Download validated release artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/final
+          gh run download "$SOURCE_RUN_ID" --name Perastage-validated-release-assets --dir release-assets/final
+      - name: Revalidate downloaded final assets
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/validate_final_release_assets.py \
+            --assets-dir release-assets/final \
+            --version "$RELEASE_VERSION" \
+            --contract .github/release-artifact-contract.json \
+            --checksums-output release-assets/final/SHA256SUMS.txt \
+            --validate-provenance \
+            --release-sha "$RELEASE_SHA"
+          {
+            echo "# Recovery asset checksums"
+            echo '```'
+            cat release-assets/final/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Validate tag and release state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_TITLE: ${{ inputs.release_title }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          git fetch origin --tags
+          TAG_TARGET=""
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            TAG_TARGET="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+            [ "$TAG_TARGET" = "$RELEASE_SHA" ] || { echo "Tag ${TAG} points to ${TAG_TARGET}, not ${RELEASE_SHA}."; exit 1; }
+          fi
+          if gh release view "$TAG" --json isDraft --jq .isDraft >/tmp/release-is-draft 2>/dev/null; then
+            [ "$(cat /tmp/release-is-draft)" = true ] || { echo "Release ${TAG} already exists and is not a draft."; exit 1; }
+          fi
+          if [ "$DRY_RUN" = true ]; then
+            echo "Dry run completed without creating a tag, editing a release, or moving main." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -z "$TAG_TARGET" ]; then
+            git tag -a "$TAG" "$RELEASE_SHA" -m "Perastage $TAG"
+            git push origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          fi
+          git show "${RELEASE_SHA}:docs/release-notes-draft.md" > release-notes-draft.md
+          mapfile -t public_assets < <(find release-assets/final -maxdepth 1 -type f ! -name release-provenance.json ! -name SHA256SUMS.txt | sort)
+          if gh release view "$TAG" --json isDraft --jq . >/dev/null 2>&1; then
+            gh release edit "$TAG" --draft --title "$RELEASE_TITLE" $([ "$PRERELEASE" = true ] && printf '%s' --prerelease || printf '%s' --latest=false) --notes-file release-notes-draft.md
+            gh release upload "$TAG" "${public_assets[@]}" --clobber
+          else
+            cmd=(gh release create "$TAG" "${public_assets[@]}" --draft --title "$RELEASE_TITLE" --notes-file release-notes-draft.md)
+            [ "$PRERELEASE" = true ] && cmd+=(--prerelease)
+            "${cmd[@]}"
+          fi

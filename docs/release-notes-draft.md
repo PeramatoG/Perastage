@@ -144,6 +144,7 @@ Official release builds require native secure credential-store support on Window
 - Improved shutdown reliability, especially on macOS.
 - Windows crash reports now include a matching `.dmp` minidump for use with release debug symbols.
 - Release debug-symbol packaging now preserves macOS dSYM bundle layout for maintainer crash analysis.
+- Minor release publication is safer and retryable, with atomic Git updates, explicit tag identity, validated artifact provenance, and a manual recovery path for validated-but-unpublished releases.
 - Diagnostic reports include improved Windows version information and focused logs for Viewer2D capture and MVR-xchange transfers.
 - Fixed the Updates dialog so **Yes** and **No** close it correctly and reminder suppression can be saved.
 

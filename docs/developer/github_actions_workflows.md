@@ -80,3 +80,38 @@ Stable artifact names:
 - `Perastage-archlinux-symbols`
 
 Builder workflows must preserve the package filenames and symbol artifact structures unless the producer and collector contract is updated and tested in the same change.
+
+## Minor draft release publication and recovery
+
+The `Minor Draft Release` workflow publishes Git state only after all installer builders and final asset validation have succeeded. The publisher configures the repository-local Git identity as `github-actions[bot]` before creating annotated tags so fresh GitHub-hosted checkouts can run `git tag -a` without depending on machine-global configuration.
+
+Normal publication is intentionally transactional on the first publish attempt. It fetches `main` and tags, verifies that `origin/main` still equals the resolved base SHA, creates the annotated release tag locally at the validated release SHA, and pushes `main` plus the tag with one `git push --atomic` command. There is no non-atomic fallback; if the server rejects the atomic update, the workflow fails without intentionally publishing only half of the Git state.
+
+The normal publisher is retry-safe for the known safe states:
+
+- `origin/main` is still the base SHA and the tag is absent: create the annotated tag and atomically push `main` and the tag.
+- `origin/main` is already the release SHA and the tag peels to that same release SHA: treat Git publication as complete and continue to draft release creation.
+- `origin/main` is already the release SHA and the tag is absent: treat this as the legacy partial state from the v1.5.0 publication failure, create the exact annotated tag, and push only the tag.
+
+Any other `main` SHA, any tag that peels to a different commit, or any situation requiring a force push is rejected. Tag checks use the peeled commit target (`tag^{commit}`), not the tag object's SHA, because release tags are annotated.
+
+Draft release creation is also idempotent. The publisher checks `gh release view` before creating a release. If no release exists, it creates a draft and attaches only the public final assets. If a matching draft exists, it updates the title, notes, and prerelease state and reuploads assets with `--clobber`. If a non-draft release exists, publication stops rather than editing an already-published release or creating a duplicate.
+
+### Recovering a validated but unpublished minor release
+
+Use `Recover Validated Minor Release` only when a `Minor Draft Release` run completed all builders and `validate-release-assets` but failed during publication. The recovery workflow is manual-only, never calculates a new version from current `main`, never updates `main`, and never rebuilds installers in the normal recovery path. It downloads only the `Perastage-validated-release-assets` artifact from the supplied source run and places it under `release-assets/final`.
+
+For the v1.5.0 incident, rerunning the normal minor workflow after merge would read `VERSION` as `1.5.0` on `main` and calculate `1.6.0`, so recovery must be used instead. Run the recovery workflow with:
+
+- `source_run_id=<SOURCE_RUN_ID>` from the failed workflow URL.
+- `release_sha=c857665b99aacf9f466edd4416584dfb56ac1a1f`.
+- `release_version=1.5.0`.
+- `dry_run=true` first.
+
+After the dry run validates the source run, commit identity, asset names, checksums, tag state, release state, and release notes source, run the same workflow inputs again with `dry_run=false`. Confirm afterwards that `v1.5.0` points to `c857665b99aacf9f466edd4416584dfb56ac1a1f`, the GitHub Release exists as a draft, all six final public assets are attached, and `main` was not moved by recovery.
+
+### Validated artifact provenance
+
+Future `Perastage-validated-release-assets` workflow artifacts include an internal `release-provenance.json` file. This file records the repository, workflow run ID and attempt, base SHA, release SHA, release version, tag, timestamp, final asset filenames, and SHA-256 checksum for each final asset. The provenance file is retained inside the workflow artifact to support safe future recovery, but it is excluded from public GitHub Release uploads unless the artifact contract is explicitly changed to publish it.
+
+The v1.5.0 artifact predates provenance. The validator permits exactly one legacy missing-provenance exception for release SHA `c857665b99aacf9f466edd4416584dfb56ac1a1f` and release version `1.5.0`; other SHA/version pairs must include matching provenance.
