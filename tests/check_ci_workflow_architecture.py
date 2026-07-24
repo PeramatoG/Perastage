@@ -63,6 +63,9 @@ assert main_patch.count('uses: ./.github/workflows/windows-installer.yml') == 1
 assert main_patch.count('uses: ./.github/workflows/linux-installer.yml') == 1
 assert main_patch.count('uses: ./.github/workflows/macos-installer.yml') == 1
 assert 'macos-15-manual-installer.yml' not in main_patch and 'arch-package.yml' not in main_patch and 'ci-tests.yml' not in main_patch
+assert re.search(r'windows-installer:[\s\S]+needs: bump-version', main_patch)
+assert re.search(r'linux-installer:[\s\S]+needs: bump-version', main_patch)
+assert re.search(r'macos-installer:[\s\S]+needs: bump-version', main_patch)
 
 compat = (WORKFLOWS / 'compatibility-builds.yml').read_text()
 assert 'name: Weekly Compatibility Packages' in compat and 'schedule:' in compat
@@ -74,12 +77,18 @@ assert 'git commit' not in compat and 'git push origin HEAD:main' not in compat 
 minor = (WORKFLOWS / 'minor-draft-release.yml').read_text()
 for builder in ['windows-installer.yml','linux-installer.yml','macos-15-manual-installer.yml','macos-installer.yml','arch-package.yml']:
     assert builder in minor, f'minor release must require {builder}'
-assert 'uses: ./.github/workflows/ci-tests.yml' in minor
+assert 'uses: ./.github/workflows/ci-tests.yml' not in minor, 'minor package creation must not depend on Debug CI'
+assert re.search(r'stage-release-commit:[\s\S]+needs: resolve-release', minor), 'stage-release-commit must depend only on release metadata resolution'
 assert 'validate-release-assets' in minor and 'publish-release' in minor
+assert 'python3 .github/scripts/assemble_debug_symbols.py' in minor
+assert 'symbol-files.txt' not in minor, 'final symbol archive must not be a path list only'
 assert re.search(r'publish-release:[\s\S]+needs: \[resolve-release, stage-release-commit, validate-release-assets\]', minor)
 assert minor.find('git tag -a') > minor.find('validate-release-assets'), 'final tag must be created after asset validation'
 assert 'git push origin "$RELEASE_SHA":main' in minor and 'main moved' in minor
 assert 'git push origin --delete "$TEMP_REF"' in minor
+cleanup = minor[minor.index('  cleanup-temp-ref:'):]
+assert 'actions/checkout@v6' in cleanup and 'git ls-remote --exit-code --heads origin "$TEMP_REF"' in cleanup
+assert 'git push origin --delete "$TEMP_REF" || true' not in cleanup
 
 contract = json.loads(Path('.github/release-artifact-contract.json').read_text())
 patterns = contract['packages']

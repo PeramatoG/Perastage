@@ -207,7 +207,7 @@ Minor releases build both Apple Silicon DMG variants automatically:
 - `Perastage-<version>-macOS15-arm64.dmg` from the `macos-15` runner with deployment target `15.0`.
 - `Perastage-<version>-macOS26-arm64.dmg` from the regular `macos-26` runner.
 
-The unified developer-only debug-symbol archive has this top-level layout:
+The validated release asset step fails if any required platform package or symbol artifact is missing or duplicated. The unified developer-only debug-symbol archive is assembled from the actual PDB, separated Linux debug file, Arch debug package, and macOS dSYM bundle contents, and has this top-level layout:
 
 ```text
 README.txt
