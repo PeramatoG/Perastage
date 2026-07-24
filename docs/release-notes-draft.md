@@ -186,6 +186,7 @@ The provided macOS packages support **Apple Silicon (`arm64`)**. Separate packag
 - Generated fallback GDTF assets are now produced deterministically in the build tree and kept out of the source checkout.
 - Windows PDB files are no longer included in the installer.
 - Debug symbols for all release platforms are grouped into one clearly marked developer-only archive.
+- Minor draft releases now use exact run-specific temporary release branches, keeping failed package or asset-validation attempts from touching `main`, tags, or draft releases.
 - Localization catalogs are included and validated in packaged builds.
 - Documentation has been reorganized into clearer user, developer, technical-note, and reference sections.
 

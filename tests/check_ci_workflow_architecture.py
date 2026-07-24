@@ -96,9 +96,20 @@ assert 'symbol-files.txt' not in minor, 'final symbol archive must not be a path
 assert re.search(r'publish-release:[\s\S]+needs: \[resolve-release, stage-release-commit, validate-release-assets\]', minor)
 assert minor.find('git tag -a') > minor.find('validate-release-assets'), 'final tag must be created after asset validation'
 assert 'git push origin "$RELEASE_SHA":main' in minor and 'main moved' in minor
-assert 'git push origin --delete "$TEMP_REF"' in minor
+assert 'TEMP_REF="refs/heads/automation/release-${NEW_TAG}-${GITHUB_RUN_ID}"' in minor, 'minor release temp ref must be fully qualified under refs/heads/automation/release-'
+assert 'TEMP_REF="automation/release-' not in minor, 'minor release must not use a short temporary branch name'
+assert re.search(r'echo\s+"Creating temporary release ref:\s+\$\{TEMP_REF\}"', minor), 'staging must log the exact temporary ref before push'
+assert re.search(r'git\s+push\s+origin\s+"HEAD:\$\{TEMP_REF\}"', minor), 'staging must push detached HEAD with an explicit fully qualified refspec'
+assert 'git push origin HEAD:"$TEMP_REF"' not in minor, 'staging must not use the old ambiguous short destination syntax'
+assert 'git push origin "$RELEASE_SHA":main' in minor and 'main moved' in minor
+assert re.search(r'git\s+push\s+origin\s+":\$\{TEMP_REF\}"', minor), 'successful publication must delete the exact temporary refspec'
+assert 'git push origin --delete "$TEMP_REF"' not in minor, 'minor release must not delete temporary refs through short-name guessing'
 cleanup = minor[minor.index('  cleanup-temp-ref:'):]
-assert 'actions/checkout@v6' in cleanup and 'git ls-remote --exit-code --heads origin "$TEMP_REF"' in cleanup
+assert 'if: ${{ always() && needs.resolve-release.outputs.dry_run != \'true\' }}' in cleanup
+assert 'actions/checkout@v6' in cleanup
+assert re.search(r'git\s+ls-remote\s+--exit-code\s+origin\s+"\$\{TEMP_REF\}"', cleanup), 'fallback cleanup must check the exact fully qualified temporary ref'
+assert re.search(r'git\s+push\s+origin\s+":\$\{TEMP_REF\}"', cleanup), 'fallback cleanup must delete the exact temporary refspec'
+assert not re.search(r'automation/\*|refs/heads/automation/\*|for\s+.+automation|git\s+branch\s+-r[\s\S]+automation', cleanup), 'fallback cleanup must not enumerate or wildcard-delete automation branches'
 assert 'git push origin --delete "$TEMP_REF" || true' not in cleanup
 
 contract = json.loads(Path('.github/release-artifact-contract.json').read_text())

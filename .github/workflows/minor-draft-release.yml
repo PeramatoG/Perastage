@@ -63,7 +63,7 @@ jobs:
           git ls-remote --exit-code --tags origin "refs/tags/${NEW_TAG}" >/dev/null 2>&1 && { echo "Tag already exists: $NEW_TAG"; exit 1; } || true
           RELEASE_TITLE="$RELEASE_TITLE_INPUT"; [ -n "$RELEASE_TITLE" ] || RELEASE_TITLE="Perastage ${NEW_TAG}"
           BASE_SHA="$(git rev-parse HEAD)"
-          TEMP_REF="automation/release-${NEW_TAG}-${GITHUB_RUN_ID}"
+          TEMP_REF="refs/heads/automation/release-${NEW_TAG}-${GITHUB_RUN_ID}"
           {
             echo "base_sha=$BASE_SHA"
             echo "previous_version=$VERSION_RAW"
@@ -115,7 +115,8 @@ jobs:
           printf '%s\n' "$NEW_VERSION" > VERSION
           git add VERSION
           git commit -m "chore: prepare minor release ${NEW_TAG} [skip version-bump]"
-          git push origin HEAD:"$TEMP_REF"
+          echo "Creating temporary release ref: ${TEMP_REF}"
+          git push origin "HEAD:${TEMP_REF}"
           echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   windows-installer:
@@ -207,7 +208,7 @@ jobs:
           [ -s docs/release-notes-draft.md ] && cmd+=(--notes-file docs/release-notes-draft.md) || cmd+=(--generate-notes)
           [ "$PRERELEASE" = true ] && cmd+=(--prerelease)
           "${cmd[@]}"
-          git push origin --delete "$TEMP_REF"
+          git push origin ":${TEMP_REF}"
 
   cleanup-temp-ref:
     if: ${{ always() && needs.resolve-release.outputs.dry_run != 'true' }}
@@ -223,10 +224,11 @@ jobs:
           TEMP_REF: ${{ needs.resolve-release.outputs.temp_ref }}
         run: |
           set -euo pipefail
-          if git ls-remote --exit-code --heads origin "$TEMP_REF" >/dev/null 2>&1; then
-            echo "Temporary release ref exists: $TEMP_REF"
-            git push origin --delete "$TEMP_REF"
-            echo "Deleted temporary release ref: $TEMP_REF"
+          echo "Checking temporary release ref: ${TEMP_REF}"
+          if git ls-remote --exit-code origin "${TEMP_REF}" >/dev/null 2>&1; then
+            echo "Temporary release ref exists: ${TEMP_REF}"
+            git push origin ":${TEMP_REF}"
+            echo "Deleted temporary release ref: ${TEMP_REF}"
           else
-            echo "Temporary release ref does not exist: $TEMP_REF"
+            echo "Temporary release ref does not exist: ${TEMP_REF}"
           fi
