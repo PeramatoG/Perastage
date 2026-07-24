@@ -207,6 +207,8 @@ Minor releases build both Apple Silicon DMG variants automatically:
 - `Perastage-<version>-macOS15-arm64.dmg` from the `macos-15` runner with deployment target `15.0`.
 - `Perastage-<version>-macOS26-arm64.dmg` from the regular `macos-26` runner.
 
+Minor Draft Release prepares the version bump on a run-specific temporary branch named `refs/heads/automation/release-v<version>-<run-id>`. The workflow builds every required package and validates the release assets from that temporary commit before promoting it to `main`, creating the tag, and opening the draft release. Failed attempts delete only their exact temporary branch, leaving `main`, tags, and draft releases unchanged when package builds or asset validation fail.
+
 The validated release asset step fails if any required platform package or symbol artifact is missing or duplicated. The unified developer-only debug-symbol archive is assembled from the actual PDB, separated Linux debug file, Arch debug package, and macOS dSYM bundle contents, and has this top-level layout:
 
 ```text
