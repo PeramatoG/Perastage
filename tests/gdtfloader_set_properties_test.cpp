@@ -1,10 +1,13 @@
 /*
  * This file is part of Perastage.
  */
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
+#include <limits>
 #include <fstream>
 #include <iterator>
 #include <unordered_map>
@@ -18,6 +21,7 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include "support/archive_entry_test_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/gdtf_canonicalizer.h"
@@ -63,7 +67,10 @@ std::unordered_map<std::string, std::string> ReadArchiveEntries(const fs::path &
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
-    entries[entry->GetName().ToStdString()] = ReadCurrentZipEntry(zipInput);
+    const auto logicalName =
+        tests::archive::NormalizePresentedArchivePath(entry->GetName().ToStdString());
+    assert(logicalName.ok);
+    entries[logicalName.path] = ReadCurrentZipEntry(zipInput);
   }
   return entries;
 }
@@ -74,15 +81,33 @@ std::string ReadFileBytes(const fs::path &path) {
   return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
-// Parses a required GDTF float token and compares it by value.
-void AssertGdtfFloatEquals(tinyxml2::XMLElement *element, double expected) {
+// Parses a required GDTF float token and verifies exact float roundtrip semantics.
+void AssertGdtfFloatRoundtrips(tinyxml2::XMLElement *element, float expected) {
   assert(element != nullptr);
   const char *value = element->Attribute("Value");
   assert(value != nullptr);
+  assert(std::string(value).find(',') == std::string::npos);
   char *end = nullptr;
-  const double parsed = std::strtod(value, &end);
+  const float parsed = std::strtof(value, &end);
   assert(end != value && end != nullptr && *end == '\0');
-  assert(std::fabs(parsed - expected) < 0.000001);
+  assert(std::memcmp(&parsed, &expected, sizeof(float)) == 0);
+}
+
+// Returns an XML property node from a mutated GDTF description.
+tinyxml2::XMLElement *FindPhysicalProperty(tinyxml2::XMLDocument &doc,
+                                           const char *name) {
+  tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
+  assert(fixtureType != nullptr);
+  fixtureType = fixtureType->FirstChildElement("FixtureType");
+  assert(fixtureType != nullptr);
+  tinyxml2::XMLElement *properties =
+      fixtureType->FirstChildElement("PhysicalDescriptions");
+  assert(properties != nullptr);
+  properties = properties->FirstChildElement("Properties");
+  assert(properties != nullptr);
+  tinyxml2::XMLElement *property = properties->FirstChildElement(name);
+  assert(property != nullptr);
+  return property;
 }
 
 // Reports whether a sibling mutation temporary archive remains beside the target.
@@ -96,6 +121,22 @@ bool HasSiblingMutationTempArchive(const fs::path &targetPath) {
       return true;
   }
   return false;
+}
+
+// Verifies that stored ZIP central-directory paths are canonical.
+void VerifyRawArchiveNames(const fs::path &archivePath,
+                           const std::vector<std::string> &expectedNames) {
+  std::string error;
+  const std::vector<std::string> rawNames =
+      tests::archive::ReadRawCentralDirectoryEntryNames(archivePath.string(), error);
+  assert(error.empty());
+  for (const std::string &expectedName : expectedNames) {
+    assert(std::find(rawNames.begin(), rawNames.end(), expectedName) !=
+           rawNames.end());
+  }
+  for (const std::string &rawName : rawNames) {
+    assert(rawName.find('\\') == std::string::npos);
+  }
 }
 
 // Verifies that an injected publication failure preserves the original archive.
@@ -124,6 +165,55 @@ void VerifyInjectedPublicationFailurePreservesOriginal() {
   fs::remove(gdtfPath, ec);
 }
 
+// Verifies finite physical-property values serialize as shortest roundtrip floats.
+void VerifyFiniteFloatSerialization(float value) {
+  const std::string gdtfPath = MakeBaseGdtf();
+  GdtfDocumentMutationRequest request;
+  request.weightSet = true;
+  request.weightKg = value;
+  request.powerSet = true;
+  request.powerW = value;
+  const GdtfDocumentMutationResult mutation =
+      MutateGdtfDocumentWithResult(gdtfPath, request, "Perastage Tests");
+  assert(mutation.success);
+  assert(mutation.errors.empty());
+  assert(mutation.atomicReplacementCompleted);
+
+  const auto entries = ReadArchiveEntries(gdtfPath);
+  auto descriptionIt = entries.find("description.xml");
+  assert(descriptionIt != entries.end());
+  tinyxml2::XMLDocument doc;
+  assert(doc.Parse(descriptionIt->second.c_str(), descriptionIt->second.size()) ==
+         tinyxml2::XML_SUCCESS);
+  AssertGdtfFloatRoundtrips(FindPhysicalProperty(doc, "Weight"), value);
+  AssertGdtfFloatRoundtrips(FindPhysicalProperty(doc, "PowerConsumption"), value);
+
+  std::error_code ec;
+  fs::remove(gdtfPath, ec);
+}
+
+// Verifies non-finite physical-property values fail before publication.
+void VerifyNonFiniteFloatRejected(float value) {
+  const std::string gdtfPath = MakeBaseGdtf();
+  const std::string before = ReadFileBytes(gdtfPath);
+  GdtfDocumentMutationRequest request;
+  request.weightSet = true;
+  request.weightKg = value;
+  request.powerSet = true;
+  request.powerW = value;
+  const GdtfDocumentMutationResult mutation =
+      MutateGdtfDocumentWithResult(gdtfPath, request, "Perastage Tests");
+  assert(!mutation.success);
+  assert(!mutation.errors.empty());
+  assert(mutation.errors.front().find("non-finite") != std::string::npos);
+  assert(!mutation.atomicReplacementCompleted);
+  assert(ReadFileBytes(gdtfPath) == before);
+  assert(!HasSiblingMutationTempArchive(gdtfPath));
+
+  std::error_code ec;
+  fs::remove(gdtfPath, ec);
+}
+
 } // namespace
 
 // Runs the GDTF property mutation publication regression test.
@@ -132,6 +222,16 @@ int main() {
   assert(initializer.IsOk());
 
   VerifyInjectedPublicationFailurePreservesOriginal();
+  VerifyFiniteFloatSerialization(0.0f);
+  VerifyFiniteFloatSerialization(-42.5f);
+  VerifyFiniteFloatSerialization(12.345f);
+  VerifyFiniteFloatSerialization(678.9f);
+  VerifyFiniteFloatSerialization(1234567.0f);
+  VerifyFiniteFloatSerialization(0.0001234567f);
+  VerifyFiniteFloatSerialization(1234567000000.0f);
+  VerifyNonFiniteFloatRejected(std::numeric_limits<float>::quiet_NaN());
+  VerifyNonFiniteFloatRejected(std::numeric_limits<float>::infinity());
+  VerifyNonFiniteFloatRejected(-std::numeric_limits<float>::infinity());
 
   const std::string gdtfPath = MakeBaseGdtf();
   GdtfDocumentMutationRequest request;
@@ -174,8 +274,8 @@ int main() {
   tinyxml2::XMLElement *power = properties->FirstChildElement("PowerConsumption");
   assert(weight != nullptr);
   assert(power != nullptr);
-  AssertGdtfFloatEquals(weight, 12.345);
-  AssertGdtfFloatEquals(power, 678.9);
+  AssertGdtfFloatRoundtrips(weight, 12.345f);
+  AssertGdtfFloatRoundtrips(power, 678.9f);
 
   tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
   assert(revisions != nullptr);
@@ -195,6 +295,8 @@ int main() {
   assert(LoadGdtf(gdtfPath, objects, &loadError));
   assert(loadError.empty());
   assert(!objects.empty());
+
+  VerifyRawArchiveNames(gdtfPath, {"description.xml", "resources/sentinel.bin"});
 
   const auto validation = GdtfCanonicalizer::ValidateArchive(gdtfPath);
   assert(validation.success);

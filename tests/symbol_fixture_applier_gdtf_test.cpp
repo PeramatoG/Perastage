@@ -1,6 +1,7 @@
 /*
  * This file is part of Perastage.
  */
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <filesystem>
@@ -16,6 +17,7 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include "support/archive_entry_test_utils.h"
 #include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/configmanager.h"
@@ -190,9 +192,11 @@ int main() {
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
     if (entry->IsDir())
       continue;
-    const std::string entryName = entry->GetName().ToStdString();
-    entries.insert(entryName);
-    if (entryName == "description.xml")
+    const auto logicalName =
+        tests::archive::NormalizePresentedArchivePath(entry->GetName().ToStdString());
+    assert(logicalName.ok);
+    entries.insert(logicalName.path);
+    if (logicalName.path == "description.xml")
       descriptionXml = ReadCurrentZipEntry(zipInput);
   }
 
@@ -200,6 +204,21 @@ int main() {
   assert(entries.find("models/svg/Body_bottom.svg") != entries.end());
   assert(entries.find("models/svg_side/Body.svg") != entries.end());
   assert(entries.find("models/svg_front/Body.svg") != entries.end());
+
+  std::string rawNameError;
+  const std::vector<std::string> rawNames =
+      tests::archive::ReadRawCentralDirectoryEntryNames(mutatedPath, rawNameError);
+  assert(rawNameError.empty());
+  for (const std::string &expectedName : {"models/svg/Body.svg",
+                                          "models/svg/Body_bottom.svg",
+                                          "models/svg_side/Body.svg",
+                                          "models/svg_front/Body.svg"}) {
+    assert(std::find(rawNames.begin(), rawNames.end(), expectedName) !=
+           rawNames.end());
+  }
+  for (const std::string &rawName : rawNames) {
+    assert(rawName.find('\\') == std::string::npos);
+  }
 
   tinyxml2::XMLDocument doc;
   assert(doc.Parse(descriptionXml.c_str(), descriptionXml.size()) ==

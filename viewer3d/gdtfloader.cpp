@@ -31,6 +31,7 @@
 #include <cerrno>
 #include <charconv>
 #include <cstdlib>
+#include <cmath>
 #include <optional>
 #include <string_view>
 #include <tinyxml2.h>
@@ -57,7 +58,6 @@ class wxZipStreamLink;
 #include <cfloat>
 #include <cstdint>
 #include <sstream>
-#include <cmath>
 #include <iomanip>
 #include <mutex>
 #include <system_error>
@@ -2215,6 +2215,23 @@ tinyxml2::XMLElement* EnsurePropertiesNode(tinyxml2::XMLElement* fixtureType,
 
 } // namespace
 
+
+// Reports whether requested GDTF physical-property mutations are finite.
+static bool ValidateFinitePhysicalPropertyInputs(
+    const GdtfDocumentMutationRequest& request, std::vector<std::string>& errors)
+{
+    bool valid = true;
+    if (request.weightSet && !std::isfinite(request.weightKg)) {
+        errors.push_back("GDTF mutation rejected non-finite Weight value");
+        valid = false;
+    }
+    if (request.powerSet && !std::isfinite(request.powerW)) {
+        errors.push_back("GDTF mutation rejected non-finite PowerConsumption value");
+        valid = false;
+    }
+    return valid;
+}
+
 // Replaces the target archive with a completed sibling archive.
 static bool ReplaceArchiveAtomically(const fs::path& tempPath, const fs::path& targetPath,
                                      std::string& error)
@@ -2251,6 +2268,8 @@ GdtfDocumentMutationResult MutateGdtfDocumentWithResult(
         result.errors.push_back("GDTF path is empty");
         return result;
     }
+    if (!ValidateFinitePhysicalPropertyInputs(request, result.errors))
+        return result;
 
     TempExtraction extraction(gdtfPath);
     if (!extraction.IsValid()) {
