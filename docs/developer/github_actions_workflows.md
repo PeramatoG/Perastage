@@ -45,13 +45,12 @@ A newer compatibility run for the same ref cancels an older in-progress compatib
 The release pipeline is staged:
 
 1. Resolve current `main` to an exact base SHA, validate `VERSION`, compute the next `MAJOR.MINOR.0` version and tag, verify the tag does not already exist, and validate the artifact contract.
-2. Run the reusable `CI Debug Tests` quality gate against the exact base SHA.
-3. Create a temporary automation ref based on the validated base SHA and commit only the `VERSION` update there.
-4. Build all five Release packages from the staged release commit SHA: Windows, Ubuntu AppImage, macOS 15, current macOS, and Arch Linux.
-5. Download and validate all package and symbol artifacts, reject duplicates or stale filenames, and create the final validated release-assets artifact.
-6. Publish only after validation succeeds by verifying `origin/main` still equals the base SHA, fast-forwarding `main` to the staged release commit, creating the annotated tag at that commit, and creating a draft GitHub Release with the validated assets.
+2. Create a temporary automation ref based on the resolved base SHA and commit only the `VERSION` update there. Debug CI is diagnostic while the historical suite is being repaired, so the minor release package builders do not wait for or depend on Debug test success.
+3. Build all five Release packages from the staged release commit SHA: Windows, Ubuntu AppImage, macOS 15, current macOS, and Arch Linux. Package builder failures remain blocking.
+4. Download and validate all package and symbol artifacts, reject duplicates or stale filenames, assemble the unified developer-only debug-symbol archive from the actual platform symbol files, and create the final validated release-assets artifact. Asset validation failures remain blocking.
+5. Publish only after validation succeeds by verifying `origin/main` still equals the base SHA, fast-forwarding `main` to the staged release commit, creating the annotated tag at that commit, and creating a draft GitHub Release with the validated assets.
 
-If `main` changes while packages are building, publication fails clearly before the tag or draft release is created. The maintainer should rerun the workflow from the updated `main`. Temporary automation refs are deleted after success and by the cleanup job after failure.
+The release remains transactional: no tag, `main` update, or draft GitHub Release is created until every required package and asset validation succeeds. If `main` changes while packages are building, publication fails clearly before the tag or draft release is created. The maintainer should rerun the workflow from the updated `main`. Temporary automation refs are deleted after success and by the cleanup job after failure.
 
 Dry runs are inexpensive: they compute and report the version, tag, title, and artifact contract status without pushing a branch, committing, tagging, building packages, or creating a release.
 
