@@ -14,6 +14,8 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
+
 ## Downloads and installation
 
 Choose the package that matches your operating system:

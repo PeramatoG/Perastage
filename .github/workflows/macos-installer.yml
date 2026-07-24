@@ -88,22 +88,21 @@ jobs:
         with:
           path: |
             .vcpkg-cache/downloads
-          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-macos26-xcode26-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-
+            vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-macos26-xcode26-${{ steps.vcpkg-baseline.outputs.baseline }}-
 
-      - name: Cache vcpkg installed packages and binary archives
-        uses: actions/cache@v5
+      - name: Restore vcpkg installed packages and binary archives
         id: vcpkg-cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: macos-26-xcode-26-v2-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/macos-installer.yml') }}
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-macos26-xcode26-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            macos-26-xcode-26-v2-vcpkg-securestore-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-
+            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-macos26-xcode26-${{ steps.vcpkg-baseline.outputs.baseline }}-
 
       # ── 5. Prepare vcpkg cache folders ──────────────────────────────────────
       # These folders must exist before bootstrap because VCPKG_DOWNLOADS is
@@ -113,6 +112,7 @@ jobs:
           mkdir -p "$VCPKG_DOWNLOADS"
           mkdir -p "$VCPKG_INSTALLED"
           mkdir -p "$VCPKG_PACKAGES"
+          mkdir -p "$VCPKG_BINARY_CACHE"
 
       # ── 6. Bootstrap vcpkg ──────────────────────────────────────────────────
       - name: Bootstrap vcpkg
@@ -184,11 +184,27 @@ jobs:
             --log "$CI_LOG_DIR/vcpkg-install-arm64-osx.log"
 
       - name: Save vcpkg downloads cache
-        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Save vcpkg installed packages and binary archives
+        id: vcpkg-cache-save
+        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+
+      - name: Summarize vcpkg cache behavior
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-26 --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+
 
       - name: Configure CMake
         run: |

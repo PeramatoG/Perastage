@@ -97,20 +97,20 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .vcpkg-cache/downloads
-          key: ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-      - name: Cache vcpkg installed packages and binary archives
-        uses: actions/cache@v5
+            vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Restore vcpkg installed packages and binary archives
+        id: vcpkg-cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-linux-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-linux-
+            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
       - name: Bootstrap vcpkg
         run: |
           set -euo pipefail
@@ -132,11 +132,27 @@ jobs:
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-linux-debug.log"
       - name: Save vcpkg downloads cache
-        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Save vcpkg installed packages and binary archives
+        id: vcpkg-cache-save
+        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+
+      - name: Summarize vcpkg cache behavior
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux-debug --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+
       - name: Validate Linux test tools and locale
         run: |
           set -euo pipefail
@@ -287,20 +303,20 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .vcpkg-cache/downloads
-          key: ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-      - name: Cache vcpkg installed packages and binary archives
-        uses: actions/cache@v5
+            vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Restore vcpkg installed packages and binary archives
+        id: vcpkg-cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             .vcpkg-cache\installed
             .vcpkg-cache\packages
             .vcpkg-cache\binary
-          key: ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-msvc-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-debug-v1-${{ steps.vcpkg-baseline.outputs.baseline }}-x64-windows-msvc-
+            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
       - name: Bootstrap vcpkg
         shell: pwsh
         run: |
@@ -323,11 +339,28 @@ jobs:
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
             --log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log"
       - name: Save vcpkg downloads cache
-        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Save vcpkg installed packages and binary archives
+        id: vcpkg-cache-save
+        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .vcpkg-cache\installed
+            .vcpkg-cache\packages
+            .vcpkg-cache\binary
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+
+      - name: Summarize vcpkg cache behavior
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+
       - name: Persist Visual Studio Hostx64 x64 environment
         shell: pwsh
         run: |
@@ -453,20 +486,20 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .vcpkg-cache/downloads
-          key: macos-26-arm64-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            macos-26-arm64-debug-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            ${{ runner.os }}-${{ runner.arch }}-vcpkg-downloads-${{ steps.vcpkg-baseline.outputs.baseline }}-
-      - name: Cache vcpkg installed packages and binary archives
-        uses: actions/cache@v5
+            vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Restore vcpkg installed packages and binary archives
+        id: vcpkg-cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: macos-26-sdk-${{ steps.macos-sdk.outputs.identity }}-debug-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', '.github/workflows/ci-tests.yml') }}
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            macos-26-sdk-${{ steps.macos-sdk.outputs.identity }}-debug-v2-${{ steps.vcpkg-baseline.outputs.baseline }}-arm64-osx-
+            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
       - name: Bootstrap vcpkg
         run: |
           set -euo pipefail
@@ -499,11 +532,27 @@ jobs:
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-macos-debug.log"
       - name: Save vcpkg downloads cache
-        if: ${{ always() && steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Save vcpkg installed packages and binary archives
+        id: vcpkg-cache-save
+        if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+
+      - name: Summarize vcpkg cache behavior
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+
       - name: Configure macOS Debug tests
         run: |
           current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"

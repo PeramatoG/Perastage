@@ -312,10 +312,24 @@ Use `-VisualStudioPath` or `-VisualStudioVersion` to make multi-install selectio
 
 ## CI vcpkg retry, cache, and diagnostics policy
 
-Installer and package workflows keep `vcpkg.json` as the single source of truth for the pinned vcpkg `builtin-baseline`. Each workflow reads and validates that 40-character baseline before checking out vcpkg, so dependency cache keys and the vcpkg checkout cannot drift from the manifest.
+CI keeps `vcpkg.json` as the dependency source of truth and reads the pinned 40-character `builtin-baseline` before cloning vcpkg. Dependency installation stays in classic mode: workflows pass explicit install, packages, downloads, and binary-cache roots under `${{ github.workspace }}/.vcpkg-cache` and continue to configure CMake with `VCPKG_MANIFEST_MODE=OFF`.
+
+The vcpkg cache schema is currently `v3`. Change that schema string in the workflow cache keys to intentionally invalidate all local GitHub Actions vcpkg caches without changing dependency versions. Compiled package keys follow this documented shape:
+
+```text
+vcpkg-compiled-v3-<runner.os>-<runner.arch>-<triplet>-<toolchain-or-sdk-scope>-<baseline>-<hashFiles('vcpkg.json', 'vcpkg-configuration.json')>
+```
+
+Downloads use the matching `vcpkg-downloads-v3-...` prefix and remain separate from compiled packages. The manifest hash covers `vcpkg.json` and the optional `vcpkg-configuration.json` input when present. Workflow filenames, job names, Debug/Release labels, CTest settings, package staging, and unrelated source files are intentionally excluded so ordinary workflow edits do not rebuild stable dependencies.
+
+The compiled cache contains only `.vcpkg-cache/installed`, `.vcpkg-cache/packages`, and `.vcpkg-cache/binary`. The downloads cache contains only `.vcpkg-cache/downloads`. Build trees, object files, CTest results, staged installers, and final artifacts are not cached by this policy. GitHub Packages, NuGet feeds, PAT-backed caches, sccache, and ccache are also intentionally out of scope.
+
+Each affected workflow restores downloads and compiled vcpkg caches before bootstrapping and installing vcpkg. After `vcpkg_install_retry.py` succeeds, workflows explicitly save downloads and then save the compiled cache with `actions/cache/save@v5` using each restore step's `cache-primary-key`. This save is placed before CMake configure, project compilation, CTest, packaging, artifact staging, and installer validation so a later failure cannot discard successfully built dependencies. The compiled cache save is skipped when the restore step reported an exact hit, preventing duplicate saves.
+
+Compatible workflows share cache keys when their ABI inputs match. Windows Debug CI and the Windows Release installer share `x64-windows` caches. Linux Debug CI and the Linux Release installer share `x64-linux` caches. The Arch package workflow keeps an `arch` toolchain scope because its container toolchain and system packages differ from Ubuntu. macOS cache keys keep an SDK/Xcode boundary: macOS 26 installer jobs use their fixed Xcode 26 scope, macOS 15 manual installer jobs include the deployment target, and macOS Debug CI includes a hash of the active Xcode and SDK real path.
+
+Every vcpkg job writes a GitHub Step Summary with the platform, runner architecture, triplet, baseline, schema, cache hits, primary key, and explicit-save outcome. To diagnose a cache miss, compare those summary fields across runs. A changed schema, runner OS or architecture, triplet, macOS SDK/Xcode identity, vcpkg baseline, `vcpkg.json`, or supported `vcpkg-configuration.json` hash should create a new primary key. If none of those inputs changed, inspect the restore logs for eviction or branch-scope cache availability.
 
 All GitHub Actions installer workflows run vcpkg through `.github/scripts/vcpkg_install_retry.py` instead of invoking `vcpkg install` directly. The helper retries only failures that match transient download or network signatures, such as HTTP 408, 425, 429, 500, 502, 503, or 504 responses, DNS failures, timeouts, connection resets, refused connections, and temporary proxy or remote-server failures. Configure, compile, link, manifest, ABI, patch, and package-validation failures are treated as permanent and fail without hiding the original vcpkg exit code.
-
-The workflows keep source downloads separate from toolchain-sensitive installed and package trees. Downloads are restored with broad baseline-aware restore prefixes and are saved even after a failed install, allowing later runs to reuse any archives that were fetched before an outage. Installed trees, package directories, and vcpkg binary-cache archives remain keyed by operating system, architecture, triplet, SDK/toolchain scope, the manifest/configuration hash, and the current cache schema so incompatible binaries are not shared across platforms or macOS SDK generations.
 
 The retry helper always writes a complete UTF-8 log under `out/ci-logs/` while streaming vcpkg output live to the Actions log. Failure diagnostics upload `out/ci-logs/**`, vcpkg buildtree logs, vcpkg issue bodies, and CMake logs when CMake was reached. Missing CMake logs after an earlier vcpkg download failure are expected and should not be treated as a separate diagnostic problem. A prolonged upstream outage, such as repeated HTTP 504 responses from a dependency host, can still exhaust the bounded retries; in that case maintainers should rerun the failed package job later rather than changing the vcpkg baseline, vendoring the dependency, or adding an unverified mirror.
