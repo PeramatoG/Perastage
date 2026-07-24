@@ -101,9 +101,12 @@ def assemble(root: Path, version: str, output_dir: Path) -> Path:
             matches.extend(sorted(p for p in search_root.rglob(spec["pattern"]) if p.is_file() or p.is_dir()))
         unique = sorted({p.resolve() for p in matches})
         if not unique:
-            raise RuntimeError(f"Missing required {platform} symbols")
+            detail = " dSYM bundle" if spec["kind"] == "bundle" else ""
+            raise RuntimeError(f"Missing required {platform} symbols{detail}")
         if not allow_many and len(unique) != 1:
-            raise RuntimeError(f"Expected exactly one {platform} symbol, found {len(unique)}")
+            detail = " dSYM bundle" if spec["kind"] == "bundle" else " symbol"
+            locations = ", ".join(str(path) for path in unique)
+            raise RuntimeError(f"Expected exactly one {platform}{detail}, found {len(unique)}: {locations}")
         for source in unique:
             copy_path(source, platform_dir)
 

@@ -282,7 +282,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Perastage-macos15-symbols
-          path: out/symbols/macos15/Perastage.dSYM
+          path: out/symbols/macos15
+          if-no-files-found: error
 
       # ── 13. Validate staged app bundle ──────────────────────────────────────
       - name: Validate staged app bundle

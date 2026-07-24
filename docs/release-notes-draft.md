@@ -143,6 +143,7 @@ Official release builds require native secure credential-store support on Window
 - Refactored temporary files, imports, exports, generated resources, and session caches around explicit Perastage-owned lifecycles.
 - Improved shutdown reliability, especially on macOS.
 - Windows crash reports now include a matching `.dmp` minidump for use with release debug symbols.
+- Release debug-symbol packaging now preserves macOS dSYM bundle layout for maintainer crash analysis.
 - Diagnostic reports include improved Windows version information and focused logs for Viewer2D capture and MVR-xchange transfers.
 - Fixed the Updates dialog so **Yes** and **No** close it correctly and reminder suppression can be saved.
 

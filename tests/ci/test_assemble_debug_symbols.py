@@ -4,6 +4,13 @@ import zipfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / ".github" / "scripts" / "assemble_debug_symbols.py"
+MACOS_SYMBOL_ARTIFACTS = ["Perastage-macos15-symbols", "Perastage-macos26-symbols"]
+
+
+def make_downloaded_macos_symbol_artifact(root: Path, artifact_name: str) -> None:
+    dwarf = root / artifact_name / "Perastage.dSYM" / "Contents" / "Resources" / "DWARF"
+    dwarf.mkdir(parents=True)
+    (dwarf / "Perastage").write_text(artifact_name)
 
 
 def make_artifacts(root: Path) -> None:
@@ -17,10 +24,8 @@ def make_artifacts(root: Path) -> None:
     arch.mkdir()
     with zipfile.ZipFile(arch / "Perastage-1.5.0-ArchLinux-symbols.zip", "w") as archive:
         archive.writestr("perastage-debug-1.5.0-1-x86_64.pkg.tar.zst", "archdebug")
-    for name in ["Perastage-macos15-symbols", "Perastage-macos26-symbols"]:
-        dwarf = root / name / "Perastage.dSYM" / "Contents" / "Resources" / "DWARF"
-        dwarf.mkdir(parents=True)
-        (dwarf / "Perastage").write_text(name)
+    for artifact_name in MACOS_SYMBOL_ARTIFACTS:
+        make_downloaded_macos_symbol_artifact(root, artifact_name)
 
 
 def run_assembler(root: Path) -> subprocess.CompletedProcess[str]:
@@ -55,3 +60,31 @@ def test_assembler_rejects_missing_platform_symbols(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "Linux-AppImage_x86_64" not in result.stderr
     assert "Linux-AppImage-x86_64" in result.stderr
+
+
+def test_assembler_rejects_downloaded_macos_artifact_without_bundle_root(tmp_path: Path) -> None:
+    make_artifacts(tmp_path)
+    broken = tmp_path / "Perastage-macos15-symbols"
+    bundle = broken / "Perastage.dSYM"
+    contents = bundle / "Contents"
+    replacement = tmp_path / "replacement-contents"
+    contents.rename(replacement)
+    bundle.rmdir()
+    replacement.rename(broken / "Contents")
+
+    result = run_assembler(tmp_path)
+
+    assert result.returncode != 0
+    assert "Missing required macOS15-arm64 symbols dSYM bundle" in result.stderr
+
+
+def test_assembler_rejects_duplicate_macos_dsym_bundles(tmp_path: Path) -> None:
+    make_artifacts(tmp_path)
+    duplicate = tmp_path / "Perastage-macos26-symbols" / "nested" / "Perastage.dSYM" / "Contents" / "Resources" / "DWARF"
+    duplicate.mkdir(parents=True)
+    (duplicate / "Perastage").write_text("duplicate")
+
+    result = run_assembler(tmp_path)
+
+    assert result.returncode != 0
+    assert "Expected exactly one macOS26-arm64 dSYM bundle, found 2" in result.stderr
