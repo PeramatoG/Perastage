@@ -57,6 +57,17 @@ for name in ['linux-installer.yml','macos-installer.yml','macos-15-manual-instal
     assert 'CMAKE_BUILD_TYPE=Release' in text, f'{name} must be Release'
     assert '-DBUILD_TESTING=OFF' in text, f'{name} must disable tests'
 
+
+macos_symbol_uploads = {
+    'macos-15-manual-installer.yml': ('Perastage-macos15-symbols', 'out/symbols/macos15'),
+    'macos-installer.yml': ('Perastage-macos26-symbols', 'out/symbols/macos26'),
+}
+for name, (artifact_name, parent_path) in macos_symbol_uploads.items():
+    text = (WORKFLOWS / name).read_text()
+    pattern = rf'name: {re.escape(artifact_name)}\s+path: {re.escape(parent_path)}\s+if-no-files-found: error'
+    assert re.search(pattern, text), f'{name} must upload the parent dSYM symbol directory with if-no-files-found: error'
+    assert f'path: {parent_path}/Perastage.dSYM' not in text, f'{name} must not upload the dSYM bundle as the artifact root'
+
 main_patch = (WORKFLOWS / 'main-patch-test-build.yml').read_text()
 assert 'name: Main Patch Release Artifacts' in main_patch
 assert main_patch.count('uses: ./.github/workflows/windows-installer.yml') == 1
