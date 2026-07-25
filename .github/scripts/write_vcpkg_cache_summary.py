@@ -26,6 +26,7 @@ def main() -> int:
     parser.add_argument("--remote-setup-result", default="not requested")
     parser.add_argument("--fallback-local-only", default="true")
     parser.add_argument("--publish-permitted", default="no")
+    parser.add_argument("--install-outcome", default="not reported")
     parser.add_argument("--publication-verification", default="not applicable")
     args = parser.parse_args()
 
@@ -58,6 +59,7 @@ def main() -> int:
         f"- Remote authentication/setup result: {args.remote_setup_result}",
         f"- Fallback to local-only: {args.fallback_local_only}",
         f"- Permitted to publish remotely: {args.publish_permitted}",
+        f"- vcpkg install outcome: {args.install_outcome}",
         f"- Remote publication verification: {args.publication_verification}",
         "",
     ]

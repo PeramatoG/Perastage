@@ -19,6 +19,17 @@ assert all(not re.search(r'secrets\.[A-Z0-9_]*(?:PAT|PERSONAL_ACCESS_TOKEN)', te
 remote = all_workflows['vcpkg-binary-cache.yml']
 for needle in ['contents: read', 'packages: write', 'workflow_dispatch:', 'branches: [main]', '--mode readwrite', 'x64-windows', 'x64-linux', 'arm64-osx']:
     assert needle in remote, f'warming workflow is missing {needle}'
+for needle in ['Resolve macOS SDK cache identity', 'identity=${sdk_identity}',
+               'MACOS_SDK_PATH=${current_sdk_path}', 'MACOS_SDK_REALPATH=${current_sdk_realpath}',
+               'VCPKG_CACHE_SCOPE=sdk-${sdk_identity}', 'macos_sdk_cache_guard.py',
+               '--current-sdk "$MACOS_SDK_PATH"']:
+    assert needle in remote, f'warming workflow is missing macOS cache boundary: {needle}'
+assert remote.index('Guard restored macOS SDK metadata') < remote.index('Install and publish vcpkg packages')
+assert 'VCPKG_CACHE_SCOPE: default' in remote, 'Windows and Ubuntu warming keys must retain the default scope'
+assert '${{ matrix.triplet }}-${{ env.VCPKG_CACHE_SCOPE }}-' in remote
+assert 'job.status' not in remote, 'job success must not be reported as independent publication verification'
+assert '--install-outcome "${{ steps.vcpkg-install.outcome }}"' in remote
+assert 'not independently verified' in remote
 for forbidden in ['cmake --build', 'ctest', 'Configure CMake', 'pull_request_target']:
     assert forbidden not in remote, f'warming workflow must not contain {forbidden}'
 consumers = ['ci-tests.yml', 'windows-installer.yml', 'linux-installer.yml', 'macos-installer.yml', 'macos-15-manual-installer.yml']
@@ -31,6 +42,8 @@ for name in ['main-patch-test-build.yml', 'minor-draft-release.yml', 'compatibil
 helper = Path('.github/scripts/setup_vcpkg_github_packages.py').read_text()
 assert 'https://nuget.pkg.github.com/PeramatoG/index.json' in helper
 assert 'https://github.com/PeramatoG/Perastage' in helper
+assert 'defaultPushSource={FEED_URL}' in helper
+assert '["setApiKey", token, "-Source", FEED_URL' in helper
 assert helper.index('files,{Path(args.local_cache).resolve()},readwrite') < helper.index('nugetconfig')
 assert sum(text.count('nuget.exe') for text in all_workflows.values()) == 0, 'NuGet setup must remain centralized'
 assert 'arch-package.yml' not in consumers and '--mode read' not in all_workflows['arch-package.yml'], 'Arch must remain local-only'

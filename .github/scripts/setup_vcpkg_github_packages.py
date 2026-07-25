@@ -54,7 +54,10 @@ def configure(args: argparse.Namespace) -> bool:
                        "-ConfigFile", str(config), "-NonInteractive"], check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         if args.mode == "readwrite":
-            subprocess.run(command + ["setApiKey", token, "-Source", SOURCE_NAME,
+            subprocess.run(command + ["config", "-Set", f"defaultPushSource={FEED_URL}",
+                           "-ConfigFile", str(config), "-NonInteractive"], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+            subprocess.run(command + ["setApiKey", token, "-Source", FEED_URL,
                            "-ConfigFile", str(config), "-NonInteractive"], check=True,
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         subprocess.run(command + ["list", "-Source", SOURCE_NAME, "-ConfigFile", str(config),

@@ -42,6 +42,7 @@ jobs:
       VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
       VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
+      VCPKG_CACHE_SCOPE: default
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
     steps:
       - name: Checkout trusted source
@@ -55,6 +56,21 @@ jobs:
           echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
           echo "VCPKG_BASELINE=$baseline" >> "$GITHUB_ENV"
 
+      - name: Resolve macOS SDK cache identity
+        id: macos-sdk
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          current_sdk_realpath="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "$current_sdk_path")"
+          xcode_version="$(xcodebuild -version | tr '\n' '-' | sed 's/-$//')"
+          sdk_identity="$(printf '%s|%s' "$xcode_version" "$current_sdk_realpath" | shasum -a 256 | awk '{print $1}')"
+          echo "identity=${sdk_identity}" >> "$GITHUB_OUTPUT"
+          echo "MACOS_SDK_PATH=${current_sdk_path}" >> "$GITHUB_ENV"
+          echo "MACOS_SDK_REALPATH=${current_sdk_realpath}" >> "$GITHUB_ENV"
+          echo "VCPKG_CACHE_SCOPE=sdk-${sdk_identity}" >> "$GITHUB_ENV"
+
       - name: Install Mono on Ubuntu
         if: ${{ runner.os == 'Linux' }}
         run: sudo apt-get update && sudo apt-get install -y mono-complete
@@ -67,8 +83,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .vcpkg-cache/downloads
-          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
-          restore-keys: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-${{ env.VCPKG_CACHE_SCOPE }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-${{ env.VCPKG_CACHE_SCOPE }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
 
       - name: Restore vcpkg installed packages and binary archives
         id: vcpkg-cache
@@ -79,7 +95,7 @@ jobs:
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-${{ env.VCPKG_CACHE_SCOPE }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       - name: Prepare vcpkg paths
         shell: bash
@@ -102,7 +118,21 @@ jobs:
           [[ "${{ runner.os }}" == Windows ]] && executable="$VCPKG_ROOT/vcpkg.exe"
           python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$executable" --local-cache "$VCPKG_BINARY_CACHE" --mode readwrite
 
+      - name: Guard restored macOS SDK metadata
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/macos_sdk_cache_guard.py \
+            --current-sdk "$MACOS_SDK_PATH" \
+            --scan-root "$VCPKG_INSTALLED" \
+            --scan-root "$VCPKG_PACKAGES" \
+            --scan-root "$VCPKG_BINARY_CACHE" \
+            --purge-root "$VCPKG_INSTALLED" \
+            --purge-root "$VCPKG_PACKAGES" \
+            --purge-root "$VCPKG_BINARY_CACHE"
+
       - name: Install and publish vcpkg packages
+        id: vcpkg-install
         shell: bash
         run: |
           executable="$VCPKG_ROOT/vcpkg"
@@ -129,4 +159,4 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         shell: bash
-        run: python3 .github/scripts/write_vcpkg_cache_summary.py --platform "${{ matrix.runner }}" --triplet "${{ matrix.triplet }}" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key || 'remote-validation-bypass' }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode readwrite --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted yes --publication-verification "${{ job.status == 'success' && 'vcpkg completed with authenticated readwrite provider' || 'failed' }}"
+        run: python3 .github/scripts/write_vcpkg_cache_summary.py --platform "${{ matrix.runner }}" --triplet "${{ matrix.triplet }}" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key || 'remote-validation-bypass' }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode readwrite --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted yes --install-outcome "${{ steps.vcpkg-install.outcome }}" --publication-verification "not independently verified; inspect the non-secret vcpkg install log and GitHub Packages"

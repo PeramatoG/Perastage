@@ -55,7 +55,15 @@ class SetupTests(unittest.TestCase):
         self.assertTrue(MODULE.configure(self.args("readwrite")))
         commands = [call.args[0] for call in run.call_args_list]
         self.assertTrue(any(command[:2] == ["mono", "/tools/nuget.exe"] for command in commands))
-        self.assertTrue(any("setApiKey" in command for command in commands))
+        self.assertTrue(any(
+            "config" in command and f"defaultPushSource={MODULE.FEED_URL}" in command
+            for command in commands
+        ))
+        self.assertTrue(any(
+            "setApiKey" in command
+            and command[command.index("-Source") + 1] == MODULE.FEED_URL
+            for command in commands
+        ))
         self.assertNotIn("secret-value", self.env_file.read_text())
 
     @mock.patch.object(MODULE.subprocess, "run", side_effect=OSError("offline"))
