@@ -24,22 +24,57 @@ class SetupTests(unittest.TestCase):
             "GITHUB_ENV": str(self.env_file), "GITHUB_OUTPUT": str(self.out_file),
             "RUNNER_TEMP": self.temp.name, "GITHUB_TOKEN": "secret-value"}, clear=True)
         self.environment.start()
-        self.mock_mode = "read"
 
     def tearDown(self):
         self.environment.stop()
         self.temp.cleanup()
 
     def args(self, mode):
-        self.mock_mode = mode
         return argparse.Namespace(vcpkg="/tools/vcpkg", local_cache=self.temp.name, mode=mode)
 
     def successful_run(self, command, **_kwargs):
         stdout = "/tools/nuget.exe\n" if "fetch" in command else ""
         if "sources" in command and "Add" in command:
             config = Path(command[command.index("-ConfigFile") + 1])
-            self.write_config(config, readwrite=self.mock_mode == "readwrite")
+            self.assert_initial_config(config)
+            self.add_source_and_credentials(config)
+        elif "config" in command and "-Set" in command:
+            config = Path(command[command.index("-ConfigFile") + 1])
+            self.assertTrue(config.is_file())
+            root = ET.parse(config).getroot()
+            section = ET.SubElement(root, "config")
+            ET.SubElement(section, "add", key="defaultPushSource", value=MODULE.FEED_URL)
+            ET.ElementTree(root).write(config, encoding="utf-8", xml_declaration=True)
+        elif "setApiKey" in command:
+            config = Path(command[command.index("-ConfigFile") + 1])
+            self.assertTrue(config.is_file())
+            root = ET.parse(config).getroot()
+            section = ET.SubElement(root, "apikeys")
+            ET.SubElement(section, "add", key=MODULE.FEED_URL, value="secret-value")
+            ET.ElementTree(root).write(config, encoding="utf-8", xml_declaration=True)
         return mock.Mock(stdout=stdout, stderr="", returncode=0)
+
+    def assert_initial_config(self, path):
+        self.assertTrue(path.is_file())
+        root = ET.parse(path).getroot()
+        self.assertEqual(root.tag, "configuration")
+        sources = root.find("packageSources")
+        self.assertIsNotNone(sources)
+        self.assertIsNotNone(sources.find("clear"))
+        self.assertIsNone(root.find("packageSourceCredentials"))
+        text = path.read_text(encoding="utf-8").lower()
+        for credential in ("secret-value", "password", "apikey", "token"):
+            self.assertNotIn(credential, text)
+
+    def add_source_and_credentials(self, path):
+        root = ET.parse(path).getroot()
+        sources = root.find("packageSources")
+        ET.SubElement(sources, "add", key=MODULE.SOURCE_NAME, value=MODULE.FEED_URL)
+        credential_root = ET.SubElement(root, "packageSourceCredentials")
+        section = ET.SubElement(credential_root, MODULE.SOURCE_NAME)
+        ET.SubElement(section, "add", key="Username", value="PeramatoG")
+        ET.SubElement(section, "add", key="ClearTextPassword", value="secret-value")
+        ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
     def write_config(self, path, *, readwrite=False, source=True, feed_url=None,
                      credentials=True, password=True, default_push=True, api_key=True):
@@ -69,6 +104,12 @@ class SetupTests(unittest.TestCase):
         self.assertIn("VCPKG_BINARY_SOURCES=clear;files,", text)
         self.assertNotIn("nugetconfig", text)
         self.assertIn(MODULE.REPOSITORY_URL, text)
+
+    def test_initialize_config_replaces_stale_content(self):
+        path = Path(self.temp.name) / "NuGet.Config"
+        path.write_text("<configuration><stale credential='secret-value'/></configuration>")
+        MODULE.initialize_nuget_config(path)
+        self.assert_initial_config(path)
 
     @mock.patch.object(MODULE.platform, "system", return_value="Windows")
     @mock.patch.object(MODULE.subprocess, "run")

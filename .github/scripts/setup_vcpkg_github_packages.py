@@ -68,6 +68,14 @@ def nuget_command(nuget: str) -> list[str]:
     return [nuget] if platform.system() == "Windows" else ["mono", nuget]
 
 
+def initialize_nuget_config(config: Path) -> None:
+    """Create a clean, credential-free NuGet configuration for the current job."""
+    root = ET.Element("configuration")
+    package_sources = ET.SubElement(root, "packageSources")
+    ET.SubElement(package_sources, "clear")
+    ET.ElementTree(root).write(config, encoding="utf-8", xml_declaration=True)
+
+
 def find_section(root: ET.Element, name: str) -> ET.Element | None:
     """Find a direct NuGet configuration section without depending on XML namespaces."""
     return next((child for child in root if child.tag.rsplit("}", 1)[-1] == name), None)
@@ -140,6 +148,7 @@ def configure(args: argparse.Namespace) -> bool:
         config_dir = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir())) / "perastage-vcpkg-nuget"
         config_dir.mkdir(parents=True, exist_ok=True)
         config = config_dir / "NuGet.Config"
+        initialize_nuget_config(config)
         command = nuget_command(fetched)
         run_stage("add-source", command + ["sources", "Add", "-Name", SOURCE_NAME,
                   "-Source", FEED_URL, "-UserName", "PeramatoG", "-Password", token,
