@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 FEED_URL = "https://nuget.pkg.github.com/PeramatoG/index.json"
@@ -67,6 +68,53 @@ def nuget_command(nuget: str) -> list[str]:
     return [nuget] if platform.system() == "Windows" else ["mono", nuget]
 
 
+def find_section(root: ET.Element, name: str) -> ET.Element | None:
+    """Find a direct NuGet configuration section without depending on XML namespaces."""
+    return next((child for child in root if child.tag.rsplit("}", 1)[-1] == name), None)
+
+
+def find_add(section: ET.Element | None, key: str) -> ET.Element | None:
+    """Find an add entry by key without reading unrelated configuration values."""
+    if section is None:
+        return None
+    return next((entry for entry in section
+                 if entry.tag.rsplit("}", 1)[-1] == "add" and entry.get("key") == key), None)
+
+
+def validate_config(config: Path, mode: str) -> None:
+    """Validate the generated NuGet configuration structurally with safe diagnostics."""
+    try:
+        root = ET.parse(config).getroot()
+    except (OSError, ET.ParseError) as error:
+        raise RuntimeError("invalid NuGet configuration XML") from error
+
+    source = find_add(find_section(root, "packageSources"), SOURCE_NAME)
+    if source is None:
+        raise RuntimeError("missing package source")
+    if source.get("value") != FEED_URL:
+        raise RuntimeError("unexpected feed URL")
+
+    credentials = find_section(root, "packageSourceCredentials")
+    credential_section = find_section(credentials, SOURCE_NAME) if credentials is not None else None
+    if credential_section is None:
+        raise RuntimeError("missing credential section")
+    username = find_add(credential_section, "Username")
+    if username is None or username.get("value") != "PeramatoG":
+        raise RuntimeError("missing username")
+    password = find_add(credential_section, "ClearTextPassword")
+    if password is None:
+        password = find_add(credential_section, "Password")
+    if password is None:
+        raise RuntimeError("missing password entry")
+
+    if mode == "readwrite":
+        push_source = find_add(find_section(root, "config"), "defaultPushSource")
+        if push_source is None or push_source.get("value") != FEED_URL:
+            raise RuntimeError("missing default push source")
+        if find_add(find_section(root, "apikeys"), FEED_URL) is None:
+            raise RuntimeError("missing API-key entry")
+
+
 def configure(args: argparse.Namespace) -> bool:
     local_sources = f"clear;files,{Path(args.local_cache).resolve()},readwrite"
     append_command_file("GITHUB_ENV", "VCPKG_NUGET_REPOSITORY", REPOSITORY_URL)
@@ -103,19 +151,10 @@ def configure(args: argparse.Namespace) -> bool:
                       "-NonInteractive"], secrets)
             run_stage("set-api-key", command + ["setApiKey", token, "-Source", FEED_URL,
                       "-ConfigFile", str(config), "-NonInteractive"], secrets)
-        validation = run_stage("validate-config", command + ["sources", "List", "-ConfigFile",
-                               str(config), "-Format", "Short", "-NonInteractive"], secrets)
-        if SOURCE_NAME not in validation.stdout or FEED_URL not in validation.stdout:
-            raise SetupFailure(
-                "validate-config",
-                subprocess.CalledProcessError(
-                    0,
-                    command + ["sources", "List"],
-                    output=validation.stdout,
-                    stderr="configured source name or feed URL is missing",
-                ),
-                secrets,
-            )
+        try:
+            validate_config(config, args.mode)
+        except RuntimeError as error:
+            raise SetupFailure("validate-config", error, secrets) from error
     except SetupFailure as error:
         if args.mode == "readwrite":
             raise RuntimeError(str(error)) from error

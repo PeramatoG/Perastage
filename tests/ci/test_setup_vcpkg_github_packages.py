@@ -4,6 +4,7 @@ import importlib.util
 import os
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
@@ -23,19 +24,44 @@ class SetupTests(unittest.TestCase):
             "GITHUB_ENV": str(self.env_file), "GITHUB_OUTPUT": str(self.out_file),
             "RUNNER_TEMP": self.temp.name, "GITHUB_TOKEN": "secret-value"}, clear=True)
         self.environment.start()
+        self.mock_mode = "read"
 
     def tearDown(self):
         self.environment.stop()
         self.temp.cleanup()
 
     def args(self, mode):
+        self.mock_mode = mode
         return argparse.Namespace(vcpkg="/tools/vcpkg", local_cache=self.temp.name, mode=mode)
 
     def successful_run(self, command, **_kwargs):
         stdout = "/tools/nuget.exe\n" if "fetch" in command else ""
-        if "List" in command:
-            stdout = f"E {MODULE.SOURCE_NAME} {MODULE.FEED_URL}\n"
+        if "sources" in command and "Add" in command:
+            config = Path(command[command.index("-ConfigFile") + 1])
+            self.write_config(config, readwrite=self.mock_mode == "readwrite")
         return mock.Mock(stdout=stdout, stderr="", returncode=0)
+
+    def write_config(self, path, *, readwrite=False, source=True, feed_url=None,
+                     credentials=True, password=True, default_push=True, api_key=True):
+        root = ET.Element("configuration")
+        sources = ET.SubElement(root, "packageSources")
+        if source:
+            ET.SubElement(sources, "add", key=MODULE.SOURCE_NAME,
+                          value=feed_url or MODULE.FEED_URL)
+        credential_root = ET.SubElement(root, "packageSourceCredentials")
+        if credentials:
+            section = ET.SubElement(credential_root, MODULE.SOURCE_NAME)
+            ET.SubElement(section, "add", key="Username", value="PeramatoG")
+            if password:
+                ET.SubElement(section, "add", key="ClearTextPassword", value="secret-value")
+        if readwrite:
+            config = ET.SubElement(root, "config")
+            if default_push:
+                ET.SubElement(config, "add", key="defaultPushSource", value=MODULE.FEED_URL)
+            api_keys = ET.SubElement(root, "apikeys")
+            if api_key:
+                ET.SubElement(api_keys, "add", key=MODULE.FEED_URL, value="secret-value")
+        ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
     def test_disabled_writes_local_source_and_repository(self):
         self.assertFalse(MODULE.configure(self.args("disabled")))
@@ -58,9 +84,7 @@ class SetupTests(unittest.TestCase):
         commands = [call.args[0] for call in run.call_args_list]
         self.assertTrue(any(command[0] == "C:\\tools\\nuget.exe" for command in commands))
         self.assertFalse(any("list" in command for command in commands))
-        validation = next(command for command in commands if "List" in command)
-        self.assertIn("sources", validation)
-        self.assertIn("-Format", validation)
+        self.assertFalse(any("List" in command for command in commands))
         self.assertIn("nugetconfig", self.env_file.read_text())
         self.assertIn(",read\n", self.env_file.read_text())
 
@@ -82,14 +106,52 @@ class SetupTests(unittest.TestCase):
         ))
         self.assertNotIn("secret-value", self.env_file.read_text())
 
+    def test_valid_read_configuration(self):
+        path = Path(self.temp.name) / "read.config"
+        self.write_config(path)
+        MODULE.validate_config(path, "read")
+
+    def test_valid_readwrite_configuration(self):
+        path = Path(self.temp.name) / "readwrite.config"
+        self.write_config(path, readwrite=True)
+        MODULE.validate_config(path, "readwrite")
+
+    def assert_validation_error(self, message, **config_options):
+        path = Path(self.temp.name) / "invalid.config"
+        self.write_config(path, **config_options)
+        with self.assertRaisesRegex(RuntimeError, message):
+            MODULE.validate_config(path, "readwrite" if config_options.get("readwrite") else "read")
+
+    def test_missing_source(self):
+        self.assert_validation_error("missing package source", source=False)
+
+    def test_incorrect_feed_url(self):
+        self.assert_validation_error("unexpected feed URL", feed_url="https://example.invalid")
+
+    def test_missing_credential_section(self):
+        self.assert_validation_error("missing credential section", credentials=False)
+
+    def test_missing_password_entry(self):
+        self.assert_validation_error("missing password entry", password=False)
+
+    def test_missing_default_push_source(self):
+        self.assert_validation_error("missing default push source", readwrite=True,
+                                     default_push=False)
+
+    def test_missing_api_key_entry(self):
+        self.assert_validation_error("missing API-key entry", readwrite=True, api_key=False)
+
     @mock.patch.object(MODULE.subprocess, "run")
-    def test_validation_requires_source_name_and_feed_url(self, run):
-        run.side_effect = lambda command, **_kwargs: mock.Mock(
-            stdout="/tools/nuget.exe\n" if "fetch" in command else "unrelated source\n",
-            stderr="", returncode=0,
-        )
-        self.assertFalse(MODULE.configure(self.args("read")))
-        self.assertNotIn("nugetconfig", self.env_file.read_text())
+    def test_validation_does_not_require_sources_list_stdout(self, run):
+        def run_without_listing(command, **kwargs):
+            result = self.successful_run(command, **kwargs)
+            if "fetch" not in command:
+                result.stdout = "output without source metadata\n"
+            return result
+
+        run.side_effect = run_without_listing
+        self.assertTrue(MODULE.configure(self.args("read")))
+        self.assertFalse(any("List" in call.args[0] for call in run.call_args_list))
 
     def test_redaction_removes_tokens_and_credential_xml_values(self):
         diagnostic = (
@@ -119,6 +181,20 @@ class SetupTests(unittest.TestCase):
         self.assertNotIn("nugetconfig", self.env_file.read_text())
 
     @mock.patch.object(MODULE.subprocess, "run")
+    def test_read_validation_failure_falls_back(self, run):
+        def invalid_config_run(command, **_kwargs):
+            if "fetch" in command:
+                return mock.Mock(stdout="/tools/nuget.exe\n", stderr="", returncode=0)
+            if "sources" in command:
+                config = Path(command[command.index("-ConfigFile") + 1])
+                self.write_config(config, source=False)
+            return mock.Mock(stdout="", stderr="", returncode=0)
+
+        run.side_effect = invalid_config_run
+        self.assertFalse(MODULE.configure(self.args("read")))
+        self.assertNotIn("nugetconfig", self.env_file.read_text())
+
+    @mock.patch.object(MODULE.subprocess, "run")
     def test_main_writes_github_outputs_without_token(self, run):
         run.side_effect = self.successful_run
         with mock.patch.object(MODULE.sys, "argv", ["setup", "--vcpkg", "/tools/vcpkg", "--local-cache", self.temp.name, "--mode", "read"]):
@@ -131,6 +207,20 @@ class SetupTests(unittest.TestCase):
     @mock.patch.object(MODULE.subprocess, "run", side_effect=OSError("offline"))
     def test_writer_failure_is_fatal(self, _run):
         with self.assertRaises(RuntimeError):
+            MODULE.configure(self.args("readwrite"))
+
+    @mock.patch.object(MODULE.subprocess, "run")
+    def test_writer_validation_failure_is_fatal(self, run):
+        def invalid_config_run(command, **_kwargs):
+            if "fetch" in command:
+                return mock.Mock(stdout="/tools/nuget.exe\n", stderr="", returncode=0)
+            if "sources" in command:
+                config = Path(command[command.index("-ConfigFile") + 1])
+                self.write_config(config, readwrite=True, api_key=False)
+            return mock.Mock(stdout="", stderr="", returncode=0)
+
+        run.side_effect = invalid_config_run
+        with self.assertRaisesRegex(RuntimeError, "missing API-key entry"):
             MODULE.configure(self.args("readwrite"))
 
 
