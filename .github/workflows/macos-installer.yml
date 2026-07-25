@@ -21,6 +21,10 @@ on:
     branches:
       - ci/macos-installer
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build-macos-installer:
     # Use an explicit current-generation macOS runner to avoid unplanned macos-latest migrations.
@@ -130,6 +134,17 @@ jobs:
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
       # ── 7. Diagnose restored vcpkg SDK metadata ───────────────────────────────
+      - name: Ensure Mono is available for NuGet
+        shell: bash
+        run: command -v mono >/dev/null || brew install mono
+
+      - name: Configure GitHub Packages binary cache
+        id: vcpkg-remote-cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$VCPKG_ROOT/vcpkg" --local-cache "$VCPKG_BINARY_CACHE" --mode read
+
       - name: Diagnose restored vcpkg SDK metadata
         run: |
           set -euo pipefail
@@ -203,7 +218,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-26 --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-26 --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
 
       - name: Configure CMake

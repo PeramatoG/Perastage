@@ -1,0 +1,132 @@
+name: vcpkg Binary Cache
+
+on:
+  workflow_dispatch:
+    inputs:
+      bypass_local_compiled_cache:
+        description: Use an isolated local compiled-cache key to validate remote restoration.
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - vcpkg.json
+      - vcpkg-configuration.json
+      - .github/scripts/setup_vcpkg_github_packages.py
+      - .github/scripts/get_vcpkg_baseline.py
+      - .github/scripts/vcpkg_install_retry.py
+      - .github/workflows/vcpkg-binary-cache.yml
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  warm:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            triplet: x64-windows
+          - runner: ubuntu-latest
+            triplet: x64-linux
+          - runner: macos-26
+            triplet: arm64-osx
+    runs-on: ${{ matrix.runner }}
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
+      VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
+      VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
+      CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
+    steps:
+      - name: Checkout trusted source
+        uses: actions/checkout@v6
+
+      - name: Read vcpkg baseline
+        id: vcpkg-baseline
+        shell: bash
+        run: |
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
+          echo "VCPKG_BASELINE=$baseline" >> "$GITHUB_ENV"
+
+      - name: Install Mono on Ubuntu
+        if: ${{ runner.os == 'Linux' }}
+        run: sudo apt-get update && sudo apt-get install -y mono-complete
+      - name: Ensure Mono is available on macOS
+        if: ${{ runner.os == 'macOS' }}
+        run: command -v mono >/dev/null || brew install mono
+
+      - name: Restore vcpkg downloads
+        id: vcpkg-downloads-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+
+      - name: Restore vcpkg installed packages and binary archives
+        id: vcpkg-cache
+        if: ${{ !inputs.bypass_local_compiled_cache }}
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triplet }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+
+      - name: Prepare vcpkg paths
+        shell: bash
+        run: mkdir -p "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE" "$CI_LOG_DIR"
+
+      - name: Bootstrap vcpkg
+        shell: bash
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
+          if [[ "${{ runner.os }}" == Windows ]]; then "$VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics; else "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics; fi
+
+      - name: Configure GitHub Packages binary cache
+        id: vcpkg-remote-cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          executable="$VCPKG_ROOT/vcpkg"
+          [[ "${{ runner.os }}" == Windows ]] && executable="$VCPKG_ROOT/vcpkg.exe"
+          python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$executable" --local-cache "$VCPKG_BINARY_CACHE" --mode readwrite
+
+      - name: Install and publish vcpkg packages
+        shell: bash
+        run: |
+          executable="$VCPKG_ROOT/vcpkg"
+          [[ "${{ runner.os }}" == Windows ]] && executable="$VCPKG_ROOT/vcpkg.exe"
+          python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$executable" --triplet "${{ matrix.triplet }}" --manifest-root "$GITHUB_WORKSPACE" --install-root "$VCPKG_INSTALLED" --packages-root "$VCPKG_PACKAGES" --downloads-root "$VCPKG_DOWNLOADS" --log "$CI_LOG_DIR/vcpkg-install.log"
+
+      - name: Save vcpkg downloads cache
+        if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
+      - name: Save vcpkg installed packages and binary archives
+        id: vcpkg-cache-save
+        if: ${{ !inputs.bypass_local_compiled_cache && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+
+      - name: Summarize vcpkg cache behavior
+        if: ${{ always() }}
+        shell: bash
+        run: python3 .github/scripts/write_vcpkg_cache_summary.py --platform "${{ matrix.runner }}" --triplet "${{ matrix.triplet }}" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key || 'remote-validation-bypass' }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode readwrite --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted yes --publication-verification "${{ job.status == 'success' && 'vcpkg completed with authenticated readwrite provider' || 'failed' }}"
