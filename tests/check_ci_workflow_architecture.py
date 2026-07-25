@@ -8,6 +8,42 @@ WORKFLOWS = Path('.github/workflows')
 for workflow in WORKFLOWS.glob('*.yml'):
     subprocess.run(['ruby', '-e', "require 'yaml'; YAML.load_file(ARGV[0])", str(workflow)], check=True)
 
+
+# vcpkg caches must be restored and explicitly saved before later build/test/package steps can fail.
+VCPKG_WORKFLOWS = ['ci-tests.yml', 'windows-installer.yml', 'linux-installer.yml', 'macos-installer.yml', 'macos-15-manual-installer.yml', 'arch-package.yml']
+for name in VCPKG_WORKFLOWS:
+    text = (WORKFLOWS / name).read_text()
+    assert 'actions/cache@v5' not in text, f'{name} must not use automatic post-job vcpkg cache saves'
+    assert 'actions/cache/restore@v5' in text and 'actions/cache/save@v5' in text, f'{name} must use explicit cache restore/save actions'
+    assert "hashFiles('vcpkg.json', 'vcpkg-configuration.json')" in text, f'{name} must key vcpkg caches from dependency inputs only'
+    assert not re.search(r"hashFiles\([^)]*\.github/workflows/[^)]*\)", text), f'{name} must not hash workflow files into vcpkg keys'
+    assert 'vcpkg-downloads-v3-' in text and 'vcpkg-compiled-v3-' in text, f'{name} must use the documented v3 vcpkg cache schema'
+    assert '.vcpkg-cache/downloads' in text, f'{name} must keep downloads in a separate cache'
+    assert '.vcpkg-cache/installed' in text or '.vcpkg-cache\\installed' in text, f'{name} must cache the installed vcpkg tree'
+    assert '.vcpkg-cache/packages' in text or '.vcpkg-cache\\packages' in text, f'{name} must cache the packages tree'
+    assert '.vcpkg-cache/binary' in text or '.vcpkg-cache\\binary' in text, f'{name} must cache the file-based binary cache'
+    assert 'VCPKG_BINARY_SOURCES: clear;files,' in text and ',readwrite' in text, f'{name} must preserve the local vcpkg binary cache'
+    assert 'steps.vcpkg-cache.outputs.cache-primary-key' in text, f'{name} must save the compiled cache with the restore primary key'
+    assert 'write_vcpkg_cache_summary.py' in text, f'{name} must summarize vcpkg cache behavior'
+    assert not re.search(r'vcpkg-(?:downloads|compiled)-v3[^\n]*(?:debug|release)', text, re.IGNORECASE), f'{name} must not split ABI-compatible vcpkg caches by Debug/Release labels'
+    for cache_block in re.findall(r'uses: actions/cache/(?:restore|save)@v5[\s\S]{0,360}', text):
+        assert not re.search(r'(?:^|\n)\s*(?:build|out|CTest|Testing/Temporary)(?:/|\\|$)', cache_block), f'{name} must not add build or test outputs to vcpkg cache paths'
+    install_pos = text.index('vcpkg_install_retry.py')
+    save_pos = text.index('Save vcpkg installed packages and binary archives', install_pos)
+    later_needles = ['Configure CMake', 'Configure Debug tests', 'Configure Windows Debug tests', 'Configure macOS Debug tests', 'Build Arch package', 'Build project', 'Run complete CTest suite']
+    later_positions = [text.find(needle, save_pos) for needle in later_needles if text.find(needle, save_pos) != -1]
+    assert later_positions and save_pos < min(later_positions), f'{name} must save compiled vcpkg cache before configure/build/test/package steps'
+
+ci_text = (WORKFLOWS / 'ci-tests.yml').read_text()
+win_installer = (WORKFLOWS / 'windows-installer.yml').read_text()
+linux_installer = (WORKFLOWS / 'linux-installer.yml').read_text()
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-' in win_installer
+assert 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in ci_text and 'vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-' in linux_installer
+assert 'arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}' in ci_text, 'macOS Debug CI must include the resolved SDK/Xcode identity'
+assert 'arm64-osx-macos26-xcode26-' in (WORKFLOWS / 'macos-installer.yml').read_text(), 'macOS 26 installer must keep an SDK/Xcode cache boundary'
+assert 'arm64-osx-macos15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-' in (WORKFLOWS / 'macos-15-manual-installer.yml').read_text(), 'macOS 15 installer must keep deployment target cache boundary'
+assert 'x64-linux-arch-' in (WORKFLOWS / 'arch-package.yml').read_text(), 'Arch packaging must remain isolated from Ubuntu-compatible Linux caches'
+
 ci = (WORKFLOWS / 'ci-tests.yml').read_text()
 for needle in ['name: CI Debug Tests', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:
     assert needle in ci, f'ci-tests.yml is missing {needle}'
@@ -20,11 +56,11 @@ sections = {
     'macos': ci[ci.index('  macos-debug:'):],
 }
 for platform, text in sections.items():
-    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Cache vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=OFF']:
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=OFF']:
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
-    assert 'debug-v1' in text or 'debug-v2' in text or 'macos-26-xcode-26-debug-v1' in text, f'{platform} installed cache key must be Debug/toolchain scoped'
+    assert 'vcpkg-compiled-v3-' in text, f'{platform} installed cache key must use the shared v3 compiled schema'
     assert ('run_and_log.py --log' in text or '--output-log' in text) and 'ctest-' in text, f'{platform} build and test logs must be captured'
 
 linux = sections['linux']
@@ -40,7 +76,7 @@ for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-C
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
 
 macos = sections['macos']
-for needle in ['debug-v2', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', '--output-junit', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
+for needle in ['sdk-${{ steps.macos-sdk.outputs.identity }}', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', '--output-junit', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
     assert needle in macos, f'macOS Debug is missing {needle}'
 
 builders = ['windows-installer.yml','linux-installer.yml','macos-installer.yml','macos-15-manual-installer.yml','arch-package.yml']
