@@ -115,3 +115,11 @@ After the dry run validates the source run, commit identity, asset names, checks
 Future `Perastage-validated-release-assets` workflow artifacts include an internal `release-provenance.json` file. This file records the repository, workflow run ID and attempt, base SHA, release SHA, release version, tag, timestamp, final asset filenames, and SHA-256 checksum for each final asset. The provenance file is retained inside the workflow artifact to support safe future recovery, but it is excluded from public GitHub Release uploads unless the artifact contract is explicitly changed to publish it.
 
 The v1.5.0 artifact predates provenance. The validator permits exactly one legacy missing-provenance exception for release SHA `c857665b99aacf9f466edd4416584dfb56ac1a1f` and release version `1.5.0`; other SHA/version pairs must include matching provenance.
+
+## CI Debug sccache policy
+
+`ci-tests.yml` is the sole sccache owner in PR 3A. Its Linux, Hostx64/x64 Windows, and ARM64 macOS Debug jobs install dependencies first and then use the pinned Mozilla action v0.0.10 commit `9e7fa8a12102821edf02ca5dbea1acd0f89a2696` to install sccache v0.15.0. Installer, packaging, release, and vcpkg Binary Cache workflows do not enable it. The native GHA backend uses `perastage-ci-debug-v1` plus stable runner, architecture, compiler/toolset, Debug, and macOS SDK boundaries; `SCCACHE_BASEDIRS` normalizes the absolute checkout root.
+
+The source-resolution job defaults to `READ_ONLY` for pull requests, workflow calls, and arbitrary manual sources. It permits `READ_WRITE` only for a manual workflow selected from `main` whose resolved SHA exactly matches fetched `origin/main`. Summaries and artifacts retain credential-safe statistics and warning-level error logs, never runtime tokens. Remote I/O is fail-open to compilation, while a missing launcher, wrong compiler, malformed JSON, or zero requests after a successful build fails the job. Windows Debug alone selects CMP0141 `NEW` and embedded `/Z7` object debug information for cache compatibility.
+
+The exact cold/populate/warm validation and PR 3B decision gate are documented in [build.md](build.md#post-merge-two-run-validation). CTest results are never cached or skipped, so compare build-step duration separately and expect CTest duration to remain broadly unchanged.

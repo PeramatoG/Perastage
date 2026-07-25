@@ -48,6 +48,8 @@ jobs:
     outputs:
       source_sha: ${{ steps.resolve.outputs.source_sha }}
       source_ref: ${{ steps.resolve.outputs.source_ref }}
+      sccache_mode: ${{ steps.resolve.outputs.sccache_mode }}
+      sccache_write_allowed: ${{ steps.resolve.outputs.sccache_write_allowed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -61,7 +63,18 @@ jobs:
           sha="$(git rev-parse HEAD)"
           echo "source_sha=$sha" >> "$GITHUB_OUTPUT"
           echo "source_ref=${{ inputs.source_ref != '' && inputs.source_ref || github.event.pull_request.head.sha || github.ref }}" >> "$GITHUB_OUTPUT"
-          echo "Testing exact commit: $sha" >> "$GITHUB_STEP_SUMMARY"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          trusted_main_sha="$(git rev-parse refs/remotes/origin/main)"
+          mode=READ_ONLY
+          write_allowed=false
+          requested_ref='${{ inputs.source_ref }}'
+          if [ '${{ github.event_name }}' = workflow_dispatch ] && [ '${{ github.ref }}' = refs/heads/main ] && [ "$sha" = "$trusted_main_sha" ] && { [ -z "$requested_ref" ] || [ "$requested_ref" = main ] || [ "$requested_ref" = refs/heads/main ]; }; then
+            mode=READ_WRITE
+            write_allowed=true
+          fi
+          echo "sccache_mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "sccache_write_allowed=$write_allowed" >> "$GITHUB_OUTPUT"
+          { echo "Testing exact commit: $sha"; echo "Trusted main commit: $trusted_main_sha"; echo "sccache mode: $mode"; } >> "$GITHUB_STEP_SUMMARY"
 
   linux-debug:
     needs: resolve-source
@@ -74,6 +87,11 @@ jobs:
       VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
+      SCCACHE_GHA_ENABLED: "on"
+      SCCACHE_GHA_RW_MODE: ${{ needs.resolve-source.outputs.sccache_mode }}
+      SCCACHE_BASEDIRS: ${{ github.workspace }}
+      SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
+      SCCACHE_LOG: warn
     steps:
       - uses: actions/checkout@v6
         with:
@@ -170,17 +188,45 @@ jobs:
           locale -a | grep -qi '^es_ES.utf8$' || { echo "es_ES.UTF-8 locale was not generated"; exit 1; }
           locale -a | grep -qi '^zh_CN.utf8$' || { echo "zh_CN.UTF-8 locale was not generated"; exit 1; }
           for tool in rg xvfb-run locale xdpyinfo; do command -v "$tool" >/dev/null || { echo "Required Linux test tool is missing: $tool"; exit 1; }; done
-      - name: Configure Debug tests
+      - name: Define Linux sccache compatibility boundary
         run: |
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+          set -euo pipefail
+          compiler_identity="$(gcc -dumpfullversion -dumpversion)-$(gcc -dumpmachine)"
+          namespace="perastage-ci-debug-v1-linux-${{ runner.arch }}-gcc-${compiler_identity}-debug"
+          echo "SCCACHE_GHA_VERSION=$namespace" >> "$GITHUB_ENV"
+          echo "SCCACHE_NAMESPACE=$namespace" >> "$GITHUB_ENV"
+          echo "SCCACHE_COMPILER_IDENTITY=gcc-$compiler_identity" >> "$GITHUB_ENV"
+          echo "SCCACHE_ERROR_LOG=$CI_LOG_DIR/sccache-linux-debug-error.log" >> "$GITHUB_ENV"
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: v0.15.0
+      - name: Initialize Linux sccache statistics
+        run: |
+          "$SCCACHE_PATH" --version | tee "$CI_LOG_DIR/sccache-linux-debug-version.txt"
+          "$SCCACHE_PATH" --version | grep -F 'sccache 0.15.0'
+          "$SCCACHE_PATH" --start-server
+          "$SCCACHE_PATH" --zero-stats
+      - name: Configure Debug tests
+        id: cmake-configure
+        run: |
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-linux-debug.log" -- cmake -S . -B build/linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -DPERASTAGE_COMPILER_CACHE_PROGRAM="$SCCACHE_PATH"
           test -f build/linux-debug/compile_commands.json || { echo "Debug compile_commands.json was not generated"; exit 1; }
           if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
+          python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/linux-debug --expected-c-id GNU --expected-cxx-id GNU --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"
       - name: Generate Linux CTest inventory
         run: |
           ctest --test-dir build/linux-debug -N -V > "$CI_LOG_DIR/ctest-inventory-linux-debug.txt"
           ctest --test-dir build/linux-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-linux-debug.json"
       - name: Build complete test target set
+        id: perastage-build
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-linux-debug.log" -- cmake --build build/linux-debug --target all --verbose
+      - name: Capture Linux sccache statistics
+        if: ${{ always() }}
+        run: |
+          "$SCCACHE_PATH" --show-stats > "$CI_LOG_DIR/sccache-linux-debug.txt"
+          "$SCCACHE_PATH" --show-stats --stats-format json > "$CI_LOG_DIR/sccache-linux-debug.json"
+          python3 .github/scripts/write_sccache_summary.py --stats-json "$CI_LOG_DIR/sccache-linux-debug.json" --compile-commands build/linux-debug/compile_commands.json --platform linux-debug --architecture "${{ runner.arch }}" --mode "$SCCACHE_GHA_RW_MODE" --namespace "$SCCACHE_NAMESPACE" --compiler-identity "$SCCACHE_COMPILER_IDENTITY" --base-directory "$SCCACHE_BASEDIRS" --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Validate Linux Xvfb display
         run: |
           set -euo pipefail
@@ -206,6 +252,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/ci-logs/ctest-inventory-linux-debug.*
+            out/ci-logs/sccache-linux-debug*
             out/ci-logs/ctest-linux-debug.junit.xml
             out/ci-logs/ctest-linux-debug.log
             out/ci-logs/ctest-linux-debug-failures.csv
@@ -241,6 +288,11 @@ jobs:
       VCPKG_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache\binary
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.vcpkg-cache\binary,readwrite
       CI_LOG_DIR: ${{ github.workspace }}\out\ci-logs
+      SCCACHE_GHA_ENABLED: "on"
+      SCCACHE_GHA_RW_MODE: ${{ needs.resolve-source.outputs.sccache_mode }}
+      SCCACHE_BASEDIRS: ${{ github.workspace }}
+      SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
+      SCCACHE_LOG: warn
     steps:
       - uses: actions/checkout@v6
         with:
@@ -404,22 +456,55 @@ jobs:
           $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
           if ($normalizedCl -match 'c:[\\/](mingw64|msys64)|mingw|msys|strawberry') { throw "Refusing non-MSVC compiler: $($cl.Source)" }
           if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio is not Hostx64/x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
+      - name: Define Windows sccache compatibility boundary
+        shell: pwsh
+        run: |
+          $cl = (Get-Command cl.exe -ErrorAction Stop).Source
+          $toolset = Split-Path -Leaf $env:VCToolsInstallDir.TrimEnd('\')
+          $sdk = $env:WindowsSDKVersion.TrimEnd('\')
+          $namespace = "perastage-ci-debug-v1-windows-${{ runner.arch }}-msvc-$toolset-sdk-$sdk-debug"
+          "SCCACHE_GHA_VERSION=$namespace" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "SCCACHE_NAMESPACE=$namespace" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "SCCACHE_COMPILER_IDENTITY=MSVC-$toolset-WindowsSDK-$sdk-Hostx64-x64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "SCCACHE_ERROR_LOG=$env:CI_LOG_DIR\sccache-windows-debug-error.log" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: v0.15.0
+      - name: Initialize Windows sccache statistics
+        shell: pwsh
+        run: |
+          & $env:SCCACHE_PATH --version | Tee-Object "$env:CI_LOG_DIR\sccache-windows-debug-version.txt"
+          if ((& $env:SCCACHE_PATH --version) -notmatch '^sccache 0\.15\.0') { throw 'Expected sccache v0.15.0.' }
+          & $env:SCCACHE_PATH --start-server
+          & $env:SCCACHE_PATH --zero-stats
       - name: Configure Windows Debug tests
+        id: cmake-configure
         shell: pwsh
         run: |
           $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
           if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
-          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBASH_EXECUTABLE="$env:PERASTAGE_GIT_BASH"
-          & "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -DPERASTAGE_COMPILER_CACHE_PROGRAM="$env:SCCACHE_PATH" -DCMAKE_POLICY_DEFAULT_CMP0141=NEW -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBASH_EXECUTABLE="$env:PERASTAGE_GIT_BASH"
+          & "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug --expected-launcher "$env:SCCACHE_PATH"
+          if (Select-String -Path build-windows-debug\compile_commands.json -Pattern '/(Zi|ZI)(?:\s|")' -CaseSensitive) { throw 'Windows Debug commands must not use /Zi or /ZI.' }
+          if (-not (Select-String -Path build-windows-debug\compile_commands.json -Pattern '/Z7(?:\s|")' -CaseSensitive)) { throw 'Windows Debug commands must use /Z7.' }
       - name: Generate Windows CTest inventory
         shell: pwsh
         run: |
           ctest --test-dir build-windows-debug -N -V | Out-File -FilePath "$env:CI_LOG_DIR\ctest-inventory-windows-debug.txt" -Encoding utf8
           ctest --test-dir build-windows-debug --show-only=json-v1 | Out-File -FilePath "$env:CI_LOG_DIR\ctest-inventory-windows-debug.json" -Encoding utf8
       - name: Build Windows Debug tests
+        id: perastage-build
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\build-windows-debug.log" -- cmake --build build-windows-debug --target all --verbose
+      - name: Capture Windows sccache statistics
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          & $env:SCCACHE_PATH --show-stats | Out-File "$env:CI_LOG_DIR\sccache-windows-debug.txt" -Encoding utf8
+          & $env:SCCACHE_PATH --show-stats --stats-format json | Out-File "$env:CI_LOG_DIR\sccache-windows-debug.json" -Encoding utf8
+          & $env:PERASTAGE_PYTHON .github/scripts/write_sccache_summary.py --stats-json "$env:CI_LOG_DIR\sccache-windows-debug.json" --compile-commands build-windows-debug\compile_commands.json --platform windows-debug --architecture "${{ runner.arch }}" --mode $env:SCCACHE_GHA_RW_MODE --namespace $env:SCCACHE_NAMESPACE --compiler-identity $env:SCCACHE_COMPILER_IDENTITY --base-directory $env:SCCACHE_BASEDIRS --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Run Windows CTest suite
         shell: pwsh
         run: |
@@ -436,6 +521,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/ci-logs/ctest-inventory-windows-debug.*
+            out/ci-logs/sccache-windows-debug*
             out/ci-logs/ctest-windows-debug.junit.xml
             out/ci-logs/ctest-windows-debug.log
             out/ci-logs/ctest-windows-debug-failures.csv
@@ -470,6 +556,11 @@ jobs:
       VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
       CI_LOG_DIR: ${{ github.workspace }}/out/ci-logs
+      SCCACHE_GHA_ENABLED: "on"
+      SCCACHE_GHA_RW_MODE: ${{ needs.resolve-source.outputs.sccache_mode }}
+      SCCACHE_BASEDIRS: ${{ github.workspace }}
+      SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
+      SCCACHE_LOG: warn
     steps:
       - uses: actions/checkout@v6
         with:
@@ -577,16 +668,44 @@ jobs:
         run: |
           python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
+      - name: Define macOS sccache compatibility boundary
+        run: |
+          set -euo pipefail
+          clang_identity="$(clang --version | head -1 | tr ' /()' '----' | tr -cd '[:alnum:]._-')"
+          namespace="perastage-ci-debug-v1-macos-${{ runner.arch }}-clang-${clang_identity}-sdk-${{ steps.macos-sdk.outputs.identity }}-debug"
+          echo "SCCACHE_GHA_VERSION=$namespace" >> "$GITHUB_ENV"
+          echo "SCCACHE_NAMESPACE=$namespace" >> "$GITHUB_ENV"
+          echo "SCCACHE_COMPILER_IDENTITY=$clang_identity-sdk-${{ steps.macos-sdk.outputs.identity }}" >> "$GITHUB_ENV"
+          echo "SCCACHE_ERROR_LOG=$CI_LOG_DIR/sccache-macos-debug-error.log" >> "$GITHUB_ENV"
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: v0.15.0
+      - name: Initialize macOS sccache statistics
+        run: |
+          "$SCCACHE_PATH" --version | tee "$CI_LOG_DIR/sccache-macos-debug-version.txt"
+          "$SCCACHE_PATH" --version | grep -F 'sccache 0.15.0'
+          "$SCCACHE_PATH" --start-server
+          "$SCCACHE_PATH" --zero-stats
       - name: Configure macOS Debug tests
+        id: cmake-configure
         run: |
           current_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
-          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF
+          python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -DPERASTAGE_COMPILER_CACHE_PROGRAM="$SCCACHE_PATH"
+          python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/macos-debug --expected-c-id AppleClang --expected-cxx-id AppleClang --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"
       - name: Generate macOS CTest inventory
         run: |
           ctest --test-dir build/macos-debug -N -V > "$CI_LOG_DIR/ctest-inventory-macos-debug.txt"
           ctest --test-dir build/macos-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-macos-debug.json"
       - name: Build release-gate and macOS tests
+        id: perastage-build
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target gdtf_share_security_test credential_store_native_roundtrip_test --verbose
+      - name: Capture macOS sccache statistics
+        if: ${{ always() }}
+        run: |
+          "$SCCACHE_PATH" --show-stats > "$CI_LOG_DIR/sccache-macos-debug.txt"
+          "$SCCACHE_PATH" --show-stats --stats-format json > "$CI_LOG_DIR/sccache-macos-debug.json"
+          python3 .github/scripts/write_sccache_summary.py --stats-json "$CI_LOG_DIR/sccache-macos-debug.json" --compile-commands build/macos-debug/compile_commands.json --platform macos-debug --architecture "${{ runner.arch }}" --mode "$SCCACHE_GHA_RW_MODE" --namespace "$SCCACHE_NAMESPACE" --compiler-identity "$SCCACHE_COMPILER_IDENTITY" --base-directory "$SCCACHE_BASEDIRS" --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Run release-gate and macOS tests
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-log "$CI_LOG_DIR/ctest-macos-debug-full.log" --output-junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output-on-failure --verbose
       - name: Summarize macOS CTest failures
@@ -603,6 +722,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/ci-logs/ctest-inventory-macos-debug.*
+            out/ci-logs/sccache-macos-debug*
             out/ci-logs/ctest-macos-debug.junit.xml
             out/ci-logs/ctest-macos-debug*.log
             out/ci-logs/ctest-macos-debug-failures.csv

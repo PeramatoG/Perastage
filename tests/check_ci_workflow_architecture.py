@@ -132,7 +132,7 @@ sections = {
     'macos': ci[ci.index('  macos-debug:'):],
 }
 for platform, text in sections.items():
-    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=OFF']:
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'PERASTAGE_COMPILER_CACHE_PROGRAM=']:
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
@@ -154,6 +154,27 @@ assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.
 macos = sections['macos']
 for needle in ['sdk-${{ steps.macos-sdk.outputs.identity }}', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', '--output-junit', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
     assert needle in macos, f'macOS Debug is missing {needle}'
+
+sccache_action = 'mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10'
+assert ci.count(sccache_action) == 3, 'each Debug platform must use the reviewed sccache action commit'
+assert ci.count('version: v0.15.0') == 3, 'each Debug platform must pin sccache v0.15.0'
+for platform, text in sections.items():
+    for needle in ['SCCACHE_GHA_ENABLED: "on"', 'SCCACHE_GHA_RW_MODE:', 'SCCACHE_BASEDIRS:',
+                   'SCCACHE_IGNORE_SERVER_IO_ERROR: "1"', 'perastage-ci-debug-v1-', '--zero-stats',
+                   '--show-stats --stats-format json', 'write_sccache_summary.py', '--expected-launcher']:
+        assert needle in text, f'{platform} Debug sccache policy is missing {needle}'
+    configure_name = {'linux': 'Configure Debug tests', 'windows': 'Configure Windows Debug tests', 'macos': 'Configure macOS Debug tests'}[platform]
+    assert text.index('Install vcpkg packages') < text.index('Set up sccache') < text.index(configure_name), f'{platform} must install dependencies before starting sccache'
+assert 'pull_request_target:' not in ci
+assert 'mode=READ_ONLY' in ci and 'mode=READ_WRITE' in ci
+assert "github.event_name }}' = workflow_dispatch" in ci and "github.ref }}' = refs/heads/main" in ci
+assert '"$sha" = "$trusted_main_sha"' in ci and 'git rev-parse refs/remotes/origin/main' in ci
+assert 'CMAKE_POLICY_DEFAULT_CMP0141=NEW' in windows and 'CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded' in windows
+assert "Windows Debug commands must not use /Zi or /ZI" in windows and 'Windows Debug commands must use /Z7' in windows
+assert 'SCCACHE_RECACHE' not in ci and 'ACTIONS_RUNTIME_TOKEN' not in ci and 'ACTIONS_RESULTS_URL' not in ci
+for path in WORKFLOWS.glob('*.yml'):
+    if path.name != 'ci-tests.yml':
+        assert 'sccache-action' not in path.read_text(), f'{path.name} must remain outside PR 3A sccache scope'
 
 builders = ['windows-installer.yml','linux-installer.yml','macos-installer.yml','macos-15-manual-installer.yml','arch-package.yml']
 for name in builders:

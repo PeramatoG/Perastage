@@ -84,6 +84,14 @@ def validate(args: argparse.Namespace) -> None:
         require(cache.get("CMAKE_GENERATOR") == args.expected_generator, f"Expected generator {args.expected_generator}, found {cache.get('CMAKE_GENERATOR', '<missing>')}.")
     if args.expected_build_type:
         require(cache.get("CMAKE_BUILD_TYPE") == args.expected_build_type, f"Expected build type {args.expected_build_type}, found {cache.get('CMAKE_BUILD_TYPE', '<missing>')}.")
+    if args.expected_launcher:
+        expected_launcher = str(Path(args.expected_launcher).resolve()).replace("\\", "/").lower()
+        require(cache.get("PERASTAGE_ENABLE_COMPILER_CACHE") == "ON", "PERASTAGE_ENABLE_COMPILER_CACHE must be ON.")
+        selected = cache.get("PERASTAGE_COMPILER_CACHE_PROGRAM", "").replace("\\", "/").lower()
+        require(selected == expected_launcher, f"Expected compiler cache program {expected_launcher}, found {selected or '<missing>'}.")
+        for language in ("C", "CXX"):
+            launcher = cache.get(f"CMAKE_{language}_COMPILER_LAUNCHER", "").replace("\\", "/").lower()
+            require(launcher == expected_launcher, f"Expected {language} compiler launcher {expected_launcher}, found {launcher or '<missing>'}.")
     print(f"OK: CMake toolchain uses {c['id']} and {cxx['id']} with generator {cache.get('CMAKE_GENERATOR', '<unknown>')}.")
 
 
@@ -97,6 +105,7 @@ def main() -> int:
     parser.add_argument("--expected-architecture")
     parser.add_argument("--expected-generator")
     parser.add_argument("--expected-build-type")
+    parser.add_argument("--expected-launcher")
     validate(parser.parse_args())
     return 0
 
