@@ -90,9 +90,7 @@ jobs:
           echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
       - name: Install Linux test dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build pkg-config gettext autopoint autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libxkbcommon-dev libgl1-mesa-dev libglu1-mesa-dev ripgrep xvfb xauth x11-utils locales mono-complete
+        run: .github/scripts/install_vcpkg_build_prerequisites.sh linux
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -499,7 +497,7 @@ jobs:
           echo "MACOS_SDK_PATH=${current_sdk_path}" >> "$GITHUB_ENV"
           echo "MACOS_SDK_REALPATH=${current_sdk_realpath}" >> "$GITHUB_ENV"
       - name: Install macOS test tools
-        run: brew update && brew install autoconf autoconf-archive automake gettext libtool ninja
+        run: .github/scripts/install_vcpkg_build_prerequisites.sh macos
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -531,10 +529,6 @@ jobs:
             git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
-      - name: Ensure Mono is available for NuGet
-        shell: bash
-        run: command -v mono >/dev/null || brew install mono
-
       - name: Configure GitHub Packages binary cache
         id: vcpkg-remote-cache
         shell: bash

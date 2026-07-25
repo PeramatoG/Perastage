@@ -17,8 +17,11 @@ assert writers == ['vcpkg-binary-cache.yml'], f'only the warming workflow may pu
 assert all('pull_request_target' not in text for text in all_workflows.values())
 assert all(not re.search(r'secrets\.[A-Z0-9_]*(?:PAT|PERSONAL_ACCESS_TOKEN)', text, re.IGNORECASE) for text in all_workflows.values())
 remote = all_workflows['vcpkg-binary-cache.yml']
+prerequisites = Path('.github/scripts/install_vcpkg_build_prerequisites.sh').read_text()
 for needle in ['contents: read', 'packages: write', 'workflow_dispatch:', 'branches: [main]', '--mode readwrite', 'x64-windows', 'x64-linux', 'arm64-osx']:
     assert needle in remote, f'warming workflow is missing {needle}'
+for needle in ['concurrency:', 'group: perastage-vcpkg-binary-cache', 'cancel-in-progress: false']:
+    assert needle in remote, f'warming workflow must serialize package writers without cancellation: {needle}'
 for needle in ['preflight:', 'needs: preflight', 'github.ref', 'refs/heads/main',
                'Require the trusted main branch', 'ref: ${{ github.sha }}']:
     assert needle in remote, f'warming workflow must enforce trusted main checkout: {needle}'
@@ -34,6 +37,30 @@ assert '${{ matrix.triplet }}-${{ env.VCPKG_CACHE_SCOPE }}-' in remote
 assert 'job.status' not in remote, 'job success must not be reported as independent publication verification'
 assert '--install-outcome "${{ steps.vcpkg-install.outcome }}"' in remote
 assert 'not independently verified' in remote
+assert '.github/scripts/install_vcpkg_build_prerequisites.sh linux' in remote
+assert '.github/scripts/install_vcpkg_build_prerequisites.sh macos' in remote
+linux_packages = [
+    'build-essential', 'cmake', 'ninja-build', 'pkg-config', 'autoconf',
+    'automake', 'libtool', 'libx11-dev', 'libxi-dev', 'libxtst-dev',
+    'libxrender-dev', 'libgtk-3-dev', 'libglib2.0-dev', 'libsecret-1-dev',
+    'libpango1.0-dev', 'libatk1.0-dev', 'libcairo2-dev',
+    'libgdk-pixbuf-2.0-dev', 'libxkbcommon-dev', 'libgl1-mesa-dev',
+    'libglu1-mesa-dev', 'mono-complete',
+]
+for package in linux_packages:
+    assert package in prerequisites, f'shared Linux vcpkg prerequisites are missing {package}'
+for tool in ['autoconf', 'autoconf-archive', 'automake', 'gettext', 'libtool', 'ninja']:
+    assert re.search(rf'brew install[^\n]*\b{re.escape(tool)}\b', prerequisites), f'shared macOS vcpkg prerequisites are missing {tool}'
+assert 'command -v mono >/dev/null || brew install mono' in prerequisites
+diagnostic_section = remote[remote.index('Upload vcpkg failure diagnostics'):remote.index('Save vcpkg downloads cache')]
+for path in ['out/ci-logs/**', 'vcpkg/buildtrees/**/*.log', 'vcpkg/buildtrees/**/config-*.txt',
+             'vcpkg/buildtrees/**/issue_body.md', '.vcpkg-cache/installed/vcpkg/issue_body.md']:
+    assert path in diagnostic_section, f'warming failure diagnostics are missing {path}'
+for exclusion in ['!**/NuGet.Config', '!**/*token*', '!**/*credential*', '!**/*authorization*']:
+    assert exclusion in diagnostic_section, f'warming diagnostics must exclude credential material: {exclusion}'
+install_section = remote[remote.index('Install and publish vcpkg packages'):remote.index('Upload vcpkg failure diagnostics')]
+assert 'continue-on-error' not in install_section and '|| true' not in install_section
+assert '-SkipDuplicate' not in remote, 'the pinned vcpkg publisher must not have failures broadly suppressed'
 for forbidden in ['cmake --build', 'ctest', 'Configure CMake', 'pull_request_target']:
     assert forbidden not in remote, f'warming workflow must not contain {forbidden}'
 consumers = ['ci-tests.yml', 'windows-installer.yml', 'linux-installer.yml', 'macos-installer.yml', 'macos-15-manual-installer.yml']
@@ -90,6 +117,8 @@ assert 'arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}' in ci_text, 'macO
 assert 'arm64-osx-macos26-xcode26-' in (WORKFLOWS / 'macos-installer.yml').read_text(), 'macOS 26 installer must keep an SDK/Xcode cache boundary'
 assert 'arm64-osx-macos15-deployment-${{ env.MACOSX_DEPLOYMENT_TARGET }}-' in (WORKFLOWS / 'macos-15-manual-installer.yml').read_text(), 'macOS 15 installer must keep deployment target cache boundary'
 assert 'x64-linux-arch-' in (WORKFLOWS / 'arch-package.yml').read_text(), 'Arch packaging must remain isolated from Ubuntu-compatible Linux caches'
+assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh linux') == 1
+assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh macos') == 1
 
 ci = (WORKFLOWS / 'ci-tests.yml').read_text()
 for needle in ['name: CI Debug Tests', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:
@@ -111,7 +140,7 @@ for platform, text in sections.items():
     assert ('run_and_log.py --log' in text or '--output-log' in text) and 'ctest-' in text, f'{platform} build and test logs must be captured'
 
 linux = sections['linux']
-for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'ripgrep', 'xvfb', 'locales', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xauth', 'x11-utils', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
+for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
     assert needle in linux, f'Linux Debug is missing {needle}'
 assert 'summarize_ctest_results.py' in ci, 'CI Debug must produce compact result summaries'
 assert 'LastTestsDisabled.log' in ci, 'CI Debug test-result artifacts must retain disabled-test diagnostics when present'
