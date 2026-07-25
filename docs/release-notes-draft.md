@@ -14,6 +14,8 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Improved GitHub Packages dependency-cache setup validation and added safe, redacted failure diagnostics across all supported build platforms.
+
 - Added a secure, platform-compatible persistent dependency cache with main-only publishing for trusted GitHub Actions builds while retaining fast local workflow caches and read-only behavior for CI and installers.
 
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
