@@ -21,6 +21,13 @@ def main() -> int:
     parser.add_argument("--downloads-hit", required=True)
     parser.add_argument("--compiled-hit", required=True)
     parser.add_argument("--compiled-save-outcome", required=True)
+    parser.add_argument("--remote-mode", default="disabled")
+    parser.add_argument("--remote-enabled", default="false")
+    parser.add_argument("--remote-setup-result", default="not requested")
+    parser.add_argument("--fallback-local-only", default="true")
+    parser.add_argument("--publish-permitted", default="no")
+    parser.add_argument("--install-outcome", default="not reported")
+    parser.add_argument("--publication-verification", default="not applicable")
     args = parser.parse_args()
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -46,6 +53,14 @@ def main() -> int:
         f"- Effective compiled cache primary key: `{args.primary_key}`",
         f"- Explicit compiled cache save attempted: {save_attempted}",
         f"- Explicit compiled cache save result: {saved_status}",
+        f"- Remote cache requested mode: {args.remote_mode}",
+        f"- Remote cache enabled: {args.remote_enabled}",
+        "- Remote source: PerastageGitHubPackages",
+        f"- Remote authentication/setup result: {args.remote_setup_result}",
+        f"- Fallback to local-only: {args.fallback_local_only}",
+        f"- Permitted to publish remotely: {args.publish_permitted}",
+        f"- vcpkg install outcome: {args.install_outcome}",
+        f"- Remote publication verification: {args.publication_verification}",
         "",
     ]
     Path(summary_path).open("a", encoding="utf-8").write("\n".join(lines))

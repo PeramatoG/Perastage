@@ -12,6 +12,7 @@ on:
         default: ""
 
 permissions:
+  packages: read
   contents: read
   actions: read
 

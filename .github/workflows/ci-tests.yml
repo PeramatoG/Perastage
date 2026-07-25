@@ -33,6 +33,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 env:
   PERASTAGE_CI_PROFILE: ${{ inputs.profile || 'pr' }}
@@ -91,7 +92,7 @@ jobs:
       - name: Install Linux test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build pkg-config gettext autopoint autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libxkbcommon-dev libgl1-mesa-dev libglu1-mesa-dev ripgrep xvfb xauth x11-utils locales
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config gettext autopoint autoconf autoconf-archive automake libtool libltdl-dev curl unzip zip libx11-dev libxau-dev libxdmcp-dev x11proto-dev libxi-dev libxtst-dev libxrender-dev libgtk-3-dev libglib2.0-dev libsecret-1-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libxkbcommon-dev libgl1-mesa-dev libglu1-mesa-dev ripgrep xvfb xauth x11-utils locales mono-complete
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -123,6 +124,17 @@ jobs:
             git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Ensure Mono is available for NuGet
+        shell: bash
+        run: mono --version
+
+      - name: Configure GitHub Packages binary cache
+        id: vcpkg-remote-cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$VCPKG_ROOT/vcpkg" --local-cache "$VCPKG_BINARY_CACHE" --mode read
+
       - name: Install vcpkg packages
         run: |
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
@@ -151,7 +163,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux-debug --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform linux-debug --triplet x64-linux --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
       - name: Validate Linux test tools and locale
         run: |
@@ -329,6 +341,13 @@ jobs:
             git -C $env:VCPKG_ROOT checkout --force $env:VCPKG_BASELINE
           }
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure GitHub Packages binary cache
+        id: vcpkg-remote-cache
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --local-cache "$env:VCPKG_BINARY_CACHE" --mode read
+
       - name: Install vcpkg packages
         shell: pwsh
         run: |
@@ -359,7 +378,7 @@ jobs:
         if: ${{ always() }}
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
       - name: Persist Visual Studio Hostx64 x64 environment
         shell: pwsh
@@ -512,6 +531,17 @@ jobs:
             git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Ensure Mono is available for NuGet
+        shell: bash
+        run: command -v mono >/dev/null || brew install mono
+
+      - name: Configure GitHub Packages binary cache
+        id: vcpkg-remote-cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$VCPKG_ROOT/vcpkg" --local-cache "$VCPKG_BINARY_CACHE" --mode read
+
       - name: Diagnose restored vcpkg SDK metadata
         run: |
           set -euo pipefail
@@ -551,7 +581,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}"
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
       - name: Configure macOS Debug tests
         run: |
