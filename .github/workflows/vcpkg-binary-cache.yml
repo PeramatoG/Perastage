@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       bypass_local_compiled_cache:
-        description: Use an isolated local compiled-cache key to validate remote restoration.
+        description: Skip local compiled restore/save; enable for the first seeding run and the second remote-restore validation run.
         required: false
         type: boolean
         default: false
@@ -23,7 +23,21 @@ permissions:
   packages: write
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require the trusted main branch
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" != "refs/heads/main" ]]; then
+            echo "This package-writing workflow may run only from refs/heads/main; select main when dispatching it." >&2
+            exit 1
+          fi
+
   warm:
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -47,6 +61,8 @@ jobs:
     steps:
       - name: Checkout trusted source
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Read vcpkg baseline
         id: vcpkg-baseline

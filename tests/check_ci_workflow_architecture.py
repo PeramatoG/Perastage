@@ -19,6 +19,10 @@ assert all(not re.search(r'secrets\.[A-Z0-9_]*(?:PAT|PERSONAL_ACCESS_TOKEN)', te
 remote = all_workflows['vcpkg-binary-cache.yml']
 for needle in ['contents: read', 'packages: write', 'workflow_dispatch:', 'branches: [main]', '--mode readwrite', 'x64-windows', 'x64-linux', 'arm64-osx']:
     assert needle in remote, f'warming workflow is missing {needle}'
+for needle in ['preflight:', 'needs: preflight', 'github.ref', 'refs/heads/main',
+               'Require the trusted main branch', 'ref: ${{ github.sha }}']:
+    assert needle in remote, f'warming workflow must enforce trusted main checkout: {needle}'
+assert remote.index('preflight:') < remote.index('  warm:')
 for needle in ['Resolve macOS SDK cache identity', 'identity=${sdk_identity}',
                'MACOS_SDK_PATH=${current_sdk_path}', 'MACOS_SDK_REALPATH=${current_sdk_realpath}',
                'VCPKG_CACHE_SCOPE=sdk-${sdk_identity}', 'macos_sdk_cache_guard.py',
