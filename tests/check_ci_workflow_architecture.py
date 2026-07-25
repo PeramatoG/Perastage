@@ -48,8 +48,9 @@ assert 'https://nuget.pkg.github.com/PeramatoG/index.json' in helper
 assert 'https://github.com/PeramatoG/Perastage' in helper
 assert 'defaultPushSource={FEED_URL}' in helper
 assert '["setApiKey", token, "-Source", FEED_URL' in helper
-assert '["sources", "List", "-ConfigFile"' in helper
-assert 'SOURCE_NAME not in validation.stdout or FEED_URL not in validation.stdout' in helper
+assert 'ET.parse(config)' in helper
+assert 'validate_config(config, args.mode)' in helper
+assert 'validation.stdout' not in helper, 'structural validation must not depend on human-oriented NuGet output'
 assert '["list", "-Source"' not in helper, 'setup must not query packages to validate NuGet configuration'
 assert helper.index('files,{Path(args.local_cache).resolve()},readwrite') < helper.index('nugetconfig')
 assert sum(text.count('nuget.exe') for text in all_workflows.values()) == 0, 'NuGet setup must remain centralized'
