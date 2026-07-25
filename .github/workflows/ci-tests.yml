@@ -574,6 +574,7 @@ jobs:
             out/ci-logs/**
             **/CMakeFiles/CMakeConfigureLog.yaml
             **/CMakeCache.txt
+            build-windows-debug/compile_commands.json
             build*/**/*.log
             build*/**/Testing/Temporary/**
             vcpkg/buildtrees/**/*.log

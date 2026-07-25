@@ -7,6 +7,11 @@ import json
 import shlex
 from pathlib import Path
 
+EMBEDDED_FLAGS = {"/Z7", "-Z7"}
+PROGRAM_DATABASE_FLAGS = {"/Zi", "-Zi"}
+EDIT_AND_CONTINUE_FLAGS = {"/ZI", "-ZI"}
+DEBUG_INFORMATION_FLAGS = EMBEDDED_FLAGS | PROGRAM_DATABASE_FLAGS | EDIT_AND_CONTINUE_FLAGS
+
 
 def tokens(entry: dict) -> list[str]:
     arguments = entry.get("arguments")
@@ -37,20 +42,22 @@ def validate(path: Path, sample_limit: int = 5) -> tuple[str, bool]:
         else:
             counts["cxx"] += 1
         flags = tokens(entry)
-        has_z7 = "/Z7" in flags
-        has_zi = "/Zi" in flags
-        has_zI = "/ZI" in flags
+        has_z7 = any(flag in EMBEDDED_FLAGS for flag in flags)
+        has_zi = any(flag in PROGRAM_DATABASE_FLAGS for flag in flags)
+        has_zI = any(flag in EDIT_AND_CONTINUE_FLAGS for flag in flags)
         counts["z7"] += int(has_z7)
         counts["zi"] += int(has_zi)
         counts["zI"] += int(has_zI)
         counts["missing"] += int(not has_z7)
         if (has_zi or has_zI or not has_z7) and len(offenders) < sample_limit:
-            found = [flag for flag in flags if flag in {"/Z7", "/Zi", "/ZI"}]
+            found = [flag for flag in flags if flag in DEBUG_INFORMATION_FLAGS]
             offenders.append(f"- {source}: {', '.join(found) if found else '<no accepted debug flag>'}")
     report = "\n".join([
         f"Total entries: {len(entries)}", f"C entries: {counts['c']}", f"C++ entries: {counts['cxx']}",
-        f"Entries with /Z7: {counts['z7']}", f"Offending /Zi entries: {counts['zi']}",
-        f"Offending /ZI entries: {counts['zI']}", f"Entries missing /Z7: {counts['missing']}",
+        f"Entries with embedded debug information (Z7): {counts['z7']}",
+        f"Offending Program Database entries (Zi): {counts['zi']}",
+        f"Offending Edit-and-Continue entries (ZI): {counts['zI']}",
+        f"Entries missing embedded debug information: {counts['missing']}",
         "Offending sample:", *(offenders or ["- none"]), "",
     ])
     return report, counts["zi"] == 0 and counts["zI"] == 0 and counts["missing"] == 0 and bool(entries)
@@ -69,7 +76,7 @@ def main() -> int:
     args.output.write_text(report, encoding="utf-8")
     print(report, end="")
     if not valid:
-        raise SystemExit("MSVC compile commands must use /Z7 and must not use /Zi or /ZI.")
+        raise SystemExit("MSVC compile commands must use Z7 embedded debug information and must not use Zi or ZI.")
     return 0
 
 

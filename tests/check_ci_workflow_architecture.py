@@ -200,6 +200,7 @@ for option in ['--c-compiler', '--cxx-compiler', '--bash-executable', '--policy-
     assert option in windows, f'Windows initial cache is missing {option}'
 assert windows.index('Configure Windows Debug tests') < windows.index('Validate Windows Debug toolchain and sccache launcher') < windows.index('Validate Windows Debug compile flags') < windows.index('Build Windows Debug tests')
 assert 'cmake-toolchain-validation-windows-debug.log' in windows and 'msvc-compile-flags-windows-debug.log' in windows
+assert 'build-windows-debug/compile_commands.json' in windows, 'Windows failure diagnostics must retain the compile database'
 assert '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' in macos and 'macOS Debug compile_commands.json was not generated' in macos
 for metric in ['Cache writes', 'Cache read errors', 'Cache write errors', 'Requests executed', 'Compilation failures']:
     assert metric in Path('.github/scripts/write_sccache_summary.py').read_text(), f'sccache summary must report {metric}'
