@@ -30,9 +30,22 @@ class CompileCommandTests(unittest.TestCase):
             {"file": "d.cpp", "arguments": ["cl.exe", "/c", "-Z7", "d.cpp"]},
         ])
         self.assertTrue(valid)
-        self.assertIn("C entries: 1", report)
-        self.assertIn("C++ entries: 3", report)
-        self.assertIn("Entries with embedded debug information (Z7): 4", report)
+        self.assertIn("Validated C entries: 1", report)
+        self.assertIn("Validated C++ entries: 3", report)
+        self.assertIn("C/C++ entries with embedded debug information (Z7): 4", report)
+
+    def test_real_build_shape_excludes_resource_compilation(self) -> None:
+        report, valid = self.validate([
+            {"file": "src/first.cpp", "command": '"C:/Program Files/MSVC/cl.exe" -MDd -Z7 /showIncludes src/first.cpp'},
+            {"file": "src/second.cpp", "arguments": ["C:/Program Files/MSVC/cl.exe", "-MDd", "-Z7", "src/second.cpp"]},
+            {"file": "D:/a/Perastage/Perastage/resources/Perastage.rc",
+             "command": '"C:/Program Files/Windows Kits/10/bin/x64/rc.exe" /fo build/Perastage.rc.res resources/Perastage.rc'},
+        ])
+        self.assertTrue(valid)
+        self.assertIn("Total compile database entries: 3", report)
+        self.assertIn("Validated C++ entries: 2", report)
+        self.assertIn("Windows resource entries excluded from Z7 validation: 1", report)
+        self.assertIn("C/C++ entries missing embedded debug information: 0", report)
 
     def test_rejects_exact_zi_zi_and_missing_flags(self) -> None:
         report, valid = self.validate([
@@ -46,14 +59,14 @@ class CompileCommandTests(unittest.TestCase):
         self.assertFalse(valid)
         self.assertIn("Offending Program Database entries (Zi): 2", report)
         self.assertIn("Offending Edit-and-Continue entries (ZI): 2", report)
-        self.assertIn("Entries missing embedded debug information: 5", report)
+        self.assertIn("C/C++ entries missing embedded debug information: 5", report)
         self.assertIn("-Zi", report)
         self.assertIn("/ZI", report)
 
     def test_empty_and_malformed_databases_are_rejected(self) -> None:
         report, valid = self.validate([])
         self.assertFalse(valid)
-        self.assertIn("Total entries: 0", report)
+        self.assertIn("Total compile database entries: 0", report)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "compile_commands.json"
             path.write_text("not json", encoding="utf-8")
@@ -67,6 +80,26 @@ class CompileCommandTests(unittest.TestCase):
         report, valid = self.validate(entries, limit=3)
         self.assertFalse(valid)
         self.assertEqual(report.count("- bad-"), 3)
+
+    def test_unexpected_source_and_compiler_combinations_fail(self) -> None:
+        cases = [
+            {"file": "wrong.cpp", "arguments": ["rc.exe", "-Z7", "wrong.cpp"]},
+            {"file": "wrong.rc", "arguments": ["cl.exe", "wrong.rc"]},
+            {"file": "unknown.asm", "arguments": ["cl.exe", "-Z7", "unknown.asm"]},
+        ]
+        for entry in cases:
+            report, valid = self.validate([entry])
+            self.assertFalse(valid)
+            self.assertIn("Unexpected entries: 1", report)
+            self.assertIn("suffix=", report)
+            self.assertIn("executable=", report)
+            self.assertIn("reason=", report)
+
+    def test_unexpected_diagnostics_are_bounded(self) -> None:
+        entries = [{"file": f"bad-{index}.xyz", "arguments": ["tool.exe"]} for index in range(8)]
+        report, valid = self.validate(entries, limit=2)
+        self.assertFalse(valid)
+        self.assertEqual(report.count("reason=unsupported source extension"), 2)
 
 
 if __name__ == "__main__":
