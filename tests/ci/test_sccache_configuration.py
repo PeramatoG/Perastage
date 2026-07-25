@@ -57,6 +57,23 @@ class InitialCacheTests(unittest.TestCase):
         self.assertEqual(text.count("set("), 3)
         self.assertEqual(text.count("message("), 3)
 
+    def test_full_windows_configuration_is_deterministic(self) -> None:
+        text = INITIAL_CACHE.cache_text(
+            "C:/Tools/sccache/sccache.exe",
+            c_compiler="C:/Program Files/MSVC/Hostx64/x64/cl.exe",
+            cxx_compiler="C:/Program Files/MSVC/Hostx64/x64/cl.exe",
+            bash_executable="C:/Program Files/Git/bin/bash.exe",
+            policy_default_cmp0141="NEW",
+            msvc_debug_information_format="Embedded",
+        )
+        names = [line.split("(", 1)[1].split(" ", 1)[0] for line in text.splitlines()]
+        self.assertEqual(names, ["CMAKE_C_COMPILER", "CMAKE_CXX_COMPILER", "BASH_EXECUTABLE",
+                                 "PERASTAGE_COMPILER_CACHE_PROGRAM", "CMAKE_C_COMPILER_LAUNCHER",
+                                 "CMAKE_CXX_COMPILER_LAUNCHER", "CMAKE_POLICY_DEFAULT_CMP0141",
+                                 "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT"])
+        self.assertNotIn("\\", text)
+        self.assertEqual(text.count(".exe"), 6)
+
     def test_exact_file_validation_rejects_extensionless_and_missing_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

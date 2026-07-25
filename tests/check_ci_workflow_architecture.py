@@ -173,22 +173,33 @@ assert 'SCCACHE_GHA_RW_MODE' not in ci and 'mode=READ_ONLY' not in ci and 'mode=
 assert 'resolve_sccache_scope.py' in ci and "--event '${{ github.event_name }}'" in ci and "--github-ref '${{ github.ref }}'" in ci
 assert '--source-sha "$sha"' in ci and '--trusted-main-sha "$trusted_main_sha"' in ci
 assert 'git rev-parse refs/remotes/origin/main' in ci
-assert 'CMAKE_POLICY_DEFAULT_CMP0141=NEW' in windows and 'CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded' in windows
-assert "Windows Debug commands must not use /Zi or /ZI" in windows and 'Windows Debug commands must use /Z7' in windows
-assert 'cmake-compiler-cache-windows-debug.cmake' in windows and '-C "$env:CI_LOG_DIR\\cmake-compiler-cache-windows-debug.cmake"' in windows
+assert '--policy-default-cmp0141 NEW' in windows and '--msvc-debug-information-format Embedded' in windows
+assert 'validate_msvc_compile_commands.py' in windows
+assert 'cmake-windows-debug-initial-cache.cmake' in windows and '-C "$env:CI_LOG_DIR\\cmake-windows-debug-initial-cache.cmake"' in windows
 assert '$sccacheProgram' not in windows and '$cLauncher' not in windows and '$cxxLauncher' not in windows
 assert windows.index('Set up sccache') < windows.index('Resolve Windows sccache executable') < windows.index('Initialize Windows sccache statistics')
 for needle in ['Get-Command sccache.exe -ErrorAction Stop', 'Test-Path -LiteralPath $sccacheExecutable -PathType Leaf',
                ".EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase)",
                'PERASTAGE_SCCACHE_EXECUTABLE=$sccacheExecutable', '$env:GITHUB_ENV']:
     assert needle in windows, f'Windows sccache executable resolution is missing {needle}'
-for operation in ['--version', '--start-server', '--zero-stats', '--launcher', '--expected-launcher',
+for operation in ['--version', '--start-server', '--zero-stats', '--expected-launcher',
                   '--show-stats', '--show-stats --stats-format json']:
     assert re.search(rf'PERASTAGE_SCCACHE_EXECUTABLE[^\n]*{re.escape(operation)}|{re.escape(operation)}[^\n]*PERASTAGE_SCCACHE_EXECUTABLE', windows), f'Windows must use the resolved executable for {operation}'
 assert not re.search(r'write_cmake_compiler_cache_init\.py[^\n]+\$env:SCCACHE_PATH', windows)
+assert '$sccacheExecutable = $env:PERASTAGE_SCCACHE_EXECUTABLE' in windows and '--launcher "$sccacheExecutable"' in windows
 assert '$env:SCCACHE_PATH --' not in windows and '--expected-launcher "$env:SCCACHE_PATH"' not in windows
 assert 'write_cmake_compiler_cache_init.py --launcher "$SCCACHE_PATH"' in linux
 assert 'write_cmake_compiler_cache_init.py --launcher "$SCCACHE_PATH"' in macos
+configure = windows[windows.index('      - name: Configure Windows Debug tests'):windows.index('      - name: Validate Windows Debug toolchain')]
+assert 'validate_cmake_toolchain.py' not in configure and 'validate_msvc_compile_commands.py' not in configure
+for forbidden in ['-DCMAKE_C_COMPILER=', '-DCMAKE_CXX_COMPILER=', '-DBASH_EXECUTABLE=',
+                  '-DCMAKE_POLICY_DEFAULT_CMP0141=', '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=']:
+    assert forbidden not in configure, f'Windows configure must transport {forbidden} through the initial cache'
+for option in ['--c-compiler', '--cxx-compiler', '--bash-executable', '--policy-default-cmp0141 NEW',
+               '--msvc-debug-information-format Embedded']:
+    assert option in windows, f'Windows initial cache is missing {option}'
+assert windows.index('Configure Windows Debug tests') < windows.index('Validate Windows Debug toolchain and sccache launcher') < windows.index('Validate Windows Debug compile flags') < windows.index('Build Windows Debug tests')
+assert 'cmake-toolchain-validation-windows-debug.log' in windows and 'msvc-compile-flags-windows-debug.log' in windows
 assert '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' in macos and 'macOS Debug compile_commands.json was not generated' in macos
 for metric in ['Cache writes', 'Cache read errors', 'Cache write errors', 'Requests executed', 'Compilation failures']:
     assert metric in Path('.github/scripts/write_sccache_summary.py').read_text(), f'sccache summary must report {metric}'

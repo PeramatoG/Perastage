@@ -500,17 +500,30 @@ jobs:
       - name: Write Windows compiler-cache initial cache
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/write_cmake_compiler_cache_init.py --launcher "$env:PERASTAGE_SCCACHE_EXECUTABLE" --output "$env:CI_LOG_DIR\cmake-compiler-cache-windows-debug.cmake"
+          $clExecutable = (Get-Command cl.exe -ErrorAction Stop).Source
+          $bashExecutable = $env:PERASTAGE_GIT_BASH
+          $sccacheExecutable = $env:PERASTAGE_SCCACHE_EXECUTABLE
+          foreach ($item in @($clExecutable,$bashExecutable,$sccacheExecutable)) {
+            if (-not (Test-Path -LiteralPath $item -PathType Leaf)) { throw "Required Windows build executable does not exist: $item" }
+          }
+          "PERASTAGE_MSVC_EXECUTABLE=$clExecutable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & "$env:PERASTAGE_PYTHON" .github/scripts/write_cmake_compiler_cache_init.py `
+            --launcher "$sccacheExecutable" --c-compiler "$clExecutable" --cxx-compiler "$clExecutable" `
+            --bash-executable "$bashExecutable" --policy-default-cmp0141 NEW `
+            --msvc-debug-information-format Embedded --output "$env:CI_LOG_DIR\cmake-windows-debug-initial-cache.cmake"
       - name: Configure Windows Debug tests
         id: cmake-configure
         shell: pwsh
         run: |
-          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
-          if (-not $cl) { throw 'cl.exe was not available in the persisted Visual Studio environment.' }
-          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$env:CI_LOG_DIR\cmake-compiler-cache-windows-debug.cmake" -DCMAKE_POLICY_DEFAULT_CMP0141=NEW -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBASH_EXECUTABLE="$env:PERASTAGE_GIT_BASH"
-          & "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug --expected-launcher "$env:PERASTAGE_SCCACHE_EXECUTABLE"
-          if (Select-String -Path build-windows-debug\compile_commands.json -Pattern '/(Zi|ZI)(?:\s|")' -CaseSensitive) { throw 'Windows Debug commands must not use /Zi or /ZI.' }
-          if (-not (Select-String -Path build-windows-debug\compile_commands.json -Pattern '/Z7(?:\s|")' -CaseSensitive)) { throw 'Windows Debug commands must use /Z7.' }
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$env:CI_LOG_DIR\cmake-windows-debug-initial-cache.cmake" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Validate Windows Debug toolchain and sccache launcher
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-toolchain-validation-windows-debug.log" -- "$env:PERASTAGE_PYTHON" .github/scripts/validate_cmake_toolchain.py --build-dir build-windows-debug --expected-c-id MSVC --expected-cxx-id MSVC --expected-compiler "$env:PERASTAGE_MSVC_EXECUTABLE" --expected-bash "$env:PERASTAGE_GIT_BASH" --expected-compiler-path-regex "Hostx64[\\/]x64" --forbidden-compiler-path-regex "(mingw|msys|strawberry|Hostx86[\\/]x86|[\\/]x86[\\/]cl\.exe)" --expected-architecture x64 --expected-generator Ninja --expected-build-type Debug --expected-launcher "$env:PERASTAGE_SCCACHE_EXECUTABLE"
+      - name: Validate Windows Debug compile flags
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/validate_msvc_compile_commands.py --compile-commands build-windows-debug\compile_commands.json --output "$env:CI_LOG_DIR\msvc-compile-flags-windows-debug.log"
       - name: Generate Windows CTest inventory
         shell: pwsh
         run: |

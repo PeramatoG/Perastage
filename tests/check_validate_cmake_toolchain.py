@@ -20,6 +20,7 @@ def write_layout(
     architecture: str = "",
     omit_launcher: str = "",
     launcher_override: Path | None = None,
+    bash: Path | None = None,
 ) -> None:
     version = "4.4.0"
     (root / "CMakeFiles" / version).mkdir(parents=True)
@@ -36,6 +37,8 @@ def write_layout(
         cache.append(f"CMAKE_C_COMPILER_LAUNCHER:STRING={selected}")
     if omit_launcher != "CXX":
         cache.append(f"CMAKE_CXX_COMPILER_LAUNCHER:STRING={selected}")
+    if bash:
+        cache.append(f"BASH_EXECUTABLE:FILEPATH={bash}")
     (root / "CMakeCache.txt").write_text("\n".join(cache), encoding="utf-8")
     for language in ("C", "CXX"):
         (root / "CMakeFiles" / version / f"CMake{language}Compiler.cmake").write_text(
@@ -111,5 +114,25 @@ with tempfile.TemporaryDirectory() as directory:
     write_layout(wrong_compiler, "Clang", "/usr/bin/clang", launchers["linux"])
     result = run(wrong_compiler, launchers["linux"], "GNU")
     assert result.returncode != 0 and "Expected C compiler ID GNU" in result.stderr
+
+    compiler = base / "MSVC Tools" / "Hostx64" / "x64" / "cl.exe"
+    bash = base / "Git" / "bin" / "bash.exe"
+    compiler.parent.mkdir(parents=True)
+    bash.parent.mkdir(parents=True)
+    compiler.write_text("compiler", encoding="utf-8")
+    bash.write_text("bash", encoding="utf-8")
+    exact = base / "exact Windows toolchain"
+    write_layout(exact, "MSVC", str(compiler), launchers["windows"], architecture="x64", bash=bash)
+    result = run(exact, launchers["windows"], "MSVC", "--expected-compiler", str(compiler),
+                 "--expected-bash", str(bash), "--expected-architecture", "x64")
+    assert result.returncode == 0, result.stderr
+    wrong_bash = base / "wrong-bash.exe"
+    wrong_bash.write_text("wrong", encoding="utf-8")
+    result = run(exact, launchers["windows"], "MSVC", "--expected-compiler", str(compiler),
+                 "--expected-bash", str(wrong_bash), "--expected-architecture", "x64")
+    assert result.returncode != 0 and "BASH_EXECUTABLE: expected" in result.stderr and "actual" in result.stderr
+    result = run(exact, launchers["windows"], "MSVC", "--expected-compiler", str(wrong_bash),
+                 "--expected-bash", str(bash), "--expected-architecture", "x64")
+    assert result.returncode != 0 and "C compiler path: expected" in result.stderr and "actual" in result.stderr
 
 print("OK: CMake toolchain validator strictly covers Linux, macOS, Windows .exe paths, launchers, and compilers.")

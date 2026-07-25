@@ -77,6 +77,13 @@ def launcher_path(cache: dict[str, str], name: str) -> str:
     return entries[0]
 
 
+def require_path(field: str, actual: str, expected: str) -> None:
+    expected_normalized = normalized_path(expected)
+    actual_normalized = normalized_path(actual) if actual else "<missing>"
+    require(actual_normalized == expected_normalized,
+            f"{field}: expected {expected_normalized}, actual {actual_normalized}.")
+
+
 def validate(args: argparse.Namespace) -> None:
     build_dir = Path(args.build_dir)
     cache = cache_values(read(build_dir / "CMakeCache.txt"))
@@ -101,6 +108,15 @@ def validate(args: argparse.Namespace) -> None:
         require(cache.get("CMAKE_GENERATOR") == args.expected_generator, f"Expected generator {args.expected_generator}, found {cache.get('CMAKE_GENERATOR', '<missing>')}.")
     if args.expected_build_type:
         require(cache.get("CMAKE_BUILD_TYPE") == args.expected_build_type, f"Expected build type {args.expected_build_type}, found {cache.get('CMAKE_BUILD_TYPE', '<missing>')}.")
+    if args.expected_compiler:
+        expected_compiler = Path(args.expected_compiler).expanduser().resolve()
+        require(expected_compiler.is_file(), f"Expected compiler executable does not exist: {expected_compiler}")
+        require_path("C compiler path", c["compiler"], str(expected_compiler))
+        require_path("C++ compiler path", cxx["compiler"], str(expected_compiler))
+    if args.expected_bash:
+        expected_bash = Path(args.expected_bash).expanduser().resolve()
+        require(expected_bash.is_file(), f"Expected Bash executable does not exist: {expected_bash}")
+        require_path("BASH_EXECUTABLE", cache.get("BASH_EXECUTABLE", ""), str(expected_bash))
     if args.expected_launcher:
         expected_path = Path(args.expected_launcher).expanduser().resolve()
         require(expected_path.is_file(), f"Expected compiler launcher does not exist: {expected_path}")
@@ -125,6 +141,8 @@ def main() -> int:
     parser.add_argument("--expected-generator")
     parser.add_argument("--expected-build-type")
     parser.add_argument("--expected-launcher")
+    parser.add_argument("--expected-compiler")
+    parser.add_argument("--expected-bash")
     validate(parser.parse_args())
     return 0
 
