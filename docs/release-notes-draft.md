@@ -14,7 +14,7 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
-- Added native object-cache acceleration with GitHub-scoped CI isolation, robust cross-platform launcher validation, and measurable compiler-cache diagnostics without changing installer, dependency-cache, or test behavior.
+- Added native object-cache acceleration with GitHub-scoped CI isolation, exact Windows executable resolution, and measurable compiler-cache diagnostics without changing installer, dependency-cache, or test behavior.
 
 - Improved dependency-cache warming reliability with complete Linux and macOS build prerequisites, serialized package publication, and credential-safe failure diagnostics.
 
