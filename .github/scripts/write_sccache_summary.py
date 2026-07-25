@@ -95,7 +95,12 @@ def main() -> int:
     if not args.base_directory.is_absolute():
         raise StatisticsError("sccache base directory must be absolute")
     values = parse_statistics(args.stats_json)
-    c_requests, cxx_requests = compile_command_counts(args.compile_commands)
+    try:
+        c_requests, cxx_requests = compile_command_counts(args.compile_commands)
+    except StatisticsError:
+        if args.build_succeeded == "true":
+            raise
+        c_requests, cxx_requests = None, None
     denominator = int(values["hits"]) + int(values["misses"])
     hit_rate = f"{100 * int(values['hits']) / denominator:.1f}%" if denominator else "not applicable"
     optional = lambda value: "not reported" if value is None else str(value)
@@ -105,12 +110,12 @@ def main() -> int:
         f"- sccache version: {values['version']}", f"- Backend: {values['backend']}",
         f"- Read/write mode: {args.mode}", f"- Namespace/schema: `{args.namespace}`",
         f"- Compiler identity: {args.compiler_identity}", f"- Workspace base directory: `{args.base_directory}`",
-        f"- C compile commands: {c_requests}", f"- C++ compile commands: {cxx_requests}",
+        f"- C compile commands: {optional(c_requests)}", f"- C++ compile commands: {optional(cxx_requests)}",
         f"- Total compile requests: {values['requests']}", f"- Cacheable compilations: {values['cacheable']}",
         f"- Cache hits: {values['hits']}", f"- Cache misses: {values['misses']}",
         f"- Non-cacheable compilations: {optional(values['non_cacheable'])}",
         f"- Cache errors: {values['errors']}", f"- Hit rate: {hit_rate}",
-        f"- Launcher validation: {args.launcher_validation}", "",
+        f"- Launcher validation: {args.launcher_validation}", f"- Build succeeded: {args.build_succeeded}", "",
     ]
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
@@ -120,7 +125,7 @@ def main() -> int:
         print("\n".join(lines))
     if args.build_succeeded == "true" and values["requests"] == 0:
         raise StatisticsError("the build succeeded but sccache recorded zero compiler requests; verify the CMake launcher")
-    if args.launcher_validation != "passed":
+    if args.build_succeeded == "true" and args.launcher_validation != "passed":
         raise StatisticsError("the configured compiler launcher was not validated")
     return 0
 

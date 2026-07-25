@@ -132,7 +132,7 @@ sections = {
     'macos': ci[ci.index('  macos-debug:'):],
 }
 for platform, text in sections.items():
-    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'PERASTAGE_COMPILER_CACHE_PROGRAM=']:
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'PERASTAGE_COMPILER_CACHE_PROGRAM:FILEPATH=']:
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
@@ -171,6 +171,19 @@ assert "github.event_name }}' = workflow_dispatch" in ci and "github.ref }}' = r
 assert '"$sha" = "$trusted_main_sha"' in ci and 'git rev-parse refs/remotes/origin/main' in ci
 assert 'CMAKE_POLICY_DEFAULT_CMP0141=NEW' in windows and 'CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded' in windows
 assert "Windows Debug commands must not use /Zi or /ZI" in windows and 'Windows Debug commands must use /Z7' in windows
+for definition in ['PERASTAGE_COMPILER_CACHE_PROGRAM:FILEPATH', 'CMAKE_C_COMPILER_LAUNCHER:STRING',
+                   'CMAKE_CXX_COMPILER_LAUNCHER:STRING']:
+    bash_argument = f'"-D{definition}=$SCCACHE_PATH"'
+    assert bash_argument in linux and bash_argument in macos, f'Linux and macOS must pass complete {definition} arguments'
+windows_launcher_arguments = {
+    '$sccacheProgram': '"-DPERASTAGE_COMPILER_CACHE_PROGRAM:FILEPATH=$env:SCCACHE_PATH"',
+    '$cLauncher': '"-DCMAKE_C_COMPILER_LAUNCHER:STRING=$env:SCCACHE_PATH"',
+    '$cxxLauncher': '"-DCMAKE_CXX_COMPILER_LAUNCHER:STRING=$env:SCCACHE_PATH"',
+}
+for variable, definition in windows_launcher_arguments.items():
+    assert f'{variable} = {definition}' in windows, f'Windows must construct complete launcher argument {variable}'
+    assert re.search(rf'run_and_log\.py[^\n]+\s{re.escape(variable)}(?:\s|$)', windows), f'Windows configure must pass {variable} as one argument'
+assert not re.search(r'-D(?:PERASTAGE_COMPILER_CACHE_PROGRAM|CMAKE_C(?:XX)?_COMPILER_LAUNCHER)(?::\w+)?="\$env:SCCACHE_PATH"', windows), 'Windows must not split launcher -D definitions at .exe'
 assert 'SCCACHE_RECACHE' not in ci and 'ACTIONS_RUNTIME_TOKEN' not in ci and 'ACTIONS_RESULTS_URL' not in ci
 for path in WORKFLOWS.glob('*.yml'):
     if path.name != 'ci-tests.yml':

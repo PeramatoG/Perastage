@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -60,6 +61,22 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(message)
 
 
+def normalized_path(value: str) -> str:
+    """Normalize one executable path using the path rules of its host platform."""
+    resolved = str(Path(value).expanduser().resolve())
+    normalized = resolved.replace("\\", "/")
+    return normalized.casefold() if os.name == "nt" else normalized
+
+
+def launcher_path(cache: dict[str, str], name: str) -> str:
+    """Read a single executable launcher from a CMake list-valued cache entry."""
+    value = cache.get(name, "")
+    require(value != "", f"{name} is missing from CMakeCache.txt.")
+    entries = value.split(";")
+    require(len(entries) == 1 and entries[0] != "", f"{name} must contain exactly one executable path, found {value!r}.")
+    return entries[0]
+
+
 def validate(args: argparse.Namespace) -> None:
     build_dir = Path(args.build_dir)
     cache = cache_values(read(build_dir / "CMakeCache.txt"))
@@ -85,12 +102,14 @@ def validate(args: argparse.Namespace) -> None:
     if args.expected_build_type:
         require(cache.get("CMAKE_BUILD_TYPE") == args.expected_build_type, f"Expected build type {args.expected_build_type}, found {cache.get('CMAKE_BUILD_TYPE', '<missing>')}.")
     if args.expected_launcher:
-        expected_launcher = str(Path(args.expected_launcher).resolve()).replace("\\", "/").lower()
+        expected_path = Path(args.expected_launcher).expanduser().resolve()
+        require(expected_path.is_file(), f"Expected compiler launcher does not exist: {expected_path}")
+        expected_launcher = normalized_path(str(expected_path))
         require(cache.get("PERASTAGE_ENABLE_COMPILER_CACHE") == "ON", "PERASTAGE_ENABLE_COMPILER_CACHE must be ON.")
-        selected = cache.get("PERASTAGE_COMPILER_CACHE_PROGRAM", "").replace("\\", "/").lower()
+        selected = normalized_path(launcher_path(cache, "PERASTAGE_COMPILER_CACHE_PROGRAM"))
         require(selected == expected_launcher, f"Expected compiler cache program {expected_launcher}, found {selected or '<missing>'}.")
         for language in ("C", "CXX"):
-            launcher = cache.get(f"CMAKE_{language}_COMPILER_LAUNCHER", "").replace("\\", "/").lower()
+            launcher = normalized_path(launcher_path(cache, f"CMAKE_{language}_COMPILER_LAUNCHER"))
             require(launcher == expected_launcher, f"Expected {language} compiler launcher {expected_launcher}, found {launcher or '<missing>'}.")
     print(f"OK: CMake toolchain uses {c['id']} and {cxx['id']} with generator {cache.get('CMAKE_GENERATOR', '<unknown>')}.")
 

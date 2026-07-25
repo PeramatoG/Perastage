@@ -34,6 +34,31 @@ def fixture(requests: int = 10, hits: int = 0, misses: int = 8, errors: int = 0)
 
 
 class SccacheSummaryTests(unittest.TestCase):
+    def invoke_summary(
+        self,
+        root: Path,
+        *,
+        build_succeeded: str,
+        launcher_validation: str,
+        requests: int = 10,
+        compile_commands_available: bool = True,
+    ) -> int:
+        stats = root / "stats.json"
+        commands = root / "compile_commands.json"
+        stats.write_text(json.dumps(fixture(requests=requests, misses=requests)), encoding="utf-8")
+        if compile_commands_available:
+            commands.write_text(json.dumps([{"file": "a.c"}, {"file": "b.cpp"}]), encoding="utf-8")
+        old_argv = os.sys.argv
+        os.sys.argv = [str(SCRIPT), "--stats-json", str(stats), "--compile-commands", str(commands),
+                       "--platform", "linux", "--architecture", "X64", "--mode", "READ_ONLY",
+                       "--namespace", "perastage-ci-debug-v1-linux", "--compiler-identity", "gcc-14",
+                       "--base-directory", str(root), "--launcher-validation", launcher_validation,
+                       "--build-succeeded", build_succeeded]
+        try:
+            return MODULE.main()
+        finally:
+            os.sys.argv = old_argv
+
     def test_cold_warm_errors_and_hit_rate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "stats.json"
@@ -96,6 +121,18 @@ class SccacheSummaryTests(unittest.TestCase):
                     os.environ.pop("GITHUB_STEP_SUMMARY", None)
                 else:
                     os.environ["GITHUB_STEP_SUMMARY"] = old_summary
+
+    def test_prior_configure_or_build_failure_is_diagnostic_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            self.assertEqual(self.invoke_summary(root, build_succeeded="false", launcher_validation="failed", requests=0,
+                                                 compile_commands_available=False), 0)
+            self.assertEqual(self.invoke_summary(root, build_succeeded="false", launcher_validation="passed"), 0)
+
+    def test_successful_build_requires_valid_launcher(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(MODULE.StatisticsError):
+                self.invoke_summary(Path(directory).resolve(), build_succeeded="true", launcher_validation="failed")
 
 
 if __name__ == "__main__":
