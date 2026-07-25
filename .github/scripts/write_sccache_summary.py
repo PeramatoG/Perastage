@@ -41,10 +41,10 @@ def parse_statistics(path: Path) -> dict[str, int | str | None]:
     requests = _non_negative_int(stats.get("compile_requests"), "stats.compile_requests")
     hits = _language_total(stats.get("cache_hits"), "stats.cache_hits")
     misses = _language_total(stats.get("cache_misses"), "stats.cache_misses")
-    errors = _language_total(stats.get("cache_errors"), "stats.cache_errors")
-    errors += _non_negative_int(stats.get("cache_read_errors"), "stats.cache_read_errors", optional=True) or 0
-    errors += _non_negative_int(stats.get("cache_write_errors"), "stats.cache_write_errors", optional=True) or 0
-    cacheable = hits + misses + errors
+    compiler_cache_errors = _language_total(stats.get("cache_errors"), "stats.cache_errors")
+    read_errors = _non_negative_int(stats.get("cache_read_errors"), "stats.cache_read_errors", optional=True)
+    write_errors = _non_negative_int(stats.get("cache_write_errors"), "stats.cache_write_errors", optional=True)
+    cacheable = hits + misses + compiler_cache_errors
     return {
         "version": str(payload.get("version") or "not reported"),
         "backend": str(payload.get("cache_location") or "not reported"),
@@ -55,7 +55,13 @@ def parse_statistics(path: Path) -> dict[str, int | str | None]:
         "non_cacheable": _non_negative_int(
             stats.get("non_cacheable_compilations"), "stats.non_cacheable_compilations", optional=True
         ),
-        "errors": errors,
+        "compiler_cache_errors": compiler_cache_errors,
+        "read_errors": read_errors,
+        "write_errors": write_errors,
+        "writes": _non_negative_int(stats.get("cache_writes"), "stats.cache_writes", optional=True),
+        "requests_executed": _non_negative_int(stats.get("requests_executed"), "stats.requests_executed", optional=True),
+        "compilations": _non_negative_int(stats.get("compilations"), "stats.compilations", optional=True),
+        "compile_fails": _non_negative_int(stats.get("compile_fails"), "stats.compile_fails", optional=True),
     }
 
 
@@ -84,7 +90,9 @@ def main() -> int:
     parser.add_argument("--compile-commands", type=Path, required=True)
     parser.add_argument("--platform", required=True)
     parser.add_argument("--architecture", required=True)
-    parser.add_argument("--mode", choices=("READ_ONLY", "READ_WRITE"), required=True)
+    parser.add_argument("--backend", required=True)
+    parser.add_argument("--cache-scope", choices=("gha-pr-merge-ref", "gha-main", "disk-ephemeral"), required=True)
+    parser.add_argument("--scope-reason", required=True)
     parser.add_argument("--namespace", required=True)
     parser.add_argument("--compiler-identity", required=True)
     parser.add_argument("--base-directory", type=Path, required=True)
@@ -107,14 +115,21 @@ def main() -> int:
     lines = [
         f"## sccache summary: {args.platform}", "",
         f"- Platform: {args.platform}", f"- Runner architecture: {args.architecture}",
-        f"- sccache version: {values['version']}", f"- Backend: {values['backend']}",
-        f"- Read/write mode: {args.mode}", f"- Namespace/schema: `{args.namespace}`",
+        f"- sccache version: {values['version']}", f"- Configured backend: {args.backend}",
+        f"- Reported cache location: {values['backend']}", f"- Cache scope: {args.cache_scope}",
+        f"- Scope reason: {args.scope_reason}", f"- Namespace/schema: `{args.namespace}`",
         f"- Compiler identity: {args.compiler_identity}", f"- Workspace base directory: `{args.base_directory}`",
         f"- C compile commands: {optional(c_requests)}", f"- C++ compile commands: {optional(cxx_requests)}",
         f"- Total compile requests: {values['requests']}", f"- Cacheable compilations: {values['cacheable']}",
+        f"- Requests executed: {optional(values['requests_executed'])}",
+        f"- Compilations: {optional(values['compilations'])}",
+        f"- Compilation failures: {optional(values['compile_fails'])}",
         f"- Cache hits: {values['hits']}", f"- Cache misses: {values['misses']}",
+        f"- Cache writes: {optional(values['writes'])}",
+        f"- Cache read errors: {optional(values['read_errors'])}",
+        f"- Cache write errors: {optional(values['write_errors'])}",
         f"- Non-cacheable compilations: {optional(values['non_cacheable'])}",
-        f"- Cache errors: {values['errors']}", f"- Hit rate: {hit_rate}",
+        f"- Compiler cache errors: {values['compiler_cache_errors']}", f"- Hit rate: {hit_rate}",
         f"- Launcher validation: {args.launcher_validation}", f"- Build succeeded: {args.build_succeeded}", "",
     ]
     summary = os.environ.get("GITHUB_STEP_SUMMARY")

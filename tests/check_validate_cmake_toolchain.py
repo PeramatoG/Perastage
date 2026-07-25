@@ -94,6 +94,13 @@ with tempfile.TemporaryDirectory() as directory:
     write_layout(mismatch, "GNU", "/usr/bin/gcc", launchers["linux"], launcher_override=other)
     assert run(mismatch, launchers["linux"], "GNU").returncode != 0
 
+    truncated = base / "truncated Windows extension"
+    truncated_launcher = launchers["windows"].with_suffix("")
+    truncated_launcher.write_text("truncated", encoding="utf-8")
+    write_layout(truncated, "MSVC", "C:/VS/Hostx64/x64/cl.exe", launchers["windows"],
+                 architecture="x64", launcher_override=truncated_launcher)
+    assert run(truncated, launchers["windows"], "MSVC").returncode != 0
+
     missing_executable = base / "not-present" / "sccache.exe"
     build = base / "missing executable"
     write_layout(build, "MSVC", "C:/VS/Hostx64/x64/cl.exe", missing_executable, architecture="x64")

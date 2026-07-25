@@ -132,7 +132,7 @@ sections = {
     'macos': ci[ci.index('  macos-debug:'):],
 }
 for platform, text in sections.items():
-    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'PERASTAGE_COMPILER_CACHE_PROGRAM:FILEPATH=']:
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'write_cmake_compiler_cache_init.py']:
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
@@ -159,31 +159,27 @@ sccache_action = 'mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd
 assert ci.count(sccache_action) == 3, 'each Debug platform must use the reviewed sccache action commit'
 assert ci.count('version: v0.15.0') == 3, 'each Debug platform must pin sccache v0.15.0'
 for platform, text in sections.items():
-    for needle in ['SCCACHE_GHA_ENABLED: "on"', 'SCCACHE_GHA_RW_MODE:', 'SCCACHE_BASEDIRS:',
+    for needle in ['SCCACHE_GHA_ENABLED: ${{ needs.resolve-source.outputs.sccache_gha_enabled }}', 'SCCACHE_BASEDIRS:',
+                   'SCCACHE_DIR:', 'SCCACHE_LOCAL_RW_MODE: READ_WRITE', 'SCCACHE_CACHE_SCOPE:',
                    'SCCACHE_IGNORE_SERVER_IO_ERROR: "1"', 'perastage-ci-debug-v1-', '--zero-stats',
-                   '--show-stats --stats-format json', 'write_sccache_summary.py', '--expected-launcher']:
+                   '--show-stats --stats-format json', 'write_sccache_summary.py', '--expected-launcher',
+                   'write_cmake_compiler_cache_init.py', ' -C ']:
         assert needle in text, f'{platform} Debug sccache policy is missing {needle}'
     configure_name = {'linux': 'Configure Debug tests', 'windows': 'Configure Windows Debug tests', 'macos': 'Configure macOS Debug tests'}[platform]
     assert text.index('Install vcpkg packages') < text.index('Set up sccache') < text.index(configure_name), f'{platform} must install dependencies before starting sccache'
+    assert 'SCCACHE_GHA_ENABLED' in text[text.index('Define '):text.index('Set up sccache')], f'{platform} must gate the persistent namespace on GHA enablement'
 assert 'pull_request_target:' not in ci
-assert 'mode=READ_ONLY' in ci and 'mode=READ_WRITE' in ci
-assert "github.event_name }}' = workflow_dispatch" in ci and "github.ref }}' = refs/heads/main" in ci
-assert '"$sha" = "$trusted_main_sha"' in ci and 'git rev-parse refs/remotes/origin/main' in ci
+assert 'SCCACHE_GHA_RW_MODE' not in ci and 'mode=READ_ONLY' not in ci and 'mode=READ_WRITE' not in ci
+assert 'resolve_sccache_scope.py' in ci and "--event '${{ github.event_name }}'" in ci and "--github-ref '${{ github.ref }}'" in ci
+assert '--source-sha "$sha"' in ci and '--trusted-main-sha "$trusted_main_sha"' in ci
+assert 'git rev-parse refs/remotes/origin/main' in ci
 assert 'CMAKE_POLICY_DEFAULT_CMP0141=NEW' in windows and 'CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded' in windows
 assert "Windows Debug commands must not use /Zi or /ZI" in windows and 'Windows Debug commands must use /Z7' in windows
-for definition in ['PERASTAGE_COMPILER_CACHE_PROGRAM:FILEPATH', 'CMAKE_C_COMPILER_LAUNCHER:STRING',
-                   'CMAKE_CXX_COMPILER_LAUNCHER:STRING']:
-    bash_argument = f'"-D{definition}=$SCCACHE_PATH"'
-    assert bash_argument in linux and bash_argument in macos, f'Linux and macOS must pass complete {definition} arguments'
-windows_launcher_arguments = {
-    '$sccacheProgram': '"-DPERASTAGE_COMPILER_CACHE_PROGRAM:FILEPATH=$env:SCCACHE_PATH"',
-    '$cLauncher': '"-DCMAKE_C_COMPILER_LAUNCHER:STRING=$env:SCCACHE_PATH"',
-    '$cxxLauncher': '"-DCMAKE_CXX_COMPILER_LAUNCHER:STRING=$env:SCCACHE_PATH"',
-}
-for variable, definition in windows_launcher_arguments.items():
-    assert f'{variable} = {definition}' in windows, f'Windows must construct complete launcher argument {variable}'
-    assert re.search(rf'run_and_log\.py[^\n]+\s{re.escape(variable)}(?:\s|$)', windows), f'Windows configure must pass {variable} as one argument'
-assert not re.search(r'-D(?:PERASTAGE_COMPILER_CACHE_PROGRAM|CMAKE_C(?:XX)?_COMPILER_LAUNCHER)(?::\w+)?="\$env:SCCACHE_PATH"', windows), 'Windows must not split launcher -D definitions at .exe'
+assert 'cmake-compiler-cache-windows-debug.cmake' in windows and '-C "$env:CI_LOG_DIR\\cmake-compiler-cache-windows-debug.cmake"' in windows
+assert '$sccacheProgram' not in windows and '$cLauncher' not in windows and '$cxxLauncher' not in windows
+assert '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' in macos and 'macOS Debug compile_commands.json was not generated' in macos
+for metric in ['Cache writes', 'Cache read errors', 'Cache write errors', 'Requests executed', 'Compilation failures']:
+    assert metric in Path('.github/scripts/write_sccache_summary.py').read_text(), f'sccache summary must report {metric}'
 assert 'SCCACHE_RECACHE' not in ci and 'ACTIONS_RUNTIME_TOKEN' not in ci and 'ACTIONS_RESULTS_URL' not in ci
 for path in WORKFLOWS.glob('*.yml'):
     if path.name != 'ci-tests.yml':

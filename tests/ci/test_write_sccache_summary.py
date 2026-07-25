@@ -16,7 +16,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
-def fixture(requests: int = 10, hits: int = 0, misses: int = 8, errors: int = 0) -> dict:
+def fixture(requests: int = 10, hits: int = 0, misses: int = 8, errors: int = 0, writes: int = 0, write_errors: int = 0) -> dict:
     return {
         "stats": {
             "compile_requests": requests,
@@ -25,7 +25,11 @@ def fixture(requests: int = 10, hits: int = 0, misses: int = 8, errors: int = 0)
             "cache_errors": {"counts": {"C/C++": errors}, "adv_counts": {}},
             "non_cacheable_compilations": max(0, requests - hits - misses),
             "cache_read_errors": 0,
-            "cache_write_errors": 0,
+            "cache_write_errors": write_errors,
+            "cache_writes": writes,
+            "requests_executed": requests,
+            "compilations": misses,
+            "compile_fails": 0,
         },
         "cache_location": "GitHub Actions Cache",
         "version": "0.15.0",
@@ -50,7 +54,8 @@ class SccacheSummaryTests(unittest.TestCase):
             commands.write_text(json.dumps([{"file": "a.c"}, {"file": "b.cpp"}]), encoding="utf-8")
         old_argv = os.sys.argv
         os.sys.argv = [str(SCRIPT), "--stats-json", str(stats), "--compile-commands", str(commands),
-                       "--platform", "linux", "--architecture", "X64", "--mode", "READ_ONLY",
+                       "--platform", "linux", "--architecture", "X64", "--backend", "GitHub Actions Cache",
+                       "--cache-scope", "gha-pr-merge-ref", "--scope-reason", "PR merge ref isolation",
                        "--namespace", "perastage-ci-debug-v1-linux", "--compiler-identity", "gcc-14",
                        "--base-directory", str(root), "--launcher-validation", launcher_validation,
                        "--build-succeeded", build_succeeded]
@@ -66,7 +71,20 @@ class SccacheSummaryTests(unittest.TestCase):
             self.assertEqual(MODULE.parse_statistics(path)["misses"], 8)
             path.write_text(json.dumps(fixture(hits=7, misses=1, errors=2)), encoding="utf-8")
             values = MODULE.parse_statistics(path)
-            self.assertEqual((values["hits"], values["misses"], values["errors"]), (7, 1, 2))
+            self.assertEqual((values["hits"], values["misses"], values["compiler_cache_errors"]), (7, 1, 2))
+
+    def test_real_linux_and_macos_statistics_shapes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stats.json"
+            path.write_text(json.dumps(fixture(requests=1814, hits=1200, misses=614, writes=602,
+                                                   write_errors=12)), encoding="utf-8")
+            linux = MODULE.parse_statistics(path)
+            self.assertEqual((linux["requests"], linux["hits"], linux["misses"], linux["writes"],
+                              linux["write_errors"]), (1814, 1200, 614, 602, 12))
+            path.write_text(json.dumps(fixture(requests=15, hits=0, misses=15, writes=15)), encoding="utf-8")
+            macos = MODULE.parse_statistics(path)
+            self.assertEqual((macos["requests"], macos["hits"], macos["misses"], macos["writes"]),
+                             (15, 0, 15, 15))
 
     def test_missing_optional_fields_and_zero_cacheable(self) -> None:
         data = fixture(requests=2, misses=0)
@@ -104,7 +122,8 @@ class SccacheSummaryTests(unittest.TestCase):
             old_argv, old_summary = os.sys.argv, os.environ.get("GITHUB_STEP_SUMMARY")
             os.environ["GITHUB_STEP_SUMMARY"] = str(summary)
             os.sys.argv = [str(SCRIPT), "--stats-json", str(stats), "--compile-commands", str(commands),
-                           "--platform", "linux", "--architecture", "X64", "--mode", "READ_ONLY",
+                           "--platform", "linux", "--architecture", "X64", "--backend", "GitHub Actions Cache",
+                       "--cache-scope", "gha-pr-merge-ref", "--scope-reason", "PR merge ref isolation",
                            "--namespace", "perastage-ci-debug-v1-linux", "--compiler-identity", "gcc-14",
                            "--base-directory", str(root), "--launcher-validation", "passed", "--build-succeeded", "true"]
             try:
