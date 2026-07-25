@@ -53,8 +53,8 @@ for path in all_cmake:
 
 ci = Path('.github/workflows/ci-tests.yml').read_text()
 required_windows = [
-    'VsDevCmd.bat', '-host_arch=x64 -arch=x64', 'CMAKE_C_COMPILER=cl.exe',
-    'CMAKE_CXX_COMPILER=cl.exe', 'VCPKG_TARGET_TRIPLET=x64-windows',
+    'VsDevCmd.bat', '-host_arch=x64 -arch=x64', 'Get-Command cl.exe -ErrorAction Stop',
+    '--c-compiler "$clExecutable"', '--cxx-compiler "$clExecutable"', 'VCPKG_TARGET_TRIPLET=x64-windows',
     'CMakeConfigureLog.yaml', 'cmake-configure-windows-debug.log',
     'validate_cmake_toolchain.py',
 ]

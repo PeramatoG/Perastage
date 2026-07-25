@@ -132,7 +132,7 @@ sections = {
     'macos': ci[ci.index('  macos-debug:'):],
 }
 for platform, text in sections.items():
-    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=OFF']:
+    for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'write_cmake_compiler_cache_init.py']:
         assert needle in text, f'{platform} Debug is missing {needle}'
     assert text.index('Prepare vcpkg and diagnostics directories') < text.index('Bootstrap vcpkg'), f'{platform} must create vcpkg directories before bootstrap'
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
@@ -154,6 +154,60 @@ assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.
 macos = sections['macos']
 for needle in ['sdk-${{ steps.macos-sdk.outputs.identity }}', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', '--output-junit', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
     assert needle in macos, f'macOS Debug is missing {needle}'
+
+sccache_action = 'mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10'
+assert ci.count(sccache_action) == 3, 'each Debug platform must use the reviewed sccache action commit'
+assert ci.count('version: v0.15.0') == 3, 'each Debug platform must pin sccache v0.15.0'
+for platform, text in sections.items():
+    for needle in ['SCCACHE_GHA_ENABLED: ${{ needs.resolve-source.outputs.sccache_gha_enabled }}', 'SCCACHE_BASEDIRS:',
+                   'SCCACHE_DIR:', 'SCCACHE_LOCAL_RW_MODE: READ_WRITE', 'SCCACHE_CACHE_SCOPE:',
+                   'SCCACHE_IGNORE_SERVER_IO_ERROR: "1"', 'perastage-ci-debug-v1-', '--zero-stats',
+                   '--show-stats --stats-format json', 'write_sccache_summary.py', '--expected-launcher',
+                   'write_cmake_compiler_cache_init.py', ' -C ']:
+        assert needle in text, f'{platform} Debug sccache policy is missing {needle}'
+    configure_name = {'linux': 'Configure Debug tests', 'windows': 'Configure Windows Debug tests', 'macos': 'Configure macOS Debug tests'}[platform]
+    assert text.index('Install vcpkg packages') < text.index('Set up sccache') < text.index(configure_name), f'{platform} must install dependencies before starting sccache'
+    assert 'SCCACHE_GHA_ENABLED' in text[text.index('Define '):text.index('Set up sccache')], f'{platform} must gate the persistent namespace on GHA enablement'
+assert 'pull_request_target:' not in ci
+assert 'SCCACHE_GHA_RW_MODE' not in ci and 'mode=READ_ONLY' not in ci and 'mode=READ_WRITE' not in ci
+assert 'resolve_sccache_scope.py' in ci and "--event '${{ github.event_name }}'" in ci and "--github-ref '${{ github.ref }}'" in ci
+assert '--source-sha "$sha"' in ci and '--trusted-main-sha "$trusted_main_sha"' in ci
+assert 'git rev-parse refs/remotes/origin/main' in ci
+assert '--policy-default-cmp0141 NEW' in windows and '--msvc-debug-information-format Embedded' in windows
+assert 'validate_msvc_compile_commands.py' in windows
+assert 'cmake-windows-debug-initial-cache.cmake' in windows and '-C "$env:CI_LOG_DIR\\cmake-windows-debug-initial-cache.cmake"' in windows
+assert '$sccacheProgram' not in windows and '$cLauncher' not in windows and '$cxxLauncher' not in windows
+assert windows.index('Set up sccache') < windows.index('Resolve Windows sccache executable') < windows.index('Initialize Windows sccache statistics')
+for needle in ['Get-Command sccache.exe -ErrorAction Stop', 'Test-Path -LiteralPath $sccacheExecutable -PathType Leaf',
+               ".EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase)",
+               'PERASTAGE_SCCACHE_EXECUTABLE=$sccacheExecutable', '$env:GITHUB_ENV']:
+    assert needle in windows, f'Windows sccache executable resolution is missing {needle}'
+for operation in ['--version', '--start-server', '--zero-stats', '--expected-launcher',
+                  '--show-stats', '--show-stats --stats-format json']:
+    assert re.search(rf'PERASTAGE_SCCACHE_EXECUTABLE[^\n]*{re.escape(operation)}|{re.escape(operation)}[^\n]*PERASTAGE_SCCACHE_EXECUTABLE', windows), f'Windows must use the resolved executable for {operation}'
+assert not re.search(r'write_cmake_compiler_cache_init\.py[^\n]+\$env:SCCACHE_PATH', windows)
+assert '$sccacheExecutable = $env:PERASTAGE_SCCACHE_EXECUTABLE' in windows and '--launcher "$sccacheExecutable"' in windows
+assert '$env:SCCACHE_PATH --' not in windows and '--expected-launcher "$env:SCCACHE_PATH"' not in windows
+assert 'write_cmake_compiler_cache_init.py --launcher "$SCCACHE_PATH"' in linux
+assert 'write_cmake_compiler_cache_init.py --launcher "$SCCACHE_PATH"' in macos
+configure = windows[windows.index('      - name: Configure Windows Debug tests'):windows.index('      - name: Validate Windows Debug toolchain')]
+assert 'validate_cmake_toolchain.py' not in configure and 'validate_msvc_compile_commands.py' not in configure
+for forbidden in ['-DCMAKE_C_COMPILER=', '-DCMAKE_CXX_COMPILER=', '-DBASH_EXECUTABLE=',
+                  '-DCMAKE_POLICY_DEFAULT_CMP0141=', '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=']:
+    assert forbidden not in configure, f'Windows configure must transport {forbidden} through the initial cache'
+for option in ['--c-compiler', '--cxx-compiler', '--bash-executable', '--policy-default-cmp0141 NEW',
+               '--msvc-debug-information-format Embedded']:
+    assert option in windows, f'Windows initial cache is missing {option}'
+assert windows.index('Configure Windows Debug tests') < windows.index('Validate Windows Debug toolchain and sccache launcher') < windows.index('Validate Windows Debug compile flags') < windows.index('Build Windows Debug tests')
+assert 'cmake-toolchain-validation-windows-debug.log' in windows and 'msvc-compile-flags-windows-debug.log' in windows
+assert 'build-windows-debug/compile_commands.json' in windows, 'Windows failure diagnostics must retain the compile database'
+assert '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' in macos and 'macOS Debug compile_commands.json was not generated' in macos
+for metric in ['Cache writes', 'Cache read errors', 'Cache write errors', 'Requests executed', 'Compilation failures']:
+    assert metric in Path('.github/scripts/write_sccache_summary.py').read_text(), f'sccache summary must report {metric}'
+assert 'SCCACHE_RECACHE' not in ci and 'ACTIONS_RUNTIME_TOKEN' not in ci and 'ACTIONS_RESULTS_URL' not in ci
+for path in WORKFLOWS.glob('*.yml'):
+    if path.name != 'ci-tests.yml':
+        assert 'sccache-action' not in path.read_text(), f'{path.name} must remain outside PR 3A sccache scope'
 
 builders = ['windows-installer.yml','linux-installer.yml','macos-installer.yml','macos-15-manual-installer.yml','arch-package.yml']
 for name in builders:
