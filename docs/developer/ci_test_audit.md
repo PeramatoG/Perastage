@@ -952,4 +952,24 @@ The complete Linux and Windows failure-name sets were unchanged from run `301961
 
 `MvrTrussRoundtripStructure` previously stopped because the default exported Layer had no canonical `uuid`. In run `30197537554`, canonical default Layer identity and ChildList checks passed and the first failure moved to `!importedTruss.perastageAuxGdtfArchivePath.empty()` at line 398. This proves the original Layer identity blocker is repaired. Truss auxiliary GDTF archive-path restoration is a separate metadata contract explicitly deferred from Phase 4B.
 
-D2 does not require these mixed-domain tests to become fully green. D2 requires the focused identity/reference matrix to pass repeatedly, the original identity-specific first failures to remain absent, and no new CI failing test name. The closure adds ambiguity-safe alias resolution and complete supported scene-reference rewriting; final D2 acceptance remains pending the follow-up commit's complete CI run.
+D2 does not require these mixed-domain tests to become fully green. D2 requires the focused identity/reference matrix to pass repeatedly, the original identity-specific first failures to remain absent, and no new CI failing test name. The closure adds ambiguity-safe alias resolution and complete supported scene-reference rewriting.
+
+### D2 merge record and Phase 4C baseline
+
+PR #2222 was merged as `9ebdbf6b6cc2cecf00f7dde6c967017c09208e1a`; its final tested head was `fd938a2c3d10cd359ee803dea71daee9b011ca45`. Authoritative Debug Tests run `30199148987` reported Linux 163 total, 139 passed, 23 failed, and 1 skipped; Windows 165 total, 138 passed, and 27 failed; and the reduced macOS profile passed 6 of 6. No failing test name was added or removed relative to run `30197537554`. This is the final cross-platform evidence: D2 was reached.
+
+The post-merge main-equivalent checkout is `2db1dd8ddb1023261a60736f4589c7da92458915`, version `1.5.11`. No remote is configured in this execution checkout, so fetch was unavailable. `git diff fd938a2c3d10cd359ee803dea71daee9b011ca45..2db1dd8` shows only `VERSION` as a post-head content change; the remaining difference is merge topology. Production and tests did not change after the verified head, so D2 controls did not require a baseline rerun.
+
+The exact next failure group is canonical Perastage Support and Truss extension metadata roundtrips. `ProjectSupportUserDataRoundtrip` reaches canonical export and then asserts the obsolete direct `Support/UserData/Data/HoistInfo` shape. `MvrTrussRoundtripStructure` validates the root `TrussInfoMap` values and then reaches the missing auxiliary GDTF field assertion. `MvrSupportUserDataRoundtrip` and `MvrExporterCompliance` remain mixed controls whose first failures must be classified independently.
+
+The pinned public MVR 1.6 XSD is `mvrdevelopment/tools` commit `16f9ff3624d3e715798a28b2c460579c55820853`, `mvr.xsd`, blob `b250b81a1a98f5dbeaf7eb55c54e21409d83f829`. It permits `GeneralSceneDescription/UserData`; Support and Truss do not define direct UserData. Strict Perastage output consequently uses only root `Data provider="Perastage" ver="1.0"` containing `HoistInfoMap` and `TrussInfoMap`. Direct object metadata is tolerant legacy input, and foreign-provider Data is not Perastage metadata.
+
+Focused local classification confirmed `ProjectSupportUserDataRoundtrip` exported successfully before reaching its stale direct-object assertion. `MvrSupportUserDataRoundtrip` fails before canonical MVR export because its ad-hoc `fixture.gdtf` is not a valid ZIP and the canonicalizer rejects it; this is an invalid-fixture blocker rather than a metadata failure. The Truss structure test reaches its canonical root-map assertions before auxiliary-resource restoration. Unrelated GDTF/category repair remains deferred.
+
+After the focused fixture and resource-contract corrections,
+`ProjectSupportUserDataRoundtrip` and `MvrTrussRoundtripStructure` both pass
+locally and pass `ctest --repeat until-fail:20`. D3 is not yet declared:
+Windows and complete Debug Tests CI evidence, plus the requested exhaustive
+malformed/duplicate metadata diagnostic matrix, remain the exact acceptance
+blockers. The PR must remain focused and open until that evidence and coverage
+are available; no unrelated repair is included.

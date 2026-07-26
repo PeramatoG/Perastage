@@ -1,46 +1,43 @@
-# Canonical `UserData/Data/HoistInfo` schema
+# Canonical Perastage hoist metadata in MVR
 
-This document defines the canonical Perastage payload for support hoist metadata inside MVR `GeneralSceneDescription.xml`.
+The MVR 1.6 extension point is `GeneralSceneDescription/UserData`. `Support`
+does not permit a direct `UserData` child in the official schema. Perastage
+therefore writes hoist metadata only in a root map:
 
-## Location
+```xml
+<GeneralSceneDescription ...>
+  <UserData>
+    <Data provider="Perastage" ver="1.0">
+      <HoistInfoMap>
+        <HoistInfo uuid="canonical-support-uuid">...</HoistInfo>
+      </HoistInfoMap>
+    </Data>
+  </UserData>
+  <Scene>...</Scene>
+</GeneralSceneDescription>
+```
 
-- `Support/UserData/Data` with attributes:
-  - `provider="Perastage"`
-  - `ver="1.0"` (Perastage user-data schema version, not the app version)
-- Canonical payload node: `HoistInfo`
-- Legacy payload node accepted on import: `MotorInfo`
+The UUID is the canonical exported Support identity. Perastage Data version
+`1.0` is preferred over legacy object metadata; foreign-provider Data blocks
+are not interpreted as Perastage metadata.
 
-## Canonical fields
+## Fields
 
-Inside `HoistInfo`:
+`HoistInfo` can contain `Capacity`, `Weight`, a manually overridden `Load`,
+`RiggingPoint`, `MotorName`, `MotorManufacturer`, `MotorModel`,
+`MotorFixtureUuid`, `UseMotorDefaults`, `DummyProfileId`, the compatibility
+`DummyPreset`, `ValueSource`, and field-level source attributes. Optional
+absent values retain their standard or model defaults.
 
-- `Capacity` (`unit="kg"`, float)
-- `Weight` (`unit="kg"`, float)
-- `RiggingPoint` (string, normalized hoist function)
-- `MotorName` (string)
-- `MotorManufacturer` (string)
-- `MotorModel` (string)
-- `MotorFixtureUuid` (string UUID that links to a fixture)
-- `UseMotorDefaults` (`false` when explicitly disabled; omitted means `true`)
-- `DummyProfileId` (string stable profile id)
-- `DummyPreset` (string display name compatibility field)
-- `ValueSource` (`Inherited` or `Manual`)
+`Function` and `DataSource` remain compatibility aliases for `RiggingPoint`
+and `ValueSource` respectively.
 
-## Compatibility aliases
+## Legacy input
 
-Perastage writes canonical names and also compatibility aliases for older builds:
+The importer tolerates `Support/UserData/Data/HoistInfo` and
+`Support/UserData/Data/MotorInfo`. Canonical supported root metadata takes
+precedence when both shapes exist. A subsequent export migrates accepted
+legacy values into `HoistInfoMap` and never emits direct Support UserData.
 
-- `Function` mirrors `RiggingPoint`.
-- `DataSource` mirrors `ValueSource`.
-
-On import, Perastage reads both canonical and compatibility aliases with this precedence:
-
-1. `RiggingPoint`, fallback `Function`
-2. `ValueSource`, fallback `DataSource`
-
-Legacy `MotorInfo` payload blocks are still parsed and migrated internally to the canonical support fields.
-
-## Versioning policy
-
-- `GeneralSceneDescription@providerVersion` is exported from `perastage::build_info::appVersion()` and identifies the Perastage application build that created the MVR file.
-- `UserData/Data@ver` stays on the Perastage user-data schema version (`1.0`) and only changes when the Perastage custom payload schema changes.
+`GeneralSceneDescription@providerVersion` identifies the application build;
+`Data@ver` independently identifies the Perastage extension schema.

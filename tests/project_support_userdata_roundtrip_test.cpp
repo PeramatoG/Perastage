@@ -81,9 +81,11 @@ int main() {
   support.capacityKg = 1000.0f;
   support.weightKg = 40.0f;
   support.loadKg = 275.0f;
+  support.function = "Other";
   support.hoistFunction = "Audio";
   support.capacitySource = "Manual";
   support.weightSource = "Manual";
+  support.loadSource = "Manual";
   support.hoistFunctionSource = "Manual";
   support.motorName = "ChainMaster D8+";
   support.motorNameSource = "Manual";
@@ -147,12 +149,21 @@ int main() {
   }
 
   assert(supportNode != nullptr);
-  tinyxml2::XMLElement *userData = supportNode->FirstChildElement("UserData");
+  assert(supportNode->FirstChildElement("UserData") == nullptr);
+  tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
   assert(userData != nullptr);
   tinyxml2::XMLElement *data = userData->FirstChildElement("Data");
   assert(data != nullptr);
-  tinyxml2::XMLElement *hoistInfo = data->FirstChildElement("HoistInfo");
+  assert(std::string(data->Attribute("provider")) == "Perastage");
+  assert(std::string(data->Attribute("ver")) == "1.0");
+  tinyxml2::XMLElement *hoistInfoMap =
+      data->FirstChildElement("HoistInfoMap");
+  assert(hoistInfoMap != nullptr);
+  tinyxml2::XMLElement *hoistInfo =
+      hoistInfoMap->FirstChildElement("HoistInfo");
   assert(hoistInfo != nullptr);
+  assert(std::string(hoistInfo->Attribute("uuid")) == support.uuid);
+  assert(hoistInfo->NextSiblingElement("HoistInfo") == nullptr);
 
   tinyxml2::XMLElement *capacity = hoistInfo->FirstChildElement("Capacity");
   tinyxml2::XMLElement *load = hoistInfo->FirstChildElement("Load");

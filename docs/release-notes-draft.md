@@ -11,6 +11,7 @@ Changes since **v1.5.0**.
 ## Important fixes
 
 - Stabilized MVR layer and scene-object identities so damaged legacy UUIDs and dependent hierarchy or hoist links recover consistently across project save, reload, and export.
+- Preserved Support hoist and Truss metadata through standards-compliant MVR and project roundtrips, including portable auxiliary Truss GDTF resources.
 
 ## Current limitations
 

@@ -234,6 +234,11 @@ int main() {
   truss.heightMm = 400.0f;
   truss.weightKg = 40.0f;
   truss.crossSection = "40x40";
+  const fs::path auxiliaryGdtf = tempDir / "tower-40-auxiliary.gdtf";
+  std::string auxiliaryGdtfError;
+  assert(BuildTrussGdtfFromInstance(truss, auxiliaryGdtf,
+                                    &auxiliaryGdtfError));
+  truss.perastageAuxGdtfArchivePath = auxiliaryGdtf.generic_string();
   scene.trusses[truss.uuid] = truss;
   scene.groupObjects[group.uuid].children.push_back({MvrNodeType::Truss, truss.uuid});
 
@@ -349,6 +354,11 @@ int main() {
   tinyxml2::XMLElement *trussInfo = trussInfoMap->FirstChildElement("TrussInfo");
   assert(trussInfo != nullptr);
   assert(std::string(trussInfo->Attribute("uuid")) == truss.uuid);
+  const std::string auxiliaryArchiveName =
+      trussInfo->FirstChildElement("AuxGdtf")->GetText();
+  assert(fs::path(auxiliaryArchiveName).filename().generic_string() ==
+         auxiliaryArchiveName);
+  assert(entries.find(auxiliaryArchiveName) != entries.end());
   assert(std::string(trussInfo->FirstChildElement("Manufacturer")->GetText()) ==
          truss.manufacturer);
   assert(std::string(trussInfo->FirstChildElement("Model")->GetText()) ==

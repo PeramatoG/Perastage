@@ -2504,8 +2504,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
-  std::unordered_map<std::string, std::string> trussExportTypeKeyByTypeKey;
-  std::unordered_map<std::string, std::string> trussInstanceToTypeKey;
   std::unordered_map<std::string, std::string> primitiveSourceByToken;
   std::unordered_set<std::string> reservedArchivePaths;
   auto primitiveWorkspace = CreateExportWorkspace("mvr-export-primitives");
@@ -3357,6 +3355,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       if (trussSourceGdtf.empty() &&
           fs::path(t.modelFile).extension() == ".gdtf")
         trussSourceGdtf = t.modelFile;
+      if (trussSourceGdtf.empty() &&
+          !t.perastageAuxGdtfArchivePath.empty())
+        trussSourceGdtf = t.perastageAuxGdtfArchivePath;
 
       const bool importedFromMvrGeometry =
           t.sourceRepresentation ==
@@ -3384,11 +3385,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     }
     const std::string exportTrussTypeKey =
         BuildExportTrussTypeKey(effectiveTruss, trussGdtfArchivePath);
-    if (!trussTypeKey.empty()) {
-      trussExportTypeKeyByTypeKey[trussTypeKey] = exportTrussTypeKey;
-      trussInstanceToTypeKey[exportedTrussUuid] = exportTrussTypeKey;
-    }
-
     if (!trussGdtfArchivePath.empty()) {
       auto &ov = gdtfOverrides[trussGdtfArchivePath];
       ov.hasLengthMm = true;
@@ -4111,41 +4107,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   }
 
   sceneNode->InsertEndChild(layersNode);
-
-  if (!trussArchiveByTypeKey.empty()) {
-    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, root);
-    tinyxml2::XMLElement *manifest = doc.NewElement("TrussSidecarManifest");
-    for (const auto &[typeKey, archivePath] : trussArchiveByTypeKey) {
-      const auto exportTypeKeyIt = trussExportTypeKeyByTypeKey.find(typeKey);
-      const std::string exportTypeKey =
-          exportTypeKeyIt != trussExportTypeKeyByTypeKey.end()
-                                           ? exportTypeKeyIt->second
-                                           : SanitizeArchiveFileName(typeKey, "truss_type");
-      tinyxml2::XMLElement *typeNode = doc.NewElement("Type");
-      typeNode->SetAttribute("key", exportTypeKey.c_str());
-      typeNode->SetAttribute("gdtf", archivePath.c_str());
-      manifest->InsertEndChild(typeNode);
-      Logger::Instance().Log(
-          Logger::Level::Info,
-          wxString::Format(
-              "MVR export generated truss sidecar GDTF typeKey=%s archive=%s",
-                           exportTypeKey.c_str(), archivePath.c_str())
-              .ToStdString());
-    }
-    for (const auto &[uuid, typeKey] : trussInstanceToTypeKey) {
-      tinyxml2::XMLElement *instNode = doc.NewElement("Instance");
-      instNode->SetAttribute("uuid", uuid.c_str());
-      instNode->SetAttribute("typeKey", typeKey.c_str());
-      manifest->InsertEndChild(instNode);
-      Logger::Instance().Log(
-          Logger::Level::Info,
-          wxString::Format(
-              "MVR export linked truss instance to sidecar uuid=%s typeKey=%s",
-                           uuid.c_str(), typeKey.c_str())
-              .ToStdString());
-    }
-    data->InsertEndChild(manifest);
-  }
 
   // Prunes non-referenced resources so deleted scene elements do not keep stale
   // payload files.
