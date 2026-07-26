@@ -1011,9 +1011,24 @@ MotorFixtureUuid, and unsafe auxiliary metadata while verifying canonical-root
 precedence and foreign-provider isolation. Final D3 declaration still requires
 the new test and unchanged control matrix to pass in cross-platform CI.
 
-Local closure evidence: `MvrPerastageMetadataRecovery` passes and asserts the
-structured diagnostic codes produced by the detailed import overload. The
-repository module checks and `git diff --check` pass. D3 is not declared by
-this local run: authoritative Linux/Windows execution of the newly registered
-test and explicit duplicate-ZIP/case-only archive ambiguity coverage remain the
-exact blockers; PR #2223 stays open pending that evidence and focused coverage.
+At that diagnostic-closure head, the focused test and repository policy checks
+passed locally. Archive-entry ambiguity and normal-flow diagnostic delivery
+remained intentionally deferred to the next focused closure.
+
+### Phase 4C archive-ambiguity closure baseline
+
+Authoritative Debug Tests run `30207498081` tested reviewed head
+`fa7eaee6381ff722d31ee6e262cc3fca8a69fa23`. Linux reported 164 total,
+143 passed, 20 failed, and 1 skipped; Windows reported 166 total, 142 passed,
+and 24 failed; the reduced macOS profile remained 6 of 6.
+`MvrPerastageMetadataRecovery` passed on Linux and Windows, and the failure-name
+delta from run `30205630411` was empty. All four focused metadata tests passed.
+
+The exact remaining boundaries at that head were deterministic rejection of
+duplicate or ASCII case-colliding ZIP entries and delivery of structured
+diagnostics through common import overloads. Extraction now removes the first
+colliding resource, skips later colliders, clears remaps, fails on ambiguous
+scene XML, and retains collision diagnostics even on failure. Common project
+and scene import entry points deliver final structured diagnostics once; the
+detailed overload remains the non-logging structured source of truth. Final D3
+still requires authoritative cross-platform CI for this closure commit.

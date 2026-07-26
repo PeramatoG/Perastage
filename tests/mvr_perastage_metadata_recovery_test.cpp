@@ -6,6 +6,9 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 #include <wx/init.h>
 #include <wx/wfstream.h>
@@ -14,6 +17,32 @@
 #include "mvrimporter.h"
 
 namespace fs = std::filesystem;
+
+// Writes ordered ZIP entries without deduplicating their archive names.
+static void WriteArchive(
+    const fs::path &path,
+    const std::vector<std::pair<std::string, std::string>> &entries) {
+  wxFileOutputStream output(path.generic_string());
+  assert(output.IsOk());
+  wxZipOutputStream zip(output);
+  for (const auto &[name, bytes] : entries) {
+    assert(zip.PutNextEntry(name));
+    zip.Write(bytes.data(), bytes.size());
+  }
+  zip.Close();
+}
+
+// Builds a minimal MVR scene whose TrussInfo references the requested resource.
+static std::string BuildAuxiliarySceneXml(const std::string &auxiliaryName) {
+  return "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Test\" providerVersion=\"1\">"
+         "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><TrussInfoMap>"
+         "<TrussInfo uuid=\"40000000-0000-4000-8000-000000000001\"><Manufacturer>Unrelated</Manufacturer><AuxGdtf>" +
+         auxiliaryName +
+         "</AuxGdtf></TrussInfo></TrussInfoMap></Data></UserData>"
+         "<Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
+         "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric></Truss>"
+         "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+}
 
 // Writes one deterministic minimal MVR archive for metadata recovery testing.
 static void WriteMetadataArchive(const fs::path &path) {
@@ -41,12 +70,7 @@ static void WriteMetadataArchive(const fs::path &path) {
       "<Support uuid=\"30000000-0000-4000-8000-000000000003\" name=\"Unknown Motor\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><ChainLength>1</ChainLength></Support>"
       "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><FixtureID>2</FixtureID><FixtureIDNumeric>2</FixtureIDNumeric><UserData><Data provider=\"Foreign\" ver=\"1.0\"><TrussInfo><Width>777</Width></TrussInfo></Data></UserData></Truss>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
-  wxFileOutputStream output(path.generic_string());
-  assert(output.IsOk());
-  wxZipOutputStream zip(output);
-  assert(zip.PutNextEntry("GeneralSceneDescription.xml"));
-  zip.Write(xml.data(), xml.size());
-  zip.Close();
+  WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
 }
 
 // Returns whether the result contains the exact structured diagnostic code.
@@ -56,6 +80,16 @@ static bool HasDiagnostic(const MvrImportResult &result,
                      [&](const MvrImportDiagnostic &diagnostic) {
                        return diagnostic.code == code;
                      });
+}
+
+// Counts exact structured diagnostic codes in deterministic result order.
+static size_t CountDiagnostic(const MvrImportResult &result,
+                              const std::string &code) {
+  return static_cast<size_t>(std::count_if(
+      result.diagnostics.begin(), result.diagnostics.end(),
+      [&](const MvrImportDiagnostic &diagnostic) {
+        return diagnostic.code == code;
+      }));
 }
 
 // Verifies canonical, legacy, tolerant, and Perastage-extension recovery policy.
@@ -94,6 +128,107 @@ static void TestMetadataRecoveryMatrix(const fs::path &tempDir) {
   }
 }
 
+// Verifies portable, missing, empty, and unsafe AuxGdtf value policy.
+static void TestAuxiliaryValuePolicy(const fs::path &tempDir) {
+  struct AuxCase {
+    std::string value;
+    const char *diagnosticCode;
+    bool addResource;
+    bool retained;
+  };
+  const std::vector<AuxCase> cases = {
+      {"valid.gdtf", "", true, true},
+      {"missing.gdtf", "missing_truss_aux_gdtf", false, false},
+      {"", "", false, false},
+      {"../escape.gdtf", "unsafe_truss_aux_gdtf_path", false, false},
+      {"subdir/file.gdtf", "unsafe_truss_aux_gdtf_path", false, false},
+      {"/absolute/file.gdtf", "unsafe_truss_aux_gdtf_path", false, false},
+      {"C:\\absolute\\file.gdtf", "unsafe_truss_aux_gdtf_path", false,
+       false},
+      {"\\\\server\\share\\file.gdtf", "unsafe_truss_aux_gdtf_path",
+       false, false},
+      {"folder\\file.gdtf", "unsafe_truss_aux_gdtf_path", false, false},
+      {".", "unsafe_truss_aux_gdtf_path", false, false},
+      {"..", "unsafe_truss_aux_gdtf_path", false, false},
+      {std::string("control") + static_cast<char>(127) + ".gdtf",
+       "unsafe_truss_aux_gdtf_path", false, false}};
+  for (size_t index = 0; index < cases.size(); ++index) {
+    const AuxCase &testCase = cases[index];
+    const fs::path archive =
+        tempDir / ("aux-value-" + std::to_string(index) + ".mvr");
+    std::vector<std::pair<std::string, std::string>> entries = {
+        {"GeneralSceneDescription.xml",
+         BuildAuxiliarySceneXml(testCase.value)}};
+    if (testCase.addResource)
+      entries.emplace_back(testCase.value, "intended-resource");
+    WriteArchive(archive, entries);
+    MvrImporter importer;
+    MvrImportResult result;
+    assert(importer.ImportFromFile(archive.string(), result,
+                                   MvrImportMode::ParseOnly, false, false));
+    const Truss &truss =
+        result.scene.trusses.at("40000000-0000-4000-8000-000000000001");
+    assert((!truss.perastageAuxGdtfArchivePath.empty()) == testCase.retained);
+    assert(truss.manufacturer == "Unrelated");
+    if (*testCase.diagnosticCode)
+      assert(CountDiagnostic(result, testCase.diagnosticCode) == 1);
+  }
+}
+
+// Verifies exact and case-only resource collisions never select either payload.
+static void TestAmbiguousAuxiliaryResources(const fs::path &tempDir) {
+  struct CollisionCase {
+    const char *archiveName;
+    const char *secondName;
+    const char *diagnosticCode;
+  };
+  for (const CollisionCase &testCase : {
+           CollisionCase{"duplicate-resource.mvr", "aux.gdtf",
+                         "duplicate_mvr_archive_entry"},
+           CollisionCase{"case-resource.mvr", "AUX.GDTF",
+                         "case_colliding_mvr_archive_entry"}}) {
+    const fs::path archive = tempDir / testCase.archiveName;
+    WriteArchive(archive,
+                 {{"GeneralSceneDescription.xml",
+                   BuildAuxiliarySceneXml("aux.gdtf")},
+                  {"aux.gdtf", "first"}, {testCase.secondName, "second"}});
+    for (int repetition = 0; repetition < 2; ++repetition) {
+      MvrImporter importer;
+      MvrImportResult result;
+      assert(importer.ImportFromFile(archive.string(), result,
+                                     MvrImportMode::ParseOnly, false, false));
+      assert(CountDiagnostic(result, testCase.diagnosticCode) == 1);
+      const Truss &truss =
+          result.scene.trusses.at("40000000-0000-4000-8000-000000000001");
+      assert(truss.perastageAuxGdtfArchivePath.empty());
+      assert(truss.manufacturer == "Unrelated");
+      assert(!fs::exists(fs::path(result.scene.basePath) / "aux.gdtf"));
+      assert(!fs::exists(fs::path(result.scene.basePath) / "AUX.GDTF"));
+    }
+  }
+}
+
+// Verifies ambiguous scene descriptions fail while retaining collision diagnostics.
+static void TestAmbiguousSceneDescriptions(const fs::path &tempDir) {
+  const std::string xml = BuildAuxiliarySceneXml("");
+  for (const auto &[archiveName, secondName, code] :
+       std::vector<std::tuple<std::string, std::string, std::string>>{
+           {"duplicate-scene.mvr", "GeneralSceneDescription.xml",
+            "duplicate_mvr_archive_entry"},
+           {"case-scene.mvr", "GENERALSCENEDESCRIPTION.XML",
+            "case_colliding_mvr_archive_entry"}}) {
+    const fs::path archive = tempDir / archiveName;
+    WriteArchive(archive, {{"GeneralSceneDescription.xml", xml},
+                           {secondName, xml + " "}});
+    MvrImporter importer;
+    MvrImportResult result;
+    assert(!importer.ImportFromFile(archive.string(), result,
+                                    MvrImportMode::ParseOnly, false, false));
+    assert(CountDiagnostic(result, code) == 1);
+    assert(result.scene.trusses.empty());
+  }
+}
+
 // Runs the GUI-independent metadata recovery test matrix.
 int main() {
   wxInitializer initializer;
@@ -104,6 +239,9 @@ int main() {
   fs::remove_all(tempDir, ec);
   fs::create_directories(tempDir, ec);
   TestMetadataRecoveryMatrix(tempDir);
+  TestAuxiliaryValuePolicy(tempDir);
+  TestAmbiguousAuxiliaryResources(tempDir);
+  TestAmbiguousSceneDescriptions(tempDir);
   fs::remove_all(tempDir, ec);
   return 0;
 }

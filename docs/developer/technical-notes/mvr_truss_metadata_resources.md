@@ -32,3 +32,10 @@ extensions currently have no opaque scene-model storage and therefore cannot
 be reproduced after import; this limitation does not affect foreign-provider
 blocks during XML inspection but a newly generated export contains only
 modeled Perastage metadata.
+
+Archive identity comparison normalizes separators and applies an ASCII-only
+case fold independently of the host filesystem. Exact duplicate and case-only
+colliding file entries are ambiguous: neither payload is retained, resource
+references remain unresolved, and a structured collision diagnostic is
+reported. Ambiguous `GeneralSceneDescription.xml` entries fail import rather
+than selecting one document arbitrarily.

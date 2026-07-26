@@ -142,6 +142,29 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+// Folds only ASCII uppercase characters for platform-neutral archive identity.
+static std::string FoldArchiveIdentityAscii(std::string text) {
+  for (char &ch : text) {
+    if (ch >= 'A' && ch <= 'Z')
+      ch = static_cast<char>(ch - 'A' + 'a');
+  }
+  return text;
+}
+
+// Escapes control characters in archive identities used by diagnostics.
+static std::string EscapeArchiveIdentity(const std::string &identity) {
+  std::ostringstream escaped;
+  for (unsigned char ch : identity) {
+    if (ch < 32 || ch == 127) {
+      escaped << "\\x" << std::hex << std::setw(2) << std::setfill('0')
+              << static_cast<int>(ch) << std::dec;
+    } else {
+      escaped << static_cast<char>(ch);
+    }
+  }
+  return escaped.str();
+}
+
 static std::string ResolveGdtfPath(const std::string &baseDir,
                                    const std::string &spec);
 
@@ -1133,13 +1156,26 @@ static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
     }
   }
 }
+// Logs each structured MVR import diagnostic exactly once for discarded results.
+static void LogMvrImportDiagnostics(
+    const std::vector<MvrImportDiagnostic> &diagnostics) {
+  for (const MvrImportDiagnostic &diagnostic : diagnostics) {
+    LogMessage(Logger::Level::Warn,
+               "MVR metadata diagnostic [" + diagnostic.code + "]: " +
+                   diagnostic.message);
+  }
+}
+
 // Imports an MVR file into the global application scene.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts, bool applyDictionary,
                                  ProgressCallback progressCallback) {
   MvrImportResult importResult;
-  return ImportFromFile(filePath, importResult, MvrImportMode::ReplaceProject,
-                        promptConflicts, applyDictionary, progressCallback);
+  const bool imported =
+      ImportFromFile(filePath, importResult, MvrImportMode::ReplaceProject,
+                     promptConflicts, applyDictionary, progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
+  return imported;
 }
 
 // Imports an MVR file into an import result and optionally replaces the global
@@ -1190,6 +1226,7 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
   const bool imported =
       ImportFromFile(filePath, importResult, MvrImportMode::ParseOnly, options,
                      progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
   if (!imported)
     return false;
 
@@ -1264,7 +1301,7 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   std::string tempDir = ToString(importWorkspace.Path().u8string());
   std::string mvrPath = ToString(path.u8string());
   fs::path tempPath(tempDir);
-  if (!ExtractMvrZip(mvrPath, tempDir)) {
+  if (!ExtractMvrZip(mvrPath, tempDir, importResult.diagnostics)) {
     LogMessage("Failed to extract MVR file.");
     return false;
   }
@@ -1349,8 +1386,9 @@ MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
 }
 
 // Extracts an MVR zip archive into the destination directory.
-bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
-                                const std::string &destDir) {
+bool MvrImporter::ExtractMvrZip(
+    const std::string &mvrPath, const std::string &destDir,
+    std::vector<MvrImportDiagnostic> &diagnostics) {
   wxFileInputStream input(wxString::FromUTF8(mvrPath.c_str()));
   if (!input.IsOk()) {
     LogMessage("Failed to open MVR file.");
@@ -1359,6 +1397,18 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 
   wxZipInputStream zipStream(input);
   std::unique_ptr<wxZipEntry> entry;
+  std::unordered_map<std::string, std::string> identityByFoldedKey;
+  std::unordered_map<std::string, fs::path> extractedPathByIdentity;
+  std::unordered_set<std::string> ambiguousFoldedKeys;
+
+  auto discardCurrentEntry = [&]() {
+    char discardBuffer[4096];
+    while (true) {
+      zipStream.Read(discardBuffer, sizeof(discardBuffer));
+      if (zipStream.LastRead() == 0)
+        break;
+    }
+  };
 
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
@@ -1372,12 +1422,7 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
                     [](const fs::path &part) { return part == ".."; })) {
       LogMessage(Logger::Level::Warn,
                  "Skipping unsafe MVR archive entry: " + entryName);
-      char discardBuffer[4096];
-      while (true) {
-        zipStream.Read(discardBuffer, sizeof(discardBuffer));
-        if (zipStream.LastRead() == 0)
-          break;
-      }
+      discardCurrentEntry();
       continue;
     }
     fs::path fullPath =
@@ -1389,6 +1434,40 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
                         wxPATH_MKDIR_FULL);
       continue;
     }
+
+    const std::string archiveIdentity = normalizedUnsafeCheck;
+    const std::string foldedIdentity =
+        FoldArchiveIdentityAscii(archiveIdentity);
+    if (ambiguousFoldedKeys.contains(foldedIdentity)) {
+      pathRemap.erase(NormalizeArchivePath(archiveIdentity));
+      discardCurrentEntry();
+      continue;
+    }
+    auto priorIdentityIt = identityByFoldedKey.find(foldedIdentity);
+    if (priorIdentityIt != identityByFoldedKey.end()) {
+      const bool exactDuplicate = priorIdentityIt->second == archiveIdentity;
+      const char *code = exactDuplicate ? "duplicate_mvr_archive_entry"
+                                        : "case_colliding_mvr_archive_entry";
+      diagnostics.push_back(
+          {code, std::string("Rejected ambiguous MVR archive entries '") +
+                     EscapeArchiveIdentity(priorIdentityIt->second) + "' and '" +
+                     EscapeArchiveIdentity(archiveIdentity) + "'."});
+      auto extractedIt =
+          extractedPathByIdentity.find(priorIdentityIt->second);
+      if (extractedIt != extractedPathByIdentity.end()) {
+        std::error_code removeEc;
+        fs::remove(extractedIt->second, removeEc);
+        extractedPathByIdentity.erase(extractedIt);
+      }
+      pathRemap.erase(NormalizeArchivePath(priorIdentityIt->second));
+      pathRemap.erase(NormalizeArchivePath(archiveIdentity));
+      ambiguousFoldedKeys.insert(foldedIdentity);
+      discardCurrentEntry();
+      if (foldedIdentity == "generalscenedescription.xml")
+        return false;
+      continue;
+    }
+    identityByFoldedKey.emplace(foldedIdentity, archiveIdentity);
 
     std::string parentUtf8 = ToString(fullPath.parent_path().u8string());
     wxFileName::Mkdir(wxString::FromUTF8(parentUtf8.c_str()), wxS_DIR_DEFAULT,
@@ -1480,6 +1559,7 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
     }
 
     output.close();
+    extractedPathByIdentity[archiveIdentity] = fullPath;
   }
 
   return true;
@@ -4785,12 +4865,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                             consumedRootTrussInfoUuids,
                             "unknown_truss_info_uuid", "TrussInfo");
 
-  for (const MvrImportDiagnostic &diagnostic : importResult.diagnostics) {
-    LogMessage(Logger::Level::Warn,
-               "MVR metadata diagnostic [" + diagnostic.code + "]: " +
-                   diagnostic.message);
-  }
-
   std::string summary =
       "Parsed scene: " + std::to_string(scene.fixtures.size()) + " fixtures, " +
       std::to_string(scene.trusses.size()) + " trusses, " +
@@ -4821,6 +4895,7 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
   const bool imported = importer.ImportFromFile(filePath, importResult,
                                                 MvrImportMode::ReplaceProject,
                                                 options, progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
   if (!imported)
     return false;
 
