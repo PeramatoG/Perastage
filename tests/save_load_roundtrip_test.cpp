@@ -40,7 +40,7 @@ int main() {
     MvrScene &scene = cfg.GetScene();
 
     Layer layer;
-    layer.uuid = "layer1";
+    layer.uuid = "10000000-0000-4000-8000-000000000001";
     layer.name = "Layer1";
     layer.color = "#112233";
     scene.layers[layer.uuid] = layer;
@@ -101,7 +101,7 @@ int main() {
     assert(categoryPropagationB->category == "Wash");
 
   Fixture f;
-  f.uuid = "fx1";
+  f.uuid = "20000000-0000-4000-8000-000000000001";
   f.instanceName = "Fixture";
   f.layer = layer.name;
   f.typeName = "FixtureType";
@@ -112,7 +112,7 @@ int main() {
   f.fixtureId = 101;
   scene.fixtures[f.uuid] = f;
   Fixture f2;
-  f2.uuid = "fx2";
+  f2.uuid = "20000000-0000-4000-8000-000000000002";
   f2.instanceName = "Fixture 2";
   f2.layer = layer.name;
   f2.typeName = "FixtureType";
@@ -134,7 +134,7 @@ int main() {
   f3.fixtureId = 101;
   scene.fixtures[f3.uuid] = f3;
   Fixture f4;
-  f4.uuid = "fx-edited-id";
+  f4.uuid = "20000000-0000-4000-8000-000000000004";
   f4.instanceName = "Edited ID Fixture";
   f4.layer = layer.name;
   f4.typeName = "FixtureType";
@@ -145,17 +145,17 @@ int main() {
   scene.fixtures[f4.uuid] = f4;
     viewer2d::ApplyShowLabelNameOverride(cfg, {nonCanonicalFixtureUuid}, 0, true);
   Truss t;
-  t.uuid = "tr1";
+  t.uuid = "30000000-0000-4000-8000-000000000001";
   t.name = "Truss";
   t.layer = layer.name;
   scene.trusses[t.uuid] = t;
   SceneObject o;
-  o.uuid = "obj1";
+  o.uuid = "40000000-0000-4000-8000-000000000001";
   o.name = "Object";
   o.layer = layer.name;
   scene.sceneObjects[o.uuid] = o;
     SceneObject cylinderObj;
-    cylinderObj.uuid = "obj-cylinder";
+    cylinderObj.uuid = "40000000-0000-4000-8000-000000000002";
     cylinderObj.name = "Cylinder";
     cylinderObj.layer = layer.name;
     GeometryInstance cylinderGeometry;
@@ -166,7 +166,7 @@ int main() {
     scene.sceneObjects[cylinderObj.uuid] = cylinderObj;
 
     SceneObject legacyPipeObj;
-    legacyPipeObj.uuid = "obj-legacy-pipe";
+    legacyPipeObj.uuid = "40000000-0000-4000-8000-000000000003";
     legacyPipeObj.name = "Legacy Pipe";
     legacyPipeObj.layer = layer.name;
     GeometryInstance legacyPipeGeometry;
@@ -180,7 +180,7 @@ int main() {
     scene.sceneObjects[legacyPipeObj.uuid] = legacyPipeObj;
 
   Support sManual;
-  sManual.uuid = "sup-manual";
+  sManual.uuid = "50000000-0000-4000-8000-000000000001";
   sManual.name = "Manual Hoist";
   sManual.layer = layer.name;
   sManual.motorName = "ChainMaster D8+";
@@ -195,11 +195,11 @@ int main() {
   scene.supports[sManual.uuid] = sManual;
 
   Support sInherited;
-  sInherited.uuid = "sup-inherited";
+  sInherited.uuid = "50000000-0000-4000-8000-000000000002";
   sInherited.name = "Inherited Hoist";
   sInherited.layer = layer.name;
   sInherited.motorName = "CM Lodestar";
-  sInherited.motorFixtureUuid = "fx1";
+  sInherited.motorFixtureUuid = "20000000-0000-4000-8000-000000000001";
   sInherited.useMotorDefaults = false;
   sInherited.dummyPreset = "Lodestar 500kg";
   sInherited.hoistDataSource = "Inherited";
@@ -218,26 +218,26 @@ int main() {
     assert(scene2.trusses.size() == 1);
     assert(scene2.sceneObjects.size() == 3);
     assert(scene2.supports.size() == 2);
-    assert(scene2.fixtures.at("fx1").instanceName == "Fixture");
-    assert(scene2.trusses.at("tr1").name == "Truss");
-    assert(scene2.sceneObjects.at("obj1").name == "Object");
-    assert(scene2.sceneObjects.at("obj-cylinder").geometries.size() == 1);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").instanceName == "Fixture");
+    assert(scene2.trusses.at("30000000-0000-4000-8000-000000000001").name == "Truss");
+    assert(scene2.sceneObjects.at("40000000-0000-4000-8000-000000000001").name == "Object");
+    assert(scene2.sceneObjects.at("40000000-0000-4000-8000-000000000002").geometries.size() == 1);
     const std::string loadedCylinderToken =
-        scene2.sceneObjects.at("obj-cylinder").geometries.front().modelFile;
+        scene2.sceneObjects.at("40000000-0000-4000-8000-000000000002").geometries.front().modelFile;
     assert(loadedCylinderToken.find("primitive:cylinder") == 0);
     assert(loadedCylinderToken.find("top=200") != std::string::npos);
     assert(loadedCylinderToken.find("bottom=450") != std::string::npos);
     const std::string loadedLegacyPipeToken =
-        scene2.sceneObjects.at("obj-legacy-pipe").geometries.front().modelFile;
+        scene2.sceneObjects.at("40000000-0000-4000-8000-000000000003").geometries.front().modelFile;
     assert(loadedLegacyPipeToken == "primitive:cylinder");
-  assert(scene2.fixtures.at("fx1").visualColorHex == "#445566");
-    assert(scene2.fixtures.at("fx1").fixtureIdText == "S101A");
-    assert(scene2.fixtures.at("fx1").fixtureIdNumeric == 101);
-    assert(scene2.fixtures.at("fx2").fixtureIdText == "S101B");
-    assert(scene2.fixtures.at("fx2").fixtureIdNumeric == 101);
-    assert(scene2.fixtures.at("fx-edited-id").fixtureId == 707);
-    assert(scene2.fixtures.at("fx-edited-id").fixtureIdNumeric == 707);
-    assert(scene2.fixtures.at("fx-edited-id").fixtureIdText == "707");
+  assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").visualColorHex == "#445566");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdText == "S101A");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdNumeric == 101);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002").fixtureIdText == "S101B");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002").fixtureIdNumeric == 101);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureId == 707);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 707);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "707");
   const std::string canonicalFixtureUuid =
       CanonicalizeUuid(nonCanonicalFixtureUuid);
     assert(!canonicalFixtureUuid.empty());
@@ -247,9 +247,9 @@ int main() {
     const auto &fixture3Override = fixtureOverrides.at(canonicalFixtureUuid);
     assert(fixture3Override.showLabelName[0].has_value());
     assert(*fixture3Override.showLabelName[0]);
-    assert(scene2.layers.at("layer1").color == "#112233");
+    assert(scene2.layers.at("10000000-0000-4000-8000-000000000001").color == "#112233");
 
-    const auto &loadedManual = scene2.supports.at("sup-manual");
+    const auto &loadedManual = scene2.supports.at("50000000-0000-4000-8000-000000000001");
     assert(loadedManual.motorName == "ChainMaster D8+");
     assert(loadedManual.motorManufacturer == "ChainMaster");
     assert(loadedManual.motorModel == "D8+");
@@ -259,14 +259,14 @@ int main() {
     assert(loadedManual.weightKg == 40.0f);
     assert(loadedManual.loadKg == 325.0f);
 
-    const auto &loadedInherited = scene2.supports.at("sup-inherited");
+    const auto &loadedInherited = scene2.supports.at("50000000-0000-4000-8000-000000000002");
     assert(loadedInherited.motorName == "CM Lodestar");
-    assert(loadedInherited.motorFixtureUuid == "fx1");
+    assert(loadedInherited.motorFixtureUuid == "20000000-0000-4000-8000-000000000001");
     assert(!loadedInherited.useMotorDefaults);
     assert(loadedInherited.dummyPreset == "Lodestar 500kg");
     assert(loadedInherited.hoistDataSource == "Inherited");
 
-    const auto &loaded = scene2.fixtures.at("fx1");
+    const auto &loaded = scene2.fixtures.at("20000000-0000-4000-8000-000000000001");
     assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
   assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
          "orig.gdtf");

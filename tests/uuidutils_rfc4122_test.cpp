@@ -13,5 +13,7 @@ int main() {
   assert(CanonicalizeUuid("{not-a-uuid}").empty());
   assert(CanonicalizeUuid("76CAF3D74C4C2C5535BEAB47E26D86B3") ==
          "76caf3d7-4c4c-2c55-35be-ab47e26d86b3");
+  assert(CanonicalizeUuid(" {76CAF3D7-4C4C-2C55-35BE-AB47E26D86B3} ") ==
+         "76caf3d7-4c4c-2c55-35be-ab47e26d86b3");
   return 0;
 }

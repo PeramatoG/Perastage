@@ -154,12 +154,14 @@ void DeleteLayerContents(ConfigManager &config, const std::string &name) {
 // Returns every canonical layer, including names inferred from all object types.
 std::vector<LayerEntry> EnumerateLayers(const MvrScene &scene) {
   std::map<std::string, LayerEntry> byName;
-  byName[DEFAULT_LAYER_NAME] = {"layer_default", DEFAULT_LAYER_NAME, {}};
+  byName[DEFAULT_LAYER_NAME] = {
+      DeriveDeterministicUuid("mvr:layer:default"), DEFAULT_LAYER_NAME, {}};
   for (const auto &[uuid, layer] : scene.layers)
     byName[layer.name] = {uuid, layer.name, layer.color};
   auto collect = [&](const std::string &name) {
     if (!name.empty() && byName.find(name) == byName.end())
-      byName[name] = {{}, name, {}};
+      byName[name] = {DeriveDeterministicUuid("mvr:layer:inferred:" + name),
+                      name, {}};
   };
   for (const auto &[uuid, object] : scene.fixtures) { (void)uuid; collect(object.layer); }
   for (const auto &[uuid, object] : scene.trusses) { (void)uuid; collect(object.layer); }
@@ -320,7 +322,7 @@ LayerResult ValidateSceneLayers(const MvrScene &scene) {
   std::set<std::string> names;
   std::set<std::string> uuids;
   for (const auto &[uuid, layer] : scene.layers) {
-    if (CanonicalizeUuid(uuid).empty() && uuid != "layer_default")
+    if (CanonicalizeUuid(uuid).empty())
       return {LayerStatus::InvalidUuid, "Layer UUID is malformed", uuid,
               layer.name};
     if (!uuids.insert(uuid).second)
