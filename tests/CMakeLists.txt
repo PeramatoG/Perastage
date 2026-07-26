@@ -837,6 +837,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -878,6 +879,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -950,6 +952,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -973,6 +976,7 @@ add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                build_info_stub.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1034,6 +1038,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1076,6 +1081,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1118,6 +1124,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1159,6 +1166,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../viewer3d/culling/bounds_cache_system.cpp
                ../viewer3d/culling/primitive_bounds_utils.cpp
@@ -1205,6 +1213,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1247,6 +1256,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1296,6 +1306,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1873,6 +1884,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                consolepanel_stub.cpp
                ${LAYOUT_SOURCES})
@@ -1886,6 +1898,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -2206,3 +2219,9 @@ add_executable(uuidutils_rfc4122_test uuidutils_rfc4122_test.cpp
                ../core/uuidutils.cpp)
 target_include_directories(uuidutils_rfc4122_test PRIVATE ../core)
 add_test(NAME UuidUtilsRfc4122 COMMAND uuidutils_rfc4122_test)
+
+add_executable(mvr_identity_recovery_test mvr_identity_recovery_test.cpp
+               ../core/mvr_identity_recovery.cpp
+               ../core/uuidutils.cpp)
+target_include_directories(mvr_identity_recovery_test PRIVATE ../core ../models)
+add_test(NAME MvrIdentityRecovery COMMAND mvr_identity_recovery_test)

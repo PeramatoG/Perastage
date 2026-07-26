@@ -70,9 +70,24 @@ std::string GenerateUuid() {
 
 // Normalizes UUID text to lowercase canonical form when valid.
 std::string CanonicalizeUuid(const std::string &rawUuid) {
+  std::size_t first = 0;
+  std::size_t last = rawUuid.size();
+  while (first < last &&
+         std::isspace(static_cast<unsigned char>(rawUuid[first])))
+    ++first;
+  while (last > first &&
+         std::isspace(static_cast<unsigned char>(rawUuid[last - 1])))
+    --last;
+  if (last - first >= 2 && rawUuid[first] == '{' &&
+      rawUuid[last - 1] == '}') {
+    ++first;
+    --last;
+  }
+
   std::string hex;
   hex.reserve(32);
-  for (unsigned char c : rawUuid) {
+  for (std::size_t index = first; index < last; ++index) {
+    const unsigned char c = static_cast<unsigned char>(rawUuid[index]);
     if (c == '-' || std::isspace(c))
       continue;
     if (!std::isxdigit(c))

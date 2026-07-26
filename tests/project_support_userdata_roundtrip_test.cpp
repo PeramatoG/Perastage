@@ -69,12 +69,12 @@ int main() {
   std::ofstream(tempDir / "support.3ds") << "support-model";
 
   Layer layer;
-  layer.uuid = "layer1";
+  layer.uuid = "11111111-2222-4333-8444-555555555555";
   layer.name = "Layer 1";
   scene.layers[layer.uuid] = layer;
 
   Support support;
-  support.uuid = "sup-text-to-scene";
+  support.uuid = "66666666-7777-4888-8999-aaaaaaaaaaaa";
   support.name = "Imported Manual Hoist";
   support.layer = layer.name;
   support.hoistDataSource = "Manual";

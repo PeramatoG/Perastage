@@ -30,6 +30,7 @@
 #include "utf8_utils.h"
 #include "matrixutils.h"
 #include "mvr_preferences.h"
+#include "mvr_identity_recovery.h"
 #include "primitive_model_resources.h"
 #include "runtime_storage.h"
 #include "projectutils.h"
@@ -2326,7 +2327,15 @@ bool MvrExporter::ExportToFile(const std::string &filePath) {
 bool MvrExporter::ExportToFile(const std::string &filePath,
                                const MvrExportOptions &options) {
   m_exportWarnings.clear();
-  const auto &scene = ConfigManager::Get().GetScene();
+  auto &scene = ConfigManager::Get().GetScene();
+  const auto identityRecovery =
+      mvridentity::RecoverSceneIdentities(scene, "editable-scene");
+  for (const auto &diagnostic : identityRecovery.diagnostics) {
+    const std::string message =
+        mvridentity::FormatRecoveryDiagnostic(diagnostic);
+    m_exportWarnings.push_back(message);
+    Logger::Instance().Log(Logger::Level::Warn, message);
+  }
   const TrussGeometryAuthority trussGeometryAuthority =
       GetTrussGeometryAuthoritySetting();
   std::unordered_map<std::string, std::string> positions;
@@ -4013,8 +4022,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       exportSceneObject(childList, obj);
     }
 
-    if (childList->FirstChild())
-      layerElem->InsertEndChild(childList);
+    layerElem->InsertEndChild(childList);
 
     layersNode->InsertEndChild(layerElem);
   }

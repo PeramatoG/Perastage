@@ -237,6 +237,7 @@ add_executable(${PROJECT_NAME} main.cpp
     models/sceneobject.cpp
     models/truss.cpp
     core/runtime_storage.cpp
+    core/mvr_identity_recovery.cpp
     mvr/gdtf_catalog_matcher.cpp
     mvr/mvrimporter.cpp
     mvr/mvr_merge_analyzer.cpp
