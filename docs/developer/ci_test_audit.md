@@ -973,3 +973,23 @@ Windows and complete Debug Tests CI evidence, plus the requested exhaustive
 malformed/duplicate metadata diagnostic matrix, remain the exact acceptance
 blockers. The PR must remain focused and open until that evidence and coverage
 are available; no unrelated repair is included.
+
+### Phase 4C CI follow-up and D3 closure baseline
+
+The reviewed Phase 4C head `5f6128f59205b730ad23d730404dae6dd8f6679f`
+was tested by authoritative Debug Tests run `30203361878`. Linux reported 163
+total, 141 passed, 21 failed, and 1 skipped; Windows reported 165 total, 140
+passed, and 25 failed; the reduced macOS profile remained 6 passed of 6. Linux
+and Windows each removed exactly `ProjectSupportUserDataRoundtrip` and
+`MvrTrussRoundtripStructure`, with no added failing test name.
+
+D3 remained pending at that head because `MvrSupportUserDataRoundtrip` still
+used a plain-text non-GDTF fixture, metadata provider/version, duplicate,
+numeric, and path rejection were not covered, and the Truss test did not prove
+scene-owned auxiliary resource lifetime or safe re-export. The closure work
+replaces the strict fixture with the shared canonical GDTF 1.2 builder, makes
+supported root metadata first-wins over legacy input, exposes import
+diagnostics, rejects non-finite numbers and unsafe or missing auxiliary paths,
+prevents fallback substitution for an explicit missing auxiliary resource, and
+exercises owned-resource re-export. Final D3 status remains contingent on the
+closure test matrix and cross-platform CI evidence.

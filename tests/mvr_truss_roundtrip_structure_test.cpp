@@ -1,6 +1,7 @@
 /*
  * This file is part of Perastage.
  */
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <filesystem>
@@ -50,6 +51,34 @@ ReadArchiveTextEntries(const fs::path &archivePath) {
     entries[entry->GetName().ToStdString()] = ReadCurrentZipEntry(zip);
   }
   return entries;
+}
+
+// Counts ZIP entries whose archive names exactly match the requested name.
+static int CountArchiveEntries(const fs::path &archivePath,
+                               const std::string &entryName) {
+  wxFileInputStream input(archivePath.generic_string());
+  assert(input.IsOk());
+  wxZipInputStream zip(input);
+  int count = 0;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName().ToStdString() == entryName)
+      ++count;
+  }
+  return count;
+}
+
+// Returns whether a canonical child path stays within its canonical root.
+static bool IsPathWithin(const fs::path &root, const fs::path &child) {
+  const fs::path canonicalRoot = fs::weakly_canonical(root);
+  const fs::path canonicalChild = fs::weakly_canonical(child);
+  auto rootIt = canonicalRoot.begin();
+  auto childIt = canonicalChild.begin();
+  for (; rootIt != canonicalRoot.end(); ++rootIt, ++childIt) {
+    if (childIt == canonicalChild.end() || *rootIt != *childIt)
+      return false;
+  }
+  return true;
 }
 
 static std::string ReadFixtureTypeIdFromGdtf(const fs::path &gdtfPath) {
@@ -397,8 +426,10 @@ int main() {
   scene.trusses.at(truss.uuid).hasManualLoadOverride = false;
 
   cfg.Reset();
-  MvrImporter importer;
-  assert(importer.ImportFromFile(mvrPath.string(), false, false));
+  {
+    MvrImporter importer;
+    assert(importer.ImportFromFile(mvrPath.string(), false, false));
+  }
   auto &importedScene = ConfigManager::Get().GetScene();
   assert(importedScene.groupObjects.size() == 1);
   assert(importedScene.trusses.size() == 1);
@@ -406,6 +437,15 @@ int main() {
   assert(importedTruss.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef);
   assert(importedTruss.sourceSymbolUuid == sourceSymbolUuid);
   assert(!importedTruss.perastageAuxGdtfArchivePath.empty());
+  assert(!fs::path(importedTruss.perastageAuxGdtfArchivePath).is_absolute());
+  assert(fs::path(importedTruss.perastageAuxGdtfArchivePath)
+             .filename()
+             .generic_string() == importedTruss.perastageAuxGdtfArchivePath);
+  const fs::path importedResourceRoot = importedScene.basePath;
+  const fs::path importedAuxiliaryPath =
+      importedResourceRoot / importedTruss.perastageAuxGdtfArchivePath;
+  assert(fs::exists(importedAuxiliaryPath));
+  assert(IsPathWithin(importedResourceRoot, importedAuxiliaryPath));
   assert(importedTruss.manufacturer == "Perastage");
   assert(importedTruss.model == "Tower 40");
   assert(std::abs(importedTruss.lengthMm - truss.lengthMm) < 0.001f);
@@ -413,9 +453,54 @@ int main() {
   assert(std::abs(importedTruss.heightMm - truss.heightMm) < 0.001f);
   assert(std::abs(importedTruss.weightKg - truss.weightKg) < 0.001f);
   assert(importedTruss.crossSection == truss.crossSection);
+  const std::string importedAuxiliaryArchiveName =
+      importedTruss.perastageAuxGdtfArchivePath;
+
+  const fs::path secondMvrPath = tempDir / "roundtrip-second.mvr";
+  assert(MvrExporter().ExportToFile(secondMvrPath.string()));
+  const auto secondEntries = ReadArchiveTextEntries(secondMvrPath);
+  tinyxml2::XMLDocument secondXml;
+  assert(secondXml.Parse(
+             secondEntries.at("GeneralSceneDescription.xml").c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *secondInfo =
+      secondXml.FirstChildElement("GeneralSceneDescription")
+          ->FirstChildElement("UserData")
+          ->FirstChildElement("Data")
+          ->FirstChildElement("TrussInfoMap")
+          ->FirstChildElement("TrussInfo");
+  assert(secondInfo != nullptr);
+  const std::string secondAuxiliaryName =
+      secondInfo->FirstChildElement("AuxGdtf")->GetText();
+  assert(secondAuxiliaryName == importedAuxiliaryArchiveName);
+  assert(secondEntries.find(secondAuxiliaryName) != secondEntries.end());
+  assert(CountArchiveEntries(secondMvrPath, secondAuxiliaryName) == 1);
+
+  Truss &missingAuxiliaryTruss = importedScene.trusses.begin()->second;
+  missingAuxiliaryTruss.gdtfSpec.clear();
+  missingAuxiliaryTruss.perastageAuxGdtfArchivePath = "missing-explicit.gdtf";
+  const fs::path missingAuxiliaryMvrPath =
+      tempDir / "missing-explicit-auxiliary.mvr";
+  MvrExporter missingAuxiliaryExporter;
+  assert(missingAuxiliaryExporter.ExportToFile(
+      missingAuxiliaryMvrPath.string()));
+  assert(std::any_of(missingAuxiliaryExporter.GetExportWarnings().begin(),
+                     missingAuxiliaryExporter.GetExportWarnings().end(),
+                     [](const std::string &warning) {
+                       return warning.find("no fallback was substituted") !=
+                              std::string::npos;
+                     }));
+  const auto missingAuxiliaryEntries =
+      ReadArchiveTextEntries(missingAuxiliaryMvrPath);
+  assert(missingAuxiliaryEntries.find("missing-explicit.gdtf") ==
+         missingAuxiliaryEntries.end());
+  assert(missingAuxiliaryEntries.at("GeneralSceneDescription.xml")
+             .find("<AuxGdtf>") == std::string::npos);
 
   cfg.Reset();
-  assert(importer.ImportFromFile(manualLoadMvrPath.string(), false, false));
+  MvrImporter manualLoadImporter;
+  assert(manualLoadImporter.ImportFromFile(manualLoadMvrPath.string(), false,
+                                           false));
   const Truss &manualLoadImportedTruss =
       ConfigManager::Get().GetScene().trusses.begin()->second;
   assert(manualLoadImportedTruss.hasManualLoadOverride);
@@ -445,7 +530,8 @@ int main() {
   }
 
   cfg.Reset();
-  assert(importer.ImportFromFile(legacyMvrPath.string(), false, false));
+  MvrImporter legacyImporter;
+  assert(legacyImporter.ImportFromFile(legacyMvrPath.string(), false, false));
   MvrScene &legacyImportedScene = ConfigManager::Get().GetScene();
   assert(legacyImportedScene.trusses.size() == 1);
   const Truss &legacyImportedTruss = legacyImportedScene.trusses.begin()->second;

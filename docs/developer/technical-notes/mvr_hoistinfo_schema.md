@@ -26,7 +26,8 @@ are not interpreted as Perastage metadata.
 `HoistInfo` can contain `Capacity`, `Weight`, a manually overridden `Load`,
 `RiggingPoint`, `MotorName`, `MotorManufacturer`, `MotorModel`,
 `MotorFixtureUuid`, `UseMotorDefaults`, `DummyProfileId`, the compatibility
-`DummyPreset`, `ValueSource`, and field-level source attributes. Optional
+`DummyPreset`, `ValueSource`, and field-level source elements such as
+`MotorNameSource` and `CapacitySource`. Optional
 absent values retain their standard or model defaults.
 
 `Function` and `DataSource` remain compatibility aliases for `RiggingPoint`
@@ -38,6 +39,13 @@ The importer tolerates `Support/UserData/Data/HoistInfo` and
 `Support/UserData/Data/MotorInfo`. Canonical supported root metadata takes
 precedence when both shapes exist. A subsequent export migrates accepted
 legacy values into `HoistInfoMap` and never emits direct Support UserData.
+
+Duplicate canonical entries use the first valid UUID match deterministically;
+later duplicates are diagnosed and ignored. Invalid or non-finite numeric
+tokens do not replace existing standard values. Malformed, unknown, or
+ambiguous `MotorFixtureUuid` values are never resolved by display name.
+Perastage root Data with a schema version other than `1.0` is diagnosed and
+ignored. Foreign-provider Data is outside this policy and is not interpreted.
 
 `GeneralSceneDescription@providerVersion` identifies the application build;
 `Data@ver` independently identifies the Perastage extension schema.

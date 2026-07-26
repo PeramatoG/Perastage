@@ -164,6 +164,23 @@ static std::string NormalizeArchivePathValue(const std::string &archivePath) {
   return normalized;
 }
 
+// Reports whether extension metadata names one portable root-level archive file.
+static bool IsPortableRootArchiveFileName(const std::string &value) {
+  if (value.empty() || value == "." || value == "..")
+    return false;
+  if (std::any_of(value.begin(), value.end(), [](unsigned char ch) {
+        return ch < 32 || ch == 127;
+      }))
+    return false;
+  if (value.find('/') != std::string::npos ||
+      value.find('\\') != std::string::npos ||
+      value.find(':') != std::string::npos)
+    return false;
+  const fs::path path = PathUtils::PathFromUtf8(value);
+  return !path.is_absolute() && !path.has_root_name() &&
+         path.filename().generic_string() == value;
+}
+
 static std::string NormalizeGdtfLookupKey(const std::string &value) {
   std::string normalized = NormalizeArchivePathValue(value);
   if (normalized.empty())
@@ -300,7 +317,9 @@ static bool TryParseFloat(const std::string &text, float &out) {
   std::string trimmedText(trimmed);
   char *endPtr = nullptr;
   const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
-  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE) {
+  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE &&
+      std::isfinite(parsed) &&
+      std::isfinite(static_cast<float>(parsed))) {
     out = static_cast<float>(parsed);
     return true;
   }
@@ -1690,6 +1709,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   parseRootFixtureTypeInfoMap(root->FirstChildElement("UserData"));
 
+  auto isSupportedPerastageMetadata = [&](tinyxml2::XMLElement *data) {
+    const std::string version =
+        Trim(data->Attribute("ver") ? data->Attribute("ver") : "");
+    if (version == "1.0")
+      return true;
+    importResult.diagnostics.push_back(
+        {"unsupported_perastage_metadata_version",
+         "Ignored Perastage root metadata with unsupported schema version '" +
+             version + "'."});
+    return false;
+  };
+
   std::unordered_map<std::string, tinyxml2::XMLElement *> rootTrussInfoByUuid;
   // Collects root-level Perastage truss metadata by canonical exported UUID.
   auto parseRootTrussInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
@@ -1701,14 +1732,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
+      if (!isSupportedPerastageMetadata(data))
+        continue;
       for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap");
            map; map = map->NextSiblingElement("TrussInfoMap")) {
         for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo");
              info; info = info->NextSiblingElement("TrussInfo")) {
           const std::string uuid = CanonicalizeUuid(
               Trim(info->Attribute("uuid") ? info->Attribute("uuid") : ""));
-          if (!uuid.empty())
-            rootTrussInfoByUuid[uuid] = info;
+          if (uuid.empty()) {
+            importResult.diagnostics.push_back(
+                {"invalid_truss_info_uuid",
+                 "Ignored TrussInfo with a malformed UUID."});
+          } else if (!rootTrussInfoByUuid.emplace(uuid, info).second) {
+            importResult.diagnostics.push_back(
+                {"duplicate_truss_info",
+                 "Ignored duplicate TrussInfo for UUID '" + uuid + "'."});
+          }
         }
       }
     }
@@ -1776,6 +1816,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
+      if (!isSupportedPerastageMetadata(data))
+        continue;
       for (tinyxml2::XMLElement *map = data->FirstChildElement("HoistInfoMap");
            map; map = map->NextSiblingElement("HoistInfoMap")) {
         for (tinyxml2::XMLElement *info = map->FirstChildElement("HoistInfo");
@@ -1783,10 +1825,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const std::string rawUuid =
               Trim(info->Attribute("uuid") ? info->Attribute("uuid") : "");
           const std::string canonicalUuid = CanonicalizeUuid(rawUuid);
-          if (!rawUuid.empty())
-            rootHoistInfoByUuid[rawUuid] = info;
-          if (!canonicalUuid.empty())
-            rootHoistInfoByUuid[canonicalUuid] = info;
+          if (canonicalUuid.empty()) {
+            importResult.diagnostics.push_back(
+                {"invalid_hoist_info_uuid",
+                 "Ignored HoistInfo with a malformed UUID."});
+            continue;
+          }
+          if (!rootHoistInfoByUuid.emplace(canonicalUuid, info).second) {
+            importResult.diagnostics.push_back(
+                {"duplicate_hoist_info",
+                 "Ignored duplicate HoistInfo for UUID '" + canonicalUuid +
+                     "'."});
+          }
         }
       }
     }
@@ -2645,9 +2695,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (tk->GetText())
         truss.perastageTypeKey = Trim(tk->GetText());
     if (tinyxml2::XMLElement *ag = info->FirstChildElement("AuxGdtf"))
-      if (ag->GetText())
-        truss.perastageAuxGdtfArchivePath =
-            RemapArchivePathIfNeeded(Trim(ag->GetText()));
+      if (ag->GetText()) {
+        const std::string archiveName = Trim(ag->GetText());
+        if (!IsPortableRootArchiveFileName(archiveName)) {
+          importResult.diagnostics.push_back(
+              {"unsafe_truss_aux_gdtf_path",
+               "Ignored unsafe TrussInfo AuxGdtf path '" + archiveName +
+                   "'."});
+        } else {
+          const std::string remapped = RemapArchivePathIfNeeded(archiveName);
+          const fs::path resolved =
+              ResolveSceneRelativePath(scene.basePath, remapped);
+          std::error_code existsEc;
+          if (fs::is_regular_file(resolved, existsEc) && !existsEc) {
+            truss.perastageAuxGdtfArchivePath = remapped;
+          } else {
+            importResult.diagnostics.push_back(
+                {"missing_truss_aux_gdtf",
+                 "Ignored missing TrussInfo AuxGdtf archive entry '" +
+                     archiveName + "'."});
+          }
+        }
+      }
   };
 
   std::function<void(tinyxml2::XMLElement *, const std::string &,

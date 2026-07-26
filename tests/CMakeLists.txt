@@ -1017,6 +1017,7 @@ set_library_env(MvrDmxAddressConversion)
 
 
 add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtrip_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp

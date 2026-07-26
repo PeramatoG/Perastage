@@ -186,9 +186,28 @@ int main() {
   const auto &loaded = loadedSupports.at(support.uuid);
   assert(loaded.hoistDataSource == "Manual");
   assert(loaded.capacityKg == 1000.0f);
-  assert(loaded.capacityKg > 0.0f);
+  assert(loaded.weightKg == 40.0f);
   assert(loaded.loadKg == 275.0f);
   assert(loaded.hoistFunction == "Audio");
+  assert(loaded.motorName == "ChainMaster D8+");
+  assert(loaded.motorManufacturer == "ChainMaster");
+  assert(loaded.motorModel == "D8+");
+  assert(loaded.capacitySource == "Manual");
+  assert(loaded.weightSource == "Manual");
+  assert(loaded.hoistFunctionSource == "Manual");
+  const Support loadedCopy = loaded;
+
+  const fs::path secondProjectPath =
+      tempDir / "support_userdata_roundtrip_second.pstg";
+  assert(cfg.SaveProject(secondProjectPath.string()));
+  cfg.Reset();
+  assert(cfg.LoadProject(secondProjectPath.string()));
+  const auto &secondLoaded = cfg.GetScene().supports.at(support.uuid);
+  assert(secondLoaded.capacityKg == loadedCopy.capacityKg);
+  assert(secondLoaded.weightKg == loadedCopy.weightKg);
+  assert(secondLoaded.loadKg == loadedCopy.loadKg);
+  assert(secondLoaded.hoistFunction == loadedCopy.hoistFunction);
+  assert(secondLoaded.motorName == loadedCopy.motorName);
 
   fs::remove_all(tempDir, ec);
   return 0;

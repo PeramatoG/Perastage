@@ -2004,10 +2004,7 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
   addTxt("TypeKey", trussTypeKey.empty()
                         ? SanitizeArchiveFileName(truss.perastageTypeKey, "")
                         : trussTypeKey);
-  const std::string exportedAuxGdtf = auxGdtfArchivePath.empty()
-                                          ? truss.perastageAuxGdtfArchivePath
-                                          : auxGdtfArchivePath;
-  addTxt("AuxGdtf", SanitizeArchiveFileName(exportedAuxGdtf, ""));
+  addTxt("AuxGdtf", SanitizeArchiveFileName(auxGdtfArchivePath, ""));
   trussInfoMap->InsertEndChild(info);
 }
 
@@ -2613,12 +2610,13 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   auto registerGdtfResource =
       [&](const std::string &objectUuid, const std::string &rawGdtfPath,
           const std::string &preferredName, bool allowReuseBySource = true,
-          bool usePreferredDerivativeName = false) -> std::string {
+          bool usePreferredDerivativeName = false,
+          bool allowFallback = true) -> std::string {
     if (rawGdtfPath.empty())
       return {};
 
     std::string resolvedGdtfPath = resolveExistingResourceSourcePath(rawGdtfPath);
-    if (resolvedGdtfPath.empty()) {
+    if (resolvedGdtfPath.empty() && allowFallback) {
       resolvedGdtfPath = ResolveFallbackFixtureGdtfPath();
       if (!resolvedGdtfPath.empty()) {
         Logger::Instance().Log(
@@ -2627,6 +2625,14 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                 "'. Using fallback '" +
                 fs::path(resolvedGdtfPath).filename().generic_string() + "'.");
       }
+    }
+    if (resolvedGdtfPath.empty() && !allowFallback) {
+      const std::string message =
+          "MVR export omitted missing explicit auxiliary Truss GDTF '" +
+          rawGdtfPath + "'; no fallback was substituted.";
+      m_exportWarnings.push_back(message);
+      Logger::Instance().Log(Logger::Level::Warn, message);
+      return {};
     }
     const std::string gdtfSourceForExport =
         resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
@@ -3378,8 +3384,11 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       }
 
       std::string trussPreferredName = BuildTrussGdtfArchiveName(effectiveTruss);
+      const bool hasExplicitAuxiliaryGdtf =
+          !t.perastageAuxGdtfArchivePath.empty();
       trussGdtfArchivePath = registerGdtfResource(
-          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true, true);
+          exportedTrussUuid, trussSourceGdtf, trussPreferredName, true, true,
+          !hasExplicitAuxiliaryGdtf);
       if (!trussGdtfArchivePath.empty())
         trussArchiveByTypeKey[trussTypeKey] = trussGdtfArchivePath;
     }
