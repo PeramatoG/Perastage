@@ -73,6 +73,33 @@ class InitialCacheTests(unittest.TestCase):
                                  "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT"])
         self.assertNotIn("\\", text)
         self.assertEqual(text.count(".exe"), 6)
+        self.assertIn(
+            "set(BASH_EXECUTABLE [[C:/Program Files/Git/bin/bash.exe]] CACHE FILEPATH \"\" FORCE)",
+            text,
+        )
+
+    def test_bash_entry_is_optional_and_preserves_compilers_and_launchers(self) -> None:
+        without_bash = INITIAL_CACHE.cache_text(
+            "/usr/bin/sccache", c_compiler="/usr/bin/cc", cxx_compiler="/usr/bin/c++"
+        )
+        self.assertNotIn("BASH_EXECUTABLE", without_bash)
+        for name in ("CMAKE_C_COMPILER", "CMAKE_CXX_COMPILER", "CMAKE_C_COMPILER_LAUNCHER",
+                     "CMAKE_CXX_COMPILER_LAUNCHER", "PERASTAGE_COMPILER_CACHE_PROGRAM"):
+            self.assertIn(f"set({name} ", without_bash)
+
+    def test_bash_bracket_quoting_prevents_cache_code_injection(self) -> None:
+        bash = "C:/Program Files/Git/bin/bash.exe]]\nset(INJECTED yes)\n[["
+        text = INITIAL_CACHE.cache_text("C:/Tools/sccache.exe", bash_executable=bash)
+        self.assertIn(f'set(BASH_EXECUTABLE [=[{bash}]=] CACHE FILEPATH "" FORCE)', text)
+        self.assertEqual(text.count("\nset(INJECTED yes)\n"), 1)
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "verify-cache.cmake"
+            script.write_text(
+                text + 'if(DEFINED INJECTED)\n  message(FATAL_ERROR "cache value executed")\nendif()\n',
+                encoding="utf-8",
+            )
+            result = subprocess.run(["cmake", "-P", str(script)], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_exact_file_validation_rejects_extensionless_and_missing_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

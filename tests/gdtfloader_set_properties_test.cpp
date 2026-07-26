@@ -25,6 +25,7 @@
 #include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/gdtf_canonicalizer.h"
+#include "../core/wx_path_utils.h"
 #include "../viewer3d/gdtfloader.h"
 
 namespace fs = std::filesystem;
@@ -59,7 +60,7 @@ std::string MakeBaseGdtf() {
 
 // Reads all regular entries from a GDTF archive.
 std::unordered_map<std::string, std::string> ReadArchiveEntries(const fs::path &archivePath) {
-  wxFileInputStream input(archivePath.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   assert(input.IsOk());
   wxZipInputStream zipInput(input);
   std::unordered_map<std::string, std::string> entries;
