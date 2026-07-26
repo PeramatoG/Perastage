@@ -10,7 +10,7 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
-- Stabilized MVR layer and scene-object identities so damaged legacy UUIDs recover consistently and project save, reload, and export retain working hierarchy references.
+- Stabilized MVR layer and scene-object identities so damaged legacy UUIDs and dependent hierarchy or hoist links recover consistently across project save, reload, and export.
 
 ## Current limitations
 

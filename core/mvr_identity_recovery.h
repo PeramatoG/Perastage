@@ -13,13 +13,16 @@ enum class RecoveryReason {
   Malformed,
   Duplicate,
   KeyFieldMismatch,
-  InferredLayer
+  InferredLayer,
+  AmbiguousReference,
+  UnresolvedReference
 };
 
 struct RecoveryDiagnostic {
   std::string objectKind;
   std::string objectName;
   std::string sourceContext;
+  std::string identitySource;
   std::string originalIdentity;
   std::string replacementIdentity;
   RecoveryReason reason = RecoveryReason::Missing;

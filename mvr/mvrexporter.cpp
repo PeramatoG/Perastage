@@ -2330,6 +2330,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   auto &scene = ConfigManager::Get().GetScene();
   const auto identityRecovery =
       mvridentity::RecoverSceneIdentities(scene, "editable-scene");
+  if (!identityRecovery.diagnostics.empty())
+    ConfigManager::Get().MarkDirty();
   for (const auto &diagnostic : identityRecovery.diagnostics) {
     const std::string message =
         mvridentity::FormatRecoveryDiagnostic(diagnostic);
