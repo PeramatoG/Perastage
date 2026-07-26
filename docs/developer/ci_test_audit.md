@@ -993,3 +993,27 @@ diagnostics, rejects non-finite numbers and unsafe or missing auxiliary paths,
 prevents fallback substitution for an explicit missing auxiliary resource, and
 exercises owned-resource re-export. Final D3 status remains contingent on the
 closure test matrix and cross-platform CI evidence.
+
+### Phase 4C final diagnostic-closure baseline
+
+Authoritative Debug Tests run `30205630411` tested reviewed head
+`0e64b4ba4d58554e38be6c1852bcbc813ee09c40`. Linux reported 163 total,
+142 passed, 20 failed, and 1 skipped; Windows reported 165 total, 141 passed,
+and 24 failed; the reduced macOS profile remained 6 of 6. The run removed
+`MvrSupportUserDataRoundtrip` on Linux and Windows, added no failing test name,
+and kept all three Support/Truss roundtrip tests passing.
+
+D3 at that head remained pending only executable metadata diagnostic and
+legacy-provider closure. `MvrPerastageMetadataRecovery` now exercises the
+detailed `MvrImportResult` path and asserts structured codes for malformed,
+duplicate, unknown, unsupported-version, legacy-version, numeric,
+MotorFixtureUuid, and unsafe auxiliary metadata while verifying canonical-root
+precedence and foreign-provider isolation. Final D3 declaration still requires
+the new test and unchanged control matrix to pass in cross-platform CI.
+
+Local closure evidence: `MvrPerastageMetadataRecovery` passes and asserts the
+structured diagnostic codes produced by the detailed import overload. The
+repository module checks and `git diff --check` pass. D3 is not declared by
+this local run: authoritative Linux/Windows execution of the newly registered
+test and explicit duplicate-ZIP/case-only archive ambiguity coverage remain the
+exact blockers; PR #2223 stays open pending that evidence and focused coverage.

@@ -22,6 +22,9 @@ the same root-filename and existence checks before retaining the portable
 identity. Unsupported schema versions, malformed UUIDs, duplicate entries,
 unsafe paths, and missing entries are diagnosed; the first valid canonical
 entry wins over later duplicates and legacy direct metadata.
+Direct legacy Truss Data follows the same provider policy: only Perastage is
+interpreted, version `1.0` is supported, a missing version is tolerated and
+diagnosed, and foreign or unsupported-version payloads are ignored.
 
 Perastage root metadata takes precedence over legacy direct metadata. Foreign
 providers are ignored by the Perastage reader. Unknown Perastage child
