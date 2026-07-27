@@ -1080,3 +1080,77 @@ Linux Debug configure and focused builds passed with `cmake --preset wsl-x64-deb
 - `git diff --check`: passed.
 
 No Linux full registered-suite run, Windows run, or macOS reduced release-gate run was available in this Linux container. Consequently there is no new CI run ID or authoritative full-suite failure-set delta, and D4A is not declared. The final branch commit SHA and CI run ID must be added to the PR evidence after push and CI; the prior authoritative baseline remains run `30209219695` at tested head `d0b28a3924281164755279187bac565e638ab002`.
+
+### D4A merge evidence and Phase 4E baseline
+
+PR #2224 merged reviewed branch `codex/fix-gdtf-reference-roundtrips` as merge
+commit `240edbef812837398d843869b05604e565d9feba`. Its base was
+`0fb8e12be42fe4c4bbf9162fd72016aa419f3747`, reviewed head was
+`1ecafba0ceb0a97db254b30b0f303c7678a440ac`, and authoritative Debug Tests run
+`30239020200` reported Linux 164 total, 145 passed, 18 failed, and 1 skipped;
+Windows 166 total, 144 passed, and 22 failed; and the reduced macOS release gate
+6 passed of 6. Configure, build, toolchain, vcpkg, and sccache stages passed on
+Linux and Windows. The reduced macOS profile is not full macOS parity.
+
+Relative to D3 run `30209219695`, Linux and Windows each removed exactly
+`GdtfFixtureCategoryFallback` and `MvrFixtureCategoryRoundtrip`, with no added
+failing test name. Both Phase 4D primary tests and all retained D1-D3 focused
+controls passed on Linux and Windows. D4A was reached and PR #2224 was safe to
+merge.
+
+The Phase 4E branch `codex/repair-gdtf-read-services-unicode-paths` starts from
+post-merge main-equivalent SHA
+`d3861f141f92d7a16868d251c706c54f25ea0b6f`, version `1.5.13`. No remote is
+configured in this execution checkout, so `git fetch --all --prune` had no
+remote updates to retrieve. Local ancestry confirms that this base contains the
+reviewed Phase 4D head and merge commit above.
+
+Before production changes, Linux Debug reproduced `GdtfReadServices` at the
+malformed-byte subcase: invalid filename bytes with ZIP UTF-8 bit 11 set still
+left `read.Success()` true at line 492. `GdtfFixtureInsertionPreparation` passed
+on Linux. Authoritative Windows run `30239020200` independently records the
+platform-specific outer-path failures: `GdtfReadServices` could not access
+`metadata_ñ_测试.gdtf`, and `GdtfFixtureInsertionPreparation` failed to prepare
+`Perastage_ñ_fixture.gdtf`. The required contract is documented in
+`technical-notes/gdtf_unicode_zip_filename_compatibility.md` before application
+behavior changes.
+
+### Phase 4E local repair evidence
+
+The Linux malformed-byte failure was primarily a test-fixture construction
+defect: the arbitrary byte search compared signed `char` UTF-8 bytes with
+`unsigned char` archive bytes and therefore never changed the intended Unicode
+name. The fixture now parses ZIP local and central headers, matches the exact
+raw identity byte-for-byte, changes only its first name byte and bit 11 fields,
+and proves exactly one local and one central record were patched. Cases place
+the invalid entry before and after `description.xml`, among multiple entries,
+on `description.xml` itself, and beside a valid Unicode resource.
+
+Production now validates every raw central-directory identity before asking
+wxWidgets to stream payloads. An explicitly UTF-8 but undecodable identity
+therefore fails with `FilenameDecodeFailed` before a skipped entry can shift raw
+metadata onto another payload. Archive, resource, and extraction streams use
+the shared native `WxPathUtils` conversion. Metadata summary loading also has a
+native filesystem-path overload, and the two test ZIP writers no longer route
+native paths through narrow `generic_string()` text. These path conversions
+classify the two Windows primaries as platform-specific wx/filesystem boundary
+defects.
+
+Local Linux Debug results:
+
+- The two primary tests passed 20 consecutive repetitions each.
+- Eight registered scoped controls ran; seven passed. The requested
+  `GdtfModeChannelPresenter` name is not registered in this checkout.
+  `TrussPathEncodingRegression` advanced to its unrelated broad persisted
+  last-project-path assertion at line 120 and remains visible and deferred.
+- Both mandatory module checks, the wx filesystem scanner, Bash registration
+  check, CI CMake language policy, and `git diff --check` passed. The CMake
+  language check required `PERASTAGE_TEST_PYTHON` to be supplied by the harness,
+  as documented by that policy test.
+
+No test was skipped, disabled, hidden, renamed, relabeled, removed, or weakened.
+Full Linux/Windows Debug Tests and reduced macOS release-gate CI artifacts are
+not available because this checkout has no configured remote or CI dispatch
+surface. Consequently there is no Phase 4E CI run ID, authoritative platform
+total, or verified failure-set delta, and D4B is not declared. The branch must
+continue through complete CI before it can be recommended for merge.

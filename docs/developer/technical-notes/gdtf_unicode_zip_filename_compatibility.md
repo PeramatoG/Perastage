@@ -16,13 +16,40 @@ The archive reader now reads raw central-directory filename bytes and applies on
 - Unflagged names that are not valid UTF-8 are not passed through a lossy platform ANSI conversion. They fail with a structured diagnostic until a safe reversible legacy decoder is added.
 - Ambiguous filename interpretations must fail without guessing.
 
+Raw central-directory identities are validated before wxWidgets streams any
+payload. A malformed identity therefore cannot be skipped by the ZIP stream and
+shift the sequential association between later raw names and payloads. The
+reader never substitutes a platform-decoded name for an identity that is
+explicitly marked as UTF-8 but contains invalid bytes.
+
 The compatibility warning uses `GDTF_ARCHIVE_UTF8_FALLBACK_USED` semantics and reports a message such as: `GDTF archive uses valid UTF-8 filenames without the ZIP UTF-8 flag; compatibility fallback applied to N entries.`
 
 ## Path safety and Windows behavior
 
 Filename decoding happens before path normalization, extraction, and safety checks. The decoded archive path must still be relative, must not contain drive or root syntax, must not contain `..` traversal, and must not contain unsafe empty paths. Unicode fallback does not weaken traversal protection.
 
-On Windows, callers should keep filesystem paths as `std::filesystem::path` for native operations and use explicit UTF-8 conversion only at serialization, storage, or logging boundaries. GDTF archive entry names are stored as UTF-8 text after safe decoding, independent of the operating-system locale, and extraction writes through native `std::filesystem::path` objects.
+On Windows, callers keep filesystem paths as `std::filesystem::path` for native
+operations and pass them to wxWidgets with
+`WxPathUtils::WxStringFromFilesystemPath`. UTF-8 conversion is reserved for
+serialization, storage, or logging boundaries; converting a native path through
+`path.string()` or `path.generic_string()` at a wxWidgets filesystem boundary is
+not permitted. GDTF archive entry names are stored as UTF-8 text after safe
+decoding, independent of the operating-system locale, and extraction writes
+through native `std::filesystem::path` objects.
+
+## Fixture classifications
+
+- `standard-strict`: canonical `description.xml`, ASCII names without bit 11,
+  and valid Unicode names with bit 11.
+- `legacy-compatibility`: independently documented legacy formats with a safe,
+  reversible interpretation.
+- `tolerant-recovery`: valid UTF-8 Unicode names missing bit 11 and recoverable
+  case or nesting variants of `description.xml`; each recovery is diagnosed.
+- `malformed-byte`: invalid UTF-8 bytes with bit 11 set, patched structurally in
+  the intended local and central filename records; the archive identity is
+  rejected with `FilenameDecodeFailed`.
+- `platform-specific`: Unicode outer filesystem paths, created as native
+  `std::filesystem::path` values and opened through the shared wx path helper.
 
 ## Read/write separation
 

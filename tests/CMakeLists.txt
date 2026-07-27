@@ -459,7 +459,8 @@ add_executable(gdtf_read_services_test
                gdtf_read_services_test.cpp
                ../core/gdtf_archive_reader.cpp
                ../core/gdtf_description_reader.cpp
-               ../core/gdtf_metadata_summary.cpp)
+               ../core/gdtf_metadata_summary.cpp
+               ../core/filesystem_path_utils.cpp)
 target_include_directories(gdtf_read_services_test PRIVATE ../core)
 target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
@@ -529,7 +530,8 @@ add_executable(gdtf_fixture_insertion_preparation_test
                gdtf_fixture_insertion_preparation_test.cpp
                ../core/gdtf_archive_reader.cpp
                ../core/gdtf_description_reader.cpp
-               ../core/gdtf_fixture_insertion_preparation.cpp)
+               ../core/gdtf_fixture_insertion_preparation.cpp
+               ../core/filesystem_path_utils.cpp)
 target_include_directories(gdtf_fixture_insertion_preparation_test PRIVATE ../core)
 target_link_libraries(gdtf_fixture_insertion_preparation_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)

@@ -1,4 +1,6 @@
 #include "gdtf_fixture_insertion_preparation.h"
+#include "filesystem_path_utils.h"
+#include "wx_path_utils.h"
 
 #include <cassert>
 #include <cmath>
@@ -19,7 +21,7 @@ namespace {
 // Writes a ZIP/GDTF archive with the requested text entries.
 bool WriteArchive(const fs::path &path,
                   const std::vector<std::pair<std::string, std::string>> &entries) {
-  wxFileOutputStream output(wxString::FromUTF8(path.generic_string().c_str()));
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!output.IsOk())
     return false;
   wxZipOutputStream zip(output);
@@ -204,7 +206,8 @@ void AssertWiringObjectPowerFallback(const fs::path &dir) {
 
 // Verifies Unicode paths and unsafe archive paths are handled deterministically.
 void AssertUnicodeAndUnsafePaths(const fs::path &dir) {
-  const fs::path unicode = dir / "Perastage_ñ_fixture.gdtf";
+  const fs::path unicode =
+      dir / PathUtils::PathFromUtf8("Perastage_ñ_fixture.gdtf");
   assert(WriteArchive(unicode, {{"assets/ñ.txt", "ok"},
                                 {"description.xml", GdtfXml(Modes({"Mode"}))}}));
   auto preparation = gdtf::PrepareGdtfFixtureInsertion(unicode);

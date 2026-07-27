@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 struct GdtfMetadataSummary {
@@ -31,4 +32,6 @@ struct GdtfMetadataSummary {
 };
 
 bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
+                             GdtfMetadataSummary &outSummary);
+bool LoadGdtfMetadataSummary(const std::filesystem::path &gdtfPath,
                              GdtfMetadataSummary &outSummary);
