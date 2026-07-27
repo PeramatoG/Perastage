@@ -19,6 +19,7 @@
 
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
+#include "filesystem_path_utils.h"
 
 #include <wx/datetime.h>
 
@@ -64,6 +65,12 @@ void ApplyLatestRevision(const gdtf::GdtfDescriptionSnapshot &snapshot,
 
 // Loads a compact metadata summary from a GDTF archive.
 bool LoadGdtfMetadataSummary(const std::string &gdtfPath,
+                             GdtfMetadataSummary &outSummary) {
+  return LoadGdtfMetadataSummary(PathUtils::PathFromUtf8(gdtfPath), outSummary);
+}
+
+// Loads a compact metadata summary from a native filesystem path.
+bool LoadGdtfMetadataSummary(const std::filesystem::path &gdtfPath,
                              GdtfMetadataSummary &outSummary) {
   outSummary = {};
   outSummary.userId = "0";

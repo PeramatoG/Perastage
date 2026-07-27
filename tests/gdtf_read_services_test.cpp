@@ -14,6 +14,8 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
 #include "gdtf_metadata_summary.h"
+#include "filesystem_path_utils.h"
+#include "wx_path_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -55,6 +57,47 @@ static void WriteLe16(std::vector<unsigned char> &data, size_t offset,
   data[offset + 1] = static_cast<unsigned char>((value >> 8) & 0xff);
 }
 
+struct ZipNamePatchCounts {
+  size_t localRecords = 0;
+  size_t centralRecords = 0;
+};
+
+// Patches one exact ZIP entry identity in its local and central records.
+static ZipNamePatchCounts PatchEntryNameAsInvalidFlaggedUtf8(
+    std::vector<unsigned char> &data, const std::string &entryName) {
+  ZipNamePatchCounts counts;
+  for (size_t i = 0; i + 30 <= data.size(); ++i) {
+    const uint32_t signature = ReadLe32(data, i);
+    const bool local = signature == 0x04034b50;
+    const bool central = signature == 0x02014b50;
+    if (!local && !central)
+      continue;
+    const size_t headerSize = local ? 30 : 46;
+    if (i + headerSize > data.size())
+      continue;
+    const size_t nameLengthOffset = i + (local ? 26 : 28);
+    const size_t nameOffset = i + headerSize;
+    const uint16_t nameLength = ReadLe16(data, nameLengthOffset);
+    if (nameLength != entryName.size() ||
+        nameOffset + nameLength > data.size() ||
+        !std::equal(entryName.begin(), entryName.end(),
+                    data.begin() + nameOffset,
+                    [](char expected, unsigned char actual) {
+                      return static_cast<unsigned char>(expected) == actual;
+                    }))
+      continue;
+    data[nameOffset] = 0xff;
+    const size_t flagOffset = i + (local ? 6 : 8);
+    WriteLe16(data, flagOffset,
+              static_cast<uint16_t>(ReadLe16(data, flagOffset) | (1u << 11)));
+    if (local)
+      ++counts.localRecords;
+    else
+      ++counts.centralRecords;
+  }
+  return counts;
+}
+
 // Forces or clears the ZIP UTF-8 filename flag in local and central headers.
 static void PatchUtf8Flags(const fs::path &path, bool enabled) {
   std::vector<unsigned char> data = ReadBinary(path);
@@ -73,28 +116,36 @@ static void PatchUtf8Flags(const fs::path &path, bool enabled) {
   WriteBinary(path, data);
 }
 
-// Reports whether all ZIP central-directory entries consistently use UTF-8
-// flags.
-static bool CentralDirectoryUtf8FlagsMatch(const fs::path &path,
-                                           bool expected) {
+// Reports whether one raw central-directory identity has the expected UTF-8 flag.
+static bool CentralDirectoryEntryUtf8FlagMatches(const fs::path &path,
+                                                 const std::string &entryName,
+                                                 bool expected) {
   const std::vector<unsigned char> data = ReadBinary(path);
-  bool sawCentralEntry = false;
   for (size_t i = 0; i + 46 <= data.size(); ++i) {
     if (ReadLe32(data, i) != 0x02014b50)
       continue;
-    sawCentralEntry = true;
+    const uint16_t nameLength = ReadLe16(data, i + 28);
+    const size_t nameOffset = i + 46;
+    if (nameLength != entryName.size() ||
+        nameOffset + nameLength > data.size() ||
+        !std::equal(entryName.begin(), entryName.end(),
+                    data.begin() + nameOffset,
+                    [](char expectedByte, unsigned char actualByte) {
+                      return static_cast<unsigned char>(expectedByte) ==
+                             actualByte;
+                    }))
+      continue;
     const bool hasFlag = (ReadLe16(data, i + 8) & (1u << 11)) != 0;
-    if (hasFlag != expected)
-      return false;
+    return hasFlag == expected;
   }
-  return sawCentralEntry;
+  return false;
 }
 
 // Writes a ZIP/GDTF archive with the requested text entries.
 static bool
 WriteArchive(const fs::path &path,
              const std::vector<std::pair<std::string, std::string>> &entries) {
-  wxFileOutputStream output(wxString::FromUTF8(path.generic_string().c_str()));
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
   if (!output.IsOk())
     return false;
   wxZipOutputStream zip(output);
@@ -395,7 +446,8 @@ static void TestUnknownUnicodeAndSummary(const fs::path &dir) {
         diagnostic.code == gdtf::DescriptionDiagnosticCode::UnknownElement;
   assert(foundUnknown);
 
-  const fs::path unicodePath = dir / std::string("metadata_ñ_测试.gdtf");
+  const fs::path unicodePath =
+      dir / PathUtils::PathFromUtf8("metadata_ñ_测试.gdtf");
   assert(WriteArchive(unicodePath, {{std::string("assets/ñ.txt"), "ok"},
                                     {"description.xml", xml}}));
   gdtf::ArchiveReadResult read = gdtf::ReadGdtfArchive(unicodePath);
@@ -406,7 +458,7 @@ static void TestUnknownUnicodeAndSummary(const fs::path &dir) {
   assert(foundUnicodeEntry);
 
   GdtfMetadataSummary summary;
-  assert(LoadGdtfMetadataSummary(unicodePath.generic_string(), summary));
+  assert(LoadGdtfMetadataSummary(unicodePath, summary));
   assert(summary.manufacturer == "Perastage");
   assert(summary.description == "Test fixture");
   assert(summary.creationDate == "2026-01-02 03:04:05");
@@ -478,20 +530,51 @@ static void TestUnicodeZipFilenameCompatibility(const fs::path &dir) {
   assert(!HasArchiveDiagnostic(read,
                                gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed));
 
-  const fs::path invalidFlagged = dir / "invalid_flagged.gdtf";
-  assert(WriteArchive(invalidFlagged,
-                      {{unicodeName, "png"}, {"description.xml", xml}}));
-  std::vector<unsigned char> data = ReadBinary(invalidFlagged);
-  for (size_t i = 0; i + unicodeName.size() <= data.size(); ++i) {
-    if (std::equal(unicodeName.begin(), unicodeName.end(), data.begin() + i))
-      data[i] = 0xff;
-  }
-  WriteBinary(invalidFlagged, data);
-  PatchUtf8Flags(invalidFlagged, true);
-  read = gdtf::ReadGdtfArchive(invalidFlagged);
-  assert(!read.Success());
-  assert(HasArchiveDiagnostic(
-      read, gdtf::ArchiveDiagnosticCode::FilenameDecodeFailed));
+  auto assertMalformedByteArchive =
+      [&](const std::string &fileName,
+          const std::vector<std::pair<std::string, std::string>> &entries,
+          const std::string &corruptedName) {
+        const fs::path archivePath = dir / fileName;
+        assert(WriteArchive(archivePath, entries));
+        std::vector<unsigned char> data = ReadBinary(archivePath);
+        const ZipNamePatchCounts counts =
+            PatchEntryNameAsInvalidFlaggedUtf8(data, corruptedName);
+        assert(counts.localRecords == 1);
+        assert(counts.centralRecords == 1);
+        WriteBinary(archivePath, data);
+        const std::vector<unsigned char> patched = ReadBinary(archivePath);
+        assert(patched == data);
+
+        const gdtf::ArchiveReadResult malformedRead =
+            gdtf::ReadGdtfArchive(archivePath);
+        assert(!malformedRead.Success());
+        assert(HasArchiveDiagnostic(
+            malformedRead,
+            gdtf::ArchiveDiagnosticCode::FilenameDecodeFailed));
+        assert(malformedRead.entries.empty());
+        assert(malformedRead.descriptionXml.empty());
+      };
+
+  assertMalformedByteArchive(
+      "invalid_before_description.gdtf",
+      {{unicodeName, "png"}, {"description.xml", xml}}, unicodeName);
+  assertMalformedByteArchive(
+      "invalid_after_description.gdtf",
+      {{"description.xml", xml}, {unicodeName, "png"}}, unicodeName);
+  assertMalformedByteArchive(
+      "invalid_among_multiple.gdtf",
+      {{"models/body.glb", "model"}, {unicodeName, "png"},
+       {"description.xml", xml}},
+      unicodeName);
+  assertMalformedByteArchive(
+      "invalid_description.gdtf",
+      {{"description.xml", xml}, {"models/body.glb", "model"}},
+      "description.xml");
+  assertMalformedByteArchive(
+      "valid_unicode_and_invalid_resource.gdtf",
+      {{"wheels/ñ.png", "valid"}, {unicodeName, "invalid"},
+       {"description.xml", xml}},
+      unicodeName);
 }
 
 // Verifies Perastage-created ZIP entries carry UTF-8 filename metadata for
@@ -500,7 +583,8 @@ static void TestUnicodeZipWriteMetadata(const fs::path &dir) {
   const fs::path path = dir / "unicode_written.gdtf";
   assert(WriteArchive(path, {{"wheels/Φ113金属图案盘二.png", "png"},
                              {"description.xml", GdtfXml("")}}));
-  assert(CentralDirectoryUtf8FlagsMatch(path, true));
+  assert(CentralDirectoryEntryUtf8FlagMatches(
+      path, "wheels/Φ113金属图案盘二.png", true));
   gdtf::ArchiveReadResult read = gdtf::ReadGdtfArchive(path);
   assert(read.Success());
   assert(read.utf8FlagMissingEntryCount == 0);

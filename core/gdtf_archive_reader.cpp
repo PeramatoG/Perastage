@@ -1,5 +1,7 @@
 #include "gdtf_archive_reader.h"
 
+#include "wx_path_utils.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -41,12 +43,6 @@ struct DecodedZipEntryName {
   bool usedUtf8Fallback = false;
   bool failed = false;
 };
-
-// Converts a filesystem path to UTF-8 text for wxWidgets file streams.
-std::string PathToUtf8(const std::filesystem::path &path) {
-  const std::u8string utf8 = path.u8string();
-  return std::string(utf8.begin(), utf8.end());
-}
 
 // Reports whether raw bytes contain only portable ASCII characters.
 bool IsAscii(const std::string &value) {
@@ -354,6 +350,21 @@ void AddDiagnostic(ArchiveReadResult &result, ArchiveDiagnosticCode code,
       {code, std::move(message), std::move(entryPath)});
 }
 
+// Rejects malformed raw identities before wxWidgets can skip or reorder them.
+bool ValidateRawZipEntryNames(const std::vector<RawZipEntryName> &rawNames,
+                              ArchiveReadResult &result) {
+  bool valid = true;
+  for (const RawZipEntryName &rawName : rawNames) {
+    if (!DecodeZipEntryName(rawName).failed)
+      continue;
+    AddDiagnostic(
+        result, ArchiveDiagnosticCode::FilenameDecodeFailed,
+        "A GDTF archive entry filename could not be decoded safely.");
+    valid = false;
+  }
+  return valid;
+}
+
 // Reports whether an archive diagnostic prevents a usable read result.
 bool IsFatalDiagnostic(ArchiveDiagnosticCode code) {
   switch (code) {
@@ -536,7 +547,8 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
       return result;
     }
 
-    wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
+    wxFileInputStream input(
+        WxPathUtils::WxStringFromFilesystemPath(sourcePath));
     if (!input.IsOk()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
                     "Could not open GDTF archive.");
@@ -545,6 +557,8 @@ ArchiveReadResult ReadGdtfArchive(const std::filesystem::path &sourcePath) {
 
     const std::vector<RawZipEntryName> rawNames =
         ReadRawCentralDirectoryNames(sourcePath);
+    if (!ValidateRawZipEntryNames(rawNames, result))
+      return result;
     wxZipInputStream zipInput(input);
     std::unique_ptr<wxZipEntry> entry;
     size_t entryIndex = 0;
@@ -679,7 +693,17 @@ GdtfResourceReadResult ReadGdtfArchiveResource(
     return result;
   }
   const std::vector<std::string> preferredPaths = BuildResourcePreferredPaths(normalizedRequest);
-  wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
+  const std::vector<RawZipEntryName> rawNames =
+      ReadRawCentralDirectoryNames(sourcePath);
+  for (const RawZipEntryName &rawName : rawNames) {
+    if (!DecodeZipEntryName(rawName).failed)
+      continue;
+    result.diagnostics.push_back(
+        {ArchiveDiagnosticCode::FilenameDecodeFailed,
+         "A GDTF archive entry filename could not be decoded safely.", {}});
+    return result;
+  }
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(sourcePath));
   if (!input.IsOk()) {
     if (TryReadExplodedGdtfResource(sourcePath, normalizedRequest, preferredPaths, extraResourceRoots, maxBytes, result))
       return result;
@@ -698,9 +722,17 @@ GdtfResourceReadResult ReadGdtfArchiveResource(
   std::vector<Candidate> candidates;
   wxZipInputStream inventory(input);
   std::unique_ptr<wxZipEntry> entry;
+  size_t entryIndex = 0;
   while ((entry.reset(inventory.GetNextEntry())), entry) {
-    const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
-    const std::string path = NormalizeArchivePath(utf8 ? std::string(utf8.data()) : std::string());
+    DecodedZipEntryName decodedName;
+    if (entryIndex < rawNames.size())
+      decodedName = DecodeZipEntryName(rawNames[entryIndex]);
+    else {
+      const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+      decodedName.path = utf8 ? std::string(utf8.data()) : std::string();
+    }
+    ++entryIndex;
+    const std::string path = NormalizeArchivePath(decodedName.path);
     if (entry->IsDir() || IsUnsafeArchivePath(path))
       continue;
     const std::string lowerPath = LowerAscii(path);
@@ -746,11 +778,20 @@ GdtfResourceReadResult ReadGdtfArchiveResource(
     }
   }
 
-  wxFileInputStream dataInput(wxString::FromUTF8(PathToUtf8(sourcePath)));
+  wxFileInputStream dataInput(
+      WxPathUtils::WxStringFromFilesystemPath(sourcePath));
   wxZipInputStream zipInput(dataInput);
+  entryIndex = 0;
   while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
-    const std::string path = NormalizeArchivePath(utf8 ? std::string(utf8.data()) : std::string());
+    DecodedZipEntryName decodedName;
+    if (entryIndex < rawNames.size())
+      decodedName = DecodeZipEntryName(rawNames[entryIndex]);
+    else {
+      const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
+      decodedName.path = utf8 ? std::string(utf8.data()) : std::string();
+    }
+    ++entryIndex;
+    const std::string path = NormalizeArchivePath(decodedName.path);
     if (path != result.entryPath)
       continue;
     const wxFileOffset knownSize = entry->GetSize();
@@ -796,7 +837,8 @@ ExtractGdtfArchive(const std::filesystem::path &sourcePath,
       return result;
     }
 
-    wxFileInputStream input(wxString::FromUTF8(PathToUtf8(sourcePath)));
+    wxFileInputStream input(
+        WxPathUtils::WxStringFromFilesystemPath(sourcePath));
     if (!input.IsOk()) {
       AddDiagnostic(result, ArchiveDiagnosticCode::OpenFailed,
                     "Could not open GDTF archive.");
@@ -805,6 +847,8 @@ ExtractGdtfArchive(const std::filesystem::path &sourcePath,
 
     const std::vector<RawZipEntryName> rawNames =
         ReadRawCentralDirectoryNames(sourcePath);
+    if (!ValidateRawZipEntryNames(rawNames, result))
+      return result;
     wxZipInputStream zipInput(input);
     std::unique_ptr<wxZipEntry> entry;
     size_t entryIndex = 0;
