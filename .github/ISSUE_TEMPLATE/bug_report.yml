@@ -18,15 +18,15 @@ body:
       options:
         - label: I searched existing issues to avoid duplicates
           required: true
-        - label: I am using the latest beta release (or I can specify the exact build/commit)
+        - label: I tested the latest official release, or I will identify the exact development build below
           required: false
 
   - type: input
     id: version
     attributes:
       label: Perastage version
-      description: "Example: 0.1.0 (or commit hash if built from source)"
-      placeholder: "0.1.0"
+      description: "Copy the version shown by Perastage, or provide the commit hash for a source build."
+      placeholder: "Version shown in About, or source commit hash"
     validations:
       required: true
 
@@ -55,11 +55,41 @@ body:
   - type: input
     id: install_method
     attributes:
-      label: Installation method
-      description: "How are you running Perastage?"
-      placeholder: "GitHub Release installer / portable / built from source"
+      label: Installation or build origin
+      description: "Identify the exact package or build source."
+      placeholder: "Official release package / compatibility build / portable package / source build"
+    validations:
+      required: true
+
+  - type: input
+    id: architecture
+    attributes:
+      label: System architecture
+      description: "Examples: x64, arm64, or Apple Silicon."
+      placeholder: "x64"
     validations:
       required: false
+
+  - type: input
+    id: graphics
+    attributes:
+      label: GPU and graphics driver
+      description: "If relevant, provide the GPU model and graphics-driver version."
+      placeholder: "GPU model and driver version"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does this happen?
+      options:
+        - Always
+        - Intermittently
+        - Only under specific conditions (describe below)
+        - Unsure
+    validations:
+      required: true
 
   - type: textarea
     id: repro_steps
@@ -93,8 +123,8 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Logs / console output
-      description: "Paste relevant logs here. You can also attach a file if it's long."
+      label: Diagnostic report, crash report, or logs (optional)
+      description: "Use Help -> Export Diagnostic Report. If Perastage terminated unexpectedly, also check Help -> Open Logs Folder and attach the relevant file from its crash_reports folder. You may paste short console output here."
       render: text
     validations:
       required: false
@@ -103,8 +133,8 @@ body:
     id: attachments
     attributes:
       label: Attachments (optional)
-      description: "Screenshots, sample files (MVR/GDTF), or minimal reproduction projects."
-      placeholder: "Drag and drop files here, or describe what you can share."
+      description: "When relevant, attach screenshots and a minimal MVR, GDTF, project, or other reproduction file. Remove confidential production data and do not upload anything you are not allowed to share publicly."
+      placeholder: "Drag and drop files here, or describe the minimal example you can share."
     validations:
       required: false
 
@@ -112,6 +142,6 @@ body:
     id: extra
     attributes:
       label: Additional context
-      placeholder: "Anything else that might help diagnose the issue (hardware, GPU, etc.)."
+      placeholder: "Describe specific conditions, recent changes, or anything else that may help."
     validations:
       required: false
