@@ -24,7 +24,7 @@ Support is a standard MVR scene node and is preserved as `<Support>` during impo
 
 ## Standalone MVR and project fixture metadata
 
-Standalone MVR export remains the canonical interchange contract. It emits no direct Fixture extension children and retains `FixtureTypeInfoMap` as portable type-level Perastage metadata. Project save explicitly enables an additional root-level `ProjectFixtureMetadataMap`, scoped by `Data provider="Perastage" ver="1.0"` and its own `schemaVersion="1.0"`. Entries are sorted by canonical fixture UUID and preserve instance-owned `visualColorHex` values without applying one fixture's override to other fixtures of the same type.
+Standalone MVR export remains the canonical interchange contract. It emits no direct Fixture extension children and retains `FixtureTypeInfoMap` as portable type-level Perastage metadata. Project save explicitly enables an additional root-level `ProjectFixtureMetadataMap`, scoped by `Data provider="Perastage" ver="1.0"` and its own `schemaVersion="1.0"`. Entries are sorted by canonical fixture UUID and preserve instance-owned `visualColorHex` values, including an explicit empty value through `hasVisualColorHex="false"`, without applying one fixture's override to other fixtures of the same type.
 
 Only `ProjectRestore` consumes this project-only map. External and merge imports ignore it. Within project restore, a valid instance entry overrides weaker type-level color metadata. The reader accepts the first valid duplicate deterministically, diagnoses later duplicates, rejects malformed UUIDs and unsupported versions, and diagnoses entries whose UUID does not identify an imported fixture. Foreign providers never affect project fixture state.
 

@@ -1207,11 +1207,23 @@ coverage exercises ProjectRestore-only application, external/merge isolation,
 duplicates, malformed and unknown UUIDs, unsupported versions, foreign data,
 and invalid colors.
 
-Local Linux Debug proved `MvrPerastageMetadataRecovery` green and both requested
-closure assertions resolved. The primary tests then exposed unrelated retained
-assertions: `SaveLoadRoundtrip` reaches Viewer2D fixture-label override
-persistence at line 353, and `MvrExporterCompliance` reaches primitive sphere
-geometry-matrix behavior at line 989. Both are explicit Phase 4F stop-condition
-domains, so they were not changed or hidden. Bounded primary repetition, scoped
-controls, final cross-platform CI, and D4C declaration are withheld. No test
-registration, label, timeout, or intended assertion was disabled or weakened.
+Run `30249758520` at reviewed head
+`2cd6ebdebeeec03c92f958f4e80544fe3780c4ff` confirms the two monolithic tests
+now stop only at independent retained assertions: `SaveLoadRoundtrip` at the
+Viewer2D fixture-label override assertion on line 353 and
+`MvrExporterCompliance` at the primitive sphere matrix assertion on line 989.
+Linux retained 17 failing names and Windows retained 20, with no added failure
+name; the reduced macOS profile remained 6 of 6.
+
+Independent Phase 4F evidence is registered as
+`MvrProjectFixtureMetadataContracts`. Its minimal scene verifies standalone and
+project export boundaries, two project cycles, per-instance colors (including
+an explicit empty override), FixtureID text/numeric repair without editable
+scene mutation, deterministic metadata and numeric repair, and semantic
+case-collision GDTF resources. The focused test exposed and drove one bounded
+production correction: project saves now represent an explicit empty color so
+weaker type metadata cannot repopulate it. Locally the focused test passed five
+consecutive repetitions, and all nine requested registered scoped controls
+passed. Final cross-platform CI for the new test is still required before D4C
+can be declared. No test, assertion, registration, label, timeout, or coverage
+was hidden or weakened.
