@@ -10,10 +10,12 @@ namespace {
 
 constexpr float kEpsilon = 0.001f;
 
+// Compares scene dimensions within the importer test tolerance.
 bool NearlyEqual(float a, float b) { return std::abs(a - b) < kEpsilon; }
 
 } // namespace
 
+// Verifies pipe target expansion and primitive scene-object creation.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -106,6 +108,7 @@ int main() {
   const auto fixtureIt = pipeCoordinateOverrideScene.fixtures.begin();
   assert(NearlyEqual(fixtureIt->second.transform.o[1], 3000.0f));
   assert(NearlyEqual(fixtureIt->second.transform.o[2], 7000.0f));
+
 
   return 0;
 }

@@ -1238,3 +1238,13 @@ Phase 5A classifies `RiderComments` and `RiderFilterPreview` as stale snapshot
 expectations. The production formatter already emits consistent compact blocks,
 omits removed comments rather than materializing empty blocks, normalizes CRLF
 input, and is idempotent; focused tests now encode those byte-level invariants.
+
+
+Authoritative run `30270379861` at reviewed head
+`b1351fcd989cd753bfeaedb1106375cbeddf7595` confirms that both original Phase 5B
+blockers advanced. `RiderHoistImport` now first stops at the independent Phase 5D
+`filteredBackdropTrussHasModelInfo` assertion, while `RiderPipeImport` now first
+stops at the independent Phase 5C fixture-coordinate Y assertion. The registered
+`RiderRiggingTargetNormalizationContracts` test isolates hoist alias and pipe LX
+target contracts from those later failures; the local focused run and five repeat
+runs pass. E2 remains pending cross-platform focused-test evidence.

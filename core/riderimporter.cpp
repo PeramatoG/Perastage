@@ -141,7 +141,7 @@ Matrix BuildPipeObjectTransform(float pipeLengthMm, float pipeDiameterMm,
 // even when processing large riders.
 static const std::regex
     kTrussLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)"
-                 "\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)"
+                 "\\s+(?:([^\\n]*?)\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)"
                  "\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussLineNoLengthRe(
@@ -698,6 +698,7 @@ std::vector<std::string> SplitPlus(const std::string &s) {
 bool IsFloorAlias(std::string_view value);
 bool IsLxSidesAlias(std::string_view value);
 
+// Converts rider hang aliases into their canonical target names.
 std::string NormalizeHangName(const std::string &raw) {
   std::string hang = Trim(raw);
   if (hang.empty())
@@ -709,11 +710,14 @@ std::string NormalizeHangName(const std::string &raw) {
     return {};
   if (IsFloorAlias(hang))
     return "FLOOR";
-  if (IsLxSidesAlias(hang))
-    return "LX SIDES";
   std::transform(hang.begin(), hang.end(), hang.begin(), [](unsigned char c) {
     return static_cast<char>(std::toupper(c));
   });
+  hang = std::regex_replace(hang, std::regex("\\s+"), " ");
+  if (hang == "SIDE FILL" || hang == "SIDEFILL")
+    return "SIDEFILL";
+  if (IsLxSidesAlias(hang))
+    return "LX SIDES";
   if (hang.rfind("PUENTES ", 0) == 0)
     hang = Trim(hang.substr(8));
   else if (hang.rfind("PUENTE ", 0) == 0)
@@ -725,8 +729,6 @@ std::string NormalizeHangName(const std::string &raw) {
   if (hang == "BACKDROP" || hang == "BACKDROPS" || hang == "TELON" ||
       hang == "TELONES")
     return "BACKDROP";
-  if (hang == "SIDE FILL")
-    return "SIDEFILL";
   if (hang == "P.A." || hang == "P.A" || hang == "PA")
     return "PA";
   return hang;
@@ -1006,12 +1008,20 @@ bool IsFloorAlias(std::string_view value) {
   return effectAlias || floorAlias || streetToFloorAlias || groundLaneAlias;
 }
 
+// Reports whether a normalized hang is an explicit side-truss alias.
 bool IsLxSidesAlias(std::string_view value) {
-  const bool hasStreetAlias = ContainsCaseInsensitive(value, "calle");
-  const bool hasSideAlias = ContainsCaseInsensitive(value, "side");
-  const bool hasFloorAlias = ContainsCaseInsensitive(value, "suelo") ||
-                             ContainsCaseInsensitive(value, "ground");
-  return (hasStreetAlias || hasSideAlias) && !hasFloorAlias;
+  return value == "SIDE" || value == "SIDES" || value == "LX SIDE" ||
+         value == "LX SIDES" || value == "CALLE" || value == "CALLES";
+}
+
+// Expands only the generic LX target while preserving explicit targets.
+std::vector<std::string> ExpandRiggingTargets(const std::string &target,
+                                              int quantity) {
+  std::vector<std::string> targets;
+  targets.reserve(static_cast<size_t>(std::max(quantity, 0)));
+  for (int i = 0; i < quantity; ++i)
+    targets.push_back(target == "LX" ? "LX" + std::to_string(i + 1) : target);
+  return targets;
 }
 
 std::string ReadTextFile(const std::string &path) {
@@ -1436,13 +1446,8 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
         }
       };
 
-      if (hang == "LX") {
-        for (int i = 0; i < quantity; ++i)
-          buildLine("LX" + std::to_string(i + 1));
-      } else {
-        for (int i = 0; i < quantity; ++i)
-          buildLine(hang);
-      }
+      for (const std::string &target : ExpandRiggingTargets(hang, quantity))
+        buildLine(target);
       continue;
     }
 
@@ -1504,14 +1509,14 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       if (!keepLine)
         continue;
 
-      for (int i = 0; i < quantity; ++i) {
+      for (const std::string &target : ExpandRiggingTargets(hang, quantity)) {
         std::string out = "1 " + riggingKeyword;
         if (!model.empty())
           out += " " + model;
         if (riggingKind == RiggingLineKind::Pipe)
           out += " 14m";
-        if (!hang.empty())
-          out += " " + hang;
+        if (!target.empty())
+          out += " " + target;
         if (!trussCoordinateSuffix.empty())
           out += " " + trussCoordinateSuffix;
         if (!trussMarginSuffix.empty())
@@ -2506,23 +2511,12 @@ bool RiderImporter::ImportText(const std::string &text,
                              : std::nullopt;
         };
 
-        if (hang == "LX") {
-          for (int i = 0; i < quantity; ++i) {
-            const std::string posName = "LX" + std::to_string(i + 1);
-            if (riggingKind == RiggingLineKind::Pipe) {
-              addPipeObject(posName, resolveCoordinateOverride(posName));
-            } else {
-              addTrussPieces(posName, resolveCoordinateOverride(posName));
-            }
-          }
-        } else {
-          for (int i = 0; i < quantity; ++i) {
-            if (riggingKind == RiggingLineKind::Pipe) {
-              addPipeObject(hang, resolveCoordinateOverride(hang));
-            } else {
-              addTrussPieces(hang, resolveCoordinateOverride(hang));
-            }
-          }
+        for (const std::string &target :
+             ExpandRiggingTargets(hang, quantity)) {
+          if (riggingKind == RiggingLineKind::Pipe)
+            addPipeObject(target, resolveCoordinateOverride(target));
+          else
+            addTrussPieces(target, resolveCoordinateOverride(target));
         }
       } else if (std::regex_match(line, m, kTrussLineNoLengthRe) &&
                  !std::regex_search(line, kLengthWithUnitRe)) {
@@ -2640,15 +2634,9 @@ bool RiderImporter::ImportText(const std::string &text,
                                : std::nullopt;
           };
 
-          if (hang == "LX") {
-            for (int i = 0; i < quantity; ++i) {
-              const std::string posName = "LX" + std::to_string(i + 1);
-              addPipeObject(posName, resolveOverride(posName));
-            }
-          } else {
-            for (int i = 0; i < quantity; ++i)
-              addPipeObject(hang, resolveOverride(hang));
-          }
+          for (const std::string &target :
+               ExpandRiggingTargets(hang, quantity))
+            addPipeObject(target, resolveOverride(target));
           continue;
         }
 

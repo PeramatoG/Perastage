@@ -10,6 +10,7 @@
 #include "configmanager.h"
 #include "riderimporter.h"
 
+// Verifies Rider hoist normalization, placement, and metadata.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -300,6 +301,7 @@ int main() {
   assert(sideHoistNameCounts["SIDE L 2"] == 1);
   assert(sideHoistNameCounts["SIDE R 1"] == 1);
   assert(sideHoistNameCounts["SIDE R 2"] == 1);
+
 
   return 0;
 }
