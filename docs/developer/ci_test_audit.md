@@ -1269,3 +1269,10 @@ failure name and kept macOS at 6 of 6. `RiderHoistImport` advanced to a stale
 per-piece 12 m BACKDROP assertion; the inherited 12 m span is represented by
 multiple contiguous standard pieces, so final E4 evidence remains pending the
 aggregate-span correction.
+
+At head `080bf59da85dff8849ead91118e300389a20c66d`, authoritative run
+`30287799107` made `RiderHoistImport` green on Linux and Windows, verifying the
+aggregate BACKDROP span correction. `RiderTrussDictionaryNormalization` failed
+only because its new assertions compared the managed dictionary copy with its
+temporary import source; no unrelated failure name changed and macOS remained
+6 of 6. E4 remains pending the managed-path test correction.

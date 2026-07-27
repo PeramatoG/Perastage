@@ -582,3 +582,7 @@ Perastage parses rider text by identifying sections, hang positions, fixture lin
 - Rider truss resource tests distinguish supported 3D resource-path resolution
   from mesh rendering validation. GLB/3DS decoding and native mesh dimensions
   remain owned by the dedicated model-loader tests.
+- Truss dictionary imports are copied into the active dictionary's managed
+  storage. Dictionary-backed Rider trusses use that managed GDTF archive for
+  `modelFile` and `gdtfSpec`; a transient import source is not their stable
+  resource identity.
