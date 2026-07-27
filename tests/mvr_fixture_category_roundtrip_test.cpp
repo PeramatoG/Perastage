@@ -2,32 +2,86 @@
  * This file is part of Perastage.
  */
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <tinyxml2.h>
+#include <wx/init.h>
+#include <wx/mstream.h>
+#include <wx/utils.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
-#include <wx/init.h>
-
 #include "configmanager.h"
 #include "fixture.h"
+#include "gdtf_test_fixture_builder.h"
 #include "gdtfdictionary.h"
 #include "layer.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
-#include "projectutils.h"
+#include "wx_path_utils.h"
 
-// Reads GeneralSceneDescription.xml from an exported MVR package.
-static std::string ReadSceneXml(const std::filesystem::path &mvrPath) {
-  wxFileInputStream input(mvrPath.string());
+namespace fs = std::filesystem;
+
+struct ArchiveEntry {
+  std::string name;
+  std::string bytes;
+};
+
+// Reads every root entry from a ZIP package without discarding duplicate names.
+static std::vector<ArchiveEntry> ReadArchive(const fs::path &path) {
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
+  wxZipInputStream zip(input);
+  std::vector<ArchiveEntry> entries;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry()), entry)) {
+    ArchiveEntry result{entry->GetName().ToStdString(), {}};
+    char buffer[4096];
+    while (zip.CanRead()) {
+      zip.Read(buffer, sizeof(buffer));
+      const size_t read = zip.LastRead();
+      if (read == 0)
+        break;
+      result.bytes.append(buffer, read);
+    }
+    entries.push_back(std::move(result));
+  }
+  return entries;
+}
+
+// Returns the bytes of one uniquely named package entry.
+static std::string FindUniqueEntry(const std::vector<ArchiveEntry> &entries,
+                                   const std::string &name) {
+  std::string bytes;
+  int count = 0;
+  for (const auto &entry : entries) {
+    if (entry.name == name) {
+      bytes = entry.bytes;
+      ++count;
+    }
+  }
+  assert(count == 1);
+  return bytes;
+}
+
+// Reads a binary file into a string for embedding in a compatibility package.
+static std::string ReadFileBytes(const fs::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(input), {});
+}
+
+// Reads description.xml from embedded GDTF archive bytes.
+static std::string ReadGdtfDescription(const std::string &archiveBytes) {
+  wxMemoryInputStream input(archiveBytes.data(), archiveBytes.size());
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zip.GetNextEntry()), entry)) {
-    if (entry->GetName() != "GeneralSceneDescription.xml")
+    if (entry->GetName() != "description.xml")
       continue;
     std::string xml;
     char buffer[4096];
@@ -43,42 +97,63 @@ static std::string ReadSceneXml(const std::filesystem::path &mvrPath) {
   return {};
 }
 
-// Writes a minimal MVR whose XML GDTFSpec uses an old name while the package uses a canonical name.
+// Verifies that a fixture's GDTF reference names one package resource and mode.
+static void VerifyFixtureGdtfReference(const tinyxml2::XMLElement *fixture,
+                                       const std::vector<ArchiveEntry> &entries) {
+  const auto *spec = fixture->FirstChildElement("GDTFSpec");
+  const auto *mode = fixture->FirstChildElement("GDTFMode");
+  assert(spec && spec->GetText());
+  assert(mode && mode->GetText());
+  const std::string description =
+      ReadGdtfDescription(FindUniqueEntry(entries, spec->GetText()));
+  tinyxml2::XMLDocument document;
+  assert(document.Parse(description.c_str()) == tinyxml2::XML_SUCCESS);
+  const auto *fixtureType = document.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
+  const auto *dmxModes = fixtureType->FirstChildElement("DMXModes");
+  bool foundMode = false;
+  for (const auto *dmxMode = dmxModes->FirstChildElement("DMXMode"); dmxMode;
+       dmxMode = dmxMode->NextSiblingElement("DMXMode")) {
+    foundMode = foundMode ||
+                (dmxMode->Attribute("Name") &&
+                 std::string(dmxMode->Attribute("Name")) == mode->GetText());
+  }
+  assert(foundMode);
+}
+
+// Writes a compatibility MVR whose XML uses an old GDTF name remapped to a real archive.
 static void WriteCanonicalGdtfNameMismatchMvr(
-    const std::filesystem::path &mvrPath, const std::string &xmlGdtfSpec,
-    const std::string &archiveGdtfName) {
-  wxFileOutputStream output(mvrPath.string());
+    const fs::path &mvrPath, const std::string &xmlGdtfSpec,
+    const std::string &archiveGdtfName, const std::string &gdtfBytes) {
+  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(mvrPath));
   assert(output.IsOk());
   wxZipOutputStream zip(output);
-  auto writeEntry = [&](const std::string &entryName,
-                        const std::string &content) {
+  auto writeEntry = [&](const std::string &entryName, const std::string &content) {
     auto *entry = new wxZipEntry(entryName);
     entry->SetMethod(wxZIP_METHOD_DEFLATE);
     assert(zip.PutNextEntry(entry));
-    zip.Write(content.c_str(), content.size());
+    zip.Write(content.data(), content.size());
     assert(zip.CloseEntry());
   };
 
   const std::string xml =
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
-      "provider=\"Perastage\" providerVersion=\"test\">"
-      "<Scene><Layers><Layer uuid=\"layer1\" name=\"Layer1\"><ChildList>"
-      "<Fixture uuid=\"33333333-3333-3333-3333-333333333333\" "
-      "name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><GDTFSpec>" +
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Perastage\" providerVersion=\"test\">"
+      "<Scene><Layers><Layer uuid=\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\" name=\"Layer1\"><ChildList>"
+      "<Fixture uuid=\"33333333-3333-4333-8333-333333333333\" name=\"Fixture\">"
+      "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><GDTFSpec>" +
       xmlGdtfSpec +
-      "</GDTFSpec><GDTFMode>Default</GDTFMode><FixtureID>1</FixtureID>"
+      "</GDTFSpec><GDTFMode>ModeA</GDTFMode><FixtureID>1</FixtureID>"
       "<FixtureIDNumeric>1</FixtureIDNumeric></Fixture>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   writeEntry("GeneralSceneDescription.xml", xml);
-  writeEntry(archiveGdtfName, "fixture");
+  writeEntry(archiveGdtfName, gdtfBytes);
   assert(zip.Close());
 }
 
 // Returns true when a fixture's direct XML children follow the expected MVR order.
-static bool FixtureChildrenHaveExpectedOrder(tinyxml2::XMLElement *fixture) {
+static bool FixtureChildrenHaveExpectedOrder(const tinyxml2::XMLElement *fixture) {
   int lastIndex = -1;
-  for (tinyxml2::XMLElement *child = fixture->FirstChildElement(); child;
+  for (auto *child = fixture->FirstChildElement(); child;
        child = child->NextSiblingElement()) {
     const std::string name = child->Name();
     int index = -1;
@@ -98,31 +173,37 @@ static bool FixtureChildrenHaveExpectedOrder(tinyxml2::XMLElement *fixture) {
   return true;
 }
 
-// Verifies fixture category metadata export/import compatibility.
+// Verifies canonical fixture category and GDTF reference round trips.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
 
+  const fs::path tempDir = fs::temp_directory_path() /
+                           "mvr_fixture_category_roundtrip";
+  fs::remove_all(tempDir);
+  fs::create_directories(tempDir);
+  const fs::path isolatedLibrary = tempDir / "library";
+  fs::create_directories(isolatedLibrary / "fixtures");
+  assert(wxSetEnv("PERASTAGE_LIBRARY_PATH",
+                  WxPathUtils::WxStringFromFilesystemPath(isolatedLibrary)));
+
+  const fs::path fixturePath = tempDir / "fixture.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithDmxMode("ModeA", "Root")
+      .WriteArchive(fixturePath);
+
   auto &cfg = ConfigManager::Get();
   cfg.Reset();
   MvrScene &scene = cfg.GetScene();
+  scene.basePath = tempDir.string();
 
   Layer layer;
-  layer.uuid = "layer1";
+  layer.uuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   layer.name = "Layer1";
   scene.layers[layer.uuid] = layer;
 
-  const std::filesystem::path tempDir =
-      std::filesystem::temp_directory_path() / "mvr_fixture_category_roundtrip";
-  std::filesystem::remove_all(tempDir);
-  std::filesystem::create_directories(tempDir);
-
-  const std::filesystem::path fixturePath = tempDir / "fixture.gdtf";
-  std::ofstream(fixturePath) << "fixture";
-  scene.basePath = tempDir.string();
-
   Fixture fixture;
-  fixture.uuid = "11111111-1111-1111-1111-111111111111";
+  fixture.uuid = "11111111-1111-4111-8111-111111111111";
   fixture.instanceName = "Fixture One";
   fixture.layer = layer.name;
   fixture.typeName = "FixtureType";
@@ -134,7 +215,7 @@ int main() {
   scene.fixtures[fixture.uuid] = fixture;
 
   Fixture fixtureTwo = fixture;
-  fixtureTwo.uuid = "22222222-2222-2222-2222-222222222222";
+  fixtureTwo.uuid = "22222222-2222-4222-8222-222222222222";
   fixtureTwo.instanceName = "Fixture Two";
   fixtureTwo.typeName = "FixtureType2";
   scene.fixtures[fixtureTwo.uuid] = fixtureTwo;
@@ -142,32 +223,36 @@ int main() {
   GdtfDictionary::Update("FixtureType", fixturePath.string(), "ModeA", "Wash");
   GdtfDictionary::Update("FixtureType2", fixturePath.string(), "ModeA", "Beam");
 
-  const std::filesystem::path mvrPath = tempDir / "fixture_category.mvr";
+  const fs::path mvrPath = tempDir / "fixture_category.mvr";
   MvrExporter exporter;
   assert(exporter.ExportToFile(mvrPath.string()));
 
-  const std::string sceneXmlText = ReadSceneXml(mvrPath);
-  assert(!sceneXmlText.empty());
+  const auto entries = ReadArchive(mvrPath);
+  const std::string sceneXmlText =
+      FindUniqueEntry(entries, "GeneralSceneDescription.xml");
   assert(sceneXmlText.find("CategoryReason") == std::string::npos);
   tinyxml2::XMLDocument xml;
   assert(xml.Parse(sceneXmlText.c_str()) == tinyxml2::XML_SUCCESS);
   auto *root = xml.FirstChildElement("GeneralSceneDescription");
-  assert(root != nullptr);
   auto *rootUserData = root->FirstChildElement("UserData");
-  assert(rootUserData != nullptr);
-  auto *fixtureTypeMap = rootUserData->FirstChildElement("Data")->FirstChildElement("FixtureTypeInfoMap");
-  assert(fixtureTypeMap != nullptr);
-  auto *fixtureTypeInfo =
-      fixtureTypeMap->FirstChildElement("FixtureTypeInfo");
-  assert(fixtureTypeInfo != nullptr);
+  assert(rootUserData);
+  auto *fixtureTypeMap = rootUserData->FirstChildElement("Data")
+                             ->FirstChildElement("FixtureTypeInfoMap");
+  assert(fixtureTypeMap);
+  auto *fixtureTypeInfo = fixtureTypeMap->FirstChildElement("FixtureTypeInfo");
+  assert(fixtureTypeInfo);
   assert(fixtureTypeInfo->NextSiblingElement("FixtureTypeInfo") == nullptr);
-  assert(fixtureTypeInfo->FirstChildElement("VisualColor") != nullptr);
-  assert(std::string(
-             fixtureTypeInfo->FirstChildElement("VisualColor")->GetText()) ==
+  assert(std::string(fixtureTypeInfo->FirstChildElement("Category")->GetText()) ==
+         "Spot");
+  assert(std::string(fixtureTypeInfo->FirstChildElement("CategorySource")->GetText()) ==
+         "Manual");
+  assert(std::string(fixtureTypeInfo->FirstChildElement("VisualColor")->GetText()) ==
          "#336699");
 
   int exportedFixtureCount = 0;
-  for (auto *layerNode = root->FirstChildElement("Scene")->FirstChildElement("Layers")->FirstChildElement("Layer");
+  for (auto *layerNode = root->FirstChildElement("Scene")
+                             ->FirstChildElement("Layers")
+                             ->FirstChildElement("Layer");
        layerNode; layerNode = layerNode->NextSiblingElement("Layer")) {
     auto *childList = layerNode->FirstChildElement("ChildList");
     if (!childList)
@@ -175,11 +260,12 @@ int main() {
     for (auto *fixtureNode = childList->FirstChildElement("Fixture"); fixtureNode;
          fixtureNode = fixtureNode->NextSiblingElement("Fixture")) {
       ++exportedFixtureCount;
-      assert(fixtureNode->Attribute("uuid") != nullptr);
-      assert(fixtureNode->Attribute("name") != nullptr);
+      assert(fixtureNode->Attribute("uuid"));
+      assert(fixtureNode->Attribute("name"));
       assert(fixtureNode->FirstChildElement("UserData") == nullptr);
-      assert(fixtureNode->FirstChildElement("UnitNumber") != nullptr);
+      assert(fixtureNode->FirstChildElement("UnitNumber"));
       assert(FixtureChildrenHaveExpectedOrder(fixtureNode));
+      VerifyFixtureGdtfReference(fixtureNode, entries);
     }
   }
   assert(exportedFixtureCount == 2);
@@ -190,66 +276,81 @@ int main() {
   assert(importer.ImportFromFile(mvrPath.string(), false, false));
   assert(GdtfDictionary::GetSaveCallCountForTesting() == 1);
 
-  const auto &loaded = cfg.GetScene().fixtures;
-  assert(loaded.size() == 2);
-  const Fixture &loadedFixture = loaded.at("11111111-1111-1111-1111-111111111111");
-  assert(loadedFixture.category == "Spot");
-  assert(loadedFixture.visualColorHex == "#336699");
-  assert(loaded.at("22222222-2222-2222-2222-222222222222").category == "Spot");
-  assert(loaded.at("22222222-2222-2222-2222-222222222222")
-             .visualColorHex == "#336699");
+  const auto verifyImported = [&](const MvrScene &imported) {
+    assert(imported.fixtures.size() == 2);
+    for (const auto &uuid : {fixture.uuid, fixtureTwo.uuid}) {
+      const Fixture &loaded = imported.fixtures.at(uuid);
+      assert(loaded.category == "Spot");
+      assert(loaded.categorySource == "Manual");
+      assert(loaded.visualColorHex == "#336699");
+      assert(!loaded.gdtfSpec.empty());
+      assert(loaded.gdtfMode == "ModeA");
+    }
+  };
+  verifyImported(cfg.GetScene());
 
-  // Dictionary should be updated with scene (MVR) priority category.
-  auto entry = GdtfDictionary::Get("FixtureType");
-  assert(entry.has_value());
-  assert(entry->category == "Spot");
-  auto secondEntry = GdtfDictionary::Get("FixtureType2");
-  assert(secondEntry.has_value());
-  assert(secondEntry->category == "Spot");
+  const fs::path secondMvrPath = tempDir / "fixture_category_second.mvr";
+  assert(exporter.ExportToFile(secondMvrPath.string()));
+  const auto secondEntries = ReadArchive(secondMvrPath);
+  const std::string secondSceneXml =
+      FindUniqueEntry(secondEntries, "GeneralSceneDescription.xml");
+  tinyxml2::XMLDocument secondXml;
+  assert(secondXml.Parse(secondSceneXml.c_str()) == tinyxml2::XML_SUCCESS);
+  for (auto *fixtureNode = secondXml.FirstChildElement("GeneralSceneDescription")
+                               ->FirstChildElement("Scene")
+                               ->FirstChildElement("Layers")
+                               ->FirstChildElement("Layer")
+                               ->FirstChildElement("ChildList")
+                               ->FirstChildElement("Fixture");
+       fixtureNode; fixtureNode = fixtureNode->NextSiblingElement("Fixture")) {
+    VerifyFixtureGdtfReference(fixtureNode, secondEntries);
+  }
+  cfg.Reset();
+  assert(importer.ImportFromFile(secondMvrPath.string(), false, false));
+  verifyImported(cfg.GetScene());
 
-  const std::filesystem::path canonicalMismatchMvrPath =
+  const fs::path canonicalMismatchMvrPath =
       tempDir / "canonical_gdtf_name_mismatch.mvr";
+  const std::string canonicalName = "Generic@Generic_1ch@Perastage.gdtf";
   WriteCanonicalGdtfNameMismatchMvr(
-      canonicalMismatchMvrPath, "Generic 1ch.gdtf",
-      "Generic@Generic_1ch@Perastage.gdtf");
-  MvrImportResult canonicalMismatchResult;
-  MvrImportOptions canonicalMismatchOptions;
-  canonicalMismatchOptions.promptConflicts = false;
-  canonicalMismatchOptions.applyDictionary = false;
-  canonicalMismatchOptions.preserveMvrGdtfReferences = true;
-  assert(importer.ImportFromFile(canonicalMismatchMvrPath.string(),
-                                 canonicalMismatchResult,
-                                 MvrImportMode::ParseOnly,
-                                 canonicalMismatchOptions));
-  const auto &canonicalMismatchFixture =
-      canonicalMismatchResult.scene.fixtures.at(
-          "33333333-3333-3333-3333-333333333333");
-  assert(std::filesystem::path(canonicalMismatchFixture.gdtfSpec).filename() ==
-         "Generic@Generic_1ch@Perastage.gdtf");
+      canonicalMismatchMvrPath, "Generic 1ch.gdtf", canonicalName,
+      ReadFileBytes(fixturePath));
+  MvrImportResult mismatchResult;
+  MvrImportOptions mismatchOptions;
+  mismatchOptions.promptConflicts = false;
+  mismatchOptions.applyDictionary = false;
+  mismatchOptions.preserveMvrGdtfReferences = true;
+  assert(importer.ImportFromFile(canonicalMismatchMvrPath.string(), mismatchResult,
+                                 MvrImportMode::ParseOnly, mismatchOptions));
+  const auto &mismatchFixture = mismatchResult.scene.fixtures.at(
+      "33333333-3333-4333-8333-333333333333");
+  assert(fs::path(mismatchFixture.gdtfSpec).filename() == canonicalName);
+  assert(mismatchFixture.gdtfMode == "ModeA");
 
   cfg.Reset();
-  MvrScene &scene2 = cfg.GetScene();
-  scene2.layers[layer.uuid] = layer;
-  Fixture fixtureWithoutCategory = fixture;
-  fixtureWithoutCategory.category.clear();
-  fixtureWithoutCategory.categorySource.clear();
-  scene2.fixtures[fixtureWithoutCategory.uuid] = fixtureWithoutCategory;
-  Fixture fixtureTwoWithoutCategory = fixtureTwo;
-  fixtureTwoWithoutCategory.category.clear();
-  fixtureTwoWithoutCategory.categorySource.clear();
-  scene2.fixtures[fixtureTwoWithoutCategory.uuid] = fixtureTwoWithoutCategory;
-
-  const std::filesystem::path noCategoryMvrPath = tempDir / "fixture_no_category.mvr";
+  MvrScene &sceneWithoutCategory = cfg.GetScene();
+  sceneWithoutCategory.basePath = tempDir.string();
+  sceneWithoutCategory.layers[layer.uuid] = layer;
+  fixture.category.clear();
+  fixture.categorySource.clear();
+  fixture.categorySourceReason.clear();
+  fixtureTwo.category.clear();
+  fixtureTwo.categorySource.clear();
+  fixtureTwo.categorySourceReason.clear();
+  sceneWithoutCategory.fixtures[fixture.uuid] = fixture;
+  sceneWithoutCategory.fixtures[fixtureTwo.uuid] = fixtureTwo;
+  const fs::path noCategoryMvrPath = tempDir / "fixture_no_category.mvr";
   assert(exporter.ExportToFile(noCategoryMvrPath.string()));
-
   cfg.Reset();
   assert(importer.ImportFromFile(noCategoryMvrPath.string(), false, false));
-  const auto &loadedNoCategory = cfg.GetScene().fixtures;
-  assert(loadedNoCategory.at("11111111-1111-1111-1111-111111111111").category == "Spot");
-  assert(loadedNoCategory.at("22222222-2222-2222-2222-222222222222").category == "Spot");
+  for (const auto &uuid : {fixture.uuid, fixtureTwo.uuid}) {
+    const Fixture &loaded = cfg.GetScene().fixtures.at(uuid);
+    assert(loaded.category == "Unknown");
+    assert(loaded.categorySource == "AutoFallback");
+    assert(!loaded.categorySourceReason.empty());
+  }
 
-  std::filesystem::remove_all(tempDir);
-  std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +
-                          "/fixture.gdtf");
+  cfg.Reset();
+  fs::remove_all(tempDir);
   return 0;
 }

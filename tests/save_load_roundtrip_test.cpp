@@ -23,6 +23,7 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixture_label_overrides.h"
+#include "gdtf_test_fixture_builder.h"
 #include "gdtfdictionary.h"
 #include "layer.h"
 #include "projectutils.h"
@@ -31,6 +32,7 @@
 #include "truss.h"
 #include "uuidutils.h"
 
+// Verifies project persistence and dictionary normalization round trips.
 int main() {
     wxInitializer initializer;
     assert(initializer.IsOk());
@@ -49,8 +51,14 @@ int main() {
   std::filesystem::path tempDir =
       std::filesystem::temp_directory_path() / "gdtf_roundtrip";
     std::filesystem::create_directories(tempDir);
-    std::ofstream(tempDir / "orig.gdtf") << "orig";
-    std::ofstream(tempDir / "dict.gdtf") << "dict";
+    tests::gdtf::BuildMinimalValidFixture()
+        .WithFixtureIdentity("Original", "Perastage",
+                             "11111111-1111-4111-8111-111111111111")
+        .WriteArchive(tempDir / "orig.gdtf");
+    tests::gdtf::BuildMinimalValidFixture()
+        .WithFixtureIdentity("Dictionary", "Perastage",
+                             "22222222-2222-4222-8222-222222222222")
+        .WriteArchive(tempDir / "dict.gdtf");
     scene.basePath = tempDir.string();
 
     // Dictionary entry that should NOT be applied on load
@@ -64,6 +72,16 @@ int main() {
     assert(fixtureTypeSpaced.has_value());
     assert(fixtureTypeSpaced->path == fixtureTypeCanonical->path);
     std::ofstream(tempDir / "Dummy 1ch.gdtf") << "dummy";
+    tests::gdtf::BuildMinimalValidFixture()
+        .WithFixtureIdentity("Shared A", "Perastage",
+                             "aaaaaaaa-1111-4111-8111-111111111111")
+        .WithDmxMode("Mode A", "Root")
+        .WriteArchive(tempDir / "shared.gdtf");
+    tests::gdtf::BuildMinimalValidFixture()
+        .WithFixtureIdentity("Shared B", "Perastage",
+                             "bbbbbbbb-2222-4222-8222-222222222222")
+        .WithDmxMode("Mode B", "Root")
+        .WriteArchive(tempDir / "subdir" / "shared.gdtf");
   GdtfDictionary::Update("Dummy 1ch", (tempDir / "Dummy 1ch.gdtf").string(),
                          "");
     auto dummyEntry = GdtfDictionary::Get("Dummy 1ch");

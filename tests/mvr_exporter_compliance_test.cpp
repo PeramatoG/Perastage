@@ -21,6 +21,7 @@
 #include "build_info.h"
 #include "configmanager.h"
 #include "fixture.h"
+#include "gdtf_test_fixture_builder.h"
 #include "matrixutils.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
@@ -194,21 +195,11 @@ static void AssertGeneratedGdtfVersioning(const fs::path &gdtfPath) {
 
 // Writes a minimal valid GDTF archive for exporter resource resolution tests.
 static void WriteMinimalGdtfArchive(const fs::path &gdtfPath,
-                                    const std::string &fixtureName) {
-  wxFileOutputStream output(gdtfPath.generic_string());
-  assert(output.IsOk());
-  wxZipOutputStream zip(output);
-  auto *entry = new wxZipEntry("description.xml");
-  entry->SetMethod(wxZIP_METHOD_DEFLATE);
-  assert(zip.PutNextEntry(entry));
-  const std::string description =
-      "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"" + fixtureName +
-      "\" Manufacturer=\"Acme\"><Revisions><Revision Text=\"Initial\" "
-      "Date=\"2026-01-01T00:00:00\" ModifiedBy=\"Acme\"/></Revisions>"
-      "<Models/></FixtureType></GDTF>";
-  zip.Write(description.c_str(), description.size());
-  assert(zip.CloseEntry());
-  assert(zip.Close());
+                                    const std::string &fixtureName,
+                                    const std::string &fixtureTypeId) {
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity(fixtureName, "Acme", fixtureTypeId)
+      .WriteArchive(gdtfPath);
 }
 
 int main() {
@@ -228,12 +219,18 @@ int main() {
   fs::create_directories(tempDir / "case_a");
   fs::create_directories(tempDir / "case_b");
 
-  std::ofstream(tempDir / "A" / "Same.gdtf") << "A";
-  std::ofstream(tempDir / "B" / "Same.gdtf") << "B";
-  std::ofstream(tempDir / "case_a" / "CaseOnly.gdtf") << "CASE A";
-  std::ofstream(tempDir / "case_b" / "caseonly.gdtf") << "CASE B";
-  std::ofstream(tempDir / "@PerastageFixture.gdtf") << "AT";
-  WriteMinimalGdtfArchive(tempDir / "SiblingOnly.gdtf", "SiblingOnly");
+  WriteMinimalGdtfArchive(tempDir / "A" / "Same.gdtf", "Same A",
+                          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+  WriteMinimalGdtfArchive(tempDir / "B" / "Same.gdtf", "Same B",
+                          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2");
+  WriteMinimalGdtfArchive(tempDir / "case_a" / "CaseOnly.gdtf", "Case A",
+                          "cccccccc-cccc-4ccc-8ccc-ccccccccccc3");
+  WriteMinimalGdtfArchive(tempDir / "case_b" / "caseonly.gdtf", "Case B",
+                          "dddddddd-dddd-4ddd-8ddd-ddddddddddd4");
+  WriteMinimalGdtfArchive(tempDir / "@PerastageFixture.gdtf", "At Fixture",
+                          "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5");
+  WriteMinimalGdtfArchive(tempDir / "SiblingOnly.gdtf", "SiblingOnly",
+                          "ffffffff-ffff-4fff-8fff-fffffffffff6");
   std::ofstream(tempDir / "mesh.3ds") << "mesh";
   std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
   std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
