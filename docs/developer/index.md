@@ -14,3 +14,4 @@ This section collects maintainer-facing build, architecture, packaging, policy, 
 - [GUI Shortcut Architecture](gui_shortcut_architecture.md)
 - [Technical Notes](technical-notes/index.md)
 - [GitHub Actions workflow architecture](github_actions_workflows.md)
+- [Issue triage policy](../../.github/ISSUE_TRIAGE.md)

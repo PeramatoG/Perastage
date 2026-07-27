@@ -2,6 +2,10 @@
 
 Perastage uses separate workflows for validation, automatic test artifacts, compatibility packages, and formal releases. The separation keeps Debug test coverage out of Release package builders and prevents release publication before every package and asset check has succeeded.
 
+## Issue maintenance
+
+`Awaiting Feedback Triage` runs daily and can be dispatched manually in a safe dry-run mode. It processes only open issues explicitly labeled `status: awaiting-feedback`; see the [issue triage policy](../../.github/ISSUE_TRIAGE.md) for its conservative warning and closure rules. The workflow has read-only repository access plus issue write access and does not process pull requests or apply the label itself.
+
 ## Pull requests
 
 Pull requests targeting `main` run `CI Debug Tests` from `.github/workflows/ci-tests.yml`.
