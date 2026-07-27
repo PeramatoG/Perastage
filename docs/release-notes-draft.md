@@ -10,6 +10,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected Rider truss dictionary matching for finish and length variants, and
+  ensured GDTF SVG symbols no longer masquerade as renderable 3D geometry when
+  an imported truss requires an honest dummy fallback.
+
 - Corrected Rider imports so side lighting trusses use their documented default height and LED screens retain accurate dimensions through the shared cube primitive transform.
 
 - Corrected Rider rigging imports so side-fill hoists retain their audio grouping and pipes for lighting bridges, including explicit-length model-free entries, expand consistently across LX positions.

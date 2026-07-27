@@ -19,19 +19,17 @@
 #include <cassert>
 #include "filesystem_path_utils.h"
 #include <cstdlib>
-#include <cstring>
 #include <filesystem>
 #include <string>
 #include <vector>
 
-#include <wx/filename.h>
 #include <wx/init.h>
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
 
 #include "configmanager.h"
 #include "riderimporter.h"
 #include "trussdictionary.h"
+#include "trussloader.h"
+#include "support/gdtf_test_fixture_builder.h"
 
 namespace fs = std::filesystem;
 
@@ -50,37 +48,7 @@ void SetLibraryPathEnv(const std::string &value) {
 #endif
 }
 
-bool WriteArchive(const fs::path &archivePath) {
-  wxFileName::Mkdir(archivePath.parent_path().string(), wxS_DIR_DEFAULT,
-                    wxPATH_MKDIR_FULL);
-
-  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(archivePath));
-  if (!output.IsOk())
-    return false;
-
-  wxZipOutputStream zip(output);
-  if (!zip.IsOk())
-    return false;
-
-  static const char *kDescriptionXml =
-      "<GDTF><FixtureType Manufacturer=\"Perastage\" Name=\"FK40Q\">"
-      "<Models><Model Name=\"main\" File=\"main\" Length=\"3.0\" Width=\"0.3\" Height=\"0.3\"/>"
-      "</Models></FixtureType></GDTF>";
-  static const char *kSvg =
-      "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"></svg>";
-
-  if (!zip.PutNextEntry("description.xml"))
-    return false;
-  zip.Write(kDescriptionXml, std::strlen(kDescriptionXml));
-
-  if (!zip.PutNextEntry("models/svg/main.svg"))
-    return false;
-  zip.Write(kSvg, std::strlen(kSvg));
-
-  zip.Close();
-  return output.IsOk();
-}
-
+// Verifies that a Rider truss resolves a real renderable geometry resource.
 void AssertTrussSymbolResolved(const std::string &textVariant) {
   auto &cfg = ConfigManager::Get();
   cfg.Reset();
@@ -123,7 +91,45 @@ int main() {
   SetLibraryPathEnv(ToUtf8String(libraryRoot));
 
   const fs::path archivePath = tempRoot / PathUtils::PathFromUtf8("FK40Q.gdtf");
-  assert(WriteArchive(archivePath));
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("FK40Q", "Perastage",
+                           tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
+      .WithModelResource("main")
+      .WithArchiveEntry("models/gltf/main.glb", "glTF")
+      .WithArchiveEntry("models/svg/main.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+      .WriteArchive(archivePath);
+
+  Truss geometryAndSvg;
+  assert(LoadTrussGdtf(ToUtf8String(archivePath), geometryAndSvg));
+  assert(geometryAndSvg.gdtfSpec == ToUtf8String(archivePath));
+  assert(PathUtils::PathFromUtf8(geometryAndSvg.symbolFile).extension() == ".glb");
+  assert(fs::exists(PathUtils::PathFromUtf8(geometryAndSvg.symbolFile)));
+
+  const fs::path geometryOnlyPath = tempRoot / "geometry-only.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithArchiveEntry("models/3ds/main.3ds", "3DS")
+      .WriteArchive(geometryOnlyPath);
+  Truss geometryOnly;
+  assert(LoadTrussGdtf(ToUtf8String(geometryOnlyPath), geometryOnly));
+  assert(PathUtils::PathFromUtf8(geometryOnly.symbolFile).extension() == ".3ds");
+
+  const fs::path svgOnlyPath = tempRoot / "svg-only.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithModelResource("main")
+      .WithArchiveEntry("models/svg/main.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+      .WriteArchive(svgOnlyPath);
+  Truss svgOnly;
+  assert(LoadTrussGdtf(ToUtf8String(svgOnlyPath), svgOnly));
+  assert(svgOnly.gdtfSpec == ToUtf8String(svgOnlyPath));
+  assert(svgOnly.symbolFile.empty());
+
+  const fs::path metadataOnlyPath = tempRoot / "metadata-only.gdtf";
+  tests::gdtf::BuildMinimalValidFixture().WithModelResource("missing").WriteArchive(
+      metadataOnlyPath);
+  Truss metadataOnly;
+  assert(LoadTrussGdtf(ToUtf8String(metadataOnlyPath), metadataOnly));
+  assert(metadataOnly.symbolFile.empty());
 
   TrussDictionary::Update("TRUSS 40X40 3M", ToUtf8String(archivePath));
   const auto canonical = TrussDictionary::Get("TRUSS 40X40 3M");
@@ -151,6 +157,10 @@ int main() {
   TrussDictionary::Update("TRUSS 40X40 PRO 3M", ToUtf8String(archivePath));
   AssertTrussSymbolResolved("1 truss 40X40 PRO NEGRO 3m para lx1\n");
   AssertTrussSymbolResolved("1 truss 40X40 PRO BLACK 3m for lx1\n");
+  AssertTrussSymbolResolved("1 truss 40X40 PRO PLATA 3 m para lx1\n");
+
+  TrussDictionary::Update("TRUSS BLACKBIRD 3M", ToUtf8String(archivePath));
+  AssertTrussSymbolResolved("1 truss BLACKBIRD 3m para lx1\n");
 
   TrussDictionary::Save({});
   fs::remove_all(tempRoot, ec);

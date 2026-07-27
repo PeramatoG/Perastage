@@ -263,7 +263,7 @@ bool IsSupportedTrussDefinitionExtension(const std::string &path) {
   return ext == ".gdtf" || ext == ".gtruss" || ext == ".glb" || ext == ".3ds";
 }
 
-// Loads a GDTF truss archive and resolves its renderable model metadata.
+// Loads GDTF truss metadata and resolves renderable 3D geometry when available.
 bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   fs::path inputPath = FromUtf8String(gdtfPath);
   if (!fs::exists(inputPath))
@@ -324,9 +324,6 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
     if (!modelPath.empty())
       outTruss.symbolFile = ToUtf8String(modelPath);
 
-    fs::path symbolPath = FindFirstExisting(baseDir, {fs::path("models/svg") / (fileBase + ".svg")});
-    if (!symbolPath.empty() && outTruss.symbolFile.empty())
-      outTruss.symbolFile = ToUtf8String(symbolPath);
   }
 
   tinyxml2::XMLElement *phys = fixtureType->FirstChildElement("PhysicalDescriptions");
@@ -343,7 +340,7 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
   if (outTruss.gdtfMode.empty())
     outTruss.gdtfMode = "Default";
 
-  return !outTruss.symbolFile.empty();
+  return true;
 }
 
 // Loads a truss archive through the general truss definition loader.

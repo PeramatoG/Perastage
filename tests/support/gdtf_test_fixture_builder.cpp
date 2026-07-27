@@ -106,6 +106,12 @@ FixtureBuilder &FixtureBuilder::WithDmxMode(std::string name, std::string geomet
   return *this;
 }
 
+// Assigns the standard archive resource basename referenced by the model.
+FixtureBuilder &FixtureBuilder::WithModelResource(std::string fileBase) {
+  modelFileBase = std::move(fileBase);
+  return *this;
+}
+
 // Adds basic category signal metadata for category-related tests.
 FixtureBuilder &FixtureBuilder::WithFixtureCategorySignals() {
   categorySignals = true;
@@ -131,7 +137,9 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "    <AttributeDefinitions><ActivationGroups/><FeatureGroups><FeatureGroup Name=\"Dimmer\" Pretty=\"Dimmer\"><Feature Name=\"Dimmer\"/></FeatureGroup></FeatureGroups><Attributes><Attribute Name=\"Dimmer\" Pretty=\"Dimmer\" Feature=\"Dimmer.Dimmer\" PhysicalUnit=\"LuminousIntensity\"/></Attributes></AttributeDefinitions>\n"
          "    <Wheels/>\n"
          "    <PhysicalDescriptions><Emitters/><Filters/><ColorSpace Mode=\"sRGB\"/><DMXProfiles/><CRIs/><Connectors/></PhysicalDescriptions>\n"
-         "    <Models><Model Name=\"Body\" Length=\"0.1\" Width=\"0.1\" Height=\"0.1\" PrimitiveType=\"Cube\"/></Models>\n"
+         "    <Models><Model Name=\"Body\" Length=\"0.1\" Width=\"0.1\" Height=\"0.1\" PrimitiveType=\"Cube\"" +
+         (modelFileBase.empty() ? std::string{} : " File=\"" + modelFileBase + "\"") +
+         "/></Models>\n"
          "    <Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>\n"
          "    <DMXModes><DMXMode Name=\"" +
          modeName + "\" Geometry=\"" + modeGeometry +

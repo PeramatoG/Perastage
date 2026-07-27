@@ -148,15 +148,18 @@ int main() {
   assert(RiderImporter::ImportText(filteredBackdropOnlyText));
   const auto &filteredScene = cfg.GetScene();
   bool foundFilteredBackdropTruss = false;
-  bool filteredBackdropTrussHasModelInfo = false;
+  bool filteredBackdropTrussHasFabricatedResource = false;
   int filteredBackdropSupports = 0;
   for (const auto &[uuid, truss] : filteredScene.trusses) {
     (void)uuid;
     if (truss.positionName == "BACKDROP") {
       foundFilteredBackdropTruss = true;
+      assert(!truss.name.empty());
+      assert(!truss.model.empty());
+      assert(std::abs(truss.lengthMm - 12000.0f) < 0.001f);
       if (!truss.modelFile.empty() || !truss.symbolFile.empty() ||
           !truss.gdtfSpec.empty())
-        filteredBackdropTrussHasModelInfo = true;
+        filteredBackdropTrussHasFabricatedResource = true;
     }
   }
   for (const auto &[uuid, support] : filteredScene.supports) {
@@ -165,7 +168,7 @@ int main() {
       ++filteredBackdropSupports;
   }
   assert(foundFilteredBackdropTruss);
-  assert(filteredBackdropTrussHasModelInfo);
+  assert(!filteredBackdropTrussHasFabricatedResource);
   assert(filteredBackdropSupports == 2);
 
   cfg.Reset();

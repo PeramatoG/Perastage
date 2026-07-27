@@ -565,3 +565,17 @@ When changing any text-to-scene parsing or placement behavior:
 ## Suggested user-doc excerpt
 
 Perastage parses rider text by identifying sections, hang positions, fixture lines, and truss declarations, then generates fixtures/trusses with predictable layer, placement, numbering, and auto-patch rules. PDF riders are first converted to text and parsed using the same rule set.
+
+### Truss dictionary and resource resolution
+
+- Dictionary matching is case- and whitespace-insensitive. Known finish words
+  such as `NEGRO`, `BLACK`, and `PLATA` are removed only as complete tokens from
+  both model candidates and length-bearing truss names; explicit lengths remain
+  part of the candidate key.
+- A GDTF path identifies the source archive. An extracted `.glb` or `.3ds` is
+  the renderable 3D symbol resource. An optional GDTF SVG remains a 2D resource
+  and is not assigned to the truss 3D `symbolFile`.
+- Valid metadata-only or SVG-only archives may provide truss metadata, but
+  Rider import retains deterministic dummy geometry when no supported 3D model
+  exists. Imports never fabricate a model path or borrow another hang's
+  resource for an unresolved truss.

@@ -1255,3 +1255,10 @@ PR #2229 closed Phase 5B/E2 at reviewed head
 Windows, made `RiderPipeImport` green, introduced no new failure name, and left
 `RiderHoistImport` at its deferred Phase 5D backdrop-resource assertion. E2 was
 reached and PR #2229 was approved for merge.
+
+PR #2230 closed Phase 5C/E3 at reviewed head
+`4c1f88e59bb67cde545a208c64f061f2f53ab7ac`. Authoritative run
+`30280209293` made `RiderImportLinearOrder`, `RiderLedScreenObject`, and
+`RiderLxSidesImport` green on Linux and Windows, introduced no new failure
+name, and kept macOS at 6 of 6. E3 was reached and PR #2230 was approved for
+merge.

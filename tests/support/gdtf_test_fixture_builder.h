@@ -15,6 +15,7 @@ public:
   FixtureBuilder &WithFixtureIdentity(std::string name, std::string manufacturer,
                                       std::string fixtureTypeId);
   FixtureBuilder &WithDmxMode(std::string name, std::string geometry);
+  FixtureBuilder &WithModelResource(std::string fileBase);
   FixtureBuilder &WithFixtureCategorySignals();
   FixtureBuilder &WithArchiveEntry(std::string path, std::string bytes);
   std::string BuildDescriptionXml() const;
@@ -25,6 +26,7 @@ private:
   std::string fixtureName;
   std::string manufacturer;
   std::string fixtureTypeId;
+  std::string modelFileBase;
   bool categorySignals = false;
   std::vector<std::pair<std::string, std::string>> archiveEntries;
 };
