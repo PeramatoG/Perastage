@@ -110,34 +110,5 @@ int main() {
   assert(NearlyEqual(fixtureIt->second.transform.o[2], 7000.0f));
 
 
-  const std::string expectedFilteredPipes =
-      "RIGGING\n1 PIPE 14m LX1\n1 PIPE 14m LX2\n1 PIPE 14m LX3";
-  assert(RiderImporter::BuildFixtureFilterPreview(defaultPipeLengthText) ==
-         expectedFilteredPipes);
-  assert(RiderImporter::BuildFixtureFilterPreview(expectedFilteredPipes) ==
-         expectedFilteredPipes);
-
-  const std::string repeatedExplicitTargetText =
-      "RIGGING\n3 PIPE PARA LX1\n";
-  const std::string filteredExplicitTarget =
-      RiderImporter::BuildFixtureFilterPreview(repeatedExplicitTargetText);
-  assert(filteredExplicitTarget ==
-         "RIGGING\n1 PIPE 14m LX1\n1 PIPE 14m LX1\n1 PIPE 14m LX1");
-  for (const std::string &input :
-       {repeatedExplicitTargetText, filteredExplicitTarget}) {
-    cfg.Reset();
-    assert(RiderImporter::ImportText(input));
-    const auto &scene = cfg.GetScene();
-    assert(scene.sceneObjects.size() == 3);
-    for (const auto &[uuid, object] : scene.sceneObjects) {
-      (void)uuid;
-      assert(object.name == "PIPE LX1");
-      assert(object.layer == "pos LX1");
-      assert(object.geometries.size() == 1);
-      assert(object.geometries.front().modelFile == "primitive:cylinder");
-      assert(NearlyEqual(object.geometries.front().localTransform.w[2], 14.0f));
-    }
-  }
-
   return 0;
 }

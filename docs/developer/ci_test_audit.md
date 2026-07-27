@@ -1240,9 +1240,11 @@ omits removed comments rather than materializing empty blocks, normalizes CRLF
 input, and is idempotent; focused tests now encode those byte-level invariants.
 
 
-Phase 5B repairs Rider rigging target normalization and expansion. Exact side-fill
-aliases now take precedence over explicit side-truss aliases, while lengthful and
-lengthless rigging lines share generic `LX` target expansion. Rider hoist and pipe
-coverage now checks alias classification, direct/filtered parity, deterministic
-preview output, and preservation of explicit targets. Cross-platform E2 CI remains
-required before this phase can be declared closed.
+Authoritative run `30270379861` at reviewed head
+`b1351fcd989cd753bfeaedb1106375cbeddf7595` confirms that both original Phase 5B
+blockers advanced. `RiderHoistImport` now first stops at the independent Phase 5D
+`filteredBackdropTrussHasModelInfo` assertion, while `RiderPipeImport` now first
+stops at the independent Phase 5C fixture-coordinate Y assertion. The registered
+`RiderRiggingTargetNormalizationContracts` test isolates hoist alias and pipe LX
+target contracts from those later failures; the local focused run and five repeat
+runs pass. E2 remains pending cross-platform focused-test evidence.

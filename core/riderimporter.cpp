@@ -141,7 +141,7 @@ Matrix BuildPipeObjectTransform(float pipeLengthMm, float pipeDiameterMm,
 // even when processing large riders.
 static const std::regex
     kTrussLineRe("^\\s*(?:[-*]\\s*)?(\\d+)\\s+(?:truss|pipe|pipes|vara|varas)"
-                 "\\s+([^\\n]*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)"
+                 "\\s+(?:([^\\n]*?)\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:m|metros?|meters?)"
                  "\\b(?:\\s+(?:(?:para|for)\\s+)?(.+))?\\s*$",
     std::regex::icase);
 static const std::regex kTrussLineNoLengthRe(
