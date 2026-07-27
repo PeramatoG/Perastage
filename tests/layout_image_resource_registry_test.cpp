@@ -4,15 +4,17 @@
 #include "configmanager.h"
 #include "configservices.h"
 #include "json.hpp"
+#include "support/zip_test_utils.h"
+#include "support/archive_entry_test_utils.h"
 
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
 
 #include <cassert>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <map>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -20,34 +22,6 @@ class wxZipStreamLink;
 
 namespace {
 namespace fs = std::filesystem;
-
-// Reads the current ZIP entry payload into a string for archive assertions.
-std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
-  std::string data;
-  char buffer[256];
-  while (true) {
-    zip.Read(buffer, sizeof(buffer));
-    const size_t bytes = zip.LastRead();
-    if (bytes == 0)
-      break;
-    data.append(buffer, bytes);
-  }
-  return data;
-}
-
-// Reads all file entries from a ZIP archive into a name-to-payload map.
-std::map<std::string, std::string> ReadArchiveEntries(const fs::path &archivePath) {
-  std::map<std::string, std::string> entries;
-  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
-  assert(input.IsOk());
-  wxZipInputStream zip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (!entry->IsDir())
-      entries[entry->GetName().ToStdString()] = ReadCurrentZipEntry(zip);
-  }
-  return entries;
-}
 
 // Creates a small binary image fixture at the requested path.
 void WriteImageFixture(const fs::path &path, const std::string &bytes) {
@@ -63,7 +37,8 @@ int main() {
   const fs::path tempDir = fs::temp_directory_path() / "perastage_layout_image_resource_test";
   std::error_code ec;
   fs::remove_all(tempDir, ec);
-  fs::create_directories(tempDir, ec);
+  ec.clear();
+  assert(fs::create_directories(tempDir, ec) && !ec);
 
   const fs::path usedImage = tempDir / "used.png";
   const fs::path unusedImage = tempDir / "unused.png";
@@ -128,12 +103,30 @@ int main() {
       });
   assert(saved);
 
-  const auto entries = ReadArchiveEntries(projectPath);
-  assert(entries.find(storedFirstResourcePath) != entries.end());
-  assert(entries.at(storedFirstResourcePath) == "used-image-bytes");
-  assert(entries.find(unusedResourcePath) == entries.end());
+  const auto entries = tests::zip::ReadEntries(projectPath);
+  int storedResourceCount = 0;
+  for (const auto &entry : entries) {
+    if (entry.isDirectory)
+      continue;
+    assert(entry.name.find('\\') == std::string::npos);
+    if (entry.name == storedFirstResourcePath) {
+      ++storedResourceCount;
+      assert(entry.payload == "used-image-bytes");
+    }
+    assert(entry.name != unusedResourcePath);
+  }
+  assert(storedResourceCount == 1);
+  std::string centralDirectoryError;
+  const auto storedNames = tests::archive::ReadRawCentralDirectoryEntryNames(
+      projectPath.string(), centralDirectoryError);
+  assert(centralDirectoryError.empty());
+  assert(std::count(storedNames.begin(), storedNames.end(),
+                    storedFirstResourcePath) == 1);
+  for (const auto &storedName : storedNames)
+    assert(storedName.find('\\') == std::string::npos);
 
   layouts::LayoutImageResourceRegistry::Get().Clear();
   fs::remove_all(tempDir, ec);
+  assert(!ec);
   return 0;
 }

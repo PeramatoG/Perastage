@@ -3,11 +3,12 @@
 #include "LayoutTemplateSerializer.h"
 #include "LayoutImageResourceRegistry.h"
 #include "runtime_storage.h"
+#include "support/zip_test_utils.h"
+#include "json.hpp"
 
 #include <cassert>
 #include <filesystem>
 #include <fstream>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,28 +33,6 @@ void WriteFile(const fs::path &path, const std::string &bytes) {
   fs::create_directories(path.parent_path());
   std::ofstream out(path, std::ios::binary);
   out << bytes;
-}
-
-// Reads a package into an entry map for package assertions.
-std::map<std::string, std::string> ReadZipEntries(const fs::path &path) {
-  wxFFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
-  wxZipInputStream zip(input);
-  std::map<std::string, std::string> entries;
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    std::string data;
-    char buffer[4096];
-    while (true) {
-      zip.Read(buffer, sizeof(buffer));
-      const size_t bytes = zip.LastRead();
-      if (bytes == 0)
-        break;
-      data.append(buffer, bytes);
-    }
-    const wxScopedCharBuffer utf8 = entry->GetName(wxPATH_UNIX).utf8_str();
-    entries[utf8.data() == nullptr ? std::string() : std::string(utf8.data())] = data;
-  }
-  return entries;
 }
 
 // Builds a minimal layout definition for package roundtrip tests.
@@ -130,26 +109,43 @@ void TestImagePortabilityAndDeduplication(const fs::path &dir) {
   std::string error;
   assert(layouts::LayoutTemplatePackageService::ExportPackage(
       layout, ToUtf8(package), &error));
-  auto entries = ReadZipEntries(package);
+  const auto entries = tests::zip::ReadEntries(package);
   int imageEntryCount = 0;
   std::string allText;
-  for (const auto &[name, content] : entries) {
-    allText += name + "\n" + content + "\n";
-    if (name.rfind("resources/layout_images/", 0) == 0)
+  std::string packagedImagePath;
+  for (const auto &entry : entries) {
+    allText += entry.name + "\n" + entry.payload + "\n";
+    if (!entry.isDirectory &&
+        entry.name.rfind("resources/layout_images/", 0) == 0) {
       ++imageEntryCount;
-  }
-  assert(imageEntryCount == 1);
-
-  bool foundCanonicalImage = false;
-  for (const auto &[name, content] : entries) {
-    (void)content;
-    assert(name.find('\\') == std::string::npos);
-    if (name.rfind("resources/layout_images/", 0) == 0) {
-      assert(name.find('/') != std::string::npos);
-      foundCanonicalImage = true;
+      packagedImagePath = entry.name;
+      assert(entry.payload == "same-image-bytes");
     }
   }
+  assert(imageEntryCount == 1);
+  assert(packagedImagePath != "resources/layout_images/");
+
+  bool foundCanonicalImage = false;
+  std::string layoutJson;
+  for (const auto &entry : entries) {
+    assert(entry.name.find('\\') == std::string::npos);
+    if (!entry.isDirectory &&
+        entry.name.rfind("resources/layout_images/", 0) == 0) {
+      foundCanonicalImage = true;
+    }
+    if (entry.name == "layout.json" && !entry.isDirectory)
+      layoutJson = entry.payload;
+  }
   assert(foundCanonicalImage);
+  const auto document = nlohmann::json::parse(layoutJson);
+  const auto &images = document.at("layouts").at(0).at("imageViews");
+  assert(images.size() == 2);
+  for (const auto &packagedImage : images) {
+    assert(packagedImage.at("projectResource").get<std::string>() ==
+           packagedImagePath);
+    assert(packagedImage.find("originalPath") == packagedImage.end());
+    assert(packagedImage.dump().find(ToUtf8(imagePath)) == std::string::npos);
+  }
   assert(layouts::LayoutTemplatePackageService::ValidatePortablePackage(
       ToUtf8(package), &error));
   assert(allText.find(ToUtf8(imagePath)) == std::string::npos);
@@ -162,8 +158,18 @@ void TestImagePortabilityAndDeduplication(const fs::path &dir) {
   assert(imported.layout.imageViews.size() == 2);
   for (const auto &importedImage : imported.layout.imageViews) {
     assert(fs::exists(fs::path(importedImage.imagePath)));
-    assert(importedImage.projectResourcePath.rfind("resources/layout_images/", 0) == 0);
+    assert(importedImage.projectResourcePath == packagedImagePath);
   }
+}
+
+// Verifies a layout image directory entry is not treated as an image payload.
+void TestImageDirectoryIsNotAFile(const fs::path &dir) {
+  const fs::path package = dir / "directory_control.zip";
+  WritePackageZip(package, {{"resources/layout_images/", ""}});
+  const auto entries = tests::zip::ReadEntries(package);
+  assert(entries.size() == 1);
+  assert(entries.front().name == "resources/layout_images/");
+  assert(entries.front().isDirectory);
 }
 
 // Verifies export can use registry bytes after a source file disappears.
@@ -268,11 +274,12 @@ void TestExportValidationHasNoImportSideEffects(const fs::path &dir) {
   const fs::path package = dir / "side_effect.pslayout";
   assert(layouts::LayoutTemplatePackageService::ExportPackage(
       layout, ToUtf8(package), &error));
-  auto entries = ReadZipEntries(package);
-  for (const auto &[name, content] : entries) {
-    (void)content;
-    if (name.rfind("resources/layout_images/", 0) == 0)
-      assert(!layouts::LayoutImageResourceRegistry::Get().HasResourceBytes(name));
+  const auto entries = tests::zip::ReadEntries(package);
+  for (const auto &entry : entries) {
+    if (!entry.isDirectory &&
+        entry.name.rfind("resources/layout_images/", 0) == 0)
+      assert(!layouts::LayoutImageResourceRegistry::Get().HasResourceBytes(
+          entry.name));
   }
 }
 
@@ -308,16 +315,23 @@ void TestLegacyJsonWarningsArePreserved(const fs::path &dir) {
 // Runs focused portable layout package service coverage.
 int main() {
   const fs::path dir = fs::temp_directory_path() / "perastage_layout_package_test";
-  fs::remove_all(dir);
-  fs::create_directories(dir);
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  ec.clear();
+  assert(fs::create_directories(dir, ec) && !ec);
+  layouts::LayoutImageResourceRegistry::Get().Clear();
   runtime_storage::SetRuntimeRootOverrideForTests(dir / "runtime");
   TestRoundTripWithoutImages(dir);
   TestImagePortabilityAndDeduplication(dir);
+  TestImageDirectoryIsNotAFile(dir);
   TestRegistryFallback(dir);
   TestFailedExportPreservesDestination(dir);
   TestArchiveEntryValidation(dir);
   TestExportValidationHasNoImportSideEffects(dir);
   TestLegacyJsonWarningsArePreserved(dir);
-  fs::remove_all(dir);
+  layouts::LayoutImageResourceRegistry::Get().Clear();
+  runtime_storage::SetRuntimeRootOverrideForTests({});
+  fs::remove_all(dir, ec);
+  assert(!ec);
   return 0;
 }

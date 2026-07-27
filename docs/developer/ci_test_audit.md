@@ -1284,3 +1284,25 @@ assertion on Linux and Windows. The test set `PERASTAGE_LIBRARY_PATH` to a
 directory it had not created, so production correctly used the user-data
 fallback; no unrelated failure name changed and macOS remained 6 of 6. E4
 remains pending final isolated-root verification.
+
+PR #2231 closed Phase 5 E4 at final reviewed head
+`d03c2b5c5288c1d001bb32d6c662ee82becef937`. Authoritative run
+`30298301335` made `RiderHoistImport` and
+`RiderTrussDictionaryNormalization` green on Linux and Windows. Linux reported
+166 total, 156 passed, 9 failed, and 1 skipped; Windows reported 168 total, 156
+passed, and 12 failed; macOS remained 6 of 6. No new failure name appeared, E4
+was reached, and PR #2231 was approved for merge.
+
+Phase 6A classifies the shared `LayoutTemplatePackageService` failure as a test
+reader counting the `resources/layout_images/` directory entry as an image
+payload. The Windows-only `LayoutImageResourceRegistry` failure is a separate
+test presentation defect: `wxZipEntry::GetName()` exposed native separators,
+while the assertion correctly used canonical portable metadata. Shared test
+support now reads names explicitly with `wxPATH_UNIX`, converts them explicitly
+to UTF-8, and distinguishes directories from payload files. The ProjectSession
+resource writer audit also identified an implicit-name construction boundary;
+resource entries now set UTF-8 names explicitly with `wxPATH_UNIX`, while
+rejecting backslash and drive-prefixed alternate path conventions. The two
+content-addressed resource-key implementations were compared and remain
+byte-for-byte equivalent, so they were intentionally left separate rather than
+introducing an unrelated serialization refactor.
