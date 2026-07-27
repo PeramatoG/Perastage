@@ -1248,3 +1248,10 @@ stops at the independent Phase 5C fixture-coordinate Y assertion. The registered
 `RiderRiggingTargetNormalizationContracts` test isolates hoist alias and pipe LX
 target contracts from those later failures; the local focused run and five repeat
 runs pass. E2 remains pending cross-platform focused-test evidence.
+
+PR #2229 closed Phase 5B/E2 at reviewed head
+`8d5b2f6f01f6eaeca89aac8388c25835664e52f5`. Authoritative run
+`30274849325` passed `RiderRiggingTargetNormalizationContracts` on Linux and
+Windows, made `RiderPipeImport` green, introduced no new failure name, and left
+`RiderHoistImport` at its deferred Phase 5D backdrop-resource assertion. E2 was
+reached and PR #2229 was approved for merge.

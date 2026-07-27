@@ -217,6 +217,10 @@ Special screen-object handling:
 - Screen geometry is emitted as a `primitive:cube` entry in
   `SceneObject.geometries` using local geometry scale (same primitive pipeline
   used by regular cube scene objects), while object transform keeps position.
+  The canonical cube mesh measures `1.0 m` on each axis, so the local X/Y/Z
+  scale values are the final width/thickness/height in meters. Rider screen
+  dimensions are therefore stored only on the geometry transform; the scene
+  object basis remains unscaled.
 - If no valid size is found, importer falls back to `8.0 x 5.0 m`.
 - Screen objects are centered on the associated screen truss span and placed so
   their top edge sits `0.2 m` below the truss.

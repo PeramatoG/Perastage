@@ -2,6 +2,7 @@
 #include "localized_unit_labels.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
+#include "primitive_transform.h"
 #include "ui_unit_utils.h"
 #include "units/units.h"
 
@@ -603,7 +604,6 @@ private:
   Units::DistanceUnitSystem unitSystem_ = Units::DistanceUnitSystem::Metric;
 };
 
-constexpr double kPrimitiveCubeSizeMillimeters = 1000.0;
 constexpr double kPrimitiveSphereDiameterMillimeters = 1000.0;
 constexpr double kPrimitiveCylinderDiameterMillimeters = 1000.0;
 constexpr double kPrimitiveCylinderHeightMillimeters = 1000.0;
@@ -749,21 +749,9 @@ Matrix BuildSphereScaleTransform(double radiusMeters) {
 // Builds a cube scale transform with length on X, width on Y, and height on Z.
 Matrix BuildCubeScaleTransform(double lengthMeters, double heightMeters,
                                double widthMeters) {
-  const float sx = static_cast<float>(
-      std::max(lengthMeters, 0.01) * kMetersToMillimeters /
-      kPrimitiveCubeSizeMillimeters);
-  const float sy = static_cast<float>(
-      std::max(widthMeters, 0.01) * kMetersToMillimeters /
-      kPrimitiveCubeSizeMillimeters);
-  const float sz = static_cast<float>(
-      std::max(heightMeters, 0.01) * kMetersToMillimeters /
-      kPrimitiveCubeSizeMillimeters);
-
-  Matrix transform;
-  transform.u = {sx, 0.0f, 0.0f};
-  transform.v = {0.0f, sy, 0.0f};
-  transform.w = {0.0f, 0.0f, sz};
-  return transform;
+  return PrimitiveTransform::BuildCubeScale(
+      static_cast<float>(lengthMeters), static_cast<float>(widthMeters),
+      static_cast<float>(heightMeters));
 }
 
 Matrix BuildCylinderScaleTransform(double radiusMeters, double heightMeters) {

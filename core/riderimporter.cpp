@@ -53,6 +53,7 @@
 #include "hoist_weight_distribution.h"
 #include "layer.h"
 #include "logger.h"
+#include "primitive_transform.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "truss.h"
@@ -65,6 +66,7 @@
 namespace {
 constexpr const char *kPrimitiveCylinderToken = "primitive:cylinder";
 constexpr const char *kPrimitiveCubeToken = "primitive:cube";
+constexpr float kLxSidesDefaultHeightMillimeters = 5000.0f;
 
 struct RiderImportTimingStats {
   std::chrono::steady_clock::time_point startedAt =
@@ -1845,6 +1847,8 @@ bool RiderImporter::ImportText(const std::string &text,
   ImportedTrussDefinitionCache trussDefinitionCache;
 
   auto getHangHeight = [&](const std::string &posName) {
+    if (posName == "LX SIDES")
+      return kLxSidesDefaultHeightMillimeters;
     if (posName.rfind("LX", 0) == 0) {
       int idx = 0;
       if (TryParseInt(std::string_view(posName).substr(2), idx) && idx >= 1 &&
@@ -3279,10 +3283,9 @@ bool RiderImporter::ImportText(const std::string &text,
     screenObject.transform.o[0] = centerX;
     screenObject.transform.o[1] = centerY;
     screenObject.transform.o[2] = centerZ;
-    Matrix screenGeometryScale;
-    screenGeometryScale.u = {request.widthMm / 1000.0f, 0.0f, 0.0f};
-    screenGeometryScale.v = {0.0f, kScreenThicknessMm / 1000.0f, 0.0f};
-    screenGeometryScale.w = {0.0f, 0.0f, request.heightMm / 1000.0f};
+    const Matrix screenGeometryScale = PrimitiveTransform::BuildCubeScale(
+        request.widthMm / 1000.0f, kScreenThicknessMm / 1000.0f,
+        request.heightMm / 1000.0f);
     screenObject.geometries.push_back(
         {kPrimitiveCubeToken, screenGeometryScale});
     scene.sceneObjects[screenObject.uuid] = screenObject;

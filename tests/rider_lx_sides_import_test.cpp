@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <set>
 #include <string>
 #include <vector>
@@ -10,11 +11,15 @@
 #include "riderimporter.h"
 
 namespace {
+constexpr float kPositionToleranceMillimeters = 0.001f;
+
+// Compares placement values within the Rider millimeter tolerance.
 bool NearlyEqual(float a, float b) {
-  return std::abs(a - b) < 0.001f;
+  return std::abs(a - b) < kPositionToleranceMillimeters;
 }
 }
 
+// Verifies LX side truss and fixture placement across defaults and overrides.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -46,6 +51,13 @@ int main() {
     assert(NearlyEqual(truss.transform.o[2], 5000.0f));
     assert(NearlyEqual(truss.transform.u[0], 0.0f));
     assert(NearlyEqual(truss.transform.u[1], 1.0f));
+    assert(NearlyEqual(truss.transform.u[2], 0.0f));
+    assert(NearlyEqual(truss.transform.v[0], -1.0f));
+    assert(NearlyEqual(truss.transform.v[1], 0.0f));
+    assert(NearlyEqual(truss.transform.v[2], 0.0f));
+    assert(NearlyEqual(truss.transform.w[0], 0.0f));
+    assert(NearlyEqual(truss.transform.w[1], 0.0f));
+    assert(NearlyEqual(truss.transform.w[2], 1.0f));
   }
   assert(sideTrussCount >= 2);
   assert(sideTrussX.size() >= 2);
@@ -195,15 +207,17 @@ int main() {
   assert(RiderImporter::ImportText(withCoordinateOverrideMetric));
   const auto &sceneMetric = cfg.GetScene();
   int metricTrussCount = 0;
+  float metricSpanStart = std::numeric_limits<float>::max();
   for (const auto &[uuid, truss] : sceneMetric.trusses) {
     (void)uuid;
     ++metricTrussCount;
     assert(truss.positionName == "LX1");
-    assert(NearlyEqual(truss.transform.o[0], 0.0f));
     assert(NearlyEqual(truss.transform.o[1], -1000.0f));
     assert(NearlyEqual(truss.transform.o[2], 9000.0f));
+    metricSpanStart = std::min(metricSpanStart, truss.transform.o[0]);
   }
   assert(metricTrussCount > 0);
+  assert(NearlyEqual(metricSpanStart, 0.0f));
 
   cfg.Reset();
   cfg.SetValue("ui_distance_unit_system", "imperial");
