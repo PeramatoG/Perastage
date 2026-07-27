@@ -3,6 +3,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <iomanip>
+#include <locale>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -19,6 +22,21 @@ struct ArchiveEntry {
   std::string path;
   std::string bytes;
 };
+
+// Formats a finite positive model dimension deterministically for GDTF XML.
+std::string FormatModelDimension(float value) {
+  if (!std::isfinite(value) || !(value > 0.0f))
+    throw std::invalid_argument("GDTF test model dimensions must be positive");
+  std::ostringstream output;
+  output.imbue(std::locale::classic());
+  output << std::fixed << std::setprecision(6) << value;
+  std::string formatted = output.str();
+  while (formatted.back() == '0')
+    formatted.pop_back();
+  if (formatted.back() == '.')
+    formatted.push_back('0');
+  return formatted;
+}
 
 // Returns true when the path has a Windows drive prefix.
 bool HasDrivePrefix(const std::string &path) {
@@ -89,6 +107,18 @@ FixtureBuilder BuildMinimalValidFixture() {
   return FixtureBuilder{};
 }
 
+// Builds a deterministic minimal GLB 2.0 payload containing valid asset metadata.
+std::string BuildMinimalValidGlb() {
+  static constexpr unsigned char kGlb[] = {
+      0x67, 0x6c, 0x54, 0x46, 0x02, 0x00, 0x00, 0x00,
+      0x30, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00,
+      0x4a, 0x53, 0x4f, 0x4e, 0x7b, 0x22, 0x61, 0x73,
+      0x73, 0x65, 0x74, 0x22, 0x3a, 0x7b, 0x22, 0x76,
+      0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x3a,
+      0x22, 0x32, 0x2e, 0x30, 0x22, 0x7d, 0x7d, 0x20};
+  return std::string(reinterpret_cast<const char *>(kGlb), sizeof(kGlb));
+}
+
 // Overrides the fixture identity fields while retaining a canonical structure.
 FixtureBuilder &FixtureBuilder::WithFixtureIdentity(std::string name,
                                                     std::string maker,
@@ -103,6 +133,21 @@ FixtureBuilder &FixtureBuilder::WithFixtureIdentity(std::string name,
 FixtureBuilder &FixtureBuilder::WithDmxMode(std::string name, std::string geometry) {
   modeName = std::move(name);
   modeGeometry = std::move(geometry);
+  return *this;
+}
+
+// Assigns the standard archive resource basename referenced by the model.
+FixtureBuilder &FixtureBuilder::WithModelResource(std::string fileBase) {
+  modelFileBase = std::move(fileBase);
+  return *this;
+}
+
+// Overrides the default model dimensions in meters.
+FixtureBuilder &FixtureBuilder::WithModelDimensionsMeters(float length, float width,
+                                                          float height) {
+  modelLengthMeters = length;
+  modelWidthMeters = width;
+  modelHeightMeters = height;
   return *this;
 }
 
@@ -121,6 +166,9 @@ FixtureBuilder &FixtureBuilder::WithArchiveEntry(std::string path, std::string b
 // Builds the description.xml payload for the fixture.
 std::string FixtureBuilder::BuildDescriptionXml() const {
   const std::string category = categorySignals ? " FixtureTypeCategory=\"Conventional\"" : "";
+  const std::string modelLength = FormatModelDimension(modelLengthMeters);
+  const std::string modelWidth = FormatModelDimension(modelWidthMeters);
+  const std::string modelHeight = FormatModelDimension(modelHeightMeters);
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<GDTF DataVersion=\"1.2\">\n"
          "  <FixtureType Name=\"" + fixtureName + "\" ShortName=\"" + fixtureName +
@@ -131,7 +179,11 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "    <AttributeDefinitions><ActivationGroups/><FeatureGroups><FeatureGroup Name=\"Dimmer\" Pretty=\"Dimmer\"><Feature Name=\"Dimmer\"/></FeatureGroup></FeatureGroups><Attributes><Attribute Name=\"Dimmer\" Pretty=\"Dimmer\" Feature=\"Dimmer.Dimmer\" PhysicalUnit=\"LuminousIntensity\"/></Attributes></AttributeDefinitions>\n"
          "    <Wheels/>\n"
          "    <PhysicalDescriptions><Emitters/><Filters/><ColorSpace Mode=\"sRGB\"/><DMXProfiles/><CRIs/><Connectors/></PhysicalDescriptions>\n"
-         "    <Models><Model Name=\"Body\" Length=\"0.1\" Width=\"0.1\" Height=\"0.1\" PrimitiveType=\"Cube\"/></Models>\n"
+         "    <Models><Model Name=\"Body\" Length=\"" + modelLength +
+         "\" Width=\"" + modelWidth + "\" Height=\"" + modelHeight +
+         "\" PrimitiveType=\"Cube\"" +
+         (modelFileBase.empty() ? std::string{} : " File=\"" + modelFileBase + "\"") +
+         "/></Models>\n"
          "    <Geometries><Geometry Name=\"Root\" Model=\"Body\"/></Geometries>\n"
          "    <DMXModes><DMXMode Name=\"" +
          modeName + "\" Geometry=\"" + modeGeometry +

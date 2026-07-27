@@ -1255,3 +1255,32 @@ PR #2229 closed Phase 5B/E2 at reviewed head
 Windows, made `RiderPipeImport` green, introduced no new failure name, and left
 `RiderHoistImport` at its deferred Phase 5D backdrop-resource assertion. E2 was
 reached and PR #2229 was approved for merge.
+
+PR #2230 closed Phase 5C/E3 at reviewed head
+`4c1f88e59bb67cde545a208c64f061f2f53ab7ac`. Authoritative run
+`30280209293` made `RiderImportLinearOrder`, `RiderLedScreenObject`, and
+`RiderLxSidesImport` green on Linux and Windows, introduced no new failure
+name, and kept macOS at 6 of 6. E3 was reached and PR #2230 was approved for
+merge.
+
+Phase 5D authoritative run `30284186309` made
+`RiderTrussDictionaryNormalization` green on Linux and Windows without a new
+failure name and kept macOS at 6 of 6. `RiderHoistImport` advanced to a stale
+per-piece 12 m BACKDROP assertion; the inherited 12 m span is represented by
+multiple contiguous standard pieces, so final E4 evidence remains pending the
+aggregate-span correction.
+
+At head `080bf59da85dff8849ead91118e300389a20c66d`, authoritative run
+`30287799107` made `RiderHoistImport` green on Linux and Windows, verifying the
+aggregate BACKDROP span correction. `RiderTrussDictionaryNormalization` failed
+only because its new assertions compared the managed dictionary copy with its
+temporary import source; no unrelated failure name changed and macOS remained
+6 of 6. E4 remains pending the managed-path test correction.
+
+At head `621b2808115e02abf63ae0bdcab3a7f441e60326`, authoritative run
+`30289959436` kept `RiderHoistImport` green while
+`RiderTrussDictionaryNormalization` advanced to its managed-directory
+assertion on Linux and Windows. The test set `PERASTAGE_LIBRARY_PATH` to a
+directory it had not created, so production correctly used the user-data
+fallback; no unrelated failure name changed and macOS remained 6 of 6. E4
+remains pending final isolated-root verification.

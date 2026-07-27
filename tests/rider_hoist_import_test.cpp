@@ -147,25 +147,56 @@ int main() {
       "2 MOTOR 500Kg PARA BACKDROP\n";
   assert(RiderImporter::ImportText(filteredBackdropOnlyText));
   const auto &filteredScene = cfg.GetScene();
-  bool foundFilteredBackdropTruss = false;
-  bool filteredBackdropTrussHasModelInfo = false;
+  constexpr float kBackdropSpanToleranceMm = 0.001f;
+  std::vector<const Truss *> filteredBackdropTrusses;
   int filteredBackdropSupports = 0;
   for (const auto &[uuid, truss] : filteredScene.trusses) {
     (void)uuid;
-    if (truss.positionName == "BACKDROP") {
-      foundFilteredBackdropTruss = true;
-      if (!truss.modelFile.empty() || !truss.symbolFile.empty() ||
-          !truss.gdtfSpec.empty())
-        filteredBackdropTrussHasModelInfo = true;
+    if (truss.positionName == "BACKDROP")
+      filteredBackdropTrusses.push_back(&truss);
+  }
+  std::sort(filteredBackdropTrusses.begin(), filteredBackdropTrusses.end(),
+            [](const Truss *left, const Truss *right) {
+              return left->transform.o[0] < right->transform.o[0];
+            });
+  assert(!filteredBackdropTrusses.empty());
+
+  float filteredBackdropTotalLengthMm = 0.0f;
+  for (size_t i = 0; i < filteredBackdropTrusses.size(); ++i) {
+    const Truss &truss = *filteredBackdropTrusses[i];
+    assert(truss.positionName == "BACKDROP");
+    assert(truss.lengthMm > 0.0f);
+    assert(!truss.name.empty());
+    assert(!truss.model.empty());
+    assert(truss.modelFile.empty());
+    assert(truss.symbolFile.empty());
+    assert(truss.gdtfSpec.empty());
+    filteredBackdropTotalLengthMm += truss.lengthMm;
+    if (i > 0) {
+      const Truss &previous = *filteredBackdropTrusses[i - 1];
+      const float previousEndMm = previous.transform.o[0] + previous.lengthMm;
+      assert(std::abs(truss.transform.o[0] - previousEndMm) <
+             kBackdropSpanToleranceMm);
     }
   }
+  const float filteredBackdropSpanStartMm =
+      filteredBackdropTrusses.front()->transform.o[0];
+  const Truss &filteredBackdropLast = *filteredBackdropTrusses.back();
+  const float filteredBackdropSpanEndMm =
+      filteredBackdropLast.transform.o[0] + filteredBackdropLast.lengthMm;
+  assert(std::abs(filteredBackdropTotalLengthMm - 12000.0f) <
+         kBackdropSpanToleranceMm);
+  assert(std::abs(filteredBackdropSpanEndMm - filteredBackdropSpanStartMm -
+                  12000.0f) < kBackdropSpanToleranceMm);
+  assert(std::abs(filteredBackdropSpanStartMm - (-6000.0f)) <
+         kBackdropSpanToleranceMm);
+  assert(std::abs(filteredBackdropSpanEndMm - 6000.0f) <
+         kBackdropSpanToleranceMm);
   for (const auto &[uuid, support] : filteredScene.supports) {
     (void)uuid;
     if (support.positionName == "BACKDROP")
       ++filteredBackdropSupports;
   }
-  assert(foundFilteredBackdropTruss);
-  assert(filteredBackdropTrussHasModelInfo);
   assert(filteredBackdropSupports == 2);
 
   cfg.Reset();

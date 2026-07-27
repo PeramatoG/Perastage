@@ -1111,6 +1111,32 @@ std::vector<float> SplitTrussSymmetric(float total) {
   return best;
 }
 
+// Removes supported finish adjectives as whole canonical tokens.
+std::string SimplifyTrussFinishWords(const std::string &value) {
+  const std::string normalized = TrussDictionary::NormalizeModelKey(value);
+  if (normalized.empty())
+    return normalized;
+
+  static const std::unordered_set<std::string> kFinishWords = {
+      "NEGRO", "NEGRA", "NEGRAS", "NEGROS", "BLACK",
+      "PLATA", "SILVER", "ALUMINIO", "ALUMINUM"};
+
+  std::istringstream input(normalized);
+  std::ostringstream output;
+  std::string word;
+  bool wroteWord = false;
+  while (input >> word) {
+    if (kFinishWords.find(word) != kFinishWords.end())
+      continue;
+    if (wroteWord)
+      output << ' ';
+    output << word;
+    wroteWord = true;
+  }
+  return wroteWord ? output.str() : normalized;
+}
+
+// Builds prioritized canonical keys for Rider truss dictionary resolution.
 std::vector<std::string>
 BuildTrussDictionaryLookupKeys(const std::string &modelToken,
                                const std::string &trussName) {
@@ -1123,44 +1149,25 @@ BuildTrussDictionaryLookupKeys(const std::string &modelToken,
       keys.push_back(normalized);
   };
 
-  auto simplifyModelToken = [](std::string token) {
-    token = TrussDictionary::NormalizeModelKey(token);
-    if (token.empty())
-      return token;
-
-    static const std::unordered_set<std::string> kFinishWords = {
-        "NEGRO", "NEGRA", "NEGRAS", "NEGROS", "BLACK",
-        "PLATA", "SILVER", "ALUMINIO", "ALUMINUM"};
-
-    std::istringstream iss(token);
-    std::string word;
-    std::vector<std::string> kept;
-    while (iss >> word) {
-      if (kFinishWords.find(word) != kFinishWords.end())
-        continue;
-      kept.push_back(word);
-    }
-    if (kept.empty())
-      return token;
-    std::ostringstream oss;
-    for (size_t i = 0; i < kept.size(); ++i) {
-      if (i > 0)
-        oss << ' ';
-      oss << kept[i];
-    }
-    return oss.str();
-  };
-
   pushNormalized(modelToken);
   if (!modelToken.empty())
     pushNormalized("TRUSS " + modelToken);
-  const std::string simplifiedModelToken = simplifyModelToken(modelToken);
+  const std::string simplifiedModelToken = SimplifyTrussFinishWords(modelToken);
   if (!simplifiedModelToken.empty() &&
       simplifiedModelToken != TrussDictionary::NormalizeModelKey(modelToken)) {
     pushNormalized(simplifiedModelToken);
     pushNormalized("TRUSS " + simplifiedModelToken);
   }
   pushNormalized(trussName);
+  const std::string simplifiedTrussName = SimplifyTrussFinishWords(trussName);
+  if (simplifiedTrussName != TrussDictionary::NormalizeModelKey(trussName)) {
+    pushNormalized(simplifiedTrussName);
+    static const std::string kTrussPrefix = "TRUSS ";
+    if (simplifiedTrussName.rfind(kTrussPrefix, 0) == 0)
+      pushNormalized(simplifiedTrussName.substr(kTrussPrefix.size()));
+    else
+      pushNormalized(kTrussPrefix + simplifiedTrussName);
+  }
 
   return keys;
 }

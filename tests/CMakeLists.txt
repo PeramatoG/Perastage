@@ -957,6 +957,7 @@ add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression
 
 add_executable(rider_truss_dictionary_normalization_test
                rider_truss_dictionary_normalization_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                pdftext_stub.cpp
                gdtfloader_stub.cpp

@@ -113,6 +113,25 @@ static bool VerifyOneAddressFixtureXml(const std::string &xml) {
   return true;
 }
 
+// Verifies model dimensions use deterministic decimal serialization.
+static bool VerifyModelDimensions() {
+  const std::string xml = tests::gdtf::BuildMinimalValidFixture()
+                              .WithModelDimensionsMeters(3.0f, 0.4f, 0.4f)
+                              .BuildDescriptionXml();
+  tinyxml2::XMLDocument doc;
+  if (doc.Parse(xml.c_str()) != tinyxml2::XML_SUCCESS)
+    return Fail("Dimension fixture XML did not parse");
+  const auto *model = doc.FirstChildElement("GDTF")
+                          ->FirstChildElement("FixtureType")
+                          ->FirstChildElement("Models")
+                          ->FirstChildElement("Model");
+  if (!model || std::string(model->Attribute("Length")) != "3.0" ||
+      std::string(model->Attribute("Width")) != "0.4" ||
+      std::string(model->Attribute("Height")) != "0.4")
+    return Fail("Model dimensions were not serialized deterministically");
+  return true;
+}
+
 // Verifies the test-support archive path validator accepts and rejects expected paths.
 static bool VerifyArchivePathValidation(const fs::path &root) {
   for (const std::string &path : {"safe..name.png", "models/safe..name.glb"}) {
@@ -155,6 +174,11 @@ int main() {
     return Fail("Generated archive entry permissions are not fixed") ? 0 : 1;
   if (!VerifyOneAddressFixtureXml(entries.front().content))
     return 1;
+  if (!VerifyModelDimensions())
+    return 1;
+  const std::string glb = tests::gdtf::BuildMinimalValidGlb();
+  if (glb.size() != 48 || glb.substr(0, 4) != "glTF")
+    return Fail("Minimal GLB payload has an invalid header or length") ? 0 : 1;
   if (!VerifyArchivePathValidation(root.path))
     return 1;
   return 0;
