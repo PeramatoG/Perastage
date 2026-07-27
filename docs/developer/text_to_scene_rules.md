@@ -349,7 +349,8 @@ Capacity parsing:
 Hang normalization for hoists:
 
 - `PA`, `P.A`, `P.A.` => `PA` group behavior (position name is stored as `P.A.`).
-- `SIDE FILL` => `SIDEFILL`.
+- `SIDE FILL` and `SIDEFILL` (case-insensitive, with normalized whitespace) => `SIDEFILL`.
+- `SIDE`/`SIDES`, `CALLE`/`CALLES`, and `LX SIDE`/`LX SIDES` => `LX SIDES`; floor phrases such as `CALLES A SUELO` remain `FLOOR`.
 - `PANTALLA` => `SCREEN`.
 - `PUENTE(S) LX` => `LX` distribution mode.
 

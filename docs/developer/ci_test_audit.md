@@ -1238,3 +1238,11 @@ Phase 5A classifies `RiderComments` and `RiderFilterPreview` as stale snapshot
 expectations. The production formatter already emits consistent compact blocks,
 omits removed comments rather than materializing empty blocks, normalizes CRLF
 input, and is idempotent; focused tests now encode those byte-level invariants.
+
+
+Phase 5B repairs Rider rigging target normalization and expansion. Exact side-fill
+aliases now take precedence over explicit side-truss aliases, while lengthful and
+lengthless rigging lines share generic `LX` target expansion. Rider hoist and pipe
+coverage now checks alias classification, direct/filtered parity, deterministic
+preview output, and preservation of explicit targets. Cross-platform E2 CI remains
+required before this phase can be declared closed.

@@ -10,6 +10,8 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected Rider rigging imports so side-fill hoists retain their audio grouping and lengthless pipes for lighting bridges expand consistently across LX positions.
+
 - Standardized filtered Rider previews with compact, stable section spacing across line-ending styles while preventing removed comments from leaving blank sections.
 - Stabilized MVR layer and scene-object identities so damaged legacy UUIDs and dependent hierarchy or hoist links recover consistently across project save, reload, and export.
 - Preserved Support hoist and Truss metadata through standards-compliant MVR and project roundtrips, including portable auxiliary Truss GDTF resources.

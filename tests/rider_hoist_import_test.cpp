@@ -10,6 +10,7 @@
 #include "configmanager.h"
 #include "riderimporter.h"
 
+// Verifies Rider hoist normalization, placement, and metadata.
 int main() {
   wxInitializer initializer;
   assert(initializer.IsOk());
@@ -300,6 +301,35 @@ int main() {
   assert(sideHoistNameCounts["SIDE L 2"] == 1);
   assert(sideHoistNameCounts["SIDE R 1"] == 1);
   assert(sideHoistNameCounts["SIDE R 2"] == 1);
+
+
+  const std::vector<std::pair<std::string, std::string>> aliasCases = {
+      {"SIDE FILL", "SIDEFILL"}, {"sidefill", "SIDEFILL"},
+      {"SIDES", "LX SIDES"},     {"LX SIDES", "LX SIDES"},
+      {"CALLES", "LX SIDES"},   {"CALLES A SUELO", "FLOOR"}};
+  for (const auto &[alias, expectedTarget] : aliasCases) {
+    const std::string aliasText =
+        "RIGGING\n2 MOTOR 500Kg PARA " + alias + "\n";
+    for (const std::string &input :
+         {aliasText, RiderImporter::BuildFixtureFilterPreview(aliasText)}) {
+      cfg.Reset();
+      assert(RiderImporter::ImportText(input));
+      const auto &aliasScene = cfg.GetScene();
+      if (expectedTarget == "FLOOR") {
+        assert(aliasScene.supports.empty());
+        continue;
+      }
+      assert(aliasScene.supports.size() == 2);
+      for (const auto &[uuid, support] : aliasScene.supports) {
+        (void)uuid;
+        assert(support.positionName == expectedTarget);
+        assert(support.hoistFunction ==
+               (expectedTarget == "SIDEFILL" ? "Audio" : "Lighting"));
+        assert(support.layer ==
+               (expectedTarget == "SIDEFILL" ? "rig Audio" : "rig Lighting"));
+      }
+    }
+  }
 
   return 0;
 }
