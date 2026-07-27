@@ -22,6 +22,7 @@
 #include "projectutils.h"
 #include "sceneobject.h"
 #include "support.h"
+#include "support/gdtf_test_fixture_builder.h"
 
 // Reads the current ZIP entry into a string.
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
@@ -59,14 +60,16 @@ int main() {
   MvrScene &scene = cfg.GetScene();
 
   Layer layer;
-  layer.uuid = "layer1";
+  layer.uuid = "10000000-0000-4000-8000-000000000001";
   layer.name = "Layer1";
   scene.layers[layer.uuid] = layer;
 
   std::filesystem::path tempDir =
       std::filesystem::temp_directory_path() / "mvr_support_userdata_roundtrip";
   std::filesystem::create_directories(tempDir);
-  std::ofstream(tempDir / "fixture.gdtf") << "fixture";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithDmxMode("ChainMode", "Root")
+      .WriteArchive(tempDir / "fixture.gdtf");
   std::ofstream(tempDir / "support.3ds") << "support-model";
   scene.basePath = tempDir.string();
 
@@ -78,7 +81,7 @@ int main() {
   };
 
   Fixture motorFixture;
-  motorFixture.uuid = "fx-motor";
+  motorFixture.uuid = "20000000-0000-4000-8000-000000000001";
   motorFixture.instanceName = "Motor Fixture";
   motorFixture.layer = layer.name;
   motorFixture.typeName = "MotorType";
@@ -89,7 +92,7 @@ int main() {
   scene.fixtures[motorFixture.uuid] = motorFixture;
 
   Support linked;
-  linked.uuid = "sup-linked";
+  linked.uuid = "30000000-0000-4000-8000-000000000001";
   linked.name = "Linked";
   linked.layer = layer.name;
   linked.chainLength = 1.0f;
@@ -105,7 +108,7 @@ int main() {
   scene.supports[linked.uuid] = linked;
 
   Support dummy;
-  dummy.uuid = "sup-dummy";
+  dummy.uuid = "30000000-0000-4000-8000-000000000002";
   dummy.name = "Dummy";
   dummy.layer = layer.name;
   dummy.chainLength = 1.0f;
@@ -115,7 +118,7 @@ int main() {
   scene.supports[dummy.uuid] = dummy;
 
   Support inheritedDefaults;
-  inheritedDefaults.uuid = "sup-inherited-defaults";
+  inheritedDefaults.uuid = "30000000-0000-4000-8000-000000000003";
   inheritedDefaults.name = "Inherited Defaults";
   inheritedDefaults.layer = layer.name;
   inheritedDefaults.chainLength = 1.0f;
@@ -137,7 +140,7 @@ int main() {
   scene.supports[inheritedDefaults.uuid] = inheritedDefaults;
 
   Support manual;
-  manual.uuid = "sup-manual";
+  manual.uuid = "30000000-0000-4000-8000-000000000004";
   manual.name = "Manual";
   manual.layer = layer.name;
   manual.chainLength = 1.0f;
@@ -147,6 +150,7 @@ int main() {
   manual.weightKg = 61.0f;
   manual.loadKg = 410.0f;
   manual.loadSource = "Manual";
+  manual.function = "Other";
   manual.hoistFunction = "Audio";
   manual.motorName = "ChainMaster D8+";
   manual.motorNameSource = "Manual";
@@ -160,14 +164,14 @@ int main() {
   scene.supports[manual.uuid] = manual;
 
   Support logicalOnly;
-  logicalOnly.uuid = "sup-logical-only";
+  logicalOnly.uuid = "30000000-0000-4000-8000-000000000005";
   logicalOnly.name = "Logical Only";
   logicalOnly.layer = layer.name;
   logicalOnly.chainLength = 0.0f;
   scene.supports[logicalOnly.uuid] = logicalOnly;
 
   SceneObject emptySceneObject;
-  emptySceneObject.uuid = "obj-empty";
+  emptySceneObject.uuid = "40000000-0000-4000-8000-000000000001";
   emptySceneObject.name = "Empty SceneObject";
   scene.sceneObjects[emptySceneObject.uuid] = emptySceneObject;
 
@@ -194,17 +198,38 @@ int main() {
        info; info = info->NextSiblingElement("HoistInfo")) {
     const char *uuid = info->Attribute("uuid");
     assert(uuid != nullptr);
-    if (std::string(uuid) == "sup-linked") {
+    if (std::string(uuid) == "30000000-0000-4000-8000-000000000001") {
       foundLinkedHoistInfo = true;
       assert(info->FirstChildElement("Load") == nullptr);
       assert(info->FirstChildElement("Function") == nullptr);
+      assert(std::string(info->FirstChildElement("MotorFixtureUuid")->GetText()) ==
+             motorFixture.uuid);
+      assert(std::string(info->FirstChildElement("UseMotorDefaults")->GetText()) ==
+             "false");
     }
-    if (std::string(uuid) == "sup-manual") {
+    if (std::string(uuid) == "30000000-0000-4000-8000-000000000004") {
       foundManualHoistInfo = true;
       tinyxml2::XMLElement *load = info->FirstChildElement("Load");
       assert(load != nullptr);
       assert(load->Attribute("source") == nullptr);
       assert(info->FirstChildElement("Function") == nullptr);
+      assert(std::string(info->FirstChildElement("Capacity")->GetText()) ==
+             "1250.000000");
+      assert(std::string(info->FirstChildElement("Weight")->GetText()) ==
+             "61.000000");
+      assert(info->FirstChildElement("RiggingPoint") != nullptr);
+      assert(std::string(info->FirstChildElement("MotorName")->GetText()) ==
+             manual.motorName);
+      assert(std::string(info->FirstChildElement("MotorManufacturer")->GetText()) ==
+             manual.motorManufacturer);
+      assert(std::string(info->FirstChildElement("MotorModel")->GetText()) ==
+             manual.motorModel);
+      assert(std::string(info->FirstChildElement("ValueSource")->GetText()) ==
+             "Manual");
+      assert(std::string(info->FirstChildElement("MotorNameSource")->GetText()) ==
+             "Manual");
+      assert(std::string(info->FirstChildElement("CapacitySource")->GetText()) ==
+             "Manual");
     }
   }
   assert(foundLinkedHoistInfo);
@@ -219,7 +244,7 @@ int main() {
     tinyxml2::XMLElement *current = stack.back();
     stack.pop_back();
     if (std::string(current->Name()) == "Support" &&
-        current->Attribute("uuid") && std::string(current->Attribute("uuid")) == "sup-linked") {
+        current->Attribute("uuid") && std::string(current->Attribute("uuid")) == "30000000-0000-4000-8000-000000000001") {
       foundLinkedSupport = true;
       assert(std::string(current->Attribute("name")) == "Linked");
       assert(current->FirstChildElement("Matrix") != nullptr);
@@ -232,14 +257,14 @@ int main() {
     }
     if (std::string(current->Name()) == "Support" &&
         current->Attribute("uuid") &&
-        std::string(current->Attribute("uuid")) == "sup-manual") {
+        std::string(current->Attribute("uuid")) == "30000000-0000-4000-8000-000000000004") {
       assert(current->FirstChildElement("UserData") == nullptr);
       assert(current->FirstChildElement("SupportInfo") == nullptr);
       assert(current->FirstChildElement("HoistInfo") == nullptr);
     }
     if (std::string(current->Name()) == "Support" &&
         current->Attribute("uuid") &&
-        std::string(current->Attribute("uuid")) == "sup-logical-only") {
+        std::string(current->Attribute("uuid")) == "30000000-0000-4000-8000-000000000005") {
       foundLogicalOnlySupport = true;
       tinyxml2::XMLElement *geometries = current->FirstChildElement("Geometries");
       assert(geometries != nullptr);
@@ -248,7 +273,7 @@ int main() {
     }
     if (std::string(current->Name()) == "SceneObject" &&
         current->Attribute("uuid") &&
-        std::string(current->Attribute("uuid")) == "obj-empty") {
+        std::string(current->Attribute("uuid")) == "40000000-0000-4000-8000-000000000001") {
       foundEmptySceneObjectPlaceholder = true;
       tinyxml2::XMLElement *geometries = current->FirstChildElement("Geometries");
       assert(geometries != nullptr);
@@ -280,20 +305,20 @@ int main() {
 
   const auto &loadedFixtures = cfg.GetScene().fixtures;
   assert(loadedFixtures.size() == 1);
-  assert(loadedFixtures.at("fx-motor").category == "Spot");
+  assert(loadedFixtures.at("20000000-0000-4000-8000-000000000001").category == "Spot");
 
   const auto &loaded = cfg.GetScene().supports;
   assert(loaded.size() == 5);
 
-  const auto &loadedLinked = loaded.at("sup-linked");
-  assert(loadedLinked.motorFixtureUuid == "fx-motor");
+  const auto &loadedLinked = loaded.at("30000000-0000-4000-8000-000000000001");
+  assert(loadedLinked.motorFixtureUuid == "20000000-0000-4000-8000-000000000001");
   assert(!loadedLinked.useMotorDefaults);
 
-  const auto &loadedDummy = loaded.at("sup-dummy");
+  const auto &loadedDummy = loaded.at("30000000-0000-4000-8000-000000000002");
   assert(loadedDummy.dummyProfileId == "d8plus_1000kg");
   assert(loadedDummy.hoistFunction == "Video");
 
-  const auto &loadedManual = loaded.at("sup-manual");
+  const auto &loadedManual = loaded.at("30000000-0000-4000-8000-000000000004");
   assert(loadedManual.hoistDataSource == "Manual");
   assert(loadedManual.capacityKg == 1250.0f);
   assert(loadedManual.weightKg == 61.0f);
@@ -311,7 +336,7 @@ int main() {
   assert(loadedManual.hoistFunctionSource == "Manual");
 
 
-  const auto &loadedInheritedDefaults = loaded.at("sup-inherited-defaults");
+  const auto &loadedInheritedDefaults = loaded.at("30000000-0000-4000-8000-000000000003");
   assert(loadedInheritedDefaults.hoistDataSource == "Inherited");
   assert(loadedInheritedDefaults.useMotorDefaults);
   assert(loadedInheritedDefaults.motorManufacturer == "Perastage");

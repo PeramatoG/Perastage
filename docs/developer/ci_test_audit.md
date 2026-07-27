@@ -952,4 +952,83 @@ The complete Linux and Windows failure-name sets were unchanged from run `301961
 
 `MvrTrussRoundtripStructure` previously stopped because the default exported Layer had no canonical `uuid`. In run `30197537554`, canonical default Layer identity and ChildList checks passed and the first failure moved to `!importedTruss.perastageAuxGdtfArchivePath.empty()` at line 398. This proves the original Layer identity blocker is repaired. Truss auxiliary GDTF archive-path restoration is a separate metadata contract explicitly deferred from Phase 4B.
 
-D2 does not require these mixed-domain tests to become fully green. D2 requires the focused identity/reference matrix to pass repeatedly, the original identity-specific first failures to remain absent, and no new CI failing test name. The closure adds ambiguity-safe alias resolution and complete supported scene-reference rewriting; final D2 acceptance remains pending the follow-up commit's complete CI run.
+D2 does not require these mixed-domain tests to become fully green. D2 requires the focused identity/reference matrix to pass repeatedly, the original identity-specific first failures to remain absent, and no new CI failing test name. The closure adds ambiguity-safe alias resolution and complete supported scene-reference rewriting.
+
+### D2 merge record and Phase 4C baseline
+
+PR #2222 was merged as `9ebdbf6b6cc2cecf00f7dde6c967017c09208e1a`; its final tested head was `fd938a2c3d10cd359ee803dea71daee9b011ca45`. Authoritative Debug Tests run `30199148987` reported Linux 163 total, 139 passed, 23 failed, and 1 skipped; Windows 165 total, 138 passed, and 27 failed; and the reduced macOS profile passed 6 of 6. No failing test name was added or removed relative to run `30197537554`. This is the final cross-platform evidence: D2 was reached.
+
+The post-merge main-equivalent checkout is `2db1dd8ddb1023261a60736f4589c7da92458915`, version `1.5.11`. No remote is configured in this execution checkout, so fetch was unavailable. `git diff fd938a2c3d10cd359ee803dea71daee9b011ca45..2db1dd8` shows only `VERSION` as a post-head content change; the remaining difference is merge topology. Production and tests did not change after the verified head, so D2 controls did not require a baseline rerun.
+
+The exact next failure group is canonical Perastage Support and Truss extension metadata roundtrips. `ProjectSupportUserDataRoundtrip` reaches canonical export and then asserts the obsolete direct `Support/UserData/Data/HoistInfo` shape. `MvrTrussRoundtripStructure` validates the root `TrussInfoMap` values and then reaches the missing auxiliary GDTF field assertion. `MvrSupportUserDataRoundtrip` and `MvrExporterCompliance` remain mixed controls whose first failures must be classified independently.
+
+The pinned public MVR 1.6 XSD is `mvrdevelopment/tools` commit `16f9ff3624d3e715798a28b2c460579c55820853`, `mvr.xsd`, blob `b250b81a1a98f5dbeaf7eb55c54e21409d83f829`. It permits `GeneralSceneDescription/UserData`; Support and Truss do not define direct UserData. Strict Perastage output consequently uses only root `Data provider="Perastage" ver="1.0"` containing `HoistInfoMap` and `TrussInfoMap`. Direct object metadata is tolerant legacy input, and foreign-provider Data is not Perastage metadata.
+
+Focused local classification confirmed `ProjectSupportUserDataRoundtrip` exported successfully before reaching its stale direct-object assertion. `MvrSupportUserDataRoundtrip` fails before canonical MVR export because its ad-hoc `fixture.gdtf` is not a valid ZIP and the canonicalizer rejects it; this is an invalid-fixture blocker rather than a metadata failure. The Truss structure test reaches its canonical root-map assertions before auxiliary-resource restoration. Unrelated GDTF/category repair remains deferred.
+
+After the focused fixture and resource-contract corrections,
+`ProjectSupportUserDataRoundtrip` and `MvrTrussRoundtripStructure` both pass
+locally and pass `ctest --repeat until-fail:20`. D3 is not yet declared:
+Windows and complete Debug Tests CI evidence, plus the requested exhaustive
+malformed/duplicate metadata diagnostic matrix, remain the exact acceptance
+blockers. The PR must remain focused and open until that evidence and coverage
+are available; no unrelated repair is included.
+
+### Phase 4C CI follow-up and D3 closure baseline
+
+The reviewed Phase 4C head `5f6128f59205b730ad23d730404dae6dd8f6679f`
+was tested by authoritative Debug Tests run `30203361878`. Linux reported 163
+total, 141 passed, 21 failed, and 1 skipped; Windows reported 165 total, 140
+passed, and 25 failed; the reduced macOS profile remained 6 passed of 6. Linux
+and Windows each removed exactly `ProjectSupportUserDataRoundtrip` and
+`MvrTrussRoundtripStructure`, with no added failing test name.
+
+D3 remained pending at that head because `MvrSupportUserDataRoundtrip` still
+used a plain-text non-GDTF fixture, metadata provider/version, duplicate,
+numeric, and path rejection were not covered, and the Truss test did not prove
+scene-owned auxiliary resource lifetime or safe re-export. The closure work
+replaces the strict fixture with the shared canonical GDTF 1.2 builder, makes
+supported root metadata first-wins over legacy input, exposes import
+diagnostics, rejects non-finite numbers and unsafe or missing auxiliary paths,
+prevents fallback substitution for an explicit missing auxiliary resource, and
+exercises owned-resource re-export. Final D3 status remains contingent on the
+closure test matrix and cross-platform CI evidence.
+
+### Phase 4C final diagnostic-closure baseline
+
+Authoritative Debug Tests run `30205630411` tested reviewed head
+`0e64b4ba4d58554e38be6c1852bcbc813ee09c40`. Linux reported 163 total,
+142 passed, 20 failed, and 1 skipped; Windows reported 165 total, 141 passed,
+and 24 failed; the reduced macOS profile remained 6 of 6. The run removed
+`MvrSupportUserDataRoundtrip` on Linux and Windows, added no failing test name,
+and kept all three Support/Truss roundtrip tests passing.
+
+D3 at that head remained pending only executable metadata diagnostic and
+legacy-provider closure. `MvrPerastageMetadataRecovery` now exercises the
+detailed `MvrImportResult` path and asserts structured codes for malformed,
+duplicate, unknown, unsupported-version, legacy-version, numeric,
+MotorFixtureUuid, and unsafe auxiliary metadata while verifying canonical-root
+precedence and foreign-provider isolation. Final D3 declaration still requires
+the new test and unchanged control matrix to pass in cross-platform CI.
+
+At that diagnostic-closure head, the focused test and repository policy checks
+passed locally. Archive-entry ambiguity and normal-flow diagnostic delivery
+remained intentionally deferred to the next focused closure.
+
+### Phase 4C archive-ambiguity closure baseline
+
+Authoritative Debug Tests run `30207498081` tested reviewed head
+`fa7eaee6381ff722d31ee6e262cc3fca8a69fa23`. Linux reported 164 total,
+143 passed, 20 failed, and 1 skipped; Windows reported 166 total, 142 passed,
+and 24 failed; the reduced macOS profile remained 6 of 6.
+`MvrPerastageMetadataRecovery` passed on Linux and Windows, and the failure-name
+delta from run `30205630411` was empty. All four focused metadata tests passed.
+
+The exact remaining boundaries at that head were deterministic rejection of
+duplicate or ASCII case-colliding ZIP entries and delivery of structured
+diagnostics through common import overloads. Extraction now removes the first
+colliding resource, skips later colliders, clears remaps, fails on ambiguous
+scene XML, and retains collision diagnostics even on failure. Common project
+and scene import entry points deliver final structured diagnostics once; the
+detailed overload remains the non-logging structured source of truth. Final D3
+still requires authoritative cross-platform CI for this closure commit.

@@ -20,6 +20,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "mvrscene.h"
 
@@ -42,9 +43,15 @@ struct MvrImportOptions {
     MvrImportSourceKind sourceKind = MvrImportSourceKind::ExternalImport;
 };
 
+struct MvrImportDiagnostic {
+    std::string code;
+    std::string message;
+};
+
 struct MvrImportResult {
     MvrScene scene;
     std::unordered_map<std::string, std::string> fixtureUuidRemap;
+    std::vector<MvrImportDiagnostic> diagnostics;
 };
 
 // Responsible for importing .mvr files into the application's internal data model
@@ -117,7 +124,8 @@ private:
     // Creates a temporary directory for extracting the contents of the MVR archive
 
     // Extracts the .mvr (ZIP) contents into the given destination directory
-    bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir);
+    bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir,
+                       std::vector<MvrImportDiagnostic>& diagnostics);
 
     // Extracts and parses a .mvr file into an import result payload.
     bool ImportFromFileIntoResult(const std::string& filePath,

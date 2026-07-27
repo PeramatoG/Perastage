@@ -142,6 +142,29 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
+// Folds only ASCII uppercase characters for platform-neutral archive identity.
+static std::string FoldArchiveIdentityAscii(std::string text) {
+  for (char &ch : text) {
+    if (ch >= 'A' && ch <= 'Z')
+      ch = static_cast<char>(ch - 'A' + 'a');
+  }
+  return text;
+}
+
+// Escapes control characters in archive identities used by diagnostics.
+static std::string EscapeArchiveIdentity(const std::string &identity) {
+  std::ostringstream escaped;
+  for (unsigned char ch : identity) {
+    if (ch < 32 || ch == 127) {
+      escaped << "\\x" << std::hex << std::setw(2) << std::setfill('0')
+              << static_cast<int>(ch) << std::dec;
+    } else {
+      escaped << static_cast<char>(ch);
+    }
+  }
+  return escaped.str();
+}
+
 static std::string ResolveGdtfPath(const std::string &baseDir,
                                    const std::string &spec);
 
@@ -162,6 +185,23 @@ static std::string NormalizeArchivePathValue(const std::string &archivePath) {
   normalized = ToLowerAscii(normalized);
 #endif
   return normalized;
+}
+
+// Reports whether extension metadata names one portable root-level archive file.
+static bool IsPortableRootArchiveFileName(const std::string &value) {
+  if (value.empty() || value == "." || value == "..")
+    return false;
+  if (std::any_of(value.begin(), value.end(), [](unsigned char ch) {
+        return ch < 32 || ch == 127;
+      }))
+    return false;
+  if (value.find('/') != std::string::npos ||
+      value.find('\\') != std::string::npos ||
+      value.find(':') != std::string::npos)
+    return false;
+  const fs::path path = PathUtils::PathFromUtf8(value);
+  return !path.is_absolute() && !path.has_root_name() &&
+         path.filename().generic_string() == value;
 }
 
 static std::string NormalizeGdtfLookupKey(const std::string &value) {
@@ -300,7 +340,9 @@ static bool TryParseFloat(const std::string &text, float &out) {
   std::string trimmedText(trimmed);
   char *endPtr = nullptr;
   const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
-  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE) {
+  if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE &&
+      std::isfinite(parsed) &&
+      std::isfinite(static_cast<float>(parsed))) {
     out = static_cast<float>(parsed);
     return true;
   }
@@ -952,8 +994,9 @@ ReadLegacyFixtureIdentityFromUserData(tinyxml2::XMLElement *fixtureNode) {
 }
 
 // Reads one Perastage hoist metadata element into a support.
-static void ReadSupportHoistInfoElement(tinyxml2::XMLElement *info,
-                                        Support &support) {
+static void ReadSupportHoistInfoElement(
+    tinyxml2::XMLElement *info, Support &support,
+    std::vector<MvrImportDiagnostic> &diagnostics) {
   if (!info)
     return;
 
@@ -961,8 +1004,14 @@ static void ReadSupportHoistInfoElement(tinyxml2::XMLElement *info,
     if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
       if (const char *txt = el->GetText()) {
         float parsed = 0.0f;
-        if (TryParseFloat(txt, parsed))
+        if (TryParseFloat(txt, parsed)) {
           out = parsed;
+        } else {
+          diagnostics.push_back(
+              {"invalid_hoist_numeric_field",
+               "Support '" + support.uuid + "' has invalid " + name +
+                   " metadata."});
+        }
       }
     }
   };
@@ -977,8 +1026,15 @@ static void ReadSupportHoistInfoElement(tinyxml2::XMLElement *info,
   readFloat("Capacity", support.capacityKg);
   readFloat("Weight", support.weightKg);
   if (tinyxml2::XMLElement *load = info->FirstChildElement("Load")) {
-    readFloat("Load", support.loadKg);
-    support.loadSource = "Manual";
+    float parsed = 0.0f;
+    if (load->GetText() && TryParseFloat(load->GetText(), parsed)) {
+      support.loadKg = parsed;
+      support.loadSource = "Manual";
+    } else {
+      diagnostics.push_back(
+          {"invalid_hoist_numeric_field",
+           "Support '" + support.uuid + "' has invalid Load metadata."});
+    }
   }
 
   std::string hoistFunction = readText("RiggingPoint");
@@ -997,13 +1053,30 @@ static void ReadSupportHoistInfoElement(tinyxml2::XMLElement *info,
   if (!model.empty())
     support.motorModel = model;
   const std::string fixtureUuid = readText("MotorFixtureUuid");
-  if (!fixtureUuid.empty())
-    support.motorFixtureUuid = fixtureUuid;
+  if (!fixtureUuid.empty()) {
+    const std::string canonicalFixtureUuid = CanonicalizeUuid(fixtureUuid);
+    if (canonicalFixtureUuid.empty()) {
+      diagnostics.push_back(
+          {"invalid_motor_fixture_uuid",
+           "Support '" + support.uuid +
+               "' has a malformed MotorFixtureUuid."});
+    } else {
+      support.motorFixtureUuid = canonicalFixtureUuid;
+    }
+  }
 
   const std::string useDefaults = ToLowerCopy(readText("UseMotorDefaults"));
   if (!useDefaults.empty()) {
-    support.useMotorDefaults = !(useDefaults == "false" ||
-                                 useDefaults == "0" || useDefaults == "no");
+    if (useDefaults == "true" || useDefaults == "1" || useDefaults == "yes")
+      support.useMotorDefaults = true;
+    else if (useDefaults == "false" || useDefaults == "0" ||
+             useDefaults == "no")
+      support.useMotorDefaults = false;
+    else
+      diagnostics.push_back(
+          {"invalid_use_motor_defaults",
+           "Support '" + support.uuid +
+               "' has invalid UseMotorDefaults metadata."});
   }
 
   const std::string dummyPreset = readText("DummyPreset");
@@ -1053,25 +1126,56 @@ static void ReadSupportHoistInfoElement(tinyxml2::XMLElement *info,
 
 // Reads legacy Support/UserData hoist metadata into a support.
 static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
-                                             Support &support) {
+                                             Support &support,
+                                             std::vector<MvrImportDiagnostic> &diagnostics) {
   for (tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData");
        ud; ud = ud->NextSiblingElement("UserData")) {
     for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
          data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage")
+        continue;
+      const std::string version =
+          Trim(data->Attribute("ver") ? data->Attribute("ver") : "");
+      if (version.empty()) {
+        diagnostics.push_back(
+            {"legacy_perastage_metadata_missing_version",
+             "Accepted legacy Support metadata without a schema version."});
+      } else if (version != "1.0") {
+        diagnostics.push_back(
+            {"unsupported_perastage_metadata_version",
+             "Ignored legacy Support metadata with unsupported schema version '" +
+                 version + "'."});
+        continue;
+      }
       tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
       if (!info)
         info = data->FirstChildElement("MotorInfo");
-      ReadSupportHoistInfoElement(info, support);
+      ReadSupportHoistInfoElement(info, support, diagnostics);
     }
   }
 }
+// Logs each structured MVR import diagnostic exactly once for discarded results.
+static void LogMvrImportDiagnostics(
+    const std::vector<MvrImportDiagnostic> &diagnostics) {
+  for (const MvrImportDiagnostic &diagnostic : diagnostics) {
+    LogMessage(Logger::Level::Warn,
+               "MVR metadata diagnostic [" + diagnostic.code + "]: " +
+                   diagnostic.message);
+  }
+}
+
 // Imports an MVR file into the global application scene.
 bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  bool promptConflicts, bool applyDictionary,
                                  ProgressCallback progressCallback) {
   MvrImportResult importResult;
-  return ImportFromFile(filePath, importResult, MvrImportMode::ReplaceProject,
-                        promptConflicts, applyDictionary, progressCallback);
+  const bool imported =
+      ImportFromFile(filePath, importResult, MvrImportMode::ReplaceProject,
+                     promptConflicts, applyDictionary, progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
+  return imported;
 }
 
 // Imports an MVR file into an import result and optionally replaces the global
@@ -1122,6 +1226,7 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
   const bool imported =
       ImportFromFile(filePath, importResult, MvrImportMode::ParseOnly, options,
                      progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
   if (!imported)
     return false;
 
@@ -1196,7 +1301,7 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   std::string tempDir = ToString(importWorkspace.Path().u8string());
   std::string mvrPath = ToString(path.u8string());
   fs::path tempPath(tempDir);
-  if (!ExtractMvrZip(mvrPath, tempDir)) {
+  if (!ExtractMvrZip(mvrPath, tempDir, importResult.diagnostics)) {
     LogMessage("Failed to extract MVR file.");
     return false;
   }
@@ -1281,8 +1386,9 @@ MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
 }
 
 // Extracts an MVR zip archive into the destination directory.
-bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
-                                const std::string &destDir) {
+bool MvrImporter::ExtractMvrZip(
+    const std::string &mvrPath, const std::string &destDir,
+    std::vector<MvrImportDiagnostic> &diagnostics) {
   wxFileInputStream input(wxString::FromUTF8(mvrPath.c_str()));
   if (!input.IsOk()) {
     LogMessage("Failed to open MVR file.");
@@ -1291,6 +1397,18 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
 
   wxZipInputStream zipStream(input);
   std::unique_ptr<wxZipEntry> entry;
+  std::unordered_map<std::string, std::string> identityByFoldedKey;
+  std::unordered_map<std::string, fs::path> extractedPathByIdentity;
+  std::unordered_set<std::string> ambiguousFoldedKeys;
+
+  auto discardCurrentEntry = [&]() {
+    char discardBuffer[4096];
+    while (true) {
+      zipStream.Read(discardBuffer, sizeof(discardBuffer));
+      if (zipStream.LastRead() == 0)
+        break;
+    }
+  };
 
   while ((entry.reset(zipStream.GetNextEntry())), entry) {
     // Extract entry names using UTF-8 to preserve special characters
@@ -1304,12 +1422,7 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
                     [](const fs::path &part) { return part == ".."; })) {
       LogMessage(Logger::Level::Warn,
                  "Skipping unsafe MVR archive entry: " + entryName);
-      char discardBuffer[4096];
-      while (true) {
-        zipStream.Read(discardBuffer, sizeof(discardBuffer));
-        if (zipStream.LastRead() == 0)
-          break;
-      }
+      discardCurrentEntry();
       continue;
     }
     fs::path fullPath =
@@ -1321,6 +1434,40 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
                         wxPATH_MKDIR_FULL);
       continue;
     }
+
+    const std::string archiveIdentity = normalizedUnsafeCheck;
+    const std::string foldedIdentity =
+        FoldArchiveIdentityAscii(archiveIdentity);
+    if (ambiguousFoldedKeys.contains(foldedIdentity)) {
+      pathRemap.erase(NormalizeArchivePath(archiveIdentity));
+      discardCurrentEntry();
+      continue;
+    }
+    auto priorIdentityIt = identityByFoldedKey.find(foldedIdentity);
+    if (priorIdentityIt != identityByFoldedKey.end()) {
+      const bool exactDuplicate = priorIdentityIt->second == archiveIdentity;
+      const char *code = exactDuplicate ? "duplicate_mvr_archive_entry"
+                                        : "case_colliding_mvr_archive_entry";
+      diagnostics.push_back(
+          {code, std::string("Rejected ambiguous MVR archive entries '") +
+                     EscapeArchiveIdentity(priorIdentityIt->second) + "' and '" +
+                     EscapeArchiveIdentity(archiveIdentity) + "'."});
+      auto extractedIt =
+          extractedPathByIdentity.find(priorIdentityIt->second);
+      if (extractedIt != extractedPathByIdentity.end()) {
+        std::error_code removeEc;
+        fs::remove(extractedIt->second, removeEc);
+        extractedPathByIdentity.erase(extractedIt);
+      }
+      pathRemap.erase(NormalizeArchivePath(priorIdentityIt->second));
+      pathRemap.erase(NormalizeArchivePath(archiveIdentity));
+      ambiguousFoldedKeys.insert(foldedIdentity);
+      discardCurrentEntry();
+      if (foldedIdentity == "generalscenedescription.xml")
+        return false;
+      continue;
+    }
+    identityByFoldedKey.emplace(foldedIdentity, archiveIdentity);
 
     std::string parentUtf8 = ToString(fullPath.parent_path().u8string());
     wxFileName::Mkdir(wxString::FromUTF8(parentUtf8.c_str()), wxS_DIR_DEFAULT,
@@ -1412,6 +1559,7 @@ bool MvrImporter::ExtractMvrZip(const std::string &mvrPath,
     }
 
     output.close();
+    extractedPathByIdentity[archiveIdentity] = fullPath;
   }
 
   return true;
@@ -1690,7 +1838,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   parseRootFixtureTypeInfoMap(root->FirstChildElement("UserData"));
 
+  std::unordered_set<tinyxml2::XMLElement *> diagnosedUnsupportedData;
+  auto isSupportedPerastageMetadata = [&](tinyxml2::XMLElement *data) {
+    const std::string version =
+        Trim(data->Attribute("ver") ? data->Attribute("ver") : "");
+    if (version == "1.0")
+      return true;
+    if (diagnosedUnsupportedData.insert(data).second) {
+      importResult.diagnostics.push_back(
+          {"unsupported_perastage_metadata_version",
+           "Ignored Perastage root metadata with unsupported schema version '" +
+               version + "'."});
+    }
+    return false;
+  };
+
   std::unordered_map<std::string, tinyxml2::XMLElement *> rootTrussInfoByUuid;
+  std::unordered_set<std::string> consumedRootTrussInfoUuids;
   // Collects root-level Perastage truss metadata by canonical exported UUID.
   auto parseRootTrussInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
     if (!userDataNode)
@@ -1701,14 +1865,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
+      if (!isSupportedPerastageMetadata(data))
+        continue;
       for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap");
            map; map = map->NextSiblingElement("TrussInfoMap")) {
         for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo");
              info; info = info->NextSiblingElement("TrussInfo")) {
           const std::string uuid = CanonicalizeUuid(
               Trim(info->Attribute("uuid") ? info->Attribute("uuid") : ""));
-          if (!uuid.empty())
-            rootTrussInfoByUuid[uuid] = info;
+          if (uuid.empty()) {
+            importResult.diagnostics.push_back(
+                {"invalid_truss_info_uuid",
+                 "Ignored TrussInfo with a malformed UUID."});
+          } else if (!rootTrussInfoByUuid.emplace(uuid, info).second) {
+            importResult.diagnostics.push_back(
+                {"duplicate_truss_info",
+                 "Ignored duplicate TrussInfo for UUID '" + uuid + "'."});
+          }
         }
       }
     }
@@ -1766,6 +1939,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   parseRootPrimitiveGeometryMap(root->FirstChildElement("UserData"));
 
   std::unordered_map<std::string, tinyxml2::XMLElement *> rootHoistInfoByUuid;
+  std::unordered_set<std::string> consumedRootHoistInfoUuids;
   // Collects root-level Perastage hoist metadata by exported Support UUID.
   auto parseRootHoistInfoMap = [&](tinyxml2::XMLElement *userDataNode) {
     if (!userDataNode)
@@ -1776,6 +1950,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
+      if (!isSupportedPerastageMetadata(data))
+        continue;
       for (tinyxml2::XMLElement *map = data->FirstChildElement("HoistInfoMap");
            map; map = map->NextSiblingElement("HoistInfoMap")) {
         for (tinyxml2::XMLElement *info = map->FirstChildElement("HoistInfo");
@@ -1783,10 +1959,18 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const std::string rawUuid =
               Trim(info->Attribute("uuid") ? info->Attribute("uuid") : "");
           const std::string canonicalUuid = CanonicalizeUuid(rawUuid);
-          if (!rawUuid.empty())
-            rootHoistInfoByUuid[rawUuid] = info;
-          if (!canonicalUuid.empty())
-            rootHoistInfoByUuid[canonicalUuid] = info;
+          if (canonicalUuid.empty()) {
+            importResult.diagnostics.push_back(
+                {"invalid_hoist_info_uuid",
+                 "Ignored HoistInfo with a malformed UUID."});
+            continue;
+          }
+          if (!rootHoistInfoByUuid.emplace(canonicalUuid, info).second) {
+            importResult.diagnostics.push_back(
+                {"duplicate_hoist_info",
+                 "Ignored duplicate HoistInfo for UUID '" + canonicalUuid +
+                     "'."});
+          }
         }
       }
     }
@@ -2575,40 +2759,30 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (!info)
       return;
     (void)hasGdtfMetadataAuthority;
+    auto readNumeric = [&](const char *field, float &target) {
+      tinyxml2::XMLElement *element = info->FirstChildElement(field);
+      if (!element)
+        return;
+      float parsed = 0.0f;
+      if (element->GetText() && TryParseFloat(element->GetText(), parsed)) {
+        target = parsed;
+      } else {
+        importResult.diagnostics.push_back(
+            {"invalid_truss_numeric_field",
+             "Truss '" + truss.uuid + "' has invalid " + field +
+                 " metadata."});
+      }
+    };
     if (tinyxml2::XMLElement *m = info->FirstChildElement("Manufacturer"))
       if (m->GetText())
         truss.manufacturer = Trim(m->GetText());
     if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
       if (mo->GetText())
         truss.model = Trim(mo->GetText());
-    if (tinyxml2::XMLElement *len = info->FirstChildElement("Length"))
-      if (len->GetText()) {
-        float parsed = 0.0f;
-        if (TryParseFloat(len->GetText(), parsed))
-          truss.lengthMm = parsed;
-      }
-    if (tinyxml2::XMLElement *wid = info->FirstChildElement("Width"))
-      if (wid->GetText()) {
-        float parsed = 0.0f;
-        if (TryParseFloat(wid->GetText(), parsed))
-          truss.widthMm = parsed;
-        else
-          truss.widthMm = 400.0f;
-      }
-    if (tinyxml2::XMLElement *hei = info->FirstChildElement("Height"))
-      if (hei->GetText()) {
-        float parsed = 0.0f;
-        if (TryParseFloat(hei->GetText(), parsed))
-          truss.heightMm = parsed;
-        else
-          truss.heightMm = 400.0f;
-      }
-    if (tinyxml2::XMLElement *wei = info->FirstChildElement("Weight"))
-      if (wei->GetText()) {
-        float parsed = 0.0f;
-        if (TryParseFloat(wei->GetText(), parsed))
-          truss.weightKg = parsed;
-      }
+    readNumeric("Length", truss.lengthMm);
+    readNumeric("Width", truss.widthMm);
+    readNumeric("Height", truss.heightMm);
+    readNumeric("Weight", truss.weightKg);
     if (tinyxml2::XMLElement *desc = info->FirstChildElement("GdtfDescription"))
       if (desc->GetText())
         truss.gdtfDescription = desc->GetText();
@@ -2626,6 +2800,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         if (TryParseFloat(Trim(load->GetText()), parsed)) {
           truss.manualLoadKg = parsed;
           truss.hasManualLoadOverride = true;
+        } else {
+          importResult.diagnostics.push_back(
+              {"invalid_truss_numeric_field",
+               "Truss '" + truss.uuid + "' has invalid Load metadata."});
         }
       }
     if (tinyxml2::XMLElement *mf = info->FirstChildElement("ModelFile"))
@@ -2645,9 +2823,28 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       if (tk->GetText())
         truss.perastageTypeKey = Trim(tk->GetText());
     if (tinyxml2::XMLElement *ag = info->FirstChildElement("AuxGdtf"))
-      if (ag->GetText())
-        truss.perastageAuxGdtfArchivePath =
-            RemapArchivePathIfNeeded(Trim(ag->GetText()));
+      if (ag->GetText()) {
+        const std::string archiveName = Trim(ag->GetText());
+        if (!IsPortableRootArchiveFileName(archiveName)) {
+          importResult.diagnostics.push_back(
+              {"unsafe_truss_aux_gdtf_path",
+               "Ignored unsafe TrussInfo AuxGdtf path '" + archiveName +
+                   "'."});
+        } else {
+          const std::string remapped = RemapArchivePathIfNeeded(archiveName);
+          const fs::path resolved =
+              ResolveSceneRelativePath(scene.basePath, remapped);
+          std::error_code existsEc;
+          if (fs::is_regular_file(resolved, existsEc) && !existsEc) {
+            truss.perastageAuxGdtfArchivePath = remapped;
+          } else {
+            importResult.diagnostics.push_back(
+                {"missing_truss_aux_gdtf",
+                 "Ignored missing TrussInfo AuxGdtf archive entry '" +
+                     archiveName + "'."});
+          }
+        }
+      }
   };
 
   std::function<void(tinyxml2::XMLElement *, const std::string &,
@@ -2769,12 +2966,30 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
         auto rootTrussInfoIt = rootTrussInfoByUuid.find(truss.uuid);
         if (rootTrussInfoIt != rootTrussInfoByUuid.end()) {
+          consumedRootTrussInfoUuids.insert(rootTrussInfoIt->first);
           applyTrussInfo(rootTrussInfoIt->second, truss,
                          hasGdtfMetadataAuthority);
         } else if (tinyxml2::XMLElement *ud =
                        node->FirstChildElement("UserData")) {
           for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
                data = data->NextSiblingElement("Data")) {
+            const std::string provider = ToLowerCopy(Trim(
+                data->Attribute("provider") ? data->Attribute("provider") : ""));
+            if (provider != "perastage")
+              continue;
+            const std::string version =
+                Trim(data->Attribute("ver") ? data->Attribute("ver") : "");
+            if (version.empty()) {
+              importResult.diagnostics.push_back(
+                  {"legacy_perastage_metadata_missing_version",
+                   "Accepted legacy Truss metadata without a schema version."});
+            } else if (version != "1.0") {
+              importResult.diagnostics.push_back(
+                  {"unsupported_perastage_metadata_version",
+                   "Ignored legacy Truss metadata with unsupported schema version '" +
+                       version + "'."});
+              continue;
+            }
             if (tinyxml2::XMLElement *info =
                     data->FirstChildElement("TrussInfo")) {
               applyTrussInfo(info, truss, hasGdtfMetadataAuthority);
@@ -2952,10 +3167,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           support.modelFile = support.geometries.front().modelFile;
 
         auto rootHoistInfoIt = rootHoistInfoByUuid.find(support.uuid);
-        if (rootHoistInfoIt != rootHoistInfoByUuid.end())
-          ReadSupportHoistInfoElement(rootHoistInfoIt->second, support);
-        else
-          ReadSupportHoistInfoFromUserData(node, support);
+        if (rootHoistInfoIt != rootHoistInfoByUuid.end()) {
+          consumedRootHoistInfoUuids.insert(rootHoistInfoIt->first);
+          ReadSupportHoistInfoElement(rootHoistInfoIt->second, support,
+                                      importResult.diagnostics);
+        } else {
+          ReadSupportHoistInfoFromUserData(node, support,
+                                           importResult.diagnostics);
+        }
         ApplySupportHoistInfoDefaults(support);
         auto posIt = scene.positions.find(support.position);
         if (posIt != scene.positions.end())
@@ -3224,10 +3443,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             }
           }
           auto rootHoistInfoIt = rootHoistInfoByUuid.find(support.uuid);
-          if (rootHoistInfoIt != rootHoistInfoByUuid.end())
-            ReadSupportHoistInfoElement(rootHoistInfoIt->second, support);
-          else
-            ReadSupportHoistInfoFromUserData(node, support);
+          if (rootHoistInfoIt != rootHoistInfoByUuid.end()) {
+            consumedRootHoistInfoUuids.insert(rootHoistInfoIt->first);
+            ReadSupportHoistInfoElement(rootHoistInfoIt->second, support,
+                                        importResult.diagnostics);
+          } else {
+            ReadSupportHoistInfoFromUserData(node, support,
+                                             importResult.diagnostics);
+          }
           ApplySupportHoistInfoDefaults(support);
           scene.supports[support.uuid] = support;
         } else {
@@ -4598,6 +4821,50 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
   LogMessage(Logger::Level::Info, importDiagnostics.str());
 
+  for (auto &[uuid, support] : scene.supports) {
+    if (support.motorFixtureUuid.empty())
+      continue;
+    const std::string canonical = CanonicalizeUuid(support.motorFixtureUuid);
+    if (canonical.empty())
+      continue;
+    auto aliasIt = fixtureUuidRemap.find(support.motorFixtureUuid);
+    const std::string resolved = aliasIt == fixtureUuidRemap.end()
+                                     ? canonical
+                                     : aliasIt->second;
+    if (scene.fixtures.contains(resolved)) {
+      support.motorFixtureUuid = resolved;
+    } else {
+      importResult.diagnostics.push_back(
+          {"unknown_motor_fixture_uuid",
+           "Support '" + uuid +
+               "' references an unknown MotorFixtureUuid."});
+      support.motorFixtureUuid.clear();
+    }
+  }
+
+  auto diagnoseUnusedRootEntries =
+      [&](const auto &entries, const auto &consumed, const char *code,
+          const char *kind) {
+        std::vector<std::string> unknown;
+        for (const auto &[uuid, element] : entries) {
+          (void)element;
+          if (!consumed.contains(uuid))
+            unknown.push_back(uuid);
+        }
+        std::sort(unknown.begin(), unknown.end());
+        for (const std::string &uuid : unknown) {
+          importResult.diagnostics.push_back(
+              {code, std::string("Ignored ") + kind +
+                         " for unknown UUID '" + uuid + "'."});
+        }
+      };
+  diagnoseUnusedRootEntries(rootHoistInfoByUuid,
+                            consumedRootHoistInfoUuids,
+                            "unknown_hoist_info_uuid", "HoistInfo");
+  diagnoseUnusedRootEntries(rootTrussInfoByUuid,
+                            consumedRootTrussInfoUuids,
+                            "unknown_truss_info_uuid", "TrussInfo");
+
   std::string summary =
       "Parsed scene: " + std::to_string(scene.fixtures.size()) + " fixtures, " +
       std::to_string(scene.trusses.size()) + " trusses, " +
@@ -4628,6 +4895,7 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
   const bool imported = importer.ImportFromFile(filePath, importResult,
                                                 MvrImportMode::ReplaceProject,
                                                 options, progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
   if (!imported)
     return false;
 

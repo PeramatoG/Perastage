@@ -81,9 +81,11 @@ int main() {
   support.capacityKg = 1000.0f;
   support.weightKg = 40.0f;
   support.loadKg = 275.0f;
+  support.function = "Other";
   support.hoistFunction = "Audio";
   support.capacitySource = "Manual";
   support.weightSource = "Manual";
+  support.loadSource = "Manual";
   support.hoistFunctionSource = "Manual";
   support.motorName = "ChainMaster D8+";
   support.motorNameSource = "Manual";
@@ -147,12 +149,21 @@ int main() {
   }
 
   assert(supportNode != nullptr);
-  tinyxml2::XMLElement *userData = supportNode->FirstChildElement("UserData");
+  assert(supportNode->FirstChildElement("UserData") == nullptr);
+  tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
   assert(userData != nullptr);
   tinyxml2::XMLElement *data = userData->FirstChildElement("Data");
   assert(data != nullptr);
-  tinyxml2::XMLElement *hoistInfo = data->FirstChildElement("HoistInfo");
+  assert(std::string(data->Attribute("provider")) == "Perastage");
+  assert(std::string(data->Attribute("ver")) == "1.0");
+  tinyxml2::XMLElement *hoistInfoMap =
+      data->FirstChildElement("HoistInfoMap");
+  assert(hoistInfoMap != nullptr);
+  tinyxml2::XMLElement *hoistInfo =
+      hoistInfoMap->FirstChildElement("HoistInfo");
   assert(hoistInfo != nullptr);
+  assert(std::string(hoistInfo->Attribute("uuid")) == support.uuid);
+  assert(hoistInfo->NextSiblingElement("HoistInfo") == nullptr);
 
   tinyxml2::XMLElement *capacity = hoistInfo->FirstChildElement("Capacity");
   tinyxml2::XMLElement *load = hoistInfo->FirstChildElement("Load");
@@ -175,9 +186,28 @@ int main() {
   const auto &loaded = loadedSupports.at(support.uuid);
   assert(loaded.hoistDataSource == "Manual");
   assert(loaded.capacityKg == 1000.0f);
-  assert(loaded.capacityKg > 0.0f);
+  assert(loaded.weightKg == 40.0f);
   assert(loaded.loadKg == 275.0f);
   assert(loaded.hoistFunction == "Audio");
+  assert(loaded.motorName == "ChainMaster D8+");
+  assert(loaded.motorManufacturer == "ChainMaster");
+  assert(loaded.motorModel == "D8+");
+  assert(loaded.capacitySource == "Manual");
+  assert(loaded.weightSource == "Manual");
+  assert(loaded.hoistFunctionSource == "Manual");
+  const Support loadedCopy = loaded;
+
+  const fs::path secondProjectPath =
+      tempDir / "support_userdata_roundtrip_second.pstg";
+  assert(cfg.SaveProject(secondProjectPath.string()));
+  cfg.Reset();
+  assert(cfg.LoadProject(secondProjectPath.string()));
+  const auto &secondLoaded = cfg.GetScene().supports.at(support.uuid);
+  assert(secondLoaded.capacityKg == loadedCopy.capacityKg);
+  assert(secondLoaded.weightKg == loadedCopy.weightKg);
+  assert(secondLoaded.loadKg == loadedCopy.loadKg);
+  assert(secondLoaded.hoistFunction == loadedCopy.hoistFunction);
+  assert(secondLoaded.motorName == loadedCopy.motorName);
 
   fs::remove_all(tempDir, ec);
   return 0;
