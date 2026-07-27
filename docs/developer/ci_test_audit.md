@@ -1188,16 +1188,30 @@ colors. Malformed UUIDs, duplicate UUIDs, unsupported versions, and unknown
 fixture UUIDs are ignored with structured diagnostics; first valid duplicate
 wins, and foreign-provider data is ignored.
 
-Local Linux Debug configured successfully with
-`cmake --preset wsl-x64-debug -DPERASTAGE_ENABLE_MVR_XCHANGE_MDNS=OFF` after
-installing the container's missing development packages. The first repaired
-focused run proved both original blockers removed: `SaveLoadRoundtrip` passed
-the retained `#445566` assertion and the new same-type isolation assertions,
-then reached its later pre-existing duplicate FixtureID expectation at line
-257; `MvrExporterCompliance` passed strict Truss order validation, then reached
-its later case-only archive-entry count assertion at line 537. These later
-assertions were not weakened or changed. Because both primary CTest names are
-not fully green, repeated verification, full cross-platform CI, and a D4C claim
-are intentionally withheld. No test was hidden, disabled, skipped, relabeled,
-removed, or weakened. This branch requires follow-up review of those already
-latent in-test failures before CI can establish the requested failure-set delta.
+Authoritative follow-up run `30246813381` at reviewed head
+`9e48e4acdc1202bf6f028498f25a7383f74e0fc9` completed configure, build,
+toolchain, vcpkg, and sccache stages on Linux and Windows. Linux reported 164
+total, 146 passed, 17 failed, and 1 skipped; Windows reported 166 total, 146
+passed, and 20 failed; the reduced macOS release gate remained 6 of 6. Failure
+names were unchanged from run `30241403702`: neither primary name was removed
+because each advanced to a later assertion.
+
+Closure preserves meaningful `FixtureID` text when only a duplicate
+`FixtureIDNumeric` is repaired; empty or numeric-fallback text follows the new
+globally unique positive numeric value. Case-collision coverage now verifies
+the two fixtures' canonical GDTFSpec references, case-folded uniqueness,
+one-to-one archive resources, expected FixtureType identities, and repeated
+export stability rather than obsolete source filenames. Project metadata
+recovery now reports `invalid_project_fixture_visual_color`, and focused
+coverage exercises ProjectRestore-only application, external/merge isolation,
+duplicates, malformed and unknown UUIDs, unsupported versions, foreign data,
+and invalid colors.
+
+Local Linux Debug proved `MvrPerastageMetadataRecovery` green and both requested
+closure assertions resolved. The primary tests then exposed unrelated retained
+assertions: `SaveLoadRoundtrip` reaches Viewer2D fixture-label override
+persistence at line 353, and `MvrExporterCompliance` reaches primitive sphere
+geometry-matrix behavior at line 989. Both are explicit Phase 4F stop-condition
+domains, so they were not changed or hidden. Bounded primary repetition, scoped
+controls, final cross-platform CI, and D4C declaration are withheld. No test
+registration, label, timeout, or intended assertion was disabled or weakened.

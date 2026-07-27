@@ -73,6 +73,27 @@ static void WriteMetadataArchive(const fs::path &path) {
   WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
 }
 
+// Writes project-only fixture metadata covering supported recovery branches.
+static void WriteProjectFixtureMetadataArchive(const fs::path &path) {
+  static const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Test\" providerVersion=\"1\">"
+      "<UserData><Data provider=\"Perastage\" ver=\"1.0\">"
+      "<ProjectFixtureMetadataMap schemaVersion=\"1.0\">"
+      "<ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000001\" visualColorHex=\"#112233\"/>"
+      "<ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000001\" visualColorHex=\"#445566\"/>"
+      "<ProjectFixtureMetadata uuid=\"bad\" visualColorHex=\"#778899\"/>"
+      "<ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000002\" visualColorHex=\"invalid\"/>"
+      "<ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000099\" visualColorHex=\"#AABBCC\"/>"
+      "</ProjectFixtureMetadataMap>"
+      "<ProjectFixtureMetadataMap schemaVersion=\"2.0\"><ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000001\" visualColorHex=\"#FFFFFF\"/></ProjectFixtureMetadataMap>"
+      "</Data><Data provider=\"Foreign\" ver=\"1.0\"><ProjectFixtureMetadataMap schemaVersion=\"1.0\"><ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000001\" visualColorHex=\"#000000\"/></ProjectFixtureMetadataMap></Data></UserData>"
+      "<Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
+      "<Fixture uuid=\"20000000-0000-4000-8000-000000000001\" name=\"Valid\"><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric></Fixture>"
+      "<Fixture uuid=\"20000000-0000-4000-8000-000000000002\" name=\"Invalid color\"><FixtureID>2</FixtureID><FixtureIDNumeric>2</FixtureIDNumeric></Fixture>"
+      "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+  WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
+}
+
 // Returns whether the result contains the exact structured diagnostic code.
 static bool HasDiagnostic(const MvrImportResult &result,
                           const std::string &code) {
@@ -125,6 +146,51 @@ static void TestMetadataRecoveryMatrix(const fs::path &tempDir) {
                            "unknown_motor_fixture_uuid",
                            "unsafe_truss_aux_gdtf_path"}) {
     assert(HasDiagnostic(result, code));
+  }
+}
+
+// Verifies project-only fixture metadata scope, precedence, and diagnostics.
+static void TestProjectFixtureMetadataRecovery(const fs::path &tempDir) {
+  const fs::path archive = tempDir / "project-fixture-metadata.mvr";
+  WriteProjectFixtureMetadataArchive(archive);
+  MvrImporter importer;
+
+  for (const MvrImportSourceKind sourceKind :
+       {MvrImportSourceKind::ExternalImport, MvrImportSourceKind::MergeImport}) {
+    MvrImportOptions options;
+    options.promptConflicts = false;
+    options.applyDictionary = false;
+    options.sourceKind = sourceKind;
+    MvrImportResult ignored;
+    assert(importer.ImportFromFile(archive.string(), ignored,
+                                   MvrImportMode::ParseOnly, options));
+    assert(ignored.scene.fixtures
+               .at("20000000-0000-4000-8000-000000000001")
+               .visualColorHex.empty());
+    assert(!HasDiagnostic(ignored,
+                          "duplicate_project_fixture_metadata_uuid"));
+  }
+
+  MvrImportOptions projectOptions;
+  projectOptions.promptConflicts = false;
+  projectOptions.applyDictionary = false;
+  projectOptions.sourceKind = MvrImportSourceKind::ProjectRestore;
+  MvrImportResult restored;
+  assert(importer.ImportFromFile(archive.string(), restored,
+                                 MvrImportMode::ParseOnly, projectOptions));
+  assert(restored.scene.fixtures
+             .at("20000000-0000-4000-8000-000000000001")
+             .visualColorHex == "#112233");
+  assert(restored.scene.fixtures
+             .at("20000000-0000-4000-8000-000000000002")
+             .visualColorHex.empty());
+  for (const char *code : {
+           "duplicate_project_fixture_metadata_uuid",
+           "malformed_project_fixture_metadata_uuid",
+           "unsupported_project_fixture_metadata_version",
+           "unknown_project_fixture_metadata_uuid",
+           "invalid_project_fixture_visual_color"}) {
+    assert(CountDiagnostic(restored, code) == 1);
   }
 }
 
@@ -239,6 +305,7 @@ int main() {
   fs::remove_all(tempDir, ec);
   fs::create_directories(tempDir, ec);
   TestMetadataRecoveryMatrix(tempDir);
+  TestProjectFixtureMetadataRecovery(tempDir);
   TestAuxiliaryValuePolicy(tempDir);
   TestAmbiguousAuxiliaryResources(tempDir);
   TestAmbiguousSceneDescriptions(tempDir);

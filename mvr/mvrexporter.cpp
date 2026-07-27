@@ -98,6 +98,7 @@ struct ThreeDsChunkHeader {
 struct FixtureExportId {
   std::string text;
   int numeric = 0;
+  bool preserveTextOnNumericRepair = false;
 };
 
 struct FixtureTypeInfoExport {
@@ -226,6 +227,8 @@ static FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
       fixture.fixtureId == fixture.fixtureIdNumeric;
   if (importedNumericStillMatches)
     id.text = TrimAscii(fixture.fixtureIdText);
+  id.preserveTextOnNumericRepair =
+      !id.text.empty() && id.text != std::to_string(id.numeric);
   if (id.text.empty() && id.numeric > 0)
     id.text = std::to_string(id.numeric);
   return id;
@@ -2885,7 +2888,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         if (!assignedFixtureIds.insert(fixtureId.numeric).second) {
           const int originalId = fixtureId.numeric;
           fixtureId.numeric = allocId();
-          fixtureId.text = std::to_string(fixtureId.numeric);
+          if (!fixtureId.preserveTextOnNumericRepair)
+            fixtureId.text = std::to_string(fixtureId.numeric);
           logFixtureIdRepair(f, originalId, fixtureId.numeric);
         }
       } else {

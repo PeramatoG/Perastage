@@ -1895,8 +1895,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const std::string color = Trim(entry->Attribute("visualColorHex")
                                              ? entry->Attribute("visualColorHex")
                                              : "");
-          if (!isHexRgb(color))
+          if (!isHexRgb(color)) {
+            importResult.diagnostics.push_back(
+                {"invalid_project_fixture_visual_color",
+                 "Ignored invalid project fixture visualColorHex for UUID '" +
+                     uuid + "'."});
             continue;
+          }
           if (!projectFixtureColorsByUuid.emplace(uuid, color).second) {
             importResult.diagnostics.push_back(
                 {"duplicate_project_fixture_metadata_uuid",

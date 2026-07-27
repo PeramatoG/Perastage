@@ -28,6 +28,8 @@ Standalone MVR export remains the canonical interchange contract. It emits no di
 
 Only `ProjectRestore` consumes this project-only map. External and merge imports ignore it. Within project restore, a valid instance entry overrides weaker type-level color metadata. The reader accepts the first valid duplicate deterministically, diagnoses later duplicates, rejects malformed UUIDs and unsupported versions, and diagnoses entries whose UUID does not identify an imported fixture. Foreign providers never affect project fixture state.
 
+Invalid or missing `visualColorHex` values are ignored with the structured `invalid_project_fixture_visual_color` diagnostic. Fixture identifier serialization treats `FixtureID` text independently from `FixtureIDNumeric`: duplicate numeric values are repaired to globally unique positive integers, while meaningful non-numeric text is preserved. Empty text and numeric fallback text follow the repaired numeric value.
+
 ## Symbol/Symdef UUID handling
 
 MVR `Symbol` nodes represent geometry instances defined by a referenced `Symdef`. MVR 1.6 requires every exported `Symbol` to carry both a canonical `uuid` attribute for the symbol instance and a non-empty `symdef` reference. Perastage preserves an imported Symbol UUID when it is valid and belongs to preserved Symbol/Symdef geometry; if the original Symbol UUID is missing, invalid, or collides with another exported Symbol, Perastage derives a deterministic replacement from the container type, container UUID, Symdef UUID, Symbol matrix, and stable index context so repeated exports of the same scene remain logically stable.
