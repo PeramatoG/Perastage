@@ -1262,3 +1262,10 @@ PR #2230 closed Phase 5C/E3 at reviewed head
 `RiderLxSidesImport` green on Linux and Windows, introduced no new failure
 name, and kept macOS at 6 of 6. E3 was reached and PR #2230 was approved for
 merge.
+
+Phase 5D authoritative run `30284186309` made
+`RiderTrussDictionaryNormalization` green on Linux and Windows without a new
+failure name and kept macOS at 6 of 6. `RiderHoistImport` advanced to a stale
+per-piece 12 m BACKDROP assertion; the inherited 12 m span is represented by
+multiple contiguous standard pieces, so final E4 evidence remains pending the
+aggregate-span correction.

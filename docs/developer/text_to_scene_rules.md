@@ -579,3 +579,6 @@ Perastage parses rider text by identifying sections, hang positions, fixture lin
   Rider import retains deterministic dummy geometry when no supported 3D model
   exists. Imports never fabricate a model path or borrow another hang's
   resource for an unresolved truss.
+- Rider truss resource tests distinguish supported 3D resource-path resolution
+  from mesh rendering validation. GLB/3DS decoding and native mesh dimensions
+  remain owned by the dedicated model-loader tests.

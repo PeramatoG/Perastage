@@ -18,6 +18,7 @@
 #include "wx_path_utils.h"
 #include <cassert>
 #include "filesystem_path_utils.h"
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
@@ -48,8 +49,9 @@ void SetLibraryPathEnv(const std::string &value) {
 #endif
 }
 
-// Verifies that a Rider truss resolves a real renderable geometry resource.
-void AssertTrussSymbolResolved(const std::string &textVariant) {
+// Verifies Rider resolution of a supported 3D geometry resource path and metadata.
+void AssertTrussSymbolResolved(const std::string &textVariant,
+                               const fs::path &sourceArchive) {
   auto &cfg = ConfigManager::Get();
   cfg.Reset();
   assert(RiderImporter::ImportText(textVariant));
@@ -58,10 +60,21 @@ void AssertTrussSymbolResolved(const std::string &textVariant) {
   assert(scene.trusses.size() == 1);
   const auto &truss = scene.trusses.begin()->second;
   assert(!truss.symbolFile.empty());
-  assert(fs::exists(PathUtils::PathFromUtf8(truss.symbolFile)));
+  const fs::path symbolPath = PathUtils::PathFromUtf8(truss.symbolFile);
+  assert(symbolPath.extension() == ".glb" || symbolPath.extension() == ".3ds");
+  assert(fs::exists(symbolPath));
+  assert(truss.modelFile == ToUtf8String(sourceArchive));
+  assert(truss.gdtfSpec == ToUtf8String(sourceArchive));
+  assert(truss.model == "FK40Q");
+  assert(truss.manufacturer == "Perastage");
+  assert(std::abs(truss.lengthMm - 3000.0f) < 0.001f);
+  assert(std::abs(truss.widthMm - 400.0f) < 0.001f);
+  assert(std::abs(truss.heightMm - 400.0f) < 0.001f);
 }
 
-void AssertModelTokenDictionaryLookupWorks(const std::string &textVariant) {
+// Verifies model-token lookup against the principal truss archive.
+void AssertModelTokenDictionaryLookupWorks(const std::string &textVariant,
+                                           const fs::path &sourceArchive) {
   auto &cfg = ConfigManager::Get();
   cfg.Reset();
   assert(RiderImporter::ImportText(textVariant));
@@ -73,6 +86,27 @@ void AssertModelTokenDictionaryLookupWorks(const std::string &textVariant) {
   assert(truss.model == TrussDictionary::NormalizeModelKey("FK40Q"));
   assert(!truss.symbolFile.empty());
   assert(fs::exists(PathUtils::PathFromUtf8(truss.symbolFile)));
+  assert(truss.modelFile == ToUtf8String(sourceArchive));
+  assert(truss.gdtfSpec == ToUtf8String(sourceArchive));
+  assert(std::abs(truss.lengthMm - 3000.0f) < 0.001f);
+}
+
+// Verifies that SVG-only Rider resources retain metadata and use dummy geometry.
+void AssertSvgOnlyResourceUsesDummy(const fs::path &sourceArchive) {
+  auto &cfg = ConfigManager::Get();
+  cfg.Reset();
+  assert(RiderImporter::ImportText("1 truss SVGONLY 3m para lx1\n"));
+
+  const auto &scene = cfg.GetScene();
+  assert(scene.trusses.size() == 1);
+  const Truss &truss = scene.trusses.begin()->second;
+  assert(truss.modelFile == ToUtf8String(sourceArchive));
+  assert(truss.gdtfSpec == ToUtf8String(sourceArchive));
+  assert(truss.symbolFile.empty());
+  assert(std::abs(truss.lengthMm - 3000.0f) < 0.001f);
+  assert(std::abs(truss.widthMm - 400.0f) < 0.001f);
+  assert(std::abs(truss.heightMm - 400.0f) < 0.001f);
+  assert(std::abs(truss.transform.o[0] - (-1500.0f)) < 0.001f);
 }
 
 } // namespace
@@ -95,7 +129,8 @@ int main() {
       .WithFixtureIdentity("FK40Q", "Perastage",
                            tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
       .WithModelResource("main")
-      .WithArchiveEntry("models/gltf/main.glb", "glTF")
+      .WithModelDimensionsMeters(3.0f, 0.4f, 0.4f)
+      .WithArchiveEntry("models/gltf/main.glb", tests::gdtf::BuildMinimalValidGlb())
       .WithArchiveEntry("models/svg/main.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
       .WriteArchive(archivePath);
 
@@ -108,6 +143,7 @@ int main() {
   const fs::path geometryOnlyPath = tempRoot / "geometry-only.gdtf";
   tests::gdtf::BuildMinimalValidFixture()
       .WithModelResource("main")
+      .WithModelDimensionsMeters(3.0f, 0.4f, 0.4f)
       .WithArchiveEntry("models/3ds/main.3ds", "3DS")
       .WriteArchive(geometryOnlyPath);
   Truss geometryOnly;
@@ -116,13 +152,18 @@ int main() {
 
   const fs::path svgOnlyPath = tempRoot / "svg-only.gdtf";
   tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("SVGONLY", "Perastage",
+                           tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId)
       .WithModelResource("main")
+      .WithModelDimensionsMeters(3.0f, 0.4f, 0.4f)
       .WithArchiveEntry("models/svg/main.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
       .WriteArchive(svgOnlyPath);
   Truss svgOnly;
   assert(LoadTrussGdtf(ToUtf8String(svgOnlyPath), svgOnly));
   assert(svgOnly.gdtfSpec == ToUtf8String(svgOnlyPath));
   assert(svgOnly.symbolFile.empty());
+  TrussDictionary::Update("SVGONLY", ToUtf8String(svgOnlyPath));
+  AssertSvgOnlyResourceUsesDummy(svgOnlyPath);
 
   const fs::path metadataOnlyPath = tempRoot / "metadata-only.gdtf";
   tests::gdtf::BuildMinimalValidFixture().WithModelResource("missing").WriteArchive(
@@ -146,21 +187,21 @@ int main() {
     assert(*resolved == *canonical);
   }
 
-  AssertTrussSymbolResolved("1 truss 40X40 3M\n");
-  AssertTrussSymbolResolved("1 truss 40x40 3m\n");
-  AssertTrussSymbolResolved("1 truss   40X40   3M\n");
+  AssertTrussSymbolResolved("1 truss 40X40 3M\n", archivePath);
+  AssertTrussSymbolResolved("1 truss 40x40 3m\n", archivePath);
+  AssertTrussSymbolResolved("1 truss   40X40   3M\n", archivePath);
 
   TrussDictionary::Update("FK40Q", ToUtf8String(archivePath));
-  AssertModelTokenDictionaryLookupWorks("1 truss FK40Q 3 m para lx1\n");
-  AssertModelTokenDictionaryLookupWorks("1 truss fk40q 3 m para lx1\n");
+  AssertModelTokenDictionaryLookupWorks("1 truss FK40Q 3 m para lx1\n", archivePath);
+  AssertModelTokenDictionaryLookupWorks("1 truss fk40q 3 m para lx1\n", archivePath);
 
   TrussDictionary::Update("TRUSS 40X40 PRO 3M", ToUtf8String(archivePath));
-  AssertTrussSymbolResolved("1 truss 40X40 PRO NEGRO 3m para lx1\n");
-  AssertTrussSymbolResolved("1 truss 40X40 PRO BLACK 3m for lx1\n");
-  AssertTrussSymbolResolved("1 truss 40X40 PRO PLATA 3 m para lx1\n");
+  AssertTrussSymbolResolved("1 truss 40X40 PRO NEGRO 3m para lx1\n", archivePath);
+  AssertTrussSymbolResolved("1 truss 40X40 PRO BLACK 3m for lx1\n", archivePath);
+  AssertTrussSymbolResolved("1 truss 40X40 PRO PLATA 3 m para lx1\n", archivePath);
 
   TrussDictionary::Update("TRUSS BLACKBIRD 3M", ToUtf8String(archivePath));
-  AssertTrussSymbolResolved("1 truss BLACKBIRD 3m para lx1\n");
+  AssertTrussSymbolResolved("1 truss BLACKBIRD 3m para lx1\n", archivePath);
 
   TrussDictionary::Save({});
   fs::remove_all(tempRoot, ec);

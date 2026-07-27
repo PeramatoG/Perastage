@@ -12,7 +12,8 @@ Changes since **v1.5.0**.
 
 - Corrected Rider truss dictionary matching for finish and length variants, and
   ensured GDTF SVG symbols no longer masquerade as renderable 3D geometry when
-  an imported truss requires an honest dummy fallback.
+  an imported truss requires an honest dummy fallback, while resolved truss
+  dimensions remain consistent with the selected resource.
 
 - Corrected Rider imports so side lighting trusses use their documented default height and LED screens retain accurate dimensions through the shared cube primitive transform.
 
