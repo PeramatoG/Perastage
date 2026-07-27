@@ -15,11 +15,12 @@ import urllib.request
 TARGET_LABEL = "status: awaiting-feedback"
 WARNING_MARKER = "<!-- perastage-awaiting-feedback-warning:v1 -->"
 CLOSE_MARKER = "<!-- perastage-awaiting-feedback-close:v1 -->"
+WARNING_REVISION_PREFIX = "<!-- perastage-awaiting-feedback-warning-revision:v1:"
 CLOSE_REVISION_PREFIX = "<!-- perastage-awaiting-feedback-revision:v1:"
 WARNING_DAYS = 30
 CLOSE_DAYS = 14
 
-WARNING_COMMENT = f"""{WARNING_MARKER}
+WARNING_COMMENT_TEXT = f"""{WARNING_MARKER}
 Hi! This issue is currently waiting for the additional information requested above. If you are still able to reproduce the problem, any new details or test results would be very helpful. If there is no further information within the next 14 days, the issue may be closed for now, but it can still be reviewed again when the missing information becomes available. Thank you!"""
 
 CLOSE_COMMENT_TEXT = f"""{CLOSE_MARKER}
@@ -59,12 +60,17 @@ def close_comment(issue):
     return f"{CLOSE_COMMENT_TEXT}\n{marker}"
 
 
-def close_revision(comment):
+def warning_comment(issue):
+    marker = f"{WARNING_REVISION_PREFIX}{issue_revision(issue)} -->"
+    return f"{WARNING_COMMENT_TEXT}\n{marker}"
+
+
+def marked_revision(comment, prefix):
     body = comment.get("body") or ""
-    start = body.find(CLOSE_REVISION_PREFIX)
+    start = body.find(prefix)
     if start == -1:
         return None
-    start += len(CLOSE_REVISION_PREFIX)
+    start += len(prefix)
     end = body.find(" -->", start)
     return body[start:end] if end != -1 else None
 
@@ -84,13 +90,20 @@ def decide(issue, comments, now):
         for comment in comments
         if not is_automation_comment(comment)
     )
-    warning_times = [
-        parse_time(comment["created_at"])
+    warning_comments = [
+        comment
         for comment in comments
         if WARNING_MARKER in (comment.get("body") or "")
     ]
     latest_human = max(human_times)
-    latest_warning = max(warning_times, default=None)
+    latest_warning_comment = max(
+        warning_comments, key=lambda comment: parse_time(comment["created_at"]), default=None
+    )
+    latest_warning = (
+        parse_time(latest_warning_comment["created_at"])
+        if latest_warning_comment
+        else None
+    )
     close_comments = [
         comment
         for comment in comments
@@ -106,11 +119,17 @@ def decide(issue, comments, now):
     )
 
     if latest_close and latest_close > latest_human:
-        if close_revision(latest_close_comment) != issue_revision(issue):
+        if marked_revision(latest_close_comment, CLOSE_REVISION_PREFIX) != issue_revision(issue):
             return Decision("ignore", "issue changed after the closing comment")
         return Decision("finalize_close", "closing comment awaits final state update")
 
     if latest_warning and latest_warning > latest_human:
+        warning_revision = marked_revision(latest_warning_comment, WARNING_REVISION_PREFIX)
+        if warning_revision != issue_revision(issue):
+            renewed_at = max(latest_human, parse_time(issue["updated_at"]))
+            if now - renewed_at >= dt.timedelta(days=WARNING_DAYS):
+                return Decision("warn", "30 days passed after the issue changed")
+            return Decision("ignore", "issue changed after the warning")
         if now - latest_warning >= dt.timedelta(days=CLOSE_DAYS):
             return Decision("close", "14 days passed after the latest warning")
         return Decision("ignore", "warning grace period is active")
@@ -227,7 +246,7 @@ def run(api, dry_run, now):
             print(f"Issue #{number}: skipped after complete decision recheck")
             continue
         if decision.action == "warn":
-            api.comment(number, WARNING_COMMENT)
+            api.comment(number, warning_comment(current))
         elif decision.action == "close":
             api.comment(number, close_comment(current))
             finalize_close(api, number, now)

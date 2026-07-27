@@ -56,23 +56,23 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(triage.decide(issue(days_ago=30), [], NOW).action, "warn")
 
     def test_duplicate_warning_is_not_posted(self):
-        comments = [comment(5, triage.WARNING_COMMENT, "Bot")]
+        comments = [comment(5, triage.warning_comment(issue(days_ago=60)), "Bot")]
         self.assertEqual(triage.decide(issue(), comments, NOW).action, "ignore")
 
     def test_closing_occurs_14_days_after_latest_warning(self):
-        comments = [comment(14, triage.WARNING_COMMENT, "Bot")]
+        comments = [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")]
         self.assertEqual(triage.decide(issue(days_ago=60), comments, NOW).action, "close")
 
     def test_human_comment_after_warning_prevents_closure(self):
-        comments = [comment(20, triage.WARNING_COMMENT, "Bot"), comment(10)]
+        comments = [comment(20, triage.warning_comment(issue(days_ago=60)), "Bot"), comment(10)]
         self.assertEqual(triage.decide(issue(days_ago=60), comments, NOW).action, "ignore")
 
     def test_renewed_inactivity_can_produce_new_warning(self):
-        comments = [comment(50, triage.WARNING_COMMENT, "Bot"), comment(30)]
+        comments = [comment(50, triage.warning_comment(issue(days_ago=60)), "Bot"), comment(30)]
         self.assertEqual(triage.decide(issue(days_ago=90), comments, NOW).action, "warn")
 
     def test_removing_target_label_prevents_closure(self):
-        comments = [comment(14, triage.WARNING_COMMENT, "Bot")]
+        comments = [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")]
         self.assertEqual(triage.decide(issue(labels=["bug"]), comments, NOW).action, "ignore")
 
     def test_closed_issue_is_ignored(self):
@@ -85,8 +85,42 @@ class DecisionTests(unittest.TestCase):
     def test_warning_and_issue_timestamps_may_differ(self):
         value = issue(days_ago=60)
         value["updated_at"] = (NOW - dt.timedelta(days=14, seconds=-7)).isoformat()
-        comments = [comment(14, triage.WARNING_COMMENT, "Bot")]
+        comments = [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")]
         self.assertEqual(triage.decide(value, comments, NOW).action, "close")
+
+    def test_edit_after_twenty_day_old_warning_prevents_closure(self):
+        original = issue(days_ago=60)
+        edited = dict(original, title="Edited title", updated_at=timestamp(10))
+        comments = [comment(20, triage.warning_comment(original), "Bot")]
+        self.assertEqual(triage.decide(edited, comments, NOW).action, "ignore")
+
+    def test_edit_before_run_prevents_closure_at_fourteen_days(self):
+        original = issue(days_ago=60)
+        edited = dict(original, body="New reproduction detail", updated_at=timestamp(1))
+        comments = [comment(14, triage.warning_comment(original), "Bot")]
+        self.assertEqual(triage.decide(edited, comments, NOW).action, "ignore")
+
+    def test_thirty_days_after_edit_allows_new_warning(self):
+        original = issue(days_ago=90)
+        edited = dict(original, body="New reproduction detail", updated_at=timestamp(30))
+        comments = [comment(60, triage.warning_comment(original), "Bot")]
+        self.assertEqual(triage.decide(edited, comments, NOW).action, "warn")
+
+    def test_each_semantic_issue_change_after_warning_prevents_closure(self):
+        original = issue(days_ago=60)
+        warning = [comment(14, triage.warning_comment(original), "Bot")]
+        changes = {
+            "title": "Changed title",
+            "body": "Changed body",
+            "labels": [{"name": triage.TARGET_LABEL}, {"name": "area:viewer"}],
+            "assignees": [{"login": "maintainer"}],
+            "milestone": {"number": 12},
+        }
+        for field, changed_value in changes.items():
+            with self.subTest(field=field):
+                edited = dict(original, updated_at=timestamp(1))
+                edited[field] = changed_value
+                self.assertEqual(triage.decide(edited, warning, NOW).action, "ignore")
 
     def test_open_issue_with_close_marker_resumes_finalization(self):
         value = issue(days_ago=60)
@@ -140,12 +174,23 @@ class ApiTests(unittest.TestCase):
         triage.run(api, False, NOW)
         api.comment.assert_not_called()
 
+    def test_renewed_inactivity_posts_one_warning_with_current_revision(self):
+        original = issue(days_ago=90)
+        edited = dict(original, body="Updated details", updated_at=timestamp(30))
+        old_warning = [comment(60, triage.warning_comment(original), "Bot")]
+        api = mock.Mock()
+        api.issues.return_value = [edited]
+        api.current_issue.return_value = edited
+        api.comments.side_effect = [old_warning, old_warning]
+        triage.run(api, False, NOW)
+        api.comment.assert_called_once_with(7, triage.warning_comment(edited))
+
     def test_label_removal_during_run_prevents_writes(self):
         api = mock.Mock()
         api.issues.return_value = [issue(days_ago=60)]
         api.comments.side_effect = [
-            [comment(14, triage.WARNING_COMMENT, "Bot")],
-            [comment(14, triage.WARNING_COMMENT, "Bot")],
+            [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")],
+            [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")],
         ]
         api.current_issue.return_value = issue(labels=["bug"])
         triage.run(api, False, NOW)
@@ -170,7 +215,7 @@ class ApiTests(unittest.TestCase):
     def test_successful_close_rechecks_after_marker_and_posts_once(self):
         api = mock.Mock()
         value = issue(days_ago=60)
-        warning = [comment(14, triage.WARNING_COMMENT, "Bot")]
+        warning = [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")]
         closing = warning + [closing_comment(0, value)]
         api.issues.return_value = [value]
         api.current_issue.return_value = value
@@ -213,7 +258,7 @@ class ApiTests(unittest.TestCase):
 
     def test_failure_after_posting_close_comment_recovers_without_duplicate(self):
         value = issue(days_ago=60)
-        warning = [comment(14, triage.WARNING_COMMENT, "Bot")]
+        warning = [comment(14, triage.warning_comment(issue(days_ago=60)), "Bot")]
         closing = warning + [closing_comment(0, value)]
         first_api = mock.Mock()
         first_api.issues.return_value = [value]

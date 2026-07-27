@@ -4,7 +4,7 @@ Perastage uses separate workflows for validation, automatic test artifacts, comp
 
 ## Issue maintenance
 
-`Awaiting Feedback Triage` runs daily and can be dispatched manually in a safe dry-run mode. It processes only open issues explicitly labeled `status: awaiting-feedback`; see the [issue triage policy](../../.github/ISSUE_TRIAGE.md) for its conservative warning and closure rules. The workflow has read-only repository access plus issue write access and does not process pull requests or apply the label itself. Every write follows a fresh decision check, and a versioned issue-revision marker lets an interrupted close resume without duplicating comments or overriding later human changes.
+`Awaiting Feedback Triage` runs daily and can be dispatched manually in a safe dry-run mode. It processes only open issues explicitly labeled `status: awaiting-feedback`; see the [issue triage policy](../../.github/ISSUE_TRIAGE.md) for its conservative warning and closure rules. The workflow has read-only repository access plus issue write access and does not process pull requests or apply the label itself. Every write follows a fresh decision check. Versioned issue-revision markers on warnings restart inactivity after later edits, while the closing marker lets an interrupted close resume without duplicating comments or overriding later human changes.
 
 ## Pull requests
 

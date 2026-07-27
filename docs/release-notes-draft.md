@@ -21,7 +21,7 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
-- Improved maintainer issue intake and triage with clearer diagnostic guidance and failure-resilient, conservative automation limited to reports explicitly awaiting feedback.
+- Improved maintainer issue intake and triage with clearer diagnostic guidance and revision-aware, failure-resilient automation limited to reports explicitly awaiting feedback.
 
 - Aligned CI policy checks with the validated Windows Git Bash initial-cache data flow and strengthened cross-platform filesystem path boundary coverage.
 
