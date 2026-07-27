@@ -15,10 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
+#include <tinyxml2.h>
 #include <wx/init.h>
+#include <wx/mstream.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 #include "configmanager.h"
 #include "fixture.h"
@@ -31,6 +40,78 @@
 #include "support.h"
 #include "truss.h"
 #include "uuidutils.h"
+
+// Reads all bytes from the current ZIP entry.
+static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
+  std::string bytes;
+  char buffer[4096];
+  while (true) {
+    zip.Read(buffer, sizeof(buffer));
+    const size_t count = zip.LastRead();
+    if (count == 0)
+      break;
+    bytes.append(buffer, count);
+  }
+  return bytes;
+}
+
+// Extracts the deterministic project fixture metadata signature.
+static std::vector<std::pair<std::string, std::string>>
+ReadProjectFixtureMetadata(const std::filesystem::path &projectPath) {
+  wxFileInputStream projectInput(projectPath.string());
+  assert(projectInput.IsOk());
+  wxZipInputStream projectZip(projectInput);
+  std::string sceneBytes;
+  std::unique_ptr<wxZipEntry> projectEntry;
+  while ((projectEntry.reset(projectZip.GetNextEntry())), projectEntry) {
+    if (projectEntry->GetName() == "scene.mvr")
+      sceneBytes = ReadCurrentZipEntry(projectZip);
+    else
+      ReadCurrentZipEntry(projectZip);
+  }
+  assert(!sceneBytes.empty());
+
+  wxMemoryInputStream sceneInput(sceneBytes.data(), sceneBytes.size());
+  wxZipInputStream sceneZip(sceneInput);
+  std::string sceneXml;
+  std::unique_ptr<wxZipEntry> sceneEntry;
+  while ((sceneEntry.reset(sceneZip.GetNextEntry())), sceneEntry) {
+    if (sceneEntry->GetName() == "GeneralSceneDescription.xml")
+      sceneXml = ReadCurrentZipEntry(sceneZip);
+    else
+      ReadCurrentZipEntry(sceneZip);
+  }
+  assert(!sceneXml.empty());
+
+  tinyxml2::XMLDocument doc;
+  assert(doc.Parse(sceneXml.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *root =
+      doc.FirstChildElement("GeneralSceneDescription");
+  assert(root != nullptr);
+  tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
+  assert(userData != nullptr);
+  tinyxml2::XMLElement *data = userData->FirstChildElement("Data");
+  assert(data != nullptr);
+  tinyxml2::XMLElement *map =
+      data->FirstChildElement("ProjectFixtureMetadataMap");
+  assert(map != nullptr);
+  assert(map->NextSiblingElement("ProjectFixtureMetadataMap") == nullptr);
+  assert(std::string(map->Attribute("schemaVersion")) == "1.0");
+
+  std::vector<std::pair<std::string, std::string>> signature;
+  std::set<std::string> uniqueUuids;
+  for (tinyxml2::XMLElement *entry =
+           map->FirstChildElement("ProjectFixtureMetadata");
+       entry; entry = entry->NextSiblingElement("ProjectFixtureMetadata")) {
+    const std::string uuid = entry->Attribute("uuid");
+    const std::string color = entry->Attribute("visualColorHex");
+    assert(CanonicalizeUuid(uuid) == uuid);
+    assert(uniqueUuids.insert(uuid).second);
+    signature.emplace_back(uuid, color);
+  }
+  assert(std::is_sorted(signature.begin(), signature.end()));
+  return signature;
+}
 
 // Verifies project persistence and dictionary normalization round trips.
 int main() {
@@ -157,6 +238,7 @@ int main() {
   f4.layer = layer.name;
   f4.typeName = "FixtureType";
   f4.gdtfSpec = "orig.gdtf";
+  f4.visualColorHex = "#778899";
   f4.fixtureIdText = "Imported ID";
   f4.fixtureIdNumeric = 44;
   f4.fixtureId = 707;
@@ -249,13 +331,20 @@ int main() {
         scene2.sceneObjects.at("40000000-0000-4000-8000-000000000003").geometries.front().modelFile;
     assert(loadedLegacyPipeToken == "primitive:cylinder");
   assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").visualColorHex == "#445566");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .visualColorHex.empty());
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002").fixtureIdText == "S101B");
-    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002").fixtureIdNumeric == 101);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .fixtureIdNumeric > 0);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .fixtureIdNumeric != 101);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureId == 707);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 707);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "707");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004")
+               .visualColorHex == "#778899");
   const std::string canonicalFixtureUuid =
       CanonicalizeUuid(nonCanonicalFixtureUuid);
     assert(!canonicalFixtureUuid.empty());
@@ -289,7 +378,36 @@ int main() {
   assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
          "orig.gdtf");
 
+    const auto firstMetadata = ReadProjectFixtureMetadata(temp);
+    GdtfDictionary::Save({});
+    const std::filesystem::path secondProject =
+        std::filesystem::temp_directory_path() / "roundtrip_test_second.pera";
+    assert(cfg.SaveProject(secondProject.string()));
+    const auto secondMetadata = ReadProjectFixtureMetadata(secondProject);
+    assert(secondMetadata == firstMetadata);
+
+    cfg.Reset();
+    assert(cfg.LoadProject(secondProject.string()));
+    const auto &scene3 = cfg.GetScene();
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000001")
+               .visualColorHex == "#445566");
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .visualColorHex.empty());
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000004")
+               .visualColorHex == "#778899");
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000001")
+               .fixtureIdText == "S101A");
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .fixtureIdText == "S101B");
+    std::set<int> fixtureNumericIds;
+    for (const auto &[uuid, fixture] : scene3.fixtures) {
+      (void)uuid;
+      assert(fixture.fixtureIdNumeric > 0);
+      assert(fixtureNumericIds.insert(fixture.fixtureIdNumeric).second);
+    }
+
     std::filesystem::remove(temp);
+    std::filesystem::remove(secondProject);
   std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +
                           "/dict.gdtf");
     GdtfDictionary::Save({});

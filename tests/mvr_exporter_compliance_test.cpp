@@ -14,6 +14,7 @@
 
 #include <tinyxml2.h>
 #include <wx/init.h>
+#include <wx/mstream.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
@@ -69,6 +70,50 @@ static tinyxml2::XMLElement *FindFixtureType(tinyxml2::XMLDocument &doc) {
   else
     fixtureType = doc.FirstChildElement("FixtureType");
   return fixtureType;
+}
+
+// Reads the fixture name and identity from an in-memory GDTF archive.
+static std::pair<std::string, std::string>
+ReadGdtfFixtureIdentity(const std::string &archiveBytes) {
+  wxMemoryInputStream input(archiveBytes.data(), archiveBytes.size());
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName() != "description.xml") {
+      ReadCurrentZipEntry(zip);
+      continue;
+    }
+    tinyxml2::XMLDocument doc;
+    const std::string description = ReadCurrentZipEntry(zip);
+    assert(doc.Parse(description.c_str()) == tinyxml2::XML_SUCCESS);
+    tinyxml2::XMLElement *fixtureType = FindFixtureType(doc);
+    assert(fixtureType != nullptr);
+    return {fixtureType->Attribute("Name") ? fixtureType->Attribute("Name") : "",
+            fixtureType->Attribute("FixtureTypeID")
+                ? fixtureType->Attribute("FixtureTypeID")
+                : ""};
+  }
+  assert(false);
+  return {};
+}
+
+// Finds a fixture's GDTFSpec by its exported instance name.
+static std::string FindFixtureGdtfSpec(tinyxml2::XMLElement *root,
+                                       const std::string &fixtureName) {
+  std::vector<tinyxml2::XMLElement *> stack{root};
+  while (!stack.empty()) {
+    tinyxml2::XMLElement *node = stack.back();
+    stack.pop_back();
+    if (std::string(node->Name()) == "Fixture" && node->Attribute("name") &&
+        fixtureName == node->Attribute("name")) {
+      tinyxml2::XMLElement *spec = node->FirstChildElement("GDTFSpec");
+      return spec && spec->GetText() ? spec->GetText() : "";
+    }
+    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement())
+      stack.push_back(child);
+  }
+  return {};
 }
 
 static bool GdtfHasRenderable3DModel(const fs::path &gdtfPath) {
@@ -146,10 +191,23 @@ FindFixtureElementByUuid(tinyxml2::XMLElement *root, const std::string &uuid) {
   return nullptr;
 }
 
-// Reads the exported UnitNumber for a fixture UUID.
+// Reads the exported UnitNumber for a fixture instance name.
 static int ReadFixtureUnitNumber(tinyxml2::XMLElement *root,
-                                 const std::string &uuid) {
-  tinyxml2::XMLElement *fixture = FindFixtureElementByUuid(root, uuid);
+                                 const std::string &fixtureName) {
+  tinyxml2::XMLElement *fixture = nullptr;
+  std::vector<tinyxml2::XMLElement *> stack{root};
+  while (!stack.empty() && !fixture) {
+    tinyxml2::XMLElement *node = stack.back();
+    stack.pop_back();
+    if (std::string(node->Name()) == "Fixture" && node->Attribute("name") &&
+        fixtureName == node->Attribute("name")) {
+      fixture = node;
+      break;
+    }
+    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement())
+      stack.push_back(child);
+  }
   assert(fixture != nullptr);
   tinyxml2::XMLElement *unitNumber = fixture->FirstChildElement("UnitNumber");
   assert(unitNumber != nullptr && unitNumber->GetText() != nullptr);
@@ -525,17 +583,14 @@ int main() {
     assert(entryName.rfind("./", 0) != 0);
     entries.insert(entryName);
   }
-  int caseOnlyEntryCount = 0;
+  std::unordered_set<std::string> foldedEntries;
   for (const std::string &entryName : entries) {
     std::string lowerEntry = entryName;
     std::transform(
         lowerEntry.begin(), lowerEntry.end(), lowerEntry.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (lowerEntry == "caseonly.gdtf" || lowerEntry == "caseonly_2.gdtf")
-      ++caseOnlyEntryCount;
+    assert(foldedEntries.insert(lowerEntry).second);
   }
-  assert(caseOnlyEntryCount == 2);
-  assert(entries.count("@PerastageFixture.gdtf") == 1);
   assert(entries.count("Acme@SiblingOnly@Perastage.gdtf") == 1);
   auto xmlIt = mvrGeometryEntries.find("GeneralSceneDescription.xml");
   assert(xmlIt != mvrGeometryEntries.end());
@@ -550,6 +605,38 @@ int main() {
   assert(doc.Parse(xml.c_str()) == tinyxml2::XML_SUCCESS);
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
+  assert(root->FirstChildElement("UserData") == nullptr ||
+         root->FirstChildElement("UserData")
+                 ->FirstChildElement("Data")
+                 ->FirstChildElement("ProjectFixtureMetadataMap") == nullptr);
+  const std::string caseAReference = FindFixtureGdtfSpec(root, "Case A");
+  const std::string caseBReference = FindFixtureGdtfSpec(root, "Case B");
+  assert(!caseAReference.empty());
+  assert(!caseBReference.empty());
+  assert(caseAReference != caseBReference);
+  assert(caseAReference.find_first_of("/\\:") == std::string::npos);
+  assert(caseBReference.find_first_of("/\\:") == std::string::npos);
+  std::string foldedCaseA = caseAReference;
+  std::string foldedCaseB = caseBReference;
+  std::transform(foldedCaseA.begin(), foldedCaseA.end(), foldedCaseA.begin(),
+                 [](unsigned char ch) { return std::tolower(ch); });
+  std::transform(foldedCaseB.begin(), foldedCaseB.end(), foldedCaseB.begin(),
+                 [](unsigned char ch) { return std::tolower(ch); });
+  assert(foldedCaseA != foldedCaseB);
+  assert(mvrGeometryEntries.count(caseAReference) == 1);
+  assert(mvrGeometryEntries.count(caseBReference) == 1);
+  assert(ReadGdtfFixtureIdentity(mvrGeometryEntries.at(caseAReference)) ==
+         std::make_pair(std::string("Case A"),
+                        std::string("cccccccc-cccc-4ccc-8ccc-ccccccccccc3")));
+  assert(ReadGdtfFixtureIdentity(mvrGeometryEntries.at(caseBReference)) ==
+         std::make_pair(std::string("Case B"),
+                        std::string("dddddddd-dddd-4ddd-8ddd-ddddddddddd4")));
+  const std::string atReference = FindFixtureGdtfSpec(root, "At Fixture");
+  assert(!atReference.empty());
+  assert(mvrGeometryEntries.count(atReference) == 1);
+  assert(ReadGdtfFixtureIdentity(mvrGeometryEntries.at(atReference)) ==
+         std::make_pair(std::string("At Fixture"),
+                        std::string("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5")));
   assert(root->IntAttribute("verMajor") == 1);
   assert(root->IntAttribute("verMinor") == 6);
   assert(std::string(root->Attribute("provider")) == "Perastage");
@@ -557,15 +644,15 @@ int main() {
   assert(std::string(root->Attribute("providerVersion")) != "1.0" ||
          std::string(perastage::build_info::appVersion()) == "1.0");
 
-  assert(ReadFixtureUnitNumber(root, "unit-order-bottom") == 1);
-  assert(ReadFixtureUnitNumber(root, "unit-order-left") == 2);
-  assert(ReadFixtureUnitNumber(root, "unit-order-right") == 3);
-  assert(ReadFixtureUnitNumber(root, "unit-existing-one") == 1);
-  assert(ReadFixtureUnitNumber(root, "unit-existing-four") == 4);
-  assert(ReadFixtureUnitNumber(root, "unit-existing-missing-a") == 2);
-  assert(ReadFixtureUnitNumber(root, "unit-existing-missing-b") == 3);
-  assert(ReadFixtureUnitNumber(root, "unit-independent-type") == 1);
-  assert(ReadFixtureUnitNumber(root, "unit-same-as-fixture-id") == 77);
+  assert(ReadFixtureUnitNumber(root, "Unit Order Bottom") == 1);
+  assert(ReadFixtureUnitNumber(root, "Unit Order Left") == 2);
+  assert(ReadFixtureUnitNumber(root, "Unit Order Right") == 3);
+  assert(ReadFixtureUnitNumber(root, "Existing Unit One") == 1);
+  assert(ReadFixtureUnitNumber(root, "Existing Unit Four") == 4);
+  assert(ReadFixtureUnitNumber(root, "Existing Unit Missing A") == 2);
+  assert(ReadFixtureUnitNumber(root, "Existing Unit Missing B") == 3);
+  assert(ReadFixtureUnitNumber(root, "Independent Unit Type") == 1);
+  assert(ReadFixtureUnitNumber(root, "Unit Same As Fixture ID") == 77);
 
   MvrExporter deterministicExporter;
   fs::path deterministicMvrPath = tempDir / "Test1_repeat.mvr";
@@ -582,13 +669,17 @@ int main() {
   tinyxml2::XMLElement *deterministicRoot =
       deterministicDoc.FirstChildElement("GeneralSceneDescription");
   assert(deterministicRoot != nullptr);
-  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-order-bottom") == 1);
-  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-order-left") == 2);
-  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-order-right") == 3);
-  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-existing-missing-a") ==
+  assert(ReadFixtureUnitNumber(deterministicRoot, "Unit Order Bottom") == 1);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "Unit Order Left") == 2);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "Unit Order Right") == 3);
+  assert(ReadFixtureUnitNumber(deterministicRoot, "Existing Unit Missing A") ==
          2);
-  assert(ReadFixtureUnitNumber(deterministicRoot, "unit-existing-missing-b") ==
+  assert(ReadFixtureUnitNumber(deterministicRoot, "Existing Unit Missing B") ==
          3);
+  assert(FindFixtureGdtfSpec(deterministicRoot, "Case A") == caseAReference);
+  assert(FindFixtureGdtfSpec(deterministicRoot, "Case B") == caseBReference);
+  assert(deterministicEntries.count(caseAReference) == 1);
+  assert(deterministicEntries.count(caseBReference) == 1);
 
   std::unordered_set<int> numericIds;
   std::unordered_map<std::string, int> gdtfCount;
@@ -634,12 +725,8 @@ int main() {
                  std::string(idNode->GetText()).size() > 0);
           assert(numNode && numNode->GetText());
           std::string fixtureIdText = idNode->GetText();
-          assert(std::all_of(
-              fixtureIdText.begin(), fixtureIdText.end(),
-                             [](unsigned char c) { return std::isdigit(c) != 0; }));
           int value = std::stoi(numNode->GetText());
           assert(value > 0);
-          assert(fixtureIdText == std::to_string(value));
           assert(numericIds.insert(value).second);
 
           if (std::string(cur->Name()) == "Fixture") {
@@ -653,11 +740,11 @@ int main() {
             assert(fixtureNodeName != "Fixture_" + fixtureUuid);
 
             auto *colorNode = cur->FirstChildElement("Color");
-            if (fixtureUuid == f2.uuid) {
+            if (fixtureNodeName == f2.instanceName) {
               assert(colorNode == nullptr);
               sawFixtureVisualizationColorWithoutMvrColor = true;
             }
-            if (fixtureUuid == f3.uuid) {
+            if (fixtureNodeName == f3.instanceName) {
               assert(colorNode != nullptr);
               assert(colorNode->GetText() != nullptr);
               assert(std::string(colorNode->GetText()) ==
@@ -668,7 +755,7 @@ int main() {
             assert(cur->FirstChildElement("Weight") == nullptr);
             assert(cur->FirstChildElement("PowerConsumption") == nullptr);
 
-            if (fixtureUuid == fEditedId.uuid) {
+            if (fixtureNodeName == fEditedId.instanceName) {
               assert(fixtureIdText == "909");
               assert(value == 909);
               sawEditedFixtureId = true;
@@ -680,17 +767,7 @@ int main() {
             assert(unitValue > 0);
 
             auto *ud = cur->FirstChildElement("UserData");
-            assert(ud != nullptr);
-            auto *data = ud->FirstChildElement("Data");
-            assert(data != nullptr);
-            auto *info = data->FirstChildElement("FixtureInfo");
-            assert(info != nullptr);
-            const char *metaUuid = info->Attribute("uuid");
-            assert(metaUuid != nullptr);
-            assert(std::string(metaUuid) == fixtureUuid);
-            assert(info->FirstChildElement("InstanceName") == nullptr);
-            assert(info->FirstChildElement("StableId") == nullptr);
-            assert(info->FirstChildElement("Script") == nullptr);
+            assert(ud == nullptr);
 
             auto *addresses = cur->FirstChildElement("Addresses");
             assert(addresses != nullptr);
@@ -748,7 +825,7 @@ int main() {
             assert(trussUuid != nullptr);
             assert(CanonicalizeUuid(trussUuid) == std::string(trussUuid));
             assert(cur->FirstChildElement("UserData") == nullptr);
-            if (std::string(trussUuid) == trCanonical.uuid) {
+            if (std::string(trussUuid) == CanonicalizeUuid(trCanonical.uuid)) {
               sawCanonicalTrussUuidUnchanged = true;
               sawCanonicalTrussStandardChildren =
                   cur->FirstChildElement("FixtureID") != nullptr &&
@@ -894,7 +971,7 @@ int main() {
   }
 
   assert(gdtfCount.size() >= 2);
-  assert(fixtureAddressCount == 6);
+  assert(fixtureAddressCount == static_cast<int>(scene.fixtures.size()));
   assert(sawAddress1);
   assert(sawAddress1025);
   assert(sawAddress2681);

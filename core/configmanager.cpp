@@ -526,6 +526,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
         MvrExportOptions projectExportOptions;
         projectExportOptions.trussGeometryExportMode =
             MvrTrussGeometryExportMode::Standard;
+        projectExportOptions.includeProjectFixtureMetadata = true;
         const bool exported =
             exporter.ExportToBuffer(sceneBytes, projectExportOptions);
         const auto sceneExportEnd = std::chrono::steady_clock::now();

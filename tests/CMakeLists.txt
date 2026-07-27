@@ -861,6 +861,36 @@ target_link_libraries(save_load_roundtrip_test PRIVATE
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
 set_library_env(SaveLoadRoundtrip)
 
+add_executable(mvr_project_fixture_metadata_contracts_test
+               mvr_project_fixture_metadata_contracts_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               build_info_stub.cpp
+               ../core/configmanager.cpp ../core/configservices.cpp
+               ../core/projectutils.cpp ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp ../core/scene_grouping.cpp
+               ../core/utf8_utils.cpp ../core/trussdictionary.cpp
+               ../core/trussloader.cpp ../core/wx_path_utils.cpp
+               ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
+               ../core/uuidutils.cpp ../core/dummyprofilelibrary.cpp
+               ../mvr/mvrimporter.cpp ../mvr/gdtf_catalog_matcher.cpp
+               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp
+               ../core/mvr_identity_recovery.cpp
+               ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp gdtfloader_stub.cpp consolepanel_stub.cpp
+               ../models/mvrscene.cpp ../models/fixture.cpp ../models/truss.cpp
+               ../models/sceneobject.cpp ../models/layer.cpp ${LAYOUT_SOURCES})
+target_include_directories(mvr_project_fixture_metadata_contracts_test PRIVATE
+                           . support ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_project_fixture_metadata_contracts_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrProjectFixtureMetadataContracts
+         COMMAND mvr_project_fixture_metadata_contracts_test)
+set_perastage_test_labels(MvrProjectFixtureMetadataContracts
+                          LAYER standard-strict DOMAINS mvr project)
+set_library_env(MvrProjectFixtureMetadataContracts)
+
 add_executable(project_support_userdata_roundtrip_test project_support_userdata_roundtrip_test.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp
