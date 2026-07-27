@@ -580,8 +580,9 @@ add_test(NAME GdtfEditorContext COMMAND gdtf_editor_context_test)
 
 add_executable(gdtf_fixture_category_test
                gdtf_fixture_category_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                ../core/gdtf_fixture_category.cpp)
-target_include_directories(gdtf_fixture_category_test PRIVATE ../core)
+target_include_directories(gdtf_fixture_category_test PRIVATE support ../core)
 target_link_libraries(gdtf_fixture_category_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfFixtureCategoryFallback COMMAND gdtf_fixture_category_test)
 
@@ -816,6 +817,7 @@ add_test(NAME AutoPatchUniverseWrap COMMAND autopatcher_universe_wrap_test)
 set_library_env(AutoPatchUniverseWrap)
 
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -851,7 +853,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(save_load_roundtrip_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../third_party)
+                           . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(save_load_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME SaveLoadRoundtrip COMMAND save_load_roundtrip_test)
@@ -1133,6 +1135,7 @@ set_library_env(MvrLayerAppearanceUserData)
 
 
 add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtrip_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -1168,7 +1171,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_fixture_category_roundtrip_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../third_party)
+                           . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_fixture_category_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrFixtureCategoryRoundtrip COMMAND mvr_fixture_category_roundtrip_test)
@@ -1265,6 +1268,7 @@ set_perastage_test_labels(MvrTrussRoundtripStructure LAYER standard-strict DOMAI
 set_library_env(MvrTrussRoundtripStructure)
 
 add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
+               support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -1300,7 +1304,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../models/layer.cpp
                ${LAYOUT_SOURCES})
 target_include_directories(mvr_exporter_compliance_test PRIVATE
-                           . ../core ../models ../mvr ../gui ../third_party)
+                           . support ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_exporter_compliance_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrExporterCompliance COMMAND mvr_exporter_compliance_test)

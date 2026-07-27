@@ -12,6 +12,8 @@ public:
   static constexpr const char *kMinimalFixtureTypeId =
       "12345678-1234-4234-9234-123456789abc";
   FixtureBuilder();
+  FixtureBuilder &WithFixtureIdentity(std::string name, std::string manufacturer,
+                                      std::string fixtureTypeId);
   FixtureBuilder &WithDmxMode(std::string name, std::string geometry);
   FixtureBuilder &WithFixtureCategorySignals();
   FixtureBuilder &WithArchiveEntry(std::string path, std::string bytes);
@@ -20,6 +22,9 @@ public:
 private:
   std::string modeName;
   std::string modeGeometry;
+  std::string fixtureName;
+  std::string manufacturer;
+  std::string fixtureTypeId;
   bool categorySignals = false;
   std::vector<std::pair<std::string, std::string>> archiveEntries;
 };

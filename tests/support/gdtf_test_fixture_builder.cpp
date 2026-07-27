@@ -79,11 +79,24 @@ void WriteArchiveEntries(const std::filesystem::path &archivePath,
 } // namespace
 
 // Initializes a deterministic minimal GDTF 1.2 builder.
-FixtureBuilder::FixtureBuilder() : modeName("Default"), modeGeometry("Root") {}
+FixtureBuilder::FixtureBuilder()
+    : modeName("Default"), modeGeometry("Root"),
+      fixtureName("Perastage Minimal 1ch"), manufacturer("Perastage"),
+      fixtureTypeId(kMinimalFixtureTypeId) {}
 
 // Builds a deterministic minimal GDTF 1.2 fixture.
 FixtureBuilder BuildMinimalValidFixture() {
   return FixtureBuilder{};
+}
+
+// Overrides the fixture identity fields while retaining a canonical structure.
+FixtureBuilder &FixtureBuilder::WithFixtureIdentity(std::string name,
+                                                    std::string maker,
+                                                    std::string typeId) {
+  fixtureName = std::move(name);
+  manufacturer = std::move(maker);
+  fixtureTypeId = std::move(typeId);
+  return *this;
 }
 
 // Overrides the default DMX mode and geometry reference.
@@ -110,8 +123,10 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
   const std::string category = categorySignals ? " FixtureTypeCategory=\"Conventional\"" : "";
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<GDTF DataVersion=\"1.2\">\n"
-         "  <FixtureType Name=\"Perastage Minimal 1ch\" ShortName=\"Minimal 1ch\" Manufacturer=\"Perastage\" Description=\"Minimal canonical GDTF 1.2 fixture for tests\" FixtureTypeID=\"" +
-         std::string(kMinimalFixtureTypeId) + category +
+         "  <FixtureType Name=\"" + fixtureName + "\" ShortName=\"" + fixtureName +
+         "\" Manufacturer=\"" + manufacturer +
+         "\" Description=\"Minimal canonical GDTF 1.2 fixture for tests\" FixtureTypeID=\"" +
+         fixtureTypeId + category +
          "\">\n"
          "    <AttributeDefinitions><ActivationGroups/><FeatureGroups><FeatureGroup Name=\"Dimmer\" Pretty=\"Dimmer\"><Feature Name=\"Dimmer\"/></FeatureGroup></FeatureGroups><Attributes><Attribute Name=\"Dimmer\" Pretty=\"Dimmer\" Feature=\"Dimmer.Dimmer\" PhysicalUnit=\"LuminousIntensity\"/></Attributes></AttributeDefinitions>\n"
          "    <Wheels/>\n"

@@ -183,8 +183,9 @@ void ParseAttributeSignals(const tinyxml2::XMLElement *node, Signals &signals) {
   }
 }
 
+// Records category signals from a non-empty GDTF attribute reference.
 void ApplyAttributeNameSignals(const char *attributeName, Signals &signals) {
-  if (!attributeName)
+  if (!attributeName || Trim(attributeName).empty())
     return;
 
   signals.hasAnyAttributeDefinition = true;
