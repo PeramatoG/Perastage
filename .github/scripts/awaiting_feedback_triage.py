@@ -4,6 +4,7 @@
 import argparse
 import dataclasses
 import datetime as dt
+import hashlib
 import json
 import os
 import sys
@@ -14,13 +15,14 @@ import urllib.request
 TARGET_LABEL = "status: awaiting-feedback"
 WARNING_MARKER = "<!-- perastage-awaiting-feedback-warning:v1 -->"
 CLOSE_MARKER = "<!-- perastage-awaiting-feedback-close:v1 -->"
+CLOSE_REVISION_PREFIX = "<!-- perastage-awaiting-feedback-revision:v1:"
 WARNING_DAYS = 30
 CLOSE_DAYS = 14
 
 WARNING_COMMENT = f"""{WARNING_MARKER}
 Hi! This issue is currently waiting for the additional information requested above. If you are still able to reproduce the problem, any new details or test results would be very helpful. If there is no further information within the next 14 days, the issue may be closed for now, but it can still be reviewed again when the missing information becomes available. Thank you!"""
 
-CLOSE_COMMENT = f"""{CLOSE_MARKER}
+CLOSE_COMMENT_TEXT = f"""{CLOSE_MARKER}
 Hi! Since we have not received the additional information needed to continue the investigation, I am closing this issue for now. This does not mean the report was unimportant. Please comment again or open a new issue with the requested details if the problem persists in a current Perastage release. Thank you for taking the time to report it."""
 
 
@@ -40,6 +42,33 @@ def is_automation_comment(comment):
     return WARNING_MARKER in body or CLOSE_MARKER in body or author_type == "Bot"
 
 
+def issue_revision(issue):
+    snapshot = {
+        "title": issue.get("title"),
+        "body": issue.get("body"),
+        "labels": sorted(label.get("name") for label in issue.get("labels", [])),
+        "assignees": sorted(user.get("login") for user in issue.get("assignees", [])),
+        "milestone": (issue.get("milestone") or {}).get("number"),
+    }
+    encoded = json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def close_comment(issue):
+    marker = f"{CLOSE_REVISION_PREFIX}{issue_revision(issue)} -->"
+    return f"{CLOSE_COMMENT_TEXT}\n{marker}"
+
+
+def close_revision(comment):
+    body = comment.get("body") or ""
+    start = body.find(CLOSE_REVISION_PREFIX)
+    if start == -1:
+        return None
+    start += len(CLOSE_REVISION_PREFIX)
+    end = body.find(" -->", start)
+    return body[start:end] if end != -1 else None
+
+
 def decide(issue, comments, now):
     """Return the safe action for one issue from issue and comment snapshots."""
     labels = {label.get("name") for label in issue.get("labels", [])}
@@ -49,9 +78,6 @@ def decide(issue, comments, now):
         return Decision("ignore", "item is a pull request")
     if TARGET_LABEL not in labels:
         return Decision("ignore", "target label is absent")
-    if any(CLOSE_MARKER in (comment.get("body") or "") for comment in comments):
-        return Decision("ignore", "closing comment already exists")
-
     human_times = [parse_time(issue["created_at"])]
     human_times.extend(
         parse_time(comment["created_at"])
@@ -65,12 +91,24 @@ def decide(issue, comments, now):
     ]
     latest_human = max(human_times)
     latest_warning = max(warning_times, default=None)
+    close_comments = [
+        comment
+        for comment in comments
+        if CLOSE_MARKER in (comment.get("body") or "")
+    ]
+    latest_close_comment = max(
+        close_comments, key=lambda comment: parse_time(comment["created_at"]), default=None
+    )
+    latest_close = (
+        parse_time(latest_close_comment["created_at"])
+        if latest_close_comment
+        else None
+    )
 
-    # An issue edit or label event is relevant activity even when it has no comment.
-    # The warning itself also updates the issue, so exclude only an exact timestamp match.
-    updated_at = parse_time(issue.get("updated_at", issue["created_at"]))
-    if not latest_warning or updated_at != latest_warning:
-        latest_human = max(latest_human, updated_at)
+    if latest_close and latest_close > latest_human:
+        if close_revision(latest_close_comment) != issue_revision(issue):
+            return Decision("ignore", "issue changed after the closing comment")
+        return Decision("finalize_close", "closing comment awaits final state update")
 
     if latest_warning and latest_warning > latest_human:
         if now - latest_warning >= dt.timedelta(days=CLOSE_DAYS):
@@ -134,12 +172,17 @@ class GitHubApi:
     def comment(self, number, body):
         self.request("POST", f"/issues/{number}/comments", {"body": body})
 
-    def remove_label(self, number):
-        label = urllib.parse.quote(TARGET_LABEL, safe="")
-        self.request("DELETE", f"/issues/{number}/labels/{label}")
-
-    def close_not_planned(self, number):
-        self.request("PATCH", f"/issues/{number}", {"state": "closed", "state_reason": "not_planned"})
+    def close_not_planned(self, issue):
+        labels = [
+            label["name"]
+            for label in issue.get("labels", [])
+            if label.get("name") != TARGET_LABEL
+        ]
+        self.request(
+            "PATCH",
+            f"/issues/{issue['number']}",
+            {"state": "closed", "state_reason": "not_planned", "labels": labels},
+        )
 
 
 def next_link(header):
@@ -157,6 +200,20 @@ def still_eligible(issue):
     return issue.get("state") == "open" and "pull_request" not in issue and TARGET_LABEL in labels
 
 
+def fresh_decision(api, number, now):
+    issue = api.current_issue(number)
+    comments = api.comments(number)
+    return issue, comments, decide(issue, comments, now)
+
+
+def finalize_close(api, number, now):
+    issue, _comments, decision = fresh_decision(api, number, now)
+    if decision.action != "finalize_close" or not still_eligible(issue):
+        print(f"Issue #{number}: final close skipped after activity recheck")
+        return
+    api.close_not_planned(issue)
+
+
 def run(api, dry_run, now):
     for issue in api.issues():
         number = issue["number"]
@@ -164,16 +221,18 @@ def run(api, dry_run, now):
         print(f"Issue #{number}: {decision.action} ({decision.reason})")
         if decision.action == "ignore" or dry_run:
             continue
-        current = api.current_issue(number)
-        if not still_eligible(current):
-            print(f"Issue #{number}: skipped after eligibility recheck")
+        current, _comments, fresh = fresh_decision(api, number, now)
+        revision_changed = current.get("updated_at") != issue.get("updated_at")
+        if revision_changed or fresh.action != decision.action or not still_eligible(current):
+            print(f"Issue #{number}: skipped after complete decision recheck")
             continue
         if decision.action == "warn":
             api.comment(number, WARNING_COMMENT)
         elif decision.action == "close":
-            api.comment(number, CLOSE_COMMENT)
-            api.remove_label(number)
-            api.close_not_planned(number)
+            api.comment(number, close_comment(current))
+            finalize_close(api, number, now)
+        elif decision.action == "finalize_close":
+            api.close_not_planned(current)
 
 
 def main():
