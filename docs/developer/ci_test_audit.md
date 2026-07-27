@@ -1227,3 +1227,14 @@ consecutive repetitions, and all nine requested registered scoped controls
 passed. Final cross-platform CI for the new test is still required before D4C
 can be declared. No test, assertion, registration, label, timeout, or coverage
 was hidden or weakened.
+
+PR #2227 closed Phase 4/D4C at reviewed head
+`96b32c7902059c3c2562fa4ad0fd063dc0bd13bb`: authoritative run `30253286128`
+passed `MvrProjectFixtureMetadataContracts` on Linux and Windows, introduced no
+new failure name, and kept the reduced macOS profile at 6 of 6. D4C was reached
+and PR #2227 was approved for merge.
+
+Phase 5A classifies `RiderComments` and `RiderFilterPreview` as stale snapshot
+expectations. The production formatter already emits consistent compact blocks,
+omits removed comments rather than materializing empty blocks, normalizes CRLF
+input, and is idempotent; focused tests now encode those byte-level invariants.
