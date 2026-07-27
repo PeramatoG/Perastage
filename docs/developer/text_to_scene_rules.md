@@ -67,6 +67,13 @@ After applying the filter, users can manually adjust the filtered text and then
 press **Create**; the same normalization rules are still applied at creation
 time.
 
+### Preview serialization
+
+Filtered previews use UTF-8 text with LF line endings and no carriage returns,
+trailing spaces, or leading/trailing blank lines. Exactly one empty line
+separates each non-empty fixture or `RIGGING` block, and empty blocks are
+omitted. Reapplying the filter to its preview produces byte-identical output.
+
 ## Autocomplete keywords and ranking in "Create from text"
 
 The multiline editor in **Tools → Create from text** exposes autocomplete to

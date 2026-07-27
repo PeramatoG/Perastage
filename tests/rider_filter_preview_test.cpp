@@ -7,6 +7,39 @@
 #include <string>
 #include <wx/init.h>
 
+// Reports whether a preview follows the canonical serialization contract.
+bool HasCanonicalSerialization(const std::string &preview) {
+  if (preview.empty() || preview.front() == '\n' || preview.back() == '\n' ||
+      preview.find('\r') != std::string::npos ||
+      preview.find("\n\n\n") != std::string::npos)
+    return false;
+
+  size_t lineStart = 0;
+  while (lineStart < preview.size()) {
+    const size_t lineEnd = preview.find('\n', lineStart);
+    const size_t end = lineEnd == std::string::npos ? preview.size() : lineEnd;
+    if (end > lineStart &&
+        (preview[end - 1] == ' ' || preview[end - 1] == '\t'))
+      return false;
+    if (lineEnd == std::string::npos)
+      break;
+    lineStart = lineEnd + 1;
+  }
+  return true;
+}
+
+// Converts LF input to CRLF input for line-ending normalization coverage.
+std::string ToCrLf(const std::string &input) {
+  std::string result;
+  result.reserve(input.size() + input.size() / 8);
+  for (const char character : input) {
+    if (character == '\n')
+      result.push_back('\r');
+    result.push_back(character);
+  }
+  return result;
+}
+
 // Verifies rider filter preview stability and import parity.
 int main() {
   wxInitializer initializer;
@@ -38,13 +71,11 @@ int main() {
       "8 PROLIGHT BLINDER 4 PRO\n"
       "8 S-K15 LIROLITE\n"
       "\n"
-      "\n"
       "FLOOR\n"
       "4 LITELEE B-EYE L10R\n"
       "4 TOUR HAZER II\n"
       "4 TURBINA\n"
       "2 LED BAR\n"
-      "\n"
       "\n"
       "RIGGING\n"
       "1 MOTOR 500Kg FOR LX1\n"
@@ -64,6 +95,12 @@ int main() {
               << preview << "\n";
     return 1;
   }
+  assert(HasCanonicalSerialization(preview));
+
+  const std::string crlfPreview =
+      RiderImporter::BuildFixtureFilterPreview(ToCrLf(input));
+  assert(crlfPreview == preview);
+  assert(HasCanonicalSerialization(crlfPreview));
 
   const std::string previewSecondPass =
       RiderImporter::BuildFixtureFilterPreview(preview);
@@ -74,6 +111,7 @@ int main() {
               << previewSecondPass << "\n";
     return 1;
   }
+  assert(previewSecondPass == preview);
 
   const std::string inputWithCoordinates =
       "LX1 (6)\n"
@@ -86,7 +124,6 @@ int main() {
       "LX1 (6)\n"
       "2 SPOT\n"
       "\n"
-      "\n"
       "RIGGING\n"
       "1 TRUSS 40X40 14m LX1 (6)";
   if (previewWithCoordinates != expectedWithCoordinates) {
@@ -96,6 +133,7 @@ int main() {
               << previewWithCoordinates << "\n";
     return 1;
   }
+  assert(HasCanonicalSerialization(previewWithCoordinates));
 
   const std::string inputWithMarginOverride =
       "LX1 [0.8]\n"
@@ -108,7 +146,6 @@ int main() {
       "LX1 [0.8]\n"
       "2 SPOT\n"
       "\n"
-      "\n"
       "RIGGING\n"
       "1 TRUSS 40X40 14m LX1 [0.8]";
   if (previewWithMarginOverride != expectedWithMarginOverride) {
@@ -118,6 +155,7 @@ int main() {
               << previewWithMarginOverride << "\n";
     return 1;
   }
+  assert(HasCanonicalSerialization(previewWithMarginOverride));
 
   const std::string inputWithoutParaCoordinates =
       "RIGGING\n"
@@ -126,8 +164,6 @@ int main() {
   const std::string previewWithoutParaCoordinates =
       RiderImporter::BuildFixtureFilterPreview(inputWithoutParaCoordinates);
   const std::string expectedWithoutParaCoordinates =
-      "\n"
-      "\n"
       "RIGGING\n"
       "1 TRUSS 40X40 PRO NEGRO 12m LX1 (-1)\n"
       "1 TRUSS 40X40 BACKDROP (8)";
@@ -138,6 +174,7 @@ int main() {
               << previewWithoutParaCoordinates << "\n";
     return 1;
   }
+  assert(HasCanonicalSerialization(previewWithoutParaCoordinates));
 
   const std::string inputEnglishForKeyword =
       "RIGGING\n"
@@ -146,8 +183,6 @@ int main() {
   const std::string previewEnglishForKeyword =
       RiderImporter::BuildFixtureFilterPreview(inputEnglishForKeyword);
   const std::string expectedEnglishForKeyword =
-      "\n"
-      "\n"
       "RIGGING\n"
       "1 TRUSS 40X40 PRO NEGRO 12m LX2 (4)\n"
       "1 TRUSS 40X40 BACKDROP (8)";
@@ -158,6 +193,7 @@ int main() {
               << previewEnglishForKeyword << "\n";
     return 1;
   }
+  assert(HasCanonicalSerialization(previewEnglishForKeyword));
 
   const std::string mixedSectionsInput =
       "SONIDO\n"
@@ -178,6 +214,7 @@ int main() {
               << mixedSectionsPreview << "\n";
     return 1;
   }
+  assert(HasCanonicalSerialization(mixedSectionsPreview));
 
   auto assertImportParity = [](const std::string &riderText) {
     auto &cfg = ConfigManager::Get();

@@ -10,6 +10,7 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Standardized filtered Rider previews with compact, stable section spacing across line-ending styles while preventing removed comments from leaving blank sections.
 - Stabilized MVR layer and scene-object identities so damaged legacy UUIDs and dependent hierarchy or hoist links recover consistently across project save, reload, and export.
 - Preserved Support hoist and Truss metadata through standards-compliant MVR and project roundtrips, including portable auxiliary Truss GDTF resources.
 - Hardened MVR metadata recovery against foreign or unsupported legacy payloads, unknown and duplicate identities, invalid numeric and fixture-link values, unsafe auxiliary paths, and missing Truss resources without silent fallback substitution.
