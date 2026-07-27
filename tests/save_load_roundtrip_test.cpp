@@ -157,6 +157,7 @@ int main() {
   f4.layer = layer.name;
   f4.typeName = "FixtureType";
   f4.gdtfSpec = "orig.gdtf";
+  f4.visualColorHex = "#778899";
   f4.fixtureIdText = "Imported ID";
   f4.fixtureIdNumeric = 44;
   f4.fixtureId = 707;
@@ -249,6 +250,8 @@ int main() {
         scene2.sceneObjects.at("40000000-0000-4000-8000-000000000003").geometries.front().modelFile;
     assert(loadedLegacyPipeToken == "primitive:cylinder");
   assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").visualColorHex == "#445566");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .visualColorHex.empty());
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdText == "S101A");
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002").fixtureIdText == "S101B");
@@ -256,6 +259,8 @@ int main() {
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureId == 707);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 707);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "707");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004")
+               .visualColorHex == "#778899");
   const std::string canonicalFixtureUuid =
       CanonicalizeUuid(nonCanonicalFixtureUuid);
     assert(!canonicalFixtureUuid.empty());

@@ -20,7 +20,13 @@ Structural MVR compliance errors still fail export (for example missing `General
 GUI code should show export warnings only after any busy overlay is destroyed, so dialogs remain visible to the user.
 ## MVR node validity notes
 
-Support is a standard MVR scene node and is preserved as `<Support>` during import/export; if geometry is missing, Perastage writes an empty `<Geometries/>` plus required `ChainLength` so the logical Support remains schema-valid without inventing model geometry. Generic `<SceneObject>` nodes require a `<Geometries>` child, so Perastage writes a small 10 cm placeholder cube when no source geometry is available instead of writing invalid XML. Truss children are emitted in XSD `xs:sequence` order, with `Matrix` before `Geometries` and fixture identifiers after geometry-related content.
+Support is a standard MVR scene node and is preserved as `<Support>` during import/export; if geometry is missing, Perastage writes an empty `<Geometries/>` plus required `ChainLength` so the logical Support remains schema-valid without inventing model geometry. Generic `<SceneObject>` nodes require a `<Geometries>` child, so Perastage writes a small 10 cm placeholder cube when no source geometry is available instead of writing invalid XML. Truss children are emitted in XSD `xs:sequence` order, with `Matrix` before `Geometries`, fixture identifiers after geometry-related content, and `CustomIdType` before `CustomId`.
+
+## Standalone MVR and project fixture metadata
+
+Standalone MVR export remains the canonical interchange contract. It emits no direct Fixture extension children and retains `FixtureTypeInfoMap` as portable type-level Perastage metadata. Project save explicitly enables an additional root-level `ProjectFixtureMetadataMap`, scoped by `Data provider="Perastage" ver="1.0"` and its own `schemaVersion="1.0"`. Entries are sorted by canonical fixture UUID and preserve instance-owned `visualColorHex` values without applying one fixture's override to other fixtures of the same type.
+
+Only `ProjectRestore` consumes this project-only map. External and merge imports ignore it. Within project restore, a valid instance entry overrides weaker type-level color metadata. The reader accepts the first valid duplicate deterministically, diagnoses later duplicates, rejects malformed UUIDs and unsupported versions, and diagnoses entries whose UUID does not identify an imported fixture. Foreign providers never affect project fixture state.
 
 ## Symbol/Symdef UUID handling
 

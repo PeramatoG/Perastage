@@ -1853,6 +1853,62 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return false;
   };
 
+  std::unordered_map<std::string, std::string> projectFixtureColorsByUuid;
+  std::unordered_set<std::string> consumedProjectFixtureColorUuids;
+  // Collects project-only fixture colors only during explicit project restore.
+  auto parseProjectFixtureMetadata = [&](tinyxml2::XMLElement *userDataNode) {
+    if (!userDataNode ||
+        options.sourceKind != MvrImportSourceKind::ProjectRestore)
+      return;
+    for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
+         data; data = data->NextSiblingElement("Data")) {
+      const std::string provider = ToLowerCopy(
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
+      if (provider != "perastage" || !isSupportedPerastageMetadata(data))
+        continue;
+      for (tinyxml2::XMLElement *map =
+               data->FirstChildElement("ProjectFixtureMetadataMap");
+           map; map = map->NextSiblingElement("ProjectFixtureMetadataMap")) {
+        const std::string schemaVersion = Trim(
+            map->Attribute("schemaVersion") ? map->Attribute("schemaVersion") : "");
+        if (schemaVersion != "1.0") {
+          importResult.diagnostics.push_back(
+              {"unsupported_project_fixture_metadata_version",
+               "Ignored project fixture metadata with unsupported schema version '" +
+                   schemaVersion + "'."});
+          continue;
+        }
+        for (tinyxml2::XMLElement *entry =
+                 map->FirstChildElement("ProjectFixtureMetadata");
+             entry;
+             entry = entry->NextSiblingElement("ProjectFixtureMetadata")) {
+          const std::string rawUuid =
+              Trim(entry->Attribute("uuid") ? entry->Attribute("uuid") : "");
+          const std::string uuid = CanonicalizeUuid(rawUuid);
+          if (uuid.empty()) {
+            importResult.diagnostics.push_back(
+                {"malformed_project_fixture_metadata_uuid",
+                 "Ignored project fixture metadata with malformed UUID '" +
+                     rawUuid + "'."});
+            continue;
+          }
+          const std::string color = Trim(entry->Attribute("visualColorHex")
+                                             ? entry->Attribute("visualColorHex")
+                                             : "");
+          if (!isHexRgb(color))
+            continue;
+          if (!projectFixtureColorsByUuid.emplace(uuid, color).second) {
+            importResult.diagnostics.push_back(
+                {"duplicate_project_fixture_metadata_uuid",
+                 "Ignored duplicate project fixture metadata for UUID '" + uuid +
+                     "'; the first entry takes precedence."});
+          }
+        }
+      }
+    }
+  };
+  parseProjectFixtureMetadata(root->FirstChildElement("UserData"));
+
   std::unordered_map<std::string, tinyxml2::XMLElement *> rootTrussInfoByUuid;
   std::unordered_set<std::string> consumedRootTrussInfoUuids;
   // Collects root-level Perastage truss metadata by canonical exported UUID.
@@ -2684,6 +2740,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.categorySourceReason.clear();
           }
           fixture.visualColorHex = rootTypeInfoIt->second.visualColorHex;
+        }
+        const auto projectColorIt =
+            projectFixtureColorsByUuid.find(fixture.uuid);
+        if (projectColorIt != projectFixtureColorsByUuid.end()) {
+          fixture.visualColorHex = projectColorIt->second;
+          consumedProjectFixtureColorUuids.insert(projectColorIt->first);
         }
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);
@@ -4864,6 +4926,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   diagnoseUnusedRootEntries(rootTrussInfoByUuid,
                             consumedRootTrussInfoUuids,
                             "unknown_truss_info_uuid", "TrussInfo");
+  for (const auto &[uuid, color] : projectFixtureColorsByUuid) {
+    (void)color;
+    if (!consumedProjectFixtureColorUuids.contains(uuid)) {
+      importResult.diagnostics.push_back(
+          {"unknown_project_fixture_metadata_uuid",
+           "Ignored project fixture metadata for unknown UUID '" + uuid +
+               "'."});
+    }
+  }
 
   std::string summary =
       "Parsed scene: " + std::to_string(scene.fixtures.size()) + " fixtures, " +

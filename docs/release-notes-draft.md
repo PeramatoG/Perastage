@@ -15,6 +15,7 @@ Changes since **v1.5.0**.
 - Hardened MVR metadata recovery against foreign or unsupported legacy payloads, unknown and duplicate identities, invalid numeric and fixture-link values, unsafe auxiliary paths, and missing Truss resources without silent fallback substitution.
 - Rejected duplicate and case-colliding MVR archive entries consistently across platforms and surfaced tolerant-recovery diagnostics through normal imports.
 - Preserved explicit fixture categories, colors, and valid GDTF mode references across repeated MVR roundtrips while making missing-category inference deterministic.
+- Preserved per-fixture visual color overrides in Perastage projects without leaking project-only instance metadata into normal MVR exports or other fixtures of the same type.
 - Improved GDTF compatibility and safety for Unicode filesystem paths and archive entry names, including deterministic rejection of malformed UTF-8 identities.
 
 ## Current limitations

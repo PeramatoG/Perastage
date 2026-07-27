@@ -787,6 +787,38 @@ static void AppendFixtureTypeMetadata(
   perastageData->InsertEndChild(map);
 }
 
+// Appends project-only fixture overrides keyed by canonical instance UUID.
+static void AppendProjectFixtureMetadata(tinyxml2::XMLDocument &doc,
+                                         tinyxml2::XMLElement *perastageData,
+                                         const MvrScene &scene) {
+  if (!perastageData)
+    return;
+
+  tinyxml2::XMLElement *map = doc.NewElement("ProjectFixtureMetadataMap");
+  map->SetAttribute("schemaVersion", "1.0");
+  std::map<std::string, std::string> colorsByUuid;
+  for (const auto &[key, fixture] : scene.fixtures) {
+    (void)key;
+    const std::string uuid = CanonicalizeUuid(fixture.uuid);
+    const std::string color = TrimAscii(fixture.visualColorHex);
+    if (!uuid.empty() && color.size() == 7 && color.front() == '#' &&
+        std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
+          return std::isxdigit(ch) != 0;
+        }))
+      colorsByUuid[uuid] = color;
+  }
+  for (const auto &[uuid, color] : colorsByUuid) {
+    tinyxml2::XMLElement *entry = doc.NewElement("ProjectFixtureMetadata");
+    entry->SetAttribute("uuid", uuid.c_str());
+    entry->SetAttribute("visualColorHex", color.c_str());
+    map->InsertEndChild(entry);
+  }
+  if (map->FirstChild())
+    perastageData->InsertEndChild(map);
+  else
+    doc.DeleteNode(map);
+}
+
 // Builds the canonical root-level Perastage GDTF archive filename for a truss.
 static std::string BuildTrussGdtfArchiveName(const Truss &truss) {
   std::string fallbackModel = TrimAscii(truss.model);
@@ -3574,8 +3606,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     addStr("FixtureID", fixtureId);
     addInt("FixtureIDNumeric", fixtureNumericId);
     addInt("UnitNumber", t.unitNumber);
-    addInt("CustomId", t.customId);
     addInt("CustomIdType", t.customIdType);
+    addInt("CustomId", t.customId);
 
     AppendTrussInfoMetadata(doc, trussInfoMap, effectiveTruss, exportedTrussUuid,
                             exportTrussTypeKey, trussGdtfArchivePath);
@@ -4080,6 +4112,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
         FindOrCreatePerastageDataNode(doc, root);
     AppendFixtureTypeMetadata(doc, rootPerastageDataForFixtures,
                                       fixtureTypeMetadata);
+  }
+
+  if (options.includeProjectFixtureMetadata) {
+    tinyxml2::XMLElement *rootPerastageDataForProject =
+        FindOrCreatePerastageDataNode(doc, root);
+    AppendProjectFixtureMetadata(doc, rootPerastageDataForProject, scene);
   }
 
   if (trussInfoMap->FirstChild()) {

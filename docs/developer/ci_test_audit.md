@@ -1154,3 +1154,50 @@ not available because this checkout has no configured remote or CI dispatch
 surface. Consequently there is no Phase 4E CI run ID, authoritative platform
 total, or verified failure-set delta, and D4B is not declared. The branch must
 continue through complete CI before it can be recommended for merge.
+
+### Phase 4F canonical object order and project fixture metadata
+
+Phase 4F starts from the latest main-equivalent checkout SHA
+`843b995ad2551d971f22fea184e94f240cb29829`, version `1.5.15`, on the new branch
+`codex/repair-mvr-order-and-project-metadata-roundtrips`. PR #2225 is present as
+merge commit `978afeb6c490c44be7cd98f86ef2b321a8aac077`; its reviewed head
+`0f8c0523c9558c4f28498557dcb1f9e51bc487cd` has no content difference from the
+merge result. Later main changes comprise version bumps and the non-overlapping
+issue-intake PR #2226. Debug Tests run `30241403702` remains the authoritative
+pre-Phase-4F baseline: Linux 164 total, 146 passed, 17 failed, 1 skipped;
+Windows 166 total, 146 passed, 20 failed; reduced macOS 6 of 6 passed.
+
+The authoritative MVR 1.6 schema is `mvrdevelopment/tools/mvr.xsd` at commit
+`16f9ff3624d3e715798a28b2c460579c55820853` (Git blob
+`b250b81a1a98f5dbeaf7eb55c54e21409d83f829`, 28,286 bytes, SHA-256
+`c6dadedf91d9bd93148f2fdb3843cfca9c8f8ec0b86f035cbb4110def74af5ef`).
+Its `Truss` sequence places `CustomIdType` immediately before `CustomId`, as do
+Fixture, Support, VideoScreen, and Projector. SceneObject differs and places
+`CustomId` before `CustomIdType`. The Truss writer, not the strict validator,
+was wrong: it wrote `CustomId` first. Serialization now follows the verified
+Truss sequence and the existing schema-specific validation table checks it.
+
+The project color loss occurred before archive publication: standalone-style
+scene serialization collapsed fixture colors into type-keyed
+`FixtureTypeInfoMap`, which cannot represent different values for fixtures that
+share one GDTF/type identity. Project saves now explicitly add root Perastage
+`ProjectFixtureMetadataMap schemaVersion="1.0"` entries keyed by canonical
+fixture UUID and sorted deterministically. Only `ProjectRestore` reads the map;
+normal MVR import remains unchanged. Valid instance values override type-level
+colors. Malformed UUIDs, duplicate UUIDs, unsupported versions, and unknown
+fixture UUIDs are ignored with structured diagnostics; first valid duplicate
+wins, and foreign-provider data is ignored.
+
+Local Linux Debug configured successfully with
+`cmake --preset wsl-x64-debug -DPERASTAGE_ENABLE_MVR_XCHANGE_MDNS=OFF` after
+installing the container's missing development packages. The first repaired
+focused run proved both original blockers removed: `SaveLoadRoundtrip` passed
+the retained `#445566` assertion and the new same-type isolation assertions,
+then reached its later pre-existing duplicate FixtureID expectation at line
+257; `MvrExporterCompliance` passed strict Truss order validation, then reached
+its later case-only archive-entry count assertion at line 537. These later
+assertions were not weakened or changed. Because both primary CTest names are
+not fully green, repeated verification, full cross-platform CI, and a D4C claim
+are intentionally withheld. No test was hidden, disabled, skipped, relabeled,
+removed, or weakened. This branch requires follow-up review of those already
+latent in-test failures before CI can establish the requested failure-set delta.
