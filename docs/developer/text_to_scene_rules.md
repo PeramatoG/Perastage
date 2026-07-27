@@ -586,3 +586,7 @@ Perastage parses rider text by identifying sections, hang positions, fixture lin
   storage. Dictionary-backed Rider trusses use that managed GDTF archive for
   `modelFile` and `gdtfSpec`; a transient import source is not their stable
   resource identity.
+- A `PERASTAGE_LIBRARY_PATH` override root must already exist and be writable.
+  Isolated tests create that root before resolving the active dictionary so
+  transient sources and normal user-data fallback storage never become test
+  fixture ownership locations.

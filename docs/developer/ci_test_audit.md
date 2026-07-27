@@ -1276,3 +1276,11 @@ aggregate BACKDROP span correction. `RiderTrussDictionaryNormalization` failed
 only because its new assertions compared the managed dictionary copy with its
 temporary import source; no unrelated failure name changed and macOS remained
 6 of 6. E4 remains pending the managed-path test correction.
+
+At head `621b2808115e02abf63ae0bdcab3a7f441e60326`, authoritative run
+`30289959436` kept `RiderHoistImport` green while
+`RiderTrussDictionaryNormalization` advanced to its managed-directory
+assertion on Linux and Windows. The test set `PERASTAGE_LIBRARY_PATH` to a
+directory it had not created, so production correctly used the user-data
+fallback; no unrelated failure name changed and macOS remained 6 of 6. E4
+remains pending final isolated-root verification.
