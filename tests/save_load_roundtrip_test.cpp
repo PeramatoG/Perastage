@@ -410,6 +410,26 @@ int main() {
                .at("showLabelId")
                .at(1) == true);
 
+    MvrScene identityAuditScene;
+    Fixture canonicalizableFixture;
+    canonicalizableFixture.uuid = nonCanonicalFixtureUuid;
+    identityAuditScene.fixtures.emplace("canonicalizable",
+                                        canonicalizableFixture);
+    Fixture invalidFixture;
+    invalidFixture.uuid = "invalid-fixture-id";
+    identityAuditScene.fixtures.emplace("invalid", invalidFixture);
+    Fixture emptyFixture;
+    identityAuditScene.fixtures.emplace("empty", emptyFixture);
+    const auto recoverableBeforeCollision =
+        project_identity::CollectRecoverableFixtureUuids(identityAuditScene);
+    assert(recoverableBeforeCollision.size() == 1);
+    assert(recoverableBeforeCollision.contains(canonicalFixtureUuid));
+    Fixture duplicateFixture = canonicalizableFixture;
+    duplicateFixture.uuid = canonicalFixtureUuid;
+    identityAuditScene.fixtures.emplace("duplicate", duplicateFixture);
+    assert(project_identity::CollectRecoverableFixtureUuids(identityAuditScene)
+               .empty());
+
     cfg.Reset();
 
     assert(cfg.LoadProject(temp.string()));

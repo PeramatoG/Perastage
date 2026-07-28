@@ -1512,3 +1512,62 @@ that `config.json` and `GeneralSceneDescription.xml` both contain
 results remain pending and must replace this paragraph before merge; the gate
 remains removal of `SaveLoadRoundtrip` from every platform failure list without
 hiding any unrelated failure.
+
+### PR #2239 complete-target build correction
+
+PR #2239 at original reviewed head
+`e8672fb084e3ddc5c45b251b37158a0b1a5633f5` failed before CTest in
+cross-platform run `30391083074`. Linux, Windows, and macOS all reported an
+unresolved `CanonicalizeUuid(const std::string&)` from standalone tests that
+compiled `core/configmanager.cpp` without also compiling `core/uuidutils.cpp`.
+The test graph previously compiled `uuidutils.cpp` directly into 39 executable
+targets, while 38 targets compiled `configmanager.cpp`; four ConfigManager
+standalone targets did not happen to own the UUID implementation. Adding the
+source to one more executable therefore fixed only one target and retained
+fragmented ownership.
+
+The corrected graph gives `core/uuidutils.cpp` one compiled owner, the
+`perastage_uuid` object library. The production executable links that target,
+and the standalone-test directory links the same reusable dependency instead
+of compiling 39 private copies. This removes duplicate-definition risk,
+compiles the utility once per configuration, and makes future core consumers
+portable across archive/link ordering differences on MSVC, AppleClang, and
+Linux.
+
+Project metadata recovery is intentionally limited to a unique fixture identity
+that `CanonicalizeUuid` can resolve directly. Invalid or empty fixture IDs need
+MVR export identity recovery and do not have a provable old-to-exported
+association here; canonical collisions are likewise excluded from the safe
+scene identity set. Their metadata is diagnosed as stale rather than guessed.
+An exporter identity map would be required before broadening that contract.
+Within the supported case, canonical metadata wins collisions and compatible
+missing values from a legacy spelling are retained deterministically.
+
+A clean local Debug configuration built and ran the four targets that failed in
+run `30391083074`: `gdtf_dictionary_color_roundtrip_test`,
+`gdtf_dictionary_color_mode_propagation_test`,
+`dictionary_seed_merge_backup_test`, and `active_dictionary_workflow_test`.
+All four tests passed. Complete target-all and focused persistence results are
+recorded below. The corrective head, exact-head
+Actions run ID, cross-platform totals, complete remaining failure names,
+`selected_labels`, and final `SaveLoadRoundtrip` result remain pending; PR #2239
+must not merge until those exact-head artifacts are available.
+
+The repaired local graph built the focused `SaveLoadRoundtrip` executable and
+the exact focused CTest run executed. Its first failure remains the earlier,
+unrelated Support persistence assertion
+`loadedManual.loadKg == 325.0f` (now line 485 after added identity-contract
+coverage), so the test does not yet pass locally and the branch stops short of
+that unrelated repair. The package-coherence and export-identity assertions
+before it passed, but this result is not sufficient to claim complete
+SaveLoadRoundtrip verification or to retain the user-visible release-note fix.
+
+The clean local Debug `target all` build completed successfully after the graph
+correction, including all standalone test executables. The related seven-test
+selector passed six tests:
+`FixtureLabelOverridesReconcile`, `MvrExporterCompliance`,
+`MvrProjectFixtureMetadataContracts`, `MvrFixtureCategoryRoundtrip`,
+`ProjectSupportUserDataRoundtrip`, and `MvrSupportUserDataRoundtrip`;
+`SaveLoadRoundtrip` alone stopped at the Support load assertion described
+above. No exact-head CI run exists yet, so platform totals, remaining failure
+lists, and `selected_labels` cannot be certified from this corrective work.

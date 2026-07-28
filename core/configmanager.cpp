@@ -88,20 +88,6 @@ std::string SerializeHiddenLayerChecks(
   return nlohmann::json(sorted).dump();
 }
 
-// Collects the canonical fixture identities written by project MVR export.
-std::unordered_set<std::string> CollectSerializedFixtureUuids(
-    const MvrScene &scene) {
-  std::unordered_set<std::string> fixtureUuids;
-  fixtureUuids.reserve(scene.fixtures.size());
-  for (const auto &[key, fixture] : scene.fixtures) {
-    (void)key;
-    const std::string canonical = CanonicalizeUuid(fixture.uuid);
-    if (!canonical.empty())
-      fixtureUuids.insert(canonical);
-  }
-  return fixtureUuids;
-}
-
 // Logs fixture metadata normalization performed at a project persistence boundary.
 void LogFixtureMetadataNormalization(
     const char *operation,
@@ -550,7 +536,7 @@ bool ConfigManager::SaveProject(const std::string &path) {
             project_identity::NormalizeFixtureLabelOverrides(
                 serializationSnapshot.GetValue(
                     project_identity::kFixtureLabelOverridesConfigKey),
-                CollectSerializedFixtureUuids(GetScene()));
+                project_identity::CollectRecoverableFixtureUuids(GetScene()));
         if (normalization.serializedOverrides) {
           serializationSnapshot.SetValue(
               project_identity::kFixtureLabelOverridesConfigKey,
@@ -694,7 +680,7 @@ bool ConfigManager::LoadProject(const std::string &path,
     const auto normalization =
         project_identity::NormalizeFixtureLabelOverrides(
             GetValue(project_identity::kFixtureLabelOverridesConfigKey),
-            CollectSerializedFixtureUuids(GetScene()));
+            project_identity::CollectRecoverableFixtureUuids(GetScene()));
     if (normalization.changed) {
       RevisionGuard guard(*this);
       if (normalization.serializedOverrides) {

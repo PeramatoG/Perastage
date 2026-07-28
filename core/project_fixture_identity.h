@@ -1,11 +1,13 @@
 #pragma once
 
 #include "json.hpp"
+#include "mvrscene.h"
 #include "uuidutils.h"
 
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -50,6 +52,27 @@ inline void MergeMissingJsonValues(nlohmann::json &canonical,
 }
 
 } // namespace detail
+
+// Collects unique fixture identities that remain provable after canonicalization.
+inline std::unordered_set<std::string> CollectRecoverableFixtureUuids(
+    const MvrScene &scene) {
+  std::unordered_map<std::string, size_t> canonicalCounts;
+  canonicalCounts.reserve(scene.fixtures.size());
+  for (const auto &[key, fixture] : scene.fixtures) {
+    (void)key;
+    const std::string canonical = CanonicalizeUuid(fixture.uuid);
+    if (!canonical.empty())
+      ++canonicalCounts[canonical];
+  }
+
+  std::unordered_set<std::string> fixtureUuids;
+  fixtureUuids.reserve(canonicalCounts.size());
+  for (const auto &[canonical, count] : canonicalCounts) {
+    if (count == 1)
+      fixtureUuids.insert(canonical);
+  }
+  return fixtureUuids;
+}
 
 // Canonicalizes fixture-keyed project metadata against serialized scene identities.
 inline FixtureMetadataNormalizationResult NormalizeFixtureLabelOverrides(

@@ -10,8 +10,6 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
-- Preserved per-fixture label settings when projects canonicalize fixture identities, including deterministic recovery of compatible legacy project files.
-
 - Improved PDF output serialization across platforms and locale settings, and
   added deterministic temporary extraction fixtures while retaining unchanged
   compatibility inputs and pinned-library API coverage for final cross-platform
@@ -38,6 +36,8 @@ Changes since **v1.5.0**.
 ## Current limitations
 
 ## Technical and packaging changes
+
+- Centralized UUID utility build ownership so production and standalone verification targets share one portable compiled implementation.
 
 - Expanded macOS Debug continuous integration to build and exercise the complete registered test suite, matching Linux and Windows coverage while preserving diagnostic artifacts.
 
