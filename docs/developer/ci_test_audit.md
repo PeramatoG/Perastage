@@ -1369,3 +1369,12 @@ text-show boundaries, uses PoDoFo's public font decoding and Standard 14
 metrics, and sends dependency-neutral fragments through the existing geometric
 reconstruction stage. Final E6 closure remains pending a complete authoritative
 run on the corrective head.
+
+At head `2da050f36be8e56ee0e8632aa915b83c91dbb78e`, authoritative run
+`30362675797` configured on Linux and Windows but failed while compiling
+`core/pdftext.cpp`, before CTest ran on either platform. The operation reader
+used private `PdfContent` fields, classified `InvalidOperator` through the wrong
+warnings enum, and treated the PoDoFo 1.1.1 page resource reference as a
+pointer. The corrective implementation uses only the pinned public content
+accessors, explicit reader flags, validated operands, and scoped page/Form
+resource and graphics-state frames. E6 was not reached at the failing head.

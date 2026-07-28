@@ -14,13 +14,21 @@ use the diagnostic API.
 
 For PoDoFo 0.10 and newer, extraction retains the high-level bounding-box
 entries for diagnostics but reconstructs output from operation-boundary
-fragments. `PdfContentStreamReader` preserves text-show, positioning, text-state,
-and graphics-state boundaries before the high-level extractor can merge them.
+fragments. The pinned PoDoFo 1.1.1 `PdfContentStreamReader` boundary uses public
+type, error, operator, stack, and XObject accessors with explicit image-skipping
+flags. It preserves text-show, positioning, text-state, and graphics-state
+boundaries before the high-level extractor can merge them.
 Strings and advances use the active PoDoFo font, including its public Standard
 14 metrics for width-less Helvetica; missing active metrics or undecodable
 strings produce an explicit extraction failure rather than a word heuristic.
 Tests print raw high-level fragments only after a strict mismatch, and
 production extraction does not log them.
+
+The operation reader validates every operand stack before indexing it. Its
+`q`/`Q` frames restore the CTM, active font, text-state parameters, leading,
+rise, and resource context without rewinding text matrices. Form XObject frames
+apply the form matrix, prefer form-local resources when present, inherit the
+parent resource boundary otherwise, and restore all parent state on exit.
 
 Positioned fragments are reconstructed independently from file I/O. Fragments
 are ordered stably from top to bottom and left to right. Reconstruction uses

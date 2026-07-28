@@ -12,7 +12,8 @@ Changes since **v1.5.0**.
 
 - Improved PDF output serialization across platforms and locale settings, and
   added deterministic temporary extraction fixtures while retaining unchanged
-  compatibility inputs for final cross-platform verification.
+  compatibility inputs and pinned-library API coverage for final cross-platform
+  verification.
 
 - Corrected Rider truss dictionary matching for finish and length variants, and
   ensured GDTF SVG symbols no longer masquerade as renderable 3D geometry when

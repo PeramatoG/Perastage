@@ -38,6 +38,27 @@ inline std::string BuildAsciiWidths() {
   return widths.str();
 }
 
+// Serializes deterministic indirect objects with a classic xref table.
+inline std::string
+SerializePdfObjects(const std::vector<std::string> &objects) {
+  std::ostringstream pdf;
+  pdf.imbue(std::locale::classic());
+  pdf << "%PDF-1.4\n";
+  std::vector<std::streamoff> offsets;
+  for (size_t i = 0; i < objects.size(); ++i) {
+    offsets.push_back(pdf.tellp());
+    pdf << (i + 1) << " 0 obj\n" << objects[i] << "\nendobj\n";
+  }
+  const std::streamoff xref = pdf.tellp();
+  pdf << "xref\n0 " << (objects.size() + 1) << "\n0000000000 65535 f \n";
+  for (const auto offset : offsets)
+    pdf << std::setw(10) << std::setfill('0') << offset << " 00000 n \n";
+  pdf << "trailer\n<< /Size " << (objects.size() + 1)
+      << " /Root 1 0 R >>\nstartxref\n"
+      << xref << "\n%%EOF";
+  return pdf.str();
+}
+
 // Builds a deterministic, uncompressed PDF containing one content stream per
 // page.
 inline std::string BuildPdf(const std::vector<std::string> &pageStreams) {
@@ -64,22 +85,33 @@ inline std::string BuildPdf(const std::vector<std::string> &pageStreams) {
                     "/Widths [" +
                     BuildAsciiWidths() + "] >>");
 
-  std::ostringstream pdf;
-  pdf.imbue(std::locale::classic());
-  pdf << "%PDF-1.4\n";
-  std::vector<std::streamoff> offsets;
-  for (size_t i = 0; i < objects.size(); ++i) {
-    offsets.push_back(pdf.tellp());
-    pdf << (i + 1) << " 0 obj\n" << objects[i] << "\nendobj\n";
-  }
-  const std::streamoff xref = pdf.tellp();
-  pdf << "xref\n0 " << (objects.size() + 1) << "\n0000000000 65535 f \n";
-  for (const auto offset : offsets)
-    pdf << std::setw(10) << std::setfill('0') << offset << " 00000 n \n";
-  pdf << "trailer\n<< /Size " << (objects.size() + 1)
-      << " /Root 1 0 R >>\nstartxref\n"
-      << xref << "\n%%EOF";
-  return pdf.str();
+  return SerializePdfObjects(objects);
+}
+
+// Builds a deterministic page with a self-resourced Form XObject.
+inline std::string BuildFormPdf() {
+  const std::string pageStream = "BT\n/F1 24 Tf\n72 160 Td\n(Page) Tj\nET\n"
+                                 "q\n1 0 0 1 10 0 cm\n/Fm Do\nQ\n"
+                                 "BT\n/F1 24 Tf\n72 40 Td\n(After) Tj\nET\n";
+  const std::string formStream = "BT\n/F2 24 Tf\n72 100 Td\n(Form) Tj\nET\n";
+  const std::string font =
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica "
+      "/Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 126 /Widths [" +
+      BuildAsciiWidths() + "] >>";
+  return SerializePdfObjects(
+      {"<< /Type /Catalog /Pages 2 0 R >>",
+       "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+       "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Contents 4 0 R "
+       "/Resources << /Font << /F1 5 0 R >> /XObject << /Fm 6 0 R >> >> >>",
+       "<< /Length " + std::to_string(pageStream.size()) + " >>\nstream\n" +
+           pageStream + "endstream",
+       font,
+       "<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] "
+       "/Matrix [1 0 0 1 20 0] /Resources << /Font << /F2 7 0 R >> >> "
+       "/Length " +
+           std::to_string(formStream.size()) + " >>\nstream\n" + formStream +
+           "endstream",
+       font});
 }
 
 // Writes exact fixture bytes to a binary file.

@@ -221,6 +221,51 @@ bool CheckMissingFontDiagnostic(const std::filesystem::path &directory) {
   return true;
 }
 
+// Validates Form XObject resources, matrix application, restoration, and count.
+bool CheckFormXObjectFixture(const std::filesystem::path &directory) {
+  const std::string bytes = pdf_test_support::BuildFormPdf();
+  std::string error;
+  if (!pdf_test_support::ValidatePdfStructure(bytes, error) ||
+      !pdf_test_support::ValidateFontDictionary(bytes, error)) {
+    std::cerr << "Form fixture structure failed: " << error << '\n';
+    return false;
+  }
+  const auto path = directory / "form-xobject.pdf";
+  if (!pdf_test_support::WriteBinaryFile(path, bytes, error)) {
+    std::cerr << error << '\n';
+    return false;
+  }
+  const auto result = ExtractPdfTextWithResult(path.string());
+  if (!result.success || result.text != "Page\nForm\nAfter") {
+    if (result.success)
+      PrintMismatch(path, "Page\nForm\nAfter", result);
+    else
+      std::cerr << "Form fixture extraction failed: " << result.error << '\n';
+    return false;
+  }
+  return true;
+}
+
+// Requires deterministic rejection of a text-critical short operand stack.
+bool CheckShortOperandDiagnostic(const std::filesystem::path &directory) {
+  const std::string bytes =
+      pdf_test_support::BuildPdf({"BT\n/F1 Tf\n(Invalid) Tj\nET\n"});
+  std::string error;
+  const auto path = directory / "short-operands.pdf";
+  if (!pdf_test_support::WriteBinaryFile(path, bytes, error)) {
+    std::cerr << error << '\n';
+    return false;
+  }
+  const auto result = ExtractPdfTextWithResult(path.string());
+#if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
+  if (result.success || result.error.empty()) {
+    std::cerr << "Short operand stack did not return a diagnostic.\n";
+    return false;
+  }
+#endif
+  return true;
+}
+
 // Validates and compares one unchanged checked-in compatibility fixture.
 bool CheckCheckedInFixture(const std::filesystem::path &path) {
   std::string bytes;
@@ -363,6 +408,13 @@ int main(int argc, char **argv) {
                                "BT\n/F1 24 Tf\n72 100 Td\n(Two) Tj\nET\n";
   const std::string rotated =
       "BT\n/F1 24 Tf\n0 1 -1 0 72 120 Tm\n(Rotated) Tj\nET\n";
+  const std::string graphicsState =
+      "BT\n/F1 24 Tf\n72 160 Td\n(Before) Tj\nET\n"
+      "q\n2 0 0 2 0 0 cm\nBT\n/F1 12 Tf\n36 50 Td\n(Inside) Tj\nET\nQ\n"
+      "BT\n/F1 24 Tf\n72 40 Td\n(After) Tj\nET\n";
+  const std::string transformedGap =
+      "q\n2 0 0 2 0 0 cm\nBT\n/F1 12 Tf\n36 60 Td\n(Foo) Tj\n"
+      "25 0 Td\n(Bar) Tj\nET\nQ\n";
   const bool runtimePassed =
       CheckExpectedCanonicalization(directory.path()) &&
       CheckReconstruction() && CheckDiagnosticContracts(directory.path()) &&
@@ -378,7 +430,13 @@ int main(int argc, char **argv) {
                           "FooBar") &&
       CheckRuntimeFixture(directory.path(), "two-lines", twoLines,
                           "One\nTwo") &&
-      CheckRuntimeFixture(directory.path(), "rotated", rotated, "Rotated");
+      CheckRuntimeFixture(directory.path(), "rotated", rotated, "Rotated") &&
+      CheckRuntimeFixture(directory.path(), "graphics-state", graphicsState,
+                          "Before\nInside\nAfter") &&
+      CheckRuntimeFixture(directory.path(), "transformed-gap", transformedGap,
+                          "Foo Bar") &&
+      CheckFormXObjectFixture(directory.path()) &&
+      CheckShortOperandDiagnostic(directory.path());
   return runtimePassed &&
                  CheckCheckedInRegressions(std::filesystem::path(argv[1]))
              ? 0

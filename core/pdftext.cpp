@@ -145,107 +145,216 @@ void EmitString(const PdfString &encoded, OperationTextState &state,
   AdvanceText(state, advance);
 }
 
-// Extracts text at operation boundaries before high-level grouping loses them.
+struct GraphicsStateFrame {
+  TextMatrix ctm;
+  const PdfFont *font = nullptr;
+  PdfTextState text;
+  double leading = 0.0;
+  double rise = 0.0;
+  const PdfResources *resources = nullptr;
+};
+
+struct FormStateFrame {
+  OperationTextState state;
+  const PdfResources *resources = nullptr;
+  size_t graphicsDepth = 0;
+};
+
+// Validates the operand count before an operation reads from its stack.
+void RequireOperands(const PdfVariantStack &stack, size_t minimum,
+                     const char *operation) {
+  if (stack.GetSize() < minimum)
+    throw std::runtime_error(std::string("PDF ") + operation +
+                             " operation has too few operands.");
+}
+
+// Saves the graphics and text-state parameters controlled by q/Q.
+GraphicsStateFrame SaveGraphicsState(const OperationTextState &state,
+                                     const PdfResources *resources) {
+  return {state.ctm,     state.font, state.text,
+          state.leading, state.rise, resources};
+}
+
+// Restores q/Q state without incorrectly rewinding active text matrices.
+void RestoreGraphicsState(OperationTextState &state,
+                          const GraphicsStateFrame &frame,
+                          const PdfResources *&resources) {
+  state.ctm = frame.ctm;
+  state.font = frame.font;
+  state.text = frame.text;
+  state.leading = frame.leading;
+  state.rise = frame.rise;
+  resources = frame.resources;
+}
+
+// Applies one validated content-stream operator to extraction state.
+void ProcessOperator(PdfOperator operation, const PdfVariantStack &stack,
+                     OperationTextState &state, const PdfResources *&resources,
+                     std::vector<GraphicsStateFrame> &graphicsStack,
+                     std::vector<PdfTextFragment> &fragments) {
+  switch (operation) {
+  case PdfOperator::q:
+    graphicsStack.push_back(SaveGraphicsState(state, resources));
+    break;
+  case PdfOperator::Q:
+    if (graphicsStack.empty())
+      throw std::runtime_error(
+          "PDF graphics-state restore has no saved state.");
+    RestoreGraphicsState(state, graphicsStack.back(), resources);
+    graphicsStack.pop_back();
+    break;
+  case PdfOperator::cm:
+    RequireOperands(stack, 6, "cm");
+    state.ctm = Multiply(state.ctm, ReadMatrix(stack));
+    break;
+  case PdfOperator::BT:
+    state.matrix = state.lineMatrix = TextMatrix{};
+    state.inText = true;
+    break;
+  case PdfOperator::ET:
+    state.inText = false;
+    break;
+  case PdfOperator::Tf:
+    RequireOperands(stack, 2, "Tf");
+    state.text.FontSize = stack[0].GetReal();
+    state.font = resources == nullptr
+                     ? nullptr
+                     : resources->GetFont(stack[1].GetName().GetString());
+    state.text.Font = state.font;
+    break;
+  case PdfOperator::Tc:
+    RequireOperands(stack, 1, "Tc");
+    state.text.CharSpacing = stack[0].GetReal();
+    break;
+  case PdfOperator::Tw:
+    RequireOperands(stack, 1, "Tw");
+    state.text.WordSpacing = stack[0].GetReal();
+    break;
+  case PdfOperator::Tz:
+    RequireOperands(stack, 1, "Tz");
+    state.text.FontScale = stack[0].GetReal() / 100.0;
+    break;
+  case PdfOperator::TL:
+    RequireOperands(stack, 1, "TL");
+    state.leading = stack[0].GetReal();
+    break;
+  case PdfOperator::Ts:
+    RequireOperands(stack, 1, "Ts");
+    state.rise = stack[0].GetReal();
+    break;
+  case PdfOperator::Td:
+  case PdfOperator::TD: {
+    RequireOperands(stack, 2, operation == PdfOperator::Td ? "Td" : "TD");
+    const double x = stack[1].GetReal();
+    const double y = stack[0].GetReal();
+    if (operation == PdfOperator::TD)
+      state.leading = -y;
+    MoveTextLine(state, x, y);
+    break;
+  }
+  case PdfOperator::Tm:
+    RequireOperands(stack, 6, "Tm");
+    state.matrix = state.lineMatrix = ReadMatrix(stack);
+    break;
+  case PdfOperator::T_Star:
+    MoveTextLine(state, 0.0, -state.leading);
+    break;
+  case PdfOperator::Quote:
+    RequireOperands(stack, 1, "quote");
+    MoveTextLine(state, 0.0, -state.leading);
+    EmitString(stack[0].GetString(), state, fragments);
+    break;
+  case PdfOperator::DoubleQuote:
+    RequireOperands(stack, 3, "double-quote");
+    state.text.WordSpacing = stack[2].GetReal();
+    state.text.CharSpacing = stack[1].GetReal();
+    MoveTextLine(state, 0.0, -state.leading);
+    EmitString(stack[0].GetString(), state, fragments);
+    break;
+  case PdfOperator::Tj:
+    RequireOperands(stack, 1, "Tj");
+    EmitString(stack[0].GetString(), state, fragments);
+    break;
+  case PdfOperator::TJ: {
+    RequireOperands(stack, 1, "TJ");
+    const auto &array = stack[0].GetArray();
+    for (size_t i = 0; i < array.GetSize(); ++i) {
+      if (array[i].IsString())
+        EmitString(array[i].GetString(), state, fragments);
+      else if (array[i].IsNumber())
+        AdvanceText(state, -array[i].GetReal() / 1000.0 * state.text.FontSize *
+                               state.text.FontScale);
+    }
+    break;
+  }
+  default:
+    break;
+  }
+}
+
+// Extracts text through the public PoDoFo 1.1.1 content-reader interface.
 std::vector<PdfTextFragment> ExtractOperationFragments(PdfPage &page) {
   std::vector<PdfTextFragment> fragments;
   OperationTextState state;
   state.text.FontScale = 1.0;
-  std::vector<TextMatrix> graphicsStack;
-  PdfContentStreamReader reader(page);
+  const PdfResources *resources = &page.GetResources();
+  std::vector<GraphicsStateFrame> graphicsStack;
+  std::vector<FormStateFrame> formStack;
+  PdfContentReaderArgs args;
+  args.Flags = PdfContentReaderFlags::SkipHandleNonFormXObjects |
+               PdfContentReaderFlags::SkipFetchInlineImages;
+  PdfContentStreamReader reader(page, args);
   PdfContent content;
   while (reader.TryReadNext(content)) {
-    if (content.Type != PdfContentType::Operator ||
-        (content.Warnings & PdfContentWarnings::InvalidOperator) !=
-            PdfContentWarnings::None)
-      continue;
-    switch (content.Operator) {
-    case PdfOperator::q:
-      graphicsStack.push_back(state.ctm);
+    switch (content.GetType()) {
+    case PdfContentType::Operator:
+      if (content.HasErrors())
+        throw std::runtime_error("PDF content reader rejected an operator.");
+      ProcessOperator(content.GetOperator(), content.GetStack(), state,
+                      resources, graphicsStack, fragments);
       break;
-    case PdfOperator::Q:
-      if (!graphicsStack.empty()) {
-        state.ctm = graphicsStack.back();
-        graphicsStack.pop_back();
-      }
-      break;
-    case PdfOperator::cm:
-      state.ctm = Multiply(state.ctm, ReadMatrix(content.Stack));
-      break;
-    case PdfOperator::BT:
-      state.matrix = state.lineMatrix = TextMatrix{};
-      state.inText = true;
-      break;
-    case PdfOperator::ET:
-      state.inText = false;
-      break;
-    case PdfOperator::Tf: {
-      state.text.FontSize = content.Stack[0].GetReal();
-      const auto *resources = page.GetResources();
-      state.font =
-          resources == nullptr
-              ? nullptr
-              : resources->GetFont(content.Stack[1].GetName().GetString());
-      state.text.Font = state.font;
+    case PdfContentType::BeginFormXObject: {
+      const auto xobject = content.GetXObject();
+      if (xobject == nullptr || xobject->GetType() != PdfXObjectType::Form)
+        throw std::runtime_error("PDF form entry has no Form XObject.");
+      formStack.push_back({state, resources, graphicsStack.size()});
+      const auto *form = static_cast<const PdfXObjectForm *>(xobject.get());
+      const auto &matrix = form->GetMatrix();
+      const TextMatrix formMatrix{matrix[0], matrix[1], matrix[2],
+                                  matrix[3], matrix[4], matrix[5]};
+      state.ctm = Multiply(state.ctm, formMatrix);
+      if (const auto *formResources = form->GetResources())
+        resources = formResources;
       break;
     }
-    case PdfOperator::Tc:
-      state.text.CharSpacing = content.Stack[0].GetReal();
+    case PdfContentType::EndFormXObject:
+      if (formStack.empty())
+        throw std::runtime_error("PDF form exit has no matching form entry.");
+      if (graphicsStack.size() != formStack.back().graphicsDepth)
+        throw std::runtime_error("PDF form has an unbalanced graphics state.");
+      state = formStack.back().state;
+      resources = formStack.back().resources;
+      formStack.pop_back();
       break;
-    case PdfOperator::Tw:
-      state.text.WordSpacing = content.Stack[0].GetReal();
+    case PdfContentType::ImageDictionary:
+    case PdfContentType::ImageData:
+    case PdfContentType::DoXObject:
       break;
-    case PdfOperator::Tz:
-      state.text.FontScale = content.Stack[0].GetReal() / 100.0;
+    case PdfContentType::UnexpectedKeyword:
+      if (content.HasErrors())
+        throw std::runtime_error(
+            "PDF content reader found an unexpected token.");
       break;
-    case PdfOperator::TL:
-      state.leading = content.Stack[0].GetReal();
-      break;
-    case PdfOperator::Ts:
-      state.rise = content.Stack[0].GetReal();
-      break;
-    case PdfOperator::Td:
-    case PdfOperator::TD: {
-      const double x = content.Stack[1].GetReal();
-      const double y = content.Stack[0].GetReal();
-      if (content.Operator == PdfOperator::TD)
-        state.leading = -y;
-      MoveTextLine(state, x, y);
-      break;
-    }
-    case PdfOperator::Tm:
-      state.matrix = state.lineMatrix = ReadMatrix(content.Stack);
-      break;
-    case PdfOperator::T_Star:
-      MoveTextLine(state, 0.0, -state.leading);
-      break;
-    case PdfOperator::Quote:
-      MoveTextLine(state, 0.0, -state.leading);
-      EmitString(content.Stack[0].GetString(), state, fragments);
-      break;
-    case PdfOperator::DoubleQuote:
-      state.text.WordSpacing = content.Stack[2].GetReal();
-      state.text.CharSpacing = content.Stack[1].GetReal();
-      MoveTextLine(state, 0.0, -state.leading);
-      EmitString(content.Stack[0].GetString(), state, fragments);
-      break;
-    case PdfOperator::Tj:
-      EmitString(content.Stack[0].GetString(), state, fragments);
-      break;
-    case PdfOperator::TJ: {
-      const auto &array = content.Stack[0].GetArray();
-      for (size_t i = 0; i < array.GetSize(); ++i) {
-        if (array[i].IsString())
-          EmitString(array[i].GetString(), state, fragments);
-        else if (array[i].IsNumber())
-          AdvanceText(state, -array[i].GetReal() / 1000.0 *
-                                 state.text.FontSize * state.text.FontScale);
-      }
-      break;
-    }
     default:
-      break;
+      throw std::runtime_error(
+          "PDF content reader returned an unsupported type.");
     }
   }
+  if (!formStack.empty())
+    throw std::runtime_error("PDF form entry has no matching form exit.");
+  if (!graphicsStack.empty())
+    throw std::runtime_error(
+        "PDF graphics-state save has no matching restore.");
   return fragments;
 }
 
