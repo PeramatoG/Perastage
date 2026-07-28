@@ -152,8 +152,15 @@ for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-C
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
 
 macos = sections['macos']
-for needle in ['sdk-${{ steps.macos-sdk.outputs.identity }}', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', '--output-junit', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
+for needle in ['sdk-${{ steps.macos-sdk.outputs.identity }}', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', 'Build complete macOS test target set', 'Run complete macOS CTest suite', '--output-junit', 'summarize_ctest_failures.py', 'summarize_ctest_results.py', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
     assert needle in macos, f'macOS Debug is missing {needle}'
+macos_build = macos[macos.index('      - name: Build complete macOS test target set'):macos.index('      - name: Capture macOS sccache statistics')]
+assert '--target all --verbose' in macos_build, 'macOS Debug must build the complete target set'
+for target in ['gdtf_share_security_test', 'credential_store_native_roundtrip_test']:
+    assert target not in macos_build, f'macOS Debug build must not enumerate {target}'
+macos_test = macos[macos.index('      - name: Run complete macOS CTest suite'):macos.index('      - name: Upload macOS test results')]
+for forbidden in ['-L release-gate', '--labels release-gate', 'Build release-gate and macOS tests', 'Run release-gate and macOS tests', 'continue-on-error']:
+    assert forbidden not in macos_build + macos_test, f'macOS full-suite section must not contain {forbidden}'
 
 sccache_action = 'mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10'
 assert ci.count(sccache_action) == 3, 'each Debug platform must use the reviewed sccache action commit'

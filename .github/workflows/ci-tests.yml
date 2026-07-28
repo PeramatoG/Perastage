@@ -741,23 +741,23 @@ jobs:
         run: |
           ctest --test-dir build/macos-debug -N -V > "$CI_LOG_DIR/ctest-inventory-macos-debug.txt"
           ctest --test-dir build/macos-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-macos-debug.json"
-      - name: Build release-gate and macOS tests
+      - name: Build complete macOS test target set
         id: perastage-build
-        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target gdtf_share_security_test credential_store_native_roundtrip_test --verbose
+        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target all --verbose
       - name: Capture macOS sccache statistics
         if: ${{ always() }}
         run: |
           "$SCCACHE_PATH" --show-stats > "$CI_LOG_DIR/sccache-macos-debug.txt"
           "$SCCACHE_PATH" --show-stats --stats-format json > "$CI_LOG_DIR/sccache-macos-debug.json"
           python3 .github/scripts/write_sccache_summary.py --stats-json "$CI_LOG_DIR/sccache-macos-debug.json" --compile-commands build/macos-debug/compile_commands.json --platform macos-debug --architecture "${{ runner.arch }}" --backend "$SCCACHE_BACKEND" --cache-scope "$SCCACHE_CACHE_SCOPE" --scope-reason "$SCCACHE_SCOPE_REASON" --namespace "$SCCACHE_NAMESPACE" --compiler-identity "$SCCACHE_COMPILER_IDENTITY" --base-directory "$SCCACHE_BASEDIRS" --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
-      - name: Run release-gate and macOS tests
-        run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/ctest-macos-debug.log" -- ctest --test-dir build/macos-debug -L release-gate --output-log "$CI_LOG_DIR/ctest-macos-debug-full.log" --output-junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output-on-failure --verbose
-      - name: Summarize macOS CTest failures
-        if: ${{ always() }}
-        run: python3 .github/scripts/summarize_ctest_failures.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --log "$CI_LOG_DIR/ctest-macos-debug.log" --last-tests-failed build/macos-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-macos-debug-failures.csv"
-      - name: Summarize macOS CTest results
-        if: ${{ always() }}
-        run: python3 .github/scripts/summarize_ctest_results.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output "$CI_LOG_DIR/ctest-macos-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE" --labels release-gate
+      - name: Run complete macOS CTest suite
+        run: |
+          set +e
+          ctest --test-dir build/macos-debug --output-log "$CI_LOG_DIR/ctest-macos-debug.log" --output-junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output-on-failure --verbose
+          ctest_exit=$?
+          python3 .github/scripts/summarize_ctest_failures.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --log "$CI_LOG_DIR/ctest-macos-debug.log" --last-tests-failed build/macos-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-macos-debug-failures.csv"
+          python3 .github/scripts/summarize_ctest_results.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output "$CI_LOG_DIR/ctest-macos-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE"
+          exit $ctest_exit
       - name: Upload macOS test results
         if: ${{ always() }}
         uses: actions/upload-artifact@v7

@@ -1402,3 +1402,27 @@ uniquely named malformed SceneObject recovery fixture. Geometry, matrix,
 archive, and child-order assertions therefore address canonical objects, while
 the independent recovery control verifies canonical output, two-export
 determinism, and identity preservation through reimport and another export.
+
+
+## Phase 8 E7 closure and E8A full macOS suite wiring, 2026-07-28
+
+PR #2236 closed E7 at reviewed head
+`e5e8ac371899032bb3d4bb623aa41ed71232de9a`. Authoritative Debug Tests run
+`30371332821` reported 159 passed, 6 failed, and 1 skipped of 166 on Linux;
+161 passed and 7 failed of 168 on Windows; and 6 passed of 6 in the old reduced
+macOS release gate. `MvrExporterCompliance` was removed from the Linux and
+Windows failure sets, and no new failure name appeared. The retained Linux
+failures were `Viewer2DFboCaptureDiagnostics`, `EditableFocusUtils`,
+`SaveLoadRoundtrip`, `TrussPathEncodingRegression`, `Loader3dsNativeDimensions`,
+and `GdtfEditorCheckpoint08DStabilization`; Windows retained those names plus
+`GdtfFixtureInsertionPreparation`.
+
+Pull-request Debug CI now builds the complete target set and runs the complete,
+unfiltered registered CTest suite on Linux, Windows, and macOS. macOS retains
+`macos-26`, arm64, AppleClang, Ninja, Debug, and the `arm64-osx` vcpkg triplet,
+with its inventory, canonical CTest log, JUnit, failure CSV, compact result
+summary, optional failed/disabled-test records, sccache records, and failure
+diagnostics. The first full macOS run establishes the complete macOS failure
+baseline; the prior 6-of-6 result is only the reduced baseline and does not
+predict the full-suite pass/fail count. E8A validates this full-suite wiring,
+not test greenness.
