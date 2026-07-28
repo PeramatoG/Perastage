@@ -1378,3 +1378,27 @@ warnings enum, and treated the PoDoFo 1.1.1 page resource reference as a
 pointer. The corrective implementation uses only the pinned public content
 accessors, explicit reader flags, validated operands, and scoped page/Form
 resource and graphics-state frames. E6 was not reached at the failing head.
+
+### Phase 6B E6 closure and residual Phase 4 tracking
+
+PR #2235 was approved for merge at final head
+`bf97c5ee2f5644f7c35c72b41d7ea08094976044`. Authoritative Debug Tests run
+`30366695880` reported 158 passed, 7 failed, and 1 skipped of 166 on Linux;
+160 passed and 8 failed of 168 on Windows; and 6 passed of 6 in the reduced
+macOS release gate. `PdfTextComparison` and `PdfWriterSerialization` passed on
+Linux and Windows, no new failure name appeared, and E6 was reached.
+
+Phase 4 is partially complete rather than closed. Its residuals are
+`MvrExporterCompliance`, `SaveLoadRoundtrip`, and
+`GdtfEditorCheckpoint08DStabilization`. Phase 6 layout and PDF work is complete;
+paths, 3DS, and GUI groups remain pending. Full macOS parity remains Phase 8.
+
+The residual `MvrExporterCompliance` failure is a stale test-fixture identity
+assumption. Its primitive sphere and pipe SceneObjects used malformed UUIDs;
+the production editable-scene pipeline correctly recovered canonical UUIDs,
+but the XML geometry checks still compared them with the raw malformed values.
+The compliance control now separates fixed canonical geometry fixtures from a
+uniquely named malformed SceneObject recovery fixture. Geometry, matrix,
+archive, and child-order assertions therefore address canonical objects, while
+the independent recovery control verifies canonical output, two-export
+determinism, and identity preservation through reimport and another export.
