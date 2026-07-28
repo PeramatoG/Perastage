@@ -37,6 +37,8 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Expanded macOS Debug continuous integration to build and exercise the complete registered test suite, matching Linux and Windows coverage while preserving diagnostic artifacts.
+
 - Strengthened internal MVR 1.6 compliance coverage by separating primitive
   geometry contracts from malformed SceneObject identity-recovery controls.
 
