@@ -12,11 +12,15 @@ content. PoDoFo types and exceptions remain private to the core implementation.
 Callers that need to distinguish an empty document from a parser failure must
 use the diagnostic API.
 
-For PoDoFo 0.10 and newer, extraction requests bounding boxes and retains each
-page's dependency-neutral positioned fragments in the diagnostic result. Tests
-print those raw fragments only after a strict comparison mismatch, including
-their coordinates, advance, and optional bounds; production extraction does
-not log them.
+For PoDoFo 0.10 and newer, extraction retains the high-level bounding-box
+entries for diagnostics but reconstructs output from operation-boundary
+fragments. `PdfContentStreamReader` preserves text-show, positioning, text-state,
+and graphics-state boundaries before the high-level extractor can merge them.
+Strings and advances use the active PoDoFo font, including its public Standard
+14 metrics for width-less Helvetica; missing active metrics or undecodable
+strings produce an explicit extraction failure rather than a word heuristic.
+Tests print raw high-level fragments only after a strict mismatch, and
+production extraction does not log them.
 
 Positioned fragments are reconstructed independently from file I/O. Fragments
 are ordered stably from top to bottom and left to right. Reconstruction uses
@@ -29,9 +33,9 @@ distinct lines and pages.
 ## Deterministic fixtures
 
 PDF assets (`*.pdf` and `*.PDF`) must never undergo line-ending conversion.
-`PdfTextComparison` does not read the checked-in PDF assets: it creates minimal
-runtime controls in a unique system-temporary directory and removes that
-directory through RAII. The builder emits exact LF-only bytes without
+`PdfTextComparison` first creates minimal explicit-width runtime controls in a
+unique system-temporary directory and removes that directory through RAII. The
+builder emits exact LF-only bytes without
 timestamps, compression, platform newlines, or external applications. It
 validates each in-memory fixture before writing it:
 
@@ -48,6 +52,12 @@ runtime translated stream shows `Foo`, applies exactly `50 0 Td`, and then shows
 are forced to LF on checkout. Their reader also canonicalizes CRLF and lone CR
 line endings, preserves ordinary spaces and internal blank lines, and removes
 only the historical trailing newline/form-feed sequence.
+
+After the runtime controls, the test directly reads the unchanged checked-in
+`simple.pdf` and `translated.pdf` from the source fixture directory. These
+width-less Standard 14 compatibility regressions are structurally validated and
+strictly compared with their companion text. CMake neither copies nor generates
+them, and their binary bytes remain unchanged.
 
 ## Writer rules
 

@@ -1,3 +1,20 @@
+/*
+ * This file is part of Perastage.
+ * Copyright (C) 2025 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
+ */
 #include "pdftext.h"
 #include "support/pdf_test_fixture_builder.h"
 
@@ -181,6 +198,62 @@ bool CheckRuntimeFixture(const std::filesystem::path &directory,
   return true;
 }
 
+// Requires an explicit extraction diagnostic when a text-show has no font.
+bool CheckMissingFontDiagnostic(const std::filesystem::path &directory) {
+  const std::string bytes =
+      pdf_test_support::BuildPdf({"BT\n72 120 Td\n(No font) Tj\nET\n"});
+  std::string error;
+  const auto path = directory / "missing-font.pdf";
+  if (!pdf_test_support::WriteBinaryFile(path, bytes, error)) {
+    std::cerr << error << '\n';
+    return false;
+  }
+  const auto result = ExtractPdfTextWithResult(path.string());
+#if PODOFO_VERSION >= PODOFO_MAKE_VERSION(0, 10, 0)
+  if (result.success ||
+      result.error.find("active font metrics") == std::string::npos) {
+    std::cerr
+        << "Missing-font extraction did not return an explicit diagnostic: "
+        << result.error << '\n';
+    return false;
+  }
+#endif
+  return true;
+}
+
+// Validates and compares one unchanged checked-in compatibility fixture.
+bool CheckCheckedInFixture(const std::filesystem::path &path) {
+  std::string bytes;
+  std::string error;
+  if (!pdf_test_support::ReadBinaryFile(path, bytes, error) ||
+      !pdf_test_support::ValidatePdfStructure(bytes, error)) {
+    std::cerr << "Checked-in fixture structure failed for " << path << ": "
+              << error << '\n';
+    return false;
+  }
+  const std::string expected =
+      ReadExpected(path.parent_path() / (path.stem().string() + ".txt"));
+  const auto result = ExtractPdfTextWithResult(path.string());
+  if (!result.success) {
+    std::cerr << "Checked-in extraction failed for " << path << ": "
+              << result.error << '\n';
+    return false;
+  }
+  if (result.text != expected) {
+    std::cerr << "Font dictionary contains /Widths: " << std::boolalpha
+              << (bytes.find("/Widths") != std::string::npos) << '\n';
+    PrintMismatch(path, expected, result);
+    return false;
+  }
+  return true;
+}
+
+// Verifies both unchanged width-less Standard 14 regression fixtures.
+bool CheckCheckedInRegressions(const std::filesystem::path &directory) {
+  return CheckCheckedInFixture(directory / "simple.pdf") &&
+         CheckCheckedInFixture(directory / "translated.pdf");
+}
+
 // Verifies CRLF, lone-CR, spaces, blank lines, and historical suffix handling.
 bool CheckExpectedCanonicalization(const std::filesystem::path &directory) {
   const auto path = directory / "expected.txt";
@@ -265,8 +338,12 @@ bool CheckDiagnosticContracts(const std::filesystem::path &directory) {
 
 } // namespace
 
-// Runs runtime fixture, reconstruction, normalization, and diagnostic controls.
-int main() {
+// Runs runtime controls before unchanged checked-in compatibility regressions.
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    std::cerr << "Expected the checked-in PDF fixture directory.\n";
+    return 1;
+  }
   TemporaryDirectory directory;
   if (!directory.valid()) {
     std::cerr << "Unable to create PDF text temporary directory: "
@@ -276,13 +353,34 @@ int main() {
   const std::string simple = "BT\n/F1 24 Tf\n72 120 Td\n(Hello World) Tj\nET\n";
   const std::string translated =
       "BT\n/F1 24 Tf\n72 120 Td\n(Foo) Tj\n50 0 Td\n(Bar) Tj\nET\n";
-  return CheckExpectedCanonicalization(directory.path()) &&
-                 CheckReconstruction() &&
-                 CheckDiagnosticContracts(directory.path()) &&
-                 CheckRuntimeFixture(directory.path(), "simple", simple,
-                                     "Hello World") &&
-                 CheckRuntimeFixture(directory.path(), "translated", translated,
-                                     "Foo Bar")
+  const std::string adjacent =
+      "BT\n/F1 24 Tf\n72 120 Td\n(Foo) Tj\n(Bar) Tj\nET\n";
+  const std::string tjGap =
+      "BT\n/F1 24 Tf\n72 120 Td\n[(Foo) -1000 (Bar)] TJ\nET\n";
+  const std::string tjAdjacent =
+      "BT\n/F1 24 Tf\n72 120 Td\n[(Foo) 0 (Bar)] TJ\nET\n";
+  const std::string twoLines = "BT\n/F1 24 Tf\n72 150 Td\n(One) Tj\nET\n"
+                               "BT\n/F1 24 Tf\n72 100 Td\n(Two) Tj\nET\n";
+  const std::string rotated =
+      "BT\n/F1 24 Tf\n0 1 -1 0 72 120 Tm\n(Rotated) Tj\nET\n";
+  const bool runtimePassed =
+      CheckExpectedCanonicalization(directory.path()) &&
+      CheckReconstruction() && CheckDiagnosticContracts(directory.path()) &&
+      CheckMissingFontDiagnostic(directory.path()) &&
+      CheckRuntimeFixture(directory.path(), "simple", simple, "Hello World") &&
+      CheckRuntimeFixture(directory.path(), "translated", translated,
+                          "Foo Bar") &&
+      CheckRuntimeFixture(directory.path(), "adjacent", adjacent, "FooBar") &&
+      CheckRuntimeFixture(directory.path(), "literal-space", simple,
+                          "Hello World") &&
+      CheckRuntimeFixture(directory.path(), "tj-gap", tjGap, "Foo Bar") &&
+      CheckRuntimeFixture(directory.path(), "tj-adjacent", tjAdjacent,
+                          "FooBar") &&
+      CheckRuntimeFixture(directory.path(), "two-lines", twoLines,
+                          "One\nTwo") &&
+      CheckRuntimeFixture(directory.path(), "rotated", rotated, "Rotated");
+  return runtimePassed &&
+                 CheckCheckedInRegressions(std::filesystem::path(argv[1]))
              ? 0
              : 1;
 }

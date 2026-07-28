@@ -792,7 +792,7 @@ if(TARGET podofo::podofo)
     target_link_libraries(pdf_text_test PRIVATE podofo::podofo ${wxWidgets_LIBRARIES})
     target_include_directories(pdf_text_test PRIVATE ../core)
     target_include_directories(pdf_text_test PRIVATE .)
-    add_test(NAME PdfTextComparison COMMAND pdf_text_test)
+    add_test(NAME PdfTextComparison COMMAND pdf_text_test ${CMAKE_CURRENT_SOURCE_DIR}/data)
     set_library_env(PdfTextComparison)
 endif()
 

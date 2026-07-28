@@ -1352,3 +1352,20 @@ limited to CRLF and lone-CR line endings plus the historical terminal
 newline/form-feed suffix; strict byte equality and detailed mismatch reporting
 remain in force. The high-level PoDoFo 0.10 extraction path requests bounding
 boxes and retains raw positioned entries for failure-only diagnostics.
+
+Authoritative run `30357709533` reached the expected numerical delta: Linux
+reported 158 passed, 7 failed, and 1 skipped of 166; Windows reported 160 passed
+and 8 failed of 168; and macOS passed 6 of 6. `PdfTextComparison` and
+`PdfWriterSerialization` were green on Linux and Windows, and no new failure
+name appeared. E6 nevertheless remained pending because `PdfTextComparison`
+had stopped executing the unchanged checked-in PDFs that exposed the original
+width-less Standard 14 regression.
+
+The final corrective test retains its explicit-width runtime controls and
+restores mandatory structure validation and strict extraction comparison for the
+unchanged checked-in `simple.pdf` and `translated.pdf`. On PoDoFo 0.10+ the
+production path reads content operations before high-level grouping can erase
+text-show boundaries, uses PoDoFo's public font decoding and Standard 14
+metrics, and sends dependency-neutral fragments through the existing geometric
+reconstruction stage. Final E6 closure remains pending a complete authoritative
+run on the corrective head.
