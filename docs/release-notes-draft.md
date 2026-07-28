@@ -31,7 +31,8 @@ Changes since **v1.5.0**.
 - Rejected duplicate and case-colliding MVR archive entries consistently across platforms and surfaced tolerant-recovery diagnostics through normal imports.
 - Preserved explicit fixture categories, colors, and valid GDTF mode references across repeated MVR roundtrips while making missing-category inference deterministic.
 - Preserved per-fixture visual color overrides, including intentional empty colors, and meaningful fixture ID text in Perastage projects without leaking project-only instance metadata into normal MVR exports or other fixtures of the same type.
-- Improved GDTF compatibility and safety for Unicode filesystem paths and archive entry names, including deterministic rejection of malformed UTF-8 identities.
+- Preserved per-fixture label settings when fixture identities can be safely canonicalized, including recovery from compatible legacy key spellings without guessing invalid or ambiguous identities.
+- Improved GDTF compatibility and safety for Unicode filesystem paths and archive entry names, including readable publication diagnostics and deterministic rejection of malformed UTF-8 identities.
 
 ## Current limitations
 
