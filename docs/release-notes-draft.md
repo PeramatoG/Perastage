@@ -37,6 +37,9 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Strengthened internal MVR 1.6 compliance coverage by separating primitive
+  geometry contracts from malformed SceneObject identity-recovery controls.
+
 - Standardized embedded layout-image resource names in project archives as
   portable UTF-8 paths with forward slashes on every platform, and strengthened
   layout-package validation against unsafe names hidden by ZIP path

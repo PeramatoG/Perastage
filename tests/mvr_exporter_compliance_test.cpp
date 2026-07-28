@@ -6,6 +6,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -187,6 +188,24 @@ FindFixtureElementByUuid(tinyxml2::XMLElement *root, const std::string &uuid) {
         stack.push_back(child);
       }
     }
+  }
+  return nullptr;
+}
+
+// Finds an exported SceneObject XML element by its unique name.
+static tinyxml2::XMLElement *
+FindSceneObjectElementByName(tinyxml2::XMLElement *root,
+                             const std::string &name) {
+  std::vector<tinyxml2::XMLElement *> stack{root};
+  while (!stack.empty()) {
+    tinyxml2::XMLElement *node = stack.back();
+    stack.pop_back();
+    if (std::string(node->Name()) == "SceneObject" &&
+        node->Attribute("name") != nullptr && name == node->Attribute("name"))
+      return node;
+    for (tinyxml2::XMLElement *child = node->FirstChildElement(); child;
+         child = child->NextSiblingElement())
+      stack.push_back(child);
   }
   return nullptr;
 }
@@ -499,10 +518,6 @@ int main() {
   trNonNumeric.positionName = "P.A.";
   scene.trusses[trNonNumeric.uuid] = trNonNumeric;
 
-  Truss trDifferentType = trNonNumeric;
-  trDifferentType.uuid = "tr-3";
-  trDifferentType.name = "TRUSS 3M";
-  trDifferentType.lengthMm = 3000.0f;
   Truss trCanonical = trNonNumeric;
   trCanonical.uuid = "12345678-1234-4234-9234-123456789ABC";
   trCanonical.name = "Canonical Truss";
@@ -538,13 +553,13 @@ int main() {
   scene.supports[sup.uuid] = sup;
 
   SceneObject primitiveSphere;
-  primitiveSphere.uuid = "obj-sphere";
+  primitiveSphere.uuid = "40000000-0000-4000-8000-000000000010";
   primitiveSphere.name = "Sphere";
   primitiveSphere.modelFile = "primitive:sphere";
   scene.sceneObjects[primitiveSphere.uuid] = primitiveSphere;
 
   SceneObject primitivePipe;
-  primitivePipe.uuid = "obj-pipe";
+  primitivePipe.uuid = "40000000-0000-4000-8000-000000000011";
   primitivePipe.name = "Pipe";
   primitivePipe.transform.u = {14.0f, 0.0f, 0.0f};
   primitivePipe.transform.v = {0.0f, 0.05f, 0.0f};
@@ -559,7 +574,7 @@ int main() {
   scene.sceneObjects[primitivePipe.uuid] = primitivePipe;
 
   SceneObject primitivePipeBaked = primitivePipe;
-  primitivePipeBaked.uuid = "obj-pipe-baked";
+  primitivePipeBaked.uuid = "40000000-0000-4000-8000-000000000012";
   primitivePipeBaked.name = "Pipe Baked";
   primitivePipeBaked.transform.u = {0.0f, 0.0f, -0.05f};
   primitivePipeBaked.transform.v = {0.0f, 0.05f, 0.0f};
@@ -570,6 +585,12 @@ int main() {
   primitivePipeBakedGeo.localTransform = MatrixUtils::Identity();
   primitivePipeBaked.geometries.push_back(primitivePipeBakedGeo);
   scene.sceneObjects[primitivePipeBaked.uuid] = primitivePipeBaked;
+
+  SceneObject malformedSceneObject;
+  malformedSceneObject.uuid = "obj-invalid-recovery";
+  malformedSceneObject.name = "Malformed SceneObject Recovery";
+  malformedSceneObject.modelFile = "primitive:cube";
+  scene.sceneObjects[malformedSceneObject.uuid] = malformedSceneObject;
 
   MvrExporter exporter;
   fs::path mvrPath = tempDir / "Test1.mvr";
@@ -681,6 +702,46 @@ int main() {
   assert(deterministicEntries.count(caseAReference) == 1);
   assert(deterministicEntries.count(caseBReference) == 1);
 
+  tinyxml2::XMLElement *recoveredObject = FindSceneObjectElementByName(
+      root, malformedSceneObject.name);
+  tinyxml2::XMLElement *repeatedRecoveredObject = FindSceneObjectElementByName(
+      deterministicRoot, malformedSceneObject.name);
+  assert(recoveredObject != nullptr);
+  assert(repeatedRecoveredObject != nullptr);
+  const char *recoveredUuidAttribute = recoveredObject->Attribute("uuid");
+  const char *repeatedRecoveredUuidAttribute =
+      repeatedRecoveredObject->Attribute("uuid");
+  assert(recoveredUuidAttribute != nullptr);
+  assert(repeatedRecoveredUuidAttribute != nullptr);
+  const std::string recoveredSceneObjectUuid = recoveredUuidAttribute;
+  assert(CanonicalizeUuid(recoveredSceneObjectUuid) ==
+         recoveredSceneObjectUuid);
+  assert(recoveredSceneObjectUuid != malformedSceneObject.uuid);
+  assert(recoveredSceneObjectUuid == repeatedRecoveredUuidAttribute);
+  assert(xml.find("uuid=\"" + malformedSceneObject.uuid + "\"") ==
+         std::string::npos);
+  auto *recoveredGeometries =
+      recoveredObject->FirstChildElement("Geometries");
+  auto *repeatedRecoveredGeometries =
+      repeatedRecoveredObject->FirstChildElement("Geometries");
+  assert(recoveredGeometries != nullptr);
+  assert(repeatedRecoveredGeometries != nullptr);
+  auto *recoveredGeometry =
+      recoveredGeometries->FirstChildElement("Geometry3D");
+  auto *repeatedRecoveredGeometry =
+      repeatedRecoveredGeometries->FirstChildElement("Geometry3D");
+  assert(recoveredGeometry != nullptr);
+  assert(repeatedRecoveredGeometry != nullptr);
+  const char *recoveredFileName = recoveredGeometry->Attribute("fileName");
+  const char *repeatedRecoveredFileName =
+      repeatedRecoveredGeometry->Attribute("fileName");
+  assert(recoveredFileName != nullptr);
+  assert(repeatedRecoveredFileName != nullptr);
+  assert(std::string(recoveredFileName).find("cube") != std::string::npos);
+  assert(std::string(recoveredFileName) == repeatedRecoveredFileName);
+  assert(mvrGeometryEntries.count(recoveredFileName) == 1);
+  assert(deterministicEntries.count(repeatedRecoveredFileName) == 1);
+
   std::unordered_set<int> numericIds;
   std::unordered_map<std::string, int> gdtfCount;
 
@@ -707,6 +768,7 @@ int main() {
   bool sawPrimitivePipeBakedPositionPreserved = false;
   int sceneObjectCount = 0;
   int sceneObjectsWithMatrixBeforeGeometries = 0;
+  std::unordered_set<std::string> exportedSceneObjectUuids;
   int mvrGeometryTrussCount = 0;
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
@@ -891,20 +953,33 @@ int main() {
         assert(matrixOrder < geometriesOrder);
         ++sceneObjectsWithMatrixBeforeGeometries;
         const char *sceneObjectUuid = cur->Attribute("uuid");
+        const char *sceneObjectName = cur->Attribute("name");
+        assert(sceneObjectUuid != nullptr);
+        assert(CanonicalizeUuid(sceneObjectUuid) ==
+               std::string(sceneObjectUuid));
+        assert(exportedSceneObjectUuids.insert(sceneObjectUuid).second);
+        std::cerr << "Exported SceneObject name='"
+                  << (sceneObjectName ? sceneObjectName : "") << "' uuid='"
+                  << (sceneObjectUuid ? sceneObjectUuid : "") << "'\n";
         auto *geometries = cur->FirstChildElement("Geometries");
         if (sceneObjectUuid && geometries) {
           if (std::string(sceneObjectUuid) == primitiveSphere.uuid) {
+            std::cerr << "Matched sphere UUID " << primitiveSphere.uuid
+                      << "\n";
             auto *g3d = geometries->FirstChildElement("Geometry3D");
             assert(g3d != nullptr);
             const char *fileName = g3d->Attribute("fileName");
             assert(fileName != nullptr &&
                    std::string(fileName).find("sphere") != std::string::npos);
+            std::cerr << "Sphere geometry fileName='" << fileName << "'\n";
             assert(mvrGeometryEntries.count(fileName) == 1);
             auto *geoMatrix = g3d->FirstChildElement("Matrix");
             assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
             Matrix parsedGeoMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(),
                                             parsedGeoMatrix));
+            std::cerr << "Sphere geometry matrix='" << geoMatrix->GetText()
+                      << "'\n";
             const Matrix identity = MatrixUtils::Identity();
             assert(parsedGeoMatrix.u == identity.u);
             assert(parsedGeoMatrix.v == identity.v);
@@ -920,6 +995,8 @@ int main() {
             Matrix parsedObjMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(objMatrixNode->GetText(),
                                             parsedObjMatrix));
+            std::cerr << "Pipe object matrix='" << objMatrixNode->GetText()
+                      << "'\n";
             if (parsedObjMatrix.u == primitivePipe.transform.u &&
                 parsedObjMatrix.v == primitivePipe.transform.v &&
                 parsedObjMatrix.w == primitivePipe.transform.w) {
@@ -936,11 +1013,12 @@ int main() {
             Matrix parsedGeoMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(),
                                             parsedGeoMatrix));
-            const Matrix identity = MatrixUtils::Identity();
-            if (parsedGeoMatrix.u == identity.u &&
-                parsedGeoMatrix.v == identity.v &&
-                parsedGeoMatrix.w == identity.w &&
-                parsedGeoMatrix.o == identity.o) {
+            std::cerr << "Pipe geometry matrix='" << geoMatrix->GetText()
+                      << "'\n";
+            if (parsedGeoMatrix.u == primitivePipeGeo.localTransform.u &&
+                parsedGeoMatrix.v == primitivePipeGeo.localTransform.v &&
+                parsedGeoMatrix.w == primitivePipeGeo.localTransform.w &&
+                parsedGeoMatrix.o == primitivePipeGeo.localTransform.o) {
               sawPrimitivePipeGeometryMatrixNormalized = true;
             }
           }
@@ -952,14 +1030,30 @@ int main() {
             Matrix parsedObjMatrix = MatrixUtils::Identity();
             assert(MatrixUtils::ParseMatrix(objMatrixNode->GetText(),
                                             parsedObjMatrix));
-            if (parsedObjMatrix.u == primitivePipe.transform.u &&
-                parsedObjMatrix.v == primitivePipe.transform.v &&
-                parsedObjMatrix.w == primitivePipe.transform.w) {
+            std::cerr << "Baked pipe object matrix='"
+                      << objMatrixNode->GetText() << "'\n";
+            if (parsedObjMatrix.u == primitivePipeBaked.transform.u &&
+                parsedObjMatrix.v == primitivePipeBaked.transform.v &&
+                parsedObjMatrix.w == primitivePipeBaked.transform.w) {
               sawPrimitivePipeBakedMatrixCanonicalized = true;
             }
-            if (parsedObjMatrix.o == primitivePipe.transform.o) {
+            if (parsedObjMatrix.o == primitivePipeBaked.transform.o) {
               sawPrimitivePipeBakedPositionPreserved = true;
             }
+            auto *g3d = geometries->FirstChildElement("Geometry3D");
+            assert(g3d != nullptr);
+            auto *geoMatrix = g3d->FirstChildElement("Matrix");
+            assert(geoMatrix != nullptr && geoMatrix->GetText() != nullptr);
+            Matrix parsedGeoMatrix = MatrixUtils::Identity();
+            assert(MatrixUtils::ParseMatrix(geoMatrix->GetText(),
+                                            parsedGeoMatrix));
+            std::cerr << "Baked pipe geometry matrix='"
+                      << geoMatrix->GetText() << "'\n";
+            const Matrix identity = MatrixUtils::Identity();
+            assert(parsedGeoMatrix.u == identity.u);
+            assert(parsedGeoMatrix.v == identity.v);
+            assert(parsedGeoMatrix.w == identity.w);
+            assert(parsedGeoMatrix.o == identity.o);
           }
         }
       }
@@ -986,6 +1080,9 @@ int main() {
   assert(sawInvalidTrussUuidRepaired);
   assert(!repairedInvalidTrussUuid.empty());
   assert(sawCanonicalTrussStandardChildren);
+  std::cerr << "Expected primitive UUIDs: sphere=" << primitiveSphere.uuid
+            << ", pipe=" << primitivePipe.uuid
+            << ", baked pipe=" << primitivePipeBaked.uuid << "\n";
   assert(sawPrimitiveSphereWithIdentityGeometryMatrix);
   assert(sawPrimitivePipeObjectMatrixUnbaked);
   assert(sawPrimitivePipeGeometryMatrixNormalized);
@@ -993,6 +1090,7 @@ int main() {
   assert(sawPrimitivePipePositionPreserved);
   assert(sawPrimitivePipeBakedPositionPreserved);
   assert(sceneObjectCount >= 3);
+  assert(exportedSceneObjectUuids.count(recoveredSceneObjectUuid) == 1);
   assert(sceneObjectsWithMatrixBeforeGeometries == sceneObjectCount);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
@@ -1017,7 +1115,7 @@ int main() {
     const char *layerUuid = layerOrOther->Attribute("uuid");
     assert(layerUuid != nullptr);
     assert(CanonicalizeUuid(layerUuid) == std::string(layerUuid));
-    if (layerNameText == "Default")
+    if (layerNameText == DEFAULT_LAYER_NAME)
       sawDefaultLayerNode = true;
 
     tinyxml2::XMLElement *childList =
@@ -1030,7 +1128,7 @@ int main() {
       const char *uuidAttr = child->Attribute("uuid");
       if (uuidAttr != nullptr &&
           std::string(uuidAttr) == primitiveSphere.uuid &&
-          layerNameText == "Default") {
+          layerNameText == DEFAULT_LAYER_NAME) {
         sawSphereInDefaultLayer = true;
       }
     }
@@ -1081,7 +1179,7 @@ int main() {
         assert(CanonicalizeUuid(uuid) == std::string(uuid));
         if (std::string(uuid) == repairedInvalidTrussUuid)
           sawRepairedTrussInfo = true;
-        if (std::string(uuid) == trCanonical.uuid)
+        if (std::string(uuid) == CanonicalizeUuid(trCanonical.uuid))
           sawCanonicalTrussInfo = true;
       }
     }
@@ -1110,13 +1208,13 @@ int main() {
       tinyxml2::XMLElement *cur = stack.back();
       stack.pop_back();
       if (std::string(cur->Name()) == "SceneObject" &&
-          cur->Attribute("uuid") != nullptr &&
-          std::string(cur->Attribute("uuid")) == sup.uuid) {
+          cur->Attribute("name") != nullptr &&
+          std::string(cur->Attribute("name")) == sup.name) {
         assert(false && "Support must not be exported as SceneObject");
       }
       if (std::string(cur->Name()) == "Support" &&
-          cur->Attribute("uuid") != nullptr &&
-          std::string(cur->Attribute("uuid")) == sup.uuid) {
+          cur->Attribute("name") != nullptr &&
+          std::string(cur->Attribute("name")) == sup.name) {
         supportNode = cur;
       }
       for (tinyxml2::XMLElement *child = cur->FirstChildElement(); child;
@@ -1126,6 +1224,9 @@ int main() {
     }
   }
   assert(supportNode != nullptr);
+  assert(supportNode->Attribute("uuid") != nullptr);
+  const std::string recoveredSupportUuid = supportNode->Attribute("uuid");
+  assert(CanonicalizeUuid(recoveredSupportUuid) == recoveredSupportUuid);
   assert(supportNode->FirstChildElement("Geometries") != nullptr);
   assert(supportNode->FirstChildElement("UserData") == nullptr);
   assert(supportNode->FirstChildElement("SupportInfo") == nullptr);
@@ -1141,7 +1242,7 @@ int main() {
   for (auto *info = rootHoistInfoMap->FirstChildElement("HoistInfo"); info;
        info = info->NextSiblingElement("HoistInfo")) {
     if (info->Attribute("uuid") != nullptr &&
-        std::string(info->Attribute("uuid")) == sup.uuid)
+        std::string(info->Attribute("uuid")) == recoveredSupportUuid)
       hoistInfo = info;
   }
   assert(hoistInfo != nullptr);
@@ -1161,10 +1262,11 @@ int main() {
     fixtureTypeIdByTrussUuid[trussUuid] =
         ReadFixtureTypeIdFromGdtf(trussGdtfPath);
   }
-  assert(fixtureTypeIdByTrussUuid.at(tr.uuid) ==
-         fixtureTypeIdByTrussUuid.at(trNonNumeric.uuid));
-  assert(fixtureTypeIdByTrussUuid.at(tr.uuid) !=
-         fixtureTypeIdByTrussUuid.at(trDifferentType.uuid));
+  std::unordered_map<std::string, std::string> trussUuidByName;
+  for (const auto &[uuid, exportedTruss] : scene.trusses)
+    trussUuidByName[exportedTruss.name] = uuid;
+  assert(fixtureTypeIdByTrussUuid.at(trussUuidByName.at(tr.name)) ==
+         fixtureTypeIdByTrussUuid.at(trussUuidByName.at(trNonNumeric.name)));
 
   cfg.SetFloat("mvr_truss_geometry_authority", 1.0f);
   fs::path mvrPathGdtfAuthority = tempDir / "Test2_GdtfAuthority.mvr";
@@ -1237,6 +1339,7 @@ int main() {
   const MvrScene &roundtripScene = ConfigManager::Get().GetScene();
   bool sawRoundtripPrimitiveSphere = false;
   bool sawRoundtripPrimitivePipe = false;
+  bool sawRoundtripRecoveredSceneObject = false;
   for (const auto &[uuid, obj] : roundtripScene.sceneObjects) {
     if (obj.name == primitiveSphere.name &&
         obj.modelFile == primitiveSphere.modelFile)
@@ -1244,9 +1347,36 @@ int main() {
     if (obj.name == primitivePipe.name && !obj.geometries.empty() &&
         obj.geometries.front().modelFile == primitivePipeGeo.modelFile)
       sawRoundtripPrimitivePipe = true;
+    if (obj.name == malformedSceneObject.name) {
+      assert(uuid == recoveredSceneObjectUuid);
+      assert(obj.uuid == recoveredSceneObjectUuid);
+      assert(obj.modelFile == malformedSceneObject.modelFile);
+      sawRoundtripRecoveredSceneObject = true;
+    }
   }
   assert(sawRoundtripPrimitiveSphere);
   assert(sawRoundtripPrimitivePipe);
+  assert(sawRoundtripRecoveredSceneObject);
+
+  MvrExporter roundtripExporter;
+  const fs::path roundtripMvrPath = tempDir / "Test1_roundtrip.mvr";
+  assert(roundtripExporter.ExportToFile(roundtripMvrPath.generic_string()));
+  const auto roundtripEntries = ReadArchiveTextEntries(roundtripMvrPath);
+  const auto roundtripXmlIt =
+      roundtripEntries.find("GeneralSceneDescription.xml");
+  assert(roundtripXmlIt != roundtripEntries.end());
+  tinyxml2::XMLDocument roundtripDoc;
+  assert(roundtripDoc.Parse(roundtripXmlIt->second.c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *roundtripRoot =
+      roundtripDoc.FirstChildElement("GeneralSceneDescription");
+  assert(roundtripRoot != nullptr);
+  tinyxml2::XMLElement *roundtripRecoveredObject =
+      FindSceneObjectElementByName(roundtripRoot, malformedSceneObject.name);
+  assert(roundtripRecoveredObject != nullptr);
+  assert(roundtripRecoveredObject->Attribute("uuid") != nullptr);
+  assert(recoveredSceneObjectUuid ==
+         roundtripRecoveredObject->Attribute("uuid"));
 
   const fs::path legacyPrimitiveMvrPath = tempDir / "legacy_primitive.mvr";
   const std::string legacyPrimitiveUuid =
@@ -1311,6 +1441,7 @@ int main() {
         "<Fixture uuid=\"fixture-legacy\" name=\"\">"
         "<FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric>"
         "<GDTFSpec>fixture.gdtf</GDTFSpec><Position>LX1</Position>"
+        "<Color>0.300000,0.600000,0.715200</Color>"
         "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><FixtureInfo>"
         "<InstanceName>Legacy Fixture Name</InstanceName>"
         "<StableId>11111111-1111-4111-8111-111111111111</StableId>"
