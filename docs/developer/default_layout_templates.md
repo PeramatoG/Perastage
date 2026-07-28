@@ -43,6 +43,11 @@ the package. Layout package and project archive resource names are canonical
 UTF-8 ZIP paths: they are relative, use `/` separators on every platform, and
 reject backslashes, drive-qualified paths, absolute paths, and traversal. ZIP
 directory entries are metadata and never count as packaged image payloads.
+Validation first inspects raw local-header and central-directory names and
+requires them to match byte-for-byte before wxWidgets can normalize them. It
+then applies the existing canonical logical-path, duplicate, ambiguity, entry
+count, and payload-size checks to the names exposed by the ZIP reader. Both
+layers must succeed.
 
 When a package is imported, Perastage materializes image files into owned runtime
 storage, updates the runtime `imagePath`, preserves `projectResourcePath`, and

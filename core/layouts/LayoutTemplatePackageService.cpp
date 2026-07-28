@@ -17,6 +17,7 @@
 #include "runtime_storage.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -25,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <limits>
 #include <sstream>
 
 #include <wx/filename.h>
@@ -126,6 +128,11 @@ bool ValidateArchivePathComponents(const std::string &canonicalName,
       *reason = "UNC-style path";
     return false;
   }
+  if (canonicalName.find("//") != std::string::npos) {
+    if (reason)
+      *reason = "empty path component";
+    return false;
+  }
   if (!allowTrailingSlash && canonicalName.back() == '/') {
     if (reason)
       *reason = "file path has trailing slash";
@@ -186,6 +193,183 @@ bool ValidateArchiveDirectoryPath(const std::string &canonicalName,
 bool IsSafePackageFilePath(const std::string &name) {
   std::string reason;
   return ValidateArchiveFilePath(name, &reason);
+}
+
+// Decodes one little-endian 16-bit ZIP metadata value.
+std::uint16_t ReadLe16(const unsigned char *bytes) {
+  return static_cast<std::uint16_t>(bytes[0]) |
+         (static_cast<std::uint16_t>(bytes[1]) << 8);
+}
+
+// Decodes one little-endian 32-bit ZIP metadata value.
+std::uint32_t ReadLe32(const unsigned char *bytes) {
+  return static_cast<std::uint32_t>(bytes[0]) |
+         (static_cast<std::uint32_t>(bytes[1]) << 8) |
+         (static_cast<std::uint32_t>(bytes[2]) << 16) |
+         (static_cast<std::uint32_t>(bytes[3]) << 24);
+}
+
+// Reads an exact byte range from a package without allocating from ZIP metadata.
+bool ReadRawBytes(std::ifstream &input, std::uint64_t offset, void *buffer,
+                  std::size_t size) {
+  if (offset > static_cast<std::uint64_t>(
+                   std::numeric_limits<std::streamoff>::max()))
+    return false;
+  input.clear();
+  input.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
+  if (!input.good())
+    return false;
+  input.read(static_cast<char *>(buffer), static_cast<std::streamsize>(size));
+  return input.gcount() == static_cast<std::streamsize>(size);
+}
+
+// Returns true when raw ZIP name bytes form well-formed UTF-8.
+bool IsValidUtf8(const std::string &text) {
+  for (std::size_t index = 0; index < text.size();) {
+    const unsigned char lead = static_cast<unsigned char>(text[index]);
+    std::size_t continuationCount = 0;
+    std::uint32_t codePoint = 0;
+    if (lead <= 0x7f) {
+      ++index;
+      continue;
+    } else if (lead >= 0xc2 && lead <= 0xdf) {
+      continuationCount = 1;
+      codePoint = lead & 0x1f;
+    } else if (lead >= 0xe0 && lead <= 0xef) {
+      continuationCount = 2;
+      codePoint = lead & 0x0f;
+    } else if (lead >= 0xf0 && lead <= 0xf4) {
+      continuationCount = 3;
+      codePoint = lead & 0x07;
+    } else {
+      return false;
+    }
+    if (continuationCount > text.size() - index - 1)
+      return false;
+    for (std::size_t part = 1; part <= continuationCount; ++part) {
+      const unsigned char byte = static_cast<unsigned char>(text[index + part]);
+      if ((byte & 0xc0) != 0x80)
+        return false;
+      codePoint = (codePoint << 6) | (byte & 0x3f);
+    }
+    if ((continuationCount == 2 && codePoint < 0x800) ||
+        (continuationCount == 3 && codePoint < 0x10000) ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff) || codePoint > 0x10ffff)
+      return false;
+    index += continuationCount + 1;
+  }
+  return true;
+}
+
+// Sets a deterministic raw ZIP preflight failure message.
+bool FailRawPreflight(std::string *error, const std::string &category,
+                      const std::string &detail = {}) {
+  if (error) {
+    *error = "Layout package " + category;
+    if (!detail.empty())
+      *error += ": " + detail;
+    *error += ".";
+  }
+  return false;
+}
+
+// Validates raw local and central ZIP names before wxWidgets normalizes them.
+bool ValidateRawArchiveEntryNames(const std::string &sourcePath,
+                                  std::string *error) {
+  std::ifstream input(PathUtils::PathFromUtf8(sourcePath), std::ios::binary);
+  if (!input.is_open())
+    return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+  input.seekg(0, std::ios::end);
+  const std::streamoff endPosition = input.tellg();
+  if (endPosition < 22)
+    return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+  const std::uint64_t fileSize = static_cast<std::uint64_t>(endPosition);
+  const std::size_t tailSize = static_cast<std::size_t>(
+      std::min<std::uint64_t>(fileSize, 22 + 0xffff));
+  std::vector<unsigned char> tail(tailSize);
+  if (!ReadRawBytes(input, fileSize - tailSize, tail.data(), tail.size()))
+    return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+
+  std::size_t eocdInTail = std::string::npos;
+  for (std::size_t offset = tail.size() - 22;; --offset) {
+    if (ReadLe32(tail.data() + offset) == 0x06054b50 &&
+        offset + 22 + ReadLe16(tail.data() + offset + 20) == tail.size()) {
+      eocdInTail = offset;
+      break;
+    }
+    if (offset == 0)
+      break;
+  }
+  if (eocdInTail == std::string::npos)
+    return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+  const unsigned char *eocd = tail.data() + eocdInTail;
+  const std::uint16_t disk = ReadLe16(eocd + 4);
+  const std::uint16_t centralDisk = ReadLe16(eocd + 6);
+  const std::uint16_t entriesOnDisk = ReadLe16(eocd + 8);
+  const std::uint16_t entryCount = ReadLe16(eocd + 10);
+  const std::uint32_t centralSize = ReadLe32(eocd + 12);
+  const std::uint32_t centralOffset = ReadLe32(eocd + 16);
+  if (disk != 0 || centralDisk != 0 || entriesOnDisk != entryCount)
+    return FailRawPreflight(error, "uses an unsupported multi-disk ZIP structure");
+  if (entryCount == 0xffff || centralSize == 0xffffffffU ||
+      centralOffset == 0xffffffffU)
+    return FailRawPreflight(error, "uses an unsupported ZIP64 structure");
+  if (entryCount > kMaxEntries || centralOffset > fileSize ||
+      centralSize > fileSize - centralOffset ||
+      centralOffset + centralSize != fileSize - tailSize + eocdInTail)
+    return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+
+  std::uint64_t cursor = centralOffset;
+  const std::uint64_t centralEnd = centralOffset + centralSize;
+  for (std::uint16_t index = 0; index < entryCount; ++index) {
+    std::array<unsigned char, 46> central{};
+    if (cursor > centralEnd || centralEnd - cursor < central.size() ||
+        !ReadRawBytes(input, cursor, central.data(), central.size()) ||
+        ReadLe32(central.data()) != 0x02014b50)
+      return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+    const std::uint16_t nameLength = ReadLe16(central.data() + 28);
+    const std::uint16_t extraLength = ReadLe16(central.data() + 30);
+    const std::uint16_t commentLength = ReadLe16(central.data() + 32);
+    const std::uint16_t startDisk = ReadLe16(central.data() + 34);
+    const std::uint32_t localOffset = ReadLe32(central.data() + 42);
+    const std::uint64_t recordSize = 46ULL + nameLength + extraLength + commentLength;
+    if (startDisk != 0)
+      return FailRawPreflight(error, "uses an unsupported multi-disk ZIP structure");
+    if (recordSize > centralEnd - cursor || nameLength == 0)
+      return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+    std::string centralName(nameLength, '\0');
+    if (!ReadRawBytes(input, cursor + 46, centralName.data(), nameLength))
+      return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+
+    std::array<unsigned char, 30> local{};
+    if (localOffset >= centralOffset || centralOffset - localOffset < local.size() ||
+        !ReadRawBytes(input, localOffset, local.data(), local.size()) ||
+        ReadLe32(local.data()) != 0x04034b50)
+      return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+    const std::uint16_t localNameLength = ReadLe16(local.data() + 26);
+    const std::uint16_t localExtraLength = ReadLe16(local.data() + 28);
+    if (30ULL + localNameLength + localExtraLength > centralOffset - localOffset)
+      return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+    std::string localName(localNameLength, '\0');
+    if (!ReadRawBytes(input, static_cast<std::uint64_t>(localOffset) + 30,
+                      localName.data(), localNameLength))
+      return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+    if (localName != centralName)
+      return FailRawPreflight(error, "contains a local/central entry-name mismatch");
+
+    std::string reason;
+    const bool directory = centralName.back() == '/';
+    if (!IsValidUtf8(centralName))
+      return FailRawPreflight(error, "contains an unsafe raw archive entry");
+    if (!ValidateArchivePathComponents(centralName, directory, &reason)) {
+      return FailRawPreflight(error, "contains an unsafe raw archive entry",
+                              QuoteEntryForError(centralName));
+    }
+    cursor += recordSize;
+  }
+  if (cursor != centralEnd)
+    return FailRawPreflight(error, "has malformed ZIP directory/header metadata");
+  return true;
 }
 
 // Extracts a ZIP entry name using explicit Unix path semantics.
@@ -368,6 +552,8 @@ bool MaterializeImages(LayoutDefinition &layout,
 bool ReadAndValidatePortablePackage(const std::string &sourcePath,
                                     ParsedLayoutPackage &result,
                                     std::string *error) {
+  if (!ValidateRawArchiveEntryNames(sourcePath, error))
+    return false;
   wxFFileInputStream input(wxString::FromUTF8(sourcePath.c_str()));
   if (!input.IsOk()) {
     if (error)

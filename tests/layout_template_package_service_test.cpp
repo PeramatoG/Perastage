@@ -4,6 +4,7 @@
 #include "LayoutImageResourceRegistry.h"
 #include "runtime_storage.h"
 #include "support/zip_test_utils.h"
+#include "support/archive_entry_test_utils.h"
 #include "json.hpp"
 
 #include <cassert>
@@ -76,6 +77,38 @@ std::vector<std::pair<std::string, std::string>> MinimalPackageEntries() {
 })";
   return {{"manifest.json", manifest},
           {"layout.json", layouts::ToTemplateDocument({layout}).dump(2)}};
+}
+
+// Writes a package fixture while preserving every requested raw ZIP name byte.
+void WriteRawPackageZip(
+    const fs::path &path,
+    const std::vector<std::pair<std::string, std::string>> &entries) {
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(ToUtf8(path), entries,
+                                                    error));
+  assert(error.empty());
+}
+
+// Verifies one unsafe raw name is stored identically and rejected before wx parsing.
+void AssertUnsafeRawArchiveName(const fs::path &dir, const std::string &caseName,
+                                const std::string &rawName) {
+  const fs::path package = dir / (caseName + ".pslayout");
+  auto entries = MinimalPackageEntries();
+  entries.push_back({rawName, "bad"});
+  WriteRawPackageZip(package, entries);
+  std::string inspectionError;
+  const auto centralNames = tests::archive::ReadRawCentralDirectoryEntryNames(
+      ToUtf8(package), inspectionError);
+  assert(inspectionError.empty());
+  const auto localNames = tests::archive::ReadRawLocalHeaderEntryNames(
+      ToUtf8(package), inspectionError);
+  assert(inspectionError.empty());
+  assert(centralNames == localNames);
+  assert(centralNames.back() == rawName);
+  std::string validationError;
+  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
+      ToUtf8(package), &validationError));
+  assert(validationError.find("unsafe raw archive entry") != std::string::npos);
 }
 
 // Verifies packages without images can be round-tripped.
@@ -218,29 +251,13 @@ void TestArchiveEntryValidation(const fs::path &dir) {
   assert(layouts::LayoutTemplatePackageService::ValidatePortablePackage(
       ToUtf8(directories), &error));
 
-  const fs::path traversal = dir / "traversal.pslayout";
-  entries = MinimalPackageEntries();
-  entries.push_back({"resources/../image.png", "bad"});
-  WritePackageZip(traversal, entries);
-  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
-      ToUtf8(traversal), &error));
-  assert(error.find("unsafe archive entry") != std::string::npos);
-
-  const fs::path absolute = dir / "absolute.pslayout";
-  entries = MinimalPackageEntries();
-  entries.push_back({"/absolute.png", "bad"});
-  WritePackageZip(absolute, entries);
-  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
-      ToUtf8(absolute), &error));
-  assert(error.find("unsafe archive entry") != std::string::npos);
-
-  const fs::path backslash = dir / "backslash.pslayout";
-  entries = MinimalPackageEntries();
-  entries.push_back({"resources\\layout_images\\bad.png", "bad"});
-  WritePackageZip(backslash, entries);
-  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
-      ToUtf8(backslash), &error));
-  assert(error.find("unsafe archive entry") != std::string::npos);
+  AssertUnsafeRawArchiveName(dir, "traversal", "resources/../image.png");
+  AssertUnsafeRawArchiveName(dir, "rooted_unix", "/absolute.png");
+  AssertUnsafeRawArchiveName(dir, "rooted_backslash", "\\absolute.png");
+  AssertUnsafeRawArchiveName(dir, "drive_unix", "C:/absolute.png");
+  AssertUnsafeRawArchiveName(dir, "drive_backslash", "C:\\absolute.png");
+  AssertUnsafeRawArchiveName(dir, "backslash_separator",
+                             "resources\\layout_images\\bad.png");
 
   const fs::path duplicateManifest = dir / "duplicate_manifest.pslayout";
   entries = MinimalPackageEntries();
@@ -258,6 +275,24 @@ void TestArchiveEntryValidation(const fs::path &dir) {
   assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
       ToUtf8(duplicateImage), &error));
   assert(error.find("duplicate archive entry") != std::string::npos);
+
+  const fs::path canonical = dir / "canonical_raw.pslayout";
+  WriteRawPackageZip(canonical, MinimalPackageEntries());
+  assert(layouts::LayoutTemplatePackageService::ValidatePortablePackage(
+      ToUtf8(canonical), &error));
+  layouts::LayoutTemplateImportResult imported;
+  assert(layouts::LayoutTemplatePackageService::ImportFile(
+      ToUtf8(canonical), imported, &error));
+  assert(imported.layout.name == BuildLayout().name);
+
+  const fs::path mismatch = dir / "name_mismatch.pslayout";
+  WriteRawPackageZip(mismatch, MinimalPackageEntries());
+  std::string fixtureError;
+  assert(tests::archive::ReplaceRawLocalHeaderName(
+      ToUtf8(mismatch), 0, "manifesu.json", fixtureError));
+  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
+      ToUtf8(mismatch), &error));
+  assert(error.find("local/central entry-name mismatch") != std::string::npos);
 }
 
 // Verifies export validation does not import package resources into the registry.

@@ -1306,3 +1306,16 @@ rejecting backslash and drive-prefixed alternate path conventions. The two
 content-addressed resource-key implementations were compared and remain
 byte-for-byte equivalent, so they were intentionally left separate rather than
 introducing an unrelated serialization refactor.
+
+At head `98985d8cb2998e3bf1e958c731e4eb6c5b73156b`, authoritative run
+`30302888988` made `LayoutImageResourceRegistry` green on Windows, while
+`LayoutTemplatePackageService` advanced past its image deduplication assertions
+on Linux and Windows and stopped at the absolute-entry security fixture. Linux
+reported 166 total, 156 passed, 9 failed, and 1 skipped; Windows reported 168
+total, 157 passed, and 11 failed; macOS remained 6 of 6. No unrelated failure
+name appeared. The fixture used `wxZipEntry::SetName`, which stripped the
+leading slash before publication, and the same wx path conversion can normalize
+names while reading externally produced archives. Phase 6A therefore requires
+a raw local-header and central-directory preflight before the retained wx
+logical-name validation. E5 remains pending authoritative evidence for that
+final raw-name correction.
