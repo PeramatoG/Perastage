@@ -1,6 +1,8 @@
 #include "fixture_label_overrides.h"
 
 #include "json.hpp"
+#include "project_fixture_identity.h"
+#include "uuidutils.h"
 
 #include <algorithm>
 #include <array>
@@ -8,7 +10,6 @@
 
 namespace viewer2d {
 namespace {
-constexpr const char *kFixtureOverridesKey = "label_fixture_overrides";
 constexpr std::array<const char *, 3> kNameKeys = {"label_show_name_top",
                                                     "label_show_name_front",
                                                     "label_show_name_side"};
@@ -72,7 +73,8 @@ void ApplyToSelection(ConfigManager &cfg,
   for (const auto &uuid : fixtureUuids) {
     if (uuid.empty())
       continue;
-    setter(overrides[uuid]);
+    const std::string canonicalUuid = CanonicalizeUuid(uuid);
+    setter(overrides[canonicalUuid.empty() ? uuid : canonicalUuid]);
   }
   SaveFixtureLabelOverrides(cfg, overrides);
 }
@@ -136,7 +138,8 @@ size_t RemapFixtureLabelOverrideKeys(
 
 FixtureLabelOverrideMap LoadFixtureLabelOverrides(const ConfigManager &cfg) {
   FixtureLabelOverrideMap overrides;
-  const auto raw = cfg.GetValue(kFixtureOverridesKey);
+  const auto raw = cfg.GetValue(
+      project_identity::kFixtureLabelOverridesConfigKey);
   if (!raw || raw->empty())
     return overrides;
 
@@ -201,10 +204,10 @@ void SaveFixtureLabelOverrides(ConfigManager &cfg,
   }
 
   if (root.empty()) {
-    cfg.RemoveKey(kFixtureOverridesKey);
+    cfg.RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
     return;
   }
-  cfg.SetValue(kFixtureOverridesKey, root.dump());
+  cfg.SetValue(project_identity::kFixtureLabelOverridesConfigKey, root.dump());
 }
 
 void ReconcileFixtureLabelOverridesWithScene(ConfigManager &cfg) {

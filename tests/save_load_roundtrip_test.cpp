@@ -36,6 +36,7 @@
 #include "gdtfdictionary.h"
 #include "layer.h"
 #include "projectutils.h"
+#include "project_fixture_identity.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "truss.h"
@@ -53,6 +54,65 @@ static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
     bytes.append(buffer, count);
   }
   return bytes;
+}
+
+struct ProjectIdentityPayload {
+  std::string configJson;
+  std::string sceneXml;
+};
+
+// Reads the two project payloads that must agree on fixture identity.
+static ProjectIdentityPayload ReadProjectIdentityPayload(
+    const std::filesystem::path &projectPath) {
+  wxFileInputStream projectInput(projectPath.string());
+  assert(projectInput.IsOk());
+  wxZipInputStream projectZip(projectInput);
+  ProjectIdentityPayload payload;
+  std::string sceneBytes;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(projectZip.GetNextEntry())), entry) {
+    const std::string bytes = ReadCurrentZipEntry(projectZip);
+    if (entry->GetName() == "config.json")
+      payload.configJson = bytes;
+    else if (entry->GetName() == "scene.mvr")
+      sceneBytes = bytes;
+  }
+  assert(!payload.configJson.empty());
+  assert(!sceneBytes.empty());
+
+  wxMemoryInputStream sceneInput(sceneBytes.data(), sceneBytes.size());
+  wxZipInputStream sceneZip(sceneInput);
+  while ((entry.reset(sceneZip.GetNextEntry())), entry) {
+    const std::string bytes = ReadCurrentZipEntry(sceneZip);
+    if (entry->GetName() == "GeneralSceneDescription.xml")
+      payload.sceneXml = bytes;
+  }
+  assert(!payload.sceneXml.empty());
+  return payload;
+}
+
+// Rewrites only config.json to model a legacy project package.
+static void WriteProjectWithConfig(
+    const std::filesystem::path &sourcePath,
+    const std::filesystem::path &destinationPath,
+    const std::string &configJson) {
+  wxFileInputStream input(sourcePath.string());
+  assert(input.IsOk());
+  wxZipInputStream sourceZip(input);
+  wxFileOutputStream output(destinationPath.string());
+  assert(output.IsOk());
+  wxZipOutputStream destinationZip(output);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(sourceZip.GetNextEntry())), entry) {
+    const std::string bytes = ReadCurrentZipEntry(sourceZip);
+    auto *copy = new wxZipEntry(*entry);
+    assert(destinationZip.PutNextEntry(copy));
+    const std::string &written =
+        entry->GetName() == "config.json" ? configJson : bytes;
+    destinationZip.Write(written.data(), written.size());
+    assert(destinationZip.CloseEntry());
+  }
+  assert(destinationZip.Close());
 }
 
 // Extracts the deterministic project fixture metadata signature.
@@ -103,8 +163,11 @@ ReadProjectFixtureMetadata(const std::filesystem::path &projectPath) {
   for (tinyxml2::XMLElement *entry =
            map->FirstChildElement("ProjectFixtureMetadata");
        entry; entry = entry->NextSiblingElement("ProjectFixtureMetadata")) {
-    const std::string uuid = entry->Attribute("uuid");
-    const std::string color = entry->Attribute("visualColorHex");
+    const char *uuidAttribute = entry->Attribute("uuid");
+    const char *colorAttribute = entry->Attribute("visualColorHex");
+    assert(uuidAttribute != nullptr);
+    const std::string uuid = uuidAttribute;
+    const std::string color = colorAttribute ? colorAttribute : "";
     assert(CanonicalizeUuid(uuid) == uuid);
     assert(uniqueUuids.insert(uuid).second);
     signature.emplace_back(uuid, color);
@@ -292,6 +355,7 @@ int main() {
   sManual.capacityKg = 700.0f;
   sManual.weightKg = 40.0f;
   sManual.loadKg = 325.0f;
+  sManual.loadSource = "Manual";
   scene.supports[sManual.uuid] = sManual;
 
   Support sInherited;
@@ -308,6 +372,67 @@ int main() {
   std::filesystem::path temp =
       std::filesystem::temp_directory_path() / "roundtrip_test.pera";
     assert(cfg.SaveProject(temp.string()));
+
+    const std::string canonicalFixtureUuid =
+        CanonicalizeUuid(nonCanonicalFixtureUuid);
+    assert(!canonicalFixtureUuid.empty());
+    const ProjectIdentityPayload firstPayload =
+        ReadProjectIdentityPayload(temp);
+    const nlohmann::json firstConfig =
+        nlohmann::json::parse(firstPayload.configJson);
+    const nlohmann::json firstOverrides = nlohmann::json::parse(
+        firstConfig.at(project_identity::kFixtureLabelOverridesConfigKey)
+            .get<std::string>());
+    assert(firstOverrides.size() == 1);
+    assert(firstOverrides.contains(canonicalFixtureUuid));
+    assert(!firstOverrides.contains(nonCanonicalFixtureUuid));
+    assert(firstPayload.sceneXml.find("uuid=\"" + canonicalFixtureUuid + "\"") !=
+           std::string::npos);
+    assert(firstPayload.sceneXml.find(nonCanonicalFixtureUuid) ==
+           std::string::npos);
+    assert(firstPayload.sceneXml.find(
+               project_identity::kFixtureLabelOverridesConfigKey) ==
+           std::string::npos);
+
+    const auto collisionNormalization =
+        project_identity::NormalizeFixtureLabelOverrides(
+            std::string("{\"") + canonicalFixtureUuid +
+                "\":{\"showLabelName\":[true,null,null]},\"" +
+                nonCanonicalFixtureUuid +
+                "\":{\"showLabelName\":[false,null,null],"
+                "\"showLabelId\":[null,true,null]}}",
+            {canonicalFixtureUuid});
+    assert(collisionNormalization.migratedCount == 1);
+    assert(collisionNormalization.collisionCount == 1);
+    const nlohmann::json collisionOverrides =
+        nlohmann::json::parse(*collisionNormalization.serializedOverrides);
+    assert(collisionOverrides.size() == 1);
+    assert(collisionOverrides.at(canonicalFixtureUuid)
+               .at("showLabelName")
+               .at(0) == true);
+    assert(collisionOverrides.at(canonicalFixtureUuid)
+               .at("showLabelId")
+               .at(1) == true);
+
+    MvrScene identityAuditScene;
+    Fixture canonicalizableFixture;
+    canonicalizableFixture.uuid = nonCanonicalFixtureUuid;
+    identityAuditScene.fixtures.emplace("canonicalizable",
+                                        canonicalizableFixture);
+    Fixture invalidFixture;
+    invalidFixture.uuid = "invalid-fixture-id";
+    identityAuditScene.fixtures.emplace("invalid", invalidFixture);
+    Fixture emptyFixture;
+    identityAuditScene.fixtures.emplace("empty", emptyFixture);
+    const auto recoverableBeforeCollision =
+        project_identity::CollectRecoverableFixtureUuids(identityAuditScene);
+    assert(recoverableBeforeCollision.size() == 1);
+    assert(recoverableBeforeCollision.contains(canonicalFixtureUuid));
+    Fixture duplicateFixture = canonicalizableFixture;
+    duplicateFixture.uuid = canonicalFixtureUuid;
+    identityAuditScene.fixtures.emplace("duplicate", duplicateFixture);
+    assert(project_identity::CollectRecoverableFixtureUuids(identityAuditScene)
+               .empty());
 
     cfg.Reset();
 
@@ -345,9 +470,6 @@ int main() {
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "707");
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004")
                .visualColorHex == "#778899");
-  const std::string canonicalFixtureUuid =
-      CanonicalizeUuid(nonCanonicalFixtureUuid);
-    assert(!canonicalFixtureUuid.empty());
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
     const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
     assert(fixtureOverrides.count(canonicalFixtureUuid) == 1);
@@ -365,6 +487,7 @@ int main() {
     assert(loadedManual.capacityKg == 700.0f);
     assert(loadedManual.weightKg == 40.0f);
     assert(loadedManual.loadKg == 325.0f);
+    assert(loadedManual.loadSource == "Manual");
 
     const auto &loadedInherited = scene2.supports.at("50000000-0000-4000-8000-000000000002");
     assert(loadedInherited.motorName == "CM Lodestar");
@@ -374,15 +497,43 @@ int main() {
     assert(loadedInherited.hoistDataSource == "Inherited");
 
     const auto &loaded = scene2.fixtures.at("20000000-0000-4000-8000-000000000001");
-    assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
-  assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
-         "orig.gdtf");
+    assert(std::filesystem::path(loaded.gdtfSpec).filename() ==
+           "Perastage@Original@Perastage.gdtf");
+    assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
+           "Perastage@Original@Perastage.gdtf");
+
+    nlohmann::json legacyConfig = firstConfig;
+    nlohmann::json legacyOverrides = firstOverrides;
+    legacyOverrides[nonCanonicalFixtureUuid] =
+        legacyOverrides.at(canonicalFixtureUuid);
+    legacyOverrides.erase(canonicalFixtureUuid);
+    legacyConfig[project_identity::kFixtureLabelOverridesConfigKey] =
+        legacyOverrides.dump();
+    const std::filesystem::path legacyProject =
+        std::filesystem::temp_directory_path() / "roundtrip_test_legacy.pera";
+    WriteProjectWithConfig(temp, legacyProject, legacyConfig.dump(2));
+    cfg.Reset();
+    assert(cfg.LoadProject(legacyProject.string()));
+    const auto recoveredOverrides =
+        viewer2d::LoadFixtureLabelOverrides(cfg);
+    assert(recoveredOverrides.size() == 1);
+    assert(recoveredOverrides.contains(canonicalFixtureUuid));
+    assert(!recoveredOverrides.contains(nonCanonicalFixtureUuid));
+    assert(*recoveredOverrides.at(canonicalFixtureUuid).showLabelName[0]);
 
     const auto firstMetadata = ReadProjectFixtureMetadata(temp);
     GdtfDictionary::Save({});
     const std::filesystem::path secondProject =
         std::filesystem::temp_directory_path() / "roundtrip_test_second.pera";
     assert(cfg.SaveProject(secondProject.string()));
+    const ProjectIdentityPayload secondPayload =
+        ReadProjectIdentityPayload(secondProject);
+    const nlohmann::json secondConfig =
+        nlohmann::json::parse(secondPayload.configJson);
+    const nlohmann::json secondOverrides = nlohmann::json::parse(
+        secondConfig.at(project_identity::kFixtureLabelOverridesConfigKey)
+            .get<std::string>());
+    assert(secondOverrides == firstOverrides);
     const auto secondMetadata = ReadProjectFixtureMetadata(secondProject);
     assert(secondMetadata == firstMetadata);
 
@@ -407,6 +558,7 @@ int main() {
     }
 
     std::filesystem::remove(temp);
+    std::filesystem::remove(legacyProject);
     std::filesystem::remove(secondProject);
   std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +
                           "/dict.gdtf");

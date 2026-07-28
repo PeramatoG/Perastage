@@ -317,7 +317,6 @@ add_executable(mvr_merge_analyzer_applier_test
                ../core/filesystem_path_utils.cpp
                ../core/logger.cpp
                ../core/runtime_storage.cpp
-               ../core/uuidutils.cpp
                ../models/mvrscene.cpp)
 add_test(NAME MvrMergeAnalyzerApplier COMMAND mvr_merge_analyzer_applier_test)
 
@@ -327,7 +326,6 @@ add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
 
 add_executable(scene_grouping_test scene_grouping_test.cpp
     ../core/scene_grouping.cpp
-    ../core/uuidutils.cpp
     ../models/mvrscene.cpp
 )
 target_include_directories(scene_grouping_test PRIVATE ../core ../models)
@@ -336,7 +334,6 @@ add_test(NAME SceneGroupingPreservesTransforms COMMAND scene_grouping_test)
 add_executable(magnet_snap_test magnet_snap_test.cpp
     ../core/magnet_snap.cpp
     ../core/scene_grouping.cpp
-    ../core/uuidutils.cpp
     ../models/mvrscene.cpp
 )
 target_include_directories(magnet_snap_test PRIVATE ../core ../models)
@@ -834,7 +831,6 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -871,7 +867,7 @@ add_executable(mvr_project_fixture_metadata_contracts_test
                ../core/utf8_utils.cpp ../core/trussdictionary.cpp
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp ../core/dummyprofilelibrary.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp
                ../core/mvr_identity_recovery.cpp
@@ -906,7 +902,6 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -964,7 +959,6 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/riderimporter.cpp
                ../core/units/units.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1028,7 +1022,6 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1067,7 +1060,6 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1103,7 +1095,7 @@ add_executable(mvr_perastage_metadata_recovery_test
                ../core/utf8_utils.cpp ../core/trussdictionary.cpp
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp ../core/dummyprofilelibrary.cpp
+               ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp ../core/mvr_identity_recovery.cpp
@@ -1139,7 +1131,6 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1183,7 +1174,6 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1225,7 +1215,6 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1272,7 +1261,6 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1316,7 +1304,6 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp
                ../mvr/gdtf_catalog_matcher.cpp
@@ -1350,7 +1337,6 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/riderimporter.cpp
                ../core/units/units.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1398,7 +1384,6 @@ add_executable(riderimporter_fixtureid_test rider_import_fixtureid_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1427,7 +1412,6 @@ add_executable(rider_import_order_test rider_import_order_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1455,7 +1439,6 @@ add_executable(rider_import_linear_order_test rider_import_linear_order_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1483,7 +1466,6 @@ add_executable(rider_import_preserve_existing_test rider_import_preserve_existin
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1510,7 +1492,6 @@ add_executable(rider_import_category_test rider_import_category_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1537,7 +1518,6 @@ add_executable(rider_autopatch_test rider_autopatch_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1565,7 +1545,6 @@ add_executable(rider_layer_mode_test rider_layer_mode_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1605,7 +1584,6 @@ add_executable(rider_filter_preview_test rider_filter_preview_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1632,7 +1610,6 @@ add_executable(rider_comments_test rider_comments_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1659,7 +1636,6 @@ add_executable(rider_floor_default_hang_test rider_floor_default_hang_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1687,7 +1663,6 @@ add_executable(rider_led_screen_object_test rider_led_screen_object_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1714,7 +1689,6 @@ add_executable(rider_hoist_import_test rider_hoist_import_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1742,7 +1716,6 @@ add_executable(rider_lx_sides_import_test rider_lx_sides_import_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1769,7 +1742,6 @@ add_executable(rider_pipe_import_test rider_pipe_import_test.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1798,7 +1770,6 @@ add_executable(rider_rigging_target_normalization_contracts_test
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1830,7 +1801,6 @@ add_executable(rider_import_benchmark rider_import_benchmark.cpp
                ../core/units/units.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/hoist_weight_distribution.cpp
-               ../core/uuidutils.cpp
                ../core/autopatcher.cpp
                ../core/patchmanager.cpp
                ../core/configmanager.cpp
@@ -1962,7 +1932,6 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/gdtf_mutation_audit.cpp
                ../core/projectutils.cpp
                ../core/library/library_bootstrap.cpp
-               ../core/uuidutils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
                ../core/wx_path_utils.cpp
@@ -2015,7 +1984,6 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
-               ../core/uuidutils.cpp
                ../core/dummyprofilelibrary.cpp
                ../core/logger.cpp
                ../models/mvrscene.cpp
@@ -2213,7 +2181,6 @@ add_executable(mvr_xchange_protocol_test
     ../mvr/xchange/mvr_xchange_commit.cpp
     ../mvr/xchange/mvr_xchange_dns_names.cpp
     ../mvr/xchange/mvr_xchange_message.cpp
-    ../core/uuidutils.cpp
     ../mvr/xchange/mvr_xchange_network_interfaces.cpp
     ../mvr/xchange/mvr_xchange_station_registry.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp
@@ -2227,7 +2194,6 @@ add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
 add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
                ../core/layer_service.cpp
                ../core/utf8_utils.cpp
-               ../core/uuidutils.cpp
                ../models/layer.cpp
                configmanager_layoutmanager_stub.cpp
                ../models/mvrscene.cpp
@@ -2314,13 +2280,20 @@ add_executable(stable_dataview_identity_index_test stable_dataview_identity_inde
 target_include_directories(stable_dataview_identity_index_test PRIVATE ../gui)
 add_test(NAME StableDataViewIdentityIndex COMMAND stable_dataview_identity_index_test)
 
-add_executable(uuidutils_rfc4122_test uuidutils_rfc4122_test.cpp
-               ../core/uuidutils.cpp)
+add_executable(uuidutils_rfc4122_test uuidutils_rfc4122_test.cpp)
 target_include_directories(uuidutils_rfc4122_test PRIVATE ../core)
 add_test(NAME UuidUtilsRfc4122 COMMAND uuidutils_rfc4122_test)
 
 add_executable(mvr_identity_recovery_test mvr_identity_recovery_test.cpp
-               ../core/mvr_identity_recovery.cpp
-               ../core/uuidutils.cpp)
+               ../core/mvr_identity_recovery.cpp)
 target_include_directories(mvr_identity_recovery_test PRIVATE ../core ../models)
 add_test(NAME MvrIdentityRecovery COMMAND mvr_identity_recovery_test)
+
+# Supplies the shared UUID implementation to every standalone test executable.
+get_property(perastage_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(perastage_test_target IN LISTS perastage_test_targets)
+    get_target_property(perastage_test_target_type ${perastage_test_target} TYPE)
+    if(perastage_test_target_type STREQUAL "EXECUTABLE")
+        target_link_libraries(${perastage_test_target} PRIVATE perastage_uuid)
+    endif()
+endforeach()

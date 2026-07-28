@@ -228,6 +228,9 @@ configure_file(
     @ONLY
 )
 
+add_library(perastage_uuid OBJECT core/uuidutils.cpp)
+target_include_directories(perastage_uuid PUBLIC ${CMAKE_SOURCE_DIR}/core)
+
 add_executable(${PROJECT_NAME} main.cpp
     "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
     models/fixture.cpp
@@ -561,6 +564,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_uuid
     tinyxml2::tinyxml2
     OpenGL::GL
     OpenGL::GLU

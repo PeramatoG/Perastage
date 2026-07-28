@@ -85,7 +85,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/unit_label_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/uuidutils.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

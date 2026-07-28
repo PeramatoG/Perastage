@@ -23,7 +23,9 @@
 #include "magnet_snap.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
+#include "project_fixture_identity.h"
 #include "selection_movement_settings.h"
+#include "uuidutils.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -84,6 +86,22 @@ std::string SerializeHiddenLayerChecks(
   std::vector<std::string> sorted(hiddenLayers.begin(), hiddenLayers.end());
   std::sort(sorted.begin(), sorted.end());
   return nlohmann::json(sorted).dump();
+}
+
+// Logs fixture metadata normalization performed at a project persistence boundary.
+void LogFixtureMetadataNormalization(
+    const char *operation,
+    const project_identity::FixtureMetadataNormalizationResult &result) {
+  if (!result.changed)
+    return;
+  std::ostringstream message;
+  message << operation << " fixture metadata normalization: migrated "
+          << result.migratedCount << ", collisions " << result.collisionCount
+          << ", stale entries removed " << result.staleCount;
+  Logger::Instance().Log(result.collisionCount > 0 || result.staleCount > 0
+                             ? Logger::Level::Warn
+                             : Logger::Level::Info,
+                         message.str());
 }
 
 std::unordered_set<std::string>
@@ -513,8 +531,23 @@ bool ConfigManager::SaveProject(const std::string &path) {
            SerializeStringSet(GetHiddenFixtureTypes()));
   bool ok = projectSession.SaveProject(
       path, [this](std::vector<uint8_t> &configBytes) {
+        UserPreferencesStore serializationSnapshot = preferencesStore;
+        const auto normalization =
+            project_identity::NormalizeFixtureLabelOverrides(
+                serializationSnapshot.GetValue(
+                    project_identity::kFixtureLabelOverridesConfigKey),
+                project_identity::CollectRecoverableFixtureUuids(GetScene()));
+        if (normalization.serializedOverrides) {
+          serializationSnapshot.SetValue(
+              project_identity::kFixtureLabelOverridesConfigKey,
+              *normalization.serializedOverrides);
+        } else {
+          serializationSnapshot.RemoveKey(
+              project_identity::kFixtureLabelOverridesConfigKey);
+        }
+        LogFixtureMetadataNormalization("Project save", normalization);
         std::ostringstream configOut;
-        if (!preferencesStore.SaveToStream(configOut))
+        if (!serializationSnapshot.SaveToStream(configOut))
           return false;
         const std::string serializedConfig = configOut.str();
         configBytes.assign(serializedConfig.begin(), serializedConfig.end());
@@ -644,6 +677,20 @@ bool ConfigManager::LoadProject(const std::string &path,
       });
 
   if (ok) {
+    const auto normalization =
+        project_identity::NormalizeFixtureLabelOverrides(
+            GetValue(project_identity::kFixtureLabelOverridesConfigKey),
+            project_identity::CollectRecoverableFixtureUuids(GetScene()));
+    if (normalization.changed) {
+      RevisionGuard guard(*this);
+      if (normalization.serializedOverrides) {
+        SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+                 *normalization.serializedOverrides);
+      } else {
+        RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
+      }
+    }
+    LogFixtureMetadataNormalization("Project load", normalization);
     layerVisibilityState.SetHiddenLayers(
         DeserializeHiddenLayerChecks(GetValue(kHiddenLayersConfigKey)));
     SetHiddenFixtureTypes(

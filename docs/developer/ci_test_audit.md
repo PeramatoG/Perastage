@@ -1472,3 +1472,148 @@ script passed a multiline C++ function body through `awk -v`, which BSD awk
 rejected as a newline in a string. E8B remains pending an authoritative
 exact-head run in which the corrected policy test passes without changing the
 six established functional failures.
+
+## Phase 4 SaveLoadRoundtrip project identity persistence repair, 2026-07-28
+
+The merged E8B baseline for PR #2238 is reviewed head
+`49f442ca1898ee6ec6e0156667e134f8263a47a3`, authoritative run
+`30387706435`: Linux passed 159 of 166 with 6 failures and 1 skip; Windows
+passed 161 of 168 with 7 failures; and macOS passed 160 of 166 with 6
+failures. `SaveLoadRoundtrip` failed on all three platforms because
+`scene.mvr` canonized an uppercase fixture UUID while `config.json` retained
+the uppercase key in `label_fixture_overrides`. Project restore imported the
+already-canonical scene before loading configuration, so the importer had no
+old-to-new alias available when the stale project metadata arrived.
+
+Project persistence now normalizes fixture-keyed label metadata at both
+non-GUI persistence boundaries. Save serializes a canonical configuration
+snapshot without mutating live configuration or dirty/undo state. Load
+normalizes restored legacy keys after both the canonical scene and project
+configuration are available. The scene UUID set is authoritative: safely
+canonicalizable aliases migrate, metadata without a scene association is
+removed with a diagnostic, and collisions preserve canonical-key values while
+filling only missing values from legacy aliases in deterministic key order.
+No project-only label metadata is written into standard MVR nodes.
+The project-config audit found no other fixture-UUID-keyed domain; position-keyed rigging weights and scene-owned fixture references have separate identity contracts.
+
+Changed production files are `core/configmanager.cpp`,
+`core/project_fixture_identity.h`, and
+`viewer2d/fixture_label_overrides.cpp`; `tests/CMakeLists.txt` links the existing UUID utility into the related standalone test. Regression coverage in
+`tests/save_load_roundtrip_test.cpp` inspects both nested archives, asserts
+canonical package coherence, exercises a rewritten legacy package, verifies
+second-save stability, and covers deterministic collision merging.
+
+Local Debug compilation of `save_load_roundtrip_test` succeeded. The focused
+CTest run reached the existing Support metadata assertions but stopped at
+`loadedManual.loadKg == 325.0f` in this system-library build before reaching
+the fixture-label assertions; direct archive inspection nevertheless confirmed
+that `config.json` and `GeneralSceneDescription.xml` both contain
+`a0b1c2d3-e4f5-4678-9abc-def012345678`, with no uppercase alias. Exact-head CI
+results remain pending and must replace this paragraph before merge; the gate
+remains removal of `SaveLoadRoundtrip` from every platform failure list without
+hiding any unrelated failure.
+
+### PR #2239 complete-target build correction
+
+PR #2239 at original reviewed head
+`e8672fb084e3ddc5c45b251b37158a0b1a5633f5` failed before CTest in
+cross-platform run `30391083074`. Linux, Windows, and macOS all reported an
+unresolved `CanonicalizeUuid(const std::string&)` from standalone tests that
+compiled `core/configmanager.cpp` without also compiling `core/uuidutils.cpp`.
+The test graph previously compiled `uuidutils.cpp` directly into 39 executable
+targets, while 38 targets compiled `configmanager.cpp`; four ConfigManager
+standalone targets did not happen to own the UUID implementation. Adding the
+source to one more executable therefore fixed only one target and retained
+fragmented ownership.
+
+The corrected graph gives `core/uuidutils.cpp` one compiled owner, the
+`perastage_uuid` object library. The production executable links that target,
+and the standalone-test directory links the same reusable dependency instead
+of compiling 39 private copies. This removes duplicate-definition risk,
+compiles the utility once per configuration, and makes future core consumers
+portable across archive/link ordering differences on MSVC, AppleClang, and
+Linux.
+
+Project metadata recovery is intentionally limited to a unique fixture identity
+that `CanonicalizeUuid` can resolve directly. Invalid or empty fixture IDs need
+MVR export identity recovery and do not have a provable old-to-exported
+association here; canonical collisions are likewise excluded from the safe
+scene identity set. Their metadata is diagnosed as stale rather than guessed.
+An exporter identity map would be required before broadening that contract.
+Within the supported case, canonical metadata wins collisions and compatible
+missing values from a legacy spelling are retained deterministically.
+
+A clean local Debug configuration built and ran the four targets that failed in
+run `30391083074`: `gdtf_dictionary_color_roundtrip_test`,
+`gdtf_dictionary_color_mode_propagation_test`,
+`dictionary_seed_merge_backup_test`, and `active_dictionary_workflow_test`.
+All four tests passed. Complete target-all and focused persistence results are
+recorded below. The corrective head, exact-head
+Actions run ID, cross-platform totals, complete remaining failure names,
+`selected_labels`, and final `SaveLoadRoundtrip` result remain pending; PR #2239
+must not merge until those exact-head artifacts are available.
+
+The repaired local graph built the focused `SaveLoadRoundtrip` executable and
+the exact focused CTest run executed. Its first failure remains the earlier,
+unrelated Support persistence assertion
+`loadedManual.loadKg == 325.0f` (now line 485 after added identity-contract
+coverage), so the test does not yet pass locally and the branch stops short of
+that unrelated repair. The package-coherence and export-identity assertions
+before it passed, but this result is not sufficient to claim complete
+SaveLoadRoundtrip verification or to retain the user-visible release-note fix.
+
+The clean local Debug `target all` build completed successfully after the graph
+correction, including all standalone test executables. The related seven-test
+selector passed six tests:
+`FixtureLabelOverridesReconcile`, `MvrExporterCompliance`,
+`MvrProjectFixtureMetadataContracts`, `MvrFixtureCategoryRoundtrip`,
+`ProjectSupportUserDataRoundtrip`, and `MvrSupportUserDataRoundtrip`;
+`SaveLoadRoundtrip` alone stopped at the Support load assertion described
+above. No exact-head CI run exists yet, so platform totals, remaining failure
+lists, and `selected_labels` cannot be certified from this corrective work.
+
+### PR #2239 Support fixture correction and E8C baseline
+
+PR #2239 exact head `97a3909258b23210a98da3f2b34754b504dcbf09`
+restored complete target-all builds and complete unfiltered suites in run
+`30397674152`; every platform reported `selected_labels = []`. Linux reported
+159 passed, 6 failed, and 1 skipped of 166; Windows reported 161 passed and 7
+failed of 168; macOS reported 160 passed and 6 failed of 166. Linux and macOS
+retained `EditableFocusUtils`, `GdtfEditorCheckpoint08DStabilization`,
+`Loader3dsNativeDimensions`, `SaveLoadRoundtrip`,
+`TrussPathEncodingRegression`, and `Viewer2DFboCaptureDiagnostics`. Windows
+retained the same failures plus `GdtfShareSecurity`.
+
+The common `SaveLoadRoundtrip` failure at `loadedManual.loadKg == 325.0f` was a
+test-fixture provenance defect, not a production persistence defect.
+`Support::loadSource` defaults to `Auto`; GUI edits mark a changed load as
+`Manual`, while rigging recalculation writes both the calculated value and
+`Auto`. The exporter persists a `Load` element only for a manual override, and
+the importer marks an explicit `Load` as `Manual`. `hoistDataSource` separately
+describes motor and hoist field provenance and does not imply that the load is
+manual. No project configuration key persists an automatic `loadKg`; automatic
+loads remain derived from current rigging totals. The passing
+`ProjectSupportUserDataRoundtrip` and `MvrSupportUserDataRoundtrip` controls
+already express this contract with explicit manual and automatic fixtures.
+
+The focused correction marks the roundtrip fixture's expected 325 kg value as
+`loadSource = "Manual"` and asserts that provenance after load. Running the test
+to completion then exposed two later stale test-helper assumptions in the same
+save/load checkpoint: canonical GDTF publication correctly changes `orig.gdtf`
+to `Perastage@Original@Perastage.gdtf`, and project fixture metadata may omit
+`visualColorHex` when `hasVisualColorHex` is false. The test now expects the
+canonical resource name and treats the optional XML attribute safely rather
+than constructing `std::string` from a null pointer. Production MVR/GDTF logic
+is unchanged.
+
+The local Debug `SaveLoadRoundtrip` test now passes through first load, legacy
+override recovery, second save, metadata signature comparison, and second
+load. Exact-head cross-platform results for this final corrective commit remain
+pending; the user-visible fixture-label release note must remain withheld until
+that run removes `SaveLoadRoundtrip` from all three failure lists.
+
+Local verification after the complete fixture correction passed
+`SaveLoadRoundtrip` by itself, all seven related identity/persistence tests, and
+all four representative UUID-consumer tests. A new exact-head Actions run is
+still required before merge; no final run ID or cross-platform totals are
+available for this commit yet.
