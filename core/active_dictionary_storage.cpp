@@ -50,7 +50,9 @@ fs::path GetOwnedAssetDirectory(const fs::path &dictionaryPath,
                                 const fs::path &defaultDictionaryPath) {
   if (IsDefaultManagedDictionary(dictionaryPath, defaultDictionaryPath))
     return defaultDictionaryPath.parent_path();
-  return dictionaryPath.parent_path() / (dictionaryPath.stem().string() + "_assets");
+  fs::path assetDirectoryName = dictionaryPath.stem();
+  assetDirectoryName += "_assets";
+  return dictionaryPath.parent_path() / assetDirectoryName;
 }
 
 // Builds the storage layout for an active dictionary.
@@ -79,8 +81,9 @@ fs::path ResolveReference(const fs::path &dictionaryPath,
   if (fs::exists(directPath))
     return directPath;
 
-  const fs::path assetPath =
-      jsonDir / (dictionaryPath.stem().string() + "_assets") / parsedPath;
+  fs::path assetDirectoryName = dictionaryPath.stem();
+  assetDirectoryName += "_assets";
+  const fs::path assetPath = jsonDir / assetDirectoryName / parsedPath;
   if (fs::exists(assetPath))
     return assetPath;
   return directPath;
@@ -93,11 +96,11 @@ std::string MakeSerializedReference(const AssetStorageLayout &layout,
     return {};
   if (!layout.isDefaultManagedDictionary &&
       PathsEquivalentOrEqual(assetPath.parent_path(), layout.ownedAssetDirectory))
-    return assetPath.filename().string();
+    return PathUtils::PathToUtf8(assetPath.filename());
   if (layout.isDefaultManagedDictionary &&
       PathsEquivalentOrEqual(assetPath.parent_path(), layout.ownedAssetDirectory))
-    return assetPath.filename().string();
-  return assetPath.string();
+    return PathUtils::PathToUtf8(assetPath.filename());
+  return PathUtils::PathToUtf8(assetPath);
 }
 
 // Returns the deterministic destination path for importing an owned asset.

@@ -24,7 +24,6 @@
 #include <fstream>
 #include <string>
 
-#include <wx/filename.h>
 #include <wx/init.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -37,9 +36,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
+// Converts a filesystem path to UTF-8 for string-based application APIs.
 std::string ToUtf8String(const fs::path &path) {
-  std::u8string utf8 = path.u8string();
-  return std::string(utf8.begin(), utf8.end());
+  return PathUtils::PathToUtf8(path);
 }
 
 void SetLibraryPathEnv(const std::string &value) {
@@ -50,10 +49,8 @@ void SetLibraryPathEnv(const std::string &value) {
 #endif
 }
 
+// Writes a minimal truss archive with a supported GLB model resource.
 bool WriteArchive(const fs::path &archivePath) {
-  wxFileName::Mkdir(archivePath.parent_path().string(), wxS_DIR_DEFAULT,
-                    wxPATH_MKDIR_FULL);
-
   wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   if (!output.IsOk())
     return false;
@@ -66,16 +63,15 @@ bool WriteArchive(const fs::path &archivePath) {
       "<GDTF><FixtureType Manufacturer=\"Perastage\" Name=\"FK40Q\">"
       "<Models><Model Name=\"main\" File=\"main\" Length=\"3.0\" Width=\"0.3\" Height=\"0.3\"/>"
       "</Models></FixtureType></GDTF>";
-  static const char *kSvg =
-      "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"></svg>";
+  static const char *kGlb = "glTF";
 
   if (!zip.PutNextEntry("description.xml"))
     return false;
   zip.Write(kDescriptionXml, std::strlen(kDescriptionXml));
 
-  if (!zip.PutNextEntry("models/svg/main.svg"))
+  if (!zip.PutNextEntry("models/gltf/main.glb"))
     return false;
-  zip.Write(kSvg, std::strlen(kSvg));
+  zip.Write(kGlb, std::strlen(kGlb));
 
   zip.Close();
   return output.IsOk();
@@ -123,6 +119,7 @@ void RunLastProjectPathCase(const fs::path &tempRoot) {
   restoreOut << previousLastProject;
 }
 
+// Exercises dictionary import and model extraction for one archive path.
 void RunPathCase(const fs::path &sourceDir, const std::string &modelName,
                  const std::string &fileName) {
   fs::create_directories(sourceDir);
@@ -137,7 +134,7 @@ void RunPathCase(const fs::path &sourceDir, const std::string &modelName,
   assert(LoadTrussDefinition(*storedPath, truss));
   assert(!truss.symbolFile.empty());
   assert(fs::exists(PathUtils::PathFromUtf8(truss.symbolFile)));
-  assert(fs::path(PathUtils::PathFromUtf8(truss.symbolFile)).filename() == "main.svg");
+  assert(fs::path(PathUtils::PathFromUtf8(truss.symbolFile)).filename() == "main.glb");
   assert(truss.symbolFile != *storedPath);
 }
 

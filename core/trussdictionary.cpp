@@ -47,9 +47,9 @@ size_t g_saveCallCountForTesting = 0;
 constexpr const char *kTrussDictionaryPathConfigKey =
     "trusses_dictionary_active_path";
 
+// Converts a filesystem path to UTF-8 for string-based application boundaries.
 static std::string ToUtf8String(const fs::path &path) {
-  std::u8string utf8 = path.u8string();
-  return std::string(utf8.begin(), utf8.end());
+  return PathUtils::PathToUtf8(path);
 }
 
 static std::string LowerExt(const fs::path &path) {
@@ -99,6 +99,7 @@ static fs::path GetUserDictFile() {
   return dir / "truss_dictionary.json";
 }
 
+// Resolves a configured dictionary path against the managed default location.
 static fs::path ResolveConfiguredDictionaryPath(
     const fs::path &defaultPath, const std::string &rawConfiguredPath,
     std::string *warningOut = nullptr) {
@@ -120,7 +121,7 @@ static fs::path ResolveConfiguredDictionaryPath(
     if (warningOut) {
       *warningOut =
           "Could not create dictionary directory for configured path: " +
-          configuredPath.parent_path().string();
+          PathUtils::PathToUtf8(configuredPath.parent_path());
     }
     return defaultPath;
   }
@@ -188,7 +189,7 @@ static bool CopySeedAssetsIntoCustomDictionary(
          seedPath, {}, FileImportUtils::ConflictPolicy::Rename});
     if (!copied.success)
       continue;
-    targetDict[key] = copied.finalPath.string();
+    targetDict[key] = PathUtils::PathToUtf8(copied.finalPath);
     changed = true;
   }
   return changed;
@@ -209,6 +210,7 @@ static fs::path ResolveImportedPath(const fs::path &jsonFile,
   return ActiveDictionaryStorage::ResolveReference(jsonFile, rawPathText);
 }
 
+// Converts supported legacy truss resources to the current GDTF container.
 static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
   std::string ext = LowerExt(pathInOut);
   if (ext == ".gdtf")
@@ -231,7 +233,7 @@ static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
     if (!fs::exists(converted)) {
       Truss truss;
       truss.modelFile = ToUtf8String(pathInOut);
-      truss.model = pathInOut.stem().string();
+      truss.model = PathUtils::PathToUtf8(pathInOut.stem());
       if (!BuildTrussGdtfFromInstance(truss, converted, &error))
         return false;
     }
@@ -243,6 +245,7 @@ static bool EnsureMigratedToGdtf(fs::path &pathInOut, std::string &error) {
   return false;
 }
 
+// Loads and resolves all entries from a truss dictionary file.
 static std::optional<std::unordered_map<std::string, std::string>>
 LoadFromFile(const fs::path &file, std::string &error) {
   std::unordered_map<std::string, std::string> dict;
@@ -320,7 +323,7 @@ LoadFromFile(const fs::path &file, std::string &error) {
     if (!fs::exists(path) && !PathUtils::PathFromUtf8(rawPath).is_absolute()) {
       std::cerr << "Warning: trusses dictionary " << sourceLabel
                 << " references missing relative path '" << rawPath
-                << "' resolved from '" << file.string() << "'."
+                << "' resolved from '" << PathUtils::PathToUtf8(file) << "'."
                 << std::endl;
     }
     dict[normalizedKey] = ToUtf8String(path);
@@ -503,7 +506,7 @@ bool CreateEmptyDictionaryFile(const std::string &path, std::string *errorOut) {
   }
   out << DictionaryJsonContract::MakeRoot("trusses", nlohmann::json::object()).dump(4);
   out.close();
-  return ValidateDictionaryFile(target.string(), errorOut);
+  return ValidateDictionaryFile(PathUtils::PathToUtf8(target), errorOut);
 }
 
 // Creates a trusses dictionary from application defaults with copied assets.
@@ -534,7 +537,8 @@ bool CreateDictionaryFileFromDefaults(const std::string &path,
   CopySeedAssetsIntoCustomDictionary(target, *baseDict, customDict);
   const auto previousValue =
       ConfigManager::Get().GetValue(kTrussDictionaryPathConfigKey);
-  ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, target.string());
+  ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey,
+                                PathUtils::PathToUtf8(target));
   std::string saveError;
   const bool saved = Save(customDict, &saveError);
   if (previousValue)
@@ -546,13 +550,13 @@ bool CreateDictionaryFileFromDefaults(const std::string &path,
       *errorOut = "Could not create dictionary from defaults: " + saveError;
     return false;
   }
-  return ValidateDictionaryFile(target.string(), errorOut);
+  return ValidateDictionaryFile(PathUtils::PathToUtf8(target), errorOut);
 }
 
 // Returns the active trusses dictionary path.
 std::string GetActiveDictionaryFilePath() {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  return GetConfiguredUserDictFile().string();
+  return PathUtils::PathToUtf8(GetConfiguredUserDictFile());
 }
 
 // Returns the active trusses dictionary file name.
@@ -561,7 +565,7 @@ std::string GetActiveDictionaryFileName() {
   const fs::path path = GetConfiguredUserDictFile();
   if (path.empty())
     return {};
-  return path.filename().string();
+  return PathUtils::PathToUtf8(path.filename());
 }
 
 // Changes the active trusses dictionary after validating the selected file.
@@ -581,7 +585,8 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
   const fs::path resolvedPath =
       ResolveConfiguredDictionaryPath(defaultPath, path, &warning);
   if (!warning.empty() &&
-      TrimAsciiWhitespace(path) != TrimAsciiWhitespace(defaultPath.string())) {
+      TrimAsciiWhitespace(path) !=
+          TrimAsciiWhitespace(PathUtils::PathToUtf8(defaultPath))) {
     if (errorOut)
       *errorOut = warning;
     return false;
@@ -604,7 +609,8 @@ bool SetActiveDictionaryFilePath(const std::string &path, std::string *errorOut)
   if (trimmedInput.empty() || resolvedPath == defaultPath) {
     ConfigManager::Get().RemoveKey(kTrussDictionaryPathConfigKey);
   } else {
-    ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey, resolvedPath.string());
+    ConfigManager::Get().SetValue(kTrussDictionaryPathConfigKey,
+                                  PathUtils::PathToUtf8(resolvedPath));
   }
 
   if (!ConfigManager::Get().SaveUserConfig()) {
@@ -627,8 +633,8 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   const fs::path defaultFile = GetUserDictFile();
   const fs::path baseFile = GetBaseDictFile();
   const bool isManagedDefault = userFile == defaultFile;
-  g_lastLoadStatus.activePath = userFile.string();
-  g_lastLoadStatus.fallbackPath = baseFile.string();
+  g_lastLoadStatus.activePath = PathUtils::PathToUtf8(userFile);
+  g_lastLoadStatus.fallbackPath = PathUtils::PathToUtf8(baseFile);
 
   std::error_code ec;
   if (!fs::exists(userFile, ec)) {
@@ -673,7 +679,7 @@ std::optional<std::unordered_map<std::string, std::string>> Load() {
   }
 
   g_lastLoadStatus.error += ". Failed to load base truss dictionary ('" +
-                            baseFile.string() + "'): " + baseError;
+                            PathUtils::PathToUtf8(baseFile) + "'): " + baseError;
   std::cerr << "Error: " << g_lastLoadStatus.error << std::endl;
   return std::nullopt;
 }
@@ -728,21 +734,21 @@ bool Save(const std::unordered_map<std::string, std::string> &dict,
   if (!out.is_open()) {
     if (errorOut)
       *errorOut = "Could not open user trusses dictionary for writing: " +
-                  file.string();
+                  PathUtils::PathToUtf8(file);
     return false;
   }
   out << root.dump(4);
   if (!out.good()) {
     if (errorOut)
       *errorOut = "Failed while writing user trusses dictionary: " +
-                  file.string();
+                  PathUtils::PathToUtf8(file);
     return false;
   }
   out.flush();
   if (!out.good()) {
     if (errorOut)
       *errorOut = "Failed to flush user trusses dictionary to disk: " +
-                  file.string();
+                  PathUtils::PathToUtf8(file);
     return false;
   }
   ++g_saveCallCountForTesting;

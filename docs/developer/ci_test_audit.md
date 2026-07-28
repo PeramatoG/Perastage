@@ -1657,3 +1657,61 @@ The local Debug configure could not reach generation because this environment
 lacks the wxWidgets libraries and headers, so no local CTest inventory, compiled
 target set, or complete Debug suite is available from this checkout. Exact-head
 cross-platform CI evidence remains required before merge.
+
+### PR #2240 final exact-head evidence
+
+PR #2240 merged after authoritative run `30402918582` verified reviewed head
+`e98f1297de5f262f0b16e2301be3ca944e33ecef`. Every platform reported
+`selected_labels = []`, and `GdtfEditorCheckpoint08DStabilization` passed on
+Linux, Windows, and macOS.
+
+Linux reported 161 passed, 4 failed, and 1 skipped of 166. Its residual failures
+were `EditableFocusUtils`, `Loader3dsNativeDimensions`,
+`TrussPathEncodingRegression`, and `Viewer2DFboCaptureDiagnostics`. Windows
+reported 163 passed and 5 failed of 168; its residual failures were
+`EditableFocusUtils`, `GdtfShareSecurity`, `Loader3dsNativeDimensions`,
+`TrussPathEncodingRegression`, and `Viewer2DFboCaptureDiagnostics`. macOS
+reported 162 passed and 4 failed of 166; its residual failures matched Linux.
+
+### Truss path encoding and shared dictionary storage audit
+
+The original Linux and macOS failure parsed the archive and recovered its
+3000 x 300 x 300 mm dimensions, but left `symbolFile` empty. The regression
+fixture contained only `models/svg/main.svg`, while the production loader's
+renderable-resource contract resolves `models/gltf/<model>.glb` and
+`models/3ds/<model>.3ds`. This was a stale SVG-only test fixture, not a Unicode
+resolution failure. The fixture now follows `TrussLoaderValidation` by providing
+`models/gltf/main.glb`; production loader semantics remain unchanged.
+
+On Windows, the observed exception was nlohmann JSON
+`type_error.316` (`invalid UTF-8 byte`) at `nlohmann::json::dump` during
+`TrussDictionary::Save`. The first invalid-byte producer in that save path was
+`ActiveDictionaryStorage::MakeSerializedReference`: it returned
+`std::filesystem::path::filename().string()` for an owned Unicode filename, a
+native narrow string that is not guaranteed to be UTF-8 on Windows. The shared
+storage helper now uses `PathUtils::PathToUtf8` for owned filenames and external
+absolute references. Custom `<dictionary-stem>_assets` paths are assembled with
+filesystem-native path operations, so Unicode dictionary stems are not narrowed.
+Owned references remain portable filenames, while absolute legacy references,
+files beside a dictionary, and relative references in the owned asset directory
+retain their existing resolution behavior.
+
+Target-relevant truss dictionary boundaries were classified individually.
+Extension-only `.string()` handling remains an ASCII-only internal operation;
+copied paths, model stems, configured paths, load-status paths, public path
+results, and path diagnostics now cross their serialized, API, or user-visible
+boundaries as UTF-8. Shared-storage coverage now exercises a Unicode custom
+dictionary stem, a Unicode owned filename, portable JSON serialization and
+dump, exact owned-reference resolution, and an external absolute Unicode
+reference without changing the JSON schema or existing ASCII and legacy cases.
+The truss regression also retains its Unicode and spaced source cases,
+dictionary ownership and lookup, extracted-resource checks, canonical
+last-project write, tolerated legacy mojibake read, restoration, empty save, and
+cleanup.
+
+A direct local build and run of `ActiveDictionaryStorage` passed. The repository
+Debug configure could not complete in this environment because wxWidgets
+libraries and headers are unavailable, so the compiled truss/loader controls,
+complete local suite, Windows CRT completion, and exact-head cross-platform CI
+evidence remain pending. No CI run ID or final platform totals are claimed by
+this local audit.
