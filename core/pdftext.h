@@ -18,5 +18,26 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
+struct PdfTextExtractionResult {
+  bool success = false;
+  std::string text;
+  std::string error;
+};
+
+struct PdfTextFragment {
+  std::string text;
+  double x = 0.0;
+  double y = 0.0;
+  double advance = 0.0;
+  double left = 0.0;
+  double right = 0.0;
+  double bottom = 0.0;
+  double top = 0.0;
+  bool hasBoundingBox = false;
+};
+
+PdfTextExtractionResult ExtractPdfTextWithResult(const std::string &path);
+std::string ReconstructPdfText(std::vector<PdfTextFragment> fragments);
 std::string ExtractPdfText(const std::string &path);

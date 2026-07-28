@@ -1319,3 +1319,26 @@ names while reading externally produced archives. Phase 6A therefore requires
 a raw local-header and central-directory preflight before the retained wx
 logical-name validation. E5 remains pending authoritative evidence for that
 final raw-name correction.
+
+PR #2232 closed Phase 6A/E5 at final reviewed head
+`064d2bd715ec641ecdc67adaf902d37b4b6c4528`. Authoritative run
+`30347406375` reported Linux 157 passed, 8 failed, and 1 skipped of 166;
+Windows 158 passed and 10 failed of 168; and macOS 6 of 6.
+`LayoutTemplatePackageService` was removed from the Linux and Windows failure
+sets, `LayoutImageResourceRegistry` remained green, and no new failure name
+appeared. E5 was reached and PR #2232 was approved for merge.
+
+Phase 6B starts from the shared `PdfTextComparison` failure. Linux expected
+`Foo Bar` but extracted `FooBar`, accompanied by PoDoFo warnings that word and
+hard spacing lengths were unavailable. Windows expected `Foo Bar` but extracted
+an empty value after `PdfErrorCode::InvalidDataType` and `Unsupported
+PdfContentType`. Fixture integrity is a hypothesis that must be verified rather
+than assumed: the checked-in stream lengths, xref entries, and `startxref` are
+valid with LF bytes, but the former text-auto Git attribute allowed a Windows
+checkout to transform offset-sensitive bytes. The Windows-only
+`PdfWriterSerialization` failure emitted no diagnostic because its input stream
+remained open when the test used throwing file removal. Closing every reader
+before error-code cleanup is the primary writer-test correction. Independent
+production hardening is also required so PDF numbers remain dot-decimal under a
+comma locale and serialization reports checked offset, write, flush, and close
+failures rather than publishing partial success.
