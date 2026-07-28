@@ -13,7 +13,7 @@ Pull requests targeting `main` run `CI Debug Tests` from `.github/workflows/ci-t
 - The workflow resolves the requested ref to one exact commit SHA and every Debug job checks out that SHA.
 - Linux, Windows, and macOS Debug each build the complete registered test target set and run the complete, unfiltered CTest suite. Linux also runs repository policy tests.
 - Windows Debug initializes Visual Studio Hostx64/x64 explicitly, uses Ninja with MSVC and the `x64-windows` vcpkg triplet, and rejects MinGW, MSYS, or Strawberry toolchain selection.
-- macOS Debug remains on `macos-26` with arm64 AppleClang, Ninja, Debug configuration, and the `arm64-osx` vcpkg triplet. Its test-result artifact retains the complete CTest inventory, canonical CTest log, JUnit report, failure CSV, compact result summary, optional failed/disabled-test records, and sccache diagnostics.
+- macOS Debug remains on `macos-26` with arm64 AppleClang, Ninja, Debug configuration, and the `arm64-osx` vcpkg triplet. The shared Homebrew prerequisite path installs ripgrep for fail-closed policy tests. Its test-result artifact retains the complete CTest inventory, canonical CTest log, JUnit report, failure CSV, compact result summary, optional failed/disabled-test records, and sccache diagnostics.
 - Debug jobs configure with `BUILD_TESTING=ON` and do not define `NDEBUG`, because several tests rely on `assert()`.
 - The workflow uploads diagnostics only on failure. Diagnostics include command logs, CMake configure logs, `CMakeCache.txt`, CTest logs, vcpkg failure logs, and a concise environment summary.
 

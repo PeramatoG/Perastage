@@ -49,7 +49,7 @@ linux_packages = [
 ]
 for package in linux_packages:
     assert package in prerequisites, f'shared Linux vcpkg prerequisites are missing {package}'
-for tool in ['autoconf', 'autoconf-archive', 'automake', 'gettext', 'libtool', 'ninja']:
+for tool in ['autoconf', 'autoconf-archive', 'automake', 'gettext', 'libtool', 'ninja', 'ripgrep']:
     assert re.search(rf'brew install[^\n]*\b{re.escape(tool)}\b', prerequisites), f'shared macOS vcpkg prerequisites are missing {tool}'
 assert 'command -v mono >/dev/null || brew install mono' in prerequisites
 diagnostic_section = remote[remote.index('Upload vcpkg failure diagnostics'):remote.index('Save vcpkg downloads cache')]

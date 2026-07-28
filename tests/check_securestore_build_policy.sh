@@ -58,9 +58,27 @@ require(r'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF', 'setup_windows.ps1'
 require(r'securestore-v2', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
 require(r'0878b5224d4a4968940ee296a2e7fae2d3b62983', 'vcpkg.json')
 require(r'get_vcpkg_baseline\.py vcpkg\.json', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
-require(r'ctest --test-dir .* -L release-gate', '.github/workflows/ci-tests.yml')
-require(r'gdtf_share_security_test', '.github/workflows/ci-tests.yml', 'tests/CMakeLists.txt')
-require(r'credential_store_native_roundtrip_test', '.github/workflows/ci-tests.yml', 'tests/CMakeLists.txt')
+ci_workflow = read('.github/workflows/ci-tests.yml')
+for platform, build_dir in (
+    ('Linux', 'build/linux-debug'),
+    ('Windows', 'build-windows-debug'),
+    ('macOS', 'build/macos-debug'),
+):
+    commands = [
+        line.strip()
+        for line in ci_workflow.splitlines()
+        if re.search(rf'\bctest\s+--test-dir\s+{re.escape(build_dir)}\b', line)
+        and '--output-on-failure' in line
+    ]
+    assert len(commands) == 1, f'{platform} Debug CI must have one canonical complete-suite CTest command'
+    assert not re.search(r'(?:^|\s)(?:-L|--label-regex|-R|--tests-regex|-E|--exclude-regex)(?:\s|=)', commands[0]), (
+        f'{platform} Debug CI canonical CTest command must remain unfiltered: {commands[0]}'
+    )
+require(r'cmake\s+--build\s+build/macos-debug\s+--target\s+all\s+--verbose', '.github/workflows/ci-tests.yml')
+require(r'add_executable\(gdtf_share_security_test\b', 'tests/CMakeLists.txt')
+require(r'add_test\(NAME\s+GdtfShareSecurity\s+COMMAND\s+gdtf_share_security_test\)', 'tests/CMakeLists.txt')
+require(r'add_executable\(credential_store_native_roundtrip_test\b', 'tests/CMakeLists.txt')
+require(r'add_test\(NAME\s+CredentialStoreNativeRoundTrip\s+COMMAND\s+credential_store_native_roundtrip_test\)', 'tests/CMakeLists.txt')
 require(r'libsecret-1-dev', '.github/workflows/linux-installer.yml')
 require(r"'libsecret'", 'packaging/arch/PKGBUILD')
 require(r'--manifest-root', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
