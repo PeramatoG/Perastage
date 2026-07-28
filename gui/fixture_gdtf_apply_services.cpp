@@ -52,7 +52,8 @@ std::string BuildFixtureDocumentRevisionText(
 std::string BuildMutationDiagnostic(const std::filesystem::path &path,
                                     const GdtfDocumentMutationResult &result) {
   std::ostringstream out;
-  out << "Could not publish GDTF document mutation for '" << path.string() << "'";
+  out << "Could not publish GDTF document mutation for '"
+      << PathUtils::PathToUtf8(path) << "'";
   if (!result.errors.empty()) {
     out << ": ";
     for (size_t i = 0; i < result.errors.size(); ++i) {

@@ -1617,3 +1617,43 @@ Local verification after the complete fixture correction passed
 all four representative UUID-consumer tests. A new exact-head Actions run is
 still required before merge; no final run ID or cross-platform totals are
 available for this commit yet.
+
+### PR #2239 final exact-head evidence
+
+PR #2239 merged after authoritative run `30400595579` verified reviewed head
+`43f778250b9134eaeac3df2c6fd765175edac591`. Every platform built the complete
+target set, ran the complete unfiltered suite, and reported
+`selected_labels = []`. `SaveLoadRoundtrip` passed on Linux, Windows, and
+macOS, confirming the supported canonical fixture-label persistence repair.
+
+Linux reported 160 passed, 5 failed, and 1 skipped of 166. Its remaining
+failures were `EditableFocusUtils`, `GdtfEditorCheckpoint08DStabilization`,
+`Loader3dsNativeDimensions`, `TrussPathEncodingRegression`, and
+`Viewer2DFboCaptureDiagnostics`. Windows reported 162 passed and 6 failed of
+168, retaining those five names plus `GdtfShareSecurity`. macOS reported 161
+passed and 5 failed of 166, retaining the same five names as Linux.
+
+### Checkpoint 08D UTF-8 diagnostic-path audit
+
+The initial cross-platform `GdtfEditorCheckpoint08DStabilization` failure was
+`AssertionError` at Python heredoc line 23. The line resolves to the policy
+prohibition against `.string()` in `gui/fixture_gdtf_apply_services.cpp`.
+`BuildMutationDiagnostic` used `path.string()` while composing a failed GDTF
+publication message, even though the service's operational GDTF calls already
+used `PathUtils::PathToUtf8`. A native narrow path can damage or misrepresent
+non-ASCII text on Windows, so this is a production UTF-8 diagnostic-boundary
+defect rather than a stale policy assertion.
+
+The selected correction preserves the complete diagnostic while converting its
+filesystem path with `PathUtils::PathToUtf8`. The focused policy remains scoped
+to the service file and now identifies the filesystem-path diagnostic contract
+explicitly if native narrow conversion returns. The complete Checkpoint 08D
+script then passed without exposing any later assertion; its nested Checkpoints
+08A, 08B, and 08C also passed. The filesystem-path boundary check, shell-test
+registration check, CI workflow architecture check, Perastage tree check,
+GUI ConfigManager boundary check, and `git diff --check` passed locally.
+
+The local Debug configure could not reach generation because this environment
+lacks the wxWidgets libraries and headers, so no local CTest inventory, compiled
+target set, or complete Debug suite is available from this checkout. Exact-head
+cross-platform CI evidence remains required before merge.

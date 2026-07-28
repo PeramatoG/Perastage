@@ -26,7 +26,9 @@ assert '*input.fixtures =' not in adapter_cpp
 assert 'result.updatedFixtures' in adapter_cpp
 assert 'fixtureType' in Path('gui/fixture_gdtf_apply_services.cpp').read_text()
 assert 'CreateOrUpdatePerastageLibraryDerivative(\n        fixtureType' in Path('gui/fixture_gdtf_apply_services.cpp').read_text()
-assert '.string()' not in Path('gui/fixture_gdtf_apply_services.cpp').read_text()
+assert '.string()' not in Path('gui/fixture_gdtf_apply_services.cpp').read_text(), \
+    ('fixture_gdtf_apply_services.cpp must use PathUtils::PathToUtf8 for '
+     'filesystem-path diagnostics')
 
 for path, name in [('gui/fixtureeditdialog.cpp','FixtureEditDialog::ApplyChanges'),('gui/trusseditdialog.cpp','TrussEditDialog::ApplyChanges')]:
     b = body(path, name)
