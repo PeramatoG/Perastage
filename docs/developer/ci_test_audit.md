@@ -1460,3 +1460,15 @@ The visible macOS functional failures were `EditableFocusUtils`,
 `Viewer2DFboCaptureDiagnostics` were masked by the missing `rg` prerequisite and
 may expose their existing functional failures once the infrastructure gate is
 removed.
+
+PR #2238 authoritative run `30383307145` at reviewed head
+`342497920b293eded38268669cebbcfb4abf8aa9` reported 159 passed, 6 failed, and 1
+skipped of 166 on Linux; 161 passed and 7 failed of 168 on Windows; and 159
+passed and 7 failed of 166 on macOS. All 23 missing-`rg` failures and the three
+stale release-gate policy failures were resolved. macOS continued to build
+target `all` and execute all 166 tests unfiltered, but
+`LayoutProjectLoadCacheReset` exposed a BSD awk portability defect: its policy
+script passed a multiline C++ function body through `awk -v`, which BSD awk
+rejected as a newline in a string. E8B remains pending an authoritative
+exact-head run in which the corrected policy test passes without changing the
+six established functional failures.
