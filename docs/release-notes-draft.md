@@ -39,6 +39,8 @@ Changes since **v1.5.0**.
 
 - Centralized UUID utility build ownership so production and standalone verification targets share one portable compiled implementation.
 
+- Aligned save/load verification with the existing distinction between manually overridden hoist loads and automatically calculated rigging loads.
+
 - Expanded macOS Debug continuous integration to build and exercise the complete registered test suite, matching Linux and Windows coverage while preserving diagnostic artifacts.
 
 - Strengthened internal MVR 1.6 compliance coverage by separating primitive

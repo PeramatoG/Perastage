@@ -163,8 +163,11 @@ ReadProjectFixtureMetadata(const std::filesystem::path &projectPath) {
   for (tinyxml2::XMLElement *entry =
            map->FirstChildElement("ProjectFixtureMetadata");
        entry; entry = entry->NextSiblingElement("ProjectFixtureMetadata")) {
-    const std::string uuid = entry->Attribute("uuid");
-    const std::string color = entry->Attribute("visualColorHex");
+    const char *uuidAttribute = entry->Attribute("uuid");
+    const char *colorAttribute = entry->Attribute("visualColorHex");
+    assert(uuidAttribute != nullptr);
+    const std::string uuid = uuidAttribute;
+    const std::string color = colorAttribute ? colorAttribute : "";
     assert(CanonicalizeUuid(uuid) == uuid);
     assert(uniqueUuids.insert(uuid).second);
     signature.emplace_back(uuid, color);
@@ -352,6 +355,7 @@ int main() {
   sManual.capacityKg = 700.0f;
   sManual.weightKg = 40.0f;
   sManual.loadKg = 325.0f;
+  sManual.loadSource = "Manual";
   scene.supports[sManual.uuid] = sManual;
 
   Support sInherited;
@@ -483,6 +487,7 @@ int main() {
     assert(loadedManual.capacityKg == 700.0f);
     assert(loadedManual.weightKg == 40.0f);
     assert(loadedManual.loadKg == 325.0f);
+    assert(loadedManual.loadSource == "Manual");
 
     const auto &loadedInherited = scene2.supports.at("50000000-0000-4000-8000-000000000002");
     assert(loadedInherited.motorName == "CM Lodestar");
@@ -492,9 +497,10 @@ int main() {
     assert(loadedInherited.hoistDataSource == "Inherited");
 
     const auto &loaded = scene2.fixtures.at("20000000-0000-4000-8000-000000000001");
-    assert(std::filesystem::path(loaded.gdtfSpec).filename() == "orig.gdtf");
+    assert(std::filesystem::path(loaded.gdtfSpec).filename() ==
+           "Perastage@Original@Perastage.gdtf");
     assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
-         "orig.gdtf");
+           "Perastage@Original@Perastage.gdtf");
 
     nlohmann::json legacyConfig = firstConfig;
     nlohmann::json legacyOverrides = firstOverrides;

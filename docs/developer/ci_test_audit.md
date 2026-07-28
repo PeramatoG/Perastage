@@ -1571,3 +1571,49 @@ selector passed six tests:
 `SaveLoadRoundtrip` alone stopped at the Support load assertion described
 above. No exact-head CI run exists yet, so platform totals, remaining failure
 lists, and `selected_labels` cannot be certified from this corrective work.
+
+### PR #2239 Support fixture correction and E8C baseline
+
+PR #2239 exact head `97a3909258b23210a98da3f2b34754b504dcbf09`
+restored complete target-all builds and complete unfiltered suites in run
+`30397674152`; every platform reported `selected_labels = []`. Linux reported
+159 passed, 6 failed, and 1 skipped of 166; Windows reported 161 passed and 7
+failed of 168; macOS reported 160 passed and 6 failed of 166. Linux and macOS
+retained `EditableFocusUtils`, `GdtfEditorCheckpoint08DStabilization`,
+`Loader3dsNativeDimensions`, `SaveLoadRoundtrip`,
+`TrussPathEncodingRegression`, and `Viewer2DFboCaptureDiagnostics`. Windows
+retained the same failures plus `GdtfShareSecurity`.
+
+The common `SaveLoadRoundtrip` failure at `loadedManual.loadKg == 325.0f` was a
+test-fixture provenance defect, not a production persistence defect.
+`Support::loadSource` defaults to `Auto`; GUI edits mark a changed load as
+`Manual`, while rigging recalculation writes both the calculated value and
+`Auto`. The exporter persists a `Load` element only for a manual override, and
+the importer marks an explicit `Load` as `Manual`. `hoistDataSource` separately
+describes motor and hoist field provenance and does not imply that the load is
+manual. No project configuration key persists an automatic `loadKg`; automatic
+loads remain derived from current rigging totals. The passing
+`ProjectSupportUserDataRoundtrip` and `MvrSupportUserDataRoundtrip` controls
+already express this contract with explicit manual and automatic fixtures.
+
+The focused correction marks the roundtrip fixture's expected 325 kg value as
+`loadSource = "Manual"` and asserts that provenance after load. Running the test
+to completion then exposed two later stale test-helper assumptions in the same
+save/load checkpoint: canonical GDTF publication correctly changes `orig.gdtf`
+to `Perastage@Original@Perastage.gdtf`, and project fixture metadata may omit
+`visualColorHex` when `hasVisualColorHex` is false. The test now expects the
+canonical resource name and treats the optional XML attribute safely rather
+than constructing `std::string` from a null pointer. Production MVR/GDTF logic
+is unchanged.
+
+The local Debug `SaveLoadRoundtrip` test now passes through first load, legacy
+override recovery, second save, metadata signature comparison, and second
+load. Exact-head cross-platform results for this final corrective commit remain
+pending; the user-visible fixture-label release note must remain withheld until
+that run removes `SaveLoadRoundtrip` from all three failure lists.
+
+Local verification after the complete fixture correction passed
+`SaveLoadRoundtrip` by itself, all seven related identity/persistence tests, and
+all four representative UUID-consumer tests. A new exact-head Actions run is
+still required before merge; no final run ID or cross-platform totals are
+available for this commit yet.
