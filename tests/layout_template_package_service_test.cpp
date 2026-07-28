@@ -3,11 +3,13 @@
 #include "LayoutTemplateSerializer.h"
 #include "LayoutImageResourceRegistry.h"
 #include "runtime_storage.h"
+#include "support/zip_test_utils.h"
+#include "support/archive_entry_test_utils.h"
+#include "json.hpp"
 
 #include <cassert>
 #include <filesystem>
 #include <fstream>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,28 +34,6 @@ void WriteFile(const fs::path &path, const std::string &bytes) {
   fs::create_directories(path.parent_path());
   std::ofstream out(path, std::ios::binary);
   out << bytes;
-}
-
-// Reads a package into an entry map for package assertions.
-std::map<std::string, std::string> ReadZipEntries(const fs::path &path) {
-  wxFFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
-  wxZipInputStream zip(input);
-  std::map<std::string, std::string> entries;
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    std::string data;
-    char buffer[4096];
-    while (true) {
-      zip.Read(buffer, sizeof(buffer));
-      const size_t bytes = zip.LastRead();
-      if (bytes == 0)
-        break;
-      data.append(buffer, bytes);
-    }
-    const wxScopedCharBuffer utf8 = entry->GetName(wxPATH_UNIX).utf8_str();
-    entries[utf8.data() == nullptr ? std::string() : std::string(utf8.data())] = data;
-  }
-  return entries;
 }
 
 // Builds a minimal layout definition for package roundtrip tests.
@@ -99,6 +79,38 @@ std::vector<std::pair<std::string, std::string>> MinimalPackageEntries() {
           {"layout.json", layouts::ToTemplateDocument({layout}).dump(2)}};
 }
 
+// Writes a package fixture while preserving every requested raw ZIP name byte.
+void WriteRawPackageZip(
+    const fs::path &path,
+    const std::vector<std::pair<std::string, std::string>> &entries) {
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(ToUtf8(path), entries,
+                                                    error));
+  assert(error.empty());
+}
+
+// Verifies one unsafe raw name is stored identically and rejected before wx parsing.
+void AssertUnsafeRawArchiveName(const fs::path &dir, const std::string &caseName,
+                                const std::string &rawName) {
+  const fs::path package = dir / (caseName + ".pslayout");
+  auto entries = MinimalPackageEntries();
+  entries.push_back({rawName, "bad"});
+  WriteRawPackageZip(package, entries);
+  std::string inspectionError;
+  const auto centralNames = tests::archive::ReadRawCentralDirectoryEntryNames(
+      ToUtf8(package), inspectionError);
+  assert(inspectionError.empty());
+  const auto localNames = tests::archive::ReadRawLocalHeaderEntryNames(
+      ToUtf8(package), inspectionError);
+  assert(inspectionError.empty());
+  assert(centralNames == localNames);
+  assert(centralNames.back() == rawName);
+  std::string validationError;
+  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
+      ToUtf8(package), &validationError));
+  assert(validationError.find("unsafe raw archive entry") != std::string::npos);
+}
+
 // Verifies packages without images can be round-tripped.
 void TestRoundTripWithoutImages(const fs::path &dir) {
   layouts::LayoutDefinition layout = BuildLayout();
@@ -130,26 +142,43 @@ void TestImagePortabilityAndDeduplication(const fs::path &dir) {
   std::string error;
   assert(layouts::LayoutTemplatePackageService::ExportPackage(
       layout, ToUtf8(package), &error));
-  auto entries = ReadZipEntries(package);
+  const auto entries = tests::zip::ReadEntries(package);
   int imageEntryCount = 0;
   std::string allText;
-  for (const auto &[name, content] : entries) {
-    allText += name + "\n" + content + "\n";
-    if (name.rfind("resources/layout_images/", 0) == 0)
+  std::string packagedImagePath;
+  for (const auto &entry : entries) {
+    allText += entry.name + "\n" + entry.payload + "\n";
+    if (!entry.isDirectory &&
+        entry.name.rfind("resources/layout_images/", 0) == 0) {
       ++imageEntryCount;
-  }
-  assert(imageEntryCount == 1);
-
-  bool foundCanonicalImage = false;
-  for (const auto &[name, content] : entries) {
-    (void)content;
-    assert(name.find('\\') == std::string::npos);
-    if (name.rfind("resources/layout_images/", 0) == 0) {
-      assert(name.find('/') != std::string::npos);
-      foundCanonicalImage = true;
+      packagedImagePath = entry.name;
+      assert(entry.payload == "same-image-bytes");
     }
   }
+  assert(imageEntryCount == 1);
+  assert(packagedImagePath != "resources/layout_images/");
+
+  bool foundCanonicalImage = false;
+  std::string layoutJson;
+  for (const auto &entry : entries) {
+    assert(entry.name.find('\\') == std::string::npos);
+    if (!entry.isDirectory &&
+        entry.name.rfind("resources/layout_images/", 0) == 0) {
+      foundCanonicalImage = true;
+    }
+    if (entry.name == "layout.json" && !entry.isDirectory)
+      layoutJson = entry.payload;
+  }
   assert(foundCanonicalImage);
+  const auto document = nlohmann::json::parse(layoutJson);
+  const auto &images = document.at("layouts").at(0).at("imageViews");
+  assert(images.size() == 2);
+  for (const auto &packagedImage : images) {
+    assert(packagedImage.at("projectResource").get<std::string>() ==
+           packagedImagePath);
+    assert(packagedImage.find("originalPath") == packagedImage.end());
+    assert(packagedImage.dump().find(ToUtf8(imagePath)) == std::string::npos);
+  }
   assert(layouts::LayoutTemplatePackageService::ValidatePortablePackage(
       ToUtf8(package), &error));
   assert(allText.find(ToUtf8(imagePath)) == std::string::npos);
@@ -162,8 +191,18 @@ void TestImagePortabilityAndDeduplication(const fs::path &dir) {
   assert(imported.layout.imageViews.size() == 2);
   for (const auto &importedImage : imported.layout.imageViews) {
     assert(fs::exists(fs::path(importedImage.imagePath)));
-    assert(importedImage.projectResourcePath.rfind("resources/layout_images/", 0) == 0);
+    assert(importedImage.projectResourcePath == packagedImagePath);
   }
+}
+
+// Verifies a layout image directory entry is not treated as an image payload.
+void TestImageDirectoryIsNotAFile(const fs::path &dir) {
+  const fs::path package = dir / "directory_control.zip";
+  WritePackageZip(package, {{"resources/layout_images/", ""}});
+  const auto entries = tests::zip::ReadEntries(package);
+  assert(entries.size() == 1);
+  assert(entries.front().name == "resources/layout_images/");
+  assert(entries.front().isDirectory);
 }
 
 // Verifies export can use registry bytes after a source file disappears.
@@ -212,29 +251,13 @@ void TestArchiveEntryValidation(const fs::path &dir) {
   assert(layouts::LayoutTemplatePackageService::ValidatePortablePackage(
       ToUtf8(directories), &error));
 
-  const fs::path traversal = dir / "traversal.pslayout";
-  entries = MinimalPackageEntries();
-  entries.push_back({"resources/../image.png", "bad"});
-  WritePackageZip(traversal, entries);
-  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
-      ToUtf8(traversal), &error));
-  assert(error.find("unsafe archive entry") != std::string::npos);
-
-  const fs::path absolute = dir / "absolute.pslayout";
-  entries = MinimalPackageEntries();
-  entries.push_back({"/absolute.png", "bad"});
-  WritePackageZip(absolute, entries);
-  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
-      ToUtf8(absolute), &error));
-  assert(error.find("unsafe archive entry") != std::string::npos);
-
-  const fs::path backslash = dir / "backslash.pslayout";
-  entries = MinimalPackageEntries();
-  entries.push_back({"resources\\layout_images\\bad.png", "bad"});
-  WritePackageZip(backslash, entries);
-  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
-      ToUtf8(backslash), &error));
-  assert(error.find("unsafe archive entry") != std::string::npos);
+  AssertUnsafeRawArchiveName(dir, "traversal", "resources/../image.png");
+  AssertUnsafeRawArchiveName(dir, "rooted_unix", "/absolute.png");
+  AssertUnsafeRawArchiveName(dir, "rooted_backslash", "\\absolute.png");
+  AssertUnsafeRawArchiveName(dir, "drive_unix", "C:/absolute.png");
+  AssertUnsafeRawArchiveName(dir, "drive_backslash", "C:\\absolute.png");
+  AssertUnsafeRawArchiveName(dir, "backslash_separator",
+                             "resources\\layout_images\\bad.png");
 
   const fs::path duplicateManifest = dir / "duplicate_manifest.pslayout";
   entries = MinimalPackageEntries();
@@ -252,6 +275,24 @@ void TestArchiveEntryValidation(const fs::path &dir) {
   assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
       ToUtf8(duplicateImage), &error));
   assert(error.find("duplicate archive entry") != std::string::npos);
+
+  const fs::path canonical = dir / "canonical_raw.pslayout";
+  WriteRawPackageZip(canonical, MinimalPackageEntries());
+  assert(layouts::LayoutTemplatePackageService::ValidatePortablePackage(
+      ToUtf8(canonical), &error));
+  layouts::LayoutTemplateImportResult imported;
+  assert(layouts::LayoutTemplatePackageService::ImportFile(
+      ToUtf8(canonical), imported, &error));
+  assert(imported.layout.name == BuildLayout().name);
+
+  const fs::path mismatch = dir / "name_mismatch.pslayout";
+  WriteRawPackageZip(mismatch, MinimalPackageEntries());
+  std::string fixtureError;
+  assert(tests::archive::ReplaceRawLocalHeaderName(
+      ToUtf8(mismatch), 0, "manifesu.json", fixtureError));
+  assert(!layouts::LayoutTemplatePackageService::ValidatePortablePackage(
+      ToUtf8(mismatch), &error));
+  assert(error.find("local/central entry-name mismatch") != std::string::npos);
 }
 
 // Verifies export validation does not import package resources into the registry.
@@ -268,11 +309,12 @@ void TestExportValidationHasNoImportSideEffects(const fs::path &dir) {
   const fs::path package = dir / "side_effect.pslayout";
   assert(layouts::LayoutTemplatePackageService::ExportPackage(
       layout, ToUtf8(package), &error));
-  auto entries = ReadZipEntries(package);
-  for (const auto &[name, content] : entries) {
-    (void)content;
-    if (name.rfind("resources/layout_images/", 0) == 0)
-      assert(!layouts::LayoutImageResourceRegistry::Get().HasResourceBytes(name));
+  const auto entries = tests::zip::ReadEntries(package);
+  for (const auto &entry : entries) {
+    if (!entry.isDirectory &&
+        entry.name.rfind("resources/layout_images/", 0) == 0)
+      assert(!layouts::LayoutImageResourceRegistry::Get().HasResourceBytes(
+          entry.name));
   }
 }
 
@@ -308,16 +350,23 @@ void TestLegacyJsonWarningsArePreserved(const fs::path &dir) {
 // Runs focused portable layout package service coverage.
 int main() {
   const fs::path dir = fs::temp_directory_path() / "perastage_layout_package_test";
-  fs::remove_all(dir);
-  fs::create_directories(dir);
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  ec.clear();
+  assert(fs::create_directories(dir, ec) && !ec);
+  layouts::LayoutImageResourceRegistry::Get().Clear();
   runtime_storage::SetRuntimeRootOverrideForTests(dir / "runtime");
   TestRoundTripWithoutImages(dir);
   TestImagePortabilityAndDeduplication(dir);
+  TestImageDirectoryIsNotAFile(dir);
   TestRegistryFallback(dir);
   TestFailedExportPreservesDestination(dir);
   TestArchiveEntryValidation(dir);
   TestExportValidationHasNoImportSideEffects(dir);
   TestLegacyJsonWarningsArePreserved(dir);
-  fs::remove_all(dir);
+  layouts::LayoutImageResourceRegistry::Get().Clear();
+  runtime_storage::SetRuntimeRootOverrideForTests({});
+  fs::remove_all(dir, ec);
+  assert(!ec);
   return 0;
 }

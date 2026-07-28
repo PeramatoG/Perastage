@@ -32,6 +32,11 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Standardized embedded layout-image resource names in project archives as
+  portable UTF-8 paths with forward slashes on every platform, and strengthened
+  layout-package validation against unsafe names hidden by ZIP path
+  normalization.
+
 - Improved maintainer issue intake and triage with clearer diagnostic guidance and revision-aware, failure-resilient automation limited to reports explicitly awaiting feedback.
 
 - Aligned CI policy checks with the validated Windows Git Bash initial-cache data flow and strengthened cross-platform filesystem path boundary coverage.

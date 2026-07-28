@@ -166,6 +166,9 @@ bool IsLayoutImageResourceEntry(const std::string &entryName) {
 
 // Rejects archive paths that could escape the project resource extraction directory.
 bool IsSafeArchiveRelativePath(const std::string &entryName) {
+  if (entryName.empty() || entryName.find('\\') != std::string::npos ||
+      (entryName.size() >= 2 && entryName[1] == ':'))
+    return false;
   const fs::path path(entryName);
   if (path.empty() || path.is_absolute())
     return false;
@@ -202,7 +205,8 @@ bool WriteZipBytes(wxZipOutputStream &zip, const std::string &entryName,
                    const std::vector<std::uint8_t> &bytes) {
   if (entryName.empty() || !IsSafeArchiveRelativePath(entryName))
     return false;
-  auto *entry = new wxZipEntry(entryName);
+  auto *entry = new wxZipEntry();
+  entry->SetName(wxString::FromUTF8(entryName.c_str()), wxPATH_UNIX);
   entry->SetMethod(SelectZipCompressionMethod(entryName, bytes.size()));
   if (!zip.PutNextEntry(entry))
     return false;
