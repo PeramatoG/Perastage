@@ -1472,3 +1472,43 @@ script passed a multiline C++ function body through `awk -v`, which BSD awk
 rejected as a newline in a string. E8B remains pending an authoritative
 exact-head run in which the corrected policy test passes without changing the
 six established functional failures.
+
+## Phase 4 SaveLoadRoundtrip project identity persistence repair, 2026-07-28
+
+The merged E8B baseline for PR #2238 is reviewed head
+`49f442ca1898ee6ec6e0156667e134f8263a47a3`, authoritative run
+`30387706435`: Linux passed 159 of 166 with 6 failures and 1 skip; Windows
+passed 161 of 168 with 7 failures; and macOS passed 160 of 166 with 6
+failures. `SaveLoadRoundtrip` failed on all three platforms because
+`scene.mvr` canonized an uppercase fixture UUID while `config.json` retained
+the uppercase key in `label_fixture_overrides`. Project restore imported the
+already-canonical scene before loading configuration, so the importer had no
+old-to-new alias available when the stale project metadata arrived.
+
+Project persistence now normalizes fixture-keyed label metadata at both
+non-GUI persistence boundaries. Save serializes a canonical configuration
+snapshot without mutating live configuration or dirty/undo state. Load
+normalizes restored legacy keys after both the canonical scene and project
+configuration are available. The scene UUID set is authoritative: safely
+canonicalizable aliases migrate, metadata without a scene association is
+removed with a diagnostic, and collisions preserve canonical-key values while
+filling only missing values from legacy aliases in deterministic key order.
+No project-only label metadata is written into standard MVR nodes.
+The project-config audit found no other fixture-UUID-keyed domain; position-keyed rigging weights and scene-owned fixture references have separate identity contracts.
+
+Changed production files are `core/configmanager.cpp`,
+`core/project_fixture_identity.h`, and
+`viewer2d/fixture_label_overrides.cpp`; `tests/CMakeLists.txt` links the existing UUID utility into the related standalone test. Regression coverage in
+`tests/save_load_roundtrip_test.cpp` inspects both nested archives, asserts
+canonical package coherence, exercises a rewritten legacy package, verifies
+second-save stability, and covers deterministic collision merging.
+
+Local Debug compilation of `save_load_roundtrip_test` succeeded. The focused
+CTest run reached the existing Support metadata assertions but stopped at
+`loadedManual.loadKg == 325.0f` in this system-library build before reaching
+the fixture-label assertions; direct archive inspection nevertheless confirmed
+that `config.json` and `GeneralSceneDescription.xml` both contain
+`a0b1c2d3-e4f5-4678-9abc-def012345678`, with no uppercase alias. Exact-head CI
+results remain pending and must replace this paragraph before merge; the gate
+remains removal of `SaveLoadRoundtrip` from every platform failure list without
+hiding any unrelated failure.

@@ -10,6 +10,8 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Preserved per-fixture label settings when projects canonicalize fixture identities, including deterministic recovery of compatible legacy project files.
+
 - Improved PDF output serialization across platforms and locale settings, and
   added deterministic temporary extraction fixtures while retaining unchanged
   compatibility inputs and pinned-library API coverage for final cross-platform

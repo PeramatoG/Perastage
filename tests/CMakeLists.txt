@@ -368,6 +368,7 @@ add_executable(fixture_label_overrides_reconcile_test
                ../core/runtime_storage.cpp
                ../core/library/library_bootstrap.cpp
                ../core/logger.cpp
+               ../core/uuidutils.cpp
                ../models/mvrscene.cpp
                mvr_io_stubs.cpp)
 target_include_directories(fixture_label_overrides_reconcile_test PRIVATE
