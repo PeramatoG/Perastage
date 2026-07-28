@@ -3,21 +3,26 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 
 #include <zlib.h>
 
 namespace layout_pdf_internal {
 
+// Creates a formatter with precision constrained to the supported PDF range.
 FloatFormatter::FloatFormatter(int precision)
     : precision_(std::clamp(precision, 0, 6)) {}
 
+// Formats a PDF number with fixed precision and locale-independent punctuation.
 std::string FloatFormatter::Format(double value) const {
   std::ostringstream ss;
+  ss.imbue(std::locale::classic());
   ss << std::fixed << std::setprecision(precision_) << value;
   return ss.str();
 }
 
+// Compresses a PDF byte stream using deterministic fast zlib compression.
 bool PdfDeflater::Compress(const std::string &input, std::string &output,
                            std::string &error) {
   if (input.empty()) {
@@ -41,6 +46,7 @@ bool PdfDeflater::Compress(const std::string &input, std::string &output,
   return true;
 }
 
+// Appends the objects needed to embed a parsed TrueType font.
 bool AppendEmbeddedFontObjects(std::vector<PdfObject> &objects,
                                PdfFontDefinition &font) {
   if (!font.metrics.valid || font.metrics.data.empty())
@@ -90,6 +96,7 @@ bool AppendEmbeddedFontObjects(std::vector<PdfObject> &objects,
   return true;
 }
 
+// Appends a standard Type 1 fallback font object.
 void AppendFallbackType1Font(std::vector<PdfObject> &objects,
                              PdfFontDefinition &font,
                              const std::string &baseFont) {
