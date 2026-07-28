@@ -383,6 +383,7 @@ add_executable(pdf_writer_test
                ../viewer2d/pdf/pdf_font_metrics.cpp
                ../viewer2d/pdf/pdf_objects.cpp
                ../viewer2d/pdf/pdf_writer.cpp)
+target_include_directories(pdf_writer_test PRIVATE .)
 if(TARGET ZLIB::ZLIB)
     target_link_libraries(pdf_writer_test PRIVATE ZLIB::ZLIB)
 endif()
@@ -790,10 +791,8 @@ if(TARGET podofo::podofo)
     add_executable(pdf_text_test pdf_text_test.cpp ../core/pdftext.cpp)
     target_link_libraries(pdf_text_test PRIVATE podofo::podofo ${wxWidgets_LIBRARIES})
     target_include_directories(pdf_text_test PRIVATE ../core)
-    add_test(NAME PdfTextComparison
-             COMMAND pdf_text_test
-             ${CMAKE_CURRENT_SOURCE_DIR}/data/simple.pdf
-             ${CMAKE_CURRENT_SOURCE_DIR}/data/translated.pdf)
+    target_include_directories(pdf_text_test PRIVATE .)
+    add_test(NAME PdfTextComparison COMMAND pdf_text_test)
     set_library_env(PdfTextComparison)
 endif()
 

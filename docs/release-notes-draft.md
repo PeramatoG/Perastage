@@ -10,6 +10,12 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Improved portable PDF text extraction so intentionally positioned words keep
+  their separation, empty documents are distinguishable from parser failures,
+  and PDF output retains valid numeric and cross-reference serialization across
+  platforms and locale settings. Cross-platform integration coverage now uses
+  deterministic temporary fixtures, avoiding checkout line-ending differences.
+
 - Corrected Rider truss dictionary matching for finish and length variants, and
   ensured GDTF SVG symbols no longer masquerade as renderable 3D geometry when
   an imported truss requires an honest dummy fallback, while resolved truss

@@ -2,6 +2,9 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+*.pdf binary
+*.PDF binary
+tests/data/*.txt text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.
