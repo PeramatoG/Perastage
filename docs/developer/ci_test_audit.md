@@ -1415,7 +1415,7 @@ Windows failure sets, and no new failure name appeared. The retained Linux
 failures were `Viewer2DFboCaptureDiagnostics`, `EditableFocusUtils`,
 `SaveLoadRoundtrip`, `TrussPathEncodingRegression`, `Loader3dsNativeDimensions`,
 and `GdtfEditorCheckpoint08DStabilization`; Windows retained those names plus
-`GdtfFixtureInsertionPreparation`.
+`GdtfShareSecurity`.
 
 Pull-request Debug CI now builds the complete target set and runs the complete,
 unfiltered registered CTest suite on Linux, Windows, and macOS. macOS retains
@@ -1426,3 +1426,49 @@ diagnostics. The first full macOS run establishes the complete macOS failure
 baseline; the prior 6-of-6 result is only the reduced baseline and does not
 predict the full-suite pass/fail count. E8A validates this full-suite wiring,
 not test greenness.
+
+PR #2237 was reviewed at head
+`46dcef5c5d38061f79e1bed0d14243eb66ee5438`. Its authoritative first complete
+suite run, `30379890796`, reported 156 passed, 9 failed, and 1 skipped of 166 on
+Linux; 158 passed and 10 failed of 168 on Windows; and 136 passed and 30 failed
+of 166 on macOS. The macOS result recorded `selected_labels` as empty, the
+target-all build succeeded, and all 166 registered macOS tests executed. This
+reached E8A as an infrastructure gate while preserving real CTest exit
+semantics and the complete diagnostic artifact set.
+
+Twenty-three macOS failures were immediate missing-tool failures because `rg`
+was absent: `DictionaryPathsPolicy`, `DocsPerastageTreeModules`,
+`GdtfEditorCheckpoint08ABinding`, `GdtfEditorCheckpoint08DStabilization`,
+`GdtfEditorCheckpoint08E2ModeBrowser`,
+`GdtfEditorCheckpoint08E3WheelAttributeInspector`, `GdtfEditorCoreBoundary`,
+`GdtfEditorPanelBoundary`, `GdtfMetadataPanelBoundary`,
+`GdtfMetadataSummaryBoundary`, `GdtfReusablePanelsBoundary`,
+`GuiNoConfigManagerGet`, `Layout2DRasterizationBoundary`,
+`Layout2DViewCaptureBoundary`, `LayoutPreviewFailureDiagnostics`,
+`LayoutProjectLoadCacheReset`, `LayoutViewerFitLifecycle`,
+`LibraryUserDataPolicy`, `OpenGLLifecycleCentralized`,
+`ProjectRestoreImportOptions`, `Viewer2DFboCaptureDiagnostics`,
+`Viewer2DRenderToRGBAFboBoundary`, and `Viewer2DStateOwnershipBoundary`.
+Three further cross-platform policy failures, `SecureStoreBuildPolicy`,
+`ReleaseGatePolicyPortability`, and `PolicyWorkingDirectories`, shared a stale
+assertion that Debug CI still selected `-L release-gate` after PR #2237 had
+intentionally made every platform suite complete and unfiltered.
+
+The visible macOS functional failures were `EditableFocusUtils`,
+`Loader3dsNativeDimensions`, `SaveLoadRoundtrip`, and
+`TrussPathEncodingRegression`. `GdtfEditorCheckpoint08DStabilization` and
+`Viewer2DFboCaptureDiagnostics` were masked by the missing `rg` prerequisite and
+may expose their existing functional failures once the infrastructure gate is
+removed.
+
+PR #2238 authoritative run `30383307145` at reviewed head
+`342497920b293eded38268669cebbcfb4abf8aa9` reported 159 passed, 6 failed, and 1
+skipped of 166 on Linux; 161 passed and 7 failed of 168 on Windows; and 159
+passed and 7 failed of 166 on macOS. All 23 missing-`rg` failures and the three
+stale release-gate policy failures were resolved. macOS continued to build
+target `all` and execute all 166 tests unfiltered, but
+`LayoutProjectLoadCacheReset` exposed a BSD awk portability defect: its policy
+script passed a multiline C++ function body through `awk -v`, which BSD awk
+rejected as a newline in a string. E8B remains pending an authoritative
+exact-head run in which the corrected policy test passes without changing the
+six established functional failures.

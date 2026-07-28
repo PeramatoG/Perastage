@@ -17,7 +17,7 @@ case "$platform" in
     ;;
   macos)
     brew update
-    brew install autoconf autoconf-archive automake gettext libtool ninja
+    brew install autoconf autoconf-archive automake gettext libtool ninja ripgrep
     command -v mono >/dev/null || brew install mono
     ;;
   *)
