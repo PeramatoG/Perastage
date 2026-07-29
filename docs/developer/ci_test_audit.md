@@ -1917,3 +1917,24 @@ passed. Direct builds and executions of `ShortcutRegistry`,
 descendant coverage was not added because wxWidgets does not expose a shared,
 portable combo editor-child API that models the native focus hierarchy on all
 supported ports. Corrective exact-head cross-platform evidence remains pending.
+
+### PR #2243 final exact-head evidence
+
+Authoritative run `30443904491` exercised final reviewed head
+`b8a952bb0fffa4991160606ae0f8fd75b143399c` with the `pr` profile. Every
+platform generated the complete CTest inventory, built the complete target
+set, executed the complete unfiltered suite, reported `selected_labels = []`
+and `disabled_not_run = 0`, uploaded result and diagnostic artifacts, and
+retained genuine CTest failure status.
+
+Linux reported 164 passed, 1 failed, and 1 skipped of 166.
+`EditableFocusUtils` passed in 0.56 seconds. The only remaining failure was
+`Viewer2DFboCaptureDiagnostics`, and `CredentialStoreNativeRoundTrip` was the
+only skipped test. Windows reported 166 passed and 2 failed of 168.
+`EditableFocusUtils` passed in 0.14 seconds with no focused normal-exit CRT
+leak; the remaining failures were `Viewer2DFboCaptureDiagnostics` and
+`GdtfShareSecurity`. macOS reported 165 passed and 1 failed of 166.
+`EditableFocusUtils` passed in 0.83 seconds, and the only remaining failure was
+`Viewer2DFboCaptureDiagnostics`.
+
+PR #2243 therefore reached its safe merge gate.
