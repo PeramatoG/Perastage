@@ -40,6 +40,10 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Strengthened internal 3DS loader dimension verification with complete bounds
+  validation, actionable failure diagnostics, and reliable temporary-fixture
+  cleanup.
+
 - Centralized UUID utility build ownership so production and standalone verification targets share one portable compiled implementation.
 
 - Aligned save/load verification with the existing distinction between manually overridden hoist loads and automatically calculated rigging loads.

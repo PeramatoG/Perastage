@@ -1766,3 +1766,56 @@ and the corrected truss regression translation unit compiled with the system
 wxWidgets headers. Full CMake configuration remains unavailable because this
 container lacks GLEW; exact-head cross-platform completion and Windows
 normal-exit CRT evidence are still required and are not claimed here.
+
+### PR #2241 final exact-head evidence
+
+PR #2241 merged after authoritative run `30433985589` verified reviewed head
+`9e51750a938dbc5bfbbe42f4f3ca6eb2e30081d2`. Every platform built and ran the
+complete unfiltered suite with `selected_labels = []`.
+
+Linux reported 162 passed, 3 failed, and 1 skipped of 166. Its residual
+failures were `EditableFocusUtils`, `Loader3dsNativeDimensions`, and
+`Viewer2DFboCaptureDiagnostics`. Windows reported 164 passed and 4 failed of
+168; its residual failures were `EditableFocusUtils`, `GdtfShareSecurity`,
+`Loader3dsNativeDimensions`, and `Viewer2DFboCaptureDiagnostics`. macOS
+reported 163 passed and 3 failed of 166; its residual failures matched Linux.
+
+`TrussPathEncodingRegression` and `ActiveDictionaryStorage` passed on all
+three platforms. Both Unicode and spaced truss archives resolved
+`models/gltf/main.glb`, the original Windows nlohmann `type_error.316` /
+invalid UTF-8 exception remained absent, and the focused Windows tests exited
+normally without a CRT leak report associated with
+`TrussPathEncodingRegression`. No new failure was introduced.
+
+### Loader3ds native-dimensions test-helper audit
+
+The original `Loader3dsNativeDimensions` failure occurred on Linux, Windows,
+and macOS at the native Z assertion expecting 290. The interleaved XYZ bounds
+helper iterated while `i + 2 < vertices.size()`. For axis Z and 12 floats, that
+condition visited indices 2, 5, and 8 but rejected index 11, which held the
+only non-zero Z value. X and Y happened to pass because their extrema were at
+indices 3 and 7. This is a test-helper off-by-axis bounds defect; the production
+loader correctly keeps chunk `0x4110` vertices unchanged when local transforms
+are disabled and applies the separately recorded non-identity `0x4160` basis
+only when requested.
+
+The corrected helper validates the axis, non-empty XYZ layout, finite component
+values, and complete vertex triples, exposes invalid input as an explicit
+failure state, and visits every requested component with
+`i < vertices.size()`. The regression now diagnoses the stage, axis, expected
+and actual dimensions, topology counts, and loader error. It also validates
+fixture creation, uses scope-bound temporary-directory cleanup, and checks that
+the transformed dimensions are 0.1 times the native dimensions.
+
+Local Debug configuration and the focused target build completed successfully.
+`Loader3dsNativeDimensions` passed and recovered 12 vertex floats (4 vertices)
+and 6 indices for both meshes. Native dimensions were 290 x 2500 x 290, and
+transformed dimensions were 29 x 250 x 29. The registered controls
+`MeshPrimitivesCubeNormals`, `GdtfLoaderPrimitiveFallback`,
+`GdtfLoaderChannelModeSummaries`, `GdtfLoaderGeometryRoots`, and
+`GdtfLoaderSetPropertiesMutation` also passed. Repository registration,
+workflow architecture, module-tree, GUI configuration-boundary, and diff
+checks passed. No production change was required. The complete 1,968-step
+local target build was stopped after the focused and related targets passed;
+the complete suite was consequently not run. Exact-head cross-platform CI
+totals and normal-exit Windows CRT evidence for this correction remain pending.
