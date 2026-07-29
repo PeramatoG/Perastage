@@ -1980,3 +1980,62 @@ No production source, test registration, label, selection, skip, timeout, or
 workflow failure semantic changed. Exact-head cross-platform CI verification of
 the repaired Windows normal exit, clean CRT result, removed temporary artifacts,
 and final platform totals remains pending external review.
+
+## Final test-stabilization campaign closure
+
+### PR #2246 final evidence
+
+PR #2246, **Stabilize GDTF Share security test cleanup on Windows**, was fully
+reviewed and tested at head `30fe6ffb915cdf3a4a82aa2dfcdd7ceda6a96604` by
+authoritative complete PR run `30451882003`. Every platform ran the complete
+unfiltered suite with `selected_labels = []` and `disabled_not_run = 0`.
+
+| Platform | Total | Passed | Failed | Skipped |
+| --- | ---: | ---: | ---: | ---: |
+| Linux | 166 | 165 | 0 | 1 |
+| Windows | 168 | 168 | 0 | 0 |
+| macOS | 166 | 166 | 0 | 0 |
+
+The single Linux skip, `CredentialStoreNativeRoundTrip`, is accepted because
+the runner has no native secure credential store. `GdtfShareSecurity` was
+removed from the Windows failure set, no production credential-store source
+changed, and no new failure appeared.
+
+### Integrated-main evidence
+
+PR #2246 was integrated by merge commit
+`79489ad7de17f9f8a0f269f5c56f142b4c193da1`. The current main SHA is
+`c294a5f7ce5877430f1a3793586a159af8903af0`, the automatic version-bump
+commit, with `VERSION` at `1.5.33`. Exact tree comparison between the fully
+tested PR head `30fe6ffb915cdf3a4a82aa2dfcdd7ceda6a96604` and current main shows
+that only `VERSION` changed, from `1.5.32` to `1.5.33`. No executable or
+test-relevant file changed: production source, tests, workflows, CMake files,
+manifests, dependencies, and fixtures are tree-equivalent.
+
+Trusted-main run `30453408910` configured and built the complete Debug target
+set on Linux, Windows, and macOS, providing integrated-main build and cache-
+warming evidence. CTest was intentionally skipped in that cache-warming run,
+so it is not a complete test run. The full PR run `30451882003` remains the
+authoritative test validation of the exact executable and test tree. Another
+manual exact-main dispatch is therefore redundant and is not required.
+
+### Campaign closure
+
+The historical test debt exposed by enabling the suite has been repaired.
+Genuine production defects were corrected where proven, while stale fixtures,
+expectations, lifecycle defects, and CI harness defects were corrected where
+appropriate. Complete unfiltered PR CI now runs on Linux, Windows, and macOS;
+required failures are not hidden or disabled. Normal Perastage feature
+development may resume.
+
+### Deferred optional work
+
+The following improvements are optional follow-up work and are not campaign
+closure requirements:
+
+- Test CMake modularization.
+- Comprehensive metadata taxonomy.
+- Changed-file selective test routing.
+- Further cache optimization.
+- Proactive untouched-path audits.
+- Unrelated stable-test refactors.
