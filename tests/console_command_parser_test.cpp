@@ -74,6 +74,12 @@ int main() {
   assert(!malformed.relative);
   assert(malformed.values.empty());
   assert(malformed.remainder == "--wat");
+  auto notFinite = gui::console::ParseTransformCommandSegment("nan");
+  assert(notFinite.values.empty());
+  assert(notFinite.remainder == "nan");
+  auto infinity = gui::console::ParseTransformCommandSegment("inf");
+  assert(infinity.values.empty());
+  assert(infinity.remainder == "inf");
 
   return 0;
 }

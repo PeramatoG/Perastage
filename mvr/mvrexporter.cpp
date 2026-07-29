@@ -31,6 +31,7 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "mvr_identity_recovery.h"
+#include "scene_transform_integrity.h"
 #include "primitive_model_resources.h"
 #include "runtime_storage.h"
 #include "projectutils.h"
@@ -2374,6 +2375,22 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     m_exportWarnings.push_back(message);
     Logger::Instance().Log(Logger::Level::Warn, message);
   }
+  const auto transformIntegrity =
+      scene_transform_integrity::ValidateAndRepair(scene);
+  if (transformIntegrity.repaired)
+    ConfigManager::Get().MarkDirty();
+  for (const auto &diagnostic : transformIntegrity.diagnostics) {
+    const std::string message =
+        scene_transform_integrity::FormatDiagnostic(diagnostic);
+    m_exportWarnings.push_back(message);
+    Logger::Instance().Log(
+        diagnostic.severity == scene_transform_integrity::Severity::Fatal
+            ? Logger::Level::Error
+            : Logger::Level::Warn,
+        message);
+  }
+  if (!transformIntegrity.success)
+    return false;
   const TrussGeometryAuthority trussGeometryAuthority =
       GetTrussGeometryAuthoritySetting();
   std::unordered_map<std::string, std::string> positions;
@@ -3304,9 +3321,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                                    fixtureGdtfArchivePath);
 
     const Matrix fixtureMatrixToWrite =
-        f.parentGroupUuid.empty()
-            ? f.transform
-            : (f.hasLocalTransform ? f.localTransform : f.transform);
+        f.parentGroupUuid.empty() ? f.transform : f.localTransform;
     std::string mstr = MatrixUtils::FormatMatrix(fixtureMatrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
@@ -3448,11 +3463,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       ov.model = effectiveTruss.model;
     }
 
-    const bool writeWorldTransform = t.parentGroupUuid.empty();
     const Matrix matrixToWrite =
-        writeWorldTransform
-            ? t.transform
-            : (t.hasLocalTransform ? t.localTransform : t.transform);
+        t.parentGroupUuid.empty() ? t.transform : t.localTransform;
     std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(mstr.c_str());
@@ -3630,9 +3642,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       se->SetAttribute("name", s.name.c_str());
 
     const Matrix supportMatrixToWrite =
-        s.parentGroupUuid.empty()
-            ? s.transform
-            : (s.hasLocalTransform ? s.localTransform : s.transform);
+        s.parentGroupUuid.empty() ? s.transform : s.localTransform;
     tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
     mat->SetText(MatrixUtils::FormatMatrix(supportMatrixToWrite).c_str());
     se->InsertEndChild(mat);
@@ -3801,10 +3811,8 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       return true;
     };
 
-    Matrix objectMatrixToWrite =
-        obj.parentGroupUuid.empty()
-            ? obj.transform
-            : (obj.hasLocalTransform ? obj.localTransform : obj.transform);
+    const Matrix objectMatrixToWrite =
+        obj.parentGroupUuid.empty() ? obj.transform : obj.localTransform;
 
     tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
@@ -3968,8 +3976,16 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     parent->InsertEndChild(oe);
   };
 
+  std::unordered_set<std::string> exportedGroupUuids;
   auto exportGroupObject = [&](auto &&self, tinyxml2::XMLElement *parent,
                                const GroupObject &group) -> void {
+    if (!exportedGroupUuids.insert(group.uuid).second) {
+      Logger::Instance().Log(
+          Logger::Level::Error,
+          "MVR export stopped recursive GroupObject revisit for uuid=" +
+              group.uuid);
+      return;
+    }
     tinyxml2::XMLElement *go = doc.NewElement("GroupObject");
     go->SetAttribute("uuid", group.uuid.c_str());
     if (!group.name.empty())

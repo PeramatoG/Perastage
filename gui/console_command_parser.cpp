@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <sstream>
 
@@ -68,7 +69,8 @@ bool TryParseFloat(const std::string &token, float &value) {
   char *end = nullptr;
   errno = 0;
   const float parsed = std::strtof(token.c_str(), &end);
-  if (errno != 0 || end != token.c_str() + token.size())
+  if (errno != 0 || end != token.c_str() + token.size() ||
+      !std::isfinite(parsed))
     return false;
 
   value = parsed;

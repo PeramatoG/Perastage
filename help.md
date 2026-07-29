@@ -123,8 +123,9 @@ Release builds keep these entries hidden to reduce risk in production workflows.
 
 ## Console Commands (complete)
 
-The console works on the current selection. If fixtures are selected, position
-and rotation commands apply to fixtures; otherwise they apply to trusses.
+The console transforms the current mixed selection. A grouped truss moves its
+root group, while grouped fixtures, supports, and scene objects remain exact
+targets.
 
 ### Selection
 
@@ -163,7 +164,7 @@ Notes:
 
 - Provide **one value** to apply it to all selected items.
 - Provide **two values** to linearly distribute from start to end across the selection.
-- Use `++` / `--` to apply relative offsets (example: `pos x ++ 1.5`, `rot z -- 10`). Relative CLI transforms use world axes by default; add `--local` or `-l` for local axes, for example `pos x ++ 1 --local`, `rot y ++ 45 -l`, or `rot z ++ 30 --group --local`. Absolute `pos` and `rot` commands keep their existing world-coordinate/Euler semantics. The persistent Local Axes toolbar toggle affects viewport transforms only and does not change CLI defaults.
+- Use compact or spaced `++` / `--` relative offsets (for example `pos x ++1.5`, `pos x ++ 1.5`, `rot z --10`, or `rot z -- 10`). Relative CLI transforms use world axes by default; add `--local` or `-l` for local axes, for example `pos x ++1 --local`, `rot y ++45 -l`, or `rot z ++30 --group --local`. Absolute `pos` and `rot` commands keep their existing world-coordinate/Euler semantics. The persistent Local Axes toolbar toggle affects viewport transforms only and does not change CLI defaults.
 - You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for `pos`.
 - Group rotation (`--group`/`--g`) uses the current selection **bbox center** as default pivot.
 - Add a trailing `x,y,z` triplet (in meters) to override pivot, for example: `rot y ++45 --g -2.5,0,0`.

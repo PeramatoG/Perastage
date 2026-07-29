@@ -13,7 +13,9 @@ Changes since **v1.5.0**.
 - Corrected grouped scene transforms so interactive truss moves consistently
   affect their effective groups while fixtures, supports, scene objects, and
   table edits remain exact; compact negative console offsets such as `--1`
-  are now accepted without creating empty undo operations for invalid input.
+  are now accepted, invalid transforms apply atomically without empty undo
+  operations, and MVR export validates or safely repairs canonical local
+  hierarchy matrices before serialization.
 
 - Fixed global shortcuts being suppressed while a read-only combo box has
   focus on macOS.
