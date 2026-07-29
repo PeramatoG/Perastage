@@ -1,5 +1,6 @@
 #include "active_dictionary_storage.h"
 #include "filesystem_path_utils.h"
+#include "json.hpp"
 
 #include <cassert>
 #include <filesystem>
@@ -58,7 +59,46 @@ static void TestReferenceResolution(const fs::path &root) {
 
   assert(ActiveDictionaryStorage::ResolveReference(dict, "beside.gdtf") == beside);
   assert(ActiveDictionaryStorage::ResolveReference(dict, "owned.gdtf") == asset);
-  assert(ActiveDictionaryStorage::ResolveReference(dict, absolute.string()) == absolute);
+  assert(ActiveDictionaryStorage::ResolveReference(
+             dict, PathUtils::PathToUtf8(absolute)) == absolute);
+}
+
+// Verifies Unicode dictionary layouts and JSON-safe portable asset references.
+static void TestUnicodeReferenceRoundtrip(const fs::path &root) {
+  const fs::path defaultDict = root / "fixtures" / "gdtf_dictionary.json";
+  const fs::path dictionary =
+      root / PathUtils::PathFromUtf8("shows/diccionario_niño.json");
+  const fs::path expectedAssetDirectory =
+      root / PathUtils::PathFromUtf8("shows/diccionario_niño_assets");
+  const auto layout = ActiveDictionaryStorage::BuildLayout(
+      ActiveDictionaryStorage::DictionaryKind::Fixtures, dictionary, defaultDict);
+  assert(layout.ownedAssetDirectory == expectedAssetDirectory);
+
+  const fs::path ownedAsset =
+      expectedAssetDirectory / PathUtils::PathFromUtf8("cabeza_móvil_á.gdtf");
+  WriteText(ownedAsset, "owned");
+  const std::string ownedReference =
+      ActiveDictionaryStorage::MakeSerializedReference(layout, ownedAsset);
+  assert(ownedReference == "cabeza_móvil_á.gdtf");
+  assert(PathUtils::PathFromUtf8(ownedReference).is_relative());
+  assert(ActiveDictionaryStorage::ResolveReference(dictionary, ownedReference) ==
+         ownedAsset);
+
+  const fs::path externalAsset =
+      fs::absolute(root / PathUtils::PathFromUtf8("externo/estructura_ñ.gdtf"));
+  WriteText(externalAsset, "external");
+  const std::string externalReference =
+      ActiveDictionaryStorage::MakeSerializedReference(layout, externalAsset);
+  assert(externalReference == PathUtils::PathToUtf8(externalAsset));
+  assert(ActiveDictionaryStorage::ResolveReference(dictionary, externalReference) ==
+         externalAsset);
+
+  nlohmann::json serialized = {
+      {"owned", ownedReference}, {"external", externalReference}};
+  const std::string dumped = serialized.dump();
+  const nlohmann::json reparsed = nlohmann::json::parse(dumped);
+  assert(reparsed.at("owned").get<std::string>() == ownedReference);
+  assert(reparsed.at("external").get<std::string>() == externalReference);
 }
 
 // Verifies deterministic same-name conflict handling for copied assets.
@@ -93,6 +133,7 @@ int main() {
 
   TestStorageLayouts(root);
   TestReferenceResolution(root);
+  TestUnicodeReferenceRoundtrip(root);
   TestConflictHandling(root);
 
   fs::remove_all(root, ec);

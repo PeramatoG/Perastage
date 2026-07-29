@@ -10,6 +10,8 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed Unicode truss dictionary paths and filenames on Windows while keeping managed asset references portable across platforms.
+
 - Improved PDF output serialization across platforms and locale settings, and
   added deterministic temporary extraction fixtures while retaining unchanged
   compatibility inputs and pinned-library API coverage for final cross-platform
