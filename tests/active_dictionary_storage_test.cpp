@@ -96,8 +96,9 @@ static void TestUnicodeReferenceRoundtrip(const fs::path &root) {
   nlohmann::json serialized = {
       {"owned", ownedReference}, {"external", externalReference}};
   const std::string dumped = serialized.dump();
-  assert(dumped.find(ownedReference) != std::string::npos);
-  assert(dumped.find(externalReference) != std::string::npos);
+  const nlohmann::json reparsed = nlohmann::json::parse(dumped);
+  assert(reparsed.at("owned").get<std::string>() == ownedReference);
+  assert(reparsed.at("external").get<std::string>() == externalReference);
 }
 
 // Verifies deterministic same-name conflict handling for copied assets.

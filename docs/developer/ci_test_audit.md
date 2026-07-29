@@ -1715,3 +1715,54 @@ libraries and headers are unavailable, so the compiled truss/loader controls,
 complete local suite, Windows CRT completion, and exact-head cross-platform CI
 evidence remain pending. No CI run ID or final platform totals are claimed by
 this local audit.
+
+### PR #2241 first exact-head cross-platform evidence
+
+Authoritative run `30405753117` exercised reviewed head
+`ce7534b9063888ec218d6e8472cdf84926d04b7a`. All three platforms completed
+configuration, generated their complete inventories, built the complete target
+set, ran the unfiltered suites, and reported `selected_labels = []`. This run
+did not complete PR #2241.
+
+Linux reported 161 passed, 4 failed, and 1 skipped of 166. Its failures were
+`EditableFocusUtils`, `Loader3dsNativeDimensions`,
+`TrussPathEncodingRegression`, and `Viewer2DFboCaptureDiagnostics`. Windows
+reported 162 passed and 6 failed of 168. Its failures were
+`ActiveDictionaryStorage`, `EditableFocusUtils`, `GdtfShareSecurity`,
+`Loader3dsNativeDimensions`, `TrussPathEncodingRegression`, and
+`Viewer2DFboCaptureDiagnostics`. macOS reported 162 passed and 4 failed of 166;
+its failures matched Linux.
+
+The run positively verified that both truss archive cases load, resolve
+`models/gltf/main.glb`, and retain 3000 x 300 x 300 mm dimensions on every
+platform. The original Windows nlohmann `type_error.316` / `invalid UTF-8 byte`
+exception is absent, so the production UTF-8 serialization correction remains
+valid and is retained.
+
+Two follow-up test-contract defects remain. The last-project helper creates an
+invalid-byte pseudo-Latin-1 fixture instead of valid UTF-8 mojibake, obscuring
+whether canonical or legacy recovery failed behind duplicate raw assertions.
+The Windows shared-storage test searches dumped JSON for an unescaped absolute
+path even though JSON correctly escapes native backslashes. The Windows CRT
+leak output occurs after an assertion abort and remains pending normal-exit
+confirmation; it is not yet classified as a genuine leak.
+
+The corrective test audit identifies the legacy stage as the failing
+last-project stage: the canonical save writes UTF-8 and its load resolves the
+existing file, while the old legacy helper decoded the path and emitted each
+Unicode code point as one byte. For `ñ` it therefore wrote `F1`, which is an
+invalid standalone UTF-8 byte, instead of valid UTF-8 mojibake `C3 83 C2 B1`
+(`Ã±`). The replacement deterministically treats every original UTF-8 byte as a
+Latin-1 code point and UTF-8-encodes that code point. It validates the fixture,
+reports canonical and legacy failures separately with bounded path-specific
+diagnostics, and restores the exact prior last-project file state through RAII.
+No production change was required.
+
+The shared-storage correction retains `dump()`, reparses the serialized JSON,
+and compares both application values exactly. This classifies Windows JSON
+backslash escaping as reversible syntax rather than a production path change.
+A direct local C++20 build and execution of `ActiveDictionaryStorage` passed,
+and the corrected truss regression translation unit compiled with the system
+wxWidgets headers. Full CMake configuration remains unavailable because this
+container lacks GLEW; exact-head cross-platform completion and Windows
+normal-exit CRT evidence are still required and are not claimed here.
