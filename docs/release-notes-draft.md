@@ -70,7 +70,7 @@ Changes since **v1.5.0**.
 
 - Added native object-cache acceleration with GitHub-scoped CI isolation, resource-aware Windows embedded-debug validation, and measurable compiler-cache diagnostics without changing installer, dependency-cache, or test behavior.
 
-- Added trusted cross-platform Debug cache warming after changes reach `main`, improving compiler-cache consistency in later pull requests while preserving isolated PR writes and the full PR test suite.
+- Added trusted cross-platform Debug cache warming after changes reach `main`, improving compiler-cache consistency in later pull requests while preserving isolated PR writes, reliable policy checks, and the full PR test suite.
 
 - Improved dependency-cache warming reliability with complete Linux and macOS build prerequisites, serialized package publication, and credential-safe failure diagnostics.
 

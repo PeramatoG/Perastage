@@ -149,6 +149,9 @@ for platform, text in sections.items():
 linux = sections['linux']
 for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
     assert needle in linux, f'Linux Debug is missing {needle}'
+policy_step = linux[linux.index('      - name: Run repository policy tests'):linux.index('      - name: Upload Linux test results')]
+assert 'export PERASTAGE_TEST_PYTHON="$(command -v python3)"' in policy_step
+assert policy_step.index('export PERASTAGE_TEST_PYTHON=') < policy_step.index('bash tests/check_ci_cmake_language_policy.sh')
 assert 'summarize_ctest_results.py' in ci, 'CI Debug must produce compact result summaries'
 assert 'LastTestsDisabled.log' in ci, 'CI Debug test-result artifacts must retain disabled-test diagnostics when present'
 assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'

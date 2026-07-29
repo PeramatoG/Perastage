@@ -251,6 +251,7 @@ jobs:
           exit $ctest_exit
       - name: Run repository policy tests
         run: |
+          export PERASTAGE_TEST_PYTHON="$(command -v python3)"
           bash tests/check_perastage_tree_modules.sh
           bash tests/check_no_configmanager_get_in_gui.sh
           bash tests/check_ci_cmake_language_policy.sh
