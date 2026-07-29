@@ -9,19 +9,16 @@
 namespace gui {
 namespace {
 
+// Classifies one window using the editable-control contract for its type.
 bool IsEditableInputWindow(const wxWindow *window) {
   if (!window)
     return false;
 
-  if (const auto *textEntry = dynamic_cast<const wxTextEntry *>(window);
-      textEntry && textEntry->IsEditable()) {
-    return true;
-  }
+  if (const auto *combo = dynamic_cast<const wxComboBox *>(window))
+    return !combo->HasFlag(wxCB_READONLY);
 
-  if (const auto *combo = dynamic_cast<const wxComboBox *>(window);
-      combo && combo->IsEditable()) {
-    return true;
-  }
+  if (const auto *textEntry = dynamic_cast<const wxTextEntry *>(window))
+    return textEntry->IsEditable();
 
   if (dynamic_cast<const wxSpinCtrl *>(window) ||
       dynamic_cast<const wxSpinCtrlDouble *>(window)) {
@@ -38,6 +35,7 @@ bool IsEditableInputWindow(const wxWindow *window) {
 
 } // namespace
 
+// Detects an editable focused control through its complete parent chain.
 bool IsEditableWidgetFocused(const wxWindow *focusedWindow) {
   const wxWindow *current = focusedWindow;
   while (current) {

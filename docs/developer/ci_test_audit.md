@@ -1819,3 +1819,101 @@ checks passed. No production change was required. The complete 1,968-step
 local target build was stopped after the focused and related targets passed;
 the complete suite was consequently not run. Exact-head cross-platform CI
 totals and normal-exit Windows CRT evidence for this correction remain pending.
+
+### PR #2242 final exact-head evidence
+
+PR #2242 merged after authoritative run `30436691841` verified reviewed head
+`a153eed0c50a6c1e0b7618a8102e5defd33b3f2e`. Every platform completed the
+full build and unfiltered suite with `selected_labels = []`, and
+`Loader3dsNativeDimensions` passed on Linux, Windows, and macOS. Native
+dimensions remained 290 x 2500 x 290, transformed dimensions remained
+29 x 250 x 29, no production loader file changed, and the focused Windows
+test exited normally without a target-specific CRT leak. No new failure was
+introduced.
+
+Linux reported 163 passed, 2 failed, and 1 skipped of 166. Its residual
+failures were `EditableFocusUtils` and `Viewer2DFboCaptureDiagnostics`.
+Windows reported 165 passed and 3 failed of 168; its residual failures were
+`EditableFocusUtils`, `GdtfShareSecurity`, and
+`Viewer2DFboCaptureDiagnostics`. macOS reported 164 passed and 2 failed of
+166; its residual failures were `EditableFocusUtils` and
+`Viewer2DFboCaptureDiagnostics`.
+
+### EditableFocusUtils grid-editor fixture audit
+
+The original test failed silently on Linux, Windows, and macOS because every
+expectation returned immediately without identifying its stage. Named,
+state-rich diagnostics confirmed that the first and only failing focus case on
+local wxGTK was `grid-active`: `CanEnableCellControl()` was true, but
+`IsCellEditControlShown()` and the editable-focus result were false. The frame
+was not shown, while the panel and grid reported shown in their parent
+hierarchy. The Linux AT-SPI accessibility-bus warning observed in CI is
+incidental: Windows and macOS failed without it, and the local correction does
+not suppress or otherwise depend on accessibility diagnostics.
+
+The fixture had called `ShowCellEditControl()` without an active in-place
+editor. That API only redisplays an editor hidden with
+`HideCellEditControl()`; `EnableCellEditControl()` is the documented operation
+that starts editing the current eligible cell. The corrected lifecycle checks
+the eligible cursor and inactive state, enables the editor, verifies the grid
+and editor-child focus paths, disables the editor, and verifies the inactive
+state again. On local wxGTK 3.2.4, neither showing the frame nor processing
+pending events was required, and the complete fixture passed under Xvfb
+without sleeps. Null, editable and read-only text, editable and read-only
+combo, integer and double spin, derived text, inactive grid, active grid, grid
+editor child, disabled grid, and plain-window cases all passed. This classifies
+the regression as a stale wxGrid test setup; production focus and shortcut
+sources remain unchanged.
+
+The focused translation unit compiled directly with the system wxWidgets
+flags and passed 20 consecutive runs under the CI-style Xvfb display. Direct
+builds and executions of the exact registered related controls
+`ShortcutRegistry`, `MainWindowCliShortcutRouter`, and `ConsoleCommandParser`
+also passed. Full CMake generation remains unavailable in this environment
+because the required `mdns` package is not installed, so registered CTest
+execution, the complete Debug build and suite, Windows normal-exit CRT
+verification, and final exact-head cross-platform evidence remain required
+before merge.
+
+### PR #2243 first exact-head cross-platform evidence
+
+Authoritative run `30439893226` exercised reviewed head
+`333eda73ad0ef9b4d8fd1959620b0ca16c8c211d`. Every platform generated its
+complete inventory, built and ran the unfiltered suite, and reported
+`selected_labels = []`.
+
+Linux reported 164 passed, 1 failed, and 1 skipped of 166.
+`EditableFocusUtils` passed in 1.18 seconds despite the incidental AT-SPI
+warning, and its only residual failure was
+`Viewer2DFboCaptureDiagnostics`. Windows reported 166 passed and 2 failed of
+168. `EditableFocusUtils` passed in 0.28 seconds without a target-specific
+normal-exit CRT leak; its residual failures were `GdtfShareSecurity` and
+`Viewer2DFboCaptureDiagnostics`. macOS reported 164 passed and 2 failed of
+166; its failures were `EditableFocusUtils` and
+`Viewer2DFboCaptureDiagnostics`.
+
+The only newly exposed target blocker was the macOS `readonly-combo` case:
+the editable-focus check expected false but returned true for runtime class
+`wxComboBox`, with `wxTextEntry::IsEditable()` reporting true. Production had
+tested the generic `wxTextEntry` abstraction before `wxComboBox`, so the early
+true result bypassed the combo-specific decision. The subsequent combo branch
+also depended on the same port-sensitive editability state.
+
+This is a production type-ordering and read-only style defect, not a stale test
+expectation. On wxOSX, a read-only combo could incorrectly set
+`focusInEditableText` and suppress global shortcuts even though the user could
+not type into the control. The shared correction handles `wxComboBox` first
+and treats its `wxCB_READONLY` style as authoritative, then applies
+`IsEditable()` only to other `wxTextEntry` controls. Spin, active-grid, and
+parent-chain behavior remain unchanged, and no platform branch is required.
+Combo diagnostics now report both the read-only style and the port-specific
+text-entry editability result without asserting what the latter must be.
+
+The corrected focused translation unit built directly against wxGTK 3.2.4 and
+passed 20 consecutive runs under the CI-style Xvfb display. All named cases,
+including editable and read-only combo styles and the complete grid lifecycle,
+passed. Direct builds and executions of `ShortcutRegistry`,
+`MainWindowCliShortcutRouter`, and `ConsoleCommandParser` also passed. Combo
+descendant coverage was not added because wxWidgets does not expose a shared,
+portable combo editor-child API that models the native focus hierarchy on all
+supported ports. Corrective exact-head cross-platform evidence remains pending.
