@@ -1819,3 +1819,58 @@ checks passed. No production change was required. The complete 1,968-step
 local target build was stopped after the focused and related targets passed;
 the complete suite was consequently not run. Exact-head cross-platform CI
 totals and normal-exit Windows CRT evidence for this correction remain pending.
+
+### PR #2242 final exact-head evidence
+
+PR #2242 merged after authoritative run `30436691841` verified reviewed head
+`a153eed0c50a6c1e0b7618a8102e5defd33b3f2e`. Every platform completed the
+full build and unfiltered suite with `selected_labels = []`, and
+`Loader3dsNativeDimensions` passed on Linux, Windows, and macOS. Native
+dimensions remained 290 x 2500 x 290, transformed dimensions remained
+29 x 250 x 29, no production loader file changed, and the focused Windows
+test exited normally without a target-specific CRT leak. No new failure was
+introduced.
+
+Linux reported 163 passed, 2 failed, and 1 skipped of 166. Its residual
+failures were `EditableFocusUtils` and `Viewer2DFboCaptureDiagnostics`.
+Windows reported 165 passed and 3 failed of 168; its residual failures were
+`EditableFocusUtils`, `GdtfShareSecurity`, and
+`Viewer2DFboCaptureDiagnostics`. macOS reported 164 passed and 2 failed of
+166; its residual failures were `EditableFocusUtils` and
+`Viewer2DFboCaptureDiagnostics`.
+
+### EditableFocusUtils grid-editor fixture audit
+
+The original test failed silently on Linux, Windows, and macOS because every
+expectation returned immediately without identifying its stage. Named,
+state-rich diagnostics confirmed that the first and only failing focus case on
+local wxGTK was `grid-active`: `CanEnableCellControl()` was true, but
+`IsCellEditControlShown()` and the editable-focus result were false. The frame
+was not shown, while the panel and grid reported shown in their parent
+hierarchy. The Linux AT-SPI accessibility-bus warning observed in CI is
+incidental: Windows and macOS failed without it, and the local correction does
+not suppress or otherwise depend on accessibility diagnostics.
+
+The fixture had called `ShowCellEditControl()` without an active in-place
+editor. That API only redisplays an editor hidden with
+`HideCellEditControl()`; `EnableCellEditControl()` is the documented operation
+that starts editing the current eligible cell. The corrected lifecycle checks
+the eligible cursor and inactive state, enables the editor, verifies the grid
+and editor-child focus paths, disables the editor, and verifies the inactive
+state again. On local wxGTK 3.2.4, neither showing the frame nor processing
+pending events was required, and the complete fixture passed under Xvfb
+without sleeps. Null, editable and read-only text, editable and read-only
+combo, integer and double spin, derived text, inactive grid, active grid, grid
+editor child, disabled grid, and plain-window cases all passed. This classifies
+the regression as a stale wxGrid test setup; production focus and shortcut
+sources remain unchanged.
+
+The focused translation unit compiled directly with the system wxWidgets
+flags and passed 20 consecutive runs under the CI-style Xvfb display. Direct
+builds and executions of the exact registered related controls
+`ShortcutRegistry`, `MainWindowCliShortcutRouter`, and `ConsoleCommandParser`
+also passed. Full CMake generation remains unavailable in this environment
+because the required `mdns` package is not installed, so registered CTest
+execution, the complete Debug build and suite, Windows normal-exit CRT
+verification, and final exact-head cross-platform evidence remain required
+before merge.

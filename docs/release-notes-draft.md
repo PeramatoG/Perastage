@@ -40,6 +40,9 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Corrected internal editable-focus verification to exercise the documented
+  grid editor lifecycle with actionable control-state diagnostics.
+
 - Strengthened internal 3DS loader dimension verification with complete bounds
   validation, actionable failure diagnostics, and reliable temporary-fixture
   cleanup.
