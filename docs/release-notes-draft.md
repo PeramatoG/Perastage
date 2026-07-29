@@ -18,7 +18,9 @@ Changes since **v1.5.0**.
   hierarchy matrices before serialization. Fixture-to-hoist conversion and
   table deletion now preserve valid GroupObject ownership without dangling
   hierarchy references, leave unrelated empty groups intact, and keep actual
-  selection distinct from the highlighted interactive movement scope.
+  selection distinct from the highlighted interactive movement scope. Valid
+  console transforms that are already satisfied no longer add empty Undo
+  entries or trigger unnecessary scene refreshes.
 
 - Fixed global shortcuts being suppressed while a read-only combo box has
   focus on macOS.

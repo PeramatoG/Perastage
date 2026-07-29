@@ -745,13 +745,13 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                   .empty();
     };
 
-    auto applyPosEffective = [&](int axis, const std::vector<float> &vals,
+    auto applyPosEffective = [&](MvrScene &scene, int axis,
+                                 const std::vector<float> &vals,
                                  bool relative,
                                  transform_space::TransformSpace space =
                                      transform_space::TransformSpace::World) {
       if (vals.empty())
         return;
-      auto &scene = cfg.GetScene();
       const auto targets = scene_grouping::BuildInteractiveTransformTargets(
           scene, buildEffectiveSelection());
       const size_t n = targets.size();
@@ -776,13 +776,13 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       }
     };
 
-    auto applyRotEffective = [&](int axis, const std::vector<float> &vals,
+    auto applyRotEffective = [&](MvrScene &scene, int axis,
+                                 const std::vector<float> &vals,
                                  bool relative,
                                  transform_space::TransformSpace space =
                                      transform_space::TransformSpace::World) {
       if (vals.empty())
         return;
-      auto &scene = cfg.GetScene();
       const auto targets = scene_grouping::BuildInteractiveTransformTargets(
           scene, buildEffectiveSelection());
       const size_t n = targets.size();
@@ -822,12 +822,44 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       }
     };
 
-    auto rotateEffectiveAroundPivot = [&](int axis, float angleDeg,
+    auto rotateEffectiveAroundPivot = [&](MvrScene &scene, int axis,
+                                          float angleDeg,
                                           const std::array<float, 3> &pivotMm,
                                           transform_space::TransformSpace space) {
-      scene_grouping::RotateSelectionAroundPivot(cfg.GetScene(),
+      scene_grouping::RotateSelectionAroundPivot(scene,
                                                  buildEffectiveSelection(), axis,
                                                  angleDeg, pivotMm, space);
+    };
+
+    auto executeTransform = [&](const std::string &undoLabel,
+                                const auto &operation) {
+      MvrScene preview = cfg.GetScene();
+      operation(preview);
+      const auto targets = scene_grouping::BuildInteractiveTransformTargets(
+          cfg.GetScene(), buildEffectiveSelection());
+      bool changed = false;
+      for (const auto &target : targets) {
+        const Matrix before =
+            scene_grouping::GetTargetWorldTransform(cfg.GetScene(), target);
+        const Matrix after =
+            scene_grouping::GetTargetWorldTransform(preview, target);
+        for (const auto &pair : {std::pair{&before.u, &after.u},
+                                 std::pair{&before.v, &after.v},
+                                 std::pair{&before.w, &after.w},
+                                 std::pair{&before.o, &after.o}}) {
+          for (size_t component = 0; component < 3; ++component)
+            changed = changed ||
+                      std::fabs((*pair.first)[component] -
+                                (*pair.second)[component]) > 0.0001f;
+        }
+      }
+      if (!changed) {
+        AppendMessage(_("[INFO] Transform is already at the requested value."));
+        return false;
+      }
+      cfg.PushUndoState(undoLabel);
+      operation(cfg.GetScene());
+      return true;
     };
 
 
@@ -960,6 +992,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         const auto selSupports = cfg.GetSelectedSupports();
         const auto selSceneObjects = cfg.GetSelectedSceneObjects();
         bool validTransform = false;
+        bool appliedTransform = false;
         if (rest.find(',') != std::string::npos) {
           auto parts = split(rest, ',');
           std::vector<gui::console::TransformCommandSegment> segments;
@@ -972,19 +1005,22 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                                 segment.remainder.empty();
                                        });
           validTransform = validTransform && hasEffectiveTargets();
-          if (validTransform)
-            cfg.PushUndoState(std::string("cli ") + lw);
           if (validTransform) {
-            for (size_t idx = 0; idx < segments.size(); ++idx) {
-              const auto &segment = segments[idx];
-              if (isRot) {
-                applyRotEffective((int)idx, segment.values, segment.relative,
-                                  segment.space);
-              } else {
-                applyPosEffective((int)idx, segment.values, segment.relative,
-                                  segment.space);
+            appliedTransform = executeTransform(
+                std::string("cli ") + lw, [&](MvrScene &targetScene) {
+              for (size_t idx = 0; idx < segments.size(); ++idx) {
+                const auto &segment = segments[idx];
+                if (isRot) {
+                  applyRotEffective(targetScene, static_cast<int>(idx),
+                                    segment.values, segment.relative,
+                                    segment.space);
+                } else {
+                  applyPosEffective(targetScene, static_cast<int>(idx),
+                                    segment.values, segment.relative,
+                                    segment.space);
+                }
               }
-            }
+            });
           }
         } else {
           std::stringstream ps(rest);
@@ -1003,24 +1039,35 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           useGroupRotation = segment.group;
           validTransform = validAxis && !segment.values.empty() &&
                            segment.remainder.empty() && hasEffectiveTargets();
-          if (validTransform)
-            cfg.PushUndoState(std::string("cli ") + lw);
           if (validTransform && isRot && useGroupRotation) {
             if (!segment.values.empty()) {
               const auto pivotMm =
                   explicitPivotMm.value_or(computeSelectionBoundsCenterMm().value_or(
                       std::array<float, 3>{0.0f, 0.0f, 0.0f}));
               const float angleDeg = segment.values[0];
-              rotateEffectiveAroundPivot(axis, angleDeg, pivotMm, segment.space);
+              appliedTransform = executeTransform(
+                  std::string("cli ") + lw, [&](MvrScene &targetScene) {
+                    rotateEffectiveAroundPivot(targetScene, axis, angleDeg,
+                                               pivotMm, segment.space);
+                  });
             }
           } else if (validTransform && isRot) {
-            applyRotEffective(axis, segment.values, segment.relative, segment.space);
+            appliedTransform = executeTransform(
+                std::string("cli ") + lw, [&](MvrScene &targetScene) {
+                  applyRotEffective(targetScene, axis, segment.values,
+                                    segment.relative, segment.space);
+                });
           } else if (validTransform) {
-            applyPosEffective(axis, segment.values, segment.relative, segment.space);
+            appliedTransform = executeTransform(
+                std::string("cli ") + lw, [&](MvrScene &targetScene) {
+                  applyPosEffective(targetScene, axis, segment.values,
+                                    segment.relative, segment.space);
+                });
           }
         }
         if (validTransform) {
-          refreshSelectionAfterTransform();
+          if (appliedTransform)
+            refreshSelectionAfterTransform();
         } else {
           AppendMessage(_("[ERROR] Invalid transform: provide a valid axis, finite numeric values, valid modifiers, and a non-empty selection."));
           return;
@@ -1040,10 +1087,13 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         const auto segment = parseSegment(rest);
         if (!segment.values.empty() && segment.remainder.empty() &&
             hasEffectiveTargets()) {
-          cfg.PushUndoState("cli pos");
-          applyPosEffective(axis, segment.values, segment.relative,
-                            segment.space);
-          refreshSelectionAfterTransform();
+          const bool applied = executeTransform(
+              "cli pos", [&](MvrScene &targetScene) {
+                applyPosEffective(targetScene, axis, segment.values,
+                                  segment.relative, segment.space);
+              });
+          if (applied)
+            refreshSelectionAfterTransform();
         } else {
           AppendMessage(_("[ERROR] Invalid transform: provide finite numeric values, valid modifiers, and a non-empty selection."));
           return;
@@ -1066,11 +1116,16 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           AppendMessage(_("[ERROR] Invalid transform triplet: provide three finite numeric components and a non-empty selection."));
           return;
         }
-        cfg.PushUndoState("cli pos");
-        for (size_t idx = 0; idx < segments.size(); ++idx)
-          applyPosEffective(static_cast<int>(idx), segments[idx].values,
-                            segments[idx].relative, segments[idx].space);
-        refreshSelectionAfterTransform();
+        const bool applied = executeTransform(
+            "cli pos", [&](MvrScene &targetScene) {
+              for (size_t idx = 0; idx < segments.size(); ++idx)
+                applyPosEffective(targetScene, static_cast<int>(idx),
+                                  segments[idx].values,
+                                  segments[idx].relative,
+                                  segments[idx].space);
+            });
+        if (applied)
+          refreshSelectionAfterTransform();
       } else if (!lw.empty() && lw[0] == 'f') {
         std::vector<std::string> sub(tokens.begin() + i + 1,
                                      tokens.begin() + j);
