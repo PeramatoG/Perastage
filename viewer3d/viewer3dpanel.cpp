@@ -2663,7 +2663,8 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
         .trusses = m_dragTrussUuids,
         .supports = {},
         .sceneObjects = m_dragSceneObjectUuids};
-    const auto dragTargets = scene_grouping::BuildTransformTargets(cfg.GetScene(), dragSelection);
+    const auto dragTargets = scene_grouping::BuildInteractiveTransformTargets(
+        cfg.GetScene(), dragSelection);
     m_selectionDragAnchorMeters = {0.0f, 0.0f, 0.0f};
     if (!dragTargets.empty()) {
         for (const auto& dragTarget : dragTargets) {
@@ -2705,7 +2706,7 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
         .trusses = m_dragTrussUuids,
         .supports = {},
         .sceneObjects = m_dragSceneObjectUuids};
-    const auto targets = scene_grouping::BuildTransformTargets(
+    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
         ConfigManager::Get().GetScene(), selection);
     if (targets.empty())
         return worldAxis;
@@ -2849,7 +2850,7 @@ std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() 
         scene_grouping::ObjectSelection selection;
         selection.fixtures = m_dragFixtureUuids;
         selection.trusses = m_dragTrussUuids;
-        const auto targets = scene_grouping::BuildTransformTargets(
+        const auto targets = scene_grouping::BuildInteractiveTransformTargets(
             ConfigManager::Get().GetScene(), selection);
         if (targets.size() == 1 &&
             targets.front().type == MvrNodeType::GroupObject)

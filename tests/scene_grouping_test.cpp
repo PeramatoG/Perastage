@@ -141,6 +141,74 @@ int main() {
   assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
                      3100.0f));
 
+  Support groupedSupport;
+  groupedSupport.uuid = "grouped-support";
+  groupedSupport.transform = Translated(5000.0f, 0.0f, 0.0f);
+  groupedDragScene.supports[groupedSupport.uuid] = groupedSupport;
+  scene_grouping::ObjectSelection addSupport;
+  addSupport.supports = {groupedSupport.uuid};
+  const std::string dragGroupUuid =
+      groupedDragScene.trusses[groupedTruss.uuid].parentGroupUuid;
+  assert(scene_grouping::AddSelectionToGroup(groupedDragScene, addSupport,
+                                             dragGroupUuid)
+             .changed);
+  scene_grouping::ObjectSelection supportOnly;
+  supportOnly.supports = {groupedSupport.uuid};
+  const auto supportTargets =
+      scene_grouping::BuildInteractiveTransformTargets(groupedDragScene,
+                                                       supportOnly);
+  assert(supportTargets.size() == 1);
+  assert(supportTargets.front().type == MvrNodeType::Support);
+  scene_grouping::TranslateSelection(groupedDragScene, supportOnly,
+                                     {250.0f, 0.0f, 0.0f});
+  assert(NearlyEqual(groupedDragScene.supports[groupedSupport.uuid]
+                         .transform.o[0],
+                     5250.0f));
+  assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
+                     3100.0f));
+
+  scene_grouping::ObjectSelection trussOnly;
+  trussOnly.trusses = {groupedTruss.uuid};
+  const auto trussTargets =
+      scene_grouping::BuildInteractiveTransformTargets(groupedDragScene,
+                                                       trussOnly);
+  assert(trussTargets.size() == 1);
+  assert(trussTargets.front().type == MvrNodeType::GroupObject);
+  scene_grouping::TranslateSelection(groupedDragScene, trussOnly,
+                                     {100.0f, 0.0f, 0.0f});
+  assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
+                     3200.0f));
+  assert(NearlyEqual(groupedDragScene.supports[groupedSupport.uuid]
+                         .transform.o[0],
+                     5350.0f));
+
+  MvrScene exactScene;
+  GroupObject rotatedParent;
+  rotatedParent.uuid = "rotated-parent";
+  rotatedParent.transform = MatrixUtils::EulerToMatrix(25.0f, 10.0f, 35.0f);
+  rotatedParent.transform.o = {700.0f, -300.0f, 1200.0f};
+  rotatedParent.localTransform = rotatedParent.transform;
+  exactScene.groupObjects[rotatedParent.uuid] = rotatedParent;
+  Fixture exactFixture;
+  exactFixture.uuid = "exact-fixture";
+  exactFixture.parentGroupUuid = rotatedParent.uuid;
+  exactFixture.transform = Translated(900.0f, 100.0f, 1400.0f);
+  exactScene.fixtures[exactFixture.uuid] = exactFixture;
+  exactScene.groupObjects[rotatedParent.uuid].children.push_back(
+      {MvrNodeType::Fixture, exactFixture.uuid});
+  const Matrix requestedExact = Translated(1500.0f, 600.0f, 2100.0f);
+  scene_grouping::SetTargetWorldTransform(
+      exactScene, {MvrNodeType::Fixture, exactFixture.uuid}, requestedExact);
+  const Fixture &editedFixture = exactScene.fixtures[exactFixture.uuid];
+  assert(editedFixture.parentGroupUuid == rotatedParent.uuid);
+  assert(editedFixture.hasLocalTransform);
+  const Matrix rebuiltWorld = MatrixUtils::Multiply(
+      exactScene.groupObjects[rotatedParent.uuid].transform,
+      editedFixture.localTransform);
+  assert(NearlyEqual(rebuiltWorld.o[0], requestedExact.o[0]));
+  assert(NearlyEqual(rebuiltWorld.o[1], requestedExact.o[1]));
+  assert(NearlyEqual(rebuiltWorld.o[2], requestedExact.o[2]));
+
   MvrScene existingGroupScene;
   Fixture addedFixture;
   addedFixture.uuid = "added-fixture";

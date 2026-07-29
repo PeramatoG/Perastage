@@ -31,6 +31,7 @@
 #include "hoist_weight_distribution.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
 #include "riggingpanel.h"
 #include "rigging_extra_weight_settings.h"
 #include "selection_origin_token.h"
@@ -1391,7 +1392,14 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
       changedWeightPositions.insert(NormalizePositionName(old.positionName));
       changedWeightPositions.insert(NormalizePositionName(next.positionName));
     }
+    const Matrix requestedWorldTransform = next.transform;
+    next.transform = old.transform;
     it->second = next;
+    if (transformChanged) {
+      scene_grouping::SetTargetWorldTransform(
+          scene, {MvrNodeType::Support, it->second.uuid},
+          requestedWorldTransform);
+    }
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
   }

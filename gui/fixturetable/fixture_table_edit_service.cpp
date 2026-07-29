@@ -10,6 +10,7 @@
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
 
 #include <algorithm>
 #include <cmath>
@@ -449,7 +450,14 @@ void ApplyFullRowChanges(
       changedWeightPositions->insert(NormalizePositionName(old.positionName));
       changedWeightPositions->insert(NormalizePositionName(next.positionName));
     }
+    const Matrix requestedWorldTransform = next.transform;
+    next.transform = old.transform;
     it->second = next;
+    if (transformChanged) {
+      scene_grouping::SetTargetWorldTransform(
+          scene, {MvrNodeType::Fixture, it->second.uuid},
+          requestedWorldTransform);
+    }
     if (!next.typeName.empty() && !next.category.empty() &&
         next.categorySource == GdtfFixtureCategory::kManualSource) {
       GdtfDictionary::UpdateCategoryForFile(next.typeName, next.gdtfSpec,

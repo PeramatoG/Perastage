@@ -844,7 +844,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           .trusses = cfg.GetSelectedTrusses(),
           .supports = cfg.GetSelectedSupports(),
           .sceneObjects = cfg.GetSelectedSceneObjects()};
-      for (const auto &target : scene_grouping::BuildTransformTargets(scene, selection))
+      for (const auto &target : scene_grouping::BuildInteractiveTransformTargets(scene, selection))
         expandBounds(scene_grouping::GetTargetWorldTransform(scene, target).o);
       if (!hasAny)
         return std::nullopt;
@@ -926,8 +926,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       if (vals.empty())
         return;
       auto &scene = cfg.GetScene();
-      const auto targets = scene_grouping::BuildTransformTargets(scene,
-                                                                 buildEffectiveSelection());
+      const auto targets = scene_grouping::BuildInteractiveTransformTargets(
+          scene, buildEffectiveSelection());
       const size_t n = targets.size();
       if (n == 0)
         return;
@@ -957,8 +957,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       if (vals.empty())
         return;
       auto &scene = cfg.GetScene();
-      const auto targets = scene_grouping::BuildTransformTargets(scene,
-                                                                 buildEffectiveSelection());
+      const auto targets = scene_grouping::BuildInteractiveTransformTargets(
+          scene, buildEffectiveSelection());
       const size_t n = targets.size();
       if (n == 0)
         return;
@@ -1112,7 +1112,6 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           Viewer2DPanel::Instance()->SetSelectedUuids({});
       } else if (lw == "pos" || lw == "rot") {
         bool isRot = (lw == "rot");
-        cfg.PushUndoState(std::string("cli ") + lw);
         std::vector<std::string> segmentTokens;
         for (size_t k = i + 1; k < j; ++k)
           segmentTokens.push_back(tokens[k]);
@@ -1138,10 +1137,24 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         const auto selTrusses = cfg.GetSelectedTrusses();
         const auto selSupports = cfg.GetSelectedSupports();
         const auto selSceneObjects = cfg.GetSelectedSceneObjects();
+        bool validTransform = false;
         if (rest.find(',') != std::string::npos) {
           auto parts = split(rest, ',');
-          for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx) {
-            const auto segment = parseSegment(parts[idx]);
+          std::vector<gui::console::TransformCommandSegment> segments;
+          for (size_t idx = 0; idx < parts.size() && idx < 3; ++idx)
+            segments.push_back(parseSegment(parts[idx]));
+          validTransform = !segments.empty() &&
+                           std::all_of(segments.begin(), segments.end(),
+                                       [](const auto &segment) {
+                                         return !segment.values.empty() &&
+                                                segment.remainder.empty();
+                                       });
+          if (validTransform)
+            cfg.PushUndoState(std::string("cli ") + lw);
+          for (size_t idx = 0; idx < segments.size(); ++idx) {
+            const auto &segment = segments[idx];
+            if (segment.values.empty() || !segment.remainder.empty())
+              continue;
             if (isRot) {
               applyRotEffective((int)idx, segment.values, segment.relative, segment.space);
             } else {
@@ -1167,7 +1180,10 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           valsStr = trim(valsStr);
           const auto segment = parseSegment(valsStr);
           useGroupRotation = segment.group;
-          if (isRot && useGroupRotation) {
+          validTransform = !segment.values.empty() && segment.remainder.empty();
+          if (validTransform)
+            cfg.PushUndoState(std::string("cli ") + lw);
+          if (validTransform && isRot && useGroupRotation) {
             if (!segment.values.empty()) {
               const auto pivotMm =
                   explicitPivotMm.value_or(computeSelectionBoundsCenterMm().value_or(
@@ -1175,15 +1191,18 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
               const float angleDeg = segment.values[0];
               rotateEffectiveAroundPivot(axis, angleDeg, pivotMm, segment.space);
             }
-          } else if (isRot) {
+          } else if (validTransform && isRot) {
             applyRotEffective(axis, segment.values, segment.relative, segment.space);
-          } else {
+          } else if (validTransform) {
             applyPosEffective(axis, segment.values, segment.relative, segment.space);
           }
         }
-        refreshSelectionAfterTransform();
+        if (validTransform) {
+          refreshSelectionAfterTransform();
+        } else {
+          AppendMessage(_("Invalid transform: provide numeric values and valid modifiers."));
+        }
       } else if (lw == "x" || lw == "y" || lw == "z") {
-        cfg.PushUndoState("cli pos");
         std::string rest;
         for (size_t k = i + 1; k < j; ++k) {
           if (k > i + 1)
@@ -1196,8 +1215,15 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         const auto selSceneObjects = cfg.GetSelectedSceneObjects();
         int axis = (lw == "x") ? 0 : (lw == "y" ? 1 : 2);
         const auto segment = parseSegment(rest);
-        applyPosEffective(axis, segment.values, segment.relative, segment.space);
-        refreshSelectionAfterTransform();
+        if (!segment.values.empty() && segment.remainder.empty()) {
+          cfg.PushUndoState("cli pos");
+          applyPosEffective(axis, segment.values, segment.relative,
+                            segment.space);
+          refreshSelectionAfterTransform();
+        } else {
+          AppendMessage(
+              _("Invalid transform: provide numeric values and valid modifiers."));
+        }
       } else if (!lw.empty() && (std::isdigit(lw[0]) || lw[0] == '-' ||
                                  lw[0] == '+') &&
                  word.find(',') != std::string::npos) {

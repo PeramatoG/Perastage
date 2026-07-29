@@ -312,7 +312,7 @@ scene_grouping::SceneTransformTarget SnapTransformTarget(
   if (result.sourceType == ObjectType::Fixture)
     return TargetFor(result.sourceType, result.sourceUuid);
 
-  const auto targets = scene_grouping::BuildTransformTargets(
+  const auto targets = scene_grouping::BuildInteractiveTransformTargets(
       scene, SelectionForSource(result.sourceType, result.sourceUuid));
   if (!targets.empty())
     return targets.front();

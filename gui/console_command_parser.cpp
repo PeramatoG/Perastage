@@ -85,11 +85,18 @@ TransformCommandSegment ParseTransformCommandSegment(const std::string &text) {
   if (remaining.rfind("++", 0) == 0) {
     result.relative = true;
     remaining = Trim(remaining.substr(2));
-  } else if (remaining.rfind("--", 0) == 0 &&
-             (remaining.size() == 2 || std::isspace(static_cast<unsigned char>(remaining[2])))) {
-    result.relative = true;
-    sign = -1.0f;
-    remaining = Trim(remaining.substr(2));
+  } else if (remaining.rfind("--", 0) == 0) {
+    const std::string compactValue = remaining.substr(2);
+    float parsedCompactValue = 0.0f;
+    const size_t tokenEnd = compactValue.find_first_of(" \t\n\r");
+    const std::string firstToken = compactValue.substr(0, tokenEnd);
+    if (remaining.size() == 2 ||
+        std::isspace(static_cast<unsigned char>(remaining[2])) ||
+        TryParseFloat(firstToken, parsedCompactValue)) {
+      result.relative = true;
+      sign = -1.0f;
+      remaining = Trim(remaining.substr(2));
+    }
   }
 
   std::stringstream stream(remaining);

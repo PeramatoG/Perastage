@@ -29,6 +29,7 @@
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
 #include "projectutils.h"
 #include "resource_reference_sync.h"
 #include "riggingpanel.h"
@@ -1164,7 +1165,14 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                 changedWeightPositions.insert(NormalizePositionName(old.positionName));
                 changedWeightPositions.insert(NormalizePositionName(next.positionName));
             }
+            const Matrix requestedWorldTransform = next.transform;
+            next.transform = old.transform;
             it->second = next;
+            if (transformChanged) {
+                scene_grouping::SetTargetWorldTransform(
+                    scene, {MvrNodeType::Truss, it->second.uuid},
+                    requestedWorldTransform);
+            }
             if (!it->second.position.empty())
                 scene.positions[it->second.position] = it->second.positionName;
             changedTrussIds.insert(it->second.uuid);

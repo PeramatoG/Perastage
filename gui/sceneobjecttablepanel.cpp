@@ -26,6 +26,7 @@
 #include "guiconfigservices.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
 #include "primitive_model_resources.h"
 #include "projectutils.h"
 #include "resource_reference_sync.h"
@@ -905,7 +906,14 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges) {
 
         pushUndoIfNeeded();
         anyChanged = true;
+        const Matrix requestedWorldTransform = next.transform;
+        next.transform = old.transform;
         it->second = next;
+        if (transformChanged) {
+            scene_grouping::SetTargetWorldTransform(
+                scene, {MvrNodeType::SceneObject, it->second.uuid},
+                requestedWorldTransform);
+        }
     }
 
     if (!anyChanged)

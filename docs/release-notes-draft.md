@@ -10,6 +10,11 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected grouped scene transforms so interactive truss moves consistently
+  affect their effective groups while fixtures, supports, scene objects, and
+  table edits remain exact; compact negative console offsets such as `--1`
+  are now accepted without creating empty undo operations for invalid input.
+
 - Fixed global shortcuts being suppressed while a read-only combo box has
   focus on macOS.
 

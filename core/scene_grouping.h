@@ -69,9 +69,19 @@ OperationResult RemoveSelectionFromGroup(MvrScene &scene,
 OperationResult UngroupSelection(MvrScene &scene,
                                  const ObjectSelection &selection);
 
-// Builds effective transform roots so grouped objects behave as single units.
+// Builds structural group roots for grouping, ungrouping, and highlighting.
 std::vector<SceneTransformTarget>
 BuildTransformTargets(const MvrScene &scene, const ObjectSelection &selection);
+
+// Builds exact node targets without promoting grouped children.
+std::vector<SceneTransformTarget>
+BuildExactTransformTargets(const MvrScene &scene,
+                           const ObjectSelection &selection);
+
+// Builds interactive targets, promoting only grouped trusses to root groups.
+std::vector<SceneTransformTarget>
+BuildInteractiveTransformTargets(const MvrScene &scene,
+                                 const ObjectSelection &selection);
 
 // Returns the current world transform for one transform target.
 Matrix GetTargetWorldTransform(const MvrScene &scene,
