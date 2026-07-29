@@ -121,7 +121,7 @@ assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh linux
 assert ci_text.count('.github/scripts/install_vcpkg_build_prerequisites.sh macos') == 1
 
 ci = (WORKFLOWS / 'ci-tests.yml').read_text()
-for needle in ['name: CI Debug Tests', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:
+for needle in ['name: CI Debug Tests', 'push:', 'pull_request:', 'workflow_call:', 'CMAKE_BUILD_TYPE=Debug', '-DBUILD_TESTING=ON', 'cancel-in-progress: true', '-host_arch=x64 -arch=x64', 'VCPKG_TARGET_TRIPLET=x64-windows']:
     assert needle in ci, f'ci-tests.yml is missing {needle}'
 assert '-DNDEBUG' in ci and 'must not compile with NDEBUG' in ci
 assert 'Refusing non-MSVC compiler' in ci and all(token in ci.lower() for token in ['mingw', 'msys', 'strawberry']), 'Windows Debug CI must reject MinGW, MSYS, and Strawberry tools'
@@ -131,6 +131,12 @@ sections = {
     'windows': ci[ci.index('  windows-debug:'):ci.index('\n  macos-debug:')],
     'macos': ci[ci.index('  macos-debug:'):],
 }
+assert 'push:\n    branches:\n      - main' in ci, 'CI Debug cache warming must trigger only on pushes to main'
+assert 'cache_warming: ${{ steps.resolve.outputs.cache_warming }}' in ci
+assert ci.count("if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}") == 3
+assert ci.count("if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}") == 3
+scope_resolver = (Path('.github/scripts/resolve_sccache_scope.py')).read_text()
+assert 'Cache-warming run: configure and build all Debug targets; skip CTest execution and test-result uploads.' in scope_resolver
 for platform, text in sections.items():
     for needle in ['Read vcpkg baseline', 'get_vcpkg_baseline.py vcpkg.json', 'Restore vcpkg downloads', 'Restore vcpkg installed packages and binary archives', 'Bootstrap vcpkg', 'vcpkg_install_retry.py', '-DVCPKG_MANIFEST_MODE=OFF', '-DBUILD_TESTING=ON', 'PERASTAGE_ENABLE_COMPILER_CACHE=ON', 'write_cmake_compiler_cache_init.py']:
         assert needle in text, f'{platform} Debug is missing {needle}'
@@ -138,10 +144,14 @@ for platform, text in sections.items():
     assert 'VCPKG_DOWNLOADS' in text and 'VCPKG_INSTALLED' in text and 'VCPKG_PACKAGES' in text and 'VCPKG_BINARY_CACHE' in text, f'{platform} must prepare all vcpkg directories'
     assert 'vcpkg-compiled-v3-' in text, f'{platform} installed cache key must use the shared v3 compiled schema'
     assert ('run_and_log.py --log' in text or '--output-log' in text) and 'ctest-' in text, f'{platform} build and test logs must be captured'
+    assert '--target all --verbose' in text, f'{platform} Debug must build the complete target set'
 
 linux = sections['linux']
 for needle in ['-DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"', '-DVCPKG_TARGET_TRIPLET=x64-linux', '-DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', 'compile_commands.json was not generated', 'es_ES.UTF-8', 'zh_CN.UTF-8', 'xdpyinfo', 'xvfb-run -a', '--output-junit', '--verbose', 'ctest-inventory-linux-debug.txt', 'ctest-linux-debug-results.json', 'ci-linux-debug-test-results']:
     assert needle in linux, f'Linux Debug is missing {needle}'
+policy_step = linux[linux.index('      - name: Run repository policy tests'):linux.index('      - name: Upload Linux test results')]
+assert 'export PERASTAGE_TEST_PYTHON="$(command -v python3)"' in policy_step
+assert policy_step.index('export PERASTAGE_TEST_PYTHON=') < policy_step.index('bash tests/check_ci_cmake_language_policy.sh')
 assert 'summarize_ctest_results.py' in ci, 'CI Debug must produce compact result summaries'
 assert 'LastTestsDisabled.log' in ci, 'CI Debug test-result artifacts must retain disabled-test diagnostics when present'
 assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'

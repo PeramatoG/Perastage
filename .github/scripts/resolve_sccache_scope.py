@@ -14,21 +14,27 @@ def select_scope(event: str, github_ref: str, source_sha: str, trusted_main_sha:
             "sccache_backend": "GitHub Actions Cache",
             "sccache_cache_scope": "gha-pr-merge-ref",
             "sccache_scope_reason": "GitHub isolates writes to the pull request merge ref",
+            "cache_warming": "false",
         }
     trusted_request = requested_ref in {"", "main", "refs/heads/main"}
-    if (event == "workflow_dispatch" and github_ref == "refs/heads/main" and trusted_request
-            and source_sha == trusted_main_sha):
+    trusted_push = event == "push" and github_ref == "refs/heads/main" and requested_ref == ""
+    trusted_dispatch = event == "workflow_dispatch" and github_ref == "refs/heads/main" and trusted_request
+    if (trusted_push or trusted_dispatch) and source_sha == trusted_main_sha:
+        reason = ("push resolved exactly to the current main commit" if trusted_push
+                  else "manual run resolved exactly to the current main commit")
         return {
             "sccache_gha_enabled": "on",
             "sccache_backend": "GitHub Actions Cache",
             "sccache_cache_scope": "gha-main",
-            "sccache_scope_reason": "manual run resolved exactly to the current main commit",
+            "sccache_scope_reason": reason,
+            "cache_warming": "true" if trusted_push else "false",
         }
     return {
         "sccache_gha_enabled": "off",
         "sccache_backend": "Local disk",
         "sccache_cache_scope": "disk-ephemeral",
         "sccache_scope_reason": "event or source cannot safely use a persistent GHA cache scope",
+        "cache_warming": "false",
     }
 
 
@@ -52,6 +58,10 @@ def main() -> int:
             summary.write(f"sccache backend: {values['sccache_backend']}\n\n")
             summary.write(f"sccache cache scope: {values['sccache_cache_scope']}\n\n")
             summary.write(f"sccache scope reason: {values['sccache_scope_reason']}\n")
+            if values["cache_warming"] == "true":
+                summary.write("\nCache-warming run: configure and build all Debug targets; skip CTest execution and test-result uploads.\n")
+            else:
+                summary.write("\nNormal test run: configure, build all Debug targets, and execute CTest.\n")
     for name, value in values.items():
         print(f"{name}={value}")
     return 0
