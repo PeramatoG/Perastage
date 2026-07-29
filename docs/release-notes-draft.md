@@ -43,6 +43,9 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Updated the internal Viewer2D framebuffer diagnostics verification to track
+  cached capture-target failure reasons accurately after cache acquisition.
+
 - Strengthened internal 3DS loader dimension verification with complete bounds
   validation, actionable failure diagnostics, and reliable temporary-fixture
   cleanup.
