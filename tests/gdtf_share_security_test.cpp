@@ -1,14 +1,134 @@
 #include "credentialstore.h"
+#include "configmanager.h"
 #include "gdtfnet.h"
 #include "gdtf_share_workflow.h"
 #include "json.hpp"
 #include "simplecrypt.h"
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <vector>
+
+namespace {
+
+class ScopedTestDirectory {
+public:
+    // Creates a unique temporary directory owned by this test scope.
+    explicit ScopedTestDirectory(const std::string& prefix) {
+        namespace fs = std::filesystem;
+        std::error_code error;
+        const auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        for (unsigned int attempt = 0; attempt < 100; ++attempt) {
+            path_ = fs::temp_directory_path(error) /
+                    (prefix + "_" + std::to_string(seed) + "_" + std::to_string(attempt));
+            if (error) break;
+            if (fs::create_directory(path_, error)) return;
+            if (error != std::errc::file_exists) break;
+            error.clear();
+        }
+        error_ = "Unable to create temporary directory '" + path_.string() + "': " + error.message();
+    }
+
+    // Removes the owned directory without throwing during scope unwinding.
+    ~ScopedTestDirectory() {
+        if (!cleaned_ && !Cleanup()) std::cerr << error_ << '\n';
+    }
+
+    ScopedTestDirectory(const ScopedTestDirectory&) = delete;
+    ScopedTestDirectory& operator=(const ScopedTestDirectory&) = delete;
+
+    // Returns the unique directory path created for the test.
+    const std::filesystem::path& Path() const { return path_; }
+
+    // Reports whether temporary-directory setup completed successfully.
+    bool IsValid() const { return error_.empty(); }
+
+    // Returns the most recent setup or cleanup diagnostic.
+    const std::string& Error() const { return error_; }
+
+    // Removes the directory tree and records an actionable failure diagnostic.
+    bool Cleanup() {
+        std::error_code error;
+        std::filesystem::remove_all(path_, error);
+        cleaned_ = !error;
+        if (error) {
+            error_ = "Unable to remove temporary directory '" + path_.string() + "': " + error.message();
+        }
+        return cleaned_;
+    }
+
+private:
+    std::filesystem::path path_;
+    std::string error_;
+    bool cleaned_ = false;
+};
+
+class ScopedCredentialStoreOverrides {
+public:
+    // Restores credential-store overrides and lightweight configuration values.
+    ~ScopedCredentialStoreOverrides() { Reset(); }
+
+    // Restores all test process state changed by credential-store scenarios.
+    void Reset() {
+        if (reset_) return;
+        CredentialStore::SetCredentialBackendForTesting(nullptr);
+        CredentialStore::SetCredentialMetadataPathForTesting("");
+        ConfigManager::Get().ClearValues();
+        reset_ = true;
+    }
+
+private:
+    bool reset_ = false;
+};
+
+// Writes complete test content while keeping the output stream in a narrow scope.
+bool WriteTextFile(const std::filesystem::path& path, const std::string& content) {
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output.is_open()) {
+        std::cerr << "Unable to open test file for writing: " << path << '\n';
+        return false;
+    }
+    output << content;
+    output.close();
+    if (!output) std::cerr << "Unable to complete test file write: " << path << '\n';
+    return output.good();
+}
+
+// Reads complete test content while keeping the input stream in a narrow scope.
+bool ReadTextFile(const std::filesystem::path& path, std::string& content) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        std::cerr << "Unable to open test file for reading: " << path << '\n';
+        return false;
+    }
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    if (input.bad()) {
+        std::cerr << "Unable to complete test file read: " << path << '\n';
+        return false;
+    }
+    content = buffer.str();
+    return true;
+}
+
+// Reports and asserts temporary-directory setup failures at their call site.
+void RequireValidDirectory(const ScopedTestDirectory& directory) {
+    if (!directory.IsValid()) std::cerr << directory.Error() << '\n';
+    assert(directory.IsValid());
+}
+
+// Reports and asserts temporary-directory cleanup failures at their call site.
+void RequireDirectoryCleanup(ScopedTestDirectory& directory) {
+    const bool cleaned = directory.Cleanup();
+    if (!cleaned) std::cerr << directory.Error() << '\n';
+    assert(cleaned);
+}
+
+} // namespace
 
 // Returns true when any JSON string value equals the provided sentinel.
 bool ContainsJsonStringValue(const nlohmann::json& value, const std::string& sentinel) {
@@ -81,25 +201,29 @@ void TestResponseMapping() {
 // Verifies session cookie path ownership and move semantics.
 void TestCookieOwnership() {
     namespace fs = std::filesystem;
+    ScopedTestDirectory directory("perastage_cookie_security_test");
+    RequireValidDirectory(directory);
     fs::path ownedPath;
     {
         GdtfShareClient client;
         ownedPath = client.CookiePathForTesting();
         assert(client.OwnsCookieForTesting());
-        { std::ofstream out(ownedPath); out << "cookie"; }
+        assert(WriteTextFile(ownedPath, "cookie"));
         assert(fs::exists(ownedPath));
     }
     assert(!fs::exists(ownedPath));
 
-    const fs::path externalPath = fs::temp_directory_path() / "perastage_external_cookie_test.txt";
-    { std::ofstream out(externalPath); out << "cookie"; }
+    const fs::path externalPath = directory.Path() / "external_cookie.txt";
+    assert(WriteTextFile(externalPath, "cookie"));
     {
         GdtfShareClient client(externalPath.string());
         assert(!client.OwnsCookieForTesting());
         assert(client.CookiePathForTesting() == externalPath);
     }
     assert(fs::exists(externalPath));
-    fs::remove(externalPath);
+    std::error_code removeError;
+    assert(fs::remove(externalPath, removeError));
+    assert(!removeError);
 
     GdtfShareClient first;
     GdtfShareClient second;
@@ -109,12 +233,13 @@ void TestCookieOwnership() {
     {
         GdtfShareClient source;
         movedPath = source.CookiePathForTesting();
-        { std::ofstream out(movedPath); out << "cookie"; }
+        assert(WriteTextFile(movedPath, "cookie"));
         GdtfShareClient moved(std::move(source));
         assert(moved.OwnsCookieForTesting());
         assert(moved.CookiePathForTesting() == movedPath);
     }
     assert(!fs::exists(movedPath));
+    RequireDirectoryCleanup(directory);
 }
 
 // Verifies strict legacy decoding rejects malformed migration inputs.
@@ -156,8 +281,10 @@ void TestWorkflowPromptDecisions() {
 // Verifies credential storage orchestration and metadata omit passwords.
 void TestCredentialStorage() {
     namespace fs = std::filesystem;
-    const fs::path dir = fs::temp_directory_path() / "perastage_credential_test";
-    fs::remove_all(dir); fs::create_directories(dir);
+    ScopedTestDirectory directory("perastage_credential_security_test");
+    RequireValidDirectory(directory);
+    ScopedCredentialStoreOverrides overrides;
+    const fs::path dir = directory.Path();
     CredentialStore::SetCredentialMetadataPathForTesting((dir / "gdtf_credentials.json").string());
     auto backend = std::make_shared<FakeBackend>();
     CredentialStore::SetCredentialBackendForTesting(backend);
@@ -177,7 +304,9 @@ void TestCredentialStorage() {
     backend->stored = cred;
     {
         std::ifstream in(dir / "gdtf_credentials.json");
+        assert(in.is_open());
         const auto metadata = nlohmann::json::parse(in);
+        assert(!in.bad());
         assert(metadata.is_object());
         assert(metadata.size() == 4);
         assert(metadata.at("schema_version") == CredentialStore::kGdtfCredentialMetadataSchemaVersion);
@@ -205,40 +334,40 @@ void TestCredentialStorage() {
     auto hintOnly = CredentialStore::LoadDetailed();
     assert(!hintOnly.credentials);
     assert(hintOnly.usernameHint && *hintOnly.usernameHint == username);
-    CredentialStore::SetCredentialBackendForTesting(nullptr);
-    CredentialStore::SetCredentialMetadataPathForTesting("");
-    fs::remove_all(dir);
+    overrides.Reset();
+    RequireDirectoryCleanup(directory);
 }
 
 // Verifies legacy JSON migration saves first, verifies, then removes the password field.
 void TestLegacyMigration() {
-    namespace fs = std::filesystem;
-    const fs::path dir = fs::temp_directory_path() / "perastage_migration_test";
-    fs::remove_all(dir); fs::create_directories(dir);
-    const fs::path file = dir / "gdtf_credentials.json";
+    ScopedTestDirectory directory("perastage_credential_migration_test");
+    RequireValidDirectory(directory);
+    ScopedCredentialStoreOverrides overrides;
+    const std::filesystem::path file = directory.Path() / "gdtf_credentials.json";
     CredentialStore::SetCredentialMetadataPathForTesting(file.string());
-    { std::ofstream out(file); out << nlohmann::json{{"username","legacy"},{"password",SimpleCrypt::Encode("legacy-secret")}}.dump(4); }
+    assert(WriteTextFile(file, nlohmann::json{{"username","legacy"},{"password",SimpleCrypt::Encode("legacy-secret")}}.dump(4)));
     auto backend = std::make_shared<FakeBackend>();
     CredentialStore::SetCredentialBackendForTesting(backend);
     auto loaded = CredentialStore::LoadDetailed();
     assert(loaded.credentials && loaded.credentials->password == "legacy-secret");
     assert(loaded.migrationSucceeded);
-    std::ifstream in(file); std::string meta((std::istreambuf_iterator<char>(in)), {});
+    std::string meta;
+    assert(ReadTextFile(file, meta));
     assert(meta.find("password") == std::string::npos);
     backend->stored.reset(); backend->failSave = true;
-    { std::ofstream out(file); out << nlohmann::json{{"username","keep"},{"password",SimpleCrypt::Encode("keep-secret")}}.dump(4); }
+    assert(WriteTextFile(file, nlohmann::json{{"username","keep"},{"password",SimpleCrypt::Encode("keep-secret")}}.dump(4)));
     auto failed = CredentialStore::LoadDetailed();
     assert(!failed.credentials);
-    std::ifstream retained(file); std::string retainedMeta((std::istreambuf_iterator<char>(retained)), {});
+    std::string retainedMeta;
+    assert(ReadTextFile(file, retainedMeta));
     assert(retainedMeta.find("password") != std::string::npos);
     backend->failSave = false;
-    { std::ofstream out(file); out << nlohmann::json{{"username","bad"},{"password","not-hex"}}.dump(4); }
+    assert(WriteTextFile(file, nlohmann::json{{"username","bad"},{"password","not-hex"}}.dump(4)));
     auto invalid = CredentialStore::LoadDetailed();
     assert(!invalid.credentials);
     assert(invalid.status == CredentialStore::Status::LegacyDataInvalid);
-    CredentialStore::SetCredentialBackendForTesting(nullptr);
-    CredentialStore::SetCredentialMetadataPathForTesting("");
-    fs::remove_all(dir);
+    overrides.Reset();
+    RequireDirectoryCleanup(directory);
 }
 
 // Verifies diagnostic redaction helpers do not expose secrets accidentally.

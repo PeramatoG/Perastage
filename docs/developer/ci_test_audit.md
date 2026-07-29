@@ -1938,3 +1938,45 @@ leak; the remaining failures were `Viewer2DFboCaptureDiagnostics` and
 `Viewer2DFboCaptureDiagnostics`.
 
 PR #2243 therefore reached its safe merge gate.
+
+### PR #2244 and PR #2245 final exact-head evidence
+
+PR #2244 was verified by authoritative run `30446399855` at reviewed head
+`53bd521ca8dc5f8fb8f4b36f827d84f5273e8439`.
+`Viewer2DFboCaptureDiagnostics` passed on Linux, Windows, and macOS. Linux's
+complete CTest suite passed, but the separate repository-policy step failed
+because `PERASTAGE_TEST_PYTHON` was not exported. Windows retained only
+`GdtfShareSecurity`, and macOS was fully green.
+
+PR #2245 was verified by authoritative run `30449405612` at reviewed head
+`6669a6491bffc0ed605c3d508e3cd046c782f6ec`. The Linux repository-policy
+invocation was repaired and passed. Every platform ran the complete unfiltered
+Debug suite with `selected_labels = []` and `disabled_not_run = 0`. Linux
+reported 165 passed, 0 failed, and 1 justified skip of 166; macOS reported 166
+passed and 0 failed of 166. Windows reported 167 passed and 1 failed of 168,
+retaining only `GdtfShareSecurity`. Linux's skipped
+`CredentialStoreNativeRoundTrip` remained justified because the runner had no
+native secure credential store.
+
+### GdtfShareSecurity Windows lifecycle classification and repair
+
+The remaining Windows failure is classified as a test-owned filesystem
+lifecycle defect. Both input streams in the legacy-migration scenario remained
+open while the test rewrote their file and ultimately called the throwing
+`std::filesystem::remove_all` overload. Windows correctly prevented removal of
+the open file, producing the observed uncaught `filesystem_error` after every
+credential operation had already succeeded. This did not demonstrate a
+production credential-store defect.
+
+The focused repair gives cookie, credential-storage, and migration scenarios
+unique scope-owned temporary directories with non-throwing, diagnosed cleanup.
+All test files are checked when opened, completed reads and writes are checked,
+and streams close before a dependent rewrite or removal. A scope guard restores
+the credential backend, metadata path, and lightweight ConfigManager values on
+every normal return path; successful paths also reset overrides and verify
+cleanup explicitly. Security, redaction, unavailable-store, metadata, successful
+migration, and retained-password-on-failed-migration assertions remain intact.
+No production source, test registration, label, selection, skip, timeout, or
+workflow failure semantic changed. Exact-head cross-platform CI verification of
+the repaired Windows normal exit, clean CRT result, removed temporary artifacts,
+and final platform totals remains pending external review.

@@ -43,6 +43,9 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Stabilized the internal GDTF Share security verification by making temporary
+  credential fixtures uniquely owned and reliably cleaned up across platforms.
+
 - Updated the internal Viewer2D framebuffer diagnostics verification to track
   cached capture-target failure reasons accurately after cache acquisition.
 
