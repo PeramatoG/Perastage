@@ -1,6 +1,9 @@
 name: CI Debug Tests
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -52,6 +55,7 @@ jobs:
       sccache_backend: ${{ steps.resolve.outputs.sccache_backend }}
       sccache_cache_scope: ${{ steps.resolve.outputs.sccache_cache_scope }}
       sccache_scope_reason: ${{ steps.resolve.outputs.sccache_scope_reason }}
+      cache_warming: ${{ steps.resolve.outputs.cache_warming }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -237,6 +241,7 @@ jobs:
           set -euo pipefail
           xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'echo "DISPLAY=$DISPLAY" > "$CI_LOG_DIR/xvfb-linux-debug.txt"; test -n "$DISPLAY"; xdpyinfo >> "$CI_LOG_DIR/xvfb-linux-debug.txt"'
       - name: Run complete CTest suite
+        if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}
         run: |
           set +e
           LC_ALL=C.UTF-8 LANG=C.UTF-8 xvfb-run -a -s "-screen 0 1920x1080x24" ctest --test-dir build/linux-debug --output-log "$CI_LOG_DIR/ctest-linux-debug.log" --output-junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --output-on-failure --verbose
@@ -250,7 +255,7 @@ jobs:
           bash tests/check_no_configmanager_get_in_gui.sh
           bash tests/check_ci_cmake_language_policy.sh
       - name: Upload Linux test results
-        if: ${{ always() }}
+        if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: ci-linux-debug-test-results
@@ -542,6 +547,7 @@ jobs:
           & $env:PERASTAGE_SCCACHE_EXECUTABLE --show-stats --stats-format json | Out-File "$env:CI_LOG_DIR\sccache-windows-debug.json" -Encoding utf8
           & $env:PERASTAGE_PYTHON .github/scripts/write_sccache_summary.py --stats-json "$env:CI_LOG_DIR\sccache-windows-debug.json" --compile-commands build-windows-debug\compile_commands.json --platform windows-debug --architecture "${{ runner.arch }}" --backend $env:SCCACHE_BACKEND --cache-scope $env:SCCACHE_CACHE_SCOPE --scope-reason $env:SCCACHE_SCOPE_REASON --namespace $env:SCCACHE_NAMESPACE --compiler-identity $env:SCCACHE_COMPILER_IDENTITY --base-directory $env:SCCACHE_BASEDIRS --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Run Windows CTest suite
+        if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}
         shell: pwsh
         run: |
           & ctest --test-dir build-windows-debug --output-log "$env:CI_LOG_DIR\ctest-windows-debug.log" --output-junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --output-on-failure --verbose --interactive-debug-mode 0 --timeout 120
@@ -550,7 +556,7 @@ jobs:
           & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_results.py --platform windows --junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --output "$env:CI_LOG_DIR\ctest-windows-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$env:PERASTAGE_CI_PROFILE"
           exit $ctestExit
       - name: Upload Windows test results
-        if: ${{ always() }}
+        if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: ci-windows-debug-test-results
@@ -751,6 +757,7 @@ jobs:
           "$SCCACHE_PATH" --show-stats --stats-format json > "$CI_LOG_DIR/sccache-macos-debug.json"
           python3 .github/scripts/write_sccache_summary.py --stats-json "$CI_LOG_DIR/sccache-macos-debug.json" --compile-commands build/macos-debug/compile_commands.json --platform macos-debug --architecture "${{ runner.arch }}" --backend "$SCCACHE_BACKEND" --cache-scope "$SCCACHE_CACHE_SCOPE" --scope-reason "$SCCACHE_SCOPE_REASON" --namespace "$SCCACHE_NAMESPACE" --compiler-identity "$SCCACHE_COMPILER_IDENTITY" --base-directory "$SCCACHE_BASEDIRS" --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Run complete macOS CTest suite
+        if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}
         run: |
           set +e
           ctest --test-dir build/macos-debug --output-log "$CI_LOG_DIR/ctest-macos-debug.log" --output-junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output-on-failure --verbose
@@ -759,7 +766,7 @@ jobs:
           python3 .github/scripts/summarize_ctest_results.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output "$CI_LOG_DIR/ctest-macos-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE"
           exit $ctest_exit
       - name: Upload macOS test results
-        if: ${{ always() }}
+        if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: ci-macos-debug-test-results

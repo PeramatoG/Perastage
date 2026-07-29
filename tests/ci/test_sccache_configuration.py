@@ -28,15 +28,30 @@ class ScopeTests(unittest.TestCase):
     def test_pull_request_uses_merge_ref_scope(self) -> None:
         values = SCOPE.select_scope("pull_request", "refs/pull/2220/merge", "pr", "main", "")
         self.assertEqual((values["sccache_gha_enabled"], values["sccache_cache_scope"]), ("on", "gha-pr-merge-ref"))
+        self.assertEqual(values["cache_warming"], "false")
+
+    def test_trusted_current_main_push_uses_gha_and_warms_cache(self) -> None:
+        values = SCOPE.select_scope("push", "refs/heads/main", "same", "same", "")
+        self.assertEqual((values["sccache_gha_enabled"], values["sccache_cache_scope"]), ("on", "gha-main"))
+        self.assertEqual(values["cache_warming"], "true")
+
+    def test_stale_or_non_main_push_uses_ephemeral_disk(self) -> None:
+        for ref, source_sha in (("refs/heads/main", "stale"), ("refs/heads/topic", "same")):
+            values = SCOPE.select_scope("push", ref, source_sha, "same", "")
+            self.assertEqual((values["sccache_gha_enabled"], values["sccache_cache_scope"]),
+                             ("off", "disk-ephemeral"))
+            self.assertEqual(values["cache_warming"], "false")
 
     def test_trusted_current_main_dispatch_uses_gha(self) -> None:
         values = SCOPE.select_scope("workflow_dispatch", "refs/heads/main", "same", "same", "main")
         self.assertEqual((values["sccache_gha_enabled"], values["sccache_cache_scope"]), ("on", "gha-main"))
 
     def test_arbitrary_manual_and_workflow_call_use_ephemeral_disk(self) -> None:
-        for event, ref, requested in (("workflow_dispatch", "refs/heads/main", "topic"),
-                                      ("workflow_call", "refs/heads/main", "")):
-            values = SCOPE.select_scope(event, ref, "same", "same", requested)
+        for event, ref, requested, source_sha in (("workflow_dispatch", "refs/heads/main", "topic", "same"),
+                                                  ("workflow_dispatch", "refs/heads/main", "", "arbitrary"),
+                                                  ("workflow_dispatch", "refs/heads/topic", "", "same"),
+                                                  ("workflow_call", "refs/heads/main", "", "same")):
+            values = SCOPE.select_scope(event, ref, source_sha, "same", requested)
             self.assertEqual((values["sccache_gha_enabled"], values["sccache_cache_scope"]), ("off", "disk-ephemeral"))
 
 
