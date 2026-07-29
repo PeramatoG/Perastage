@@ -48,6 +48,12 @@ struct OperationResult {
   std::vector<std::string> affectedSceneObjects;
 };
 
+struct SelectionFeedback {
+  std::vector<std::string> selectedUuids;
+  std::vector<SceneTransformTarget> effectiveTargets;
+  std::vector<std::string> highlightedUuids;
+};
+
 // Synchronizes GroupObject children to the layer owned by their parent group.
 std::size_t SynchronizeGroupObjectLayerOwnership(MvrScene &scene);
 
@@ -82,6 +88,10 @@ BuildExactTransformTargets(const MvrScene &scene,
 std::vector<SceneTransformTarget>
 BuildInteractiveTransformTargets(const MvrScene &scene,
                                  const ObjectSelection &selection);
+
+// Builds selection-preserving feedback for interactive transform scope.
+SelectionFeedback BuildInteractiveSelectionFeedback(
+    const MvrScene &scene, const ObjectSelection &selection);
 
 // Returns the current world transform for one transform target.
 Matrix GetTargetWorldTransform(const MvrScene &scene,

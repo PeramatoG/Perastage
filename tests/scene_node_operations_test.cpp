@@ -87,17 +87,38 @@ int main() {
 
   const Matrix fixtureWorld = scene.fixtures["fixture"].transform;
   const Matrix fixtureLocal = scene.fixtures["fixture"].localTransform;
+  Support motorLink;
+  motorLink.uuid = "motor-link";
+  motorLink.motorFixtureUuid = "fixture";
+  scene.supports[motorLink.uuid] = motorLink;
   const auto conversion =
       scene_node_operations::ConvertFixtureToSupport(scene, "fixture");
   assert(conversion.changed && conversion.uuid == "fixture");
   assert(!scene.fixtures.contains("fixture"));
   assert(scene.supports.contains("fixture"));
   assert(scene.supports["fixture"].motorFixtureUuid.empty());
+  assert(scene.supports["motor-link"].motorFixtureUuid.empty());
+  assert(conversion.clearedMotorFixtureReferences ==
+         std::vector<std::string>{"motor-link"});
   assert(scene.supports["fixture"].parentGroupUuid == "group");
   assert(MatrixEqual(scene.supports["fixture"].transform, fixtureWorld));
   assert(MatrixEqual(scene.supports["fixture"].localTransform, fixtureLocal));
   assert(scene.groupObjects["group"].children.front().type ==
          MvrNodeType::Support);
+
+  MvrScene collisionScene;
+  Fixture collisionFixture;
+  collisionFixture.uuid = "collision";
+  collisionScene.fixtures[collisionFixture.uuid] = collisionFixture;
+  Support collisionSupport;
+  collisionSupport.uuid = collisionFixture.uuid;
+  collisionScene.supports[collisionSupport.uuid] = collisionSupport;
+  const auto failedConversion =
+      scene_node_operations::ConvertFixtureToSupport(collisionScene,
+                                                     collisionFixture.uuid);
+  assert(!failedConversion.changed);
+  assert(collisionScene.fixtures.contains(collisionFixture.uuid));
+  assert(collisionScene.supports.contains(collisionSupport.uuid));
 
   auto removal = scene_node_operations::RemoveNodes(
       scene, {{MvrNodeType::Support, "fixture"},
@@ -113,6 +134,17 @@ int main() {
   assert(!scene.trusses.contains("truss"));
   assert(!scene.groupObjects.contains("group"));
   assert(removal.removedEmptyGroups.size() == 1);
+
+  MvrScene unrelatedEmptyScene = GroupedScene();
+  GroupObject unrelatedEmpty;
+  unrelatedEmpty.uuid = "unrelated-empty";
+  unrelatedEmptyScene.groupObjects[unrelatedEmpty.uuid] = unrelatedEmpty;
+  removal = scene_node_operations::RemoveNodes(
+      unrelatedEmptyScene, {{MvrNodeType::Fixture, "fixture"},
+                            {MvrNodeType::Truss, "truss"}});
+  assert(removal.changed);
+  assert(unrelatedEmptyScene.groupObjects.contains("unrelated-empty"));
+  assert(!unrelatedEmptyScene.groupObjects.contains("group"));
 
   MvrScene linkedFixtureScene;
   Fixture linkedFixture;

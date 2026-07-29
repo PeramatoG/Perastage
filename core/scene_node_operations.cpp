@@ -65,26 +65,38 @@ void CollectGroupSubtree(const MvrScene &scene, const std::string &groupUuid,
   out.push_back({MvrNodeType::GroupObject, groupUuid});
 }
 
-// Prunes empty groups until every remaining group owns at least one child.
-void PruneEmptyGroups(MvrScene &scene, RemovalResult &result) {
-  bool removed = true;
-  while (removed) {
-    removed = false;
-    std::vector<std::string> empty;
-    for (const auto &[uuid, group] : scene.groupObjects) {
-      if (group.children.empty())
-        empty.push_back(uuid);
-    }
-    std::sort(empty.begin(), empty.end());
-    for (const auto &uuid : empty) {
-      if (!scene.groupObjects.contains(uuid))
-        continue;
-      RemoveChildReferences(scene, MvrNodeType::GroupObject, uuid);
-      scene.groupObjects.erase(uuid);
-      result.removedEmptyGroups.push_back(uuid);
-      result.changed = true;
-      removed = true;
-    }
+// Returns the direct parent GroupObject UUID for a typed node.
+std::string ParentGroupUuid(const MvrScene &scene, MvrNodeType type,
+                            const std::string &uuid) {
+  switch (type) {
+  case MvrNodeType::Fixture: return scene.fixtures.at(uuid).parentGroupUuid;
+  case MvrNodeType::Truss: return scene.trusses.at(uuid).parentGroupUuid;
+  case MvrNodeType::Support: return scene.supports.at(uuid).parentGroupUuid;
+  case MvrNodeType::SceneObject:
+    return scene.sceneObjects.at(uuid).parentGroupUuid;
+  case MvrNodeType::GroupObject:
+    return scene.groupObjects.at(uuid).parentGroupUuid;
+  }
+  return {};
+}
+
+// Prunes only affected empty groups and newly empty ancestors.
+void PruneAffectedEmptyGroups(MvrScene &scene,
+                              std::set<std::string> affectedGroups,
+                              RemovalResult &result) {
+  while (!affectedGroups.empty()) {
+    const std::string uuid = *affectedGroups.begin();
+    affectedGroups.erase(affectedGroups.begin());
+    const auto groupIt = scene.groupObjects.find(uuid);
+    if (groupIt == scene.groupObjects.end() || !groupIt->second.children.empty())
+      continue;
+    const std::string parentUuid = groupIt->second.parentGroupUuid;
+    RemoveChildReferences(scene, MvrNodeType::GroupObject, uuid);
+    scene.groupObjects.erase(groupIt);
+    result.removedEmptyGroups.push_back(uuid);
+    result.changed = true;
+    if (!parentUuid.empty())
+      affectedGroups.insert(parentUuid);
   }
 }
 
@@ -131,6 +143,15 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
   support.hasLocalTransform = fixture.hasLocalTransform;
   support.parentGroupUuid = fixture.parentGroupUuid;
 
+  std::vector<std::string> clearedReferences;
+  for (auto &[supportUuid, existingSupport] : scene.supports) {
+    if (existingSupport.motorFixtureUuid == fixtureUuid) {
+      existingSupport.motorFixtureUuid.clear();
+      clearedReferences.push_back(supportUuid);
+    }
+  }
+  std::sort(clearedReferences.begin(), clearedReferences.end());
+
   for (auto &[groupUuid, group] : scene.groupObjects) {
     for (auto &child : group.children) {
       if (child.type == MvrNodeType::Fixture && child.uuid == fixtureUuid)
@@ -139,7 +160,9 @@ ConversionResult ConvertFixtureToSupport(MvrScene &scene,
   }
   scene.supports.emplace(fixtureUuid, std::move(support));
   scene.fixtures.erase(fixtureIt);
-  return {.changed = true, .uuid = fixtureUuid};
+  return {.changed = true,
+          .uuid = fixtureUuid,
+          .clearedMotorFixtureReferences = std::move(clearedReferences)};
 }
 
 // Removes typed nodes and recursively prunes empty ancestor groups.
@@ -160,9 +183,16 @@ RemovalResult RemoveNodes(
   }
 
   std::set<std::pair<MvrNodeType, std::string>> removed;
+  std::set<std::string> affectedGroups;
   for (const auto &target : expanded) {
     if (!removed.insert({target.type, target.uuid}).second)
       continue;
+    if (NodeExists(scene, target.type, target.uuid)) {
+      const std::string parentUuid =
+          ParentGroupUuid(scene, target.type, target.uuid);
+      if (!parentUuid.empty())
+        affectedGroups.insert(parentUuid);
+    }
     if (EraseNode(scene, target.type, target.uuid)) {
       result.changed = true;
       result.removedNodes.push_back(target);
@@ -170,7 +200,7 @@ RemovalResult RemoveNodes(
       result.diagnostics.push_back("node not found: " + target.uuid);
     }
   }
-  PruneEmptyGroups(scene, result);
+  PruneAffectedEmptyGroups(scene, std::move(affectedGroups), result);
   return result;
 }
 

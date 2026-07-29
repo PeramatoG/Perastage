@@ -904,11 +904,21 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  cfg.PushUndoState("convert fixtures to hoists");
   auto &scene = cfg.GetScene();
+  std::vector<std::string> convertible;
+  for (const auto &uuid : selected) {
+    if (scene.fixtures.contains(uuid) && !scene.supports.contains(uuid))
+      convertible.push_back(uuid);
+  }
+  if (convertible.empty()) {
+    wxMessageBox("The selected fixtures cannot be converted.",
+                 "Convert to Hoist", wxOK | wxICON_INFORMATION);
+    return;
+  }
+  cfg.PushUndoState("convert fixtures to hoists");
 
   std::vector<std::string> newIds;
-  for (const auto &uuid : selected) {
+  for (const auto &uuid : convertible) {
     const auto result =
         scene_node_operations::ConvertFixtureToSupport(scene, uuid);
     if (result.changed)

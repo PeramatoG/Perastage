@@ -1375,14 +1375,20 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState) {
     const std::vector<wxString> oldSymbolPaths = symbolPaths;
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
+    std::vector<scene_grouping::SceneTransformTarget> removalTargets;
+    for (int r : rows) {
+        if (r < 0 || static_cast<size_t>(r) >= rowUuids.size())
+            continue;
+        const std::string uuid = UuidForItem(table->RowToItem(
+            static_cast<unsigned int>(r)));
+        if (!uuid.empty())
+            removalTargets.push_back({MvrNodeType::Truss, uuid});
+    }
+    scene_node_operations::RemoveNodes(scene, removalTargets);
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {
             wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
             const wxUIntPtr rowKey = store->GetItemData(rowItem);
-            const std::string uuid = UuidForItem(rowItem);
-            if (!uuid.empty())
-                scene_node_operations::RemoveNodes(
-                    scene, {{MvrNodeType::Truss, uuid}});
             identityIndex.RemoveKey(rowKey);
             rowUuidByKey.erase(rowKey);
             modelPathByKey.erase(rowKey);

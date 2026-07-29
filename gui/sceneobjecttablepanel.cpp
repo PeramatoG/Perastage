@@ -1061,9 +1061,10 @@ void SceneObjectTablePanel::DeleteSelected(bool pushUndoState) {
     }
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
+    std::vector<scene_grouping::SceneTransformTarget> removalTargets;
     for (const auto& uuid : uuidsToDelete)
-        scene_node_operations::RemoveNodes(
-            scene, {{MvrNodeType::SceneObject, uuid}});
+        removalTargets.push_back({MvrNodeType::SceneObject, uuid});
+    scene_node_operations::RemoveNodes(scene, removalTargets);
 
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {

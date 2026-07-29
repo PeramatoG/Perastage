@@ -2,6 +2,7 @@
 
 #include "matrixutils.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 
@@ -159,6 +160,13 @@ int main() {
                                                        supportOnly);
   assert(supportTargets.size() == 1);
   assert(supportTargets.front().type == MvrNodeType::Support);
+  const auto supportFeedback =
+      scene_grouping::BuildInteractiveSelectionFeedback(groupedDragScene,
+                                                        supportOnly);
+  assert(supportFeedback.selectedUuids ==
+         std::vector<std::string>{groupedSupport.uuid});
+  assert(supportFeedback.highlightedUuids ==
+         std::vector<std::string>{groupedSupport.uuid});
   scene_grouping::TranslateSelection(groupedDragScene, supportOnly,
                                      {250.0f, 0.0f, 0.0f});
   assert(NearlyEqual(groupedDragScene.supports[groupedSupport.uuid]
@@ -174,6 +182,15 @@ int main() {
                                                        trussOnly);
   assert(trussTargets.size() == 1);
   assert(trussTargets.front().type == MvrNodeType::GroupObject);
+  const auto trussFeedback =
+      scene_grouping::BuildInteractiveSelectionFeedback(groupedDragScene,
+                                                        trussOnly);
+  assert(trussFeedback.selectedUuids ==
+         std::vector<std::string>{groupedTruss.uuid});
+  assert(trussFeedback.highlightedUuids.size() == 3);
+  assert(std::find(trussFeedback.highlightedUuids.begin(),
+                   trussFeedback.highlightedUuids.end(),
+                   groupedSupport.uuid) != trussFeedback.highlightedUuids.end());
   scene_grouping::TranslateSelection(groupedDragScene, trussOnly,
                                      {100.0f, 0.0f, 0.0f});
   assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],

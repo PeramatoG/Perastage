@@ -17,6 +17,7 @@ struct RemovalResult {
 struct ConversionResult {
   bool changed = false;
   std::string uuid;
+  std::vector<std::string> clearedMotorFixtureReferences;
   std::string error;
 };
 

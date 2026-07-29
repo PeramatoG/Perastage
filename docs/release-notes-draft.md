@@ -17,7 +17,8 @@ Changes since **v1.5.0**.
   operations, and MVR export validates or safely repairs canonical local
   hierarchy matrices before serialization. Fixture-to-hoist conversion and
   table deletion now preserve valid GroupObject ownership without dangling
-  hierarchy references.
+  hierarchy references, leave unrelated empty groups intact, and keep actual
+  selection distinct from the highlighted interactive movement scope.
 
 - Fixed global shortcuts being suppressed while a read-only combo box has
   focus on macOS.

@@ -31,7 +31,30 @@ Perastage editing policy; it does not change MVR import hierarchy semantics.
 - Renderer, loader, and view caches contain derived transforms and do not own
   editable hierarchy state.
 
-## Follow-up review areas
+## Additional audited paths
 
-Duplication, paste, and alignment/distribution paths should continue to use the
-exact or interactive core boundaries according to their user-visible intent.
+- Duplication constructs independent top-level nodes and intentionally clears
+  inherited hierarchy ownership before insertion.
+- Clipboard paste restores complete serialized scene records; it does not apply
+  partial world-matrix edits to existing grouped nodes.
+- Alignment and distribution use the interactive scene-grouping boundary, so
+  grouped Trusses promote while other node types remain exact.
+- Fixture and Truss replacement preserve the instance world/local matrices and
+  parent metadata while changing type-level resource fields.
+- Fixture-to-Support and SceneObject-to-Truss conversions now preserve or
+  repoint hierarchy ownership through their owning conversion services.
+- Grouping, ungrouping, Magnet commit/detach, and explicit reparenting use core
+  hierarchy helpers that preserve world placement and rebuild local matrices.
+- Primitive object placement uses the exact transform boundary; geometry-entry
+  transforms are intentionally local geometry data rather than scene-node
+  placement.
+- Direct map erasure remains only in construction/import/reset code or inside
+  the hierarchy-aware removal service. Table deletion no longer erases scene
+  nodes directly.
+- Undo and Redo replace the complete scene snapshot, including both transform
+  matrices and GroupObject ownership, so no incremental hierarchy repair is
+  required during restoration.
+
+Permissive MVR reading, renderer/model-loader transforms, view caches, and
+derived geometry matrices were reviewed but intentionally left unchanged
+because they do not mutate editable scene-node hierarchy state.

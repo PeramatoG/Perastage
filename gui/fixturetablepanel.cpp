@@ -1425,12 +1425,16 @@ void FixtureTablePanel::DeleteSelected(bool pushUndoState) {
   rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
 
   auto &scene = guiConfigServices->LegacyConfigManager().GetScene();
+  std::vector<scene_grouping::SceneTransformTarget> removalTargets;
+  for (int r : rows) {
+    if (r >= 0 && static_cast<size_t>(r) < rowUuids.size())
+      removalTargets.push_back({MvrNodeType::Fixture, rowUuids[r]});
+  }
+  scene_node_operations::RemoveNodes(scene, removalTargets);
   for (int r : rows) {
     if ((size_t)r < rowUuids.size()) {
       wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
       const wxUIntPtr rowKey = store->GetItemData(rowItem);
-      scene_node_operations::RemoveNodes(
-          scene, {{MvrNodeType::Fixture, rowUuids[r]}});
       rowUuids.erase(rowUuids.begin() + r);
       if ((size_t)r < gdtfPaths.size())
         gdtfPaths.erase(gdtfPaths.begin() + r);
