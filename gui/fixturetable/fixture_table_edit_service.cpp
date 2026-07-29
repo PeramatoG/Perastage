@@ -11,6 +11,7 @@
 #include "gdtfloader.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "scene_node_operations.h"
 
 #include <algorithm>
 #include <cmath>
@@ -454,8 +455,8 @@ void ApplyFullRowChanges(
     next.transform = old.transform;
     it->second = next;
     if (transformChanged) {
-      scene_grouping::SetTargetWorldTransform(
-          scene, {MvrNodeType::Fixture, it->second.uuid},
+      scene_node_operations::ApplyExactWorldTransform(
+          scene, MvrNodeType::Fixture, it->second.uuid,
           requestedWorldTransform);
     }
     if (!next.typeName.empty() && !next.category.empty() &&

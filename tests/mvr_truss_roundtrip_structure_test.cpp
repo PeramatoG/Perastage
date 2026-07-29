@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <tinyxml2.h>
@@ -22,10 +23,25 @@
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "mvr_preferences.h"
+#include "scene_node_operations.h"
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
 
 namespace fs = std::filesystem;
+
+// Compares every matrix component using the MVR transform tolerance.
+static bool MatrixEqual(const Matrix &lhs, const Matrix &rhs) {
+  for (const auto &pair : {std::pair{&lhs.u, &rhs.u},
+                           std::pair{&lhs.v, &rhs.v},
+                           std::pair{&lhs.w, &rhs.w},
+                           std::pair{&lhs.o, &rhs.o}}) {
+    for (size_t index = 0; index < 3; ++index) {
+      if (std::fabs((*pair.first)[index] - (*pair.second)[index]) > 0.02f)
+        return false;
+    }
+  }
+  return true;
+}
 
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   std::string content;
@@ -239,16 +255,20 @@ int main() {
   group.uuid = "22222222-2222-2222-2222-222222222222";
   group.name = "Imported Group";
   group.layer = DEFAULT_LAYER_NAME;
-  group.localTransform = MatrixUtils::Identity();
-  group.transform = MatrixUtils::Identity();
+  group.transform = MatrixUtils::EulerToMatrix(21.0f, 13.0f, 34.0f);
+  group.transform.o = {1400.0f, -800.0f, 3200.0f};
+  group.localTransform = group.transform;
   scene.groupObjects[group.uuid] = group;
 
   Truss truss;
   truss.uuid = "33333333-3333-3333-3333-333333333333";
   truss.name = "Truss A";
   truss.layer = DEFAULT_LAYER_NAME;
-  truss.localTransform = MatrixUtils::Identity();
-  truss.transform = MatrixUtils::Identity();
+  truss.localTransform = MatrixUtils::EulerToMatrix(8.0f, 17.0f, 6.0f);
+  truss.localTransform.o = {350.0f, 220.0f, -140.0f};
+  truss.hasLocalTransform = true;
+  truss.transform = MatrixUtils::Multiply(group.transform,
+                                          truss.localTransform);
   truss.sourceRepresentation = Truss::GeometryRepresentation::SymbolSymdef;
   truss.sourceSymbolUuid = sourceSymbolUuid;
   truss.sourceSymdefUuid = symdefUuid;
@@ -270,6 +290,30 @@ int main() {
   truss.perastageAuxGdtfArchivePath = auxiliaryGdtf.generic_string();
   scene.trusses[truss.uuid] = truss;
   scene.groupObjects[group.uuid].children.push_back({MvrNodeType::Truss, truss.uuid});
+  SceneObject sibling;
+  sibling.uuid = "77777777-7777-4777-8777-777777777777";
+  sibling.name = "Grouped sibling";
+  sibling.layer = DEFAULT_LAYER_NAME;
+  sibling.modelFile = "primitive:cube";
+  sibling.parentGroupUuid = group.uuid;
+  sibling.localTransform = MatrixUtils::EulerToMatrix(4.0f, 9.0f, 12.0f);
+  sibling.localTransform.o = {-450.0f, 180.0f, 90.0f};
+  sibling.hasLocalTransform = true;
+  sibling.transform = MatrixUtils::Multiply(group.transform,
+                                            sibling.localTransform);
+  scene.sceneObjects[sibling.uuid] = sibling;
+  scene.groupObjects[group.uuid].children.push_back(
+      {MvrNodeType::SceneObject, sibling.uuid});
+  const Matrix originalTrussWorld = truss.transform;
+  const Matrix siblingWorld = sibling.transform;
+  Matrix editedTrussWorld = MatrixUtils::EulerToMatrix(39.0f, 27.0f, 33.0f);
+  editedTrussWorld.o = {4800.0f, 2100.0f, -650.0f};
+  assert(scene_node_operations::ApplyExactWorldTransform(
+      scene, MvrNodeType::Truss, truss.uuid, editedTrussWorld));
+  const Matrix editedTrussLocal = scene.trusses.at(truss.uuid).localTransform;
+  assert(!MatrixEqual(originalTrussWorld, editedTrussWorld));
+  assert(MatrixEqual(scene.sceneObjects.at(sibling.uuid).transform,
+                     siblingWorld));
 
   MvrExporter exporter;
   const fs::path mvrPath = tempDir / "roundtrip.mvr";
@@ -292,6 +336,11 @@ int main() {
   assert(groupChildList != nullptr);
   tinyxml2::XMLElement *trussNode = groupChildList->FirstChildElement("Truss");
   assert(trussNode != nullptr);
+  Matrix serializedTrussLocal;
+  assert(MatrixUtils::ParseMatrix(
+      trussNode->FirstChildElement("Matrix")->GetText(),
+      serializedTrussLocal));
+  assert(MatrixEqual(serializedTrussLocal, editedTrussLocal));
   int matrixOrder = -1;
   int geosOrder = -1;
   int fixtureIdOrder = -1;
@@ -434,6 +483,12 @@ int main() {
   assert(importedScene.groupObjects.size() == 1);
   assert(importedScene.trusses.size() == 1);
   const Truss &importedTruss = importedScene.trusses.begin()->second;
+  assert(importedTruss.parentGroupUuid == group.uuid);
+  assert(MatrixEqual(importedTruss.localTransform, editedTrussLocal));
+  assert(MatrixEqual(importedTruss.transform, editedTrussWorld));
+  assert(!MatrixEqual(importedTruss.transform, originalTrussWorld));
+  assert(MatrixEqual(importedScene.sceneObjects.at(sibling.uuid).transform,
+                     siblingWorld));
   assert(importedTruss.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef);
   assert(importedTruss.sourceSymbolUuid == sourceSymbolUuid);
   assert(!importedTruss.perastageAuxGdtfArchivePath.empty());

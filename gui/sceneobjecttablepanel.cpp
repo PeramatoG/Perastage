@@ -27,6 +27,7 @@
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "scene_node_operations.h"
 #include "primitive_model_resources.h"
 #include "projectutils.h"
 #include "resource_reference_sync.h"
@@ -910,8 +911,8 @@ void SceneObjectTablePanel::UpdateSceneData(bool logChanges) {
         next.transform = old.transform;
         it->second = next;
         if (transformChanged) {
-            scene_grouping::SetTargetWorldTransform(
-                scene, {MvrNodeType::SceneObject, it->second.uuid},
+            scene_node_operations::ApplyExactWorldTransform(
+                scene, MvrNodeType::SceneObject, it->second.uuid,
                 requestedWorldTransform);
         }
     }
@@ -1061,7 +1062,8 @@ void SceneObjectTablePanel::DeleteSelected(bool pushUndoState) {
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
     for (const auto& uuid : uuidsToDelete)
-        scene.sceneObjects.erase(uuid);
+        scene_node_operations::RemoveNodes(
+            scene, {{MvrNodeType::SceneObject, uuid}});
 
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {

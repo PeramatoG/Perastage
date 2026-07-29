@@ -17,11 +17,13 @@
  */
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 #include <tinyxml2.h>
 #include <wx/init.h>
@@ -35,9 +37,11 @@
 #include "gdtf_test_fixture_builder.h"
 #include "gdtfdictionary.h"
 #include "layer.h"
+#include "matrixutils.h"
 #include "projectutils.h"
 #include "project_fixture_identity.h"
 #include "sceneobject.h"
+#include "scene_node_operations.h"
 #include "support.h"
 #include "truss.h"
 #include "uuidutils.h"
@@ -60,6 +64,20 @@ struct ProjectIdentityPayload {
   std::string configJson;
   std::string sceneXml;
 };
+
+// Compares every component of two persisted scene matrices.
+static bool MatrixEqual(const Matrix &lhs, const Matrix &rhs) {
+  for (const auto &pair : {std::pair{&lhs.u, &rhs.u},
+                           std::pair{&lhs.v, &rhs.v},
+                           std::pair{&lhs.w, &rhs.w},
+                           std::pair{&lhs.o, &rhs.o}}) {
+    for (size_t index = 0; index < 3; ++index) {
+      if (std::fabs((*pair.first)[index] - (*pair.second)[index]) > 0.02f)
+        return false;
+    }
+  }
+  return true;
+}
 
 // Reads the two project payloads that must agree on fixture identity.
 static ProjectIdentityPayload ReadProjectIdentityPayload(
@@ -317,6 +335,44 @@ int main() {
   o.name = "Object";
   o.layer = layer.name;
   scene.sceneObjects[o.uuid] = o;
+  GroupObject groupedTransformRoot;
+  groupedTransformRoot.uuid = "60000000-0000-4000-8000-000000000001";
+  groupedTransformRoot.name = "Grouped transform persistence";
+  groupedTransformRoot.layer = layer.name;
+  groupedTransformRoot.transform =
+      MatrixUtils::EulerToMatrix(23.0f, 11.0f, 37.0f);
+  groupedTransformRoot.transform.o = {1200.0f, -700.0f, 3400.0f};
+  groupedTransformRoot.localTransform = groupedTransformRoot.transform;
+  groupedTransformRoot.children = {{MvrNodeType::Truss, t.uuid},
+                                   {MvrNodeType::SceneObject, o.uuid}};
+  scene.groupObjects[groupedTransformRoot.uuid] = groupedTransformRoot;
+  t.parentGroupUuid = groupedTransformRoot.uuid;
+  t.localTransform = MatrixUtils::EulerToMatrix(7.0f, 19.0f, 5.0f);
+  t.localTransform.o = {400.0f, 300.0f, -200.0f};
+  t.hasLocalTransform = true;
+  t.transform = MatrixUtils::Multiply(groupedTransformRoot.transform,
+                                      t.localTransform);
+  scene.trusses[t.uuid] = t;
+  o.parentGroupUuid = groupedTransformRoot.uuid;
+  o.localTransform = MatrixUtils::EulerToMatrix(3.0f, 13.0f, 17.0f);
+  o.localTransform.o = {-500.0f, 250.0f, 100.0f};
+  o.hasLocalTransform = true;
+  o.transform = MatrixUtils::Multiply(groupedTransformRoot.transform,
+                                      o.localTransform);
+  scene.sceneObjects[o.uuid] = o;
+  const Matrix originalGroupedTrussWorld = t.transform;
+  const Matrix unchangedGroupedSiblingWorld = o.transform;
+  Matrix editedGroupedTrussWorld =
+      MatrixUtils::EulerToMatrix(41.0f, 29.0f, 31.0f);
+  editedGroupedTrussWorld.o = {5100.0f, 2200.0f, -900.0f};
+  assert(scene_node_operations::ApplyExactWorldTransform(
+      scene, MvrNodeType::Truss, t.uuid, editedGroupedTrussWorld));
+  assert(!MatrixEqual(originalGroupedTrussWorld,
+                      scene.trusses.at(t.uuid).transform));
+  assert(MatrixEqual(scene.groupObjects[groupedTransformRoot.uuid].transform,
+                     groupedTransformRoot.transform));
+  assert(MatrixEqual(scene.sceneObjects[o.uuid].transform,
+                     unchangedGroupedSiblingWorld));
     SceneObject cylinderObj;
     cylinderObj.uuid = "40000000-0000-4000-8000-000000000002";
     cylinderObj.name = "Cylinder";
@@ -439,6 +495,15 @@ int main() {
     assert(cfg.LoadProject(temp.string()));
 
     const auto &scene2 = cfg.GetScene();
+    const auto &loadedGroupedTruss = scene2.trusses.at(t.uuid);
+    assert(loadedGroupedTruss.parentGroupUuid == groupedTransformRoot.uuid);
+    assert(MatrixEqual(loadedGroupedTruss.transform, editedGroupedTrussWorld));
+    assert(!MatrixEqual(loadedGroupedTruss.transform,
+                        originalGroupedTrussWorld));
+    assert(MatrixEqual(scene2.sceneObjects.at(o.uuid).transform,
+                       unchangedGroupedSiblingWorld));
+    assert(scene2.groupObjects.at(groupedTransformRoot.uuid).children.size() ==
+           2);
     assert(scene2.fixtures.size() == 4);
     assert(scene2.trusses.size() == 1);
     assert(scene2.sceneObjects.size() == 3);

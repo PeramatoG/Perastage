@@ -30,6 +30,7 @@
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "scene_node_operations.h"
 #include "projectutils.h"
 #include "resource_reference_sync.h"
 #include "riggingpanel.h"
@@ -1169,8 +1170,8 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
             next.transform = old.transform;
             it->second = next;
             if (transformChanged) {
-                scene_grouping::SetTargetWorldTransform(
-                    scene, {MvrNodeType::Truss, it->second.uuid},
+                scene_node_operations::ApplyExactWorldTransform(
+                    scene, MvrNodeType::Truss, it->second.uuid,
                     requestedWorldTransform);
             }
             if (!it->second.position.empty())
@@ -1380,7 +1381,8 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState) {
             const wxUIntPtr rowKey = store->GetItemData(rowItem);
             const std::string uuid = UuidForItem(rowItem);
             if (!uuid.empty())
-                scene.trusses.erase(uuid);
+                scene_node_operations::RemoveNodes(
+                    scene, {{MvrNodeType::Truss, uuid}});
             identityIndex.RemoveKey(rowKey);
             rowUuidByKey.erase(rowKey);
             modelPathByKey.erase(rowKey);

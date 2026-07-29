@@ -67,6 +67,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rigging_extra_weight_settings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_grouping.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_transform_integrity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_truss_converter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp

@@ -15,7 +15,9 @@ Changes since **v1.5.0**.
   table edits remain exact; compact negative console offsets such as `--1`
   are now accepted, invalid transforms apply atomically without empty undo
   operations, and MVR export validates or safely repairs canonical local
-  hierarchy matrices before serialization.
+  hierarchy matrices before serialization. Fixture-to-hoist conversion and
+  table deletion now preserve valid GroupObject ownership without dangling
+  hierarchy references.
 
 - Fixed global shortcuts being suppressed while a read-only combo box has
   focus on macOS.

@@ -32,6 +32,7 @@
 #include "layerpanel.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "scene_node_operations.h"
 #include "riggingpanel.h"
 #include "rigging_extra_weight_settings.h"
 #include "selection_origin_token.h"
@@ -1396,8 +1397,8 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     next.transform = old.transform;
     it->second = next;
     if (transformChanged) {
-      scene_grouping::SetTargetWorldTransform(
-          scene, {MvrNodeType::Support, it->second.uuid},
+      scene_node_operations::ApplyExactWorldTransform(
+          scene, MvrNodeType::Support, it->second.uuid,
           requestedWorldTransform);
     }
     if (!it->second.position.empty())
@@ -1540,7 +1541,8 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
     if ((size_t)r < rowUuids.size()) {
       wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
       const wxUIntPtr rowKey = store->GetItemData(rowItem);
-      scene.supports.erase(rowUuids[r]);
+      scene_node_operations::RemoveNodes(
+          scene, {{MvrNodeType::Support, rowUuids[r]}});
       rowUuids.erase(rowUuids.begin() + r);
       if ((size_t)r < rowLoadStates.size())
         rowLoadStates.erase(rowLoadStates.begin() + r);
