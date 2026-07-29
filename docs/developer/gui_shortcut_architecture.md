@@ -74,8 +74,10 @@ This makes shortcut behavior deterministic and keeps one single decision point f
    - Editable focus is detected via `gui::IsEditableWidgetFocused(...)` in
      `gui/editable_focus_utils.{h,cpp}`.
    - The helper covers `wxTextEntry`-based controls (for example `wxTextCtrl`
-     and custom text-entry widgets), editable `wxComboBox`, spin controls, and
-     active `wxGrid` cell editors.
+     and custom text-entry widgets), combo boxes without the `wxCB_READONLY`
+     style, spin controls, and active `wxGrid` cell editors. Read-only combo
+     focus does not suppress shortcuts, even on ports where the combo's generic
+     text-entry abstraction reports editable.
 2. The hook asks `ResolveShortcut(...)` for one decision.
 3. `MainWindow::ApplyShortcutDecision(...)` executes the routed action:
    - `ApplyFitShortcut()` for focused viewer fit (selection-aware: when there is

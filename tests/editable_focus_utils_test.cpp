@@ -77,11 +77,14 @@ bool CheckResult(std::string_view caseName, std::string_view checkName,
     return true;
 
   const auto *textEntry = dynamic_cast<const wxTextEntry *>(context.window);
+  const auto *combo = dynamic_cast<const wxComboBox *>(context.window);
   std::cerr
       << "EditableFocusUtils case=" << caseName << " check=" << checkName
       << " expected=" << expected << " actual=" << actual
       << " class=" << RuntimeClassName(context.window) << " text_editable="
       << (textEntry ? (textEntry->IsEditable() ? "true" : "false") : "n/a")
+      << " combo_readonly_style="
+      << (combo ? (combo->HasFlag(wxCB_READONLY) ? "true" : "false") : "n/a")
       << " grid_can_enable="
       << (context.grid
               ? (context.grid->CanEnableCellControl() ? "true" : "false")
@@ -140,15 +143,21 @@ int main() {
 
   wxComboBox editableCombo(&panel, wxID_ANY, "", wxDefaultPosition,
                            wxDefaultSize, 0, nullptr, wxCB_DROPDOWN);
-  passed &= CheckEditableFocus(
-      "editable-combo", true,
-      {.window = &editableCombo, .frame = &frame, .panel = &panel});
+  const CheckContext editableComboContext{
+      .window = &editableCombo, .frame = &frame, .panel = &panel};
+  passed &=
+      CheckResult("editable-combo", "readonly-style", false,
+                  editableCombo.HasFlag(wxCB_READONLY), editableComboContext);
+  passed &= CheckEditableFocus("editable-combo", true, editableComboContext);
 
   wxComboBox readonlyCombo(&panel, wxID_ANY, "", wxDefaultPosition,
                            wxDefaultSize, 0, nullptr, wxCB_READONLY);
-  passed &= CheckEditableFocus(
-      "readonly-combo", false,
-      {.window = &readonlyCombo, .frame = &frame, .panel = &panel});
+  const CheckContext readonlyComboContext{
+      .window = &readonlyCombo, .frame = &frame, .panel = &panel};
+  passed &=
+      CheckResult("readonly-combo", "readonly-style", true,
+                  readonlyCombo.HasFlag(wxCB_READONLY), readonlyComboContext);
+  passed &= CheckEditableFocus("readonly-combo", false, readonlyComboContext);
 
   wxSpinCtrl spinCtrl(&panel, wxID_ANY);
   passed &= CheckEditableFocus(

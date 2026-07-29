@@ -10,6 +10,9 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed global shortcuts being suppressed while a read-only combo box has
+  focus on macOS.
+
 - Fixed Unicode truss dictionary paths and filenames on Windows while keeping managed asset references portable across platforms.
 
 - Improved PDF output serialization across platforms and locale settings, and
@@ -39,9 +42,6 @@ Changes since **v1.5.0**.
 ## Current limitations
 
 ## Technical and packaging changes
-
-- Corrected internal editable-focus verification to exercise the documented
-  grid editor lifecycle with actionable control-state diagnostics.
 
 - Strengthened internal 3DS loader dimension verification with complete bounds
   validation, actionable failure diagnostics, and reliable temporary-fixture

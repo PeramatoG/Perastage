@@ -1874,3 +1874,46 @@ because the required `mdns` package is not installed, so registered CTest
 execution, the complete Debug build and suite, Windows normal-exit CRT
 verification, and final exact-head cross-platform evidence remain required
 before merge.
+
+### PR #2243 first exact-head cross-platform evidence
+
+Authoritative run `30439893226` exercised reviewed head
+`333eda73ad0ef9b4d8fd1959620b0ca16c8c211d`. Every platform generated its
+complete inventory, built and ran the unfiltered suite, and reported
+`selected_labels = []`.
+
+Linux reported 164 passed, 1 failed, and 1 skipped of 166.
+`EditableFocusUtils` passed in 1.18 seconds despite the incidental AT-SPI
+warning, and its only residual failure was
+`Viewer2DFboCaptureDiagnostics`. Windows reported 166 passed and 2 failed of
+168. `EditableFocusUtils` passed in 0.28 seconds without a target-specific
+normal-exit CRT leak; its residual failures were `GdtfShareSecurity` and
+`Viewer2DFboCaptureDiagnostics`. macOS reported 164 passed and 2 failed of
+166; its failures were `EditableFocusUtils` and
+`Viewer2DFboCaptureDiagnostics`.
+
+The only newly exposed target blocker was the macOS `readonly-combo` case:
+the editable-focus check expected false but returned true for runtime class
+`wxComboBox`, with `wxTextEntry::IsEditable()` reporting true. Production had
+tested the generic `wxTextEntry` abstraction before `wxComboBox`, so the early
+true result bypassed the combo-specific decision. The subsequent combo branch
+also depended on the same port-sensitive editability state.
+
+This is a production type-ordering and read-only style defect, not a stale test
+expectation. On wxOSX, a read-only combo could incorrectly set
+`focusInEditableText` and suppress global shortcuts even though the user could
+not type into the control. The shared correction handles `wxComboBox` first
+and treats its `wxCB_READONLY` style as authoritative, then applies
+`IsEditable()` only to other `wxTextEntry` controls. Spin, active-grid, and
+parent-chain behavior remain unchanged, and no platform branch is required.
+Combo diagnostics now report both the read-only style and the port-specific
+text-entry editability result without asserting what the latter must be.
+
+The corrected focused translation unit built directly against wxGTK 3.2.4 and
+passed 20 consecutive runs under the CI-style Xvfb display. All named cases,
+including editable and read-only combo styles and the complete grid lifecycle,
+passed. Direct builds and executions of `ShortcutRegistry`,
+`MainWindowCliShortcutRouter`, and `ConsoleCommandParser` also passed. Combo
+descendant coverage was not added because wxWidgets does not expose a shared,
+portable combo editor-child API that models the native focus hierarchy on all
+supported ports. Corrective exact-head cross-platform evidence remains pending.
