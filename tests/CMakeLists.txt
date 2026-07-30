@@ -325,15 +325,29 @@ target_include_directories(matrixutils_test PRIVATE ../models ../core)
 add_test(NAME MatrixUtilsParsingAndComposition COMMAND matrixutils_test)
 
 add_executable(scene_grouping_test scene_grouping_test.cpp
-    ../core/scene_grouping.cpp
+    ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
     ../models/mvrscene.cpp
 )
 target_include_directories(scene_grouping_test PRIVATE ../core ../models)
 add_test(NAME SceneGroupingPreservesTransforms COMMAND scene_grouping_test)
 
+add_executable(scene_transform_integrity_test scene_transform_integrity_test.cpp
+    ../core/scene_transform_integrity.cpp
+    ../models/mvrscene.cpp
+)
+target_include_directories(scene_transform_integrity_test PRIVATE ../core ../models)
+add_test(NAME SceneTransformIntegrity COMMAND scene_transform_integrity_test)
+
+add_executable(scene_node_operations_test scene_node_operations_test.cpp
+    ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
+    ../models/mvrscene.cpp
+)
+target_include_directories(scene_node_operations_test PRIVATE ../core ../models)
+add_test(NAME SceneNodeOperations COMMAND scene_node_operations_test)
+
 add_executable(magnet_snap_test magnet_snap_test.cpp
     ../core/magnet_snap.cpp
-    ../core/scene_grouping.cpp
+    ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
     ../models/mvrscene.cpp
 )
 target_include_directories(magnet_snap_test PRIVATE ../core ../models)
@@ -824,7 +838,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -836,6 +850,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -863,13 +878,14 @@ add_executable(mvr_project_fixture_metadata_contracts_test
                ../core/configmanager.cpp ../core/configservices.cpp
                ../core/projectutils.cpp ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp ../core/scene_grouping.cpp
+               ../core/layer_service.cpp ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp ../core/trussdictionary.cpp
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp ../core/gdtf_mutation_audit.cpp
@@ -895,7 +911,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -907,6 +923,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -968,7 +985,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -980,6 +997,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1004,6 +1022,7 @@ add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                build_info_stub.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1015,7 +1034,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1053,7 +1072,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1065,6 +1084,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1091,14 +1111,16 @@ add_executable(mvr_perastage_metadata_recovery_test
                ../core/configmanager.cpp ../core/configservices.cpp
                ../core/projectutils.cpp ../core/library/library_bootstrap.cpp
                ../core/gdtfdictionary.cpp ../core/gdtf_fixture_category.cpp
-               ../core/layer_service.cpp ../core/scene_grouping.cpp
+               ../core/layer_service.cpp ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp ../core/trussdictionary.cpp
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
                ../mvr/mvrimporter.cpp ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../core/mvr_identity_recovery.cpp
+               ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
+               ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp gdtfloader_stub.cpp consolepanel_stub.cpp
@@ -1124,7 +1146,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1136,6 +1158,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1167,7 +1190,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1179,6 +1202,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1208,7 +1232,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1220,6 +1244,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../viewer3d/culling/bounds_cache_system.cpp
@@ -1254,7 +1279,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1266,6 +1291,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1297,7 +1323,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/layer_service.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/utf8_utils.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1309,6 +1335,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1346,7 +1373,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/utf8_utils.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/layer_service.cpp
                ../core/trussdictionary.cpp
                ../core/trussloader.cpp
@@ -1358,6 +1385,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -1926,7 +1954,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/utf8_utils.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/layer_service.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp
@@ -1952,6 +1980,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../mvr/gdtf_catalog_matcher.cpp
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                consolepanel_stub.cpp
@@ -1966,6 +1995,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../mvr/mvrexporter.cpp
+               ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/configmanager.cpp
@@ -1975,7 +2005,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
                ../core/utf8_utils.cpp
-               ../core/scene_grouping.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
                ../core/layer_service.cpp
                ../core/gdtf_canonicalizer.cpp
                ../core/gdtf_mutation_audit.cpp

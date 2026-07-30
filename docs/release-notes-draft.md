@@ -10,6 +10,18 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected grouped scene transforms so interactive truss moves consistently
+  affect their effective groups while fixtures, supports, scene objects, and
+  table edits remain exact; compact negative console offsets such as `--1`
+  are now accepted, invalid transforms apply atomically without empty undo
+  operations, and MVR export validates or safely repairs canonical local
+  hierarchy matrices before serialization. Fixture-to-hoist conversion and
+  table deletion now preserve valid GroupObject ownership without dangling
+  hierarchy references, leave unrelated empty groups intact, and keep actual
+  selection distinct from the highlighted interactive movement scope. Valid
+  console transforms that are already satisfied no longer add empty Undo
+  entries or trigger unnecessary scene refreshes.
+
 - Fixed global shortcuts being suppressed while a read-only combo box has
   focus on macOS.
 

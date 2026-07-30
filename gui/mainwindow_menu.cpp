@@ -90,6 +90,7 @@
 #include "rigging_extra_weight_settings.h"
 #include "riggingpanel.h"
 #include "scene_grouping.h"
+#include "scene_node_operations.h"
 #include "scene_object_truss_converter.h"
 #include "scene_object_primitive_creation.h"
 #include "scene_object_primitive_dialogs.h"
@@ -903,47 +904,26 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  cfg.PushUndoState("convert fixtures to hoists");
   auto &scene = cfg.GetScene();
-
-  auto baseId = std::chrono::steady_clock::now().time_since_epoch().count();
-  int idx = 0;
-  std::vector<std::string> newIds;
+  std::vector<std::string> convertible;
   for (const auto &uuid : selected) {
-    auto it = scene.fixtures.find(uuid);
-    if (it == scene.fixtures.end())
-      continue;
-
-    const auto &fixture = it->second;
-
-    Support s;
-    (void)idx++;
-    s.uuid = GenerateUuid();
-    s.name = fixture.instanceName;
-    s.gdtfSpec = fixture.gdtfSpec;
-    s.gdtfMode = fixture.gdtfMode;
-    s.function = fixture.function.empty() ? "Hoist" : fixture.function;
-    s.chainLength = 0.0f;
-    s.position = fixture.position;
-    s.positionName = fixture.positionName;
-    s.layer = fixture.layer;
-    s.capacityKg = 0.0f;
-    s.weightKg = 0.0f;
-    s.loadKg = fixture.weightKg;
-    s.motorName =
-        fixture.instanceName.empty() ? fixture.typeName : fixture.instanceName;
-    s.motorModel = fixture.gdtfMode;
-    s.motorFixtureUuid = fixture.uuid;
-    s.hoistDataSource = "Manual";
-    s.hoistFunction = NormalizeHoistFunction(s.function);
-    s.transform = fixture.transform;
-
-    scene.supports[s.uuid] = s;
-    newIds.push_back(s.uuid);
+    if (scene.fixtures.contains(uuid) && !scene.supports.contains(uuid))
+      convertible.push_back(uuid);
   }
+  if (convertible.empty()) {
+    wxMessageBox("The selected fixtures cannot be converted.",
+                 "Convert to Hoist", wxOK | wxICON_INFORMATION);
+    return;
+  }
+  cfg.PushUndoState("convert fixtures to hoists");
 
-  for (const auto &uuid : selected)
-    scene.fixtures.erase(uuid);
+  std::vector<std::string> newIds;
+  for (const auto &uuid : convertible) {
+    const auto result =
+        scene_node_operations::ConvertFixtureToSupport(scene, uuid);
+    if (result.changed)
+      newIds.push_back(result.uuid);
+  }
 
   cfg.SetSelectedSupports(newIds);
   cfg.SetSelectedFixtures({});

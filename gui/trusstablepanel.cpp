@@ -29,6 +29,8 @@
 #include "hoist_load_recalculation_prompt.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
+#include "scene_node_operations.h"
 #include "projectutils.h"
 #include "resource_reference_sync.h"
 #include "riggingpanel.h"
@@ -1164,7 +1166,14 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
                 changedWeightPositions.insert(NormalizePositionName(old.positionName));
                 changedWeightPositions.insert(NormalizePositionName(next.positionName));
             }
+            const Matrix requestedWorldTransform = next.transform;
+            next.transform = old.transform;
             it->second = next;
+            if (transformChanged) {
+                scene_node_operations::ApplyExactWorldTransform(
+                    scene, MvrNodeType::Truss, it->second.uuid,
+                    requestedWorldTransform);
+            }
             if (!it->second.position.empty())
                 scene.positions[it->second.position] = it->second.positionName;
             changedTrussIds.insert(it->second.uuid);
@@ -1366,13 +1375,20 @@ void TrussTablePanel::DeleteSelected(bool pushUndoState) {
     const std::vector<wxString> oldSymbolPaths = symbolPaths;
 
     auto& scene = guiConfigServices->LegacyConfigManager().GetScene();
+    std::vector<scene_grouping::SceneTransformTarget> removalTargets;
+    for (int r : rows) {
+        if (r < 0 || static_cast<size_t>(r) >= rowUuids.size())
+            continue;
+        const std::string uuid = UuidForItem(table->RowToItem(
+            static_cast<unsigned int>(r)));
+        if (!uuid.empty())
+            removalTargets.push_back({MvrNodeType::Truss, uuid});
+    }
+    scene_node_operations::RemoveNodes(scene, removalTargets);
     for (int r : rows) {
         if ((size_t)r < rowUuids.size()) {
             wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
             const wxUIntPtr rowKey = store->GetItemData(rowItem);
-            const std::string uuid = UuidForItem(rowItem);
-            if (!uuid.empty())
-                scene.trusses.erase(uuid);
             identityIndex.RemoveKey(rowKey);
             rowUuidByKey.erase(rowKey);
             modelPathByKey.erase(rowKey);

@@ -4,6 +4,7 @@
 #include "scene_object_primitive_dialogs.h"
 #include "sceneobject.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
 
 #include <algorithm>
 #include <cctype>
@@ -118,13 +119,14 @@ PrimitivePlacementRequest PlacementFromObject(const SceneObject &object) {
   return request;
 }
 
-void ApplyPlacementToObject(SceneObject &object,
-                            const PrimitivePlacementRequest &request) {
+// Builds an exact world placement transform while preserving object scale.
+Matrix BuildPlacementTransform(const SceneObject &object,
+                               const PrimitivePlacementRequest &request) {
   Matrix rotation = MatrixUtils::EulerToMatrix(
       static_cast<float>(request.rotationZDegrees),
       static_cast<float>(request.rotationYDegrees),
       static_cast<float>(request.rotationXDegrees));
-  object.transform = MatrixUtils::ApplyRotationPreservingScale(
+  return MatrixUtils::ApplyRotationPreservingScale(
       object.transform, rotation,
       {static_cast<float>(request.positionXMeters),
        static_cast<float>(request.positionYMeters),
@@ -157,16 +159,21 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     if (!ShowScreenEditDialog(parent, request))
       return false;
 
-    const auto oldU = object.transform.u;
-    const auto oldV = object.transform.v;
-    const auto oldW = object.transform.w;
-    object.transform.u = AxisWithLength(object.transform.u, static_cast<float>(request.widthMeters));
-    object.transform.v = AxisWithLength(object.transform.v, kScreenDepthMeters);
-    object.transform.w = AxisWithLength(object.transform.w, static_cast<float>(request.heightMeters));
+    Matrix requestedTransform = object.transform;
+    requestedTransform.u = AxisWithLength(
+        requestedTransform.u, static_cast<float>(request.widthMeters));
+    requestedTransform.v = AxisWithLength(requestedTransform.v,
+                                          kScreenDepthMeters);
+    requestedTransform.w = AxisWithLength(
+        requestedTransform.w, static_cast<float>(request.heightMeters));
 
-    if (object.transform.u == oldU && object.transform.v == oldV && object.transform.w == oldW)
+    if (requestedTransform.u == object.transform.u &&
+        requestedTransform.v == object.transform.v &&
+        requestedTransform.w == object.transform.w)
       return false;
     cfg.PushUndoState("edit screen geometry");
+    scene_grouping::SetTargetWorldTransform(
+        scene, {MvrNodeType::SceneObject, uuid}, requestedTransform);
     return true;
   }
 
@@ -176,11 +183,14 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     if (!ShowPipeEditDialog(parent, request))
       return false;
 
-    const auto oldU = object.transform.u;
-    object.transform.u = AxisWithLength(object.transform.u, static_cast<float>(request.lengthMeters));
-    if (object.transform.u == oldU)
+    Matrix requestedTransform = object.transform;
+    requestedTransform.u = AxisWithLength(
+        requestedTransform.u, static_cast<float>(request.lengthMeters));
+    if (requestedTransform.u == object.transform.u)
       return false;
     cfg.PushUndoState("edit pipe geometry");
+    scene_grouping::SetTargetWorldTransform(
+        scene, {MvrNodeType::SceneObject, uuid}, requestedTransform);
     return true;
   }
 
@@ -208,7 +218,9 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     accepted = ShowSphereEditDialog(parent, request, placement, [&]() {
       cfg.PushUndoState("apply primitive geometry");
       object.name = request.name;
-      ApplyPlacementToObject(object, placement);
+      scene_grouping::SetTargetWorldTransform(
+          scene, {MvrNodeType::SceneObject, uuid},
+          BuildPlacementTransform(object, placement));
       if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size())
         object.geometries[target.geometryIndex].localTransform =
             BuildSphereScaleTransform(request.radiusMeters);
@@ -229,7 +241,9 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     accepted = ShowCubeEditDialog(parent, request, placement, [&]() {
       cfg.PushUndoState("apply primitive geometry");
       object.name = request.name;
-      ApplyPlacementToObject(object, placement);
+      scene_grouping::SetTargetWorldTransform(
+          scene, {MvrNodeType::SceneObject, uuid},
+          BuildPlacementTransform(object, placement));
       if (target.usesGeometryEntry && target.geometryIndex < object.geometries.size())
         object.geometries[target.geometryIndex].localTransform =
             BuildCubeScaleTransform(request.lengthMeters, request.heightMeters,
@@ -251,7 +265,9 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
     accepted = ShowCylinderEditDialog(parent, request, placement, [&]() {
       cfg.PushUndoState("apply primitive geometry");
       object.name = request.name;
-      ApplyPlacementToObject(object, placement);
+      scene_grouping::SetTargetWorldTransform(
+          scene, {MvrNodeType::SceneObject, uuid},
+          BuildPlacementTransform(object, placement));
       const bool applyRound = std::fabs(request.topRadiusMeters - request.bottomRadiusMeters) <
                               kCylinderRoundToleranceMeters;
       const std::string applyToken =
@@ -297,7 +313,9 @@ bool EditPrimitiveObjectByUuid(wxWindow *parent, ConfigManager &cfg,
   if (!accepted)
     return false;
 
-  ApplyPlacementToObject(object, placement);
+  scene_grouping::SetTargetWorldTransform(
+      scene, {MvrNodeType::SceneObject, uuid},
+      BuildPlacementTransform(object, placement));
 
   if (!primitiveTokenUpdated &&
       updatedTransform.u == currentTransform.u &&

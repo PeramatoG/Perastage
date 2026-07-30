@@ -877,6 +877,75 @@ BuildTransformTargets(const MvrScene &scene, const ObjectSelection &selection) {
   return targets;
 }
 
+// Builds exact transform targets in deterministic selection order.
+std::vector<SceneTransformTarget>
+BuildExactTransformTargets(const MvrScene &scene,
+                           const ObjectSelection &selection) {
+  std::vector<SceneTransformTarget> targets;
+  std::set<std::pair<MvrNodeType, std::string>> seen;
+  for (const auto &object : CollectSelectedObjects(scene, selection)) {
+    if (seen.insert({object.type, object.uuid}).second)
+      targets.push_back({object.type, object.uuid});
+  }
+  return targets;
+}
+
+// Builds interactive targets while promoting grouped trusses only.
+std::vector<SceneTransformTarget>
+BuildInteractiveTransformTargets(const MvrScene &scene,
+                                 const ObjectSelection &selection) {
+  struct Candidate {
+    SceneTransformTarget target;
+    std::string rootGroupUuid;
+  };
+
+  std::vector<Candidate> candidates;
+  std::set<std::string> promotedGroups;
+  for (const auto &object : CollectSelectedObjects(scene, selection)) {
+    const std::string rootUuid = ResolveRootGroupUuid(scene, object);
+    SceneTransformTarget target{object.type, object.uuid};
+    if (object.type == MvrNodeType::Truss && !rootUuid.empty()) {
+      target = {MvrNodeType::GroupObject, rootUuid};
+      promotedGroups.insert(rootUuid);
+    }
+    candidates.push_back({std::move(target), rootUuid});
+  }
+
+  std::vector<SceneTransformTarget> targets;
+  std::set<std::pair<MvrNodeType, std::string>> seen;
+  for (const auto &candidate : candidates) {
+    if (candidate.target.type != MvrNodeType::GroupObject &&
+        !candidate.rootGroupUuid.empty() &&
+        promotedGroups.find(candidate.rootGroupUuid) != promotedGroups.end())
+      continue;
+    if (seen.insert({candidate.target.type, candidate.target.uuid}).second)
+      targets.push_back(candidate.target);
+  }
+  return targets;
+}
+
+// Builds selection-preserving feedback for interactive transform scope.
+SelectionFeedback BuildInteractiveSelectionFeedback(
+    const MvrScene &scene, const ObjectSelection &selection) {
+  SelectionFeedback feedback;
+  std::unordered_set<std::string> selectedSeen;
+  for (const auto &object : CollectSelectedObjects(scene, selection))
+    AppendUnique(feedback.selectedUuids, selectedSeen, object.uuid);
+
+  feedback.effectiveTargets =
+      BuildInteractiveTransformTargets(scene, selection);
+  std::unordered_set<std::string> highlightedSeen;
+  for (const auto &target : feedback.effectiveTargets) {
+    if (target.type == MvrNodeType::GroupObject)
+      AppendGroupChildrenForHighlights(scene, target.uuid,
+                                      feedback.highlightedUuids,
+                                      highlightedSeen);
+    else
+      AppendUnique(feedback.highlightedUuids, highlightedSeen, target.uuid);
+  }
+  return feedback;
+}
+
 // Returns the current world transform for one effective transform target.
 Matrix GetTargetWorldTransform(const MvrScene &scene,
                                const SceneTransformTarget &target) {
@@ -927,7 +996,7 @@ void SetTargetWorldTransform(MvrScene &scene,
 void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
                         const std::array<float, 3> &deltaMm,
                         transform_space::TransformSpace space) {
-  const auto targets = BuildTransformTargets(scene, selection);
+  const auto targets = BuildInteractiveTransformTargets(scene, selection);
   for (const auto &target : targets) {
     const Matrix transform = GetTargetWorldTransform(scene, target);
     SetTargetWorldTransform(
@@ -950,7 +1019,7 @@ void RotateSelectionAroundPivot(MvrScene &scene,
   else
     rotation = MatrixUtils::EulerToMatrix(angleDeg, 0.0f, 0.0f);
 
-  const auto targets = BuildTransformTargets(scene, selection);
+  const auto targets = BuildInteractiveTransformTargets(scene, selection);
   Matrix effectiveRotation = rotation;
   if (space == transform_space::TransformSpace::Local && !targets.empty()) {
     const Matrix reference = transform_space::ExtractOrientation(
@@ -973,7 +1042,8 @@ ExpandSelectionForGroupHighlights(const MvrScene &scene,
                                   const ObjectSelection &selection) {
   std::vector<std::string> expanded;
   std::unordered_set<std::string> seen;
-  for (const auto &target : BuildTransformTargets(scene, selection)) {
+  for (const auto &target :
+       BuildInteractiveSelectionFeedback(scene, selection).effectiveTargets) {
     if (target.type == MvrNodeType::GroupObject) {
       AppendGroupChildrenForHighlights(scene, target.uuid, expanded, seen);
     } else {
@@ -1002,12 +1072,8 @@ ExpandHoverForGroupHighlights(const MvrScene &scene, const std::string &uuid) {
   else
     return expanded;
 
-  std::unordered_set<std::string> seen;
-  for (const auto &target : BuildTransformTargets(scene, selection)) {
-    if (target.type != MvrNodeType::GroupObject)
-      continue;
-    AppendGroupChildrenForHighlights(scene, target.uuid, expanded, seen);
-  }
+  expanded =
+      BuildInteractiveSelectionFeedback(scene, selection).highlightedUuids;
   expanded.erase(std::remove(expanded.begin(), expanded.end(), uuid),
                  expanded.end());
   return expanded;

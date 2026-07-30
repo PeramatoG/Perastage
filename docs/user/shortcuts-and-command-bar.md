@@ -94,7 +94,11 @@ Notes:
 
 - One value applies to all selected items.
 - Two values distribute linearly from start to end across selection; `t` and `thru` are accepted as optional range separators, so `pos x -7 t 7`, `pos x -7 thru 7`, and `pos x -7 7` are equivalent.
-- Use `++` / `--` for relative offsets (for example `pos x ++ 1.5`).
+- Use `++` / `--` for relative offsets. Compact and spaced values are both
+  accepted, for example `pos x ++1.5`, `pos x ++ 1.5`, `pos z --1`, and
+  `pos z -- 1`.
+- Mouse and console transforms move a grouped truss through its root group.
+  Grouped fixtures, supports, and scene objects remain individual targets.
 - Group rotation pivot defaults to selection bounding-box center.
 - You can override pivot with a trailing `x,y,z` triplet, for example `rot y ++45 --g -2.5,0,0`.
 

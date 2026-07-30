@@ -56,6 +56,30 @@ int main() {
   auto relativeNegative = gui::console::ParseTransformCommandSegment("-- 1.5");
   assert(relativeNegative.relative);
   assert(EqualValues(relativeNegative.values, {-1.5f}));
+  auto compactPositive = gui::console::ParseTransformCommandSegment("++1.25");
+  assert(compactPositive.relative);
+  assert(EqualValues(compactPositive.values, {1.25f}));
+  auto compactNegative = gui::console::ParseTransformCommandSegment("--1.25");
+  assert(compactNegative.relative);
+  assert(EqualValues(compactNegative.values, {-1.25f}));
+  auto compactRange =
+      gui::console::ParseTransformCommandSegment("--1.5 thru 3.5 --local");
+  assert(compactRange.relative);
+  assert(compactRange.space == transform_space::TransformSpace::Local);
+  assert(EqualValues(compactRange.values, {-1.5f, -3.5f}));
+  auto modifierOnly = gui::console::ParseTransformCommandSegment("--group");
+  assert(!modifierOnly.relative);
+  assert(modifierOnly.group);
+  auto malformed = gui::console::ParseTransformCommandSegment("--wat");
+  assert(!malformed.relative);
+  assert(malformed.values.empty());
+  assert(malformed.remainder == "--wat");
+  auto notFinite = gui::console::ParseTransformCommandSegment("nan");
+  assert(notFinite.values.empty());
+  assert(notFinite.remainder == "nan");
+  auto infinity = gui::console::ParseTransformCommandSegment("inf");
+  assert(infinity.values.empty());
+  assert(infinity.remainder == "inf");
 
   return 0;
 }

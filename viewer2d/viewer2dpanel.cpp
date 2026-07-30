@@ -1775,7 +1775,7 @@ std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() 
     scene_grouping::ObjectSelection selection;
     selection.fixtures = m_dragFixtureUuids;
     selection.trusses = m_dragTrussUuids;
-    const auto targets = scene_grouping::BuildTransformTargets(
+    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
         ConfigManager::Get().GetScene(), selection);
     if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
       return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
@@ -1870,7 +1870,8 @@ void Viewer2DPanel::ApplySelectionDelta(
   std::array<float, 3> deltaMm{dxMm, dyMm, dzMm};
   if (m_transformSpace == transform_space::TransformSpace::Local &&
       m_axisConstrainedMovementEnabled && m_dragAxis != DragAxis::None) {
-    const auto targets = scene_grouping::BuildTransformTargets(cfg.GetScene(), selection);
+    const auto targets = scene_grouping::BuildInteractiveTransformTargets(
+        cfg.GetScene(), selection);
     if (!targets.empty()) {
       const Matrix referenceTransform = scene_grouping::GetTargetWorldTransform(
           cfg.GetScene(), targets.front());

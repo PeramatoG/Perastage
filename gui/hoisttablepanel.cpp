@@ -31,6 +31,8 @@
 #include "hoist_weight_distribution.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
+#include "scene_grouping.h"
+#include "scene_node_operations.h"
 #include "riggingpanel.h"
 #include "rigging_extra_weight_settings.h"
 #include "selection_origin_token.h"
@@ -1391,7 +1393,14 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
       changedWeightPositions.insert(NormalizePositionName(old.positionName));
       changedWeightPositions.insert(NormalizePositionName(next.positionName));
     }
+    const Matrix requestedWorldTransform = next.transform;
+    next.transform = old.transform;
     it->second = next;
+    if (transformChanged) {
+      scene_node_operations::ApplyExactWorldTransform(
+          scene, MvrNodeType::Support, it->second.uuid,
+          requestedWorldTransform);
+    }
     if (!it->second.position.empty())
       scene.positions[it->second.position] = it->second.positionName;
   }
@@ -1528,11 +1537,16 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
   rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
 
   auto &scene = cfg.GetScene();
+  std::vector<scene_grouping::SceneTransformTarget> removalTargets;
+  for (int r : rows) {
+    if (r >= 0 && static_cast<size_t>(r) < rowUuids.size())
+      removalTargets.push_back({MvrNodeType::Support, rowUuids[r]});
+  }
+  scene_node_operations::RemoveNodes(scene, removalTargets);
   for (int r : rows) {
     if ((size_t)r < rowUuids.size()) {
       wxDataViewItem rowItem = table->RowToItem(static_cast<unsigned int>(r));
       const wxUIntPtr rowKey = store->GetItemData(rowItem);
-      scene.supports.erase(rowUuids[r]);
       rowUuids.erase(rowUuids.begin() + r);
       if ((size_t)r < rowLoadStates.size())
         rowLoadStates.erase(rowLoadStates.begin() + r);

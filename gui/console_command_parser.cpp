@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <sstream>
 
@@ -68,7 +69,8 @@ bool TryParseFloat(const std::string &token, float &value) {
   char *end = nullptr;
   errno = 0;
   const float parsed = std::strtof(token.c_str(), &end);
-  if (errno != 0 || end != token.c_str() + token.size())
+  if (errno != 0 || end != token.c_str() + token.size() ||
+      !std::isfinite(parsed))
     return false;
 
   value = parsed;
@@ -85,11 +87,18 @@ TransformCommandSegment ParseTransformCommandSegment(const std::string &text) {
   if (remaining.rfind("++", 0) == 0) {
     result.relative = true;
     remaining = Trim(remaining.substr(2));
-  } else if (remaining.rfind("--", 0) == 0 &&
-             (remaining.size() == 2 || std::isspace(static_cast<unsigned char>(remaining[2])))) {
-    result.relative = true;
-    sign = -1.0f;
-    remaining = Trim(remaining.substr(2));
+  } else if (remaining.rfind("--", 0) == 0) {
+    const std::string compactValue = remaining.substr(2);
+    float parsedCompactValue = 0.0f;
+    const size_t tokenEnd = compactValue.find_first_of(" \t\n\r");
+    const std::string firstToken = compactValue.substr(0, tokenEnd);
+    if (remaining.size() == 2 ||
+        std::isspace(static_cast<unsigned char>(remaining[2])) ||
+        TryParseFloat(firstToken, parsedCompactValue)) {
+      result.relative = true;
+      sign = -1.0f;
+      remaining = Trim(remaining.substr(2));
+    }
   }
 
   std::stringstream stream(remaining);
