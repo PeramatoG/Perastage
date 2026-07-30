@@ -1380,6 +1380,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                 return std::string("Axis_") + stableToken;
             case GdtfNodeType::Emitter:
                 return std::string("Emitter_") + stableToken;
+            case GdtfNodeType::Magnet:
+                return std::string("Magnet_") + stableToken;
             case GdtfNodeType::Geometry:
             default:
                 return std::string("Geometry_") + stableToken;
@@ -1414,6 +1416,8 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
         parsedNodeType = GdtfNodeType::Axis;
     else if (nodeType == "Beam" || isLensGeometry)
         parsedNodeType = GdtfNodeType::Emitter;
+    else if (nodeType == "Magnet")
+        parsedNodeType = GdtfNodeType::Magnet;
 
     const int currentNodeIndex = static_cast<int>(outTree.nodes.size());
     GdtfNode3D node3d;

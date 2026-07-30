@@ -2,10 +2,12 @@
 
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "truss_attachment_candidates.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <tuple>
 #include <vector>
 
 namespace magnet_snap {
@@ -150,24 +152,9 @@ std::optional<Bounds> MakeTrussGroupBounds(const MvrScene &scene,
     aggregate.size[axis] = std::max(maxLocal[axis] - minLocal[axis], 1.0f);
     aggregate.transform.o =
         Add(aggregate.transform.o,
-        Scale(basis[axis], (minLocal[axis] + maxLocal[axis]) * 0.5f));
+            Scale(basis[axis], (minLocal[axis] + maxLocal[axis]) * 0.5f));
   }
   return aggregate;
-}
-
-// Returns whether a point lies inside an oriented bounds volume.
-bool BoundsContainsPoint(const Bounds &bounds,
-                         const std::array<float, 3> &point) {
-  const std::array<std::array<float, 3>, 3> basis = {
-      Normalize(bounds.transform.u), Normalize(bounds.transform.v),
-      Normalize(bounds.transform.w)};
-  const auto relative = Subtract(point, bounds.transform.o);
-  for (int axis = 0; axis < 3; ++axis) {
-    const float projected = Dot(relative, basis[axis]);
-    if (std::fabs(projected) > bounds.size[axis] * 0.5f)
-      return false;
-  }
-  return true;
 }
 
 // Returns transformed bounds for objects with known dimensions.
@@ -335,19 +322,211 @@ bool GroupContainsTruss(const MvrScene &scene, const std::string &groupUuid,
   return false;
 }
 
-// Tests a source and target face pair and stores the closest snap result.
-void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
-                      const std::string &targetUuid, SnapKind kind,
-                      const Face &sourceFace, const Bounds &targetBounds,
-                      const Face &targetFace, const SnapSettings &settings,
-                      float &bestDistance, std::optional<SnapResult> &best) {
-  const auto targetPoint =
-      ClosestPointOnFace(targetBounds, targetFace, sourceFace.center);
-  const std::array<float, 3> delta = Subtract(targetPoint, sourceFace.center);
-  const float distance = WeightedLength(delta, settings.axisWeights);
-  if (distance > settings.thresholdMm || distance >= bestDistance)
+struct CandidateRank {
+  double primary = std::numeric_limits<double>::max();
+  double depthDifference = std::numeric_limits<double>::max();
+  double worldDistance = std::numeric_limits<double>::max();
+  std::string targetUuid;
+  std::string sourceCandidateId;
+  std::string targetCandidateId;
+  std::string sourceMemberUuid;
+  std::string targetMemberUuid;
+};
+
+// Returns whether two candidate directions face one another.
+bool DirectionsOppose(const truss_attachment::Candidate &source,
+                      const truss_attachment::Candidate &target) {
+  return source.worldDirection && target.worldDirection &&
+         Dot(*source.worldDirection, *target.worldDirection) <= -0.996f;
+}
+
+// Returns whether two oriented bounds have substantial volumetric overlap.
+bool SubstantiallyOverlaps(const Bounds &moving, const Bounds &target) {
+  constexpr float kAxisEpsilon = 1e-5f;
+  constexpr float kSubstantialPenetrationMm = 50.0f;
+  const std::array<std::array<float, 3>, 3> a = {Normalize(moving.transform.u),
+                                                 Normalize(moving.transform.v),
+                                                 Normalize(moving.transform.w)};
+  const std::array<std::array<float, 3>, 3> b = {Normalize(target.transform.u),
+                                                 Normalize(target.transform.v),
+                                                 Normalize(target.transform.w)};
+  const std::array<float, 3> aHalf = {
+      moving.size[0] * 0.5f, moving.size[1] * 0.5f, moving.size[2] * 0.5f};
+  const std::array<float, 3> bHalf = {
+      target.size[0] * 0.5f, target.size[1] * 0.5f, target.size[2] * 0.5f};
+  float rotation[3][3]{};
+  float absoluteRotation[3][3]{};
+  for (int row = 0; row < 3; ++row) {
+    for (int column = 0; column < 3; ++column) {
+      rotation[row][column] = Dot(a[row], b[column]);
+      absoluteRotation[row][column] =
+          std::fabs(rotation[row][column]) + kAxisEpsilon;
+    }
+  }
+  const auto centerDelta = Subtract(target.transform.o, moving.transform.o);
+  const std::array<float, 3> translated = {
+      Dot(centerDelta, a[0]), Dot(centerDelta, a[1]), Dot(centerDelta, a[2])};
+  float minimumFacePenetration = std::numeric_limits<float>::max();
+  for (int row = 0; row < 3; ++row) {
+    float targetRadius = 0.0f;
+    for (int column = 0; column < 3; ++column)
+      targetRadius += bHalf[column] * absoluteRotation[row][column];
+    const float penetration =
+        aHalf[row] + targetRadius - std::fabs(translated[row]);
+    if (penetration <= 0.0f)
+      return false;
+    minimumFacePenetration = std::min(minimumFacePenetration, penetration);
+  }
+  for (int column = 0; column < 3; ++column) {
+    float movingRadius = 0.0f;
+    for (int row = 0; row < 3; ++row)
+      movingRadius += aHalf[row] * absoluteRotation[row][column];
+    const float projectedCenter =
+        std::fabs(translated[0] * rotation[0][column] +
+                  translated[1] * rotation[1][column] +
+                  translated[2] * rotation[2][column]);
+    const float penetration = movingRadius + bHalf[column] - projectedCenter;
+    if (penetration <= 0.0f)
+      return false;
+    minimumFacePenetration = std::min(minimumFacePenetration, penetration);
+  }
+  for (int row = 0; row < 3; ++row) {
+    for (int column = 0; column < 3; ++column) {
+      const float movingRadius =
+          aHalf[(row + 1) % 3] * absoluteRotation[(row + 2) % 3][column] +
+          aHalf[(row + 2) % 3] * absoluteRotation[(row + 1) % 3][column];
+      const float targetRadius =
+          bHalf[(column + 1) % 3] * absoluteRotation[row][(column + 2) % 3] +
+          bHalf[(column + 2) % 3] * absoluteRotation[row][(column + 1) % 3];
+      const float separation = std::fabs(
+          translated[(row + 2) % 3] * rotation[(row + 1) % 3][column] -
+          translated[(row + 1) % 3] * rotation[(row + 2) % 3][column]);
+      if (separation >= movingRadius + targetRadius)
+        return false;
+    }
+  }
+  return minimumFacePenetration > kSubstantialPenetrationMm;
+}
+
+// Returns bounds translated by a candidate alignment delta.
+Bounds TranslatedBounds(Bounds bounds, const std::array<float, 3> &delta) {
+  bounds.transform.o = Add(bounds.transform.o, delta);
+  return bounds;
+}
+
+// Returns the actual target member bounds for overlap evaluation.
+std::optional<Bounds>
+TargetMemberBounds(const MvrScene &scene, ObjectType targetType,
+                   const std::string &targetUuid,
+                   const truss_attachment::Candidate &targetCandidate) {
+  const std::string ownerUuid = targetType == ObjectType::Truss
+                                    ? targetUuid
+                                    : targetCandidate.ownerTrussUuid;
+  const auto targetIt = scene.trusses.find(ownerUuid);
+  return targetIt == scene.trusses.end()
+             ? std::nullopt
+             : std::optional<Bounds>(MakeTrussBounds(targetIt->second));
+}
+
+// Chooses an alternate inferred source end only to avoid substantial overlap.
+const truss_attachment::Candidate &ChooseSourceEndpoint(
+    const MvrScene &scene, const SnapSource &source, ObjectType targetType,
+    const std::string &targetUuid, const Bounds &sourceBounds,
+    const std::vector<truss_attachment::Candidate> &sourceCandidates,
+    const truss_attachment::Candidate &acquiredSource,
+    const truss_attachment::Candidate &targetCandidate) {
+  if (source.type != ObjectType::Truss || sourceCandidates.size() != 2 ||
+      acquiredSource.kind !=
+          truss_attachment::CandidateKind::InferredLongitudinalEnd ||
+      sourceCandidates[0].kind !=
+          truss_attachment::CandidateKind::InferredLongitudinalEnd ||
+      sourceCandidates[1].kind !=
+          truss_attachment::CandidateKind::InferredLongitudinalEnd)
+    return acquiredSource;
+  const auto targetBounds =
+      TargetMemberBounds(scene, targetType, targetUuid, targetCandidate);
+  if (!targetBounds)
+    return acquiredSource;
+  const auto &alternate = &sourceCandidates[0] == &acquiredSource
+                              ? sourceCandidates[1]
+                              : sourceCandidates[0];
+  const auto acquiredDelta = Subtract(targetCandidate.worldTransform.o,
+                                      acquiredSource.worldTransform.o);
+  const auto alternateDelta =
+      Subtract(targetCandidate.worldTransform.o, alternate.worldTransform.o);
+  const bool acquiredOverlap = SubstantiallyOverlaps(
+      TranslatedBounds(sourceBounds, acquiredDelta), *targetBounds);
+  const bool alternateOverlap = SubstantiallyOverlaps(
+      TranslatedBounds(sourceBounds, alternateDelta), *targetBounds);
+  if (acquiredOverlap != alternateOverlap)
+    return acquiredOverlap ? alternate : acquiredSource;
+  if (acquiredOverlap && DirectionsOppose(alternate, targetCandidate) !=
+                             DirectionsOppose(acquiredSource, targetCandidate))
+    return DirectionsOppose(alternate, targetCandidate) ? alternate
+                                                        : acquiredSource;
+  return acquiredSource;
+}
+
+// Returns whether the left candidate rank wins the deterministic ordering.
+bool IsBetterRank(const CandidateRank &left, const CandidateRank &right) {
+  return std::tie(left.primary, left.depthDifference, left.worldDistance,
+                  left.targetUuid, left.sourceCandidateId,
+                  left.targetCandidateId, left.sourceMemberUuid,
+                  left.targetMemberUuid) <
+         std::tie(right.primary, right.depthDifference, right.worldDistance,
+                  right.targetUuid, right.sourceCandidateId,
+                  right.targetCandidateId, right.sourceMemberUuid,
+                  right.targetMemberUuid);
+}
+
+// Tests a source and target attachment point and stores the closest snap.
+void ConsiderCandidatePair(
+    const SnapSource &source, ObjectType targetType,
+    const std::string &targetUuid, SnapKind kind,
+    const truss_attachment::Candidate &sourceCandidate,
+    const truss_attachment::Candidate &targetCandidate, const MvrScene &scene,
+    const Bounds &sourceBounds,
+    const std::vector<truss_attachment::Candidate> &sourceCandidates,
+    const SnapSettings &settings, CandidateRank &bestRank,
+    std::optional<SnapResult> &best) {
+  const std::array<float, 3> acquisitionDelta = Subtract(
+      targetCandidate.worldTransform.o, sourceCandidate.worldTransform.o);
+  const auto &resolvedSource =
+      ChooseSourceEndpoint(scene, source, targetType, targetUuid, sourceBounds,
+                           sourceCandidates, sourceCandidate, targetCandidate);
+  const std::array<float, 3> delta = Subtract(targetCandidate.worldTransform.o,
+                                              resolvedSource.worldTransform.o);
+  const double worldDistance = Length(acquisitionDelta);
+  CandidateRank rank;
+  rank.targetUuid = targetUuid;
+  rank.sourceCandidateId = sourceCandidate.stableId;
+  rank.targetCandidateId = targetCandidate.stableId;
+  rank.sourceMemberUuid = sourceCandidate.ownerTrussUuid;
+  rank.targetMemberUuid = targetCandidate.ownerTrussUuid;
+  rank.worldDistance = worldDistance;
+  if (settings.trussProjection) {
+    const auto sourceProjected = truss_screen_snap::Project(
+        *settings.trussProjection, sourceCandidate.worldTransform.o);
+    const auto targetProjected = truss_screen_snap::Project(
+        *settings.trussProjection, targetCandidate.worldTransform.o);
+    if (!sourceProjected || !targetProjected)
+      return;
+    const double dx = targetProjected->logicalX - sourceProjected->logicalX;
+    const double dy = targetProjected->logicalY - sourceProjected->logicalY;
+    rank.primary = std::sqrt(dx * dx + dy * dy);
+    rank.depthDifference =
+        std::fabs(targetProjected->depth - sourceProjected->depth);
+    if (rank.primary > settings.trussScreenApertureLogicalPx)
+      return;
+  } else {
+    rank.primary = WeightedLength(acquisitionDelta, settings.axisWeights);
+    rank.depthDifference = 0.0;
+    if (rank.primary > settings.thresholdMm)
+      return;
+  }
+  if (!IsBetterRank(rank, bestRank))
     return;
-  bestDistance = distance;
+  bestRank = rank;
   SnapResult result;
   result.snapped = true;
   result.kind = kind;
@@ -357,10 +536,147 @@ void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
   result.targetType = targetType;
   result.translationDeltaMm = delta;
   result.needsGrouping = kind == SnapKind::TrussToTruss;
+  result.sourceCandidateId = resolvedSource.stableId;
+  result.targetCandidateId = targetCandidate.stableId;
+  result.sourceMemberTrussUuid = resolvedSource.ownerTrussUuid;
+  result.targetMemberTrussUuid = targetCandidate.ownerTrussUuid;
   best = result;
 }
 
+// Tests a generic object face pair and stores the closest snap result.
+void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
+                      const std::string &targetUuid, SnapKind kind,
+                      const Face &sourceFace, const Bounds &targetBounds,
+                      const Face &targetFace, const SnapSettings &settings,
+                      float &bestDistance, std::optional<SnapResult> &best) {
+  const auto targetPoint =
+      ClosestPointOnFace(targetBounds, targetFace, sourceFace.center);
+  const auto delta = Subtract(targetPoint, sourceFace.center);
+  const float distance = WeightedLength(delta, settings.axisWeights);
+  if (distance > settings.thresholdMm || distance >= bestDistance)
+    return;
+  bestDistance = distance;
+  best = SnapResult{
+      true,        kind,       source.uuid, targetUuid,
+      source.type, targetType, delta,       kind == SnapKind::TrussToTruss};
+}
+
+constexpr float kOccupiedJointPositionToleranceMm = 25.0f;
+constexpr float kOccupiedJointOpposingDirectionDot = -0.996f;
+
+// Collects truss UUIDs recursively from a GroupObject hierarchy.
+void CollectGroupTrussUuids(const MvrScene &scene, const std::string &groupUuid,
+                            std::vector<std::string> &uuids) {
+  const auto groupIt = scene.groupObjects.find(groupUuid);
+  if (groupIt == scene.groupObjects.end())
+    return;
+  for (const auto &child : groupIt->second.children) {
+    if (child.type == MvrNodeType::Truss)
+      uuids.push_back(child.uuid);
+    else if (child.type == MvrNodeType::GroupObject)
+      CollectGroupTrussUuids(scene, child.uuid, uuids);
+  }
+}
+
+struct JointMatch {
+  float distance = 0.0f;
+  std::size_t first = 0;
+  std::size_t second = 0;
+};
+
+// Builds real unoccupied member candidates for a truss group.
+std::vector<truss_attachment::Candidate>
+BuildGroupCandidatesImpl(const MvrScene &scene, const Bounds &bounds,
+                         const std::string &groupUuid,
+                         truss_attachment::CandidateResolver &resolver) {
+  std::vector<std::string> memberUuids;
+  CollectGroupTrussUuids(scene, groupUuid, memberUuids);
+  std::sort(memberUuids.begin(), memberUuids.end());
+  memberUuids.erase(std::unique(memberUuids.begin(), memberUuids.end()),
+                    memberUuids.end());
+  std::vector<truss_attachment::Candidate> candidates;
+  for (const std::string &uuid : memberUuids) {
+    const auto trussIt = scene.trusses.find(uuid);
+    if (trussIt == scene.trusses.end())
+      continue;
+    auto memberCandidates =
+        truss_attachment::BuildCandidates(scene, trussIt->second, resolver)
+            .candidates;
+    candidates.insert(candidates.end(), memberCandidates.begin(),
+                      memberCandidates.end());
+  }
+  std::sort(candidates.begin(), candidates.end(),
+            [](const auto &left, const auto &right) {
+              return std::tie(left.ownerTrussUuid, left.stableId) <
+                     std::tie(right.ownerTrussUuid, right.stableId);
+            });
+  std::vector<JointMatch> matches;
+  for (std::size_t first = 0; first < candidates.size(); ++first) {
+    for (std::size_t second = first + 1; second < candidates.size(); ++second) {
+      if (candidates[first].ownerTrussUuid == candidates[second].ownerTrussUuid)
+        continue;
+      const float distance =
+          Length(Subtract(candidates[first].worldTransform.o,
+                          candidates[second].worldTransform.o));
+      if (distance > kOccupiedJointPositionToleranceMm)
+        continue;
+      if (candidates[first].worldDirection &&
+          candidates[second].worldDirection &&
+          Dot(*candidates[first].worldDirection,
+              *candidates[second].worldDirection) >
+              kOccupiedJointOpposingDirectionDot)
+        continue;
+      matches.push_back({distance, first, second});
+    }
+  }
+  std::sort(
+      matches.begin(), matches.end(),
+      [&](const JointMatch &left, const JointMatch &right) {
+        return std::tie(left.distance, candidates[left.first].ownerTrussUuid,
+                        candidates[left.first].stableId,
+                        candidates[left.second].ownerTrussUuid,
+                        candidates[left.second].stableId) <
+               std::tie(right.distance, candidates[right.first].ownerTrussUuid,
+                        candidates[right.first].stableId,
+                        candidates[right.second].ownerTrussUuid,
+                        candidates[right.second].stableId);
+      });
+  std::vector<bool> occupied(candidates.size(), false);
+  for (const JointMatch &match : matches) {
+    if (occupied[match.first] || occupied[match.second])
+      continue;
+    occupied[match.first] = true;
+    occupied[match.second] = true;
+  }
+  std::vector<truss_attachment::Candidate> exposed;
+  for (std::size_t index = 0; index < candidates.size(); ++index) {
+    if (!occupied[index])
+      exposed.push_back(candidates[index]);
+  }
+  if (!candidates.empty())
+    return exposed;
+
+  Matrix insertionTransform = bounds.transform;
+  insertionTransform.o =
+      Add(insertionTransform.o,
+          Scale(Normalize(insertionTransform.u), -bounds.size[0] * 0.5f));
+  insertionTransform.o =
+      Add(insertionTransform.o,
+          Scale(Normalize(insertionTransform.w), -bounds.size[2] * 0.5f));
+  return truss_attachment::BuildAmbiguousCandidates(
+      bounds.size, insertionTransform, groupUuid);
+}
+
 } // namespace
+
+// Builds deterministic exterior or conservative aggregate group candidates.
+std::vector<truss_attachment::Candidate>
+BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid) {
+  const auto bounds = MakeTrussGroupBounds(scene, groupUuid);
+  truss_attachment::CandidateResolver resolver;
+  return bounds ? BuildGroupCandidatesImpl(scene, *bounds, groupUuid, resolver)
+                : std::vector<truss_attachment::Candidate>{};
+}
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,
@@ -371,24 +687,38 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
     return std::nullopt;
 
   float bestDistance = std::numeric_limits<float>::max();
+  CandidateRank bestCandidateRank;
   std::optional<SnapResult> best;
 
   if (source.type == ObjectType::Truss ||
       source.type == ObjectType::TrussGroup) {
-    const auto sourceFaces = BuildFaces(*sourceBounds, true);
+    truss_attachment::CandidateResolver localResolver;
+    auto &resolver = settings.candidateResolver ? *settings.candidateResolver
+                                                : localResolver;
+    const auto sourceCandidates =
+        source.type == ObjectType::Truss
+            ? truss_attachment::BuildCandidates(
+                  scene, scene.trusses.at(source.uuid), resolver)
+                  .candidates
+            : BuildGroupCandidatesImpl(scene, *sourceBounds, source.uuid,
+                                       resolver);
     auto considerTrussTarget = [&](ObjectType targetType,
                                    const std::string &uuid,
                                    const Bounds &targetBounds) {
       if (uuid == source.uuid)
         return;
-      if (targetType == ObjectType::TrussGroup &&
-          BoundsContainsPoint(targetBounds, sourceBounds->transform.o))
-        return;
-      for (const auto &sourceFace : sourceFaces) {
-        for (const auto &targetFace : BuildFaces(targetBounds, true))
-          ConsiderFacePair(source, targetType, uuid, SnapKind::TrussToTruss,
-                           sourceFace, targetBounds, targetFace, settings,
-                           bestDistance, best);
+      const auto targetCandidates =
+          targetType == ObjectType::Truss
+              ? truss_attachment::BuildCandidates(scene, scene.trusses.at(uuid),
+                                                  resolver)
+                    .candidates
+              : BuildGroupCandidatesImpl(scene, targetBounds, uuid, resolver);
+      for (const auto &sourceCandidate : sourceCandidates) {
+        for (const auto &targetCandidate : targetCandidates)
+          ConsiderCandidatePair(
+              source, targetType, uuid, SnapKind::TrussToTruss, sourceCandidate,
+              targetCandidate, scene, *sourceBounds, sourceCandidates, settings,
+              bestCandidateRank, best);
       }
     };
     for (const auto &[uuid, group] : scene.groupObjects) {

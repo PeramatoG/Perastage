@@ -2,6 +2,8 @@
 
 #include "interactive_transform_policy.h"
 #include "mvrscene.h"
+#include "truss_attachment_candidates.h"
+#include "truss_screen_snap.h"
 
 #include <array>
 #include <optional>
@@ -24,6 +26,10 @@ struct SnapSource {
 struct SnapSettings {
   float thresholdMm = kDefaultSnapDistanceMm;
   std::array<float, 3> axisWeights{1.0f, 1.0f, 1.0f};
+  truss_attachment::CandidateResolver *candidateResolver = nullptr;
+  std::optional<truss_screen_snap::ProjectionSnapshot> trussProjection;
+  double trussScreenApertureLogicalPx =
+      truss_screen_snap::kDefaultTrussScreenSnapApertureLogicalPx;
 };
 
 struct SnapResult {
@@ -35,7 +41,15 @@ struct SnapResult {
   ObjectType targetType = ObjectType::SceneObject;
   std::array<float, 3> translationDeltaMm{0.0f, 0.0f, 0.0f};
   bool needsGrouping = false;
+  std::string sourceCandidateId;
+  std::string targetCandidateId;
+  std::string sourceMemberTrussUuid;
+  std::string targetMemberTrussUuid;
 };
+
+// Builds deterministic exterior or conservative aggregate group candidates.
+std::vector<truss_attachment::Candidate>
+BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid);
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,

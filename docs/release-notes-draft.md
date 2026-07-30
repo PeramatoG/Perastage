@@ -6,6 +6,15 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Improved truss Magnet placement by preferring connector points declared in
+  GDTF files, using terminal points for clearly straight trusses, and retaining
+  conservative face-center snapping for ambiguous truss shapes and groups.
+  Project-relative connector resources are cached safely, while 3D assembly
+  now acquires visually overlapping endpoints with a DPI-independent screen
+  aperture for more predictable perspective-view placement. Truss groups now
+  expose their real unoccupied member connectors, and straight extensions
+  choose the non-overlapping end when approaching an assembly from either side.
+
 - Added **Selection & Movement** preferences for choosing, independently for
   fixtures, trusses, supports/hoists, and scene objects, whether mouse,
   command-bar, and Magnet transforms move an exact grouped object or its
@@ -18,6 +27,13 @@ Changes since **v1.5.0**.
   ensuring the GLEW header is initialized before platform OpenGL headers.
 
 ## Important fixes
+
+- Improved Windows test reliability for truss Magnet archive and cache
+  validation by initializing its native file services explicitly and reporting
+  failures without modal dialogs.
+
+- Corrected unconstrained 3D selection dragging after a Magnet preview so both
+  pointer projections use the same unsnapped drag anchor.
 
 - Fixed continuous fixture, truss, and scene-object placement drifting away
   from the pointer after zooming, panning, orbiting, resizing, fitting, or

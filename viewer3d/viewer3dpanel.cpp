@@ -2929,6 +2929,7 @@ Viewer3DPanel::BuildActiveMagnetSource() const {
 magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
     const magnet_snap::SnapSource &source) const {
     magnet_snap::SnapSettings settings;
+    settings.candidateResolver = &m_trussCandidateResolver;
     settings.thresholdMm = source.type == magnet_snap::ObjectType::Fixture
                                ? magnet_snap::kDefaultSnapDistanceMm * 2.0f
                                : magnet_snap::kDefaultSnapDistanceMm;
@@ -2945,6 +2946,25 @@ magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
     for (int axis = 0; axis < 3; ++axis)
     settings.axisWeights[axis] =
         std::max(kMinimumViewAxisWeight, 1.0f - std::fabs(forward[axis]));
+    if (source.type == magnet_snap::ObjectType::Truss ||
+        source.type == magnet_snap::ObjectType::TrussGroup) {
+        truss_screen_snap::ProjectionSnapshot snapshot;
+        GLdouble modelView[16] = {};
+        GLdouble projection[16] = {};
+        GLint viewport[4] = {};
+        glGetDoublev(GL_MODELVIEW_MATRIX, modelView);
+        glGetDoublev(GL_PROJECTION_MATRIX, projection);
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        std::copy(std::begin(modelView), std::end(modelView),
+                  snapshot.modelView.begin());
+        std::copy(std::begin(projection), std::end(projection),
+                  snapshot.projection.begin());
+        std::copy(std::begin(viewport), std::end(viewport),
+                  snapshot.viewport.begin());
+        snapshot.contentScale =
+            std::max(1.0, static_cast<double>(GetContentScaleFactor()));
+        settings.trussProjection = snapshot;
+    }
     return settings;
 }
 
@@ -3508,12 +3528,11 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                         m_draggedSincePress = true;
                     }
                 } else {
-          const auto lastPoint =
-              ProjectMouseToSelectionDragViewPlane(
-                m_lastMousePos, renderSize, m_selectionDragAnchorMeters);
-          const auto currentPoint =
-              ProjectMouseToSelectionDragViewPlane(
-                        pos, renderSize, m_selectionDragAnchorMeters);
+                    const auto rawAnchor = CurrentRawSelectionDragAnchor();
+                    const auto lastPoint = ProjectMouseToSelectionDragViewPlane(
+                        m_lastMousePos, renderSize, rawAnchor);
+                    const auto currentPoint = ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize, rawAnchor);
                     if (lastPoint && currentPoint) {
                         const std::array<float, 3> worldDelta{
                             (*currentPoint)[0] - (*lastPoint)[0],

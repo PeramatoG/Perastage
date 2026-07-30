@@ -79,6 +79,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/PerastageSvgSymbol.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_asset_ingestion.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/truss_attachment_candidates.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/truss_screen_snap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_gdtf_builder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_render_size.cpp
