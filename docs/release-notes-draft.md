@@ -19,6 +19,9 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed a crash that could occur when opening another project after startup by
+  releasing viewer scene caches before the project replaces its scene data.
+
 - Corrected grouped scene transforms so interactive truss moves consistently
   affect their effective groups while fixtures, supports, scene objects, and
   table edits remain exact; compact negative console offsets such as `--1`

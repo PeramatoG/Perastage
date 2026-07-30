@@ -155,6 +155,7 @@ struct Viewer3DController::Impl {
   bool skipOutlinesForCurrentFrame = false;
   int updateResourcesCallsPerFrame = 0;
   std::atomic<bool> resourceSyncPending{true};
+  std::atomic<bool> sceneReplacementActive{false};
   mutable VisibleSet cachedVisibleSet;
   mutable VisibleSet cachedLayerVisibleCandidates;
   mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
@@ -917,6 +918,31 @@ void Viewer3DController::UpdateFrameStateLightweight() {
   }
 }
 
+// Clears cached scene-entry pointers before the owning scene containers change.
+void Viewer3DController::PrepareForSceneReplacement() {
+  m_impl->sceneReplacementActive.store(true, std::memory_order_release);
+  std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
+  m_impl->sortedFixtures.clear();
+  m_impl->sortedTrusses.clear();
+  m_impl->sortedObjects.clear();
+  m_impl->visibleSortedFixtures.clear();
+  m_impl->visibleSortedTrusses.clear();
+  m_impl->visibleSortedObjects.clear();
+  m_impl->sortedListsDirty = true;
+  m_impl->sceneChangedDirty = true;
+  m_impl->visibilityChangedDirty = true;
+  m_impl->hasSceneLayerMembershipFingerprint = false;
+  ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
+      m_impl->layerVisibleCandidatesSceneVersion);
+  MarkResourceSyncPending();
+}
+
+// Allows rendering to resume after the replacement scene is fully installed.
+void Viewer3DController::CompleteSceneReplacement() {
+  m_impl->sceneReplacementActive.store(false, std::memory_order_release);
+  MarkResourceSyncPending();
+}
+
 // Marks resource Sync Pending.
 void Viewer3DController::MarkResourceSyncPending() {
   m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
@@ -944,6 +970,8 @@ int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
 
 // Updates resources If Dirty.
 void Viewer3DController::UpdateResourcesIfDirty() {
+  if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
+    return;
   ++m_impl->updateResourcesCallsPerFrame;
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -1076,6 +1104,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer,
                                      bool preferPerastageSvgSymbolsForLayouts) {
+  if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
+    return;
   ConfigManager &cfg = ConfigManager::Get();
   m_impl->activeRenderMode = mode;
 

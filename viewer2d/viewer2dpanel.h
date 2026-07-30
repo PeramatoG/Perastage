@@ -80,6 +80,8 @@ public:
   static void SetInstance(Viewer2DPanel *panel);
 
   void UpdateScene(bool reload = true);
+  void PrepareForSceneReplacement();
+  void CompleteSceneReplacement();
 
   void SetRenderMode(Viewer2DRenderMode mode);
   Viewer2DRenderMode GetRenderMode() const { return m_renderMode; }

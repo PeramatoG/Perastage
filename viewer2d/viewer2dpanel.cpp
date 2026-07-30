@@ -787,6 +787,16 @@ void Viewer2DPanel::UpdateScene(bool reload) {
   RequestRepaint();
 }
 
+// Releases controller references to scene entries before a project is replaced.
+void Viewer2DPanel::PrepareForSceneReplacement() {
+  m_controller.PrepareForSceneReplacement();
+}
+
+// Resumes controller synchronization after a replacement scene is installed.
+void Viewer2DPanel::CompleteSceneReplacement() {
+  m_controller.CompleteSceneReplacement();
+}
+
 void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
   m_renderMode = mode;
   RequestRepaint();

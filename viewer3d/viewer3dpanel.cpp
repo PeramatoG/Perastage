@@ -3772,6 +3772,16 @@ void Viewer3DPanel::UpdateScene() {
         Viewer2DPanel::Instance()->UpdateScene();
 }
 
+// Releases controller references to scene entries before a project is replaced.
+void Viewer3DPanel::PrepareForSceneReplacement() {
+    m_controller.PrepareForSceneReplacement();
+}
+
+// Resumes controller synchronization after a replacement scene is installed.
+void Viewer3DPanel::CompleteSceneReplacement() {
+    m_controller.CompleteSceneReplacement();
+}
+
 // Applies a new selected UUID set to the 3D controller and schedules a refresh.
 void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string> &uuids) {
   const scene_grouping::ObjectSelection typedSelection{.fixtures = uuids,

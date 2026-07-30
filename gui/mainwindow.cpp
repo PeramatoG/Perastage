@@ -876,6 +876,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   LockViewportInteraction();
   auto finishLoad = [this]() { UnlockViewportInteraction(); };
 
+  if (viewportPanel)
+    viewportPanel->PrepareForSceneReplacement();
+  if (viewport2DPanel)
+    viewport2DPanel->PrepareForSceneReplacement();
+
   if (!GetDefaultGuiConfigServices().LegacyConfigManager().LoadProject(
           path, [&](const std::string &stage, int completed, int total) {
             reportProjectLoadProgress(wxString::FromUTF8(stage), false,
@@ -883,6 +888,14 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
           })) {
     projectLoadProgressDialog.reset();
     ClearBlockingProjectLoadUi();
+    if (viewportPanel) {
+      viewportPanel->CompleteSceneReplacement();
+      viewportPanel->UpdateScene();
+    }
+    if (viewport2DPanel) {
+      viewport2DPanel->CompleteSceneReplacement();
+      viewport2DPanel->UpdateScene();
+    }
     finishLoad();
     loadProfiler.Finish("project_load_failed");
     diagnostics::DiagnosticLogger::Error(
@@ -890,6 +903,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
         diagnostics::DiagnosticLogger::FileNameOnly(path));
     return false;
   }
+  if (viewportPanel)
+    viewportPanel->CompleteSceneReplacement();
+  if (viewport2DPanel)
+    viewport2DPanel->CompleteSceneReplacement();
   loadProfiler.EndPhase();
   if (layoutViewerPanel) {
     layoutViewerPanel->ResetPreviewCachesForProjectLoad();

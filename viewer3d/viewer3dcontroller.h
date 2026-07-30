@@ -84,6 +84,8 @@ public:
   void Update();
   void UpdateResourcesIfDirty();
   void UpdateFrameStateLightweight();
+  void PrepareForSceneReplacement();
+  void CompleteSceneReplacement();
   void MarkResourceSyncPending();
   bool IsResourceSyncPending() const;
   bool ConsumeResourceSyncPending();
