@@ -203,7 +203,9 @@ private:
     std::array<float, 3> ComputeSelectionCenterMeters(
         const std::vector<std::string>& uuids, HoverTargetTable target) const;
     std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
-        const RenderSize& renderSize) const;
+        const RenderSize& renderSize,
+        const std::array<float, 3>& anchorMeters) const;
+    std::array<float, 3> CurrentRawSelectionDragAnchor() const;
     std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
         const wxPoint& mousePos, const RenderSize& renderSize,
         const std::array<float, 3>& planePointMeters) const;

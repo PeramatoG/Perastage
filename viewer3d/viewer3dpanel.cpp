@@ -2769,7 +2769,9 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
 // Projects the active drag axes into screen space for axis-constrained
 // dragging.
 std::array<viewer3d::ProjectedAxis, 3>
-Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
+Viewer3DPanel::BuildProjectedDragAxes(
+    const RenderSize &renderSize,
+    const std::array<float, 3> &anchorMeters) const {
     std::array<viewer3d::ProjectedAxis, 3> axes{};
     if (!renderSize.IsValid())
         return axes;
@@ -2784,8 +2786,7 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
     GLdouble originX = 0.0;
     GLdouble originY = 0.0;
     GLdouble originZ = 0.0;
-    if (gluProject(m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
-                 m_selectionDragAnchorMeters[2], modelview, projection,
+    if (gluProject(anchorMeters[0], anchorMeters[1], anchorMeters[2], modelview, projection,
                  viewport, &originX, &originY, &originZ) != GL_TRUE) {
         return axes;
     }
@@ -2801,9 +2802,9 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
         GLdouble tipY = 0.0;
         GLdouble tipZ = 0.0;
         const auto& worldAxis = axisWorldVectors[i];
-        if (gluProject(m_selectionDragAnchorMeters[0] + worldAxis[0],
-                       m_selectionDragAnchorMeters[1] + worldAxis[1],
-                       m_selectionDragAnchorMeters[2] + worldAxis[2], modelview,
+        if (gluProject(anchorMeters[0] + worldAxis[0],
+                       anchorMeters[1] + worldAxis[1],
+                       anchorMeters[2] + worldAxis[2], modelview,
                        projection, viewport, &tipX, &tipY, &tipZ) != GL_TRUE) {
             continue;
         }
@@ -2818,6 +2819,14 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
     }
 
     return axes;
+}
+
+// Returns the unsnapped anchor used by all pointer-movement geometry.
+std::array<float, 3> Viewer3DPanel::CurrentRawSelectionDragAnchor() const {
+    if (!m_pendingMagnetSnap)
+        return m_selectionDragAnchorMeters;
+    return continuous_placement::RawAnchorFromPreview(
+        m_selectionDragAnchorMeters, m_pendingMagnetSnap->translationDeltaMm);
 }
 
 // Projects the mouse position onto the active selection drag view plane.
@@ -2873,22 +2882,16 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     const std::array<double, 3> planeNormal{centerFar[0] - centerNear[0],
                                            centerFar[1] - centerNear[1],
                                            centerFar[2] - centerNear[2]};
-    const double denominator = rayDir[0] * planeNormal[0] +
-                               rayDir[1] * planeNormal[1] +
-                               rayDir[2] * planeNormal[2];
-    if (std::abs(denominator) <= 1e-12)
-        return std::nullopt;
-
   const std::array<double, 3> planePoint{planePointMeters[0],
                                          planePointMeters[1],
                                          planePointMeters[2]};
-    const double t = ((planePoint[0] - nearPoint[0]) * planeNormal[0] +
-                      (planePoint[1] - nearPoint[1]) * planeNormal[1] +
-                      (planePoint[2] - nearPoint[2]) * planeNormal[2]) /
-                     denominator;
-  return std::array<float, 3>{static_cast<float>(nearPoint[0] + rayDir[0] * t),
-        static_cast<float>(nearPoint[1] + rayDir[1] * t),
-        static_cast<float>(nearPoint[2] + rayDir[2] * t)};
+    const auto intersection = viewer3d::IntersectRayWithPlane(
+        nearPoint, rayDir, planePoint, planeNormal);
+    if (!intersection)
+        return std::nullopt;
+  return std::array<float, 3>{static_cast<float>((*intersection)[0]),
+                              static_cast<float>((*intersection)[1]),
+                              static_cast<float>((*intersection)[2])};
 }
 
 // Builds a Magnet snap source for the active single-object 3D drag.
@@ -3353,11 +3356,7 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     }
 
     ApplyCameraMatrices(renderSize);
-    std::array<float, 3> rawAnchor = m_selectionDragAnchorMeters;
-    if (m_pendingMagnetSnap) {
-        rawAnchor = continuous_placement::RawAnchorFromPreview(
-            rawAnchor, m_pendingMagnetSnap->translationDeltaMm);
-    }
+    const auto rawAnchor = CurrentRawSelectionDragAnchor();
     const auto pointer =
         ProjectMouseToSelectionDragViewPlane(mousePos, renderSize, rawAnchor);
     if (!pointer)
@@ -3384,6 +3383,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
             return;
         }
         if (m_placementViewRevision.NeedsAlignment()) {
+            m_lastMousePos = pos;
             AlignContinuousElementToPointer(pos);
             Refresh();
             return;
@@ -3392,10 +3392,23 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         if (renderSize.IsValid() &&
             TryBindGlContextForInteraction("continuous element placement")) {
             ApplyCameraMatrices(renderSize);
+            const auto rawAnchor = CurrentRawSelectionDragAnchor();
             const int dx = pos.x - m_lastMousePos.x;
             const int dy = pos.y - m_lastMousePos.y;
             if (m_axisConstrainedMovementEnabled) {
-                const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                const auto projectedAxes =
+                    BuildProjectedDragAxes(renderSize, rawAnchor);
+                const bool hasValidAxis = std::any_of(
+                    projectedAxes.begin(), projectedAxes.end(),
+                    [](const viewer3d::ProjectedAxis &axis) {
+                        return axis.valid;
+                    });
+                if (!hasValidAxis) {
+                    m_lastMousePos = pos;
+                    m_placementViewRevision.Invalidate();
+                    Refresh();
+                    return;
+                }
         if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None &&
                     (std::abs(dx) >= kSelectionDragStartThresholdPx ||
                      std::abs(dy) >= kSelectionDragStartThresholdPx)) {
@@ -3416,18 +3429,25 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
                 const auto lastPoint =
             ProjectMouseToSelectionDragViewPlane(
-                m_lastMousePos, renderSize, m_selectionDragAnchorMeters);
+                m_lastMousePos, renderSize, rawAnchor);
                 const auto currentPoint =
                     ProjectMouseToSelectionDragViewPlane(
-                        pos, renderSize, m_selectionDragAnchorMeters);
+                        pos, renderSize, rawAnchor);
                 if (lastPoint && currentPoint) {
           ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
                          (*currentPoint)[1] - (*lastPoint)[1],
                          (*currentPoint)[2] - (*lastPoint)[2]});
                     m_selectionDragMoved = true;
+                } else {
+                    m_lastMousePos = pos;
+                    m_placementViewRevision.Invalidate();
+                    Refresh();
+                    return;
                 }
             }
             Refresh();
+        } else {
+            m_placementViewRevision.Invalidate();
         }
         m_lastMousePos = pos;
         return;
@@ -3468,7 +3488,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                 TryBindGlContextForInteraction("OnMouseMove")) {
                 ApplyCameraMatrices(renderSize);
                 if (m_axisConstrainedMovementEnabled) {
-                    const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                    const auto projectedAxes = BuildProjectedDragAxes(renderSize, CurrentRawSelectionDragAnchor());
                     if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
             m_selectionDragAxis =
                 viewer3d::SelectDragAxisFromMouseDelta(dx, -dy, projectedAxes);

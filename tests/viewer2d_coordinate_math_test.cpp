@@ -92,6 +92,16 @@ void CheckPixelConversion() {
       {std::numeric_limits<double>::max(), 1.0}, 2.0));
   assert(!pixel_coordinates::FramebufferToLogical(
       {std::numeric_limits<double>::max(), 1.0}, 0.5));
+  const auto delta = pixel_coordinates::IncrementalFramebufferDelta(
+      {15.0, 18.0}, {10.0, 10.0}, 1.5);
+  assert((delta == std::optional<std::array<int, 2>>{{8, 12}}));
+  for (double scale : {0.0, -1.0, std::numeric_limits<double>::infinity(),
+                       std::numeric_limits<double>::quiet_NaN()}) {
+    assert(!pixel_coordinates::IncrementalFramebufferDelta(
+        {15.0, 18.0}, {10.0, 10.0}, scale));
+  }
+  assert(!pixel_coordinates::IncrementalFramebufferDelta(
+      {std::numeric_limits<double>::max(), 1.0}, {0.0, 0.0}, 2.0));
 }
 
 } // namespace

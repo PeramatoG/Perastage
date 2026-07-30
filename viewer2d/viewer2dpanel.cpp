@@ -3913,11 +3913,19 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     if (m_placementViewRevision.NeedsAlignment()) {
       AlignContinuousElementToPointer(pos);
     } else {
-      const wxPoint framebufferPos = ToFramebufferPoint(this, pos);
-      const wxPoint lastFramebufferPos =
-          ToFramebufferPoint(this, m_lastMousePos);
-      int dx = framebufferPos.x - lastFramebufferPos.x;
-      int dy = framebufferPos.y - lastFramebufferPos.y;
+      const auto framebufferDelta = pixel_coordinates::IncrementalFramebufferDelta(
+          {static_cast<double>(pos.x), static_cast<double>(pos.y)},
+          {static_cast<double>(m_lastMousePos.x),
+           static_cast<double>(m_lastMousePos.y)},
+          static_cast<double>(GetContentScaleFactor()));
+      if (!framebufferDelta) {
+        m_lastMousePos = pos;
+        m_placementViewRevision.Invalidate();
+        RequestRepaint();
+        return;
+      }
+      int dx = (*framebufferDelta)[0];
+      int dy = (*framebufferDelta)[1];
       if (m_axisConstrainedMovementEnabled) {
         if (m_dragAxis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||

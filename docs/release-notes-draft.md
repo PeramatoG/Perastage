@@ -26,7 +26,8 @@ Changes since **v1.5.0**.
   conversion, and Magnet preview refresh so continuous placement remains
   visually anchored through view and framebuffer changes without extra Undo
   entries. Confirming snapped elements now keeps each following provisional
-  copy at the raw pointer position without inheriting the previous snap offset.
+  copy at the raw pointer position without inheriting the previous snap offset,
+  including after temporary high-DPI conversion or 3D projection failures.
 
 - Fixed a crash that could occur when opening another project after startup by
   releasing viewer scene caches before the project replaces its scene data.

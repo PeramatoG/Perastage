@@ -43,4 +43,17 @@ FramebufferToLogical(const std::array<double, 2> &framebuffer, double scale) {
   return Convert(framebuffer, 1.0 / scale);
 }
 
+// Converts both logical samples before returning an incremental pixel delta.
+std::optional<std::array<int, 2>>
+IncrementalFramebufferDelta(const std::array<double, 2> &currentLogical,
+                            const std::array<double, 2> &previousLogical,
+                            double scale) {
+  const auto current = LogicalToFramebuffer(currentLogical, scale);
+  const auto previous = LogicalToFramebuffer(previousLogical, scale);
+  if (!current || !previous)
+    return std::nullopt;
+  return std::array<int, 2>{(*current)[0] - (*previous)[0],
+                            (*current)[1] - (*previous)[1]};
+}
+
 } // namespace pixel_coordinates

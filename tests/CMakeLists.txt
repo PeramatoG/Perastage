@@ -2337,3 +2337,10 @@ foreach(perastage_test_target IN LISTS perastage_test_targets)
         target_link_libraries(${perastage_test_target} PRIVATE perastage_uuid)
     endif()
 endforeach()
+
+add_executable(selection_drag_math_test
+               selection_drag_math_test.cpp
+               ../viewer3d/interaction/selection_drag_math.cpp)
+target_include_directories(selection_drag_math_test PRIVATE
+                           ../viewer3d/interaction)
+add_test(NAME SelectionDragMath COMMAND selection_drag_math_test)

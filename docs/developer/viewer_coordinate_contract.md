@@ -50,6 +50,12 @@ The viewer interaction code uses the following authoritative units and state.
 - Confirmation preserves the snapped transform of the confirmed element but
   seeds its next clone from the raw anchor. The new clone remains pending until
   the normal absolute pointer-alignment path succeeds for the current revision.
+- Incremental placement uses failure-preserving framebuffer conversion for both
+  pointer samples. Failed conversion or 3D projection retains the newest
+  logical pointer, invalidates alignment, and performs no preview or scene
+  transaction; the next safe update retries by absolute alignment.
+- All 3D placement geometry uses the raw anchor: pointer planes and projected
+  constraint axes never use the displayed preview-adjusted depth.
 
 The view-dependent hidden-axis Magnet weights are separate from projection and
 remain intentional: 2D ignores the hidden axis, while 3D progressively reduces
