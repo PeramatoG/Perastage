@@ -28,8 +28,8 @@
 #include <windows.h>
 #endif
 
-#include "gl_context_utils.h"
 #include <GL/glew.h>
+#include "gl_context_utils.h"
 // macOS uses the OpenGL framework headers; guard includes for cross-platform
 // builds.
 #ifdef __APPLE__

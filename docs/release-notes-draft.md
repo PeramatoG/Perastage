@@ -14,6 +14,9 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Restored Windows Debug build compatibility for the 2D and 3D viewers by
+  ensuring the GLEW header is initialized before platform OpenGL headers.
+
 ## Important fixes
 
 - Corrected grouped scene transforms so interactive truss moves consistently

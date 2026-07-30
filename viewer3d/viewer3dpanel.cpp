@@ -27,8 +27,8 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-#include "gl_context_utils.h"
 #include <GL/glew.h>
+#include "gl_context_utils.h"
 // macOS ships OpenGL headers in the framework; include them conditionally.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
