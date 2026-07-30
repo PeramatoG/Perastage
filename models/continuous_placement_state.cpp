@@ -42,4 +42,13 @@ AbsoluteAlignmentDelta(const std::array<float, 3> &pointerWorld,
           pointerWorld[2] - rawOriginWorld[2]};
 }
 
+// Removes a temporary preview translation from a displayed world anchor.
+std::array<float, 3>
+RawAnchorFromPreview(const std::array<float, 3> &displayedAnchorMeters,
+                     const std::array<float, 3> &previewDeltaMm) {
+  return {displayedAnchorMeters[0] - previewDeltaMm[0] / 1000.0f,
+          displayedAnchorMeters[1] - previewDeltaMm[1] / 1000.0f,
+          displayedAnchorMeters[2] - previewDeltaMm[2] / 1000.0f};
+}
+
 } // namespace continuous_placement

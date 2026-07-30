@@ -346,6 +346,20 @@ wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
     return wxPoint((*converted)[0], (*converted)[1]);
 }
 
+// Converts a logical point while preserving conversion failure for placement.
+std::optional<wxPoint> TryToFramebufferPoint(wxWindow* window,
+                                             const wxPoint& logicalPoint) {
+    if (window == nullptr)
+        return std::nullopt;
+    const auto converted = pixel_coordinates::LogicalToFramebuffer(
+        {static_cast<double>(logicalPoint.x),
+         static_cast<double>(logicalPoint.y)},
+        static_cast<double>(window->GetContentScaleFactor()));
+    if (!converted)
+        return std::nullopt;
+    return wxPoint((*converted)[0], (*converted)[1]);
+}
+
 // Converts framebuffer pixel coordinates back to logical client-space pixels.
 wxPoint FromFramebufferPoint(wxWindow* window, const wxPoint& framebufferPoint) {
     if (window == nullptr)
@@ -2809,7 +2823,8 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
 // Projects the mouse position onto the active selection drag view plane.
 std::optional<std::array<float, 3>>
 Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
-    const wxPoint &mousePos, const RenderSize &renderSize) const {
+    const wxPoint &mousePos, const RenderSize &renderSize,
+    const std::array<float, 3> &planePointMeters) const {
     if (!renderSize.IsValid())
         return std::nullopt;
 
@@ -2820,10 +2835,12 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     glGetDoublev(GL_PROJECTION_MATRIX, projection);
     glGetIntegerv(GL_VIEWPORT, viewport);
 
-  const wxPoint framebufferPos =
-      ToFramebufferPoint(const_cast<Viewer3DPanel *>(this), mousePos);
-    const double winX = static_cast<double>(framebufferPos.x);
-    const double winY = static_cast<double>(renderSize.height - framebufferPos.y);
+  const auto framebufferPos =
+      TryToFramebufferPoint(const_cast<Viewer3DPanel *>(this), mousePos);
+    if (!framebufferPos)
+        return std::nullopt;
+    const double winX = static_cast<double>(framebufferPos->x);
+    const double winY = static_cast<double>(renderSize.height - framebufferPos->y);
 
     auto unproject = [&](double x, double y, double z) {
         std::array<double, 3> point{0.0, 0.0, 0.0};
@@ -2862,9 +2879,9 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     if (std::abs(denominator) <= 1e-12)
         return std::nullopt;
 
-  const std::array<double, 3> planePoint{m_selectionDragAnchorMeters[0],
-                                         m_selectionDragAnchorMeters[1],
-        m_selectionDragAnchorMeters[2]};
+  const std::array<double, 3> planePoint{planePointMeters[0],
+                                         planePointMeters[1],
+                                         planePointMeters[2]};
     const double t = ((planePoint[0] - nearPoint[0]) * planeNormal[0] +
                       (planePoint[1] - nearPoint[1]) * planeNormal[1] +
                       (planePoint[2] - nearPoint[2]) * planeNormal[2]) /
@@ -3104,6 +3121,12 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
         return;
     }
 
+    auto nextRawPosition = continuous_placement::PositionMeters(
+        cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid);
+    if (m_pendingMagnetSnap) {
+        nextRawPosition = continuous_placement::RawAnchorFromPreview(
+            nextRawPosition, m_pendingMagnetSnap->translationDeltaMm);
+    }
     cfg.PushUndoState(std::string("place ") +
                       continuous_placement::ElementName(
                           m_continuousPlacementType));
@@ -3118,11 +3141,14 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
         CancelContinuousPlacement();
         return;
     }
+    continuous_placement::SetPositionMeters(
+        cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
     CommitActiveMagnetSnap();
     const auto placedUuids = m_continuousPlacedUuids;
     BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
     m_continuousPlacedUuids = placedUuids;
-    m_placementViewRevision.CompleteAlignmentAttempt(true);
+    if (m_hasLastMousePos)
+        AlignContinuousElementToPointer(m_lastMousePos);
     RefreshContinuousPlacementViews();
 }
 
@@ -3327,8 +3353,13 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     }
 
     ApplyCameraMatrices(renderSize);
+    std::array<float, 3> rawAnchor = m_selectionDragAnchorMeters;
+    if (m_pendingMagnetSnap) {
+        rawAnchor = continuous_placement::RawAnchorFromPreview(
+            rawAnchor, m_pendingMagnetSnap->translationDeltaMm);
+    }
     const auto pointer =
-        ProjectMouseToSelectionDragViewPlane(mousePos, renderSize);
+        ProjectMouseToSelectionDragViewPlane(mousePos, renderSize, rawAnchor);
     if (!pointer)
         return false;
 
@@ -3384,9 +3415,11 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
             } else {
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
                 const auto lastPoint =
-            ProjectMouseToSelectionDragViewPlane(m_lastMousePos, renderSize);
+            ProjectMouseToSelectionDragViewPlane(
+                m_lastMousePos, renderSize, m_selectionDragAnchorMeters);
                 const auto currentPoint =
-                    ProjectMouseToSelectionDragViewPlane(pos, renderSize);
+                    ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize, m_selectionDragAnchorMeters);
                 if (lastPoint && currentPoint) {
           ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
                          (*currentPoint)[1] - (*lastPoint)[1],
@@ -3456,9 +3489,11 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                     }
                 } else {
           const auto lastPoint =
-              ProjectMouseToSelectionDragViewPlane(m_lastMousePos, renderSize);
+              ProjectMouseToSelectionDragViewPlane(
+                m_lastMousePos, renderSize, m_selectionDragAnchorMeters);
           const auto currentPoint =
-              ProjectMouseToSelectionDragViewPlane(pos, renderSize);
+              ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize, m_selectionDragAnchorMeters);
                     if (lastPoint && currentPoint) {
                         const std::array<float, 3> worldDelta{
                             (*currentPoint)[0] - (*lastPoint)[0],

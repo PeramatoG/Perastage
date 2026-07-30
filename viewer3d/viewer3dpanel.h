@@ -205,7 +205,8 @@ private:
     std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
         const RenderSize& renderSize) const;
     std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
-        const wxPoint& mousePos, const RenderSize& renderSize) const;
+        const wxPoint& mousePos, const RenderSize& renderSize,
+        const std::array<float, 3>& planePointMeters) const;
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
     magnet_snap::SnapSettings BuildActiveMagnetSettings(

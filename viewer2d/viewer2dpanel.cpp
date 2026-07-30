@@ -417,6 +417,20 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
   return wxPoint((*converted)[0], (*converted)[1]);
 }
 
+// Converts a logical point while preserving conversion failure for placement.
+std::optional<wxPoint> TryToFramebufferPoint(wxWindow *window,
+                                             const wxPoint &logicalPoint) {
+  if (window == nullptr)
+    return std::nullopt;
+  const auto converted = pixel_coordinates::LogicalToFramebuffer(
+      {static_cast<double>(logicalPoint.x),
+       static_cast<double>(logicalPoint.y)},
+      static_cast<double>(window->GetContentScaleFactor()));
+  if (!converted)
+    return std::nullopt;
+  return wxPoint((*converted)[0], (*converted)[1]);
+}
+
 // Converts framebuffer-space mouse coordinates back to logical window
 // coordinates.
 wxPoint
@@ -1031,12 +1045,14 @@ Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
     return std::nullopt;
   const int width = renderSize.width;
   const int height = renderSize.height;
-  const wxPoint framebufferPos =
-      ToFramebufferPoint(const_cast<Viewer2DPanel *>(this), screenPos);
+  const auto framebufferPos =
+      TryToFramebufferPoint(const_cast<Viewer2DPanel *>(this), screenPos);
+  if (!framebufferPos)
+    return std::nullopt;
 
   return viewer2d::FramebufferToWorld(
-      {static_cast<float>(framebufferPos.x),
-       static_cast<float>(framebufferPos.y)},
+      {static_cast<float>(framebufferPos->x),
+       static_cast<float>(framebufferPos->y)},
       {width, height, m_zoom, m_offsetX, m_offsetY, m_view});
 }
 
@@ -2017,6 +2033,12 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
     return;
   }
 
+  auto nextRawPosition = continuous_placement::PositionMeters(
+      cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid);
+  if (m_pendingMagnetSnap) {
+    nextRawPosition = continuous_placement::RawAnchorFromPreview(
+        nextRawPosition, m_pendingMagnetSnap->translationDeltaMm);
+  }
   cfg.PushUndoState(std::string("place ") + continuous_placement::ElementName(
                         m_continuousPlacementType));
   m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
@@ -2032,11 +2054,14 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
     CancelContinuousPlacement();
     return;
   }
+  continuous_placement::SetPositionMeters(
+      cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
   CommitActiveMagnetSnap();
   const auto placedUuids = m_continuousPlacedUuids;
   BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
   m_continuousPlacedUuids = placedUuids;
-  m_placementViewRevision.CompleteAlignmentAttempt(true);
+  if (m_hasLastMousePos)
+    AlignContinuousElementToPointer(m_lastMousePos);
   RefreshContinuousPlacementViews();
 }
 
@@ -3865,9 +3890,8 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
     return false;
 
   if (m_pendingMagnetSnap) {
-    for (int axis = 0; axis < 3; ++axis)
-      (*rawWorld)[axis] -=
-          m_pendingMagnetSnap->translationDeltaMm[axis] / 1000.0f;
+    *rawWorld = continuous_placement::RawAnchorFromPreview(
+        *rawWorld, m_pendingMagnetSnap->translationDeltaMm);
   }
 
   ApplySelectionDelta(

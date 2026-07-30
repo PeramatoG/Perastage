@@ -25,7 +25,8 @@ Changes since **v1.5.0**.
 - Corrected Bottom and Side view pointer orientation, high-DPI coordinate
   conversion, and Magnet preview refresh so continuous placement remains
   visually anchored through view and framebuffer changes without extra Undo
-  entries.
+  entries. Confirming snapped elements now keeps each following provisional
+  copy at the raw pointer position without inheriting the previous snap offset.
 
 - Fixed a crash that could occur when opening another project after startup by
   releasing viewer scene caches before the project replaces its scene data.

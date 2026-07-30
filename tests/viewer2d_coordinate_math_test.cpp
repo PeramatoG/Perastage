@@ -88,6 +88,10 @@ void CheckPixelConversion() {
     assert(!pixel_coordinates::LogicalToFramebuffer({1.0, 1.0}, scale));
     assert(!pixel_coordinates::FramebufferToLogical({1.0, 1.0}, scale));
   }
+  assert(!pixel_coordinates::LogicalToFramebuffer(
+      {std::numeric_limits<double>::max(), 1.0}, 2.0));
+  assert(!pixel_coordinates::FramebufferToLogical(
+      {std::numeric_limits<double>::max(), 1.0}, 0.5));
 }
 
 } // namespace

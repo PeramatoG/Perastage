@@ -43,6 +43,13 @@ The viewer interaction code uses the following authoritative units and state.
   target, and recomputes the preview even for zero raw translation. Preview
   apply and inverse restoration use the same interactive transform policy;
   neither operation commits grouping or creates a view-only Undo entry.
+- Viewer3D derives the raw anchor by removing pending preview translation from
+  its displayed drag anchor without mutating the scene. Ray intersection uses
+  that raw point as its plane point; only a successful intersection begins the
+  restore, absolute alignment, and fresh-preview transaction.
+- Confirmation preserves the snapped transform of the confirmed element but
+  seeds its next clone from the raw anchor. The new clone remains pending until
+  the normal absolute pointer-alignment path succeeds for the current revision.
 
 The view-dependent hidden-axis Magnet weights are separate from projection and
 remain intentional: 2D ignores the hidden axis, while 3D progressively reduces
