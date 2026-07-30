@@ -1,8 +1,11 @@
 #pragma once
 
-#include "truss.h"
+#include "mvrscene.h"
 
 #include <array>
+#include <cstddef>
+#include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -35,6 +38,32 @@ struct Diagnostic {
 struct ExplicitReadResult {
   std::vector<Candidate> candidates;
   std::vector<Diagnostic> diagnostics;
+  bool sourceReadable = true;
+};
+
+struct CandidateResolution {
+  std::vector<Candidate> candidates;
+  std::vector<Diagnostic> diagnostics;
+  std::string resolvedSourceIdentity;
+};
+
+// Caches immutable local attachment definitions by resolved archive version.
+class CandidateResolver {
+public:
+  struct CacheEntry {
+    std::vector<Candidate> localCandidates;
+    std::vector<Diagnostic> diagnostics;
+    std::string resolvedSourceIdentity;
+    bool sourceReadable = true;
+  };
+
+  CandidateResolution Resolve(const MvrScene &scene, const Truss &truss);
+  void Clear();
+  std::size_t ArchiveParseCount() const;
+
+private:
+  std::map<std::string, CacheEntry> m_cache;
+  std::size_t m_archiveParseCount = 0;
 };
 
 // Reads Magnet nodes from immutable GDTF description XML.
@@ -56,9 +85,14 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
                         const Matrix &trussTransform,
                         const std::string &sourceId = {});
 
-// Resolves explicit candidates first and otherwise returns inferred candidates.
+// Builds exactly six deterministic face-center candidates.
 std::vector<Candidate>
-BuildCandidates(const Truss &truss,
-                std::vector<Diagnostic> *diagnostics = nullptr);
+BuildAmbiguousCandidates(const std::array<float, 3> &dimensionsMm,
+                         const Matrix &trussTransform,
+                         const std::string &sourceId = {});
+
+// Resolves cached local definitions and applies the current instance transform.
+CandidateResolution BuildCandidates(const MvrScene &scene, const Truss &truss,
+                                    CandidateResolver &resolver);
 
 } // namespace truss_attachment

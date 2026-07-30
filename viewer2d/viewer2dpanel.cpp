@@ -1852,6 +1852,7 @@ Viewer2DPanel::BuildActiveMagnetSource() const {
 // Builds view-aware Magnet settings for the active 2D projection.
 magnet_snap::SnapSettings Viewer2DPanel::BuildActiveMagnetSettings() const {
   magnet_snap::SnapSettings settings;
+  settings.candidateResolver = &m_trussCandidateResolver;
   switch (m_view) {
   case Viewer2DView::Top:
   case Viewer2DView::Bottom:

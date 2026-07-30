@@ -9,6 +9,9 @@ Changes since **v1.5.0**.
 - Improved truss Magnet placement by preferring connector points declared in
   GDTF files, using terminal points for clearly straight trusses, and retaining
   conservative face-center snapping for ambiguous truss shapes and groups.
+  Project-relative connector resources are cached safely, while 3D assembly
+  now acquires visually overlapping endpoints with a DPI-independent screen
+  aperture for more predictable perspective-view placement.
 
 - Added **Selection & Movement** preferences for choosing, independently for
   fixtures, trusses, supports/hoists, and scene objects, whether mouse,

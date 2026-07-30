@@ -140,6 +140,7 @@ private:
     transform_space::TransformSpace m_transformSpace =
         transform_space::TransformSpace::World;
     std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
+    mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
     wxLongLong m_selectionDragPressTime = 0;
     HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;
     std::vector<std::string> m_dragSelectionUuids;

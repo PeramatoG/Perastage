@@ -1,10 +1,13 @@
 #include "truss_attachment_candidates.h"
 
+#include "filesystem_path_utils.h"
 #include "gdtf_archive_reader.h"
 #include "matrixutils.h"
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <system_error>
 #include <tinyxml2.h>
 
 namespace truss_attachment {
@@ -101,9 +104,20 @@ ReadExplicitGdtfMagnetsFromArchive(const std::string &archivePath,
   if (archivePath.empty())
     return {};
   const gdtf::ArchiveReadResult archive = gdtf::ReadGdtfArchive(archivePath);
-  if (!archive.Success())
-    return {};
-  return ReadExplicitGdtfMagnets(archive.descriptionXml, trussTransform);
+  ExplicitReadResult result;
+  if (!archive.Success()) {
+    result.sourceReadable = false;
+    for (const auto &diagnostic : archive.diagnostics)
+      result.diagnostics.push_back({diagnostic.entryPath, diagnostic.message});
+    if (result.diagnostics.empty())
+      result.diagnostics.push_back(
+          {archivePath, "GDTF archive could not be read."});
+    return result;
+  }
+  result = ReadExplicitGdtfMagnets(archive.descriptionXml, trussTransform);
+  for (const auto &diagnostic : archive.diagnostics)
+    result.diagnostics.push_back({diagnostic.entryPath, diagnostic.message});
+  return result;
 }
 
 // Returns the clearly dominant local dimension, if one exists.
@@ -154,6 +168,22 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
     }
     return result;
   }
+  return BuildAmbiguousCandidates(safeDimensions, trussTransform, sourceId);
+}
+
+// Builds exactly six deterministic face-center candidates.
+std::vector<Candidate>
+BuildAmbiguousCandidates(const std::array<float, 3> &dimensionsMm,
+                         const Matrix &trussTransform,
+                         const std::string &sourceId) {
+  std::vector<Candidate> result;
+  std::array<float, 3> safeDimensions = dimensionsMm;
+  for (float &dimension : safeDimensions) {
+    if (!std::isfinite(dimension) || dimension <= 0.0f)
+      dimension = 1.0f;
+  }
+  const std::array<float, 3> center{safeDimensions[0] * 0.5f, 0.0f,
+                                    safeDimensions[2] * 0.5f};
   for (int axis = 0; axis < 3; ++axis) {
     for (int sign : {-1, 1}) {
       Matrix local = MatrixUtils::Identity();
@@ -168,18 +198,136 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
   return result;
 }
 
-// Resolves explicit candidates first and otherwise returns inferred candidates.
-std::vector<Candidate> BuildCandidates(const Truss &truss,
-                                       std::vector<Diagnostic> *diagnostics) {
-  ExplicitReadResult explicitResult =
-      ReadExplicitGdtfMagnetsFromArchive(truss.gdtfSpec, truss.transform);
-  if (diagnostics)
-    *diagnostics = explicitResult.diagnostics;
-  if (!explicitResult.candidates.empty())
-    return explicitResult.candidates;
-  return BuildInferredCandidates(
-      {truss.lengthMm, truss.widthMm, truss.heightMm}, truss.transform,
-      truss.uuid);
+// Resolves one scene resource reference without consulting the working
+// directory.
+std::filesystem::path ResolveSceneResource(const MvrScene &scene,
+                                           const std::string &reference) {
+  const auto path = PathUtils::PathFromUtf8(reference);
+  if (path.empty() || path.is_absolute())
+    return path;
+  if (scene.basePath.empty())
+    return {};
+  return PathUtils::PathFromUtf8(scene.basePath) / path;
+}
+
+// Builds the versioned cache identity for an existing archive.
+std::string BuildArchiveVersionKey(const std::filesystem::path &path) {
+  std::error_code ec;
+  const auto size = std::filesystem::file_size(path, ec);
+  if (ec)
+    return {};
+  const auto modified = std::filesystem::last_write_time(path, ec);
+  if (ec)
+    return {};
+  return PathUtils::BuildFilesystemIdentityKey(path) + "|" +
+         std::to_string(size) + "|" +
+         std::to_string(modified.time_since_epoch().count());
+}
+
+// Applies an instance transform to cached local candidate definitions.
+CandidateResolution Instantiate(const CandidateResolver::CacheEntry &entry,
+                                const Matrix &transform) {
+  CandidateResolution result;
+  result.candidates = entry.localCandidates;
+  result.diagnostics = entry.diagnostics;
+  result.resolvedSourceIdentity = entry.resolvedSourceIdentity;
+  for (Candidate &candidate : result.candidates)
+    candidate.worldTransform =
+        MatrixUtils::Multiply(transform, candidate.localTransform);
+  return result;
+}
+
+// Resolves prioritized archive sources and caches immutable local definitions.
+CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
+                                               const Truss &truss) {
+  std::vector<Diagnostic> resolutionDiagnostics;
+  for (const std::string *reference :
+       {&truss.gdtfSpec, &truss.perastageAuxGdtfArchivePath}) {
+    if (reference->empty())
+      continue;
+    const std::filesystem::path resolved =
+        ResolveSceneResource(scene, *reference);
+    if (resolved.empty()) {
+      resolutionDiagnostics.push_back(
+          {*reference, "Relative GDTF resource has no scene base path."});
+      continue;
+    }
+    const std::string versionKey = BuildArchiveVersionKey(resolved);
+    if (versionKey.empty()) {
+      resolutionDiagnostics.push_back(
+          {PathUtils::PathToUtf8(resolved),
+           "GDTF resource is missing or unreadable."});
+      continue;
+    }
+    if (const auto found = m_cache.find(versionKey); found != m_cache.end()) {
+      CandidateResolution result = Instantiate(found->second, truss.transform);
+      result.diagnostics.insert(result.diagnostics.begin(),
+                                resolutionDiagnostics.begin(),
+                                resolutionDiagnostics.end());
+      if (!found->second.sourceReadable) {
+        resolutionDiagnostics = std::move(result.diagnostics);
+        continue;
+      }
+      if (result.candidates.empty())
+        result.candidates = BuildInferredCandidates(
+            {truss.lengthMm, truss.widthMm, truss.heightMm}, truss.transform,
+            truss.uuid);
+      return result;
+    }
+
+    ++m_archiveParseCount;
+    const std::string resolvedText = PathUtils::PathToUtf8(resolved);
+    ExplicitReadResult explicitResult = ReadExplicitGdtfMagnetsFromArchive(
+        resolvedText, MatrixUtils::Identity());
+    CacheEntry entry;
+    entry.localCandidates = std::move(explicitResult.candidates);
+    entry.diagnostics = std::move(explicitResult.diagnostics);
+    entry.resolvedSourceIdentity =
+        PathUtils::BuildFilesystemIdentityKey(resolved);
+    entry.sourceReadable = explicitResult.sourceReadable;
+    for (auto cached = m_cache.begin(); cached != m_cache.end();) {
+      if (cached->second.resolvedSourceIdentity == entry.resolvedSourceIdentity)
+        cached = m_cache.erase(cached);
+      else
+        ++cached;
+    }
+    auto [inserted, unused] = m_cache.emplace(versionKey, std::move(entry));
+    (void)unused;
+    CandidateResolution result = Instantiate(inserted->second, truss.transform);
+    result.diagnostics.insert(result.diagnostics.begin(),
+                              resolutionDiagnostics.begin(),
+                              resolutionDiagnostics.end());
+    if (!inserted->second.sourceReadable) {
+      resolutionDiagnostics = std::move(result.diagnostics);
+      continue;
+    }
+    if (result.candidates.empty())
+      result.candidates = BuildInferredCandidates(
+          {truss.lengthMm, truss.widthMm, truss.heightMm}, truss.transform,
+          truss.uuid);
+    return result;
+  }
+
+  CandidateResolution fallback;
+  fallback.diagnostics = std::move(resolutionDiagnostics);
+  fallback.candidates =
+      BuildInferredCandidates({truss.lengthMm, truss.widthMm, truss.heightMm},
+                              truss.transform, truss.uuid);
+  return fallback;
+}
+
+// Clears all cached type-level attachment definitions.
+void CandidateResolver::Clear() { m_cache.clear(); }
+
+// Returns the number of archive parses performed by this resolver.
+std::size_t CandidateResolver::ArchiveParseCount() const {
+  return m_archiveParseCount;
+}
+
+// Resolves cached local definitions and applies the current instance transform.
+CandidateResolution BuildCandidates(const MvrScene &scene, const Truss &truss,
+                                    CandidateResolver &resolver) {
+  return resolver.Resolve(scene, truss);
 }
 
 } // namespace truss_attachment

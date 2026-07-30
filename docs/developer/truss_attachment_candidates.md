@@ -13,6 +13,19 @@ diagnostic path are retained by a read-only core service. Malformed positions
 are diagnosed and skipped. If no usable explicit point remains, inference is
 used without writing to the GDTF or MVR data.
 
+Public `GDTFSpec` is resolved first, relative to `MvrScene::basePath` when it is
+not absolute. If that reference is absent or cannot be resolved, the Perastage
+auxiliary GDTF archive reference is resolved the same way. `modelFile` is never
+treated as a GDTF source. Missing and unreadable sources remain visible as
+structured diagnostics before conservative inference is used.
+
+An explicit resolver caches type-level local candidates by normalized absolute
+archive identity, file size, and last-write timestamp. Instance transforms are
+applied after lookup, so dragging or rotating a truss does not reopen its
+archive. Replacing an archive changes the version key and reparses its local
+definition. Viewers own their resolver lifetime; the core has no static
+resource-owning cache.
+
 ## Inference
 
 Dimensions are evaluated in truss-local X, Y, and Z. A shape is longitudinal
@@ -31,9 +44,23 @@ internal joints are not normal candidates. Other aggregates use the six-point
 ambiguous fallback. Existing hierarchy rejection prevents self and descendant
 snaps.
 
+The two-end group result additionally requires every member to be
+longitudinal, member axes to have an absolute dot product of at least 0.996,
+center lines to be within 25 mm, and consecutive projected member intervals to
+have no gap greater than 25 mm. A group that fails any check uses six aggregate
+face centers.
+
 ## View weighting
 
 Top and Bottom ignore Z in scoring, Front ignores Y, and Side ignores X. The
-3D viewer continues to reduce weights progressively from the camera direction.
-Weighting changes selection only; it never removes a component from the final
-translation.
+3D camera-direction weights remain available to the existing non-screen-space
+paths. Weighting changes selection only; it never removes a component from the
+final translation.
+
+Viewer3D truss-to-truss acquisition instead projects both candidates from one
+captured camera snapshot and accepts a separation of at most 16 logical pixels.
+Framebuffer coordinates are divided by the content scale, so the aperture is
+DPI-independent. Accepted pairs rank by screen separation, absolute view-depth
+difference, full world translation length, target UUID, source candidate ID,
+and target candidate ID. The 250 mm world threshold is not an eligibility cap
+for this Viewer3D path.
