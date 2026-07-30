@@ -2,6 +2,7 @@
 
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "truss_attachment_candidates.h"
 
 #include <cassert>
 #include <cmath>
@@ -31,22 +32,72 @@ void AddTruss(MvrScene &scene, const std::string &uuid, float x) {
 
 } // namespace
 
-// Verifies Magnet snap candidates, metadata preservation, and committed grouping.
+// Verifies Magnet snap candidates, metadata preservation, and committed
+// grouping.
 int main() {
+  using truss_attachment::CandidateKind;
+  const auto longitudinal = truss_attachment::BuildInferredCandidates(
+      {3000.0f, 400.0f, 400.0f}, Translated(100.0f, 200.0f, 300.0f), "long");
+  assert(longitudinal.size() == 2);
+  assert(longitudinal[0].kind == CandidateKind::InferredLongitudinalEnd);
+  assert(longitudinal[0].localTransform.o[0] == 0.0f);
+  assert(longitudinal[1].localTransform.o[0] == 3000.0f);
+  assert(longitudinal[0].worldTransform.o[0] == 100.0f);
+  assert(longitudinal[1].worldTransform.o[0] == 3100.0f);
+  assert(truss_attachment::ClassifyLongitudinalAxis({3000, 400, 400}) == 0);
+  assert(truss_attachment::ClassifyLongitudinalAxis({400, 3000, 400}) == 1);
+  assert(truss_attachment::ClassifyLongitudinalAxis({400, 400, 3000}) == 2);
+  assert(!truss_attachment::ClassifyLongitudinalAxis({800, 400, 400}));
+  assert(truss_attachment::ClassifyLongitudinalAxis({801, 400, 400}) == 0);
+
+  const auto ambiguous = truss_attachment::BuildInferredCandidates(
+      {400.0f, 400.0f, 400.0f}, MatrixUtils::Identity(), "cube");
+  assert(ambiguous.size() == 6);
+  assert(ambiguous.front().stableId == "face-axis-0-negative");
+  assert(ambiguous.back().stableId == "face-axis-2-positive");
+  for (const auto &candidate : ambiguous)
+    assert(candidate.kind == CandidateKind::InferredFaceCenter);
+  assert(truss_attachment::BuildInferredCandidates({0.0f, 400.0f, 400.0f},
+                                                   MatrixUtils::Identity())
+             .size() == 6);
+
+  const std::string magnetXml =
+      "<GDTF><FixtureType><Geometries>"
+      "<Geometry Name='Root' Position='{1,0,0,1}{0,1,0,2}{0,0,1,3}{0,0,0,1}'>"
+      "<Magnet Name='A' Model='Connector' "
+      "Position='{1,0,0,0.5}{0,1,0,0}{0,0,1,0}{0,0,0,1}'/>"
+      "<Geometry><Magnet Name='B'/></Geometry>"
+      "<Magnet Name='Bad' Position='invalid'/></Geometry>"
+      "</Geometries></FixtureType></GDTF>";
+  const auto explicitMagnets = truss_attachment::ReadExplicitGdtfMagnets(
+      magnetXml, Translated(100.0f, 0.0f, 0.0f));
+  assert(explicitMagnets.candidates.size() == 2);
+  assert(explicitMagnets.diagnostics.size() == 1);
+  assert(explicitMagnets.candidates[0].name == "A");
+  assert(explicitMagnets.candidates[0].model == "Connector");
+  assert(explicitMagnets.candidates[1].model.empty());
+  assert(explicitMagnets.candidates[0].localTransform.o[0] == 1500.0f);
+  assert(explicitMagnets.candidates[0].localTransform.o[1] == 2000.0f);
+  assert(explicitMagnets.candidates[0].worldTransform.o[0] == 1600.0f);
+  assert(truss_attachment::ReadExplicitGdtfMagnets(
+             "<GDTF><FixtureType><Geometries/></FixtureType></GDTF>",
+             MatrixUtils::Identity())
+             .candidates.empty());
+
   MvrScene scene;
   AddTruss(scene, "target", 0.0f);
   AddTruss(scene, "source", 3250.0f);
 
-  auto snap = magnet_snap::FindSnap(
-      scene, {magnet_snap::ObjectType::Truss, "source"});
+  auto snap =
+      magnet_snap::FindSnap(scene, {magnet_snap::ObjectType::Truss, "source"});
   assert(snap);
   assert(snap->kind == magnet_snap::SnapKind::TrussToTruss);
   assert(snap->needsGrouping);
   assert(std::fabs(snap->translationDeltaMm[0] + 250.0f) < 0.001f);
 
   scene.trusses["source"].transform.o[0] = 4000.0f;
-  assert(!magnet_snap::FindSnap(
-      scene, {magnet_snap::ObjectType::Truss, "source"}));
+  assert(!magnet_snap::FindSnap(scene,
+                                {magnet_snap::ObjectType::Truss, "source"}));
 
   MvrScene sideSurfaceScene;
   AddTruss(sideSurfaceScene, "target", 0.0f);
@@ -57,13 +108,11 @@ int main() {
   auto sideSurfaceSnap = magnet_snap::FindSnap(
       sideSurfaceScene, {magnet_snap::ObjectType::Truss, "source"},
       topSideSettings);
-  assert(sideSurfaceSnap);
-  assert(std::fabs(sideSurfaceSnap->translationDeltaMm[1] + 250.0f) < 0.001f);
-  assert(std::fabs(sideSurfaceSnap->translationDeltaMm[2]) < 0.001f);
+  assert(!sideSurfaceSnap);
 
   scene.trusses["source"].transform.o[0] = 3250.0f;
-  snap = magnet_snap::FindSnap(scene,
-                               {magnet_snap::ObjectType::Truss, "source"});
+  snap =
+      magnet_snap::FindSnap(scene, {magnet_snap::ObjectType::Truss, "source"});
   assert(snap);
   const std::string hang = scene.trusses["source"].positionName;
   assert(magnet_snap::ApplySnapTransform(scene, *snap));
@@ -127,9 +176,10 @@ int main() {
          0.001f);
   assert(magnet_snap::ApplySnapTransform(elevatedFixtureScene,
                                          *elevatedFixtureSnap));
-  assert(std::fabs(elevatedFixtureScene.fixtures[elevatedFixture.uuid]
-                       .transform.o[2] -
-                   10000.0f) < 0.001f);
+  assert(
+      std::fabs(
+          elevatedFixtureScene.fixtures[elevatedFixture.uuid].transform.o[2] -
+          10000.0f) < 0.001f);
 
   Fixture fixture;
   fixture.uuid = "fixture";

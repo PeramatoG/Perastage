@@ -109,6 +109,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(OpenGLLifecycleCentralized ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
     add_bash_policy_test(ViewerSceneReplacementLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer_scene_replacement_lifecycle.sh)
+    add_bash_policy_test(Viewer3DRawDragAnchor ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_raw_drag_anchor.sh)
     add_bash_policy_test(Layout2DRasterizationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
     add_bash_policy_test(Layout2DViewCaptureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
     add_bash_policy_test(Viewer2DStateOwnershipBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
@@ -348,10 +349,13 @@ add_test(NAME SceneNodeOperations COMMAND scene_node_operations_test)
 
 add_executable(magnet_snap_test magnet_snap_test.cpp
     ../core/magnet_snap.cpp
+    ../core/truss_attachment_candidates.cpp
+    ../core/gdtf_archive_reader.cpp
     ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
     ../models/mvrscene.cpp
 )
 target_include_directories(magnet_snap_test PRIVATE ../core ../models)
+target_link_libraries(magnet_snap_test PRIVATE tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
 
 add_executable(rdp_simplifier_test

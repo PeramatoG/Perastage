@@ -2,6 +2,7 @@
 
 #include "matrixutils.h"
 #include "scene_grouping.h"
+#include "truss_attachment_candidates.h"
 
 #include <algorithm>
 #include <cmath>
@@ -150,7 +151,7 @@ std::optional<Bounds> MakeTrussGroupBounds(const MvrScene &scene,
     aggregate.size[axis] = std::max(maxLocal[axis] - minLocal[axis], 1.0f);
     aggregate.transform.o =
         Add(aggregate.transform.o,
-        Scale(basis[axis], (minLocal[axis] + maxLocal[axis]) * 0.5f));
+            Scale(basis[axis], (minLocal[axis] + maxLocal[axis]) * 0.5f));
   }
   return aggregate;
 }
@@ -335,15 +336,15 @@ bool GroupContainsTruss(const MvrScene &scene, const std::string &groupUuid,
   return false;
 }
 
-// Tests a source and target face pair and stores the closest snap result.
-void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
-                      const std::string &targetUuid, SnapKind kind,
-                      const Face &sourceFace, const Bounds &targetBounds,
-                      const Face &targetFace, const SnapSettings &settings,
-                      float &bestDistance, std::optional<SnapResult> &best) {
-  const auto targetPoint =
-      ClosestPointOnFace(targetBounds, targetFace, sourceFace.center);
-  const std::array<float, 3> delta = Subtract(targetPoint, sourceFace.center);
+// Tests a source and target attachment point and stores the closest snap.
+void ConsiderCandidatePair(const SnapSource &source, ObjectType targetType,
+                           const std::string &targetUuid, SnapKind kind,
+                           const truss_attachment::Candidate &sourceCandidate,
+                           const truss_attachment::Candidate &targetCandidate,
+                           const SnapSettings &settings, float &bestDistance,
+                           std::optional<SnapResult> &best) {
+  const std::array<float, 3> delta = Subtract(targetCandidate.worldTransform.o,
+                                              sourceCandidate.worldTransform.o);
   const float distance = WeightedLength(delta, settings.axisWeights);
   if (distance > settings.thresholdMm || distance >= bestDistance)
     return;
@@ -358,6 +359,38 @@ void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
   result.translationDeltaMm = delta;
   result.needsGrouping = kind == SnapKind::TrussToTruss;
   best = result;
+}
+
+// Tests a generic object face pair and stores the closest snap result.
+void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
+                      const std::string &targetUuid, SnapKind kind,
+                      const Face &sourceFace, const Bounds &targetBounds,
+                      const Face &targetFace, const SnapSettings &settings,
+                      float &bestDistance, std::optional<SnapResult> &best) {
+  const auto targetPoint =
+      ClosestPointOnFace(targetBounds, targetFace, sourceFace.center);
+  const auto delta = Subtract(targetPoint, sourceFace.center);
+  const float distance = WeightedLength(delta, settings.axisWeights);
+  if (distance > settings.thresholdMm || distance >= bestDistance)
+    return;
+  bestDistance = distance;
+  best = SnapResult{
+      true,        kind,       source.uuid, targetUuid,
+      source.type, targetType, delta,       kind == SnapKind::TrussToTruss};
+}
+
+// Builds conservative attachment points for aggregate truss-group bounds.
+std::vector<truss_attachment::Candidate>
+BuildGroupCandidates(const Bounds &bounds, const std::string &groupUuid) {
+  Matrix insertionTransform = bounds.transform;
+  insertionTransform.o =
+      Add(insertionTransform.o,
+          Scale(Normalize(insertionTransform.u), -bounds.size[0] * 0.5f));
+  insertionTransform.o =
+      Add(insertionTransform.o,
+          Scale(Normalize(insertionTransform.w), -bounds.size[2] * 0.5f));
+  return truss_attachment::BuildInferredCandidates(
+      bounds.size, insertionTransform, groupUuid);
 }
 
 } // namespace
@@ -375,7 +408,10 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 
   if (source.type == ObjectType::Truss ||
       source.type == ObjectType::TrussGroup) {
-    const auto sourceFaces = BuildFaces(*sourceBounds, true);
+    const auto sourceCandidates =
+        source.type == ObjectType::Truss
+            ? truss_attachment::BuildCandidates(scene.trusses.at(source.uuid))
+            : BuildGroupCandidates(*sourceBounds, source.uuid);
     auto considerTrussTarget = [&](ObjectType targetType,
                                    const std::string &uuid,
                                    const Bounds &targetBounds) {
@@ -384,11 +420,15 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       if (targetType == ObjectType::TrussGroup &&
           BoundsContainsPoint(targetBounds, sourceBounds->transform.o))
         return;
-      for (const auto &sourceFace : sourceFaces) {
-        for (const auto &targetFace : BuildFaces(targetBounds, true))
-          ConsiderFacePair(source, targetType, uuid, SnapKind::TrussToTruss,
-                           sourceFace, targetBounds, targetFace, settings,
-                           bestDistance, best);
+      const auto targetCandidates =
+          targetType == ObjectType::Truss
+              ? truss_attachment::BuildCandidates(scene.trusses.at(uuid))
+              : BuildGroupCandidates(targetBounds, uuid);
+      for (const auto &sourceCandidate : sourceCandidates) {
+        for (const auto &targetCandidate : targetCandidates)
+          ConsiderCandidatePair(source, targetType, uuid,
+                                SnapKind::TrussToTruss, sourceCandidate,
+                                targetCandidate, settings, bestDistance, best);
       }
     };
     for (const auto &[uuid, group] : scene.groupObjects) {

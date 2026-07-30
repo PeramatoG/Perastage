@@ -32,7 +32,8 @@ struct GdtfObject {
 enum class GdtfNodeType {
     Geometry,
     Axis,
-    Emitter
+    Emitter,
+    Magnet
 };
 
 struct GdtfNode3D {

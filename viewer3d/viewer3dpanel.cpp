@@ -3508,12 +3508,11 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                         m_draggedSincePress = true;
                     }
                 } else {
-          const auto lastPoint =
-              ProjectMouseToSelectionDragViewPlane(
-                m_lastMousePos, renderSize, m_selectionDragAnchorMeters);
-          const auto currentPoint =
-              ProjectMouseToSelectionDragViewPlane(
-                        pos, renderSize, m_selectionDragAnchorMeters);
+                    const auto rawAnchor = CurrentRawSelectionDragAnchor();
+                    const auto lastPoint = ProjectMouseToSelectionDragViewPlane(
+                        m_lastMousePos, renderSize, rawAnchor);
+                    const auto currentPoint = ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize, rawAnchor);
                     if (lastPoint && currentPoint) {
                         const std::array<float, 3> worldDelta{
                             (*currentPoint)[0] - (*lastPoint)[0],
