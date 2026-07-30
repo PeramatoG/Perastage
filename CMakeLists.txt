@@ -235,6 +235,7 @@ add_executable(${PROJECT_NAME} main.cpp
     "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
     models/fixture.cpp
     models/continuous_placement_scene.cpp
+    models/continuous_placement_state.cpp
     models/layer.cpp
     models/mvrscene.cpp
     models/sceneobject.cpp

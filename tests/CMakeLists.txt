@@ -2096,10 +2096,18 @@ add_test(NAME HistoryManager COMMAND history_manager_test)
 
 add_executable(continuous_placement_scene_test
                continuous_placement_scene_test.cpp
-               ../models/continuous_placement_scene.cpp)
+               ../models/continuous_placement_scene.cpp
+               ../models/continuous_placement_state.cpp)
 target_include_directories(continuous_placement_scene_test PRIVATE
                            ../models)
 add_test(NAME ContinuousPlacementScene COMMAND continuous_placement_scene_test)
+
+add_executable(viewer2d_coordinate_math_test
+               viewer2d_coordinate_math_test.cpp
+               ../viewer2d/viewer2d_coordinate_math.cpp)
+target_include_directories(viewer2d_coordinate_math_test PRIVATE
+                           ../viewer2d ../viewer3d)
+add_test(NAME Viewer2DCoordinateMath COMMAND viewer2d_coordinate_math_test)
 
 add_executable(layer_visibility_state_test
                layer_visibility_state_test.cpp

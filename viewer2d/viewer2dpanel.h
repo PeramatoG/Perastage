@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "continuous_placement_state.h"
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
@@ -342,6 +343,7 @@ private:
   ContinuousPlacementType m_continuousPlacementType =
       ContinuousPlacementType::None;
   bool m_continuousPlacementNeedsPointerAlignment = false;
+  continuous_placement::ViewRevisionState m_placementViewRevision;
   std::string m_continuousPlacementUuid;
   std::vector<std::string> m_continuousPlacedUuids;
   wxLongLong m_dragPressTime = 0;

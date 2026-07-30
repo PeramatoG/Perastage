@@ -1,10 +1,31 @@
 #include "continuous_placement_scene.h"
+#include "continuous_placement_state.h"
 #include "mvrscene.h"
 
 #include <cassert>
 
 // Verifies cloning and removal for every supported continuous placement type.
 int main() {
+  // A camera revision must force absolute re-alignment without retaining a
+  // temporary snap preview or adding a stale pointer delta.
+  continuous_placement::ViewRevisionState viewState;
+  float rawPosition = 4.0f;
+  float displayedPosition = rawPosition + 1.5f;
+  viewState.MarkAligned();
+  assert(!viewState.NeedsAlignment());
+  for (float pointerWorld : {8.0f, 6.0f, 9.5f}) {
+    viewState.Invalidate();
+    assert(viewState.NeedsAlignment());
+    displayedPosition = rawPosition;
+    const auto delta = continuous_placement::AbsoluteAlignmentDelta(
+        {pointerWorld, 0.0f, 0.0f}, {rawPosition, 0.0f, 0.0f});
+    rawPosition += delta[0];
+    displayedPosition = rawPosition + 1.5f;
+    viewState.MarkAligned();
+    assert(!viewState.NeedsAlignment());
+    assert(displayedPosition == pointerWorld + 1.5f);
+  }
+
   MvrScene scene;
 
   Fixture fixture;
