@@ -1083,7 +1083,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
   const float dt =
       std::chrono::duration<float>(now - s_lastCameraUpdate).count();
     s_lastCameraUpdate = now;
+    const auto cameraStateBeforeUpdate = m_camera.GetStateForDiagnostics();
     m_camera.Update(dt);
+    if (cameraStateBeforeUpdate != m_camera.GetStateForDiagnostics()) {
+        m_placementViewRevision.Invalidate();
+        m_continuousPlacementNeedsPointerAlignment =
+            m_continuousPlacementActive;
+    }
   wxASSERT_MSG(m_camera.IsValid(),
                "3D camera state became invalid during paint update.");
 
@@ -1091,6 +1097,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     if (!renderSize.IsValid()) {
         return;
     }
+    if (m_continuousPlacementActive &&
+        m_continuousPlacementNeedsPointerAlignment)
+        AlignContinuousElementToPointer(m_lastMousePos);
 
     wxLogTrace("viewer3d_perf", "Viewer3DPanel frame render mode=full");
     const auto fullRenderStart = std::chrono::steady_clock::now();
@@ -1325,7 +1334,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
 
 // Resize event handler
 // Schedules a redraw when the 3D panel is resized.
-void Viewer3DPanel::OnResize(wxSizeEvent &event) { Refresh(); }
+void Viewer3DPanel::OnResize(wxSizeEvent &event) {
+    (void)event;
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
+    Refresh();
+}
 
 // Renders the full 3D scene
 void Viewer3DPanel::Render(const RenderSize &renderSize) {
@@ -3051,6 +3065,7 @@ void Viewer3DPanel::BeginContinuousPlacement(
     ResetSelectionDragState();
     m_continuousPlacementActive = true;
     m_continuousPlacementType = type;
+    m_placementViewRevision.Invalidate();
     m_continuousPlacementNeedsPointerAlignment = true;
     m_continuousPlacementUuid = elementUuid;
     m_continuousPlacedUuids.clear();
@@ -3300,6 +3315,8 @@ void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
         m_camera.Pan(-dx * 0.01f, dy * 0.01f);
     }
     m_lastMousePos = mousePos;
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
 }
 
 // Aligns the provisional fixture with the raw view-plane position under the
@@ -3318,10 +3335,10 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     if (!pointer)
         return false;
 
-  ApplySelectionDragDelta({(*pointer)[0] - m_selectionDragAnchorMeters[0],
-         (*pointer)[1] - m_selectionDragAnchorMeters[1],
-         (*pointer)[2] - m_selectionDragAnchorMeters[2]});
+    ApplySelectionDragDelta(continuous_placement::AbsoluteAlignmentDelta(
+        *pointer, m_selectionDragAnchorMeters));
     m_continuousPlacementNeedsPointerAlignment = false;
+    m_placementViewRevision.MarkAligned();
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_selectionDragMoved = true;
     m_lastMousePos = mousePos;
@@ -3503,6 +3520,10 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
     m_lastInteractionTime = std::chrono::steady_clock::now();
 
     m_camera.Zoom(steps);
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
+    if (m_continuousPlacementActive)
+        AlignContinuousElementToPointer(event.GetPosition());
     ArmZoomInteractionTimeout();
 
     Refresh();
@@ -3681,6 +3702,10 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
     m_lastInteractionTime = std::chrono::steady_clock::now();
     if (zoomTriggered)
         ArmZoomInteractionTimeout();
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
+    if (m_continuousPlacementActive)
+        AlignContinuousElementToPointer(m_lastMousePos);
 
     viewer3d::diagnostics::Log("Key interaction end.");
     Refresh();
@@ -3689,6 +3714,8 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
 // Resets the camera to its default isometric view.
 bool Viewer3DPanel::ResetCameraToIsometric() {
     m_camera.Reset();
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
     return true;
 }
@@ -3705,6 +3732,8 @@ bool Viewer3DPanel::FrameSceneToFit() {
     m_cameraMoving = true;
     m_lastInteractionTime = std::chrono::steady_clock::now();
     m_controller.SetInteracting(true);
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
     return true;
 }
@@ -3721,9 +3750,11 @@ void Viewer3DPanel::SetStandardView(Viewer2DView view) {
         case Viewer2DView::Side:
             m_camera.SetOrientation(-90.0f, 0.0f);
             break;
-        default:
+    default:
             return;
     }
+    m_placementViewRevision.Invalidate();
+    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
 }
 

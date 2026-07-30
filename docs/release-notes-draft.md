@@ -19,6 +19,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed continuous fixture, truss, and scene-object placement drifting away
+  from the pointer after zooming, panning, orbiting, resizing, fitting, or
+  changing standard views in the 2D and 3D viewers.
+
 - Fixed a crash that could occur when opening another project after startup by
   releasing viewer scene caches before the project replaces its scene data.
 
