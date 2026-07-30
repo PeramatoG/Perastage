@@ -22,11 +22,14 @@ enum class CandidateKind {
 
 struct Candidate {
   std::string stableId;
+  std::string ownerTrussUuid;
   CandidateKind kind = CandidateKind::InferredFaceCenter;
   std::string name;
   std::string model;
   Matrix localTransform{};
   Matrix worldTransform{};
+  std::optional<std::array<float, 3>> localDirection;
+  std::optional<std::array<float, 3>> worldDirection;
   std::string sourcePath;
 };
 

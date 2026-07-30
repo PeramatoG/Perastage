@@ -43,6 +43,8 @@ struct SnapResult {
   bool needsGrouping = false;
   std::string sourceCandidateId;
   std::string targetCandidateId;
+  std::string sourceMemberTrussUuid;
+  std::string targetMemberTrussUuid;
 };
 
 // Builds deterministic exterior or conservative aggregate group candidates.

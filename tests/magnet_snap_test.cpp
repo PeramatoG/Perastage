@@ -9,7 +9,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <thread>
+#include <iostream>
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -38,25 +38,44 @@ void AddTruss(MvrScene &scene, const std::string &uuid, float x) {
 }
 
 // Writes a minimal GDTF ZIP archive for production resolver tests.
-void WriteGdtf(const std::filesystem::path &path, const std::string &xml) {
+bool WriteGdtf(const std::filesystem::path &path, const std::string &xml) {
   wxFFileOutputStream file(path.string());
+  if (!file.IsOk())
+    return false;
   wxZipOutputStream zip(file);
-  zip.PutNextEntry("description.xml");
+  if (!zip.PutNextEntry("description.xml"))
+    return false;
   zip.Write(xml.data(), xml.size());
-  zip.CloseEntry();
-  zip.Close();
+  if (!zip.IsOk() || !zip.CloseEntry() || !zip.Close())
+    return false;
+  return file.IsOk();
 }
 
 // Returns a minimal GDTF description with an optional Magnet.
-std::string ArchiveXml(bool withMagnet, float xMeters = 0.0f) {
+std::string ArchiveXml(bool withMagnet, float xMeters = 0.0f,
+                       const std::string &padding = {}) {
   const std::string magnet =
       withMagnet
           ? "<Magnet Name='ArchiveMagnet' Position='{1,0,0," +
                 std::to_string(xMeters) + "}{0,1,0,0}{0,0,1,0}{0,0,0,1}'/>"
           : "";
   return "<GDTF><FixtureType><Geometries><Geometry Name='Root'>" + magnet +
-         "</Geometry></Geometries></FixtureType></GDTF>";
+         padding + "</Geometry></Geometries></FixtureType></GDTF>";
 }
+
+// Reports a non-modal test failure with its source location.
+bool Check(bool condition, const char *expression, int line) {
+  if (condition)
+    return true;
+  std::cerr << "CHECK failed at line " << line << ": " << expression << '\n';
+  return false;
+}
+
+#define CHECK_OR_RETURN(expression)                                            \
+  do {                                                                         \
+    if (!Check(static_cast<bool>(expression), #expression, __LINE__))          \
+      return 1;                                                                \
+  } while (false)
 
 } // namespace
 
@@ -72,6 +91,10 @@ int main() {
   assert(longitudinal[1].localTransform.o[0] == 3000.0f);
   assert(longitudinal[0].worldTransform.o[0] == 100.0f);
   assert(longitudinal[1].worldTransform.o[0] == 3100.0f);
+  assert(longitudinal[0].worldDirection &&
+         (*longitudinal[0].worldDirection)[0] == -1.0f);
+  assert(longitudinal[1].worldDirection &&
+         (*longitudinal[1].worldDirection)[0] == 1.0f);
   assert(truss_attachment::ClassifyLongitudinalAxis({3000, 400, 400}) == 0);
   assert(truss_attachment::ClassifyLongitudinalAxis({400, 3000, 400}) == 1);
   assert(truss_attachment::ClassifyLongitudinalAxis({400, 400, 3000}) == 2);
@@ -107,19 +130,24 @@ int main() {
   assert(explicitMagnets.candidates[0].localTransform.o[0] == 1500.0f);
   assert(explicitMagnets.candidates[0].localTransform.o[1] == 2000.0f);
   assert(explicitMagnets.candidates[0].worldTransform.o[0] == 1600.0f);
+  assert(!explicitMagnets.candidates[0].worldDirection);
   assert(truss_attachment::ReadExplicitGdtfMagnets(
              "<GDTF><FixtureType><Geometries/></FixtureType></GDTF>",
              MatrixUtils::Identity())
              .candidates.empty());
 
-  const auto tempRoot = std::filesystem::temp_directory_path() /
-                        "perastage-truss-attachment-test";
-  std::filesystem::remove_all(tempRoot);
-  std::filesystem::create_directories(tempRoot / "resources");
+  const auto tempRoot =
+      std::filesystem::temp_directory_path() /
+      ("perastage-truss-attachment-test-" +
+       std::to_string(
+           std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::error_code filesystemError;
+  std::filesystem::create_directories(tempRoot / "resources", filesystemError);
+  CHECK_OR_RETURN(!filesystemError);
   const auto publicArchive = tempRoot / "resources" / "public.gdtf";
   const auto auxiliaryArchive = tempRoot / "resources" / "auxiliary.gdtf";
-  WriteGdtf(publicArchive, ArchiveXml(true, 0.25f));
-  WriteGdtf(auxiliaryArchive, ArchiveXml(true, 0.5f));
+  CHECK_OR_RETURN(WriteGdtf(publicArchive, ArchiveXml(true, 0.25f)));
+  CHECK_OR_RETURN(WriteGdtf(auxiliaryArchive, ArchiveXml(true, 0.5f)));
   MvrScene resourceScene;
   resourceScene.basePath = tempRoot.string();
   Truss resourceTruss;
@@ -156,15 +184,47 @@ int main() {
       truss_attachment::BuildCandidates(resourceScene, resourceTruss, resolver);
   assert(resolved.candidates.size() == 1);
   assert(resolver.ArchiveParseCount() == 2);
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  WriteGdtf(publicArchive, ArchiveXml(true, 0.75f));
+  const auto previousWriteTime =
+      std::filesystem::last_write_time(publicArchive, filesystemError);
+  CHECK_OR_RETURN(!filesystemError);
+  const auto previousSize =
+      std::filesystem::file_size(publicArchive, filesystemError);
+  CHECK_OR_RETURN(!filesystemError);
+  CHECK_OR_RETURN(WriteGdtf(publicArchive, ArchiveXml(true, 0.35f)));
+  CHECK_OR_RETURN(std::filesystem::file_size(publicArchive, filesystemError) ==
+                  previousSize);
+  std::filesystem::last_write_time(publicArchive, previousWriteTime,
+                                   filesystemError);
+  CHECK_OR_RETURN(!filesystemError);
   resolved =
       truss_attachment::BuildCandidates(resourceScene, resourceTruss, resolver);
-  assert(resolver.ArchiveParseCount() == 3);
+  CHECK_OR_RETURN(resolver.ArchiveParseCount() == 2);
+  CHECK_OR_RETURN(resolved.candidates[0].localTransform.o[0] == 250.0f);
+  resolver.Clear();
+  resolved =
+      truss_attachment::BuildCandidates(resourceScene, resourceTruss, resolver);
+  CHECK_OR_RETURN(resolver.ArchiveParseCount() == 3);
+  CHECK_OR_RETURN(resolved.candidates[0].localTransform.o[0] == 350.0f);
+
+  CHECK_OR_RETURN(WriteGdtf(
+      publicArchive, ArchiveXml(true, 0.75f, "<Geometry Name='Padding'/>")));
+  std::filesystem::last_write_time(publicArchive,
+                                   previousWriteTime + std::chrono::seconds(2),
+                                   filesystemError);
+  CHECK_OR_RETURN(!filesystemError);
+  resolved =
+      truss_attachment::BuildCandidates(resourceScene, resourceTruss, resolver);
+  assert(resolver.ArchiveParseCount() == 4);
   assert(resolved.candidates[0].localTransform.o[0] == 750.0f);
 
   const auto malformedArchive = tempRoot / "resources" / "malformed.gdtf";
-  std::ofstream(malformedArchive) << "not a zip";
+  {
+    std::ofstream malformedOutput(malformedArchive, std::ios::binary);
+    CHECK_OR_RETURN(malformedOutput.is_open());
+    malformedOutput << "not a zip";
+    malformedOutput.close();
+    CHECK_OR_RETURN(!malformedOutput.fail());
+  }
   resourceTruss.gdtfSpec = malformedArchive.string();
   resolved =
       truss_attachment::BuildCandidates(resourceScene, resourceTruss, resolver);
@@ -172,7 +232,7 @@ int main() {
   assert(!resolved.diagnostics.empty());
 
   const auto noMagnetArchive = tempRoot / "resources" / "no-magnet.gdtf";
-  WriteGdtf(noMagnetArchive, ArchiveXml(false));
+  CHECK_OR_RETURN(WriteGdtf(noMagnetArchive, ArchiveXml(false)));
   resourceTruss.gdtfSpec = noMagnetArchive.string();
   resolved =
       truss_attachment::BuildCandidates(resourceScene, resourceTruss, resolver);
@@ -221,6 +281,8 @@ int main() {
   assert(straightCandidates.size() == 2);
   assert(straightCandidates[0].worldTransform.o[0] == 0.0f);
   assert(straightCandidates[1].worldTransform.o[0] == 9000.0f);
+  assert(straightCandidates[0].ownerTrussUuid == "straight-0");
+  assert(straightCandidates[1].ownerTrussUuid == "straight-2");
 
   MvrScene rotatedGroupScene;
   GroupObject rotatedGroup;
@@ -252,9 +314,37 @@ int main() {
   bentGroupScene.groupObjects[bentGroup.uuid] = bentGroup;
   const auto bentCandidates =
       magnet_snap::BuildTrussGroupCandidates(bentGroupScene, bentGroup.uuid);
-  assert(bentCandidates.size() == 6);
-  for (const auto &candidate : bentCandidates)
-    assert(candidate.kind == CandidateKind::InferredFaceCenter);
+  assert(bentCandidates.size() == 4);
+  for (const auto &candidate : bentCandidates) {
+    assert(candidate.kind == CandidateKind::InferredLongitudinalEnd);
+    assert(candidate.ownerTrussUuid == "bent-x" ||
+           candidate.ownerTrussUuid == "bent-y");
+  }
+  AddTruss(bentGroupScene, "bent-moving", 250.0f);
+  auto bentGroupSnap = magnet_snap::FindSnap(
+      bentGroupScene, {magnet_snap::ObjectType::Truss, "bent-moving"});
+  assert(bentGroupSnap);
+  assert(bentGroupSnap->targetUuid == bentGroup.uuid);
+  assert(bentGroupSnap->targetMemberTrussUuid == "bent-x");
+  assert(bentGroupSnap->sourceCandidateId == "longitudinal-axis-0-positive");
+  assert(std::fabs(bentGroupSnap->translationDeltaMm[0] + 3250.0f) < 0.001f);
+
+  MvrScene explicitGroupScene;
+  explicitGroupScene.basePath = tempRoot.string();
+  GroupObject explicitGroup;
+  explicitGroup.uuid = "explicit-group";
+  AddTruss(explicitGroupScene, "explicit-member", 0.0f);
+  explicitGroupScene.trusses["explicit-member"].gdtfSpec =
+      "resources/auxiliary.gdtf";
+  explicitGroupScene.trusses["explicit-member"].parentGroupUuid =
+      explicitGroup.uuid;
+  explicitGroup.children.push_back({MvrNodeType::Truss, "explicit-member"});
+  explicitGroupScene.groupObjects[explicitGroup.uuid] = explicitGroup;
+  const auto explicitGroupCandidates = magnet_snap::BuildTrussGroupCandidates(
+      explicitGroupScene, explicitGroup.uuid);
+  assert(explicitGroupCandidates.size() == 1);
+  assert(explicitGroupCandidates[0].kind == CandidateKind::ExplicitGdtfMagnet);
+  assert(explicitGroupCandidates[0].ownerTrussUuid == "explicit-member");
 
   MvrScene scene;
   AddTruss(scene, "target", 0.0f);
@@ -266,6 +356,73 @@ int main() {
   assert(snap->kind == magnet_snap::SnapKind::TrussToTruss);
   assert(snap->needsGrouping);
   assert(std::fabs(snap->translationDeltaMm[0] + 250.0f) < 0.001f);
+  assert(snap->sourceCandidateId == "longitudinal-axis-0-negative");
+
+  MvrScene leftExtensionScene;
+  AddTruss(leftExtensionScene, "target", 0.0f);
+  AddTruss(leftExtensionScene, "source", 250.0f);
+  const Matrix leftSourceBefore =
+      leftExtensionScene.trusses["source"].transform;
+  auto leftSnap = magnet_snap::FindSnap(
+      leftExtensionScene, {magnet_snap::ObjectType::Truss, "source"});
+  assert(leftSnap);
+  assert(leftSnap->sourceCandidateId == "longitudinal-axis-0-positive");
+  assert(std::fabs(leftSnap->translationDeltaMm[0] + 3250.0f) < 0.001f);
+  assert(magnet_snap::ApplySnapTransform(leftExtensionScene, *leftSnap));
+  assert(leftExtensionScene.trusses["source"].transform.u ==
+         leftSourceBefore.u);
+  assert(leftExtensionScene.trusses["source"].transform.v ==
+         leftSourceBefore.v);
+  assert(leftExtensionScene.trusses["source"].transform.w ==
+         leftSourceBefore.w);
+  assert(leftExtensionScene.trusses["source"].transform.o[0] == -3000.0f);
+
+  MvrScene ambiguousSourceScene;
+  AddTruss(ambiguousSourceScene, "target", 0.0f);
+  AddTruss(ambiguousSourceScene, "source", 240.0f);
+  ambiguousSourceScene.trusses["source"].lengthMm = 400.0f;
+  ambiguousSourceScene.trusses["source"].widthMm = 400.0f;
+  ambiguousSourceScene.trusses["source"].heightMm = 400.0f;
+  auto ambiguousSourceSnap = magnet_snap::FindSnap(
+      ambiguousSourceScene, {magnet_snap::ObjectType::Truss, "source"});
+  assert(ambiguousSourceSnap);
+  assert(ambiguousSourceSnap->sourceCandidateId.rfind("face-axis-", 0) == 0);
+
+  MvrScene rotatedExtensionScene;
+  AddTruss(rotatedExtensionScene, "target", 0.0f);
+  AddTruss(rotatedExtensionScene, "source", 0.0f);
+  rotatedExtensionScene.trusses["target"].transform = rotated;
+  rotatedExtensionScene.trusses["source"].transform = rotated;
+  for (int component = 0; component < 3; ++component)
+    rotatedExtensionScene.trusses["source"].transform.o[component] =
+        rotated.u[component] * 250.0f;
+  auto rotatedLeftSnap = magnet_snap::FindSnap(
+      rotatedExtensionScene, {magnet_snap::ObjectType::Truss, "source"});
+  assert(rotatedLeftSnap);
+  assert(rotatedLeftSnap->sourceCandidateId == "longitudinal-axis-0-positive");
+  for (int component = 0; component < 3; ++component)
+    assert(std::fabs(rotatedLeftSnap->translationDeltaMm[component] +
+                     rotated.u[component] * 3250.0f) < 0.001f);
+
+  MvrScene groupExtensionScene;
+  GroupObject targetGroup;
+  targetGroup.uuid = "target-group";
+  for (int index = 0; index < 2; ++index) {
+    const std::string uuid = "target-member-" + std::to_string(index);
+    AddTruss(groupExtensionScene, uuid, index * 3000.0f);
+    groupExtensionScene.trusses[uuid].parentGroupUuid = targetGroup.uuid;
+    targetGroup.children.push_back({MvrNodeType::Truss, uuid});
+  }
+  groupExtensionScene.groupObjects[targetGroup.uuid] = targetGroup;
+  AddTruss(groupExtensionScene, "moving", 250.0f);
+  auto groupLeftSnap = magnet_snap::FindSnap(
+      groupExtensionScene, {magnet_snap::ObjectType::Truss, "moving"});
+  assert(groupLeftSnap);
+  assert(groupLeftSnap->targetUuid == targetGroup.uuid);
+  assert(groupLeftSnap->targetMemberTrussUuid == "target-member-0");
+  assert(groupLeftSnap->targetCandidateId == "longitudinal-axis-0-negative");
+  assert(groupLeftSnap->sourceCandidateId == "longitudinal-axis-0-positive");
+  assert(std::fabs(groupLeftSnap->translationDeltaMm[0] + 3250.0f) < 0.001f);
 
   scene.trusses["source"].transform.o[0] = 4000.0f;
   assert(!magnet_snap::FindSnap(scene,
@@ -300,6 +457,18 @@ int main() {
       screenSettings);
   assert(screenSnap);
   assert(std::fabs(screenSnap->translationDeltaMm[2] - 500.0f) < 0.001f);
+
+  MvrScene screenLeftScene;
+  AddTruss(screenLeftScene, "target", 0.0f);
+  AddTruss(screenLeftScene, "source", 250.0f);
+  auto screenLeftSettings = screenSettings;
+  screenLeftSettings.trussProjection->viewport = {0, 0, 100, 100};
+  auto screenLeftSnap = magnet_snap::FindSnap(
+      screenLeftScene, {magnet_snap::ObjectType::Truss, "source"},
+      screenLeftSettings);
+  assert(screenLeftSnap);
+  assert(screenLeftSnap->sourceCandidateId == "longitudinal-axis-0-positive");
+  assert(std::fabs(screenLeftSnap->translationDeltaMm[0] + 3250.0f) < 0.001f);
   screenScene.trusses["screen-target"].transform.o[1] = 100.0f;
   assert(!magnet_snap::FindSnap(
       screenScene, {magnet_snap::ObjectType::Truss, "screen-source"},
@@ -365,6 +534,7 @@ int main() {
   assert(groupSnap);
   assert(groupSnap->kind == magnet_snap::SnapKind::TrussToTruss);
   assert(groupSnap->sourceUuid == groupUuid);
+  assert(groupSnap->sourceMemberTrussUuid == "source");
   assert(groupSnap->targetUuid == "loose");
   assert(std::fabs(groupSnap->translationDeltaMm[0] - 250.0f) < 0.001f);
   scene.trusses.erase("loose");
@@ -374,6 +544,7 @@ int main() {
       scene, {magnet_snap::ObjectType::Truss, "source-2"});
   assert(snap2);
   assert(snap2->targetUuid == groupUuid);
+  assert(magnet_snap::ApplySnapTransform(scene, *snap2));
   assert(magnet_snap::ApplyCommittedSnapGrouping(scene, *snap2));
   assert(scene.trusses["source-2"].parentGroupUuid == groupUuid);
   assert(scene.groupObjects.size() == 1);
@@ -490,6 +661,9 @@ int main() {
   assert(magnet_snap::DetachSnapSourceFromGroup(scene, *fixtureSnap));
   assert(scene.fixtures[fixture.uuid].parentGroupUuid.empty());
   assert(scene.trusses["target"].parentGroupUuid == groupUuid);
+
+  std::filesystem::remove_all(tempRoot, filesystemError);
+  CHECK_OR_RETURN(!filesystemError);
 
   return 0;
 }

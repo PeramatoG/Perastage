@@ -5,7 +5,9 @@
 #include "matrixutils.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <system_error>
 #include <tinyxml2.h>
@@ -23,13 +25,33 @@ Matrix ToMillimetres(Matrix transform) {
 // Appends one deterministic candidate at a local transform.
 void AppendCandidate(std::vector<Candidate> &out, CandidateKind kind,
                      std::string stableId, const Matrix &local,
-                     const Matrix &ownerTransform, std::string sourceId) {
+                     const Matrix &ownerTransform, std::string sourceId,
+                     std::optional<std::array<float, 3>> localDirection) {
   Candidate candidate;
   candidate.stableId = std::move(stableId);
   candidate.kind = kind;
+  candidate.ownerTrussUuid = sourceId;
   candidate.localTransform = local;
   candidate.worldTransform = MatrixUtils::Multiply(ownerTransform, local);
   candidate.sourcePath = std::move(sourceId);
+  candidate.localDirection = localDirection;
+  if (localDirection) {
+    std::array<float, 3> direction{};
+    for (int component = 0; component < 3; ++component) {
+      direction[component] =
+          ownerTransform.u[component] * (*localDirection)[0] +
+          ownerTransform.v[component] * (*localDirection)[1] +
+          ownerTransform.w[component] * (*localDirection)[2];
+    }
+    const float length =
+        std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                  direction[2] * direction[2]);
+    if (length > 1e-6f) {
+      for (float &value : direction)
+        value /= length;
+      candidate.worldDirection = direction;
+    }
+  }
   out.push_back(std::move(candidate));
 }
 
@@ -161,10 +183,12 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
       Matrix local = MatrixUtils::Identity();
       local.o = center;
       local.o[*dominant] += sign * safeDimensions[*dominant] * 0.5f;
+      std::array<float, 3> direction{};
+      direction[*dominant] = static_cast<float>(sign);
       AppendCandidate(result, CandidateKind::InferredLongitudinalEnd,
                       "longitudinal-axis-" + std::to_string(*dominant) +
                           (sign < 0 ? "-negative" : "-positive"),
-                      local, trussTransform, sourceId);
+                      local, trussTransform, sourceId, direction);
     }
     return result;
   }
@@ -189,10 +213,12 @@ BuildAmbiguousCandidates(const std::array<float, 3> &dimensionsMm,
       Matrix local = MatrixUtils::Identity();
       local.o = center;
       local.o[axis] += sign * safeDimensions[axis] * 0.5f;
+      std::array<float, 3> direction{};
+      direction[axis] = static_cast<float>(sign);
       AppendCandidate(result, CandidateKind::InferredFaceCenter,
                       "face-axis-" + std::to_string(axis) +
                           (sign < 0 ? "-negative" : "-positive"),
-                      local, trussTransform, sourceId);
+                      local, trussTransform, sourceId, direction);
     }
   }
   return result;
@@ -219,21 +245,45 @@ std::string BuildArchiveVersionKey(const std::filesystem::path &path) {
   const auto modified = std::filesystem::last_write_time(path, ec);
   if (ec)
     return {};
+  using PortableFileTicks = std::chrono::duration<std::int64_t, std::nano>;
+  const std::int64_t modifiedTicks =
+      std::chrono::duration_cast<PortableFileTicks>(modified.time_since_epoch())
+          .count();
   return PathUtils::BuildFilesystemIdentityKey(path) + "|" +
-         std::to_string(size) + "|" +
-         std::to_string(modified.time_since_epoch().count());
+         std::to_string(static_cast<std::uintmax_t>(size)) + "|" +
+         std::to_string(modifiedTicks);
 }
 
 // Applies an instance transform to cached local candidate definitions.
 CandidateResolution Instantiate(const CandidateResolver::CacheEntry &entry,
-                                const Matrix &transform) {
+                                const Matrix &transform,
+                                const std::string &ownerTrussUuid) {
   CandidateResolution result;
   result.candidates = entry.localCandidates;
   result.diagnostics = entry.diagnostics;
   result.resolvedSourceIdentity = entry.resolvedSourceIdentity;
-  for (Candidate &candidate : result.candidates)
+  for (Candidate &candidate : result.candidates) {
     candidate.worldTransform =
         MatrixUtils::Multiply(transform, candidate.localTransform);
+    candidate.ownerTrussUuid = ownerTrussUuid;
+    if (candidate.localDirection) {
+      std::array<float, 3> direction{};
+      for (int component = 0; component < 3; ++component) {
+        direction[component] =
+            transform.u[component] * (*candidate.localDirection)[0] +
+            transform.v[component] * (*candidate.localDirection)[1] +
+            transform.w[component] * (*candidate.localDirection)[2];
+      }
+      const float length =
+          std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                    direction[2] * direction[2]);
+      if (length > 1e-6f) {
+        for (float &value : direction)
+          value /= length;
+        candidate.worldDirection = direction;
+      }
+    }
+  }
   return result;
 }
 
@@ -260,7 +310,8 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
       continue;
     }
     if (const auto found = m_cache.find(versionKey); found != m_cache.end()) {
-      CandidateResolution result = Instantiate(found->second, truss.transform);
+      CandidateResolution result =
+          Instantiate(found->second, truss.transform, truss.uuid);
       result.diagnostics.insert(result.diagnostics.begin(),
                                 resolutionDiagnostics.begin(),
                                 resolutionDiagnostics.end());
@@ -293,7 +344,8 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
     }
     auto [inserted, unused] = m_cache.emplace(versionKey, std::move(entry));
     (void)unused;
-    CandidateResolution result = Instantiate(inserted->second, truss.transform);
+    CandidateResolution result =
+        Instantiate(inserted->second, truss.transform, truss.uuid);
     result.diagnostics.insert(result.diagnostics.begin(),
                               resolutionDiagnostics.begin(),
                               resolutionDiagnostics.end());

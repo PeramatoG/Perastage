@@ -20,7 +20,8 @@ treated as a GDTF source. Missing and unreadable sources remain visible as
 structured diagnostics before conservative inference is used.
 
 An explicit resolver caches type-level local candidates by normalized absolute
-archive identity, file size, and last-write timestamp. Instance transforms are
+archive identity, file size, and a fixed-width nanosecond last-write timestamp.
+Instance transforms are
 applied after lookup, so dragging or rotating a truss does not reopen its
 archive. Replacing an archive changes the version key and reparses its local
 definition. Viewers own their resolver lifetime; the core has no static
@@ -38,17 +39,31 @@ dominant-axis terminal planes. Ambiguous shapes, including invalid-dimension
 fallbacks, expose the six oriented bounds face centers. These inferred points
 are conservative snapping aids, not verified mechanical connectors.
 
-Groups aggregate their truss bounds in the first truss's local basis. Clearly
-longitudinal collinear aggregates expose only the two exterior ends, so
-internal joints are not normal candidates. Other aggregates use the six-point
-ambiguous fallback. Existing hierarchy rejection prevents self and descendant
-snaps.
+Groups expose candidates resolved from their actual member trusses. Candidate
+pairs from different members are treated as occupied internal joints when
+their positions are within 25 mm and, when both have inferred directions,
+their direction dot product is at most -0.996. Deterministic one-to-one
+matching removes occupied candidates. Every remaining member candidate is
+exposed with its member UUID and original stable identity. Aggregate face
+centers are used only if no member candidates can be built.
 
-The two-end group result additionally requires every member to be
-longitudinal, member axes to have an absolute dot product of at least 0.996,
-center lines to be within 25 mm, and consecutive projected member intervals to
-have no gap greater than 25 mm. A group that fails any check uses six aggregate
-face centers.
+Inferred longitudinal ends and ambiguous face centers carry runtime-only
+outward directions transformed into world space. Explicit GDTF Magnets do not
+receive an invented direction because GDTF does not standardize one.
+
+For a moving truss with exactly two inferred longitudinal ends, target
+acquisition remains view-driven. After acquiring one target candidate, both
+source ends are evaluated against that same target. If the nearby end would
+produce more than 50 mm of substantial oriented-bounds penetration into the
+actual target truss or owning group member and the opposite end would not, the
+opposite end is selected. Opposing inferred directions break only an
+all-overlapping tie. This correction changes translation only and never
+rotates or flips the truss.
+
+Cache invalidation normally uses normalized identity, size, and timestamp.
+Project/resource lifecycle owners may call `Clear()` when replacing a resource
+while deliberately preserving both metadata values; the interactive path does
+not hash archives on every query.
 
 ## View weighting
 

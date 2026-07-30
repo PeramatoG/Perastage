@@ -11,7 +11,9 @@ Changes since **v1.5.0**.
   conservative face-center snapping for ambiguous truss shapes and groups.
   Project-relative connector resources are cached safely, while 3D assembly
   now acquires visually overlapping endpoints with a DPI-independent screen
-  aperture for more predictable perspective-view placement.
+  aperture for more predictable perspective-view placement. Truss groups now
+  expose their real unoccupied member connectors, and straight extensions
+  choose the non-overlapping end when approaching an assembly from either side.
 
 - Added **Selection & Movement** preferences for choosing, independently for
   fixtures, trusses, supports/hoists, and scene objects, whether mouse,
