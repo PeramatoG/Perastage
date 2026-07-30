@@ -16,28 +16,29 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "consolepanel.h"
-#include "console_command_parser.h"
 #include "configmanager.h"
-#include "guiconfigservices.h"
+#include "console_command_parser.h"
 #include "fixturetablepanel.h"
+#include "guiconfigservices.h"
 #include "hoisttablepanel.h"
 #include "mainwindow.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
 #include "sceneobjecttablepanel.h"
+#include "selection_movement_settings.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 #include <algorithm>
-#include <fstream>
-#include <charconv>
 #include <cctype>
+#include <charconv>
 #include <exception>
+#include <fstream>
 #include <optional>
 #include <sstream>
 #include <vector>
-#include <wx/intl.h>
 #include <wx/filename.h>
+#include <wx/intl.h>
 #include <wx/stdpaths.h>
 
 namespace {
@@ -150,19 +151,24 @@ wxString ExtractConsoleSection(const wxString &markdown,
   return result.Trim();
 }
 
-
 // Builds localized console help while preserving executable command syntax.
 wxString BuildLocalizedConsoleHelpContent() {
   wxString help;
-  help += _("The console transforms the current mixed selection. Grouped trusses move through their root group; fixtures, supports, and scene objects remain exact targets.");
+  help += _("The console transforms the current mixed selection. Grouped "
+            "trusses move through their root group; fixtures, supports, and "
+            "scene objects remain exact targets.");
   help += "\n\n";
   help += _("Selection");
   help += "\n\n";
   help += _("Command    Description");
   help += "\n";
-  help += "`clear`    " + _("Clears all selections (fixtures, trusses, scene objects).") + "\n";
+  help += "`clear`    " +
+          _("Clears all selections (fixtures, trusses, scene objects).") + "\n";
   help += "`f ...`    " + _("Select fixtures by ID.") + "\n";
-  help += "`t ...`    " + _("Select trusses by unit number (clears current truss selection first).") + "\n\n";
+  help += "`t ...`    " +
+          _("Select trusses by unit number (clears current truss selection "
+            "first).") +
+          "\n\n";
   help += _("Selection syntax supports:");
   help += "\n\n";
   help += "- " + _("Single IDs: `f 12`") + "\n";
@@ -183,15 +189,27 @@ wxString BuildLocalizedConsoleHelpContent() {
   help += "`rot x <values>`  " + _("Set rotation around X (roll).") + "\n";
   help += "`rot y <values>`  " + _("Set rotation around Y (pitch).") + "\n";
   help += "`rot z <values>`  " + _("Set rotation around Z (yaw).") + "\n";
-  help += "`rot x y z <values> --group`  " + _("Rotate the full selection as one group around a pivot.") + "\n";
+  help += "`rot x y z <values> --group`  " +
+          _("Rotate the full selection as one group around a pivot.") + "\n";
   help += "`rot x y z <values> --g`      " + _("Alias of `--group`.") + "\n";
-  help += "`pos/rot ... --local|-l` " + _("Use local axes for relative transforms.") + "\n\n";
+  help += "`pos/rot ... --local|-l` " +
+          _("Use local axes for relative transforms.") + "\n\n";
   help += _("Notes:");
   help += "\n\n";
-  help += "- " + _("Provide one value to apply it to all selected items.") + "\n";
-  help += "- " + _("Provide two values to linearly distribute from start to end across the selection.") + "\n";
-  help += "- " + _("Use compact or spaced `++` / `--` relative offsets, such as `++1`, `++ 1`, `--1`, or `-- 1`.") + "\n";
-  help += "- " + _("You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for `pos`.") + "\n";
+  help +=
+      "- " + _("Provide one value to apply it to all selected items.") + "\n";
+  help += "- " +
+          _("Provide two values to linearly distribute from start to end "
+            "across the selection.") +
+          "\n";
+  help += "- " +
+          _("Use compact or spaced `++` / `--` relative offsets, such as "
+            "`++1`, `++ 1`, `--1`, or `-- 1`.") +
+          "\n";
+  help += "- " +
+          _("You can also type a comma-separated triplet like `1, 2, 3` as a "
+            "shortcut for `pos`.") +
+          "\n";
   return help;
 }
 
@@ -228,8 +246,8 @@ wxString BuildConsoleHelpContent() {
 
 ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-  m_textCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
-                              wxDefaultSize,
+  m_textCtrl =
+      new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
                               wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
   m_textCtrl->SetBackgroundColour(*wxBLACK);
   m_textCtrl->SetForegroundColour(wxColour(0, 255, 0));
@@ -247,8 +265,7 @@ ConsolePanel::ConsolePanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   m_inputCtrl->SetInsertionPointEnd();
   m_helpButton = new wxButton(this, wxID_ANY, "?", wxDefaultPosition,
                               wxSize(24, 24), wxBU_EXACTFIT);
-  m_helpButton->SetToolTip(
-      _("Show available console commands and examples."));
+  m_helpButton->SetToolTip(_("Show available console commands and examples."));
   m_helpButton->Bind(wxEVT_BUTTON, &ConsolePanel::OnHelpButton, this);
 
   wxBoxSizer *inputSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -272,14 +289,13 @@ void ConsolePanel::OnHelpButton(wxCommandEvent &) {
                       wxSize(620, 420),
                       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
   auto *dialogSizer = new wxBoxSizer(wxVERTICAL);
-  auto *helpText = new wxTextCtrl(&helpDialog, wxID_ANY,
-                                  BuildConsoleHelpContent(), wxDefaultPosition,
-                                  wxDefaultSize,
-                                  wxTE_MULTILINE | wxTE_READONLY);
+  auto *helpText = new wxTextCtrl(
+      &helpDialog, wxID_ANY, BuildConsoleHelpContent(), wxDefaultPosition,
+      wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
   helpText->SetBackgroundColour(*wxBLACK);
   helpText->SetForegroundColour(wxColour(230, 230, 230));
-  helpText->SetFont(
-      wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+  helpText->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL,
+                           wxFONTWEIGHT_NORMAL));
   dialogSizer->Add(helpText, 1, wxEXPAND | wxALL, 8);
   dialogSizer->Add(helpDialog.CreateButtonSizer(wxOK), 0,
                   wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 8);
@@ -296,8 +312,7 @@ void ConsolePanel::AppendMessage(const wxString &msg) {
   const wxString suffix = "... (truncated)";
   wxString safeMsg = msg;
   if (safeMsg.length() > kMaxConsoleMessageLength) {
-    size_t keepLength =
-        kMaxConsoleMessageLength > suffix.length()
+    size_t keepLength = kMaxConsoleMessageLength > suffix.length()
             ? kMaxConsoleMessageLength - suffix.length()
             : 0;
     safeMsg = safeMsg.Left(keepLength) + suffix;
@@ -539,7 +554,8 @@ NormalizeRangeTokens(const std::vector<std::string> &tokens) {
     }
     size_t dashPos = token.find('-');
     if (dashPos != std::string::npos && dashPos > 0 &&
-        dashPos + 1 < token.size() && token.find('-', dashPos + 1) == std::string::npos) {
+        dashPos + 1 < token.size() &&
+        token.find('-', dashPos + 1) == std::string::npos) {
       std::string before = token.substr(0, dashPos);
       std::string after = token.substr(dashPos + 1);
       if (isNumberToken(before) && isNumberToken(after)) {
@@ -568,6 +584,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                    [](unsigned char c) { return std::tolower(c); });
 
     ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
+    const auto interactiveTransformPolicy =
+        selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
 
     auto handleSelection = [&](bool fixtures, bool clearSel,
                                const std::vector<std::string> &tokens) {
@@ -699,7 +717,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       return true;
     };
 
-    auto computeSelectionBoundsCenterMm = [&]() -> std::optional<std::array<float, 3>> {
+    auto computeSelectionBoundsCenterMm =
+        [&]() -> std::optional<std::array<float, 3>> {
       auto &scene = cfg.GetScene();
       bool hasAny = false;
       std::array<float, 3> minCorner{};
@@ -721,7 +740,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           .trusses = cfg.GetSelectedTrusses(),
           .supports = cfg.GetSelectedSupports(),
           .sceneObjects = cfg.GetSelectedSceneObjects()};
-      for (const auto &target : scene_grouping::BuildInteractiveTransformTargets(scene, selection))
+      for (const auto &target :
+           scene_grouping::BuildInteractiveTransformTargets(
+               scene, selection, interactiveTransformPolicy))
         expandBounds(scene_grouping::GetTargetWorldTransform(scene, target).o);
       if (!hasAny)
         return std::nullopt;
@@ -733,7 +754,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     };
 
     auto buildEffectiveSelection = [&]() {
-      return scene_grouping::ObjectSelection{.fixtures = cfg.GetSelectedFixtures(),
+      return scene_grouping::ObjectSelection{
+          .fixtures = cfg.GetSelectedFixtures(),
                                              .trusses = cfg.GetSelectedTrusses(),
                                              .supports = cfg.GetSelectedSupports(),
                                              .sceneObjects = cfg.GetSelectedSceneObjects()};
@@ -741,19 +763,19 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
 
     auto hasEffectiveTargets = [&]() {
       return !scene_grouping::BuildInteractiveTransformTargets(
-                  cfg.GetScene(), buildEffectiveSelection())
+                  cfg.GetScene(), buildEffectiveSelection(),
+                  interactiveTransformPolicy)
                   .empty();
     };
 
     auto applyPosEffective = [&](MvrScene &scene, int axis,
-                                 const std::vector<float> &vals,
-                                 bool relative,
+                                 const std::vector<float> &vals, bool relative,
                                  transform_space::TransformSpace space =
                                      transform_space::TransformSpace::World) {
       if (vals.empty())
         return;
       const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-          scene, buildEffectiveSelection());
+          scene, buildEffectiveSelection(), interactiveTransformPolicy);
       const size_t n = targets.size();
       if (n == 0)
         return;
@@ -761,14 +783,17 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       const float end = (vals.size() > 1 ? vals[1] : vals[0]) * 1000.0f;
       for (size_t i = 0; i < n; ++i) {
         const float value = (vals.size() > 1 && n > 1)
-                                ? start + (end - start) * static_cast<float>(i) /
+                                ? start + (end - start) *
+                                              static_cast<float>(i) /
                                               static_cast<float>(n - 1)
                                 : start;
-        Matrix transform = scene_grouping::GetTargetWorldTransform(scene, targets[i]);
+        Matrix transform =
+            scene_grouping::GetTargetWorldTransform(scene, targets[i]);
         if (relative) {
           std::array<float, 3> delta{0.0f, 0.0f, 0.0f};
           delta[axis] = value;
-          transform = transform_space::ApplyIncrementalTranslation(transform, delta, space);
+          transform = transform_space::ApplyIncrementalTranslation(
+              transform, delta, space);
         } else {
           transform.o[axis] = value;
         }
@@ -777,14 +802,13 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
     };
 
     auto applyRotEffective = [&](MvrScene &scene, int axis,
-                                 const std::vector<float> &vals,
-                                 bool relative,
+                                 const std::vector<float> &vals, bool relative,
                                  transform_space::TransformSpace space =
                                      transform_space::TransformSpace::World) {
       if (vals.empty())
         return;
       const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-          scene, buildEffectiveSelection());
+          scene, buildEffectiveSelection(), interactiveTransformPolicy);
       const size_t n = targets.size();
       if (n == 0)
         return;
@@ -792,16 +816,24 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       const float end = vals.size() > 1 ? vals[1] : vals[0];
       int eAxis = 0;
       switch (axis) {
-      case 0: eAxis = 2; break;
-      case 1: eAxis = 1; break;
-      default: eAxis = 0; break;
+      case 0:
+        eAxis = 2;
+        break;
+      case 1:
+        eAxis = 1;
+        break;
+      default:
+        eAxis = 0;
+        break;
       }
       for (size_t i = 0; i < n; ++i) {
         const float angle = (vals.size() > 1 && n > 1)
-                                ? start + (end - start) * static_cast<float>(i) /
+                                ? start + (end - start) *
+                                              static_cast<float>(i) /
                                               static_cast<float>(n - 1)
                                 : start;
-        Matrix transform = scene_grouping::GetTargetWorldTransform(scene, targets[i]);
+        Matrix transform =
+            scene_grouping::GetTargetWorldTransform(scene, targets[i]);
         Matrix rotated;
         if (relative) {
           Matrix delta = MatrixUtils::Identity();
@@ -811,24 +843,26 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             delta = MatrixUtils::EulerToMatrix(0.0f, angle, 0.0f);
           else
             delta = MatrixUtils::EulerToMatrix(angle, 0.0f, 0.0f);
-          rotated = transform_space::ApplyIncrementalRotation(transform, delta, space);
+          rotated = transform_space::ApplyIncrementalRotation(transform, delta,
+                                                              space);
         } else {
           auto e = MatrixUtils::MatrixToEuler(transform);
           e[eAxis] = angle;
           rotated = MatrixUtils::ApplyRotationPreservingScale(
-              transform, MatrixUtils::EulerToMatrix(e[0], e[1], e[2]), transform.o);
+              transform, MatrixUtils::EulerToMatrix(e[0], e[1], e[2]),
+              transform.o);
         }
         scene_grouping::SetTargetWorldTransform(scene, targets[i], rotated);
       }
     };
 
-    auto rotateEffectiveAroundPivot = [&](MvrScene &scene, int axis,
-                                          float angleDeg,
+    auto rotateEffectiveAroundPivot =
+        [&](MvrScene &scene, int axis, float angleDeg,
                                           const std::array<float, 3> &pivotMm,
                                           transform_space::TransformSpace space) {
-      scene_grouping::RotateSelectionAroundPivot(scene,
-                                                 buildEffectiveSelection(), axis,
-                                                 angleDeg, pivotMm, space);
+          scene_grouping::RotateSelectionAroundPivot(
+              scene, buildEffectiveSelection(), axis, angleDeg, pivotMm, space,
+              interactiveTransformPolicy);
     };
 
     auto executeTransform = [&](const std::string &undoLabel,
@@ -836,20 +870,19 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       MvrScene preview = cfg.GetScene();
       operation(preview);
       const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-          cfg.GetScene(), buildEffectiveSelection());
+          cfg.GetScene(), buildEffectiveSelection(),
+          interactiveTransformPolicy);
       bool changed = false;
       for (const auto &target : targets) {
         const Matrix before =
             scene_grouping::GetTargetWorldTransform(cfg.GetScene(), target);
         const Matrix after =
             scene_grouping::GetTargetWorldTransform(preview, target);
-        for (const auto &pair : {std::pair{&before.u, &after.u},
-                                 std::pair{&before.v, &after.v},
-                                 std::pair{&before.w, &after.w},
-                                 std::pair{&before.o, &after.o}}) {
+        for (const auto &pair :
+             {std::pair{&before.u, &after.u}, std::pair{&before.v, &after.v},
+              std::pair{&before.w, &after.w}, std::pair{&before.o, &after.o}}) {
           for (size_t component = 0; component < 3; ++component)
-            changed = changed ||
-                      std::fabs((*pair.first)[component] -
+            changed = changed || std::fabs((*pair.first)[component] -
                                 (*pair.second)[component]) > 0.0001f;
         }
       }
@@ -861,8 +894,6 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       operation(cfg.GetScene());
       return true;
     };
-
-
 
     auto parseSegment = [](const std::string &s) {
       return gui::console::ParseTransformCommandSegment(s);
@@ -893,7 +924,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
 
       std::vector<std::string> mergedSelection;
       const auto appendSelection = [&](const std::vector<std::string> &source) {
-        mergedSelection.insert(mergedSelection.end(), source.begin(), source.end());
+        mergedSelection.insert(mergedSelection.end(), source.begin(),
+                               source.end());
       };
       appendSelection(selFixtures);
       appendSelection(selTrusses);
@@ -941,8 +973,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
       size_t j = i + 1;
       bool allowAxis = (lw != "pos" && lw != "rot");
       bool allowRangeSeparator =
-          (lw == "pos" || lw == "rot" || lw == "x" || lw == "y" ||
-           lw == "z" || (!lw.empty() && (lw[0] == 'f' || lw[0] == 't')));
+          (lw == "pos" || lw == "rot" || lw == "x" || lw == "y" || lw == "z" ||
+           (!lw.empty() && (lw[0] == 'f' || lw[0] == 't')));
       while (j < tokens.size() &&
              !isCmd(tokens[j], allowAxis, allowRangeSeparator))
         ++j;
@@ -1041,8 +1073,8 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                            segment.remainder.empty() && hasEffectiveTargets();
           if (validTransform && isRot && useGroupRotation) {
             if (!segment.values.empty()) {
-              const auto pivotMm =
-                  explicitPivotMm.value_or(computeSelectionBoundsCenterMm().value_or(
+              const auto pivotMm = explicitPivotMm.value_or(
+                  computeSelectionBoundsCenterMm().value_or(
                       std::array<float, 3>{0.0f, 0.0f, 0.0f}));
               const float angleDeg = segment.values[0];
               appliedTransform = executeTransform(
@@ -1069,7 +1101,9 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
           if (appliedTransform)
             refreshSelectionAfterTransform();
         } else {
-          AppendMessage(_("[ERROR] Invalid transform: provide a valid axis, finite numeric values, valid modifiers, and a non-empty selection."));
+          AppendMessage(
+              _("[ERROR] Invalid transform: provide a valid axis, finite "
+                "numeric values, valid modifiers, and a non-empty selection."));
           return;
         }
       } else if (lw == "x" || lw == "y" || lw == "z") {
@@ -1087,19 +1121,21 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         const auto segment = parseSegment(rest);
         if (!segment.values.empty() && segment.remainder.empty() &&
             hasEffectiveTargets()) {
-          const bool applied = executeTransform(
-              "cli pos", [&](MvrScene &targetScene) {
+          const bool applied =
+              executeTransform("cli pos", [&](MvrScene &targetScene) {
                 applyPosEffective(targetScene, axis, segment.values,
                                   segment.relative, segment.space);
               });
           if (applied)
             refreshSelectionAfterTransform();
         } else {
-          AppendMessage(_("[ERROR] Invalid transform: provide finite numeric values, valid modifiers, and a non-empty selection."));
+          AppendMessage(
+              _("[ERROR] Invalid transform: provide finite numeric values, "
+                "valid modifiers, and a non-empty selection."));
           return;
         }
-      } else if (!lw.empty() && (std::isdigit(lw[0]) || lw[0] == '-' ||
-                                 lw[0] == '+') &&
+      } else if (!lw.empty() &&
+                 (std::isdigit(lw[0]) || lw[0] == '-' || lw[0] == '+') &&
                  word.find(',') != std::string::npos) {
         auto parts = split(word, ',');
         std::vector<gui::console::TransformCommandSegment> segments;
@@ -1113,15 +1149,16 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                                  segment.remainder.empty() && !segment.group;
                         });
         if (!validTriplet) {
-          AppendMessage(_("[ERROR] Invalid transform triplet: provide three finite numeric components and a non-empty selection."));
+          AppendMessage(
+              _("[ERROR] Invalid transform triplet: provide three finite "
+                "numeric components and a non-empty selection."));
           return;
         }
-        const bool applied = executeTransform(
-            "cli pos", [&](MvrScene &targetScene) {
+        const bool applied =
+            executeTransform("cli pos", [&](MvrScene &targetScene) {
               for (size_t idx = 0; idx < segments.size(); ++idx)
                 applyPosEffective(targetScene, static_cast<int>(idx),
-                                  segments[idx].values,
-                                  segments[idx].relative,
+                                  segments[idx].values, segments[idx].relative,
                                   segments[idx].space);
             });
         if (applied)

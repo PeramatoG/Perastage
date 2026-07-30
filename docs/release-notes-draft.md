@@ -6,9 +6,21 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added **Selection & Movement** preferences for choosing, independently for
+  fixtures, trusses, supports/hoists, and scene objects, whether mouse,
+  command-bar, and Magnet transforms move an exact grouped object or its
+  highest containing group. Table edits remain exact and project/MVR hierarchy
+  data is unchanged by the preference.
+
 ## Compatibility, stability, and performance
 
+- Restored Windows Debug build compatibility for the 2D and 3D viewers by
+  ensuring the GLEW header is initialized before platform OpenGL headers.
+
 ## Important fixes
+
+- Fixed a crash that could occur when opening another project after startup by
+  releasing viewer scene caches before the project replaces its scene data.
 
 - Corrected grouped scene transforms so interactive truss moves consistently
   affect their effective groups while fixtures, supports, scene objects, and

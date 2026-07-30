@@ -34,7 +34,6 @@ std::array<float, 3> Add(const std::array<float, 3> &a,
   return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
 }
 
-
 // Returns the dot product for two millimeter vectors.
 float Dot(const std::array<float, 3> &a, const std::array<float, 3> &b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -98,8 +97,10 @@ void AppendBoundsCorners(const Bounds &bounds,
   }
 }
 
-// Collects truss bounds from a group hierarchy while ignoring attached fixtures.
-void CollectGroupTrussBounds(const MvrScene &scene, const std::string &groupUuid,
+// Collects truss bounds from a group hierarchy while ignoring attached
+// fixtures.
+void CollectGroupTrussBounds(const MvrScene &scene,
+                             const std::string &groupUuid,
                              std::vector<Bounds> &trussBounds) {
   auto groupIt = scene.groupObjects.find(groupUuid);
   if (groupIt == scene.groupObjects.end())
@@ -147,15 +148,16 @@ std::optional<Bounds> MakeTrussGroupBounds(const MvrScene &scene,
 
   for (int axis = 0; axis < 3; ++axis) {
     aggregate.size[axis] = std::max(maxLocal[axis] - minLocal[axis], 1.0f);
-    aggregate.transform.o = Add(
-        aggregate.transform.o,
+    aggregate.transform.o =
+        Add(aggregate.transform.o,
         Scale(basis[axis], (minLocal[axis] + maxLocal[axis]) * 0.5f));
   }
   return aggregate;
 }
 
 // Returns whether a point lies inside an oriented bounds volume.
-bool BoundsContainsPoint(const Bounds &bounds, const std::array<float, 3> &point) {
+bool BoundsContainsPoint(const Bounds &bounds,
+                         const std::array<float, 3> &point) {
   const std::array<std::array<float, 3>, 3> basis = {
       Normalize(bounds.transform.u), Normalize(bounds.transform.v),
       Normalize(bounds.transform.w)};
@@ -228,7 +230,6 @@ std::array<float, 3> ClosestPointOnFace(const Bounds &bounds, const Face &face,
     closest = Add(closest, Scale(basis[axis], local[axis]));
   return closest;
 }
-
 
 // Finds the nearest point on an oriented bounds surface to a world-space point.
 std::array<float, 3> ClosestPointOnSurface(const Bounds &bounds,
@@ -307,13 +308,11 @@ scene_grouping::ObjectSelection SelectionForSource(ObjectType type,
 }
 
 // Returns the effective transform target that should receive snap translations.
-scene_grouping::SceneTransformTarget SnapTransformTarget(
-    const MvrScene &scene, const SnapResult &result) {
-  if (result.sourceType == ObjectType::Fixture)
-    return TargetFor(result.sourceType, result.sourceUuid);
-
+scene_grouping::SceneTransformTarget
+SnapTransformTarget(const MvrScene &scene, const SnapResult &result,
+                    const scene_grouping::InteractiveTransformPolicy &policy) {
   const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-      scene, SelectionForSource(result.sourceType, result.sourceUuid));
+      scene, SelectionForSource(result.sourceType, result.sourceUuid), policy);
   if (!targets.empty())
     return targets.front();
 
@@ -377,7 +376,8 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   if (source.type == ObjectType::Truss ||
       source.type == ObjectType::TrussGroup) {
     const auto sourceFaces = BuildFaces(*sourceBounds, true);
-    auto considerTrussTarget = [&](ObjectType targetType, const std::string &uuid,
+    auto considerTrussTarget = [&](ObjectType targetType,
+                                   const std::string &uuid,
                                    const Bounds &targetBounds) {
       if (uuid == source.uuid)
         return;
@@ -443,9 +443,9 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       return;
     for (const auto &sourceFace : sourceFaces) {
       for (const auto &targetFace : BuildFaces(bounds, false))
-        ConsiderFacePair(source, targetType, uuid, SnapKind::SceneObjectToObject,
-                         sourceFace, bounds, targetFace, settings, bestDistance,
-                         best);
+        ConsiderFacePair(source, targetType, uuid,
+                         SnapKind::SceneObjectToObject, sourceFace, bounds,
+                         targetFace, settings, bestDistance, best);
     }
   };
   for (const auto &[uuid, truss] : scene.trusses)
@@ -456,11 +456,14 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
   return best;
 }
 
-// Applies a translation-only snap result through scene_grouping transform helpers.
-bool ApplySnapTransform(MvrScene &scene, const SnapResult &result) {
+// Applies a translation-only snap result through scene_grouping transform
+// helpers.
+bool ApplySnapTransform(
+    MvrScene &scene, const SnapResult &result,
+    const scene_grouping::InteractiveTransformPolicy &policy) {
   if (!result.snapped)
     return false;
-  auto target = SnapTransformTarget(scene, result);
+  auto target = SnapTransformTarget(scene, result, policy);
   Matrix transform = scene_grouping::GetTargetWorldTransform(scene, target);
   for (int axis = 0; axis < 3; ++axis)
     transform.o[axis] += result.translationDeltaMm[axis];

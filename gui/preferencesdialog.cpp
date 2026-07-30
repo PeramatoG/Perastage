@@ -16,13 +16,14 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "preferencesdialog.h"
-#include "localization/localization_manager.h"
-#include "preferences/gdtf_credentials_panel.h"
 #include "configmanager.h"
-#include "mvr_preferences.h"
 #include "guiconfigservices.h"
-#include "update/update_check_preferences.h"
+#include "localization/localization_manager.h"
+#include "mvr_preferences.h"
+#include "preferences/gdtf_credentials_panel.h"
+#include "selection_movement_settings.h"
 #include "units/units.h"
+#include "update/update_check_preferences.h"
 #include "viewer3d_render_style.h"
 #include <wx/checkbox.h>
 #include <wx/choice.h>
@@ -69,7 +70,8 @@ wxString NativeLanguageDisplayName(localization::AppLanguage language) {
 
 } // namespace
 
-// Builds the preferences dialog and initializes controls from stored configuration.
+// Builds the preferences dialog and initializes controls from stored
+// configuration.
 PreferencesDialog::PreferencesDialog(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, _("Preferences"), wxDefaultPosition,
                wxDefaultSize) {
@@ -81,15 +83,14 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   // Rider Import page
   wxPanel *riderPanel = new wxPanel(book);
   wxBoxSizer *riderSizer = new wxBoxSizer(wxVERTICAL);
-  autopatchCheck = new wxCheckBox(riderPanel, wxID_ANY,
-                                  _("Auto patch after import"));
+  autopatchCheck =
+      new wxCheckBox(riderPanel, wxID_ANY, _("Auto patch after import"));
   auto autoVal = cfg.GetValue("rider_autopatch");
   autopatchCheck->SetValue(!autoVal || *autoVal != "0");
   riderSizer->Add(autopatchCheck, 0, wxALL, 10);
-  layerPosRadio =
-      new wxRadioButton(riderPanel, wxID_ANY,
-                        _("Auto-create layers by position"), wxDefaultPosition,
-                        wxDefaultSize, wxRB_GROUP);
+  layerPosRadio = new wxRadioButton(
+      riderPanel, wxID_ANY, _("Auto-create layers by position"),
+      wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
   layerTypeRadio = new wxRadioButton(riderPanel, wxID_ANY,
                                      _("Auto-create layers by fixture type"));
   auto modeVal = cfg.GetValue("rider_layer_mode");
@@ -106,34 +107,37 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
 
   for (int i = 0; i < 6; ++i) {
-    lxHeightLabels[i] =
-        new wxStaticText(riderPanel, wxID_ANY, wxString::Format(_("LX%d height:"), i + 1));
+    lxHeightLabels[i] = new wxStaticText(
+        riderPanel, wxID_ANY, wxString::Format(_("LX%d height:"), i + 1));
     grid->Add(lxHeightLabels[i], 0, wxALIGN_CENTER_VERTICAL);
     const double valH = static_cast<double>(
         cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_height"));
-    lxHeightCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
+    lxHeightCtrls[i] =
+        new wxTextCtrl(riderPanel, wxID_ANY,
                                       wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                           valH * 1000.0, riderDistanceUnit,
                                           Units::ValueFormatContext::Label)));
     grid->Add(lxHeightCtrls[i], 1, wxEXPAND);
 
-    lxPosLabels[i] =
-        new wxStaticText(riderPanel, wxID_ANY, wxString::Format(_("LX%d position:"), i + 1));
+    lxPosLabels[i] = new wxStaticText(
+        riderPanel, wxID_ANY, wxString::Format(_("LX%d position:"), i + 1));
     grid->Add(lxPosLabels[i], 0, wxALIGN_CENTER_VERTICAL);
-    const double valP =
-        static_cast<double>(cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_pos"));
-    lxPosCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
+    const double valP = static_cast<double>(
+        cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_pos"));
+    lxPosCtrls[i] =
+        new wxTextCtrl(riderPanel, wxID_ANY,
                                    wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                        valP * 1000.0, riderDistanceUnit,
                                        Units::ValueFormatContext::Label)));
     grid->Add(lxPosCtrls[i], 1, wxEXPAND);
 
-    lxMarginLabels[i] =
-        new wxStaticText(riderPanel, wxID_ANY, wxString::Format(_("LX%d margin:"), i + 1));
+    lxMarginLabels[i] = new wxStaticText(
+        riderPanel, wxID_ANY, wxString::Format(_("LX%d margin:"), i + 1));
     grid->Add(lxMarginLabels[i], 0, wxALIGN_CENTER_VERTICAL);
     const double valM = static_cast<double>(
         cfg.GetFloat("rider_lx" + std::to_string(i + 1) + "_margin"));
-    lxMarginCtrls[i] = new wxTextCtrl(riderPanel, wxID_ANY,
+    lxMarginCtrls[i] =
+        new wxTextCtrl(riderPanel, wxID_ANY,
                                       wxString::FromUTF8(Units::FormatDistanceFromMillimeters(
                                           valM * 1000.0, riderDistanceUnit,
                                           Units::ValueFormatContext::Label)));
@@ -149,8 +153,8 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxFlexGridSizer *unitsGrid = new wxFlexGridSizer(2, 2, 10, 10);
   unitsGrid->AddGrowableCol(1, 1);
 
-  unitsGrid->Add(new wxStaticText(unitsPanel, wxID_ANY, _("Distance system:")), 0,
-                 wxALIGN_CENTER_VERTICAL);
+  unitsGrid->Add(new wxStaticText(unitsPanel, wxID_ANY, _("Distance system:")),
+                 0, wxALIGN_CENTER_VERTICAL);
   distanceUnitChoice = new wxChoice(unitsPanel, wxID_ANY);
   distanceUnitChoice->Append(_("Metric"));
   distanceUnitChoice->Append(_("Imperial"));
@@ -172,7 +176,8 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   weightUnitChoice->Append(_("Metric"));
   weightUnitChoice->Append(_("Imperial"));
   auto weightUnitValue = cfg.GetValue("ui_weight_unit_system");
-  const bool hasImperialWeight = weightUnitValue && *weightUnitValue == "imperial";
+  const bool hasImperialWeight =
+      weightUnitValue && *weightUnitValue == "imperial";
   weightUnitChoice->SetSelection(hasImperialWeight ? 1 : 0);
   initialWeightUnitSelection = weightUnitChoice->GetSelection();
   unitsGrid->Add(weightUnitChoice, 1, wxEXPAND);
@@ -186,9 +191,9 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxBoxSizer *languageSizer = new wxBoxSizer(wxVERTICAL);
   wxFlexGridSizer *languageGrid = new wxFlexGridSizer(1, 2, 10, 10);
   languageGrid->AddGrowableCol(1, 1);
-  languageGrid->Add(new wxStaticText(languagePanel, wxID_ANY,
-                                     _("Interface language:")),
-                    0, wxALIGN_CENTER_VERTICAL);
+  languageGrid->Add(
+      new wxStaticText(languagePanel, wxID_ANY, _("Interface language:")), 0,
+      wxALIGN_CENTER_VERTICAL);
   interfaceLanguageChoice = new wxChoice(languagePanel, wxID_ANY);
   for (const auto &option : localization::SupportedAppLanguages()) {
     interfaceLanguageChoice->Append(NativeLanguageDisplayName(option.language));
@@ -223,23 +228,23 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxBoxSizer *updatesSizer = new wxBoxSizer(wxVERTICAL);
   wxFlexGridSizer *updatesGrid = new wxFlexGridSizer(1, 2, 10, 10);
   updatesGrid->AddGrowableCol(1, 1);
-  updatesGrid->Add(new wxStaticText(updatesPanel, wxID_ANY,
-                                    _("Automatic update checks:")),
+  updatesGrid->Add(
+      new wxStaticText(updatesPanel, wxID_ANY, _("Automatic update checks:")),
                    0, wxALIGN_CENTER_VERTICAL);
   updateCheckModeChoice = new wxChoice(updatesPanel, wxID_ANY);
   updateCheckModeChoice->Append(_("Check on startup (recommended)"));
   updateCheckModeChoice->Append(_("Manual only"));
-  const auto startupMode =
-      gui::update::ReadStartupCheckMode(GetDefaultGuiConfigServices().Preferences());
+  const auto startupMode = gui::update::ReadStartupCheckMode(
+      GetDefaultGuiConfigServices().Preferences());
   if (startupMode == gui::update::StartupCheckMode::ManualOnly)
     updateCheckModeChoice->SetSelection(1);
   else
     updateCheckModeChoice->SetSelection(0);
   updatesGrid->Add(updateCheckModeChoice, 1, wxEXPAND);
   updatesSizer->Add(updatesGrid, 0, wxALL | wxEXPAND, 10);
-  updatesSizer->Add(new wxStaticText(
-                        updatesPanel, wxID_ANY,
-                        _("Manual checks are always available from Help -> Check for Updates.")),
+  updatesSizer->Add(new wxStaticText(updatesPanel, wxID_ANY,
+                                     _("Manual checks are always available "
+                                       "from Help -> Check for Updates.")),
                     0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
   updatesPanel->SetSizer(updatesSizer);
   book->AddPage(updatesPanel, _("Updates"));
@@ -262,8 +267,10 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   mvrTrussGeometryExportModeChoice =
       new wxChoice(mvrExportSizer->GetStaticBox(), wxID_ANY);
   mvrTrussGeometryExportModeChoice->Append(_("Standard MVR representation"));
-  mvrTrussGeometryExportModeChoice->Append(_("Direct Geometry3D for truss symbols"));
-  const MvrExportOptions mvrExportOptions = mvr::preferences::LoadExportOptions(cfg);
+  mvrTrussGeometryExportModeChoice->Append(
+      _("Direct Geometry3D for truss symbols"));
+  const MvrExportOptions mvrExportOptions =
+      mvr::preferences::LoadExportOptions(cfg);
   mvrTrussGeometryExportModeChoice->SetSelection(
       mvrExportOptions.trussGeometryExportMode ==
               MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols
@@ -271,10 +278,13 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
           : 0);
   mvrExportGrid->Add(mvrTrussGeometryExportModeChoice, 1, wxEXPAND);
   mvrExportSizer->Add(mvrExportGrid, 0, wxALL | wxEXPAND, 8);
-  wxStaticText *mvrExportHint = new wxStaticText(
-      mvrExportSizer->GetStaticBox(), wxID_ANY,
-      _("Standard MVR representation: preserves imported Symbol/Symdef references when possible.\n"
-        "Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references into direct Geometry3D entries for broader importer compatibility."));
+  wxStaticText *mvrExportHint =
+      new wxStaticText(mvrExportSizer->GetStaticBox(), wxID_ANY,
+                       _("Standard MVR representation: preserves imported "
+                         "Symbol/Symdef references when possible.\n"
+                         "Direct Geometry3D for truss symbols: expands truss "
+                         "Symbol/Symdef references into direct Geometry3D "
+                         "entries for broader importer compatibility."));
   mvrExportHint->SetForegroundColour(
       wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   mvrExportHint->Wrap(740);
@@ -283,9 +293,66 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   mvrPanel->SetSizer(mvrSizer);
   book->AddPage(mvrPanel, _("MVR Import / Export"));
 
+  // Selection & Movement page
+  wxPanel *selectionPanel = new wxPanel(book);
+  wxBoxSizer *selectionSizer = new wxBoxSizer(wxVERTICAL);
+  wxStaticText *selectionTitle =
+      new wxStaticText(selectionPanel, wxID_ANY, _("Selection & Movement"));
+  wxFont selectionTitleFont = selectionTitle->GetFont();
+  selectionTitleFont.MakeBold();
+  selectionTitleFont.SetPointSize(selectionTitleFont.GetPointSize() + 2);
+  selectionTitle->SetFont(selectionTitleFont);
+  selectionSizer->Add(selectionTitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP,
+                      12);
+  wxStaticText *selectionSubtitle = new wxStaticText(
+      selectionPanel, wxID_ANY,
+      _("Choose how interactive transforms handle objects inside groups."));
+  selectionSubtitle->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  selectionSizer->Add(selectionSubtitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP,
+                      6);
+
+  wxStaticBoxSizer *groupMoveSizer = new wxStaticBoxSizer(
+      wxVERTICAL, selectionPanel, _("Grouped object movement"));
+  groupMoveFixtureCheck =
+      new wxCheckBox(groupMoveSizer->GetStaticBox(), wxID_ANY,
+                     _("Fixtures move the containing group"));
+  groupMoveTrussCheck = new wxCheckBox(groupMoveSizer->GetStaticBox(), wxID_ANY,
+                                       _("Trusses move the containing group"));
+  groupMoveSupportCheck =
+      new wxCheckBox(groupMoveSizer->GetStaticBox(), wxID_ANY,
+                     _("Supports / Hoists move the containing group"));
+  groupMoveSceneObjectCheck =
+      new wxCheckBox(groupMoveSizer->GetStaticBox(), wxID_ANY,
+                     _("Scene Objects move the containing group"));
+  const auto groupMovePolicy =
+      selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  groupMoveFixtureCheck->SetValue(groupMovePolicy.promoteFixturesToGroup);
+  groupMoveTrussCheck->SetValue(groupMovePolicy.promoteTrussesToGroup);
+  groupMoveSupportCheck->SetValue(groupMovePolicy.promoteSupportsToGroup);
+  groupMoveSceneObjectCheck->SetValue(
+      groupMovePolicy.promoteSceneObjectsToGroup);
+  for (wxCheckBox *check : {groupMoveFixtureCheck, groupMoveTrussCheck,
+                            groupMoveSupportCheck, groupMoveSceneObjectCheck})
+    groupMoveSizer->Add(check, 0, wxLEFT | wxRIGHT | wxTOP, 8);
+  wxStaticText *groupMoveHint = new wxStaticText(
+      groupMoveSizer->GetStaticBox(), wxID_ANY,
+      _("When enabled, selecting this type inside a group moves the highest "
+        "parent GroupObject during mouse, CLI, and Magnet transformations.\n"
+        "Table edits always modify only the edited object.\n"
+        "Selecting a GroupObject directly always moves that group."));
+  groupMoveHint->SetForegroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+  groupMoveHint->Wrap(740);
+  groupMoveSizer->Add(groupMoveHint, 0, wxALL, 8);
+  selectionSizer->Add(groupMoveSizer, 0, wxALL | wxEXPAND, 10);
+  selectionPanel->SetSizer(selectionSizer);
+  book->AddPage(selectionPanel, _("Selection & Movement"));
+
   // 3D Viewer page
   wxPanel *viewer3dPanel = new wxPanel(book);
-  viewer3dPanel->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+  viewer3dPanel->SetBackgroundColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
   wxBoxSizer *viewer3dSizer = new wxBoxSizer(wxVERTICAL);
   wxStaticText *viewer3dTitle =
       new wxStaticText(viewer3dPanel, wxID_ANY, _("3D Viewer"));
@@ -295,20 +362,22 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   viewer3dTitle->SetFont(viewer3dTitleFont);
   viewer3dSizer->Add(viewer3dTitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 12);
 
-  wxStaticText *viewer3dSubtitle = new wxStaticText(
-      viewer3dPanel, wxID_ANY,
-      _("Customize camera interaction and visualize the current navigation shortcuts."));
+  wxStaticText *viewer3dSubtitle =
+      new wxStaticText(viewer3dPanel, wxID_ANY,
+                       _("Customize camera interaction and visualize the "
+                         "current navigation shortcuts."));
   viewer3dSubtitle->SetForegroundColour(
       wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   viewer3dSubtitle->Wrap(760);
-  viewer3dSizer->Add(viewer3dSubtitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 6);
+  viewer3dSizer->Add(viewer3dSubtitle, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP,
+                     6);
   viewer3dSizer->Add(new wxStaticLine(viewer3dPanel, wxID_ANY), 0,
                      wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 
   wxStaticBoxSizer *viewer3dNavigationSizer =
       new wxStaticBoxSizer(wxVERTICAL, viewer3dPanel, _("Navigation"));
-  viewer3dInvertOrbitCheck = new wxCheckBox(
-      viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
+  viewer3dInvertOrbitCheck =
+      new wxCheckBox(viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
       _("Invert orbit/rotate vertical direction"));
   const auto viewer3dInvertOrbitValue = cfg.GetValue("viewer3d_invert_orbit");
   viewer3dInvertOrbitCheck->SetValue(viewer3dInvertOrbitValue &&
@@ -329,8 +398,8 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxStaticBoxSizer *viewer3dRenderSizer =
       new wxStaticBoxSizer(wxVERTICAL, viewer3dPanel, _("Render mode"));
   viewer3dStandardRenderRadio = new wxRadioButton(
-      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("Standard"), wxDefaultPosition,
-      wxDefaultSize, wxRB_GROUP);
+      viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("Standard"),
+      wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
   viewer3dWhiteRenderRadio = new wxRadioButton(
       viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("White"));
   viewer3dWhiteModelRenderRadio = new wxRadioButton(
@@ -347,14 +416,21 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
       viewer3dRenderSizer->GetStaticBox(), wxID_ANY, _("By universe"));
 
   const Viewer3DRenderStyle renderStyle = ResolveViewer3DRenderStyle(cfg);
-  viewer3dStandardRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Standard);
+  viewer3dStandardRenderRadio->SetValue(renderStyle ==
+                                        Viewer3DRenderStyle::Standard);
   viewer3dWhiteRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::White);
-  viewer3dWhiteModelRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::WhiteModel);
-  viewer3dTexturedRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Textured);
-  viewer3dWireframeRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::Wireframe);
-  viewer3dByDeviceTypeRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByDeviceType);
-  viewer3dByLayerRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByLayer);
-  viewer3dByUniverseRenderRadio->SetValue(renderStyle == Viewer3DRenderStyle::ByUniverse);
+  viewer3dWhiteModelRenderRadio->SetValue(renderStyle ==
+                                          Viewer3DRenderStyle::WhiteModel);
+  viewer3dTexturedRenderRadio->SetValue(renderStyle ==
+                                        Viewer3DRenderStyle::Textured);
+  viewer3dWireframeRenderRadio->SetValue(renderStyle ==
+                                         Viewer3DRenderStyle::Wireframe);
+  viewer3dByDeviceTypeRenderRadio->SetValue(renderStyle ==
+                                            Viewer3DRenderStyle::ByDeviceType);
+  viewer3dByLayerRenderRadio->SetValue(renderStyle ==
+                                       Viewer3DRenderStyle::ByLayer);
+  viewer3dByUniverseRenderRadio->SetValue(renderStyle ==
+                                          Viewer3DRenderStyle::ByUniverse);
 
   viewer3dRenderSizer->Add(viewer3dStandardRenderRadio, 0,
                            wxLEFT | wxRIGHT | wxTOP, 8);
@@ -430,7 +506,8 @@ void PreferencesDialog::OnOkButton(wxCommandEvent &WXUNUSED(event)) {
 bool PreferencesDialog::ApplyPreferences() {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const ConfigManager::DirtyState originalDirtyState = cfg.CaptureDirtyState();
-  const auto distanceUnitSystem = DistanceUnitSystemFromChoice(distanceUnitChoice);
+  const auto distanceUnitSystem =
+      DistanceUnitSystemFromChoice(distanceUnitChoice);
   for (int i = 0; i < 6; ++i) {
     const auto heightMm = Units::ParseDistanceToMillimeters(
         std::string(lxHeightCtrls[i]->GetValue().ToUTF8()), distanceUnitSystem);
@@ -450,49 +527,62 @@ bool PreferencesDialog::ApplyPreferences() {
   }
 
   cfg.SetValue("rider_autopatch", autopatchCheck->GetValue() ? "1" : "0");
-  cfg.SetValue("rider_layer_mode", layerTypeRadio->GetValue() ? "type"
-                                                               : "position");
+  cfg.SetValue("rider_layer_mode",
+               layerTypeRadio->GetValue() ? "type" : "position");
   cfg.SetValue("ui_distance_unit_system",
-               distanceUnitChoice->GetSelection() == 1 ? "imperial"
-                                                       : "metric");
+               distanceUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
   cfg.SetValue("ui_weight_unit_system",
                weightUnitChoice->GetSelection() == 1 ? "imperial" : "metric");
-  localization::AppLanguage selectedLanguage = localization::DefaultAppLanguage();
+  localization::AppLanguage selectedLanguage =
+      localization::DefaultAppLanguage();
   const auto &languageOptions = localization::SupportedAppLanguages();
   if (interfaceLanguageChoice) {
     const int selection = interfaceLanguageChoice->GetSelection();
-    if (selection >= 0 && static_cast<std::size_t>(selection) < languageOptions.size())
-      selectedLanguage = languageOptions[static_cast<std::size_t>(selection)].language;
+    if (selection >= 0 &&
+        static_cast<std::size_t>(selection) < languageOptions.size())
+      selectedLanguage =
+          languageOptions[static_cast<std::size_t>(selection)].language;
   }
   cfg.SetValue(localization::kUiLanguageConfigKey,
                std::string(localization::AppLanguageCode(selectedLanguage)));
   auto &preferences = GetDefaultGuiConfigServices().Preferences();
   if (updateCheckModeChoice && updateCheckModeChoice->GetSelection() == 1)
-    gui::update::WriteStartupCheckMode(preferences,
-                                       gui::update::StartupCheckMode::ManualOnly);
+    gui::update::WriteStartupCheckMode(
+        preferences, gui::update::StartupCheckMode::ManualOnly);
   else
     gui::update::WriteStartupCheckMode(
         preferences, gui::update::StartupCheckMode::StartupRecommended);
   Viewer3DRenderStyle renderStyle = Viewer3DRenderStyle::Standard;
   if (viewer3dWhiteRenderRadio && viewer3dWhiteRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::White;
-  else if (viewer3dWhiteModelRenderRadio && viewer3dWhiteModelRenderRadio->GetValue())
+  else if (viewer3dWhiteModelRenderRadio &&
+           viewer3dWhiteModelRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::WhiteModel;
-  else if (viewer3dTexturedRenderRadio && viewer3dTexturedRenderRadio->GetValue())
+  else if (viewer3dTexturedRenderRadio &&
+           viewer3dTexturedRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::Textured;
-  else if (viewer3dWireframeRenderRadio && viewer3dWireframeRenderRadio->GetValue())
+  else if (viewer3dWireframeRenderRadio &&
+           viewer3dWireframeRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::Wireframe;
-  else if (viewer3dByDeviceTypeRenderRadio && viewer3dByDeviceTypeRenderRadio->GetValue())
+  else if (viewer3dByDeviceTypeRenderRadio &&
+           viewer3dByDeviceTypeRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByDeviceType;
   else if (viewer3dByLayerRenderRadio && viewer3dByLayerRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByLayer;
-  else if (viewer3dByUniverseRenderRadio && viewer3dByUniverseRenderRadio->GetValue())
+  else if (viewer3dByUniverseRenderRadio &&
+           viewer3dByUniverseRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByUniverse;
   cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
   cfg.SetValue("viewer3d_invert_orbit",
                viewer3dInvertOrbitCheck && viewer3dInvertOrbitCheck->GetValue()
                    ? "1"
                    : "0");
+  selection_movement_settings::SaveInteractiveTransformPolicy(
+      cfg,
+      {.promoteFixturesToGroup = groupMoveFixtureCheck->GetValue(),
+       .promoteTrussesToGroup = groupMoveTrussCheck->GetValue(),
+       .promoteSupportsToGroup = groupMoveSupportCheck->GetValue(),
+       .promoteSceneObjectsToGroup = groupMoveSceneObjectCheck->GetValue()});
 
   MvrExportOptions mvrExportOptions;
   mvrExportOptions.trussGeometryExportMode =
@@ -515,14 +605,18 @@ bool PreferencesDialog::ApplyPreferences() {
 // Refreshes Rider Import labels to show the selected distance unit suffix.
 void PreferencesDialog::RefreshRiderImportDistanceLabels() {
   const auto unitSystem = DistanceUnitSystemFromChoice(distanceUnitChoice);
-  const wxString unitSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(unitSystem));
+  const wxString unitSuffix =
+      wxString::FromUTF8(Units::DistanceUnitSuffix(unitSystem));
   for (int i = 0; i < 6; ++i) {
     if (lxHeightLabels[i])
-      lxHeightLabels[i]->SetLabel(wxString::Format(_("LX%d height (%s):"), i + 1, unitSuffix));
+      lxHeightLabels[i]->SetLabel(
+          wxString::Format(_("LX%d height (%s):"), i + 1, unitSuffix));
     if (lxPosLabels[i])
-      lxPosLabels[i]->SetLabel(wxString::Format(_("LX%d position (%s):"), i + 1, unitSuffix));
+      lxPosLabels[i]->SetLabel(
+          wxString::Format(_("LX%d position (%s):"), i + 1, unitSuffix));
     if (lxMarginLabels[i])
-      lxMarginLabels[i]->SetLabel(wxString::Format(_("LX%d margin (%s):"), i + 1, unitSuffix));
+      lxMarginLabels[i]->SetLabel(
+          wxString::Format(_("LX%d margin (%s):"), i + 1, unitSuffix));
   }
 }
 
@@ -572,7 +666,8 @@ void PreferencesDialog::NotifyPreferencesApplied() {
   wxPostEvent(GetParent(), event);
 }
 
-// Shows the restart-required language notification once for each selected change.
+// Shows the restart-required language notification once for each selected
+// change.
 void PreferencesDialog::ShowLanguageRestartNoticeIfNeeded(
     localization::AppLanguage selectedLanguage) {
   const localization::AppLanguage activeLanguage =
@@ -581,6 +676,7 @@ void PreferencesDialog::ShowLanguageRestartNoticeIfNeeded(
       selectedLanguage == lastRestartNoticeLanguage)
     return;
   lastRestartNoticeLanguage = selectedLanguage;
-  wxMessageBox(_("Language changes will be applied after restarting Perastage."),
+  wxMessageBox(
+      _("Language changes will be applied after restarting Perastage."),
                _("Restart required"), wxOK | wxICON_INFORMATION, this);
 }

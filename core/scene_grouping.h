@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "interactive_transform_policy.h"
 #include "mvrscene.h"
 #include "transform_space.h"
 
@@ -84,14 +85,16 @@ std::vector<SceneTransformTarget>
 BuildExactTransformTargets(const MvrScene &scene,
                            const ObjectSelection &selection);
 
-// Builds interactive targets, promoting only grouped trusses to root groups.
+// Builds interactive targets using an explicit leaf-promotion policy.
 std::vector<SceneTransformTarget>
 BuildInteractiveTransformTargets(const MvrScene &scene,
-                                 const ObjectSelection &selection);
+                                 const ObjectSelection &selection,
+                                 const InteractiveTransformPolicy &policy = {});
 
 // Builds selection-preserving feedback for interactive transform scope.
 SelectionFeedback BuildInteractiveSelectionFeedback(
-    const MvrScene &scene, const ObjectSelection &selection);
+    const MvrScene &scene, const ObjectSelection &selection,
+    const InteractiveTransformPolicy &policy = {});
 
 // Returns the current world transform for one transform target.
 Matrix GetTargetWorldTransform(const MvrScene &scene,
@@ -107,7 +110,8 @@ void SetTargetWorldTransform(MvrScene &scene,
 void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
                         const std::array<float, 3> &deltaMm,
                         transform_space::TransformSpace space =
-                            transform_space::TransformSpace::World);
+                            transform_space::TransformSpace::World,
+                        const InteractiveTransformPolicy &policy = {});
 
 // Rotates effective selection targets around a millimeter pivot.
 void RotateSelectionAroundPivot(MvrScene &scene,
@@ -115,16 +119,18 @@ void RotateSelectionAroundPivot(MvrScene &scene,
                                 float angleDeg,
                                 const std::array<float, 3> &pivotMm,
                                 transform_space::TransformSpace space =
-                                    transform_space::TransformSpace::World);
+                                    transform_space::TransformSpace::World,
+                                const InteractiveTransformPolicy &policy = {});
 
 // Expands UUID highlights so selecting one group member highlights its full
 // root group.
-std::vector<std::string>
-ExpandSelectionForGroupHighlights(const MvrScene &scene,
-                                  const ObjectSelection &selection);
+std::vector<std::string> ExpandSelectionForGroupHighlights(
+    const MvrScene &scene, const ObjectSelection &selection,
+    const InteractiveTransformPolicy &policy = {});
 
 // Returns sibling UUIDs that share the hovered object's effective root group.
-std::vector<std::string> ExpandHoverForGroupHighlights(const MvrScene &scene,
-                                                       const std::string &uuid);
+std::vector<std::string>
+ExpandHoverForGroupHighlights(const MvrScene &scene, const std::string &uuid,
+                              const InteractiveTransformPolicy &policy = {});
 
 } // namespace scene_grouping

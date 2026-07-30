@@ -9,9 +9,7 @@
 namespace {
 
 // Compares matrix translations with a small tolerance.
-bool NearlyEqual(float a, float b) {
-  return std::fabs(a - b) < 0.001f;
-}
+bool NearlyEqual(float a, float b) { return std::fabs(a - b) < 0.001f; }
 
 // Builds a translated identity matrix.
 Matrix Translated(float x, float y, float z) {
@@ -77,7 +75,6 @@ int main() {
   assert(NearlyEqual(scene.fixtures[fixture.uuid].transform.o[0], 1000.0f));
   assert(NearlyEqual(scene.trusses[truss.uuid].transform.o[0], 3000.0f));
 
-
   const scene_grouping::OperationResult regroupResult =
       scene_grouping::GroupSelection(scene, selection);
   assert(regroupResult.changed);
@@ -101,7 +98,8 @@ int main() {
 
   scene_grouping::ObjectSelection childSelection;
   childSelection.fixtures = {fixture.uuid};
-  assert(scene_grouping::BuildTransformTargets(scene, childSelection).size() == 1);
+  assert(scene_grouping::BuildTransformTargets(scene, childSelection).size() ==
+         1);
   const auto nestedExpanded =
       scene_grouping::ExpandSelectionForGroupHighlights(scene, childSelection);
   assert(nestedExpanded.size() == 1);
@@ -136,9 +134,8 @@ int main() {
              .size() == 1);
   scene_grouping::TranslateSelection(groupedDragScene, groupedDragSelection,
                                      {100.0f, 0.0f, 0.0f});
-  assert(NearlyEqual(groupedDragScene.fixtures[groupedFixture.uuid]
-                         .transform.o[0],
-                     1100.0f));
+  assert(NearlyEqual(
+      groupedDragScene.fixtures[groupedFixture.uuid].transform.o[0], 1100.0f));
   assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
                      3100.0f));
 
@@ -155,9 +152,8 @@ int main() {
              .changed);
   scene_grouping::ObjectSelection supportOnly;
   supportOnly.supports = {groupedSupport.uuid};
-  const auto supportTargets =
-      scene_grouping::BuildInteractiveTransformTargets(groupedDragScene,
-                                                       supportOnly);
+  const auto supportTargets = scene_grouping::BuildInteractiveTransformTargets(
+      groupedDragScene, supportOnly);
   assert(supportTargets.size() == 1);
   assert(supportTargets.front().type == MvrNodeType::Support);
   const auto supportFeedback =
@@ -169,35 +165,97 @@ int main() {
          std::vector<std::string>{groupedSupport.uuid});
   scene_grouping::TranslateSelection(groupedDragScene, supportOnly,
                                      {250.0f, 0.0f, 0.0f});
-  assert(NearlyEqual(groupedDragScene.supports[groupedSupport.uuid]
-                         .transform.o[0],
-                     5250.0f));
+  assert(NearlyEqual(
+      groupedDragScene.supports[groupedSupport.uuid].transform.o[0], 5250.0f));
   assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
                      3100.0f));
 
   scene_grouping::ObjectSelection trussOnly;
   trussOnly.trusses = {groupedTruss.uuid};
-  const auto trussTargets =
-      scene_grouping::BuildInteractiveTransformTargets(groupedDragScene,
-                                                       trussOnly);
+  const auto trussTargets = scene_grouping::BuildInteractiveTransformTargets(
+      groupedDragScene, trussOnly);
   assert(trussTargets.size() == 1);
   assert(trussTargets.front().type == MvrNodeType::GroupObject);
-  const auto trussFeedback =
-      scene_grouping::BuildInteractiveSelectionFeedback(groupedDragScene,
-                                                        trussOnly);
+  const auto trussFeedback = scene_grouping::BuildInteractiveSelectionFeedback(
+      groupedDragScene, trussOnly);
   assert(trussFeedback.selectedUuids ==
          std::vector<std::string>{groupedTruss.uuid});
   assert(trussFeedback.highlightedUuids.size() == 3);
   assert(std::find(trussFeedback.highlightedUuids.begin(),
-                   trussFeedback.highlightedUuids.end(),
-                   groupedSupport.uuid) != trussFeedback.highlightedUuids.end());
+                   trussFeedback.highlightedUuids.end(), groupedSupport.uuid) !=
+         trussFeedback.highlightedUuids.end());
   scene_grouping::TranslateSelection(groupedDragScene, trussOnly,
                                      {100.0f, 0.0f, 0.0f});
   assert(NearlyEqual(groupedDragScene.trusses[groupedTruss.uuid].transform.o[0],
                      3200.0f));
-  assert(NearlyEqual(groupedDragScene.supports[groupedSupport.uuid]
-                         .transform.o[0],
-                     5350.0f));
+  assert(NearlyEqual(
+      groupedDragScene.supports[groupedSupport.uuid].transform.o[0], 5350.0f));
+
+  SceneObject groupedObject;
+  groupedObject.uuid = "grouped-object";
+  groupedObject.transform = Translated(7000.0f, 0.0f, 0.0f);
+  groupedDragScene.sceneObjects[groupedObject.uuid] = groupedObject;
+  scene_grouping::ObjectSelection addObject;
+  addObject.sceneObjects = {groupedObject.uuid};
+  assert(scene_grouping::AddSelectionToGroup(groupedDragScene, addObject,
+                                             dragGroupUuid)
+             .changed);
+
+  // Verify every supported leaf type can independently select exact or root
+  // targets.
+  const std::array<std::pair<MvrNodeType, scene_grouping::ObjectSelection>, 4>
+      perTypeSelections{{
+          {MvrNodeType::Fixture, {.fixtures = {groupedFixture.uuid}}},
+          {MvrNodeType::Truss, {.trusses = {groupedTruss.uuid}}},
+          {MvrNodeType::Support, {.supports = {groupedSupport.uuid}}},
+          {MvrNodeType::SceneObject, {.sceneObjects = {groupedObject.uuid}}},
+      }};
+  scene_grouping::InteractiveTransformPolicy allDisabled{
+      .promoteFixturesToGroup = false,
+      .promoteTrussesToGroup = false,
+      .promoteSupportsToGroup = false,
+      .promoteSceneObjectsToGroup = false};
+  scene_grouping::InteractiveTransformPolicy allEnabled{
+      .promoteFixturesToGroup = true,
+      .promoteTrussesToGroup = true,
+      .promoteSupportsToGroup = true,
+      .promoteSceneObjectsToGroup = true};
+  for (const auto &[type, typeSelection] : perTypeSelections) {
+    const auto exactTargets = scene_grouping::BuildInteractiveTransformTargets(
+        groupedDragScene, typeSelection, allDisabled);
+    assert(exactTargets.size() == 1 && exactTargets.front().type == type);
+    const auto promotedTargets =
+        scene_grouping::BuildInteractiveTransformTargets(
+            groupedDragScene, typeSelection, allEnabled);
+    assert(promotedTargets.size() == 1 &&
+           promotedTargets.front().type == MvrNodeType::GroupObject);
+    assert(promotedTargets.front().uuid == dragGroupUuid);
+  }
+  const scene_grouping::InteractiveTransformPolicy defaults;
+  assert(!defaults.PromotesToGroup(MvrNodeType::Fixture));
+  assert(defaults.PromotesToGroup(MvrNodeType::Truss));
+  assert(!defaults.PromotesToGroup(MvrNodeType::Support));
+  assert(!defaults.PromotesToGroup(MvrNodeType::SceneObject));
+
+  scene_grouping::ObjectSelection mixedPolicySelection;
+  mixedPolicySelection.fixtures = {groupedFixture.uuid};
+  mixedPolicySelection.trusses = {groupedTruss.uuid, groupedTruss.uuid};
+  const auto mixedTargets = scene_grouping::BuildInteractiveTransformTargets(
+      groupedDragScene, mixedPolicySelection, defaults);
+  assert(mixedTargets.size() == 1);
+  assert(mixedTargets.front().type == MvrNodeType::GroupObject);
+  const auto exactFeedback = scene_grouping::BuildInteractiveSelectionFeedback(
+      groupedDragScene, addObject, allDisabled);
+  assert(exactFeedback.selectedUuids ==
+         std::vector<std::string>{groupedObject.uuid});
+  assert(exactFeedback.highlightedUuids ==
+         std::vector<std::string>{groupedObject.uuid});
+  const auto promotedFeedback =
+      scene_grouping::BuildInteractiveSelectionFeedback(groupedDragScene,
+                                                        addObject, allEnabled);
+  assert(promotedFeedback.selectedUuids ==
+         std::vector<std::string>{groupedObject.uuid});
+  assert(promotedFeedback.highlightedUuids.size() == 4);
 
   MvrScene exactScene;
   GroupObject rotatedParent;
@@ -240,7 +298,8 @@ int main() {
   scene_grouping::ObjectSelection existingGroupSelection;
   existingGroupSelection.trusses = {existingTruss.uuid};
   const scene_grouping::OperationResult existingGroupResult =
-      scene_grouping::GroupSelection(existingGroupScene, existingGroupSelection);
+      scene_grouping::GroupSelection(existingGroupScene,
+                                     existingGroupSelection);
   assert(!existingGroupResult.changed);
   GroupObject existingGroup;
   existingGroup.uuid = "existing-group";
@@ -252,15 +311,13 @@ int main() {
       existingGroup.uuid;
   scene_grouping::ObjectSelection addFixtureSelection;
   addFixtureSelection.fixtures = {addedFixture.uuid};
-  assert(scene_grouping::AddSelectionToGroup(existingGroupScene,
-                                             addFixtureSelection,
-                                             existingGroup.uuid)
+  assert(scene_grouping::AddSelectionToGroup(
+             existingGroupScene, addFixtureSelection, existingGroup.uuid)
              .changed);
   assert(existingGroupScene.fixtures[addedFixture.uuid].layer == "LX1");
   assert(existingGroupScene.trusses[existingTruss.uuid].layer == "LX1");
-  assert(NearlyEqual(existingGroupScene.fixtures[addedFixture.uuid]
-                         .transform.o[0],
-                     500.0f));
+  assert(NearlyEqual(
+      existingGroupScene.fixtures[addedFixture.uuid].transform.o[0], 500.0f));
 
   existingGroupScene.fixtures[addedFixture.uuid].layer = "MAC500";
   assert(scene_grouping::SynchronizeGroupObjectLayerOwnership(

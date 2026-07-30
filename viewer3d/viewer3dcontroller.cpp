@@ -65,6 +65,7 @@
 #include "render_pipeline.h"
 #include "scene_grouping.h"
 #include "scenerenderer.h"
+#include "selection_movement_settings.h"
 #include "selection_overlay_pass.h"
 #include "selectionsystem.h"
 #include "types.h"
@@ -154,6 +155,7 @@ struct Viewer3DController::Impl {
   bool skipOutlinesForCurrentFrame = false;
   int updateResourcesCallsPerFrame = 0;
   std::atomic<bool> resourceSyncPending{true};
+  std::atomic<bool> sceneReplacementActive{false};
   mutable VisibleSet cachedVisibleSet;
   mutable VisibleSet cachedLayerVisibleCandidates;
   mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
@@ -339,7 +341,8 @@ static void CombineHashValue(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
-// Computes a stable fingerprint for scene elements whose layer controls visibility.
+// Computes a stable fingerprint for scene elements whose layer controls
+// visibility.
 static size_t ComputeSceneLayerMembershipFingerprint(const MvrScene &scene) {
   std::vector<std::string> entries;
   entries.reserve(scene.fixtures.size() + scene.trusses.size() +
@@ -675,7 +678,8 @@ bool Viewer3DController::ReadPickUuidAt(
     int mouseX, int mouseY, int width, int height,
     const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
   return ReadPickUuidAtDetailed(mouseX, mouseY, width, height, hiddenLayers,
-                                outUuid) == ISelectionContext::PickReadResult::Hit;
+                                outUuid) ==
+         ISelectionContext::PickReadResult::Hit;
 }
 
 // Handles d Controller.
@@ -823,7 +827,9 @@ void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
   m_impl->highlightUuid = uuid;
   m_impl->groupHighlightUuids.clear();
   for (const auto &groupUuid : scene_grouping::ExpandHoverForGroupHighlights(
-           ConfigManager::Get().GetScene(), uuid)) {
+           ConfigManager::Get().GetScene(), uuid,
+           selection_movement_settings::LoadInteractiveTransformPolicy(
+               ConfigManager::Get()))) {
     m_impl->groupHighlightUuids.insert(groupUuid);
   }
 }
@@ -912,6 +918,31 @@ void Viewer3DController::UpdateFrameStateLightweight() {
   }
 }
 
+// Clears cached scene-entry pointers before the owning scene containers change.
+void Viewer3DController::PrepareForSceneReplacement() {
+  m_impl->sceneReplacementActive.store(true, std::memory_order_release);
+  std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
+  m_impl->sortedFixtures.clear();
+  m_impl->sortedTrusses.clear();
+  m_impl->sortedObjects.clear();
+  m_impl->visibleSortedFixtures.clear();
+  m_impl->visibleSortedTrusses.clear();
+  m_impl->visibleSortedObjects.clear();
+  m_impl->sortedListsDirty = true;
+  m_impl->sceneChangedDirty = true;
+  m_impl->visibilityChangedDirty = true;
+  m_impl->hasSceneLayerMembershipFingerprint = false;
+  ControllerInvalidateVisibleSetLayerCandidateCacheOwnership(
+      m_impl->layerVisibleCandidatesSceneVersion);
+  MarkResourceSyncPending();
+}
+
+// Allows rendering to resume after the replacement scene is fully installed.
+void Viewer3DController::CompleteSceneReplacement() {
+  m_impl->sceneReplacementActive.store(false, std::memory_order_release);
+  MarkResourceSyncPending();
+}
+
 // Marks resource Sync Pending.
 void Viewer3DController::MarkResourceSyncPending() {
   m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);
@@ -939,6 +970,8 @@ int Viewer3DController::GetDebugUpdateResourcesCallsPerFrame() const {
 
 // Updates resources If Dirty.
 void Viewer3DController::UpdateResourcesIfDirty() {
+  if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
+    return;
   ++m_impl->updateResourcesCallsPerFrame;
 
   ConfigManager &cfg = ConfigManager::Get();
@@ -1071,6 +1104,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
                                      float gridB, bool gridOnTop,
                                      bool is2DViewer,
                                      bool preferPerastageSvgSymbolsForLayouts) {
+  if (m_impl->sceneReplacementActive.load(std::memory_order_acquire))
+    return;
   ConfigManager &cfg = ConfigManager::Get();
   m_impl->activeRenderMode = mode;
 
@@ -2117,8 +2152,7 @@ bool Viewer3DController::IsUuidGroupHighlighted(const std::string &uuid) const {
 
 // Checks whether uUID Selected.
 bool Viewer3DController::IsUuidSelected(const std::string &uuid) const {
-  return !uuid.empty() &&
-         m_impl->primarySelectedUuids.find(uuid) !=
+  return !uuid.empty() && m_impl->primarySelectedUuids.find(uuid) !=
              m_impl->primarySelectedUuids.end();
 }
 

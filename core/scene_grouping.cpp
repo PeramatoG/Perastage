@@ -200,17 +200,20 @@ std::optional<std::string> LayerForObject(const MvrScene &scene,
   switch (type) {
   case MvrNodeType::Fixture: {
     auto it = scene.fixtures.find(uuid);
-    return it == scene.fixtures.end() ? std::nullopt
+    return it == scene.fixtures.end()
+               ? std::nullopt
                                       : std::optional<std::string>(it->second.layer);
   }
   case MvrNodeType::Truss: {
     auto it = scene.trusses.find(uuid);
-    return it == scene.trusses.end() ? std::nullopt
+    return it == scene.trusses.end()
+               ? std::nullopt
                                      : std::optional<std::string>(it->second.layer);
   }
   case MvrNodeType::Support: {
     auto it = scene.supports.find(uuid);
-    return it == scene.supports.end() ? std::nullopt
+    return it == scene.supports.end()
+               ? std::nullopt
                                       : std::optional<std::string>(it->second.layer);
   }
   case MvrNodeType::SceneObject: {
@@ -221,7 +224,8 @@ std::optional<std::string> LayerForObject(const MvrScene &scene,
   }
   case MvrNodeType::GroupObject: {
     auto it = scene.groupObjects.find(uuid);
-    return it == scene.groupObjects.end() ? std::nullopt
+    return it == scene.groupObjects.end()
+               ? std::nullopt
                                           : std::optional<std::string>(it->second.layer);
   }
   }
@@ -229,7 +233,8 @@ std::optional<std::string> LayerForObject(const MvrScene &scene,
 }
 
 // Returns the authoritative layer for a GroupObject-based grouping operation.
-std::string AuthoritativeGroupLayer(const MvrScene &scene,
+std::string
+AuthoritativeGroupLayer(const MvrScene &scene,
                                     const std::vector<SelectedObjectRef> &objects,
                                     const std::string &parentGroupUuid) {
   if (!parentGroupUuid.empty()) {
@@ -357,7 +362,8 @@ void ApplyParentAndLayer(MvrScene &scene, const SelectedObjectRef &object,
 }
 
 // Recursively applies parent group layer ownership through nested groups.
-std::size_t SynchronizeGroupObjectLayerOwnershipFrom(MvrScene &scene,
+std::size_t
+SynchronizeGroupObjectLayerOwnershipFrom(MvrScene &scene,
                                                      const std::string &groupUuid) {
   auto groupIt = scene.groupObjects.find(groupUuid);
   if (groupIt == scene.groupObjects.end())
@@ -370,7 +376,8 @@ std::size_t SynchronizeGroupObjectLayerOwnershipFrom(MvrScene &scene,
     if (ApplyGroupLayerToChild(scene, child, groupLayer))
       ++repairedCount;
     if (child.type == MvrNodeType::GroupObject)
-      repairedCount += SynchronizeGroupObjectLayerOwnershipFrom(scene, child.uuid);
+      repairedCount +=
+          SynchronizeGroupObjectLayerOwnershipFrom(scene, child.uuid);
   }
   return repairedCount;
 }
@@ -711,7 +718,8 @@ void UngroupRootTarget(MvrScene &scene, const std::string &groupUuid,
   result.changed = true;
 }
 
-// Repairs GroupObject child layers so parent group ownership stays authoritative.
+// Repairs GroupObject child layers so parent group ownership stays
+// authoritative.
 std::size_t SynchronizeGroupObjectLayerOwnership(MvrScene &scene) {
   std::size_t repairedCount = 0;
   for (auto &[groupUuid, group] : scene.groupObjects) {
@@ -787,8 +795,8 @@ OperationResult GroupSelection(MvrScene &scene,
   return result;
 }
 
-
-// Adds selected scene entities to an existing GroupObject while preserving world placement.
+// Adds selected scene entities to an existing GroupObject while preserving
+// world placement.
 OperationResult AddSelectionToGroup(MvrScene &scene,
                                     const ObjectSelection &selection,
                                     const std::string &groupUuid) {
@@ -797,7 +805,8 @@ OperationResult AddSelectionToGroup(MvrScene &scene,
   if (groupIt == scene.groupObjects.end())
     return result;
 
-  std::vector<SelectedObjectRef> objects = CollectSelectedObjects(scene, selection);
+  std::vector<SelectedObjectRef> objects =
+      CollectSelectedObjects(scene, selection);
   for (const auto &object : objects) {
     if (object.parentGroupUuid == groupUuid)
       continue;
@@ -814,12 +823,13 @@ OperationResult AddSelectionToGroup(MvrScene &scene,
   return result;
 }
 
-
-// Removes selected scene entities from their direct GroupObject parents while preserving world placement.
+// Removes selected scene entities from their direct GroupObject parents while
+// preserving world placement.
 OperationResult RemoveSelectionFromGroup(MvrScene &scene,
                                          const ObjectSelection &selection) {
   OperationResult result;
-  std::vector<SelectedObjectRef> objects = CollectSelectedObjects(scene, selection);
+  std::vector<SelectedObjectRef> objects =
+      CollectSelectedObjects(scene, selection);
   for (const auto &object : objects) {
     if (object.parentGroupUuid.empty())
       continue;
@@ -890,10 +900,11 @@ BuildExactTransformTargets(const MvrScene &scene,
   return targets;
 }
 
-// Builds interactive targets while promoting grouped trusses only.
+// Builds interactive targets according to the supplied leaf-promotion policy.
 std::vector<SceneTransformTarget>
 BuildInteractiveTransformTargets(const MvrScene &scene,
-                                 const ObjectSelection &selection) {
+                                 const ObjectSelection &selection,
+                                 const InteractiveTransformPolicy &policy) {
   struct Candidate {
     SceneTransformTarget target;
     std::string rootGroupUuid;
@@ -904,7 +915,7 @@ BuildInteractiveTransformTargets(const MvrScene &scene,
   for (const auto &object : CollectSelectedObjects(scene, selection)) {
     const std::string rootUuid = ResolveRootGroupUuid(scene, object);
     SceneTransformTarget target{object.type, object.uuid};
-    if (object.type == MvrNodeType::Truss && !rootUuid.empty()) {
+    if (policy.PromotesToGroup(object.type) && !rootUuid.empty()) {
       target = {MvrNodeType::GroupObject, rootUuid};
       promotedGroups.insert(rootUuid);
     }
@@ -925,21 +936,22 @@ BuildInteractiveTransformTargets(const MvrScene &scene,
 }
 
 // Builds selection-preserving feedback for interactive transform scope.
-SelectionFeedback BuildInteractiveSelectionFeedback(
-    const MvrScene &scene, const ObjectSelection &selection) {
+SelectionFeedback
+BuildInteractiveSelectionFeedback(const MvrScene &scene,
+                                  const ObjectSelection &selection,
+                                  const InteractiveTransformPolicy &policy) {
   SelectionFeedback feedback;
   std::unordered_set<std::string> selectedSeen;
   for (const auto &object : CollectSelectedObjects(scene, selection))
     AppendUnique(feedback.selectedUuids, selectedSeen, object.uuid);
 
   feedback.effectiveTargets =
-      BuildInteractiveTransformTargets(scene, selection);
+      BuildInteractiveTransformTargets(scene, selection, policy);
   std::unordered_set<std::string> highlightedSeen;
   for (const auto &target : feedback.effectiveTargets) {
     if (target.type == MvrNodeType::GroupObject)
-      AppendGroupChildrenForHighlights(scene, target.uuid,
-                                      feedback.highlightedUuids,
-                                      highlightedSeen);
+      AppendGroupChildrenForHighlights(
+          scene, target.uuid, feedback.highlightedUuids, highlightedSeen);
     else
       AppendUnique(feedback.highlightedUuids, highlightedSeen, target.uuid);
   }
@@ -995,13 +1007,15 @@ void SetTargetWorldTransform(MvrScene &scene,
 // Translates selected effective targets by the supplied millimeter delta.
 void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
                         const std::array<float, 3> &deltaMm,
-                        transform_space::TransformSpace space) {
-  const auto targets = BuildInteractiveTransformTargets(scene, selection);
+                        transform_space::TransformSpace space,
+                        const InteractiveTransformPolicy &policy) {
+  const auto targets =
+      BuildInteractiveTransformTargets(scene, selection, policy);
   for (const auto &target : targets) {
     const Matrix transform = GetTargetWorldTransform(scene, target);
-    SetTargetWorldTransform(
-        scene, target,
-        transform_space::ApplyIncrementalTranslation(transform, deltaMm, space));
+    SetTargetWorldTransform(scene, target,
+                            transform_space::ApplyIncrementalTranslation(
+                                transform, deltaMm, space));
   }
 }
 
@@ -1010,7 +1024,8 @@ void RotateSelectionAroundPivot(MvrScene &scene,
                                 const ObjectSelection &selection, int axis,
                                 float angleDeg,
                                 const std::array<float, 3> &pivotMm,
-                                transform_space::TransformSpace space) {
+                                transform_space::TransformSpace space,
+                                const InteractiveTransformPolicy &policy) {
   Matrix rotation = MatrixUtils::Identity();
   if (axis == 0)
     rotation = MatrixUtils::EulerToMatrix(0.0f, 0.0f, angleDeg);
@@ -1019,7 +1034,8 @@ void RotateSelectionAroundPivot(MvrScene &scene,
   else
     rotation = MatrixUtils::EulerToMatrix(angleDeg, 0.0f, 0.0f);
 
-  const auto targets = BuildInteractiveTransformTargets(scene, selection);
+  const auto targets =
+      BuildInteractiveTransformTargets(scene, selection, policy);
   Matrix effectiveRotation = rotation;
   if (space == transform_space::TransformSpace::Local && !targets.empty()) {
     const Matrix reference = transform_space::ExtractOrientation(
@@ -1039,11 +1055,13 @@ void RotateSelectionAroundPivot(MvrScene &scene,
 // highlights.
 std::vector<std::string>
 ExpandSelectionForGroupHighlights(const MvrScene &scene,
-                                  const ObjectSelection &selection) {
+                                  const ObjectSelection &selection,
+                                  const InteractiveTransformPolicy &policy) {
   std::vector<std::string> expanded;
   std::unordered_set<std::string> seen;
   for (const auto &target :
-       BuildInteractiveSelectionFeedback(scene, selection).effectiveTargets) {
+       BuildInteractiveSelectionFeedback(scene, selection, policy)
+           .effectiveTargets) {
     if (target.type == MvrNodeType::GroupObject) {
       AppendGroupChildrenForHighlights(scene, target.uuid, expanded, seen);
     } else {
@@ -1055,7 +1073,8 @@ ExpandSelectionForGroupHighlights(const MvrScene &scene,
 
 // Returns sibling UUIDs that share the hovered object's effective root group.
 std::vector<std::string>
-ExpandHoverForGroupHighlights(const MvrScene &scene, const std::string &uuid) {
+ExpandHoverForGroupHighlights(const MvrScene &scene, const std::string &uuid,
+                              const InteractiveTransformPolicy &policy) {
   std::vector<std::string> expanded;
   if (uuid.empty())
     return expanded;
@@ -1072,8 +1091,8 @@ ExpandHoverForGroupHighlights(const MvrScene &scene, const std::string &uuid) {
   else
     return expanded;
 
-  expanded =
-      BuildInteractiveSelectionFeedback(scene, selection).highlightedUuids;
+  expanded = BuildInteractiveSelectionFeedback(scene, selection, policy)
+                 .highlightedUuids;
   expanded.erase(std::remove(expanded.begin(), expanded.end(), uuid),
                  expanded.end());
   return expanded;
