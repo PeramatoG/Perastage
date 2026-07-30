@@ -6,6 +6,12 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added **Selection & Movement** preferences for choosing, independently for
+  fixtures, trusses, supports/hoists, and scene objects, whether mouse,
+  command-bar, and Magnet transforms move an exact grouped object or its
+  highest containing group. Table edits remain exact and project/MVR hierarchy
+  data is unchanged by the preference.
+
 ## Compatibility, stability, and performance
 
 ## Important fixes

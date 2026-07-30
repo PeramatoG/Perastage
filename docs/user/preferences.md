@@ -29,6 +29,23 @@ The **MVR Import / Export** tab is the location for MVR-related import and expor
 
 Project saves keep the standard representation so internal `.pstg` scene storage remains non-lossy.
 
+## Selection & Movement
+
+The **Selection & Movement** page controls which object types move their entire
+containing group during interactive transformations. By default, grouped
+trusses move their group, while fixtures, supports/hoists, and scene objects
+move independently. Each type can be configured separately.
+
+This policy applies consistently to mouse interaction in Viewer2D and Viewer3D,
+command-bar position and rotation commands, and Magnet preview and commit. When
+promotion is enabled, Perastage uses the highest parent `GroupObject`, not only
+the immediate parent. Directly selecting a `GroupObject` always moves it as a
+group.
+
+Table edits always modify only the edited row's exact object. Changing these
+user preferences does not alter grouping, transforms, `.pstg` project data, or
+MVR hierarchy and does not mark the project dirty.
+
 ## Update check behavior
 
 - **Check on startup (recommended)**: checks on launch, limited to at most once every 24 hours. When a newer version is found, you can choose **Do not remind me again for this version** to suppress future startup reminders for that same version.

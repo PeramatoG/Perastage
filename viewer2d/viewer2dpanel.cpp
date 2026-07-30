@@ -28,9 +28,10 @@
 #include <windows.h>
 #endif
 
-#include <GL/glew.h>
 #include "gl_context_utils.h"
-// macOS uses the OpenGL framework headers; guard includes for cross-platform builds.
+#include <GL/glew.h>
+// macOS uses the OpenGL framework headers; guard includes for cross-platform
+// builds.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
@@ -40,42 +41,38 @@
 #include <GL/glu.h>
 #endif
 
-#include "viewer2dpanel.h"
-#include "mainwindow.h"
 #include "../gui/mainwindow/ids/tools_ids.h"
-#include "editable_focus_utils.h"
-#include "configmanager.h"
-#include "continuous_placement_scene.h"
-#include "diagnostics/DiagnosticReport.h"
-#include "selection_movement_settings.h"
-#include "../viewport_interaction_scope.h"
-#include "scene_grouping.h"
-#include "canvas2d.h"
-#include "fixturetablepanel.h"
-#include "fixturepatchdialog.h"
-#include "hoisttablepanel.h"
-#include "logger.h"
-#include "positionvalueupdate.h"
-#include "scene_object_primitive_editing.h"
 #include "../gui/selection_origin_token.h"
-#include "sceneobjecttablepanel.h"
-#include "trusstablepanel.h"
-#include "viewer3dpanel.h"
-#include "viewer2d_support_selection.h"
-#include "viewer2drenderpanel.h"
-#include "viewer2d_ruler_overlay.h"
-#include "viewer2dviewfit.h"
-#include "viewer2dpanel_helpers.h"
-#include "gl_state_guard.h"
-#include "units/units.h"
 #include "../viewer_common/gl_canvas_config.h"
 #include "../viewer_common/gl_framebuffer_capture_target.h"
 #include "../viewer_common/measure_overlay_style.h"
+#include "../viewport_interaction_scope.h"
+#include "canvas2d.h"
+#include "configmanager.h"
+#include "continuous_placement_scene.h"
+#include "diagnostics/DiagnosticReport.h"
+#include "editable_focus_utils.h"
+#include "fixturepatchdialog.h"
+#include "fixturetablepanel.h"
+#include "gl_state_guard.h"
+#include "hoisttablepanel.h"
+#include "logger.h"
+#include "mainwindow.h"
+#include "positionvalueupdate.h"
+#include "scene_grouping.h"
+#include "scene_object_primitive_editing.h"
+#include "sceneobjecttablepanel.h"
+#include "selection_movement_settings.h"
+#include "trusstablepanel.h"
 #include "ui_render_size.h"
-#include <wx/app.h>
-#include <wx/debug.h>
-#include <wx/log.h>
-#include <wx/utils.h>
+#include "units/units.h"
+#include "viewer2d_ruler_overlay.h"
+#include "viewer2d_support_selection.h"
+#include "viewer2dpanel.h"
+#include "viewer2dpanel_helpers.h"
+#include "viewer2drenderpanel.h"
+#include "viewer2dviewfit.h"
+#include "viewer3dpanel.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -87,6 +84,10 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+#include <wx/app.h>
+#include <wx/debug.h>
+#include <wx/log.h>
+#include <wx/utils.h>
 
 // Pixels per meter at default zoom level.
 static constexpr float PIXELS_PER_METER = 25.0f;
@@ -140,7 +141,8 @@ wxRect BuildPointDirtyRegion(const wxPoint &point, int radius) {
   return wxRect(point.x - radius, point.y - radius, size, size);
 }
 
-// Normalizes label rotation so text stays parallel to the line without appearing upside down.
+// Normalizes label rotation so text stays parallel to the line without
+// appearing upside down.
 float NormalizeMeasureLabelAngleDegrees(float angleDegrees) {
   while (angleDegrees > 90.0f)
     angleDegrees -= 180.0f;
@@ -151,7 +153,8 @@ float NormalizeMeasureLabelAngleDegrees(float angleDegrees) {
 
 // Resolves the center world position for any selectable scene element UUID.
 std::optional<std::array<float, 3>>
-ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uuid) {
+ResolveSceneElementCenterByUuid(const ConfigManager &cfg,
+                                const std::string &uuid) {
   const auto toMeters = [](const std::array<float, 3> &pointMm) {
     return std::array<float, 3>{pointMm[0] / 1000.0f, pointMm[1] / 1000.0f,
                                 pointMm[2] / 1000.0f};
@@ -163,14 +166,16 @@ ResolveSceneElementCenterByUuid(const ConfigManager &cfg, const std::string &uui
     return toMeters(tit->second.transform.o);
   if (const auto sit = scene.supports.find(uuid); sit != scene.supports.end())
     return toMeters(sit->second.transform.o);
-  if (const auto oit = scene.sceneObjects.find(uuid); oit != scene.sceneObjects.end())
+  if (const auto oit = scene.sceneObjects.find(uuid);
+      oit != scene.sceneObjects.end())
     return toMeters(oit->second.transform.o);
   return std::nullopt;
 }
 
 // Finds cached world bounds for any selectable scene element UUID.
-std::optional<ISelectionContext::BoundingBox> ResolveSceneElementBoundsByUuid(
-    const ISelectionContext &selectionContext, const ConfigManager &cfg,
+std::optional<ISelectionContext::BoundingBox>
+ResolveSceneElementBoundsByUuid(const ISelectionContext &selectionContext,
+                                const ConfigManager &cfg,
     const std::string &uuid) {
   if (const auto *bounds = selectionContext.FindFixtureBounds(uuid))
     return *bounds;
@@ -226,8 +231,8 @@ ComputeNearestProjectedBoundsPoints(const ISelectionContext::BoundingBox &a,
 }
 
 // Draws a 2D triangular arrowhead in screen-space overlay coordinates.
-void DrawSelectionDragArrowhead2D(float baseX, float baseY, float dirX, float dirY,
-                                  float length, float radius) {
+void DrawSelectionDragArrowhead2D(float baseX, float baseY, float dirX,
+                                  float dirY, float length, float radius) {
   const float tipX = baseX + dirX * length;
   const float tipY = baseY + dirY * length;
   const float sideX = -dirY;
@@ -240,34 +245,39 @@ void DrawSelectionDragArrowhead2D(float baseX, float baseY, float dirX, float di
   glEnd();
 }
 
-// Draws a CAD-like temporary dimension overlay with extension lines, arrows, and label.
-void DrawMeasureOverlay(Viewer3DController &controller,
+// Draws a CAD-like temporary dimension overlay with extension lines, arrows,
+// and label.
+void DrawMeasureOverlay(
+    Viewer3DController &controller,
                         const Viewer2DMeasureToolState &measureState,
-                        const std::array<float, 3> &targetWorld, Viewer2DView view,
-                        int width, int height, float zoom, float offsetX,
-                        float offsetY, Units::DistanceUnitSystem distanceUnitSystem,
-                        bool darkMode,
+    const std::array<float, 3> &targetWorld, Viewer2DView view, int width,
+    int height, float zoom, float offsetX, float offsetY,
+    Units::DistanceUnitSystem distanceUnitSystem, bool darkMode,
                         const std::optional<std::array<float, 2>> &targetScreenOverride) {
-  const auto startPx = Viewer2DMeasureWorldToScreen(measureState.anchorMeasureWorld, view, width,
+  const auto startPx =
+      Viewer2DMeasureWorldToScreen(measureState.anchorMeasureWorld, view, width,
                                                     height, zoom, offsetX, offsetY);
-  const auto endPx = targetScreenOverride.has_value()
+  const auto endPx =
+      targetScreenOverride.has_value()
                          ? targetScreenOverride
-                         : Viewer2DMeasureWorldToScreen(targetWorld, view, width, height,
-                                                        zoom, offsetX, offsetY);
+          : Viewer2DMeasureWorldToScreen(targetWorld, view, width, height, zoom,
+                                         offsetX, offsetY);
   if (!startPx || !endPx)
     return;
 
-  // Computes the displayed distance using mouse screen delta during live preview for axis-safe tracking.
+  // Computes the displayed distance using mouse screen delta during live
+  // preview for axis-safe tracking.
   float distanceMeters = 0.0f;
   if (targetScreenOverride.has_value()) {
     const float dxPixels = (*endPx)[0] - (*startPx)[0];
     const float dyPixels = (*endPx)[1] - (*startPx)[1];
     const float pixelsPerMeter = PIXELS_PER_METER * zoom;
     if (pixelsPerMeter > 0.0f)
-      distanceMeters = std::sqrt(dxPixels * dxPixels + dyPixels * dyPixels) /
-                       pixelsPerMeter;
+      distanceMeters =
+          std::sqrt(dxPixels * dxPixels + dyPixels * dyPixels) / pixelsPerMeter;
   } else {
-    // Compute distance in the active 2D projection plane instead of full 3D space.
+    // Compute distance in the active 2D projection plane instead of full 3D
+    // space.
     float du = 0.0f;
     float dv = 0.0f;
     switch (view) {
@@ -287,7 +297,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
     }
     distanceMeters = std::sqrt(du * du + dv * dv);
   }
-  const std::string text = Units::FormatDistanceFromMillimeters(
+  const std::string text =
+      Units::FormatDistanceFromMillimeters(
       static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
       Units::ValueFormatContext::Label) +
                            " " + Units::DistanceUnitSuffix(distanceUnitSystem);
@@ -319,8 +330,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
-  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height), -1.0f,
-          1.0f);
+  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height),
+          -1.0f, 1.0f);
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
@@ -331,8 +342,8 @@ void DrawMeasureOverlay(Viewer3DController &controller,
   glMatrixMode(GL_MODELVIEW);
   glEnable(GL_DEPTH_TEST);
 
-  std::vector<OverlayTextLabel> labels{
-      {labelX, labelY, text, true, true, 3.0f * zoom, true, 0.95f, 0.1f, 0.1f,
+  std::vector<OverlayTextLabel> labels{{labelX, labelY, text, true, true,
+                                        3.0f * zoom, true, 0.95f, 0.1f, 0.1f,
        labelAngleDegrees}};
   controller.DrawOverlayTextLabels(labels, darkMode);
 }
@@ -344,8 +355,8 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
   glGetIntegerv(GL_VIEWPORT, viewport);
   const bool validFramebuffer = framebuffer == 0;
-  const bool validViewport =
-      viewport[0] == 0 && viewport[1] == 0 && viewport[2] == expectedWidth &&
+  const bool validViewport = viewport[0] == 0 && viewport[1] == 0 &&
+                             viewport[2] == expectedWidth &&
       viewport[3] == expectedHeight;
   if (!validFramebuffer || !validViewport) {
     wxLogTrace("viewer2d_gl_state",
@@ -367,16 +378,15 @@ bool TryAllocateCaptureBuffer(std::vector<unsigned char> &pixels, int width,
       static_cast<size_t>(width) * static_cast<size_t>(height);
   const size_t totalBytes = totalPixels * 4;
   if (totalPixels > kMaxCapturePixels || totalBytes > kMaxCaptureBytes) {
-    Logger::Instance().Log(
-        "Viewer2DPanel: capture buffer too large (" +
-        std::to_string(width) + "x" + std::to_string(height) + ").");
+    Logger::Instance().Log("Viewer2DPanel: capture buffer too large (" +
+                           std::to_string(width) + "x" +
+                           std::to_string(height) + ").");
     return false;
   }
   try {
     pixels.assign(totalBytes, 0);
   } catch (const std::bad_alloc &) {
-    Logger::Instance().Log(
-        "Viewer2DPanel: capture buffer allocation failed.");
+    Logger::Instance().Log("Viewer2DPanel: capture buffer allocation failed.");
     return false;
   }
   return true;
@@ -389,7 +399,8 @@ CanvasStroke MakeGridStroke(float r, float g, float b) {
   return stroke;
 }
 
-// Converts a logical canvas point to framebuffer coordinates using content scale.
+// Converts a logical canvas point to framebuffer coordinates using content
+// scale.
 wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
   if (window == nullptr)
     return logicalPoint;
@@ -397,15 +408,16 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
       static_cast<double>(window->GetContentScaleFactor());
   if (!std::isfinite(contentScale) || contentScale <= 0.0)
     return logicalPoint;
-  return wxPoint(
-      static_cast<int>(
-          std::lround(static_cast<double>(logicalPoint.x) * contentScale)),
-      static_cast<int>(
-          std::lround(static_cast<double>(logicalPoint.y) * contentScale)));
+  return wxPoint(static_cast<int>(std::lround(
+                     static_cast<double>(logicalPoint.x) * contentScale)),
+                 static_cast<int>(std::lround(
+                     static_cast<double>(logicalPoint.y) * contentScale)));
 }
 
-// Converts framebuffer-space mouse coordinates back to logical window coordinates.
-wxPoint ToLogicalPointFromFramebuffer(wxWindow *window,
+// Converts framebuffer-space mouse coordinates back to logical window
+// coordinates.
+wxPoint
+ToLogicalPointFromFramebuffer(wxWindow *window,
                                       const std::array<float, 2> &framebufferPoint) {
   if (window == nullptr)
     return wxPoint(static_cast<int>(std::lround(framebufferPoint[0])),
@@ -416,7 +428,8 @@ wxPoint ToLogicalPointFromFramebuffer(wxWindow *window,
     return wxPoint(static_cast<int>(std::lround(framebufferPoint[0])),
                    static_cast<int>(std::lround(framebufferPoint[1])));
   }
-  return wxPoint(static_cast<int>(std::lround(framebufferPoint[0] / contentScale)),
+  return wxPoint(
+      static_cast<int>(std::lround(framebufferPoint[0] / contentScale)),
                  static_cast<int>(std::lround(framebufferPoint[1] / contentScale)));
 }
 
@@ -465,10 +478,10 @@ void EmitGrid(ICanvas2D &canvas, int style, Viewer2DView view, float r, float g,
   }
 }
 
-
 // Builds fixture UUIDs filtered by type name for selection workflows.
-std::vector<std::string> BuildFixtureSelectionByType(
-    const MvrScene &scene, const std::string &typeName) {
+std::vector<std::string>
+BuildFixtureSelectionByType(const MvrScene &scene,
+                            const std::string &typeName) {
   std::vector<std::string> uuids;
   uuids.reserve(scene.fixtures.size());
   for (const auto &[uuid, fixture] : scene.fixtures) {
@@ -479,8 +492,9 @@ std::vector<std::string> BuildFixtureSelectionByType(
 }
 
 // Builds fixture UUIDs filtered by position-name mapping criteria.
-std::vector<std::string> BuildFixtureSelectionByPosition(
-    const MvrScene &scene, const std::string &positionName,
+std::vector<std::string>
+BuildFixtureSelectionByPosition(const MvrScene &scene,
+                                const std::string &positionName,
     bool selectNoPosition) {
   std::vector<std::string> uuids;
   uuids.reserve(scene.fixtures.size());
@@ -516,14 +530,13 @@ void ApplyFixtureSelectionToUi(const std::vector<std::string> &selection,
   }
 }
 
-
 // Returns a canonical resource key used to group trusses by type or source.
 std::string BuildTrussModelSelectionKey(const Truss &truss) {
   auto normalize = [](std::string value) {
     std::replace(value.begin(), value.end(), '\\', '/');
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-      return static_cast<char>(std::tolower(c));
-    });
+    std::transform(
+        value.begin(), value.end(), value.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
   };
 
@@ -540,9 +553,11 @@ std::string BuildTrussModelSelectionKey(const Truss &truss) {
   return {};
 }
 
-// Builds truss UUIDs filtered by model-or-source-file key for selection workflows.
-std::vector<std::string> BuildTrussSelectionByModelKey(
-    const MvrScene &scene, const std::string &modelKey) {
+// Builds truss UUIDs filtered by model-or-source-file key for selection
+// workflows.
+std::vector<std::string>
+BuildTrussSelectionByModelKey(const MvrScene &scene,
+                              const std::string &modelKey) {
   std::vector<std::string> uuids;
   uuids.reserve(scene.trusses.size());
   for (const auto &[uuid, truss] : scene.trusses) {
@@ -553,8 +568,9 @@ std::vector<std::string> BuildTrussSelectionByModelKey(
 }
 
 // Builds truss UUIDs filtered by position-name mapping criteria.
-std::vector<std::string> BuildTrussSelectionByPosition(
-    const MvrScene &scene, const std::string &positionName,
+std::vector<std::string>
+BuildTrussSelectionByPosition(const MvrScene &scene,
+                              const std::string &positionName,
     bool selectNoPosition) {
   std::vector<std::string> uuids;
   uuids.reserve(scene.trusses.size());
@@ -571,7 +587,8 @@ std::vector<std::string> BuildTrussSelectionByPosition(
   return uuids;
 }
 
-// Applies a truss selection to scene state, controller highlights, and table UI.
+// Applies a truss selection to scene state, controller highlights, and table
+// UI.
 void ApplyTrussSelectionToUi(const std::vector<std::string> &selection,
                              Viewer3DController &controller) {
   ConfigManager &cfg = ConfigManager::Get();
@@ -589,9 +606,11 @@ void ApplyTrussSelectionToUi(const std::vector<std::string> &selection,
   }
 }
 
-// Appends missing UUIDs from the added selection while preserving existing order.
-std::vector<std::string> MergeSelectionAdditive(
-    std::vector<std::string> selection, const std::vector<std::string> &added) {
+// Appends missing UUIDs from the added selection while preserving existing
+// order.
+std::vector<std::string>
+MergeSelectionAdditive(std::vector<std::string> selection,
+                       const std::vector<std::string> &added) {
   for (const std::string &uuid : added) {
     if (std::find(selection.begin(), selection.end(), uuid) == selection.end())
       selection.push_back(uuid);
@@ -599,7 +618,8 @@ std::vector<std::string> MergeSelectionAdditive(
   return selection;
 }
 
-// Combines all directly selected entity UUID lists into a stable unique sequence.
+// Combines all directly selected entity UUID lists into a stable unique
+// sequence.
 std::vector<std::string> BuildDirectSelection(const ConfigManager &cfg) {
   std::vector<std::string> selection;
   selection = MergeSelectionAdditive(selection, cfg.GetSelectedFixtures());
@@ -615,12 +635,16 @@ std::vector<std::string> BuildCombinedSelection(const ConfigManager &cfg) {
       .trusses = cfg.GetSelectedTrusses(),
       .supports = cfg.GetSelectedSupports(),
       .sceneObjects = cfg.GetSelectedSceneObjects()};
-  return scene_grouping::ExpandSelectionForGroupHighlights(cfg.GetScene(), selection);
+  return scene_grouping::ExpandSelectionForGroupHighlights(
+      cfg.GetScene(), selection,
+      selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
 }
 
-// Builds the viewer highlight selection while preserving other table selections during additive edits.
-std::vector<std::string> BuildViewerSelectionForTableSelection(
-    const ConfigManager &cfg, const std::vector<std::string> &selection,
+// Builds the viewer highlight selection while preserving other table selections
+// during additive edits.
+std::vector<std::string>
+BuildViewerSelectionForTableSelection(const ConfigManager &cfg,
+                                      const std::vector<std::string> &selection,
     bool additive) {
   if (additive)
     return BuildCombinedSelection(cfg);
@@ -633,14 +657,13 @@ namespace {
 Viewer2DPanel *g_instance = nullptr;
 constexpr int kInteractionPauseTimerId = wxID_HIGHEST + 220;
 constexpr int kHoverHitTestTimerId = wxID_HIGHEST + 221;
-}
+} // namespace
 
 wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
     EVT_LEFT_DOWN(Viewer2DPanel::OnMouseDown) EVT_LEFT_UP(
         Viewer2DPanel::OnMouseUp) EVT_MOTION(Viewer2DPanel::OnMouseMove)
-        EVT_LEFT_DCLICK(Viewer2DPanel::OnMouseDClick)
-        EVT_MOUSEWHEEL(Viewer2DPanel::OnMouseWheel)
-            EVT_RIGHT_UP(Viewer2DPanel::OnRightUp)
+        EVT_LEFT_DCLICK(Viewer2DPanel::OnMouseDClick) EVT_MOUSEWHEEL(
+            Viewer2DPanel::OnMouseWheel) EVT_RIGHT_UP(Viewer2DPanel::OnRightUp)
             EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
                 EVT_ENTER_WINDOW(Viewer2DPanel::OnMouseEnter)
                     EVT_LEAVE_WINDOW(Viewer2DPanel::OnMouseLeave)
@@ -649,17 +672,20 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
                                       Viewer2DPanel::OnInteractionPauseTimer)
                             EVT_TIMER(kHoverHitTestTimerId,
                                       Viewer2DPanel::OnHoverHitTestTimer)
-                            EVT_SIZE(Viewer2DPanel::OnResize) wxEND_EVENT_TABLE()
+                                    EVT_SIZE(Viewer2DPanel::OnResize)
+                                        wxEND_EVENT_TABLE()
 
-Viewer2DPanel::Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender,
-                             bool persistViewState, bool enableSelection)
+                                            Viewer2DPanel::Viewer2DPanel(
+                                                wxWindow *parent,
+                                                bool allowOffscreenRender,
+                                                bool persistViewState,
+                                                bool enableSelection)
     : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(),
                  wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
       m_interactionResumeTimer(this, kInteractionPauseTimerId),
       m_hoverHitTestTimer(this, kHoverHitTestTimerId),
-      m_persistViewState(persistViewState),
-      m_enableSelection(enableSelection) {
+      m_persistViewState(persistViewState), m_enableSelection(enableSelection) {
   SetBackgroundStyle(wxBG_STYLE_CUSTOM);
   m_controller.SetSelectionOutlineEnabled(m_enableSelection);
   m_magnetEnabled = ConfigManager::Get().GetValue(
@@ -777,12 +803,16 @@ void Viewer2DPanel::SetSelectedUuids(
     const std::vector<std::string> &selection) {
   if (!m_enableSelection)
     return;
-  const scene_grouping::ObjectSelection typedSelection{
-      .fixtures = selection, .trusses = selection, .supports = selection,
-      .sceneObjects = selection};
+  const scene_grouping::ObjectSelection typedSelection{.fixtures = selection,
+                                                       .trusses = selection,
+                                                       .supports = selection,
+                                                       .sceneObjects =
+                                                           selection};
   const std::vector<std::string> expandedSelection =
       scene_grouping::ExpandSelectionForGroupHighlights(
-          ConfigManager::Get().GetScene(), typedSelection);
+          ConfigManager::Get().GetScene(), typedSelection,
+          selection_movement_settings::LoadInteractiveTransformPolicy(
+              ConfigManager::Get()));
   if (expandedSelection == m_lastAppliedSelectionUuids &&
       selection == m_lastAppliedPrimarySelectionUuids)
     return;
@@ -807,8 +837,8 @@ void Viewer2DPanel::LoadViewFromConfig() {
   m_zoom = cfg.GetFloat("view2d_zoom");
   m_renderMode = static_cast<Viewer2DRenderMode>(
       static_cast<int>(cfg.GetFloat("view2d_render_mode")));
-  m_view = static_cast<Viewer2DView>(
-      static_cast<int>(cfg.GetFloat("view2d_view")));
+  m_view =
+      static_cast<Viewer2DView>(static_cast<int>(cfg.GetFloat("view2d_view")));
 }
 
 void Viewer2DPanel::SaveViewToConfig() const {
@@ -933,12 +963,14 @@ void Viewer2DPanel::SetMeasureToolEnabled(bool enabled) {
 }
 
 // Toggles the measurement tool mode and applies the requested measuring mode.
-void Viewer2DPanel::SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode) {
+void Viewer2DPanel::SetMeasureToolEnabled(bool enabled,
+                                          Viewer2DMeasureMode mode) {
   m_measureToolState.enabled = enabled;
   m_measureToolState.mode = mode;
   ResetViewer2DMeasure(m_measureToolState);
   if (MainWindow::Instance())
-    MainWindow::Instance()->SyncViewportToolToggleState(enabled, m_measureToolState.mode);
+    MainWindow::Instance()->SyncViewportToolToggleState(
+        enabled, m_measureToolState.mode);
   SetCursor(enabled ? wxCursor(wxCURSOR_CROSS) : wxCursor(wxCURSOR_ARROW));
   RequestRepaint();
 }
@@ -971,7 +1003,8 @@ void Viewer2DPanel::SetTransformSpace(transform_space::TransformSpace space) {
   m_transformSpace = space;
 }
 
-// Converts a mouse position in window coordinates into the current 2D world position.
+// Converts a mouse position in window coordinates into the current 2D world
+// position.
 std::optional<std::array<float, 3>>
 Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   const RenderSize renderSize =
@@ -990,12 +1023,12 @@ Viewer2DPanel::ComputeWorldPositionFromScreen(const wxPoint &screenPos) const {
   const float offsetMetersX = m_offsetX / pixelsPerMeter;
   const float offsetMetersY = m_offsetY / pixelsPerMeter;
 
-  const float viewX =
-      (static_cast<float>(framebufferPos.x) - static_cast<float>(width) * 0.5f) /
+  const float viewX = (static_cast<float>(framebufferPos.x) -
+                       static_cast<float>(width) * 0.5f) /
           pixelsPerMeter -
       offsetMetersX;
-  const float viewY =
-      (static_cast<float>(height) * 0.5f - static_cast<float>(framebufferPos.y)) /
+  const float viewY = (static_cast<float>(height) * 0.5f -
+                       static_cast<float>(framebufferPos.y)) /
           pixelsPerMeter -
       offsetMetersY;
 
@@ -1098,34 +1131,36 @@ void Viewer2DPanel::InvalidateBottomSymbolCache() {
   m_controller.ClearBottomSymbolCache();
 }
 
-// Binds the OpenGL context needed for interaction hit-testing and selection readback.
+// Binds the OpenGL context needed for interaction hit-testing and selection
+// readback.
 bool Viewer2DPanel::TryBindGlContextForInteraction() {
   if (!m_glContext) {
-    Logger::Instance().Log(
-        Logger::Level::Warn,
-        "Viewer2DPanel: skipping interaction picking because the OpenGL context is unavailable.");
+    Logger::Instance().Log(Logger::Level::Warn,
+                           "Viewer2DPanel: skipping interaction picking "
+                           "because the OpenGL context is unavailable.");
     return false;
   }
 
   if (!IsShownOnScreen()) {
-    Logger::Instance().Log(
-        Logger::Level::Warn,
-        "Viewer2DPanel: skipping interaction picking because the canvas is not shown.");
+    Logger::Instance().Log(Logger::Level::Warn,
+                           "Viewer2DPanel: skipping interaction picking "
+                           "because the canvas is not shown.");
     return false;
   }
 
   if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer2DPanel",
                                     "interaction picking")) {
-    Logger::Instance().Log(
-        Logger::Level::Warn,
-        "Viewer2DPanel: interaction picking context-bind failure; glContextBindFailed=true.");
+    Logger::Instance().Log(Logger::Level::Warn,
+                           "Viewer2DPanel: interaction picking context-bind "
+                           "failure; glContextBindFailed=true.");
     return false;
   }
 
   return true;
 }
 
-// Initializes the OpenGL context only when the canvas is safe to bind on this platform.
+// Initializes the OpenGL context only when the canvas is safe to bind on this
+// platform.
 void Viewer2DPanel::InitGL() {
 #if defined(__WXGTK__) || defined(__WXOSX__)
   if (!IsShownOnScreen()) {
@@ -1209,7 +1244,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   float offY = m_offsetY / PIXELS_PER_METER;
   glOrtho(-halfW - offX, halfW - offX, -halfH - offY, halfH - offY, -100.0f,
           100.0f);
-  const RenderSize projectionSize{w, h, "RenderInternal::world-projection(framebuffer-px)"};
+  const RenderSize projectionSize{
+      w, h, "RenderInternal::world-projection(framebuffer-px)"};
 
   ++s_renderFrameId;
   ValidateRenderSizeContract("Viewer2DPanel", s_renderFrameId, resolvedSize,
@@ -1349,8 +1385,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
     if (m_layoutEditBaseSize && m_layoutEditBaseSize->GetWidth() > 0 &&
         m_layoutEditBaseSize->GetHeight() > 0) {
-      float targetWidth =
-          static_cast<float>(m_layoutEditBaseSize->GetWidth()) *
+      float targetWidth = static_cast<float>(m_layoutEditBaseSize->GetWidth()) *
           m_layoutEditScale;
       float targetHeight =
           static_cast<float>(m_layoutEditBaseSize->GetHeight()) *
@@ -1418,9 +1453,9 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       std::vector<OverlayTextLabel> overlayLabels;
       overlayLabels.reserve(rulerLabels.size());
       for (const auto &label : rulerLabels) {
-        overlayLabels.push_back(
-            {label.xPixels, label.yPixels, label.text, label.centerOnX,
-             label.centerOnY, 3.0f * m_zoom, true, label.color.r,
+        overlayLabels.push_back({label.xPixels, label.yPixels, label.text,
+                                 label.centerOnX, label.centerOnY,
+                                 3.0f * m_zoom, true, label.color.r,
              label.color.g, label.color.b});
       }
       m_controller.DrawOverlayTextLabels(overlayLabels, darkMode);
@@ -1454,16 +1489,19 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
           break;
         }
       }
-      const wxPoint framebufferMousePos = ToFramebufferPoint(this, m_lastMousePos);
-      targetScreenOverride = std::array<float, 2>{
-          static_cast<float>(framebufferMousePos.x),
+      const wxPoint framebufferMousePos =
+          ToFramebufferPoint(this, m_lastMousePos);
+      targetScreenOverride =
+          std::array<float, 2>{static_cast<float>(framebufferMousePos.x),
           static_cast<float>(framebufferMousePos.y)};
     }
     if (targetWorld) {
       DrawMeasureOverlay(m_controller, m_measureToolState,
-                         m_measureToolState.hasCommittedTarget ? m_measureToolState.committedTargetMeasureWorld : *targetWorld, m_view, w,
-                         h, m_zoom, m_offsetX, m_offsetY, distanceUnitSystem,
-                         darkMode, targetScreenOverride);
+                         m_measureToolState.hasCommittedTarget
+                             ? m_measureToolState.committedTargetMeasureWorld
+                             : *targetWorld,
+                         m_view, w, h, m_zoom, m_offsetX, m_offsetY,
+                         distanceUnitSystem, darkMode, targetScreenOverride);
     }
   }
 
@@ -1519,9 +1557,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     SwapBuffers();
 }
 
-// Captures the current 2D scene into an RGBA buffer using a framebuffer-sized viewport.
-bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
-                                 int &height,
+// Captures the current 2D scene into an RGBA buffer using a framebuffer-sized
+// viewport.
+bool Viewer2DPanel::RenderToRGBA(
+    std::vector<unsigned char> &pixels, int &width, int &height,
                                  const std::optional<wxSize> &targetFramebufferSize) {
   RenderSize renderSize = ResolveRenderSize(this);
   if (targetFramebufferSize && targetFramebufferSize->GetWidth() > 0 &&
@@ -1563,9 +1602,11 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   }
 
   if (!m_captureFramebufferTargets)
-    m_captureFramebufferTargets = std::make_unique<glcapture::FramebufferCaptureTargetCache>();
+    m_captureFramebufferTargets =
+        std::make_unique<glcapture::FramebufferCaptureTargetCache>();
 
-  glcapture::FramebufferCaptureTarget *target = m_captureFramebufferTargets->Acquire(w, h);
+  glcapture::FramebufferCaptureTarget *target =
+      m_captureFramebufferTargets->Acquire(w, h);
   ScopedReadBufferPackAlignmentState readStateGuard;
   glstate::ScopedFramebufferViewportScissorState framebufferStateGuard;
   if (!target || !target->IsComplete()) {
@@ -1598,7 +1639,8 @@ bool Viewer2DPanel::RenderToRGBA(std::vector<unsigned char> &pixels, int &width,
   return true;
 }
 
-// Releases reusable capture framebuffer resources while the GL context is current.
+// Releases reusable capture framebuffer resources while the GL context is
+// current.
 void Viewer2DPanel::ReleaseCaptureFramebufferTarget() {
   if (m_captureFramebufferTargets)
     m_captureFramebufferTargets->Release();
@@ -1610,8 +1652,11 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
   struct CaptureSizeOverrideGuard {
     Viewer2DPanel &panel;
 
-    // Clears the temporary capture framebuffer size override after fallback capture.
-    ~CaptureSizeOverrideGuard() { panel.m_captureFramebufferSizeOverride.reset(); }
+    // Clears the temporary capture framebuffer size override after fallback
+    // capture.
+    ~CaptureSizeOverrideGuard() {
+      panel.m_captureFramebufferSizeOverride.reset();
+    }
   } captureSizeGuard{*this};
 
   m_captureFramebufferSizeOverride = wxSize(width, height);
@@ -1751,12 +1796,12 @@ void Viewer2DPanel::DrawSelectionDragGizmo(int width, int height) {
 
   glColor4f(horizontalColor[0], horizontalColor[1], horizontalColor[2],
             horizontalColor[3]);
-  DrawSelectionDragArrowhead2D(x + shaftLength, y, 1.0f, 0.0f,
-                               arrowheadLength, arrowheadRadius);
+  DrawSelectionDragArrowhead2D(x + shaftLength, y, 1.0f, 0.0f, arrowheadLength,
+                               arrowheadRadius);
   glColor4f(verticalColor[0], verticalColor[1], verticalColor[2],
             verticalColor[3]);
-  DrawSelectionDragArrowhead2D(x, y + shaftLength, 0.0f, 1.0f,
-                               arrowheadLength, arrowheadRadius);
+  DrawSelectionDragArrowhead2D(x, y + shaftLength, 0.0f, 1.0f, arrowheadLength,
+                               arrowheadRadius);
 
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
@@ -1767,7 +1812,8 @@ void Viewer2DPanel::DrawSelectionDragGizmo(int width, int height) {
     glEnable(GL_DEPTH_TEST);
 }
 
-std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() const {
+std::optional<magnet_snap::SnapSource>
+Viewer2DPanel::BuildActiveMagnetSource() const {
   if (!m_magnetEnabled || m_measureToolState.enabled)
     return std::nullopt;
   if (!m_dragTrussUuids.empty() && m_dragSupportUuids.empty() &&
@@ -1776,7 +1822,9 @@ std::optional<magnet_snap::SnapSource> Viewer2DPanel::BuildActiveMagnetSource() 
     selection.fixtures = m_dragFixtureUuids;
     selection.trusses = m_dragTrussUuids;
     const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        ConfigManager::Get().GetScene(), selection);
+        ConfigManager::Get().GetScene(), selection,
+        selection_movement_settings::LoadInteractiveTransformPolicy(
+            ConfigManager::Get()));
     if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
       return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
                                      targets.front().uuid};
@@ -1814,7 +1862,8 @@ magnet_snap::SnapSettings Viewer2DPanel::BuildActiveMagnetSettings() const {
 }
 
 // Finds the current Magnet snap candidate for the active single-object drag.
-std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() const {
+std::optional<magnet_snap::SnapResult>
+Viewer2DPanel::FindActiveMagnetSnap() const {
   auto source = BuildActiveMagnetSource();
   if (!source)
     return std::nullopt;
@@ -1822,7 +1871,8 @@ std::optional<magnet_snap::SnapResult> Viewer2DPanel::FindActiveMagnetSnap() con
                                BuildActiveMagnetSettings());
 }
 
-// Restores the raw mouse-following transform before applying the next drag delta.
+// Restores the raw mouse-following transform before applying the next drag
+// delta.
 std::optional<magnet_snap::SnapResult>
 Viewer2DPanel::RestorePendingMagnetSnapPreview() {
   if (!m_pendingMagnetSnap)
@@ -1831,7 +1881,10 @@ Viewer2DPanel::RestorePendingMagnetSnapPreview() {
   magnet_snap::SnapResult inverse = previous;
   for (float &component : inverse.translationDeltaMm)
     component = -component;
-  magnet_snap::ApplySnapTransform(ConfigManager::Get().GetScene(), inverse);
+  magnet_snap::ApplySnapTransform(
+      ConfigManager::Get().GetScene(), inverse,
+      selection_movement_settings::LoadInteractiveTransformPolicy(
+          ConfigManager::Get()));
   m_pendingMagnetSnap.reset();
   return previous;
 }
@@ -1871,7 +1924,8 @@ void Viewer2DPanel::ApplySelectionDelta(
   if (m_transformSpace == transform_space::TransformSpace::Local &&
       m_axisConstrainedMovementEnabled && m_dragAxis != DragAxis::None) {
     const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        cfg.GetScene(), selection);
+        cfg.GetScene(), selection,
+        selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
     if (!targets.empty()) {
       const Matrix referenceTransform = scene_grouping::GetTargetWorldTransform(
           cfg.GetScene(), targets.front());
@@ -1879,9 +1933,13 @@ void Viewer2DPanel::ApplySelectionDelta(
           transform_space::ExtractOrientation(referenceTransform), deltaMm);
     }
   }
-  scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm);
+  const auto policy =
+      selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm,
+                                     transform_space::TransformSpace::World,
+                                     policy);
   if (auto snap = FindActiveMagnetSnap()) {
-    magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
+    magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
     m_pendingMagnetSnap = snap;
   } else if (previousSnap) {
     magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
@@ -1923,9 +1981,10 @@ void Viewer2DPanel::FinalizeSelectionDrag() {
   }
 }
 
-// Starts moving a newly created scene element with the pointer until it is placed.
-void Viewer2DPanel::BeginContinuousPlacement(
-    ContinuousPlacementType type, const std::string &elementUuid) {
+// Starts moving a newly created scene element with the pointer until it is
+// placed.
+void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
+                                             const std::string &elementUuid) {
   ConfigManager &cfg = ConfigManager::Get();
   if (!continuous_placement::Contains(cfg.GetScene(), type, elementUuid))
     return;
@@ -1936,8 +1995,7 @@ void Viewer2DPanel::BeginContinuousPlacement(
   m_continuousPlacementUuid = elementUuid;
   m_continuousPlacedUuids.clear();
   m_dragMode = DragMode::Selection;
-  m_dragTarget = type == ContinuousPlacementType::Fixture
-                     ? DragTarget::Fixtures
+  m_dragTarget = type == ContinuousPlacementType::Fixture ? DragTarget::Fixtures
                  : type == ContinuousPlacementType::Truss
                      ? DragTarget::Trusses
                      : DragTarget::SceneObjects;
@@ -1970,15 +2028,14 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
     return;
   }
 
-  cfg.PushUndoState(std::string("place ") +
-                    continuous_placement::ElementName(
+  cfg.PushUndoState(std::string("place ") + continuous_placement::ElementName(
                         m_continuousPlacementType));
   m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
   const std::string nextUuid =
-      wxString::Format("uuid_%lld", static_cast<long long>(
-                                        std::chrono::steady_clock::now()
-                                            .time_since_epoch()
-                                            .count()))
+      wxString::Format(
+          "uuid_%lld",
+          static_cast<long long>(
+              std::chrono::steady_clock::now().time_since_epoch().count()))
           .ToStdString();
   if (!continuous_placement::CloneElement(
           cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid,
@@ -2009,9 +2066,9 @@ void Viewer2DPanel::CancelContinuousPlacement() {
          ++i) {
       cfg.Undo();
     }
-    cfg.PushUndoState(std::string("continuous ") +
-                      continuous_placement::ElementName(
-                          m_continuousPlacementType) +
+    cfg.PushUndoState(
+        std::string("continuous ") +
+        continuous_placement::ElementName(m_continuousPlacementType) +
                       " placement");
     cfg.GetScene() = finalScene;
   }
@@ -2132,8 +2189,7 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
           MergeSelectionAdditive(cfg.GetSelectedSceneObjects(), sceneObjects);
     }
 
-    const bool selectionChanged =
-        fixtures != cfg.GetSelectedFixtures() ||
+    const bool selectionChanged = fixtures != cfg.GetSelectedFixtures() ||
         trusses != cfg.GetSelectedTrusses() ||
         supports != cfg.GetSelectedSupports() ||
         sceneObjects != cfg.GetSelectedSceneObjects();
@@ -2150,8 +2206,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     mergedSelection.insert(trusses.begin(), trusses.end());
     mergedSelection.insert(supports.begin(), supports.end());
     mergedSelection.insert(sceneObjects.begin(), sceneObjects.end());
-    m_controller.SetSelectedUuids(
-        std::vector<std::string>(mergedSelection.begin(), mergedSelection.end()));
+    m_controller.SetSelectedUuids(std::vector<std::string>(
+        mergedSelection.begin(), mergedSelection.end()));
 
     if (FixtureTablePanel::Instance()) {
       if (fixtures.empty())
@@ -2203,10 +2259,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
       FixtureTablePanel::Instance()->SelectByUuid(selection, false);
   } else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage()) {
-    auto selection =
-        m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
-                                            pickEnd.y, w,
-                                            h);
+    auto selection = m_controller.GetTrussesInScreenRect(
+        pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
     if (additive)
       selection = MergeSelectionAdditive(cfg.GetSelectedTrusses(), selection);
     if (selection != cfg.GetSelectedTrusses()) {
@@ -2243,7 +2297,8 @@ void Viewer2DPanel::ApplyRectangleSelection(const wxPoint &start,
     auto selection = m_controller.GetSceneObjectsInScreenRect(
         pickStart.x, pickStart.y, pickEnd.x, pickEnd.y, w, h);
     if (additive)
-      selection = MergeSelectionAdditive(cfg.GetSelectedSceneObjects(), selection);
+      selection =
+          MergeSelectionAdditive(cfg.GetSelectedSceneObjects(), selection);
     if (selection != cfg.GetSelectedSceneObjects()) {
       cfg.PushUndoState("scene object selection");
       cfg.SetSelectedSceneObjects(selection);
@@ -2287,8 +2342,8 @@ void Viewer2DPanel::DrawSelectionRectangle(int width, int height,
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
-  glOrtho(0.0f, static_cast<float>(width), 0.0f,
-          static_cast<float>(height), -1.0f, 1.0f);
+  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height),
+          -1.0f, 1.0f);
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
@@ -2336,8 +2391,7 @@ void Viewer2DPanel::StopDragTableUpdates() {
 void Viewer2DPanel::StartDragTableUpdateWorker() {
   m_dragTableUpdateWorker = std::thread([this]() {
     auto lastUpdate = std::chrono::steady_clock::time_point::min();
-    const auto interval =
-        std::chrono::milliseconds(kDragTableUpdateIntervalMs);
+    const auto interval = std::chrono::milliseconds(kDragTableUpdateIntervalMs);
     while (true) {
       DragTarget target = DragTarget::None;
       std::vector<std::string> uuids;
@@ -2524,8 +2578,8 @@ bool Viewer2DPanel::IsExpensiveVisualInteractionActive() const {
 void Viewer2DPanel::MarkInteractionActivity() {
   m_isInteracting = true;
   m_lastInteractionTime = std::chrono::steady_clock::now();
-  m_interactionResumeTimer.StartOnce(
-      static_cast<int>(kPauseDelay.count()) + 10);
+  m_interactionResumeTimer.StartOnce(static_cast<int>(kPauseDelay.count()) +
+                                     10);
 }
 
 void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
@@ -2557,7 +2611,8 @@ int Viewer2DPanel::GetHoverMoveThresholdPx() const {
   return kHoverIdleMoveThresholdPx;
 }
 
-void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow) {
+void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos,
+                                         bool forceNow) {
   if (!m_enableSelection || !IsShownOnScreen())
     return;
 
@@ -2572,15 +2627,15 @@ void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow
         std::abs(screenPos.x - m_lastHoverQueryScreenPos.x) +
         std::abs(screenPos.y - m_lastHoverQueryScreenPos.y);
     const auto elapsedMs =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now -
-                                                              m_lastHoverHitTestTime)
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - m_lastHoverHitTestTime)
             .count();
     if (manhattanMoved < moveThresholdPx && elapsedMs < hitTestIntervalMs)
       return;
   }
 
-  const auto elapsedMs =
-      std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastHoverHitTestTime)
+  const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             now - m_lastHoverHitTestTime)
           .count();
   if (forceNow || elapsedMs >= hitTestIntervalMs) {
     m_hoverHitTestTimer.Stop();
@@ -2588,11 +2643,13 @@ void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow
     return;
   }
 
-  const int delayMs = std::max(1, hitTestIntervalMs - static_cast<int>(elapsedMs));
+  const int delayMs =
+      std::max(1, hitTestIntervalMs - static_cast<int>(elapsedMs));
   m_hoverHitTestTimer.StartOnce(delayMs);
 }
 
-bool Viewer2DPanel::ApplyHoverUuid(const std::string &newUuid, bool requestRepaint) {
+bool Viewer2DPanel::ApplyHoverUuid(const std::string &newUuid,
+                                   bool requestRepaint) {
   const std::string oldHoverUuid = m_hoverUuid;
   if (oldHoverUuid == newUuid && m_hasHover == !newUuid.empty())
     return false;
@@ -2602,18 +2659,21 @@ bool Viewer2DPanel::ApplyHoverUuid(const std::string &newUuid, bool requestRepai
   m_controller.SetHighlightUuid(m_hoverUuid);
 
   if (FixtureTablePanel::Instance()) {
-    const std::string value =
-        FixtureTablePanel::Instance()->IsActivePage() ? m_hoverUuid : std::string();
+    const std::string value = FixtureTablePanel::Instance()->IsActivePage()
+                                  ? m_hoverUuid
+                                  : std::string();
     FixtureTablePanel::Instance()->HighlightFixture(value);
   }
   if (TrussTablePanel::Instance()) {
-    const std::string value =
-        TrussTablePanel::Instance()->IsActivePage() ? m_hoverUuid : std::string();
+    const std::string value = TrussTablePanel::Instance()->IsActivePage()
+                                  ? m_hoverUuid
+                                  : std::string();
     TrussTablePanel::Instance()->HighlightTruss(value);
   }
   if (HoistTablePanel::Instance()) {
-    const std::string value =
-        HoistTablePanel::Instance()->IsActivePage() ? m_hoverUuid : std::string();
+    const std::string value = HoistTablePanel::Instance()->IsActivePage()
+                                  ? m_hoverUuid
+                                  : std::string();
     HoistTablePanel::Instance()->HighlightHoist(value);
   }
   if (SceneObjectTablePanel::Instance()) {
@@ -2638,15 +2698,18 @@ void Viewer2DPanel::InvalidatePickCache() {
   ++m_pickCacheSceneGeneration;
 }
 
-// Builds a hash for hidden-layer state and invalidates stale pick cache entries.
+// Builds a hash for hidden-layer state and invalidates stale pick cache
+// entries.
 size_t Viewer2DPanel::BuildHiddenLayersHash() {
-  const size_t hash = HashStringContainer(ConfigManager::Get().GetHiddenLayers());
+  const size_t hash =
+      HashStringContainer(ConfigManager::Get().GetHiddenLayers());
   if (m_pickCache.valid && m_pickCache.hiddenLayersHash != hash)
     InvalidatePickCache();
   return hash;
 }
 
-// Returns whether a recent picking query can be reused for the current pointer location.
+// Returns whether a recent picking query can be reused for the current pointer
+// location.
 bool Viewer2DPanel::IsPickCacheReusable(PickQueryKind queryKind,
                                         const wxPoint &framebufferPos,
                                         int viewportWidth, int viewportHeight,
@@ -2671,13 +2734,13 @@ bool Viewer2DPanel::IsPickCacheReusable(PickQueryKind queryKind,
          (kPickCacheReuseDistancePx * kPickCacheReuseDistancePx);
 }
 
-// Stores a pick result and logs the first interaction pick after a scene update.
+// Stores a pick result and logs the first interaction pick after a scene
+// update.
 void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
                                    const wxPoint &framebufferPos,
                                    int viewportWidth, int viewportHeight,
                                    size_t hiddenLayersHash, bool clickSelection,
-                                   bool found,
-                                   const std::string &uuid) {
+                                   bool found, const std::string &uuid) {
   m_pickCache.valid = true;
   m_pickCache.queryKind = queryKind;
   m_pickCache.framebufferPos = framebufferPos;
@@ -2715,11 +2778,13 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
     // This diagnostic only reports cursor hit-testing after a scene refresh.
     Logger::Instance().Log(
         Logger::Level::Debug,
-        "Viewer2DPanel: first cursor hit-test after scene update; reloadRequested=" +
+        "Viewer2DPanel: first cursor hit-test after scene update; "
+        "reloadRequested=" +
             std::string(m_lastUpdateSceneReloadRequested ? "true" : "false") +
-            " query='" + queryName + "' objectUnderCursor=" +
-            std::string(found ? "true" : "false") + " sceneGeneration=" +
-            std::to_string(m_pickCacheSceneGeneration) + ".");
+            " query='" + queryName +
+            "' objectUnderCursor=" + std::string(found ? "true" : "false") +
+            " sceneGeneration=" + std::to_string(m_pickCacheSceneGeneration) +
+            ".");
     m_logFirstPickAfterSceneUpdate = false;
   }
 }
@@ -2730,8 +2795,9 @@ bool Viewer2DPanel::TryResolvePickUuidWithCache(const wxPoint &framebufferPos,
                                                 int viewportHeight,
                                                 size_t hiddenLayersHash,
                                                 std::string &uuidOut) {
-  if (IsPickCacheReusable(PickQueryKind::PickUuid, framebufferPos, viewportWidth,
-                          viewportHeight, hiddenLayersHash, false)) {
+  if (IsPickCacheReusable(PickQueryKind::PickUuid, framebufferPos,
+                          viewportWidth, viewportHeight, hiddenLayersHash,
+                          false)) {
     uuidOut = m_pickCache.uuid;
     return m_pickCache.found;
   }
@@ -2750,12 +2816,9 @@ bool Viewer2DPanel::TryResolvePickUuidWithCache(const wxPoint &framebufferPos,
 }
 
 // Resolves a picked label using the reusable interaction pick cache.
-bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
-                                                 const wxPoint &framebufferPos,
-                                                 int viewportWidth,
-                                                 int viewportHeight,
-                                                 size_t hiddenLayersHash,
-                                                 bool clickSelection,
+bool Viewer2DPanel::TryResolvePickLabelWithCache(
+    PickQueryKind queryKind, const wxPoint &framebufferPos, int viewportWidth,
+    int viewportHeight, size_t hiddenLayersHash, bool clickSelection,
                                                  std::string &uuidOut) {
   if (IsPickCacheReusable(queryKind, framebufferPos, viewportWidth,
                           viewportHeight, hiddenLayersHash, clickSelection)) {
@@ -2775,8 +2838,8 @@ bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
     break;
   case PickQueryKind::TrussLabel:
     found = m_controller.GetTrussLabelAt(framebufferPos.x, framebufferPos.y,
-                                         viewportWidth, viewportHeight, label, pos,
-                                         &pickedUuid, clickSelection);
+                                         viewportWidth, viewportHeight, label,
+                                         pos, &pickedUuid, clickSelection);
     break;
   case PickQueryKind::HoistLabel:
     found = Viewer2DSupportSelection::FindHoistAtScreenPoint(
@@ -2785,9 +2848,9 @@ bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
         pickedUuid, pos, label);
     break;
   case PickQueryKind::SceneObjectLabel:
-    found = m_controller.GetSceneObjectLabelAt(framebufferPos.x, framebufferPos.y,
-                                               viewportWidth, viewportHeight, label,
-                                               pos, &pickedUuid, clickSelection);
+    found = m_controller.GetSceneObjectLabelAt(
+        framebufferPos.x, framebufferPos.y, viewportWidth, viewportHeight,
+        label, pos, &pickedUuid, clickSelection);
     break;
   case PickQueryKind::None:
   case PickQueryKind::PickUuid:
@@ -2803,20 +2866,22 @@ bool Viewer2DPanel::TryResolvePickLabelWithCache(PickQueryKind queryKind,
   return found;
 }
 
-// Updates hover highlighting through the lightweight pick-UUID path when available.
+// Updates hover highlighting through the lightweight pick-UUID path when
+// available.
 bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
   if (!m_enableSelection || !IsShownOnScreen() || m_dragMode != DragMode::None)
     return false;
 
   const bool crossTableActions = IsCrossTableViewportActionsEnabled();
-  const bool fixtureActive =
-      FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage();
-  const bool trussActive =
-      TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage();
-  const bool sceneObjectActive = SceneObjectTablePanel::Instance() &&
+  const bool fixtureActive = FixtureTablePanel::Instance() &&
+                             FixtureTablePanel::Instance()->IsActivePage();
+  const bool trussActive = TrussTablePanel::Instance() &&
+                           TrussTablePanel::Instance()->IsActivePage();
+  const bool sceneObjectActive =
+      SceneObjectTablePanel::Instance() &&
                                  SceneObjectTablePanel::Instance()->IsActivePage();
-  const bool hoistActive =
-      HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage();
+  const bool hoistActive = HoistTablePanel::Instance() &&
+                           HoistTablePanel::Instance()->IsActivePage();
   if (!crossTableActions &&
       (hoistActive || (!fixtureActive && !trussActive && !sceneObjectActive)))
     return false;
@@ -2893,9 +2958,12 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   bool found = false;
 
   if (IsCrossTableViewportActionsEnabled()) {
-    found = TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, newUuid);
-  } else if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage()) {
-    found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w, h,
+    found =
+        TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, newUuid);
+  } else if (FixtureTablePanel::Instance() &&
+             FixtureTablePanel::Instance()->IsActivePage()) {
+    found =
+        TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w, h,
                                          hiddenLayersHash, false, newUuid);
     if (found) {
       if (TrussTablePanel::Instance())
@@ -2903,18 +2971,20 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
-  } else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage()) {
-    found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w, h,
-                                         hiddenLayersHash, false, newUuid);
+  } else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage()) {
+    found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w,
+                                         h, hiddenLayersHash, false, newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->HighlightObject(std::string());
     }
-  } else if (HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage()) {
-    found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w, h,
-                                         hiddenLayersHash, false, newUuid);
+  } else if (HoistTablePanel::Instance() &&
+             HoistTablePanel::Instance()->IsActivePage()) {
+    found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w,
+                                         h, hiddenLayersHash, false, newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -2925,7 +2995,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
     }
   } else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
-    found = TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
+    found =
+        TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
                                          w, h, hiddenLayersHash, false, newUuid);
     if (found) {
       if (FixtureTablePanel::Instance())
@@ -2941,12 +3012,14 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
     ApplyHoverUuid("", true);
   }
 
-  const auto resolveDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+  const auto resolveDuration =
+      std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - queryStartTime);
   TrackHoverHitTestTelemetry(resolveDuration);
 }
 
-void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duration) {
+void Viewer2DPanel::TrackHoverHitTestTelemetry(
+    std::chrono::microseconds duration) {
 #ifndef NDEBUG
   const auto now = std::chrono::steady_clock::now();
   if (m_hoverTelemetryWindowStart.time_since_epoch().count() == 0)
@@ -2957,9 +3030,9 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duratio
   if (elapsed >= std::chrono::seconds(1)) {
     const double avgResolveMs =
         m_hoverQueriesInCurrentWindow > 0
-            ? static_cast<double>(m_hoverTotalResolveTimeInCurrentWindow.count()) /
-                  static_cast<double>(m_hoverQueriesInCurrentWindow) /
-                  1000.0
+            ? static_cast<double>(
+                  m_hoverTotalResolveTimeInCurrentWindow.count()) /
+                  static_cast<double>(m_hoverQueriesInCurrentWindow) / 1000.0
             : 0.0;
     wxLogDebug("Viewer2DPanel hover queries/s: %d avg resolve: %.2f ms",
                m_hoverQueriesInCurrentWindow, avgResolveMs);
@@ -2972,7 +3045,8 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(std::chrono::microseconds duratio
 #endif
 }
 
-// Handles left-button press setup for view dragging, selection dragging, and rectangle selection.
+// Handles left-button press setup for view dragging, selection dragging, and
+// rectangle selection.
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (m_continuousPlacementActive && event.LeftDown()) {
     CaptureMouse();
@@ -3033,22 +3107,23 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     DragTarget target = DragTarget::None;
     if (FixtureTablePanel::Instance() &&
         FixtureTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w,
-                                           h, hiddenLayersHash, false, uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos,
+                                           w, h, hiddenLayersHash, false, uuid);
       target = DragTarget::Fixtures;
     } else if (TrussTablePanel::Instance() &&
                TrussTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w, h,
-                                           hiddenLayersHash, false, uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos,
+                                           w, h, hiddenLayersHash, false, uuid);
       target = DragTarget::Trusses;
     } else if (HoistTablePanel::Instance() &&
                HoistTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w, h,
-                                           hiddenLayersHash, false, uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos,
+                                           w, h, hiddenLayersHash, false, uuid);
       target = DragTarget::Supports;
     } else if (SceneObjectTablePanel::Instance() &&
                SceneObjectTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
+      found =
+          TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
                                            w, h, hiddenLayersHash, false, uuid);
       target = DragTarget::SceneObjects;
     }
@@ -3135,10 +3210,10 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
       SceneObjectTablePanel::Instance() &&
       SceneObjectTablePanel::Instance()->IsActivePage();
   if (sceneObjectsActive &&
-      m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h,
-                                         label, pos, &uuid)) {
-    const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
-        this, cfg, uuid);
+      m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
+                                         &uuid)) {
+    const bool edited =
+        scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
     if (!edited)
       return;
 
@@ -3156,8 +3231,8 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
     return;
   }
 
-  if (!m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label,
-                                      pos, &uuid))
+  if (!m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
+                                      &uuid))
     return;
 
   auto &scene = cfg.GetScene();
@@ -3270,22 +3345,24 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
     bool found = false;
     if (IsCrossTableViewportActionsEnabled())
-      found = TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, uuid);
+      found =
+          TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, uuid);
     else if (FixtureTablePanel::Instance() &&
              FixtureTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w,
-                                           h, hiddenLayersHash, true, uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos,
+                                           w, h, hiddenLayersHash, true, uuid);
     else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w, h,
-                                           hiddenLayersHash, true, uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos,
+                                           w, h, hiddenLayersHash, true, uuid);
     else if (HoistTablePanel::Instance() &&
              HoistTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w, h,
-                                           hiddenLayersHash, true, uuid);
+      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos,
+                                           w, h, hiddenLayersHash, true, uuid);
     else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
+      found =
+          TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
                                            w, h, hiddenLayersHash, true, uuid);
 
     ConfigManager &cfg = ConfigManager::Get();
@@ -3305,10 +3382,12 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             const RenderSize anchorRenderSize = ResolveRenderSize(this);
             if (anchorRenderSize.IsValid()) {
               const auto anchorScreen = Viewer2DMeasureWorldToScreen(
-                  m_measureToolState.anchorWorld, m_view, anchorRenderSize.width,
-                  anchorRenderSize.height, m_zoom, m_offsetX, m_offsetY);
+                  m_measureToolState.anchorWorld, m_view,
+                  anchorRenderSize.width, anchorRenderSize.height, m_zoom,
+                  m_offsetX, m_offsetY);
               if (anchorScreen)
-                m_lastMousePos = ToLogicalPointFromFramebuffer(this, *anchorScreen);
+                m_lastMousePos =
+                    ToLogicalPointFromFramebuffer(this, *anchorScreen);
               else
                 m_lastMousePos = event.GetPosition();
             } else {
@@ -3321,7 +3400,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             if (m_measureToolState.mode == Viewer2DMeasureMode::EdgeToEdge) {
               const auto anchorBounds = ResolveSceneElementBoundsByUuid(
                   m_controller, cfg, m_measureToolState.anchorUuid);
-              const auto targetBounds = ResolveSceneElementBoundsByUuid(m_controller, cfg, uuid);
+              const auto targetBounds =
+                  ResolveSceneElementBoundsByUuid(m_controller, cfg, uuid);
               if (anchorBounds && targetBounds) {
                 const auto nearest = ComputeNearestProjectedBoundsPoints(
                     *anchorBounds, *targetBounds, m_view);
@@ -3355,16 +3435,20 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             const float distanceMeters = std::sqrt(du * du + dv * dv);
             const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
                 ConfigManager::Get().GetValue("ui_distance_unit_system"));
-            const std::string distanceText = Units::FormatDistanceFromMillimeters(
-                static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
-                Units::ValueFormatContext::Label) +
+            const std::string distanceText =
+                Units::FormatDistanceFromMillimeters(
+                    static_cast<double>(distanceMeters) * 1000.0,
+                    distanceUnitSystem, Units::ValueFormatContext::Label) +
                 " " + Units::DistanceUnitSuffix(distanceUnitSystem);
-            if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar()) {
+            if (MainWindow::Instance() &&
+                MainWindow::Instance()->GetStatusBar()) {
               MainWindow::Instance()->SetStatusText(
-                  wxString::FromUTF8((m_measureToolState.mode == Viewer2DMeasureMode::EdgeToEdge
+                  wxString::FromUTF8((m_measureToolState.mode ==
+                                              Viewer2DMeasureMode::EdgeToEdge
                                        ? "Gap measure: "
                                        : "Measure: ") +
-                                      distanceText), 0);
+                                     distanceText),
+                  0);
             }
           }
         }
@@ -3433,7 +3517,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
             SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
         }
         std::vector<std::string> mergedSelection;
-        const auto appendSelection = [&](const std::vector<std::string> &source) {
+        const auto appendSelection =
+            [&](const std::vector<std::string> &source) {
           mergedSelection.insert(mergedSelection.end(), source.begin(),
                                  source.end());
         };
@@ -3460,7 +3545,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
           cfg.SetSelectedFixtures(selection);
           selectionChanged = true;
           if (Viewer2DRenderPanel::Instance())
-            Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
+            Viewer2DRenderPanel::Instance()
+                ->RefreshLabelControlsFromSelection();
         }
         m_controller.SetSelectedUuids(
             BuildViewerSelectionForTableSelection(cfg, selection, additive),
@@ -3537,9 +3623,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
       m_hasHover = false;
       m_hoverUuid.clear();
       m_controller.SetHighlightUuid("");
-      const bool hasAnySelection =
-          !cfg.GetSelectedFixtures().empty() || !cfg.GetSelectedTrusses().empty() ||
-          !cfg.GetSelectedSupports().empty() || !cfg.GetSelectedSceneObjects().empty();
+      const bool hasAnySelection = !cfg.GetSelectedFixtures().empty() ||
+                                   !cfg.GetSelectedTrusses().empty() ||
+                                   !cfg.GetSelectedSupports().empty() ||
+                                   !cfg.GetSelectedSceneObjects().empty();
       if (hasAnySelection) {
         cfg.PushUndoState("clear selection");
         cfg.SetSelectedFixtures({});
@@ -3562,14 +3649,13 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
       if (SceneObjectTablePanel::Instance())
         SceneObjectTablePanel::Instance()->ClearSelection();
     }
-    const bool highlightChanged = oldHasHover != m_hasHover ||
-                                  oldHoverUuid != m_hoverUuid;
+    const bool highlightChanged =
+        oldHasHover != m_hasHover || oldHoverUuid != m_hoverUuid;
     if (selectionChanged || highlightChanged)
       RequestRepaint();
   }
   m_draggedSincePress = false;
 }
-
 
 // Opens the active table selection menu when right-clicking empty viewer space.
 void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
@@ -3598,12 +3684,13 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   std::string hitUuid;
   const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
   std::string sceneObjectUuid;
-  if (m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label,
-                                         pos, &sceneObjectUuid)) {
+  if (m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
+                                         &sceneObjectUuid)) {
     wxMenu menu;
     constexpr int kConvertSceneObjectToTrussId = wxID_HIGHEST + 1300;
     menu.Append(kConvertSceneObjectToTrussId, "Convert to Truss");
-    const int selectedId = GetPopupMenuSelectionFromUser(menu, event.GetPosition());
+    const int selectedId =
+        GetPopupMenuSelectionFromUser(menu, event.GetPosition());
     if (selectedId == kConvertSceneObjectToTrussId) {
       ConfigManager::Get().SetSelectedSceneObjects({sceneObjectUuid});
       wxCommandEvent command(wxEVT_MENU, ID_Tools_ConvertSceneObjectsToTruss);
@@ -3613,10 +3700,10 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     return;
   }
 
-  const bool fixturePageActive =
-      FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage();
-  const bool trussPageActive =
-      TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage();
+  const bool fixturePageActive = FixtureTablePanel::Instance() &&
+                                 FixtureTablePanel::Instance()->IsActivePage();
+  const bool trussPageActive = TrussTablePanel::Instance() &&
+                               TrussTablePanel::Instance()->IsActivePage();
   if (!fixturePageActive && !trussPageActive) {
     event.Skip();
     return;
@@ -3630,8 +3717,8 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   wxString typeMenuLabel;
 
   if (fixturePageActive) {
-    if (m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label,
-                                       pos, &hitUuid, true)) {
+    if (m_controller.GetFixtureLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
+                                       &hitUuid, true)) {
       event.Skip();
       return;
     }
@@ -3648,8 +3735,8 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     allLabel = "All fixtures";
     typeMenuLabel = "Select by fixture type";
   } else {
-    if (m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, label,
-                                     pos, &hitUuid)) {
+    if (m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, label, pos,
+                                     &hitUuid)) {
       event.Skip();
       return;
     }
@@ -3721,10 +3808,11 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
       selectedId < kSelectTypeBaseId + static_cast<int>(orderedTypes.size())) {
     const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
     if (fixturePageActive)
-      ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, orderedTypes[idx]),
-                                m_controller);
+      ApplyFixtureSelectionToUi(
+          BuildFixtureSelectionByType(scene, orderedTypes[idx]), m_controller);
     else
-      ApplyTrussSelectionToUi(BuildTrussSelectionByModelKey(scene, orderedTypes[idx]),
+      ApplyTrussSelectionToUi(
+          BuildTrussSelectionByModelKey(scene, orderedTypes[idx]),
                               m_controller);
     RequestRepaint();
     return;
@@ -3741,8 +3829,8 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
         ApplyFixtureSelectionToUi(
             BuildFixtureSelectionByPosition(scene, "", true), m_controller);
       else
-        ApplyTrussSelectionToUi(
-            BuildTrussSelectionByPosition(scene, "", true), m_controller);
+        ApplyTrussSelectionToUi(BuildTrussSelectionByPosition(scene, "", true),
+                                m_controller);
     }
     RequestRepaint();
     return;
@@ -3782,8 +3870,7 @@ void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
 }
 
 // Aligns the provisional fixture with the raw world position under the pointer.
-bool Viewer2DPanel::AlignContinuousElementToPointer(
-    const wxPoint &screenPos) {
+bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
   RestorePendingMagnetSnapPreview();
   const auto pointerWorld = ComputeWorldPositionFromScreen(screenPos);
   const auto currentWorld = ComputeSelectionDragCenterMeters();
@@ -3814,8 +3901,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
         if (m_dragAxis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||
              std::abs(dy) >= kSelectionDragStartThresholdPx)) {
-          m_dragAxis = std::abs(dx) >= std::abs(dy)
-                           ? DragAxis::Horizontal
+          m_dragAxis = std::abs(dx) >= std::abs(dy) ? DragAxis::Horizontal
                            : DragAxis::Vertical;
         }
         if (m_dragAxis == DragAxis::Horizontal)
@@ -3861,7 +3947,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     int dx = pos.x - m_lastMousePos.x;
     int dy = pos.y - m_lastMousePos.y;
 
-    if (!m_dragSelectionMoved && std::abs(dx) < kSelectionDragStartThresholdPx &&
+    if (!m_dragSelectionMoved &&
+        std::abs(dx) < kSelectionDragStartThresholdPx &&
         std::abs(dy) < kSelectionDragStartThresholdPx)
       return;
 
@@ -3925,8 +4012,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_pendingHoverScreenPos = pos;
     RequestRepaint();
 
-    const bool hoistActive =
-        HoistTablePanel::Instance() && HoistTablePanel::Instance()->IsActivePage();
+    const bool hoistActive = HoistTablePanel::Instance() &&
+                             HoistTablePanel::Instance()->IsActivePage();
     if (hoistActive)
       ScheduleHoverLabelRefresh(pos);
   }

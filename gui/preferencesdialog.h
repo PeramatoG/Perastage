@@ -17,8 +17,8 @@
  */
 #pragma once
 
-#include <array>
 #include "localization/app_language.h"
+#include <array>
 #include <wx/wx.h>
 
 wxDECLARE_EVENT(EVT_UI_UNITS_CHANGED, wxCommandEvent);
@@ -38,8 +38,8 @@ private:
   void NotifyUnitsChanged();
   void RefreshRiderImportDistanceLabels();
   void ConvertRiderImportDistanceFields();
-  void ShowLanguageRestartNoticeIfNeeded(
-      localization::AppLanguage selectedLanguage);
+  void
+  ShowLanguageRestartNoticeIfNeeded(localization::AppLanguage selectedLanguage);
 
   std::array<wxTextCtrl *, 6> lxHeightCtrls{};
   std::array<wxTextCtrl *, 6> lxPosCtrls{};
@@ -59,6 +59,10 @@ private:
   wxRadioButton *viewer3dByLayerRenderRadio = nullptr;
   wxRadioButton *viewer3dByUniverseRenderRadio = nullptr;
   wxCheckBox *viewer3dInvertOrbitCheck = nullptr;
+  wxCheckBox *groupMoveFixtureCheck = nullptr;
+  wxCheckBox *groupMoveTrussCheck = nullptr;
+  wxCheckBox *groupMoveSupportCheck = nullptr;
+  wxCheckBox *groupMoveSceneObjectCheck = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxChoice *updateCheckModeChoice = nullptr;

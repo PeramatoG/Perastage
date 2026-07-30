@@ -23,6 +23,7 @@
 #include "hoisttablepanel.h"
 #include "scene_grouping.h"
 #include "sceneobjecttablepanel.h"
+#include "selection_movement_settings.h"
 #include "trusstablepanel.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -37,8 +38,10 @@ std::size_t SelectionSize(const scene_grouping::ObjectSelection &selection) {
          selection.supports.size() + selection.sceneObjects.size();
 }
 
-// Builds a scene-grouping selection from the current cross-table selection state.
-scene_grouping::ObjectSelection BuildGroupingSelection(const ConfigManager &cfg) {
+// Builds a scene-grouping selection from the current cross-table selection
+// state.
+scene_grouping::ObjectSelection
+BuildGroupingSelection(const ConfigManager &cfg) {
   return {.fixtures = cfg.GetSelectedFixtures(),
           .trusses = cfg.GetSelectedTrusses(),
           .supports = cfg.GetSelectedSupports(),
@@ -46,32 +49,38 @@ scene_grouping::ObjectSelection BuildGroupingSelection(const ConfigManager &cfg)
 }
 
 // Applies a grouping operation result to the persistent selection state.
-void ApplyGroupingResultSelection(ConfigManager &cfg,
-                                  const scene_grouping::OperationResult &result) {
+void ApplyGroupingResultSelection(
+    ConfigManager &cfg, const scene_grouping::OperationResult &result) {
   cfg.SetSelectedFixtures(result.affectedFixtures);
   cfg.SetSelectedTrusses(result.affectedTrusses);
   cfg.SetSelectedSupports(result.affectedSupports);
   cfg.SetSelectedSceneObjects(result.affectedSceneObjects);
 }
 
-// Updates table selections after grouping without triggering redundant selection writes.
-void RefreshGroupingTableSelections(MainWindow *window, const ConfigManager &cfg) {
+// Updates table selections after grouping without triggering redundant
+// selection writes.
+void RefreshGroupingTableSelections(MainWindow *window,
+                                    const ConfigManager &cfg) {
   (void)window;
   if (FixtureTablePanel::Instance())
-    FixtureTablePanel::Instance()->SelectByUuid(cfg.GetSelectedFixtures(), false);
+    FixtureTablePanel::Instance()->SelectByUuid(cfg.GetSelectedFixtures(),
+                                                false);
   if (TrussTablePanel::Instance())
     TrussTablePanel::Instance()->SelectByUuid(cfg.GetSelectedTrusses(), false);
   if (HoistTablePanel::Instance())
     HoistTablePanel::Instance()->SelectByUuid(cfg.GetSelectedSupports(), false);
   if (SceneObjectTablePanel::Instance())
-    SceneObjectTablePanel::Instance()->SelectByUuid(cfg.GetSelectedSceneObjects(), false);
+    SceneObjectTablePanel::Instance()->SelectByUuid(
+        cfg.GetSelectedSceneObjects(), false);
 }
 
 // Synchronizes viewport highlights with group-expanded selection membership.
 void RefreshGroupingViewportHighlights(const ConfigManager &cfg) {
   const scene_grouping::ObjectSelection selection = BuildGroupingSelection(cfg);
   const std::vector<std::string> expanded =
-      scene_grouping::ExpandSelectionForGroupHighlights(cfg.GetScene(), selection);
+      scene_grouping::ExpandSelectionForGroupHighlights(
+          cfg.GetScene(), selection,
+          selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
 
   if (Viewer3DPanel::Instance())
     Viewer3DPanel::Instance()->SetSelectedFixtures(expanded);

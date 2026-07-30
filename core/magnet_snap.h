@@ -1,5 +1,6 @@
 #pragma once
 
+#include "interactive_transform_policy.h"
 #include "mvrscene.h"
 
 #include <array>
@@ -41,8 +42,11 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
                                    const SnapSource &source,
                                    const SnapSettings &settings = {});
 
-// Applies a translation-only snap result through scene_grouping transform helpers.
-bool ApplySnapTransform(MvrScene &scene, const SnapResult &result);
+// Applies a translation-only snap result through scene_grouping transform
+// helpers.
+bool ApplySnapTransform(
+    MvrScene &scene, const SnapResult &result,
+    const scene_grouping::InteractiveTransformPolicy &policy = {});
 
 // Creates or extends official MVR GroupObjects after a committed snap.
 bool ApplyCommittedSnapGrouping(MvrScene &scene, const SnapResult &result);

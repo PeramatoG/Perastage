@@ -27,8 +27,8 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-#include <GL/glew.h>
 #include "gl_context_utils.h"
+#include <GL/glew.h>
 // macOS ships OpenGL headers in the framework; include them conditionally.
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -127,12 +127,13 @@ void ValidateGlStateAfterRender(const char* stage, int expectedWidth,
     glGetIntegerv(GL_VIEWPORT, viewport);
 
     const bool validFramebuffer = framebuffer == 0;
-    const bool validViewport =
-        viewport[0] == 0 && viewport[1] == 0 &&
-        viewport[2] == expectedWidth && viewport[3] == expectedHeight;
+    const bool validViewport = viewport[0] == 0 && viewport[1] == 0 &&
+                               viewport[2] == expectedWidth &&
+                               viewport[3] == expectedHeight;
     if (!validFramebuffer || !validViewport) {
         wxLogTrace("viewer3d_gl_state",
-                   "%s left unexpected GL state (fbo=%d viewport=%d,%d,%d,%d expected=0,0,%d,%d).",
+                 "%s left unexpected GL state (fbo=%d viewport=%d,%d,%d,%d "
+                 "expected=0,0,%d,%d).",
                    stage, framebuffer, viewport[0], viewport[1], viewport[2],
                    viewport[3], expectedWidth, expectedHeight);
     }
@@ -397,7 +398,8 @@ Viewer2DRenderMode ToSceneRenderMode(Viewer3DRenderStyle style) {
 double ComputeExpandedFovYDegrees(int sourceWidth, int sourceHeight,
                                   int targetWidth, int targetHeight) {
     constexpr double kPi = 3.14159265358979323846;
-    if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0)
+    if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 ||
+        targetHeight <= 0)
         return kDefaultFovYDegrees;
 
     const double sourceAspect =
@@ -410,7 +412,8 @@ double ComputeExpandedFovYDegrees(int sourceWidth, int sourceHeight,
     const double baseHalfFovRadians = (kDefaultFovYDegrees * 0.5) * kPi / 180.0;
     const double expandedHalfFovRadians =
         std::atan(std::tan(baseHalfFovRadians) * (sourceAspect / targetAspect));
-    const double expandedFovDegrees = expandedHalfFovRadians * 2.0 * 180.0 / kPi;
+    const double expandedFovDegrees =
+        expandedHalfFovRadians * 2.0 * 180.0 / kPi;
     return std::clamp(expandedFovDegrees, kDefaultFovYDegrees, 170.0);
 }
 
@@ -449,12 +452,14 @@ float ComputeGridPlaneHorizonNdcY() {
     bool found = false;
     double topMostY = -1e9;
     for (int i = 0; i < kSamples; ++i) {
-        const double angle = (static_cast<double>(i) / static_cast<double>(kSamples)) *
-                             2.0 * 3.14159265358979323846;
+      const double angle =
+          (static_cast<double>(i) / static_cast<double>(kSamples)) * 2.0 *
+          3.14159265358979323846;
         const double x = std::cos(angle) * kProbeRadius;
         const double y = std::sin(angle) * kProbeRadius;
         GLdouble sx = 0.0, sy = 0.0, sz = 0.0;
-        if (gluProject(x, y, 0.0, model, projection, viewport, &sx, &sy, &sz) == GL_TRUE &&
+      if (gluProject(x, y, 0.0, model, projection, viewport, &sx, &sy, &sz) ==
+              GL_TRUE &&
             sz >= 0.0 && sz <= 1.0) {
             topMostY = std::max(topMostY, sy);
             found = true;
@@ -464,7 +469,8 @@ float ComputeGridPlaneHorizonNdcY() {
     if (!found)
         return -0.05f;
 
-    const double ndcY = (topMostY / static_cast<double>(viewport[3])) * 2.0 - 1.0;
+    const double ndcY =
+        (topMostY / static_cast<double>(viewport[3])) * 2.0 - 1.0;
     return static_cast<float>(std::clamp(ndcY, -0.85, 0.85));
 }
 
@@ -503,7 +509,8 @@ void DrawTexturedStyleBackgroundGradient(float horizonNdcY) {
         glColor3f(bands[i].second[0], bands[i].second[1], bands[i].second[2]);
         glVertex2f(-1.0f, bands[i].first);
         glVertex2f(1.0f, bands[i].first);
-        glColor3f(bands[i + 1].second[0], bands[i + 1].second[1], bands[i + 1].second[2]);
+      glColor3f(bands[i + 1].second[0], bands[i + 1].second[1],
+                bands[i + 1].second[2]);
         glVertex2f(1.0f, bands[i + 1].first);
         glVertex2f(-1.0f, bands[i + 1].first);
         glEnd();
@@ -547,8 +554,8 @@ void DrawTexturedGroundPlaneBackdrop() {
     glColor3f(0.22f, 0.16f, 0.14f);
     glVertex3f(0.0f, 0.0f, 0.0f);
     for (int i = 0; i <= kSegments; ++i) {
-        const float angle = (static_cast<float>(i) / static_cast<float>(kSegments)) *
-                            2.0f * kPi;
+      const float angle =
+          (static_cast<float>(i) / static_cast<float>(kSegments)) * 2.0f * kPi;
         const float x = std::cos(angle) * kRadius;
         const float y = std::sin(angle) * kRadius;
         glColor3f(0.54f, 0.33f, 0.24f);
@@ -705,8 +712,8 @@ bool QueryHoverUuid(Viewer3DController& controller,
         "Hover picking start target=%d mouse=(%d,%d) size=(%d,%d)",
         static_cast<int>(target), mouseX, mouseY, width, height);
     const bool found = controller.GetHoverUuidAt(mouseX, mouseY, width, height,
-                                     ToHoverPickTarget(target), outUuid,
-                                     confirmDepth);
+                                                 ToHoverPickTarget(target),
+                                                 outUuid, confirmDepth);
     viewer3d::diagnostics::Logf("Hover picking end found=%d uuid=%s",
                                 found ? 1 : 0, outUuid.c_str());
     if (!found)
@@ -714,13 +721,12 @@ bool QueryHoverUuid(Viewer3DController& controller,
     return found;
 }
 
-// Runs hover pick queries across all selectable object tables in priority order.
-bool QueryHoverUuidAcrossTables(Viewer3DController& controller, int mouseX,
-                                int mouseY, int width, int height,
-                                std::string& outUuid,
-                                Viewer3DPanel::HoverTargetTable& outTarget,
-                                bool confirmDepth = false)
-{
+  // Runs hover pick queries across all selectable object tables in priority
+  // order.
+  bool QueryHoverUuidAcrossTables(
+      Viewer3DController & controller, int mouseX, int mouseY, int width,
+      int height, std::string &outUuid,
+      Viewer3DPanel::HoverTargetTable &outTarget, bool confirmDepth = false) {
     const Viewer3DPanel::HoverTargetTable targets[] = {
         Viewer3DPanel::HoverTargetTable::Fixtures,
         Viewer3DPanel::HoverTargetTable::Trusses,
@@ -844,8 +850,8 @@ void DrawSelectionDragArrowhead(const std::array<float, 3>& origin,
     glBegin(GL_TRIANGLE_FAN);
     glVertex3f(tip[0], tip[1], tip[2]);
     for (int i = 0; i <= kSegments; ++i) {
-        const float angle = (static_cast<float>(i) / static_cast<float>(kSegments)) *
-                            2.0f * kPi;
+      const float angle =
+          (static_cast<float>(i) / static_cast<float>(kSegments)) * 2.0f * kPi;
         const float ca = std::cos(angle);
         const float sa = std::sin(angle);
         glVertex3f(base[0] + (u[0] * ca + v[0] * sa) * radius,
@@ -857,8 +863,8 @@ void DrawSelectionDragArrowhead(const std::array<float, 3>& origin,
     glBegin(GL_TRIANGLE_FAN);
     glVertex3f(base[0], base[1], base[2]);
     for (int i = kSegments; i >= 0; --i) {
-        const float angle = (static_cast<float>(i) / static_cast<float>(kSegments)) *
-                            2.0f * kPi;
+      const float angle =
+          (static_cast<float>(i) / static_cast<float>(kSegments)) * 2.0f * kPi;
         const float ca = std::cos(angle);
         const float sa = std::sin(angle);
         glVertex3f(base[0] + (u[0] * ca + v[0] * sa) * radius,
@@ -868,9 +874,11 @@ void DrawSelectionDragArrowhead(const std::array<float, 3>& origin,
     glEnd();
 }
 
-int GetRequestedViewerAASamples()
-{
-    const int quality = std::clamp(static_cast<int>(std::lround(ConfigManager::Get().GetFloat("viewer3d_aa_quality"))), 0, 2);
+  int GetRequestedViewerAASamples() {
+    const int quality =
+        std::clamp(static_cast<int>(std::lround(
+                       ConfigManager::Get().GetFloat("viewer3d_aa_quality"))),
+                   0, 2);
     switch (quality) {
     case 2:
         return 4;
@@ -899,7 +907,8 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
         selection_movement_settings::IsAxisConstrainedMovementEnabled(
             ConfigManager::Get());
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-    Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
+  Bind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this,
+       wxEVT_VIEWER_REFRESH);
     m_zoomInteractionTimer.SetOwner(this);
     Bind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
          m_zoomInteractionTimer.GetId());
@@ -917,10 +926,10 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
 }
 
 // Stops refresh work and releases OpenGL-owned panel resources.
-Viewer3DPanel::~Viewer3DPanel()
-{
+Viewer3DPanel::~Viewer3DPanel() {
     m_shuttingDown = true;
-    Unbind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this, wxEVT_VIEWER_REFRESH);
+  Unbind(wxEVT_THREAD, &Viewer3DPanel::OnThreadRefresh, this,
+         wxEVT_VIEWER_REFRESH);
     Unbind(wxEVT_TIMER, &Viewer3DPanel::OnZoomInteractionTimeout, this,
            m_zoomInteractionTimer.GetId());
     m_zoomInteractionTimer.Stop();
@@ -955,8 +964,8 @@ bool Viewer3DPanel::TryBindGlContextForInteraction(const char* caller)
 
     if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
                                       callerName)) {
-        viewer3d::diagnostics::Logf("%s skipped GL interaction binding: SetCurrent failed.",
-                                    callerName);
+    viewer3d::diagnostics::Logf(
+        "%s skipped GL interaction binding: SetCurrent failed.", callerName);
         return false;
     }
 
@@ -978,16 +987,14 @@ bool Viewer3DPanel::PrepareGlResourceSync(const char* caller)
 }
 
 // Stops and joins the background refresh signal thread.
-void Viewer3DPanel::StopRefreshThread()
-{
+void Viewer3DPanel::StopRefreshThread() {
     m_threadRunning = false;
     if (m_refreshThread.joinable())
         m_refreshThread.join();
 }
 
 // Initializes 3D OpenGL state only after centralized GLEW/context validation.
-bool Viewer3DPanel::InitGL()
-{
+bool Viewer3DPanel::InitGL() {
     if (!IsShownOnScreen()) {
         return false;
     }
@@ -1020,28 +1027,31 @@ bool Viewer3DPanel::InitGL()
 }
 
 // Paint event handler
-void Viewer3DPanel::OnPaint(wxPaintEvent& event)
-{
+void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     (void)event;
     wxPaintDC dc(this);
     if (m_paintInProgress) {
-        viewer3d::diagnostics::Log("Viewer3DPanel::OnPaint skipped re-entrant paint.");
+    viewer3d::diagnostics::Log(
+        "Viewer3DPanel::OnPaint skipped re-entrant paint.");
         wxASSERT_MSG(false, "Re-entrant 3D paint event detected.");
         return;
     }
     ScopedBoolFlag paintScope(m_paintInProgress);
     viewer3d::diagnostics::Log("OpenGL render frame start.");
     if (!IsShownOnScreen() || m_modalDialogActive) {
-        viewer3d::diagnostics::Log("OpenGL render frame skipped because the panel is hidden or modal-blocked.");
+    viewer3d::diagnostics::Log("OpenGL render frame skipped because the panel "
+                               "is hidden or modal-blocked.");
         return;
     }
     if (!m_glContext) {
-        viewer3d::diagnostics::Log("OpenGL render frame skipped because the GL context is null.");
+    viewer3d::diagnostics::Log(
+        "OpenGL render frame skipped because the GL context is null.");
         wxASSERT_MSG(false, "Viewer3DPanel has no GL context during paint.");
         return;
     }
     if (!InitGL() || !m_glInitialized) {
-        viewer3d::diagnostics::Log("OpenGL render frame skipped because GL initialization is not complete.");
+    viewer3d::diagnostics::Log("OpenGL render frame skipped because GL "
+                               "initialization is not complete.");
         return;
     }
 
@@ -1070,10 +1080,12 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     static auto s_lastCameraUpdate = std::chrono::steady_clock::now();
     const auto now = std::chrono::steady_clock::now();
-    const float dt = std::chrono::duration<float>(now - s_lastCameraUpdate).count();
+  const float dt =
+      std::chrono::duration<float>(now - s_lastCameraUpdate).count();
     s_lastCameraUpdate = now;
     m_camera.Update(dt);
-    wxASSERT_MSG(m_camera.IsValid(), "3D camera state became invalid during paint update.");
+  wxASSERT_MSG(m_camera.IsValid(),
+               "3D camera state became invalid during paint update.");
 
     const RenderSize renderSize = ResolveRenderSize(this);
     if (!renderSize.IsValid()) {
@@ -1109,7 +1121,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
-    const bool skipLabelWork = m_cameraMoving &&
+  const bool skipLabelWork =
+      m_cameraMoving &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
     if (cameraFingerprint != m_lastCameraFingerprint) {
@@ -1125,7 +1138,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_lastHiddenLayersFingerprint = hiddenLayersFingerprint;
     }
 
-    const HoverTargetTable activeTable = IsCrossTableViewportActionsEnabled() ? HoverTargetTable::Fixtures : ResolveActiveHoverTargetTable();
+  const HoverTargetTable activeTable = IsCrossTableViewportActionsEnabled()
+                                           ? HoverTargetTable::Fixtures
+                                           : ResolveActiveHoverTargetTable();
 
     if (activeTable != m_lastHoverTargetTable) {
         m_forceHoverQuery = true;
@@ -1134,27 +1149,29 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
     const HoverQueryState currentHoverQueryState{
-        pickPos,
-        m_cameraRevision,
-        m_hiddenLayersRevision,
-        m_sceneRevision
-    };
-    const bool hoverStateChanged = !m_hasLastHoverQueryState ||
-        currentHoverQueryState.mouseFramebufferPos != m_lastHoverQueryState.mouseFramebufferPos ||
-        currentHoverQueryState.cameraRevision != m_lastHoverQueryState.cameraRevision ||
-        currentHoverQueryState.hiddenLayersRevision != m_lastHoverQueryState.hiddenLayersRevision ||
-        currentHoverQueryState.sceneRevision != m_lastHoverQueryState.sceneRevision;
+      pickPos, m_cameraRevision, m_hiddenLayersRevision, m_sceneRevision};
+  const bool hoverStateChanged =
+      !m_hasLastHoverQueryState ||
+      currentHoverQueryState.mouseFramebufferPos !=
+          m_lastHoverQueryState.mouseFramebufferPos ||
+      currentHoverQueryState.cameraRevision !=
+          m_lastHoverQueryState.cameraRevision ||
+      currentHoverQueryState.hiddenLayersRevision !=
+          m_lastHoverQueryState.hiddenLayersRevision ||
+      currentHoverQueryState.sceneRevision !=
+          m_lastHoverQueryState.sceneRevision;
     const bool shouldUpdateHoverQuery =
         m_forceHoverQuery || m_mouseMoved || hoverStateChanged || !m_hasHover;
     const auto nowForHover = std::chrono::steady_clock::now();
-    const bool hoverCadenceDue = m_forceHoverQuery ||
+  const bool hoverCadenceDue =
+      m_forceHoverQuery ||
         (nowForHover - m_lastHoverQueryTime) >= kHoverQueryInterval;
     const bool hoverQueriesPausedForInteraction =
         m_cameraMoving || m_isInteracting || m_dragging || m_selectionDragArmed;
     if (hoverQueriesPausedForInteraction && shouldUpdateHoverQuery)
-        viewer3d::diagnostics::Log("Hover picking paused during active interaction.");
-    const bool shouldRunHoverQuery =
-        !hoverQueriesPausedForInteraction &&
+    viewer3d::diagnostics::Log(
+        "Hover picking paused during active interaction.");
+  const bool shouldRunHoverQuery = !hoverQueriesPausedForInteraction &&
         (!skipLabelWork || m_forceHoverQuery) &&
         shouldUpdateHoverQuery && hoverCadenceDue &&
         activeTable != HoverTargetTable::None &&
@@ -1164,11 +1181,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         const auto hoverQueryStart = std::chrono::steady_clock::now();
         HoverTargetTable pickedTable = activeTable;
         if (IsCrossTableViewportActionsEnabled())
-            found = QueryHoverUuidAcrossTables(m_controller, pickPos.x, pickPos.y,
-                                               w, h, newUuid, pickedTable);
+      found = QueryHoverUuidAcrossTables(m_controller, pickPos.x, pickPos.y, w,
+                                         h, newUuid, pickedTable);
         else
-            found = QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y,
-                                   w, h, newUuid);
+      found = QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y, w,
+                             h, newUuid);
         const auto hoverQueryElapsedMs =
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - hoverQueryStart)
@@ -1181,11 +1198,11 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 wxString tooltipLabel;
                 wxPoint tooltipPos;
                 if (activeTable == HoverTargetTable::Trusses) {
-                    m_controller.GetTrussLabelAt(pickPos.x, pickPos.y,
-                        w, h, tooltipLabel, tooltipPos, nullptr);
+          m_controller.GetTrussLabelAt(pickPos.x, pickPos.y, w, h, tooltipLabel,
+                                       tooltipPos, nullptr);
                 } else if (activeTable == HoverTargetTable::SceneObjects) {
-                    m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y,
-                        w, h, tooltipLabel, tooltipPos, nullptr);
+          m_controller.GetSceneObjectLabelAt(pickPos.x, pickPos.y, w, h,
+                                             tooltipLabel, tooltipPos, nullptr);
                 }
                 newLabel = tooltipLabel;
                 newPos = tooltipPos;
@@ -1211,8 +1228,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         } else {
             m_hoverText.clear();
         }
-    }
-    else if (hoverQueryRan && !skipLabelWork) {
+  } else if (hoverQueryRan && !skipLabelWork) {
         m_hasHover = false;
         m_hoverUuid.clear();
         m_hoverText.clear();
@@ -1238,11 +1254,14 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
     // Draw labels before swapping buffers to avoid losing them.
     if (!pauseHeavyTasks && !skipLabelWork) {
-        if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
+    if (FixtureTablePanel::Instance() &&
+        FixtureTablePanel::Instance()->IsActivePage())
             m_controller.DrawFixtureLabels(w, h);
-        else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
+    else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage())
             m_controller.DrawTrussLabels(w, h);
-        else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
+    else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage())
             m_controller.DrawSceneObjectLabels(w, h);
     }
 
@@ -1259,11 +1278,13 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
         m_refreshTelemetryWindowStart = telemetryNow;
     const auto telemetryElapsed = telemetryNow - m_refreshTelemetryWindowStart;
     if (telemetryElapsed >= std::chrono::seconds(1)) {
-        const double avgFullRenderMs = m_fullRenderSamplesInCurrentWindow > 0
+    const double avgFullRenderMs =
+        m_fullRenderSamplesInCurrentWindow > 0
             ? (m_fullRenderMsAccumInCurrentWindow /
                static_cast<double>(m_fullRenderSamplesInCurrentWindow))
             : 0.0;
-        const double avgHoverQueryMs = m_hoverQuerySamplesInCurrentWindow > 0
+    const double avgHoverQueryMs =
+        m_hoverQuerySamplesInCurrentWindow > 0
             ? (m_hoverQueryMsAccumInCurrentWindow /
                static_cast<double>(m_hoverQuerySamplesInCurrentWindow))
             : 0.0;
@@ -1272,8 +1293,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
                 ? (m_highlightUpdateMsAccumInCurrentWindow /
                    static_cast<double>(m_highlightUpdateSamplesInCurrentWindow))
                 : 0.0;
-        wxLogDebug(
-            "Viewer3DPanel refreshes/s full=%d highlight=%d full_render_ms=%.3f hover_query_ms=%.3f highlight_update_ms=%.3f hover_samples=%d highlight_samples=%d",
+    wxLogDebug("Viewer3DPanel refreshes/s full=%d highlight=%d "
+               "full_render_ms=%.3f hover_query_ms=%.3f "
+               "highlight_update_ms=%.3f hover_samples=%d highlight_samples=%d",
                    m_fullRefreshesInCurrentWindow,
                    m_highlightRefreshesInCurrentWindow, avgFullRenderMs,
                    avgHoverQueryMs, avgHighlightUpdateMs,
@@ -1303,21 +1325,20 @@ void Viewer3DPanel::OnPaint(wxPaintEvent& event)
 
 // Resize event handler
 // Schedules a redraw when the 3D panel is resized.
-void Viewer3DPanel::OnResize(wxSizeEvent& event)
-{
-    Refresh();
-}
+void Viewer3DPanel::OnResize(wxSizeEvent &event) { Refresh(); }
 
 // Renders the full 3D scene
-void Viewer3DPanel::Render(const RenderSize& renderSize)
-{
+void Viewer3DPanel::Render(const RenderSize &renderSize) {
     viewer3d::diagnostics::Log("Viewer3DPanel::Render start.");
     if (!IsShownOnScreen()) {
-        viewer3d::diagnostics::Log("Viewer3DPanel::Render skipped because the panel is hidden.");
+    viewer3d::diagnostics::Log(
+        "Viewer3DPanel::Render skipped because the panel is hidden.");
         return;
     }
-    if (!m_glContext || !gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel", "Render")) {
-        viewer3d::diagnostics::Log("Viewer3DPanel::Render skipped because SetCurrent failed.");
+  if (!m_glContext || !gl_lifecycle::TrySetCurrent(*this, m_glContext,
+                                                   "Viewer3DPanel", "Render")) {
+    viewer3d::diagnostics::Log(
+        "Viewer3DPanel::Render skipped because SetCurrent failed.");
         wxASSERT_MSG(false, "Unable to make 3D GL context current for render.");
         return;
     }
@@ -1326,13 +1347,15 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
     const int width = renderSize.width;
     const int height = renderSize.height;
     ApplyKnownViewer3DFrameState(width, height);
-    const RenderSize viewportSize{width, height, "ApplyKnownViewer3DFrameState(framebuffer-px)"};
+  const RenderSize viewportSize{width, height,
+                                "ApplyKnownViewer3DFrameState(framebuffer-px)"};
 
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ApplyCameraMatrices(renderSize);
-    const RenderSize projectionSize{width, height, "ApplyCameraMatrices::projection(framebuffer-px)"};
+  const RenderSize projectionSize{
+      width, height, "ApplyCameraMatrices::projection(framebuffer-px)"};
 
     ++s_renderFrameId;
     ValidateRenderSizeContract("Viewer3DPanel", s_renderFrameId, renderSize,
@@ -1354,14 +1377,13 @@ void Viewer3DPanel::Render(const RenderSize& renderSize)
 // Exports the current 3D view to a PNG image chosen by the user.
 bool Viewer3DPanel::ExportCurrentViewToPng() {
     if (!IsShownOnScreen()) {
-        wxMessageBox("Cannot export while the 3D viewer is hidden.",
-                     "Export image", wxOK | wxICON_WARNING, this);
+    wxMessageBox("Cannot export while the 3D viewer is hidden.", "Export image",
+                 wxOK | wxICON_WARNING, this);
         return false;
     }
 
-    wxFileDialog saveDialog(this, "Export image",
-                            wxEmptyString, "viewer3d_export.png",
-                            "PNG files (*.png)|*.png",
+  wxFileDialog saveDialog(this, "Export image", wxEmptyString,
+                          "viewer3d_export.png", "PNG files (*.png)|*.png",
                             wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDialog.ShowModal() != wxID_OK)
         return false;
@@ -1385,9 +1407,8 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     const RenderSize sourceRenderSize = ResolveRenderSize(this);
     int sourceWidth = sourceRenderSize.width;
     int sourceHeight = sourceRenderSize.height;
-    const double exportFovYDegrees =
-        ComputeExpandedFovYDegrees(sourceWidth, sourceHeight, kExportImageWidth,
-                                   kExportImageHeight);
+  const double exportFovYDegrees = ComputeExpandedFovYDegrees(
+      sourceWidth, sourceHeight, kExportImageWidth, kExportImageHeight);
 
     GLuint fbo = 0;
     GLuint colorTex = 0;
@@ -1403,8 +1424,8 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     glViewport(0, 0, kExportImageWidth, kExportImageHeight);
 
     glBindTexture(GL_TEXTURE_2D, colorTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kExportImageWidth, kExportImageHeight,
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kExportImageWidth,
+               kExportImageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -1428,7 +1449,8 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     const Viewer3DRenderStyle renderStyle = ResolveRenderStyleFromPreferences();
     ApplyViewer3DClearColorForStyle(renderStyle);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    const RenderSize exportRenderSize{kExportImageWidth, kExportImageHeight, "export-fbo"};
+  const RenderSize exportRenderSize{kExportImageWidth, kExportImageHeight,
+                                    "export-fbo"};
     ApplyCameraMatrices(exportRenderSize, exportFovYDegrees);
     if (renderStyle == Viewer3DRenderStyle::Textured) {
         DrawTexturedStyleBackgroundGradient(ComputeGridPlaneHorizonNdcY());
@@ -1478,19 +1500,23 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
 }
 
 // Applies viewport, projection, and camera matrices for the current 3D view.
-void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fovYDegrees)
-{
+void Viewer3DPanel::ApplyCameraMatrices(const RenderSize &renderSize,
+                                        double fovYDegrees) {
     if (!renderSize.IsValid()) {
-        viewer3d::diagnostics::Log("ApplyCameraMatrices rejected invalid render size.");
+    viewer3d::diagnostics::Log(
+        "ApplyCameraMatrices rejected invalid render size.");
         wxASSERT_MSG(false, "Invalid render size passed to 3D camera matrices.");
         return;
     }
-    if (!std::isfinite(fovYDegrees) || fovYDegrees <= 0.0 || fovYDegrees >= 179.0) {
-        viewer3d::diagnostics::Log("ApplyCameraMatrices replaced invalid field of view.");
+  if (!std::isfinite(fovYDegrees) || fovYDegrees <= 0.0 ||
+      fovYDegrees >= 179.0) {
+    viewer3d::diagnostics::Log(
+        "ApplyCameraMatrices replaced invalid field of view.");
         wxASSERT_MSG(false, "Invalid field of view passed to 3D camera matrices.");
         fovYDegrees = kDefaultFovYDegrees;
     }
-    wxASSERT_MSG(m_camera.IsValid(), "Invalid 3D camera state before matrix generation.");
+  wxASSERT_MSG(m_camera.IsValid(),
+               "Invalid 3D camera state before matrix generation.");
     const int width = renderSize.width;
     const int height = renderSize.height;
     glViewport(0, 0, width, height);
@@ -1499,7 +1525,8 @@ void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fov
     glLoadIdentity();
     constexpr double kNearPlane = 0.05;
     constexpr double kFarPlane = 2000.0;
-    const double aspectRatio = static_cast<double>(width) / static_cast<double>(height);
+  const double aspectRatio =
+      static_cast<double>(width) / static_cast<double>(height);
     gluPerspective(fovYDegrees, aspectRatio, kNearPlane, kFarPlane);
 
     glMatrixMode(GL_MODELVIEW);
@@ -1507,17 +1534,15 @@ void Viewer3DPanel::ApplyCameraMatrices(const RenderSize& renderSize, double fov
     m_camera.Apply();
 }
 
-
 // Toggles the 3D measure tool mode and clears any pending measurement points.
 // Toggles the 3D measurement tool and refreshes tool state.
-void Viewer3DPanel::SetMeasureToolEnabled(bool enabled)
-{
+void Viewer3DPanel::SetMeasureToolEnabled(bool enabled) {
     SetMeasureToolEnabled(enabled, m_measureMode);
 }
 
 // Toggles the 3D measurement tool and applies the requested measuring mode.
-void Viewer3DPanel::SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode)
-{
+void Viewer3DPanel::SetMeasureToolEnabled(bool enabled,
+                                          Viewer2DMeasureMode mode) {
     m_measureToolEnabled = enabled;
     m_measureMode = mode;
     ResetMeasureState();
@@ -1527,10 +1552,9 @@ void Viewer3DPanel::SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode
     Refresh();
 }
 
-// Resets the active and committed 3D measurement points while preserving enablement.
-// Clears the active and committed 3D measurement points.
-void Viewer3DPanel::ResetMeasureState()
-{
+// Resets the active and committed 3D measurement points while preserving
+// enablement. Clears the active and committed 3D measurement points.
+void Viewer3DPanel::ResetMeasureState() {
     m_measureHasAnchor = false;
     m_measureAnchorUuid.clear();
     m_measureHasCommittedTarget = false;
@@ -1597,9 +1621,10 @@ std::optional<ISelectionContext::BoundingBox> Viewer3DPanel::ResolveMeasureBound
 }
 
 // Computes the nearest points between two 3D world-space bounding boxes.
-std::pair<std::array<float, 3>, std::array<float, 3>> Viewer3DPanel::ComputeNearestBoundsPoints(
-    const ISelectionContext::BoundingBox& a, const ISelectionContext::BoundingBox& b) const
-{
+std::pair<std::array<float, 3>, std::array<float, 3>>
+Viewer3DPanel::ComputeNearestBoundsPoints(
+    const ISelectionContext::BoundingBox &a,
+    const ISelectionContext::BoundingBox &b) const {
     std::array<float, 3> start{0.0f, 0.0f, 0.0f};
     std::array<float, 3> end{0.0f, 0.0f, 0.0f};
     for (int axis = 0; axis < 3; ++axis) {
@@ -1618,14 +1643,14 @@ std::pair<std::array<float, 3>, std::array<float, 3>> Viewer3DPanel::ComputeNear
     return {start, end};
 }
 
-// Draws the active 3D measurement line and distance text when two elements are fixed.
-// Draws the active 3D measurement line and distance label.
-void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
-{
+// Draws the active 3D measurement line and distance text when two elements are
+// fixed. Draws the active 3D measurement line and distance label.
+void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
     if (!m_measureToolEnabled || !m_measureHasAnchor || !renderSize.IsValid())
         return;
 
-    const auto anchorFramebuffer = ProjectWorldToFramebuffer(m_measureAnchorDrawWorldMeters);
+  const auto anchorFramebuffer =
+      ProjectWorldToFramebuffer(m_measureAnchorDrawWorldMeters);
     if (!anchorFramebuffer)
         return;
 
@@ -1666,8 +1691,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float y0 = (*anchorFramebuffer)[1];
     const float x1 = endX;
     const float y1 = endY;
-    viewer_common::DrawMeasureOverlayStyle(x0, y0, x1, y1,
-                                         Is2DDarkModeEnabled());
+  viewer_common::DrawMeasureOverlayStyle(x0, y0, x1, y1, Is2DDarkModeEnabled());
 
     float vx = x1 - x0;
     float vy = y1 - y0;
@@ -1704,11 +1728,11 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
     const float dy = lineEndWorld[1] - m_measureAnchorDrawWorldMeters[1];
     const float dz = lineEndWorld[2] - m_measureAnchorDrawWorldMeters[2];
     const float distanceMeters = std::sqrt(dx * dx + dy * dy + dz * dz);
-    const auto distanceUnitSystem =
-        Units::ParseDistanceUnitSystem(ConfigManager::Get().GetValue("ui_distance_unit_system"));
+  const auto distanceUnitSystem = Units::ParseDistanceUnitSystem(
+      ConfigManager::Get().GetValue("ui_distance_unit_system"));
     const std::string distanceText =
-        Units::FormatDistanceFromMillimeters(static_cast<double>(distanceMeters) * 1000.0,
-                                             distanceUnitSystem,
+      Units::FormatDistanceFromMillimeters(
+          static_cast<double>(distanceMeters) * 1000.0, distanceUnitSystem,
                                              Units::ValueFormatContext::Label) +
         " " + Units::DistanceUnitSuffix(distanceUnitSystem);
 
@@ -1717,20 +1741,19 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize& renderSize)
         static_cast<float>(renderSize.height) - ((ty0 + ty1) * 0.5f) - 10.0f;
     const float labelAngleDegrees = NormalizeMeasureLabelAngleDegrees(
         -std::atan2(ty1 - ty0, tx1 - tx0) * (180.0f / 3.14159265358979323846f));
-    std::vector<OverlayTextLabel> labels{
-        {labelX, labelY, distanceText, true, true, 20.0f, true, 0.95f, 0.1f,
-         0.1f, labelAngleDegrees}};
+  std::vector<OverlayTextLabel> labels{{labelX, labelY, distanceText, true,
+                                        true, 20.0f, true, 0.95f, 0.1f, 0.1f,
+                                        labelAngleDegrees}};
     m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
-        MainWindow::Instance()->SetStatusText(wxString::FromUTF8("Measure: " + distanceText), 0);
+    MainWindow::Instance()->SetStatusText(
+        wxString::FromUTF8("Measure: " + distanceText), 0);
 }
 
 // Handles mouse button press
-void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     if (m_continuousPlacementActive && event.LeftDown()) {
-        m_mode = event.ShiftDown() ? InteractionMode::Pan
-                                   : InteractionMode::Orbit;
+    m_mode = event.ShiftDown() ? InteractionMode::Pan : InteractionMode::Orbit;
         m_dragging = true;
         m_controller.SetInteracting(true);
         m_isInteracting = true;
@@ -1742,13 +1765,14 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         CaptureMouse();
         return;
     }
-    viewer3d::diagnostics::Logf("Mouse interaction start pos=(%d,%d) left=%d middle=%d right=%d shift=%d ctrl=%d",
+  viewer3d::diagnostics::Logf(
+      "Mouse interaction start pos=(%d,%d) left=%d middle=%d right=%d shift=%d "
+      "ctrl=%d",
                                 event.GetX(), event.GetY(), event.LeftDown() ? 1 : 0,
                                 event.MiddleDown() ? 1 : 0, event.RightDown() ? 1 : 0,
                                 event.ShiftDown() ? 1 : 0, event.ControlDown() ? 1 : 0);
     ResetSelectionDragState();
-    if (event.LeftDown() || event.MiddleDown() || event.RightDown())
-    {
+  if (event.LeftDown() || event.MiddleDown() || event.RightDown()) {
         if (event.LeftDown() && event.ControlDown()) {
             m_rectSelecting = true;
             m_rectSelectionAcrossAllTables =
@@ -1765,8 +1789,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
         }
 
         if (event.LeftDown() && !event.ShiftDown() && !event.MiddleDown() &&
-            !event.RightDown() &&
-            m_leftDragSelectionMovementEnabled) {
+        !event.RightDown() && m_leftDragSelectionMovementEnabled) {
             if (PrepareSelectionDrag(event.GetPosition())) {
                 m_lastMousePos = event.GetPosition();
                 m_draggedSincePress = false;
@@ -1795,11 +1818,12 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent& event)
 }
 
 // Handles mouse button release
-void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
-{
-    viewer3d::diagnostics::Logf("Mouse interaction end pos=(%d,%d) leftUp=%d middleUp=%d rightUp=%d dragged=%d",
-                                event.GetX(), event.GetY(), event.LeftUp() ? 1 : 0,
-                                event.MiddleUp() ? 1 : 0, event.RightUp() ? 1 : 0,
+void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
+  viewer3d::diagnostics::Logf("Mouse interaction end pos=(%d,%d) leftUp=%d "
+                              "middleUp=%d rightUp=%d dragged=%d",
+                              event.GetX(), event.GetY(),
+                              event.LeftUp() ? 1 : 0, event.MiddleUp() ? 1 : 0,
+                              event.RightUp() ? 1 : 0,
                                 m_draggedSincePress ? 1 : 0);
     if (m_continuousPlacementActive && event.LeftUp()) {
         const bool navigated = m_draggedSincePress;
@@ -1822,8 +1846,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         Refresh();
         return;
     }
-    if (event.LeftUp() && m_rectSelecting)
-    {
+  if (event.LeftUp() && m_rectSelecting) {
         if (HasCapture())
             ReleaseMouse();
         ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
@@ -1837,8 +1860,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         return;
     }
 
-    if (event.LeftUp() && m_selectionDragArmed)
-    {
+  if (event.LeftUp() && m_selectionDragArmed) {
         if (HasCapture())
             ReleaseMouse();
         if (m_selectionDragMoved) {
@@ -1855,8 +1877,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         }
     }
 
-    if (m_dragging && (event.LeftUp() || event.MiddleUp() || event.RightUp()))
-    {
+  if (m_dragging && (event.LeftUp() || event.MiddleUp() || event.RightUp())) {
         m_dragging = false;
         m_isInteracting = false;
         m_cameraMoving = false;
@@ -1869,8 +1890,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         Refresh();
     }
 
-    if (event.LeftUp() && !m_draggedSincePress)
-    {
+  if (event.LeftUp() && !m_draggedSincePress) {
         m_forceHoverQuery = true;
         const RenderSize renderSize = ResolveRenderSize(this);
         const int w = renderSize.width;
@@ -1885,12 +1905,12 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         if (IsCrossTableViewportActionsEnabled())
             activeTable = HoverTargetTable::Fixtures;
         HoverTargetTable pickedTable = activeTable;
-        bool found = IsCrossTableViewportActionsEnabled()
-                         ? QueryHoverUuidAcrossTables(m_controller, pickPos.x,
-                                                       pickPos.y, w, h, uuid,
-                                                       pickedTable, true)
-                         : QueryHoverUuid(m_controller, activeTable, pickPos.x,
-                                    pickPos.y, w, h, uuid, true);
+    bool found =
+        IsCrossTableViewportActionsEnabled()
+            ? QueryHoverUuidAcrossTables(m_controller, pickPos.x, pickPos.y, w,
+                                         h, uuid, pickedTable, true)
+            : QueryHoverUuid(m_controller, activeTable, pickPos.x, pickPos.y, w,
+                             h, uuid, true);
         if (!found && !m_hoverUuid.empty()) {
             uuid = m_hoverUuid;
             found = true;
@@ -1899,10 +1919,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
         ConfigManager& cfg = ConfigManager::Get();
         if (m_measureToolEnabled) {
             if (!found) {
-                found = IsCrossTableViewportActionsEnabled()
-                            ? QueryHoverUuidAcrossTables(m_controller, pickPos.x,
-                                                          pickPos.y, w, h, uuid,
-                                                          pickedTable, false)
+        found =
+            IsCrossTableViewportActionsEnabled()
+                ? QueryHoverUuidAcrossTables(m_controller, pickPos.x, pickPos.y,
+                                             w, h, uuid, pickedTable, false)
                             : QueryHoverUuid(m_controller, activeTable, pickPos.x,
                                              pickPos.y, w, h, uuid, false);
             }
@@ -1926,9 +1946,11 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
                         if (m_measureMode == Viewer2DMeasureMode::EdgeToEdge) {
                             const auto anchorBounds = ResolveMeasureBoundsFromUuid(
                                 pickedTable, m_measureAnchorUuid);
-                            const auto targetBounds = ResolveMeasureBoundsFromUuid(pickedTable, uuid);
+              const auto targetBounds =
+                  ResolveMeasureBoundsFromUuid(pickedTable, uuid);
                             if (anchorBounds && targetBounds) {
-                                const auto nearest = ComputeNearestBoundsPoints(*anchorBounds, *targetBounds);
+                const auto nearest =
+                    ComputeNearestBoundsPoints(*anchorBounds, *targetBounds);
                                 m_measureAnchorDrawWorldMeters = nearest.first;
                                 m_measureCommittedTargetDrawWorldMeters = nearest.second;
                             }
@@ -1942,36 +1964,34 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent& event)
             }
             return;
         }
-        if (found)
-        {
+    if (found) {
             const bool additive = event.ShiftDown() || event.ControlDown();
             const bool addOnly = event.ControlDown();
             const HoverTableHighlights clickedSelection =
                 BuildClickSelectionHighlights(cfg.GetScene(), uuid);
             HoverTableHighlights resolvedSelection;
-            resolvedSelection.fixtures = ResolveClickedSelection(
-                cfg.GetSelectedFixtures(), clickedSelection.fixtures, additive, addOnly);
-            resolvedSelection.trusses = ResolveClickedSelection(
-                cfg.GetSelectedTrusses(), clickedSelection.trusses, additive, addOnly);
-            resolvedSelection.supports = ResolveClickedSelection(
-                cfg.GetSelectedSupports(), clickedSelection.supports, additive, addOnly);
+      resolvedSelection.fixtures =
+          ResolveClickedSelection(cfg.GetSelectedFixtures(),
+                                  clickedSelection.fixtures, additive, addOnly);
+      resolvedSelection.trusses =
+          ResolveClickedSelection(cfg.GetSelectedTrusses(),
+                                  clickedSelection.trusses, additive, addOnly);
+      resolvedSelection.supports =
+          ResolveClickedSelection(cfg.GetSelectedSupports(),
+                                  clickedSelection.supports, additive, addOnly);
             resolvedSelection.sceneObjects = ResolveClickedSelection(
                 cfg.GetSelectedSceneObjects(), clickedSelection.sceneObjects,
                 additive, addOnly);
             ApplyObjectSelectionToUi(resolvedSelection, this);
-        }
-        else
-        {
+    } else {
             ClearAllObjectSelections("clear selection");
         }
     }
     m_draggedSincePress = false;
 }
 
-
 // Synchronizes the current hover highlight with the 3D controller and tables.
-void Viewer3DPanel::SynchronizeHoverHighlight()
-{
+void Viewer3DPanel::SynchronizeHoverHighlight() {
     ++m_highlightRevision;
     m_highlightRefreshPending = true;
     wxLogDebug("Viewer3D hover highlight changed: uuid=%s revision=%llu",
@@ -1987,24 +2007,24 @@ void Viewer3DPanel::SynchronizeHoverHighlight()
             scene.fixtures.find(m_hoverUuid) != scene.fixtures.end()
                 ? std::string(m_hoverUuid)
                 : std::string();
-        FixtureTablePanel::Instance()->HighlightFixture(
-            primaryUuid, relatedHighlights.fixtures);
+    FixtureTablePanel::Instance()->HighlightFixture(primaryUuid,
+                                                    relatedHighlights.fixtures);
     }
     if (TrussTablePanel::Instance()) {
         const std::string primaryUuid =
             scene.trusses.find(m_hoverUuid) != scene.trusses.end()
                 ? std::string(m_hoverUuid)
                 : std::string();
-        TrussTablePanel::Instance()->HighlightTruss(
-            primaryUuid, relatedHighlights.trusses);
+    TrussTablePanel::Instance()->HighlightTruss(primaryUuid,
+                                                relatedHighlights.trusses);
     }
     if (HoistTablePanel::Instance()) {
         const std::string primaryUuid =
             scene.supports.find(m_hoverUuid) != scene.supports.end()
                 ? std::string(m_hoverUuid)
                 : std::string();
-        HoistTablePanel::Instance()->HighlightHoist(
-            primaryUuid, relatedHighlights.supports);
+    HoistTablePanel::Instance()->HighlightHoist(primaryUuid,
+                                                relatedHighlights.supports);
     }
     if (SceneObjectTablePanel::Instance()) {
         const std::string primaryUuid =
@@ -2047,21 +2067,22 @@ void Viewer3DPanel::ClearAllObjectSelections(const char* undoLabel)
 }
 
 // Returns the display key used to group trusses by model or source file.
-static std::string BuildTrussModelSelectionKey(const Truss& truss)
-{
+static std::string BuildTrussModelSelectionKey(const Truss &truss) {
     if (!truss.model.empty())
         return truss.model;
-    std::string fileName = !truss.modelFile.empty() ? truss.modelFile : truss.symbolFile;
+  std::string fileName =
+      !truss.modelFile.empty() ? truss.modelFile : truss.symbolFile;
     const size_t slash = fileName.find_last_of("/\\");
     if (slash != std::string::npos)
         fileName = fileName.substr(slash + 1);
     return fileName;
 }
 
-// Builds truss UUIDs filtered by model-or-source-file key for selection workflows.
-static std::vector<std::string> BuildTrussSelectionByModelKey(
-    const MvrScene& scene, const std::string& modelKey)
-{
+// Builds truss UUIDs filtered by model-or-source-file key for selection
+// workflows.
+static std::vector<std::string>
+BuildTrussSelectionByModelKey(const MvrScene &scene,
+                              const std::string &modelKey) {
     std::vector<std::string> uuids;
     uuids.reserve(scene.trusses.size());
     for (const auto& [uuid, truss] : scene.trusses) {
@@ -2072,9 +2093,10 @@ static std::vector<std::string> BuildTrussSelectionByModelKey(
 }
 
 // Builds truss UUIDs filtered by position-name mapping criteria.
-static std::vector<std::string> BuildTrussSelectionByPosition(
-    const MvrScene& scene, const std::string& positionName, bool selectNoPosition)
-{
+static std::vector<std::string>
+BuildTrussSelectionByPosition(const MvrScene &scene,
+                              const std::string &positionName,
+                              bool selectNoPosition) {
     std::vector<std::string> uuids;
     uuids.reserve(scene.trusses.size());
     for (const auto& [uuid, truss] : scene.trusses) {
@@ -2113,8 +2135,7 @@ static void ApplyTrussSelectionToUi(const std::vector<std::string>& selection,
 }
 
 // Opens the right-click selection and render-style context menu.
-void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
     if (m_continuousPlacementActive) {
         CancelContinuousPlacement();
         return;
@@ -2230,10 +2251,12 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     renderStyleSubmenu->AppendRadioItem(kRenderStyleTexturedId, "Textured");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleWireframeId, "Wireframe");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleWhiteId, "White");
-    renderStyleSubmenu->AppendRadioItem(kRenderStyleByDeviceTypeId, "By device type");
+  renderStyleSubmenu->AppendRadioItem(kRenderStyleByDeviceTypeId,
+                                      "By device type");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleByLayerId, "By layer");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleByUniverseId, "By universe");
-    const Viewer3DRenderStyle activeRenderStyle = ResolveRenderStyleFromPreferences();
+  const Viewer3DRenderStyle activeRenderStyle =
+      ResolveRenderStyleFromPreferences();
     switch (activeRenderStyle) {
         case Viewer3DRenderStyle::Wireframe:
             renderStyleSubmenu->Check(kRenderStyleWireframeId, true);
@@ -2275,7 +2298,8 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     rootMenu.AppendSeparator();
     rootMenu.Append(kExportImagePngId, "Export image...");
 
-    const int selectedId = GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
+  const int selectedId =
+      GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());
     if (selectedId == wxID_NONE)
         return;
 
@@ -2288,7 +2312,8 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
 
     auto applyRenderStyleSelection = [this](Viewer3DRenderStyle style) {
-        ConfigManager::Get().SetValue("viewer3d_render_style", ToConfigValue(style));
+    ConfigManager::Get().SetValue("viewer3d_render_style",
+                                  ToConfigValue(style));
         Refresh();
     };
 
@@ -2344,10 +2369,12 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
         selectedId < kSelectTypeBaseId + static_cast<int>(orderedTypes.size())) {
         const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
         if (fixturePageActive)
-            ApplyFixtureSelectionToUi(BuildFixtureSelectionByType(scene, orderedTypes[idx]), this,
+      ApplyFixtureSelectionToUi(
+          BuildFixtureSelectionByType(scene, orderedTypes[idx]), this,
                                       m_controller);
         else
-            ApplyTrussSelectionToUi(BuildTrussSelectionByModelKey(scene, orderedTypes[idx]), this,
+      ApplyTrussSelectionToUi(
+          BuildTrussSelectionByModelKey(scene, orderedTypes[idx]), this,
                                     m_controller);
         Refresh();
         return;
@@ -2361,8 +2388,9 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
                 ApplyTrussSelectionToUi({}, this, m_controller);
         } else {
             if (fixturePageActive)
-                ApplyFixtureSelectionToUi(BuildFixtureSelectionByPosition(scene, "", true),
-                                          this, m_controller);
+        ApplyFixtureSelectionToUi(
+            BuildFixtureSelectionByPosition(scene, "", true), this,
+            m_controller);
             else
                 ApplyTrussSelectionToUi(BuildTrussSelectionByPosition(scene, "", true),
                                         this, m_controller);
@@ -2372,25 +2400,24 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent& event)
     }
 
     if (selectedId >= kSelectPositionBaseId &&
-        selectedId < kSelectPositionBaseId + static_cast<int>(orderedPositions.size())) {
+      selectedId <
+          kSelectPositionBaseId + static_cast<int>(orderedPositions.size())) {
         const size_t idx = static_cast<size_t>(selectedId - kSelectPositionBaseId);
         if (fixturePageActive)
             ApplyFixtureSelectionToUi(
-                BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false), this,
-                m_controller);
+          BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false),
+          this, m_controller);
         else
             ApplyTrussSelectionToUi(
-                BuildTrussSelectionByPosition(scene, orderedPositions[idx], false), this,
-                m_controller);
+          BuildTrussSelectionByPosition(scene, orderedPositions[idx], false),
+          this, m_controller);
         Refresh();
         return;
     }
 }
 
-
 // Enables or disables Magnet snapping for 3D selection dragging.
-void Viewer3DPanel::SetMagnetEnabled(bool enabled, bool persist)
-{
+void Viewer3DPanel::SetMagnetEnabled(bool enabled, bool persist) {
     m_magnetEnabled = enabled;
     m_pendingMagnetSnap.reset();
     if (!persist)
@@ -2401,28 +2428,24 @@ void Viewer3DPanel::SetMagnetEnabled(bool enabled, bool persist)
 }
 
 // Enables or disables left-click selection dragging in the 3D viewport.
-void Viewer3DPanel::SetLeftDragSelectionMovementEnabled(bool enabled)
-{
+void Viewer3DPanel::SetLeftDragSelectionMovementEnabled(bool enabled) {
     m_leftDragSelectionMovementEnabled = enabled;
 }
 
 // Enables or disables axis-constrained selection movement in the 3D viewport.
-void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled)
-{
+void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
     m_axisConstrainedMovementEnabled = enabled;
     if (!enabled)
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
 }
 
 // Sets whether axis-constrained viewport transforms use world or local axes.
-void Viewer3DPanel::SetTransformSpace(transform_space::TransformSpace space)
-{
+void Viewer3DPanel::SetTransformSpace(transform_space::TransformSpace space) {
     m_transformSpace = space;
 }
 
 // Resets interaction state after wxWidgets reports lost mouse capture.
-void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
-{
+void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
     m_dragging = false;
     m_isInteracting = false;
     m_cameraMoving = false;
@@ -2450,57 +2473,53 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     ConfigManager& cfg = ConfigManager::Get();
     const wxPoint pickStart = ToFramebufferPoint(this, start);
     const wxPoint pickEnd = ToFramebufferPoint(this, end);
-    if (m_rectSelectionAcrossAllTables)
-    {
+  if (m_rectSelectionAcrossAllTables) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
         selection.fixtures = AddClickedUuids(
-            selection.fixtures, m_controller.GetFixturesInScreenRect(
-                                    pickStart.x, pickStart.y, pickEnd.x,
-                                    pickEnd.y, w, h));
+        selection.fixtures,
+        m_controller.GetFixturesInScreenRect(pickStart.x, pickStart.y,
+                                             pickEnd.x, pickEnd.y, w, h));
         selection.trusses = AddClickedUuids(
-            selection.trusses, m_controller.GetTrussesInScreenRect(
-                                   pickStart.x, pickStart.y, pickEnd.x,
+        selection.trusses,
+        m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
                                    pickEnd.y, w, h));
         selection.sceneObjects = AddClickedUuids(
-            selection.sceneObjects, m_controller.GetSceneObjectsInScreenRect(
-                                        pickStart.x, pickStart.y, pickEnd.x,
-                                        pickEnd.y, w, h));
+        selection.sceneObjects,
+        m_controller.GetSceneObjectsInScreenRect(pickStart.x, pickStart.y,
+                                                 pickEnd.x, pickEnd.y, w, h));
         ApplyObjectSelectionToUi(selection, this);
         return;
     }
 
-    if (FixtureTablePanel::Instance() && FixtureTablePanel::Instance()->IsActivePage())
-    {
+  if (FixtureTablePanel::Instance() &&
+      FixtureTablePanel::Instance()->IsActivePage()) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
         selection.fixtures = AddClickedUuids(
-            selection.fixtures, m_controller.GetFixturesInScreenRect(
-                                    pickStart.x, pickStart.y, pickEnd.x,
-                                    pickEnd.y, w, h));
+        selection.fixtures,
+        m_controller.GetFixturesInScreenRect(pickStart.x, pickStart.y,
+                                             pickEnd.x, pickEnd.y, w, h));
         ApplyObjectSelectionToUi(selection, this);
-    }
-    else if (TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage())
-    {
+  } else if (TrussTablePanel::Instance() &&
+             TrussTablePanel::Instance()->IsActivePage()) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
         selection.trusses = AddClickedUuids(
-            selection.trusses, m_controller.GetTrussesInScreenRect(
-                                   pickStart.x, pickStart.y, pickEnd.x,
+        selection.trusses,
+        m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
                                    pickEnd.y, w, h));
         ApplyObjectSelectionToUi(selection, this);
-    }
-    else if (SceneObjectTablePanel::Instance() && SceneObjectTablePanel::Instance()->IsActivePage())
-    {
+  } else if (SceneObjectTablePanel::Instance() &&
+             SceneObjectTablePanel::Instance()->IsActivePage()) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
         selection.sceneObjects = AddClickedUuids(
-            selection.sceneObjects, m_controller.GetSceneObjectsInScreenRect(
-                                        pickStart.x, pickStart.y, pickEnd.x,
-                                        pickEnd.y, w, h));
+        selection.sceneObjects,
+        m_controller.GetSceneObjectsInScreenRect(pickStart.x, pickStart.y,
+                                                 pickEnd.x, pickEnd.y, w, h));
         ApplyObjectSelectionToUi(selection, this);
     }
 }
 
 // Draws the current screen-space selection rectangle overlay.
-void Viewer3DPanel::DrawSelectionRectangle(int width, int height)
-{
+void Viewer3DPanel::DrawSelectionRectangle(int width, int height) {
     int left = std::min(m_rectSelectStart.x, m_rectSelectEnd.x);
     int right = std::max(m_rectSelectStart.x, m_rectSelectEnd.x);
     int top = std::min(m_rectSelectStart.y, m_rectSelectEnd.y);
@@ -2525,7 +2544,8 @@ void Viewer3DPanel::DrawSelectionRectangle(int width, int height)
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height), -1.0f, 1.0f);
+  glOrtho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height),
+          -1.0f, 1.0f);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
@@ -2551,8 +2571,7 @@ void Viewer3DPanel::DrawSelectionRectangle(int width, int height)
 }
 
 // Clears all transient selection-drag state.
-void Viewer3DPanel::ResetSelectionDragState()
-{
+void Viewer3DPanel::ResetSelectionDragState() {
     m_selectionDragArmed = false;
     m_selectionDragMoved = false;
     m_selectionDragUndoPushed = false;
@@ -2570,8 +2589,7 @@ void Viewer3DPanel::ResetSelectionDragState()
 
 // Computes the world-space center for the active selection drag target.
 std::array<float, 3> Viewer3DPanel::ComputeSelectionCenterMeters(
-    const std::vector<std::string>& uuids, HoverTargetTable target) const
-{
+    const std::vector<std::string> &uuids, HoverTargetTable target) const {
     std::array<float, 3> center{0.0f, 0.0f, 0.0f};
     if (uuids.empty())
         return center;
@@ -2606,9 +2624,9 @@ std::array<float, 3> Viewer3DPanel::ComputeSelectionCenterMeters(
 }
 
 // Prepares a selection drag when the cursor starts on a draggable label.
-bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
-{
-    viewer3d::diagnostics::Logf("Selection dragging prepare pos=(%d,%d)", mousePos.x, mousePos.y);
+bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint &mousePos) {
+  viewer3d::diagnostics::Logf("Selection dragging prepare pos=(%d,%d)",
+                              mousePos.x, mousePos.y);
     const RenderSize renderSize = ResolveRenderSize(this);
     if (!renderSize.IsValid())
         return false;
@@ -2622,7 +2640,8 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
     std::string uuid;
     if (!QueryDragLabelUuid(m_controller, target, pickPos.x, pickPos.y,
                             renderSize.width, renderSize.height, uuid)) {
-        viewer3d::diagnostics::Log("Selection dragging prepare found no draggable label.");
+    viewer3d::diagnostics::Log(
+        "Selection dragging prepare found no draggable label.");
         return false;
     }
 
@@ -2634,7 +2653,8 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
         selection = cfg.GetSelectedTrusses();
     else if (target == HoverTargetTable::SceneObjects)
         selection = cfg.GetSelectedSceneObjects();
-    const auto hitSelectionIt = std::find(selection.begin(), selection.end(), uuid);
+  const auto hitSelectionIt =
+      std::find(selection.begin(), selection.end(), uuid);
     const bool dragCurrentSelection = hitSelectionIt != selection.end();
     if (selection.size() > 1 || dragCurrentSelection)
         m_dragSelectionUuids = selection;
@@ -2664,7 +2684,8 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
         .supports = {},
         .sceneObjects = m_dragSceneObjectUuids};
     const auto dragTargets = scene_grouping::BuildInteractiveTransformTargets(
-        cfg.GetScene(), dragSelection);
+        cfg.GetScene(), dragSelection,
+        selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
     m_selectionDragAnchorMeters = {0.0f, 0.0f, 0.0f};
     if (!dragTargets.empty()) {
         for (const auto& dragTarget : dragTargets) {
@@ -2688,17 +2709,18 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint& mousePos)
     m_selectionDragUndoPushed = false;
     m_selectionDragPressTime = wxGetLocalTimeMillis();
     viewer3d::diagnostics::Logf("Selection dragging prepared target=%d count=%zu",
-                                static_cast<int>(target), m_dragSelectionUuids.size());
+                              static_cast<int>(target),
+                              m_dragSelectionUuids.size());
     return true;
 }
-
 
 // Returns the active world-space vector for a selection drag axis.
 std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
     viewer3d::SelectionDragAxis axis) const {
     const auto worldAxis = AxisVectorFromSelectionDragAxis(axis);
     if (m_transformSpace != transform_space::TransformSpace::Local ||
-        axis == viewer3d::SelectionDragAxis::None || m_dragSelectionUuids.empty()) {
+      axis == viewer3d::SelectionDragAxis::None ||
+      m_dragSelectionUuids.empty()) {
         return worldAxis;
     }
     const scene_grouping::ObjectSelection selection{
@@ -2707,7 +2729,9 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
         .supports = {},
         .sceneObjects = m_dragSceneObjectUuids};
     const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-        ConfigManager::Get().GetScene(), selection);
+      ConfigManager::Get().GetScene(), selection,
+      selection_movement_settings::LoadInteractiveTransformPolicy(
+          ConfigManager::Get()));
     if (targets.empty())
         return worldAxis;
     const Matrix transform = scene_grouping::GetTargetWorldTransform(
@@ -2716,10 +2740,10 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
         transform_space::ExtractOrientation(transform), worldAxis);
 }
 
-// Projects the active drag axes into screen space for axis-constrained dragging.
+// Projects the active drag axes into screen space for axis-constrained
+// dragging.
 std::array<viewer3d::ProjectedAxis, 3>
-Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
-{
+Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
     std::array<viewer3d::ProjectedAxis, 3> axes{};
     if (!renderSize.IsValid())
         return axes;
@@ -2735,8 +2759,8 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
     GLdouble originY = 0.0;
     GLdouble originZ = 0.0;
     if (gluProject(m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
-                   m_selectionDragAnchorMeters[2], modelview, projection, viewport,
-                   &originX, &originY, &originZ) != GL_TRUE) {
+                 m_selectionDragAnchorMeters[2], modelview, projection,
+                 viewport, &originX, &originY, &originZ) != GL_TRUE) {
         return axes;
     }
 
@@ -2770,12 +2794,10 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize& renderSize) const
     return axes;
 }
 
-
 // Projects the mouse position onto the active selection drag view plane.
 std::optional<std::array<float, 3>>
 Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
-    const wxPoint& mousePos, const RenderSize& renderSize) const
-{
+    const wxPoint &mousePos, const RenderSize &renderSize) const {
     if (!renderSize.IsValid())
         return std::nullopt;
 
@@ -2786,8 +2808,8 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     glGetDoublev(GL_PROJECTION_MATRIX, projection);
     glGetIntegerv(GL_VIEWPORT, viewport);
 
-    const wxPoint framebufferPos = ToFramebufferPoint(
-        const_cast<Viewer3DPanel*>(this), mousePos);
+  const wxPoint framebufferPos =
+      ToFramebufferPoint(const_cast<Viewer3DPanel *>(this), mousePos);
     const double winX = static_cast<double>(framebufferPos.x);
     const double winY = static_cast<double>(renderSize.height - framebufferPos.y);
 
@@ -2808,9 +2830,10 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
                                       viewport[1] + viewport[3] * 0.5, 0.0);
     const auto centerFar = unproject(viewport[0] + viewport[2] * 0.5,
                                      viewport[1] + viewport[3] * 0.5, 1.0);
-    for (double value : {nearPoint[0], nearPoint[1], nearPoint[2], farPoint[0],
-                         farPoint[1], farPoint[2], centerNear[0], centerNear[1],
-                         centerNear[2], centerFar[0], centerFar[1], centerFar[2]}) {
+  for (double value :
+       {nearPoint[0], nearPoint[1], nearPoint[2], farPoint[0], farPoint[1],
+        farPoint[2], centerNear[0], centerNear[1], centerNear[2], centerFar[0],
+        centerFar[1], centerFar[2]}) {
         if (!std::isfinite(value))
             return std::nullopt;
     }
@@ -2827,23 +2850,21 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     if (std::abs(denominator) <= 1e-12)
         return std::nullopt;
 
-    const std::array<double, 3> planePoint{
-        m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
+  const std::array<double, 3> planePoint{m_selectionDragAnchorMeters[0],
+                                         m_selectionDragAnchorMeters[1],
         m_selectionDragAnchorMeters[2]};
     const double t = ((planePoint[0] - nearPoint[0]) * planeNormal[0] +
                       (planePoint[1] - nearPoint[1]) * planeNormal[1] +
                       (planePoint[2] - nearPoint[2]) * planeNormal[2]) /
                      denominator;
-    return std::array<float, 3>{
-        static_cast<float>(nearPoint[0] + rayDir[0] * t),
+  return std::array<float, 3>{static_cast<float>(nearPoint[0] + rayDir[0] * t),
         static_cast<float>(nearPoint[1] + rayDir[1] * t),
         static_cast<float>(nearPoint[2] + rayDir[2] * t)};
 }
 
-
 // Builds a Magnet snap source for the active single-object 3D drag.
-std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() const
-{
+std::optional<magnet_snap::SnapSource>
+Viewer3DPanel::BuildActiveMagnetSource() const {
     if (!m_magnetEnabled || m_measureToolEnabled)
         return std::nullopt;
     if (!m_dragTrussUuids.empty() && m_dragSceneObjectUuids.empty()) {
@@ -2851,9 +2872,10 @@ std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() 
         selection.fixtures = m_dragFixtureUuids;
         selection.trusses = m_dragTrussUuids;
         const auto targets = scene_grouping::BuildInteractiveTransformTargets(
-            ConfigManager::Get().GetScene(), selection);
-        if (targets.size() == 1 &&
-            targets.front().type == MvrNodeType::GroupObject)
+        ConfigManager::Get().GetScene(), selection,
+        selection_movement_settings::LoadInteractiveTransformPolicy(
+            ConfigManager::Get()));
+    if (targets.size() == 1 && targets.front().type == MvrNodeType::GroupObject)
             return magnet_snap::SnapSource{magnet_snap::ObjectType::TrussGroup,
                                            targets.front().uuid};
         if (m_dragTrussUuids.size() == 1 && m_dragFixtureUuids.empty())
@@ -2871,11 +2893,9 @@ std::optional<magnet_snap::SnapSource> Viewer3DPanel::BuildActiveMagnetSource() 
     return std::nullopt;
 }
 
-
 // Builds camera-weighted Magnet settings for the active 3D view.
 magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
-    const magnet_snap::SnapSource& source) const
-{
+    const magnet_snap::SnapSource &source) const {
     magnet_snap::SnapSettings settings;
     settings.thresholdMm = source.type == magnet_snap::ObjectType::Fixture
                                ? magnet_snap::kDefaultSnapDistanceMm * 2.0f
@@ -2891,14 +2911,14 @@ magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
         -std::sin(pitchRad),
     };
     for (int axis = 0; axis < 3; ++axis)
-        settings.axisWeights[axis] = std::max(
-            kMinimumViewAxisWeight, 1.0f - std::fabs(forward[axis]));
+    settings.axisWeights[axis] =
+        std::max(kMinimumViewAxisWeight, 1.0f - std::fabs(forward[axis]));
     return settings;
 }
 
 // Finds the current Magnet snap candidate for the active 3D drag.
-std::optional<magnet_snap::SnapResult> Viewer3DPanel::FindActiveMagnetSnap() const
-{
+std::optional<magnet_snap::SnapResult>
+Viewer3DPanel::FindActiveMagnetSnap() const {
     auto source = BuildActiveMagnetSource();
     if (!source)
         return std::nullopt;
@@ -2924,8 +2944,7 @@ std::optional<magnet_snap::SnapResult> Viewer3DPanel::RestorePendingMagnetSnapPr
 }
 
 // Commits deferred Magnet grouping after a successful 3D snap.
-void Viewer3DPanel::CommitActiveMagnetSnap()
-{
+void Viewer3DPanel::CommitActiveMagnetSnap() {
     if (!m_pendingMagnetSnap || !m_pendingMagnetSnap->needsGrouping)
         return;
     ConfigManager& cfg = ConfigManager::Get();
@@ -2933,11 +2952,12 @@ void Viewer3DPanel::CommitActiveMagnetSnap()
 }
 
 // Applies a world-space delta to every object in the active selection drag.
-void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters)
-{
+void Viewer3DPanel::ApplySelectionDragDelta(
+    const std::array<float, 3> &deltaMeters) {
     if (!std::isfinite(deltaMeters[0]) || !std::isfinite(deltaMeters[1]) ||
         !std::isfinite(deltaMeters[2])) {
-        viewer3d::diagnostics::Log("Selection dragging ignored non-finite world delta.");
+    viewer3d::diagnostics::Log(
+        "Selection dragging ignored non-finite world delta.");
         wxASSERT_MSG(false, "Non-finite selection drag delta.");
         return;
     }
@@ -2960,9 +2980,13 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
     selection.trusses = m_dragTrussUuids;
     selection.sceneObjects = m_dragSceneObjectUuids;
     const auto previousSnap = RestorePendingMagnetSnapPreview();
-    scene_grouping::TranslateSelection(cfg.GetScene(), selection, {dxMm, dyMm, dzMm});
+  const auto policy =
+      selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  scene_grouping::TranslateSelection(
+      cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
+      transform_space::TransformSpace::World, policy);
     if (auto snap = FindActiveMagnetSnap()) {
-        magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap);
+    magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
         m_pendingMagnetSnap = snap;
         m_selectionDragAnchorMeters[0] += snap->translationDeltaMm[0] / 1000.0f;
         m_selectionDragAnchorMeters[1] += snap->translationDeltaMm[1] / 1000.0f;
@@ -2977,17 +3001,17 @@ void Viewer3DPanel::ApplySelectionDragDelta(const std::array<float, 3>& deltaMet
 }
 
 // Updates the status bar with the active selection drag insertion point.
-void Viewer3DPanel::UpdateSelectionDragStatusPosition()
-{
+void Viewer3DPanel::UpdateSelectionDragStatusPosition() {
     if (MainWindow::Instance())
         MainWindow::Instance()->UpdateHighlightedWorldPositionInStatusBar(
             std::optional<std::array<float, 3>>(m_selectionDragAnchorMeters));
 }
 
 // Finalizes a completed selection drag and synchronizes dependent views.
-void Viewer3DPanel::FinalizeSelectionDrag()
-{
-    viewer3d::diagnostics::Logf("Selection dragging finalize moved=%d fixtures=%zu trusses=%zu objects=%zu",
+void Viewer3DPanel::FinalizeSelectionDrag() {
+  viewer3d::diagnostics::Logf(
+      "Selection dragging finalize moved=%d fixtures=%zu trusses=%zu "
+      "objects=%zu",
                                 m_selectionDragMoved ? 1 : 0, m_dragFixtureUuids.size(),
                                 m_dragTrussUuids.size(), m_dragSceneObjectUuids.size());
     if (!m_selectionDragMoved)
@@ -3032,10 +3056,9 @@ void Viewer3DPanel::BeginContinuousPlacement(
     m_continuousPlacedUuids.clear();
     m_selectionDragArmed = true;
     m_selectionDragUndoPushed = true;
-    m_selectionDragTarget = type == ContinuousPlacementType::Fixture
-                                ? HoverTargetTable::Fixtures
-                            : type == ContinuousPlacementType::Truss
-                                ? HoverTargetTable::Trusses
+  m_selectionDragTarget =
+      type == ContinuousPlacementType::Fixture ? HoverTargetTable::Fixtures
+      : type == ContinuousPlacementType::Truss ? HoverTargetTable::Trusses
                                 : HoverTargetTable::SceneObjects;
     m_dragSelectionUuids = {elementUuid};
     m_dragFixtureUuids = type == ContinuousPlacementType::Fixture
@@ -3117,8 +3140,7 @@ void Viewer3DPanel::CancelContinuousPlacement()
 }
 
 // Undoes one confirmed element while keeping the placement session active.
-bool Viewer3DPanel::UndoContinuousPlacement()
-{
+bool Viewer3DPanel::UndoContinuousPlacement() {
     if (!m_continuousPlacementActive)
         return false;
 
@@ -3145,8 +3167,7 @@ bool Viewer3DPanel::UndoContinuousPlacement()
     m_continuousPlacedUuids.pop_back();
     if (cfg.CanUndo())
         cfg.Undo();
-    if (!continuous_placement::Contains(cfg.GetScene(),
-                                        m_continuousPlacementType,
+  if (!continuous_placement::Contains(cfg.GetScene(), m_continuousPlacementType,
                                         restoredUuid)) {
         EndContinuousPlacementState();
         RefreshContinuousPlacementViews();
@@ -3160,8 +3181,7 @@ bool Viewer3DPanel::UndoContinuousPlacement()
 }
 
 // Clears placement-only interaction state without changing the scene.
-void Viewer3DPanel::EndContinuousPlacementState()
-{
+void Viewer3DPanel::EndContinuousPlacementState() {
     m_continuousPlacementActive = false;
     m_continuousPlacementType = ContinuousPlacementType::None;
     m_continuousPlacementNeedsPointerAlignment = false;
@@ -3171,8 +3191,7 @@ void Viewer3DPanel::EndContinuousPlacementState()
 }
 
 // Synchronizes tables and both viewers after a placement history change.
-void Viewer3DPanel::RefreshContinuousPlacementViews()
-{
+void Viewer3DPanel::RefreshContinuousPlacementViews() {
     if (MainWindow::Instance()) {
         MainWindow::Instance()->RefreshAfterToolSceneUpdate();
         return;
@@ -3184,8 +3203,7 @@ void Viewer3DPanel::RefreshContinuousPlacementViews()
 }
 
 // Draws the axis gizmo for an armed or active selection drag.
-void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
-{
+void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize &renderSize) {
     if (!m_selectionDragArmed || m_dragSelectionUuids.empty() ||
         !renderSize.IsValid()) {
         return;
@@ -3222,8 +3240,8 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
 
     glBegin(GL_LINES);
     for (size_t i = 0; i < colors.size(); ++i) {
-        const auto axis = GetSelectionDragAxisVector(
-            i == 0 ? viewer3d::SelectionDragAxis::X
+    const auto axis =
+        GetSelectionDragAxisVector(i == 0   ? viewer3d::SelectionDragAxis::X
                    : i == 1 ? viewer3d::SelectionDragAxis::Y
                             : viewer3d::SelectionDragAxis::Z);
         glColor4f(colors[i][0], colors[i][1], colors[i][2], colors[i][3]);
@@ -3236,8 +3254,8 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize& renderSize)
     glEnd();
 
     for (size_t i = 0; i < colors.size(); ++i) {
-        const auto axis = GetSelectionDragAxisVector(
-            i == 0 ? viewer3d::SelectionDragAxis::X
+    const auto axis =
+        GetSelectionDragAxisVector(i == 0   ? viewer3d::SelectionDragAxis::X
                    : i == 1 ? viewer3d::SelectionDragAxis::Y
                             : viewer3d::SelectionDragAxis::Z);
         const std::array<float, 3> arrowheadBase{
@@ -3273,8 +3291,7 @@ void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
 
     if (m_mode == InteractionMode::Orbit &&
         (event.LeftIsDown() || event.RightIsDown())) {
-        const float orbitPitchDirection =
-            IsOrbitInversionEnabled() ? 1.0f : -1.0f;
+    const float orbitPitchDirection = IsOrbitInversionEnabled() ? 1.0f : -1.0f;
         m_camera.Orbit(static_cast<float>(dx) * 0.5f,
                        orbitPitchDirection * static_cast<float>(dy) * 0.5f);
     } else if (m_mode == InteractionMode::Pan &&
@@ -3285,9 +3302,9 @@ void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
     m_lastMousePos = mousePos;
 }
 
-// Aligns the provisional fixture with the raw view-plane position under the pointer.
-bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint& mousePos)
-{
+// Aligns the provisional fixture with the raw view-plane position under the
+// pointer.
+bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     const RenderSize renderSize = ResolveRenderSize(this);
     if (!renderSize.IsValid() ||
         !TryBindGlContextForInteraction("continuous element alignment")) {
@@ -3301,8 +3318,7 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint& mousePos)
     if (!pointer)
         return false;
 
-    ApplySelectionDragDelta(
-        {(*pointer)[0] - m_selectionDragAnchorMeters[0],
+  ApplySelectionDragDelta({(*pointer)[0] - m_selectionDragAnchorMeters[0],
          (*pointer)[1] - m_selectionDragAnchorMeters[1],
          (*pointer)[2] - m_selectionDragAnchorMeters[2]});
     m_continuousPlacementNeedsPointerAlignment = false;
@@ -3313,8 +3329,7 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint& mousePos)
 }
 
 // Handles mouse movement for placement, selection, orbit, and pan.
-void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     wxPoint pos = event.GetPosition();
     if (m_continuousPlacementActive) {
         if (m_dragging && event.Dragging()) {
@@ -3335,20 +3350,16 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
             const int dy = pos.y - m_lastMousePos.y;
             if (m_axisConstrainedMovementEnabled) {
                 const auto projectedAxes = BuildProjectedDragAxes(renderSize);
-                if (m_selectionDragAxis ==
-                        viewer3d::SelectionDragAxis::None &&
+        if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None &&
                     (std::abs(dx) >= kSelectionDragStartThresholdPx ||
                      std::abs(dy) >= kSelectionDragStartThresholdPx)) {
                     m_selectionDragAxis =
-                        viewer3d::SelectDragAxisFromMouseDelta(
-                            dx, -dy, projectedAxes);
+              viewer3d::SelectDragAxisFromMouseDelta(dx, -dy, projectedAxes);
                 }
-                const double axisDeltaMeters =
-                    viewer3d::ComputeDragMetersOnAxis(
+        const double axisDeltaMeters = viewer3d::ComputeDragMetersOnAxis(
                         dx, -dy, m_selectionDragAxis, projectedAxes);
                 if (axisDeltaMeters != 0.0) {
-                    const auto axis =
-                        GetSelectionDragAxisVector(m_selectionDragAxis);
+          const auto axis = GetSelectionDragAxisVector(m_selectionDragAxis);
                     ApplySelectionDragDelta(
                         {axis[0] * static_cast<float>(axisDeltaMeters),
                          axis[1] * static_cast<float>(axisDeltaMeters),
@@ -3356,16 +3367,13 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                     m_selectionDragMoved = true;
                 }
             } else {
-                m_selectionDragAxis =
-                    viewer3d::SelectionDragAxis::None;
+        m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
                 const auto lastPoint =
-                    ProjectMouseToSelectionDragViewPlane(m_lastMousePos,
-                                                         renderSize);
+            ProjectMouseToSelectionDragViewPlane(m_lastMousePos, renderSize);
                 const auto currentPoint =
                     ProjectMouseToSelectionDragViewPlane(pos, renderSize);
                 if (lastPoint && currentPoint) {
-                    ApplySelectionDragDelta(
-                        {(*currentPoint)[0] - (*lastPoint)[0],
+          ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
                          (*currentPoint)[1] - (*lastPoint)[1],
                          (*currentPoint)[2] - (*lastPoint)[2]});
                     m_selectionDragMoved = true;
@@ -3376,24 +3384,24 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
         m_lastMousePos = pos;
         return;
     }
-    viewer3d::diagnostics::Logf("Mouse move pos=(%d,%d) dragging=%d selectionDrag=%d rect=%d",
-                                pos.x, pos.y, event.Dragging() ? 1 : 0,
-                                m_selectionDragArmed ? 1 : 0, m_rectSelecting ? 1 : 0);
-    if (m_measureToolEnabled && m_measureHasAnchor && !m_measureHasCommittedTarget) {
+  viewer3d::diagnostics::Logf(
+      "Mouse move pos=(%d,%d) dragging=%d selectionDrag=%d rect=%d", pos.x,
+      pos.y, event.Dragging() ? 1 : 0, m_selectionDragArmed ? 1 : 0,
+      m_rectSelecting ? 1 : 0);
+  if (m_measureToolEnabled && m_measureHasAnchor &&
+      !m_measureHasCommittedTarget) {
         m_measurePreviewMousePos = pos;
         m_measureHasPreviewMousePos = true;
     }
 
-    if (m_rectSelecting && event.Dragging())
-    {
+  if (m_rectSelecting && event.Dragging()) {
         m_rectSelectEnd = pos;
         m_draggedSincePress = true;
         Refresh();
         return;
     }
 
-    if (m_selectionDragArmed && event.Dragging() && event.LeftIsDown())
-    {
+  if (m_selectionDragArmed && event.Dragging() && event.LeftIsDown()) {
         if ((wxGetLocalTimeMillis() - m_selectionDragPressTime).ToLong() <
             kSelectionDragDelayMs) {
             m_lastMousePos = pos;
@@ -3402,7 +3410,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 
         const int dx = pos.x - m_lastMousePos.x;
         const int dy = pos.y - m_lastMousePos.y;
-        if (!m_selectionDragMoved && std::abs(dx) < kSelectionDragStartThresholdPx &&
+    if (!m_selectionDragMoved &&
+        std::abs(dx) < kSelectionDragStartThresholdPx &&
             std::abs(dy) < kSelectionDragStartThresholdPx)
             return;
         if (dx != 0 || dy != 0) {
@@ -3413,8 +3422,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                 if (m_axisConstrainedMovementEnabled) {
                     const auto projectedAxes = BuildProjectedDragAxes(renderSize);
                     if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
-                        m_selectionDragAxis = viewer3d::SelectDragAxisFromMouseDelta(
-                            dx, -dy, projectedAxes);
+            m_selectionDragAxis =
+                viewer3d::SelectDragAxisFromMouseDelta(dx, -dy, projectedAxes);
                     }
 
                     const double axisDeltaMeters = viewer3d::ComputeDragMetersOnAxis(
@@ -3431,10 +3440,10 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
                         m_draggedSincePress = true;
                     }
                 } else {
-                    const auto lastPoint = ProjectMouseToSelectionDragViewPlane(
-                        m_lastMousePos, renderSize);
-                    const auto currentPoint = ProjectMouseToSelectionDragViewPlane(
-                        pos, renderSize);
+          const auto lastPoint =
+              ProjectMouseToSelectionDragViewPlane(m_lastMousePos, renderSize);
+          const auto currentPoint =
+              ProjectMouseToSelectionDragViewPlane(pos, renderSize);
                     if (lastPoint && currentPoint) {
                         const std::array<float, 3> worldDelta{
                             (*currentPoint)[0] - (*lastPoint)[0],
@@ -3469,8 +3478,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent& event)
 }
 
 // Handles mouse wheel (zoom)
-void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
     viewer3d::diagnostics::Logf("Mouse wheel start rotation=%d delta=%d",
                                 event.GetWheelRotation(), event.GetWheelDelta());
     SetFocus();
@@ -3485,7 +3493,8 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
     if (deltaWheel != 0)
         steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
     if (steps == 0.0f || !std::isfinite(steps)) {
-        viewer3d::diagnostics::Log("Mouse wheel ignored because zoom steps are invalid or zero.");
+    viewer3d::diagnostics::Log(
+        "Mouse wheel ignored because zoom steps are invalid or zero.");
         return;
     }
     m_controller.SetInteracting(true);
@@ -3500,8 +3509,7 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent& event)
 }
 
 // Opens an editor for the item under the double-click position.
-void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnMouseDClick(wxMouseEvent &event) {
     const RenderSize renderSize = ResolveRenderSize(this);
     const int w = renderSize.width;
     const int h = renderSize.height;
@@ -3519,14 +3527,15 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
         SceneObjectTablePanel::Instance() &&
         SceneObjectTablePanel::Instance()->IsActivePage();
 
-    const bool foundSceneObject = sceneObjectsActive &&
-        QueryHoverUuid(m_controller, HoverTargetTable::SceneObjects,
-                       pickPos.x, pickPos.y, w, h, uuid);
+  const bool foundSceneObject =
+      sceneObjectsActive &&
+      QueryHoverUuid(m_controller, HoverTargetTable::SceneObjects, pickPos.x,
+                     pickPos.y, w, h, uuid);
 
     bool found = foundSceneObject;
     if (!found)
-        found = QueryHoverUuid(m_controller, HoverTargetTable::Fixtures,
-                               pickPos.x, pickPos.y, w, h, uuid);
+    found = QueryHoverUuid(m_controller, HoverTargetTable::Fixtures, pickPos.x,
+                           pickPos.y, w, h, uuid);
 
     if (cameraWasMoving)
         m_controller.SetCameraMoving(true);
@@ -3538,8 +3547,8 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
 
     ConfigManager &cfg = ConfigManager::Get();
     if (foundSceneObject) {
-        const bool edited = scene_object_primitives::EditPrimitiveObjectByUuid(
-            this, cfg, uuid);
+    const bool edited =
+        scene_object_primitives::EditPrimitiveObjectByUuid(this, cfg, uuid);
         if (!edited)
             return;
 
@@ -3582,12 +3591,14 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent& event)
 }
 
 // Handles keyboard shortcuts for viewport tools and camera actions.
-void Viewer3DPanel::OnKeyDown(wxKeyEvent& event)
-{
+void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
     viewer3d::diagnostics::Logf("Key interaction start key=%d shift=%d alt=%d",
                                 event.GetKeyCode(), event.ShiftDown() ? 1 : 0,
                                 event.AltDown() ? 1 : 0);
-    if (!m_mouseInside && !HasFocus()) { event.Skip(); return; }
+  if (!m_mouseInside && !HasFocus()) {
+    event.Skip();
+    return;
+  }
     if (gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
         event.Skip();
         return;
@@ -3717,16 +3728,14 @@ void Viewer3DPanel::SetStandardView(Viewer2DView view) {
 }
 
 // Marks the mouse as inside the 3D panel and focuses keyboard input.
-void Viewer3DPanel::OnMouseEnter(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnMouseEnter(wxMouseEvent &event) {
     m_mouseInside = true;
     SetFocus();
     event.Skip();
 }
 
 // Clears hover and highlight state when the mouse leaves the 3D panel.
-void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
-{
+void Viewer3DPanel::OnMouseLeave(wxMouseEvent &event) {
     m_mouseInside = false;
     m_measureHasPreviewMousePos = false;
     m_hasHover = false;
@@ -3746,9 +3755,9 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent& event)
     event.Skip();
 }
 
-// Updates scene resources only when the 3D canvas is fully shown and its GL context can be safely activated.
-void Viewer3DPanel::UpdateScene()
-{
+// Updates scene resources only when the 3D canvas is fully shown and its GL
+// context can be safely activated.
+void Viewer3DPanel::UpdateScene() {
     ++m_sceneRevision;
     m_controller.MarkResourceSyncPending();
 
@@ -3764,14 +3773,16 @@ void Viewer3DPanel::UpdateScene()
 }
 
 // Applies a new selected UUID set to the 3D controller and schedules a refresh.
-void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string>& uuids)
-{
-    const scene_grouping::ObjectSelection typedSelection{
-        .fixtures = uuids, .trusses = uuids, .supports = uuids,
+void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string> &uuids) {
+  const scene_grouping::ObjectSelection typedSelection{.fixtures = uuids,
+                                                       .trusses = uuids,
+                                                       .supports = uuids,
         .sceneObjects = uuids};
     const std::vector<std::string> expandedUuids =
         scene_grouping::ExpandSelectionForGroupHighlights(
-            ConfigManager::Get().GetScene(), typedSelection);
+          ConfigManager::Get().GetScene(), typedSelection,
+          selection_movement_settings::LoadInteractiveTransformPolicy(
+              ConfigManager::Get()));
     if (expandedUuids == m_lastAppliedSelectionUuids &&
         uuids == m_lastAppliedPrimarySelectionUuids)
         return;
@@ -3830,16 +3841,14 @@ void Viewer3DPanel::RefreshLoop()
 }
 
 // Handles a coalesced refresh notification from the refresh worker.
-void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
-{
+void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
     (void)event;
     m_refreshEventPending.store(false, std::memory_order_release);
     if (m_shuttingDown || m_modalDialogActive || !m_glContext || IsBeingDeleted())
         return;
 
     const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
-    const bool cameraChanged =
-        !m_hasLastThreadCameraFingerprint ||
+  const bool cameraChanged = !m_hasLastThreadCameraFingerprint ||
         cameraFingerprint != m_lastThreadCameraFingerprint;
     if (cameraChanged) {
         m_lastThreadCameraFingerprint = cameraFingerprint;
@@ -3847,15 +3856,9 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
     }
 
     const bool hasRelevantVisualChange =
-        cameraChanged ||
-        m_controller.IsResourceSyncPending() ||
-        m_selectionRefreshPending ||
-        m_highlightRefreshPending ||
-        m_mouseMoved ||
-        m_forceHoverQuery ||
-        m_rectSelecting ||
-        m_dragging ||
-        m_isInteracting ||
+      cameraChanged || m_controller.IsResourceSyncPending() ||
+      m_selectionRefreshPending || m_highlightRefreshPending || m_mouseMoved ||
+      m_forceHoverQuery || m_rectSelecting || m_dragging || m_isInteracting ||
         m_cameraMoving;
     if (!hasRelevantVisualChange)
         return;
@@ -3878,15 +3881,12 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent& event)
 }
 
 // Records whether a modal dialog should pause 3D refresh work.
-void Viewer3DPanel::SetModalDialogActive(bool active)
-{
+void Viewer3DPanel::SetModalDialogActive(bool active) {
     m_modalDialogActive = active;
 }
 
-
 // Returns whether expensive scene work should pause during active navigation.
-bool Viewer3DPanel::ShouldPauseHeavyTasks()
-{
+bool Viewer3DPanel::ShouldPauseHeavyTasks() {
     const auto now = std::chrono::steady_clock::now();
     const bool interactionGraceActive =
         (now - m_lastInteractionTime) < kPauseDelay;
@@ -3913,14 +3913,12 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks()
 }
 
 // Arms the timeout that ends wheel-driven zoom interaction.
-void Viewer3DPanel::ArmZoomInteractionTimeout()
-{
+void Viewer3DPanel::ArmZoomInteractionTimeout() {
     m_zoomInteractionTimer.StartOnce(kZoomInteractionTimeoutMs);
 }
 
 // Ends wheel-driven zoom interaction after input has gone idle.
-void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent& event)
-{
+void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent &event) {
     (void)event;
 
     if (m_dragging || m_rectSelecting)
@@ -3954,7 +3952,8 @@ void Viewer3DPanel::LoadCameraFromConfig()
 
     if (ConsolePanel::Instance()) {
         wxString msg;
-        msg.Printf("Camera loaded: yaw=%.2f pitch=%.2f dist=%.2f target=(%.2f, %.2f, %.2f)",
+    msg.Printf("Camera loaded: yaw=%.2f pitch=%.2f dist=%.2f target=(%.2f, "
+               "%.2f, %.2f)",
             yaw, pitch, dist, tx, ty, tz);
         ConsolePanel::Instance()->AppendMessage(msg);
     }

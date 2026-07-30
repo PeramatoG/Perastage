@@ -65,6 +65,7 @@
 #include "render_pipeline.h"
 #include "scene_grouping.h"
 #include "scenerenderer.h"
+#include "selection_movement_settings.h"
 #include "selection_overlay_pass.h"
 #include "selectionsystem.h"
 #include "types.h"
@@ -339,7 +340,8 @@ static void CombineHashValue(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
-// Computes a stable fingerprint for scene elements whose layer controls visibility.
+// Computes a stable fingerprint for scene elements whose layer controls
+// visibility.
 static size_t ComputeSceneLayerMembershipFingerprint(const MvrScene &scene) {
   std::vector<std::string> entries;
   entries.reserve(scene.fixtures.size() + scene.trusses.size() +
@@ -675,7 +677,8 @@ bool Viewer3DController::ReadPickUuidAt(
     int mouseX, int mouseY, int width, int height,
     const std::unordered_set<std::string> &hiddenLayers, std::string &outUuid) {
   return ReadPickUuidAtDetailed(mouseX, mouseY, width, height, hiddenLayers,
-                                outUuid) == ISelectionContext::PickReadResult::Hit;
+                                outUuid) ==
+         ISelectionContext::PickReadResult::Hit;
 }
 
 // Handles d Controller.
@@ -823,7 +826,9 @@ void Viewer3DController::ApplyHighlightUuid(const std::string &uuid) {
   m_impl->highlightUuid = uuid;
   m_impl->groupHighlightUuids.clear();
   for (const auto &groupUuid : scene_grouping::ExpandHoverForGroupHighlights(
-           ConfigManager::Get().GetScene(), uuid)) {
+           ConfigManager::Get().GetScene(), uuid,
+           selection_movement_settings::LoadInteractiveTransformPolicy(
+               ConfigManager::Get()))) {
     m_impl->groupHighlightUuids.insert(groupUuid);
   }
 }
@@ -2117,8 +2122,7 @@ bool Viewer3DController::IsUuidGroupHighlighted(const std::string &uuid) const {
 
 // Checks whether uUID Selected.
 bool Viewer3DController::IsUuidSelected(const std::string &uuid) const {
-  return !uuid.empty() &&
-         m_impl->primarySelectedUuids.find(uuid) !=
+  return !uuid.empty() && m_impl->primarySelectedUuids.find(uuid) !=
              m_impl->primarySelectedUuids.end();
 }
 
