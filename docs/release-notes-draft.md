@@ -28,6 +28,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Improved Windows test reliability for truss Magnet archive and cache
+  validation by initializing its native file services explicitly and reporting
+  failures without modal dialogs.
+
 - Corrected unconstrained 3D selection dragging after a Magnet preview so both
   pointer projections use the same unsnapped drag anchor.
 
