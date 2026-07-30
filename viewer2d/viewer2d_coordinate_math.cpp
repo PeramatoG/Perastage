@@ -13,22 +13,41 @@ bool IsValid(const CoordinateTransform &transform) {
          std::isfinite(transform.panPixelsY);
 }
 
-// Maps a world position onto the two visible axes of an orthographic view.
+// Maps a world position onto the signed axes of the rendered view camera.
 std::array<float, 2> VisibleAxes(const std::array<float, 3> &world,
                                  Viewer2DView view) {
-  switch (view) {
-  case Viewer2DView::Top:
-  case Viewer2DView::Bottom:
-    return {world[0], world[1]};
-  case Viewer2DView::Front:
-    return {world[0], world[2]};
-  case Viewer2DView::Side:
-    return {world[1], world[2]};
-  }
-  return {world[0], world[1]};
+  const ViewBasis basis = GetViewBasis(view);
+  return {world[basis.horizontalAxis] * basis.horizontalSign,
+          world[basis.verticalAxis] * basis.verticalSign};
 }
 
 } // namespace
+
+// Returns the authoritative screen basis established by the OpenGL camera.
+ViewBasis GetViewBasis(Viewer2DView view) {
+  switch (view) {
+  case Viewer2DView::Top:
+    return {0, 1, 1.0f, 1.0f};
+  case Viewer2DView::Bottom:
+    return {0, 1, -1.0f, 1.0f};
+  case Viewer2DView::Front:
+    return {0, 2, 1.0f, 1.0f};
+  case Viewer2DView::Side:
+    return {1, 2, -1.0f, 1.0f};
+  }
+  return {0, 1, 1.0f, 1.0f};
+}
+
+// Maps a screen-space metre delta onto the visible world axes.
+std::array<float, 3> ScreenDeltaToWorld(float horizontalMeters,
+                                        float verticalMeters,
+                                        Viewer2DView view) {
+  const ViewBasis basis = GetViewBasis(view);
+  std::array<float, 3> world{0.0f, 0.0f, 0.0f};
+  world[basis.horizontalAxis] = horizontalMeters * basis.horizontalSign;
+  world[basis.verticalAxis] = verticalMeters * basis.verticalSign;
+  return world;
+}
 
 // Computes projection bounds from the same transform used for pointer mapping.
 std::optional<OrthographicBounds>
@@ -51,7 +70,6 @@ WorldToFramebuffer(const std::array<float, 3> &world,
   if (!IsValid(transform))
     return std::nullopt;
   const auto visible = VisibleAxes(world, transform.view);
-  const float scale = kPixelsPerMeter * transform.zoom;
   return std::array<float, 2>{
       transform.framebufferWidth * 0.5f +
           (visible[0] * kPixelsPerMeter + transform.panPixelsX) *
@@ -73,16 +91,7 @@ FramebufferToWorld(const std::array<float, 2> &framebuffer,
   const float v =
       (transform.framebufferHeight * 0.5f - framebuffer[1]) / scale -
       transform.panPixelsY / kPixelsPerMeter;
-  switch (transform.view) {
-  case Viewer2DView::Top:
-  case Viewer2DView::Bottom:
-    return std::array<float, 3>{u, v, 0.0f};
-  case Viewer2DView::Front:
-    return std::array<float, 3>{u, 0.0f, v};
-  case Viewer2DView::Side:
-    return std::array<float, 3>{0.0f, u, v};
-  }
-  return std::array<float, 3>{u, v, 0.0f};
+  return ScreenDeltaToWorld(u, v, transform.view);
 }
 
 } // namespace viewer2d

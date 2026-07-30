@@ -3,15 +3,27 @@
 #include "mvrscene.h"
 
 #include <cassert>
+#include <cstdint>
+#include <limits>
 
 // Verifies cloning and removal for every supported continuous placement type.
 int main() {
   // A camera revision must force absolute re-alignment without retaining a
   // temporary snap preview or adding a stale pointer delta.
   continuous_placement::ViewRevisionState viewState;
+  assert(viewState.NeedsAlignment());
+  viewState.CompleteAlignmentAttempt(false);
+  assert(viewState.NeedsAlignment());
   float rawPosition = 4.0f;
   float displayedPosition = rawPosition + 1.5f;
-  viewState.MarkAligned();
+  viewState.CompleteAlignmentAttempt(true);
+  assert(!viewState.NeedsAlignment());
+  viewState.Invalidate();
+  viewState.Invalidate();
+  assert(viewState.NeedsAlignment());
+  viewState.CompleteAlignmentAttempt(false);
+  assert(viewState.NeedsAlignment());
+  viewState.CompleteAlignmentAttempt(true);
   assert(!viewState.NeedsAlignment());
   for (float pointerWorld : {8.0f, 6.0f, 9.5f}) {
     viewState.Invalidate();
@@ -25,6 +37,13 @@ int main() {
     assert(!viewState.NeedsAlignment());
     assert(displayedPosition == pointerWorld + 1.5f);
   }
+
+  continuous_placement::ViewRevisionState rollover(
+      std::numeric_limits<std::uint64_t>::max());
+  rollover.MarkAligned();
+  rollover.Invalidate();
+  assert(rollover.Revision() == 1);
+  assert(rollover.NeedsAlignment());
 
   MvrScene scene;
 

@@ -342,7 +342,6 @@ private:
   bool m_continuousPlacementActive = false;
   ContinuousPlacementType m_continuousPlacementType =
       ContinuousPlacementType::None;
-  bool m_continuousPlacementNeedsPointerAlignment = false;
   continuous_placement::ViewRevisionState m_placementViewRevision;
   std::string m_continuousPlacementUuid;
   std::vector<std::string> m_continuousPlacedUuids;
@@ -352,6 +351,7 @@ private:
   wxPoint m_rectSelectStart;
   wxPoint m_rectSelectEnd;
   wxPoint m_lastMousePos;
+  bool m_hasLastMousePos = false;
   float m_offsetX = 0.0f;
   float m_offsetY = 0.0f;
   float m_zoom = 1.0f;

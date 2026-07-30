@@ -126,6 +126,7 @@ private:
     bool m_draggedSincePress = false;
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
+    bool m_hasLastMousePos = false;
     bool m_rectSelecting = false;
     bool m_rectSelectionAcrossAllTables = false;
     wxPoint m_rectSelectStart;
@@ -151,7 +152,6 @@ private:
     bool m_continuousPlacementActive = false;
     ContinuousPlacementType m_continuousPlacementType =
         ContinuousPlacementType::None;
-    bool m_continuousPlacementNeedsPointerAlignment = false;
     continuous_placement::ViewRevisionState m_placementViewRevision;
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;

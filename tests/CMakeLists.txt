@@ -2104,9 +2104,10 @@ add_test(NAME ContinuousPlacementScene COMMAND continuous_placement_scene_test)
 
 add_executable(viewer2d_coordinate_math_test
                viewer2d_coordinate_math_test.cpp
-               ../viewer2d/viewer2d_coordinate_math.cpp)
+               ../viewer2d/viewer2d_coordinate_math.cpp
+               ../core/pixel_coordinate_math.cpp)
 target_include_directories(viewer2d_coordinate_math_test PRIVATE
-                           ../viewer2d ../viewer3d)
+                           ../viewer2d ../viewer3d ../core)
 add_test(NAME Viewer2DCoordinateMath COMMAND viewer2d_coordinate_math_test)
 
 add_executable(layer_visibility_state_test

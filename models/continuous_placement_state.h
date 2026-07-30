@@ -8,11 +8,17 @@ namespace continuous_placement {
 // Tracks whether a pointer mapping belongs to the current viewport revision.
 class ViewRevisionState {
 public:
+  // Creates stale alignment state at a specified nonzero revision.
+  explicit ViewRevisionState(std::uint64_t initialRevision = 1);
+
   // Invalidates pointer alignment after a camera or viewport transformation.
   void Invalidate();
 
   // Records that placement was aligned using the current viewport mapping.
   void MarkAligned();
+
+  // Records a completed attempt only when all alignment work succeeded.
+  void CompleteAlignmentAttempt(bool succeeded);
 
   // Reports whether placement must be recomputed from the absolute pointer.
   bool NeedsAlignment() const;
