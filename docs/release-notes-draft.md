@@ -22,6 +22,12 @@ Changes since **v1.5.0**.
 - Fixed continuous fixture, truss, and scene-object placement drifting away
   from the pointer after zooming, panning, orbiting, resizing, fitting, or
   changing standard views in the 2D and 3D viewers.
+- Corrected Bottom and Side view pointer orientation, high-DPI coordinate
+  conversion, and Magnet preview refresh so continuous placement remains
+  visually anchored through view and framebuffer changes without extra Undo
+  entries. Confirming snapped elements now keeps each following provisional
+  copy at the raw pointer position without inheriting the previous snap offset,
+  including after temporary high-DPI conversion or 3D projection failures.
 
 - Fixed a crash that could occur when opening another project after startup by
   releasing viewer scene caches before the project replaces its scene data.

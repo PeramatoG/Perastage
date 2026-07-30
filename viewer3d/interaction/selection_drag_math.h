@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 
 namespace viewer3d {
 
@@ -13,11 +14,19 @@ struct ProjectedAxis {
   bool valid = false;
 };
 
-SelectionDragAxis SelectDragAxisFromMouseDelta(
-    int mouseDx, int mouseDy, const std::array<ProjectedAxis, 3> &axes,
-    int activationThresholdPx = 3);
+SelectionDragAxis
+SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
+                             const std::array<ProjectedAxis, 3> &axes,
+                             int activationThresholdPx = 3);
 
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
                                const std::array<ProjectedAxis, 3> &axes);
+
+// Intersects a world-space ray with a plane for deterministic drag projection.
+std::optional<std::array<double, 3>>
+IntersectRayWithPlane(const std::array<double, 3> &rayOrigin,
+                      const std::array<double, 3> &rayDirection,
+                      const std::array<double, 3> &planePoint,
+                      const std::array<double, 3> &planeNormal);
 
 } // namespace viewer3d

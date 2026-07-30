@@ -113,6 +113,32 @@ std::array<float, 3> PositionMeters(const MvrScene &scene,
   return {0.0f, 0.0f, 0.0f};
 }
 
+// Sets the element origin from viewer world units without changing orientation.
+void SetPositionMeters(MvrScene &scene, ContinuousPlacementType type,
+                       const std::string &uuid,
+                       const std::array<float, 3> &positionMeters) {
+  auto setOrigin = [&](auto &elements) {
+    const auto it = elements.find(uuid);
+    if (it != elements.end())
+      it->second.transform.o = {positionMeters[0] * 1000.0f,
+                                positionMeters[1] * 1000.0f,
+                                positionMeters[2] * 1000.0f};
+  };
+  switch (type) {
+  case ContinuousPlacementType::Fixture:
+    setOrigin(scene.fixtures);
+    break;
+  case ContinuousPlacementType::Truss:
+    setOrigin(scene.trusses);
+    break;
+  case ContinuousPlacementType::SceneObject:
+    setOrigin(scene.sceneObjects);
+    break;
+  case ContinuousPlacementType::None:
+    break;
+  }
+}
+
 // Returns a user-facing lowercase name for the placement element type.
 const char *ElementName(ContinuousPlacementType type) {
   switch (type) {

@@ -40,6 +40,7 @@
 #endif
 
 #include "viewer3dpanel.h"
+#include "../core/pixel_coordinate_math.h"
 #include "mainwindow.h"
 #include "../gui/mainwindow/ids/tools_ids.h"
 #include "editable_focus_utils.h"
@@ -337,12 +338,26 @@ wxPoint ToFramebufferPoint(wxWindow* window, const wxPoint& logicalPoint) {
         return logicalPoint;
     const double contentScale =
         static_cast<double>(window->GetContentScaleFactor());
-    if (!std::isfinite(contentScale) || contentScale <= 0.0)
+    const auto converted = pixel_coordinates::LogicalToFramebuffer(
+        {static_cast<double>(logicalPoint.x),
+         static_cast<double>(logicalPoint.y)}, contentScale);
+    if (!converted)
         return logicalPoint;
-    return wxPoint(static_cast<int>(std::lround(
-                       static_cast<double>(logicalPoint.x) * contentScale)),
-                   static_cast<int>(std::lround(
-                       static_cast<double>(logicalPoint.y) * contentScale)));
+    return wxPoint((*converted)[0], (*converted)[1]);
+}
+
+// Converts a logical point while preserving conversion failure for placement.
+std::optional<wxPoint> TryToFramebufferPoint(wxWindow* window,
+                                             const wxPoint& logicalPoint) {
+    if (window == nullptr)
+        return std::nullopt;
+    const auto converted = pixel_coordinates::LogicalToFramebuffer(
+        {static_cast<double>(logicalPoint.x),
+         static_cast<double>(logicalPoint.y)},
+        static_cast<double>(window->GetContentScaleFactor()));
+    if (!converted)
+        return std::nullopt;
+    return wxPoint((*converted)[0], (*converted)[1]);
 }
 
 // Converts framebuffer pixel coordinates back to logical client-space pixels.
@@ -351,12 +366,12 @@ wxPoint FromFramebufferPoint(wxWindow* window, const wxPoint& framebufferPoint) 
         return framebufferPoint;
     const double contentScale =
         static_cast<double>(window->GetContentScaleFactor());
-    if (!std::isfinite(contentScale) || contentScale <= 0.0)
+    const auto converted = pixel_coordinates::FramebufferToLogical(
+        {static_cast<double>(framebufferPoint.x),
+         static_cast<double>(framebufferPoint.y)}, contentScale);
+    if (!converted)
         return framebufferPoint;
-    return wxPoint(static_cast<int>(std::lround(
-                       static_cast<double>(framebufferPoint.x) / contentScale)),
-                   static_cast<int>(std::lround(
-                       static_cast<double>(framebufferPoint.y) / contentScale)));
+    return wxPoint((*converted)[0], (*converted)[1]);
 }
 
 // Normalizes label rotation so text remains readable while staying parallel to the measure line.
@@ -1087,8 +1102,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     m_camera.Update(dt);
     if (cameraStateBeforeUpdate != m_camera.GetStateForDiagnostics()) {
         m_placementViewRevision.Invalidate();
-        m_continuousPlacementNeedsPointerAlignment =
-            m_continuousPlacementActive;
     }
   wxASSERT_MSG(m_camera.IsValid(),
                "3D camera state became invalid during paint update.");
@@ -1097,8 +1110,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     if (!renderSize.IsValid()) {
         return;
     }
-    if (m_continuousPlacementActive &&
-        m_continuousPlacementNeedsPointerAlignment)
+    if (m_continuousPlacementActive && m_hasLastMousePos &&
+        m_placementViewRevision.NeedsAlignment())
         AlignContinuousElementToPointer(m_lastMousePos);
 
     wxLogTrace("viewer3d_perf", "Viewer3DPanel frame render mode=full");
@@ -1337,7 +1350,6 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
 void Viewer3DPanel::OnResize(wxSizeEvent &event) {
     (void)event;
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
 }
 
@@ -1766,6 +1778,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
+    m_hasLastMousePos = true;
     if (m_continuousPlacementActive && event.LeftDown()) {
     m_mode = event.ShiftDown() ? InteractionMode::Pan : InteractionMode::Orbit;
         m_dragging = true;
@@ -1851,7 +1864,6 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
             ReleaseMouse();
         m_draggedSincePress = false;
         if (navigated) {
-            m_continuousPlacementNeedsPointerAlignment = true;
             AlignContinuousElementToPointer(event.GetPosition());
         } else {
             ConfirmContinuousPlacement();
@@ -2757,7 +2769,9 @@ std::array<float, 3> Viewer3DPanel::GetSelectionDragAxisVector(
 // Projects the active drag axes into screen space for axis-constrained
 // dragging.
 std::array<viewer3d::ProjectedAxis, 3>
-Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
+Viewer3DPanel::BuildProjectedDragAxes(
+    const RenderSize &renderSize,
+    const std::array<float, 3> &anchorMeters) const {
     std::array<viewer3d::ProjectedAxis, 3> axes{};
     if (!renderSize.IsValid())
         return axes;
@@ -2772,8 +2786,7 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
     GLdouble originX = 0.0;
     GLdouble originY = 0.0;
     GLdouble originZ = 0.0;
-    if (gluProject(m_selectionDragAnchorMeters[0], m_selectionDragAnchorMeters[1],
-                 m_selectionDragAnchorMeters[2], modelview, projection,
+    if (gluProject(anchorMeters[0], anchorMeters[1], anchorMeters[2], modelview, projection,
                  viewport, &originX, &originY, &originZ) != GL_TRUE) {
         return axes;
     }
@@ -2789,9 +2802,9 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
         GLdouble tipY = 0.0;
         GLdouble tipZ = 0.0;
         const auto& worldAxis = axisWorldVectors[i];
-        if (gluProject(m_selectionDragAnchorMeters[0] + worldAxis[0],
-                       m_selectionDragAnchorMeters[1] + worldAxis[1],
-                       m_selectionDragAnchorMeters[2] + worldAxis[2], modelview,
+        if (gluProject(anchorMeters[0] + worldAxis[0],
+                       anchorMeters[1] + worldAxis[1],
+                       anchorMeters[2] + worldAxis[2], modelview,
                        projection, viewport, &tipX, &tipY, &tipZ) != GL_TRUE) {
             continue;
         }
@@ -2808,10 +2821,19 @@ Viewer3DPanel::BuildProjectedDragAxes(const RenderSize &renderSize) const {
     return axes;
 }
 
+// Returns the unsnapped anchor used by all pointer-movement geometry.
+std::array<float, 3> Viewer3DPanel::CurrentRawSelectionDragAnchor() const {
+    if (!m_pendingMagnetSnap)
+        return m_selectionDragAnchorMeters;
+    return continuous_placement::RawAnchorFromPreview(
+        m_selectionDragAnchorMeters, m_pendingMagnetSnap->translationDeltaMm);
+}
+
 // Projects the mouse position onto the active selection drag view plane.
 std::optional<std::array<float, 3>>
 Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
-    const wxPoint &mousePos, const RenderSize &renderSize) const {
+    const wxPoint &mousePos, const RenderSize &renderSize,
+    const std::array<float, 3> &planePointMeters) const {
     if (!renderSize.IsValid())
         return std::nullopt;
 
@@ -2822,10 +2844,12 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     glGetDoublev(GL_PROJECTION_MATRIX, projection);
     glGetIntegerv(GL_VIEWPORT, viewport);
 
-  const wxPoint framebufferPos =
-      ToFramebufferPoint(const_cast<Viewer3DPanel *>(this), mousePos);
-    const double winX = static_cast<double>(framebufferPos.x);
-    const double winY = static_cast<double>(renderSize.height - framebufferPos.y);
+  const auto framebufferPos =
+      TryToFramebufferPoint(const_cast<Viewer3DPanel *>(this), mousePos);
+    if (!framebufferPos)
+        return std::nullopt;
+    const double winX = static_cast<double>(framebufferPos->x);
+    const double winY = static_cast<double>(renderSize.height - framebufferPos->y);
 
     auto unproject = [&](double x, double y, double z) {
         std::array<double, 3> point{0.0, 0.0, 0.0};
@@ -2858,22 +2882,16 @@ Viewer3DPanel::ProjectMouseToSelectionDragViewPlane(
     const std::array<double, 3> planeNormal{centerFar[0] - centerNear[0],
                                            centerFar[1] - centerNear[1],
                                            centerFar[2] - centerNear[2]};
-    const double denominator = rayDir[0] * planeNormal[0] +
-                               rayDir[1] * planeNormal[1] +
-                               rayDir[2] * planeNormal[2];
-    if (std::abs(denominator) <= 1e-12)
+  const std::array<double, 3> planePoint{planePointMeters[0],
+                                         planePointMeters[1],
+                                         planePointMeters[2]};
+    const auto intersection = viewer3d::IntersectRayWithPlane(
+        nearPoint, rayDir, planePoint, planeNormal);
+    if (!intersection)
         return std::nullopt;
-
-  const std::array<double, 3> planePoint{m_selectionDragAnchorMeters[0],
-                                         m_selectionDragAnchorMeters[1],
-        m_selectionDragAnchorMeters[2]};
-    const double t = ((planePoint[0] - nearPoint[0]) * planeNormal[0] +
-                      (planePoint[1] - nearPoint[1]) * planeNormal[1] +
-                      (planePoint[2] - nearPoint[2]) * planeNormal[2]) /
-                     denominator;
-  return std::array<float, 3>{static_cast<float>(nearPoint[0] + rayDir[0] * t),
-        static_cast<float>(nearPoint[1] + rayDir[1] * t),
-        static_cast<float>(nearPoint[2] + rayDir[2] * t)};
+  return std::array<float, 3>{static_cast<float>((*intersection)[0]),
+                              static_cast<float>((*intersection)[1]),
+                              static_cast<float>((*intersection)[2])};
 }
 
 // Builds a Magnet snap source for the active single-object 3D drag.
@@ -2949,7 +2967,10 @@ std::optional<magnet_snap::SnapResult> Viewer3DPanel::RestorePendingMagnetSnapPr
     magnet_snap::SnapResult inverse = previous;
     for (float& component : inverse.translationDeltaMm)
         component = -component;
-    magnet_snap::ApplySnapTransform(ConfigManager::Get().GetScene(), inverse);
+    ConfigManager& cfg = ConfigManager::Get();
+    magnet_snap::ApplySnapTransform(
+        cfg.GetScene(), inverse,
+        selection_movement_settings::LoadInteractiveTransformPolicy(cfg));
     m_selectionDragAnchorMeters[0] += inverse.translationDeltaMm[0] / 1000.0f;
     m_selectionDragAnchorMeters[1] += inverse.translationDeltaMm[1] / 1000.0f;
     m_selectionDragAnchorMeters[2] += inverse.translationDeltaMm[2] / 1000.0f;
@@ -2980,11 +3001,10 @@ void Viewer3DPanel::ApplySelectionDragDelta(
     const float dxMm = deltaMeters[0] * 1000.0f;
     const float dyMm = deltaMeters[1] * 1000.0f;
     const float dzMm = deltaMeters[2] * 1000.0f;
-    if (dxMm == 0.0f && dyMm == 0.0f && dzMm == 0.0f)
-        return;
-
     ConfigManager& cfg = ConfigManager::Get();
-    if (!m_selectionDragUndoPushed) {
+    const bool hasTranslation =
+        dxMm != 0.0f || dyMm != 0.0f || dzMm != 0.0f;
+    if (hasTranslation && !m_selectionDragUndoPushed) {
         cfg.PushUndoState("move selection");
         m_selectionDragUndoPushed = true;
     }
@@ -2996,9 +3016,11 @@ void Viewer3DPanel::ApplySelectionDragDelta(
     const auto previousSnap = RestorePendingMagnetSnapPreview();
   const auto policy =
       selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
-  scene_grouping::TranslateSelection(
-      cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
-      transform_space::TransformSpace::World, policy);
+  if (hasTranslation) {
+    scene_grouping::TranslateSelection(
+        cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
+        transform_space::TransformSpace::World, policy);
+  }
     if (auto snap = FindActiveMagnetSnap()) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
         m_pendingMagnetSnap = snap;
@@ -3066,7 +3088,6 @@ void Viewer3DPanel::BeginContinuousPlacement(
     m_continuousPlacementActive = true;
     m_continuousPlacementType = type;
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = true;
     m_continuousPlacementUuid = elementUuid;
     m_continuousPlacedUuids.clear();
     m_selectionDragArmed = true;
@@ -3085,7 +3106,6 @@ void Viewer3DPanel::BeginContinuousPlacement(
     m_dragSceneObjectUuids = type == ContinuousPlacementType::SceneObject
                                  ? std::vector<std::string>{elementUuid}
                                  : std::vector<std::string>{};
-    m_lastMousePos = ScreenToClient(wxGetMousePosition());
     m_selectionDragAnchorMeters = continuous_placement::PositionMeters(
         cfg.GetScene(), type, elementUuid);
     SetFocus();
@@ -3104,6 +3124,12 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
         return;
     }
 
+    auto nextRawPosition = continuous_placement::PositionMeters(
+        cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid);
+    if (m_pendingMagnetSnap) {
+        nextRawPosition = continuous_placement::RawAnchorFromPreview(
+            nextRawPosition, m_pendingMagnetSnap->translationDeltaMm);
+    }
     cfg.PushUndoState(std::string("place ") +
                       continuous_placement::ElementName(
                           m_continuousPlacementType));
@@ -3118,11 +3144,14 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
         CancelContinuousPlacement();
         return;
     }
+    continuous_placement::SetPositionMeters(
+        cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
     CommitActiveMagnetSnap();
     const auto placedUuids = m_continuousPlacedUuids;
     BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
     m_continuousPlacedUuids = placedUuids;
-    m_continuousPlacementNeedsPointerAlignment = false;
+    if (m_hasLastMousePos)
+        AlignContinuousElementToPointer(m_lastMousePos);
     RefreshContinuousPlacementViews();
 }
 
@@ -3199,7 +3228,6 @@ bool Viewer3DPanel::UndoContinuousPlacement() {
 void Viewer3DPanel::EndContinuousPlacementState() {
     m_continuousPlacementActive = false;
     m_continuousPlacementType = ContinuousPlacementType::None;
-    m_continuousPlacementNeedsPointerAlignment = false;
     m_continuousPlacementUuid.clear();
     m_continuousPlacedUuids.clear();
     ResetSelectionDragState();
@@ -3316,7 +3344,6 @@ void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
     }
     m_lastMousePos = mousePos;
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
 }
 
 // Aligns the provisional fixture with the raw view-plane position under the
@@ -3329,16 +3356,16 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     }
 
     ApplyCameraMatrices(renderSize);
-    RestorePendingMagnetSnapPreview();
+    const auto rawAnchor = CurrentRawSelectionDragAnchor();
     const auto pointer =
-        ProjectMouseToSelectionDragViewPlane(mousePos, renderSize);
+        ProjectMouseToSelectionDragViewPlane(mousePos, renderSize, rawAnchor);
     if (!pointer)
         return false;
 
+    RestorePendingMagnetSnapPreview();
     ApplySelectionDragDelta(continuous_placement::AbsoluteAlignmentDelta(
         *pointer, m_selectionDragAnchorMeters));
-    m_continuousPlacementNeedsPointerAlignment = false;
-    m_placementViewRevision.MarkAligned();
+    m_placementViewRevision.CompleteAlignmentAttempt(true);
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_selectionDragMoved = true;
     m_lastMousePos = mousePos;
@@ -3347,6 +3374,7 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
 
 // Handles mouse movement for placement, selection, orbit, and pan.
 void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
+    m_hasLastMousePos = true;
     wxPoint pos = event.GetPosition();
     if (m_continuousPlacementActive) {
         if (m_dragging && event.Dragging()) {
@@ -3354,7 +3382,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
             Refresh();
             return;
         }
-        if (m_continuousPlacementNeedsPointerAlignment) {
+        if (m_placementViewRevision.NeedsAlignment()) {
+            m_lastMousePos = pos;
             AlignContinuousElementToPointer(pos);
             Refresh();
             return;
@@ -3363,10 +3392,23 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         if (renderSize.IsValid() &&
             TryBindGlContextForInteraction("continuous element placement")) {
             ApplyCameraMatrices(renderSize);
+            const auto rawAnchor = CurrentRawSelectionDragAnchor();
             const int dx = pos.x - m_lastMousePos.x;
             const int dy = pos.y - m_lastMousePos.y;
             if (m_axisConstrainedMovementEnabled) {
-                const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                const auto projectedAxes =
+                    BuildProjectedDragAxes(renderSize, rawAnchor);
+                const bool hasValidAxis = std::any_of(
+                    projectedAxes.begin(), projectedAxes.end(),
+                    [](const viewer3d::ProjectedAxis &axis) {
+                        return axis.valid;
+                    });
+                if (!hasValidAxis) {
+                    m_lastMousePos = pos;
+                    m_placementViewRevision.Invalidate();
+                    Refresh();
+                    return;
+                }
         if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None &&
                     (std::abs(dx) >= kSelectionDragStartThresholdPx ||
                      std::abs(dy) >= kSelectionDragStartThresholdPx)) {
@@ -3386,17 +3428,26 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
             } else {
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
                 const auto lastPoint =
-            ProjectMouseToSelectionDragViewPlane(m_lastMousePos, renderSize);
+            ProjectMouseToSelectionDragViewPlane(
+                m_lastMousePos, renderSize, rawAnchor);
                 const auto currentPoint =
-                    ProjectMouseToSelectionDragViewPlane(pos, renderSize);
+                    ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize, rawAnchor);
                 if (lastPoint && currentPoint) {
           ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
                          (*currentPoint)[1] - (*lastPoint)[1],
                          (*currentPoint)[2] - (*lastPoint)[2]});
                     m_selectionDragMoved = true;
+                } else {
+                    m_lastMousePos = pos;
+                    m_placementViewRevision.Invalidate();
+                    Refresh();
+                    return;
                 }
             }
             Refresh();
+        } else {
+            m_placementViewRevision.Invalidate();
         }
         m_lastMousePos = pos;
         return;
@@ -3437,7 +3488,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                 TryBindGlContextForInteraction("OnMouseMove")) {
                 ApplyCameraMatrices(renderSize);
                 if (m_axisConstrainedMovementEnabled) {
-                    const auto projectedAxes = BuildProjectedDragAxes(renderSize);
+                    const auto projectedAxes = BuildProjectedDragAxes(renderSize, CurrentRawSelectionDragAnchor());
                     if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None) {
             m_selectionDragAxis =
                 viewer3d::SelectDragAxisFromMouseDelta(dx, -dy, projectedAxes);
@@ -3458,9 +3509,11 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                     }
                 } else {
           const auto lastPoint =
-              ProjectMouseToSelectionDragViewPlane(m_lastMousePos, renderSize);
+              ProjectMouseToSelectionDragViewPlane(
+                m_lastMousePos, renderSize, m_selectionDragAnchorMeters);
           const auto currentPoint =
-              ProjectMouseToSelectionDragViewPlane(pos, renderSize);
+              ProjectMouseToSelectionDragViewPlane(
+                        pos, renderSize, m_selectionDragAnchorMeters);
                     if (lastPoint && currentPoint) {
                         const std::array<float, 3> worldDelta{
                             (*currentPoint)[0] - (*lastPoint)[0],
@@ -3496,6 +3549,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
 
 // Handles mouse wheel (zoom)
 void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
+    m_hasLastMousePos = true;
     viewer3d::diagnostics::Logf("Mouse wheel start rotation=%d delta=%d",
                                 event.GetWheelRotation(), event.GetWheelDelta());
     SetFocus();
@@ -3521,7 +3575,6 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
 
     m_camera.Zoom(steps);
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     if (m_continuousPlacementActive)
         AlignContinuousElementToPointer(event.GetPosition());
     ArmZoomInteractionTimeout();
@@ -3703,8 +3756,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
     if (zoomTriggered)
         ArmZoomInteractionTimeout();
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
-    if (m_continuousPlacementActive)
+    if (m_continuousPlacementActive && m_hasLastMousePos)
         AlignContinuousElementToPointer(m_lastMousePos);
 
     viewer3d::diagnostics::Log("Key interaction end.");
@@ -3715,7 +3767,6 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
 bool Viewer3DPanel::ResetCameraToIsometric() {
     m_camera.Reset();
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
     return true;
 }
@@ -3733,7 +3784,6 @@ bool Viewer3DPanel::FrameSceneToFit() {
     m_lastInteractionTime = std::chrono::steady_clock::now();
     m_controller.SetInteracting(true);
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
     return true;
 }
@@ -3754,7 +3804,6 @@ void Viewer3DPanel::SetStandardView(Viewer2DView view) {
             return;
     }
     m_placementViewRevision.Invalidate();
-    m_continuousPlacementNeedsPointerAlignment = m_continuousPlacementActive;
     Refresh();
 }
 

@@ -4,6 +4,10 @@
 
 namespace continuous_placement {
 
+// Creates stale alignment state at a specified nonzero revision.
+ViewRevisionState::ViewRevisionState(std::uint64_t initialRevision)
+    : revision_(initialRevision == 0 ? 1 : initialRevision) {}
+
 // Invalidates pointer alignment after a camera or viewport transformation.
 void ViewRevisionState::Invalidate() {
   if (revision_ == std::numeric_limits<std::uint64_t>::max()) {
@@ -16,6 +20,12 @@ void ViewRevisionState::Invalidate() {
 
 // Records that placement was aligned using the current viewport mapping.
 void ViewRevisionState::MarkAligned() { alignedRevision_ = revision_; }
+
+// Records a completed attempt only when all alignment work succeeded.
+void ViewRevisionState::CompleteAlignmentAttempt(bool succeeded) {
+  if (succeeded)
+    MarkAligned();
+}
 
 // Reports whether placement must be recomputed from the absolute pointer.
 bool ViewRevisionState::NeedsAlignment() const {
@@ -30,6 +40,15 @@ AbsoluteAlignmentDelta(const std::array<float, 3> &pointerWorld,
   return {pointerWorld[0] - rawOriginWorld[0],
           pointerWorld[1] - rawOriginWorld[1],
           pointerWorld[2] - rawOriginWorld[2]};
+}
+
+// Removes a temporary preview translation from a displayed world anchor.
+std::array<float, 3>
+RawAnchorFromPreview(const std::array<float, 3> &displayedAnchorMeters,
+                     const std::array<float, 3> &previewDeltaMm) {
+  return {displayedAnchorMeters[0] - previewDeltaMm[0] / 1000.0f,
+          displayedAnchorMeters[1] - previewDeltaMm[1] / 1000.0f,
+          displayedAnchorMeters[2] - previewDeltaMm[2] / 1000.0f};
 }
 
 } // namespace continuous_placement

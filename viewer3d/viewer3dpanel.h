@@ -126,6 +126,7 @@ private:
     bool m_draggedSincePress = false;
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
+    bool m_hasLastMousePos = false;
     bool m_rectSelecting = false;
     bool m_rectSelectionAcrossAllTables = false;
     wxPoint m_rectSelectStart;
@@ -151,7 +152,6 @@ private:
     bool m_continuousPlacementActive = false;
     ContinuousPlacementType m_continuousPlacementType =
         ContinuousPlacementType::None;
-    bool m_continuousPlacementNeedsPointerAlignment = false;
     continuous_placement::ViewRevisionState m_placementViewRevision;
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;
@@ -203,9 +203,12 @@ private:
     std::array<float, 3> ComputeSelectionCenterMeters(
         const std::vector<std::string>& uuids, HoverTargetTable target) const;
     std::array<viewer3d::ProjectedAxis, 3> BuildProjectedDragAxes(
-        const RenderSize& renderSize) const;
+        const RenderSize& renderSize,
+        const std::array<float, 3>& anchorMeters) const;
+    std::array<float, 3> CurrentRawSelectionDragAnchor() const;
     std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
-        const wxPoint& mousePos, const RenderSize& renderSize) const;
+        const wxPoint& mousePos, const RenderSize& renderSize,
+        const std::array<float, 3>& planePointMeters) const;
     void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
     magnet_snap::SnapSettings BuildActiveMagnetSettings(
