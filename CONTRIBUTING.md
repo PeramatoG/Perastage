@@ -1,147 +1,328 @@
 # Contributing to Perastage
 
-First of all, thank you for taking the time to help improve Perastage.
+Thank you for taking the time to help improve Perastage.
 
-Perastage is an open-source tool for working with stage, lighting, MVR and GDTF workflows. The project is still growing, so bug reports, ideas, tests with real show files, documentation improvements and code contributions are all very welcome.
+Perastage is a free and open-source desktop application for stage, lighting, MVR, and GDTF workflows. The project is actively developed and welcomes contributions from software developers, lighting professionals, testers, translators, technical writers, and users working with real production files.
 
-You do not need to be an experienced developer to contribute. If you found a bug, have an idea, or something was confusing, that feedback is already useful.
+You do not need to be an experienced developer to contribute. A clear bug report, a reproducible test file, documentation feedback, or verification on a different operating system can be as valuable as a code change.
 
 ## Ways to contribute
 
-You can help Perastage in several ways:
+You can help Perastage by:
 
-- Report bugs or crashes.
-- Suggest new features or improvements.
-- Test the application with real MVR, GDTF, truss or fixture data.
-- Improve documentation.
-- Help with translations or clearer wording.
-- Submit code changes through pull requests.
-- Share screenshots, logs or example files when possible.
+- Reporting bugs, crashes, compatibility problems, or regressions.
+- Suggesting workflow improvements and new features.
+- Testing development builds on Windows, macOS, or Linux.
+- Testing with real MVR, GDTF, truss, fixture, and project files.
+- Improving documentation, translations, and user-facing wording.
+- Adding or improving automated tests.
+- Reviewing technical behavior against the official MVR and GDTF specifications.
+- Submitting focused code changes through pull requests.
+
+## Project communication
+
+Use the most appropriate GitHub area:
+
+- **Issues** for reproducible bugs, accepted tasks, and clearly scoped feature requests.
+- **Discussions** for questions, early ideas, design exploration, and proposals that still need their scope defined.
+- **Pull requests** for concrete changes that are ready for review or active work shown as a draft.
+
+For significant features, architectural changes, new dependencies, file-format behavior, or broad refactors, open an issue or discussion before implementation. This reduces duplicated work and helps confirm that the proposed direction fits the project.
+
+Small fixes, tests, documentation improvements, and straightforward corrections may be submitted directly as pull requests.
 
 ## Before opening an issue
 
-Before creating a new issue, please check if a similar one already exists.
+Search existing open and closed issues before creating a new one. If a similar issue already exists, add any new reproduction steps, logs, affected files, or platform details there instead of opening a duplicate.
 
-If it already exists, feel free to add extra information there instead of opening a duplicate. Extra details are always helpful, especially if you can reproduce the issue in a slightly different setup.
+Do not upload confidential, private, or copyrighted production files unless you have permission to share them publicly. A reduced test file that reproduces the same problem is usually preferable.
 
 ## Reporting bugs
 
-When reporting a bug, please try to include as much useful information as possible.
+A useful bug report should include, when available:
 
-A good bug report usually includes:
-
-- The Perastage version you are using.
-- Your operating system.
+- The exact Perastage version, commit, release, or development artifact used.
+- The operating system and relevant hardware details.
 - What you were trying to do.
+- What you expected to happen.
 - What happened instead.
-- The steps needed to reproduce the issue.
-- Screenshots or screen recordings, if they help explain the problem.
-- Any crash report, log file or error message.
-- A sample MVR, GDTF or project file, if you are allowed to share it.
+- Clear steps to reproduce the problem.
+- Screenshots or a short recording when they clarify visible behavior.
+- Crash reports, logs, warnings, or error messages.
+- A minimal MVR, GDTF, PSTG, or other sample file when sharing is permitted.
+- Whether the problem also occurs in the latest available development build.
 
-If you cannot share the original file because it belongs to a real production, venue, client or manufacturer, that is completely fine. A simplified test file that reproduces the same problem is also very helpful.
-
-Please avoid uploading private, confidential or copyrighted show files unless you have permission to share them publicly.
+If the issue cannot be reproduced by a maintainer, you may be asked to test a development artifact or provide additional diagnostics. This does not mean the report is being dismissed; some problems depend on a specific operating system, driver, locale, file, or machine configuration.
 
 ## Suggesting features
 
-Feature requests are welcome.
+Feature proposals should explain:
 
-When suggesting a feature, please describe:
+- The real workflow problem being solved.
+- Who would benefit from the change.
+- How the proposed workflow should behave from the user's perspective.
+- Which areas are likely to be affected, such as MVR, GDTF, drawing, import, export, visualization, UI, or project persistence.
+- Similar behavior in other applications, when relevant.
+- What should remain outside the initial scope.
 
-- What problem it would solve.
-- How you imagine it working.
-- Whether it is related to MVR, GDTF, drawing, export, import, visualization, UI, workflow, or something else.
-- If another application already does something similar, feel free to mention it.
+Prefer a small first deliverable over a large all-at-once implementation. Complex features may be divided into checkpoints or incremental pull requests.
 
-The more context you provide, the easier it is to understand the real use case behind the request.
+## Contribution workflow
 
-## Code contributions
+External contributors should normally work through a fork. Direct write access to the main repository is not required.
 
-Code contributions are welcome, but for large changes it is usually better to open an issue first. This helps avoid duplicated work or changes that do not fit the current direction of the project.
+1. Fork `PeramatoG/Perastage` on GitHub.
+2. Clone your fork locally.
+3. Add the main repository as an `upstream` remote.
+4. Create a focused branch from the current `upstream/main`.
+5. Implement and test one coherent change.
+6. Push the branch to your fork.
+7. Open a pull request targeting `PeramatoG/Perastage:main`.
 
-For small fixes, documentation improvements or simple corrections, you can open a pull request directly.
+Example setup:
 
-## Development guidelines
+```bash
+git clone https://github.com/<your-user>/Perastage.git
+cd Perastage
+git remote add upstream https://github.com/PeramatoG/Perastage.git
+git fetch upstream
+git switch -c fix/short-description upstream/main
+```
 
-Please try to keep the codebase clean, modular and easy to maintain.
+Recommended branch prefixes include:
 
-General guidelines:
+- `fix/` for bug fixes.
+- `feature/` for new functionality.
+- `refactor/` for behavior-preserving restructuring.
+- `docs/` for documentation.
+- `tests/` for test-only work.
+- `build/` for build, dependency, CI, or packaging work.
 
-- Keep changes focused and avoid mixing unrelated modifications in the same pull request.
-- Prefer small, clear commits over very large commits.
-- Keep business logic separated from the GUI when possible.
-- Avoid creating very large files. Split code into smaller modules when it makes sense.
-- Write code that is easy to extend and easy to replace at the UI level.
-- Use clear names for classes, functions and variables.
-- Add concise comments where they help explain intent.
-- Comments inside the code should be written in English.
-- Avoid unnecessary dependencies unless there is a clear reason to add them.
-- Keep the project portable across supported platforms whenever possible.
+Branch names should be short, descriptive, and use lowercase words separated by hyphens.
 
-## Pull request checklist
+## Draft pull requests
 
-Before opening a pull request, please check the following:
+Open a **draft pull request** early for work that needs architectural discussion, affects several modules, or may take multiple iterations. A draft allows maintainers to review the direction before the implementation becomes expensive to change.
 
-- The project builds successfully.
-- The change has been tested locally.
-- The pull request has a clear description.
-- The change is related to a specific issue when possible.
-- New behavior is documented if needed.
-- UI changes include screenshots when useful.
-- The code follows the existing project style.
-- The change does not introduce unrelated formatting changes.
+A draft pull request does not need to be complete, but it should state:
 
-## Working with MVR and GDTF files
+- The intended goal.
+- The current scope.
+- Important design decisions.
+- Known limitations or unresolved questions.
+- Which parts are ready for review.
 
-Perastage works with formats that are commonly used in real productions, manufacturers' libraries and lighting workflows.
+Mark the pull request ready for review only when its intended scope is complete, the relevant checks have been run, and the description reflects the final behavior.
 
-When contributing changes related to MVR or GDTF:
+## Keep pull requests focused
 
-- Try to follow the official format structure as closely as possible.
-- Be careful with compatibility.
-- Avoid assumptions that only work with one specific exporter or manufacturer.
-- Test with more than one file when possible.
-- Keep imported and exported data as predictable as possible.
+Each pull request should represent one coherent change.
 
-If you are not sure whether a behavior is correct according to the standard, mention it in the issue or pull request. Discussion is welcome.
+- Avoid mixing unrelated fixes, refactors, formatting changes, and features.
+- Avoid repository-wide reformatting unless it is the explicit purpose of the pull request.
+- Refactor incrementally around the code being changed.
+- Avoid large rewrites when a staged migration is possible.
+- Document intentionally deferred work instead of silently expanding the scope.
 
-## Documentation contributions
+Small and focused pull requests are easier to understand, test, review, revert, and maintain.
 
-Documentation improvements are very welcome.
+## Development principles
 
-This includes:
+Perastage should remain professional, modular, portable, and maintainable.
 
-- Fixing typos.
-- Improving explanations.
-- Adding screenshots.
-- Clarifying installation steps.
-- Explaining workflows.
-- Updating outdated information.
-- Making the documentation easier for new users.
+- Write all new or updated code, identifiers, code comments, and developer documentation in English.
+- Use clear and responsibility-oriented names for files, classes, functions, and variables.
+- Keep business logic and file-format logic outside the GUI whenever possible.
+- Design services and domain logic so that the GUI can be changed without rewriting core behavior.
+- Avoid adding major responsibilities to already large files.
+- When touching a file near approximately 1200-1500 lines, prefer extracting a responsibility before adding substantial new behavior.
+- Keep module ownership explicit in CMake. Do not use recursive source globbing for project sources.
+- Prefer interfaces or helpers owned by the responsible module over direct cross-module coupling.
+- Avoid unnecessary dependencies. New dependencies require a clear technical reason, compatible licensing, and cross-platform consideration.
+- Preserve Windows, macOS, and Linux compatibility whenever the affected code is intended to be portable.
+- Add concise comments to explain intent, constraints, or non-obvious decisions; do not narrate self-explanatory code.
 
-Clear documentation is especially important because many Perastage users may come from the live events, lighting or stage design world rather than from software development.
+Architecture and repository conventions are documented under `docs/developer/`, especially:
 
-## Be friendly and constructive
+- `docs/developer/architecture.md`
+- `docs/developer/repository_layout.md`
+- `docs/developer/build.md`
+- `docs/developer/packaging.md`
+- `docs/developer/documentation_policy.md`
 
-Please keep discussions respectful and constructive.
+More specialized technical policies in that directory are authoritative for the areas they cover.
 
-It is completely fine to disagree about how something should work, but try to explain the reason behind your opinion. The goal is to make Perastage better for everyone using it.
+## MVR and GDTF policy
 
-## New to GitHub?
+MVR and GDTF behavior must follow the official specifications as closely as reasonably possible.
 
-No problem.
+Perastage applies an intentional compatibility model:
 
-If you are new to GitHub and only created an account to report something, you are still very welcome here.
+- **Reading should be permissive.** When safe and unambiguous, Perastage should accept legacy, incomplete, non-canonical, or externally generated files so users can recover and work with real production data.
+- **Writing should be strict and canonical.** Files created, modified, normalized, or exported by Perastage should follow the supported official MVR and GDTF structure and should not introduce undocumented custom structures into standard data.
 
-Just open an issue and explain the problem as clearly as you can. Screenshots, steps to reproduce the problem, and example files are often more useful than technical language.
+Changes affecting MVR or GDTF must therefore:
 
-## License
+- Verify behavior against the applicable official specification or schema.
+- Avoid assumptions tied to one manufacturer, exporter, visualizer, or console.
+- Preserve unknown but valid standard data whenever possible.
+- Keep tolerant input repair separate from canonical output generation.
+- Avoid mutating original external GDTF files merely because they were read.
+- Use shared readers, writers, canonicalizers, mutation services, and diagnostic types instead of duplicating format logic in GUI code.
+- Test with multiple representative files when possible.
+- Add regression tests for corrected parsing, serialization, canonicalization, or compatibility behavior.
+- Document deliberate deviations, compatibility fallbacks, or unsupported areas.
 
-By contributing to Perastage, you agree that your contributions will be released under the same license as the project.
+For current GDTF write behavior, see `docs/developer/gdtf_mutation_policy.md`. Local specification references and related policies are available under `docs/reference/` and `docs/developer/`.
 
-Please only contribute code, files or documentation that you have the right to share.
+When specification text, schemas, existing behavior, and compatibility needs appear to conflict, describe the conflict in the issue or pull request rather than hiding it behind a workaround.
+
+## Project data and UI boundaries
+
+Keep these categories separate:
+
+- Standard GDTF type-level data.
+- Standard MVR scene-instance data.
+- Perastage project state and overrides.
+- Derived or cached values.
+- GUI-only selections and transient interaction state.
+
+Do not store project-specific or GUI-specific state inside GDTF or MVR standard fields unless the format defines that meaning. Non-standard behavior must be isolated, documented, and prevented from leaking into canonical exports.
+
+## Documentation requirements
+
+Update documentation in the same pull request when a change adds, removes, renames, or significantly changes:
+
+- A user-facing feature or workflow.
+- A preference or visible UI behavior.
+- A supported file type.
+- Import, export, packaging, or installer behavior.
+- A keyboard shortcut or its scope.
+- Text-to-scene parsing or generation behavior.
+- An architectural contract or module boundary.
+- MVR or GDTF write behavior.
+
+Minor internal refactors, formatting-only changes, and invisible maintenance work do not require user documentation unless they alter an established technical contract.
+
+Avoid duplicating long explanations across files. Maintain one source of truth and link to it from relevant entry points.
 
 ## Localization
 
-New user-facing UI text must be marked for gettext translation in the same change that introduces it, while project data, imported data, identifiers, serialization keys, protocol values, and diagnostic-only logs remain stable and untranslated. See `docs/developer/localization.md` for the marking, catalog-update, audit, and translator workflows, and `docs/developer/localization_glossary.md` for preferred Spanish terminology.
+New user-facing UI text must be marked for gettext translation in the same change that introduces it.
+
+Project data, imported data, identifiers, serialization keys, protocol values, and diagnostic-only logs must remain stable and untranslated.
+
+See:
+
+- `docs/developer/localization.md`
+- `docs/developer/localization_glossary.md`
+
+## Testing and validation
+
+Build and test the affected configuration locally whenever reasonably possible. The supported setup and commands are documented in `docs/developer/build.md`.
+
+At minimum, contributors should:
+
+- Build the affected target successfully, or explain why a local build was not possible.
+- Test the changed behavior manually when it has user-facing effects.
+- Run relevant automated tests.
+- Add or update tests for regressions, parsers, serializers, persistence, and non-trivial business logic.
+- Avoid weakening or deleting a valid test only to make a change pass.
+- Distinguish pre-existing failures from failures introduced by the pull request.
+
+The following architecture checks are mandatory for code changes that can affect their scope:
+
+```bash
+tests/check_perastage_tree_modules.sh
+tests/check_no_configmanager_get_in_gui.sh
+```
+
+When a new architectural boundary is introduced, add a small and focused `tests/check_*.sh` or equivalent validation in the same pull request when practical.
+
+GitHub Actions will run repository checks on pull requests targeting `main`. A green CI result supports review but does not replace manual verification or code review.
+
+## Pull request description
+
+A pull request should clearly state:
+
+- What problem it solves.
+- What was changed.
+- What was intentionally left out.
+- Which issue or discussion it relates to.
+- Which modules and architectural boundaries are affected.
+- How the change was tested.
+- Which platforms were tested.
+- Which MVR, GDTF, or project files were used, when relevant.
+- Any user-facing impact and proposed release-note text.
+- Known limitations, compatibility concerns, or follow-up work.
+- The origin and license of any new third-party code, assets, schemas, or sample data.
+
+Include screenshots or recordings for meaningful visual UI changes.
+
+During review, respond to comments by updating the pull request, explaining the reasoning, or discussing alternatives. Do not resolve a technical concern only by hiding or suppressing the symptom.
+
+## Commits and merge policy
+
+Use clear commit messages that describe the purpose of the change. During development, multiple small commits are acceptable; contributors are not expected to rewrite their history repeatedly just to make review easier.
+
+The maintainer decides when a pull request is ready to merge and which merge method is appropriate. Focused contribution pull requests will normally be squash-merged so that `main` receives one clear and revertible commit.
+
+Do not force-push after review has begun unless history cleanup is necessary and reviewers are informed, because force-pushing can invalidate review references.
+
+## AI-assisted contributions
+
+AI-assisted development is allowed. Contributors may use Codex, Claude, ChatGPT, code completion tools, or other assistants.
+
+However:
+
+- The contributor remains fully responsible for every submitted line and design decision.
+- Generated code must be understood, reviewed, tested, and adapted to Perastage conventions.
+- Do not submit invented APIs, unsupported format claims, fabricated test results, or copied material with uncertain licensing.
+- Mention substantial AI assistance when it is relevant to understanding the implementation or review process.
+- Never include credentials, private production files, personal data, or other confidential material in prompts or generated artifacts.
+
+Tool usage does not reduce the required standards for correctness, maintainability, licensing, security, or specification compliance.
+
+## Third-party code, assets, and licenses
+
+Only contribute code, documentation, fixtures, profiles, schemas, models, images, fonts, or other assets that you have the right to share.
+
+When introducing third-party material:
+
+- Identify its source.
+- Confirm that its license is compatible with Perastage.
+- Add required attribution and license files.
+- Avoid copying code from projects with unclear or incompatible terms.
+- Prefer official specifications, schemas, and primary documentation for format behavior.
+
+Do not include real show files, venue plans, manufacturer data, or client material without permission.
+
+## Security issues
+
+Do not report security vulnerabilities in a public issue. Follow the private reporting instructions in `SECURITY.md`.
+
+## Review, acceptance, and project direction
+
+Submitting a pull request does not guarantee that it will be merged. A change may require revision, be divided into smaller steps, remain open while design questions are resolved, or be declined when it conflicts with project scope, standards compliance, portability, maintainability, or current priorities.
+
+The maintainer is responsible for final integration decisions, repository access, release publication, and the protection of `main`. External contributors normally work through forks and pull requests; direct repository write access is not required to participate fully.
+
+Disagreement is welcome when it is constructive. Explain the technical or workflow reason behind a proposal, consider alternatives, and prioritize the long-term quality of the project over ownership of a particular implementation.
+
+## Be friendly and constructive
+
+Perastage follows the `CODE_OF_CONDUCT.md`. Keep discussions respectful, patient, and focused on improving the project.
+
+Many contributors and users come from live events, lighting, production, or stage design rather than traditional software-development backgrounds. Clear explanations and practical reproduction details are more valuable than unnecessary jargon.
+
+## New to GitHub?
+
+You are welcome even if this is your first open-source contribution.
+
+For a first contribution, documentation, tests, small bug fixes, and reduced reproduction files are good starting points. Open an issue or discussion when you need help defining the scope before writing code.
+
+## License
+
+By contributing to Perastage, you agree that your contribution will be released under the same license as the project, currently the GNU General Public License v3.0.
+
+See `LICENSE.txt` for the complete license terms.
