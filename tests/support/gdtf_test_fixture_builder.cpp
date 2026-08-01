@@ -157,6 +157,17 @@ FixtureBuilder &FixtureBuilder::WithFixtureCategorySignals() {
   return *this;
 }
 
+// Adds the complete audited Perastage fixture-symbol resource set.
+FixtureBuilder &FixtureBuilder::WithPerastageGeneratedSymbols() {
+  perastageGeneratedSymbols = true;
+  modelFileBase = "main";
+  archiveEntries.emplace_back("models/svg/main.svg", "<svg/>");
+  archiveEntries.emplace_back("models/svg/main_bottom.svg", "<svg/>");
+  archiveEntries.emplace_back("models/svg_front/main.svg", "<svg/>");
+  archiveEntries.emplace_back("models/svg_side/main.svg", "<svg/>");
+  return *this;
+}
+
 // Adds an extra portable archive entry that must be preserved by rewrite tests.
 FixtureBuilder &FixtureBuilder::WithArchiveEntry(std::string path, std::string bytes) {
   archiveEntries.emplace_back(std::move(path), std::move(bytes));
@@ -176,6 +187,9 @@ std::string FixtureBuilder::BuildDescriptionXml() const {
          "\" Description=\"Minimal canonical GDTF 1.2 fixture for tests\" FixtureTypeID=\"" +
          fixtureTypeId + category +
          "\">\n"
+         + (perastageGeneratedSymbols
+                ? "    <PerastageMutationAudit SchemaVersion=\"1\"/>\n"
+                : "") +
          "    <AttributeDefinitions><ActivationGroups/><FeatureGroups><FeatureGroup Name=\"Dimmer\" Pretty=\"Dimmer\"><Feature Name=\"Dimmer\"/></FeatureGroup></FeatureGroups><Attributes><Attribute Name=\"Dimmer\" Pretty=\"Dimmer\" Feature=\"Dimmer.Dimmer\" PhysicalUnit=\"LuminousIntensity\"/></Attributes></AttributeDefinitions>\n"
          "    <Wheels/>\n"
          "    <PhysicalDescriptions><Emitters/><Filters/><ColorSpace Mode=\"sRGB\"/><DMXProfiles/><CRIs/><Connectors/></PhysicalDescriptions>\n"

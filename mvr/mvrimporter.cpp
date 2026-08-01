@@ -181,9 +181,6 @@ static std::string NormalizeArchivePathValue(const std::string &archivePath) {
     if (trimPos != gdtfPos)
       normalized.erase(trimPos, gdtfPos - trimPos);
   }
-#ifdef _WIN32
-  normalized = ToLowerAscii(normalized);
-#endif
   return normalized;
 }
 

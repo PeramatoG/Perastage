@@ -57,12 +57,12 @@ std::vector<std::uint8_t> BuildGdtf(bool includeSide = true) {
 std::vector<std::uint8_t> BuildMvr(const std::vector<std::uint8_t> &gdtf) {
   const std::string xml =
       "<GeneralSceneDescription><Scene><Layers><Layer><ChildList>"
-      "<Fixture uuid=\"fixture-0001\"><GDTFSpec>Roundtrip.gdtf</GDTFSpec>"
+      "<Fixture uuid=\"fixture-0001\"><GDTFSpec>RoundTrip.gdtf</GDTFSpec>"
       "</Fixture><Fixture uuid=\"fixture-0002\">"
-      "<GDTFSpec>Roundtrip.gdtf</GDTFSpec></Fixture>"
+      "<GDTFSpec>RoundTrip.gdtf</GDTFSpec></Fixture>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   return BuildZip({{"GeneralSceneDescription.xml", Bytes(xml)},
-                   {"Roundtrip.gdtf", gdtf}});
+                   {"RoundTrip.gdtf", gdtf}});
 }
 
 // Verifies exact packaged proof, stale replacement, deduplication, and planning.
@@ -87,7 +87,7 @@ void TestValidatedSnapshotAndPlanner() {
   assert(snapshot.validatedCount == 1);
   assert(snapshot.manifest.Entries().size() == 1);
   const auto &entry = snapshot.manifest.Entries().front();
-  assert(entry.gdtfSpec == "Roundtrip.gdtf");
+  assert(entry.gdtfSpec == "RoundTrip.gdtf");
   assert(entry.gdtfContentHash != "stale");
 
   symbol_cache::ValidationRequest reloadRequest;

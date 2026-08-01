@@ -20,7 +20,10 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <memory>
+#include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -34,17 +37,20 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixture_label_overrides.h"
+#include "filesystem_path_utils.h"
 #include "gdtf_test_fixture_builder.h"
 #include "gdtfdictionary.h"
 #include "layer.h"
 #include "matrixutils.h"
 #include "projectutils.h"
 #include "project_fixture_identity.h"
+#include "project_symbol_cache_snapshot.h"
 #include "sceneobject.h"
 #include "scene_node_operations.h"
 #include "support.h"
 #include "truss.h"
 #include "uuidutils.h"
+#include "wx_path_utils.h"
 
 // Reads all bytes from the current ZIP entry.
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
@@ -58,6 +64,93 @@ static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
     bytes.append(buffer, count);
   }
   return bytes;
+}
+
+// Reads every file entry from an immutable in-memory ZIP payload.
+static std::map<std::string, std::vector<std::uint8_t>> ReadZipEntries(
+    const std::string &archiveBytes) {
+  wxMemoryInputStream input(archiveBytes.data(), archiveBytes.size());
+  wxZipInputStream zip(input);
+  std::map<std::string, std::vector<std::uint8_t>> entries;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->IsDir())
+      continue;
+    const std::string bytes = ReadCurrentZipEntry(zip);
+    entries.emplace(entry->GetName().ToStdString(),
+                    std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+  }
+  return entries;
+}
+
+// Reads every file entry from a project archive through the native wx path boundary.
+static std::map<std::string, std::vector<std::uint8_t>> ReadProjectEntries(
+    const std::filesystem::path &projectPath) {
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(projectPath));
+  assert(input.IsOk());
+  wxZipInputStream zip(input);
+  std::map<std::string, std::vector<std::uint8_t>> entries;
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->IsDir())
+      continue;
+    const std::string bytes = ReadCurrentZipEntry(zip);
+    entries.emplace(entry->GetName().ToStdString(),
+                    std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+  }
+  return entries;
+}
+
+// Rewrites a project with a missing or replacement symbol-cache manifest.
+static void WriteProjectManifestVariant(
+    const std::filesystem::path &sourcePath,
+    const std::filesystem::path &destinationPath,
+    const std::optional<std::string> &manifestText) {
+  auto entries = ReadProjectEntries(sourcePath);
+  entries.erase(symbol_cache::kProjectArchiveEntryName);
+  if (manifestText) {
+    entries.emplace(symbol_cache::kProjectArchiveEntryName,
+                    std::vector<std::uint8_t>(manifestText->begin(),
+                                              manifestText->end()));
+  }
+  wxFileOutputStream output(
+      WxPathUtils::WxStringFromFilesystemPath(destinationPath));
+  assert(output.IsOk());
+  wxZipOutputStream zip(output);
+  for (const auto &[name, bytes] : entries) {
+    assert(zip.PutNextEntry(name));
+    if (!bytes.empty())
+      zip.Write(bytes.data(), bytes.size());
+    assert(zip.CloseEntry());
+  }
+  assert(zip.Close());
+}
+
+// Reads the fixture type name that the production GDTF loader restores.
+static std::string ReadFixtureTypeName(
+    const std::filesystem::path &gdtfPath) {
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(gdtfPath));
+  assert(input.IsOk());
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetName().CmpNoCase("description.xml") != 0)
+      continue;
+    const std::string xml = ReadCurrentZipEntry(zip);
+    tinyxml2::XMLDocument document;
+    assert(document.Parse(xml.c_str(), xml.size()) == tinyxml2::XML_SUCCESS);
+    const tinyxml2::XMLElement *fixtureType =
+        document.FirstChildElement("GDTF");
+    fixtureType = fixtureType
+                      ? fixtureType->FirstChildElement("FixtureType")
+                      : document.FirstChildElement("FixtureType");
+    assert(fixtureType != nullptr);
+    const char *name = fixtureType->Attribute("Name");
+    assert(name != nullptr);
+    return name;
+  }
+  assert(false);
+  return {};
 }
 
 struct ProjectIdentityPayload {
@@ -82,7 +175,8 @@ static bool MatrixEqual(const Matrix &lhs, const Matrix &rhs) {
 // Reads the two project payloads that must agree on fixture identity.
 static ProjectIdentityPayload ReadProjectIdentityPayload(
     const std::filesystem::path &projectPath) {
-  wxFileInputStream projectInput(projectPath.string());
+  wxFileInputStream projectInput(
+      WxPathUtils::WxStringFromFilesystemPath(projectPath));
   assert(projectInput.IsOk());
   wxZipInputStream projectZip(projectInput);
   ProjectIdentityPayload payload;
@@ -114,10 +208,11 @@ static void WriteProjectWithConfig(
     const std::filesystem::path &sourcePath,
     const std::filesystem::path &destinationPath,
     const std::string &configJson) {
-  wxFileInputStream input(sourcePath.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(sourcePath));
   assert(input.IsOk());
   wxZipInputStream sourceZip(input);
-  wxFileOutputStream output(destinationPath.string());
+  wxFileOutputStream output(
+      WxPathUtils::WxStringFromFilesystemPath(destinationPath));
   assert(output.IsOk());
   wxZipOutputStream destinationZip(output);
   std::unique_ptr<wxZipEntry> entry;
@@ -136,7 +231,8 @@ static void WriteProjectWithConfig(
 // Extracts the deterministic project fixture metadata signature.
 static std::vector<std::pair<std::string, std::string>>
 ReadProjectFixtureMetadata(const std::filesystem::path &projectPath) {
-  wxFileInputStream projectInput(projectPath.string());
+  wxFileInputStream projectInput(
+      WxPathUtils::WxStringFromFilesystemPath(projectPath));
   assert(projectInput.IsOk());
   wxZipInputStream projectZip(projectInput);
   std::string sceneBytes;
@@ -216,6 +312,7 @@ int main() {
     tests::gdtf::BuildMinimalValidFixture()
         .WithFixtureIdentity("Original", "Perastage",
                              "11111111-1111-4111-8111-111111111111")
+        .WithPerastageGeneratedSymbols()
         .WriteArchive(tempDir / "orig.gdtf");
     tests::gdtf::BuildMinimalValidFixture()
         .WithFixtureIdentity("Dictionary", "Perastage",
@@ -425,9 +522,62 @@ int main() {
   sInherited.hoistDataSource = "Inherited";
   scene.supports[sInherited.uuid] = sInherited;
 
-  std::filesystem::path temp =
-      std::filesystem::temp_directory_path() / "roundtrip_test.pera";
-    assert(cfg.SaveProject(temp.string()));
+  std::filesystem::path temp = std::filesystem::temp_directory_path() /
+                               std::filesystem::path(u8"símbolos_roundtrip.pstg");
+    assert(cfg.SaveProject(PathUtils::PathToUtf8(temp)));
+
+    const auto projectEntries = ReadProjectEntries(temp);
+    assert(projectEntries.contains("config.json"));
+    assert(projectEntries.contains("scene.mvr"));
+    assert(projectEntries.contains(symbol_cache::kProjectArchiveEntryName));
+    const std::string sceneArchiveBytes(projectEntries.at("scene.mvr").begin(),
+                                        projectEntries.at("scene.mvr").end());
+    const auto sceneEntries = ReadZipEntries(sceneArchiveBytes);
+    assert(sceneEntries.contains("GeneralSceneDescription.xml"));
+    const std::string sceneDescription(
+        sceneEntries.at("GeneralSceneDescription.xml").begin(),
+        sceneEntries.at("GeneralSceneDescription.xml").end());
+    tinyxml2::XMLDocument savedSceneDocument;
+    assert(savedSceneDocument.Parse(sceneDescription.c_str(),
+                                    sceneDescription.size()) ==
+           tinyxml2::XML_SUCCESS);
+    tinyxml2::XMLElement *savedFixture =
+        savedSceneDocument.RootElement()
+            ->FirstChildElement("Scene")
+            ->FirstChildElement("Layers")
+            ->FirstChildElement("Layer")
+            ->FirstChildElement("ChildList")
+            ->FirstChildElement("Fixture");
+    assert(savedFixture != nullptr);
+    const char *savedGdtfText =
+        savedFixture->FirstChildElement("GDTFSpec")->GetText();
+    assert(savedGdtfText != nullptr);
+    const std::string savedGdtfSpec = savedGdtfText;
+    assert(sceneEntries.contains(savedGdtfSpec));
+    const std::string packagedGdtfBytes(sceneEntries.at(savedGdtfSpec).begin(),
+                                        sceneEntries.at(savedGdtfSpec).end());
+    const auto packagedGdtfEntries = ReadZipEntries(packagedGdtfBytes);
+    assert(packagedGdtfEntries.contains("models/svg/main.svg"));
+    assert(packagedGdtfEntries.contains("models/svg/main_bottom.svg"));
+    assert(packagedGdtfEntries.contains("models/svg_front/main.svg"));
+    assert(packagedGdtfEntries.contains("models/svg_side/main.svg"));
+    std::vector<symbol_cache::GdtfSemanticFingerprintEntry> fingerprintEntries;
+    for (const auto &[path, bytes] : packagedGdtfEntries)
+      fingerprintEntries.push_back({path, bytes});
+    std::string fingerprintError;
+    const std::string packagedFingerprint =
+        symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(
+            fingerprintEntries, fingerprintError);
+    assert(!packagedFingerprint.empty());
+    symbol_cache::SymbolCacheManifest savedManifest;
+    std::string manifestError;
+    assert(savedManifest.LoadFromJsonText(
+        std::string(projectEntries.at(symbol_cache::kProjectArchiveEntryName).begin(),
+                    projectEntries.at(symbol_cache::kProjectArchiveEntryName).end()),
+        manifestError));
+    assert(savedManifest.Entries().size() == 1);
+    assert(savedManifest.Entries().front().gdtfSpec == savedGdtfSpec);
+    assert(savedManifest.Entries().front().gdtfContentHash == packagedFingerprint);
 
     const std::string canonicalFixtureUuid =
         CanonicalizeUuid(nonCanonicalFixtureUuid);
@@ -492,7 +642,7 @@ int main() {
 
     cfg.Reset();
 
-    assert(cfg.LoadProject(temp.string()));
+    assert(cfg.LoadProject(PathUtils::PathToUtf8(temp)));
 
     const auto &scene2 = cfg.GetScene();
     const auto &loadedGroupedTruss = scene2.trusses.at(t.uuid);
@@ -564,6 +714,54 @@ int main() {
     const auto &loaded = scene2.fixtures.at("20000000-0000-4000-8000-000000000001");
     assert(std::filesystem::path(loaded.gdtfSpec).filename() ==
            "Perastage@Original@Perastage.gdtf");
+    assert(loaded.gdtfSpec == savedGdtfSpec);
+    std::string reloadFingerprintError;
+    const std::filesystem::path reloadedGdtfPath =
+        PathUtils::PathFromUtf8(scene2.basePath) /
+        PathUtils::PathFromUtf8(loaded.gdtfSpec);
+    symbol_cache::ValidationRequest reloadRequest;
+    Fixture productionReloadIdentity = loaded;
+    productionReloadIdentity.typeName = ReadFixtureTypeName(reloadedGdtfPath);
+    reloadRequest.fixtureKey = symbol_cache::BuildFixtureSymbolCacheKey(
+        productionReloadIdentity);
+    reloadRequest.fixtureTypeName = productionReloadIdentity.typeName;
+    reloadRequest.gdtfSpec = loaded.gdtfSpec;
+    reloadRequest.gdtfContentHash = symbol_cache::ComputeFileContentHash(
+        PathUtils::PathToUtf8(reloadedGdtfPath), reloadFingerprintError);
+    reloadRequest.requiredViews = symbol_cache::RequiredPerastageSymbolViews();
+    assert(!reloadRequest.gdtfContentHash.empty());
+    const auto reloadValidation =
+        cfg.GetSymbolCacheManifest().ValidateFixture(reloadRequest);
+    if (!reloadValidation.valid) {
+      std::cerr << "Reload cache validation failed: "
+                << symbol_cache::ValidationStatusName(reloadValidation.status)
+                << " key=" << reloadRequest.fixtureKey
+                << " spec=" << reloadRequest.gdtfSpec
+                << " hash=" << reloadRequest.gdtfContentHash << '\n';
+    }
+    assert(reloadValidation.valid);
+    assert(symbol_cache::PlanFixtureSymbolCacheMisses(
+               cfg.GetSymbolCacheManifest(), {reloadRequest})
+               .empty());
+
+    const auto manifestBeforeFailedSave =
+        cfg.GetSymbolCacheManifest().Entries();
+    const auto dirtyStateBeforeFailedSave = cfg.CaptureDirtyState();
+    std::error_code failedSaveCleanupError;
+    std::filesystem::remove_all(tempDir / "missing-parent",
+                                failedSaveCleanupError);
+    const std::filesystem::path invalidSavePath =
+        tempDir / "missing-parent" / "failed.pstg";
+    assert(!cfg.SaveProject(PathUtils::PathToUtf8(invalidSavePath)));
+    assert(cfg.GetSymbolCacheManifest().Entries().size() ==
+           manifestBeforeFailedSave.size());
+    assert(cfg.GetSymbolCacheManifest().Entries().front().gdtfContentHash ==
+           manifestBeforeFailedSave.front().gdtfContentHash);
+    const auto dirtyStateAfterFailedSave = cfg.CaptureDirtyState();
+    assert(dirtyStateAfterFailedSave.revision ==
+           dirtyStateBeforeFailedSave.revision);
+    assert(dirtyStateAfterFailedSave.savedRevision ==
+           dirtyStateBeforeFailedSave.savedRevision);
     assert(std::filesystem::path(loaded.originalMvrGdtfSpec).filename() ==
            "Perastage@Original@Perastage.gdtf");
 
@@ -622,9 +820,25 @@ int main() {
       assert(fixtureNumericIds.insert(fixture.fixtureIdNumeric).second);
     }
 
+    const std::filesystem::path missingManifestProject =
+        tempDir / std::filesystem::path(u8"sin_manifiesto.pstg");
+    const std::filesystem::path malformedManifestProject =
+        tempDir / std::filesystem::path(u8"manifiesto_inválido.pstg");
+    WriteProjectManifestVariant(temp, missingManifestProject, std::nullopt);
+    WriteProjectManifestVariant(temp, malformedManifestProject,
+                                std::string("{invalid"));
+    cfg.Reset();
+    assert(cfg.LoadProject(PathUtils::PathToUtf8(missingManifestProject)));
+    assert(!cfg.GetSymbolCacheManifest().HasLoadedManifest());
+    cfg.Reset();
+    assert(cfg.LoadProject(PathUtils::PathToUtf8(malformedManifestProject)));
+    assert(!cfg.GetSymbolCacheManifest().HasLoadedManifest());
+
     std::filesystem::remove(temp);
     std::filesystem::remove(legacyProject);
     std::filesystem::remove(secondProject);
+    std::filesystem::remove(missingManifestProject);
+    std::filesystem::remove(malformedManifestProject);
   std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +
                           "/dict.gdtf");
     GdtfDictionary::Save({});

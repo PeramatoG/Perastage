@@ -31,7 +31,8 @@ Changes since **v1.5.0**.
 - Fixed fixture-symbol persistence so project saves validate the exact GDTF
   files packaged in `scene.mvr` before recording symbol-cache metadata. Valid
   four-view symbols now survive an unchanged save and reload without redundant
-  regeneration, while stale or incomplete cache metadata is discarded safely.
+  regeneration across platforms, including mixed-case and Unicode resource
+  paths, while stale or incomplete cache metadata is discarded safely.
 
 - Fixed project persistence for automatically generated fixture symbols when
   both project and fixture-library copies are updated, preventing a library

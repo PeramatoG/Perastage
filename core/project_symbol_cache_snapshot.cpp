@@ -173,6 +173,7 @@ bool HasPerastageAudit(const tinyxml2::XMLElement *fixtureType) {
 // Validates the complete Perastage symbol set and computes its exact semantic hash.
 bool ValidatePackagedGdtf(const std::vector<std::uint8_t> &bytes,
                           std::string &fingerprint,
+                          std::string &fixtureTypeName,
                           std::string &diagnostic) {
   std::map<std::string, std::vector<std::uint8_t>> entries;
   if (!ReadArchive(bytes, entries, diagnostic))
@@ -203,6 +204,8 @@ bool ValidatePackagedGdtf(const std::vector<std::uint8_t> &bytes,
   const bool hasUnknownAudit = audit && !hasKnownAudit;
   const bool perastageOwned =
       hasKnownAudit || (!audit && HasPerastageAudit(fixtureType));
+  const char *fixtureName = fixtureType ? fixtureType->Attribute("Name") : nullptr;
+  fixtureTypeName = fixtureName ? fixtureName : "";
   const tinyxml2::XMLElement *model = ResolvePreferredModel(fixtureType);
   const char *file = model ? model->Attribute("File") : nullptr;
   const char *name = model ? model->Attribute("Name") : nullptr;
@@ -298,9 +301,10 @@ ProjectSymbolCacheSnapshotResult BuildProjectSymbolCacheSnapshot(
   for (const auto &reference : references)
     gdtfByUuid.emplace(reference.uuid, reference.gdtfSpec);
 
-  std::set<std::string> processedKeys;
+  std::set<std::string> processedSourceKeys;
+  std::set<std::string> validatedKeys;
   for (const auto &identity : fixtureIdentities) {
-    if (!processedKeys.insert(identity.fixtureKey).second)
+    if (!processedSourceKeys.insert(identity.fixtureKey).second)
       continue;
     ProjectSymbolSnapshotOutcome outcome;
     outcome.fixtureKey = identity.fixtureKey;
@@ -330,21 +334,26 @@ ProjectSymbolCacheSnapshotResult BuildProjectSymbolCacheSnapshot(
       continue;
     }
     std::string fingerprint;
-    if (!ValidatePackagedGdtf(archiveIt->second, fingerprint, outcome.diagnostic)) {
+    std::string packagedFixtureTypeName;
+    if (!ValidatePackagedGdtf(archiveIt->second, fingerprint,
+                              packagedFixtureTypeName, outcome.diagnostic)) {
       outcome.status = ProjectSymbolSnapshotStatus::InvalidSymbols;
       ++result.omittedCount;
       result.warnings.push_back(identity.fixtureKey + ": " + outcome.diagnostic);
       result.outcomes.push_back(std::move(outcome));
       continue;
     }
+    const std::string manifestKey = packagedFixtureTypeName.empty()
+                                        ? identity.fixtureKey
+                                        : packagedFixtureTypeName;
+    if (!validatedKeys.insert(manifestKey).second)
+      continue;
     ValidationRequest request;
-    request.fixtureKey = identity.fixtureKey;
-    request.fixtureTypeName = identity.fixtureTypeName;
-#ifdef _WIN32
-    request.gdtfSpec = FoldAscii(archivePath);
-#else
+    request.fixtureKey = manifestKey;
+    request.fixtureTypeName = packagedFixtureTypeName.empty()
+                                  ? identity.fixtureTypeName
+                                  : packagedFixtureTypeName;
     request.gdtfSpec = archivePath;
-#endif
     request.gdtfContentHash = fingerprint;
     request.requiredViews = RequiredPerastageSymbolViews();
     std::string timestamp = ProvenanceTimestamp(provenanceManifest, identity.fixtureKey);

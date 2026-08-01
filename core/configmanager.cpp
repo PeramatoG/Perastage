@@ -661,11 +661,12 @@ const std::string &ConfigManager::GetLastProjectSaveError() const {
 // Loads a project package and restores optional symbol cache metadata.
 bool ConfigManager::LoadProject(const std::string &path,
                                 LoadProjectProgressCallback progressCallback) {
+  symbol_cache::SymbolCacheManifest restoredSymbolManifest;
   std::string manifestError;
-  if (!symbolCacheManifest.LoadFromProjectArchive(path, manifestError)) {
+  if (!restoredSymbolManifest.LoadFromProjectArchive(path, manifestError)) {
     Logger::Instance().Log(Logger::Level::Warn,
                            "Ignoring symbol cache manifest: " + manifestError);
-    symbolCacheManifest.Clear();
+    restoredSymbolManifest.Clear();
   }
 
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
@@ -716,6 +717,7 @@ bool ConfigManager::LoadProject(const std::string &path,
       });
 
   if (ok) {
+    symbolCacheManifest = std::move(restoredSymbolManifest);
     const auto normalization =
         project_identity::NormalizeFixtureLabelOverrides(
             GetValue(project_identity::kFixtureLabelOverridesConfigKey),
