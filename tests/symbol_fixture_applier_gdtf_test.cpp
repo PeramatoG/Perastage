@@ -21,6 +21,7 @@
 #include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/configmanager.h"
+#include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
 #include "../core/symbols/Symbol2D.h"
 #include "../gui/windows/symbol_fixture_applier.h"
@@ -172,12 +173,20 @@ int main() {
   symbol_preview::ApplySymbolsOptions options;
   options.updateSceneCopy = true;
   options.updateLibraryCopy = false;
-  if (!symbol_preview::ApplySymbolsToFixtureGdtf(symbols, fixture.uuid, errorMessage,
-                                                 options)) {
-    std::cerr << "ApplySymbolsToFixtureGdtf failed: " << errorMessage << std::endl;
+  const symbol_preview::ApplySymbolsResult sceneResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(symbols, fixture.uuid,
+                                                          options);
+  if (!sceneResult.success) {
+    std::cerr << "ApplySymbolsToFixtureGdtf failed: " << sceneResult.diagnostic
+              << std::endl;
     assert(false);
   }
-  assert(errorMessage.empty());
+  assert(sceneResult.sceneUpdated);
+  assert(!sceneResult.libraryUpdated);
+  assert(!sceneResult.finalScenePath.empty());
+  assert(!sceneResult.finalSceneFingerprint.empty());
+  assert(sceneResult.warnings.empty());
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec.find("fixtures/") == 0);
 
   const std::string mutatedPath =
       (project.path / scene.fixtures.at(fixture.uuid).gdtfSpec).string();
@@ -260,6 +269,67 @@ int main() {
   assert(after.editorIsPerastage);
   assert(after.hasValidSvgSymbolSet);
   assert(!after.requiresSymbolGeneration);
+
+  symbol_preview::ApplySymbolsOptions invalidOptions;
+  invalidOptions.updateSceneCopy = false;
+  invalidOptions.updateLibraryCopy = false;
+  const symbol_preview::ApplySymbolsResult invalidResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          symbols, fixture.uuid, invalidOptions);
+  assert(!invalidResult.success);
+  assert(!invalidResult.sceneUpdated);
+  assert(!invalidResult.libraryUpdated);
+  assert(invalidResult.diagnostic ==
+         "No fixture GDTF persistence target was requested.");
+
+  scene.fixtures.at(fixture.uuid).typeName.clear();
+  symbol_preview::ApplySymbolsOptions dualOptions;
+  dualOptions.updateSceneCopy = true;
+  dualOptions.updateLibraryCopy = true;
+  const symbol_preview::ApplySymbolsResult libraryFailureResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          symbols, fixture.uuid, dualOptions);
+  assert(libraryFailureResult.success);
+  assert(libraryFailureResult.sceneUpdated);
+  assert(!libraryFailureResult.libraryUpdated);
+  assert(!libraryFailureResult.finalSceneFingerprint.empty());
+  assert(libraryFailureResult.warnings.size() == 1);
+  scene.fixtures.at(fixture.uuid).typeName = fixture.typeName;
+
+  const std::string previousDictionaryPath =
+      GdtfDictionary::GetActiveDictionaryFilePath();
+  const fs::path dictionaryPath = project.path / "fixture-symbol-dictionary.json";
+  assert(GdtfDictionary::CreateEmptyDictionaryFile(dictionaryPath.string(),
+                                                   &errorMessage));
+  assert(GdtfDictionary::SetActiveDictionaryFilePath(dictionaryPath.string(),
+                                                     &errorMessage));
+
+  const symbol_preview::ApplySymbolsResult dualResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          symbols, fixture.uuid, dualOptions);
+  assert(dualResult.success);
+  assert(dualResult.sceneUpdated);
+  assert(dualResult.libraryUpdated);
+  assert(!dualResult.finalScenePath.empty());
+  assert(!dualResult.finalLibraryPath.empty());
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec.find("fixtures/") == 0);
+  assert(!InspectFixturePath("fixture-library-inspection",
+                             dualResult.finalLibraryPath)
+              .requiresSymbolGeneration);
+
+  symbol_preview::ApplySymbolsOptions libraryOnlyOptions;
+  libraryOnlyOptions.updateSceneCopy = false;
+  libraryOnlyOptions.updateLibraryCopy = true;
+  const symbol_preview::ApplySymbolsResult libraryOnlyResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          symbols, fixture.uuid, libraryOnlyOptions);
+  assert(libraryOnlyResult.success);
+  assert(!libraryOnlyResult.sceneUpdated);
+  assert(libraryOnlyResult.libraryUpdated);
+  assert(libraryOnlyResult.finalScenePath.empty());
+
+  assert(GdtfDictionary::SetActiveDictionaryFilePath(previousDictionaryPath,
+                                                     &errorMessage));
 
   const std::string currentVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
       "<FixtureType Name=\"Current\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
