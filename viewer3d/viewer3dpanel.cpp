@@ -54,6 +54,7 @@
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
 #include "selection_movement_settings.h"
+#include "interaction/context_menu_model.h"
 #include "../viewport_interaction_scope.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
@@ -2182,67 +2183,45 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
     const bool trussPageActive =
         TrussTablePanel::Instance() && TrussTablePanel::Instance()->IsActivePage();
     const auto& scene = ConfigManager::Get().GetScene();
-    std::set<std::string> typeNames;
-    std::set<std::string> positionNames;
-    bool hasNoPosition = false;
-    bool showSelectionSubmenus = false;
-    wxString allSelectionLabel;
-    wxString typeSelectionLabel;
+    viewer3d::context_menu::Input menuInput;
+    if (fixturePageActive)
+        menuInput.page = viewer3d::context_menu::SelectionPage::Fixtures;
+    else if (trussPageActive)
+        menuInput.page = viewer3d::context_menu::SelectionPage::Trusses;
     std::string hitSceneObjectUuid;
-    if (TryBindGlContextForInteraction("OnRightUp")) {
+    menuInput.pickingAvailable = TryBindGlContextForInteraction("OnRightUp");
+    if (menuInput.pickingAvailable) {
         const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
         QueryHoverUuid(m_controller, HoverTargetTable::SceneObjects, pickPos.x,
                        pickPos.y, w, h, hitSceneObjectUuid);
-    }
-    if (fixturePageActive && !scene.fixtures.empty() &&
-        TryBindGlContextForInteraction("OnRightUp")) {
         std::string hitUuid;
-        const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-        if (!QueryHoverUuid(m_controller, HoverTargetTable::Fixtures, pickPos.x,
-                            pickPos.y, w, h, hitUuid)) {
+        if (fixturePageActive && !scene.fixtures.empty()) {
+            menuInput.selectionObjectHit = QueryHoverUuid(
+                m_controller, HoverTargetTable::Fixtures, pickPos.x, pickPos.y,
+                w, h, hitUuid);
             for (const auto& [uuid, fixture] : scene.fixtures) {
-                if (!fixture.typeName.empty())
-                    typeNames.insert(fixture.typeName);
-                if (fixture.positionName.empty())
-                    hasNoPosition = true;
-                else
-                    positionNames.insert(fixture.positionName);
+                menuInput.objects.push_back(
+                    {fixture.typeName, fixture.positionName});
             }
-            allSelectionLabel = "All fixtures";
-            typeSelectionLabel = "Select by fixture type";
-            showSelectionSubmenus = true;
-        }
-    }
-    if (trussPageActive && !scene.trusses.empty() &&
-        TryBindGlContextForInteraction("OnRightUp")) {
-        std::string hitUuid;
-        const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-        if (!QueryHoverUuid(m_controller, HoverTargetTable::Trusses, pickPos.x,
-                            pickPos.y, w, h, hitUuid)) {
+        } else if (trussPageActive && !scene.trusses.empty()) {
+            menuInput.selectionObjectHit = QueryHoverUuid(
+                m_controller, HoverTargetTable::Trusses, pickPos.x, pickPos.y,
+                w, h, hitUuid);
             for (const auto& [uuid, truss] : scene.trusses) {
-                const std::string modelKey = BuildTrussModelSelectionKey(truss);
-                if (!modelKey.empty())
-                    typeNames.insert(modelKey);
-                if (truss.positionName.empty())
-                    hasNoPosition = true;
-                else
-                    positionNames.insert(truss.positionName);
+                menuInput.objects.push_back(
+                    {BuildTrussModelSelectionKey(truss), truss.positionName});
             }
-            allSelectionLabel = "All trusses";
-            typeSelectionLabel = "Select by model";
-            showSelectionSubmenus = true;
         }
     }
+    menuInput.convertibleSceneObjectHit = !hitSceneObjectUuid.empty();
+    const viewer3d::context_menu::Model menuModel =
+        viewer3d::context_menu::Build(menuInput);
 
     wxMenu rootMenu;
-    auto typeSubmenu = std::make_unique<wxMenu>();
-    auto positionSubmenu = std::make_unique<wxMenu>();
     auto renderStyleSubmenu = std::make_unique<wxMenu>();
 
     constexpr int kSelectTypeAllId = wxID_HIGHEST + 900;
-    constexpr int kSelectTypeBaseId = wxID_HIGHEST + 901;
     constexpr int kSelectPositionNoneId = wxID_HIGHEST + 1100;
-    constexpr int kSelectPositionBaseId = wxID_HIGHEST + 1101;
     constexpr int kRenderStyleStandardId = wxID_HIGHEST + 1200;
     constexpr int kRenderStyleWhiteId = wxID_HIGHEST + 1201;
     constexpr int kRenderStyleSketchId = wxID_HIGHEST + 1202;
@@ -2254,23 +2233,10 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
     constexpr int kExportImagePngId = wxID_HIGHEST + 1208;
     constexpr int kConvertSceneObjectToTrussId = wxID_HIGHEST + 1209;
 
-    typeSubmenu->Append(kSelectTypeAllId, allSelectionLabel);
-    std::vector<std::string> orderedTypes;
-    orderedTypes.reserve(typeNames.size());
-    int nextTypeId = kSelectTypeBaseId;
-    for (const auto& typeName : typeNames) {
-        orderedTypes.push_back(typeName);
-        typeSubmenu->Append(nextTypeId++, wxString::FromUTF8(typeName));
-    }
-
-    positionSubmenu->Append(kSelectPositionNoneId, "No position");
-    std::vector<std::string> orderedPositions;
-    orderedPositions.reserve(positionNames.size());
-    int nextPositionId = kSelectPositionBaseId;
-    for (const auto& positionName : positionNames) {
-        orderedPositions.push_back(positionName);
-        positionSubmenu->Append(nextPositionId++, wxString::FromUTF8(positionName));
-    }
+    const auto& orderedTypes = menuModel.typesOrModels;
+    const auto& orderedPositions = menuModel.positions;
+    std::vector<int> orderedTypeIds;
+    std::vector<int> orderedPositionIds;
 
     renderStyleSubmenu->AppendRadioItem(kRenderStyleStandardId, "Standard");
     renderStyleSubmenu->AppendRadioItem(kRenderStyleSketchId, "Sketch mode");
@@ -2311,12 +2277,35 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
             break;
     }
 
-    if (!hitSceneObjectUuid.empty()) {
+    if (menuModel.convertToTrussAvailable) {
         rootMenu.Append(kConvertSceneObjectToTrussId, "Convert to Truss");
         rootMenu.AppendSeparator();
     }
-    if (showSelectionSubmenus) {
-        rootMenu.AppendSubMenu(typeSubmenu.release(), typeSelectionLabel);
+    if (menuModel.selectionAvailable) {
+        wxASSERT_MSG(!menuModel.selectAllLabel.empty() &&
+                         !menuModel.typeSubmenuLabel.empty(),
+                     "Selection menu labels must not be empty.");
+        auto typeSubmenu = std::make_unique<wxMenu>();
+        typeSubmenu->Append(kSelectTypeAllId,
+                            wxString::FromUTF8(menuModel.selectAllLabel));
+        for (const auto& typeName : orderedTypes) {
+            wxASSERT_MSG(!typeName.empty(), "Selection type label must not be empty.");
+            const int itemId = wxWindow::NewControlId();
+            orderedTypeIds.push_back(itemId);
+            typeSubmenu->Append(itemId, wxString::FromUTF8(typeName));
+        }
+        auto positionSubmenu = std::make_unique<wxMenu>();
+        positionSubmenu->Append(kSelectPositionNoneId, "No position");
+        for (const auto& positionName : orderedPositions) {
+            wxASSERT_MSG(!positionName.empty(),
+                         "Selection position label must not be empty.");
+            const int itemId = wxWindow::NewControlId();
+            orderedPositionIds.push_back(itemId);
+            positionSubmenu->Append(itemId,
+                                    wxString::FromUTF8(positionName));
+        }
+        rootMenu.AppendSubMenu(typeSubmenu.release(),
+                               wxString::FromUTF8(menuModel.typeSubmenuLabel));
         rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
         rootMenu.AppendSeparator();
     }
@@ -2391,9 +2380,11 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
         return;
     }
 
-    if (selectedId >= kSelectTypeBaseId &&
-        selectedId < kSelectTypeBaseId + static_cast<int>(orderedTypes.size())) {
-        const size_t idx = static_cast<size_t>(selectedId - kSelectTypeBaseId);
+    const auto selectedType =
+        std::find(orderedTypeIds.begin(), orderedTypeIds.end(), selectedId);
+    if (selectedType != orderedTypeIds.end()) {
+        const size_t idx =
+            static_cast<size_t>(selectedType - orderedTypeIds.begin());
         if (fixturePageActive)
       ApplyFixtureSelectionToUi(
           BuildFixtureSelectionByType(scene, orderedTypes[idx]), this,
@@ -2407,7 +2398,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
     }
 
     if (selectedId == kSelectPositionNoneId) {
-        if (!hasNoPosition) {
+        if (!menuModel.hasNoPosition) {
             if (fixturePageActive)
                 ApplyFixtureSelectionToUi({}, this, m_controller);
             else
@@ -2425,10 +2416,11 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
         return;
     }
 
-    if (selectedId >= kSelectPositionBaseId &&
-      selectedId <
-          kSelectPositionBaseId + static_cast<int>(orderedPositions.size())) {
-        const size_t idx = static_cast<size_t>(selectedId - kSelectPositionBaseId);
+    const auto selectedPosition = std::find(
+        orderedPositionIds.begin(), orderedPositionIds.end(), selectedId);
+    if (selectedPosition != orderedPositionIds.end()) {
+        const size_t idx =
+            static_cast<size_t>(selectedPosition - orderedPositionIds.begin());
         if (fixturePageActive)
             ApplyFixtureSelectionToUi(
           BuildFixtureSelectionByPosition(scene, orderedPositions[idx], false),

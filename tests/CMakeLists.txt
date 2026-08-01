@@ -2356,3 +2356,10 @@ add_executable(selection_drag_math_test
 target_include_directories(selection_drag_math_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME SelectionDragMath COMMAND selection_drag_math_test)
+
+add_executable(viewer3d_context_menu_model_test
+               viewer3d_context_menu_model_test.cpp
+               ../viewer3d/interaction/context_menu_model.cpp)
+target_include_directories(viewer3d_context_menu_model_test PRIVATE
+                           ../viewer3d/interaction)
+add_test(NAME Viewer3DContextMenuModel COMMAND viewer3d_context_menu_model_test)

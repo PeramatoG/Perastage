@@ -28,6 +28,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed the 3D viewport context menu failing to open in projects without
+  fixtures or trusses, on other Data View pages, or when viewport picking is
+  temporarily unavailable.
+
 - Improved Windows test reliability for truss Magnet archive and cache
   validation by initializing its native file services explicitly and reporting
   failures without modal dialogs.
