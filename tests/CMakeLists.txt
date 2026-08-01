@@ -1963,6 +1963,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
+               ../core/filesystem_path_utils.cpp
                ../core/guiconfigservices.cpp
                ../core/gdtfdictionary.cpp
                ../core/gdtf_fixture_category.cpp
@@ -2003,6 +2004,14 @@ target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
 target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
 set_library_env(SymbolFixtureApplierGdtfMutation)
+
+add_executable(symbol_fixture_apply_presentation_test
+               symbol_fixture_apply_presentation_test.cpp
+               ../gui/windows/symbol_fixture_apply_presentation.cpp)
+target_include_directories(symbol_fixture_apply_presentation_test PRIVATE
+                           ../core ../models ../gui)
+add_test(NAME SymbolFixtureApplyPresentation
+         COMMAND symbol_fixture_apply_presentation_test)
 
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                support/gdtf_test_fixture_builder.cpp

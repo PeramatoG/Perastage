@@ -28,6 +28,12 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed project persistence for automatically generated fixture symbols when
+  both project and fixture-library copies are updated, preventing a library
+  synchronization issue from causing symbols to be regenerated after reload.
+  Manual symbol application now also distinguishes a successful project update
+  from a fixture-library synchronization warning.
+
 - Fixed the 3D viewport context menu failing to open in projects without
   fixtures or trusses, on other Data View pages, or when viewport picking is
   temporarily unavailable.
@@ -96,6 +102,10 @@ Changes since **v1.5.0**.
 ## Current limitations
 
 ## Technical and packaging changes
+
+- Strengthened cross-platform fixture-symbol persistence verification by
+  releasing archive readers before atomic replacement and restoring temporary
+  fixture-library configuration deterministically.
 
 - Stabilized the internal GDTF Share security verification by making temporary
   credential fixtures uniquely owned and reliably cleaned up across platforms.

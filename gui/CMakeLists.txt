@@ -23,6 +23,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/scene_model_symbol_capture_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/symbol_physical_calibration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/SymbolPreviewWindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_fixture_apply_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_fixture_applier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windows/symbol_preview_exporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dialogs/GenerateFixtureSymbolsDialog.cpp

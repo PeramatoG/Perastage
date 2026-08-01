@@ -35,3 +35,13 @@ In short:
 
 This keeps Perastage application versioning separate from GDTF format
 compatibility versioning.
+
+## Fixture symbol persistence ownership
+
+Generated fixture symbols are committed to the project-owned GDTF before an
+optional library derivative is synchronized. The fixture `gdtfSpec` continues
+to identify the project archive so the next project save packages the same
+archive that passed SVG-path and semantic-fingerprint validation. A library
+synchronization failure is reported separately and does not invalidate a
+successfully committed project copy. Library-only operations remain available,
+but do not report project ownership.

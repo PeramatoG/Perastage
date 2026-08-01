@@ -24,6 +24,7 @@
 
 #include "configmanager.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "filesystem_path_utils.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
@@ -664,6 +665,23 @@ GdtfRewriteResult RewriteGdtfWithProof(
   }
 
   result.atomicReplacementCompleted = true;
+  if (!VerifyArchiveEntries(sourcePath, payloads)) {
+    result.diagnostic =
+        "The replaced GDTF archive did not pass generated SVG post-validation.";
+    return result;
+  }
+  symbol_cache::InvalidateGdtfSemanticFingerprintCache(sourcePath.string());
+  std::string validationError;
+  const std::string validatedFingerprint =
+      symbol_cache::ComputeGdtfSemanticFingerprint(sourcePath.string(),
+                                                   validationError);
+  if (validatedFingerprint.empty() ||
+      validatedFingerprint != result.finalSemanticFingerprint) {
+    result.diagnostic = validationError.empty()
+                            ? "The replaced GDTF archive fingerprint did not match the validated mutation."
+                            : validationError;
+    return result;
+  }
   std::error_code metadataError;
   result.finalFileSize = fs::file_size(sourcePath, metadataError);
   metadataError.clear();
@@ -691,14 +709,20 @@ bool RewriteGdtf(const fs::path &sourcePath,
 
 } // namespace
 
-// Applies generated SVG symbol views to the selected fixture GDTF.
-bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
-                               const std::string &fixtureUuid,
-                               std::string &errorMessage,
-                               const ApplySymbolsOptions &options) {
+// Applies generated SVG symbol views and reports scene and library ownership separately.
+ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
+    const std::vector<symbols::Symbol2D> &symbols,
+    const std::string &fixtureUuid,
+    const ApplySymbolsOptions &options) {
+  ApplySymbolsResult result;
+  std::string errorMessage;
+  if (!options.updateSceneCopy && !options.updateLibraryCopy) {
+    result.diagnostic = "No fixture GDTF persistence target was requested.";
+    return result;
+  }
   if (fixtureUuid.empty()) {
-    errorMessage = "No fixture was selected for this symbol preview.";
-    return false;
+    result.diagnostic = "No fixture was selected for this symbol preview.";
+    return result;
   }
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -707,22 +731,26 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   auto fixtureIt = fixtures.find(fixtureUuid);
   if (fixtureIt == fixtures.end()) {
     errorMessage = "Could not resolve the selected fixture in the scene.";
-    return false;
+    result.diagnostic = "Could not resolve the selected fixture in the scene.";
+    return result;
   }
 
   gui::fixtures::FixtureGdtfResolution resolution;
   if (!gui::fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
                                                       resolution, errorMessage,
                                                       "apply")) {
-    return false;
+    result.diagnostic = errorMessage;
+    return result;
   }
   const std::string scenePath = resolution.scenePath;
   const std::string libraryPath = resolution.libraryPath;
 
   const std::string inspectPath = resolution.selectedPath;
   std::string modelSvgBase = ResolveModelSvgBasename(inspectPath, errorMessage);
-  if (modelSvgBase.empty())
-    return false;
+  if (modelSvgBase.empty()) {
+    result.diagnostic = errorMessage;
+    return result;
+  }
 
   const std::string topSvgPath = "models/svg/" + modelSvgBase + ".svg";
   const std::string sideSvgPath = "models/svg_side/" + modelSvgBase + ".svg";
@@ -757,7 +785,8 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
   if (payloads.empty()) {
     errorMessage =
         "No valid symbol views were available to apply to the fixture.";
-    return false;
+    result.diagnostic = errorMessage;
+    return result;
   }
 
   std::string writableScenePath = scenePath;
@@ -768,37 +797,21 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
     if (!EnsureSceneLocalGdtfCopy(fs::path(writableScenePath), fs::path(scene.basePath),
                                   fixtureIt->second, writableScenePath,
                                   errorMessage)) {
-      return false;
+      result.diagnostic = errorMessage;
+      return result;
     }
   }
 
-  if (options.updateSceneCopy && writableScenePath.empty() && !scene.basePath.empty() &&
-      (libraryPath.empty() || !options.updateLibraryCopy)) {
+  if (options.updateSceneCopy && writableScenePath.empty() && !scene.basePath.empty()) {
     const std::string copySourcePath = !inspectPath.empty() ? inspectPath : libraryPath;
     if (!copySourcePath.empty()) {
       if (!EnsureSceneLocalGdtfCopy(fs::path(copySourcePath), fs::path(scene.basePath),
                                     fixtureIt->second, writableScenePath,
                                     errorMessage)) {
-        return false;
+        result.diagnostic = errorMessage;
+        return result;
       }
     }
-  }
-
-  if (options.updateLibraryCopy && !libraryPath.empty() &&
-      !fixtureIt->second.typeName.empty()) {
-    auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
-        fixtureIt->second.typeName, libraryPath, fixtureIt->second.gdtfMode,
-        fixtureIt->second.category);
-    if (!derivative || derivative->path.empty()) {
-      errorMessage = "Could not create the Perastage library fixture derivative.";
-      return false;
-    }
-    if (!RewriteGdtf(derivative->path, payloads, topSvgPath, sideSvgPath,
-                     frontSvgPath, bottomSvgPath, errorMessage)) {
-      return false;
-    }
-    fixtureIt->second.gdtfSpec = fs::path(derivative->path).filename().string();
-    return true;
   }
 
   if (options.updateSceneCopy && !writableScenePath.empty()) {
@@ -807,22 +820,77 @@ bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
       if (!EnsureSceneLocalGdtfCopy(fs::path(writableScenePath), fs::path(scene.basePath),
                                     fixtureIt->second, writableScenePath,
                                     errorMessage)) {
-        return false;
+        result.diagnostic = errorMessage;
+        return result;
       }
     }
-    if (!RewriteGdtf(writableScenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
-                     bottomSvgPath, errorMessage)) {
-      return false;
+    const GdtfRewriteResult rewrite = RewriteGdtfWithProof(
+        writableScenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+        bottomSvgPath);
+    if (!rewrite.success) {
+      result.diagnostic = rewrite.diagnostic;
+      return result;
     }
     sceneUpdated = true;
+    result.sceneUpdated = true;
+    result.finalScenePath = rewrite.finalArchivePath.string();
+    result.finalSceneFingerprint = rewrite.finalSemanticFingerprint;
   }
 
-  if (!sceneUpdated) {
+  if (options.updateSceneCopy && !sceneUpdated) {
     errorMessage = "Could not resolve a project-owned fixture GDTF copy to update.";
-    return false;
+    result.diagnostic = "Could not resolve a project-owned fixture GDTF copy to update.";
+    return result;
   }
 
-  return true;
+  if (options.updateLibraryCopy) {
+    const std::string librarySource = result.sceneUpdated ? result.finalScenePath : inspectPath;
+    auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+        fixtureIt->second.typeName, librarySource, fixtureIt->second.gdtfMode,
+        fixtureIt->second.category);
+    if (!derivative || derivative->path.empty()) {
+      const std::string warning =
+          "Could not synchronize the Perastage library fixture derivative.";
+      if (options.updateSceneCopy)
+        result.warnings.push_back(warning);
+      else
+        result.diagnostic = warning;
+    } else {
+      result.finalLibraryPath = derivative->path;
+      std::error_code pathError;
+      if (PathUtils::AreFilesystemPathsEquivalent(
+              fs::path(result.finalScenePath), fs::path(derivative->path),
+              pathError)) {
+        result.libraryUpdated = result.sceneUpdated;
+      } else if (result.sceneUpdated) {
+        // The derivative was copied from the already validated project archive.
+        symbol_cache::PublishGdtfSemanticFingerprintCache(
+            derivative->path, result.finalSceneFingerprint);
+        result.libraryUpdated = true;
+      } else if (RewriteGdtf(derivative->path, payloads, topSvgPath, sideSvgPath,
+                             frontSvgPath, bottomSvgPath, errorMessage)) {
+        result.libraryUpdated = true;
+      } else {
+        result.diagnostic = errorMessage;
+      }
+    }
+  }
+
+  result.success = options.updateSceneCopy ? result.sceneUpdated : result.libraryUpdated;
+  if (!result.success && result.diagnostic.empty())
+    result.diagnostic = "The requested fixture GDTF persistence operation failed.";
+  return result;
+}
+
+// Applies generated SVG symbol views through the compatibility boolean contract.
+bool ApplySymbolsToFixtureGdtf(const std::vector<symbols::Symbol2D> &symbols,
+                               const std::string &fixtureUuid,
+                               std::string &errorMessage,
+                               const ApplySymbolsOptions &options) {
+  const ApplySymbolsResult result =
+      ApplySymbolsToFixtureGdtfWithResult(symbols, fixtureUuid, options);
+  errorMessage = result.diagnostic;
+  return result.success;
 }
 
 

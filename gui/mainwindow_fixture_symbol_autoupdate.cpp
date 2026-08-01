@@ -10,6 +10,7 @@
 #include "consolepanel.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "filesystem_path_utils.h"
 #include "guiconfigservices.h"
 #include "opaque_pass_utils.h"
 #include "splashscreen.h"
@@ -413,17 +414,15 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     return;
   }
 
-  std::string applyError;
   symbol_preview::ApplySymbolsOptions applyOptions;
   applyOptions.updateSceneCopy = true;
   applyOptions.updateLibraryCopy = true;
-  if (symbol_preview::ApplySymbolsToFixtureGdtf(capture.symbols, fixtureUuid,
-                                                applyError, applyOptions)) {
-    std::string locationMessage = "scene";
-    if (!inspection.scenePath.empty() && !inspection.libraryPath.empty())
-      locationMessage = "scene and library";
-    else if (!inspection.libraryPath.empty())
-      locationMessage = "library";
+  const symbol_preview::ApplySymbolsResult applyResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          capture.symbols, fixtureUuid, applyOptions);
+  if (applyResult.success && applyResult.sceneUpdated) {
+    const std::string locationMessage =
+        applyResult.libraryUpdated ? "scene and library" : "scene";
 
     ReportFixtureAutoUpdate(*this, consolePanel,
                             "Fixture symbol auto-update: symbols generated for '" +
@@ -431,16 +430,45 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
                                 " GDTF updated.",
                             false);
     cfg.MarkDirty();
+    for (const std::string &warning : applyResult.warnings) {
+      ReportFixtureAutoUpdate(
+          *this, consolePanel,
+          "Fixture symbol auto-update: library synchronization warning for '" +
+              fixtureLabel + "' (" + warning + ").");
+    }
     symbol_cache::ValidationRequest updatedCacheRequest;
     gui::fixtures::FixtureGdtfResolution updatedCacheResolution;
     std::string updatedCacheError;
     symbol_preview::FixtureSymbolInspectionResult updatedInspection;
     const auto updatedFixtureIt = cfg.GetScene().fixtures.find(fixtureUuid);
-    if (updatedFixtureIt != cfg.GetScene().fixtures.end() &&
-        ResolveFixtureSymbolCacheRequest(updatedFixtureIt->second, cfg.GetScene(),
-                                         key, updatedCacheRequest,
-                                         updatedCacheResolution,
-                                         updatedCacheError) &&
+    const bool resolvedFinalScene =
+        updatedFixtureIt != cfg.GetScene().fixtures.end() &&
+        ResolveFixtureSymbolCacheRequest(
+            updatedFixtureIt->second, cfg.GetScene(), key, updatedCacheRequest,
+            updatedCacheResolution, updatedCacheError);
+    std::error_code scenePathError;
+    const bool finalSceneOwnershipConfirmed =
+        resolvedFinalScene && !updatedCacheResolution.scenePath.empty() &&
+        PathUtils::AreFilesystemPathsEquivalent(
+            std::filesystem::path(updatedCacheResolution.scenePath),
+            std::filesystem::path(applyResult.finalScenePath), scenePathError);
+    if (resolvedFinalScene && !finalSceneOwnershipConfirmed) {
+      std::ostringstream pathDiagnostic;
+      pathDiagnostic
+          << "resolved project archive '"
+          << std::filesystem::path(updatedCacheResolution.scenePath).filename().string()
+          << "' does not identify the validated archive '"
+          << std::filesystem::path(applyResult.finalScenePath).filename().string()
+          << "'";
+      if (scenePathError)
+        pathDiagnostic << " (filesystem check: " << scenePathError.message() << ")";
+      updatedCacheError = pathDiagnostic.str();
+    }
+    if (finalSceneOwnershipConfirmed &&
+        !applyResult.finalSceneFingerprint.empty())
+      updatedCacheRequest.gdtfContentHash = applyResult.finalSceneFingerprint;
+    if (finalSceneOwnershipConfirmed &&
+        !applyResult.finalSceneFingerprint.empty() &&
         symbol_preview::InspectFixtureSymbolState(updatedFixtureIt->second,
                                                   cfg.GetScene(),
                                                   updatedInspection,
@@ -466,8 +494,9 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     ReportFixtureAutoUpdate(
         *this, consolePanel,
         "Fixture symbol auto-update: failed to apply symbols for '" + fixtureLabel +
-            "' (" + (applyError.empty() ? std::string("unknown apply error")
-                                         : applyError) +
+            "' (" + (applyResult.diagnostic.empty()
+                           ? std::string("project-owned GDTF was not updated")
+                           : applyResult.diagnostic) +
             ").",
         false);
     fixtureSymbolAutoUpdateErrors.push_back("Apply failed for '" + fixtureLabel +

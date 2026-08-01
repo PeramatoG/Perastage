@@ -13,6 +13,7 @@
 
 #include "mainwindow.h"
 #include "windows/symbol_fixture_applier.h"
+#include "windows/symbol_fixture_apply_presentation.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace {
@@ -188,18 +189,23 @@ void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) 
 
 
 void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)) {
-  std::string errorMessage;
-  if (!symbol_preview::ApplySymbolsToFixtureGdtf(symbols_, fixtureUuid_, errorMessage)) {
-    wxMessageBox(errorMessage, "Apply Views to Fixture", wxOK | wxICON_ERROR,
-                 this);
+  const symbol_preview::ApplySymbolsResult result =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(symbols_, fixtureUuid_);
+  const symbol_preview::ApplySymbolsPresentation presentation =
+      symbol_preview::BuildApplySymbolsPresentation(result);
+  if (presentation.kind == symbol_preview::ApplySymbolsMessageKind::Error) {
+    wxMessageBox(presentation.message, "Apply Views to Fixture",
+                 wxOK | wxICON_ERROR, this);
     return;
   }
 
   if (MainWindow *mainWindow = MainWindow::Instance())
     mainWindow->RefreshAfterFixtureSymbolUpdate();
 
-  wxMessageBox("Symbol views applied to fixture GDTF successfully.\nCheck the file in your fixtures library.",
-               "Apply Views to Fixture", wxOK | wxICON_INFORMATION, this);
+  const long icon = presentation.kind == symbol_preview::ApplySymbolsMessageKind::Warning
+                        ? wxICON_WARNING
+                        : wxICON_INFORMATION;
+  wxMessageBox(presentation.message, "Apply Views to Fixture", wxOK | icon, this);
 }
 
 void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {
