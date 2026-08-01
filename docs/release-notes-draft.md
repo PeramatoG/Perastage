@@ -31,6 +31,8 @@ Changes since **v1.5.0**.
 - Fixed project persistence for automatically generated fixture symbols when
   both project and fixture-library copies are updated, preventing a library
   synchronization issue from causing symbols to be regenerated after reload.
+  Manual symbol application now also distinguishes a successful project update
+  from a fixture-library synchronization warning.
 
 - Fixed the 3D viewport context menu failing to open in projects without
   fixtures or trusses, on other Data View pages, or when viewport picking is

@@ -24,6 +24,7 @@
 
 #include "configmanager.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "filesystem_path_utils.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
@@ -706,23 +707,6 @@ bool RewriteGdtf(const fs::path &sourcePath,
   return result.success;
 }
 
-// Determines whether two resolved paths identify the same physical archive.
-bool PathsReferToSameFile(const fs::path &left, const fs::path &right) {
-  if (left.empty() || right.empty())
-    return false;
-  std::error_code ec;
-  const bool equivalent = fs::equivalent(left, right, ec);
-  if (!ec)
-    return equivalent;
-  ec.clear();
-  const fs::path canonicalLeft = fs::weakly_canonical(left, ec);
-  if (ec)
-    return false;
-  ec.clear();
-  const fs::path canonicalRight = fs::weakly_canonical(right, ec);
-  return !ec && canonicalLeft == canonicalRight;
-}
-
 } // namespace
 
 // Applies generated SVG symbol views and reports scene and library ownership separately.
@@ -873,7 +857,10 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
         result.diagnostic = warning;
     } else {
       result.finalLibraryPath = derivative->path;
-      if (PathsReferToSameFile(result.finalScenePath, derivative->path)) {
+      std::error_code pathError;
+      if (PathUtils::AreFilesystemPathsEquivalent(
+              fs::path(result.finalScenePath), fs::path(derivative->path),
+              pathError)) {
         result.libraryUpdated = result.sceneUpdated;
       } else if (result.sceneUpdated) {
         // The derivative was copied from the already validated project archive.

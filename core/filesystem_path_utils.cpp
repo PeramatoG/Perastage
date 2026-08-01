@@ -120,4 +120,24 @@ std::string BuildFilesystemIdentityKey(const std::filesystem::path &path,
   return BuildFilesystemIdentityKey(path);
 }
 
+// Determines whether two paths identify the same physical or canonical location.
+bool AreFilesystemPathsEquivalent(const std::filesystem::path &left,
+                                  const std::filesystem::path &right,
+                                  std::error_code &error) {
+  error.clear();
+  if (left.empty() || right.empty())
+    return false;
+  const bool equivalent = std::filesystem::equivalent(left, right, error);
+  if (!error)
+    return equivalent;
+  error.clear();
+  const std::filesystem::path canonicalLeft =
+      std::filesystem::weakly_canonical(left, error);
+  if (error)
+    return false;
+  const std::filesystem::path canonicalRight =
+      std::filesystem::weakly_canonical(right, error);
+  return !error && canonicalLeft == canonicalRight;
+}
+
 } // namespace PathUtils

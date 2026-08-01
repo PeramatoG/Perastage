@@ -23,6 +23,7 @@
 #include "../core/configmanager.h"
 #include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
+#include "../core/symbol_cache_manifest.h"
 #include "../core/symbols/Symbol2D.h"
 #include "../gui/windows/symbol_fixture_applier.h"
 #include "../models/fixture.h"
@@ -44,6 +45,39 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
     content.append(buffer, bytes);
   }
   return content;
+}
+
+// Counts standard revisions created by fixture-symbol application in an archive.
+std::size_t CountSymbolMutationRevisions(const fs::path &archivePath) {
+  wxFileInputStream input(archivePath.string());
+  assert(input.IsOk());
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  std::string descriptionXml;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (!entry->IsDir() && entry->GetName() == "description.xml") {
+      descriptionXml = ReadCurrentZipEntry(zip);
+      break;
+    }
+  }
+  tinyxml2::XMLDocument document;
+  assert(document.Parse(descriptionXml.c_str(), descriptionXml.size()) ==
+         tinyxml2::XML_SUCCESS);
+  const tinyxml2::XMLElement *fixtureType =
+      document.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
+  const tinyxml2::XMLElement *revisions = fixtureType->FirstChildElement("Revisions");
+  std::size_t count = 0;
+  if (!revisions)
+    return count;
+  for (const tinyxml2::XMLElement *revision =
+           revisions->FirstChildElement("Revision");
+       revision; revision = revision->NextSiblingElement("Revision")) {
+    const char *text = revision->Attribute("Text");
+    if (text && std::string(text) ==
+                    "Applied fixture SVG symbol views (top, side, front, bottom)")
+      ++count;
+  }
+  return count;
 }
 
 // Writes a canonical minimal GDTF 1.2 archive for symbol mutation tests.
@@ -327,6 +361,43 @@ int main() {
   assert(!libraryOnlyResult.sceneUpdated);
   assert(libraryOnlyResult.libraryUpdated);
   assert(libraryOnlyResult.finalScenePath.empty());
+
+  const fs::path dictionaryAssets =
+      project.path / "fixture-symbol-dictionary_assets";
+  fs::create_directories(dictionaryAssets);
+  const fs::path sameFileArchive =
+      dictionaryAssets /
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfPath);
+  fs::copy_file(gdtfPath, sameFileArchive,
+                fs::copy_options::overwrite_existing);
+  Fixture sameFileFixture;
+  sameFileFixture.uuid = "fixture-symbol-same-file";
+  sameFileFixture.typeName = "SameFileSymbolFixture";
+  sameFileFixture.gdtfSpec =
+      fs::relative(sameFileArchive, project.path).generic_string();
+  scene.fixtures[sameFileFixture.uuid] = sameFileFixture;
+  const std::size_t revisionsBefore =
+      CountSymbolMutationRevisions(sameFileArchive);
+  symbol_cache::ClearGdtfSemanticFingerprintCache();
+  const symbol_preview::ApplySymbolsResult sameFileResult =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          symbols, sameFileFixture.uuid, dualOptions);
+  assert(sameFileResult.success);
+  assert(sameFileResult.sceneUpdated);
+  assert(sameFileResult.libraryUpdated);
+  std::error_code equivalenceError;
+  assert(fs::equivalent(sameFileResult.finalScenePath,
+                        sameFileResult.finalLibraryPath, equivalenceError));
+  assert(!equivalenceError);
+  assert(CountSymbolMutationRevisions(sameFileArchive) == revisionsBefore + 1);
+  assert(!InspectFixturePath("fixture-same-file-inspection",
+                             sameFileArchive.string())
+              .requiresSymbolGeneration);
+  std::string fingerprintError;
+  assert(symbol_cache::ComputeGdtfSemanticFingerprint(
+             sameFileArchive.string(), fingerprintError) ==
+         sameFileResult.finalSceneFingerprint);
+  assert(fingerprintError.empty());
 
   assert(GdtfDictionary::SetActiveDictionaryFilePath(previousDictionaryPath,
                                                      &errorMessage));

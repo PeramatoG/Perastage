@@ -10,6 +10,7 @@
 #include "consolepanel.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
+#include "filesystem_path_utils.h"
 #include "guiconfigservices.h"
 #include "opaque_pass_utils.h"
 #include "splashscreen.h"
@@ -445,9 +446,29 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
         ResolveFixtureSymbolCacheRequest(
             updatedFixtureIt->second, cfg.GetScene(), key, updatedCacheRequest,
             updatedCacheResolution, updatedCacheError);
-    if (resolvedFinalScene && !applyResult.finalSceneFingerprint.empty())
+    std::error_code scenePathError;
+    const bool finalSceneOwnershipConfirmed =
+        resolvedFinalScene && !updatedCacheResolution.scenePath.empty() &&
+        PathUtils::AreFilesystemPathsEquivalent(
+            std::filesystem::path(updatedCacheResolution.scenePath),
+            std::filesystem::path(applyResult.finalScenePath), scenePathError);
+    if (resolvedFinalScene && !finalSceneOwnershipConfirmed) {
+      std::ostringstream pathDiagnostic;
+      pathDiagnostic
+          << "resolved project archive '"
+          << std::filesystem::path(updatedCacheResolution.scenePath).filename().string()
+          << "' does not identify the validated archive '"
+          << std::filesystem::path(applyResult.finalScenePath).filename().string()
+          << "'";
+      if (scenePathError)
+        pathDiagnostic << " (filesystem check: " << scenePathError.message() << ")";
+      updatedCacheError = pathDiagnostic.str();
+    }
+    if (finalSceneOwnershipConfirmed &&
+        !applyResult.finalSceneFingerprint.empty())
       updatedCacheRequest.gdtfContentHash = applyResult.finalSceneFingerprint;
-    if (resolvedFinalScene && !applyResult.finalSceneFingerprint.empty() &&
+    if (finalSceneOwnershipConfirmed &&
+        !applyResult.finalSceneFingerprint.empty() &&
         symbol_preview::InspectFixtureSymbolState(updatedFixtureIt->second,
                                                   cfg.GetScene(),
                                                   updatedInspection,
