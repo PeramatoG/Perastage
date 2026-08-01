@@ -25,6 +25,7 @@
 #include "../core/gdtf_mutation_audit.h"
 #include "../core/symbol_cache_manifest.h"
 #include "../core/symbols/Symbol2D.h"
+#include "../core/wx_path_utils.h"
 #include "../gui/windows/symbol_fixture_applier.h"
 #include "../models/fixture.h"
 #include "../viewer3d/gdtfloader.h"
@@ -47,21 +48,38 @@ std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   return content;
 }
 
-// Counts standard revisions created by fixture-symbol application in an archive.
-std::size_t CountSymbolMutationRevisions(const fs::path &archivePath) {
-  wxFileInputStream input(archivePath.string());
+struct ArchiveSnapshot {
+  std::unordered_set<std::string> entries;
+  std::string descriptionXml;
+};
+
+// Reads archive data while keeping all wxWidgets stream lifetimes inside the helper.
+ArchiveSnapshot ReadArchiveSnapshot(const fs::path &archivePath) {
+  ArchiveSnapshot snapshot;
+  wxFileInputStream input(
+      WxPathUtils::WxStringFromFilesystemPath(archivePath));
   assert(input.IsOk());
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
-  std::string descriptionXml;
   while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (!entry->IsDir() && entry->GetName() == "description.xml") {
-      descriptionXml = ReadCurrentZipEntry(zip);
-      break;
-    }
+    if (entry->IsDir())
+      continue;
+    const auto logicalName = tests::archive::NormalizePresentedArchivePath(
+        entry->GetName().ToStdString());
+    assert(logicalName.ok);
+    snapshot.entries.insert(logicalName.path);
+    if (logicalName.path == "description.xml")
+      snapshot.descriptionXml = ReadCurrentZipEntry(zip);
   }
+  return snapshot;
+}
+
+// Counts standard revisions created by fixture-symbol application in an archive.
+std::size_t CountSymbolMutationRevisions(const fs::path &archivePath) {
+  const ArchiveSnapshot snapshot = ReadArchiveSnapshot(archivePath);
   tinyxml2::XMLDocument document;
-  assert(document.Parse(descriptionXml.c_str(), descriptionXml.size()) ==
+  assert(document.Parse(snapshot.descriptionXml.c_str(),
+                        snapshot.descriptionXml.size()) ==
          tinyxml2::XML_SUCCESS);
   const tinyxml2::XMLElement *fixtureType =
       document.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
@@ -173,6 +191,50 @@ public:
   fs::path path;
 };
 
+// Restores the active fixture dictionary when the scenario scope exits.
+class ScopedFixtureDictionary {
+public:
+  // Captures the dictionary path that must be restored after the test.
+  ScopedFixtureDictionary()
+      : previousPath_(GdtfDictionary::GetActiveDictionaryFilePath()) {}
+
+  // Restores the captured dictionary path before temporary files are removed.
+  ~ScopedFixtureDictionary() {
+    if (!changed_)
+      return;
+    std::string errorMessage;
+    if (!GdtfDictionary::SetActiveDictionaryFilePath(previousPath_, &errorMessage))
+      std::cerr << "Could not restore fixture dictionary: " << errorMessage << '\n';
+  }
+
+  // Activates a temporary fixture dictionary for the scoped scenarios.
+  bool Activate(const fs::path &dictionaryPath, std::string &errorMessage) {
+    changed_ = GdtfDictionary::SetActiveDictionaryFilePath(
+        dictionaryPath.string(), &errorMessage);
+    return changed_;
+  }
+
+private:
+  std::string previousPath_;
+  bool changed_ = false;
+};
+
+// Reports a structured application result when an expected condition fails.
+void ReportUnexpectedApplyResult(
+    const symbol_preview::ApplySymbolsResult &result, bool expected) {
+  if (expected)
+    return;
+  std::cerr << "Apply result: success=" << result.success
+            << " sceneUpdated=" << result.sceneUpdated
+            << " libraryUpdated=" << result.libraryUpdated
+            << " diagnostic='" << result.diagnostic << "'"
+            << " scene='" << result.finalScenePath << "'"
+            << " library='" << result.finalLibraryPath << "'";
+  for (const std::string &warning : result.warnings)
+    std::cerr << " warning='" << warning << "'";
+  std::cerr << '\n';
+}
+
 } // namespace
 
 // Runs the symbol-to-GDTF mutation ownership and compatibility regression test.
@@ -184,6 +246,7 @@ int main() {
   cfg.Reset();
   MvrScene &scene = cfg.GetScene();
   ScopedTempProject project;
+  ScopedFixtureDictionary dictionaryGuard;
   scene.basePath = project.path.string();
 
   const std::string gdtfSpec = MakeFixtureGdtf(project.path);
@@ -210,11 +273,13 @@ int main() {
   const symbol_preview::ApplySymbolsResult sceneResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(symbols, fixture.uuid,
                                                           options);
-  if (!sceneResult.success) {
-    std::cerr << "ApplySymbolsToFixtureGdtf failed: " << sceneResult.diagnostic
-              << std::endl;
-    assert(false);
-  }
+  ReportUnexpectedApplyResult(
+      sceneResult, sceneResult.success && sceneResult.sceneUpdated &&
+                       !sceneResult.libraryUpdated &&
+                       !sceneResult.finalScenePath.empty() &&
+                       !sceneResult.finalSceneFingerprint.empty() &&
+                       sceneResult.warnings.empty());
+  assert(sceneResult.success);
   assert(sceneResult.sceneUpdated);
   assert(!sceneResult.libraryUpdated);
   assert(!sceneResult.finalScenePath.empty());
@@ -225,28 +290,17 @@ int main() {
   const std::string mutatedPath =
       (project.path / scene.fixtures.at(fixture.uuid).gdtfSpec).string();
 
-  wxFileInputStream input(mutatedPath);
-  assert(input.IsOk());
-  wxZipInputStream zipInput(input);
+  const ArchiveSnapshot mutatedSnapshot =
+      ReadArchiveSnapshot(fs::path(mutatedPath));
 
-  std::unordered_set<std::string> entries;
-  std::string descriptionXml;
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zipInput.GetNextEntry())), entry) {
-    if (entry->IsDir())
-      continue;
-    const auto logicalName =
-        tests::archive::NormalizePresentedArchivePath(entry->GetName().ToStdString());
-    assert(logicalName.ok);
-    entries.insert(logicalName.path);
-    if (logicalName.path == "description.xml")
-      descriptionXml = ReadCurrentZipEntry(zipInput);
-  }
-
-  assert(entries.find("models/svg/Body.svg") != entries.end());
-  assert(entries.find("models/svg/Body_bottom.svg") != entries.end());
-  assert(entries.find("models/svg_side/Body.svg") != entries.end());
-  assert(entries.find("models/svg_front/Body.svg") != entries.end());
+  assert(mutatedSnapshot.entries.find("models/svg/Body.svg") !=
+         mutatedSnapshot.entries.end());
+  assert(mutatedSnapshot.entries.find("models/svg/Body_bottom.svg") !=
+         mutatedSnapshot.entries.end());
+  assert(mutatedSnapshot.entries.find("models/svg_side/Body.svg") !=
+         mutatedSnapshot.entries.end());
+  assert(mutatedSnapshot.entries.find("models/svg_front/Body.svg") !=
+         mutatedSnapshot.entries.end());
 
   std::string rawNameError;
   const std::vector<std::string> rawNames =
@@ -264,7 +318,8 @@ int main() {
   }
 
   tinyxml2::XMLDocument doc;
-  assert(doc.Parse(descriptionXml.c_str(), descriptionXml.size()) ==
+  assert(doc.Parse(mutatedSnapshot.descriptionXml.c_str(),
+                   mutatedSnapshot.descriptionXml.size()) ==
          tinyxml2::XML_SUCCESS);
 
   tinyxml2::XMLElement *fixtureType = doc.FirstChildElement("GDTF");
@@ -310,6 +365,11 @@ int main() {
   const symbol_preview::ApplySymbolsResult invalidResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, fixture.uuid, invalidOptions);
+  ReportUnexpectedApplyResult(
+      invalidResult, !invalidResult.success && !invalidResult.sceneUpdated &&
+                         !invalidResult.libraryUpdated &&
+                         invalidResult.diagnostic ==
+                             "No fixture GDTF persistence target was requested.");
   assert(!invalidResult.success);
   assert(!invalidResult.sceneUpdated);
   assert(!invalidResult.libraryUpdated);
@@ -323,6 +383,12 @@ int main() {
   const symbol_preview::ApplySymbolsResult libraryFailureResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, fixture.uuid, dualOptions);
+  ReportUnexpectedApplyResult(libraryFailureResult,
+                              libraryFailureResult.success &&
+                                  libraryFailureResult.sceneUpdated &&
+                                  !libraryFailureResult.libraryUpdated &&
+                                  !libraryFailureResult.finalSceneFingerprint.empty() &&
+                                  libraryFailureResult.warnings.size() == 1);
   assert(libraryFailureResult.success);
   assert(libraryFailureResult.sceneUpdated);
   assert(!libraryFailureResult.libraryUpdated);
@@ -330,17 +396,19 @@ int main() {
   assert(libraryFailureResult.warnings.size() == 1);
   scene.fixtures.at(fixture.uuid).typeName = fixture.typeName;
 
-  const std::string previousDictionaryPath =
-      GdtfDictionary::GetActiveDictionaryFilePath();
   const fs::path dictionaryPath = project.path / "fixture-symbol-dictionary.json";
   assert(GdtfDictionary::CreateEmptyDictionaryFile(dictionaryPath.string(),
                                                    &errorMessage));
-  assert(GdtfDictionary::SetActiveDictionaryFilePath(dictionaryPath.string(),
-                                                     &errorMessage));
+  assert(dictionaryGuard.Activate(dictionaryPath, errorMessage));
 
   const symbol_preview::ApplySymbolsResult dualResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, fixture.uuid, dualOptions);
+  ReportUnexpectedApplyResult(
+      dualResult, dualResult.success && dualResult.sceneUpdated &&
+                      dualResult.libraryUpdated &&
+                      !dualResult.finalScenePath.empty() &&
+                      !dualResult.finalLibraryPath.empty());
   assert(dualResult.success);
   assert(dualResult.sceneUpdated);
   assert(dualResult.libraryUpdated);
@@ -357,6 +425,11 @@ int main() {
   const symbol_preview::ApplySymbolsResult libraryOnlyResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, fixture.uuid, libraryOnlyOptions);
+  ReportUnexpectedApplyResult(
+      libraryOnlyResult,
+      libraryOnlyResult.success && !libraryOnlyResult.sceneUpdated &&
+          libraryOnlyResult.libraryUpdated &&
+          libraryOnlyResult.finalScenePath.empty());
   assert(libraryOnlyResult.success);
   assert(!libraryOnlyResult.sceneUpdated);
   assert(libraryOnlyResult.libraryUpdated);
@@ -382,6 +455,9 @@ int main() {
   const symbol_preview::ApplySymbolsResult sameFileResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, sameFileFixture.uuid, dualOptions);
+  ReportUnexpectedApplyResult(
+      sameFileResult, sameFileResult.success && sameFileResult.sceneUpdated &&
+                          sameFileResult.libraryUpdated);
   assert(sameFileResult.success);
   assert(sameFileResult.sceneUpdated);
   assert(sameFileResult.libraryUpdated);
@@ -398,9 +474,6 @@ int main() {
              sameFileArchive.string(), fingerprintError) ==
          sameFileResult.finalSceneFingerprint);
   assert(fingerprintError.empty());
-
-  assert(GdtfDictionary::SetActiveDictionaryFilePath(previousDictionaryPath,
-                                                     &errorMessage));
 
   const std::string currentVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
       "<FixtureType Name=\"Current\" Manufacturer=\"Acme\" Editor=\"Vendor\">"

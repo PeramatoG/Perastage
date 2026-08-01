@@ -103,6 +103,10 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Strengthened cross-platform fixture-symbol persistence verification by
+  releasing archive readers before atomic replacement and restoring temporary
+  fixture-library configuration deterministically.
+
 - Stabilized the internal GDTF Share security verification by making temporary
   credential fixtures uniquely owned and reliably cleaned up across platforms.
 
