@@ -2197,9 +2197,30 @@ target_include_directories(symbol_cache_manifest_test PRIVATE
     ${wxWidgets_INCLUDE_DIRS})
 target_link_libraries(symbol_cache_manifest_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SymbolCacheManifestValidation COMMAND symbol_cache_manifest_test)
+
+add_executable(project_symbol_cache_snapshot_test
+               project_symbol_cache_snapshot_test.cpp
+               ../core/project_symbol_cache_snapshot.cpp
+               ../core/symbol_cache_manifest.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(project_symbol_cache_snapshot_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/core
+    ${CMAKE_SOURCE_DIR}/models
+    ${CMAKE_SOURCE_DIR}/third_party
+    ${wxWidgets_INCLUDE_DIRS})
+target_link_libraries(project_symbol_cache_snapshot_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME ProjectSymbolCacheSnapshot COMMAND project_symbol_cache_snapshot_test)
 get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/configmanager.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/project_symbol_cache_snapshot.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                       ../core/project_symbol_cache_snapshot.cpp)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE tinyxml2::tinyxml2)
+    endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
        PERASTAGE_TEST_SOURCES AND
        ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR

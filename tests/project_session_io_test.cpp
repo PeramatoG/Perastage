@@ -78,6 +78,25 @@ int main() {
   assert(!zeroSceneSaveOk);
   assert(!fs::exists(zeroSceneProjectPath));
 
+  const fs::path requiredResourceFailurePath =
+      tempDir / "required_resource_failure.pera";
+  const bool requiredResourceFailure = zeroSceneSession.SaveProject(
+      requiredResourceFailurePath.string(),
+      [](std::vector<std::uint8_t> &out) {
+        out = {'{', '}'};
+        return true;
+      },
+      [](std::vector<std::uint8_t> &out) {
+        out = {'P', 'K'};
+        return true;
+      },
+      ProjectSession::CollectArchiveResourcesFn([] {
+        return std::vector<ProjectSession::ArchiveResource>{
+            {"../unsafe-manifest.json", {'{', '}'}, true}};
+      }));
+  assert(!requiredResourceFailure);
+  assert(!fs::exists(requiredResourceFailurePath));
+
   const fs::path jsonPath = tempDir / "config_only.json";
   {
     std::ofstream out(jsonPath, std::ios::binary);

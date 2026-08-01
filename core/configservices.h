@@ -151,11 +151,16 @@ public:
   struct ArchiveResource {
     std::string entryName;
     std::vector<std::uint8_t> bytes;
+    bool required = false;
   };
 
   using LoadProgressFn =
       std::function<void(const std::string &stage, int completed, int total)>;
   using CollectArchiveResourcesFn = std::function<std::vector<ArchiveResource>()>;
+  using CollectArchiveResourcesFromSceneFn =
+      std::function<bool(const std::vector<std::uint8_t> &sceneBytes,
+                         std::vector<ArchiveResource> &resources,
+                         std::string &errorMessage)>;
 
   MvrScene &GetScene();
   const MvrScene &GetScene() const;
@@ -169,6 +174,11 @@ public:
                    const SaveConfigToBufferFn &saveConfigToBuffer,
                    const SaveSceneToBufferFn &saveSceneToBuffer,
                    const CollectArchiveResourcesFn &collectResources) const;
+  bool SaveProject(
+      const std::string &path,
+      const SaveConfigToBufferFn &saveConfigToBuffer,
+      const SaveSceneToBufferFn &saveSceneToBuffer,
+      const CollectArchiveResourcesFromSceneFn &collectResources) const;
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});

@@ -24,6 +24,7 @@
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "project_fixture_identity.h"
+#include "project_symbol_cache_snapshot.h"
 #include "selection_movement_settings.h"
 #include "uuidutils.h"
 #include <filesystem>
@@ -529,6 +530,10 @@ bool ConfigManager::SaveProject(const std::string &path) {
            SerializeHiddenLayerChecks(layerVisibilityState.GetHiddenLayers()));
   SetValue(kHiddenFixtureTypesConfigKey,
            SerializeStringSet(GetHiddenFixtureTypes()));
+  const auto fixtureSymbolIdentities =
+      symbol_cache::CollectProjectFixtureSymbolIdentities(GetScene());
+  std::optional<symbol_cache::SymbolCacheManifest> pendingSymbolManifest;
+  std::string pendingSymbolManifestError;
   bool ok = projectSession.SaveProject(
       path, [this](std::vector<uint8_t> &configBytes) {
         UserPreferencesStore serializationSnapshot = preferencesStore;
@@ -581,8 +586,25 @@ bool ConfigManager::SaveProject(const std::string &path) {
         }
         return exported;
       },
-      [this]() {
-        std::vector<ProjectSession::ArchiveResource> resources;
+      [this, &fixtureSymbolIdentities, &pendingSymbolManifest,
+       &pendingSymbolManifestError](
+          const std::vector<std::uint8_t> &sceneBytes,
+          std::vector<ProjectSession::ArchiveResource> &resources,
+          std::string &errorMessage) {
+        const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
+            sceneBytes, fixtureSymbolIdentities, &symbolCacheManifest);
+        if (!snapshot.sceneValid) {
+          errorMessage = snapshot.errorMessage.empty()
+                             ? "Could not validate packaged fixture GDTFs."
+                             : snapshot.errorMessage;
+          return false;
+        }
+        for (const std::string &warning : snapshot.warnings) {
+          Logger::Instance().Log(
+              Logger::Level::Warn,
+              "Project symbol cache snapshot omitted fixture: " + warning);
+        }
+        pendingSymbolManifest = snapshot.manifest;
         for (const auto &entry :
              layouts::LayoutImageResourceRegistry::Get().UsedResources()) {
           resources.push_back({entry.archivePath, entry.bytes});
@@ -590,27 +612,44 @@ bool ConfigManager::SaveProject(const std::string &path) {
 
         std::string manifestError;
         if (auto manifestResource =
-                symbolCacheManifest.ToArchiveResource(manifestError)) {
-          resources.push_back(
-              {manifestResource->entryName, std::move(manifestResource->bytes)});
+                pendingSymbolManifest->ToArchiveResource(manifestError)) {
+          resources.push_back({manifestResource->entryName,
+                               std::move(manifestResource->bytes), true});
         } else if (!manifestError.empty()) {
-          Logger::Instance().Log(Logger::Level::Warn,
-                                 "Could not serialize symbol cache manifest: " +
-                                     manifestError);
+          pendingSymbolManifestError = manifestError;
+          errorMessage = "Could not serialize validated symbol cache manifest: " +
+                         manifestError;
+          return false;
         }
         if (projectArchiveResourceProvider) {
-          auto providedResources = projectArchiveResourceProvider();
-          resources.insert(resources.end(),
-                           std::make_move_iterator(providedResources.begin()),
-                           std::make_move_iterator(providedResources.end()));
+          try {
+            auto providedResources = projectArchiveResourceProvider();
+            resources.insert(resources.end(),
+                             std::make_move_iterator(providedResources.begin()),
+                             std::make_move_iterator(providedResources.end()));
+          } catch (const std::exception &exception) {
+            Logger::Instance().Log(
+                Logger::Level::Warn,
+                std::string("Optional project resources skipped: ") +
+                    exception.what());
+          } catch (...) {
+            Logger::Instance().Log(
+                Logger::Level::Warn,
+                "Optional project resources skipped: unknown error");
+          }
         }
-        return resources;
+        return true;
       });
-  if (ok)
+  if (ok) {
+    if (pendingSymbolManifest)
+      symbolCacheManifest = std::move(*pendingSymbolManifest);
     projectSession.MarkSaved();
-  else
+  } else {
     lastProjectSaveError =
-        "Project archive could not be written. See the diagnostic log for the failing save stage.";
+        pendingSymbolManifestError.empty()
+            ? "Project archive could not be written. See the diagnostic log for the failing save stage."
+            : pendingSymbolManifestError;
+  }
   return ok;
 }
 
