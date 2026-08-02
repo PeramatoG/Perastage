@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <sstream>
@@ -529,7 +528,8 @@ GdtfRewriteResult RewriteGdtfWithProof(
     const std::string &frontPath,
     const std::string &bottomPath,
     symbols::FixtureSymbolTimings *timings = nullptr) {
-  const auto rewriteStarted = symbols::FixtureSymbolTimings::Clock::now();
+  symbols::ScopedFixtureSymbolPhase rewritePhase(
+      timings, symbols::FixtureSymbolPhase::ArchiveRewrite);
   GdtfRewriteResult result;
   result.finalArchivePath = sourcePath;
   std::string errorMessage;
@@ -668,10 +668,7 @@ GdtfRewriteResult RewriteGdtfWithProof(
   }
 
   result.atomicReplacementCompleted = true;
-  if (timings && timings->Enabled())
-    timings->Add(symbols::FixtureSymbolPhase::ArchiveRewrite,
-                 std::chrono::duration_cast<symbols::FixtureSymbolTimings::Duration>(
-                     symbols::FixtureSymbolTimings::Clock::now() - rewriteStarted));
+  rewritePhase.Finish();
   symbols::ScopedFixtureSymbolPhase validationPhase(
       timings, symbols::FixtureSymbolPhase::Validation);
   if (!VerifyArchiveEntries(sourcePath, payloads)) {

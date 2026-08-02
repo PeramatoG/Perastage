@@ -31,7 +31,12 @@ std::string_view OutcomeName(FixtureSymbolOutcome outcome) {
 // Starts an optionally enabled, independently owned fixture-symbol timing
 // record.
 FixtureSymbolTimings::FixtureSymbolTimings(bool enabled)
-    : enabled_(enabled), started_(Clock::now()) {}
+    : enabled_(enabled), started_(enabled ? Clock::now() : Clock::time_point{}) {}
+
+// Creates an enabled timing record with deterministic time points for tests.
+FixtureSymbolTimings::FixtureSymbolTimings(Clock::time_point started,
+                                           Clock::time_point current)
+    : enabled_(true), started_(started), controlledCurrent_(current) {}
 
 // Accumulates one completed phase duration when diagnostics are enabled.
 void FixtureSymbolTimings::Add(FixtureSymbolPhase phase, Duration elapsed) {
@@ -56,11 +61,19 @@ FixtureSymbolTimings::Elapsed(FixtureSymbolPhase phase) const {
 FixtureSymbolTimings::Duration FixtureSymbolTimings::Total() const {
   if (!enabled_)
     return Duration::zero();
-  return std::chrono::duration_cast<Duration>(Clock::now() - started_);
+  return std::chrono::duration_cast<Duration>(CurrentTime() - started_);
 }
 
 // Reports whether timing collection is enabled.
 bool FixtureSymbolTimings::Enabled() const { return enabled_; }
+
+// Returns the controlled test time or the production steady-clock time.
+FixtureSymbolTimings::Clock::time_point
+FixtureSymbolTimings::CurrentTime() const {
+  if (controlledCurrent_)
+    return *controlledCurrent_;
+  return Clock::now();
+}
 
 // Formats one compact locale-independent diagnostic in stable phase order.
 std::string FixtureSymbolTimings::Format(std::string_view fixtureLabel,
@@ -92,15 +105,22 @@ ScopedFixtureSymbolPhase::ScopedFixtureSymbolPhase(
     : timings_(timings && timings->Enabled() ? timings : nullptr),
       phase_(phase) {
   if (timings_)
-    started_ = FixtureSymbolTimings::Clock::now();
+    started_ = timings_->CurrentTime();
 }
 
 // Accumulates the elapsed phase duration into its optional timing sink.
 ScopedFixtureSymbolPhase::~ScopedFixtureSymbolPhase() {
-  if (timings_)
-    timings_->Add(phase_,
-                  std::chrono::duration_cast<FixtureSymbolTimings::Duration>(
-                      FixtureSymbolTimings::Clock::now() - started_));
+  Finish();
+}
+
+// Finishes an active phase once and makes subsequent finishes no-ops.
+void ScopedFixtureSymbolPhase::Finish() {
+  if (!timings_)
+    return;
+  timings_->Add(phase_,
+                std::chrono::duration_cast<FixtureSymbolTimings::Duration>(
+                    timings_->CurrentTime() - started_));
+  timings_ = nullptr;
 }
 
 // Returns the immutable capture mapping shared by runtime capture and tests.

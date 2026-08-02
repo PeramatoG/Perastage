@@ -48,6 +48,10 @@ order:
 phase scopes. Debug output is one compact record per automatically processed
 fixture type and always lists these phases in order:
 
+The automatic GUI flow enables diagnostics by default in Debug builds. Release
+and other `NDEBUG` builds create a disabled timing sink, do not read the clock in
+phase scopes, and do not format or submit a debug log record.
+
 - `resolve`: deterministic GDTF path resolution.
 - `fingerprint`: source-content hashing and cache validation-request assembly.
 - `inspect`: inspection of the existing archive and symbol set.
@@ -59,15 +63,17 @@ fixture type and always lists these phases in order:
 - `calibration`: physical-unit calibration after capture.
 - `archive_rewrite`: archive read, metadata/SVG mutation, canonical temporary
   write, and atomic replacement.
-- `validation`: post-replacement entry and semantic-fingerprint validation.
+- `validation`: project manifest validation before a cache skip, plus
+  post-replacement entry and semantic-fingerprint validation. Repeated scopes
+  accumulate for generated work.
 - `refresh`: the existing scene refresh after a successful apply.
 
 An absent phase is formatted as `-`; the programmatic accessor returns zero for
 that phase. Repeated phase scopes accumulate. `total_us` is wall-clock elapsed
 time for the fixture work record and can therefore exceed the phase sum.
 
-A cache or inspection **skipped** job normally contains resolve, fingerprint,
-and optionally inspect. A **generated** job contains all applicable phases,
+A manifest-valid **skipped** job contains resolve, fingerprint, and validation;
+an inspection skip also contains inspect. A **generated** job contains all applicable phases,
 including bounds through refresh and persistence phases. A **failed** job keeps
 every phase completed before its failure; later phases remain absent. Outcomes
 are deliberately limited to `skipped`, `generated`, and `failed` at this

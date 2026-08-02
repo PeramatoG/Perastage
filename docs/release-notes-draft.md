@@ -25,7 +25,8 @@ Changes since **v1.5.0**.
 
 - Added deterministic cross-platform fixture-symbol regression coverage and
   concise internal generation timing diagnostics to protect existing visual
-  output and help diagnose future performance changes.
+  output and help diagnose future performance changes, including portable test
+  linkage and complete diagnostics for skipped and failed work.
 
 - Restored Windows Debug build compatibility for the 2D and 3D viewers by
   ensuring the GLEW header is initialized before platform OpenGL headers.

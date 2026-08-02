@@ -32,6 +32,7 @@ public:
   using Duration = std::chrono::microseconds;
 
   explicit FixtureSymbolTimings(bool enabled = false);
+  FixtureSymbolTimings(Clock::time_point started, Clock::time_point current);
   void Add(FixtureSymbolPhase phase, Duration elapsed);
   bool Has(FixtureSymbolPhase phase) const;
   Duration Elapsed(FixtureSymbolPhase phase) const;
@@ -42,8 +43,12 @@ public:
   static std::string_view PhaseName(FixtureSymbolPhase phase);
 
 private:
+  friend class ScopedFixtureSymbolPhase;
+  Clock::time_point CurrentTime() const;
+
   bool enabled_ = false;
   Clock::time_point started_;
+  std::optional<Clock::time_point> controlledCurrent_;
   std::array<std::optional<Duration>,
              static_cast<size_t>(FixtureSymbolPhase::Count)>
       elapsed_{};
@@ -54,6 +59,7 @@ public:
   ScopedFixtureSymbolPhase(FixtureSymbolTimings *timings,
                            FixtureSymbolPhase phase);
   ~ScopedFixtureSymbolPhase();
+  void Finish();
 
 private:
   FixtureSymbolTimings *timings_ = nullptr;

@@ -29,16 +29,36 @@ std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> g_statusClearTimers;
 std::unordered_map<MainWindow *, std::string> g_pendingStatusText;
 std::unordered_map<MainWindow *, wxEvtHandler *> g_statusTimerHandlers;
 
+// Returns whether fixture-symbol timing diagnostics are enabled for this build.
+constexpr bool FixtureSymbolDiagnosticsEnabled() {
+#ifdef NDEBUG
+  return false;
+#else
+  return true;
+#endif
+}
+
 class ScopedFixtureSymbolDiagnostic {
 public:
+  // Creates a per-fixture diagnostic using the GUI build enablement policy.
   ScopedFixtureSymbolDiagnostic(std::string label, std::string key)
-      : label_(std::move(label)), key_(std::move(key)), timings_(true) {}
+      : label_(std::move(label)), key_(std::move(key)),
+        timings_(FixtureSymbolDiagnosticsEnabled()) {}
+
+  // Emits a compact debug record only when diagnostics are enabled.
   ~ScopedFixtureSymbolDiagnostic() {
+    if (!timings_.Enabled())
+      return;
     const std::string message = timings_.Format(label_, key_, outcome_);
     wxLogDebug("%s", message.c_str());
   }
+
+  // Returns the optional timing sink passed through production boundaries.
   symbols::FixtureSymbolTimings &Timings() { return timings_; }
+
+  // Records the final work outcome for debug formatting.
   void SetOutcome(symbols::FixtureSymbolOutcome outcome) { outcome_ = outcome; }
+
 private:
   std::string label_;
   std::string key_;
@@ -305,8 +325,12 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
         fixture, key, cacheResolution, cacheRequest, cacheError);
   }
   if (hasCacheRequest) {
-    const auto cacheResult =
-        cfg.GetSymbolCacheManifest().ValidateFixture(cacheRequest);
+    symbol_cache::ValidationResult cacheResult;
+    {
+      symbols::ScopedFixtureSymbolPhase phase(
+          &diagnostic.Timings(), symbols::FixtureSymbolPhase::Validation);
+      cacheResult = cfg.GetSymbolCacheManifest().ValidateFixture(cacheRequest);
+    }
     if (cacheResult.valid) {
       diagnostic.SetOutcome(symbols::FixtureSymbolOutcome::Skipped);
       ReportFixtureAutoUpdate(

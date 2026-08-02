@@ -100,6 +100,10 @@ std::string Snapshot(const symbols::Symbol2D &symbol) {
 // Reads a checked-in structural baseline as raw UTF-8 text.
 std::string ReadFile(const std::filesystem::path &path) {
   std::ifstream input(path, std::ios::binary);
+  if (!input.is_open()) {
+    std::cerr << "Could not open fixture-symbol baseline: " << path << '\n';
+    return {};
+  }
   return {std::istreambuf_iterator<char>(input),
           std::istreambuf_iterator<char>()};
 }
@@ -160,9 +164,32 @@ bool TestCapturePlan() {
          plan[3].forceBottomViewForTopFixtures && !plan[3].mirrorHorizontally;
 }
 
-// Verifies timing accumulation, absent phases, outcomes, order, and locale
-// stability.
+// Simulates an early archive-rewrite failure handled by the scoped timer.
+void RecordFailedArchiveRewrite(symbols::FixtureSymbolTimings &timings) {
+  symbols::ScopedFixtureSymbolPhase phase(
+      &timings, symbols::FixtureSymbolPhase::ArchiveRewrite);
+}
+
+// Verifies timing totals, disabled behavior, outcomes, order, and locale stability.
 bool TestTimings() {
+  symbols::FixtureSymbolTimings disabled;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(
+        &disabled, symbols::FixtureSymbolPhase::Capture);
+  }
+  bool ok = !disabled.Enabled() &&
+            disabled.Total() == symbols::FixtureSymbolTimings::Duration::zero() &&
+            !disabled.Has(symbols::FixtureSymbolPhase::Capture);
+
+  const auto start = symbols::FixtureSymbolTimings::Clock::time_point{};
+  const auto current = start + std::chrono::microseconds(100);
+  symbols::FixtureSymbolTimings controlled(start, current);
+  controlled.Add(symbols::FixtureSymbolPhase::Resolve,
+                 std::chrono::microseconds(7));
+  ok = ok && controlled.Total() == std::chrono::microseconds(100) &&
+       controlled.Elapsed(symbols::FixtureSymbolPhase::Resolve) ==
+           std::chrono::microseconds(7);
+
   symbols::FixtureSymbolTimings timings(true);
   timings.Add(symbols::FixtureSymbolPhase::Resolve,
               std::chrono::microseconds(3));
@@ -170,26 +197,34 @@ bool TestTimings() {
               std::chrono::microseconds(4));
   timings.Add(symbols::FixtureSymbolPhase::Fingerprint,
               std::chrono::microseconds(5));
+  timings.Add(symbols::FixtureSymbolPhase::Validation,
+              std::chrono::microseconds(6));
   const std::string skipped =
       timings.Format("fixture", "key", symbols::FixtureSymbolOutcome::Skipped);
-  bool ok =
-      timings.Elapsed(symbols::FixtureSymbolPhase::Resolve).count() == 7 &&
+  ok = ok && timings.Elapsed(symbols::FixtureSymbolPhase::Resolve).count() == 7 &&
       !timings.Has(symbols::FixtureSymbolPhase::Capture) &&
       skipped.find("resolve_us=7 fingerprint_us=5 inspect_us=- bounds_us=- "
-                   "capture_us=-") != std::string::npos;
-  symbols::FixtureSymbolTimings generated(true);
+                   "capture_us=- vectorization_us=- calibration_us=- "
+                   "archive_rewrite_us=- validation_us=6 refresh_us=-") !=
+          std::string::npos;
+  symbols::FixtureSymbolTimings generated(start, current);
   for (size_t i = 0;
        i < static_cast<size_t>(symbols::FixtureSymbolPhase::Count); ++i)
     generated.Add(static_cast<symbols::FixtureSymbolPhase>(i),
                   std::chrono::microseconds(i + 1));
-  ok =
-      ok && generated.Format("x", "y", symbols::FixtureSymbolOutcome::Generated)
-                    .find("outcome=generated") != std::string::npos;
-  symbols::FixtureSymbolTimings failed(true);
-  failed.Add(symbols::FixtureSymbolPhase::Inspect,
-             std::chrono::microseconds(9));
-  ok = ok && failed.Has(symbols::FixtureSymbolPhase::Inspect) &&
-       !failed.Has(symbols::FixtureSymbolPhase::Capture) &&
+  const std::string generatedText = generated.Format(
+      "x", "y", symbols::FixtureSymbolOutcome::Generated);
+  const std::string orderedPhases =
+      "resolve_us=1 fingerprint_us=2 inspect_us=3 bounds_us=4 capture_us=5 "
+      "vectorization_us=6 calibration_us=7 archive_rewrite_us=8 "
+      "validation_us=9 refresh_us=10";
+  ok = ok && generatedText.find("outcome=generated total_us=100 " +
+                                orderedPhases) != std::string::npos;
+
+  symbols::FixtureSymbolTimings failed(start, current);
+  RecordFailedArchiveRewrite(failed);
+  ok = ok && failed.Has(symbols::FixtureSymbolPhase::ArchiveRewrite) &&
+       !failed.Has(symbols::FixtureSymbolPhase::Validation) &&
        failed.Format("x", "y", symbols::FixtureSymbolOutcome::Failed)
                .find("outcome=failed") != std::string::npos;
   try {
