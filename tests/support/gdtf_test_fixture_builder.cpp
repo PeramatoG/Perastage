@@ -62,7 +62,8 @@ void ValidateArchivePath(const std::string &path) {
 
 // Creates fixed ZIP metadata for deterministic test archives.
 wxZipEntry *CreateDeterministicEntry(const std::string &path) {
-  auto *entry = new wxZipEntry(wxString::FromUTF8(path));
+  auto *entry = new wxZipEntry();
+  entry->SetName(wxString::FromUTF8(path), wxPATH_UNIX);
   wxDateTime timestamp(1, wxDateTime::Jan, 2026, 0, 0, 0);
   entry->SetDateTime(timestamp);
   entry->SetMode(0644);

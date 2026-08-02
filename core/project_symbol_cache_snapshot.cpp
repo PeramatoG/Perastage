@@ -59,6 +59,127 @@ std::string FoldAscii(std::string value) {
   return value;
 }
 
+// Converts a wx archive name to UTF-8 without consulting the process locale.
+std::string ArchiveNameToUtf8(const wxArchiveEntry &entry) {
+  const wxString name = entry.GetName(wxPATH_UNIX);
+  const wxScopedCharBuffer utf8 = name.utf8_str();
+  return utf8.data() ? std::string(utf8.data()) : std::string{};
+}
+
+// Reads a little-endian 16-bit value from ZIP metadata.
+std::uint16_t ReadLe16(const std::uint8_t *bytes) {
+  return static_cast<std::uint16_t>(bytes[0]) |
+         (static_cast<std::uint16_t>(bytes[1]) << 8);
+}
+
+// Reads a little-endian 32-bit value from ZIP metadata.
+std::uint32_t ReadLe32(const std::uint8_t *bytes) {
+  return static_cast<std::uint32_t>(bytes[0]) |
+         (static_cast<std::uint32_t>(bytes[1]) << 8) |
+         (static_cast<std::uint32_t>(bytes[2]) << 16) |
+         (static_cast<std::uint32_t>(bytes[3]) << 24);
+}
+
+// Preflights raw central-directory names before wxWidgets presents normalized paths.
+bool ValidateRawArchiveNames(const std::vector<std::uint8_t> &bytes,
+                             std::string &errorMessage) {
+  constexpr std::uint32_t kEndSignature = 0x06054b50;
+  constexpr std::uint32_t kCentralSignature = 0x02014b50;
+  if (bytes.size() < 22) {
+    errorMessage = "Archive central directory is malformed.";
+    return false;
+  }
+  const std::size_t searchStart =
+      bytes.size() > 65557 ? bytes.size() - 65557 : 0;
+  std::size_t endOffset = bytes.size() - 22;
+  bool foundEnd = false;
+  while (true) {
+    if (ReadLe32(bytes.data() + endOffset) == kEndSignature &&
+        endOffset + 22ULL + ReadLe16(bytes.data() + endOffset + 20) ==
+            bytes.size()) {
+      foundEnd = true;
+      break;
+    }
+    if (endOffset == searchStart)
+      break;
+    --endOffset;
+  }
+  if (!foundEnd) {
+    errorMessage = "Archive central directory is malformed.";
+    return false;
+  }
+  const std::uint16_t entryCount = ReadLe16(bytes.data() + endOffset + 10);
+  const std::uint32_t centralSize = ReadLe32(bytes.data() + endOffset + 12);
+  const std::uint32_t centralOffset = ReadLe32(bytes.data() + endOffset + 16);
+  if (centralOffset > endOffset || centralSize > endOffset - centralOffset) {
+    errorMessage = "Archive central directory is malformed.";
+    return false;
+  }
+  std::size_t cursor = centralOffset;
+  std::unordered_set<std::string> identities;
+  for (std::uint16_t index = 0; index < entryCount; ++index) {
+    if (cursor > endOffset || endOffset - cursor < 46 ||
+        ReadLe32(bytes.data() + cursor) != kCentralSignature) {
+      errorMessage = "Archive central directory is malformed.";
+      return false;
+    }
+    const std::uint16_t nameLength = ReadLe16(bytes.data() + cursor + 28);
+    const std::uint16_t extraLength = ReadLe16(bytes.data() + cursor + 30);
+    const std::uint16_t commentLength = ReadLe16(bytes.data() + cursor + 32);
+    const std::uint32_t localOffset = ReadLe32(bytes.data() + cursor + 42);
+    const std::size_t recordSize =
+        46ULL + nameLength + extraLength + commentLength;
+    if (nameLength == 0 || recordSize > endOffset - cursor) {
+      errorMessage = "Archive central directory is malformed.";
+      return false;
+    }
+    std::string rawName(reinterpret_cast<const char *>(bytes.data() + cursor + 46),
+                        nameLength);
+    if (localOffset >= centralOffset || centralOffset - localOffset < 30 ||
+        ReadLe32(bytes.data() + localOffset) != 0x04034b50) {
+      errorMessage = "Archive local entry header is malformed.";
+      return false;
+    }
+    const std::uint16_t localNameLength = ReadLe16(bytes.data() + localOffset + 26);
+    const std::uint16_t localExtraLength = ReadLe16(bytes.data() + localOffset + 28);
+    if (30ULL + localNameLength + localExtraLength > centralOffset - localOffset) {
+      errorMessage = "Archive local entry header is malformed.";
+      return false;
+    }
+    const std::string localName(
+        reinterpret_cast<const char *>(bytes.data() + localOffset + 30),
+        localNameLength);
+    if (localName != rawName) {
+      errorMessage = "Archive local and central entry names do not match.";
+      return false;
+    }
+    const wxString decoded = wxString::FromUTF8(rawName.data(), rawName.size());
+    const wxScopedCharBuffer encoded = decoded.utf8_str();
+    if (encoded.data() == nullptr || std::string(encoded.data()) != rawName) {
+      errorMessage = "Archive contains a malformed UTF-8 entry name.";
+      return false;
+    }
+    const bool directory = rawName.back() == '/';
+    if (directory)
+      rawName.pop_back();
+    std::string normalized;
+    if (!NormalizeSafeArchivePath(rawName, normalized)) {
+      errorMessage = "Archive contains an unsafe or malformed entry path.";
+      return false;
+    }
+    if (!identities.insert(FoldAscii(normalized)).second) {
+      errorMessage = "Archive contains duplicate or ambiguous entry paths.";
+      return false;
+    }
+    cursor += recordSize;
+  }
+  if (cursor != static_cast<std::size_t>(centralOffset) + centralSize) {
+    errorMessage = "Archive central directory is malformed.";
+    return false;
+  }
+  return true;
+}
+
 // Reads the current ZIP entry into an immutable byte buffer.
 std::vector<std::uint8_t> ReadCurrentEntry(wxZipInputStream &zip) {
   std::vector<std::uint8_t> bytes;
@@ -83,6 +204,8 @@ bool ReadArchive(const std::vector<std::uint8_t> &bytes,
     errorMessage = "Archive payload is empty.";
     return false;
   }
+  if (!ValidateRawArchiveNames(bytes, errorMessage))
+    return false;
   wxMemoryInputStream memory(bytes.data(), bytes.size());
   wxZipInputStream zip(memory);
   std::unordered_set<std::string> identities;
@@ -93,7 +216,7 @@ bool ReadArchive(const std::vector<std::uint8_t> &bytes,
     if (entry->IsDir())
       continue;
     std::string path;
-    if (!NormalizeSafeArchivePath(entry->GetName().ToStdString(), path)) {
+    if (!NormalizeSafeArchivePath(ArchiveNameToUtf8(*entry), path)) {
       errorMessage = "Archive contains an unsafe or malformed entry path.";
       return false;
     }

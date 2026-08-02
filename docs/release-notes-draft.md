@@ -32,7 +32,8 @@ Changes since **v1.5.0**.
   files packaged in `scene.mvr` before recording symbol-cache metadata. Valid
   four-view symbols now survive an unchanged save and reload without redundant
   regeneration across platforms, including mixed-case and Unicode resource
-  paths, while stale or incomplete cache metadata is discarded safely.
+  paths and canonical nested ZIP entries, while stale or incomplete cache
+  metadata is discarded safely.
 
 - Fixed project persistence for automatically generated fixture symbols when
   both project and fixture-library copies are updated, preventing a library

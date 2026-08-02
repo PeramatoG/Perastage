@@ -1,5 +1,6 @@
 #include "project_symbol_cache_snapshot.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <map>
@@ -19,7 +20,9 @@ BuildZip(const std::map<std::string, std::vector<std::uint8_t>> &entries) {
   {
     wxZipOutputStream zip(memory);
     for (const auto &[name, bytes] : entries) {
-      assert(zip.PutNextEntry(name));
+      auto *entry = new wxZipEntry();
+      entry->SetName(wxString::FromUTF8(name), wxPATH_UNIX);
+      assert(zip.PutNextEntry(entry));
       if (!bytes.empty())
         zip.Write(bytes.data(), bytes.size());
       assert(zip.CloseEntry());
@@ -36,6 +39,20 @@ std::vector<std::uint8_t> Bytes(const std::string &text) {
   return {text.begin(), text.end()};
 }
 
+// Replaces every fixed-width ZIP name occurrence without changing record offsets.
+void ReplaceArchiveName(std::vector<std::uint8_t> &archive,
+                        const std::string &from, const std::string &to) {
+  assert(from.size() == to.size());
+  const std::vector<std::uint8_t> source(from.begin(), from.end());
+  for (auto position = std::search(archive.begin(), archive.end(), source.begin(),
+                                   source.end());
+       position != archive.end();
+       position = std::search(position + to.size(), archive.end(), source.begin(),
+                              source.end())) {
+    std::copy(to.begin(), to.end(), position);
+  }
+}
+
 // Builds a canonical minimal GDTF with an optional missing side symbol.
 std::vector<std::uint8_t> BuildGdtf(bool includeSide = true) {
   const std::string description =
@@ -47,7 +64,8 @@ std::vector<std::uint8_t> BuildGdtf(bool includeSide = true) {
       {"description.xml", Bytes(description)},
       {"models/svg/main.svg", Bytes("top")},
       {"models/svg/main_bottom.svg", Bytes("bottom")},
-      {"models/svg_front/main.svg", Bytes("front")}};
+      {"models/svg_front/main.svg", Bytes("front")},
+      {"resources/Información.txt", Bytes("unicode")}};
   if (includeSide)
     entries["models/svg_side/main.svg"] = Bytes("side");
   return BuildZip(entries);
@@ -123,6 +141,38 @@ void TestMalformedSceneFails() {
   assert(!snapshot.errorMessage.empty());
 }
 
+// Verifies raw unsafe and ambiguous ZIP names remain rejected before normalization.
+void TestUnsafeRawArchiveNamesFail() {
+  const std::string sceneXml = "<GeneralSceneDescription/>";
+  for (const auto &[safeName, unsafeName] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"aa/unsafe.txt", "../unsafe.txt"},
+           {"xunsafe.txt", "/unsafe.txt"},
+           {"xx/unsafe.txt", "C:/unsafe.txt"}}) {
+    auto archive = BuildZip({{"GeneralSceneDescription.xml", Bytes(sceneXml)},
+                             {safeName, Bytes("unsafe")}});
+    ReplaceArchiveName(archive, safeName, unsafeName);
+    const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
+        archive, {});
+    assert(!snapshot.sceneValid);
+  }
+
+  const auto collision = BuildZip(
+      {{"GeneralSceneDescription.xml", Bytes(sceneXml)},
+       {"Resources/Fixture.gdtf", Bytes("first")},
+       {"resources/fixture.gdtf", Bytes("second")}});
+  assert(!symbol_cache::BuildProjectSymbolCacheSnapshot(collision, {}).sceneValid);
+
+  auto gdtf = BuildGdtf();
+  ReplaceArchiveName(gdtf, "models/svg/main.svg", "models\\svg\\main.svg");
+  const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
+      BuildMvr(gdtf),
+      {{"fixture-0001", "Roundtrip Type", "Roundtrip Type"}});
+  assert(snapshot.sceneValid);
+  assert(snapshot.validatedCount == 0);
+  assert(snapshot.omittedCount == 1);
+}
+
 } // namespace
 
 // Runs project symbol-cache snapshot regression coverage.
@@ -132,5 +182,6 @@ int main() {
   TestValidatedSnapshotAndPlanner();
   TestIncompleteSymbolsAreOmitted();
   TestMalformedSceneFails();
+  TestUnsafeRawArchiveNamesFail();
   return 0;
 }
