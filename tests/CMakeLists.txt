@@ -283,6 +283,7 @@ add_executable(trussloader_validation_test
                ../core/apppaths.cpp
                ../core/diagnostics/DiagnosticPaths.cpp
                ../core/filesystem_path_utils.cpp
+               ../core/filesystem_path_utils.cpp
                ../core/gdtf_mutation_audit.cpp
                ../core/logger.cpp
                ../core/runtime_storage.cpp
@@ -2195,6 +2196,25 @@ add_executable(symbol2d_image_builder_parallel_test
 target_include_directories(symbol2d_image_builder_parallel_test PRIVATE ../core)
 add_test(NAME Symbol2DImageBuilderParallelExactEquality
          COMMAND symbol2d_image_builder_parallel_test)
+
+add_executable(fixture_symbol_baseline_test
+               fixture_symbol_baseline_test.cpp
+               ../core/symbols/FixtureSymbolDiagnostics.cpp
+               ../core/symbols/Symbol2DImageBuilder.cpp
+               ../core/symbols/SymbolGeometrySimplifier.cpp
+               ../core/geometry/RdpSimplifier.cpp
+               ../core/logger.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp
+               ../core/filesystem_path_utils.cpp
+               ../gui/tools/symbol_physical_calibration_core.cpp
+               ../gui/windows/symbol_preview_exporter.cpp)
+target_compile_definitions(fixture_symbol_baseline_test PRIVATE
+    FIXTURE_SYMBOL_BASELINE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/fixture_symbols")
+target_include_directories(fixture_symbol_baseline_test PRIVATE
+    ../core ../models ../gui ../third_party ${wxWidgets_INCLUDE_DIRS})
+target_link_libraries(fixture_symbol_baseline_test PRIVATE
+    ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_test)
 
 add_executable(symbol_cache_manifest_test symbol_cache_manifest_test.cpp
                ../core/symbol_cache_manifest.cpp

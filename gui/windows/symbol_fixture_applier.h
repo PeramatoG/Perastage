@@ -6,12 +6,14 @@
 #include "fixture.h"
 #include "mvrscene.h"
 #include "symbols/Symbol2D.h"
+#include "symbols/FixtureSymbolDiagnostics.h"
 
 namespace symbol_preview {
 
 struct ApplySymbolsOptions {
   bool updateSceneCopy = true;
   bool updateLibraryCopy = true;
+  symbols::FixtureSymbolTimings *timings = nullptr;
 };
 
 struct ApplySymbolsResult {

@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <sstream>
@@ -526,7 +527,9 @@ GdtfRewriteResult RewriteGdtfWithProof(
     const std::string &topPath,
     const std::string &sidePath,
     const std::string &frontPath,
-    const std::string &bottomPath) {
+    const std::string &bottomPath,
+    symbols::FixtureSymbolTimings *timings = nullptr) {
+  const auto rewriteStarted = symbols::FixtureSymbolTimings::Clock::now();
   GdtfRewriteResult result;
   result.finalArchivePath = sourcePath;
   std::string errorMessage;
@@ -665,6 +668,12 @@ GdtfRewriteResult RewriteGdtfWithProof(
   }
 
   result.atomicReplacementCompleted = true;
+  if (timings && timings->Enabled())
+    timings->Add(symbols::FixtureSymbolPhase::ArchiveRewrite,
+                 std::chrono::duration_cast<symbols::FixtureSymbolTimings::Duration>(
+                     symbols::FixtureSymbolTimings::Clock::now() - rewriteStarted));
+  symbols::ScopedFixtureSymbolPhase validationPhase(
+      timings, symbols::FixtureSymbolPhase::Validation);
   if (!VerifyArchiveEntries(sourcePath, payloads)) {
     result.diagnostic =
         "The replaced GDTF archive did not pass generated SVG post-validation.";
@@ -826,7 +835,7 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     }
     const GdtfRewriteResult rewrite = RewriteGdtfWithProof(
         writableScenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
-        bottomSvgPath);
+        bottomSvgPath, options.timings);
     if (!rewrite.success) {
       result.diagnostic = rewrite.diagnostic;
       return result;
