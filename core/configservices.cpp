@@ -17,6 +17,7 @@
 #include <memory>
 #include <sstream>
 #include <string_view>
+#include <unordered_set>
 #include <iterator>
 
 #include <wx/stdpaths.h>
@@ -765,7 +766,8 @@ const MvrScene &ProjectSession::GetScene() const { return scene; }
 bool ProjectSession::SaveProject(
     const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
     const SaveSceneToBufferFn &saveSceneToBuffer) const {
-  return SaveProject(path, saveConfigToBuffer, saveSceneToBuffer, {});
+  return SaveProject(path, saveConfigToBuffer, saveSceneToBuffer,
+                     CollectArchiveResourcesFromSceneFn{});
 }
 
 // Saves a project package with additional resource entries supplied by the caller.
@@ -773,6 +775,34 @@ bool ProjectSession::SaveProject(
     const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
     const SaveSceneToBufferFn &saveSceneToBuffer,
     const CollectArchiveResourcesFn &collectResources) const {
+  CollectArchiveResourcesFromSceneFn adapter;
+  if (collectResources) {
+    adapter = [collectResources](const std::vector<std::uint8_t> &,
+                                 std::vector<ArchiveResource> &resources,
+                                 std::string &) {
+      try {
+        resources = collectResources();
+      } catch (const std::exception &error) {
+        Logger::Instance().Log(Logger::Level::Warn,
+                               std::string("Optional project resources skipped: ") +
+                                   error.what());
+        resources.clear();
+      } catch (...) {
+        Logger::Instance().Log(Logger::Level::Warn,
+                               "Optional project resources skipped: unknown error");
+        resources.clear();
+      }
+      return true;
+    };
+  }
+  return SaveProject(path, saveConfigToBuffer, saveSceneToBuffer, adapter);
+}
+
+// Saves a project package with resources transactionally derived from scene.mvr bytes.
+bool ProjectSession::SaveProject(
+    const std::string &path, const SaveConfigToBufferFn &saveConfigToBuffer,
+    const SaveSceneToBufferFn &saveSceneToBuffer,
+    const CollectArchiveResourcesFromSceneFn &collectResources) const {
   if (!saveConfigToBuffer || !saveSceneToBuffer)
     return LogProjectSaveFailure("ValidateCallbacks",
                                  "missing config or scene serializer");
@@ -851,21 +881,41 @@ bool ProjectSession::SaveProject(
   const auto resourcesStart = std::chrono::steady_clock::now();
   std::vector<ArchiveResource> resourceEntries;
   if (collectResources) {
+    std::string resourceError;
     try {
-      resourceEntries = collectResources();
+      if (!collectResources(sceneBytes, resourceEntries, resourceError)) {
+        return LogProjectSaveFailure(
+            "CollectRequiredResources",
+            resourceError.empty() ? "transactional resource collection failed"
+                                  : resourceError);
+      }
     } catch (const std::exception &e) {
-      Logger::Instance().Log(Logger::Level::Warn,
-                             std::string("Optional project resources skipped: ") +
-                                 e.what());
-      resourceEntries.clear();
+      return LogProjectSaveFailure("CollectRequiredResources", e.what());
     } catch (...) {
-      Logger::Instance().Log(Logger::Level::Warn,
-                             "Optional project resources skipped: unknown error");
-      resourceEntries.clear();
+      return LogProjectSaveFailure("CollectRequiredResources", "unknown error");
     }
   }
+  std::unordered_set<std::string> writtenResourceNames = {
+      "config.json", "scene.mvr"};
   for (const auto &resource : resourceEntries) {
+    const std::string resourceIdentity = ToLowerCopy(resource.entryName);
+    if (!writtenResourceNames.insert(resourceIdentity).second) {
+      if (resource.required) {
+        return LogProjectSaveFailure("WriteRequiredResource",
+                                     "transactional resource path is duplicated",
+                                     resource.entryName);
+      }
+      Logger::Instance().Log(Logger::Level::Warn,
+                             "Skipping duplicate optional project resource '" +
+                                 resource.entryName + "'.");
+      continue;
+    }
     if (!WriteZipBytes(zip, resource.entryName, resource.bytes)) {
+      if (resource.required) {
+        return LogProjectSaveFailure("WriteRequiredResource",
+                                     "could not write transactional resource",
+                                     resource.entryName);
+      }
       Logger::Instance().Log(Logger::Level::Warn,
                              "Skipping optional project resource '" +
                                  resource.entryName + "' because it could not be written.");

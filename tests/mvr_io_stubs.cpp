@@ -166,6 +166,21 @@ const std::vector<FixtureSymbolCacheEntry> &SymbolCacheManifest::Entries() const
   return entries;
 }
 
+// Returns a deterministic fingerprint for project-persistence stub targets.
+std::string ComputeGdtfSemanticFingerprintFromEntries(
+    const std::vector<GdtfSemanticFingerprintEntry> &, std::string &errorMessage) {
+  errorMessage.clear();
+  return "stub-gdtf-fingerprint";
+}
+
+// Returns the complete symbol view set for project-persistence stub targets.
+std::set<std::string> RequiredPerastageSymbolViews() {
+  return {"top", "bottom", "front", "side"};
+}
+
+// Returns a deterministic timestamp for project-persistence stub targets.
+std::string CurrentUtcTimestamp() { return "2000-01-01T00:00:00Z"; }
+
 } // namespace symbol_cache
 
 // Returns false because legacy truss conversion is intentionally disabled in this stub.

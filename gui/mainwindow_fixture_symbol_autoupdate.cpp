@@ -13,6 +13,7 @@
 #include "filesystem_path_utils.h"
 #include "guiconfigservices.h"
 #include "opaque_pass_utils.h"
+#include "project_symbol_cache_snapshot.h"
 #include "splashscreen.h"
 #include "symbol_cache_manifest.h"
 #include "tools/scene_model_symbol_capture_service.h"
@@ -29,11 +30,7 @@ std::unordered_map<MainWindow *, wxEvtHandler *> g_statusTimerHandlers;
 
 // Builds a stable deduplication key for fixture symbol auto-update work items.
 std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
-  if (!fixture.typeName.empty())
-    return fixture.typeName;
-  if (!fixture.gdtfSpec.empty())
-    return NormalizeModelKey(fixture.gdtfSpec);
-  return {};
+  return symbol_cache::BuildFixtureSymbolCacheKey(fixture);
 }
 
 // Builds a human-readable fixture label for progress and error reporting.
