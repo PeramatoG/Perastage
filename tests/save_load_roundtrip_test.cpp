@@ -47,6 +47,7 @@
 #include "project_symbol_cache_snapshot.h"
 #include "sceneobject.h"
 #include "scene_node_operations.h"
+#include "support/zip_test_utils.h"
 #include "support.h"
 #include "truss.h"
 #include "uuidutils.h"
@@ -77,7 +78,7 @@ static std::map<std::string, std::vector<std::uint8_t>> ReadZipEntries(
     if (entry->IsDir())
       continue;
     const std::string bytes = ReadCurrentZipEntry(zip);
-    entries.emplace(entry->GetName().ToStdString(),
+    entries.emplace(tests::zip::ToUtf8(entry->GetName(wxPATH_UNIX)),
                     std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
   }
   return entries;
@@ -95,7 +96,7 @@ static std::map<std::string, std::vector<std::uint8_t>> ReadProjectEntries(
     if (entry->IsDir())
       continue;
     const std::string bytes = ReadCurrentZipEntry(zip);
-    entries.emplace(entry->GetName().ToStdString(),
+    entries.emplace(tests::zip::ToUtf8(entry->GetName(wxPATH_UNIX)),
                     std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
   }
   return entries;
