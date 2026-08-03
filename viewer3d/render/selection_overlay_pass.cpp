@@ -144,16 +144,13 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
   if (overlaySet.Empty())
     return;
 
-  auto getTypeColor = [&](const std::string &key, const std::string &hex) {
+  auto getTypeColor = [&](const Fixture &fixture) {
     std::array<float, 3> c;
-    const FixtureVisualColorResult resolved = ResolveFixtureVisualColor(
-        {hex, {}, {}, hex.empty() ? FixtureProjectColorState::Missing
-                                  : FixtureProjectColorState::Present,
-         false});
+    const FixtureVisualColorResult resolved = ResolveFixturePresentationColor(fixture);
     if (resolved.colorHex &&
         HexToRGB(*resolved.colorHex, c[0], c[1], c[2]))
       return c;
-    return MakeDeterministicColor("type:" + key);
+    return MakeDeterministicColor("type:" + fixture.gdtfSpec);
   };
   auto getLayerColor = [&](const std::string &key) {
     std::array<float, 3> c;

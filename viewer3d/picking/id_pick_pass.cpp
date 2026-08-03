@@ -173,7 +173,7 @@ void IdPickPass::RebuildIfNeeded(
   auto getLayerColor = [](const std::string &) {
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
-  auto getTypeColor = [](const std::string &, const std::string &) {
+  auto getTypeColor = [](const Fixture &) {
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
   auto resolveSymbolView = [](Viewer2DView) { return SymbolViewKind::Top; };

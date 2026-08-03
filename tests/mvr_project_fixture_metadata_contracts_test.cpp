@@ -237,6 +237,9 @@ static void AddFixture(MvrScene &scene, const std::string &uuid,
   fixture.fixtureIdNumeric = numericId;
   fixture.fixtureIdText = textId;
   fixture.visualColorHex = color;
+  fixture.visualColorState = color.empty()
+                                 ? FixtureProjectColorState::ExplicitEmpty
+                                 : FixtureProjectColorState::Present;
   fixture.address = std::to_string(scene.fixtures.size() + 1) + ".1";
   scene.fixtures.emplace(uuid, std::move(fixture));
 }

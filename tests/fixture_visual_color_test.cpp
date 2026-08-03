@@ -36,6 +36,24 @@ static void TestResolution() {
   assert(result.source == FixtureVisualColorSource::Unresolved);
   assert(!result.colorHex);
   assert(result.hadInvalidInput);
+
+  result = ResolveFixtureVisualColor(
+      {"broken", "#123456", "#ABCDEF", FixtureProjectColorState::Present,
+       true});
+  assert(result.source == FixtureVisualColorSource::AutomaticFixtureType);
+
+  Fixture explicitEmpty;
+  explicitEmpty.visualColorState = FixtureProjectColorState::ExplicitEmpty;
+  explicitEmpty.mvrFixtureColorHex = "#123456";
+  explicitEmpty.automaticVisualColorHex = "#ABCDEF";
+  assert(ResolveFixturePresentationColor(explicitEmpty).source ==
+         FixtureVisualColorSource::ExplicitEmpty);
+  PersistAutomaticFixtureVisualColor(explicitEmpty, "#654321");
+  assert(explicitEmpty.visualColorHex.empty());
+
+  Fixture missing;
+  PersistAutomaticFixtureVisualColor(missing, "#abcdef");
+  assert(missing.visualColorHex == "#ABCDEF");
 }
 
 // Verifies deterministic uniform, mixed, empty, and unresolved aggregation.

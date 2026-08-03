@@ -15,6 +15,7 @@
 #include <wx/zipstrm.h>
 
 #include "mvrimporter.h"
+#include "fixture_visual_color.h"
 
 namespace fs = std::filesystem;
 
@@ -98,12 +99,15 @@ static void WriteProjectFixtureMetadataArchive(const fs::path &path) {
 static void WriteLegacyColorArchive(const fs::path &path,
                                     bool includeExplicitEmpty) {
   const std::string metadata = includeExplicitEmpty
-      ? "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><ProjectFixtureMetadataMap schemaVersion=\"1.0\"><ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000010\" hasVisualColorHex=\"false\"/></ProjectFixtureMetadataMap></Data></UserData>"
+      ? "<ProjectFixtureMetadataMap schemaVersion=\"1.0\"><ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000010\" hasVisualColorHex=\"false\"/></ProjectFixtureMetadataMap>"
       : "";
+  const std::string userData =
+      "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><FixtureTypeInfoMap><FixtureTypeInfo key=\"Legacy.gdtf|Mode\" gdtfSpec=\"Legacy.gdtf\" gdtfMode=\"Mode\"><VisualColor>#AABBCC</VisualColor></FixtureTypeInfo></FixtureTypeInfoMap>" +
+      metadata + "</Data></UserData>";
   const std::string xml =
       "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Test\" providerVersion=\"1\">" +
-      metadata +
-      "<Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000010\" name=\"Colored\"><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric><Color>0.3127,0.3290,100</Color></Fixture></ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+      userData +
+      "<Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000010\" name=\"Colored\"><GDTFSpec>Legacy.gdtf</GDTFSpec><GDTFMode>Mode</GDTFMode><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric><Color>0.3127,0.3290,100</Color></Fixture></ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
 }
 
@@ -223,6 +227,8 @@ static void TestLegacyFixtureColorRecovery(const fs::path &tempDir) {
   const Fixture &externalFixture = external.scene.fixtures.begin()->second;
   assert(externalFixture.visualColorHex.empty());
   assert(!externalFixture.mvrFixtureColorHex.empty());
+  assert(externalFixture.automaticVisualColorHex == "#AABBCC");
+  assert(ResolveFixturePresentationColor(externalFixture).colorHex == "#AABBCC");
 
   options.sourceKind = MvrImportSourceKind::ProjectRestore;
   MvrImportResult restored;
@@ -230,6 +236,7 @@ static void TestLegacyFixtureColorRecovery(const fs::path &tempDir) {
                                  MvrImportMode::ParseOnly, options));
   const Fixture &restoredFixture = restored.scene.fixtures.begin()->second;
   assert(restoredFixture.visualColorHex == restoredFixture.mvrFixtureColorHex);
+  assert(restoredFixture.visualColorHex != restoredFixture.automaticVisualColorHex);
   assert(restoredFixture.visualColorHex.size() == 7);
 
   const fs::path explicitEmpty = tempDir / "explicit-empty-fixture-color.mvr";
@@ -240,6 +247,7 @@ static void TestLegacyFixtureColorRecovery(const fs::path &tempDir) {
   const Fixture &emptyFixture = emptyRestored.scene.fixtures.begin()->second;
   assert(emptyFixture.visualColorHex.empty());
   assert(!emptyFixture.mvrFixtureColorHex.empty());
+  assert(emptyFixture.visualColorState == FixtureProjectColorState::ExplicitEmpty);
 }
 
 // Verifies portable, missing, empty, and unsafe AuxGdtf value policy.

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "fixture_visual_color.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "filesystem_path_utils.h"
 
@@ -214,11 +215,12 @@ void PersistFixtureTypeAutoColors(ConfigManager &configManager) {
   auto &scene = configManager.GetScene();
   for (auto &[uuid, fixture] : scene.fixtures) {
     (void)uuid;
-    if (!fixture.visualColorHex.empty())
+    if (!fixture.visualColorHex.empty() ||
+        fixture.visualColorState == FixtureProjectColorState::ExplicitEmpty)
       continue;
 
-    fixture.visualColorHex =
-        Viewer3DController::BuildFixtureTypeAutoColorHex(fixture.gdtfSpec);
+    PersistAutomaticFixtureVisualColor(
+        fixture, Viewer3DController::BuildFixtureTypeAutoColorHex(fixture.gdtfSpec));
   }
 }
 
