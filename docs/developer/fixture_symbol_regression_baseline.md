@@ -25,6 +25,25 @@ change. The test has no golden-file update mode. Reviewers should compare view
 orientation, bounds and offsets, point order and counts, and SVG coordinates,
 not merely a digest.
 
+Production contour extraction stores directed boundary edges in a sorted vector
+and indexes outgoing edges with an ordered map. Traversal starts from the first
+unconsumed edge and prefers the turn that keeps filled pixels on the right,
+followed by straight, left, and reverse continuations with the destination as an
+explicit tie-breaker. Implicitly closed rings preserve winding and rotate to the
+lexicographically smallest `(x, y)` vertex. Outer polygons sort by descending
+absolute area and then their full canonical sequence; holes sort by their full
+canonical sequence without changing ownership.
+
+Closed-ring simplification uses the canonical first vertex and its
+deterministically selected farthest vertex as anchors. The two forward ring
+chains between those anchors are simplified independently with the existing RDP
+epsilon and merged without duplicate anchors. This makes simplification
+invariant under cyclic input rotation without treating open strokes as rings.
+The four baselines were updated for canonical point rotations and the reviewed
+deterministic removal or retention of seam-adjacent vertices. Their bounds,
+dimensions, offsets, polygon/hole topology, stroke width, and SVG view boxes are
+unchanged; contour tests additionally verify exact extracted filled area.
+
 This is a structural rather than pixel baseline because GPU rasterization and
 driver behaviour are not portable across Linux, Windows, and macOS. It freezes
 the deterministic pipeline after capture while leaving optional real-renderer

@@ -2199,7 +2199,8 @@ add_test(NAME SupportResolution COMMAND support_resolution_test)
 
 add_executable(symbol2d_image_builder_parallel_test
                symbol2d_image_builder_parallel_test.cpp
-               ../core/symbols/Symbol2DImageBuilder.cpp)
+               ../core/symbols/Symbol2DImageBuilder.cpp
+               ../core/geometry/RdpSimplifier.cpp)
 target_include_directories(symbol2d_image_builder_parallel_test PRIVATE ../core)
 add_test(NAME Symbol2DImageBuilderParallelExactEquality
          COMMAND symbol2d_image_builder_parallel_test)

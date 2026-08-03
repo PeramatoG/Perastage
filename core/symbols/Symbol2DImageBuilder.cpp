@@ -7,12 +7,15 @@
 #include <cstdint>
 #include <future>
 #include <iterator>
+#include <map>
 #include <optional>
 #include <queue>
 #include <set>
 #include <thread>
 #include <limits>
 #include <unordered_map>
+
+#include "geometry/RdpSimplifier.h"
 
 namespace symbols {
 namespace {
@@ -50,14 +53,46 @@ struct GridPoint {
   bool operator==(const GridPoint &other) const {
     return x == other.x && y == other.y;
   }
-};
 
-struct GridPointHash {
-  size_t operator()(const GridPoint &p) const {
-    return (static_cast<size_t>(static_cast<uint32_t>(p.x)) << 32) ^
-           static_cast<size_t>(static_cast<uint32_t>(p.y));
+  bool operator<(const GridPoint &other) const {
+    return x < other.x || (x == other.x && y < other.y);
   }
 };
+
+struct DirectedGridEdge {
+  GridPoint from;
+  GridPoint to;
+  bool consumed = false;
+};
+
+// Returns a stable direction index in clockwise image-grid order.
+int GridDirection(const GridPoint &from, const GridPoint &to) {
+  if (to.x > from.x)
+    return 0;
+  if (to.y > from.y)
+    return 1;
+  if (to.x < from.x)
+    return 2;
+  return 3;
+}
+
+// Ranks continuations while keeping the filled region on the traversal's right.
+int ContinuationRank(const DirectedGridEdge &incoming,
+                     const DirectedGridEdge &outgoing) {
+  const int turn = (GridDirection(outgoing.from, outgoing.to) -
+                    GridDirection(incoming.from, incoming.to) + 4) % 4;
+  static constexpr std::array<int, 4> rank = {1, 0, 3, 2};
+  return rank[static_cast<size_t>(turn)];
+}
+
+// Compares implicit closed rings by their full canonical point sequence.
+bool RingLess(const Polyline2D &a, const Polyline2D &b) {
+  return std::lexicographical_compare(
+      a.begin(), a.end(), b.begin(), b.end(),
+      [](const Point2D &left, const Point2D &right) {
+        return left.x < right.x || (left.x == right.x && left.y < right.y);
+      });
+}
 
 float SignedArea(const Polyline2D &polyline) {
   if (polyline.size() < 3)
@@ -367,13 +402,15 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
   if (w <= 0 || h <= 0)
     return result;
 
-  std::unordered_multimap<GridPoint, GridPoint, GridPointHash> edges;
+  std::vector<DirectedGridEdge> edges;
   auto isFilledAt = [&](int x, int y) {
     if (x < 0 || y < 0 || x >= w || y >= h)
       return false;
     return fillMask.Get(x, y) != 0;
   };
-  auto addEdge = [&edges](GridPoint a, GridPoint b) { edges.emplace(a, b); };
+  auto addEdge = [&edges](GridPoint a, GridPoint b) {
+    edges.push_back({a, b, false});
+  };
 
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
@@ -393,14 +430,27 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
   if (edges.empty())
     return result;
 
+  std::sort(edges.begin(), edges.end(), [](const auto &left, const auto &right) {
+    if (left.from < right.from)
+      return true;
+    if (right.from < left.from)
+      return false;
+    return left.to < right.to;
+  });
+  std::map<GridPoint, std::vector<size_t>> outgoingEdges;
+  for (size_t index = 0; index < edges.size(); ++index)
+    outgoingEdges[edges[index].from].push_back(index);
+
   std::vector<Polyline2D> loops;
-  const size_t maxSteps = static_cast<size_t>(w) * static_cast<size_t>(h) * 8;
-  while (!edges.empty()) {
-    auto currentIt = edges.begin();
-    GridPoint start = currentIt->first;
+  const size_t maxSteps = edges.size();
+  for (size_t startEdge = 0; startEdge < edges.size(); ++startEdge) {
+    if (edges[startEdge].consumed)
+      continue;
+    const GridPoint start = edges[startEdge].from;
     GridPoint current = start;
-    GridPoint next = currentIt->second;
-    edges.erase(currentIt);
+    GridPoint next = edges[startEdge].to;
+    edges[startEdge].consumed = true;
+    size_t incomingIndex = startEdge;
 
     Polyline2D loop;
     loop.push_back(ToVertexPoint(start.x, start.y, h));
@@ -408,26 +458,41 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     current = next;
 
     for (size_t step = 0; step < maxSteps; ++step) {
-      auto range = edges.equal_range(current);
-      if (range.first == range.second)
+      if (current == start)
+        break;
+      const auto outgoing = outgoingEdges.find(current);
+      if (outgoing == outgoingEdges.end())
         break;
 
-      auto take = range.first;
-      GridPoint candidate = take->second;
-      edges.erase(take);
+      std::optional<size_t> selected;
+      for (size_t candidateIndex : outgoing->second) {
+        if (edges[candidateIndex].consumed)
+          continue;
+        if (!selected ||
+            ContinuationRank(edges[incomingIndex], edges[candidateIndex]) <
+                ContinuationRank(edges[incomingIndex], edges[*selected]) ||
+            (ContinuationRank(edges[incomingIndex], edges[candidateIndex]) ==
+                 ContinuationRank(edges[incomingIndex], edges[*selected]) &&
+             edges[candidateIndex].to < edges[*selected].to)) {
+          selected = candidateIndex;
+        }
+      }
+      if (!selected)
+        break;
+      edges[*selected].consumed = true;
+      const GridPoint candidate = edges[*selected].to;
 
       loop.push_back(ToVertexPoint(candidate.x, candidate.y, h));
       current = candidate;
-      if (current == start)
-        break;
+      incomingIndex = *selected;
     }
 
     if (loop.size() >= 2 && loop.front().x == loop.back().x &&
         loop.front().y == loop.back().y) {
       loop.pop_back();
     }
-    if (loop.size() >= 3)
-      loops.push_back(std::move(loop));
+    if (current == start && loop.size() >= 3)
+      loops.push_back(geometry::CanonicalizePolygonRing(loop));
   }
 
   if (loops.empty())
@@ -442,8 +507,10 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
   };
   std::vector<LoopInfo> infos;
   infos.reserve(loops.size());
-  for (auto &loop : loops)
-    infos.push_back(LoopInfo{std::move(loop), std::abs(SignedArea(loop))});
+  for (auto &loop : loops) {
+    const float areaAbs = std::abs(SignedArea(loop));
+    infos.push_back(LoopInfo{std::move(loop), areaAbs});
+  }
 
   for (size_t i = 0; i < infos.size(); ++i) {
     const Point2D probe = FindInteriorProbePoint(infos[i].polygon);
@@ -516,6 +583,16 @@ std::vector<PolygonWithHoles2D> ExtractFillPolygons(const PixelMask &fillMask) {
     if (ownerIt != outerMap.end())
       result[static_cast<size_t>(ownerIt->second)].holes.push_back(infos[i].polygon);
   }
+
+  std::sort(result.begin(), result.end(), [](const auto &left, const auto &right) {
+    const float leftArea = std::abs(SignedArea(left.outer));
+    const float rightArea = std::abs(SignedArea(right.outer));
+    if (leftArea != rightArea)
+      return leftArea > rightArea;
+    return RingLess(left.outer, right.outer);
+  });
+  for (auto &polygon : result)
+    std::sort(polygon.holes.begin(), polygon.holes.end(), RingLess);
 
   return result;
 }

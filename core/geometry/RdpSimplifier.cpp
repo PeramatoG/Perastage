@@ -11,12 +11,14 @@ namespace {
 
 constexpr float kDedupThreshold = 1e-4f;
 
+// Reports whether two points are equal within the geometry tolerance.
 bool NearEqual(const symbols::Point2D &a, const symbols::Point2D &b,
                float threshold = kDedupThreshold) {
   return std::fabs(a.x - b.x) <= threshold && std::fabs(a.y - b.y) <= threshold;
 }
 
 std::vector<symbols::Point2D>
+// Removes adjacent duplicate vertices while preserving traversal order.
 RemoveConsecutiveDuplicates(const std::vector<symbols::Point2D> &pts) {
   std::vector<symbols::Point2D> cleaned;
   cleaned.reserve(pts.size());
@@ -27,6 +29,7 @@ RemoveConsecutiveDuplicates(const std::vector<symbols::Point2D> &pts) {
   return cleaned;
 }
 
+// Computes the squared distance from a point to a finite segment.
 float DistanceSquaredToSegment(const symbols::Point2D &point,
                                const symbols::Point2D &segmentStart,
                                const symbols::Point2D &segmentEnd) {
@@ -51,6 +54,7 @@ float DistanceSquaredToSegment(const symbols::Point2D &point,
 }
 
 std::vector<symbols::Point2D>
+// Applies RDP simplification while preserving open-polyline endpoints.
 SimplifyOpenPolyline(const std::vector<symbols::Point2D> &pts, float epsilon) {
   if (pts.size() <= 2)
     return pts;
@@ -98,6 +102,7 @@ SimplifyOpenPolyline(const std::vector<symbols::Point2D> &pts, float epsilon) {
   return simplified;
 }
 
+// Counts geometrically unique vertices using the deduplication tolerance.
 size_t CountUniqueVertices(const std::vector<symbols::Point2D> &pts) {
   std::vector<symbols::Point2D> uniques;
   uniques.reserve(pts.size());
@@ -115,9 +120,45 @@ size_t CountUniqueVertices(const std::vector<symbols::Point2D> &pts) {
   return uniques.size();
 }
 
+// Compares points lexicographically to select stable polygon anchors.
+bool PointLess(const symbols::Point2D &a, const symbols::Point2D &b) {
+  return a.x < b.x || (a.x == b.x && a.y < b.y);
+}
+
+// Builds an inclusive forward chain between two indices on a closed ring.
+std::vector<symbols::Point2D>
+BuildRingChain(const std::vector<symbols::Point2D> &ring, size_t start,
+               size_t end) {
+  std::vector<symbols::Point2D> chain;
+  for (size_t index = start;; index = (index + 1) % ring.size()) {
+    chain.push_back(ring[index]);
+    if (index == end)
+      break;
+  }
+  return chain;
+}
+
 } // namespace
 
+// Removes explicit closure and rotates a ring to its lexicographically first vertex.
 std::vector<symbols::Point2D>
+CanonicalizePolygonRing(const std::vector<symbols::Point2D> &pts,
+                        bool explicitlyClosed) {
+  std::vector<symbols::Point2D> ring = RemoveConsecutiveDuplicates(pts);
+  if (ring.size() >= 2 && NearEqual(ring.front(), ring.back()))
+    ring.pop_back();
+  if (ring.empty())
+    return ring;
+
+  const auto first = std::min_element(ring.begin(), ring.end(), PointLess);
+  std::rotate(ring.begin(), first, ring.end());
+  if (explicitlyClosed)
+    ring.push_back(ring.front());
+  return ring;
+}
+
+std::vector<symbols::Point2D>
+// Simplifies an open polyline after removing adjacent duplicates.
 SimplifyRdpPolyline(const std::vector<symbols::Point2D> &pts, float epsilon) {
   if (pts.size() <= 2)
     return pts;
@@ -130,6 +171,7 @@ SimplifyRdpPolyline(const std::vector<symbols::Point2D> &pts, float epsilon) {
 }
 
 std::vector<symbols::Point2D>
+// Simplifies a closed polygon independently of its cyclic input seam.
 SimplifyRdpPolygonClosed(const std::vector<symbols::Point2D> &pts, float epsilon) {
   if (pts.size() < 3)
     return pts;
@@ -145,22 +187,35 @@ SimplifyRdpPolygonClosed(const std::vector<symbols::Point2D> &pts, float epsilon
   if (ring.size() < 3)
     return pts;
 
-  std::vector<symbols::Point2D> duplicated = ring;
-  duplicated.push_back(ring.front());
-  const auto simplifiedOpen = SimplifyOpenPolyline(duplicated, epsilon);
-  if (simplifiedOpen.size() < 2)
-    return pts;
+  ring = CanonicalizePolygonRing(ring);
+  const size_t firstAnchor = 0;
+  size_t secondAnchor = 1;
+  float farthestDistanceSq = -1.0f;
+  for (size_t index = 1; index < ring.size(); ++index) {
+    const float dx = ring[index].x - ring[firstAnchor].x;
+    const float dy = ring[index].y - ring[firstAnchor].y;
+    const float distanceSq = dx * dx + dy * dy;
+    if (distanceSq > farthestDistanceSq ||
+        (distanceSq == farthestDistanceSq &&
+         PointLess(ring[index], ring[secondAnchor]))) {
+      farthestDistanceSq = distanceSq;
+      secondAnchor = index;
+    }
+  }
 
-  std::vector<symbols::Point2D> simplified = simplifiedOpen;
-  if (NearEqual(simplified.front(), simplified.back()))
-    simplified.pop_back();
+  const auto firstChain = SimplifyOpenPolyline(
+      BuildRingChain(ring, firstAnchor, secondAnchor), epsilon);
+  const auto secondChain = SimplifyOpenPolyline(
+      BuildRingChain(ring, secondAnchor, firstAnchor), epsilon);
+  std::vector<symbols::Point2D> simplified = firstChain;
+  if (secondChain.size() > 2)
+    simplified.insert(simplified.end(), secondChain.begin() + 1,
+                      secondChain.end() - 1);
 
   if (CountUniqueVertices(simplified) < 3)
-    return pts;
+    return CanonicalizePolygonRing(ring, inputExplicitlyClosed);
 
-  if (inputExplicitlyClosed)
-    simplified.push_back(simplified.front());
-  return simplified;
+  return CanonicalizePolygonRing(simplified, inputExplicitlyClosed);
 }
 
 } // namespace geometry

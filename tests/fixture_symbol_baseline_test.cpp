@@ -57,6 +57,45 @@ symbols::RenderedSymbolImage MakeRender(symbols::SymbolView view, int variant) {
   return render;
 }
 
+// Constructs concave, disconnected, holed, and diagonally touching fill contours.
+symbols::RenderedSymbolImage MakeContourRender() {
+  symbols::RenderedSymbolImage render{
+      symbols::SymbolView::Top, 42, 32,
+      std::vector<unsigned char>(42 * 32 * 4, 255)};
+  auto setPixel = [&](int x, int y, unsigned char r, unsigned char g,
+                      unsigned char b) {
+    const size_t at = static_cast<size_t>((y * render.width + x) * 4);
+    render.rgba[at] = r;
+    render.rgba[at + 1] = g;
+    render.rgba[at + 2] = b;
+  };
+  auto fill = [&](int x0, int y0, int x1, int y1, bool foreground) {
+    for (int y = y0; y <= y1; ++y)
+      for (int x = x0; x <= x1; ++x)
+        setPixel(x, y, foreground ? 63 : 255, foreground ? 169 : 255,
+                 foreground ? 245 : 255);
+  };
+  fill(2, 2, 25, 27, true);
+  fill(19, 11, 25, 18, false);
+  fill(6, 7, 10, 11, false);
+  fill(13, 18, 17, 22, false);
+  fill(31, 3, 36, 8, true);
+  fill(30, 9, 30, 9, true);
+  return render;
+}
+
+// Computes the signed area of one implicit polygon ring.
+double RingArea(const symbols::Polyline2D &ring) {
+  double twiceArea = 0.0;
+  for (size_t index = 0; index < ring.size(); ++index) {
+    const auto &a = ring[index];
+    const auto &b = ring[(index + 1) % ring.size()];
+    twiceArea += static_cast<double>(a.x) * b.y -
+                 static_cast<double>(b.x) * a.y;
+  }
+  return twiceArea * 0.5;
+}
+
 // Formats all review-relevant symbol structure with fixed four-decimal
 // precision.
 std::string Snapshot(const symbols::Symbol2D &symbol) {
@@ -164,6 +203,85 @@ bool TestCapturePlan() {
          plan[3].forceBottomViewForTopFixtures && !plan[3].mirrorHorizontally;
 }
 
+// Verifies deterministic contour topology, collection order, and exact filled area.
+bool TestDeterministicContours() {
+  symbols::ImageBuildParams params;
+  params.fillGapClosurePixels = 0;
+  params.lineGapClosurePixels = 0;
+  const auto render = MakeContourRender();
+  const auto expected =
+      symbols::Symbol2DImageBuilder::BuildFromRenderedImage(render, params);
+  if (!expected || expected->fill.size() != 3 ||
+      expected->fill.front().holes.size() != 2) {
+    std::cerr << "Contour topology mismatch: expected three outer rings and two "
+                 "holes in the largest ring\n";
+    return false;
+  }
+
+  double filledArea = 0.0;
+  for (const auto &polygon : expected->fill) {
+    if (polygon.outer.size() < 3 ||
+        (polygon.outer.front().x == polygon.outer.back().x &&
+         polygon.outer.front().y == polygon.outer.back().y)) {
+      std::cerr << "Outer ring closure or unique-vertex invariant failed\n";
+      return false;
+    }
+    filledArea += std::abs(RingArea(polygon.outer));
+    for (const auto &hole : polygon.holes) {
+      if (hole.size() < 3) {
+        std::cerr << "Hole unique-vertex invariant failed\n";
+        return false;
+      }
+      filledArea -= std::abs(RingArea(hole));
+    }
+  }
+  size_t foregroundPixels = 0;
+  for (size_t at = 0; at < render.rgba.size(); at += 4)
+    if (render.rgba[at] == 63 && render.rgba[at + 1] == 169)
+      ++foregroundPixels;
+  if (std::fabs(filledArea - static_cast<double>(foregroundPixels)) > 1e-6) {
+    std::cerr << "Contour area mismatch: expected " << foregroundPixels
+              << " actual " << filledArea << '\n';
+    return false;
+  }
+
+  const std::string expectedText = Snapshot(*expected);
+  for (int repetition = 0; repetition < 20; ++repetition) {
+    const auto actual =
+        symbols::Symbol2DImageBuilder::BuildFromRenderedImage(render, params);
+    if (!actual || Snapshot(*actual) != expectedText) {
+      std::cerr << "Canonical contour sequence mismatch at repetition "
+                << repetition << '\n';
+      return false;
+    }
+  }
+
+  std::vector<symbols::RenderedSymbolImage> renders(4, render);
+  renders[0].view = symbols::SymbolView::Front;
+  renders[1].view = symbols::SymbolView::Top;
+  renders[2].view = symbols::SymbolView::Left;
+  renders[3].view = symbols::SymbolView::Bottom;
+  const auto sequential =
+      symbols::Symbol2DImageBuilder::BuildFromRenderedImagesSequential(renders,
+                                                                       params);
+  const auto parallel =
+      symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders, params);
+  if (sequential.size() != parallel.size()) {
+    std::cerr << "Parallel contour result count mismatch\n";
+    return false;
+  }
+  for (size_t index = 0; index < sequential.size(); ++index) {
+    if (Snapshot(sequential[index]) != Snapshot(parallel[index])) {
+      std::cerr << "Parallel canonical contour mismatch for view "
+                << ViewName(sequential[index].view) << "\nexpected:\n"
+                << Snapshot(sequential[index]) << "actual:\n"
+                << Snapshot(parallel[index]);
+      return false;
+    }
+  }
+  return true;
+}
+
 // Simulates an early archive-rewrite failure handled by the scoped timer.
 void RecordFailedArchiveRewrite(symbols::FixtureSymbolTimings &timings) {
   symbols::ScopedFixtureSymbolPhase phase(
@@ -240,6 +358,8 @@ bool TestTimings() {
 
 // Runs the fixture-symbol structural and timing regression contracts.
 int main() {
-  return TestStructuralBaselines() && TestCapturePlan() && TestTimings() ? 0
-                                                                         : 1;
+  return TestStructuralBaselines() && TestCapturePlan() &&
+                 TestDeterministicContours() && TestTimings()
+             ? 0
+             : 1;
 }
