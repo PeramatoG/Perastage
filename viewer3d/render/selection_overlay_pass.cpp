@@ -16,6 +16,7 @@
 #include <wx/log.h>
 
 #include "configmanager.h"
+#include "fixture_visual_color.h"
 #include "opaque_fixture_pass.h"
 #include "opaque_object_pass.h"
 #include "opaque_truss_pass.h"
@@ -145,7 +146,12 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
 
   auto getTypeColor = [&](const std::string &key, const std::string &hex) {
     std::array<float, 3> c;
-    if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2]))
+    const FixtureVisualColorResult resolved = ResolveFixtureVisualColor(
+        {hex, {}, {}, hex.empty() ? FixtureProjectColorState::Missing
+                                  : FixtureProjectColorState::Present,
+         false});
+    if (resolved.colorHex &&
+        HexToRGB(*resolved.colorHex, c[0], c[1], c[2]))
       return c;
     return MakeDeterministicColor("type:" + key);
   };

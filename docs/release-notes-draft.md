@@ -34,6 +34,11 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected fixture colors across summaries and layout legends by using one
+  canonical resolution policy. Legacy projects can now recover a missing
+  Perastage fixture color from the official restored MVR color, while colors
+  that users intentionally left empty remain empty.
+
 - Fixed fixture-symbol persistence so project saves validate the exact GDTF
   files packaged in `scene.mvr` before recording symbol-cache metadata. Valid
   four-view symbols now survive an unchanged save and reload without redundant
