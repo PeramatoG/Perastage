@@ -7,6 +7,7 @@
 #include <wx/gdicmn.h>
 
 #include "symbols/Symbol2D.h"
+#include "symbols/FixtureSymbolDiagnostics.h"
 #include "tools/fixture_geometry_bounds.h"
 
 class ConfigManager;
@@ -29,6 +30,7 @@ struct SceneModelSymbolCaptureOptions {
   bool alignToLocalAxes = false;
   std::optional<std::string> forcedFixtureColor;
   wxSize viewportSize = wxSize(1200, 1200);
+  symbols::FixtureSymbolTimings *timings = nullptr;
 };
 
 struct SceneModelSymbolCaptureResult {

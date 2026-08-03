@@ -5,6 +5,7 @@
 *.pdf binary
 *.PDF binary
 tests/data/*.txt text eol=lf
+tests/fixtures/fixture_symbols/*.txt text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

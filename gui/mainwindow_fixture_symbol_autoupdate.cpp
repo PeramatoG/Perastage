@@ -21,12 +21,50 @@
 #include "windows/symbol_fixture_applier.h"
 
 #include <wx/timer.h>
+#include <wx/log.h>
 
 namespace {
 const int kStatusClearTimerId = wxWindow::NewControlId();
 std::unordered_map<MainWindow *, std::unique_ptr<wxTimer>> g_statusClearTimers;
 std::unordered_map<MainWindow *, std::string> g_pendingStatusText;
 std::unordered_map<MainWindow *, wxEvtHandler *> g_statusTimerHandlers;
+
+// Returns whether fixture-symbol timing diagnostics are enabled for this build.
+constexpr bool FixtureSymbolDiagnosticsEnabled() {
+#ifdef NDEBUG
+  return false;
+#else
+  return true;
+#endif
+}
+
+class ScopedFixtureSymbolDiagnostic {
+public:
+  // Creates a per-fixture diagnostic using the GUI build enablement policy.
+  ScopedFixtureSymbolDiagnostic(std::string label, std::string key)
+      : label_(std::move(label)), key_(std::move(key)),
+        timings_(FixtureSymbolDiagnosticsEnabled()) {}
+
+  // Emits a compact debug record only when diagnostics are enabled.
+  ~ScopedFixtureSymbolDiagnostic() {
+    if (!timings_.Enabled())
+      return;
+    const std::string message = timings_.Format(label_, key_, outcome_);
+    wxLogDebug("%s", message.c_str());
+  }
+
+  // Returns the optional timing sink passed through production boundaries.
+  symbols::FixtureSymbolTimings &Timings() { return timings_; }
+
+  // Records the final work outcome for debug formatting.
+  void SetOutcome(symbols::FixtureSymbolOutcome outcome) { outcome_ = outcome; }
+
+private:
+  std::string label_;
+  std::string key_;
+  symbols::FixtureSymbolTimings timings_;
+  symbols::FixtureSymbolOutcome outcome_ = symbols::FixtureSymbolOutcome::Failed;
+};
 
 // Builds a stable deduplication key for fixture symbol auto-update work items.
 std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
@@ -267,16 +305,34 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
     return;
   }
+  ScopedFixtureSymbolDiagnostic diagnostic(fixtureLabel, key);
 
   symbol_cache::ValidationRequest cacheRequest;
   gui::fixtures::FixtureGdtfResolution cacheResolution;
   std::string cacheError;
-  const bool hasCacheRequest = ResolveFixtureSymbolCacheRequest(
-      fixture, cfg.GetScene(), key, cacheRequest, cacheResolution, cacheError);
+  bool resolved = false;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(&diagnostic.Timings(),
+                                            symbols::FixtureSymbolPhase::Resolve);
+    resolved = gui::fixtures::ResolveFixtureGdtfDeterministic(
+        fixture, cfg.GetScene(), cacheResolution, cacheError, "symbol-cache");
+  }
+  bool hasCacheRequest = false;
+  if (resolved) {
+    symbols::ScopedFixtureSymbolPhase phase(
+        &diagnostic.Timings(), symbols::FixtureSymbolPhase::Fingerprint);
+    hasCacheRequest = BuildFixtureSymbolCacheRequest(
+        fixture, key, cacheResolution, cacheRequest, cacheError);
+  }
   if (hasCacheRequest) {
-    const auto cacheResult =
-        cfg.GetSymbolCacheManifest().ValidateFixture(cacheRequest);
+    symbol_cache::ValidationResult cacheResult;
+    {
+      symbols::ScopedFixtureSymbolPhase phase(
+          &diagnostic.Timings(), symbols::FixtureSymbolPhase::Validation);
+      cacheResult = cfg.GetSymbolCacheManifest().ValidateFixture(cacheRequest);
+    }
     if (cacheResult.valid) {
+      diagnostic.SetOutcome(symbols::FixtureSymbolOutcome::Skipped);
       ReportFixtureAutoUpdate(
           *this, consolePanel,
           "Fixture symbol auto-update: skipped '" + fixtureLabel +
@@ -304,8 +360,14 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
   std::string inspectionError;
   symbol_preview::FixtureSymbolInspectionResult inspection;
-  if (!symbol_preview::InspectFixtureSymbolState(fixture, cfg.GetScene(), inspection,
-                                                 inspectionError)) {
+  bool inspected = false;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(&diagnostic.Timings(),
+                                            symbols::FixtureSymbolPhase::Inspect);
+    inspected = symbol_preview::InspectFixtureSymbolState(
+        fixture, cfg.GetScene(), inspection, inspectionError);
+  }
+  if (!inspected) {
     if (!inspectionError.empty()) {
       ReportFixtureAutoUpdate(
           *this, consolePanel,
@@ -328,6 +390,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   }
 
   if (!inspection.requiresSymbolGeneration) {
+    diagnostic.SetOutcome(symbols::FixtureSymbolOutcome::Skipped);
     if (hasCacheRequest) {
       cfg.GetSymbolCacheManifest().MarkFixtureSymbolsValid(cacheRequest);
       cfg.MarkDirty();
@@ -370,6 +433,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   captureOptions.forcedFixtureColor = forcedFixtureColor;
   // Captured symbols must be orientation-neutral so per-instance rotation can be applied later in rendering/printing.
   captureOptions.alignToLocalAxes = true;
+  captureOptions.timings = &diagnostic.Timings();
 
   auto capture = tools::CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
@@ -391,11 +455,16 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   }
 
   std::string calibrationError;
-  const bool calibrated = capture.fixtureBoundsMm.valid
-      ? tools::CalibrateFixtureSymbolsToPhysicalUnits(
-            capture.fixtureBoundsMm, capture.symbols, calibrationError)
-      : tools::CalibrateFixtureSymbolsToPhysicalUnits(
-            cfg, fixtureUuid, capture.symbols, calibrationError);
+  bool calibrated = false;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(
+        &diagnostic.Timings(), symbols::FixtureSymbolPhase::Calibration);
+    calibrated = capture.fixtureBoundsMm.valid
+        ? tools::CalibrateFixtureSymbolsToPhysicalUnits(
+              capture.fixtureBoundsMm, capture.symbols, calibrationError)
+        : tools::CalibrateFixtureSymbolsToPhysicalUnits(
+              cfg, fixtureUuid, capture.symbols, calibrationError);
+  }
   if (!calibrated) {
     ReportFixtureAutoUpdate(
         *this, consolePanel,
@@ -414,6 +483,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
   symbol_preview::ApplySymbolsOptions applyOptions;
   applyOptions.updateSceneCopy = true;
   applyOptions.updateLibraryCopy = true;
+  applyOptions.timings = &diagnostic.Timings();
   const symbol_preview::ApplySymbolsResult applyResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           capture.symbols, fixtureUuid, applyOptions);
@@ -486,7 +556,12 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
     if (fixtureSymbolAutoUpdateGeneratedTypeSet.insert(fixtureLabel).second)
       fixtureSymbolAutoUpdateGeneratedTypes.push_back(fixtureLabel);
-    RefreshAfterFixtureSymbolUpdate();
+    {
+      symbols::ScopedFixtureSymbolPhase phase(&diagnostic.Timings(),
+                                              symbols::FixtureSymbolPhase::Refresh);
+      RefreshAfterFixtureSymbolUpdate();
+    }
+    diagnostic.SetOutcome(symbols::FixtureSymbolOutcome::Generated);
   } else {
     ReportFixtureAutoUpdate(
         *this, consolePanel,

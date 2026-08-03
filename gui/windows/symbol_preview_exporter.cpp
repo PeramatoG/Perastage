@@ -1,6 +1,7 @@
 #include "windows/symbol_preview_exporter.h"
 
 #include <fstream>
+#include <locale>
 #include <sstream>
 
 namespace symbol_preview {
@@ -9,6 +10,7 @@ namespace {
 std::string BuildPoints(const symbols::Polyline2D &line,
                         const symbols::Aabb2D &bounds) {
   std::ostringstream stream;
+  stream.imbue(std::locale::classic());
   bool first = true;
   for (const auto &point : line) {
     if (!first)
@@ -36,6 +38,7 @@ bool BuildSvgContent(const symbols::Symbol2D &symbol, std::string &svgContent,
   }
 
   std::ostringstream file;
+  file.imbue(std::locale::classic());
   file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
   file << "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" "
           "viewBox=\"0 0 "

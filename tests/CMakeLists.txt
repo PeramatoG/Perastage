@@ -1964,6 +1964,11 @@ target_link_libraries(gdtfloader_set_properties_test PRIVATE ${wxWidgets_LIBRARI
 add_test(NAME GdtfLoaderSetPropertiesMutation COMMAND gdtfloader_set_properties_test)
 set_library_env(GdtfLoaderSetPropertiesMutation)
 
+add_library(perastage_test_fixture_symbol_diagnostics STATIC
+            ../core/symbols/FixtureSymbolDiagnostics.cpp)
+target_include_directories(perastage_test_fixture_symbol_diagnostics PUBLIC
+                           ../core)
+
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
@@ -2010,7 +2015,10 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ${LAYOUT_SOURCES})
 target_include_directories(symbol_fixture_applier_gdtf_test PRIVATE
                            . ../core ../models ../gui ../viewer3d ../third_party)
-target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
+target_link_libraries(symbol_fixture_applier_gdtf_test PRIVATE
+    ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+    perastage_test_gdtf_archive_reader
+    perastage_test_fixture_symbol_diagnostics)
 add_test(NAME SymbolFixtureApplierGdtfMutation COMMAND symbol_fixture_applier_gdtf_test)
 set_library_env(SymbolFixtureApplierGdtfMutation)
 
@@ -2191,10 +2199,30 @@ add_test(NAME SupportResolution COMMAND support_resolution_test)
 
 add_executable(symbol2d_image_builder_parallel_test
                symbol2d_image_builder_parallel_test.cpp
-               ../core/symbols/Symbol2DImageBuilder.cpp)
+               ../core/symbols/Symbol2DImageBuilder.cpp
+               ../core/geometry/RdpSimplifier.cpp)
 target_include_directories(symbol2d_image_builder_parallel_test PRIVATE ../core)
 add_test(NAME Symbol2DImageBuilderParallelExactEquality
          COMMAND symbol2d_image_builder_parallel_test)
+
+add_executable(fixture_symbol_baseline_test
+               fixture_symbol_baseline_test.cpp
+               ../core/symbols/Symbol2DImageBuilder.cpp
+               ../core/symbols/SymbolGeometrySimplifier.cpp
+               ../core/geometry/RdpSimplifier.cpp
+               ../core/logger.cpp
+               ../core/diagnostics/DiagnosticPaths.cpp
+               ../core/filesystem_path_utils.cpp
+               ../gui/tools/symbol_physical_calibration_core.cpp
+               ../gui/windows/symbol_preview_exporter.cpp)
+target_compile_definitions(fixture_symbol_baseline_test PRIVATE
+    FIXTURE_SYMBOL_BASELINE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/fixture_symbols")
+target_include_directories(fixture_symbol_baseline_test PRIVATE
+    ../core ../models ../gui ../third_party ${wxWidgets_INCLUDE_DIRS})
+target_link_libraries(fixture_symbol_baseline_test PRIVATE
+    ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+    perastage_test_fixture_symbol_diagnostics)
+add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_test)
 
 add_executable(symbol_cache_manifest_test symbol_cache_manifest_test.cpp
                ../core/symbol_cache_manifest.cpp

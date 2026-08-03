@@ -300,32 +300,23 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     (void)capturePanel->RenderToRGBA(warmupPixels, warmupWidth, warmupHeight);
   }
 
-  struct CaptureRequest {
-    Viewer2DView view = Viewer2DView::Top;
-    bool forceBottomViewForTopFixtures = false;
-    bool mirrorSideHorizontally = false;
-    symbols::SymbolView symbolView = symbols::SymbolView::Top;
-  };
-
-  const std::array<CaptureRequest, 4> requests = {
-      CaptureRequest{Viewer2DView::Front, false, false,
-                     symbols::SymbolView::Front},
-      CaptureRequest{Viewer2DView::Top, false, false, symbols::SymbolView::Top},
-      CaptureRequest{Viewer2DView::Side, false, true,
-                     symbols::SymbolView::Left},
-      CaptureRequest{Viewer2DView::Top, true, false,
-                     symbols::SymbolView::Bottom},
-  };
+  const auto &requests = symbols::FixtureSymbolCapturePlan();
 
   std::vector<symbols::RenderedSymbolImage> renders;
   renders.reserve(requests.size());
   FixtureGeometryBounds fixtureBounds;
-  const bool hasFixtureBounds =
-      TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds);
+  bool hasFixtureBounds = false;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(options.timings,
+                                            symbols::FixtureSymbolPhase::Bounds);
+    hasFixtureBounds = TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds);
+  }
   if (hasFixtureBounds)
     result.fixtureBoundsMm = fixtureBounds;
 
   for (const auto &request : requests) {
+    symbols::ScopedFixtureSymbolPhase phase(options.timings,
+                                            symbols::FixtureSymbolPhase::Capture);
     if (hasFixtureBounds) {
       const float aspect =
           ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
@@ -344,7 +335,12 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
         request.forceBottomViewForTopFixtures;
     capturePanel->SetRenderOverrides(renderOverrides);
     capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
-    capturePanel->SetView(request.view);
+    Viewer2DView viewerView = Viewer2DView::Top;
+    if (request.viewerView == symbols::SymbolCaptureViewerView::Front)
+      viewerView = Viewer2DView::Front;
+    else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
+      viewerView = Viewer2DView::Side;
+    capturePanel->SetView(viewerView);
     capturePanel->FitViewToScene();
 
     symbols::RenderedSymbolImage render;
@@ -356,23 +352,26 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
                      "the 2D viewer.";
       return result;
     }
-    if (request.mirrorSideHorizontally)
+    if (request.mirrorHorizontally)
       MirrorImageHorizontally(render);
     renders.push_back(std::move(render));
   }
 
-  auto symbols =
-      symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
-  if (symbols.size() != requests.size()) {
+  std::vector<symbols::Symbol2D> generatedSymbols;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(
+        options.timings, symbols::FixtureSymbolPhase::Vectorization);
+    generatedSymbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
+    for (auto &symbol : generatedSymbols)
+      symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
+  }
+  if (generatedSymbols.size() != requests.size()) {
     result.error = "Could not generate all symbols from captured views.";
     return result;
   }
 
-  for (auto &symbol : symbols)
-    symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
-
   result.ok = true;
-  result.symbols = std::move(symbols);
+  result.symbols = std::move(generatedSymbols);
   return result;
 }
 

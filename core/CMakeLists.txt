@@ -75,6 +75,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbol_cache_manifest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DImageBuilder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/FixtureSymbolDiagnostics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/SymbolGeometrySimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/PerastageSvgSymbol.cpp
