@@ -385,6 +385,7 @@ int main() {
   f.typeName = "FixtureType";
   f.gdtfSpec = "orig.gdtf";
   f.visualColorHex = "#445566";
+  f.visualColorState = FixtureProjectColorState::Present;
   f.fixtureIdText = "S101A";
   f.fixtureIdNumeric = 101;
   f.fixtureId = 101;
@@ -395,6 +396,7 @@ int main() {
   f2.layer = layer.name;
   f2.typeName = "FixtureType";
   f2.gdtfSpec = "orig.gdtf";
+  f2.visualColorState = FixtureProjectColorState::ExplicitEmpty;
   f2.fixtureIdText = "S101B";
   f2.fixtureIdNumeric = 101;
   f2.fixtureId = 101;
@@ -418,6 +420,7 @@ int main() {
   f4.typeName = "FixtureType";
   f4.gdtfSpec = "orig.gdtf";
   f4.visualColorHex = "#778899";
+  f4.visualColorState = FixtureProjectColorState::Present;
   f4.fixtureIdText = "Imported ID";
   f4.fixtureIdNumeric = 44;
   f4.fixtureId = 707;

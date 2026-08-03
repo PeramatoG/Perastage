@@ -21,6 +21,7 @@
 #include "fixture.h"
 #include "gdtf_test_fixture_builder.h"
 #include "gdtfdictionary.h"
+#include "fixture_visual_color.h"
 #include "layer.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
@@ -282,7 +283,9 @@ int main() {
       const Fixture &loaded = imported.fixtures.at(uuid);
       assert(loaded.category == "Spot");
       assert(loaded.categorySource == "Manual");
-      assert(loaded.visualColorHex == "#336699");
+      assert(loaded.visualColorHex.empty());
+      assert(loaded.automaticVisualColorHex == "#336699");
+      assert(ResolveFixturePresentationColor(loaded).colorHex == "#336699");
       assert(!loaded.gdtfSpec.empty());
       assert(loaded.gdtfMode == "ModeA");
     }

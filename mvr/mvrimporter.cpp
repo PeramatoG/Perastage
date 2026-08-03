@@ -2749,7 +2749,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.categorySource = rootTypeInfoIt->second.categorySource;
             fixture.categorySourceReason.clear();
           }
-          fixture.visualColorHex = rootTypeInfoIt->second.visualColorHex;
+          fixture.automaticVisualColorHex = rootTypeInfoIt->second.visualColorHex;
         }
         const auto projectColorIt =
             projectFixtureColorsByUuid.find(fixture.uuid);
@@ -2758,16 +2758,22 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               NormalizeFixtureVisualColor(projectColorIt->second);
           fixture.visualColorHex =
               normalizedProjectColor.value_or(std::string{});
+          fixture.visualColorState = fixture.visualColorHex.empty()
+                                         ? FixtureProjectColorState::ExplicitEmpty
+                                         : FixtureProjectColorState::Present;
           consumedProjectFixtureColorUuids.insert(projectColorIt->first);
+        } else if (projectFixtureMetadataUuids.contains(fixture.uuid)) {
+          fixture.visualColorState = FixtureProjectColorState::Present;
         } else if (options.sourceKind == MvrImportSourceKind::ProjectRestore &&
                    !projectFixtureMetadataUuids.contains(fixture.uuid)) {
           const FixtureVisualColorResult recovered = ResolveFixtureVisualColor(
-              {fixture.visualColorHex, fixture.mvrFixtureColorHex, {},
+              {{}, fixture.mvrFixtureColorHex, fixture.automaticVisualColorHex,
                FixtureProjectColorState::Missing, true});
           if (recovered.source ==
                   FixtureVisualColorSource::LegacyMvrRecovery &&
               recovered.colorHex) {
             fixture.visualColorHex = *recovered.colorHex;
+            fixture.visualColorState = FixtureProjectColorState::Present;
           }
         }
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =

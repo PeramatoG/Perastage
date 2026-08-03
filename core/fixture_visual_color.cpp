@@ -64,6 +64,27 @@ ResolveFixtureVisualColor(const FixtureVisualColorInput &input) {
   return result;
 }
 
+// Resolves presentation color from the durable state stored by one fixture.
+FixtureVisualColorResult ResolveFixturePresentationColor(const Fixture &fixture) {
+  FixtureProjectColorState state = fixture.visualColorState;
+  if (!fixture.visualColorHex.empty())
+    state = FixtureProjectColorState::Present;
+  return ResolveFixtureVisualColor({fixture.visualColorHex, {},
+                                    fixture.automaticVisualColorHex, state, false});
+}
+
+// Persists an automatic fallback only when project metadata is genuinely missing.
+void PersistAutomaticFixtureVisualColor(Fixture &fixture, std::string_view colorHex) {
+  if (fixture.visualColorState != FixtureProjectColorState::Missing ||
+      !fixture.visualColorHex.empty())
+    return;
+  const auto normalized = NormalizeFixtureVisualColor(colorHex);
+  if (!normalized)
+    return;
+  fixture.visualColorHex = *normalized;
+  fixture.visualColorState = FixtureProjectColorState::Present;
+}
+
 // Aggregates resolved colors without depending on fixture iteration order.
 FixtureVisualColorAggregate AggregateFixtureVisualColors(
     const std::vector<FixtureVisualColorResult> &colors) {

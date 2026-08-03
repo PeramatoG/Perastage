@@ -665,8 +665,7 @@ void AddFixtureInstancedDraw(FixtureInstancedBatches &batches, const Mesh &mesh,
 void OpaqueFixturePass::Render(
     Viewer3DController &controller, const RenderFrameContext &context,
     const Viewer3DVisibleSet &visibleSet,
-    const std::function<std::array<float, 3>(
-        const std::string &, const std::string &)> &getTypeColor,
+    const std::function<std::array<float, 3>(const Fixture &)> &getTypeColor,
     const std::function<std::array<float, 3>(const std::string &)>
         &getLayerColor,
     const std::function<SymbolViewKind(Viewer2DView)> &resolveSymbolView,
@@ -854,7 +853,7 @@ void OpaqueFixturePass::Render(
       g = c[1];
       b = c[2];
     } else if (mode == Viewer2DRenderMode::ByFixtureType) {
-      auto c = getTypeColor(f.gdtfSpec, f.visualColorHex);
+      auto c = getTypeColor(f);
       r = c[0];
       g = c[1];
       b = c[2];

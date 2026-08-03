@@ -28,6 +28,9 @@ enum class FixturePhysicalPropertiesSource {
     Manual
 };
 
+// Distinguishes absent project color metadata from a stored value or clear.
+enum class FixtureProjectColorState { Missing, Present, ExplicitEmpty };
+
 // Represents a lighting fixture object parsed from MVR
 struct Fixture {
     std::string uuid;             // Unique identifier from the MVR file
@@ -55,6 +58,10 @@ struct Fixture {
 
     // Perastage-only visual color used in plans, summaries, legends, and viewers.
     std::string visualColorHex;
+    // Tracks durable project-instance color ownership.
+    FixtureProjectColorState visualColorState = FixtureProjectColorState::Missing;
+    // Automatic fixture-type color is separate from project metadata.
+    std::string automaticVisualColorHex;
     // Official MVR Fixture/Color represented as UI hex and converted to/from CIE xyY.
     std::string mvrFixtureColorHex;
 

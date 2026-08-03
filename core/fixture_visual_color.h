@@ -5,6 +5,8 @@
 #include <string_view>
 #include <vector>
 
+#include "../models/fixture.h"
+
 enum class FixtureVisualColorSource {
   ProjectInstance,
   LegacyMvrRecovery,
@@ -12,8 +14,6 @@ enum class FixtureVisualColorSource {
   ExplicitEmpty,
   Unresolved
 };
-
-enum class FixtureProjectColorState { Missing, Present, ExplicitEmpty };
 
 struct FixtureVisualColorInput {
   std::string_view projectColorHex;
@@ -41,6 +41,12 @@ std::optional<std::string> NormalizeFixtureVisualColor(std::string_view raw);
 // Resolves one fixture color according to project, recovery, and automatic precedence.
 FixtureVisualColorResult
 ResolveFixtureVisualColor(const FixtureVisualColorInput &input);
+
+// Resolves presentation color from the durable state stored by one fixture.
+FixtureVisualColorResult ResolveFixturePresentationColor(const Fixture &fixture);
+
+// Persists an automatic fallback only when project metadata is genuinely missing.
+void PersistAutomaticFixtureVisualColor(Fixture &fixture, std::string_view colorHex);
 
 // Aggregates resolved colors without depending on fixture iteration order.
 FixtureVisualColorAggregate AggregateFixtureVisualColors(

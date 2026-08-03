@@ -1367,19 +1367,16 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
     DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
              view);
 
-  auto getTypeColor = [&](const std::string &key, const std::string &hex) {
+  auto getTypeColor = [&](const Fixture &fixture) {
     std::array<float, 3> c;
-    const FixtureVisualColorResult resolved = ResolveFixtureVisualColor(
-        {hex, {}, {}, hex.empty() ? FixtureProjectColorState::Missing
-                                  : FixtureProjectColorState::Present,
-         false});
+    const FixtureVisualColorResult resolved = ResolveFixturePresentationColor(fixture);
     if (resolved.colorHex &&
         HexToRGB(*resolved.colorHex, c[0], c[1], c[2])) {
-      m_impl->typeColors[key] = c;
+      m_impl->typeColors[fixture.gdtfSpec] = c;
       return c;
     }
-    c = MakeDeterministicColor("type:" + key);
-    m_impl->typeColors[key] = c;
+    c = MakeDeterministicColor("type:" + fixture.gdtfSpec);
+    m_impl->typeColors[fixture.gdtfSpec] = c;
     return c;
   };
   auto getLayerColor = [&](const std::string &key) {

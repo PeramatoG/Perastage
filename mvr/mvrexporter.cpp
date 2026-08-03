@@ -717,7 +717,9 @@ static void MergeFixtureTypeInfoExport(
     std::map<std::string, FixtureTypeInfoExport> &metadataByType,
     const Fixture &fixture, const std::string &gdtfArchivePath) {
   const std::string category = TrimAscii(fixture.category);
-  const std::string visualColorHex = TrimAscii(fixture.visualColorHex);
+  const std::string visualColorHex = TrimAscii(
+      fixture.automaticVisualColorHex.empty() ? fixture.visualColorHex
+                                              : fixture.automaticVisualColorHex);
   if (category.empty() && visualColorHex.empty())
     return;
 
@@ -805,6 +807,9 @@ static void AppendProjectFixtureMetadata(tinyxml2::XMLDocument &doc,
     (void)key;
     const std::string uuid = CanonicalizeUuid(fixture.uuid);
     const std::string color = TrimAscii(fixture.visualColorHex);
+    if (fixture.visualColorState == FixtureProjectColorState::Missing &&
+        color.empty())
+      continue;
     if (!uuid.empty() &&
         (color.empty() ||
          (color.size() == 7 && color.front() == '#' &&

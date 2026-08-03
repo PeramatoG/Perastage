@@ -145,11 +145,7 @@ void SummaryPanel::ShowFixtureSummary() {
         auto& row = grouped[fix.typeName];
         row.typeName = fix.typeName;
         row.count += 1;
-        colorsByType[fix.typeName].push_back(ResolveFixtureVisualColor(
-            {fix.visualColorHex, {}, {},
-             fix.visualColorHex.empty() ? FixtureProjectColorState::Missing
-                                        : FixtureProjectColorState::Present,
-             false}));
+        colorsByType[fix.typeName].push_back(ResolveFixturePresentationColor(fix));
     }
 
     const auto hiddenFixtureTypes =

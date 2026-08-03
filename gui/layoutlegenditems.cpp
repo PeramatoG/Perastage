@@ -101,11 +101,7 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     if (agg.gdtfPath.empty() && !resolution.selectedPath.empty())
       agg.gdtfPath = resolution.selectedPath;
 
-    agg.colors.push_back(ResolveFixtureVisualColor(
-        {fixture.visualColorHex, {}, {},
-         fixture.visualColorHex.empty() ? FixtureProjectColorState::Missing
-                                        : FixtureProjectColorState::Present,
-         false}));
+    agg.colors.push_back(ResolveFixturePresentationColor(fixture));
   }
 
   std::vector<SharedLayoutLegendItem> items;
