@@ -717,7 +717,9 @@ static void MergeFixtureTypeInfoExport(
     std::map<std::string, FixtureTypeInfoExport> &metadataByType,
     const Fixture &fixture, const std::string &gdtfArchivePath) {
   const std::string category = TrimAscii(fixture.category);
-  const std::string visualColorHex = TrimAscii(fixture.automaticVisualColorHex);
+  const std::string visualColorHex = TrimAscii(
+      fixture.automaticVisualColorHex.empty() ? fixture.visualColorHex
+                                              : fixture.automaticVisualColorHex);
   if (category.empty() && visualColorHex.empty())
     return;
 
