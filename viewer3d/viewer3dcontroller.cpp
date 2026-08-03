@@ -44,6 +44,7 @@
 #include <numeric>
 
 #include "configmanager.h"
+#include "fixture_visual_color.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
@@ -1368,7 +1369,12 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 
   auto getTypeColor = [&](const std::string &key, const std::string &hex) {
     std::array<float, 3> c;
-    if (!hex.empty() && HexToRGB(hex, c[0], c[1], c[2])) {
+    const FixtureVisualColorResult resolved = ResolveFixtureVisualColor(
+        {hex, {}, {}, hex.empty() ? FixtureProjectColorState::Missing
+                                  : FixtureProjectColorState::Present,
+         false});
+    if (resolved.colorHex &&
+        HexToRGB(*resolved.colorHex, c[0], c[1], c[2])) {
       m_impl->typeColors[key] = c;
       return c;
     }

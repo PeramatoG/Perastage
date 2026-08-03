@@ -29,6 +29,7 @@
 #endif
 #include "fixture_label_overrides.h"
 #include "gdtf_catalog_matcher.h"
+#include "fixture_visual_color.h"
 #include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
 #include "gdtf_import_matching.h"
@@ -1851,6 +1852,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, std::string> projectFixtureColorsByUuid;
+  std::unordered_set<std::string> projectFixtureMetadataUuids;
   std::unordered_set<std::string> consumedProjectFixtureColorUuids;
   // Collects project-only fixture colors only during explicit project restore.
   auto parseProjectFixtureMetadata = [&](tinyxml2::XMLElement *userDataNode) {
@@ -1889,6 +1891,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                      rawUuid + "'."});
             continue;
           }
+          projectFixtureMetadataUuids.insert(uuid);
           const std::string hasColor = ToLowerCopy(Trim(
               entry->Attribute("hasVisualColorHex")
                   ? entry->Attribute("hasVisualColorHex")
@@ -2751,8 +2754,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         const auto projectColorIt =
             projectFixtureColorsByUuid.find(fixture.uuid);
         if (projectColorIt != projectFixtureColorsByUuid.end()) {
-          fixture.visualColorHex = projectColorIt->second;
+          const auto normalizedProjectColor =
+              NormalizeFixtureVisualColor(projectColorIt->second);
+          fixture.visualColorHex =
+              normalizedProjectColor.value_or(std::string{});
           consumedProjectFixtureColorUuids.insert(projectColorIt->first);
+        } else if (options.sourceKind == MvrImportSourceKind::ProjectRestore &&
+                   !projectFixtureMetadataUuids.contains(fixture.uuid)) {
+          const FixtureVisualColorResult recovered = ResolveFixtureVisualColor(
+              {fixture.visualColorHex, fixture.mvrFixtureColorHex, {},
+               FixtureProjectColorState::Missing, true});
+          if (recovered.source ==
+                  FixtureVisualColorSource::LegacyMvrRecovery &&
+              recovered.colorHex) {
+            fixture.visualColorHex = *recovered.colorHex;
+          }
         }
         const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);

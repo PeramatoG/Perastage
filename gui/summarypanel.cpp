@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "summarypanel.h"
+#include "fixture_visual_color.h"
 #include "colorstore.h"
 #include "configmanager.h"
 #include "fixturetablepanel.h"
@@ -131,19 +132,24 @@ void SummaryPanel::ShowSummary(
     }
 }
 
+// Builds and displays deterministic fixture summary rows by fixture type.
 void SummaryPanel::ShowFixtureSummary() {
     UpdatePaneCaption(_("Fixtures"));
   if (!table || !store)
     return;
     std::map<std::string, FixtureSummaryRow> grouped;
+    std::map<std::string, std::vector<FixtureVisualColorResult>> colorsByType;
     const auto& fixtures = (*visibilityConfigManager).GetScene().fixtures;
     for (const auto& [uuid, fix] : fixtures) {
         (void)uuid;
         auto& row = grouped[fix.typeName];
         row.typeName = fix.typeName;
         row.count += 1;
-        if (row.colorHex.empty() && !fix.visualColorHex.empty())
-            row.colorHex = fix.visualColorHex;
+        colorsByType[fix.typeName].push_back(ResolveFixtureVisualColor(
+            {fix.visualColorHex, {}, {},
+             fix.visualColorHex.empty() ? FixtureProjectColorState::Missing
+                                        : FixtureProjectColorState::Present,
+             false}));
     }
 
     const auto hiddenFixtureTypes =
@@ -151,6 +157,10 @@ void SummaryPanel::ShowFixtureSummary() {
     std::vector<FixtureSummaryRow> rows;
     rows.reserve(grouped.size());
     for (auto& [typeName, row] : grouped) {
+        const FixtureVisualColorAggregate color =
+            AggregateFixtureVisualColors(colorsByType[typeName]);
+        if (!color.mixed && color.colorHex)
+            row.colorHex = *color.colorHex;
         row.visible = hiddenFixtureTypes.find(typeName) == hiddenFixtureTypes.end();
         rows.push_back(row);
     }

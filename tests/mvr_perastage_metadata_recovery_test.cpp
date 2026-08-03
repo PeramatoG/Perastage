@@ -94,6 +94,19 @@ static void WriteProjectFixtureMetadataArchive(const fs::path &path) {
   WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
 }
 
+// Writes a color-bearing fixture with optional explicit-empty project metadata.
+static void WriteLegacyColorArchive(const fs::path &path,
+                                    bool includeExplicitEmpty) {
+  const std::string metadata = includeExplicitEmpty
+      ? "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><ProjectFixtureMetadataMap schemaVersion=\"1.0\"><ProjectFixtureMetadata uuid=\"20000000-0000-4000-8000-000000000010\" hasVisualColorHex=\"false\"/></ProjectFixtureMetadataMap></Data></UserData>"
+      : "";
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Test\" providerVersion=\"1\">" +
+      metadata +
+      "<Scene><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000010\" name=\"Colored\"><FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric><Color>0.3127,0.3290,100</Color></Fixture></ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+  WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
+}
+
 // Returns whether the result contains the exact structured diagnostic code.
 static bool HasDiagnostic(const MvrImportResult &result,
                           const std::string &code) {
@@ -192,6 +205,41 @@ static void TestProjectFixtureMetadataRecovery(const fs::path &tempDir) {
            "invalid_project_fixture_visual_color"}) {
     assert(CountDiagnostic(restored, code) == 1);
   }
+}
+
+// Verifies project-only legacy MVR recovery and explicit-empty preservation.
+static void TestLegacyFixtureColorRecovery(const fs::path &tempDir) {
+  MvrImporter importer;
+  MvrImportOptions options;
+  options.promptConflicts = false;
+  options.applyDictionary = false;
+
+  const fs::path legacy = tempDir / "legacy-fixture-color.mvr";
+  WriteLegacyColorArchive(legacy, false);
+  options.sourceKind = MvrImportSourceKind::ExternalImport;
+  MvrImportResult external;
+  assert(importer.ImportFromFile(legacy.string(), external,
+                                 MvrImportMode::ParseOnly, options));
+  const Fixture &externalFixture = external.scene.fixtures.begin()->second;
+  assert(externalFixture.visualColorHex.empty());
+  assert(!externalFixture.mvrFixtureColorHex.empty());
+
+  options.sourceKind = MvrImportSourceKind::ProjectRestore;
+  MvrImportResult restored;
+  assert(importer.ImportFromFile(legacy.string(), restored,
+                                 MvrImportMode::ParseOnly, options));
+  const Fixture &restoredFixture = restored.scene.fixtures.begin()->second;
+  assert(restoredFixture.visualColorHex == restoredFixture.mvrFixtureColorHex);
+  assert(restoredFixture.visualColorHex.size() == 7);
+
+  const fs::path explicitEmpty = tempDir / "explicit-empty-fixture-color.mvr";
+  WriteLegacyColorArchive(explicitEmpty, true);
+  MvrImportResult emptyRestored;
+  assert(importer.ImportFromFile(explicitEmpty.string(), emptyRestored,
+                                 MvrImportMode::ParseOnly, options));
+  const Fixture &emptyFixture = emptyRestored.scene.fixtures.begin()->second;
+  assert(emptyFixture.visualColorHex.empty());
+  assert(!emptyFixture.mvrFixtureColorHex.empty());
 }
 
 // Verifies portable, missing, empty, and unsafe AuxGdtf value policy.
@@ -306,6 +354,7 @@ int main() {
   fs::create_directories(tempDir, ec);
   TestMetadataRecoveryMatrix(tempDir);
   TestProjectFixtureMetadataRecovery(tempDir);
+  TestLegacyFixtureColorRecovery(tempDir);
   TestAuxiliaryValuePolicy(tempDir);
   TestAmbiguousAuxiliaryResources(tempDir);
   TestAmbiguousSceneDescriptions(tempDir);

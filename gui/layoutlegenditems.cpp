@@ -17,8 +17,8 @@
  */
 #include "layoutlegenditems.h"
 #include "filesystem_path_utils.h"
+#include "fixture_visual_color.h"
 
-#include <cctype>
 #include <filesystem>
 #include <map>
 
@@ -37,31 +37,8 @@ struct LegendAggregate {
   bool mixedChannels = false;
   std::string symbolKey;
   std::string gdtfPath;
-  std::optional<std::string> firstColor;
-  bool hasMixedColors = false;
+  std::vector<FixtureVisualColorResult> colors;
 };
-
-// Normalizes fixture color text into a canonical #RRGGBB value when valid.
-std::optional<std::string> NormalizeHexColor(const std::string &raw) {
-  std::string value;
-  value.reserve(raw.size());
-  for (char ch : raw) {
-    if (!std::isspace(static_cast<unsigned char>(ch)))
-      value.push_back(ch);
-  }
-  if (value.empty())
-    return std::nullopt;
-  if (!value.empty() && value.front() == '#')
-    value.erase(value.begin());
-  if (value.size() != 6)
-    return std::nullopt;
-  for (char &ch : value) {
-    if (!std::isxdigit(static_cast<unsigned char>(ch)))
-      return std::nullopt;
-    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-  }
-  return "#" + value;
-}
 } // namespace
 
 // Builds grouped layout legend entries with counts, channels, symbols, and
@@ -124,15 +101,11 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     if (agg.gdtfPath.empty() && !resolution.selectedPath.empty())
       agg.gdtfPath = resolution.selectedPath;
 
-    const std::optional<std::string> fixtureColor =
-        NormalizeHexColor(fixture.visualColorHex);
-    if (!fixtureColor.has_value())
-      continue;
-    if (!agg.firstColor.has_value()) {
-      agg.firstColor = fixtureColor;
-    } else if (agg.firstColor.value() != fixtureColor.value()) {
-      agg.hasMixedColors = true;
-    }
+    agg.colors.push_back(ResolveFixtureVisualColor(
+        {fixture.visualColorHex, {}, {},
+         fixture.visualColorHex.empty() ? FixtureProjectColorState::Missing
+                                        : FixtureProjectColorState::Present,
+         false}));
   }
 
   std::vector<SharedLayoutLegendItem> items;
@@ -145,8 +118,10 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
       item.channelCount = agg.channelCount;
     item.symbolKey = agg.symbolKey;
     item.gdtfPath = agg.gdtfPath;
-    if (agg.firstColor.has_value() && !agg.hasMixedColors)
-      item.symbolFillHex = agg.firstColor;
+    const FixtureVisualColorAggregate color =
+        AggregateFixtureVisualColors(agg.colors);
+    if (!color.mixed)
+      item.symbolFillHex = color.colorHex;
     items.push_back(item);
   }
 
