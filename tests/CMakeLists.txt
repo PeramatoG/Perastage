@@ -2496,3 +2496,17 @@ add_executable(viewer3d_context_menu_model_test
 target_include_directories(viewer3d_context_menu_model_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME Viewer3DContextMenuModel COMMAND viewer3d_context_menu_model_test)
+
+add_executable(project_fixture_gdtf_consolidator_test
+               project_fixture_gdtf_consolidator_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/project_fixture_gdtf_consolidator.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(project_fixture_gdtf_consolidator_test PRIVATE
+                           ../core ../models support)
+target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_test_diagnostics
+                      perastage_test_project_symbol_cache_snapshot)
+add_test(NAME ProjectFixtureGdtfConsolidator
+         COMMAND project_fixture_gdtf_consolidator_test)

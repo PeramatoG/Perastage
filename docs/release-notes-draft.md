@@ -44,9 +44,10 @@ Changes since **v1.5.0**.
 ## Important fixes
 
 - Fixed MVR fixture replacement so multiple imported source aliases explicitly mapped
-  to the same GDTF Share revision and mode share one downloaded fixture resource. MVR
-  export also reuses byte-identical GDTF resources, preventing duplicate numbered
-  archive entries and redundant automatic fixture-symbol work.
+  to the same GDTF Share revision and mode share one downloaded fixture resource.
+  Existing projects now also consolidate fixture archives that differ only in known
+  Perastage-generated symbol views, preventing duplicate numbered archive entries and
+  repeated automatic symbol generation while preserving user-edited GDTFs.
 
 - Restored the fixture-symbol archive mutation regression target across CI platforms
   by keeping its cache-invalidation test boundary linked explicitly.

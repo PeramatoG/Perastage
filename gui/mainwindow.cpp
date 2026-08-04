@@ -116,6 +116,7 @@ using json = nlohmann::json;
 #include "preferencesdialog.h"
 #include "print_diagnostics.h"
 #include "projectutils.h"
+#include "project_fixture_gdtf_consolidator.h"
 #include "riderimporter.h"
 #include "ridertextdialog.h"
 #include "riggingpanel.h"
@@ -154,6 +155,28 @@ MainWindow *MainWindow::Instance() { return s_instance; }
 void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
+
+// Consolidates proven-equivalent project GDTFs after load bookkeeping completes.
+bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
+  const project_gdtf::ConsolidationPlan plan =
+      project_gdtf::BuildConsolidationPlan(cfg.GetScene(),
+                                           cfg.GetSymbolCacheManifest());
+  std::string errorMessage;
+  if (!project_gdtf::ApplyConsolidationPlan(cfg.GetScene(), plan,
+                                            errorMessage)) {
+    wxLogWarning("Project GDTF consolidation was not applied: %s",
+                 errorMessage.c_str());
+    return false;
+  }
+  size_t reboundCount = 0;
+  for (const project_gdtf::ConsolidationGroup &group : plan.groups)
+    reboundCount += group.rebindings.size();
+  for (const std::string &diagnostic : plan.diagnostics)
+    wxLogMessage("%s", diagnostic.c_str());
+  if (reboundCount > 0)
+    cfg.MarkDirty();
+  return reboundCount > 0;
+}
 
 // Returns true when the status bar text corresponds to fixture symbol
 // auto-update progress.
@@ -1004,7 +1027,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   RefreshSummary();
   reportProjectLoadProgress(_("Refreshing rigging..."), true);
   RefreshRigging();
-  GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+  ConfigManager &loadedConfig =
+      GetDefaultGuiConfigServices().LegacyConfigManager();
+  loadedConfig.MarkSaved();
+  ConsolidateLoadedProjectGdtfs(loadedConfig);
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("fixture_symbol_startup");
   reportProjectLoadProgress(_("Creating fixture symbols..."), true);
@@ -1604,7 +1630,10 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     SplashScreen::SetMessage(_("Refreshing panels..."));
     RefreshSummary();
     RefreshRigging();
-    GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
+    ConfigManager &loadedConfig =
+        GetDefaultGuiConfigServices().LegacyConfigManager();
+    loadedConfig.MarkSaved();
+    ConsolidateLoadedProjectGdtfs(loadedConfig);
     SplashScreen::SetMessage(_("Creating fixture symbols..."));
     fixtureSymbolAutoUpdateCompletionCallback = [this]() {
       RequestStartupSplashCompletion();
