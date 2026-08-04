@@ -43,6 +43,11 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed MVR fixture replacement so multiple imported source aliases explicitly mapped
+  to the same GDTF Share revision and mode share one downloaded fixture resource. MVR
+  export also reuses byte-identical GDTF resources, preventing duplicate numbered
+  archive entries and redundant automatic fixture-symbol work.
+
 - Preserved imported fixture IDs and unit numbers exactly through project saves and
   reloads, including intentional zero values, instead of retaining temporary
   standards-compliant export substitutions as editable project data.

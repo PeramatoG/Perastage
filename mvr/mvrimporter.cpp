@@ -4352,6 +4352,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               }
 
               if (!catalogEntries.empty()) {
+                // Reuses one authoritative download when distinct import aliases
+                // explicitly resolve to the same GDTF Share revision.
+                std::unordered_map<std::string, std::string>
+                    downloadedPathByReplacement;
+                std::unordered_map<std::string, std::string>
+                    downloadedModeByReplacement;
                 summaryText->SetLabel(
                     wxString::Format(_("Selected fixture types for download (catalog entries: %zu)"),
                     catalogEntries.size()));
@@ -4438,7 +4444,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                     return bytesText;
                   };
-                  downloadResult = gdtfClient.DownloadRevision(
+                  const std::string replacementIdentity =
+                      mvr::gdtf_import_matching::BuildSelectedReplacementIdentity(
+                          bestMatch.rid, bestMatch.modeName);
+                  const auto reusedDownload =
+                      downloadedPathByReplacement.find(replacementIdentity);
+                  if (reusedDownload != downloadedPathByReplacement.end()) {
+                    selectedPathByType[req.type] = reusedDownload->second;
+                    const auto reusedMode =
+                        downloadedModeByReplacement.find(replacementIdentity);
+                    if (reusedMode != downloadedModeByReplacement.end())
+                      selectedModeByType[req.type] = reusedMode->second;
+                    downloadResult.category = GdtfShareResultCategory::Success;
+                    reportProgress(
+                        "[INFO] GDTF replacement reuse revision='" +
+                        bestMatch.rid + "' alias='" + req.type +
+                        "' canonical='" +
+                        fs::path(reusedDownload->second).filename().string() +
+                        "'");
+                  } else {
+                    downloadResult = gdtfClient.DownloadRevision(
                           bestMatch.rid, filePath,
                                    [&](const GdtfDownloadProgress &progress) {
                                      const long long downloadedBytes =
@@ -4467,10 +4492,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                      });
                                    },
                                    [&]() { return cancelRequested.load(); });
+                  }
                   if (downloadResult.Succeeded()) {
-                    selectedPathByType[req.type] = filePath;
+                    const std::string canonicalPath =
+                        reusedDownload != downloadedPathByReplacement.end()
+                            ? reusedDownload->second
+                            : filePath;
+                    selectedPathByType[req.type] = canonicalPath;
                     if (!bestMatch.modeName.empty())
                       selectedModeByType[req.type] = bestMatch.modeName;
+                    downloadedPathByReplacement.emplace(replacementIdentity,
+                                                     canonicalPath);
+                    downloadedModeByReplacement.emplace(replacementIdentity,
+                                                     bestMatch.modeName);
                     wxString details = _("Downloaded and assigned");
                     if (!bestMatch.modeName.empty())
                       details +=

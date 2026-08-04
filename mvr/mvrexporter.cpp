@@ -2557,6 +2557,7 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
   std::vector<ResourceEntry> resourceEntries;
   std::unordered_map<std::string, std::string> sourceToArchivePath;
+  std::unordered_map<std::string, std::string> exactGdtfToArchivePath;
   std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
   std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
   std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
@@ -2587,6 +2588,29 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   auto buildSourceIdentityKey = [&](const std::string &sourcePath) {
     return PathUtils::BuildFilesystemIdentityKey(
         PathUtils::PathFromUtf8(sourcePath));
+  };
+
+  // Computes an exact content identity used only for byte-proven GDTF reuse.
+  auto buildExactFileIdentity = [](const std::string &sourcePath) {
+    std::ifstream input(PathUtils::PathFromUtf8(sourcePath), std::ios::binary);
+    if (!input)
+      return std::string{};
+    std::uint64_t hash = 1469598103934665603ull;
+    std::uint64_t size = 0;
+    std::array<char, 8192> buffer{};
+    while (input) {
+      input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+      const std::streamsize count = input.gcount();
+      for (std::streamsize index = 0; index < count; ++index) {
+        hash ^= static_cast<unsigned char>(buffer[static_cast<size_t>(index)]);
+        hash *= 1099511628211ull;
+      }
+      size += static_cast<std::uint64_t>(count);
+    }
+    std::ostringstream identity;
+    identity << "gdtf-exact-fnv1a64-v1:" << std::hex << hash << ':' << std::dec
+             << size;
+    return identity.str();
   };
 
   auto findSceneResourceByFileName =
@@ -2697,6 +2721,21 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
     const std::string gdtfSourceForExport =
         resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
 
+    if (allowReuseBySource) {
+      const std::string exactIdentity =
+          buildExactFileIdentity(gdtfSourceForExport);
+      const auto exactIt = exactGdtfToArchivePath.find(exactIdentity);
+      if (!exactIdentity.empty() && exactIt != exactGdtfToArchivePath.end()) {
+        if (!objectUuid.empty())
+          gdtfArchiveByObjectUuid[objectUuid] = exactIt->second;
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            "MVR export reused byte-equivalent GDTF fingerprint='" +
+                exactIdentity + "' archive='" + exactIt->second + "'.");
+        return exactIt->second;
+      }
+    }
+
     std::string fileName = preferredName;
     if (!usePreferredDerivativeName &&
         ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
@@ -2709,6 +2748,12 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
       fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
     std::string archivePath =
         registerResource(gdtfSourceForExport, fileName, allowReuseBySource);
+    if (allowReuseBySource && !archivePath.empty()) {
+      const std::string exactIdentity =
+          buildExactFileIdentity(gdtfSourceForExport);
+      if (!exactIdentity.empty())
+        exactGdtfToArchivePath.emplace(exactIdentity, archivePath);
+    }
     if (!objectUuid.empty() && !archivePath.empty())
       gdtfArchiveByObjectUuid[objectUuid] = archivePath;
     return archivePath;

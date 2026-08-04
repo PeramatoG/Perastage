@@ -26,6 +26,15 @@
 namespace mvr {
 namespace gdtf_import_matching {
 
+// Identifies an explicit catalog replacement independently of imported labels.
+inline std::string BuildSelectedReplacementIdentity(
+    const std::string &catalogRevisionId, const std::string &modeName) {
+  if (catalogRevisionId.empty())
+    return {};
+  return std::to_string(catalogRevisionId.size()) + ":" + catalogRevisionId +
+         std::to_string(modeName.size()) + ":" + modeName;
+}
+
 // Normalizes path separators before deriving a fixture identity from GDTFSpec.
 inline std::string NormalizeGdtfSpecSeparators(std::string gdtfSpec) {
   std::replace(gdtfSpec.begin(), gdtfSpec.end(), '\\', '/');
