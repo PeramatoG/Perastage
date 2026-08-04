@@ -30,6 +30,7 @@
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
 #include "symbol_cache_manifest.h"
+#include "symbols/fixture_symbol_svg_cache.h"
 #include "windows/symbol_preview_exporter.h"
 
 namespace fs = std::filesystem;
@@ -668,6 +669,7 @@ GdtfRewriteResult RewriteGdtfWithProof(
   }
 
   result.atomicReplacementCompleted = true;
+  symbol_cache::InvalidateFixtureSymbolCachesForPath(sourcePath.string());
   rewritePhase.Finish();
   symbols::ScopedFixtureSymbolPhase validationPhase(
       timings, symbols::FixtureSymbolPhase::Validation);
@@ -676,7 +678,6 @@ GdtfRewriteResult RewriteGdtfWithProof(
         "The replaced GDTF archive did not pass generated SVG post-validation.";
     return result;
   }
-  symbol_cache::InvalidateGdtfSemanticFingerprintCache(sourcePath.string());
   std::string validationError;
   const std::string validatedFingerprint =
       symbol_cache::ComputeGdtfSemanticFingerprint(sourcePath.string(),
@@ -870,6 +871,7 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
         result.libraryUpdated = result.sceneUpdated;
       } else if (result.sceneUpdated) {
         // The derivative was copied from the already validated project archive.
+        symbol_cache::InvalidateFixtureSymbolCachesForPath(derivative->path);
         symbol_cache::PublishGdtfSemanticFingerprintCache(
             derivative->path, result.finalSceneFingerprint);
         result.libraryUpdated = true;

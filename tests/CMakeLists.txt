@@ -128,6 +128,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(Viewer2DFboCaptureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_fbo_capture_diagnostics.sh)
     add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
+    add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
     add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
@@ -2249,6 +2250,17 @@ target_include_directories(fixture_symbol_generation_identity_test PRIVATE
                            ${CMAKE_SOURCE_DIR}/core)
 add_test(NAME FixtureSymbolGenerationIdentity
          COMMAND fixture_symbol_generation_identity_test)
+
+add_executable(fixture_symbol_svg_cache_test
+               fixture_symbol_svg_cache_test.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(fixture_symbol_svg_cache_test PRIVATE
+                           ${CMAKE_SOURCE_DIR}/core
+                           ${CMAKE_SOURCE_DIR}/third_party
+                           ${wxWidgets_INCLUDE_DIRS})
+target_link_libraries(fixture_symbol_svg_cache_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureSymbolSvgCache COMMAND fixture_symbol_svg_cache_test)
 
 add_executable(project_symbol_cache_snapshot_test
                project_symbol_cache_snapshot_test.cpp

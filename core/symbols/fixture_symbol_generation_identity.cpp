@@ -1,7 +1,10 @@
 #include "fixture_symbol_generation_identity.h"
 
+#include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <string_view>
+#include <vector>
 
 namespace symbol_cache {
 namespace {
@@ -13,7 +16,91 @@ void AppendField(std::string &output, std::string_view field) {
   output.append(field);
 }
 
+// Parses a Windows absolute path without relying on host filesystem semantics.
+bool ParseWindowsAbsolutePath(std::string value, char &drive,
+                              std::vector<std::string> &components) {
+  components.clear();
+  if (value.size() < 3 || !std::isalpha(static_cast<unsigned char>(value[0])) ||
+      value[1] != ':' || (value[2] != '/' && value[2] != '\\'))
+    return false;
+  drive = static_cast<char>(std::tolower(static_cast<unsigned char>(value[0])));
+  std::replace(value.begin(), value.end(), '\\', '/');
+  std::string component;
+  for (std::size_t i = 3; i <= value.size(); ++i) {
+    if (i == value.size() || value[i] == '/') {
+      if (component.empty() || component == ".") {
+        component.clear();
+        continue;
+      }
+      if (component == "..") {
+        if (components.empty())
+          return false;
+        components.pop_back();
+      } else {
+        components.push_back(component);
+      }
+      component.clear();
+    } else {
+      component.push_back(value[i]);
+    }
+  }
+  return true;
+}
+
+// Compares Windows path components using deterministic ASCII case folding.
+bool EqualWindowsComponent(std::string_view left, std::string_view right) {
+  if (left.size() != right.size())
+    return false;
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(left[i])) !=
+        std::tolower(static_cast<unsigned char>(right[i])))
+      return false;
+  }
+  return true;
+}
+
 } // namespace
+
+// Converts an absolute project-owned path to a portable relative identity.
+std::string WindowsPathToPortable(const std::string &path,
+                                  const std::string &projectRoot) {
+  char pathDrive = 0;
+  char rootDrive = 0;
+  std::vector<std::string> pathComponents;
+  std::vector<std::string> rootComponents;
+  const bool pathIsWindows =
+      ParseWindowsAbsolutePath(path, pathDrive, pathComponents);
+  const bool rootIsWindows =
+      ParseWindowsAbsolutePath(projectRoot, rootDrive, rootComponents);
+  if (pathIsWindows || rootIsWindows) {
+    if (!pathIsWindows || !rootIsWindows || pathDrive != rootDrive ||
+        rootComponents.size() >= pathComponents.size())
+      return {};
+    for (std::size_t i = 0; i < rootComponents.size(); ++i) {
+      if (!EqualWindowsComponent(pathComponents[i], rootComponents[i]))
+        return {};
+    }
+    std::string relative;
+    for (std::size_t i = rootComponents.size(); i < pathComponents.size(); ++i) {
+      if (!relative.empty())
+        relative.push_back('/');
+      relative += pathComponents[i];
+    }
+    return relative;
+  }
+
+  const std::filesystem::path normalizedPath =
+      std::filesystem::path(path).lexically_normal();
+  const std::filesystem::path normalizedRoot =
+      std::filesystem::path(projectRoot).lexically_normal();
+  if (!normalizedPath.is_absolute() || !normalizedRoot.is_absolute())
+    return {};
+  const std::filesystem::path relative =
+      normalizedPath.lexically_relative(normalizedRoot);
+  if (relative.empty() || *relative.begin() == "..")
+    return {};
+  return relative.generic_string();
+}
 
 // Compares generation inputs while deliberately excluding presentation metadata.
 bool FixtureSymbolGenerationIdentity::operator==(

@@ -19,6 +19,7 @@
 #include "fixture_visual_color.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "filesystem_path_utils.h"
+#include "symbols/fixture_symbol_svg_cache.h"
 
 #include <algorithm>
 #include <cctype>
@@ -910,6 +911,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   if (viewport2DPanel)
     viewport2DPanel->CompleteSceneReplacement();
   loadProfiler.EndPhase();
+  symbol_cache::ClearFixtureSymbolRuntimeCaches();
   if (layoutViewerPanel) {
     layoutViewerPanel->ResetPreviewCachesForProjectLoad();
     layoutViewerPanel->LoadPersistentViewCacheFromProject(path);
@@ -1072,6 +1074,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 // Resets project state, UI-bound data, and active layout context for a fresh
 // session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  symbol_cache::ClearFixtureSymbolRuntimeCaches();
   activeLayoutName.clear();
   if (layoutViewerPanel)
     layoutViewerPanel->SetLayoutDefinition(layouts::LayoutDefinition{});

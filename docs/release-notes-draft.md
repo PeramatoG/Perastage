@@ -23,6 +23,10 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Newly generated fixture symbols now appear immediately in layout legends, previews,
+  print output, and PDF workflows without restarting Perastage, while project and GDTF
+  changes can no longer reuse stale parsed symbol data.
+
 - Stabilized automatic fixture-symbol reuse around the project-owned GDTF archive,
   selected mode, symbol format, and semantic content, so fixture type renames no
   longer cause redundant work and identically named but distinct fixtures cannot

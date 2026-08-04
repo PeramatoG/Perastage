@@ -33,6 +33,14 @@ Portable archive references use `/`, must be relative, and may not contain empty
 absolute root. Temporary extraction paths are used only to read bytes and never enter
 the identity. Mode spelling is not case-folded.
 
+When an absolute project path must first be converted, Windows drive paths are parsed
+lexically on every host rather than through `std::filesystem`. Both supported
+separator spellings are accepted, drive letters and path components are compared
+case-insensitively, and the emitted relative reference preserves component spelling.
+Different drives, paths outside the root, traversal above a drive root, ambiguous
+relative roots, and UNC paths are rejected. POSIX absolute paths retain native lexical
+relative-path behavior.
+
 ## Planning, persistence, and failure policy
 
 Runtime work coalesces only after resolution and semantic fingerprinting produce the
@@ -48,6 +56,5 @@ requests. Unknown future formats are likewise non-authoritative. A successful sa
 rebuilds and writes only format 2 from the exact GDTFs packaged in `scene.mvr`, using
 the packaged reference, mode, bytes, and the same identity builder.
 
-Checkpoint 05 may consume this identity for explicit legend-cache invalidation. This
-checkpoint does not alter the process-static legend SVG cache, rendering, capture,
-scheduling, or thread ownership.
+Checkpoint 05 consumes this identity for precise parsed-SVG invalidation. It does not
+alter rendering, capture, scheduling, or thread ownership.

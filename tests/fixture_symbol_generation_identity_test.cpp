@@ -56,11 +56,40 @@ void TestPortableIdentityPolicy() {
   }
 }
 
+// Verifies Windows paths are portable even when tests run on non-Windows hosts.
+void TestHostIndependentWindowsPathConversion() {
+  using symbol_cache::WindowsPathToPortable;
+  assert(WindowsPathToPortable("C:\\work\\project\\gdtfs\\fixture.gdtf",
+                               "C:\\work\\project") == "gdtfs/fixture.gdtf");
+  assert(WindowsPathToPortable("c:/work/project/gdtfs\\fixture.gdtf",
+                               "C:\\WORK\\PROJECT\\") ==
+         "gdtfs/fixture.gdtf");
+  assert(WindowsPathToPortable("D:\\work\\project\\fixture.gdtf",
+                               "C:\\work\\project").empty());
+  assert(WindowsPathToPortable("C:\\work\\outside\\fixture.gdtf",
+                               "C:\\work\\project").empty());
+  assert(WindowsPathToPortable("C:\\..\\fixture.gdtf", "C:\\work").empty());
+  assert(WindowsPathToPortable("\\\\server\\share\\fixture.gdtf",
+                               "\\\\server\\share").empty());
+}
+
+// Verifies POSIX portable-path conversion retains its lexical behavior.
+void TestPosixPathConversion() {
+  using symbol_cache::WindowsPathToPortable;
+  assert(WindowsPathToPortable("/work/project/gdtfs/fixture.gdtf",
+                               "/work/project") == "gdtfs/fixture.gdtf");
+  assert(WindowsPathToPortable("/work/outside/fixture.gdtf",
+                               "/work/project").empty());
+  assert(WindowsPathToPortable("../fixture.gdtf", "/work/project").empty());
+}
+
 } // namespace
 
 // Runs fixture-symbol generation identity regression coverage.
 int main() {
   TestIdentityInputsAndCoalescing();
   TestPortableIdentityPolicy();
+  TestHostIndependentWindowsPathConversion();
+  TestPosixPathConversion();
   return 0;
 }

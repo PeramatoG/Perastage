@@ -22,7 +22,6 @@
 #include <cmath>
 #include <functional>
 #include <limits>
-#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -50,6 +49,8 @@
 #include "guiconfigservices.h"
 #include "configmanager.h"
 #include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_svg_cache.h"
+#include "symbol_cache_manifest.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/dcgraph.h>
 #include <wx/graphics.h>
@@ -61,35 +62,6 @@ constexpr int kLegendSymbolSizePx =
 constexpr double kLegendFallbackSymbolScale = 2.0;
 constexpr double kLegendSvgSymbolScale = 0.4;
 constexpr double kLegendMaxSymbolSlotScale = 1.45;
-
-struct CachedSvgSymbolEntry {
-  std::optional<PerastageSvgSymbolData> symbol;
-};
-
-// Returns a process-wide cached SVG symbol entry to avoid repeated GDTF reads while resizing legends.
-const PerastageSvgSymbolData *GetCachedLegendSvgSymbol(const std::string &symbolKey,
-                                                       SymbolViewKind view) {
-  if (symbolKey.empty())
-    return nullptr;
-  using CacheKey = std::pair<std::string, SymbolViewKind>;
-  struct CacheKeyHash {
-    size_t operator()(const CacheKey &key) const {
-      return std::hash<std::string>{}(key.first) ^
-             (static_cast<size_t>(key.second) << 1);
-    }
-  };
-  static std::unordered_map<CacheKey, CachedSvgSymbolEntry, CacheKeyHash> cache;
-  const CacheKey key{symbolKey, view};
-  auto it = cache.find(key);
-  if (it == cache.end()) {
-    CachedSvgSymbolEntry entry;
-    PerastageSvgSymbolData data;
-    if (LoadPerastageSvgSymbolFromGdtf(symbolKey, view, data))
-      entry.symbol = std::move(data);
-    it = cache.emplace(key, std::move(entry)).first;
-  }
-  return it->second.symbol ? &it->second.symbol.value() : nullptr;
-}
 
 int SymbolViewRank(SymbolViewKind kind) {
   switch (kind) {
@@ -1114,11 +1086,22 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     return symbolH * scale;
   };
 
-  // Resolves SVG symbols through a shared cache so legend resizes do not reload unchanged data.
+  std::vector<symbol_cache::FixtureSymbolSvgCache::SymbolHandle> svgHandles;
+  // Resolves immutable SVG symbols through the managed runtime cache.
   auto findSvgSymbol = [&](const std::string &symbolKey,
                            SymbolViewKind view)
       -> const PerastageSvgSymbolData * {
-    return GetCachedLegendSvgSymbol(symbolKey, view);
+    std::string fingerprintError;
+    symbol_cache::FixtureSymbolSvgRequest request;
+    request.physicalGdtfPath = symbolKey;
+    request.view = view;
+    request.semanticFingerprint = symbol_cache::ComputeGdtfSemanticFingerprint(
+        symbolKey, fingerprintError);
+    auto handle = symbol_cache::GetFixtureSymbolSvgCache().LookupOrLoad(request);
+    if (!handle)
+      return nullptr;
+    svgHandles.push_back(std::move(handle));
+    return svgHandles.back().get();
   };
   struct SvgGeometryMetrics {
     bool valid = false;
