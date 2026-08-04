@@ -48,6 +48,9 @@ Changes since **v1.5.0**.
   export also reuses byte-identical GDTF resources, preventing duplicate numbered
   archive entries and redundant automatic fixture-symbol work.
 
+- Restored the fixture-symbol archive mutation regression target across CI platforms
+  by keeping its cache-invalidation test boundary linked explicitly.
+
 - Preserved imported fixture IDs and unit numbers exactly through project saves and
   reloads, including intentional zero values, instead of retaining temporary
   standards-compliant export substitutions as editable project data.

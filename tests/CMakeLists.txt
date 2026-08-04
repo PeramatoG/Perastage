@@ -1978,6 +1978,7 @@ target_include_directories(perastage_test_fixture_symbol_diagnostics PUBLIC
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                support/gdtf_test_fixture_builder.cpp
+               fixture_symbol_svg_cache_invalidation_stub.cpp
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
