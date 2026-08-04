@@ -29,9 +29,9 @@ namespace {
 // Finds the manifest entry that belongs to the requested fixture key.
 const FixtureSymbolCacheEntry *FindEntry(
     const std::vector<FixtureSymbolCacheEntry> &entries,
-    const std::string &fixtureKey) {
+    const std::string &generationIdentityKey) {
   for (const auto &entry : entries) {
-    if (entry.fixtureKey == fixtureKey)
+    if (entry.generationIdentity.key == generationIdentityKey)
       return &entry;
   }
   return nullptr;
@@ -40,9 +40,9 @@ const FixtureSymbolCacheEntry *FindEntry(
 // Finds the mutable manifest entry that belongs to the requested fixture key.
 FixtureSymbolCacheEntry *FindMutableEntry(
     std::vector<FixtureSymbolCacheEntry> &entries,
-    const std::string &fixtureKey) {
+    const std::string &generationIdentityKey) {
   for (auto &entry : entries) {
-    if (entry.fixtureKey == fixtureKey)
+    if (entry.generationIdentity.key == generationIdentityKey)
       return &entry;
   }
   return nullptr;
@@ -113,7 +113,11 @@ ValidationResult SymbolCacheManifest::ValidateFixture(
     return {ValidationStatus::UnknownManifestVersion, false,
             "symbol cache manifest format is unknown"};
 
-  const FixtureSymbolCacheEntry *entry = FindEntry(entries, request.fixtureKey);
+  if (request.generationIdentity.key.empty())
+    return {ValidationStatus::MissingEntry, false,
+            "fixture symbol generation identity is unavailable"};
+  const FixtureSymbolCacheEntry *entry =
+      FindEntry(entries, request.generationIdentity.key);
   if (!entry)
     return {ValidationStatus::MissingEntry, false,
             "fixture type is not present in the symbol cache manifest"};
@@ -151,13 +155,16 @@ void SymbolCacheManifest::MarkFixtureSymbolsValid(
   manifestFormatVersion = kCurrentManifestFormatVersion;
   perastageSymbolFormatVersion = kCurrentPerastageSymbolFormatVersion;
 
-  FixtureSymbolCacheEntry *entry = FindMutableEntry(entries, request.fixtureKey);
+  if (request.generationIdentity.key.empty())
+    return;
+  FixtureSymbolCacheEntry *entry =
+      FindMutableEntry(entries, request.generationIdentity.key);
   if (!entry) {
     entries.push_back({});
     entry = &entries.back();
   }
 
-  entry->fixtureKey = request.fixtureKey;
+  entry->generationIdentity = request.generationIdentity;
   entry->fixtureTypeName = request.fixtureTypeName;
   entry->gdtfSpec = request.gdtfSpec;
   entry->gdtfContentHash = request.gdtfContentHash;
@@ -187,7 +194,18 @@ bool SymbolCacheManifest::LoadFromJsonText(const std::string &jsonText,
       if (!item.is_object())
         continue;
       FixtureSymbolCacheEntry entry;
-      entry.fixtureKey = item.value("fixtureKey", std::string{});
+      if (manifestFormatVersion == kCurrentManifestFormatVersion) {
+        entry.generationIdentity.key =
+            item.value("generationIdentityKey", std::string{});
+        entry.generationIdentity.portableGdtfIdentity =
+            item.value("portableGdtfIdentity", std::string{});
+        entry.generationIdentity.gdtfMode =
+            item.value("gdtfMode", std::string{});
+        entry.generationIdentity.symbolFormatVersion =
+            item.value("symbolFormatVersion", 0);
+        entry.generationIdentity.semanticFingerprint =
+            item.value("semanticFingerprint", std::string{});
+      }
       entry.fixtureTypeName = item.value("fixtureTypeName", std::string{});
       entry.gdtfSpec = item.value("gdtfSpec", std::string{});
       entry.gdtfContentHash = item.value("gdtfContentHash", std::string{});
@@ -196,8 +214,13 @@ bool SymbolCacheManifest::LoadFromJsonText(const std::string &jsonText,
           ParseViews(item.value("availableViews", nlohmann::json::array()));
       entry.lastGenerationTimestampUtc =
           item.value("lastGenerationTimestampUtc", std::string{});
-      if (!entry.fixtureKey.empty())
-        entries.push_back(std::move(entry));
+      if (!entry.generationIdentity.key.empty()) {
+        if (FixtureSymbolCacheEntry *existing =
+                FindMutableEntry(entries, entry.generationIdentity.key))
+          *existing = std::move(entry);
+        else
+          entries.push_back(std::move(entry));
+      }
     }
   }
 
@@ -213,10 +236,14 @@ bool SymbolCacheManifest::SaveToJsonText(std::string &jsonText,
   root["fixtures"] = nlohmann::json::array();
 
   for (const auto &entry : entries) {
-    if (entry.fixtureKey.empty())
+    if (entry.generationIdentity.key.empty())
       continue;
     root["fixtures"].push_back(nlohmann::json{
-        {"fixtureKey", entry.fixtureKey},
+        {"generationIdentityKey", entry.generationIdentity.key},
+        {"portableGdtfIdentity", entry.generationIdentity.portableGdtfIdentity},
+        {"gdtfMode", entry.generationIdentity.gdtfMode},
+        {"symbolFormatVersion", entry.generationIdentity.symbolFormatVersion},
+        {"semanticFingerprint", entry.generationIdentity.semanticFingerprint},
         {"fixtureTypeName", entry.fixtureTypeName},
         {"gdtfSpec", entry.gdtfSpec},
         {"gdtfContentHash", entry.gdtfContentHash},

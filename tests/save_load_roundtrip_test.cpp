@@ -726,12 +726,15 @@ int main() {
     symbol_cache::ValidationRequest reloadRequest;
     Fixture productionReloadIdentity = loaded;
     productionReloadIdentity.typeName = ReadFixtureTypeName(reloadedGdtfPath);
-    reloadRequest.fixtureKey = symbol_cache::BuildFixtureSymbolCacheKey(
-        productionReloadIdentity);
     reloadRequest.fixtureTypeName = productionReloadIdentity.typeName;
     reloadRequest.gdtfSpec = loaded.gdtfSpec;
-    reloadRequest.gdtfContentHash = symbol_cache::ComputeFileContentHash(
+    reloadRequest.gdtfContentHash = symbol_cache::ComputeGdtfSemanticFingerprint(
         PathUtils::PathToUtf8(reloadedGdtfPath), reloadFingerprintError);
+    assert(symbol_cache::BuildFixtureSymbolGenerationIdentity(
+        loaded.gdtfSpec, loaded.gdtfMode,
+        symbol_cache::kCurrentPerastageSymbolFormatVersion,
+        reloadRequest.gdtfContentHash, productionReloadIdentity.typeName,
+        reloadRequest.generationIdentity, reloadFingerprintError));
     reloadRequest.requiredViews = symbol_cache::RequiredPerastageSymbolViews();
     assert(!reloadRequest.gdtfContentHash.empty());
     const auto reloadValidation =
@@ -739,7 +742,7 @@ int main() {
     if (!reloadValidation.valid) {
       std::cerr << "Reload cache validation failed: "
                 << symbol_cache::ValidationStatusName(reloadValidation.status)
-                << " key=" << reloadRequest.fixtureKey
+                << " key=" << reloadRequest.generationIdentity.key
                 << " spec=" << reloadRequest.gdtfSpec
                 << " hash=" << reloadRequest.gdtfContentHash << '\n';
     }

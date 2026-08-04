@@ -23,6 +23,11 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Stabilized automatic fixture-symbol reuse around the project-owned GDTF archive,
+  selected mode, symbol format, and semantic content, so fixture type renames no
+  longer cause redundant work and identically named but distinct fixtures cannot
+  collide.
+
 - Added deterministic cross-platform fixture-symbol regression coverage and
   concise internal generation timing diagnostics to protect existing visual
   output and help diagnose future performance changes, including portable test
@@ -33,6 +38,10 @@ Changes since **v1.5.0**.
   ensuring the GLEW header is initialized before platform OpenGL headers.
 
 ## Important fixes
+
+- Preserved imported fixture IDs and unit numbers exactly through project saves and
+  reloads, including intentional zero values, instead of retaining temporary
+  standards-compliant export substitutions as editable project data.
 
 - Corrected fixture colors across summaries and layout legends by using one
   canonical resolution policy. Legacy projects can now recover a missing

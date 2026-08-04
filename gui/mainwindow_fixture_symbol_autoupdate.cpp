@@ -59,17 +59,15 @@ public:
   // Records the final work outcome for debug formatting.
   void SetOutcome(symbols::FixtureSymbolOutcome outcome) { outcome_ = outcome; }
 
+  // Replaces the fallback UUID with the resolved generation identity.
+  void SetKey(std::string key) { key_ = std::move(key); }
+
 private:
   std::string label_;
   std::string key_;
   symbols::FixtureSymbolTimings timings_;
   symbols::FixtureSymbolOutcome outcome_ = symbols::FixtureSymbolOutcome::Failed;
 };
-
-// Builds a stable deduplication key for fixture symbol auto-update work items.
-std::string BuildFixtureAutoUpdateKey(const Fixture &fixture) {
-  return symbol_cache::BuildFixtureSymbolCacheKey(fixture);
-}
 
 // Builds a human-readable fixture label for progress and error reporting.
 std::string BuildFixtureLabel(const Fixture &fixture) {
@@ -85,7 +83,7 @@ std::string BuildFixtureLabel(const Fixture &fixture) {
 
 // Builds a manifest validation request for the current fixture and resolved GDTF path.
 bool BuildFixtureSymbolCacheRequest(
-    const Fixture &fixture, const std::string &key,
+    const Fixture &fixture,
     const gui::fixtures::FixtureGdtfResolution &resolution,
     symbol_cache::ValidationRequest &request, std::string &errorMessage) {
   const std::string selectedPath = resolution.selectedPath.empty()
@@ -98,13 +96,17 @@ bool BuildFixtureSymbolCacheRequest(
 
   std::string hashError;
   const std::string contentHash =
-      symbol_cache::ComputeFileContentHash(selectedPath, hashError);
+      symbol_cache::ComputeGdtfSemanticFingerprint(selectedPath, hashError);
   if (contentHash.empty()) {
     errorMessage = hashError.empty() ? "could not hash fixture GDTF" : hashError;
     return false;
   }
 
-  request.fixtureKey = key;
+  if (!symbol_cache::BuildFixtureSymbolGenerationIdentity(
+          fixture.gdtfSpec, fixture.gdtfMode,
+          symbol_cache::kCurrentPerastageSymbolFormatVersion, contentHash,
+          fixture.typeName, request.generationIdentity, errorMessage))
+    return false;
   request.fixtureTypeName = fixture.typeName;
   request.gdtfSpec = fixture.gdtfSpec;
   request.gdtfContentHash = contentHash;
@@ -114,7 +116,6 @@ bool BuildFixtureSymbolCacheRequest(
 
 // Resolves a fixture GDTF and builds the corresponding manifest validation request.
 bool ResolveFixtureSymbolCacheRequest(const Fixture &fixture, const MvrScene &scene,
-                                      const std::string &key,
                                       symbol_cache::ValidationRequest &request,
                                       gui::fixtures::FixtureGdtfResolution &resolution,
                                       std::string &errorMessage) {
@@ -122,7 +123,7 @@ bool ResolveFixtureSymbolCacheRequest(const Fixture &fixture, const MvrScene &sc
           fixture, scene, resolution, errorMessage, "symbol-cache")) {
     return false;
   }
-  return BuildFixtureSymbolCacheRequest(fixture, key, resolution, request,
+  return BuildFixtureSymbolCacheRequest(fixture, resolution, request,
                                         errorMessage);
 }
 
@@ -239,11 +240,6 @@ void MainWindow::StartFixtureSymbolAutoUpdateForLoadedScene() {
 
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   for (const auto &[uuid, fixture] : cfg.GetScene().fixtures) {
-    const std::string key = BuildFixtureAutoUpdateKey(fixture);
-    if (key.empty())
-      continue;
-    if (!fixtureSymbolAutoUpdateProcessedKeys.insert(key).second)
-      continue;
     fixtureSymbolAutoUpdateQueue.push_back(uuid);
   }
 
@@ -300,12 +296,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
 
   const Fixture &fixture = fixtureIt->second;
   const std::string fixtureLabel = BuildFixtureLabel(fixture);
-  const std::string key = BuildFixtureAutoUpdateKey(fixture);
-  if (key.empty() || !fixtureSymbolAutoUpdateProcessedKeys.insert(key).second) {
-    CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
-    return;
-  }
-  ScopedFixtureSymbolDiagnostic diagnostic(fixtureLabel, key);
+  ScopedFixtureSymbolDiagnostic diagnostic(fixtureLabel, fixtureUuid);
 
   symbol_cache::ValidationRequest cacheRequest;
   gui::fixtures::FixtureGdtfResolution cacheResolution;
@@ -322,9 +313,16 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     symbols::ScopedFixtureSymbolPhase phase(
         &diagnostic.Timings(), symbols::FixtureSymbolPhase::Fingerprint);
     hasCacheRequest = BuildFixtureSymbolCacheRequest(
-        fixture, key, cacheResolution, cacheRequest, cacheError);
+        fixture, cacheResolution, cacheRequest, cacheError);
   }
   if (hasCacheRequest) {
+    diagnostic.SetKey(cacheRequest.generationIdentity.key);
+    if (!fixtureSymbolAutoUpdateProcessedKeys
+             .insert(cacheRequest.generationIdentity.key)
+             .second) {
+      CallAfter([this]() { ProcessNextFixtureSymbolAutoUpdate(); });
+      return;
+    }
     symbol_cache::ValidationResult cacheResult;
     {
       symbols::ScopedFixtureSymbolPhase phase(
@@ -511,7 +509,7 @@ void MainWindow::ProcessNextFixtureSymbolAutoUpdate() {
     const bool resolvedFinalScene =
         updatedFixtureIt != cfg.GetScene().fixtures.end() &&
         ResolveFixtureSymbolCacheRequest(
-            updatedFixtureIt->second, cfg.GetScene(), key, updatedCacheRequest,
+            updatedFixtureIt->second, cfg.GetScene(), updatedCacheRequest,
             updatedCacheResolution, updatedCacheError);
     std::error_code scenePathError;
     const bool finalSceneOwnershipConfirmed =

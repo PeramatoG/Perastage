@@ -13,8 +13,8 @@ namespace symbol_cache {
 
 struct ProjectFixtureSymbolIdentity {
   std::string fixtureUuid;
-  std::string fixtureKey;
   std::string fixtureTypeName;
+  std::string gdtfMode;
 };
 
 enum class ProjectSymbolSnapshotStatus {
@@ -26,7 +26,7 @@ enum class ProjectSymbolSnapshotStatus {
 };
 
 struct ProjectSymbolSnapshotOutcome {
-  std::string fixtureKey;
+  std::string generationIdentityKey;
   ProjectSymbolSnapshotStatus status = ProjectSymbolSnapshotStatus::Failed;
   std::string diagnostic;
 };
@@ -42,9 +42,6 @@ struct ProjectSymbolCacheSnapshotResult {
   std::size_t failedCount = 0;
   std::string errorMessage;
 };
-
-// Builds the stable fixture-type key shared by persistence and auto-update planning.
-std::string BuildFixtureSymbolCacheKey(const Fixture &fixture);
 
 // Collects immutable fixture identities for exact packaged-scene validation.
 std::vector<ProjectFixtureSymbolIdentity>
