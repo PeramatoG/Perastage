@@ -21,6 +21,7 @@ namespace {
 struct FixtureReference {
   std::string uuid;
   std::string gdtfSpec;
+  std::string gdtfMode;
 };
 
 // Normalizes a portable archive entry and rejects unsafe or ambiguous spellings.
@@ -249,8 +250,10 @@ void CollectFixtureReferences(tinyxml2::XMLElement *element,
        current = current->NextSiblingElement()) {
     tinyxml2::XMLElement *gdtf = current->FirstChildElement("GDTFSpec");
     const char *uuid = current->Attribute("uuid");
+    tinyxml2::XMLElement *mode = current->FirstChildElement("GDTFMode");
     if (uuid && gdtf && gdtf->GetText())
-      references.push_back({NormalizeUuid(uuid), gdtf->GetText()});
+      references.push_back({NormalizeUuid(uuid), gdtf->GetText(),
+                            mode && mode->GetText() ? mode->GetText() : ""});
     CollectFixtureReferences(current->FirstChildElement(), references);
   }
 }
@@ -357,10 +360,10 @@ bool ValidatePackagedGdtf(const std::vector<std::uint8_t> &bytes,
 
 // Finds a prior timestamp without accepting prior metadata as validation proof.
 std::string ProvenanceTimestamp(const SymbolCacheManifest *manifest,
-                                const std::string &fixtureKey) {
+                                const std::string &generationIdentityKey) {
   if (manifest) {
     for (const auto &entry : manifest->Entries()) {
-      if (entry.fixtureKey == fixtureKey)
+      if (entry.generationIdentity.key == generationIdentityKey)
         return entry.lastGenerationTimestampUtc;
     }
   }
@@ -369,28 +372,14 @@ std::string ProvenanceTimestamp(const SymbolCacheManifest *manifest,
 
 } // namespace
 
-// Builds the stable fixture-type key shared by persistence and auto-update planning.
-std::string BuildFixtureSymbolCacheKey(const Fixture &fixture) {
-  if (!fixture.typeName.empty())
-    return fixture.typeName;
-  if (!fixture.gdtfSpec.empty()) {
-    std::string key = std::filesystem::path(fixture.gdtfSpec)
-                          .lexically_normal()
-                          .generic_string();
-    return key;
-  }
-  return {};
-}
-
 // Collects immutable fixture identities for exact packaged-scene validation.
 std::vector<ProjectFixtureSymbolIdentity>
 CollectProjectFixtureSymbolIdentities(const MvrScene &scene) {
   std::vector<ProjectFixtureSymbolIdentity> identities;
   identities.reserve(scene.fixtures.size());
   for (const auto &[uuid, fixture] : scene.fixtures) {
-    const std::string key = BuildFixtureSymbolCacheKey(fixture);
-    if (!uuid.empty() && !key.empty())
-      identities.push_back({uuid, key, fixture.typeName});
+    if (!uuid.empty())
+      identities.push_back({uuid, fixture.typeName, fixture.gdtfMode});
   }
   return identities;
 }
@@ -420,29 +409,25 @@ ProjectSymbolCacheSnapshotResult BuildProjectSymbolCacheSnapshot(
   }
   std::vector<FixtureReference> references;
   CollectFixtureReferences(sceneDocument.RootElement(), references);
-  std::unordered_map<std::string, std::string> gdtfByUuid;
+  std::unordered_map<std::string, FixtureReference> gdtfByUuid;
   for (const auto &reference : references)
-    gdtfByUuid.emplace(reference.uuid, reference.gdtfSpec);
+    gdtfByUuid.emplace(reference.uuid, reference);
 
-  std::set<std::string> processedSourceKeys;
   std::set<std::string> validatedKeys;
   for (const auto &identity : fixtureIdentities) {
-    if (!processedSourceKeys.insert(identity.fixtureKey).second)
-      continue;
     ProjectSymbolSnapshotOutcome outcome;
-    outcome.fixtureKey = identity.fixtureKey;
     const auto referenceIt = gdtfByUuid.find(NormalizeUuid(identity.fixtureUuid));
     if (referenceIt == gdtfByUuid.end()) {
       outcome.status = ProjectSymbolSnapshotStatus::MissingReference;
       outcome.diagnostic = "Exported fixture has no identifiable packaged GDTF reference.";
       ++result.missingCount;
       ++result.omittedCount;
-      result.warnings.push_back(identity.fixtureKey + ": " + outcome.diagnostic);
+      result.warnings.push_back(identity.fixtureTypeName + ": " + outcome.diagnostic);
       result.outcomes.push_back(std::move(outcome));
       continue;
     }
     std::string archivePath;
-    if (!NormalizeSafeArchivePath(referenceIt->second, archivePath)) {
+    if (!NormalizeSafeArchivePath(referenceIt->second.gdtfSpec, archivePath)) {
       result.errorMessage = "scene.mvr contains an unsafe fixture GDTF reference.";
       return result;
     }
@@ -452,7 +437,7 @@ ProjectSymbolCacheSnapshotResult BuildProjectSymbolCacheSnapshot(
       outcome.diagnostic = "Referenced GDTF is missing from scene.mvr.";
       ++result.missingCount;
       ++result.omittedCount;
-      result.warnings.push_back(identity.fixtureKey + ": " + outcome.diagnostic);
+      result.warnings.push_back(identity.fixtureTypeName + ": " + outcome.diagnostic);
       result.outcomes.push_back(std::move(outcome));
       continue;
     }
@@ -462,24 +447,37 @@ ProjectSymbolCacheSnapshotResult BuildProjectSymbolCacheSnapshot(
                               packagedFixtureTypeName, outcome.diagnostic)) {
       outcome.status = ProjectSymbolSnapshotStatus::InvalidSymbols;
       ++result.omittedCount;
-      result.warnings.push_back(identity.fixtureKey + ": " + outcome.diagnostic);
+      result.warnings.push_back(identity.fixtureTypeName + ": " + outcome.diagnostic);
       result.outcomes.push_back(std::move(outcome));
       continue;
     }
-    const std::string manifestKey = packagedFixtureTypeName.empty()
-                                        ? identity.fixtureKey
-                                        : packagedFixtureTypeName;
-    if (!validatedKeys.insert(manifestKey).second)
+    FixtureSymbolGenerationIdentity generationIdentity;
+    std::string identityError;
+    const std::string mode = referenceIt->second.gdtfMode;
+    if (!BuildFixtureSymbolGenerationIdentity(
+            archivePath, mode, kCurrentPerastageSymbolFormatVersion, fingerprint,
+            identity.fixtureTypeName, generationIdentity, identityError)) {
+      outcome.status = ProjectSymbolSnapshotStatus::Failed;
+      outcome.diagnostic = identityError;
+      ++result.failedCount;
+      ++result.omittedCount;
+      result.warnings.push_back(identity.fixtureTypeName + ": " + identityError);
+      result.outcomes.push_back(std::move(outcome));
+      continue;
+    }
+    outcome.generationIdentityKey = generationIdentity.key;
+    if (!validatedKeys.insert(generationIdentity.key).second)
       continue;
     ValidationRequest request;
-    request.fixtureKey = manifestKey;
+    request.generationIdentity = generationIdentity;
     request.fixtureTypeName = packagedFixtureTypeName.empty()
                                   ? identity.fixtureTypeName
                                   : packagedFixtureTypeName;
     request.gdtfSpec = archivePath;
     request.gdtfContentHash = fingerprint;
     request.requiredViews = RequiredPerastageSymbolViews();
-    std::string timestamp = ProvenanceTimestamp(provenanceManifest, identity.fixtureKey);
+    std::string timestamp =
+        ProvenanceTimestamp(provenanceManifest, generationIdentity.key);
     if (timestamp.empty())
       timestamp = newEntryTimestampUtc.empty() ? CurrentUtcTimestamp() : newEntryTimestampUtc;
     result.manifest.MarkFixtureSymbolsValid(request, std::move(timestamp));

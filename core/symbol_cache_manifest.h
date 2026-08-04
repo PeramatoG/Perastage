@@ -6,9 +6,11 @@
 #include <string>
 #include <vector>
 
+#include "symbols/fixture_symbol_generation_identity.h"
+
 namespace symbol_cache {
 
-inline constexpr int kCurrentManifestFormatVersion = 1;
+inline constexpr int kCurrentManifestFormatVersion = 2;
 inline constexpr int kCurrentPerastageSymbolFormatVersion = 1;
 inline constexpr const char *kProjectArchiveEntryName =
     "perastage_symbol_cache_manifest.json";
@@ -19,7 +21,7 @@ struct ManifestArchiveResource {
 };
 
 struct FixtureSymbolCacheEntry {
-  std::string fixtureKey;
+  FixtureSymbolGenerationIdentity generationIdentity;
   std::string fixtureTypeName;
   std::string gdtfSpec;
   std::string gdtfContentHash;
@@ -42,7 +44,7 @@ enum class ValidationStatus {
 };
 
 struct ValidationRequest {
-  std::string fixtureKey;
+  FixtureSymbolGenerationIdentity generationIdentity;
   std::string fixtureTypeName;
   std::string gdtfSpec;
   std::string gdtfContentHash;

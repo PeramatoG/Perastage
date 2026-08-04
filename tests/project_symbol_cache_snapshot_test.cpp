@@ -76,8 +76,9 @@ std::vector<std::uint8_t> BuildMvr(const std::vector<std::uint8_t> &gdtf) {
   const std::string xml =
       "<GeneralSceneDescription><Scene><Layers><Layer><ChildList>"
       "<Fixture uuid=\"fixture-0001\"><GDTFSpec>RoundTrip.gdtf</GDTFSpec>"
+      "<GDTFMode>Mode A</GDTFMode>"
       "</Fixture><Fixture uuid=\"fixture-0002\">"
-      "<GDTFSpec>RoundTrip.gdtf</GDTFSpec></Fixture>"
+      "<GDTFSpec>RoundTrip.gdtf</GDTFSpec><GDTFMode>Mode A</GDTFMode></Fixture>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   return BuildZip({{"GeneralSceneDescription.xml", Bytes(xml)},
                    {"RoundTrip.gdtf", gdtf}});
@@ -87,12 +88,15 @@ std::vector<std::uint8_t> BuildMvr(const std::vector<std::uint8_t> &gdtf) {
 void TestValidatedSnapshotAndPlanner() {
   const auto mvr = BuildMvr(BuildGdtf());
   const std::vector<symbol_cache::ProjectFixtureSymbolIdentity> identities = {
-      {"fixture-0001", "Roundtrip Type", "Roundtrip Type"},
-      {"fixture-0002", "Roundtrip Type", "Roundtrip Type"}};
+      {"fixture-0001", "Roundtrip Type", "Mode A"},
+      {"fixture-0002", "Renamed Type", "Mode A"}};
 
   symbol_cache::SymbolCacheManifest stale;
   symbol_cache::ValidationRequest staleRequest;
-  staleRequest.fixtureKey = "Roundtrip Type";
+  std::string identityError;
+  assert(symbol_cache::BuildFixtureSymbolGenerationIdentity(
+      "old.gdtf", "Mode A", symbol_cache::kCurrentPerastageSymbolFormatVersion,
+      "stale", "Roundtrip Type", staleRequest.generationIdentity, identityError));
   staleRequest.fixtureTypeName = "Roundtrip Type";
   staleRequest.gdtfSpec = "old.gdtf";
   staleRequest.gdtfContentHash = "stale";
@@ -109,7 +113,7 @@ void TestValidatedSnapshotAndPlanner() {
   assert(entry.gdtfContentHash != "stale");
 
   symbol_cache::ValidationRequest reloadRequest;
-  reloadRequest.fixtureKey = entry.fixtureKey;
+  reloadRequest.generationIdentity = entry.generationIdentity;
   reloadRequest.fixtureTypeName = entry.fixtureTypeName;
   reloadRequest.gdtfSpec = entry.gdtfSpec;
   reloadRequest.gdtfContentHash = entry.gdtfContentHash;
@@ -124,7 +128,7 @@ void TestValidatedSnapshotAndPlanner() {
 void TestIncompleteSymbolsAreOmitted() {
   const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
       BuildMvr(BuildGdtf(false)),
-      {{"fixture-0001", "Roundtrip Type", "Roundtrip Type"}}, nullptr,
+      {{"fixture-0001", "Roundtrip Type", "Mode A"}}, nullptr,
       "2026-02-01T00:00:00Z");
   assert(snapshot.sceneValid);
   assert(snapshot.validatedCount == 0);
@@ -136,7 +140,7 @@ void TestIncompleteSymbolsAreOmitted() {
 void TestMalformedSceneFails() {
   const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
       Bytes("not a zip"),
-      {{"fixture-0001", "Roundtrip Type", "Roundtrip Type"}});
+      {{"fixture-0001", "Roundtrip Type", "Mode A"}});
   assert(!snapshot.sceneValid);
   assert(!snapshot.errorMessage.empty());
 }
@@ -167,7 +171,7 @@ void TestUnsafeRawArchiveNamesFail() {
   ReplaceArchiveName(gdtf, "models/svg/main.svg", "models\\svg\\main.svg");
   const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
       BuildMvr(gdtf),
-      {{"fixture-0001", "Roundtrip Type", "Roundtrip Type"}});
+      {{"fixture-0001", "Roundtrip Type", "Mode A"}});
   assert(snapshot.sceneValid);
   assert(snapshot.validatedCount == 0);
   assert(snapshot.omittedCount == 1);

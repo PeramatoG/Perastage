@@ -37,7 +37,10 @@ std::string ToUtf8String(const fs::path &path) {
 // Builds a complete cache validation request used by manifest unit tests.
 symbol_cache::ValidationRequest BuildRequest(const std::string &hash = "hash-a") {
   symbol_cache::ValidationRequest request;
-  request.fixtureKey = "Fixture Type";
+  std::string error;
+  assert(symbol_cache::BuildFixtureSymbolGenerationIdentity(
+      "fixtures/fixture.gdtf", "Mode", symbol_cache::kCurrentPerastageSymbolFormatVersion,
+      hash, "Fixture Type", request.generationIdentity, error));
   request.fixtureTypeName = "Fixture Type";
   request.gdtfSpec = "fixtures/fixture.gdtf";
   request.gdtfContentHash = hash;
@@ -57,7 +60,17 @@ symbol_cache::SymbolCacheManifest LoadManifest(const nlohmann::json &json) {
 nlohmann::json BuildManifestJson(int manifestVersion, int symbolVersion,
                                  const std::string &hash = "hash-a") {
   nlohmann::json entry = nlohmann::json::object();
-  entry["fixtureKey"] = "Fixture Type";
+  symbol_cache::FixtureSymbolGenerationIdentity identity;
+  std::string error;
+  assert(symbol_cache::BuildFixtureSymbolGenerationIdentity(
+      "fixtures/fixture.gdtf", "Mode",
+      symbol_cache::kCurrentPerastageSymbolFormatVersion, hash, "Fixture Type",
+      identity, error));
+  entry["generationIdentityKey"] = identity.key;
+  entry["portableGdtfIdentity"] = identity.portableGdtfIdentity;
+  entry["gdtfMode"] = identity.gdtfMode;
+  entry["symbolFormatVersion"] = identity.symbolFormatVersion;
+  entry["semanticFingerprint"] = identity.semanticFingerprint;
   entry["fixtureTypeName"] = "Fixture Type";
   entry["gdtfSpec"] = "fixtures/fixture.gdtf";
   entry["gdtfContentHash"] = hash;
@@ -117,6 +130,20 @@ void TestOutdatedManifestFallsBackToInspection() {
   assert(oldResult.status == symbol_cache::ValidationStatus::OutdatedSymbolFormat);
 }
 
+// Verifies name-keyed version-1 entries remain readable but never validate version 2.
+void TestLegacyManifestIsNonAuthoritative() {
+  nlohmann::json legacy = BuildManifestJson(
+      1, symbol_cache::kCurrentPerastageSymbolFormatVersion);
+  legacy["fixtures"][0]["fixtureKey"] = "Fixture Type";
+  auto manifest = LoadManifest(legacy);
+  assert(manifest.HasLoadedManifest());
+  assert(!manifest.IsManifestFormatKnown());
+  assert(manifest.Entries().empty());
+  const auto result = manifest.ValidateFixture(BuildRequest());
+  assert(!result.valid);
+  assert(result.status == symbol_cache::ValidationStatus::UnknownManifestVersion);
+}
+
 // Verifies that changed GDTF content invalidates the manifest optimization.
 void TestChangedGdtfHashFallsBackToInspection() {
   auto manifest = LoadManifest(BuildManifestJson(
@@ -124,7 +151,7 @@ void TestChangedGdtfHashFallsBackToInspection() {
       symbol_cache::kCurrentPerastageSymbolFormatVersion, "hash-a"));
   const auto result = manifest.ValidateFixture(BuildRequest("hash-b"));
   assert(!result.valid);
-  assert(result.status == symbol_cache::ValidationStatus::GdtfHashChanged);
+  assert(result.status == symbol_cache::ValidationStatus::MissingEntry);
 }
 
 // Verifies that successful generation records a valid manifest entry.
@@ -249,7 +276,7 @@ void TestSemanticFingerprintIgnoresZipPackaging() {
   auto semanticRequest = BuildRequest(hashA);
   const auto result = manifest.ValidateFixture(semanticRequest);
   assert(!result.valid);
-  assert(result.status == symbol_cache::ValidationStatus::GdtfHashChanged);
+  assert(result.status == symbol_cache::ValidationStatus::MissingEntry);
 
   const fs::path malformed = tempRoot / "malformed.gdtf";
   std::ofstream bad(malformed, std::ios::binary);
@@ -316,6 +343,7 @@ int main() {
   TestValidManifestSkipsInspection();
   TestMissingManifestFallsBackToInspection();
   TestOutdatedManifestFallsBackToInspection();
+  TestLegacyManifestIsNonAuthoritative();
   TestChangedGdtfHashFallsBackToInspection();
   TestSuccessfulGenerationUpdatesManifest();
   TestFailedGenerationDoesNotMarkManifestValid();

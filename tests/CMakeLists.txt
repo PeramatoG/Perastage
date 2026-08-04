@@ -83,7 +83,8 @@ add_library(perastage_test_path_utils STATIC
 target_include_directories(perastage_test_path_utils PRIVATE ../core)
 
 add_library(perastage_test_project_symbol_cache_snapshot STATIC
-            ../core/project_symbol_cache_snapshot.cpp)
+            ../core/project_symbol_cache_snapshot.cpp
+            ../core/symbols/fixture_symbol_generation_identity.cpp)
 target_include_directories(perastage_test_project_symbol_cache_snapshot PUBLIC
                            ../core
                            ../models)
@@ -2231,6 +2232,7 @@ add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_te
 
 add_executable(symbol_cache_manifest_test symbol_cache_manifest_test.cpp
                ../core/symbol_cache_manifest.cpp
+               ../core/symbols/fixture_symbol_generation_identity.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(symbol_cache_manifest_test PRIVATE
     ${CMAKE_SOURCE_DIR}/core
@@ -2239,6 +2241,14 @@ target_include_directories(symbol_cache_manifest_test PRIVATE
     ${wxWidgets_INCLUDE_DIRS})
 target_link_libraries(symbol_cache_manifest_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SymbolCacheManifestValidation COMMAND symbol_cache_manifest_test)
+
+add_executable(fixture_symbol_generation_identity_test
+               fixture_symbol_generation_identity_test.cpp
+               ../core/symbols/fixture_symbol_generation_identity.cpp)
+target_include_directories(fixture_symbol_generation_identity_test PRIVATE
+                           ${CMAKE_SOURCE_DIR}/core)
+add_test(NAME FixtureSymbolGenerationIdentity
+         COMMAND fixture_symbol_generation_identity_test)
 
 add_executable(project_symbol_cache_snapshot_test
                project_symbol_cache_snapshot_test.cpp
