@@ -802,28 +802,27 @@ static void AppendProjectFixtureMetadata(tinyxml2::XMLDocument &doc,
 
   tinyxml2::XMLElement *map = doc.NewElement("ProjectFixtureMetadataMap");
   map->SetAttribute("schemaVersion", "1.0");
-  std::map<std::string, std::string> colorsByUuid;
+  std::map<std::string, const Fixture *> fixturesByUuid;
   for (const auto &[key, fixture] : scene.fixtures) {
     (void)key;
     const std::string uuid = CanonicalizeUuid(fixture.uuid);
-    const std::string color = TrimAscii(fixture.visualColorHex);
-    if (fixture.visualColorState == FixtureProjectColorState::Missing &&
-        color.empty())
-      continue;
-    if (!uuid.empty() &&
-        (color.empty() ||
-         (color.size() == 7 && color.front() == '#' &&
-          std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
-            return std::isxdigit(ch) != 0;
-          }))))
-      colorsByUuid[uuid] = color;
+    if (!uuid.empty())
+      fixturesByUuid[uuid] = &fixture;
   }
-  for (const auto &[uuid, color] : colorsByUuid) {
+  for (const auto &[uuid, fixture] : fixturesByUuid) {
     tinyxml2::XMLElement *entry = doc.NewElement("ProjectFixtureMetadata");
     entry->SetAttribute("uuid", uuid.c_str());
-    entry->SetAttribute("hasVisualColorHex", color.empty() ? "false" : "true");
-    if (!color.empty())
-      entry->SetAttribute("visualColorHex", color.c_str());
+    entry->SetAttribute("fixtureId", fixture->fixtureId);
+    entry->SetAttribute("fixtureIdNumeric", fixture->fixtureIdNumeric);
+    entry->SetAttribute("fixtureIdText", fixture->fixtureIdText.c_str());
+    entry->SetAttribute("unitNumber", fixture->unitNumber);
+    const std::string color = TrimAscii(fixture->visualColorHex);
+    if (fixture->visualColorState != FixtureProjectColorState::Missing ||
+        !color.empty()) {
+      entry->SetAttribute("hasVisualColorHex", color.empty() ? "false" : "true");
+      if (!color.empty())
+        entry->SetAttribute("visualColorHex", color.c_str());
+    }
     map->InsertEndChild(entry);
   }
   if (map->FirstChild())

@@ -257,16 +257,21 @@ static void AssertRestoredScene(const MvrScene &scene) {
   assert(fixtureC.visualColorHex == "#778899");
   assert(fixtureA.fixtureIdText == "S101A");
   assert(fixtureB.fixtureIdText == "S101B");
-  assert(fixtureA.fixtureIdNumeric > 0);
-  assert(fixtureB.fixtureIdNumeric > 0);
-  assert(fixtureA.fixtureIdNumeric != fixtureB.fixtureIdNumeric);
-  const Fixture &fallback =
-      scene.fixtures.at("20000000-0000-4000-8000-000000000003");
-  assert(fallback.fixtureIdText == std::to_string(fallback.fixtureIdNumeric));
+  assert(fixtureA.fixtureId == 101 && fixtureA.fixtureIdNumeric == 101);
+  assert(fixtureB.fixtureId == 101 && fixtureB.fixtureIdNumeric == 101);
+  assert(fixtureC.fixtureId == 101 && fixtureC.fixtureIdNumeric == 101);
+  assert(fixtureC.fixtureIdText.empty());
   const Fixture &edited =
       scene.fixtures.at("20000000-0000-4000-8000-000000000004");
-  assert(edited.fixtureIdText == "909");
-  assert(edited.fixtureIdNumeric == 909);
+  assert(edited.fixtureId == 909);
+  assert(edited.fixtureIdText == "Old imported ID");
+  assert(edited.fixtureIdNumeric == 12);
+  const Fixture &zero =
+      scene.fixtures.at("20000000-0000-4000-8000-000000000006");
+  assert(zero.fixtureId == 0);
+  assert(zero.fixtureIdNumeric == 0);
+  assert(zero.fixtureIdText == "0");
+  assert(zero.unitNumber == 0);
 }
 
 // Runs the isolated Phase 4F exporter and project persistence contracts.
@@ -309,6 +314,9 @@ int main() {
   scene.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureId = 909;
   AddFixture(scene, "20000000-0000-4000-8000-000000000005", "Case B",
              caseBPath, 202, "Case B ID", "");
+  AddFixture(scene, "20000000-0000-4000-8000-000000000006", "Zero ID",
+             caseAPath, 0, "0", "");
+  scene.fixtures.at("20000000-0000-4000-8000-000000000006").unitNumber = 0;
 
   const std::map<std::string, std::pair<int, std::string>> editableIds = {
       {"20000000-0000-4000-8000-000000000001", {101, "S101A"}},

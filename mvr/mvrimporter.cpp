@@ -1852,7 +1852,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, std::string> projectFixtureColorsByUuid;
-  std::unordered_set<std::string> projectFixtureMetadataUuids;
+  struct ProjectFixtureIdentifiers {
+    int fixtureId = 0;
+    int fixtureIdNumeric = 0;
+    int unitNumber = 0;
+    std::string fixtureIdText;
+  };
+  std::unordered_map<std::string, ProjectFixtureIdentifiers>
+      projectFixtureIdentifiersByUuid;
+  std::unordered_set<std::string> projectFixtureColorMetadataUuids;
   std::unordered_set<std::string> consumedProjectFixtureColorUuids;
   // Collects project-only fixture colors only during explicit project restore.
   auto parseProjectFixtureMetadata = [&](tinyxml2::XMLElement *userDataNode) {
@@ -1891,7 +1899,24 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                      rawUuid + "'."});
             continue;
           }
-          projectFixtureMetadataUuids.insert(uuid);
+          ProjectFixtureIdentifiers identifiers;
+          const bool hasIdentifiers =
+              entry->QueryIntAttribute("fixtureId", &identifiers.fixtureId) ==
+                  tinyxml2::XML_SUCCESS &&
+              entry->QueryIntAttribute("fixtureIdNumeric",
+                                       &identifiers.fixtureIdNumeric) ==
+                  tinyxml2::XML_SUCCESS &&
+              entry->QueryIntAttribute("unitNumber", &identifiers.unitNumber) ==
+                  tinyxml2::XML_SUCCESS &&
+              entry->Attribute("fixtureIdText") != nullptr;
+          if (hasIdentifiers) {
+            identifiers.fixtureIdText = entry->Attribute("fixtureIdText");
+            projectFixtureIdentifiersByUuid.emplace(uuid,
+                                                     std::move(identifiers));
+          }
+          if (entry->Attribute("hasVisualColorHex") == nullptr)
+            continue;
+          projectFixtureColorMetadataUuids.insert(uuid);
           const std::string hasColor = ToLowerCopy(Trim(
               entry->Attribute("hasVisualColorHex")
                   ? entry->Attribute("hasVisualColorHex")
@@ -2652,6 +2677,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixtureIdOf(node, fixture.fixtureIdText, fixture.fixtureIdNumeric);
         fixture.fixtureId = fixture.fixtureIdNumeric;
         intOf(node, "UnitNumber", fixture.unitNumber);
+        if (options.sourceKind == MvrImportSourceKind::ProjectRestore) {
+          const auto projectIdentifiersIt =
+              projectFixtureIdentifiersByUuid.find(fixture.uuid);
+          if (projectIdentifiersIt != projectFixtureIdentifiersByUuid.end()) {
+            fixture.fixtureId = projectIdentifiersIt->second.fixtureId;
+            fixture.fixtureIdNumeric =
+                projectIdentifiersIt->second.fixtureIdNumeric;
+            fixture.fixtureIdText = projectIdentifiersIt->second.fixtureIdText;
+            fixture.unitNumber = projectIdentifiersIt->second.unitNumber;
+          }
+        }
         intOf(node, "CustomId", fixture.customId);
         intOf(node, "CustomIdType", fixture.customIdType);
 
@@ -2762,10 +2798,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                          ? FixtureProjectColorState::ExplicitEmpty
                                          : FixtureProjectColorState::Present;
           consumedProjectFixtureColorUuids.insert(projectColorIt->first);
-        } else if (projectFixtureMetadataUuids.contains(fixture.uuid)) {
-          fixture.visualColorState = FixtureProjectColorState::Present;
         } else if (options.sourceKind == MvrImportSourceKind::ProjectRestore &&
-                   !projectFixtureMetadataUuids.contains(fixture.uuid)) {
+                   !projectFixtureColorMetadataUuids.contains(fixture.uuid)) {
           const FixtureVisualColorResult recovered = ResolveFixtureVisualColor(
               {{}, fixture.mvrFixtureColorHex, fixture.automaticVisualColorHex,
                FixtureProjectColorState::Missing, true});

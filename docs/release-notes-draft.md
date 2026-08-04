@@ -39,6 +39,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Preserved imported fixture IDs and unit numbers exactly through project saves and
+  reloads, including intentional zero values, instead of retaining temporary
+  standards-compliant export substitutions as editable project data.
+
 - Corrected fixture colors across summaries and layout legends by using one
   canonical resolution policy. Legacy projects can now recover a missing
   Perastage fixture color from the official restored MVR color, while colors
