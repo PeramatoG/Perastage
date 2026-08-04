@@ -29,4 +29,8 @@ bool NormalizePortableGdtfIdentity(const std::string &input,
                                    std::string &normalized,
                                    std::string &errorMessage);
 
+// Converts an absolute project-owned path to a portable relative identity.
+std::string WindowsPathToPortable(const std::string &path,
+                                  const std::string &projectRoot);
+
 } // namespace symbol_cache
