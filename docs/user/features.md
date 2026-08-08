@@ -164,7 +164,9 @@ Additional safeguards include:
 
 ## Printing and Export Outputs
 
-- Layout-to-PDF output for full documentation sets.
+- Layout-to-PDF output for full documentation sets. The completion message
+  reports how many elements used generated Perastage symbols and how many used
+  rendered fallbacks.
 - Print table workflows for fixtures/trusses/hoists/objects.
 - Debug-only 2D direct print dialog is gated in Release builds via feature flags.
 
