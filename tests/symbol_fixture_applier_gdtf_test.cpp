@@ -5,6 +5,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -262,6 +263,34 @@ int main() {
   sharedFixture.uuid = "fixture-symbol-shared";
   scene.fixtures[sharedFixture.uuid] = sharedFixture;
 
+  const std::string originalFixtureSpec = fixture.gdtfSpec;
+  const fs::path canonicalBeforeFailure =
+      project.path / "fixtures" /
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfPath);
+  fs::create_directories(canonicalBeforeFailure.parent_path());
+  const std::string previousPublishedBytes = "previous derivative";
+  std::ofstream(canonicalBeforeFailure, std::ios::binary)
+      << previousPublishedBytes;
+  const auto allSymbols = BuildSymbols();
+  const std::vector<symbols::Symbol2D> incompleteSymbols = {allSymbols.front()};
+  symbol_preview::ApplySymbolsOptions projectOnlyOptions;
+  projectOnlyOptions.updateSceneCopy = true;
+  projectOnlyOptions.updateLibraryCopy = false;
+  const symbol_preview::ApplySymbolsResult failedPublication =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          incompleteSymbols, fixture.uuid, projectOnlyOptions);
+  assert(!failedPublication.success);
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == originalFixtureSpec);
+  assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec == originalFixtureSpec);
+  std::ifstream previousPublishedInput(canonicalBeforeFailure,
+                                       std::ios::binary);
+  assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
+                     std::istreambuf_iterator<char>()) ==
+         previousPublishedBytes);
+  for (const auto &entry : fs::directory_iterator(canonicalBeforeFailure.parent_path()))
+    assert(entry.path().filename().string().find(".working.") ==
+           std::string::npos);
+
   symbol_preview::FixtureSymbolInspectionResult before{};
   std::string errorMessage;
   assert(symbol_preview::InspectFixtureSymbolState(fixture, scene, before, errorMessage));
@@ -270,7 +299,7 @@ int main() {
   assert(!before.editorIsPerastage);
   assert(before.requiresSymbolGeneration);
 
-  const auto symbols = BuildSymbols();
+  const auto symbols = allSymbols;
   symbol_preview::ApplySymbolsOptions options;
   options.updateSceneCopy = true;
   options.updateLibraryCopy = false;
@@ -408,6 +437,10 @@ int main() {
   assert(!libraryFailureResult.libraryUpdated);
   assert(!libraryFailureResult.finalSceneFingerprint.empty());
   assert(libraryFailureResult.warnings.size() == 1);
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec ==
+         scene.fixtures.at(sharedFixture.uuid).gdtfSpec);
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      libraryFailureResult.finalScenePath, derivativeValidationError));
   scene.fixtures.at(fixture.uuid).typeName = fixture.typeName;
 
   const fs::path dictionaryPath = project.path / "fixture-symbol-dictionary.json";

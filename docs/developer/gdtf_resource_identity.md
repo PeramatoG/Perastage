@@ -23,6 +23,12 @@ file are authoritative. Library synchronization is secondary: its failure is a
 warning and cannot roll back a valid project result. Successful publication invalidates
 the runtime parsed-SVG cache by physical path.
 
+The project fixture GDTF editor uses the same boundary. A derivative edit is applied
+to private working storage, then the four-view contract is validated before atomic
+project publication. Incomplete external GDTFs remain unchanged and produce an
+actionable diagnostic; the editor never uses the active library dictionary as scratch
+storage and never exposes a `.working` reference to project fixtures.
+
 ## Replacement identity
 
 Imported source identity, selected replacement identity, project ownership, and the

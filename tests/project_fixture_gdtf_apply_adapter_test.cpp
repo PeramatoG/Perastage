@@ -23,7 +23,8 @@ Fixture MakeFixture(std::string uuid, std::string type, std::string source) {
 
 // Creates adapter services with deterministic test behavior.
 gdtf::ProjectFixtureGdtfApplyServices MakeServices(bool failDerivative = false,
-                                                   bool failWrite = false) {
+                                                   bool failWrite = false,
+                                                   bool failPublish = false) {
   gdtf::ProjectFixtureGdtfApplyServices services;
   services.modeExists = [](const std::filesystem::path &, const std::string &mode) {
     return mode == "Mode A" || mode == "Mode B";
@@ -31,19 +32,36 @@ gdtf::ProjectFixtureGdtfApplyServices MakeServices(bool failDerivative = false,
   services.channelCount = [](const std::filesystem::path &, const std::string &mode) {
     return mode == "Mode B" ? 12 : 8;
   };
-  services.createDerivative = [failDerivative](const std::filesystem::path &source,
+  services.prepareDerivative = [failDerivative](const std::filesystem::path &source,
                                                const std::string &fixtureType,
                                                const std::string &,
-                                               std::filesystem::path &out,
+                                               fixture_gdtf::PreparedDerivative &prepared,
                                                std::string &diagnostic) {
     assert(!fixtureType.empty());
     if (failDerivative) {
       diagnostic = "Derivative failed.";
       return false;
     }
-    out = source.parent_path() / "derived.gdtf";
-    std::ofstream(out).put('d');
+    prepared.workingPath = source.parent_path() / "derived.gdtf.working.1";
+    prepared.publishedPath = source.parent_path() / "derived.gdtf";
+    prepared.publishedReference = "derived.gdtf";
+    std::ofstream(prepared.workingPath).put('d');
     return true;
+  };
+  services.publishDerivative = [failPublish](
+      const fixture_gdtf::PreparedDerivative &prepared,
+      std::string &diagnostic) {
+    if (failPublish) {
+      diagnostic = "Incomplete derivatives cannot be published canonically.";
+      return false;
+    }
+    std::error_code ec;
+    std::filesystem::rename(prepared.workingPath, prepared.publishedPath, ec);
+    return !ec;
+  };
+  services.discardDerivative = [](const fixture_gdtf::PreparedDerivative &prepared) {
+    std::error_code ec;
+    std::filesystem::remove(prepared.workingPath, ec);
   };
   services.writeDocumentMutation = [failWrite](const std::filesystem::path &,
                                             const gdtf::GdtfApplyRequest &,
@@ -131,6 +149,18 @@ int main() {
   assert(result.common.derivativeCreated);
   assert(fixtures["a"].gdtfSpec.find("derived.gdtf") == std::string::npos);
   assert(result.updatedFixtures.at("a").gdtfSpec.find("derived.gdtf") != std::string::npos);
+  assert(result.updatedFixtures.at("a").gdtfSpec.find(".working") ==
+         std::string::npos);
+
+  const std::string referenceBeforeFailedPublication = fixtures["a"].gdtfSpec;
+  gdtf::ProjectFixtureGdtfApplyAdapter publishFailing(
+      MakeServices(false, false, true));
+  result = publishFailing.Apply({request, &fixtures});
+  assert(!result.common.success);
+  assert(fixtures["a"].gdtfSpec == referenceBeforeFailedPublication);
+  assert(result.updatedFixtures.empty());
+  assert(!std::filesystem::exists(source.parent_path() /
+                                  "derived.gdtf.working.1"));
 
   request.stableHostId = "missing";
   result = adapter.Apply({request, &fixtures});
@@ -140,6 +170,7 @@ int main() {
   gdtf::ProjectFixtureGdtfApplyAdapter failing(MakeServices(false, true));
   result = failing.Apply({request, &fixtures});
   assert(!result.common.success);
-  assert(result.externalFileCreatedOrModified);
+  assert(!result.externalFileCreatedOrModified);
+  assert(fixtures["a"].gdtfSpec.find(".working") == std::string::npos);
   return 0;
 }

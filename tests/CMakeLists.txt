@@ -1973,6 +1973,8 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
+               ../core/fixture_gdtf_derivative_publication.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -2473,10 +2475,21 @@ add_test(NAME ProjectFixtureGdtfConsolidator
 add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp
                support/gdtf_test_fixture_builder.cpp
-               ../core/fixture_gdtf_derivative_contract.cpp)
+               ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/fixture_gdtf_derivative_publication.cpp)
 target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
                            ../core support)
 target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)
+
+add_executable(scene_model_symbol_capture_snapshot_test
+               scene_model_symbol_capture_snapshot_test.cpp
+               ../gui/tools/scene_model_symbol_capture_snapshot.cpp)
+target_include_directories(scene_model_symbol_capture_snapshot_test PRIVATE
+                           ../core ../models ../gui ../viewer3d)
+target_link_libraries(scene_model_symbol_capture_snapshot_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME SceneModelSymbolCaptureSnapshot
+         COMMAND scene_model_symbol_capture_snapshot_test)

@@ -14,6 +14,9 @@ if rg -n 'ScopedFixtureColorOverride|ScopedSingleModelSceneOverride' "$capture";
   exit 1
 fi
 
-rg -q 'BuildCaptureSnapshot' "$capture"
+rg -q 'BuildSceneModelSymbolCaptureSnapshot' "$capture"
 rg -q 'SceneDataManager::ScopedSnapshot' "$capture"
+rg -q 'auto renderWithIsolatedScene' "$capture"
+rg -Fq 'ScopedSnapshot isolatedScene(captureSnapshot)' "$capture"
+rg -Fq 'PrepareForSceneReplacement();' "$capture"
 echo "Fixture symbol capture isolation boundary is intact."

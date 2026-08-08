@@ -402,6 +402,8 @@ void DrawHoistSymbol(IRenderContext &renderContext, const Support &support,
 } // namespace
 
 void Render(IRenderContext &renderContext, const RenderFrameContext &context) {
+  if (renderContext.GetSymbolCaptureRenderProfileOverride().value_or(false))
+    return;
   if (!context.is2DViewer)
     return;
   if (context.view != Viewer2DView::Top && context.view != Viewer2DView::Bottom)

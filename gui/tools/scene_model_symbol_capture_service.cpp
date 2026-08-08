@@ -7,8 +7,8 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
-#include "matrixutils.h"
 #include "tools/fixture_geometry_bounds.h"
+#include "tools/scene_model_symbol_capture_snapshot.h"
 #include "sceneobject.h"
 #include "scenedatamanager.h"
 #include "symbols/Symbol2DImageBuilder.h"
@@ -21,54 +21,6 @@ namespace tools {
 namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
-
-// Copies one model into an immutable capture-only scene snapshot.
-SceneDataManager::SceneSnapshot BuildCaptureSnapshot(
-    const ConfigManager &cfg, const SceneModelSymbolTarget &target,
-    const SceneModelSymbolCaptureOptions &options) {
-    SceneDataManager::SceneSnapshot snapshot;
-    const auto &scene = cfg.GetScene();
-    auto alignTransform = [](const Matrix &source) {
-      const Matrix identity = MatrixUtils::Identity();
-      return MatrixUtils::ApplyRotationPreservingScale(source, identity,
-                                                       source.o);
-    };
-    switch (target.kind) {
-    case SceneModelKind::Fixture: {
-      auto it = scene.fixtures.find(target.uuid);
-      if (it != scene.fixtures.end()) {
-        Fixture fixture = it->second;
-        if (options.alignToLocalAxes)
-          fixture.transform = alignTransform(fixture.transform);
-        if (options.forcedFixtureColor)
-          fixture.visualColorHex = *options.forcedFixtureColor;
-        snapshot.fixtures.emplace(it->first, std::move(fixture));
-      }
-      break;
-    }
-    case SceneModelKind::Truss: {
-      auto it = scene.trusses.find(target.uuid);
-      if (it != scene.trusses.end()) {
-        Truss truss = it->second;
-        if (options.alignToLocalAxes)
-          truss.transform = alignTransform(truss.transform);
-        snapshot.trusses.emplace(it->first, std::move(truss));
-      }
-      break;
-    }
-    case SceneModelKind::SceneObject: {
-      auto it = scene.sceneObjects.find(target.uuid);
-      if (it != scene.sceneObjects.end()) {
-        SceneObject object = it->second;
-        if (options.alignToLocalAxes)
-          object.transform = alignTransform(object.transform);
-        snapshot.sceneObjects.emplace(it->first, std::move(object));
-      }
-      break;
-    }
-    }
-    return snapshot;
-}
 
 // Saves and restores 2D viewer state so capture does not affect interactive UI
 // state.
@@ -205,10 +157,8 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   const SceneDataManager::SceneSnapshot captureSnapshot =
-      BuildCaptureSnapshot(cfg, target, options);
-  SceneDataManager::ScopedSnapshot isolatedScene(captureSnapshot);
+      BuildSceneModelSymbolCaptureSnapshot(cfg.GetScene(), target, options);
   capturePanel->PrepareForSceneReplacement();
-  capturePanel->CompleteSceneReplacement();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;
   renderOverrides.showGrid = false;
@@ -223,13 +173,23 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
-  capturePanel->UpdateScene(true);
+  auto renderWithIsolatedScene = [&](const auto &renderOperation) {
+    SceneDataManager::ScopedSnapshot isolatedScene(captureSnapshot);
+    capturePanel->CompleteSceneReplacement();
+    capturePanel->UpdateScene(true);
+    const bool rendered = renderOperation();
+    capturePanel->PrepareForSceneReplacement();
+    return rendered;
+  };
 
   {
     std::vector<unsigned char> warmupPixels;
     int warmupWidth = 0;
     int warmupHeight = 0;
-    (void)capturePanel->RenderToRGBA(warmupPixels, warmupWidth, warmupHeight);
+    (void)renderWithIsolatedScene([&]() {
+      return capturePanel->RenderToRGBA(warmupPixels, warmupWidth,
+                                        warmupHeight);
+    });
   }
 
   const auto &requests = symbols::FixtureSymbolCapturePlan();
@@ -273,12 +233,13 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
       viewerView = Viewer2DView::Side;
     capturePanel->SetView(viewerView);
-    capturePanel->FitViewToScene();
-
     symbols::RenderedSymbolImage render;
     render.view = request.symbolView;
-    const bool ok =
-        capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
+    const bool ok = renderWithIsolatedScene([&]() {
+      capturePanel->FitViewToScene();
+      return capturePanel->RenderToRGBA(render.rgba, render.width,
+                                        render.height);
+    });
     if (!ok || render.width <= 0 || render.height <= 0) {
       result.error = "Could not capture all orthographic source images from "
                      "the 2D viewer.";

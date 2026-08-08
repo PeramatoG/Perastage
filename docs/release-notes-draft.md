@@ -33,7 +33,12 @@ Changes since **v1.5.0**.
   optional library synchronization can no longer undo a valid project result.
 
 - Fixture symbol capture now renders from a capture-only scene snapshot without
-  replacing project scene containers or temporarily changing the live fixture.
+  replacing project scene containers or temporarily changing the live fixture. Capture
+  data is limited to each offscreen render step so interactive viewers cannot observe it.
+
+- Fixture document editing now prepares changes in private project working storage and
+  publishes only derivatives that satisfy the complete fixture-symbol contract, without
+  using the fixture library as temporary storage or exposing temporary paths.
 
 - Newly generated fixture symbols now appear immediately in layout legends, previews,
   print output, and PDF workflows without restarting Perastage, while project and GDTF

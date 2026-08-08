@@ -18,6 +18,9 @@
 #include "scenedatamanager.h"
 #include "configmanager.h"
 
+thread_local const SceneDataManager::SceneSnapshot*
+    SceneDataManager::activeSnapshot_ = nullptr;
+
 // Installs immutable scene data for the lifetime of an isolated render operation.
 SceneDataManager::ScopedSnapshot::ScopedSnapshot(const SceneSnapshot& snapshot)
     : previous_(SceneDataManager::Instance().activeSnapshot_)

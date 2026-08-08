@@ -52,7 +52,14 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 4. Capture source RGBA images for `Front`, `Top`, `Side` (mirrored to `Left`), and inverted `Top` (as `Bottom`).
 5. Convert images to vector symbols with `symbols::Symbol2DImageBuilder`.
 
-The render data source is scoped to the offscreen capture on the GUI/render thread.
+The render data source is scoped to one synchronous offscreen update/render operation
+on the GUI/render thread and is removed before control can return to the wx event loop.
+Controller scene references are cleared before that scope ends. Each orthographic view
+therefore has its own bounded scope, allowing a future cooperative pipeline to yield
+between views without leaving capture data installed. Interactive viewers continue to
+use the live scene; the bounded data-source override is thread-local, and no wx event
+processing occurs inside it. Support/hoist rendering is disabled by the symbol-capture
+render profile so unrelated supports cannot leak into the isolated image.
 The service never swaps or clears live `ConfigManager` containers and never changes
 capture color, transform, visibility, or selection on the live fixture. The snapshot
 is discarded on both successful and failed capture, so the project scene is unchanged.

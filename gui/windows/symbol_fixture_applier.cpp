@@ -7,7 +7,6 @@
 #endif
 
 #include <algorithm>
-#include <atomic>
 #include <cctype>
 #include <filesystem>
 #include <memory>
@@ -27,6 +26,7 @@
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "filesystem_path_utils.h"
 #include "fixture_gdtf_derivative_contract.h"
+#include "fixture_gdtf_derivative_publication.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
@@ -222,69 +222,6 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   }
   return true;
 }
-
-std::string NormalizePathSeparators(std::string value) {
-  std::replace(value.begin(), value.end(), '\\', '/');
-  return value;
-}
-
-// Copies a source GDTF to a non-authoritative project working path.
-bool PrepareSceneDerivativeWorkingCopy(const fs::path &sourcePath,
-                                       const fs::path &sceneBasePath,
-                                       fs::path &workingPathOut,
-                                       fs::path &publishedPathOut,
-                                       std::string &errorMessage) {
-  if (sourcePath.empty() || sceneBasePath.empty()) {
-    errorMessage = "Could not prepare a writable fixture GDTF copy in the scene folder.";
-    return false;
-  }
-
-  std::error_code ec;
-  const fs::path sceneFixturesDir = sceneBasePath / "fixtures";
-  fs::create_directories(sceneFixturesDir, ec);
-  if (ec) {
-    errorMessage = "Could not create scene fixtures directory for writable GDTF copy.";
-    return false;
-  }
-
-  publishedPathOut = sceneFixturesDir /
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(sourcePath.string());
-  static std::atomic<unsigned long long> nextWorkingId{0};
-  workingPathOut = publishedPathOut;
-  workingPathOut += ".working." +
-                    std::to_string(nextWorkingId.fetch_add(1));
-  fs::copy_file(sourcePath, workingPathOut,
-                fs::copy_options::overwrite_existing, ec);
-  if (ec) {
-    errorMessage = "Could not prepare the fixture GDTF working derivative.";
-    return false;
-  }
-  return true;
-}
-
-// Atomically publishes a validated working derivative over its canonical path.
-bool PublishWorkingDerivative(const fs::path &workingPath,
-                              const fs::path &publishedPath,
-                              std::string &errorMessage) {
-  std::error_code ec;
-#ifdef _WIN32
-  const BOOL moved = MoveFileExW(workingPath.wstring().c_str(),
-                                 publishedPath.wstring().c_str(),
-                                 MOVEFILE_REPLACE_EXISTING |
-                                     MOVEFILE_WRITE_THROUGH);
-  if (!moved)
-    ec = std::error_code(static_cast<int>(GetLastError()),
-                         std::system_category());
-#else
-  fs::rename(workingPath, publishedPath, ec);
-#endif
-  if (!ec)
-    return true;
-  fs::remove(workingPath);
-  errorMessage = "Could not atomically publish the validated fixture derivative.";
-  return false;
-}
-
 
 std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
                                     std::string &errorMessage) {
@@ -799,43 +736,23 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     }
     const std::string originalSpec = fixtureIt->second.gdtfSpec;
     const std::string originalType = fixtureIt->second.typeName;
-    fs::path workingPath;
-    fs::path publishedPath;
-    if (!PrepareSceneDerivativeWorkingCopy(
-            fs::path(inspectPath), fs::path(scene.basePath), workingPath,
-            publishedPath, errorMessage)) {
+    fixture_gdtf::PreparedDerivative prepared;
+    if (!fixture_gdtf::PrepareProjectDerivative(
+            fs::path(inspectPath), fs::path(scene.basePath),
+            GdtfDictionary::BuildPerastageCanonicalGdtfFileName(inspectPath),
+            prepared, errorMessage)) {
       result.diagnostic = errorMessage;
       return result;
     }
     const GdtfRewriteResult rewrite = RewriteGdtfWithProof(
-        workingPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+        prepared.workingPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
         bottomSvgPath, options.timings);
     if (!rewrite.success) {
-      std::error_code cleanupError;
-      fs::remove(workingPath, cleanupError);
+      fixture_gdtf::DiscardPreparedDerivative(prepared);
       result.diagnostic = rewrite.diagnostic;
       return result;
     }
-    if (!fixture_gdtf::ValidatePublishedDerivative(workingPath.string(),
-                                                   errorMessage)) {
-      std::error_code cleanupError;
-      fs::remove(workingPath, cleanupError);
-      result.diagnostic = "Fixture derivative validation failed: " + errorMessage;
-      return result;
-    }
-    std::error_code relativeError;
-    const fs::path relativePath =
-        fs::relative(publishedPath, fs::path(scene.basePath), relativeError);
-    if (relativeError) {
-      std::error_code cleanupError;
-      fs::remove(workingPath, cleanupError);
-      result.diagnostic =
-          "Published fixture derivative path could not be made project-relative.";
-      return result;
-    }
-    const std::string publishedSpec =
-        NormalizePathSeparators(relativePath.string());
-    if (!PublishWorkingDerivative(workingPath, publishedPath, errorMessage)) {
+    if (!fixture_gdtf::PublishPreparedDerivative(prepared, errorMessage)) {
       result.diagnostic = errorMessage;
       return result;
     }
@@ -843,14 +760,15 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
       (void)uuid;
       if (candidate.gdtfSpec == originalSpec &&
           candidate.typeName == originalType)
-        candidate.gdtfSpec = publishedSpec;
+        candidate.gdtfSpec = prepared.publishedReference;
     }
-    symbol_cache::InvalidateFixtureSymbolCachesForPath(publishedPath.string());
+    symbol_cache::InvalidateFixtureSymbolCachesForPath(
+        prepared.publishedPath.string());
     symbol_cache::PublishGdtfSemanticFingerprintCache(
-        publishedPath.string(), rewrite.finalSemanticFingerprint);
+        prepared.publishedPath.string(), rewrite.finalSemanticFingerprint);
     sceneUpdated = true;
     result.sceneUpdated = true;
-    result.finalScenePath = publishedPath.string();
+    result.finalScenePath = prepared.publishedPath.string();
     result.finalSceneFingerprint = rewrite.finalSemanticFingerprint;
   }
 

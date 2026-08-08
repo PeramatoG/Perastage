@@ -55,7 +55,7 @@ public:
 
 private:
     friend class ScopedSnapshot;
-    const SceneSnapshot* activeSnapshot_ = nullptr;
+    static thread_local const SceneSnapshot* activeSnapshot_;
     SceneDataManager() = default;
     SceneDataManager(const SceneDataManager&) = delete;
     SceneDataManager& operator=(const SceneDataManager&) = delete;
