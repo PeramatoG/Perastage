@@ -25,6 +25,8 @@
 #include "configmanager.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "filesystem_path_utils.h"
+#include "fixture_gdtf_derivative_contract.h"
+#include "fixture_gdtf_derivative_publication.h"
 #include "guiconfigservices.h"
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
@@ -220,76 +222,6 @@ bool ReadAllBytes(wxZipInputStream &zip, std::string &out) {
   }
   return true;
 }
-
-std::string NormalizePathSeparators(std::string value) {
-  std::replace(value.begin(), value.end(), '\\', '/');
-  return value;
-}
-
-bool IsPathWithinDirectory(const fs::path &path, const fs::path &directory) {
-  if (directory.empty())
-    return false;
-
-  std::error_code ec;
-  const fs::path canonicalPath = fs::weakly_canonical(path, ec);
-  if (ec)
-    return false;
-
-  ec.clear();
-  const fs::path canonicalDir = fs::weakly_canonical(directory, ec);
-  if (ec)
-    return false;
-
-  auto pathIt = canonicalPath.begin();
-  auto dirIt = canonicalDir.begin();
-  for (; dirIt != canonicalDir.end(); ++dirIt, ++pathIt) {
-    if (pathIt == canonicalPath.end() || *pathIt != *dirIt)
-      return false;
-  }
-  return true;
-}
-
-// Copies a fixture GDTF into the project fixtures folder using derivative naming.
-bool EnsureSceneLocalGdtfCopy(const fs::path &sourcePath,
-                              const fs::path &sceneBasePath,
-                              Fixture &fixture,
-                              std::string &scenePathOut,
-                              std::string &errorMessage) {
-  if (sourcePath.empty() || sceneBasePath.empty()) {
-    errorMessage = "Could not prepare a writable fixture GDTF copy in the scene folder.";
-    return false;
-  }
-
-  std::error_code ec;
-  const fs::path sceneFixturesDir = sceneBasePath / "fixtures";
-  fs::create_directories(sceneFixturesDir, ec);
-  if (ec) {
-    errorMessage = "Could not create scene fixtures directory for writable GDTF copy.";
-    return false;
-  }
-
-  const fs::path targetPath = sceneFixturesDir /
-      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(sourcePath.string());
-  fs::copy_file(sourcePath, targetPath, fs::copy_options::overwrite_existing, ec);
-  if (ec) {
-    errorMessage = "Could not copy fixture GDTF into the scene folder.";
-    return false;
-  }
-
-  ec.clear();
-  const fs::path relativePath = fs::relative(targetPath, sceneBasePath, ec);
-  if (ec) {
-    errorMessage = "Could not compute scene-relative fixture GDTF path.";
-    return false;
-  }
-
-  const std::string relativeSpec =
-      NormalizePathSeparators(relativePath.string());
-  fixture.gdtfSpec = relativeSpec;
-  scenePathOut = targetPath.string();
-  return true;
-}
-
 
 std::string ResolveModelSvgBasename(const fs::path &gdtfPath,
                                     std::string &errorMessage) {
@@ -749,7 +681,6 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     result.diagnostic = errorMessage;
     return result;
   }
-  const std::string scenePath = resolution.scenePath;
   const std::string libraryPath = resolution.libraryPath;
 
   const std::string inspectPath = resolution.selectedPath;
@@ -796,51 +727,48 @@ ApplySymbolsResult ApplySymbolsToFixtureGdtfWithResult(
     return result;
   }
 
-  std::string writableScenePath = scenePath;
   bool sceneUpdated = false;
-  if (options.updateSceneCopy && !scene.basePath.empty() &&
-      !writableScenePath.empty() &&
-      !IsPathWithinDirectory(fs::path(writableScenePath), fs::path(scene.basePath))) {
-    if (!EnsureSceneLocalGdtfCopy(fs::path(writableScenePath), fs::path(scene.basePath),
-                                  fixtureIt->second, writableScenePath,
-                                  errorMessage)) {
+  if (options.updateSceneCopy) {
+    if (scene.basePath.empty() || inspectPath.empty()) {
+      result.diagnostic =
+          "Could not resolve a source and project folder for the fixture derivative.";
+      return result;
+    }
+    const std::string originalSpec = fixtureIt->second.gdtfSpec;
+    const std::string originalType = fixtureIt->second.typeName;
+    fixture_gdtf::PreparedDerivative prepared;
+    if (!fixture_gdtf::PrepareProjectDerivative(
+            fs::path(inspectPath), fs::path(scene.basePath),
+            GdtfDictionary::BuildPerastageCanonicalGdtfFileName(inspectPath),
+            prepared, errorMessage)) {
       result.diagnostic = errorMessage;
       return result;
     }
-  }
-
-  if (options.updateSceneCopy && writableScenePath.empty() && !scene.basePath.empty()) {
-    const std::string copySourcePath = !inspectPath.empty() ? inspectPath : libraryPath;
-    if (!copySourcePath.empty()) {
-      if (!EnsureSceneLocalGdtfCopy(fs::path(copySourcePath), fs::path(scene.basePath),
-                                    fixtureIt->second, writableScenePath,
-                                    errorMessage)) {
-        result.diagnostic = errorMessage;
-        return result;
-      }
-    }
-  }
-
-  if (options.updateSceneCopy && !writableScenePath.empty()) {
-    if (!scene.basePath.empty() &&
-        !GdtfDictionary::IsPerastageNamedGdtfFile(writableScenePath)) {
-      if (!EnsureSceneLocalGdtfCopy(fs::path(writableScenePath), fs::path(scene.basePath),
-                                    fixtureIt->second, writableScenePath,
-                                    errorMessage)) {
-        result.diagnostic = errorMessage;
-        return result;
-      }
-    }
     const GdtfRewriteResult rewrite = RewriteGdtfWithProof(
-        writableScenePath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
+        prepared.workingPath, payloads, topSvgPath, sideSvgPath, frontSvgPath,
         bottomSvgPath, options.timings);
     if (!rewrite.success) {
+      fixture_gdtf::DiscardPreparedDerivative(prepared);
       result.diagnostic = rewrite.diagnostic;
       return result;
     }
+    if (!fixture_gdtf::PublishPreparedDerivative(prepared, errorMessage)) {
+      result.diagnostic = errorMessage;
+      return result;
+    }
+    for (auto &[uuid, candidate] : fixtures) {
+      (void)uuid;
+      if (candidate.gdtfSpec == originalSpec &&
+          candidate.typeName == originalType)
+        candidate.gdtfSpec = prepared.publishedReference;
+    }
+    symbol_cache::InvalidateFixtureSymbolCachesForPath(
+        prepared.publishedPath.string());
+    symbol_cache::PublishGdtfSemanticFingerprintCache(
+        prepared.publishedPath.string(), rewrite.finalSemanticFingerprint);
     sceneUpdated = true;
     result.sceneUpdated = true;
-    result.finalScenePath = rewrite.finalArchivePath.string();
+    result.finalScenePath = prepared.publishedPath.string();
     result.finalSceneFingerprint = rewrite.finalSemanticFingerprint;
   }
 

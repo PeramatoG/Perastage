@@ -5,6 +5,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,6 +22,7 @@
 #include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/configmanager.h"
+#include "../core/fixture_gdtf_derivative_contract.h"
 #include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
 #include "../core/symbol_cache_manifest.h"
@@ -257,6 +259,37 @@ int main() {
   fixture.typeName = "SymbolFixture";
   fixture.gdtfSpec = gdtfSpec;
   scene.fixtures[fixture.uuid] = fixture;
+  Fixture sharedFixture = fixture;
+  sharedFixture.uuid = "fixture-symbol-shared";
+  scene.fixtures[sharedFixture.uuid] = sharedFixture;
+
+  const std::string originalFixtureSpec = fixture.gdtfSpec;
+  const fs::path canonicalBeforeFailure =
+      project.path / "fixtures" /
+      GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfPath);
+  fs::create_directories(canonicalBeforeFailure.parent_path());
+  const std::string previousPublishedBytes = "previous derivative";
+  std::ofstream(canonicalBeforeFailure, std::ios::binary)
+      << previousPublishedBytes;
+  const auto allSymbols = BuildSymbols();
+  const std::vector<symbols::Symbol2D> incompleteSymbols = {allSymbols.front()};
+  symbol_preview::ApplySymbolsOptions projectOnlyOptions;
+  projectOnlyOptions.updateSceneCopy = true;
+  projectOnlyOptions.updateLibraryCopy = false;
+  const symbol_preview::ApplySymbolsResult failedPublication =
+      symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
+          incompleteSymbols, fixture.uuid, projectOnlyOptions);
+  assert(!failedPublication.success);
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == originalFixtureSpec);
+  assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec == originalFixtureSpec);
+  std::ifstream previousPublishedInput(canonicalBeforeFailure,
+                                       std::ios::binary);
+  assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
+                     std::istreambuf_iterator<char>()) ==
+         previousPublishedBytes);
+  for (const auto &entry : fs::directory_iterator(canonicalBeforeFailure.parent_path()))
+    assert(entry.path().filename().string().find(".working.") ==
+           std::string::npos);
 
   symbol_preview::FixtureSymbolInspectionResult before{};
   std::string errorMessage;
@@ -266,7 +299,7 @@ int main() {
   assert(!before.editorIsPerastage);
   assert(before.requiresSymbolGeneration);
 
-  const auto symbols = BuildSymbols();
+  const auto symbols = allSymbols;
   symbol_preview::ApplySymbolsOptions options;
   options.updateSceneCopy = true;
   options.updateLibraryCopy = false;
@@ -286,12 +319,19 @@ int main() {
   assert(!sceneResult.finalSceneFingerprint.empty());
   assert(sceneResult.warnings.empty());
   assert(scene.fixtures.at(fixture.uuid).gdtfSpec.find("fixtures/") == 0);
+  assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec ==
+         scene.fixtures.at(fixture.uuid).gdtfSpec);
 
   const std::string mutatedPath =
       (project.path / scene.fixtures.at(fixture.uuid).gdtfSpec).string();
 
   const ArchiveSnapshot mutatedSnapshot =
       ReadArchiveSnapshot(fs::path(mutatedPath));
+
+  std::string derivativeValidationError;
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      mutatedPath, derivativeValidationError));
+  assert(derivativeValidationError.empty());
 
   assert(mutatedSnapshot.entries.find("models/svg/Body.svg") !=
          mutatedSnapshot.entries.end());
@@ -362,6 +402,8 @@ int main() {
   symbol_preview::ApplySymbolsOptions invalidOptions;
   invalidOptions.updateSceneCopy = false;
   invalidOptions.updateLibraryCopy = false;
+  const std::string specBeforeFailedApply =
+      scene.fixtures.at(fixture.uuid).gdtfSpec;
   const symbol_preview::ApplySymbolsResult invalidResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, fixture.uuid, invalidOptions);
@@ -375,6 +417,7 @@ int main() {
   assert(!invalidResult.libraryUpdated);
   assert(invalidResult.diagnostic ==
          "No fixture GDTF persistence target was requested.");
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == specBeforeFailedApply);
 
   scene.fixtures.at(fixture.uuid).typeName.clear();
   symbol_preview::ApplySymbolsOptions dualOptions;
@@ -394,6 +437,10 @@ int main() {
   assert(!libraryFailureResult.libraryUpdated);
   assert(!libraryFailureResult.finalSceneFingerprint.empty());
   assert(libraryFailureResult.warnings.size() == 1);
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec ==
+         scene.fixtures.at(sharedFixture.uuid).gdtfSpec);
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      libraryFailureResult.finalScenePath, derivativeValidationError));
   scene.fixtures.at(fixture.uuid).typeName = fixture.typeName;
 
   const fs::path dictionaryPath = project.path / "fixture-symbol-dictionary.json";
@@ -462,9 +509,13 @@ int main() {
   assert(sameFileResult.sceneUpdated);
   assert(sameFileResult.libraryUpdated);
   std::error_code equivalenceError;
-  assert(fs::equivalent(sameFileResult.finalScenePath,
-                        sameFileResult.finalLibraryPath, equivalenceError));
+  assert(!fs::equivalent(sameFileResult.finalScenePath,
+                         sameFileResult.finalLibraryPath, equivalenceError));
   assert(!equivalenceError);
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      sameFileResult.finalScenePath, derivativeValidationError));
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      sameFileResult.finalLibraryPath, derivativeValidationError));
   assert(CountSymbolMutationRevisions(sameFileArchive) == revisionsBefore + 1);
   assert(!InspectFixturePath("fixture-same-file-inspection",
                              sameFileArchive.string())

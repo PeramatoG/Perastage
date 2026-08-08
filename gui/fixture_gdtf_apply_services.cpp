@@ -2,8 +2,10 @@
 
 #include "gdtf_mutation_audit.h"
 #include "gdtfdictionary.h"
+#include "fixture_gdtf_derivative_publication.h"
 #include "gdtfloader.h"
 #include "filesystem_path_utils.h"
+#include "guiconfigservices.h"
 
 #include <algorithm>
 #include <sstream>
@@ -109,24 +111,24 @@ gdtf::ProjectFixtureGdtfApplyServices MakeFixtureGdtfApplyServices() {
       diagnostic = BuildMutationDiagnostic(path, result);
     return result.success;
   };
-  services.createDerivative = [](const std::filesystem::path &source,
+  services.prepareDerivative = [](const std::filesystem::path &source,
                                  const std::string &fixtureType,
                                  const std::string &,
-                                 std::filesystem::path &out,
+                                 fixture_gdtf::PreparedDerivative &prepared,
                                  std::string &diagnostic) {
     if (fixtureType.empty()) {
       diagnostic = "Fixture type context is required to create a derivative.";
       return false;
     }
-    auto derivative = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
-        fixtureType, PathUtils::PathToUtf8(source));
-    if (!derivative || derivative->path.empty()) {
-      diagnostic = "Could not create a writable GDTF derivative.";
-      return false;
-    }
-    out = derivative->path;
-    return true;
+    const MvrScene &scene = GetDefaultGuiConfigServices().Project().GetScene();
+    return fixture_gdtf::PrepareProjectDerivative(
+        source, std::filesystem::path(scene.basePath),
+        GdtfDictionary::BuildPerastageCanonicalGdtfFileName(
+            PathUtils::PathToUtf8(source)),
+        prepared, diagnostic);
   };
+  services.publishDerivative = fixture_gdtf::PublishPreparedDerivative;
+  services.discardDerivative = fixture_gdtf::DiscardPreparedDerivative;
   return services;
 }
 

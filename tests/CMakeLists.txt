@@ -119,6 +119,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
+    add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
     add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
@@ -1972,6 +1973,8 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
+               ../core/fixture_gdtf_derivative_publication.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -2472,10 +2475,21 @@ add_test(NAME ProjectFixtureGdtfConsolidator
 add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp
                support/gdtf_test_fixture_builder.cpp
-               ../core/fixture_gdtf_derivative_contract.cpp)
+               ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/fixture_gdtf_derivative_publication.cpp)
 target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
                            ../core support)
 target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)
+
+add_executable(scene_model_symbol_capture_snapshot_test
+               scene_model_symbol_capture_snapshot_test.cpp
+               ../gui/tools/scene_model_symbol_capture_snapshot.cpp)
+target_include_directories(scene_model_symbol_capture_snapshot_test PRIVATE
+                           ../core ../models ../gui ../viewer3d)
+target_link_libraries(scene_model_symbol_capture_snapshot_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME SceneModelSymbolCaptureSnapshot
+         COMMAND scene_model_symbol_capture_snapshot_test)

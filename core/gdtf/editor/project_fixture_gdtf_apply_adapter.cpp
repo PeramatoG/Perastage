@@ -135,33 +135,47 @@ ProjectFixtureGdtfApplyResult ProjectFixtureGdtfApplyAdapter::Apply(
     result.derivedChannelCount = services_.channelCount(request.sourcePath, resultingMode);
 
   std::filesystem::path writablePath = request.sourcePath;
+  fixture_gdtf::PreparedDerivative preparedDerivative;
   if (documentChanged) {
     if (request.writePolicy == GdtfWritePolicy::ReadOnly)
       return Fail("Read-only GDTF sources cannot be mutated.");
     if (request.writePolicy == GdtfWritePolicy::CreateDerivativeBeforeMutation) {
-      if (!services_.createDerivative)
-        return Fail("Derivative creation service is not available.");
+      if (!services_.prepareDerivative || !services_.publishDerivative)
+        return Fail("Derivative publication services are not available.");
       std::string diagnostic;
-      if (!services_.createDerivative(request.sourcePath, resultingType, resultingMode, writablePath, diagnostic))
-        return Fail(diagnostic.empty() ? "Could not create a writable GDTF derivative." : diagnostic);
-      result.common.derivativeCreated = writablePath != request.sourcePath;
-      result.externalFileCreatedOrModified = true;
-      result.common.resultingGdtfPath = writablePath;
-      result.resultingSourceReference = PathUtils::PathToUtf8(writablePath);
+      if (!services_.prepareDerivative(request.sourcePath, resultingType,
+                                       resultingMode, preparedDerivative,
+                                       diagnostic))
+        return Fail(diagnostic.empty() ? "Could not prepare a private GDTF derivative." : diagnostic);
+      writablePath = preparedDerivative.workingPath;
     } else if (request.writePolicy != GdtfWritePolicy::OverwriteOwnedFile) {
       return Fail("The GDTF write policy is not supported for fixture mutation.");
     } else if (request.sourceKind != GdtfSourceKind::PerastageGeneratedDerivative) {
       return Fail("OverwriteOwnedFile requires an explicitly owned Perastage derivative source.");
     }
-    if (!services_.writeDocumentMutation)
+    if (!services_.writeDocumentMutation) {
+      if (services_.discardDerivative)
+        services_.discardDerivative(preparedDerivative);
       return Fail("GDTF document mutation service is not available.");
+    }
     std::string diagnostic;
     if (!services_.writeDocumentMutation(writablePath, request, diagnostic)) {
+      if (services_.discardDerivative)
+        services_.discardDerivative(preparedDerivative);
       auto failed = Fail(diagnostic.empty() ? "Could not update GDTF document fields." : diagnostic);
-      failed.common.derivativeCreated = result.common.derivativeCreated;
-      failed.externalFileCreatedOrModified = result.externalFileCreatedOrModified;
-      failed.common.resultingGdtfPath = writablePath;
       return failed;
+    }
+    if (request.writePolicy == GdtfWritePolicy::CreateDerivativeBeforeMutation) {
+      if (!services_.publishDerivative(preparedDerivative, diagnostic)) {
+        if (services_.discardDerivative)
+          services_.discardDerivative(preparedDerivative);
+        return Fail(diagnostic.empty()
+                        ? "Could not validate and publish the GDTF derivative."
+                        : diagnostic);
+      }
+      result.common.derivativeCreated = true;
+      result.common.resultingGdtfPath = preparedDerivative.publishedPath;
+      result.resultingSourceReference = preparedDerivative.publishedReference;
     }
     result.physicalPropertiesWritten = true;
     result.externalFileCreatedOrModified = true;

@@ -10,10 +10,24 @@ Failed finalization leaves the previous source or published derivative intact.
 Perastage-authored changes continue to use standard GDTF fields and Revisions;
 no proprietary GDTF or MVR XML is introduced.
 
-During a project edit, `Fixture.gdtfSpec` and its project-owned file are
-authoritative. Library synchronization is secondary. Explicit symbol regeneration
-updates that same derivative and invalidates the runtime parsed-SVG cache by physical
-path.
+Symbol generation first copies the selected source to a non-canonical `.working`
+archive in the project fixture directory. The existing archive rewriter applies all
+four SVG views to that file, validates the published derivative contract, and only
+then atomically replaces the canonical project archive. `Fixture.gdtfSpec` is rebound
+after publication, including every fixture of the same source/type family. Any failure
+before publication removes the working file where safe and leaves both the previous
+archive and all fixture references unchanged.
+
+During a project edit, `Fixture.gdtfSpec` and its successfully published project-owned
+file are authoritative. Library synchronization is secondary: its failure is a
+warning and cannot roll back a valid project result. Successful publication invalidates
+the runtime parsed-SVG cache by physical path.
+
+The project fixture GDTF editor uses the same boundary. A derivative edit is applied
+to private working storage, then the four-view contract is validated before atomic
+project publication. Incomplete external GDTFs remain unchanged and produce an
+actionable diagnostic; the editor never uses the active library dictionary as scratch
+storage and never exposes a `.working` reference to project fixtures.
 
 ## Replacement identity
 
@@ -41,3 +55,6 @@ project dirty and records contract version 1 for subsequent opens.
 The parsed SVG runtime cache remains independent persistence-free infrastructure. It
 keys stored presentation data by physical resource and view and is invalidated after
 internal derivative replacement or cleared at project lifecycle transitions.
+
+Automatic background scheduling is intentionally deferred to Block 02. Block 01 adds
+no startup generation, worker coordination, Save/Load waiting, or symbol manifest.

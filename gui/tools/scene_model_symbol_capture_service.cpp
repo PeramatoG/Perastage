@@ -3,15 +3,14 @@
 #include <array>
 #include <chrono>
 #include <string>
-#include <unordered_map>
 
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
-#include "matrixutils.h"
 #include "tools/fixture_geometry_bounds.h"
+#include "tools/scene_model_symbol_capture_snapshot.h"
 #include "sceneobject.h"
-#include "support.h"
+#include "scenedatamanager.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/SymbolGeometrySimplifier.h"
 #include "truss.h"
@@ -22,121 +21,6 @@ namespace tools {
 namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
-
-// Temporarily overrides a fixture color during symbol capture and restores it
-// afterward.
-class ScopedFixtureColorOverride {
-public:
-  // Applies an optional temporary fixture color override for symbol capture.
-  ScopedFixtureColorOverride(ConfigManager &cfg, const std::string &fixtureUuid,
-                             const std::optional<std::string> &forcedHex)
-      : cfg_(cfg) {
-    if (!forcedHex || fixtureUuid.empty())
-      return;
-    auto &fixtures = cfg_.GetScene().fixtures;
-    auto it = fixtures.find(fixtureUuid);
-    if (it == fixtures.end())
-      return;
-    previous_.emplace_back(it->first, it->second.visualColorHex);
-    it->second.visualColorHex = *forcedHex;
-  }
-
-  // Restores any fixture colors overridden during symbol capture.
-  ~ScopedFixtureColorOverride() {
-    auto &fixtures = cfg_.GetScene().fixtures;
-    for (const auto &[uuid, color] : previous_) {
-      auto it = fixtures.find(uuid);
-      if (it != fixtures.end())
-        it->second.visualColorHex = color;
-    }
-  }
-
-private:
-  ConfigManager &cfg_;
-  std::vector<std::pair<std::string, std::string>> previous_;
-};
-
-// Temporarily isolates the scene to a single model target for deterministic
-// capture.
-class ScopedSingleModelSceneOverride {
-public:
-  // Replaces scene content with only the requested model target for isolated
-  // capture.
-  ScopedSingleModelSceneOverride(ConfigManager &cfg,
-                                 const SceneModelSymbolTarget &target,
-                                 bool alignToLocalAxes)
-      : cfg_(cfg) {
-    auto &scene = cfg_.GetScene();
-    originalFixtures_.swap(scene.fixtures);
-    originalTrusses_.swap(scene.trusses);
-    originalSceneObjects_.swap(scene.sceneObjects);
-    originalSupports_.swap(scene.supports);
-
-    switch (target.kind) {
-    case SceneModelKind::Fixture: {
-      auto it = originalFixtures_.find(target.uuid);
-      if (it != originalFixtures_.end()) {
-        Fixture fixture = it->second;
-        if (alignToLocalAxes)
-          fixture.transform =
-              AlignRotationToIdentityKeepingScale(fixture.transform);
-        scene.fixtures.emplace(it->first, std::move(fixture));
-      }
-      break;
-    }
-    case SceneModelKind::Truss: {
-      auto it = originalTrusses_.find(target.uuid);
-      if (it != originalTrusses_.end()) {
-        Truss truss = it->second;
-        if (alignToLocalAxes)
-          truss.transform =
-              AlignRotationToIdentityKeepingScale(truss.transform);
-        scene.trusses.emplace(it->first, std::move(truss));
-      }
-      break;
-    }
-    case SceneModelKind::SceneObject: {
-      auto it = originalSceneObjects_.find(target.uuid);
-      if (it != originalSceneObjects_.end()) {
-        SceneObject object = it->second;
-        if (alignToLocalAxes)
-          object.transform =
-              AlignRotationToIdentityKeepingScale(object.transform);
-        scene.sceneObjects.emplace(it->first, std::move(object));
-      }
-      break;
-    }
-    }
-  }
-
-  // Restores the original scene content after isolated capture is complete.
-  ~ScopedSingleModelSceneOverride() {
-    auto &scene = cfg_.GetScene();
-    scene.fixtures.clear();
-    scene.trusses.clear();
-    scene.sceneObjects.clear();
-    scene.supports.clear();
-    scene.fixtures.swap(originalFixtures_);
-    scene.trusses.swap(originalTrusses_);
-    scene.sceneObjects.swap(originalSceneObjects_);
-    scene.supports.swap(originalSupports_);
-  }
-
-private:
-  // Rebuilds a transform with identity rotation while preserving scale and
-  // translation.
-  static Matrix AlignRotationToIdentityKeepingScale(const Matrix &source) {
-    Matrix identity = MatrixUtils::Identity();
-    return MatrixUtils::ApplyRotationPreservingScale(source, identity,
-                                                     source.o);
-  }
-
-  ConfigManager &cfg_;
-  std::unordered_map<std::string, Fixture> originalFixtures_;
-  std::unordered_map<std::string, Truss> originalTrusses_;
-  std::unordered_map<std::string, SceneObject> originalSceneObjects_;
-  std::unordered_map<std::string, Support> originalSupports_;
-};
 
 // Saves and restores 2D viewer state so capture does not affect interactive UI
 // state.
@@ -272,11 +156,9 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
   }
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
-  ScopedSingleModelSceneOverride isolatedSceneOverride(
-      cfg, target, options.alignToLocalAxes);
-  ScopedFixtureColorOverride selectedFixtureColorOverride(
-      cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
-      options.forcedFixtureColor);
+  const SceneDataManager::SceneSnapshot captureSnapshot =
+      BuildSceneModelSymbolCaptureSnapshot(cfg.GetScene(), target, options);
+  capturePanel->PrepareForSceneReplacement();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;
   renderOverrides.showGrid = false;
@@ -291,13 +173,23 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
   renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
-  capturePanel->UpdateScene(true);
+  auto renderWithIsolatedScene = [&](const auto &renderOperation) {
+    SceneDataManager::ScopedSnapshot isolatedScene(captureSnapshot);
+    capturePanel->CompleteSceneReplacement();
+    capturePanel->UpdateScene(true);
+    const bool rendered = renderOperation();
+    capturePanel->PrepareForSceneReplacement();
+    return rendered;
+  };
 
   {
     std::vector<unsigned char> warmupPixels;
     int warmupWidth = 0;
     int warmupHeight = 0;
-    (void)capturePanel->RenderToRGBA(warmupPixels, warmupWidth, warmupHeight);
+    (void)renderWithIsolatedScene([&]() {
+      return capturePanel->RenderToRGBA(warmupPixels, warmupWidth,
+                                        warmupHeight);
+    });
   }
 
   const auto &requests = symbols::FixtureSymbolCapturePlan();
@@ -341,12 +233,13 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
       viewerView = Viewer2DView::Side;
     capturePanel->SetView(viewerView);
-    capturePanel->FitViewToScene();
-
     symbols::RenderedSymbolImage render;
     render.view = request.symbolView;
-    const bool ok =
-        capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
+    const bool ok = renderWithIsolatedScene([&]() {
+      capturePanel->FitViewToScene();
+      return capturePanel->RenderToRGBA(render.rgba, render.width,
+                                        render.height);
+    });
     if (!ok || render.width <= 0 || render.height <= 0) {
       result.error = "Could not capture all orthographic source images from "
                      "the 2D viewer.";

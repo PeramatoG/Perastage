@@ -242,6 +242,7 @@ add_executable(${PROJECT_NAME} main.cpp
     models/truss.cpp
     core/runtime_storage.cpp
     core/fixture_gdtf_derivative_contract.cpp
+    core/fixture_gdtf_derivative_publication.cpp
     core/mvr_identity_recovery.cpp
     core/project_fixture_gdtf_consolidator.cpp
     mvr/gdtf_catalog_matcher.cpp

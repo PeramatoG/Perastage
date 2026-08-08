@@ -27,6 +27,19 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Fixture-symbol updates now build and validate an isolated working GDTF before
+  atomically publishing the project-owned derivative. Failed updates leave existing
+  fixture references and files intact, shared fixtures remain on one derivative, and
+  optional library synchronization can no longer undo a valid project result.
+
+- Fixture symbol capture now renders from a capture-only scene snapshot without
+  replacing project scene containers or temporarily changing the live fixture. Capture
+  data is limited to each offscreen render step so interactive viewers cannot observe it.
+
+- Fixture document editing now prepares changes in private project working storage and
+  publishes only derivatives that satisfy the complete fixture-symbol contract, without
+  using the fixture library as temporary storage or exposing temporary paths.
+
 - Newly generated fixture symbols now appear immediately in layout legends, previews,
   print output, and PDF workflows without restarting Perastage, while project and GDTF
   changes can no longer reuse stale parsed symbol data.
@@ -134,6 +147,9 @@ Changes since **v1.5.0**.
 ## Current limitations
 
 ## Technical and packaging changes
+
+- Updated fixture-derivative regression checks for the project-authoritative
+  publication policy, including separate project and optional library copies.
 
 - Removed the obsolete whole-scene fixture-symbol startup queue and persistent
   project symbol-manifest save path; finalized project-owned derivatives now provide

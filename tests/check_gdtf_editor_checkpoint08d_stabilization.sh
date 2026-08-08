@@ -24,9 +24,14 @@ assert 'updatedFixtures' in adapter_h
 adapter_cpp = Path('core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp').read_text()
 assert '*input.fixtures =' not in adapter_cpp
 assert 'result.updatedFixtures' in adapter_cpp
-assert 'fixtureType' in Path('gui/fixture_gdtf_apply_services.cpp').read_text()
-assert 'CreateOrUpdatePerastageLibraryDerivative(\n        fixtureType' in Path('gui/fixture_gdtf_apply_services.cpp').read_text()
-assert '.string()' not in Path('gui/fixture_gdtf_apply_services.cpp').read_text(), \
+fixture_services = Path('gui/fixture_gdtf_apply_services.cpp').read_text()
+assert 'fixtureType' in fixture_services
+assert 'PrepareProjectDerivative(' in fixture_services
+assert 'PublishPreparedDerivative' in fixture_services
+assert 'DiscardPreparedDerivative' in fixture_services
+assert 'CreateOrUpdatePerastageLibraryDerivative' not in fixture_services, \
+    'Fixture editor derivatives must not use published library storage as scratch space'
+assert '.string()' not in fixture_services, \
     ('fixture_gdtf_apply_services.cpp must use PathUtils::PathToUtf8 for '
      'filesystem-path diagnostics')
 
