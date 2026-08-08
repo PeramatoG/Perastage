@@ -21,6 +21,7 @@
 #include "support/gdtf_test_fixture_builder.h"
 
 #include "../core/configmanager.h"
+#include "../core/fixture_gdtf_derivative_contract.h"
 #include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
 #include "../core/symbol_cache_manifest.h"
@@ -257,6 +258,9 @@ int main() {
   fixture.typeName = "SymbolFixture";
   fixture.gdtfSpec = gdtfSpec;
   scene.fixtures[fixture.uuid] = fixture;
+  Fixture sharedFixture = fixture;
+  sharedFixture.uuid = "fixture-symbol-shared";
+  scene.fixtures[sharedFixture.uuid] = sharedFixture;
 
   symbol_preview::FixtureSymbolInspectionResult before{};
   std::string errorMessage;
@@ -286,12 +290,19 @@ int main() {
   assert(!sceneResult.finalSceneFingerprint.empty());
   assert(sceneResult.warnings.empty());
   assert(scene.fixtures.at(fixture.uuid).gdtfSpec.find("fixtures/") == 0);
+  assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec ==
+         scene.fixtures.at(fixture.uuid).gdtfSpec);
 
   const std::string mutatedPath =
       (project.path / scene.fixtures.at(fixture.uuid).gdtfSpec).string();
 
   const ArchiveSnapshot mutatedSnapshot =
       ReadArchiveSnapshot(fs::path(mutatedPath));
+
+  std::string derivativeValidationError;
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      mutatedPath, derivativeValidationError));
+  assert(derivativeValidationError.empty());
 
   assert(mutatedSnapshot.entries.find("models/svg/Body.svg") !=
          mutatedSnapshot.entries.end());
@@ -362,6 +373,8 @@ int main() {
   symbol_preview::ApplySymbolsOptions invalidOptions;
   invalidOptions.updateSceneCopy = false;
   invalidOptions.updateLibraryCopy = false;
+  const std::string specBeforeFailedApply =
+      scene.fixtures.at(fixture.uuid).gdtfSpec;
   const symbol_preview::ApplySymbolsResult invalidResult =
       symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
           symbols, fixture.uuid, invalidOptions);
@@ -375,6 +388,7 @@ int main() {
   assert(!invalidResult.libraryUpdated);
   assert(invalidResult.diagnostic ==
          "No fixture GDTF persistence target was requested.");
+  assert(scene.fixtures.at(fixture.uuid).gdtfSpec == specBeforeFailedApply);
 
   scene.fixtures.at(fixture.uuid).typeName.clear();
   symbol_preview::ApplySymbolsOptions dualOptions;

@@ -3,7 +3,6 @@
 #include <array>
 #include <chrono>
 #include <string>
-#include <unordered_map>
 
 #include "configmanager.h"
 #include "fixture.h"
@@ -11,7 +10,7 @@
 #include "matrixutils.h"
 #include "tools/fixture_geometry_bounds.h"
 #include "sceneobject.h"
-#include "support.h"
+#include "scenedatamanager.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/SymbolGeometrySimplifier.h"
 #include "truss.h"
@@ -23,120 +22,53 @@ namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
 
-// Temporarily overrides a fixture color during symbol capture and restores it
-// afterward.
-class ScopedFixtureColorOverride {
-public:
-  // Applies an optional temporary fixture color override for symbol capture.
-  ScopedFixtureColorOverride(ConfigManager &cfg, const std::string &fixtureUuid,
-                             const std::optional<std::string> &forcedHex)
-      : cfg_(cfg) {
-    if (!forcedHex || fixtureUuid.empty())
-      return;
-    auto &fixtures = cfg_.GetScene().fixtures;
-    auto it = fixtures.find(fixtureUuid);
-    if (it == fixtures.end())
-      return;
-    previous_.emplace_back(it->first, it->second.visualColorHex);
-    it->second.visualColorHex = *forcedHex;
-  }
-
-  // Restores any fixture colors overridden during symbol capture.
-  ~ScopedFixtureColorOverride() {
-    auto &fixtures = cfg_.GetScene().fixtures;
-    for (const auto &[uuid, color] : previous_) {
-      auto it = fixtures.find(uuid);
-      if (it != fixtures.end())
-        it->second.visualColorHex = color;
-    }
-  }
-
-private:
-  ConfigManager &cfg_;
-  std::vector<std::pair<std::string, std::string>> previous_;
-};
-
-// Temporarily isolates the scene to a single model target for deterministic
-// capture.
-class ScopedSingleModelSceneOverride {
-public:
-  // Replaces scene content with only the requested model target for isolated
-  // capture.
-  ScopedSingleModelSceneOverride(ConfigManager &cfg,
-                                 const SceneModelSymbolTarget &target,
-                                 bool alignToLocalAxes)
-      : cfg_(cfg) {
-    auto &scene = cfg_.GetScene();
-    originalFixtures_.swap(scene.fixtures);
-    originalTrusses_.swap(scene.trusses);
-    originalSceneObjects_.swap(scene.sceneObjects);
-    originalSupports_.swap(scene.supports);
-
+// Copies one model into an immutable capture-only scene snapshot.
+SceneDataManager::SceneSnapshot BuildCaptureSnapshot(
+    const ConfigManager &cfg, const SceneModelSymbolTarget &target,
+    const SceneModelSymbolCaptureOptions &options) {
+    SceneDataManager::SceneSnapshot snapshot;
+    const auto &scene = cfg.GetScene();
+    auto alignTransform = [](const Matrix &source) {
+      const Matrix identity = MatrixUtils::Identity();
+      return MatrixUtils::ApplyRotationPreservingScale(source, identity,
+                                                       source.o);
+    };
     switch (target.kind) {
     case SceneModelKind::Fixture: {
-      auto it = originalFixtures_.find(target.uuid);
-      if (it != originalFixtures_.end()) {
+      auto it = scene.fixtures.find(target.uuid);
+      if (it != scene.fixtures.end()) {
         Fixture fixture = it->second;
-        if (alignToLocalAxes)
-          fixture.transform =
-              AlignRotationToIdentityKeepingScale(fixture.transform);
-        scene.fixtures.emplace(it->first, std::move(fixture));
+        if (options.alignToLocalAxes)
+          fixture.transform = alignTransform(fixture.transform);
+        if (options.forcedFixtureColor)
+          fixture.visualColorHex = *options.forcedFixtureColor;
+        snapshot.fixtures.emplace(it->first, std::move(fixture));
       }
       break;
     }
     case SceneModelKind::Truss: {
-      auto it = originalTrusses_.find(target.uuid);
-      if (it != originalTrusses_.end()) {
+      auto it = scene.trusses.find(target.uuid);
+      if (it != scene.trusses.end()) {
         Truss truss = it->second;
-        if (alignToLocalAxes)
-          truss.transform =
-              AlignRotationToIdentityKeepingScale(truss.transform);
-        scene.trusses.emplace(it->first, std::move(truss));
+        if (options.alignToLocalAxes)
+          truss.transform = alignTransform(truss.transform);
+        snapshot.trusses.emplace(it->first, std::move(truss));
       }
       break;
     }
     case SceneModelKind::SceneObject: {
-      auto it = originalSceneObjects_.find(target.uuid);
-      if (it != originalSceneObjects_.end()) {
+      auto it = scene.sceneObjects.find(target.uuid);
+      if (it != scene.sceneObjects.end()) {
         SceneObject object = it->second;
-        if (alignToLocalAxes)
-          object.transform =
-              AlignRotationToIdentityKeepingScale(object.transform);
-        scene.sceneObjects.emplace(it->first, std::move(object));
+        if (options.alignToLocalAxes)
+          object.transform = alignTransform(object.transform);
+        snapshot.sceneObjects.emplace(it->first, std::move(object));
       }
       break;
     }
     }
-  }
-
-  // Restores the original scene content after isolated capture is complete.
-  ~ScopedSingleModelSceneOverride() {
-    auto &scene = cfg_.GetScene();
-    scene.fixtures.clear();
-    scene.trusses.clear();
-    scene.sceneObjects.clear();
-    scene.supports.clear();
-    scene.fixtures.swap(originalFixtures_);
-    scene.trusses.swap(originalTrusses_);
-    scene.sceneObjects.swap(originalSceneObjects_);
-    scene.supports.swap(originalSupports_);
-  }
-
-private:
-  // Rebuilds a transform with identity rotation while preserving scale and
-  // translation.
-  static Matrix AlignRotationToIdentityKeepingScale(const Matrix &source) {
-    Matrix identity = MatrixUtils::Identity();
-    return MatrixUtils::ApplyRotationPreservingScale(source, identity,
-                                                     source.o);
-  }
-
-  ConfigManager &cfg_;
-  std::unordered_map<std::string, Fixture> originalFixtures_;
-  std::unordered_map<std::string, Truss> originalTrusses_;
-  std::unordered_map<std::string, SceneObject> originalSceneObjects_;
-  std::unordered_map<std::string, Support> originalSupports_;
-};
+    return snapshot;
+}
 
 // Saves and restores 2D viewer state so capture does not affect interactive UI
 // state.
@@ -272,11 +204,11 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
   }
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
-  ScopedSingleModelSceneOverride isolatedSceneOverride(
-      cfg, target, options.alignToLocalAxes);
-  ScopedFixtureColorOverride selectedFixtureColorOverride(
-      cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
-      options.forcedFixtureColor);
+  const SceneDataManager::SceneSnapshot captureSnapshot =
+      BuildCaptureSnapshot(cfg, target, options);
+  SceneDataManager::ScopedSnapshot isolatedScene(captureSnapshot);
+  capturePanel->PrepareForSceneReplacement();
+  capturePanel->CompleteSceneReplacement();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;
   renderOverrides.showGrid = false;

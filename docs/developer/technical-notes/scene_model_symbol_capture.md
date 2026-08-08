@@ -33,8 +33,8 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 - `target.uuid`: UUID of the specific scene instance.
 - `options.alignToLocalAxes`:
   - `false` (default): captures with current world orientation.
-  - `true`: temporarily removes world rotation while preserving per-axis scale, so orthographic views are captured in the object's local axes (useful for rotated instances).
-- `options.forcedFixtureColor`: optional color override for fixture captures.
+  - `true`: removes world rotation on the capture copy while preserving per-axis scale, so orthographic views are captured in the object's local axes (useful for rotated instances).
+- `options.forcedFixtureColor`: optional color applied only to the capture copy.
 
 ### Output
 
@@ -46,11 +46,16 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
 ## Internal process summary
 
-1. Isolate the requested scene instance in a temporary scene override.
+1. Copy the requested instance into an immutable capture-only scene snapshot.
 2. Optionally align the instance transform to local axes.
 3. Apply capture-focused config overrides (hide grid/labels, force symbol-friendly render settings).
 4. Capture source RGBA images for `Front`, `Top`, `Side` (mirrored to `Left`), and inverted `Top` (as `Bottom`).
 5. Convert images to vector symbols with `symbols::Symbol2DImageBuilder`.
+
+The render data source is scoped to the offscreen capture on the GUI/render thread.
+The service never swaps or clears live `ConfigManager` containers and never changes
+capture color, transform, visibility, or selection on the live fixture. The snapshot
+is discarded on both successful and failed capture, so the project scene is unchanged.
 
 ## Current integration
 
