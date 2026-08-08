@@ -268,6 +268,7 @@ ConsolidationPlan BuildConsolidationPlan(
     candidate.mode = fixture.gdtfMode;
     candidate.fixtureUuids.push_back(uuid);
   }
+  ConsolidationPlan plan;
   for (auto &[key, candidate] : candidates) {
     (void)key;
     std::sort(candidate.fixtureUuids.begin(), candidate.fixtureUuids.end());
@@ -275,6 +276,13 @@ ConsolidationPlan BuildConsolidationPlan(
     std::string error;
     candidate.fingerprint =
         ComputeBaseGdtfFingerprint(candidate.path, error);
+    if (candidate.fingerprint.empty()) {
+      plan.complete = false;
+      plan.diagnostics.push_back(
+          "GDTF legacy migration skipped archive='" +
+          fs::path(candidate.spec).filename().string() + "' reason='" +
+          error + "'");
+    }
     candidate.validSymbols =
         !candidate.fingerprint.empty() &&
         HasValidManifestEntry(manifest, candidate.spec, candidate.mode,
@@ -287,7 +295,6 @@ ConsolidationPlan BuildConsolidationPlan(
       groups[candidate.fingerprint + "\n" + candidate.mode].push_back(&candidate);
   }
 
-  ConsolidationPlan plan;
   for (auto &[groupKey, groupCandidates] : groups) {
     if (groupCandidates.size() < 2)
       continue;

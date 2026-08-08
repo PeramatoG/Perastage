@@ -156,8 +156,17 @@ void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
 
-// Consolidates proven-equivalent project GDTFs after load bookkeeping completes.
+constexpr const char *kGdtfDerivativeContractVersionKey =
+    "gdtf_derivative_contract_version";
+constexpr int kCurrentGdtfDerivativeContractVersion = 1;
+
+// Migrates legacy project GDTF references once after load bookkeeping completes.
 bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
+  const std::optional<std::string> storedVersion =
+      cfg.GetValue(kGdtfDerivativeContractVersionKey);
+  if (storedVersion &&
+      *storedVersion == std::to_string(kCurrentGdtfDerivativeContractVersion))
+    return false;
   const project_gdtf::ConsolidationPlan plan =
       project_gdtf::BuildConsolidationPlan(cfg.GetScene(),
                                            cfg.GetSymbolCacheManifest());
@@ -173,6 +182,12 @@ bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
     reboundCount += group.rebindings.size();
   for (const std::string &diagnostic : plan.diagnostics)
     wxLogMessage("%s", diagnostic.c_str());
+  if (plan.complete) {
+    cfg.SetValue(kGdtfDerivativeContractVersionKey,
+                 std::to_string(kCurrentGdtfDerivativeContractVersion));
+  } else {
+    wxLogWarning("Project GDTF legacy migration remains incomplete.");
+  }
   if (reboundCount > 0)
     cfg.MarkDirty();
   return reboundCount > 0;
@@ -1032,27 +1047,14 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   loadedConfig.MarkSaved();
   ConsolidateLoadedProjectGdtfs(loadedConfig);
   loadProfiler.EndPhase();
-  loadProfiler.BeginPhase("fixture_symbol_startup");
-  reportProjectLoadProgress(_("Creating fixture symbols..."), true);
-
-  if (showBlockingLoadUi) {
-    auto previousCompletionCallback = fixtureSymbolAutoUpdateCompletionCallback;
-    fixtureSymbolAutoUpdateCompletionCallback = [this,
-                                                 previousCompletionCallback]() {
-          if (previousCompletionCallback)
-            previousCompletionCallback();
-          ClearBlockingProjectLoadUi();
-        };
-  }
-
-  StartFixtureSymbolAutoUpdateForLoadedScene();
-  loadProfiler.EndPhase();
   loadProfiler.BeginPhase("finalize_project_load");
   reportProjectLoadProgress(_("Updating window title..."), true);
   UpdateTitle();
   projectLoadProgressStep = kProjectLoadProgressSteps;
   reportProjectLoadProgress(_("Finalizing project load..."));
   projectLoadProgressDialog.reset();
+  if (showBlockingLoadUi)
+    ClearBlockingProjectLoadUi();
   finishLoad();
   loadProfiler.Finish("project_load_completed");
   diagnostics::DiagnosticLogger::Info(
@@ -1634,11 +1636,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
         GetDefaultGuiConfigServices().LegacyConfigManager();
     loadedConfig.MarkSaved();
     ConsolidateLoadedProjectGdtfs(loadedConfig);
-    SplashScreen::SetMessage(_("Creating fixture symbols..."));
-    fixtureSymbolAutoUpdateCompletionCallback = [this]() {
-      RequestStartupSplashCompletion();
-    };
-    StartFixtureSymbolAutoUpdateForLoadedScene();
+    RequestStartupSplashCompletion();
     UpdateTitle();
   } else {
     ResetProject(true);

@@ -2322,6 +2322,12 @@ endforeach()
 get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                       ../core/fixture_gdtf_derivative_contract.cpp)
+    endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
        PERASTAGE_TEST_SOURCES AND
        ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
@@ -2510,3 +2516,14 @@ target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
                       perastage_test_project_symbol_cache_snapshot)
 add_test(NAME ProjectFixtureGdtfConsolidator
          COMMAND project_fixture_gdtf_consolidator_test)
+
+add_executable(fixture_gdtf_derivative_contract_test
+               fixture_gdtf_derivative_contract_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp)
+target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
+                           ../core support)
+target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME FixtureGdtfDerivativeContract
+         COMMAND fixture_gdtf_derivative_contract_test)

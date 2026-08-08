@@ -1914,9 +1914,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             projectFixtureIdentifiersByUuid.emplace(uuid,
                                                      std::move(identifiers));
           }
-          if (entry->Attribute("hasVisualColorHex") == nullptr)
-            continue;
-          projectFixtureColorMetadataUuids.insert(uuid);
+          const bool hasColorMarker =
+              entry->Attribute("hasVisualColorHex") != nullptr;
           const std::string hasColor = ToLowerCopy(Trim(
               entry->Attribute("hasVisualColorHex")
                   ? entry->Attribute("hasVisualColorHex")
@@ -1924,15 +1923,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const std::string color = Trim(entry->Attribute("visualColorHex")
                                              ? entry->Attribute("visualColorHex")
                                              : "");
-          const bool explicitClear = hasColor == "false" && color.empty();
-          if (!explicitClear && !isHexRgb(color)) {
+          if (!hasColorMarker && color.empty())
+            continue;
+          projectFixtureColorMetadataUuids.insert(uuid);
+          const bool explicitClear = hasColorMarker && hasColor == "false";
+          const bool present =
+              (!hasColorMarker || hasColor == "true") && isHexRgb(color);
+          if (!explicitClear && !present) {
             importResult.diagnostics.push_back(
                 {"invalid_project_fixture_visual_color",
                  "Ignored invalid project fixture visualColorHex for UUID '" +
                      uuid + "'."});
             continue;
           }
-          if (!projectFixtureColorsByUuid.emplace(uuid, color).second) {
+          const std::string storedColor = explicitClear ? std::string{} : color;
+          if (!projectFixtureColorsByUuid.emplace(uuid, storedColor).second) {
             importResult.diagnostics.push_back(
                 {"duplicate_project_fixture_metadata_uuid",
                  "Ignored duplicate project fixture metadata for UUID '" + uuid +

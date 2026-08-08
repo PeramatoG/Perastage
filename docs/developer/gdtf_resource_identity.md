@@ -1,62 +1,43 @@
-# GDTF resource identity and replacement reuse
+# Fixture GDTF derivative ownership
 
-## Identity boundaries
+## Published derivative contract
 
-Perastage deliberately keeps five identities separate:
+`Manufacturer@FixtureType@Perastage.gdtf` is a Perastage ownership convention,
+not an official GDTF semantic. A file may use that canonical name only after it
+contains readable top, bottom, front, and side SVG fixture views. Publication
+validates that contract before the library dictionary accepts the derivative.
+Failed finalization leaves the previous source or published derivative intact.
+Perastage-authored changes continue to use standard GDTF fields and Revisions;
+no proprietary GDTF or MVR XML is introduced.
 
-- **Source import identity** is the original `GDTFSpec`, internal FixtureTypeID, and
-  imported type key. Two source archives remain distinct even when their labels are
-  similar.
-- **Selected replacement identity** is the explicit GDTF Share revision (RID) plus
-  the resolved mode. It is authoritative for one import transaction and does not
-  depend on an editable fixture type label.
-- **Project-owned resource identity** is the physical GDTF stored for the scene.
-  Every fixture assigned the same selected replacement uses the same path.
-- **Symbol-generation identity** remains the portable project GDTF reference, mode,
-  symbol format version, and strict semantic fingerprint used by the symbol cache.
-- **Fixture type label** is presentation metadata and is never proof that resources
-  are interchangeable.
+During a project edit, `Fixture.gdtfSpec` and its project-owned file are
+authoritative. Library synchronization is secondary. Explicit symbol regeneration
+updates that same derivative and invalidates the runtime parsed-SVG cache by physical
+path.
 
-## Root cause and correction
+## Replacement identity
 
-### Proven behavior
+Imported source identity, selected replacement identity, project ownership, and the
+user-facing fixture label remain separate. Within one import transaction, an explicit
+GDTF Share RID plus exact compatible mode proves that different source aliases chose
+the same replacement. The download is reused and affected fixtures share one project
+reference. Similar names alone never prove equivalence.
 
-The importer grouped conflict rows by imported type label and previously downloaded
-one file named after each row. Consequently, two legitimate WYSIWYG source aliases
-that the user mapped to the same catalog revision produced different local paths.
-Fixture assignment retained those paths. The exporter only reused identical source
-paths, so different copies proposed the same canonical archive name and its safe
-collision policy added numeric suffixes. Each packaged path then became a distinct
-symbol-generation identity; an incomplete sibling correctly failed strict manifest
-validation and caused real work on a later open.
+## Startup and persistence
 
-The import queue now interns successful downloads by selected revision and compatible
-mode. Later aliases reuse the first canonical file and all fixtures in each affected
-alias are rebound to that shared scene-relative reference during the existing apply
-phase. Similar names alone still do not merge. Export also reuses GDTFs whose complete
-bytes prove equality, providing a conservative boundary for pre-existing exact
-copies without weakening filename collision handling or manifest validation.
+Current projects store `gdtf_derivative_contract_version = 1` in project `config.json`.
+They load their referenced SVGs directly and perform no whole-scene symbol generation
+or persistent symbol-manifest validation. Project Save serializes the scene and exact
+referenced resources without generating or repairing symbols and does not write
+`perastage_symbol_cache_manifest.json`.
 
-### Project-resource consolidation
+Projects without the contract version run one bounded legacy migration over unique
+referenced GDTFs. The migration may unify historical numbered copies only when their
+authoritative base content and exact mode match after removing the narrowly recognized
+legacy Perastage symbol outputs. Unsupported or ambiguous resources remain untouched,
+keep the migration incomplete, and never prevent Save. Successful migration marks the
+project dirty and records contract version 1 for subsequent opens.
 
-After project resources and the strict saved manifest are restored, a core service
-computes a separate base/source fingerprint. It includes every archive entry and the
-parsed authoritative description, except the known four generated SVG files, the six
-SVG offset attributes written for their model, a revision whose Perastage author and
-`Applied fixture SVG symbol views (...)` text prove its purpose, and supported
-Perastage symbol audit metadata. Unknown audit versions make the resource ineligible.
-The strict symbol fingerprint remains unchanged and continues to validate exact saved
-bytes.
-
-Resources group only when this base fingerprint and exact mode match. A valid complete
-manifest-backed symbol archive wins; an unsuffixed candidate wins the next tie, then a
-lexical path tie-break is used. The complete plan is validated before any fixture is
-rebound. Load bookkeeping marks the restored project saved first, applies the plan,
-and marks it dirty only when references changed, before startup symbol scheduling.
-Consequently a complete survivor avoids generation, while a group with no valid
-survivor generates once. User edits, physical changes, unknown metadata, and arbitrary
-Perastage revisions remain authoritative and prevent consolidation.
-
-No non-standard GDTF or MVR metadata is introduced by this change. Permissive reads,
-canonical writes, required symbol views, and exact packaged-byte manifest validation
-remain unchanged.
+The parsed SVG runtime cache remains independent persistence-free infrastructure. It
+keys stored presentation data by physical resource and view and is invalidated after
+internal derivative replacement or cleared at project lifecycle transitions.

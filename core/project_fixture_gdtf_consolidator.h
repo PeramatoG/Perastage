@@ -28,6 +28,7 @@ struct ConsolidationGroup {
 struct ConsolidationPlan {
   std::vector<ConsolidationGroup> groups;
   std::vector<std::string> diagnostics;
+  bool complete = true;
 };
 
 // Computes a fingerprint that excludes only recognized Perastage symbol output.

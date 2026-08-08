@@ -16,12 +16,14 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "gdtfdictionary.h"
+#include "fixture_gdtf_derivative_contract.h"
 #include "active_dictionary_storage.h"
 #include "configmanager.h"
 #include "dictionary_json_contract.h"
 #include "file_import_utils.h"
 #include "filesystem_path_utils.h"
 #include "json.hpp"
+#include "logger.h"
 #include "projectutils.h"
 #include "startup_file_access_gate.h"
 #include <algorithm>
@@ -1112,6 +1114,14 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
   const fs::path src = PathUtils::PathFromUtf8(gdtfPath);
   if (!fs::exists(src))
     return std::nullopt;
+  std::string derivativeError;
+  if (!fixture_gdtf::ValidatePublishedDerivative(gdtfPath, derivativeError)) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Refused to publish incomplete Perastage fixture derivative '" +
+            src.filename().string() + "': " + derivativeError);
+    return std::nullopt;
+  }
   const fs::path file = GetConfiguredUserDictFile();
   if (file.empty())
     return std::nullopt;
