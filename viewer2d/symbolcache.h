@@ -55,10 +55,13 @@ template <> struct hash<SymbolKey> {
 } // namespace std
 
 struct SymbolDefinition {
+  enum class Source { RenderedFallback, PerastageSvg };
+
   SymbolKey key{};
   uint32_t symbolId = 0;
   SymbolBounds bounds{};
   CommandBuffer localCommands{};
+  Source source = Source::RenderedFallback;
 };
 
 using SymbolDefinitionSnapshot =

@@ -6,6 +6,10 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Layout PDF completion messages now summarize how many elements used generated
+  Perastage symbols and how many used rendered fallbacks, making it easy to
+  verify symbol usage without comparing PDF file sizes.
+
 - Improved truss Magnet placement by preferring connector points declared in
   GDTF files, using terminal points for clearly straight trusses, and retaining
   conservative face-center snapping for ambiguous truss shapes and groups.

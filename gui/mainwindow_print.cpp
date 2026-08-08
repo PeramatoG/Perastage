@@ -543,7 +543,12 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
                 wxMessageBox(msg, _("Print Layout"), wxOK | wxICON_ERROR, this);
               } else {
                 SetPrintStatus(this, "");
-                wxString successMessage = wxString::Format(_("Layout saved to %s"), outputPathDisplay);
+                wxString successMessage =
+                    wxString::Format(_("Layout saved to %s"), outputPathDisplay);
+                successMessage += wxString::Format(
+                    _("\n\nSymbol summary:\nPerastage symbols: %zu\nRendered fallbacks: %zu"),
+                    res.perastageSymbolInstances,
+                    res.fallbackSymbolInstances);
                 wxMessageBox(successMessage, _("Print Layout"),
                              wxOK | wxICON_INFORMATION, this);
               }

@@ -128,6 +128,7 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
 
   out = SymbolDefinition{};
   out.symbolId = symbolId;
+  out.source = SymbolDefinition::Source::PerastageSvg;
   out.localCommands.currentSourceKey = "svg";
 
   for (const auto &polygon : svg.fills)

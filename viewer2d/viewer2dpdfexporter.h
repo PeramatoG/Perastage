@@ -50,6 +50,8 @@ struct Viewer2DPrintOptions {
 struct Viewer2DExportResult {
   bool success = false;
   std::string message;
+  size_t perastageSymbolInstances = 0;
+  size_t fallbackSymbolInstances = 0;
 };
 
 struct LayoutViewExportData {
