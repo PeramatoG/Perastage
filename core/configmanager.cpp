@@ -24,7 +24,6 @@
 #include "mvrexporter.h"
 #include "mvrimporter.h"
 #include "project_fixture_identity.h"
-#include "project_symbol_cache_snapshot.h"
 #include "selection_movement_settings.h"
 #include "uuidutils.h"
 #include <filesystem>
@@ -457,16 +456,6 @@ const MvrScene &ConfigManager::GetScene() const {
   return projectSession.GetScene();
 }
 
-// Returns mutable project-level fixture symbol cache metadata.
-symbol_cache::SymbolCacheManifest &ConfigManager::GetSymbolCacheManifest() {
-  return symbolCacheManifest;
-}
-
-// Returns read-only project-level fixture symbol cache metadata.
-const symbol_cache::SymbolCacheManifest &ConfigManager::GetSymbolCacheManifest() const {
-  return symbolCacheManifest;
-}
-
 const std::vector<std::string> &ConfigManager::GetSelectedFixtures() const {
   return selectionState.GetSelectedFixtures();
 }
@@ -530,10 +519,6 @@ bool ConfigManager::SaveProject(const std::string &path) {
            SerializeHiddenLayerChecks(layerVisibilityState.GetHiddenLayers()));
   SetValue(kHiddenFixtureTypesConfigKey,
            SerializeStringSet(GetHiddenFixtureTypes()));
-  const auto fixtureSymbolIdentities =
-      symbol_cache::CollectProjectFixtureSymbolIdentities(GetScene());
-  std::optional<symbol_cache::SymbolCacheManifest> pendingSymbolManifest;
-  std::string pendingSymbolManifestError;
   bool ok = projectSession.SaveProject(
       path, [this](std::vector<uint8_t> &configBytes) {
         UserPreferencesStore serializationSnapshot = preferencesStore;
@@ -586,40 +571,15 @@ bool ConfigManager::SaveProject(const std::string &path) {
         }
         return exported;
       },
-      [this, &fixtureSymbolIdentities, &pendingSymbolManifest,
-       &pendingSymbolManifestError](
+      [this](
           const std::vector<std::uint8_t> &sceneBytes,
           std::vector<ProjectSession::ArchiveResource> &resources,
           std::string &errorMessage) {
-        const auto snapshot = symbol_cache::BuildProjectSymbolCacheSnapshot(
-            sceneBytes, fixtureSymbolIdentities, &symbolCacheManifest);
-        if (!snapshot.sceneValid) {
-          errorMessage = snapshot.errorMessage.empty()
-                             ? "Could not validate packaged fixture GDTFs."
-                             : snapshot.errorMessage;
-          return false;
-        }
-        for (const std::string &warning : snapshot.warnings) {
-          Logger::Instance().Log(
-              Logger::Level::Warn,
-              "Project symbol cache snapshot omitted fixture: " + warning);
-        }
-        pendingSymbolManifest = snapshot.manifest;
+        (void)sceneBytes;
+        (void)errorMessage;
         for (const auto &entry :
              layouts::LayoutImageResourceRegistry::Get().UsedResources()) {
           resources.push_back({entry.archivePath, entry.bytes});
-        }
-
-        std::string manifestError;
-        if (auto manifestResource =
-                pendingSymbolManifest->ToArchiveResource(manifestError)) {
-          resources.push_back({manifestResource->entryName,
-                               std::move(manifestResource->bytes), true});
-        } else if (!manifestError.empty()) {
-          pendingSymbolManifestError = manifestError;
-          errorMessage = "Could not serialize validated symbol cache manifest: " +
-                         manifestError;
-          return false;
         }
         if (projectArchiveResourceProvider) {
           try {
@@ -641,14 +601,10 @@ bool ConfigManager::SaveProject(const std::string &path) {
         return true;
       });
   if (ok) {
-    if (pendingSymbolManifest)
-      symbolCacheManifest = std::move(*pendingSymbolManifest);
     projectSession.MarkSaved();
   } else {
     lastProjectSaveError =
-        pendingSymbolManifestError.empty()
-            ? "Project archive could not be written. See the diagnostic log for the failing save stage."
-            : pendingSymbolManifestError;
+        "Project archive could not be written. See the diagnostic log for the failing save stage.";
   }
   return ok;
 }
@@ -658,17 +614,9 @@ const std::string &ConfigManager::GetLastProjectSaveError() const {
   return lastProjectSaveError;
 }
 
-// Loads a project package and restores optional symbol cache metadata.
+// Loads a project package and restores project configuration and scene data.
 bool ConfigManager::LoadProject(const std::string &path,
                                 LoadProjectProgressCallback progressCallback) {
-  symbol_cache::SymbolCacheManifest restoredSymbolManifest;
-  std::string manifestError;
-  if (!restoredSymbolManifest.LoadFromProjectArchive(path, manifestError)) {
-    Logger::Instance().Log(Logger::Level::Warn,
-                           "Ignoring symbol cache manifest: " + manifestError);
-    restoredSymbolManifest.Clear();
-  }
-
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
   const auto userInteractionPreferences =
@@ -717,7 +665,6 @@ bool ConfigManager::LoadProject(const std::string &path,
       });
 
   if (ok) {
-    symbolCacheManifest = std::move(restoredSymbolManifest);
     const auto normalization =
         project_identity::NormalizeFixtureLabelOverrides(
             GetValue(project_identity::kFixtureLabelOverridesConfigKey),
@@ -740,17 +687,14 @@ bool ConfigManager::LoadProject(const std::string &path,
     ClearHistory();
     selectionState.Clear();
     projectSession.ResetDirty();
-  } else {
-    symbolCacheManifest.Clear();
   }
   return ok;
 }
 
-// Resets configuration, symbol cache metadata, and scene state for a fresh project.
+// Resets configuration and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);
   preferencesStore.ClearValues();
-  symbolCacheManifest.Clear();
   projectSession.GetScene().Clear();
   if (!HasKey("ui_distance_unit_system"))
     SetValue("ui_distance_unit_system", "metric");

@@ -155,6 +155,25 @@ static void VerifyFinalSelectionUsesManufacturerTieBreaker() {
   assert(selected.selectionReason == "name+mode");
 }
 
+// Verifies explicit replacement identity ignores source aliases but preserves mode.
+static void VerifySelectedReplacementIdentityIsAuthoritative() {
+  const std::string firstAlias = "Clay Paky@Aleda K10 B-EYE [Bulb=LED]";
+  const std::string secondAlias = "Clay Paky@A.leda B-EYE K10 [Bulb=LED]";
+  assert(firstAlias != secondAlias);
+  assert(import_matching::BuildSelectedReplacementIdentity(
+             "BF9967F2-revision-42", "Shapes") ==
+         import_matching::BuildSelectedReplacementIdentity(
+             "BF9967F2-revision-42", "Shapes"));
+  assert(import_matching::BuildSelectedReplacementIdentity(
+             "BF9967F2-revision-42", "Shapes") !=
+         import_matching::BuildSelectedReplacementIdentity(
+             "BF9967F2-revision-43", "Shapes"));
+  assert(import_matching::BuildSelectedReplacementIdentity(
+             "BF9967F2-revision-42", "Shapes") !=
+         import_matching::BuildSelectedReplacementIdentity(
+             "BF9967F2-revision-42", "Standard"));
+}
+
 // Runs focused coverage for MVR-requested GDTF import and catalog matching selection.
 int main() {
   VerifyDistinctOriginalNamesBeatSharedPlaceholderMetadata();
@@ -167,5 +186,6 @@ int main() {
   VerifyBasicModeNameBeatsFootprintOnlyMatch();
   VerifyFixtureSpecificNamedModeStaysAligned();
   VerifyFinalSelectionUsesManufacturerTieBreaker();
+  VerifySelectedReplacementIdentityIsAuthoritative();
   return 0;
 }

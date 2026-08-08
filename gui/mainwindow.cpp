@@ -116,6 +116,7 @@ using json = nlohmann::json;
 #include "preferencesdialog.h"
 #include "print_diagnostics.h"
 #include "projectutils.h"
+#include "project_fixture_gdtf_consolidator.h"
 #include "riderimporter.h"
 #include "ridertextdialog.h"
 #include "riggingpanel.h"
@@ -155,10 +156,40 @@ void MainWindow::SetInstance(MainWindow *inst) { s_instance = inst; }
 
 namespace {
 
-// Returns true when the status bar text corresponds to fixture symbol
-// auto-update progress.
-bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
-  return statusText.StartsWith("Fixture symbol auto-update");
+constexpr const char *kGdtfDerivativeContractVersionKey =
+    "gdtf_derivative_contract_version";
+constexpr int kCurrentGdtfDerivativeContractVersion = 1;
+
+// Migrates legacy project GDTF references once after load bookkeeping completes.
+bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
+  const std::optional<std::string> storedVersion =
+      cfg.GetValue(kGdtfDerivativeContractVersionKey);
+  if (storedVersion &&
+      *storedVersion == std::to_string(kCurrentGdtfDerivativeContractVersion))
+    return false;
+  const project_gdtf::ConsolidationPlan plan =
+      project_gdtf::BuildConsolidationPlan(cfg.GetScene());
+  std::string errorMessage;
+  if (!project_gdtf::ApplyConsolidationPlan(cfg.GetScene(), plan,
+                                            errorMessage)) {
+    wxLogWarning("Project GDTF consolidation was not applied: %s",
+                 errorMessage.c_str());
+    return false;
+  }
+  size_t reboundCount = 0;
+  for (const project_gdtf::ConsolidationGroup &group : plan.groups)
+    reboundCount += group.rebindings.size();
+  for (const std::string &diagnostic : plan.diagnostics)
+    wxLogMessage("%s", diagnostic.c_str());
+  if (plan.complete) {
+    cfg.SetValue(kGdtfDerivativeContractVersionKey,
+                 std::to_string(kCurrentGdtfDerivativeContractVersion));
+  } else {
+    wxLogWarning("Project GDTF legacy migration remains incomplete.");
+  }
+  if (reboundCount > 0)
+    cfg.MarkDirty();
+  return reboundCount > 0;
 }
 
 // Formats a world-space position for the status bar using the active distance
@@ -505,7 +536,6 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 MainWindow::~MainWindow() {
   guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
       {});
-  CleanupFixtureAutoUpdateStatusTimer();
   cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
     viewport2DPanel->SetCursorWorldPositionCallback({});
@@ -1004,22 +1034,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   RefreshSummary();
   reportProjectLoadProgress(_("Refreshing rigging..."), true);
   RefreshRigging();
-  GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
-  loadProfiler.EndPhase();
-  loadProfiler.BeginPhase("fixture_symbol_startup");
-  reportProjectLoadProgress(_("Creating fixture symbols..."), true);
-
-  if (showBlockingLoadUi) {
-    auto previousCompletionCallback = fixtureSymbolAutoUpdateCompletionCallback;
-    fixtureSymbolAutoUpdateCompletionCallback = [this,
-                                                 previousCompletionCallback]() {
-          if (previousCompletionCallback)
-            previousCompletionCallback();
-          ClearBlockingProjectLoadUi();
-        };
-  }
-
-  StartFixtureSymbolAutoUpdateForLoadedScene();
+  ConfigManager &loadedConfig =
+      GetDefaultGuiConfigServices().LegacyConfigManager();
+  loadedConfig.MarkSaved();
+  ConsolidateLoadedProjectGdtfs(loadedConfig);
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("finalize_project_load");
   reportProjectLoadProgress(_("Updating window title..."), true);
@@ -1027,6 +1045,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   projectLoadProgressStep = kProjectLoadProgressSteps;
   reportProjectLoadProgress(_("Finalizing project load..."));
   projectLoadProgressDialog.reset();
+  if (showBlockingLoadUi)
+    ClearBlockingProjectLoadUi();
   finishLoad();
   loadProfiler.Finish("project_load_completed");
   diagnostics::DiagnosticLogger::Info(
@@ -1054,14 +1074,9 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     return;
   }
 
-  fixtureSymbolAutoUpdateCompletionCallback = [this]() {
-    RequestStartupSplashCompletion();
-  };
-
   SplashScreen::SetMessage(_("Loading project file..."));
   wxYieldIfNeeded();
   if (!LoadProjectFromPath(path, false)) {
-    fixtureSymbolAutoUpdateCompletionCallback = nullptr;
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
     RequestStartupSplashCompletion();
@@ -1088,14 +1103,6 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
     layouts::LayoutManager::Get().LoadDefaultsForNewProject(cfg);
   RestorePreferencesDialogValues(preferences, preservedPreferences);
   cfg.MarkSaved();
-  fixtureSymbolAutoUpdateQueue.clear();
-  fixtureSymbolAutoUpdateProcessedKeys.clear();
-  fixtureSymbolPendingLibrarySyncUuids.clear();
-  fixtureSymbolAutoUpdateGeneratedTypes.clear();
-  fixtureSymbolAutoUpdateErrors.clear();
-  fixtureSymbolAutoUpdateGeneratedTypeSet.clear();
-  fixtureSymbolAutoUpdateRunning = false;
-  fixtureSymbolAutoUpdateCompletionCallback = nullptr;
   startupSplashCloseRequested = false;
   currentProjectPath.clear();
   currentProjectDisplayName.clear();
@@ -1401,17 +1408,11 @@ void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
 }
 
-// Mirrors layout-render updates unless fixture symbol generation is currently
-// reporting progress.
+// Mirrors layout-render updates to the main status indicator.
 void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
   const wxString statusMessage = event.GetString();
   if (statusMessage.CmpNoCase("Layout render completed.") == 0) {
     ClearLayoutLoadingIndicator();
-    return;
-  }
-  if (fixtureSymbolAutoUpdateRunning ||
-      (GetStatusBar() &&
-       IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0)))) {
     return;
   }
   ShowLayoutLoadingIndicator(statusMessage);
@@ -1604,12 +1605,11 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     SplashScreen::SetMessage(_("Refreshing panels..."));
     RefreshSummary();
     RefreshRigging();
-    GetDefaultGuiConfigServices().LegacyConfigManager().MarkSaved();
-    SplashScreen::SetMessage(_("Creating fixture symbols..."));
-    fixtureSymbolAutoUpdateCompletionCallback = [this]() {
-      RequestStartupSplashCompletion();
-    };
-    StartFixtureSymbolAutoUpdateForLoadedScene();
+    ConfigManager &loadedConfig =
+        GetDefaultGuiConfigServices().LegacyConfigManager();
+    loadedConfig.MarkSaved();
+    ConsolidateLoadedProjectGdtfs(loadedConfig);
+    RequestStartupSplashCompletion();
     UpdateTitle();
   } else {
     ResetProject(true);

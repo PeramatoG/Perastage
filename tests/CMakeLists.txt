@@ -82,16 +82,6 @@ add_library(perastage_test_path_utils STATIC
             ../core/filesystem_path_utils.cpp)
 target_include_directories(perastage_test_path_utils PRIVATE ../core)
 
-add_library(perastage_test_project_symbol_cache_snapshot STATIC
-            ../core/project_symbol_cache_snapshot.cpp
-            ../core/symbols/fixture_symbol_generation_identity.cpp)
-target_include_directories(perastage_test_project_symbol_cache_snapshot PUBLIC
-                           ../core
-                           ../models)
-target_link_libraries(perastage_test_project_symbol_cache_snapshot PUBLIC
-                      ${wxWidgets_LIBRARIES}
-                      tinyxml2::tinyxml2)
-
 add_executable(runtime_storage_test
                runtime_storage_test.cpp
                ../core/runtime_storage.cpp
@@ -1978,6 +1968,7 @@ target_include_directories(perastage_test_fixture_symbol_diagnostics PUBLIC
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                support/gdtf_test_fixture_builder.cpp
+               fixture_symbol_svg_cache_invalidation_stub.cpp
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
@@ -2231,26 +2222,6 @@ target_link_libraries(fixture_symbol_baseline_test PRIVATE
     perastage_test_fixture_symbol_diagnostics)
 add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_test)
 
-add_executable(symbol_cache_manifest_test symbol_cache_manifest_test.cpp
-               ../core/symbol_cache_manifest.cpp
-               ../core/symbols/fixture_symbol_generation_identity.cpp
-               ../core/filesystem_path_utils.cpp)
-target_include_directories(symbol_cache_manifest_test PRIVATE
-    ${CMAKE_SOURCE_DIR}/core
-    ${CMAKE_SOURCE_DIR}/models
-    ${CMAKE_SOURCE_DIR}/third_party
-    ${wxWidgets_INCLUDE_DIRS})
-target_link_libraries(symbol_cache_manifest_test PRIVATE ${wxWidgets_LIBRARIES})
-add_test(NAME SymbolCacheManifestValidation COMMAND symbol_cache_manifest_test)
-
-add_executable(fixture_symbol_generation_identity_test
-               fixture_symbol_generation_identity_test.cpp
-               ../core/symbols/fixture_symbol_generation_identity.cpp)
-target_include_directories(fixture_symbol_generation_identity_test PRIVATE
-                           ${CMAKE_SOURCE_DIR}/core)
-add_test(NAME FixtureSymbolGenerationIdentity
-         COMMAND fixture_symbol_generation_identity_test)
-
 add_executable(fixture_symbol_svg_cache_test
                fixture_symbol_svg_cache_test.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp
@@ -2261,19 +2232,6 @@ target_include_directories(fixture_symbol_svg_cache_test PRIVATE
                            ${wxWidgets_INCLUDE_DIRS})
 target_link_libraries(fixture_symbol_svg_cache_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureSymbolSvgCache COMMAND fixture_symbol_svg_cache_test)
-
-add_executable(project_symbol_cache_snapshot_test
-               project_symbol_cache_snapshot_test.cpp
-               ../core/symbol_cache_manifest.cpp
-               ../core/filesystem_path_utils.cpp)
-target_include_directories(project_symbol_cache_snapshot_test PRIVATE
-    ${CMAKE_SOURCE_DIR}/core
-    ${CMAKE_SOURCE_DIR}/models
-    ${CMAKE_SOURCE_DIR}/third_party
-    ${wxWidgets_INCLUDE_DIRS})
-target_link_libraries(project_symbol_cache_snapshot_test PRIVATE
-                      perastage_test_project_symbol_cache_snapshot)
-add_test(NAME ProjectSymbolCacheSnapshot COMMAND project_symbol_cache_snapshot_test)
 
 set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     fixture_label_overrides_reconcile_test
@@ -2313,14 +2271,15 @@ set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     symbol_fixture_applier_gdtf_test
     mvr_patched_gdtf_export_test
     layout_image_resource_registry_test)
-foreach(PERASTAGE_CONFIGMANAGER_TEST_TARGET IN LISTS PERASTAGE_CONFIGMANAGER_TEST_TARGETS)
-    target_link_libraries(${PERASTAGE_CONFIGMANAGER_TEST_TARGET} PRIVATE
-                          perastage_test_project_symbol_cache_snapshot)
-endforeach()
-
 get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                       ../core/fixture_gdtf_derivative_contract.cpp)
+    endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
        PERASTAGE_TEST_SOURCES AND
        ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
@@ -2396,6 +2355,7 @@ add_executable(dictionary_reset_transaction_test
                ../core/dictionary_reset_service.cpp
                ../core/file_import_utils.cpp
                ../core/filesystem_path_utils.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp
                ../core/gdtfdictionary.cpp
                ../core/layouts/LayoutManager.cpp
                ../core/layouts/LayoutImageResourceRegistry.cpp
@@ -2417,8 +2377,7 @@ target_include_directories(dictionary_reset_transaction_test PRIVATE
                            . ../core ../models ../third_party)
 target_link_libraries(dictionary_reset_transaction_test PRIVATE
                       ${wxWidgets_LIBRARIES}
-                      tinyxml2::tinyxml2
-                      perastage_test_project_symbol_cache_snapshot)
+                      tinyxml2::tinyxml2)
 add_test(NAME DictionaryResetTransaction COMMAND dictionary_reset_transaction_test)
 
 add_executable(dictionary_duplicate_test
@@ -2495,3 +2454,28 @@ add_executable(viewer3d_context_menu_model_test
 target_include_directories(viewer3d_context_menu_model_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME Viewer3DContextMenuModel COMMAND viewer3d_context_menu_model_test)
+
+add_executable(project_fixture_gdtf_consolidator_test
+               project_fixture_gdtf_consolidator_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/project_fixture_gdtf_consolidator.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(project_fixture_gdtf_consolidator_test PRIVATE
+                           ../core ../models support)
+target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_test_diagnostics)
+add_test(NAME ProjectFixtureGdtfConsolidator
+         COMMAND project_fixture_gdtf_consolidator_test)
+
+add_executable(fixture_gdtf_derivative_contract_test
+               fixture_gdtf_derivative_contract_test.cpp
+               support/gdtf_test_fixture_builder.cpp
+               ../core/fixture_gdtf_derivative_contract.cpp)
+target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
+                           ../core support)
+target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME FixtureGdtfDerivativeContract
+         COMMAND fixture_gdtf_derivative_contract_test)

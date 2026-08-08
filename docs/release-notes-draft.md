@@ -27,11 +27,6 @@ Changes since **v1.5.0**.
   print output, and PDF workflows without restarting Perastage, while project and GDTF
   changes can no longer reuse stale parsed symbol data.
 
-- Stabilized automatic fixture-symbol reuse around the project-owned GDTF archive,
-  selected mode, symbol format, and semantic content, so fixture type renames no
-  longer cause redundant work and identically named but distinct fixtures cannot
-  collide.
-
 - Added deterministic cross-platform fixture-symbol regression coverage and
   concise internal generation timing diagnostics to protect existing visual
   output and help diagnose future performance changes, including portable test
@@ -43,6 +38,15 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed MVR fixture replacement so multiple imported source aliases explicitly mapped
+  to the same GDTF Share revision and mode share one finalized project fixture. Canonical
+  `@Perastage.gdtf` derivatives now require all four stored symbol views before library
+  publication, while current projects load those views directly without startup symbol
+  generation or a persistent symbol manifest.
+
+- Restored the fixture-symbol archive mutation regression target across CI platforms
+  by keeping its cache-invalidation test boundary linked explicitly.
+
 - Preserved imported fixture IDs and unit numbers exactly through project saves and
   reloads, including intentional zero values, instead of retaining temporary
   standards-compliant export substitutions as editable project data.
@@ -53,19 +57,6 @@ Changes since **v1.5.0**.
   that users intentionally left empty remain empty through refresh, save, and
   reload. Automatic type colors no longer outrank legacy project recovery and
   remain portable in standalone MVR exports.
-
-- Fixed fixture-symbol persistence so project saves validate the exact GDTF
-  files packaged in `scene.mvr` before recording symbol-cache metadata. Valid
-  four-view symbols now survive an unchanged save and reload without redundant
-  regeneration across platforms, including mixed-case and Unicode resource
-  paths and consistently decoded canonical nested ZIP entries, while stale or
-  incomplete cache metadata is discarded safely.
-
-- Fixed project persistence for automatically generated fixture symbols when
-  both project and fixture-library copies are updated, preventing a library
-  synchronization issue from causing symbols to be regenerated after reload.
-  Manual symbol application now also distinguishes a successful project update
-  from a fixture-library synchronization warning.
 
 - Fixed the 3D viewport context menu failing to open in projects without
   fixtures or trusses, on other Data View pages, or when viewport picking is
@@ -135,6 +126,10 @@ Changes since **v1.5.0**.
 ## Current limitations
 
 ## Technical and packaging changes
+
+- Removed the obsolete whole-scene fixture-symbol startup queue and persistent
+  project symbol-manifest save path; finalized project-owned derivatives now provide
+  their stored views directly, while explicit regeneration remains available.
 
 - Strengthened cross-platform fixture-symbol persistence verification by
   releasing archive readers before atomic replacement and restoring temporary

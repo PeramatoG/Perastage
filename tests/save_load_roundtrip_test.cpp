@@ -23,7 +23,6 @@
 #include <iostream>
 #include <memory>
 #include <map>
-#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -44,7 +43,6 @@
 #include "matrixutils.h"
 #include "projectutils.h"
 #include "project_fixture_identity.h"
-#include "project_symbol_cache_snapshot.h"
 #include "sceneobject.h"
 #include "scene_node_operations.h"
 #include "support/zip_test_utils.h"
@@ -100,31 +98,6 @@ static std::map<std::string, std::vector<std::uint8_t>> ReadProjectEntries(
                     std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
   }
   return entries;
-}
-
-// Rewrites a project with a missing or replacement symbol-cache manifest.
-static void WriteProjectManifestVariant(
-    const std::filesystem::path &sourcePath,
-    const std::filesystem::path &destinationPath,
-    const std::optional<std::string> &manifestText) {
-  auto entries = ReadProjectEntries(sourcePath);
-  entries.erase(symbol_cache::kProjectArchiveEntryName);
-  if (manifestText) {
-    entries.emplace(symbol_cache::kProjectArchiveEntryName,
-                    std::vector<std::uint8_t>(manifestText->begin(),
-                                              manifestText->end()));
-  }
-  wxFileOutputStream output(
-      WxPathUtils::WxStringFromFilesystemPath(destinationPath));
-  assert(output.IsOk());
-  wxZipOutputStream zip(output);
-  for (const auto &[name, bytes] : entries) {
-    assert(zip.PutNextEntry(name));
-    if (!bytes.empty())
-      zip.Write(bytes.data(), bytes.size());
-    assert(zip.CloseEntry());
-  }
-  assert(zip.Close());
 }
 
 // Reads the fixture type name that the production GDTF loader restores.
@@ -318,6 +291,7 @@ int main() {
     tests::gdtf::BuildMinimalValidFixture()
         .WithFixtureIdentity("Dictionary", "Perastage",
                              "22222222-2222-4222-8222-222222222222")
+        .WithPerastageGeneratedSymbols()
         .WriteArchive(tempDir / "dict.gdtf");
     scene.basePath = tempDir.string();
 
@@ -533,7 +507,7 @@ int main() {
     const auto projectEntries = ReadProjectEntries(temp);
     assert(projectEntries.contains("config.json"));
     assert(projectEntries.contains("scene.mvr"));
-    assert(projectEntries.contains(symbol_cache::kProjectArchiveEntryName));
+    assert(!projectEntries.contains("perastage_symbol_cache_manifest.json"));
     const std::string sceneArchiveBytes(projectEntries.at("scene.mvr").begin(),
                                         projectEntries.at("scene.mvr").end());
     const auto sceneEntries = ReadZipEntries(sceneArchiveBytes);
@@ -565,24 +539,6 @@ int main() {
     assert(packagedGdtfEntries.contains("models/svg/main_bottom.svg"));
     assert(packagedGdtfEntries.contains("models/svg_front/main.svg"));
     assert(packagedGdtfEntries.contains("models/svg_side/main.svg"));
-    std::vector<symbol_cache::GdtfSemanticFingerprintEntry> fingerprintEntries;
-    for (const auto &[path, bytes] : packagedGdtfEntries)
-      fingerprintEntries.push_back({path, bytes});
-    std::string fingerprintError;
-    const std::string packagedFingerprint =
-        symbol_cache::ComputeGdtfSemanticFingerprintFromEntries(
-            fingerprintEntries, fingerprintError);
-    assert(!packagedFingerprint.empty());
-    symbol_cache::SymbolCacheManifest savedManifest;
-    std::string manifestError;
-    assert(savedManifest.LoadFromJsonText(
-        std::string(projectEntries.at(symbol_cache::kProjectArchiveEntryName).begin(),
-                    projectEntries.at(symbol_cache::kProjectArchiveEntryName).end()),
-        manifestError));
-    assert(savedManifest.Entries().size() == 1);
-    assert(savedManifest.Entries().front().gdtfSpec == savedGdtfSpec);
-    assert(savedManifest.Entries().front().gdtfContentHash == packagedFingerprint);
-
     const std::string canonicalFixtureUuid =
         CanonicalizeUuid(nonCanonicalFixtureUuid);
     assert(!canonicalFixtureUuid.empty());
@@ -681,12 +637,10 @@ int main() {
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000001").fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002").fixtureIdText == "S101B");
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
-               .fixtureIdNumeric > 0);
-    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000002")
-               .fixtureIdNumeric != 101);
+               .fixtureIdNumeric == 101);
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureId == 707);
-    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 707);
-    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "707");
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdNumeric == 44);
+    assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004").fixtureIdText == "Imported ID");
     assert(scene2.fixtures.at("20000000-0000-4000-8000-000000000004")
                .visualColorHex == "#778899");
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
@@ -719,40 +673,6 @@ int main() {
     assert(std::filesystem::path(loaded.gdtfSpec).filename() ==
            "Perastage@Original@Perastage.gdtf");
     assert(loaded.gdtfSpec == savedGdtfSpec);
-    std::string reloadFingerprintError;
-    const std::filesystem::path reloadedGdtfPath =
-        PathUtils::PathFromUtf8(scene2.basePath) /
-        PathUtils::PathFromUtf8(loaded.gdtfSpec);
-    symbol_cache::ValidationRequest reloadRequest;
-    Fixture productionReloadIdentity = loaded;
-    productionReloadIdentity.typeName = ReadFixtureTypeName(reloadedGdtfPath);
-    reloadRequest.fixtureTypeName = productionReloadIdentity.typeName;
-    reloadRequest.gdtfSpec = loaded.gdtfSpec;
-    reloadRequest.gdtfContentHash = symbol_cache::ComputeGdtfSemanticFingerprint(
-        PathUtils::PathToUtf8(reloadedGdtfPath), reloadFingerprintError);
-    assert(symbol_cache::BuildFixtureSymbolGenerationIdentity(
-        loaded.gdtfSpec, loaded.gdtfMode,
-        symbol_cache::kCurrentPerastageSymbolFormatVersion,
-        reloadRequest.gdtfContentHash, productionReloadIdentity.typeName,
-        reloadRequest.generationIdentity, reloadFingerprintError));
-    reloadRequest.requiredViews = symbol_cache::RequiredPerastageSymbolViews();
-    assert(!reloadRequest.gdtfContentHash.empty());
-    const auto reloadValidation =
-        cfg.GetSymbolCacheManifest().ValidateFixture(reloadRequest);
-    if (!reloadValidation.valid) {
-      std::cerr << "Reload cache validation failed: "
-                << symbol_cache::ValidationStatusName(reloadValidation.status)
-                << " key=" << reloadRequest.generationIdentity.key
-                << " spec=" << reloadRequest.gdtfSpec
-                << " hash=" << reloadRequest.gdtfContentHash << '\n';
-    }
-    assert(reloadValidation.valid);
-    assert(symbol_cache::PlanFixtureSymbolCacheMisses(
-               cfg.GetSymbolCacheManifest(), {reloadRequest})
-               .empty());
-
-    const auto manifestBeforeFailedSave =
-        cfg.GetSymbolCacheManifest().Entries();
     const auto dirtyStateBeforeFailedSave = cfg.CaptureDirtyState();
     std::error_code failedSaveCleanupError;
     std::filesystem::remove_all(tempDir / "missing-parent",
@@ -760,10 +680,6 @@ int main() {
     const std::filesystem::path invalidSavePath =
         tempDir / "missing-parent" / "failed.pstg";
     assert(!cfg.SaveProject(PathUtils::PathToUtf8(invalidSavePath)));
-    assert(cfg.GetSymbolCacheManifest().Entries().size() ==
-           manifestBeforeFailedSave.size());
-    assert(cfg.GetSymbolCacheManifest().Entries().front().gdtfContentHash ==
-           manifestBeforeFailedSave.front().gdtfContentHash);
     const auto dirtyStateAfterFailedSave = cfg.CaptureDirtyState();
     assert(dirtyStateAfterFailedSave.revision ==
            dirtyStateBeforeFailedSave.revision);
@@ -820,32 +736,14 @@ int main() {
                .fixtureIdText == "S101A");
     assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000002")
                .fixtureIdText == "S101B");
-    std::set<int> fixtureNumericIds;
-    for (const auto &[uuid, fixture] : scene3.fixtures) {
-      (void)uuid;
-      assert(fixture.fixtureIdNumeric > 0);
-      assert(fixtureNumericIds.insert(fixture.fixtureIdNumeric).second);
-    }
-
-    const std::filesystem::path missingManifestProject =
-        tempDir / std::filesystem::path(u8"sin_manifiesto.pstg");
-    const std::filesystem::path malformedManifestProject =
-        tempDir / std::filesystem::path(u8"manifiesto_inválido.pstg");
-    WriteProjectManifestVariant(temp, missingManifestProject, std::nullopt);
-    WriteProjectManifestVariant(temp, malformedManifestProject,
-                                std::string("{invalid"));
-    cfg.Reset();
-    assert(cfg.LoadProject(PathUtils::PathToUtf8(missingManifestProject)));
-    assert(!cfg.GetSymbolCacheManifest().HasLoadedManifest());
-    cfg.Reset();
-    assert(cfg.LoadProject(PathUtils::PathToUtf8(malformedManifestProject)));
-    assert(!cfg.GetSymbolCacheManifest().HasLoadedManifest());
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000001")
+               .fixtureIdNumeric == 101);
+    assert(scene3.fixtures.at("20000000-0000-4000-8000-000000000002")
+               .fixtureIdNumeric == 101);
 
     std::filesystem::remove(temp);
     std::filesystem::remove(legacyProject);
     std::filesystem::remove(secondProject);
-    std::filesystem::remove(missingManifestProject);
-    std::filesystem::remove(malformedManifestProject);
   std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +
                           "/dict.gdtf");
     GdtfDictionary::Save({});

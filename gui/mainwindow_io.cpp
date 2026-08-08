@@ -314,7 +314,6 @@ void MainWindow::OnSave(wxCommandEvent &event) {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
-  FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
   if (!cfg.SaveProject(currentProjectPath)) {
     const std::string reason = cfg.GetLastProjectSaveError().empty()
@@ -390,7 +389,6 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   // Always sync table edits before saving; each panel now applies only real changes.
   SyncSceneData();
-  FlushPendingFixtureSymbolLibraryUpdates();
   SaveUserConfigWithViewport2DState();
   if (!cfg.SaveProject(currentProjectPath)) {
     const std::string reason = cfg.GetLastProjectSaveError().empty()

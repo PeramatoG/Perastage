@@ -1914,9 +1914,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             projectFixtureIdentifiersByUuid.emplace(uuid,
                                                      std::move(identifiers));
           }
-          if (entry->Attribute("hasVisualColorHex") == nullptr)
-            continue;
-          projectFixtureColorMetadataUuids.insert(uuid);
+          const bool hasColorMarker =
+              entry->Attribute("hasVisualColorHex") != nullptr;
           const std::string hasColor = ToLowerCopy(Trim(
               entry->Attribute("hasVisualColorHex")
                   ? entry->Attribute("hasVisualColorHex")
@@ -1924,15 +1923,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const std::string color = Trim(entry->Attribute("visualColorHex")
                                              ? entry->Attribute("visualColorHex")
                                              : "");
-          const bool explicitClear = hasColor == "false" && color.empty();
-          if (!explicitClear && !isHexRgb(color)) {
+          if (!hasColorMarker && color.empty())
+            continue;
+          projectFixtureColorMetadataUuids.insert(uuid);
+          const bool explicitClear = hasColorMarker && hasColor == "false";
+          const bool present =
+              (!hasColorMarker || hasColor == "true") && isHexRgb(color);
+          if (!explicitClear && !present) {
             importResult.diagnostics.push_back(
                 {"invalid_project_fixture_visual_color",
                  "Ignored invalid project fixture visualColorHex for UUID '" +
                      uuid + "'."});
             continue;
           }
-          if (!projectFixtureColorsByUuid.emplace(uuid, color).second) {
+          const std::string storedColor = explicitClear ? std::string{} : color;
+          if (!projectFixtureColorsByUuid.emplace(uuid, storedColor).second) {
             importResult.diagnostics.push_back(
                 {"duplicate_project_fixture_metadata_uuid",
                  "Ignored duplicate project fixture metadata for UUID '" + uuid +
@@ -4352,6 +4357,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               }
 
               if (!catalogEntries.empty()) {
+                // Reuses one authoritative download when distinct import aliases
+                // explicitly resolve to the same GDTF Share revision.
+                std::unordered_map<std::string, std::string>
+                    downloadedPathByReplacement;
+                std::unordered_map<std::string, std::string>
+                    downloadedModeByReplacement;
                 summaryText->SetLabel(
                     wxString::Format(_("Selected fixture types for download (catalog entries: %zu)"),
                     catalogEntries.size()));
@@ -4438,7 +4449,26 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                     return bytesText;
                   };
-                  downloadResult = gdtfClient.DownloadRevision(
+                  const std::string replacementIdentity =
+                      mvr::gdtf_import_matching::BuildSelectedReplacementIdentity(
+                          bestMatch.rid, bestMatch.modeName);
+                  const auto reusedDownload =
+                      downloadedPathByReplacement.find(replacementIdentity);
+                  if (reusedDownload != downloadedPathByReplacement.end()) {
+                    selectedPathByType[req.type] = reusedDownload->second;
+                    const auto reusedMode =
+                        downloadedModeByReplacement.find(replacementIdentity);
+                    if (reusedMode != downloadedModeByReplacement.end())
+                      selectedModeByType[req.type] = reusedMode->second;
+                    downloadResult.category = GdtfShareResultCategory::Success;
+                    reportProgress(
+                        "[INFO] GDTF replacement reuse revision='" +
+                        bestMatch.rid + "' alias='" + req.type +
+                        "' canonical='" +
+                        fs::path(reusedDownload->second).filename().string() +
+                        "'");
+                  } else {
+                    downloadResult = gdtfClient.DownloadRevision(
                           bestMatch.rid, filePath,
                                    [&](const GdtfDownloadProgress &progress) {
                                      const long long downloadedBytes =
@@ -4467,10 +4497,19 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                      });
                                    },
                                    [&]() { return cancelRequested.load(); });
+                  }
                   if (downloadResult.Succeeded()) {
-                    selectedPathByType[req.type] = filePath;
+                    const std::string canonicalPath =
+                        reusedDownload != downloadedPathByReplacement.end()
+                            ? reusedDownload->second
+                            : filePath;
+                    selectedPathByType[req.type] = canonicalPath;
                     if (!bestMatch.modeName.empty())
                       selectedModeByType[req.type] = bestMatch.modeName;
+                    downloadedPathByReplacement.emplace(replacementIdentity,
+                                                     canonicalPath);
+                    downloadedModeByReplacement.emplace(replacementIdentity,
+                                                     bestMatch.modeName);
                     wxString details = _("Downloaded and assigned");
                     if (!bestMatch.modeName.empty())
                       details +=
