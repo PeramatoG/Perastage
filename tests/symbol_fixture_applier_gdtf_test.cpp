@@ -509,9 +509,13 @@ int main() {
   assert(sameFileResult.sceneUpdated);
   assert(sameFileResult.libraryUpdated);
   std::error_code equivalenceError;
-  assert(fs::equivalent(sameFileResult.finalScenePath,
-                        sameFileResult.finalLibraryPath, equivalenceError));
+  assert(!fs::equivalent(sameFileResult.finalScenePath,
+                         sameFileResult.finalLibraryPath, equivalenceError));
   assert(!equivalenceError);
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      sameFileResult.finalScenePath, derivativeValidationError));
+  assert(fixture_gdtf::ValidatePublishedDerivative(
+      sameFileResult.finalLibraryPath, derivativeValidationError));
   assert(CountSymbolMutationRevisions(sameFileArchive) == revisionsBefore + 1);
   assert(!InspectFixturePath("fixture-same-file-inspection",
                              sameFileArchive.string())

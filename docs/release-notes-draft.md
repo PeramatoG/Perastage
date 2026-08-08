@@ -148,6 +148,9 @@ Changes since **v1.5.0**.
 
 ## Technical and packaging changes
 
+- Updated fixture-derivative regression checks for the project-authoritative
+  publication policy, including separate project and optional library copies.
+
 - Removed the obsolete whole-scene fixture-symbol startup queue and persistent
   project symbol-manifest save path; finalized project-owned derivatives now provide
   their stored views directly, while explicit regeneration remains available.
