@@ -456,16 +456,6 @@ const MvrScene &ConfigManager::GetScene() const {
   return projectSession.GetScene();
 }
 
-// Returns mutable project-level fixture symbol cache metadata.
-symbol_cache::SymbolCacheManifest &ConfigManager::GetSymbolCacheManifest() {
-  return symbolCacheManifest;
-}
-
-// Returns read-only project-level fixture symbol cache metadata.
-const symbol_cache::SymbolCacheManifest &ConfigManager::GetSymbolCacheManifest() const {
-  return symbolCacheManifest;
-}
-
 const std::vector<std::string> &ConfigManager::GetSelectedFixtures() const {
   return selectionState.GetSelectedFixtures();
 }
@@ -624,17 +614,9 @@ const std::string &ConfigManager::GetLastProjectSaveError() const {
   return lastProjectSaveError;
 }
 
-// Loads a project package and restores optional symbol cache metadata.
+// Loads a project package and restores project configuration and scene data.
 bool ConfigManager::LoadProject(const std::string &path,
                                 LoadProjectProgressCallback progressCallback) {
-  symbol_cache::SymbolCacheManifest restoredSymbolManifest;
-  std::string manifestError;
-  if (!restoredSymbolManifest.LoadFromProjectArchive(path, manifestError)) {
-    Logger::Instance().Log(Logger::Level::Warn,
-                           "Ignoring symbol cache manifest: " + manifestError);
-    restoredSymbolManifest.Clear();
-  }
-
   const bool hasUserView2dDarkMode = HasKey("view2d_dark_mode");
   const float userView2dDarkMode = GetFloat("view2d_dark_mode");
   const auto userInteractionPreferences =
@@ -683,7 +665,6 @@ bool ConfigManager::LoadProject(const std::string &path,
       });
 
   if (ok) {
-    symbolCacheManifest = std::move(restoredSymbolManifest);
     const auto normalization =
         project_identity::NormalizeFixtureLabelOverrides(
             GetValue(project_identity::kFixtureLabelOverridesConfigKey),
@@ -706,17 +687,14 @@ bool ConfigManager::LoadProject(const std::string &path,
     ClearHistory();
     selectionState.Clear();
     projectSession.ResetDirty();
-  } else {
-    symbolCacheManifest.Clear();
   }
   return ok;
 }
 
-// Resets configuration, symbol cache metadata, and scene state for a fresh project.
+// Resets configuration and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);
   preferencesStore.ClearValues();
-  symbolCacheManifest.Clear();
   projectSession.GetScene().Clear();
   if (!HasKey("ui_distance_unit_system"))
     SetValue("ui_distance_unit_system", "metric");

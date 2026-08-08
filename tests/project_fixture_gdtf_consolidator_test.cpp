@@ -2,7 +2,6 @@
 
 #include "gdtf_test_fixture_builder.h"
 #include "mvrscene.h"
-#include "symbol_cache_manifest.h"
 
 #include <cassert>
 #include <filesystem>
@@ -35,6 +34,7 @@ static void VerifyFingerprintAndConsolidation() {
                            "BF9967F2-4FC4-4BC7-9C1B-2CA2A15EF507")
       .WithDmxMode("Shapes", "Root")
       .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
       .WithArchiveEntry("models/main.3ds", "authoritative-model")
       .WriteArchive(root / baseName);
   tests::gdtf::BuildMinimalValidFixture()
@@ -63,14 +63,7 @@ static void VerifyFingerprintAndConsolidation() {
   assert(!baseFingerprint.empty());
   assert(baseFingerprint == duplicateFingerprint);
   assert(baseFingerprint != editedFingerprint);
-  const std::string strictBase =
-      symbol_cache::ComputeGdtfSemanticFingerprint((root / baseName).string(),
-                                                   error);
-  const std::string strictDuplicate =
-      symbol_cache::ComputeGdtfSemanticFingerprint(
-          (root / duplicateName).string(), error);
-  assert(!strictBase.empty());
-  assert(strictBase != strictDuplicate);
+
 
   MvrScene scene;
   scene.basePath = root.string();
@@ -82,9 +75,8 @@ static void VerifyFingerprintAndConsolidation() {
     const std::string uuid = "duplicate-" + std::to_string(index);
     scene.fixtures.emplace(uuid, BuildFixture(uuid, duplicateName));
   }
-  symbol_cache::SymbolCacheManifest manifest;
   const project_gdtf::ConsolidationPlan plan =
-      project_gdtf::BuildConsolidationPlan(scene, manifest);
+      project_gdtf::BuildConsolidationPlan(scene);
   assert(plan.groups.size() == 1);
   assert(plan.groups.front().survivorGdtfSpec == baseName);
   assert(plan.groups.front().rebindings.size() == 4);
@@ -107,7 +99,7 @@ static void VerifyFingerprintAndConsolidation() {
   Fixture standard = BuildFixture("standard", duplicateName);
   standard.gdtfMode = "Standard";
   differentModes.fixtures.emplace("standard", standard);
-  assert(project_gdtf::BuildConsolidationPlan(differentModes, manifest)
+  assert(project_gdtf::BuildConsolidationPlan(differentModes)
              .groups.empty());
   fs::remove_all(root);
 }

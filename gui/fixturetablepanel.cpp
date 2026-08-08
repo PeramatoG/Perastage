@@ -668,9 +668,6 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
                                FixtureTableColumns::Column::Power)));
     UpdateSceneData(true, updateType);
     RefreshViewersForFixtureUpdate(updateType);
-    if (MainWindow::Instance()) {
-      MainWindow::Instance()->RequestFixtureSymbolAutoUpdate();
-    }
     return;
   }
 

@@ -168,8 +168,7 @@ bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
       *storedVersion == std::to_string(kCurrentGdtfDerivativeContractVersion))
     return false;
   const project_gdtf::ConsolidationPlan plan =
-      project_gdtf::BuildConsolidationPlan(cfg.GetScene(),
-                                           cfg.GetSymbolCacheManifest());
+      project_gdtf::BuildConsolidationPlan(cfg.GetScene());
   std::string errorMessage;
   if (!project_gdtf::ApplyConsolidationPlan(cfg.GetScene(), plan,
                                             errorMessage)) {
@@ -191,12 +190,6 @@ bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
   if (reboundCount > 0)
     cfg.MarkDirty();
   return reboundCount > 0;
-}
-
-// Returns true when the status bar text corresponds to fixture symbol
-// auto-update progress.
-bool IsFixtureSymbolStatusMessage(const wxString &statusText) {
-  return statusText.StartsWith("Fixture symbol auto-update");
 }
 
 // Formats a world-space position for the status bar using the active distance
@@ -543,7 +536,6 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 MainWindow::~MainWindow() {
   guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
       {});
-  CleanupFixtureAutoUpdateStatusTimer();
   cursorStatusCallbackLifetimeToken.reset();
   if (viewport2DPanel)
     viewport2DPanel->SetCursorWorldPositionCallback({});
@@ -1082,14 +1074,9 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     return;
   }
 
-  fixtureSymbolAutoUpdateCompletionCallback = [this]() {
-    RequestStartupSplashCompletion();
-  };
-
   SplashScreen::SetMessage(_("Loading project file..."));
   wxYieldIfNeeded();
   if (!LoadProjectFromPath(path, false)) {
-    fixtureSymbolAutoUpdateCompletionCallback = nullptr;
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
     RequestStartupSplashCompletion();
@@ -1116,14 +1103,6 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
     layouts::LayoutManager::Get().LoadDefaultsForNewProject(cfg);
   RestorePreferencesDialogValues(preferences, preservedPreferences);
   cfg.MarkSaved();
-  fixtureSymbolAutoUpdateQueue.clear();
-  fixtureSymbolAutoUpdateProcessedKeys.clear();
-  fixtureSymbolPendingLibrarySyncUuids.clear();
-  fixtureSymbolAutoUpdateGeneratedTypes.clear();
-  fixtureSymbolAutoUpdateErrors.clear();
-  fixtureSymbolAutoUpdateGeneratedTypeSet.clear();
-  fixtureSymbolAutoUpdateRunning = false;
-  fixtureSymbolAutoUpdateCompletionCallback = nullptr;
   startupSplashCloseRequested = false;
   currentProjectPath.clear();
   currentProjectDisplayName.clear();
@@ -1429,17 +1408,11 @@ void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
 }
 
-// Mirrors layout-render updates unless fixture symbol generation is currently
-// reporting progress.
+// Mirrors layout-render updates to the main status indicator.
 void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
   const wxString statusMessage = event.GetString();
   if (statusMessage.CmpNoCase("Layout render completed.") == 0) {
     ClearLayoutLoadingIndicator();
-    return;
-  }
-  if (fixtureSymbolAutoUpdateRunning ||
-      (GetStatusBar() &&
-       IsFixtureSymbolStatusMessage(GetStatusBar()->GetStatusText(0)))) {
     return;
   }
   ShowLayoutLoadingIndicator(statusMessage);

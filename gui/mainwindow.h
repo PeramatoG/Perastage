@@ -101,7 +101,6 @@ public:
   void RestoreLayout2DViewState(int viewId);
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshAfterToolSceneUpdate();
-  void RequestFixtureSymbolAutoUpdate();
   void UpdateHighlightedWorldPositionInStatusBar(
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearHighlightedWorldPositionInStatusBar();
@@ -282,17 +281,12 @@ private:
   bool GuardStartupProjectLoadAction(const wxString &actionLabel);
   bool ConfirmSaveIfDirty(const wxString &actionLabel,
                           const wxString &dialogTitle);
-  void StartFixtureSymbolAutoUpdateForLoadedScene();
-  void ProcessNextFixtureSymbolAutoUpdate();
   void ClearBlockingProjectLoadUi();
   void CompleteStartupSplashInitialization();
   void RequestStartupSplashCompletion();
   void QueueDeferredStartupOpenPath(const std::string &path);
   void ProcessDeferredStartupOpenPath();
   void OnStartupSplashCloseIdle(wxIdleEvent &event);
-  void FlushPendingFixtureSymbolLibraryUpdates();
-  std::string BuildFixtureSymbolAutoUpdateSummary() const;
-  void CleanupFixtureAutoUpdateStatusTimer();
   std::string defaultLayoutPerspective;
   std::string default2DLayoutPerspective;
   std::string defaultLayoutModePerspective;
@@ -305,14 +299,6 @@ private:
   Viewer2DRenderPanel *layout2DViewEditRenderPanel = nullptr;
   std::optional<viewer2d::Viewer2DState> standalone2DState;
   std::unique_ptr<wxBusyCursor> layoutRenderCursor;
-  std::vector<std::string> fixtureSymbolAutoUpdateQueue;
-  std::unordered_set<std::string> fixtureSymbolAutoUpdateProcessedKeys;
-  std::unordered_set<std::string> fixtureSymbolPendingLibrarySyncUuids;
-  std::vector<std::string> fixtureSymbolAutoUpdateGeneratedTypes;
-  std::vector<std::string> fixtureSymbolAutoUpdateErrors;
-  std::unordered_set<std::string> fixtureSymbolAutoUpdateGeneratedTypeSet;
-  bool fixtureSymbolAutoUpdateRunning = false;
-  std::function<void()> fixtureSymbolAutoUpdateCompletionCallback;
   bool startupSplashInitializationPending = true;
   bool startupSplashCloseRequested = false;
   bool startupProjectLoadPending = true;

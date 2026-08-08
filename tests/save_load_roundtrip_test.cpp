@@ -23,7 +23,6 @@
 #include <iostream>
 #include <memory>
 #include <map>
-#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -44,7 +43,6 @@
 #include "matrixutils.h"
 #include "projectutils.h"
 #include "project_fixture_identity.h"
-#include "project_symbol_cache_snapshot.h"
 #include "sceneobject.h"
 #include "scene_node_operations.h"
 #include "support/zip_test_utils.h"
@@ -100,31 +98,6 @@ static std::map<std::string, std::vector<std::uint8_t>> ReadProjectEntries(
                     std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
   }
   return entries;
-}
-
-// Rewrites a project with a missing or replacement symbol-cache manifest.
-static void WriteProjectManifestVariant(
-    const std::filesystem::path &sourcePath,
-    const std::filesystem::path &destinationPath,
-    const std::optional<std::string> &manifestText) {
-  auto entries = ReadProjectEntries(sourcePath);
-  entries.erase(symbol_cache::kProjectArchiveEntryName);
-  if (manifestText) {
-    entries.emplace(symbol_cache::kProjectArchiveEntryName,
-                    std::vector<std::uint8_t>(manifestText->begin(),
-                                              manifestText->end()));
-  }
-  wxFileOutputStream output(
-      WxPathUtils::WxStringFromFilesystemPath(destinationPath));
-  assert(output.IsOk());
-  wxZipOutputStream zip(output);
-  for (const auto &[name, bytes] : entries) {
-    assert(zip.PutNextEntry(name));
-    if (!bytes.empty())
-      zip.Write(bytes.data(), bytes.size());
-    assert(zip.CloseEntry());
-  }
-  assert(zip.Close());
 }
 
 // Reads the fixture type name that the production GDTF loader restores.
@@ -534,7 +507,7 @@ int main() {
     const auto projectEntries = ReadProjectEntries(temp);
     assert(projectEntries.contains("config.json"));
     assert(projectEntries.contains("scene.mvr"));
-    assert(!projectEntries.contains(symbol_cache::kProjectArchiveEntryName));
+    assert(!projectEntries.contains("perastage_symbol_cache_manifest.json"));
     const std::string sceneArchiveBytes(projectEntries.at("scene.mvr").begin(),
                                         projectEntries.at("scene.mvr").end());
     const auto sceneEntries = ReadZipEntries(sceneArchiveBytes);

@@ -87,7 +87,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/legendsymbolcapture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/logindialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_fixture_symbol_autoupdate.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_startup_splash.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_io_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow/controllers/mainwindow_view_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_io.cpp

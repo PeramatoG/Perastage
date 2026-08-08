@@ -5,10 +5,6 @@
 
 class MvrScene;
 
-namespace symbol_cache {
-class SymbolCacheManifest;
-}
-
 namespace project_gdtf {
 
 struct Rebind {
@@ -36,9 +32,7 @@ std::string ComputeBaseGdtfFingerprint(const std::string &path,
                                        std::string &errorMessage);
 
 // Builds a deterministic and inspectable project-resource consolidation plan.
-ConsolidationPlan BuildConsolidationPlan(
-    const MvrScene &scene,
-    const symbol_cache::SymbolCacheManifest &manifest);
+ConsolidationPlan BuildConsolidationPlan(const MvrScene &scene);
 
 // Applies a fully validated plan atomically to fixture GDTF references.
 bool ApplyConsolidationPlan(MvrScene &scene, const ConsolidationPlan &plan,

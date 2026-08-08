@@ -1,8 +1,8 @@
 #include "project_fixture_gdtf_consolidator.h"
 
 #include "filesystem_path_utils.h"
+#include "fixture_gdtf_derivative_contract.h"
 #include "mvrscene.h"
-#include "symbol_cache_manifest.h"
 
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
@@ -155,28 +155,6 @@ std::string ResolveProjectPath(const MvrScene &scene, const std::string &spec) {
   return PathUtils::PathToUtf8(ec ? path.lexically_normal() : canonical);
 }
 
-// Returns whether the exact manifest entry proves a current complete symbol set.
-bool HasValidManifestEntry(const symbol_cache::SymbolCacheManifest &manifest,
-                           const std::string &spec, const std::string &mode,
-                           const std::string &path) {
-  std::string error;
-  const std::string strict =
-      symbol_cache::ComputeGdtfSemanticFingerprint(path, error);
-  if (strict.empty())
-    return false;
-  const std::set<std::string> required =
-      symbol_cache::RequiredPerastageSymbolViews();
-  for (const auto &entry : manifest.Entries()) {
-    if (entry.gdtfSpec == spec && entry.gdtfContentHash == strict &&
-        entry.generationIdentity.gdtfMode == mode &&
-        entry.hasPerastageSymbols &&
-        std::includes(entry.availableViews.begin(), entry.availableViews.end(),
-                      required.begin(), required.end()))
-      return true;
-  }
-  return false;
-}
-
 // Returns whether a filename is the canonical unsuffixed derivative.
 bool IsUnsuffixed(const std::string &spec) {
   const std::string stem = fs::path(spec).stem().string();
@@ -247,9 +225,7 @@ std::string ComputeBaseGdtfFingerprint(const std::string &path,
 }
 
 // Builds a deterministic and inspectable project-resource consolidation plan.
-ConsolidationPlan BuildConsolidationPlan(
-    const MvrScene &scene,
-    const symbol_cache::SymbolCacheManifest &manifest) {
+ConsolidationPlan BuildConsolidationPlan(const MvrScene &scene) {
   struct Candidate {
     std::string spec;
     std::string path;
@@ -283,10 +259,11 @@ ConsolidationPlan BuildConsolidationPlan(
           fs::path(candidate.spec).filename().string() + "' reason='" +
           error + "'");
     }
+    std::string contractError;
     candidate.validSymbols =
         !candidate.fingerprint.empty() &&
-        HasValidManifestEntry(manifest, candidate.spec, candidate.mode,
-                              candidate.path);
+        fixture_gdtf::ValidatePublishedDerivative(candidate.path,
+                                                  contractError);
   }
   std::map<std::string, std::vector<Candidate *>> groups;
   for (auto &[key, candidate] : candidates) {
