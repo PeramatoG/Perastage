@@ -179,8 +179,12 @@ bool ConsolidateLoadedProjectGdtfs(ConfigManager &cfg) {
   size_t reboundCount = 0;
   for (const project_gdtf::ConsolidationGroup &group : plan.groups)
     reboundCount += group.rebindings.size();
-  for (const std::string &diagnostic : plan.diagnostics)
-    wxLogMessage("%s", diagnostic.c_str());
+  for (const std::string &diagnostic : plan.diagnostics) {
+    Logger::Instance().Log(Logger::Level::Info, diagnostic);
+    if (ConsolePanel::Instance())
+      ConsolePanel::Instance()->AppendMessage(
+          "[INFO] " + wxString::FromUTF8(diagnostic));
+  }
   if (plan.complete) {
     cfg.SetValue(kGdtfDerivativeContractVersionKey,
                  std::to_string(kCurrentGdtfDerivativeContractVersion));

@@ -38,6 +38,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Replaced the blocking project GDTF consolidation information dialog with a
+  non-blocking message in the program console while retaining the diagnostic
+  in the persistent application log.
+
 - Fixed MVR fixture replacement so multiple imported source aliases explicitly mapped
   to the same GDTF Share revision and mode share one finalized project fixture. Canonical
   `@Perastage.gdtf` derivatives now require all four stored symbol views before library
