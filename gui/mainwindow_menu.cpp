@@ -1024,6 +1024,7 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   }
 
   userConfigPersistedOnClose = true;
+  NotifyFixtureSymbolProjectReplaced(false);
 
   if (viewportPanel)
     viewportPanel->StopRefreshThread();

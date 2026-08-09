@@ -6,8 +6,9 @@
 
 #include <wx/gdicmn.h>
 
-#include "symbols/Symbol2D.h"
 #include "symbols/FixtureSymbolDiagnostics.h"
+#include "symbols/Symbol2D.h"
+#include "symbols/Symbol2DImageBuilder.h"
 #include "tools/fixture_geometry_bounds.h"
 
 class ConfigManager;
@@ -40,9 +41,25 @@ struct SceneModelSymbolCaptureResult {
   FixtureGeometryBounds fixtureBoundsMm;
 };
 
-SceneModelSymbolCaptureResult
-CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
-                                     ConfigManager &cfg,
+struct SceneModelSymbolCaptureStepResult {
+  bool ok = false;
+  std::string error;
+  std::optional<symbols::RenderedSymbolImage> image;
+  FixtureGeometryBounds fixtureBoundsMm;
+};
+
+SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
+    const SceneModelSymbolTarget &target, std::size_t stepIndex,
+    const SceneModelSymbolCaptureOptions &options = {});
+
+SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(
+    std::vector<symbols::RenderedSymbolImage> renders,
+    const FixtureGeometryBounds &fixtureBoundsMm,
+    symbols::FixtureSymbolTimings *timings = nullptr);
+
+SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
                                      const SceneModelSymbolTarget &target,
                                      const SceneModelSymbolCaptureOptions &options = {});
 

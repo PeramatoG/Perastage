@@ -52,4 +52,16 @@ SceneDataManager::SceneSnapshot BuildSceneModelSymbolCaptureSnapshot(
   return snapshot;
 }
 
+// Runs one controlled render operation against an immutable capture snapshot.
+bool ExecuteSceneModelSymbolCaptureBoundary(
+    const MvrScene &scene, const SceneModelSymbolTarget &target,
+    const SceneModelSymbolCaptureOptions &options,
+    const std::function<bool(const SceneDataManager::SceneSnapshot &)>
+        &operation) {
+  const SceneDataManager::SceneSnapshot snapshot =
+      BuildSceneModelSymbolCaptureSnapshot(scene, target, options);
+  SceneDataManager::ScopedSnapshot isolatedScene(snapshot);
+  return operation(snapshot);
+}
+
 } // namespace tools

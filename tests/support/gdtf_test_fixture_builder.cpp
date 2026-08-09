@@ -164,7 +164,7 @@ FixtureBuilder &FixtureBuilder::WithPerastageGeneratedSymbols() {
   modelFileBase = "main";
   const std::string svg =
       "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
-      "<path d=\"M 0 0 L 10 0 L 10 10 L 0 10 Z\"/></svg>";
+      "<polygon points=\"0,0 10,0 10,10 0,10\"/></svg>";
   archiveEntries.emplace_back("models/svg/main.svg", svg);
   archiveEntries.emplace_back("models/svg/main_bottom.svg", svg);
   archiveEntries.emplace_back("models/svg_front/main.svg", svg);

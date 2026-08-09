@@ -57,7 +57,8 @@ symbols::RenderedSymbolImage MakeRender(symbols::SymbolView view, int variant) {
   return render;
 }
 
-// Constructs concave, disconnected, holed, and diagonally touching fill contours.
+// Constructs concave, disconnected, holed, and diagonally touching fill
+// contours.
 symbols::RenderedSymbolImage MakeContourRender() {
   symbols::RenderedSymbolImage render{
       symbols::SymbolView::Top, 42, 32,
@@ -90,8 +91,8 @@ double RingArea(const symbols::Polyline2D &ring) {
   for (size_t index = 0; index < ring.size(); ++index) {
     const auto &a = ring[index];
     const auto &b = ring[(index + 1) % ring.size()];
-    twiceArea += static_cast<double>(a.x) * b.y -
-                 static_cast<double>(b.x) * a.y;
+    twiceArea +=
+        static_cast<double>(a.x) * b.y - static_cast<double>(b.x) * a.y;
   }
   return twiceArea * 0.5;
 }
@@ -203,7 +204,37 @@ bool TestCapturePlan() {
          plan[3].forceBottomViewForTopFixtures && !plan[3].mirrorHorizontally;
 }
 
-// Verifies deterministic contour topology, collection order, and exact filled area.
+// Verifies manual orchestration delivers the capture plan through calibration.
+bool TestManualCaptureOrchestration() {
+  const auto &plan = symbols::FixtureSymbolCapturePlan();
+  std::vector<symbols::RenderedSymbolImage> renders;
+  for (std::size_t index = 0; index < plan.size(); ++index)
+    renders.push_back(
+        MakeRender(plan[index].symbolView, static_cast<int>(index)));
+  auto previewInput =
+      symbols::Symbol2DImageBuilder::BuildFromRenderedImagesSequential(renders);
+  for (auto &symbol : previewInput)
+    symbols::SimplifySymbolGeometry(symbol, 1.0f);
+  tools::FixtureGeometryBounds bounds;
+  bounds.min = {-40.0f, -25.0f, -60.0f};
+  bounds.max = {80.0f, 45.0f, 90.0f};
+  bounds.valid = true;
+  std::string error;
+  if (!tools::CalibrateFixtureSymbolsToPhysicalUnits(bounds, previewInput,
+                                                     error))
+    return false;
+  std::array<bool, 4> delivered{};
+  for (const auto &symbol : previewInput) {
+    delivered[static_cast<std::size_t>(symbol.view)] =
+        symbol.bounds.valid && !symbol.fill.empty();
+  }
+  return previewInput.size() == plan.size() &&
+         std::all_of(delivered.begin(), delivered.end(),
+                     [](bool value) { return value; });
+}
+
+// Verifies deterministic contour topology, collection order, and exact filled
+// area.
 bool TestDeterministicContours() {
   symbols::ImageBuildParams params;
   params.fillGapClosurePixels = 0;
@@ -213,7 +244,8 @@ bool TestDeterministicContours() {
       symbols::Symbol2DImageBuilder::BuildFromRenderedImage(render, params);
   if (!expected || expected->fill.size() != 3 ||
       expected->fill.front().holes.size() != 2) {
-    std::cerr << "Contour topology mismatch: expected three outer rings and two "
+    std::cerr
+        << "Contour topology mismatch: expected three outer rings and two "
                  "holes in the largest ring\n";
     return false;
   }
@@ -288,14 +320,16 @@ void RecordFailedArchiveRewrite(symbols::FixtureSymbolTimings &timings) {
       &timings, symbols::FixtureSymbolPhase::ArchiveRewrite);
 }
 
-// Verifies timing totals, disabled behavior, outcomes, order, and locale stability.
+// Verifies timing totals, disabled behavior, outcomes, order, and locale
+// stability.
 bool TestTimings() {
   symbols::FixtureSymbolTimings disabled;
   {
     symbols::ScopedFixtureSymbolPhase phase(
         &disabled, symbols::FixtureSymbolPhase::Capture);
   }
-  bool ok = !disabled.Enabled() &&
+  bool ok =
+      !disabled.Enabled() &&
             disabled.Total() == symbols::FixtureSymbolTimings::Duration::zero() &&
             !disabled.Has(symbols::FixtureSymbolPhase::Capture);
 
@@ -319,7 +353,8 @@ bool TestTimings() {
               std::chrono::microseconds(6));
   const std::string skipped =
       timings.Format("fixture", "key", symbols::FixtureSymbolOutcome::Skipped);
-  ok = ok && timings.Elapsed(symbols::FixtureSymbolPhase::Resolve).count() == 7 &&
+  ok = ok &&
+       timings.Elapsed(symbols::FixtureSymbolPhase::Resolve).count() == 7 &&
       !timings.Has(symbols::FixtureSymbolPhase::Capture) &&
       skipped.find("resolve_us=7 fingerprint_us=5 inspect_us=- bounds_us=- "
                    "capture_us=- vectorization_us=- calibration_us=- "
@@ -330,8 +365,8 @@ bool TestTimings() {
        i < static_cast<size_t>(symbols::FixtureSymbolPhase::Count); ++i)
     generated.Add(static_cast<symbols::FixtureSymbolPhase>(i),
                   std::chrono::microseconds(i + 1));
-  const std::string generatedText = generated.Format(
-      "x", "y", symbols::FixtureSymbolOutcome::Generated);
+  const std::string generatedText =
+      generated.Format("x", "y", symbols::FixtureSymbolOutcome::Generated);
   const std::string orderedPhases =
       "resolve_us=1 fingerprint_us=2 inspect_us=3 bounds_us=4 capture_us=5 "
       "vectorization_us=6 calibration_us=7 archive_rewrite_us=8 "
@@ -359,6 +394,7 @@ bool TestTimings() {
 // Runs the fixture-symbol structural and timing regression contracts.
 int main() {
   return TestStructuralBaselines() && TestCapturePlan() &&
+                 TestManualCaptureOrchestration() &&
                  TestDeterministicContours() && TestTimings()
              ? 0
              : 1;

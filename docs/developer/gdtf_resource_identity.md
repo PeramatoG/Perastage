@@ -70,3 +70,13 @@ step, and CPU processing and transactional publication are explicit later states
 Missing or invalid SVGs continue to use rendered geometry immediately. Preparation
 does not wait in Save, Load, MVR import/export, print, layout, or PDF operations and no
 queue state or symbol manifest is persisted.
+
+The MainWindow-owned preparation service starts a new epoch for New, Open, MVR scene
+replacement, and Close. It posts the initial unique-resource scan only after project
+setup returns to the wx event loop. Renderers report a missing symbol through a
+GUI-independent runtime callback; they continue drawing fallback geometry while the
+service captures warm-up, Front, Top, Side, and Bottom in separate event-loop slices.
+Successful transactional apply invalidates the existing symbol caches and refreshes
+the affected viewers without reopening the project. Manual preview generation cancels
+matching automatic work before using the same incremental capture primitives through
+the synchronous compatibility wrapper; Apply remains an explicit preview action.

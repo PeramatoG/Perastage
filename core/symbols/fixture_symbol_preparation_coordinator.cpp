@@ -25,7 +25,8 @@ std::uint64_t FixtureSymbolPreparationCoordinator::BeginProjectEpoch() {
   return epoch_;
 }
 
-// Coalesces a request and promotes an automatic request when manual work arrives.
+// Coalesces a request and promotes an automatic request when manual work
+// arrives.
 bool FixtureSymbolPreparationCoordinator::Request(
     const FixtureSymbolPreparationKey &key, std::string canonicalTarget,
     FixtureSymbolPreparationPriority priority) {
@@ -45,7 +46,8 @@ FixtureSymbolPreparationCoordinator::NextQueued() {
   FixtureSymbolPreparationJob *selected = nullptr;
   for (auto &[key, job] : jobs_) {
     (void)key;
-    if (job.epoch != epoch_ || job.state != FixtureSymbolPreparationState::Queued)
+    if (job.epoch != epoch_ ||
+        job.state != FixtureSymbolPreparationState::Queued)
       continue;
     if (!selected || job.priority == FixtureSymbolPreparationPriority::Manual)
       selected = &job;
@@ -103,6 +105,29 @@ bool FixtureSymbolPreparationCoordinator::Complete(
   publishingTargets_.erase(it->second.canonicalTarget);
   it->second.state = success ? FixtureSymbolPreparationState::Completed
                              : FixtureSymbolPreparationState::Failed;
+  return true;
+}
+
+// Stops active work in a failed cooldown state for the current project epoch.
+bool FixtureSymbolPreparationCoordinator::Fail(
+    const FixtureSymbolPreparationKey &key, std::uint64_t epoch) {
+  auto it = jobs_.find(key);
+  if (!IsCurrent(epoch) || it == jobs_.end() || it->second.epoch != epoch)
+    return false;
+  publishingTargets_.erase(it->second.canonicalTarget);
+  it->second.state = FixtureSymbolPreparationState::Failed;
+  return true;
+}
+
+// Completes queued work when a serialized predecessor already published
+// symbols.
+bool FixtureSymbolPreparationCoordinator::Skip(
+    const FixtureSymbolPreparationKey &key, std::uint64_t epoch) {
+  auto it = jobs_.find(key);
+  if (!IsCurrent(epoch) || it == jobs_.end() || it->second.epoch != epoch ||
+      it->second.state != FixtureSymbolPreparationState::Queued)
+    return false;
+  it->second.state = FixtureSymbolPreparationState::Completed;
   return true;
 }
 

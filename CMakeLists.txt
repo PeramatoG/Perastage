@@ -243,6 +243,7 @@ add_executable(${PROJECT_NAME} main.cpp
     core/runtime_storage.cpp
     core/fixture_gdtf_derivative_contract.cpp
     core/symbols/fixture_symbol_preparation_coordinator.cpp
+    core/symbols/fixture_symbol_preparation_requests.cpp
     core/fixture_gdtf_derivative_publication.cpp
     core/mvr_identity_recovery.cpp
     core/project_fixture_gdtf_consolidator.cpp

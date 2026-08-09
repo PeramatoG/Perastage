@@ -1,0 +1,60 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "symbols/FixtureSymbolDiagnostics.h"
+#include "symbols/Symbol2D.h"
+#include "symbols/Symbol2DImageBuilder.h"
+#include "symbols/fixture_symbol_preparation_coordinator.h"
+#include "tools/fixture_geometry_bounds.h"
+
+class MainWindow;
+
+namespace gui {
+
+class FixtureSymbolPreparationService {
+public:
+  explicit FixtureSymbolPreparationService(MainWindow &window);
+  ~FixtureSymbolPreparationService();
+
+  void BeginProjectEpoch(bool scheduleScan);
+  void ScheduleScan();
+  void Request(const std::string &effectiveGdtfPath,
+               const std::string &exactGdtfMode,
+               symbols::FixtureSymbolPreparationPriority priority =
+                   symbols::FixtureSymbolPreparationPriority::Automatic);
+  void PromoteManualFixture(const std::string &fixtureUuid);
+
+private:
+  struct WorkContext {
+    std::string fixtureUuid;
+    std::vector<symbols::RenderedSymbolImage> renders;
+    tools::FixtureGeometryBounds bounds;
+    std::size_t nextCaptureStep = 0;
+  };
+
+  void ScanCurrentProject();
+  void ScheduleNextStep();
+  void RunNextStep();
+  void FailCurrent(const std::string &diagnostic);
+  void UpdateStatus();
+  std::string
+  FindFixtureUuid(const symbols::FixtureSymbolPreparationKey &key) const;
+
+  MainWindow &window_;
+  symbols::FixtureSymbolPreparationCoordinator coordinator_;
+  std::unordered_map<symbols::FixtureSymbolPreparationKey, WorkContext,
+                     symbols::FixtureSymbolPreparationKeyHash>
+      work_;
+  std::shared_ptr<int> lifetime_ = std::make_shared<int>(0);
+  std::uint64_t epoch_ = 0;
+  bool stepScheduled_ = false;
+  std::optional<symbols::FixtureSymbolPreparationKey> currentKey_;
+};
+
+} // namespace gui

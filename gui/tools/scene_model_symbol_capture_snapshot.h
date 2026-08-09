@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "scenedatamanager.h"
 #include "tools/scene_model_symbol_capture_service.h"
 
@@ -11,5 +13,11 @@ namespace tools {
 SceneDataManager::SceneSnapshot BuildSceneModelSymbolCaptureSnapshot(
     const MvrScene &scene, const SceneModelSymbolTarget &target,
     const SceneModelSymbolCaptureOptions &options);
+
+bool ExecuteSceneModelSymbolCaptureBoundary(
+    const MvrScene &scene, const SceneModelSymbolTarget &target,
+    const SceneModelSymbolCaptureOptions &options,
+    const std::function<bool(const SceneDataManager::SceneSnapshot &)>
+        &operation);
 
 } // namespace tools

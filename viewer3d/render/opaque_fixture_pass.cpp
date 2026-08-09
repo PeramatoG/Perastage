@@ -38,6 +38,7 @@
 #include "pick_mesh_validation.h"
 #include "scenedatamanager.h"
 #include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_preparation_requests.h"
 #include "universe_color.h"
 #include "viewer3dcontroller.h"
 #include <meshoptimizer.h>
@@ -957,6 +958,9 @@ void OpaqueFixturePass::Render(
                       svgDefinition)) {
                 return svgDefinition;
               }
+              if (!svgSourcePath.empty())
+                symbols::RequestFixtureSymbolPreparation(svgSourcePath,
+                                                         f.gdtfMode);
 
               SymbolDefinition definition{};
               definition.symbolId = symbolId;

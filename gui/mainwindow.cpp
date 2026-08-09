@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "services/fixture_symbol_preparation_service.h"
 #include "fixture_visual_color.h"
 #include "diagnostics/DiagnosticLogger.h"
 #include "filesystem_path_utils.h"
@@ -506,6 +507,8 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
       });
   // Ensure the 3D viewport is available even before a project is loaded.
   Ensure3DViewport();
+  fixtureSymbolPreparationService =
+      std::make_unique<gui::FixtureSymbolPreparationService>(*this);
 
   SetStartupProjectLoadPending(true);
   ApplySavedLayout();
@@ -538,6 +541,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
 }
 
 MainWindow::~MainWindow() {
+  fixtureSymbolPreparationService.reset();
   guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
       {});
   cursorStatusCallbackLifetimeToken.reset();
@@ -863,6 +867,7 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 // startup.
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
+  NotifyFixtureSymbolProjectReplaced(false);
   diagnostics::DiagnosticLogger::Info(
       "Project load started: " +
       diagnostics::DiagnosticLogger::FileNameOnly(path));
@@ -1056,6 +1061,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   diagnostics::DiagnosticLogger::Info(
       "Project load completed: " +
       diagnostics::DiagnosticLogger::FileNameOnly(path));
+  fixtureSymbolPreparationService->ScheduleScan();
   return true;
 }
 
@@ -1093,6 +1099,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 // Resets project state, UI-bound data, and active layout context for a fresh
 // session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  NotifyFixtureSymbolProjectReplaced(false);
   symbol_cache::ClearFixtureSymbolRuntimeCaches();
   activeLayoutName.clear();
   if (layoutViewerPanel)
@@ -1107,6 +1114,7 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
     layouts::LayoutManager::Get().LoadDefaultsForNewProject(cfg);
   RestorePreferencesDialogValues(preferences, preservedPreferences);
   cfg.MarkSaved();
+  fixtureSymbolPreparationService->ScheduleScan();
   startupSplashCloseRequested = false;
   currentProjectPath.clear();
   currentProjectDisplayName.clear();
@@ -1689,6 +1697,19 @@ void MainWindow::RefreshAfterFixtureSymbolUpdate() {
   ApplyViewportMovementToolState();
   if (layoutViewerPanel)
     layoutViewerPanel->RefreshAfterFixtureSymbolUpdate();
+}
+
+// Advances fixture-symbol lifetime state after project replacement or close.
+void MainWindow::NotifyFixtureSymbolProjectReplaced(bool scheduleScan) {
+  if (fixtureSymbolPreparationService)
+    fixtureSymbolPreparationService->BeginProjectEpoch(scheduleScan);
+}
+
+// Promotes automatic work before the explicit manual symbol preview workflow.
+void MainWindow::PromoteManualFixtureSymbolPreparation(
+    const std::string &fixtureUuid) {
+  if (fixtureSymbolPreparationService)
+    fixtureSymbolPreparationService->PromoteManualFixture(fixtureUuid);
 }
 
 void MainWindow::RefreshAfterToolSceneUpdate() { RefreshAfterSceneChange(); }

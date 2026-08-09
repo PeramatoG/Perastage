@@ -120,6 +120,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
+    add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
     add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
@@ -2482,6 +2483,7 @@ add_test(NAME ProjectFixtureGdtfConsolidator
 
 add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp
+               build_info_stub.cpp
                support/gdtf_test_fixture_builder.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
                ../core/symbols/PerastageSvgSymbol.cpp
@@ -2502,9 +2504,19 @@ target_include_directories(fixture_symbol_preparation_coordinator_test PRIVATE
 add_test(NAME FixtureSymbolPreparationCoordinator
          COMMAND fixture_symbol_preparation_coordinator_test)
 
+add_executable(fixture_symbol_preparation_requests_test
+               fixture_symbol_preparation_requests_test.cpp
+               ../core/symbols/fixture_symbol_preparation_requests.cpp)
+target_include_directories(fixture_symbol_preparation_requests_test PRIVATE
+                           ../core)
+add_test(NAME FixtureSymbolPreparationRequests
+         COMMAND fixture_symbol_preparation_requests_test)
+
 add_executable(scene_model_symbol_capture_snapshot_test
                scene_model_symbol_capture_snapshot_test.cpp
-               ../gui/tools/scene_model_symbol_capture_snapshot.cpp)
+               configmanager_layoutmanager_stub.cpp
+               ../gui/tools/scene_model_symbol_capture_snapshot.cpp
+               ../core/scenedatamanager.cpp)
 target_include_directories(scene_model_symbol_capture_snapshot_test PRIVATE
                            ../core ../models ../gui ../viewer3d)
 target_link_libraries(scene_model_symbol_capture_snapshot_test PRIVATE

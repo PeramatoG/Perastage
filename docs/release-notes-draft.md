@@ -30,8 +30,9 @@ Changes since **v1.5.0**.
 - Fixture symbols now distinguish GDTF ownership from symbol availability: valid
   external four-view symbols are used directly, while malformed or empty SVG views
   are rejected before publication. Runtime preparation work coalesces by physical
-  resource and exact mode, remains fallback-first, and is protected against stale
-  project lifetimes without adding Save or export waits.
+  resource and exact mode, captures cooperatively between interface updates, remains
+  fallback-first, and is protected against stale project lifetimes without adding
+  Save or export waits.
 
 - Fixture-symbol updates now build and validate an isolated working GDTF before
   atomically publishing the project-owned derivative. Failed updates leave existing

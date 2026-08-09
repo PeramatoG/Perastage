@@ -321,6 +321,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
   diagnostics::DiagnosticLogger::Info(
       "MVR import completed: " +
       diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
+  owner->NotifyFixtureSymbolProjectReplaced(true);
   return true;
 }
 

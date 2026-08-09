@@ -116,6 +116,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
                  "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
     return;
   }
+  window.PromoteManualFixtureSymbolPreparation(selectedFixtureUuid);
 
   const std::string forcedFixtureColor = "#3FA9F5";
   SceneModelSymbolCaptureOptions captureOptions;

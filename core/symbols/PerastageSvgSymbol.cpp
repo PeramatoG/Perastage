@@ -677,7 +677,15 @@ bool InspectRequiredFixtureSvgSet(
     return false;
   }
   const tinyxml2::XMLElement *fixtureType = ResolveFixtureType(description);
+  if (!fixtureType) {
+    inspection.diagnostic = "FixtureType is missing from description.xml.";
+    return false;
+  }
   const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
+  if (!model) {
+    inspection.diagnostic = "The fixture does not declare a usable Model.";
+    return false;
+  }
   const std::string baseName = ResolveModelSvgBasename(model);
   if (baseName.empty()) {
     inspection.diagnostic = "The fixture symbol model could not be resolved.";

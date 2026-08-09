@@ -108,7 +108,8 @@ std::string MakeFixtureGdtf(const fs::path &directory) {
 }
 
 // Writes a compatibility fixture with caller-provided FixtureType XML.
-std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml) {
+std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml,
+                                              bool usableFront = true) {
   wxFileName tempName(wxFileName::CreateTempFileName("gdtf_symbol_compat_"));
   const std::string outPath = tempName.GetFullPath().ToStdString() + ".gdtf";
   wxRemoveFile(tempName.GetFullPath());
@@ -123,7 +124,9 @@ std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml)
                           fixtureTypeXml + "</GDTF>";
   zipOut.Write(xml.data(), xml.size());
 
-  const std::string symbolBody = "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
+  const std::string symbolBody =
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10\"/></svg>";
   zipOut.PutNextEntry("models/svg/Body.svg");
   zipOut.Write(symbolBody.data(), symbolBody.size());
   zipOut.PutNextEntry("models/svg/Body_bottom.svg");
@@ -131,7 +134,9 @@ std::string MakeFixtureGdtfFromFixtureTypeXml(const std::string &fixtureTypeXml)
   zipOut.PutNextEntry("models/svg_side/Body.svg");
   zipOut.Write(symbolBody.data(), symbolBody.size());
   zipOut.PutNextEntry("models/svg_front/Body.svg");
-  zipOut.Write(symbolBody.data(), symbolBody.size());
+  const std::string frontBody =
+      usableFront ? symbolBody : "<svg viewBox=\"0 0 10 10\"/>";
+  zipOut.Write(frontBody.data(), frontBody.size());
   zipOut.Close();
 
   return outPath;
@@ -538,6 +543,27 @@ int main() {
   assert(!currentVersion.requiresSymbolGeneration);
   assert(currentVersion.warningMessage.empty());
 
+  const std::string externalVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
+      "<FixtureType Name=\"External\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
+      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
+      "</FixtureType>");
+  const auto externalVersion =
+      InspectFixturePath("fixture-external-version", externalVersionPath);
+  assert(!externalVersion.editorIsPerastage);
+  assert(externalVersion.hasValidSvgSymbolSet);
+  assert(!externalVersion.requiresSymbolGeneration);
+
+  const std::string invalidExternalPath = MakeFixtureGdtfFromFixtureTypeXml(
+      "<FixtureType Name=\"InvalidExternal\" Manufacturer=\"Acme\" Editor=\"Vendor\">"
+      "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
+      "</FixtureType>",
+      false);
+  const auto invalidExternal =
+      InspectFixturePath("fixture-invalid-external", invalidExternalPath);
+  assert(!invalidExternal.editorIsPerastage);
+  assert(!invalidExternal.hasValidSvgSymbolSet);
+  assert(invalidExternal.requiresSymbolGeneration);
+
   const std::string unknownVersionPath = MakeFixtureGdtfFromFixtureTypeXml(
       "<FixtureType Name=\"Future\" Manufacturer=\"Acme\" Editor=\"Perastage\">"
       "<Models><Model Name=\"Body\" File=\"\" PrimitiveType=\"Cube\"/></Models>"
@@ -546,8 +572,8 @@ int main() {
   const auto unknownVersion =
       InspectFixturePath("fixture-unknown-version", unknownVersionPath);
   assert(!unknownVersion.editorIsPerastage);
-  assert(!unknownVersion.hasValidSvgSymbolSet);
-  assert(unknownVersion.requiresSymbolGeneration);
+  assert(unknownVersion.hasValidSvgSymbolSet);
+  assert(!unknownVersion.requiresSymbolGeneration);
   assert(!unknownVersion.warningMessage.empty());
 
   std::vector<GdtfObject> objects;
@@ -557,6 +583,8 @@ int main() {
 
   std::error_code ec;
   fs::remove(currentVersionPath, ec);
+  fs::remove(externalVersionPath, ec);
+  fs::remove(invalidExternalPath, ec);
   fs::remove(unknownVersionPath, ec);
   cfg.Reset();
   return 0;
