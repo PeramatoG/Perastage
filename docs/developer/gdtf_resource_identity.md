@@ -4,8 +4,11 @@
 
 `Manufacturer@FixtureType@Perastage.gdtf` is a Perastage ownership convention,
 not an official GDTF semantic. A file may use that canonical name only after it
-contains readable top, bottom, front, and side SVG fixture views. Publication
-validates that contract before the library dictionary accepts the derivative.
+contains exact, parseable top, bottom, front, and side SVG fixture views with a
+positive view box and usable geometry. Publication validates that ownership-neutral
+contract before the library dictionary accepts the derivative. External GDTFs that
+already meet the contract remain authoritative regardless of their Editor metadata;
+Perastage ownership is retained separately for audit and mutation policy.
 Failed finalization leaves the previous source or published derivative intact.
 Perastage-authored changes continue to use standard GDTF fields and Revisions;
 no proprietary GDTF or MVR XML is introduced.
@@ -56,5 +59,14 @@ The parsed SVG runtime cache remains independent persistence-free infrastructure
 keys stored presentation data by physical resource and view and is invalidated after
 internal derivative replacement or cleared at project lifecycle transitions.
 
-Automatic background scheduling is intentionally deferred to Block 02. Block 01 adds
-no startup generation, worker coordination, Save/Load waiting, or symbol manifest.
+Automatic preparation uses runtime-only work identities made from the deterministically
+resolved physical GDTF path and the exact GDTF mode. Repeated fixture and renderer
+requests coalesce, while distinct exact modes remain distinct work. Publication to a
+shared canonical derivative is serialized. A project epoch rejects callbacks and
+publication from replaced or closed projects.
+
+Capture progress is cooperative: each expensive render view is a separate GUI-thread
+step, and CPU processing and transactional publication are explicit later states.
+Missing or invalid SVGs continue to use rendered geometry immediately. Preparation
+does not wait in Save, Load, MVR import/export, print, layout, or PDF operations and no
+queue state or symbol manifest is persisted.

@@ -2283,6 +2283,12 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
         target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
                        ../core/fixture_gdtf_derivative_contract.cpp)
     endif()
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/symbols/PerastageSvgSymbol.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                       ../core/symbols/PerastageSvgSymbol.cpp)
+    endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
        PERASTAGE_TEST_SOURCES AND
        ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
@@ -2462,6 +2468,8 @@ add_executable(project_fixture_gdtf_consolidator_test
                project_fixture_gdtf_consolidator_test.cpp
                support/gdtf_test_fixture_builder.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/symbols/PerastageSvgSymbol.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../core/project_fixture_gdtf_consolidator.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(project_fixture_gdtf_consolidator_test PRIVATE
@@ -2476,6 +2484,8 @@ add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp
                support/gdtf_test_fixture_builder.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/symbols/PerastageSvgSymbol.cpp
+               ../core/gdtf_mutation_audit.cpp
                ../core/fixture_gdtf_derivative_publication.cpp)
 target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
                            ../core support)
@@ -2483,6 +2493,14 @@ target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)
+
+add_executable(fixture_symbol_preparation_coordinator_test
+               fixture_symbol_preparation_coordinator_test.cpp
+               ../core/symbols/fixture_symbol_preparation_coordinator.cpp)
+target_include_directories(fixture_symbol_preparation_coordinator_test PRIVATE
+                           ../core)
+add_test(NAME FixtureSymbolPreparationCoordinator
+         COMMAND fixture_symbol_preparation_coordinator_test)
 
 add_executable(scene_model_symbol_capture_snapshot_test
                scene_model_symbol_capture_snapshot_test.cpp
