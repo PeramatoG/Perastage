@@ -79,7 +79,10 @@ service captures warm-up, Front, Top, Side, and Bottom in separate event-loop sl
 All slices in one job use the same immutable scene snapshot, and the service rechecks
 the resolved physical resource and exact mode before processing and publication.
 Successful transactional apply invalidates the existing symbol caches and refreshes
-the affected viewers without reopening the project. Manual preview generation cancels
+the affected viewers, including 3D resource synchronization for the rebound GDTF,
+without reopening the project. Pure image/vector processing runs on one managed worker;
+GUI capture, publication, rebinding, and refresh remain on cooperative GUI idle slices.
+Manual preview generation cancels
 matching automatic work before using the same incremental capture primitives through
 the synchronous compatibility wrapper; Apply remains an explicit preview action. A
 manual preview that closes or fails without applying restores automatic eligibility.

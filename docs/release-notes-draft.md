@@ -34,7 +34,10 @@ Changes since **v1.5.0**.
   fallback-first, and is protected against stale project lifetimes without adding
   Save or export waits. Incremental captures now use one immutable scene input from
   warm-up through all four views, and closing a manual preview without applying no
-  longer suppresses later automatic preparation.
+  longer suppresses later automatic preparation. Automatic processing now runs on a
+  managed worker and advances through low-priority idle slices, while completed
+  publications immediately resynchronize 3D fixture resources to avoid temporary
+  fallback cubes.
 
 - Fixture-symbol updates now build and validate an isolated working GDTF before
   atomically publishing the project-owned derivative. Failed updates leave existing

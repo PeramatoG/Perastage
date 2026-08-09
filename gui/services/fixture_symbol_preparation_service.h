@@ -12,9 +12,11 @@
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/fixture_symbol_preparation_coordinator.h"
 #include "scenedatamanager.h"
+#include "services/fixture_symbol_processing_worker.h"
 #include "tools/fixture_geometry_bounds.h"
 
 class MainWindow;
+class wxIdleEvent;
 
 namespace gui {
 
@@ -37,6 +39,8 @@ private:
 
   struct WorkContext {
     std::string fixtureUuid;
+    std::string displayLabel;
+    std::string sourceFingerprint;
     std::optional<SceneDataManager::SceneSnapshot> captureSnapshot;
     std::vector<symbols::RenderedSymbolImage> renders;
     std::vector<symbols::Symbol2D> processedSymbols;
@@ -44,10 +48,12 @@ private:
     std::size_t nextCaptureStep = 0;
     WorkStage stage = WorkStage::Capturing;
     bool sceneUpdated = false;
+    bool processingSubmitted = false;
   };
 
   void ScanCurrentProject();
   void ScheduleNextStep();
+  void OnIdle(wxIdleEvent &event);
   void RunNextStep();
   void FailCurrent(const std::string &diagnostic);
   void UpdateStatus();
@@ -59,6 +65,7 @@ private:
 
   MainWindow &window_;
   symbols::FixtureSymbolPreparationCoordinator coordinator_;
+  FixtureSymbolProcessingWorker processingWorker_;
   std::unordered_map<symbols::FixtureSymbolPreparationKey, WorkContext,
                      symbols::FixtureSymbolPreparationKeyHash>
       work_;

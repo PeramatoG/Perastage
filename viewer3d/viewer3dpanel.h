@@ -66,6 +66,7 @@ public:
     bool showGrid = true;
 
     void UpdateScene();
+    void RefreshAfterFixtureResourceRebind();
     void PrepareForSceneReplacement();
     void CompleteSceneReplacement();
     void SetSelectedFixtures(const std::vector<std::string>& uuids);

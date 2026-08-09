@@ -3863,6 +3863,12 @@ void Viewer3DPanel::UpdateScene() {
         Viewer2DPanel::Instance()->UpdateScene();
 }
 
+// Synchronizes newly rebound fixture resources and repaints the 3D viewport.
+void Viewer3DPanel::RefreshAfterFixtureResourceRebind() {
+    UpdateScene();
+    Refresh();
+}
+
 // Releases controller references to scene entries before a project is replaced.
 void Viewer3DPanel::PrepareForSceneReplacement() {
     m_controller.PrepareForSceneReplacement();

@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <wx/app.h>
+#include <wx/event.h>
 
 #include "configmanager.h"
 #include "diagnostics/DiagnosticLogger.h"
@@ -13,6 +14,7 @@
 #include "mainwindow.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "symbols/fixture_symbol_preparation_requests.h"
+#include "symbol_cache_manifest.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/scene_model_symbol_capture_snapshot.h"
 #include "tools/symbol_physical_calibration.h"
@@ -36,6 +38,7 @@ std::string CanonicalResourcePath(const std::string &path) {
 FixtureSymbolPreparationService::FixtureSymbolPreparationService(
     MainWindow &window)
     : window_(window), epoch_(coordinator_.BeginProjectEpoch()) {
+  window_.Bind(wxEVT_IDLE, &FixtureSymbolPreparationService::OnIdle, this);
   const std::weak_ptr<int> weakLifetime = lifetime_;
   symbols::SetFixtureSymbolPreparationRequestHandler(
       [this, weakLifetime](const std::string &path, const std::string &mode) {
@@ -50,6 +53,7 @@ FixtureSymbolPreparationService::FixtureSymbolPreparationService(
 
 // Disconnects fallback requests and invalidates all delayed service callbacks.
 FixtureSymbolPreparationService::~FixtureSymbolPreparationService() {
+  window_.Unbind(wxEVT_IDLE, &FixtureSymbolPreparationService::OnIdle, this);
   symbols::SetFixtureSymbolPreparationRequestHandler({});
   lifetime_.reset();
   coordinator_.BeginProjectEpoch();
@@ -102,8 +106,25 @@ void FixtureSymbolPreparationService::Request(
   const std::string fixtureUuid = FindFixtureUuid(key);
   if (fixtureUuid.empty())
     return;
-  if (coordinator_.Request(key, key.effectiveGdtfPath, priority))
+  if (coordinator_.Request(key, key.effectiveGdtfPath, priority)) {
     work_[key].fixtureUuid = fixtureUuid;
+    const auto &fixture = GetDefaultGuiConfigServices()
+                              .LegacyConfigManager()
+                              .GetScene()
+                              .fixtures.at(fixtureUuid);
+    work_[key].displayLabel = fixture.typeName.empty()
+                                  ? std::filesystem::path(
+                                        key.effectiveGdtfPath)
+                                        .stem()
+                                        .string()
+                                  : fixture.typeName;
+    std::string fingerprintError;
+    symbol_cache::InvalidateGdtfSemanticFingerprintCache(
+        key.effectiveGdtfPath);
+    work_[key].sourceFingerprint =
+        symbol_cache::ComputeGdtfSemanticFingerprint(
+            key.effectiveGdtfPath, fingerprintError);
+  }
   UpdateStatus();
   ScheduleNextStep();
 }
@@ -172,21 +193,22 @@ void FixtureSymbolPreparationService::ScanCurrentProject() {
   }
 }
 
-// Posts exactly one capture, processing, or publication slice to the GUI loop.
+// Requests one low-priority idle slice after normal GUI events are processed.
 void FixtureSymbolPreparationService::ScheduleNextStep() {
   if (stepScheduled_)
     return;
   stepScheduled_ = true;
-  const std::weak_ptr<int> weakLifetime = lifetime_;
-  const std::uint64_t requestedEpoch = epoch_;
-  window_.CallAfter([this, weakLifetime, requestedEpoch]() {
-    if (!weakLifetime.lock())
-      return;
-    stepScheduled_ = false;
-    if (requestedEpoch != epoch_)
-      return;
-    RunNextStep();
-  });
+  wxWakeUpIdle();
+}
+
+// Executes at most one bounded automatic work slice per idle activation.
+void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
+  if (!stepScheduled_)
+    return;
+  stepScheduled_ = false;
+  RunNextStep();
+  if (stepScheduled_)
+    event.RequestMore();
 }
 
 // Advances the active automatic job by one bounded production operation.
@@ -252,6 +274,7 @@ void FixtureSymbolPreparationService::RunNextStep() {
     tools::SceneModelSymbolCaptureOptions options;
     options.alignToLocalAxes = true;
     options.forcedFixtureColor = "#3FA9F5";
+    options.refreshPanelAfterStep = false;
     if (work.bounds.valid)
       options.fixtureBoundsOverride = work.bounds;
     if (!work.captureSnapshot) {
@@ -283,25 +306,44 @@ void FixtureSymbolPreparationService::RunNextStep() {
   }
 
   if (work.stage == WorkStage::Processing) {
-    auto processed = tools::ProcessSceneModelOrthographicRenders(
-        std::move(work.renders), work.bounds);
-    if (!processed.ok) {
-      FailCurrent(processed.error);
+    if (!work.processingSubmitted) {
+      while (processingWorker_.TakeResult()) {
+      }
+      if (!processingWorker_.Submit(
+              {epoch_, std::move(work.renders), work.bounds})) {
+        ScheduleNextStep();
+        return;
+      }
+      work.processingSubmitted = true;
+      ScheduleNextStep();
+      return;
+    }
+    auto processed = processingWorker_.TakeResult();
+    if (!processed) {
+      ScheduleNextStep();
+      return;
+    }
+    if (processed->epoch != epoch_) {
+      FailCurrent("Fixture symbol processing result became stale.");
+      return;
+    }
+    if (!processed->ok) {
+      FailCurrent(processed->error);
       return;
     }
     std::string calibrationError;
     const bool calibrated =
-        processed.fixtureBoundsMm.valid
+        processed->bounds.valid
             ? tools::CalibrateFixtureSymbolsToPhysicalUnits(
-                  processed.fixtureBoundsMm, processed.symbols,
+                  processed->bounds, processed->symbols,
                   calibrationError)
             : tools::CalibrateFixtureSymbolsToPhysicalUnits(
-                  cfg, work.fixtureUuid, processed.symbols, calibrationError);
+                  cfg, work.fixtureUuid, processed->symbols, calibrationError);
     if (!calibrated) {
       FailCurrent(calibrationError);
       return;
     }
-    work.processedSymbols = std::move(processed.symbols);
+    work.processedSymbols = std::move(processed->symbols);
     work.stage = WorkStage::Publishing;
     ScheduleNextStep();
     return;
@@ -312,6 +354,23 @@ void FixtureSymbolPreparationService::RunNextStep() {
         !IsWorkIdentityCurrent(*currentKey_, work) ||
         !coordinator_.BeginPublishing(*currentKey_, epoch_)) {
       FailCurrent("Fixture symbol preparation became stale before publication.");
+      return;
+    }
+    std::string fingerprintError;
+    symbol_cache::InvalidateGdtfSemanticFingerprintCache(
+        currentKey_->effectiveGdtfPath);
+    const std::string currentFingerprint =
+        symbol_cache::ComputeGdtfSemanticFingerprint(
+            currentKey_->effectiveGdtfPath, fingerprintError);
+    if (!work.sourceFingerprint.empty() &&
+        currentFingerprint != work.sourceFingerprint) {
+      const symbols::FixtureSymbolPreparationKey staleKey = *currentKey_;
+      coordinator_.Cancel(staleKey, epoch_);
+      work_.erase(staleKey);
+      currentKey_.reset();
+      diagnostics::DiagnosticLogger::Info(
+          "Fixture symbol preparation source changed; stale work was discarded.");
+      Request(staleKey.effectiveGdtfPath, staleKey.exactGdtfMode);
       return;
     }
     RequiredFixtureSvgSetInspection currentInspection;
@@ -368,8 +427,69 @@ void FixtureSymbolPreparationService::UpdateStatus() {
     window_.SetStatusText("Ready", 0);
     return;
   }
-  window_.SetStatusText(
-      "Preparing fixture symbols: " + std::to_string(pending) + " pending", 0);
+  const WorkContext *statusWork = nullptr;
+  const symbols::FixtureSymbolPreparationKey *statusKey = nullptr;
+  if (currentKey_) {
+    const auto it = work_.find(*currentKey_);
+    if (it != work_.end()) {
+      statusWork = &it->second;
+      statusKey = &*currentKey_;
+    }
+  }
+  std::optional<symbols::FixtureSymbolPreparationJob> next;
+  if (!statusWork) {
+    next = coordinator_.NextQueued();
+    if (next) {
+      const auto it = work_.find(next->key);
+      if (it != work_.end()) {
+        statusWork = &it->second;
+        statusKey = &next->key;
+      }
+    }
+  }
+  std::string context = statusWork ? statusWork->displayLabel : "fixture resource";
+  if (statusKey && !statusKey->exactGdtfMode.empty())
+    context += " [" + statusKey->exactGdtfMode + "]";
+  std::string phase = "Preparing";
+  if (statusWork) {
+    switch (statusWork->stage) {
+    case WorkStage::Capturing:
+      if (statusWork->nextCaptureStep > 0 &&
+          statusWork->nextCaptureStep <=
+              symbols::FixtureSymbolCapturePlan().size()) {
+        switch (symbols::FixtureSymbolCapturePlan()
+                    [statusWork->nextCaptureStep - 1]
+                        .symbolView) {
+        case symbols::SymbolView::Top:
+          phase = "Capturing Top";
+          break;
+        case symbols::SymbolView::Bottom:
+          phase = "Capturing Bottom";
+          break;
+        case symbols::SymbolView::Front:
+          phase = "Capturing Front";
+          break;
+        case symbols::SymbolView::Left:
+          phase = "Capturing Side";
+          break;
+        }
+      }
+      break;
+    case WorkStage::Processing:
+      phase = "Processing";
+      break;
+    case WorkStage::Publishing:
+      phase = "Publishing";
+      break;
+    case WorkStage::Finalizing:
+      phase = "Refreshing";
+      break;
+    }
+  }
+  window_.SetStatusText("Preparing fixture symbols: " + context + " - " +
+                            phase + " - " + std::to_string(pending) +
+                            " pending",
+                        0);
 }
 
 // Finds a current-project fixture that owns the exact preparation identity.
