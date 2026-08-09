@@ -92,7 +92,7 @@ A GDTF mutation change is accepted only if all conditions below hold:
 
 1. **Mutation correctness**
    - Target payload mutation is present (for example color/properties/SVG view assets+offsets).
-   - Fixture symbol validation requires the Perastage top, bottom, front, and side SVG views before project manifest cache entries can skip deep inspection.
+   - Fixture symbol validation requires usable top, bottom, front, and side SVG views before a stored symbol set is accepted.
 2. **Revision correctness**
    - No new `<PerastageMutationAudit>` node is written.
    - A new `<Revision>` entry is appended with valid `Date`, `ModifiedBy`, `Text`, `UserID` when Perastage intentionally changes a GDTF.
@@ -125,8 +125,8 @@ A GDTF mutation change is accepted only if all conditions below hold:
   - validates physical-properties mutation and persisted XML changes.
 - `tests/symbol_fixture_applier_gdtf_test.cpp`
   - validates symbol write path + mutation audit compatibility behavior.
-- `tests/symbol_cache_manifest_test.cpp`
-  - validates project-level symbol cache manifest fallback and update safety behavior.
+- `tests/fixture_symbol_svg_cache_test.cpp`
+  - validates bounded runtime cache revision and explicit invalidation behavior.
 - `tests/check_perastage_tree_modules.sh`
   - mandatory architecture/module boundary consistency check.
 - `tests/check_no_configmanager_get_in_gui.sh`

@@ -50,7 +50,7 @@
 #include "configmanager.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "symbols/fixture_symbol_svg_cache.h"
-#include "symbol_cache_manifest.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
 #include <wx/dcgraph.h>
 #include <wx/graphics.h>
@@ -1091,13 +1091,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   auto findSvgSymbol = [&](const std::string &symbolKey,
                            SymbolViewKind view)
       -> const PerastageSvgSymbolData * {
-    std::string fingerprintError;
-    symbol_cache::FixtureSymbolSvgRequest request;
-    request.physicalGdtfPath = symbolKey;
-    request.view = view;
-    request.semanticFingerprint = symbol_cache::ComputeGdtfSemanticFingerprint(
-        symbolKey, fingerprintError);
-    auto handle = symbol_cache::GetFixtureSymbolSvgCache().LookupOrLoad(request);
+    auto handle = symbol_cache::LoadUsableFixtureSymbol(symbolKey, view);
     if (!handle)
       return nullptr;
     svgHandles.push_back(std::move(handle));

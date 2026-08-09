@@ -43,7 +43,7 @@
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
 #include "pdf_objects.h"
-#include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
 
 namespace {
@@ -1014,12 +1014,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     LegendSvgCacheKey cacheKey{loadPath, viewKind};
     auto it = legendSvgCache.find(cacheKey);
     if (it == legendSvgCache.end()) {
-      PerastageSvgSymbolData data;
       std::optional<PerastageSvgSymbolData> loaded;
       std::string loadError;
-      if (LoadPerastageSvgSymbolFromGdtf(loadPath, viewKind, data, &loadError)) {
-        loaded = std::move(data);
-      }
+      if (const auto data = symbol_cache::LoadUsableFixtureSymbol(
+              loadPath, viewKind, &loadError))
+        loaded = *data;
       it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
     }
     return it->second ? &it->second.value() : nullptr;

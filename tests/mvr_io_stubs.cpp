@@ -20,7 +20,6 @@
 #include "diagnostics/DiagnosticPaths.h"
 #include "mvrimporter.h"
 #include "mvrexporter.h"
-#include "symbol_cache_manifest.h"
 #include "truss_gdtf_builder.h"
 
 #include <filesystem>
@@ -123,65 +122,6 @@ bool DiagnosticPaths::EnsureDirectory(const fs::path &directory, std::string *) 
 }
 
 } // namespace diagnostics
-
-namespace symbol_cache {
-
-// Clears the stub manifest state.
-void SymbolCacheManifest::Clear() {}
-
-// Returns false because the stub manifest never loads persisted state.
-bool SymbolCacheManifest::HasLoadedManifest() const { return false; }
-
-// Returns true because the stub manifest format is treated as known.
-bool SymbolCacheManifest::IsManifestFormatKnown() const { return true; }
-
-// Returns a bypassed validation result for the stub manifest.
-ValidationResult SymbolCacheManifest::ValidateFixture(const ValidationRequest &) const {
-  return {ValidationStatus::Bypassed, true, {}};
-}
-
-// Ignores fixture validity marks in the stub manifest.
-void SymbolCacheManifest::MarkFixtureSymbolsValid(const ValidationRequest &, std::string) {}
-
-// Reports an empty loaded manifest for the stub implementation.
-bool SymbolCacheManifest::LoadFromJsonText(const std::string &, std::string &) { return true; }
-
-// Writes an empty JSON object for the stub implementation.
-bool SymbolCacheManifest::SaveToJsonText(std::string &jsonText, std::string &) const {
-  jsonText = "{}";
-  return true;
-}
-
-// Reports no project archive manifest for the stub implementation.
-bool SymbolCacheManifest::LoadFromProjectArchive(const std::string &, std::string &) { return false; }
-
-// Returns no archive resource for the stub implementation.
-std::optional<ManifestArchiveResource> SymbolCacheManifest::ToArchiveResource(std::string &) const {
-  return std::nullopt;
-}
-
-// Returns the empty entry list for the stub implementation.
-const std::vector<FixtureSymbolCacheEntry> &SymbolCacheManifest::Entries() const {
-  static const std::vector<FixtureSymbolCacheEntry> entries;
-  return entries;
-}
-
-// Returns a deterministic fingerprint for project-persistence stub targets.
-std::string ComputeGdtfSemanticFingerprintFromEntries(
-    const std::vector<GdtfSemanticFingerprintEntry> &, std::string &errorMessage) {
-  errorMessage.clear();
-  return "stub-gdtf-fingerprint";
-}
-
-// Returns the complete symbol view set for project-persistence stub targets.
-std::set<std::string> RequiredPerastageSymbolViews() {
-  return {"top", "bottom", "front", "side"};
-}
-
-// Returns a deterministic timestamp for project-persistence stub targets.
-std::string CurrentUtcTimestamp() { return "2000-01-01T00:00:00Z"; }
-
-} // namespace symbol_cache
 
 // Returns false because legacy truss conversion is intentionally disabled in this stub.
 bool ConvertLegacyGtrussToGdtf(const fs::path &, const fs::path &, std::string *) {

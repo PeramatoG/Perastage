@@ -219,6 +219,13 @@ Changes since **v1.5.0**.
 
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
+## Internal changes
+
+- Completed the fixture-symbol background-generation architecture by removing the
+  obsolete project manifest and generation identity, unifying stored-symbol
+  availability checks, and replacing archive hashing in normal SVG cache lookups
+  with bounded file revision checks plus explicit lifecycle invalidation.
+
 ## Downloads and installation
 
 Choose the package that matches your operating system:

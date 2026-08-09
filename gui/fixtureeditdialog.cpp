@@ -44,7 +44,7 @@
 #include "hoist_load_recalculation_prompt.h"
 #include "projectutils.h"
 #include "symbolcache.h"
-#include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "units/units.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
@@ -1028,16 +1028,17 @@ void FixtureEditDialog::OnSymbolPreviewPaint(wxPaintEvent &evt) {
   delete gc;
 }
 
+// Refreshes each fixture preview from the active resolved GDTF resource.
 void FixtureEditDialog::UpdateVisualizers() {
   const std::string path = PathUtils::PathToUtf8(GetActiveResolvedGdtfPath());
   const std::array<SymbolViewKind, 3> views = {
       SymbolViewKind::Bottom, SymbolViewKind::Front, SymbolViewKind::Left};
   for (size_t i = 0; i < views.size(); ++i) {
-    PerastageSvgSymbolData loaded;
-    symbolAvailability[i] =
-        LoadPerastageSvgSymbolFromGdtf(path, views[i], loaded);
-    if (symbolAvailability[i])
-      symbolData[i] = std::move(loaded);
+    const auto loaded =
+        symbol_cache::LoadUsableFixtureSymbol(path, views[i]);
+    symbolAvailability[i] = static_cast<bool>(loaded);
+    if (loaded)
+      symbolData[i] = *loaded;
     if (symbolPanels[i])
       symbolPanels[i]->Refresh();
   }

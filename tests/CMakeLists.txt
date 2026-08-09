@@ -72,8 +72,7 @@ add_library(perastage_test_diagnostics STATIC
             ../core/configservices.cpp
             ../core/diagnostics/DiagnosticPaths.cpp
             ../core/filesystem_path_utils.cpp
-            ../core/logger.cpp
-            ../core/symbol_cache_manifest.cpp)
+            ../core/logger.cpp)
 target_include_directories(perastage_test_diagnostics PRIVATE
                            ../core
                            ../third_party)
@@ -127,6 +126,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
+    add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
     add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
     add_bash_policy_test(FixtureSymbol3DRefresh ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_3d_refresh.sh)
@@ -1988,12 +1988,14 @@ target_include_directories(perastage_test_fixture_symbol_diagnostics PUBLIC
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                support/gdtf_test_fixture_builder.cpp
-               fixture_symbol_svg_cache_invalidation_stub.cpp
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../core/fixture_gdtf_derivative_publication.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/symbols/fixture_symbol_availability.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -2247,6 +2249,7 @@ add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_te
 add_executable(fixture_symbol_svg_cache_test
                fixture_symbol_svg_cache_test.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(fixture_symbol_svg_cache_test PRIVATE
                            ${CMAKE_SOURCE_DIR}/core

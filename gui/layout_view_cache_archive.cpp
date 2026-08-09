@@ -41,7 +41,7 @@
 #include "json.hpp"
 #include "layoutviewerviewrenderer.h"
 #include "logger.h"
-#include "symbol_cache_manifest.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 
 namespace {
 namespace fs = std::filesystem;

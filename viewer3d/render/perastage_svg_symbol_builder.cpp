@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "opaque_pass_utils.h"
-#include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 
 namespace {
 constexpr float kDefaultStrokeWidthMeters = RENDER_SCALE;
@@ -82,9 +82,11 @@ bool TryBuildPerastageSvgSymbolDefinition(const std::string &gdtfPath,
                                           uint32_t symbolId,
                                           const std::array<float, 3> &fillRgb,
                                           SymbolDefinition &out) {
-  PerastageSvgSymbolData svg;
-  if (!LoadPerastageSvgSymbolFromGdtf(gdtfPath, viewKind, svg))
+  const auto storedSvg =
+      symbol_cache::LoadUsableFixtureSymbol(gdtfPath, viewKind);
+  if (!storedSvg)
     return false;
+  const PerastageSvgSymbolData &svg = *storedSvg;
   if (!svg.IsValid())
     return false;
 

@@ -25,7 +25,7 @@
 #include "../core/fixture_gdtf_derivative_contract.h"
 #include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
-#include "../core/symbol_cache_manifest.h"
+#include "../core/symbols/fixture_symbol_resource_revision.h"
 #include "../core/symbols/Symbol2D.h"
 #include "../core/wx_path_utils.h"
 #include "../gui/windows/symbol_fixture_applier.h"

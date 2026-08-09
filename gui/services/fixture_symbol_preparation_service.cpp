@@ -13,8 +13,9 @@
 #include "guiconfigservices.h"
 #include "mainwindow.h"
 #include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_preparation_requests.h"
-#include "symbol_cache_manifest.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/scene_model_symbol_capture_snapshot.h"
 #include "tools/symbol_physical_calibration.h"
@@ -95,9 +96,8 @@ void FixtureSymbolPreparationService::Request(
     if (manualKey == key)
       return;
   }
-  RequiredFixtureSvgSetInspection inspection;
-  if (InspectRequiredFixtureSvgSet(key.effectiveGdtfPath, inspection) &&
-      inspection.usable) {
+  if (symbol_cache::InspectFixtureSymbolAvailability(key.effectiveGdtfPath)
+          .storedSvgUsable) {
     diagnostics::DiagnosticLogger::Info(
         "Fixture symbol preparation skipped because required SVGs are valid for resource '" +
         key.effectiveGdtfPath + "' mode '" + key.exactGdtfMode + "'.");
@@ -227,13 +227,12 @@ void FixtureSymbolPreparationService::RunNextStep() {
       const auto fixtureIt = scene.fixtures.find(workIt->second.fixtureUuid);
       fixtures::FixtureGdtfResolution resolution;
       std::string resolutionError;
-      RequiredFixtureSvgSetInspection inspection;
       if (fixtureIt != scene.fixtures.end() &&
           fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
                                                     resolution, resolutionError,
                                                     "symbol-reinspect") &&
-          InspectRequiredFixtureSvgSet(resolution.selectedPath, inspection) &&
-          inspection.usable) {
+          symbol_cache::InspectFixtureSymbolAvailability(resolution.selectedPath)
+              .storedSvgUsable) {
         coordinator_.Skip(*currentKey_, epoch_);
         currentKey_.reset();
         UpdateStatus();
@@ -373,10 +372,8 @@ void FixtureSymbolPreparationService::RunNextStep() {
       Request(staleKey.effectiveGdtfPath, staleKey.exactGdtfMode);
       return;
     }
-    RequiredFixtureSvgSetInspection currentInspection;
-    if (InspectRequiredFixtureSvgSet(currentKey_->effectiveGdtfPath,
-                                     currentInspection) &&
-        currentInspection.usable) {
+    if (symbol_cache::InspectFixtureSymbolAvailability(
+            currentKey_->effectiveGdtfPath).storedSvgUsable) {
       coordinator_.Complete(*currentKey_, epoch_, true);
     } else {
       const auto apply = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(

@@ -31,7 +31,8 @@
 #include "gdtfdictionary.h"
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
-#include "symbol_cache_manifest.h"
+#include "symbols/fixture_symbol_availability.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "symbols/fixture_symbol_svg_cache.h"
 #include "windows/symbol_preview_exporter.h"
@@ -899,12 +900,11 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                  ? (revisionModifiedByPerastage || editorIsPerastage)
                  : false);
 
-  RequiredFixtureSvgSetInspection symbolInspection;
-  const bool inspected =
-      InspectRequiredFixtureSvgSet(inspectPath, symbolInspection);
-  result.hasValidSvgSymbolSet = inspected && symbolInspection.usable;
+  const auto symbolInspection =
+      symbol_cache::InspectFixtureSymbolAvailability(inspectPath);
+  result.hasValidSvgSymbolSet = symbolInspection.storedSvgUsable;
   result.requiresSymbolGeneration = !result.hasValidSvgSymbolSet;
-  if (inspected && !symbolInspection.usable && result.warningMessage.empty())
+  if (!symbolInspection.storedSvgUsable && result.warningMessage.empty())
     result.warningMessage = symbolInspection.diagnostic;
   return true;
 }
