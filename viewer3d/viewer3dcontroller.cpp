@@ -1880,7 +1880,9 @@ void Viewer3DController::SetupBasicLighting(bool ambientOcclusionEnabled,
   options.ambientOcclusionEnabled = ambientOcclusionEnabled;
   options.ambientOcclusionStrength = ambientOcclusionStrength;
   options.whiteModelStyle = whiteModelStyle;
-  Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
+  const Viewer3DLightingProfile::LightingState lightingState =
+      Viewer3DLightingProfile::ApplyEnhancedBasicLighting(options);
+  m_impl->sceneRenderer->SetSketchLightingState(lightingState);
 }
 
 // Draws fixture Labels.

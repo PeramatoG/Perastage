@@ -18,6 +18,7 @@
 namespace Viewer3DLightingProfile {
 
 namespace {
+// Clamps a lighting intensity to the normalized range.
 float Clamp01(float value) {
   if (value < 0.0f)
     return 0.0f;
@@ -26,12 +27,14 @@ float Clamp01(float value) {
   return value;
 }
 
+// Interpolates linearly between two lighting values.
 float Lerp(float from, float to, float t) {
   return from + ((to - from) * t);
 }
 } // namespace
 
-void ApplyEnhancedBasicLighting(const LightingOptions &options) {
+// Applies fixed-function scene lighting and returns its reusable frame state.
+LightingState ApplyEnhancedBasicLighting(const LightingOptions &options) {
   glEnable(GL_LIGHTING);
   // Keep normal lengths stable after model transforms with scaling.
   glEnable(GL_NORMALIZE);
@@ -63,7 +66,9 @@ void ApplyEnhancedBasicLighting(const LightingOptions &options) {
   const GLfloat keySpecular[] = {whiteModelStyle ? 0.28f : 0.35f,
                                  whiteModelStyle ? 0.28f : 0.35f,
                                  whiteModelStyle ? 0.28f : 0.35f, 1.0f};
-  const GLfloat keyPosition[] = {2.0f, -4.0f, 5.0f, 0.0f};
+  const GLfloat keyPosition[] = {kKeyLightWorldDirection[0],
+                                 kKeyLightWorldDirection[1],
+                                 kKeyLightWorldDirection[2], 0.0f};
 
   glEnable(GL_LIGHT0);
   glLightfv(GL_LIGHT0, GL_AMBIENT, keyAmbient);
@@ -96,6 +101,12 @@ void ApplyEnhancedBasicLighting(const LightingOptions &options) {
   glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, whiteModelStyle ? 12.0f : 24.0f);
 
   glShadeModel(GL_SMOOTH);
+
+  float viewMatrix[16];
+  glGetFloatv(GL_MODELVIEW_MATRIX, viewMatrix);
+  return {TransformWorldDirectionToEyeSpace(kKeyLightWorldDirection,
+                                            viewMatrix),
+          true};
 }
 
 } // namespace Viewer3DLightingProfile

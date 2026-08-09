@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "render/lighting_profile.h"
 #include "render/sketch_lighting_math.h"
 
 #include <array>
@@ -48,6 +49,12 @@ void BuildGpuNormalMatrix(const float model[16], float result[9]) {
     result[i] = values[i] * invDet;
 }
 
+// Returns the dot product of two directions.
+float Dot(const std::array<float, 3> &left,
+          const std::array<float, 3> &right) {
+  return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+}
+
 } // namespace
 
 // Verifies Sketch normal transforms and two-sided orientation without OpenGL.
@@ -83,5 +90,41 @@ int main() {
   AssertVectorNear(
       Viewer3DSketchLighting::OrientNormalForFace(normal, false, false),
       normal);
+
+  const float identity[16] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+                              0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+                              0.0f, 0.0f, 0.0f, 1.0f};
+  const auto worldLight = Viewer3DLightingProfile::NormalizeDirection(
+      Viewer3DLightingProfile::kKeyLightWorldDirection);
+  AssertVectorNear(Viewer3DLightingProfile::TransformWorldDirectionToEyeSpace(
+                       Viewer3DLightingProfile::kKeyLightWorldDirection,
+                       identity),
+                   worldLight);
+
+  const float cameraYaw90[16] = {0.0f, 0.0f, -1.0f, 0.0f,
+                                 0.0f, 1.0f, 0.0f,  0.0f,
+                                 1.0f, 0.0f, 0.0f,  0.0f,
+                                 0.0f, 0.0f, 0.0f,  1.0f};
+  const auto yawedEyeLight =
+      Viewer3DLightingProfile::TransformWorldDirectionToEyeSpace(
+          Viewer3DLightingProfile::kKeyLightWorldDirection, cameraYaw90);
+  AssertVectorNear(yawedEyeLight,
+                   Viewer3DLightingProfile::NormalizeDirection(
+                       {5.0f, -4.0f, -2.0f}));
+
+  const auto worldSurfaceNormal = worldLight;
+  const auto yawedEyeNormal = TransformNormal(worldSurfaceNormal, cameraYaw90);
+  assert(std::fabs(Dot(worldSurfaceNormal, worldLight) -
+                   Dot(yawedEyeNormal, yawedEyeLight)) < 0.0001f);
+  assert(Dot(yawedEyeNormal, yawedEyeLight) > 0.0f);
+
+  const std::array<float, 3> objectNormal = {1.0f, 0.0f, 0.0f};
+  const auto rotatedObjectNormal = TransformNormal(objectNormal, rotateZ90);
+  AssertVectorNear(yawedEyeLight,
+                   Viewer3DLightingProfile::TransformWorldDirectionToEyeSpace(
+                       Viewer3DLightingProfile::kKeyLightWorldDirection,
+                       cameraYaw90));
+  assert(std::fabs(Dot(rotatedObjectNormal, worldLight) -
+                   Dot(objectNormal, worldLight)) > 0.1f);
   return 0;
 }
