@@ -60,9 +60,9 @@ LightingState ApplyEnhancedBasicLighting(const LightingOptions &options) {
   const GLfloat keyAmbient[] = {whiteModelStyle ? 0.05f : 0.08f,
                                 whiteModelStyle ? 0.05f : 0.08f,
                                 whiteModelStyle ? 0.05f : 0.08f, 1.0f};
-  const GLfloat keyDiffuse[] = {whiteModelStyle ? 0.90f : 0.78f,
-                                whiteModelStyle ? 0.90f : 0.78f,
-                                whiteModelStyle ? 0.90f : 0.78f, 1.0f};
+  const float keyDiffuseIntensity = whiteModelStyle ? 0.90f : 0.78f;
+  const GLfloat keyDiffuse[] = {keyDiffuseIntensity, keyDiffuseIntensity,
+                                keyDiffuseIntensity, 1.0f};
   const GLfloat keySpecular[] = {whiteModelStyle ? 0.28f : 0.35f,
                                  whiteModelStyle ? 0.28f : 0.35f,
                                  whiteModelStyle ? 0.28f : 0.35f, 1.0f};
@@ -83,7 +83,9 @@ LightingState ApplyEnhancedBasicLighting(const LightingOptions &options) {
   const GLfloat fillDiffuse[] = {fillDiffuseIntensity, fillDiffuseIntensity,
                                  fillDiffuseIntensity + 0.04f, 1.0f};
   const GLfloat fillSpecular[] = {0.0f, 0.0f, 0.0f, 1.0f};
-  const GLfloat fillPosition[] = {-1.5f, 2.0f, 1.0f, 0.0f};
+  const GLfloat fillPosition[] = {kFillLightWorldDirection[0],
+                                  kFillLightWorldDirection[1],
+                                  kFillLightWorldDirection[2], 0.0f};
 
   glEnable(GL_LIGHT1);
   glLightfv(GL_LIGHT1, GL_AMBIENT, fillAmbient);
@@ -106,6 +108,10 @@ LightingState ApplyEnhancedBasicLighting(const LightingOptions &options) {
   glGetFloatv(GL_MODELVIEW_MATRIX, viewMatrix);
   return {TransformWorldDirectionToEyeSpace(kKeyLightWorldDirection,
                                             viewMatrix),
+          TransformWorldDirectionToEyeSpace(kFillLightWorldDirection,
+                                            viewMatrix),
+          DiffuseLuminance(keyDiffuse[0], keyDiffuse[1], keyDiffuse[2]),
+          DiffuseLuminance(fillDiffuse[0], fillDiffuse[1], fillDiffuse[2]),
           true};
 }
 

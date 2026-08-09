@@ -151,7 +151,10 @@ struct ThreeToneInkProgram {
   GLint modelViewUniform = -1;
   GLint projectionUniform = -1;
   GLint normalMatrixUniform = -1;
-  GLint lightDirUniform = -1;
+  GLint keyLightDirUniform = -1;
+  GLint fillLightDirUniform = -1;
+  GLint keyDiffuseWeightUniform = -1;
+  GLint fillDiffuseWeightUniform = -1;
   GLint darkToneUniform = -1;
   GLint midToneUniform = -1;
   GLint lightToneUniform = -1;
@@ -201,7 +204,10 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
   )glsl";
   static constexpr const char *kFragmentShader = R"glsl(
     #version 120
-    uniform vec3 uLightDir;
+    uniform vec3 uKeyLightDir;
+    uniform vec3 uFillLightDir;
+    uniform float uKeyDiffuseWeight;
+    uniform float uFillDiffuseWeight;
     uniform vec3 uDarkTone;
     uniform vec3 uMidTone;
     uniform vec3 uLightTone;
@@ -213,7 +219,13 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
       vec3 normal = normalize(vNormal);
       if (uTwoSidedNormals && !gl_FrontFacing)
         normal = -normal;
-      float ndotl = max(dot(normal, normalize(uLightDir)), 0.0);
+      float keyDiffuse = uKeyDiffuseWeight *
+          max(dot(normal, normalize(uKeyLightDir)), 0.0);
+      float fillDiffuse = uFillDiffuseWeight *
+          max(dot(normal, normalize(uFillLightDir)), 0.0);
+      float weightSum = uKeyDiffuseWeight + uFillDiffuseWeight;
+      float ndotl = weightSum > 0.000001
+          ? (keyDiffuse + fillDiffuse) / weightSum : 0.0;
       vec3 tone = uLightTone;
       if (ndotl <= uDarkThreshold)
         tone = uDarkTone;
@@ -260,7 +272,14 @@ ThreeToneInkProgram CreateThreeToneInkProgram() {
       glGetUniformLocation(result.program, "uProjection");
   result.normalMatrixUniform =
       glGetUniformLocation(result.program, "uNormalMatrix");
-  result.lightDirUniform = glGetUniformLocation(result.program, "uLightDir");
+  result.keyLightDirUniform =
+      glGetUniformLocation(result.program, "uKeyLightDir");
+  result.fillLightDirUniform =
+      glGetUniformLocation(result.program, "uFillLightDir");
+  result.keyDiffuseWeightUniform =
+      glGetUniformLocation(result.program, "uKeyDiffuseWeight");
+  result.fillDiffuseWeightUniform =
+      glGetUniformLocation(result.program, "uFillDiffuseWeight");
   result.darkToneUniform = glGetUniformLocation(result.program, "uDarkTone");
   result.midToneUniform = glGetUniformLocation(result.program, "uMidTone");
   result.lightToneUniform = glGetUniformLocation(result.program, "uLightTone");
@@ -354,8 +373,8 @@ const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
 // Draws a mesh with the GPU three-tone ink shader when buffers are available.
 bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
                              const float *modelMatrix, bool sketchFill,
-                             const std::array<float, 3> &lightDir,
-                             bool twoSidedLighting) {
+                             const Viewer3DLightingProfile::LightingState
+                                 &lightingState) {
   const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
                                glIsBuffer(mesh.vboNormals) == GL_TRUE &&
                                glIsBuffer(mesh.eboTriangles) == GL_TRUE;
@@ -370,7 +389,9 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   if (program.program == 0 || program.positionAttrib < 0 ||
       program.normalAttrib < 0 || program.modelViewUniform < 0 ||
       program.projectionUniform < 0 || program.normalMatrixUniform < 0 ||
-      program.lightDirUniform < 0 || program.darkToneUniform < 0 ||
+      program.keyLightDirUniform < 0 || program.fillLightDirUniform < 0 ||
+      program.keyDiffuseWeightUniform < 0 ||
+      program.fillDiffuseWeightUniform < 0 || program.darkToneUniform < 0 ||
       program.midToneUniform < 0 || program.lightToneUniform < 0 ||
       program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0 ||
       program.twoSidedNormalsUniform < 0) {
@@ -401,14 +422,26 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
   glUniformMatrix4fv(program.projectionUniform, 1, GL_FALSE, projection);
   glUniformMatrix3fv(program.normalMatrixUniform, 1, GL_FALSE, normalMatrix);
-  glUniform3f(program.lightDirUniform, lightDir[0], lightDir[1], lightDir[2]);
+  glUniform3f(program.keyLightDirUniform,
+              lightingState.keyLightEyeDirection[0],
+              lightingState.keyLightEyeDirection[1],
+              lightingState.keyLightEyeDirection[2]);
+  glUniform3f(program.fillLightDirUniform,
+              lightingState.fillLightEyeDirection[0],
+              lightingState.fillLightEyeDirection[1],
+              lightingState.fillLightEyeDirection[2]);
+  glUniform1f(program.keyDiffuseWeightUniform,
+              lightingState.keyDiffuseWeight);
+  glUniform1f(program.fillDiffuseWeightUniform,
+              lightingState.fillDiffuseWeight);
   glUniform3f(program.darkToneUniform, 0.62f, 0.62f, 0.62f);
   glUniform3f(program.midToneUniform, 0.84f, 0.84f, 0.84f);
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
   glUniform1i(program.twoSidedNormalsUniform,
-              sketchFill && twoSidedLighting ? GL_TRUE : GL_FALSE);
+              sketchFill && lightingState.twoSidedLighting ? GL_TRUE
+                                                           : GL_FALSE);
 
   glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
@@ -439,27 +472,27 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
 
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix, bool sketchFill,
-                                   const std::array<float, 3> &lightDir,
-                                   bool twoSidedLighting);
+                                   const Viewer3DLightingProfile::LightingState
+                                       &lightingState);
 
 // Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
 void DrawMeshThreeToneInk(const Mesh &mesh, float scale,
                           const float *modelMatrix, bool sketchFill,
-                          const std::array<float, 3> &lightDir,
-                          bool twoSidedLighting) {
-  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill, lightDir,
-                              twoSidedLighting))
+                          const Viewer3DLightingProfile::LightingState
+                              &lightingState) {
+  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill,
+                              lightingState))
     return;
-  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill, lightDir,
-                                twoSidedLighting);
+  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill,
+                                lightingState);
 }
 
 // Draws a mesh with CPU-side three-tone ink shading when GPU shaders are
 // unavailable.
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix, bool sketchFill,
-                                   const std::array<float, 3> &lightDir,
-                                   bool twoSidedLighting) {
+                                   const Viewer3DLightingProfile::LightingState
+                                       &lightingState) {
   float fallbackModelMatrix[16];
   const float *effectiveModelMatrix =
       ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
@@ -544,12 +577,10 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
       const std::array<float, 3> eyeNormal =
           Viewer3DSketchLighting::OrientNormalForFace(
               TransformNormal(localNormal, modelView), frontFacing,
-              sketchFill && twoSidedLighting);
+              sketchFill && lightingState.twoSidedLighting);
 
-      const float ndotl = eyeNormal[0] * lightDir[0] +
-                          eyeNormal[1] * lightDir[1] +
-                          eyeNormal[2] * lightDir[2];
-      const float diffuse = std::max(0.0f, ndotl);
+      const float diffuse = Viewer3DLightingProfile::CombinedDirectionalDiffuse(
+          eyeNormal, lightingState);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
       glNormal3f(localNormal[0], localNormal[1], localNormal[2]);
@@ -567,8 +598,7 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
 // Updates the per-frame eye-space lighting used by Sketch mesh draws.
 void SceneRenderer::SetSketchLightingState(
     const Viewer3DLightingProfile::LightingState &lightingState) {
-  m_sketchLightEyeDirection = lightingState.keyLightEyeDirection;
-  m_sketchTwoSidedLighting = lightingState.twoSidedLighting;
+  m_sketchLightingState = lightingState;
 }
 
 void SceneRenderer::DrawMeshWithOutline(
@@ -809,8 +839,7 @@ void SceneRenderer::DrawMeshWithOutline(
           glDisable(GL_LIGHTING);
         DrawMeshThreeToneInk(mesh, scale, modelMatrix,
                              m_controller.IsSketchRenderStyleEnabled(),
-                             m_sketchLightEyeDirection,
-                             m_sketchTwoSidedLighting);
+                             m_sketchLightingState);
         if (fillLightingWasEnabled)
           glEnable(GL_LIGHTING);
       }

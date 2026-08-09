@@ -10,9 +10,14 @@ class SceneRenderer {
 public:
   // Initializes a scene renderer for the supplied rendering context.
   explicit SceneRenderer(IRenderContext &controller)
-      : m_controller(controller),
-        m_sketchLightEyeDirection(Viewer3DLightingProfile::NormalizeDirection(
-            Viewer3DLightingProfile::kKeyLightWorldDirection)) {}
+      : m_controller(controller) {
+    m_sketchLightingState.keyLightEyeDirection =
+        Viewer3DLightingProfile::NormalizeDirection(
+            Viewer3DLightingProfile::kKeyLightWorldDirection);
+    m_sketchLightingState.fillLightEyeDirection =
+        Viewer3DLightingProfile::NormalizeDirection(
+            Viewer3DLightingProfile::kFillLightWorldDirection);
+  }
 
   void SetSketchLightingState(
       const Viewer3DLightingProfile::LightingState &lightingState);
@@ -36,6 +41,5 @@ public:
 
 private:
   IRenderContext &m_controller;
-  std::array<float, 3> m_sketchLightEyeDirection;
-  bool m_sketchTwoSidedLighting = true;
+  Viewer3DLightingProfile::LightingState m_sketchLightingState;
 };

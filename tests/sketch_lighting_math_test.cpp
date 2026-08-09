@@ -2,6 +2,7 @@
 #include "render/lighting_profile.h"
 #include "render/sketch_lighting_math.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -55,6 +56,21 @@ float Dot(const std::array<float, 3> &left,
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
 }
 
+// Reproduces the combined diffuse expression evaluated by the GPU shader.
+float ShaderCombinedDiffuse(
+    const std::array<float, 3> &normal,
+    const Viewer3DLightingProfile::LightingState &lightingState) {
+  const float key = lightingState.keyDiffuseWeight *
+                    std::max(Dot(normal, lightingState.keyLightEyeDirection),
+                             0.0f);
+  const float fill = lightingState.fillDiffuseWeight *
+                     std::max(Dot(normal, lightingState.fillLightEyeDirection),
+                              0.0f);
+  const float weightSum =
+      lightingState.keyDiffuseWeight + lightingState.fillDiffuseWeight;
+  return weightSum > 0.000001f ? (key + fill) / weightSum : 0.0f;
+}
+
 } // namespace
 
 // Verifies Sketch normal transforms and two-sided orientation without OpenGL.
@@ -74,12 +90,15 @@ int main() {
                                0.25f / expectedLength});
   float gpuNormalMatrix[9];
   BuildGpuNormalMatrix(scaledRotation, gpuNormalMatrix);
-  AssertVectorNear(ApplyGpuNormalMatrix(gpuNormalMatrix, {1.0f, 1.0f, 1.0f}),
-                   cpuNormal);
+  const auto gpuNormal =
+      ApplyGpuNormalMatrix(gpuNormalMatrix, {1.0f, 1.0f, 1.0f});
+  AssertVectorNear(gpuNormal, cpuNormal);
 
   const float mirrored[16] = {-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
                               0.0f,  0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
   assert(TransformDeterminant(mirrored) < 0.0f);
+  AssertVectorNear(TransformNormal({1.0f, 0.0f, 0.0f}, mirrored),
+                   {-1.0f, 0.0f, 0.0f});
 
   const std::array<float, 3> normal = {0.0f, 0.0f, 1.0f};
   AssertVectorNear(
@@ -96,10 +115,46 @@ int main() {
                               0.0f, 0.0f, 0.0f, 1.0f};
   const auto worldLight = Viewer3DLightingProfile::NormalizeDirection(
       Viewer3DLightingProfile::kKeyLightWorldDirection);
+  const auto worldFillLight = Viewer3DLightingProfile::NormalizeDirection(
+      Viewer3DLightingProfile::kFillLightWorldDirection);
   AssertVectorNear(Viewer3DLightingProfile::TransformWorldDirectionToEyeSpace(
                        Viewer3DLightingProfile::kKeyLightWorldDirection,
                        identity),
                    worldLight);
+  AssertVectorNear(Viewer3DLightingProfile::TransformWorldDirectionToEyeSpace(
+                       Viewer3DLightingProfile::kFillLightWorldDirection,
+                       identity),
+                   worldFillLight);
+
+  Viewer3DLightingProfile::LightingState worldLighting;
+  worldLighting.keyLightEyeDirection = worldLight;
+  worldLighting.fillLightEyeDirection = worldFillLight;
+  worldLighting.keyDiffuseWeight = 0.78f;
+  worldLighting.fillDiffuseWeight = 0.32f;
+  assert(std::fabs(Viewer3DLightingProfile::CombinedDirectionalDiffuse(
+                       cpuNormal, worldLighting) -
+                   Viewer3DLightingProfile::CombinedDirectionalDiffuse(
+                       gpuNormal, worldLighting)) < 0.0001f);
+
+  const auto betweenLights = Viewer3DLightingProfile::NormalizeDirection(
+      {worldLight[0] + worldFillLight[0],
+       worldLight[1] + worldFillLight[1],
+       worldLight[2] + worldFillLight[2]});
+  const std::array<float, 3> awayFromBoth = {-betweenLights[0],
+                                             -betweenLights[1],
+                                             -betweenLights[2]};
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(worldLight,
+                                                              worldLighting) >
+         0.5f);
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(worldFillLight,
+                                                              worldLighting) >
+         0.1f);
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(betweenLights,
+                                                              worldLighting) >
+         0.3f);
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(awayFromBoth,
+                                                              worldLighting) ==
+         0.0f);
 
   const float cameraYaw90[16] = {0.0f, 0.0f, -1.0f, 0.0f,
                                  0.0f, 1.0f, 0.0f,  0.0f,
@@ -111,12 +166,29 @@ int main() {
   AssertVectorNear(yawedEyeLight,
                    Viewer3DLightingProfile::NormalizeDirection(
                        {5.0f, -4.0f, -2.0f}));
+  const auto yawedEyeFillLight =
+      Viewer3DLightingProfile::TransformWorldDirectionToEyeSpace(
+          Viewer3DLightingProfile::kFillLightWorldDirection, cameraYaw90);
+  AssertVectorNear(yawedEyeFillLight,
+                   Viewer3DLightingProfile::NormalizeDirection(
+                       {1.0f, 2.0f, 1.5f}));
 
   const auto worldSurfaceNormal = worldLight;
   const auto yawedEyeNormal = TransformNormal(worldSurfaceNormal, cameraYaw90);
   assert(std::fabs(Dot(worldSurfaceNormal, worldLight) -
                    Dot(yawedEyeNormal, yawedEyeLight)) < 0.0001f);
   assert(Dot(yawedEyeNormal, yawedEyeLight) > 0.0f);
+  Viewer3DLightingProfile::LightingState yawedLighting = worldLighting;
+  yawedLighting.keyLightEyeDirection = yawedEyeLight;
+  yawedLighting.fillLightEyeDirection = yawedEyeFillLight;
+  assert(std::fabs(Viewer3DLightingProfile::CombinedDirectionalDiffuse(
+                       worldSurfaceNormal, worldLighting) -
+                   Viewer3DLightingProfile::CombinedDirectionalDiffuse(
+                       yawedEyeNormal, yawedLighting)) < 0.0001f);
+  assert(std::fabs(Viewer3DLightingProfile::CombinedDirectionalDiffuse(
+                       yawedEyeNormal, yawedLighting) -
+                   ShaderCombinedDiffuse(yawedEyeNormal, yawedLighting)) <
+         0.0001f);
 
   const std::array<float, 3> objectNormal = {1.0f, 0.0f, 0.0f};
   const auto rotatedObjectNormal = TransformNormal(objectNormal, rotateZ90);
@@ -126,5 +198,23 @@ int main() {
                        cameraYaw90));
   assert(std::fabs(Dot(rotatedObjectNormal, worldLight) -
                    Dot(objectNormal, worldLight)) > 0.1f);
+
+  const auto backNormal = Viewer3DSketchLighting::OrientNormalForFace(
+      worldLight, false, true);
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(backNormal,
+                                                              worldLighting) <
+         Viewer3DLightingProfile::CombinedDirectionalDiffuse(worldLight,
+                                                              worldLighting));
+
+  const auto oldCameraFixedLight = Viewer3DLightingProfile::NormalizeDirection(
+      {0.35f, -0.55f, 1.0f});
+  assert(Dot(normal, oldCameraFixedLight) > 0.0f);
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(normal,
+                                                              worldLighting) >
+         0.0f);
+  assert(Dot(worldFillLight, oldCameraFixedLight) <= 0.0f);
+  assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(worldFillLight,
+                                                              worldLighting) >
+         0.0f);
   return 0;
 }
