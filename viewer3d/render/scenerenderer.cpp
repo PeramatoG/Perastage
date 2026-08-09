@@ -1,4 +1,5 @@
 #include "scenerenderer.h"
+#include "sketch_lighting_math.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -128,43 +129,6 @@ std::array<float, 3> NormalizeVector(float x, float y, float z) {
   if (length <= 1e-6f)
     return {0.0f, 0.0f, 1.0f};
   return {x / length, y / length, z / length};
-}
-
-// Transforms a normal using the inverse-transpose of the model matrix.
-std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
-                                     const float *modelMatrix) {
-  if (!modelMatrix)
-    return n;
-  // Match OpenGL fixed-function normal transform (inverse-transpose of the
-  // model's 3x3 linear part) used by the standard/textured lighting paths.
-  const float m00 = modelMatrix[0];
-  const float m01 = modelMatrix[4];
-  const float m02 = modelMatrix[8];
-  const float m10 = modelMatrix[1];
-  const float m11 = modelMatrix[5];
-  const float m12 = modelMatrix[9];
-  const float m20 = modelMatrix[2];
-  const float m21 = modelMatrix[6];
-  const float m22 = modelMatrix[10];
-
-  const float c00 = m11 * m22 - m12 * m21;
-  const float c01 = m12 * m20 - m10 * m22;
-  const float c02 = m10 * m21 - m11 * m20;
-  const float c10 = m02 * m21 - m01 * m22;
-  const float c11 = m00 * m22 - m02 * m20;
-  const float c12 = m01 * m20 - m00 * m21;
-  const float c20 = m01 * m12 - m02 * m11;
-  const float c21 = m02 * m10 - m00 * m12;
-  const float c22 = m00 * m11 - m01 * m10;
-  const float det = m00 * c00 + m01 * c01 + m02 * c02;
-  if (std::fabs(det) <= 1e-8f)
-    return NormalizeVector(n[0], n[1], n[2]);
-  const float invDet = 1.0f / det;
-
-  const float x = (c00 * n[0] + c10 * n[1] + c20 * n[2]) * invDet;
-  const float y = (c01 * n[0] + c11 * n[1] + c21 * n[2]) * invDet;
-  const float z = (c02 * n[0] + c12 * n[1] + c22 * n[2]) * invDet;
-  return NormalizeVector(x, y, z);
 }
 
 // Maps a diffuse lighting value to the sketch ink palette.
@@ -431,6 +395,8 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   if (sketchFill && cullWasEnabled)
     glDisable(GL_CULL_FACE);
   const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
+  GLint twoSidedLighting = GL_FALSE;
+  glGetIntegerv(GL_LIGHT_MODEL_TWO_SIDE, &twoSidedLighting);
 
   glUseProgram(program.program);
   glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
@@ -443,7 +409,8 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
   glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
   glUniform1f(program.darkThresholdUniform, 0.10f);
   glUniform1f(program.lightThresholdUniform, 0.30f);
-  glUniform1i(program.twoSidedNormalsUniform, GL_FALSE);
+  glUniform1i(program.twoSidedNormalsUniform,
+              sketchFill && twoSidedLighting == GL_TRUE ? GL_TRUE : GL_FALSE);
 
   glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
@@ -499,6 +466,14 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
   if (cullWasEnabled)
     glDisable(GL_CULL_FACE);
   const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
+  GLint effectiveFrontFace = GL_CCW;
+  GLint twoSidedLighting = GL_FALSE;
+  glGetIntegerv(GL_FRONT_FACE, &effectiveFrontFace);
+  glGetIntegerv(GL_LIGHT_MODEL_TWO_SIDE, &twoSidedLighting);
+  float modelView[16];
+  float projection[16];
+  glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+  glGetFloatv(GL_PROJECTION_MATRIX, projection);
   glShadeModel(GL_SMOOTH);
 
   glBegin(GL_TRIANGLES);
@@ -523,6 +498,29 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const float vz = v2z - v0z;
     const std::array<float, 3> triangleNormal = NormalizeVector(
         uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+    const auto projectToNdc = [&](float x, float y, float z) {
+      const float eyeX = modelView[0] * x + modelView[4] * y +
+                         modelView[8] * z + modelView[12];
+      const float eyeY = modelView[1] * x + modelView[5] * y +
+                         modelView[9] * z + modelView[13];
+      const float eyeZ = modelView[2] * x + modelView[6] * y +
+                         modelView[10] * z + modelView[14];
+      const float clipX = projection[0] * eyeX + projection[4] * eyeY +
+                          projection[8] * eyeZ + projection[12];
+      const float clipY = projection[1] * eyeX + projection[5] * eyeY +
+                          projection[9] * eyeZ + projection[13];
+      const float clipW = projection[3] * eyeX + projection[7] * eyeY +
+                          projection[11] * eyeZ + projection[15];
+      const float reciprocalW = std::fabs(clipW) > 1e-8f ? 1.0f / clipW : 1.0f;
+      return std::array<float, 2>{clipX * reciprocalW, clipY * reciprocalW};
+    };
+    const auto p0 = projectToNdc(v0x * scale, v0y * scale, v0z * scale);
+    const auto p1 = projectToNdc(v1x * scale, v1y * scale, v1z * scale);
+    const auto p2 = projectToNdc(v2x * scale, v2y * scale, v2z * scale);
+    const float signedArea =
+        (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0]);
+    const bool counterClockwise = signedArea >= 0.0f;
+    const bool frontFacing = counterClockwise == (effectiveFrontFace == GL_CCW);
     for (int v = 0; v < 3; ++v) {
       const uint32_t idx = tri[v];
       const float vx = mesh.vertices[idx * 3] * scale;
@@ -540,16 +538,18 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
         }
       }
 
-      const std::array<float, 3> worldNormal =
-          TransformNormal(localNormal, effectiveModelMatrix);
+      const std::array<float, 3> eyeNormal =
+          Viewer3DSketchLighting::OrientNormalForFace(
+              TransformNormal(localNormal, modelView), frontFacing,
+              sketchFill && twoSidedLighting == GL_TRUE);
 
-      const float ndotl = worldNormal[0] * lightDir[0] +
-                          worldNormal[1] * lightDir[1] +
-                          worldNormal[2] * lightDir[2];
+      const float ndotl = eyeNormal[0] * lightDir[0] +
+                          eyeNormal[1] * lightDir[1] +
+                          eyeNormal[2] * lightDir[2];
       const float diffuse = std::max(0.0f, ndotl);
       const InkColor tone = QuantizeInkTone(diffuse);
       glColor3f(tone.r, tone.g, tone.b);
-      glNormal3f(worldNormal[0], worldNormal[1], worldNormal[2]);
+      glNormal3f(localNormal[0], localNormal[1], localNormal[2]);
       glVertex3f(vx, vy, vz);
     }
   }

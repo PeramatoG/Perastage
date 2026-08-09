@@ -67,6 +67,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected inverted light and shadow direction on back-facing and transformed
+  surfaces in the 3D Sketch render style, including rotated, non-uniformly
+  scaled, and mirrored models.
+
 - Replaced the blocking project GDTF consolidation information dialog with a
   non-blocking message in the program console while retaining the diagnostic
   in the persistent application log.

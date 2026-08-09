@@ -1893,6 +1893,10 @@ add_executable(meshprimitives_cube_normals_test meshprimitives_cube_normals_test
 target_include_directories(meshprimitives_cube_normals_test PRIVATE ../viewer3d)
 add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test)
 
+add_executable(sketch_lighting_math_test sketch_lighting_math_test.cpp)
+target_include_directories(sketch_lighting_math_test PRIVATE ../viewer3d)
+add_test(NAME SketchLightingMath COMMAND sketch_lighting_math_test)
+
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
