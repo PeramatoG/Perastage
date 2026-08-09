@@ -743,7 +743,10 @@ void OpaqueFixturePass::Render(
   const bool drawRealTopInTopView =
       isTopView2D && !forceBottomViewForTopFixtures;
 
-  glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
+  glShadeModel((context.sketchBasePass ||
+                (context.texturedStyle && !wireframe))
+                   ? GL_SMOOTH
+                   : GL_FLAT);
   // Keep 2D wireframe fixture overlays unchanged, but in the real 3D wireframe
   // viewer fixtures must respect depth like all other geometry.
   const bool forceFixturesOnTop = wireframe && is2DViewer;

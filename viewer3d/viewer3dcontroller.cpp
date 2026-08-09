@@ -149,7 +149,6 @@ struct Viewer3DController::Impl {
   bool whiteModelStyleEnabled = false;
   bool sketchStyleEnabled = false;
   bool sketchBasePassActive = false;
-  bool sketchOutlinePassActive = false;
   bool pureWhiteStyleEnabled = false;
   bool texturedStyleEnabled = false;
   bool showSelectionOutline2D = false;
@@ -1419,14 +1418,14 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
                           resolveSymbolView, getPickColor);
   OpaqueFixturePass::Render(*this, context, visibleSet, getTypeColor,
                             getLayerColor, resolveSymbolView, getPickColor);
-  if (!context.sketchOutlinePass)
-    HoistSymbolRenderer::Render(*this, context);
+  HoistSymbolRenderer::Render(*this, context);
 }
 
 // Renders overlay Frame.
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
-  (void)visibleSet;
+  if (context.sketchPostProcess)
+    SelectionOverlayPass::Render(*this, context, visibleSet);
   if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);
     DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
@@ -1442,7 +1441,6 @@ void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
 void Viewer3DController::FinalizeRenderFrame() {
   m_impl->skipOutlinesForCurrentFrame = false;
   m_impl->sketchBasePassActive = false;
-  m_impl->sketchOutlinePassActive = false;
   if (m_impl->captureCanvas)
     m_impl->captureCanvas->SetSourceKey("unknown");
 }
@@ -1462,10 +1460,6 @@ void Viewer3DController::SetSketchBasePassActive(bool active) {
   m_impl->sketchBasePassActive = active;
 }
 
-// Selects whether mesh draws emit only post-process Sketch outlines.
-void Viewer3DController::SetSketchOutlinePassActive(bool active) {
-  m_impl->sketchOutlinePassActive = active;
-}
 
 // Sets dark Mode.
 void Viewer3DController::SetDarkMode(bool enabled) {
@@ -2216,10 +2210,6 @@ bool Viewer3DController::IsSketchBasePassActive() const {
   return m_impl->sketchBasePassActive;
 }
 
-// Checks whether the post-process Sketch outline pass is active.
-bool Viewer3DController::IsSketchOutlinePassActive() const {
-  return m_impl->sketchOutlinePassActive;
-}
 
 // Checks whether pure White Render Style Enabled.
 bool Viewer3DController::IsPureWhiteRenderStyleEnabled() const {

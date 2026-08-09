@@ -21,7 +21,6 @@ public:
   virtual bool IsWhiteModelStyleEnabled() const = 0;
   virtual bool IsSketchRenderStyleEnabled() const = 0;
   virtual bool IsSketchBasePassActive() const = 0;
-  virtual bool IsSketchOutlinePassActive() const = 0;
   virtual bool IsPureWhiteRenderStyleEnabled() const = 0;
   virtual bool IsTexturedRenderStyleEnabled() const = 0;
   virtual std::optional<bool> GetSymbolCaptureRenderProfileOverride() const = 0;

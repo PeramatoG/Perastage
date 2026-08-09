@@ -46,16 +46,19 @@ GLuint CreateProgram() {
   static constexpr const char *kFragmentShader = R"glsl(
     #version 120
     uniform sampler2D uNeutralBase;
+    uniform float uDarkLuminanceThreshold;
+    uniform float uLightLuminanceThreshold;
     varying vec2 vTexCoord;
     void main() {
-      vec3 base = texture2D(uNeutralBase, vTexCoord).rgb;
-      float luminance = dot(base, vec3(0.2126, 0.7152, 0.0722));
+      vec4 base = texture2D(uNeutralBase, vTexCoord);
+      float luminance = dot(base.rgb, vec3(0.2126, 0.7152, 0.0722));
       vec3 tone = vec3(1.0);
-      if (luminance <= 0.10)
+      if (luminance <= uDarkLuminanceThreshold)
         tone = vec3(0.62);
-      else if (luminance <= 0.30)
+      else if (luminance <= uLightLuminanceThreshold)
         tone = vec3(0.84);
-      gl_FragColor = vec4(tone, 1.0);
+      float inkCoverage = 1.0 - base.a;
+      gl_FragColor = vec4(mix(tone, vec3(0.0), inkCoverage), 1.0);
     }
   )glsl";
 
@@ -186,7 +189,7 @@ bool SketchPostProcessPass::Begin() {
   glBindRenderbuffer(GL_RENDERBUFFER,
                      static_cast<GLuint>(previousRenderbuffer));
   glViewport(0, 0, m_impl->viewport[2], m_impl->viewport[3]);
-  glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+  glClearColor(clearColor[0], clearColor[1], clearColor[2], 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   m_impl->active = true;
   return true;
@@ -236,6 +239,12 @@ void SketchPostProcessPass::Composite() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_impl->colorTexture);
     glUniform1i(glGetUniformLocation(m_impl->program, "uNeutralBase"), 0);
+    glUniform1f(
+        glGetUniformLocation(m_impl->program, "uDarkLuminanceThreshold"),
+        kSketchDarkLuminanceThreshold);
+    glUniform1f(
+        glGetUniformLocation(m_impl->program, "uLightLuminanceThreshold"),
+        kSketchLightLuminanceThreshold);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0f, 0.0f);
     glVertex2f(-1.0f, -1.0f);

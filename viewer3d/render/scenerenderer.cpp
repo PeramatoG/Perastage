@@ -165,17 +165,6 @@ void SceneRenderer::DrawMeshWithOutline(
       glEnable(GL_TEXTURE_2D);
   };
 
-  if (!wireframe && m_controller.IsSketchBasePassActive() &&
-      !m_controller.IsCaptureOnly()) {
-    if (texture2DWasEnabled)
-      glDisable(GL_TEXTURE_2D);
-    m_controller.SetGLColor(1.0f, 1.0f, 1.0f);
-    DrawMesh(mesh, scale, modelMatrix);
-    if (texture2DWasEnabled)
-      glEnable(GL_TEXTURE_2D);
-    return;
-  }
-
   if (wireframe) {
     float lineWidth =
         GetLineRenderProfile(m_controller.IsInteracting(),
@@ -316,8 +305,8 @@ void SceneRenderer::DrawMeshWithOutline(
           m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       };
       const bool drawOutline = !m_controller.SkipOutlinesForCurrentFrame() &&
-                               (m_controller.IsSketchOutlinePassActive() ||
-                                m_controller.IsSelectionOutlineEnabled2D()) &&
+                               !m_controller.IsSketchBasePassActive() &&
+                               m_controller.IsSelectionOutlineEnabled2D() &&
                                (highlight || groupHighlight || selected);
       const bool interactiveSketchMode =
           m_controller.IsSketchRenderStyleEnabled() &&
@@ -340,7 +329,7 @@ void SceneRenderer::DrawMeshWithOutline(
       }
 
       if (!m_controller.IsCaptureOnly()) {
-        if (drawOutline && !m_controller.IsSketchOutlinePassActive()) {
+        if (drawOutline) {
           const float glowWidth = lineWidth + 3.0f;
           glLineWidth(glowWidth);
           setHighlightOrSelectionColor();
@@ -348,33 +337,26 @@ void SceneRenderer::DrawMeshWithOutline(
         }
         if (drawBaseWireframe) {
           glLineWidth(lineWidth);
-          m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+          if (m_controller.IsSketchBasePassActive())
+            glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+          else
+            m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
         }
       }
       if (drawBaseWireframe) {
         DrawMeshWireframe(mesh, scale, captureTransform, nullptr,
                           wireframeTriangleStep);
       }
-      if (drawOutline && m_controller.IsSketchOutlinePassActive()) {
-        const float glowWidth = lineWidth + 3.0f;
-        glLineWidth(glowWidth);
-        setHighlightOrSelectionColor();
-        DrawMeshWireframe(mesh, scale, captureTransform);
-      }
       glLineWidth(1.0f);
-
-      if (m_controller.IsSketchOutlinePassActive()) {
-        if (texture2DWhiteModelWasEnabled)
-          glEnable(GL_TEXTURE_2D);
-        restoreTextureState();
-        return;
-      }
 
       if (!disableDepthBias) {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(-1.0f, -1.0f);
       }
-      if (highlight || groupHighlight || selected) {
+      if (m_controller.IsSketchBasePassActive()) {
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        DrawMesh(mesh, scale, modelMatrix);
+      } else if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
         const GLboolean highlightLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (!highlightLightingWasEnabled)

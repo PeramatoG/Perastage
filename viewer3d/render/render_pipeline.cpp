@@ -4,19 +4,6 @@
 #include "sketch_post_process_pass.h"
 #include "viewer3dcontroller.h"
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#endif
-#include <GL/glew.h>
-#ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-
 #include <cassert>
 #include <sstream>
 
@@ -51,7 +38,7 @@ RenderPipeline::~RenderPipeline() {
   }
 }
 
-// Executes opaque, post-process, outline, and overlay stages for one frame.
+// Executes opaque, optional Sketch post-process, and overlay stages for one frame.
 void RenderPipeline::Execute(const RenderFrameContext &context) {
   struct FinalizeGuard {
     RenderPipeline &pipeline;
@@ -64,24 +51,13 @@ void RenderPipeline::Execute(const RenderFrameContext &context) {
                                    m_context.idOnlyPass)) {
     RenderFrameContext baseContext = m_context;
     baseContext.whiteModelStyle = false;
+    baseContext.sketchBasePass = true;
     m_controller.SetSketchBasePassActive(true);
     const bool hasIntermediateTarget = m_controller.BeginSketchPostProcess();
     m_controller.RenderOpaqueFrame(baseContext, *m_visibleSet);
     m_controller.SetSketchBasePassActive(false);
     if (hasIntermediateTarget)
       m_controller.CompleteSketchPostProcess();
-
-    RenderFrameContext outlineContext = m_context;
-    outlineContext.drawGridBeforeScene = false;
-    outlineContext.drawGridAfterScene = false;
-    outlineContext.sketchOutlinePass = true;
-    m_controller.SetSketchOutlinePassActive(true);
-    GLint previousDepthFunction = GL_LESS;
-    glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunction);
-    glDepthFunc(GL_LEQUAL);
-    m_controller.RenderOpaqueFrame(outlineContext, *m_visibleSet);
-    glDepthFunc(static_cast<GLenum>(previousDepthFunction));
-    m_controller.SetSketchOutlinePassActive(false);
   } else {
     RenderOpaque();
   }

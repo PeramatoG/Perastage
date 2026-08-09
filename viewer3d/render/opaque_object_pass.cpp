@@ -363,7 +363,10 @@ void OpaqueObjectPass::Render(
 
   const auto &sceneObjects = SceneDataManager::Instance().GetSceneObjects();
 
-  glShadeModel((context.texturedStyle && !wireframe) ? GL_SMOOTH : GL_FLAT);
+  glShadeModel((context.sketchBasePass ||
+                (context.texturedStyle && !wireframe))
+                   ? GL_SMOOTH
+                   : GL_FLAT);
   for (const auto &uuid : visibleSet.objectUuids) {
     auto sceneIt = sceneObjects.find(uuid);
     if (sceneIt == sceneObjects.end())

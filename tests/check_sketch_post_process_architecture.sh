@@ -16,7 +16,13 @@ rg -q 'IsSketchBasePassActive' "$renderer"
 rg -q 'DrawMesh\(mesh, scale, modelMatrix\)' "$renderer"
 rg -q 'BeginSketchPostProcess' "$pipeline"
 rg -q 'CompleteSketchPostProcess' "$pipeline"
-rg -q 'SetSketchOutlinePassActive\(true\)' "$pipeline"
+if rg -q 'SketchOutlinePass|sketchOutlinePass' "$root/viewer3d"; then
+  echo "Sketch ink must not use a post-composite geometry pass." >&2
+  exit 1
+fi
+rg -q 'glColor4f\(0\.0f, 0\.0f, 0\.0f, 0\.0f\)' "$renderer"
+rg -q 'glPolygonOffset\(-1\.0f, -1\.0f\)' "$renderer"
+rg -q 'inkCoverage = 1\.0 - base\.a' "$post_process"
 rg -q 'GL_DRAW_FRAMEBUFFER_BINDING' "$post_process"
 if rg -q 'glBindFramebuffer\(GL_(DRAW_)?FRAMEBUFFER, 0\)' "$post_process"; then
   echo "Sketch post-processing must restore the captured destination framebuffer." >&2

@@ -13,7 +13,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
-#include <wx/log.h>
 
 #include "configmanager.h"
 #include "fixture_visual_color.h"
@@ -106,10 +105,10 @@ void AppendUuidIfRenderable(
 }
 } // namespace
 
+// Renders hover and selection geometry after the base scene composition.
 void SelectionOverlayPass::Render(Viewer3DController &controller,
                                   const RenderFrameContext &context,
                                   const Viewer3DVisibleSet &visibleSet) {
-  wxLogDebug("SelectionOverlayPass executed");
   const auto &fixtures = SceneDataManager::Instance().GetFixtures();
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
@@ -176,10 +175,6 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
     return std::array<float, 3>{1.0f, 1.0f, 1.0f};
   };
 
-  wxLogDebug("Highlight: begin hover=%d group=%llu selected=%llu",
-             controller.m_highlightUuid.empty() ? 0 : 1,
-             static_cast<unsigned long long>(controller.m_groupHighlightUuids.size()),
-             static_cast<unsigned long long>(controller.m_selectedUuids.size()));
   {
     viewer3d::render::OpenGLStateGuard stateGuard;
 
@@ -198,6 +193,4 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
                               getPickColor);
     glDepthFunc(static_cast<GLenum>(previousDepthFunc));
   }
-  wxLogDebug(
-      "Highlight: restored OpenGL state for hover, group, and selected overlays");
 }

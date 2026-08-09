@@ -86,7 +86,7 @@ struct RenderFrameContext {
   bool whiteModelStyle = false;
   bool texturedStyle = false;
   bool sketchPostProcess = false;
-  bool sketchOutlinePass = false;
+  bool sketchBasePass = false;
 
   std::unordered_set<std::string> hiddenLayers;
 };
