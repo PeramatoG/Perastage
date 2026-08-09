@@ -67,6 +67,12 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Corrected inverted lighting in the 3D Sketch style by applying its three-tone
+  treatment to the neutral output of the proven Standard renderer, preserving
+  the same transforms and illumination while restoring smooth surfaces, the
+  original stroke-before-fill ink treatment, and a balanced dark, mid, and
+  light tonal distribution.
+
 - Replaced the blocking project GDTF consolidation information dialog with a
   non-blocking message in the program console while retaining the diagnostic
   in the persistent application log.

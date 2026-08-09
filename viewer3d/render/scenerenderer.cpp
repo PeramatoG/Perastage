@@ -28,12 +28,6 @@ constexpr float kGroupHighlightR = 0.0f;
 constexpr float kGroupHighlightG = 0.45f;
 constexpr float kGroupHighlightB = 0.85f;
 
-struct InkColor {
-  float r = 1.0f;
-  float g = 1.0f;
-  float b = 1.0f;
-};
-
 struct LineRenderProfile {
   float lineWidth = 1.0f;
   bool enableLineSmoothing = false;
@@ -122,246 +116,6 @@ void LogMeshVaoDiagnostic(const Mesh &mesh, const char *label) {
 #endif
 }
 
-// Returns a normalized direction with a stable fallback for near-zero vectors.
-std::array<float, 3> NormalizeVector(float x, float y, float z) {
-  const float length = std::sqrt(x * x + y * y + z * z);
-  if (length <= 1e-6f)
-    return {0.0f, 0.0f, 1.0f};
-  return {x / length, y / length, z / length};
-}
-
-// Transforms a normal using the inverse-transpose of the model matrix.
-std::array<float, 3> TransformNormal(const std::array<float, 3> &n,
-                                     const float *modelMatrix) {
-  if (!modelMatrix)
-    return n;
-  // Match OpenGL fixed-function normal transform (inverse-transpose of the
-  // model's 3x3 linear part) used by the standard/textured lighting paths.
-  const float m00 = modelMatrix[0];
-  const float m01 = modelMatrix[4];
-  const float m02 = modelMatrix[8];
-  const float m10 = modelMatrix[1];
-  const float m11 = modelMatrix[5];
-  const float m12 = modelMatrix[9];
-  const float m20 = modelMatrix[2];
-  const float m21 = modelMatrix[6];
-  const float m22 = modelMatrix[10];
-
-  const float c00 = m11 * m22 - m12 * m21;
-  const float c01 = m12 * m20 - m10 * m22;
-  const float c02 = m10 * m21 - m11 * m20;
-  const float c10 = m02 * m21 - m01 * m22;
-  const float c11 = m00 * m22 - m02 * m20;
-  const float c12 = m01 * m20 - m00 * m21;
-  const float c20 = m01 * m12 - m02 * m11;
-  const float c21 = m02 * m10 - m00 * m12;
-  const float c22 = m00 * m11 - m01 * m10;
-  const float det = m00 * c00 + m01 * c01 + m02 * c02;
-  if (std::fabs(det) <= 1e-8f)
-    return NormalizeVector(n[0], n[1], n[2]);
-  const float invDet = 1.0f / det;
-
-  const float x = (c00 * n[0] + c10 * n[1] + c20 * n[2]) * invDet;
-  const float y = (c01 * n[0] + c11 * n[1] + c21 * n[2]) * invDet;
-  const float z = (c02 * n[0] + c12 * n[1] + c22 * n[2]) * invDet;
-  return NormalizeVector(x, y, z);
-}
-
-// Maps a diffuse lighting value to the sketch ink palette.
-InkColor QuantizeInkTone(float diffuseFactor) {
-  // 3-ink white-model palette with lighting weight:
-  // white 70%, light gray 20%, dark gray 10%.
-  static constexpr float kDarkThreshold = 0.10f;
-  static constexpr float kLightThreshold = 0.30f;
-  if (diffuseFactor <= kDarkThreshold)
-    return {0.62f, 0.62f, 0.62f};
-  if (diffuseFactor <= kLightThreshold)
-    return {0.84f, 0.84f, 0.84f};
-  return {1.0f, 1.0f, 1.0f};
-}
-
-struct ThreeToneInkProgram {
-  GLuint program = 0;
-  GLint positionAttrib = -1;
-  GLint normalAttrib = -1;
-  GLint modelViewUniform = -1;
-  GLint projectionUniform = -1;
-  GLint normalMatrixUniform = -1;
-  GLint lightDirUniform = -1;
-  GLint darkToneUniform = -1;
-  GLint midToneUniform = -1;
-  GLint lightToneUniform = -1;
-  GLint darkThresholdUniform = -1;
-  GLint lightThresholdUniform = -1;
-  GLint twoSidedNormalsUniform = -1;
-};
-
-// Compiles a GLSL shader object and returns zero when compilation fails.
-GLuint CompileShader(GLenum shaderType, const char *source) {
-  const GLuint shader = glCreateShader(shaderType);
-  if (shader == 0)
-    return 0;
-  glShaderSource(shader, 1, &source, nullptr);
-  glCompileShader(shader);
-  GLint compiled = GL_FALSE;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-  if (compiled == GL_TRUE)
-    return shader;
-  glDeleteShader(shader);
-  return 0;
-}
-
-// Links a GLSL program object and reports whether linking succeeded.
-bool LinkProgram(GLuint program) {
-  glLinkProgram(program);
-  GLint linked = GL_FALSE;
-  glGetProgramiv(program, GL_LINK_STATUS, &linked);
-  return linked == GL_TRUE;
-}
-
-// Creates the three-tone ink shader program and caches its attribute and
-// uniform locations.
-ThreeToneInkProgram CreateThreeToneInkProgram() {
-  static constexpr const char *kVertexShader = R"glsl(
-    #version 120
-    attribute vec3 aPosition;
-    attribute vec3 aNormal;
-    uniform mat4 uModelView;
-    uniform mat4 uProjection;
-    uniform mat3 uNormalMatrix;
-    varying vec3 vNormal;
-    void main() {
-      vNormal = normalize(uNormalMatrix * aNormal);
-      gl_Position = uProjection * uModelView * vec4(aPosition, 1.0);
-    }
-  )glsl";
-  static constexpr const char *kFragmentShader = R"glsl(
-    #version 120
-    uniform vec3 uLightDir;
-    uniform vec3 uDarkTone;
-    uniform vec3 uMidTone;
-    uniform vec3 uLightTone;
-    uniform float uDarkThreshold;
-    uniform float uLightThreshold;
-    uniform bool uTwoSidedNormals;
-    varying vec3 vNormal;
-    void main() {
-      vec3 normal = normalize(vNormal);
-      if (uTwoSidedNormals && !gl_FrontFacing)
-        normal = -normal;
-      float ndotl = max(dot(normal, normalize(uLightDir)), 0.0);
-      vec3 tone = uLightTone;
-      if (ndotl <= uDarkThreshold)
-        tone = uDarkTone;
-      else if (ndotl <= uLightThreshold)
-        tone = uMidTone;
-      gl_FragColor = vec4(tone, 1.0);
-    }
-  )glsl";
-
-  ThreeToneInkProgram result;
-  const GLuint vs = CompileShader(GL_VERTEX_SHADER, kVertexShader);
-  const GLuint fs = CompileShader(GL_FRAGMENT_SHADER, kFragmentShader);
-  if (vs == 0 || fs == 0) {
-    if (vs != 0)
-      glDeleteShader(vs);
-    if (fs != 0)
-      glDeleteShader(fs);
-    return result;
-  }
-
-  result.program = glCreateProgram();
-  if (result.program == 0) {
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-    return result;
-  }
-  glAttachShader(result.program, vs);
-  glAttachShader(result.program, fs);
-  glBindAttribLocation(result.program, 0, "aPosition");
-  glBindAttribLocation(result.program, 1, "aNormal");
-  const bool linked = LinkProgram(result.program);
-  glDeleteShader(vs);
-  glDeleteShader(fs);
-  if (!linked) {
-    glDeleteProgram(result.program);
-    result.program = 0;
-    return result;
-  }
-
-  result.positionAttrib = glGetAttribLocation(result.program, "aPosition");
-  result.normalAttrib = glGetAttribLocation(result.program, "aNormal");
-  result.modelViewUniform = glGetUniformLocation(result.program, "uModelView");
-  result.projectionUniform =
-      glGetUniformLocation(result.program, "uProjection");
-  result.normalMatrixUniform =
-      glGetUniformLocation(result.program, "uNormalMatrix");
-  result.lightDirUniform = glGetUniformLocation(result.program, "uLightDir");
-  result.darkToneUniform = glGetUniformLocation(result.program, "uDarkTone");
-  result.midToneUniform = glGetUniformLocation(result.program, "uMidTone");
-  result.lightToneUniform = glGetUniformLocation(result.program, "uLightTone");
-  result.darkThresholdUniform =
-      glGetUniformLocation(result.program, "uDarkThreshold");
-  result.lightThresholdUniform =
-      glGetUniformLocation(result.program, "uLightThreshold");
-  result.twoSidedNormalsUniform =
-      glGetUniformLocation(result.program, "uTwoSidedNormals");
-  return result;
-}
-
-// Returns the lazily-created three-tone ink shader program.
-const ThreeToneInkProgram &GetThreeToneInkProgram() {
-  static const ThreeToneInkProgram program = CreateThreeToneInkProgram();
-  return program;
-}
-
-// Builds the inverse-transpose normal matrix from the current model-view
-// matrix.
-void ComputeNormalMatrix3x3(const float *modelView, float *normalMatrix3x3) {
-  const float m00 = modelView[0];
-  const float m01 = modelView[4];
-  const float m02 = modelView[8];
-  const float m10 = modelView[1];
-  const float m11 = modelView[5];
-  const float m12 = modelView[9];
-  const float m20 = modelView[2];
-  const float m21 = modelView[6];
-  const float m22 = modelView[10];
-
-  const float c00 = m11 * m22 - m12 * m21;
-  const float c01 = m12 * m20 - m10 * m22;
-  const float c02 = m10 * m21 - m11 * m20;
-  const float c10 = m02 * m21 - m01 * m22;
-  const float c11 = m00 * m22 - m02 * m20;
-  const float c12 = m01 * m20 - m00 * m21;
-  const float c20 = m01 * m12 - m02 * m11;
-  const float c21 = m02 * m10 - m00 * m12;
-  const float c22 = m00 * m11 - m01 * m10;
-  const float det = m00 * c00 + m01 * c01 + m02 * c02;
-  if (std::fabs(det) <= 1e-8f) {
-    normalMatrix3x3[0] = 1.0f;
-    normalMatrix3x3[1] = 0.0f;
-    normalMatrix3x3[2] = 0.0f;
-    normalMatrix3x3[3] = 0.0f;
-    normalMatrix3x3[4] = 1.0f;
-    normalMatrix3x3[5] = 0.0f;
-    normalMatrix3x3[6] = 0.0f;
-    normalMatrix3x3[7] = 0.0f;
-    normalMatrix3x3[8] = 1.0f;
-    return;
-  }
-  const float invDet = 1.0f / det;
-  normalMatrix3x3[0] = c00 * invDet;
-  normalMatrix3x3[1] = c10 * invDet;
-  normalMatrix3x3[2] = c20 * invDet;
-  normalMatrix3x3[3] = c01 * invDet;
-  normalMatrix3x3[4] = c11 * invDet;
-  normalMatrix3x3[5] = c21 * invDet;
-  normalMatrix3x3[6] = c02 * invDet;
-  normalMatrix3x3[7] = c12 * invDet;
-  normalMatrix3x3[8] = c22 * invDet;
-}
-
 // Returns the prior front-face mode after adapting it for mirrored model draws.
 GLint ApplyMirroredFrontFace(bool mirrored) {
   GLint previousFrontFace = GL_CCW;
@@ -387,178 +141,6 @@ const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
   return fallbackModelMatrix;
 }
 
-// Draws a mesh with the GPU three-tone ink shader when buffers are available.
-bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
-                             const float *modelMatrix, bool sketchFill) {
-  const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
-                               glIsBuffer(mesh.vboNormals) == GL_TRUE &&
-                               glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  const bool canUseGpuPath = mesh.buffersReady && mesh.vao != 0 &&
-                             mesh.vboVertices != 0 && mesh.vboNormals != 0 &&
-                             mesh.eboTriangles != 0 && gpuHandlesValid &&
-                             mesh.triangleIndexCount > 0;
-  if (!canUseGpuPath)
-    return false;
-
-  const ThreeToneInkProgram &program = GetThreeToneInkProgram();
-  if (program.program == 0 || program.positionAttrib < 0 ||
-      program.normalAttrib < 0 || program.modelViewUniform < 0 ||
-      program.projectionUniform < 0 || program.normalMatrixUniform < 0 ||
-      program.lightDirUniform < 0 || program.darkToneUniform < 0 ||
-      program.midToneUniform < 0 || program.lightToneUniform < 0 ||
-      program.darkThresholdUniform < 0 || program.lightThresholdUniform < 0 ||
-      program.twoSidedNormalsUniform < 0) {
-    return false;
-  }
-
-  GLint priorProgram = 0;
-  glGetIntegerv(GL_CURRENT_PROGRAM, &priorProgram);
-
-  glBindVertexArray(mesh.vao);
-  glPushMatrix();
-  glScalef(scale, scale, scale);
-
-  float modelView[16];
-  float projection[16];
-  glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
-  glGetFloatv(GL_PROJECTION_MATRIX, projection);
-
-  float normalMatrix[9];
-  ComputeNormalMatrix3x3(modelView, normalMatrix);
-  const bool mirrored =
-      TransformDeterminant(modelMatrix ? modelMatrix : modelView) < 0.0f;
-  const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
-  if (sketchFill && cullWasEnabled)
-    glDisable(GL_CULL_FACE);
-  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
-
-  glUseProgram(program.program);
-  glUniformMatrix4fv(program.modelViewUniform, 1, GL_FALSE, modelView);
-  glUniformMatrix4fv(program.projectionUniform, 1, GL_FALSE, projection);
-  glUniformMatrix3fv(program.normalMatrixUniform, 1, GL_FALSE, normalMatrix);
-  const std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
-  glUniform3f(program.lightDirUniform, lightDir[0], lightDir[1], lightDir[2]);
-  glUniform3f(program.darkToneUniform, 0.62f, 0.62f, 0.62f);
-  glUniform3f(program.midToneUniform, 0.84f, 0.84f, 0.84f);
-  glUniform3f(program.lightToneUniform, 1.0f, 1.0f, 1.0f);
-  glUniform1f(program.darkThresholdUniform, 0.10f);
-  glUniform1f(program.lightThresholdUniform, 0.30f);
-  glUniform1i(program.twoSidedNormalsUniform, GL_FALSE);
-
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
-  glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
-  glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3,
-                        GL_FLOAT, GL_FALSE, 0, nullptr);
-
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
-  glEnableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
-  glVertexAttribPointer(static_cast<GLuint>(program.normalAttrib), 3, GL_FLOAT,
-                        GL_FALSE, 0, nullptr);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
-                 nullptr);
-
-  glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
-  glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
-  RestoreMeshVaoElementBindingAndUnbind(mesh, "DrawMeshThreeToneInkGpu");
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glUseProgram(static_cast<GLuint>(priorProgram));
-  RestoreFrontFace(previousFrontFace);
-  if (sketchFill && cullWasEnabled)
-    glEnable(GL_CULL_FACE);
-  glPopMatrix();
-
-  return true;
-}
-
-void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
-                                   const float *modelMatrix, bool sketchFill);
-
-// Draws a mesh using three-tone ink shading with GPU and immediate fallbacks.
-void DrawMeshThreeToneInk(const Mesh &mesh, float scale,
-                          const float *modelMatrix, bool sketchFill) {
-  if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill))
-    return;
-  DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill);
-}
-
-// Draws a mesh with CPU-side three-tone ink shading when GPU shaders are
-// unavailable.
-void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
-                                   const float *modelMatrix, bool sketchFill) {
-  std::array<float, 3> lightDir = NormalizeVector(0.35f, -0.55f, 1.0f);
-  float fallbackModelMatrix[16];
-  const float *effectiveModelMatrix =
-      ResolveModelMatrixForMirroring(modelMatrix, fallbackModelMatrix);
-  const bool hasNormals = mesh.normals.size() >= mesh.vertices.size();
-  const bool mirrored = TransformDeterminant(effectiveModelMatrix) < 0.0f;
-  const std::vector<uint32_t> *triangleIndices = &mesh.indices;
-
-  const GLboolean cullWasEnabled = glIsEnabled(GL_CULL_FACE);
-  if (cullWasEnabled)
-    glDisable(GL_CULL_FACE);
-  const GLint previousFrontFace = ApplyMirroredFrontFace(mirrored);
-  glShadeModel(GL_SMOOTH);
-
-  glBegin(GL_TRIANGLES);
-  for (size_t i = 0; i + 2 < triangleIndices->size(); i += 3) {
-    const uint32_t tri[3] = {(*triangleIndices)[i], (*triangleIndices)[i + 1],
-                             (*triangleIndices)[i + 2]};
-    const float v0x = mesh.vertices[tri[0] * 3];
-    const float v0y = mesh.vertices[tri[0] * 3 + 1];
-    const float v0z = mesh.vertices[tri[0] * 3 + 2];
-    const float v1x = mesh.vertices[tri[1] * 3];
-    const float v1y = mesh.vertices[tri[1] * 3 + 1];
-    const float v1z = mesh.vertices[tri[1] * 3 + 2];
-    const float v2x = mesh.vertices[tri[2] * 3];
-    const float v2y = mesh.vertices[tri[2] * 3 + 1];
-    const float v2z = mesh.vertices[tri[2] * 3 + 2];
-
-    const float ux = v1x - v0x;
-    const float uy = v1y - v0y;
-    const float uz = v1z - v0z;
-    const float vx = v2x - v0x;
-    const float vy = v2y - v0y;
-    const float vz = v2z - v0z;
-    const std::array<float, 3> triangleNormal = NormalizeVector(
-        uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-    for (int v = 0; v < 3; ++v) {
-      const uint32_t idx = tri[v];
-      const float vx = mesh.vertices[idx * 3] * scale;
-      const float vy = mesh.vertices[idx * 3 + 1] * scale;
-      const float vz = mesh.vertices[idx * 3 + 2] * scale;
-
-      std::array<float, 3> localNormal = triangleNormal;
-      if (hasNormals) {
-        const float nx = mesh.normals[idx * 3];
-        const float ny = mesh.normals[idx * 3 + 1];
-        const float nz = mesh.normals[idx * 3 + 2];
-        const float normalLenSq = nx * nx + ny * ny + nz * nz;
-        if (normalLenSq > 1e-12f) {
-          localNormal = NormalizeVector(nx, ny, nz);
-        }
-      }
-
-      const std::array<float, 3> worldNormal =
-          TransformNormal(localNormal, effectiveModelMatrix);
-
-      const float ndotl = worldNormal[0] * lightDir[0] +
-                          worldNormal[1] * lightDir[1] +
-                          worldNormal[2] * lightDir[2];
-      const float diffuse = std::max(0.0f, ndotl);
-      const InkColor tone = QuantizeInkTone(diffuse);
-      glColor3f(tone.r, tone.g, tone.b);
-      glNormal3f(worldNormal[0], worldNormal[1], worldNormal[2]);
-      glVertex3f(vx, vy, vz);
-    }
-  }
-  glEnd();
-
-  RestoreFrontFace(previousFrontFace);
-  if (cullWasEnabled)
-    glEnable(GL_CULL_FACE);
-}
 } // namespace
 
 void SceneRenderer::DrawMeshWithOutline(
@@ -723,6 +305,7 @@ void SceneRenderer::DrawMeshWithOutline(
           m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
       };
       const bool drawOutline = !m_controller.SkipOutlinesForCurrentFrame() &&
+                               !m_controller.IsSketchBasePassActive() &&
                                m_controller.IsSelectionOutlineEnabled2D() &&
                                (highlight || groupHighlight || selected);
       const bool interactiveSketchMode =
@@ -754,7 +337,10 @@ void SceneRenderer::DrawMeshWithOutline(
         }
         if (drawBaseWireframe) {
           glLineWidth(lineWidth);
-          m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
+          if (m_controller.IsSketchBasePassActive())
+            glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+          else
+            m_controller.SetGLColor(0.0f, 0.0f, 0.0f);
         }
       }
       if (drawBaseWireframe) {
@@ -767,7 +353,10 @@ void SceneRenderer::DrawMeshWithOutline(
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(-1.0f, -1.0f);
       }
-      if (highlight || groupHighlight || selected) {
+      if (m_controller.IsSketchBasePassActive()) {
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        DrawMesh(mesh, scale, modelMatrix);
+      } else if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
         const GLboolean highlightLightingWasEnabled = glIsEnabled(GL_LIGHTING);
         if (!highlightLightingWasEnabled)
@@ -794,13 +383,8 @@ void SceneRenderer::DrawMeshWithOutline(
         if (fillLightingWasEnabled)
           glEnable(GL_LIGHTING);
       } else {
-        const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
-        if (fillLightingWasEnabled)
-          glDisable(GL_LIGHTING);
-        DrawMeshThreeToneInk(mesh, scale, modelMatrix,
-                             m_controller.IsSketchRenderStyleEnabled());
-        if (fillLightingWasEnabled)
-          glEnable(GL_LIGHTING);
+        m_controller.SetGLColor(1.0f, 1.0f, 1.0f);
+        DrawMesh(mesh, scale, modelMatrix);
       }
       if (!disableDepthBias)
         glDisable(GL_POLYGON_OFFSET_FILL);

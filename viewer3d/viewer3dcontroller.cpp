@@ -69,6 +69,7 @@
 #include "selection_movement_settings.h"
 #include "selection_overlay_pass.h"
 #include "selectionsystem.h"
+#include "sketch_post_process_pass.h"
 #include "types.h"
 #include "viewer3d_render_style.h"
 #include "viewer3dcontroller_cache_helpers.h"
@@ -147,6 +148,7 @@ struct Viewer3DController::Impl {
   Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
   bool whiteModelStyleEnabled = false;
   bool sketchStyleEnabled = false;
+  bool sketchBasePassActive = false;
   bool pureWhiteStyleEnabled = false;
   bool texturedStyleEnabled = false;
   bool showSelectionOutline2D = false;
@@ -173,6 +175,7 @@ struct Viewer3DController::Impl {
   mutable bool visibleSetIs2DViewer = false;
   mutable Viewer2DView visibleSetView = Viewer2DView::Top;
   std::unique_ptr<SceneRenderer> sceneRenderer;
+  std::unique_ptr<SketchPostProcessPass> sketchPostProcessPass;
   std::unique_ptr<VisibilitySystem> visibilitySystem;
   std::unique_ptr<SelectionSystem> selectionSystem;
   std::unique_ptr<IdPickPass> idPickPass;
@@ -700,6 +703,7 @@ Viewer3DController::Viewer3DController()
       m_captureUseSymbols(m_impl->captureUseSymbols),
       m_bottomSymbolCache(m_impl->bottomSymbolCache) {
   m_impl->sceneRenderer = std::make_unique<SceneRenderer>(*this);
+  m_impl->sketchPostProcessPass = std::make_unique<SketchPostProcessPass>();
   m_impl->visibilitySystem = std::make_unique<VisibilitySystem>(*this);
   m_impl->selectionSystem = std::make_unique<SelectionSystem>(*this);
   m_impl->idPickPass = std::make_unique<IdPickPass>(*this);
@@ -1193,6 +1197,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   context.texturedStyle = IsTexturedRenderStyle(renderStyle);
   m_impl->whiteModelStyleEnabled = context.whiteModelStyle;
   m_impl->sketchStyleEnabled = renderStyle == Viewer3DRenderStyle::WhiteModel;
+  context.sketchPostProcess = m_impl->sketchStyleEnabled;
   m_impl->pureWhiteStyleEnabled = renderStyle == Viewer3DRenderStyle::White;
   m_impl->texturedStyleEnabled = context.texturedStyle;
 
@@ -1419,7 +1424,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 // Renders overlay Frame.
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
-  (void)visibleSet;
+  if (context.sketchPostProcess)
+    SelectionOverlayPass::Render(*this, context, visibleSet);
   if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);
     DrawGrid(context.gridStyle, context.gridR, context.gridG, context.gridB,
@@ -1434,9 +1440,26 @@ void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
 // Finalizes render Frame.
 void Viewer3DController::FinalizeRenderFrame() {
   m_impl->skipOutlinesForCurrentFrame = false;
+  m_impl->sketchBasePassActive = false;
   if (m_impl->captureCanvas)
     m_impl->captureCanvas->SetSourceKey("unknown");
 }
+
+// Begins rendering the Sketch neutral base into its intermediate framebuffer.
+bool Viewer3DController::BeginSketchPostProcess() {
+  return m_impl->sketchPostProcessPass->Begin();
+}
+
+// Composites the Sketch tones and preserves opaque depth for later overlays.
+void Viewer3DController::CompleteSketchPostProcess() {
+  m_impl->sketchPostProcessPass->Composite();
+}
+
+// Selects whether mesh draws use the neutral Standard-lit Sketch base material.
+void Viewer3DController::SetSketchBasePassActive(bool active) {
+  m_impl->sketchBasePassActive = active;
+}
+
 
 // Sets dark Mode.
 void Viewer3DController::SetDarkMode(bool enabled) {
@@ -2181,6 +2204,12 @@ bool Viewer3DController::IsWhiteModelStyleEnabled() const {
 bool Viewer3DController::IsSketchRenderStyleEnabled() const {
   return m_impl->sketchStyleEnabled;
 }
+
+// Checks whether the neutral Standard-lit Sketch base pass is active.
+bool Viewer3DController::IsSketchBasePassActive() const {
+  return m_impl->sketchBasePassActive;
+}
+
 
 // Checks whether pure White Render Style Enabled.
 bool Viewer3DController::IsPureWhiteRenderStyleEnabled() const {

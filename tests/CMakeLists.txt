@@ -1893,6 +1893,15 @@ add_executable(meshprimitives_cube_normals_test meshprimitives_cube_normals_test
 target_include_directories(meshprimitives_cube_normals_test PRIVATE ../viewer3d)
 add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test)
 
+add_executable(sketch_post_process_policy_test
+               sketch_post_process_policy_test.cpp)
+target_include_directories(sketch_post_process_policy_test PRIVATE ../viewer3d)
+add_test(NAME SketchPostProcessPolicy COMMAND sketch_post_process_policy_test)
+add_bash_policy_test(SketchPostProcessArchitecture
+                     ${CMAKE_SOURCE_DIR}/tests/check_sketch_post_process_architecture.sh)
+set_tests_properties(SketchPostProcessArchitecture PROPERTIES
+                     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
