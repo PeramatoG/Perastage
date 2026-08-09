@@ -102,6 +102,14 @@ add_library(perastage_test_gdtf_archive_reader STATIC
 target_include_directories(perastage_test_gdtf_archive_reader PRIVATE ../core)
 target_link_libraries(perastage_test_gdtf_archive_reader PRIVATE ${wxWidgets_LIBRARIES})
 
+add_library(perastage_test_required_fixture_svg STATIC
+            build_info_stub.cpp
+            ../core/gdtf_mutation_audit.cpp
+            ../core/symbols/PerastageSvgSymbol.cpp)
+target_include_directories(perastage_test_required_fixture_svg PUBLIC ../core)
+target_link_libraries(perastage_test_required_fixture_svg PUBLIC
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
@@ -2283,12 +2291,14 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
        NOT "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
         target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
                        ../core/fixture_gdtf_derivative_contract.cpp)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
+                              perastage_test_required_fixture_svg)
     endif()
     if(PERASTAGE_TEST_SOURCES AND
        "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
        NOT "../core/symbols/PerastageSvgSymbol.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
-                       ../core/symbols/PerastageSvgSymbol.cpp)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
+                              perastage_test_required_fixture_svg)
     endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
        PERASTAGE_TEST_SOURCES AND
@@ -2386,6 +2396,7 @@ add_executable(dictionary_reset_transaction_test
 target_include_directories(dictionary_reset_transaction_test PRIVATE
                            . ../core ../models ../third_party)
 target_link_libraries(dictionary_reset_transaction_test PRIVATE
+                      perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES}
                       tinyxml2::tinyxml2)
 add_test(NAME DictionaryResetTransaction COMMAND dictionary_reset_transaction_test)
@@ -2469,13 +2480,12 @@ add_executable(project_fixture_gdtf_consolidator_test
                project_fixture_gdtf_consolidator_test.cpp
                support/gdtf_test_fixture_builder.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
-               ../core/symbols/PerastageSvgSymbol.cpp
-               ../core/gdtf_mutation_audit.cpp
                ../core/project_fixture_gdtf_consolidator.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(project_fixture_gdtf_consolidator_test PRIVATE
                            ../core ../models support)
 target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
+                      perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
                       perastage_test_diagnostics)
 add_test(NAME ProjectFixtureGdtfConsolidator
@@ -2483,15 +2493,13 @@ add_test(NAME ProjectFixtureGdtfConsolidator
 
 add_executable(fixture_gdtf_derivative_contract_test
                fixture_gdtf_derivative_contract_test.cpp
-               build_info_stub.cpp
                support/gdtf_test_fixture_builder.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
-               ../core/symbols/PerastageSvgSymbol.cpp
-               ../core/gdtf_mutation_audit.cpp
                ../core/fixture_gdtf_derivative_publication.cpp)
 target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
                            ../core support)
 target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
+                      perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)

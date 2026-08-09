@@ -54,6 +54,18 @@ int main() {
   assert(scene.fixtures.at("fixture").visualColorHex == "#112233");
   assert(SameMatrix(scene.fixtures.at("fixture").transform, originalTransform));
 
+  scene.fixtures.at("fixture").visualColorHex = "#445566";
+  scene.fixtures.at("fixture").transform.o = {90.0f, 80.0f, 70.0f};
+  assert(tools::ExecuteSceneModelSymbolCaptureBoundary(
+      snapshot, [&](const SceneDataManager::SceneSnapshot &stable) {
+        assert(stable.fixtures.at("fixture").visualColorHex == "#FFFFFF");
+        assert(stable.fixtures.at("fixture").transform.o !=
+               scene.fixtures.at("fixture").transform.o);
+        return true;
+      }));
+  scene.fixtures.at("fixture").visualColorHex = "#112233";
+  scene.fixtures.at("fixture").transform = originalTransform;
+
   int attempts = 0;
   const auto runBoundary = [&](bool succeeds) {
     return tools::ExecuteSceneModelSymbolCaptureBoundary(

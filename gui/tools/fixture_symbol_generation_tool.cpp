@@ -129,6 +129,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       captureOptions);
   captureOptions.alignToLocalAxes = false;
   if (!capture.ok) {
+    window.CompleteManualFixtureSymbolPreparation(selectedFixtureUuid, false);
     wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
     return;
@@ -141,6 +142,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       : CalibrateFixtureSymbolsToPhysicalUnits(cfg, selectedFixtureUuid,
                                                capture.symbols, calibrationError);
   if (!calibrated) {
+    window.CompleteManualFixtureSymbolPreparation(selectedFixtureUuid, false);
     wxMessageBox(calibrationError, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
                  &window);
     return;

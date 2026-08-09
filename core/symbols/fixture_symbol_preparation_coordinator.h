@@ -57,6 +57,7 @@ public:
   bool Complete(const FixtureSymbolPreparationKey &key, std::uint64_t epoch,
                 bool success);
   bool Fail(const FixtureSymbolPreparationKey &key, std::uint64_t epoch);
+  bool Cancel(const FixtureSymbolPreparationKey &key, std::uint64_t epoch);
   bool Skip(const FixtureSymbolPreparationKey &key, std::uint64_t epoch);
   bool IsCurrent(std::uint64_t epoch) const;
   std::size_t PendingCount() const;

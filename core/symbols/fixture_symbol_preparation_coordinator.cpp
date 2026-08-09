@@ -32,6 +32,10 @@ bool FixtureSymbolPreparationCoordinator::Request(
     FixtureSymbolPreparationPriority priority) {
   auto existing = jobs_.find(key);
   if (existing != jobs_.end() && existing->second.epoch == epoch_) {
+    if (existing->second.state == FixtureSymbolPreparationState::Cancelled) {
+      existing->second = {key, std::move(canonicalTarget), epoch_, priority};
+      return true;
+    }
     if (priority == FixtureSymbolPreparationPriority::Manual)
       existing->second.priority = priority;
     return false;
@@ -116,6 +120,17 @@ bool FixtureSymbolPreparationCoordinator::Fail(
     return false;
   publishingTargets_.erase(it->second.canonicalTarget);
   it->second.state = FixtureSymbolPreparationState::Failed;
+  return true;
+}
+
+// Cancels work without suppressing a later automatic request in the same epoch.
+bool FixtureSymbolPreparationCoordinator::Cancel(
+    const FixtureSymbolPreparationKey &key, std::uint64_t epoch) {
+  auto it = jobs_.find(key);
+  if (!IsCurrent(epoch) || it == jobs_.end() || it->second.epoch != epoch)
+    return false;
+  publishingTargets_.erase(it->second.canonicalTarget);
+  it->second.state = FixtureSymbolPreparationState::Cancelled;
   return true;
 }
 

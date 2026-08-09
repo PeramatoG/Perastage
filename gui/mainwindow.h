@@ -105,6 +105,8 @@ public:
   void RefreshAfterFixtureSymbolUpdate();
   void NotifyFixtureSymbolProjectReplaced(bool scheduleScan = true);
   void PromoteManualFixtureSymbolPreparation(const std::string &fixtureUuid);
+  void CompleteManualFixtureSymbolPreparation(const std::string &fixtureUuid,
+                                               bool applied);
   void RefreshAfterToolSceneUpdate();
   void UpdateHighlightedWorldPositionInStatusBar(
       const std::optional<std::array<float, 3>> &positionMeters);

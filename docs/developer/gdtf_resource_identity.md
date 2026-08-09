@@ -76,7 +76,10 @@ replacement, and Close. It posts the initial unique-resource scan only after pro
 setup returns to the wx event loop. Renderers report a missing symbol through a
 GUI-independent runtime callback; they continue drawing fallback geometry while the
 service captures warm-up, Front, Top, Side, and Bottom in separate event-loop slices.
+All slices in one job use the same immutable scene snapshot, and the service rechecks
+the resolved physical resource and exact mode before processing and publication.
 Successful transactional apply invalidates the existing symbol caches and refreshes
 the affected viewers without reopening the project. Manual preview generation cancels
 matching automatic work before using the same incremental capture primitives through
-the synchronous compatibility wrapper; Apply remains an explicit preview action.
+the synchronous compatibility wrapper; Apply remains an explicit preview action. A
+manual preview that closes or fails without applying restores automatic eligibility.

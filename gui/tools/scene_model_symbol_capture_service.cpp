@@ -147,6 +147,18 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target, std::size_t stepIndex,
     const SceneModelSymbolCaptureOptions &options) {
+  const SceneDataManager::SceneSnapshot snapshot =
+      BuildSceneModelSymbolCaptureSnapshot(cfg.GetScene(), target, options);
+  return CaptureSceneModelOrthographicStep(renderer, cfg, target, snapshot,
+                                           stepIndex, options);
+}
+
+// Captures one view from a caller-owned immutable job snapshot.
+SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
+    const SceneModelSymbolTarget &target,
+    const SceneDataManager::SceneSnapshot &snapshot, std::size_t stepIndex,
+    const SceneModelSymbolCaptureOptions &options) {
   SceneModelSymbolCaptureStepResult result;
   Viewer2DPanel *capturePanel = renderer.GetPanel();
   if (!capturePanel) {
@@ -178,13 +190,17 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
   {
     symbols::ScopedFixtureSymbolPhase phase(
         options.timings, symbols::FixtureSymbolPhase::Bounds);
-    if (TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds))
+    if (options.fixtureBoundsOverride) {
+      fixtureBounds = *options.fixtureBoundsOverride;
       result.fixtureBoundsMm = fixtureBounds;
+    } else if (TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds)) {
+      result.fixtureBoundsMm = fixtureBounds;
+    }
   }
 
   auto renderIsolated = [&](auto &render) {
     return ExecuteSceneModelSymbolCaptureBoundary(
-        cfg.GetScene(), target, options, [&](const auto &) {
+        snapshot, [&](const auto &) {
           capturePanel->CompleteSceneReplacement();
           capturePanel->UpdateScene(true);
           capturePanel->FitViewToScene();

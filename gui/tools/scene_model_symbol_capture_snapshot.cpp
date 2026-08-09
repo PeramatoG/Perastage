@@ -60,6 +60,14 @@ bool ExecuteSceneModelSymbolCaptureBoundary(
         &operation) {
   const SceneDataManager::SceneSnapshot snapshot =
       BuildSceneModelSymbolCaptureSnapshot(scene, target, options);
+  return ExecuteSceneModelSymbolCaptureBoundary(snapshot, operation);
+}
+
+// Runs one render operation against a previously captured immutable snapshot.
+bool ExecuteSceneModelSymbolCaptureBoundary(
+    const SceneDataManager::SceneSnapshot &snapshot,
+    const std::function<bool(const SceneDataManager::SceneSnapshot &)>
+        &operation) {
   SceneDataManager::ScopedSnapshot isolatedScene(snapshot);
   return operation(snapshot);
 }

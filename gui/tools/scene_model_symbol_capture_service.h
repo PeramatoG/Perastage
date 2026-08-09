@@ -7,6 +7,7 @@
 #include <wx/gdicmn.h>
 
 #include "symbols/FixtureSymbolDiagnostics.h"
+#include "scenedatamanager.h"
 #include "symbols/Symbol2D.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "tools/fixture_geometry_bounds.h"
@@ -31,6 +32,7 @@ struct SceneModelSymbolCaptureOptions {
   bool alignToLocalAxes = false;
   std::optional<std::string> forcedFixtureColor;
   wxSize viewportSize = wxSize(1200, 1200);
+  std::optional<FixtureGeometryBounds> fixtureBoundsOverride;
   symbols::FixtureSymbolTimings *timings = nullptr;
 };
 
@@ -51,6 +53,12 @@ struct SceneModelSymbolCaptureStepResult {
 SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target, std::size_t stepIndex,
+    const SceneModelSymbolCaptureOptions &options = {});
+
+SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
+    const SceneModelSymbolTarget &target,
+    const SceneDataManager::SceneSnapshot &snapshot, std::size_t stepIndex,
     const SceneModelSymbolCaptureOptions &options = {});
 
 SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(

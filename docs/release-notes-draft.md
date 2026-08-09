@@ -32,7 +32,9 @@ Changes since **v1.5.0**.
   are rejected before publication. Runtime preparation work coalesces by physical
   resource and exact mode, captures cooperatively between interface updates, remains
   fallback-first, and is protected against stale project lifetimes without adding
-  Save or export waits.
+  Save or export waits. Incremental captures now use one immutable scene input from
+  warm-up through all four views, and closing a manual preview without applying no
+  longer suppresses later automatic preparation.
 
 - Fixture-symbol updates now build and validate an isolated working GDTF before
   atomically publishing the project-owned derivative. Failed updates leave existing

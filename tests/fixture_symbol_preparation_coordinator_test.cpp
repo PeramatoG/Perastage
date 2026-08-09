@@ -19,6 +19,12 @@ int main() {
                              symbols::FixtureSymbolPreparationPriority::Automatic));
   assert(coordinator.PendingCount() == 2);
 
+  assert(coordinator.Cancel(standard, epoch));
+  assert(coordinator.Request(
+      standard, "Fixture@Perastage.gdtf",
+      symbols::FixtureSymbolPreparationPriority::Automatic));
+  assert(coordinator.PendingCount() == 2);
+
   assert(!coordinator.Request(standard, "Fixture@Perastage.gdtf",
                               symbols::FixtureSymbolPreparationPriority::Manual));
   assert(coordinator.NextQueued()->key == standard);

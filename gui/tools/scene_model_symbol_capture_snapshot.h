@@ -20,4 +20,9 @@ bool ExecuteSceneModelSymbolCaptureBoundary(
     const std::function<bool(const SceneDataManager::SceneSnapshot &)>
         &operation);
 
+bool ExecuteSceneModelSymbolCaptureBoundary(
+    const SceneDataManager::SceneSnapshot &snapshot,
+    const std::function<bool(const SceneDataManager::SceneSnapshot &)>
+        &operation);
+
 } // namespace tools

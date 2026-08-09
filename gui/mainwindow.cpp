@@ -1712,6 +1712,14 @@ void MainWindow::PromoteManualFixtureSymbolPreparation(
     fixtureSymbolPreparationService->PromoteManualFixture(fixtureUuid);
 }
 
+// Restores automatic eligibility after the manual preview workflow finishes.
+void MainWindow::CompleteManualFixtureSymbolPreparation(
+    const std::string &fixtureUuid, bool applied) {
+  if (fixtureSymbolPreparationService)
+    fixtureSymbolPreparationService->CompleteManualFixture(fixtureUuid,
+                                                           applied);
+}
+
 void MainWindow::RefreshAfterToolSceneUpdate() { RefreshAfterSceneChange(); }
 
 void MainWindow::RefreshAfterUnitSystemChange() {
