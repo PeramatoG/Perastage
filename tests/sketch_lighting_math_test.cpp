@@ -1,5 +1,6 @@
 #include "mesh.h"
 #include "render/lighting_profile.h"
+#include "render/mesh_shading_policy.h"
 #include "render/sketch_lighting_math.h"
 
 #include <algorithm>
@@ -216,5 +217,60 @@ int main() {
   assert(Viewer3DLightingProfile::CombinedDirectionalDiffuse(worldFillLight,
                                                               worldLighting) >
          0.0f);
+
+  Mesh normalSourceMesh;
+  normalSourceMesh.vertices = {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                               0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
+  normalSourceMesh.indices = {0, 1, 2, 1, 3, 2};
+  normalSourceMesh.normals = {0.0f, 0.0f, -1.0f, 0.0f, 0.0f, -1.0f,
+                              0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
+  BuildFlatShadingBuffers(normalSourceMesh);
+  const std::array<float, 3> geometricNormal =
+      Viewer3DMeshShading::ComputeFaceNormal(
+          {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
+          {0.0f, 1.0f, 0.0f});
+  const std::array<float, 3> oppositeVertexNormal = {0.0f, 0.0f, -1.0f};
+  const auto flatMode = Viewer3DMeshShading::ResolveMode(true);
+  const auto smoothMode = Viewer3DMeshShading::ResolveMode(false);
+  const auto fixtureAndObjectMode = Viewer3DMeshShading::ResolveMode(true);
+  const auto trussMode = Viewer3DMeshShading::ResolveMode(false);
+  assert(flatMode == Viewer3DMeshShading::Mode::Flat);
+  assert(smoothMode == Viewer3DMeshShading::Mode::Smooth);
+  assert(fixtureAndObjectMode == Viewer3DMeshShading::Mode::Flat);
+  assert(trussMode == Viewer3DMeshShading::Mode::Smooth);
+  AssertVectorNear(Viewer3DMeshShading::SelectNormal(
+                       flatMode, geometricNormal, oppositeVertexNormal, true),
+                   geometricNormal);
+  AssertVectorNear(Viewer3DMeshShading::SelectNormal(
+                       smoothMode, geometricNormal, oppositeVertexNormal, true),
+                   oppositeVertexNormal);
+  AssertVectorNear(Viewer3DMeshShading::SelectNormal(
+                       flatMode, geometricNormal, geometricNormal, true),
+                   Viewer3DMeshShading::SelectNormal(
+                       smoothMode, geometricNormal, geometricNormal, true));
+  for (size_t i = 0; i < normalSourceMesh.flatNormals.size(); i += 3) {
+    AssertVectorNear({normalSourceMesh.flatNormals[i],
+                      normalSourceMesh.flatNormals[i + 1],
+                      normalSourceMesh.flatNormals[i + 2]},
+                     geometricNormal);
+  }
+  AssertVectorNear(Viewer3DMeshShading::SelectNormal(
+                       smoothMode, geometricNormal,
+                       {normalSourceMesh.normals[9],
+                        normalSourceMesh.normals[10],
+                        normalSourceMesh.normals[11]},
+                       true),
+                   geometricNormal);
+  AssertVectorNear(
+      TransformNormal(Viewer3DMeshShading::SelectNormal(
+                          flatMode, geometricNormal, oppositeVertexNormal, true),
+                      mirrored),
+      geometricNormal);
+  AssertVectorNear(
+      TransformNormal(Viewer3DMeshShading::SelectNormal(
+                          smoothMode, geometricNormal, oppositeVertexNormal,
+                          true),
+                      mirrored),
+      oppositeVertexNormal);
   return 0;
 }

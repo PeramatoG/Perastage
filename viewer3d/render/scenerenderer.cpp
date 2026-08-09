@@ -1,4 +1,5 @@
 #include "scenerenderer.h"
+#include "mesh_shading_policy.h"
 #include "sketch_lighting_math.h"
 
 #ifdef _WIN32
@@ -370,18 +371,34 @@ const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
   return fallbackModelMatrix;
 }
 
+// Reads the active OpenGL shade model as the shared mesh shading policy.
+Viewer3DMeshShading::Mode ReadCurrentMeshShadingMode() {
+  GLint shadeModel = GL_SMOOTH;
+  glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
+  return Viewer3DMeshShading::ResolveMode(shadeModel == GL_FLAT);
+}
+
 // Draws a mesh with the GPU three-tone ink shader when buffers are available.
 bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
                              const float *modelMatrix, bool sketchFill,
+                             Viewer3DMeshShading::Mode shadingMode,
                              const Viewer3DLightingProfile::LightingState
                                  &lightingState) {
-  const bool gpuHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
-                               glIsBuffer(mesh.vboNormals) == GL_TRUE &&
-                               glIsBuffer(mesh.eboTriangles) == GL_TRUE;
-  const bool canUseGpuPath = mesh.buffersReady && mesh.vao != 0 &&
-                             mesh.vboVertices != 0 && mesh.vboNormals != 0 &&
-                             mesh.eboTriangles != 0 && gpuHandlesValid &&
-                             mesh.triangleIndexCount > 0;
+  const bool useFlatNormals = shadingMode == Viewer3DMeshShading::Mode::Flat;
+  const bool smoothHandlesValid = glIsBuffer(mesh.vboVertices) == GL_TRUE &&
+                                  glIsBuffer(mesh.vboNormals) == GL_TRUE &&
+                                  glIsBuffer(mesh.eboTriangles) == GL_TRUE;
+  const bool flatHandlesValid =
+      glIsBuffer(mesh.vboFlatVertices) == GL_TRUE &&
+      glIsBuffer(mesh.vboFlatNormals) == GL_TRUE;
+  const bool canUseSmoothPath =
+      mesh.buffersReady && mesh.vao != 0 && mesh.vboVertices != 0 &&
+      mesh.vboNormals != 0 && mesh.eboTriangles != 0 && smoothHandlesValid &&
+      mesh.triangleIndexCount > 0;
+  const bool canUseFlatPath =
+      mesh.buffersReady && mesh.vao != 0 && mesh.vboFlatVertices != 0 &&
+      mesh.vboFlatNormals != 0 && flatHandlesValid && mesh.flatVertexCount > 0;
+  const bool canUseGpuPath = useFlatNormals ? canUseFlatPath : canUseSmoothPath;
   if (!canUseGpuPath)
     return false;
 
@@ -443,19 +460,25 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
               sketchFill && lightingState.twoSidedLighting ? GL_TRUE
                                                            : GL_FALSE);
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboVertices);
+  glBindBuffer(GL_ARRAY_BUFFER,
+               useFlatNormals ? mesh.vboFlatVertices : mesh.vboVertices);
   glEnableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.positionAttrib), 3,
                         GL_FLOAT, GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vboNormals);
+  glBindBuffer(GL_ARRAY_BUFFER,
+               useFlatNormals ? mesh.vboFlatNormals : mesh.vboNormals);
   glEnableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glVertexAttribPointer(static_cast<GLuint>(program.normalAttrib), 3, GL_FLOAT,
                         GL_FALSE, 0, nullptr);
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
-  glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
-                 nullptr);
+  if (useFlatNormals) {
+    glDrawArrays(GL_TRIANGLES, 0, mesh.flatVertexCount);
+  } else {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.eboTriangles);
+    glDrawElements(GL_TRIANGLES, mesh.triangleIndexCount, GL_UNSIGNED_INT,
+                   nullptr);
+  }
 
   glDisableVertexAttribArray(static_cast<GLuint>(program.normalAttrib));
   glDisableVertexAttribArray(static_cast<GLuint>(program.positionAttrib));
@@ -472,6 +495,7 @@ bool DrawMeshThreeToneInkGpu(const Mesh &mesh, float scale,
 
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix, bool sketchFill,
+                                   Viewer3DMeshShading::Mode shadingMode,
                                    const Viewer3DLightingProfile::LightingState
                                        &lightingState);
 
@@ -480,17 +504,19 @@ void DrawMeshThreeToneInk(const Mesh &mesh, float scale,
                           const float *modelMatrix, bool sketchFill,
                           const Viewer3DLightingProfile::LightingState
                               &lightingState) {
+  const Viewer3DMeshShading::Mode shadingMode = ReadCurrentMeshShadingMode();
   if (DrawMeshThreeToneInkGpu(mesh, scale, modelMatrix, sketchFill,
-                              lightingState))
+                              shadingMode, lightingState))
     return;
   DrawMeshThreeToneInkImmediate(mesh, scale, modelMatrix, sketchFill,
-                                lightingState);
+                                shadingMode, lightingState);
 }
 
 // Draws a mesh with CPU-side three-tone ink shading when GPU shaders are
 // unavailable.
 void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
                                    const float *modelMatrix, bool sketchFill,
+                                   Viewer3DMeshShading::Mode shadingMode,
                                    const Viewer3DLightingProfile::LightingState
                                        &lightingState) {
   float fallbackModelMatrix[16];
@@ -526,14 +552,9 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
     const float v2y = mesh.vertices[tri[2] * 3 + 1];
     const float v2z = mesh.vertices[tri[2] * 3 + 2];
 
-    const float ux = v1x - v0x;
-    const float uy = v1y - v0y;
-    const float uz = v1z - v0z;
-    const float vx = v2x - v0x;
-    const float vy = v2y - v0y;
-    const float vz = v2z - v0z;
-    const std::array<float, 3> triangleNormal = NormalizeVector(
-        uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+    const std::array<float, 3> triangleNormal =
+        Viewer3DMeshShading::ComputeFaceNormal(
+            {v0x, v0y, v0z}, {v1x, v1y, v1z}, {v2x, v2y, v2z});
     const auto projectToNdc = [&](float x, float y, float z) {
       const float eyeX = modelView[0] * x + modelView[4] * y +
                          modelView[8] * z + modelView[12];
@@ -563,16 +584,22 @@ void DrawMeshThreeToneInkImmediate(const Mesh &mesh, float scale,
       const float vy = mesh.vertices[idx * 3 + 1] * scale;
       const float vz = mesh.vertices[idx * 3 + 2] * scale;
 
-      std::array<float, 3> localNormal = triangleNormal;
+      std::array<float, 3> vertexNormal = triangleNormal;
+      bool hasValidVertexNormal = false;
       if (hasNormals) {
         const float nx = mesh.normals[idx * 3];
         const float ny = mesh.normals[idx * 3 + 1];
         const float nz = mesh.normals[idx * 3 + 2];
         const float normalLenSq = nx * nx + ny * ny + nz * nz;
         if (normalLenSq > 1e-12f) {
-          localNormal = NormalizeVector(nx, ny, nz);
+          vertexNormal = NormalizeVector(nx, ny, nz);
+          hasValidVertexNormal = true;
         }
       }
+      const std::array<float, 3> localNormal =
+          Viewer3DMeshShading::SelectNormal(
+              shadingMode, triangleNormal, vertexNormal,
+              hasValidVertexNormal);
 
       const std::array<float, 3> eyeNormal =
           Viewer3DSketchLighting::OrientNormalForFace(
@@ -1035,9 +1062,9 @@ void SceneRenderer::DrawMesh(const Mesh &mesh, float scale,
       mesh.vboNormals != 0 && mesh.eboTriangles != 0 && gpuHandlesValid &&
       mesh.triangleIndexCount > 0;
 
-  GLint shadeModel = GL_SMOOTH;
-  glGetIntegerv(GL_SHADE_MODEL, &shadeModel);
-  const bool useFaceNormals = (shadeModel == GL_FLAT);
+  const Viewer3DMeshShading::Mode shadingMode = ReadCurrentMeshShadingMode();
+  const bool useFaceNormals =
+      shadingMode == Viewer3DMeshShading::Mode::Flat;
 
   const bool canUseGpuFlatTriangles =
       mesh.buffersReady && mesh.vao != 0 && mesh.vboFlatVertices != 0 &&
