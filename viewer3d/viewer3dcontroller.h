@@ -52,6 +52,7 @@ class OpaqueTrussPass;
 class OpaqueObjectPass;
 class SelectionOverlayPass;
 class RenderPipeline;
+class SketchPostProcessPass;
 
 struct OverlayTextLabel {
   float xPixels = 0.0f;
@@ -204,6 +205,10 @@ private:
   void RenderOverlayFrame(const RenderFrameContext &context,
                           const VisibleSet &visibleSet);
   void FinalizeRenderFrame();
+  bool BeginSketchPostProcess();
+  void CompleteSketchPostProcess();
+  void SetSketchBasePassActive(bool active);
+  void SetSketchOutlinePassActive(bool active);
 
   void DrawCube(float size = 0.2f, float r = 1.0f, float g = 1.0f,
                 float b = 1.0f);
@@ -297,6 +302,8 @@ private:
   bool CaptureIncludesGrid() const override;
   bool IsWhiteModelStyleEnabled() const override;
   bool IsSketchRenderStyleEnabled() const override;
+  bool IsSketchBasePassActive() const override;
+  bool IsSketchOutlinePassActive() const override;
   bool IsPureWhiteRenderStyleEnabled() const override;
   bool IsTexturedRenderStyleEnabled() const override;
 

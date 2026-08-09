@@ -67,11 +67,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
-- Corrected inverted light and shadow direction in the 3D Sketch render style
-  by matching Standard rendering's flat or smooth surface-normal source and
-  key-and-fill illumination. Lighting now remains fixed relative to the stage
-  while orbiting the camera and stays consistent across fixtures, scene
-  objects, trusses, and transformed or back-facing surfaces.
+- Corrected inverted lighting in the 3D Sketch style by applying its three-tone
+  treatment to the neutral output of the proven Standard renderer, preserving
+  the same geometry, normals, transforms, and illumination before ink outlines
+  are drawn.
 
 - Replaced the blocking project GDTF consolidation information dialog with a
   non-blocking message in the program console while retaining the diagnostic

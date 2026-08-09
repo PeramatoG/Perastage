@@ -1,26 +1,14 @@
 #pragma once
 
 #include "irendercontext.h"
-#include "lighting_profile.h"
 #include "mesh.h"
 #include "viewer3d_types.h"
 #include <functional>
 
 class SceneRenderer {
 public:
-  // Initializes a scene renderer for the supplied rendering context.
   explicit SceneRenderer(IRenderContext &controller)
-      : m_controller(controller) {
-    m_sketchLightingState.keyLightEyeDirection =
-        Viewer3DLightingProfile::NormalizeDirection(
-            Viewer3DLightingProfile::kKeyLightWorldDirection);
-    m_sketchLightingState.fillLightEyeDirection =
-        Viewer3DLightingProfile::NormalizeDirection(
-            Viewer3DLightingProfile::kFillLightWorldDirection);
-  }
-
-  void SetSketchLightingState(
-      const Viewer3DLightingProfile::LightingState &lightingState);
+      : m_controller(controller) {}
 
   void DrawMeshWithOutline(
       const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
@@ -41,5 +29,4 @@ public:
 
 private:
   IRenderContext &m_controller;
-  Viewer3DLightingProfile::LightingState m_sketchLightingState;
 };
