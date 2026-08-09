@@ -162,10 +162,13 @@ FixtureBuilder &FixtureBuilder::WithFixtureCategorySignals() {
 FixtureBuilder &FixtureBuilder::WithPerastageGeneratedSymbols() {
   perastageGeneratedSymbols = true;
   modelFileBase = "main";
-  archiveEntries.emplace_back("models/svg/main.svg", "<svg/>");
-  archiveEntries.emplace_back("models/svg/main_bottom.svg", "<svg/>");
-  archiveEntries.emplace_back("models/svg_front/main.svg", "<svg/>");
-  archiveEntries.emplace_back("models/svg_side/main.svg", "<svg/>");
+  const std::string svg =
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+      "<polygon points=\"0,0 10,0 10,10 0,10\"/></svg>";
+  archiveEntries.emplace_back("models/svg/main.svg", svg);
+  archiveEntries.emplace_back("models/svg/main_bottom.svg", svg);
+  archiveEntries.emplace_back("models/svg_front/main.svg", svg);
+  archiveEntries.emplace_back("models/svg_side/main.svg", svg);
   return *this;
 }
 

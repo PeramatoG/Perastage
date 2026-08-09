@@ -13,6 +13,7 @@ class SymbolPreviewWindow : public wxFrame {
 public:
   SymbolPreviewWindow(wxWindow *parent, std::vector<symbols::Symbol2D> symbols,
                       std::string fixtureUuid);
+  ~SymbolPreviewWindow() override;
 
 private:
   struct PreviewCell {
@@ -42,4 +43,5 @@ private:
   std::vector<symbols::Symbol2D> symbols_;
   std::string fixtureUuid_;
   std::optional<symbols::SymbolView> selectedViewForExport_;
+  bool applied_ = false;
 };

@@ -653,6 +653,81 @@ bool ReadOffset(const tinyxml2::XMLElement *model, const char *attr,
 }
 } // namespace
 
+// Inspects the exact four fixture-symbol views without rendering fallbacks.
+bool InspectRequiredFixtureSvgSet(
+    const std::string &gdtfPath,
+    RequiredFixtureSvgSetInspection &inspection) {
+  inspection = {};
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  std::unordered_map<std::string, std::string> entries;
+  std::string archiveError;
+  if (!ReadZipEntries(gdtfPath, entries, &archiveError)) {
+    inspection.diagnostic = archiveError;
+    return false;
+  }
+  const auto descriptionIt = entries.find("description.xml");
+  if (descriptionIt == entries.end()) {
+    inspection.diagnostic = "description.xml was not found in the GDTF archive.";
+    return false;
+  }
+  tinyxml2::XMLDocument description;
+  if (description.Parse(descriptionIt->second.c_str(),
+                        descriptionIt->second.size()) != tinyxml2::XML_SUCCESS) {
+    inspection.diagnostic = "description.xml could not be parsed.";
+    return false;
+  }
+  const tinyxml2::XMLElement *fixtureType = ResolveFixtureType(description);
+  if (!fixtureType) {
+    inspection.diagnostic = "FixtureType is missing from description.xml.";
+    return false;
+  }
+  const tinyxml2::XMLElement *model = ResolveTargetModel(fixtureType);
+  if (!model) {
+    inspection.diagnostic = "The fixture does not declare a usable Model.";
+    return false;
+  }
+  const std::string baseName = ResolveModelSvgBasename(model);
+  if (baseName.empty()) {
+    inspection.diagnostic = "The fixture symbol model could not be resolved.";
+    return false;
+  }
+  inspection.views = {{{SymbolViewKind::Top, "models/svg/" + baseName + ".svg"},
+                       {SymbolViewKind::Bottom,
+                        "models/svg/" + baseName + "_bottom.svg"},
+                       {SymbolViewKind::Front,
+                        "models/svg_front/" + baseName + ".svg"},
+                       {SymbolViewKind::Left,
+                        "models/svg_side/" + baseName + ".svg"}}};
+  bool allUsable = true;
+  for (auto &view : inspection.views) {
+    const auto svgIt = entries.find(view.archivePath);
+    if (svgIt == entries.end()) {
+      view.diagnostic = "Required archive entry is missing.";
+      allUsable = false;
+      continue;
+    }
+    PerastageSvgSymbolData parsed;
+    parsed.sourcePath = view.archivePath;
+    parsed.viewKind = view.viewKind;
+    view.usable = ParseSvgData(svgIt->second, parsed) && parsed.IsValid();
+    if (!view.usable) {
+      view.diagnostic = "SVG is malformed or contains no usable geometry.";
+      allUsable = false;
+    }
+  }
+  inspection.usable = allUsable;
+  if (!allUsable) {
+    for (const auto &view : inspection.views) {
+      if (!view.usable) {
+        inspection.diagnostic = "Required SVG view '" + view.archivePath +
+                                "' is not usable: " + view.diagnostic;
+        break;
+      }
+    }
+  }
+  return true;
+}
+
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
                                     PerastageSvgSymbolData &out,

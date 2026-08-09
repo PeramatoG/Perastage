@@ -58,6 +58,9 @@ class IGuiConfigServices;
 class MainWindowLayoutController;
 class MainWindowPrintController;
 class MainWindowViewController;
+namespace gui {
+class FixtureSymbolPreparationService;
+}
 enum class Viewer2DView;
 
 
@@ -100,6 +103,10 @@ public:
   void PersistLayout2DViewState();
   void RestoreLayout2DViewState(int viewId);
   void RefreshAfterFixtureSymbolUpdate();
+  void NotifyFixtureSymbolProjectReplaced(bool scheduleScan = true);
+  void PromoteManualFixtureSymbolPreparation(const std::string &fixtureUuid);
+  void CompleteManualFixtureSymbolPreparation(const std::string &fixtureUuid,
+                                               bool applied);
   void RefreshAfterToolSceneUpdate();
   void UpdateHighlightedWorldPositionInStatusBar(
       const std::optional<std::array<float, 3>> &positionMeters);
@@ -151,6 +158,8 @@ private:
   std::unique_ptr<MainWindowLayoutController> layoutController;
   std::unique_ptr<MainWindowPrintController> printController;
   std::unique_ptr<MainWindowViewController> viewController;
+  std::unique_ptr<gui::FixtureSymbolPreparationService>
+      fixtureSymbolPreparationService;
   std::shared_ptr<int> cursorStatusCallbackLifetimeToken =
       std::make_shared<int>(0);
 

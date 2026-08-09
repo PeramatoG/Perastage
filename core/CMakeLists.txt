@@ -77,6 +77,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DImageBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/FixtureSymbolDiagnostics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_generation_identity.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_preparation_coordinator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_preparation_requests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_svg_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/SymbolGeometrySimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp

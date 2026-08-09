@@ -63,6 +63,12 @@ SymbolPreviewWindow::SymbolPreviewWindow(wxWindow *parent,
        ID_ApplySymbolToFixture);
 }
 
+// Restores automatic eligibility when the manual preview closes without apply.
+SymbolPreviewWindow::~SymbolPreviewWindow() {
+  if (MainWindow *mainWindow = MainWindow::Instance())
+    mainWindow->CompleteManualFixtureSymbolPreparation(fixtureUuid_, applied_);
+}
+
 const symbols::Symbol2D *SymbolPreviewWindow::FindSymbol(
     const std::vector<symbols::Symbol2D> &symbols, symbols::SymbolView view) {
   auto it =
@@ -201,6 +207,7 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
 
   if (MainWindow *mainWindow = MainWindow::Instance())
     mainWindow->RefreshAfterFixtureSymbolUpdate();
+  applied_ = result.success;
 
   const long icon = presentation.kind == symbol_preview::ApplySymbolsMessageKind::Warning
                         ? wxICON_WARNING

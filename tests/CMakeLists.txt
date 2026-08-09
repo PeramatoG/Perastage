@@ -102,6 +102,14 @@ add_library(perastage_test_gdtf_archive_reader STATIC
 target_include_directories(perastage_test_gdtf_archive_reader PRIVATE ../core)
 target_link_libraries(perastage_test_gdtf_archive_reader PRIVATE ${wxWidgets_LIBRARIES})
 
+add_library(perastage_test_required_fixture_svg STATIC
+            build_info_stub.cpp
+            ../core/gdtf_mutation_audit.cpp
+            ../core/symbols/PerastageSvgSymbol.cpp)
+target_include_directories(perastage_test_required_fixture_svg PUBLIC ../core)
+target_link_libraries(perastage_test_required_fixture_svg PUBLIC
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
@@ -120,6 +128,8 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
+    add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
+    add_bash_policy_test(FixtureSymbol3DRefresh ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_3d_refresh.sh)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
     add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
@@ -2282,6 +2292,14 @@ foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
        NOT "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
         target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
                        ../core/fixture_gdtf_derivative_contract.cpp)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
+                              perastage_test_required_fixture_svg)
+    endif()
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/symbols/PerastageSvgSymbol.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
+                              perastage_test_required_fixture_svg)
     endif()
     if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
        PERASTAGE_TEST_SOURCES AND
@@ -2379,6 +2397,7 @@ add_executable(dictionary_reset_transaction_test
 target_include_directories(dictionary_reset_transaction_test PRIVATE
                            . ../core ../models ../third_party)
 target_link_libraries(dictionary_reset_transaction_test PRIVATE
+                      perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES}
                       tinyxml2::tinyxml2)
 add_test(NAME DictionaryResetTransaction COMMAND dictionary_reset_transaction_test)
@@ -2467,6 +2486,7 @@ add_executable(project_fixture_gdtf_consolidator_test
 target_include_directories(project_fixture_gdtf_consolidator_test PRIVATE
                            ../core ../models support)
 target_link_libraries(project_fixture_gdtf_consolidator_test PRIVATE
+                      perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
                       perastage_test_diagnostics)
 add_test(NAME ProjectFixtureGdtfConsolidator
@@ -2480,13 +2500,32 @@ add_executable(fixture_gdtf_derivative_contract_test
 target_include_directories(fixture_gdtf_derivative_contract_test PRIVATE
                            ../core support)
 target_link_libraries(fixture_gdtf_derivative_contract_test PRIVATE
+                      perastage_test_required_fixture_svg
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME FixtureGdtfDerivativeContract
          COMMAND fixture_gdtf_derivative_contract_test)
 
+add_executable(fixture_symbol_preparation_coordinator_test
+               fixture_symbol_preparation_coordinator_test.cpp
+               ../core/symbols/fixture_symbol_preparation_coordinator.cpp)
+target_include_directories(fixture_symbol_preparation_coordinator_test PRIVATE
+                           ../core)
+add_test(NAME FixtureSymbolPreparationCoordinator
+         COMMAND fixture_symbol_preparation_coordinator_test)
+
+add_executable(fixture_symbol_preparation_requests_test
+               fixture_symbol_preparation_requests_test.cpp
+               ../core/symbols/fixture_symbol_preparation_requests.cpp)
+target_include_directories(fixture_symbol_preparation_requests_test PRIVATE
+                           ../core)
+add_test(NAME FixtureSymbolPreparationRequests
+         COMMAND fixture_symbol_preparation_requests_test)
+
 add_executable(scene_model_symbol_capture_snapshot_test
                scene_model_symbol_capture_snapshot_test.cpp
-               ../gui/tools/scene_model_symbol_capture_snapshot.cpp)
+               configmanager_layoutmanager_stub.cpp
+               ../gui/tools/scene_model_symbol_capture_snapshot.cpp
+               ../core/scenedatamanager.cpp)
 target_include_directories(scene_model_symbol_capture_snapshot_test PRIVATE
                            ../core ../models ../gui ../viewer3d)
 target_link_libraries(scene_model_symbol_capture_snapshot_test PRIVATE

@@ -6,7 +6,8 @@
 
 namespace {
 
-// Compares transforms exactly to prove capture preparation did not mutate live data.
+// Compares transforms exactly to prove capture preparation did not mutate live
+// data.
 bool SameMatrix(const Matrix &left, const Matrix &right) {
   return left.u == right.u && left.v == right.v && left.w == right.w &&
          left.o == right.o;
@@ -14,7 +15,8 @@ bool SameMatrix(const Matrix &left, const Matrix &right) {
 
 } // namespace
 
-// Verifies capture snapshots isolate all live scene categories on success and failure.
+// Verifies capture snapshots isolate all live scene categories on success and
+// failure.
 int main() {
   MvrScene scene;
   Fixture fixture;
@@ -50,8 +52,40 @@ int main() {
   assert(scene.sceneObjects.size() == 1);
   assert(scene.supports.size() == 1);
   assert(scene.fixtures.at("fixture").visualColorHex == "#112233");
-  assert(SameMatrix(scene.fixtures.at("fixture").transform,
-                    originalTransform));
+  assert(SameMatrix(scene.fixtures.at("fixture").transform, originalTransform));
+
+  scene.fixtures.at("fixture").visualColorHex = "#445566";
+  scene.fixtures.at("fixture").transform.o = {90.0f, 80.0f, 70.0f};
+  assert(tools::ExecuteSceneModelSymbolCaptureBoundary(
+      snapshot, [&](const SceneDataManager::SceneSnapshot &stable) {
+        assert(stable.fixtures.at("fixture").visualColorHex == "#FFFFFF");
+        assert(stable.fixtures.at("fixture").transform.o !=
+               scene.fixtures.at("fixture").transform.o);
+        return true;
+      }));
+  scene.fixtures.at("fixture").visualColorHex = "#112233";
+  scene.fixtures.at("fixture").transform = originalTransform;
+
+  int attempts = 0;
+  const auto runBoundary = [&](bool succeeds) {
+    return tools::ExecuteSceneModelSymbolCaptureBoundary(
+        scene, {tools::SceneModelKind::Fixture, "fixture"}, options,
+        [&](const SceneDataManager::SceneSnapshot &isolated) {
+          ++attempts;
+          assert(isolated.fixtures.at("fixture").visualColorHex == "#FFFFFF");
+          assert(SceneDataManager::Instance().GetFixtures().size() == 1);
+          return succeeds;
+        });
+  };
+  assert(runBoundary(true));
+  assert(!runBoundary(false));
+  assert(attempts == 2);
+  assert(scene.fixtures.size() == 1);
+  assert(scene.trusses.size() == 1);
+  assert(scene.sceneObjects.size() == 1);
+  assert(scene.supports.size() == 1);
+  assert(scene.fixtures.at("fixture").visualColorHex == "#112233");
+  assert(SameMatrix(scene.fixtures.at("fixture").transform, originalTransform));
 
   const auto failedSnapshot = tools::BuildSceneModelSymbolCaptureSnapshot(
       scene, {tools::SceneModelKind::Fixture, "missing"}, options);
@@ -61,7 +95,6 @@ int main() {
   assert(scene.sceneObjects.size() == 1);
   assert(scene.supports.size() == 1);
   assert(scene.fixtures.at("fixture").visualColorHex == "#112233");
-  assert(SameMatrix(scene.fixtures.at("fixture").transform,
-                    originalTransform));
+  assert(SameMatrix(scene.fixtures.at("fixture").transform, originalTransform));
   return 0;
 }

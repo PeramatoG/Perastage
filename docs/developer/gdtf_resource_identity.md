@@ -4,8 +4,11 @@
 
 `Manufacturer@FixtureType@Perastage.gdtf` is a Perastage ownership convention,
 not an official GDTF semantic. A file may use that canonical name only after it
-contains readable top, bottom, front, and side SVG fixture views. Publication
-validates that contract before the library dictionary accepts the derivative.
+contains exact, parseable top, bottom, front, and side SVG fixture views with a
+positive view box and usable geometry. Publication validates that ownership-neutral
+contract before the library dictionary accepts the derivative. External GDTFs that
+already meet the contract remain authoritative regardless of their Editor metadata;
+Perastage ownership is retained separately for audit and mutation policy.
 Failed finalization leaves the previous source or published derivative intact.
 Perastage-authored changes continue to use standard GDTF fields and Revisions;
 no proprietary GDTF or MVR XML is introduced.
@@ -56,5 +59,30 @@ The parsed SVG runtime cache remains independent persistence-free infrastructure
 keys stored presentation data by physical resource and view and is invalidated after
 internal derivative replacement or cleared at project lifecycle transitions.
 
-Automatic background scheduling is intentionally deferred to Block 02. Block 01 adds
-no startup generation, worker coordination, Save/Load waiting, or symbol manifest.
+Automatic preparation uses runtime-only work identities made from the deterministically
+resolved physical GDTF path and the exact GDTF mode. Repeated fixture and renderer
+requests coalesce, while distinct exact modes remain distinct work. Publication to a
+shared canonical derivative is serialized. A project epoch rejects callbacks and
+publication from replaced or closed projects.
+
+Capture progress is cooperative: each expensive render view is a separate GUI-thread
+step, and CPU processing and transactional publication are explicit later states.
+Missing or invalid SVGs continue to use rendered geometry immediately. Preparation
+does not wait in Save, Load, MVR import/export, print, layout, or PDF operations and no
+queue state or symbol manifest is persisted.
+
+The MainWindow-owned preparation service starts a new epoch for New, Open, MVR scene
+replacement, and Close. It posts the initial unique-resource scan only after project
+setup returns to the wx event loop. Renderers report a missing symbol through a
+GUI-independent runtime callback; they continue drawing fallback geometry while the
+service captures warm-up, Front, Top, Side, and Bottom in separate event-loop slices.
+All slices in one job use the same immutable scene snapshot, and the service rechecks
+the resolved physical resource and exact mode before processing and publication.
+Successful transactional apply invalidates the existing symbol caches and refreshes
+the affected viewers, including 3D resource synchronization for the rebound GDTF,
+without reopening the project. Pure image/vector processing runs on one managed worker;
+GUI capture, publication, rebinding, and refresh remain on cooperative GUI idle slices.
+Manual preview generation cancels
+matching automatic work before using the same incremental capture primitives through
+the synchronous compatibility wrapper; Apply remains an explicit preview action. A
+manual preview that closes or fails without applying restores automatic eligibility.

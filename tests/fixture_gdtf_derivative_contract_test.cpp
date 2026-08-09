@@ -31,6 +31,34 @@ int main() {
   assert(fixture_gdtf::ValidatePublishedDerivative(complete.string(), error));
   assert(error.empty());
 
+  const std::string validSvg =
+      "<svg viewBox=\"0 0 10 10\"><polygon points=\"0,0 10,0 10,10\"/></svg>";
+  const auto writeFourViews = [&](const fs::path &path,
+                                  const std::string &frontSvg) {
+    tests::gdtf::BuildMinimalValidFixture()
+        .WithModelResource("main")
+        .WithArchiveEntry("models/svg/main.svg", validSvg)
+        .WithArchiveEntry("models/svg/main_bottom.svg", validSvg)
+        .WithArchiveEntry("models/svg_front/main.svg", frontSvg)
+        .WithArchiveEntry("models/svg_side/main.svg", validSvg)
+        .WriteArchive(path);
+  };
+  const fs::path malformed = root / "Malformed.gdtf";
+  const fs::path zeroViewBox = root / "ZeroViewBox.gdtf";
+  const fs::path emptyGeometry = root / "EmptyGeometry.gdtf";
+  writeFourViews(malformed, "<svg");
+  writeFourViews(zeroViewBox,
+                 "<svg viewBox=\"0 0 0 10\"><path d=\"M0 0 L1 1\"/></svg>");
+  writeFourViews(emptyGeometry, "<svg viewBox=\"0 0 10 10\"/>");
+  assert(!fixture_gdtf::ValidatePublishedDerivative(malformed.string(), error));
+  assert(!fixture_gdtf::ValidatePublishedDerivative(zeroViewBox.string(), error));
+  assert(!fixture_gdtf::ValidatePublishedDerivative(emptyGeometry.string(), error));
+
+  const fs::path missingModel = root / "MissingModel.gdtf";
+  tests::gdtf::WriteMissingMandatorySectionsArchive(missingModel);
+  assert(!fixture_gdtf::ValidatePublishedDerivative(missingModel.string(), error));
+  assert(error.find("Model") != std::string::npos);
+
   const fs::path project = root / "project";
   fs::create_directories(project / "fixtures");
   const fs::path published = project / "fixtures" / "Fixture@Perastage.gdtf";

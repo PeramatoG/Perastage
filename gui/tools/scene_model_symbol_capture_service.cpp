@@ -7,12 +7,12 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
-#include "tools/fixture_geometry_bounds.h"
-#include "tools/scene_model_symbol_capture_snapshot.h"
-#include "sceneobject.h"
 #include "scenedatamanager.h"
+#include "sceneobject.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/SymbolGeometrySimplifier.h"
+#include "tools/fixture_geometry_bounds.h"
+#include "tools/scene_model_symbol_capture_snapshot.h"
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
@@ -28,7 +28,9 @@ class ScopedViewer2DCaptureState {
 public:
   // Stores the current 2D viewer state so capture can run without persisting UI
   // changes.
-  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
+  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel,
+                                      bool refreshAfterRestore)
+      : panel_(panel), refreshAfterRestore_(refreshAfterRestore) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
     offsetYPixels_ = state.offsetPixelsY;
@@ -47,7 +49,8 @@ public:
     panel_.SetRenderOverrides(renderOverrides_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
-    panel_.UpdateScene(false);
+    if (refreshAfterRestore_)
+      panel_.UpdateScene(false);
   }
 
 private:
@@ -59,6 +62,7 @@ private:
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
   std::optional<Viewer2DRenderOverrides> renderOverrides_;
   bool preferPerastageSvgSymbolsForLayouts_ = false;
+  bool refreshAfterRestore_ = true;
 };
 
 // Applies temporary render overrides tailored for high-contrast symbol
@@ -100,7 +104,8 @@ void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
   }
 }
 
-// Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport sizing.
+// Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport
+// sizing.
 bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
                                          const SceneModelSymbolTarget &target,
                                          FixtureGeometryBounds &bounds) {
@@ -141,23 +146,37 @@ float ComputeCaptureAspectForView(const FixtureGeometryBounds &bounds,
 
 } // namespace
 
-// Captures top/front/side/bottom orthographic renders and converts them into
-// vector symbols.
-SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
+// Captures one bounded warm-up or orthographic view from an isolated snapshot.
+SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
-                                     const SceneModelSymbolTarget &target,
-                                     const SceneModelSymbolCaptureOptions &options) {
-  SceneModelSymbolCaptureResult result;
+    const SceneModelSymbolTarget &target, std::size_t stepIndex,
+    const SceneModelSymbolCaptureOptions &options) {
+  const SceneDataManager::SceneSnapshot snapshot =
+      BuildSceneModelSymbolCaptureSnapshot(cfg.GetScene(), target, options);
+  return CaptureSceneModelOrthographicStep(renderer, cfg, target, snapshot,
+                                           stepIndex, options);
+}
 
+// Captures one view from a caller-owned immutable job snapshot.
+SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
+    const SceneModelSymbolTarget &target,
+    const SceneDataManager::SceneSnapshot &snapshot, std::size_t stepIndex,
+    const SceneModelSymbolCaptureOptions &options) {
+  SceneModelSymbolCaptureStepResult result;
   Viewer2DPanel *capturePanel = renderer.GetPanel();
   if (!capturePanel) {
     result.error = "Could not create 2D capture panel instance.";
     return result;
   }
+  const auto &requests = symbols::FixtureSymbolCapturePlan();
+  if (stepIndex > requests.size()) {
+    result.error = "Fixture symbol capture step is out of range.";
+    return result;
+  }
 
-  ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
-  const SceneDataManager::SceneSnapshot captureSnapshot =
-      BuildSceneModelSymbolCaptureSnapshot(cfg.GetScene(), target, options);
+  ScopedViewer2DCaptureState scopedPanelState(
+      *capturePanel, options.refreshPanelAfterStep);
   capturePanel->PrepareForSceneReplacement();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;
@@ -169,103 +188,131 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
-
-  renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
-  auto renderWithIsolatedScene = [&](const auto &renderOperation) {
-    SceneDataManager::ScopedSnapshot isolatedScene(captureSnapshot);
-    capturePanel->CompleteSceneReplacement();
-    capturePanel->UpdateScene(true);
-    const bool rendered = renderOperation();
-    capturePanel->PrepareForSceneReplacement();
-    return rendered;
-  };
 
-  {
-    std::vector<unsigned char> warmupPixels;
-    int warmupWidth = 0;
-    int warmupHeight = 0;
-    (void)renderWithIsolatedScene([&]() {
-      return capturePanel->RenderToRGBA(warmupPixels, warmupWidth,
-                                        warmupHeight);
-    });
-  }
-
-  const auto &requests = symbols::FixtureSymbolCapturePlan();
-
-  std::vector<symbols::RenderedSymbolImage> renders;
-  renders.reserve(requests.size());
   FixtureGeometryBounds fixtureBounds;
-  bool hasFixtureBounds = false;
-  {
-    symbols::ScopedFixtureSymbolPhase phase(options.timings,
-                                            symbols::FixtureSymbolPhase::Bounds);
-    hasFixtureBounds = TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds);
-  }
-  if (hasFixtureBounds)
-    result.fixtureBoundsMm = fixtureBounds;
-
-  for (const auto &request : requests) {
-    symbols::ScopedFixtureSymbolPhase phase(options.timings,
-                                            symbols::FixtureSymbolPhase::Capture);
-    if (hasFixtureBounds) {
-      const float aspect =
-          ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
-      const int base =
-          std::max(256, std::max(options.viewportSize.GetWidth(),
-                                              options.viewportSize.GetHeight()));
-      const int width = std::max(
-          256, static_cast<int>(aspect >= 1.0f ? base : base * aspect));
-      const int height = std::max(
-          256, static_cast<int>(aspect >= 1.0f ? base / aspect : base));
-      renderer.SetViewportSize(wxSize(width, height));
-    } else {
-      renderer.SetViewportSize(options.viewportSize);
-    }
-    renderOverrides.forceBottomViewForTopFixtures =
-        request.forceBottomViewForTopFixtures;
-    capturePanel->SetRenderOverrides(renderOverrides);
-    capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
-    Viewer2DView viewerView = Viewer2DView::Top;
-    if (request.viewerView == symbols::SymbolCaptureViewerView::Front)
-      viewerView = Viewer2DView::Front;
-    else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
-      viewerView = Viewer2DView::Side;
-    capturePanel->SetView(viewerView);
-    symbols::RenderedSymbolImage render;
-    render.view = request.symbolView;
-    const bool ok = renderWithIsolatedScene([&]() {
-      capturePanel->FitViewToScene();
-      return capturePanel->RenderToRGBA(render.rgba, render.width,
-                                        render.height);
-    });
-    if (!ok || render.width <= 0 || render.height <= 0) {
-      result.error = "Could not capture all orthographic source images from "
-                     "the 2D viewer.";
-      return result;
-    }
-    if (request.mirrorHorizontally)
-      MirrorImageHorizontally(render);
-    renders.push_back(std::move(render));
-  }
-
-  std::vector<symbols::Symbol2D> generatedSymbols;
   {
     symbols::ScopedFixtureSymbolPhase phase(
-        options.timings, symbols::FixtureSymbolPhase::Vectorization);
-    generatedSymbols = symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
-    for (auto &symbol : generatedSymbols)
-      symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
+        options.timings, symbols::FixtureSymbolPhase::Bounds);
+    if (options.fixtureBoundsOverride) {
+      fixtureBounds = *options.fixtureBoundsOverride;
+      result.fixtureBoundsMm = fixtureBounds;
+    } else if (TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds)) {
+      result.fixtureBoundsMm = fixtureBounds;
+    }
   }
-  if (generatedSymbols.size() != requests.size()) {
-    result.error = "Could not generate all symbols from captured views.";
+
+  auto renderIsolated = [&](auto &render) {
+    return ExecuteSceneModelSymbolCaptureBoundary(
+        snapshot, [&](const auto &) {
+          capturePanel->CompleteSceneReplacement();
+          capturePanel->UpdateScene(true);
+          capturePanel->FitViewToScene();
+          const bool rendered = capturePanel->RenderToRGBA(
+              render.rgba, render.width, render.height);
+          capturePanel->PrepareForSceneReplacement();
+          return rendered;
+        });
+  };
+
+  if (stepIndex == 0) {
+    renderer.SetViewportSize(options.viewportSize);
+    symbols::RenderedSymbolImage warmup;
+    result.ok = renderIsolated(warmup);
+    if (!result.ok)
+      result.error = "Could not warm up the fixture symbol capture renderer.";
     return result;
   }
 
-  result.ok = true;
-  result.symbols = std::move(generatedSymbols);
+  const auto &request = requests[stepIndex - 1];
+  if (fixtureBounds.valid) {
+    const float aspect =
+        ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
+    const int base = std::max(256, std::max(options.viewportSize.GetWidth(),
+                                            options.viewportSize.GetHeight()));
+    const int width =
+        std::max(256, static_cast<int>(aspect >= 1.0f ? base : base * aspect));
+    const int height =
+        std::max(256, static_cast<int>(aspect >= 1.0f ? base / aspect : base));
+    renderer.SetViewportSize(wxSize(width, height));
+  } else {
+    renderer.SetViewportSize(options.viewportSize);
+  }
+  renderOverrides.forceBottomViewForTopFixtures =
+      request.forceBottomViewForTopFixtures;
+  capturePanel->SetRenderOverrides(renderOverrides);
+  capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
+  Viewer2DView viewerView = Viewer2DView::Top;
+  if (request.viewerView == symbols::SymbolCaptureViewerView::Front)
+    viewerView = Viewer2DView::Front;
+  else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
+    viewerView = Viewer2DView::Side;
+  capturePanel->SetView(viewerView);
+  symbols::RenderedSymbolImage render;
+  render.view = request.symbolView;
+  {
+    symbols::ScopedFixtureSymbolPhase phase(
+        options.timings, symbols::FixtureSymbolPhase::Capture);
+    result.ok = renderIsolated(render);
+  }
+  if (!result.ok || render.width <= 0 || render.height <= 0) {
+    result.ok = false;
+    result.error = "Could not capture an orthographic fixture symbol view.";
+    return result;
+  }
+  if (request.mirrorHorizontally)
+    MirrorImageHorizontally(render);
+  result.image = std::move(render);
   return result;
+}
+
+// Vectorizes, simplifies, and validates a complete four-view capture set.
+SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(
+    std::vector<symbols::RenderedSymbolImage> renders,
+    const FixtureGeometryBounds &fixtureBoundsMm,
+    symbols::FixtureSymbolTimings *timings) {
+  SceneModelSymbolCaptureResult result;
+  result.fixtureBoundsMm = fixtureBoundsMm;
+  const auto &requests = symbols::FixtureSymbolCapturePlan();
+  if (renders.size() != requests.size()) {
+    result.error = "Could not generate all symbols from captured views.";
+    return result;
+  }
+  {
+    symbols::ScopedFixtureSymbolPhase phase(
+        timings, symbols::FixtureSymbolPhase::Vectorization);
+    result.symbols =
+        symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
+    for (auto &symbol : result.symbols)
+      symbols::SimplifySymbolGeometry(symbol, kSymbolRdpEpsilon);
+  }
+  result.ok = result.symbols.size() == requests.size();
+  if (!result.ok)
+    result.error = "Could not generate all symbols from captured views.";
+  return result;
+}
+
+// Captures all orthographic views through the shared incremental primitives.
+SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
+    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
+    const SceneModelSymbolTarget &target,
+    const SceneModelSymbolCaptureOptions &options) {
+  FixtureGeometryBounds bounds;
+  std::vector<symbols::RenderedSymbolImage> renders;
+  const auto &requests = symbols::FixtureSymbolCapturePlan();
+  for (std::size_t step = 0; step <= requests.size(); ++step) {
+    auto capture =
+        CaptureSceneModelOrthographicStep(renderer, cfg, target, step, options);
+    if (!capture.ok)
+      return {false, capture.error};
+    if (capture.fixtureBoundsMm.valid)
+      bounds = capture.fixtureBoundsMm;
+    if (capture.image)
+      renders.push_back(std::move(*capture.image));
+  }
+  return ProcessSceneModelOrthographicRenders(std::move(renders), bounds,
+                                               options.timings);
 }
 
 } // namespace tools

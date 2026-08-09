@@ -32,6 +32,7 @@
 #include "gdtf_mutation_audit.h"
 #include "gdtf_canonicalizer.h"
 #include "symbol_cache_manifest.h"
+#include "symbols/PerastageSvgSymbol.h"
 #include "symbols/fixture_symbol_svg_cache.h"
 #include "windows/symbol_preview_exporter.h"
 
@@ -898,18 +899,13 @@ bool InspectFixtureSymbolState(const Fixture &fixture,
                  ? (revisionModifiedByPerastage || editorIsPerastage)
                  : false);
 
-  std::string modelSvgBase =
-      ResolveModelSvgBasenameFromFixtureType(fixtureType, errorMessage);
-  if (modelSvgBase.empty()) {
-    errorMessage.clear();
-    return true;
-  }
-
-  const std::unordered_set<std::string> requiredPaths =
-      BuildRequiredSymbolPaths(modelSvgBase);
-  result.hasValidSvgSymbolSet =
-      result.editorIsPerastage && HasRequiredSymbolPaths(archiveEntries, requiredPaths);
+  RequiredFixtureSvgSetInspection symbolInspection;
+  const bool inspected =
+      InspectRequiredFixtureSvgSet(inspectPath, symbolInspection);
+  result.hasValidSvgSymbolSet = inspected && symbolInspection.usable;
   result.requiresSymbolGeneration = !result.hasValidSvgSymbolSet;
+  if (inspected && !symbolInspection.usable && result.warningMessage.empty())
+    result.warningMessage = symbolInspection.diagnostic;
   return true;
 }
 

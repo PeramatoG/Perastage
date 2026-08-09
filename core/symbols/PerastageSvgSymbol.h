@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -35,7 +36,23 @@ struct PerastageSvgSymbolData {
   }
 };
 
+struct RequiredFixtureSvgViewInspection {
+  SymbolViewKind viewKind = SymbolViewKind::Top;
+  std::string archivePath;
+  bool usable = false;
+  std::string diagnostic;
+};
+
+struct RequiredFixtureSvgSetInspection {
+  std::array<RequiredFixtureSvgViewInspection, 4> views;
+  bool usable = false;
+  std::string diagnostic;
+};
+
 bool LoadPerastageSvgSymbolFromGdtf(const std::string &gdtfPath,
                                     SymbolViewKind requestedView,
                                     PerastageSvgSymbolData &out,
                                     std::string *errorDetails = nullptr);
+
+bool InspectRequiredFixtureSvgSet(const std::string &gdtfPath,
+                                  RequiredFixtureSvgSetInspection &inspection);
