@@ -46,23 +46,20 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
 ## Internal process summary
 
-1. Copy the requested instance into an immutable capture-only scene snapshot.
+1. Install a cloned requested instance in the private compatibility scene.
 2. Optionally align the instance transform to local axes.
 3. Apply capture-focused config overrides (hide grid/labels, force symbol-friendly render settings).
 4. Capture source RGBA images for `Front`, `Top`, `Side` (mirrored to `Left`), and inverted `Top` (as `Bottom`).
 5. Convert images to vector symbols with `symbols::Symbol2DImageBuilder`.
 
-The render data source is scoped to one synchronous offscreen update/render operation
-on the GUI/render thread and is removed before control can return to the wx event loop.
-Controller scene references are cleared before that scope ends. Each orthographic view
-therefore has its own bounded scope, allowing a future cooperative pipeline to yield
-between views without leaving capture data installed. Interactive viewers continue to
-use the live scene; the bounded data-source override is thread-local, and no wx event
-processing occurs inside it. Support/hoist rendering is disabled by the symbol-capture
-render profile so unrelated supports cannot leak into the isolated image.
-The service never swaps or clears live `ConfigManager` containers and never changes
-capture color, transform, visibility, or selection on the live fixture. The snapshot
-is discarded on both successful and failed capture, so the project scene is unchanged.
+The render data source is scoped to one synchronous offscreen operation on the
+GUI/render thread and remains installed for warm-up plus all four orthographic views.
+The narrow compatibility boundary temporarily swaps the renderable `ConfigManager`
+containers so every legacy and current renderer query sees the same cloned target.
+No wx event processing occurs inside it. Strict RAII restores fixtures, trusses, scene
+objects, and supports once on success or failure; selection, layers, project dirty
+state, and persistent data are not changed. This behavior is private to deterministic
+symbol capture and must not be reused as a general scene-management mechanism.
 
 ## Current integration
 

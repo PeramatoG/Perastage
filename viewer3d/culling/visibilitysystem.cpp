@@ -556,7 +556,7 @@ bool VisibilitySystem::TryBuildLayerVisibleCandidates(
     const auto &uuid = entry->first;
     const auto &fixture = entry->second;
     if (!IsLayerVisibleCached(hiddenLayers, fixture.layer) ||
-        !SceneDataManager::Instance().IsFixtureTypeVisible(fixture.typeName))
+        !ConfigManager::Get().IsFixtureTypeVisible(fixture.typeName))
       continue;
     if (fixtures.find(uuid) != fixtures.end())
       out.fixtureUuids.push_back(uuid);

@@ -2546,14 +2546,13 @@ target_include_directories(fixture_symbol_preparation_requests_test PRIVATE
 add_test(NAME FixtureSymbolPreparationRequests
          COMMAND fixture_symbol_preparation_requests_test)
 
-add_executable(scene_model_symbol_capture_snapshot_test
-               scene_model_symbol_capture_snapshot_test.cpp
+add_executable(scoped_single_model_capture_scene_test
+               scoped_single_model_capture_scene_test.cpp
                configmanager_layoutmanager_stub.cpp
-               ../gui/tools/scene_model_symbol_capture_snapshot.cpp
-               ../core/scenedatamanager.cpp)
-target_include_directories(scene_model_symbol_capture_snapshot_test PRIVATE
+               ../gui/tools/scoped_single_model_capture_scene.cpp)
+target_include_directories(scoped_single_model_capture_scene_test PRIVATE
                            ../core ../models ../gui ../viewer3d)
-target_link_libraries(scene_model_symbol_capture_snapshot_test PRIVATE
+target_link_libraries(scoped_single_model_capture_scene_test PRIVATE
                       ${wxWidgets_LIBRARIES})
-add_test(NAME SceneModelSymbolCaptureSnapshot
-         COMMAND scene_model_symbol_capture_snapshot_test)
+add_test(NAME ScopedSingleModelCaptureScene
+         COMMAND scoped_single_model_capture_scene_test)

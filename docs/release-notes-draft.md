@@ -44,18 +44,13 @@ Changes since **v1.5.0**.
   fixture references and files intact, shared fixtures remain on one derivative, and
   optional library synchronization can no longer undo a valid project result.
 
-- Fixture symbol capture now renders from a capture-only scene snapshot without
-  replacing project scene containers or temporarily changing the live fixture. Capture
-  data is limited to each offscreen render step so interactive viewers cannot observe it.
-  Automatic capture now completes every offscreen scene-replacement transition
-  before restoring the active project, preventing distorted non-top symbols and
-  ensuring layout 2D views and printed layouts retain fallback or stored-symbol
-  geometry while preparation progresses. Each yielded symbol view now refreshes
-  its isolated fixture resources and bounds before fitting, so unrelated layout
-  rendering cannot alter Front, Side, or Bottom framing. Capture slices now
-  perform their synchronization through the normal offscreen render lifecycle
-  and use the isolated scene's resource base and visibility context throughout,
-  restoring the same framing and proportions as uninterrupted manual capture.
+- Fixture symbol capture now uses one private, non-yielding compatibility scope
+  for warm-up and all four orthographic views, then restores the project exactly
+  once before returning to the interface. This prevents distorted non-top symbols and
+  ensures layout 2D views and printed layouts retain fallback or stored-symbol
+  geometry while preparation progresses. Automatic and manual generation now share
+  the same continuous renderer semantics, so unrelated project contents cannot alter
+  Front, Side, or Bottom framing or component placement.
 
 - Fixture document editing now prepares changes in private project working storage and
   publishes only derivatives that satisfy the complete fixture-symbol contract, without

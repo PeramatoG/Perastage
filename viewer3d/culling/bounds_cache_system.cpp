@@ -89,8 +89,7 @@ void BoundsCacheSystem::RebuildIfDirty(
     const std::unordered_set<std::string> &hiddenLayers,
     const std::unordered_map<std::string, Truss> &trusses,
     const std::unordered_map<std::string, SceneObject> &objects,
-    const std::unordered_map<std::string, Fixture> &fixtures,
-    bool applyFixtureTypeVisibility) {
+    const std::unordered_map<std::string, Fixture> &fixtures) {
   if (hiddenLayers != context.boundsHiddenLayers) {
     Logger::Instance().Log("visibility dirty reason: hidden layers changed vs bounds cache");
     context.visibilityChangedDirty = true;
@@ -126,8 +125,7 @@ void BoundsCacheSystem::RebuildIfDirty(
   context.fixtureBounds.clear();
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
-        (applyFixtureTypeVisibility &&
-         !ConfigManager::Get().IsFixtureTypeVisible(f.typeName)))
+        !ConfigManager::Get().IsFixtureTypeVisible(f.typeName))
       continue;
     Viewer3DBoundingBox bb;
     Matrix fix = f.transform;

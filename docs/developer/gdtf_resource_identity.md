@@ -65,8 +65,9 @@ requests coalesce, while distinct exact modes remain distinct work. Publication 
 shared canonical derivative is serialized. A project epoch rejects callbacks and
 publication from replaced or closed projects.
 
-Capture progress is cooperative: each expensive render view is a separate GUI-thread
-step, and CPU processing and transactional publication are explicit later states.
+Capture progress is cooperative between fixture jobs: each fixture's four render views
+form one atomic GUI-thread operation, and CPU processing and transactional publication
+are explicit later states.
 Missing or invalid SVGs continue to use rendered geometry immediately. Preparation
 does not wait in Save, Load, MVR import/export, print, layout, or PDF operations and no
 queue state or symbol manifest is persisted.
@@ -75,14 +76,14 @@ The MainWindow-owned preparation service starts a new epoch for New, Open, MVR s
 replacement, and Close. It posts the initial unique-resource scan only after project
 setup returns to the wx event loop. Renderers report a missing symbol through a
 GUI-independent runtime callback; they continue drawing fallback geometry while the
-service captures warm-up, Front, Top, Side, and Bottom in separate event-loop slices.
-All slices in one job use the same immutable scene snapshot, and the service rechecks
+service captures warm-up, Front, Top, Side, and Bottom without an intervening event-loop
+yield. The service rechecks
 the resolved physical resource and exact mode before processing and publication.
 Successful transactional apply invalidates the existing symbol caches and refreshes
 the affected viewers, including 3D resource synchronization for the rebound GDTF,
 without reopening the project. Pure image/vector processing runs on one managed worker;
 GUI capture, publication, rebinding, and refresh remain on cooperative GUI idle slices.
 Manual preview generation cancels
-matching automatic work before using the same incremental capture primitives through
-the synchronous compatibility wrapper; Apply remains an explicit preview action. A
+matching automatic work before using the same canonical full-capture operation; Apply
+remains an explicit preview action. A
 manual preview that closes or fails without applying restores automatic eligibility.

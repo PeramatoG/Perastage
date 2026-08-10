@@ -29,16 +29,13 @@ int main() {
                               symbols::FixtureSymbolPreparationPriority::Manual));
   assert(coordinator.NextQueued()->key == standard);
   assert(coordinator.BeginCapture(standard, epoch));
-  for (int view = 0; view < 4; ++view) {
-    assert(coordinator.CompleteCaptureStep(standard, epoch));
-    assert(coordinator.Find(standard)->captureStep ==
-           static_cast<std::size_t>(view + 1));
-  }
+  assert(coordinator.CompleteCapture(standard, epoch));
+  assert(coordinator.Find(standard)->state ==
+         symbols::FixtureSymbolPreparationState::Processing);
   assert(coordinator.BeginPublishing(standard, epoch));
 
   assert(coordinator.BeginCapture(extended, epoch));
-  for (int view = 0; view < 4; ++view)
-    assert(coordinator.CompleteCaptureStep(extended, epoch));
+  assert(coordinator.CompleteCapture(extended, epoch));
   assert(!coordinator.BeginPublishing(extended, epoch));
   assert(coordinator.Complete(standard, epoch, true));
   assert(coordinator.BeginPublishing(extended, epoch));

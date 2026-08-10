@@ -36,16 +36,16 @@ struct FakeSharedRenderer {
 };
 
 // Restores the fake project data source before the outer lifecycle guard exits.
-class ScopedSnapshotSource {
+class ScopedIsolatedSource {
 public:
-  // Installs the isolated source for one simulated capture slice.
-  explicit ScopedSnapshotSource(FakeSharedRenderer &renderer)
+  // Installs the isolated source for one simulated capture operation.
+  explicit ScopedIsolatedSource(FakeSharedRenderer &renderer)
       : renderer_(renderer) {
     renderer_.source = FakeSharedRenderer::Source::Snapshot;
   }
 
-  // Restores the project source as SceneDataManager::ScopedSnapshot would.
-  ~ScopedSnapshotSource() {
+  // Restores the project source as the private capture boundary does.
+  ~ScopedIsolatedSource() {
     renderer_.source = FakeSharedRenderer::Source::Project;
   }
 
@@ -53,13 +53,13 @@ private:
   FakeSharedRenderer &renderer_;
 };
 
-// Executes one incremental slice and verifies normal geometry after yielding.
+// Executes one isolated capture and verifies normal geometry after yielding.
 void RunCaptureSlice(FakeSharedRenderer &renderer) {
   tools::ScopedSceneReplacementLifecycle lifecycle(
       [&renderer]() { renderer.Prepare(); },
       [&renderer]() { renderer.Complete(); },
       [&renderer]() { renderer.RestoreProject(); });
-  ScopedSnapshotSource snapshot(renderer);
+  ScopedIsolatedSource snapshot(renderer);
   lifecycle.CompleteReplacement();
   auto prepareOnExit = lifecycle.PrepareOnScopeExit();
   assert(!renderer.replacementActive);
@@ -74,7 +74,7 @@ void RunFailingCaptureSlice(FakeSharedRenderer &renderer) {
         [&renderer]() { renderer.Prepare(); },
         [&renderer]() { renderer.Complete(); },
         [&renderer]() { renderer.RestoreProject(); });
-    ScopedSnapshotSource snapshot(renderer);
+    ScopedIsolatedSource snapshot(renderer);
     lifecycle.CompleteReplacement();
     auto prepareOnExit = lifecycle.PrepareOnScopeExit();
     throw std::runtime_error("simulated render failure");
@@ -84,7 +84,7 @@ void RunFailingCaptureSlice(FakeSharedRenderer &renderer) {
 
 } // namespace
 
-// Verifies every cooperative capture yield restores renderable project
+// Verifies capture restoration restores renderable project
 // geometry.
 int main() {
   FakeSharedRenderer renderer;

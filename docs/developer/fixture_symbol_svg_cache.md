@@ -23,24 +23,22 @@ stored-SVG rules. A fallback is never reported as a stored SVG.
 
 The MainWindow-owned runtime coordinator keys work by canonical physical GDTF
 resource and exact mode. Duplicate fixtures and renderer fallback requests
-therefore produce one logical job. Each idle activation performs at most one
-bounded capture slice, every slice reads one immutable scene snapshot, and pure
-image/vector processing runs on the managed GUI/OpenGL-free worker.
-After each isolated slice, the shared offscreen 2D renderer is rebound to the
+therefore produce one logical job. Each fixture uses one non-yielding GUI-thread
+capture operation for warm-up plus all four views, and pure image/vector
+processing runs later on the managed GUI/OpenGL-free worker.
+After the complete capture, the shared offscreen 2D renderer is rebound to the
 active project scene before control returns to layout preview or print capture.
 The scoped boundary pairs every scene-replacement preparation with completion,
 including render failures, and synchronizes the active project only after the
-capture snapshot has been released. This restoration is mandatory even when
-more automatic views remain queued.
+temporary capture scene has been restored.
 
-Each isolated capture slice also performs one bounded warm-up through the normal
-offscreen render lifecycle before `FitViewToScene()`. `UpdateScene(true)` alone
-is not a sufficient pre-fit boundary because resource and world-bounds
-synchronization normally occurs later in the render path. The warm-up uses the
-snapshot's resource base and ignores live-project visibility filters, so every
-renderer subsystem observes the same isolated scene. This prevents an
-interleaved project or layout render from supplying stale bounds to Front, Top,
-Side, or Bottom fitting.
+The private capture compatibility boundary temporarily swaps only the live
+renderable containers, exactly as the established synchronous generator did.
+This is deliberately not a general scene architecture: it guarantees that both
+modern scene accessors and legacy direct `ConfigManager` queries observe the
+same single target continuously from warm-up through Front, Top, Side, and
+Bottom. Strict RAII restores the project once on every exit path, and no event
+processing occurs while the compatibility boundary is active.
 
 Project epochs reject work captured for a replaced or closed project. Automatic
 jobs also compute the strong symbol-relevant semantic fingerprint at job start

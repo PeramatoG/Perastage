@@ -17,7 +17,6 @@
 #include "symbols/fixture_symbol_preparation_requests.h"
 #include "symbols/fixture_symbol_resource_revision.h"
 #include "tools/scene_model_symbol_capture_service.h"
-#include "tools/scene_model_symbol_capture_snapshot.h"
 #include "tools/symbol_physical_calibration.h"
 #include "viewer2doffscreenrenderer.h"
 #include "windows/symbol_fixture_applier.h"
@@ -275,32 +274,23 @@ void FixtureSymbolPreparationService::RunNextStep() {
     options.forcedFixtureColor = "#3FA9F5";
     if (work.bounds.valid)
       options.fixtureBoundsOverride = work.bounds;
-    if (!work.captureSnapshot) {
-      work.captureSnapshot = tools::BuildSceneModelSymbolCaptureSnapshot(
-          cfg.GetScene(),
-          {tools::SceneModelKind::Fixture, work.fixtureUuid}, options);
+    auto capture = tools::CaptureSceneModelOrthographicRenders(
+        *renderer, cfg,
+        {tools::SceneModelKind::Fixture, work.fixtureUuid}, options);
+    if (!capture.ok) {
+      FailCurrent(capture.error);
+      return;
     }
-    if (work.nextCaptureStep <= symbols::FixtureSymbolCapturePlan().size()) {
-      auto capture = tools::CaptureSceneModelOrthographicStep(
-          *renderer, cfg,
-          {tools::SceneModelKind::Fixture, work.fixtureUuid},
-          *work.captureSnapshot, work.nextCaptureStep, options);
-      if (!capture.ok) {
-        FailCurrent(capture.error);
-        return;
-      }
-      if (capture.fixtureBoundsMm.valid && !work.bounds.valid)
-        work.bounds = capture.fixtureBoundsMm;
-      if (capture.image) {
-        work.renders.push_back(std::move(*capture.image));
-        coordinator_.CompleteCaptureStep(*currentKey_, epoch_);
-      }
-      ++work.nextCaptureStep;
-      UpdateStatus();
-      ScheduleNextStep();
+    work.bounds = capture.fixtureBoundsMm;
+    work.renders = std::move(capture.renders);
+    if (!coordinator_.CompleteCapture(*currentKey_, epoch_)) {
+      FailCurrent("Fixture symbol capture state became stale.");
       return;
     }
     work.stage = WorkStage::Processing;
+    UpdateStatus();
+    ScheduleNextStep();
+    return;
   }
 
   if (work.stage == WorkStage::Processing) {
@@ -450,26 +440,7 @@ void FixtureSymbolPreparationService::UpdateStatus() {
   if (statusWork) {
     switch (statusWork->stage) {
     case WorkStage::Capturing:
-      if (statusWork->nextCaptureStep > 0 &&
-          statusWork->nextCaptureStep <=
-              symbols::FixtureSymbolCapturePlan().size()) {
-        switch (symbols::FixtureSymbolCapturePlan()
-                    [statusWork->nextCaptureStep - 1]
-                        .symbolView) {
-        case symbols::SymbolView::Top:
-          phase = "Capturing Top";
-          break;
-        case symbols::SymbolView::Bottom:
-          phase = "Capturing Bottom";
-          break;
-        case symbols::SymbolView::Front:
-          phase = "Capturing Front";
-          break;
-        case symbols::SymbolView::Left:
-          phase = "Capturing Side";
-          break;
-        }
-      }
+      phase = "Capturing fixture views";
       break;
     case WorkStage::Processing:
       phase = "Processing";

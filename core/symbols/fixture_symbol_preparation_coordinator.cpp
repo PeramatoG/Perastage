@@ -73,16 +73,14 @@ bool FixtureSymbolPreparationCoordinator::BeginCapture(
   return true;
 }
 
-// Records one GUI-thread view and yields after each of the four capture steps.
-bool FixtureSymbolPreparationCoordinator::CompleteCaptureStep(
+// Completes one atomic GUI-thread four-view capture.
+bool FixtureSymbolPreparationCoordinator::CompleteCapture(
     const FixtureSymbolPreparationKey &key, std::uint64_t epoch) {
   auto it = jobs_.find(key);
   if (!IsCurrent(epoch) || it == jobs_.end() ||
       it->second.state != FixtureSymbolPreparationState::Capturing)
     return false;
-  ++it->second.captureStep;
-  if (it->second.captureStep == 4)
-    it->second.state = FixtureSymbolPreparationState::Processing;
+  it->second.state = FixtureSymbolPreparationState::Processing;
   return true;
 }
 
