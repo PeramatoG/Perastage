@@ -28,9 +28,7 @@ class ScopedViewer2DCaptureState {
 public:
   // Stores the current 2D viewer state so capture can run without persisting UI
   // changes.
-  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel,
-                                      bool refreshAfterRestore)
-      : panel_(panel), refreshAfterRestore_(refreshAfterRestore) {
+  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
     offsetYPixels_ = state.offsetPixelsY;
@@ -49,8 +47,7 @@ public:
     panel_.SetRenderOverrides(renderOverrides_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
-    if (refreshAfterRestore_)
-      panel_.UpdateScene(false);
+    panel_.UpdateScene(false);
   }
 
 private:
@@ -62,7 +59,6 @@ private:
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
   std::optional<Viewer2DRenderOverrides> renderOverrides_;
   bool preferPerastageSvgSymbolsForLayouts_ = false;
-  bool refreshAfterRestore_ = true;
 };
 
 // Applies temporary render overrides tailored for high-contrast symbol
@@ -175,8 +171,7 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
     return result;
   }
 
-  ScopedViewer2DCaptureState scopedPanelState(
-      *capturePanel, options.refreshPanelAfterStep);
+  ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   capturePanel->PrepareForSceneReplacement();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;

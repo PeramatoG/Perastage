@@ -33,7 +33,6 @@ struct SceneModelSymbolCaptureOptions {
   std::optional<std::string> forcedFixtureColor;
   wxSize viewportSize = wxSize(1200, 1200);
   std::optional<FixtureGeometryBounds> fixtureBoundsOverride;
-  bool refreshPanelAfterStep = true;
   symbols::FixtureSymbolTimings *timings = nullptr;
 };
 

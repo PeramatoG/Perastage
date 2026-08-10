@@ -22,6 +22,10 @@ if rg -n '#include .*wx|ConfigManager::|MainWindow::|Viewer2D|Viewer3D|gl[A-Z]' 
   echo "Fixture symbol processing workers must operate only on copied plain data." >&2
   exit 1
 fi
+if rg -n 'refreshPanelAfterStep' "$root/gui"; then
+  echo "Every isolated capture slice must restore the shared 2D renderer scene." >&2
+  exit 1
+fi
 
 rg -q 'CallAfter' "$service"
 rg -q 'wxEVT_IDLE' "$service"
@@ -30,4 +34,5 @@ rg -q 'FixtureSymbolCapturePlan' "$service"
 rg -q 'displayLabel' "$service"
 rg -q 'exactGdtfMode' "$service"
 rg -q 'RequestFixtureSymbolPreparation' "$renderer"
+rg -q 'panel_\.UpdateScene\(false\)' "$root/gui/tools/scene_model_symbol_capture_service.cpp"
 echo "Fixture symbol preparation remains non-modal, runtime-only, and renderer-decoupled."

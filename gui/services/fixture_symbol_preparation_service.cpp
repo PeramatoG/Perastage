@@ -273,7 +273,6 @@ void FixtureSymbolPreparationService::RunNextStep() {
     tools::SceneModelSymbolCaptureOptions options;
     options.alignToLocalAxes = true;
     options.forcedFixtureColor = "#3FA9F5";
-    options.refreshPanelAfterStep = false;
     if (work.bounds.valid)
       options.fixtureBoundsOverride = work.bounds;
     if (!work.captureSnapshot) {

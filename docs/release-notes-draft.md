@@ -47,6 +47,9 @@ Changes since **v1.5.0**.
 - Fixture symbol capture now renders from a capture-only scene snapshot without
   replacing project scene containers or temporarily changing the live fixture. Capture
   data is limited to each offscreen render step so interactive viewers cannot observe it.
+  Every automatic capture slice now restores the shared offscreen renderer to the
+  active project, preventing distorted non-top symbols and ensuring layout 2D views
+  and printed layouts retain their geometry immediately after preparation.
 
 - Fixture document editing now prepares changes in private project working storage and
   publishes only derivatives that satisfy the complete fixture-symbol contract, without
