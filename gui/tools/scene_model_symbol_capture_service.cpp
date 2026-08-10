@@ -216,6 +216,8 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
       scopedPanelState.CompleteReplacement();
       auto prepareOnExit = scopedPanelState.PrepareOnScopeExit();
       capturePanel->UpdateScene(true);
+      if (!capturePanel->SynchronizeSceneForViewFit())
+        return false;
       capturePanel->FitViewToScene();
       const bool rendered =
           capturePanel->RenderToRGBA(render.rgba, render.width, render.height);

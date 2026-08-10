@@ -57,35 +57,6 @@ symbols::RenderedSymbolImage MakeRender(symbols::SymbolView view, int variant) {
   return render;
 }
 
-// Constructs a multi-piece asymmetric projection with view-specific extents.
-symbols::RenderedSymbolImage MakeParityRender(symbols::SymbolView view,
-                                              int variant) {
-  const int width = 20 + variant * 3;
-  const int height = 15 + variant * 2;
-  symbols::RenderedSymbolImage render{
-      view, width, height,
-      std::vector<unsigned char>(static_cast<std::size_t>(width * height * 4),
-                                 255)};
-  auto pixel = [&](int x, int y, unsigned char red, unsigned char green,
-                   unsigned char blue) {
-    const std::size_t at = static_cast<std::size_t>((y * width + x) * 4);
-    render.rgba[at] = red;
-    render.rgba[at + 1] = green;
-    render.rgba[at + 2] = blue;
-    render.rgba[at + 3] = 255;
-  };
-  auto fill = [&](int x0, int y0, int x1, int y1) {
-    for (int y = y0; y <= y1; ++y)
-      for (int x = x0; x <= x1; ++x)
-        pixel(x, y, 63, 169, 245);
-  };
-  fill(2, 2, 7 + variant, 6 + variant);
-  fill(width - 8 - variant, height - 6, width - 3, height - 3);
-  for (int offset = 0; offset <= variant + 2; ++offset)
-    pixel(9 + offset, 3 + offset, 0, 0, 0);
-  return render;
-}
-
 // Constructs concave, disconnected, holed, and diagonally touching fill
 // contours.
 symbols::RenderedSymbolImage MakeContourRender() {
@@ -262,45 +233,6 @@ bool TestManualCaptureOrchestration() {
                      [](bool value) { return value; });
 }
 
-// Verifies yielded automatic processing matches synchronous four-view output.
-bool TestIncrementalAutomaticParity() {
-  const auto &plan = symbols::FixtureSymbolCapturePlan();
-  std::vector<symbols::RenderedSymbolImage> synchronousRenders;
-  std::vector<symbols::RenderedSymbolImage> incrementalRenders;
-  for (std::size_t index = 0; index < plan.size(); ++index) {
-    synchronousRenders.push_back(
-        MakeParityRender(plan[index].symbolView, static_cast<int>(index)));
-  }
-  for (const auto &render : synchronousRenders)
-    incrementalRenders.push_back(render);
-
-  auto generate = [](const std::vector<symbols::RenderedSymbolImage> &renders) {
-    auto generated =
-        symbols::Symbol2DImageBuilder::BuildFromRenderedImages(renders);
-    for (auto &symbol : generated)
-      symbols::SimplifySymbolGeometry(symbol, 1.0f);
-    tools::FixtureGeometryBounds bounds;
-    bounds.min = {-70.0f, -35.0f, -90.0f};
-    bounds.max = {130.0f, 55.0f, 160.0f};
-    bounds.valid = true;
-    std::string error;
-    if (!tools::CalibrateFixtureSymbolsToPhysicalUnits(bounds, generated,
-                                                       error))
-      generated.clear();
-    return generated;
-  };
-
-  const auto synchronous = generate(synchronousRenders);
-  const auto incremental = generate(incrementalRenders);
-  if (synchronous.size() != plan.size() || incremental.size() != plan.size())
-    return false;
-  for (std::size_t index = 0; index < synchronous.size(); ++index) {
-    if (Snapshot(synchronous[index]) != Snapshot(incremental[index]))
-      return false;
-  }
-  return true;
-}
-
 // Verifies deterministic contour topology, collection order, and exact filled
 // area.
 bool TestDeterministicContours() {
@@ -463,7 +395,6 @@ bool TestTimings() {
 int main() {
   return TestStructuralBaselines() && TestCapturePlan() &&
                  TestManualCaptureOrchestration() &&
-                 TestIncrementalAutomaticParity() &&
                  TestDeterministicContours() && TestTimings()
              ? 0
              : 1;

@@ -20,4 +20,17 @@ rg -q 'BuildSceneModelSymbolCaptureSnapshot' "$boundary"
 rg -q 'SceneDataManager::ScopedSnapshot' "$boundary"
 rg -Fq 'ScopedSnapshot isolatedScene(snapshot)' "$boundary"
 rg -Fq 'PrepareForSceneReplacement();' "$capture"
+python3 - "$capture" <<'PY'
+import pathlib
+import sys
+
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+sync = text.find("SynchronizeSceneForViewFit()")
+fit = text.find("FitViewToScene()", sync)
+render = text.find("RenderToRGBA(", fit)
+if sync < 0 or fit < 0 or render < 0 or not sync < fit < render:
+    raise SystemExit(
+        "Fixture capture must synchronize snapshot resources and bounds before fitting and rendering."
+    )
+PY
 echo "Fixture symbol capture isolation boundary is intact."

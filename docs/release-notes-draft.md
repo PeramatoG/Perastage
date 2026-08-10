@@ -50,7 +50,9 @@ Changes since **v1.5.0**.
   Automatic capture now completes every offscreen scene-replacement transition
   before restoring the active project, preventing distorted non-top symbols and
   ensuring layout 2D views and printed layouts retain fallback or stored-symbol
-  geometry while preparation progresses.
+  geometry while preparation progresses. Each yielded symbol view now refreshes
+  its isolated fixture resources and bounds before fitting, so unrelated layout
+  rendering cannot alter Front, Side, or Bottom framing.
 
 - Fixture document editing now prepares changes in private project working storage and
   publishes only derivatives that satisfy the complete fixture-symbol contract, without

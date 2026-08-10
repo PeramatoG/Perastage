@@ -33,6 +33,13 @@ including render failures, and synchronizes the active project only after the
 capture snapshot has been released. This restoration is mandatory even when
 more automatic views remain queued.
 
+Each isolated capture slice also synchronizes the snapshot's renderer resources
+and cached world bounds before `FitViewToScene()`. `UpdateScene(true)` alone is
+not a sufficient pre-fit boundary because the render-resource synchronization
+normally occurs later in the render path. Performing it explicitly prevents an
+interleaved project or layout render from supplying stale bounds to Front, Top,
+Side, or Bottom fitting.
+
 Project epochs reject work captured for a replaced or closed project. Automatic
 jobs also compute the strong symbol-relevant semantic fingerprint at job start
 and immediately before publication. That low-frequency correctness check rejects
