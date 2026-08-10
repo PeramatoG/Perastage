@@ -67,3 +67,23 @@ const std::unordered_map<std::string, GroupObject>& SceneDataManager::GetGroupOb
         return activeSnapshot_->groupObjects;
     return ConfigManager::Get().GetScene().groupObjects;
 }
+
+// Returns the base path belonging to the currently installed scene source.
+const std::string& SceneDataManager::GetBasePath() const
+{
+    if (activeSnapshot_)
+        return activeSnapshot_->basePath;
+    return ConfigManager::Get().GetScene().basePath;
+}
+
+// Reports whether an immutable scene snapshot currently owns renderer input.
+bool SceneDataManager::HasActiveSnapshot() const
+{
+    return activeSnapshot_ != nullptr;
+}
+
+// Applies project fixture-type visibility only to the live project scene.
+bool SceneDataManager::IsFixtureTypeVisible(const std::string& typeName) const
+{
+    return activeSnapshot_ || ConfigManager::Get().IsFixtureTypeVisible(typeName);
+}

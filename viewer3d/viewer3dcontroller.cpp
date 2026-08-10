@@ -893,8 +893,13 @@ void Viewer3DController::Update() { UpdateFrameStateLightweight(); }
 // Updates frame State Lightweight.
 void Viewer3DController::UpdateFrameStateLightweight() {
   ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
-  const auto hiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
+  const bool isolatedScene = SceneDataManager::Instance().HasActiveSnapshot();
+  const auto hiddenLayers = isolatedScene
+                                ? std::unordered_set<std::string>{}
+                                : ControllerSnapshotHiddenLayers(cfg);
+  const auto hiddenFixtureTypes = isolatedScene
+                                      ? std::unordered_set<std::string>{}
+                                      : cfg.GetHiddenFixtureTypes();
   if (hiddenLayers != m_impl->lastHiddenLayers) {
     Logger::Instance().Log("visibility dirty reason: hidden layers changed vs "
                            "last frame snapshot");
@@ -908,8 +913,9 @@ void Viewer3DController::UpdateFrameStateLightweight() {
     MarkResourceSyncPending();
   }
 
-  const size_t layerMembershipFingerprint =
-      ComputeSceneLayerMembershipFingerprint(cfg.GetScene());
+  const size_t layerMembershipFingerprint = isolatedScene
+      ? 0
+      : ComputeSceneLayerMembershipFingerprint(cfg.GetScene());
   if (!m_impl->hasSceneLayerMembershipFingerprint ||
       layerMembershipFingerprint != m_impl->sceneLayerMembershipFingerprint) {
     Logger::Instance().Log("visibility dirty reason: scene layer membership "
@@ -980,8 +986,11 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   ++m_impl->updateResourcesCallsPerFrame;
 
   ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
-  const std::string &base = cfg.GetScene().basePath;
+  const bool isolatedScene = SceneDataManager::Instance().HasActiveSnapshot();
+  const auto hiddenLayers = isolatedScene
+                                ? std::unordered_set<std::string>{}
+                                : ControllerSnapshotHiddenLayers(cfg);
+  const std::string &base = SceneDataManager::Instance().GetBasePath();
 
   const auto &trusses = SceneDataManager::Instance().GetTrusses();
   const auto &objects = SceneDataManager::Instance().GetSceneObjects();
@@ -1012,7 +1021,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   for (const auto &entry : fixtures) {
     sceneFixtures.push_back(&entry);
     if (ControllerIsLayerVisibleCached(hiddenLayers, entry.second.layer) &&
-        cfg.IsFixtureTypeVisible(entry.second.typeName))
+        SceneDataManager::Instance().IsFixtureTypeVisible(
+            entry.second.typeName))
       visibleFixtures.push_back(&entry);
   }
 
@@ -1069,7 +1079,9 @@ void Viewer3DController::UpdateResourcesIfDirty() {
   BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
                                     objects, fixtures);
   m_impl->lastHiddenLayers = hiddenLayers;
-  m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
+  m_impl->lastHiddenFixtureTypes = isolatedScene
+                                       ? std::unordered_set<std::string>{}
+                                       : cfg.GetHiddenFixtureTypes();
 }
 
 // Attempts to build Layer Visible Candidates.
@@ -1206,7 +1218,9 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   (void)isWireframeMode;
   (void)isWhiteMode;
 
-  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
+  const auto hiddenLayers = SceneDataManager::Instance().HasActiveSnapshot()
+                                ? std::unordered_set<std::string>{}
+                                : ControllerSnapshotHiddenLayers(cfg);
   context.hiddenLayers = hiddenLayers;
 
   RenderPipeline pipeline(*this);

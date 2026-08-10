@@ -816,15 +816,6 @@ void Viewer2DPanel::CompleteSceneReplacement() {
   m_controller.CompleteSceneReplacement();
 }
 
-// Synchronizes installed scene resources and bounds before view fitting.
-bool Viewer2DPanel::SynchronizeSceneForViewFit() {
-  InitGL();
-  if (!m_glInitialized)
-    return false;
-  m_controller.UpdateResourcesIfDirty();
-  return true;
-}
-
 void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
   m_renderMode = mode;
   RequestRepaint();

@@ -10,6 +10,7 @@ SceneDataManager::SceneSnapshot BuildSceneModelSymbolCaptureSnapshot(
     const MvrScene &scene, const SceneModelSymbolTarget &target,
     const SceneModelSymbolCaptureOptions &options) {
   SceneDataManager::SceneSnapshot snapshot;
+  snapshot.basePath = scene.basePath;
   auto alignTransform = [](const Matrix &source) {
     const Matrix identity = MatrixUtils::Identity();
     return MatrixUtils::ApplyRotationPreservingScale(source, identity,

@@ -28,6 +28,7 @@
 class SceneDataManager {
 public:
     struct SceneSnapshot {
+        std::string basePath;
         std::unordered_map<std::string, Fixture> fixtures;
         std::unordered_map<std::string, Truss> trusses;
         std::unordered_map<std::string, SceneObject> sceneObjects;
@@ -52,6 +53,9 @@ public:
     const std::unordered_map<std::string, SceneObject>& GetSceneObjects() const;
     // Currently no group objects are stored, return empty map
     const std::unordered_map<std::string, GroupObject>& GetGroupObjects() const;
+    const std::string& GetBasePath() const;
+    bool HasActiveSnapshot() const;
+    bool IsFixtureTypeVisible(const std::string& typeName) const;
 
 private:
     friend class ScopedSnapshot;

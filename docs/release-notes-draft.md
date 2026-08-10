@@ -52,7 +52,10 @@ Changes since **v1.5.0**.
   ensuring layout 2D views and printed layouts retain fallback or stored-symbol
   geometry while preparation progresses. Each yielded symbol view now refreshes
   its isolated fixture resources and bounds before fitting, so unrelated layout
-  rendering cannot alter Front, Side, or Bottom framing.
+  rendering cannot alter Front, Side, or Bottom framing. Capture slices now
+  perform their synchronization through the normal offscreen render lifecycle
+  and use the isolated scene's resource base and visibility context throughout,
+  restoring the same framing and proportions as uninterrupted manual capture.
 
 - Fixture document editing now prepares changes in private project working storage and
   publishes only derivatives that satisfy the complete fixture-symbol contract, without

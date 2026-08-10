@@ -111,6 +111,11 @@ void ConfigManager::SetHiddenLayers(const std::unordered_set<std::string> &layer
   g_hiddenLayers = layers;
 }
 
+// Treats every fixture type as visible in lightweight ConfigManager tests.
+bool ConfigManager::IsFixtureTypeVisible(const std::string &) const {
+  return true;
+}
+
 // Returns the current layer tracked by the lightweight ConfigManager test stub.
 const std::string &ConfigManager::GetCurrentLayer() const { return g_currentLayer; }
 

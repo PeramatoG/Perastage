@@ -19,6 +19,7 @@ bool SameMatrix(const Matrix &left, const Matrix &right) {
 // failure.
 int main() {
   MvrScene scene;
+  scene.basePath = "/project/source";
   Fixture fixture;
   fixture.uuid = "fixture";
   fixture.visualColorHex = "#112233";
@@ -43,6 +44,7 @@ int main() {
   const auto snapshot = tools::BuildSceneModelSymbolCaptureSnapshot(
       scene, {tools::SceneModelKind::Fixture, "fixture"}, options);
   assert(snapshot.fixtures.size() == 1);
+  assert(snapshot.basePath == scene.basePath);
   assert(snapshot.trusses.empty());
   assert(snapshot.sceneObjects.empty());
   assert(snapshot.fixtures.at("fixture").visualColorHex == "#FFFFFF");
@@ -61,8 +63,16 @@ int main() {
         assert(stable.fixtures.at("fixture").visualColorHex == "#FFFFFF");
         assert(stable.fixtures.at("fixture").transform.o !=
                scene.fixtures.at("fixture").transform.o);
+        assert(SceneDataManager::Instance().HasActiveSnapshot());
+        assert(SceneDataManager::Instance().GetBasePath() == scene.basePath);
+        assert(SceneDataManager::Instance().GetFixtures().find("fixture") !=
+               SceneDataManager::Instance().GetFixtures().end());
+        assert(SceneDataManager::Instance().GetTrusses().empty());
+        assert(SceneDataManager::Instance().GetSceneObjects().empty());
+        assert(SceneDataManager::Instance().IsFixtureTypeVisible("hidden-type"));
         return true;
       }));
+  assert(!SceneDataManager::Instance().HasActiveSnapshot());
   scene.fixtures.at("fixture").visualColorHex = "#112233";
   scene.fixtures.at("fixture").transform = originalTransform;
 

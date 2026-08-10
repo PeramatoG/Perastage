@@ -33,10 +33,12 @@ including render failures, and synchronizes the active project only after the
 capture snapshot has been released. This restoration is mandatory even when
 more automatic views remain queued.
 
-Each isolated capture slice also synchronizes the snapshot's renderer resources
-and cached world bounds before `FitViewToScene()`. `UpdateScene(true)` alone is
-not a sufficient pre-fit boundary because the render-resource synchronization
-normally occurs later in the render path. Performing it explicitly prevents an
+Each isolated capture slice also performs one bounded warm-up through the normal
+offscreen render lifecycle before `FitViewToScene()`. `UpdateScene(true)` alone
+is not a sufficient pre-fit boundary because resource and world-bounds
+synchronization normally occurs later in the render path. The warm-up uses the
+snapshot's resource base and ignores live-project visibility filters, so every
+renderer subsystem observes the same isolated scene. This prevents an
 interleaved project or layout render from supplying stale bounds to Front, Top,
 Side, or Bottom fitting.
 

@@ -25,12 +25,13 @@ import pathlib
 import sys
 
 text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-sync = text.find("SynchronizeSceneForViewFit()")
-fit = text.find("FitViewToScene()", sync)
+boundary = text.find("auto renderIsolated")
+warmup = text.find("RenderToRGBA(", boundary)
+fit = text.find("FitViewToScene()", warmup)
 render = text.find("RenderToRGBA(", fit)
-if sync < 0 or fit < 0 or render < 0 or not sync < fit < render:
+if boundary < 0 or warmup < 0 or fit < 0 or render < 0 or not warmup < fit < render:
     raise SystemExit(
-        "Fixture capture must synchronize snapshot resources and bounds before fitting and rendering."
+        "Fixture capture must render the snapshot once before fitting and rendering its output."
     )
 PY
 echo "Fixture symbol capture isolation boundary is intact."

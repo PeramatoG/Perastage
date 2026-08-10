@@ -83,7 +83,6 @@ public:
   void UpdateScene(bool reload = true);
   void PrepareForSceneReplacement();
   void CompleteSceneReplacement();
-  bool SynchronizeSceneForViewFit();
 
   void SetRenderMode(Viewer2DRenderMode mode);
   Viewer2DRenderMode GetRenderMode() const { return m_renderMode; }
