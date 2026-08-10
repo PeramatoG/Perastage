@@ -28,7 +28,10 @@ bounded capture slice, every slice reads one immutable scene snapshot, and pure
 image/vector processing runs on the managed GUI/OpenGL-free worker.
 After each isolated slice, the shared offscreen 2D renderer is rebound to the
 active project scene before control returns to layout preview or print capture.
-This restoration is mandatory even when more automatic views remain queued.
+The scoped boundary pairs every scene-replacement preparation with completion,
+including render failures, and synchronizes the active project only after the
+capture snapshot has been released. This restoration is mandatory even when
+more automatic views remain queued.
 
 Project epochs reject work captured for a replaced or closed project. Automatic
 jobs also compute the strong symbol-relevant semantic fingerprint at job start

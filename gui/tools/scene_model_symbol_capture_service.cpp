@@ -13,6 +13,7 @@
 #include "symbols/SymbolGeometrySimplifier.h"
 #include "tools/fixture_geometry_bounds.h"
 #include "tools/scene_model_symbol_capture_snapshot.h"
+#include "tools/scoped_scene_replacement_lifecycle.h"
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
@@ -28,7 +29,11 @@ class ScopedViewer2DCaptureState {
 public:
   // Stores the current 2D viewer state so capture can run without persisting UI
   // changes.
-  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel) : panel_(panel) {
+  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel)
+      : panel_(panel),
+        lifecycle_([&panel]() { panel.PrepareForSceneReplacement(); },
+                   [&panel]() { panel.CompleteSceneReplacement(); },
+                   [&panel]() { panel.UpdateScene(false); }) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
     offsetYPixels_ = state.offsetPixelsY;
@@ -47,7 +52,15 @@ public:
     panel_.SetRenderOverrides(renderOverrides_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
-    panel_.UpdateScene(false);
+  }
+
+  // Completes replacement after the isolated snapshot becomes active.
+  void CompleteReplacement() { lifecycle_.CompleteReplacement(); }
+
+  // Prepares replacement automatically before the isolated snapshot is
+  // released.
+  ScopedPrepareSceneReplacement PrepareOnScopeExit() {
+    return lifecycle_.PrepareOnScopeExit();
   }
 
 private:
@@ -59,6 +72,7 @@ private:
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
   std::optional<Viewer2DRenderOverrides> renderOverrides_;
   bool preferPerastageSvgSymbolsForLayouts_ = false;
+  ScopedSceneReplacementLifecycle lifecycle_;
 };
 
 // Applies temporary render overrides tailored for high-contrast symbol
@@ -172,7 +186,6 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
   }
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
-  capturePanel->PrepareForSceneReplacement();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;
   renderOverrides.showGrid = false;
@@ -199,16 +212,15 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
   }
 
   auto renderIsolated = [&](auto &render) {
-    return ExecuteSceneModelSymbolCaptureBoundary(
-        snapshot, [&](const auto &) {
-          capturePanel->CompleteSceneReplacement();
-          capturePanel->UpdateScene(true);
-          capturePanel->FitViewToScene();
-          const bool rendered = capturePanel->RenderToRGBA(
-              render.rgba, render.width, render.height);
-          capturePanel->PrepareForSceneReplacement();
-          return rendered;
-        });
+    return ExecuteSceneModelSymbolCaptureBoundary(snapshot, [&](const auto &) {
+      scopedPanelState.CompleteReplacement();
+      auto prepareOnExit = scopedPanelState.PrepareOnScopeExit();
+      capturePanel->UpdateScene(true);
+      capturePanel->FitViewToScene();
+      const bool rendered =
+          capturePanel->RenderToRGBA(render.rgba, render.width, render.height);
+      return rendered;
+    });
   };
 
   if (stepIndex == 0) {

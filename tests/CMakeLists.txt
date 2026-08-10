@@ -389,6 +389,13 @@ add_executable(pdf_font_metrics_test
                ../viewer2d/pdf/font_metrics.cpp)
 add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
 
+add_executable(layout_pdf_symbol_usage_test
+               layout_pdf_symbol_usage_test.cpp
+               ../viewer2d/pdf/layout_pdf_symbol_usage.cpp)
+target_include_directories(layout_pdf_symbol_usage_test PRIVATE
+                           ../viewer2d ../viewer2d/pdf)
+add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
+
 add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
                ../viewer2d/fixture_label_overrides.cpp
@@ -2524,6 +2531,12 @@ target_include_directories(fixture_symbol_preparation_coordinator_test PRIVATE
                            ../core)
 add_test(NAME FixtureSymbolPreparationCoordinator
          COMMAND fixture_symbol_preparation_coordinator_test)
+
+add_executable(scene_replacement_lifecycle_test
+               scene_replacement_lifecycle_test.cpp)
+target_include_directories(scene_replacement_lifecycle_test PRIVATE ../gui)
+add_test(NAME SceneReplacementLifecycle
+         COMMAND scene_replacement_lifecycle_test)
 
 add_executable(fixture_symbol_preparation_requests_test
                fixture_symbol_preparation_requests_test.cpp

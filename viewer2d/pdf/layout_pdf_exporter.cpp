@@ -40,6 +40,7 @@
 
 
 #include "logger.h"
+#include "layout_pdf_symbol_usage.h"
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
 #include "pdf_objects.h"
@@ -954,27 +955,10 @@ Viewer2DExportResult ExportLayoutToPdf(
   for (const auto &group : layoutGroups) {
     const SymbolDefinitionSnapshot *groupSymbols =
         group.symbolSnapshot ? group.symbolSnapshot.get() : symbolSnapshot.get();
-    for (const auto &command : views[group.viewIndex].buffer.commands) {
-      if (std::holds_alternative<PlaceSymbolCommand>(command)) {
-        ++result.fallbackSymbolInstances;
-        continue;
-      }
-      const auto *instance = std::get_if<SymbolInstanceCommand>(&command);
-      if (!instance)
-        continue;
-      const SymbolDefinition *definition = nullptr;
-      if (groupSymbols) {
-        const auto definitionIt = groupSymbols->find(instance->symbolId);
-        if (definitionIt != groupSymbols->end())
-          definition = &definitionIt->second;
-      }
-      if (definition &&
-          definition->source == SymbolDefinition::Source::PerastageSvg) {
-        ++result.perastageSymbolInstances;
-      } else {
-        ++result.fallbackSymbolInstances;
-      }
-    }
+    const auto usage = CountLayoutPdfSymbolUsage(
+        views[group.viewIndex].buffer, groupSymbols);
+    result.perastageSymbolInstances += usage.perastageSymbolInstances;
+    result.fallbackSymbolInstances += usage.fallbackSymbolInstances;
   }
 
   if (layoutGroups.empty() && legends.empty() && tables.empty() &&
