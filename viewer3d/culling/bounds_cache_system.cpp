@@ -8,7 +8,6 @@
 #include "primitive_bounds_utils.h"
 
 #include "configmanager.h"
-#include "scenedatamanager.h"
 #include "projectutils.h"
 #include "types.h"
 #include "logger.h"
@@ -90,7 +89,8 @@ void BoundsCacheSystem::RebuildIfDirty(
     const std::unordered_set<std::string> &hiddenLayers,
     const std::unordered_map<std::string, Truss> &trusses,
     const std::unordered_map<std::string, SceneObject> &objects,
-    const std::unordered_map<std::string, Fixture> &fixtures) {
+    const std::unordered_map<std::string, Fixture> &fixtures,
+    bool applyFixtureTypeVisibility) {
   if (hiddenLayers != context.boundsHiddenLayers) {
     Logger::Instance().Log("visibility dirty reason: hidden layers changed vs bounds cache");
     context.visibilityChangedDirty = true;
@@ -126,7 +126,8 @@ void BoundsCacheSystem::RebuildIfDirty(
   context.fixtureBounds.clear();
   for (const auto &[uuid, f] : fixtures) {
     if (!IsLayerVisibleCached(hiddenLayers, f.layer) ||
-        !SceneDataManager::Instance().IsFixtureTypeVisible(f.typeName))
+        (applyFixtureTypeVisibility &&
+         !ConfigManager::Get().IsFixtureTypeVisible(f.typeName)))
       continue;
     Viewer3DBoundingBox bb;
     Matrix fix = f.transform;

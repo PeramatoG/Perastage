@@ -235,6 +235,10 @@ Changes since **v1.5.0**.
   availability checks, and replacing archive hashing in normal SVG cache lookups
   with bounded file revision checks plus explicit lifecycle invalidation.
 
+- Kept isolated fixture-capture visibility policy explicit at the renderer
+  boundary so focused bounds tests and Windows builds remain independently
+  linkable without depending on the runtime scene manager.
+
 ## Downloads and installation
 
 Choose the package that matches your operating system:

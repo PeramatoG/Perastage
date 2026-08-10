@@ -1077,7 +1077,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
       m_impl->sortedListsDirty};
   BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
-                                    objects, fixtures);
+                                    objects, fixtures, !isolatedScene);
   m_impl->lastHiddenLayers = hiddenLayers;
   m_impl->lastHiddenFixtureTypes = isolatedScene
                                        ? std::unordered_set<std::string>{}

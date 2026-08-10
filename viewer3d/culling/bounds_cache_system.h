@@ -2,8 +2,6 @@
 
 #include "resource_sync_system.h"
 #include "viewer3d_types.h"
-#include "scenedatamanager.h"
-
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -32,5 +30,6 @@ public:
       const std::unordered_set<std::string> &hiddenLayers,
       const std::unordered_map<std::string, Truss> &trusses,
       const std::unordered_map<std::string, SceneObject> &objects,
-      const std::unordered_map<std::string, Fixture> &fixtures);
+      const std::unordered_map<std::string, Fixture> &fixtures,
+      bool applyFixtureTypeVisibility = true);
 };
