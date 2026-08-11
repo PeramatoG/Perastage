@@ -31,6 +31,15 @@ inline float SketchInkCoverage(float alpha) {
   return 1.0f - alpha;
 }
 
+// Returns whether existing Sketch targets match the next frame requirements.
+inline bool SketchTargetConfigurationMatches(int width, int height, int samples,
+                                             int requestedWidth,
+                                             int requestedHeight,
+                                             int requestedSamples) {
+  return width == requestedWidth && height == requestedHeight &&
+         samples == requestedSamples;
+}
+
 class SketchPostProcessPass {
 public:
   SketchPostProcessPass();
