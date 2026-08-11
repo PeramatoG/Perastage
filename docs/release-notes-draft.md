@@ -31,7 +31,9 @@ Changes since **v1.5.0**.
   presents each placement update while the pointer is moving and returns the
   preview directly beneath the pointer when axis-constrained movement is
   disabled, instead of waiting for pointer activity to stop or retaining the
-  offset accumulated while the constraint was active.
+  offset accumulated while the constraint was active. With the constraint
+  enabled, moving farther toward another projected axis now switches the
+  preview naturally to that axis.
 
 - Corrected generated fixture-symbol framing and physical bounds to use the
   selected GDTF mode and every rendered part, improving scale and placement

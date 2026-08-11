@@ -28,5 +28,12 @@ int main() {
   assert(std::abs(viewer3d::ComputeDragMetersOnAxis(
                       10, 0, viewer3d::SelectionDragAxis::X, axes) -
                   1.0) < 1e-9);
+  assert(viewer3d::SelectDragAxisFromMouseDelta(14, 2, axes) ==
+         viewer3d::SelectionDragAxis::X);
+  assert(viewer3d::SelectDragAxisFromMouseDelta(6, 18, axes) ==
+         viewer3d::SelectionDragAxis::Y);
+  assert(std::abs(viewer3d::ComputeDragMetersOnAxis(
+                      6, 18, viewer3d::SelectionDragAxis::Y, axes) -
+                  0.9) < 1e-9);
   return 0;
 }
