@@ -3397,6 +3397,10 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     wxPoint pos = event.GetPosition();
     if (m_continuousPlacementActive) {
+        // Use live cursor coordinates to bypass motion events delayed by rendering.
+        const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+        if (GetClientRect().Contains(livePos))
+            pos = livePos;
         if (m_dragging && event.Dragging()) {
             ApplyCameraDrag(event, pos);
             Refresh();
