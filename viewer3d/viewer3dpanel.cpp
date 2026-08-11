@@ -2452,9 +2452,17 @@ void Viewer3DPanel::SetLeftDragSelectionMovementEnabled(bool enabled) {
 
 // Enables or disables axis-constrained selection movement in the 3D viewport.
 void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
+    const bool wasEnabled = m_axisConstrainedMovementEnabled;
     m_axisConstrainedMovementEnabled = enabled;
-    if (!enabled)
+    if (!enabled) {
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
+        if (wasEnabled && m_continuousPlacementActive) {
+            m_placementViewRevision.Invalidate();
+            if (m_hasLastMousePos)
+                AlignContinuousElementToPointer(m_lastMousePos);
+            Refresh();
+        }
+    }
 }
 
 // Sets whether axis-constrained viewport transforms use world or local axes.

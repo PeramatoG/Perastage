@@ -27,6 +27,11 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Continuous fixture, truss, and scene-object insertion in the 3D viewer now
+  returns the preview directly beneath the pointer when axis-constrained
+  movement is disabled, instead of retaining the offset accumulated while the
+  constraint was active.
+
 - Corrected generated fixture-symbol framing and physical bounds to use the
   selected GDTF mode and every rendered part, improving scale and placement
   for asymmetric and mode-dependent fixtures.
