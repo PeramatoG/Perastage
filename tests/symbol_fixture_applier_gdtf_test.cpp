@@ -287,11 +287,13 @@ int main() {
   assert(!failedPublication.success);
   assert(scene.fixtures.at(fixture.uuid).gdtfSpec == originalFixtureSpec);
   assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec == originalFixtureSpec);
-  std::ifstream previousPublishedInput(canonicalBeforeFailure,
-                                       std::ios::binary);
-  assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
-                     std::istreambuf_iterator<char>()) ==
-         previousPublishedBytes);
+  {
+    std::ifstream previousPublishedInput(canonicalBeforeFailure,
+                                         std::ios::binary);
+    assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
+                       std::istreambuf_iterator<char>()) ==
+           previousPublishedBytes);
+  }
   for (const auto &entry : fs::directory_iterator(canonicalBeforeFailure.parent_path()))
     assert(entry.path().filename().string().find(".working.") ==
            std::string::npos);

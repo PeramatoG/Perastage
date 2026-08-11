@@ -14,7 +14,7 @@ if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$c
   echo "Fixture capture must not yield between orthographic views." >&2
   exit 1
 fi
-python3 - "$capture" <<'PY'
+"${PERASTAGE_TEST_PYTHON:?PERASTAGE_TEST_PYTHON is required}" - "$capture" <<'PY'
 import pathlib
 import sys
 

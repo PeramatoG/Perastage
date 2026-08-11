@@ -234,6 +234,10 @@ Changes since **v1.5.0**.
   boundary so focused bounds tests and Windows builds remain independently
   linkable without depending on the runtime scene manager.
 
+- Improved cross-platform fixture-symbol regression coverage by using the
+  configured test interpreter and releasing inspected derivative files before
+  transactional replacement on Windows.
+
 ## Downloads and installation
 
 Choose the package that matches your operating system:

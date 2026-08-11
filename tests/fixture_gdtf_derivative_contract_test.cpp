@@ -72,9 +72,11 @@ int main() {
   assert(!fixture_gdtf::PublishPreparedDerivative(failedPreparation, error));
   assert(!error.empty());
   assert(!fs::exists(failedPreparation.workingPath));
-  std::ifstream previousInput(published, std::ios::binary);
-  assert(std::string(std::istreambuf_iterator<char>(previousInput),
-                     std::istreambuf_iterator<char>()) == previousBytes);
+  {
+    std::ifstream previousInput(published, std::ios::binary);
+    assert(std::string(std::istreambuf_iterator<char>(previousInput),
+                       std::istreambuf_iterator<char>()) == previousBytes);
+  }
 
   fixture_gdtf::PreparedDerivative successfulPreparation;
   assert(fixture_gdtf::PrepareProjectDerivative(
