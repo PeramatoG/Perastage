@@ -22,5 +22,10 @@ int main() {
   assert(SketchInkCoverage(0.0f) == 1.0f);
   assert(SketchInkCoverage(0.25f) == 0.75f);
   assert(SketchInkCoverage(1.0f) == 0.0f);
+  assert(SketchTargetConfigurationMatches(800, 600, 4, 800, 600, 4));
+  assert(!SketchTargetConfigurationMatches(800, 600, 4, 801, 600, 4));
+  assert(!SketchTargetConfigurationMatches(800, 600, 4, 800, 601, 4));
+  assert(!SketchTargetConfigurationMatches(800, 600, 4, 800, 600, 2));
+  assert(SketchTargetConfigurationMatches(800, 600, 0, 800, 600, 0));
   return 0;
 }

@@ -75,6 +75,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Smoothed diagonal and curved geometry edges in the 3D Viewer Sketch style by
+  preserving the viewer's configured antialiasing through Sketch composition,
+  without changing the appearance of the other render styles.
+
 - Corrected inverted lighting in the 3D Sketch style by applying its three-tone
   treatment to the neutral output of the proven Standard renderer, preserving
   the same transforms and illumination while restoring smooth surfaces, the

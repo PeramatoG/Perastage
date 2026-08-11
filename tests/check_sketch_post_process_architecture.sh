@@ -24,6 +24,9 @@ rg -q 'glColor4f\(0\.0f, 0\.0f, 0\.0f, 0\.0f\)' "$renderer"
 rg -q 'glPolygonOffset\(-1\.0f, -1\.0f\)' "$renderer"
 rg -q 'inkCoverage = 1\.0 - base\.a' "$post_process"
 rg -q 'GL_DRAW_FRAMEBUFFER_BINDING' "$post_process"
+rg -q 'glRenderbufferStorageMultisample' "$post_process"
+rg -q 'ResolveMultisampleTarget' "$post_process"
+rg -q 'GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT' "$post_process"
 if rg -q 'glBindFramebuffer\(GL_(DRAW_)?FRAMEBUFFER, 0\)' "$post_process"; then
   echo "Sketch post-processing must restore the captured destination framebuffer." >&2
   exit 1
