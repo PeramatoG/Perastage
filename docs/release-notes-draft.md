@@ -27,10 +27,9 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
-- Corrected generated fixture symbols to use the same Front, Top, Side, and
-  Bottom cameras, selected GDTF mode, rendered parts, and physical bounds as
-  the normal 2D viewer, improving orientation, framing, and scale for
-  asymmetric and mode-dependent fixtures.
+- Corrected generated fixture-symbol framing and physical bounds to use the
+  selected GDTF mode and every rendered part, improving scale and placement
+  for asymmetric and mode-dependent fixtures.
 
 - Fixture symbols now distinguish GDTF ownership from symbol availability: valid
   external four-view symbols are used directly, while malformed or empty SVG views

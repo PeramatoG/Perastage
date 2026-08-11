@@ -123,6 +123,27 @@ private:
   Viewer2DPanel &panel_;
 };
 
+// Mirrors a rendered RGBA symbol image horizontally in-place.
+void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
+  if (render.width <= 0 || render.height <= 0)
+    return;
+  for (int y = 0; y < render.height; ++y) {
+    for (int x = 0; x < render.width / 2; ++x) {
+      const int opposite = render.width - 1 - x;
+      const size_t left =
+          (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
+           static_cast<size_t>(x)) *
+          4;
+      const size_t right =
+          (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
+           static_cast<size_t>(opposite)) *
+          4;
+      for (size_t c = 0; c < 4; ++c)
+        std::swap(render.rgba[left + c], render.rgba[right + c]);
+    }
+  }
+}
+
 // Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport
 // sizing.
 bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
@@ -241,6 +262,8 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     } else {
       renderer.SetViewportSize(options.viewportSize);
     }
+    renderOverrides.forceBottomViewForTopFixtures =
+        request.forceBottomViewForTopFixtures;
     capturePanel->SetRenderOverrides(renderOverrides);
     capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     Viewer2DView viewerView = Viewer2DView::Top;
@@ -248,8 +271,6 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
       viewerView = Viewer2DView::Front;
     else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
       viewerView = Viewer2DView::Side;
-    else if (request.viewerView == symbols::SymbolCaptureViewerView::Bottom)
-      viewerView = Viewer2DView::Bottom;
     capturePanel->SetView(viewerView);
     capturePanel->FitViewToScene();
 
@@ -261,6 +282,8 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
                      "the 2D viewer.";
       return result;
     }
+    if (request.mirrorHorizontally)
+      MirrorImageHorizontally(render);
     result.renders.push_back(std::move(render));
   }
   result.ok = result.renders.size() == requests.size();

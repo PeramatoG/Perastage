@@ -189,17 +189,19 @@ bool TestStructuralBaselines() {
   return ok;
 }
 
-// Verifies each symbol source maps directly to its canonical viewer camera.
+// Verifies the runtime-owned view sequence, bottom override, and side mirror.
 bool TestCapturePlan() {
   const auto &plan = symbols::FixtureSymbolCapturePlan();
   return plan[0].viewerView == symbols::SymbolCaptureViewerView::Front &&
          plan[0].symbolView == symbols::SymbolView::Front &&
-         plan[1].viewerView == symbols::SymbolCaptureViewerView::Top &&
+         !plan[0].mirrorHorizontally &&
          plan[1].symbolView == symbols::SymbolView::Top &&
          plan[2].viewerView == symbols::SymbolCaptureViewerView::Side &&
          plan[2].symbolView == symbols::SymbolView::Left &&
-         plan[3].viewerView == symbols::SymbolCaptureViewerView::Bottom &&
-         plan[3].symbolView == symbols::SymbolView::Bottom;
+         plan[2].mirrorHorizontally &&
+         plan[3].viewerView == symbols::SymbolCaptureViewerView::Top &&
+         plan[3].symbolView == symbols::SymbolView::Bottom &&
+         plan[3].forceBottomViewForTopFixtures && !plan[3].mirrorHorizontally;
 }
 
 // Verifies manual orchestration delivers the capture plan through calibration.
