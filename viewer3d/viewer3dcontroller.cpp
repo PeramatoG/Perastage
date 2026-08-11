@@ -1026,13 +1026,10 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg));
   };
 
-  // Keep symbol generation captures isolated from runtime mesh processing so
-  // the symbol pipeline preserves its current geometry fidelity and behavior.
-  const bool symbolCaptureProfileEnabled =
-      m_impl->symbolCaptureRenderProfileOverride.value_or(false);
+  // Keep resource processing identical between normal viewing and symbol
+  // capture.
   callbacks.meshProcessingOptions = viewer3d::resources::MeshProcessingOptions{
-      .enableMeshOptimization = !symbolCaptureProfileEnabled,
-      .enableDiskCache = !symbolCaptureProfileEnabled};
+      .enableMeshOptimization = true, .enableDiskCache = true};
 
   const ResourceSyncResult syncResult = ResourceSyncSystem::Sync(
       base, sceneTrusses, sceneObjects, sceneFixtures, visibleTrusses,

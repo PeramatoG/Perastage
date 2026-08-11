@@ -123,27 +123,6 @@ private:
   Viewer2DPanel &panel_;
 };
 
-// Mirrors a rendered RGBA symbol image horizontally in-place.
-void MirrorImageHorizontally(symbols::RenderedSymbolImage &render) {
-  if (render.width <= 0 || render.height <= 0)
-    return;
-  for (int y = 0; y < render.height; ++y) {
-    for (int x = 0; x < render.width / 2; ++x) {
-      const int opposite = render.width - 1 - x;
-      const size_t left =
-          (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
-           static_cast<size_t>(x)) *
-          4;
-      const size_t right =
-          (static_cast<size_t>(y) * static_cast<size_t>(render.width) +
-           static_cast<size_t>(opposite)) *
-          4;
-      for (size_t c = 0; c < 4; ++c)
-        std::swap(render.rgba[left + c], render.rgba[right + c]);
-    }
-  }
-}
-
 // Resolves fixture GDTF geometry bounds for aspect-driven symbol viewport
 // sizing.
 bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
@@ -162,7 +141,8 @@ bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
           fixtureIt->second, cfg.GetScene(), resolution, error))
     return false;
 
-  return ComputeFixtureGeometryBoundsMm(resolution.selectedPath, bounds, error);
+  return ComputeFixtureGeometryBoundsMm(
+      resolution.selectedPath, fixtureIt->second.gdtfMode, bounds, error);
 }
 
 // Returns the expected projected width/height ratio for a symbol view from
@@ -200,7 +180,7 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelCaptureScene isolatedScene(cfg, target,
-                                               options.alignToLocalAxes);
+                                              options.alignToLocalAxes);
   ScopedFixtureCaptureColor captureColor(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
@@ -236,7 +216,8 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     if (options.fixtureBoundsOverride) {
       fixtureBounds = *options.fixtureBoundsOverride;
       result.fixtureBoundsMm = fixtureBounds;
-    } else if (TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds)) {
+    } else if (TryResolveFixtureBoundsMmForCapture(cfg, target,
+                                                   fixtureBounds)) {
       result.fixtureBoundsMm = fixtureBounds;
     }
   }
@@ -260,8 +241,6 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     } else {
       renderer.SetViewportSize(options.viewportSize);
     }
-    renderOverrides.forceBottomViewForTopFixtures =
-        request.forceBottomViewForTopFixtures;
     capturePanel->SetRenderOverrides(renderOverrides);
     capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
     Viewer2DView viewerView = Viewer2DView::Top;
@@ -269,6 +248,8 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
       viewerView = Viewer2DView::Front;
     else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
       viewerView = Viewer2DView::Side;
+    else if (request.viewerView == symbols::SymbolCaptureViewerView::Bottom)
+      viewerView = Viewer2DView::Bottom;
     capturePanel->SetView(viewerView);
     capturePanel->FitViewToScene();
 
@@ -280,8 +261,6 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
                      "the 2D viewer.";
       return result;
     }
-    if (request.mirrorHorizontally)
-      MirrorImageHorizontally(render);
     result.renders.push_back(std::move(render));
   }
   result.ok = result.renders.size() == requests.size();
@@ -319,8 +298,8 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target,
     const SceneModelSymbolCaptureOptions &options) {
-  auto capture = CaptureSceneModelOrthographicRenders(renderer, cfg, target,
-                                                       options);
+  auto capture =
+      CaptureSceneModelOrthographicRenders(renderer, cfg, target, options);
   if (!capture.ok)
     return {false, capture.error};
   return ProcessSceneModelOrthographicRenders(

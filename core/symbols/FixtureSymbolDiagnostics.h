@@ -67,13 +67,11 @@ private:
   FixtureSymbolTimings::Clock::time_point started_;
 };
 
-enum class SymbolCaptureViewerView { Front, Top, Side };
+enum class SymbolCaptureViewerView { Front, Top, Side, Bottom };
 
 struct FixtureSymbolCaptureStep {
   SymbolCaptureViewerView viewerView;
   SymbolView symbolView;
-  bool forceBottomViewForTopFixtures;
-  bool mirrorHorizontally;
 };
 
 const std::array<FixtureSymbolCaptureStep, 4> &FixtureSymbolCapturePlan();

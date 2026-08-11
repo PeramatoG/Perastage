@@ -189,19 +189,17 @@ bool TestStructuralBaselines() {
   return ok;
 }
 
-// Verifies the runtime-owned view sequence, bottom override, and side mirror.
+// Verifies each symbol source maps directly to its canonical viewer camera.
 bool TestCapturePlan() {
   const auto &plan = symbols::FixtureSymbolCapturePlan();
   return plan[0].viewerView == symbols::SymbolCaptureViewerView::Front &&
          plan[0].symbolView == symbols::SymbolView::Front &&
-         !plan[0].mirrorHorizontally &&
+         plan[1].viewerView == symbols::SymbolCaptureViewerView::Top &&
          plan[1].symbolView == symbols::SymbolView::Top &&
          plan[2].viewerView == symbols::SymbolCaptureViewerView::Side &&
          plan[2].symbolView == symbols::SymbolView::Left &&
-         plan[2].mirrorHorizontally &&
-         plan[3].viewerView == symbols::SymbolCaptureViewerView::Top &&
-         plan[3].symbolView == symbols::SymbolView::Bottom &&
-         plan[3].forceBottomViewForTopFixtures && !plan[3].mirrorHorizontally;
+         plan[3].viewerView == symbols::SymbolCaptureViewerView::Bottom &&
+         plan[3].symbolView == symbols::SymbolView::Bottom;
 }
 
 // Verifies manual orchestration delivers the capture plan through calibration.
@@ -246,7 +244,7 @@ bool TestDeterministicContours() {
       expected->fill.front().holes.size() != 2) {
     std::cerr
         << "Contour topology mismatch: expected three outer rings and two "
-                 "holes in the largest ring\n";
+           "holes in the largest ring\n";
     return false;
   }
 
@@ -330,8 +328,8 @@ bool TestTimings() {
   }
   bool ok =
       !disabled.Enabled() &&
-            disabled.Total() == symbols::FixtureSymbolTimings::Duration::zero() &&
-            !disabled.Has(symbols::FixtureSymbolPhase::Capture);
+      disabled.Total() == symbols::FixtureSymbolTimings::Duration::zero() &&
+      !disabled.Has(symbols::FixtureSymbolPhase::Capture);
 
   const auto start = symbols::FixtureSymbolTimings::Clock::time_point{};
   const auto current = start + std::chrono::microseconds(100);
@@ -355,11 +353,11 @@ bool TestTimings() {
       timings.Format("fixture", "key", symbols::FixtureSymbolOutcome::Skipped);
   ok = ok &&
        timings.Elapsed(symbols::FixtureSymbolPhase::Resolve).count() == 7 &&
-      !timings.Has(symbols::FixtureSymbolPhase::Capture) &&
-      skipped.find("resolve_us=7 fingerprint_us=5 inspect_us=- bounds_us=- "
-                   "capture_us=- vectorization_us=- calibration_us=- "
-                   "archive_rewrite_us=- validation_us=6 refresh_us=-") !=
-          std::string::npos;
+       !timings.Has(symbols::FixtureSymbolPhase::Capture) &&
+       skipped.find("resolve_us=7 fingerprint_us=5 inspect_us=- bounds_us=- "
+                    "capture_us=- vectorization_us=- calibration_us=- "
+                    "archive_rewrite_us=- validation_us=6 refresh_us=-") !=
+           std::string::npos;
   symbols::FixtureSymbolTimings generated(start, current);
   for (size_t i = 0;
        i < static_cast<size_t>(symbols::FixtureSymbolPhase::Count); ++i)

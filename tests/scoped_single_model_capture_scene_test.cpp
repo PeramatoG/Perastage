@@ -2,7 +2,9 @@
 
 #include "configmanager.h"
 
+#include <array>
 #include <cassert>
+#include <cmath>
 
 namespace {
 
@@ -10,6 +12,11 @@ namespace {
 bool SameMatrix(const Matrix &left, const Matrix &right) {
   return left.u == right.u && left.v == right.v && left.w == right.w &&
          left.o == right.o;
+}
+
+// Returns the length of one transform basis vector.
+float AxisLength(const std::array<float, 3> &axis) {
+  return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
 }
 
 } // namespace
@@ -52,6 +59,9 @@ int main() {
     const Matrix &aligned = scene.fixtures.at(target.uuid).transform;
     assert(aligned.o == target.transform.o);
     assert(!SameMatrix(aligned, target.transform));
+    assert(AxisLength(aligned.u) == AxisLength(target.transform.u));
+    assert(AxisLength(aligned.v) == AxisLength(target.transform.v));
+    assert(AxisLength(aligned.w) == AxisLength(target.transform.w));
   }
 
   assert(scene.fixtures.size() == original.fixtures.size());

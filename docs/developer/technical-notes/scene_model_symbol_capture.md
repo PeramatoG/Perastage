@@ -48,9 +48,20 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 
 1. Install a cloned requested instance in the private compatibility scene.
 2. Optionally align the instance transform to local axes.
-3. Apply capture-focused config overrides (hide grid/labels, force symbol-friendly render settings).
-4. Capture source RGBA images for `Front`, `Top`, `Side` (mirrored to `Left`), and inverted `Top` (as `Bottom`).
+3. Apply geometry-neutral extraction overrides (white background, hidden grid,
+   ruler, and labels, plus the symbol extraction color and line style).
+4. Capture canonical source RGBA images through the corresponding
+   `Viewer2DPanel` cameras: `Front`, `Top`, `Side` (stored as `Left`), and
+   `Bottom`. The reference raster is not mirrored or otherwise transformed.
 5. Convert images to vector symbols with `symbols::Symbol2DImageBuilder`.
+
+For a fixture whose instance/root rotation is normalized for reuse, every
+pre-vectorization image uses the same camera, projection, exact GDTF mode,
+child transforms, mesh processing, depth behavior, and part inclusion as the
+equivalent normal 2D view. Fixture bounds include every rendered mesh,
+including lens geometry, and are resolved from that same exact mode. The only
+intentional viewer differences are the geometry-neutral extraction overrides
+listed above.
 
 The render data source is scoped to one synchronous offscreen operation on the
 GUI/render thread and remains installed for warm-up plus all four orthographic views.

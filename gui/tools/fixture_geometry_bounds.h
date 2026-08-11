@@ -14,6 +14,7 @@ struct FixtureGeometryBounds {
 };
 
 bool ComputeFixtureGeometryBoundsMm(const std::string &gdtfPath,
+                                    const std::string &gdtfMode,
                                     FixtureGeometryBounds &bounds,
                                     std::string &errorMessage);
 
