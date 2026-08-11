@@ -52,6 +52,12 @@ CaptureSceneModelOrthographicSymbols(Viewer2DOffscreenRenderer &renderer,
 4. Capture source RGBA images for `Front`, `Top`, `Side` (mirrored to `Left`), and inverted `Top` (as `Bottom`).
 5. Convert images to vector symbols with `symbols::Symbol2DImageBuilder`.
 
+Fixture capture resolves the exact selected GDTF mode and uses the flattened
+world transform produced from each part's complete GDTF parent hierarchy, just
+like normal 2D fixture rendering. Root alignment only changes the isolated
+fixture instance transform; it does not rewrite any GDTF part transform.
+Fixture bounds include every rendered mesh, including lens geometry.
+
 The render data source is scoped to one synchronous offscreen operation on the
 GUI/render thread and remains installed for warm-up plus all four orthographic views.
 The narrow compatibility boundary temporarily swaps the renderable `ConfigManager`

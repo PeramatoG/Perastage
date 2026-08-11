@@ -2556,3 +2556,12 @@ target_link_libraries(scoped_single_model_capture_scene_test PRIVATE
                       ${wxWidgets_LIBRARIES})
 add_test(NAME ScopedSingleModelCaptureScene
          COMMAND scoped_single_model_capture_scene_test)
+
+add_executable(fixture_geometry_bounds_test
+               fixture_geometry_bounds_test.cpp
+               ../gui/tools/fixture_geometry_bounds.cpp)
+target_include_directories(fixture_geometry_bounds_test BEFORE PRIVATE
+                           ../viewer3d)
+target_include_directories(fixture_geometry_bounds_test PRIVATE
+                           ../gui ../models)
+add_test(NAME FixtureGeometryBounds COMMAND fixture_geometry_bounds_test)

@@ -162,7 +162,8 @@ bool TryResolveFixtureBoundsMmForCapture(ConfigManager &cfg,
           fixtureIt->second, cfg.GetScene(), resolution, error))
     return false;
 
-  return ComputeFixtureGeometryBoundsMm(resolution.selectedPath, bounds, error);
+  return ComputeFixtureGeometryBoundsMm(
+      resolution.selectedPath, fixtureIt->second.gdtfMode, bounds, error);
 }
 
 // Returns the expected projected width/height ratio for a symbol view from
@@ -200,7 +201,7 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
 
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelCaptureScene isolatedScene(cfg, target,
-                                               options.alignToLocalAxes);
+                                              options.alignToLocalAxes);
   ScopedFixtureCaptureColor captureColor(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
@@ -236,7 +237,8 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     if (options.fixtureBoundsOverride) {
       fixtureBounds = *options.fixtureBoundsOverride;
       result.fixtureBoundsMm = fixtureBounds;
-    } else if (TryResolveFixtureBoundsMmForCapture(cfg, target, fixtureBounds)) {
+    } else if (TryResolveFixtureBoundsMmForCapture(cfg, target,
+                                                   fixtureBounds)) {
       result.fixtureBoundsMm = fixtureBounds;
     }
   }
@@ -319,8 +321,8 @@ SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target,
     const SceneModelSymbolCaptureOptions &options) {
-  auto capture = CaptureSceneModelOrthographicRenders(renderer, cfg, target,
-                                                       options);
+  auto capture =
+      CaptureSceneModelOrthographicRenders(renderer, cfg, target, options);
   if (!capture.ok)
     return {false, capture.error};
   return ProcessSceneModelOrthographicRenders(

@@ -31,7 +31,8 @@ std::string_view OutcomeName(FixtureSymbolOutcome outcome) {
 // Starts an optionally enabled, independently owned fixture-symbol timing
 // record.
 FixtureSymbolTimings::FixtureSymbolTimings(bool enabled)
-    : enabled_(enabled), started_(enabled ? Clock::now() : Clock::time_point{}) {}
+    : enabled_(enabled),
+      started_(enabled ? Clock::now() : Clock::time_point{}) {}
 
 // Creates an enabled timing record with deterministic time points for tests.
 FixtureSymbolTimings::FixtureSymbolTimings(Clock::time_point started,
@@ -109,9 +110,7 @@ ScopedFixtureSymbolPhase::ScopedFixtureSymbolPhase(
 }
 
 // Accumulates the elapsed phase duration into its optional timing sink.
-ScopedFixtureSymbolPhase::~ScopedFixtureSymbolPhase() {
-  Finish();
-}
+ScopedFixtureSymbolPhase::~ScopedFixtureSymbolPhase() { Finish(); }
 
 // Finishes an active phase once and makes subsequent finishes no-ops.
 void ScopedFixtureSymbolPhase::Finish() {

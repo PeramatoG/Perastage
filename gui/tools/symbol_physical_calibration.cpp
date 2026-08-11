@@ -31,7 +31,8 @@ bool CalibrateFixtureSymbolsToPhysicalUnits(
   const std::string gdtfPath = resolution.selectedPath;
 
   FixtureGeometryBounds fixtureBounds;
-  if (!ComputeFixtureGeometryBoundsMm(gdtfPath, fixtureBounds, errorMessage))
+  if (!ComputeFixtureGeometryBoundsMm(gdtfPath, fixtureIt->second.gdtfMode,
+                                      fixtureBounds, errorMessage))
     return false;
 
   return CalibrateFixtureSymbolsToPhysicalUnits(fixtureBounds, symbols,
