@@ -25,7 +25,7 @@
 #include "../core/fixture_gdtf_derivative_contract.h"
 #include "../core/gdtfdictionary.h"
 #include "../core/gdtf_mutation_audit.h"
-#include "../core/symbol_cache_manifest.h"
+#include "../core/symbols/fixture_symbol_resource_revision.h"
 #include "../core/symbols/Symbol2D.h"
 #include "../core/wx_path_utils.h"
 #include "../gui/windows/symbol_fixture_applier.h"
@@ -287,11 +287,13 @@ int main() {
   assert(!failedPublication.success);
   assert(scene.fixtures.at(fixture.uuid).gdtfSpec == originalFixtureSpec);
   assert(scene.fixtures.at(sharedFixture.uuid).gdtfSpec == originalFixtureSpec);
-  std::ifstream previousPublishedInput(canonicalBeforeFailure,
-                                       std::ios::binary);
-  assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
-                     std::istreambuf_iterator<char>()) ==
-         previousPublishedBytes);
+  {
+    std::ifstream previousPublishedInput(canonicalBeforeFailure,
+                                         std::ios::binary);
+    assert(std::string(std::istreambuf_iterator<char>(previousPublishedInput),
+                       std::istreambuf_iterator<char>()) ==
+           previousPublishedBytes);
+  }
   for (const auto &entry : fs::directory_iterator(canonicalBeforeFailure.parent_path()))
     assert(entry.path().filename().string().find(".working.") ==
            std::string::npos);

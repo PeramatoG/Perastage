@@ -13,8 +13,6 @@ namespace symbol_cache {
 struct FixtureSymbolSvgRequest {
   std::string physicalGdtfPath;
   SymbolViewKind view = SymbolViewKind::Top;
-  std::string semanticFingerprint;
-  std::string generationIdentityKey;
 };
 
 struct FixtureSymbolSvgCacheStats {
@@ -22,7 +20,6 @@ struct FixtureSymbolSvgCacheStats {
   std::size_t loads = 0;
   std::size_t loadFailures = 0;
   std::size_t pathInvalidations = 0;
-  std::size_t identityInvalidations = 0;
   std::size_t clears = 0;
   std::size_t entries = 0;
 };
@@ -37,14 +34,12 @@ public:
   SymbolHandle LookupOrLoad(const FixtureSymbolSvgRequest &request,
                             std::string *errorDetails = nullptr);
   void InvalidatePath(const std::string &physicalGdtfPath);
-  void InvalidateGenerationIdentity(const std::string &identityKey);
   void Clear();
   FixtureSymbolSvgCacheStats GetStats() const;
 
 private:
   struct Entry {
     std::string pathKey;
-    std::string generationIdentityKey;
     SymbolHandle symbol;
   };
   Loader loader_;

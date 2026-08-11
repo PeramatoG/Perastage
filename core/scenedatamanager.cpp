@@ -18,22 +18,6 @@
 #include "scenedatamanager.h"
 #include "configmanager.h"
 
-thread_local const SceneDataManager::SceneSnapshot*
-    SceneDataManager::activeSnapshot_ = nullptr;
-
-// Installs immutable scene data for the lifetime of an isolated render operation.
-SceneDataManager::ScopedSnapshot::ScopedSnapshot(const SceneSnapshot& snapshot)
-    : previous_(SceneDataManager::Instance().activeSnapshot_)
-{
-    SceneDataManager::Instance().activeSnapshot_ = &snapshot;
-}
-
-// Restores the scene-data source used before the isolated render operation.
-SceneDataManager::ScopedSnapshot::~ScopedSnapshot()
-{
-    SceneDataManager::Instance().activeSnapshot_ = previous_;
-}
-
 SceneDataManager& SceneDataManager::Instance()
 {
     static SceneDataManager instance;
@@ -42,28 +26,20 @@ SceneDataManager& SceneDataManager::Instance()
 
 const std::unordered_map<std::string, Fixture>& SceneDataManager::GetFixtures() const
 {
-    if (activeSnapshot_)
-        return activeSnapshot_->fixtures;
     return ConfigManager::Get().GetScene().fixtures;
 }
 
 const std::unordered_map<std::string, Truss>& SceneDataManager::GetTrusses() const
 {
-    if (activeSnapshot_)
-        return activeSnapshot_->trusses;
     return ConfigManager::Get().GetScene().trusses;
 }
 
 const std::unordered_map<std::string, SceneObject>& SceneDataManager::GetSceneObjects() const
 {
-    if (activeSnapshot_)
-        return activeSnapshot_->sceneObjects;
     return ConfigManager::Get().GetScene().sceneObjects;
 }
 
 const std::unordered_map<std::string, GroupObject>& SceneDataManager::GetGroupObjects() const
 {
-    if (activeSnapshot_)
-        return activeSnapshot_->groupObjects;
     return ConfigManager::Get().GetScene().groupObjects;
 }

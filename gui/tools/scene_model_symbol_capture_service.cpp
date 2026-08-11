@@ -7,12 +7,12 @@
 #include "configmanager.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
-#include "scenedatamanager.h"
 #include "sceneobject.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/SymbolGeometrySimplifier.h"
 #include "tools/fixture_geometry_bounds.h"
-#include "tools/scene_model_symbol_capture_snapshot.h"
+#include "tools/scoped_scene_replacement_lifecycle.h"
+#include "tools/scoped_single_model_capture_scene.h"
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
@@ -22,15 +22,48 @@ namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
 
+// Temporarily overrides the isolated fixture color used for extraction.
+class ScopedFixtureCaptureColor {
+public:
+  // Applies the requested fixture color when the isolated fixture exists.
+  ScopedFixtureCaptureColor(ConfigManager &cfg, const std::string &fixtureUuid,
+                            const std::optional<std::string> &forcedHex)
+      : cfg_(cfg), fixtureUuid_(fixtureUuid) {
+    if (!forcedHex || fixtureUuid_.empty())
+      return;
+    const auto it = cfg_.GetScene().fixtures.find(fixtureUuid_);
+    if (it == cfg_.GetScene().fixtures.end())
+      return;
+    previous_ = it->second.visualColorHex;
+    it->second.visualColorHex = *forcedHex;
+  }
+
+  // Restores the isolated fixture color before the project scene returns.
+  ~ScopedFixtureCaptureColor() {
+    if (!previous_)
+      return;
+    const auto it = cfg_.GetScene().fixtures.find(fixtureUuid_);
+    if (it != cfg_.GetScene().fixtures.end())
+      it->second.visualColorHex = *previous_;
+  }
+
+private:
+  ConfigManager &cfg_;
+  std::string fixtureUuid_;
+  std::optional<std::string> previous_;
+};
+
 // Saves and restores 2D viewer state so capture does not affect interactive UI
 // state.
 class ScopedViewer2DCaptureState {
 public:
   // Stores the current 2D viewer state so capture can run without persisting UI
   // changes.
-  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel,
-                                      bool refreshAfterRestore)
-      : panel_(panel), refreshAfterRestore_(refreshAfterRestore) {
+  explicit ScopedViewer2DCaptureState(Viewer2DPanel &panel)
+      : panel_(panel),
+        lifecycle_([&panel]() { panel.PrepareForSceneReplacement(); },
+                   [&panel]() { panel.CompleteSceneReplacement(); },
+                   [&panel]() { panel.UpdateScene(false); }) {
     const Viewer2DViewState state = panel_.GetViewState();
     offsetXPixels_ = state.offsetPixelsX;
     offsetYPixels_ = state.offsetPixelsY;
@@ -49,8 +82,15 @@ public:
     panel_.SetRenderOverrides(renderOverrides_);
     panel_.SetPreferPerastageSvgSymbolsForLayouts(
         preferPerastageSvgSymbolsForLayouts_);
-    if (refreshAfterRestore_)
-      panel_.UpdateScene(false);
+  }
+
+  // Completes replacement after the isolated snapshot becomes active.
+  void CompleteReplacement() { lifecycle_.CompleteReplacement(); }
+
+  // Prepares replacement automatically before the isolated snapshot is
+  // released.
+  ScopedPrepareSceneReplacement PrepareOnScopeExit() {
+    return lifecycle_.PrepareOnScopeExit();
   }
 
 private:
@@ -62,7 +102,7 @@ private:
   Viewer2DRenderMode renderMode_ = Viewer2DRenderMode::White;
   std::optional<Viewer2DRenderOverrides> renderOverrides_;
   bool preferPerastageSvgSymbolsForLayouts_ = false;
-  bool refreshAfterRestore_ = true;
+  ScopedSceneReplacementLifecycle lifecycle_;
 };
 
 // Applies temporary render overrides tailored for high-contrast symbol
@@ -146,38 +186,26 @@ float ComputeCaptureAspectForView(const FixtureGeometryBounds &bounds,
 
 } // namespace
 
-// Captures one bounded warm-up or orthographic view from an isolated snapshot.
-SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
-    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
-    const SceneModelSymbolTarget &target, std::size_t stepIndex,
-    const SceneModelSymbolCaptureOptions &options) {
-  const SceneDataManager::SceneSnapshot snapshot =
-      BuildSceneModelSymbolCaptureSnapshot(cfg.GetScene(), target, options);
-  return CaptureSceneModelOrthographicStep(renderer, cfg, target, snapshot,
-                                           stepIndex, options);
-}
-
-// Captures one view from a caller-owned immutable job snapshot.
-SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
+// Captures all orthographic source images in one non-yielding scene scope.
+SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target,
-    const SceneDataManager::SceneSnapshot &snapshot, std::size_t stepIndex,
     const SceneModelSymbolCaptureOptions &options) {
-  SceneModelSymbolCaptureStepResult result;
+  SceneModelSymbolRenderResult result;
   Viewer2DPanel *capturePanel = renderer.GetPanel();
   if (!capturePanel) {
     result.error = "Could not create 2D capture panel instance.";
     return result;
   }
-  const auto &requests = symbols::FixtureSymbolCapturePlan();
-  if (stepIndex > requests.size()) {
-    result.error = "Fixture symbol capture step is out of range.";
-    return result;
-  }
 
-  ScopedViewer2DCaptureState scopedPanelState(
-      *capturePanel, options.refreshPanelAfterStep);
-  capturePanel->PrepareForSceneReplacement();
+  ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
+  ScopedSingleModelCaptureScene isolatedScene(cfg, target,
+                                               options.alignToLocalAxes);
+  ScopedFixtureCaptureColor captureColor(
+      cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
+      options.forcedFixtureColor);
+  scopedPanelState.CompleteReplacement();
+  auto prepareOnExit = scopedPanelState.PrepareOnScopeExit();
   Viewer2DRenderOverrides renderOverrides;
   renderOverrides.darkMode = false;
   renderOverrides.showGrid = false;
@@ -188,8 +216,18 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
   renderOverrides.symbolCaptureIncludeCoplanarEdges = true;
   ScopedViewer2DRenderOverrides scopedRenderOverrides(*capturePanel,
                                                       renderOverrides);
+  renderer.SetViewportSize(options.viewportSize);
   renderer.PrepareForCapture();
   renderer.ApplySymbolCaptureDefaults();
+  capturePanel->UpdateScene(true);
+
+  std::vector<unsigned char> warmupPixels;
+  int warmupWidth = 0;
+  int warmupHeight = 0;
+  if (!capturePanel->RenderToRGBA(warmupPixels, warmupWidth, warmupHeight)) {
+    result.error = "Could not warm up the fixture symbol capture renderer.";
+    return result;
+  }
 
   FixtureGeometryBounds fixtureBounds;
   {
@@ -203,67 +241,50 @@ SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
     }
   }
 
-  auto renderIsolated = [&](auto &render) {
-    return ExecuteSceneModelSymbolCaptureBoundary(
-        snapshot, [&](const auto &) {
-          capturePanel->CompleteSceneReplacement();
-          capturePanel->UpdateScene(true);
-          capturePanel->FitViewToScene();
-          const bool rendered = capturePanel->RenderToRGBA(
-              render.rgba, render.width, render.height);
-          capturePanel->PrepareForSceneReplacement();
-          return rendered;
-        });
-  };
-
-  if (stepIndex == 0) {
-    renderer.SetViewportSize(options.viewportSize);
-    symbols::RenderedSymbolImage warmup;
-    result.ok = renderIsolated(warmup);
-    if (!result.ok)
-      result.error = "Could not warm up the fixture symbol capture renderer.";
-    return result;
-  }
-
-  const auto &request = requests[stepIndex - 1];
-  if (fixtureBounds.valid) {
-    const float aspect =
-        ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
-    const int base = std::max(256, std::max(options.viewportSize.GetWidth(),
-                                            options.viewportSize.GetHeight()));
-    const int width =
-        std::max(256, static_cast<int>(aspect >= 1.0f ? base : base * aspect));
-    const int height =
-        std::max(256, static_cast<int>(aspect >= 1.0f ? base / aspect : base));
-    renderer.SetViewportSize(wxSize(width, height));
-  } else {
-    renderer.SetViewportSize(options.viewportSize);
-  }
-  renderOverrides.forceBottomViewForTopFixtures =
-      request.forceBottomViewForTopFixtures;
-  capturePanel->SetRenderOverrides(renderOverrides);
-  capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
-  Viewer2DView viewerView = Viewer2DView::Top;
-  if (request.viewerView == symbols::SymbolCaptureViewerView::Front)
-    viewerView = Viewer2DView::Front;
-  else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
-    viewerView = Viewer2DView::Side;
-  capturePanel->SetView(viewerView);
-  symbols::RenderedSymbolImage render;
-  render.view = request.symbolView;
-  {
+  const auto &requests = symbols::FixtureSymbolCapturePlan();
+  result.renders.reserve(requests.size());
+  for (const auto &request : requests) {
     symbols::ScopedFixtureSymbolPhase phase(
         options.timings, symbols::FixtureSymbolPhase::Capture);
-    result.ok = renderIsolated(render);
+    if (fixtureBounds.valid) {
+      const float aspect =
+          ComputeCaptureAspectForView(fixtureBounds, request.symbolView);
+      const int base =
+          std::max(256, std::max(options.viewportSize.GetWidth(),
+                                 options.viewportSize.GetHeight()));
+      const int width = std::max(
+          256, static_cast<int>(aspect >= 1.0f ? base : base * aspect));
+      const int height = std::max(
+          256, static_cast<int>(aspect >= 1.0f ? base / aspect : base));
+      renderer.SetViewportSize(wxSize(width, height));
+    } else {
+      renderer.SetViewportSize(options.viewportSize);
+    }
+    renderOverrides.forceBottomViewForTopFixtures =
+        request.forceBottomViewForTopFixtures;
+    capturePanel->SetRenderOverrides(renderOverrides);
+    capturePanel->SetRenderMode(Viewer2DRenderMode::ByFixtureType);
+    Viewer2DView viewerView = Viewer2DView::Top;
+    if (request.viewerView == symbols::SymbolCaptureViewerView::Front)
+      viewerView = Viewer2DView::Front;
+    else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
+      viewerView = Viewer2DView::Side;
+    capturePanel->SetView(viewerView);
+    capturePanel->FitViewToScene();
+
+    symbols::RenderedSymbolImage render;
+    render.view = request.symbolView;
+    if (!capturePanel->RenderToRGBA(render.rgba, render.width, render.height) ||
+        render.width <= 0 || render.height <= 0) {
+      result.error = "Could not capture all orthographic source images from "
+                     "the 2D viewer.";
+      return result;
+    }
+    if (request.mirrorHorizontally)
+      MirrorImageHorizontally(render);
+    result.renders.push_back(std::move(render));
   }
-  if (!result.ok || render.width <= 0 || render.height <= 0) {
-    result.ok = false;
-    result.error = "Could not capture an orthographic fixture symbol view.";
-    return result;
-  }
-  if (request.mirrorHorizontally)
-    MirrorImageHorizontally(render);
-  result.image = std::move(render);
+  result.ok = result.renders.size() == requests.size();
   return result;
 }
 
@@ -293,26 +314,17 @@ SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(
   return result;
 }
 
-// Captures all orthographic views through the shared incremental primitives.
+// Captures and processes all orthographic views through one canonical scope.
 SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target,
     const SceneModelSymbolCaptureOptions &options) {
-  FixtureGeometryBounds bounds;
-  std::vector<symbols::RenderedSymbolImage> renders;
-  const auto &requests = symbols::FixtureSymbolCapturePlan();
-  for (std::size_t step = 0; step <= requests.size(); ++step) {
-    auto capture =
-        CaptureSceneModelOrthographicStep(renderer, cfg, target, step, options);
-    if (!capture.ok)
-      return {false, capture.error};
-    if (capture.fixtureBoundsMm.valid)
-      bounds = capture.fixtureBoundsMm;
-    if (capture.image)
-      renders.push_back(std::move(*capture.image));
-  }
-  return ProcessSceneModelOrthographicRenders(std::move(renders), bounds,
-                                               options.timings);
+  auto capture = CaptureSceneModelOrthographicRenders(renderer, cfg, target,
+                                                       options);
+  if (!capture.ok)
+    return {false, capture.error};
+  return ProcessSceneModelOrthographicRenders(
+      std::move(capture.renders), capture.fixtureBoundsMm, options.timings);
 }
 
 } // namespace tools

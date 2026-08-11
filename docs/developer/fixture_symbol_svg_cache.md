@@ -1,73 +1,74 @@
-# Runtime fixture SVG cache
+# Fixture symbol generation and runtime cache
 
-Checkpoint 05 gives parsed fixture SVG symbols an explicit GUI-independent owner in
-`core/symbols/fixture_symbol_svg_cache.*`. The layout legend is the affected persistent
-consumer. Layout view preview and print use that shared legend path. The dedicated
-layout preview renderer, PDF exporter, fixture editor preview, and Viewer3D builders
-load or build transient data and cannot retain a legend miss across refreshes.
-Viewer2D's symbol cache stores scene symbol definitions rather than parsed GDTF SVG
-data and is unrelated.
+## Resource and publication contract
 
-## Key and result contract
+An external or source GDTF remains authoritative when its exact top, bottom,
+front, and side SVG model views are parseable, have a positive view box, and
+contain usable geometry. Availability is ownership-neutral: standard GDTF
+content is usable without Perastage Editor or revision metadata.
 
-Each positive entry is equal only when the canonical physical archive identity,
-`SymbolViewKind`, semantic fingerprint, optional canonical
-`FixtureSymbolGenerationIdentity::key`, and SVG parser format version are equal.
-Editable fixture and type names never participate. Runtime paths use
-`PathUtils::BuildFilesystemIdentityKey`; they are not persisted and extraction paths
-never become project identity.
+When views are missing or invalid, renderers use their existing geometry
+fallback immediately. Runtime preparation copies the source to a temporary
+working derivative, generates all four views, validates the complete archive,
+and atomically publishes the canonical `@Perastage` derivative. Fixture
+references are rebound only after publication succeeds, so a failed operation
+leaves the previous file and reference authoritative.
 
-Lookups return `shared_ptr<const PerastageSvgSymbolData>`. Published geometry is
-immutable, and a handle remains valid after insertion, rehash, invalidation, or clear.
-Rendering colors, transforms, scaling, and fills remain outside the cache. A mutex
-protects map state and counters, but archive I/O and SVG parsing occur without that
-mutex. Concurrent duplicate loads converge on the first published immutable entry.
+`fixture_symbol_availability.*` is the GUI-independent inspection and loading
+boundary. Viewer2D/Viewer3D rendering, layout rendering and legends, PDF export,
+automatic preparation inspection, and manual apply validation use the same
+stored-SVG rules. A fallback is never reported as a stored SVG.
 
-Failures are not cached. Missing archives or views, malformed symbols, and loader
-failures are returned as ordinary misses with the loader diagnostic, so creation of a
-file or view can be observed on the next lookup even without a restart. Statistics
-distinguish positive hits, loads, failures, path and identity invalidations, clears,
-and live entries. Project lifecycle clearing bounds accumulation.
+## Runtime preparation
 
-## Invalidation and ordering
+The MainWindow-owned runtime coordinator keys work by canonical physical GDTF
+resource and exact mode. Duplicate fixtures and renderer fallback requests
+therefore produce one logical job. Each fixture uses one non-yielding GUI-thread
+capture operation for warm-up plus all four views, and pure image/vector
+processing runs later on the managed GUI/OpenGL-free worker.
+After the complete capture, the shared offscreen 2D renderer is rebound to the
+active project scene before control returns to layout preview or print capture.
+The scoped boundary pairs every scene-replacement preparation with completion,
+including render failures, and synchronizes the active project only after the
+temporary capture scene has been restored.
 
-The coordination API invalidates parsed SVG and semantic fingerprint state for a
-physical path. Atomic GDTF replacement invokes it immediately after the replacement
-commits and before post-write validation. Therefore a validation failure after
-replacement cannot expose old parsed geometry; a failure before replacement leaves
-the valid entry intact. Validation then recomputes and publishes the semantic
-fingerprint before any refresh can reload the symbol.
+The private capture compatibility boundary temporarily swaps only the live
+renderable containers, exactly as the established synchronous generator did.
+This is deliberately not a general scene architecture: it guarantees that both
+modern scene accessors and legacy direct `ConfigManager` queries observe the
+same single target continuously from warm-up through Front, Top, Side, and
+Bottom. Strict RAII restores the project once on every exit path, and no event
+processing occurs while the compatibility boundary is active.
 
-A separately copied library derivative is invalidated independently before its
-validated project fingerprint is published. A scene/library pair resolving to the
-same physical path follows the scene mutation once. Optional library failure does not
-invalidate the valid project archive and remains non-fatal.
+Project epochs reject work captured for a replaced or closed project. Automatic
+jobs also compute the strong symbol-relevant semantic fingerprint at job start
+and immediately before publication. That low-frequency correctness check rejects
+in-place source changes; it is deliberately separate from hot rendering cache
+identity.
 
-Successful project load clears runtime parsed SVG and fingerprint state only after
-the load commits, so a failed load retains the active project's cache. New-project,
-reset, close, and switch paths pass through the reset boundary and clear both caches.
-Fingerprint changes also miss naturally because the fingerprint is part of the key.
-Path and generation-identity operations remain available for committed fixture
-replacement or reassignment boundaries without exposing the container.
+Save, Load, MVR import/export, layout, print, and PDF never inspect queue
+completion and never wait for preparation. No preparation queue, snapshot, or
+symbol manifest is persisted. Reopening a project simply resolves the published
+GDTF and recognizes valid stored SVGs. Manual preview pauses matching automatic
+work; Apply intentionally publishes through the same transaction, while closing
+without Apply restores automatic eligibility.
 
-## Cache/load audit
+## Hot SVG cache
 
-1. `GetCachedLegendSvgSymbol` and `CachedSvgSymbolEntry` were affected: their static
-   map retained positive and negative data and returned a raw pointer. They were
-   removed in favor of the managed service.
-2. `BuildSharedLayoutLegendItems` and `SharedLayoutLegendItem` are transient metadata
-   builders. Preview and print consume the shared legend renderer and managed result.
-3. The layout view renderer, PDF exporter, fixture editor preview, and Viewer3D SVG
-   builder perform direct transient loads. They reload from validated archives and do
-   not require another persistent cache.
-4. Viewer2D and Viewer3D geometry/resource caches are keyed or rebuilt by their scene
-   update lifecycle and do not store the legend's parsed SVG result.
-5. `ApplySymbolsToFixtureGdtfWithResult`, `RewriteGdtfWithProof`, library derivative
-   synchronization, semantic fingerprint publish/invalidate, project load, and reset
-   are mutation or lifecycle boundaries and now coordinate the affected runtime cache.
-6. The manifest and project snapshot remain versioned validity proof, not presentation
-   caches; their format-2 identity and zero-work reload behavior are unchanged.
+`FixtureSymbolSvgCache` stores immutable positive parse results. Its key consists
+only of:
 
-Checkpoint 06 and later still own readiness sequencing, scheduling, cancellation,
-capture ownership, renderer batching, visibility priority, and concurrency. None of
-those responsibilities are implemented here.
+1. canonical physical filesystem identity;
+2. requested `SymbolViewKind`;
+3. bounded file revision (file size and modification time); and
+4. SVG parser/schema version.
+
+Normal repeated lookups perform filesystem metadata reads but never hash or read
+the complete archive merely to establish cache identity. Failed loads are not
+cached, so fallback remains responsive to a newly published view.
+
+Successful derivative replacement explicitly invalidates the physical path
+before refresh. Manual Apply uses the same publication boundary. Successful
+project replacement, New, Close, and reset clear project/session runtime symbol
+state. Existing immutable handles remain safe after invalidation or clear, and
+the next consumer lookup receives the replacement without reopening the project.

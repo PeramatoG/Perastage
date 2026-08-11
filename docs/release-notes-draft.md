@@ -44,9 +44,13 @@ Changes since **v1.5.0**.
   fixture references and files intact, shared fixtures remain on one derivative, and
   optional library synchronization can no longer undo a valid project result.
 
-- Fixture symbol capture now renders from a capture-only scene snapshot without
-  replacing project scene containers or temporarily changing the live fixture. Capture
-  data is limited to each offscreen render step so interactive viewers cannot observe it.
+- Fixture symbol capture now uses one private, non-yielding compatibility scope
+  for warm-up and all four orthographic views, then restores the project exactly
+  once before returning to the interface. This prevents distorted non-top symbols and
+  ensures layout 2D views and printed layouts retain fallback or stored-symbol
+  geometry while preparation progresses. Automatic and manual generation now share
+  the same continuous renderer semantics, so unrelated project contents cannot alter
+  Front, Side, or Bottom framing or component placement.
 
 - Fixture document editing now prepares changes in private project working storage and
   publishes only derivatives that satisfy the complete fixture-symbol contract, without
@@ -218,6 +222,21 @@ Changes since **v1.5.0**.
 - Added a secure, platform-compatible persistent dependency cache with main-only publishing for trusted GitHub Actions builds while retaining fast local workflow caches and read-only behavior for CI and installers.
 
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
+
+## Internal changes
+
+- Completed the fixture-symbol background-generation architecture by removing the
+  obsolete project manifest and generation identity, unifying stored-symbol
+  availability checks, and replacing archive hashing in normal SVG cache lookups
+  with bounded file revision checks plus explicit lifecycle invalidation.
+
+- Kept isolated fixture-capture visibility policy explicit at the renderer
+  boundary so focused bounds tests and Windows builds remain independently
+  linkable without depending on the runtime scene manager.
+
+- Improved cross-platform fixture-symbol regression coverage by using the
+  configured test interpreter and releasing inspected derivative files before
+  transactional replacement on Windows.
 
 ## Downloads and installation
 

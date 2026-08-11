@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <unordered_map>
 
@@ -17,8 +18,16 @@ PerastageSvgSymbolData MakeSymbol(double width, SymbolViewKind view) {
   return data;
 }
 
-// Verifies failures are retried and positive values are content-qualified.
-void TestMissMutationAndFingerprintCoherence() {
+// Writes a revision-visible archive placeholder for cache-key tests.
+void WriteRevision(const std::filesystem::path &path,
+                   const std::string &content) {
+  std::filesystem::create_directories(path.parent_path());
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << content;
+}
+
+// Verifies failures are retried and explicit invalidation exposes replacements.
+void TestMissMutationAndInvalidation() {
   std::unordered_map<std::string, PerastageSvgSymbolData> available;
   symbol_cache::FixtureSymbolSvgCache cache(
       [&](const std::string &, SymbolViewKind view, PerastageSvgSymbolData &out,
@@ -29,8 +38,8 @@ void TestMissMutationAndFingerprintCoherence() {
         out = it->second;
         return true;
       });
-  symbol_cache::FixtureSymbolSvgRequest request{
-      "fixture.gdtf", SymbolViewKind::Top, "fp-a", "id-a"};
+  symbol_cache::FixtureSymbolSvgRequest request{"fixture.gdtf",
+                                                SymbolViewKind::Top};
   assert(!cache.LookupOrLoad(request));
   available[std::to_string(static_cast<int>(SymbolViewKind::Top))] =
       MakeSymbol(10.0, SymbolViewKind::Top);
@@ -40,28 +49,29 @@ void TestMissMutationAndFingerprintCoherence() {
 
   available[std::to_string(static_cast<int>(SymbolViewKind::Top))] =
       MakeSymbol(20.0, SymbolViewKind::Top);
-  request.semanticFingerprint = "fp-b";
+  cache.InvalidatePath("fixture.gdtf");
   const auto second = cache.LookupOrLoad(request);
   assert(second && second->viewBoxWidth == 20.0);
   assert(first->viewBoxWidth == 10.0);
 }
 
-// Verifies views, identities, aliases, and lifecycle invalidation remain
-// separate.
+// Verifies aliases, views, bounded file revisions, and lifecycle clears.
 void TestStructuredKeysAndSafeHandles() {
   int loads = 0;
   symbol_cache::FixtureSymbolSvgCache cache(
       [&](const std::string &, SymbolViewKind view, PerastageSvgSymbolData &out,
           std::string *) {
         ++loads;
-        out = MakeSymbol(view == SymbolViewKind::Top ? 10.0 : 30.0, view);
+        out =
+            MakeSymbol(view == SymbolViewKind::Top ? loads * 10.0 : 30.0, view);
         return true;
       });
   const auto temp =
       std::filesystem::temp_directory_path() / "perastage_fixture_symbol_cache";
   const auto path = temp / "fixture.gdtf";
-  symbol_cache::FixtureSymbolSvgRequest top{path.string(), SymbolViewKind::Top,
-                                            "fp", "identity-a"};
+  std::filesystem::remove_all(temp);
+  WriteRevision(path, "first");
+  symbol_cache::FixtureSymbolSvgRequest top{path.string(), SymbolViewKind::Top};
   const auto first = cache.LookupOrLoad(top);
   top.physicalGdtfPath = (temp / "." / "fixture.gdtf").string();
   assert(cache.LookupOrLoad(top) == first);
@@ -70,18 +80,18 @@ void TestStructuredKeysAndSafeHandles() {
   auto front = top;
   front.view = SymbolViewKind::Front;
   assert(cache.LookupOrLoad(front)->viewBoxWidth == 30.0);
-  auto otherIdentity = top;
-  otherIdentity.generationIdentityKey = "identity-b";
-  assert(cache.LookupOrLoad(otherIdentity));
-  assert(loads == 3);
+  assert(loads == 2);
 
-  cache.InvalidateGenerationIdentity("identity-a");
+  WriteRevision(path, "second revision");
+  const auto revised = cache.LookupOrLoad(top);
+  assert(revised && revised != first && revised->viewBoxWidth == 30.0);
+  assert(loads == 3);
   assert(first->viewBoxWidth == 10.0);
-  assert(cache.LookupOrLoad(top));
+
   cache.Clear();
   assert(cache.GetStats().entries == 0);
+  std::filesystem::remove_all(temp);
 }
-
 } // namespace
 
 // Supplies the production loader symbol while focused tests inject their
@@ -91,19 +101,9 @@ bool LoadPerastageSvgSymbolFromGdtf(const std::string &, SymbolViewKind,
   return false;
 }
 
-namespace symbol_cache {
-
-// Supplies the fingerprint invalidation symbol for the focused cache test.
-void InvalidateGdtfSemanticFingerprintCache(const std::string &) {}
-
-// Supplies the fingerprint clear symbol for the focused cache test.
-void ClearGdtfSemanticFingerprintCache() {}
-
-} // namespace symbol_cache
-
 // Runs managed fixture SVG cache regression coverage.
 int main() {
-  TestMissMutationAndFingerprintCoherence();
+  TestMissMutationAndInvalidation();
   TestStructuredKeysAndSafeHandles();
   return 0;
 }

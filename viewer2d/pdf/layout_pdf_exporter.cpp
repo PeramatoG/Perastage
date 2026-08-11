@@ -40,10 +40,11 @@
 
 
 #include "logger.h"
+#include "layout_pdf_symbol_usage.h"
 #include "pdf_draw_commands.h"
 #include "pdf_font_metrics.h"
 #include "pdf_objects.h"
-#include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
 
 namespace {
@@ -954,27 +955,10 @@ Viewer2DExportResult ExportLayoutToPdf(
   for (const auto &group : layoutGroups) {
     const SymbolDefinitionSnapshot *groupSymbols =
         group.symbolSnapshot ? group.symbolSnapshot.get() : symbolSnapshot.get();
-    for (const auto &command : views[group.viewIndex].buffer.commands) {
-      if (std::holds_alternative<PlaceSymbolCommand>(command)) {
-        ++result.fallbackSymbolInstances;
-        continue;
-      }
-      const auto *instance = std::get_if<SymbolInstanceCommand>(&command);
-      if (!instance)
-        continue;
-      const SymbolDefinition *definition = nullptr;
-      if (groupSymbols) {
-        const auto definitionIt = groupSymbols->find(instance->symbolId);
-        if (definitionIt != groupSymbols->end())
-          definition = &definitionIt->second;
-      }
-      if (definition &&
-          definition->source == SymbolDefinition::Source::PerastageSvg) {
-        ++result.perastageSymbolInstances;
-      } else {
-        ++result.fallbackSymbolInstances;
-      }
-    }
+    const auto usage = CountLayoutPdfSymbolUsage(
+        views[group.viewIndex].buffer, groupSymbols);
+    result.perastageSymbolInstances += usage.perastageSymbolInstances;
+    result.fallbackSymbolInstances += usage.fallbackSymbolInstances;
   }
 
   if (layoutGroups.empty() && legends.empty() && tables.empty() &&
@@ -1014,12 +998,11 @@ Viewer2DExportResult ExportLayoutToPdf(
     LegendSvgCacheKey cacheKey{loadPath, viewKind};
     auto it = legendSvgCache.find(cacheKey);
     if (it == legendSvgCache.end()) {
-      PerastageSvgSymbolData data;
       std::optional<PerastageSvgSymbolData> loaded;
       std::string loadError;
-      if (LoadPerastageSvgSymbolFromGdtf(loadPath, viewKind, data, &loadError)) {
-        loaded = std::move(data);
-      }
+      if (const auto data = symbol_cache::LoadUsableFixtureSymbol(
+              loadPath, viewKind, &loadError))
+        loaded = *data;
       it = legendSvgCache.emplace(std::move(cacheKey), std::move(loaded)).first;
     }
     return it->second ? &it->second.value() : nullptr;

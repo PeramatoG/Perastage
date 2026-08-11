@@ -13,10 +13,10 @@
 #include "guiconfigservices.h"
 #include "mainwindow.h"
 #include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_preparation_requests.h"
-#include "symbol_cache_manifest.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 #include "tools/scene_model_symbol_capture_service.h"
-#include "tools/scene_model_symbol_capture_snapshot.h"
 #include "tools/symbol_physical_calibration.h"
 #include "viewer2doffscreenrenderer.h"
 #include "windows/symbol_fixture_applier.h"
@@ -95,9 +95,8 @@ void FixtureSymbolPreparationService::Request(
     if (manualKey == key)
       return;
   }
-  RequiredFixtureSvgSetInspection inspection;
-  if (InspectRequiredFixtureSvgSet(key.effectiveGdtfPath, inspection) &&
-      inspection.usable) {
+  if (symbol_cache::InspectFixtureSymbolAvailability(key.effectiveGdtfPath)
+          .storedSvgUsable) {
     diagnostics::DiagnosticLogger::Info(
         "Fixture symbol preparation skipped because required SVGs are valid for resource '" +
         key.effectiveGdtfPath + "' mode '" + key.exactGdtfMode + "'.");
@@ -227,13 +226,12 @@ void FixtureSymbolPreparationService::RunNextStep() {
       const auto fixtureIt = scene.fixtures.find(workIt->second.fixtureUuid);
       fixtures::FixtureGdtfResolution resolution;
       std::string resolutionError;
-      RequiredFixtureSvgSetInspection inspection;
       if (fixtureIt != scene.fixtures.end() &&
           fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
                                                     resolution, resolutionError,
                                                     "symbol-reinspect") &&
-          InspectRequiredFixtureSvgSet(resolution.selectedPath, inspection) &&
-          inspection.usable) {
+          symbol_cache::InspectFixtureSymbolAvailability(resolution.selectedPath)
+              .storedSvgUsable) {
         coordinator_.Skip(*currentKey_, epoch_);
         currentKey_.reset();
         UpdateStatus();
@@ -274,35 +272,25 @@ void FixtureSymbolPreparationService::RunNextStep() {
     tools::SceneModelSymbolCaptureOptions options;
     options.alignToLocalAxes = true;
     options.forcedFixtureColor = "#3FA9F5";
-    options.refreshPanelAfterStep = false;
     if (work.bounds.valid)
       options.fixtureBoundsOverride = work.bounds;
-    if (!work.captureSnapshot) {
-      work.captureSnapshot = tools::BuildSceneModelSymbolCaptureSnapshot(
-          cfg.GetScene(),
-          {tools::SceneModelKind::Fixture, work.fixtureUuid}, options);
+    auto capture = tools::CaptureSceneModelOrthographicRenders(
+        *renderer, cfg,
+        {tools::SceneModelKind::Fixture, work.fixtureUuid}, options);
+    if (!capture.ok) {
+      FailCurrent(capture.error);
+      return;
     }
-    if (work.nextCaptureStep <= symbols::FixtureSymbolCapturePlan().size()) {
-      auto capture = tools::CaptureSceneModelOrthographicStep(
-          *renderer, cfg,
-          {tools::SceneModelKind::Fixture, work.fixtureUuid},
-          *work.captureSnapshot, work.nextCaptureStep, options);
-      if (!capture.ok) {
-        FailCurrent(capture.error);
-        return;
-      }
-      if (capture.fixtureBoundsMm.valid && !work.bounds.valid)
-        work.bounds = capture.fixtureBoundsMm;
-      if (capture.image) {
-        work.renders.push_back(std::move(*capture.image));
-        coordinator_.CompleteCaptureStep(*currentKey_, epoch_);
-      }
-      ++work.nextCaptureStep;
-      UpdateStatus();
-      ScheduleNextStep();
+    work.bounds = capture.fixtureBoundsMm;
+    work.renders = std::move(capture.renders);
+    if (!coordinator_.CompleteCapture(*currentKey_, epoch_)) {
+      FailCurrent("Fixture symbol capture state became stale.");
       return;
     }
     work.stage = WorkStage::Processing;
+    UpdateStatus();
+    ScheduleNextStep();
+    return;
   }
 
   if (work.stage == WorkStage::Processing) {
@@ -373,10 +361,8 @@ void FixtureSymbolPreparationService::RunNextStep() {
       Request(staleKey.effectiveGdtfPath, staleKey.exactGdtfMode);
       return;
     }
-    RequiredFixtureSvgSetInspection currentInspection;
-    if (InspectRequiredFixtureSvgSet(currentKey_->effectiveGdtfPath,
-                                     currentInspection) &&
-        currentInspection.usable) {
+    if (symbol_cache::InspectFixtureSymbolAvailability(
+            currentKey_->effectiveGdtfPath).storedSvgUsable) {
       coordinator_.Complete(*currentKey_, epoch_, true);
     } else {
       const auto apply = symbol_preview::ApplySymbolsToFixtureGdtfWithResult(
@@ -454,26 +440,7 @@ void FixtureSymbolPreparationService::UpdateStatus() {
   if (statusWork) {
     switch (statusWork->stage) {
     case WorkStage::Capturing:
-      if (statusWork->nextCaptureStep > 0 &&
-          statusWork->nextCaptureStep <=
-              symbols::FixtureSymbolCapturePlan().size()) {
-        switch (symbols::FixtureSymbolCapturePlan()
-                    [statusWork->nextCaptureStep - 1]
-                        .symbolView) {
-        case symbols::SymbolView::Top:
-          phase = "Capturing Top";
-          break;
-        case symbols::SymbolView::Bottom:
-          phase = "Capturing Bottom";
-          break;
-        case symbols::SymbolView::Front:
-          phase = "Capturing Front";
-          break;
-        case symbols::SymbolView::Left:
-          phase = "Capturing Side";
-          break;
-        }
-      }
+      phase = "Capturing fixture views";
       break;
     case WorkStage::Processing:
       phase = "Processing";

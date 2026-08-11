@@ -73,12 +73,12 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_object_truss_converter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scenedatamanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/simplecrypt.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/symbol_cache_manifest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DImageBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/FixtureSymbolDiagnostics.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_generation_identity.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_availability.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_preparation_coordinator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_preparation_requests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_resource_revision.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/fixture_symbol_svg_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/SymbolGeometrySimplifier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp

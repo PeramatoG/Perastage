@@ -82,7 +82,7 @@ phase scopes, and do not format or submit a debug log record.
 - `calibration`: physical-unit calibration after capture.
 - `archive_rewrite`: archive read, metadata/SVG mutation, canonical temporary
   write, and atomic replacement.
-- `validation`: project manifest validation before a cache skip, plus
+- `validation`: exact stored-view inspection before a runtime skip, plus
   post-replacement entry and semantic-fingerprint validation. Repeated scopes
   accumulate for generated work.
 - `refresh`: the existing scene refresh after a successful apply.
@@ -91,7 +91,7 @@ An absent phase is formatted as `-`; the programmatic accessor returns zero for
 that phase. Repeated phase scopes accumulate. `total_us` is wall-clock elapsed
 time for the fixture work record and can therefore exceed the phase sum.
 
-A manifest-valid **skipped** job contains resolve, fingerprint, and validation;
+A stored-SVG-valid **skipped** job contains resolve and exact-view validation;
 an inspection skip also contains inspect. A **generated** job contains all applicable phases,
 including bounds through refresh and persistence phases. A **failed** job keeps
 every phase completed before its failure; later phases remain absent. Outcomes

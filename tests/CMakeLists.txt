@@ -72,8 +72,7 @@ add_library(perastage_test_diagnostics STATIC
             ../core/configservices.cpp
             ../core/diagnostics/DiagnosticPaths.cpp
             ../core/filesystem_path_utils.cpp
-            ../core/logger.cpp
-            ../core/symbol_cache_manifest.cpp)
+            ../core/logger.cpp)
 target_include_directories(perastage_test_diagnostics PRIVATE
                            ../core
                            ../third_party)
@@ -127,6 +126,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
+    add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
     add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
     add_bash_policy_test(FixtureSymbol3DRefresh ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_3d_refresh.sh)
@@ -388,6 +388,13 @@ add_executable(pdf_font_metrics_test
                pdf_font_metrics_test.cpp
                ../viewer2d/pdf/font_metrics.cpp)
 add_test(NAME PdfFontMetricsEncoding COMMAND pdf_font_metrics_test)
+
+add_executable(layout_pdf_symbol_usage_test
+               layout_pdf_symbol_usage_test.cpp
+               ../viewer2d/pdf/layout_pdf_symbol_usage.cpp)
+target_include_directories(layout_pdf_symbol_usage_test PRIVATE
+                           ../viewer2d ../viewer2d/pdf)
+add_test(NAME LayoutPdfSymbolUsage COMMAND layout_pdf_symbol_usage_test)
 
 add_executable(fixture_label_overrides_reconcile_test
                fixture_label_overrides_reconcile_test.cpp
@@ -1988,12 +1995,14 @@ target_include_directories(perastage_test_fixture_symbol_diagnostics PUBLIC
 
 add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test.cpp
                support/gdtf_test_fixture_builder.cpp
-               fixture_symbol_svg_cache_invalidation_stub.cpp
                build_info_stub.cpp
                ../gui/windows/symbol_fixture_applier.cpp
                ../gui/fixtures/fixture_gdtf_resolution.cpp
                ../core/fixture_gdtf_derivative_publication.cpp
                ../core/fixture_gdtf_derivative_contract.cpp
+               ../core/symbols/fixture_symbol_availability.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
                ../gui/windows/symbol_preview_exporter.cpp
                ../core/configmanager.cpp
                ../core/configservices.cpp
@@ -2247,6 +2256,7 @@ add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_te
 add_executable(fixture_symbol_svg_cache_test
                fixture_symbol_svg_cache_test.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(fixture_symbol_svg_cache_test PRIVATE
                            ${CMAKE_SOURCE_DIR}/core
@@ -2522,6 +2532,12 @@ target_include_directories(fixture_symbol_preparation_coordinator_test PRIVATE
 add_test(NAME FixtureSymbolPreparationCoordinator
          COMMAND fixture_symbol_preparation_coordinator_test)
 
+add_executable(scene_replacement_lifecycle_test
+               scene_replacement_lifecycle_test.cpp)
+target_include_directories(scene_replacement_lifecycle_test PRIVATE ../gui)
+add_test(NAME SceneReplacementLifecycle
+         COMMAND scene_replacement_lifecycle_test)
+
 add_executable(fixture_symbol_preparation_requests_test
                fixture_symbol_preparation_requests_test.cpp
                ../core/symbols/fixture_symbol_preparation_requests.cpp)
@@ -2530,14 +2546,13 @@ target_include_directories(fixture_symbol_preparation_requests_test PRIVATE
 add_test(NAME FixtureSymbolPreparationRequests
          COMMAND fixture_symbol_preparation_requests_test)
 
-add_executable(scene_model_symbol_capture_snapshot_test
-               scene_model_symbol_capture_snapshot_test.cpp
+add_executable(scoped_single_model_capture_scene_test
+               scoped_single_model_capture_scene_test.cpp
                configmanager_layoutmanager_stub.cpp
-               ../gui/tools/scene_model_symbol_capture_snapshot.cpp
-               ../core/scenedatamanager.cpp)
-target_include_directories(scene_model_symbol_capture_snapshot_test PRIVATE
+               ../gui/tools/scoped_single_model_capture_scene.cpp)
+target_include_directories(scoped_single_model_capture_scene_test PRIVATE
                            ../core ../models ../gui ../viewer3d)
-target_link_libraries(scene_model_symbol_capture_snapshot_test PRIVATE
+target_link_libraries(scoped_single_model_capture_scene_test PRIVATE
                       ${wxWidgets_LIBRARIES})
-add_test(NAME SceneModelSymbolCaptureSnapshot
-         COMMAND scene_model_symbol_capture_snapshot_test)
+add_test(NAME ScopedSingleModelCaptureScene
+         COMMAND scoped_single_model_capture_scene_test)

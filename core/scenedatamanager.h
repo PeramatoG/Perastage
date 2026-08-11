@@ -27,24 +27,6 @@
 // Simple singleton wrapper providing access to the scene data
 class SceneDataManager {
 public:
-    struct SceneSnapshot {
-        std::unordered_map<std::string, Fixture> fixtures;
-        std::unordered_map<std::string, Truss> trusses;
-        std::unordered_map<std::string, SceneObject> sceneObjects;
-        std::unordered_map<std::string, GroupObject> groupObjects;
-    };
-
-    class ScopedSnapshot {
-    public:
-        explicit ScopedSnapshot(const SceneSnapshot& snapshot);
-        ~ScopedSnapshot();
-        ScopedSnapshot(const ScopedSnapshot&) = delete;
-        ScopedSnapshot& operator=(const ScopedSnapshot&) = delete;
-
-    private:
-        const SceneSnapshot* previous_ = nullptr;
-    };
-
     static SceneDataManager& Instance();
 
     const std::unordered_map<std::string, Fixture>& GetFixtures() const;
@@ -54,8 +36,6 @@ public:
     const std::unordered_map<std::string, GroupObject>& GetGroupObjects() const;
 
 private:
-    friend class ScopedSnapshot;
-    static thread_local const SceneSnapshot* activeSnapshot_;
     SceneDataManager() = default;
     SceneDataManager(const SceneDataManager&) = delete;
     SceneDataManager& operator=(const SceneDataManager&) = delete;

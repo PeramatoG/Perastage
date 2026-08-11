@@ -7,33 +7,21 @@
 #include <wx/gdicmn.h>
 
 #include "symbols/FixtureSymbolDiagnostics.h"
-#include "scenedatamanager.h"
 #include "symbols/Symbol2D.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "tools/fixture_geometry_bounds.h"
+#include "tools/scene_model_symbol_target.h"
 
 class ConfigManager;
 class Viewer2DOffscreenRenderer;
 
 namespace tools {
 
-enum class SceneModelKind {
-  Fixture,
-  Truss,
-  SceneObject,
-};
-
-struct SceneModelSymbolTarget {
-  SceneModelKind kind = SceneModelKind::Fixture;
-  std::string uuid;
-};
-
 struct SceneModelSymbolCaptureOptions {
   bool alignToLocalAxes = false;
   std::optional<std::string> forcedFixtureColor;
   wxSize viewportSize = wxSize(1200, 1200);
   std::optional<FixtureGeometryBounds> fixtureBoundsOverride;
-  bool refreshPanelAfterStep = true;
   symbols::FixtureSymbolTimings *timings = nullptr;
 };
 
@@ -44,22 +32,16 @@ struct SceneModelSymbolCaptureResult {
   FixtureGeometryBounds fixtureBoundsMm;
 };
 
-struct SceneModelSymbolCaptureStepResult {
+struct SceneModelSymbolRenderResult {
   bool ok = false;
   std::string error;
-  std::optional<symbols::RenderedSymbolImage> image;
+  std::vector<symbols::RenderedSymbolImage> renders;
   FixtureGeometryBounds fixtureBoundsMm;
 };
 
-SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
-    Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
-    const SceneModelSymbolTarget &target, std::size_t stepIndex,
-    const SceneModelSymbolCaptureOptions &options = {});
-
-SceneModelSymbolCaptureStepResult CaptureSceneModelOrthographicStep(
+SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target,
-    const SceneDataManager::SceneSnapshot &snapshot, std::size_t stepIndex,
     const SceneModelSymbolCaptureOptions &options = {});
 
 SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(

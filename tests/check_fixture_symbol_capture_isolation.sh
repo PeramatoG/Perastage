@@ -3,21 +3,31 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 capture="$root/gui/tools/scene_model_symbol_capture_service.cpp"
-boundary="$root/gui/tools/scene_model_symbol_capture_snapshot.cpp"
+service="$root/gui/services/fixture_symbol_preparation_service.cpp"
+compatibility="$root/gui/tools/scoped_single_model_capture_scene.cpp"
 
-if rg -n 'GetScene\(\)\.(fixtures|trusses|sceneObjects|supports).*(swap|clear)|\.swap\(scene\.(fixtures|trusses|sceneObjects|supports)' "$capture"; then
-  echo "Fixture symbol capture must not replace live scene containers." >&2
-  exit 1
-fi
-
-if rg -n 'ScopedFixtureColorOverride|ScopedSingleModelSceneOverride' "$capture"; then
-  echo "Fixture symbol capture must not restore the legacy live-scene overrides." >&2
-  exit 1
-fi
-
-rg -q 'ExecuteSceneModelSymbolCaptureBoundary' "$capture"
-rg -q 'BuildSceneModelSymbolCaptureSnapshot' "$boundary"
-rg -q 'SceneDataManager::ScopedSnapshot' "$boundary"
-rg -Fq 'ScopedSnapshot isolatedScene(snapshot)' "$boundary"
+rg -q 'ScopedSingleModelCaptureScene' "$capture"
+rg -q 'originalFixtures_\.swap\(scene\.fixtures\)' "$compatibility"
+rg -q 'scene\.fixtures\.swap\(originalFixtures_\)' "$compatibility"
 rg -Fq 'PrepareForSceneReplacement();' "$capture"
-echo "Fixture symbol capture isolation boundary is intact."
+if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$capture" "$service"; then
+  echo "Fixture capture must not yield between orthographic views." >&2
+  exit 1
+fi
+"${PERASTAGE_TEST_PYTHON:?PERASTAGE_TEST_PYTHON is required}" - "$capture" <<'PY'
+import pathlib
+import sys
+
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+boundary = text.find("CaptureSceneModelOrthographicRenders(")
+isolated = text.find("ScopedSingleModelCaptureScene isolatedScene", boundary)
+warmup = text.find("RenderToRGBA(", isolated)
+loop = text.find("for (const auto &request : requests)", warmup)
+fit = text.find("FitViewToScene()", warmup)
+render = text.find("RenderToRGBA(", fit)
+if min(boundary, isolated, warmup, loop, fit, render) < 0 or not warmup < loop < fit < render:
+    raise SystemExit(
+        "Fixture capture must warm up and render every view in one isolated scope."
+    )
+PY
+echo "Fixture symbol capture uses one continuous compatibility boundary."

@@ -12,7 +12,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "legendutils.h"
-#include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "viewer2dcommandrenderer.h"
 
 namespace {
@@ -184,9 +184,9 @@ const PerastageSvgSymbolData *FindSvgSymbolForView(
     auto cacheIt = svgCache.find(cacheKey);
     if (cacheIt == svgCache.end()) {
       std::optional<PerastageSvgSymbolData> loaded;
-      PerastageSvgSymbolData data;
-      if (LoadPerastageSvgSymbolFromGdtf(lookupModelKey, view, data))
-        loaded = std::move(data);
+      if (const auto data =
+              symbol_cache::LoadUsableFixtureSymbol(lookupModelKey, view))
+        loaded = *data;
       cacheIt = svgCache.emplace(cacheKey, std::move(loaded)).first;
     }
     return cacheIt->second ? &cacheIt->second.value() : nullptr;

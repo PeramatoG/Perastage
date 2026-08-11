@@ -1,7 +1,7 @@
 #include "fixture_symbol_svg_cache.h"
 
 #include "filesystem_path_utils.h"
-#include "symbol_cache_manifest.h"
+#include "fixture_symbol_resource_revision.h"
 
 #include <iterator>
 #include <utility>
@@ -12,11 +12,8 @@ namespace {
 constexpr int kSvgParserFormatVersion = 1;
 
 // Builds the content-qualified lookup key without presentation labels.
-std::string BuildKey(const std::string &pathKey,
-                     const FixtureSymbolSvgRequest &request) {
-  return pathKey + "\n" + std::to_string(static_cast<int>(request.view)) +
-         "\n" + request.semanticFingerprint + "\n" +
-         request.generationIdentityKey + "\n" +
+std::string BuildKey(const GdtfFileRevision &revision, SymbolViewKind view) {
+  return revision.Key() + "\n" + std::to_string(static_cast<int>(view)) + "\n" +
          std::to_string(kSvgParserFormatVersion);
 }
 
@@ -39,9 +36,9 @@ FixtureSymbolSvgCache::LookupOrLoad(const FixtureSymbolSvgRequest &request,
                                     std::string *errorDetails) {
   if (request.physicalGdtfPath.empty())
     return {};
-  const std::string pathKey =
-      PathUtils::BuildFilesystemIdentityKey(request.physicalGdtfPath);
-  const std::string key = BuildKey(pathKey, request);
+  const GdtfFileRevision revision =
+      ReadGdtfFileRevision(request.physicalGdtfPath);
+  const std::string key = BuildKey(revision, request.view);
   {
     std::lock_guard<std::mutex> lock(mutex_);
     const auto found = entries_.find(key);
@@ -67,8 +64,8 @@ FixtureSymbolSvgCache::LookupOrLoad(const FixtureSymbolSvgRequest &request,
       std::make_shared<const PerastageSvgSymbolData>(std::move(loaded));
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto [it, inserted] = entries_.emplace(
-        key, Entry{pathKey, request.generationIdentityKey, handle});
+    auto [it, inserted] =
+        entries_.emplace(key, Entry{revision.physicalPathIdentity, handle});
     if (!inserted)
       handle = it->second.symbol;
     stats_.entries = entries_.size();
@@ -88,19 +85,6 @@ void FixtureSymbolSvgCache::InvalidatePath(
     it = it->second.pathKey == pathKey ? entries_.erase(it) : std::next(it);
   }
   ++stats_.pathInvalidations;
-  stats_.entries = entries_.size();
-}
-
-// Invalidates parsed symbols for one canonical generation identity key.
-void FixtureSymbolSvgCache::InvalidateGenerationIdentity(
-    const std::string &identityKey) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  for (auto it = entries_.begin(); it != entries_.end();) {
-    it = !identityKey.empty() && it->second.generationIdentityKey == identityKey
-             ? entries_.erase(it)
-             : std::next(it);
-  }
-  ++stats_.identityInvalidations;
   stats_.entries = entries_.size();
 }
 
@@ -126,7 +110,7 @@ FixtureSymbolSvgCache &GetFixtureSymbolSvgCache() {
   return cache;
 }
 
-// Coordinates parsed-symbol and fingerprint invalidation after archive
+// Coordinates parsed-symbol and semantic-revision invalidation after
 // replacement.
 void InvalidateFixtureSymbolCachesForPath(const std::string &physicalGdtfPath) {
   GetFixtureSymbolSvgCache().InvalidatePath(physicalGdtfPath);

@@ -37,7 +37,7 @@
 #include "perastage_svg_symbol_builder.h"
 #include "pick_mesh_validation.h"
 #include "scenedatamanager.h"
-#include "symbols/PerastageSvgSymbol.h"
+#include "symbols/fixture_symbol_availability.h"
 #include "symbols/fixture_symbol_preparation_requests.h"
 #include "universe_color.h"
 #include "viewer3dcontroller.h"
@@ -909,9 +909,9 @@ void OpaqueFixturePass::Render(
         auto cacheIt = perastageSvgCache.find(cacheKey);
         if (cacheIt == perastageSvgCache.end()) {
           std::optional<PerastageSvgSymbolData> loaded;
-          PerastageSvgSymbolData svg;
-          if (LoadPerastageSvgSymbolFromGdtf(svgSourcePath, candidateView, svg))
-            loaded = std::move(svg);
+          if (const auto svg = symbol_cache::LoadUsableFixtureSymbol(
+                  svgSourcePath, candidateView))
+            loaded = *svg;
           cacheIt =
               perastageSvgCache.emplace(cacheKey, std::move(loaded)).first;
         }

@@ -38,7 +38,6 @@ struct FixtureSymbolPreparationJob {
   FixtureSymbolPreparationPriority priority =
       FixtureSymbolPreparationPriority::Automatic;
   FixtureSymbolPreparationState state = FixtureSymbolPreparationState::Queued;
-  std::size_t captureStep = 0;
 };
 
 class FixtureSymbolPreparationCoordinator {
@@ -50,8 +49,8 @@ public:
   std::optional<FixtureSymbolPreparationJob> NextQueued();
   bool BeginCapture(const FixtureSymbolPreparationKey &key,
                     std::uint64_t epoch);
-  bool CompleteCaptureStep(const FixtureSymbolPreparationKey &key,
-                           std::uint64_t epoch);
+  bool CompleteCapture(const FixtureSymbolPreparationKey &key,
+                       std::uint64_t epoch);
   bool BeginPublishing(const FixtureSymbolPreparationKey &key,
                        std::uint64_t epoch);
   bool Complete(const FixtureSymbolPreparationKey &key, std::uint64_t epoch,
