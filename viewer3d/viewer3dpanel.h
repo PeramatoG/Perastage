@@ -221,6 +221,7 @@ private:
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
     bool AlignContinuousElementToPointer(const wxPoint& mousePos);
+    void PresentContinuousPlacementFrame();
     void ConfirmContinuousPlacement();
     void CancelContinuousPlacement();
     void EndContinuousPlacementState();

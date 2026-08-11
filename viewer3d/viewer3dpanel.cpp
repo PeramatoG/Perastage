@@ -2460,7 +2460,7 @@ void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
             m_placementViewRevision.Invalidate();
             if (m_hasLastMousePos)
                 AlignContinuousElementToPointer(m_lastMousePos);
-            Refresh();
+            PresentContinuousPlacementFrame();
         }
     }
 }
@@ -3392,6 +3392,12 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     return true;
 }
 
+// Repaints an active placement immediately before further mouse events run.
+void Viewer3DPanel::PresentContinuousPlacementFrame() {
+    Refresh(false);
+    Update();
+}
+
 // Handles mouse movement for placement, selection, orbit, and pan.
 void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     m_hasLastMousePos = true;
@@ -3403,13 +3409,13 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
             pos = livePos;
         if (m_dragging && event.Dragging()) {
             ApplyCameraDrag(event, pos);
-            Refresh();
+            PresentContinuousPlacementFrame();
             return;
         }
         if (m_placementViewRevision.NeedsAlignment()) {
             m_lastMousePos = pos;
             AlignContinuousElementToPointer(pos);
-            Refresh();
+            PresentContinuousPlacementFrame();
             return;
         }
         const RenderSize renderSize = ResolveRenderSize(this);
@@ -3430,7 +3436,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                 if (!hasValidAxis) {
                     m_lastMousePos = pos;
                     m_placementViewRevision.Invalidate();
-                    Refresh();
+                    PresentContinuousPlacementFrame();
                     return;
                 }
         if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None &&
@@ -3465,11 +3471,11 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                 } else {
                     m_lastMousePos = pos;
                     m_placementViewRevision.Invalidate();
-                    Refresh();
+                    PresentContinuousPlacementFrame();
                     return;
                 }
             }
-            Refresh();
+            PresentContinuousPlacementFrame();
         } else {
             m_placementViewRevision.Invalidate();
         }
