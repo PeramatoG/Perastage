@@ -14,9 +14,8 @@ int main() {
   assert(ShouldRenderSelectionOverlay(false, true, false));
   assert(!ShouldRenderSelectionOverlay(false, false, false));
   assert(!ShouldRenderSelectionOverlay(true, true, true));
-  assert(ShouldUseWhiteModelMeshPath(true, false));
-  assert(!ShouldUseWhiteModelMeshPath(true, true));
-  assert(!ShouldUseWhiteModelMeshPath(false, true));
+  assert(ShouldLightSelectionFill(false));
+  assert(!ShouldLightSelectionFill(true));
 
   assert(QuantizeSketchLuminance(0.0f) == SketchTone::Dark);
   assert(QuantizeSketchLuminance(kSketchDarkLuminanceThreshold) ==

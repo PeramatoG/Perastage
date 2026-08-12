@@ -5,10 +5,9 @@
 #include "viewer3d_types.h"
 #include <functional>
 
-// Returns whether mesh rendering should use the white-model material path.
-inline bool ShouldUseWhiteModelMeshPath(bool whiteModelStyle,
-                                        bool selectionOverlayPass) {
-  return whiteModelStyle && !selectionOverlayPass;
+// Returns whether a highlighted fill should retain scene lighting.
+inline bool ShouldLightSelectionFill(bool selectionOverlayPass) {
+  return !selectionOverlayPass;
 }
 
 class SceneRenderer {

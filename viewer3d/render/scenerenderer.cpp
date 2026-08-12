@@ -275,8 +275,7 @@ void SceneRenderer::DrawMeshWithOutline(
   }
 
   if (!m_controller.IsCaptureOnly()) {
-    if (ShouldUseWhiteModelMeshPath(
-            m_controller.IsWhiteModelStyleEnabled(), selectionOverlayPass)) {
+    if (m_controller.IsWhiteModelStyleEnabled()) {
       const GLboolean texture2DWhiteModelWasEnabled =
           glIsEnabled(GL_TEXTURE_2D);
       if (texture2DWhiteModelWasEnabled)
@@ -318,12 +317,6 @@ void SceneRenderer::DrawMeshWithOutline(
           interactiveSketchMode ? ReadSketchInteractionWireframeMode()
                                 : SketchInteractionWireframeMode::FullQuality;
       bool drawBaseWireframe = true;
-      if (m_controller.IsSketchRenderStyleEnabled() &&
-          (highlight || groupHighlight || selected)) {
-        // The post-composite overlay supplies the colored fill and outline;
-        // avoid repainting black Sketch ink over that visual feedback.
-        drawBaseWireframe = false;
-      }
       int wireframeTriangleStep = 1;
       if (interactiveSketchMode) {
         if (interactionMode == SketchInteractionWireframeMode::Sparse) {
@@ -369,12 +362,18 @@ void SceneRenderer::DrawMeshWithOutline(
       } else if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
         const GLboolean highlightLightingWasEnabled = glIsEnabled(GL_LIGHTING);
-        if (!highlightLightingWasEnabled)
+        const bool lightSelectionFill =
+            ShouldLightSelectionFill(selectionOverlayPass);
+        if (lightSelectionFill && !highlightLightingWasEnabled)
           glEnable(GL_LIGHTING);
+        else if (!lightSelectionFill && highlightLightingWasEnabled)
+          glDisable(GL_LIGHTING);
         LogMeshVaoDiagnostic(mesh, "before-highlight-draw");
         DrawMesh(mesh, scale, modelMatrix);
         LogMeshVaoDiagnostic(mesh, "after-highlight-draw");
-        if (!highlightLightingWasEnabled)
+        if (highlightLightingWasEnabled)
+          glEnable(GL_LIGHTING);
+        else
           glDisable(GL_LIGHTING);
       } else if (usePureWhiteFillInWhiteMode) {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
