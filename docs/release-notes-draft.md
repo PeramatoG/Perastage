@@ -6,6 +6,13 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Fixtures can now snap continuously along geometry-derived main chords on
+  straight square, triangular, and ladder trusses. Fixture guidance shows these
+  mounting paths instead of structural connector points, while existing GDTF
+  Magnet behavior remains dedicated to truss-to-truss connections. When usable
+  chord geometry is unavailable, Perastage retains its conservative bounds-based
+  fallback.
+
 - Added an enabled-by-default **Magnet visual feedback** preference that shows
   every compatible anchor as a vivid red point or direction line throughout
   movement and insertion in the 2D and 3D viewers.

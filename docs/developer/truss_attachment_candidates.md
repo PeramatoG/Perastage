@@ -1,5 +1,8 @@
 # Truss attachment candidates
 
+> Fixture mounting is a separate continuous-path domain. See
+> [Fixture attachment paths on trusses](truss_fixture_attachment_paths.md).
+
 Truss-to-truss Magnet snapping is translation-only and uses deterministic
 attachment points. Candidate scoring applies the active view's axis weights,
 but the selected translation always retains all three components.
