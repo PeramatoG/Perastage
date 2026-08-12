@@ -1481,23 +1481,44 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   const auto magnetReferences =
       ConfigManager::Get().GetValue(magnet_snap::kShowAnchorReferencesConfigKey);
-  if (m_magnetEnabled && m_pendingMagnetSnap &&
+  const auto magnetSource = BuildActiveMagnetSource();
+  if (magnetSource && m_dragMode == DragMode::Selection &&
       (!magnetReferences || *magnetReferences != "0")) {
     auto toMeters = [](const std::array<float, 3> &pointMm) {
       return std::array<float, 3>{pointMm[0] / 1000.0f, pointMm[1] / 1000.0f,
                                   pointMm[2] / 1000.0f};
     };
-    const auto sourceScreen = Viewer2DMeasureWorldToScreen(
-        toMeters(m_pendingMagnetSnap->sourceAnchorMm), m_view, w, h, m_zoom,
-        m_offsetX, m_offsetY);
-    const auto targetScreen = Viewer2DMeasureWorldToScreen(
-        toMeters(m_pendingMagnetSnap->targetAnchorMm), m_view, w, h, m_zoom,
-        m_offsetX, m_offsetY);
-    if (sourceScreen && targetScreen) {
-      viewer_common::DrawMagnetAnchorOverlay(
-          (*sourceScreen)[0], h - (*sourceScreen)[1], (*targetScreen)[0],
-          h - (*targetScreen)[1], w, h, darkMode);
+    std::vector<viewer_common::MagnetAnchorScreenReference> screenReferences;
+    const auto references = magnet_snap::BuildAnchorReferences(
+        ConfigManager::Get().GetScene(), *magnetSource,
+        m_trussCandidateResolver);
+    for (const auto &reference : references) {
+      const auto position = Viewer2DMeasureWorldToScreen(
+          toMeters(reference.positionMm), m_view, w, h, m_zoom, m_offsetX,
+          m_offsetY);
+      if (!position)
+        continue;
+      if ((*position)[0] < 0.0f || (*position)[0] > w ||
+          (*position)[1] < 0.0f || (*position)[1] > h)
+        continue;
+      viewer_common::MagnetAnchorScreenReference screen{
+          (*position)[0], h - (*position)[1]};
+      if (reference.direction) {
+        auto directionEndMm = reference.positionMm;
+        for (int axis = 0; axis < 3; ++axis)
+          directionEndMm[axis] += (*reference.direction)[axis] * 200.0f;
+        const auto directionEnd = Viewer2DMeasureWorldToScreen(
+            toMeters(directionEndMm), m_view, w, h, m_zoom, m_offsetX,
+            m_offsetY);
+        if (directionEnd) {
+          screen.directionX = (*directionEnd)[0] - screen.x;
+          screen.directionY = h - (*directionEnd)[1] - screen.y;
+          screen.hasDirection = true;
+        }
+      }
+      screenReferences.push_back(screen);
     }
+    viewer_common::DrawMagnetAnchorOverlay(screenReferences, w, h);
   }
 
   if (m_measureToolState.enabled && m_measureToolState.hasAnchor) {

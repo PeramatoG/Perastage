@@ -49,10 +49,10 @@ MVR hierarchy and does not mark the project dirty.
 ### Magnet visual feedback
 
 **Show anchor references while moving or inserting elements** is enabled by
-default. When Magnet is enabled and an element reaches a compatible snap point,
-the 2D and 3D viewers display paired cyan markers and a connecting line for the
-active source and target anchors. The references disappear when the move or
-insertion ends and do not become part of the scene or exported data.
+default. When Magnet is enabled and an element is being moved or inserted, the
+2D and 3D viewers display every compatible anchor as a vivid red point or
+direction line. The references remain visible throughout the interaction,
+disappear when it ends, and do not become part of the scene or exported data.
 
 ## Update check behavior
 

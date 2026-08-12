@@ -1295,21 +1295,45 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         DrawSelectionDragGizmo(renderSize);
     const auto magnetReferences = ConfigManager::Get().GetValue(
         magnet_snap::kShowAnchorReferencesConfigKey);
-    if (m_pendingMagnetSnap && (!magnetReferences || *magnetReferences != "0")) {
+    const auto magnetSource = BuildActiveMagnetSource();
+    if (magnetSource && m_selectionDragArmed &&
+        (!magnetReferences || *magnetReferences != "0")) {
         auto toMeters = [](const std::array<float, 3> &pointMm) {
             return std::array<float, 3>{pointMm[0] / 1000.0f,
                                         pointMm[1] / 1000.0f,
                                         pointMm[2] / 1000.0f};
         };
-        const auto source = ProjectWorldToFramebuffer(
-            toMeters(m_pendingMagnetSnap->sourceAnchorMm));
-        const auto target = ProjectWorldToFramebuffer(
-            toMeters(m_pendingMagnetSnap->targetAnchorMm));
-        if (source && target) {
-            viewer_common::DrawMagnetAnchorOverlay(
-                (*source)[0], (*source)[1], (*target)[0], (*target)[1],
-                renderSize.width, renderSize.height, Is2DDarkModeEnabled());
+        std::vector<viewer_common::MagnetAnchorScreenReference> screenReferences;
+        const auto references = magnet_snap::BuildAnchorReferences(
+            ConfigManager::Get().GetScene(), *magnetSource,
+            m_trussCandidateResolver);
+        for (const auto &reference : references) {
+            const auto position =
+                ProjectWorldToFramebuffer(toMeters(reference.positionMm));
+            if (!position)
+                continue;
+            if ((*position)[0] < 0.0f || (*position)[0] > renderSize.width ||
+                (*position)[1] < 0.0f || (*position)[1] > renderSize.height)
+                continue;
+            viewer_common::MagnetAnchorScreenReference screen{
+                (*position)[0], (*position)[1]};
+            if (reference.direction) {
+                auto directionEndMm = reference.positionMm;
+                for (int axis = 0; axis < 3; ++axis)
+                    directionEndMm[axis] +=
+                        (*reference.direction)[axis] * 200.0f;
+                const auto directionEnd =
+                    ProjectWorldToFramebuffer(toMeters(directionEndMm));
+                if (directionEnd) {
+                    screen.directionX = (*directionEnd)[0] - screen.x;
+                    screen.directionY = (*directionEnd)[1] - screen.y;
+                    screen.hasDirection = true;
+                }
+            }
+            screenReferences.push_back(screen);
         }
+        viewer_common::DrawMagnetAnchorOverlay(
+            screenReferences, renderSize.width, renderSize.height);
     }
     DrawMeasureOverlay(renderSize);
 

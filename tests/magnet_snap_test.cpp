@@ -137,6 +137,26 @@ int main() {
                       {0.0f, 400.0f, 400.0f}, MatrixUtils::Identity())
                       .size() == 6);
 
+  SetStage("visible anchor references");
+  MvrScene anchorScene;
+  AddTruss(anchorScene, "reference-truss", 100.0f);
+  truss_attachment::CandidateResolver anchorResolver;
+  const auto anchorReferences = magnet_snap::BuildAnchorReferences(
+      anchorScene, {magnet_snap::ObjectType::Truss, "reference-truss"},
+      anchorResolver);
+  CHECK_OR_RETURN(anchorReferences.size() == 2);
+  CHECK_OR_RETURN(anchorReferences.front().positionMm[0] == 100.0f);
+  CHECK_OR_RETURN(anchorReferences.front().direction.has_value());
+
+  SceneObject referenceObject;
+  referenceObject.uuid = "reference-object";
+  referenceObject.transform = Translated(500.0f, 0.0f, 0.0f);
+  anchorScene.sceneObjects[referenceObject.uuid] = referenceObject;
+  const auto objectReferences = magnet_snap::BuildAnchorReferences(
+      anchorScene, {magnet_snap::ObjectType::SceneObject, referenceObject.uuid},
+      anchorResolver);
+  CHECK_OR_RETURN(objectReferences.size() == 12);
+
   SetStage("explicit XML Magnet parsing");
   const std::string magnetXml =
       "<GDTF><FixtureType><Geometries>"
