@@ -118,8 +118,9 @@ int main() {
                   (*longitudinal[1].worldDirection)[0] == 1.0f);
   GeometryBounds offsetBounds{{200.0f, -200.0f, -21.65f},
                               {3200.0f, 200.0f, 371.65f}};
-  const auto offsetLongitudinal = truss_attachment::BuildInferredCandidates(
-      offsetBounds, MatrixUtils::Identity(), "offset-long");
+  const auto offsetLongitudinal =
+      truss_attachment::BuildInferredCandidatesFromBounds(
+          offsetBounds, MatrixUtils::Identity(), "offset-long");
   CHECK_OR_RETURN(offsetLongitudinal.size() == 2);
   CHECK_OR_RETURN(offsetLongitudinal[0].localTransform.o[0] == 200.0f);
   CHECK_OR_RETURN(offsetLongitudinal[1].localTransform.o[0] == 3200.0f);

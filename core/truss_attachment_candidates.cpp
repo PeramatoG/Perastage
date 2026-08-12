@@ -197,9 +197,9 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
 
 // Builds inferred candidates from measured local minimum and maximum planes.
 std::vector<Candidate>
-BuildInferredCandidates(const GeometryBounds &bounds,
-                        const Matrix &trussTransform,
-                        const std::string &sourceId) {
+BuildInferredCandidatesFromBounds(const GeometryBounds &bounds,
+                                  const Matrix &trussTransform,
+                                  const std::string &sourceId) {
   if (!bounds.IsValid())
     return {};
   const auto size = bounds.SizeMm();
@@ -353,8 +353,9 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
       }
       if (result.candidates.empty())
         result.candidates = truss.localGeometryBounds
-                                ? BuildInferredCandidates(*truss.localGeometryBounds,
-                                                          truss.transform, truss.uuid)
+                                ? BuildInferredCandidatesFromBounds(
+                                      *truss.localGeometryBounds, truss.transform,
+                                      truss.uuid)
                                 : BuildInferredCandidates(
                                       {truss.lengthMm, truss.widthMm, truss.heightMm},
                                       truss.transform, truss.uuid);
@@ -390,8 +391,9 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
     }
     if (result.candidates.empty())
       result.candidates = truss.localGeometryBounds
-                              ? BuildInferredCandidates(*truss.localGeometryBounds,
-                                                        truss.transform, truss.uuid)
+                              ? BuildInferredCandidatesFromBounds(
+                                    *truss.localGeometryBounds, truss.transform,
+                                    truss.uuid)
                               : BuildInferredCandidates(
                                     {truss.lengthMm, truss.widthMm, truss.heightMm},
                                     truss.transform, truss.uuid);
@@ -401,8 +403,9 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
   CandidateResolution fallback;
   fallback.diagnostics = std::move(resolutionDiagnostics);
   fallback.candidates = truss.localGeometryBounds
-                            ? BuildInferredCandidates(*truss.localGeometryBounds,
-                                                      truss.transform, truss.uuid)
+                            ? BuildInferredCandidatesFromBounds(
+                                  *truss.localGeometryBounds, truss.transform,
+                                  truss.uuid)
                             : BuildInferredCandidates(
                                   {truss.lengthMm, truss.widthMm, truss.heightMm},
                                   truss.transform, truss.uuid);
