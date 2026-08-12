@@ -1902,7 +1902,9 @@ add_test(NAME MeshPrimitivesCubeNormals COMMAND meshprimitives_cube_normals_test
 
 add_executable(sketch_post_process_policy_test
                sketch_post_process_policy_test.cpp)
-target_include_directories(sketch_post_process_policy_test PRIVATE ../viewer3d)
+target_include_directories(sketch_post_process_policy_test PRIVATE
+                           ../viewer3d ../viewer3d/render ../viewer3d/interfaces
+                           ../viewer2d)
 add_test(NAME SketchPostProcessPolicy COMMAND sketch_post_process_policy_test)
 add_bash_policy_test(SketchPostProcessArchitecture
                      ${CMAKE_SOURCE_DIR}/tests/check_sketch_post_process_architecture.sh)

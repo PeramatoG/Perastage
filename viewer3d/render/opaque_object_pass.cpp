@@ -488,7 +488,8 @@ void OpaqueObjectPass::Render(
               controller.DrawMeshWithOutline(
                   *part.mesh, r, g, b, RENDER_SCALE, isHighlighted,
                   isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
-                  partCaptureTransform, false, partMatrix, disableDepthBias);
+                  partCaptureTransform, false, partMatrix, disableDepthBias,
+                  context.selectionOverlayPass);
               glPopMatrix();
             }
           } else {
@@ -507,7 +508,7 @@ void OpaqueObjectPass::Render(
                 fallbackMesh, r, g, b, 0.3f, isHighlighted, isGroupHighlighted,
                 isSelected, cx, cy, cz, fallbackWireframe, mode,
                 captureTransformFn, useUnlitFallbackFill, matrix,
-                disableDepthBias);
+                disableDepthBias, context.selectionOverlayPass);
           }
         };
 

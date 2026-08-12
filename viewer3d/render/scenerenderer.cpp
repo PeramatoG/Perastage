@@ -150,7 +150,8 @@ void SceneRenderer::DrawMeshWithOutline(
     bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)>
         &captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias,
+    bool standardSelectionStyle) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -274,7 +275,8 @@ void SceneRenderer::DrawMeshWithOutline(
   }
 
   if (!m_controller.IsCaptureOnly()) {
-    if (m_controller.IsWhiteModelStyleEnabled()) {
+    if (ShouldUseWhiteModelStyle(m_controller.IsWhiteModelStyleEnabled(),
+                                 standardSelectionStyle)) {
       const GLboolean texture2DWhiteModelWasEnabled =
           glIsEnabled(GL_TEXTURE_2D);
       if (texture2DWhiteModelWasEnabled)
