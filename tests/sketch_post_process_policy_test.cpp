@@ -20,6 +20,9 @@ int main() {
   assert(!ShouldUseStandardSelectionLighting(false));
   assert(ShouldUseWhiteModelStyle(true, false));
   assert(!ShouldUseWhiteModelStyle(true, true));
+  assert(ShouldBiasStandardSelectionFill(true, true));
+  assert(!ShouldBiasStandardSelectionFill(true, false));
+  assert(!ShouldBiasStandardSelectionFill(false, true));
   assert(QuantizeSketchLuminance(0.0f) == SketchTone::Dark);
   assert(QuantizeSketchLuminance(kSketchDarkLuminanceThreshold) ==
          SketchTone::Dark);

@@ -11,6 +11,12 @@ inline bool ShouldUseWhiteModelStyle(bool whiteModelStyle,
   return whiteModelStyle && !standardSelectionStyle;
 }
 
+// Returns whether a post-composite selection fill needs a forward depth bias.
+inline bool ShouldBiasStandardSelectionFill(bool standardSelectionStyle,
+                                            bool hasSelectionStyle) {
+  return standardSelectionStyle && hasSelectionStyle;
+}
+
 class SceneRenderer {
 public:
   explicit SceneRenderer(IRenderContext &controller)

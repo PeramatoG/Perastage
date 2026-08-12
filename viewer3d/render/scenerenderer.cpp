@@ -395,6 +395,8 @@ void SceneRenderer::DrawMeshWithOutline(
       if (texture2DWhiteModelWasEnabled)
         glEnable(GL_TEXTURE_2D);
     } else {
+      const bool biasSelectionFill = ShouldBiasStandardSelectionFill(
+          standardSelectionStyle, highlight || groupHighlight || selected);
       const bool useTexture =
           m_controller.IsTexturedRenderStyleEnabled() && !highlight &&
           !groupHighlight && !selected && mesh.textureId != 0 &&
@@ -421,11 +423,17 @@ void SceneRenderer::DrawMeshWithOutline(
 
       if (unlit)
         glDisable(GL_LIGHTING);
+      if (biasSelectionFill) {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-2.0f, -2.0f);
+      }
       if (highlight || groupHighlight || selected)
         LogMeshVaoDiagnostic(mesh, "before-highlight-draw");
       DrawMesh(mesh, scale, modelMatrix, useTexture);
       if (highlight || groupHighlight || selected)
         LogMeshVaoDiagnostic(mesh, "after-highlight-draw");
+      if (biasSelectionFill)
+        glDisable(GL_POLYGON_OFFSET_FILL);
       if (unlit)
         glEnable(GL_LIGHTING);
     }
