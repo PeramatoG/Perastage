@@ -5,11 +5,6 @@
 #include "viewer3d_types.h"
 #include <functional>
 
-// Returns whether a highlighted fill should retain scene lighting.
-inline bool ShouldLightSelectionFill(bool selectionOverlayPass) {
-  return !selectionOverlayPass;
-}
-
 class SceneRenderer {
 public:
   explicit SceneRenderer(IRenderContext &controller)
@@ -21,8 +16,7 @@ public:
       bool wireframe, Viewer2DRenderMode mode,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>
           &captureTransform,
-      bool unlit, const float *modelMatrix, bool disableDepthBias = false,
-      bool selectionOverlayPass = false);
+      bool unlit, const float *modelMatrix, bool disableDepthBias = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>

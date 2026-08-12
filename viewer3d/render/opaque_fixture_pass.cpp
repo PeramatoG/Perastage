@@ -777,7 +777,7 @@ void OpaqueFixturePass::Render(
                 *key.mesh, r, g, b, key.scale, false, false, false, draw.cx,
                 draw.cy, draw.cz, key.wireframe, key.mode,
                 [](const std::array<float, 3> &p) { return p; }, key.unlit,
-                draw.worldMatrix.data(), false, context.selectionOverlayPass);
+                draw.worldMatrix.data());
             glPopMatrix();
             ++drawCalls;
           }
@@ -1086,8 +1086,7 @@ void OpaqueFixturePass::Render(
           controller.DrawMeshWithOutline(
               obj.mesh, partR, partG, partB, RENDER_SCALE, highlight,
               groupHighlight, selected, cx, cy, cz, wireframe, mode,
-              applyCapture, drawUnlit, partMatrix, false,
-              context.selectionOverlayPass);
+              applyCapture, drawUnlit, partMatrix);
           ++drawCalls;
           glPopMatrix();
         }
@@ -1099,7 +1098,7 @@ void OpaqueFixturePass::Render(
         controller.DrawMeshWithOutline(
             FallbackFixtureCubeMesh(), r, g, b, 0.2f, highlight, groupHighlight,
             selected, cx, cy, cz, fallbackWireframe, mode, applyFixtureCapture,
-            fallbackUnlit, matrix, false, context.selectionOverlayPass);
+            fallbackUnlit, matrix);
         ++drawCalls;
       }
       return drawCalls;

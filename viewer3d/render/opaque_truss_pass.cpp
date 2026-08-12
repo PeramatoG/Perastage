@@ -205,8 +205,7 @@ void OpaqueTrussPass::Render(
             controller.DrawMeshWithOutline(
                 *trussMesh, r, g, b, RENDER_SCALE, isHighlighted,
                 isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
-                captureTransformFn, false, matrix, false,
-                context.selectionOverlayPass);
+                captureTransformFn, false, matrix);
           } else {
             controller.DrawWireframeBox(trussLen, trussHei, trussWid, r, g, b,
                                         isHighlighted, isGroupHighlighted,

@@ -150,8 +150,7 @@ void SceneRenderer::DrawMeshWithOutline(
     bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)>
         &captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias,
-    bool selectionOverlayPass) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -362,18 +361,12 @@ void SceneRenderer::DrawMeshWithOutline(
       } else if (highlight || groupHighlight || selected) {
         setHighlightOrSelectionColor();
         const GLboolean highlightLightingWasEnabled = glIsEnabled(GL_LIGHTING);
-        const bool lightSelectionFill =
-            ShouldLightSelectionFill(selectionOverlayPass);
-        if (lightSelectionFill && !highlightLightingWasEnabled)
+        if (!highlightLightingWasEnabled)
           glEnable(GL_LIGHTING);
-        else if (!lightSelectionFill && highlightLightingWasEnabled)
-          glDisable(GL_LIGHTING);
         LogMeshVaoDiagnostic(mesh, "before-highlight-draw");
         DrawMesh(mesh, scale, modelMatrix);
         LogMeshVaoDiagnostic(mesh, "after-highlight-draw");
-        if (highlightLightingWasEnabled)
-          glEnable(GL_LIGHTING);
-        else
+        if (!highlightLightingWasEnabled)
           glDisable(GL_LIGHTING);
       } else if (usePureWhiteFillInWhiteMode) {
         const GLboolean fillLightingWasEnabled = glIsEnabled(GL_LIGHTING);
