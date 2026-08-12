@@ -199,6 +199,9 @@ ProjectTrussGdtfApplyResult ProjectTrussGdtfApplyAdapter::Apply(
   prepared.lengthMm = request.values.trussLengthMm.value_or(prepared.lengthMm);
   prepared.widthMm = request.values.trussWidthMm.value_or(prepared.widthMm);
   prepared.heightMm = request.values.trussHeightMm.value_or(prepared.heightMm);
+  if (request.values.trussLengthMm || request.values.trussWidthMm ||
+      request.values.trussHeightMm)
+    prepared.dimensionSource = Truss::DimensionSource::ManualOverride;
   prepared.weightKg = request.values.weightKg.value_or(prepared.weightKg);
   prepared.gdtfDescription = request.values.fixtureTypeDescription.value_or(prepared.gdtfDescription);
   prepared.crossSectionType = request.values.trussCrossSectionType.value_or(prepared.crossSectionType.empty() ? "TrussFramework" : prepared.crossSectionType);

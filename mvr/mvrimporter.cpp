@@ -45,6 +45,8 @@
 #include "sceneobject.h"
 #include "support.h"
 #include "trussloader.h"
+#include "geometry_bounds_resolver.h"
+#include "truss_dimension_resolution.h"
 #include "uuidutils.h"
 
 #include "consolepanel.h"
@@ -2888,7 +2890,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                               bool hasGdtfMetadataAuthority) {
     if (!info)
       return;
-    (void)hasGdtfMetadataAuthority;
     auto readNumeric = [&](const char *field, float &target) {
       tinyxml2::XMLElement *element = info->FirstChildElement(field);
       if (!element)
@@ -2909,9 +2910,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     if (tinyxml2::XMLElement *mo = info->FirstChildElement("Model"))
       if (mo->GetText())
         truss.model = Trim(mo->GetText());
-    readNumeric("Length", truss.lengthMm);
-    readNumeric("Width", truss.widthMm);
-    readNumeric("Height", truss.heightMm);
+    if (!hasGdtfMetadataAuthority) {
+      readNumeric("Length", truss.lengthMm);
+      readNumeric("Width", truss.widthMm);
+      readNumeric("Height", truss.heightMm);
+      truss.dimensionSource = Truss::DimensionSource::PerastageMetadata;
+    }
     readNumeric("Weight", truss.weightKg);
     if (tinyxml2::XMLElement *desc = info->FirstChildElement("GdtfDescription"))
       if (desc->GetText())
@@ -3035,6 +3039,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               truss.widthMm = gdtfTruss.widthMm;
             if (gdtfTruss.heightMm > 0.0f)
               truss.heightMm = gdtfTruss.heightMm;
+            truss.localGeometryBounds = gdtfTruss.localGeometryBounds;
+            truss.dimensionSource = gdtfTruss.dimensionSource;
             if (gdtfTruss.weightKg > 0.0f)
               truss.weightKg = gdtfTruss.weightKg;
             if (truss.gdtfMode.empty())
@@ -3165,6 +3171,25 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         const bool symbolExists =
             symbolRenderable &&
             fs::exists(resolvedSymbolPath, symbolExistsEc) && !symbolExistsEc;
+        if (symbolExists) {
+          std::string boundsDiagnostic;
+          truss.localGeometryBounds = GeometryBoundsResolver::Resolve(
+              resolvedSymbolPath, &boundsDiagnostic);
+          if (truss.localGeometryBounds) {
+            const bool legacyMetadataContext =
+                !hasGdtfMetadataAuthority &&
+                (truss.sourceRepresentation ==
+                     Truss::GeometryRepresentation::SymbolSymdef ||
+                 truss.sourceRepresentation ==
+                     Truss::GeometryRepresentation::Geometry3D);
+            ResolveTrussDimensionsFromGeometry(truss, legacyMetadataContext);
+          } else if (!boundsDiagnostic.empty()) {
+            importResult.diagnostics.push_back(
+                {"truss_geometry_bounds_unavailable",
+                 "Truss '" + truss.uuid + "' geometry bounds could not be measured: " +
+                     boundsDiagnostic});
+          }
+        }
         if (!symbolExists) {
           std::ostringstream reason;
           if (truss.symbolFile.empty()) {

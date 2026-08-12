@@ -188,11 +188,11 @@ void OpaqueTrussPass::Render(
     }
 
     float trussLengthMm =
-        (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kFallbackLengthMm);
+        (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kViewerFallbackBoxLengthMm);
     float trussWidthMm =
-        (t.widthMm > 0 ? t.widthMm : TrussDefaults::kFallbackWidthMm);
+        (t.widthMm > 0 ? t.widthMm : TrussDefaults::kViewerFallbackBoxWidthMm);
     float trussHeightMm =
-        (t.heightMm > 0 ? t.heightMm : TrussDefaults::kFallbackHeightMm);
+        (t.heightMm > 0 ? t.heightMm : TrussDefaults::kViewerFallbackBoxHeightMm);
     const auto trussWorldDimensionsMm = ComputeWorldTrussDimensionsMm(
         t.transform, trussLengthMm, trussWidthMm, trussHeightMm);
     float trussLen = trussWorldDimensionsMm[0] * RENDER_SCALE;

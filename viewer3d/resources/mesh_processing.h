@@ -5,13 +5,14 @@
 
 #include "gdtf_geometry_types.h"
 #include "mesh.h"
+#include "mesh_geometry_conventions.h"
 
 namespace viewer3d::resources {
 
 struct MeshProcessingOptions {
   bool enableMeshOptimization = true;
   bool enableDiskCache = true;
-  bool applyThreeDsObjectTransforms = false;
+  bool applyThreeDsObjectTransforms = viewer3d::kApplyThreeDsObjectTransforms;
 };
 
 void OptimizeMeshForRuntime(Mesh &mesh);

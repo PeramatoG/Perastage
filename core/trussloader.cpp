@@ -22,6 +22,7 @@
 
 #include "truss_gdtf_builder.h"
 #include "geometry_bounds_resolver.h"
+#include "truss_dimension_resolution.h"
 #include "logger.h"
 
 #include <tinyxml2.h>
@@ -314,6 +315,8 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
       outTruss.widthMm = widthM * 1000.0f;
     if (ParseFloatAttr(model, "Height", heightM))
       outTruss.heightMm = heightM * 1000.0f;
+    if (HasValidTrussDimensions(outTruss))
+      outTruss.dimensionSource = Truss::DimensionSource::GdtfModel;
 
     std::string fileBase = "main";
     if (const char *fileAttr = model->Attribute("File"); fileAttr && *fileAttr)
@@ -328,13 +331,7 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
     if (!modelPath.empty()) {
       outTruss.localGeometryBounds = GeometryBoundsResolver::Resolve(modelPath);
       if (outTruss.localGeometryBounds) {
-        const auto size = outTruss.localGeometryBounds->SizeMm();
-        if (!std::isfinite(outTruss.lengthMm) || outTruss.lengthMm <= 0.0f)
-          outTruss.lengthMm = size[0];
-        if (!std::isfinite(outTruss.widthMm) || outTruss.widthMm <= 0.0f)
-          outTruss.widthMm = size[1];
-        if (!std::isfinite(outTruss.heightMm) || outTruss.heightMm <= 0.0f)
-          outTruss.heightMm = size[2];
+        ResolveTrussDimensionsFromGeometry(outTruss, false);
       }
     }
 
@@ -402,6 +399,7 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
         outTruss.lengthMm = size[0];
         outTruss.widthMm = size[1];
         outTruss.heightMm = size[2];
+        outTruss.dimensionSource = Truss::DimensionSource::GeometryDerived;
         success = true;
       } else {
         Logger::Instance().Log(Logger::Level::Warn,

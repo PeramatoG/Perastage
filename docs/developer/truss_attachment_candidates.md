@@ -40,6 +40,23 @@ synthetic 1000 x 400 x 400 mm metadata is replaced only for raw/legacy geometry
 whose measured bounds differ. A genuinely matching model and deliberate valid
 metadata remain unchanged.
 
+MVR import resolves both direct `Geometry3D` resources and `Symbol`/`Symdef`
+resources before inserting a truss into the scene. Raw mesh bounds remain in
+mesh-local coordinates; the existing composed truss, Symbol, and Symdef
+matrices are applied later by candidate consumers. Dimension provenance is
+tracked as unknown, authoritative GDTF Model, geometry-derived, Perastage
+metadata, recovered legacy synthetic fallback, or manual override. Geometry
+replaces invalid values and conservatively identified legacy metadata, but
+never valid GDTF Model dimensions or a manual override. Historical
+1000 x 400 x 400 mm
+metadata is considered synthetic only for geometry-backed Perastage metadata
+without GDTF authority and only when measured bounds differ; geometry that
+actually measures 1000 x 400 x 400 mm is therefore preserved.
+
+The bounds resolver and Viewer3D both use the native MVR 3DS vertex convention:
+the optional 3DS object basis is not applied. This keeps measured bounds aligned
+with rendered geometry, including assets that contain a non-identity basis.
+
 Dimensions are evaluated in truss-local X, Y, and Z. A shape is longitudinal
 only when its largest positive finite dimension is **strictly greater than
 twice** the second-largest dimension. The strict comparison makes the 2:1

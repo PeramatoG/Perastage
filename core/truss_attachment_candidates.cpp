@@ -3,9 +3,11 @@
 #include "filesystem_path_utils.h"
 #include "gdtf_archive_reader.h"
 #include "matrixutils.h"
+#include "geometry_bounds_resolver.h"
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -323,6 +325,28 @@ CandidateResolution Instantiate(const CandidateResolver::CacheEntry &entry,
 CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
                                                const Truss &truss) {
   std::vector<Diagnostic> resolutionDiagnostics;
+  auto buildInferred = [&]() {
+    if (truss.localGeometryBounds)
+      return BuildInferredCandidatesFromBounds(*truss.localGeometryBounds,
+                                                truss.transform, truss.uuid);
+    for (const std::string *reference : {&truss.symbolFile, &truss.modelFile}) {
+      const std::filesystem::path resolved =
+          ResolveSceneResource(scene, *reference);
+      std::string extension = resolved.extension().string();
+      std::transform(extension.begin(), extension.end(), extension.begin(),
+                     [](unsigned char value) {
+                       return static_cast<char>(std::tolower(value));
+                     });
+      if (extension != ".3ds" && extension != ".glb")
+        continue;
+      if (const auto bounds = GeometryBoundsResolver::Resolve(resolved))
+        return BuildInferredCandidatesFromBounds(*bounds, truss.transform,
+                                                  truss.uuid);
+    }
+    return BuildInferredCandidates(
+        std::array<float, 3>{truss.lengthMm, truss.widthMm, truss.heightMm},
+        truss.transform, truss.uuid);
+  };
   for (const std::string *reference :
        {&truss.gdtfSpec, &truss.perastageAuxGdtfArchivePath}) {
     if (reference->empty())
@@ -352,13 +376,7 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
         continue;
       }
       if (result.candidates.empty())
-        result.candidates = truss.localGeometryBounds
-                                ? BuildInferredCandidatesFromBounds(
-                                      *truss.localGeometryBounds, truss.transform,
-                                      truss.uuid)
-                                : BuildInferredCandidates(
-                                      {truss.lengthMm, truss.widthMm, truss.heightMm},
-                                      truss.transform, truss.uuid);
+        result.candidates = buildInferred();
       return result;
     }
 
@@ -390,25 +408,13 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
       continue;
     }
     if (result.candidates.empty())
-      result.candidates = truss.localGeometryBounds
-                              ? BuildInferredCandidatesFromBounds(
-                                    *truss.localGeometryBounds, truss.transform,
-                                    truss.uuid)
-                              : BuildInferredCandidates(
-                                    {truss.lengthMm, truss.widthMm, truss.heightMm},
-                                    truss.transform, truss.uuid);
+      result.candidates = buildInferred();
     return result;
   }
 
   CandidateResolution fallback;
   fallback.diagnostics = std::move(resolutionDiagnostics);
-  fallback.candidates = truss.localGeometryBounds
-                            ? BuildInferredCandidatesFromBounds(
-                                  *truss.localGeometryBounds, truss.transform,
-                                  truss.uuid)
-                            : BuildInferredCandidates(
-                                  {truss.lengthMm, truss.widthMm, truss.heightMm},
-                                  truss.transform, truss.uuid);
+  fallback.candidates = buildInferred();
   return fallback;
 }
 

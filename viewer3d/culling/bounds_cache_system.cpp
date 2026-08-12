@@ -256,11 +256,11 @@ void BoundsCacheSystem::RebuildIfDirty(
     }
 
     if (!found) {
-      float len = (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kFallbackLengthMm) *
+      float len = (t.lengthMm > 0 ? t.lengthMm : TrussDefaults::kViewerFallbackBoxLengthMm) *
                   RENDER_SCALE;
-      float halfy = (t.widthMm > 0 ? t.widthMm : TrussDefaults::kFallbackWidthMm) *
+      float halfy = (t.widthMm > 0 ? t.widthMm : TrussDefaults::kViewerFallbackBoxWidthMm) *
                     RENDER_SCALE * 0.5f;
-      float z1 = (t.heightMm > 0 ? t.heightMm : TrussDefaults::kFallbackHeightMm) *
+      float z1 = (t.heightMm > 0 ? t.heightMm : TrussDefaults::kViewerFallbackBoxHeightMm) *
                  RENDER_SCALE;
       std::array<std::array<float, 3>, 8> corners = {
           std::array<float, 3>{0.0f, -halfy, 0.0f},

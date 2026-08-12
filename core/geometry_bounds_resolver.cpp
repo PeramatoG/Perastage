@@ -3,6 +3,7 @@
 #include "filesystem_path_utils.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
+#include "mesh_geometry_conventions.h"
 
 #include <algorithm>
 #include <cctype>
@@ -70,7 +71,9 @@ GeometryBoundsResolver::Resolve(const std::filesystem::path &path,
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   ++g_parseCount;
-  const bool loaded = ext == ".3ds" ? Load3DS(path.string(), mesh, true, &error)
+  const bool loaded = ext == ".3ds" ? Load3DS(path.string(), mesh,
+                                               viewer3d::kApplyThreeDsObjectTransforms,
+                                               &error)
                                      : ext == ".glb" ? LoadGLB(path.string(), mesh, &error)
                                                      : false;
   auto bounds = loaded ? MeasureMesh(mesh) : std::nullopt;

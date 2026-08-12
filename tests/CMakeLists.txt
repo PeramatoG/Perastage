@@ -368,11 +368,13 @@ add_executable(magnet_snap_test magnet_snap_test.cpp
     ../core/truss_attachment_candidates.cpp
     ../core/truss_screen_snap.cpp
     ../core/gdtf_archive_reader.cpp
+    ../core/geometry_bounds_resolver.cpp
     ../core/filesystem_path_utils.cpp
     ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
     ../models/mvrscene.cpp
+    ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp
 )
-target_include_directories(magnet_snap_test PRIVATE ../core ../models)
+target_include_directories(magnet_snap_test PRIVATE ../core ../models ../viewer3d ../third_party)
 target_link_libraries(magnet_snap_test PRIVATE tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
 
@@ -1142,6 +1144,8 @@ set_library_env(MvrSupportUserDataRoundtrip)
 
 add_executable(mvr_perastage_metadata_recovery_test
                mvr_perastage_metadata_recovery_test.cpp
+               ../core/truss_attachment_candidates.cpp
+               ../core/gdtf_archive_reader.cpp
                build_info_stub.cpp
                ../core/configmanager.cpp ../core/configservices.cpp
                ../core/projectutils.cpp ../core/library/library_bootstrap.cpp
@@ -1932,10 +1936,13 @@ add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
 
 add_executable(loader3ds_native_dimensions_test loader3ds_native_dimensions_test.cpp
+               ../core/geometry_bounds_resolver.cpp
+               ../core/filesystem_path_utils.cpp
                ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
                consolepanel_stub.cpp)
 target_include_directories(loader3ds_native_dimensions_test PRIVATE
-                           . ../viewer3d ../models ../gui ../third_party)
+                           . ../core ../viewer3d ../models ../gui ../third_party)
 target_link_libraries(loader3ds_native_dimensions_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME Loader3dsNativeDimensions COMMAND loader3ds_native_dimensions_test)
 set_library_env(Loader3dsNativeDimensions)
@@ -2583,6 +2590,10 @@ foreach(perastage_geometry_target IN LISTS perastage_geometry_test_targets)
                            ../core/geometry_bounds_resolver.cpp
                            ../viewer3d/loader3ds.cpp
                            ../viewer3d/loaderglb.cpp)
+        endif()
+        if(NOT "../core/truss_dimension_resolution.cpp" IN_LIST perastage_geometry_sources)
+            target_sources(${perastage_geometry_target} PRIVATE
+                           ../core/truss_dimension_resolution.cpp)
         endif()
         target_include_directories(${perastage_geometry_target} PRIVATE ../viewer3d)
     endif()
