@@ -1052,7 +1052,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   reportProjectLoadProgress(_("Updating window title..."), true);
   UpdateTitle();
   projectLoadProgressStep = kProjectLoadProgressSteps;
-  reportProjectLoadProgress(_("Finalizing project load..."));
+  // Complete the modal progress dialog before destroying it so wxWidgets does
+  // not leave its modal event loop waiting for an unfinished range.
+  reportProjectLoadProgress(_("Finalizing project load..."), false,
+                            projectLoadProgressStep,
+                            kProjectLoadProgressSteps);
   projectLoadProgressDialog.reset();
   if (showBlockingLoadUi)
     ClearBlockingProjectLoadUi();

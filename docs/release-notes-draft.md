@@ -91,6 +91,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Project opening now completes its progress dialog explicitly before closing
+  it, preventing an intermittent stall at "Finalizing project load..." during
+  application startup.
+
 - Smoothed diagonal and curved geometry edges in the 3D Viewer Sketch style by
   preserving the viewer's configured antialiasing through Sketch composition,
   without changing the appearance of the other render styles.
