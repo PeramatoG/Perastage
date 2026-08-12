@@ -29,13 +29,25 @@ resource-owning cache.
 
 ## Inference
 
+Raw 3DS and GLB trusses are measured through one CPU-only bounds resolver that
+reuses the render mesh loaders and their unit/transform conventions. The
+resolver retains local minimum and maximum coordinates, and caches results by
+normalized path, size, and modification time. Valid standardized dimensions
+read from an existing GDTF remain authoritative metadata; missing or invalid
+values are recovered from measured geometry without modifying that archive.
+Perastage-generated GDTFs validate dimensions before writing, while legacy
+synthetic 1000 x 400 x 400 mm metadata is replaced only for raw/legacy geometry
+whose measured bounds differ. A genuinely matching model and deliberate valid
+metadata remain unchanged.
+
 Dimensions are evaluated in truss-local X, Y, and Z. A shape is longitudinal
 only when its largest positive finite dimension is **strictly greater than
 twice** the second-largest dimension. The strict comparison makes the 2:1
 boundary ambiguous while classifying 3000 x 400 x 400 mm as longitudinal.
 
 Longitudinal shapes expose exactly the negative and positive centers of the
-dominant-axis terminal planes. Ambiguous shapes, including invalid-dimension
+dominant-axis terminal planes using the measured local minimum and maximum,
+not an assumed origin. Ambiguous shapes, including invalid-dimension
 fallbacks, expose the six oriented bounds face centers. These inferred points
 are conservative snapping aids, not verified mechanical connectors.
 

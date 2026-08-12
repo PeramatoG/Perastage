@@ -88,6 +88,12 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
                         const Matrix &trussTransform,
                         const std::string &sourceId = {});
 
+// Builds inferred candidates from measured local minimum and maximum planes.
+std::vector<Candidate>
+BuildInferredCandidates(const GeometryBounds &bounds,
+                        const Matrix &trussTransform,
+                        const std::string &sourceId = {});
+
 // Builds exactly six deterministic face-center candidates.
 std::vector<Candidate>
 BuildAmbiguousCandidates(const std::array<float, 3> &dimensionsMm,

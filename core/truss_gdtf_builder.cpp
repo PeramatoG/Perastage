@@ -19,6 +19,7 @@
 #include "truss_gdtf_builder.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_mutation_audit.h"
+#include "geometry_bounds_resolver.h"
 
 #include "json.hpp"
 #include "logger.h"
@@ -33,6 +34,7 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -92,6 +94,7 @@ struct TrussSourceData {
   std::string crossSectionType = "TrussFramework";
   std::string crossSection;
   std::string revisionText;
+  bool recoverLegacySyntheticDimensions = false;
 };
 
 static std::string Trim(std::string value) {
@@ -254,6 +257,7 @@ static bool ReadLegacyGtruss(const fs::path &gtrussPath, TrussSourceData &out,
   out.heightMm = parsed.value("Height_mm", 0.0f);
   out.weightKg = parsed.value("Weight_kg", 0.0f);
   out.geometryPath = geometryName;
+  out.recoverLegacySyntheticDimensions = true;
   if (!symbolName.empty())
     out.symbolPath = symbolName;
   return true;
@@ -375,13 +379,42 @@ static std::string BuildDescriptionXml(const TrussSourceData &data) {
 }
 
 // Builds a truss GDTF archive from normalized source data.
-static bool BuildFromSourceData(const TrussSourceData &data,
+static bool BuildFromSourceData(TrussSourceData data,
                                 const fs::path &outGdtfPath,
                                 std::string *outError) {
   const std::string ext = data.geometryPath.extension().string();
   if (ext != ".glb" && ext != ".3ds") {
     if (outError)
       *outError = "Only .glb and .3ds truss geometry is supported";
+    return false;
+  }
+
+  const auto bounds = GeometryBoundsResolver::Resolve(data.geometryPath, outError);
+  if (bounds) {
+    const auto size = bounds->SizeMm();
+    const bool legacySynthetic =
+        data.recoverLegacySyntheticDimensions && data.lengthMm == 1000.0f &&
+        data.widthMm == 400.0f && data.heightMm == 400.0f &&
+        (std::fabs(size[0] - data.lengthMm) > 0.01f ||
+         std::fabs(size[1] - data.widthMm) > 0.01f ||
+         std::fabs(size[2] - data.heightMm) > 0.01f);
+    if (legacySynthetic) {
+      data.lengthMm = size[0];
+      data.widthMm = size[1];
+      data.heightMm = size[2];
+    }
+    if (!std::isfinite(data.lengthMm) || data.lengthMm <= 0.0f)
+      data.lengthMm = size[0];
+    if (!std::isfinite(data.widthMm) || data.widthMm <= 0.0f)
+      data.widthMm = size[1];
+    if (!std::isfinite(data.heightMm) || data.heightMm <= 0.0f)
+      data.heightMm = size[2];
+  }
+  if (!std::isfinite(data.lengthMm) || data.lengthMm <= 0.0f ||
+      !std::isfinite(data.widthMm) || data.widthMm <= 0.0f ||
+      !std::isfinite(data.heightMm) || data.heightMm <= 0.0f) {
+    if (outError && outError->empty())
+      *outError = "Truss geometry dimensions are missing or invalid";
     return false;
   }
 
@@ -451,6 +484,8 @@ bool BuildTrussGdtfFromInstance(const Truss &truss, const fs::path &outGdtfPath,
   source.crossSectionType = truss.crossSectionType.empty() ? "TrussFramework" : truss.crossSectionType;
   source.crossSection = truss.crossSection;
   source.revisionText = revisionText;
+  source.recoverLegacySyntheticDimensions =
+      truss.sourceRepresentation == Truss::GeometryRepresentation::NativePerastage;
 
   auto pickGeometry = [&](const std::string &path) {
     fs::path p = PathUtils::PathFromUtf8(path);

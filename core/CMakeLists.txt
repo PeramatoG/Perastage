@@ -41,6 +41,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/standalone_gdtf_context.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/geometry_bounds_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoistpresetlibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_weight_distribution.cpp

@@ -21,8 +21,8 @@
 #include "wx_path_utils.h"
 
 #include "truss_gdtf_builder.h"
+#include "geometry_bounds_resolver.h"
 #include "logger.h"
-#include "truss_defaults.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <fstream>
@@ -324,6 +325,19 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
     if (!modelPath.empty())
       outTruss.symbolFile = ToUtf8String(modelPath);
 
+    if (!modelPath.empty()) {
+      outTruss.localGeometryBounds = GeometryBoundsResolver::Resolve(modelPath);
+      if (outTruss.localGeometryBounds) {
+        const auto size = outTruss.localGeometryBounds->SizeMm();
+        if (!std::isfinite(outTruss.lengthMm) || outTruss.lengthMm <= 0.0f)
+          outTruss.lengthMm = size[0];
+        if (!std::isfinite(outTruss.widthMm) || outTruss.widthMm <= 0.0f)
+          outTruss.widthMm = size[1];
+        if (!std::isfinite(outTruss.heightMm) || outTruss.heightMm <= 0.0f)
+          outTruss.heightMm = size[2];
+      }
+    }
+
   }
 
   tinyxml2::XMLElement *phys = fixtureType->FirstChildElement("PhysicalDescriptions");
@@ -379,10 +393,20 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
       outTruss = Truss{};
       outTruss.symbolFile = ToUtf8String(inputPath);
       outTruss.modelFile = ToUtf8String(inputPath);
-      outTruss.lengthMm = TrussDefaults::kFallbackLengthMm;
-      outTruss.widthMm = TrussDefaults::kFallbackWidthMm;
-      outTruss.heightMm = TrussDefaults::kFallbackHeightMm;
-      success = true;
+      outTruss.sourceRepresentation = Truss::GeometryRepresentation::NativePerastage;
+      std::string diagnostic;
+      outTruss.localGeometryBounds =
+          GeometryBoundsResolver::Resolve(inputPath, &diagnostic);
+      if (outTruss.localGeometryBounds) {
+        const auto size = outTruss.localGeometryBounds->SizeMm();
+        outTruss.lengthMm = size[0];
+        outTruss.widthMm = size[1];
+        outTruss.heightMm = size[2];
+        success = true;
+      } else {
+        Logger::Instance().Log(Logger::Level::Warn,
+                               "Truss geometry bounds unavailable: " + diagnostic);
+      }
     }
     LogTrussDefinitionLoadResult(inputPath, ext, success, outTruss);
     return success;

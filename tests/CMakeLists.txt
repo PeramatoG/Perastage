@@ -287,14 +287,17 @@ add_executable(trussloader_validation_test
                ../core/diagnostics/DiagnosticPaths.cpp
                ../core/filesystem_path_utils.cpp
                ../core/gdtf_mutation_audit.cpp
+               ../core/geometry_bounds_resolver.cpp
                ../core/logger.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/trussloader.cpp
                ../core/wx_path_utils.cpp
                ../models/truss.cpp)
+target_sources(trussloader_validation_test PRIVATE
+               ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp)
 target_include_directories(trussloader_validation_test PRIVATE
-                           . ../core ../models ../third_party)
+                           . ../core ../models ../viewer3d ../third_party)
 target_link_libraries(trussloader_validation_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME TrussLoaderValidation COMMAND trussloader_validation_test)
@@ -2567,3 +2570,20 @@ target_include_directories(fixture_geometry_bounds_test BEFORE PRIVATE
 target_include_directories(fixture_geometry_bounds_test PRIVATE
                            ../gui ../models)
 add_test(NAME FixtureGeometryBounds COMMAND fixture_geometry_bounds_test)
+
+# Reuse the production mesh parsers in every standalone test that owns truss loading/building.
+get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(perastage_geometry_target IN LISTS perastage_geometry_test_targets)
+    get_target_property(perastage_geometry_sources ${perastage_geometry_target} SOURCES)
+    if(perastage_geometry_sources AND
+       ("../core/trussloader.cpp" IN_LIST perastage_geometry_sources OR
+        "../core/truss_gdtf_builder.cpp" IN_LIST perastage_geometry_sources))
+        if(NOT "../core/geometry_bounds_resolver.cpp" IN_LIST perastage_geometry_sources)
+            target_sources(${perastage_geometry_target} PRIVATE
+                           ../core/geometry_bounds_resolver.cpp
+                           ../viewer3d/loader3ds.cpp
+                           ../viewer3d/loaderglb.cpp)
+        endif()
+        target_include_directories(${perastage_geometry_target} PRIVATE ../viewer3d)
+    endif()
+endforeach()
