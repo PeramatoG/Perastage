@@ -68,6 +68,32 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
   return bestAxis;
 }
 
+// Detects pointer travel away from the active projected axis.
+AxisSwitchIntent DetectAxisSwitchIntent(
+    int mouseDx, int mouseDy, SelectionDragAxis activeAxis,
+    const std::array<ProjectedAxis, 3> &axes, int switchThresholdPx) {
+  if (activeAxis == SelectionDragAxis::None)
+    return {};
+  const ProjectedAxis &projectedAxis = axes[AxisToIndex(activeAxis)];
+  const double lenSq = ScreenLengthSquared(projectedAxis);
+  if (!projectedAxis.valid || lenSq <= 1e-8)
+    return {};
+
+  const double alongScale = Dot(mouseDx, mouseDy, projectedAxis) / lenSq;
+  const int residualDx = static_cast<int>(std::lround(
+      static_cast<double>(mouseDx) - alongScale * projectedAxis.screenDx));
+  const int residualDy = static_cast<int>(std::lround(
+      static_cast<double>(mouseDy) - alongScale * projectedAxis.screenDy));
+  if (std::hypot(residualDx, residualDy) < switchThresholdPx)
+    return {};
+
+  const SelectionDragAxis candidate = SelectDragAxisFromMouseDelta(
+      residualDx, residualDy, axes, switchThresholdPx);
+  if (candidate == SelectionDragAxis::None || candidate == activeAxis)
+    return {};
+  return {candidate, residualDx, residualDy};
+}
+
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
                                const std::array<ProjectedAxis, 3> &axes) {
   if (axis == SelectionDragAxis::None)

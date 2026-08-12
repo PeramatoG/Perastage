@@ -32,8 +32,11 @@ Changes since **v1.5.0**.
   preview directly beneath the pointer when axis-constrained movement is
   disabled, instead of waiting for pointer activity to stop or retaining the
   offset accumulated while the constraint was active. With the constraint
-  enabled, moving farther toward another projected axis now switches the
-  preview naturally to that axis.
+  enabled, moving the pointer away from the active projected axis now switches
+  the preview from its current position to the newly intended axis without
+  requiring the pointer to retrace its earlier movement. Axes that point almost
+  directly into the camera are ignored to prevent extreme, off-screen placement
+  jumps from small pointer movements.
 
 - Corrected generated fixture-symbol framing and physical bounds to use the
   selected GDTF mode and every rendered part, improving scale and placement

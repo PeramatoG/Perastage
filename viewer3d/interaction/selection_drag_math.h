@@ -19,6 +19,16 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
                              const std::array<ProjectedAxis, 3> &axes,
                              int activationThresholdPx = 3);
 
+struct AxisSwitchIntent {
+  SelectionDragAxis axis = SelectionDragAxis::None;
+  int residualDx = 0;
+  int residualDy = 0;
+};
+
+AxisSwitchIntent DetectAxisSwitchIntent(
+    int mouseDx, int mouseDy, SelectionDragAxis activeAxis,
+    const std::array<ProjectedAxis, 3> &axes, int switchThresholdPx = 12);
+
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
                                const std::array<ProjectedAxis, 3> &axes);
 

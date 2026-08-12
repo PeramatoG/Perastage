@@ -2820,6 +2820,21 @@ Viewer3DPanel::BuildProjectedDragAxes(
         projectedAxis.valid = projectedAxis.pixelsPerMeter > 1e-4;
     }
 
+    const auto strongestAxis = std::max_element(
+        axes.begin(), axes.end(),
+        [](const viewer3d::ProjectedAxis &left,
+           const viewer3d::ProjectedAxis &right) {
+            return left.pixelsPerMeter < right.pixelsPerMeter;
+        });
+    if (strongestAxis != axes.end() && strongestAxis->pixelsPerMeter > 0.0) {
+        const double minimumUsableProjection =
+            strongestAxis->pixelsPerMeter * 0.05;
+        for (auto &axis : axes) {
+            if (axis.pixelsPerMeter < minimumUsableProjection)
+                axis.valid = false;
+        }
+    }
+
     return axes;
 }
 
@@ -3452,11 +3467,31 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                 const auto candidateAxis =
                     viewer3d::SelectDragAxisFromMouseDelta(
                         totalDx, -totalDy, projectedAxes);
-                if (candidateAxis != viewer3d::SelectionDragAxis::None)
+                if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None &&
+                    candidateAxis != viewer3d::SelectionDragAxis::None) {
                     m_selectionDragAxis = candidateAxis;
+                } else {
+                    const auto switchIntent =
+                        viewer3d::DetectAxisSwitchIntent(
+                            totalDx, -totalDy, m_selectionDragAxis,
+                            projectedAxes);
+                    if (switchIntent.axis !=
+                        viewer3d::SelectionDragAxis::None) {
+                        m_selectionDragAxis = switchIntent.axis;
+                        m_continuousConstraintWorldOriginMeters = rawAnchor;
+                        m_continuousConstraintPointerOrigin = {
+                            pos.x - switchIntent.residualDx,
+                            pos.y + switchIntent.residualDy};
+                    }
+                }
+                const int constrainedDx =
+                    pos.x - m_continuousConstraintPointerOrigin.x;
+                const int constrainedDy =
+                    pos.y - m_continuousConstraintPointerOrigin.y;
                 const double axisDeltaMeters =
                     viewer3d::ComputeDragMetersOnAxis(
-                        totalDx, -totalDy, m_selectionDragAxis, projectedAxes);
+                        constrainedDx, -constrainedDy, m_selectionDragAxis,
+                        projectedAxes);
                 if (m_selectionDragAxis != viewer3d::SelectionDragAxis::None) {
                     const auto axis =
                         GetSelectionDragAxisVector(m_selectionDragAxis);
