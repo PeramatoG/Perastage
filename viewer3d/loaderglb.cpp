@@ -17,7 +17,6 @@
  */
 #include "loaderglb.h"
 #include "filesystem_path_utils.h"
-#include "consolepanel.h"
 #include "json.hpp"
 #include "matrixutils.h"
 #include <fstream>
@@ -31,8 +30,6 @@
 #include <wx/base64.h>
 #include <optional>
 #include <filesystem>
-
-constexpr bool kLogGlbMessages = false;
 
 using json = nlohmann::json;
 
@@ -180,12 +177,6 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
     std::string parseError;
     auto glbFile = ParseGLBFile(path, parseError);
     if (!glbFile) {
-        if (kLogGlbMessages && ConsolePanel::Instance()) {
-            ConsolePanel::Instance()->AppendMessage(
-                wxString::Format("GLB: %s (se omite carga - %s)",
-                                 wxString::FromUTF8(path),
-                                 wxString::FromUTF8(parseError)));
-        }
         if (error)
             *error = parseError;
         return false;
@@ -677,17 +668,5 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
     if (!ok && error)
         *error = "unsupported glTF structure or missing positions/indices";
 
-    if(kLogGlbMessages && ConsolePanel::Instance()) {
-        wxString msg;
-        if(ok) {
-            msg = wxString::Format("GLB: %s -> v=%zu i=%zu",
-                                   wxString::FromUTF8(path),
-                                   outMesh.vertices.size()/3,
-                                   outMesh.indices.size()/3);
-        } else {
-            msg = wxString::Format("GLB: parsed but empty %s", wxString::FromUTF8(path));
-        }
-        ConsolePanel::Instance()->AppendMessage(msg);
-    }
     return ok;
 }

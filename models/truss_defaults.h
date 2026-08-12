@@ -19,8 +19,9 @@
 
 namespace TrussDefaults {
 
-inline constexpr float kFallbackLengthMm = 1000.0f;
-inline constexpr float kFallbackWidthMm = 400.0f;
-inline constexpr float kFallbackHeightMm = 400.0f;
+// Defines an emergency viewer box only when no physical geometry is available.
+inline constexpr float kViewerFallbackBoxLengthMm = 1000.0f;
+inline constexpr float kViewerFallbackBoxWidthMm = 400.0f;
+inline constexpr float kViewerFallbackBoxHeightMm = 400.0f;
 
 } // namespace TrussDefaults

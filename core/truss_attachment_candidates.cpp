@@ -3,9 +3,11 @@
 #include "filesystem_path_utils.h"
 #include "gdtf_archive_reader.h"
 #include "matrixutils.h"
+#include "geometry_bounds_resolver.h"
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -195,6 +197,38 @@ BuildInferredCandidates(const std::array<float, 3> &dimensionsMm,
   return BuildAmbiguousCandidates(safeDimensions, trussTransform, sourceId);
 }
 
+// Builds inferred candidates from measured local minimum and maximum planes.
+std::vector<Candidate>
+BuildInferredCandidatesFromBounds(const GeometryBounds &bounds,
+                                  const Matrix &trussTransform,
+                                  const std::string &sourceId) {
+  if (!bounds.IsValid())
+    return {};
+  const auto size = bounds.SizeMm();
+  const auto center = bounds.CenterMm();
+  std::vector<Candidate> result;
+  const auto dominant = ClassifyLongitudinalAxis(size);
+  for (int axis = 0; axis < 3; ++axis) {
+    if (dominant && axis != *dominant)
+      continue;
+    for (int sign : {-1, 1}) {
+      Matrix local = MatrixUtils::Identity();
+      local.o = center;
+      local.o[axis] = sign < 0 ? bounds.minMm[axis] : bounds.maxMm[axis];
+      std::array<float, 3> direction{};
+      direction[axis] = static_cast<float>(sign);
+      AppendCandidate(result,
+                      dominant ? CandidateKind::InferredLongitudinalEnd
+                               : CandidateKind::InferredFaceCenter,
+                      (dominant ? "longitudinal-axis-" : "face-axis-") +
+                          std::to_string(axis) +
+                          (sign < 0 ? "-negative" : "-positive"),
+                      local, trussTransform, sourceId, direction);
+    }
+  }
+  return result;
+}
+
 // Builds exactly six deterministic face-center candidates.
 std::vector<Candidate>
 BuildAmbiguousCandidates(const std::array<float, 3> &dimensionsMm,
@@ -291,6 +325,28 @@ CandidateResolution Instantiate(const CandidateResolver::CacheEntry &entry,
 CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
                                                const Truss &truss) {
   std::vector<Diagnostic> resolutionDiagnostics;
+  auto buildInferred = [&]() {
+    if (truss.localGeometryBounds)
+      return BuildInferredCandidatesFromBounds(*truss.localGeometryBounds,
+                                                truss.transform, truss.uuid);
+    for (const std::string *reference : {&truss.symbolFile, &truss.modelFile}) {
+      const std::filesystem::path resolved =
+          ResolveSceneResource(scene, *reference);
+      std::string extension = resolved.extension().string();
+      std::transform(extension.begin(), extension.end(), extension.begin(),
+                     [](unsigned char value) {
+                       return static_cast<char>(std::tolower(value));
+                     });
+      if (extension != ".3ds" && extension != ".glb")
+        continue;
+      if (const auto bounds = GeometryBoundsResolver::Resolve(resolved))
+        return BuildInferredCandidatesFromBounds(*bounds, truss.transform,
+                                                  truss.uuid);
+    }
+    return BuildInferredCandidates(
+        std::array<float, 3>{truss.lengthMm, truss.widthMm, truss.heightMm},
+        truss.transform, truss.uuid);
+  };
   for (const std::string *reference :
        {&truss.gdtfSpec, &truss.perastageAuxGdtfArchivePath}) {
     if (reference->empty())
@@ -320,9 +376,7 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
         continue;
       }
       if (result.candidates.empty())
-        result.candidates = BuildInferredCandidates(
-            {truss.lengthMm, truss.widthMm, truss.heightMm}, truss.transform,
-            truss.uuid);
+        result.candidates = buildInferred();
       return result;
     }
 
@@ -354,17 +408,13 @@ CandidateResolution CandidateResolver::Resolve(const MvrScene &scene,
       continue;
     }
     if (result.candidates.empty())
-      result.candidates = BuildInferredCandidates(
-          {truss.lengthMm, truss.widthMm, truss.heightMm}, truss.transform,
-          truss.uuid);
+      result.candidates = buildInferred();
     return result;
   }
 
   CandidateResolution fallback;
   fallback.diagnostics = std::move(resolutionDiagnostics);
-  fallback.candidates =
-      BuildInferredCandidates({truss.lengthMm, truss.widthMm, truss.heightMm},
-                              truss.transform, truss.uuid);
+  fallback.candidates = buildInferred();
   return fallback;
 }
 

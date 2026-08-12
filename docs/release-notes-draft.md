@@ -31,6 +31,14 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Trusses loaded from 3DS or GLB geometry now use their measured local bounds
+  instead of fixed nominal dimensions. This repairs legacy dimension metadata,
+  generated GDTF sizing, and Magnet endpoints while preserving explicit GDTF
+  dimensions and connector definitions. The shared geometry parsers are now
+  independent of viewer console state, including in Windows test builds.
+  Geometry-backed MVR trusses using either direct Geometry3D or Symbol/Symdef
+  resources now recover the same coherent dimensions during project loading.
+
 - Continuous fixture, truss, and scene-object insertion in the 3D viewer now
   presents each placement update while the pointer is moving and returns the
   preview directly beneath the pointer when axis-constrained movement is

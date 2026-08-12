@@ -141,14 +141,15 @@ int main() {
   Truss truss;
   ok &= Check(IsSupportedTrussDefinitionExtension(ToUtf8String(glbPath)),
               "GLB extension was not recognized.");
-  ok &= Check(LoadTrussDefinition(ToUtf8String(glbPath), truss),
-              "direct GLB truss definition did not load.");
+  ok &= Check(!LoadTrussDefinition(ToUtf8String(glbPath), truss),
+              "malformed direct GLB truss definition unexpectedly loaded.");
   ok &= Check(truss.symbolFile == ToUtf8String(glbPath),
               "direct GLB symbol path changed unexpectedly.");
   ok &= Check(truss.modelFile == ToUtf8String(glbPath),
               "direct GLB model path changed unexpectedly.");
-  ok &= Check(truss.lengthMm > 0.0f && truss.widthMm > 0.0f && truss.heightMm > 0.0f,
-              "direct GLB dimensions were not populated.");
+  ok &= Check(truss.lengthMm == 0.0f && truss.widthMm == 0.0f &&
+                  truss.heightMm == 0.0f,
+              "malformed direct GLB received bogus dimensions.");
 
   Truss missingModel;
   ok &= Check(!LoadTrussDefinition(ToUtf8String(tempRoot / "missing.glb"), missingModel),

@@ -17,6 +17,7 @@
 #include <wx/init.h>
 
 #include "filesystem_path_utils.h"
+#include "geometry_bounds_resolver.h"
 #include "loader3ds.h"
 
 namespace fs = std::filesystem;
@@ -245,6 +246,21 @@ int main() {
                       {29.0f, 250.0f, 29.0f}, transformedError,
                       transformedDimensions);
         if (!nativeValid || !transformedValid) {
+          result = 1;
+        }
+
+        GeometryBoundsResolver::ClearForTesting();
+        const auto measuredBounds = GeometryBoundsResolver::Resolve(modelPath);
+        if (!measuredBounds ||
+            !NearlyEqual(measuredBounds->SizeMm()[0], nativeDimensions[0]) ||
+            !NearlyEqual(measuredBounds->SizeMm()[1], nativeDimensions[1]) ||
+            !NearlyEqual(measuredBounds->SizeMm()[2], nativeDimensions[2])) {
+          std::cerr << "bounds resolver does not match rendered native 3DS geometry\n";
+          result = 1;
+        }
+        const auto cachedBounds = GeometryBoundsResolver::Resolve(modelPath);
+        if (!cachedBounds || GeometryBoundsResolver::ParseCountForTesting() != 1) {
+          std::cerr << "bounds resolver did not reuse its unchanged-file cache\n";
           result = 1;
         }
 

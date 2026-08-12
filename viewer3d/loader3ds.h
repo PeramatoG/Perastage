@@ -18,6 +18,9 @@
 #pragma once
 #include <string>
 #include "mesh.h"
+#include "mesh_geometry_conventions.h"
 
 // Loads a 3DS mesh and optionally applies per-object local pivot/basis transforms.
-bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform = true, std::string* error = nullptr);
+bool Load3DS(const std::string& path, Mesh& outMesh,
+             bool applyObjectLocalTransform = viewer3d::kApplyThreeDsObjectTransforms,
+             std::string* error = nullptr);

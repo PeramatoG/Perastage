@@ -3,7 +3,11 @@
  */
 #include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -16,8 +20,73 @@
 
 #include "mvrimporter.h"
 #include "fixture_visual_color.h"
+#include "gdtf_archive_reader.h"
+#include "truss_attachment_candidates.h"
+#include "truss_dimension_resolution.h"
+#include "truss_gdtf_builder.h"
+#include <tinyxml2.h>
 
 namespace fs = std::filesystem;
+
+// Appends a little-endian integer to a binary test resource.
+template <typename T>
+static void AppendBinaryValue(std::vector<uint8_t> &out, T value) {
+  for (size_t index = 0; index < sizeof(T); ++index)
+    out.push_back(static_cast<uint8_t>((value >> (index * 8)) & 0xffu));
+}
+
+// Appends a little-endian float to a binary test resource.
+static void AppendBinaryFloat(std::vector<uint8_t> &out, float value) {
+  uint32_t bits = 0;
+  std::memcpy(&bits, &value, sizeof(value));
+  AppendBinaryValue(out, bits);
+}
+
+// Wraps a payload in a 3DS chunk header.
+static std::vector<uint8_t> Build3dsChunk(uint16_t id,
+                                          const std::vector<uint8_t> &payload) {
+  std::vector<uint8_t> result;
+  AppendBinaryValue<uint16_t>(result, id);
+  AppendBinaryValue<uint32_t>(result,
+                              static_cast<uint32_t>(payload.size() + 6));
+  result.insert(result.end(), payload.begin(), payload.end());
+  return result;
+}
+
+// Appends one nested 3DS chunk to a payload.
+static void Append3dsChunk(std::vector<uint8_t> &out, uint16_t id,
+                           const std::vector<uint8_t> &payload) {
+  const auto chunk = Build3dsChunk(id, payload);
+  out.insert(out.end(), chunk.begin(), chunk.end());
+}
+
+// Builds a minimal 3DS geometry with offset 3000 x 400 x 393.301 mm bounds.
+static std::string BuildTrussGeometry3ds() {
+  std::vector<uint8_t> vertices;
+  AppendBinaryValue<uint16_t>(vertices, 4);
+  const float points[] = {0.0f, -200.0f, -21.6506f,
+                          3000.0f, -200.0f, -21.6506f,
+                          0.0f, 200.0f, -21.6506f,
+                          0.0f, -200.0f, 371.6506f};
+  for (float value : points)
+    AppendBinaryFloat(vertices, value);
+  std::vector<uint8_t> faces;
+  AppendBinaryValue<uint16_t>(faces, 2);
+  const uint16_t faceData[] = {0, 1, 2, 0, 0, 2, 3, 0};
+  for (uint16_t value : faceData)
+    AppendBinaryValue<uint16_t>(faces, value);
+  std::vector<uint8_t> mesh;
+  Append3dsChunk(mesh, 0x4110, vertices);
+  Append3dsChunk(mesh, 0x4120, faces);
+  std::vector<uint8_t> object{'t', 'r', 'u', 's', 's', 0};
+  Append3dsChunk(object, 0x4100, mesh);
+  std::vector<uint8_t> editor;
+  Append3dsChunk(editor, 0x4000, object);
+  std::vector<uint8_t> root;
+  Append3dsChunk(root, 0x3D3D, editor);
+  const auto bytes = Build3dsChunk(0x4D4D, root);
+  return {reinterpret_cast<const char *>(bytes.data()), bytes.size()};
+}
 
 // Writes ordered ZIP entries without deduplicating their archive names.
 static void WriteArchive(
@@ -72,6 +141,112 @@ static void WriteMetadataArchive(const fs::path &path) {
       "<Truss uuid=\"40000000-0000-4000-8000-000000000001\" name=\"Truss\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/><FixtureID>2</FixtureID><FixtureIDNumeric>2</FixtureIDNumeric><UserData><Data provider=\"Foreign\" ver=\"1.0\"><TrussInfo><Width>777</Width></TrussInfo></Data></UserData></Truss>"
       "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
   WriteArchive(path, {{"GeneralSceneDescription.xml", xml}});
+}
+
+// Verifies geometry-backed MVR trusses recover legacy dimensions and endpoints.
+static void TestGeometryBackedTrussRecovery(const fs::path &tempDir) {
+  const fs::path archive = tempDir / "geometry-backed-trusses.mvr";
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Test\" providerVersion=\"1\">"
+      "<UserData><Data provider=\"Perastage\" ver=\"1.0\"><TrussInfoMap>"
+      "<TrussInfo uuid=\"40000000-0000-4000-8000-000000000010\"><Length>1000</Length><Width>400</Width><Height>400</Height><Representation>SymbolSymdef</Representation></TrussInfo>"
+      "<TrussInfo uuid=\"40000000-0000-4000-8000-000000000011\"><Length>1000</Length><Width>400</Width><Height>400</Height><Representation>Geometry3D</Representation></TrussInfo>"
+      "</TrussInfoMap></Data></UserData><Scene><AUXData>"
+      "<Symdef uuid=\"50000000-0000-4000-8000-000000000010\"><ChildList><Geometry3D fileName=\"truss.3ds\"><Matrix>1,0,0,0,1,0,0,0,1,200,0,0</Matrix></Geometry3D></ChildList></Symdef>"
+      "</AUXData><Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Default\"><ChildList>"
+      "<Truss uuid=\"40000000-0000-4000-8000-000000000010\" name=\"Symbol\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries><Symbol symdef=\"50000000-0000-4000-8000-000000000010\"><Matrix>1,0,0,0,1,0,0,0,1,100,0,0</Matrix></Symbol></Geometries></Truss>"
+      "<Truss uuid=\"40000000-0000-4000-8000-000000000011\" name=\"Direct\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries><Geometry3D fileName=\"truss.3ds\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix></Geometry3D></Geometries></Truss>"
+      "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+  WriteArchive(archive, {{"GeneralSceneDescription.xml", xml},
+                         {"truss.3ds", BuildTrussGeometry3ds()}});
+  MvrImporter importer;
+  MvrImportResult result;
+  assert(importer.ImportFromFile(archive.string(), result,
+                                 MvrImportMode::ParseOnly, false, false));
+  for (const std::string uuid : {
+           "40000000-0000-4000-8000-000000000010",
+           "40000000-0000-4000-8000-000000000011"}) {
+    const Truss &truss = result.scene.trusses.at(uuid);
+    assert(truss.localGeometryBounds);
+    assert(std::fabs(truss.lengthMm - 3000.0f) < 0.01f);
+    assert(std::fabs(truss.widthMm - 400.0f) < 0.01f);
+    assert(std::fabs(truss.heightMm - 393.3012f) < 0.01f);
+    assert(truss.dimensionSource ==
+           Truss::DimensionSource::LegacySyntheticFallback);
+    const auto candidates =
+        truss_attachment::BuildInferredCandidatesFromBounds(
+            *truss.localGeometryBounds, truss.transform, truss.uuid);
+    assert(candidates.size() == 2);
+    assert(std::fabs(candidates[0].localTransform.o[0]) < 0.01f);
+    assert(std::fabs(candidates[1].localTransform.o[0] - 3000.0f) < 0.01f);
+    const float expectedWorldStart =
+        truss.sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef
+            ? 300.0f
+            : 0.0f;
+    assert(std::fabs(candidates[0].worldTransform.o[0] - expectedWorldStart) <
+           0.01f);
+    assert(std::fabs(candidates[1].worldTransform.o[0] -
+                     (expectedWorldStart + 3000.0f)) < 0.01f);
+  }
+  assert(result.scene.trusses.at("40000000-0000-4000-8000-000000000010")
+             .sourceRepresentation == Truss::GeometryRepresentation::SymbolSymdef);
+  assert(result.scene.trusses.at("40000000-0000-4000-8000-000000000011")
+             .sourceRepresentation == Truss::GeometryRepresentation::Geometry3D);
+
+  const fs::path generated = tempDir / "recovered-symbol.gdtf";
+  const fs::path retainedGeometry = tempDir / "retained-truss.3ds";
+  {
+    std::ofstream geometry(retainedGeometry, std::ios::binary);
+    const std::string bytes = BuildTrussGeometry3ds();
+    geometry.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  }
+  std::string buildError;
+  Truss recovered =
+      result.scene.trusses.at("40000000-0000-4000-8000-000000000010");
+  recovered.symbolFile = retainedGeometry.string();
+  assert(BuildTrussGdtfFromInstance(recovered, generated, &buildError));
+  const auto generatedArchive = gdtf::ReadGdtfArchive(generated.string());
+  assert(generatedArchive.Success());
+  tinyxml2::XMLDocument description;
+  assert(description.Parse(generatedArchive.descriptionXml.c_str()) ==
+         tinyxml2::XML_SUCCESS);
+  auto *model = description.FirstChildElement("GDTF")
+                    ->FirstChildElement("FixtureType")
+                    ->FirstChildElement("Models")
+                    ->FirstChildElement("Model");
+  assert(model);
+  assert(std::fabs(model->FloatAttribute("Length") - 3.0f) < 0.0001f);
+  assert(std::fabs(model->FloatAttribute("Width") - 0.4f) < 0.0001f);
+  assert(std::fabs(model->FloatAttribute("Height") - 0.3933012f) < 0.0001f);
+}
+
+// Verifies legitimate metadata and manual or GDTF authority are preserved.
+static void TestDimensionProvenancePolicy() {
+  const GeometryBounds bounds{{0.0f, -200.0f, 0.0f},
+                              {1000.0f, 200.0f, 400.0f}};
+  for (Truss::DimensionSource source : {
+           Truss::DimensionSource::PerastageMetadata,
+           Truss::DimensionSource::GdtfModel,
+           Truss::DimensionSource::ManualOverride}) {
+    Truss truss;
+    truss.lengthMm = 1000.0f;
+    truss.widthMm = 400.0f;
+    truss.heightMm = 400.0f;
+    truss.localGeometryBounds = bounds;
+    truss.dimensionSource = source;
+    assert(!ResolveTrussDimensionsFromGeometry(truss, true));
+    assert(truss.dimensionSource == source);
+  }
+
+  Truss partial;
+  partial.lengthMm = 0.0f;
+  partial.widthMm = 400.0f;
+  partial.heightMm = -1.0f;
+  partial.localGeometryBounds = bounds;
+  assert(ResolveTrussDimensionsFromGeometry(partial, false));
+  assert(partial.lengthMm == 1000.0f);
+  assert(partial.widthMm == 400.0f);
+  assert(partial.heightMm == 400.0f);
 }
 
 // Writes project-only fixture metadata covering supported recovery branches.
@@ -361,6 +536,8 @@ int main() {
   fs::remove_all(tempDir, ec);
   fs::create_directories(tempDir, ec);
   TestMetadataRecoveryMatrix(tempDir);
+  TestGeometryBackedTrussRecovery(tempDir);
+  TestDimensionProvenancePolicy();
   TestProjectFixtureMetadataRecovery(tempDir);
   TestLegacyFixtureColorRecovery(tempDir);
   TestAuxiliaryValuePolicy(tempDir);

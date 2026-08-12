@@ -21,8 +21,9 @@
 #include "wx_path_utils.h"
 
 #include "truss_gdtf_builder.h"
+#include "geometry_bounds_resolver.h"
+#include "truss_dimension_resolution.h"
 #include "logger.h"
-#include "truss_defaults.h"
 
 #include <tinyxml2.h>
 #include <wx/filename.h>
@@ -32,6 +33,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <fstream>
@@ -313,6 +315,8 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
       outTruss.widthMm = widthM * 1000.0f;
     if (ParseFloatAttr(model, "Height", heightM))
       outTruss.heightMm = heightM * 1000.0f;
+    if (HasValidTrussDimensions(outTruss))
+      outTruss.dimensionSource = Truss::DimensionSource::GdtfModel;
 
     std::string fileBase = "main";
     if (const char *fileAttr = model->Attribute("File"); fileAttr && *fileAttr)
@@ -323,6 +327,13 @@ bool LoadTrussGdtf(const std::string &gdtfPath, Truss &outTruss) {
          fs::path("models/3ds") / (fileBase + ".3ds")});
     if (!modelPath.empty())
       outTruss.symbolFile = ToUtf8String(modelPath);
+
+    if (!modelPath.empty()) {
+      outTruss.localGeometryBounds = GeometryBoundsResolver::Resolve(modelPath);
+      if (outTruss.localGeometryBounds) {
+        ResolveTrussDimensionsFromGeometry(outTruss, false);
+      }
+    }
 
   }
 
@@ -379,10 +390,21 @@ bool LoadTrussDefinition(const std::string &path, Truss &outTruss) {
       outTruss = Truss{};
       outTruss.symbolFile = ToUtf8String(inputPath);
       outTruss.modelFile = ToUtf8String(inputPath);
-      outTruss.lengthMm = TrussDefaults::kFallbackLengthMm;
-      outTruss.widthMm = TrussDefaults::kFallbackWidthMm;
-      outTruss.heightMm = TrussDefaults::kFallbackHeightMm;
-      success = true;
+      outTruss.sourceRepresentation = Truss::GeometryRepresentation::NativePerastage;
+      std::string diagnostic;
+      outTruss.localGeometryBounds =
+          GeometryBoundsResolver::Resolve(inputPath, &diagnostic);
+      if (outTruss.localGeometryBounds) {
+        const auto size = outTruss.localGeometryBounds->SizeMm();
+        outTruss.lengthMm = size[0];
+        outTruss.widthMm = size[1];
+        outTruss.heightMm = size[2];
+        outTruss.dimensionSource = Truss::DimensionSource::GeometryDerived;
+        success = true;
+      } else {
+        Logger::Instance().Log(Logger::Level::Warn,
+                               "Truss geometry bounds unavailable: " + diagnostic);
+      }
     }
     LogTrussDefinitionLoadResult(inputPath, ext, success, outTruss);
     return success;

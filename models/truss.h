@@ -19,9 +19,20 @@
 
 #include <string>
 #include "types.h"
+#include "geometry_bounds.h"
+#include <optional>
 
 // Represents a truss object parsed from MVR
 struct Truss {
+    enum class DimensionSource {
+        Unknown = 0,
+        GdtfModel,
+        GeometryDerived,
+        PerastageMetadata,
+        LegacySyntheticFallback,
+        ManualOverride
+    };
+
     enum class GeometryRepresentation {
         Unknown = 0,
         SymbolSymdef,
@@ -45,6 +56,9 @@ struct Truss {
     float lengthMm = 0.0f;
     float widthMm = 0.0f;
     float heightMm = 0.0f;
+    // Measured render-geometry bounds remain separate from standardized metadata.
+    std::optional<GeometryBounds> localGeometryBounds;
+    DimensionSource dimensionSource = DimensionSource::Unknown;
     float weightKg = 0.0f;
     std::string gdtfDescription;
     std::string crossSectionType = "TrussFramework";

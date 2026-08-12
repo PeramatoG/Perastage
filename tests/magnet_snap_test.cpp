@@ -116,6 +116,17 @@ int main() {
                   (*longitudinal[0].worldDirection)[0] == -1.0f);
   CHECK_OR_RETURN(longitudinal[1].worldDirection &&
                   (*longitudinal[1].worldDirection)[0] == 1.0f);
+  GeometryBounds offsetBounds{{200.0f, -200.0f, -21.65f},
+                              {3200.0f, 200.0f, 371.65f}};
+  const auto offsetLongitudinal =
+      truss_attachment::BuildInferredCandidatesFromBounds(
+          offsetBounds, MatrixUtils::Identity(), "offset-long");
+  CHECK_OR_RETURN(offsetLongitudinal.size() == 2);
+  CHECK_OR_RETURN(offsetLongitudinal[0].localTransform.o[0] == 200.0f);
+  CHECK_OR_RETURN(offsetLongitudinal[1].localTransform.o[0] == 3200.0f);
+  CHECK_OR_RETURN(std::fabs(offsetLongitudinal[0].localTransform.o[1]) < 0.001f);
+  CHECK_OR_RETURN(std::fabs(offsetLongitudinal[0].localTransform.o[2] - 175.0f) <
+                  0.001f);
   CHECK_OR_RETURN(
       truss_attachment::ClassifyLongitudinalAxis({3000, 400, 400}) == 0);
   CHECK_OR_RETURN(

@@ -25,13 +25,10 @@
 #include <algorithm>
 #include <filesystem>
 #include <cmath>
-#include "consolepanel.h"
 #include <wx/wx.h>
 #include <wx/image.h>
 
 namespace fs = std::filesystem;
-
-constexpr bool kLog3dsMessages = false;
 
 struct Chunk {
     uint16_t id;
@@ -527,17 +524,5 @@ bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransf
         LoadTextureImage(modelDir, textureFilename, outMesh);
     if (ok)
         ComputeNormals(outMesh);
-    if (kLog3dsMessages && ConsolePanel::Instance()) {
-        if (ok) {
-            wxString msg = wxString::Format("3DS: %s -> v=%zu i=%zu",
-                                           wxString::FromUTF8(path),
-                                           outMesh.vertices.size()/3,
-                                           outMesh.indices.size()/3);
-            ConsolePanel::Instance()->AppendMessage(msg);
-        } else {
-            wxString msg = wxString::Format("3DS: parsed but empty %s", wxString::FromUTF8(path));
-            ConsolePanel::Instance()->AppendMessage(msg);
-        }
-    }
     return ok;
 }
