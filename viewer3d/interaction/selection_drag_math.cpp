@@ -5,6 +5,8 @@
 namespace viewer3d {
 namespace {
 
+constexpr double kAxisAlignmentTieTolerance = 0.05;
+
 double Dot(int mouseDx, int mouseDy, const ProjectedAxis &axis) {
   return static_cast<double>(mouseDx) * axis.screenDx +
          static_cast<double>(mouseDy) * axis.screenDy;
@@ -49,7 +51,9 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
     return SelectionDragAxis::None;
   }
 
-  double bestScore = 0.0;
+  const double mouseLength = std::hypot(mouseDx, mouseDy);
+  double bestAlignment = 0.0;
+  double bestProjectionStrength = 0.0;
   SelectionDragAxis bestAxis = SelectionDragAxis::None;
   for (size_t axisIndex = 0; axisIndex < axes.size(); ++axisIndex) {
     const ProjectedAxis &axis = axes[axisIndex];
@@ -58,10 +62,17 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
     const double lenSq = ScreenLengthSquared(axis);
     if (lenSq <= 1e-8)
       continue;
-    const double projected =
-        std::abs(Dot(mouseDx, mouseDy, axis)) / std::sqrt(lenSq);
-    if (projected > bestScore) {
-      bestScore = projected;
+    const double alignment =
+        std::abs(Dot(mouseDx, mouseDy, axis)) /
+        (mouseLength * std::sqrt(lenSq));
+    const bool clearlyBetterAligned =
+        alignment > bestAlignment + kAxisAlignmentTieTolerance;
+    const bool similarlyAlignedAndStronger =
+        std::abs(alignment - bestAlignment) <= kAxisAlignmentTieTolerance &&
+        axis.pixelsPerMeter > bestProjectionStrength;
+    if (clearlyBetterAligned || similarlyAlignedAndStronger) {
+      bestAlignment = alignment;
+      bestProjectionStrength = axis.pixelsPerMeter;
       bestAxis = IndexToAxis(axisIndex);
     }
   }

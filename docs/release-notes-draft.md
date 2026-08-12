@@ -39,7 +39,9 @@ Changes since **v1.5.0**.
   from making constrained movement feel unlocked. Axes that point almost
   directly into the camera are ignored to prevent extreme, off-screen placement
   jumps from small pointer movements, and moved previews return when brought
-  back into view after leaving the rendered scene area.
+  back into view after leaving the rendered scene area. When multiple world axes
+  overlap in screen direction, placement now prefers the axis with the clearest
+  screen projection instead of selecting an arbitrary, foreshortened axis.
 
 - Corrected generated fixture-symbol framing and physical bounds to use the
   selected GDTF mode and every rendered part, improving scale and placement

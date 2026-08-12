@@ -44,5 +44,15 @@ int main() {
   assert(viewer3d::DetectAxisSwitchIntent(
              8, 100, viewer3d::SelectionDragAxis::Y, axes)
              .axis == viewer3d::SelectionDragAxis::None);
+
+  const std::array<viewer3d::ProjectedAxis, 3> overlappingAxes{{
+      {0.0, 1.0, 4.0, true},
+      {1.0, 0.0, 12.0, true},
+      {0.0, 2.0, 18.0, true},
+  }};
+  assert(viewer3d::SelectDragAxisFromMouseDelta(1, 30, overlappingAxes) ==
+         viewer3d::SelectionDragAxis::Z);
+  assert(viewer3d::SelectDragAxisFromMouseDelta(30, 1, overlappingAxes) ==
+         viewer3d::SelectionDragAxis::Y);
   return 0;
 }
