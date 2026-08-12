@@ -110,6 +110,19 @@ double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
   return projectedPixels / projectedAxis.pixelsPerMeter;
 }
 
+// Returns signed pointer travel along a projected world axis.
+double ComputeProjectedPixelsOnAxis(
+    int mouseDx, int mouseDy, SelectionDragAxis axis,
+    const std::array<ProjectedAxis, 3> &axes) {
+  if (axis == SelectionDragAxis::None)
+    return 0.0;
+  const ProjectedAxis &projectedAxis = axes[AxisToIndex(axis)];
+  const double lenSq = ScreenLengthSquared(projectedAxis);
+  if (!projectedAxis.valid || lenSq <= 1e-8)
+    return 0.0;
+  return Dot(mouseDx, mouseDy, projectedAxis) / std::sqrt(lenSq);
+}
+
 // Intersects a world-space ray with a plane for deterministic drag projection.
 std::optional<std::array<double, 3>>
 IntersectRayWithPlane(const std::array<double, 3> &rayOrigin,

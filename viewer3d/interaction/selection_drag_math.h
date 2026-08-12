@@ -30,6 +30,10 @@ AxisSwitchIntent DetectAxisSwitchIntent(
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
                                const std::array<ProjectedAxis, 3> &axes);
 
+double ComputeProjectedPixelsOnAxis(
+    int mouseDx, int mouseDy, SelectionDragAxis axis,
+    const std::array<ProjectedAxis, 3> &axes);
+
 // Intersects a world-space ray with a plane for deterministic drag projection.
 std::optional<std::array<double, 3>>
 IntersectRayWithPlane(const std::array<double, 3> &rayOrigin,

@@ -35,8 +35,11 @@ Changes since **v1.5.0**.
   enabled, moving the pointer away from the active projected axis now switches
   the preview to the newly intended axis, realigns it beneath the pointer, and
   starts the new constrained movement without carrying over the previous
-  axis offset. Axes that point almost directly into the camera are ignored to
-  prevent extreme, off-screen placement jumps from small pointer movements.
+  axis offset. A short travel along the new axis prevents repeated realignment
+  from making constrained movement feel unlocked. Axes that point almost
+  directly into the camera are ignored to prevent extreme, off-screen placement
+  jumps from small pointer movements, and moved previews return when brought
+  back into view after leaving the rendered scene area.
 
 - Corrected generated fixture-symbol framing and physical bounds to use the
   selected GDTF mode and every rendered part, improving scale and placement

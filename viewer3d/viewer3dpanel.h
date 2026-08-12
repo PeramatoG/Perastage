@@ -158,6 +158,7 @@ private:
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;
     bool m_continuousConstraintReferenceValid = false;
+    bool m_continuousAxisSwitchArmed = true;
     wxPoint m_continuousConstraintPointerOrigin;
     std::array<float, 3> m_continuousConstraintWorldOriginMeters{
         0.0f, 0.0f, 0.0f};

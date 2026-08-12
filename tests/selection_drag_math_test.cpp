@@ -35,6 +35,9 @@ int main() {
   assert(std::abs(viewer3d::ComputeDragMetersOnAxis(
                       6, 18, viewer3d::SelectionDragAxis::Y, axes) -
                   0.9) < 1e-9);
+  assert(std::abs(viewer3d::ComputeProjectedPixelsOnAxis(
+                      6, 18, viewer3d::SelectionDragAxis::Y, axes) -
+                  18.0) < 1e-9);
   const auto switchIntent = viewer3d::DetectAxisSwitchIntent(
       40, 100, viewer3d::SelectionDragAxis::Y, axes);
   assert(switchIntent.axis == viewer3d::SelectionDragAxis::X);

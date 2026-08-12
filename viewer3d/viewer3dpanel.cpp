@@ -2457,6 +2457,7 @@ void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
     if (!enabled) {
         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
         m_continuousConstraintReferenceValid = false;
+        m_continuousAxisSwitchArmed = true;
         if (wasEnabled && m_continuousPlacementActive) {
             m_placementViewRevision.Invalidate();
             if (m_hasLastMousePos)
@@ -2610,6 +2611,7 @@ void Viewer3DPanel::ResetSelectionDragState() {
     m_dragSceneObjectUuids.clear();
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_continuousConstraintReferenceValid = false;
+    m_continuousAxisSwitchArmed = true;
     m_pendingMagnetSnap.reset();
     if (MainWindow::Instance())
         MainWindow::Instance()->ClearHighlightedWorldPositionInStatusBar();
@@ -3057,6 +3059,7 @@ void Viewer3DPanel::ApplySelectionDragDelta(
     scene_grouping::TranslateSelection(
         cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
         transform_space::TransformSpace::World, policy);
+    m_controller.MarkSceneTransformsDirty();
   }
     if (auto snap = FindActiveMagnetSnap()) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
@@ -3405,6 +3408,7 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     m_placementViewRevision.CompleteAlignmentAttempt(true);
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_continuousConstraintReferenceValid = false;
+    m_continuousAxisSwitchArmed = true;
     m_selectionDragMoved = true;
     m_lastMousePos = mousePos;
     return true;
@@ -3470,11 +3474,21 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                 if (m_selectionDragAxis == viewer3d::SelectionDragAxis::None &&
                     candidateAxis != viewer3d::SelectionDragAxis::None) {
                     m_selectionDragAxis = candidateAxis;
-                } else {
-                    const auto switchIntent =
-                        viewer3d::DetectAxisSwitchIntent(
+                } else if (m_selectionDragAxis !=
+                           viewer3d::SelectionDragAxis::None) {
+                    const double activeTravelPixels = std::abs(
+                        viewer3d::ComputeProjectedPixelsOnAxis(
                             totalDx, -totalDy, m_selectionDragAxis,
-                            projectedAxes);
+                            projectedAxes));
+                    if (!m_continuousAxisSwitchArmed &&
+                        activeTravelPixels >= 24.0) {
+                        m_continuousAxisSwitchArmed = true;
+                    }
+                    const auto switchIntent = m_continuousAxisSwitchArmed
+                        ? viewer3d::DetectAxisSwitchIntent(
+                              totalDx, -totalDy, m_selectionDragAxis,
+                              projectedAxes)
+                        : viewer3d::AxisSwitchIntent{};
                     if (switchIntent.axis !=
                         viewer3d::SelectionDragAxis::None) {
                         const auto switchedAxis = switchIntent.axis;
@@ -3484,6 +3498,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                             m_continuousConstraintWorldOriginMeters =
                                 CurrentRawSelectionDragAnchor();
                             m_continuousConstraintReferenceValid = true;
+                            m_continuousAxisSwitchArmed = false;
                             PresentContinuousPlacementFrame();
                             return;
                         }
