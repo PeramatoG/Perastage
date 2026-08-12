@@ -383,13 +383,15 @@ void OpaqueObjectPass::Render(
     }
 
     const bool highlight = !context.idOnlyPass &&
+                           !context.suppressSelectionStyling &&
                            !controller.m_highlightUuid.empty() &&
                            uuid == controller.m_highlightUuid;
     const bool selected =
-        !context.idOnlyPass && controller.m_primarySelectedUuids.find(uuid) !=
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
+        controller.m_primarySelectedUuids.find(uuid) !=
                                    controller.m_primarySelectedUuids.end();
     const bool groupHighlight =
-        !context.idOnlyPass &&
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
         (controller.m_groupHighlightUuids.find(uuid) !=
              controller.m_groupHighlightUuids.end() ||
          (controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end() &&

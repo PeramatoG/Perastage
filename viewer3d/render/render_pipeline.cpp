@@ -52,6 +52,10 @@ void RenderPipeline::Execute(const RenderFrameContext &context) {
     RenderFrameContext baseContext = m_context;
     baseContext.whiteModelStyle = false;
     baseContext.sketchBasePass = true;
+    // Keep transient selection colors out of the posterized Sketch image;
+    // the post-composite overlay owns their final filled-style appearance.
+    baseContext.suppressSelectionStyling =
+        ShouldSuppressSketchBaseSelection(true);
     m_controller.SetSketchBasePassActive(true);
     const bool hasIntermediateTarget = m_controller.BeginSketchPostProcess();
     m_controller.RenderOpaqueFrame(baseContext, *m_visibleSet);

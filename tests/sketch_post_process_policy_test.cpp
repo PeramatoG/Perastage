@@ -9,6 +9,8 @@ int main() {
   assert(!ShouldApplySketchPostProcess(false, false, false));
   assert(!ShouldApplySketchPostProcess(true, true, false));
   assert(!ShouldApplySketchPostProcess(true, false, true));
+  assert(ShouldSuppressSketchBaseSelection(true));
+  assert(!ShouldSuppressSketchBaseSelection(false));
   assert(ShouldRenderSelectionOverlay(true, false, false));
   assert(ShouldRenderSelectionOverlay(false, true, false));
   assert(!ShouldRenderSelectionOverlay(false, false, false));
