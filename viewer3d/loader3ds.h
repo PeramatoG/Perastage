@@ -20,7 +20,7 @@
 #include "mesh.h"
 #include "mesh_geometry_conventions.h"
 
-// Loads a 3DS mesh and optionally applies per-object local pivot/basis transforms.
+// Loads 3DS geometry with optional object transforms and texture decoding.
 bool Load3DS(const std::string& path, Mesh& outMesh,
              bool applyObjectLocalTransform = viewer3d::kApplyThreeDsObjectTransforms,
-             std::string* error = nullptr);
+             std::string* error = nullptr, bool loadTextures = true);

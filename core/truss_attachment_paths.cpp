@@ -227,9 +227,11 @@ std::vector<Path> AnalyzeMesh(const std::vector<float> &verticesMm,
           best = index;
         }
       }
-      if (best == tracks.size())
+      if (best == tracks.size()) {
         tracks.push_back({{{sample, center}}});
-      else {
+        // Keep per-sample assignments aligned when this sample creates tracks.
+        used.push_back(true);
+      } else {
         tracks[best].observations.push_back({sample, center});
         used[best] = true;
       }
@@ -383,8 +385,8 @@ Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
       std::string error;
       ++m_geometryParseCount;
       const bool loaded = extension == ".glb"
-                              ? LoadGLB(path.string(), mesh, &error)
-                              : Load3DS(path.string(), mesh, true, &error);
+                              ? LoadGLB(path.string(), mesh, &error, false)
+                              : Load3DS(path.string(), mesh, true, &error, false);
       CacheEntry entry;
       entry.sourceIdentity = PathUtils::BuildFilesystemIdentityKey(path);
       if (loaded) {

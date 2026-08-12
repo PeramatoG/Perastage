@@ -1491,7 +1491,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     std::vector<viewer_common::MagnetAnchorScreenReference> screenReferences;
     const auto references = magnet_snap::BuildAnchorReferences(
         ConfigManager::Get().GetScene(), *magnetSource,
-        m_trussCandidateResolver);
+        m_trussCandidateResolver, &m_trussAttachmentPathResolver);
     for (const auto &reference : references) {
       const auto position = Viewer2DMeasureWorldToScreen(
           toMeters(reference.positionMm), m_view, w, h, m_zoom, m_offsetX,
@@ -1896,6 +1896,7 @@ Viewer2DPanel::BuildActiveMagnetSource() const {
 magnet_snap::SnapSettings Viewer2DPanel::BuildActiveMagnetSettings() const {
   magnet_snap::SnapSettings settings;
   settings.candidateResolver = &m_trussCandidateResolver;
+  settings.pathResolver = &m_trussAttachmentPathResolver;
   switch (m_view) {
   case Viewer2DView::Top:
   case Viewer2DView::Bottom:

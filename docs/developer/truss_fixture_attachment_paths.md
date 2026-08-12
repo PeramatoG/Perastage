@@ -48,6 +48,9 @@ Local analysis is cached by canonical geometry path, file size, and modification
 time. Instance transforms are applied after lookup. Moving or rotating a truss
 therefore does not parse or analyze its geometry again, while replacing the
 resource invalidates its entry. The cache is process-local and is not serialized.
+Each viewer owns its resolver, and analysis requests load vertex/index data without
+decoding textures or initializing wxWidgets image handlers. This keeps attachment
+resolution safe when an overlay is first requested from a movement event.
 
 Fixture snapping uses reliable paths first and records the selected runtime path,
 parameter, provenance, and confidence in transient `SnapResult` state. If no

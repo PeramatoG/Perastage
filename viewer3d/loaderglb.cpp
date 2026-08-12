@@ -169,7 +169,8 @@ static std::optional<GLBFile> ParseGLBFile(const std::string& path, std::string&
 }
 
 // Loads a GLB file into a mesh by concatenating all available primitives across scene nodes.
-bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
+bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error,
+             bool loadTextures)
 {
     outMesh.vertices.clear();
     outMesh.indices.clear();
@@ -350,6 +351,8 @@ bool LoadGLB(const std::string& path, Mesh& outMesh, std::string* error)
 
     auto decodeTextureImage = [&](int imageIndex, std::vector<unsigned char>& rgba,
                                   int& width, int& height) -> bool {
+        if (!loadTextures)
+            return false;
         if (wxImage::FindHandler(wxBITMAP_TYPE_PNG) == nullptr)
             wxInitAllImageHandlers();
         if (!doc.contains("images") || !doc["images"].is_array() ||

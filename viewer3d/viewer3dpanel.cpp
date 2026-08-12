@@ -1306,7 +1306,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         std::vector<viewer_common::MagnetAnchorScreenReference> screenReferences;
         const auto references = magnet_snap::BuildAnchorReferences(
             ConfigManager::Get().GetScene(), *magnetSource,
-            m_trussCandidateResolver);
+            m_trussCandidateResolver, &m_trussAttachmentPathResolver);
         for (const auto &reference : references) {
             const auto position =
                 ProjectWorldToFramebuffer(toMeters(reference.positionMm));
@@ -2992,6 +2992,7 @@ magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
     const magnet_snap::SnapSource &source) const {
     magnet_snap::SnapSettings settings;
     settings.candidateResolver = &m_trussCandidateResolver;
+    settings.pathResolver = &m_trussAttachmentPathResolver;
     settings.thresholdMm = source.type == magnet_snap::ObjectType::Fixture
                                ? magnet_snap::kDefaultSnapDistanceMm * 2.0f
                                : magnet_snap::kDefaultSnapDistanceMm;

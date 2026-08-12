@@ -16,7 +16,7 @@ namespace {
 
 // Returns the shared runtime cache used when a caller does not provide one.
 truss_attachment_paths::Resolver &DefaultPathResolver() {
-  static truss_attachment_paths::Resolver resolver;
+  thread_local truss_attachment_paths::Resolver resolver;
   return resolver;
 }
 

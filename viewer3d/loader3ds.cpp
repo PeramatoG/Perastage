@@ -413,7 +413,8 @@ static void parseMesh(std::ifstream& file, long endPos, Mesh& mesh, size_t verte
 
 // Loads mesh/object data from a 3DS file, with optional local transform application.
 // Loads a 3DS file into a mesh and reports failure details when geometry cannot be produced.
-bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform, std::string* error)
+bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransform,
+             std::string* error, bool loadTextures)
 {
     std::ifstream file(path, std::ios::binary);
     if(!file.is_open()) {
@@ -520,7 +521,7 @@ bool Load3DS(const std::string& path, Mesh& outMesh, bool applyObjectLocalTransf
         else if (outMesh.texcoords.size() > expectedSize)
             outMesh.texcoords.resize(expectedSize);
     }
-    if (ok && !textureFilename.empty())
+    if (ok && loadTextures && !textureFilename.empty())
         LoadTextureImage(modelDir, textureFilename, outMesh);
     if (ok)
         ComputeNormals(outMesh);
