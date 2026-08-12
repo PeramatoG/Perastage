@@ -28,5 +28,31 @@ int main() {
   assert(std::abs(viewer3d::ComputeDragMetersOnAxis(
                       10, 0, viewer3d::SelectionDragAxis::X, axes) -
                   1.0) < 1e-9);
+  assert(viewer3d::SelectDragAxisFromMouseDelta(14, 2, axes) ==
+         viewer3d::SelectionDragAxis::X);
+  assert(viewer3d::SelectDragAxisFromMouseDelta(6, 18, axes) ==
+         viewer3d::SelectionDragAxis::Y);
+  assert(std::abs(viewer3d::ComputeDragMetersOnAxis(
+                      6, 18, viewer3d::SelectionDragAxis::Y, axes) -
+                  0.9) < 1e-9);
+  assert(std::abs(viewer3d::ComputeProjectedPixelsOnAxis(
+                      6, 18, viewer3d::SelectionDragAxis::Y, axes) -
+                  18.0) < 1e-9);
+  const auto switchIntent = viewer3d::DetectAxisSwitchIntent(
+      40, 100, viewer3d::SelectionDragAxis::Y, axes);
+  assert(switchIntent.axis == viewer3d::SelectionDragAxis::X);
+  assert(viewer3d::DetectAxisSwitchIntent(
+             8, 100, viewer3d::SelectionDragAxis::Y, axes)
+             .axis == viewer3d::SelectionDragAxis::None);
+
+  const std::array<viewer3d::ProjectedAxis, 3> overlappingAxes{{
+      {0.0, 1.0, 4.0, true},
+      {1.0, 0.0, 12.0, true},
+      {0.0, 2.0, 18.0, true},
+  }};
+  assert(viewer3d::SelectDragAxisFromMouseDelta(1, 30, overlappingAxes) ==
+         viewer3d::SelectionDragAxis::Z);
+  assert(viewer3d::SelectDragAxisFromMouseDelta(30, 1, overlappingAxes) ==
+         viewer3d::SelectionDragAxis::Y);
   return 0;
 }

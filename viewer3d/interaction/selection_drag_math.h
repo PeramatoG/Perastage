@@ -19,8 +19,20 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
                              const std::array<ProjectedAxis, 3> &axes,
                              int activationThresholdPx = 3);
 
+struct AxisSwitchIntent {
+  SelectionDragAxis axis = SelectionDragAxis::None;
+};
+
+AxisSwitchIntent DetectAxisSwitchIntent(
+    int mouseDx, int mouseDy, SelectionDragAxis activeAxis,
+    const std::array<ProjectedAxis, 3> &axes, int switchThresholdPx = 12);
+
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
                                const std::array<ProjectedAxis, 3> &axes);
+
+double ComputeProjectedPixelsOnAxis(
+    int mouseDx, int mouseDy, SelectionDragAxis axis,
+    const std::array<ProjectedAxis, 3> &axes);
 
 // Intersects a world-space ray with a plane for deterministic drag projection.
 std::optional<std::array<double, 3>>

@@ -5,6 +5,8 @@
 namespace viewer3d {
 namespace {
 
+constexpr double kAxisAlignmentTieTolerance = 0.05;
+
 double Dot(int mouseDx, int mouseDy, const ProjectedAxis &axis) {
   return static_cast<double>(mouseDx) * axis.screenDx +
          static_cast<double>(mouseDy) * axis.screenDy;
@@ -49,7 +51,9 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
     return SelectionDragAxis::None;
   }
 
-  double bestScore = 0.0;
+  const double mouseLength = std::hypot(mouseDx, mouseDy);
+  double bestAlignment = 0.0;
+  double bestProjectionStrength = 0.0;
   SelectionDragAxis bestAxis = SelectionDragAxis::None;
   for (size_t axisIndex = 0; axisIndex < axes.size(); ++axisIndex) {
     const ProjectedAxis &axis = axes[axisIndex];
@@ -58,14 +62,47 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
     const double lenSq = ScreenLengthSquared(axis);
     if (lenSq <= 1e-8)
       continue;
-    const double projected =
-        std::abs(Dot(mouseDx, mouseDy, axis)) / std::sqrt(lenSq);
-    if (projected > bestScore) {
-      bestScore = projected;
+    const double alignment =
+        std::abs(Dot(mouseDx, mouseDy, axis)) /
+        (mouseLength * std::sqrt(lenSq));
+    const bool clearlyBetterAligned =
+        alignment > bestAlignment + kAxisAlignmentTieTolerance;
+    const bool similarlyAlignedAndStronger =
+        std::abs(alignment - bestAlignment) <= kAxisAlignmentTieTolerance &&
+        axis.pixelsPerMeter > bestProjectionStrength;
+    if (clearlyBetterAligned || similarlyAlignedAndStronger) {
+      bestAlignment = alignment;
+      bestProjectionStrength = axis.pixelsPerMeter;
       bestAxis = IndexToAxis(axisIndex);
     }
   }
   return bestAxis;
+}
+
+// Detects pointer travel away from the active projected axis.
+AxisSwitchIntent DetectAxisSwitchIntent(
+    int mouseDx, int mouseDy, SelectionDragAxis activeAxis,
+    const std::array<ProjectedAxis, 3> &axes, int switchThresholdPx) {
+  if (activeAxis == SelectionDragAxis::None)
+    return {};
+  const ProjectedAxis &projectedAxis = axes[AxisToIndex(activeAxis)];
+  const double lenSq = ScreenLengthSquared(projectedAxis);
+  if (!projectedAxis.valid || lenSq <= 1e-8)
+    return {};
+
+  const double alongScale = Dot(mouseDx, mouseDy, projectedAxis) / lenSq;
+  const int residualDx = static_cast<int>(std::lround(
+      static_cast<double>(mouseDx) - alongScale * projectedAxis.screenDx));
+  const int residualDy = static_cast<int>(std::lround(
+      static_cast<double>(mouseDy) - alongScale * projectedAxis.screenDy));
+  if (std::hypot(residualDx, residualDy) < switchThresholdPx)
+    return {};
+
+  const SelectionDragAxis candidate = SelectDragAxisFromMouseDelta(
+      residualDx, residualDy, axes, switchThresholdPx);
+  if (candidate == SelectionDragAxis::None || candidate == activeAxis)
+    return {};
+  return {candidate};
 }
 
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
@@ -82,6 +119,19 @@ double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,
   const double projectedPixels =
       Dot(mouseDx, mouseDy, projectedAxis) / std::sqrt(lenSq);
   return projectedPixels / projectedAxis.pixelsPerMeter;
+}
+
+// Returns signed pointer travel along a projected world axis.
+double ComputeProjectedPixelsOnAxis(
+    int mouseDx, int mouseDy, SelectionDragAxis axis,
+    const std::array<ProjectedAxis, 3> &axes) {
+  if (axis == SelectionDragAxis::None)
+    return 0.0;
+  const ProjectedAxis &projectedAxis = axes[AxisToIndex(axis)];
+  const double lenSq = ScreenLengthSquared(projectedAxis);
+  if (!projectedAxis.valid || lenSq <= 1e-8)
+    return 0.0;
+  return Dot(mouseDx, mouseDy, projectedAxis) / std::sqrt(lenSq);
 }
 
 // Intersects a world-space ray with a plane for deterministic drag projection.

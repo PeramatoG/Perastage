@@ -948,6 +948,14 @@ void Viewer3DController::CompleteSceneReplacement() {
   MarkResourceSyncPending();
 }
 
+// Invalidates transform-dependent bounds and visible sorting after scene movement.
+void Viewer3DController::MarkSceneTransformsDirty() {
+  std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
+  m_impl->sceneChangedDirty = true;
+  m_impl->sortedListsDirty = true;
+  MarkResourceSyncPending();
+}
+
 // Marks resource Sync Pending.
 void Viewer3DController::MarkResourceSyncPending() {
   m_impl->resourceSyncPending.store(true, std::memory_order_relaxed);

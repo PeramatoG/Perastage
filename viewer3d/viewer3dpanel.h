@@ -157,6 +157,11 @@ private:
     continuous_placement::ViewRevisionState m_placementViewRevision;
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;
+    bool m_continuousConstraintReferenceValid = false;
+    bool m_continuousAxisSwitchArmed = true;
+    wxPoint m_continuousConstraintPointerOrigin;
+    std::array<float, 3> m_continuousConstraintWorldOriginMeters{
+        0.0f, 0.0f, 0.0f};
 
     // Type of interaction currently active (Orbit or Pan)
     enum class InteractionMode { None, Orbit, Pan };
@@ -221,6 +226,7 @@ private:
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
     bool AlignContinuousElementToPointer(const wxPoint& mousePos);
+    void PresentContinuousPlacementFrame();
     void ConfirmContinuousPlacement();
     void CancelContinuousPlacement();
     void EndContinuousPlacementState();
