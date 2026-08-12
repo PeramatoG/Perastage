@@ -14,6 +14,8 @@ namespace magnet_snap {
 
 constexpr float kDefaultSnapDistanceMm = 250.0f;
 constexpr const char *kMagnetEnabledConfigKey = "viewport_magnet_enabled";
+constexpr const char *kShowAnchorReferencesConfigKey =
+    "viewport_magnet_show_anchor_references";
 
 enum class ObjectType { Fixture, Truss, TrussGroup, SceneObject };
 enum class SnapKind { None, TrussToTruss, FixtureToTruss, SceneObjectToObject };
@@ -47,9 +49,19 @@ struct SnapResult {
   std::string targetMemberTrussUuid;
 };
 
+struct AnchorReference {
+  std::array<float, 3> positionMm{0.0f, 0.0f, 0.0f};
+  std::optional<std::array<float, 3>> direction;
+};
+
 // Builds deterministic exterior or conservative aggregate group candidates.
 std::vector<truss_attachment::Candidate>
 BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid);
+
+// Builds every compatible anchor reference for an active Magnet source.
+std::vector<AnchorReference>
+BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
+                      truss_attachment::CandidateResolver &resolver);
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,

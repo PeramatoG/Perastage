@@ -6,6 +6,10 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added an enabled-by-default **Magnet visual feedback** preference that shows
+  every compatible anchor as a vivid red point or direction line throughout
+  movement and insertion in the 2D and 3D viewers.
+
 - Layout PDF completion messages now summarize how many elements used generated
   Perastage symbols and how many used rendered fallbacks, making it easy to
   verify symbol usage without comparing PDF file sizes.

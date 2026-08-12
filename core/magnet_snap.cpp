@@ -678,6 +678,42 @@ BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid) {
                 : std::vector<truss_attachment::Candidate>{};
 }
 
+// Builds every compatible anchor reference for an active Magnet source.
+std::vector<AnchorReference>
+BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
+                      truss_attachment::CandidateResolver &resolver) {
+  std::vector<AnchorReference> references;
+  auto appendCandidates = [&](const auto &candidates) {
+    for (const auto &candidate : candidates)
+      references.push_back(
+          {candidate.worldTransform.o, candidate.worldDirection});
+  };
+
+  if (source.type == ObjectType::Truss ||
+      source.type == ObjectType::TrussGroup ||
+      source.type == ObjectType::Fixture) {
+    for (const auto &[uuid, truss] : scene.trusses) {
+      (void)uuid;
+      appendCandidates(
+          truss_attachment::BuildCandidates(scene, truss, resolver).candidates);
+    }
+    return references;
+  }
+
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    for (const Face &face : BuildFaces(MakeTrussBounds(truss), false))
+      references.push_back({face.center, face.normal});
+  }
+  for (const auto &[uuid, object] : scene.sceneObjects) {
+    (void)uuid;
+    for (const Face &face :
+         BuildFaces({object.transform, {1000.0f, 1000.0f, 1000.0f}}, false))
+      references.push_back({face.center, face.normal});
+  }
+  return references;
+}
+
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,
                                    const SnapSource &source,
