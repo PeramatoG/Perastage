@@ -5,6 +5,12 @@
 #include "viewer3d_types.h"
 #include <functional>
 
+// Returns whether mesh rendering should use the white-model material path.
+inline bool ShouldUseWhiteModelMeshPath(bool whiteModelStyle,
+                                        bool selectionOverlayPass) {
+  return whiteModelStyle && !selectionOverlayPass;
+}
+
 class SceneRenderer {
 public:
   explicit SceneRenderer(IRenderContext &controller)
@@ -16,7 +22,8 @@ public:
       bool wireframe, Viewer2DRenderMode mode,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>
           &captureTransform,
-      bool unlit, const float *modelMatrix, bool disableDepthBias = false);
+      bool unlit, const float *modelMatrix, bool disableDepthBias = false,
+      bool selectionOverlayPass = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>

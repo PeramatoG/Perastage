@@ -143,13 +143,15 @@ const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
 
 } // namespace
 
+// Draws a mesh with its style-dependent fill and optional selection outline.
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool groupHighlight, bool selected, float cx, float cy, float cz,
     bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)>
         &captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias,
+    bool selectionOverlayPass) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -273,7 +275,8 @@ void SceneRenderer::DrawMeshWithOutline(
   }
 
   if (!m_controller.IsCaptureOnly()) {
-    if (m_controller.IsWhiteModelStyleEnabled()) {
+    if (ShouldUseWhiteModelMeshPath(
+            m_controller.IsWhiteModelStyleEnabled(), selectionOverlayPass)) {
       const GLboolean texture2DWhiteModelWasEnabled =
           glIsEnabled(GL_TEXTURE_2D);
       if (texture2DWhiteModelWasEnabled)
