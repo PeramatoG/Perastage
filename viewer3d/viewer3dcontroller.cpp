@@ -1429,7 +1429,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 // Renders overlay Frame.
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
-  if (context.sketchPostProcess)
+  if (ShouldRenderSelectionOverlay(context.sketchPostProcess,
+                                   context.wireframe, context.idOnlyPass))
     SelectionOverlayPass::Render(*this, context, visibleSet);
   if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);
@@ -2032,10 +2033,12 @@ void Viewer3DController::DrawMeshWithOutline(
     bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)>
         &captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias,
+    bool standardSelectionStyle) {
   m_impl->sceneRenderer->DrawMeshWithOutline(
       mesh, r, g, b, scale, highlight, groupHighlight, selected, cx, cy, cz,
-      wireframe, mode, captureTransform, unlit, modelMatrix, disableDepthBias);
+      wireframe, mode, captureTransform, unlit, modelMatrix, disableDepthBias,
+      standardSelectionStyle);
 }
 
 // Draws mesh Wireframe.

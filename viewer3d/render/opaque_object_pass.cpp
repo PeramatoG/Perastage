@@ -383,13 +383,15 @@ void OpaqueObjectPass::Render(
     }
 
     const bool highlight = !context.idOnlyPass &&
+                           !context.suppressSelectionStyling &&
                            !controller.m_highlightUuid.empty() &&
                            uuid == controller.m_highlightUuid;
     const bool selected =
-        !context.idOnlyPass && controller.m_primarySelectedUuids.find(uuid) !=
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
+        controller.m_primarySelectedUuids.find(uuid) !=
                                    controller.m_primarySelectedUuids.end();
     const bool groupHighlight =
-        !context.idOnlyPass &&
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
         (controller.m_groupHighlightUuids.find(uuid) !=
              controller.m_groupHighlightUuids.end() ||
          (controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end() &&
@@ -486,7 +488,8 @@ void OpaqueObjectPass::Render(
               controller.DrawMeshWithOutline(
                   *part.mesh, r, g, b, RENDER_SCALE, isHighlighted,
                   isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
-                  partCaptureTransform, false, partMatrix, disableDepthBias);
+                  partCaptureTransform, false, partMatrix, disableDepthBias,
+                  context.selectionOverlayPass);
               glPopMatrix();
             }
           } else {
@@ -505,7 +508,7 @@ void OpaqueObjectPass::Render(
                 fallbackMesh, r, g, b, 0.3f, isHighlighted, isGroupHighlighted,
                 isSelected, cx, cy, cz, fallbackWireframe, mode,
                 captureTransformFn, useUnlitFallbackFill, matrix,
-                disableDepthBias);
+                disableDepthBias, context.selectionOverlayPass);
           }
         };
 

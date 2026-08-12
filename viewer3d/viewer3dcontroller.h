@@ -234,7 +234,7 @@ private:
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>
           &captureTransform = {},
       bool unlit = false, const float *modelMatrix = nullptr,
-      bool disableDepthBias = false);
+      bool disableDepthBias = false, bool standardSelectionStyle = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale = RENDER_SCALE,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>

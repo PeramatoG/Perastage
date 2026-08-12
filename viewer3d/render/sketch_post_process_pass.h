@@ -13,6 +13,11 @@ inline bool ShouldApplySketchPostProcess(bool sketchStyle, bool wireframe,
   return sketchStyle && !wireframe && !idOnlyPass;
 }
 
+// Returns whether Sketch base rendering should defer selection styling.
+inline bool ShouldSuppressSketchBaseSelection(bool sketchPostProcessActive) {
+  return sketchPostProcessActive;
+}
+
 // Maps neutral-base luminance to the existing three-tone Sketch palette.
 inline SketchTone QuantizeSketchLuminance(float luminance) {
   if (luminance <= kSketchDarkLuminanceThreshold)

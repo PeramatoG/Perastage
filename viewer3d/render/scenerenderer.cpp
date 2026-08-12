@@ -143,13 +143,15 @@ const float *ResolveModelMatrixForMirroring(const float *modelMatrix,
 
 } // namespace
 
+// Draws a mesh with its style-dependent fill and optional selection outline.
 void SceneRenderer::DrawMeshWithOutline(
     const Mesh &mesh, float r, float g, float b, float scale, bool highlight,
     bool groupHighlight, bool selected, float cx, float cy, float cz,
     bool wireframe, Viewer2DRenderMode mode,
     const std::function<std::array<float, 3>(const std::array<float, 3> &)>
         &captureTransform,
-    bool unlit, const float *modelMatrix, bool disableDepthBias) {
+    bool unlit, const float *modelMatrix, bool disableDepthBias,
+    bool standardSelectionStyle) {
   (void)cx;
   (void)cy;
   (void)cz;
@@ -273,7 +275,8 @@ void SceneRenderer::DrawMeshWithOutline(
   }
 
   if (!m_controller.IsCaptureOnly()) {
-    if (m_controller.IsWhiteModelStyleEnabled()) {
+    if (ShouldUseWhiteModelStyle(m_controller.IsWhiteModelStyleEnabled(),
+                                 standardSelectionStyle)) {
       const GLboolean texture2DWhiteModelWasEnabled =
           glIsEnabled(GL_TEXTURE_2D);
       if (texture2DWhiteModelWasEnabled)
@@ -324,7 +327,8 @@ void SceneRenderer::DrawMeshWithOutline(
           drawBaseWireframe = false;
         } else if (interactionMode ==
                    SketchInteractionWireframeMode::HighlightSelectedOnly) {
-          drawBaseWireframe = highlight || groupHighlight || selected;
+          drawBaseWireframe =
+              drawBaseWireframe && (highlight || groupHighlight || selected);
         }
       }
 
@@ -391,6 +395,8 @@ void SceneRenderer::DrawMeshWithOutline(
       if (texture2DWhiteModelWasEnabled)
         glEnable(GL_TEXTURE_2D);
     } else {
+      const bool biasSelectionFill = ShouldBiasStandardSelectionFill(
+          standardSelectionStyle, highlight || groupHighlight || selected);
       const bool useTexture =
           m_controller.IsTexturedRenderStyleEnabled() && !highlight &&
           !groupHighlight && !selected && mesh.textureId != 0 &&
@@ -417,11 +423,17 @@ void SceneRenderer::DrawMeshWithOutline(
 
       if (unlit)
         glDisable(GL_LIGHTING);
+      if (biasSelectionFill) {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-2.0f, -2.0f);
+      }
       if (highlight || groupHighlight || selected)
         LogMeshVaoDiagnostic(mesh, "before-highlight-draw");
       DrawMesh(mesh, scale, modelMatrix, useTexture);
       if (highlight || groupHighlight || selected)
         LogMeshVaoDiagnostic(mesh, "after-highlight-draw");
+      if (biasSelectionFill)
+        glDisable(GL_POLYGON_OFFSET_FILL);
       if (unlit)
         glEnable(GL_LIGHTING);
     }

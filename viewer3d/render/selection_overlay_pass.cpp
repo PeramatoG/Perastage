@@ -181,6 +181,21 @@ void SelectionOverlayPass::Render(Viewer3DController &controller,
     RenderFrameContext overlayContext = context;
     overlayContext.skipCapture = true;
     overlayContext.selectionOverlayPass = true;
+    // Draw solid highlight geometry after wireframe lines so its visual weight
+    // remains comparable to the filled render styles.
+    if (context.wireframe) {
+      overlayContext.wireframe = false;
+      overlayContext.mode = Viewer2DRenderMode::White;
+      overlayContext.whiteModelStyle = false;
+      overlayContext.texturedStyle = false;
+    }
+    // Use the regular filled-style lighting profile so highlight colors are
+    // multiplied consistently across light and shadow instead of inheriting
+    // the deliberately muted Sketch base profile.
+    if (ShouldUseStandardSelectionLighting(context.sketchPostProcess)) {
+      controller.SetupBasicLighting(context.useAmbientOcclusion,
+                                    context.ambientOcclusionStrength, false);
+    }
     GLint previousDepthFunc = GL_LESS;
     glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
     glDepthFunc(GL_LEQUAL);

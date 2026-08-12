@@ -95,6 +95,13 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Restored clear hover, group, and selection highlighting in the 3D Viewer
+  Sketch and Wireframe styles. Sketch highlights now retain the same vivid
+  colors, light-and-shadow shading, and black edge definition as the other
+  filled styles by using the Standard highlight material after Sketch
+  composition with a depth-safe overlay, while Wireframe feedback remains
+  visible over its lines.
+
 - Project opening now completes its progress dialog explicitly before closing
   it, preventing an intermittent stall at "Finalizing project load..." during
   application startup.

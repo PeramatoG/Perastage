@@ -120,13 +120,15 @@ void OpaqueTrussPass::Render(
     }
 
     const bool highlight = !context.idOnlyPass &&
+                           !context.suppressSelectionStyling &&
                            !controller.m_highlightUuid.empty() &&
                            uuid == controller.m_highlightUuid;
     const bool selected =
-        !context.idOnlyPass && controller.m_primarySelectedUuids.find(uuid) !=
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
+        controller.m_primarySelectedUuids.find(uuid) !=
                                    controller.m_primarySelectedUuids.end();
     const bool groupHighlight =
-        !context.idOnlyPass &&
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
         (controller.m_groupHighlightUuids.find(uuid) !=
              controller.m_groupHighlightUuids.end() ||
          (controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end() &&
@@ -205,7 +207,8 @@ void OpaqueTrussPass::Render(
             controller.DrawMeshWithOutline(
                 *trussMesh, r, g, b, RENDER_SCALE, isHighlighted,
                 isGroupHighlighted, isSelected, cx, cy, cz, wireframe, mode,
-                captureTransformFn, false, matrix);
+                captureTransformFn, false, matrix, false,
+                context.selectionOverlayPass);
           } else {
             controller.DrawWireframeBox(trussLen, trussHei, trussWid, r, g, b,
                                         isHighlighted, isGroupHighlighted,

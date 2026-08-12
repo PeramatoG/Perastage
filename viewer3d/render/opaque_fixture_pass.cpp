@@ -777,7 +777,7 @@ void OpaqueFixturePass::Render(
                 *key.mesh, r, g, b, key.scale, false, false, false, draw.cx,
                 draw.cy, draw.cz, key.wireframe, key.mode,
                 [](const std::array<float, 3> &p) { return p; }, key.unlit,
-                draw.worldMatrix.data());
+                draw.worldMatrix.data(), false, context.selectionOverlayPass);
             glPopMatrix();
             ++drawCalls;
           }
@@ -803,13 +803,15 @@ void OpaqueFixturePass::Render(
     }
 
     const bool highlight = !context.idOnlyPass &&
+                           !context.suppressSelectionStyling &&
                            !controller.m_highlightUuid.empty() &&
                            uuid == controller.m_highlightUuid;
     const bool selected =
-        !context.idOnlyPass && controller.m_primarySelectedUuids.find(uuid) !=
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
+        controller.m_primarySelectedUuids.find(uuid) !=
                                    controller.m_primarySelectedUuids.end();
     const bool groupHighlight =
-        !context.idOnlyPass &&
+        !context.idOnlyPass && !context.suppressSelectionStyling &&
         (controller.m_groupHighlightUuids.find(uuid) !=
              controller.m_groupHighlightUuids.end() ||
          (controller.m_selectedUuids.find(uuid) != controller.m_selectedUuids.end() &&
@@ -1086,7 +1088,8 @@ void OpaqueFixturePass::Render(
           controller.DrawMeshWithOutline(
               obj.mesh, partR, partG, partB, RENDER_SCALE, highlight,
               groupHighlight, selected, cx, cy, cz, wireframe, mode,
-              applyCapture, drawUnlit, partMatrix);
+              applyCapture, drawUnlit, partMatrix, false,
+              context.selectionOverlayPass);
           ++drawCalls;
           glPopMatrix();
         }
@@ -1098,7 +1101,7 @@ void OpaqueFixturePass::Render(
         controller.DrawMeshWithOutline(
             FallbackFixtureCubeMesh(), r, g, b, 0.2f, highlight, groupHighlight,
             selected, cx, cy, cz, fallbackWireframe, mode, applyFixtureCapture,
-            fallbackUnlit, matrix);
+            fallbackUnlit, matrix, false, context.selectionOverlayPass);
         ++drawCalls;
       }
       return drawCalls;

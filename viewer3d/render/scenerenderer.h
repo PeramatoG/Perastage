@@ -5,6 +5,18 @@
 #include "viewer3d_types.h"
 #include <functional>
 
+// Returns whether a mesh should use the dedicated white-model rendering path.
+inline bool ShouldUseWhiteModelStyle(bool whiteModelStyle,
+                                     bool standardSelectionStyle) {
+  return whiteModelStyle && !standardSelectionStyle;
+}
+
+// Returns whether a post-composite selection fill needs a forward depth bias.
+inline bool ShouldBiasStandardSelectionFill(bool standardSelectionStyle,
+                                            bool hasSelectionStyle) {
+  return standardSelectionStyle && hasSelectionStyle;
+}
+
 class SceneRenderer {
 public:
   explicit SceneRenderer(IRenderContext &controller)
@@ -16,7 +28,8 @@ public:
       bool wireframe, Viewer2DRenderMode mode,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>
           &captureTransform,
-      bool unlit, const float *modelMatrix, bool disableDepthBias = false);
+      bool unlit, const float *modelMatrix, bool disableDepthBias = false,
+      bool standardSelectionStyle = false);
   void DrawMeshWireframe(
       const Mesh &mesh, float scale,
       const std::function<std::array<float, 3>(const std::array<float, 3> &)>
