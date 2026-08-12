@@ -4,6 +4,12 @@
 
 class Viewer3DController;
 
+// Returns whether a post-base selection overlay is needed for the render style.
+inline bool ShouldRenderSelectionOverlay(bool sketchPostProcess, bool wireframe,
+                                         bool idOnlyPass) {
+  return !idOnlyPass && (sketchPostProcess || wireframe);
+}
+
 class SelectionOverlayPass {
 public:
   static void Render(Viewer3DController &controller,

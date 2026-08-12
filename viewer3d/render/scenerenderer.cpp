@@ -315,6 +315,12 @@ void SceneRenderer::DrawMeshWithOutline(
           interactiveSketchMode ? ReadSketchInteractionWireframeMode()
                                 : SketchInteractionWireframeMode::FullQuality;
       bool drawBaseWireframe = true;
+      if (m_controller.IsSketchRenderStyleEnabled() &&
+          (highlight || groupHighlight || selected)) {
+        // The post-composite overlay supplies the colored fill and outline;
+        // avoid repainting black Sketch ink over that visual feedback.
+        drawBaseWireframe = false;
+      }
       int wireframeTriangleStep = 1;
       if (interactiveSketchMode) {
         if (interactionMode == SketchInteractionWireframeMode::Sparse) {
@@ -324,7 +330,8 @@ void SceneRenderer::DrawMeshWithOutline(
           drawBaseWireframe = false;
         } else if (interactionMode ==
                    SketchInteractionWireframeMode::HighlightSelectedOnly) {
-          drawBaseWireframe = highlight || groupHighlight || selected;
+          drawBaseWireframe =
+              drawBaseWireframe && (highlight || groupHighlight || selected);
         }
       }
 

@@ -95,6 +95,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Restored clear hover, group, and selection highlighting in the 3D Viewer
+  Sketch and Wireframe styles, with colored feedback that remains visible over
+  each style's characteristic line treatment.
+
 - Project opening now completes its progress dialog explicitly before closing
   it, preventing an intermittent stall at "Finalizing project load..." during
   application startup.

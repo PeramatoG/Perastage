@@ -1429,7 +1429,8 @@ void Viewer3DController::RenderOpaqueFrame(const RenderFrameContext &context,
 // Renders overlay Frame.
 void Viewer3DController::RenderOverlayFrame(const RenderFrameContext &context,
                                             const VisibleSet &visibleSet) {
-  if (context.sketchPostProcess)
+  if (ShouldRenderSelectionOverlay(context.sketchPostProcess,
+                                   context.wireframe, context.idOnlyPass))
     SelectionOverlayPass::Render(*this, context, visibleSet);
   if (context.drawGridAfterScene) {
     glDisable(GL_DEPTH_TEST);

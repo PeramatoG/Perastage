@@ -1,4 +1,5 @@
 #include "render/sketch_post_process_pass.h"
+#include "render/selection_overlay_pass.h"
 
 #include <cassert>
 
@@ -8,6 +9,10 @@ int main() {
   assert(!ShouldApplySketchPostProcess(false, false, false));
   assert(!ShouldApplySketchPostProcess(true, true, false));
   assert(!ShouldApplySketchPostProcess(true, false, true));
+  assert(ShouldRenderSelectionOverlay(true, false, false));
+  assert(ShouldRenderSelectionOverlay(false, true, false));
+  assert(!ShouldRenderSelectionOverlay(false, false, false));
+  assert(!ShouldRenderSelectionOverlay(true, true, true));
 
   assert(QuantizeSketchLuminance(0.0f) == SketchTone::Dark);
   assert(QuantizeSketchLuminance(kSketchDarkLuminanceThreshold) ==
