@@ -3477,11 +3477,16 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                             projectedAxes);
                     if (switchIntent.axis !=
                         viewer3d::SelectionDragAxis::None) {
-                        m_selectionDragAxis = switchIntent.axis;
-                        m_continuousConstraintWorldOriginMeters = rawAnchor;
-                        m_continuousConstraintPointerOrigin = {
-                            pos.x - switchIntent.residualDx,
-                            pos.y + switchIntent.residualDy};
+                        const auto switchedAxis = switchIntent.axis;
+                        if (AlignContinuousElementToPointer(pos)) {
+                            m_selectionDragAxis = switchedAxis;
+                            m_continuousConstraintPointerOrigin = pos;
+                            m_continuousConstraintWorldOriginMeters =
+                                CurrentRawSelectionDragAnchor();
+                            m_continuousConstraintReferenceValid = true;
+                            PresentContinuousPlacementFrame();
+                            return;
+                        }
                     }
                 }
                 const int constrainedDx =

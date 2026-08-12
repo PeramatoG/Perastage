@@ -91,7 +91,7 @@ AxisSwitchIntent DetectAxisSwitchIntent(
       residualDx, residualDy, axes, switchThresholdPx);
   if (candidate == SelectionDragAxis::None || candidate == activeAxis)
     return {};
-  return {candidate, residualDx, residualDy};
+  return {candidate};
 }
 
 double ComputeDragMetersOnAxis(int mouseDx, int mouseDy, SelectionDragAxis axis,

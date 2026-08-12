@@ -21,8 +21,6 @@ SelectDragAxisFromMouseDelta(int mouseDx, int mouseDy,
 
 struct AxisSwitchIntent {
   SelectionDragAxis axis = SelectionDragAxis::None;
-  int residualDx = 0;
-  int residualDy = 0;
 };
 
 AxisSwitchIntent DetectAxisSwitchIntent(

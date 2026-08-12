@@ -38,8 +38,6 @@ int main() {
   const auto switchIntent = viewer3d::DetectAxisSwitchIntent(
       40, 100, viewer3d::SelectionDragAxis::Y, axes);
   assert(switchIntent.axis == viewer3d::SelectionDragAxis::X);
-  assert(switchIntent.residualDx == 40);
-  assert(switchIntent.residualDy == 0);
   assert(viewer3d::DetectAxisSwitchIntent(
              8, 100, viewer3d::SelectionDragAxis::Y, axes)
              .axis == viewer3d::SelectionDragAxis::None);
