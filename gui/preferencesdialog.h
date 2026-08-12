@@ -63,6 +63,7 @@ private:
   wxCheckBox *groupMoveTrussCheck = nullptr;
   wxCheckBox *groupMoveSupportCheck = nullptr;
   wxCheckBox *groupMoveSceneObjectCheck = nullptr;
+  wxCheckBox *magnetAnchorReferencesCheck = nullptr;
   wxChoice *distanceUnitChoice = nullptr;
   wxChoice *weightUnitChoice = nullptr;
   wxChoice *updateCheckModeChoice = nullptr;

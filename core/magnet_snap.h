@@ -14,6 +14,8 @@ namespace magnet_snap {
 
 constexpr float kDefaultSnapDistanceMm = 250.0f;
 constexpr const char *kMagnetEnabledConfigKey = "viewport_magnet_enabled";
+constexpr const char *kShowAnchorReferencesConfigKey =
+    "viewport_magnet_show_anchor_references";
 
 enum class ObjectType { Fixture, Truss, TrussGroup, SceneObject };
 enum class SnapKind { None, TrussToTruss, FixtureToTruss, SceneObjectToObject };
@@ -45,6 +47,8 @@ struct SnapResult {
   std::string targetCandidateId;
   std::string sourceMemberTrussUuid;
   std::string targetMemberTrussUuid;
+  std::array<float, 3> sourceAnchorMm{0.0f, 0.0f, 0.0f};
+  std::array<float, 3> targetAnchorMm{0.0f, 0.0f, 0.0f};
 };
 
 // Builds deterministic exterior or conservative aggregate group candidates.

@@ -46,6 +46,7 @@
 #include "../viewer_common/gl_canvas_config.h"
 #include "../viewer_common/gl_framebuffer_capture_target.h"
 #include "../viewer_common/measure_overlay_style.h"
+#include "../viewer_common/magnet_anchor_overlay.h"
 #include "../viewport_interaction_scope.h"
 #include "canvas2d.h"
 #include "configmanager.h"
@@ -1477,6 +1478,27 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   if (m_dragMode == DragMode::Selection)
     DrawSelectionDragGizmo(w, h);
+
+  const auto magnetReferences =
+      ConfigManager::Get().GetValue(magnet_snap::kShowAnchorReferencesConfigKey);
+  if (m_magnetEnabled && m_pendingMagnetSnap &&
+      (!magnetReferences || *magnetReferences != "0")) {
+    auto toMeters = [](const std::array<float, 3> &pointMm) {
+      return std::array<float, 3>{pointMm[0] / 1000.0f, pointMm[1] / 1000.0f,
+                                  pointMm[2] / 1000.0f};
+    };
+    const auto sourceScreen = Viewer2DMeasureWorldToScreen(
+        toMeters(m_pendingMagnetSnap->sourceAnchorMm), m_view, w, h, m_zoom,
+        m_offsetX, m_offsetY);
+    const auto targetScreen = Viewer2DMeasureWorldToScreen(
+        toMeters(m_pendingMagnetSnap->targetAnchorMm), m_view, w, h, m_zoom,
+        m_offsetX, m_offsetY);
+    if (sourceScreen && targetScreen) {
+      viewer_common::DrawMagnetAnchorOverlay(
+          (*sourceScreen)[0], h - (*sourceScreen)[1], (*targetScreen)[0],
+          h - (*targetScreen)[1], w, h, darkMode);
+    }
+  }
 
   if (m_measureToolState.enabled && m_measureToolState.hasAnchor) {
     std::optional<std::array<float, 3>> targetWorld;

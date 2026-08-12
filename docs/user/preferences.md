@@ -46,6 +46,14 @@ Table edits always modify only the edited row's exact object. Changing these
 user preferences does not alter grouping, transforms, `.pstg` project data, or
 MVR hierarchy and does not mark the project dirty.
 
+### Magnet visual feedback
+
+**Show anchor references while moving or inserting elements** is enabled by
+default. When Magnet is enabled and an element reaches a compatible snap point,
+the 2D and 3D viewers display paired cyan markers and a connecting line for the
+active source and target anchors. The references disappear when the move or
+insertion ends and do not become part of the scene or exported data.
+
 ## Update check behavior
 
 - **Check on startup (recommended)**: checks on launch, limited to at most once every 24 hours. When a newer version is found, you can choose **Do not remind me again for this version** to suppress future startup reminders for that same version.

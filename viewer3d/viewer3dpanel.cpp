@@ -67,6 +67,7 @@
 #include "ui_render_size.h"
 #include "../viewer_common/gl_canvas_config.h"
 #include "../viewer_common/measure_overlay_style.h"
+#include "../viewer_common/magnet_anchor_overlay.h"
 #include "units/units.h"
 #include <wx/dcclient.h>
 #include <wx/debug.h>
@@ -1292,6 +1293,24 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         DrawSelectionRectangle(w, h);
     if (m_selectionDragArmed)
         DrawSelectionDragGizmo(renderSize);
+    const auto magnetReferences = ConfigManager::Get().GetValue(
+        magnet_snap::kShowAnchorReferencesConfigKey);
+    if (m_pendingMagnetSnap && (!magnetReferences || *magnetReferences != "0")) {
+        auto toMeters = [](const std::array<float, 3> &pointMm) {
+            return std::array<float, 3>{pointMm[0] / 1000.0f,
+                                        pointMm[1] / 1000.0f,
+                                        pointMm[2] / 1000.0f};
+        };
+        const auto source = ProjectWorldToFramebuffer(
+            toMeters(m_pendingMagnetSnap->sourceAnchorMm));
+        const auto target = ProjectWorldToFramebuffer(
+            toMeters(m_pendingMagnetSnap->targetAnchorMm));
+        if (source && target) {
+            viewer_common::DrawMagnetAnchorOverlay(
+                (*source)[0], (*source)[1], (*target)[0], (*target)[1],
+                renderSize.width, renderSize.height, Is2DDarkModeEnabled());
+        }
+    }
     DrawMeasureOverlay(renderSize);
 
     ++m_fullRefreshesInCurrentWindow;

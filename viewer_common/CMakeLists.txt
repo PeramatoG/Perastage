@@ -4,6 +4,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gl_framebuffer_capture_target.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/glew_init_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/measure_overlay_style.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/magnet_anchor_overlay.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -540,6 +540,8 @@ void ConsiderCandidatePair(
   result.targetCandidateId = targetCandidate.stableId;
   result.sourceMemberTrussUuid = resolvedSource.ownerTrussUuid;
   result.targetMemberTrussUuid = targetCandidate.ownerTrussUuid;
+  result.sourceAnchorMm = resolvedSource.worldTransform.o;
+  result.targetAnchorMm = targetCandidate.worldTransform.o;
   best = result;
 }
 
@@ -559,6 +561,8 @@ void ConsiderFacePair(const SnapSource &source, ObjectType targetType,
   best = SnapResult{
       true,        kind,       source.uuid, targetUuid,
       source.type, targetType, delta,       kind == SnapKind::TrussToTruss};
+  best->sourceAnchorMm = sourceFace.center;
+  best->targetAnchorMm = targetPoint;
 }
 
 constexpr float kOccupiedJointPositionToleranceMm = 25.0f;
@@ -761,6 +765,8 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
       result.targetType = ObjectType::Truss;
       result.translationDeltaMm = delta;
       result.needsGrouping = true;
+      result.sourceAnchorMm = insertion;
+      result.targetAnchorMm = closest;
       best = result;
     }
     return best;

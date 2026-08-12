@@ -19,6 +19,7 @@
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "localization/localization_manager.h"
+#include "magnet_snap.h"
 #include "mvr_preferences.h"
 #include "preferences/gdtf_credentials_panel.h"
 #include "selection_movement_settings.h"
@@ -346,6 +347,18 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   groupMoveHint->Wrap(740);
   groupMoveSizer->Add(groupMoveHint, 0, wxALL, 8);
   selectionSizer->Add(groupMoveSizer, 0, wxALL | wxEXPAND, 10);
+  wxStaticBoxSizer *magnetSizer = new wxStaticBoxSizer(
+      wxVERTICAL, selectionPanel, _("Magnet visual feedback"));
+  magnetAnchorReferencesCheck = new wxCheckBox(
+      magnetSizer->GetStaticBox(), wxID_ANY,
+      _("Show anchor references while moving or inserting elements"));
+  const auto magnetReferenceValue =
+      cfg.GetValue(magnet_snap::kShowAnchorReferencesConfigKey);
+  magnetAnchorReferencesCheck->SetValue(!magnetReferenceValue ||
+                                        *magnetReferenceValue != "0");
+  magnetSizer->Add(magnetAnchorReferencesCheck, 0, wxALL, 8);
+  selectionSizer->Add(magnetSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,
+                      10);
   selectionPanel->SetSizer(selectionSizer);
   book->AddPage(selectionPanel, _("Selection & Movement"));
 
@@ -583,6 +596,11 @@ bool PreferencesDialog::ApplyPreferences() {
        .promoteTrussesToGroup = groupMoveTrussCheck->GetValue(),
        .promoteSupportsToGroup = groupMoveSupportCheck->GetValue(),
        .promoteSceneObjectsToGroup = groupMoveSceneObjectCheck->GetValue()});
+  cfg.SetValue(magnet_snap::kShowAnchorReferencesConfigKey,
+               magnetAnchorReferencesCheck &&
+                       magnetAnchorReferencesCheck->GetValue()
+                   ? "1"
+                   : "0");
 
   MvrExportOptions mvrExportOptions;
   mvrExportOptions.trussGeometryExportMode =
