@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <cstdint>
 #include <map>
 #include <mutex>
 
@@ -27,9 +29,14 @@ std::string BuildVersionKey(const std::filesystem::path &path) {
   const auto timestamp = std::filesystem::last_write_time(absolute, ec);
   if (ec)
     return {};
+  using PortableFileTicks = std::chrono::duration<std::int64_t, std::nano>;
+  const std::int64_t timestampTicks =
+      std::chrono::duration_cast<PortableFileTicks>(
+          timestamp.time_since_epoch())
+          .count();
   return PathUtils::BuildFilesystemIdentityKey(absolute) + "#" +
          std::to_string(size) + "#" +
-         std::to_string(timestamp.time_since_epoch().count());
+         std::to_string(timestampTicks);
 }
 
 // Measures finite vertex positions already converted to renderer millimeters.

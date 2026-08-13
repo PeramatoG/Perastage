@@ -43,7 +43,10 @@ Changes since **v1.5.0**.
   Form XObject limitation in legacy PoDoFo, and cleanly skipping native-widget
   focus checks when a Linux build has no graphical display. GDTF-authoritative
   truss exports now also generate the required GDTF when their source was
-  imported as MVR geometry.
+  imported as MVR geometry. Binary MVR compliance fixtures now use explicit
+  fixed-width integer types so they build consistently with AppleClang and
+  libc++ on macOS. Geometry cache timestamps also use a portable signed
+  nanosecond representation, avoiding ambiguous libc++ conversions on macOS.
 
 - Fixed a Debug-build assertion that could stop Perastage when movement began
   with Magnet references enabled. Runtime truss chord analysis now reads only

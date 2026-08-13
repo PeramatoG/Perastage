@@ -54,9 +54,12 @@ std::string VersionKey(const std::filesystem::path &path) {
   const auto modified = std::filesystem::last_write_time(canonical, error);
   if (error)
     return {};
+  using PortableFileTicks = std::chrono::duration<std::int64_t, std::nano>;
+  const std::int64_t modifiedTicks =
+      std::chrono::duration_cast<PortableFileTicks>(modified.time_since_epoch())
+          .count();
   return PathUtils::BuildFilesystemIdentityKey(canonical) + "|" +
-         std::to_string(size) + "|" +
-         std::to_string(modified.time_since_epoch().count());
+         std::to_string(size) + "|" + std::to_string(modifiedTicks);
 }
 
 // Resolves a scene-relative resource without using the process working
