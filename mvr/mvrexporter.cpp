@@ -3428,7 +3428,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
           t.sourceRepresentation ==
               Truss::GeometryRepresentation::SymbolSymdef ||
           t.sourceRepresentation == Truss::GeometryRepresentation::Geometry3D;
-      if (trussSourceGdtf.empty() && !importedFromMvrGeometry) {
+      if (trussSourceGdtf.empty() &&
+          (!importedFromMvrGeometry ||
+           trussGeometryAuthority == TrussGeometryAuthority::Gdtf)) {
         auto trussWorkspace = CreateExportWorkspace("mvr-export-truss");
         fs::path tempPath = trussWorkspace.IsValid()
                                 ? trussWorkspace.Path() / ((t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf")

@@ -38,6 +38,13 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Stabilized the cross-platform test suite by distinguishing optional MVR truss
+  GDTF references from required Geometry3D data, accounting for the documented
+  Form XObject limitation in legacy PoDoFo, and cleanly skipping native-widget
+  focus checks when a Linux build has no graphical display. GDTF-authoritative
+  truss exports now also generate the required GDTF when their source was
+  imported as MVR geometry.
+
 - Fixed a Debug-build assertion that could stop Perastage when movement began
   with Magnet references enabled. Runtime truss chord analysis now reads only
   CPU geometry, avoids re-entering wxWidgets image-handler initialization, and

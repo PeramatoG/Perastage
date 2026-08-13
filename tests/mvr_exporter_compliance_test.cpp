@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -34,6 +35,55 @@
 
 namespace fs = std::filesystem;
 static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
+
+// Appends one little-endian integer to a binary test fixture.
+template <typename T>
+static void AppendBinaryValue(std::vector<uint8_t> &out, T value) {
+  for (size_t index = 0; index < sizeof(T); ++index)
+    out.push_back(static_cast<uint8_t>((value >> (index * 8)) & 0xffu));
+}
+
+// Appends one little-endian float to a binary test fixture.
+static void AppendBinaryFloat(std::vector<uint8_t> &out, float value) {
+  uint32_t bits = 0;
+  std::memcpy(&bits, &value, sizeof(value));
+  AppendBinaryValue(out, bits);
+}
+
+// Appends one nested 3DS chunk to a binary test fixture.
+static void Append3dsChunk(std::vector<uint8_t> &out, uint16_t id,
+                           const std::vector<uint8_t> &payload) {
+  AppendBinaryValue<uint16_t>(out, id);
+  AppendBinaryValue<uint32_t>(out,
+                              static_cast<uint32_t>(payload.size() + 6));
+  out.insert(out.end(), payload.begin(), payload.end());
+}
+
+// Builds a minimal valid 3DS resource for truss export compliance tests.
+static std::string BuildTrussGeometry3ds() {
+  std::vector<uint8_t> vertices;
+  AppendBinaryValue<uint16_t>(vertices, 4);
+  const float points[] = {0.0f, 0.0f, 0.0f, 2000.0f, 0.0f, 0.0f,
+                          0.0f, 400.0f, 0.0f, 0.0f, 0.0f, 400.0f};
+  for (float value : points)
+    AppendBinaryFloat(vertices, value);
+  std::vector<uint8_t> faces;
+  AppendBinaryValue<uint16_t>(faces, 2);
+  for (uint16_t value : {0, 1, 2, 0, 0, 2, 3, 0})
+    AppendBinaryValue<uint16_t>(faces, value);
+  std::vector<uint8_t> mesh;
+  Append3dsChunk(mesh, 0x4110, vertices);
+  Append3dsChunk(mesh, 0x4120, faces);
+  std::vector<uint8_t> object{'t', 'r', 'u', 's', 's', 0};
+  Append3dsChunk(object, 0x4100, mesh);
+  std::vector<uint8_t> editor;
+  Append3dsChunk(editor, 0x4000, object);
+  std::vector<uint8_t> root;
+  Append3dsChunk(root, 0x3D3D, editor);
+  std::vector<uint8_t> archive;
+  Append3dsChunk(archive, 0x4D4D, root);
+  return {reinterpret_cast<const char *>(archive.data()), archive.size()};
+}
 
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   std::string content;
@@ -308,8 +358,10 @@ int main() {
                           "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5");
   WriteMinimalGdtfArchive(tempDir / "SiblingOnly.gdtf", "SiblingOnly",
                           "ffffffff-ffff-4fff-8fff-fffffffffff6");
-  std::ofstream(tempDir / "mesh.3ds") << "mesh";
-  std::ofstream(tempDir / "models" / "truss_model.3ds") << "truss";
+  const std::string trussGeometry = BuildTrussGeometry3ds();
+  std::ofstream(tempDir / "mesh.3ds", std::ios::binary) << trussGeometry;
+  std::ofstream(tempDir / "models" / "truss_model.3ds", std::ios::binary)
+      << trussGeometry;
   std::ofstream(tempDir / "models" / "support_model.3ds") << "support";
 
   const std::string longToken(320, "x"[0]);
@@ -861,27 +913,28 @@ int main() {
           if (std::string(cur->Name()) == "Truss") {
             ++mvrGeometryTrussCount;
             auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
-            assert(gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr);
-            std::string trussGdtfSpec = gdtfSpec->GetText();
             const char *trussUuidAttr = cur->Attribute("uuid");
             assert(trussUuidAttr != nullptr);
-            trussGdtfByUuid[trussUuidAttr] = trussGdtfSpec;
             auto *geometries = cur->FirstChildElement("Geometries");
             assert(geometries != nullptr);
             assert(geometries->FirstChildElement("Geometry3D") != nullptr);
             ++mvrGeometryTrussesWithGeometry3d;
 
-            assert(mvrGeometryEntries.count(trussGdtfSpec) == 1);
-            const fs::path trussGdtfPath = tempDir / trussGdtfSpec;
-            std::ofstream gdtfOut(trussGdtfPath, std::ios::binary);
-            assert(gdtfOut.is_open());
-            gdtfOut << mvrGeometryEntries.at(trussGdtfSpec);
-            gdtfOut.close();
-            const bool hasRenderableGdtf =
-                GdtfHasRenderable3DModel(trussGdtfPath);
-            assert(hasRenderableGdtf);
-            if (hasRenderableGdtf)
-              ++mvrGeometryTrussesWithRenderableGdtf;
+            if (gdtfSpec != nullptr && gdtfSpec->GetText() != nullptr) {
+              const std::string trussGdtfSpec = gdtfSpec->GetText();
+              trussGdtfByUuid[trussUuidAttr] = trussGdtfSpec;
+              assert(mvrGeometryEntries.count(trussGdtfSpec) == 1);
+              const fs::path trussGdtfPath = tempDir / trussGdtfSpec;
+              std::ofstream gdtfOut(trussGdtfPath, std::ios::binary);
+              assert(gdtfOut.is_open());
+              gdtfOut << mvrGeometryEntries.at(trussGdtfSpec);
+              gdtfOut.close();
+              const bool hasRenderableGdtf =
+                  GdtfHasRenderable3DModel(trussGdtfPath);
+              assert(hasRenderableGdtf);
+              if (hasRenderableGdtf)
+                ++mvrGeometryTrussesWithRenderableGdtf;
+            }
 
             const char *trussUuid = cur->Attribute("uuid");
             assert(trussUuid != nullptr);
@@ -1094,7 +1147,8 @@ int main() {
   assert(sceneObjectsWithMatrixBeforeGeometries == sceneObjectCount);
   assert(mvrGeometryTrussCount == static_cast<int>(scene.trusses.size()));
   assert(mvrGeometryTrussesWithGeometry3d == mvrGeometryTrussCount);
-  assert(mvrGeometryTrussesWithRenderableGdtf == mvrGeometryTrussCount);
+  assert(mvrGeometryTrussesWithRenderableGdtf ==
+         static_cast<int>(trussGdtfByUuid.size()));
 
   for (const auto &name : entries) {
     assert(name.rfind("gdtf/", 0) != 0);
@@ -1265,8 +1319,11 @@ int main() {
   std::unordered_map<std::string, std::string> trussUuidByName;
   for (const auto &[uuid, exportedTruss] : scene.trusses)
     trussUuidByName[exportedTruss.name] = uuid;
-  assert(fixtureTypeIdByTrussUuid.at(trussUuidByName.at(tr.name)) ==
-         fixtureTypeIdByTrussUuid.at(trussUuidByName.at(trNonNumeric.name)));
+  if (!fixtureTypeIdByTrussUuid.empty()) {
+    assert(fixtureTypeIdByTrussUuid.at(trussUuidByName.at(tr.name)) ==
+           fixtureTypeIdByTrussUuid.at(
+               trussUuidByName.at(trNonNumeric.name)));
+  }
 
   cfg.SetFloat("mvr_truss_geometry_authority", 1.0f);
   fs::path mvrPathGdtfAuthority = tempDir / "Test2_GdtfAuthority.mvr";

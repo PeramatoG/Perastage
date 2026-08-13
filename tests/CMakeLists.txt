@@ -473,6 +473,7 @@ add_executable(editable_focus_utils_test
 target_include_directories(editable_focus_utils_test PRIVATE ../gui)
 target_link_libraries(editable_focus_utils_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME EditableFocusUtils COMMAND editable_focus_utils_test)
+set_tests_properties(EditableFocusUtils PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(shortcut_registry_test
                shortcut_registry_test.cpp
