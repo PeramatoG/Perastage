@@ -369,6 +369,7 @@ ClosestPointOnPath(const Path &path, const Point &pointMm, bool worldSpace) {
 
 // Resolves and instantiates cached local fixture attachment paths.
 Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
+  Resolution fallback;
   for (const std::string *reference : {&truss.symbolFile, &truss.modelFile}) {
     const auto path = ResolveResource(scene, *reference);
     std::string extension = path.extension().string();
@@ -416,13 +417,16 @@ Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
     result.sourceIdentity = found->second.sourceIdentity;
     for (const Path &local : found->second.localPaths)
       result.paths.push_back(TransformPath(local, truss.transform, truss.uuid));
-    return result;
+    if (!result.paths.empty())
+      return result;
+    fallback.diagnostics.insert(fallback.diagnostics.end(),
+                                result.diagnostics.begin(),
+                                result.diagnostics.end());
   }
-  Resolution result;
-  result.usedBoundsFallback = true;
-  result.diagnostics.push_back("No analyzable truss mesh was available; "
-                               "oriented bounds fallback is required.");
-  return result;
+  fallback.usedBoundsFallback = true;
+  fallback.diagnostics.push_back("No analyzable truss mesh was available; "
+                                 "oriented bounds fallback is required.");
+  return fallback;
 }
 
 // Clears all cached local analyses.

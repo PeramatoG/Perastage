@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -94,5 +95,19 @@ int main() {
   CHECK(fallback.paths.empty());
   CHECK(fallback.usedBoundsFallback);
   CHECK(resolver.GeometryParseCount() == 0);
+
+  Path degenerate;
+  degenerate.localPointsMm = {{2.0f, 3.0f, 4.0f}, {2.0f, 3.0f, 4.0f}};
+  const auto degenerateClosest =
+      ClosestPointOnPath(degenerate, {5.0f, 7.0f, 4.0f}, false);
+  CHECK(degenerateClosest.has_value());
+  CHECK(std::fabs(degenerateClosest->distanceMm - 5.0f) < 0.001f);
+  CHECK(degenerateClosest->pathParameter == 0.0f);
+
+  CHECK(AnalyzeMesh({0.0f, 0.0f, 0.0f}, {}).empty());
+  CHECK(AnalyzeMesh({0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                     std::numeric_limits<float>::quiet_NaN(), 1.0f, 0.0f},
+                    {0, 1, 2})
+            .empty());
   return 0;
 }

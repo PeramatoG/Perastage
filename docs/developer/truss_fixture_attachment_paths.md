@@ -51,6 +51,9 @@ resource invalidates its entry. The cache is process-local and is not serialized
 Each viewer owns its resolver, and analysis requests load vertex/index data without
 decoding textures or initializing wxWidgets image handlers. This keeps attachment
 resolution safe when an overlay is first requested from a movement event.
+If a preferred geometry resource is readable but produces no reliable paths, the
+resolver retains its diagnostics and continues to the next eligible source before
+selecting the bounds fallback.
 
 Fixture snapping uses reliable paths first and records the selected runtime path,
 parameter, provenance, and confidence in transient `SnapResult` state. If no

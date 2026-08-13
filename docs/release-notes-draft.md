@@ -41,7 +41,9 @@ Changes since **v1.5.0**.
 - Fixed a Debug-build assertion that could stop Perastage when movement began
   with Magnet references enabled. Runtime truss chord analysis now reads only
   CPU geometry, avoids re-entering wxWidgets image-handler initialization, and
-  uses viewer-owned caches for safe repeated snapping and overlay updates.
+  uses viewer-owned caches for safe repeated snapping and overlay updates. The
+  resolver also continues to lower-priority geometry when a preferred resource
+  has no reliable chords and reports bounds fallback consistently for poor data.
 
 - Trusses loaded from 3DS or GLB geometry now use their measured local bounds
   instead of fixed nominal dimensions. This repairs legacy dimension metadata,
