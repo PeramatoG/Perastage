@@ -727,7 +727,8 @@ bool ConfigManager::SaveUserConfig() const {
 void ConfigManager::PushUndoState(const std::string &description) {
   historyManager.PushUndoState(projectSession.GetScene(), selectionState,
                                description, GetValue(kLayoutsConfigKey),
-                               &layerVisibilityState);
+                               &layerVisibilityState,
+                               GetValue(project_identity::kFixtureLabelOverridesConfigKey));
   projectSession.Touch();
 }
 
@@ -736,10 +737,20 @@ bool ConfigManager::CanUndo() const { return historyManager.CanUndo(); }
 bool ConfigManager::CanRedo() const { return historyManager.CanRedo(); }
 
 std::string ConfigManager::Undo() {
+  if (!historyManager.CanUndo())
+    return {};
   std::optional<std::string> layoutsCollection;
+  std::optional<std::string> fixtureLabelOverrides =
+      GetValue(project_identity::kFixtureLabelOverridesConfigKey);
   std::string action =
       historyManager.Undo(projectSession.GetScene(), selectionState,
-                          &layoutsCollection, &layerVisibilityState);
+                          &layoutsCollection, &layerVisibilityState,
+                          &fixtureLabelOverrides);
+  if (fixtureLabelOverrides)
+    SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+             *fixtureLabelOverrides);
+  else
+    RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
   if (!action.empty() || layoutsCollection.has_value()) {
     if (layoutsCollection.has_value())
       SetValue(kLayoutsConfigKey, *layoutsCollection);
@@ -751,11 +762,21 @@ std::string ConfigManager::Undo() {
 }
 
 std::string ConfigManager::Redo() {
+  if (!historyManager.CanRedo())
+    return {};
   projectSession.Touch();
   std::optional<std::string> layoutsCollection;
+  std::optional<std::string> fixtureLabelOverrides =
+      GetValue(project_identity::kFixtureLabelOverridesConfigKey);
   std::string action =
       historyManager.Redo(projectSession.GetScene(), selectionState,
-                          &layoutsCollection, &layerVisibilityState);
+                          &layoutsCollection, &layerVisibilityState,
+                          &fixtureLabelOverrides);
+  if (fixtureLabelOverrides)
+    SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+             *fixtureLabelOverrides);
+  else
+    RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
   if (!action.empty() || layoutsCollection.has_value()) {
     if (layoutsCollection.has_value())
       SetValue(kLayoutsConfigKey, *layoutsCollection);

@@ -43,6 +43,10 @@ wxMenu *BuildEditMenu() {
   editMenu->Append(ID_Edit_Undo, _("Undo\tCtrl+Z"));
   editMenu->Append(ID_Edit_Redo, _("Redo\tCtrl+Y"));
   editMenu->AppendSeparator();
+  editMenu->Append(ID_Edit_Cut, _("Cut\tCtrl+X"));
+  editMenu->Append(ID_Edit_Copy, _("Copy\tCtrl+C"));
+  editMenu->Append(ID_Edit_Paste, _("Paste\tCtrl+V"));
+  editMenu->AppendSeparator();
   editMenu->Append(ID_Edit_AddFixture, _("Add fixture..."));
   editMenu->Append(ID_Edit_AddTruss, _("Add truss..."));
   editMenu->Append(ID_Edit_AddSceneObject, _("Add scene object..."));

@@ -23,7 +23,22 @@ int main() {
   assert(selection.GetSelectedFixtures().size() == 1);
   assert(history.CanRedo());
 
-  assert(history.Redo(session.GetScene(), selection) == "add fixture");
+  std::optional<std::string> restoredOverrides;
+  assert(history.Redo(session.GetScene(), selection, nullptr, nullptr,
+                      &restoredOverrides) == "add fixture");
+
+  HistoryManager metadataHistory;
+  metadataHistory.PushUndoState(session.GetScene(), selection, "paste fixture",
+                                std::nullopt, nullptr,
+                                std::string("{\"f1\":{\"x\":4}}"));
+  std::optional<std::string> metadata =
+      std::string("{\"pasted\":{\"x\":4}}");
+  assert(metadataHistory.Undo(session.GetScene(), selection, nullptr, nullptr,
+                              &metadata) == "paste fixture");
+  assert(metadata == "{\"f1\":{\"x\":4}}");
+  assert(metadataHistory.Redo(session.GetScene(), selection, nullptr, nullptr,
+                              &metadata) == "paste fixture");
+  assert(metadata == "{\"pasted\":{\"x\":4}}");
 
   HistoryManager placementHistory;
   SelectionState placementSelection;

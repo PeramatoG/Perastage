@@ -9,6 +9,8 @@ Changes since **v1.5.0**.
 - Added a project-scoped scene clipboard foundation for safely cloning and
   removing mixed fixture, truss, hoist, and scene-object selections while
   preserving MVR identities, hierarchy relationships, and fixture label data.
+  Cut, Copy, and Paste are available from the Edit menu, toolbar, and the
+  standard `Ctrl+X`, `Ctrl+C`, and `Ctrl+V` shortcuts.
 
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these

@@ -119,6 +119,17 @@ been confirmed, it restores the pre-dialog scene and ends placement. Redo is
 ignored until the placement session ends so it cannot replace the scene behind
 an active provisional element.
 
+## Scene clipboard accelerators
+
+`Ctrl+X`, `Ctrl+C`, and `Ctrl+V` are standard Edit-menu accelerators for scene
+Cut, Copy, and Paste. They use the central mixed scene selection rather than
+the active table's local row state. These modifier shortcuts deliberately do
+not belong to the no-modifier shortcut registry.
+
+Editable text controls and active cell editors retain precedence. The scene
+handlers skip their menu command in that context so native editing clipboard
+behavior remains available. A non-editing table may invoke the scene commands.
+
 ## Consistent editable-focus guard across local key handlers
 
 Panels that handle local key events also reuse `gui::IsEditableWidgetFocused(...)`

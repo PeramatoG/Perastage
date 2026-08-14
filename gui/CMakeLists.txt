@@ -104,6 +104,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_gdtf_credentials.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_grouping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_scene_clipboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_builders.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mainwindow_menu_text_utils.cpp

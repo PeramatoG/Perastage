@@ -571,7 +571,8 @@ void HistoryManager::PushUndoState(
     const MvrScene &scene, const SelectionState &selection,
     const std::string &description,
     const std::optional<std::string> &layoutsCollection,
-    const LayerVisibilityState *layerState) {
+    const LayerVisibilityState *layerState,
+    const std::optional<std::string> &fixtureLabelOverrides) {
   Snapshot snap{scene,
                 selection.GetSelectedFixtures(),
                 selection.GetSelectedTrusses(),
@@ -579,6 +580,7 @@ void HistoryManager::PushUndoState(
                 selection.GetSelectedSceneObjects(),
                 description,
                 layoutsCollection,
+                fixtureLabelOverrides,
                 layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
                 layerState ? layerState->GetCurrentLayer() : std::string{}};
   undoStack.push_back(std::move(snap));
@@ -594,7 +596,8 @@ bool HistoryManager::CanRedo() const { return !redoStack.empty(); }
 std::string HistoryManager::Undo(
     MvrScene &scene, SelectionState &selection,
     std::optional<std::string> *layoutsCollection,
-    LayerVisibilityState *layerState) {
+    LayerVisibilityState *layerState,
+    std::optional<std::string> *fixtureLabelOverrides) {
   if (undoStack.empty())
     return {};
   const Snapshot snap = undoStack.back();
@@ -605,11 +608,15 @@ std::string HistoryManager::Undo(
                        selection.GetSelectedSceneObjects(),
                        snap.description,
                        snap.layoutsCollection,
+                       fixtureLabelOverrides ? *fixtureLabelOverrides
+                                             : snap.fixtureLabelOverrides,
                        layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
                        layerState ? layerState->GetCurrentLayer() : std::string{}});
   scene = snap.scene;
   if (layoutsCollection)
     *layoutsCollection = snap.layoutsCollection;
+  if (fixtureLabelOverrides)
+    *fixtureLabelOverrides = snap.fixtureLabelOverrides;
   selection.SetSelectedFixtures(snap.selFixtures);
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
@@ -626,7 +633,8 @@ std::string HistoryManager::Undo(
 std::string HistoryManager::Redo(
     MvrScene &scene, SelectionState &selection,
     std::optional<std::string> *layoutsCollection,
-    LayerVisibilityState *layerState) {
+    LayerVisibilityState *layerState,
+    std::optional<std::string> *fixtureLabelOverrides) {
   if (redoStack.empty())
     return {};
   const Snapshot snap = redoStack.back();
@@ -637,11 +645,15 @@ std::string HistoryManager::Redo(
                        selection.GetSelectedSceneObjects(),
                        snap.description,
                        snap.layoutsCollection,
+                       fixtureLabelOverrides ? *fixtureLabelOverrides
+                                             : snap.fixtureLabelOverrides,
                        layerState ? layerState->GetHiddenLayers() : std::unordered_set<std::string>{},
                        layerState ? layerState->GetCurrentLayer() : std::string{}});
   scene = snap.scene;
   if (layoutsCollection)
     *layoutsCollection = snap.layoutsCollection;
+  if (fixtureLabelOverrides)
+    *fixtureLabelOverrides = snap.fixtureLabelOverrides;
   selection.SetSelectedFixtures(snap.selFixtures);
   selection.SetSelectedTrusses(snap.selTrusses);
   selection.SetSelectedSupports(snap.selSupports);
