@@ -34,6 +34,7 @@
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
+#include <functional>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -178,6 +179,9 @@ public:
   }
   void BeginContinuousPlacement(ContinuousPlacementType type,
                                 const std::string &elementUuid);
+  void BeginClipboardContinuousPlacement(
+      ContinuousPlacementType type, const std::string &elementUuid,
+      std::function<std::string()> cloneFactory);
   bool UndoContinuousPlacement();
   bool IsContinuousPlacementActive() const {
     return m_continuousPlacementActive;
@@ -347,6 +351,7 @@ private:
   continuous_placement::ViewRevisionState m_placementViewRevision;
   std::string m_continuousPlacementUuid;
   std::vector<std::string> m_continuousPlacedUuids;
+  std::function<std::string()> m_continuousCloneFactory;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;
   bool m_rectSelectionAcrossAllTables = false;

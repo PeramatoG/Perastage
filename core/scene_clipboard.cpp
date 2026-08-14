@@ -4,6 +4,7 @@
 #include "uuidutils.h"
 
 #include <algorithm>
+#include <unordered_set>
 
 namespace scene_clipboard {
 namespace {
@@ -47,9 +48,9 @@ void ResolveParent(MvrScene &scene, T &clone, MvrNodeType type,
 }
 
 // Adds a value clone after assigning its preallocated identity.
-void InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
+bool InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
                  const std::unordered_map<std::string, std::string> &remap) {
-  std::visit([&](const auto &source) {
+  return std::visit([&](const auto &source) {
     using T = std::decay_t<decltype(source)>;
     T clone = source;
     clone.uuid = uuid;
@@ -59,23 +60,49 @@ void InsertClone(MvrScene &scene, const Item &item, const std::string &uuid,
         clone.motorFixtureUuid = linked->second;
     }
     if constexpr (std::is_same_v<T, Fixture>) {
-      scene.fixtures.emplace(uuid, clone);
+      if (!scene.fixtures.emplace(uuid, clone).second)
+        return false;
       ResolveParent(scene, scene.fixtures.at(uuid), MvrNodeType::Fixture,
                     item.sourceWorldTransform);
     } else if constexpr (std::is_same_v<T, Truss>) {
-      scene.trusses.emplace(uuid, clone);
+      if (!scene.trusses.emplace(uuid, clone).second)
+        return false;
       ResolveParent(scene, scene.trusses.at(uuid), MvrNodeType::Truss,
                     item.sourceWorldTransform);
     } else if constexpr (std::is_same_v<T, Support>) {
-      scene.supports.emplace(uuid, clone);
+      if (!scene.supports.emplace(uuid, clone).second)
+        return false;
       ResolveParent(scene, scene.supports.at(uuid), MvrNodeType::Support,
                     item.sourceWorldTransform);
     } else if constexpr (std::is_same_v<T, SceneObject>) {
-      scene.sceneObjects.emplace(uuid, clone);
+      if (!scene.sceneObjects.emplace(uuid, clone).second)
+        return false;
       ResolveParent(scene, scene.sceneObjects.at(uuid), MvrNodeType::SceneObject,
                     item.sourceWorldTransform);
     }
+    return true;
   }, item.value);
+}
+
+// Reports whether an instance UUID is unused across every scene node namespace.
+bool IsInstanceUuidAvailable(const MvrScene &scene, const std::string &uuid) {
+  return !scene.fixtures.contains(uuid) && !scene.trusses.contains(uuid) &&
+         !scene.supports.contains(uuid) && !scene.sceneObjects.contains(uuid) &&
+         !scene.groupObjects.contains(uuid);
+}
+
+// Allocates a fresh UUID that cannot collide with the scene or current batch.
+std::string AllocateInstanceUuid(
+    const MvrScene &scene, const std::unordered_set<std::string> &allocated) {
+  constexpr int kMaximumAttempts = 128;
+  for (int attempt = 0; attempt < kMaximumAttempts; ++attempt) {
+    const std::string candidate = GenerateUuid();
+    if (IsValidUuid(candidate) && IsInstanceUuidAvailable(scene, candidate) &&
+        !allocated.contains(candidate)) {
+      return candidate;
+    }
+  }
+  return {};
 }
 
 } // namespace
@@ -107,11 +134,25 @@ MutationResult Service::Paste(
   MutationResult result;
   if (!CanPaste(projectEpoch))
     return result;
-  for (const auto &item : payload_.items)
-    result.uuidRemap.emplace(item.sourceUuid, GenerateUuid());
+  std::unordered_set<std::string> allocated;
+  for (const auto &item : payload_.items) {
+    const std::string uuid = AllocateInstanceUuid(scene, allocated);
+    if (uuid.empty())
+      return {};
+    allocated.insert(uuid);
+    result.uuidRemap.emplace(item.sourceUuid, uuid);
+  }
+  const MvrScene sceneBefore = scene;
+  const auto overridesBefore = overrides ? std::optional(*overrides)
+                                         : std::nullopt;
   for (const auto &item : payload_.items) {
     const std::string &uuid = result.uuidRemap.at(item.sourceUuid);
-    InsertClone(scene, item, uuid, result.uuidRemap);
+    if (!InsertClone(scene, item, uuid, result.uuidRemap)) {
+      scene = sceneBefore;
+      if (overridesBefore)
+        *overrides = *overridesBefore;
+      return {};
+    }
     result.nodes.push_back({item.type, uuid});
     if (overrides && item.fixtureLabelOverride)
       (*overrides)[uuid] = *item.fixtureLabelOverride;

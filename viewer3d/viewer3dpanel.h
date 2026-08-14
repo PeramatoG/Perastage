@@ -35,6 +35,7 @@
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -111,6 +112,9 @@ public:
     }
     void BeginContinuousPlacement(ContinuousPlacementType type,
                                   const std::string& elementUuid);
+    void BeginClipboardContinuousPlacement(
+        ContinuousPlacementType type, const std::string &elementUuid,
+        std::function<std::string()> cloneFactory);
     bool UndoContinuousPlacement();
     bool IsContinuousPlacementActive() const {
         return m_continuousPlacementActive;
@@ -148,6 +152,7 @@ private:
     std::vector<std::string> m_dragSelectionUuids;
     std::vector<std::string> m_dragFixtureUuids;
     std::vector<std::string> m_dragTrussUuids;
+    std::vector<std::string> m_dragSupportUuids;
     std::vector<std::string> m_dragSceneObjectUuids;
     std::array<float, 3> m_selectionDragAnchorMeters{0.0f, 0.0f, 0.0f};
     viewer3d::SelectionDragAxis m_selectionDragAxis =
@@ -158,6 +163,7 @@ private:
     continuous_placement::ViewRevisionState m_placementViewRevision;
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;
+    std::function<std::string()> m_continuousCloneFactory;
     bool m_continuousConstraintReferenceValid = false;
     bool m_continuousAxisSwitchArmed = true;
     wxPoint m_continuousConstraintPointerOrigin;

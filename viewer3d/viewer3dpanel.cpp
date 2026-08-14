@@ -2668,6 +2668,7 @@ void Viewer3DPanel::ResetSelectionDragState() {
     m_dragSelectionUuids.clear();
     m_dragFixtureUuids.clear();
     m_dragTrussUuids.clear();
+    m_dragSupportUuids.clear();
     m_dragSceneObjectUuids.clear();
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_continuousConstraintReferenceValid = false;
@@ -2754,6 +2755,7 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint &mousePos) {
     m_selectionDragTarget = target;
     m_dragFixtureUuids.clear();
     m_dragTrussUuids.clear();
+    m_dragSupportUuids.clear();
     m_dragSceneObjectUuids.clear();
     if (dragCurrentSelection) {
         m_dragFixtureUuids = cfg.GetSelectedFixtures();
@@ -3112,6 +3114,7 @@ void Viewer3DPanel::ApplySelectionDragDelta(
     scene_grouping::ObjectSelection selection;
     selection.fixtures = m_dragFixtureUuids;
     selection.trusses = m_dragTrussUuids;
+    selection.supports = m_dragSupportUuids;
     selection.sceneObjects = m_dragSceneObjectUuids;
     const auto previousSnap = RestorePendingMagnetSnapPreview();
   const auto policy =
@@ -3165,6 +3168,11 @@ void Viewer3DPanel::FinalizeSelectionDrag() {
         TrussTablePanel::Instance()->ReloadData();
         TrussTablePanel::Instance()->SelectByUuid(selection, false);
     }
+    if (!m_dragSupportUuids.empty() && HoistTablePanel::Instance()) {
+        auto selection = cfg.GetSelectedSupports();
+        HoistTablePanel::Instance()->ReloadData();
+        HoistTablePanel::Instance()->SelectByUuid(selection, false);
+    }
     if (!m_dragSceneObjectUuids.empty() && SceneObjectTablePanel::Instance()) {
         auto selection = cfg.GetSelectedSceneObjects();
         SceneObjectTablePanel::Instance()->ReloadData();
@@ -3204,6 +3212,9 @@ void Viewer3DPanel::BeginContinuousPlacement(
     m_dragTrussUuids = type == ContinuousPlacementType::Truss
                            ? std::vector<std::string>{elementUuid}
                            : std::vector<std::string>{};
+    m_dragSupportUuids = type == ContinuousPlacementType::Support
+                             ? std::vector<std::string>{elementUuid}
+                             : std::vector<std::string>{};
     m_dragSceneObjectUuids = type == ContinuousPlacementType::SceneObject
                                  ? std::vector<std::string>{elementUuid}
                                  : std::vector<std::string>{};
@@ -3212,6 +3223,14 @@ void Viewer3DPanel::BeginContinuousPlacement(
     SetFocus();
     UpdateSelectionDragStatusPosition();
     Refresh();
+}
+
+// Starts single-item placement whose repeated clones come from clipboard data.
+void Viewer3DPanel::BeginClipboardContinuousPlacement(
+    ContinuousPlacementType type, const std::string &elementUuid,
+    std::function<std::string()> cloneFactory) {
+    BeginContinuousPlacement(type, elementUuid);
+    m_continuousCloneFactory = std::move(cloneFactory);
 }
 
 // Commits the current element and creates the next pointer-driven copy.
@@ -3235,13 +3254,14 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
                       continuous_placement::ElementName(
                           m_continuousPlacementType));
     m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
-    const std::string nextUuid =
-        wxString::Format("uuid_%lld", static_cast<long long>(
+    const std::string nextUuid = m_continuousCloneFactory
+        ? m_continuousCloneFactory()
+        : wxString::Format("uuid_%lld", static_cast<long long>(
             std::chrono::steady_clock::now().time_since_epoch().count()))
             .ToStdString();
-    if (!continuous_placement::CloneElement(
+    if ((!m_continuousCloneFactory && !continuous_placement::CloneElement(
             cfg.GetScene(), m_continuousPlacementType,
-            m_continuousPlacementUuid, nextUuid)) {
+            m_continuousPlacementUuid, nextUuid)) || nextUuid.empty()) {
         CancelContinuousPlacement();
         return;
     }
@@ -3249,7 +3269,9 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
         cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
     CommitActiveMagnetSnap();
     const auto placedUuids = m_continuousPlacedUuids;
+    const auto cloneFactory = m_continuousCloneFactory;
     BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+    m_continuousCloneFactory = cloneFactory;
     m_continuousPlacedUuids = placedUuids;
     if (m_hasLastMousePos)
         AlignContinuousElementToPointer(m_lastMousePos);
@@ -3319,7 +3341,9 @@ bool Viewer3DPanel::UndoContinuousPlacement() {
         return true;
     }
     const auto placedUuids = m_continuousPlacedUuids;
+    const auto cloneFactory = m_continuousCloneFactory;
     BeginContinuousPlacement(m_continuousPlacementType, restoredUuid);
+    m_continuousCloneFactory = cloneFactory;
     m_continuousPlacedUuids = placedUuids;
     RefreshContinuousPlacementViews();
     return true;
@@ -3331,6 +3355,7 @@ void Viewer3DPanel::EndContinuousPlacementState() {
     m_continuousPlacementType = ContinuousPlacementType::None;
     m_continuousPlacementUuid.clear();
     m_continuousPlacedUuids.clear();
+    m_continuousCloneFactory = {};
     ResetSelectionDragState();
 }
 

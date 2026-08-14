@@ -57,6 +57,13 @@ int main() {
   assert(newTruss.sourceSymdefUuid == "shared-symdef" && newTruss.lengthMm == 3000.0f);
   assert(scene.sceneObjects.at(pasted.uuidRemap.at(object.uuid)).fixtureIdText == "OBJ-7");
   assert(labels.at(newFixture.uuid) == "{\"x\":4}" && !clipboard.CanPaste(9));
+  const auto repeatedPaste = clipboard.Paste(scene, 8, &labels);
+  assert(repeatedPaste.changed && repeatedPaste.nodes.size() == 4);
+  for (const auto &[sourceUuid, repeatedUuid] : repeatedPaste.uuidRemap) {
+    assert(IsValidUuid(repeatedUuid));
+    assert(repeatedUuid != pasted.uuidRemap.at(sourceUuid));
+    assert(!generated.contains(repeatedUuid));
+  }
   MvrScene grouped;
   grouped.groupObjects["parent"].uuid = "parent";
   Fixture groupedFixture = fixture;

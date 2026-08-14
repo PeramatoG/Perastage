@@ -64,6 +64,18 @@ bool EditableControlOwnsClipboard() {
   return gui::IsEditableWidgetFocused(wxWindow::FindFocus());
 }
 
+// Converts a selectable MVR node type into the shared placement type.
+ContinuousPlacementType PlacementTypeForNode(MvrNodeType type) {
+  switch (type) {
+  case MvrNodeType::Fixture: return ContinuousPlacementType::Fixture;
+  case MvrNodeType::Truss: return ContinuousPlacementType::Truss;
+  case MvrNodeType::Support: return ContinuousPlacementType::Support;
+  case MvrNodeType::SceneObject: return ContinuousPlacementType::SceneObject;
+  case MvrNodeType::GroupObject: return ContinuousPlacementType::None;
+  }
+  return ContinuousPlacementType::None;
+}
+
 } // namespace
 
 // Captures the supported central scene selection without mutating the project.
@@ -154,6 +166,38 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
   if (trussPanel) trussPanel->SelectByUuid(trusses, false);
   if (hoistPanel) hoistPanel->SelectByUuid(supports, false);
   if (sceneObjPanel) sceneObjPanel->SelectByUuid(objects, false);
+  if (result.nodes.size() == 1) {
+    const ContinuousPlacementType type =
+        PlacementTypeForNode(result.nodes.front().type);
+    const std::string provisionalUuid = result.nodes.front().uuid;
+    auto cloneFactory = [this]() -> std::string {
+      ConfigManager &activeConfig = guiConfigServices->LegacyConfigManager();
+      auto activeOverrides = ReadFixtureLabelOverrides(activeConfig);
+      const auto next = sceneClipboard.Paste(activeConfig.GetScene(),
+                                             sceneClipboardEpoch,
+                                             &activeOverrides);
+      if (!next.changed || next.nodes.size() != 1)
+        return {};
+      WriteFixtureLabelOverrides(activeConfig, activeOverrides);
+      return next.nodes.front().uuid;
+    };
+    const bool use2D = viewport2DPanel && viewport2DPanel->IsShownOnScreen() &&
+                       (viewport2DPanel->HasFocus() || !viewportPanel ||
+                        !viewportPanel->IsShownOnScreen());
+    if (use2D) {
+      viewport2DPanel->BeginClipboardContinuousPlacement(
+          type, provisionalUuid, std::move(cloneFactory));
+    } else {
+      if (!viewportPanel || !viewportPanel->IsShownOnScreen())
+        Ensure2DViewportAvailable();
+      if (viewportPanel && viewportPanel->IsShownOnScreen())
+        viewportPanel->BeginClipboardContinuousPlacement(
+            type, provisionalUuid, std::move(cloneFactory));
+      else if (viewport2DPanel)
+        viewport2DPanel->BeginClipboardContinuousPlacement(
+            type, provisionalUuid, std::move(cloneFactory));
+    }
+  }
   if (consolePanel)
     consolePanel->AppendMessage("Pasted scene elements");
 }

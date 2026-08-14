@@ -2065,6 +2065,8 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   m_dragTarget = type == ContinuousPlacementType::Fixture ? DragTarget::Fixtures
                  : type == ContinuousPlacementType::Truss
                      ? DragTarget::Trusses
+                 : type == ContinuousPlacementType::Support
+                     ? DragTarget::Supports
                      : DragTarget::SceneObjects;
   m_dragSelectionUuids = {elementUuid};
   m_dragFixtureUuids = type == ContinuousPlacementType::Fixture
@@ -2073,7 +2075,9 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   m_dragTrussUuids = type == ContinuousPlacementType::Truss
                          ? std::vector<std::string>{elementUuid}
                          : std::vector<std::string>{};
-  m_dragSupportUuids.clear();
+  m_dragSupportUuids = type == ContinuousPlacementType::Support
+                           ? std::vector<std::string>{elementUuid}
+                           : std::vector<std::string>{};
   m_dragSceneObjectUuids = type == ContinuousPlacementType::SceneObject
                                ? std::vector<std::string>{elementUuid}
                                : std::vector<std::string>{};
@@ -2083,6 +2087,14 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   m_pendingMagnetSnap.reset();
   SetFocus();
   RequestRepaint();
+}
+
+// Starts single-item placement whose repeated clones come from clipboard data.
+void Viewer2DPanel::BeginClipboardContinuousPlacement(
+    ContinuousPlacementType type, const std::string &elementUuid,
+    std::function<std::string()> cloneFactory) {
+  BeginContinuousPlacement(type, elementUuid);
+  m_continuousCloneFactory = std::move(cloneFactory);
 }
 
 // Commits the current element and creates the next pointer-driven copy.
@@ -2103,15 +2115,16 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
   cfg.PushUndoState(std::string("place ") + continuous_placement::ElementName(
                         m_continuousPlacementType));
   m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
-  const std::string nextUuid =
-      wxString::Format(
+  const std::string nextUuid = m_continuousCloneFactory
+      ? m_continuousCloneFactory()
+      : wxString::Format(
           "uuid_%lld",
           static_cast<long long>(
               std::chrono::steady_clock::now().time_since_epoch().count()))
           .ToStdString();
-  if (!continuous_placement::CloneElement(
+  if ((!m_continuousCloneFactory && !continuous_placement::CloneElement(
           cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid,
-          nextUuid)) {
+          nextUuid)) || nextUuid.empty()) {
     CancelContinuousPlacement();
     return;
   }
@@ -2119,7 +2132,9 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
       cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
   CommitActiveMagnetSnap();
   const auto placedUuids = m_continuousPlacedUuids;
+  const auto cloneFactory = m_continuousCloneFactory;
   BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+  m_continuousCloneFactory = cloneFactory;
   m_continuousPlacedUuids = placedUuids;
   if (m_hasLastMousePos)
     AlignContinuousElementToPointer(m_lastMousePos);
@@ -2186,7 +2201,9 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
     return true;
   }
   const auto placedUuids = m_continuousPlacedUuids;
+  const auto cloneFactory = m_continuousCloneFactory;
   BeginContinuousPlacement(m_continuousPlacementType, restoredUuid);
+  m_continuousCloneFactory = cloneFactory;
   m_continuousPlacedUuids = placedUuids;
   RefreshContinuousPlacementViews();
   return true;
@@ -2198,11 +2215,13 @@ void Viewer2DPanel::EndContinuousPlacementState() {
   m_continuousPlacementType = ContinuousPlacementType::None;
   m_continuousPlacementUuid.clear();
   m_continuousPlacedUuids.clear();
+  m_continuousCloneFactory = {};
   m_dragMode = DragMode::None;
   m_dragTarget = DragTarget::None;
   m_dragSelectionUuids.clear();
   m_dragFixtureUuids.clear();
   m_dragTrussUuids.clear();
+  m_dragSupportUuids.clear();
   m_dragSceneObjectUuids.clear();
   m_pendingMagnetSnap.reset();
   NotifyHighlightedWorldPosition(std::nullopt);

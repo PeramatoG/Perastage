@@ -10,7 +10,9 @@ Changes since **v1.5.0**.
   removing mixed fixture, truss, hoist, and scene-object selections while
   preserving MVR identities, hierarchy relationships, and fixture label data.
   Cut, Copy, and Paste are available from the Edit menu, toolbar, and the
-  standard `Ctrl+X`, `Ctrl+C`, and `Ctrl+V` shortcuts.
+  standard `Ctrl+X`, `Ctrl+C`, and `Ctrl+V` shortcuts. Single-item Paste now
+  enters repeated cursor-driven placement in either scene viewport, including
+  hoists, while preserving the original clipboard data for every placement.
 
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these
