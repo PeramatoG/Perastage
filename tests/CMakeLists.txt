@@ -2332,8 +2332,7 @@ add_executable(scene_clipboard_test
                ../core/scene_clipboard.cpp
                ../core/scene_grouping.cpp
                ../core/scene_node_operations.cpp
-               ../core/configservices.cpp
-               ../core/uuidutils.cpp)
+               ../core/configservices.cpp)
 target_include_directories(scene_clipboard_test PRIVATE
                            ../core ../models ../third_party)
 target_link_libraries(scene_clipboard_test PRIVATE ${wxWidgets_LIBRARIES})

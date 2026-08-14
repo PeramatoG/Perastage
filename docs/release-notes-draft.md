@@ -311,7 +311,8 @@ Changes since **v1.5.0**.
 ## Internal changes
 
 - Fixed standalone scene clipboard test linkage so Windows builds reuse the
-  shared diagnostics, logging, and application-path test dependencies.
+  shared UUID, diagnostics, logging, and application-path test dependencies
+  without compiling duplicate implementations.
 
 - Reused parsed GDTF truss attachment metadata across repeated snapping and
   overlay updates, avoiding redundant archive reads when only an instance moves.
