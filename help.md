@@ -124,7 +124,8 @@ Release builds keep these entries hidden to reduce risk in production workflows.
 ## Distributing fixtures on a truss line
 
 Select at least two fixtures in the intended order. The fixtures must already
-lie on the same straight truss line.
+lie on one straight hang line, either on a single truss or across connected,
+collinear truss sections.
 
 - Choose **Tools > Distribute fixtures on truss** (`Ctrl+Alt+D`) to space them
   uniformly over the complete truss, including equal margins at both ends.

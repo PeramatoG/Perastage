@@ -163,6 +163,10 @@ Changes since **v1.5.0**.
 
 ## Important fixes
 
+- Fixed truss-line distribution validation for scene coordinates stored in
+  millimeters and for straight bridges assembled from multiple connected truss
+  sections. Fixtures on a shared hang line are now recognized consistently.
+
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid
   colors, light-and-shadow shading, and black edge definition as the other

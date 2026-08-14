@@ -30,7 +30,7 @@ struct ResolveResult {
 // Resolves the single truss line containing every selected fixture.
 ResolveResult ResolveSelectedLine(const MvrScene &scene,
                                   const std::vector<std::string> &fixtureUuids,
-                                  float toleranceMeters = 0.075f);
+                                  float toleranceMm = 75.0f);
 
 // Projects a world point onto a finite truss line.
 std::array<float, 3> ProjectOntoLine(const Line &line,

@@ -8,14 +8,13 @@ namespace {
 
 using Point = std::array<float, 3>;
 
-// Transforms a local millimeter point into world meters.
+// Transforms a local millimeter point into world millimeters.
 Point TransformPoint(const Matrix &transform, const Point &localMm) {
   Point result = transform.o;
   for (int component = 0; component < 3; ++component)
-    result[component] += (transform.u[component] * localMm[0] +
-                          transform.v[component] * localMm[1] +
-                          transform.w[component] * localMm[2]) /
-                         1000.0f;
+    result[component] += transform.u[component] * localMm[0] +
+                         transform.v[component] * localMm[1] +
+                         transform.w[component] * localMm[2];
   return result;
 }
 
@@ -51,6 +50,112 @@ float DistanceSquared(const Point &lhs, const Point &rhs) {
   return result;
 }
 
+// Returns the scalar projection of a point along an unbounded line.
+float ParameterAlongLine(const Line &line, const Point &point) {
+  Point direction{};
+  float lengthSquared = 0.0f;
+  float along = 0.0f;
+  for (int axis = 0; axis < 3; ++axis) {
+    direction[axis] = line.end[axis] - line.start[axis];
+    lengthSquared += direction[axis] * direction[axis];
+    along += (point[axis] - line.start[axis]) * direction[axis];
+  }
+  return lengthSquared > 1e-6f ? along / std::sqrt(lengthSquared) : 0.0f;
+}
+
+// Returns the closest point on the unbounded extension of a line.
+Point ProjectOntoInfiniteLine(const Line &line, const Point &point) {
+  Point direction{};
+  float lengthSquared = 0.0f;
+  float along = 0.0f;
+  for (int axis = 0; axis < 3; ++axis) {
+    direction[axis] = line.end[axis] - line.start[axis];
+    lengthSquared += direction[axis] * direction[axis];
+    along += (point[axis] - line.start[axis]) * direction[axis];
+  }
+  const float fraction = lengthSquared > 1e-6f ? along / lengthSquared : 0.0f;
+  Point projected{};
+  for (int axis = 0; axis < 3; ++axis)
+    projected[axis] = line.start[axis] + direction[axis] * fraction;
+  return projected;
+}
+
+// Merges connected collinear truss segments into one bridge line.
+std::optional<Line> BuildConnectedBridge(const std::vector<Line> &segments,
+                                         std::size_t seedIndex) {
+  constexpr float kParallelCosine = 0.999f;
+  constexpr float kCenterlineToleranceMm = 100.0f;
+  constexpr float kConnectionGapMm = 150.0f;
+  const Line &seed = segments[seedIndex];
+  Point seedDirection{};
+  float seedLength = 0.0f;
+  for (int axis = 0; axis < 3; ++axis) {
+    seedDirection[axis] = seed.end[axis] - seed.start[axis];
+    seedLength += seedDirection[axis] * seedDirection[axis];
+  }
+  seedLength = std::sqrt(seedLength);
+  if (seedLength <= 1e-3f)
+    return std::nullopt;
+  for (float &value : seedDirection)
+    value /= seedLength;
+
+  std::vector<std::pair<float, float>> intervals;
+  for (const Line &segment : segments) {
+    Point direction{};
+    float length = 0.0f;
+    for (int axis = 0; axis < 3; ++axis) {
+      direction[axis] = segment.end[axis] - segment.start[axis];
+      length += direction[axis] * direction[axis];
+    }
+    length = std::sqrt(length);
+    if (length <= 1e-3f)
+      continue;
+    float cosine = 0.0f;
+    for (int axis = 0; axis < 3; ++axis)
+      cosine += seedDirection[axis] * direction[axis] / length;
+    if (std::fabs(cosine) < kParallelCosine ||
+        DistanceSquared(segment.start,
+                        ProjectOntoInfiniteLine(seed, segment.start)) >
+            kCenterlineToleranceMm * kCenterlineToleranceMm)
+      continue;
+    float start = ParameterAlongLine(seed, segment.start);
+    float end = ParameterAlongLine(seed, segment.end);
+    if (start > end)
+      std::swap(start, end);
+    intervals.emplace_back(start, end);
+  }
+  if (intervals.empty())
+    return std::nullopt;
+  std::sort(intervals.begin(), intervals.end());
+  std::vector<std::pair<float, float>> connected;
+  connected.push_back(intervals.front());
+  for (std::size_t index = 1; index < intervals.size(); ++index) {
+    if (intervals[index].first <= connected.back().second + kConnectionGapMm)
+      connected.back().second =
+          std::max(connected.back().second, intervals[index].second);
+    else
+      connected.push_back(intervals[index]);
+  }
+  const auto component =
+      std::find_if(connected.begin(), connected.end(),
+                   [seedLength, kConnectionGapMm](const auto &interval) {
+                     return interval.first <= kConnectionGapMm &&
+                            interval.second >= -kConnectionGapMm &&
+                            interval.second >= seedLength - kConnectionGapMm;
+                   });
+  if (component == connected.end())
+    return std::nullopt;
+  const float minimum = component->first;
+  const float maximum = component->second;
+  Point start{};
+  Point end{};
+  for (int axis = 0; axis < 3; ++axis) {
+    start[axis] = seed.start[axis] + seedDirection[axis] * minimum;
+    end[axis] = seed.start[axis] + seedDirection[axis] * maximum;
+  }
+  return Line{start, end, seed.trussUuid};
+}
+
 } // namespace
 
 // Projects a world point onto a finite truss line.
@@ -75,16 +180,22 @@ Point ProjectOntoLine(const Line &line, const Point &point) {
 // Resolves the single truss line containing every selected fixture.
 ResolveResult ResolveSelectedLine(const MvrScene &scene,
                                   const std::vector<std::string> &fixtureUuids,
-                                  float toleranceMeters) {
+                                  float toleranceMm) {
   if (fixtureUuids.size() < 2)
     return {.line = std::nullopt, .error = ResolveError::TooFewFixtures};
   for (const std::string &uuid : fixtureUuids) {
     if (scene.fixtures.find(uuid) == scene.fixtures.end())
       return {.line = std::nullopt, .error = ResolveError::MissingFixture};
   }
-  const float toleranceSquared = toleranceMeters * toleranceMeters;
+  std::vector<Line> trussSegments;
   for (const auto &[uuid, truss] : scene.trusses) {
-    const auto centerLine = BuildLine(truss);
+    if (const auto line = BuildLine(truss))
+      trussSegments.push_back(*line);
+  }
+  const float toleranceSquared = toleranceMm * toleranceMm;
+  for (std::size_t seedIndex = 0; seedIndex < trussSegments.size();
+       ++seedIndex) {
+    const auto centerLine = BuildConnectedBridge(trussSegments, seedIndex);
     if (!centerLine)
       continue;
     Line line = *centerLine;

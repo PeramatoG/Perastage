@@ -13,7 +13,20 @@ std::string ResolveErrorMessage(fixture_line_distribution::ResolveError error) {
     return "Select at least two fixtures to distribute.";
   if (error == fixture_line_distribution::ResolveError::MissingFixture)
     return "The fixture selection is no longer available.";
-  return "The selected fixtures must be hung on the same truss line.";
+  return "The selected fixtures must share one straight line on the same or "
+         "connected trusses.";
+}
+
+// Converts a world point from millimeters to viewport meters.
+std::array<float, 3> ToViewportMeters(const std::array<float, 3> &pointMm) {
+  return {pointMm[0] / 1000.0f, pointMm[1] / 1000.0f, pointMm[2] / 1000.0f};
+}
+
+// Converts a viewport point from meters to scene millimeters.
+std::array<float, 3>
+ToSceneMillimeters(const std::array<float, 3> &pointMeters) {
+  return {pointMeters[0] * 1000.0f, pointMeters[1] * 1000.0f,
+          pointMeters[2] * 1000.0f};
 }
 
 } // namespace
@@ -65,7 +78,7 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
   ReportFixtureDistributionMessage(
       "Choose two points on the truss line, or press Esc to cancel.");
   viewport2DPanel->BeginLinePointSelection(
-      line.start, line.end,
+      ToViewportMeters(line.start), ToViewportMeters(line.end),
       [this, selection](const auto &start, const auto &end) {
         if (!start || !end) {
           ReportFixtureDistributionMessage("Fixture distribution cancelled.");
@@ -74,8 +87,9 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
         IGuiConfigServices &active = GetDefaultGuiConfigServices();
         active.History().PushUndoState(
             "distribute fixtures between truss points");
-        if (!fixture_line_distribution::Apply(active.Project().GetScene(),
-                                              selection, *start, *end, false)) {
+        if (!fixture_line_distribution::Apply(
+                active.Project().GetScene(), selection,
+                ToSceneMillimeters(*start), ToSceneMillimeters(*end), false)) {
           active.History().Undo();
           ReportFixtureDistributionMessage(
               "Fixture distribution could not be completed.");
