@@ -195,6 +195,16 @@ void MainWindow::CreateToolBars() {
   editToolBar->AddTool(ID_Edit_Redo, _("Redo"),
                        loadToolbarIcon("redo-2", wxART_REDO),
                        _("Redo last undone action"));
+  editToolBar->AddSeparator();
+  editToolBar->AddTool(ID_Edit_Cut, _("Cut"),
+                       loadToolbarIcon("scissors", wxART_CUT),
+                       _("Cut selected scene elements"));
+  editToolBar->AddTool(ID_Edit_Copy, _("Copy"),
+                       loadToolbarIcon("copy", wxART_COPY),
+                       _("Copy selected scene elements"));
+  editToolBar->AddTool(ID_Edit_Paste, _("Paste"),
+                       loadToolbarIcon("clipboard-paste", wxART_PASTE),
+                       _("Paste copied scene elements"));
   editToolBar->Realize();
   auiManager->AddPane(editToolBar, wxAuiPaneInfo()
                                        .Name("EditToolbar")
@@ -357,6 +367,7 @@ void MainWindow::CreateMenuBar() { SetMenuBar(BuildMainWindowMenuBar()); }
 
 // Starts a new project after guarding startup and save state.
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
+  CancelActiveSceneClipboardPlacement();
   if (!GuardStartupProjectLoadAction(_("creating a new project")))
     return;
 
@@ -1017,6 +1028,7 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 // destroying the main window. Finalizes shutdown by saving state and stopping
 // runtime services.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
+  CancelActiveSceneClipboardPlacement();
   SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty(_("exiting"), _("Exit"))) {
     event.Veto();
@@ -1024,6 +1036,7 @@ void MainWindow::OnCloseWindow(wxCloseEvent &event) {
   }
 
   userConfigPersistedOnClose = true;
+  InvalidateSceneClipboard();
   NotifyFixtureSymbolProjectReplaced(false);
 
   if (viewportPanel)

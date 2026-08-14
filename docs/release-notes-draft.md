@@ -6,6 +6,21 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added a project-scoped scene clipboard foundation for safely cloning and
+  removing mixed fixture, truss, hoist, and scene-object selections while
+  preserving MVR identities, hierarchy relationships, and fixture label data.
+  Cut, Copy, and Paste are available from the Edit menu, toolbar, and the
+  standard `Ctrl+X`, `Ctrl+C`, and `Ctrl+V` shortcuts. Single-item Paste now
+  enters repeated cursor-driven placement in either scene viewport, including
+  hoists, while preserving the original clipboard data for every placement.
+  Multi-item Paste now enters rigid pointer-driven batch placement in either
+  scene viewport with raw cursor tracking, exact leaf transforms, and no Magnet snapping.
+  Repeated single-item Paste now records one Undo step per confirmed click,
+  cancels provisional copies without rewinding history, and removes transient
+  copies before save, export, project replacement, or application shutdown.
+  Confirming a Magnet-snapped clipboard item now finalizes its durable grouping
+  before the per-click history snapshot is committed.
+
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these
   mounting paths instead of structural connector points, while existing GDTF
@@ -305,6 +320,13 @@ Changes since **v1.5.0**.
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
 ## Internal changes
+
+- Fixed the Windows scene clipboard GUI build by making its configuration
+  service dependency explicit.
+
+- Fixed standalone scene clipboard test linkage so Windows builds reuse the
+  shared UUID, diagnostics, logging, and application-path test dependencies
+  without compiling duplicate implementations.
 
 - Reused parsed GDTF truss attachment metadata across repeated snapping and
   overlay updates, avoiding redundant archive reads when only an instance moves.

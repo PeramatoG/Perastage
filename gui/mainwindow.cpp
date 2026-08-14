@@ -394,6 +394,9 @@ EVT_MENU(ID_File_Close, MainWindow::OnClose)
 EVT_CLOSE(MainWindow::OnCloseWindow)
 EVT_MENU(ID_Edit_Undo, MainWindow::OnUndo)
 EVT_MENU(ID_Edit_Redo, MainWindow::OnRedo)
+EVT_MENU(ID_Edit_Cut, MainWindow::OnCut)
+EVT_MENU(ID_Edit_Copy, MainWindow::OnCopy)
+EVT_MENU(ID_Edit_Paste, MainWindow::OnPaste)
 EVT_MENU(ID_Edit_AddFixture, MainWindow::OnAddFixture)
 EVT_MENU(ID_Edit_AddTruss, MainWindow::OnAddTruss)
 EVT_MENU(ID_Edit_AddSceneObject, MainWindow::OnAddSceneObject)
@@ -867,6 +870,7 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 // startup.
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
+  CancelActiveSceneClipboardPlacement();
   NotifyFixtureSymbolProjectReplaced(false);
   diagnostics::DiagnosticLogger::Info(
       "Project load started: " +
@@ -945,6 +949,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
         diagnostics::DiagnosticLogger::FileNameOnly(path));
     return false;
   }
+  InvalidateSceneClipboard();
   if (viewportPanel)
     viewportPanel->CompleteSceneReplacement();
   if (viewport2DPanel)
@@ -1103,6 +1108,8 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 // Resets project state, UI-bound data, and active layout context for a fresh
 // session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  CancelActiveSceneClipboardPlacement();
+  InvalidateSceneClipboard();
   NotifyFixtureSymbolProjectReplaced(false);
   symbol_cache::ClearFixtureSymbolRuntimeCaches();
   activeLayoutName.clear();

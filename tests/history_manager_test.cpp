@@ -23,7 +23,22 @@ int main() {
   assert(selection.GetSelectedFixtures().size() == 1);
   assert(history.CanRedo());
 
-  assert(history.Redo(session.GetScene(), selection) == "add fixture");
+  std::optional<std::string> restoredOverrides;
+  assert(history.Redo(session.GetScene(), selection, nullptr, nullptr,
+                      &restoredOverrides) == "add fixture");
+
+  HistoryManager metadataHistory;
+  metadataHistory.PushUndoState(session.GetScene(), selection, "paste fixture",
+                                std::nullopt, nullptr,
+                                std::string("{\"f1\":{\"x\":4}}"));
+  std::optional<std::string> metadata =
+      std::string("{\"pasted\":{\"x\":4}}");
+  assert(metadataHistory.Undo(session.GetScene(), selection, nullptr, nullptr,
+                              &metadata) == "paste fixture");
+  assert(metadata == "{\"f1\":{\"x\":4}}");
+  assert(metadataHistory.Redo(session.GetScene(), selection, nullptr, nullptr,
+                              &metadata) == "paste fixture");
+  assert(metadata == "{\"pasted\":{\"x\":4}}");
 
   HistoryManager placementHistory;
   SelectionState placementSelection;
@@ -50,5 +65,44 @@ int main() {
   assert(placementHistory.Undo(placementScene, placementSelection) ==
          "add fixture");
   assert(placementScene.fixtures.empty());
+
+  HistoryManager clipboardHistory;
+  SelectionState clipboardSelection;
+  MvrScene clipboardScene;
+  const std::vector<std::string> confirmedUuids{"paste-a", "paste-b",
+                                                "paste-c"};
+  for (const auto &uuid : confirmedUuids) {
+    clipboardHistory.PushUndoState(clipboardScene, clipboardSelection,
+                                   "paste scene element");
+    Fixture pasted;
+    pasted.uuid = uuid;
+    clipboardScene.fixtures[uuid] = pasted;
+    clipboardSelection.SetSelectedFixtures({uuid});
+  }
+  Fixture provisional;
+  provisional.uuid = "paste-d";
+  const MvrScene beforeProvisional = clipboardScene;
+  const SelectionState selectionBeforeProvisional = clipboardSelection;
+  clipboardScene.fixtures[provisional.uuid] = provisional;
+  clipboardSelection.SetSelectedFixtures({provisional.uuid});
+  clipboardScene = beforeProvisional;
+  clipboardSelection = selectionBeforeProvisional;
+  assert(!clipboardScene.fixtures.contains(provisional.uuid));
+  assert(clipboardSelection.GetSelectedFixtures() ==
+         std::vector<std::string>{"paste-c"});
+
+  for (auto it = confirmedUuids.rbegin(); it != confirmedUuids.rend(); ++it) {
+    assert(clipboardHistory.Undo(clipboardScene, clipboardSelection) ==
+           "paste scene element");
+    assert(!clipboardScene.fixtures.contains(*it));
+  }
+  assert(!clipboardHistory.CanUndo());
+  for (const auto &uuid : confirmedUuids) {
+    assert(clipboardHistory.Redo(clipboardScene, clipboardSelection) ==
+           "paste scene element");
+    assert(clipboardScene.fixtures.contains(uuid));
+    assert(clipboardSelection.GetSelectedFixtures() ==
+           std::vector<std::string>{uuid});
+  }
   return 0;
 }

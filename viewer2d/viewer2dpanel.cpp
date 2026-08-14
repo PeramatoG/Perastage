@@ -51,6 +51,7 @@
 #include "canvas2d.h"
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
+#include "clipboard_placement_confirmation.h"
 #include "viewer2d_coordinate_math.h"
 #include "../core/pixel_coordinate_math.h"
 #include "diagnostics/DiagnosticReport.h"
@@ -1998,18 +1999,21 @@ void Viewer2DPanel::ApplySelectionDelta(
           transform_space::ExtractOrientation(referenceTransform), deltaMm);
     }
   }
-  const auto policy =
-      selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  auto policy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  if (m_clipboardBatchPlacement)
+    policy = scene_grouping::InteractiveTransformPolicy{false, false, false, false};
   if (hasTranslation) {
     scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm,
                                        transform_space::TransformSpace::World,
                                        policy);
   }
-  if (auto snap = FindActiveMagnetSnap()) {
-    magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
-    m_pendingMagnetSnap = snap;
-  } else if (previousSnap) {
-    magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
+  if (!m_clipboardBatchPlacement) {
+    if (auto snap = FindActiveMagnetSnap()) {
+      magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
+      m_pendingMagnetSnap = snap;
+    } else if (previousSnap) {
+      magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
+    }
   }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();
@@ -2065,6 +2069,8 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   m_dragTarget = type == ContinuousPlacementType::Fixture ? DragTarget::Fixtures
                  : type == ContinuousPlacementType::Truss
                      ? DragTarget::Trusses
+                 : type == ContinuousPlacementType::Support
+                     ? DragTarget::Supports
                      : DragTarget::SceneObjects;
   m_dragSelectionUuids = {elementUuid};
   m_dragFixtureUuids = type == ContinuousPlacementType::Fixture
@@ -2073,7 +2079,9 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   m_dragTrussUuids = type == ContinuousPlacementType::Truss
                          ? std::vector<std::string>{elementUuid}
                          : std::vector<std::string>{};
-  m_dragSupportUuids.clear();
+  m_dragSupportUuids = type == ContinuousPlacementType::Support
+                           ? std::vector<std::string>{elementUuid}
+                           : std::vector<std::string>{};
   m_dragSceneObjectUuids = type == ContinuousPlacementType::SceneObject
                                ? std::vector<std::string>{elementUuid}
                                : std::vector<std::string>{};
@@ -2085,8 +2093,84 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   RequestRepaint();
 }
 
+// Starts single-item placement whose repeated clones come from clipboard data.
+void Viewer2DPanel::BeginClipboardContinuousPlacement(
+    ContinuousPlacementType type, const std::string &elementUuid,
+    std::function<std::string(const std::string &)> confirmCallback,
+    std::function<void(const std::string &)> cancelCallback) {
+  BeginContinuousPlacement(type, elementUuid);
+  m_clipboardSingleConfirm = std::move(confirmCallback);
+  m_clipboardSingleCancel = std::move(cancelCallback);
+}
+
+// Starts rigid clipboard batch placement using exact selected leaf nodes.
+void Viewer2DPanel::BeginClipboardBatchPlacement(
+    const scene_grouping::ObjectSelection &selection,
+    std::function<void()> confirmCallback,
+    std::function<void()> cancelCallback) {
+  m_clipboardBatchPlacement = true;
+  m_clipboardBatchConfirm = std::move(confirmCallback);
+  m_clipboardBatchCancel = std::move(cancelCallback);
+  m_continuousPlacementActive = true;
+  m_continuousPlacementType = ContinuousPlacementType::None;
+  m_dragMode = DragMode::Selection;
+  m_dragFixtureUuids = selection.fixtures;
+  m_dragTrussUuids = selection.trusses;
+  m_dragSupportUuids = selection.supports;
+  m_dragSceneObjectUuids = selection.sceneObjects;
+  m_dragSelectionUuids.clear();
+  for (const auto *bucket : {&selection.fixtures, &selection.trusses,
+                             &selection.supports, &selection.sceneObjects})
+    m_dragSelectionUuids.insert(m_dragSelectionUuids.end(), bucket->begin(),
+                                bucket->end());
+  m_dragSelectionPushedUndo = true;
+  m_pendingMagnetSnap.reset();
+  m_placementViewRevision.Invalidate();
+  SetFocus();
+  RequestRepaint();
+}
+
+// Reports whether clipboard-sourced placement owns the 2D interaction.
+bool Viewer2DPanel::IsClipboardPlacementActive() const {
+  return m_continuousPlacementActive &&
+         (m_clipboardSingleCancel || m_clipboardBatchPlacement);
+}
+
+// Cancels only clipboard-sourced 2D placement.
+void Viewer2DPanel::CancelClipboardPlacement() {
+  if (IsClipboardPlacementActive())
+    CancelContinuousPlacement();
+}
+
 // Commits the current element and creates the next pointer-driven copy.
 void Viewer2DPanel::ConfirmContinuousPlacement() {
+  if (m_clipboardBatchPlacement) {
+    const auto callback = m_clipboardBatchConfirm;
+    EndContinuousPlacementState();
+    if (callback)
+      callback();
+    return;
+  }
+  if (m_clipboardSingleConfirm) {
+    const auto confirm = m_clipboardSingleConfirm;
+    const auto cancel = m_clipboardSingleCancel;
+    const std::string nextUuid = scene_clipboard::ConfirmSinglePlacement(
+        m_continuousPlacementUuid,
+        [this]() { CommitActiveMagnetSnap(); }, confirm);
+    if (nextUuid.empty()) {
+      EndContinuousPlacementState();
+      return;
+    }
+    const auto placedUuids = m_continuousPlacedUuids;
+    BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+    m_clipboardSingleConfirm = confirm;
+    m_clipboardSingleCancel = cancel;
+    m_continuousPlacedUuids = placedUuids;
+    if (m_hasLastMousePos)
+      AlignContinuousElementToPointer(m_lastMousePos);
+    RefreshContinuousPlacementViews();
+    return;
+  }
   ConfigManager &cfg = ConfigManager::Get();
   if (!continuous_placement::Contains(cfg.GetScene(), m_continuousPlacementType,
                                       m_continuousPlacementUuid)) {
@@ -2103,15 +2187,14 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
   cfg.PushUndoState(std::string("place ") + continuous_placement::ElementName(
                         m_continuousPlacementType));
   m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
-  const std::string nextUuid =
-      wxString::Format(
+  const std::string nextUuid = wxString::Format(
           "uuid_%lld",
           static_cast<long long>(
               std::chrono::steady_clock::now().time_since_epoch().count()))
           .ToStdString();
-  if (!continuous_placement::CloneElement(
+  if ((!continuous_placement::CloneElement(
           cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid,
-          nextUuid)) {
+          nextUuid)) || nextUuid.empty()) {
     CancelContinuousPlacement();
     return;
   }
@@ -2128,6 +2211,21 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
 
 // Removes the uncommitted element and ends continuous placement.
 void Viewer2DPanel::CancelContinuousPlacement() {
+  if (m_clipboardBatchPlacement) {
+    const auto callback = m_clipboardBatchCancel;
+    EndContinuousPlacementState();
+    if (callback)
+      callback();
+    return;
+  }
+  if (m_clipboardSingleCancel) {
+    const auto cancel = m_clipboardSingleCancel;
+    const std::string uuid = m_continuousPlacementUuid;
+    EndContinuousPlacementState();
+    cancel(uuid);
+    RefreshContinuousPlacementViews();
+    return;
+  }
   RestorePendingMagnetSnapPreview();
   ConfigManager &cfg = ConfigManager::Get();
   continuous_placement::EraseElement(cfg.GetScene(), m_continuousPlacementType,
@@ -2155,6 +2253,11 @@ void Viewer2DPanel::CancelContinuousPlacement() {
 bool Viewer2DPanel::UndoContinuousPlacement() {
   if (!m_continuousPlacementActive)
     return false;
+
+  if (m_clipboardSingleCancel || m_clipboardBatchPlacement) {
+    CancelContinuousPlacement();
+    return true;
+  }
 
   ConfigManager &cfg = ConfigManager::Get();
   RestorePendingMagnetSnapPreview();
@@ -2198,11 +2301,17 @@ void Viewer2DPanel::EndContinuousPlacementState() {
   m_continuousPlacementType = ContinuousPlacementType::None;
   m_continuousPlacementUuid.clear();
   m_continuousPlacedUuids.clear();
+  m_clipboardSingleConfirm = {};
+  m_clipboardSingleCancel = {};
+  m_clipboardBatchPlacement = false;
+  m_clipboardBatchConfirm = {};
+  m_clipboardBatchCancel = {};
   m_dragMode = DragMode::None;
   m_dragTarget = DragTarget::None;
   m_dragSelectionUuids.clear();
   m_dragFixtureUuids.clear();
   m_dragTrussUuids.clear();
+  m_dragSupportUuids.clear();
   m_dragSceneObjectUuids.clear();
   m_pendingMagnetSnap.reset();
   NotifyHighlightedWorldPosition(std::nullopt);
@@ -3987,7 +4096,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
       }
       int dx = (*framebufferDelta)[0];
       int dy = (*framebufferDelta)[1];
-      if (m_axisConstrainedMovementEnabled) {
+      if (m_axisConstrainedMovementEnabled && !m_clipboardBatchPlacement) {
         if (m_dragAxis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||
              std::abs(dy) >= kSelectionDragStartThresholdPx)) {

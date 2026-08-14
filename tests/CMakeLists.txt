@@ -2327,6 +2327,23 @@ set(PERASTAGE_CONFIGMANAGER_TEST_TARGETS
     symbol_fixture_applier_gdtf_test
     mvr_patched_gdtf_export_test
     layout_image_resource_registry_test)
+add_executable(scene_clipboard_test
+               scene_clipboard_test.cpp
+               ../core/scene_clipboard.cpp
+               ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp
+               ../core/configservices.cpp)
+target_include_directories(scene_clipboard_test PRIVATE
+                           ../core ../models ../third_party)
+target_link_libraries(scene_clipboard_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME SceneClipboard COMMAND scene_clipboard_test)
+
+add_executable(clipboard_placement_confirmation_test
+               clipboard_placement_confirmation_test.cpp)
+target_include_directories(clipboard_placement_confirmation_test PRIVATE ../core)
+add_test(NAME ClipboardPlacementConfirmation
+         COMMAND clipboard_placement_confirmation_test)
+
 get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)

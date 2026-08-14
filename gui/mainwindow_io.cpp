@@ -204,6 +204,7 @@ void MainWindow::UnlockViewportInteraction() {
 
 // Opens a project file selected by the user.
 void MainWindow::OnLoad(wxCommandEvent &event) {
+  CancelActiveSceneClipboardPlacement();
   diagnostics::DiagnosticLogger::Info("Project open requested.");
   if (!GuardStartupProjectLoadAction("opening another project"))
     return;
@@ -299,6 +300,7 @@ void MainWindow::ProcessDeferredStartupOpenPath() {
 
 // Save the current project to its existing path or route to Save As when no path exists.
 void MainWindow::OnSave(wxCommandEvent &event) {
+  CancelActiveSceneClipboardPlacement();
   diagnostics::DiagnosticLogger::Info("Project save requested.");
   if (currentProjectPath.empty()) {
     OnSaveAs(event);
@@ -344,6 +346,7 @@ void MainWindow::OnSave(wxCommandEvent &event) {
 
 // Prompt for a destination path and save the current project under that file name.
 void MainWindow::OnSaveAs(wxCommandEvent &event) {
+  CancelActiveSceneClipboardPlacement();
   diagnostics::DiagnosticLogger::Info("Project save-as requested.");
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
@@ -549,6 +552,7 @@ void MainWindow::OnImportMVR(wxCommandEvent &event) {
 
 // Exports the current scene to an MVR file without mutating the live scene.
 void MainWindow::OnExportMVR(wxCommandEvent &event) {
+  CancelActiveSceneClipboardPlacement();
   diagnostics::DiagnosticLogger::Info("MVR export requested.");
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));

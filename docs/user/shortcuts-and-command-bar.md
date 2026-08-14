@@ -2,6 +2,16 @@
 
 This reference page consolidates the most practical keyboard, mouse, and command-bar workflows from the in-app help so you can work faster without leaving the docs shell.
 
+## Scene editing
+
+- `Ctrl+X`: cut the selected fixtures, trusses, hoists, and scene objects.
+- `Ctrl+C`: copy the selected scene elements.
+- `Ctrl+V`: paste copied scene elements into the current project.
+
+These commands support mixed selections and are also available from the
+**Edit** menu. When a text field or table cell is being edited, the same keys
+keep their native text-editing behavior.
+
 ## Global shortcuts
 
 | Shortcut | Action |

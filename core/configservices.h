@@ -91,6 +91,7 @@ public:
     std::vector<std::string> selSceneObjects;
     std::string description;
     std::optional<std::string> layoutsCollection;
+    std::optional<std::string> fixtureLabelOverrides;
     std::unordered_set<std::string> hiddenLayers;
     std::string currentLayer;
   };
@@ -99,15 +100,19 @@ public:
                      const std::string &description = "",
                      const std::optional<std::string> &layoutsCollection =
                          std::nullopt,
-                     const LayerVisibilityState *layerState = nullptr);
+                     const LayerVisibilityState *layerState = nullptr,
+                     const std::optional<std::string> &fixtureLabelOverrides =
+                         std::nullopt);
   bool CanUndo() const;
   bool CanRedo() const;
   std::string Undo(MvrScene &scene, SelectionState &selection,
                    std::optional<std::string> *layoutsCollection = nullptr,
-                   LayerVisibilityState *layerState = nullptr);
+                   LayerVisibilityState *layerState = nullptr,
+                   std::optional<std::string> *fixtureLabelOverrides = nullptr);
   std::string Redo(MvrScene &scene, SelectionState &selection,
                    std::optional<std::string> *layoutsCollection = nullptr,
-                   LayerVisibilityState *layerState = nullptr);
+                   LayerVisibilityState *layerState = nullptr,
+                   std::optional<std::string> *fixtureLabelOverrides = nullptr);
   void ClearHistory();
 
 private:

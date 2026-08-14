@@ -74,6 +74,12 @@ int main() {
   truss.transform.o = {4000.0f, 5000.0f, 6000.0f};
   scene.trusses[truss.uuid] = truss;
 
+  Support support;
+  support.uuid = "support-1";
+  support.capacityKg = 500.0f;
+  support.transform.o = {2500.0f, 3500.0f, 4500.0f};
+  scene.supports[support.uuid] = support;
+
   SceneObject object;
   object.uuid = "object-1";
   object.transform.o = {7000.0f, 8000.0f, 9000.0f};
@@ -85,17 +91,22 @@ int main() {
   assert(continuous_placement::CloneElement(
       scene, ContinuousPlacementType::Truss, "truss-1", "truss-2"));
   assert(continuous_placement::CloneElement(
+      scene, ContinuousPlacementType::Support, "support-1", "support-2"));
+  assert(scene.supports.at("support-2").capacityKg == 500.0f);
+  assert(continuous_placement::CloneElement(
       scene, ContinuousPlacementType::SceneObject, "object-1", "object-2"));
 
   // A confirmed snapped source remains snapped while its next clone starts
   // from the raw pointer anchor rather than inheriting the old preview.
   for (const auto type :
        {ContinuousPlacementType::Fixture, ContinuousPlacementType::Truss,
+        ContinuousPlacementType::Support,
         ContinuousPlacementType::SceneObject}) {
     const std::string source =
         type == ContinuousPlacementType::Fixture ? "fixture-1"
         : type == ContinuousPlacementType::Truss ? "truss-1"
-                                                 : "object-1";
+        : type == ContinuousPlacementType::Support ? "support-1"
+                                                   : "object-1";
     const std::string clone = source + "-raw-clone";
     const auto snapped =
         continuous_placement::PositionMeters(scene, type, source);
@@ -117,6 +128,9 @@ int main() {
              scene, ContinuousPlacementType::Truss, "truss-1") ==
          (std::array<float, 3>{4.0f, 5.0f, 6.0f}));
   assert(continuous_placement::PositionMeters(
+             scene, ContinuousPlacementType::Support, "support-1") ==
+         (std::array<float, 3>{2.5f, 3.5f, 4.5f}));
+  assert(continuous_placement::PositionMeters(
              scene, ContinuousPlacementType::SceneObject, "object-1") ==
          (std::array<float, 3>{7.0f, 8.0f, 9.0f}));
 
@@ -124,12 +138,16 @@ int main() {
                                      "fixture-2");
   continuous_placement::EraseElement(scene, ContinuousPlacementType::Truss,
                                      "truss-2");
+  continuous_placement::EraseElement(scene, ContinuousPlacementType::Support,
+                                     "support-2");
   continuous_placement::EraseElement(
       scene, ContinuousPlacementType::SceneObject, "object-2");
   assert(!continuous_placement::Contains(
       scene, ContinuousPlacementType::Fixture, "fixture-2"));
   assert(!continuous_placement::Contains(scene, ContinuousPlacementType::Truss,
                                          "truss-2"));
+  assert(!continuous_placement::Contains(scene, ContinuousPlacementType::Support,
+                                         "support-2"));
   assert(!continuous_placement::Contains(
       scene, ContinuousPlacementType::SceneObject, "object-2"));
 }

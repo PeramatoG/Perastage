@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "scene_grouping.h"
 #include "continuous_placement_state.h"
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
@@ -34,6 +35,7 @@
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
+#include <functional>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -178,10 +180,20 @@ public:
   }
   void BeginContinuousPlacement(ContinuousPlacementType type,
                                 const std::string &elementUuid);
+  void BeginClipboardContinuousPlacement(
+      ContinuousPlacementType type, const std::string &elementUuid,
+      std::function<std::string(const std::string &)> confirmCallback,
+      std::function<void(const std::string &)> cancelCallback);
+  void BeginClipboardBatchPlacement(
+      const scene_grouping::ObjectSelection &selection,
+      std::function<void()> confirmCallback,
+      std::function<void()> cancelCallback);
   bool UndoContinuousPlacement();
   bool IsContinuousPlacementActive() const {
     return m_continuousPlacementActive;
   }
+  bool IsClipboardPlacementActive() const;
+  void CancelClipboardPlacement();
   std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
     return m_renderOverrides;
   }
@@ -347,6 +359,11 @@ private:
   continuous_placement::ViewRevisionState m_placementViewRevision;
   std::string m_continuousPlacementUuid;
   std::vector<std::string> m_continuousPlacedUuids;
+  std::function<std::string(const std::string &)> m_clipboardSingleConfirm;
+  std::function<void(const std::string &)> m_clipboardSingleCancel;
+  bool m_clipboardBatchPlacement = false;
+  std::function<void()> m_clipboardBatchConfirm;
+  std::function<void()> m_clipboardBatchCancel;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;
   bool m_rectSelectionAcrossAllTables = false;

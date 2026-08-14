@@ -21,6 +21,7 @@
 #include "viewer2dstate.h"
 #include "../viewer2d/viewer2d_measure_tool.h"
 #include "shortcut_registry.h"
+#include "scene_clipboard.h"
 #include <wx/aui/aui.h>
 #include <wx/frame.h>
 
@@ -240,6 +241,11 @@ private:
 
   void OnUndo(wxCommandEvent &event);           // Undo action placeholder
   void OnRedo(wxCommandEvent &event);           // Redo action placeholder
+  void OnCut(wxCommandEvent &event);
+  void OnCopy(wxCommandEvent &event);
+  void OnPaste(wxCommandEvent &event);
+  void InvalidateSceneClipboard();
+  void CancelActiveSceneClipboardPlacement();
   void OnAddFixture(wxCommandEvent &event);     // Add fixture from GDTF
   void AddFixtureFromGdtfPath(const std::string &gdtfPath,
                               const std::string &suggestedName = "");
@@ -318,6 +324,8 @@ private:
   int viewportInteractionLockDepth = 0;
   std::unique_ptr<wxWindowDisabler> blockingProjectLoadDisabler;
   std::unique_ptr<wxBusyInfo> blockingProjectLoadOverlay;
+  scene_clipboard::Service sceneClipboard;
+  std::uint64_t sceneClipboardEpoch = 1;
 
   friend class MainWindowIoController;
   friend class MainWindowLayoutController;

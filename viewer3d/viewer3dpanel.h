@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "scene_grouping.h"
 #include "continuous_placement_state.h"
 #include <wx/glcanvas.h>
 #include "../viewer2d/viewer2d_measure_tool.h"
@@ -35,6 +36,7 @@
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -111,10 +113,20 @@ public:
     }
     void BeginContinuousPlacement(ContinuousPlacementType type,
                                   const std::string& elementUuid);
+    void BeginClipboardContinuousPlacement(
+        ContinuousPlacementType type, const std::string &elementUuid,
+        std::function<std::string(const std::string &)> confirmCallback,
+        std::function<void(const std::string &)> cancelCallback);
+    void BeginClipboardBatchPlacement(
+        const scene_grouping::ObjectSelection &selection,
+        std::function<void()> confirmCallback,
+        std::function<void()> cancelCallback);
     bool UndoContinuousPlacement();
     bool IsContinuousPlacementActive() const {
         return m_continuousPlacementActive;
     }
+    bool IsClipboardPlacementActive() const;
+    void CancelClipboardPlacement();
 
     enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
 
@@ -148,6 +160,7 @@ private:
     std::vector<std::string> m_dragSelectionUuids;
     std::vector<std::string> m_dragFixtureUuids;
     std::vector<std::string> m_dragTrussUuids;
+    std::vector<std::string> m_dragSupportUuids;
     std::vector<std::string> m_dragSceneObjectUuids;
     std::array<float, 3> m_selectionDragAnchorMeters{0.0f, 0.0f, 0.0f};
     viewer3d::SelectionDragAxis m_selectionDragAxis =
@@ -158,6 +171,11 @@ private:
     continuous_placement::ViewRevisionState m_placementViewRevision;
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;
+    std::function<std::string(const std::string &)> m_clipboardSingleConfirm;
+    std::function<void(const std::string &)> m_clipboardSingleCancel;
+    bool m_clipboardBatchPlacement = false;
+    std::function<void()> m_clipboardBatchConfirm;
+    std::function<void()> m_clipboardBatchCancel;
     bool m_continuousConstraintReferenceValid = false;
     bool m_continuousAxisSwitchArmed = true;
     wxPoint m_continuousConstraintPointerOrigin;
