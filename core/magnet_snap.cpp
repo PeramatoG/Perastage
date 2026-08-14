@@ -591,27 +591,9 @@ struct JointMatch {
   std::size_t second = 0;
 };
 
-// Builds real unoccupied member candidates for a truss group.
-std::vector<truss_attachment::Candidate>
-BuildGroupCandidatesImpl(const MvrScene &scene, const Bounds &bounds,
-                         const std::string &groupUuid,
-                         truss_attachment::CandidateResolver &resolver) {
-  std::vector<std::string> memberUuids;
-  CollectGroupTrussUuids(scene, groupUuid, memberUuids);
-  std::sort(memberUuids.begin(), memberUuids.end());
-  memberUuids.erase(std::unique(memberUuids.begin(), memberUuids.end()),
-                    memberUuids.end());
-  std::vector<truss_attachment::Candidate> candidates;
-  for (const std::string &uuid : memberUuids) {
-    const auto trussIt = scene.trusses.find(uuid);
-    if (trussIt == scene.trusses.end())
-      continue;
-    auto memberCandidates =
-        truss_attachment::BuildCandidates(scene, trussIt->second, resolver)
-            .candidates;
-    candidates.insert(candidates.end(), memberCandidates.begin(),
-                      memberCandidates.end());
-  }
+// Removes connector candidates already paired with an opposing nearby truss connector.
+std::vector<truss_attachment::Candidate> FilterOccupiedCandidates(
+    std::vector<truss_attachment::Candidate> candidates) {
   std::sort(candidates.begin(), candidates.end(),
             [](const auto &left, const auto &right) {
               return std::tie(left.ownerTrussUuid, left.stableId) <
@@ -660,7 +642,33 @@ BuildGroupCandidatesImpl(const MvrScene &scene, const Bounds &bounds,
     if (!occupied[index])
       exposed.push_back(candidates[index]);
   }
-  if (!candidates.empty())
+  return exposed;
+}
+
+// Builds real unoccupied member candidates for a truss group.
+std::vector<truss_attachment::Candidate>
+BuildGroupCandidatesImpl(const MvrScene &scene, const Bounds &bounds,
+                         const std::string &groupUuid,
+                         truss_attachment::CandidateResolver &resolver) {
+  std::vector<std::string> memberUuids;
+  CollectGroupTrussUuids(scene, groupUuid, memberUuids);
+  std::sort(memberUuids.begin(), memberUuids.end());
+  memberUuids.erase(std::unique(memberUuids.begin(), memberUuids.end()),
+                    memberUuids.end());
+  std::vector<truss_attachment::Candidate> candidates;
+  for (const std::string &uuid : memberUuids) {
+    const auto trussIt = scene.trusses.find(uuid);
+    if (trussIt == scene.trusses.end())
+      continue;
+    auto memberCandidates =
+        truss_attachment::BuildCandidates(scene, trussIt->second, resolver)
+            .candidates;
+    candidates.insert(candidates.end(), memberCandidates.begin(),
+                      memberCandidates.end());
+  }
+  const bool hasMemberCandidates = !candidates.empty();
+  auto exposed = FilterOccupiedCandidates(std::move(candidates));
+  if (hasMemberCandidates)
     return exposed;
 
   Matrix insertionTransform = bounds.transform;
@@ -703,11 +711,15 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
 
   if (source.type == ObjectType::Truss ||
       source.type == ObjectType::TrussGroup) {
+    std::vector<truss_attachment::Candidate> candidates;
     for (const auto &[uuid, truss] : scene.trusses) {
       (void)uuid;
-      appendCandidates(
-          truss_attachment::BuildCandidates(scene, truss, resolver).candidates);
+      auto trussCandidates =
+          truss_attachment::BuildCandidates(scene, truss, resolver).candidates;
+      candidates.insert(candidates.end(), trussCandidates.begin(),
+                        trussCandidates.end());
     }
+    appendCandidates(FilterOccupiedCandidates(std::move(candidates)));
     return references;
   }
 

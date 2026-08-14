@@ -159,6 +159,17 @@ int main() {
   CHECK_OR_RETURN(anchorReferences.front().positionMm[0] == 100.0f);
   CHECK_OR_RETURN(anchorReferences.front().direction.has_value());
 
+  SetStage("occupied anchor references");
+  MvrScene joinedAnchorScene;
+  AddTruss(joinedAnchorScene, "joined-left", 0.0f);
+  AddTruss(joinedAnchorScene, "joined-right", 3000.0f);
+  const auto freeAnchorReferences = magnet_snap::BuildAnchorReferences(
+      joinedAnchorScene, {magnet_snap::ObjectType::Truss, "joined-left"},
+      anchorResolver);
+  CHECK_OR_RETURN(freeAnchorReferences.size() == 2);
+  CHECK_OR_RETURN(freeAnchorReferences.front().positionMm[0] == 0.0f);
+  CHECK_OR_RETURN(freeAnchorReferences.back().positionMm[0] == 6000.0f);
+
   SceneObject referenceObject;
   referenceObject.uuid = "reference-object";
   referenceObject.transform = Translated(500.0f, 0.0f, 0.0f);
