@@ -4,6 +4,7 @@
 #include "consolepanel.h"
 #include "editable_focus_utils.h"
 #include "fixturetablepanel.h"
+#include "guiconfigservices.h"
 #include "hoisttablepanel.h"
 #include "json.hpp"
 #include "project_fixture_identity.h"

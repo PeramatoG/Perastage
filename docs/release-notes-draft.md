@@ -312,6 +312,9 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
+- Fixed the Windows scene clipboard GUI build by making its configuration
+  service dependency explicit.
+
 - Fixed standalone scene clipboard test linkage so Windows builds reuse the
   shared UUID, diagnostics, logging, and application-path test dependencies
   without compiling duplicate implementations.
