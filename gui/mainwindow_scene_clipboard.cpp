@@ -148,8 +148,6 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
   auto before = std::make_shared<PasteBeforeState>(PasteBeforeState{
       config.GetScene(), BuildSelection(config), config.CaptureDirtyState(),
       config.GetValue(project_identity::kFixtureLabelOverridesConfigKey)});
-  if (singleItem)
-    config.PushUndoState("paste scene elements");
   const auto result = sceneClipboard.Paste(config.GetScene(),
                                            sceneClipboardEpoch, &overrides);
   if (!result.changed)
@@ -169,8 +167,7 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
     }
   }
   WriteFixtureLabelOverrides(config, overrides);
-  if (!singleItem)
-    config.RestoreDirtyState(before->dirty);
+  config.RestoreDirtyState(before->dirty);
   config.SetSelectedFixtures(fixtures);
   config.SetSelectedTrusses(trusses);
   config.SetSelectedSupports(supports);
@@ -184,8 +181,16 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
     const ContinuousPlacementType type =
         PlacementTypeForNode(result.nodes.front().type);
     const std::string provisionalUuid = result.nodes.front().uuid;
-    auto cloneFactory = [this]() -> std::string {
+    auto confirm = [this, before](const std::string &) -> std::string {
       ConfigManager &activeConfig = guiConfigServices->LegacyConfigManager();
+      activeConfig.PushUndoSnapshot(before->scene, before->selection,
+                                    before->labelOverrides,
+                                    "paste scene element");
+      PasteBeforeState nextBefore{
+          activeConfig.GetScene(), BuildSelection(activeConfig),
+          activeConfig.CaptureDirtyState(),
+          activeConfig.GetValue(
+              project_identity::kFixtureLabelOverridesConfigKey)};
       auto activeOverrides = ReadFixtureLabelOverrides(activeConfig);
       const auto next = sceneClipboard.Paste(activeConfig.GetScene(),
                                              sceneClipboardEpoch,
@@ -193,23 +198,41 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
       if (!next.changed || next.nodes.size() != 1)
         return {};
       WriteFixtureLabelOverrides(activeConfig, activeOverrides);
+      activeConfig.RestoreDirtyState(nextBefore.dirty);
+      *before = std::move(nextBefore);
       return next.nodes.front().uuid;
+    };
+    auto cancel = [this, before](const std::string &) {
+      ConfigManager &activeConfig = guiConfigServices->LegacyConfigManager();
+      activeConfig.GetScene() = before->scene;
+      activeConfig.SetSelectedFixtures(before->selection.GetSelectedFixtures());
+      activeConfig.SetSelectedTrusses(before->selection.GetSelectedTrusses());
+      activeConfig.SetSelectedSupports(before->selection.GetSelectedSupports());
+      activeConfig.SetSelectedSceneObjects(
+          before->selection.GetSelectedSceneObjects());
+      if (before->labelOverrides)
+        activeConfig.SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+                              *before->labelOverrides);
+      else
+        activeConfig.RemoveKey(
+            project_identity::kFixtureLabelOverridesConfigKey);
+      activeConfig.RestoreDirtyState(before->dirty);
     };
     const bool use2D = viewport2DPanel && viewport2DPanel->IsShownOnScreen() &&
                        (viewport2DPanel->HasFocus() || !viewportPanel ||
                         !viewportPanel->IsShownOnScreen());
     if (use2D) {
       viewport2DPanel->BeginClipboardContinuousPlacement(
-          type, provisionalUuid, std::move(cloneFactory));
+          type, provisionalUuid, std::move(confirm), std::move(cancel));
     } else {
       if (!viewportPanel || !viewportPanel->IsShownOnScreen())
         Ensure2DViewportAvailable();
       if (viewportPanel && viewportPanel->IsShownOnScreen())
         viewportPanel->BeginClipboardContinuousPlacement(
-            type, provisionalUuid, std::move(cloneFactory));
+            type, provisionalUuid, std::move(confirm), std::move(cancel));
       else if (viewport2DPanel)
         viewport2DPanel->BeginClipboardContinuousPlacement(
-            type, provisionalUuid, std::move(cloneFactory));
+            type, provisionalUuid, std::move(confirm), std::move(cancel));
     }
   } else {
     scene_grouping::ObjectSelection batch{fixtures, trusses, supports, objects};
@@ -282,4 +305,12 @@ void MainWindow::InvalidateSceneClipboard() {
   ++sceneClipboardEpoch;
   if (sceneClipboardEpoch == 0)
     sceneClipboardEpoch = 1;
+}
+
+// Cancels transient clipboard nodes before persistence or scene replacement.
+void MainWindow::CancelActiveSceneClipboardPlacement() {
+  if (viewport2DPanel && viewport2DPanel->IsClipboardPlacementActive())
+    viewport2DPanel->CancelClipboardPlacement();
+  if (viewportPanel && viewportPanel->IsClipboardPlacementActive())
+    viewportPanel->CancelClipboardPlacement();
 }

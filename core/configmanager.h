@@ -112,6 +112,10 @@ public:
 
     // --- Undo/Redo support ---
     void PushUndoState(const std::string& description = "");
+    void PushUndoSnapshot(
+        const MvrScene &scene, const SelectionState &selection,
+        const std::optional<std::string> &fixtureLabelOverrides,
+        const std::string &description);
     bool CanUndo() const;
     bool CanRedo() const;
     std::string Undo();

@@ -15,6 +15,9 @@ Changes since **v1.5.0**.
   hoists, while preserving the original clipboard data for every placement.
   Multi-item Paste now enters rigid pointer-driven batch placement in either
   scene viewport with raw cursor tracking, exact leaf transforms, and no Magnet snapping.
+  Repeated single-item Paste now records one Undo step per confirmed click,
+  cancels provisional copies without rewinding history, and removes transient
+  copies before save, export, project replacement, or application shutdown.
 
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these

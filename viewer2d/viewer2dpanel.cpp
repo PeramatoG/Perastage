@@ -2095,9 +2095,11 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
 // Starts single-item placement whose repeated clones come from clipboard data.
 void Viewer2DPanel::BeginClipboardContinuousPlacement(
     ContinuousPlacementType type, const std::string &elementUuid,
-    std::function<std::string()> cloneFactory) {
+    std::function<std::string(const std::string &)> confirmCallback,
+    std::function<void(const std::string &)> cancelCallback) {
   BeginContinuousPlacement(type, elementUuid);
-  m_continuousCloneFactory = std::move(cloneFactory);
+  m_clipboardSingleConfirm = std::move(confirmCallback);
+  m_clipboardSingleCancel = std::move(cancelCallback);
 }
 
 // Starts rigid clipboard batch placement using exact selected leaf nodes.
@@ -2127,6 +2129,18 @@ void Viewer2DPanel::BeginClipboardBatchPlacement(
   RequestRepaint();
 }
 
+// Reports whether clipboard-sourced placement owns the 2D interaction.
+bool Viewer2DPanel::IsClipboardPlacementActive() const {
+  return m_continuousPlacementActive &&
+         (m_clipboardSingleCancel || m_clipboardBatchPlacement);
+}
+
+// Cancels only clipboard-sourced 2D placement.
+void Viewer2DPanel::CancelClipboardPlacement() {
+  if (IsClipboardPlacementActive())
+    CancelContinuousPlacement();
+}
+
 // Commits the current element and creates the next pointer-driven copy.
 void Viewer2DPanel::ConfirmContinuousPlacement() {
   if (m_clipboardBatchPlacement) {
@@ -2134,6 +2148,24 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
     EndContinuousPlacementState();
     if (callback)
       callback();
+    return;
+  }
+  if (m_clipboardSingleConfirm) {
+    const auto confirm = m_clipboardSingleConfirm;
+    const auto cancel = m_clipboardSingleCancel;
+    const std::string nextUuid = confirm(m_continuousPlacementUuid);
+    if (nextUuid.empty()) {
+      EndContinuousPlacementState();
+      return;
+    }
+    const auto placedUuids = m_continuousPlacedUuids;
+    BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+    m_clipboardSingleConfirm = confirm;
+    m_clipboardSingleCancel = cancel;
+    m_continuousPlacedUuids = placedUuids;
+    if (m_hasLastMousePos)
+      AlignContinuousElementToPointer(m_lastMousePos);
+    RefreshContinuousPlacementViews();
     return;
   }
   ConfigManager &cfg = ConfigManager::Get();
@@ -2152,14 +2184,12 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
   cfg.PushUndoState(std::string("place ") + continuous_placement::ElementName(
                         m_continuousPlacementType));
   m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
-  const std::string nextUuid = m_continuousCloneFactory
-      ? m_continuousCloneFactory()
-      : wxString::Format(
+  const std::string nextUuid = wxString::Format(
           "uuid_%lld",
           static_cast<long long>(
               std::chrono::steady_clock::now().time_since_epoch().count()))
           .ToStdString();
-  if ((!m_continuousCloneFactory && !continuous_placement::CloneElement(
+  if ((!continuous_placement::CloneElement(
           cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid,
           nextUuid)) || nextUuid.empty()) {
     CancelContinuousPlacement();
@@ -2169,9 +2199,7 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
       cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
   CommitActiveMagnetSnap();
   const auto placedUuids = m_continuousPlacedUuids;
-  const auto cloneFactory = m_continuousCloneFactory;
   BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
-  m_continuousCloneFactory = cloneFactory;
   m_continuousPlacedUuids = placedUuids;
   if (m_hasLastMousePos)
     AlignContinuousElementToPointer(m_lastMousePos);
@@ -2185,6 +2213,14 @@ void Viewer2DPanel::CancelContinuousPlacement() {
     EndContinuousPlacementState();
     if (callback)
       callback();
+    return;
+  }
+  if (m_clipboardSingleCancel) {
+    const auto cancel = m_clipboardSingleCancel;
+    const std::string uuid = m_continuousPlacementUuid;
+    EndContinuousPlacementState();
+    cancel(uuid);
+    RefreshContinuousPlacementViews();
     return;
   }
   RestorePendingMagnetSnapPreview();
@@ -2245,9 +2281,7 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
     return true;
   }
   const auto placedUuids = m_continuousPlacedUuids;
-  const auto cloneFactory = m_continuousCloneFactory;
   BeginContinuousPlacement(m_continuousPlacementType, restoredUuid);
-  m_continuousCloneFactory = cloneFactory;
   m_continuousPlacedUuids = placedUuids;
   RefreshContinuousPlacementViews();
   return true;
@@ -2259,7 +2293,8 @@ void Viewer2DPanel::EndContinuousPlacementState() {
   m_continuousPlacementType = ContinuousPlacementType::None;
   m_continuousPlacementUuid.clear();
   m_continuousPlacedUuids.clear();
-  m_continuousCloneFactory = {};
+  m_clipboardSingleConfirm = {};
+  m_clipboardSingleCancel = {};
   m_clipboardBatchPlacement = false;
   m_clipboardBatchConfirm = {};
   m_clipboardBatchCancel = {};

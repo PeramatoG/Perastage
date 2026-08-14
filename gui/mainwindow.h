@@ -245,6 +245,7 @@ private:
   void OnCopy(wxCommandEvent &event);
   void OnPaste(wxCommandEvent &event);
   void InvalidateSceneClipboard();
+  void CancelActiveSceneClipboardPlacement();
   void OnAddFixture(wxCommandEvent &event);     // Add fixture from GDTF
   void AddFixtureFromGdtfPath(const std::string &gdtfPath,
                               const std::string &suggestedName = "");

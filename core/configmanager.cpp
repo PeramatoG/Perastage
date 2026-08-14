@@ -732,6 +732,17 @@ void ConfigManager::PushUndoState(const std::string &description) {
   projectSession.Touch();
 }
 
+// Commits an explicitly captured pre-mutation state to project history.
+void ConfigManager::PushUndoSnapshot(
+    const MvrScene &scene, const SelectionState &selection,
+    const std::optional<std::string> &fixtureLabelOverrides,
+    const std::string &description) {
+  historyManager.PushUndoState(scene, selection, description,
+                               GetValue(kLayoutsConfigKey),
+                               &layerVisibilityState, fixtureLabelOverrides);
+  projectSession.Touch();
+}
+
 bool ConfigManager::CanUndo() const { return historyManager.CanUndo(); }
 
 bool ConfigManager::CanRedo() const { return historyManager.CanRedo(); }

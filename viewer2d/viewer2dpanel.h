@@ -182,7 +182,8 @@ public:
                                 const std::string &elementUuid);
   void BeginClipboardContinuousPlacement(
       ContinuousPlacementType type, const std::string &elementUuid,
-      std::function<std::string()> cloneFactory);
+      std::function<std::string(const std::string &)> confirmCallback,
+      std::function<void(const std::string &)> cancelCallback);
   void BeginClipboardBatchPlacement(
       const scene_grouping::ObjectSelection &selection,
       std::function<void()> confirmCallback,
@@ -191,6 +192,8 @@ public:
   bool IsContinuousPlacementActive() const {
     return m_continuousPlacementActive;
   }
+  bool IsClipboardPlacementActive() const;
+  void CancelClipboardPlacement();
   std::optional<Viewer2DRenderOverrides> GetRenderOverrides() const {
     return m_renderOverrides;
   }
@@ -356,7 +359,8 @@ private:
   continuous_placement::ViewRevisionState m_placementViewRevision;
   std::string m_continuousPlacementUuid;
   std::vector<std::string> m_continuousPlacedUuids;
-  std::function<std::string()> m_continuousCloneFactory;
+  std::function<std::string(const std::string &)> m_clipboardSingleConfirm;
+  std::function<void(const std::string &)> m_clipboardSingleCancel;
   bool m_clipboardBatchPlacement = false;
   std::function<void()> m_clipboardBatchConfirm;
   std::function<void()> m_clipboardBatchCancel;

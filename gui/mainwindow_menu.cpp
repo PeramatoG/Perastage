@@ -367,6 +367,7 @@ void MainWindow::CreateMenuBar() { SetMenuBar(BuildMainWindowMenuBar()); }
 
 // Starts a new project after guarding startup and save state.
 void MainWindow::OnNew(wxCommandEvent &WXUNUSED(event)) {
+  CancelActiveSceneClipboardPlacement();
   if (!GuardStartupProjectLoadAction(_("creating a new project")))
     return;
 
@@ -1027,6 +1028,7 @@ void MainWindow::OnClose(wxCommandEvent &event) {
 // destroying the main window. Finalizes shutdown by saving state and stopping
 // runtime services.
 void MainWindow::OnCloseWindow(wxCloseEvent &event) {
+  CancelActiveSceneClipboardPlacement();
   SaveUserConfigWithViewport2DState();
   if (!ConfirmSaveIfDirty(_("exiting"), _("Exit"))) {
     event.Veto();

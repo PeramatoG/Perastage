@@ -870,6 +870,7 @@ bool MainWindow::GuardStartupProjectLoadAction(const wxString &actionLabel) {
 // startup.
 bool MainWindow::LoadProjectFromPath(const std::string &path,
                                      bool showBlockingLoadUi) {
+  CancelActiveSceneClipboardPlacement();
   NotifyFixtureSymbolProjectReplaced(false);
   diagnostics::DiagnosticLogger::Info(
       "Project load started: " +
@@ -1107,6 +1108,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 // Resets project state, UI-bound data, and active layout context for a fresh
 // session.
 void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
+  CancelActiveSceneClipboardPlacement();
   InvalidateSceneClipboard();
   NotifyFixtureSymbolProjectReplaced(false);
   symbol_cache::ClearFixtureSymbolRuntimeCaches();
