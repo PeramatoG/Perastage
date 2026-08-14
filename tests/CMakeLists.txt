@@ -2338,6 +2338,12 @@ target_include_directories(scene_clipboard_test PRIVATE
 target_link_libraries(scene_clipboard_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SceneClipboard COMMAND scene_clipboard_test)
 
+add_executable(clipboard_placement_confirmation_test
+               clipboard_placement_confirmation_test.cpp)
+target_include_directories(clipboard_placement_confirmation_test PRIVATE ../core)
+add_test(NAME ClipboardPlacementConfirmation
+         COMMAND clipboard_placement_confirmation_test)
+
 get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
     get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)

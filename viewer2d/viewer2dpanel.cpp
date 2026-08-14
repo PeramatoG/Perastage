@@ -51,6 +51,7 @@
 #include "canvas2d.h"
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
+#include "clipboard_placement_confirmation.h"
 #include "viewer2d_coordinate_math.h"
 #include "../core/pixel_coordinate_math.h"
 #include "diagnostics/DiagnosticReport.h"
@@ -2153,7 +2154,9 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
   if (m_clipboardSingleConfirm) {
     const auto confirm = m_clipboardSingleConfirm;
     const auto cancel = m_clipboardSingleCancel;
-    const std::string nextUuid = confirm(m_continuousPlacementUuid);
+    const std::string nextUuid = scene_clipboard::ConfirmSinglePlacement(
+        m_continuousPlacementUuid,
+        [this]() { CommitActiveMagnetSnap(); }, confirm);
     if (nextUuid.empty()) {
       EndContinuousPlacementState();
       return;
@@ -2250,6 +2253,11 @@ void Viewer2DPanel::CancelContinuousPlacement() {
 bool Viewer2DPanel::UndoContinuousPlacement() {
   if (!m_continuousPlacementActive)
     return false;
+
+  if (m_clipboardSingleCancel || m_clipboardBatchPlacement) {
+    CancelContinuousPlacement();
+    return true;
+  }
 
   ConfigManager &cfg = ConfigManager::Get();
   RestorePendingMagnetSnapPreview();

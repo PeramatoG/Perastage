@@ -83,6 +83,23 @@ ContinuousPlacementType PlacementTypeForNode(MvrNodeType type) {
   return ContinuousPlacementType::None;
 }
 
+// Selects one confirmed clipboard node in its owning central selection bucket.
+void SelectConfirmedNode(ConfigManager &config, MvrNodeType type,
+                         const std::string &uuid) {
+  config.SetSelectedFixtures(type == MvrNodeType::Fixture
+                                 ? std::vector<std::string>{uuid}
+                                 : std::vector<std::string>{});
+  config.SetSelectedTrusses(type == MvrNodeType::Truss
+                                ? std::vector<std::string>{uuid}
+                                : std::vector<std::string>{});
+  config.SetSelectedSupports(type == MvrNodeType::Support
+                                 ? std::vector<std::string>{uuid}
+                                 : std::vector<std::string>{});
+  config.SetSelectedSceneObjects(type == MvrNodeType::SceneObject
+                                     ? std::vector<std::string>{uuid}
+                                     : std::vector<std::string>{});
+}
+
 } // namespace
 
 // Captures the supported central scene selection without mutating the project.
@@ -181,11 +198,14 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
     const ContinuousPlacementType type =
         PlacementTypeForNode(result.nodes.front().type);
     const std::string provisionalUuid = result.nodes.front().uuid;
-    auto confirm = [this, before](const std::string &) -> std::string {
+    const MvrNodeType nodeType = result.nodes.front().type;
+    auto confirm = [this, before, nodeType](const std::string &confirmedUuid)
+        -> std::string {
       ConfigManager &activeConfig = guiConfigServices->LegacyConfigManager();
       activeConfig.PushUndoSnapshot(before->scene, before->selection,
                                     before->labelOverrides,
                                     "paste scene element");
+      SelectConfirmedNode(activeConfig, nodeType, confirmedUuid);
       PasteBeforeState nextBefore{
           activeConfig.GetScene(), BuildSelection(activeConfig),
           activeConfig.CaptureDirtyState(),

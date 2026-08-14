@@ -18,6 +18,8 @@ Changes since **v1.5.0**.
   Repeated single-item Paste now records one Undo step per confirmed click,
   cancels provisional copies without rewinding history, and removes transient
   copies before save, export, project replacement, or application shutdown.
+  Confirming a Magnet-snapped clipboard item now finalizes its durable grouping
+  before the per-click history snapshot is committed.
 
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these

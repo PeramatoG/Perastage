@@ -53,6 +53,7 @@
 #include "../gui/selection_origin_token.h"
 #include "configmanager.h"
 #include "continuous_placement_scene.h"
+#include "clipboard_placement_confirmation.h"
 #include "selection_movement_settings.h"
 #include "interaction/context_menu_model.h"
 #include "../viewport_interaction_scope.h"
@@ -3312,7 +3313,9 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
     if (m_clipboardSingleConfirm) {
         const auto confirm = m_clipboardSingleConfirm;
         const auto cancel = m_clipboardSingleCancel;
-        const std::string nextUuid = confirm(m_continuousPlacementUuid);
+        const std::string nextUuid = scene_clipboard::ConfirmSinglePlacement(
+            m_continuousPlacementUuid,
+            [this]() { CommitActiveMagnetSnap(); }, confirm);
         if (nextUuid.empty()) {
             EndContinuousPlacementState();
             return;
@@ -3412,6 +3415,11 @@ void Viewer3DPanel::CancelContinuousPlacement()
 bool Viewer3DPanel::UndoContinuousPlacement() {
     if (!m_continuousPlacementActive)
         return false;
+
+    if (m_clipboardSingleCancel || m_clipboardBatchPlacement) {
+        CancelContinuousPlacement();
+        return true;
+    }
 
     ConfigManager& cfg = ConfigManager::Get();
     RestorePendingMagnetSnapPreview();
