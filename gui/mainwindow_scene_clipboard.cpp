@@ -17,6 +17,13 @@
 
 namespace {
 
+struct PasteBeforeState {
+  MvrScene scene;
+  SelectionState selection;
+  ConfigManager::DirtyState dirty;
+  std::optional<std::string> labelOverrides;
+};
+
 // Reads fixture label overrides as opaque JSON values keyed by fixture UUID.
 std::unordered_map<std::string, std::string>
 ReadFixtureLabelOverrides(const ConfigManager &config) {
@@ -137,7 +144,12 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
   }
   ConfigManager &config = guiConfigServices->LegacyConfigManager();
   auto overrides = ReadFixtureLabelOverrides(config);
-  config.PushUndoState("paste scene elements");
+  const bool singleItem = sceneClipboard.GetPayload().items.size() == 1;
+  auto before = std::make_shared<PasteBeforeState>(PasteBeforeState{
+      config.GetScene(), BuildSelection(config), config.CaptureDirtyState(),
+      config.GetValue(project_identity::kFixtureLabelOverridesConfigKey)});
+  if (singleItem)
+    config.PushUndoState("paste scene elements");
   const auto result = sceneClipboard.Paste(config.GetScene(),
                                            sceneClipboardEpoch, &overrides);
   if (!result.changed)
@@ -157,6 +169,8 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
     }
   }
   WriteFixtureLabelOverrides(config, overrides);
+  if (!singleItem)
+    config.RestoreDirtyState(before->dirty);
   config.SetSelectedFixtures(fixtures);
   config.SetSelectedTrusses(trusses);
   config.SetSelectedSupports(supports);
@@ -197,6 +211,59 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
         viewport2DPanel->BeginClipboardContinuousPlacement(
             type, provisionalUuid, std::move(cloneFactory));
     }
+  } else {
+    scene_grouping::ObjectSelection batch{fixtures, trusses, supports, objects};
+    auto restoreBefore = [this, before]() {
+      ConfigManager &active = guiConfigServices->LegacyConfigManager();
+      active.GetScene() = before->scene;
+      active.SetSelectedFixtures(before->selection.GetSelectedFixtures());
+      active.SetSelectedTrusses(before->selection.GetSelectedTrusses());
+      active.SetSelectedSupports(before->selection.GetSelectedSupports());
+      active.SetSelectedSceneObjects(
+          before->selection.GetSelectedSceneObjects());
+      if (before->labelOverrides)
+        active.SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+                        *before->labelOverrides);
+      else
+        active.RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
+      active.RestoreDirtyState(before->dirty);
+    };
+    auto confirm = [this, before]() {
+      ConfigManager &active = guiConfigServices->LegacyConfigManager();
+      const MvrScene finalScene = active.GetScene();
+      const SelectionState finalSelection = BuildSelection(active);
+      const auto finalOverrides = active.GetValue(
+          project_identity::kFixtureLabelOverridesConfigKey);
+      active.GetScene() = before->scene;
+      active.SetSelectedFixtures(before->selection.GetSelectedFixtures());
+      active.SetSelectedTrusses(before->selection.GetSelectedTrusses());
+      active.SetSelectedSupports(before->selection.GetSelectedSupports());
+      active.SetSelectedSceneObjects(before->selection.GetSelectedSceneObjects());
+      if (before->labelOverrides)
+        active.SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+                        *before->labelOverrides);
+      else
+        active.RemoveKey(project_identity::kFixtureLabelOverridesConfigKey);
+      active.RestoreDirtyState(before->dirty);
+      active.PushUndoState("paste scene elements");
+      active.GetScene() = finalScene;
+      active.SetSelectedFixtures(finalSelection.GetSelectedFixtures());
+      active.SetSelectedTrusses(finalSelection.GetSelectedTrusses());
+      active.SetSelectedSupports(finalSelection.GetSelectedSupports());
+      active.SetSelectedSceneObjects(finalSelection.GetSelectedSceneObjects());
+      if (finalOverrides)
+        active.SetValue(project_identity::kFixtureLabelOverridesConfigKey,
+                        *finalOverrides);
+      RefreshAfterSceneChange();
+    };
+    auto cancel = [this, restoreBefore]() {
+      restoreBefore();
+      RefreshAfterSceneChange();
+    };
+    Ensure2DViewportAvailable();
+    if (viewport2DPanel)
+      viewport2DPanel->BeginClipboardBatchPlacement(
+          batch, std::move(confirm), std::move(cancel));
   }
   if (consolePanel)
     consolePanel->AppendMessage("Pasted scene elements");

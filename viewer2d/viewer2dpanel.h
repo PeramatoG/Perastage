@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "scene_grouping.h"
 #include "continuous_placement_state.h"
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
@@ -182,6 +183,10 @@ public:
   void BeginClipboardContinuousPlacement(
       ContinuousPlacementType type, const std::string &elementUuid,
       std::function<std::string()> cloneFactory);
+  void BeginClipboardBatchPlacement(
+      const scene_grouping::ObjectSelection &selection,
+      std::function<void()> confirmCallback,
+      std::function<void()> cancelCallback);
   bool UndoContinuousPlacement();
   bool IsContinuousPlacementActive() const {
     return m_continuousPlacementActive;
@@ -352,6 +357,9 @@ private:
   std::string m_continuousPlacementUuid;
   std::vector<std::string> m_continuousPlacedUuids;
   std::function<std::string()> m_continuousCloneFactory;
+  bool m_clipboardBatchPlacement = false;
+  std::function<void()> m_clipboardBatchConfirm;
+  std::function<void()> m_clipboardBatchCancel;
   wxLongLong m_dragPressTime = 0;
   bool m_rectSelecting = false;
   bool m_rectSelectionAcrossAllTables = false;
