@@ -3,6 +3,7 @@
 #include "matrixutils.h"
 #include "scene_grouping.h"
 #include "truss_attachment_candidates.h"
+#include "truss_attachment_paths.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,6 +13,12 @@
 
 namespace magnet_snap {
 namespace {
+
+// Returns the shared runtime cache used when a caller does not provide one.
+truss_attachment_paths::Resolver &DefaultPathResolver() {
+  thread_local truss_attachment_paths::Resolver resolver;
+  return resolver;
+}
 
 struct Bounds {
   Matrix transform{};
@@ -678,10 +685,11 @@ BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid) {
                 : std::vector<truss_attachment::Candidate>{};
 }
 
-// Builds every compatible anchor reference for an active Magnet source.
+// Builds compatible connector or fixture-path references for an active source.
 std::vector<AnchorReference>
 BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
-                      truss_attachment::CandidateResolver &resolver) {
+                      truss_attachment::CandidateResolver &resolver,
+                      truss_attachment_paths::Resolver *pathResolver) {
   std::vector<AnchorReference> references;
   auto appendCandidates = [&](const auto &candidates) {
     for (const auto &candidate : candidates)
@@ -689,9 +697,34 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
           {candidate.worldTransform.o, candidate.worldDirection});
   };
 
+  if (source.type == ObjectType::Fixture) {
+    auto &attachmentResolver =
+        pathResolver ? *pathResolver : DefaultPathResolver();
+    for (const auto &[uuid, truss] : scene.trusses) {
+      (void)uuid;
+      const auto resolution = attachmentResolver.Resolve(scene, truss);
+      for (const auto &path : resolution.paths) {
+        constexpr int kVisualizationSamples = 9;
+        for (int sample = 0; sample < kVisualizationSamples; ++sample) {
+          if (path.worldPointsMm.size() < 2)
+            continue;
+          const float parameter = static_cast<float>(sample) /
+                                  (kVisualizationSamples - 1);
+          const auto &start = path.worldPointsMm.front();
+          const auto &end = path.worldPointsMm.back();
+          std::array<float, 3> point{};
+          for (int axis = 0; axis < 3; ++axis)
+            point[axis] = start[axis] + (end[axis] - start[axis]) * parameter;
+          references.push_back(
+              {point, path.worldOutwardDirection, path.stableId});
+        }
+      }
+    }
+    return references;
+  }
+
   if (source.type == ObjectType::Truss ||
-      source.type == ObjectType::TrussGroup ||
-      source.type == ObjectType::Fixture) {
+      source.type == ObjectType::TrussGroup) {
     for (const auto &[uuid, truss] : scene.trusses) {
       (void)uuid;
       appendCandidates(
@@ -779,25 +812,46 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 
   if (source.type == ObjectType::Fixture) {
     const std::array<float, 3> insertion = sourceBounds->transform.o;
+    auto &resolver = settings.pathResolver ? *settings.pathResolver
+                                           : DefaultPathResolver();
     for (const auto &[uuid, truss] : scene.trusses) {
       const Bounds targetBounds = MakeTrussBounds(truss);
-      const std::array<float, 3> closest =
-          ClosestPointOnSurface(targetBounds, insertion);
-      const std::array<float, 3> delta = Subtract(closest, insertion);
-      const float distance = WeightedLength(delta, settings.axisWeights);
-      if (distance > settings.thresholdMm || distance >= bestDistance)
-        continue;
-      bestDistance = distance;
-      SnapResult result;
-      result.snapped = true;
-      result.kind = SnapKind::FixtureToTruss;
-      result.sourceUuid = source.uuid;
-      result.targetUuid = uuid;
-      result.sourceType = source.type;
-      result.targetType = ObjectType::Truss;
-      result.translationDeltaMm = delta;
-      result.needsGrouping = true;
-      best = result;
+      const auto resolution = resolver.Resolve(scene, truss);
+      auto consider = [&](const std::array<float, 3> &closest,
+                          const std::string &pathId, float pathParameter,
+                          truss_attachment_paths::Provenance provenance,
+                          float confidence) {
+        const std::array<float, 3> delta = Subtract(closest, insertion);
+        const float distance = WeightedLength(delta, settings.axisWeights);
+        if (distance > settings.thresholdMm || distance >= bestDistance)
+          return;
+        bestDistance = distance;
+        SnapResult result;
+        result.snapped = true;
+        result.kind = SnapKind::FixtureToTruss;
+        result.sourceUuid = source.uuid;
+        result.targetUuid = uuid;
+        result.sourceType = source.type;
+        result.targetType = ObjectType::Truss;
+        result.translationDeltaMm = delta;
+        result.needsGrouping = true;
+        result.targetAttachmentPathId = pathId;
+        result.targetAttachmentPathParameter = pathParameter;
+        result.targetAttachmentProvenance = provenance;
+        result.targetAttachmentConfidence = confidence;
+        best = result;
+      };
+      for (const auto &path : resolution.paths) {
+        const auto point = truss_attachment_paths::ClosestPointOnPath(
+            path, insertion, true);
+        if (point)
+          consider(point->pointMm, path.stableId, point->pathParameter,
+                   path.provenance, path.diagnostics.confidence);
+      }
+      if (resolution.paths.empty())
+        consider(ClosestPointOnSurface(targetBounds, insertion), {}, 0.0f,
+                 truss_attachment_paths::Provenance::ApproximateBoundsFallback,
+                 0.0f);
     }
     return best;
   }

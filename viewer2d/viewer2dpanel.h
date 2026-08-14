@@ -188,6 +188,7 @@ public:
 
 private:
   mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
+  mutable truss_attachment_paths::Resolver m_trussAttachmentPathResolver;
   enum class DragMode { None, View, Selection, RectSelection };
   enum class DragAxis { None, Horizontal, Vertical };
   enum class DragTarget { None, Fixtures, Trusses, Supports, SceneObjects };

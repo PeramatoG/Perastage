@@ -3,6 +3,7 @@
 #include "interactive_transform_policy.h"
 #include "mvrscene.h"
 #include "truss_attachment_candidates.h"
+#include "truss_attachment_paths.h"
 #include "truss_screen_snap.h"
 
 #include <array>
@@ -29,6 +30,7 @@ struct SnapSettings {
   float thresholdMm = kDefaultSnapDistanceMm;
   std::array<float, 3> axisWeights{1.0f, 1.0f, 1.0f};
   truss_attachment::CandidateResolver *candidateResolver = nullptr;
+  truss_attachment_paths::Resolver *pathResolver = nullptr;
   std::optional<truss_screen_snap::ProjectionSnapshot> trussProjection;
   double trussScreenApertureLogicalPx =
       truss_screen_snap::kDefaultTrussScreenSnapApertureLogicalPx;
@@ -47,21 +49,28 @@ struct SnapResult {
   std::string targetCandidateId;
   std::string sourceMemberTrussUuid;
   std::string targetMemberTrussUuid;
+  std::string targetAttachmentPathId;
+  float targetAttachmentPathParameter = 0.0f;
+  truss_attachment_paths::Provenance targetAttachmentProvenance =
+      truss_attachment_paths::Provenance::ApproximateBoundsFallback;
+  float targetAttachmentConfidence = 0.0f;
 };
 
 struct AnchorReference {
   std::array<float, 3> positionMm{0.0f, 0.0f, 0.0f};
   std::optional<std::array<float, 3>> direction;
+  std::string attachmentPathId;
 };
 
 // Builds deterministic exterior or conservative aggregate group candidates.
 std::vector<truss_attachment::Candidate>
 BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid);
 
-// Builds every compatible anchor reference for an active Magnet source.
+// Builds compatible connector or fixture-path references for an active source.
 std::vector<AnchorReference>
 BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
-                      truss_attachment::CandidateResolver &resolver);
+                      truss_attachment::CandidateResolver &resolver,
+                      truss_attachment_paths::Resolver *pathResolver = nullptr);
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,

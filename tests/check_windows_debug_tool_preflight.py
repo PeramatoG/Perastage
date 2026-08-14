@@ -34,6 +34,9 @@ def main() -> int:
 
     ok &= require(prepare, "Get-Command rg.exe", "Windows Debug must resolve ripgrep in PowerShell.")
     ok &= require(prepare, "choco.exe", "Windows Debug must install ripgrep when the hosted runner lacks it.")
+    ok &= require(prepare, "BurntSushi/ripgrep/releases/download", "Windows Debug must provide a direct ripgrep fallback.")
+    ok &= require(prepare, "Get-FileHash", "Downloaded Windows test tools must be checksum-verified.")
+    ok &= require(prepare, "failed SHA-256 verification", "Windows Debug must reject an invalid ripgrep archive.")
     ok &= require(prepare, "windows-test-tools.txt", "Windows Debug must log resolved test tools.")
     ok &= require(resolve_bash, "PERASTAGE_GIT_BASH=$bash", "Windows Debug must publish the validated Git Bash path.")
     ok &= require(resolve_bash, "--noprofile --norc -c 'printf", "Git Bash execution probe must use a non-login shell.")

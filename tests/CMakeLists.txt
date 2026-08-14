@@ -365,6 +365,7 @@ add_test(NAME SceneNodeOperations COMMAND scene_node_operations_test)
 
 add_executable(magnet_snap_test magnet_snap_test.cpp
     ../core/magnet_snap.cpp
+    ../core/truss_attachment_paths.cpp
     ../core/truss_attachment_candidates.cpp
     ../core/truss_screen_snap.cpp
     ../core/gdtf_archive_reader.cpp
@@ -377,6 +378,15 @@ add_executable(magnet_snap_test magnet_snap_test.cpp
 target_include_directories(magnet_snap_test PRIVATE ../core ../models ../viewer3d ../third_party)
 target_link_libraries(magnet_snap_test PRIVATE tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
+
+add_executable(truss_attachment_paths_test truss_attachment_paths_test.cpp
+    ../core/truss_attachment_paths.cpp
+    ../core/filesystem_path_utils.cpp
+    ../models/mvrscene.cpp
+    ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp)
+target_include_directories(truss_attachment_paths_test PRIVATE ../core ../models ../viewer3d ../third_party)
+target_link_libraries(truss_attachment_paths_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME TrussAttachmentPaths COMMAND truss_attachment_paths_test)
 
 add_executable(truss_screen_snap_test truss_screen_snap_test.cpp
     ../core/truss_screen_snap.cpp)
@@ -463,6 +473,7 @@ add_executable(editable_focus_utils_test
 target_include_directories(editable_focus_utils_test PRIVATE ../gui)
 target_link_libraries(editable_focus_utils_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME EditableFocusUtils COMMAND editable_focus_utils_test)
+set_tests_properties(EditableFocusUtils PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(shortcut_registry_test
                shortcut_registry_test.cpp

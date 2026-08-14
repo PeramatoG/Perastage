@@ -6,6 +6,13 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Fixtures can now snap continuously along geometry-derived main chords on
+  straight square, triangular, and ladder trusses. Fixture guidance shows these
+  mounting paths instead of structural connector points, while existing GDTF
+  Magnet behavior remains dedicated to truss-to-truss connections. When usable
+  chord geometry is unavailable, Perastage retains its conservative bounds-based
+  fallback.
+
 - Added an enabled-by-default **Magnet visual feedback** preference that shows
   every compatible anchor as a vivid red point or direction line throughout
   movement and insertion in the 2D and 3D viewers.
@@ -30,6 +37,28 @@ Changes since **v1.5.0**.
   data is unchanged by the preference.
 
 ## Compatibility, stability, and performance
+
+- Improved Windows CI reliability by adding a pinned direct ripgrep fallback
+  when the hosted runner does not provide the tool and Chocolatey installation
+  is unavailable or temporarily fails. This keeps the cross-platform Debug test
+  gate independent of transient runner package-manager state.
+
+- Stabilized the cross-platform test suite by distinguishing optional MVR truss
+  GDTF references from required Geometry3D data, accounting for the documented
+  Form XObject limitation in legacy PoDoFo, and cleanly skipping native-widget
+  focus checks when a Linux build has no graphical display. GDTF-authoritative
+  truss exports now also generate the required GDTF when their source was
+  imported as MVR geometry. Binary MVR compliance fixtures now use explicit
+  fixed-width integer types so they build consistently with AppleClang and
+  libc++ on macOS. Geometry cache timestamps also use a portable signed
+  nanosecond representation, avoiding ambiguous libc++ conversions on macOS.
+
+- Fixed a Debug-build assertion that could stop Perastage when movement began
+  with Magnet references enabled. Runtime truss chord analysis now reads only
+  CPU geometry, avoids re-entering wxWidgets image-handler initialization, and
+  uses viewer-owned caches for safe repeated snapping and overlay updates. The
+  resolver also continues to lower-priority geometry when a preferred resource
+  has no reliable chords and reports bounds fallback consistently for poor data.
 
 - Trusses loaded from 3DS or GLB geometry now use their measured local bounds
   instead of fixed nominal dimensions. This repairs legacy dimension metadata,
