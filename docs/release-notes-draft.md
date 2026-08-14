@@ -13,6 +13,11 @@ Changes since **v1.5.0**.
   chord geometry is unavailable, Perastage retains its conservative bounds-based
   fallback.
 
+- Fixture-to-truss attachment now prefers the structural model explicitly
+  referenced by GDTF Structure geometry, including its complete placement
+  hierarchy, before considering generic GDTF or MVR geometry. Viewer guidance
+  draws the exact continuous attachment paths used for snapping.
+
 - Added an enabled-by-default **Magnet visual feedback** preference that shows
   every compatible anchor as a vivid red point or direction line throughout
   movement and insertion in the 2D and 3D viewers.

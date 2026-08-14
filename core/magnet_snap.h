@@ -62,6 +62,12 @@ struct AnchorReference {
   std::string attachmentPathId;
 };
 
+// Represents one continuous fixture attachment polyline for viewer overlays.
+struct AttachmentPathReference {
+  std::string attachmentPathId;
+  std::vector<std::array<float, 3>> worldPointsMm;
+};
+
 // Builds deterministic exterior or conservative aggregate group candidates.
 std::vector<truss_attachment::Candidate>
 BuildTrussGroupCandidates(const MvrScene &scene, const std::string &groupUuid);
@@ -71,6 +77,11 @@ std::vector<AnchorReference>
 BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
                       truss_attachment::CandidateResolver &resolver,
                       truss_attachment_paths::Resolver *pathResolver = nullptr);
+
+// Resolves the same continuous fixture paths used by fixture snapping.
+std::vector<AttachmentPathReference>
+BuildFixtureAttachmentPathReferences(
+    const MvrScene &scene, truss_attachment_paths::Resolver *pathResolver = nullptr);
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,

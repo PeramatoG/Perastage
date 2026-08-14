@@ -1489,6 +1489,22 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
                                   pointMm[2] / 1000.0f};
     };
     std::vector<viewer_common::MagnetAnchorScreenReference> screenReferences;
+    if (magnetSource->type == magnet_snap::ObjectType::Fixture) {
+      std::vector<viewer_common::FixtureAttachmentScreenPath> screenPaths;
+      for (const auto &path : magnet_snap::BuildFixtureAttachmentPathReferences(
+               ConfigManager::Get().GetScene(), &m_trussAttachmentPathResolver)) {
+        viewer_common::FixtureAttachmentScreenPath screenPath;
+        for (const auto &point : path.worldPointsMm) {
+          const auto position = Viewer2DMeasureWorldToScreen(
+              toMeters(point), m_view, w, h, m_zoom, m_offsetX, m_offsetY);
+          if (position)
+            screenPath.points.push_back({(*position)[0], h - (*position)[1]});
+        }
+        if (screenPath.points.size() >= 2)
+          screenPaths.push_back(std::move(screenPath));
+      }
+      viewer_common::DrawFixtureAttachmentPathOverlay(screenPaths, w, h);
+    }
     const auto references = magnet_snap::BuildAnchorReferences(
         ConfigManager::Get().GetScene(), *magnetSource,
         m_trussCandidateResolver, &m_trussAttachmentPathResolver);

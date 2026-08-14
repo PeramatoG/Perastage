@@ -30,11 +30,31 @@ void AddBox(Geometry &geometry, float x0, float x1, float y, float z,
       geometry.indices.push_back(base + index);
 }
 
+// Appends a realistic diagonal brace whose transverse center changes with x.
+void AddDiagonalBrace(Geometry &geometry, float x0, float x1, float y0,
+                      float y1, float z, float halfThickness = 9.0f) {
+  const std::uint32_t base = geometry.vertices.size() / 3;
+  for (const auto &[x, y] : {std::pair{x0, y0}, std::pair{x1, y1}})
+    for (float dy : {-halfThickness, halfThickness})
+      for (float dz : {-halfThickness, halfThickness})
+        geometry.vertices.insert(geometry.vertices.end(), {x, y + dy, z + dz});
+  const std::uint32_t faces[][6] = {{0, 1, 3, 0, 3, 2}, {4, 6, 7, 4, 7, 5},
+                                    {0, 4, 5, 0, 5, 1}, {2, 3, 7, 2, 7, 6},
+                                    {0, 2, 6, 0, 6, 4}, {1, 5, 7, 1, 7, 3}};
+  for (const auto &face : faces)
+    for (std::uint32_t index : face)
+      geometry.indices.push_back(base + index);
+}
+
 // Builds one welded mesh with the requested persistent chord centers.
 Geometry MakeTruss(const std::vector<std::array<float, 2>> &centers) {
   Geometry geometry;
   for (const auto &center : centers)
     AddBox(geometry, 0.0f, 3000.0f, center[0], center[1]);
+  for (float x = 150.0f; x < 2850.0f; x += 450.0f) {
+    AddDiagonalBrace(geometry, x, x + 400.0f, -140.0f, 140.0f, 0.0f);
+    AddDiagonalBrace(geometry, x, x + 400.0f, 140.0f, -140.0f, 0.0f);
+  }
   AddBox(geometry, 1100.0f, 1350.0f, 0.0f, 0.0f, 8.0f);
   return geometry;
 }

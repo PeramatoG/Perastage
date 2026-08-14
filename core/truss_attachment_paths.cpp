@@ -1,6 +1,7 @@
 #include "truss_attachment_paths.h"
 
 #include "filesystem_path_utils.h"
+#include "gdtf_archive_reader.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
@@ -11,10 +12,12 @@
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <limits>
 #include <numeric>
 #include <system_error>
 #include <tuple>
+#include <tinyxml2.h>
 
 namespace truss_attachment_paths {
 namespace {
@@ -34,6 +37,92 @@ using Point2 = std::array<float, 2>;
 struct Track {
   std::vector<std::pair<int, Point2>> observations;
 };
+
+struct GdtfGeometrySource {
+  std::string modelFile;
+  Matrix position = MatrixUtils::Identity();
+  Provenance provenance = Provenance::GdtfModelGeometry;
+  std::string role;
+};
+
+// Converts a GDTF position from metres to the millimetre scene convention.
+Matrix GdtfPositionMm(Matrix position) {
+  for (float &value : position.o)
+    value *= 1000.0f;
+  return position;
+}
+
+// Applies a composed GDTF geometry transform to loader-normalized mesh data.
+void TransformVertices(std::vector<float> &vertices, const Matrix &transform) {
+  for (std::size_t offset = 0; offset + 2 < vertices.size(); offset += 3) {
+    Matrix point = MatrixUtils::Identity();
+    point.o = {vertices[offset], vertices[offset + 1], vertices[offset + 2]};
+    const auto transformed = MatrixUtils::Multiply(transform, point).o;
+    std::copy(transformed.begin(), transformed.end(), vertices.begin() + offset);
+  }
+}
+
+// Traverses GDTF geometries and records model references with full hierarchy positions.
+void CollectGdtfGeometrySources(const tinyxml2::XMLElement *node,
+                                const Matrix &parent,
+                                std::vector<GdtfGeometrySource> &structures,
+                                std::vector<GdtfGeometrySource> &models) {
+  for (const auto *current = node; current; current = current->NextSiblingElement()) {
+    Matrix local = MatrixUtils::Identity();
+    if (const char *text = current->Attribute("Position");
+        text && !MatrixUtils::ParseMatrix(text, local))
+      continue;
+    const Matrix composed = MatrixUtils::Multiply(parent, local);
+    const char *model = current->Attribute("Model");
+    if (model && *model) {
+      const bool structure = std::string(current->Name()) == "Structure";
+      (structure ? structures : models)
+          .push_back({model, GdtfPositionMm(composed),
+                      structure ? Provenance::GdtfStructureGeometry
+                                : Provenance::GdtfModelGeometry,
+                      structure ? "structure" : "model"});
+    }
+    CollectGdtfGeometrySources(current->FirstChildElement(), composed,
+                               structures, models);
+  }
+}
+
+// Resolves GDTF geometry references to archive model resource paths.
+std::vector<GdtfGeometrySource>
+ReadGdtfSources(const gdtf::ArchiveReadResult &archive) {
+  tinyxml2::XMLDocument document;
+  if (document.Parse(archive.descriptionXml.c_str(), archive.descriptionXml.size()) !=
+      tinyxml2::XML_SUCCESS)
+    return {};
+  const auto *root = document.FirstChildElement("GDTF");
+  const auto *fixture = root ? root->FirstChildElement("FixtureType") : nullptr;
+  const auto *modelNodes = fixture ? fixture->FirstChildElement("Models") : nullptr;
+  std::map<std::string, std::string> files;
+  for (const auto *model = modelNodes ? modelNodes->FirstChildElement("Model") : nullptr;
+       model; model = model->NextSiblingElement("Model")) {
+    const char *name = model->Attribute("Name");
+    const char *file = model->Attribute("File");
+    if (name && file)
+      files[name] = file;
+  }
+  std::vector<GdtfGeometrySource> structures, generic;
+  const auto *geometries = fixture ? fixture->FirstChildElement("Geometries") : nullptr;
+  CollectGdtfGeometrySources(geometries ? geometries->FirstChildElement() : nullptr,
+                             MatrixUtils::Identity(), structures, generic);
+  auto resolve = [&](std::vector<GdtfGeometrySource> &sources) {
+    for (auto &source : sources) {
+      const auto found = files.find(source.modelFile);
+      source.modelFile = found == files.end() ? std::string{} : found->second;
+    }
+    sources.erase(std::remove_if(sources.begin(), sources.end(),
+                                 [](const auto &source) { return source.modelFile.empty(); }),
+                  sources.end());
+  };
+  resolve(structures);
+  resolve(generic);
+  structures.insert(structures.end(), generic.begin(), generic.end());
+  return structures;
+}
 
 // Returns the squared Euclidean distance between two transverse points.
 float DistanceSquared(const Point2 &a, const Point2 &b) {
@@ -261,8 +350,19 @@ std::vector<Path> AnalyzeMesh(const std::vector<float> &verticesMm,
     if (stability > transverseSpan * kMaximumStabilityScale)
       continue;
     Point start{}, end{};
-    start[longitudinal] = minimum[longitudinal];
-    end[longitudinal] = maximum[longitudinal];
+    const auto samplePlane = [&](int sample) {
+      const float fraction =
+          kEndInsetFraction + (1.0f - 2.0f * kEndInsetFraction) * sample /
+                                  (kCrossSectionSamples - 1);
+      return minimum[longitudinal] + extent[longitudinal] * fraction;
+    };
+    const float sampleStep = extent[longitudinal] *
+                             (1.0f - 2.0f * kEndInsetFraction) /
+                             (kCrossSectionSamples - 1);
+    start[longitudinal] = std::max(
+        minimum[longitudinal], samplePlane(track.observations.front().first) - sampleStep);
+    end[longitudinal] = std::min(
+        maximum[longitudinal], samplePlane(track.observations.back().first) + sampleStep);
     start[transverseA] = end[transverseA] = center[0];
     start[transverseB] = end[transverseB] = center[1];
     Point outward{};
@@ -280,7 +380,6 @@ std::vector<Path> AnalyzeMesh(const std::vector<float> &verticesMm,
     path.stableId = "geometry-chord-" + std::to_string(paths.size());
     path.localPointsMm = {start, end};
     path.localOutwardDirection = outward;
-    path.estimatedRadiusMm = clusterRadius * 0.5f;
     path.provenance = provenance;
     path.diagnostics = {
         std::clamp(coverage * (1.0f - stability / transverseSpan), 0.0f, 1.0f),
@@ -373,6 +472,86 @@ ClosestPointOnPath(const Path &path, const Point &pointMm, bool worldSpace) {
 // Resolves and instantiates cached local fixture attachment paths.
 Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
   Resolution fallback;
+  const auto gdtfPath = ResolveResource(scene, truss.gdtfSpec);
+  const std::string archiveVersion = VersionKey(gdtfPath);
+  if (!archiveVersion.empty()) {
+    const auto archive = gdtf::ReadGdtfArchive(gdtfPath);
+    if (archive.Success()) {
+      for (const auto &source : ReadGdtfSources(archive)) {
+        const std::string transformIdentity =
+            std::to_string(source.position.u[0]) + "," +
+            std::to_string(source.position.u[1]) + "," +
+            std::to_string(source.position.u[2]) + "," +
+            std::to_string(source.position.v[0]) + "," +
+            std::to_string(source.position.v[1]) + "," +
+            std::to_string(source.position.v[2]) + "," +
+            std::to_string(source.position.w[0]) + "," +
+            std::to_string(source.position.w[1]) + "," +
+            std::to_string(source.position.w[2]) + "," +
+            std::to_string(source.position.o[0]) + "," +
+            std::to_string(source.position.o[1]) + "," +
+            std::to_string(source.position.o[2]);
+        const std::string key = archiveVersion + "|" + source.role + "|" +
+                                source.modelFile + "|" + transformIdentity;
+        auto found = m_cache.find(key);
+        if (found == m_cache.end()) {
+          CacheEntry entry;
+          entry.sourceIdentity = PathUtils::BuildFilesystemIdentityKey(gdtfPath);
+          gdtf::GdtfResourceReadResult resource;
+          std::string extension;
+          for (const auto &candidate :
+               {std::string("models/gltf/") + source.modelFile + ".glb",
+                std::string("models/3ds/") + source.modelFile + ".3ds"}) {
+            resource = gdtf::ReadGdtfArchiveResource(gdtfPath, candidate,
+                                                     128ull * 1024ull * 1024ull);
+            if (resource.Success()) {
+              extension = std::filesystem::path(candidate).extension().string();
+              break;
+            }
+          }
+          if (resource.Success()) {
+            const auto temporary = std::filesystem::temp_directory_path() /
+                ("perastage-attachment-" + std::to_string(std::hash<std::string>{}(key)) +
+                 extension);
+            {
+              std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+              output.write(reinterpret_cast<const char *>(resource.bytes.data()),
+                           static_cast<std::streamsize>(resource.bytes.size()));
+            }
+            Mesh mesh;
+            std::string error;
+            ++m_geometryParseCount;
+            const bool loaded = extension == ".glb"
+                                    ? LoadGLB(temporary.string(), mesh, &error, false)
+                                    : Load3DS(temporary.string(), mesh, true, &error, false);
+            std::error_code removeError;
+            std::filesystem::remove(temporary, removeError);
+            if (loaded) {
+              TransformVertices(mesh.vertices, source.position);
+              entry.localPaths = AnalyzeMesh(mesh.vertices, mesh.indices,
+                                             source.provenance);
+            }
+            if (entry.localPaths.empty())
+              entry.diagnostics.push_back(error.empty()
+                  ? "GDTF geometry did not contain stable straight longitudinal chords."
+                  : error);
+          } else {
+            entry.diagnostics.push_back("Referenced GDTF model resource was unavailable.");
+          }
+          found = m_cache.emplace(key, std::move(entry)).first;
+        }
+        Resolution result;
+        result.sourceIdentity = found->second.sourceIdentity;
+        result.diagnostics = found->second.diagnostics;
+        for (const Path &local : found->second.localPaths)
+          result.paths.push_back(TransformPath(local, truss.transform, truss.uuid));
+        if (!result.paths.empty())
+          return result;
+        fallback.diagnostics.insert(fallback.diagnostics.end(),
+                                    result.diagnostics.begin(), result.diagnostics.end());
+      }
+    }
+  }
   for (const std::string *reference : {&truss.symbolFile, &truss.modelFile}) {
     const auto path = ResolveResource(scene, *reference);
     std::string extension = path.extension().string();
@@ -394,12 +573,8 @@ Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
       CacheEntry entry;
       entry.sourceIdentity = PathUtils::BuildFilesystemIdentityKey(path);
       if (loaded) {
-        const Provenance provenance =
-            truss.sourceRepresentation ==
-                    Truss::GeometryRepresentation::PublicGdtf
-                ? Provenance::GdtfModelGeometry
-                : Provenance::MvrGeometry;
-        entry.localPaths = AnalyzeMesh(mesh.vertices, mesh.indices, provenance);
+        entry.localPaths = AnalyzeMesh(mesh.vertices, mesh.indices,
+                                       Provenance::MvrGeometry);
         if (entry.localPaths.empty())
           entry.diagnostics.push_back(
               "Geometry did not contain stable straight longitudinal chords.");

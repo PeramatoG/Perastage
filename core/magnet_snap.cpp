@@ -698,28 +698,6 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
   };
 
   if (source.type == ObjectType::Fixture) {
-    auto &attachmentResolver =
-        pathResolver ? *pathResolver : DefaultPathResolver();
-    for (const auto &[uuid, truss] : scene.trusses) {
-      (void)uuid;
-      const auto resolution = attachmentResolver.Resolve(scene, truss);
-      for (const auto &path : resolution.paths) {
-        constexpr int kVisualizationSamples = 9;
-        for (int sample = 0; sample < kVisualizationSamples; ++sample) {
-          if (path.worldPointsMm.size() < 2)
-            continue;
-          const float parameter = static_cast<float>(sample) /
-                                  (kVisualizationSamples - 1);
-          const auto &start = path.worldPointsMm.front();
-          const auto &end = path.worldPointsMm.back();
-          std::array<float, 3> point{};
-          for (int axis = 0; axis < 3; ++axis)
-            point[axis] = start[axis] + (end[axis] - start[axis]) * parameter;
-          references.push_back(
-              {point, path.worldOutwardDirection, path.stableId});
-        }
-      }
-    }
     return references;
   }
 
@@ -743,6 +721,22 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
     for (const Face &face :
          BuildFaces({object.transform, {1000.0f, 1000.0f, 1000.0f}}, false))
       references.push_back({face.center, face.normal});
+  }
+  return references;
+}
+
+// Resolves the same continuous fixture paths used by fixture snapping.
+std::vector<AttachmentPathReference>
+BuildFixtureAttachmentPathReferences(
+    const MvrScene &scene, truss_attachment_paths::Resolver *pathResolver) {
+  auto &resolver = pathResolver ? *pathResolver : DefaultPathResolver();
+  std::vector<AttachmentPathReference> references;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    for (const auto &path : resolver.Resolve(scene, truss).paths) {
+      if (path.worldPointsMm.size() >= 2)
+        references.push_back({path.stableId, path.worldPointsMm});
+    }
   }
   return references;
 }
