@@ -2591,6 +2591,18 @@ target_include_directories(fixture_geometry_bounds_test PRIVATE
 add_test(NAME FixtureGeometryBounds COMMAND fixture_geometry_bounds_test)
 
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
+add_executable(scene_clipboard_test
+               scene_clipboard_test.cpp
+               ../core/scene_clipboard.cpp
+               ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp
+               ../core/configservices.cpp
+               ../core/uuidutils.cpp)
+target_include_directories(scene_clipboard_test PRIVATE ../core ../models ../third_party)
+target_link_libraries(scene_clipboard_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME SceneClipboard COMMAND scene_clipboard_test)
+
+# Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(perastage_geometry_target IN LISTS perastage_geometry_test_targets)
     get_target_property(perastage_geometry_sources ${perastage_geometry_target} SOURCES)

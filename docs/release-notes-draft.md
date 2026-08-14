@@ -6,6 +6,10 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added a project-scoped scene clipboard foundation for safely cloning and
+  removing mixed fixture, truss, hoist, and scene-object selections while
+  preserving MVR identities, hierarchy relationships, and fixture label data.
+
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these
   mounting paths instead of structural connector points, while existing GDTF

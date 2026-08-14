@@ -14,6 +14,8 @@ bool Contains(const MvrScene &scene, ContinuousPlacementType type,
     return scene.fixtures.contains(uuid);
   case ContinuousPlacementType::Truss:
     return scene.trusses.contains(uuid);
+  case ContinuousPlacementType::Support:
+    return scene.supports.contains(uuid);
   case ContinuousPlacementType::SceneObject:
     return scene.sceneObjects.contains(uuid);
   case ContinuousPlacementType::None:
@@ -45,6 +47,15 @@ bool CloneElement(MvrScene &scene, ContinuousPlacementType type,
     scene.trusses[nextUuid] = std::move(next);
     return true;
   }
+  case ContinuousPlacementType::Support: {
+    const auto it = scene.supports.find(sourceUuid);
+    if (it == scene.supports.end())
+      return false;
+    Support next = it->second;
+    next.uuid = nextUuid;
+    scene.supports[nextUuid] = std::move(next);
+    return true;
+  }
   case ContinuousPlacementType::SceneObject: {
     const auto it = scene.sceneObjects.find(sourceUuid);
     if (it == scene.sceneObjects.end())
@@ -70,6 +81,9 @@ void EraseElement(MvrScene &scene, ContinuousPlacementType type,
   case ContinuousPlacementType::Truss:
     scene.trusses.erase(uuid);
     break;
+  case ContinuousPlacementType::Support:
+    scene.supports.erase(uuid);
+    break;
   case ContinuousPlacementType::SceneObject:
     scene.sceneObjects.erase(uuid);
     break;
@@ -94,6 +108,14 @@ std::array<float, 3> PositionMeters(const MvrScene &scene,
   case ContinuousPlacementType::Truss: {
     const auto it = scene.trusses.find(uuid);
     if (it != scene.trusses.end())
+      return {it->second.transform.o[0] / 1000.0f,
+              it->second.transform.o[1] / 1000.0f,
+              it->second.transform.o[2] / 1000.0f};
+    break;
+  }
+  case ContinuousPlacementType::Support: {
+    const auto it = scene.supports.find(uuid);
+    if (it != scene.supports.end())
       return {it->second.transform.o[0] / 1000.0f,
               it->second.transform.o[1] / 1000.0f,
               it->second.transform.o[2] / 1000.0f};
@@ -131,6 +153,9 @@ void SetPositionMeters(MvrScene &scene, ContinuousPlacementType type,
   case ContinuousPlacementType::Truss:
     setOrigin(scene.trusses);
     break;
+  case ContinuousPlacementType::Support:
+    setOrigin(scene.supports);
+    break;
   case ContinuousPlacementType::SceneObject:
     setOrigin(scene.sceneObjects);
     break;
@@ -146,6 +171,8 @@ const char *ElementName(ContinuousPlacementType type) {
     return "fixture";
   case ContinuousPlacementType::Truss:
     return "truss";
+  case ContinuousPlacementType::Support:
+    return "support";
   case ContinuousPlacementType::SceneObject:
     return "scene object";
   case ContinuousPlacementType::None:
