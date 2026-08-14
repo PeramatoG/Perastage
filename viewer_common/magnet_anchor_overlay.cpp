@@ -16,8 +16,17 @@ void DrawFixtureAttachmentPathOverlay(
   glGetFloatv(GL_LINE_WIDTH, &previousLineWidth);
   glGetFloatv(GL_CURRENT_COLOR, previousColor);
   const GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+  const GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
+  const GLboolean textureEnabled = glIsEnabled(GL_TEXTURE_2D);
+  const GLboolean scissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+  GLint previousScissorBox[4] = {};
+  glGetIntegerv(GL_SCISSOR_BOX, previousScissorBox);
   if (depthEnabled)
     glDisable(GL_DEPTH_TEST);
+  glDisable(GL_LIGHTING);
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(0, 0, framebufferWidth, framebufferHeight);
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
@@ -39,6 +48,14 @@ void DrawFixtureAttachmentPathOverlay(
   glMatrixMode(GL_MODELVIEW);
   if (depthEnabled)
     glEnable(GL_DEPTH_TEST);
+  if (lightingEnabled)
+    glEnable(GL_LIGHTING);
+  if (textureEnabled)
+    glEnable(GL_TEXTURE_2D);
+  if (!scissorEnabled)
+    glDisable(GL_SCISSOR_TEST);
+  glScissor(previousScissorBox[0], previousScissorBox[1],
+            previousScissorBox[2], previousScissorBox[3]);
   glLineWidth(previousLineWidth);
   glColor4fv(previousColor);
 }

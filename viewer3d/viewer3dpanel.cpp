@@ -780,6 +780,10 @@ std::optional<std::array<float, 2>> ProjectWorldToFramebuffer(
                    viewport, &winX, &winY, &winZ) != GL_TRUE) {
         return std::nullopt;
     }
+    if (!std::isfinite(winX) || !std::isfinite(winY) ||
+        !std::isfinite(winZ) || winZ < 0.0 || winZ > 1.0) {
+        return std::nullopt;
+    }
     return std::array<float, 2>{static_cast<float>(winX),
                                 static_cast<float>(winY)};
 }

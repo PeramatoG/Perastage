@@ -50,6 +50,10 @@ Changes since **v1.5.0**.
   expose their real unoccupied member connectors, and straight extensions
   choose the non-overlapping end when approaching an assembly from either side.
 
+- Magnet guidance now hides truss connectors that are already joined. Fixture
+  attachment paths remain consistently vivid red in Sketch mode and no longer
+  produce unbounded lines when a path crosses behind the 3D camera.
+
 - Added **Selection & Movement** preferences for choosing, independently for
   fixtures, trusses, supports/hoists, and scene objects, whether mouse,
   command-bar, and Magnet transforms move an exact grouped object or its
