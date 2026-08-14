@@ -328,11 +328,30 @@ jobs:
           $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
           if (-not $rgCommand) {
             $choco = Get-Command choco.exe -ErrorAction SilentlyContinue
-            if (-not $choco) { throw 'ripgrep is not installed and Chocolatey is unavailable.' }
-            & $choco.Source install ripgrep -y --no-progress
-            if ($LASTEXITCODE -ne 0) { throw 'ripgrep installation failed.' }
-            $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
-            $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+            if ($choco) {
+              & $choco.Source install ripgrep -y --no-progress
+              if ($LASTEXITCODE -eq 0) {
+                $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
+                $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+              }
+            }
+          }
+          if (-not $rgCommand) {
+            $rgVersion = '14.1.1'
+            $rgArchive = Join-Path $env:RUNNER_TEMP "ripgrep-$rgVersion.zip"
+            $rgRoot = Join-Path $env:RUNNER_TEMP "ripgrep-$rgVersion"
+            $rgUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
+            $rgSha256 = 'd0f534024c42afd6cb4d38907c25cd2b249b79bbe6cc1dbee8e3e37c2b6e25a1'
+            Remove-Item $rgRoot -Recurse -Force -ErrorAction SilentlyContinue
+            Invoke-WebRequest -Uri $rgUrl -OutFile $rgArchive -UseBasicParsing
+            if ((Get-FileHash -Path $rgArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $rgSha256) {
+              throw 'Downloaded ripgrep archive failed SHA-256 verification.'
+            }
+            Expand-Archive -Path $rgArchive -DestinationPath $rgRoot -Force
+            $rgExecutable = Get-ChildItem -Path $rgRoot -Filter rg.exe -Recurse | Select-Object -First 1
+            if ($rgExecutable) {
+              $rgCommand = Get-Command $rgExecutable.FullName -ErrorAction SilentlyContinue
+            }
           }
           if (-not $rgCommand) { throw 'ripgrep is not installed after Windows Debug test-tool preparation.' }
           $rgPath = $rgCommand.Source

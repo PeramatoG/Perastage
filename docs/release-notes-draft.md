@@ -38,6 +38,11 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Improved Windows CI reliability by adding a pinned direct ripgrep fallback
+  when the hosted runner does not provide the tool and Chocolatey installation
+  is unavailable or temporarily fails. This keeps the cross-platform Debug test
+  gate independent of transient runner package-manager state.
+
 - Stabilized the cross-platform test suite by distinguishing optional MVR truss
   GDTF references from required Geometry3D data, accounting for the documented
   Form XObject limitation in legacy PoDoFo, and cleanly skipping native-widget
