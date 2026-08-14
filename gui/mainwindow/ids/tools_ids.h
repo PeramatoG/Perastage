@@ -20,3 +20,7 @@ constexpr int ID_Tools_AssignSelectedFixtureCategory =
     ID_Tools_GenerateFixtureSymbols + 1;
 constexpr int ID_Tools_OpenUserLibraryFolder =
     ID_Tools_AssignSelectedFixtureCategory + 1;
+constexpr int ID_Tools_DistributeFixturesOnTruss =
+    ID_Tools_OpenUserLibraryFolder + 1;
+constexpr int ID_Tools_DistributeFixturesBetweenPoints =
+    ID_Tools_DistributeFixturesOnTruss + 1;

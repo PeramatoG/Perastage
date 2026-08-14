@@ -121,6 +121,21 @@ Release builds keep these entries hidden to reduce risk in production workflows.
 - **Linux install:** deploys a desktop entry plus MIME XML declarations for `*.mvr` and `*.pstg`, then refreshes MIME/desktop caches when the relevant tools are available.
 - **macOS bundle:** exports `CFBundleDocumentTypes` for `.mvr` so files can be opened from Finder.
 
+## Distributing fixtures on a truss line
+
+Select at least two fixtures in the intended order. The fixtures must already
+lie on the same straight truss line.
+
+- Choose **Tools > Distribute fixtures on truss** (`Ctrl+Alt+D`) to space them
+  uniformly over the complete truss, including equal margins at both ends.
+- Choose **Tools > Distribute fixtures between points** (`Ctrl+Shift+D`) to
+  select two points along the line in the 2D viewport. A red pointer follows
+  the truss line; click the first and second points to use them as the exact
+  distribution endpoints. Press `Esc` at any time to cancel.
+
+Validation and cancellation messages appear in the status bar and console
+without blocking work. Both operations support Undo and Redo.
+
 ## Console Commands (complete)
 
 The console transforms the current mixed selection. A grouped truss moves its

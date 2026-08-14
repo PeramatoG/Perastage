@@ -6,6 +6,13 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added two truss-line fixture distribution tools. Selected fixtures on one
+  straight truss can be spaced evenly across its full length with equal end
+  margins, or between two pointer-selected points in the 2D viewport. Both
+  workflows preserve selection order, support Undo and Redo, provide
+  non-blocking validation feedback, and allow point selection to be cancelled
+  with `Esc`.
+
 - Added a project-scoped scene clipboard foundation for safely cloning and
   removing mixed fixture, truss, hoist, and scene-object selections while
   preserving MVR identities, hierarchy relationships, and fixture label data.

@@ -451,6 +451,10 @@ EVT_MENU(ID_Tools_AssignSelectedFixtureCategory,
 EVT_MENU(ID_Tools_OpenUserLibraryFolder, MainWindow::OnOpenUserLibraryFolder)
 EVT_MENU(ID_Tools_ImportRiderText, MainWindow::OnImportRiderText)
 EVT_MENU(ID_Tools_DistributeHoistWeights, MainWindow::OnDistributeHoistWeights)
+EVT_MENU(ID_Tools_DistributeFixturesOnTruss,
+         MainWindow::OnDistributeFixturesOnTruss)
+EVT_MENU(ID_Tools_DistributeFixturesBetweenPoints,
+         MainWindow::OnDistributeFixturesBetweenPoints)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_OnlineDocumentation, MainWindow::OnOpenOnlineDocumentation)
 EVT_MENU(ID_Help_OpenLogsFolder, MainWindow::OnOpenLogsFolder)

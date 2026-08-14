@@ -9,6 +9,13 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
+add_executable(fixture_line_distribution_test
+               fixture_line_distribution_test.cpp
+               ../core/fixture_line_distribution.cpp)
+target_include_directories(fixture_line_distribution_test PRIVATE
+                           ../core ../models)
+add_test(NAME FixtureLineDistribution COMMAND fixture_line_distribution_test)
+
 include(${CMAKE_SOURCE_DIR}/cmake/PerastageGitBashResolver.cmake)
 
 add_library(perastage_test_no_dialog OBJECT windows_no_dialog_runtime.cpp)

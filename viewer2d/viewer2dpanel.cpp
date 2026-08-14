@@ -73,6 +73,7 @@
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2d_support_selection.h"
 #include "viewer2dpanel.h"
+#include "fixture_line_distribution.h"
 #include "viewer2dpanel_helpers.h"
 #include "viewer2drenderpanel.h"
 #include "viewer2dviewfit.h"
@@ -1037,6 +1038,21 @@ void Viewer2DPanel::SetTransformSpace(transform_space::TransformSpace space) {
   m_transformSpace = space;
 }
 
+// Starts a two-click point selection constrained to a world-space line.
+void Viewer2DPanel::BeginLinePointSelection(
+    const std::array<float, 3> &lineStart,
+    const std::array<float, 3> &lineEnd,
+    LinePointSelectionCallback callback) {
+  m_linePointSelectionActive = true;
+  m_linePointSelectionStart = lineStart;
+  m_linePointSelectionEnd = lineEnd;
+  m_linePointSelectionFirst.reset();
+  m_linePointSelectionPreview.reset();
+  m_linePointSelectionCallback = std::move(callback);
+  SetFocus();
+  RequestRepaint();
+}
+
 // Converts a mouse position in window coordinates into the current 2D world
 // position.
 std::optional<std::array<float, 3>>
@@ -1479,6 +1495,22 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
 
   if (m_dragMode == DragMode::Selection)
     DrawSelectionDragGizmo(w, h);
+
+  if (m_linePointSelectionActive && m_linePointSelectionPreview) {
+    std::vector<viewer_common::MagnetAnchorScreenReference> markers;
+    for (const auto *point : {m_linePointSelectionFirst
+                                  ? &*m_linePointSelectionFirst
+                                  : nullptr,
+                              &*m_linePointSelectionPreview}) {
+      if (!point)
+        continue;
+      const auto screen = Viewer2DMeasureWorldToScreen(
+          *point, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
+      if (screen)
+        markers.push_back({(*screen)[0], h - (*screen)[1]});
+    }
+    viewer_common::DrawMagnetAnchorOverlay(markers, w, h);
+  }
 
   const auto magnetReferences =
       ConfigManager::Get().GetValue(magnet_snap::kShowAnchorReferencesConfigKey);
@@ -3232,6 +3264,29 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(
 // rectangle selection.
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   m_hasLastMousePos = true;
+  if (m_linePointSelectionActive && event.LeftDown()) {
+    const auto world = ComputeWorldPositionFromScreen(event.GetPosition());
+    if (!world)
+      return;
+    fixture_line_distribution::Line line{m_linePointSelectionStart,
+                                         m_linePointSelectionEnd, {}};
+    const auto point = fixture_line_distribution::ProjectOntoLine(line, *world);
+    if (!m_linePointSelectionFirst) {
+      m_linePointSelectionFirst = point;
+      m_linePointSelectionPreview = point;
+    } else {
+      const auto first = m_linePointSelectionFirst;
+      auto callback = std::move(m_linePointSelectionCallback);
+      m_linePointSelectionActive = false;
+      m_linePointSelectionFirst.reset();
+      m_linePointSelectionPreview.reset();
+      NotifyHighlightedWorldPosition(std::nullopt);
+      if (callback)
+        callback(first, point);
+    }
+    RequestRepaint();
+    return;
+  }
   if (m_continuousPlacementActive && event.LeftDown()) {
     CaptureMouse();
     m_draggedSincePress = false;
@@ -4077,6 +4132,18 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
 // Handles pointer-following placement, selection movement, and view panning.
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   m_hasLastMousePos = true;
+  if (m_linePointSelectionActive) {
+    if (const auto world = ComputeWorldPositionFromScreen(event.GetPosition())) {
+      fixture_line_distribution::Line line{m_linePointSelectionStart,
+                                           m_linePointSelectionEnd, {}};
+      m_linePointSelectionPreview =
+          fixture_line_distribution::ProjectOntoLine(line, *world);
+      m_lastMousePos = event.GetPosition();
+      NotifyHighlightedWorldPosition(m_linePointSelectionPreview);
+      RequestRepaint();
+    }
+    return;
+  }
   if (m_continuousPlacementActive &&
       !(m_dragMode == DragMode::View && event.Dragging())) {
     const wxPoint pos = event.GetPosition();
@@ -4292,6 +4359,17 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
 
 // Handles local keyboard shortcuts when the 2D viewport owns focus.
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
+  if (m_linePointSelectionActive && event.GetKeyCode() == WXK_ESCAPE) {
+    auto callback = std::move(m_linePointSelectionCallback);
+    m_linePointSelectionActive = false;
+    m_linePointSelectionFirst.reset();
+    m_linePointSelectionPreview.reset();
+    NotifyHighlightedWorldPosition(std::nullopt);
+    RequestRepaint();
+    if (callback)
+      callback(std::nullopt, std::nullopt);
+    return;
+  }
   if (m_continuousPlacementActive && event.GetKeyCode() == WXK_ESCAPE) {
     CancelContinuousPlacement();
     return;
