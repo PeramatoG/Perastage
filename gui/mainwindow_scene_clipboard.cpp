@@ -260,10 +260,17 @@ void MainWindow::OnPaste(wxCommandEvent &event) {
       restoreBefore();
       RefreshAfterSceneChange();
     };
-    Ensure2DViewportAvailable();
-    if (viewport2DPanel)
+    const bool use3D = viewportPanel && viewportPanel->IsShownOnScreen() &&
+                       viewportPanel->HasFocus();
+    if (use3D) {
+      viewportPanel->BeginClipboardBatchPlacement(
+          batch, std::move(confirm), std::move(cancel));
+    } else {
+      Ensure2DViewportAvailable();
+      if (viewport2DPanel)
       viewport2DPanel->BeginClipboardBatchPlacement(
           batch, std::move(confirm), std::move(cancel));
+    }
   }
   if (consolePanel)
     consolePanel->AppendMessage("Pasted scene elements");

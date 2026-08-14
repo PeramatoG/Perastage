@@ -3117,22 +3117,26 @@ void Viewer3DPanel::ApplySelectionDragDelta(
     selection.supports = m_dragSupportUuids;
     selection.sceneObjects = m_dragSceneObjectUuids;
     const auto previousSnap = RestorePendingMagnetSnapPreview();
-  const auto policy =
-      selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  auto policy = selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
+  if (m_clipboardBatchPlacement)
+    policy = scene_grouping::InteractiveTransformPolicy{false, false, false,
+                                                         false};
   if (hasTranslation) {
     scene_grouping::TranslateSelection(
         cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
         transform_space::TransformSpace::World, policy);
     m_controller.MarkSceneTransformsDirty();
   }
-    if (auto snap = FindActiveMagnetSnap()) {
+    if (!m_clipboardBatchPlacement) {
+      if (auto snap = FindActiveMagnetSnap()) {
     magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
         m_pendingMagnetSnap = snap;
         m_selectionDragAnchorMeters[0] += snap->translationDeltaMm[0] / 1000.0f;
         m_selectionDragAnchorMeters[1] += snap->translationDeltaMm[1] / 1000.0f;
         m_selectionDragAnchorMeters[2] += snap->translationDeltaMm[2] / 1000.0f;
-    } else if (previousSnap) {
+      } else if (previousSnap) {
         magnet_snap::DetachSnapSourceFromGroup(cfg.GetScene(), *previousSnap);
+      }
     }
     m_selectionDragAnchorMeters[0] += deltaMeters[0];
     m_selectionDragAnchorMeters[1] += deltaMeters[1];
@@ -3233,9 +3237,64 @@ void Viewer3DPanel::BeginClipboardContinuousPlacement(
     m_continuousCloneFactory = std::move(cloneFactory);
 }
 
+// Starts rigid clipboard batch placement using the 3D selection view plane.
+void Viewer3DPanel::BeginClipboardBatchPlacement(
+    const scene_grouping::ObjectSelection &selection,
+    std::function<void()> confirmCallback,
+    std::function<void()> cancelCallback) {
+    ResetSelectionDragState();
+    m_clipboardBatchPlacement = true;
+    m_clipboardBatchConfirm = std::move(confirmCallback);
+    m_clipboardBatchCancel = std::move(cancelCallback);
+    m_continuousPlacementActive = true;
+    m_continuousPlacementType = ContinuousPlacementType::None;
+    m_dragFixtureUuids = selection.fixtures;
+    m_dragTrussUuids = selection.trusses;
+    m_dragSupportUuids = selection.supports;
+    m_dragSceneObjectUuids = selection.sceneObjects;
+    m_dragSelectionUuids.clear();
+    for (const auto *bucket : {&selection.fixtures, &selection.trusses,
+                               &selection.supports, &selection.sceneObjects})
+        m_dragSelectionUuids.insert(m_dragSelectionUuids.end(), bucket->begin(),
+                                    bucket->end());
+    m_selectionDragAnchorMeters = {0.0f, 0.0f, 0.0f};
+    size_t anchorCount = 0;
+    const MvrScene &scene = ConfigManager::Get().GetScene();
+    for (const auto &[type, bucket] :
+         std::array<std::pair<MvrNodeType, const std::vector<std::string> *>, 4>{{
+             {MvrNodeType::Fixture, &selection.fixtures},
+             {MvrNodeType::Truss, &selection.trusses},
+             {MvrNodeType::Support, &selection.supports},
+             {MvrNodeType::SceneObject, &selection.sceneObjects}}}) {
+        for (const auto &uuid : *bucket) {
+            const Matrix world = scene_grouping::GetTargetWorldTransform(
+                scene, {type, uuid});
+            for (size_t axis = 0; axis < 3; ++axis)
+                m_selectionDragAnchorMeters[axis] += world.o[axis] / 1000.0f;
+            ++anchorCount;
+        }
+    }
+    if (anchorCount > 0)
+        for (float &coordinate : m_selectionDragAnchorMeters)
+            coordinate /= static_cast<float>(anchorCount);
+    m_selectionDragArmed = true;
+    m_selectionDragUndoPushed = true;
+    m_pendingMagnetSnap.reset();
+    m_placementViewRevision.Invalidate();
+    SetFocus();
+    Refresh();
+}
+
 // Commits the current element and creates the next pointer-driven copy.
 void Viewer3DPanel::ConfirmContinuousPlacement()
 {
+    if (m_clipboardBatchPlacement) {
+        const auto callback = m_clipboardBatchConfirm;
+        EndContinuousPlacementState();
+        if (callback)
+            callback();
+        return;
+    }
     ConfigManager& cfg = ConfigManager::Get();
     if (!continuous_placement::Contains(cfg.GetScene(),
                                         m_continuousPlacementType,
@@ -3281,6 +3340,13 @@ void Viewer3DPanel::ConfirmContinuousPlacement()
 // Removes the uncommitted element and ends continuous placement.
 void Viewer3DPanel::CancelContinuousPlacement()
 {
+    if (m_clipboardBatchPlacement) {
+        const auto callback = m_clipboardBatchCancel;
+        EndContinuousPlacementState();
+        if (callback)
+            callback();
+        return;
+    }
     RestorePendingMagnetSnapPreview();
     ConfigManager& cfg = ConfigManager::Get();
     continuous_placement::EraseElement(cfg.GetScene(),
@@ -3356,6 +3422,9 @@ void Viewer3DPanel::EndContinuousPlacementState() {
     m_continuousPlacementUuid.clear();
     m_continuousPlacedUuids.clear();
     m_continuousCloneFactory = {};
+    m_clipboardBatchPlacement = false;
+    m_clipboardBatchConfirm = {};
+    m_clipboardBatchCancel = {};
     ResetSelectionDragState();
 }
 
@@ -3531,7 +3600,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
             TryBindGlContextForInteraction("continuous element placement")) {
             ApplyCameraMatrices(renderSize);
             const auto rawAnchor = CurrentRawSelectionDragAnchor();
-            if (m_axisConstrainedMovementEnabled) {
+            if (m_axisConstrainedMovementEnabled &&
+                !m_clipboardBatchPlacement) {
                 if (!m_continuousConstraintReferenceValid) {
                     m_continuousConstraintPointerOrigin = m_lastMousePos;
                     m_continuousConstraintWorldOriginMeters = rawAnchor;

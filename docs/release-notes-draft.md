@@ -13,8 +13,8 @@ Changes since **v1.5.0**.
   standard `Ctrl+X`, `Ctrl+C`, and `Ctrl+V` shortcuts. Single-item Paste now
   enters repeated cursor-driven placement in either scene viewport, including
   hoists, while preserving the original clipboard data for every placement.
-  Multi-item Paste now enters rigid pointer-driven batch placement with raw
-  cursor tracking, exact leaf transforms, and no Magnet snapping.
+  Multi-item Paste now enters rigid pointer-driven batch placement in either
+  scene viewport with raw cursor tracking, exact leaf transforms, and no Magnet snapping.
 
 - Fixtures can now snap continuously along geometry-derived main chords on
   straight square, triangular, and ladder trusses. Fixture guidance shows these

@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "scene_grouping.h"
 #include "continuous_placement_state.h"
 #include <wx/glcanvas.h>
 #include "../viewer2d/viewer2d_measure_tool.h"
@@ -115,6 +116,10 @@ public:
     void BeginClipboardContinuousPlacement(
         ContinuousPlacementType type, const std::string &elementUuid,
         std::function<std::string()> cloneFactory);
+    void BeginClipboardBatchPlacement(
+        const scene_grouping::ObjectSelection &selection,
+        std::function<void()> confirmCallback,
+        std::function<void()> cancelCallback);
     bool UndoContinuousPlacement();
     bool IsContinuousPlacementActive() const {
         return m_continuousPlacementActive;
@@ -164,6 +169,9 @@ private:
     std::string m_continuousPlacementUuid;
     std::vector<std::string> m_continuousPlacedUuids;
     std::function<std::string()> m_continuousCloneFactory;
+    bool m_clipboardBatchPlacement = false;
+    std::function<void()> m_clipboardBatchConfirm;
+    std::function<void()> m_clipboardBatchCancel;
     bool m_continuousConstraintReferenceValid = false;
     bool m_continuousAxisSwitchArmed = true;
     wxPoint m_continuousConstraintPointerOrigin;
