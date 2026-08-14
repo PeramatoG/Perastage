@@ -13,6 +13,11 @@ Changes since **v1.5.0**.
   chord geometry is unavailable, Perastage retains its conservative bounds-based
   fallback.
 
+- Fixture-to-truss attachment now prefers the structural model explicitly
+  referenced by GDTF Structure geometry, including its complete placement
+  hierarchy, before considering generic GDTF or MVR geometry. Viewer guidance
+  draws the exact continuous attachment paths used for snapping.
+
 - Added an enabled-by-default **Magnet visual feedback** preference that shows
   every compatible anchor as a vivid red point or direction line throughout
   movement and insertion in the 2D and 3D viewers.
@@ -300,6 +305,9 @@ Changes since **v1.5.0**.
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
 ## Internal changes
+
+- Reused parsed GDTF truss attachment metadata across repeated snapping and
+  overlay updates, avoiding redundant archive reads when only an instance moves.
 
 - Completed the fixture-symbol background-generation architecture by removing the
   obsolete project manifest and generation identity, unifying stored-symbol

@@ -5,6 +5,44 @@
 
 namespace viewer_common {
 
+// Draws continuous fixture attachment polylines in framebuffer coordinates.
+void DrawFixtureAttachmentPathOverlay(
+    const std::vector<FixtureAttachmentScreenPath> &paths,
+    int framebufferWidth, int framebufferHeight) {
+  if (paths.empty())
+    return;
+  GLfloat previousLineWidth = 1.0f;
+  GLfloat previousColor[4] = {};
+  glGetFloatv(GL_LINE_WIDTH, &previousLineWidth);
+  glGetFloatv(GL_CURRENT_COLOR, previousColor);
+  const GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+  if (depthEnabled)
+    glDisable(GL_DEPTH_TEST);
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0.0f, framebufferWidth, 0.0f, framebufferHeight, -1.0f, 1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glColor3f(1.0f, 0.1f, 0.1f);
+  glLineWidth(3.0f);
+  for (const auto &path : paths) {
+    glBegin(GL_LINE_STRIP);
+    for (const auto &point : path.points)
+      glVertex2f(point[0], point[1]);
+    glEnd();
+  }
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  if (depthEnabled)
+    glEnable(GL_DEPTH_TEST);
+  glLineWidth(previousLineWidth);
+  glColor4fv(previousColor);
+}
+
 // Draws all Magnet anchor references in framebuffer coordinates.
 void DrawMagnetAnchorOverlay(
     const std::vector<MagnetAnchorScreenReference> &references,

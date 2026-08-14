@@ -1304,6 +1304,23 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
                                         pointMm[2] / 1000.0f};
         };
         std::vector<viewer_common::MagnetAnchorScreenReference> screenReferences;
+        if (magnetSource->type == magnet_snap::ObjectType::Fixture) {
+            std::vector<viewer_common::FixtureAttachmentScreenPath> screenPaths;
+            for (const auto &path : magnet_snap::BuildFixtureAttachmentPathReferences(
+                     ConfigManager::Get().GetScene(),
+                     &m_trussAttachmentPathResolver)) {
+                viewer_common::FixtureAttachmentScreenPath screenPath;
+                for (const auto &point : path.worldPointsMm) {
+                    const auto position = ProjectWorldToFramebuffer(toMeters(point));
+                    if (position)
+                        screenPath.points.push_back(*position);
+                }
+                if (screenPath.points.size() >= 2)
+                    screenPaths.push_back(std::move(screenPath));
+            }
+            viewer_common::DrawFixtureAttachmentPathOverlay(
+                screenPaths, renderSize.width, renderSize.height);
+        }
         const auto references = magnet_snap::BuildAnchorReferences(
             ConfigManager::Get().GetScene(), *magnetSource,
             m_trussCandidateResolver, &m_trussAttachmentPathResolver);

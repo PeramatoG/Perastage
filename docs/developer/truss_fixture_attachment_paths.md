@@ -12,11 +12,20 @@ The derived paths are an application inference, not data defined by MVR or GDTF.
 
 `core/truss_attachment_paths` owns the GUI-independent resolver. Its curve-ready
 path value contains a local polyline, an instance-transformed world polyline, a
-stable runtime identifier, provenance, estimated thickness and detection
-diagnostics. The current resolver considers standardized structure geometry the
-preferred future source, followed by GDTF model geometry and geometry supplied by
-the MVR representation. In the currently supported import paths, analyzable GLB
-or 3DS geometry referenced by the truss supplies the practical input.
+stable runtime identifier, optional estimated thickness and detection
+diagnostics. Resolution first reads `truss.gdtfSpec` through the safe read-only
+archive reader. It resolves each `Structure`'s named `Model`, composes its full
+Geometry/Structure `Position` hierarchy, and tries usable Structure geometry
+before other model-bearing GDTF geometries. Only after all usable GDTF sources
+are exhausted does it try MVR Geometry3D/Symbol geometry; oriented bounds are
+the final fallback. Priority is based on the resource actually being analyzed,
+not the mutable `sourceRepresentation` import hint.
+
+The current GDTF standard identifies Structure geometry and its model but does
+not explicitly enumerate the individual fixture-mounting chord paths. Therefore
+`ExplicitStandardStructure` remains reserved: geometry-derived Structure paths
+use `GdtfStructureGeometry`, generic GDTF models use `GdtfModelGeometry`, and the
+individual chords remain Perastage runtime inference.
 
 Paths are never written to a GDTF archive, MVR document, `ChildPosition`, project
 extension, or any other persistent field. Committing a fixture snap stores only
@@ -38,7 +47,10 @@ welded or monolithic mesh. Centralized constants in
 persistence, and stability tolerances. Ambiguous dimensions, malformed indices,
 non-finite vertices, and unstable tracks fail conservatively.
 
-Each accepted track becomes a two-point polyline in the first version. Snapping
+Each accepted track currently becomes a straight two-point polyline whose span
+comes from the track's occupied sample range rather than unrelated global mesh
+extents. Radius remains unset unless local geometry can support a reliable
+estimate. Snapping
 uses the generic `ClosestPointOnPath` operation, so sampled curves, closed paths,
 and multi-segment corner paths can be added without changing the snap contract.
 
@@ -59,8 +71,8 @@ Fixture snapping uses reliable paths first and records the selected runtime path
 parameter, provenance, and confidence in transient `SnapResult` state. If no
 analyzable geometry or stable chord is available, the previous oriented-bounds
 surface calculation remains as an explicitly low-confidence
-`ApproximateBoundsFallback`. Fixture overlay references sample the same resolved
-paths; they do not expose truss connector Magnets. Truss and truss-group overlays
+`ApproximateBoundsFallback`. Fixture overlays project every point and draw continuous segments from the same
+resolved polylines; they do not expose truss connector Magnets. Truss and truss-group overlays
 continue to show the independent discrete connector candidates.
 
 The detector currently supports straight trusses with a clearly dominant axis.

@@ -381,11 +381,12 @@ add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
 
 add_executable(truss_attachment_paths_test truss_attachment_paths_test.cpp
     ../core/truss_attachment_paths.cpp
+    ../core/gdtf_archive_reader.cpp
     ../core/filesystem_path_utils.cpp
     ../models/mvrscene.cpp
     ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp)
 target_include_directories(truss_attachment_paths_test PRIVATE ../core ../models ../viewer3d ../third_party)
-target_link_libraries(truss_attachment_paths_test PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(truss_attachment_paths_test PRIVATE tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME TrussAttachmentPaths COMMAND truss_attachment_paths_test)
 
 add_executable(truss_screen_snap_test truss_screen_snap_test.cpp

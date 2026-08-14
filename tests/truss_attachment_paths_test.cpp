@@ -1,11 +1,17 @@
 #include "matrixutils.h"
 #include "truss_attachment_paths.h"
+#include "wx_path_utils.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <vector>
+
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 namespace {
 
@@ -30,13 +36,49 @@ void AddBox(Geometry &geometry, float x0, float x1, float y, float z,
       geometry.indices.push_back(base + index);
 }
 
+// Appends a realistic diagonal brace whose transverse center changes with x.
+void AddDiagonalBrace(Geometry &geometry, float x0, float x1, float y0,
+                      float y1, float z, float halfThickness = 9.0f) {
+  const std::uint32_t base = geometry.vertices.size() / 3;
+  for (const auto &[x, y] : {std::pair{x0, y0}, std::pair{x1, y1}})
+    for (float dy : {-halfThickness, halfThickness})
+      for (float dz : {-halfThickness, halfThickness})
+        geometry.vertices.insert(geometry.vertices.end(), {x, y + dy, z + dz});
+  const std::uint32_t faces[][6] = {{0, 1, 3, 0, 3, 2}, {4, 6, 7, 4, 7, 5},
+                                    {0, 4, 5, 0, 5, 1}, {2, 3, 7, 2, 7, 6},
+                                    {0, 2, 6, 0, 6, 4}, {1, 5, 7, 1, 7, 3}};
+  for (const auto &face : faces)
+    for (std::uint32_t index : face)
+      geometry.indices.push_back(base + index);
+}
+
 // Builds one welded mesh with the requested persistent chord centers.
 Geometry MakeTruss(const std::vector<std::array<float, 2>> &centers) {
   Geometry geometry;
   for (const auto &center : centers)
     AddBox(geometry, 0.0f, 3000.0f, center[0], center[1]);
+  for (float x = 150.0f; x < 2850.0f; x += 450.0f) {
+    AddDiagonalBrace(geometry, x, x + 400.0f, -140.0f, 140.0f, 0.0f);
+    AddDiagonalBrace(geometry, x, x + 400.0f, 140.0f, -140.0f, 0.0f);
+  }
   AddBox(geometry, 1100.0f, 1350.0f, 0.0f, 0.0f, 8.0f);
   return geometry;
+}
+
+// Writes a minimal GDTF archive with a resolvable Structure model declaration.
+bool WriteStructureGdtf(const std::filesystem::path &path) {
+  static constexpr const char *kDescription =
+      "<GDTF><FixtureType><Models><Model Name='Main' File='main'/></Models>"
+      "<Geometries><Structure Name='Root' Model='Main'/></Geometries>"
+      "</FixtureType></GDTF>";
+  wxFFileOutputStream file(WxPathUtils::WxStringFromFilesystemPath(path));
+  if (!file.IsOk())
+    return false;
+  wxZipOutputStream zip(file);
+  if (!zip.PutNextEntry("description.xml"))
+    return false;
+  zip.Write(kDescription, std::char_traits<char>::length(kDescription));
+  return zip.CloseEntry() && zip.Close() && file.IsOk();
 }
 
 // Reports a deterministic failed assertion.
@@ -95,6 +137,26 @@ int main() {
   CHECK(fallback.paths.empty());
   CHECK(fallback.usedBoundsFallback);
   CHECK(resolver.GeometryParseCount() == 0);
+
+  const auto archivePath =
+      std::filesystem::temp_directory_path() /
+      ("perastage-attachment-cache-" +
+       std::to_string(
+           std::chrono::steady_clock::now().time_since_epoch().count()) +
+       ".gdtf");
+  CHECK(WriteStructureGdtf(archivePath));
+  Truss cachedGdtf;
+  cachedGdtf.uuid = "cached-gdtf";
+  cachedGdtf.gdtfSpec = archivePath.string();
+  cachedGdtf.transform = MatrixUtils::Identity();
+  CHECK(resolver.Resolve(scene, cachedGdtf).usedBoundsFallback);
+  CHECK(resolver.ArchiveParseCount() == 1);
+  cachedGdtf.transform.o = {100.0f, 200.0f, 300.0f};
+  CHECK(resolver.Resolve(scene, cachedGdtf).usedBoundsFallback);
+  CHECK(resolver.ArchiveParseCount() == 1);
+  std::error_code removeError;
+  std::filesystem::remove(archivePath, removeError);
+  CHECK(!removeError);
 
   Path degenerate;
   degenerate.localPointsMm = {{2.0f, 3.0f, 4.0f}, {2.0f, 3.0f, 4.0f}};
