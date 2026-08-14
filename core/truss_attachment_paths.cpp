@@ -38,13 +38,6 @@ struct Track {
   std::vector<std::pair<int, Point2>> observations;
 };
 
-struct GdtfGeometrySource {
-  std::string modelFile;
-  Matrix position = MatrixUtils::Identity();
-  Provenance provenance = Provenance::GdtfModelGeometry;
-  std::string role;
-};
-
 // Converts a GDTF position from metres to the millimetre scene convention.
 Matrix GdtfPositionMm(Matrix position) {
   for (float &value : position.o)
@@ -65,8 +58,8 @@ void TransformVertices(std::vector<float> &vertices, const Matrix &transform) {
 // Traverses GDTF geometries and records model references with full hierarchy positions.
 void CollectGdtfGeometrySources(const tinyxml2::XMLElement *node,
                                 const Matrix &parent,
-                                std::vector<GdtfGeometrySource> &structures,
-                                std::vector<GdtfGeometrySource> &models) {
+                                std::vector<Resolver::GdtfSource> &structures,
+                                std::vector<Resolver::GdtfSource> &models) {
   for (const auto *current = node; current; current = current->NextSiblingElement()) {
     Matrix local = MatrixUtils::Identity();
     if (const char *text = current->Attribute("Position");
@@ -88,7 +81,7 @@ void CollectGdtfGeometrySources(const tinyxml2::XMLElement *node,
 }
 
 // Resolves GDTF geometry references to archive model resource paths.
-std::vector<GdtfGeometrySource>
+std::vector<Resolver::GdtfSource>
 ReadGdtfSources(const gdtf::ArchiveReadResult &archive) {
   tinyxml2::XMLDocument document;
   if (document.Parse(archive.descriptionXml.c_str(), archive.descriptionXml.size()) !=
@@ -105,11 +98,11 @@ ReadGdtfSources(const gdtf::ArchiveReadResult &archive) {
     if (name && file)
       files[name] = file;
   }
-  std::vector<GdtfGeometrySource> structures, generic;
+  std::vector<Resolver::GdtfSource> structures, generic;
   const auto *geometries = fixture ? fixture->FirstChildElement("Geometries") : nullptr;
   CollectGdtfGeometrySources(geometries ? geometries->FirstChildElement() : nullptr,
                              MatrixUtils::Identity(), structures, generic);
-  auto resolve = [&](std::vector<GdtfGeometrySource> &sources) {
+  auto resolve = [&](std::vector<Resolver::GdtfSource> &sources) {
     for (auto &source : sources) {
       const auto found = files.find(source.modelFile);
       source.modelFile = found == files.end() ? std::string{} : found->second;
@@ -475,9 +468,25 @@ Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
   const auto gdtfPath = ResolveResource(scene, truss.gdtfSpec);
   const std::string archiveVersion = VersionKey(gdtfPath);
   if (!archiveVersion.empty()) {
-    const auto archive = gdtf::ReadGdtfArchive(gdtfPath);
-    if (archive.Success()) {
-      for (const auto &source : ReadGdtfSources(archive)) {
+    auto archiveFound = m_archiveCache.find(archiveVersion);
+    if (archiveFound == m_archiveCache.end()) {
+      ArchiveCacheEntry entry;
+      entry.sourceIdentity = PathUtils::BuildFilesystemIdentityKey(gdtfPath);
+      ++m_archiveParseCount;
+      const auto archive = gdtf::ReadGdtfArchive(gdtfPath);
+      if (archive.Success())
+        entry.sources = ReadGdtfSources(archive);
+      for (auto iterator = m_archiveCache.begin();
+           iterator != m_archiveCache.end();) {
+        if (iterator->second.sourceIdentity == entry.sourceIdentity)
+          iterator = m_archiveCache.erase(iterator);
+        else
+          ++iterator;
+      }
+      archiveFound =
+          m_archiveCache.emplace(archiveVersion, std::move(entry)).first;
+    }
+    for (const auto &source : archiveFound->second.sources) {
         const std::string transformIdentity =
             std::to_string(source.position.u[0]) + "," +
             std::to_string(source.position.u[1]) + "," +
@@ -549,7 +558,6 @@ Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
           return result;
         fallback.diagnostics.insert(fallback.diagnostics.end(),
                                     result.diagnostics.begin(), result.diagnostics.end());
-      }
     }
   }
   for (const std::string *reference : {&truss.symbolFile, &truss.modelFile}) {
@@ -608,11 +616,17 @@ Resolution Resolver::Resolve(const MvrScene &scene, const Truss &truss) {
 }
 
 // Clears all cached local analyses.
-void Resolver::Clear() { m_cache.clear(); }
+void Resolver::Clear() {
+  m_cache.clear();
+  m_archiveCache.clear();
+}
 
 // Returns the number of physical geometry parses performed by this resolver.
 std::size_t Resolver::GeometryParseCount() const {
   return m_geometryParseCount;
 }
+
+// Returns the number of GDTF archives parsed by this resolver.
+std::size_t Resolver::ArchiveParseCount() const { return m_archiveParseCount; }
 
 } // namespace truss_attachment_paths

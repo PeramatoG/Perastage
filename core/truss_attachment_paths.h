@@ -57,9 +57,17 @@ struct Resolution {
 // Resolves and caches immutable local fixture attachment geometry.
 class Resolver {
 public:
+  struct GdtfSource {
+    std::string modelFile;
+    Matrix position{};
+    Provenance provenance = Provenance::GdtfModelGeometry;
+    std::string role;
+  };
+
   Resolution Resolve(const MvrScene &scene, const Truss &truss);
   void Clear();
   std::size_t GeometryParseCount() const;
+  std::size_t ArchiveParseCount() const;
 
 private:
   struct CacheEntry {
@@ -67,8 +75,14 @@ private:
     std::vector<std::string> diagnostics;
     std::string sourceIdentity;
   };
+  struct ArchiveCacheEntry {
+    std::vector<GdtfSource> sources;
+    std::string sourceIdentity;
+  };
   std::map<std::string, CacheEntry> m_cache;
+  std::map<std::string, ArchiveCacheEntry> m_archiveCache;
   std::size_t m_geometryParseCount = 0;
+  std::size_t m_archiveParseCount = 0;
 };
 
 // Detects persistent longitudinal chord paths in one indexed local mesh.

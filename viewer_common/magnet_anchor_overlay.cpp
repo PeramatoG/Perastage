@@ -11,6 +11,10 @@ void DrawFixtureAttachmentPathOverlay(
     int framebufferWidth, int framebufferHeight) {
   if (paths.empty())
     return;
+  GLfloat previousLineWidth = 1.0f;
+  GLfloat previousColor[4] = {};
+  glGetFloatv(GL_LINE_WIDTH, &previousLineWidth);
+  glGetFloatv(GL_CURRENT_COLOR, previousColor);
   const GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
   if (depthEnabled)
     glDisable(GL_DEPTH_TEST);
@@ -35,6 +39,8 @@ void DrawFixtureAttachmentPathOverlay(
   glMatrixMode(GL_MODELVIEW);
   if (depthEnabled)
     glEnable(GL_DEPTH_TEST);
+  glLineWidth(previousLineWidth);
+  glColor4fv(previousColor);
 }
 
 // Draws all Magnet anchor references in framebuffer coordinates.

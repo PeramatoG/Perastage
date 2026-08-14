@@ -306,6 +306,9 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
+- Reused parsed GDTF truss attachment metadata across repeated snapping and
+  overlay updates, avoiding redundant archive reads when only an instance moves.
+
 - Completed the fixture-symbol background-generation architecture by removing the
   obsolete project manifest and generation identity, unifying stored-symbol
   availability checks, and replacing archive hashing in normal SVG cache lookups

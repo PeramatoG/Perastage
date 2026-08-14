@@ -1,11 +1,17 @@
 #include "matrixutils.h"
 #include "truss_attachment_paths.h"
+#include "wx_path_utils.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <vector>
+
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 namespace {
 
@@ -57,6 +63,22 @@ Geometry MakeTruss(const std::vector<std::array<float, 2>> &centers) {
   }
   AddBox(geometry, 1100.0f, 1350.0f, 0.0f, 0.0f, 8.0f);
   return geometry;
+}
+
+// Writes a minimal GDTF archive with a resolvable Structure model declaration.
+bool WriteStructureGdtf(const std::filesystem::path &path) {
+  static constexpr const char *kDescription =
+      "<GDTF><FixtureType><Models><Model Name='Main' File='main'/></Models>"
+      "<Geometries><Structure Name='Root' Model='Main'/></Geometries>"
+      "</FixtureType></GDTF>";
+  wxFFileOutputStream file(WxPathUtils::WxStringFromFilesystemPath(path));
+  if (!file.IsOk())
+    return false;
+  wxZipOutputStream zip(file);
+  if (!zip.PutNextEntry("description.xml"))
+    return false;
+  zip.Write(kDescription, std::char_traits<char>::length(kDescription));
+  return zip.CloseEntry() && zip.Close() && file.IsOk();
 }
 
 // Reports a deterministic failed assertion.
@@ -115,6 +137,26 @@ int main() {
   CHECK(fallback.paths.empty());
   CHECK(fallback.usedBoundsFallback);
   CHECK(resolver.GeometryParseCount() == 0);
+
+  const auto archivePath =
+      std::filesystem::temp_directory_path() /
+      ("perastage-attachment-cache-" +
+       std::to_string(
+           std::chrono::steady_clock::now().time_since_epoch().count()) +
+       ".gdtf");
+  CHECK(WriteStructureGdtf(archivePath));
+  Truss cachedGdtf;
+  cachedGdtf.uuid = "cached-gdtf";
+  cachedGdtf.gdtfSpec = archivePath.string();
+  cachedGdtf.transform = MatrixUtils::Identity();
+  CHECK(resolver.Resolve(scene, cachedGdtf).usedBoundsFallback);
+  CHECK(resolver.ArchiveParseCount() == 1);
+  cachedGdtf.transform.o = {100.0f, 200.0f, 300.0f};
+  CHECK(resolver.Resolve(scene, cachedGdtf).usedBoundsFallback);
+  CHECK(resolver.ArchiveParseCount() == 1);
+  std::error_code removeError;
+  std::filesystem::remove(archivePath, removeError);
+  CHECK(!removeError);
 
   Path degenerate;
   degenerate.localPointsMm = {{2.0f, 3.0f, 4.0f}, {2.0f, 3.0f, 4.0f}};
