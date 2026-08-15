@@ -15,6 +15,7 @@ add_executable(fixture_line_distribution_test
                ../core/magnet_snap.cpp
                ../core/truss_attachment_paths.cpp
                ../core/truss_attachment_candidates.cpp
+               ../core/truss_screen_snap.cpp
                ../core/gdtf_archive_reader.cpp
                ../core/geometry_bounds_resolver.cpp
                ../core/filesystem_path_utils.cpp

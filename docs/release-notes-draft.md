@@ -339,6 +339,9 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
+- Completed the fixture distribution regression target's Magnet projection
+  dependencies for reliable Windows linking.
+
 - Fixed the Windows scene clipboard GUI build by making its configuration
   service dependency explicit.
 
