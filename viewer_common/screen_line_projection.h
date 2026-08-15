@@ -3,7 +3,7 @@
 #include <array>
 #include <optional>
 
-namespace viewer3d {
+namespace viewer_common {
 
 // Projects a screen pointer onto a finite world-space line segment.
 std::optional<std::array<float, 3>>
@@ -13,4 +13,4 @@ ProjectPointerOntoScreenLine(const std::array<float, 3> &worldStart,
                              const std::array<float, 2> &screenEnd,
                              const std::array<float, 2> &screenPointer);
 
-} // namespace viewer3d
+} // namespace viewer_common

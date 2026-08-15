@@ -262,6 +262,8 @@ private:
   void FinalizeSelectionDrag();
   bool AlignContinuousElementToPointer(const wxPoint &screenPos);
   void CancelLinePointSelection();
+  std::optional<std::array<float, 3>>
+  ProjectMouseOntoLine(const wxPoint &screenPos) const;
   void ConfirmContinuousPlacement();
   void CancelContinuousPlacement();
   void EndContinuousPlacementState();

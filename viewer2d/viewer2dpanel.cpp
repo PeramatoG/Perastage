@@ -73,7 +73,7 @@
 #include "viewer2d_ruler_overlay.h"
 #include "viewer2d_support_selection.h"
 #include "viewer2dpanel.h"
-#include "fixture_line_distribution.h"
+#include "screen_line_projection.h"
 #include "viewer2dpanel_helpers.h"
 #include "viewer2drenderpanel.h"
 #include "viewer2dviewfit.h"
@@ -1049,15 +1049,33 @@ void Viewer2DPanel::BeginLinePointSelection(
   m_linePointSelectionFirst.reset();
   m_linePointSelectionPreview.reset();
   if (m_hasLastMousePos) {
-    if (const auto world = ComputeWorldPositionFromScreen(m_lastMousePos)) {
-      fixture_line_distribution::Line line{lineStart, lineEnd, {}};
-      m_linePointSelectionPreview =
-          fixture_line_distribution::ProjectOntoLine(line, *world);
-    }
+    m_linePointSelectionPreview = ProjectMouseOntoLine(m_lastMousePos);
   }
   m_linePointSelectionCallback = std::move(callback);
   SetFocus();
   RequestRepaint();
+}
+
+// Projects a pointer onto the dominant screen axis of the active 2D hang line.
+std::optional<std::array<float, 3>>
+Viewer2DPanel::ProjectMouseOntoLine(const wxPoint &screenPos) const {
+  const RenderSize renderSize =
+      ResolveRenderSize(const_cast<Viewer2DPanel *>(this));
+  const auto pointer =
+      TryToFramebufferPoint(const_cast<Viewer2DPanel *>(this), screenPos);
+  if (!renderSize.IsValid() || !pointer)
+    return std::nullopt;
+  const auto start = Viewer2DMeasureWorldToScreen(
+      m_linePointSelectionStart, m_view, renderSize.width, renderSize.height,
+      m_zoom, m_offsetX, m_offsetY);
+  const auto end = Viewer2DMeasureWorldToScreen(
+      m_linePointSelectionEnd, m_view, renderSize.width, renderSize.height,
+      m_zoom, m_offsetX, m_offsetY);
+  if (!start || !end)
+    return std::nullopt;
+  return viewer_common::ProjectPointerOntoScreenLine(
+      m_linePointSelectionStart, m_linePointSelectionEnd, *start, *end,
+      {static_cast<float>(pointer->x), static_cast<float>(pointer->y)});
 }
 
 // Cancels the active hang-line endpoint selection without changing fixtures.
@@ -3307,12 +3325,9 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   m_hasLastMousePos = true;
   if (m_linePointSelectionActive && event.LeftDown()) {
-    const auto world = ComputeWorldPositionFromScreen(event.GetPosition());
-    if (!world)
+    const auto point = ProjectMouseOntoLine(event.GetPosition());
+    if (!point)
       return;
-    fixture_line_distribution::Line line{m_linePointSelectionStart,
-                                         m_linePointSelectionEnd, {}};
-    const auto point = fixture_line_distribution::ProjectOntoLine(line, *world);
     if (!m_linePointSelectionFirst) {
       m_linePointSelectionFirst = point;
       m_linePointSelectionPreview = point;
@@ -4179,11 +4194,8 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   m_hasLastMousePos = true;
   if (m_linePointSelectionActive) {
-    if (const auto world = ComputeWorldPositionFromScreen(event.GetPosition())) {
-      fixture_line_distribution::Line line{m_linePointSelectionStart,
-                                           m_linePointSelectionEnd, {}};
-      m_linePointSelectionPreview =
-          fixture_line_distribution::ProjectOntoLine(line, *world);
+    if (const auto point = ProjectMouseOntoLine(event.GetPosition())) {
+      m_linePointSelectionPreview = point;
       m_lastMousePos = event.GetPosition();
       NotifyHighlightedWorldPosition(m_linePointSelectionPreview);
       RequestRepaint();

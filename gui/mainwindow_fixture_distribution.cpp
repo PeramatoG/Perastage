@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include "consolepanel.h"
+#include "fixturetablepanel.h"
 #include "fixture_line_distribution.h"
 #include "guiconfigservices.h"
 #include "truss_attachment_paths.h"
@@ -66,6 +67,20 @@ void MainWindow::ReportFixtureDistributionMessage(const std::string &message) {
     consolePanel->AppendMessage(message);
 }
 
+// Restores fixture selection after distribution refreshes all scene views.
+void MainWindow::RestoreFixtureDistributionSelection(
+    const std::vector<std::string> &selection) {
+  GetDefaultGuiConfigServices().Selection().SetSelectedFixtures(selection);
+  if (fixturePanel)
+    fixturePanel->SelectByUuid(selection, false);
+  if (viewportPanel)
+    viewportPanel->SetSelectedFixtures(selection);
+  if (viewport2DPanel) {
+    viewport2DPanel->UpdateScene();
+    viewport2DPanel->Refresh();
+  }
+}
+
 // Distributes selected fixtures across the complete truss with end margins.
 void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
   const wxWindow *focus = wxWindow::FindFocus();
@@ -89,6 +104,7 @@ void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
                                    resolved.line->start, resolved.line->end,
                                    true);
   RefreshAfterToolSceneUpdate();
+  RestoreFixtureDistributionSelection(selection);
   ReportFixtureDistributionMessage(
       "Fixtures distributed uniformly along the truss line.");
 }
@@ -136,6 +152,7 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
       return;
     }
     RefreshAfterToolSceneUpdate();
+    RestoreFixtureDistributionSelection(selection);
     ReportFixtureDistributionMessage(
         "Fixtures distributed between the selected truss points.");
   };

@@ -135,7 +135,9 @@ collinear truss sections.
   click while a second marker selects the end point. Only the shared hang line
   remains visible during this interaction. The command never opens or changes
   viewports: focus the intended 2D or 3D scene viewport before invoking it.
-  Press `Esc` or right-click at any time to cancel.
+  The marker follows the pointer's horizontal or vertical screen coordinate,
+  whichever matches the line direction. Press `Esc` or right-click at any time
+  to cancel. Both distribution commands preserve the fixture selection.
 
 Validation and cancellation messages appear in the status bar and console
 without blocking work. Both operations support Undo and Redo.

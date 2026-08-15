@@ -56,7 +56,7 @@
 #include "clipboard_placement_confirmation.h"
 #include "selection_movement_settings.h"
 #include "interaction/context_menu_model.h"
-#include "interaction/hang_line_screen_projection.h"
+#include "../viewer_common/screen_line_projection.h"
 #include "../viewport_interaction_scope.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
@@ -2625,7 +2625,7 @@ Viewer3DPanel::ProjectMouseOntoLine(const wxPoint &mousePos) {
     const wxPoint pointer = ToFramebufferPoint(this, mousePos);
     const float pointerX = static_cast<float>(pointer.x);
     const float pointerY = static_cast<float>(renderSize.height - pointer.y);
-    return viewer3d::ProjectPointerOntoScreenLine(
+    return viewer_common::ProjectPointerOntoScreenLine(
         m_linePointSelectionStart, m_linePointSelectionEnd, *start, *end,
         {pointerX, pointerY});
 }

@@ -175,6 +175,8 @@ private:
   void OnDistributeFixturesOnTruss(wxCommandEvent &event);
   void OnDistributeFixturesBetweenPoints(wxCommandEvent &event);
   void ReportFixtureDistributionMessage(const std::string &message);
+  void RestoreFixtureDistributionSelection(
+      const std::vector<std::string> &selection);
   void OnImportMVR(wxCommandEvent &event); // Handle the Import MVR action
   void OnExportMVR(wxCommandEvent &event); // Handle the Export MVR action
   void OnMvrXchange(wxCommandEvent &event); // Open the MVR-xchange publisher dialog

@@ -173,6 +173,9 @@ Changes since **v1.5.0**.
   works in either the active 2D or 3D viewport, while `Esc` or right-click
   cancels the interaction and clears its status prompt. Distribution commands
   now require viewport focus and never open, close, or switch viewer panes.
+  Endpoint markers follow the pointer's dominant screen axis for intuitive
+  horizontal and vertical placement, and both distribution modes retain the
+  original fixture selection after refreshing the scene.
 
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid
