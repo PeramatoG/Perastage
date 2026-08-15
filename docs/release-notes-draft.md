@@ -169,7 +169,9 @@ Changes since **v1.5.0**.
   geometry, preventing different truss chords from being mixed. Two-point
   distribution also shows fixed and moving green endpoint markers directly on
   the active red hang line while hiding unrelated Magnet paths and selection
-  overlays throughout the endpoint-picking interaction.
+  overlays throughout the endpoint-picking interaction. Starting the tool now
+  reveals and focuses the 2D viewport, while `Esc` or right-click cancels the
+  interaction and clears its status prompt.
 
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid

@@ -261,6 +261,7 @@ private:
   void CommitActiveMagnetSnap();
   void FinalizeSelectionDrag();
   bool AlignContinuousElementToPointer(const wxPoint &screenPos);
+  void CancelLinePointSelection();
   void ConfirmContinuousPlacement();
   void CancelContinuousPlacement();
   void EndContinuousPlacementState();

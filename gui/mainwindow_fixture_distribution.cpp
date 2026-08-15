@@ -93,6 +93,14 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
     ReportFixtureDistributionMessage("The 2D viewport is not available.");
     return;
   }
+  if (auiManager) {
+    auto &pane = auiManager->GetPane("2DViewport");
+    if (pane.IsOk() && !pane.IsShown()) {
+      pane.Show(true);
+      auiManager->Update();
+      UpdateViewMenuChecks();
+    }
+  }
   const auto line = *resolved.line;
   ReportFixtureDistributionMessage(
       "Choose two points on the truss line, or press Esc to cancel.");
@@ -100,7 +108,9 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
       ToViewportMeters(line.start), ToViewportMeters(line.end),
       [this, selection](const auto &start, const auto &end) {
         if (!start || !end) {
-          ReportFixtureDistributionMessage("Fixture distribution cancelled.");
+          if (consolePanel)
+            consolePanel->AppendMessage("Fixture distribution cancelled.");
+          SetStatusText("Ready", 0);
           return;
         }
         IGuiConfigServices &active = GetDefaultGuiConfigServices();

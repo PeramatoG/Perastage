@@ -133,7 +133,8 @@ collinear truss sections.
   select two points along the line in the 2D viewport. A green perpendicular
   marker follows the active red hang line and remains fixed after the first
   click while a second marker selects the end point. Only the shared hang line
-  remains visible during this interaction. Press `Esc` at any time to cancel.
+  remains visible during this interaction. The 2D viewport opens automatically;
+  press `Esc` or right-click at any time to cancel.
 
 Validation and cancellation messages appear in the status bar and console
 without blocking work. Both operations support Undo and Redo.

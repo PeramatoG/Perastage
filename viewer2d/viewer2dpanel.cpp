@@ -1060,6 +1060,20 @@ void Viewer2DPanel::BeginLinePointSelection(
   RequestRepaint();
 }
 
+// Cancels the active hang-line endpoint selection without changing fixtures.
+void Viewer2DPanel::CancelLinePointSelection() {
+  if (!m_linePointSelectionActive)
+    return;
+  auto callback = std::move(m_linePointSelectionCallback);
+  m_linePointSelectionActive = false;
+  m_linePointSelectionFirst.reset();
+  m_linePointSelectionPreview.reset();
+  NotifyHighlightedWorldPosition(std::nullopt);
+  RequestRepaint();
+  if (callback)
+    callback(std::nullopt, std::nullopt);
+}
+
 // Converts a mouse position in window coordinates into the current 2D world
 // position.
 std::optional<std::array<float, 3>>
@@ -3925,6 +3939,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 
 // Opens the active table selection menu when right-clicking empty viewer space.
 void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
+  if (m_linePointSelectionActive) {
+    CancelLinePointSelection();
+    return;
+  }
   if (m_continuousPlacementActive) {
     CancelContinuousPlacement();
     return;
@@ -4388,14 +4406,7 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
 // Handles local keyboard shortcuts when the 2D viewport owns focus.
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
   if (m_linePointSelectionActive && event.GetKeyCode() == WXK_ESCAPE) {
-    auto callback = std::move(m_linePointSelectionCallback);
-    m_linePointSelectionActive = false;
-    m_linePointSelectionFirst.reset();
-    m_linePointSelectionPreview.reset();
-    NotifyHighlightedWorldPosition(std::nullopt);
-    RequestRepaint();
-    if (callback)
-      callback(std::nullopt, std::nullopt);
+    CancelLinePointSelection();
     return;
   }
   if (m_continuousPlacementActive && event.GetKeyCode() == WXK_ESCAPE) {
