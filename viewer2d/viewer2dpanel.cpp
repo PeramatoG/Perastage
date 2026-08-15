@@ -1044,6 +1044,7 @@ void Viewer2DPanel::BeginLinePointSelection(
     const std::array<float, 3> &lineEnd,
     LinePointSelectionCallback callback) {
   m_linePointSelectionActive = true;
+  m_linePointSelectionConsumeMouseUp = false;
   m_linePointSelectionStart = lineStart;
   m_linePointSelectionEnd = lineEnd;
   m_linePointSelectionFirst.reset();
@@ -3327,6 +3328,7 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   m_hasLastMousePos = true;
   if (m_linePointSelectionActive && event.LeftDown()) {
+    m_linePointSelectionConsumeMouseUp = true;
     wxPoint pos = ScreenToClient(wxGetMousePosition());
     if (!GetClientRect().Contains(pos))
       pos = event.GetPosition();
@@ -3562,6 +3564,10 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
 
 // Completes mouse-driven interaction and applies click or rectangle selections.
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
+  if (m_linePointSelectionConsumeMouseUp && event.LeftUp()) {
+    m_linePointSelectionConsumeMouseUp = false;
+    return;
+  }
   if (m_continuousPlacementActive && event.LeftUp()) {
     if (HasCapture())
       ReleaseMouse();

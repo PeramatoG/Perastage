@@ -36,6 +36,15 @@ int main() {
       {110.0f, 300.0f}, {20.0f, 200.0f});
   ok &= Expect(vertical && std::fabs((*vertical)[1] - 5.0f) < 0.001f,
                "vertical line should follow the pointer y coordinate");
+  const auto perspective = viewer_common::ProjectPointerOntoPerspectiveLine(
+      {0.0f, 0.0f, 0.0f}, {10.0f, 0.0f, 0.0f}, {150.0f, 200.0f},
+      [](const std::array<float, 3> &world) {
+        return std::optional<std::array<float, 2>>{
+            {100.0f + 200.0f * world[0] / (world[0] + 10.0f), 200.0f}};
+      });
+  ok &= Expect(perspective &&
+                   std::fabs((*perspective)[0] - 3.333333f) < 0.001f,
+               "perspective line should reproject onto the pointer coordinate");
   ok &= Expect(!viewer_common::ProjectPointerOntoScreenLine(
                     {0.0f, 0.0f, 0.0f}, {10.0f, 0.0f, 0.0f}, {100.0f, 200.0f},
                     {100.0f, 200.0f}, {100.0f, 200.0f})

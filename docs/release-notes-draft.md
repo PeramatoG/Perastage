@@ -176,7 +176,9 @@ Changes since **v1.5.0**.
   Endpoint markers follow the pointer's dominant screen axis for intuitive
   horizontal and vertical placement, and both distribution modes retain the
   original fixture selection after deferred table refreshes complete. Live
-  cursor sampling also keeps endpoint markers aligned during viewport redraws.
+  cursor sampling and perspective-correct projection keep endpoint markers
+  aligned during viewport redraws. Endpoint clicks are now fully consumed by
+  the active tool so the first click cannot clear the fixture selection.
 
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid

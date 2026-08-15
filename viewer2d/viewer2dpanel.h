@@ -365,6 +365,7 @@ private:
   bool m_draggedSincePress = false;
   bool m_continuousPlacementActive = false;
   bool m_linePointSelectionActive = false;
+  bool m_linePointSelectionConsumeMouseUp = false;
   std::array<float, 3> m_linePointSelectionStart{};
   std::array<float, 3> m_linePointSelectionEnd{};
   std::optional<std::array<float, 3>> m_linePointSelectionFirst;

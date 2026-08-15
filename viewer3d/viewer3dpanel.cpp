@@ -1879,6 +1879,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     if (m_linePointSelectionActive && event.LeftDown()) {
+        m_linePointSelectionConsumeMouseUp = true;
         wxPoint pos = ScreenToClient(wxGetMousePosition());
         if (!GetClientRect().Contains(pos))
             pos = event.GetPosition();
@@ -1973,6 +1974,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
                               event.LeftUp() ? 1 : 0, event.MiddleUp() ? 1 : 0,
                               event.RightUp() ? 1 : 0,
                                 m_draggedSincePress ? 1 : 0);
+    if (m_linePointSelectionConsumeMouseUp && event.LeftUp()) {
+        m_linePointSelectionConsumeMouseUp = false;
+        return;
+    }
     if (m_continuousPlacementActive && event.LeftUp()) {
         const bool navigated = m_draggedSincePress;
         m_dragging = false;
@@ -2602,6 +2607,7 @@ void Viewer3DPanel::BeginLinePointSelection(
     const std::array<float, 3> &lineEnd,
     LinePointSelectionCallback callback) {
     m_linePointSelectionActive = true;
+    m_linePointSelectionConsumeMouseUp = false;
     m_linePointSelectionStart = lineStart;
     m_linePointSelectionEnd = lineEnd;
     m_linePointSelectionFirst.reset();
@@ -2624,16 +2630,14 @@ Viewer3DPanel::ProjectMouseOntoLine(const wxPoint &mousePos) {
         !TryBindGlContextForInteraction("line point selection"))
         return std::nullopt;
     ApplyCameraMatrices(renderSize);
-    const auto start = ProjectWorldToFramebuffer(m_linePointSelectionStart);
-    const auto end = ProjectWorldToFramebuffer(m_linePointSelectionEnd);
-    if (!start || !end)
-        return std::nullopt;
     const wxPoint pointer = ToFramebufferPoint(this, mousePos);
     const float pointerX = static_cast<float>(pointer.x);
     const float pointerY = static_cast<float>(renderSize.height - pointer.y);
-    return viewer_common::ProjectPointerOntoScreenLine(
-        m_linePointSelectionStart, m_linePointSelectionEnd, *start, *end,
-        {pointerX, pointerY});
+    return viewer_common::ProjectPointerOntoPerspectiveLine(
+        m_linePointSelectionStart, m_linePointSelectionEnd,
+        {pointerX, pointerY}, [](const std::array<float, 3> &world) {
+            return ProjectWorldToFramebuffer(world);
+        });
 }
 
 // Cancels the active 3D hang-line endpoint selection.
