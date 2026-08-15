@@ -168,7 +168,8 @@ Changes since **v1.5.0**.
   sections. Distribution and Magnet guidance now use the same resolved hang
   geometry, preventing different truss chords from being mixed. Two-point
   distribution also shows fixed and moving green endpoint markers directly on
-  the active red hang line.
+  the active red hang line while hiding unrelated Magnet paths and selection
+  overlays throughout the endpoint-picking interaction.
 
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid

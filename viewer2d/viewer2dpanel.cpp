@@ -1048,6 +1048,13 @@ void Viewer2DPanel::BeginLinePointSelection(
   m_linePointSelectionEnd = lineEnd;
   m_linePointSelectionFirst.reset();
   m_linePointSelectionPreview.reset();
+  if (m_hasLastMousePos) {
+    if (const auto world = ComputeWorldPositionFromScreen(m_lastMousePos)) {
+      fixture_line_distribution::Line line{lineStart, lineEnd, {}};
+      m_linePointSelectionPreview =
+          fixture_line_distribution::ProjectOntoLine(line, *world);
+    }
+  }
   m_linePointSelectionCallback = std::move(callback);
   SetFocus();
   RequestRepaint();
@@ -1493,10 +1500,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
   }
 
-  if (m_dragMode == DragMode::Selection)
+  if (m_dragMode == DragMode::Selection && !m_linePointSelectionActive)
     DrawSelectionDragGizmo(w, h);
 
-  if (m_linePointSelectionActive && m_linePointSelectionPreview) {
+  if (m_linePointSelectionActive) {
     const auto lineStart = Viewer2DMeasureWorldToScreen(
         m_linePointSelectionStart, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
     const auto lineEnd = Viewer2DMeasureWorldToScreen(
@@ -1508,10 +1515,12 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       viewer_common::DrawFixtureAttachmentPathOverlay({path}, w, h);
     }
     std::vector<viewer_common::MagnetAnchorScreenReference> markers;
-    for (const auto *point : {m_linePointSelectionFirst
-                                  ? &*m_linePointSelectionFirst
-                                  : nullptr,
-                              &*m_linePointSelectionPreview}) {
+    std::vector<const std::array<float, 3> *> markerPoints;
+    if (m_linePointSelectionFirst)
+      markerPoints.push_back(&*m_linePointSelectionFirst);
+    if (m_linePointSelectionPreview)
+      markerPoints.push_back(&*m_linePointSelectionPreview);
+    for (const auto *point : markerPoints) {
       if (!point)
         continue;
       const auto screen = Viewer2DMeasureWorldToScreen(
@@ -1533,7 +1542,8 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const auto magnetReferences =
       ConfigManager::Get().GetValue(magnet_snap::kShowAnchorReferencesConfigKey);
   const auto magnetSource = BuildActiveMagnetSource();
-  if (magnetSource && m_dragMode == DragMode::Selection &&
+  if (!m_linePointSelectionActive && magnetSource &&
+      m_dragMode == DragMode::Selection &&
       (!magnetReferences || *magnetReferences != "0")) {
     auto toMeters = [](const std::array<float, 3> &pointMm) {
       return std::array<float, 3>{pointMm[0] / 1000.0f, pointMm[1] / 1000.0f,
