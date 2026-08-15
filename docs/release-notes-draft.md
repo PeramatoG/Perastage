@@ -175,7 +175,8 @@ Changes since **v1.5.0**.
   now require viewport focus and never open, close, or switch viewer panes.
   Endpoint markers follow the pointer's dominant screen axis for intuitive
   horizontal and vertical placement, and both distribution modes retain the
-  original fixture selection after refreshing the scene.
+  original fixture selection after deferred table refreshes complete. Live
+  cursor sampling also keeps endpoint markers aligned during viewport redraws.
 
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid

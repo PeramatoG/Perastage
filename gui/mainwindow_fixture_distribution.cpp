@@ -70,15 +70,17 @@ void MainWindow::ReportFixtureDistributionMessage(const std::string &message) {
 // Restores fixture selection after distribution refreshes all scene views.
 void MainWindow::RestoreFixtureDistributionSelection(
     const std::vector<std::string> &selection) {
-  GetDefaultGuiConfigServices().Selection().SetSelectedFixtures(selection);
-  if (fixturePanel)
-    fixturePanel->SelectByUuid(selection, false);
-  if (viewportPanel)
-    viewportPanel->SetSelectedFixtures(selection);
-  if (viewport2DPanel) {
-    viewport2DPanel->UpdateScene();
-    viewport2DPanel->Refresh();
-  }
+  CallAfter([this, selection]() {
+    GetDefaultGuiConfigServices().Selection().SetSelectedFixtures(selection);
+    if (fixturePanel)
+      fixturePanel->SelectByUuid(selection, false);
+    if (viewportPanel)
+      viewportPanel->SetSelectedFixtures(selection);
+    if (viewport2DPanel) {
+      viewport2DPanel->UpdateScene();
+      viewport2DPanel->Refresh();
+    }
+  });
 }
 
 // Distributes selected fixtures across the complete truss with end margins.

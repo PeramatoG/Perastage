@@ -1048,9 +1048,11 @@ void Viewer2DPanel::BeginLinePointSelection(
   m_linePointSelectionEnd = lineEnd;
   m_linePointSelectionFirst.reset();
   m_linePointSelectionPreview.reset();
-  if (m_hasLastMousePos) {
+  const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+  if (GetClientRect().Contains(livePos))
+    m_linePointSelectionPreview = ProjectMouseOntoLine(livePos);
+  else if (m_hasLastMousePos)
     m_linePointSelectionPreview = ProjectMouseOntoLine(m_lastMousePos);
-  }
   m_linePointSelectionCallback = std::move(callback);
   SetFocus();
   RequestRepaint();
@@ -3325,7 +3327,10 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   m_hasLastMousePos = true;
   if (m_linePointSelectionActive && event.LeftDown()) {
-    const auto point = ProjectMouseOntoLine(event.GetPosition());
+    wxPoint pos = ScreenToClient(wxGetMousePosition());
+    if (!GetClientRect().Contains(pos))
+      pos = event.GetPosition();
+    const auto point = ProjectMouseOntoLine(pos);
     if (!point)
       return;
     if (!m_linePointSelectionFirst) {
@@ -4194,9 +4199,12 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   m_hasLastMousePos = true;
   if (m_linePointSelectionActive) {
-    if (const auto point = ProjectMouseOntoLine(event.GetPosition())) {
+    wxPoint pos = ScreenToClient(wxGetMousePosition());
+    if (!GetClientRect().Contains(pos))
+      pos = event.GetPosition();
+    if (const auto point = ProjectMouseOntoLine(pos)) {
       m_linePointSelectionPreview = point;
-      m_lastMousePos = event.GetPosition();
+      m_lastMousePos = pos;
       NotifyHighlightedWorldPosition(m_linePointSelectionPreview);
       RequestRepaint();
     }

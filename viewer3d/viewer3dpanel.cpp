@@ -1879,7 +1879,10 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     if (m_linePointSelectionActive && event.LeftDown()) {
-        const auto point = ProjectMouseOntoLine(event.GetPosition());
+        wxPoint pos = ScreenToClient(wxGetMousePosition());
+        if (!GetClientRect().Contains(pos))
+            pos = event.GetPosition();
+        const auto point = ProjectMouseOntoLine(pos);
         if (!point)
             return;
         if (!m_linePointSelectionFirst) {
@@ -2605,7 +2608,10 @@ void Viewer3DPanel::BeginLinePointSelection(
     m_linePointSelectionPreview.reset();
     m_linePointSelectionCallback = std::move(callback);
     SetFocus();
-    if (m_hasLastMousePos)
+    const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+    if (GetClientRect().Contains(livePos))
+        m_linePointSelectionPreview = ProjectMouseOntoLine(livePos);
+    else if (m_hasLastMousePos)
         m_linePointSelectionPreview = ProjectMouseOntoLine(m_lastMousePos);
     Refresh();
 }
@@ -3733,6 +3739,9 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     wxPoint pos = event.GetPosition();
     if (m_linePointSelectionActive) {
+        const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+        if (GetClientRect().Contains(livePos))
+            pos = livePos;
         m_lastMousePos = pos;
         m_linePointSelectionPreview = ProjectMouseOntoLine(pos);
         Refresh();
