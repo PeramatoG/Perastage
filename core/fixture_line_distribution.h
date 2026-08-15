@@ -27,6 +27,23 @@ struct ResolveResult {
   ResolveError error = ResolveError::None;
 };
 
+enum class SpacingReference { Centers, FixtureEdges };
+enum class SpacingOrigin { BetweenPointsOutsideIn, FromPointInDirection };
+
+struct SpacingOptions {
+  float spacingMm = 500.0f;
+  SpacingReference reference = SpacingReference::Centers;
+  SpacingOrigin origin = SpacingOrigin::BetweenPointsOutsideIn;
+  std::vector<float> halfExtentsMm;
+};
+
+struct SpacingResult {
+  bool applied = false;
+  bool fits = false;
+  float requiredLengthMm = 0.0f;
+  float availableLengthMm = 0.0f;
+};
+
 // Resolves the shared connected attachment path containing every fixture.
 ResolveResult ResolveSelectedLine(
     const MvrScene &scene, const std::vector<std::string> &fixtureUuids,
@@ -41,5 +58,13 @@ std::array<float, 3> ProjectOntoLine(const Line &line,
 bool Apply(MvrScene &scene, const std::vector<std::string> &fixtureUuids,
            const std::array<float, 3> &start, const std::array<float, 3> &end,
            bool includeEndpointMargins);
+
+// Distributes fixtures at an exact center or edge gap within a directed
+// segment.
+SpacingResult ApplySpacing(MvrScene &scene,
+                           const std::vector<std::string> &fixtureUuids,
+                           const std::array<float, 3> &start,
+                           const std::array<float, 3> &directionPoint,
+                           const SpacingOptions &options);
 
 } // namespace fixture_line_distribution

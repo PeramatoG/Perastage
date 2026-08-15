@@ -24,3 +24,5 @@ constexpr int ID_Tools_DistributeFixturesOnTruss =
     ID_Tools_OpenUserLibraryFolder + 1;
 constexpr int ID_Tools_DistributeFixturesBetweenPoints =
     ID_Tools_DistributeFixturesOnTruss + 1;
+constexpr int ID_Tools_DistributeFixtures =
+    ID_Tools_DistributeFixturesBetweenPoints + 1;

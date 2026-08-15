@@ -6,6 +6,13 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added a unified fixture distribution dialog on `Ctrl+D`. Alongside the
+  existing uniform full-truss and two-point systems, fixtures can now use an
+  exact configurable center or edge gap, distributed outside-in between two
+  limits or from a start point in a chosen direction. Distributions remain
+  undoable and report non-blocking feedback when the requested layout does not
+  fit.
+
 - Added two truss-line fixture distribution tools. Selected fixtures on one
   straight truss can be spaced evenly across its full length with equal end
   margins, or between two pointer-selected points in the 2D viewport. Both

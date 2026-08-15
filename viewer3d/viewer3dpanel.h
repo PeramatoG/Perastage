@@ -114,6 +114,11 @@ public:
         const std::array<float, 3> &lineStart,
         const std::array<float, 3> &lineEnd,
         LinePointSelectionCallback callback);
+    // Returns fixture half-extents projected onto a scene-space line.
+    std::vector<float> GetFixtureHalfExtentsMm(
+        const std::vector<std::string> &fixtureUuids,
+        const std::array<float, 3> &lineStartMm,
+        const std::array<float, 3> &lineEndMm) const;
     // Returns whether 3D selection movement is constrained to axes.
     bool IsAxisConstrainedMovementEnabled() const {
         return m_axisConstrainedMovementEnabled;

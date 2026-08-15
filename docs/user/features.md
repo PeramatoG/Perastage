@@ -172,6 +172,17 @@ Additional safeguards include:
 
 ## GUI Workflow and Operations
 
+### Fixture distribution
+
+- Select fixtures attached to one straight, connected truss line and press
+  `Ctrl+D` to choose a distribution system.
+- Exact spacing supports a configurable distance between fixture centers or
+  fixture edges, placed outside-in between two limits or from one start point
+  in a chosen direction. Uniform full-truss and two-point systems remain
+  available in the same dialog.
+- A layout that does not fit leaves the scene unchanged and reports a
+  non-blocking message. Completed distributions support Undo and Redo.
+
 ### Console and command workflows
 
 - Console supports text command workflows for selection and transform operations.
