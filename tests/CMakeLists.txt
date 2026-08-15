@@ -9,6 +9,25 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
+add_executable(fixture_line_distribution_test
+               fixture_line_distribution_test.cpp
+               ../core/fixture_line_distribution.cpp
+               ../core/magnet_snap.cpp
+               ../core/truss_attachment_paths.cpp
+               ../core/truss_attachment_candidates.cpp
+               ../core/truss_screen_snap.cpp
+               ../core/gdtf_archive_reader.cpp
+               ../core/geometry_bounds_resolver.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/scene_grouping.cpp ../core/scene_node_operations.cpp
+               ../models/mvrscene.cpp
+               ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp)
+target_include_directories(fixture_line_distribution_test PRIVATE
+                           ../core ../models ../viewer3d ../third_party)
+target_link_libraries(fixture_line_distribution_test PRIVATE
+                      tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
+add_test(NAME FixtureLineDistribution COMMAND fixture_line_distribution_test)
+
 include(${CMAKE_SOURCE_DIR}/cmake/PerastageGitBashResolver.cmake)
 
 add_library(perastage_test_no_dialog OBJECT windows_no_dialog_runtime.cpp)
@@ -393,6 +412,13 @@ add_executable(truss_screen_snap_test truss_screen_snap_test.cpp
     ../core/truss_screen_snap.cpp)
 target_include_directories(truss_screen_snap_test PRIVATE ../core)
 add_test(NAME TrussScreenSnapMath COMMAND truss_screen_snap_test)
+
+add_executable(hang_line_screen_projection_test
+    hang_line_screen_projection_test.cpp
+    ../viewer_common/screen_line_projection.cpp)
+target_include_directories(hang_line_screen_projection_test PRIVATE
+                           ../viewer_common)
+add_test(NAME HangLineScreenProjection COMMAND hang_line_screen_projection_test)
 
 add_executable(rdp_simplifier_test
                rdp_simplifier_test.cpp

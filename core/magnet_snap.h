@@ -79,9 +79,13 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
                       truss_attachment_paths::Resolver *pathResolver = nullptr);
 
 // Resolves the same continuous fixture paths used by fixture snapping.
-std::vector<AttachmentPathReference>
-BuildFixtureAttachmentPathReferences(
-    const MvrScene &scene, truss_attachment_paths::Resolver *pathResolver = nullptr);
+std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
+    const MvrScene &scene,
+    truss_attachment_paths::Resolver *pathResolver = nullptr);
+
+// Converts resolved attachment paths into viewer guidance references.
+std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
+    const std::vector<truss_attachment_paths::Path> &paths);
 
 // Finds the best non-destructive Magnet snap candidate for the source object.
 std::optional<SnapResult> FindSnap(const MvrScene &scene,

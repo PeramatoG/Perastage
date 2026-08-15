@@ -24,7 +24,12 @@ void DrawMagnetAnchorOverlay(
 
 // Draws continuous fixture attachment polylines in framebuffer coordinates.
 void DrawFixtureAttachmentPathOverlay(
-    const std::vector<FixtureAttachmentScreenPath> &paths,
+    const std::vector<FixtureAttachmentScreenPath> &paths, int framebufferWidth,
+    int framebufferHeight);
+
+// Draws green perpendicular markers for interactive hang-line point selection.
+void DrawHangLinePointSelectionOverlay(
+    const std::vector<MagnetAnchorScreenReference> &markers,
     int framebufferWidth, int framebufferHeight);
 
 } // namespace viewer_common

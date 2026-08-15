@@ -6,6 +6,13 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Added two truss-line fixture distribution tools. Selected fixtures on one
+  straight truss can be spaced evenly across its full length with equal end
+  margins, or between two pointer-selected points in the 2D viewport. Both
+  workflows preserve selection order, support Undo and Redo, provide
+  non-blocking validation feedback, and allow point selection to be cancelled
+  with `Esc`.
+
 - Added a project-scoped scene clipboard foundation for safely cloning and
   removing mixed fixture, truss, hoist, and scene-object selections while
   preserving MVR identities, hierarchy relationships, and fixture label data.
@@ -155,6 +162,23 @@ Changes since **v1.5.0**.
   ensuring the GLEW header is initialized before platform OpenGL headers.
 
 ## Important fixes
+
+- Fixed truss-line distribution validation for scene coordinates stored in
+  millimeters and for straight bridges assembled from multiple connected truss
+  sections. Distribution and Magnet guidance now use the same resolved hang
+  geometry, preventing different truss chords from being mixed. Two-point
+  distribution also shows fixed and moving green endpoint markers directly on
+  the active red hang line while hiding unrelated Magnet paths and selection
+  overlays throughout the endpoint-picking interaction. Starting the tool now
+  works in either the active 2D or 3D viewport, while `Esc` or right-click
+  cancels the interaction and clears its status prompt. Distribution commands
+  now require viewport focus and never open, close, or switch viewer panes.
+  Endpoint markers follow the pointer's dominant screen axis for intuitive
+  horizontal and vertical placement, and both distribution modes retain the
+  original fixture selection after deferred table refreshes complete. Live
+  cursor sampling and perspective-correct projection keep endpoint markers
+  aligned during viewport redraws. Endpoint clicks are now fully consumed by
+  the active tool so the first click cannot clear the fixture selection.
 
 - Restored clear hover, group, and selection highlighting in the 3D Viewer
   Sketch and Wireframe styles. Sketch highlights now retain the same vivid
@@ -324,6 +348,9 @@ Changes since **v1.5.0**.
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
 ## Internal changes
+
+- Completed the fixture distribution regression target's Magnet projection
+  dependencies for reliable Windows linking.
 
 - Fixed the Windows scene clipboard GUI build by making its configuration
   service dependency explicit.
