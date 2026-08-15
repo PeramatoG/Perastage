@@ -68,6 +68,13 @@ void MainWindow::ReportFixtureDistributionMessage(const std::string &message) {
 
 // Distributes selected fixtures across the complete truss with end margins.
 void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
+  const wxWindow *focus = wxWindow::FindFocus();
+  if (!ContainsFocusedWindow(viewport2DPanel, focus) &&
+      !ContainsFocusedWindow(viewportPanel, focus)) {
+    ReportFixtureDistributionMessage(
+        "Activate a 2D or 3D scene viewport before distributing fixtures.");
+    return;
+  }
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
   const auto selection = services.Selection().GetSelectedFixtures();
   const auto paths = ResolveAttachmentPaths(services.Project().GetScene());
@@ -86,9 +93,17 @@ void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
       "Fixtures distributed uniformly along the truss line.");
 }
 
-// Starts two-point fixture distribution in the 2D viewport.
+// Starts two-point fixture distribution in the focused scene viewport.
 void MainWindow::OnDistributeFixturesBetweenPoints(
     wxCommandEvent &WXUNUSED(event)) {
+  const wxWindow *focus = wxWindow::FindFocus();
+  const bool focusIn2D = ContainsFocusedWindow(viewport2DPanel, focus);
+  const bool focusIn3D = ContainsFocusedWindow(viewportPanel, focus);
+  if (!focusIn2D && !focusIn3D) {
+    ReportFixtureDistributionMessage(
+        "Activate a 2D or 3D scene viewport before choosing endpoints.");
+    return;
+  }
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
   const auto selection = services.Selection().GetSelectedFixtures();
   const auto paths = ResolveAttachmentPaths(services.Project().GetScene());
@@ -125,37 +140,11 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
         "Fixtures distributed between the selected truss points.");
   };
 
-  const wxWindow *focus = wxWindow::FindFocus();
-  const bool focusIn2D = ContainsFocusedWindow(viewport2DPanel, focus);
-  const bool focusIn3D = ContainsFocusedWindow(viewportPanel, focus);
-  bool viewer2DShown = false;
-  bool viewer3DShown = false;
-  if (auiManager) {
-    const auto &pane2D = auiManager->GetPane("2DViewport");
-    const auto &pane3D = auiManager->GetPane("3DViewport");
-    viewer2DShown = pane2D.IsOk() && pane2D.IsShown();
-    viewer3DShown = pane3D.IsOk() && pane3D.IsShown();
-  }
-  const bool use2D = focusIn2D || (!focusIn3D && viewer2DShown && !viewer3DShown);
-  const bool use3D = focusIn3D || (!use2D && viewer3DShown);
-  if (use3D && viewportPanel) {
+  if (focusIn3D) {
     viewportPanel->BeginLinePointSelection(ToViewportMeters(line.start),
                                            ToViewportMeters(line.end),
                                            completeSelection);
     return;
-  }
-  Ensure2DViewportAvailable();
-  if (!viewport2DPanel) {
-    ReportFixtureDistributionMessage("No scene viewport is available.");
-    return;
-  }
-  if (auiManager) {
-    auto &pane = auiManager->GetPane("2DViewport");
-    if (pane.IsOk() && !pane.IsShown()) {
-      pane.Show(true);
-      auiManager->Update();
-      UpdateViewMenuChecks();
-    }
   }
   viewport2DPanel->BeginLinePointSelection(ToViewportMeters(line.start),
                                            ToViewportMeters(line.end),

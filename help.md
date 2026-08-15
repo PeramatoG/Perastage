@@ -133,9 +133,9 @@ collinear truss sections.
   select two points along the line in the active 2D or 3D viewport. A green perpendicular
   marker follows the active red hang line and remains fixed after the first
   click while a second marker selects the end point. Only the shared hang line
-  remains visible during this interaction. When no scene viewport is active,
-  Perastage opens the 2D viewport automatically. Press `Esc` or right-click at
-  any time to cancel.
+  remains visible during this interaction. The command never opens or changes
+  viewports: focus the intended 2D or 3D scene viewport before invoking it.
+  Press `Esc` or right-click at any time to cancel.
 
 Validation and cancellation messages appear in the status bar and console
 without blocking work. Both operations support Undo and Redo.

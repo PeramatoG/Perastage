@@ -173,7 +173,8 @@ fixture selection:
 These combinations are wx menu accelerators rather than entries in the
 no-modifier shortcut registry. They do not alter existing shortcut priority.
 During two-point selection, the active scene viewport owns `Esc` and uses it
-only to cancel that transient interaction.
+only to cancel that transient interaction. Both distribution commands require
+focus inside an existing scene viewport and never open, close, or switch panes.
 
 ## Local shortcuts in "Create scene from text" autocomplete
 
