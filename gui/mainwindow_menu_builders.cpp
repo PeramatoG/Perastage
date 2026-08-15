@@ -97,10 +97,8 @@ wxMenu *BuildToolsMenu() {
   toolsMenu->Append(ID_Tools_ImportRiderText, _("Create from text..."));
   toolsMenu->Append(ID_Tools_DistributeHoistWeights,
                     _("Distribute hoist weights..."));
-  toolsMenu->Append(ID_Tools_DistributeFixturesOnTruss,
-                    _("Distribute fixtures on truss\tCtrl+Alt+D"));
-  toolsMenu->Append(ID_Tools_DistributeFixturesBetweenPoints,
-                    _("Distribute fixtures between points\tCtrl+Shift+D"));
+  toolsMenu->Append(ID_Tools_DistributeFixtures,
+                    _("Distribute fixtures...\tAlt+D"));
   toolsMenu->Append(ID_Tools_ExportFixture, _("Export Fixture..."));
   toolsMenu->Append(ID_Tools_ExportTruss, _("Export Truss..."));
   toolsMenu->Append(ID_Tools_ExportSceneObject, _("Export Scene Object..."));

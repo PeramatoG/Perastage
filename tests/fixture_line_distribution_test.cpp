@@ -96,5 +96,33 @@ int main() {
     ok &= Expect(match != magnetReferences.end(),
                  "Magnet and distribution should receive identical paths");
   }
+  scene.fixtures.at("a").transform.o = {0.0f, 0.0f, 0.0f};
+  scene.fixtures.at("b").transform.o = {0.0f, 0.0f, 0.0f};
+  scene.fixtures.at("c").transform.o = {0.0f, 0.0f, 0.0f};
+  fixture_line_distribution::SpacingOptions spacing;
+  spacing.spacingMm = 500.0f;
+  spacing.origin =
+      fixture_line_distribution::SpacingOrigin::FromPointInDirection;
+  const auto spaced = fixture_line_distribution::ApplySpacing(
+      scene, selection, {0.0f, 0.0f, 0.0f}, {2000.0f, 0.0f, 0.0f}, spacing);
+  ok &= Expect(spaced.applied && spaced.fits,
+               "exact center spacing should fit a directed segment");
+  ok &= Expect(scene.fixtures.at("c").transform.o[0] == 0.0f &&
+                   scene.fixtures.at("a").transform.o[0] == 500.0f &&
+                   scene.fixtures.at("b").transform.o[0] == 1000.0f,
+               "directed spacing should preserve selection order");
+  spacing.spacingMm = 1200.0f;
+  const auto overflow = fixture_line_distribution::ApplySpacing(
+      scene, selection, {0.0f, 0.0f, 0.0f}, {2000.0f, 0.0f, 0.0f}, spacing);
+  ok &= Expect(!overflow.applied && !overflow.fits,
+               "spacing overflow should be reported without moving fixtures");
+  spacing.spacingMm = 200.0f;
+  spacing.reference = fixture_line_distribution::SpacingReference::FixtureEdges;
+  spacing.halfExtentsMm = {100.0f, 150.0f, 200.0f};
+  const auto edgeSpaced = fixture_line_distribution::ApplySpacing(
+      scene, selection, {0.0f, 0.0f, 0.0f}, {2000.0f, 0.0f, 0.0f}, spacing);
+  ok &= Expect(edgeSpaced.applied &&
+                   scene.fixtures.at("a").transform.o[0] == 450.0f,
+               "edge spacing should include adjacent fixture extents");
   return ok ? 0 : 1;
 }

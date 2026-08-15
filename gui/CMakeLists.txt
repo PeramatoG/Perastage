@@ -35,6 +35,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/exportobjectdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/exporttrussdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtureeditdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_distribution_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_source_fingerprint.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_apply_services.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixturepatchdialog.cpp

@@ -2622,6 +2622,37 @@ void Viewer3DPanel::BeginLinePointSelection(
     Refresh();
 }
 
+// Returns fixture half-extents projected onto a scene-space line.
+std::vector<float> Viewer3DPanel::GetFixtureHalfExtentsMm(
+    const std::vector<std::string> &fixtureUuids,
+    const std::array<float, 3> &lineStartMm,
+    const std::array<float, 3> &lineEndMm) const {
+    std::array<float, 3> direction{};
+    float length = 0.0f;
+    for (int axis = 0; axis < 3; ++axis) {
+        direction[axis] = lineEndMm[axis] - lineStartMm[axis];
+        length += direction[axis] * direction[axis];
+    }
+    length = std::sqrt(length);
+    std::vector<float> extents;
+    if (length <= 1e-3f)
+        return extents;
+    for (float &value : direction)
+        value /= length;
+    const ISelectionContext &selectionContext = m_controller;
+    for (const std::string &uuid : fixtureUuids) {
+        const auto *bounds = selectionContext.FindFixtureBounds(uuid);
+        if (!bounds)
+            return {};
+        float projectedMeters = 0.0f;
+        for (int axis = 0; axis < 3; ++axis)
+            projectedMeters += std::fabs(direction[axis]) *
+                (bounds->max[axis] - bounds->min[axis]) * 0.5f;
+        extents.push_back(projectedMeters * 1000.0f);
+    }
+    return extents;
+}
+
 // Projects the pointer onto the visible screen projection of the 3D hang line.
 std::optional<std::array<float, 3>>
 Viewer3DPanel::ProjectMouseOntoLine(const wxPoint &mousePos) {

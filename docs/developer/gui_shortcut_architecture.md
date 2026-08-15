@@ -162,15 +162,14 @@ represent equivalent actions:
 
 ## Truss-line fixture distribution
 
-The Tools menu owns two modifier accelerators that operate on the current
-fixture selection:
+The Tools menu owns `Alt+D`, which opens the fixture distribution dialog for
+the current fixture selection. The default exact-spacing system supports a
+configurable center-to-center or edge-to-edge gap and can place fixtures either
+between two limits from the outside inward or from one start point in a chosen
+direction. The dialog also exposes the existing full-truss and uniform
+two-point systems.
 
-- `Ctrl+Alt+D`: distribute fixtures in selection order over the full truss
-  line, using equal spacing at both ends.
-- `Ctrl+Shift+D`: enter the active 2D or 3D viewport's two-point selection mode
-  and distribute fixtures from the first selected point through the second.
-
-These combinations are wx menu accelerators rather than entries in the
+This combination is a wx menu accelerator rather than an entry in the
 no-modifier shortcut registry. They do not alter existing shortcut priority.
 During two-point selection, the active scene viewport owns `Esc` and uses it
 only to cancel that transient interaction. Both distribution commands require

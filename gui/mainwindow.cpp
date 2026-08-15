@@ -455,6 +455,7 @@ EVT_MENU(ID_Tools_DistributeFixturesOnTruss,
          MainWindow::OnDistributeFixturesOnTruss)
 EVT_MENU(ID_Tools_DistributeFixturesBetweenPoints,
          MainWindow::OnDistributeFixturesBetweenPoints)
+EVT_MENU(ID_Tools_DistributeFixtures, MainWindow::OnDistributeFixtures)
 EVT_MENU(ID_Help_Help, MainWindow::OnShowHelp)
 EVT_MENU(ID_Help_OnlineDocumentation, MainWindow::OnOpenOnlineDocumentation)
 EVT_MENU(ID_Help_OpenLogsFolder, MainWindow::OnOpenLogsFolder)

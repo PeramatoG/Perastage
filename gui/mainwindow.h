@@ -174,6 +174,7 @@ private:
   void OnDistributeHoistWeights(wxCommandEvent &event); // Recalculate hoist weights by position
   void OnDistributeFixturesOnTruss(wxCommandEvent &event);
   void OnDistributeFixturesBetweenPoints(wxCommandEvent &event);
+  void OnDistributeFixtures(wxCommandEvent &event);
   void ReportFixtureDistributionMessage(const std::string &message);
   void RestoreFixtureDistributionSelection(
       const std::vector<std::string> &selection);

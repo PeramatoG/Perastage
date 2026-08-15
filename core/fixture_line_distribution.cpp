@@ -208,4 +208,66 @@ bool Apply(MvrScene &scene, const std::vector<std::string> &fixtureUuids,
   return true;
 }
 
+// Distributes fixtures at an exact center or edge gap within a directed
+// segment.
+SpacingResult ApplySpacing(MvrScene &scene,
+                           const std::vector<std::string> &fixtureUuids,
+                           const Point &start, const Point &directionPoint,
+                           const SpacingOptions &options) {
+  SpacingResult result;
+  Point direction{};
+  for (int axis = 0; axis < 3; ++axis) {
+    direction[axis] = directionPoint[axis] - start[axis];
+    result.availableLengthMm += direction[axis] * direction[axis];
+  }
+  result.availableLengthMm = std::sqrt(result.availableLengthMm);
+  if (fixtureUuids.size() < 2 || result.availableLengthMm <= 1e-3f ||
+      options.spacingMm < 0.0f)
+    return result;
+  for (float &value : direction)
+    value /= result.availableLengthMm;
+
+  std::vector<float> gaps(fixtureUuids.size() - 1, options.spacingMm);
+  if (options.reference == SpacingReference::FixtureEdges) {
+    if (options.halfExtentsMm.size() != fixtureUuids.size())
+      return result;
+    for (std::size_t index = 0; index < gaps.size(); ++index)
+      gaps[index] +=
+          options.halfExtentsMm[index] + options.halfExtentsMm[index + 1];
+  }
+  for (float gap : gaps)
+    result.requiredLengthMm += gap;
+  result.fits = result.requiredLengthMm <= result.availableLengthMm + 0.01f;
+  if (!result.fits)
+    return result;
+
+  std::vector<float> offsets(fixtureUuids.size(), 0.0f);
+  if (options.origin == SpacingOrigin::FromPointInDirection) {
+    for (std::size_t index = 1; index < offsets.size(); ++index)
+      offsets[index] = offsets[index - 1] + gaps[index - 1];
+  } else {
+    std::vector<float> ordered(fixtureUuids.size(), 0.0f);
+    const float margin =
+        (result.availableLengthMm - result.requiredLengthMm) * 0.5f;
+    ordered[0] = margin;
+    for (std::size_t index = 1; index < ordered.size(); ++index)
+      ordered[index] = ordered[index - 1] + gaps[index - 1];
+    std::size_t left = 0;
+    std::size_t right = ordered.size() - 1;
+    for (std::size_t index = 0; index < offsets.size(); ++index) {
+      offsets[index] = index % 2 == 0 ? ordered[left++] : ordered[right--];
+    }
+  }
+  for (std::size_t index = 0; index < fixtureUuids.size(); ++index) {
+    auto fixture = scene.fixtures.find(fixtureUuids[index]);
+    if (fixture == scene.fixtures.end())
+      return result;
+    for (int axis = 0; axis < 3; ++axis)
+      fixture->second.transform.o[axis] =
+          start[axis] + direction[axis] * offsets[index];
+  }
+  result.applied = true;
+  return result;
+}
+
 } // namespace fixture_line_distribution
