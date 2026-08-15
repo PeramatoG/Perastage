@@ -793,7 +793,7 @@ static void AppendFixtureTypeMetadata(
   perastageData->InsertEndChild(map);
 }
 
-// Appends project-only fixture overrides keyed by canonical instance UUID.
+// Appends canonical fixture fidelity metadata keyed by instance UUID.
 static void AppendProjectFixtureMetadata(tinyxml2::XMLDocument &doc,
                                          tinyxml2::XMLElement *perastageData,
                                          const MvrScene &scene) {
@@ -3038,18 +3038,36 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   // Rehydrates only well-formed foreign Data elements beneath the one root UserData.
   std::unordered_set<std::string> emittedOpaqueBlocks;
+  auto rejectOpaqueBlock = [&](const MvrOpaqueUserDataBlock &block,
+                               const std::string &reason) {
+    const std::string warning =
+        "Ignored opaque MVR UserData provider block '" + block.provider +
+        "': " + reason;
+    m_exportWarnings.push_back(warning);
+    Logger::Instance().Log(Logger::Level::Warn, warning);
+  };
   for (const MvrOpaqueUserDataBlock &block : scene.opaqueUserDataBlocks) {
-    if (ToLowerAscii(TrimAscii(block.provider)) == "perastage" ||
-        !emittedOpaqueBlocks.insert(block.xml).second)
+    if (ToLowerAscii(TrimAscii(block.provider)) == "perastage") {
+      rejectOpaqueBlock(block, "Perastage-owned data cannot be opaque");
+      continue;
+    }
+    if (!emittedOpaqueBlocks.insert(block.xml).second)
       continue;
     tinyxml2::XMLDocument opaqueDocument;
-    if (opaqueDocument.Parse(block.xml.c_str()) != tinyxml2::XML_SUCCESS)
+    if (opaqueDocument.Parse(block.xml.c_str()) != tinyxml2::XML_SUCCESS) {
+      rejectOpaqueBlock(block, "payload is not well-formed XML");
       continue;
+    }
     tinyxml2::XMLElement *data = opaqueDocument.FirstChildElement("Data");
     if (!data || data->NextSiblingElement() || !data->Attribute("provider") ||
-        TrimAscii(data->Attribute("provider")).empty() ||
-        ToLowerAscii(TrimAscii(data->Attribute("provider"))) == "perastage")
+        TrimAscii(data->Attribute("provider")).empty()) {
+      rejectOpaqueBlock(block, "payload is not one provider-owned Data element");
       continue;
+    }
+    if (ToLowerAscii(TrimAscii(data->Attribute("provider"))) == "perastage") {
+      rejectOpaqueBlock(block, "payload claims Perastage ownership");
+      continue;
+    }
     tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
     if (!userData) {
       userData = doc.NewElement("UserData");

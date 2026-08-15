@@ -22,11 +22,11 @@ non-fatal diagnostics.
 
 Valid foreign root `Data` blocks are stored separately as opaque scene data.
 Perastage does not interpret them. Canonical export reparses each stored block,
-rejects malformed or misplaced payloads, omits anything claiming Perastage
-ownership, deduplicates repeated payloads, and places accepted blocks beside
-the single Perastage block under the one legal root `UserData`. Merge unions
-these blocks without accumulating duplicates. XML subtree serialization may
-normalize insignificant formatting, but preserves provider identity and XML
+diagnoses and rejects malformed or misplaced payloads, omits anything claiming
+Perastage ownership, deduplicates repeated payloads, and places accepted blocks
+beside the single Perastage block under the one legal root `UserData`. Merge
+unions these blocks without accumulating duplicates. XML subtree serialization
+may normalize insignificant formatting, but preserves provider identity and XML
 structure.
 
 `MvrExporter::ExportCanonicalSnapshotToBuffer` copies the supplied `MvrScene`

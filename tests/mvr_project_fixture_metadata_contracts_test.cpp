@@ -25,6 +25,7 @@
 #include "layer.h"
 #include "mvr_export_options.h"
 #include "mvrexporter.h"
+#include "mvrimporter.h"
 #include "uuidutils.h"
 #include "wx_path_utils.h"
 
@@ -206,6 +207,31 @@ static SceneSignature ParseSceneSignature(const std::string &xml,
   return signature;
 }
 
+// Verifies one legal root UserData and returns matching foreign provider blocks.
+static int CountForeignProviderBlocks(const std::string &xml,
+                                      const std::string &provider) {
+  tinyxml2::XMLDocument doc;
+  assert(doc.Parse(xml.c_str()) == tinyxml2::XML_SUCCESS);
+  tinyxml2::XMLElement *root =
+      doc.FirstChildElement("GeneralSceneDescription");
+  assert(root != nullptr);
+  tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
+  assert(userData != nullptr);
+  assert(userData->NextSiblingElement("UserData") == nullptr);
+  int count = 0;
+  for (tinyxml2::XMLElement *data = userData->FirstChildElement("Data"); data;
+       data = data->NextSiblingElement("Data")) {
+    if (data->Attribute("provider") != nullptr &&
+        provider == data->Attribute("provider")) {
+      ++count;
+      tinyxml2::XMLElement *payload = data->FirstChildElement("VendorPayload");
+      assert(payload != nullptr);
+      assert(payload->IntAttribute("meaning") == 42);
+    }
+  }
+  return count;
+}
+
 // Reads the FixtureType name and UUID from a GDTF payload.
 static std::pair<std::string, std::string>
 ReadGdtfIdentity(const std::string &archiveBytes) {
@@ -236,6 +262,7 @@ static void AddFixture(MvrScene &scene, const std::string &uuid,
   fixture.fixtureId = numericId;
   fixture.fixtureIdNumeric = numericId;
   fixture.fixtureIdText = textId;
+  fixture.unitNumber = numericId + 1000;
   fixture.visualColorHex = color;
   fixture.visualColorState = color.empty()
                                  ? FixtureProjectColorState::ExplicitEmpty
@@ -259,6 +286,8 @@ static void AssertRestoredScene(const MvrScene &scene) {
   assert(fixtureB.fixtureIdText == "S101B");
   assert(fixtureA.fixtureId == 101 && fixtureA.fixtureIdNumeric == 101);
   assert(fixtureB.fixtureId == 101 && fixtureB.fixtureIdNumeric == 101);
+  assert(fixtureA.unitNumber == 1101);
+  assert(fixtureB.unitNumber == 1101);
   assert(fixtureC.fixtureId == 101 && fixtureC.fixtureIdNumeric == 101);
   assert(fixtureC.fixtureIdText.empty());
   const Fixture &edited =
@@ -303,6 +332,13 @@ int main() {
   layer.uuid = "10000000-0000-4000-8000-000000000001";
   layer.name = "Contracts";
   scene.layers.emplace(layer.uuid, layer);
+  scene.opaqueUserDataBlocks.push_back(
+      {"SomeOtherApplication", "2.5",
+       "<Data provider=\"SomeOtherApplication\" ver=\"2.5\">"
+       "<VendorPayload meaning=\"42\"><Nested>preserved</Nested>"
+       "</VendorPayload></Data>"});
+  scene.opaqueUserDataBlocks.push_back(
+      {"MalformedProvider", "1.0", "<Data provider=\"MalformedProvider\">"});
   AddFixture(scene, "20000000-0000-4000-8000-000000000001", "Fixture A",
              caseAPath, 101, "S101A", "#445566");
   AddFixture(scene, "20000000-0000-4000-8000-000000000002", "Fixture B",
@@ -326,15 +362,27 @@ int main() {
   MvrExporter exporter;
   const fs::path standalonePath = workspace.Path() / "standalone.mvr";
   assert(exporter.ExportToFile(standalonePath.string(), MvrExportOptions{}));
+  assert(std::any_of(exporter.GetExportWarnings().begin(),
+                     exporter.GetExportWarnings().end(),
+                     [](const std::string &warning) {
+                       return warning.find("MalformedProvider") !=
+                              std::string::npos;
+                     }));
   const ArchiveSnapshot standalone = ReadMvr(standalonePath);
   const SceneSignature standaloneSignature =
       ParseSceneSignature(standalone.sceneXml, true);
-  const bool dirtyBeforeSnapshot = config.IsDirty();
+  assert(CountForeignProviderBlocks(standalone.sceneXml,
+                                    "SomeOtherApplication") == 1);
+  const ConfigManager::DirtyState dirtyBeforeSnapshot =
+      config.CaptureDirtyState();
   const MvrScene sceneBeforeSnapshot = scene;
   std::vector<uint8_t> snapshotBytes;
   assert(exporter.ExportCanonicalSnapshotToBuffer(scene, snapshotBytes));
   assert(!snapshotBytes.empty());
-  assert(config.IsDirty() == dirtyBeforeSnapshot);
+  const ConfigManager::DirtyState dirtyAfterSnapshot =
+      config.CaptureDirtyState();
+  assert(dirtyAfterSnapshot.revision == dirtyBeforeSnapshot.revision);
+  assert(dirtyAfterSnapshot.savedRevision == dirtyBeforeSnapshot.savedRevision);
   assert(scene.fixtures.size() == sceneBeforeSnapshot.fixtures.size());
   for (const auto &[uuid, fixture] : sceneBeforeSnapshot.fixtures) {
     assert(scene.fixtures.at(uuid).uuid == fixture.uuid);
@@ -348,6 +396,12 @@ int main() {
     assert(fixture.fixtureId == expected.first);
     assert(fixture.fixtureIdText == expected.second);
   }
+
+  config.Reset();
+  assert(MvrImporter::ImportAndRegister(standalonePath.string(), false,
+                                        false));
+  AssertRestoredScene(config.GetScene());
+  assert(config.GetScene().opaqueUserDataBlocks.size() == 1);
 
   MvrExportOptions projectOptions = CanonicalMvrExportOptions();
   const fs::path explicitProjectMvr = workspace.Path() / "project-option.mvr";
@@ -381,6 +435,15 @@ int main() {
   assert(config.SaveProject(firstProject.string()));
   const SceneSignature firstSignature =
       ParseSceneSignature(ReadProjectMvr(firstProject).sceneXml, true);
+  const ArchiveSnapshot firstProjectMvr = ReadProjectMvr(firstProject);
+  assert(standalone.entries.size() == firstProjectMvr.entries.size());
+  for (const auto &[entryName, standaloneBytes] : standalone.entries) {
+    assert(firstProjectMvr.entries.count(entryName) == 1);
+    if (entryName != "GeneralSceneDescription.xml")
+      assert(firstProjectMvr.entries.at(entryName) == standaloneBytes);
+  }
+  assert(CountForeignProviderBlocks(firstProjectMvr.sceneXml,
+                                    "SomeOtherApplication") == 1);
   config.Reset();
   assert(config.LoadProject(firstProject.string()));
   AssertRestoredScene(config.GetScene());
@@ -394,6 +457,8 @@ int main() {
   assert(secondSignature.idsByFixtureName == firstSignature.idsByFixtureName);
   assert(secondSignature.gdtfByFixtureName.at("Fixture A") == caseAReference);
   assert(secondSignature.gdtfByFixtureName.at("Case B") == caseBReference);
+  assert(CountForeignProviderBlocks(secondProjectMvr.sceneXml,
+                                    "SomeOtherApplication") == 1);
   config.Reset();
   assert(config.LoadProject(secondProject.string()));
   AssertRestoredScene(config.GetScene());

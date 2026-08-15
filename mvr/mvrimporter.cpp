@@ -1627,13 +1627,35 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   if (version)
     scene.providerVersion = version;
 
+  int rootUserDataCount = 0;
+  for (tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
+       userData; userData = userData->NextSiblingElement("UserData"))
+    ++rootUserDataCount;
+  if (rootUserDataCount > 1) {
+    importResult.diagnostics.push_back(
+        {"multiple_root_userdata",
+         "Ignored additional root UserData elements beyond the first."});
+  }
+
   // Preserves validated foreign provider blocks without interpreting their schema.
   if (tinyxml2::XMLElement *userData = root->FirstChildElement("UserData")) {
-    for (tinyxml2::XMLElement *data = userData->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
+    for (tinyxml2::XMLElement *data = userData->FirstChildElement(); data;
+         data = data->NextSiblingElement()) {
+      if (std::string(data->Name()) != "Data") {
+        importResult.diagnostics.push_back(
+            {"invalid_root_userdata_child",
+             "Ignored a root UserData child that is not a Data element."});
+        continue;
+      }
       const std::string dataProvider =
           Trim(data->Attribute("provider") ? data->Attribute("provider") : "");
-      if (dataProvider.empty() || ToLowerCopy(dataProvider) == "perastage")
+      if (dataProvider.empty()) {
+        importResult.diagnostics.push_back(
+            {"missing_userdata_provider",
+             "Ignored a root UserData Data block without a provider."});
+        continue;
+      }
+      if (ToLowerCopy(dataProvider) == "perastage")
         continue;
       tinyxml2::XMLPrinter printer(nullptr, true);
       data->Accept(&printer);

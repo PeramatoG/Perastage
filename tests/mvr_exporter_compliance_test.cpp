@@ -829,6 +829,7 @@ int main() {
   int mvrGeometryTrussesWithGeometry3d = 0;
   int mvrGeometryTrussesWithRenderableGdtf = 0;
   std::unordered_map<std::string, std::string> trussGdtfByUuid;
+  std::unordered_map<std::string, std::string> exportedTrussUuidByName;
   for (const char *tagName : {"Fixture", "Truss"}) {
     for (tinyxml2::XMLElement *node = root->FirstChildElement(); node;
          node = node->NextSiblingElement()) {
@@ -919,6 +920,9 @@ int main() {
             auto *gdtfSpec = cur->FirstChildElement("GDTFSpec");
             const char *trussUuidAttr = cur->Attribute("uuid");
             assert(trussUuidAttr != nullptr);
+            const char *trussNameAttr = cur->Attribute("name");
+            assert(trussNameAttr != nullptr);
+            exportedTrussUuidByName[trussNameAttr] = trussUuidAttr;
             auto *geometries = cur->FirstChildElement("Geometries");
             assert(geometries != nullptr);
             assert(geometries->FirstChildElement("Geometry3D") != nullptr);
@@ -1321,12 +1325,10 @@ int main() {
     fixtureTypeIdByTrussUuid[trussUuid] =
         ReadFixtureTypeIdFromGdtf(trussGdtfPath);
   }
-  std::unordered_map<std::string, std::string> trussUuidByName;
-  for (const auto &[uuid, exportedTruss] : scene.trusses)
-    trussUuidByName[exportedTruss.name] = uuid;
   if (!fixtureTypeIdByTrussUuid.empty()) {
-    assert(fixtureTypeIdByTrussUuid.at(trussUuidByName.at(tr.name)) ==
-           fixtureTypeIdByTrussUuid.at(trussUuidByName.at(trNonNumeric.name)));
+    assert(fixtureTypeIdByTrussUuid.at(exportedTrussUuidByName.at(tr.name)) ==
+           fixtureTypeIdByTrussUuid.at(
+               exportedTrussUuidByName.at(trNonNumeric.name)));
   }
 
   cfg.SetFloat("mvr_truss_geometry_authority", 1.0f);
