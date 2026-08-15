@@ -2639,8 +2639,9 @@ std::vector<float> Viewer3DPanel::GetFixtureHalfExtentsMm(
         return extents;
     for (float &value : direction)
         value /= length;
+    const ISelectionContext &selectionContext = m_controller;
     for (const std::string &uuid : fixtureUuids) {
-        const auto *bounds = m_controller.FindFixtureBounds(uuid);
+        const auto *bounds = selectionContext.FindFixtureBounds(uuid);
         if (!bounds)
             return {};
         float projectedMeters = 0.0f;

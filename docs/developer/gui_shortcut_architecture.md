@@ -162,7 +162,7 @@ represent equivalent actions:
 
 ## Truss-line fixture distribution
 
-The Tools menu owns `Ctrl+D`, which opens the fixture distribution dialog for
+The Tools menu owns `Alt+D`, which opens the fixture distribution dialog for
 the current fixture selection. The default exact-spacing system supports a
 configurable center-to-center or edge-to-edge gap and can place fixtures either
 between two limits from the outside inward or from one start point in a chosen

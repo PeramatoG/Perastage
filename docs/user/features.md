@@ -175,7 +175,7 @@ Additional safeguards include:
 ### Fixture distribution
 
 - Select fixtures attached to one straight, connected truss line and press
-  `Ctrl+D` to choose a distribution system.
+  `Alt+D` to choose a distribution system.
 - Exact spacing supports a configurable distance between fixture centers or
   fixture edges, placed outside-in between two limits or from one start point
   in a chosen direction. Uniform full-truss and two-point systems remain
