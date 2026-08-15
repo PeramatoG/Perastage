@@ -234,6 +234,13 @@ MvrSceneMergeResult ApplyImportedSceneMerge(MvrScene &target,
   ApplyFixtureTypeDecisions(importedCopy, analysis);
   RemapImportedReferences(importedCopy, analysis);
 
+  for (const MvrOpaqueUserDataBlock &block : importedCopy.opaqueUserDataBlocks) {
+    if (std::find(target.opaqueUserDataBlocks.begin(),
+                  target.opaqueUserDataBlocks.end(), block) ==
+        target.opaqueUserDataBlocks.end())
+      target.opaqueUserDataBlocks.push_back(block);
+  }
+
   MergeLookupTable(target.positions, importedCopy.positions, analysis);
   MergeLookupTable(target.symdefFiles, importedCopy.symdefFiles, analysis);
   MergeLookupTable(target.symdefTypes, importedCopy.symdefTypes, analysis);

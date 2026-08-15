@@ -682,10 +682,10 @@ int main() {
   assert(doc.Parse(xml.c_str()) == tinyxml2::XML_SUCCESS);
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   assert(root != nullptr);
-  assert(root->FirstChildElement("UserData") == nullptr ||
-         root->FirstChildElement("UserData")
-                 ->FirstChildElement("Data")
-                 ->FirstChildElement("ProjectFixtureMetadataMap") == nullptr);
+  assert(root->FirstChildElement("UserData") != nullptr);
+  assert(root->FirstChildElement("UserData")
+             ->FirstChildElement("Data")
+             ->FirstChildElement("ProjectFixtureMetadataMap") != nullptr);
   const std::string caseAReference = FindFixtureGdtfSpec(root, "Case A");
   const std::string caseBReference = FindFixtureGdtfSpec(root, "Case B");
   assert(!caseAReference.empty());

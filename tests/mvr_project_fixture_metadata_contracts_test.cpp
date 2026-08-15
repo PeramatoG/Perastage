@@ -328,20 +328,36 @@ int main() {
   assert(exporter.ExportToFile(standalonePath.string(), MvrExportOptions{}));
   const ArchiveSnapshot standalone = ReadMvr(standalonePath);
   const SceneSignature standaloneSignature =
-      ParseSceneSignature(standalone.sceneXml, false);
+      ParseSceneSignature(standalone.sceneXml, true);
+  const bool dirtyBeforeSnapshot = config.IsDirty();
+  const MvrScene sceneBeforeSnapshot = scene;
+  std::vector<uint8_t> snapshotBytes;
+  assert(exporter.ExportCanonicalSnapshotToBuffer(scene, snapshotBytes));
+  assert(!snapshotBytes.empty());
+  assert(config.IsDirty() == dirtyBeforeSnapshot);
+  assert(scene.fixtures.size() == sceneBeforeSnapshot.fixtures.size());
+  for (const auto &[uuid, fixture] : sceneBeforeSnapshot.fixtures) {
+    assert(scene.fixtures.at(uuid).uuid == fixture.uuid);
+    assert(scene.fixtures.at(uuid).transform.u == fixture.transform.u);
+    assert(scene.fixtures.at(uuid).transform.v == fixture.transform.v);
+    assert(scene.fixtures.at(uuid).transform.w == fixture.transform.w);
+    assert(scene.fixtures.at(uuid).transform.o == fixture.transform.o);
+  }
   for (const auto &[uuid, expected] : editableIds) {
     const Fixture &fixture = scene.fixtures.at(uuid);
     assert(fixture.fixtureId == expected.first);
     assert(fixture.fixtureIdText == expected.second);
   }
 
-  MvrExportOptions projectOptions;
-  projectOptions.includeProjectFixtureMetadata = true;
+  MvrExportOptions projectOptions = CanonicalMvrExportOptions();
   const fs::path explicitProjectMvr = workspace.Path() / "project-option.mvr";
   assert(exporter.ExportToFile(explicitProjectMvr.string(), projectOptions));
   const ArchiveSnapshot explicitProject = ReadMvr(explicitProjectMvr);
   const SceneSignature explicitSignature =
       ParseSceneSignature(explicitProject.sceneXml, true);
+  assert(standaloneSignature.metadata == explicitSignature.metadata);
+  assert(standaloneSignature.idsByFixtureName ==
+         explicitSignature.idsByFixtureName);
 
   const std::string caseAReference =
       explicitSignature.gdtfByFixtureName.at("Fixture A");

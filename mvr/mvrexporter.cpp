@@ -1503,12 +1503,33 @@ static bool ValidateMvr16Export(
 
   if (tinyxml2::XMLElement *rootUserData =
           root->FirstChildElement("UserData")) {
+    if (rootUserData->NextSiblingElement("UserData")) {
+      wxLogError("MVR export validation failed: GeneralSceneDescription has "
+                 "more than one UserData element");
+      return false;
+    }
+    for (tinyxml2::XMLElement *child = rootUserData->FirstChildElement(); child;
+         child = child->NextSiblingElement()) {
+      if (std::string(child->Name()) != "Data" ||
+          !child->Attribute("provider") ||
+          TrimAscii(child->Attribute("provider")).empty()) {
+        wxLogError("MVR export validation failed: root UserData contains an "
+                   "invalid provider Data child");
+        return false;
+      }
+    }
+    int perastageProviderCount = 0;
     for (tinyxml2::XMLElement *data = rootUserData->FirstChildElement("Data");
          data; data = data->NextSiblingElement("Data")) {
       const std::string provider = ToLowerAscii(TrimAscii(
           data->Attribute("provider") ? data->Attribute("provider") : ""));
       if (provider != "perastage")
         continue;
+      if (++perastageProviderCount > 1) {
+        wxLogError("MVR export validation failed: duplicate Perastage root "
+                   "UserData provider block");
+        return false;
+      }
       for (tinyxml2::XMLElement *map = data->FirstChildElement("TrussInfoMap");
            map; map = map->NextSiblingElement("TrussInfoMap")) {
         for (tinyxml2::XMLElement *info = map->FirstChildElement("TrussInfo");
@@ -1884,6 +1905,8 @@ FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
   if (!node)
     return nullptr;
 
+  tinyxml2::XMLElement *firstUserData = node->FirstChildElement("UserData");
+
   for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
        ud = ud->NextSiblingElement("UserData")) {
     for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
@@ -1895,7 +1918,8 @@ FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
     }
   }
 
-  return nullptr;
+  // Root MVR UserData is a singleton, so reuse a foreign-only container.
+  return firstUserData;
 }
 
 // Finds or creates the Perastage Data element under a valid parent node.
@@ -2359,20 +2383,25 @@ static std::string CreatePatchedGdtf(const std::string &gdtfPath,
 // Serialize the configured scene into a .mvr archive and collect non-fatal
 // export warnings.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
-  return ExportToFile(
-      filePath, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
+  return ExportToFile(filePath, CanonicalMvrExportOptions());
 }
 
 // Serialize the configured scene into a .mvr archive with explicit export
 // options.
 bool MvrExporter::ExportToFile(const std::string &filePath,
                                const MvrExportOptions &options) {
+  return SerializeSnapshotToFile(ConfigManager::Get().GetScene(), filePath,
+                                 options);
+}
+
+// Serializes a private scene snapshot so validation repairs cannot affect the editor.
+bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
+                                          const std::string &filePath,
+                                          const MvrExportOptions &options) {
   m_exportWarnings.clear();
-  auto &scene = ConfigManager::Get().GetScene();
+  MvrScene scene = sourceScene;
   const auto identityRecovery =
       mvridentity::RecoverSceneIdentities(scene, "editable-scene");
-  if (!identityRecovery.diagnostics.empty())
-    ConfigManager::Get().MarkDirty();
   for (const auto &diagnostic : identityRecovery.diagnostics) {
     const std::string message =
         mvridentity::FormatRecoveryDiagnostic(diagnostic);
@@ -2381,8 +2410,6 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   }
   const auto transformIntegrity =
       scene_transform_integrity::ValidateAndRepair(scene);
-  if (transformIntegrity.repaired)
-    ConfigManager::Get().MarkDirty();
   for (const auto &diagnostic : transformIntegrity.diagnostics) {
     const std::string message =
         scene_transform_integrity::FormatDiagnostic(diagnostic);
@@ -3008,6 +3035,28 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
   root->SetAttribute("providerVersion",
                      perastage::build_info::appVersion().data());
   doc.InsertEndChild(root);
+
+  // Rehydrates only well-formed foreign Data elements beneath the one root UserData.
+  std::unordered_set<std::string> emittedOpaqueBlocks;
+  for (const MvrOpaqueUserDataBlock &block : scene.opaqueUserDataBlocks) {
+    if (ToLowerAscii(TrimAscii(block.provider)) == "perastage" ||
+        !emittedOpaqueBlocks.insert(block.xml).second)
+      continue;
+    tinyxml2::XMLDocument opaqueDocument;
+    if (opaqueDocument.Parse(block.xml.c_str()) != tinyxml2::XML_SUCCESS)
+      continue;
+    tinyxml2::XMLElement *data = opaqueDocument.FirstChildElement("Data");
+    if (!data || data->NextSiblingElement() || !data->Attribute("provider") ||
+        TrimAscii(data->Attribute("provider")).empty() ||
+        ToLowerAscii(TrimAscii(data->Attribute("provider"))) == "perastage")
+      continue;
+    tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
+    if (!userData) {
+      userData = doc.NewElement("UserData");
+      root->InsertEndChild(userData);
+    }
+    userData->InsertEndChild(data->DeepClone(&doc));
+  }
 
   if (HasLayerAppearanceMetadata(scene)) {
     tinyxml2::XMLElement *rootPerastageData =
@@ -4144,11 +4193,9 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
                                       fixtureTypeMetadata);
   }
 
-  if (options.includeProjectFixtureMetadata) {
-    tinyxml2::XMLElement *rootPerastageDataForProject =
-        FindOrCreatePerastageDataNode(doc, root);
-    AppendProjectFixtureMetadata(doc, rootPerastageDataForProject, scene);
-  }
+  tinyxml2::XMLElement *rootPerastageDataForProject =
+      FindOrCreatePerastageDataNode(doc, root);
+  AppendProjectFixtureMetadata(doc, rootPerastageDataForProject, scene);
 
   if (trussInfoMap->FirstChild()) {
     tinyxml2::XMLElement *rootPerastageDataForTrusses =
@@ -4403,14 +4450,27 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 
 // Export an MVR into memory by writing a temporary file and reading it back.
 bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes) {
-  return ExportToBuffer(
-      outBytes, mvr::preferences::LoadExportOptions(ConfigManager::Get()));
+  return ExportToBuffer(outBytes, CanonicalMvrExportOptions());
 }
 
 // Export an MVR into memory with explicit options by writing a temporary file
 // and reading it back.
 bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
                                  const MvrExportOptions &options) {
+  return SerializeSnapshotToBuffer(ConfigManager::Get().GetScene(), outBytes,
+                                   options);
+}
+
+// Serializes an explicit canonical snapshot without touching ConfigManager.
+bool MvrExporter::ExportCanonicalSnapshotToBuffer(
+    const MvrScene &scene, std::vector<uint8_t> &outBytes) {
+  return SerializeSnapshotToBuffer(scene, outBytes, CanonicalMvrExportOptions());
+}
+
+// Serializes an isolated scene to memory through the common archive writer.
+bool MvrExporter::SerializeSnapshotToBuffer(
+    const MvrScene &scene, std::vector<uint8_t> &outBytes,
+    const MvrExportOptions &options) {
   outBytes.clear();
   runtime_storage::TemporaryWorkspace bufferWorkspace("mvr-export-buffer");
   if (!bufferWorkspace.IsValid())
@@ -4418,7 +4478,7 @@ bool MvrExporter::ExportToBuffer(std::vector<uint8_t> &outBytes,
   const std::string tempPath =
       (bufferWorkspace.Path() / "export-buffer.mvr").string();
   wxFileName tempFile(wxString::FromUTF8(tempPath));
-  const bool exported = ExportToFile(tempPath, options);
+  const bool exported = SerializeSnapshotToFile(scene, tempPath, options);
   if (!exported) {
     Logger::Instance().Log(Logger::Level::Error,
                            "MVR export-to-buffer failed while writing " +

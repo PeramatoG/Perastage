@@ -77,6 +77,8 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Portable Perastage scene-fidelity metadata now round-trips through standalone files, valid third-party root UserData is preserved safely, and read-only snapshots no longer repair or dirty the live scene. The direct truss geometry option remains available only as an explicit compatibility representation.
+
 - Improved Windows CI reliability by adding a pinned direct ripgrep fallback
   when the hosted runner does not provide the tool and Chocolatey installation
   is unavailable or temporarily fails. This keeps the cross-platform Debug test
