@@ -1497,6 +1497,16 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     DrawSelectionDragGizmo(w, h);
 
   if (m_linePointSelectionActive && m_linePointSelectionPreview) {
+    const auto lineStart = Viewer2DMeasureWorldToScreen(
+        m_linePointSelectionStart, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
+    const auto lineEnd = Viewer2DMeasureWorldToScreen(
+        m_linePointSelectionEnd, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
+    if (lineStart && lineEnd) {
+      viewer_common::FixtureAttachmentScreenPath path;
+      path.points = {{(*lineStart)[0], h - (*lineStart)[1]},
+                     {(*lineEnd)[0], h - (*lineEnd)[1]}};
+      viewer_common::DrawFixtureAttachmentPathOverlay({path}, w, h);
+    }
     std::vector<viewer_common::MagnetAnchorScreenReference> markers;
     for (const auto *point : {m_linePointSelectionFirst
                                   ? &*m_linePointSelectionFirst
@@ -1506,10 +1516,18 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
         continue;
       const auto screen = Viewer2DMeasureWorldToScreen(
           *point, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
-      if (screen)
-        markers.push_back({(*screen)[0], h - (*screen)[1]});
+      if (screen && lineStart && lineEnd) {
+        viewer_common::MagnetAnchorScreenReference marker{
+            (*screen)[0], h - (*screen)[1]};
+        const float lineDx = (*lineEnd)[0] - (*lineStart)[0];
+        const float lineDy = (*lineStart)[1] - (*lineEnd)[1];
+        marker.directionX = -lineDy;
+        marker.directionY = lineDx;
+        marker.hasDirection = true;
+        markers.push_back(marker);
+      }
     }
-    viewer_common::DrawMagnetAnchorOverlay(markers, w, h);
+    viewer_common::DrawHangLinePointSelectionOverlay(markers, w, h);
   }
 
   const auto magnetReferences =

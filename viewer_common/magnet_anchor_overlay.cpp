@@ -5,10 +5,54 @@
 
 namespace viewer_common {
 
+// Draws green perpendicular markers for interactive hang-line point selection.
+void DrawHangLinePointSelectionOverlay(
+    const std::vector<MagnetAnchorScreenReference> &markers,
+    int framebufferWidth, int framebufferHeight) {
+  if (markers.empty())
+    return;
+  GLfloat previousLineWidth = 1.0f;
+  GLfloat previousColor[4] = {};
+  glGetFloatv(GL_LINE_WIDTH, &previousLineWidth);
+  glGetFloatv(GL_CURRENT_COLOR, previousColor);
+  const GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+  if (depthEnabled)
+    glDisable(GL_DEPTH_TEST);
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0.0f, framebufferWidth, 0.0f, framebufferHeight, -1.0f, 1.0f);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glColor3f(0.1f, 0.9f, 0.25f);
+  glLineWidth(4.0f);
+  glBegin(GL_LINES);
+  for (const auto &marker : markers) {
+    const float length = std::hypot(marker.directionX, marker.directionY);
+    if (!marker.hasDirection || length < 0.01f)
+      continue;
+    constexpr float kHalfLength = 11.0f;
+    const float dx = marker.directionX / length * kHalfLength;
+    const float dy = marker.directionY / length * kHalfLength;
+    glVertex2f(marker.x - dx, marker.y - dy);
+    glVertex2f(marker.x + dx, marker.y + dy);
+  }
+  glEnd();
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  if (depthEnabled)
+    glEnable(GL_DEPTH_TEST);
+  glLineWidth(previousLineWidth);
+  glColor4fv(previousColor);
+}
+
 // Draws continuous fixture attachment polylines in framebuffer coordinates.
 void DrawFixtureAttachmentPathOverlay(
-    const std::vector<FixtureAttachmentScreenPath> &paths,
-    int framebufferWidth, int framebufferHeight) {
+    const std::vector<FixtureAttachmentScreenPath> &paths, int framebufferWidth,
+    int framebufferHeight) {
   if (paths.empty())
     return;
   GLfloat previousLineWidth = 1.0f;
@@ -54,8 +98,8 @@ void DrawFixtureAttachmentPathOverlay(
     glEnable(GL_TEXTURE_2D);
   if (!scissorEnabled)
     glDisable(GL_SCISSOR_TEST);
-  glScissor(previousScissorBox[0], previousScissorBox[1],
-            previousScissorBox[2], previousScissorBox[3]);
+  glScissor(previousScissorBox[0], previousScissorBox[1], previousScissorBox[2],
+            previousScissorBox[3]);
   glLineWidth(previousLineWidth);
   glColor4fv(previousColor);
 }

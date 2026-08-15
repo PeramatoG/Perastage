@@ -3,7 +3,10 @@
 #include "consolepanel.h"
 #include "fixture_line_distribution.h"
 #include "guiconfigservices.h"
+#include "truss_attachment_paths.h"
 #include "viewer2dpanel.h"
+
+#include <iterator>
 
 namespace {
 
@@ -29,6 +32,20 @@ ToSceneMillimeters(const std::array<float, 3> &pointMeters) {
           pointMeters[2] * 1000.0f};
 }
 
+// Resolves the same fixture attachment paths used by Magnet guidance.
+std::vector<truss_attachment_paths::Path>
+ResolveAttachmentPaths(const MvrScene &scene) {
+  static truss_attachment_paths::Resolver resolver;
+  std::vector<truss_attachment_paths::Path> paths;
+  for (const auto &[uuid, truss] : scene.trusses) {
+    (void)uuid;
+    auto resolution = resolver.Resolve(scene, truss);
+    paths.insert(paths.end(), std::make_move_iterator(resolution.paths.begin()),
+                 std::make_move_iterator(resolution.paths.end()));
+  }
+  return paths;
+}
+
 } // namespace
 
 // Reports a non-blocking fixture-distribution message in the status and
@@ -43,8 +60,9 @@ void MainWindow::ReportFixtureDistributionMessage(const std::string &message) {
 void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
   const auto selection = services.Selection().GetSelectedFixtures();
+  const auto paths = ResolveAttachmentPaths(services.Project().GetScene());
   const auto resolved = fixture_line_distribution::ResolveSelectedLine(
-      services.Project().GetScene(), selection);
+      services.Project().GetScene(), selection, paths);
   if (!resolved.line) {
     ReportFixtureDistributionMessage(ResolveErrorMessage(resolved.error));
     return;
@@ -63,8 +81,9 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
     wxCommandEvent &WXUNUSED(event)) {
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
   const auto selection = services.Selection().GetSelectedFixtures();
+  const auto paths = ResolveAttachmentPaths(services.Project().GetScene());
   const auto resolved = fixture_line_distribution::ResolveSelectedLine(
-      services.Project().GetScene(), selection);
+      services.Project().GetScene(), selection, paths);
   if (!resolved.line) {
     ReportFixtureDistributionMessage(ResolveErrorMessage(resolved.error));
     return;

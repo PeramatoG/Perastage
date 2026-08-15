@@ -130,9 +130,10 @@ collinear truss sections.
 - Choose **Tools > Distribute fixtures on truss** (`Ctrl+Alt+D`) to space them
   uniformly over the complete truss, including equal margins at both ends.
 - Choose **Tools > Distribute fixtures between points** (`Ctrl+Shift+D`) to
-  select two points along the line in the 2D viewport. A red pointer follows
-  the truss line; click the first and second points to use them as the exact
-  distribution endpoints. Press `Esc` at any time to cancel.
+  select two points along the line in the 2D viewport. A green perpendicular
+  marker follows the active red hang line and remains fixed after the first
+  click while a second marker selects the end point. Press `Esc` at any time to
+  cancel.
 
 Validation and cancellation messages appear in the status bar and console
 without blocking work. Both operations support Undo and Redo.

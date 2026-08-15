@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <tuple>
 #include <vector>
@@ -738,17 +739,26 @@ BuildAnchorReferences(const MvrScene &scene, const SnapSource &source,
 }
 
 // Resolves the same continuous fixture paths used by fixture snapping.
-std::vector<AttachmentPathReference>
-BuildFixtureAttachmentPathReferences(
+std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
     const MvrScene &scene, truss_attachment_paths::Resolver *pathResolver) {
   auto &resolver = pathResolver ? *pathResolver : DefaultPathResolver();
-  std::vector<AttachmentPathReference> references;
+  std::vector<truss_attachment_paths::Path> paths;
   for (const auto &[uuid, truss] : scene.trusses) {
     (void)uuid;
-    for (const auto &path : resolver.Resolve(scene, truss).paths) {
-      if (path.worldPointsMm.size() >= 2)
-        references.push_back({path.stableId, path.worldPointsMm});
-    }
+    auto resolution = resolver.Resolve(scene, truss);
+    paths.insert(paths.end(), std::make_move_iterator(resolution.paths.begin()),
+                 std::make_move_iterator(resolution.paths.end()));
+  }
+  return BuildFixtureAttachmentPathReferences(paths);
+}
+
+// Converts resolved attachment paths into viewer guidance references.
+std::vector<AttachmentPathReference> BuildFixtureAttachmentPathReferences(
+    const std::vector<truss_attachment_paths::Path> &paths) {
+  std::vector<AttachmentPathReference> references;
+  for (const auto &path : paths) {
+    if (path.worldPointsMm.size() >= 2)
+      references.push_back({path.stableId, path.worldPointsMm});
   }
   return references;
 }

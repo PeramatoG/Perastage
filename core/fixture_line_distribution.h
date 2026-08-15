@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../models/mvrscene.h"
+#include "truss_attachment_paths.h"
 
 #include <array>
 #include <optional>
@@ -27,10 +27,11 @@ struct ResolveResult {
   ResolveError error = ResolveError::None;
 };
 
-// Resolves the single truss line containing every selected fixture.
-ResolveResult ResolveSelectedLine(const MvrScene &scene,
-                                  const std::vector<std::string> &fixtureUuids,
-                                  float toleranceMm = 75.0f);
+// Resolves the shared connected attachment path containing every fixture.
+ResolveResult ResolveSelectedLine(
+    const MvrScene &scene, const std::vector<std::string> &fixtureUuids,
+    const std::vector<truss_attachment_paths::Path> &attachmentPaths,
+    float toleranceMm = 75.0f);
 
 // Projects a world point onto a finite truss line.
 std::array<float, 3> ProjectOntoLine(const Line &line,
