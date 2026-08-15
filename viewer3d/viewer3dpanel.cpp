@@ -56,6 +56,7 @@
 #include "clipboard_placement_confirmation.h"
 #include "selection_movement_settings.h"
 #include "interaction/context_menu_model.h"
+#include "interaction/hang_line_screen_projection.h"
 #include "../viewport_interaction_scope.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
@@ -1296,12 +1297,44 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
 
     if (m_rectSelecting)
         DrawSelectionRectangle(w, h);
-    if (m_selectionDragArmed)
+    if (m_selectionDragArmed && !m_linePointSelectionActive)
         DrawSelectionDragGizmo(renderSize);
+    if (m_linePointSelectionActive) {
+        const auto lineStart =
+            ProjectWorldToFramebuffer(m_linePointSelectionStart);
+        const auto lineEnd = ProjectWorldToFramebuffer(m_linePointSelectionEnd);
+        if (lineStart && lineEnd) {
+            viewer_common::FixtureAttachmentScreenPath path;
+            path.points = {*lineStart, *lineEnd};
+            viewer_common::DrawFixtureAttachmentPathOverlay(
+                {path}, renderSize.width, renderSize.height);
+            std::vector<viewer_common::MagnetAnchorScreenReference> markers;
+            std::vector<const std::array<float, 3> *> markerPoints;
+            if (m_linePointSelectionFirst)
+                markerPoints.push_back(&*m_linePointSelectionFirst);
+            if (m_linePointSelectionPreview)
+                markerPoints.push_back(&*m_linePointSelectionPreview);
+            for (const auto *point : markerPoints) {
+                const auto screen = ProjectWorldToFramebuffer(*point);
+                if (!screen)
+                    continue;
+                viewer_common::MagnetAnchorScreenReference marker{
+                    (*screen)[0], (*screen)[1]};
+                const float lineDx = (*lineEnd)[0] - (*lineStart)[0];
+                const float lineDy = (*lineEnd)[1] - (*lineStart)[1];
+                marker.directionX = -lineDy;
+                marker.directionY = lineDx;
+                marker.hasDirection = true;
+                markers.push_back(marker);
+            }
+            viewer_common::DrawHangLinePointSelectionOverlay(
+                markers, renderSize.width, renderSize.height);
+        }
+    }
     const auto magnetReferences = ConfigManager::Get().GetValue(
         magnet_snap::kShowAnchorReferencesConfigKey);
     const auto magnetSource = BuildActiveMagnetSource();
-    if (magnetSource && m_selectionDragArmed &&
+    if (!m_linePointSelectionActive && magnetSource && m_selectionDragArmed &&
         (!magnetReferences || *magnetReferences != "0")) {
         auto toMeters = [](const std::array<float, 3> &pointMm) {
             return std::array<float, 3>{pointMm[0] / 1000.0f,
@@ -1845,6 +1878,25 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     m_hasLastMousePos = true;
+    if (m_linePointSelectionActive && event.LeftDown()) {
+        const auto point = ProjectMouseOntoLine(event.GetPosition());
+        if (!point)
+            return;
+        if (!m_linePointSelectionFirst) {
+            m_linePointSelectionFirst = point;
+            m_linePointSelectionPreview = point;
+        } else {
+            const auto first = m_linePointSelectionFirst;
+            auto callback = std::move(m_linePointSelectionCallback);
+            m_linePointSelectionActive = false;
+            m_linePointSelectionFirst.reset();
+            m_linePointSelectionPreview.reset();
+            if (callback)
+                callback(first, point);
+        }
+        Refresh();
+        return;
+    }
     if (m_continuousPlacementActive && event.LeftDown()) {
     m_mode = event.ShiftDown() ? InteractionMode::Pan : InteractionMode::Orbit;
         m_dragging = true;
@@ -2228,6 +2280,10 @@ static void ApplyTrussSelectionToUi(const std::vector<std::string>& selection,
 
 // Opens the right-click selection and render-style context menu.
 void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
+    if (m_linePointSelectionActive) {
+        CancelLinePointSelection();
+        return;
+    }
     if (m_continuousPlacementActive) {
         CancelContinuousPlacement();
         return;
@@ -2535,6 +2591,56 @@ void Viewer3DPanel::SetAxisConstrainedMovementEnabled(bool enabled) {
 // Sets whether axis-constrained viewport transforms use world or local axes.
 void Viewer3DPanel::SetTransformSpace(transform_space::TransformSpace space) {
     m_transformSpace = space;
+}
+
+// Starts a two-click endpoint selection constrained to a 3D hang line.
+void Viewer3DPanel::BeginLinePointSelection(
+    const std::array<float, 3> &lineStart,
+    const std::array<float, 3> &lineEnd,
+    LinePointSelectionCallback callback) {
+    m_linePointSelectionActive = true;
+    m_linePointSelectionStart = lineStart;
+    m_linePointSelectionEnd = lineEnd;
+    m_linePointSelectionFirst.reset();
+    m_linePointSelectionPreview.reset();
+    m_linePointSelectionCallback = std::move(callback);
+    SetFocus();
+    if (m_hasLastMousePos)
+        m_linePointSelectionPreview = ProjectMouseOntoLine(m_lastMousePos);
+    Refresh();
+}
+
+// Projects the pointer onto the visible screen projection of the 3D hang line.
+std::optional<std::array<float, 3>>
+Viewer3DPanel::ProjectMouseOntoLine(const wxPoint &mousePos) {
+    const RenderSize renderSize = ResolveRenderSize(this);
+    if (!renderSize.IsValid() ||
+        !TryBindGlContextForInteraction("line point selection"))
+        return std::nullopt;
+    ApplyCameraMatrices(renderSize);
+    const auto start = ProjectWorldToFramebuffer(m_linePointSelectionStart);
+    const auto end = ProjectWorldToFramebuffer(m_linePointSelectionEnd);
+    if (!start || !end)
+        return std::nullopt;
+    const wxPoint pointer = ToFramebufferPoint(this, mousePos);
+    const float pointerX = static_cast<float>(pointer.x);
+    const float pointerY = static_cast<float>(renderSize.height - pointer.y);
+    return viewer3d::ProjectPointerOntoScreenLine(
+        m_linePointSelectionStart, m_linePointSelectionEnd, *start, *end,
+        {pointerX, pointerY});
+}
+
+// Cancels the active 3D hang-line endpoint selection.
+void Viewer3DPanel::CancelLinePointSelection() {
+    if (!m_linePointSelectionActive)
+        return;
+    auto callback = std::move(m_linePointSelectionCallback);
+    m_linePointSelectionActive = false;
+    m_linePointSelectionFirst.reset();
+    m_linePointSelectionPreview.reset();
+    Refresh();
+    if (callback)
+        callback(std::nullopt, std::nullopt);
 }
 
 // Resets interaction state after wxWidgets reports lost mouse capture.
@@ -3626,6 +3732,12 @@ void Viewer3DPanel::PresentContinuousPlacementFrame() {
 void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     wxPoint pos = event.GetPosition();
+    if (m_linePointSelectionActive) {
+        m_lastMousePos = pos;
+        m_linePointSelectionPreview = ProjectMouseOntoLine(pos);
+        Refresh();
+        return;
+    }
     if (m_continuousPlacementActive) {
         // Use live cursor coordinates to bypass motion events delayed by rendering.
         const wxPoint livePos = ScreenToClient(wxGetMousePosition());
@@ -3994,6 +4106,10 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
 
     switch (event.GetKeyCode()) {
         case WXK_ESCAPE:
+            if (m_linePointSelectionActive) {
+                CancelLinePointSelection();
+                return;
+            }
             if (m_continuousPlacementActive) {
                 CancelContinuousPlacement();
                 return;

@@ -5,6 +5,7 @@
 #include "guiconfigservices.h"
 #include "truss_attachment_paths.h"
 #include "viewer2dpanel.h"
+#include "viewer3dpanel.h"
 
 #include <iterator>
 
@@ -44,6 +45,15 @@ ResolveAttachmentPaths(const MvrScene &scene) {
                  std::make_move_iterator(resolution.paths.end()));
   }
   return paths;
+}
+
+// Reports whether a focused child belongs to the requested viewport.
+bool ContainsFocusedWindow(const wxWindow *viewport, const wxWindow *focus) {
+  for (const wxWindow *current = focus; current; current = current->GetParent()) {
+    if (current == viewport)
+      return true;
+  }
+  return false;
 }
 
 } // namespace
@@ -88,9 +98,55 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
     ReportFixtureDistributionMessage(ResolveErrorMessage(resolved.error));
     return;
   }
+  const auto line = *resolved.line;
+  ReportFixtureDistributionMessage(
+      "Choose two points on the truss line, or press Esc to cancel.");
+  auto completeSelection =
+      [this, selection](const auto &start, const auto &end) {
+    if (!start || !end) {
+      if (consolePanel)
+        consolePanel->AppendMessage("Fixture distribution cancelled.");
+      SetStatusText("Ready", 0);
+      return;
+    }
+    IGuiConfigServices &active = GetDefaultGuiConfigServices();
+    active.History().PushUndoState(
+        "distribute fixtures between truss points");
+    if (!fixture_line_distribution::Apply(
+            active.Project().GetScene(), selection,
+            ToSceneMillimeters(*start), ToSceneMillimeters(*end), false)) {
+      active.History().Undo();
+      ReportFixtureDistributionMessage(
+          "Fixture distribution could not be completed.");
+      return;
+    }
+    RefreshAfterToolSceneUpdate();
+    ReportFixtureDistributionMessage(
+        "Fixtures distributed between the selected truss points.");
+  };
+
+  const wxWindow *focus = wxWindow::FindFocus();
+  const bool focusIn2D = ContainsFocusedWindow(viewport2DPanel, focus);
+  const bool focusIn3D = ContainsFocusedWindow(viewportPanel, focus);
+  bool viewer2DShown = false;
+  bool viewer3DShown = false;
+  if (auiManager) {
+    const auto &pane2D = auiManager->GetPane("2DViewport");
+    const auto &pane3D = auiManager->GetPane("3DViewport");
+    viewer2DShown = pane2D.IsOk() && pane2D.IsShown();
+    viewer3DShown = pane3D.IsOk() && pane3D.IsShown();
+  }
+  const bool use2D = focusIn2D || (!focusIn3D && viewer2DShown && !viewer3DShown);
+  const bool use3D = focusIn3D || (!use2D && viewer3DShown);
+  if (use3D && viewportPanel) {
+    viewportPanel->BeginLinePointSelection(ToViewportMeters(line.start),
+                                           ToViewportMeters(line.end),
+                                           completeSelection);
+    return;
+  }
   Ensure2DViewportAvailable();
   if (!viewport2DPanel) {
-    ReportFixtureDistributionMessage("The 2D viewport is not available.");
+    ReportFixtureDistributionMessage("No scene viewport is available.");
     return;
   }
   if (auiManager) {
@@ -101,31 +157,7 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
       UpdateViewMenuChecks();
     }
   }
-  const auto line = *resolved.line;
-  ReportFixtureDistributionMessage(
-      "Choose two points on the truss line, or press Esc to cancel.");
-  viewport2DPanel->BeginLinePointSelection(
-      ToViewportMeters(line.start), ToViewportMeters(line.end),
-      [this, selection](const auto &start, const auto &end) {
-        if (!start || !end) {
-          if (consolePanel)
-            consolePanel->AppendMessage("Fixture distribution cancelled.");
-          SetStatusText("Ready", 0);
-          return;
-        }
-        IGuiConfigServices &active = GetDefaultGuiConfigServices();
-        active.History().PushUndoState(
-            "distribute fixtures between truss points");
-        if (!fixture_line_distribution::Apply(
-                active.Project().GetScene(), selection,
-                ToSceneMillimeters(*start), ToSceneMillimeters(*end), false)) {
-          active.History().Undo();
-          ReportFixtureDistributionMessage(
-              "Fixture distribution could not be completed.");
-          return;
-        }
-        RefreshAfterToolSceneUpdate();
-        ReportFixtureDistributionMessage(
-            "Fixtures distributed between the selected truss points.");
-      });
+  viewport2DPanel->BeginLinePointSelection(ToViewportMeters(line.start),
+                                           ToViewportMeters(line.end),
+                                           completeSelection);
 }

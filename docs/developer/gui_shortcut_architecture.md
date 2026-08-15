@@ -167,13 +167,13 @@ fixture selection:
 
 - `Ctrl+Alt+D`: distribute fixtures in selection order over the full truss
   line, using equal spacing at both ends.
-- `Ctrl+Shift+D`: enter the 2D viewport's two-point selection mode and
-  distribute fixtures from the first selected point through the second.
+- `Ctrl+Shift+D`: enter the active 2D or 3D viewport's two-point selection mode
+  and distribute fixtures from the first selected point through the second.
 
 These combinations are wx menu accelerators rather than entries in the
 no-modifier shortcut registry. They do not alter existing shortcut priority.
-During two-point selection, the 2D viewport owns `Esc` and uses it only to
-cancel that transient interaction.
+During two-point selection, the active scene viewport owns `Esc` and uses it
+only to cancel that transient interaction.
 
 ## Local shortcuts in "Create scene from text" autocomplete
 

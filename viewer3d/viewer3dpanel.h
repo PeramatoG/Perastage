@@ -107,6 +107,13 @@ public:
     }
     void SetAxisConstrainedMovementEnabled(bool enabled);
     void SetTransformSpace(transform_space::TransformSpace space);
+    using LinePointSelectionCallback = std::function<void(
+        const std::optional<std::array<float, 3>> &,
+        const std::optional<std::array<float, 3>> &)>;
+    void BeginLinePointSelection(
+        const std::array<float, 3> &lineStart,
+        const std::array<float, 3> &lineEnd,
+        LinePointSelectionCallback callback);
     // Returns whether 3D selection movement is constrained to axes.
     bool IsAxisConstrainedMovementEnabled() const {
         return m_axisConstrainedMovementEnabled;
@@ -166,6 +173,12 @@ private:
     viewer3d::SelectionDragAxis m_selectionDragAxis =
         viewer3d::SelectionDragAxis::None;
     bool m_continuousPlacementActive = false;
+    bool m_linePointSelectionActive = false;
+    std::array<float, 3> m_linePointSelectionStart{};
+    std::array<float, 3> m_linePointSelectionEnd{};
+    std::optional<std::array<float, 3>> m_linePointSelectionFirst;
+    std::optional<std::array<float, 3>> m_linePointSelectionPreview;
+    LinePointSelectionCallback m_linePointSelectionCallback;
     ContinuousPlacementType m_continuousPlacementType =
         ContinuousPlacementType::None;
     continuous_placement::ViewRevisionState m_placementViewRevision;
@@ -245,6 +258,9 @@ private:
     void UpdateSelectionDragStatusPosition();
     void FinalizeSelectionDrag();
     bool AlignContinuousElementToPointer(const wxPoint& mousePos);
+    std::optional<std::array<float, 3>> ProjectMouseOntoLine(
+        const wxPoint &mousePos);
+    void CancelLinePointSelection();
     void PresentContinuousPlacementFrame();
     void ConfirmContinuousPlacement();
     void CancelContinuousPlacement();

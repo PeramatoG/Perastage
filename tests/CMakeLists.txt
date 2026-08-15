@@ -413,6 +413,13 @@ add_executable(truss_screen_snap_test truss_screen_snap_test.cpp
 target_include_directories(truss_screen_snap_test PRIVATE ../core)
 add_test(NAME TrussScreenSnapMath COMMAND truss_screen_snap_test)
 
+add_executable(hang_line_screen_projection_test
+    hang_line_screen_projection_test.cpp
+    ../viewer3d/interaction/hang_line_screen_projection.cpp)
+target_include_directories(hang_line_screen_projection_test PRIVATE
+                           ../viewer3d)
+add_test(NAME HangLineScreenProjection COMMAND hang_line_screen_projection_test)
+
 add_executable(rdp_simplifier_test
                rdp_simplifier_test.cpp
                ../core/geometry/RdpSimplifier.cpp)
