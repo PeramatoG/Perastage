@@ -79,9 +79,23 @@ static GroupObject MakeGroup(const std::string &uuid, MvrNodeType childType,
 static void VerifyFixtureUuidCollisionUsesStableReplacement() {
   MvrScene target;
   target.fixtures["fixture-a"] = MakeFixture("fixture-a", "position-a");
+  target.fixtures["fixture-a"].fixtureIdText = "existing";
+  target.fixtures["fixture-a"].visualColorHex = "#112233";
+  target.opaqueUserDataBlocks.push_back(
+      {"VendorA", "1", "<Data provider=\"VendorA\" ver=\"1\"><A/></Data>"});
 
   MvrScene imported;
   imported.fixtures["fixture-a"] = MakeFixture("fixture-a", "");
+  imported.fixtures["fixture-a"].fixtureId = 27;
+  imported.fixtures["fixture-a"].fixtureIdNumeric = 9;
+  imported.fixtures["fixture-a"].fixtureIdText = "standalone metadata";
+  imported.fixtures["fixture-a"].unitNumber = 1042;
+  imported.fixtures["fixture-a"].visualColorHex = "#AABBCC";
+  imported.fixtures["fixture-a"].visualColorState =
+      FixtureProjectColorState::Present;
+  imported.opaqueUserDataBlocks = {
+      {"VendorA", "1", "<Data provider=\"VendorA\" ver=\"1\"><A/></Data>"},
+      {"VendorB", "2", "<Data provider=\"VendorB\" ver=\"2\"><B/></Data>"}};
 
   const mvr::MvrMergeAnalysis firstAnalysis =
       mvr::AnalyzeImportedSceneMerge(target, imported);
@@ -103,6 +117,17 @@ static void VerifyFixtureUuidCollisionUsesStableReplacement() {
          firstAnalysis.uuidMap.at("fixture-a"));
   assert(target.fixtures.count("fixture-a") == 1);
   assert(target.fixtures.count(firstAnalysis.uuidMap.at("fixture-a")) == 1);
+  assert(target.fixtures.at("fixture-a").fixtureIdText == "existing");
+  assert(target.fixtures.at("fixture-a").visualColorHex == "#112233");
+  const Fixture &merged =
+      target.fixtures.at(firstAnalysis.uuidMap.at("fixture-a"));
+  assert(merged.fixtureId == 27);
+  assert(merged.fixtureIdNumeric == 9);
+  assert(merged.fixtureIdText == "standalone metadata");
+  assert(merged.unitNumber == 1042);
+  assert(merged.visualColorHex == "#AABBCC");
+  assert(merged.visualColorState == FixtureProjectColorState::Present);
+  assert(target.opaqueUserDataBlocks.size() == 2);
 }
 
 // Verifies group child references follow UUID remaps.

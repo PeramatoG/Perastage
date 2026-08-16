@@ -283,7 +283,8 @@ int main() {
       const Fixture &loaded = imported.fixtures.at(uuid);
       assert(loaded.category == "Spot");
       assert(loaded.categorySource == "Manual");
-      assert(loaded.visualColorHex.empty());
+      assert(loaded.visualColorHex == "#336699");
+      assert(loaded.visualColorState == FixtureProjectColorState::Present);
       assert(loaded.automaticVisualColorHex == "#336699");
       assert(ResolveFixturePresentationColor(loaded).colorHex == "#336699");
       assert(!loaded.gdtfSpec.empty());

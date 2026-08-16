@@ -341,7 +341,7 @@ static void TestMetadataRecoveryMatrix(const fs::path &tempDir) {
   }
 }
 
-// Verifies project-only fixture metadata scope, precedence, and diagnostics.
+// Verifies canonical fixture metadata scope, precedence, and diagnostics.
 static void TestProjectFixtureMetadataRecovery(const fs::path &tempDir) {
   const fs::path archive = tempDir / "project-fixture-metadata.mvr";
   WriteProjectFixtureMetadataArchive(archive);
@@ -353,14 +353,17 @@ static void TestProjectFixtureMetadataRecovery(const fs::path &tempDir) {
     options.promptConflicts = false;
     options.applyDictionary = false;
     options.sourceKind = sourceKind;
-    MvrImportResult ignored;
-    assert(importer.ImportFromFile(archive.string(), ignored,
+    MvrImportResult imported;
+    assert(importer.ImportFromFile(archive.string(), imported,
                                    MvrImportMode::ParseOnly, options));
-    assert(ignored.scene.fixtures
+    assert(imported.scene.fixtures
                .at("20000000-0000-4000-8000-000000000001")
+               .visualColorHex == "#112233");
+    assert(imported.scene.fixtures
+               .at("20000000-0000-4000-8000-000000000002")
                .visualColorHex.empty());
-    assert(!HasDiagnostic(ignored,
-                          "duplicate_project_fixture_metadata_uuid"));
+    assert(HasDiagnostic(imported,
+                         "duplicate_project_fixture_metadata_uuid"));
   }
 
   MvrImportOptions projectOptions;
@@ -386,7 +389,7 @@ static void TestProjectFixtureMetadataRecovery(const fs::path &tempDir) {
   }
 }
 
-// Verifies project-only legacy MVR recovery and explicit-empty preservation.
+// Verifies project-restore legacy color recovery and explicit-empty preservation.
 static void TestLegacyFixtureColorRecovery(const fs::path &tempDir) {
   MvrImporter importer;
   MvrImportOptions options;

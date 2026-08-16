@@ -17,6 +17,7 @@
  */
 #include "mvrscene.h"
 
+// Resets all serialized scene state and runtime resource ownership.
 void MvrScene::Clear() {
     fixtures.clear();
     trusses.clear();
@@ -33,6 +34,7 @@ void MvrScene::Clear() {
     providerVersion.clear();
     basePath.clear();
     runtimeResourceLeases.clear();
+    opaqueUserDataBlocks.clear();
     versionMajor = 1;
     versionMinor = 6;
 }

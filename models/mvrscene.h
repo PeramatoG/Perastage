@@ -34,6 +34,15 @@ struct SymdefGeometry {
     Matrix transform;
 };
 
+// Stores one validated foreign root UserData/Data subtree for opaque passthrough.
+struct MvrOpaqueUserDataBlock {
+    std::string provider;
+    std::string version;
+    std::string xml;
+
+    bool operator==(const MvrOpaqueUserDataBlock& other) const = default;
+};
+
 // Represents the full scene structure from an MVR file
 class MvrScene {
 public:
@@ -43,6 +52,7 @@ public:
     // resource paths (e.g. 3D models) are resolved against this path.
     std::string basePath;
     std::vector<std::shared_ptr<void>> runtimeResourceLeases;
+    std::vector<MvrOpaqueUserDataBlock> opaqueUserDataBlocks;
 
     std::unordered_map<std::string, Fixture> fixtures;
     std::unordered_map<std::string, Truss> trusses;

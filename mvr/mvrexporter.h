@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+class MvrScene;
+
 // Convert a 1-based universe and channel into the MVR absolute DMX address.
 int ComputeAbsoluteDmx(int universe1Based, int address1Based);
 
@@ -38,9 +40,20 @@ public:
     bool ExportToBuffer(std::vector<uint8_t>& outBytes);
     // Serialize the scene with explicit options into an in-memory byte buffer.
     bool ExportToBuffer(std::vector<uint8_t>& outBytes, const MvrExportOptions& options);
+    // Serialize an isolated canonical scene snapshot without modifying live project state.
+    bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
+                                         std::vector<uint8_t>& outBytes);
     // Return non-fatal export warnings collected during the most recent export.
     const std::vector<std::string>& GetExportWarnings() const;
 
 private:
+    // Serialize a private scene copy with an explicit canonical or compatibility policy.
+    bool SerializeSnapshotToFile(const MvrScene& scene,
+                                 const std::string& filePath,
+                                 const MvrExportOptions& options);
+    // Serialize a private scene copy to memory without consulting GUI state.
+    bool SerializeSnapshotToBuffer(const MvrScene& scene,
+                                   std::vector<uint8_t>& outBytes,
+                                   const MvrExportOptions& options);
     std::vector<std::string> m_exportWarnings;
 };

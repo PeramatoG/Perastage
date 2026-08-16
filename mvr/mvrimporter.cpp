@@ -1627,6 +1627,49 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   if (version)
     scene.providerVersion = version;
 
+  int rootUserDataCount = 0;
+  for (tinyxml2::XMLElement *userData = root->FirstChildElement("UserData");
+       userData; userData = userData->NextSiblingElement("UserData"))
+    ++rootUserDataCount;
+  if (rootUserDataCount > 1) {
+    importResult.diagnostics.push_back(
+        {"multiple_root_userdata",
+         "Ignored additional root UserData elements beyond the first."});
+  }
+
+  // Preserves validated foreign provider blocks without interpreting their schema.
+  if (tinyxml2::XMLElement *userData = root->FirstChildElement("UserData")) {
+    for (tinyxml2::XMLElement *data = userData->FirstChildElement(); data;
+         data = data->NextSiblingElement()) {
+      if (std::string(data->Name()) != "Data") {
+        importResult.diagnostics.push_back(
+            {"invalid_root_userdata_child",
+             "Ignored a root UserData child that is not a Data element."});
+        continue;
+      }
+      const std::string dataProvider =
+          Trim(data->Attribute("provider") ? data->Attribute("provider") : "");
+      if (dataProvider.empty()) {
+        importResult.diagnostics.push_back(
+            {"missing_userdata_provider",
+             "Ignored a root UserData Data block without a provider."});
+        continue;
+      }
+      if (ToLowerCopy(dataProvider) == "perastage")
+        continue;
+      tinyxml2::XMLPrinter printer(nullptr, true);
+      data->Accept(&printer);
+      MvrOpaqueUserDataBlock block{
+          dataProvider,
+          Trim(data->Attribute("ver") ? data->Attribute("ver") : ""),
+          printer.CStr()};
+      if (std::find(scene.opaqueUserDataBlocks.begin(),
+                    scene.opaqueUserDataBlocks.end(), block) ==
+          scene.opaqueUserDataBlocks.end())
+        scene.opaqueUserDataBlocks.push_back(std::move(block));
+    }
+  }
+
   tinyxml2::XMLElement *sceneNode = root->FirstChildElement("Scene");
   if (!sceneNode) {
     LogMessage("No Scene node found in GeneralSceneDescription");
@@ -1864,10 +1907,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       projectFixtureIdentifiersByUuid;
   std::unordered_set<std::string> projectFixtureColorMetadataUuids;
   std::unordered_set<std::string> consumedProjectFixtureColorUuids;
-  // Collects project-only fixture colors only during explicit project restore.
+  // Collects canonical Perastage fixture fidelity metadata for every import mode.
   auto parseProjectFixtureMetadata = [&](tinyxml2::XMLElement *userDataNode) {
-    if (!userDataNode ||
-        options.sourceKind != MvrImportSourceKind::ProjectRestore)
+    if (!userDataNode)
       return;
     for (tinyxml2::XMLElement *data = userDataNode->FirstChildElement("Data");
          data; data = data->NextSiblingElement("Data")) {
@@ -2684,16 +2726,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         fixtureIdOf(node, fixture.fixtureIdText, fixture.fixtureIdNumeric);
         fixture.fixtureId = fixture.fixtureIdNumeric;
         intOf(node, "UnitNumber", fixture.unitNumber);
-        if (options.sourceKind == MvrImportSourceKind::ProjectRestore) {
-          const auto projectIdentifiersIt =
-              projectFixtureIdentifiersByUuid.find(fixture.uuid);
-          if (projectIdentifiersIt != projectFixtureIdentifiersByUuid.end()) {
-            fixture.fixtureId = projectIdentifiersIt->second.fixtureId;
-            fixture.fixtureIdNumeric =
-                projectIdentifiersIt->second.fixtureIdNumeric;
-            fixture.fixtureIdText = projectIdentifiersIt->second.fixtureIdText;
-            fixture.unitNumber = projectIdentifiersIt->second.unitNumber;
-          }
+        const auto projectIdentifiersIt =
+            projectFixtureIdentifiersByUuid.find(fixture.uuid);
+        if (projectIdentifiersIt != projectFixtureIdentifiersByUuid.end()) {
+          fixture.fixtureId = projectIdentifiersIt->second.fixtureId;
+          fixture.fixtureIdNumeric =
+              projectIdentifiersIt->second.fixtureIdNumeric;
+          fixture.fixtureIdText = projectIdentifiersIt->second.fixtureIdText;
+          fixture.unitNumber = projectIdentifiersIt->second.unitNumber;
         }
         intOf(node, "CustomId", fixture.customId);
         intOf(node, "CustomIdType", fixture.customIdType);

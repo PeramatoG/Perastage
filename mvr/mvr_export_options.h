@@ -26,5 +26,7 @@ enum class MvrTrussGeometryExportMode {
 // Carries caller-selected MVR export behavior without depending on GUI classes.
 struct MvrExportOptions {
   MvrTrussGeometryExportMode trussGeometryExportMode = MvrTrussGeometryExportMode::Standard;
-  bool includeProjectFixtureMetadata = false;
 };
+
+// Returns the single canonical policy used by project and interchange serialization.
+inline MvrExportOptions CanonicalMvrExportOptions() { return {}; }
