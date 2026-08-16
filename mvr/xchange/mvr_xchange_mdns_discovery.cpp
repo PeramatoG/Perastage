@@ -129,7 +129,18 @@ bool MvrXchangeMdnsDiscovery::Start(const MvrXchangeSettings &settings, const st
   localInstanceName_ = localInstanceName;
   localStationUuid_ = CanonicalizeUuid(localStationUuid);
   logCallback_ = std::move(logCallback);
-  if (!OpenSocket()) return false;
+#ifdef _WIN32
+  WSADATA data;
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return false;
+  networkInitialized_ = true;
+#endif
+  if (!OpenSocket()) {
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
+    return false;
+  }
   running_ = true;
   queryRequested_ = true;
   worker_ = std::thread(&MvrXchangeMdnsDiscovery::Run, this);
@@ -144,6 +155,10 @@ void MvrXchangeMdnsDiscovery::Stop() {
   const auto socketFd = socket_;
   socket_ = -1;
   if (socketFd >= 0) CloseSocket(socketFd);
+#ifdef _WIN32
+  if (networkInitialized_) WSACleanup();
+  networkInitialized_ = false;
+#endif
   std::lock_guard lock(mutex_);
   cache_.Clear();
 }

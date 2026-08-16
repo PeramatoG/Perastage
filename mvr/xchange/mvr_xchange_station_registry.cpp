@@ -7,7 +7,7 @@
 void MvrXchangeStationRegistry::SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName, int localPort) {
   localStationUuid_ = CanonicalizeUuid(stationUuid);
   localServiceInstanceName_ = serviceInstanceName;
-  localPort_ = localPort;
+  (void)localPort;
 }
 
 // Inserts or updates a station discovered through mDNS.
@@ -125,18 +125,6 @@ bool MvrXchangeStationRegistry::ApplyCommit(const MvrXchangeCommit &commit) {
   else *existing = commit;
   station->inventorySpecified = true;
   return true;
-}
-
-// Expires discovery and handshake state after the advertised TTL elapses.
-void MvrXchangeStationRegistry::ExpireDiscovered(std::uint64_t nowMonotonicMs) {
-  for (auto &station : stations_) {
-    if (station.ttlSeconds == 0 || station.lastSeenMonotonicMs == 0) continue;
-    if (nowMonotonicMs - station.lastSeenMonotonicMs > static_cast<std::uint64_t>(station.ttlSeconds) * 1000) {
-      station.discovered = false;
-      station.incomingJoined = false;
-      station.outgoingJoined = false;
-    }
-  }
 }
 
 // Returns a copy of all known remote stations.

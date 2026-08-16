@@ -37,6 +37,7 @@ private:
   std::atomic<bool> queryRequested_{false};
   std::intptr_t socket_ = -1;
   std::thread worker_;
+  bool networkInitialized_ = false;
   mutable std::mutex mutex_;
   mvr::xchange::MdnsRecordCache cache_;
 };

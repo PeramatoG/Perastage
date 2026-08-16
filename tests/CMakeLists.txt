@@ -2441,6 +2441,7 @@ if(WIN32)
     target_link_libraries(mvr_xchange_protocol_test PRIVATE iphlpapi ws2_32)
 endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
+set_tests_properties(MvrXchangeProtocol PROPERTIES TIMEOUT 30)
 
 add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
                ../core/layer_service.cpp

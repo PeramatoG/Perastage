@@ -3,6 +3,7 @@
 #include "mvr_xchange_settings.h"
 #include "mvr_xchange_remote_station.h"
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -27,10 +28,10 @@ public:
 
 private:
   void Run();
-  void HandleClient(int clientFd);
-  bool SendJson(int fd, const std::string &json);
-  bool SendPacket(int fd, const std::vector<uint8_t> &packet);
-  void RemoveClient(int fd);
+  void HandleClient(std::intptr_t clientFd);
+  bool SendJson(std::intptr_t fd, const std::string &json);
+  bool SendPacket(std::intptr_t fd, const std::vector<uint8_t> &packet);
+  void RemoveClient(std::intptr_t fd);
   void ReapCompletedTransactions();
 
   struct TransactionThread {
@@ -46,11 +47,12 @@ private:
   LeaveCallback leaveCallback_;
   CommitCallback commitCallback_;
   std::atomic<bool> running_{false};
-  int listenFd_ = -1;
+  std::intptr_t listenFd_ = -1;
   int port_ = 0;
+  bool networkInitialized_ = false;
   std::thread thread_;
   mutable std::mutex clientsMutex_;
-  std::vector<int> clientFds_;
+  std::vector<std::intptr_t> clientFds_;
   std::mutex clientThreadsMutex_;
   std::vector<TransactionThread> clientThreads_;
 };

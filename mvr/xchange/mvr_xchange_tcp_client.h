@@ -3,6 +3,7 @@
 #include "mvr_xchange_remote_station.h"
 #include "mvr_xchange_settings.h"
 #include <functional>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,8 +20,8 @@ public:
   std::optional<MvrXchangeCommit> RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &fromStationUuid, LogCallback logCallback);
 
 private:
-  bool Connect(const MvrXchangeRemoteStation &station, int &fd, LogCallback logCallback);
-  bool SendJson(int fd, const std::string &json);
-  bool ReceiveJson(int fd, std::string &json);
+  bool Connect(const MvrXchangeRemoteStation &station, std::intptr_t &fd, LogCallback logCallback);
+  bool SendJson(std::intptr_t fd, const std::string &json);
+  bool ReceiveJson(std::intptr_t fd, std::string &json);
   bool networkReady_ = true;
 };

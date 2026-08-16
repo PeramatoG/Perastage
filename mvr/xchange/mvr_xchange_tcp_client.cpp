@@ -18,7 +18,7 @@
 
 namespace {
 // Closes a native socket descriptor on the current platform.
-void CloseSocketFd(int fd) {
+void CloseSocketFd(std::intptr_t fd) {
 #ifdef _WIN32
   closesocket(fd);
 #else
@@ -27,7 +27,7 @@ void CloseSocketFd(int fd) {
 }
 
 // Sets a socket into blocking or non-blocking mode.
-bool SetSocketBlocking(int fd, bool blocking) {
+bool SetSocketBlocking(std::intptr_t fd, bool blocking) {
 #ifdef _WIN32
   u_long mode = blocking ? 0 : 1;
   return ioctlsocket(fd, FIONBIO, &mode) == 0;
@@ -40,7 +40,7 @@ bool SetSocketBlocking(int fd, bool blocking) {
 }
 
 // Waits for a non-blocking connection to complete or time out.
-bool WaitForConnect(int fd) {
+bool WaitForConnect(std::intptr_t fd) {
   fd_set writeSet;
   FD_ZERO(&writeSet);
   FD_SET(fd, &writeSet);
@@ -59,7 +59,7 @@ bool WaitForConnect(int fd) {
 }
 
 // Applies short send and receive timeouts to an outgoing client socket.
-void ApplySocketTimeouts(int fd) {
+void ApplySocketTimeouts(std::intptr_t fd) {
 #ifdef _WIN32
   DWORD timeout = 2000;
   setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
@@ -100,7 +100,7 @@ MvrXchangeTcpClient::~MvrXchangeTcpClient() {
 
 // Sends an outgoing MVR_JOIN and parses the remote station's MVR_JOIN_RET response.
 bool MvrXchangeTcpClient::SendJoin(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback) {
-  int fd = -1;
+  std::intptr_t fd = -1;
   if (!Connect(station, fd, logCallback)) return false;
   if (logCallback) logCallback("MVR-xchange sent outgoing MVR_JOIN to " + StationDisplayName(station) + ", local commits=" + std::to_string(localCommits.size()) + ".");
   const bool sent = SendJson(fd, mvr::xchange::BuildJoin(settings.stationUuid, settings.stationName, localCommits));
@@ -127,7 +127,7 @@ bool MvrXchangeTcpClient::SendJoin(const MvrXchangeRemoteStation &station, const
 
 // Sends one outgoing MVR_COMMIT announcement to a joined remote station.
 bool MvrXchangeTcpClient::SendCommit(const MvrXchangeRemoteStation &station, const MvrXchangeCommit &commit, LogCallback logCallback) {
-  int fd = -1;
+  std::intptr_t fd = -1;
   if (!Connect(station, fd, logCallback)) return false;
   const bool sent = SendJson(fd, mvr::xchange::BuildCommit(commit));
   std::string response;
@@ -143,7 +143,7 @@ bool MvrXchangeTcpClient::SendCommit(const MvrXchangeRemoteStation &station, con
 
 // Sends one outgoing MVR_LEAVE transaction and validates its acknowledgement.
 bool MvrXchangeTcpClient::SendLeave(const MvrXchangeRemoteStation &station, const std::string &stationUuid, LogCallback logCallback) {
-  int fd = -1;
+  std::intptr_t fd = -1;
   if (!Connect(station, fd, logCallback)) return false;
   const bool sent = SendJson(fd, mvr::xchange::BuildLeave(stationUuid));
   std::string response;
@@ -156,7 +156,7 @@ bool MvrXchangeTcpClient::SendLeave(const MvrXchangeRemoteStation &station, cons
 
 // Requests one advertised MVR file from a remote MVR-xchange station.
 std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &fromStationUuid, LogCallback logCallback) {
-  int fd = -1;
+  std::intptr_t fd = -1;
   if (!Connect(station, fd, logCallback)) return std::nullopt;
   const bool sent = SendJson(fd, mvr::xchange::BuildRequest(fileUuid, fromStationUuid));
   std::optional<std::uint64_t> advertisedSize;
@@ -213,9 +213,9 @@ std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXcha
 }
 
 // Opens a short-lived TCP connection to a discovered MVR-xchange station.
-bool MvrXchangeTcpClient::Connect(const MvrXchangeRemoteStation &station, int &fd, LogCallback logCallback) {
+bool MvrXchangeTcpClient::Connect(const MvrXchangeRemoteStation &station, std::intptr_t &fd, LogCallback logCallback) {
   if (!networkReady_) return false;
-  fd = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
+  fd = static_cast<std::intptr_t>(socket(AF_INET, SOCK_STREAM, 0));
   if (fd < 0) return false;
   sockaddr_in addr{};
   addr.sin_family = AF_INET;
@@ -236,7 +236,7 @@ bool MvrXchangeTcpClient::Connect(const MvrXchangeRemoteStation &station, int &f
 }
 
 // Sends one JSON message with official MVR-xchange TCP packet framing.
-bool MvrXchangeTcpClient::SendJson(int fd, const std::string &json) {
+bool MvrXchangeTcpClient::SendJson(std::intptr_t fd, const std::string &json) {
   const std::vector<uint8_t> payload(json.begin(), json.end());
   const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
   std::size_t sent = 0;
@@ -249,7 +249,7 @@ bool MvrXchangeTcpClient::SendJson(int fd, const std::string &json) {
 }
 
 // Receives one JSON packet from a remote MVR-xchange station.
-bool MvrXchangeTcpClient::ReceiveJson(int fd, std::string &json) {
+bool MvrXchangeTcpClient::ReceiveJson(std::intptr_t fd, std::string &json) {
   std::vector<uint8_t> buffer;
   mvr::xchange::PacketReassembler reassembler;
   char chunk[4096];

@@ -16,8 +16,13 @@
 
 namespace {
 constexpr std::size_t kMaxConcurrentTransactions = 16;
+#ifdef _WIN32
+using SocketLength = int;
+#else
+using SocketLength = socklen_t;
+#endif
 // Closes a native socket descriptor on the current platform.
-void CloseSocketFd(int fd) {
+void CloseSocketFd(std::intptr_t fd) {
 #ifdef _WIN32
   closesocket(fd);
 #else
@@ -26,7 +31,7 @@ void CloseSocketFd(int fd) {
 }
 
 // Shuts down a native socket to unblock a waiting client thread.
-void ShutdownSocketFd(int fd) {
+void ShutdownSocketFd(std::intptr_t fd) {
 #ifdef _WIN32
   shutdown(fd, SD_BOTH);
 #else
@@ -43,7 +48,7 @@ std::string FormatEndpoint(const sockaddr_in &addr) {
 }
 
 // Applies bounded send and receive timeouts to one short-lived transaction.
-void ApplySocketTimeouts(int fd) {
+void ApplySocketTimeouts(std::intptr_t fd) {
 #ifdef _WIN32
   DWORD timeout = 5000;
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
@@ -69,10 +74,17 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
   if (running_) return true;
 #ifdef _WIN32
   WSADATA data;
-  WSAStartup(MAKEWORD(2, 2), &data);
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return false;
+  networkInitialized_ = true;
 #endif
-  listenFd_ = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
-  if (listenFd_ < 0) return false;
+  listenFd_ = static_cast<std::intptr_t>(socket(AF_INET, SOCK_STREAM, 0));
+  if (listenFd_ < 0) {
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
+    return false;
+  }
   int opt = 1;
   setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&opt), sizeof(opt));
   sockaddr_in addr{};
@@ -82,9 +94,13 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
   if (bind(listenFd_, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) != 0 || listen(listenFd_, 8) != 0) {
     CloseSocketFd(listenFd_);
     listenFd_ = -1;
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
     return false;
   }
-  socklen_t len = sizeof(addr);
+  SocketLength len = sizeof(addr);
   getsockname(listenFd_, reinterpret_cast<sockaddr *>(&addr), &len);
   port_ = ntohs(addr.sin_port);
   settings_ = settings;
@@ -103,12 +119,9 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
 void MvrXchangeTcpServer::Stop() {
   if (!running_ && listenFd_ < 0) return;
   running_ = false;
-  if (listenFd_ >= 0) {
-    ShutdownSocketFd(listenFd_);
-  }
   {
     std::lock_guard lock(clientsMutex_);
-    for (int fd : clientFds_) ShutdownSocketFd(fd);
+    for (const auto fd : clientFds_) ShutdownSocketFd(fd);
     clientFds_.clear();
   }
   if (thread_.joinable()) thread_.join();
@@ -124,7 +137,8 @@ void MvrXchangeTcpServer::Stop() {
     clientThreads_.clear();
   }
 #ifdef _WIN32
-  WSACleanup();
+  if (networkInitialized_) WSACleanup();
+  networkInitialized_ = false;
 #endif
 }
 
@@ -137,9 +151,17 @@ int MvrXchangeTcpServer::Port() const { return running_ ? port_ : 0; }
 // Runs the blocking accept loop on a background thread.
 void MvrXchangeTcpServer::Run() {
   while (running_) {
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(listenFd_, &readSet);
+    timeval timeout{};
+    timeout.tv_usec = 200000;
+    const int ready = select(static_cast<int>(listenFd_ + 1), &readSet, nullptr, nullptr, &timeout);
+    if (!running_) break;
+    if (ready <= 0 || !FD_ISSET(listenFd_, &readSet)) continue;
     sockaddr_in client{};
-    socklen_t len = sizeof(client);
-    int fd = static_cast<int>(accept(listenFd_, reinterpret_cast<sockaddr *>(&client), &len));
+    SocketLength len = sizeof(client);
+    std::intptr_t fd = static_cast<std::intptr_t>(accept(listenFd_, reinterpret_cast<sockaddr *>(&client), &len));
     if (fd < 0) continue;
     {
       std::lock_guard lock(clientsMutex_);
@@ -160,9 +182,9 @@ void MvrXchangeTcpServer::Run() {
 }
 
 // Handles one MVR-xchange TCP client using official packet framing.
-void MvrXchangeTcpServer::HandleClient(int clientFd) {
+void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
   sockaddr_in peer{};
-  socklen_t peerLen = sizeof(peer);
+  SocketLength peerLen = sizeof(peer);
   const std::string endpoint = getpeername(clientFd, reinterpret_cast<sockaddr *>(&peer), &peerLen) == 0 ? FormatEndpoint(peer) : std::string("unknown endpoint");
   std::string disconnectReason = "stop requested";
   std::vector<uint8_t> buffer;
@@ -238,14 +260,14 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
 }
 
 // Sends one JSON message with official MVR-xchange TCP packet framing.
-bool MvrXchangeTcpServer::SendJson(int fd, const std::string &json) {
+bool MvrXchangeTcpServer::SendJson(std::intptr_t fd, const std::string &json) {
   const std::vector<uint8_t> payload(json.begin(), json.end());
   const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
   return SendPacket(fd, packet);
 }
 
 // Sends all bytes from a preframed MVR-xchange TCP packet.
-bool MvrXchangeTcpServer::SendPacket(int fd, const std::vector<uint8_t> &packet) {
+bool MvrXchangeTcpServer::SendPacket(std::intptr_t fd, const std::vector<uint8_t> &packet) {
   std::size_t sent = 0;
   while (sent < packet.size()) {
     const int n = static_cast<int>(send(fd, reinterpret_cast<const char *>(packet.data() + sent), static_cast<int>(packet.size() - sent), 0));
@@ -256,7 +278,7 @@ bool MvrXchangeTcpServer::SendPacket(int fd, const std::vector<uint8_t> &packet)
 }
 
 // Removes a completed transaction from the active shutdown set.
-void MvrXchangeTcpServer::RemoveClient(int fd) {
+void MvrXchangeTcpServer::RemoveClient(std::intptr_t fd) {
   std::lock_guard lock(clientsMutex_);
   clientFds_.erase(std::remove(clientFds_.begin(), clientFds_.end(), fd), clientFds_.end());
 }

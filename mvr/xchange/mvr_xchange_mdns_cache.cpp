@@ -36,6 +36,7 @@ void MdnsRecordCache::Apply(DnsRecord record) {
   auto existing = std::find_if(records_.begin(), records_.end(), [&](const auto &cached) {
     return RecordIdentity(cached.record) == identity;
   });
+  if (record.ttlSeconds == 0 && existing == records_.end()) return;
   const std::uint64_t ttlMs = record.ttlSeconds == 0 ? 1000 : static_cast<std::uint64_t>(record.ttlSeconds) * 1000;
   const std::uint64_t expiry = record.lastSeenMonotonicMs > std::numeric_limits<std::uint64_t>::max() - ttlMs
                                    ? std::numeric_limits<std::uint64_t>::max()

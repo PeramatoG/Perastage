@@ -14,7 +14,6 @@ public:
   bool MarkOutgoingJoined(const std::string &stationUuid, const std::string &ipAddress, int port);
   bool MarkLeft(const std::string &stationUuid);
   bool ApplyCommit(const MvrXchangeCommit &commit);
-  void ExpireDiscovered(std::uint64_t nowMonotonicMs);
   std::vector<MvrXchangeRemoteStation> List() const;
   std::vector<MvrXchangeRemoteStation> JoinedStations() const;
   bool IsOwnStation(const MvrXchangeRemoteStation &station) const;
@@ -23,6 +22,5 @@ private:
   std::vector<MvrXchangeRemoteStation>::iterator FindStation(const MvrXchangeRemoteStation &station);
   std::string localStationUuid_;
   std::string localServiceInstanceName_;
-  int localPort_ = 0;
   std::vector<MvrXchangeRemoteStation> stations_;
 };

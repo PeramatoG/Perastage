@@ -10,6 +10,7 @@
 #include "xchange/mvr_xchange_tcp_server.h"
 #include "json.hpp"
 #include <cassert>
+#include <chrono>
 #include <string>
 
 // Verifies bounded commit history and latest commit lookup behavior.
@@ -326,7 +327,23 @@ static void TestTcpTransactions() {
   assert(requested && requested->payload == available.payload);
   assert(client.SendLeave(endpoint, remoteUuid, {}));
   assert(leftStation == remoteUuid);
+  const auto stopStarted = std::chrono::steady_clock::now();
   server.Stop();
+  assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
+}
+
+// Verifies an idle listener stops promptly without relying on accept interruption.
+static void TestTcpServerIdleStop() {
+  MvrXchangeSettings settings;
+  settings.stationName = "Idle server";
+  settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  for (int iteration = 0; iteration < 10; ++iteration) {
+    MvrXchangeTcpServer server;
+    assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+    const auto stopStarted = std::chrono::steady_clock::now();
+    server.Stop();
+    assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
+  }
 }
 
 // Runs focused non-GUI MVR-xchange protocol coverage.
@@ -343,5 +360,6 @@ int main() {
   TestStationRegistry();
   TestNetworkInterfaces();
   TestTcpTransactions();
+  TestTcpServerIdleStop();
   return 0;
 }
