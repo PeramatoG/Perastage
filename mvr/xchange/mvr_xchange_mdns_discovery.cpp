@@ -52,7 +52,7 @@ std::string Ipv4ToString(const sockaddr_in &addr) {
 
 // Returns a mutable station entry for an mDNS service instance.
 MvrXchangeRemoteStation &StationForInstance(DiscoveryContext &context, const std::string &instanceName) {
-  auto &station = context.byInstance[instanceName];
+  auto &station = context.byInstance[mvr::xchange::NormalizeDnsName(instanceName)];
   station.serviceInstanceName = instanceName;
   station.discovered = true;
   return station;
@@ -71,7 +71,7 @@ static int DiscoveryCallback(int, const sockaddr *, size_t, mdns_entry_type_t en
   if (entry != MDNS_ENTRYTYPE_ANSWER && entry != MDNS_ENTRYTYPE_ADDITIONAL) return 0;
   auto *context = static_cast<DiscoveryContext *>(userData);
   const std::string recordName = ExtractRecordName(data, size, nameOffset);
-  if (rtype == MDNS_RECORDTYPE_PTR && (recordName == context->groupServiceName || recordName == mvr::xchange::kMvrXchangeServiceType)) {
+  if (rtype == MDNS_RECORDTYPE_PTR && (mvr::xchange::DnsNamesEqual(recordName, context->groupServiceName) || mvr::xchange::DnsNamesEqual(recordName, mvr::xchange::kMvrXchangeServiceType))) {
     char ptrBuffer[512]{};
     const std::string instanceName = ToString(mdns_record_parse_ptr(data, size, recordOffset, recordLength, ptrBuffer, sizeof(ptrBuffer)));
     if (!instanceName.empty()) StationForInstance(*context, instanceName);
@@ -88,7 +88,7 @@ static int DiscoveryCallback(int, const sockaddr *, size_t, mdns_entry_type_t en
     for (size_t i = 0; i < count; ++i) ApplyTxtRecord(station, txtRecords[i]);
   } else if (rtype == MDNS_RECORDTYPE_A) {
     sockaddr_in address{};
-    if (mdns_record_parse_a(data, size, recordOffset, recordLength, &address)) context->hostAddresses[recordName] = Ipv4ToString(address);
+    if (mdns_record_parse_a(data, size, recordOffset, recordLength, &address)) context->hostAddresses[mvr::xchange::NormalizeDnsName(recordName)] = Ipv4ToString(address);
   }
   return 0;
 }
@@ -167,7 +167,7 @@ std::vector<MvrXchangeRemoteStation> MvrXchangeMdnsDiscovery::DiscoverStations(c
   std::vector<MvrXchangeRemoteStation> stations;
   const std::string canonicalLocalUuid = CanonicalizeUuid(localStationUuid);
   for (auto &[instanceName, station] : context.byInstance) {
-    if (station.ipAddress.empty() && !station.hostName.empty()) station.ipAddress = context.hostAddresses[station.hostName];
+    if (station.ipAddress.empty() && !station.hostName.empty()) station.ipAddress = context.hostAddresses[mvr::xchange::NormalizeDnsName(station.hostName)];
     station.stationUuid = CanonicalizeUuid(station.stationUuid);
     if (station.stationName.empty()) station.stationName = station.serviceInstanceName.substr(0, station.serviceInstanceName.find('.'));
     if (station.ipAddress.empty() || station.port <= 0) {

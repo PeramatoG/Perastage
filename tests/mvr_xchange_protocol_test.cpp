@@ -72,7 +72,7 @@ static void TestMessages() {
   assert(outgoingJoinJson["verMinor"] == 6);
   assert(outgoingJoinJson["StationUUID"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
   assert(outgoingJoinJson["Commits"].size() == 1);
-  assert(outgoingJoinJson["Files"].size() == 1);
+  assert(!outgoingJoinJson.contains("Files"));
 
   auto parsedJoin = mvr::xchange::ParseMessage(outgoingJoinJson.dump());
   assert(parsedJoin);
@@ -82,7 +82,8 @@ static void TestMessages() {
   assert(parsedJoin->verMajor == 1);
   assert(parsedJoin->verMinor == 6);
   assert(parsedJoin->commits.size() == 1);
-  assert(parsedJoin->commits[0].FileSize() == 3);
+  assert(parsedJoin->commits[0].payload.empty());
+  assert(parsedJoin->commits[0].declaredFileSize == 3);
   assert(mvr::xchange::ValidateMessage(*parsedJoin).empty());
 
   const auto joinJson = nlohmann::json::parse(mvr::xchange::BuildJoinRet("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "Perastage", {commit}));
@@ -91,7 +92,7 @@ static void TestMessages() {
   assert(joinJson["Provider"] == "Perastage");
   assert(joinJson["StationUUID"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
   assert(joinJson["Commits"].size() == 1);
-  assert(joinJson["Files"].size() == 1);
+  assert(!joinJson.contains("Files"));
   auto parsedJoinRet = mvr::xchange::ParseMessage(joinJson.dump());
   assert(parsedJoinRet);
   assert(parsedJoinRet->type == "MVR_JOIN_RET");
@@ -103,6 +104,33 @@ static void TestMessages() {
   assert(errorJson["Type"] == "MVR_REQUEST_RET");
   assert(errorJson["OK"] == false);
   assert(errorJson["Message"] == "The MVR is not available on this client");
+}
+
+// Verifies canonical inventory presence and isolated legacy Files compatibility.
+static void TestInventoryCompatibility() {
+  const std::string entry = R"({"Type":"MVR_COMMIT","verMajor":1,"verMinor":6,"FileSize":999999999999,"FileUUID":"11111111-1111-1111-1111-111111111111","StationUUID":"22222222-2222-2222-2222-222222222222","ForStationsUUID":[],"FileName":"scene.mvr","Comment":"remote"})";
+  auto absent = mvr::xchange::ParseMessage(R"({"Type":"MVR_JOIN","Provider":"Peer","StationName":"Peer","StationUUID":"22222222-2222-2222-2222-222222222222"})");
+  assert(absent && absent->inventoryPresence == mvr::xchange::InventoryPresence::Absent);
+  auto empty = mvr::xchange::ParseMessage(R"({"Type":"MVR_JOIN","Provider":"Peer","StationName":"Peer","StationUUID":"22222222-2222-2222-2222-222222222222","Commits":[]})");
+  assert(empty && empty->inventoryPresence == mvr::xchange::InventoryPresence::PresentEmpty);
+  auto files = mvr::xchange::ParseMessage(std::string(R"({"Type":"MVR_JOIN","Provider":"Peer","StationName":"Peer","StationUUID":"22222222-2222-2222-2222-222222222222","Files":[)") + entry + "]}");
+  assert(files && files->commits.size() == 1 && files->commits[0].payload.empty());
+  auto both = mvr::xchange::ParseMessage(std::string(R"({"Type":"MVR_JOIN","Provider":"Peer","StationName":"Peer","StationUUID":"22222222-2222-2222-2222-222222222222","Commits":[)") + entry + R"(],"Files":[)" + entry + "]}");
+  assert(both && both->commits.size() == 1);
+  assert(both->commits[0].fileName == "scene.mvr" && both->commits[0].comment == "remote");
+}
+
+// Verifies framing rejects invalid, oversized, and multipart packages safely.
+static void TestPacketRejection() {
+  std::vector<uint8_t> payload{'x'};
+  auto multipart = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
+  multipart[15] = 2;
+  mvr::xchange::Packet packet;
+  std::string error;
+  assert(mvr::xchange::DecodePacket(multipart, packet, error) == mvr::xchange::DecodeStatus::Invalid);
+  auto invalidType = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
+  invalidType[19] = 9;
+  assert(mvr::xchange::DecodePacket(invalidType, packet, error) == mvr::xchange::DecodeStatus::Invalid);
 }
 
 // Verifies malformed official messages are parsed safely and rejected with clear errors.
@@ -132,6 +160,8 @@ static void TestMalformedMessages() {
 static void TestDnsNames() {
   assert(mvr::xchange::BuildMvrXchangeGroupServiceName("Default") == "Default._mvrxchange._tcp.local.");
   assert(mvr::xchange::BuildMvrXchangeServiceInstanceName("Perastage", "Default") == "Perastage.Default._mvrxchange._tcp.local.");
+  assert(mvr::xchange::NormalizeDnsName("Peer.DEFAULT.Local.") == "peer.default.local");
+  assert(mvr::xchange::DnsNamesEqual("Peer.Default.local", "peer.default.LOCAL."));
 }
 
 // Verifies MVR-xchange UUID helpers use canonical lowercase UUIDs.
@@ -175,6 +205,10 @@ static void TestStationRegistry() {
   assert(registry.MarkOutgoingJoined("bbbbbbbb-cccc-dddd-eeee-ffffffffffff", "127.0.0.1", 50000));
   assert(registry.List()[0].outgoingJoined);
   assert(registry.JoinedStations().size() == 1);
+  assert(registry.MarkLeft("bbbbbbbb-cccc-dddd-eeee-ffffffffffff"));
+  assert(registry.JoinedStations().empty());
+  assert(registry.UpsertIncomingJoin(incoming));
+  assert(registry.JoinedStations().size() == 1);
 }
 
 // Verifies that loopback is always available for same-machine MVR-xchange tests.
@@ -193,6 +227,8 @@ int main() {
   TestPackets();
   TestMessages();
   TestMalformedMessages();
+  TestInventoryCompatibility();
+  TestPacketRejection();
   TestDnsNames();
   TestCanonicalUuidUse();
   TestStationRegistry();

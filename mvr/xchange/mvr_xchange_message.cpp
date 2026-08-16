@@ -1,6 +1,7 @@
 #include "mvr_xchange_message.h"
 #include "../../core/uuidutils.h"
 #include "json.hpp"
+#include <set>
 
 namespace mvr::xchange {
 namespace {
@@ -14,10 +15,10 @@ nlohmann::json CommitToJson(const MvrXchangeCommit &commit) {
   json["Type"] = "MVR_COMMIT";
   json["verMajor"] = kMvrVersionMajor;
   json["verMinor"] = kMvrVersionMinor;
-  json["FileSize"] = commit.FileSize();
+  json["FileSize"] = commit.declaredFileSizeSpecified ? commit.declaredFileSize : commit.FileSize();
   json["FileUUID"] = CanonicalizeUuid(commit.fileUuid);
   json["StationUUID"] = CanonicalizeUuid(commit.stationUuid);
-  json["ForStationsUUID"] = nlohmann::json::array();
+  json["ForStationsUUID"] = commit.forStationsUuid;
   if (!commit.comment.empty()) json["Comment"] = commit.comment;
   if (!commit.fileName.empty()) json["FileName"] = commit.fileName;
   return json;
@@ -36,16 +37,30 @@ MvrXchangeCommit CommitFromJson(const nlohmann::json &json) {
   commit.stationUuid = CanonicalizeUuid(JsonStringValue(json, "StationUUID"));
   commit.fileName = JsonStringValue(json, "FileName");
   commit.comment = JsonStringValue(json, "Comment");
+  const auto major = json.find("verMajor");
+  const auto minor = json.find("verMinor");
+  if (major != json.end() && major->is_number_integer()) commit.verMajor = major->get<int>();
+  if (minor != json.end() && minor->is_number_integer()) commit.verMinor = minor->get<int>();
   const auto fileSize = json.find("FileSize");
-  if (fileSize != json.end() && fileSize->is_number_unsigned()) commit.payload.resize(fileSize->get<std::size_t>());
+  if (fileSize != json.end() && fileSize->is_number_unsigned()) {
+    commit.declaredFileSize = fileSize->get<std::uint64_t>();
+    commit.declaredFileSizeSpecified = true;
+  }
+  if (const auto stations = json.find("ForStationsUUID"); stations != json.end() && stations->is_array()) {
+    for (const auto &value : *stations) if (value.is_string()) commit.forStationsUuid.push_back(CanonicalizeUuid(value.get<std::string>()));
+  }
   return commit;
 }
 
 // Appends parsed commit metadata from a JSON array.
 void AppendCommitsFromJsonArray(const nlohmann::json &array, std::vector<MvrXchangeCommit> &commits) {
   if (!array.is_array()) return;
+  std::set<std::string> identities;
   for (const auto &entry : array) {
-    if (entry.is_object()) commits.push_back(CommitFromJson(entry));
+    if (!entry.is_object()) continue;
+    auto commit = CommitFromJson(entry);
+    const std::string identity = commit.fileUuid + "\n" + commit.stationUuid;
+    if (identities.insert(identity).second) commits.push_back(std::move(commit));
   }
 }
 
@@ -87,10 +102,17 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
   msg.verMajor = JsonIntValue(json, "verMajor");
   msg.verMinor = JsonIntValue(json, "verMinor");
   msg.ok = JsonBoolValue(json, "OK");
-  if (const auto commitsIt = json.find("Commits"); commitsIt != json.end()) AppendCommitsFromJsonArray(*commitsIt, msg.commits);
+  if (const auto commitsIt = json.find("Commits"); commitsIt != json.end()) {
+    if (!commitsIt->is_array()) return std::nullopt;
+    AppendCommitsFromJsonArray(*commitsIt, msg.commits);
+    msg.inventoryPresence = msg.commits.empty() ? InventoryPresence::PresentEmpty : InventoryPresence::PresentNonEmpty;
+  }
   if (const auto filesIt = json.find("Files"); filesIt != json.end() && filesIt->is_array()) {
     msg.filesCount = filesIt->size();
-    if (msg.commits.empty()) AppendCommitsFromJsonArray(*filesIt, msg.commits);
+    if (msg.inventoryPresence == InventoryPresence::Absent) {
+      AppendCommitsFromJsonArray(*filesIt, msg.commits);
+      msg.inventoryPresence = msg.commits.empty() ? InventoryPresence::PresentEmpty : InventoryPresence::PresentNonEmpty;
+    }
   }
   return msg;
 }
@@ -139,7 +161,6 @@ std::string BuildJoinMessage(const char *type, const std::string &stationUuid, c
   json["StationUUID"] = CanonicalizeUuid(stationUuid);
   json["Commits"] = nlohmann::json::array();
   for (const auto &commit : commits) json["Commits"].push_back(CommitToJson(commit));
-  json["Files"] = json["Commits"];
   return json.dump();
 }
 
@@ -153,9 +174,14 @@ std::string BuildJoinRet(const std::string &stationUuid, const std::string &stat
   return BuildJoinMessage("MVR_JOIN_RET", stationUuid, stationName, commits);
 }
 
+// Builds a typed MVR_JOIN_RET error response.
+std::string BuildJoinRet(bool ok, const std::string &message) {
+  return nlohmann::json{{"Type", "MVR_JOIN_RET"}, {"OK", ok}, {"Message", message}}.dump();
+}
+
 // Builds the official MVR_LEAVE_RET acknowledgement.
-std::string BuildLeaveRet() {
-  return nlohmann::json{{"Type", "MVR_LEAVE_RET"}, {"OK", true}, {"Message", ""}}.dump();
+std::string BuildLeaveRet(bool ok, const std::string &message) {
+  return nlohmann::json{{"Type", "MVR_LEAVE_RET"}, {"OK", ok}, {"Message", message}}.dump();
 }
 
 // Builds an official MVR_COMMIT announcement for a local published revision.

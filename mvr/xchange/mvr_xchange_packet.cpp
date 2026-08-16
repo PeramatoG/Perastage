@@ -54,24 +54,43 @@ std::vector<uint8_t> EncodePacket(PacketType type, const std::vector<uint8_t> &p
 
 // Decodes the first complete MVR-xchange TCP packet from a byte buffer.
 std::optional<Packet> TryDecodePacket(std::vector<uint8_t> &buffer) {
-  if (buffer.size() < kPacketHeaderSize) return std::nullopt;
+  Packet packet;
+  std::string error;
+  if (DecodePacket(buffer, packet, error) != DecodeStatus::Complete) return std::nullopt;
+  return packet;
+}
+
+// Validates and decodes one bounded, single-package TCP Mode packet.
+DecodeStatus DecodePacket(std::vector<uint8_t> &buffer, Packet &packet, std::string &error) {
+  if (buffer.size() < kPacketHeaderSize) return DecodeStatus::NeedMoreData;
   if (ReadU32(buffer, 0) != kHeader || ReadU32(buffer, 4) != kVersion) {
-    buffer.clear();
-    return std::nullopt;
+    error = "Invalid package header or version.";
+    return DecodeStatus::Invalid;
   }
-  const auto type = static_cast<PacketType>(ReadU32(buffer, 16));
+  const uint32_t packageNumber = ReadU32(buffer, 8);
+  const uint32_t packageCount = ReadU32(buffer, 12);
+  const uint32_t rawType = ReadU32(buffer, 16);
+  if (packageNumber != 0 || packageCount != 1) {
+    error = "Multipart packages are not supported; the transaction was rejected before reassembly.";
+    return DecodeStatus::Invalid;
+  }
+  if (rawType > static_cast<uint32_t>(PacketType::MvrFile)) {
+    error = "Invalid package payload type.";
+    return DecodeStatus::Invalid;
+  }
+  const auto type = static_cast<PacketType>(rawType);
   const uint64_t payloadLength = ReadU64(buffer, 20);
-  if (payloadLength > 1024ull * 1024ull * 1024ull) {
-    buffer.clear();
-    return std::nullopt;
+  const uint64_t limit = type == PacketType::Json ? kMaxJsonPayloadBytes : kMaxMvrPayloadBytes;
+  if (payloadLength > limit || payloadLength > static_cast<uint64_t>(SIZE_MAX - kPacketHeaderSize)) {
+    error = "Package payload exceeds the configured limit.";
+    return DecodeStatus::Invalid;
   }
   const std::size_t total = kPacketHeaderSize + static_cast<std::size_t>(payloadLength);
-  if (buffer.size() < total) return std::nullopt;
-  Packet packet;
+  if (buffer.size() < total) return DecodeStatus::NeedMoreData;
   packet.type = type;
   packet.payload.assign(buffer.begin() + kPacketHeaderSize, buffer.begin() + total);
   buffer.erase(buffer.begin(), buffer.begin() + total);
-  return packet;
+  return DecodeStatus::Complete;
 }
 
 }

@@ -56,7 +56,7 @@ The current MVR-xchange specification says TCP Mode uses mDNS discovery, the `_m
 3. Perastage actively queries both the selected group service and the base `_mvrxchange._tcp.local.` service for PTR/SRV/TXT/A records, then stores discovered stations with reachable TCP endpoints.
 4. Perastage answers incoming `MVR_JOIN` with `MVR_JOIN_RET` including local station identity and current commit metadata.
 5. Perastage sends outgoing `MVR_JOIN` and parses `MVR_JOIN_RET` for resolved remote stations.
-6. Publishing a revision keeps accepted TCP Mode peer connections open while the service is running, broadcasts the new `MVR_COMMIT` to currently connected peers, runs an immediate discovery pass, then opens one TCP connection per reachable joined station, sends an updated `MVR_JOIN`, waits for `MVR_JOIN_RET`, sends `MVR_COMMIT` on the same connection, and waits for `MVR_COMMIT_RET`. Keeping long-lived incoming joins available and sending the join refresh and commit announcement on one outgoing connection follows the TCP Mode expectation that a connection starts with `MVR_JOIN` and the specification note that repeat joins can refresh the latest MVR file list. As a grandMA3 compatibility fallback, Perastage also tries grandMA3's known TCP Mode port `42424` for an incoming grandMA3 join when mDNS has not provided a usable reverse endpoint.
+6. Each TCP Mode operation is a short-lived transaction: open a connection, send exactly one `MVR_JOIN`, `MVR_COMMIT`, or `MVR_REQUEST`, receive the matching response or binary payload, and close. An incoming JOIN receives one JOIN_RET and never causes a reciprocal JOIN. A publication sends one COMMIT per eligible joined station; there is no socket broadcast or JOIN refresh path. The narrow grandMA3 port `42424` fallback remains isolated to endpoint resolution and is used only when an identified grandMA3 station omitted its SRV port.
 
 The dialog shows remote station counts and a simple station list for discovered, incoming joined, and outgoing joined stations. These counts help distinguish a raw TCP connection from a completed MVR-xchange handshake. Use **Discover Now** to run an immediate discovery pass instead of waiting for the periodic discovery loop. If a non-grandMA3 remote station only opens an incoming join connection and does not advertise a reachable TCP endpoint, Perastage cannot push a later `MVR_COMMIT` to that station through standard TCP Mode; the latest commit list is still returned on the station's next `MVR_JOIN`.
 
@@ -66,8 +66,8 @@ The dialog shows remote station counts and a simple station list for discovered,
 Perastage implements the official TCP Mode exchange path conservatively:
 
 - Supported official flows: mDNS/DNS-SD service advertisement, same-group discovery, `MVR_JOIN`, `MVR_JOIN_RET`, `MVR_LEAVE`, `MVR_COMMIT`, `MVR_COMMIT_RET`, `MVR_REQUEST`, and `MVR_REQUEST_RET` error responses.
-- Supported packet payloads: JSON UTF-8 packets for protocol messages and MVR file packets for successful file requests. Multi-packet payload reassembly is not currently implemented; Perastage emits single-packet JSON and MVR file payloads.
-- Message parsing rejects malformed JSON, missing required identity fields, invalid UUIDs in required UUID fields, and unsupported message types without crashing the service. Unsupported official session migration messages are not acted on by the TCP publisher.
+- Supported packet payloads: JSON UTF-8 packets for protocol messages and MVR file packets for successful file requests. The implementation emits one package and explicitly rejects multipart input because the current transport has no transaction identifier with which to safely associate interleaved reassembly. It never interprets a fragment as a complete message.
+- Message parsing rejects malformed JSON, missing required identity fields, invalid UUIDs in required UUID fields, and unsupported message types without crashing the service. JOIN and JOIN_RET emit only the canonical `Commits` member. The parser accepts legacy `Files` only when `Commits` is absent, distinguishes absent inventory from a present empty inventory, deduplicates metadata by FileUUID and StationUUID, and never allocates payload storage from a remote FileSize declaration. Unsupported official session migration messages are not acted on by the TCP publisher.
 - Published revisions are kept in a bounded in-memory history. Each revision records the canonical `FileUUID`, local `StationUUID`, user-friendly file name, comment, creation timestamp, file size, and MVR payload.
 - Perastage only serves already-published in-memory MVR payloads. It does not export a new MVR from a network worker, and it refuses empty payloads. Manual publishing validates that the exported archive contains `GeneralSceneDescription.xml` before the revision is announced.
 - Unknown `FileUUID` requests receive a standard `MVR_REQUEST_RET` error. Empty `FileUUID` requests use the specification-defined latest-file behavior and return an error when no revision is available.
@@ -79,6 +79,16 @@ The following items are intentionally outside this implementation:
 - Proprietary Peraviz Live Link, incremental synchronization, private messages, automatic Peraviz launch, or automatic scene-change publishing.
 
 If a specification detail is ambiguous in the local copy of the MVR documentation, Perastage keeps the behavior conservative and documents the assumption here instead of adding private behavior to the official MVR-xchange layer.
+
+### Resource limits and lifecycle
+
+Control JSON is limited to 1 MiB, MVR payloads to 512 MiB, and buffered transaction input to one header plus the applicable payload limit. The decoder validates the magic, protocol version, zero-based package number, package count, payload type, length conversion, and overflow before copying payload bytes. Socket operations use bounded timeouts and the server accepts at most 16 concurrent transactions. A received MVR payload must match advertised `FileSize` when inventory metadata is available.
+
+Station membership is independent of socket lifetime. Incoming and outgoing handshake facts are retained in the station registry; explicit leave state suppresses publication until a later JOIN, and inventory replacement happens only when the JOIN inventory member was present. DNS identities compare ASCII case-insensitively without requiring a trailing root dot.
+
+### Discovery limitation
+
+The advertiser remains standards-oriented and the disabled build remains explicit. Active discovery currently performs repeated bounded DNS-SD query passes rather than owning one continuously bound UDP 5353 multicast cache. Consequently unsolicited announcements, TTL=0 goodbyes, AAAA records, and record-level expiry between passes are not yet fully implemented. The safe next step is a dedicated discovery-cache component owning the multicast socket and PTR/SRV/TXT/A/AAAA TTL records; protocol transport must not absorb that responsibility.
 
 ## UUID policy
 

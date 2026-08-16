@@ -14,6 +14,11 @@ struct MvrXchangeCommit {
   std::string comment;
   std::string timestampUtc;
   std::vector<uint8_t> payload;
+  std::uint64_t declaredFileSize = 0;
+  bool declaredFileSizeSpecified = false;
+  int verMajor = 0;
+  int verMinor = 0;
+  std::vector<std::string> forStationsUuid;
 
   std::size_t FileSize() const;
 };

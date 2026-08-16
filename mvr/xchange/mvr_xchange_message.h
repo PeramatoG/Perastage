@@ -6,6 +6,8 @@
 
 namespace mvr::xchange {
 
+enum class InventoryPresence { Absent, PresentEmpty, PresentNonEmpty };
+
 struct Message {
   std::string type;
   std::string fileUuid;
@@ -21,6 +23,7 @@ struct Message {
   bool fileUuidSpecified = false;
   bool stationUuidSpecified = false;
   std::size_t filesCount = 0;
+  InventoryPresence inventoryPresence = InventoryPresence::Absent;
   std::vector<MvrXchangeCommit> commits;
 };
 
@@ -28,7 +31,8 @@ std::optional<Message> ParseMessage(const std::string &json);
 std::string ValidateMessage(const Message &message);
 std::string BuildJoin(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
 std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
-std::string BuildLeaveRet();
+std::string BuildJoinRet(bool ok, const std::string &message);
+std::string BuildLeaveRet(bool ok = true, const std::string &message = {});
 std::string BuildCommit(const MvrXchangeCommit &commit);
 std::string BuildCommitRet(bool ok, const std::string &message = {});
 std::string BuildRequest(const std::string &fileUuid, const std::string &fromStationUuid = {});
