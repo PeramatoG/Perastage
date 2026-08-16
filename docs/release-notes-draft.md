@@ -77,7 +77,7 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
-- Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Both interactive commands now prepare derived scene data consistently; portable Perastage scene-fidelity metadata follows fixtures safely through standalone imports and merges; valid third-party root UserData is preserved without duplication; malformed provider blocks are diagnosed and excluded; and read-only snapshots no longer repair or dirty the live scene. The direct truss geometry option remains available only as an explicit compatibility representation.
+- Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Both interactive commands now prepare derived scene data consistently; portable Perastage scene-fidelity metadata follows fixtures safely through standalone imports and merges; valid third-party root UserData is preserved without duplication; malformed provider blocks are diagnosed and excluded; and read-only snapshots no longer repair or dirty the live scene. File > Export MVR now honors the explicit, MVR 1.6-compliant Direct Geometry3D truss compatibility preference without affecting project persistence or canonical snapshots.
 
 - Improved Windows CI reliability by adding a pinned direct ripgrep fallback
   when the hosted runner does not provide the tool and Chocolatey installation
