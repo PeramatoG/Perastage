@@ -35,6 +35,13 @@ normal serialization therefore cannot mark the live project dirty or leak
 repairs into it. Resource leases are shared by the copy, avoiding duplication
 of resource payloads while keeping their lifetime safe.
 
+Interactive project save and standalone export both call `SyncSceneData()` as
+an explicit command-boundary preparation step before invoking the canonical
+serializer. This commits pending derived fixture type colors to the domain
+scene without reintroducing table-wide GUI resynchronization. Direct domain
+serialization and Inspector snapshots remain independent of GUI state and
+operate on the scene supplied by their caller.
+
 The `.pstg` container continues to own application and workspace state outside
 `scene.mvr`: window perspectives, splitter positions, selections, preferences,
 toolbar state, caches, revision/dirty bookkeeping, and machine-specific paths.

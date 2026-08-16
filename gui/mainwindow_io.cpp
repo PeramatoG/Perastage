@@ -568,6 +568,8 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   diagnostics::DiagnosticLogger::Info(
       "MVR export selected: " +
       diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
+  // Apply the same explicit GUI-to-domain preparation used by project save.
+  SyncSceneData();
   wxBusyInfo *busy = new wxBusyInfo("Saving project...", this);
   const bool exported = exporter.ExportToFile(path.ToStdString());
   delete busy;

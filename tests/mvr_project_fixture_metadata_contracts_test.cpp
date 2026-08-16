@@ -129,6 +129,17 @@ static ArchiveSnapshot ReadProjectMvr(const fs::path &path) {
   return snapshot;
 }
 
+// Compares referenced payload contents while ignoring ZIP container metadata.
+static void AssertCanonicalResourcePayloadEqual(
+    const std::string &entryName, const std::string &firstBytes,
+    const std::string &secondBytes) {
+  if (fs::path(entryName).extension() == ".gdtf") {
+    assert(ReadArchiveEntries(firstBytes) == ReadArchiveEntries(secondBytes));
+    return;
+  }
+  assert(firstBytes == secondBytes);
+}
+
 // Returns the ASCII-lowercase representation of an archive identity.
 static std::string FoldAscii(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
@@ -440,7 +451,8 @@ int main() {
   for (const auto &[entryName, standaloneBytes] : standalone.entries) {
     assert(firstProjectMvr.entries.count(entryName) == 1);
     if (entryName != "GeneralSceneDescription.xml")
-      assert(firstProjectMvr.entries.at(entryName) == standaloneBytes);
+      AssertCanonicalResourcePayloadEqual(
+          entryName, standaloneBytes, firstProjectMvr.entries.at(entryName));
   }
   assert(CountForeignProviderBlocks(firstProjectMvr.sceneXml,
                                     "SomeOtherApplication") == 1);
