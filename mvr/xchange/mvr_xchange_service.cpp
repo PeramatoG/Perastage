@@ -72,7 +72,7 @@ bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
   if (IsRunning()) return true;
   settings_ = settings;
   settings_.stationUuid = CanonicalizeUuid(settings_.stationUuid);
-  if (!tcpServer_.Start(settings_, [this](const std::string &fileUuid) { return ResolveRequest(fileUuid); }, [this] { return GetLocalCommits(); }, [this](const std::string &msg) { Log(msg); }, [this](const MvrXchangeRemoteStation &station) { HandleIncomingJoin(station); })) {
+  if (!tcpServer_.Start(settings_, [this](const std::string &fileUuid) { return ResolveRequest(fileUuid); }, [this] { return GetLocalCommits(); }, [this](const std::string &msg) { Log(msg); }, [this](const MvrXchangeRemoteStation &station) { HandleIncomingJoin(station); }, [this](const std::string &stationUuid) { return HandleIncomingLeave(stationUuid); }, [this](const MvrXchangeCommit &commit) { return HandleIncomingCommit(commit); })) {
     Log("MVR-xchange service failed to start.");
     return false;
   }
@@ -93,6 +93,10 @@ bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
     std::lock_guard lock(mutex_);
     stationRegistry_.SetLocalIdentity(settings_.stationUuid, mdnsService_.ServiceInstanceName(), tcpServer_.Port());
   }
+  if (!mdnsDiscovery_.Start(settings_, mdnsService_.ServiceInstanceName(), settings_.stationUuid,
+                            [this](const std::string &msg) { Log(msg); })) {
+    Log("MVR-xchange persistent discovery is unavailable.");
+  }
   discoveryStopRequested_ = false;
   discoveryThread_ = std::thread(&MvrXchangeService::DiscoveryLoop, this);
   Log("MVR-xchange active station discovery started.");
@@ -104,6 +108,7 @@ bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
 void MvrXchangeService::Stop() {
   discoveryStopRequested_ = true;
   if (discoveryThread_.joinable()) discoveryThread_.join();
+  mdnsDiscovery_.Stop();
   mdnsService_.Stop();
   tcpServer_.Stop();
   Log("MVR-xchange service stopped.");
@@ -182,7 +187,7 @@ std::optional<MvrXchangeCommit> MvrXchangeService::RequestRemoteCommit(const std
     Log("MVR-xchange request failed because the remote station has no reachable endpoint.");
     return std::nullopt;
   }
-  return tcpClient_.RequestCommit(endpoint, canonicalFileUuid, [this](const std::string &msg) { Log(msg); });
+  return tcpClient_.RequestCommit(endpoint, canonicalFileUuid, settings_.stationUuid, [this](const std::string &msg) { Log(msg); });
 }
 
 // Installs a log callback for GUI-safe status forwarding.
@@ -212,6 +217,21 @@ void MvrXchangeService::HandleIncomingJoin(const MvrXchangeRemoteStation &statio
   Log("MVR-xchange remote stations: discovered=" + std::to_string(discovered) + ", incoming joined=" + std::to_string(incoming) + ", outgoing joined=" + std::to_string(outgoing) + ".");
 }
 
+// Applies explicit leave state received from a remote station.
+std::string MvrXchangeService::HandleIncomingLeave(const std::string &stationUuid) {
+  std::lock_guard lock(mutex_);
+  return stationRegistry_.MarkLeft(stationUuid) ? std::string{} : "MVR_LEAVE does not belong to a known station.";
+}
+
+// Validates targeting and records one incoming remote commit announcement.
+std::string MvrXchangeService::HandleIncomingCommit(const MvrXchangeCommit &commit) {
+  if (!commit.forStationsUuid.empty() && std::find(commit.forStationsUuid.begin(), commit.forStationsUuid.end(), settings_.stationUuid) == commit.forStationsUuid.end())
+    return "MVR_COMMIT is not addressed to this station.";
+  std::lock_guard lock(mutex_);
+  if (!stationRegistry_.ApplyCommit(commit)) return "MVR_COMMIT does not belong to a joined station.";
+  return {};
+}
+
 // Sends an outgoing MVR_JOIN to a remote station with a resolved service endpoint.
 void MvrXchangeService::TryOutgoingJoin(const MvrXchangeRemoteStation &station) {
   const auto endpoint = ResolveOutgoingEndpoint(station);
@@ -220,8 +240,7 @@ void MvrXchangeService::TryOutgoingJoin(const MvrXchangeRemoteStation &station) 
   const auto commits = GetLocalCommits();
   if (!tcpClient_.SendJoin(endpoint, settings_, commits, joinedStation, [this](const std::string &msg) { Log(msg); })) return;
   std::lock_guard lock(mutex_);
-  stationRegistry_.UpsertDiscovered(joinedStation);
-  stationRegistry_.MarkOutgoingJoined(joinedStation.stationUuid, joinedStation.ipAddress, joinedStation.port);
+  stationRegistry_.UpsertOutgoingJoin(joinedStation);
 }
 
 // Sends an MVR_COMMIT announcement to all joined remote stations with known endpoints.
@@ -252,12 +271,16 @@ void MvrXchangeService::SendCommitToJoinedStations(const MvrXchangeCommit &commi
 // Runs one active mDNS discovery pass and joins newly discovered stations.
 void MvrXchangeService::DiscoverStationsOnce() {
   std::lock_guard discoveryLock(discoveryMutex_);
-  const auto stations = mdnsDiscovery_.DiscoverStations(settings_, mdnsService_.ServiceInstanceName(), settings_.stationUuid, mdnsService_.AdvertisedIpAddress(), tcpServer_.Port(), [this](const std::string &msg) { Log(msg); });
+  mdnsDiscovery_.QueryNow();
+  const auto stations = mdnsDiscovery_.Snapshot();
+  {
+    std::lock_guard lock(mutex_);
+    stationRegistry_.ReconcileDiscovered(stations);
+  }
   for (const auto &station : stations) {
     bool shouldJoin = false;
     {
       std::lock_guard lock(mutex_);
-      stationRegistry_.UpsertDiscovered(station);
       for (const auto &known : stationRegistry_.List()) {
         if (known.stationUuid == station.stationUuid && known.outgoingJoined) { shouldJoin = false; break; }
         if (known.stationUuid == station.stationUuid) shouldJoin = true;
@@ -269,7 +292,7 @@ void MvrXchangeService::DiscoverStationsOnce() {
   if (!stations.empty()) LogStationCounts();
 }
 
-// Runs periodic active mDNS discovery until the service stops.
+// Reconciles the persistent discovery cache with station state periodically.
 void MvrXchangeService::DiscoveryLoop() {
   while (!discoveryStopRequested_) {
     DiscoverStationsOnce();

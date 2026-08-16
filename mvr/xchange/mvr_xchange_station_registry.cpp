@@ -22,11 +22,30 @@ bool MvrXchangeStationRegistry::UpsertDiscovered(MvrXchangeRemoteStation station
   if (!station.stationUuid.empty()) it->stationUuid = station.stationUuid;
   if (!station.stationName.empty()) it->stationName = station.stationName;
   if (!station.provider.empty()) it->provider = station.provider;
+  if (!station.serviceInstanceName.empty()) { it->serviceInstanceName = station.serviceInstanceName; it->normalizedDnsIdentity = station.normalizedDnsIdentity; }
+  if (!station.hostName.empty()) it->hostName = station.hostName;
   if (!station.ipAddress.empty()) it->ipAddress = station.ipAddress;
   if (station.port > 0) it->port = station.port;
   if (station.ttlSeconds > 0) it->ttlSeconds = station.ttlSeconds;
   if (station.lastSeenMonotonicMs > 0) it->lastSeenMonotonicMs = station.lastSeenMonotonicMs;
   return true;
+}
+
+// Reconciles discovery presence and clears handshakes for TTL-expired stations.
+void MvrXchangeStationRegistry::ReconcileDiscovered(const std::vector<MvrXchangeRemoteStation> &stations) {
+  std::vector<std::string> previouslyDiscovered;
+  for (auto &known : stations_) {
+    if (known.discovered) previouslyDiscovered.push_back(!known.stationUuid.empty() ? known.stationUuid : known.normalizedDnsIdentity);
+    known.discovered = false;
+  }
+  for (const auto &station : stations) UpsertDiscovered(station);
+  for (auto &known : stations_) {
+    const std::string identity = !known.stationUuid.empty() ? known.stationUuid : known.normalizedDnsIdentity;
+    if (!known.discovered && std::find(previouslyDiscovered.begin(), previouslyDiscovered.end(), identity) != previouslyDiscovered.end()) {
+      known.incomingJoined = false;
+      known.outgoingJoined = false;
+    }
+  }
 }
 
 // Inserts or updates a station that sent an incoming MVR_JOIN.
@@ -45,6 +64,25 @@ bool MvrXchangeStationRegistry::UpsertIncomingJoin(MvrXchangeRemoteStation stati
   it->verMinor = station.verMinor;
   it->left = false;
   if (station.inventorySpecified || !station.commits.empty()) it->commits = station.commits;
+  if (!station.ipAddress.empty()) it->ipAddress = station.ipAddress;
+  if (station.port > 0) it->port = station.port;
+  return true;
+}
+
+// Applies identity and inventory returned by a successful outgoing JOIN.
+bool MvrXchangeStationRegistry::UpsertOutgoingJoin(MvrXchangeRemoteStation station) {
+  station.stationUuid = CanonicalizeUuid(station.stationUuid);
+  if (IsOwnStation(station)) return false;
+  auto it = FindStation(station);
+  if (it == stations_.end()) { station.outgoingJoined = true; station.left = false; stations_.push_back(std::move(station)); return true; }
+  it->outgoingJoined = true;
+  it->left = false;
+  if (!station.stationUuid.empty()) it->stationUuid = station.stationUuid;
+  if (!station.stationName.empty()) it->stationName = station.stationName;
+  if (!station.provider.empty()) it->provider = station.provider;
+  it->verMajor = station.verMajor;
+  it->verMinor = station.verMinor;
+  if (station.inventorySpecified) it->commits = station.commits;
   if (!station.ipAddress.empty()) it->ipAddress = station.ipAddress;
   if (station.port > 0) it->port = station.port;
   return true;
@@ -71,6 +109,21 @@ bool MvrXchangeStationRegistry::MarkLeft(const std::string &stationUuid) {
   it->left = true;
   it->incomingJoined = false;
   it->outgoingJoined = false;
+  return true;
+}
+
+// Adds or replaces one incoming commit in the associated station inventory.
+bool MvrXchangeStationRegistry::ApplyCommit(const MvrXchangeCommit &commit) {
+  auto station = std::find_if(stations_.begin(), stations_.end(), [&](const auto &known) {
+    return known.stationUuid == CanonicalizeUuid(commit.stationUuid) && !known.left;
+  });
+  if (station == stations_.end()) return false;
+  auto existing = std::find_if(station->commits.begin(), station->commits.end(), [&](const auto &known) {
+    return known.fileUuid == CanonicalizeUuid(commit.fileUuid) && known.stationUuid == CanonicalizeUuid(commit.stationUuid);
+  });
+  if (existing == station->commits.end()) station->commits.push_back(commit);
+  else *existing = commit;
+  station->inventorySpecified = true;
   return true;
 }
 

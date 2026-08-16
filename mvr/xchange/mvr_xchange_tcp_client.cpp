@@ -26,7 +26,6 @@ void CloseSocketFd(int fd) {
 #endif
 }
 
-
 // Sets a socket into blocking or non-blocking mode.
 bool SetSocketBlocking(int fd, bool blocking) {
 #ifdef _WIN32
@@ -82,6 +81,23 @@ std::string StationDisplayName(const MvrXchangeRemoteStation &station) {
 }
 }
 
+// Initializes platform networking once for the outgoing client lifetime.
+MvrXchangeTcpClient::MvrXchangeTcpClient() {
+#ifdef _WIN32
+  WSADATA data;
+  networkReady_ = WSAStartup(MAKEWORD(2, 2), &data) == 0;
+#endif
+}
+
+// Balances platform networking initialization after all transactions finish.
+MvrXchangeTcpClient::~MvrXchangeTcpClient() {
+#ifdef _WIN32
+  if (networkReady_) WSACleanup();
+#endif
+}
+
+
+
 // Sends an outgoing MVR_JOIN and parses the remote station's MVR_JOIN_RET response.
 bool MvrXchangeTcpClient::SendJoin(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback) {
   int fd = -1;
@@ -94,7 +110,7 @@ bool MvrXchangeTcpClient::SendJoin(const MvrXchangeRemoteStation &station, const
   if (!sent) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN failed while sending to " + StationDisplayName(station) + "."); return false; }
   if (!received) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN failed because no valid response was received from " + StationDisplayName(station) + "."); return false; }
   auto message = mvr::xchange::ParseMessage(response);
-  if (!message || message->type != "MVR_JOIN_RET") { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN received an unexpected response from " + StationDisplayName(station) + "."); return false; }
+  if (!message || message->type != "MVR_JOIN_RET" || !mvr::xchange::ValidateMessage(*message).empty()) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN received an invalid or unexpected response from " + StationDisplayName(station) + "."); return false; }
   if (!message->ok) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN was rejected by " + StationDisplayName(station) + ": " + message->text); return false; }
   joinedStation = station;
   joinedStation.stationUuid = message->stationUuid.empty() ? station.stationUuid : message->stationUuid;
@@ -103,6 +119,7 @@ bool MvrXchangeTcpClient::SendJoin(const MvrXchangeRemoteStation &station, const
   joinedStation.verMajor = message->verMajor;
   joinedStation.verMinor = message->verMinor;
   joinedStation.commits = message->commits;
+  joinedStation.inventorySpecified = message->inventoryPresence != mvr::xchange::InventoryPresence::Absent;
   joinedStation.outgoingJoined = true;
   if (logCallback) logCallback("MVR-xchange received MVR_JOIN_RET from " + StationDisplayName(joinedStation) + ", ok=true, remote commits=" + std::to_string(joinedStation.commits.size()) + ".");
   return true;
@@ -119,34 +136,55 @@ bool MvrXchangeTcpClient::SendCommit(const MvrXchangeRemoteStation &station, con
   if (!sent) { if (logCallback) logCallback("MVR-xchange failed to send MVR_COMMIT to " + StationDisplayName(station) + "."); return false; }
   if (!received) { if (logCallback) logCallback("MVR-xchange sent MVR_COMMIT to " + StationDisplayName(station) + " but did not receive MVR_COMMIT_RET."); return false; }
   auto message = mvr::xchange::ParseMessage(response);
-  const bool ok = message && message->type == "MVR_COMMIT_RET" && message->ok;
+  const bool ok = message && message->type == "MVR_COMMIT_RET" && mvr::xchange::ValidateMessage(*message).empty() && message->ok;
   if (logCallback) logCallback(ok ? "MVR-xchange sent MVR_COMMIT to " + StationDisplayName(station) + " and received MVR_COMMIT_RET." : "MVR-xchange MVR_COMMIT was not acknowledged by " + StationDisplayName(station) + ".");
   return ok;
 }
 
+// Sends one outgoing MVR_LEAVE transaction and validates its acknowledgement.
+bool MvrXchangeTcpClient::SendLeave(const MvrXchangeRemoteStation &station, const std::string &stationUuid, LogCallback logCallback) {
+  int fd = -1;
+  if (!Connect(station, fd, logCallback)) return false;
+  const bool sent = SendJson(fd, mvr::xchange::BuildLeave(stationUuid));
+  std::string response;
+  const bool received = sent && ReceiveJson(fd, response);
+  CloseSocketFd(fd);
+  const auto message = received ? mvr::xchange::ParseMessage(response) : std::nullopt;
+  return message && message->type == "MVR_LEAVE_RET" && message->ok && mvr::xchange::ValidateMessage(*message).empty();
+}
+
 
 // Requests one advertised MVR file from a remote MVR-xchange station.
-std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, LogCallback logCallback) {
+std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &fromStationUuid, LogCallback logCallback) {
   int fd = -1;
   if (!Connect(station, fd, logCallback)) return std::nullopt;
-  const bool sent = SendJson(fd, mvr::xchange::BuildRequest(fileUuid, station.stationUuid));
+  const bool sent = SendJson(fd, mvr::xchange::BuildRequest(fileUuid, fromStationUuid));
   std::optional<std::uint64_t> advertisedSize;
   for (const auto &metadata : station.commits) {
     if ((fileUuid.empty() || metadata.fileUuid == CanonicalizeUuid(fileUuid)) && metadata.declaredFileSizeSpecified) advertisedSize = metadata.declaredFileSize;
   }
   std::vector<uint8_t> buffer;
+  mvr::xchange::PacketReassembler reassembler;
   char chunk[4096];
+  bool receiveRequired = true;
   while (sent) {
-    const int n = static_cast<int>(recv(fd, chunk, sizeof(chunk), 0));
-    if (n <= 0) break;
-    if (buffer.size() > mvr::xchange::kMaxBufferedInputBytes - static_cast<std::size_t>(n)) break;
-    buffer.insert(buffer.end(), chunk, chunk + n);
+    if (receiveRequired) {
+      const int n = static_cast<int>(recv(fd, chunk, sizeof(chunk), 0));
+      if (n <= 0) break;
+      if (buffer.size() > mvr::xchange::kMaxBufferedInputBytes - static_cast<std::size_t>(n)) break;
+      buffer.insert(buffer.end(), chunk, chunk + n);
+    }
     mvr::xchange::Packet decoded;
     std::string decodeError;
     const auto status = mvr::xchange::DecodePacket(buffer, decoded, decodeError);
+    if (status == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = true; continue; }
     if (status == mvr::xchange::DecodeStatus::Invalid) break;
     if (status == mvr::xchange::DecodeStatus::Complete) {
-      auto packet = std::make_optional(std::move(decoded));
+      mvr::xchange::Packet complete;
+      const auto reassemblyStatus = reassembler.Add(std::move(decoded), complete, decodeError);
+      if (reassemblyStatus == mvr::xchange::DecodeStatus::Invalid) break;
+      if (reassemblyStatus == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = buffer.empty(); continue; }
+      auto packet = std::make_optional(std::move(complete));
       CloseSocketFd(fd);
       if (packet->type == mvr::xchange::PacketType::MvrFile) {
         if (advertisedSize && packet->payload.size() != *advertisedSize) {
@@ -160,10 +198,11 @@ std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXcha
         if (logCallback) logCallback("MVR-xchange received requested MVR payload from " + StationDisplayName(station) + ", bytes=" + std::to_string(commit.payload.size()) + ".");
         return commit;
       }
-      if (packet->type == mvr::xchange::PacketType::Json && logCallback) {
+      if (packet->type == mvr::xchange::PacketType::Json) {
         const std::string response(packet->payload.begin(), packet->payload.end());
         auto message = mvr::xchange::ParseMessage(response);
-        logCallback("MVR-xchange request was rejected by " + StationDisplayName(station) + (message && !message->text.empty() ? ": " + message->text : "."));
+        const bool validError = message && message->type == "MVR_REQUEST_RET" && !message->ok && mvr::xchange::ValidateMessage(*message).empty();
+        if (logCallback) logCallback(validError ? "MVR-xchange request was rejected by " + StationDisplayName(station) + ": " + message->text : "MVR-xchange request received an invalid JSON response from " + StationDisplayName(station) + ".");
       }
       return std::nullopt;
     }
@@ -175,10 +214,7 @@ std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXcha
 
 // Opens a short-lived TCP connection to a discovered MVR-xchange station.
 bool MvrXchangeTcpClient::Connect(const MvrXchangeRemoteStation &station, int &fd, LogCallback logCallback) {
-#ifdef _WIN32
-  WSADATA data;
-  WSAStartup(MAKEWORD(2, 2), &data);
-#endif
+  if (!networkReady_) return false;
   fd = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
   if (fd < 0) return false;
   sockaddr_in addr{};
@@ -215,18 +251,28 @@ bool MvrXchangeTcpClient::SendJson(int fd, const std::string &json) {
 // Receives one JSON packet from a remote MVR-xchange station.
 bool MvrXchangeTcpClient::ReceiveJson(int fd, std::string &json) {
   std::vector<uint8_t> buffer;
+  mvr::xchange::PacketReassembler reassembler;
   char chunk[4096];
+  bool receiveRequired = true;
   for (;;) {
-    const int n = static_cast<int>(recv(fd, chunk, sizeof(chunk), 0));
-    if (n <= 0) return false;
-    if (buffer.size() > mvr::xchange::kMaxJsonPayloadBytes + 28 - static_cast<std::size_t>(n)) return false;
-    buffer.insert(buffer.end(), chunk, chunk + n);
+    if (receiveRequired) {
+      const int n = static_cast<int>(recv(fd, chunk, sizeof(chunk), 0));
+      if (n <= 0) return false;
+      constexpr std::size_t kMaxJsonBufferedBytes = mvr::xchange::kMaxJsonPayloadBytes + mvr::xchange::kPacketHeaderBytes * mvr::xchange::kMaxPackageCount;
+      if (buffer.size() > kMaxJsonBufferedBytes - static_cast<std::size_t>(n)) return false;
+      buffer.insert(buffer.end(), chunk, chunk + n);
+    }
     mvr::xchange::Packet decoded;
     std::string error;
     const auto status = mvr::xchange::DecodePacket(buffer, decoded, error);
+    if (status == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = true; continue; }
     if (status == mvr::xchange::DecodeStatus::Invalid) return false;
     if (status == mvr::xchange::DecodeStatus::Complete) {
-      auto packet = std::make_optional(std::move(decoded));
+      mvr::xchange::Packet complete;
+      const auto reassemblyStatus = reassembler.Add(std::move(decoded), complete, error);
+      if (reassemblyStatus == mvr::xchange::DecodeStatus::Invalid) return false;
+      if (reassemblyStatus == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = buffer.empty(); continue; }
+      auto packet = std::make_optional(std::move(complete));
       if (packet->type != mvr::xchange::PacketType::Json) return false;
       json.assign(packet->payload.begin(), packet->payload.end());
       return true;

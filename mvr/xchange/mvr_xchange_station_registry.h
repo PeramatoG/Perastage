@@ -8,9 +8,12 @@ class MvrXchangeStationRegistry {
 public:
   void SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName, int localPort);
   bool UpsertDiscovered(MvrXchangeRemoteStation station);
+  void ReconcileDiscovered(const std::vector<MvrXchangeRemoteStation> &stations);
   bool UpsertIncomingJoin(MvrXchangeRemoteStation station);
+  bool UpsertOutgoingJoin(MvrXchangeRemoteStation station);
   bool MarkOutgoingJoined(const std::string &stationUuid, const std::string &ipAddress, int port);
   bool MarkLeft(const std::string &stationUuid);
+  bool ApplyCommit(const MvrXchangeCommit &commit);
   void ExpireDiscovered(std::uint64_t nowMonotonicMs);
   std::vector<MvrXchangeRemoteStation> List() const;
   std::vector<MvrXchangeRemoteStation> JoinedStations() const;

@@ -2,9 +2,12 @@
 #include "xchange/mvr_xchange_dns_names.h"
 #include "../core/uuidutils.h"
 #include "xchange/mvr_xchange_message.h"
+#include "xchange/mvr_xchange_mdns_cache.h"
 #include "xchange/mvr_xchange_network_interfaces.h"
 #include "xchange/mvr_xchange_packet.h"
 #include "xchange/mvr_xchange_station_registry.h"
+#include "xchange/mvr_xchange_tcp_client.h"
+#include "xchange/mvr_xchange_tcp_server.h"
 #include "json.hpp"
 #include <cassert>
 #include <string>
@@ -120,17 +123,62 @@ static void TestInventoryCompatibility() {
   assert(both->commits[0].fileName == "scene.mvr" && both->commits[0].comment == "remote");
 }
 
-// Verifies framing rejects invalid, oversized, and multipart packages safely.
+// Verifies framing rejects invalid packages and reassembles bounded multipart payloads.
 static void TestPacketRejection() {
   std::vector<uint8_t> payload{'x'};
   auto multipart = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
   multipart[15] = 2;
   mvr::xchange::Packet packet;
   std::string error;
-  assert(mvr::xchange::DecodePacket(multipart, packet, error) == mvr::xchange::DecodeStatus::Invalid);
+  assert(mvr::xchange::DecodePacket(multipart, packet, error) == mvr::xchange::DecodeStatus::Complete);
   auto invalidType = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
   invalidType[19] = 9;
   assert(mvr::xchange::DecodePacket(invalidType, packet, error) == mvr::xchange::DecodeStatus::Invalid);
+
+  mvr::xchange::PacketReassembler reassembler;
+  mvr::xchange::Packet complete;
+  mvr::xchange::Packet first{mvr::xchange::PacketType::Json, 0, 2, {'a'}};
+  mvr::xchange::Packet second{mvr::xchange::PacketType::Json, 1, 2, {'b'}};
+  assert(reassembler.Add(first, complete, error) == mvr::xchange::DecodeStatus::NeedMoreData);
+  assert(reassembler.Add(second, complete, error) == mvr::xchange::DecodeStatus::Complete);
+  assert(std::string(complete.payload.begin(), complete.payload.end()) == "ab");
+  assert(reassembler.Add(second, complete, error) == mvr::xchange::DecodeStatus::Invalid);
+  auto firstWire = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, {'a'});
+  auto secondWire = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, {'b'});
+  firstWire[15] = 2;
+  secondWire[11] = 1;
+  secondWire[15] = 2;
+  firstWire.insert(firstWire.end(), secondWire.begin(), secondWire.end());
+  reassembler.Reset();
+  assert(mvr::xchange::DecodePacket(firstWire, packet, error) == mvr::xchange::DecodeStatus::Complete);
+  assert(reassembler.Add(packet, complete, error) == mvr::xchange::DecodeStatus::NeedMoreData);
+  assert(mvr::xchange::DecodePacket(firstWire, packet, error) == mvr::xchange::DecodeStatus::Complete);
+  assert(reassembler.Add(packet, complete, error) == mvr::xchange::DecodeStatus::Complete);
+}
+
+// Verifies cached DNS-SD records resolve across layouts, order, TTL, and goodbye.
+static void TestMdnsRecordCache() {
+  using namespace mvr::xchange;
+  MdnsRecordCache cache;
+  const std::string group = "Default._mvrxchange._tcp.local.";
+  cache.Apply({DnsRecordType::A, "HOST.local.", {}, "192.0.2.10", {}, 0, 120, 4, 1000});
+  cache.Apply({DnsRecordType::Txt, "Peer.Default._mvrxchange._tcp.local.", {}, {}, {{"stationname", "Peer"}, {"stationuuid", "BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF"}}, 0, 120, 4, 1000});
+  cache.Apply({DnsRecordType::Srv, "peer.default._mvrxchange._tcp.local", "host.LOCAL", {}, {}, 42424, 120, 4, 1000});
+  cache.Apply({DnsRecordType::Ptr, group, "PEER.Default._mvrxchange._tcp.local.", {}, {}, 0, 120, 4, 1000});
+  auto stations = cache.Resolve(group, 1000);
+  assert(stations.size() == 1 && stations[0].ipAddress == "192.0.2.10" && stations[0].stationName == "Peer");
+  cache.Apply({DnsRecordType::Ptr, group, "PEER.Default._mvrxchange._tcp.local.", {}, {}, 0, 0, 4, 2000});
+  assert(cache.Resolve(group, 2500).size() == 1);
+  cache.Expire(3000);
+  assert(cache.Resolve(group, 3000).empty());
+
+  MdnsRecordCache official;
+  official.Apply({DnsRecordType::Ptr, group, "Member.Default._mvrxchange._tcp.local.", {}, {}, 0, 60, 1, 5000});
+  official.Apply({DnsRecordType::Srv, group, "group-host.local.", {}, {}, 43000, 60, 1, 5000});
+  official.Apply({DnsRecordType::Txt, group, {}, {}, {{"stationname", "Group member"}, {"stationuuid", "11111111-2222-3333-4444-555555555555"}}, 0, 60, 1, 5000});
+  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::1", {}, 0, 60, 1, 5000});
+  stations = official.Resolve(group, 5000);
+  assert(stations.size() == 1 && stations[0].ipAddress == "2001:db8::1" && stations[0].port == 43000);
 }
 
 // Verifies malformed official messages are parsed safely and rejected with clear errors.
@@ -209,6 +257,19 @@ static void TestStationRegistry() {
   assert(registry.JoinedStations().empty());
   assert(registry.UpsertIncomingJoin(incoming));
   assert(registry.JoinedStations().size() == 1);
+  MvrXchangeRemoteStation outgoing = discovered;
+  outgoing.outgoingJoined = true;
+  outgoing.inventorySpecified = true;
+  outgoing.commits.clear();
+  assert(registry.UpsertOutgoingJoin(outgoing));
+  assert(registry.List()[0].commits.empty());
+  MvrXchangeCommit update{"dddddddd-eeee-ffff-0000-111111111111", "bbbbbbbb-cccc-dddd-eeee-ffffffffffff", "new.mvr", {}, {}, {}};
+  update.declaredFileSize = 42;
+  update.declaredFileSizeSpecified = true;
+  assert(registry.ApplyCommit(update));
+  assert(registry.List()[0].commits.size() == 1 && registry.List()[0].commits[0].payload.empty());
+  assert(registry.ApplyCommit(update));
+  assert(registry.List()[0].commits.size() == 1);
 }
 
 // Verifies that loopback is always available for same-machine MVR-xchange tests.
@@ -221,6 +282,53 @@ static void TestNetworkInterfaces() {
   assert(loopback.ipv4Address == "127.0.0.1");
 }
 
+// Verifies JOIN, COMMIT, and REQUEST use independent matching TCP transactions.
+static void TestTcpTransactions() {
+  const std::string localUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const std::string remoteUuid = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
+  MvrXchangeCommit available{"11111111-2222-3333-4444-555555555555", localUuid, "scene.mvr", {}, {}, {'m', 'v', 'r'}};
+  MvrXchangeSettings settings;
+  settings.stationName = "Server";
+  settings.stationUuid = localUuid;
+  settings.port = 0;
+  int joins = 0;
+  int commits = 0;
+  std::string leftStation;
+  MvrXchangeTcpServer server;
+  assert(server.Start(settings,
+                      [&](const std::string &fileUuid) { return fileUuid.empty() || fileUuid == available.fileUuid ? std::optional<MvrXchangeCommit>(available) : std::nullopt; },
+                      [&] { return std::vector<MvrXchangeCommit>{available}; }, {},
+                      [&](const MvrXchangeRemoteStation &) { ++joins; }, [&](const std::string &uuid) { leftStation = uuid; return std::string{}; },
+                      [&](const MvrXchangeCommit &) { ++commits; return std::string{}; }));
+  MvrXchangeRemoteStation endpoint;
+  endpoint.stationName = "Server";
+  endpoint.stationUuid = localUuid;
+  endpoint.ipAddress = "127.0.0.1";
+  endpoint.port = server.Port();
+  MvrXchangeTcpClient client;
+  MvrXchangeSettings clientSettings;
+  clientSettings.stationName = "Client";
+  clientSettings.stationUuid = remoteUuid;
+  MvrXchangeRemoteStation joined;
+  assert(client.SendJoin(endpoint, clientSettings, {}, joined, {}));
+  assert(joins == 1 && joined.stationUuid == localUuid && joined.commits.size() == 1);
+  MvrXchangeCommit announcement{"22222222-3333-4444-5555-666666666666", remoteUuid, "remote.mvr", {}, {}, {}};
+  announcement.declaredFileSize = 10;
+  announcement.declaredFileSizeSpecified = true;
+  assert(client.SendCommit(endpoint, announcement, {}));
+  assert(commits == 1);
+  for (int i = 0; i < 32; ++i) assert(client.SendCommit(endpoint, announcement, {}));
+  assert(commits == 33);
+  endpoint.commits = {available};
+  endpoint.commits[0].declaredFileSize = 3;
+  endpoint.commits[0].declaredFileSizeSpecified = true;
+  const auto requested = client.RequestCommit(endpoint, available.fileUuid, remoteUuid, {});
+  assert(requested && requested->payload == available.payload);
+  assert(client.SendLeave(endpoint, remoteUuid, {}));
+  assert(leftStation == remoteUuid);
+  server.Stop();
+}
+
 // Runs focused non-GUI MVR-xchange protocol coverage.
 int main() {
   TestCommitStore();
@@ -229,9 +337,11 @@ int main() {
   TestMalformedMessages();
   TestInventoryCompatibility();
   TestPacketRejection();
+  TestMdnsRecordCache();
   TestDnsNames();
   TestCanonicalUuidUse();
   TestStationRegistry();
   TestNetworkInterfaces();
+  TestTcpTransactions();
   return 0;
 }

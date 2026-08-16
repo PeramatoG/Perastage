@@ -7,8 +7,8 @@
 #include "mvr_xchange_tcp_client.h"
 #include "mvr_xchange_tcp_server.h"
 #include <atomic>
-#include <functional>
 #include <thread>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -31,6 +31,8 @@ public:
 private:
   std::optional<MvrXchangeCommit> ResolveRequest(const std::string &fileUuid) const;
   void HandleIncomingJoin(const MvrXchangeRemoteStation &station);
+  std::string HandleIncomingLeave(const std::string &stationUuid);
+  std::string HandleIncomingCommit(const MvrXchangeCommit &commit);
   void DiscoverStationsOnce();
   void DiscoveryLoop();
   void TryOutgoingJoin(const MvrXchangeRemoteStation &station);

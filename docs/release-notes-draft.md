@@ -77,7 +77,7 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
-- Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. JOIN and commit announcements now use deterministic short-lived transactions, canonical commit inventories remain compatible with legacy peers, declared remote file sizes no longer allocate memory, payload framing is bounded and validated, and explicit station leave state prevents later unsolicited publications.
+- Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. Deterministic short-lived transactions, a persistent multicast discovery cache, TTL and goodbye lifecycle handling, bounded multipart transfers, canonical inventory compatibility, validated file sizes, and explicit leave handling now keep peer state and transfers reliable during long-running LAN sessions.
 
 
 - Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Both interactive commands now prepare derived scene data consistently; portable Perastage scene-fidelity metadata follows fixtures safely through standalone imports and merges; valid third-party root UserData is preserved without duplication; malformed provider blocks are diagnosed and excluded; and read-only snapshots no longer repair or dirty the live scene. File > Export MVR now honors the explicit, MVR 1.6-compliant Direct Geometry3D truss compatibility preference without affecting project persistence or canonical snapshots.

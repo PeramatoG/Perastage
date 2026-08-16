@@ -102,6 +102,7 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
   msg.verMajor = JsonIntValue(json, "verMajor");
   msg.verMinor = JsonIntValue(json, "verMinor");
   msg.ok = JsonBoolValue(json, "OK");
+  msg.okSpecified = json.find("OK") != json.end() && json["OK"].is_boolean();
   if (const auto commitsIt = json.find("Commits"); commitsIt != json.end()) {
     if (!commitsIt->is_array()) return std::nullopt;
     AppendCommitsFromJsonArray(*commitsIt, msg.commits);
@@ -114,6 +115,7 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
       msg.inventoryPresence = msg.commits.empty() ? InventoryPresence::PresentEmpty : InventoryPresence::PresentNonEmpty;
     }
   }
+  if (msg.type == "MVR_COMMIT") msg.commits = {CommitFromJson(json)};
   return msg;
 }
 
@@ -123,6 +125,7 @@ std::string ValidateMessage(const Message &message) {
     if (message.stationUuid.empty()) return message.type + " is missing a valid StationUUID.";
     if (message.stationName.empty()) return message.type + " is missing StationName.";
     if (message.provider.empty()) return message.type + " is missing Provider.";
+    if (message.verMajor != 1 || message.verMinor < 0 || message.verMinor > 6) return message.type + " contains an unsupported protocol version.";
     for (const auto &commit : message.commits) {
       if (commit.fileUuid.empty()) return message.type + " contains a commit with an invalid FileUUID.";
       if (commit.stationUuid.empty()) return message.type + " contains a commit with an invalid StationUUID.";
@@ -136,13 +139,20 @@ std::string ValidateMessage(const Message &message) {
   if (message.type == "MVR_COMMIT") {
     if (message.fileUuid.empty()) return "MVR_COMMIT is missing a valid FileUUID.";
     if (message.stationUuid.empty()) return "MVR_COMMIT is missing a valid StationUUID.";
+    if (message.verMajor != 1 || message.verMinor < 0 || message.verMinor > 6) return "MVR_COMMIT contains an unsupported protocol version.";
+    if (message.commits.empty() || !message.commits.front().declaredFileSizeSpecified) return "MVR_COMMIT is missing FileSize.";
+    for (const auto &uuid : message.commits.front().forStationsUuid) if (uuid.empty()) return "MVR_COMMIT contains an invalid ForStationsUUID value.";
     return {};
   }
   if (message.type == "MVR_REQUEST") {
     if (message.fileUuidSpecified && message.fileUuid.empty()) return "MVR_REQUEST contains an invalid FileUUID.";
     return {};
   }
-  if (message.type == "MVR_REQUEST_RET" || message.type == "MVR_COMMIT_RET" || message.type == "MVR_LEAVE_RET") return {};
+  if (message.type == "MVR_REQUEST_RET" || message.type == "MVR_COMMIT_RET" || message.type == "MVR_LEAVE_RET") {
+    if (!message.okSpecified) return message.type + " is missing OK.";
+    if (!message.ok && message.text.empty()) return message.type + " is missing an error Message.";
+    return {};
+  }
   return "Unsupported MVR-xchange message type.";
 }
 
@@ -175,8 +185,16 @@ std::string BuildJoinRet(const std::string &stationUuid, const std::string &stat
 }
 
 // Builds a typed MVR_JOIN_RET error response.
-std::string BuildJoinRet(bool ok, const std::string &message) {
-  return nlohmann::json{{"Type", "MVR_JOIN_RET"}, {"OK", ok}, {"Message", message}}.dump();
+std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, bool ok, const std::string &message) {
+  auto json = nlohmann::json::parse(BuildJoinMessage("MVR_JOIN_RET", stationUuid, stationName, {}));
+  json["OK"] = ok;
+  json["Message"] = message;
+  return json.dump();
+}
+
+// Builds the official MVR_LEAVE request for the local station.
+std::string BuildLeave(const std::string &stationUuid) {
+  return nlohmann::json{{"Type", "MVR_LEAVE"}, {"StationUUID", CanonicalizeUuid(stationUuid)}}.dump();
 }
 
 // Builds the official MVR_LEAVE_RET acknowledgement.

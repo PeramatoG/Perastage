@@ -20,6 +20,7 @@ struct Message {
   int verMajor = 0;
   int verMinor = 0;
   bool ok = false;
+  bool okSpecified = false;
   bool fileUuidSpecified = false;
   bool stationUuidSpecified = false;
   std::size_t filesCount = 0;
@@ -31,7 +32,8 @@ std::optional<Message> ParseMessage(const std::string &json);
 std::string ValidateMessage(const Message &message);
 std::string BuildJoin(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
 std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, const std::vector<MvrXchangeCommit> &commits);
-std::string BuildJoinRet(bool ok, const std::string &message);
+std::string BuildJoinRet(const std::string &stationUuid, const std::string &stationName, bool ok, const std::string &message);
+std::string BuildLeave(const std::string &stationUuid);
 std::string BuildLeaveRet(bool ok = true, const std::string &message = {});
 std::string BuildCommit(const MvrXchangeCommit &commit);
 std::string BuildCommitRet(bool ok, const std::string &message = {});
