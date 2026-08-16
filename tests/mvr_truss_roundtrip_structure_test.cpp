@@ -69,6 +69,16 @@ ReadArchiveTextEntries(const fs::path &archivePath) {
   return entries;
 }
 
+// Writes an in-memory archive payload to a file for structural inspection.
+static void WriteArchiveBytes(const fs::path &path,
+                              const std::vector<uint8_t> &bytes) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  assert(output.is_open());
+  output.write(reinterpret_cast<const char *>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+  assert(output.good());
+}
+
 // Counts ZIP entries whose archive names exactly match the requested name.
 static int CountArchiveEntries(const fs::path &archivePath,
                                const std::string &entryName) {
@@ -243,6 +253,8 @@ int main() {
 
   assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
          MvrTrussGeometryExportMode::Standard);
+  assert(CanonicalMvrExportOptions().trussGeometryExportMode ==
+         MvrTrussGeometryExportMode::Standard);
   MvrExportOptions directPreferenceOptions;
   directPreferenceOptions.trussGeometryExportMode =
       MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
@@ -250,6 +262,8 @@ int main() {
   assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
          MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols);
   mvr::preferences::SaveExportOptions(cfg, MvrExportOptions{});
+  assert(mvr::preferences::LoadExportOptions(cfg).trussGeometryExportMode ==
+         MvrTrussGeometryExportMode::Standard);
 
   GroupObject group;
   group.uuid = "22222222-2222-2222-2222-222222222222";
@@ -317,6 +331,7 @@ int main() {
 
   MvrExporter exporter;
   const fs::path mvrPath = tempDir / "roundtrip.mvr";
+  mvr::preferences::SaveExportOptions(cfg, directPreferenceOptions);
   assert(exporter.ExportToFile(mvrPath.string()));
 
   const auto entries = ReadArchiveTextEntries(mvrPath);
@@ -386,9 +401,11 @@ int main() {
   }
   assert(foundSymdef);
 
-  MvrExportOptions directOptions;
-  directOptions.trussGeometryExportMode =
-      MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
+  const ConfigManager::DirtyState dirtyBeforeCompatibilityExport =
+      cfg.CaptureDirtyState();
+  const MvrScene sceneBeforeCompatibilityExport = scene;
+  const MvrExportOptions directOptions =
+      mvr::preferences::LoadExportOptions(cfg);
   const fs::path directMvrPath = tempDir / "direct-truss-geometry.mvr";
   assert(exporter.ExportToFile(directMvrPath.string(), directOptions));
   const auto directEntries = ReadArchiveTextEntries(directMvrPath);
@@ -415,10 +432,44 @@ int main() {
   if (directAux)
     assert(directAux->FirstChildElement("Symdef") == nullptr);
 
-  MvrExportOptions projectOptions;
-  projectOptions.trussGeometryExportMode = MvrTrussGeometryExportMode::Standard;
+  const ConfigManager::DirtyState dirtyAfterCompatibilityExport =
+      cfg.CaptureDirtyState();
+  assert(dirtyAfterCompatibilityExport.revision ==
+         dirtyBeforeCompatibilityExport.revision);
+  assert(dirtyAfterCompatibilityExport.savedRevision ==
+         dirtyBeforeCompatibilityExport.savedRevision);
+  assert(scene.trusses.at(truss.uuid).sourceRepresentation ==
+         sceneBeforeCompatibilityExport.trusses.at(truss.uuid)
+             .sourceRepresentation);
+  assert(scene.trusses.at(truss.uuid).sourceSymbolUuid ==
+         sceneBeforeCompatibilityExport.trusses.at(truss.uuid)
+             .sourceSymbolUuid);
+  assert(scene.trusses.at(truss.uuid).sourceSymdefUuid ==
+         sceneBeforeCompatibilityExport.trusses.at(truss.uuid)
+             .sourceSymdefUuid);
+  assert(scene.symdefGeometries.size() ==
+         sceneBeforeCompatibilityExport.symdefGeometries.size());
+
+  std::vector<uint8_t> canonicalSnapshotBytes;
+  assert(exporter.ExportCanonicalSnapshotToBuffer(scene,
+                                                   canonicalSnapshotBytes));
+  const fs::path canonicalSnapshotPath = tempDir / "canonical-snapshot.mvr";
+  WriteArchiveBytes(canonicalSnapshotPath, canonicalSnapshotBytes);
+  assert(!ReadFirstSymbolUuid(canonicalSnapshotPath).empty());
+
+  const fs::path projectPath = tempDir / "canonical-project.pstg";
+  assert(cfg.SaveProject(projectPath.string()));
+  const auto projectEntries = ReadArchiveTextEntries(projectPath);
+  const auto projectSceneIt = projectEntries.find("scene.mvr");
+  assert(projectSceneIt != projectEntries.end());
+  const fs::path projectScenePath = tempDir / "project-scene.mvr";
+  const std::vector<uint8_t> projectSceneArchive(
+      projectSceneIt->second.begin(), projectSceneIt->second.end());
+  WriteArchiveBytes(projectScenePath, projectSceneArchive);
+  assert(!ReadFirstSymbolUuid(projectScenePath).empty());
+
   std::vector<uint8_t> projectSceneBytes;
-  assert(exporter.ExportToBuffer(projectSceneBytes, projectOptions));
+  assert(exporter.ExportToBuffer(projectSceneBytes));
   assert(!projectSceneBytes.empty());
 
   assert(sceneNode->FirstChildElement("UserData") == nullptr);

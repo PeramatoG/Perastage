@@ -282,10 +282,13 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
   wxStaticText *mvrExportHint =
       new wxStaticText(mvrExportSizer->GetStaticBox(), wxID_ANY,
                        _("Standard MVR representation: preserves imported "
-                         "Symbol/Symdef references when possible.\n"
+                         "Symbol/Symdef references when possible and is "
+                         "Perastage's canonical representation.\n"
                          "Direct Geometry3D for truss symbols: expands truss "
                          "Symbol/Symdef references into direct Geometry3D "
-                         "entries for broader importer compatibility."));
+                         "entries for compatibility with applications that "
+                         "do not correctly support Symbol/Symdef. Both modes "
+                         "are MVR 1.6 compliant."));
   mvrExportHint->SetForegroundColour(
       wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   mvrExportHint->Wrap(740);

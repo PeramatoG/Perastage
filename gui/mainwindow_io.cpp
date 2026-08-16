@@ -57,6 +57,7 @@
 #include "layoutviewerpanel.h"
 #include "mvrexporter.h"
 #include "mvrimporter.h"
+#include "mvr_preferences.h"
 #include "projectutils.h"
 #include "riderimporter.h"
 #include "ridertextdialog.h"
@@ -570,8 +571,11 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
       diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
   // Apply the same explicit GUI-to-domain preparation used by project save.
   SyncSceneData();
+  const MvrExportOptions exportOptions = mvr::preferences::LoadExportOptions(
+      guiConfigServices->LegacyConfigManager());
   wxBusyInfo *busy = new wxBusyInfo("Saving project...", this);
-  const bool exported = exporter.ExportToFile(path.ToStdString());
+  const bool exported =
+      exporter.ExportToFile(path.ToStdString(), exportOptions);
   delete busy;
   if (!exported) {
     diagnostics::DiagnosticLogger::Error(
