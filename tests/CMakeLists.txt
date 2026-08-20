@@ -2430,6 +2430,7 @@ add_executable(mvr_xchange_protocol_test
     ../mvr/xchange/mvr_xchange_dns_names.cpp
     ../mvr/xchange/mvr_xchange_message.cpp
     ../mvr/xchange/mvr_xchange_mdns_cache.cpp
+    ../mvr/xchange/mvr_xchange_mdns_discovery.cpp
     ../mvr/xchange/mvr_xchange_network_interfaces.cpp
     ../mvr/xchange/mvr_xchange_station_registry.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp

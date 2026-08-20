@@ -121,6 +121,9 @@ bool MvrXchangeMdnsDiscovery::Start(const MvrXchangeSettings &settings, const st
                                       const std::string &localStationUuid, LogCallback logCallback) {
   Stop();
 #ifndef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
+  (void)settings;
+  (void)localInstanceName;
+  (void)localStationUuid;
   if (logCallback) logCallback("MVR-xchange mDNS discovery is unavailable because this build was configured without the vcpkg mdns backend.");
   return false;
 #else
@@ -274,31 +277,32 @@ void MvrXchangeMdnsDiscovery::ReceiveDatagram() {
   if (received > 0) ApplyDatagram(buffer.data(), static_cast<std::size_t>(received), 0);
 }
 
-// Parses answer and additional DNS records into the persistent cache.
-void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex) {
-  if (size < 12) return;
+// Parses one DNS datagram into bounded answer and additional records.
+std::vector<mvr::xchange::DnsRecord> mvr::xchange::ParseMdnsRecords(const std::uint8_t *data, std::size_t size,
+                                                                    std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs) {
+  std::vector<mvr::xchange::DnsRecord> parsedRecords;
+  if (size < 12) return parsedRecords;
   std::size_t offset = 4;
   std::uint16_t questions = 0, answers = 0, authorities = 0, additionals = 0;
   if (!ReadU16(data, size, offset, questions) || !ReadU16(data, size, offset, answers) ||
-      !ReadU16(data, size, offset, authorities) || !ReadU16(data, size, offset, additionals)) return;
+      !ReadU16(data, size, offset, authorities) || !ReadU16(data, size, offset, additionals)) return parsedRecords;
   for (std::uint16_t i = 0; i < questions; ++i) {
     std::string ignored;
-    if (!ReadDnsName(data, size, offset, ignored) || offset > size || size - offset < 4) return;
+    if (!ReadDnsName(data, size, offset, ignored) || offset > size || size - offset < 4) return {};
     offset += 4;
   }
   const std::uint32_t recordCount = static_cast<std::uint32_t>(answers) + authorities + additionals;
-  std::vector<mvr::xchange::DnsRecord> parsedRecords;
   for (std::uint32_t i = 0; i < recordCount; ++i) {
     mvr::xchange::DnsRecord record;
-    if (!ReadDnsName(data, size, offset, record.owner)) return;
+    if (!ReadDnsName(data, size, offset, record.owner)) return {};
     std::uint16_t type = 0, dnsClass = 0, length = 0;
     std::uint32_t ttl = 0;
     if (!ReadU16(data, size, offset, type) || !ReadU16(data, size, offset, dnsClass) ||
-        !ReadU32(data, size, offset, ttl) || !ReadU16(data, size, offset, length) || offset > size || size - offset < length) return;
+        !ReadU32(data, size, offset, ttl) || !ReadU16(data, size, offset, length) || offset > size || size - offset < length) return {};
     const std::size_t recordEnd = offset + length;
     record.ttlSeconds = ttl;
     record.interfaceIndex = interfaceIndex;
-    record.lastSeenMonotonicMs = MonotonicMilliseconds();
+    record.lastSeenMonotonicMs = nowMonotonicMs;
     bool supported = true;
     if (type == 12) { record.type = mvr::xchange::DnsRecordType::Ptr; supported = ReadDnsName(data, size, offset, record.target); }
     else if (type == 33) {
@@ -329,5 +333,11 @@ void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_
     offset = recordEnd;
     if (supported) parsedRecords.push_back(std::move(record));
   }
+  return parsedRecords;
+}
+
+// Applies one parsed DNS datagram to the persistent record cache.
+void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex) {
+  auto parsedRecords = mvr::xchange::ParseMdnsRecords(data, size, interfaceIndex, MonotonicMilliseconds());
   if (!parsedRecords.empty()) { std::lock_guard lock(mutex_); cache_.ApplyBatch(std::move(parsedRecords)); }
 }

@@ -148,7 +148,8 @@ bool MvrXchangeService::PublishCurrentScene(const std::string &comment, const st
     // Freeze membership and inventory atomically against background discovery JOINs.
     std::lock_guard discoveryLock(discoveryMutex_);
     std::lock_guard lock(mutex_);
-    previouslyJoined = mvr::xchange::CapturePublicationDestinations(stationRegistry_);
+    const mvr::xchange::PublicationSession publication(stationRegistry_);
+    previouslyJoined = publication.CommitDestinations();
     commits_.Add(commit);
   }
   ReconcileDiscoveredStations(false);

@@ -9,6 +9,11 @@
 #include <thread>
 #include <vector>
 
+namespace mvr::xchange {
+std::vector<DnsRecord> ParseMdnsRecords(const std::uint8_t *data, std::size_t size,
+                                        std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs);
+}
+
 class MvrXchangeMdnsDiscovery {
 public:
   using LogCallback = std::function<void(const std::string &)>;

@@ -10,6 +10,11 @@ constexpr int kMvrVersionMajor = 1;
 constexpr int kMvrVersionMinor = 6;
 constexpr const char *kProvider = "Perastage";
 
+// Accepts canonical MVR versions and the specification-defined new-member marker.
+bool IsSupportedCommitVersion(int major, int minor) {
+  return (major == 1 && minor >= 0 && minor <= kMvrVersionMinor) || (major == 0 && minor == 0);
+}
+
 // Converts one local commit to the official MVR_COMMIT JSON object shape.
 nlohmann::json CommitToJson(const MvrXchangeCommit &commit) {
   nlohmann::json json;
@@ -92,14 +97,18 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
   const nlohmann::json json = nlohmann::json::parse(jsonText, nullptr, false);
   if (json.is_discarded() || !json.is_object()) return std::nullopt;
   Message msg;
+  const auto setStructuralError = [&](const std::string &error) { if (msg.structuralError.empty()) msg.structuralError = error; };
   msg.type = JsonStringValue(json, "Type");
   if (msg.type.empty()) msg.type = JsonStringValue(json, "MessageType");
   if (msg.type.empty()) return std::nullopt;
   const auto fileUuidIt = json.find("FileUUID");
+  if (fileUuidIt != json.end() && !fileUuidIt->is_string()) setStructuralError("FileUUID must be a string.");
   msg.fileUuidSpecified = fileUuidIt != json.end() && !JsonStringValue(json, "FileUUID").empty();
   msg.fileUuid = CanonicalizeUuid(JsonStringValue(json, "FileUUID"));
   const auto stationUuid = JsonStringValue(json, "StationUUID");
   const auto fromStationUuid = JsonStringValue(json, "FromStationUUID");
+  if (const auto it = json.find("StationUUID"); it != json.end() && !it->is_string()) setStructuralError("StationUUID must be a string.");
+  if (const auto it = json.find("FromStationUUID"); it != json.end() && !it->is_string()) setStructuralError("FromStationUUID must be a string.");
   msg.stationUuidSpecified = !stationUuid.empty();
   msg.fromStationUuidSpecified = !fromStationUuid.empty();
   msg.stationUuid = CanonicalizeUuid(stationUuid);
@@ -109,12 +118,17 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
   msg.provider = JsonStringValue(json, "Provider");
   msg.text = JsonStringValue(json, "Message");
   msg.comment = JsonStringValue(json, "Comment");
+  for (const char *field : {"StationName", "Provider", "Message", "Comment"})
+    if (const auto it = json.find(field); it != json.end() && !it->is_string()) setStructuralError(std::string(field) + " must be a string.");
+  for (const char *field : {"verMajor", "verMinor"})
+    if (const auto it = json.find(field); it != json.end() && !it->is_number_integer()) setStructuralError(std::string(field) + " must be an integer.");
   msg.verMajor = JsonIntValue(json, "verMajor");
   msg.verMinor = JsonIntValue(json, "verMinor");
   msg.ok = JsonBoolValue(json, "OK");
   msg.okSpecified = json.find("OK") != json.end() && json["OK"].is_boolean();
+  if (json.find("OK") != json.end() && !json["OK"].is_boolean()) setStructuralError("OK must be a boolean.");
   if (const auto commitsIt = json.find("Commits"); commitsIt != json.end()) {
-    if (!commitsIt->is_array()) { msg.structuralError = "Commits must be an array."; msg.inventoryPresence = InventoryPresence::PresentEmpty; }
+    if (!commitsIt->is_array()) { setStructuralError("Commits must be an array."); msg.inventoryPresence = InventoryPresence::PresentEmpty; }
     else {
       AppendCommitsFromJsonArray(*commitsIt, msg.commits);
       msg.inventoryPresence = msg.commits.empty() ? InventoryPresence::PresentEmpty : InventoryPresence::PresentNonEmpty;
@@ -127,7 +141,7 @@ std::optional<Message> ParseMessage(const std::string &jsonText) {
       msg.inventoryPresence = msg.commits.empty() ? InventoryPresence::PresentEmpty : InventoryPresence::PresentNonEmpty;
     }
   }
-  else if (json.find("Files") != json.end() && msg.inventoryPresence == InventoryPresence::Absent) msg.structuralError = "Files must be an array.";
+  else if (json.find("Files") != json.end() && msg.inventoryPresence == InventoryPresence::Absent) setStructuralError("Files must be an array.");
   if (msg.type == "MVR_COMMIT") msg.commits = {CommitFromJson(json)};
   return msg;
 }
@@ -145,7 +159,7 @@ std::string ValidateMessage(const Message &message) {
       if (commit.fileUuid.empty()) return message.type + " contains a commit with an invalid FileUUID.";
       if (commit.stationUuid.empty()) return message.type + " contains a commit with an invalid StationUUID.";
       if (!commit.declaredFileSizeSpecified) return message.type + " contains a commit without FileSize.";
-      if (commit.verMajor != 1 || commit.verMinor < 0 || commit.verMinor > 6) return message.type + " contains a commit with an unsupported protocol version.";
+      if (!IsSupportedCommitVersion(commit.verMajor, commit.verMinor)) return message.type + " contains a commit with an unsupported protocol version.";
       for (const auto &uuid : commit.forStationsUuid) if (uuid.empty()) return message.type + " contains a commit with an invalid ForStationsUUID value.";
     }
     return {};
@@ -159,7 +173,7 @@ std::string ValidateMessage(const Message &message) {
   if (message.type == "MVR_COMMIT") {
     if (message.fileUuid.empty()) return "MVR_COMMIT is missing a valid FileUUID.";
     if (message.stationUuid.empty()) return "MVR_COMMIT is missing a valid StationUUID.";
-    if (message.verMajor != 1 || message.verMinor < 0 || message.verMinor > 6) return "MVR_COMMIT contains an unsupported protocol version.";
+    if (!IsSupportedCommitVersion(message.verMajor, message.verMinor)) return "MVR_COMMIT contains an unsupported protocol version.";
     if (message.commits.empty() || !message.commits.front().declaredFileSizeSpecified) return "MVR_COMMIT is missing FileSize.";
     for (const auto &uuid : message.commits.front().forStationsUuid) if (uuid.empty()) return "MVR_COMMIT contains an invalid ForStationsUUID value.";
     return {};

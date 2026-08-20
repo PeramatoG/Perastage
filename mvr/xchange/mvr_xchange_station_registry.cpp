@@ -129,7 +129,7 @@ bool MvrXchangeStationRegistry::ShouldInitiateOutgoingJoin(const MvrXchangeRemot
   auto key = station;
   key.stationUuid = CanonicalizeUuid(key.stationUuid);
   auto it = FindStation(key);
-  return it == stations_.end() || (!it->left && !it->outgoingJoined);
+  return it == stations_.end() || (!it->left && !it->incomingJoined && !it->outgoingJoined);
 }
 
 // Marks a station as explicitly departed until a later JOIN succeeds.
