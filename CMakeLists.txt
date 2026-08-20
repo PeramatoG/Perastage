@@ -266,6 +266,7 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/xchange/mvr_xchange_tcp_client.cpp
     mvr/xchange/mvr_xchange_message.cpp
     mvr/xchange/mvr_xchange_packet.cpp
+    mvr/xchange/mvr_xchange_publication_policy.cpp
     mvr/xchange/mvr_xchange_service.cpp
     mvr/xchange/mvr_xchange_settings.cpp
     mvr/xchange/mvr_xchange_tcp_server.cpp

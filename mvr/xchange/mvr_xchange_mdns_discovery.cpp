@@ -287,6 +287,7 @@ void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_
     offset += 4;
   }
   const std::uint32_t recordCount = static_cast<std::uint32_t>(answers) + authorities + additionals;
+  std::vector<mvr::xchange::DnsRecord> parsedRecords;
   for (std::uint32_t i = 0; i < recordCount; ++i) {
     mvr::xchange::DnsRecord record;
     if (!ReadDnsName(data, size, offset, record.owner)) return;
@@ -326,6 +327,7 @@ void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_
       record.address = address;
     } else supported = false;
     offset = recordEnd;
-    if (supported) { std::lock_guard lock(mutex_); cache_.Apply(std::move(record)); }
+    if (supported) parsedRecords.push_back(std::move(record));
   }
+  if (!parsedRecords.empty()) { std::lock_guard lock(mutex_); cache_.ApplyBatch(std::move(parsedRecords)); }
 }

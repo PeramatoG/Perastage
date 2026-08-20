@@ -219,10 +219,7 @@ void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
       const std::string validationError = mvr::xchange::ValidateMessage(*msg);
       if (!validationError.empty()) {
         if (logCallback_) logCallback_("MVR-xchange rejected " + msg->type + " from " + endpoint + ": " + validationError);
-        if (msg->type == "MVR_JOIN") SendJson(clientFd, mvr::xchange::BuildJoinRet(settings_.stationUuid, settings_.stationName, false, validationError));
-        else if (msg->type == "MVR_COMMIT") SendJson(clientFd, mvr::xchange::BuildCommitRet(false, validationError));
-        else if (msg->type == "MVR_LEAVE") SendJson(clientFd, mvr::xchange::BuildLeaveRet(false, validationError));
-        else SendJson(clientFd, mvr::xchange::BuildRequestError(validationError));
+        SendJson(clientFd, mvr::xchange::BuildTypedErrorResponse(msg->type, settings_.stationUuid, settings_.stationName, validationError));
         disconnectReason = "invalid transaction";
         break;
       }
@@ -243,7 +240,7 @@ void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
         SendJson(clientFd, mvr::xchange::BuildJoinRet(settings_.stationUuid, settings_.stationName, commits));
         if (logCallback_) logCallback_("MVR-xchange sent MVR_JOIN_RET to " + endpoint + ", commits=" + std::to_string(commits.size()) + ".");
       }
-      else if (msg->type == "MVR_LEAVE") { const std::string error = leaveCallback_ ? leaveCallback_(msg->stationUuid) : "Station membership is unavailable."; SendJson(clientFd, mvr::xchange::BuildLeaveRet(error.empty(), error)); disconnectReason = "explicit MVR_LEAVE"; }
+      else if (msg->type == "MVR_LEAVE") { const std::string senderUuid = !msg->fromStationUuid.empty() ? msg->fromStationUuid : msg->stationUuid; const std::string error = leaveCallback_ ? leaveCallback_(senderUuid) : "Station membership is unavailable."; SendJson(clientFd, mvr::xchange::BuildLeaveRet(error.empty(), error)); disconnectReason = "explicit MVR_LEAVE"; }
       else if (msg->type == "MVR_COMMIT") { const std::string error = commitCallback_ && !msg->commits.empty() ? commitCallback_(msg->commits.front()) : "Incoming commits are not accepted."; SendJson(clientFd, mvr::xchange::BuildCommitRet(error.empty(), error)); if (logCallback_) logCallback_(error.empty() ? "MVR-xchange accepted MVR_COMMIT from " + endpoint + "." : "MVR-xchange rejected MVR_COMMIT from " + endpoint + ": " + error); }
       else if (msg->type == "MVR_REQUEST") {
         auto commit = resolver_ ? resolver_(msg->fileUuid) : std::nullopt;

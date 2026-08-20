@@ -60,7 +60,7 @@ std::optional<Packet> TryDecodePacket(std::vector<uint8_t> &buffer) {
   return packet;
 }
 
-// Validates and decodes one bounded, single-package TCP Mode packet.
+// Validates and decodes one bounded TCP Mode package fragment.
 DecodeStatus DecodePacket(std::vector<uint8_t> &buffer, Packet &packet, std::string &error) {
   if (buffer.size() < kPacketHeaderSize) return DecodeStatus::NeedMoreData;
   if (ReadU32(buffer, 0) != kHeader || ReadU32(buffer, 4) != kVersion) {

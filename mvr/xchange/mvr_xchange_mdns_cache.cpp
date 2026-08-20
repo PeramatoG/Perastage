@@ -42,7 +42,35 @@ void MdnsRecordCache::Apply(DnsRecord record) {
                                    ? std::numeric_limits<std::uint64_t>::max()
                                    : record.lastSeenMonotonicMs + ttlMs;
   if (existing == records_.end()) records_.push_back({std::move(record), expiry});
-  else { existing->record = std::move(record); existing->expiryMonotonicMs = expiry; }
+  else {
+    if (record.type == DnsRecordType::Txt && record.ttlSeconds != 0)
+      record.text.insert(existing->record.text.begin(), existing->record.text.end());
+    existing->record = std::move(record);
+    existing->expiryMonotonicMs = expiry;
+  }
+}
+
+// Applies one DNS message while replacing complete TXT RRsets atomically.
+void MdnsRecordCache::ApplyBatch(std::vector<DnsRecord> records) {
+  std::map<std::string, DnsRecord> mergedTxt;
+  for (auto &record : records) {
+    if (record.type != DnsRecordType::Txt) { Apply(std::move(record)); continue; }
+    const std::string key = NormalizeDnsName(record.owner) + "|" + std::to_string(record.interfaceIndex);
+    auto &merged = mergedTxt[key];
+    if (merged.owner.empty()) merged = record;
+    else {
+      merged.text.insert(record.text.begin(), record.text.end());
+      merged.ttlSeconds = std::min(merged.ttlSeconds, record.ttlSeconds);
+      merged.lastSeenMonotonicMs = std::max(merged.lastSeenMonotonicMs, record.lastSeenMonotonicMs);
+    }
+  }
+  for (auto &entry : mergedTxt) {
+    auto &record = entry.second;
+    const std::string identity = RecordIdentity(record);
+    if (record.ttlSeconds != 0)
+      records_.erase(std::remove_if(records_.begin(), records_.end(), [&](const auto &cached) { return RecordIdentity(cached.record) == identity; }), records_.end());
+    Apply(std::move(record));
+  }
 }
 
 // Removes records whose TTL or goodbye grace interval has elapsed.
@@ -62,8 +90,14 @@ std::vector<MvrXchangeRemoteStation> MdnsRecordCache::Resolve(const std::string 
   std::set<std::string> seenInstances;
   for (const auto &cached : records_) {
     const auto &ptr = cached.record;
-    if (cached.expiryMonotonicMs <= nowMonotonicMs || ptr.type != DnsRecordType::Ptr ||
-        !DnsNamesEqual(ptr.owner, groupServiceName) || !seenInstances.insert(NormalizeDnsName(ptr.target)).second) continue;
+    if (cached.expiryMonotonicMs <= nowMonotonicMs || ptr.type != DnsRecordType::Ptr) continue;
+    const bool groupPtr = DnsNamesEqual(ptr.owner, groupServiceName);
+    const std::string normalizedTarget = NormalizeDnsName(ptr.target);
+    const std::string normalizedGroup = NormalizeDnsName(groupServiceName);
+    const bool compatibleBasePtr = DnsNamesEqual(ptr.owner, kMvrXchangeServiceType) && normalizedTarget.size() > normalizedGroup.size() &&
+                                   normalizedTarget[normalizedTarget.size() - normalizedGroup.size() - 1] == '.' &&
+                                   normalizedTarget.compare(normalizedTarget.size() - normalizedGroup.size(), normalizedGroup.size(), normalizedGroup) == 0;
+    if ((!groupPtr && !compatibleBasePtr) || !seenInstances.insert(NormalizeDnsName(ptr.target)).second) continue;
     const DnsRecord *srv = FindRecord(records_, DnsRecordType::Srv, ptr.target, nowMonotonicMs);
     const DnsRecord *txt = FindRecord(records_, DnsRecordType::Txt, ptr.target, nowMonotonicMs);
     if (!srv) srv = FindRecord(records_, DnsRecordType::Srv, groupServiceName, nowMonotonicMs);

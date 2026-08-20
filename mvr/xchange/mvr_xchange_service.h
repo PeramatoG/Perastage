@@ -33,11 +33,11 @@ private:
   void HandleIncomingJoin(const MvrXchangeRemoteStation &station);
   std::string HandleIncomingLeave(const std::string &stationUuid);
   std::string HandleIncomingCommit(const MvrXchangeCommit &commit);
-  void DiscoverStationsOnce();
+  void ReconcileDiscoveredStations(bool requestQuery);
   void DiscoveryLoop();
   void TryOutgoingJoin(const MvrXchangeRemoteStation &station);
   void LogStationCounts() const;
-  void SendCommitToJoinedStations(const MvrXchangeCommit &commit);
+  void SendCommitToJoinedStations(const MvrXchangeCommit &commit, const std::vector<MvrXchangeRemoteStation> &destinations);
   void Log(const std::string &message) const;
 
   MvrXchangeSettings settings_;

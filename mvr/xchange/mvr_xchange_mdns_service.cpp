@@ -145,16 +145,16 @@ static int MdnsCallback(int sock, const sockaddr *from, size_t addrlen, mdns_ent
   const std::string query(queryName.str, queryName.length);
   const auto records = BuildRecords(service, Ipv4AddressFromString(service->AdvertisedIpAddress()));
   const bool any = rtype == MDNS_RECORDTYPE_ANY;
-  if (query == mvr::xchange::kMvrXchangeDiscoveryService && (rtype == MDNS_RECORDTYPE_PTR || any)) {
+  if (mvr::xchange::DnsNamesEqual(query, mvr::xchange::kMvrXchangeDiscoveryService) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.discoveryPtr, nullptr, 0);
-  } else if ((query == service->ServiceType() || query == service->GroupServiceName()) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
-    const mdns_record_t answer = query == service->GroupServiceName() ? records.groupPtr : records.ptr;
+  } else if ((mvr::xchange::DnsNamesEqual(query, service->ServiceType()) || mvr::xchange::DnsNamesEqual(query, service->GroupServiceName())) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
+    const mdns_record_t answer = mvr::xchange::DnsNamesEqual(query, service->GroupServiceName()) ? records.groupPtr : records.ptr;
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, answer, records.additional.data(), records.additional.size());
-  } else if (query == service->ServiceInstanceName() && (rtype == MDNS_RECORDTYPE_TXT)) {
+  } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceInstanceName()) && (rtype == MDNS_RECORDTYPE_TXT)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.txtName, &records.txtUuid, 1);
-  } else if (query == service->ServiceInstanceName() && (rtype == MDNS_RECORDTYPE_SRV || any)) {
+  } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceInstanceName()) && (rtype == MDNS_RECORDTYPE_SRV || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.srv, records.additional.data() + 1, 3);
-  } else if (query == service->QualifiedHostName() && (rtype == MDNS_RECORDTYPE_A || any)) {
+  } else if (mvr::xchange::DnsNamesEqual(query, service->QualifiedHostName()) && (rtype == MDNS_RECORDTYPE_A || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.a, nullptr, 0);
   }
   return 0;

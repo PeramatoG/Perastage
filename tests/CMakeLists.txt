@@ -2433,6 +2433,7 @@ add_executable(mvr_xchange_protocol_test
     ../mvr/xchange/mvr_xchange_network_interfaces.cpp
     ../mvr/xchange/mvr_xchange_station_registry.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp
+    ../mvr/xchange/mvr_xchange_publication_policy.cpp
     ../mvr/xchange/mvr_xchange_tcp_client.cpp
     ../mvr/xchange/mvr_xchange_tcp_server.cpp
 )

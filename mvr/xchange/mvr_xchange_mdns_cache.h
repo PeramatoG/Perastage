@@ -28,6 +28,7 @@ public:
     std::uint64_t expiryMonotonicMs = 0;
   };
   void Apply(DnsRecord record);
+  void ApplyBatch(std::vector<DnsRecord> records);
   void Expire(std::uint64_t nowMonotonicMs);
   void Clear();
   std::vector<MvrXchangeRemoteStation> Resolve(const std::string &groupServiceName,

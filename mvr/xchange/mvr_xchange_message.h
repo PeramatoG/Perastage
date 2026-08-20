@@ -12,6 +12,7 @@ struct Message {
   std::string type;
   std::string fileUuid;
   std::string stationUuid;
+  std::string fromStationUuid;
   std::string stationName;
   std::string groupName;
   std::string provider;
@@ -23,6 +24,8 @@ struct Message {
   bool okSpecified = false;
   bool fileUuidSpecified = false;
   bool stationUuidSpecified = false;
+  bool fromStationUuidSpecified = false;
+  std::string structuralError;
   std::size_t filesCount = 0;
   InventoryPresence inventoryPresence = InventoryPresence::Absent;
   std::vector<MvrXchangeCommit> commits;
@@ -39,5 +42,6 @@ std::string BuildCommit(const MvrXchangeCommit &commit);
 std::string BuildCommitRet(bool ok, const std::string &message = {});
 std::string BuildRequest(const std::string &fileUuid, const std::string &fromStationUuid = {});
 std::string BuildRequestError(const std::string &message);
+std::string BuildTypedErrorResponse(const std::string &requestType, const std::string &stationUuid, const std::string &stationName, const std::string &message);
 
 }

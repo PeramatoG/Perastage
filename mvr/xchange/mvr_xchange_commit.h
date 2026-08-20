@@ -19,6 +19,7 @@ struct MvrXchangeCommit {
   int verMajor = 0;
   int verMinor = 0;
   std::vector<std::string> forStationsUuid;
+  bool metadataValid = true;
 
   std::size_t FileSize() const;
 };
