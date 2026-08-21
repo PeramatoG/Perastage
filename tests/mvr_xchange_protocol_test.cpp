@@ -365,9 +365,12 @@ static void TestRawMdnsDatagram() {
   cache.ApplyBatch(mvr::xchange::ParseMdnsRecords(datagram.data(), datagram.size(), 7, 1000));
   auto stations = cache.Resolve(group, 1000);
   assert(stations.size() == 1 && stations[0].port == 42464 && stations[0].ipAddress == "192.0.2.40");
-  auto records = mvr::xchange::ParseMdnsRecords(datagram.data(), datagram.size(), 7, 2000);
-  records.front().ttlSeconds = 0;
-  cache.ApplyBatch(std::move(records));
+  std::vector<std::uint8_t> goodbye(12, 0);
+  goodbye[6] = 0; goodbye[7] = 1;
+  AppendDnsRecord(goodbye, group, 12, 0, ptr);
+  const auto goodbyeRecords = mvr::xchange::ParseMdnsRecords(goodbye.data(), goodbye.size(), 7, 2000);
+  assert(goodbyeRecords.size() == 1 && goodbyeRecords[0].type == mvr::xchange::DnsRecordType::Ptr);
+  cache.ApplyBatch(goodbyeRecords);
   assert(cache.Resolve(group, 2500).size() == 1);
   cache.Expire(3000);
   assert(cache.Resolve(group, 3000).empty());

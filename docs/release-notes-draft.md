@@ -79,6 +79,9 @@ Changes since **v1.5.0**.
 
 - Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. Deterministic per-station announcements avoid JOIN/COMMIT duplication and reciprocal JOINs for incoming members, explicit leave membership survives passive rediscovery, typed failures and canonical sender fields improve compatibility, and persistent multicast discovery now uses scoped DNS-SD resolution, TXT merging, TTL lifecycle handling, bounded multipart transfers, and steady-state query backoff.
 
+- Made the MVR-xchange DNS goodbye regression portable across Windows, Linux,
+  and macOS debug test configurations.
+
 
 - Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Both interactive commands now prepare derived scene data consistently; portable Perastage scene-fidelity metadata follows fixtures safely through standalone imports and merges; valid third-party root UserData is preserved without duplication; malformed provider blocks are diagnosed and excluded; and read-only snapshots no longer repair or dirty the live scene. File > Export MVR now honors the explicit, MVR 1.6-compliant Direct Geometry3D truss compatibility preference without affecting project persistence or canonical snapshots.
 
