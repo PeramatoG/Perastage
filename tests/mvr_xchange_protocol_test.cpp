@@ -178,6 +178,14 @@ static void TestMessages() {
   assert(parsedJoinRet->commits.size() == 1);
   assert(mvr::xchange::ValidateMessage(*parsedJoinRet).empty());
 
+  auto adjustedExampleJoinRet = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_JOIN_RET","OK":true,"Message":"","verMajor":1,"verMinor":6,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"MVR Application","Commits":[]})");
+  assert(adjustedExampleJoinRet && adjustedExampleJoinRet->provider.empty());
+  assert(mvr::xchange::ValidateMessage(*adjustedExampleJoinRet).empty());
+  auto missingJoinProvider = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_JOIN","verMajor":1,"verMinor":6,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"MVR Application","Commits":[]})");
+  assert(missingJoinProvider && mvr::xchange::ValidateMessage(*missingJoinProvider) == "MVR_JOIN is missing Provider.");
+
   const auto errorJson = nlohmann::json::parse(mvr::xchange::BuildRequestError("The MVR is not available on this client"));
   assert(errorJson["Type"] == "MVR_REQUEST_RET");
   assert(errorJson["OK"] == false);

@@ -79,6 +79,10 @@ Changes since **v1.5.0**.
 
 - Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. Deterministic per-station announcements avoid JOIN/COMMIT duplication and reciprocal JOINs for incoming members, explicit leave membership survives passive rediscovery, typed failures and canonical sender fields improve compatibility, and persistent multicast discovery now uses scoped DNS-SD resolution, TXT merging, TTL lifecycle handling, bounded multipart transfers, and steady-state query backoff.
 
+- Improved MVR-xchange interoperability with consoles that follow the official
+  adjusted JOIN response example without a `Provider` field, while retaining
+  canonical output and strict station identity and inventory validation.
+
 - Made the MVR-xchange DNS goodbye regression portable across Windows, Linux,
   and macOS debug test configurations.
 

@@ -110,12 +110,15 @@ bool MvrXchangeTcpClient::SendJoin(const MvrXchangeRemoteStation &station, const
   if (!sent) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN failed while sending to " + StationDisplayName(station) + "."); return false; }
   if (!received) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN failed because no valid response was received from " + StationDisplayName(station) + "."); return false; }
   auto message = mvr::xchange::ParseMessage(response);
-  if (!message || message->type != "MVR_JOIN_RET" || !mvr::xchange::ValidateMessage(*message).empty()) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN received an invalid or unexpected response from " + StationDisplayName(station) + "."); return false; }
+  if (!message) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN received malformed JSON from " + StationDisplayName(station) + "."); return false; }
+  if (message->type != "MVR_JOIN_RET") { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN expected MVR_JOIN_RET from " + StationDisplayName(station) + " but received " + message->type + "."); return false; }
+  const std::string validationError = mvr::xchange::ValidateMessage(*message);
+  if (!validationError.empty()) { if (logCallback) logCallback("MVR-xchange rejected MVR_JOIN_RET from " + StationDisplayName(station) + ": " + validationError); return false; }
   if (!message->ok) { if (logCallback) logCallback("MVR-xchange outgoing MVR_JOIN was rejected by " + StationDisplayName(station) + ": " + message->text); return false; }
   joinedStation = station;
   joinedStation.stationUuid = message->stationUuid.empty() ? station.stationUuid : message->stationUuid;
   joinedStation.stationName = message->stationName.empty() ? station.stationName : message->stationName;
-  joinedStation.provider = message->provider;
+  joinedStation.provider = message->provider.empty() ? station.provider : message->provider;
   joinedStation.verMajor = message->verMajor;
   joinedStation.verMinor = message->verMinor;
   joinedStation.commits = message->commits;
