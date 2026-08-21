@@ -22,7 +22,7 @@ public:
 
 private:
   std::vector<MvrXchangeRemoteStation>::iterator FindStation(const MvrXchangeRemoteStation &station);
-  void MergeProvisionalDuplicates(const std::string &stationUuid);
+  void MergeProvisionalDuplicates(std::string stationUuid);
   std::string localStationUuid_;
   std::string localServiceInstanceName_;
   std::vector<MvrXchangeRemoteStation> stations_;

@@ -72,7 +72,7 @@ bool MvrXchangeStationRegistry::UpsertIncomingJoin(MvrXchangeRemoteStation stati
 }
 
 // Merges provisional DNS records after a canonical StationUUID becomes known.
-void MvrXchangeStationRegistry::MergeProvisionalDuplicates(const std::string &stationUuid) {
+void MvrXchangeStationRegistry::MergeProvisionalDuplicates(std::string stationUuid) {
   auto canonical = std::find_if(stations_.begin(), stations_.end(), [&](const auto &station) { return station.stationUuid == stationUuid; });
   if (canonical == stations_.end()) return;
   for (auto it = stations_.begin(); it != stations_.end();) {
@@ -87,6 +87,7 @@ void MvrXchangeStationRegistry::MergeProvisionalDuplicates(const std::string &st
     if (canonical->port <= 0) canonical->port = it->port;
     it = stations_.erase(it);
     canonical = std::find_if(stations_.begin(), stations_.end(), [&](const auto &station) { return station.stationUuid == stationUuid; });
+    if (canonical == stations_.end()) return;
   }
 }
 

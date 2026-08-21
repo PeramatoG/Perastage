@@ -86,6 +86,9 @@ Changes since **v1.5.0**.
 - Made the MVR-xchange DNS goodbye regression portable across Windows, Linux,
   and macOS debug test configurations.
 
+- Fixed cross-platform station identity promotion so provisional discovery
+  records merge safely when an authoritative station UUID becomes available.
+
 
 - Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Both interactive commands now prepare derived scene data consistently; portable Perastage scene-fidelity metadata follows fixtures safely through standalone imports and merges; valid third-party root UserData is preserved without duplication; malformed provider blocks are diagnosed and excluded; and read-only snapshots no longer repair or dirty the live scene. File > Export MVR now honors the explicit, MVR 1.6-compliant Direct Geometry3D truss compatibility preference without affecting project persistence or canonical snapshots.
 
