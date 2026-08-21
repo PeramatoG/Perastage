@@ -15,8 +15,14 @@
 #endif
 
 namespace {
+constexpr std::size_t kMaxConcurrentTransactions = 16;
+#ifdef _WIN32
+using SocketLength = int;
+#else
+using SocketLength = socklen_t;
+#endif
 // Closes a native socket descriptor on the current platform.
-void CloseSocketFd(int fd) {
+void CloseSocketFd(std::intptr_t fd) {
 #ifdef _WIN32
   closesocket(fd);
 #else
@@ -25,7 +31,7 @@ void CloseSocketFd(int fd) {
 }
 
 // Shuts down a native socket to unblock a waiting client thread.
-void ShutdownSocketFd(int fd) {
+void ShutdownSocketFd(std::intptr_t fd) {
 #ifdef _WIN32
   shutdown(fd, SD_BOTH);
 #else
@@ -41,16 +47,18 @@ std::string FormatEndpoint(const sockaddr_in &addr) {
   return std::string(host) + ":" + std::to_string(ntohs(addr.sin_port));
 }
 
-// Applies a bounded send timeout while allowing persistent peer joins to stay idle.
-void ApplySocketTimeouts(int fd) {
+// Applies bounded send and receive timeouts to one short-lived transaction.
+void ApplySocketTimeouts(std::intptr_t fd) {
 #ifdef _WIN32
   DWORD timeout = 5000;
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
 #else
   timeval timeout{};
   timeout.tv_sec = 5;
   timeout.tv_usec = 0;
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 #endif
 }
 }
@@ -62,14 +70,21 @@ MvrXchangeTcpServer::MvrXchangeTcpServer() = default;
 MvrXchangeTcpServer::~MvrXchangeTcpServer() { Stop(); }
 
 // Starts the MVR-xchange TCP Mode listener on the configured port.
-bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolver resolver, CommitListProvider commitListProvider, LogCallback logCallback, JoinCallback joinCallback) {
+bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolver resolver, CommitListProvider commitListProvider, LogCallback logCallback, JoinCallback joinCallback, LeaveCallback leaveCallback, CommitCallback commitCallback) {
   if (running_) return true;
 #ifdef _WIN32
   WSADATA data;
-  WSAStartup(MAKEWORD(2, 2), &data);
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return false;
+  networkInitialized_ = true;
 #endif
-  listenFd_ = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
-  if (listenFd_ < 0) return false;
+  listenFd_ = static_cast<std::intptr_t>(socket(AF_INET, SOCK_STREAM, 0));
+  if (listenFd_ < 0) {
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
+    return false;
+  }
   int opt = 1;
   setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&opt), sizeof(opt));
   sockaddr_in addr{};
@@ -79,9 +94,13 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
   if (bind(listenFd_, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) != 0 || listen(listenFd_, 8) != 0) {
     CloseSocketFd(listenFd_);
     listenFd_ = -1;
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
     return false;
   }
-  socklen_t len = sizeof(addr);
+  SocketLength len = sizeof(addr);
   getsockname(listenFd_, reinterpret_cast<sockaddr *>(&addr), &len);
   port_ = ntohs(addr.sin_port);
   settings_ = settings;
@@ -89,6 +108,8 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
   commitListProvider_ = std::move(commitListProvider);
   logCallback_ = std::move(logCallback);
   joinCallback_ = std::move(joinCallback);
+  leaveCallback_ = std::move(leaveCallback);
+  commitCallback_ = std::move(commitCallback);
   running_ = true;
   thread_ = std::thread(&MvrXchangeTcpServer::Run, this);
   return true;
@@ -98,25 +119,26 @@ bool MvrXchangeTcpServer::Start(const MvrXchangeSettings &settings, CommitResolv
 void MvrXchangeTcpServer::Stop() {
   if (!running_ && listenFd_ < 0) return;
   running_ = false;
+  {
+    std::lock_guard lock(clientsMutex_);
+    for (const auto fd : clientFds_) ShutdownSocketFd(fd);
+    clientFds_.clear();
+  }
+  if (thread_.joinable()) thread_.join();
   if (listenFd_ >= 0) {
     CloseSocketFd(listenFd_);
     listenFd_ = -1;
   }
   {
-    std::lock_guard lock(clientsMutex_);
-    for (int fd : clientFds_) ShutdownSocketFd(fd);
-    clientFds_.clear();
-  }
-  if (thread_.joinable()) thread_.join();
-  {
     std::lock_guard lock(clientThreadsMutex_);
     for (auto &clientThread : clientThreads_) {
-      if (clientThread.joinable()) clientThread.join();
+      if (clientThread.thread.joinable()) clientThread.thread.join();
     }
     clientThreads_.clear();
   }
 #ifdef _WIN32
-  WSACleanup();
+  if (networkInitialized_) WSACleanup();
+  networkInitialized_ = false;
 #endif
 }
 
@@ -126,54 +148,68 @@ bool MvrXchangeTcpServer::IsRunning() const { return running_; }
 // Returns the active TCP port, or zero when the server is stopped.
 int MvrXchangeTcpServer::Port() const { return running_ ? port_ : 0; }
 
-// Broadcasts a commit announcement to currently connected TCP clients.
-void MvrXchangeTcpServer::BroadcastCommit(const MvrXchangeCommit &commit) {
-  const std::string message = mvr::xchange::BuildCommit(commit);
-  const std::vector<uint8_t> payload(message.begin(), message.end());
-  const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
-  std::vector<int> clients;
-  {
-    std::lock_guard lock(clientsMutex_);
-    clients = clientFds_;
-  }
-  std::size_t joinedCount = 0;
-  {
-    std::lock_guard lock(clientsMutex_);
-    joinedCount = joinedClientFds_.size();
-  }
-  for (int fd : clients) SendPacket(fd, packet);
-  if (logCallback_) logCallback_("Published MVR revision " + commit.fileUuid + " to " + std::to_string(joinedCount) + " joined MVR-xchange station(s), " + std::to_string(clients.size()) + " raw TCP connection(s).");
-}
-
 // Runs the blocking accept loop on a background thread.
 void MvrXchangeTcpServer::Run() {
   while (running_) {
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(listenFd_, &readSet);
+    timeval timeout{};
+    timeout.tv_usec = 200000;
+    const int ready = select(static_cast<int>(listenFd_ + 1), &readSet, nullptr, nullptr, &timeout);
+    if (!running_) break;
+    if (ready <= 0 || !FD_ISSET(listenFd_, &readSet)) continue;
     sockaddr_in client{};
-    socklen_t len = sizeof(client);
-    int fd = static_cast<int>(accept(listenFd_, reinterpret_cast<sockaddr *>(&client), &len));
+    SocketLength len = sizeof(client);
+    std::intptr_t fd = static_cast<std::intptr_t>(accept(listenFd_, reinterpret_cast<sockaddr *>(&client), &len));
     if (fd < 0) continue;
+    {
+      std::lock_guard lock(clientsMutex_);
+      if (clientFds_.size() >= kMaxConcurrentTransactions) {
+        CloseSocketFd(fd);
+        if (logCallback_) logCallback_("MVR-xchange rejected a TCP transaction because the concurrency limit was reached.");
+        continue;
+      }
+      clientFds_.push_back(fd);
+    }
     ApplySocketTimeouts(fd);
     if (logCallback_) logCallback_("MVR-xchange TCP client connected from " + FormatEndpoint(client) + ".");
+    ReapCompletedTransactions();
+    auto complete = std::make_shared<std::atomic<bool>>(false);
     std::lock_guard lock(clientThreadsMutex_);
-    clientThreads_.emplace_back(&MvrXchangeTcpServer::HandleClient, this, fd);
+    clientThreads_.push_back({std::thread([this, fd, complete] { HandleClient(fd); *complete = true; }), complete});
   }
 }
 
 // Handles one MVR-xchange TCP client using official packet framing.
-void MvrXchangeTcpServer::HandleClient(int clientFd) {
-  AddClient(clientFd);
+void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
   sockaddr_in peer{};
-  socklen_t peerLen = sizeof(peer);
+  SocketLength peerLen = sizeof(peer);
   const std::string endpoint = getpeername(clientFd, reinterpret_cast<sockaddr *>(&peer), &peerLen) == 0 ? FormatEndpoint(peer) : std::string("unknown endpoint");
   std::string disconnectReason = "stop requested";
   std::vector<uint8_t> buffer;
+  mvr::xchange::PacketReassembler reassembler;
   char chunk[4096];
-  while (running_) {
-    int n = static_cast<int>(recv(clientFd, chunk, sizeof(chunk), 0));
-    if (n == 0) { disconnectReason = "recv returned 0"; break; }
-    if (n < 0) { disconnectReason = "socket error"; break; }
-    buffer.insert(buffer.end(), chunk, chunk + n);
-    while (auto packet = mvr::xchange::TryDecodePacket(buffer)) {
+  bool receiveRequired = true;
+  while (running_ && disconnectReason != "transaction complete") {
+    if (receiveRequired) {
+      int n = static_cast<int>(recv(clientFd, chunk, sizeof(chunk), 0));
+      if (n == 0) { disconnectReason = "recv returned 0"; break; }
+      if (n < 0) { disconnectReason = "socket error"; break; }
+      if (buffer.size() > mvr::xchange::kMaxBufferedInputBytes - static_cast<std::size_t>(n)) { disconnectReason = "input limit exceeded"; break; }
+      buffer.insert(buffer.end(), chunk, chunk + n);
+    }
+    mvr::xchange::Packet decoded;
+    std::string decodeError;
+    const auto decodeStatus = mvr::xchange::DecodePacket(buffer, decoded, decodeError);
+    if (decodeStatus == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = true; continue; }
+    if (decodeStatus == mvr::xchange::DecodeStatus::Invalid) { disconnectReason = decodeError; break; }
+    if (decodeStatus == mvr::xchange::DecodeStatus::Complete) {
+      mvr::xchange::Packet complete;
+      const auto reassemblyStatus = reassembler.Add(std::move(decoded), complete, decodeError);
+      if (reassemblyStatus == mvr::xchange::DecodeStatus::Invalid) { disconnectReason = decodeError; break; }
+      if (reassemblyStatus == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = buffer.empty(); continue; }
+      auto packet = std::make_optional(std::move(complete));
       if (packet->type != mvr::xchange::PacketType::Json) { if (logCallback_) logCallback_("MVR-xchange received non-JSON packet from " + endpoint + "."); continue; }
       if (logCallback_) logCallback_("MVR-xchange received JSON packet from " + endpoint + ", bytes=" + std::to_string(packet->payload.size()) + ".");
       std::string line(packet->payload.begin(), packet->payload.end());
@@ -183,9 +219,9 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
       const std::string validationError = mvr::xchange::ValidateMessage(*msg);
       if (!validationError.empty()) {
         if (logCallback_) logCallback_("MVR-xchange rejected " + msg->type + " from " + endpoint + ": " + validationError);
-        if (msg->type == "MVR_COMMIT") SendJson(clientFd, mvr::xchange::BuildCommitRet(false, validationError));
-        else SendJson(clientFd, mvr::xchange::BuildRequestError(validationError));
-        continue;
+        SendJson(clientFd, mvr::xchange::BuildTypedErrorResponse(msg->type, settings_.stationUuid, settings_.stationName, validationError));
+        disconnectReason = "invalid transaction";
+        break;
       }
       if (msg->type == "MVR_JOIN") {
         if (logCallback_) logCallback_("MVR-xchange received MVR_JOIN from " + endpoint + ":\n  provider=" + msg->provider + "\n  station=" + msg->stationName + "\n  uuid=" + msg->stationUuid + "\n  version=" + std::to_string(msg->verMajor) + "." + std::to_string(msg->verMinor) + "\n  commits=" + std::to_string(msg->commits.size()) + "\n  files=" + std::to_string(msg->filesCount));
@@ -197,20 +233,22 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
         station.verMinor = msg->verMinor;
         station.ipAddress = endpoint.substr(0, endpoint.find(':'));
         station.incomingJoined = true;
+        station.inventorySpecified = msg->inventoryPresence != mvr::xchange::InventoryPresence::Absent;
         station.commits = msg->commits;
         if (joinCallback_) joinCallback_(station);
         auto commits = commitListProvider_ ? commitListProvider_() : std::vector<MvrXchangeCommit>{};
-        MarkClientJoined(clientFd);
         SendJson(clientFd, mvr::xchange::BuildJoinRet(settings_.stationUuid, settings_.stationName, commits));
         if (logCallback_) logCallback_("MVR-xchange sent MVR_JOIN_RET to " + endpoint + ", commits=" + std::to_string(commits.size()) + ".");
       }
-      else if (msg->type == "MVR_LEAVE") { SendJson(clientFd, mvr::xchange::BuildLeaveRet()); disconnectReason = "explicit MVR_LEAVE"; RemoveClient(clientFd); CloseSocketFd(clientFd); if (logCallback_) logCallback_("MVR-xchange TCP client disconnected from " + endpoint + ", reason=" + disconnectReason + "."); return; }
-      else if (msg->type == "MVR_COMMIT") { SendJson(clientFd, mvr::xchange::BuildCommitRet(true)); if (logCallback_) logCallback_("MVR-xchange sent MVR_COMMIT_RET to " + endpoint + "."); }
+      else if (msg->type == "MVR_LEAVE") { const std::string senderUuid = !msg->fromStationUuid.empty() ? msg->fromStationUuid : msg->stationUuid; const std::string error = leaveCallback_ ? leaveCallback_(senderUuid) : "Station membership is unavailable."; SendJson(clientFd, mvr::xchange::BuildLeaveRet(error.empty(), error)); disconnectReason = "explicit MVR_LEAVE"; }
+      else if (msg->type == "MVR_COMMIT") { const std::string error = commitCallback_ && !msg->commits.empty() ? commitCallback_(msg->commits.front()) : "Incoming commits are not accepted."; SendJson(clientFd, mvr::xchange::BuildCommitRet(error.empty(), error)); if (logCallback_) logCallback_(error.empty() ? "MVR-xchange accepted MVR_COMMIT from " + endpoint + "." : "MVR-xchange rejected MVR_COMMIT from " + endpoint + ": " + error); }
       else if (msg->type == "MVR_REQUEST") {
         auto commit = resolver_ ? resolver_(msg->fileUuid) : std::nullopt;
         if (!commit || commit->payload.empty()) { SendJson(clientFd, mvr::xchange::BuildRequestError("The MVR is not available on this client")); if (logCallback_) logCallback_("MVR-xchange sent MVR_REQUEST_RET error to " + endpoint + " for FileUUID=" + msg->fileUuid + "."); }
         else { const auto payloadPacket = mvr::xchange::EncodePacket(mvr::xchange::PacketType::MvrFile, commit->payload); SendPacket(clientFd, payloadPacket); if (logCallback_) logCallback_("MVR-xchange sent MVR binary payload to " + endpoint + ", FileUUID=" + commit->fileUuid + ", bytes=" + std::to_string(commit->payload.size()) + "."); }
       } else { SendJson(clientFd, mvr::xchange::BuildRequestError("Unsupported MVR-xchange message.")); if (logCallback_) logCallback_("MVR-xchange received unsupported message " + msg->type + " from " + endpoint + "."); }
+      disconnectReason = "transaction complete";
+      break;
     }
   }
   RemoveClient(clientFd);
@@ -219,14 +257,14 @@ void MvrXchangeTcpServer::HandleClient(int clientFd) {
 }
 
 // Sends one JSON message with official MVR-xchange TCP packet framing.
-bool MvrXchangeTcpServer::SendJson(int fd, const std::string &json) {
+bool MvrXchangeTcpServer::SendJson(std::intptr_t fd, const std::string &json) {
   const std::vector<uint8_t> payload(json.begin(), json.end());
   const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
   return SendPacket(fd, packet);
 }
 
 // Sends all bytes from a preframed MVR-xchange TCP packet.
-bool MvrXchangeTcpServer::SendPacket(int fd, const std::vector<uint8_t> &packet) {
+bool MvrXchangeTcpServer::SendPacket(std::intptr_t fd, const std::vector<uint8_t> &packet) {
   std::size_t sent = 0;
   while (sent < packet.size()) {
     const int n = static_cast<int>(send(fd, reinterpret_cast<const char *>(packet.data() + sent), static_cast<int>(packet.size() - sent), 0));
@@ -236,21 +274,18 @@ bool MvrXchangeTcpServer::SendPacket(int fd, const std::vector<uint8_t> &packet)
   return true;
 }
 
-// Tracks a connected TCP client for commit broadcasts.
-void MvrXchangeTcpServer::AddClient(int fd) {
-  std::lock_guard lock(clientsMutex_);
-  clientFds_.push_back(fd);
-}
-
-// Removes a disconnected TCP client from commit broadcasts.
-void MvrXchangeTcpServer::RemoveClient(int fd) {
+// Removes a completed transaction from the active shutdown set.
+void MvrXchangeTcpServer::RemoveClient(std::intptr_t fd) {
   std::lock_guard lock(clientsMutex_);
   clientFds_.erase(std::remove(clientFds_.begin(), clientFds_.end(), fd), clientFds_.end());
-  joinedClientFds_.erase(std::remove(joinedClientFds_.begin(), joinedClientFds_.end(), fd), joinedClientFds_.end());
 }
 
-// Marks a raw TCP client as a joined MVR-xchange station.
-void MvrXchangeTcpServer::MarkClientJoined(int fd) {
-  std::lock_guard lock(clientsMutex_);
-  if (std::find(joinedClientFds_.begin(), joinedClientFds_.end(), fd) == joinedClientFds_.end()) joinedClientFds_.push_back(fd);
+// Joins and removes completed transaction threads during normal operation.
+void MvrXchangeTcpServer::ReapCompletedTransactions() {
+  std::lock_guard lock(clientThreadsMutex_);
+  for (auto it = clientThreads_.begin(); it != clientThreads_.end();) {
+    if (!*it->complete) { ++it; continue; }
+    if (it->thread.joinable()) it->thread.join();
+    it = clientThreads_.erase(it);
+  }
 }

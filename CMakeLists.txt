@@ -258,6 +258,7 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/xchange/mvr_xchange_commit.cpp
     mvr/xchange/mvr_xchange_dns_names.cpp
     mvr/xchange/mvr_xchange_mdns_discovery.cpp
+    mvr/xchange/mvr_xchange_mdns_cache.cpp
     mvr/xchange/mvr_xchange_mdns_service.cpp
     mvr/xchange/mvr_xchange_network_interfaces.cpp
     mvr/xchange/mvr_xchange_remote_station.cpp
@@ -265,6 +266,7 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/xchange/mvr_xchange_tcp_client.cpp
     mvr/xchange/mvr_xchange_message.cpp
     mvr/xchange/mvr_xchange_packet.cpp
+    mvr/xchange/mvr_xchange_publication_policy.cpp
     mvr/xchange/mvr_xchange_service.cpp
     mvr/xchange/mvr_xchange_settings.cpp
     mvr/xchange/mvr_xchange_tcp_server.cpp

@@ -145,16 +145,16 @@ static int MdnsCallback(int sock, const sockaddr *from, size_t addrlen, mdns_ent
   const std::string query(queryName.str, queryName.length);
   const auto records = BuildRecords(service, Ipv4AddressFromString(service->AdvertisedIpAddress()));
   const bool any = rtype == MDNS_RECORDTYPE_ANY;
-  if (query == mvr::xchange::kMvrXchangeDiscoveryService && (rtype == MDNS_RECORDTYPE_PTR || any)) {
+  if (mvr::xchange::DnsNamesEqual(query, mvr::xchange::kMvrXchangeDiscoveryService) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.discoveryPtr, nullptr, 0);
-  } else if ((query == service->ServiceType() || query == service->GroupServiceName()) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
-    const mdns_record_t answer = query == service->GroupServiceName() ? records.groupPtr : records.ptr;
+  } else if ((mvr::xchange::DnsNamesEqual(query, service->ServiceType()) || mvr::xchange::DnsNamesEqual(query, service->GroupServiceName())) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
+    const mdns_record_t answer = mvr::xchange::DnsNamesEqual(query, service->GroupServiceName()) ? records.groupPtr : records.ptr;
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, answer, records.additional.data(), records.additional.size());
-  } else if (query == service->ServiceInstanceName() && (rtype == MDNS_RECORDTYPE_TXT)) {
+  } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceInstanceName()) && (rtype == MDNS_RECORDTYPE_TXT)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.txtName, &records.txtUuid, 1);
-  } else if (query == service->ServiceInstanceName() && (rtype == MDNS_RECORDTYPE_SRV || any)) {
+  } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceInstanceName()) && (rtype == MDNS_RECORDTYPE_SRV || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.srv, records.additional.data() + 1, 3);
-  } else if (query == service->QualifiedHostName() && (rtype == MDNS_RECORDTYPE_A || any)) {
+  } else if (mvr::xchange::DnsNamesEqual(query, service->QualifiedHostName()) && (rtype == MDNS_RECORDTYPE_A || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.a, nullptr, 0);
   }
   return 0;
@@ -164,6 +164,14 @@ static int MdnsCallback(int sock, const sockaddr *from, size_t addrlen, mdns_ent
 // Starts mDNS advertisement for the official MVR-xchange TCP service.
 bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) {
   Stop();
+#if defined(PERASTAGE_MVR_XCHANGE_ENABLE_MDNS) && defined(_WIN32)
+  WSADATA data;
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) {
+    lastError_ = "MVR-xchange mDNS could not initialize Windows networking.";
+    return false;
+  }
+  networkInitialized_ = true;
+#endif
   lastError_.clear();
   serviceName_ = settings.stationName.empty() ? "Perastage" : settings.stationName;
   stationUuid_ = CanonicalizeUuid(settings.stationUuid);
@@ -176,7 +184,13 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
   groupServiceName_ = mvr::xchange::BuildMvrXchangeGroupServiceName(settings.groupName);
   serviceInstanceName_ = mvr::xchange::BuildMvrXchangeServiceInstanceName(serviceName_, settings.groupName);
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
-  if (!OpenSocket()) return false;
+  if (!OpenSocket()) {
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
+    return false;
+  }
   stopRequested_ = false;
   running_ = true;
   Announce(false);
@@ -201,19 +215,23 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
 
 // Stops the active mDNS advertisement and worker thread.
 void MvrXchangeMdnsService::Stop() {
-  if (!running_ && socket_ < 0) return;
+  if (!running_ && socket_ < 0 && !networkInitialized_) return;
   stopRequested_ = true;
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
   if (running_ && socket_ >= 0) Announce(true);
 #endif
   running_ = false;
+  if (worker_.joinable()) worker_.join();
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
   if (socket_ >= 0) {
     mdns_socket_close(socket_);
     socket_ = -1;
   }
 #endif
-  if (worker_.joinable()) worker_.join();
+#ifdef _WIN32
+  if (networkInitialized_) WSACleanup();
+  networkInitialized_ = false;
+#endif
 }
 
 // Returns whether the advertisement backend is currently active.

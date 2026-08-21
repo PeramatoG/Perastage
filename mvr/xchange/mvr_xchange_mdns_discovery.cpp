@@ -5,13 +5,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <map>
-#include <set>
-#include <string>
-#include <thread>
-#ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
-#include <mdns.h>
-#endif
+#include <cctype>
+#include <cstring>
+#include <limits>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -24,163 +20,324 @@
 #endif
 
 namespace {
-constexpr int kReceiveWindowMs = 250;
+constexpr std::uint16_t kMdnsPort = 5353;
+constexpr std::uint32_t kInitialQueryIntervalSeconds = 3;
+constexpr std::uint32_t kSteadyQueryIntervalSeconds = 30;
 
-struct DiscoveryContext {
-  std::string groupServiceName;
-  std::map<std::string, MvrXchangeRemoteStation> byInstance;
-  std::map<std::string, std::string> hostAddresses;
-};
-
-// Converts an mdns_string_t view to a std::string.
-#ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
-std::string ToString(mdns_string_t value) { return {value.str, value.length}; }
-
-// Extracts the record owner name from an mDNS callback.
-std::string ExtractRecordName(const void *data, size_t size, size_t nameOffset) {
-  char buffer[512]{};
-  size_t offset = nameOffset;
-  return ToString(mdns_string_extract(data, size, &offset, buffer, sizeof(buffer)));
+// Returns monotonic milliseconds for TTL and scheduling calculations.
+std::uint64_t MonotonicMilliseconds() {
+  return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
-// Converts a sockaddr_in address into a dotted IPv4 address string.
-std::string Ipv4ToString(const sockaddr_in &addr) {
-  char buffer[INET_ADDRSTRLEN]{};
-  inet_ntop(AF_INET, &addr.sin_addr, buffer, sizeof(buffer));
-  return buffer;
-}
-
-// Returns a mutable station entry for an mDNS service instance.
-MvrXchangeRemoteStation &StationForInstance(DiscoveryContext &context, const std::string &instanceName) {
-  auto &station = context.byInstance[instanceName];
-  station.serviceInstanceName = instanceName;
-  station.discovered = true;
-  return station;
-}
-
-// Updates station state from one TXT record key/value pair.
-void ApplyTxtRecord(MvrXchangeRemoteStation &station, const mdns_record_txt_t &record) {
-  const std::string key(record.key.str, record.key.length);
-  const std::string value(record.value.str, record.value.length);
-  if (key == "StationName") station.stationName = value;
-  else if (key == "StationUUID") station.stationUuid = CanonicalizeUuid(value);
-}
-
-// Handles records returned by mdns_query_recv for service discovery.
-static int DiscoveryCallback(int, const sockaddr *, size_t, mdns_entry_type_t entry, uint16_t, uint16_t rtype, uint16_t, uint32_t, const void *data, size_t size, size_t nameOffset, size_t, size_t recordOffset, size_t recordLength, void *userData) {
-  if (entry != MDNS_ENTRYTYPE_ANSWER && entry != MDNS_ENTRYTYPE_ADDITIONAL) return 0;
-  auto *context = static_cast<DiscoveryContext *>(userData);
-  const std::string recordName = ExtractRecordName(data, size, nameOffset);
-  if (rtype == MDNS_RECORDTYPE_PTR && (recordName == context->groupServiceName || recordName == mvr::xchange::kMvrXchangeServiceType)) {
-    char ptrBuffer[512]{};
-    const std::string instanceName = ToString(mdns_record_parse_ptr(data, size, recordOffset, recordLength, ptrBuffer, sizeof(ptrBuffer)));
-    if (!instanceName.empty()) StationForInstance(*context, instanceName);
-  } else if (rtype == MDNS_RECORDTYPE_SRV) {
-    char srvBuffer[512]{};
-    const mdns_record_srv_t srv = mdns_record_parse_srv(data, size, recordOffset, recordLength, srvBuffer, sizeof(srvBuffer));
-    auto &station = StationForInstance(*context, recordName);
-    station.hostName = ToString(srv.name);
-    station.port = srv.port;
-  } else if (rtype == MDNS_RECORDTYPE_TXT) {
-    auto &station = StationForInstance(*context, recordName);
-    std::array<mdns_record_txt_t, 8> txtRecords{};
-    const size_t count = mdns_record_parse_txt(data, size, recordOffset, recordLength, txtRecords.data(), txtRecords.size());
-    for (size_t i = 0; i < count; ++i) ApplyTxtRecord(station, txtRecords[i]);
-  } else if (rtype == MDNS_RECORDTYPE_A) {
-    sockaddr_in address{};
-    if (mdns_record_parse_a(data, size, recordOffset, recordLength, &address)) context->hostAddresses[recordName] = Ipv4ToString(address);
-  }
-  return 0;
-}
-
-// Receives mDNS responses for a short bounded interval.
-void ReceiveResponses(int socketFd, DiscoveryContext &context) {
-  std::array<char, 4096> buffer{};
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kReceiveWindowMs);
-  while (std::chrono::steady_clock::now() < deadline) {
-    fd_set readSet;
-    FD_ZERO(&readSet);
-    FD_SET(socketFd, &readSet);
-    timeval timeout{};
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 50000;
-    if (select(socketFd + 1, &readSet, nullptr, nullptr, &timeout) > 0 && FD_ISSET(socketFd, &readSet))
-      mdns_query_recv(socketFd, buffer.data(), buffer.size(), DiscoveryCallback, &context, 0);
-  }
-}
-
-// Sends one mDNS query and receives responses for a bounded interval.
-void QueryAndReceive(int socketFd, mdns_record_type_t type, const std::string &name, DiscoveryContext &context) {
-  std::array<char, 2048> buffer{};
-  mdns_query_send(socketFd, type, name.c_str(), name.size(), buffer.data(), buffer.size(), 0);
-  ReceiveResponses(socketFd, context);
-}
-
-// Opens a query socket for the selected MVR-xchange interface.
-int OpenQuerySocket(const MvrXchangeSettings &settings) {
-  const auto selected = SelectMvrXchangeNetworkInterface(settings.selectedInterfaceId);
-  sockaddr_in address{};
-  address.sin_family = AF_INET;
-  address.sin_port = 0;
-  inet_pton(AF_INET, selected.ipv4Address.c_str(), &address.sin_addr);
-  return mdns_socket_open_ipv4(&address);
-}
+// Closes a multicast socket on the current platform.
+void CloseSocket(std::intptr_t socketFd) {
+#ifdef _WIN32
+  closesocket(static_cast<SOCKET>(socketFd));
+#else
+  close(static_cast<int>(socketFd));
 #endif
-
-// Returns true if a station matches this Perastage instance.
-bool IsSelfStation(const MvrXchangeRemoteStation &station, const std::string &localInstanceName, const std::string &localStationUuid, const std::string &localIpAddress, int localPort) {
-  if (!station.stationUuid.empty() && station.stationUuid == localStationUuid) return true;
-  if (!station.serviceInstanceName.empty() && station.serviceInstanceName == localInstanceName) return true;
-  return station.port > 0 && station.port == localPort && station.ipAddress == localIpAddress;
-}
 }
 
-// Discovers MVR-xchange stations registered in the selected group subservice.
-std::vector<MvrXchangeRemoteStation> MvrXchangeMdnsDiscovery::DiscoverStations(const MvrXchangeSettings &settings,
-                                                                                const std::string &localInstanceName,
-                                                                                const std::string &localStationUuid,
-                                                                                const std::string &localIpAddress,
-                                                                                int localPort,
-                                                                                LogCallback logCallback) {
-  const std::string groupServiceName = mvr::xchange::BuildMvrXchangeGroupServiceName(settings.groupName);
-  if (logCallback) logCallback("MVR-xchange querying group service: " + groupServiceName);
-#ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
-  const int socketFd = OpenQuerySocket(settings);
-  if (socketFd < 0) {
-    if (logCallback) logCallback("MVR-xchange mDNS discovery could not open a query socket.");
-    return {};
-  }
-  DiscoveryContext context;
-  context.groupServiceName = groupServiceName;
-  QueryAndReceive(socketFd, MDNS_RECORDTYPE_PTR, groupServiceName, context);
-  QueryAndReceive(socketFd, MDNS_RECORDTYPE_PTR, mvr::xchange::kMvrXchangeServiceType, context);
-  std::set<std::string> queriedHosts;
-  for (const auto &entry : context.byInstance) {
-    QueryAndReceive(socketFd, MDNS_RECORDTYPE_SRV, entry.first, context);
-    QueryAndReceive(socketFd, MDNS_RECORDTYPE_TXT, entry.first, context);
-  }
-  for (const auto &entry : context.byInstance) {
-    if (!entry.second.hostName.empty() && queriedHosts.insert(entry.second.hostName).second)
-      QueryAndReceive(socketFd, MDNS_RECORDTYPE_A, entry.second.hostName, context);
-  }
-  mdns_socket_close(socketFd);
-  std::vector<MvrXchangeRemoteStation> stations;
-  const std::string canonicalLocalUuid = CanonicalizeUuid(localStationUuid);
-  for (auto &[instanceName, station] : context.byInstance) {
-    if (station.ipAddress.empty() && !station.hostName.empty()) station.ipAddress = context.hostAddresses[station.hostName];
-    station.stationUuid = CanonicalizeUuid(station.stationUuid);
-    if (station.stationName.empty()) station.stationName = station.serviceInstanceName.substr(0, station.serviceInstanceName.find('.'));
-    if (station.ipAddress.empty() || station.port <= 0) {
-      if (logCallback) logCallback("MVR-xchange discovery ignored incomplete station " + station.serviceInstanceName + ".");
+// Reads one unsigned 16-bit DNS field in network order.
+bool ReadU16(const std::uint8_t *data, std::size_t size, std::size_t &offset, std::uint16_t &value) {
+  if (offset > size || size - offset < 2) return false;
+  value = static_cast<std::uint16_t>((data[offset] << 8) | data[offset + 1]);
+  offset += 2;
+  return true;
+}
+
+// Reads one unsigned 32-bit DNS field in network order.
+bool ReadU32(const std::uint8_t *data, std::size_t size, std::size_t &offset, std::uint32_t &value) {
+  if (offset > size || size - offset < 4) return false;
+  value = (static_cast<std::uint32_t>(data[offset]) << 24) |
+          (static_cast<std::uint32_t>(data[offset + 1]) << 16) |
+          (static_cast<std::uint32_t>(data[offset + 2]) << 8) | data[offset + 3];
+  offset += 4;
+  return true;
+}
+
+// Decodes a bounded DNS name including RFC compression pointers.
+bool ReadDnsName(const std::uint8_t *data, std::size_t size, std::size_t &offset, std::string &name) {
+  std::size_t cursor = offset;
+  std::size_t resume = offset;
+  bool jumped = false;
+  std::size_t jumps = 0;
+  name.clear();
+  while (cursor < size && jumps <= 32) {
+    const std::uint8_t length = data[cursor++];
+    if (length == 0) { offset = jumped ? resume : cursor; if (!name.empty()) name.push_back('.'); return true; }
+    if ((length & 0xc0) == 0xc0) {
+      if (cursor >= size) return false;
+      const std::size_t pointer = ((length & 0x3f) << 8) | data[cursor++];
+      if (pointer >= size) return false;
+      if (!jumped) resume = cursor;
+      jumped = true;
+      cursor = pointer;
+      ++jumps;
       continue;
     }
-    if (IsSelfStation(station, localInstanceName, canonicalLocalUuid, localIpAddress, localPort)) continue;
-    if (logCallback) logCallback("MVR-xchange discovered station:\n  instance=" + station.serviceInstanceName + "\n  station=" + station.stationName + "\n  uuid=" + station.stationUuid + "\n  host=" + station.hostName + "\n  ip=" + station.ipAddress + "\n  port=" + std::to_string(station.port));
-    stations.push_back(std::move(station));
+    if ((length & 0xc0) != 0 || length > 63 || cursor > size || size - cursor < length) return false;
+    if (!name.empty()) name.push_back('.');
+    name.append(reinterpret_cast<const char *>(data + cursor), length);
+    cursor += length;
   }
-  return stations;
-#else
+  return false;
+}
+
+// Appends a DNS name without compression to an outgoing query.
+bool AppendDnsName(std::vector<std::uint8_t> &packet, const std::string &name) {
+  std::size_t begin = 0;
+  const std::string normalized = name.empty() || name.back() == '.' ? name.substr(0, name.size() - (name.empty() ? 0 : 1)) : name;
+  while (begin < normalized.size()) {
+    const std::size_t end = normalized.find('.', begin);
+    const std::size_t length = (end == std::string::npos ? normalized.size() : end) - begin;
+    if (length == 0 || length > 63 || packet.size() > 512 - length - 1) return false;
+    packet.push_back(static_cast<std::uint8_t>(length));
+    packet.insert(packet.end(), normalized.begin() + begin, normalized.begin() + begin + length);
+    if (end == std::string::npos) break;
+    begin = end + 1;
+  }
+  packet.push_back(0);
+  return true;
+}
+
+// Converts an ASCII TXT key to its case-insensitive cache form.
+std::string NormalizeTxtKey(std::string key) {
+  std::transform(key.begin(), key.end(), key.begin(), [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+  return key;
+}
+
+}
+
+// Creates an inactive persistent mDNS browser.
+MvrXchangeMdnsDiscovery::MvrXchangeMdnsDiscovery() = default;
+
+// Stops the browser before releasing its owned socket and thread.
+MvrXchangeMdnsDiscovery::~MvrXchangeMdnsDiscovery() { Stop(); }
+
+// Starts persistent multicast browsing on the selected interface.
+bool MvrXchangeMdnsDiscovery::Start(const MvrXchangeSettings &settings, const std::string &localInstanceName,
+                                      const std::string &localStationUuid, LogCallback logCallback) {
+  Stop();
+#ifndef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
+  (void)settings;
+  (void)localInstanceName;
+  (void)localStationUuid;
   if (logCallback) logCallback("MVR-xchange mDNS discovery is unavailable because this build was configured without the vcpkg mdns backend.");
-  return {};
+  return false;
+#else
+  settings_ = settings;
+  groupServiceName_ = mvr::xchange::BuildMvrXchangeGroupServiceName(settings.groupName);
+  localInstanceName_ = localInstanceName;
+  localStationUuid_ = CanonicalizeUuid(localStationUuid);
+  logCallback_ = std::move(logCallback);
+#ifdef _WIN32
+  WSADATA data;
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return false;
+  networkInitialized_ = true;
 #endif
+  if (!OpenSocket()) {
+#ifdef _WIN32
+    WSACleanup();
+    networkInitialized_ = false;
+#endif
+    return false;
+  }
+  running_ = true;
+  queryRequested_ = true;
+  worker_ = std::thread(&MvrXchangeMdnsDiscovery::Run, this);
+  return true;
+#endif
+}
+
+// Stops browsing and deterministically unblocks the receive loop.
+void MvrXchangeMdnsDiscovery::Stop() {
+  running_ = false;
+  if (worker_.joinable()) worker_.join();
+  const auto socketFd = socket_;
+  socket_ = -1;
+  if (socketFd >= 0) CloseSocket(socketFd);
+#ifdef _WIN32
+  if (networkInitialized_) WSACleanup();
+  networkInitialized_ = false;
+#endif
+  std::lock_guard lock(mutex_);
+  cache_.Clear();
+}
+
+// Requests an immediate query without replacing the persistent browser.
+void MvrXchangeMdnsDiscovery::QueryNow() { queryRequested_ = true; }
+
+// Returns currently resolved, non-expired stations from the record cache.
+std::vector<MvrXchangeRemoteStation> MvrXchangeMdnsDiscovery::Snapshot() {
+  std::lock_guard lock(mutex_);
+  const auto now = MonotonicMilliseconds();
+  cache_.Expire(now);
+  auto stations = cache_.Resolve(groupServiceName_, now);
+  stations.erase(std::remove_if(stations.begin(), stations.end(), [&](const auto &station) {
+    return (!station.stationUuid.empty() && station.stationUuid == localStationUuid_) ||
+           (!station.serviceInstanceName.empty() && mvr::xchange::DnsNamesEqual(station.serviceInstanceName, localInstanceName_));
+  }), stations.end());
+  return stations;
+}
+
+// Reports whether the persistent browser thread owns a live socket.
+bool MvrXchangeMdnsDiscovery::IsRunning() const { return running_; }
+
+// Opens, reuses, binds, and joins the IPv4 mDNS multicast socket.
+bool MvrXchangeMdnsDiscovery::OpenSocket() {
+#ifdef _WIN32
+  SOCKET fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (fd == INVALID_SOCKET) return false;
+#else
+  int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (fd < 0) return false;
+#endif
+  int enabled = 1;
+  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&enabled), sizeof(enabled)) != 0) { CloseSocket(fd); return false; }
+#if defined(SO_REUSEPORT) && !defined(_WIN32)
+  if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enabled, sizeof(enabled)) != 0) { CloseSocket(fd); return false; }
+#endif
+  sockaddr_in bindAddress{};
+  bindAddress.sin_family = AF_INET;
+  bindAddress.sin_port = htons(kMdnsPort);
+  bindAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+  if (bind(fd, reinterpret_cast<sockaddr *>(&bindAddress), sizeof(bindAddress)) != 0) { CloseSocket(fd); return false; }
+  const auto selected = SelectMvrXchangeNetworkInterface(settings_.selectedInterfaceId);
+  ip_mreq membership{};
+  inet_pton(AF_INET, "224.0.0.251", &membership.imr_multiaddr);
+  inet_pton(AF_INET, selected.ipv4Address.c_str(), &membership.imr_interface);
+  if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char *>(&membership), sizeof(membership)) != 0) { CloseSocket(fd); return false; }
+  setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<const char *>(&membership.imr_interface), sizeof(membership.imr_interface));
+  socket_ = static_cast<std::intptr_t>(fd);
+  return true;
+}
+
+// Continuously receives announcements and sends periodic discovery queries.
+void MvrXchangeMdnsDiscovery::Run() {
+  auto nextQuery = std::chrono::steady_clock::now();
+  bool initial = true;
+  while (running_) {
+    const auto now = std::chrono::steady_clock::now();
+    if (queryRequested_.exchange(false) || now >= nextQuery) {
+      SendQueries();
+      nextQuery = now + std::chrono::seconds(initial ? kInitialQueryIntervalSeconds : kSteadyQueryIntervalSeconds);
+      initial = false;
+    }
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    const auto fd = socket_;
+    if (fd < 0) break;
+#ifdef _WIN32
+    const SOCKET nativeFd = static_cast<SOCKET>(fd);
+#else
+    const int nativeFd = static_cast<int>(fd);
+#endif
+    FD_SET(nativeFd, &readSet);
+    timeval timeout{};
+    timeout.tv_usec = 200000;
+    if (select(static_cast<int>(nativeFd) + 1, &readSet, nullptr, nullptr, &timeout) > 0 && FD_ISSET(nativeFd, &readSet)) ReceiveDatagram();
+    std::lock_guard lock(mutex_);
+    cache_.Expire(MonotonicMilliseconds());
+  }
+}
+
+// Sends PTR questions for the official group and base service names.
+void MvrXchangeMdnsDiscovery::SendQueries() {
+  for (const std::string &name : {groupServiceName_, std::string(mvr::xchange::kMvrXchangeServiceType)}) {
+    std::vector<std::uint8_t> packet(12, 0);
+    packet[5] = 1;
+    if (!AppendDnsName(packet, name)) continue;
+    packet.push_back(0); packet.push_back(12);
+    packet.push_back(0); packet.push_back(1);
+    sockaddr_in destination{};
+    destination.sin_family = AF_INET;
+    destination.sin_port = htons(kMdnsPort);
+    inet_pton(AF_INET, "224.0.0.251", &destination.sin_addr);
+#ifdef _WIN32
+    const SOCKET nativeFd = static_cast<SOCKET>(socket_);
+#else
+    const int nativeFd = static_cast<int>(socket_);
+#endif
+    sendto(nativeFd, reinterpret_cast<const char *>(packet.data()), static_cast<int>(packet.size()), 0,
+           reinterpret_cast<sockaddr *>(&destination), sizeof(destination));
+  }
+}
+
+// Receives and parses one multicast response or unsolicited announcement.
+void MvrXchangeMdnsDiscovery::ReceiveDatagram() {
+  std::array<std::uint8_t, 9000> buffer{};
+#ifdef _WIN32
+  const SOCKET nativeFd = static_cast<SOCKET>(socket_);
+#else
+  const int nativeFd = static_cast<int>(socket_);
+#endif
+  const int received = static_cast<int>(recv(nativeFd, reinterpret_cast<char *>(buffer.data()), static_cast<int>(buffer.size()), 0));
+  if (received > 0) ApplyDatagram(buffer.data(), static_cast<std::size_t>(received), 0);
+}
+
+// Parses one DNS datagram into bounded answer and additional records.
+std::vector<mvr::xchange::DnsRecord> mvr::xchange::ParseMdnsRecords(const std::uint8_t *data, std::size_t size,
+                                                                    std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs) {
+  std::vector<mvr::xchange::DnsRecord> parsedRecords;
+  if (size < 12) return parsedRecords;
+  std::size_t offset = 4;
+  std::uint16_t questions = 0, answers = 0, authorities = 0, additionals = 0;
+  if (!ReadU16(data, size, offset, questions) || !ReadU16(data, size, offset, answers) ||
+      !ReadU16(data, size, offset, authorities) || !ReadU16(data, size, offset, additionals)) return parsedRecords;
+  for (std::uint16_t i = 0; i < questions; ++i) {
+    std::string ignored;
+    if (!ReadDnsName(data, size, offset, ignored) || offset > size || size - offset < 4) return {};
+    offset += 4;
+  }
+  const std::uint32_t recordCount = static_cast<std::uint32_t>(answers) + authorities + additionals;
+  for (std::uint32_t i = 0; i < recordCount; ++i) {
+    mvr::xchange::DnsRecord record;
+    if (!ReadDnsName(data, size, offset, record.owner)) return {};
+    std::uint16_t type = 0, dnsClass = 0, length = 0;
+    std::uint32_t ttl = 0;
+    if (!ReadU16(data, size, offset, type) || !ReadU16(data, size, offset, dnsClass) ||
+        !ReadU32(data, size, offset, ttl) || !ReadU16(data, size, offset, length) || offset > size || size - offset < length) return {};
+    const std::size_t recordEnd = offset + length;
+    record.ttlSeconds = ttl;
+    record.interfaceIndex = interfaceIndex;
+    record.lastSeenMonotonicMs = nowMonotonicMs;
+    bool supported = true;
+    if (type == 12) { record.type = mvr::xchange::DnsRecordType::Ptr; supported = ReadDnsName(data, size, offset, record.target); }
+    else if (type == 33) {
+      record.type = mvr::xchange::DnsRecordType::Srv;
+      std::uint16_t ignored = 0;
+      supported = ReadU16(data, size, offset, ignored) && ReadU16(data, size, offset, ignored) && ReadU16(data, size, offset, record.port) && ReadDnsName(data, size, offset, record.target);
+    } else if (type == 16) {
+      record.type = mvr::xchange::DnsRecordType::Txt;
+      while (offset < recordEnd) {
+        const std::size_t textLength = data[offset++];
+        if (offset > recordEnd || recordEnd - offset < textLength) { supported = false; break; }
+        const std::string item(reinterpret_cast<const char *>(data + offset), textLength);
+        const auto separator = item.find('=');
+        record.text[NormalizeTxtKey(item.substr(0, separator))] = separator == std::string::npos ? std::string{} : item.substr(separator + 1);
+        offset += textLength;
+      }
+    } else if (type == 1 && length == 4) {
+      record.type = mvr::xchange::DnsRecordType::A;
+      char address[INET_ADDRSTRLEN]{};
+      supported = inet_ntop(AF_INET, data + offset, address, sizeof(address)) != nullptr;
+      record.address = address;
+    } else if (type == 28 && length == 16) {
+      record.type = mvr::xchange::DnsRecordType::Aaaa;
+      char address[INET6_ADDRSTRLEN]{};
+      supported = inet_ntop(AF_INET6, data + offset, address, sizeof(address)) != nullptr;
+      record.address = address;
+    } else supported = false;
+    offset = recordEnd;
+    if (supported) parsedRecords.push_back(std::move(record));
+  }
+  return parsedRecords;
+}
+
+// Applies one parsed DNS datagram to the persistent record cache.
+void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex) {
+  auto parsedRecords = mvr::xchange::ParseMdnsRecords(data, size, interfaceIndex, MonotonicMilliseconds());
+  if (!parsedRecords.empty()) { std::lock_guard lock(mutex_); cache_.ApplyBatch(std::move(parsedRecords)); }
 }

@@ -77,6 +77,28 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. Deterministic per-station announcements avoid JOIN/COMMIT duplication and reciprocal JOINs for incoming members, explicit leave membership survives passive rediscovery, typed failures and canonical sender fields improve compatibility, and persistent multicast discovery now uses scoped DNS-SD resolution, TXT merging, TTL lifecycle handling, bounded multipart transfers, and steady-state query backoff.
+
+- Improved MVR-xchange interoperability with consoles that follow the official
+  adjusted JOIN response example without a `Provider` field, while retaining
+  canonical output and strict station identity and inventory validation.
+
+- Made the MVR-xchange DNS goodbye regression portable across Windows, Linux,
+  and macOS debug test configurations.
+
+- Fixed cross-platform station identity promotion so provisional discovery
+  records merge safely when an authoritative station UUID becomes available.
+
+- Added a dedicated remote-station view and one-click log copying to the
+  MVR-xchange dialog, reduced repeated discovery diagnostics, and improved
+  incoming compatibility with consoles that advertise the standard new-member
+  `0.0` version before sharing their MVR revisions.
+
+- Compacted MVR-xchange station settings and gave the independently scrollable
+  station and advertised-file lists more usable space without enlarging the
+  dialog.
+
+
 - Unified project and standalone MVR serialization around one canonical MVR 1.6 contract. Both interactive commands now prepare derived scene data consistently; portable Perastage scene-fidelity metadata follows fixtures safely through standalone imports and merges; valid third-party root UserData is preserved without duplication; malformed provider blocks are diagnosed and excluded; and read-only snapshots no longer repair or dirty the live scene. File > Export MVR now honors the explicit, MVR 1.6-compliant Direct Geometry3D truss compatibility preference without affecting project persistence or canonical snapshots.
 
 - Improved Windows CI reliability by adding a pinned direct ripgrep fallback

@@ -7,11 +7,13 @@
 #include "mvr_xchange_tcp_client.h"
 #include "mvr_xchange_tcp_server.h"
 #include <atomic>
-#include <functional>
+#include <chrono>
 #include <thread>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 class MvrXchangeService {
 public:
@@ -31,11 +33,13 @@ public:
 private:
   std::optional<MvrXchangeCommit> ResolveRequest(const std::string &fileUuid) const;
   void HandleIncomingJoin(const MvrXchangeRemoteStation &station);
-  void DiscoverStationsOnce();
+  std::string HandleIncomingLeave(const std::string &stationUuid);
+  std::string HandleIncomingCommit(const MvrXchangeCommit &commit);
+  void ReconcileDiscoveredStations(bool requestQuery);
   void DiscoveryLoop();
-  void TryOutgoingJoin(const MvrXchangeRemoteStation &station);
+  bool TryOutgoingJoin(const MvrXchangeRemoteStation &station);
   void LogStationCounts() const;
-  void SendCommitToJoinedStations(const MvrXchangeCommit &commit);
+  void SendCommitToJoinedStations(const MvrXchangeCommit &commit, const std::vector<MvrXchangeRemoteStation> &destinations);
   void Log(const std::string &message) const;
 
   MvrXchangeSettings settings_;
@@ -50,4 +54,7 @@ private:
   LogCallback logCallback_;
   mutable std::mutex mutex_;
   std::mutex discoveryMutex_;
+  std::unordered_map<std::string, std::chrono::steady_clock::time_point> joinRetryAfter_;
+  mutable std::mutex statusLogMutex_;
+  mutable std::string lastStationCountsLog_;
 };

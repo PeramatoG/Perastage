@@ -2429,15 +2429,21 @@ add_executable(mvr_xchange_protocol_test
     ../mvr/xchange/mvr_xchange_commit.cpp
     ../mvr/xchange/mvr_xchange_dns_names.cpp
     ../mvr/xchange/mvr_xchange_message.cpp
+    ../mvr/xchange/mvr_xchange_mdns_cache.cpp
+    ../mvr/xchange/mvr_xchange_mdns_discovery.cpp
     ../mvr/xchange/mvr_xchange_network_interfaces.cpp
     ../mvr/xchange/mvr_xchange_station_registry.cpp
     ../mvr/xchange/mvr_xchange_packet.cpp
+    ../mvr/xchange/mvr_xchange_publication_policy.cpp
+    ../mvr/xchange/mvr_xchange_tcp_client.cpp
+    ../mvr/xchange/mvr_xchange_tcp_server.cpp
 )
 target_include_directories(mvr_xchange_protocol_test PRIVATE ${CMAKE_SOURCE_DIR}/mvr ${CMAKE_SOURCE_DIR}/third_party)
 if(WIN32)
     target_link_libraries(mvr_xchange_protocol_test PRIVATE iphlpapi ws2_32)
 endif()
 add_test(NAME MvrXchangeProtocol COMMAND mvr_xchange_protocol_test)
+set_tests_properties(MvrXchangeProtocol PROPERTIES TIMEOUT 30)
 
 add_executable(layer_service_utf8_test layer_service_utf8_test.cpp
                ../core/layer_service.cpp

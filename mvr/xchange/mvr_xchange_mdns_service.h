@@ -40,4 +40,5 @@ private:
   int port_ = 0;
   int socket_ = -1;
   std::thread worker_;
+  bool networkInitialized_ = false;
 };
