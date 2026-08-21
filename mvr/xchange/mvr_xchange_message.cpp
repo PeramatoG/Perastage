@@ -154,7 +154,9 @@ std::string ValidateMessage(const Message &message) {
     if (message.stationName.empty()) return message.type + " is missing StationName.";
     // Some implementations follow the adjusted MVR 1.6 JOIN_RET example, which omits Provider despite Table 69.
     if (message.type == "MVR_JOIN" && message.provider.empty()) return message.type + " is missing Provider.";
-    if (message.verMajor != 1 || message.verMinor < 0 || message.verMinor > 6) return message.type + " contains an unsupported protocol version.";
+    const bool supportedVersion = (message.verMajor == 1 && message.verMinor >= 0 && message.verMinor <= 6) ||
+                                  (message.verMajor == 0 && message.verMinor == 0);
+    if (!supportedVersion) return message.type + " contains an unsupported protocol version.";
     for (const auto &commit : message.commits) {
       if (!commit.metadataValid) return message.type + " contains malformed commit metadata.";
       if (commit.fileUuid.empty()) return message.type + " contains a commit with an invalid FileUUID.";

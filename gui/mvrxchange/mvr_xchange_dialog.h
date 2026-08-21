@@ -1,6 +1,7 @@
 #pragma once
 #include "xchange/mvr_xchange_service.h"
 #include "xchange/mvr_xchange_network_interfaces.h"
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <atomic>
@@ -24,11 +25,12 @@ private:
     std::string fileUuid;
     std::string fileName;
     std::string comment;
-    std::size_t fileSize = 0;
+    std::uint64_t fileSize = 0;
   };
 
   void BuildLayout();
   void RefreshState();
+  void RefreshStations(const std::vector<MvrXchangeRemoteStation> &stations);
   void RefreshAvailableFiles(const std::vector<MvrXchangeRemoteStation> &stations);
   void ApplyConsoleLogStyle();
   void AppendLog(const wxString &message);
@@ -38,6 +40,7 @@ private:
   void OnDiscover(wxCommandEvent &event);
   void OnRequest(wxCommandEvent &event);
   void OnAvailableFileActivated(wxDataViewEvent &event);
+  void OnCopyLog(wxCommandEvent &event);
   std::optional<AvailableMvrFile> SelectedAvailableFile() const;
   bool ImportRequestedCommit(const AvailableMvrFile &file, const MvrXchangeCommit &commit);
 
@@ -47,6 +50,7 @@ private:
   std::atomic<bool> shuttingDown_{false};
   wxStaticText *statusText_ = nullptr;
   wxStaticText *remoteStationsText_ = nullptr;
+  wxDataViewListCtrl *stationsList_ = nullptr;
   wxDataViewListCtrl *availableFilesList_ = nullptr;
   wxTextCtrl *stationNameCtrl_ = nullptr;
   wxTextCtrl *groupNameCtrl_ = nullptr;
@@ -61,4 +65,5 @@ private:
   wxButton *publishButton_ = nullptr;
   wxButton *requestButton_ = nullptr;
   wxButton *discoverButton_ = nullptr;
+  wxButton *copyLogButton_ = nullptr;
 };

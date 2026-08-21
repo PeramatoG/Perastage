@@ -182,6 +182,15 @@ static void TestMessages() {
       R"({"Type":"MVR_JOIN_RET","OK":true,"Message":"","verMajor":1,"verMinor":6,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"MVR Application","Commits":[]})");
   assert(adjustedExampleJoinRet && adjustedExampleJoinRet->provider.empty());
   assert(mvr::xchange::ValidateMessage(*adjustedExampleJoinRet).empty());
+  auto newMemberJoinRet = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_JOIN_RET","OK":true,"Message":"","Provider":"grandMA3","verMajor":0,"verMinor":0,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"Console","Commits":[]})");
+  assert(newMemberJoinRet && mvr::xchange::ValidateMessage(*newMemberJoinRet).empty());
+  auto newMemberJoin = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_JOIN","Provider":"grandMA3","verMajor":0,"verMinor":0,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"Console","Commits":[]})");
+  assert(newMemberJoin && mvr::xchange::ValidateMessage(*newMemberJoin).empty());
+  auto mixedJoinRetVersion = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_JOIN_RET","OK":true,"Message":"","Provider":"Peer","verMajor":0,"verMinor":6,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"Peer","Commits":[]})");
+  assert(mixedJoinRetVersion && !mvr::xchange::ValidateMessage(*mixedJoinRetVersion).empty());
   auto missingJoinProvider = mvr::xchange::ParseMessage(
       R"({"Type":"MVR_JOIN","verMajor":1,"verMinor":6,"StationUUID":"a7669ff9-bd61-4486-aea6-c190f8ba6b8c","StationName":"MVR Application","Commits":[]})");
   assert(missingJoinProvider && mvr::xchange::ValidateMessage(*missingJoinProvider) == "MVR_JOIN is missing Provider.");

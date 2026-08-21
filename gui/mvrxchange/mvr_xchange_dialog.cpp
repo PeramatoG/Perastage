@@ -2,6 +2,7 @@
 #include "runtime_storage.h"
 #include "../mainwindow.h"
 #include <wx/app.h>
+#include <wx/clipbrd.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/sizer.h>
@@ -14,12 +15,12 @@
 namespace {
 
 // Formats bytes for the MVR file list.
-wxString FormatFileSize(std::size_t bytes) {
+wxString FormatFileSize(std::uint64_t bytes) {
   if (bytes >= 1024u * 1024u)
     return wxString::Format("%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
   if (bytes >= 1024u)
     return wxString::Format("%.1f KB", static_cast<double>(bytes) / 1024.0);
-  return wxString::Format("%zu B", bytes);
+  return wxString::Format("%llu B", static_cast<unsigned long long>(bytes));
 }
 
 // Returns the most useful display name for a remote station.
@@ -152,12 +153,18 @@ void MvrXchangeDialog::BuildLayout() {
   settingsBox->Add(grid, 0, wxEXPAND | wxALL, 10);
   root->Add(settingsBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
-  auto *remoteBox = new wxStaticBoxSizer(wxVERTICAL, this, "Remote MVR files");
+  auto *remoteBox = new wxStaticBoxSizer(wxVERTICAL, this, "Remote stations and MVR files");
   remoteStationsText_ = new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, "0 discovered, 0 incoming joined, 0 outgoing joined");
   remoteStationsText_->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   remoteBox->Add(remoteStationsText_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
-  availableFilesList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 225), wxDV_ROW_LINES | wxDV_SINGLE);
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
+  stationsList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 115), wxDV_ROW_LINES | wxDV_SINGLE);
+  stationsList_->AppendTextColumn("Station", wxDATAVIEW_CELL_INERT, 250, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn("Membership", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn("Endpoint", wxDATAVIEW_CELL_INERT, 180, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn("Station UUID", wxDATAVIEW_CELL_INERT, 290, wxALIGN_LEFT, flags);
+  remoteBox->Add(stationsList_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+  availableFilesList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 170), wxDV_ROW_LINES | wxDV_SINGLE);
   availableFilesList_->AppendTextColumn("Station", wxDATAVIEW_CELL_INERT, 170, wxALIGN_LEFT, flags);
   availableFilesList_->AppendTextColumn("MVR file", wxDATAVIEW_CELL_INERT, 230, wxALIGN_LEFT, flags);
   availableFilesList_->AppendTextColumn("Size", wxDATAVIEW_CELL_INERT, 90, wxALIGN_LEFT, flags);
@@ -167,6 +174,11 @@ void MvrXchangeDialog::BuildLayout() {
   root->Add(remoteBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
   auto *logBox = new wxStaticBoxSizer(wxVERTICAL, this, "Log");
+  auto *logActions = new wxBoxSizer(wxHORIZONTAL);
+  logActions->AddStretchSpacer();
+  copyLogButton_ = new wxButton(logBox->GetStaticBox(), wxID_ANY, "Copy Log");
+  logActions->Add(copyLogButton_, 0);
+  logBox->Add(logActions, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
   logCtrl_ = new wxTextCtrl(logBox->GetStaticBox(), wxID_ANY, {}, wxDefaultPosition, wxSize(-1, 160), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
   ApplyConsoleLogStyle();
   logBox->Add(logCtrl_, 1, wxEXPAND | wxALL, 10);
@@ -193,6 +205,7 @@ void MvrXchangeDialog::BuildLayout() {
   publishButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnPublish, this);
   requestButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnRequest, this);
   discoverButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnDiscover, this);
+  copyLogButton_->Bind(wxEVT_BUTTON, &MvrXchangeDialog::OnCopyLog, this);
   availableFilesList_->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &MvrXchangeDialog::OnAvailableFileActivated, this);
   Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Close(); }, wxID_CLOSE);
   startButton_->SetFocus();
@@ -214,6 +227,7 @@ void MvrXchangeDialog::RefreshState() {
   publishButton_->Enable(running);
   discoverButton_->Enable(running);
   const auto stations = service_->GetKnownStations();
+  RefreshStations(stations);
   RefreshAvailableFiles(stations);
   requestButton_->Enable(running && SelectedAvailableFile().has_value());
   std::size_t discovered = 0;
@@ -226,6 +240,24 @@ void MvrXchangeDialog::RefreshState() {
   }
   if (remoteStationsText_) {
     remoteStationsText_->SetLabel(wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing));
+  }
+}
+
+// Rebuilds the station list from discovery and protocol membership state.
+void MvrXchangeDialog::RefreshStations(const std::vector<MvrXchangeRemoteStation> &stations) {
+  if (!stationsList_) return;
+  stationsList_->DeleteAllItems();
+  for (const auto &station : stations) {
+    std::string membership = station.left ? "Left" : station.incomingJoined && station.outgoingJoined ? "Joined both ways" :
+                             station.incomingJoined ? "Incoming joined" : station.outgoingJoined ? "Outgoing joined" :
+                             station.discovered ? "Discovered" : "Offline";
+    const std::string endpoint = station.ipAddress.empty() ? std::string{} : station.ipAddress + (station.port > 0 ? ":" + std::to_string(station.port) : std::string{});
+    wxVector<wxVariant> row;
+    row.push_back(wxVariant(wxString::FromUTF8(StationDisplayName(station))));
+    row.push_back(wxVariant(wxString::FromUTF8(membership)));
+    row.push_back(wxVariant(wxString::FromUTF8(endpoint)));
+    row.push_back(wxVariant(wxString::FromUTF8(station.stationUuid)));
+    stationsList_->AppendItem(row);
   }
 }
 
@@ -243,7 +275,7 @@ void MvrXchangeDialog::RefreshAvailableFiles(const std::vector<MvrXchangeRemoteS
       file.fileUuid = commit.fileUuid;
       file.fileName = CommitDisplayName(commit);
       file.comment = commit.comment;
-      file.fileSize = commit.FileSize();
+      file.fileSize = commit.declaredFileSizeSpecified ? commit.declaredFileSize : commit.FileSize();
       availableFiles_.push_back(file);
       wxVector<wxVariant> row;
       row.push_back(wxVariant(wxString::FromUTF8(file.stationName)));
@@ -326,6 +358,13 @@ void MvrXchangeDialog::OnRequest(wxCommandEvent &) {
 void MvrXchangeDialog::OnAvailableFileActivated(wxDataViewEvent &) {
   wxCommandEvent event;
   OnRequest(event);
+}
+
+// Copies the complete protocol log to the system clipboard.
+void MvrXchangeDialog::OnCopyLog(wxCommandEvent &) {
+  if (!logCtrl_ || !wxTheClipboard->Open()) return;
+  wxTheClipboard->SetData(new wxTextDataObject(logCtrl_->GetValue()));
+  wxTheClipboard->Close();
 }
 
 // Returns metadata for the currently selected advertised MVR file.
