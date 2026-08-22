@@ -1667,10 +1667,11 @@ static std::unordered_map<std::string, GdtfModelInfo> BuildModelInfoMap(GdtfCach
             m->QueryFloatAttribute("Height", &info.height);
             const bool hasDimensions = info.length > 0.0f || info.width > 0.0f ||
                                        info.height > 0.0f;
-            if (hasName && !hasFile && !hasPrimitive && !hasDimensions) {
+            const bool usesDimensionFallback = !primitiveType && hasDimensions;
+            if (!hasFile && !hasPrimitive && !usesDimensionFallback) {
                 if (ConsolePanel::Instance() && entry.emptyModelFileLogged.insert(name).second) {
                     wxString msg = wxString::Format(
-                        "GDTF: Model %s has no file, primitive, or positive dimensions",
+                        "GDTF: Model %s has no usable file, primitive, or dimension fallback",
                         wxString::FromUTF8(name));
                     ConsolePanel::Instance()->AppendMessage(msg);
                 }

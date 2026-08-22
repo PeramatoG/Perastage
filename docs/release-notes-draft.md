@@ -9,7 +9,8 @@ Changes since **v1.5.0**.
   avoids repeated symbol preparation delays when opening projects while
   preserving reliable automatic symbol generation for renderable fixture
   profiles across supported build environments, including dimension-defined
-  models that intentionally omit a file and primitive type.
+  models that intentionally omit a file and primitive type while retaining
+  fallback behavior for explicitly undefined models.
 
 ## New features and workflow improvements
 
