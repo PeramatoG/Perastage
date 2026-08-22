@@ -85,6 +85,13 @@ Changes since **v1.5.0**.
 
 ## Compatibility, stability, and performance
 
+- Improved startup responsiveness and visual stability by restoring the saved
+  project view directly, creating heavyweight 2D and 3D viewports only when
+  required, populating project tables once, and transferring persistent layout
+  cache data during the primary project archive read. Startup diagnostics now
+  report a formal interactive-ready boundary, while automatic fixture-symbol
+  preparation begins afterward.
+
 - Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. Deterministic per-station announcements avoid JOIN/COMMIT duplication and reciprocal JOINs for incoming members, explicit leave membership survives passive rediscovery, typed failures and canonical sender fields improve compatibility, and persistent multicast discovery now uses scoped DNS-SD resolution, TXT merging, TTL lifecycle handling, bounded multipart transfers, and steady-state query backoff.
 
 - Improved MVR-xchange interoperability with consoles that follow the official

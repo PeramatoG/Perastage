@@ -542,6 +542,8 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 }
 
 void MainWindow::ApplySavedLayout() {
+  if (startupSplashInitializationPending)
+    ++startupLayoutCommits_;
   // Flow overview: choose which perspective to apply (layout mode/2D/3D) from
   // saved config, ensuring viewports exist before restoring; then re-apply
   // minimum sizes so the saved perspective cannot degrade the UI.
@@ -559,15 +561,6 @@ void MainWindow::ApplySavedLayout() {
     cfg.RemoveKey("layout_perspective");
     cfg.SaveUserConfig();
     perspective.reset();
-  }
-
-  if (perspective) {
-    // Ensure viewports exist before loading the saved perspective
-    if (perspective->find("3DViewport") != std::string::npos)
-      Ensure3DViewport();
-    if (perspective->find("2DViewport") != std::string::npos ||
-        perspective->find("2DRenderOptions") != std::string::npos)
-      Ensure2DViewport();
   }
 
   const LayoutViewPreset *preset = LayoutViewPresetRegistry::GetPreset(viewMode);

@@ -63,13 +63,16 @@ if not match:
 
 load_body = match.group(0)
 reset_index = load_body.find('ResetPreviewCachesForProjectLoad')
-load_cache_index = load_body.find('LoadPersistentViewCacheFromProject')
+load_cache_index = load_body.find('LoadPersistentViewCache(')
 apply_index = load_body.find('ApplySavedLayout')
 
 if reset_index < 0:
     raise SystemExit('Project load must reset Layout preview caches before applying the saved layout')
 if load_cache_index < 0 or reset_index >= load_cache_index:
-    raise SystemExit("Project load must reset stale Layout preview caches before loading the new project's persistent cache")
+    raise SystemExit("Project load must reset stale Layout preview caches before accepting cache entries from the primary archive traversal")
+
+if 'LoadPersistentViewCacheFromProject' in load_body:
+    raise SystemExit('Normal project load must not reopen the project archive for persistent layout cache data')
 if apply_index < 0 or reset_index >= apply_index:
     raise SystemExit('Project load must reset Layout preview caches before ApplySavedLayout')
 PY

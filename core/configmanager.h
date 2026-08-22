@@ -48,6 +48,8 @@ public:
     const std::string& GetLastProjectSaveError() const;
     bool LoadProject(const std::string& path,
                      LoadProjectProgressCallback progressCallback = {});
+    const std::vector<ProjectSession::ArchiveResource> &
+    GetLoadedProjectArchiveResources() const;
     void SetProjectArchiveResourceProvider(ProjectArchiveResourceProvider provider);
     // Save/load configuration file (e.g., JSON, INI, TXT…)
     bool LoadFromFile(const std::string& path);

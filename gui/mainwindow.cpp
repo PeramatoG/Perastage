@@ -513,18 +513,12 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
           return {};
         return layoutViewerPanel->CollectPersistentViewCacheResources();
       });
-  // Ensure the 3D viewport is available even before a project is loaded.
-  Ensure3DViewport();
   fixtureSymbolPreparationService =
       std::make_unique<gui::FixtureSymbolPreparationService>(*this);
 
   SetStartupProjectLoadPending(true);
-  ApplySavedLayout();
-
-  if (layerPanel)
-    layerPanel->ReloadLayers();
-  if (layoutPanel)
-    layoutPanel->ReloadLayouts();
+  // Project-bound panes remain structurally ready but unpopulated until the
+  // authoritative startup scene and view mode have been resolved.
 
   const auto shortcutRegistryErrors = gui::ValidateShortcutRegistry();
   for (const std::string &error : shortcutRegistryErrors) {
@@ -569,8 +563,12 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::Ensure3DViewport() {
+  if (startupSplashInitializationPending)
+    ++startupEnsure3DCalls_;
   if (viewportPanel)
     return;
+  if (startupSplashInitializationPending)
+    ++startup3DConstructions_;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewportPanel = new Viewer3DPanel(this);
   Viewer3DPanel::SetInstance(viewportPanel);
@@ -598,8 +596,12 @@ void MainWindow::Ensure3DViewport() {
 }
 
 void MainWindow::Ensure2DViewport() {
+  if (startupSplashInitializationPending)
+    ++startupEnsure2DCalls_;
   if (viewport2DPanel)
     return;
+  if (startupSplashInitializationPending)
+    ++startup2DConstructions_;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewport2DPanel = new Viewer2DPanel(this);
   std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
@@ -963,14 +965,16 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   symbol_cache::ClearFixtureSymbolRuntimeCaches();
   if (layoutViewerPanel) {
     layoutViewerPanel->ResetPreviewCachesForProjectLoad();
-    layoutViewerPanel->LoadPersistentViewCacheFromProject(path);
+    layoutViewerPanel->LoadPersistentViewCache(
+        GetDefaultGuiConfigServices()
+            .LegacyConfigManager()
+            .GetLoadedProjectArchiveResources());
   }
   viewer2d::ReconcileFixtureLabelOverridesWithScene(
       GetDefaultGuiConfigServices().LegacyConfigManager());
 
   loadProfiler.BeginPhase("scene_setup");
   reportProjectLoadProgress(_("Building scene..."), true);
-  Ensure3DViewport();
   loadProfiler.EndPhase();
 
   currentProjectPath = path;
@@ -1075,7 +1079,8 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   diagnostics::DiagnosticLogger::Info(
       "Project load completed: " +
       diagnostics::DiagnosticLogger::FileNameOnly(path));
-  fixtureSymbolPreparationService->ScheduleScan();
+  if (!startupSplashInitializationPending)
+    fixtureSymbolPreparationService->ScheduleScan();
   return true;
 }
 
@@ -1100,14 +1105,19 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 
   SplashScreen::SetMessage(_("Loading project file..."));
   wxYieldIfNeeded();
-  if (!LoadProjectFromPath(path, false)) {
+  const bool loaded = LoadProjectFromPath(path, false);
+  if (!loaded) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
     RequestStartupSplashCompletion();
   }
 
   SetStartupProjectLoadPending(false);
-  ReapplyStartupLayoutAfterProjectLoad();
+  if (!loaded) {
+    ReapplyStartupLayoutAfterProjectLoad();
+  } else {
+    RequestStartupSplashCompletion();
+  }
 }
 
 // Resets project state, UI-bound data, and active layout context for a fresh
@@ -1130,7 +1140,8 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
     layouts::LayoutManager::Get().LoadDefaultsForNewProject(cfg);
   RestorePreferencesDialogValues(preferences, preservedPreferences);
   cfg.MarkSaved();
-  fixtureSymbolPreparationService->ScheduleScan();
+  if (!startupSplashInitializationPending)
+    fixtureSymbolPreparationService->ScheduleScan();
   startupSplashCloseRequested = false;
   currentProjectPath.clear();
   currentProjectDisplayName.clear();
@@ -1449,6 +1460,8 @@ void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
 // Applies the named project layout to the layout viewer and persists it as
 // active.
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
+  if (startupSplashInitializationPending)
+    ++startupLayoutActivations_;
   if (!auiManager || layoutName.empty()) {
     ClearLayoutLoadingIndicator();
     return;
@@ -1569,7 +1582,6 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     path = eventPathUtf8 ? std::string(eventPathUtf8.data())
                          : eventPath.ToStdString();
   }
-  Ensure3DViewport();
   if (clearLastProject)
     ProjectUtils::SaveLastProjectPath("");
   if (loaded && !path.empty()) {
@@ -1640,9 +1652,11 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
     RequestStartupSplashCompletion();
     UpdateTitle();
   } else {
+    if (!path.empty()) {
+      LoadStartupProjectFromPath(path);
+      return;
+    }
     ResetProject(true);
-    if (!path.empty())
-      QueueDeferredStartupOpenPath(path);
     // Some platforms can delay or skip idle delivery during startup.
     // Force an explicit completion pass so deferred startup open paths
     // can be processed deterministically after startup reset.

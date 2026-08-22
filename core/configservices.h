@@ -187,6 +187,7 @@ public:
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});
+  const std::vector<ArchiveResource> &GetLoadedArchiveResources() const;
 
   bool IsDirty() const;
   DirtyState CaptureDirtyState() const;
@@ -202,6 +203,7 @@ private:
 
   MvrScene scene;
   std::string extractedResourceDirectory;
+  std::vector<ArchiveResource> loadedArchiveResources;
   size_t revision = 0;
   size_t savedRevision = 0;
 };

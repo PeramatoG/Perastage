@@ -6,6 +6,7 @@
 #include "json.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cerrno>
 #include <chrono>
@@ -1018,6 +1019,7 @@ bool ProjectSession::LoadProject(const std::string &path,
                                  const LoadProgressFn &progress) {
   if (!loadConfig || !loadScene)
     return false;
+  loadedArchiveResources.clear();
 
   auto reportProgress = [&](const std::string &stage, int completed = 0,
                             int total = 0) {
@@ -1050,6 +1052,7 @@ bool ProjectSession::LoadProject(const std::string &path,
   fs::path scenePath;
   bool hasMvrSceneXml = false;
   int extractedRelevantEntries = 0;
+  size_t transferredCacheBytes = 0;
 
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
@@ -1068,6 +1071,25 @@ bool ProjectSession::LoadProject(const std::string &path,
       if (IsLayoutImageResourceEntry(entryName) &&
           IsSafeArchiveRelativePath(entryName)) {
         ExtractCurrentZipEntry(zip, resourceDir / fs::path(entryName));
+      } else if (entryName.rfind("resources/layout_view_cache/", 0) == 0 &&
+                 IsSafeArchiveRelativePath(entryName)) {
+        constexpr size_t kMaxTransferredCacheEntryBytes = 8 * 1024 * 1024;
+        std::vector<std::uint8_t> bytes;
+        std::array<char, 4096> buffer{};
+        while (bytes.size() <= kMaxTransferredCacheEntryBytes) {
+          zip.Read(buffer.data(), buffer.size());
+          const size_t count = zip.LastRead();
+          if (count == 0)
+            break;
+          bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + count);
+        }
+        constexpr size_t kMaxTransferredCacheBytes = 24 * 1024 * 1024;
+        if (bytes.size() <= kMaxTransferredCacheEntryBytes &&
+            transferredCacheBytes + bytes.size() <=
+                kMaxTransferredCacheBytes) {
+          transferredCacheBytes += bytes.size();
+          loadedArchiveResources.push_back({entryName, std::move(bytes)});
+        }
       }
       continue;
     }
@@ -1113,6 +1135,12 @@ bool ProjectSession::LoadProject(const std::string &path,
     ok &= configOk;
   }
   return ok;
+}
+
+// Returns optional project-owned resources captured during the primary archive traversal.
+const std::vector<ProjectSession::ArchiveResource> &
+ProjectSession::GetLoadedArchiveResources() const {
+  return loadedArchiveResources;
 }
 
 bool ProjectSession::IsDirty() const { return revision != savedRevision; }

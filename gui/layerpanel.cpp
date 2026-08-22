@@ -152,7 +152,6 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     if (delBtn)
         delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
 
-    ReloadLayers();
 }
 
 // Returns the globally registered layer panel instance.

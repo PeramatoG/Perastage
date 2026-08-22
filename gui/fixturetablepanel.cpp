@@ -248,7 +248,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
       [this]() { UpdateSelectionHighlight(); });
 
   InitializeTable();
-  ReloadData();
 
   sizer->Add(table, 1, wxEXPAND | wxALL, 5);
   SetSizer(sizer);

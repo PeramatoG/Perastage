@@ -687,6 +687,12 @@ bool ConfigManager::LoadProject(const std::string &path,
   return ok;
 }
 
+// Returns optional resources transferred by the most recent primary project archive load.
+const std::vector<ProjectSession::ArchiveResource> &
+ConfigManager::GetLoadedProjectArchiveResources() const {
+  return projectSession.GetLoadedArchiveResources();
+}
+
 // Resets configuration and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);

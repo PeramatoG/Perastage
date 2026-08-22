@@ -27,6 +27,7 @@
 
 #include <memory>
 #include <optional>
+#include <chrono>
 #include <array>
 #include <functional>
 #include <unordered_set>
@@ -139,6 +140,14 @@ private:
   wxAuiManager *auiManager = nullptr;
   Viewer3DPanel *viewportPanel = nullptr;
   Viewer2DPanel *viewport2DPanel = nullptr;
+  std::chrono::steady_clock::time_point startupStartedAt_ =
+      std::chrono::steady_clock::now();
+  size_t startupEnsure3DCalls_ = 0;
+  size_t startupEnsure2DCalls_ = 0;
+  size_t startup3DConstructions_ = 0;
+  size_t startup2DConstructions_ = 0;
+  size_t startupLayoutCommits_ = 0;
+  size_t startupLayoutActivations_ = 0;
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
   std::unique_ptr<Viewer2DOffscreenRenderer> offscreenViewer2DRenderer;
   ConsolePanel *consolePanel = nullptr;

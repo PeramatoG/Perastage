@@ -58,7 +58,8 @@ public:
   void RefreshEditedViewById(int viewId);
   std::vector<ProjectSession::ArchiveResource>
   CollectPersistentViewCacheResources() const;
-  void LoadPersistentViewCacheFromProject(const std::string &projectPath);
+  void LoadPersistentViewCache(
+      const std::vector<ProjectSession::ArchiveResource> &resources);
 
 private:
   struct LegendItem {
