@@ -44,6 +44,15 @@ struct GdtfDownloadMatch {
   std::string selectionReason;
 };
 
+struct GdtfDownloadRequest {
+  std::vector<std::string> authoritativeFixtureNames;
+  std::vector<std::string> secondaryAliases;
+  std::string requestedMode;
+  std::string manufacturer;
+  int requestedFootprint = 0;
+  bool authoritativeIdentityIsPlaceholder = false;
+};
+
 enum class FixtureNameMatchTier {
   None = 0,
   Partial = 1,
@@ -59,6 +68,12 @@ enum class GdtfModeMatchTier {
   ExactNormalized = 3
 };
 
+enum class NumericTokenCompatibility {
+  Missing = 0,
+  Different = 0,
+  Exact = 1
+};
+
 struct GdtfModeMatchScore {
   GdtfModeMatchTier tier = GdtfModeMatchTier::None;
   bool footprintMatch = false;
@@ -66,12 +81,16 @@ struct GdtfModeMatchScore {
 };
 
 struct DownloadCandidateRank {
+  bool authoritativeName = false;
   FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
   bool footprintMatch = false;
   bool manufacturerMatch = false;
   long long recency = 0;
   float rating = 0.0f;
   GdtfModeMatchTier modeTier = GdtfModeMatchTier::None;
+  NumericTokenCompatibility numericCompatibility =
+      NumericTokenCompatibility::Missing;
+  std::string stableKey;
 };
 
 std::string TrimFixtureIdentity(const std::string &value);
@@ -80,6 +99,7 @@ std::string ExtractDigitSignature(const std::string &text);
 std::string NormalizeForGdtfMatch(const std::string &text);
 std::string StripParenthesizedSections(const std::string &text);
 bool IsLikelyVersionToken(const std::string &token);
+bool IsGenericFixtureIdentity(const std::string &identity);
 std::string BuildCoreFixtureNameKey(const std::string &text);
 FixtureNameMatchTier ComputeFixtureNameMatchTier(
     const std::string &catalogFixtureName,
@@ -92,6 +112,9 @@ bool IsBetterDownloadCandidate(const DownloadCandidateRank &candidate,
                                const DownloadCandidateRank &currentBest);
 std::string SelectDownloadSearchFixtureName(const std::string &requestedFixtureName,
                                             const std::string &fixtureTypeName);
+GdtfDownloadMatch SelectBestDownloadMatch(
+    const GdtfDownloadRequest &request,
+    const std::vector<GdtfCatalogEntry> &catalogEntries);
 GdtfDownloadMatch SelectBestDownloadMatch(
     const std::string &requestedFixtureName,
     const std::string &fixtureTypeName,

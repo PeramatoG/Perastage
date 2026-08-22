@@ -29,6 +29,7 @@
 #endif
 #include "fixture_label_overrides.h"
 #include "gdtf_catalog_matcher.h"
+#include "gdtf_catalog_parser.h"
 #include "fixture_visual_color.h"
 #include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
@@ -772,120 +773,6 @@ PromptGdtfConflicts(const std::vector<GdtfConflict> &conflicts) {
 // app fixtures over MVR fixtures.
 static std::string GetDownloadFallbackPath(const GdtfConflict &conflict) {
   return !conflict.appPath.empty() ? conflict.appPath : conflict.mvrPath;
-}
-
-// Parses GDTF catalog JSON into normalized entries used by automatic downloads.
-static std::vector<gdtf_catalog_matcher::GdtfCatalogEntry>
-ParseGdtfCatalogEntries(const std::string &listData) {
-  using json = nlohmann::json;
-  std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> entries;
-  json j = json::parse(listData, nullptr, false);
-  if (j.is_discarded())
-    return entries;
-
-  if (j.is_object()) {
-    if (j.contains("data"))
-      j = j["data"];
-    if (j.contains("fixtures"))
-      j = j["fixtures"];
-    if (j.contains("list"))
-      j = j["list"];
-  }
-  if (!j.is_array())
-    return entries;
-
-  auto jsonToString = [](const json &v) -> std::string {
-    if (v.is_string())
-      return v.get<std::string>();
-    if (v.is_number())
-      return v.dump();
-    if (v.is_array()) {
-      std::string result;
-      for (size_t i = 0; i < v.size(); ++i) {
-        if (i > 0)
-          result += ", ";
-        const auto &el = v[i];
-        if (el.is_string())
-          result += el.get<std::string>();
-        else if (el.is_object() && el.contains("name") &&
-                 el["name"].is_string())
-          result += el["name"].get<std::string>();
-        else
-          result += el.dump();
-      }
-      return result;
-    }
-    if (v.is_object())
-      return v.dump();
-    return {};
-  };
-  auto jsonToLongLong = [](const json &v) -> long long {
-    if (v.is_number_integer())
-      return v.get<long long>();
-    if (v.is_number())
-      return static_cast<long long>(v.get<double>());
-    if (v.is_string()) {
-      long long parsed = 0;
-      auto begin = v.get_ref<const std::string &>().data();
-      auto end = begin + v.get_ref<const std::string &>().size();
-      std::from_chars_result result = std::from_chars(begin, end, parsed);
-      if (result.ec == std::errc{})
-        return parsed;
-    }
-    return 0;
-  };
-  auto jsonToFloat = [](const json &v) -> float {
-    if (v.is_number())
-      return static_cast<float>(v.get<double>());
-    if (v.is_string()) {
-      try {
-        return std::stof(v.get<std::string>());
-      } catch (...) {
-      }
-    }
-    return 0.0f;
-  };
-  auto getValue = [&](const json &item,
-                      std::initializer_list<const char *> keys) -> std::string {
-    for (const char *key : keys) {
-      auto it = item.find(key);
-      if (it != item.end())
-        return jsonToString(*it);
-    }
-    return {};
-  };
-
-  auto parseModes = [&](const json &item) {
-    std::vector<gdtf_catalog_matcher::GdtfCatalogModeCandidate> modes;
-    if (item.contains("dmxModes") && item["dmxModes"].is_array()) {
-      for (const auto &mode : item["dmxModes"]) {
-        gdtf_catalog_matcher::GdtfCatalogModeCandidate parsed;
-        if (mode.is_object()) {
-          parsed.name = jsonToString(mode.value("name", json{}));
-          parsed.footprint = static_cast<int>(
-              jsonToLongLong(mode.value("dmxFootprint", json{})));
-        }
-        if (!parsed.name.empty() || parsed.footprint > 0)
-          modes.push_back(std::move(parsed));
-      }
-    }
-    return modes;
-  };
-
-  for (const auto &item : j) {
-    if (!item.is_object())
-      continue;
-    gdtf_catalog_matcher::GdtfCatalogEntry entry;
-    entry.rid = getValue(item, {"rid", "revisionId"});
-    entry.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
-    entry.fixtureName = getValue(item, {"fixture", "name", "model"});
-    entry.lastModifiedUnix = jsonToLongLong(item.value("lastModified", json{}));
-    entry.rating = jsonToFloat(item.value("rating", json{}));
-    entry.modes = parseModes(item);
-    if (!entry.rid.empty())
-      entries.push_back(std::move(entry));
-  }
-  return entries;
 }
 
 static void ApplySupportHoistInfoDefaults(Support &support) {
@@ -2444,6 +2331,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   struct GdtfFixtureMetadata {
     std::string fixtureName;
+    std::string manufacturer;
     float weightKg = 0.0f;
     float powerW = 0.0f;
     bool hasProperties = false;
@@ -2462,6 +2350,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     GdtfFixtureMetadata metadata;
     metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
+    metadata.manufacturer = Trim(GetGdtfFixtureManufacturer(resolvedGdtfPath));
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
     return gdtfFixtureMetadataCache
@@ -2783,6 +2672,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           }
         }
         std::string resolvedGdtfPathForFixture;
+        std::string resolvedGdtfManufacturer;
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
           const std::string &resolvedGdtfPath =
@@ -2793,6 +2683,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             fixture.gdtfSpec = RemapArchivePathIfNeeded(rawGdtfSpec);
           const GdtfFixtureMetadata &metadata =
               getFixtureMetadata(resolvedGdtfPath);
+          resolvedGdtfManufacturer = metadata.manufacturer;
           fixture.typeName = metadata.fixtureName;
           if (fixture.typeName.empty()) {
             fixture.typeName =
@@ -2917,7 +2808,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           pendingGdtfConflictByType.try_emplace(
               fixture.typeName,
               GdtfConflict{fixture.typeName, fixture.requestedFixtureName,
-                           fixture.gdtfSpec, dictionaryEntry->path, "",
+                           fixture.gdtfSpec, dictionaryEntry->path,
+                           resolvedGdtfManufacturer,
                            fixture.typeName, fixture.gdtfMode, footprint,
                            true});
         }
@@ -4383,7 +4275,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   catalogEntries;
               std::string catalogFailureReason;
               if (!listPayload.empty()) {
-                catalogEntries = ParseGdtfCatalogEntries(listPayload);
+                catalogEntries = mvr::gdtf_catalog_parser::ParseCatalogEntries(listPayload);
               }
 
               if (catalogEntries.empty()) {
@@ -4399,7 +4291,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         refreshNowUtc, 0);
                 if (forcedCatalogResult.snapshot) {
                   listPayload = forcedCatalogResult.snapshot->listData;
-                  catalogEntries = ParseGdtfCatalogEntries(listPayload);
+                  catalogEntries = mvr::gdtf_catalog_parser::ParseCatalogEntries(listPayload);
                 }
                 reportProgress(
                     wxString::Format(
@@ -4441,10 +4333,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                  req.type + "...");
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
+                  const auto matchRequest =
+                      mvr::gdtf_import_matching::BuildDownloadRequest(
+                          req.requestedFixtureName, req.type, req.modeName,
+                          req.manufacturer, req.footprint);
                   const auto bestMatch =
                       gdtf_catalog_matcher::SelectBestDownloadMatch(
-                          req.requestedFixtureName, req.type, req.modeName,
-                          req.manufacturer, req.footprint, catalogEntries);
+                          matchRequest, catalogEntries);
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
                     const wxString progressText =
