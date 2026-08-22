@@ -3,7 +3,7 @@
 #include <utility>
 #include <vector>
 
-#include "gdtfloader.h"
+#include "../gdtfloader.h"
 #include "symbols/fixture_symbol_availability.h"
 
 namespace symbols {

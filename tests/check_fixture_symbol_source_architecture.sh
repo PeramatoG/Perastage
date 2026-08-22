@@ -8,6 +8,7 @@ fallback="$root/viewer3d/render/fixture_fallback_visual.cpp"
 renderer="$root/viewer3d/render/opaque_fixture_pass.cpp"
 
 rg -q 'LoadGdtf\(physicalGdtfPath, objects, exactGdtfMode' "$classifier"
+rg -q '#include "\.\./gdtfloader\.h"' "$classifier"
 rg -q 'InspectFixtureSymbolSource' "$service"
 rg -q 'FixtureCubeMesh' "$fallback"
 if rg -q 'FallbackFixtureCubeMesh' "$renderer"; then
