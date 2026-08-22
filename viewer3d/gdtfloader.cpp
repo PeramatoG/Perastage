@@ -1654,15 +1654,6 @@ static std::unordered_map<std::string, GdtfModelInfo> BuildModelInfoMap(GdtfCach
             const bool hasFile = file && !IsBlank(file);
             const std::string primitive = primitiveType ? primitiveType : "";
             const bool hasPrimitive = IsPrimitiveTypeDefined(primitive);
-            if (hasName && !hasFile && !hasPrimitive) {
-                if (ConsolePanel::Instance() && entry.emptyModelFileLogged.insert(name).second) {
-                    wxString msg = wxString::Format(
-                        "GDTF: Model %s has empty File and undefined PrimitiveType",
-                        wxString::FromUTF8(name));
-                    ConsolePanel::Instance()->AppendMessage(msg);
-                }
-                continue;
-            }
             if (!hasName)
                 continue;
 
@@ -1674,6 +1665,18 @@ static std::unordered_map<std::string, GdtfModelInfo> BuildModelInfoMap(GdtfCach
             m->QueryFloatAttribute("Length", &info.length);
             m->QueryFloatAttribute("Width", &info.width);
             m->QueryFloatAttribute("Height", &info.height);
+            const bool hasDimensions = info.length > 0.0f || info.width > 0.0f ||
+                                       info.height > 0.0f;
+            const bool usesDimensionFallback = !primitiveType && hasDimensions;
+            if (!hasFile && !hasPrimitive && !usesDimensionFallback) {
+                if (ConsolePanel::Instance() && entry.emptyModelFileLogged.insert(name).second) {
+                    wxString msg = wxString::Format(
+                        "GDTF: Model %s has no usable file, primitive, or dimension fallback",
+                        wxString::FromUTF8(name));
+                    ConsolePanel::Instance()->AppendMessage(msg);
+                }
+                continue;
+            }
             models[name] = info;
         }
     }

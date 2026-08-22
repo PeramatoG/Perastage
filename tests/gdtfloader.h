@@ -31,6 +31,7 @@ int GetGdtfModeChannelCount(const std::string&, const std::string&);
 std::vector<std::string> GetGdtfModes(const std::string&);
 std::vector<GdtfChannelInfo> GetGdtfModeChannels(const std::string&, const std::string&);
 std::string GetGdtfFixtureName(const std::string& gdtfPath);
+std::string GetGdtfFixtureManufacturer(const std::string& gdtfPath);
 std::string GetGdtfModelColor(const std::string& gdtfPath);
 bool GetGdtfProperties(const std::string& gdtfPath,
                        float& outWeightKg,

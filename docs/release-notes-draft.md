@@ -8,7 +8,9 @@ Changes since **v1.5.0**.
   geometry now use Perastage's deterministic runtime fallback directly. This
   avoids repeated symbol preparation delays when opening projects while
   preserving reliable automatic symbol generation for renderable fixture
-  profiles across supported build environments.
+  profiles across supported build environments, including dimension-defined
+  models that intentionally omit a file and primitive type while retaining
+  fallback behavior for explicitly undefined models.
 
 ## New features and workflow improvements
 
@@ -393,6 +395,9 @@ Changes since **v1.5.0**.
   MVR object's display name or catalog popularity.
 
 ## Internal changes
+
+- Restored reliable standalone MVR importer test builds by keeping their GDTF
+  metadata and catalog dependencies aligned with the production importer.
 
 - Completed the fixture distribution regression target's Magnet projection
   dependencies for reliable Windows linking.
