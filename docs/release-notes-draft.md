@@ -394,8 +394,8 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
-- Restored reliable standalone MVR importer test builds after the GDTF
-  manufacturer metadata interface was extended.
+- Restored reliable standalone MVR importer test builds by keeping their GDTF
+  metadata and catalog dependencies aligned with the production importer.
 
 - Completed the fixture distribution regression target's Magnet projection
   dependencies for reliable Windows linking.
