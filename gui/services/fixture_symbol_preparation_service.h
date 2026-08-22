@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "symbols/FixtureSymbolDiagnostics.h"
@@ -68,6 +69,9 @@ private:
       work_;
   std::unordered_map<std::string, symbols::FixtureSymbolPreparationKey>
       manualWork_;
+  std::unordered_set<symbols::FixtureSymbolPreparationKey,
+                     symbols::FixtureSymbolPreparationKeyHash>
+      fallbackDiagnostics_;
   std::shared_ptr<int> lifetime_ = std::make_shared<int>(0);
   std::uint64_t epoch_ = 0;
   bool stepScheduled_ = false;

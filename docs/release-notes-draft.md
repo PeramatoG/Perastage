@@ -4,6 +4,12 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Fixture profiles that contain neither stored symbols nor usable GDTF
+  geometry now use Perastage's deterministic runtime fallback directly. This
+  avoids repeated symbol preparation delays when opening projects while
+  preserving reliable automatic symbol generation for renderable fixture
+  profiles across supported build environments.
+
 ## New features and workflow improvements
 
 - Added a unified fixture distribution dialog on `Alt+D`. Alongside the
