@@ -206,6 +206,7 @@ struct GdtfCacheEntry
     std::unordered_map<std::string, GdtfGeometryTree> geometryTreeCache;
     std::unordered_map<std::string, std::vector<GdtfObject>> flatObjectCache;
     std::string fixtureName;
+    std::string fixtureManufacturer;
     bool propertiesParsed = false;
     float weightKg = 0.0f;
     float powerW = 0.0f;
@@ -1339,6 +1340,8 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     }
 
     entry.fixtureName = GetFixtureNameFromXml(entry.fixtureType);
+    if (const char* manufacturer = entry.fixtureType->Attribute("Manufacturer"))
+        entry.fixtureManufacturer = manufacturer;
     ParseModes(entry.fixtureType, entry.modes, entry.modeChannels, entry.modeChannelCounts);
     ParseProperties(entry.fixtureType, entry.weightKg, entry.powerW);
     entry.propertiesParsed = true;
@@ -1980,6 +1983,20 @@ std::string GetGdtfFixtureName(const std::string& gdtfPath)
             return {};
 
         return entry->fixtureName;
+    } catch (...) {
+        return {};
+    }
+}
+
+// Returns the manufacturer declared by the fixture type in a GDTF file.
+std::string GetGdtfFixtureManufacturer(const std::string& gdtfPath)
+{
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+        if (gdtfPath.empty())
+            return {};
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        return entry ? entry->fixtureManufacturer : std::string{};
     } catch (...) {
         return {};
     }

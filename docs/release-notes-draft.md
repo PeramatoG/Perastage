@@ -385,6 +385,13 @@ Changes since **v1.5.0**.
 
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
+## Fixes
+
+- Corrected automatic GDTF Share selection during MVR import so official mode
+  and footprint metadata, fixture-type identity, manufacturer, and model-number
+  evidence choose the most compatible catalog fixture instead of relying on an
+  MVR object's display name or catalog popularity.
+
 ## Internal changes
 
 - Completed the fixture distribution regression target's Magnet projection

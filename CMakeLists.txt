@@ -248,6 +248,7 @@ add_executable(${PROJECT_NAME} main.cpp
     core/mvr_identity_recovery.cpp
     core/project_fixture_gdtf_consolidator.cpp
     mvr/gdtf_catalog_matcher.cpp
+    mvr/gdtf_catalog_parser.cpp
     mvr/mvrimporter.cpp
     mvr/mvr_merge_analyzer.cpp
     mvr/mvr_merge_applier.cpp

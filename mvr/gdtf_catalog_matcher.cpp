@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <set>
+#include <sstream>
 
 namespace mvr {
 namespace gdtf_catalog_matcher {
@@ -42,7 +44,7 @@ std::string ToLowerAscii(std::string text) {
   return text;
 }
 
-// Extracts ordered digits to reject ambiguous partial matches.
+// Extracts ordered digits for legacy mode-signature comparisons.
 std::string ExtractDigitSignature(const std::string &text) {
   std::string digits;
   for (unsigned char ch : text) {
@@ -103,23 +105,54 @@ std::string StripParenthesizedSections(const std::string &text) {
 
 // Detects version-like fixture-name tokens.
 bool IsLikelyVersionToken(const std::string &token) {
-  if (token.empty())
+  if (token.size() < 2 || (token.front() != 'v' && token.front() != 'V'))
     return false;
-  const bool allDigits = std::all_of(token.begin(), token.end(),
-                                     [](unsigned char ch) { return std::isdigit(ch); });
-  if (allDigits)
-    return true;
+  return std::all_of(token.begin() + 1, token.end(),
+                     [](unsigned char ch) { return std::isdigit(ch); });
+}
 
-  if (token.size() <= 6) {
-    const std::string roman = ToLowerAscii(token);
-    const bool allRoman = std::all_of(roman.begin(), roman.end(), [](unsigned char ch) {
-      return ch == 'i' || ch == 'v' || ch == 'x' || ch == 'l' || ch == 'c' ||
-             ch == 'd' || ch == 'm';
-    });
-    if (allRoman)
-      return true;
+// Detects generic identities that may legitimately be rescued by an instance alias.
+bool IsGenericFixtureIdentity(const std::string &identity) {
+  const std::string normalized = ToLowerAscii(identity);
+  static const std::array<std::string, 5> markers = {
+      "dummy", "placeholder", "generic", "standard mode", "default fixture"};
+  return std::any_of(markers.begin(), markers.end(), [&](const std::string &marker) {
+    return normalized.find(marker) != std::string::npos;
+  });
+}
+
+// Extracts numeric-bearing model tokens without concatenating unrelated digits.
+static std::set<std::string> ExtractNumericModelTokens(const std::string &text) {
+  std::set<std::string> tokens;
+  std::string token;
+  auto flush = [&]() {
+    if (!token.empty() && std::any_of(token.begin(), token.end(),
+                                     [](unsigned char ch) { return std::isdigit(ch); }))
+      tokens.insert(token);
+    token.clear();
+  };
+  for (unsigned char ch : ToLowerAscii(text)) {
+    if (std::isalnum(ch))
+      token.push_back(static_cast<char>(ch));
+    else
+      flush();
   }
-  return false;
+  flush();
+  return tokens;
+}
+
+// Classifies token-aware numeric evidence without rejecting plausible candidates.
+static NumericTokenCompatibility ComputeNumericCompatibility(
+    const std::string &catalogName, const std::string &requestedName) {
+  const auto catalog = ExtractNumericModelTokens(catalogName);
+  const auto requested = ExtractNumericModelTokens(requestedName);
+  if (catalog.empty() || requested.empty())
+    return NumericTokenCompatibility::Missing;
+  for (const auto &token : catalog) {
+    if (requested.contains(token))
+      return NumericTokenCompatibility::Exact;
+  }
+  return NumericTokenCompatibility::Different;
 }
 
 // Builds a core fixture-name key without variant tokens.
@@ -192,16 +225,35 @@ FixtureNameMatchTier ComputeFixtureNameMatchTier(
       hasContainsMatch(catalogCoreName, requestedCoreName) ||
       hasContainsMatch(catalogNoParentheses, requestedNoParentheses) ||
       hasContainsMatch(catalogNormalized, requestedNoParentheses) ||
-      hasContainsMatch(catalogNoParentheses, requestedNormalized);
+      hasContainsMatch(catalogNoParentheses, requestedNormalized) ||
+      [&]() {
+        std::set<std::string> catalogWords;
+        std::string word;
+        for (unsigned char ch : ToLowerAscii(catalogFixtureName)) {
+          if (std::isalpha(ch))
+            word.push_back(static_cast<char>(ch));
+          else {
+            if (word.size() >= 4)
+              catalogWords.insert(word);
+            word.clear();
+          }
+        }
+        if (word.size() >= 4)
+          catalogWords.insert(word);
+        word.clear();
+        for (unsigned char ch : ToLowerAscii(requestedFixtureName)) {
+          if (std::isalpha(ch)) {
+            word.push_back(static_cast<char>(ch));
+          } else {
+            if (word.size() >= 4 && catalogWords.contains(word))
+              return true;
+            word.clear();
+          }
+        }
+        return word.size() >= 4 && catalogWords.contains(word);
+      }();
   if (!containsMatch)
     return FixtureNameMatchTier::None;
-
-  const std::string catalogDigits = ExtractDigitSignature(catalogNormalized);
-  const std::string requestedDigits = ExtractDigitSignature(requestedNormalized);
-  if (!catalogDigits.empty() && !requestedDigits.empty() &&
-      catalogDigits != requestedDigits) {
-    return FixtureNameMatchTier::None;
-  }
 
   return FixtureNameMatchTier::Partial;
 }
@@ -256,6 +308,8 @@ GdtfModeMatchScore ComputeGdtfModeMatchScore(
 // Compares download candidates by tier and tie-breakers.
 bool IsBetterDownloadCandidate(const DownloadCandidateRank &candidate,
                                const DownloadCandidateRank &currentBest) {
+  if (candidate.authoritativeName != currentBest.authoritativeName)
+    return candidate.authoritativeName;
   if (candidate.nameTier != currentBest.nameTier)
     return static_cast<int>(candidate.nameTier) > static_cast<int>(currentBest.nameTier);
   if (candidate.modeTier != currentBest.modeTier)
@@ -264,9 +318,14 @@ bool IsBetterDownloadCandidate(const DownloadCandidateRank &candidate,
     return candidate.footprintMatch;
   if (candidate.manufacturerMatch != currentBest.manufacturerMatch)
     return candidate.manufacturerMatch;
+  if (candidate.numericCompatibility != currentBest.numericCompatibility)
+    return static_cast<int>(candidate.numericCompatibility) >
+           static_cast<int>(currentBest.numericCompatibility);
   if (candidate.recency != currentBest.recency)
     return candidate.recency > currentBest.recency;
-  return candidate.rating > currentBest.rating;
+  if (candidate.rating != currentBest.rating)
+    return candidate.rating > currentBest.rating;
+  return candidate.stableKey < currentBest.stableKey;
 }
 
 // Selects the fixture name searched in the GDTF catalog, falling back to type.
@@ -302,33 +361,55 @@ static std::string BuildSelectionReason(const GdtfModeMatchScore &modeScore,
   return selectionReason;
 }
 
-// Selects the best downloadable catalog entry for an MVR fixture request.
+// Selects the best downloadable catalog entry from structured identity evidence.
 GdtfDownloadMatch SelectBestDownloadMatch(
-    const std::string &requestedFixtureName,
-    const std::string &fixtureTypeName,
-    const std::string &requestedMode,
-    const std::string &manufacturer,
-    int requestedFootprint,
+    const GdtfDownloadRequest &request,
     const std::vector<GdtfCatalogEntry> &catalogEntries) {
   GdtfDownloadMatch bestMatch;
   DownloadCandidateRank bestRank;
-  const std::string searchFixtureName =
-      SelectDownloadSearchFixtureName(requestedFixtureName, fixtureTypeName);
 
   for (const auto &entry : catalogEntries) {
-    const auto nameTier = ComputeFixtureNameMatchTier(entry.fixtureName, searchFixtureName);
+    FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
+    std::string matchedIdentity;
+    bool authoritativeName = false;
+    for (const auto &identity : request.authoritativeFixtureNames) {
+      const auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, identity);
+      if (tier > nameTier) {
+        nameTier = tier;
+        matchedIdentity = identity;
+        authoritativeName = !request.authoritativeIdentityIsPlaceholder;
+      }
+    }
+    for (const auto &alias : request.secondaryAliases) {
+      const auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, alias);
+      if (tier > nameTier) {
+        nameTier = tier;
+        matchedIdentity = alias;
+        authoritativeName = request.authoritativeIdentityIsPlaceholder;
+      }
+    }
     if (nameTier == FixtureNameMatchTier::None)
       continue;
 
     const auto modeScore =
-        ComputeGdtfModeMatchScore(requestedMode, entry.modes, requestedFootprint);
+        ComputeGdtfModeMatchScore(request.requestedMode, entry.modes,
+                                  request.requestedFootprint);
     const bool footprintMatch = modeScore.footprintMatch;
     const bool manufacturerMatch =
-        !manufacturer.empty() && !entry.manufacturer.empty() &&
-        NormalizeForGdtfMatch(manufacturer) == NormalizeForGdtfMatch(entry.manufacturer);
-    DownloadCandidateRank candidateRank{nameTier, footprintMatch, manufacturerMatch,
-                                        entry.lastModifiedUnix, entry.rating};
+        !request.manufacturer.empty() && !entry.manufacturer.empty() &&
+        NormalizeForGdtfMatch(request.manufacturer) ==
+            NormalizeForGdtfMatch(entry.manufacturer);
+    DownloadCandidateRank candidateRank;
+    candidateRank.authoritativeName = authoritativeName;
+    candidateRank.nameTier = nameTier;
+    candidateRank.footprintMatch = footprintMatch;
+    candidateRank.manufacturerMatch = manufacturerMatch;
+    candidateRank.recency = entry.lastModifiedUnix;
+    candidateRank.rating = entry.rating;
     candidateRank.modeTier = modeScore.tier;
+    candidateRank.numericCompatibility =
+        ComputeNumericCompatibility(entry.fixtureName, matchedIdentity);
+    candidateRank.stableKey = entry.rid;
     const bool hadPreviousBest = bestMatch.found;
     if (!IsBetterDownloadCandidate(candidateRank, bestRank))
       continue;
@@ -336,10 +417,42 @@ GdtfDownloadMatch SelectBestDownloadMatch(
     const std::string selectionReason = BuildSelectionReason(
         modeScore, footprintMatch, manufacturerMatch, hadPreviousBest, entry, bestRank);
     bestRank = candidateRank;
-    bestMatch = {true, entry.rid, modeScore.modeName, selectionReason};
+    std::ostringstream diagnostics;
+    diagnostics << selectionReason
+                << (authoritativeName ? "; authoritative" : "; secondary")
+                << "; numeric="
+                << static_cast<int>(candidateRank.numericCompatibility)
+                << "; requested-mode=" << request.requestedMode
+                << "; selected-mode=" << modeScore.modeName
+                << "; manufacturer=" << (manufacturerMatch ? "match" : "none")
+                << "; footprint=" << (footprintMatch ? "match" : "none");
+    bestMatch = {true, entry.rid, modeScore.modeName, diagnostics.str()};
   }
 
   return bestMatch;
+}
+
+// Adapts the legacy call shape into authoritative and secondary evidence.
+GdtfDownloadMatch SelectBestDownloadMatch(
+    const std::string &requestedFixtureName,
+    const std::string &fixtureTypeName,
+    const std::string &requestedMode,
+    const std::string &manufacturer,
+    int requestedFootprint,
+    const std::vector<GdtfCatalogEntry> &catalogEntries) {
+  GdtfDownloadRequest request;
+  const std::string authoritative = TrimFixtureIdentity(fixtureTypeName);
+  if (!authoritative.empty())
+    request.authoritativeFixtureNames.push_back(authoritative);
+  else if (!TrimFixtureIdentity(requestedFixtureName).empty())
+    request.authoritativeFixtureNames.push_back(TrimFixtureIdentity(requestedFixtureName));
+  if (!authoritative.empty() && !TrimFixtureIdentity(requestedFixtureName).empty())
+    request.secondaryAliases.push_back(TrimFixtureIdentity(requestedFixtureName));
+  request.authoritativeIdentityIsPlaceholder = IsGenericFixtureIdentity(authoritative);
+  request.requestedMode = requestedMode;
+  request.manufacturer = manufacturer;
+  request.requestedFootprint = requestedFootprint;
+  return SelectBestDownloadMatch(request, catalogEntries);
 }
 
 } // namespace gdtf_catalog_matcher

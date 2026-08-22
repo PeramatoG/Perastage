@@ -1091,8 +1091,8 @@ target_link_libraries(rider_truss_dictionary_normalization_test PRIVATE ${wxWidg
 add_test(NAME RiderTrussDictionaryNormalization COMMAND rider_truss_dictionary_normalization_test)
 
 add_executable(mvr_gdtf_import_matching_test mvr_gdtf_import_matching_test.cpp
-               ../mvr/gdtf_catalog_matcher.cpp)
-target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr)
+               ../mvr/gdtf_catalog_matcher.cpp ../mvr/gdtf_catalog_parser.cpp)
+target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr ../third_party)
 add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
 
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp

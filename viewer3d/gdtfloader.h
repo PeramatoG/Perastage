@@ -91,6 +91,9 @@ std::string GetCachedGdtfExtractionDirectory(const std::string& gdtfPath);
 // string when the name cannot be determined or the file cannot be parsed.
 std::string GetGdtfFixtureName(const std::string& gdtfPath);
 
+// Returns the manufacturer declared by the fixture type in a GDTF file.
+std::string GetGdtfFixtureManufacturer(const std::string& gdtfPath);
+
 // Parses weight and power consumption from a GDTF file. Returns true if the
 // file could be read. Values are set to zero when not specified.
 bool GetGdtfProperties(const std::string& gdtfPath,

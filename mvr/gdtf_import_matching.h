@@ -71,5 +71,28 @@ inline std::string SelectFallbackFixtureTypeName(const std::string &rawFixtureNo
   return gdtf_catalog_matcher::TrimFixtureIdentity(rawFixtureNodeName);
 }
 
+// Builds catalog evidence with the resolved GDTF identity as authoritative.
+inline gdtf_catalog_matcher::GdtfDownloadRequest BuildDownloadRequest(
+    const std::string &fixtureNodeAlias, const std::string &resolvedFixtureTypeName,
+    const std::string &requestedMode, const std::string &resolvedManufacturer,
+    int requestedFootprint) {
+  gdtf_catalog_matcher::GdtfDownloadRequest request;
+  const std::string authoritative =
+      gdtf_catalog_matcher::TrimFixtureIdentity(resolvedFixtureTypeName);
+  if (!authoritative.empty())
+    request.authoritativeFixtureNames.push_back(authoritative);
+  const std::string alias =
+      gdtf_catalog_matcher::TrimFixtureIdentity(fixtureNodeAlias);
+  if (!alias.empty() && alias != authoritative)
+    request.secondaryAliases.push_back(alias);
+  request.authoritativeIdentityIsPlaceholder =
+      gdtf_catalog_matcher::IsGenericFixtureIdentity(authoritative);
+  request.requestedMode = requestedMode;
+  request.manufacturer =
+      gdtf_catalog_matcher::TrimFixtureIdentity(resolvedManufacturer);
+  request.requestedFootprint = requestedFootprint;
+  return request;
+}
+
 } // namespace gdtf_import_matching
 } // namespace mvr
