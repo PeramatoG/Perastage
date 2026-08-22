@@ -22,13 +22,17 @@
 #include <wx/colordlg.h>
 #include <string>
 #include <vector>
+#include "initial_population_policy.h"
 
 class ConfigManager;
 
 class LayerPanel : public wxPanel
 {
 public:
-    explicit LayerPanel(wxWindow* parent, bool showButtons = true, ConfigManager* config = nullptr);
+    explicit LayerPanel(
+        wxWindow* parent, bool showButtons = true, ConfigManager* config = nullptr,
+        gui::InitialPopulationPolicy populationPolicy =
+            gui::InitialPopulationPolicy::Immediate);
     void ReloadLayers();
 
     static LayerPanel* Instance();

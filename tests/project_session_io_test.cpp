@@ -1,9 +1,11 @@
 #include "configservices.h"
+#include "startup_profile.h"
 
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <vector>
 
 int main() {
@@ -61,6 +63,65 @@ int main() {
   assert(loadOk);
   assert(loadConfigCalled);
   assert(loadSceneCalled);
+
+  const fs::path cacheProjectPath = tempDir / "cache_payload.pera";
+  const std::vector<std::uint8_t> cacheJson = {'{', '}'};
+  const bool cacheSaveOk = saveSession.SaveProject(
+      cacheProjectPath.string(),
+      [](std::vector<std::uint8_t> &out) {
+        out = {'{', '}'};
+        return true;
+      },
+      [](std::vector<std::uint8_t> &out) {
+        out = {'P', 'K'};
+        return true;
+      },
+      ProjectSession::CollectArchiveResourcesFn([&cacheJson] {
+        return std::vector<ProjectSession::ArchiveResource>{{
+            "resources/layout_view_cache/last_selected_layout_view.json",
+            cacheJson}};
+      }));
+  assert(cacheSaveOk);
+  ProjectSession cacheLoadSession;
+  assert(cacheLoadSession.LoadProject(
+      cacheProjectPath.string(), [](const std::string &) { return true; },
+      [](const std::string &) { return true; }));
+  assert(cacheLoadSession.GetLoadedArchiveResources().size() == 1);
+  assert(cacheLoadSession.GetLoadedArchiveResources().front().bytes ==
+         cacheJson);
+
+  const fs::path oversizedCacheProjectPath =
+      tempDir / "oversized_cache_payload.pera";
+  const bool oversizedCacheSaveOk = saveSession.SaveProject(
+      oversizedCacheProjectPath.string(),
+      [](std::vector<std::uint8_t> &out) {
+        out = {'{', '}'};
+        return true;
+      },
+      [](std::vector<std::uint8_t> &out) {
+        out = {'P', 'K'};
+        return true;
+      },
+      ProjectSession::CollectArchiveResourcesFn([&cacheJson] {
+        return std::vector<ProjectSession::ArchiveResource>{
+            {"resources/layout_view_cache/rasters/oversized.rgba",
+             std::vector<std::uint8_t>(8 * 1024 * 1024 + 1, 7)},
+            {"resources/layout_view_cache/last_selected_layout_view.json",
+             cacheJson}};
+      }));
+  assert(oversizedCacheSaveOk);
+  auto cacheMetrics = std::make_shared<startup::Metrics>();
+  ProjectSession oversizedCacheLoadSession;
+  oversizedCacheLoadSession.SetStartupMetrics(cacheMetrics);
+  assert(oversizedCacheLoadSession.LoadProject(
+      oversizedCacheProjectPath.string(),
+      [](const std::string &) { return true; },
+      [](const std::string &) { return true; }));
+  assert(oversizedCacheLoadSession.GetLoadedArchiveResources().size() == 1);
+  assert(oversizedCacheLoadSession.GetLoadedArchiveResources().front().bytes ==
+         cacheJson);
+  assert(cacheMetrics->cacheEntriesRejected == 1);
+  assert(cacheMetrics->cacheEntriesTransferred == 1);
 
   const fs::path zeroSceneProjectPath = tempDir / "zero_scene.pera";
   ProjectSession zeroSceneSession;

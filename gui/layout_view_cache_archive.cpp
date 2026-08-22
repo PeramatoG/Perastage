@@ -42,6 +42,7 @@
 #include "layoutviewerviewrenderer.h"
 #include "logger.h"
 #include "symbols/fixture_symbol_resource_revision.h"
+#include "startup_profile.h"
 
 namespace {
 namespace fs = std::filesystem;
@@ -1000,10 +1001,18 @@ void LayoutViewerPanel::LoadPersistentViewCache(
   }
 }
 
+// Attaches startup cache-validation instrumentation to this layout viewer.
+void LayoutViewerPanel::SetStartupMetrics(
+    std::shared_ptr<startup::Metrics> metrics) {
+  startupMetrics_ = std::move(metrics);
+}
+
 // Hydrates matching persistent cache data into the active layout view.
 void LayoutViewerPanel::HydratePendingPersistentViewCache() {
   if (pendingPersistentViewCacheJson_.empty() || currentLayout.name.empty())
     return;
+  if (startupMetrics_)
+    ++startupMetrics_->cacheDeepValidations;
   try {
     const nlohmann::json document =
         nlohmann::json::parse(pendingPersistentViewCacheJson_);

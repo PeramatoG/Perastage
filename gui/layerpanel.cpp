@@ -76,7 +76,8 @@ void RefreshVisibleViewers() {
 } // namespace
 
 // Builds the layer list panel and wires layer management events.
-LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config)
+LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config,
+                       gui::InitialPopulationPolicy populationPolicy)
     : wxPanel(parent, wxID_ANY), configManager(config ? config : &GetDefaultGuiConfigServices().LegacyConfigManager())
 {
     list = new wxDataViewListCtrl(this, wxID_ANY);
@@ -152,6 +153,8 @@ LayerPanel::LayerPanel(wxWindow* parent, bool showButtons, ConfigManager* config
     if (delBtn)
         delBtn->Bind(wxEVT_BUTTON, &LayerPanel::OnDeleteLayer, this);
 
+    if (populationPolicy == gui::InitialPopulationPolicy::Immediate)
+        ReloadLayers();
 }
 
 // Returns the globally registered layer panel instance.

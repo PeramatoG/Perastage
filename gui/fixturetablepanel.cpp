@@ -205,7 +205,8 @@ void SetFixtureColorCell(wxDataViewListCtrl *table, int row,
 
 // Initializes the fixture table UI, columns, and event bindings.
 FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
-                                     IGuiConfigServices *services)
+                                     IGuiConfigServices *services,
+                                     gui::InitialPopulationPolicy populationPolicy)
     : wxPanel(parent, wxID_ANY),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   store = new ColorfulDataViewListStore();
@@ -248,6 +249,8 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
       [this]() { UpdateSelectionHighlight(); });
 
   InitializeTable();
+  if (populationPolicy == gui::InitialPopulationPolicy::Immediate)
+    ReloadData();
 
   sizer->Add(table, 1, wxEXPAND | wxALL, 5);
   SetSizer(sizer);

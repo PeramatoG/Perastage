@@ -50,6 +50,7 @@ public:
                      LoadProjectProgressCallback progressCallback = {});
     const std::vector<ProjectSession::ArchiveResource> &
     GetLoadedProjectArchiveResources() const;
+    void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
     void SetProjectArchiveResourceProvider(ProjectArchiveResourceProvider provider);
     // Save/load configuration file (e.g., JSON, INI, TXT…)
     bool LoadFromFile(const std::string& path);

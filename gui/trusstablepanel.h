@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "initial_population_policy.h"
 
 #include <wx/wx.h>
 #include <wx/dataview.h>
@@ -36,7 +37,10 @@ class TrussEditDialog;
 class TrussTablePanel : public wxPanel
 {
 public:
-    explicit TrussTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
+    explicit TrussTablePanel(
+        wxWindow* parent, IGuiConfigServices* services = nullptr,
+        gui::InitialPopulationPolicy populationPolicy =
+            gui::InitialPopulationPolicy::Immediate);
     ~TrussTablePanel();
     void ReloadData(); // Refresh from ConfigManager
     void HighlightTruss(const std::string& uuid);

@@ -1,10 +1,9 @@
 # Startup architecture
 
-Perastage startup uses the splash lifetime as the ownership boundary for an
-authoritative project restore. The application first initializes diagnostics,
-preferences, localization and library paths, then constructs the lightweight
-window shell. Platform and command-line open requests are resolved before the
-project is committed to the visible UI.
+Perastage creates an application-owned `startup::Metrics` context at the start
+of `OnInit`. The context follows configuration setup, window construction,
+startup-path resolution, project loading, and the final UI commit. The splash
+lifetime is the ownership boundary for an authoritative project restore.
 
 ## Restore phases
 
@@ -12,7 +11,9 @@ project is committed to the visible UI.
 2. Traverse the project package and restore `scene.mvr`, configuration,
    resources and optional layout-cache entries.
 3. Resolve the saved view preset and active project layout.
-4. Lazily construct only the viewport required by the resolved preset.
+4. Resolve the semantic viewport requirement from the saved view mode and
+   lazily construct that viewport before loading the AUI perspective. Legacy
+   perspectives are inspected only when no recognized semantic mode exists.
 5. Populate project tables and layers from the authoritative scene.
 6. Apply the saved AUI perspective and activate the saved project layout.
 7. Refresh visible summaries and rigging data and publish `InteractiveReady`.
@@ -25,7 +26,8 @@ result from being published into a replacement project.
 
 ## InteractiveReady
 
-`InteractiveReady` is emitted immediately before the startup splash is hidden.
+`InteractiveReady` is emitted once from the idle-driven splash completion pass,
+immediately before the startup splash is hidden.
 At that point the authoritative scene and configuration are loaded, the saved
 view and active layout are selected, required panes exist, visible project
 panels have current data, and no startup callback remains that will replace the
@@ -43,9 +45,16 @@ to acquire this cache.
 
 ## Profiling
 
-Diagnostic logs contain stable `StartupProfile` records. The
-`event=InteractiveReady` record reports elapsed milliseconds, layout commit and
-activation counts, viewport ensure/construction counts, and project archive
-open/traversal counts. A second record identifies post-startup fixture-symbol
-scan scheduling. Project-load phase timings continue to be reported by the
-layout render profiler when performance profiling is enabled.
+Diagnostic logs and the internal CMD panel receive the stable
+`StartupProfile event=InteractiveReady` summary. It reports measured bootstrap
+phase durations; project archive open, traversal, scene extraction, cache
+transfer and MVR restore values; layout and AUI commits; viewport ensures and
+constructions; and authoritative table/layer reloads. A second diagnostic-log
+record identifies post-startup fixture-symbol scan scheduling. This boundary
+does not claim to measure the first completed paint.
+
+Reusable project panels use an explicit initial-population policy. MainWindow
+requests deferred population so startup data is built once after project load;
+standalone construction defaults to immediate population. Layout2DViewDialog
+keeps its existing first-show layer reload and therefore also requests deferred
+construction.

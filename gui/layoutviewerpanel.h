@@ -39,6 +39,7 @@ wxDECLARE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
 
 class Viewer2DOffscreenRenderer;
+namespace startup { struct Metrics; }
 
 class LayoutViewerPanel : public wxGLCanvas {
 public:
@@ -60,6 +61,7 @@ public:
   CollectPersistentViewCacheResources() const;
   void LoadPersistentViewCache(
       const std::vector<ProjectSession::ArchiveResource> &resources);
+  void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
 private:
   struct LegendItem {
@@ -372,6 +374,7 @@ private:
   std::string pendingPersistentViewCacheJson_;
   std::unordered_map<std::string, std::vector<unsigned char>>
       pendingPersistentViewCacheRasters_;
+  std::shared_ptr<startup::Metrics> startupMetrics_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;

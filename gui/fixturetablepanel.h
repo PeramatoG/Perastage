@@ -27,6 +27,7 @@
 #include <unordered_set>
 #include "colorstore.h"
 #include "positionvalueupdate.h"
+#include "initial_population_policy.h"
 
 class FixtureEditDialog; // forward declaration
 namespace gui { class DataViewDeferredSelectionGuard; }
@@ -57,7 +58,10 @@ public:
         kFixtureIdOnly
     };
 
-    explicit FixtureTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
+    explicit FixtureTablePanel(
+        wxWindow* parent, IGuiConfigServices* services = nullptr,
+        gui::InitialPopulationPolicy populationPolicy =
+            gui::InitialPopulationPolicy::Immediate);
     ~FixtureTablePanel();
     void ReloadData(); // Refresh content from ConfigManager
     void HighlightFixture(const std::string& uuid);

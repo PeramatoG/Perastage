@@ -48,6 +48,7 @@ class Viewer3DPanel;
 class Viewer2DPanel;
 class Viewer2DRenderPanel;
 class Viewer2DOffscreenRenderer;
+namespace startup { struct Metrics; }
 class ConsolePanel;
 class LayerPanel;
 class LayoutPanel;
@@ -69,7 +70,9 @@ enum class Viewer2DView;
 // Main application window for GUI components
 class MainWindow : public wxFrame {
 public:
-  explicit MainWindow(const wxString &title, IGuiConfigServices *services = nullptr);
+  explicit MainWindow(
+      const wxString &title, IGuiConfigServices *services = nullptr,
+      std::shared_ptr<startup::Metrics> startupMetrics = nullptr);
   ~MainWindow();
 
   bool LoadProjectFromPath(const std::string &path,
@@ -140,14 +143,7 @@ private:
   wxAuiManager *auiManager = nullptr;
   Viewer3DPanel *viewportPanel = nullptr;
   Viewer2DPanel *viewport2DPanel = nullptr;
-  std::chrono::steady_clock::time_point startupStartedAt_ =
-      std::chrono::steady_clock::now();
-  size_t startupEnsure3DCalls_ = 0;
-  size_t startupEnsure2DCalls_ = 0;
-  size_t startup3DConstructions_ = 0;
-  size_t startup2DConstructions_ = 0;
-  size_t startupLayoutCommits_ = 0;
-  size_t startupLayoutActivations_ = 0;
+  std::shared_ptr<startup::Metrics> startupMetrics_;
   Viewer2DRenderPanel *viewport2DRenderPanel = nullptr;
   std::unique_ptr<Viewer2DOffscreenRenderer> offscreenViewer2DRenderer;
   ConsolePanel *consolePanel = nullptr;

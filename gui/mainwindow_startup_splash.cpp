@@ -4,6 +4,8 @@
 
 #include "diagnostics/DiagnosticLogger.h"
 #include "services/fixture_symbol_preparation_service.h"
+#include "startup_profile.h"
+#include "consolepanel.h"
 
 #include <chrono>
 
@@ -30,22 +32,21 @@ void MainWindow::CompleteStartupSplashInitialization() {
     return;
 
   startupSplashInitializationPending = false;
-  const long long interactiveReadyMs =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now() - startupStartedAt_)
-          .count();
-  diagnostics::DiagnosticLogger::Info(
-      "StartupProfile event=InteractiveReady duration_ms=" +
-      std::to_string(interactiveReadyMs) +
-      " apply_saved_layout=" + std::to_string(startupLayoutCommits_) +
-      " activate_layout=" + std::to_string(startupLayoutActivations_) +
-      " ensure_3d=" + std::to_string(startupEnsure3DCalls_) +
-      " construct_3d=" + std::to_string(startup3DConstructions_) +
-      " ensure_2d=" + std::to_string(startupEnsure2DCalls_) +
-      " construct_2d=" + std::to_string(startup2DConstructions_) +
-      " pstg_opens=" + std::to_string(currentProjectPath.empty() ? 0 : 1) +
-      " archive_traversals=" +
-      std::to_string(currentProjectPath.empty() ? 0 : 1));
+  const long long interactiveReadyMs = startupMetrics_
+      ? std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - startupMetrics_->startedAt)
+            .count()
+      : 0;
+  if (startupMetrics_)
+    startupMetrics_->interactiveReady = true;
+  const startup::Metrics emptyMetrics;
+  const startup::Metrics &metrics =
+      startupMetrics_ ? *startupMetrics_ : emptyMetrics;
+  const std::string summary =
+      startup::FormatInteractiveReadySummary(metrics, interactiveReadyMs);
+  diagnostics::DiagnosticLogger::Info(summary);
+  if (consolePanel)
+    consolePanel->AppendMessage("[INFO] " + wxString::FromUTF8(summary));
   SplashScreen::SetMessage(_("Ready"));
   SplashScreen::Hide();
   if (fixtureSymbolPreparationService)

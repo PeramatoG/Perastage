@@ -127,6 +127,7 @@ using json = nlohmann::json;
 #include "selectnamedialog.h"
 #include "simplecrypt.h"
 #include "splashscreen.h"
+#include "startup_profile.h"
 #include "summarypanel.h"
 #include "support.h"
 #include "tableprinter.h"
@@ -267,10 +268,16 @@ wxString PathToWxString(const std::filesystem::path &path) {
   return wxString::FromUTF8(utf8Str.c_str());
 }
 
-void LogMissingIcon(const std::filesystem::path &path) {
-  const wxString message =
-      "Main window icon not found at '" + PathToWxString(path) + "'";
-  Logger::Instance().Log(Logger::Level::Warn, message.ToStdString());
+// Records actionable context when the custom application icon cannot be used.
+void LogMainWindowIconFallback(const std::filesystem::path &resourceRoot,
+                               const std::filesystem::path &path,
+                               bool exists) {
+  diagnostics::DiagnosticLogger::Warning(
+      "Application icon fallback: requested=Perastage.ico relative_path="
+      "Perastage.ico resource_root=" +
+      resourceRoot.generic_string() + " attempted_path=" +
+      path.generic_string() + " exists=" + (exists ? "true" : "false") +
+      " icon_load_failed=" + (exists ? "true" : "false"));
 }
 
 // Builds the default UI font with shared sans-serif face resolution and UTF-8
@@ -478,9 +485,11 @@ EVT_COMMAND(wxID_ANY, EVT_LAYOUT_RENDER_READY, MainWindow::OnLayoutRenderReady)
 wxEND_EVENT_TABLE()
 
 // Constructs the main window and prepares startup UI state before project loading.
-MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
+MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services,
+                       std::shared_ptr<startup::Metrics> startupMetrics)
     : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1600, 950)),
-      guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
+      guiConfigServices(services ? services : &GetDefaultGuiConfigServices()),
+      startupMetrics_(std::move(startupMetrics)) {
   SetInstance(this);
   ioController = std::make_unique<MainWindowIoController>(*this);
   layoutController = std::make_unique<MainWindowLayoutController>(*this);
@@ -490,23 +499,29 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
   if (defaultUiFont.IsOk())
     SetFont(defaultUiFont);
   wxIcon icon;
+  const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
   const std::filesystem::path iconPath =
       ProjectUtils::ResolveResourcePath("Perastage.ico");
   std::error_code ec;
-  if (!iconPath.empty() && std::filesystem::exists(iconPath, ec)) {
+  const bool iconExists =
+      !iconPath.empty() && std::filesystem::exists(iconPath, ec);
+  if (iconExists) {
     icon.LoadFile(PathToWxString(iconPath), wxBITMAP_TYPE_ICO);
-  } else {
-    LogMissingIcon(iconPath.empty()
-                       ? std::filesystem::path("resources/Perastage.ico")
-                         : iconPath);
   }
-  if (!icon.IsOk())
+  if (!icon.IsOk()) {
+    LogMainWindowIconFallback(
+        resourceRoot,
+        iconPath.empty() ? resourceRoot / "Perastage.ico" : iconPath,
+        iconExists);
     icon = wxArtProvider::GetIcon(wxART_MISSING_IMAGE);
+  }
   if (icon.IsOk())
     SetIcon(icon);
 
   Centre();
   SetupLayout();
+  if (layoutViewerPanel)
+    layoutViewerPanel->SetStartupMetrics(startupMetrics_);
   guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
       [this]() -> std::vector<ProjectSession::ArchiveResource> {
         if (!layoutViewerPanel)
@@ -517,6 +532,7 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services)
       std::make_unique<gui::FixtureSymbolPreparationService>(*this);
 
   SetStartupProjectLoadPending(true);
+  guiConfigServices->LegacyConfigManager().SetStartupMetrics(startupMetrics_);
   // Project-bound panes remain structurally ready but unpopulated until the
   // authoritative startup scene and view mode have been resolved.
 
@@ -563,12 +579,12 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::Ensure3DViewport() {
-  if (startupSplashInitializationPending)
-    ++startupEnsure3DCalls_;
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->ensure3DCalls;
   if (viewportPanel)
     return;
-  if (startupSplashInitializationPending)
-    ++startup3DConstructions_;
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->viewer3DConstructions;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewportPanel = new Viewer3DPanel(this);
   Viewer3DPanel::SetInstance(viewportPanel);
@@ -585,6 +601,8 @@ void MainWindow::Ensure3DViewport() {
                                          .CloseButton(true)
                                          .MaximizeButton(true));
   auiManager->Update();
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->auiUpdates;
 
   if (defaultLayoutPerspective.empty()) {
     defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
@@ -596,12 +614,12 @@ void MainWindow::Ensure3DViewport() {
 }
 
 void MainWindow::Ensure2DViewport() {
-  if (startupSplashInitializationPending)
-    ++startupEnsure2DCalls_;
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->ensure2DCalls;
   if (viewport2DPanel)
     return;
-  if (startupSplashInitializationPending)
-    ++startup2DConstructions_;
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->viewer2DConstructions;
   int halfWidth = GetClientSize().GetWidth() / 2;
   viewport2DPanel = new Viewer2DPanel(this);
   std::weak_ptr<int> lifetimeToken = cursorStatusCallbackLifetimeToken;
@@ -652,6 +670,8 @@ void MainWindow::Ensure2DViewport() {
   ApplyViewportMovementToolState();
 
   auiManager->Update();
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->auiUpdates;
 
   if (default2DLayoutPerspective.empty()) {
     auto &pane3d = auiManager->GetPane("3DViewport");
@@ -1013,14 +1033,26 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   reportProjectLoadProgress(_("Reloading fixture/truss/support tables..."), true);
   if (consolePanel)
     consolePanel->AppendMessage("Loaded " + wxString::FromUTF8(path));
-  if (fixturePanel)
+  if (fixturePanel) {
     fixturePanel->ReloadData();
-  if (trussPanel)
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->fixtureReloads;
+  }
+  if (trussPanel) {
     trussPanel->ReloadData();
-  if (hoistPanel)
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->trussReloads;
+  }
+  if (hoistPanel) {
     hoistPanel->ReloadData();
-  if (sceneObjPanel)
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->hoistReloads;
+  }
+  if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->sceneObjectReloads;
+  }
 
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("viewport_refresh");
@@ -1048,8 +1080,11 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
   if (viewport2DRenderPanel)
     viewport2DRenderPanel->ApplyConfig();
   ApplyViewportMovementToolState();
-  if (layerPanel)
+  if (layerPanel) {
     layerPanel->ReloadLayers();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->layerReloads;
+  }
 
   loadProfiler.EndPhase();
   loadProfiler.BeginPhase("summary_rigging_refresh");
@@ -1098,6 +1133,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
     SetStartupProjectLoadPending(false);
+    ApplySavedLayout();
     ReapplyStartupLayoutAfterProjectLoad();
     RequestStartupSplashCompletion();
     return;
@@ -1109,6 +1145,7 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
   if (!loaded) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);
+    ApplySavedLayout();
     RequestStartupSplashCompletion();
   }
 
@@ -1147,14 +1184,26 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
   currentProjectDisplayName.clear();
   if (layoutPanel)
     layoutPanel->ReloadLayouts();
-  if (fixturePanel)
+  if (fixturePanel) {
     fixturePanel->ReloadData();
-  if (trussPanel)
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->fixtureReloads;
+  }
+  if (trussPanel) {
     trussPanel->ReloadData();
-  if (hoistPanel)
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->trussReloads;
+  }
+  if (hoistPanel) {
     hoistPanel->ReloadData();
-  if (sceneObjPanel)
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->hoistReloads;
+  }
+  if (sceneObjPanel) {
     sceneObjPanel->ReloadData();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->sceneObjectReloads;
+  }
   if (viewportPanel) {
     viewportPanel->UpdateScene();
     viewportPanel->Refresh();
@@ -1167,8 +1216,11 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
   }
   if (viewport2DRenderPanel)
     viewport2DRenderPanel->ApplyConfig();
-  if (layerPanel)
+  if (layerPanel) {
     layerPanel->ReloadLayers();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->layerReloads;
+  }
   RefreshSummary();
   RefreshRigging();
   UpdateTitle();
@@ -1460,8 +1512,10 @@ void MainWindow::OnLayoutRenderStatus(wxCommandEvent &event) {
 // Applies the named project layout to the layout viewer and persists it as
 // active.
 void MainWindow::ActivateLayoutView(const std::string &layoutName) {
-  if (startupSplashInitializationPending)
-    ++startupLayoutActivations_;
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->activateLayoutCalls;
+  if (startupSplashInitializationPending && startupMetrics_)
+    startupMetrics_->finalActiveLayout = layoutName;
   if (!auiManager || layoutName.empty()) {
     ClearLayoutLoadingIndicator();
     return;
@@ -1657,6 +1711,7 @@ void MainWindow::OnProjectLoaded(wxCommandEvent &event) {
       return;
     }
     ResetProject(true);
+    ApplySavedLayout();
     // Some platforms can delay or skip idle delivery during startup.
     // Force an explicit completion pass so deferred startup open paths
     // can be processed deterministically after startup reset.

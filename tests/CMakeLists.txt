@@ -2301,6 +2301,12 @@ target_include_directories(project_session_io_test PRIVATE ../core ../third_part
 target_link_libraries(project_session_io_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSessionIO COMMAND project_session_io_test)
 
+add_executable(startup_profile_test
+               startup_profile_test.cpp
+               ../core/startup_profile.cpp)
+target_include_directories(startup_profile_test PRIVATE ../core)
+add_test(NAME StartupProfile COMMAND startup_profile_test)
+
 
 add_executable(support_resolution_test
                support_resolution_test.cpp)

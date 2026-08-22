@@ -119,15 +119,27 @@ void MainWindow::CreateToolBars() {
 
   const auto loadToolbarIcon = [](const std::string &name,
                                   const wxArtID &fallbackArtId) {
-    auto svgPath = ProjectUtils::ResolveResourcePath(
-        std::filesystem::path("icons") / "outline" / (name + ".svg"));
-    if (std::filesystem::exists(svgPath)) {
+    const std::filesystem::path relativePath =
+        std::filesystem::path("icons") / "outline" / (name + ".svg");
+    const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
+    const std::filesystem::path svgPath =
+        ProjectUtils::ResolveResourcePath(relativePath);
+    std::error_code ec;
+    const bool exists = !svgPath.empty() && std::filesystem::exists(svgPath, ec);
+    if (exists) {
       wxBitmapBundle bundle =
           wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(16, 16));
       if (bundle.IsOk()) {
         return bundle;
       }
     }
+    diagnostics::DiagnosticLogger::Warning(
+        "Toolbar icon fallback: name=" + name +
+        " relative_path=" + relativePath.generic_string() +
+        " resource_root=" + resourceRoot.generic_string() +
+        " attempted_path=" + svgPath.generic_string() +
+        " exists=" + (exists ? "true" : "false") +
+        " svg_load_failed=" + (exists ? "true" : "false"));
     return wxArtProvider::GetBitmapBundle(fallbackArtId, wxART_TOOLBAR,
                                           wxSize(16, 16));
   };

@@ -192,8 +192,10 @@ wxString ResolvePrimitivePreviewPath(const SceneObject &object,
 }
 } // namespace
 
+// Initializes the scene-object table controls and optionally populates scene rows.
 SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
-                                             IGuiConfigServices *services)
+                                             IGuiConfigServices *services,
+                                             gui::InitialPopulationPolicy populationPolicy)
     : wxPanel(parent, wxID_ANY),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
     store = new ColorfulDataViewListStore();
@@ -235,6 +237,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
             [this]() { UpdateSelectionHighlight(); });
 
     InitializeTable();
+    if (populationPolicy == gui::InitialPopulationPolicy::Immediate)
+        ReloadData();
 
     sizer->Add(table, 1, wxEXPAND | wxALL, 5);
     SetSizer(sizer);

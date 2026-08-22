@@ -693,6 +693,12 @@ ConfigManager::GetLoadedProjectArchiveResources() const {
   return projectSession.GetLoadedArchiveResources();
 }
 
+// Attaches startup instrumentation to the owned project session.
+void ConfigManager::SetStartupMetrics(
+    std::shared_ptr<startup::Metrics> metrics) {
+  projectSession.SetStartupMetrics(std::move(metrics));
+}
+
 // Resets configuration and scene state for a fresh project.
 void ConfigManager::Reset() {
   RevisionGuard guard(*this);

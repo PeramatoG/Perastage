@@ -41,7 +41,8 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
 
   viewerPanel = new Viewer2DPanel(this, false, false, false);
   renderPanel = new Viewer2DRenderPanel(this);
-  layerPanel = new LayerPanel(this, false, visibilityConfig);
+  layerPanel = new LayerPanel(this, false, visibilityConfig,
+                              gui::InitialPopulationPolicy::Deferred);
   summaryPanel = new SummaryPanel(this, visibilityConfig, colorConfig);
 
   renderPanel->SetMinSize(wxSize(240, -1));

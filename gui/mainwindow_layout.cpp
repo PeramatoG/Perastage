@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "startup_profile.h"
 
 #include <algorithm>
 #include <cmath>
@@ -313,19 +314,23 @@ void MainWindow::SetupLayout() {
   notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED,
                  &MainWindow::OnNotebookPageChanged, this);
 
-  fixturePanel = new FixtureTablePanel(notebook, guiConfigServices);
+  fixturePanel = new FixtureTablePanel(
+      notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   FixtureTablePanel::SetInstance(fixturePanel);
   notebook->AddPage(fixturePanel, "Fixtures");
 
-  trussPanel = new TrussTablePanel(notebook, guiConfigServices);
+  trussPanel = new TrussTablePanel(
+      notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   TrussTablePanel::SetInstance(trussPanel);
   notebook->AddPage(trussPanel, "Trusses");
 
-  hoistPanel = new HoistTablePanel(notebook, guiConfigServices);
+  hoistPanel = new HoistTablePanel(
+      notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   HoistTablePanel::SetInstance(hoistPanel);
   notebook->AddPage(hoistPanel, "Hoists");
 
-  sceneObjPanel = new SceneObjectTablePanel(notebook, guiConfigServices);
+  sceneObjPanel = new SceneObjectTablePanel(
+      notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   SceneObjectTablePanel::SetInstance(sceneObjPanel);
   notebook->AddPage(sceneObjPanel, "Objects");
 
@@ -357,7 +362,8 @@ void MainWindow::SetupLayout() {
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
 
-  layerPanel = new LayerPanel(this);
+  layerPanel = new LayerPanel(this, true, nullptr,
+                              gui::InitialPopulationPolicy::Deferred);
   LayerPanel::SetInstance(layerPanel);
   auiManager->AddPane(layerPanel, wxAuiPaneInfo()
                                       .Name("LayerPanel")
@@ -504,9 +510,13 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     const std::string adjustedPerspective =
         ApplyBottomPaneProportionsToPerspective(*perspective);
     auiManager->LoadPerspective(adjustedPerspective, true);
-  }
-  else
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->auiPerspectiveLoads;
+  } else {
     auiManager->Update();
+    if (startupSplashInitializationPending && startupMetrics_)
+      ++startupMetrics_->auiUpdates;
+  }
 
   auto applyPaneState = [this](const std::vector<std::string> &panes,
                                bool show) {
@@ -521,6 +531,8 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   applyPaneState(preset.hidePanes, false);
 
   auiManager->Update();
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->auiUpdates;
 
   layoutModeActive = layoutMode;
 
@@ -542,8 +554,8 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
 }
 
 void MainWindow::ApplySavedLayout() {
-  if (startupSplashInitializationPending)
-    ++startupLayoutCommits_;
+  if (startupSplashInitializationPending && startupMetrics_)
+    ++startupMetrics_->applySavedLayoutCalls;
   // Flow overview: choose which perspective to apply (layout mode/2D/3D) from
   // saved config, ensuring viewports exist before restoring; then re-apply
   // minimum sizes so the saved perspective cannot degrade the UI.
@@ -573,12 +585,13 @@ void MainWindow::ApplySavedLayout() {
   if (!preset)
     preset = LayoutViewPresetRegistry::GetPreset("3d_layout_view");
 
-  if (preset) {
-    if (preset->name == "2d_layout_view")
-      Ensure2DViewport();
-    else if (preset->name == "3d_layout_view")
-      Ensure3DViewport();
-  }
+  startup::PrepareRequiredViewport(
+      preset ? preset->name : viewMode,
+      perspective ? &*perspective : nullptr,
+      [this]() { Ensure2DViewport(); }, [this]() { Ensure3DViewport(); });
+
+  if (startupMetrics_)
+    startupMetrics_->finalViewMode = preset ? preset->name : viewMode;
 
   const bool savedLayoutMode = preset && preset->name == "layout_mode_view";
   bool usedSavedPerspective = false;
