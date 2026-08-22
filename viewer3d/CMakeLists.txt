@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/picking/picking_coordinate_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/gl_primitive_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/base_pass_framebuffer_cache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/fixture_fallback_visual.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/hoist_symbol_renderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/lighting_profile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/opaque_fixture_pass.cpp
@@ -30,6 +31,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer3d_render_style.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render/scenerenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/mesh_processing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/fixture_symbol_source.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_path_search.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_sync_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcamera.cpp

@@ -30,6 +30,7 @@
 
 #include "configmanager.h"
 #include "fixture_mesh_color.h"
+#include "fixture_fallback_visual.h"
 #include "logger.h"
 #include "matrixutils.h"
 #include "mesh.h"
@@ -70,33 +71,6 @@ std::string BuildFixtureSymbolModelKey(const Fixture &fixture,
   if (modelKey.empty())
     modelKey = "unknown";
   return modelKey;
-}
-
-const Mesh &FallbackFixtureCubeMesh() {
-  static const Mesh mesh = []() {
-    Mesh cube;
-    cube.vertices = {
-        -0.5f, -0.5f, -0.5f, // 0
-        0.5f,  -0.5f, -0.5f, // 1
-        0.5f,  0.5f,  -0.5f, // 2
-        -0.5f, 0.5f,  -0.5f, // 3
-        -0.5f, -0.5f, 0.5f,  // 4
-        0.5f,  -0.5f, 0.5f,  // 5
-        0.5f,  0.5f,  0.5f,  // 6
-        -0.5f, 0.5f,  0.5f   // 7
-    };
-    cube.indices = {
-        0, 1, 2, 0, 2, 3, // back
-        4, 6, 5, 4, 7, 6, // front
-        0, 4, 5, 0, 5, 1, // bottom
-        3, 2, 6, 3, 6, 7, // top
-        0, 3, 7, 0, 7, 4, // left
-        1, 5, 6, 1, 6, 2  // right
-    };
-    ComputeNormals(cube);
-    return cube;
-  }();
-  return mesh;
 }
 
 struct SvgSymbolCacheKey {
@@ -713,7 +687,7 @@ void OpaqueFixturePass::Render(
           glPopMatrix();
         }
       } else {
-        DrawMeshSolidForPick(FallbackFixtureCubeMesh(), 0.2f, fixture, uuid,
+        DrawMeshSolidForPick(viewer3d::fallback::FixtureCubeMesh(), 0.2f, fixture, uuid,
                              gdtfPath, "fallback-cube");
       }
       glPopMatrix();
@@ -1019,7 +993,7 @@ void OpaqueFixturePass::Render(
                     context.whiteModelStyle &&
                     !controller.IsSketchRenderStyleEnabled();
                 controller.DrawMeshWithOutline(
-                    FallbackFixtureCubeMesh(), r, g, b, 0.2f, false, false,
+                    viewer3d::fallback::FixtureCubeMesh(), r, g, b, 0.2f, false, false,
                     false, 0.0f, 0.0f, 0.0f, fallbackWireframe, mode,
                     [](const std::array<float, 3> &p) { return p; },
                     fallbackUnlit);
@@ -1099,7 +1073,7 @@ void OpaqueFixturePass::Render(
                                    context.whiteModelStyle &&
                                    !controller.IsSketchRenderStyleEnabled();
         controller.DrawMeshWithOutline(
-            FallbackFixtureCubeMesh(), r, g, b, 0.2f, highlight, groupHighlight,
+            viewer3d::fallback::FixtureCubeMesh(), r, g, b, 0.2f, highlight, groupHighlight,
             selected, cx, cy, cz, fallbackWireframe, mode, applyFixtureCapture,
             fallbackUnlit, matrix, false, context.selectionOverlayPass);
         ++drawCalls;
@@ -1152,7 +1126,7 @@ void OpaqueFixturePass::Render(
         }
       } else {
         AddFixtureInstancedDraw(
-            fixtureInstancedBatches, FallbackFixtureCubeMesh(), r, g, b, false,
+            fixtureInstancedBatches, viewer3d::fallback::FixtureCubeMesh(), r, g, b, false,
             wireframe, mode, 0.2f, cx, cy, cz, matrix, nullptr, matrix);
       }
       glPopMatrix();
@@ -1201,7 +1175,7 @@ void OpaqueFixturePass::Render(
         }
       } else {
         AddFixtureInstancedDraw(
-            fixtureInstancedBatches, FallbackFixtureCubeMesh(), r, g, b, false,
+            fixtureInstancedBatches, viewer3d::fallback::FixtureCubeMesh(), r, g, b, false,
             wireframe, mode, 0.2f, cx, cy, cz, matrix, nullptr, matrix);
       }
     } else {

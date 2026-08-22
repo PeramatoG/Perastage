@@ -146,6 +146,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutProjectLoadCacheReset ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_project_load_cache_reset.sh)
     add_bash_policy_test(FixtureSymbolSvgCacheBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_svg_cache_boundary.sh)
     add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
+    add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
     add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
     add_bash_policy_test(FixtureSymbol3DRefresh ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_3d_refresh.sh)
@@ -1972,6 +1973,32 @@ target_include_directories(gdtfloader_primitive_test PRIVATE
 target_link_libraries(gdtfloader_primitive_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME GdtfLoaderPrimitiveFallback COMMAND gdtfloader_primitive_test)
 set_library_env(GdtfLoaderPrimitiveFallback)
+
+add_executable(fixture_symbol_source_test fixture_symbol_source_test.cpp
+               build_info_stub.cpp
+               ../viewer3d/resources/fixture_symbol_source.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               ../core/symbols/fixture_symbol_availability.cpp
+               ../core/symbols/fixture_symbol_svg_cache.cpp
+               ../core/symbols/fixture_symbol_resource_revision.cpp
+               ../core/symbols/PerastageSvgSymbol.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/runtime_storage.cpp
+               ../core/logger.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               consolepanel_stub.cpp)
+target_include_directories(fixture_symbol_source_test PRIVATE
+                           . ../core ../viewer3d ../viewer3d/resources
+                           ../models ../gui ../third_party)
+target_link_libraries(fixture_symbol_source_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_test_gdtf_archive_reader)
+add_test(NAME FixtureSymbolSource COMMAND fixture_symbol_source_test)
+set_library_env(FixtureSymbolSource)
 
 add_executable(loader3ds_native_dimensions_test loader3ds_native_dimensions_test.cpp
                ../core/geometry_bounds_resolver.cpp

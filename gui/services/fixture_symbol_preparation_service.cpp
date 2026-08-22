@@ -18,6 +18,7 @@
 #include "symbols/fixture_symbol_resource_revision.h"
 #include "tools/scene_model_symbol_capture_service.h"
 #include "tools/symbol_physical_calibration.h"
+#include "fixture_symbol_source.h"
 #include "viewer2doffscreenrenderer.h"
 #include "windows/symbol_fixture_applier.h"
 
@@ -64,6 +65,7 @@ void FixtureSymbolPreparationService::BeginProjectEpoch(bool scheduleScan) {
   epoch_ = coordinator_.BeginProjectEpoch();
   work_.clear();
   manualWork_.clear();
+  fallbackDiagnostics_.clear();
   currentKey_.reset();
   stepScheduled_ = false;
   UpdateStatus();
@@ -95,11 +97,21 @@ void FixtureSymbolPreparationService::Request(
     if (manualKey == key)
       return;
   }
-  if (symbol_cache::InspectFixtureSymbolAvailability(key.effectiveGdtfPath)
-          .storedSvgUsable) {
+  const auto source = symbols::InspectFixtureSymbolSource(
+      key.effectiveGdtfPath, key.exactGdtfMode);
+  if (source.source == symbols::FixtureSymbolSource::StoredGdtfSvg) {
     diagnostics::DiagnosticLogger::Info(
         "Fixture symbol preparation skipped because required SVGs are valid for resource '" +
         key.effectiveGdtfPath + "' mode '" + key.exactGdtfMode + "'.");
+    return;
+  }
+  if (source.source == symbols::FixtureSymbolSource::PerastageFallback) {
+    if (fallbackDiagnostics_.insert(key).second) {
+      diagnostics::DiagnosticLogger::Info(
+          "Fixture symbol generation skipped for resource '" +
+          key.effectiveGdtfPath + "' mode '" + key.exactGdtfMode +
+          "': " + source.diagnostic);
+    }
     return;
   }
   const std::string fixtureUuid = FindFixtureUuid(key);
@@ -229,14 +241,24 @@ void FixtureSymbolPreparationService::RunNextStep() {
       if (fixtureIt != scene.fixtures.end() &&
           fixtures::ResolveFixtureGdtfDeterministic(fixtureIt->second, scene,
                                                     resolution, resolutionError,
-                                                    "symbol-reinspect") &&
-          symbol_cache::InspectFixtureSymbolAvailability(resolution.selectedPath)
-              .storedSvgUsable) {
-        coordinator_.Skip(*currentKey_, epoch_);
-        currentKey_.reset();
-        UpdateStatus();
-        ScheduleNextStep();
-        return;
+                                                    "symbol-reinspect")) {
+        const auto source = symbols::InspectFixtureSymbolSource(
+            resolution.selectedPath, currentKey_->exactGdtfMode);
+        if (source.source !=
+            symbols::FixtureSymbolSource::RenderableGdtfGeometry) {
+          if (source.source == symbols::FixtureSymbolSource::PerastageFallback &&
+              fallbackDiagnostics_.insert(*currentKey_).second) {
+            diagnostics::DiagnosticLogger::Info(
+                "Fixture symbol generation skipped during reinspection: " +
+                source.diagnostic);
+          }
+          coordinator_.Skip(*currentKey_, epoch_);
+          work_.erase(*currentKey_);
+          currentKey_.reset();
+          UpdateStatus();
+          ScheduleNextStep();
+          return;
+        }
       }
     }
     if (!coordinator_.BeginCapture(*currentKey_, epoch_)) {
