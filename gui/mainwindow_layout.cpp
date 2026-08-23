@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "main_toolbar_pane_policy.h"
 #include "startup_profile.h"
 
 #include <algorithm>
@@ -464,6 +465,56 @@ void MainWindow::SetupLayout() {
   UpdateViewMenuChecks();
 }
 
+// Restores canonical docking for standard panes.
+void MainWindow::ApplyCanonicalPaneDocking() {
+  if (!auiManager)
+    return;
+
+  auto dockPane = [this](const char *name, const auto &configure) {
+    auto &pane = auiManager->GetPane(name);
+    if (pane.IsOk())
+      configure(pane);
+  };
+  dockPane("DataNotebook", [](wxAuiPaneInfo &pane) {
+    pane.Left().Layer(0).Row(0).Position(0);
+  });
+  dockPane("Console", [](wxAuiPaneInfo &pane) {
+    pane.Bottom().Layer(1).Row(0).Position(0);
+  });
+  dockPane("LayerPanel", [](wxAuiPaneInfo &pane) {
+    pane.Right().Layer(1).Row(0).Position(0);
+  });
+  dockPane("SummaryPanel", [](wxAuiPaneInfo &pane) {
+    pane.Right().Layer(1).Row(0).Position(1);
+  });
+  dockPane("RiggingPanel", [](wxAuiPaneInfo &pane) {
+    pane.Bottom().Layer(1).Row(0).Position(1);
+  });
+  dockPane("LayoutPanel", [](wxAuiPaneInfo &pane) {
+    pane.Left().Layer(0).Row(0).Position(1);
+  });
+  dockPane("LayoutViewer", [](wxAuiPaneInfo &pane) { pane.Center(); });
+  dockPane("3DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
+  dockPane("2DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
+  dockPane("2DRenderOptions", [](wxAuiPaneInfo &pane) {
+    pane.Right().Layer(0).Row(0).Position(0);
+  });
+}
+
+// Keeps every primary toolbar visible without changing its dock position.
+void MainWindow::EnforceMainToolbarVisibility() {
+  if (!auiManager)
+    return;
+  for (const std::string_view name : gui::kAlwaysVisibleToolbarPanes) {
+    auto &pane = auiManager->GetPane(std::string(name));
+    if (pane.IsOk()) {
+      pane.Show().CloseButton(false);
+      if (pane.window)
+        pane.BestSize(pane.window->GetBestSize());
+    }
+  }
+}
+
 // Applies a named pane preset while synchronizing mode-specific 2D viewport state transitions.
 void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
                                    const std::optional<std::string> &perspective,
@@ -509,13 +560,11 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
   if (perspective && !perspective->empty()) {
     const std::string adjustedPerspective =
         ApplyBottomPaneProportionsToPerspective(*perspective);
-    auiManager->LoadPerspective(adjustedPerspective, true);
+    auiManager->LoadPerspective(adjustedPerspective, false);
     if (startupSplashInitializationPending && startupMetrics_)
       ++startupMetrics_->auiPerspectiveLoads;
   } else {
-    auiManager->Update();
-    if (startupSplashInitializationPending && startupMetrics_)
-      ++startupMetrics_->auiUpdates;
+    ApplyCanonicalPaneDocking();
   }
 
   auto applyPaneState = [this](const std::vector<std::string> &panes,
@@ -527,8 +576,24 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     }
   };
 
-  applyPaneState(preset.showPanes, true);
-  applyPaneState(preset.hidePanes, false);
+  if (perspective && !perspective->empty()) {
+    if (preset.name == "3d_layout_view") {
+      applyPaneState({"3DViewport"}, true);
+      applyPaneState(
+          {"2DViewport", "2DRenderOptions", "LayoutPanel", "LayoutViewer"},
+          false);
+    } else if (preset.name == "2d_layout_view") {
+      applyPaneState({"2DViewport", "2DRenderOptions"}, true);
+      applyPaneState({"3DViewport", "LayoutPanel", "LayoutViewer"}, false);
+    } else if (preset.name == "layout_mode_view") {
+      applyPaneState({"LayoutPanel", "LayoutViewer"}, true);
+      applyPaneState({"3DViewport", "2DViewport", "2DRenderOptions"}, false);
+    }
+  } else {
+    applyPaneState(preset.showPanes, true);
+    applyPaneState(preset.hidePanes, false);
+  }
+  EnforceMainToolbarVisibility();
 
   auiManager->Update();
   if (startupSplashInitializationPending && startupMetrics_)
@@ -641,32 +706,7 @@ void MainWindow::ApplyLayoutModePerspective() {
   if (!preset)
     return;
 
-  if (defaultLayoutModePerspective.empty()) {
-    const std::string previousPerspective =
-        auiManager->SavePerspective().ToStdString();
-
-    auto applyPaneState = [this](const std::vector<std::string> &panes,
-                                 bool show) {
-      for (const auto &name : panes) {
-        auto &pane = auiManager->GetPane(name);
-        if (pane.IsOk())
-          pane.Show(show);
-      }
-    };
-
-    applyPaneState(preset->showPanes, true);
-    applyPaneState(preset->hidePanes, false);
-    auiManager->Update();
-    defaultLayoutModePerspective = auiManager->SavePerspective().ToStdString();
-    auiManager->LoadPerspective(previousPerspective, true);
-    auiManager->Update();
-  }
-
-  if (defaultLayoutModePerspective.empty())
-    ApplyLayoutPreset(*preset, std::nullopt, true, !startupProjectLoadPending);
-  else
-    ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutModePerspective),
-                      true, !startupProjectLoadPending);
+  ApplyLayoutPreset(*preset, std::nullopt, true, !startupProjectLoadPending);
 }
 
 void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -679,8 +719,7 @@ void MainWindow::OnApplyDefaultLayout(wxCommandEvent &WXUNUSED(event)) {
       LayoutViewPresetRegistry::GetPreset("3d_layout_view");
   if (!preset)
     return;
-  ApplyLayoutPreset(*preset, std::make_optional(defaultLayoutPerspective),
-                    false, true);
+  ApplyLayoutPreset(*preset, std::nullopt, false, true);
 }
 
 void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
@@ -693,8 +732,7 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
       LayoutViewPresetRegistry::GetPreset("2d_layout_view");
   if (!preset)
     return;
-  ApplyLayoutPreset(*preset, std::make_optional(default2DLayoutPerspective),
-                    false, true);
+  ApplyLayoutPreset(*preset, std::nullopt, false, true);
 }
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {

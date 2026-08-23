@@ -96,6 +96,12 @@ Changes since **v1.5.0**.
   and missing custom toolbar resources produce actionable diagnostics instead
   of an unexplained fallback.
 
+- The startup splash now remains in place until the fully restored project
+  window is ready to publish, eliminating the brief display of temporary pane
+  arrangements. The standard 3D, 2D, and Layout commands now restore complete,
+  history-independent panel sets, and all five main toolbars—including the
+  scene Tools toolbar—remain visible with disabled tools retaining their slots.
+
 - Stabilized MVR-xchange TCP Mode interoperability and LAN-input handling. Deterministic per-station announcements avoid JOIN/COMMIT duplication and reciprocal JOINs for incoming members, explicit leave membership survives passive rediscovery, typed failures and canonical sender fields improve compatibility, and persistent multicast discovery now uses scoped DNS-SD resolution, TXT merging, TTL lifecycle handling, bounded multipart transfers, and steady-state query backoff.
 
 - Improved MVR-xchange interoperability with consoles that follow the official

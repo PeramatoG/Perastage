@@ -2307,6 +2307,19 @@ add_executable(startup_profile_test
 target_include_directories(startup_profile_test PRIVATE ../core)
 add_test(NAME StartupProfile COMMAND startup_profile_test)
 
+add_executable(layout_view_preset_test
+               layout_view_preset_test.cpp
+               ../core/layoutviewpresets.cpp)
+target_include_directories(layout_view_preset_test PRIVATE ../core ../gui)
+add_test(NAME LayoutViewPreset COMMAND layout_view_preset_test)
+
+add_bash_policy_test(MainToolbarContract
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_main_toolbar_contract.sh
+                     LABELS "gui;architecture")
+add_bash_policy_test(StartupWindowPublication
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_startup_window_publication.sh
+                     LABELS "gui;startup;architecture")
+
 
 add_executable(support_resolution_test
                support_resolution_test.cpp)

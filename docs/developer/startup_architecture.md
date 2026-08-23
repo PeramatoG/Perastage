@@ -2,8 +2,9 @@
 
 Perastage creates an application-owned `startup::Metrics` context at the start
 of `OnInit`. The context follows configuration setup, window construction,
-startup-path resolution, project loading, and the final UI commit. The splash
-lifetime is the ownership boundary for an authoritative project restore.
+startup-path resolution, project loading, and the final UI commit. MainWindow
+exists as the application top window but remains hidden while the splash owns
+the visible startup experience.
 
 ## Restore phases
 
@@ -16,8 +17,10 @@ lifetime is the ownership boundary for an authoritative project restore.
    perspectives are inspected only when no recognized semantic mode exists.
 5. Populate project tables and layers from the authoritative scene.
 6. Apply the saved AUI perspective and activate the saved project layout.
-7. Refresh visible summaries and rigging data and publish `InteractiveReady`.
-8. Schedule non-essential fixture-symbol preparation.
+7. Refresh visible summaries and rigging data and perform the final AUI update.
+8. Maximize and publish MainWindow with its authoritative layout, emit
+   `InteractiveReady`, and then dismiss the splash.
+9. Schedule non-essential fixture-symbol preparation.
 
 The UI thread owns wxWidgets controls, AUI perspective commits, viewport
 creation and OpenGL contexts. Background services may prepare immutable symbol
@@ -26,8 +29,10 @@ result from being published into a replacement project.
 
 ## InteractiveReady
 
-`InteractiveReady` is emitted once from the idle-driven splash completion pass,
-immediately before the startup splash is hidden.
+`InteractiveReady` is emitted once from the idle-driven splash completion pass.
+That pass performs the final AUI update and publishes the previously hidden
+MainWindow before dismissing the splash, so the structural setup layout is
+never exposed as an intermediate application frame.
 At that point the authoritative scene and configuration are loaded, the saved
 view and active layout are selected, required panes exist, visible project
 panels have current data, and no startup callback remains that will replace the
@@ -58,3 +63,13 @@ requests deferred population so startup data is built once after project load;
 standalone construction defaults to immediate population. Layout2DViewDialog
 keeps its existing first-show layer reload and therefore also requests deferred
 construction.
+
+## Standard view modes
+
+Saved project restore and manual standard-view selection are separate flows. A
+saved perspective retains compatible project-specific docking and panel
+visibility, while the required central pane and all five main toolbars are
+enforced. The manual 3D, 2D, and Layout commands use explicit pane visibility
+and docking recipes rather than perspectives captured from mutable runtime
+state. This makes transitions history-independent even when a heavyweight
+viewport is constructed for the first time after Layout Mode.

@@ -306,13 +306,11 @@ bool MyApp::OnInit() {
   const auto mainWindowStartedAt = startup::Metrics::Clock::now();
   MainWindow *mainWindow =
       new MainWindow(app::kName, nullptr, startup_metrics_);
+  SetTopWindow(mainWindow);
   startup_metrics_->mainWindowConstructionMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           startup::Metrics::Clock::now() - mainWindowStartedAt)
           .count();
-  mainWindow->Show(true);
-  // Start maximized so minimize and restore buttons remain available
-  mainWindow->Maximize(true);
   mainWindow->CallAfter([this, configuredLanguageCode, localizationResult]() {
     ShowLocalizationFallbackWarningIfNeeded(configuredLanguageCode,
                                            localizationResult.activeLanguage);

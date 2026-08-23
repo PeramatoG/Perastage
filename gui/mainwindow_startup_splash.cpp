@@ -26,11 +26,24 @@ void MainWindow::OnStartupSplashCloseIdle(wxIdleEvent &event) {
   CompleteStartupSplashInitialization();
 }
 
-// Hides the splash and opens any path deferred during startup.
+// Publishes the fully composed initial frame exactly once behind the splash.
+void MainWindow::PublishInitialMainWindow() {
+  if (initialMainWindowPublished)
+    return;
+  if (auiManager)
+    auiManager->Update();
+  Layout();
+  Maximize(true);
+  Show(true);
+  initialMainWindowPublished = true;
+}
+
+// Publishes the final frame, hides the splash, and opens deferred startup paths.
 void MainWindow::CompleteStartupSplashInitialization() {
   if (!startupSplashInitializationPending)
     return;
 
+  PublishInitialMainWindow();
   startupSplashInitializationPending = false;
   const long long interactiveReadyMs = startupMetrics_
       ? std::chrono::duration_cast<std::chrono::milliseconds>(

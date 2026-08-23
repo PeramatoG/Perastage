@@ -290,6 +290,8 @@ private:
   void ApplyLayoutPreset(const LayoutViewPreset &preset,
                          const std::optional<std::string> &perspective,
                          bool layoutMode, bool persistPerspective);
+  void ApplyCanonicalPaneDocking();
+  void EnforceMainToolbarVisibility();
   void ApplyLayoutModePerspective();
   void BeginLayout2DViewEdit();
   void UpdateViewMenuChecks();
@@ -309,13 +311,12 @@ private:
                           const wxString &dialogTitle);
   void ClearBlockingProjectLoadUi();
   void CompleteStartupSplashInitialization();
+  void PublishInitialMainWindow();
   void RequestStartupSplashCompletion();
   void QueueDeferredStartupOpenPath(const std::string &path);
   void ProcessDeferredStartupOpenPath();
   void OnStartupSplashCloseIdle(wxIdleEvent &event);
-  std::string defaultLayoutPerspective;
-  std::string default2DLayoutPerspective;
-  std::string defaultLayoutModePerspective;
+  bool initialMainWindowPublished = false;
   bool layoutModeActive = false;
   std::string activeLayoutName;
   bool layout2DViewEditing = false;

@@ -604,10 +604,6 @@ void MainWindow::Ensure3DViewport() {
   if (startupSplashInitializationPending && startupMetrics_)
     ++startupMetrics_->auiUpdates;
 
-  if (defaultLayoutPerspective.empty()) {
-    defaultLayoutPerspective = auiManager->SavePerspective().ToStdString();
-  }
-
   if (summaryPanel)
     summaryPanel->SetVisibleRefreshTargets(viewport2DPanel, viewportPanel);
   ApplyViewportMovementToolState();
@@ -673,48 +669,6 @@ void MainWindow::Ensure2DViewport() {
   if (startupSplashInitializationPending && startupMetrics_)
     ++startupMetrics_->auiUpdates;
 
-  if (default2DLayoutPerspective.empty()) {
-    auto &pane3d = auiManager->GetPane("3DViewport");
-    auto &pane2d = auiManager->GetPane("2DViewport");
-    auto &paneRender = auiManager->GetPane("2DRenderOptions");
-    auto &paneLayers = auiManager->GetPane("LayerPanel");
-    auto &paneSummary = auiManager->GetPane("SummaryPanel");
-
-    // 2D default: keep Layers/Summary in the outer right column and place
-    // Render Options in the inner right column between viewport and side
-    // column.
-    if (paneLayers.IsOk()) {
-      paneLayers.Right().Layer(1).Row(0).Position(0);
-    }
-    if (paneSummary.IsOk()) {
-      paneSummary.Right().Layer(1).Row(0).Position(1);
-    }
-    if (paneRender.IsOk()) {
-      paneRender.Right().Layer(0).Row(0).Position(0);
-    }
-
-    pane3d.Hide();
-    pane2d.Show();
-    paneRender.Show();
-    auiManager->Update();
-    default2DLayoutPerspective = auiManager->SavePerspective().ToStdString();
-
-    // Restore base (3D) side column layout: Layers above Summary.
-    if (paneLayers.IsOk()) {
-      paneLayers.Right().Layer(1).Row(0).Position(0);
-    }
-    if (paneSummary.IsOk()) {
-      paneSummary.Right().Layer(1).Row(0).Position(1);
-    }
-    if (paneRender.IsOk()) {
-      paneRender.Right().Layer(0).Row(0).Position(0);
-    }
-
-    paneRender.Hide();
-    pane2d.Hide();
-    pane3d.Show();
-    auiManager->Update();
-  }
 }
 
 // Updates the status bar with a world-space position formatted in the active
@@ -1129,6 +1083,19 @@ void MainWindow::LoadStartupProjectFromPath(const std::string &path) {
 
   std::error_code ec;
   const fs::path projectPath = PathUtils::PathFromUtf8(path);
+  std::string extension = projectPath.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char ch) {
+                   return static_cast<char>(std::tolower(ch));
+                 });
+  if (extension != ProjectUtils::PROJECT_EXTENSION) {
+    ResetProject(true);
+    ApplySavedLayout();
+    QueueDeferredStartupOpenPath(path);
+    SetStartupProjectLoadPending(false);
+    RequestStartupSplashCompletion();
+    return;
+  }
   if (!fs::is_regular_file(projectPath, ec)) {
     ProjectUtils::SaveLastProjectPath("");
     ResetProject(true);

@@ -196,6 +196,7 @@ void MainWindow::CreateToolBars() {
                                        .Name("FileToolbar")
                                        .Caption(_("File"))
                                        .ToolbarPane()
+                                       .CloseButton(false)
                                        .Top());
 
   editToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -222,6 +223,7 @@ void MainWindow::CreateToolBars() {
                                        .Name("EditToolbar")
                                        .Caption(_("Edit"))
                                        .ToolbarPane()
+                                       .CloseButton(false)
                                        .Top());
 
   layoutViewsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -318,6 +320,7 @@ void MainWindow::CreateToolBars() {
                                               .Name("LayoutViewsToolbar")
                                               .Caption(_("Layout Views"))
                                               .ToolbarPane()
+                                              .CloseButton(false)
                                               .Top());
 
   toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -344,6 +347,7 @@ void MainWindow::CreateToolBars() {
                                         .Name("ToolsToolbar")
                                         .Caption(_("Tools"))
                                         .ToolbarPane()
+                                        .CloseButton(false)
                                         .Top());
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -369,6 +373,7 @@ void MainWindow::CreateToolBars() {
                                          .Name("LayoutToolbar")
                                          .Caption(_("Layout"))
                                          .ToolbarPane()
+                                         .CloseButton(false)
                                          .Top());
 
   UpdateToolBarAvailability();
