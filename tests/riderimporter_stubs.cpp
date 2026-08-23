@@ -90,6 +90,12 @@ bool MvrImporter::ImportAndRegister(const std::string &,
                                     ProgressCallback) {
   return false;
 }
+// Returns false because buffer-based project-restore MVR import is disabled in this stub.
+bool MvrImporter::ImportAndRegisterFromBuffer(
+    const std::vector<std::uint8_t> &, const MvrImportOptions &,
+    ProgressCallback) {
+  return false;
+}
 // Returns false because file-based MVR export is intentionally disabled in this stub.
 bool MvrExporter::ExportToFile(const std::string &) { return false; }
 // Returns false because buffer-based MVR export is intentionally disabled in this stub.

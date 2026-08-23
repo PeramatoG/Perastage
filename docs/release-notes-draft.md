@@ -415,8 +415,8 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
-- Restored successful Windows Debug linking for project and dictionary test
-  executables that use the lightweight MVR test implementation.
+- Restored successful Windows Debug linking for project, dictionary, and rider
+  test executables that use lightweight MVR test implementations.
 
 - Corrected automatic GDTF Share selection during MVR import so official mode
   and footprint metadata, fixture-type identity, manufacturer, and model-number
