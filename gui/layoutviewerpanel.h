@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -108,6 +109,24 @@ private:
     std::string lastLoggedFailureMessage;
   };
 
+  struct PersistentRasterSnapshot {
+    std::vector<unsigned char> rgba;
+    wxSize size{0, 0};
+    double renderZoom = 0.0;
+    size_t contentHash = 0;
+
+    // Reports whether this snapshot owns a complete RGBA image.
+    bool IsValid() const {
+      if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0 ||
+          contentHash == 0)
+        return false;
+      const size_t width = static_cast<size_t>(size.GetWidth());
+      const size_t height = static_cast<size_t>(size.GetHeight());
+      return height <= std::numeric_limits<size_t>::max() / width / 4 &&
+             rgba.size() == width * height * 4;
+    }
+  };
+
   struct LegendCache {
     unsigned int texture = 0;
     unsigned int pixelUnpackPbo = 0;
@@ -117,6 +136,7 @@ private:
     bool renderDirty = true;
     size_t contentHash = 0;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
+    PersistentRasterSnapshot persistentRaster;
   };
 
   struct EventTableCache {

@@ -10,6 +10,10 @@ Changes since **v1.5.0**.
 - Deferred fixture-symbol preparation now reuses unchanged GDTF inspection
   results instead of repeatedly scanning the same profile.
 
+- Saved Layouts now retain bounded 2D-view and legend previews even when their
+  vector replay data is too large to cache, reducing repeated rendering work
+  when reopening unchanged projects.
+
 - Fixture profiles that contain neither stored symbols nor usable GDTF
   geometry now use Perastage's deterministic runtime fallback directly. This
   avoids repeated symbol preparation delays when opening projects while

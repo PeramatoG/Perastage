@@ -48,6 +48,21 @@ source validation remain optional and non-fatal; cache failure cannot affect
 scene or configuration restore. The normal load path never reopens the `.pstg`
 to acquire this cache.
 
+The version 5 Layout cache is raster-first. A matching bounded RGBA snapshot is
+independent of the optional command-replay payload, so a view whose replay
+graph exceeds 75,000 commands still saves its final raster. Command counting
+stops as soon as the limit is exceeded. Individual raster resources are capped
+at 8 MiB and the transferred Layout raster set is capped at 16 MiB; malformed
+dimensions and byte counts are rejected without affecting authoritative
+project loading.
+
+The startup cache also retains the final legend raster. Hydrated view and
+legend snapshots upload directly to the Layout Viewer context without requiring
+the scene capture panel. Legacy schema versions are non-authoritative and are
+safely rebuilt. When a cold render needs legend symbols, the captured snapshot
+is published to every matching legend cache before the incremental renderer can
+return after another element, preventing duplicate capture on the next tick.
+
 ## Phase 2 project archive sources
 
 The primary `.pstg` traversal now captures `config.json` into an owned byte

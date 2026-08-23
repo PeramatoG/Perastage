@@ -105,14 +105,6 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
     result.diagnosticMessage = "invalid frame size";
     return result;
   }
-  if (!cacheInput.hasCapture || !cacheInput.hasRenderState) {
-    result.failureReason = !cacheInput.hasCapture
-                               ? Layout2DViewRasterFailureReason::MissingCaptureData
-                               : Layout2DViewRasterFailureReason::MissingRenderState;
-    result.diagnosticMessage = "missing capture data or render state";
-    return result;
-  }
-
   std::string persistentDiagnostic;
   if (HasMatchingPersistentRaster(request, cacheInput, persistentDiagnostic)) {
     result.rgbaPixels = *cacheInput.persistentRgba;
@@ -120,6 +112,14 @@ Layout2DViewRasterResult Layout2DViewRasterizer::Rasterize(
     result.height = request.renderSize.GetHeight();
     result.success = true;
     result.reusedPersistentRaster = true;
+    return result;
+  }
+
+  if (!cacheInput.hasCapture || !cacheInput.hasRenderState) {
+    result.failureReason = !cacheInput.hasCapture
+                               ? Layout2DViewRasterFailureReason::MissingCaptureData
+                               : Layout2DViewRasterFailureReason::MissingRenderState;
+    result.diagnosticMessage = "missing capture data or render state";
     return result;
   }
 

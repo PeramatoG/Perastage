@@ -2233,6 +2233,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
     bool needsLegendProcessing = false;
     bool needsLegendSymbolCapture = false;
     size_t legendSymbolsMissingCount = 0;
+    const double renderZoom = GetRenderZoom();
     for (const auto &legend : currentLayout.legendViews) {
       const auto cacheIt = legendCaches_.find(legend.id);
       const bool cacheMissing = cacheIt == legendCaches_.end();
@@ -2242,7 +2243,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
           cacheMissing || cacheIt->second.renderDirty || contentChanged;
       if (needsTextureRebuild) {
         needsLegendProcessing = true;
-        const bool needsSymbols = cacheMissing || !cacheIt->second.symbols;
+        const bool hasMatchingRaster =
+            !cacheMissing && cacheIt->second.persistentRaster.IsValid() &&
+            cacheIt->second.persistentRaster.contentHash == legendDataHash &&
+            cacheIt->second.persistentRaster.renderZoom == renderZoom &&
+            cacheIt->second.persistentRaster.size ==
+                GetFrameSizeForZoom(legend.frame, renderZoom);
+        const bool needsSymbols =
+            !hasMatchingRaster && (cacheMissing || !cacheIt->second.symbols);
         if (needsSymbols) {
           needsLegendSymbolCapture = true;
           ++legendSymbolsMissingCount;
@@ -2284,6 +2292,15 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
           wxString::Format("Capturing legend symbols (%zu legend(s) missing symbols)...",
                            legendSymbolsMissingCount));
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      if (legendSymbols) {
+        for (const auto &legend : currentLayout.legendViews) {
+          LegendCache &cache = GetLegendCache(legend.id);
+          if (cache.renderDirty || cache.contentHash != legendDataHash ||
+              !cache.symbols) {
+            cache.symbols = legendSymbols;
+          }
+        }
+      }
       gui::layoutstatus::PostLayoutRenderStatus(
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
           "Legend symbol capture completed.");
@@ -2293,7 +2310,6 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
     std::vector<unsigned char> eventTablePixels;
     std::vector<unsigned char> textPixels;
     std::vector<unsigned char> imagePixels;
-    const double renderZoom = GetRenderZoom();
     bool glReady = false;
     auto ensureGlReady = [&]() {
       if (glReady)
@@ -2317,21 +2333,14 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       }
       cache.renderDirty = false;
       wxRect frameRect;
-      if (!cache.hasCapture || !cache.hasRenderState ||
-          !GetFrameRect(view.frame, frameRect)) {
+      if (!GetFrameRect(view.frame, frameRect)) {
         ClearCachedTexture(cache);
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
         cache.hasLastRenderFailure = true;
         cache.lastRenderFailureReason =
-            !cache.hasCapture
-                ? gui::layoutraster::Layout2DViewRasterFailureReason::
-                      MissingCaptureData
-                : gui::layoutraster::Layout2DViewRasterFailureReason::
-                      MissingRenderState;
-        cache.lastRenderFailureMessage =
-            !GetFrameRect(view.frame, frameRect) ? "invalid frame size"
-                                                : "missing capture data or render state";
+            gui::layoutraster::Layout2DViewRasterFailureReason::InvalidFrameSize;
+        cache.lastRenderFailureMessage = "invalid frame size";
         continue;
       }
   
@@ -2498,45 +2507,51 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
         continue;
       }
   
-      gui::layoutstatus::PostLayoutRenderStatus(
-          this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
-          wxString::Format(
-              "Rendering legend id=%d (%zu/%zu): rasterizing legend content...",
-              legend.id, processedRenderItems, std::max<size_t>(1, totalRenderItems)));
-      wxImage image = BuildLegendImage(
-          renderSize, wxSize(legend.frame.width, legend.frame.height),
-          renderZoom, legendItems_, cache.symbols.get());
-      if (!image.IsOk()) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
-      image = image.Mirror(false);
-      if (!image.HasAlpha())
-        image.InitAlpha();
-      const int width = image.GetWidth();
-      const int height = image.GetHeight();
-      const unsigned char *rgb = image.GetData();
-      const unsigned char *alpha = image.GetAlpha();
-      if (!rgb || width <= 0 || height <= 0) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
-  
-      if (!TryAllocatePixelBuffer(legendPixels, width, height, "legend")) {
-        ClearCachedTexture(cache);
-        cache.textureSize = wxSize(0, 0);
-        cache.renderZoom = 0.0;
-        continue;
-      }
-      for (int i = 0; i < width * height; ++i) {
-        legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
-        legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
-        legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
-        legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+      const bool reusePersistentRaster =
+          cache.persistentRaster.IsValid() &&
+          cache.persistentRaster.contentHash == legendDataHash &&
+          cache.persistentRaster.renderZoom == renderZoom &&
+          cache.persistentRaster.size == renderSize;
+      int width = renderSize.GetWidth();
+      int height = renderSize.GetHeight();
+      if (reusePersistentRaster) {
+        legendPixels = cache.persistentRaster.rgba;
+      } else {
+        gui::layoutstatus::PostLayoutRenderStatus(
+            this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
+            wxString::Format(
+                "Rendering legend id=%d (%zu/%zu): rasterizing legend content...",
+                legend.id, processedRenderItems,
+                std::max<size_t>(1, totalRenderItems)));
+        wxImage image = BuildLegendImage(
+            renderSize, wxSize(legend.frame.width, legend.frame.height),
+            renderZoom, legendItems_, cache.symbols.get());
+        if (!image.IsOk()) {
+          ClearCachedTexture(cache);
+          cache.textureSize = wxSize(0, 0);
+          cache.renderZoom = 0.0;
+          continue;
+        }
+        image = image.Mirror(false);
+        if (!image.HasAlpha())
+          image.InitAlpha();
+        width = image.GetWidth();
+        height = image.GetHeight();
+        const unsigned char *rgb = image.GetData();
+        const unsigned char *alpha = image.GetAlpha();
+        if (!rgb || width <= 0 || height <= 0 ||
+            !TryAllocatePixelBuffer(legendPixels, width, height, "legend")) {
+          ClearCachedTexture(cache);
+          cache.textureSize = wxSize(0, 0);
+          cache.renderZoom = 0.0;
+          continue;
+        }
+        for (int i = 0; i < width * height; ++i) {
+          legendPixels[static_cast<size_t>(i) * 4] = rgb[i * 3];
+          legendPixels[static_cast<size_t>(i) * 4 + 1] = rgb[i * 3 + 1];
+          legendPixels[static_cast<size_t>(i) * 4 + 2] = rgb[i * 3 + 2];
+          legendPixels[static_cast<size_t>(i) * 4 + 3] = alpha ? alpha[i] : 255;
+        }
       }
   
       if (!ensureGlReady()) {
@@ -2569,6 +2584,8 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
       cache.contentHash = legendDataHash;
+      cache.persistentRaster =
+          {legendPixels, wxSize(width, height), renderZoom, legendDataHash};
       profiler.RecordRenderedElement();
       legendPixels.clear();
       const bool hasMoreWork = NeedsRenderRebuild();
