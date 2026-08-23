@@ -37,6 +37,12 @@ Changes since **v1.5.0**.
   models that intentionally omit a file and primitive type while retaining
   fallback behavior for explicitly undefined models.
 
+## Fixes
+
+- Restored macOS 15 Apple Silicon packaging compatibility by avoiding newer
+  standard-library thread APIs that are unavailable in its hosted Xcode
+  toolchain, without changing fixture symbol processing behavior.
+
 ## New features and workflow improvements
 
 - Cut, Copy, and Paste now use their matching Lucide icons in the Edit toolbar,

@@ -8,12 +8,16 @@ namespace gui {
 
 // Starts the single managed worker used for pure symbol processing.
 FixtureSymbolProcessingWorker::FixtureSymbolProcessingWorker()
-    : thread_([this](std::stop_token stopToken) { Run(stopToken); }) {}
+    : thread_([this]() { Run(); }) {}
 
 // Stops and joins the managed processing worker during application shutdown.
 FixtureSymbolProcessingWorker::~FixtureSymbolProcessingWorker() {
-  thread_.request_stop();
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    stopping_ = true;
+  }
   condition_.notify_all();
+  thread_.join();
 }
 
 // Submits one immutable processing request when the worker is available.
@@ -38,15 +42,15 @@ FixtureSymbolProcessingWorker::TakeResult() {
   return result;
 }
 
-// Processes copied render data without accessing wx, OpenGL, or live scene state.
-void FixtureSymbolProcessingWorker::Run(std::stop_token stopToken) {
-  while (!stopToken.stop_requested()) {
+// Processes copied render data independently of GUI and scene state.
+void FixtureSymbolProcessingWorker::Run() {
+  while (true) {
     FixtureSymbolProcessingRequest request;
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      condition_.wait(lock, stopToken,
-                      [this]() { return !requests_.empty(); });
-      if (stopToken.stop_requested())
+      condition_.wait(lock,
+                      [this]() { return stopping_ || !requests_.empty(); });
+      if (stopping_)
         return;
       request = std::move(requests_.front());
       requests_.pop_front();

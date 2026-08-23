@@ -5,6 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 service="$root/gui/services/fixture_symbol_preparation_service.cpp"
 renderer="$root/viewer3d/render/opaque_fixture_pass.cpp"
 worker="$root/gui/services/fixture_symbol_processing_worker.cpp"
+worker_header="$root/gui/services/fixture_symbol_processing_worker.h"
 capture="$root/gui/tools/scene_model_symbol_capture_service.cpp"
 
 if rg -n 'wxProgressDialog|wxWindowDisabler|wxMessageBox|wxYield|detach\(' "$service"; then
@@ -21,6 +22,10 @@ if rg -n 'SymbolCacheManifest|perastage_symbol_cache_manifest|SaveProject|LoadPr
 fi
 if rg -n '#include .*wx|ConfigManager::|MainWindow::|Viewer2D|Viewer3D|gl[A-Z]' "$worker"; then
   echo "Fixture symbol processing workers must operate only on copied plain data." >&2
+  exit 1
+fi
+if rg -n 'std::jthread|std::stop_token' "$worker" "$worker_header"; then
+  echo "Fixture symbol processing must remain compatible with the macOS 15 Xcode standard library." >&2
   exit 1
 fi
 if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$root/gui"; then
