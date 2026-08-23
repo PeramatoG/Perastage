@@ -1,3 +1,3 @@
 #pragma once
 
-#include "view_ids.h"
+#include "mainwindow_command_ids.h"

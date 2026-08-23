@@ -2316,6 +2316,9 @@ add_test(NAME LayoutViewPreset COMMAND layout_view_preset_test)
 add_bash_policy_test(MainToolbarContract
                      ${CMAKE_CURRENT_SOURCE_DIR}/check_main_toolbar_contract.sh
                      LABELS "gui;architecture")
+add_bash_policy_test(MainWindowMenuRoutingContract
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_mainwindow_menu_routing_contract.sh
+                     LABELS "gui;architecture")
 add_bash_policy_test(StartupWindowPublication
                      ${CMAKE_CURRENT_SOURCE_DIR}/check_startup_window_publication.sh
                      LABELS "gui;startup;architecture")

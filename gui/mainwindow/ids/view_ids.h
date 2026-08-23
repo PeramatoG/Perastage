@@ -1,32 +1,3 @@
 #pragma once
 
-#include "io_ids.h"
-
-constexpr int ID_View_ToggleConsole = ID_File_Close + 1;
-constexpr int ID_View_ToggleFixtures = ID_View_ToggleConsole + 1;
-constexpr int ID_View_ToggleViewport = ID_View_ToggleFixtures + 1;
-constexpr int ID_View_ToggleViewport2D = ID_View_ToggleViewport + 1;
-constexpr int ID_View_ToggleRender2D = ID_View_ToggleViewport2D + 1;
-constexpr int ID_View_ToggleLayers = ID_View_ToggleRender2D + 1;
-constexpr int ID_View_ToggleLayouts = ID_View_ToggleLayers + 1;
-constexpr int ID_View_ToggleSummary = ID_View_ToggleLayouts + 1;
-constexpr int ID_View_ToggleRigging = ID_View_ToggleSummary + 1;
-constexpr int ID_View_Layout_Default = ID_View_ToggleRigging + 1;
-constexpr int ID_View_Layout_2D = ID_View_Layout_Default + 1;
-constexpr int ID_View_Layout_Mode = ID_View_Layout_2D + 1;
-constexpr int ID_View_Layout_2DView = ID_View_Layout_Mode + 1;
-constexpr int ID_View_Layout_Legend = ID_View_Layout_2DView + 1;
-constexpr int ID_View_Layout_EventTable = ID_View_Layout_Legend + 1;
-constexpr int ID_View_Layout_Text = ID_View_Layout_EventTable + 1;
-constexpr int ID_View_Layout_Image = ID_View_Layout_Text + 1;
-constexpr int ID_View_Viewport_Top = ID_View_Layout_Image + 1;
-constexpr int ID_View_Viewport_Front = ID_View_Viewport_Top + 1;
-constexpr int ID_View_Viewport_Side = ID_View_Viewport_Front + 1;
-constexpr int ID_View_Viewport_SelectTool = ID_View_Viewport_Side + 1;
-constexpr int ID_View_Viewport_MeasureTool = ID_View_Viewport_SelectTool + 1;
-constexpr int ID_View_Viewport_GapMeasureTool = ID_View_Viewport_MeasureTool + 1;
-constexpr int ID_View_Viewport_AxisConstraint = ID_View_Viewport_GapMeasureTool + 1;
-constexpr int ID_View_Viewport_LeftDragMove = ID_View_Viewport_AxisConstraint + 1;
-constexpr int ID_View_Viewport_LocalAxes = ID_View_Viewport_LeftDragMove + 1;
-constexpr int ID_View_Viewport_Magnet = ID_View_Viewport_LocalAxes + 1;
-constexpr int ID_View_Viewport_CrossTableActions = ID_View_Viewport_Magnet + 1;
+#include "mainwindow_command_ids.h"
