@@ -14,6 +14,9 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Cut, Copy, and Paste now use their matching Lucide icons in the Edit toolbar,
+  making the scene clipboard controls easier to identify at a glance.
+
 - Added a unified fixture distribution dialog on `Alt+D`. Alongside the
   existing uniform full-truss and two-point systems, fixtures can now use an
   exact configurable center or edge gap, distributed outside-in between two

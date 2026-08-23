@@ -37,6 +37,24 @@
       "group": "FileToolbar"
     },
     {
+      "name": "Cut",
+      "icon": "outline/scissors.svg",
+      "description": "Cuts the selected scene elements.",
+      "group": "EditToolbar"
+    },
+    {
+      "name": "Copy",
+      "icon": "outline/copy.svg",
+      "description": "Copies the selected scene elements.",
+      "group": "EditToolbar"
+    },
+    {
+      "name": "Paste",
+      "icon": "outline/clipboard-paste.svg",
+      "description": "Pastes copied scene elements.",
+      "group": "EditToolbar"
+    },
+    {
       "name": "Layout 3D View",
       "icon": "outline/box.svg",
       "description": "Switches to the 3D layout view preset.",
