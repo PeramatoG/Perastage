@@ -142,6 +142,8 @@ CanonicalFixtureModel BuildCanonicalFixtureModel(
   CanonicalFixtureModel model;
   model.rawText = text;
   model.source = source;
+  model.normalizedFullText =
+      NormalizeForGdtfMatch(StripParenthesizedSections(text));
   const std::string stripped = ToLowerAscii(StripParenthesizedSections(text));
   std::vector<std::string> tokens;
   std::string current;
@@ -190,8 +192,12 @@ CanonicalFixtureModel BuildCanonicalFixtureModel(
           return std::isdigit(ch);
         })) {
       model.numericModelTokens.push_back(token);
+      model.modelIdentityText += token;
     } else if (token.size() >= 3 && !genericTerms.contains(token)) {
       model.modelTerms.push_back(token);
+      model.modelIdentityText += token;
+    } else {
+      model.descriptiveTerms.push_back(token);
     }
   }
   return model;
@@ -281,11 +287,11 @@ FixtureNameMatchTier ComputeFixtureNameMatchTier(
   const double coverage = maximumTerms == 0
                               ? 0.0
                               : static_cast<double>(sharedTerms) / maximumTerms;
-  const bool compactContains = catalogModel.canonicalText.size() >= 5 &&
-      requestedModel.canonicalText.size() >= 5 &&
-      (catalogModel.canonicalText.find(requestedModel.canonicalText) !=
+  const bool compactContains = catalogModel.modelIdentityText.size() >= 5 &&
+      requestedModel.modelIdentityText.size() >= 5 &&
+      (catalogModel.modelIdentityText.find(requestedModel.modelIdentityText) !=
            std::string::npos ||
-       requestedModel.canonicalText.find(catalogModel.canonicalText) !=
+       requestedModel.modelIdentityText.find(catalogModel.modelIdentityText) !=
            std::string::npos);
   const bool strongOverlap =
       (sharedTerms >= 2 && coverage >= 0.5) ||
@@ -410,6 +416,7 @@ GdtfDownloadMatch SelectBestDownloadMatch(
   DownloadCandidateRank bestRank;
   std::string bestCanonical;
   std::vector<std::string> evaluated;
+  std::vector<std::string> rejectedEvaluated;
   std::vector<std::pair<DownloadCandidateRank, std::string>> eligibleRanks;
   bool hasCanonicalCandidate = false;
   std::size_t canonicalCandidateCount = 0;
@@ -418,6 +425,7 @@ GdtfDownloadMatch SelectBestDownloadMatch(
   for (const auto &entry : catalogEntries) {
     FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
     bool authoritativeName = false;
+    bool matchedFromAlias = false;
     CanonicalFixtureModel matchedModel;
     const auto catalogModel = BuildCanonicalFixtureModel(
         entry.fixtureName, entry.manufacturer, FixtureIdentitySource::Catalog);
@@ -447,7 +455,8 @@ GdtfDownloadMatch SelectBestDownloadMatch(
                   << (canonicalNameCandidate ? "canonical" : "unrelated")
                   << "; eligible=no; reason=not-downloadable:"
                   << entry.downloadabilityReason;
-      evaluated.push_back(unavailable.str());
+      if (rejectedEvaluated.size() < 12)
+        rejectedEvaluated.push_back(unavailable.str());
       continue;
     }
     for (const auto &identity : request.authoritativeFixtureNames) {
@@ -462,9 +471,15 @@ GdtfDownloadMatch SelectBestDownloadMatch(
         nameTier = tier;
         matchedModel = requestedModel;
         authoritativeName = !request.authoritativeIdentityIsPlaceholder;
+        matchedFromAlias = false;
       }
     }
+    const bool aliasesMayEstablishIdentity =
+        request.authoritativeFixtureNames.empty() ||
+        request.authoritativeIdentityIsPlaceholder;
     for (const auto &alias : request.secondaryAliases) {
+      if (!aliasesMayEstablishIdentity)
+        break;
       const auto aliasModel = BuildCanonicalFixtureModel(
           alias, request.manufacturer, FixtureIdentitySource::MvrAlias);
       auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, alias);
@@ -474,7 +489,8 @@ GdtfDownloadMatch SelectBestDownloadMatch(
       if (tier > nameTier) {
         nameTier = tier;
         matchedModel = aliasModel;
-        authoritativeName = request.authoritativeIdentityIsPlaceholder;
+        authoritativeName = false;
+        matchedFromAlias = true;
       }
     }
     const auto numeric =
@@ -487,7 +503,8 @@ GdtfDownloadMatch SelectBestDownloadMatch(
                << "'; canonical='" << catalogModel.canonicalText
                << "'; eligible=no; reason=insufficient-model-identity"
                << "; numeric=" << static_cast<int>(numeric);
-      evaluated.push_back(rejected.str());
+      if (rejectedEvaluated.size() < 12)
+        rejectedEvaluated.push_back(rejected.str());
       continue;
     }
     hasCanonicalCandidate = hasCanonicalCandidate ||
@@ -519,8 +536,13 @@ GdtfDownloadMatch SelectBestDownloadMatch(
     const bool hadPreviousBest = bestMatch.found;
     std::ostringstream candidateDiagnostic;
     candidateDiagnostic << "candidate=" << entry.rid << "; model='"
-                        << entry.fixtureName << "'; canonical='"
-                        << catalogModel.canonicalText << "'; eligible=yes; name-tier="
+                        << entry.fixtureName << "'; manufacturer-name='"
+                        << entry.manufacturer << "'; canonical='"
+                        << catalogModel.canonicalText << "'; model-identity='"
+                        << catalogModel.modelIdentityText
+                        << "'; eligible=yes; evidence-source="
+                        << (matchedFromAlias ? "secondary-alias" : "authoritative")
+                        << "; name-tier="
                         << static_cast<int>(nameTier) << "; numeric="
                         << static_cast<int>(numeric) << "; manufacturer="
                         << (manufacturerMatch ? "match" : "none") << "; mode-tier="
@@ -558,7 +580,11 @@ GdtfDownloadMatch SelectBestDownloadMatch(
       : BuildCanonicalFixtureModel(request.authoritativeFixtureNames.front(),
                                    request.manufacturer,
                                    FixtureIdentitySource::AuthoritativeGdtf);
-  fullDiagnostics << "'; request-canonical='" << requestCanonical.canonicalText
+  fullDiagnostics << "'; display-type-key='" << request.displayTypeKey
+                  << "'; resolved-fixture-name='" << request.resolvedFixtureName
+                  << "'; request-canonical='" << requestCanonical.canonicalText
+                  << "'; request-model-identity='"
+                  << requestCanonical.modelIdentityText
                   << "'; manufacturer='" << request.manufacturer
                   << "'; fixture-type-id='" << request.fixtureTypeId
                   << "'; requested-mode='" << request.requestedMode
@@ -571,10 +597,27 @@ GdtfDownloadMatch SelectBestDownloadMatch(
                   << "; canonical-candidates=" << canonicalCandidateCount
                   << "; downloadable-canonical-candidates="
                   << downloadableCanonicalCandidateCount;
+  fullDiagnostics << "; placeholder-authority="
+                  << (request.authoritativeIdentityIsPlaceholder ? "yes" : "no")
+                  << "; secondary-aliases='";
+  for (std::size_t index = 0; index < request.secondaryAliases.size(); ++index) {
+    if (index > 0)
+      fullDiagnostics << ", ";
+    fullDiagnostics << request.secondaryAliases[index];
+  }
+  fullDiagnostics << "'; diagnostic-aliases='";
+  for (std::size_t index = 0; index < request.diagnosticAliases.size(); ++index) {
+    if (index > 0)
+      fullDiagnostics << ", ";
+    fullDiagnostics << request.diagnosticAliases[index];
+  }
+  fullDiagnostics << "'";
   if (!hasCanonicalCandidate)
     fullDiagnostics << "; no exact/canonical model candidate in catalog";
   for (const auto &diagnostic : evaluated)
     fullDiagnostics << " | " << diagnostic;
+  for (const auto &diagnostic : rejectedEvaluated)
+    fullDiagnostics << " | rejected: " << diagnostic;
   const bool ambiguous = std::any_of(
       eligibleRanks.begin(), eligibleRanks.end(),
       [&](const auto &evaluatedCandidate) {

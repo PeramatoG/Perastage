@@ -12,6 +12,27 @@ namespace catalog = mvr::gdtf_catalog_matcher;
 namespace parser = mvr::gdtf_catalog_parser;
 namespace import_matching = mvr::gdtf_import_matching;
 
+// Runs catalog selection through the same evidence builder as MVR import.
+static catalog::GdtfDownloadMatch SelectProductionMatch(
+    const import_matching::AutomaticMatchEvidence &evidence,
+    const std::vector<catalog::GdtfCatalogEntry> &entries) {
+  return catalog::SelectBestDownloadMatch(
+      import_matching::BuildDownloadRequest(evidence), entries);
+}
+
+// Builds importer evidence with deliberately separate display and model identities.
+static import_matching::AutomaticMatchEvidence ProductionEvidence(
+    const std::string &displayTypeKey, const std::string &resolvedFixtureName,
+    const std::string &requestedFixtureName,
+    const std::string &manufacturer = {}) {
+  import_matching::AutomaticMatchEvidence evidence;
+  evidence.displayTypeKey = displayTypeKey;
+  evidence.resolvedFixtureName = resolvedFixtureName;
+  evidence.requestedFixtureName = requestedFixtureName;
+  evidence.manufacturer = manufacturer;
+  return evidence;
+}
+
 // Verifies authoritative GDTF identity wins over an unrelated instance alias.
 static void VerifyAuthoritativeIdentityWins() {
   const std::vector<catalog::GdtfCatalogEntry> entries = {
@@ -73,6 +94,10 @@ static void VerifyNumericModelEvidence() {
          catalog::NumericTokenCompatibility::Different);
   assert(compatibility("Beam", "Beam 200") ==
          catalog::NumericTokenCompatibility::Missing);
+  assert(catalog::ComputeFixtureNameMatchTier("VL3600 Profile IP", "Profile") ==
+         catalog::FixtureNameMatchTier::None);
+  assert(catalog::ComputeFixtureNameMatchTier("Tourstick 72 RGBWA", "RGBWA") ==
+         catalog::FixtureNameMatchTier::None);
 }
 
 // Verifies noisy descriptive collisions cannot establish fixture identity.
@@ -119,6 +144,75 @@ static void VerifyUsefulFuzzyMatches() {
   assert(matches("HY B-EYE K15", "Clay Paky", "HY B-EYE K-15 Aqua"));
   assert(matches("MDG The Fan", "MDG", "MDG / theFAN"));
   assert(matches("Tour Hazer 2", "", "Tour Hazer II"));
+}
+
+// Verifies the importer evidence path rejects observed noisy-catalog collisions.
+static void VerifyProductionEvidenceRegressions() {
+  const std::vector<catalog::GdtfCatalogEntry> noisy = {
+      {"bulb", "OGSON fixtures", "Astera NYX Bulb", {{"Mode", 40}}, 900, 5.0f},
+      {"rgbwa", "Expolite", "Tourstick 72 RGBWA", {{"Mode", 40}}, 900, 5.0f},
+      {"vl", "Vari-Lite", "VL3600 Profile IP", {{"Mode", 40}}, 999, 5.0f},
+      {"mac", "Martin Professional", "MAC Quantum Profile", {}, 300, 5.0f},
+      {"lpl", "LPL", "MAC Quantum Profile", {}, 200, 4.0f},
+      {"black", "Black Light Design", "Martin MAC Quantum Profile", {}, 100, 3.0f},
+      {"ogson-mac", "OGSON fixtures", "Martin MAC Quantum Profile", {}, 400, 4.0f}};
+
+  assert(!SelectProductionMatch(
+              ProductionEvidence("LED-BL4 (Bulb=LED)", "LED-BL4",
+                                 "Astera NYX Bulb"), noisy).found);
+  assert(!SelectProductionMatch(
+              ProductionEvidence("Astera NYX Bulb", "LED-BL4",
+                                 "Unrelated object label"), noisy).found);
+  assert(!SelectProductionMatch(
+              ProductionEvidence("RoHS 18x10 LED Par RGBWA (Bulb=LED)",
+                                 "RoHS 18x10 LED Par RGBWA",
+                                 "Tourstick 72 RGBWA"), noisy).found);
+  const auto mac = SelectProductionMatch(
+      ProductionEvidence("MAC Quantum Profile (Bulb=LED)",
+                         "MAC Quantum Profile", "VL3600 Profile IP",
+                         "Martin Professional"), noisy);
+  assert(mac.found && mac.rid == "mac");
+
+  assert(SelectProductionMatch(
+      ProductionEvidence("Tour Hazer 2", "Tour Hazer 2", "Object"),
+      {{"tour", "Smoke Factory", "Tour Hazer II", {}, 1, 1.0f}}).found);
+  assert(SelectProductionMatch(
+      ProductionEvidence("XBeam 17 CMY", "XBeam 17 CMY", "Object"),
+      {{"xbeam", "PROLIGHT SPAIN", "XBEAM 17 V2", {}, 1, 1.0f}}).found);
+  assert(SelectProductionMatch(
+      ProductionEvidence("MDG The Fan", "MDG The Fan", "Object", "MDG"),
+      {{"fan", "MDG", "MDG / theFAN", {}, 1, 1.0f}}).found);
+  assert(SelectProductionMatch(
+      ProductionEvidence("HY B-EYE K15", "HY B-EYE K15 (Bulb=LED)",
+                         "Object", "Clay Paky"),
+      {{"beye", "Clay Paky", "HY B-EYE K-15 Aqua", {}, 1, 1.0f}}).found);
+}
+
+// Verifies aliases can establish identity only without normal authority.
+static void VerifyAliasAuthorityPolicy() {
+  const std::vector<catalog::GdtfCatalogEntry> entries = {
+      {"beam", "Acme", "Beam 200", {}, 1, 1.0f},
+      {"wrong", "Other", "Tourstick 72 RGBWA", {}, 2, 5.0f}};
+  const auto authoritative = import_matching::BuildDownloadRequest(
+      "Tourstick 72 RGBWA", "Beam 200", "", "Acme", 0);
+  assert(catalog::SelectBestDownloadMatch(authoritative, entries).rid == "beam");
+
+  const auto aliasOnly = import_matching::BuildDownloadRequest(
+      "Beam 200", "", "", "Acme", 0);
+  assert(catalog::SelectBestDownloadMatch(aliasOnly, entries).rid == "beam");
+
+  const auto placeholder = import_matching::BuildDownloadRequest(
+      "Beam 200", "Dummy Fixture", "", "Acme", 0);
+  assert(catalog::SelectBestDownloadMatch(placeholder, entries).rid == "beam");
+
+  const auto genericProfileAlias = import_matching::BuildDownloadRequest(
+      "Profile", "Beam 200", "", "Acme", 0);
+  assert(catalog::SelectBestDownloadMatch(genericProfileAlias,
+      {{"profile", "Other", "VL3600 Profile IP", {}, 1, 5.0f}}).found == false);
+  const auto genericRgbwaAlias = import_matching::BuildDownloadRequest(
+      "RGBWA", "Beam 200", "", "Acme", 0);
+  assert(catalog::SelectBestDownloadMatch(genericRgbwaAlias,
+      {{"rgbwa", "Other", "Tourstick 72 RGBWA", {}, 1, 5.0f}}).found == false);
 }
 
 // Verifies official GDTF Share mode fields survive parsing and affect selection.
@@ -251,6 +345,8 @@ int main() {
   VerifyNumericModelEvidence();
   VerifyConservativeNoisyCatalogMatching();
   VerifyUsefulFuzzyMatches();
+  VerifyProductionEvidenceRegressions();
+  VerifyAliasAuthorityPolicy();
   VerifyOfficialCatalogContractAndModeRanking();
   VerifySharedMacCatalogPipeline();
   VerifyCatalogWrapperCompatibility();

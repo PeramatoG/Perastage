@@ -69,6 +69,7 @@ struct GdtfDownloadMatch {
 struct GdtfDownloadRequest {
   std::vector<std::string> authoritativeFixtureNames;
   std::vector<std::string> secondaryAliases;
+  std::vector<std::string> diagnosticAliases;
   std::string requestedMode;
   std::string manufacturer;
   int requestedFootprint = 0;
@@ -79,6 +80,8 @@ struct GdtfDownloadRequest {
   std::string catalogPayloadFingerprint;
   std::size_t catalogPayloadBytes = 0;
   std::size_t catalogParsedEntryCount = 0;
+  std::string displayTypeKey;
+  std::string resolvedFixtureName;
 };
 
 enum class FixtureIdentitySource {
@@ -89,9 +92,12 @@ enum class FixtureIdentitySource {
 
 struct CanonicalFixtureModel {
   std::string rawText;
+  std::string normalizedFullText;
   std::string canonicalText;
+  std::string modelIdentityText;
   std::vector<std::string> modelTerms;
   std::vector<std::string> numericModelTokens;
+  std::vector<std::string> descriptiveTerms;
   FixtureIdentitySource source = FixtureIdentitySource::Catalog;
 };
 

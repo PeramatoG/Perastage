@@ -17,6 +17,7 @@
  */
 #include "mvrimporter.h"
 #include "apppaths.h"
+#include "build_info.h"
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
@@ -640,11 +641,13 @@ static void LogMessage(const std::string &msg) {
 }
 
 struct GdtfConflict {
+  // Identifies the imported type group and queue row without authorizing a model.
   std::string type;
   std::string requestedFixtureName;
   std::string mvrPath;
   std::string appPath;
   std::string manufacturer;
+  // Preserves the resolved GDTF FixtureType Name as semantic model authority.
   std::string fixtureName;
   std::string fixtureTypeId;
   std::string modeName;
@@ -4406,10 +4409,16 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                  req.type + "...");
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
+                  mvr::gdtf_import_matching::AutomaticMatchEvidence matchEvidence;
+                  matchEvidence.displayTypeKey = req.type;
+                  matchEvidence.resolvedFixtureName = req.fixtureName;
+                  matchEvidence.requestedFixtureName = req.requestedFixtureName;
+                  matchEvidence.manufacturer = req.manufacturer;
+                  matchEvidence.fixtureTypeId = req.fixtureTypeId;
+                  matchEvidence.modeName = req.modeName;
+                  matchEvidence.footprint = req.footprint;
                   const auto matchRequest =
-                      mvr::gdtf_import_matching::BuildDownloadRequest(
-                          req.requestedFixtureName, req.type, req.modeName,
-                          req.manufacturer, req.footprint, req.fixtureTypeId);
+                      mvr::gdtf_import_matching::BuildDownloadRequest(matchEvidence);
                   auto diagnosticMatchRequest = matchRequest;
                   diagnosticMatchRequest.catalogSnapshotSource =
                       effectiveCatalogSource == GdtfCatalogResultSource::Online
@@ -4443,6 +4452,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     wxYieldIfNeeded();
                     continue;
                   }
+                  reportProgress(
+                      "GDTF automatic match diagnostics: build-version='" +
+                      std::string(perastage::build_info::appVersion()) +
+                      "'; build-commit='" +
+                      std::string(perastage::build_info::gitCommit()) +
+                      "'; queue-type='" +
+                      req.type + "'; resolved-fixture='" + req.fixtureName +
+                      "'; winner-rid='" + bestMatch.rid + "'; " +
+                      bestMatch.selectionReason);
 
                   const std::string baseFixturesPath =
 #ifdef NDEBUG

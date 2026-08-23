@@ -44,7 +44,8 @@ Changes since **v1.5.0**.
   characteristics, while preserving strong model-family matches and falling
   back safely when catalog identity is weak or ambiguous. Automatic import and
   the Search GDTF dialog now use the same catalog records, ensuring available
-  exact fixture models are consistently found.
+  exact fixture models are consistently found. MVR object labels and generic
+  descriptive terms can no longer override the resolved fixture-model identity.
 
 - Restored macOS 15 Apple Silicon packaging compatibility with a dedicated
   worker fallback while preserving the established fixture-symbol processing

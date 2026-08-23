@@ -25,3 +25,16 @@ authoritative API definition.
 Catalog diagnostics use payload size and an FNV-1a fingerprint. The fingerprint
 is an identity aid, not a security checksum, and no credentials or session data
 are included.
+
+## Automatic matching evidence
+
+The resolved GDTF `FixtureType` name is authoritative model evidence. An MVR
+fixture node name is retained for diagnostics, but it may establish catalog
+identity only when the authoritative name is absent or is a recognized
+generic/dummy placeholder. Display/group type keys never participate in model
+eligibility.
+
+Canonical matching keeps full normalized text for exact equality separately
+from meaningful model identity text. Descriptive terms such as `Profile`,
+`Bulb`, and `RGBWA` are excluded from meaningful containment so they cannot
+independently authorize a download.
