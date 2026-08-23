@@ -36,14 +36,15 @@ public:
   std::optional<FixtureSymbolProcessingResult> TakeResult();
 
 private:
-  void Run(std::stop_token stopToken);
+  void Run();
 
   std::mutex mutex_;
   std::condition_variable_any condition_;
   std::deque<FixtureSymbolProcessingRequest> requests_;
   std::deque<FixtureSymbolProcessingResult> results_;
   bool busy_ = false;
-  std::jthread thread_;
+  bool stopping_ = false;
+  std::thread thread_;
 };
 
 } // namespace gui
