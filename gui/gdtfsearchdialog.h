@@ -22,31 +22,13 @@
 #include <functional>
 #include <thread>
 #include <vector>
-#include "json.hpp"
+#include "../mvr/gdtf_catalog_matcher.h"
+#include "../mvr/gdtf_catalog_parser.h"
 
 enum class GdtfCatalogDisplaySource {
     None,
     Cached,
     Online
-};
-
-struct GdtfEntry {
-    std::string manufacturer;
-    std::string fixture;
-    std::string manufacturerNorm;
-    std::string fixtureNorm;
-    std::string rid;
-    std::string url;
-    std::string modes;
-    std::string creator;
-    std::string uploader;
-    std::string creationDate;
-    std::string creationDateDisplay;
-    std::string revision;
-    std::string lastModified;
-    std::string lastModifiedDisplay;
-    std::string version;
-    std::string rating;
 };
 
 class GdtfSearchDialog : public wxDialog {
@@ -55,7 +37,8 @@ public:
         bool success = false;
         std::string listData;
         std::string updatedAt;
-        std::vector<GdtfEntry> parsedEntries;
+        std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> parsedEntries;
+        std::string payloadFingerprint;
         std::string failureDetails;
         long long refreshMs = 0;
         long long parseMs = 0;
@@ -100,7 +83,7 @@ private:
     wxButton* nextPageButton = nullptr;
     wxStaticText* pageInfoLabel = nullptr;
     wxButton* downloadButton = nullptr;
-    std::vector<GdtfEntry> entries;
+    std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> entries;
     std::vector<int> filteredIndices;
     std::vector<int> visible;
     size_t currentPage = 0;

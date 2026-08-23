@@ -291,6 +291,7 @@ add_executable(${PROJECT_NAME} main.cpp
     core/project_fixture_gdtf_consolidator.cpp
     mvr/gdtf_catalog_matcher.cpp
     mvr/gdtf_catalog_parser.cpp
+    mvr/gdtf_import_identity_reader.cpp
     mvr/mvrimporter.cpp
     mvr/mvr_merge_analyzer.cpp
     mvr/mvr_merge_applier.cpp

@@ -39,7 +39,7 @@ struct GdtfCatalogEntry {
                    long long modified, float catalogRating)
       : rid(std::move(revisionId)), manufacturer(std::move(manufacturerName)),
         fixtureName(std::move(modelName)), modes(std::move(catalogModes)),
-        lastModifiedUnix(modified), rating(catalogRating) {}
+        lastModifiedUnix(modified), rating(catalogRating), downloadable(true) {}
 
   std::string rid;
   std::string manufacturer;
@@ -49,6 +49,14 @@ struct GdtfCatalogEntry {
   float rating = 0.0f;
   std::string uuid;
   std::string uploader;
+  std::string url;
+  std::string creator;
+  std::string creationDate;
+  std::string revision;
+  std::string version;
+  std::string ratingText;
+  bool downloadable = false;
+  std::string downloadabilityReason;
 };
 
 struct GdtfDownloadMatch {
@@ -66,6 +74,11 @@ struct GdtfDownloadRequest {
   int requestedFootprint = 0;
   bool authoritativeIdentityIsPlaceholder = false;
   std::string fixtureTypeId;
+  std::string catalogSnapshotSource;
+  std::string catalogUpdatedAt;
+  std::string catalogPayloadFingerprint;
+  std::size_t catalogPayloadBytes = 0;
+  std::size_t catalogParsedEntryCount = 0;
 };
 
 enum class FixtureIdentitySource {
@@ -114,6 +127,7 @@ struct DownloadCandidateRank {
   FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
   bool footprintMatch = false;
   bool manufacturerMatch = false;
+  bool uploaderAuthority = false;
   long long recency = 0;
   float rating = 0.0f;
   GdtfModeMatchTier modeTier = GdtfModeMatchTier::None;

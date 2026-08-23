@@ -19,123 +19,34 @@
 #include "columnutils.h"
 #include "ui_feature_flags.h"
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <mutex>
 #include <wx/intl.h>
 #include <wx/datetime.h>
 #include <wx/log.h>
 
-using json = nlohmann::json;
 wxDEFINE_EVENT(EVT_GDTF_REFRESH_DONE, wxThreadEvent);
 
 namespace {
 wxString FormatTimestamp(const std::string& ts);
 
-std::string NormalizeSearchToken(const std::string& text)
-{
-    wxString normalized = wxString::FromUTF8(text).Lower();
-    normalized.Replace(" ", "");
-    normalized.Replace("-", "");
-    return normalized.ToStdString();
-}
-
-// Finds the first JSON array node that looks like a fixture catalog payload.
-const json* FindFixtureArrayNode(const json& node)
-{
-    if (node.is_array())
-        return &node;
-    if (!node.is_object())
-        return nullptr;
-
-    static const std::array<const char*, 8> kArrayKeys = {
-        "data", "fixtures", "list", "results", "items", "docs", "rows", "catalog"
-    };
-    for (const char* key : kArrayKeys) {
-        auto it = node.find(key);
-        if (it == node.end())
-            continue;
-        if (it->is_array())
-            return &(*it);
-        if (const json* nested = FindFixtureArrayNode(*it))
-            return nested;
-    }
-    return nullptr;
-}
-
-// Parses raw catalog JSON text into normalized GDTF search entries.
-std::vector<GdtfEntry> ParseEntriesFromListData(const std::string& listData)
-{
-    std::vector<GdtfEntry> parsedEntries;
-    json j = json::parse(listData, nullptr, false);
-    if (j.is_discarded())
-        return parsedEntries;
-
-    const json* payloadArray = FindFixtureArrayNode(j);
-    if (!payloadArray)
-        return parsedEntries;
-
-    auto jsonToString = [](const json& v) -> std::string {
-        if (v.is_string())
-            return v.get<std::string>();
-        if (v.is_number())
-            return v.dump();
-        if (v.is_array()) {
-            std::string result;
-            for (size_t i = 0; i < v.size(); ++i) {
-                if (i > 0)
-                    result += ", ";
-                const auto& el = v[i];
-                if (el.is_string())
-                    result += el.get<std::string>();
-                else if (el.is_object() && el.contains("name") && el["name"].is_string())
-                    result += el["name"].get<std::string>();
-                else
-                    result += el.dump();
-            }
-            return result;
-        }
-        if (v.is_object())
-            return v.dump();
-        return {};
-    };
-
-    auto getValue = [&](const json& obj, std::initializer_list<const char*> keys) -> std::string {
-        for (const char* k : keys) {
-            auto it = obj.find(k);
-            if (it != obj.end())
-                return jsonToString(*it);
-        }
-        return {};
-    };
-
-    parsedEntries.reserve(payloadArray->size());
-    for (const auto& item : *payloadArray) {
-        GdtfEntry e;
-        e.manufacturer = getValue(item, {"manufacturer", "brand", "mfr"});
-        e.fixture = getValue(item, {"fixture", "name", "model"});
-        e.manufacturerNorm = NormalizeSearchToken(e.manufacturer);
-        e.fixtureNorm = NormalizeSearchToken(e.fixture);
-        e.rid = getValue(item, {"rid", "revisionId"});
-        e.url = getValue(item, {"url", "download", "downloadUrl"});
-        e.modes = getValue(item, {"modes", "mode", "modeCount"});
-        e.creator = getValue(item, {"creator", "user", "userName"});
-        e.uploader = getValue(item, {"uploader"});
-        e.creationDate = getValue(item, {"creationDate"});
-        e.creationDateDisplay = FormatTimestamp(e.creationDate).ToStdString();
-        e.revision = getValue(item, {"revision"});
-        e.lastModified = getValue(item, {"lastModified"});
-        e.lastModifiedDisplay = FormatTimestamp(e.lastModified).ToStdString();
-        e.version = getValue(item, {"version"});
-        e.rating = getValue(item, {"rating"});
-        parsedEntries.push_back(std::move(e));
-    }
-    return parsedEntries;
-}
-
 std::mutex g_cachedCatalogMutex;
 std::string g_cachedCatalogPayload;
-std::vector<GdtfEntry> g_cachedCatalogEntries;
+std::string g_cachedCatalogFingerprint;
+std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> g_cachedCatalogEntries;
+
+// Formats parsed mode names for the search result table.
+std::string FormatModes(
+    const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogModeCandidate>& modes)
+{
+    std::string formatted;
+    for (const auto& mode : modes) {
+        if (!formatted.empty())
+            formatted += ", ";
+        formatted += mode.name;
+    }
+    return formatted;
+}
 
 wxString FormatTimestamp(const std::string& ts)
 {
@@ -268,20 +179,27 @@ GdtfSearchDialog::~GdtfSearchDialog()
 void GdtfSearchDialog::ParseList(const std::string& listData)
 {
     const auto parseStart = std::chrono::steady_clock::now();
+    std::string fingerprint;
     std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
     if (listData == g_cachedCatalogPayload) {
         entries = g_cachedCatalogEntries;
+        fingerprint = g_cachedCatalogFingerprint;
     } else {
-        entries = ParseEntriesFromListData(listData);
+        const auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(listData);
+        entries = parsed.entries;
+        fingerprint = parsed.payloadFingerprint;
         g_cachedCatalogPayload = listData;
+        g_cachedCatalogFingerprint = fingerprint;
         g_cachedCatalogEntries = entries;
     }
     lastParseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::steady_clock::now() - parseStart)
                       .count();
     MaybeLogVerboseCatalogTrace(
-        wxString::Format("ParseList size=%zu parsed_entries=%zu parse_ms=%lld",
-                         listData.size(), entries.size(),
+        wxString::Format("ParseList source=%s updated_at='%s' bytes=%zu fingerprint=%s parsed_entries=%zu parse_ms=%lld",
+                         catalogSource == GdtfCatalogDisplaySource::Online ? "online" : "cache",
+                         wxString::FromUTF8(lastUpdatedAt),
+                         listData.size(), wxString::FromUTF8(fingerprint), entries.size(),
                          static_cast<long long>(lastParseMs)));
 }
 
@@ -296,19 +214,11 @@ void GdtfSearchDialog::UpdateResults()
     visible.clear();
     selectedIndex = -1;
 
-    const std::string manufacturerSearch =
-        NormalizeSearchToken(manufacturerCtrl->GetValue().ToStdString());
-    const std::string fixtureSearch =
-        NormalizeSearchToken(fixtureCtrl->GetValue().ToStdString());
-    for (size_t i = 0; i < entries.size(); ++i) {
-        const GdtfEntry& entry = entries[i];
-        if ((!manufacturerSearch.empty() &&
-             entry.manufacturerNorm.find(manufacturerSearch) == std::string::npos) ||
-            (!fixtureSearch.empty() &&
-             entry.fixtureNorm.find(fixtureSearch) == std::string::npos))
-            continue;
-        filteredIndices.push_back(static_cast<int>(i));
-    }
+    const auto matches = mvr::gdtf_catalog_parser::FilterCatalogEntries(
+        entries, manufacturerCtrl->GetValue().ToStdString(),
+        fixtureCtrl->GetValue().ToStdString());
+    for (std::size_t index : matches)
+        filteredIndices.push_back(static_cast<int>(index));
 
     lastFilterMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                        std::chrono::steady_clock::now() - filterStart)
@@ -350,20 +260,22 @@ void GdtfSearchDialog::RenderCurrentPage(const std::string& previouslySelectedRi
     const size_t end = std::min(begin + pageSize, filteredIndices.size());
     for (size_t pos = begin; pos < end; ++pos) {
         const int entryIndex = filteredIndices[pos];
-        const GdtfEntry& entry = entries[entryIndex];
+        const auto& entry = entries[entryIndex];
         visible.push_back(entryIndex);
 
         wxVector<wxVariant> row;
         row.push_back(wxString::FromUTF8(entry.manufacturer));
-        row.push_back(wxString::FromUTF8(entry.fixture));
-        row.push_back(wxString::FromUTF8(entry.modes));
+        row.push_back(wxString::FromUTF8(entry.fixtureName));
+        row.push_back(wxString::FromUTF8(FormatModes(entry.modes)));
         row.push_back(wxString::FromUTF8(entry.creator));
         row.push_back(wxString::FromUTF8(entry.uploader));
-        row.push_back(wxString::FromUTF8(entry.creationDateDisplay));
+        row.push_back(FormatTimestamp(entry.creationDate));
         row.push_back(wxString::FromUTF8(entry.revision));
-        row.push_back(wxString::FromUTF8(entry.lastModifiedDisplay));
+        row.push_back(FormatTimestamp(entry.lastModifiedUnix > 0
+                                          ? std::to_string(entry.lastModifiedUnix)
+                                          : std::string{}));
         row.push_back(wxString::FromUTF8(entry.version));
-        row.push_back(wxString::FromUTF8(entry.rating));
+        row.push_back(wxString::FromUTF8(entry.ratingText));
         resultTable->AppendItem(row);
 
         if (!previouslySelectedRid.empty() && entry.rid == previouslySelectedRid) {
@@ -425,6 +337,10 @@ void GdtfSearchDialog::OnDownload(wxCommandEvent& WXUNUSED(evt))
     int row = resultTable->ItemToRow(item);
     if (row != wxNOT_FOUND && row < static_cast<int>(visible.size())) {
         selectedIndex = visible[row];
+        if (!entries[selectedIndex].downloadable) {
+            UpdateStatusMessage(false, _("This catalog row has no downloadable revision identifier."));
+            return;
+        }
         EndModal(wxID_OK);
     }
 }
@@ -446,7 +362,7 @@ std::string GdtfSearchDialog::GetSelectedUrl() const
 std::string GdtfSearchDialog::GetSelectedName() const
 {
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
-        return entries[selectedIndex].fixture;
+        return entries[selectedIndex].fixtureName;
     return {};
 }
 
@@ -483,7 +399,9 @@ void GdtfSearchDialog::TriggerAutoRefreshOnce()
         if (result.success && !result.listData.empty())
         {
             const auto parseStart = std::chrono::steady_clock::now();
-            result.parsedEntries = ParseEntriesFromListData(result.listData);
+            const auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(result.listData);
+            result.parsedEntries = parsed.entries;
+            result.payloadFingerprint = parsed.payloadFingerprint;
             result.parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                                  std::chrono::steady_clock::now() - parseStart)
                                  .count();
@@ -501,7 +419,8 @@ void GdtfSearchDialog::OnAutoRefreshThreadEvent(wxThreadEvent& evt)
     autoRefreshInProgress = false;
     OnAutoRefreshFinished(evt.GetPayload<RefreshResult>());
     if (downloadButton)
-        downloadButton->Enable(!entries.empty());
+        downloadButton->Enable(std::any_of(entries.begin(), entries.end(),
+            [](const auto& entry) { return entry.downloadable; }));
 }
 
 // Applies refreshed catalog data and updates status text after the background refresh completes.
@@ -524,6 +443,7 @@ void GdtfSearchDialog::OnAutoRefreshFinished(const RefreshResult& result)
         {
             std::lock_guard<std::mutex> lock(g_cachedCatalogMutex);
             g_cachedCatalogPayload = currentListData;
+            g_cachedCatalogFingerprint = result.payloadFingerprint;
             g_cachedCatalogEntries = result.parsedEntries;
         }
         entries = result.parsedEntries;

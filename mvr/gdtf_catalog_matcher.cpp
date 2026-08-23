@@ -357,6 +357,8 @@ bool IsBetterDownloadCandidate(const DownloadCandidateRank &candidate,
     return candidate.footprintMatch;
   if (candidate.manufacturerMatch != currentBest.manufacturerMatch)
     return candidate.manufacturerMatch;
+  if (candidate.uploaderAuthority != currentBest.uploaderAuthority)
+    return candidate.uploaderAuthority;
   if (candidate.numericCompatibility != currentBest.numericCompatibility)
     return static_cast<int>(candidate.numericCompatibility) >
            static_cast<int>(currentBest.numericCompatibility);
@@ -410,6 +412,8 @@ GdtfDownloadMatch SelectBestDownloadMatch(
   std::vector<std::string> evaluated;
   std::vector<std::pair<DownloadCandidateRank, std::string>> eligibleRanks;
   bool hasCanonicalCandidate = false;
+  std::size_t canonicalCandidateCount = 0;
+  std::size_t downloadableCanonicalCandidateCount = 0;
 
   for (const auto &entry : catalogEntries) {
     FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
@@ -417,6 +421,35 @@ GdtfDownloadMatch SelectBestDownloadMatch(
     CanonicalFixtureModel matchedModel;
     const auto catalogModel = BuildCanonicalFixtureModel(
         entry.fixtureName, entry.manufacturer, FixtureIdentitySource::Catalog);
+    bool canonicalNameCandidate = false;
+    for (const auto &identity : request.authoritativeFixtureNames) {
+      const auto requestedModel = BuildCanonicalFixtureModel(
+          identity, request.manufacturer,
+          FixtureIdentitySource::AuthoritativeGdtf);
+      if (!catalogModel.canonicalText.empty() &&
+          catalogModel.canonicalText == requestedModel.canonicalText) {
+        canonicalNameCandidate = true;
+        break;
+      }
+    }
+    if (canonicalNameCandidate) {
+      ++canonicalCandidateCount;
+      if (entry.downloadable)
+        ++downloadableCanonicalCandidateCount;
+    }
+    if (!entry.downloadable) {
+      std::ostringstream unavailable;
+      unavailable << "candidate=" << (entry.rid.empty() ? "<missing>" : entry.rid)
+                  << "; manufacturer='" << entry.manufacturer << "'; model='"
+                  << entry.fixtureName << "'; canonical='"
+                  << catalogModel.canonicalText << "'; uuid='" << entry.uuid
+                  << "'; identity="
+                  << (canonicalNameCandidate ? "canonical" : "unrelated")
+                  << "; eligible=no; reason=not-downloadable:"
+                  << entry.downloadabilityReason;
+      evaluated.push_back(unavailable.str());
+      continue;
+    }
     for (const auto &identity : request.authoritativeFixtureNames) {
       const auto requestedModel = BuildCanonicalFixtureModel(
           identity, request.manufacturer,
@@ -444,19 +477,13 @@ GdtfDownloadMatch SelectBestDownloadMatch(
         authoritativeName = request.authoritativeIdentityIsPlaceholder;
       }
     }
-    const bool fixtureTypeIdMatch = !request.fixtureTypeId.empty() &&
-        !entry.uuid.empty() &&
-        NormalizeForGdtfMatch(request.fixtureTypeId) ==
-            NormalizeForGdtfMatch(entry.uuid);
-    if (fixtureTypeIdMatch) {
-      nameTier = FixtureNameMatchTier::ExactNormalized;
-      authoritativeName = true;
-    }
     const auto numeric =
         ComputeNumericTokenCompatibility(catalogModel, matchedModel);
     if (nameTier == FixtureNameMatchTier::None) {
       std::ostringstream rejected;
       rejected << "candidate=" << entry.rid << "; model='" << entry.fixtureName
+               << "'; manufacturer='" << entry.manufacturer << "'; uuid='"
+               << entry.uuid
                << "'; canonical='" << catalogModel.canonicalText
                << "'; eligible=no; reason=insufficient-model-identity"
                << "; numeric=" << static_cast<int>(numeric);
@@ -479,6 +506,10 @@ GdtfDownloadMatch SelectBestDownloadMatch(
     candidateRank.nameTier = nameTier;
     candidateRank.footprintMatch = footprintMatch;
     candidateRank.manufacturerMatch = manufacturerMatch;
+    candidateRank.uploaderAuthority = !entry.uploader.empty() &&
+        !entry.manufacturer.empty() &&
+        NormalizeForGdtfMatch(entry.uploader) ==
+            NormalizeForGdtfMatch(entry.manufacturer);
     candidateRank.recency = entry.lastModifiedUnix;
     candidateRank.rating = entry.rating;
     candidateRank.modeTier = modeScore.tier;
@@ -494,7 +525,9 @@ GdtfDownloadMatch SelectBestDownloadMatch(
                         << static_cast<int>(numeric) << "; manufacturer="
                         << (manufacturerMatch ? "match" : "none") << "; mode-tier="
                         << static_cast<int>(modeScore.tier) << "; footprint="
-                        << (footprintMatch ? "match" : "none");
+                        << (footprintMatch ? "match" : "none") << "; uuid='"
+                        << entry.uuid << "'; uploader-authority="
+                        << (candidateRank.uploaderAuthority ? "yes" : "no");
     evaluated.push_back(candidateDiagnostic.str());
     if (!IsBetterDownloadCandidate(candidateRank, bestRank)) {
       continue;
@@ -520,10 +553,24 @@ GdtfDownloadMatch SelectBestDownloadMatch(
   fullDiagnostics << "request-model='";
   if (!request.authoritativeFixtureNames.empty())
     fullDiagnostics << request.authoritativeFixtureNames.front();
-  fullDiagnostics << "'; manufacturer='" << request.manufacturer
+  const auto requestCanonical = request.authoritativeFixtureNames.empty()
+      ? CanonicalFixtureModel{}
+      : BuildCanonicalFixtureModel(request.authoritativeFixtureNames.front(),
+                                   request.manufacturer,
+                                   FixtureIdentitySource::AuthoritativeGdtf);
+  fullDiagnostics << "'; request-canonical='" << requestCanonical.canonicalText
+                  << "'; manufacturer='" << request.manufacturer
                   << "'; fixture-type-id='" << request.fixtureTypeId
                   << "'; requested-mode='" << request.requestedMode
-                  << "'; footprint=" << request.requestedFootprint;
+                  << "'; footprint=" << request.requestedFootprint
+                  << "; snapshot-source='" << request.catalogSnapshotSource
+                  << "'; updated-at='" << request.catalogUpdatedAt
+                  << "'; payload-bytes=" << request.catalogPayloadBytes
+                  << "; payload-fingerprint='" << request.catalogPayloadFingerprint
+                  << "'; parsed-entry-count=" << request.catalogParsedEntryCount
+                  << "; canonical-candidates=" << canonicalCandidateCount
+                  << "; downloadable-canonical-candidates="
+                  << downloadableCanonicalCandidateCount;
   if (!hasCanonicalCandidate)
     fullDiagnostics << "; no exact/canonical model candidate in catalog";
   for (const auto &diagnostic : evaluated)

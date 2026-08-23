@@ -552,8 +552,11 @@ add_executable(gdtf_read_services_test
                ../core/gdtf_archive_reader.cpp
                ../core/gdtf_description_reader.cpp
                ../core/gdtf_metadata_summary.cpp
+               ../mvr/gdtf_import_identity_reader.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
+               ../core/uuidutils.cpp
                ../core/filesystem_path_utils.cpp)
-target_include_directories(gdtf_read_services_test PRIVATE ../core)
+target_include_directories(gdtf_read_services_test PRIVATE ../core ../mvr)
 target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
 set_perastage_test_labels(GdtfReadServices LAYER tolerant-recovery DOMAINS gdtf zip)

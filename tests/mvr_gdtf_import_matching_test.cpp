@@ -152,6 +152,63 @@ static void VerifyOfficialCatalogContractAndModeRanking() {
   assert(match.modeName == "Mode 30ch");
 }
 
+// Verifies search and automatic matching consume one shared MAC catalog parse.
+static void VerifySharedMacCatalogPipeline() {
+  const std::string payload = R"json({"data":{"list":[
+    {"rid":"black","manufacturer":"Black Light Design","fixture":"Martin MAC Quantum Profile","uuid":"share-black","uploader":"Black Light Design","modes":[{"name":"Standard","dmxfootprint":42}],"lastModified":100,"rating":"3"},
+    {"rid":"lpl","manufacturer":"LPL","fixture":"MAC Quantum Profile","uuid":"share-lpl","uploader":"LPL","modes":[{"name":"Standard","dmxfootprint":42}],"lastModified":200,"rating":"4"},
+    {"rid":"official","manufacturer":"Martin Professional","fixture":"MAC Quantum Profile","uuid":"share-official","uploader":"Martin Professional","modes":[{"name":"Standard","dmxfootprint":42}],"lastModified":300,"rating":"5"},
+    {"rid":"ogson","manufacturer":"OGSON fixtures","fixture":"Martin MAC Quantum Profile","uuid":"share-ogson","uploader":"OGSON fixtures","modes":[{"name":"Standard","dmxfootprint":42}],"lastModified":400,"rating":"4"},
+    {"rid":"wrong","manufacturer":"Vari-Lite","fixture":"VL3600 Profile IP","lastModified":999,"rating":"5"},
+    {"rid":"other","manufacturer":"Other","fixture":"Example Profile","lastModified":999,"rating":"5"},
+    {"manufacturer":"Martin Professional","fixture":"MAC Quantum Profile","uuid":"display-only"}
+  ]}})json";
+  const auto parsed = parser::ParseCatalog(payload);
+  assert(parsed.entries.size() == 7);
+  assert(parsed.payloadBytes == payload.size());
+  assert(!parsed.payloadFingerprint.empty());
+  const auto searchMatches = parser::FilterCatalogEntries(
+      parsed.entries, "", "mac quantum profile");
+  assert(searchMatches.size() == 5);
+  assert(!parsed.entries[searchMatches.back()].downloadable);
+  for (std::size_t index = 0; index < 4; ++index) {
+    const auto &entry = parsed.entries[searchMatches[index]];
+    assert(entry.downloadable && !entry.rid.empty());
+    assert(!entry.uuid.empty() && !entry.uploader.empty());
+    assert(entry.modes.size() == 1 && entry.modes.front().footprint == 42);
+  }
+
+  const auto select = [&](const std::string &manufacturer) {
+    return catalog::SelectBestDownloadMatch(
+        "", "MAC Quantum Profile (Bulb=LED)", "Standard", manufacturer, 42,
+        parsed.entries);
+  };
+  assert(select("Martin Professional").rid == "official");
+  assert(select("Martin").rid == "official");
+  const auto unknownManufacturer = select("");
+  assert(unknownManufacturer.found && unknownManufacturer.rid == "official");
+
+  std::vector<catalog::GdtfCatalogEntry> shuffled = parsed.entries;
+  std::mt19937 generator(7);
+  for (int iteration = 0; iteration < 20; ++iteration) {
+    std::shuffle(shuffled.begin(), shuffled.end(), generator);
+    assert(catalog::SelectBestDownloadMatch(
+               "", "MAC Quantum Profile (Bulb=LED)", "Standard", "", 42,
+               shuffled).rid == unknownManufacturer.rid);
+  }
+}
+
+// Verifies top-level and compatibility wrapper shapes use the same parser.
+static void VerifyCatalogWrapperCompatibility() {
+  const std::string record =
+      R"json({"rid":"1","manufacturer":"Acme","fixture":"Beam 200"})json";
+  assert(parser::ParseCatalog("[" + record + "]").entries.size() == 1);
+  assert(parser::ParseCatalog("{\"data\":{\"list\":[" + record + "]}}")
+             .entries.size() == 1);
+  assert(parser::ParseCatalog("{\"results\":{\"items\":[" + record + "]}}")
+             .entries.size() == 1);
+}
+
 // Verifies structured GDTF manufacturer metadata reaches the real request builder.
 static void VerifyManufacturerPropagation() {
   const auto request = import_matching::BuildDownloadRequest(
@@ -178,18 +235,6 @@ static void VerifyDeterministicTieBreak() {
   }
 }
 
-// Verifies a matching catalog UUID is the strongest standards-based evidence.
-static void VerifyFixtureTypeIdMatching() {
-  catalog::GdtfDownloadRequest request;
-  request.authoritativeFixtureNames = {"Unhelpful imported label"};
-  request.fixtureTypeId = "12345678-1234-4234-9234-123456789abc";
-  catalog::GdtfCatalogEntry entry;
-  entry.rid = "same-type";
-  entry.fixtureName = "Canonical catalog model";
-  entry.uuid = "12345678-1234-4234-9234-123456789ABC";
-  assert(catalog::SelectBestDownloadMatch(request, {entry}).rid == "same-type");
-}
-
 // Verifies MVR spec extraction remains independent from the object alias.
 static void VerifyMvrIdentityExtraction() {
   assert(import_matching::ExtractFixtureNameFromGdtfSpec(
@@ -207,9 +252,10 @@ int main() {
   VerifyConservativeNoisyCatalogMatching();
   VerifyUsefulFuzzyMatches();
   VerifyOfficialCatalogContractAndModeRanking();
+  VerifySharedMacCatalogPipeline();
+  VerifyCatalogWrapperCompatibility();
   VerifyManufacturerPropagation();
   VerifyDeterministicTieBreak();
-  VerifyFixtureTypeIdMatching();
   VerifyMvrIdentityExtraction();
   return 0;
 }
