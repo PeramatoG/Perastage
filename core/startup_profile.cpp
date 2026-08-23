@@ -71,6 +71,15 @@ std::string FormatInteractiveReadySummary(const Metrics &metrics,
          " cache_rejected=" + std::to_string(metrics.cacheEntriesRejected) +
          " cache_deep_validations=" +
          std::to_string(metrics.cacheDeepValidations) +
+         " layout_cache_fast=" +
+         std::to_string(metrics.layoutCacheFastValidationAttempts) + "," +
+         std::to_string(metrics.layoutCacheFastValidationHits) + "," +
+         std::to_string(metrics.layoutCacheFastValidationRejects) +
+         " hydrated_rasters=" +
+         std::to_string(metrics.hydratedViewRasters) + "," +
+         std::to_string(metrics.hydratedLegendRasters) +
+         " layout_cache_validation_ms=" +
+         std::to_string(metrics.layoutCacheValidationMs) +
          " scene_mvr_writes=" + std::to_string(metrics.sceneMvrWrites) +
          " scene_mvr_bytes=" + std::to_string(metrics.sceneMvrBytes) +
          " scene_mvr_memory_restores=" +

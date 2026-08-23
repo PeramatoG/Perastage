@@ -59,9 +59,11 @@ public:
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshEditedViewById(int viewId);
   std::vector<ProjectSession::ArchiveResource>
-  CollectPersistentViewCacheResources() const;
+  CollectPersistentViewCacheResources(
+      const project_cache::ValidationContext &validationContext) const;
   void LoadPersistentViewCache(
-      const std::vector<ProjectSession::ArchiveResource> &resources);
+      const std::vector<ProjectSession::ArchiveResource> &resources,
+      const project_cache::ValidationContext &validationContext);
   void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
 private:
@@ -394,6 +396,7 @@ private:
   std::string pendingPersistentViewCacheJson_;
   std::unordered_map<std::string, std::vector<unsigned char>>
       pendingPersistentViewCacheRasters_;
+  project_cache::ValidationContext pendingCacheValidationContext_;
   std::shared_ptr<startup::Metrics> startupMetrics_;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;

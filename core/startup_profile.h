@@ -47,6 +47,15 @@ struct Metrics {
   size_t sceneObjectReloads = 0;
   size_t layerReloads = 0;
   size_t cacheDeepValidations = 0;
+  size_t layoutCacheFastValidationAttempts = 0;
+  size_t layoutCacheFastValidationHits = 0;
+  size_t layoutCacheFastValidationRejects = 0;
+  size_t layoutCacheDeepValidationFallbacks = 0;
+  size_t hydratedViewRasters = 0;
+  size_t hydratedLegendRasters = 0;
+  long long layoutCacheValidationMs = 0;
+  long long layoutCacheFastValidationMs = 0;
+  long long layoutCacheDeepValidationMs = 0;
   bool interactiveReady = false;
   std::string finalViewMode;
   std::string finalActiveLayout;

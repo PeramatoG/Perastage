@@ -14,6 +14,10 @@ Changes since **v1.5.0**.
   vector replay data is too large to cache, reducing repeated rendering work
   when reopening unchanged projects.
 
+- Warm Layout previews now validate against the exact scene and packaged image
+  data stored in the project, avoiding false cache invalidation after normal
+  MVR identity normalization.
+
 - Fixture profiles that contain neither stored symbols nor usable GDTF
   geometry now use Perastage's deterministic runtime fallback directly. This
   avoids repeated symbol preparation delays when opening projects while

@@ -33,7 +33,8 @@ public:
     using LoadProjectProgressCallback =
         std::function<void(const std::string& stage, int completed, int total)>;
     using ProjectArchiveResourceProvider =
-        std::function<std::vector<ProjectSession::ArchiveResource>()>;
+        std::function<std::vector<ProjectSession::ArchiveResource>(
+            const project_cache::ValidationContext &)>;
     // Access singleton instance
     static ConfigManager& Get();
 
@@ -50,6 +51,8 @@ public:
                      LoadProjectProgressCallback progressCallback = {});
     const std::vector<ProjectSession::ArchiveResource> &
     GetLoadedProjectArchiveResources() const;
+    const project_cache::ValidationContext &
+    GetLoadedProjectCacheValidationContext() const;
     void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
     void SetProjectArchiveResourceProvider(ProjectArchiveResourceProvider provider);
     // Save/load configuration file (e.g., JSON, INI, TXT…)

@@ -48,7 +48,7 @@ source validation remain optional and non-fatal; cache failure cannot affect
 scene or configuration restore. The normal load path never reopens the `.pstg`
 to acquire this cache.
 
-The version 5 Layout cache is raster-first. A matching bounded RGBA snapshot is
+The version 6 Layout cache is raster-first. A matching bounded RGBA snapshot is
 independent of the optional command-replay payload, so a view whose replay
 graph exceeds 75,000 commands still saves its final raster. Command counting
 stops as soon as the limit is exceeded. Individual raster resources are capped
@@ -62,6 +62,14 @@ the scene capture panel. Legacy schema versions are non-authoritative and are
 safely rebuilt. When a cold render needs legend symbols, the captured snapshot
 is published to every matching legend cache before the incremental renderer can
 return after another element, preventing duplicate capture on the next tick.
+
+Version 6 validation binds cache metadata to the exact serialized `scene.mvr`
+bytes and the sorted names and exact bytes of packaged Layout images. Both use
+the `fnv1a64-v1` contract. Save computes these identities from buffers already
+owned by the export/resource pipeline; load updates them while the primary ZIP
+traversal reads either the bounded scene buffer or spill file. A fully covered
+match takes the fast path and never calls the extracted-source deep hasher.
+Schema 5 and incomplete-coverage caches retain conservative deep validation.
 
 ## Phase 2 project archive sources
 

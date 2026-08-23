@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -877,7 +878,8 @@ bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
 
 // Collects cache data for every reusable 2D view in the active layout.
 std::vector<ProjectSession::ArchiveResource>
-LayoutViewerPanel::CollectPersistentViewCacheResources() const {
+LayoutViewerPanel::CollectPersistentViewCacheResources(
+    const project_cache::ValidationContext &validationContext) const {
   if (currentLayout.name.empty())
     return {};
 
@@ -991,13 +993,17 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
     return {};
   }
 
-  const MvrScene &scene =
-      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-  const auto sourceAssetHash = ComputeSourceAssetHash(scene);
-  if (!sourceAssetHash) {
+  const bool hasExternalLayoutImage =
+      std::any_of(currentLayout.imageViews.begin(), currentLayout.imageViews.end(),
+                  [](const auto &image) {
+                    return !image.imagePath.empty() &&
+                           image.projectResourcePath.empty();
+                  });
+  if (!validationContext.HasCompletePackageCoverage() ||
+      hasExternalLayoutImage) {
     Logger::Instance().Log(Logger::Level::Info,
                            "Skipping persistent layout view cache because "
-                           "source assets could not be hashed.");
+                           "package dependency coverage is incomplete.");
     return {};
   }
 
@@ -1006,8 +1012,11 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   document["symbolGenerationVersion"] =
       symbol_cache::kCurrentPerastageSymbolFormatVersion;
   document["layoutName"] = currentLayout.name;
-  document["sceneHash"] = StableJsonHash(SceneToHashJson(scene));
-  document["sourceAssetHash"] = *sourceAssetHash;
+  document["scenePackageFingerprint"] =
+      validationContext.scenePackageFingerprint;
+  document["packagedLayoutResourceFingerprint"] =
+      validationContext.packagedLayoutResourceFingerprint;
+  document["dependencyCoverage"] = "packaged";
   document["views"] = views;
   document["legends"] = legends;
 
@@ -1033,9 +1042,11 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
 
 // Accepts persisted layout-cache entries captured by the primary project archive traversal.
 void LayoutViewerPanel::LoadPersistentViewCache(
-    const std::vector<ProjectSession::ArchiveResource> &resources) {
+    const std::vector<ProjectSession::ArchiveResource> &resources,
+    const project_cache::ValidationContext &validationContext) {
   pendingPersistentViewCacheJson_.clear();
   pendingPersistentViewCacheRasters_.clear();
+  pendingCacheValidationContext_ = validationContext;
   size_t rasterBytes = 0;
   for (const auto &resource : resources) {
     if (resource.entryName == kLayoutViewCacheArchiveEntry &&
@@ -1063,41 +1074,92 @@ void LayoutViewerPanel::SetStartupMetrics(
 void LayoutViewerPanel::HydratePendingPersistentViewCache() {
   if (pendingPersistentViewCacheJson_.empty() || currentLayout.name.empty())
     return;
-  if (startupMetrics_)
-    ++startupMetrics_->cacheDeepValidations;
+  const auto validationStartedAt = std::chrono::steady_clock::now();
   try {
     const nlohmann::json document =
         nlohmann::json::parse(pendingPersistentViewCacheJson_);
-    if (document.value("schemaVersion", 0) != kLayoutViewCacheSchemaVersion ||
+    const int schemaVersion = document.value("schemaVersion", 0);
+    if ((schemaVersion != 5 &&
+         schemaVersion != kLayoutViewCacheSchemaVersion) ||
         document.value("symbolGenerationVersion", 0) !=
-            symbol_cache::kCurrentPerastageSymbolFormatVersion ||
-        document.value("layoutName", std::string{}) != currentLayout.name) {
+            symbol_cache::kCurrentPerastageSymbolFormatVersion) {
+      Logger::Instance().Log(Logger::Level::Info,
+                             "Ignoring layout view cache reason=schema_or_symbol_version_mismatch.");
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+    if (document.value("layoutName", std::string{}) != currentLayout.name) {
+      Logger::Instance().Log(Logger::Level::Info,
+                             "Ignoring layout view cache reason=layout_mismatch.");
       pendingPersistentViewCacheJson_.clear();
       pendingPersistentViewCacheRasters_.clear();
       return;
     }
 
-    const MvrScene &scene =
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-    const auto sourceAssetHash = ComputeSourceAssetHash(scene);
-    if (!sourceAssetHash) {
-      Logger::Instance().Log(Logger::Level::Info,
-                             "Ignoring layout view cache because source assets "
-                             "could not be hashed.");
-      pendingPersistentViewCacheJson_.clear();
-      pendingPersistentViewCacheRasters_.clear();
-      return;
+    const auto fastStartedAt = std::chrono::steady_clock::now();
+    const bool hasFastContract =
+        schemaVersion == kLayoutViewCacheSchemaVersion &&
+        document.value("dependencyCoverage", std::string{}) == "packaged" &&
+        pendingCacheValidationContext_.HasCompletePackageCoverage() &&
+        std::none_of(currentLayout.imageViews.begin(),
+                     currentLayout.imageViews.end(), [](const auto &image) {
+                       return !image.imagePath.empty() &&
+                              image.projectResourcePath.empty();
+                     });
+    if (startupMetrics_ && hasFastContract)
+      ++startupMetrics_->layoutCacheFastValidationAttempts;
+    if (hasFastContract) {
+      const bool sceneMatches =
+          document.value("scenePackageFingerprint", std::string{}) ==
+          pendingCacheValidationContext_.scenePackageFingerprint;
+      const bool layoutResourcesMatch =
+          document.value("packagedLayoutResourceFingerprint", std::string{}) ==
+          pendingCacheValidationContext_.packagedLayoutResourceFingerprint;
+      if (!sceneMatches || !layoutResourcesMatch) {
+        if (startupMetrics_)
+          ++startupMetrics_->layoutCacheFastValidationRejects;
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            std::string("Ignoring layout view cache reason=") +
+                (!sceneMatches
+                     ? "scene_package_fingerprint_mismatch."
+                     : "packaged_layout_resource_fingerprint_mismatch."));
+        pendingPersistentViewCacheJson_.clear();
+        pendingPersistentViewCacheRasters_.clear();
+        return;
+      }
+      if (startupMetrics_)
+        ++startupMetrics_->layoutCacheFastValidationHits;
+    } else {
+      if (startupMetrics_) {
+        ++startupMetrics_->layoutCacheDeepValidationFallbacks;
+        ++startupMetrics_->cacheDeepValidations;
+      }
+      const auto deepStartedAt = std::chrono::steady_clock::now();
+      const MvrScene &scene =
+          GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+      const auto sourceAssetHash = ComputeSourceAssetHash(scene);
+      const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
+      if (startupMetrics_)
+        startupMetrics_->layoutCacheDeepValidationMs +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - deepStartedAt).count();
+      if (!sourceAssetHash ||
+          document.value("sceneHash", std::string{}) != sceneHash ||
+          document.value("sourceAssetHash", std::string{}) != *sourceAssetHash) {
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            "Ignoring layout view cache reason=legacy_deep_validation_failed.");
+        pendingPersistentViewCacheJson_.clear();
+        pendingPersistentViewCacheRasters_.clear();
+        return;
+      }
     }
-    const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
-    if (document.value("sceneHash", std::string{}) != sceneHash ||
-        document.value("sourceAssetHash", std::string{}) != *sourceAssetHash) {
-      Logger::Instance().Log(Logger::Level::Info,
-                             "Ignoring layout view cache because source assets "
-                             "or scene data changed.");
-      pendingPersistentViewCacheJson_.clear();
-      pendingPersistentViewCacheRasters_.clear();
-      return;
-    }
+    if (startupMetrics_)
+      startupMetrics_->layoutCacheFastValidationMs +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - fastStartedAt).count();
 
     const auto cachedViews = document.value("views", nlohmann::json::array());
     if (!cachedViews.is_array()) {
@@ -1235,6 +1297,10 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
     }
 
     if (hydratedCount > 0 || hydratedLegendCount > 0) {
+      if (startupMetrics_) {
+        startupMetrics_->hydratedViewRasters += hydratedCount;
+        startupMetrics_->hydratedLegendRasters += hydratedLegendCount;
+      }
       Logger::Instance().Log(
           Logger::Level::Info,
           "Hydrated persistent layout view cache for layout '" +
@@ -1250,6 +1316,10 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
     }
     pendingPersistentViewCacheJson_.clear();
     pendingPersistentViewCacheRasters_.clear();
+    if (startupMetrics_)
+      startupMetrics_->layoutCacheValidationMs +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - validationStartedAt).count();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(Logger::Level::Warn,
                            std::string("Ignoring layout view cache: ") +

@@ -13,6 +13,7 @@
 
 namespace startup { struct Metrics; }
 #include "mvrscene.h"
+#include "project_cache_validation.h"
 
 inline constexpr const char *DEFAULT_LAYER_NAME = "No Layer";
 
@@ -214,6 +215,8 @@ public:
                    const LoadProgressFn &progress = {},
                    size_t sceneMemoryLimitBytes = 128 * 1024 * 1024);
   const std::vector<ArchiveResource> &GetLoadedArchiveResources() const;
+  const project_cache::ValidationContext &GetLoadedCacheValidationContext()
+      const;
   void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
   bool IsDirty() const;
@@ -231,6 +234,7 @@ private:
   MvrScene scene;
   std::string extractedResourceDirectory;
   std::vector<ArchiveResource> loadedArchiveResources;
+  project_cache::ValidationContext loadedCacheValidationContext;
   std::shared_ptr<startup::Metrics> startupMetrics;
   size_t revision = 0;
   size_t savedRevision = 0;

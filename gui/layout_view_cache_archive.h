@@ -27,7 +27,7 @@
 
 namespace gui::layoutcache {
 
-inline constexpr int kLayoutViewCacheSchemaVersion = 5;
+inline constexpr int kLayoutViewCacheSchemaVersion = 6;
 inline constexpr const char *kLayoutViewCacheArchiveEntry =
     "resources/layout_view_cache/last_selected_layout_view.json";
 inline constexpr const char *kLayoutViewCacheRasterEntryPrefix =

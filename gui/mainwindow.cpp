@@ -523,10 +523,12 @@ MainWindow::MainWindow(const wxString &title, IGuiConfigServices *services,
   if (layoutViewerPanel)
     layoutViewerPanel->SetStartupMetrics(startupMetrics_);
   guiConfigServices->LegacyConfigManager().SetProjectArchiveResourceProvider(
-      [this]() -> std::vector<ProjectSession::ArchiveResource> {
+      [this](const project_cache::ValidationContext &validationContext)
+          -> std::vector<ProjectSession::ArchiveResource> {
         if (!layoutViewerPanel)
           return {};
-        return layoutViewerPanel->CollectPersistentViewCacheResources();
+        return layoutViewerPanel->CollectPersistentViewCacheResources(
+            validationContext);
       });
   fixtureSymbolPreparationService =
       std::make_unique<gui::FixtureSymbolPreparationService>(*this);
@@ -942,7 +944,10 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     layoutViewerPanel->LoadPersistentViewCache(
         GetDefaultGuiConfigServices()
             .LegacyConfigManager()
-            .GetLoadedProjectArchiveResources());
+            .GetLoadedProjectArchiveResources(),
+        GetDefaultGuiConfigServices()
+            .LegacyConfigManager()
+            .GetLoadedProjectCacheValidationContext());
   }
   viewer2d::ReconcileFixtureLabelOverridesWithScene(
       GetDefaultGuiConfigServices().LegacyConfigManager());

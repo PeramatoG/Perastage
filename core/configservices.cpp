@@ -173,7 +173,9 @@ bool IsSafeArchiveRelativePath(const std::string &entryName) {
 }
 
 // Reads the active ZIP entry payload into the requested output file path.
-bool ExtractCurrentZipEntry(wxZipInputStream &zip, const fs::path &outPath) {
+bool ExtractCurrentZipEntry(
+    wxZipInputStream &zip, const fs::path &outPath,
+    project_cache::FingerprintAccumulator *fingerprint = nullptr) {
   std::error_code ec;
   fs::create_directories(outPath.parent_path(), ec);
   if (ec)
@@ -188,6 +190,8 @@ bool ExtractCurrentZipEntry(wxZipInputStream &zip, const fs::path &outPath) {
     const size_t bytes = zip.LastRead();
     if (bytes == 0)
       break;
+    if (fingerprint)
+      fingerprint->Update(buf, bytes);
     out.write(buf, bytes);
   }
   return out.good();
@@ -1058,6 +1062,10 @@ bool ProjectSession::LoadProject(const std::string &path,
   if (!loadConfig || !loadScene)
     return false;
   loadedArchiveResources.clear();
+  loadedCacheValidationContext = {};
+  std::vector<project_cache::NamedPayloadFingerprint>
+      layoutResourceFingerprints;
+  project_cache::FingerprintAccumulator scenePackageFingerprint;
   const auto archiveStartedAt = std::chrono::steady_clock::now();
 
   auto reportProgress = [&](const std::string &stage, int completed = 0,
@@ -1124,7 +1132,13 @@ bool ProjectSession::LoadProject(const std::string &path,
         hasMvrSceneXml = true;
       if (IsLayoutImageResourceEntry(entryName) &&
           IsSafeArchiveRelativePath(entryName)) {
-        ExtractCurrentZipEntry(zip, resourceDir / fs::path(entryName));
+        project_cache::FingerprintAccumulator resourceFingerprint;
+        if (!ExtractCurrentZipEntry(zip, resourceDir / fs::path(entryName),
+                                    &resourceFingerprint))
+          return false;
+        layoutResourceFingerprints.push_back(
+            {fs::path(entryName).generic_string(),
+             resourceFingerprint.Finish()});
       } else if (entryName.rfind("resources/layout_view_cache/", 0) == 0 &&
                  IsSafeArchiveRelativePath(entryName)) {
         constexpr size_t kMaxTransferredCacheEntryBytes = 8 * 1024 * 1024;
@@ -1202,6 +1216,7 @@ bool ProjectSession::LoadProject(const std::string &path,
                                     payloadBuffer.begin() + count);
         if (startupMetrics)
           startupMetrics->sceneMvrBytes += count;
+        scenePackageFingerprint.Update(payloadBuffer.data(), count);
       }
       if (spill.is_open() && !spill.good())
         return false;
@@ -1220,6 +1235,16 @@ bool ProjectSession::LoadProject(const std::string &path,
     reportProgress("Extracting project package...", extractedRelevantEntries,
                    2);
   }
+
+  if (!scenePayload.bytes.empty() || !scenePayload.spillPath.empty()) {
+    loadedCacheValidationContext.scenePackageFingerprint =
+        scenePackageFingerprint.Finish();
+    loadedCacheValidationContext.scenePackageCovered = true;
+  }
+  loadedCacheValidationContext.packagedLayoutResourceFingerprint =
+      project_cache::AggregateNamedPayloadFingerprints(
+          std::move(layoutResourceFingerprints));
+  loadedCacheValidationContext.packagedLayoutResourcesCovered = true;
 
   if (configPayload.bytes.empty() && scenePayload.bytes.empty() &&
       scenePayload.spillPath.empty()) {
@@ -1278,6 +1303,12 @@ bool ProjectSession::LoadProject(const std::string &path,
 const std::vector<ProjectSession::ArchiveResource> &
 ProjectSession::GetLoadedArchiveResources() const {
   return loadedArchiveResources;
+}
+
+// Returns package fingerprints captured during the primary project traversal.
+const project_cache::ValidationContext &
+ProjectSession::GetLoadedCacheValidationContext() const {
+  return loadedCacheValidationContext;
 }
 
 // Attaches the application-owned startup measurement context to project loading.
