@@ -51,6 +51,7 @@
 #include "guiconfigservices.h"
 #include "layout_2d_view_capture_service.h"
 #include "startup_profile.h"
+#include "viewer2doffscreenrenderer.h"
 
 namespace {
 

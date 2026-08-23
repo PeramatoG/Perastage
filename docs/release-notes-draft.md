@@ -428,8 +428,8 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
-- Fixed Windows compilation of Layout startup profiling by making its metrics
-  definition explicit in the rendering translation units.
+- Fixed Windows compilation of Layout startup profiling and lazy offscreen
+  rendering by making their implementation dependencies explicit.
 
 - Incremental builds now refresh the source revision shown in diagnostics when
   the active Git commit changes.
