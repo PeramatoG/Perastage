@@ -7,6 +7,9 @@ Changes since **v1.5.0**.
 - Project reopening is faster for typical projects by loading packaged scene
   and configuration data directly, while retaining a safe large-project
   fallback and all existing MVR resource compatibility.
+- Help menu commands now consistently open their intended help, documentation,
+  log, diagnostic, update, and About actions instead of unrelated Tools
+  workflows.
 - Deferred fixture-symbol preparation now reuses unchanged GDTF inspection
   results instead of repeatedly scanning the same profile.
 
