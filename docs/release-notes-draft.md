@@ -428,6 +428,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Fixed Windows compilation of Layout startup profiling by making its metrics
+  definition explicit in the rendering translation units.
+
 - Incremental builds now refresh the source revision shown in diagnostics when
   the active Git commit changes.
 

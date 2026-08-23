@@ -74,6 +74,7 @@
 #include "LayoutManager.h"
 #include "logger.h"
 #include "mainwindow.h"
+#include "startup_profile.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dstate.h"
 #include "ui_render_size.h"
@@ -3287,9 +3288,9 @@ void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
         std::chrono::duration_cast<std::chrono::milliseconds>(
             rebuildStartedAt - *renderQueuedAt_).count();
     startupMetrics_->layoutRenderQueueWaitMs = queueWaitMs;
-    startupMetrics_->layoutRenderEventLoopOverrunMs =
-        std::max<long long>(0, queueWaitMs -
-                                  startupMetrics_->layoutRenderConfiguredDebounceMs);
+    startupMetrics_->layoutRenderEventLoopOverrunMs = std::max(
+        0LL, queueWaitMs -
+                 startupMetrics_->layoutRenderConfiguredDebounceMs);
   }
   renderQueuedAt_.reset();
   if (!isLoading && !loadingTimer_.IsRunning())
