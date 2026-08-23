@@ -30,6 +30,8 @@ option(PERASTAGE_ASSOCIATE_PSTG "Register .pstg file association during packagin
 option(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS "Enable MVR-xchange mDNS discovery using the vcpkg mdns package" ON)
 option(PERASTAGE_ENABLE_LOCALIZATION "Enable gettext-based UI localization catalogs" ON)
 option(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE "Require wxSecretStore support in the wxWidgets build" OFF)
+option(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT
+       "Use the fixture-symbol worker fallback for the macOS 15 hosted toolchain" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -312,6 +314,11 @@ add_executable(${PROJECT_NAME} main.cpp
     mvr/xchange/mvr_xchange_settings.cpp
     mvr/xchange/mvr_xchange_tcp_server.cpp
 )
+
+if(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=1)
+endif()
 
 if(APPLE)
     set(PERASTAGE_MACOS_INFO_PLIST "${CMAKE_BINARY_DIR}/PerastageInfo.plist")

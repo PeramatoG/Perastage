@@ -39,9 +39,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
-- Restored macOS 15 Apple Silicon packaging compatibility by avoiding newer
-  standard-library thread APIs that are unavailable in its hosted Xcode
-  toolchain, without changing fixture symbol processing behavior.
+- Restored macOS 15 Apple Silicon packaging compatibility with a dedicated
+  worker fallback while preserving the established fixture-symbol processing
+  behavior on Windows, Linux, and supported macOS toolchains.
 
 ## New features and workflow improvements
 

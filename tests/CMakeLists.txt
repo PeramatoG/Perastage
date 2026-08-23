@@ -2356,6 +2356,30 @@ target_link_libraries(fixture_symbol_baseline_test PRIVATE
     perastage_test_fixture_symbol_diagnostics)
 add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_test)
 
+set(FIXTURE_SYMBOL_PROCESSING_WORKER_TEST_SOURCES
+    fixture_symbol_processing_worker_test.cpp
+    ../gui/services/fixture_symbol_processing_worker.cpp
+    ../gui/tools/scene_model_symbol_processing.cpp
+    ../core/symbols/Symbol2DImageBuilder.cpp
+    ../core/symbols/SymbolGeometrySimplifier.cpp
+    ../core/symbols/FixtureSymbolDiagnostics.cpp
+    ../core/geometry/RdpSimplifier.cpp
+    ../core/logger.cpp
+    ../core/diagnostics/DiagnosticPaths.cpp
+    ../core/filesystem_path_utils.cpp)
+
+foreach(worker_backend normal compatibility)
+    set(test_target fixture_symbol_processing_worker_${worker_backend}_test)
+    add_executable(${test_target} ${FIXTURE_SYMBOL_PROCESSING_WORKER_TEST_SOURCES})
+    target_include_directories(${test_target} PRIVATE ../core ../gui)
+    if(worker_backend STREQUAL "compatibility")
+        target_compile_definitions(${test_target} PRIVATE
+            PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=1)
+    endif()
+    add_test(NAME FixtureSymbolProcessingWorker.${worker_backend}
+             COMMAND ${test_target})
+endforeach()
+
 add_executable(fixture_symbol_svg_cache_test
                fixture_symbol_svg_cache_test.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp

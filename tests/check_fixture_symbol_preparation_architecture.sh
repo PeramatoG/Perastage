@@ -6,6 +6,7 @@ service="$root/gui/services/fixture_symbol_preparation_service.cpp"
 renderer="$root/viewer3d/render/opaque_fixture_pass.cpp"
 worker="$root/gui/services/fixture_symbol_processing_worker.cpp"
 worker_header="$root/gui/services/fixture_symbol_processing_worker.h"
+macos15_workflow="$root/.github/workflows/macos-15-manual-installer.yml"
 capture="$root/gui/tools/scene_model_symbol_capture_service.cpp"
 
 if rg -n 'wxProgressDialog|wxWindowDisabler|wxMessageBox|wxYield|detach\(' "$service"; then
@@ -24,8 +25,11 @@ if rg -n '#include .*wx|ConfigManager::|MainWindow::|Viewer2D|Viewer3D|gl[A-Z]' 
   echo "Fixture symbol processing workers must operate only on copied plain data." >&2
   exit 1
 fi
-if rg -n 'std::jthread|std::stop_token' "$worker" "$worker_header"; then
-  echo "Fixture symbol processing must remain compatible with the macOS 15 Xcode standard library." >&2
+rg -q 'std::jthread' "$worker_header"
+rg -q 'std::stop_token' "$worker" "$worker_header"
+rg -q 'PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=ON' "$macos15_workflow"
+if rg -n '#if.*__APPLE__|#ifdef[[:space:]]+__APPLE__' "$worker" "$worker_header"; then
+  echo "The fixture symbol fallback must not be selected for every macOS build." >&2
   exit 1
 fi
 if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$root/gui"; then
