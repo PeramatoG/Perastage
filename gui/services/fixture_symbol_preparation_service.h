@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,6 +13,7 @@
 #include "symbols/Symbol2D.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/fixture_symbol_preparation_coordinator.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 #include "services/fixture_symbol_processing_worker.h"
 #include "tools/fixture_geometry_bounds.h"
 
@@ -41,6 +43,7 @@ private:
     std::string fixtureUuid;
     std::string displayLabel;
     std::string sourceFingerprint;
+    symbol_cache::GdtfFileRevision sourceRevision;
     std::vector<symbols::RenderedSymbolImage> renders;
     std::vector<symbols::Symbol2D> processedSymbols;
     tools::FixtureGeometryBounds bounds;
@@ -76,6 +79,10 @@ private:
   std::uint64_t epoch_ = 0;
   bool stepScheduled_ = false;
   std::optional<symbols::FixtureSymbolPreparationKey> currentKey_;
+  std::deque<std::string> scanFixtureUuids_;
+  std::unordered_set<symbols::FixtureSymbolPreparationKey,
+                     symbols::FixtureSymbolPreparationKeyHash>
+      scanKeys_;
 };
 
 } // namespace gui

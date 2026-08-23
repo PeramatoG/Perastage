@@ -64,6 +64,87 @@ int main() {
   assert(loadConfigCalled);
   assert(loadSceneCalled);
 
+  auto memoryMetrics = std::make_shared<startup::Metrics>();
+  ProjectSession memorySession;
+  memorySession.SetStartupMetrics(memoryMetrics);
+  bool receivedMemoryConfig = false;
+  bool receivedMemoryScene = false;
+  assert(memorySession.LoadProject(
+      projectPath.string(),
+      [&](const ProjectSession::ProjectConfigPayload &payload) {
+        receivedMemoryConfig = payload.logicalName == "config.json" &&
+                               !payload.bytes.empty();
+        return receivedMemoryConfig;
+      },
+      [&](const ProjectSession::ProjectScenePayload &payload) {
+        receivedMemoryScene = payload.IsMemoryBacked() &&
+                              payload.bytes ==
+                                  std::vector<std::uint8_t>({'P', 'K', 'S', 'C',
+                                                             'E', 'N', 'E'});
+        return receivedMemoryScene;
+      }));
+  assert(receivedMemoryConfig);
+  assert(receivedMemoryScene);
+  assert(memoryMetrics->sceneMvrMemoryRestores == 1);
+  assert(memoryMetrics->sceneMvrTempFallbacks == 0);
+  assert(memoryMetrics->configMemoryLoads == 1);
+
+  auto fallbackMetrics = std::make_shared<startup::Metrics>();
+  ProjectSession fallbackSession;
+  fallbackSession.SetStartupMetrics(fallbackMetrics);
+  assert(fallbackSession.LoadProject(
+      projectPath.string(),
+      [](const ProjectSession::ProjectConfigPayload &) { return true; },
+      [](const ProjectSession::ProjectScenePayload &payload) {
+        std::ifstream in(payload.spillPath, std::ios::binary);
+        std::string bytes((std::istreambuf_iterator<char>(in)),
+                          std::istreambuf_iterator<char>());
+        return !payload.IsMemoryBacked() && bytes == "PKSCENE";
+      },
+      {}, 2));
+  assert(fallbackMetrics->sceneMvrTempFallbacks == 1);
+  assert(fallbackMetrics->sceneMvrTempBytesWritten == 7);
+  assert(memorySession.GetLoadedCacheValidationContext()
+             .scenePackageFingerprint ==
+         fallbackSession.GetLoadedCacheValidationContext()
+             .scenePackageFingerprint);
+  assert(memorySession.GetLoadedCacheValidationContext()
+             .scenePackageFingerprint ==
+         project_cache::FingerprintBytes("PKSCENE", 7));
+
+  const fs::path fingerprintProjectPath =
+      tempDir / "fingerprint_payload.pera";
+  const std::vector<std::uint8_t> layoutImageBytes = {1, 2, 3, 4};
+  assert(saveSession.SaveProject(
+      fingerprintProjectPath.string(),
+      [](std::vector<std::uint8_t> &out) {
+        out = {'{', '}'};
+        return true;
+      },
+      [](std::vector<std::uint8_t> &out) {
+        out = {'P', 'K', 'S'};
+        return true;
+      },
+      ProjectSession::CollectArchiveResourcesFn([&layoutImageBytes] {
+        return std::vector<ProjectSession::ArchiveResource>{{
+            "resources/layout_images/example.rgba", layoutImageBytes}};
+      })));
+  ProjectSession fingerprintLoadSession;
+  assert(fingerprintLoadSession.LoadProject(
+      fingerprintProjectPath.string(),
+      [](const ProjectSession::ProjectConfigPayload &) { return true; },
+      [](const ProjectSession::ProjectScenePayload &) { return true; }));
+  const auto &fingerprintContext =
+      fingerprintLoadSession.GetLoadedCacheValidationContext();
+  assert(fingerprintContext.HasCompletePackageCoverage());
+  assert(fingerprintContext.scenePackageFingerprint ==
+         project_cache::FingerprintBytes("PKS", 3));
+  assert(fingerprintContext.packagedLayoutResourceFingerprint ==
+         project_cache::AggregateNamedPayloadFingerprints({
+             {"resources/layout_images/example.rgba",
+              project_cache::FingerprintBytes(layoutImageBytes.data(),
+                                              layoutImageBytes.size())}}));
+
   const fs::path cacheProjectPath = tempDir / "cache_payload.pera";
   const std::vector<std::uint8_t> cacheJson = {'{', '}'};
   const bool cacheSaveOk = saveSession.SaveProject(

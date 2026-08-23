@@ -13,6 +13,7 @@
 
 namespace startup { struct Metrics; }
 #include "mvrscene.h"
+#include "project_cache_validation.h"
 
 inline constexpr const char *DEFAULT_LAYER_NAME = "No Layer";
 
@@ -34,6 +35,7 @@ public:
   void ClearValues();
 
   bool LoadFromFile(const std::string &path);
+  bool LoadFromBuffer(const std::vector<std::uint8_t> &bytes);
   bool SaveToFile(const std::string &path) const;
   bool SaveToStream(std::ostream &out) const;
   static std::string GetUserConfigFile();
@@ -156,6 +158,23 @@ public:
   using SaveSceneToBufferFn = std::function<bool(std::vector<uint8_t> &out)>;
   using LoadConfigFn = std::function<bool(const std::string &path)>;
   using LoadSceneFn = std::function<bool(const std::string &path)>;
+  struct ProjectConfigPayload {
+    std::vector<std::uint8_t> bytes;
+    std::string logicalName;
+    std::string resourceRoot;
+  };
+  struct ProjectScenePayload {
+    std::vector<std::uint8_t> bytes;
+    std::string spillPath;
+    std::string logicalName;
+
+    // Reports whether this payload owns bytes instead of a temporary spill file.
+    bool IsMemoryBacked() const { return spillPath.empty(); }
+  };
+  using LoadConfigPayloadFn =
+      std::function<bool(const ProjectConfigPayload &payload)>;
+  using LoadScenePayloadFn =
+      std::function<bool(const ProjectScenePayload &payload)>;
   struct ArchiveResource {
     std::string entryName;
     std::vector<std::uint8_t> bytes;
@@ -190,7 +209,14 @@ public:
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});
+  bool LoadProject(const std::string &path,
+                   const LoadConfigPayloadFn &loadConfig,
+                   const LoadScenePayloadFn &loadScene,
+                   const LoadProgressFn &progress = {},
+                   size_t sceneMemoryLimitBytes = 128 * 1024 * 1024);
   const std::vector<ArchiveResource> &GetLoadedArchiveResources() const;
+  const project_cache::ValidationContext &GetLoadedCacheValidationContext()
+      const;
   void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
   bool IsDirty() const;
@@ -208,6 +234,7 @@ private:
   MvrScene scene;
   std::string extractedResourceDirectory;
   std::vector<ArchiveResource> loadedArchiveResources;
+  project_cache::ValidationContext loadedCacheValidationContext;
   std::shared_ptr<startup::Metrics> startupMetrics;
   size_t revision = 0;
   size_t savedRevision = 0;

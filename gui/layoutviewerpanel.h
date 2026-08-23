@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstdint>
+#include <chrono>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -58,9 +60,11 @@ public:
   void RefreshAfterFixtureSymbolUpdate();
   void RefreshEditedViewById(int viewId);
   std::vector<ProjectSession::ArchiveResource>
-  CollectPersistentViewCacheResources() const;
+  CollectPersistentViewCacheResources(
+      const project_cache::ValidationContext &validationContext) const;
   void LoadPersistentViewCache(
-      const std::vector<ProjectSession::ArchiveResource> &resources);
+      const std::vector<ProjectSession::ArchiveResource> &resources,
+      const project_cache::ValidationContext &validationContext);
   void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
 private:
@@ -70,6 +74,7 @@ private:
     int count = 0;
     std::optional<int> channelCount;
     std::string symbolKey;
+    std::string persistentSymbolIdentity;
     std::string gdtfPath;
     std::optional<std::string> symbolFillHex;
     bool showBottomSymbol = true;
@@ -108,6 +113,24 @@ private:
     std::string lastLoggedFailureMessage;
   };
 
+  struct PersistentRasterSnapshot {
+    std::vector<unsigned char> rgba;
+    wxSize size{0, 0};
+    double renderZoom = 0.0;
+    size_t contentHash = 0;
+
+    // Reports whether this snapshot owns a complete RGBA image.
+    bool IsValid() const {
+      if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0 ||
+          contentHash == 0)
+        return false;
+      const size_t width = static_cast<size_t>(size.GetWidth());
+      const size_t height = static_cast<size_t>(size.GetHeight());
+      return height <= std::numeric_limits<size_t>::max() / width / 4 &&
+             rgba.size() == width * height * 4;
+    }
+  };
+
   struct LegendCache {
     unsigned int texture = 0;
     unsigned int pixelUnpackPbo = 0;
@@ -117,6 +140,7 @@ private:
     bool renderDirty = true;
     size_t contentHash = 0;
     std::shared_ptr<const SymbolDefinitionSnapshot> symbols;
+    PersistentRasterSnapshot persistentRaster;
   };
 
   struct EventTableCache {
@@ -270,11 +294,18 @@ private:
   EventTableCache &GetEventTableCache(int tableId);
   TextCache &GetTextCache(int textId);
   ImageCache &GetImageCache(int imageId);
-  std::vector<LegendItem> BuildLegendItems() const;
-  size_t HashLegendItems(const std::vector<LegendItem> &items) const;
+  std::vector<LegendItem> BuildLegendItems(
+      const layouts::LayoutLegendDefinition *legend = nullptr) const;
+  size_t HashLegendItems(
+      const std::vector<LegendItem> &items,
+      const layouts::LayoutLegendDefinition *legend = nullptr) const;
+  size_t ComputeLegendContentHash(
+      const layouts::LayoutLegendDefinition &legend) const;
+  void EnsureLegendDataCurrentForCacheValidation();
   wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
                            double renderZoom,
                            const std::vector<LegendItem> &items,
+                           const layouts::LayoutLegendDefinition &legend,
                            const SymbolDefinitionSnapshot *symbols) const;
   size_t HashEventTableFields(
       const layouts::LayoutEventTableDefinition &table) const;
@@ -374,7 +405,10 @@ private:
   std::string pendingPersistentViewCacheJson_;
   std::unordered_map<std::string, std::vector<unsigned char>>
       pendingPersistentViewCacheRasters_;
+  project_cache::ValidationContext pendingCacheValidationContext_;
   std::shared_ptr<startup::Metrics> startupMetrics_;
+  std::optional<std::chrono::steady_clock::time_point> renderQueuedAt_;
+  bool initialRenderScheduled_ = false;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;

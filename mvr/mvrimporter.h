@@ -18,9 +18,12 @@
 #pragma once
 
 #include <functional>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+class wxInputStream;
 
 #include "mvrscene.h"
 
@@ -76,6 +79,13 @@ public:
                         bool applyDictionary = true,
                         ProgressCallback progressCallback = {});
 
+    // Imports owned MVR archive bytes through the authoritative extraction path.
+    bool ImportFromBuffer(const std::vector<std::uint8_t>& bytes,
+                          MvrImportResult& importResult,
+                          MvrImportMode mode,
+                          const MvrImportOptions& options,
+                          ProgressCallback progressCallback = {});
+
     // Imports and parses a .mvr file into an import result using the requested import mode.
     bool ImportFromFile(const std::string& filePath,
                         MvrImportResult& importResult,
@@ -117,6 +127,12 @@ public:
                                   const MvrImportOptions& options,
                                   ProgressCallback progressCallback = {});
 
+    // Imports and registers owned MVR archive bytes for project restore.
+    static bool ImportAndRegisterFromBuffer(
+        const std::vector<std::uint8_t>& bytes,
+        const MvrImportOptions& options,
+        ProgressCallback progressCallback = {});
+
 private:
     std::unordered_map<std::string, std::string> pathRemap;
     std::unordered_map<std::string, std::string> fixtureUuidRemap;
@@ -126,6 +142,14 @@ private:
     // Extracts the .mvr (ZIP) contents into the given destination directory
     bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir,
                        std::vector<MvrImportDiagnostic>& diagnostics);
+    bool ExtractMvrZip(wxInputStream& input, const std::string& destDir,
+                       std::vector<MvrImportDiagnostic>& diagnostics);
+
+    bool ImportFromStreamIntoResult(wxInputStream& input,
+                                    MvrImportResult& importResult,
+                                    MvrImportMode mode,
+                                    const MvrImportOptions& options,
+                                    ProgressCallback progressCallback);
 
     // Extracts and parses a .mvr file into an import result payload.
     bool ImportFromFileIntoResult(const std::string& filePath,

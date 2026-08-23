@@ -500,6 +500,15 @@ bool ConfigManager::LoadFromFile(const std::string &path) {
   return true;
 }
 
+// Loads project configuration directly from an owned in-memory payload.
+bool ConfigManager::LoadFromBuffer(const std::vector<std::uint8_t> &bytes) {
+  RevisionGuard guard(*this);
+  if (!preferencesStore.LoadFromBuffer(bytes))
+    return false;
+  layouts::LayoutManager::Get().LoadFromConfig(*this);
+  return true;
+}
+
 bool ConfigManager::SaveToFile(const std::string &path) const {
   return preferencesStore.SaveToFile(path);
 }
@@ -571,15 +580,30 @@ bool ConfigManager::SaveProject(const std::string &path) {
           const std::vector<std::uint8_t> &sceneBytes,
           std::vector<ProjectSession::ArchiveResource> &resources,
           std::string &errorMessage) {
-        (void)sceneBytes;
         (void)errorMessage;
+        project_cache::ValidationContext validationContext;
+        validationContext.scenePackageFingerprint =
+            project_cache::FingerprintBytes(sceneBytes.data(),
+                                            sceneBytes.size());
+        validationContext.scenePackageCovered = true;
+        std::vector<project_cache::NamedPayloadFingerprint>
+            layoutResourceFingerprints;
         for (const auto &entry :
              layouts::LayoutImageResourceRegistry::Get().UsedResources()) {
           resources.push_back({entry.archivePath, entry.bytes});
+          layoutResourceFingerprints.push_back(
+              {std::filesystem::path(entry.archivePath).generic_string(),
+               project_cache::FingerprintBytes(entry.bytes.data(),
+                                               entry.bytes.size())});
         }
+        validationContext.packagedLayoutResourceFingerprint =
+            project_cache::AggregateNamedPayloadFingerprints(
+                std::move(layoutResourceFingerprints));
+        validationContext.packagedLayoutResourcesCovered = true;
         if (projectArchiveResourceProvider) {
           try {
-            auto providedResources = projectArchiveResourceProvider();
+            auto providedResources =
+                projectArchiveResourceProvider(validationContext);
             resources.insert(resources.end(),
                              std::make_move_iterator(providedResources.begin()),
                              std::make_move_iterator(providedResources.end()));
@@ -627,22 +651,31 @@ bool ConfigManager::LoadProject(const std::string &path,
   };
 
   bool ok = projectSession.LoadProject(
-      path, [this](const std::string &configPath) {
-        const bool loaded = LoadFromFile(configPath);
+      path, [this](const ProjectSession::ProjectConfigPayload &config) {
+        const bool loaded = LoadFromBuffer(config.bytes);
         if (!loaded) {
           std::cerr << "ConfigManager::LoadProject failed to load config.json from project package." << std::endl;
         }
         return loaded;
       },
-      [progressCallback](const std::string &scenePath) {
+      [progressCallback](const ProjectSession::ProjectScenePayload &scene) {
         MvrImportOptions options;
         options.promptConflicts = false;
         options.applyDictionary = false;
         options.preserveMvrGdtfReferences = true;
         options.allowDummyFallback = false;
         options.sourceKind = MvrImportSourceKind::ProjectRestore;
-        const bool imported = MvrImporter::ImportAndRegister(
-            scenePath, options,
+        const bool imported = scene.IsMemoryBacked()
+            ? MvrImporter::ImportAndRegisterFromBuffer(
+                  scene.bytes, options,
+                  [progressCallback](const MvrImporter::ProgressState &state) {
+                    if (!progressCallback)
+                      return;
+                    progressCallback("Scene import: " + state.stage,
+                                     state.completed, state.total);
+                  })
+            : MvrImporter::ImportAndRegister(
+                  scene.spillPath, options,
             [progressCallback](const MvrImporter::ProgressState &state) {
               if (!progressCallback)
                 return;
@@ -691,6 +724,12 @@ bool ConfigManager::LoadProject(const std::string &path,
 const std::vector<ProjectSession::ArchiveResource> &
 ConfigManager::GetLoadedProjectArchiveResources() const {
   return projectSession.GetLoadedArchiveResources();
+}
+
+// Returns package validation fingerprints captured with the loaded resources.
+const project_cache::ValidationContext &
+ConfigManager::GetLoadedProjectCacheValidationContext() const {
+  return projectSession.GetLoadedCacheValidationContext();
 }
 
 // Attaches startup instrumentation to the owned project session.

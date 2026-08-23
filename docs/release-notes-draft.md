@@ -4,6 +4,28 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Project reopening is faster for typical projects by loading packaged scene
+  and configuration data directly, while retaining a safe large-project
+  fallback and all existing MVR resource compatibility.
+- Deferred fixture-symbol preparation now reuses unchanged GDTF inspection
+  results instead of repeatedly scanning the same profile.
+
+- Saved Layouts now retain bounded 2D-view and legend previews even when their
+  vector replay data is too large to cache, reducing repeated rendering work
+  when reopening unchanged projects.
+
+- Warm Layout previews now validate against the exact scene and packaged image
+  data stored in the project, avoiding false cache invalidation after normal
+  MVR identity normalization.
+
+- Warm Layout startup now restores legends across temporary extraction
+  workspaces, avoids creating offscreen 2D rendering infrastructure when cached
+  previews are sufficient, and gives active Layout rendering priority over
+  deferred fixture-symbol inspection.
+- Persistent Legend previews are now validated only after their current
+  semantic content is prepared, so an unchanged saved Layout restores its
+  Legend immediately instead of rebuilding symbols after every reopen.
+
 - Fixture profiles that contain neither stored symbols nor usable GDTF
   geometry now use Perastage's deterministic runtime fallback directly. This
   avoids repeated symbol preparation delays when opening projects while
@@ -408,6 +430,15 @@ Changes since **v1.5.0**.
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
 ## Fixes
+
+- Fixed Windows compilation of Layout startup profiling and lazy offscreen
+  rendering by making their implementation dependencies explicit.
+
+- Incremental builds now refresh the source revision shown in diagnostics when
+  the active Git commit changes.
+
+- Restored successful Windows Debug linking for project, dictionary, and rider
+  test executables that use lightweight MVR test implementations.
 
 - Corrected automatic GDTF Share selection during MVR import so official mode
   and footprint metadata, fixture-type identity, manufacturer, and model-number

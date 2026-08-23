@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -55,6 +56,17 @@ constexpr size_t kMaxPersistentCommandCount = 75000;
 constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
+
+// Returns the platform-scoped raster rendering contract.
+std::string PersistentRasterEnvironmentContract() {
+#if defined(_WIN32)
+  return "windows-wx-3-v1";
+#elif defined(__APPLE__)
+  return "macos-wx-3-v1";
+#else
+  return "linux-wx-3-v1";
+#endif
+}
 
 // Combines a byte into a deterministic FNV-1a hash accumulator.
 void HashByte(std::uint64_t &hash, unsigned char value) {
@@ -103,6 +115,12 @@ bool HashFileContent(const fs::path &root, const fs::path &filePath,
 std::string RasterEntryNameForView(int viewId) {
   return std::string(kLayoutViewCacheRasterEntryPrefix) + "view_" +
          std::to_string(viewId) + ".rgba";
+}
+
+// Builds the archive entry name for a persisted legend raster.
+std::string RasterEntryNameForLegend(int legendId) {
+  return std::string(kLayoutViewCacheRasterEntryPrefix) + "legend_" +
+         std::to_string(legendId) + ".rgba";
 }
 
 // Resolves a scene asset reference against the extracted MVR source root.
@@ -732,9 +750,12 @@ bool HasSymbolReferences(const CommandBuffer &buffer) {
 }
 
 // Counts commands in the main buffer and every referenced symbol definition.
-size_t CountPersistentCommands(const CommandBuffer &buffer,
-                               const SymbolDefinitionSnapshot *symbols) {
-  size_t count = buffer.commands.size();
+size_t CountPersistentCommandsUpToLimit(
+    const CommandBuffer &buffer, const SymbolDefinitionSnapshot *symbols,
+    size_t limit) {
+  size_t count = std::min(buffer.commands.size(), limit + 1);
+  if (count > limit)
+    return count;
   if (!symbols)
     return count;
   std::unordered_set<uint32_t> symbolIds;
@@ -742,8 +763,13 @@ size_t CountPersistentCommands(const CommandBuffer &buffer,
   ExpandReferencedSymbolIds(*symbols, symbolIds);
   for (uint32_t symbolId : symbolIds) {
     const auto it = symbols->find(symbolId);
-    if (it != symbols->end())
-      count += it->second.localCommands.commands.size();
+    if (it != symbols->end()) {
+      const size_t remaining = limit - count;
+      const size_t localCount = it->second.localCommands.commands.size();
+      if (localCount > remaining)
+        return limit + 1;
+      count += localCount;
+    }
   }
   return count;
 }
@@ -863,14 +889,16 @@ bool RenderCommandBufferCacheToRgba(const wxSize &renderSize,
 
 // Collects cache data for every reusable 2D view in the active layout.
 std::vector<ProjectSession::ArchiveResource>
-LayoutViewerPanel::CollectPersistentViewCacheResources() const {
-  if (currentLayout.name.empty() || currentLayout.view2dViews.empty())
+LayoutViewerPanel::CollectPersistentViewCacheResources(
+    const project_cache::ValidationContext &validationContext) const {
+  if (currentLayout.name.empty())
     return {};
 
   size_t commandCount = 0;
   size_t rasterBytes = 0;
   std::vector<ProjectSession::ArchiveResource> resources;
   nlohmann::json views = nlohmann::json::array();
+  nlohmann::json legends = nlohmann::json::array();
   auto hasRasterSnapshot = [](const ViewCache &cache) {
     const size_t width =
         static_cast<size_t>(cache.persistentRgbaSize.GetWidth());
@@ -885,42 +913,57 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
     if (cacheIt == viewCaches_.end())
       continue;
     const ViewCache &cache = cacheIt->second;
-    if (!cache.hasCapture || !cache.hasRenderState ||
-        !cache.hasCaptureContentHash || cache.buffer.commands.empty())
-      continue;
-
-    const auto cacheSymbols =
-        FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
-    if (HasSymbolReferences(cache.buffer) && !cacheSymbols) {
-      Logger::Instance().Log(Logger::Level::Info,
-                             "Skipping one persistent layout view cache entry "
-                             "because symbol snapshots are unavailable.");
-      continue;
-    }
-    commandCount += CountPersistentCommands(cache.buffer, cacheSymbols.get());
-    if (commandCount > kMaxPersistentCommandCount) {
-      Logger::Instance().Log(
-          Logger::Level::Info,
-          "Skipping persistent layout view cache because command_count=" +
-              std::to_string(commandCount) +
-              " exceeds limit=" + std::to_string(kMaxPersistentCommandCount));
-      return {};
-    }
-
-    nlohmann::json viewDocument = {
-        {"viewId", view.id},
-         {"viewHash", StableJsonHash(ViewDefinitionToHashJson(view))},
-         {"legacyCaptureContentHash", std::to_string(cache.captureContentHash)},
-         {"captureVersion", cache.captureVersion},
-         {"commandBuffer", CommandBufferToJson(cache.buffer)},
-         {"viewState", ViewStateToJson(cache.viewState)},
-         {"renderState", RenderStateToJson(cache.renderState)},
-         {"symbols", SymbolSnapshotToJson(cacheSymbols)}};
-    if (hasRasterSnapshot(cache) &&
+    const bool rasterValid =
+        hasRasterSnapshot(cache) &&
         cache.persistentRgbaContentHash == HashViewContent(view) &&
         cache.persistentRgba.size() <= kMaxPersistentRasterEntryBytes &&
         rasterBytes + cache.persistentRgba.size() <=
-            kMaxPersistentRasterBytes) {
+            kMaxPersistentRasterBytes;
+    if (!rasterValid && (!cache.hasCapture || !cache.hasRenderState ||
+                         !cache.hasCaptureContentHash ||
+                         cache.buffer.commands.empty()))
+      continue;
+
+    nlohmann::json viewDocument = {
+        {"viewId", view.id},
+        {"viewHash", StableJsonHash(ViewDefinitionToHashJson(view))}};
+    bool includeReplay = cache.hasCapture && cache.hasRenderState &&
+                         cache.hasCaptureContentHash &&
+                         !cache.buffer.commands.empty();
+    std::shared_ptr<const SymbolDefinitionSnapshot> cacheSymbols;
+    if (includeReplay &&
+        cache.buffer.commands.size() <= kMaxPersistentCommandCount) {
+      cacheSymbols = FilterSymbolSnapshotForBuffer(cache.buffer, cache.symbols);
+      if (HasSymbolReferences(cache.buffer) && !cacheSymbols)
+        includeReplay = false;
+    }
+    const size_t remainingCommandBudget =
+        commandCount >= kMaxPersistentCommandCount
+            ? 0
+            : kMaxPersistentCommandCount - commandCount;
+    const size_t replayCommands =
+        includeReplay
+            ? CountPersistentCommandsUpToLimit(
+                  cache.buffer, cacheSymbols.get(), remainingCommandBudget)
+            : remainingCommandBudget + 1;
+    if (includeReplay && replayCommands <= remainingCommandBudget) {
+      commandCount += replayCommands;
+      viewDocument["legacyCaptureContentHash"] =
+          std::to_string(cache.captureContentHash);
+      viewDocument["captureVersion"] = cache.captureVersion;
+      viewDocument["commandBuffer"] = CommandBufferToJson(cache.buffer);
+      viewDocument["viewState"] = ViewStateToJson(cache.viewState);
+      viewDocument["renderState"] = RenderStateToJson(cache.renderState);
+      viewDocument["symbols"] = SymbolSnapshotToJson(cacheSymbols);
+    } else if (!cache.buffer.commands.empty()) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Omitting persistent layout command replay because command_count>" +
+              std::to_string(kMaxPersistentCommandCount) +
+              "; bounded raster persistence remains enabled.");
+    }
+
+    if (rasterValid) {
       const std::string rasterEntryName = RasterEntryNameForView(view.id);
       viewDocument["raster"] = {
           {"entry", rasterEntryName},
@@ -931,22 +974,48 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
       resources.push_back({rasterEntryName, cache.persistentRgba});
       rasterBytes += cache.persistentRgba.size();
     }
-    views.push_back(std::move(viewDocument));
+    if (rasterValid || viewDocument.contains("commandBuffer"))
+      views.push_back(std::move(viewDocument));
   }
-  if (views.empty()) {
+  for (const auto &legend : currentLayout.legendViews) {
+    const auto cacheIt = legendCaches_.find(legend.id);
+    if (cacheIt == legendCaches_.end())
+      continue;
+    const PersistentRasterSnapshot &snapshot =
+        cacheIt->second.persistentRaster;
+    const size_t legendContentHash = ComputeLegendContentHash(legend);
+    if (!snapshot.IsValid() || snapshot.contentHash != legendContentHash ||
+        snapshot.rgba.size() > kMaxPersistentRasterEntryBytes ||
+        rasterBytes + snapshot.rgba.size() > kMaxPersistentRasterBytes)
+      continue;
+    const std::string entryName = RasterEntryNameForLegend(legend.id);
+    legends.push_back({{"legendId", legend.id},
+                       {"entry", entryName},
+                       {"width", snapshot.size.GetWidth()},
+                       {"height", snapshot.size.GetHeight()},
+                       {"renderZoom", snapshot.renderZoom},
+                       {"contentHash", std::to_string(snapshot.contentHash)}});
+    resources.push_back({entryName, snapshot.rgba});
+    rasterBytes += snapshot.rgba.size();
+  }
+  if (views.empty() && legends.empty()) {
     Logger::Instance().Log(Logger::Level::Info,
                            "Skipping persistent layout view cache because no "
                            "2D view cache entries are ready to save.");
     return {};
   }
 
-  const MvrScene &scene =
-      GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-  const auto sourceAssetHash = ComputeSourceAssetHash(scene);
-  if (!sourceAssetHash) {
+  const bool hasExternalLayoutImage =
+      std::any_of(currentLayout.imageViews.begin(), currentLayout.imageViews.end(),
+                  [](const auto &image) {
+                    return !image.imagePath.empty() &&
+                           image.projectResourcePath.empty();
+                  });
+  if (!validationContext.HasCompletePackageCoverage() ||
+      hasExternalLayoutImage) {
     Logger::Instance().Log(Logger::Level::Info,
                            "Skipping persistent layout view cache because "
-                           "source assets could not be hashed.");
+                           "package dependency coverage is incomplete.");
     return {};
   }
 
@@ -955,9 +1024,14 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   document["symbolGenerationVersion"] =
       symbol_cache::kCurrentPerastageSymbolFormatVersion;
   document["layoutName"] = currentLayout.name;
-  document["sceneHash"] = StableJsonHash(SceneToHashJson(scene));
-  document["sourceAssetHash"] = *sourceAssetHash;
+  document["scenePackageFingerprint"] =
+      validationContext.scenePackageFingerprint;
+  document["packagedLayoutResourceFingerprint"] =
+      validationContext.packagedLayoutResourceFingerprint;
+  document["dependencyCoverage"] = "packaged";
+  document["rasterEnvironment"] = PersistentRasterEnvironmentContract();
   document["views"] = views;
+  document["legends"] = legends;
 
   const std::string serialized = document.dump();
   if (serialized.size() > kMaxPersistentCacheBytes) {
@@ -981,9 +1055,11 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
 
 // Accepts persisted layout-cache entries captured by the primary project archive traversal.
 void LayoutViewerPanel::LoadPersistentViewCache(
-    const std::vector<ProjectSession::ArchiveResource> &resources) {
+    const std::vector<ProjectSession::ArchiveResource> &resources,
+    const project_cache::ValidationContext &validationContext) {
   pendingPersistentViewCacheJson_.clear();
   pendingPersistentViewCacheRasters_.clear();
+  pendingCacheValidationContext_ = validationContext;
   size_t rasterBytes = 0;
   for (const auto &resource : resources) {
     if (resource.entryName == kLayoutViewCacheArchiveEntry &&
@@ -1011,41 +1087,108 @@ void LayoutViewerPanel::SetStartupMetrics(
 void LayoutViewerPanel::HydratePendingPersistentViewCache() {
   if (pendingPersistentViewCacheJson_.empty() || currentLayout.name.empty())
     return;
-  if (startupMetrics_)
-    ++startupMetrics_->cacheDeepValidations;
+  EnsureLegendDataCurrentForCacheValidation();
+  if (!currentLayout.legendViews.empty() && legendDataDirty_) {
+    Logger::Instance().Log(
+        Logger::Level::Info,
+        "Deferring layout cache hydration reason=legend_semantics_not_ready.");
+    return;
+  }
+  const auto validationStartedAt = std::chrono::steady_clock::now();
   try {
     const nlohmann::json document =
         nlohmann::json::parse(pendingPersistentViewCacheJson_);
-    if (document.value("schemaVersion", 0) != kLayoutViewCacheSchemaVersion ||
+    const int schemaVersion = document.value("schemaVersion", 0);
+    if (schemaVersion != kLayoutViewCacheSchemaVersion ||
         document.value("symbolGenerationVersion", 0) !=
-            symbol_cache::kCurrentPerastageSymbolFormatVersion ||
-        document.value("layoutName", std::string{}) != currentLayout.name) {
+            symbol_cache::kCurrentPerastageSymbolFormatVersion) {
+      Logger::Instance().Log(Logger::Level::Info,
+                             "Ignoring layout view cache reason=schema_or_symbol_version_mismatch.");
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+    if (document.value("layoutName", std::string{}) != currentLayout.name) {
+      Logger::Instance().Log(Logger::Level::Info,
+                             "Ignoring layout view cache reason=layout_mismatch.");
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+    if (schemaVersion == kLayoutViewCacheSchemaVersion &&
+        document.value("rasterEnvironment", std::string{}) !=
+            PersistentRasterEnvironmentContract()) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache reason=raster_environment_mismatch.");
       pendingPersistentViewCacheJson_.clear();
       pendingPersistentViewCacheRasters_.clear();
       return;
     }
 
-    const MvrScene &scene =
-        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-    const auto sourceAssetHash = ComputeSourceAssetHash(scene);
-    if (!sourceAssetHash) {
-      Logger::Instance().Log(Logger::Level::Info,
-                             "Ignoring layout view cache because source assets "
-                             "could not be hashed.");
-      pendingPersistentViewCacheJson_.clear();
-      pendingPersistentViewCacheRasters_.clear();
-      return;
+    const auto fastStartedAt = std::chrono::steady_clock::now();
+    const bool hasFastContract =
+        schemaVersion == kLayoutViewCacheSchemaVersion &&
+        document.value("dependencyCoverage", std::string{}) == "packaged" &&
+        pendingCacheValidationContext_.HasCompletePackageCoverage() &&
+        std::none_of(currentLayout.imageViews.begin(),
+                     currentLayout.imageViews.end(), [](const auto &image) {
+                       return !image.imagePath.empty() &&
+                              image.projectResourcePath.empty();
+                     });
+    if (startupMetrics_ && hasFastContract)
+      ++startupMetrics_->layoutCacheFastValidationAttempts;
+    if (hasFastContract) {
+      const bool sceneMatches =
+          document.value("scenePackageFingerprint", std::string{}) ==
+          pendingCacheValidationContext_.scenePackageFingerprint;
+      const bool layoutResourcesMatch =
+          document.value("packagedLayoutResourceFingerprint", std::string{}) ==
+          pendingCacheValidationContext_.packagedLayoutResourceFingerprint;
+      if (!sceneMatches || !layoutResourcesMatch) {
+        if (startupMetrics_)
+          ++startupMetrics_->layoutCacheFastValidationRejects;
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            std::string("Ignoring layout view cache reason=") +
+                (!sceneMatches
+                     ? "scene_package_fingerprint_mismatch."
+                     : "packaged_layout_resource_fingerprint_mismatch."));
+        pendingPersistentViewCacheJson_.clear();
+        pendingPersistentViewCacheRasters_.clear();
+        return;
+      }
+      if (startupMetrics_)
+        ++startupMetrics_->layoutCacheFastValidationHits;
+    } else {
+      if (startupMetrics_) {
+        ++startupMetrics_->layoutCacheDeepValidationFallbacks;
+        ++startupMetrics_->cacheDeepValidations;
+      }
+      const auto deepStartedAt = std::chrono::steady_clock::now();
+      const MvrScene &scene =
+          GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+      const auto sourceAssetHash = ComputeSourceAssetHash(scene);
+      const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
+      if (startupMetrics_)
+        startupMetrics_->layoutCacheDeepValidationMs +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - deepStartedAt).count();
+      if (!sourceAssetHash ||
+          document.value("sceneHash", std::string{}) != sceneHash ||
+          document.value("sourceAssetHash", std::string{}) != *sourceAssetHash) {
+        Logger::Instance().Log(
+            Logger::Level::Info,
+            "Ignoring layout view cache reason=legacy_deep_validation_failed.");
+        pendingPersistentViewCacheJson_.clear();
+        pendingPersistentViewCacheRasters_.clear();
+        return;
+      }
     }
-    const std::string sceneHash = StableJsonHash(SceneToHashJson(scene));
-    if (document.value("sceneHash", std::string{}) != sceneHash ||
-        document.value("sourceAssetHash", std::string{}) != *sourceAssetHash) {
-      Logger::Instance().Log(Logger::Level::Info,
-                             "Ignoring layout view cache because source assets "
-                             "or scene data changed.");
-      pendingPersistentViewCacheJson_.clear();
-      pendingPersistentViewCacheRasters_.clear();
-      return;
-    }
+    if (startupMetrics_)
+      startupMetrics_->layoutCacheFastValidationMs +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - fastStartedAt).count();
 
     const auto cachedViews = document.value("views", nlohmann::json::array());
     if (!cachedViews.is_array()) {
@@ -1055,6 +1198,7 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
     }
 
     int hydratedCount = 0;
+    int hydratedLegendCount = 0;
     for (const auto &cachedView : cachedViews) {
       if (!cachedView.is_object())
         continue;
@@ -1070,21 +1214,7 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
         continue;
 
       ViewCache &cache = GetViewCache(viewId);
-      cache.buffer = CommandBufferFromJson(
-          cachedView.value("commandBuffer", nlohmann::json{}));
-      if (cache.buffer.commands.empty())
-        continue;
-      cache.viewState =
-          ViewStateFromJson(cachedView.value("viewState", nlohmann::json{}));
-      cache.renderState = RenderStateFromJson(
-          cachedView.value("renderState", nlohmann::json{}));
-      cache.symbols = SymbolSnapshotFromJson(
-          cachedView.value("symbols", nlohmann::json::array()));
-      cache.hasCapture = true;
-      cache.hasRenderState = true;
       cache.captureContentHash = HashViewContent(*viewIt);
-      cache.hasCaptureContentHash = true;
-      cache.captureVersion = viewRenderVersion;
       cache.restoredFromPersistentCache = true;
       cache.captureInProgress = false;
       cache.renderDirty = true;
@@ -1097,35 +1227,143 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
       cache.persistentRgbaSize = wxSize(0, 0);
       cache.persistentRgbaRenderZoom = 0.0;
       cache.persistentRgbaContentHash = 0;
+      bool hasUsableRaster = false;
       const auto raster = cachedView.value("raster", nlohmann::json::object());
       if (raster.is_object()) {
         const std::string rasterEntry = raster.value("entry", std::string{});
         auto rasterIt = pendingPersistentViewCacheRasters_.find(rasterEntry);
         const int rasterWidth = raster.value("width", 0);
         const int rasterHeight = raster.value("height", 0);
-        const size_t rasterBytes =
-            static_cast<size_t>(std::max(0, rasterWidth)) *
-                                   static_cast<size_t>(std::max(0, rasterHeight)) * 4;
-        if (rasterIt != pendingPersistentViewCacheRasters_.end() &&
+        const bool dimensionsSafe =
             rasterWidth > 0 && rasterHeight > 0 &&
+            static_cast<size_t>(rasterWidth) <=
+                kMaxPersistentRasterEntryBytes / 4 /
+                    static_cast<size_t>(rasterHeight);
+        const size_t rasterBytes =
+            dimensionsSafe ? static_cast<size_t>(rasterWidth) *
+                                 static_cast<size_t>(rasterHeight) * 4
+                           : 0;
+        if (rasterIt != pendingPersistentViewCacheRasters_.end() &&
+            dimensionsSafe &&
             rasterIt->second.size() == rasterBytes &&
+            rasterBytes <= kMaxPersistentRasterEntryBytes &&
             raster.value("contentHash", std::string{}) ==
                 std::to_string(cache.captureContentHash)) {
           cache.persistentRgba = std::move(rasterIt->second);
           cache.persistentRgbaSize = wxSize(rasterWidth, rasterHeight);
           cache.persistentRgbaRenderZoom = raster.value("renderZoom", 0.0);
           cache.persistentRgbaContentHash = cache.captureContentHash;
+          hasUsableRaster = cache.persistentRgbaRenderZoom > 0.0;
         }
       }
+      cache.buffer = CommandBufferFromJson(
+          cachedView.value("commandBuffer", nlohmann::json{}));
+      const bool hasReplay = !cache.buffer.commands.empty();
+      if (hasReplay) {
+        cache.viewState =
+            ViewStateFromJson(cachedView.value("viewState", nlohmann::json{}));
+        cache.renderState = RenderStateFromJson(
+            cachedView.value("renderState", nlohmann::json{}));
+        cache.symbols = SymbolSnapshotFromJson(
+            cachedView.value("symbols", nlohmann::json::array()));
+      } else {
+        cache.symbols.reset();
+      }
+      cache.hasCapture = hasReplay;
+      cache.hasRenderState = hasReplay;
+      cache.hasCaptureContentHash = hasReplay;
+      cache.captureVersion = hasReplay ? viewRenderVersion : -1;
+      if (!hasUsableRaster && !hasReplay)
+        continue;
       ++hydratedCount;
     }
 
-    if (hydratedCount > 0) {
+    const auto cachedLegends =
+        document.value("legends", nlohmann::json::array());
+    if (cachedLegends.is_array()) {
+      for (const auto &cachedLegend : cachedLegends) {
+        if (!cachedLegend.is_object())
+          continue;
+        const int legendId = cachedLegend.value("legendId", 0);
+        auto logLegendRejection = [legendId](
+                                      const std::string &reason,
+                                      const std::string &detail = {}) {
+          Logger::Instance().Log(
+              Logger::Level::Info,
+              "Ignoring persistent Legend raster legend_id=" +
+                  std::to_string(legendId) + " reason=" + reason + detail);
+        };
+        const auto legendIt = std::find_if(
+            currentLayout.legendViews.begin(), currentLayout.legendViews.end(),
+            [legendId](const auto &entry) { return entry.id == legendId; });
+        if (legendIt == currentLayout.legendViews.end()) {
+          logLegendRejection("legend_not_found");
+          continue;
+        }
+        const size_t legendContentHash = ComputeLegendContentHash(*legendIt);
+        const std::string cachedContentHash =
+            cachedLegend.value("contentHash", std::string{});
+        const std::string expectedContentHash =
+            std::to_string(legendContentHash);
+        if (cachedContentHash != expectedContentHash) {
+          logLegendRejection("content_hash_mismatch",
+                             " cached_hash=" + cachedContentHash +
+                                 " expected_hash=" + expectedContentHash);
+          continue;
+        }
+        const int width = cachedLegend.value("width", 0);
+        const int height = cachedLegend.value("height", 0);
+        const bool dimensionsSafe =
+            width > 0 && height > 0 &&
+            static_cast<size_t>(width) <=
+                kMaxPersistentRasterEntryBytes / 4 /
+                    static_cast<size_t>(height);
+        if (!dimensionsSafe) {
+          logLegendRejection("dimensions_invalid");
+          continue;
+        }
+        const size_t byteCount =
+            static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
+        const std::string entryName =
+            cachedLegend.value("entry", std::string{});
+        auto rasterIt = pendingPersistentViewCacheRasters_.find(entryName);
+        if (rasterIt == pendingPersistentViewCacheRasters_.end()) {
+          logLegendRejection("raster_entry_missing");
+          continue;
+        }
+        if (rasterIt->second.size() != byteCount) {
+          logLegendRejection("raster_byte_count_mismatch");
+          continue;
+        }
+        LegendCache &cache = GetLegendCache(legendId);
+        cache.persistentRaster =
+            {std::move(rasterIt->second), wxSize(width, height),
+             cachedLegend.value("renderZoom", 0.0), legendContentHash};
+        if (!cache.persistentRaster.IsValid()) {
+          logLegendRejection("raster_snapshot_invalid");
+          continue;
+        }
+        cache.symbols.reset();
+        cache.texture = 0;
+        cache.textureSize = wxSize(0, 0);
+        cache.renderZoom = 0.0;
+        cache.contentHash = legendContentHash;
+        cache.renderDirty = true;
+        ++hydratedLegendCount;
+      }
+    }
+
+    if (hydratedCount > 0 || hydratedLegendCount > 0) {
+      if (startupMetrics_) {
+        startupMetrics_->hydratedViewRasters += hydratedCount;
+        startupMetrics_->hydratedLegendRasters += hydratedLegendCount;
+      }
       Logger::Instance().Log(
           Logger::Level::Info,
           "Hydrated persistent layout view cache for layout '" +
               currentLayout.name +
-              "' with view_count=" + std::to_string(hydratedCount));
+              "' with view_count=" + std::to_string(hydratedCount) +
+              " legend_count=" + std::to_string(hydratedLegendCount));
       renderDirty = true;
     } else {
       Logger::Instance().Log(
@@ -1135,6 +1373,10 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
     }
     pendingPersistentViewCacheJson_.clear();
     pendingPersistentViewCacheRasters_.clear();
+    if (startupMetrics_)
+      startupMetrics_->layoutCacheValidationMs +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - validationStartedAt).count();
   } catch (const std::exception &ex) {
     Logger::Instance().Log(Logger::Level::Warn,
                            std::string("Ignoring layout view cache: ") +

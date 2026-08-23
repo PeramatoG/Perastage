@@ -62,10 +62,14 @@ void MainWindow::CompleteStartupSplashInitialization() {
     consolePanel->AppendMessage("[INFO] " + wxString::FromUTF8(summary));
   SplashScreen::SetMessage(_("Ready"));
   SplashScreen::Hide();
-  if (fixtureSymbolPreparationService)
+  const bool waitForActiveLayout =
+      startupMetrics_ && startupMetrics_->finalViewMode == "layout_mode_view";
+  startupFixtureScanDeferredForLayout_ = waitForActiveLayout;
+  if (!waitForActiveLayout && fixtureSymbolPreparationService) {
     fixtureSymbolPreparationService->ScheduleScan();
-  diagnostics::DiagnosticLogger::Info(
-      "StartupProfile event=PostStartupFixtureSymbolScanScheduled");
+    diagnostics::DiagnosticLogger::Info(
+        "StartupProfile event=PostStartupFixtureSymbolScanScheduled");
+  }
 
   if (deferredStartupOpenPath && !deferredStartupOpenPath->empty()) {
     const std::string startupPath = *deferredStartupOpenPath;

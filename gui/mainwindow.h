@@ -344,6 +344,7 @@ private:
   friend class MainWindowPrintController;
   friend class MainWindowViewController;
 
+  bool startupFixtureScanDeferredForLayout_ = false;
   inline static MainWindow *s_instance = nullptr;
   wxDECLARE_EVENT_TABLE();
 };
