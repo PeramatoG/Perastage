@@ -130,11 +130,11 @@ void FixtureSymbolPreparationService::Request(
                                         .string()
                                   : fixture.typeName;
     std::string fingerprintError;
-    symbol_cache::InvalidateGdtfSemanticFingerprintCache(
-        key.effectiveGdtfPath);
     work_[key].sourceFingerprint =
         symbol_cache::ComputeGdtfSemanticFingerprint(
             key.effectiveGdtfPath, fingerprintError);
+    work_[key].sourceRevision =
+        symbol_cache::ReadGdtfFileRevision(key.effectiveGdtfPath);
   }
   UpdateStatus();
   ScheduleNextStep();
@@ -367,11 +367,16 @@ void FixtureSymbolPreparationService::RunNextStep() {
       return;
     }
     std::string fingerprintError;
-    symbol_cache::InvalidateGdtfSemanticFingerprintCache(
-        currentKey_->effectiveGdtfPath);
-    const std::string currentFingerprint =
-        symbol_cache::ComputeGdtfSemanticFingerprint(
-            currentKey_->effectiveGdtfPath, fingerprintError);
+    const symbol_cache::GdtfFileRevision currentRevision =
+        symbol_cache::ReadGdtfFileRevision(currentKey_->effectiveGdtfPath);
+    const bool revisionProvesUnchanged =
+        work.sourceRevision.metadataAvailable &&
+        currentRevision.metadataAvailable &&
+        currentRevision == work.sourceRevision;
+    const std::string currentFingerprint = revisionProvesUnchanged
+        ? work.sourceFingerprint
+        : symbol_cache::ComputeGdtfSemanticFingerprint(
+              currentKey_->effectiveGdtfPath, fingerprintError);
     if (!work.sourceFingerprint.empty() &&
         currentFingerprint != work.sourceFingerprint) {
       const symbols::FixtureSymbolPreparationKey staleKey = *currentKey_;

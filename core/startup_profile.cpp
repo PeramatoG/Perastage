@@ -73,6 +73,16 @@ std::string FormatInteractiveReadySummary(const Metrics &metrics,
          std::to_string(metrics.cacheDeepValidations) +
          " scene_mvr_writes=" + std::to_string(metrics.sceneMvrWrites) +
          " scene_mvr_bytes=" + std::to_string(metrics.sceneMvrBytes) +
+         " scene_mvr_memory_restores=" +
+         std::to_string(metrics.sceneMvrMemoryRestores) +
+         " scene_mvr_temp_fallbacks=" +
+         std::to_string(metrics.sceneMvrTempFallbacks) +
+         " scene_mvr_temp_bytes=" +
+         std::to_string(metrics.sceneMvrTempBytesWritten) +
+         " config_memory_loads=" +
+         std::to_string(metrics.configMemoryLoads) +
+         " config_patch_ms=" +
+         std::to_string(metrics.projectConfigPatchMs) +
          " project_archive_ms=" + std::to_string(metrics.projectArchiveLoadMs) +
          " mvr_restore_ms=" + std::to_string(metrics.mvrRestoreMs) +
          " user_config_ms=" + std::to_string(metrics.userConfigMs) +

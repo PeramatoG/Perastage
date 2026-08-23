@@ -24,6 +24,12 @@ struct Metrics {
   size_t archiveTraversals = 0;
   size_t sceneMvrWrites = 0;
   size_t sceneMvrBytes = 0;
+  size_t sceneMvrMemoryRestores = 0;
+  size_t sceneMvrTempFallbacks = 0;
+  size_t sceneMvrTempBytesWritten = 0;
+  size_t configMemoryLoads = 0;
+  size_t configTempFallbacks = 0;
+  long long projectConfigPatchMs = 0;
   size_t cacheEntriesTransferred = 0;
   size_t cacheBytesTransferred = 0;
   size_t cacheEntriesRejected = 0;

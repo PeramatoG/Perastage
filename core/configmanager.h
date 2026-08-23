@@ -54,6 +54,7 @@ public:
     void SetProjectArchiveResourceProvider(ProjectArchiveResourceProvider provider);
     // Save/load configuration file (e.g., JSON, INI, TXT…)
     bool LoadFromFile(const std::string& path);
+    bool LoadFromBuffer(const std::vector<std::uint8_t>& bytes);
     bool SaveToFile(const std::string& path) const;
     // Default user configuration path helpers
     static std::string GetUserConfigFile();

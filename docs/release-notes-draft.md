@@ -4,6 +4,12 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Project reopening is faster for typical projects by loading packaged scene
+  and configuration data directly, while retaining a safe large-project
+  fallback and all existing MVR resource compatibility.
+- Deferred fixture-symbol preparation now reuses unchanged GDTF inspection
+  results instead of repeatedly scanning the same profile.
+
 - Fixture profiles that contain neither stored symbols nor usable GDTF
   geometry now use Perastage's deterministic runtime fallback directly. This
   avoids repeated symbol preparation delays when opening projects while

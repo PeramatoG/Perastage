@@ -500,6 +500,15 @@ bool ConfigManager::LoadFromFile(const std::string &path) {
   return true;
 }
 
+// Loads project configuration directly from an owned in-memory payload.
+bool ConfigManager::LoadFromBuffer(const std::vector<std::uint8_t> &bytes) {
+  RevisionGuard guard(*this);
+  if (!preferencesStore.LoadFromBuffer(bytes))
+    return false;
+  layouts::LayoutManager::Get().LoadFromConfig(*this);
+  return true;
+}
+
 bool ConfigManager::SaveToFile(const std::string &path) const {
   return preferencesStore.SaveToFile(path);
 }
@@ -627,22 +636,31 @@ bool ConfigManager::LoadProject(const std::string &path,
   };
 
   bool ok = projectSession.LoadProject(
-      path, [this](const std::string &configPath) {
-        const bool loaded = LoadFromFile(configPath);
+      path, [this](const ProjectSession::ProjectConfigPayload &config) {
+        const bool loaded = LoadFromBuffer(config.bytes);
         if (!loaded) {
           std::cerr << "ConfigManager::LoadProject failed to load config.json from project package." << std::endl;
         }
         return loaded;
       },
-      [progressCallback](const std::string &scenePath) {
+      [progressCallback](const ProjectSession::ProjectScenePayload &scene) {
         MvrImportOptions options;
         options.promptConflicts = false;
         options.applyDictionary = false;
         options.preserveMvrGdtfReferences = true;
         options.allowDummyFallback = false;
         options.sourceKind = MvrImportSourceKind::ProjectRestore;
-        const bool imported = MvrImporter::ImportAndRegister(
-            scenePath, options,
+        const bool imported = scene.IsMemoryBacked()
+            ? MvrImporter::ImportAndRegisterFromBuffer(
+                  scene.bytes, options,
+                  [progressCallback](const MvrImporter::ProgressState &state) {
+                    if (!progressCallback)
+                      return;
+                    progressCallback("Scene import: " + state.stage,
+                                     state.completed, state.total);
+                  })
+            : MvrImporter::ImportAndRegister(
+                  scene.spillPath, options,
             [progressCallback](const MvrImporter::ProgressState &state) {
               if (!progressCallback)
                 return;

@@ -213,6 +213,16 @@ bool WriteZipBytes(wxZipOutputStream &zip, const std::string &entryName,
   return zip.CloseEntry();
 }
 
+// Writes one owned payload to a temporary compatibility file.
+bool WriteFileBytes(const fs::path &path,
+                    const std::vector<std::uint8_t> &bytes) {
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  if (!out.is_open())
+    return false;
+  out.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+  return out.good();
+}
+
 // Logs a project save failure with a consistent stage and optional entry name.
 bool LogProjectSaveFailure(const std::string &stage, const std::string &message,
                            const std::string &entryName = {}) {
@@ -224,16 +234,12 @@ bool LogProjectSaveFailure(const std::string &stage, const std::string &message,
   return false;
 }
 
-// Updates layout image paths inside config.json to point at extracted packaged resources.
-bool PatchExtractedProjectResourcePaths(const fs::path &configPath,
-                                        const fs::path &resourceDir) {
-  std::ifstream in(configPath, std::ios::binary);
-  if (!in.is_open())
-    return false;
-
+// Patches packaged layout image paths in one in-memory configuration payload.
+bool PatchProjectResourcePaths(std::vector<std::uint8_t> &configBytes,
+                               const fs::path &resourceDir) {
   nlohmann::json config;
   try {
-    in >> config;
+    config = nlohmann::json::parse(configBytes.begin(), configBytes.end());
   } catch (...) {
     return false;
   }
@@ -271,15 +277,12 @@ bool PatchExtractedProjectResourcePaths(const fs::path &configPath,
     }
   }
 
-  if (!changed)
-    return true;
-
-  config["layouts_collection"] = layoutDoc.dump();
-  std::ofstream out(configPath, std::ios::binary | std::ios::trunc);
-  if (!out.is_open())
-    return false;
-  out << config.dump(2);
-  return out.good();
+  if (changed) {
+    config["layouts_collection"] = layoutDoc.dump();
+    const std::string patched = config.dump(2);
+    configBytes.assign(patched.begin(), patched.end());
+  }
+  return true;
 }
 
 // Chooses ZIP compression mode from entry extension and payload size heuristics.
@@ -458,6 +461,17 @@ bool UserPreferencesStore::LoadFromFile(const std::string &path) {
   std::ifstream file(PathFromUtf8(path), std::ios::binary);
   if (!file.is_open())
     return false;
+
+  const std::vector<std::uint8_t> bytes{
+      std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+  return LoadFromBuffer(bytes);
+}
+
+// Parses configuration bytes through the same JSON application path as files.
+bool UserPreferencesStore::LoadFromBuffer(
+    const std::vector<std::uint8_t> &bytes) {
+  const std::string text(bytes.begin(), bytes.end());
+  std::istringstream file(text);
 
   nlohmann::json j;
   try {
@@ -1004,10 +1018,43 @@ bool ProjectSession::SaveProject(const std::string &path,
       });
 }
 
+// Adapts legacy path callbacks to the typed project payload loader.
 bool ProjectSession::LoadProject(const std::string &path,
                                  const LoadConfigFn &loadConfig,
                                  const LoadSceneFn &loadScene,
                                  const LoadProgressFn &progress) {
+  if (!loadConfig || !loadScene)
+    return false;
+  if (LooksLikeJsonFile(path))
+    return loadConfig(path);
+  TempDir adapterDir("psp_legacy_");
+  if (!adapterDir.Valid())
+    return false;
+  return LoadProject(
+      path,
+      [&](const ProjectConfigPayload &payload) {
+        const fs::path out = adapterDir.Path() / "config.json";
+        if (!WriteFileBytes(out, payload.bytes))
+          return false;
+        return loadConfig(out.string());
+      },
+      [&](const ProjectScenePayload &payload) {
+        if (!payload.spillPath.empty())
+          return loadScene(payload.spillPath);
+        const fs::path out = adapterDir.Path() / "scene.mvr";
+        if (!WriteFileBytes(out, payload.bytes))
+          return false;
+        return loadScene(out.string());
+      },
+      progress);
+}
+
+// Restores a project through bounded, explicitly owned configuration and scene payloads.
+bool ProjectSession::LoadProject(const std::string &path,
+                                 const LoadConfigPayloadFn &loadConfig,
+                                 const LoadScenePayloadFn &loadScene,
+                                 const LoadProgressFn &progress,
+                                 size_t sceneMemoryLimitBytes) {
   if (!loadConfig || !loadScene)
     return false;
   loadedArchiveResources.clear();
@@ -1034,8 +1081,16 @@ bool ProjectSession::LoadProject(const std::string &path,
                      signature[0] == 'P' && signature[1] == 'K';
   in.SeekI(0);
   if (!isZip) {
-    if (LooksLikeJsonFile(path))
-      return loadConfig(path);
+    if (LooksLikeJsonFile(path)) {
+      std::ifstream configIn(PathFromUtf8(path), std::ios::binary);
+      if (!configIn.is_open())
+        return false;
+      ProjectConfigPayload payload;
+      payload.logicalName = fs::path(path).filename().string();
+      payload.bytes.assign(std::istreambuf_iterator<char>(configIn),
+                           std::istreambuf_iterator<char>());
+      return loadConfig(payload);
+    }
     return false;
   }
 
@@ -1052,8 +1107,8 @@ bool ProjectSession::LoadProject(const std::string &path,
   const fs::path resourceDir = PathFromUtf8(extractedResourceDirectory);
 
   std::unique_ptr<wxZipEntry> entry;
-  fs::path configPath;
-  fs::path scenePath;
+  ProjectConfigPayload configPayload;
+  ProjectScenePayload scenePayload;
   bool hasMvrSceneXml = false;
   int extractedRelevantEntries = 0;
   size_t transferredCacheBytes = 0;
@@ -1063,12 +1118,7 @@ bool ProjectSession::LoadProject(const std::string &path,
       continue;
     std::string baseName =
         ToLowerCopy(fs::path(entry->GetName().ToStdString()).filename().string());
-    fs::path outPath;
-    if (baseName == "config.json")
-      outPath = tempDir.Path() / "config.json";
-    else if (baseName == "scene.mvr")
-      outPath = tempDir.Path() / "scene.mvr";
-    else {
+    if (baseName != "config.json" && baseName != "scene.mvr") {
       const std::string entryName = fs::path(entry->GetName().ToStdString()).generic_string();
       if (baseName == "generalscenedescription.xml")
         hasMvrSceneXml = true;
@@ -1111,20 +1161,59 @@ bool ProjectSession::LoadProject(const std::string &path,
       continue;
     }
 
-    if (!ExtractCurrentZipEntry(zip, outPath))
-      return false;
-
-    if (baseName == "config.json")
-      configPath = outPath;
-    else
-      scenePath = outPath;
-
-    if (baseName == "scene.mvr" && startupMetrics) {
-      std::error_code sizeError;
-      const auto sceneSize = fs::file_size(outPath, sizeError);
-      if (!sizeError)
-        startupMetrics->sceneMvrBytes = static_cast<size_t>(sceneSize);
-      ++startupMetrics->sceneMvrWrites;
+    std::array<char, 64 * 1024> payloadBuffer{};
+    if (baseName == "config.json") {
+      configPayload.logicalName = "config.json";
+      configPayload.resourceRoot = Utf8StringFromPath(resourceDir);
+      while (true) {
+        zip.Read(payloadBuffer.data(), payloadBuffer.size());
+        const size_t count = zip.LastRead();
+        if (count == 0)
+          break;
+        configPayload.bytes.insert(configPayload.bytes.end(),
+                                   payloadBuffer.begin(),
+                                   payloadBuffer.begin() + count);
+      }
+    } else {
+      scenePayload.logicalName = "scene.mvr";
+      std::ofstream spill;
+      while (true) {
+        zip.Read(payloadBuffer.data(), payloadBuffer.size());
+        const size_t count = zip.LastRead();
+        if (count == 0)
+          break;
+        if (!spill.is_open() &&
+            scenePayload.bytes.size() + count > sceneMemoryLimitBytes) {
+          const fs::path spillPath = tempDir.Path() / "scene.mvr";
+          spill.open(spillPath, std::ios::binary | std::ios::trunc);
+          if (!spill.is_open())
+            return false;
+          if (!scenePayload.bytes.empty())
+            spill.write(reinterpret_cast<const char *>(scenePayload.bytes.data()),
+                        scenePayload.bytes.size());
+          scenePayload.bytes.clear();
+          scenePayload.spillPath = spillPath.string();
+        }
+        if (spill.is_open())
+          spill.write(payloadBuffer.data(), count);
+        else
+          scenePayload.bytes.insert(scenePayload.bytes.end(),
+                                    payloadBuffer.begin(),
+                                    payloadBuffer.begin() + count);
+        if (startupMetrics)
+          startupMetrics->sceneMvrBytes += count;
+      }
+      if (spill.is_open() && !spill.good())
+        return false;
+      if (startupMetrics) {
+        if (scenePayload.IsMemoryBacked())
+          ++startupMetrics->sceneMvrMemoryRestores;
+        else {
+          ++startupMetrics->sceneMvrTempFallbacks;
+          ++startupMetrics->sceneMvrWrites;
+          startupMetrics->sceneMvrTempBytesWritten += startupMetrics->sceneMvrBytes;
+        }
+      }
     }
 
     ++extractedRelevantEntries;
@@ -1132,19 +1221,22 @@ bool ProjectSession::LoadProject(const std::string &path,
                    2);
   }
 
-  if (configPath.empty() && scenePath.empty()) {
-    if (hasMvrSceneXml)
-      return loadScene(path);
-    if (LooksLikeJsonFile(path))
-      return loadConfig(path);
+  if (configPayload.bytes.empty() && scenePayload.bytes.empty() &&
+      scenePayload.spillPath.empty()) {
+    if (hasMvrSceneXml) {
+      ProjectScenePayload payload;
+      payload.logicalName = fs::path(path).filename().string();
+      payload.spillPath = path;
+      return loadScene(payload);
+    }
     return false;
   }
 
   bool ok = true;
-  if (!scenePath.empty()) {
+  if (!scenePayload.bytes.empty() || !scenePayload.spillPath.empty()) {
     reportProgress("Importing project scene...");
     const auto mvrRestoreStartedAt = std::chrono::steady_clock::now();
-    const bool sceneOk = loadScene(scenePath.string());
+    const bool sceneOk = loadScene(scenePayload);
     if (startupMetrics) {
       startupMetrics->mvrRestoreMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1156,11 +1248,18 @@ bool ProjectSession::LoadProject(const std::string &path,
     }
     ok &= sceneOk;
   }
-  if (!configPath.empty()) {
-    if (!PatchExtractedProjectResourcePaths(configPath, resourceDir))
+  if (!configPayload.bytes.empty()) {
+    const auto patchStartedAt = std::chrono::steady_clock::now();
+    if (!PatchProjectResourcePaths(configPayload.bytes, resourceDir))
       return false;
+    if (startupMetrics) {
+      startupMetrics->projectConfigPatchMs =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - patchStartedAt).count();
+      ++startupMetrics->configMemoryLoads;
+    }
     reportProgress("Loading project configuration...");
-    const bool configOk = loadConfig(configPath.string());
+    const bool configOk = loadConfig(configPayload);
     if (!configOk) {
       std::cerr << "ProjectSession::LoadProject failed while loading config.json from extracted project package." << std::endl;
     }

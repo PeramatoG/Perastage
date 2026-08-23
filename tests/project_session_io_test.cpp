@@ -64,6 +64,47 @@ int main() {
   assert(loadConfigCalled);
   assert(loadSceneCalled);
 
+  auto memoryMetrics = std::make_shared<startup::Metrics>();
+  ProjectSession memorySession;
+  memorySession.SetStartupMetrics(memoryMetrics);
+  bool receivedMemoryConfig = false;
+  bool receivedMemoryScene = false;
+  assert(memorySession.LoadProject(
+      projectPath.string(),
+      [&](const ProjectSession::ProjectConfigPayload &payload) {
+        receivedMemoryConfig = payload.logicalName == "config.json" &&
+                               !payload.bytes.empty();
+        return receivedMemoryConfig;
+      },
+      [&](const ProjectSession::ProjectScenePayload &payload) {
+        receivedMemoryScene = payload.IsMemoryBacked() &&
+                              payload.bytes ==
+                                  std::vector<std::uint8_t>({'P', 'K', 'S', 'C',
+                                                             'E', 'N', 'E'});
+        return receivedMemoryScene;
+      }));
+  assert(receivedMemoryConfig);
+  assert(receivedMemoryScene);
+  assert(memoryMetrics->sceneMvrMemoryRestores == 1);
+  assert(memoryMetrics->sceneMvrTempFallbacks == 0);
+  assert(memoryMetrics->configMemoryLoads == 1);
+
+  auto fallbackMetrics = std::make_shared<startup::Metrics>();
+  ProjectSession fallbackSession;
+  fallbackSession.SetStartupMetrics(fallbackMetrics);
+  assert(fallbackSession.LoadProject(
+      projectPath.string(),
+      [](const ProjectSession::ProjectConfigPayload &) { return true; },
+      [](const ProjectSession::ProjectScenePayload &payload) {
+        std::ifstream in(payload.spillPath, std::ios::binary);
+        std::string bytes((std::istreambuf_iterator<char>(in)),
+                          std::istreambuf_iterator<char>());
+        return !payload.IsMemoryBacked() && bytes == "PKSCENE";
+      },
+      {}, 2));
+  assert(fallbackMetrics->sceneMvrTempFallbacks == 1);
+  assert(fallbackMetrics->sceneMvrTempBytesWritten == 7);
+
   const fs::path cacheProjectPath = tempDir / "cache_payload.pera";
   const std::vector<std::uint8_t> cacheJson = {'{', '}'};
   const bool cacheSaveOk = saveSession.SaveProject(

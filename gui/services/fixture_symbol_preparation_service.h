@@ -12,6 +12,7 @@
 #include "symbols/Symbol2D.h"
 #include "symbols/Symbol2DImageBuilder.h"
 #include "symbols/fixture_symbol_preparation_coordinator.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 #include "services/fixture_symbol_processing_worker.h"
 #include "tools/fixture_geometry_bounds.h"
 
@@ -41,6 +42,7 @@ private:
     std::string fixtureUuid;
     std::string displayLabel;
     std::string sourceFingerprint;
+    symbol_cache::GdtfFileRevision sourceRevision;
     std::vector<symbols::RenderedSymbolImage> renders;
     std::vector<symbols::Symbol2D> processedSymbols;
     tools::FixtureGeometryBounds bounds;

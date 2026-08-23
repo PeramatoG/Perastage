@@ -92,6 +92,7 @@
 #include <wx/intl.h>
 #include <wx/listctrl.h>
 #include <wx/wfstream.h>
+#include <wx/mstream.h>
 #include <wx/wx.h>
 class wxZipStreamLink;
 #include <wx/filename.h>
@@ -1178,6 +1179,39 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
     return false;
   }
 
+  wxFileInputStream input(wxString::FromUTF8(filePath.c_str()));
+  if (!input.IsOk()) {
+    LogMessage("Failed to open MVR file.");
+    return false;
+  }
+  return ImportFromStreamIntoResult(input, importResult, mode, options,
+                                    progressCallback);
+}
+
+// Imports an MVR byte payload without a project-level temporary archive.
+bool MvrImporter::ImportFromBuffer(
+    const std::vector<std::uint8_t> &bytes, MvrImportResult &importResult,
+    MvrImportMode mode, const MvrImportOptions &options,
+    ProgressCallback progressCallback) {
+  if (bytes.empty())
+    return false;
+  wxMemoryInputStream input(bytes.data(), bytes.size());
+  return ImportFromStreamIntoResult(input, importResult, mode, options,
+                                    progressCallback);
+}
+
+// Extracts and parses an MVR archive from an already-open stream.
+bool MvrImporter::ImportFromStreamIntoResult(
+    wxInputStream &input, MvrImportResult &importResult, MvrImportMode mode,
+    const MvrImportOptions &options, ProgressCallback progressCallback) {
+  auto reportProgress = [&](std::string stage, int completed = 0,
+                            int total = 0) {
+    if (progressCallback)
+      progressCallback(ProgressState{std::move(stage), completed, total});
+  };
+  pathRemap.clear();
+  fixtureUuidRemap.clear();
+  importResult = MvrImportResult{};
   reportProgress("Extracting package resources...");
 
   runtime_storage::TemporaryWorkspace importWorkspace("mvr-import");
@@ -1186,9 +1220,8 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
     return false;
   }
   std::string tempDir = ToString(importWorkspace.Path().u8string());
-  std::string mvrPath = ToString(path.u8string());
   fs::path tempPath(tempDir);
-  if (!ExtractMvrZip(mvrPath, tempDir, importResult.diagnostics)) {
+  if (!ExtractMvrZip(input, tempDir, importResult.diagnostics)) {
     LogMessage("Failed to extract MVR file.");
     return false;
   }
@@ -1282,6 +1315,13 @@ bool MvrImporter::ExtractMvrZip(
     return false;
   }
 
+  return ExtractMvrZip(input, destDir, diagnostics);
+}
+
+// Extracts an MVR stream with the same security and collision checks as files.
+bool MvrImporter::ExtractMvrZip(
+    wxInputStream &input, const std::string &destDir,
+    std::vector<MvrImportDiagnostic> &diagnostics) {
   wxZipInputStream zipStream(input);
   std::unique_ptr<wxZipEntry> entry;
   std::unordered_map<std::string, std::string> identityByFoldedKey;
@@ -5017,6 +5057,24 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
   options.promptConflicts = promptConflicts;
   options.applyDictionary = applyDictionary;
   return ImportAndRegister(filePath, options, progressCallback);
+}
+
+// Imports and registers in-memory MVR bytes with explicit project options.
+bool MvrImporter::ImportAndRegisterFromBuffer(
+    const std::vector<std::uint8_t> &bytes, const MvrImportOptions &options,
+    ProgressCallback progressCallback) {
+  MvrImporter importer;
+  MvrImportResult importResult;
+  const bool imported = importer.ImportFromBuffer(
+      bytes, importResult, MvrImportMode::ReplaceProject, options,
+      progressCallback);
+  LogMvrImportDiagnostics(importResult.diagnostics);
+  if (!imported)
+    return false;
+  size_t collisionCount = 0;
+  viewer2d::RemapFixtureLabelOverrideKeys(
+      ConfigManager::Get(), importResult.fixtureUuidRemap, &collisionCount);
+  return true;
 }
 
 // Imports and registers an MVR file with explicit import behavior options.
