@@ -22,6 +22,9 @@ Changes since **v1.5.0**.
   workspaces, avoids creating offscreen 2D rendering infrastructure when cached
   previews are sufficient, and gives active Layout rendering priority over
   deferred fixture-symbol inspection.
+- Persistent Legend previews are now validated only after their current
+  semantic content is prepared, so an unchanged saved Layout restores its
+  Legend immediately instead of rebuilding symbols after every reopen.
 
 - Fixture profiles that contain neither stored symbols nor usable GDTF
   geometry now use Perastage's deterministic runtime fallback directly. This

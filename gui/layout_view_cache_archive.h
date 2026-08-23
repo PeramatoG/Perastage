@@ -27,7 +27,8 @@
 
 namespace gui::layoutcache {
 
-inline constexpr int kLayoutViewCacheSchemaVersion = 6;
+// Version 7 uses deterministic per-Legend semantic identities.
+inline constexpr int kLayoutViewCacheSchemaVersion = 7;
 inline constexpr const char *kLayoutViewCacheArchiveEntry =
     "resources/layout_view_cache/last_selected_layout_view.json";
 inline constexpr const char *kLayoutViewCacheRasterEntryPrefix =

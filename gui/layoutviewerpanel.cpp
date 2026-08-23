@@ -662,6 +662,7 @@ void LayoutViewerPanel::SetLayoutDefinition(
 
   captureInProgress = false;
   ClearCachedTexture();
+  legendDataDirty_ = true;
   HydratePendingPersistentViewCache();
   const bool emptyLayout = IsLayoutEmpty();
   if (emptyLayout) {
@@ -679,7 +680,6 @@ void LayoutViewerPanel::SetLayoutDefinition(
   }
   renderDirty = true;
   loadingRequested = false;
-  legendDataDirty_ = true;
   RefreshLegendData();
   InvalidateRenderIfFrameChanged(true);
   RequestRenderRebuild();
@@ -2229,17 +2229,18 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
     size_t legendSymbolsMissingCount = 0;
     const double renderZoom = GetRenderZoom();
     for (const auto &legend : currentLayout.legendViews) {
+      const size_t legendContentHash = ComputeLegendContentHash(legend);
       const auto cacheIt = legendCaches_.find(legend.id);
       const bool cacheMissing = cacheIt == legendCaches_.end();
       const bool contentChanged =
-          !cacheMissing && cacheIt->second.contentHash != legendDataHash;
+          !cacheMissing && cacheIt->second.contentHash != legendContentHash;
       const bool needsTextureRebuild =
           cacheMissing || cacheIt->second.renderDirty || contentChanged;
       if (needsTextureRebuild) {
         needsLegendProcessing = true;
         const bool hasMatchingRaster =
             !cacheMissing && cacheIt->second.persistentRaster.IsValid() &&
-            cacheIt->second.persistentRaster.contentHash == legendDataHash &&
+            cacheIt->second.persistentRaster.contentHash == legendContentHash &&
             cacheIt->second.persistentRaster.renderZoom == renderZoom &&
             cacheIt->second.persistentRaster.size ==
                 GetFrameSizeForZoom(legend.frame, renderZoom);
@@ -2486,7 +2487,9 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
       postRenderProgressStatus("Rendering legends", legendStageIndex,
                                currentLayout.legendViews.size());
       LegendCache &cache = GetLegendCache(legend.id);
-      const bool contentChanged = cache.contentHash != legendDataHash;
+      const std::vector<LegendItem> legendItems = BuildLegendItems(&legend);
+      const size_t legendContentHash = HashLegendItems(legendItems, &legend);
+      const bool contentChanged = cache.contentHash != legendContentHash;
       const bool requiresSymbolRefresh = !cache.symbols;
       if (requiresSymbolRefresh && legendSymbols && cache.symbols != legendSymbols) {
         cache.symbols = legendSymbols;
@@ -2511,7 +2514,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
   
       const bool reusePersistentRaster =
           cache.persistentRaster.IsValid() &&
-          cache.persistentRaster.contentHash == legendDataHash &&
+          cache.persistentRaster.contentHash == legendContentHash &&
           cache.persistentRaster.renderZoom == renderZoom &&
           cache.persistentRaster.size == renderSize;
       int width = renderSize.GetWidth();
@@ -2527,7 +2530,7 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                 std::max<size_t>(1, totalRenderItems)));
         wxImage image = BuildLegendImage(
             renderSize, wxSize(legend.frame.width, legend.frame.height),
-            renderZoom, legendItems_, cache.symbols.get());
+            renderZoom, legendItems, legend, cache.symbols.get());
         if (!image.IsOk()) {
           ClearCachedTexture(cache);
           cache.textureSize = wxSize(0, 0);
@@ -2585,9 +2588,9 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
                            legend.id));
       cache.textureSize = wxSize(width, height);
       cache.renderZoom = renderZoom;
-      cache.contentHash = legendDataHash;
+      cache.contentHash = legendContentHash;
       cache.persistentRaster =
-          {legendPixels, wxSize(width, height), renderZoom, legendDataHash};
+          {legendPixels, wxSize(width, height), renderZoom, legendContentHash};
       profiler.RecordRenderedElement();
       legendPixels.clear();
       const bool hasMoreWork = NeedsRenderRebuild();

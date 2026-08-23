@@ -775,8 +775,9 @@ void LayoutViewerPanel::RefreshLegendData() {
     legendDataDirty_ = false;
     return;
   }
-  std::vector<LegendItem> items = BuildLegendItems();
-  size_t newHash = HashLegendItems(items);
+  const auto *selectedLegend = GetSelectedLegend();
+  std::vector<LegendItem> items = BuildLegendItems(selectedLegend);
+  size_t newHash = HashLegendItems(items, selectedLegend);
   if (newHash == legendDataHash) {
     legendDataDirty_ = false;
     return;
@@ -795,11 +796,14 @@ void LayoutViewerPanel::RefreshLegendData() {
   RequestRenderRebuild();
 }
 
+// Builds the visible Legend items for the specified Legend definition.
 std::vector<LayoutViewerPanel::LegendItem>
-LayoutViewerPanel::BuildLegendItems() const {
+LayoutViewerPanel::BuildLegendItems(
+    const layouts::LayoutLegendDefinition *legend) const {
   std::vector<SharedLayoutLegendItem> sharedItems =
       BuildSharedLayoutLegendItems();
-  const layouts::LayoutLegendDefinition *legend = GetSelectedLegend();
+  if (!legend)
+    legend = GetSelectedLegend();
   std::unordered_map<std::string, layouts::LayoutLegendDefinition::ItemSettings>
       settingsByType;
   if (legend) {
@@ -860,8 +864,10 @@ LayoutViewerPanel::BuildLegendItems() const {
   return items;
 }
 
+// Hashes the ordered semantic inputs that determine a Legend raster.
 size_t LayoutViewerPanel::HashLegendItems(
-    const std::vector<LegendItem> &items) const {
+    const std::vector<LegendItem> &items,
+    const layouts::LayoutLegendDefinition *legend) const {
   project_cache::FingerprintAccumulator hash;
   auto appendString = [&hash](const std::string &value) {
     hash.Update(value.data(), value.size());
@@ -883,16 +889,32 @@ size_t LayoutViewerPanel::HashLegendItems(
     appendInt(item.showFrontSymbol ? 1 : 0);
     appendInt(item.showSideSymbol ? 1 : 0);
   }
-  const auto *legend = GetSelectedLegend();
+  if (!legend)
+    legend = GetSelectedLegend();
   appendInt((legend && legend->showChannelColumn) ? 1 : 0);
   const std::string fingerprint = hash.Finish();
   return static_cast<size_t>(
       std::stoull(fingerprint.substr(fingerprint.find(':') + 1), nullptr, 16));
 }
 
+// Computes the deterministic content identity for one Legend definition.
+size_t LayoutViewerPanel::ComputeLegendContentHash(
+    const layouts::LayoutLegendDefinition &legend) const {
+  return HashLegendItems(BuildLegendItems(&legend), &legend);
+}
+
+// Refreshes Legend semantics before persistent cache validation can inspect them.
+void LayoutViewerPanel::EnsureLegendDataCurrentForCacheValidation() {
+  if (!legendDataDirty_ &&
+      (currentLayout.legendViews.empty() || legendDataHash != 0))
+    return;
+  RefreshLegendData();
+}
+
 wxImage LayoutViewerPanel::BuildLegendImage(
     const wxSize &size, const wxSize &logicalSize, double renderZoom,
     const std::vector<LegendItem> &items,
+    const layouts::LayoutLegendDefinition &legend,
     const SymbolDefinitionSnapshot *symbols) const {
   if (size.GetWidth() <= 0 || size.GetHeight() <= 0 || renderZoom <= 0.0)
     return wxImage();
@@ -969,8 +991,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
             ? wxString::Format("%d", item.channelCount.value())
             : wxString("-")});
   }
-  const bool showChannelColumn =
-      GetSelectedLegend() ? GetSelectedLegend()->showChannelColumn : true;
+  const bool showChannelColumn = legend.showChannelColumn;
 
   const int paddingLeftPx =
       std::max(0, static_cast<int>(std::lround(paddingLeft * renderZoom)));

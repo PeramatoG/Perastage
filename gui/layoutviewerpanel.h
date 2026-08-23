@@ -294,11 +294,18 @@ private:
   EventTableCache &GetEventTableCache(int tableId);
   TextCache &GetTextCache(int textId);
   ImageCache &GetImageCache(int imageId);
-  std::vector<LegendItem> BuildLegendItems() const;
-  size_t HashLegendItems(const std::vector<LegendItem> &items) const;
+  std::vector<LegendItem> BuildLegendItems(
+      const layouts::LayoutLegendDefinition *legend = nullptr) const;
+  size_t HashLegendItems(
+      const std::vector<LegendItem> &items,
+      const layouts::LayoutLegendDefinition *legend = nullptr) const;
+  size_t ComputeLegendContentHash(
+      const layouts::LayoutLegendDefinition &legend) const;
+  void EnsureLegendDataCurrentForCacheValidation();
   wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
                            double renderZoom,
                            const std::vector<LegendItem> &items,
+                           const layouts::LayoutLegendDefinition &legend,
                            const SymbolDefinitionSnapshot *symbols) const;
   size_t HashEventTableFields(
       const layouts::LayoutEventTableDefinition &table) const;

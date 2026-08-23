@@ -983,7 +983,8 @@ LayoutViewerPanel::CollectPersistentViewCacheResources(
       continue;
     const PersistentRasterSnapshot &snapshot =
         cacheIt->second.persistentRaster;
-    if (!snapshot.IsValid() || snapshot.contentHash != legendDataHash ||
+    const size_t legendContentHash = ComputeLegendContentHash(legend);
+    if (!snapshot.IsValid() || snapshot.contentHash != legendContentHash ||
         snapshot.rgba.size() > kMaxPersistentRasterEntryBytes ||
         rasterBytes + snapshot.rgba.size() > kMaxPersistentRasterBytes)
       continue;
@@ -1086,13 +1087,19 @@ void LayoutViewerPanel::SetStartupMetrics(
 void LayoutViewerPanel::HydratePendingPersistentViewCache() {
   if (pendingPersistentViewCacheJson_.empty() || currentLayout.name.empty())
     return;
+  EnsureLegendDataCurrentForCacheValidation();
+  if (!currentLayout.legendViews.empty() && legendDataDirty_) {
+    Logger::Instance().Log(
+        Logger::Level::Info,
+        "Deferring layout cache hydration reason=legend_semantics_not_ready.");
+    return;
+  }
   const auto validationStartedAt = std::chrono::steady_clock::now();
   try {
     const nlohmann::json document =
         nlohmann::json::parse(pendingPersistentViewCacheJson_);
     const int schemaVersion = document.value("schemaVersion", 0);
-    if ((schemaVersion != 5 &&
-         schemaVersion != kLayoutViewCacheSchemaVersion) ||
+    if (schemaVersion != kLayoutViewCacheSchemaVersion ||
         document.value("symbolGenerationVersion", 0) !=
             symbol_cache::kCurrentPerastageSymbolFormatVersion) {
       Logger::Instance().Log(Logger::Level::Info,
@@ -1278,13 +1285,32 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
         if (!cachedLegend.is_object())
           continue;
         const int legendId = cachedLegend.value("legendId", 0);
+        auto logLegendRejection = [legendId](
+                                      const std::string &reason,
+                                      const std::string &detail = {}) {
+          Logger::Instance().Log(
+              Logger::Level::Info,
+              "Ignoring persistent Legend raster legend_id=" +
+                  std::to_string(legendId) + " reason=" + reason + detail);
+        };
         const auto legendIt = std::find_if(
             currentLayout.legendViews.begin(), currentLayout.legendViews.end(),
             [legendId](const auto &entry) { return entry.id == legendId; });
-        if (legendIt == currentLayout.legendViews.end() ||
-            cachedLegend.value("contentHash", std::string{}) !=
-                std::to_string(legendDataHash))
+        if (legendIt == currentLayout.legendViews.end()) {
+          logLegendRejection("legend_not_found");
           continue;
+        }
+        const size_t legendContentHash = ComputeLegendContentHash(*legendIt);
+        const std::string cachedContentHash =
+            cachedLegend.value("contentHash", std::string{});
+        const std::string expectedContentHash =
+            std::to_string(legendContentHash);
+        if (cachedContentHash != expectedContentHash) {
+          logLegendRejection("content_hash_mismatch",
+                             " cached_hash=" + cachedContentHash +
+                                 " expected_hash=" + expectedContentHash);
+          continue;
+        }
         const int width = cachedLegend.value("width", 0);
         const int height = cachedLegend.value("height", 0);
         const bool dimensionsSafe =
@@ -1292,27 +1318,36 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
             static_cast<size_t>(width) <=
                 kMaxPersistentRasterEntryBytes / 4 /
                     static_cast<size_t>(height);
-        if (!dimensionsSafe)
+        if (!dimensionsSafe) {
+          logLegendRejection("dimensions_invalid");
           continue;
+        }
         const size_t byteCount =
             static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
         const std::string entryName =
             cachedLegend.value("entry", std::string{});
         auto rasterIt = pendingPersistentViewCacheRasters_.find(entryName);
-        if (rasterIt == pendingPersistentViewCacheRasters_.end() ||
-            rasterIt->second.size() != byteCount)
+        if (rasterIt == pendingPersistentViewCacheRasters_.end()) {
+          logLegendRejection("raster_entry_missing");
           continue;
+        }
+        if (rasterIt->second.size() != byteCount) {
+          logLegendRejection("raster_byte_count_mismatch");
+          continue;
+        }
         LegendCache &cache = GetLegendCache(legendId);
         cache.persistentRaster =
             {std::move(rasterIt->second), wxSize(width, height),
-             cachedLegend.value("renderZoom", 0.0), legendDataHash};
-        if (!cache.persistentRaster.IsValid())
+             cachedLegend.value("renderZoom", 0.0), legendContentHash};
+        if (!cache.persistentRaster.IsValid()) {
+          logLegendRejection("raster_snapshot_invalid");
           continue;
+        }
         cache.symbols.reset();
         cache.texture = 0;
         cache.textureSize = wxSize(0, 0);
         cache.renderZoom = 0.0;
-        cache.contentHash = legendDataHash;
+        cache.contentHash = legendContentHash;
         cache.renderDirty = true;
         ++hydratedLegendCount;
       }
