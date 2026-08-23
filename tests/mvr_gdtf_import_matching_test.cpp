@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <string>
+#include <random>
 #include <vector>
 
 namespace catalog = mvr::gdtf_catalog_matcher;
@@ -53,8 +54,71 @@ static void VerifyNumericModelEvidence() {
   assert(catalog::ComputeFixtureNameMatchTier("PIXEL STROBE 400 RGB",
                                              "PIXEL STROBE 400 RGB") ==
          catalog::FixtureNameMatchTier::ExactNormalized);
-  assert(catalog::ComputeFixtureNameMatchTier("BLINDER 400", "Blinder 4 PRO") !=
-         catalog::FixtureNameMatchTier::None);
+  const auto compatibility = [](const std::string &lhs, const std::string &rhs) {
+    return catalog::ComputeNumericTokenCompatibility(
+        catalog::BuildCanonicalFixtureModel(lhs),
+        catalog::BuildCanonicalFixtureModel(rhs));
+  };
+  assert(compatibility("Beam 200", "Beam 200") ==
+         catalog::NumericTokenCompatibility::Exact);
+  assert(compatibility("Beam 200", "Beam 2000") ==
+         catalog::NumericTokenCompatibility::Different);
+  assert(compatibility("XBeam 17", "XBeam 17 V2") ==
+         catalog::NumericTokenCompatibility::Exact);
+  assert(compatibility("XBeam 17", "XBeam 19") ==
+         catalog::NumericTokenCompatibility::Different);
+  assert(compatibility("K15", "K-15") ==
+         catalog::NumericTokenCompatibility::Exact);
+  assert(compatibility("K15", "K25") ==
+         catalog::NumericTokenCompatibility::Different);
+  assert(compatibility("Beam", "Beam 200") ==
+         catalog::NumericTokenCompatibility::Missing);
+}
+
+// Verifies noisy descriptive collisions cannot establish fixture identity.
+static void VerifyConservativeNoisyCatalogMatching() {
+  std::vector<catalog::GdtfCatalogEntry> macEntries = {
+      {"wrong-new", "Vari-Lite", "VL3600 Profile IP", {{"Mode", 40}}, 900, 5.0f},
+      {"wrong-profile", "Other", "Example Profile", {{"Mode", 40}}, 800, 5.0f},
+      {"correct", "Martin", "Martin MAC Quantum Profile", {}, 100, 3.0f}};
+  const auto mac = catalog::SelectBestDownloadMatch(
+      "", "MAC Quantum Profile (Bulb=LED)", "Mode", "Martin Professional", 40,
+      macEntries);
+  assert(mac.found && mac.rid == "correct");
+  macEntries.resize(2);
+  assert(!catalog::SelectBestDownloadMatch(
+              "", "MAC Quantum Profile (Bulb=LED)", "Mode", "Martin", 40,
+              macEntries).found);
+
+  assert(!catalog::SelectBestDownloadMatch(
+              "", "LED-BL4 (Bulb=LED)", "", "", 0,
+              {{"bulb", "Astera", "Astera NYX Bulb", {}, 900, 5.0f}}).found);
+  assert(!catalog::SelectBestDownloadMatch(
+              "", "RoHS 18x10 LED Par RGBWA (Bulb=LED)", "", "", 0,
+              {{"rgbwa", "Other", "Tourstick 72 RGBWA", {}, 900, 5.0f}}).found);
+  std::vector<catalog::GdtfCatalogEntry> ambiguous = {
+      {"a", "", "Tour Hazer II Aqua", {}, 100, 4.0f},
+      {"b", "", "Tour Hazer II Pro", {}, 200, 5.0f}};
+  assert(!catalog::SelectBestDownloadMatch(
+              "", "Tour Hazer 2", "", "", 0, ambiguous).found);
+  std::reverse(ambiguous.begin(), ambiguous.end());
+  assert(!catalog::SelectBestDownloadMatch(
+              "", "Tour Hazer 2", "", "", 0, ambiguous).found);
+}
+
+// Verifies useful structural fuzzy matches remain eligible without aliases.
+static void VerifyUsefulFuzzyMatches() {
+  const auto matches = [](const std::string &request, const std::string &manufacturer,
+                          const std::string &candidate) {
+    return catalog::SelectBestDownloadMatch(
+        "", request, "", manufacturer, 0,
+        {{"candidate", manufacturer, candidate, {}, 1, 1.0f}}).found;
+  };
+  assert(matches("XBeam 17 CMY (Bulb=Sirius HRI 440W)", "Clay Paky",
+                 "XBEAM 17 V2"));
+  assert(matches("HY B-EYE K15", "Clay Paky", "HY B-EYE K-15 Aqua"));
+  assert(matches("MDG The Fan", "MDG", "MDG / theFAN"));
+  assert(matches("Tour Hazer 2", "", "Tour Hazer II"));
 }
 
 // Verifies official GDTF Share mode fields survive parsing and affect selection.
@@ -62,7 +126,8 @@ static void VerifyOfficialCatalogContractAndModeRanking() {
   const std::string payload = R"json({
     "result": true, "timestamp": 1672531200, "list": [
       {"rid": 12345, "fixture": "Example Fixture",
-       "manufacturer": "Example Manufacturer", "lastModified": "1672531200",
+       "manufacturer": "Example Manufacturer", "uuid": "fixture-type-id",
+       "uploader": "Example Manufacturer", "lastModified": "1672531200",
        "rating": "4.5", "modes": [
          {"name": "Mode 8ch", "dmxfootprint": 8},
          {"name": "Mode 30ch", "dmxfootprint": 30}]},
@@ -75,6 +140,8 @@ static void VerifyOfficialCatalogContractAndModeRanking() {
   assert(entries[0].rid == "12345");
   assert(entries[0].fixtureName == "Example Fixture");
   assert(entries[0].manufacturer == "Example Manufacturer");
+  assert(entries[0].uuid == "fixture-type-id");
+  assert(entries[0].uploader == "Example Manufacturer");
   assert(entries[0].modes.size() == 2);
   assert(entries[0].modes[0].name == "Mode 8ch" && entries[0].modes[0].footprint == 8);
   assert(entries[0].modes[1].name == "Mode 30ch" && entries[0].modes[1].footprint == 30);
@@ -104,6 +171,23 @@ static void VerifyDeterministicTieBreak() {
   assert(catalog::SelectBestDownloadMatch("", "Beam 200", "", "", 0, entries).rid == "a");
   std::reverse(entries.begin(), entries.end());
   assert(catalog::SelectBestDownloadMatch("", "Beam 200", "", "", 0, entries).rid == "a");
+  std::mt19937 generator(42);
+  for (int iteration = 0; iteration < 20; ++iteration) {
+    std::shuffle(entries.begin(), entries.end(), generator);
+    assert(catalog::SelectBestDownloadMatch("", "Beam 200", "", "", 0, entries).rid == "a");
+  }
+}
+
+// Verifies a matching catalog UUID is the strongest standards-based evidence.
+static void VerifyFixtureTypeIdMatching() {
+  catalog::GdtfDownloadRequest request;
+  request.authoritativeFixtureNames = {"Unhelpful imported label"};
+  request.fixtureTypeId = "12345678-1234-4234-9234-123456789abc";
+  catalog::GdtfCatalogEntry entry;
+  entry.rid = "same-type";
+  entry.fixtureName = "Canonical catalog model";
+  entry.uuid = "12345678-1234-4234-9234-123456789ABC";
+  assert(catalog::SelectBestDownloadMatch(request, {entry}).rid == "same-type");
 }
 
 // Verifies MVR spec extraction remains independent from the object alias.
@@ -120,9 +204,12 @@ int main() {
   VerifyExactMacModelsWin();
   VerifyPlaceholderAliasRescue();
   VerifyNumericModelEvidence();
+  VerifyConservativeNoisyCatalogMatching();
+  VerifyUsefulFuzzyMatches();
   VerifyOfficialCatalogContractAndModeRanking();
   VerifyManufacturerPropagation();
   VerifyDeterministicTieBreak();
+  VerifyFixtureTypeIdMatching();
   VerifyMvrIdentityExtraction();
   return 0;
 }

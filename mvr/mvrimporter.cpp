@@ -4382,6 +4382,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                           matchRequest, catalogEntries);
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
+                    if (!bestMatch.selectionReason.empty())
+                      reportProgress("GDTF catalog no-match diagnostics: " +
+                                     bestMatch.selectionReason);
                     const wxString progressText =
                         rowProgressByType[req.type].totalBytes > 0
                             ? formatBytes(

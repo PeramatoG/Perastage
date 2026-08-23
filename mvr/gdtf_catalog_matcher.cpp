@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <set>
 #include <sstream>
+#include <unordered_set>
 
 namespace mvr {
 namespace gdtf_catalog_matcher {
@@ -56,10 +56,10 @@ std::string ExtractDigitSignature(const std::string &text) {
 
 // Normalizes a GDTF catalog or request value into a compact comparison key.
 std::string NormalizeForGdtfMatch(const std::string &text) {
-  static const std::array<std::string, 16> kSuffixes = {
+  static const std::array<std::string, 17> kSuffixes = {
       " lighting", " light", " gmbh",   " ltd",         " inc", " corp",
       " co",       " llc",   " electronics", " ag",     " sa",  " sl",
-      " bv",       " nv",    " s.a.",   " s.l."};
+      " bv",       " nv",    " s.a.",   " s.l.", " professional"};
   std::string normalized = ToLowerAscii(TrimFixtureIdentity(text));
   bool removed = false;
   do {
@@ -113,43 +113,100 @@ bool IsLikelyVersionToken(const std::string &token) {
 
 // Detects generic identities that may legitimately be rescued by an instance alias.
 bool IsGenericFixtureIdentity(const std::string &identity) {
-  const std::string normalized = ToLowerAscii(identity);
+  const std::string normalized = NormalizeForGdtfMatch(identity);
   static const std::array<std::string, 5> markers = {
-      "dummy", "placeholder", "generic", "standard mode", "default fixture"};
+      "dummy", "placeholder", "generic", "standardmode", "defaultfixture"};
   return std::any_of(markers.begin(), markers.end(), [&](const std::string &marker) {
-    return normalized.find(marker) != std::string::npos;
+    return normalized == marker || normalized.starts_with(marker + "fixture") ||
+           normalized.starts_with(marker + "mode") ||
+           (marker == "standardmode" && normalized.find(marker) != std::string::npos);
   });
 }
 
-// Extracts numeric-bearing model tokens without concatenating unrelated digits.
-static std::set<std::string> ExtractNumericModelTokens(const std::string &text) {
-  std::set<std::string> tokens;
-  std::string token;
-  auto flush = [&]() {
-    if (!token.empty() && std::any_of(token.begin(), token.end(),
-                                     [](unsigned char ch) { return std::isdigit(ch); }))
-      tokens.insert(token);
-    token.clear();
-  };
-  for (unsigned char ch : ToLowerAscii(text)) {
-    if (std::isalnum(ch))
-      token.push_back(static_cast<char>(ch));
-    else
-      flush();
+// Converts Roman numerals used as standalone revision numbers to decimal text.
+static std::string NormalizeRomanNumber(const std::string &token) {
+  static const std::array<std::pair<const char *, const char *>, 10> roman = {{
+      {"i", "1"}, {"ii", "2"}, {"iii", "3"}, {"iv", "4"}, {"v", "5"},
+      {"vi", "6"}, {"vii", "7"}, {"viii", "8"}, {"ix", "9"}, {"x", "10"}}};
+  for (const auto &[value, decimal] : roman) {
+    if (token == value)
+      return decimal;
   }
-  flush();
-  return tokens;
+  return token;
 }
 
-// Classifies token-aware numeric evidence without rejecting plausible candidates.
-static NumericTokenCompatibility ComputeNumericCompatibility(
-    const std::string &catalogName, const std::string &requestedName) {
-  const auto catalog = ExtractNumericModelTokens(catalogName);
-  const auto requested = ExtractNumericModelTokens(requestedName);
-  if (catalog.empty() || requested.empty())
+// Builds structured model evidence while excluding parenthesized annotations.
+CanonicalFixtureModel BuildCanonicalFixtureModel(
+    const std::string &text, const std::string &structuredManufacturer,
+    FixtureIdentitySource source) {
+  CanonicalFixtureModel model;
+  model.rawText = text;
+  model.source = source;
+  const std::string stripped = ToLowerAscii(StripParenthesizedSections(text));
+  std::vector<std::string> tokens;
+  std::string current;
+  int previousClass = 0;
+  auto flush = [&]() {
+    if (!current.empty())
+      tokens.push_back(NormalizeRomanNumber(current));
+    current.clear();
+    previousClass = 0;
+  };
+  for (unsigned char ch : stripped) {
+    const int characterClass = std::isdigit(ch) ? 2 : (std::isalpha(ch) ? 1 : 0);
+    if (characterClass == 0) {
+      flush();
+      continue;
+    }
+    if (previousClass != 0 && previousClass != characterClass)
+      flush();
+    current.push_back(static_cast<char>(ch));
+    previousClass = characterClass;
+  }
+  flush();
+
+  const std::string manufacturerKey = NormalizeForGdtfMatch(structuredManufacturer);
+  if (!manufacturerKey.empty()) {
+    std::string prefix;
+    size_t removeCount = 0;
+    for (const auto &token : tokens) {
+      prefix += token;
+      if (!manufacturerKey.starts_with(prefix))
+        break;
+      ++removeCount;
+      if (prefix == manufacturerKey)
+        break;
+    }
+    if (prefix == manufacturerKey && removeCount < tokens.size())
+      tokens.erase(tokens.begin(), tokens.begin() + static_cast<long>(removeCount));
+  }
+
+  static const std::unordered_set<std::string> genericTerms = {
+      "bulb", "lens", "led", "rgb", "rgbw", "rgbwa", "cmy", "profile",
+      "spot", "wash", "beam", "par", "fixture", "light", "lighting", "ip"};
+  for (const auto &token : tokens) {
+    model.canonicalText += token;
+    if (std::any_of(token.begin(), token.end(), [](unsigned char ch) {
+          return std::isdigit(ch);
+        })) {
+      model.numericModelTokens.push_back(token);
+    } else if (token.size() >= 3 && !genericTerms.contains(token)) {
+      model.modelTerms.push_back(token);
+    }
+  }
+  return model;
+}
+
+// Classifies agreement, absence, and contradiction in numeric model evidence.
+NumericTokenCompatibility ComputeNumericTokenCompatibility(
+    const CanonicalFixtureModel &catalog,
+    const CanonicalFixtureModel &requested) {
+  if (catalog.numericModelTokens.empty() || requested.numericModelTokens.empty())
     return NumericTokenCompatibility::Missing;
-  for (const auto &token : catalog) {
-    if (requested.contains(token))
+  for (const auto &token : catalog.numericModelTokens) {
+    if (std::find(requested.numericModelTokens.begin(),
+                  requested.numericModelTokens.end(), token) !=
+        requested.numericModelTokens.end())
       return NumericTokenCompatibility::Exact;
   }
   return NumericTokenCompatibility::Different;
@@ -209,50 +266,32 @@ FixtureNameMatchTier ComputeFixtureNameMatchTier(
     return FixtureNameMatchTier::CoreName;
   }
 
-  const auto hasContainsMatch = [](const std::string &lhs,
-                                   const std::string &rhs) -> bool {
-    if (lhs.empty() || rhs.empty())
-      return false;
-    return (lhs.size() >= 4 && rhs.find(lhs) != std::string::npos) ||
-           (rhs.size() >= 4 && lhs.find(rhs) != std::string::npos);
-  };
-
-  const bool containsMatch =
-      (catalogNormalized.size() >= 5 &&
-       requestedNormalized.find(catalogNormalized) != std::string::npos) ||
-      (requestedNormalized.size() >= 5 &&
-       catalogNormalized.find(requestedNormalized) != std::string::npos) ||
-      hasContainsMatch(catalogCoreName, requestedCoreName) ||
-      hasContainsMatch(catalogNoParentheses, requestedNoParentheses) ||
-      hasContainsMatch(catalogNormalized, requestedNoParentheses) ||
-      hasContainsMatch(catalogNoParentheses, requestedNormalized) ||
-      [&]() {
-        std::set<std::string> catalogWords;
-        std::string word;
-        for (unsigned char ch : ToLowerAscii(catalogFixtureName)) {
-          if (std::isalpha(ch))
-            word.push_back(static_cast<char>(ch));
-          else {
-            if (word.size() >= 4)
-              catalogWords.insert(word);
-            word.clear();
-          }
-        }
-        if (word.size() >= 4)
-          catalogWords.insert(word);
-        word.clear();
-        for (unsigned char ch : ToLowerAscii(requestedFixtureName)) {
-          if (std::isalpha(ch)) {
-            word.push_back(static_cast<char>(ch));
-          } else {
-            if (word.size() >= 4 && catalogWords.contains(word))
-              return true;
-            word.clear();
-          }
-        }
-        return word.size() >= 4 && catalogWords.contains(word);
-      }();
-  if (!containsMatch)
+  const auto catalogModel = BuildCanonicalFixtureModel(catalogFixtureName);
+  const auto requestedModel = BuildCanonicalFixtureModel(requestedFixtureName);
+  const auto numeric =
+      ComputeNumericTokenCompatibility(catalogModel, requestedModel);
+  size_t sharedTerms = 0;
+  for (const auto &term : catalogModel.modelTerms) {
+    if (std::find(requestedModel.modelTerms.begin(), requestedModel.modelTerms.end(),
+                  term) != requestedModel.modelTerms.end())
+      ++sharedTerms;
+  }
+  const size_t maximumTerms =
+      std::max(catalogModel.modelTerms.size(), requestedModel.modelTerms.size());
+  const double coverage = maximumTerms == 0
+                              ? 0.0
+                              : static_cast<double>(sharedTerms) / maximumTerms;
+  const bool compactContains = catalogModel.canonicalText.size() >= 5 &&
+      requestedModel.canonicalText.size() >= 5 &&
+      (catalogModel.canonicalText.find(requestedModel.canonicalText) !=
+           std::string::npos ||
+       requestedModel.canonicalText.find(catalogModel.canonicalText) !=
+           std::string::npos);
+  const bool strongOverlap =
+      (sharedTerms >= 2 && coverage >= 0.5) ||
+      (sharedTerms >= 1 && numeric == NumericTokenCompatibility::Exact) ||
+      (compactContains && numeric != NumericTokenCompatibility::Different);
+  if (!strongOverlap)
     return FixtureNameMatchTier::None;
 
   return FixtureNameMatchTier::Partial;
@@ -367,29 +406,65 @@ GdtfDownloadMatch SelectBestDownloadMatch(
     const std::vector<GdtfCatalogEntry> &catalogEntries) {
   GdtfDownloadMatch bestMatch;
   DownloadCandidateRank bestRank;
+  std::string bestCanonical;
+  std::vector<std::string> evaluated;
+  std::vector<std::pair<DownloadCandidateRank, std::string>> eligibleRanks;
+  bool hasCanonicalCandidate = false;
 
   for (const auto &entry : catalogEntries) {
     FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
-    std::string matchedIdentity;
     bool authoritativeName = false;
+    CanonicalFixtureModel matchedModel;
+    const auto catalogModel = BuildCanonicalFixtureModel(
+        entry.fixtureName, entry.manufacturer, FixtureIdentitySource::Catalog);
     for (const auto &identity : request.authoritativeFixtureNames) {
-      const auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, identity);
+      const auto requestedModel = BuildCanonicalFixtureModel(
+          identity, request.manufacturer,
+          FixtureIdentitySource::AuthoritativeGdtf);
+      auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, identity);
+      if (tier < FixtureNameMatchTier::CoreName && !catalogModel.canonicalText.empty() &&
+          catalogModel.canonicalText == requestedModel.canonicalText)
+        tier = FixtureNameMatchTier::CoreName;
       if (tier > nameTier) {
         nameTier = tier;
-        matchedIdentity = identity;
+        matchedModel = requestedModel;
         authoritativeName = !request.authoritativeIdentityIsPlaceholder;
       }
     }
     for (const auto &alias : request.secondaryAliases) {
-      const auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, alias);
+      const auto aliasModel = BuildCanonicalFixtureModel(
+          alias, request.manufacturer, FixtureIdentitySource::MvrAlias);
+      auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, alias);
+      if (tier < FixtureNameMatchTier::CoreName && !catalogModel.canonicalText.empty() &&
+          catalogModel.canonicalText == aliasModel.canonicalText)
+        tier = FixtureNameMatchTier::CoreName;
       if (tier > nameTier) {
         nameTier = tier;
-        matchedIdentity = alias;
+        matchedModel = aliasModel;
         authoritativeName = request.authoritativeIdentityIsPlaceholder;
       }
     }
-    if (nameTier == FixtureNameMatchTier::None)
+    const bool fixtureTypeIdMatch = !request.fixtureTypeId.empty() &&
+        !entry.uuid.empty() &&
+        NormalizeForGdtfMatch(request.fixtureTypeId) ==
+            NormalizeForGdtfMatch(entry.uuid);
+    if (fixtureTypeIdMatch) {
+      nameTier = FixtureNameMatchTier::ExactNormalized;
+      authoritativeName = true;
+    }
+    const auto numeric =
+        ComputeNumericTokenCompatibility(catalogModel, matchedModel);
+    if (nameTier == FixtureNameMatchTier::None) {
+      std::ostringstream rejected;
+      rejected << "candidate=" << entry.rid << "; model='" << entry.fixtureName
+               << "'; canonical='" << catalogModel.canonicalText
+               << "'; eligible=no; reason=insufficient-model-identity"
+               << "; numeric=" << static_cast<int>(numeric);
+      evaluated.push_back(rejected.str());
       continue;
+    }
+    hasCanonicalCandidate = hasCanonicalCandidate ||
+        nameTier >= FixtureNameMatchTier::CoreName;
 
     const auto modeScore =
         ComputeGdtfModeMatchScore(request.requestedMode, entry.modes,
@@ -407,16 +482,28 @@ GdtfDownloadMatch SelectBestDownloadMatch(
     candidateRank.recency = entry.lastModifiedUnix;
     candidateRank.rating = entry.rating;
     candidateRank.modeTier = modeScore.tier;
-    candidateRank.numericCompatibility =
-        ComputeNumericCompatibility(entry.fixtureName, matchedIdentity);
+    candidateRank.numericCompatibility = numeric;
     candidateRank.stableKey = entry.rid;
+    eligibleRanks.emplace_back(candidateRank, catalogModel.canonicalText);
     const bool hadPreviousBest = bestMatch.found;
-    if (!IsBetterDownloadCandidate(candidateRank, bestRank))
+    std::ostringstream candidateDiagnostic;
+    candidateDiagnostic << "candidate=" << entry.rid << "; model='"
+                        << entry.fixtureName << "'; canonical='"
+                        << catalogModel.canonicalText << "'; eligible=yes; name-tier="
+                        << static_cast<int>(nameTier) << "; numeric="
+                        << static_cast<int>(numeric) << "; manufacturer="
+                        << (manufacturerMatch ? "match" : "none") << "; mode-tier="
+                        << static_cast<int>(modeScore.tier) << "; footprint="
+                        << (footprintMatch ? "match" : "none");
+    evaluated.push_back(candidateDiagnostic.str());
+    if (!IsBetterDownloadCandidate(candidateRank, bestRank)) {
       continue;
+    }
 
     const std::string selectionReason = BuildSelectionReason(
         modeScore, footprintMatch, manufacturerMatch, hadPreviousBest, entry, bestRank);
     bestRank = candidateRank;
+    bestCanonical = catalogModel.canonicalText;
     std::ostringstream diagnostics;
     diagnostics << selectionReason
                 << (authoritativeName ? "; authoritative" : "; secondary")
@@ -427,6 +514,37 @@ GdtfDownloadMatch SelectBestDownloadMatch(
                 << "; manufacturer=" << (manufacturerMatch ? "match" : "none")
                 << "; footprint=" << (footprintMatch ? "match" : "none");
     bestMatch = {true, entry.rid, modeScore.modeName, diagnostics.str()};
+  }
+
+  std::ostringstream fullDiagnostics;
+  fullDiagnostics << "request-model='";
+  if (!request.authoritativeFixtureNames.empty())
+    fullDiagnostics << request.authoritativeFixtureNames.front();
+  fullDiagnostics << "'; manufacturer='" << request.manufacturer
+                  << "'; fixture-type-id='" << request.fixtureTypeId
+                  << "'; requested-mode='" << request.requestedMode
+                  << "'; footprint=" << request.requestedFootprint;
+  if (!hasCanonicalCandidate)
+    fullDiagnostics << "; no exact/canonical model candidate in catalog";
+  for (const auto &diagnostic : evaluated)
+    fullDiagnostics << " | " << diagnostic;
+  const bool ambiguous = std::any_of(
+      eligibleRanks.begin(), eligibleRanks.end(),
+      [&](const auto &evaluatedCandidate) {
+        const auto &[rank, canonical] = evaluatedCandidate;
+        return canonical != bestCanonical && rank.nameTier == bestRank.nameTier &&
+               rank.numericCompatibility == bestRank.numericCompatibility &&
+               rank.manufacturerMatch == bestRank.manufacturerMatch;
+      });
+  if (ambiguous) {
+    bestMatch = {};
+    bestMatch.selectionReason = fullDiagnostics.str() +
+        "; decision=no-match; reason=ambiguous-model-candidates";
+  } else if (bestMatch.found) {
+    bestMatch.selectionReason += " | " + fullDiagnostics.str() +
+        "; decision=winner:" + bestMatch.rid;
+  } else {
+    bestMatch.selectionReason = fullDiagnostics.str() + "; decision=no-match";
   }
 
   return bestMatch;

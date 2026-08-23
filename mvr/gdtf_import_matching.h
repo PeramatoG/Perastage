@@ -75,7 +75,7 @@ inline std::string SelectFallbackFixtureTypeName(const std::string &rawFixtureNo
 inline gdtf_catalog_matcher::GdtfDownloadRequest BuildDownloadRequest(
     const std::string &fixtureNodeAlias, const std::string &resolvedFixtureTypeName,
     const std::string &requestedMode, const std::string &resolvedManufacturer,
-    int requestedFootprint) {
+    int requestedFootprint, const std::string &fixtureTypeId = {}) {
   gdtf_catalog_matcher::GdtfDownloadRequest request;
   const std::string authoritative =
       gdtf_catalog_matcher::TrimFixtureIdentity(resolvedFixtureTypeName);
@@ -91,6 +91,7 @@ inline gdtf_catalog_matcher::GdtfDownloadRequest BuildDownloadRequest(
   request.manufacturer =
       gdtf_catalog_matcher::TrimFixtureIdentity(resolvedManufacturer);
   request.requestedFootprint = requestedFootprint;
+  request.fixtureTypeId = fixtureTypeId;
   return request;
 }
 

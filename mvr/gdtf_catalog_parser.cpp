@@ -107,6 +107,8 @@ ParseCatalogEntries(const std::string &payload) {
     entry.rid = GetText(item, {"rid", "revisionId"});
     entry.manufacturer = GetText(item, {"manufacturer", "brand", "mfr"});
     entry.fixtureName = GetText(item, {"fixture", "name", "model"});
+    entry.uuid = GetText(item, {"uuid"});
+    entry.uploader = GetText(item, {"uploader"});
     entry.lastModifiedUnix = JsonToInteger(item.value("lastModified", Json{}));
     entry.rating = JsonToFloat(item.value("rating", Json{}));
     entry.modes = ParseModes(item);

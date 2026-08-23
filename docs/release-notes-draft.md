@@ -39,6 +39,11 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Automatic GDTF Share matching during MVR import now rejects unrelated
+  fixtures that share only descriptive words, technical annotations, or DMX
+  characteristics, while preserving strong model-family matches and falling
+  back safely when catalog identity is weak or ambiguous.
+
 - Restored macOS 15 Apple Silicon packaging compatibility with a dedicated
   worker fallback while preserving the established fixture-symbol processing
   behavior on Windows, Linux, and supported macOS toolchains.
