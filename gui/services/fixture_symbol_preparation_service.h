@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -78,6 +79,10 @@ private:
   std::uint64_t epoch_ = 0;
   bool stepScheduled_ = false;
   std::optional<symbols::FixtureSymbolPreparationKey> currentKey_;
+  std::deque<std::string> scanFixtureUuids_;
+  std::unordered_set<symbols::FixtureSymbolPreparationKey,
+                     symbols::FixtureSymbolPreparationKeyHash>
+      scanKeys_;
 };
 
 } // namespace gui

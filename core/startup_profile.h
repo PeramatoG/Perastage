@@ -56,6 +56,13 @@ struct Metrics {
   long long layoutCacheValidationMs = 0;
   long long layoutCacheFastValidationMs = 0;
   long long layoutCacheDeepValidationMs = 0;
+  long long layoutRenderQueueWaitMs = 0;
+  long long layoutRenderConfiguredDebounceMs = 0;
+  long long layoutRenderEventLoopOverrunMs = 0;
+  long long layoutRenderRebuildMs = 0;
+  size_t viewSceneCaptureCount = 0;
+  size_t legendSymbolCaptureCount = 0;
+  long long legendSymbolCaptureMs = 0;
   bool interactiveReady = false;
   std::string finalViewMode;
   std::string finalActiveLayout;

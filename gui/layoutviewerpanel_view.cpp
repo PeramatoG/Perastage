@@ -25,6 +25,8 @@
 #include <wx/dcmemory.h>
 #include <wx/image.h>
 
+#include "mainwindow.h"
+
 // Include GLEW or other OpenGL loader first if present
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -385,7 +387,23 @@ void LayoutViewerPanel::DrawViewElement(
     Viewer2DOffscreenRenderer *offscreenRenderer, int activeViewId) {
   ViewCache &cache = GetViewCache(view.id);
   const size_t viewContentHash = HashViewContent(view);
-  gui::layoutcapture::ScheduleLayout2DViewCaptureIfNeeded(
+  const double renderZoom = GetRenderZoom();
+  const wxSize requestedRenderSize =
+      GetFrameSizeForZoom(view.frame, renderZoom);
+  const bool persistentRasterMatches =
+      !cache.persistentRgba.empty() &&
+      cache.persistentRgbaContentHash == viewContentHash &&
+      cache.persistentRgbaRenderZoom == renderZoom &&
+      cache.persistentRgbaSize == requestedRenderSize;
+  if (!persistentRasterMatches && (!capturePanel || !offscreenRenderer)) {
+    if (auto *window = MainWindow::Instance()) {
+      offscreenRenderer = window->GetOffscreenRenderer();
+      capturePanel =
+          offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
+    }
+  }
+  if (!persistentRasterMatches) {
+    gui::layoutcapture::ScheduleLayout2DViewCaptureIfNeeded(
       gui::layoutcapture::Layout2DViewCaptureRequest{
           &view, capturePanel, offscreenRenderer, viewRenderVersion,
           viewContentHash, captureInProgress, cache.captureInProgress,
@@ -394,9 +412,11 @@ void LayoutViewerPanel::DrawViewElement(
       gui::layoutcapture::Layout2DViewCaptureCallbacks{
           [this](bool inProgress) { captureInProgress = inProgress; },
           [&cache](bool inProgress) { cache.captureInProgress = inProgress; },
-          [&cache](const viewer2d::Viewer2DState &renderState) {
+          [this, &cache](const viewer2d::Viewer2DState &renderState) {
             cache.renderState = renderState;
             cache.hasRenderState = true;
+            if (startupMetrics_)
+              ++startupMetrics_->viewSceneCaptureCount;
           },
           [this, viewId = view.id](
               CommandBuffer buffer, Viewer2DViewState state,
@@ -429,6 +449,7 @@ void LayoutViewerPanel::DrawViewElement(
             RequestRenderRebuild();
             Refresh();
           }});
+  }
 
   wxRect frameRect;
   if (!GetFrameRect(view.frame, frameRect))

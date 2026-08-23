@@ -71,6 +71,24 @@ traversal reads either the bounded scene buffer or spill file. A fully covered
 match takes the fast path and never calls the extracted-source deep hasher.
 Schema 5 and incomplete-coverage caches retain conservative deep validation.
 
+Legend persistence hashes the logical GDTF specification, mode, fixture type,
+visible row settings and presentation values. Runtime symbol lookup continues
+to use the resolved workspace path, but temporary `mvr-import-*` paths never
+enter the persistent legend identity. Raster cache metadata is scoped to a
+versioned Windows, macOS or Linux wxWidgets rendering contract so disposable
+pixels are not reused across incompatible font/rendering environments.
+
+The first active Layout rebuild uses a minimal event-loop yield rather than the
+180 ms interactive-edit debounce. Queue wait and event-loop overrun are measured
+from the actual request and dispatch boundaries. Warm raster painting no longer
+constructs the offscreen Viewer2D renderer; capture resources are acquired only
+when the requested view cannot be served by its exact persistent raster.
+
+For Layout-mode startup, automatic fixture-symbol inspection is released by the
+Layout render-ready event rather than immediately after `InteractiveReady`.
+Candidate inspection then advances one fixture per idle slice, keeping paint,
+timer and input events ahead of non-essential post-startup scanning.
+
 ## Phase 2 project archive sources
 
 The primary `.pstg` traversal now captures `config.json` into an owned byte

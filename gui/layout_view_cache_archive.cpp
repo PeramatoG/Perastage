@@ -57,6 +57,17 @@ constexpr size_t kMaxPersistentCacheBytes = 8 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterBytes = 16 * 1024 * 1024;
 constexpr size_t kMaxPersistentRasterEntryBytes = 8 * 1024 * 1024;
 
+// Returns the platform-scoped raster rendering contract.
+std::string PersistentRasterEnvironmentContract() {
+#if defined(_WIN32)
+  return "windows-wx-3-v1";
+#elif defined(__APPLE__)
+  return "macos-wx-3-v1";
+#else
+  return "linux-wx-3-v1";
+#endif
+}
+
 // Combines a byte into a deterministic FNV-1a hash accumulator.
 void HashByte(std::uint64_t &hash, unsigned char value) {
   hash ^= value;
@@ -1017,6 +1028,7 @@ LayoutViewerPanel::CollectPersistentViewCacheResources(
   document["packagedLayoutResourceFingerprint"] =
       validationContext.packagedLayoutResourceFingerprint;
   document["dependencyCoverage"] = "packaged";
+  document["rasterEnvironment"] = PersistentRasterEnvironmentContract();
   document["views"] = views;
   document["legends"] = legends;
 
@@ -1092,6 +1104,16 @@ void LayoutViewerPanel::HydratePendingPersistentViewCache() {
     if (document.value("layoutName", std::string{}) != currentLayout.name) {
       Logger::Instance().Log(Logger::Level::Info,
                              "Ignoring layout view cache reason=layout_mismatch.");
+      pendingPersistentViewCacheJson_.clear();
+      pendingPersistentViewCacheRasters_.clear();
+      return;
+    }
+    if (schemaVersion == kLayoutViewCacheSchemaVersion &&
+        document.value("rasterEnvironment", std::string{}) !=
+            PersistentRasterEnvironmentContract()) {
+      Logger::Instance().Log(
+          Logger::Level::Info,
+          "Ignoring layout view cache reason=raster_environment_mismatch.");
       pendingPersistentViewCacheJson_.clear();
       pendingPersistentViewCacheRasters_.clear();
       return;

@@ -67,6 +67,8 @@ void FixtureSymbolPreparationService::BeginProjectEpoch(bool scheduleScan) {
   manualWork_.clear();
   fallbackDiagnostics_.clear();
   currentKey_.reset();
+  scanFixtureUuids_.clear();
+  scanKeys_.clear();
   stepScheduled_ = false;
   UpdateStatus();
   if (scheduleScan)
@@ -187,21 +189,11 @@ void FixtureSymbolPreparationService::CompleteManualFixture(
 void FixtureSymbolPreparationService::ScanCurrentProject() {
   const auto &scene =
       GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
-  std::unordered_set<symbols::FixtureSymbolPreparationKey,
-                     symbols::FixtureSymbolPreparationKeyHash>
-      uniqueKeys;
   for (const auto &[uuid, fixture] : scene.fixtures) {
-    (void)uuid;
-    fixtures::FixtureGdtfResolution resolution;
-    std::string error;
-    if (!fixtures::ResolveFixtureGdtfDeterministic(fixture, scene, resolution,
-                                                   error, "symbol-scan"))
-      continue;
-    const symbols::FixtureSymbolPreparationKey key{
-        CanonicalResourcePath(resolution.selectedPath), fixture.gdtfMode};
-    if (uniqueKeys.insert(key).second)
-      Request(key.effectiveGdtfPath, key.exactGdtfMode);
+    (void)fixture;
+    scanFixtureUuids_.push_back(uuid);
   }
+  ScheduleNextStep();
 }
 
 // Requests one low-priority idle slice after normal GUI events are processed.
@@ -217,6 +209,27 @@ void FixtureSymbolPreparationService::OnIdle(wxIdleEvent &event) {
   if (!stepScheduled_)
     return;
   stepScheduled_ = false;
+  if (!scanFixtureUuids_.empty()) {
+    const std::string fixtureUuid = std::move(scanFixtureUuids_.front());
+    scanFixtureUuids_.pop_front();
+    const auto &scene =
+        GetDefaultGuiConfigServices().LegacyConfigManager().GetScene();
+    const auto fixtureIt = scene.fixtures.find(fixtureUuid);
+    if (fixtureIt != scene.fixtures.end()) {
+      fixtures::FixtureGdtfResolution resolution;
+      std::string error;
+      if (fixtures::ResolveFixtureGdtfDeterministic(
+              fixtureIt->second, scene, resolution, error, "symbol-scan")) {
+        const symbols::FixtureSymbolPreparationKey key{
+            CanonicalResourcePath(resolution.selectedPath),
+            fixtureIt->second.gdtfMode};
+        if (scanKeys_.insert(key).second)
+          Request(key.effectiveGdtfPath, key.exactGdtfMode);
+      }
+    }
+    if (!scanFixtureUuids_.empty())
+      ScheduleNextStep();
+  }
   RunNextStep();
   if (stepScheduled_)
     event.RequestMore();

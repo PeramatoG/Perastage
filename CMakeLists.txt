@@ -200,6 +200,46 @@ if(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE AND NOT PERASTAGE_WX_SECRETSTORE_EN
     )
 endif()
 
+# Reconfigure generated build identity when HEAD or its active branch ref moves.
+execute_process(
+    COMMAND git rev-parse --git-path HEAD
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE PERASTAGE_GIT_HEAD_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+execute_process(
+    COMMAND git symbolic-ref -q HEAD
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE PERASTAGE_GIT_HEAD_REF
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(PERASTAGE_GIT_HEAD_PATH)
+    if(NOT IS_ABSOLUTE "${PERASTAGE_GIT_HEAD_PATH}")
+        set(PERASTAGE_GIT_HEAD_PATH
+            "${CMAKE_SOURCE_DIR}/${PERASTAGE_GIT_HEAD_PATH}")
+    endif()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${PERASTAGE_GIT_HEAD_PATH}")
+endif()
+if(PERASTAGE_GIT_HEAD_REF)
+    execute_process(
+        COMMAND git rev-parse --git-path "${PERASTAGE_GIT_HEAD_REF}"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        OUTPUT_VARIABLE PERASTAGE_GIT_REF_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(PERASTAGE_GIT_REF_PATH)
+        if(NOT IS_ABSOLUTE "${PERASTAGE_GIT_REF_PATH}")
+            set(PERASTAGE_GIT_REF_PATH
+                "${CMAKE_SOURCE_DIR}/${PERASTAGE_GIT_REF_PATH}")
+        endif()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            "${PERASTAGE_GIT_REF_PATH}")
+    endif()
+endif()
 
 execute_process(
     COMMAND git rev-parse --short=12 HEAD

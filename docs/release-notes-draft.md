@@ -18,6 +18,11 @@ Changes since **v1.5.0**.
   data stored in the project, avoiding false cache invalidation after normal
   MVR identity normalization.
 
+- Warm Layout startup now restores legends across temporary extraction
+  workspaces, avoids creating offscreen 2D rendering infrastructure when cached
+  previews are sufficient, and gives active Layout rendering priority over
+  deferred fixture-symbol inspection.
+
 - Fixture profiles that contain neither stored symbols nor usable GDTF
   geometry now use Perastage's deterministic runtime fallback directly. This
   avoids repeated symbol preparation delays when opening projects while
@@ -422,6 +427,9 @@ Changes since **v1.5.0**.
 - Improved GitHub Actions vcpkg caching so dependency builds are saved immediately after successful installation and can be reused across compatible CI and installer workflows.
 
 ## Fixes
+
+- Incremental builds now refresh the source revision shown in diagnostics when
+  the active Git commit changes.
 
 - Restored successful Windows Debug linking for project, dictionary, and rider
   test executables that use lightweight MVR test implementations.

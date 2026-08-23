@@ -1021,13 +1021,6 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
 
     Viewer2DPanel *capturePanel = nullptr;
     Viewer2DOffscreenRenderer *offscreenRenderer = nullptr;
-    if (auto *mw = MainWindow::Instance()) {
-      offscreenRenderer = mw->GetOffscreenRenderer();
-      capturePanel =
-          offscreenRenderer ? offscreenRenderer->GetPanel() : nullptr;
-    } else {
-      capturePanel = Viewer2DPanel::Instance();
-    }
 
     EnsureSelectionIndexCache();
     const auto &viewById = selectionIndexCache_.viewById;
@@ -2287,11 +2280,19 @@ bool LayoutViewerPanel::RebuildCachedTexture() {
     std::shared_ptr<const SymbolDefinitionSnapshot> legendSymbols;
     profiler.BeginPhase("legend_symbol_capture");
     if (needsLegendSymbolCapture) {
+      const auto legendCaptureStartedAt = std::chrono::steady_clock::now();
       gui::layoutstatus::PostLayoutRenderStatus(
           this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
           wxString::Format("Capturing legend symbols (%zu legend(s) missing symbols)...",
                            legendSymbolsMissingCount));
       legendSymbols = CaptureLegendSymbolSnapshot(capturePanel, cfg, true);
+      if (startupMetrics_) {
+        ++startupMetrics_->legendSymbolCaptureCount;
+        startupMetrics_->legendSymbolCaptureMs +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - legendCaptureStartedAt)
+                .count();
+      }
       if (legendSymbols) {
         for (const auto &legend : currentLayout.legendViews) {
           LegendCache &cache = GetLegendCache(legend.id);
@@ -3212,12 +3213,6 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   }
   if (!isReadyToRender_ || !glContext_ || !IsShownOnScreen())
     return;
-  auto *mw = MainWindow::Instance();
-  if (!mw)
-    return;
-  auto *offscreenRenderer = mw->GetOffscreenRenderer();
-  if (!offscreenRenderer || !offscreenRenderer->GetPanel())
-    return;
   if (!NeedsRenderRebuild())
     return;
 
@@ -3227,12 +3222,19 @@ void LayoutViewerPanel::RequestRenderRebuild() {
   if (alreadyPending)
     return;
 
+  renderQueuedAt_ = std::chrono::steady_clock::now();
+  const int configuredDelayMs =
+      initialRenderScheduled_ ? kZoomRenderDebounceMs : 1;
+  initialRenderScheduled_ = true;
+  if (startupMetrics_)
+    startupMetrics_->layoutRenderConfiguredDebounceMs = configuredDelayMs;
+
   gui::layoutstatus::PostLayoutRenderStatus(
       this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
       "Layout render queued...");
   if (renderDelayTimer_.IsRunning())
     renderDelayTimer_.Stop();
-  renderDelayTimer_.StartOnce(kZoomRenderDebounceMs);
+  renderDelayTimer_.StartOnce(configuredDelayMs);
 }
 
 // Activates the loading overlay when a delayed rebuild is still pending.
@@ -3279,9 +3281,24 @@ void LayoutViewerPanel::ProcessDeferredRenderRebuild() {
   gui::layoutstatus::PostLayoutRenderStatus(
       this, wxTheApp ? wxTheApp->GetTopWindow() : nullptr,
       "Building layout textures...");
+  const auto rebuildStartedAt = std::chrono::steady_clock::now();
+  if (renderQueuedAt_ && startupMetrics_) {
+    const long long queueWaitMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            rebuildStartedAt - *renderQueuedAt_).count();
+    startupMetrics_->layoutRenderQueueWaitMs = queueWaitMs;
+    startupMetrics_->layoutRenderEventLoopOverrunMs =
+        std::max<long long>(0, queueWaitMs -
+                                  startupMetrics_->layoutRenderConfiguredDebounceMs);
+  }
+  renderQueuedAt_.reset();
   if (!isLoading && !loadingTimer_.IsRunning())
     loadingTimer_.StartOnce(kLoadingOverlayDelayMs);
   const bool hasMoreWork = RebuildCachedTexture();
+  if (startupMetrics_)
+    startupMetrics_->layoutRenderRebuildMs +=
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - rebuildStartedAt).count();
   Refresh();
   if (hasMoreWork && NeedsRenderRebuild()) {
     if (renderDelayTimer_.IsRunning())

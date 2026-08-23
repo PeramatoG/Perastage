@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <chrono>
 #include <memory>
 #include <limits>
 #include <optional>
@@ -73,6 +74,7 @@ private:
     int count = 0;
     std::optional<int> channelCount;
     std::string symbolKey;
+    std::string persistentSymbolIdentity;
     std::string gdtfPath;
     std::optional<std::string> symbolFillHex;
     bool showBottomSymbol = true;
@@ -398,6 +400,8 @@ private:
       pendingPersistentViewCacheRasters_;
   project_cache::ValidationContext pendingCacheValidationContext_;
   std::shared_ptr<startup::Metrics> startupMetrics_;
+  std::optional<std::chrono::steady_clock::time_point> renderQueuedAt_;
+  bool initialRenderScheduled_ = false;
   std::unordered_map<int, ViewCache> viewCaches_;
   std::unordered_map<int, LegendCache> legendCaches_;
   std::unordered_map<int, EventTableCache> eventTableCaches_;

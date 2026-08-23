@@ -1469,6 +1469,47 @@ void MainWindow::ClearLayoutLoadingIndicator() {
 // completion.
 void MainWindow::OnLayoutRenderReady(wxCommandEvent &) {
   ClearLayoutLoadingIndicator();
+  if (startupFixtureScanDeferredForLayout_) {
+    startupFixtureScanDeferredForLayout_ = false;
+    const long long durationMs = startupMetrics_
+        ? std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - startupMetrics_->startedAt)
+              .count()
+        : 0;
+    const size_t hydratedRasters = startupMetrics_
+        ? startupMetrics_->hydratedViewRasters +
+              startupMetrics_->hydratedLegendRasters
+        : 0;
+    const std::string result = hydratedRasters > 0 ? "restored" : "rebuilt";
+    if (fixtureSymbolPreparationService)
+      fixtureSymbolPreparationService->ScheduleScan();
+    diagnostics::DiagnosticLogger::Info(
+        "StartupProfile event=ActiveLayoutReady duration_ms=" +
+        std::to_string(durationMs) + " layout_name=" +
+        (startupMetrics_ ? startupMetrics_->finalActiveLayout : "unknown") +
+        " result=" + result + " hydrated_rasters=" +
+        std::to_string(startupMetrics_ ? startupMetrics_->hydratedViewRasters
+                                       : 0) +
+        "," +
+        std::to_string(startupMetrics_ ? startupMetrics_->hydratedLegendRasters
+                                       : 0) +
+        " view_capture=" +
+        std::to_string(startupMetrics_ ? startupMetrics_->viewSceneCaptureCount
+                                       : 0) +
+        " legend_capture=" +
+        std::to_string(startupMetrics_
+                           ? startupMetrics_->legendSymbolCaptureCount
+                           : 0) +
+        " queue_wait_ms=" +
+        std::to_string(startupMetrics_
+                           ? startupMetrics_->layoutRenderQueueWaitMs
+                           : 0) +
+        " rebuild_ms=" +
+        std::to_string(startupMetrics_ ? startupMetrics_->layoutRenderRebuildMs
+                                       : 0));
+    diagnostics::DiagnosticLogger::Info(
+        "StartupProfile event=PostStartupFixtureSymbolScanScheduled");
+  }
 }
 
 // Mirrors layout-render updates to the main status indicator.

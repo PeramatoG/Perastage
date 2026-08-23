@@ -36,6 +36,7 @@ struct LegendAggregate {
   std::optional<int> channelCount;
   bool mixedChannels = false;
   std::string symbolKey;
+  std::string persistentSymbolIdentity;
   std::string gdtfPath;
   std::vector<FixtureVisualColorResult> colors;
 };
@@ -75,6 +76,8 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
 
     int chCount = GetGdtfModeChannelCount(fullPath, fixture.gdtfMode);
     const std::string symbolKey = BuildFixtureSymbolKey(fixture, basePath);
+    const std::string persistentSymbolIdentity =
+        BuildFixturePersistentSymbolIdentity(fixture);
     MvrScene scene;
     scene.basePath = basePath;
     gui::fixtures::FixtureGdtfResolution resolution;
@@ -93,13 +96,13 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
       }
     }
 
-    // Keep the first available symbol key as the legend representative for
-    // the fixture type. This ensures every row can render a generated vector
-    // symbol even when the type contains mixed fixture variants.
-    if (agg.symbolKey.empty() && !symbolKey.empty())
-      agg.symbolKey = symbolKey;
-    if (agg.gdtfPath.empty() && !resolution.selectedPath.empty())
+    // Select a deterministic semantic representative for mixed fixture variants.
+    if (agg.persistentSymbolIdentity.empty() ||
+        persistentSymbolIdentity < agg.persistentSymbolIdentity) {
+      agg.persistentSymbolIdentity = persistentSymbolIdentity;
       agg.gdtfPath = resolution.selectedPath;
+      agg.symbolKey = symbolKey;
+    }
 
     agg.colors.push_back(ResolveFixturePresentationColor(fixture));
   }
@@ -113,6 +116,7 @@ std::vector<SharedLayoutLegendItem> BuildSharedLayoutLegendItems() {
     if (agg.channelCount.has_value() && !agg.mixedChannels)
       item.channelCount = agg.channelCount;
     item.symbolKey = agg.symbolKey;
+    item.persistentSymbolIdentity = agg.persistentSymbolIdentity;
     item.gdtfPath = agg.gdtfPath;
     const FixtureVisualColorAggregate color =
         AggregateFixtureVisualColors(agg.colors);

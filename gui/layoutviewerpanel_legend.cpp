@@ -48,6 +48,7 @@
 #include "LayoutManager.h"
 #include "guiconfigservices.h"
 #include "configmanager.h"
+#include "project_cache_validation.h"
 #include "symbols/PerastageSvgSymbol.h"
 #include "symbols/fixture_symbol_svg_cache.h"
 #include "symbols/fixture_symbol_availability.h"
@@ -821,6 +822,7 @@ LayoutViewerPanel::BuildLegendItems() const {
     item.count = shared.count;
     item.channelCount = shared.channelCount;
     item.symbolKey = shared.symbolKey;
+    item.persistentSymbolIdentity = shared.persistentSymbolIdentity;
     item.gdtfPath = shared.gdtfPath;
     item.symbolFillHex = shared.symbolFillHex;
     if (const auto it = settingsByType.find(shared.typeName);
@@ -860,28 +862,32 @@ LayoutViewerPanel::BuildLegendItems() const {
 
 size_t LayoutViewerPanel::HashLegendItems(
     const std::vector<LegendItem> &items) const {
-  size_t hash = items.size();
-  std::hash<std::string> strHasher;
-  std::hash<int> intHasher;
+  project_cache::FingerprintAccumulator hash;
+  auto appendString = [&hash](const std::string &value) {
+    hash.Update(value.data(), value.size());
+    const char separator = '\0';
+    hash.Update(&separator, 1);
+  };
+  auto appendInt = [&appendString](int value) {
+    appendString(std::to_string(value));
+  };
+  appendInt(static_cast<int>(items.size()));
   for (const auto &item : items) {
-    hash ^= strHasher(item.typeName) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= strHasher(item.displayName) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= intHasher(item.count) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    int chValue = item.channelCount.value_or(-1);
-    hash ^= intHasher(chValue) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= strHasher(item.symbolKey) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= strHasher(item.symbolFillHex.value_or("")) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= intHasher(item.showBottomSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
-            (hash >> 2);
-    hash ^= intHasher(item.showFrontSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
-            (hash >> 2);
-    hash ^= intHasher(item.showSideSymbol ? 1 : 0) + 0x9e3779b9 + (hash << 6) +
-            (hash >> 2);
+    appendString(item.typeName);
+    appendString(item.displayName);
+    appendInt(item.count);
+    appendInt(item.channelCount.value_or(-1));
+    appendString(item.persistentSymbolIdentity);
+    appendString(item.symbolFillHex.value_or(""));
+    appendInt(item.showBottomSymbol ? 1 : 0);
+    appendInt(item.showFrontSymbol ? 1 : 0);
+    appendInt(item.showSideSymbol ? 1 : 0);
   }
   const auto *legend = GetSelectedLegend();
-  hash ^= intHasher((legend && legend->showChannelColumn) ? 1 : 0) +
-          0x9e3779b9 + (hash << 6) + (hash >> 2);
-  return hash;
+  appendInt((legend && legend->showChannelColumn) ? 1 : 0);
+  const std::string fingerprint = hash.Finish();
+  return static_cast<size_t>(
+      std::stoull(fingerprint.substr(fingerprint.find(':') + 1), nullptr, 16));
 }
 
 wxImage LayoutViewerPanel::BuildLegendImage(

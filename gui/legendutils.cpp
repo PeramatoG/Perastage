@@ -59,3 +59,8 @@ std::string BuildFixtureSymbolKey(const Fixture &fixture,
     modelKey = "unknown";
   return modelKey;
 }
+
+// Builds a workspace-independent identity for persistent fixture symbol hashes.
+std::string BuildFixturePersistentSymbolIdentity(const Fixture &fixture) {
+  return fixture.gdtfSpec + "\n" + fixture.gdtfMode + "\n" + fixture.typeName;
+}
