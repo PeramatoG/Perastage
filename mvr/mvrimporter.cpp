@@ -35,7 +35,6 @@
 #include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
 #include "gdtf_import_matching.h"
-#include "gdtf_import_identity_reader.h"
 #include "gdtfloader.h"
 #include "layer_service.h"
 #include "utf8_utils.h"
@@ -2395,16 +2394,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       return it->second;
 
     GdtfFixtureMetadata metadata;
-    const auto identity =
-        mvr::gdtf_import_identity_reader::ReadGdtfImportIdentity(
-            resolvedGdtfPath);
-    metadata.fixtureName = Trim(identity.fixtureName);
-    metadata.manufacturer = Trim(identity.manufacturer);
-    metadata.fixtureTypeId = Trim(identity.fixtureTypeId);
-    if (metadata.fixtureName.empty())
-      metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
-    if (metadata.manufacturer.empty())
-      metadata.manufacturer = Trim(GetGdtfFixtureManufacturer(resolvedGdtfPath));
+    metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
+    metadata.manufacturer = Trim(GetGdtfFixtureManufacturer(resolvedGdtfPath));
+    const std::string rawFixtureTypeId =
+        Trim(GetGdtfFixtureTypeId(resolvedGdtfPath));
+    metadata.fixtureTypeId = CanonicalizeUuid(rawFixtureTypeId);
+    if (metadata.fixtureTypeId.empty())
+      metadata.fixtureTypeId = rawFixtureTypeId;
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
     return gdtfFixtureMetadataCache

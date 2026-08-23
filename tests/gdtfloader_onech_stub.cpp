@@ -36,6 +36,8 @@ std::vector<GdtfChannelInfo> GetGdtfModeChannels(const std::string&, const std::
 std::string GetGdtfFixtureName(const std::string& gdtfPath) { return gdtfPath; }
 // Returns an empty fixture manufacturer for importer tests.
 std::string GetGdtfFixtureManufacturer(const std::string&) { return {}; }
+// Returns no FixtureTypeID from the one-channel loader stub.
+std::string GetGdtfFixtureTypeId(const std::string&) { return {}; }
 std::string GetGdtfModelColor(const std::string&) { return "#000000"; }
 bool GetGdtfProperties(const std::string&, float &w, float &p) {
     w = 0.0f;

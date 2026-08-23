@@ -207,6 +207,7 @@ struct GdtfCacheEntry
     std::unordered_map<std::string, std::vector<GdtfObject>> flatObjectCache;
     std::string fixtureName;
     std::string fixtureManufacturer;
+    std::string fixtureTypeId;
     bool propertiesParsed = false;
     float weightKg = 0.0f;
     float powerW = 0.0f;
@@ -1342,6 +1343,8 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     entry.fixtureName = GetFixtureNameFromXml(entry.fixtureType);
     if (const char* manufacturer = entry.fixtureType->Attribute("Manufacturer"))
         entry.fixtureManufacturer = manufacturer;
+    if (const char* fixtureTypeId = entry.fixtureType->Attribute("FixtureTypeID"))
+        entry.fixtureTypeId = fixtureTypeId;
     ParseModes(entry.fixtureType, entry.modes, entry.modeChannels, entry.modeChannelCounts);
     ParseProperties(entry.fixtureType, entry.weightKg, entry.powerW);
     entry.propertiesParsed = true;
@@ -2000,6 +2003,20 @@ std::string GetGdtfFixtureManufacturer(const std::string& gdtfPath)
             return {};
         GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
         return entry ? entry->fixtureManufacturer : std::string{};
+    } catch (...) {
+        return {};
+    }
+}
+
+// Returns the FixtureTypeID declared by the fixture type in a GDTF file.
+std::string GetGdtfFixtureTypeId(const std::string& gdtfPath)
+{
+    try {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+        if (gdtfPath.empty())
+            return {};
+        GdtfCacheEntry* entry = GetCachedGdtf(gdtfPath);
+        return entry ? entry->fixtureTypeId : std::string{};
     } catch (...) {
         return {};
     }

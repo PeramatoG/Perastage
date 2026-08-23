@@ -468,6 +468,9 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
+- Consolidated GDTF fixture identity reads through the existing loader cache and
+  corrected test linkage for the shared UUID implementation.
+
 - Restored reliable standalone MVR importer test builds by keeping their GDTF
   metadata and catalog dependencies aligned with the production importer.
 

@@ -14,7 +14,6 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
 #include "gdtf_metadata_summary.h"
-#include "gdtf_import_identity_reader.h"
 #include "gdtf_import_matching.h"
 #include "filesystem_path_utils.h"
 #include "wx_path_utils.h"
@@ -627,14 +626,15 @@ static void TestImportFixtureTypeIdPropagation(const fs::path &dir) {
       fixtureTypeId + "\"><AttributeDefinitions/><Geometries/>"
       "<DMXModes/></FixtureType></GDTF>";
   assert(WriteArchive(archivePath, {{"description.xml", xml}}));
-  const auto identity =
-      mvr::gdtf_import_identity_reader::ReadGdtfImportIdentity(
-          archivePath.string());
-  assert(identity.fixtureName == "Beam 200");
+  const auto archive = gdtf::ReadGdtfArchive(archivePath);
+  assert(archive.Success());
+  const auto identity = gdtf::ReadGdtfDescription(archive.descriptionXml);
+  assert(identity.Success());
+  assert(identity.fixtureTypeName == "Beam 200");
   assert(identity.manufacturer == "Acme");
   assert(identity.fixtureTypeId == fixtureTypeId);
   const auto request = mvr::gdtf_import_matching::BuildDownloadRequest(
-      "Object", identity.fixtureName, "Basic", identity.manufacturer, 16,
+      "Object", identity.fixtureTypeName, "Basic", identity.manufacturer, 16,
       identity.fixtureTypeId);
   assert(request.fixtureTypeId == fixtureTypeId);
 }
