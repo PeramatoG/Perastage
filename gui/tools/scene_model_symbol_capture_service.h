@@ -11,6 +11,7 @@
 #include "symbols/Symbol2DImageBuilder.h"
 #include "tools/fixture_geometry_bounds.h"
 #include "tools/scene_model_symbol_target.h"
+#include "tools/scene_model_symbol_processing.h"
 
 class ConfigManager;
 class Viewer2DOffscreenRenderer;
@@ -25,13 +26,6 @@ struct SceneModelSymbolCaptureOptions {
   symbols::FixtureSymbolTimings *timings = nullptr;
 };
 
-struct SceneModelSymbolCaptureResult {
-  bool ok = false;
-  std::string error;
-  std::vector<symbols::Symbol2D> symbols;
-  FixtureGeometryBounds fixtureBoundsMm;
-};
-
 struct SceneModelSymbolRenderResult {
   bool ok = false;
   std::string error;
@@ -43,11 +37,6 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
     const SceneModelSymbolTarget &target,
     const SceneModelSymbolCaptureOptions &options = {});
-
-SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders(
-    std::vector<symbols::RenderedSymbolImage> renders,
-    const FixtureGeometryBounds &fixtureBoundsMm,
-    symbols::FixtureSymbolTimings *timings = nullptr);
 
 SceneModelSymbolCaptureResult CaptureSceneModelOrthographicSymbols(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,

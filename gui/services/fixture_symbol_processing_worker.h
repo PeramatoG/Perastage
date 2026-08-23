@@ -36,15 +36,25 @@ public:
   std::optional<FixtureSymbolProcessingResult> TakeResult();
 
 private:
+  // Keep the managed jthread path as the default; this fallback exists only
+  // for the macOS 15 hosted Xcode/libc++ configuration selected by CMake.
+#if defined(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
   void Run();
+#else
+  void Run(std::stop_token stopToken);
+#endif
 
   std::mutex mutex_;
   std::condition_variable_any condition_;
   std::deque<FixtureSymbolProcessingRequest> requests_;
   std::deque<FixtureSymbolProcessingResult> results_;
   bool busy_ = false;
+#if defined(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
   bool stopping_ = false;
   std::thread thread_;
+#else
+  std::jthread thread_;
+#endif
 };
 
 } // namespace gui
