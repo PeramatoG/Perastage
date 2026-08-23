@@ -42,6 +42,7 @@
 #include "layoutviewerviewrenderer.h"
 #include "logger.h"
 #include "symbols/fixture_symbol_resource_revision.h"
+#include "startup_profile.h"
 
 namespace {
 namespace fs = std::filesystem;
@@ -810,49 +811,6 @@ SymbolSnapshotFromJson(const nlohmann::json &json) {
   return snapshot;
 }
 
-// Reads one ZIP entry from the current stream into a byte vector.
-std::vector<unsigned char> ReadCurrentZipEntryBytes(wxZipInputStream &zip) {
-  std::vector<unsigned char> bytes;
-  std::array<char, 4096> buffer{};
-  while (true) {
-    zip.Read(buffer.data(), buffer.size());
-    const size_t count = zip.LastRead();
-    if (count == 0)
-      break;
-    bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + count);
-  }
-  return bytes;
-}
-
-// Reads project archive layout-cache JSON and optional raster entries.
-bool ReadCacheEntriesFromProject(
-    const std::string &projectPath, std::string &outJson,
-    std::unordered_map<std::string, std::vector<unsigned char>> &outRasters) {
-  wxFileInputStream input(wxString::FromUTF8(projectPath));
-  if (!input.IsOk())
-    return false;
-  wxZipInputStream zip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  bool foundJson = false;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (entry->IsDir())
-      continue;
-    const std::string entryName = entry->GetName().ToStdString();
-    if (entryName == kLayoutViewCacheArchiveEntry) {
-      const auto bytes = ReadCurrentZipEntryBytes(zip);
-      outJson.assign(reinterpret_cast<const char *>(bytes.data()),
-                     bytes.size());
-      foundJson = true;
-      continue;
-    }
-    if (entryName.rfind(kLayoutViewCacheRasterEntryPrefix, 0) == 0) {
-      auto bytes = ReadCurrentZipEntryBytes(zip);
-      if (bytes.size() <= kMaxPersistentRasterEntryBytes)
-        outRasters[entryName] = std::move(bytes);
-    }
-  }
-  return foundJson;
-}
 } // namespace
 
 namespace gui::layoutcache {
@@ -1021,25 +979,40 @@ LayoutViewerPanel::CollectPersistentViewCacheResources() const {
   return resources;
 }
 
-// Loads persisted layout cache JSON from the project archive.
-void LayoutViewerPanel::LoadPersistentViewCacheFromProject(
-    const std::string &projectPath) {
+// Accepts persisted layout-cache entries captured by the primary project archive traversal.
+void LayoutViewerPanel::LoadPersistentViewCache(
+    const std::vector<ProjectSession::ArchiveResource> &resources) {
   pendingPersistentViewCacheJson_.clear();
   pendingPersistentViewCacheRasters_.clear();
-  if (projectPath.empty())
-    return;
-  std::string jsonText;
-  if (ReadCacheEntriesFromProject(projectPath, jsonText,
-                                  pendingPersistentViewCacheRasters_))
-    pendingPersistentViewCacheJson_ = std::move(jsonText);
-  else
-    pendingPersistentViewCacheRasters_.clear();
+  size_t rasterBytes = 0;
+  for (const auto &resource : resources) {
+    if (resource.entryName == kLayoutViewCacheArchiveEntry &&
+        resource.bytes.size() <= kMaxPersistentCacheBytes) {
+      pendingPersistentViewCacheJson_.assign(resource.bytes.begin(),
+                                             resource.bytes.end());
+    } else if (resource.entryName.rfind(kLayoutViewCacheRasterEntryPrefix, 0) ==
+                   0 &&
+               resource.bytes.size() <= kMaxPersistentRasterEntryBytes &&
+               rasterBytes + resource.bytes.size() <=
+                   kMaxPersistentRasterBytes) {
+      rasterBytes += resource.bytes.size();
+      pendingPersistentViewCacheRasters_[resource.entryName] = resource.bytes;
+    }
+  }
+}
+
+// Attaches startup cache-validation instrumentation to this layout viewer.
+void LayoutViewerPanel::SetStartupMetrics(
+    std::shared_ptr<startup::Metrics> metrics) {
+  startupMetrics_ = std::move(metrics);
 }
 
 // Hydrates matching persistent cache data into the active layout view.
 void LayoutViewerPanel::HydratePendingPersistentViewCache() {
   if (pendingPersistentViewCacheJson_.empty() || currentLayout.name.empty())
     return;
+  if (startupMetrics_)
+    ++startupMetrics_->cacheDeepValidations;
   try {
     const nlohmann::json document =
         nlohmann::json::parse(pendingPersistentViewCacheJson_);

@@ -2,10 +2,12 @@
 #include "filesystem_path_utils.h"
 #include "apppaths.h"
 #include "logger.h"
+#include "startup_profile.h"
 
 #include "json.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cerrno>
 #include <chrono>
@@ -127,16 +129,6 @@ private:
   std::filesystem::path path;
   bool created = false;
 };
-
-bool LooksLikeZipFile(const std::string &path) {
-  std::ifstream file(PathFromUtf8(path), std::ios::binary);
-  if (!file.is_open())
-    return false;
-  unsigned char signature[2] = {};
-  file.read(reinterpret_cast<char *>(signature), sizeof(signature));
-  return file.gcount() == static_cast<std::streamsize>(sizeof(signature)) &&
-         signature[0] == 'P' && signature[1] == 'K';
-}
 
 bool LooksLikeJsonFile(const std::string &path) {
   std::ifstream file(PathFromUtf8(path), std::ios::binary);
@@ -1018,6 +1010,8 @@ bool ProjectSession::LoadProject(const std::string &path,
                                  const LoadProgressFn &progress) {
   if (!loadConfig || !loadScene)
     return false;
+  loadedArchiveResources.clear();
+  const auto archiveStartedAt = std::chrono::steady_clock::now();
 
   auto reportProgress = [&](const std::string &stage, int completed = 0,
                             int total = 0) {
@@ -1027,15 +1021,27 @@ bool ProjectSession::LoadProject(const std::string &path,
 
   reportProgress("Opening project package...");
 
-  if (!LooksLikeZipFile(path)) {
+  if (startupMetrics)
+    ++startupMetrics->projectOpenAttempts;
+  wxFileInputStream in(WxStringFromPath(PathFromUtf8(path)));
+  if (!in.IsOk())
+    return false;
+  if (startupMetrics)
+    ++startupMetrics->projectOpenSuccesses;
+  unsigned char signature[2] = {};
+  in.Read(signature, sizeof(signature));
+  const bool isZip = in.LastRead() == sizeof(signature) &&
+                     signature[0] == 'P' && signature[1] == 'K';
+  in.SeekI(0);
+  if (!isZip) {
     if (LooksLikeJsonFile(path))
       return loadConfig(path);
     return false;
   }
 
-  wxFileInputStream in(WxStringFromPath(PathFromUtf8(path)));
-  if (!in.IsOk())
-    return false;
+  if (startupMetrics) {
+    ++startupMetrics->archiveTraversals;
+  }
   wxZipInputStream zip(in);
 
   TempDir tempDir("psp_");
@@ -1050,6 +1056,7 @@ bool ProjectSession::LoadProject(const std::string &path,
   fs::path scenePath;
   bool hasMvrSceneXml = false;
   int extractedRelevantEntries = 0;
+  size_t transferredCacheBytes = 0;
 
   while ((entry.reset(zip.GetNextEntry())), entry) {
     if (entry->IsDir())
@@ -1068,6 +1075,38 @@ bool ProjectSession::LoadProject(const std::string &path,
       if (IsLayoutImageResourceEntry(entryName) &&
           IsSafeArchiveRelativePath(entryName)) {
         ExtractCurrentZipEntry(zip, resourceDir / fs::path(entryName));
+      } else if (entryName.rfind("resources/layout_view_cache/", 0) == 0 &&
+                 IsSafeArchiveRelativePath(entryName)) {
+        constexpr size_t kMaxTransferredCacheEntryBytes = 8 * 1024 * 1024;
+        std::vector<std::uint8_t> bytes;
+        std::array<char, 4096> buffer{};
+        bool entryOversized = false;
+        while (true) {
+          zip.Read(buffer.data(), buffer.size());
+          const size_t count = zip.LastRead();
+          if (count == 0)
+            break;
+          if (!entryOversized &&
+              bytes.size() + count <= kMaxTransferredCacheEntryBytes) {
+            bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + count);
+          } else {
+            entryOversized = true;
+          }
+        }
+        constexpr size_t kMaxTransferredCacheBytes = 24 * 1024 * 1024;
+        if (!entryOversized &&
+            transferredCacheBytes + bytes.size() <=
+                kMaxTransferredCacheBytes) {
+          transferredCacheBytes += bytes.size();
+          loadedArchiveResources.push_back({entryName, std::move(bytes)});
+          if (startupMetrics) {
+            ++startupMetrics->cacheEntriesTransferred;
+            startupMetrics->cacheBytesTransferred +=
+                loadedArchiveResources.back().bytes.size();
+          }
+        } else if (startupMetrics) {
+          ++startupMetrics->cacheEntriesRejected;
+        }
       }
       continue;
     }
@@ -1079,6 +1118,14 @@ bool ProjectSession::LoadProject(const std::string &path,
       configPath = outPath;
     else
       scenePath = outPath;
+
+    if (baseName == "scene.mvr" && startupMetrics) {
+      std::error_code sizeError;
+      const auto sceneSize = fs::file_size(outPath, sizeError);
+      if (!sizeError)
+        startupMetrics->sceneMvrBytes = static_cast<size_t>(sceneSize);
+      ++startupMetrics->sceneMvrWrites;
+    }
 
     ++extractedRelevantEntries;
     reportProgress("Extracting project package...", extractedRelevantEntries,
@@ -1096,7 +1143,14 @@ bool ProjectSession::LoadProject(const std::string &path,
   bool ok = true;
   if (!scenePath.empty()) {
     reportProgress("Importing project scene...");
+    const auto mvrRestoreStartedAt = std::chrono::steady_clock::now();
     const bool sceneOk = loadScene(scenePath.string());
+    if (startupMetrics) {
+      startupMetrics->mvrRestoreMs =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - mvrRestoreStartedAt)
+              .count();
+    }
     if (!sceneOk) {
       std::cerr << "ProjectSession::LoadProject failed while loading scene.mvr from extracted project package." << std::endl;
     }
@@ -1112,7 +1166,25 @@ bool ProjectSession::LoadProject(const std::string &path,
     }
     ok &= configOk;
   }
+  if (startupMetrics) {
+    startupMetrics->projectArchiveLoadMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - archiveStartedAt)
+            .count();
+  }
   return ok;
+}
+
+// Returns optional project-owned resources captured during the primary archive traversal.
+const std::vector<ProjectSession::ArchiveResource> &
+ProjectSession::GetLoadedArchiveResources() const {
+  return loadedArchiveResources;
+}
+
+// Attaches the application-owned startup measurement context to project loading.
+void ProjectSession::SetStartupMetrics(
+    std::shared_ptr<startup::Metrics> metrics) {
+  startupMetrics = std::move(metrics);
 }
 
 bool ProjectSession::IsDirty() const { return revision != savedRevision; }

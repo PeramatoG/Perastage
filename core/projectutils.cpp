@@ -192,6 +192,30 @@ fs::path GetResourceRoot()
     return {};
 }
 
+// Resolves a relative resource path against one validated application resource root.
+fs::path ResolveResourcePathFromRoot(const fs::path& resourceRoot,
+                                     const fs::path& relativePath)
+{
+    if (relativePath.empty() || relativePath.is_absolute())
+        return {};
+
+    std::error_code ec;
+    if (!resourceRoot.empty()) {
+        const fs::path directCandidate = resourceRoot / relativePath;
+        if (fs::exists(directCandidate, ec) && !ec)
+            return directCandidate;
+        ec.clear();
+
+        if (resourceRoot.filename() == "resources") {
+            const fs::path parentCandidate =
+                resourceRoot.parent_path() / relativePath;
+            if (fs::exists(parentCandidate, ec) && !ec)
+                return parentCandidate;
+        }
+    }
+    return {};
+}
+
 // Resolves a relative resource path by checking nested and base resource roots with compatibility fallbacks.
 fs::path ResolveResourcePath(const fs::path& relativePath)
 {
@@ -199,20 +223,10 @@ fs::path ResolveResourcePath(const fs::path& relativePath)
         return {};
 
     std::error_code ec;
-    const fs::path root = GetResourceRoot();
-    if (!root.empty()) {
-        const fs::path directCandidate = root / relativePath;
-        if (fs::exists(directCandidate, ec) && !ec)
-            return directCandidate;
-        ec.clear();
-
-        if (root.filename() == "resources") {
-            const fs::path parentCandidate = root.parent_path() / relativePath;
-            if (fs::exists(parentCandidate, ec) && !ec)
-                return parentCandidate;
-            ec.clear();
-        }
-    }
+    if (const fs::path resolved =
+            ResolveResourcePathFromRoot(GetResourceRoot(), relativePath);
+        !resolved.empty())
+        return resolved;
 
     const wxString resourcesDir = wxStandardPaths::Get().GetResourcesDir();
     if (!resourcesDir.empty()) {

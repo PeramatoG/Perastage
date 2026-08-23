@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "initial_population_policy.h"
 
 #include <wx/wx.h>
 #include <wx/dataview.h>
@@ -34,7 +35,10 @@ class IGuiConfigServices;
 class SceneObjectTablePanel : public wxPanel
 {
 public:
-    explicit SceneObjectTablePanel(wxWindow* parent, IGuiConfigServices* services = nullptr);
+    explicit SceneObjectTablePanel(
+        wxWindow* parent, IGuiConfigServices* services = nullptr,
+        gui::InitialPopulationPolicy populationPolicy =
+            gui::InitialPopulationPolicy::Immediate);
     ~SceneObjectTablePanel();
     void ReloadData();
     void HighlightObject(const std::string& uuid);

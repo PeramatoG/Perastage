@@ -4,6 +4,7 @@
 #include "configmanager.h"
 #include "configservices.h"
 #include "json.hpp"
+#include "projectutils.h"
 #include "support/zip_test_utils.h"
 #include "support/archive_entry_test_utils.h"
 
@@ -34,6 +35,17 @@ void WriteImageFixture(const fs::path &path, const std::string &bytes) {
 
 // Verifies image resources are captured, counted, packaged, and pruned when unused.
 int main() {
+  const fs::path sourceResourceRoot =
+      fs::path(__FILE__).parent_path().parent_path() / "resources";
+  const fs::path representativeIcon = ProjectUtils::ResolveResourcePathFromRoot(
+      sourceResourceRoot,
+      fs::path("icons") / "outline" / "file.svg");
+  assert(!representativeIcon.empty());
+  assert(fs::is_regular_file(representativeIcon));
+  assert(ProjectUtils::ResolveResourcePathFromRoot(
+             sourceResourceRoot,
+             fs::path("icons") / "outline" / "missing-test-icon.svg")
+             .empty());
   const fs::path tempDir = fs::temp_directory_path() / "perastage_layout_image_resource_test";
   std::error_code ec;
   fs::remove_all(tempDir, ec);

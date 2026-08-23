@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "initial_population_policy.h"
 
 #include <wx/dataview.h>
 #include <wx/wx.h>
@@ -34,7 +35,10 @@ class IGuiConfigServices;
 
 class HoistTablePanel : public wxPanel {
 public:
-  explicit HoistTablePanel(wxWindow *parent, IGuiConfigServices *services = nullptr);
+  explicit HoistTablePanel(
+      wxWindow *parent, IGuiConfigServices *services = nullptr,
+      gui::InitialPopulationPolicy populationPolicy =
+          gui::InitialPopulationPolicy::Immediate);
   ~HoistTablePanel();
 
   void ReloadData();

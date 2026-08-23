@@ -119,15 +119,27 @@ void MainWindow::CreateToolBars() {
 
   const auto loadToolbarIcon = [](const std::string &name,
                                   const wxArtID &fallbackArtId) {
-    auto svgPath = ProjectUtils::ResolveResourcePath(
-        std::filesystem::path("icons") / "outline" / (name + ".svg"));
-    if (std::filesystem::exists(svgPath)) {
+    const std::filesystem::path relativePath =
+        std::filesystem::path("icons") / "outline" / (name + ".svg");
+    const std::filesystem::path resourceRoot = ProjectUtils::GetResourceRoot();
+    const std::filesystem::path svgPath =
+        ProjectUtils::ResolveResourcePath(relativePath);
+    std::error_code ec;
+    const bool exists = !svgPath.empty() && std::filesystem::exists(svgPath, ec);
+    if (exists) {
       wxBitmapBundle bundle =
           wxBitmapBundle::FromSVGFile(svgPath.string(), wxSize(16, 16));
       if (bundle.IsOk()) {
         return bundle;
       }
     }
+    diagnostics::DiagnosticLogger::Warning(
+        "Toolbar icon fallback: name=" + name +
+        " relative_path=" + relativePath.generic_string() +
+        " resource_root=" + resourceRoot.generic_string() +
+        " attempted_path=" + svgPath.generic_string() +
+        " exists=" + (exists ? "true" : "false") +
+        " svg_load_failed=" + (exists ? "true" : "false"));
     return wxArtProvider::GetBitmapBundle(fallbackArtId, wxART_TOOLBAR,
                                           wxSize(16, 16));
   };
@@ -184,6 +196,7 @@ void MainWindow::CreateToolBars() {
                                        .Name("FileToolbar")
                                        .Caption(_("File"))
                                        .ToolbarPane()
+                                       .CloseButton(false)
                                        .Top());
 
   editToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -210,6 +223,7 @@ void MainWindow::CreateToolBars() {
                                        .Name("EditToolbar")
                                        .Caption(_("Edit"))
                                        .ToolbarPane()
+                                       .CloseButton(false)
                                        .Top());
 
   layoutViewsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -306,6 +320,7 @@ void MainWindow::CreateToolBars() {
                                               .Name("LayoutViewsToolbar")
                                               .Caption(_("Layout Views"))
                                               .ToolbarPane()
+                                              .CloseButton(false)
                                               .Top());
 
   toolsToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -332,6 +347,7 @@ void MainWindow::CreateToolBars() {
                                         .Name("ToolsToolbar")
                                         .Caption(_("Tools"))
                                         .ToolbarPane()
+                                        .CloseButton(false)
                                         .Top());
 
   layoutToolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition,
@@ -357,6 +373,7 @@ void MainWindow::CreateToolBars() {
                                          .Name("LayoutToolbar")
                                          .Caption(_("Layout"))
                                          .ToolbarPane()
+                                         .CloseButton(false)
                                          .Top());
 
   UpdateToolBarAvailability();

@@ -9,6 +9,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <memory>
+
+namespace startup { struct Metrics; }
 #include "mvrscene.h"
 
 inline constexpr const char *DEFAULT_LAYER_NAME = "No Layer";
@@ -187,6 +190,8 @@ public:
   bool LoadProject(const std::string &path, const LoadConfigFn &loadConfig,
                    const LoadSceneFn &loadScene,
                    const LoadProgressFn &progress = {});
+  const std::vector<ArchiveResource> &GetLoadedArchiveResources() const;
+  void SetStartupMetrics(std::shared_ptr<startup::Metrics> metrics);
 
   bool IsDirty() const;
   DirtyState CaptureDirtyState() const;
@@ -202,6 +207,8 @@ private:
 
   MvrScene scene;
   std::string extractedResourceDirectory;
+  std::vector<ArchiveResource> loadedArchiveResources;
+  std::shared_ptr<startup::Metrics> startupMetrics;
   size_t revision = 0;
   size_t savedRevision = 0;
 };

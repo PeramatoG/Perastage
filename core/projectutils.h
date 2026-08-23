@@ -47,6 +47,9 @@ namespace ProjectUtils {
 
     // Resolves a resource relative path against known runtime roots and returns an existing file when found.
     std::filesystem::path ResolveResourcePath(const std::filesystem::path& relativePath);
+    std::filesystem::path ResolveResourcePathFromRoot(
+        const std::filesystem::path& resourceRoot,
+        const std::filesystem::path& relativePath);
 
     // Returns true when a directory exists (or can be created) and accepts writes.
     bool IsDirectoryWritable(const std::filesystem::path& dir);

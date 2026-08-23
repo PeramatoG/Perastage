@@ -409,7 +409,10 @@ RangeParts SplitRangeParts(const wxString &value) {
 }
 } // namespace
 
-HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
+// Initializes the hoist table controls and optionally populates scene rows.
+HoistTablePanel::HoistTablePanel(
+    wxWindow *parent, IGuiConfigServices *services,
+    gui::InitialPopulationPolicy populationPolicy)
     : wxPanel(parent, wxID_ANY),
       guiConfigServices(services ? services : &GetDefaultGuiConfigServices()) {
   store = new ColorfulDataViewListStore();
@@ -454,7 +457,8 @@ HoistTablePanel::HoistTablePanel(wxWindow *parent, IGuiConfigServices *services)
       [this]() { UpdateSelectionHighlight(); });
 
   InitializeTable();
-  ReloadData();
+  if (populationPolicy == gui::InitialPopulationPolicy::Immediate)
+    ReloadData();
 
   sizer->Add(table, 1, wxEXPAND | wxALL, 5);
   SetSizer(sizer);

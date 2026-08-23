@@ -27,12 +27,15 @@
 #include "platform_locale.h"
 #include "projectutils.h"
 #include "splashscreen.h"
+#include "startup_profile.h"
 #include <filesystem>
 #include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <cstdlib>
 #include <deque>
+#include <chrono>
+#include <memory>
 #include <new>
 #include <optional>
 #include <string>
@@ -86,6 +89,8 @@ private:
   std::optional<std::string> explicit_startup_open_path_;
   std::deque<std::string> pending_external_open_paths_;
   bool localization_fallback_warning_shown_ = false;
+  std::shared_ptr<startup::Metrics> startup_metrics_;
+  startup::Metrics::Clock::time_point startup_resolution_started_at_;
 };
 
 namespace {
@@ -223,6 +228,7 @@ wxIMPLEMENT_APP(MyApp);
 
 // Initializes the application, creates the main window, and routes startup open requests.
 bool MyApp::OnInit() {
+  startup_metrics_ = std::make_shared<startup::Metrics>();
 #if defined(_MSC_VER) && defined(_DEBUG)
   ConfigureWindowsDebugHeapLeakCheck();
 #endif
@@ -274,6 +280,7 @@ bool MyApp::OnInit() {
     diagnostics::DiagnosticLogger::Warning("Startup text locale: " + localeSetup.note);
 
   // Load preferences before UI localization; localization preserves LC_NUMERIC for technical data.
+  const auto userConfigStartedAt = startup::Metrics::Clock::now();
   ConfigManager &config = ConfigManager::Get();
   const std::string configuredLanguageCode =
       config.GetValue(localization::kUiLanguageConfigKey).value_or("");
@@ -281,6 +288,10 @@ bool MyApp::OnInit() {
       localization::ParseAppLanguageCode(configuredLanguageCode);
   const localization::LocalizationInitResult localizationResult =
       localization::LocalizationManager::Get().Initialize(requestedLanguage);
+  startup_metrics_->userConfigMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          startup::Metrics::Clock::now() - userConfigStartedAt)
+          .count();
   if (!localizationResult.diagnostic.empty() &&
       localizationResult.activeLanguage != localizationResult.requestedLanguage) {
     diagnostics::DiagnosticLogger::Warning("Startup localization: " +
@@ -292,10 +303,14 @@ bool MyApp::OnInit() {
   ProjectUtils::RunStartupLibraryBootstrap();
 
   SplashScreen::SetMessage(_("Creating main window..."));
-  MainWindow *mainWindow = new MainWindow(app::kName);
-  mainWindow->Show(true);
-  // Start maximized so minimize and restore buttons remain available
-  mainWindow->Maximize(true);
+  const auto mainWindowStartedAt = startup::Metrics::Clock::now();
+  MainWindow *mainWindow =
+      new MainWindow(app::kName, nullptr, startup_metrics_);
+  SetTopWindow(mainWindow);
+  startup_metrics_->mainWindowConstructionMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          startup::Metrics::Clock::now() - mainWindowStartedAt)
+          .count();
   mainWindow->CallAfter([this, configuredLanguageCode, localizationResult]() {
     ShowLocalizationFallbackWarningIfNeeded(configuredLanguageCode,
                                            localizationResult.activeLanguage);
@@ -308,6 +323,7 @@ bool MyApp::OnInit() {
       GetStartupPathFromArgs(argc, argv, launchWorkingDirectoryUtf8);
   diagnostics::DiagnosticLogger::Info(
       "Startup resolution delayed to allow macOS open-file event.");
+  startup_resolution_started_at_ = startup::Metrics::Clock::now();
   mainWindow->CallAfter([this, mainWindowRef, cliStartupPath, lastPathOpt]() {
     if (!mainWindowRef)
       return;
@@ -325,6 +341,12 @@ void MyApp::FinalizeStartupOpenResolution(
     const std::optional<std::string> &lastPathOpt) {
   if (!mainWindowRef)
     return;
+  if (startup_metrics_) {
+    startup_metrics_->startupPathResolutionMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            startup::Metrics::Clock::now() - startup_resolution_started_at_)
+            .count();
+  }
 
   if (auto macPath = ConsumePendingStartupExternalOpenPath()) {
     diagnostics::DiagnosticLogger::Info("Startup explicit macOS path selected: " + diagnostics::DiagnosticLogger::FileNameOnly(*macPath));
