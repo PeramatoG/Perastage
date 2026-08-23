@@ -133,6 +133,24 @@ void TestPendingShutdown() {
   assert(worker.Submit({99, MakeRenders(), bounds}));
 }
 
+// Verifies the manual-processing barrier drains active work without losing its result.
+void TestManualProcessingBarrier() {
+  tools::FixtureGeometryBounds bounds;
+  bounds.valid = true;
+  const auto renders = MakeRenders();
+  gui::FixtureSymbolProcessingWorker worker;
+  assert(!worker.WaitUntilIdle());
+  assert(worker.Submit({7001, renders, bounds}));
+  assert(worker.WaitUntilIdle());
+  const auto result = worker.TakeResult();
+  assert(result && result->ok && result->epoch == 7001);
+  const auto direct =
+      tools::ProcessSceneModelOrthographicRenders(renders, bounds);
+  assert(direct.ok && direct.symbols.size() == result->symbols.size());
+  for (std::size_t index = 0; index < result->symbols.size(); ++index)
+    assert(SameSymbol(result->symbols[index], direct.symbols[index]));
+}
+
 } // namespace
 
 // Runs the fixture-symbol worker behavioral regression contract.
@@ -140,5 +158,6 @@ int main() {
   TestWorkerContract();
   TestIdleShutdown();
   TestPendingShutdown();
+  TestManualProcessingBarrier();
   return 0;
 }

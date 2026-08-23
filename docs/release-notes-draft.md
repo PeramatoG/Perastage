@@ -39,6 +39,10 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Manual fixture-symbol generation now waits for any active background symbol
+  vectorization to finish before processing its own captured views, preventing
+  overlapping preparation work from affecting compound-fixture previews.
+
 - Automatic GDTF Share matching during MVR import now rejects unrelated
   fixtures that share only descriptive words, technical annotations, or DMX
   characteristics, while preserving strong model-family matches and falling

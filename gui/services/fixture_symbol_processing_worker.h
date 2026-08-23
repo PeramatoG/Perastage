@@ -34,6 +34,7 @@ public:
 
   bool Submit(FixtureSymbolProcessingRequest request);
   std::optional<FixtureSymbolProcessingResult> TakeResult();
+  bool WaitUntilIdle();
 
 private:
   // Keep the managed jthread path as the default; this fallback exists only
