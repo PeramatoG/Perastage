@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "tools/scene_model_symbol_processing.h"
+#include "tools/scene_model_symbol_capture_service.h"
 
 namespace gui {
 
@@ -51,15 +51,6 @@ FixtureSymbolProcessingWorker::TakeResult() {
   return result;
 }
 
-// Waits for submitted processing to finish before synchronous manual work starts.
-bool FixtureSymbolProcessingWorker::WaitUntilIdle() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  const bool waitedForWork = busy_ || !requests_.empty() || !results_.empty();
-  condition_.wait(lock,
-                  [this]() { return !busy_ && requests_.empty(); });
-  return waitedForWork;
-}
-
 #if defined(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
 // Processes copied render data with the macOS 15 hosted-toolchain fallback.
 void FixtureSymbolProcessingWorker::Run() {
@@ -88,7 +79,6 @@ void FixtureSymbolProcessingWorker::Run() {
       results_.push_back(std::move(result));
       busy_ = false;
     }
-    condition_.notify_all();
   }
 }
 #else
@@ -119,7 +109,6 @@ void FixtureSymbolProcessingWorker::Run(std::stop_token stopToken) {
       results_.push_back(std::move(result));
       busy_ = false;
     }
-    condition_.notify_all();
   }
 }
 #endif

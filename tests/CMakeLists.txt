@@ -2360,14 +2360,7 @@ add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_te
 set(FIXTURE_SYMBOL_PROCESSING_WORKER_TEST_SOURCES
     fixture_symbol_processing_worker_test.cpp
     ../gui/services/fixture_symbol_processing_worker.cpp
-    ../gui/tools/scene_model_symbol_processing.cpp
-    ../core/symbols/Symbol2DImageBuilder.cpp
-    ../core/symbols/SymbolGeometrySimplifier.cpp
-    ../core/symbols/FixtureSymbolDiagnostics.cpp
-    ../core/geometry/RdpSimplifier.cpp
-    ../core/logger.cpp
-    ../core/diagnostics/DiagnosticPaths.cpp
-    ../core/filesystem_path_utils.cpp)
+    ../core/symbols/FixtureSymbolDiagnostics.cpp)
 
 foreach(worker_backend normal compatibility)
     set(test_target fixture_symbol_processing_worker_${worker_backend}_test)

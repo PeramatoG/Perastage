@@ -166,12 +166,8 @@ void FixtureSymbolPreparationService::PromoteManualFixture(
     work_.erase(key);
     UpdateStatus();
   }
-  const bool overlappedAutomaticProcessing = processingWorker_.WaitUntilIdle();
   diagnostics::DiagnosticLogger::Info(
-      std::string("Fixture symbol automatic work paused for manual preview; ") +
-      (overlappedAutomaticProcessing
-           ? "background vectorization was active or held a completed result."
-           : "no background vectorization was active."));
+      "Fixture symbol automatic work paused for manual preview.");
 }
 
 // Resumes automatic eligibility when a manual preview ends without publication.
