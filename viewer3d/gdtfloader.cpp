@@ -26,6 +26,7 @@
 #include "runtime_storage.h"
 #include "meshprimitives.h"
 #include "consolepanel.h"
+#include "logger.h"
 
 #include <cctype>
 #include <cerrno>
@@ -57,6 +58,7 @@ class wxZipStreamLink;
 #include <memory>
 #include <cfloat>
 #include <cstdint>
+#include <cstring>
 #include <sstream>
 #include <iomanip>
 #include <mutex>
@@ -202,12 +204,15 @@ struct GdtfCacheEntry
     std::vector<std::string> modes;
     std::unordered_map<std::string, std::vector<GdtfChannelInfo>> modeChannels;
     std::unordered_map<std::string, int> modeChannelCounts;
-    std::unordered_map<std::string, Mesh> meshCache;
+    std::unordered_map<std::string, Mesh> rawFileMeshCache;
+    std::unordered_map<std::string, Mesh> dimensionedFileMeshCache;
+    std::unordered_map<std::string, Mesh> primitiveMeshCache;
     std::unordered_map<std::string, GdtfGeometryTree> geometryTreeCache;
     std::unordered_map<std::string, std::vector<GdtfObject>> flatObjectCache;
     std::string fixtureName;
     std::string fixtureManufacturer;
     std::string fixtureTypeId;
+    std::string sourceArchiveFilename;
     bool propertiesParsed = false;
     float weightKg = 0.0f;
     float powerW = 0.0f;
@@ -303,6 +308,80 @@ static void ApplyModelDimensions(Mesh& mesh, const GdtfModelInfo& modelInfo)
             mesh.vertices[vi + 2] *= sz;
         }
     }
+}
+
+// Serializes a parsed model dimension using its exact floating-point bits.
+static std::string FloatIdentity(float value)
+{
+    std::uint32_t bits = 0;
+    static_assert(sizeof(bits) == sizeof(value));
+    std::memcpy(&bits, &value, sizeof(bits));
+    std::ostringstream output;
+    output << std::hex << std::setw(8) << std::setfill('0') << bits;
+    return output.str();
+}
+
+// Builds the complete identity of a dimension-scaled file-backed model mesh.
+static std::string BuildFileModelMeshCacheKey(const std::string& path,
+                                              const GdtfModelInfo& modelInfo)
+{
+    return path + "|dimensions=" + FloatIdentity(modelInfo.length) + ',' +
+           FloatIdentity(modelInfo.width) + ',' + FloatIdentity(modelInfo.height);
+}
+
+// Formats mesh bounds for concise debug cache diagnostics.
+static std::string FormatMeshBounds(const Mesh& mesh)
+{
+    if (mesh.vertices.size() < 3)
+        return "empty";
+    float minX = mesh.vertices[0], maxX = mesh.vertices[0];
+    float minY = mesh.vertices[1], maxY = mesh.vertices[1];
+    float minZ = mesh.vertices[2], maxZ = mesh.vertices[2];
+    for (size_t index = 3; index + 2 < mesh.vertices.size(); index += 3) {
+        minX = std::min(minX, mesh.vertices[index]);
+        maxX = std::max(maxX, mesh.vertices[index]);
+        minY = std::min(minY, mesh.vertices[index + 1]);
+        maxY = std::max(maxY, mesh.vertices[index + 1]);
+        minZ = std::min(minZ, mesh.vertices[index + 2]);
+        maxZ = std::max(maxZ, mesh.vertices[index + 2]);
+    }
+    std::ostringstream output;
+    output << (maxX - minX) << 'x' << (maxY - minY) << 'x' << (maxZ - minZ);
+    return output.str();
+}
+
+// Records one file-backed model cache decision in debug diagnostics.
+static void LogFileModelCacheLookup(const std::string& archiveFilename,
+                                    const std::string& modeName,
+                                    const GdtfModelInfo& modelInfo,
+                                    const std::string& path,
+                                    const std::string& cacheKey,
+                                    bool cacheHit,
+                                    const Mesh& mesh)
+{
+#ifndef NDEBUG
+    Logger::Instance().Log(
+        Logger::Level::Debug,
+        "GDTF model mesh cache archive=" + archiveFilename + " mode=" +
+            (modeName.empty() ? "<default>" : modeName) + " model=" +
+            modelInfo.name + " resource=" + PathUtils::PathToUtf8(
+                PathUtils::PathFromUtf8(path).filename()) + " declared_m=" +
+            std::to_string(modelInfo.length) + ',' +
+            std::to_string(modelInfo.width) + ',' +
+            std::to_string(modelInfo.height) + " dimension_bits=" +
+            FloatIdentity(modelInfo.length) + ',' + FloatIdentity(modelInfo.width) +
+            ',' + FloatIdentity(modelInfo.height) + " result=" +
+            (cacheHit ? "hit" : "miss") + " key=" + cacheKey + " bounds=" +
+            FormatMeshBounds(mesh));
+#else
+    (void)archiveFilename;
+    (void)modeName;
+    (void)modelInfo;
+    (void)path;
+    (void)cacheKey;
+    (void)cacheHit;
+    (void)mesh;
+#endif
 }
 
 
@@ -1304,6 +1383,7 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
 
     GdtfCacheEntry entry;
     entry.timestamp = timestamp;
+    entry.sourceArchiveFilename = PathUtils::PathToUtf8(absPath.filename());
     TempExtraction extraction(PathUtils::PathToUtf8(absPath));
     if (!extraction.IsValid()) {
         g_failedGdtfCache[stableKey] = timestamp;
@@ -1357,16 +1437,21 @@ static GdtfCacheEntry* GetCachedGdtf(const std::string& gdtfPath,
     return res.second ? &res.first->second : nullptr;
 }
 
+// Parses one geometry subtree while reusing semantically isolated model meshes.
 static void ParseGeometry(tinyxml2::XMLElement* node,
                           const Matrix& parent,
                           const std::unordered_map<std::string, GdtfModelInfo>& models,
                           const std::string& baseDir,
                           const std::unordered_map<std::string, tinyxml2::XMLElement*>& geomMap,
-                          std::unordered_map<std::string, Mesh>& meshCache,
+                          std::unordered_map<std::string, Mesh>& rawFileMeshCache,
+                          std::unordered_map<std::string, Mesh>& dimensionedFileMeshCache,
+                          std::unordered_map<std::string, Mesh>& primitiveMeshCache,
                           GdtfGeometryTree& outTree,
                           std::unordered_set<std::string>* missingModels,
                           std::unordered_set<std::string>* failedModelLoads,
                           int parentNodeIndex,
+                          const std::string& archiveFilename,
+                          const std::string& modeName,
                           const char* overrideModel = nullptr,
                           bool parentIsLens = false)
 {
@@ -1407,9 +1492,12 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             auto it = geomMap.find(refName);
             if (it != geomMap.end()) {
                 const char* m = node->Attribute("Model");
-                ParseGeometry(it->second, transform, models, baseDir, geomMap, meshCache,
+                ParseGeometry(it->second, transform, models, baseDir, geomMap,
+                              rawFileMeshCache, dimensionedFileMeshCache,
+                              primitiveMeshCache,
                               outTree, missingModels, failedModelLoads, parentNodeIndex,
-                              m ? m : overrideModel, parentIsLens);
+                              archiveFilename, modeName, m ? m : overrideModel,
+                              parentIsLens);
             }
         }
         return;
@@ -1444,17 +1532,20 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             if (!modelInfo.file.empty()) {
                 std::string path = FindModelFile(baseDir, modelInfo.file);
                 if (!path.empty()) {
-                    auto mit = meshCache.find(path);
-                    if (mit == meshCache.end()) {
+                    std::string modelMeshKey = BuildFileModelMeshCacheKey(path, modelInfo);
+                    auto mit = dimensionedFileMeshCache.find(modelMeshKey);
+                    bool dimensionedCacheHit = mit != dimensionedFileMeshCache.end();
+                    if (!dimensionedCacheHit) {
                         bool alreadyFailed = failedModelLoads && failedModelLoads->find(path) != failedModelLoads->end();
                         if (!alreadyFailed) {
-                            bool loaded = false;
+                            auto rawIt = rawFileMeshCache.find(path);
+                            bool loaded = rawIt != rawFileMeshCache.end();
                             bool tried3ds = false;
                             bool triedGlb = false;
                             const fs::path loadedPath = PathUtils::PathFromUtf8(path);
                             std::string fallbackGlbPath;
 
-                            if (HasExtension(loadedPath, ".3ds")) {
+                            if (!loaded && HasExtension(loadedPath, ".3ds")) {
                                 tried3ds = true;
                                 std::string loadError3ds;
                                 loaded = Load3DS(path, mesh, false, &loadError3ds);
@@ -1468,15 +1559,25 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                                             path = fallbackGlbPath;
                                     }
                                 }
-                            } else if (HasExtension(loadedPath, ".glb")) {
+                            } else if (!loaded && HasExtension(loadedPath, ".glb")) {
                                 triedGlb = true;
                                 std::string loadErrorGlb;
                                 loaded = LoadGLB(path, mesh, &loadErrorGlb);
                             }
 
                             if (loaded) {
-                                ApplyModelDimensions(mesh, modelInfo);
-                                mit = meshCache.emplace(path, std::move(mesh)).first;
+                                if (rawIt == rawFileMeshCache.end())
+                                    rawIt = rawFileMeshCache.emplace(path, std::move(mesh)).first;
+                                modelMeshKey = BuildFileModelMeshCacheKey(path, modelInfo);
+                                mit = dimensionedFileMeshCache.find(modelMeshKey);
+                                dimensionedCacheHit =
+                                    mit != dimensionedFileMeshCache.end();
+                                if (mit == dimensionedFileMeshCache.end()) {
+                                    Mesh dimensionedMesh = rawIt->second;
+                                    ApplyModelDimensions(dimensionedMesh, modelInfo);
+                                    mit = dimensionedFileMeshCache.emplace(
+                                        modelMeshKey, std::move(dimensionedMesh)).first;
+                                }
                             } else {
                                 bool shouldLog = true;
                                 if (failedModelLoads)
@@ -1497,9 +1598,12 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
                             }
                         }
                     }
-                    if (mit != meshCache.end()) {
+                    if (mit != dimensionedFileMeshCache.end()) {
                         mesh = mit->second;
                         haveMesh = true;
+                        LogFileModelCacheLookup(archiveFilename, modeName, modelInfo,
+                                                path, modelMeshKey,
+                                                dimensionedCacheHit, mesh);
                     }
                 } else if (ConsolePanel::Instance()) {
                     std::string key = baseDir + "|" + modelInfo.file;
@@ -1514,7 +1618,7 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
             }
 
             if (!haveMesh && IsPrimitiveTypeDefined(modelInfo.primitiveType)) {
-                if (GetCachedPrimitiveMesh(modelInfo, meshCache, mesh))
+                if (GetCachedPrimitiveMesh(modelInfo, primitiveMeshCache, mesh))
                     haveMesh = true;
             }
 
@@ -1542,9 +1646,11 @@ static void ParseGeometry(tinyxml2::XMLElement* node,
     for (tinyxml2::XMLElement* child = node->FirstChildElement(); child; child = child->NextSiblingElement()) {
         std::string n = child->Name();
         if (kGeometryNodeTypes.find(n) != kGeometryNodeTypes.end() || n.rfind("Filter",0)==0) {
-            ParseGeometry(child, transform, models, baseDir, geomMap, meshCache, outTree,
-                          missingModels, failedModelLoads, currentNodeIndex, nullptr,
-                          isLensGeometry);
+            ParseGeometry(child, transform, models, baseDir, geomMap,
+                          rawFileMeshCache, dimensionedFileMeshCache,
+                          primitiveMeshCache, outTree, missingModels,
+                          failedModelLoads, currentNodeIndex, archiveFilename,
+                          modeName, nullptr, isLensGeometry);
         }
     }
 }
@@ -1705,8 +1811,10 @@ static bool BuildGdtfGeometryTreeFromCache(GdtfCacheEntry& entry,
         const auto roots = ResolveGeometryRoots(entry.fixtureType, geoms, geomMap, modeName);
         for (tinyxml2::XMLElement* g : roots) {
             ParseGeometry(g, MatrixUtils::Identity(), models, entry.extractedDir, geomMap,
-                          entry.meshCache, built, &entry.missingModelsLogged,
-                          &entry.failedModelLoads, -1);
+                          entry.rawFileMeshCache, entry.dimensionedFileMeshCache,
+                          entry.primitiveMeshCache, built,
+                          &entry.missingModelsLogged, &entry.failedModelLoads, -1,
+                          entry.sourceArchiveFilename, modeName);
         }
     }
 

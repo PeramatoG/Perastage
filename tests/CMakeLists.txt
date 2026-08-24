@@ -2052,6 +2052,27 @@ target_link_libraries(gdtfloader_geometry_roots_test PRIVATE
 add_test(NAME GdtfLoaderGeometryRoots COMMAND gdtfloader_geometry_roots_test)
 set_library_env(GdtfLoaderGeometryRoots)
 
+add_executable(gdtfloader_file_model_cache_identity_test
+               gdtfloader_file_model_cache_identity_test.cpp
+               build_info_stub.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp
+               ../core/logger.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(gdtfloader_file_model_cache_identity_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(gdtfloader_file_model_cache_identity_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_test_gdtf_archive_reader)
+add_test(NAME GdtfLoaderFileModelCacheIdentity
+         COMMAND gdtfloader_file_model_cache_identity_test)
+set_library_env(GdtfLoaderFileModelCacheIdentity)
+
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
