@@ -1596,6 +1596,7 @@ void MainWindow::SyncSceneData() {
       GetDefaultGuiConfigServices().LegacyConfigManager());
 }
 
+// Refreshes scene panels and schedules dependent Layout preview regeneration.
 void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
   PersistFixtureTypeAutoColors(
       GetDefaultGuiConfigServices().LegacyConfigManager());
@@ -1608,8 +1609,7 @@ void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
   if (sceneObjPanel)
     sceneObjPanel->ReloadData();
   RefreshSummary();
-  if (layoutViewerPanel)
-    layoutViewerPanel->RefreshAfterSceneContentUpdate();
+  NotifySceneVisualContentChanged();
   if (refreshViewport) {
     if (viewportPanel) {
       viewportPanel->UpdateScene();
@@ -1622,7 +1622,25 @@ void MainWindow::RefreshAfterSceneChange(bool refreshViewport) {
   }
 }
 
+// Coalesces scene-driven Layout preview invalidation until scene updates settle.
+void MainWindow::NotifySceneVisualContentChanged() {
+  if (layoutSceneRefreshPending)
+    return;
+
+  layoutSceneRefreshPending = true;
+  CallAfter([this]() {
+    layoutSceneRefreshPending = false;
+    if (mvrImportPipelineActive)
+      return;
+    if (layoutViewerPanel)
+      layoutViewerPanel->RefreshAfterSceneContentUpdate();
+  });
+}
+
+// Synchronizes layer visibility across scene panels and Layout previews.
 void MainWindow::SyncLayerVisibilityPanels() {
+  NotifySceneVisualContentChanged();
+
   if (layerPanel)
     layerPanel->ReloadLayers();
 

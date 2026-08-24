@@ -1,6 +1,7 @@
 #include "scene_view_refresh.h"
 
 #include "layoutviewerpanel.h"
+#include "mainwindow.h"
 #include "viewer2dpanel.h"
 #include "viewer3dpanel.h"
 
@@ -51,6 +52,10 @@ void RefreshViewer3D(SceneUpdateScope scope) {
 // Refreshes layout-viewer rasters that depend on the edited scene content.
 void RefreshLayoutViewer(wxWindow *source) {
   wxWindow *topLevel = wxGetTopLevelParent(source);
+  if (auto *mainWindow = dynamic_cast<MainWindow *>(topLevel)) {
+    mainWindow->NotifySceneVisualContentChanged();
+    return;
+  }
   if (auto *layoutViewer = FindLayoutViewerPanel(topLevel))
     layoutViewer->RefreshAfterSceneContentUpdate();
 }
@@ -61,6 +66,11 @@ void RefreshLayoutViewer(wxWindow *source) {
 void RefreshSceneViewsAfterTableEdit(wxWindow *source, SceneUpdateScope scope) {
   RefreshViewer2D(scope);
   RefreshViewer3D(scope);
+  RefreshLayoutViewer(source);
+}
+
+// Invalidates Layout 2D previews after a confirmed visual scene mutation.
+void RefreshLayout2DViewsAfterSceneChange(wxWindow *source) {
   RefreshLayoutViewer(source);
 }
 

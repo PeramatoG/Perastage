@@ -177,8 +177,19 @@ size_t LayoutViewerPanel::HashViewContent(
   return seed;
 }
 
-// Marks cached layout rasters dirty only when content or LOD changes require
-// it.
+// Discards scene-dependent capture and raster data for one Layout 2D view.
+void LayoutViewerPanel::InvalidateViewCacheForSceneContent(ViewCache &cache) {
+  cache.captureVersion = -1;
+  cache.captureInProgress = false;
+  cache.restoredFromPersistentCache = false;
+  cache.persistentRgba.clear();
+  cache.persistentRgbaSize = wxSize(0, 0);
+  cache.persistentRgbaRenderZoom = 0.0;
+  cache.persistentRgbaContentHash = 0;
+  cache.renderDirty = true;
+}
+
+// Marks cached layout rasters dirty only when content or LOD changes require it.
 void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
     bool includeSceneContent) {
   const double renderZoom = GetRenderZoom();
@@ -208,10 +219,7 @@ void LayoutViewerPanel::InvalidateRenderIfFrameChanged(
       markDirty(cache.renderDirty);
     }
     if (sceneContentChanged) {
-      cache.captureVersion = -1;
-      cache.captureInProgress = false;
-      cache.restoredFromPersistentCache = false;
-      markDirty(cache.renderDirty);
+      InvalidateViewCacheForSceneContent(cache);
     }
     wxRect frameRect;
     if (!GetFrameRect(view.frame, frameRect)) {
@@ -335,11 +343,7 @@ void LayoutViewerPanel::RefreshAfterSceneContentUpdate() {
   captureInProgress = false;
 
   for (auto &entry : viewCaches_) {
-    ViewCache &cache = entry.second;
-    cache.captureVersion = -1;
-    cache.captureInProgress = false;
-    cache.restoredFromPersistentCache = false;
-    cache.renderDirty = true;
+    InvalidateViewCacheForSceneContent(entry.second);
   }
 
   for (auto &entry : legendCaches_) {

@@ -39,6 +39,14 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Layout 2D View elements now refresh after any visual scene change, including
+  adding, moving, editing, or removing scene elements as well as opening or
+  merging MVR files, so saved layouts cannot continue showing stale content.
+  Preview capture no longer feeds back into scene-change invalidation, avoiding
+  repeated Layout render queues when changing views, and regenerated previews
+  now discard saved rasters and read the latest scene contents after elements
+  are removed from a viewport or table.
+
 - Restored the established fixture-symbol capture and processing pipeline for
   consistent manual generation of compound-fixture symbols.
 

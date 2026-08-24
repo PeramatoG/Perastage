@@ -33,6 +33,7 @@
 #include "matrixutils.h"
 #include "scene_grouping.h"
 #include "scene_node_operations.h"
+#include "scene_view_refresh.h"
 #include "riggingpanel.h"
 #include "rigging_extra_weight_settings.h"
 #include "selection_origin_token.h"
@@ -1425,6 +1426,7 @@ void HoistTablePanel::UpdateSceneData(bool logChanges) {
     SummaryPanel::Instance()->ShowHoistSummary();
   if (RiggingPanel::Instance())
     RiggingPanel::Instance()->RefreshData();
+  gui::sceneviewrefresh::RefreshLayout2DViewsAfterSceneChange(this);
 }
 
 HoistTablePanel *HoistTablePanel::Instance() { return s_instance; }
@@ -1583,6 +1585,7 @@ void HoistTablePanel::DeleteSelected(bool pushUndoState) {
     Viewer2DPanel::Instance()->SetSelectedUuids(mergedSelection);
     Viewer2DPanel::Instance()->UpdateScene();
   }
+  gui::sceneviewrefresh::RefreshLayout2DViewsAfterSceneChange(this);
 
   std::vector<std::string> order = rowUuids;
   ResyncRows(order, {});
