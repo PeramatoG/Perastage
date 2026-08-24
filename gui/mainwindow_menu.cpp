@@ -63,6 +63,7 @@
 #include "diagnostics/DiagnosticReport.h"
 #include "dictionaryeditdialog.h"
 #include "fixture.h"
+#include "fixture_visual_color.h"
 #include "fixturetablepanel.h"
 #include "gdtf_catalog_service.h"
 #include "gdtfdictionary.h"
@@ -870,10 +871,6 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
   std::set<std::string> selectedFixtureSet(selectedFixtureIds.begin(),
                                            selectedFixtureIds.end());
 
-  auto buildFixtureGroupKey = [](const auto &fixture) {
-    return fixture.gdtfSpec + "\n" + fixture.gdtfMode;
-  };
-
   std::map<std::string, std::string> fixtureGroupColors;
   for (auto &[uuid, f] : scene.fixtures) {
     if (hasFixtureSelection &&
@@ -881,11 +878,7 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
       continue;
 
     if (hasFixtureSelection) {
-      if (f.gdtfSpec.empty()) {
-        f.visualColorHex = randHex();
-        continue;
-      }
-      const std::string groupKey = buildFixtureGroupKey(f);
+      const std::string groupKey = BuildFixtureVisualColorGroupKey(f);
       auto existing = fixtureGroupColors.find(groupKey);
       if (existing == fixtureGroupColors.end()) {
         const auto dictColor = GdtfDictionary::GetDefaultVisualColorForFixture(
@@ -899,21 +892,17 @@ void MainWindow::OnAutoColor(wxCommandEvent &WXUNUSED(event)) {
       continue;
     }
 
-    if (!f.gdtfSpec.empty()) {
-      auto it = fixtureGroupColors.find(buildFixtureGroupKey(f));
-      if (it == fixtureGroupColors.end()) {
-        const std::string c =
-            (f.visualColorHex.empty() || isWhiteColor(f.visualColorHex))
-                ? randHex()
-                : f.visualColorHex;
-        fixtureGroupColors[buildFixtureGroupKey(f)] = c;
-        f.visualColorHex = c;
-      } else {
-        f.visualColorHex = it->second;
-      }
-    } else if (hasFixtureSelection || f.visualColorHex.empty() ||
-               isWhiteColor(f.visualColorHex)) {
-      f.visualColorHex = randHex();
+    const std::string groupKey = BuildFixtureVisualColorGroupKey(f);
+    auto it = fixtureGroupColors.find(groupKey);
+    if (it == fixtureGroupColors.end()) {
+      const std::string c =
+          (f.visualColorHex.empty() || isWhiteColor(f.visualColorHex))
+              ? randHex()
+              : f.visualColorHex;
+      fixtureGroupColors[groupKey] = c;
+      f.visualColorHex = c;
+    } else {
+      f.visualColorHex = it->second;
     }
   }
 
