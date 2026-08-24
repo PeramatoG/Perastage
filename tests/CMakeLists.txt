@@ -2747,6 +2747,8 @@ target_include_directories(viewer2d_bounds_fit_test PRIVATE
                            ../viewer3d/interfaces)
 add_test(NAME Viewer2DFallbackFitDiagnosis COMMAND viewer2d_bounds_fit_test)
 add_test(NAME Viewer2DExplicitBoundsFitParity COMMAND viewer2d_bounds_fit_test)
+add_test(NAME Viewer2DAsymmetricProjectionFit COMMAND viewer2d_bounds_fit_test)
+add_test(NAME QuantumWashKnownGoodFitRegression COMMAND viewer2d_bounds_fit_test)
 add_test(NAME FixtureSymbolInstanceTransformIndependence
          COMMAND scoped_single_model_capture_scene_test)
 add_test(NAME FixtureSymbolRepresentativeUuidIndependence
@@ -2762,6 +2764,10 @@ target_include_directories(fixture_geometry_bounds_test BEFORE PRIVATE
 target_include_directories(fixture_geometry_bounds_test PRIVATE
                            ../gui ../models)
 add_test(NAME FixtureGeometryBounds COMMAND fixture_geometry_bounds_test)
+add_test(NAME FixtureGeometryBoundsRendererUnitParity
+         COMMAND fixture_geometry_bounds_test)
+add_test(NAME FixtureGeometryBoundsTranslatedChild
+         COMMAND fixture_geometry_bounds_test)
 
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)

@@ -106,5 +106,31 @@ int main() {
   assert(viewer2d::ComputeViewFitForBounds(
       actual, Viewer2DView::Front, 1103, 1200, actualFit));
   assert(actualFit.zoom < fallbackFit.zoom);
+
+  Viewer3DBoundingBox quantumWash;
+  quantumWash.min = {-0.228000f, -0.158000f, -0.503910f};
+  quantumWash.max = {0.228000f, 0.158000f, -0.001200f};
+  viewer2d::ViewFitResult frontFit;
+  assert(viewer2d::ComputeViewFitForBounds(
+      quantumWash, Viewer2DView::Front, 1103, 1200, frontFit));
+  assert(Near(frontFit.zoom, 83.028248f));
+  assert(Near(frontFit.offsetXPixels, 0.0f));
+  assert(Near(frontFit.offsetYPixels, 6.313875f));
+
+  viewer2d::ViewFitResult sideFit;
+  assert(viewer2d::ComputeViewFitForBounds(
+      quantumWash, Viewer2DView::Side, 764, 1200, sideFit));
+  assert(Near(sideFit.zoom, 83.028248f));
+  assert(Near(sideFit.offsetXPixels, 0.0f));
+  assert(Near(sideFit.offsetYPixels, 6.313875f));
+
+  for (Viewer2DView view : {Viewer2DView::Top, Viewer2DView::Bottom}) {
+    viewer2d::ViewFitResult planFit;
+    assert(viewer2d::ComputeViewFitForBounds(quantumWash, view, 1200, 831,
+                                             planFit));
+    assert(Near(planFit.zoom, 91.469455f));
+    assert(Near(planFit.offsetXPixels, 0.0f));
+    assert(Near(planFit.offsetYPixels, 0.0f));
+  }
   return 0;
 }

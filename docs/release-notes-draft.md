@@ -46,8 +46,9 @@ Changes since **v1.5.0**.
   inheriting instance translation, rotation, scale, shear, or parent placement,
   and restores the exact offscreen 2D viewer state after Layout capture work.
   Resource synchronization, visibility, rendering, and bounds calculation now
-  share one platform-neutral reference-key contract, while fixture capture fits
-  directly from the authoritative GDTF bounds already used for calibration.
+  share one platform-neutral reference-key contract. Fixture capture now uses
+  the renderer's loaded GDTF bounds for its established framing, while physical
+  calibration uses the same metre/millimetre transform contract as rendering.
   Together these changes prevent renderable fixtures from being framed with the
   small unresolved-resource fallback solely because their path uses a different
   slash or relative-path spelling.

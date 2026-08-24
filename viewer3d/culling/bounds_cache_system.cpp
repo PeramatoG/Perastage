@@ -5,6 +5,8 @@
 #endif
 
 #include "bounds_cache_system.h"
+
+#include "gdtf_object_bounds.h"
 #include "primitive_bounds_utils.h"
 
 #include "configmanager.h"
@@ -141,26 +143,8 @@ void BoundsCacheSystem::RebuildIfDirty(
       auto bit = context.modelBounds.find(resourceKey);
       if (bit == context.modelBounds.end()) {
         Viewer3DBoundingBox local;
-        local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
-        local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
-        bool localFound = false;
-        for (const auto &obj : itg->second) {
-          for (size_t vi = 0; vi + 2 < obj.mesh.vertices.size(); vi += 3) {
-            std::array<float, 3> p = {
-                obj.mesh.vertices[vi] * RENDER_SCALE,
-                obj.mesh.vertices[vi + 1] * RENDER_SCALE,
-                obj.mesh.vertices[vi + 2] * RENDER_SCALE};
-            p = TransformPoint(obj.transform, p);
-            local.min[0] = std::min(local.min[0], p[0]);
-            local.min[1] = std::min(local.min[1], p[1]);
-            local.min[2] = std::min(local.min[2], p[2]);
-            local.max[0] = std::max(local.max[0], p[0]);
-            local.max[1] = std::max(local.max[1], p[1]);
-            local.max[2] = std::max(local.max[2], p[2]);
-            localFound = true;
-          }
-        }
-        if (localFound)
+        if (viewer3d::culling::ComputeGdtfObjectBoundsMeters(itg->second,
+                                                             local))
           bit = context.modelBounds.emplace(resourceKey, local).first;
       }
       if (bit != context.modelBounds.end()) {
