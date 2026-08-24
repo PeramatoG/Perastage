@@ -293,5 +293,16 @@ int main() {
   assert(RiderImporter::BuildFixtureFilterPreview(keywordFixtureRegression) ==
          "FLOOR\n1 FIXTURE VIDEO CONTROL AUDIO LIGHTING\n2 HAZER");
 
+  std::string longHeadingNoiseRegression;
+  for (int index = 0; index < 250; ++index) {
+    longHeadingNoiseRegression +=
+        "Technical rider notes with formatting words but no section meaning ";
+    longHeadingNoiseRegression.append(120, 'X');
+    longHeadingNoiseRegression += "\n";
+  }
+  longHeadingNoiseRegression += "LIGHTING\nFRONT\n2 SPOT\n";
+  assert(RiderImporter::BuildFixtureFilterPreview(longHeadingNoiseRegression) ==
+         "LX1\n2 SPOT");
+
   return 0;
 }

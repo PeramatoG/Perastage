@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <regex>
 #include <unordered_map>
 
 namespace rider_text {
@@ -20,44 +19,71 @@ std::string Trim(std::string_view value) {
 
 // Produces an uppercase, accent-folded key with normalized whitespace.
 std::string NormalizeKey(std::string_view value) {
-  std::string key = Trim(value);
-  while (!key.empty() && (key.back() == ':' || key.back() == ';'))
-    key.pop_back();
-  key = Trim(key);
-
-  const std::array<std::pair<std::string_view, std::string_view>, 10> folds{{
-      {"Á", "A"},
-      {"É", "E"},
-      {"Í", "I"},
-      {"Ó", "O"},
-      {"Ú", "U"},
-      {"á", "A"},
-      {"é", "E"},
-      {"í", "I"},
-      {"ó", "O"},
-      {"ú", "U"},
-  }};
-  for (const auto &[accent, replacement] : folds) {
-    size_t position = 0;
-    while ((position = key.find(accent, position)) != std::string::npos) {
-      key.replace(position, accent.size(), replacement);
-      position += replacement.size();
+  const std::string trimmed = Trim(value);
+  value = trimmed;
+  std::string key;
+  key.reserve(value.size());
+  bool pendingSpace = false;
+  for (size_t index = 0; index < value.size(); ++index) {
+    const unsigned char character = static_cast<unsigned char>(value[index]);
+    if (std::isspace(character)) {
+      pendingSpace = !key.empty();
+      continue;
     }
+    if (pendingSpace) {
+      key.push_back(' ');
+      pendingSpace = false;
+    }
+    if (character == 0xC3 && index + 1 < value.size()) {
+      const unsigned char continuation =
+          static_cast<unsigned char>(value[index + 1]);
+      static constexpr std::array<unsigned char, 10> accentedLetters = {
+          0x81, 0x89, 0x8D, 0x93, 0x9A, 0xA1, 0xA9, 0xAD, 0xB3, 0xBA};
+      static constexpr std::array<char, 10> foldedLetters = {
+          'A', 'E', 'I', 'O', 'U', 'A', 'E', 'I', 'O', 'U'};
+      const auto found = std::find(accentedLetters.begin(),
+                                   accentedLetters.end(), continuation);
+      if (found != accentedLetters.end()) {
+        key.push_back(foldedLetters[static_cast<size_t>(
+            std::distance(accentedLetters.begin(), found))]);
+        ++index;
+        continue;
+      }
+    }
+    key.push_back(static_cast<char>(std::toupper(character)));
   }
-  std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) {
-    return static_cast<char>(std::toupper(c));
-  });
-  static const std::regex whitespaceRe("\\s+");
-  key = std::regex_replace(key, whitespaceRe, " ");
-  return Trim(key);
+  while (!key.empty() &&
+         (key.back() == ' ' || key.back() == ':' || key.back() == ';'))
+    key.pop_back();
+  return key;
 }
 
 // Removes trailing coordinate and margin commands from a heading key.
-std::string RemoveCommandSuffixes(std::string value) {
-  static const std::regex commandRe(
-      "\\s*(?:\\([^)]*\\)|\\[[^]]*\\])\\s*");
-  value = std::regex_replace(value, commandRe, " ");
-  return NormalizeKey(value);
+std::string RemoveCommandSuffixes(std::string_view value) {
+  std::string withoutCommands;
+  withoutCommands.reserve(value.size());
+  for (size_t index = 0; index < value.size();) {
+    const char opening = value[index];
+    const char closing = opening == '(' ? ')' : opening == '[' ? ']' : '\0';
+    if (closing != '\0') {
+      const size_t end = value.find(closing, index + 1);
+      if (end != std::string_view::npos) {
+        index = end + 1;
+        continue;
+      }
+    }
+    withoutCommands.push_back(value[index++]);
+  }
+  return NormalizeKey(withoutCommands);
+}
+
+// Reports whether a normalized key is an explicit LX-number heading.
+bool IsExplicitLx(const std::string &key) {
+  if (key.size() < 3 || key[0] != 'L' || key[1] != 'X')
+    return false;
+  return std::all_of(key.begin() + 2, key.end(), [](unsigned char character) {
+    return std::isdigit(character) != 0;
+  });
 }
 
 // Looks up an exact semantic hang alias.
@@ -172,9 +198,8 @@ Section ClassifySectionHeader(std::string_view line) {
 std::optional<std::string> ClassifyHangHeader(std::string_view line) {
   if (IsQuantityPrefixedLine(line))
     return std::nullopt;
-  const std::string key = RemoveCommandSuffixes(NormalizeKey(line));
-  static const std::regex lxHeadingRe("LX[0-9]+");
-  if (std::regex_match(key, lxHeadingRe))
+  const std::string key = RemoveCommandSuffixes(line);
+  if (IsExplicitLx(key))
     return key;
   if (key.rfind("CALLES DIRECTAS ", 0) == 0)
     return "LX SIDES";
@@ -183,9 +208,8 @@ std::optional<std::string> ClassifyHangHeader(std::string_view line) {
 
 // Normalizes a hang or rigging target alias to its canonical name.
 std::string NormalizeHangAlias(std::string_view value) {
-  std::string key = RemoveCommandSuffixes(NormalizeKey(value));
-  static const std::regex lxTargetRe("LX[0-9]+");
-  if (std::regex_match(key, lxTargetRe))
+  std::string key = RemoveCommandSuffixes(value);
+  if (IsExplicitLx(key))
     return key;
   if (key.rfind("PUENTES ", 0) == 0)
     key = Trim(key.substr(8));
