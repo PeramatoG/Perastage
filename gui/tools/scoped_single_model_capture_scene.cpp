@@ -8,7 +8,7 @@ namespace tools {
 // Replaces renderable scene containers with one aligned capture target.
 ScopedSingleModelCaptureScene::ScopedSingleModelCaptureScene(
     ConfigManager &cfg, const SceneModelSymbolTarget &target,
-    bool alignToLocalAxes)
+    SymbolCaptureTransformPolicy transformPolicy)
     : cfg_(cfg) {
   auto &scene = cfg_.GetScene();
   originalFixtures_.swap(scene.fixtures);
@@ -22,8 +22,16 @@ ScopedSingleModelCaptureScene::ScopedSingleModelCaptureScene(
       const auto it = originalFixtures_.find(target.uuid);
       if (it != originalFixtures_.end()) {
         Fixture fixture = it->second;
-        if (alignToLocalAxes)
+        if (transformPolicy ==
+            SymbolCaptureTransformPolicy::CanonicalFixtureType) {
+          fixture.transform = MatrixUtils::Identity();
+          fixture.parentGroupUuid.clear();
+          fixture.hasLocalTransform = false;
+          fixture.localTransform = MatrixUtils::Identity();
+        } else if (transformPolicy ==
+                   SymbolCaptureTransformPolicy::AlignRotationPreserveScale) {
           fixture.transform = AlignTransform(fixture.transform);
+        }
         scene.fixtures.emplace(it->first, std::move(fixture));
       }
       break;
@@ -32,7 +40,8 @@ ScopedSingleModelCaptureScene::ScopedSingleModelCaptureScene(
       const auto it = originalTrusses_.find(target.uuid);
       if (it != originalTrusses_.end()) {
         Truss truss = it->second;
-        if (alignToLocalAxes)
+        if (transformPolicy ==
+            SymbolCaptureTransformPolicy::AlignRotationPreserveScale)
           truss.transform = AlignTransform(truss.transform);
         scene.trusses.emplace(it->first, std::move(truss));
       }
@@ -42,7 +51,8 @@ ScopedSingleModelCaptureScene::ScopedSingleModelCaptureScene(
       const auto it = originalSceneObjects_.find(target.uuid);
       if (it != originalSceneObjects_.end()) {
         SceneObject object = it->second;
-        if (alignToLocalAxes)
+        if (transformPolicy ==
+            SymbolCaptureTransformPolicy::AlignRotationPreserveScale)
           object.transform = AlignTransform(object.transform);
         scene.sceneObjects.emplace(it->first, std::move(object));
       }

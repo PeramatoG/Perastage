@@ -8,6 +8,8 @@ compatibility="$root/gui/tools/scoped_single_model_capture_scene.cpp"
 resource_sync="$root/viewer3d/resources/resource_sync_system.cpp"
 resource_header="$root/viewer3d/resources/resource_sync_system.h"
 revision_header="$root/viewer3d/resources/physical_asset_revision.h"
+manual="$root/gui/tools/fixture_symbol_generation_tool.cpp"
+policy="$root/gui/tools/symbol_capture_transform_policy.h"
 
 rg -q 'ScopedSingleModelCaptureScene' "$capture"
 rg -q 'originalFixtures_\.swap\(scene\.fixtures\)' "$compatibility"
@@ -17,6 +19,9 @@ rg -q 'loadedGdtfRevisions' "$resource_header"
 rg -q 'ReadPhysicalAssetRevision' "$resource_sync" "$revision_header"
 rg -q 'InvalidatePhysicalAsset' "$resource_sync" "$resource_header"
 rg -q 'capturedRevision != work.sourceRevision' "$service"
+rg -q 'CanonicalFixtureType' "$policy"
+rg -Fq 'BuildFixtureTypeSymbolCaptureOptions("automatic")' "$service"
+rg -Fq 'BuildFixtureTypeSymbolCaptureOptions("manual")' "$manual"
 if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$capture" "$service"; then
   echo "Fixture capture must not yield between orthographic views." >&2
   exit 1

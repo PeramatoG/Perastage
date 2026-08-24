@@ -1,14 +1,20 @@
 #include "tools/scene_model_symbol_capture_service.h"
 
 #include <array>
+#include <atomic>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <sstream>
 #include <string>
 
 #include "configmanager.h"
+#include "diagnostics/DiagnosticLogger.h"
 #include "fixture.h"
 #include "fixtures/fixture_gdtf_resolution.h"
 #include "sceneobject.h"
 #include "symbols/Symbol2DImageBuilder.h"
+#include "symbols/fixture_symbol_resource_revision.h"
 #include "symbols/SymbolGeometrySimplifier.h"
 #include "tools/fixture_geometry_bounds.h"
 #include "tools/scoped_scene_replacement_lifecycle.h"
@@ -21,6 +27,88 @@ namespace tools {
 namespace {
 
 constexpr float kSymbolRdpEpsilon = 1.0f;
+std::atomic<std::uint64_t> s_captureJobId{0};
+
+// Returns the stable diagnostic name for a capture transform policy.
+const char *TransformPolicyName(SymbolCaptureTransformPolicy policy) {
+  switch (policy) {
+  case SymbolCaptureTransformPolicy::PreserveInstanceTransform:
+    return "preserve_instance";
+  case SymbolCaptureTransformPolicy::AlignRotationPreserveScale:
+    return "align_rotation_preserve_scale";
+  case SymbolCaptureTransformPolicy::CanonicalFixtureType:
+    return "canonical_fixture_type";
+  }
+  return "unknown";
+}
+
+// Formats a complete scene transform for capture diagnostics.
+std::string FormatTransform(const Matrix &matrix) {
+  std::ostringstream output;
+  output << "u=" << matrix.u[0] << ',' << matrix.u[1] << ',' << matrix.u[2]
+         << " v=" << matrix.v[0] << ',' << matrix.v[1] << ',' << matrix.v[2]
+         << " w=" << matrix.w[0] << ',' << matrix.w[1] << ',' << matrix.w[2]
+         << " o=" << matrix.o[0] << ',' << matrix.o[1] << ',' << matrix.o[2];
+  return output.str();
+}
+
+// Formats scale, determinant, and orthogonality metrics for a transform basis.
+std::string FormatTransformMetrics(const Matrix &matrix) {
+  const auto length = [](const std::array<float, 3> &axis) {
+    return std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] +
+                     axis[2] * axis[2]);
+  };
+  const auto dot = [](const std::array<float, 3> &left,
+                      const std::array<float, 3> &right) {
+    return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+  };
+  const float determinant =
+      matrix.u[0] * (matrix.v[1] * matrix.w[2] - matrix.v[2] * matrix.w[1]) -
+      matrix.v[0] * (matrix.u[1] * matrix.w[2] - matrix.u[2] * matrix.w[1]) +
+      matrix.w[0] * (matrix.u[1] * matrix.v[2] - matrix.u[2] * matrix.v[1]);
+  std::ostringstream output;
+  output << " scale=" << length(matrix.u) << ',' << length(matrix.v) << ','
+         << length(matrix.w) << " determinant=" << determinant
+         << " basis_dot=" << dot(matrix.u, matrix.v) << ','
+         << dot(matrix.u, matrix.w) << ',' << dot(matrix.v, matrix.w);
+  return output.str();
+}
+
+// Builds a lightweight hash and content bounds for one raw RGBA capture.
+std::string BuildRgbaFingerprint(const symbols::RenderedSymbolImage &render) {
+  std::uint64_t hash = 1469598103934665603ULL;
+  int minX = render.width;
+  int minY = render.height;
+  int maxX = -1;
+  int maxY = -1;
+  for (int y = 0; y < render.height; ++y) {
+    for (int x = 0; x < render.width; ++x) {
+      const size_t offset =
+          (static_cast<size_t>(y) * static_cast<size_t>(render.width) + x) * 4;
+      if (offset + 3 >= render.rgba.size())
+        continue;
+      for (size_t channel = 0; channel < 4; ++channel) {
+        hash ^= render.rgba[offset + channel];
+        hash *= 1099511628211ULL;
+      }
+      if (render.rgba[offset] < 250 || render.rgba[offset + 1] < 250 ||
+          render.rgba[offset + 2] < 250 || render.rgba[offset + 3] < 250) {
+        minX = std::min(minX, x);
+        minY = std::min(minY, y);
+        maxX = std::max(maxX, x);
+        maxY = std::max(maxY, y);
+      }
+    }
+  }
+  std::ostringstream output;
+  output << "size=" << render.width << 'x' << render.height << " content=";
+  if (maxX < minX || maxY < minY)
+    output << "empty";
+  else
+    output << minX << ',' << minY << '-' << maxX << ',' << maxY;
+  output << " rgba_hash=" << std::hex << hash;
+  return output.str();
+}
 
 // Temporarily overrides the isolated fixture color used for extraction.
 class ScopedFixtureCaptureColor {
@@ -187,6 +275,17 @@ float ComputeCaptureAspectForView(const FixtureGeometryBounds &bounds,
 
 } // namespace
 
+// Builds the canonical options shared by automatic and manual fixture symbols.
+SceneModelSymbolCaptureOptions BuildFixtureTypeSymbolCaptureOptions(
+    std::string diagnosticOrigin) {
+  SceneModelSymbolCaptureOptions options;
+  options.transformPolicy =
+      SymbolCaptureTransformPolicy::CanonicalFixtureType;
+  options.diagnosticOrigin = std::move(diagnosticOrigin);
+  options.forcedFixtureColor = "#3FA9F5";
+  return options;
+}
+
 // Captures all orthographic source images in one non-yielding scene scope.
 SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     Viewer2DOffscreenRenderer &renderer, ConfigManager &cfg,
@@ -199,9 +298,56 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     return result;
   }
 
+  const std::uint64_t captureJobId = ++s_captureJobId;
+  std::optional<Fixture> originalFixture;
+  if (target.kind == SceneModelKind::Fixture) {
+    const auto fixtureIt = cfg.GetScene().fixtures.find(target.uuid);
+    if (fixtureIt != cfg.GetScene().fixtures.end())
+      originalFixture = fixtureIt->second;
+  }
+#ifndef NDEBUG
+  if (originalFixture) {
+    gui::fixtures::FixtureGdtfResolution resolution;
+    std::string resolutionError;
+    const bool resolved = gui::fixtures::ResolveFixtureGdtfDeterministic(
+        *originalFixture, cfg.GetScene(), resolution, resolutionError);
+    const symbol_cache::GdtfFileRevision revision =
+        symbol_cache::ReadGdtfFileRevision(resolved ? resolution.selectedPath
+                                                    : std::string());
+    diagnostics::DiagnosticLogger::Debug(
+        "fixture_symbol_capture_start job=" + std::to_string(captureJobId) +
+        " origin=" + options.diagnosticOrigin + " fixture_uuid=" + target.uuid +
+        " fixture_type=\"" + originalFixture->typeName + "\" gdtf=\"" +
+        originalFixture->gdtfSpec + "\" physical_gdtf=\"" +
+        (resolved ? resolution.selectedPath : std::string("<unresolved>")) +
+        "\" revision=\"" + revision.Key() + "\" mode=\"" +
+        originalFixture->gdtfMode + "\" policy=" +
+        TransformPolicyName(options.transformPolicy) +
+        " parent=\"" + originalFixture->parentGroupUuid + "\" has_local=" +
+        (originalFixture->hasLocalTransform ? "1" : "0") + " original_" +
+        FormatTransform(originalFixture->transform) +
+        FormatTransformMetrics(originalFixture->transform) + " local_" +
+        FormatTransform(originalFixture->localTransform));
+  }
+#endif
+
   ScopedViewer2DCaptureState scopedPanelState(*capturePanel);
   ScopedSingleModelCaptureScene isolatedScene(cfg, target,
-                                              options.alignToLocalAxes);
+                                              options.transformPolicy);
+#ifndef NDEBUG
+  if (target.kind == SceneModelKind::Fixture) {
+    const auto isolatedIt = cfg.GetScene().fixtures.find(target.uuid);
+    if (isolatedIt != cfg.GetScene().fixtures.end()) {
+      diagnostics::DiagnosticLogger::Debug(
+          "fixture_symbol_capture_isolated job=" +
+          std::to_string(captureJobId) + " fixture_uuid=" + target.uuid + ' ' +
+          FormatTransform(isolatedIt->second.transform) + " parent=\"" +
+          isolatedIt->second.parentGroupUuid + "\" has_local=" +
+          (isolatedIt->second.hasLocalTransform ? "1" : "0") +
+          FormatTransformMetrics(isolatedIt->second.transform));
+    }
+  }
+#endif
   ScopedFixtureCaptureColor captureColor(
       cfg, target.kind == SceneModelKind::Fixture ? target.uuid : std::string(),
       options.forcedFixtureColor);
@@ -273,6 +419,17 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
       viewerView = Viewer2DView::Side;
     capturePanel->SetView(viewerView);
     capturePanel->FitViewToScene();
+#ifndef NDEBUG
+    const Viewer2DViewState fittedState = capturePanel->GetViewState();
+    diagnostics::DiagnosticLogger::Debug(
+        "fixture_symbol_capture_view job=" + std::to_string(captureJobId) +
+        " view=" + std::to_string(static_cast<int>(request.symbolView)) +
+        " viewport=" + std::to_string(fittedState.viewportWidth) + 'x' +
+        std::to_string(fittedState.viewportHeight) + " zoom=" +
+        std::to_string(fittedState.zoom) + " offset=" +
+        std::to_string(fittedState.offsetPixelsX) + ',' +
+        std::to_string(fittedState.offsetPixelsY));
+#endif
 
     symbols::RenderedSymbolImage render;
     render.view = request.symbolView;
@@ -284,6 +441,12 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     }
     if (request.mirrorHorizontally)
       MirrorImageHorizontally(render);
+#ifndef NDEBUG
+    diagnostics::DiagnosticLogger::Debug(
+        "fixture_symbol_capture_rgba job=" + std::to_string(captureJobId) +
+        " view=" + std::to_string(static_cast<int>(render.view)) + ' ' +
+        BuildRgbaFingerprint(render));
+#endif
     result.renders.push_back(std::move(render));
   }
   result.ok = result.renders.size() == requests.size();

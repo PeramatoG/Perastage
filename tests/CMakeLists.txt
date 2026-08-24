@@ -2721,6 +2721,12 @@ target_link_libraries(scoped_single_model_capture_scene_test PRIVATE
                       ${wxWidgets_LIBRARIES})
 add_test(NAME ScopedSingleModelCaptureScene
          COMMAND scoped_single_model_capture_scene_test)
+add_test(NAME FixtureSymbolInstanceTransformIndependence
+         COMMAND scoped_single_model_capture_scene_test)
+add_test(NAME FixtureSymbolRepresentativeUuidIndependence
+         COMMAND scoped_single_model_capture_scene_test)
+add_test(NAME ProjectReplacementFixtureSymbolParity
+         COMMAND scoped_single_model_capture_scene_test)
 
 add_executable(fixture_geometry_bounds_test
                fixture_geometry_bounds_test.cpp

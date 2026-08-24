@@ -7,6 +7,7 @@
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "loader_obj.h"
+#include "logger.h"
 #include "matrixutils.h"
 #include "projectutils.h"
 
@@ -14,6 +15,9 @@
 #include <array>
 #include <chrono>
 #include <exception>
+#include <cstdint>
+#include <cstring>
+#include <sstream>
 #include <system_error>
 #include <cctype>
 #include <cmath>
@@ -25,6 +29,32 @@ namespace fs = std::filesystem;
 
 namespace {
 using RetryClock = std::chrono::steady_clock;
+
+// Builds a stable summary of GDTF object transforms and mesh sizes.
+std::string BuildGdtfObjectSignature(const std::vector<GdtfObject> &objects) {
+  std::uint64_t hash = 1469598103934665603ULL;
+  size_t vertices = 0;
+  size_t indices = 0;
+  for (const GdtfObject &object : objects) {
+    vertices += object.mesh.vertices.size();
+    indices += object.mesh.indices.size();
+    const auto hashAxis = [&hash](const std::array<float, 3> &axis) {
+      for (float value : axis) {
+        std::uint32_t bits = 0;
+        std::memcpy(&bits, &value, sizeof(bits));
+        hash = (hash ^ bits) * 1099511628211ULL;
+      }
+    };
+    hashAxis(object.transform.u);
+    hashAxis(object.transform.v);
+    hashAxis(object.transform.w);
+    hashAxis(object.transform.o);
+  }
+  std::ostringstream output;
+  output << "objects=" << objects.size() << " vertices=" << vertices
+         << " indices=" << indices << " transform_hash=" << std::hex << hash;
+  return output.str();
+}
 
 // Returns the current monotonic time used for retry backoff.
 RetryClock::time_point CurrentRetryTime() { return RetryClock::now(); }
@@ -953,9 +983,11 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     if (state.loadedGdtf.find(resourceKey) == state.loadedGdtf.end()) {
       std::vector<GdtfObject> objs;
       std::string gdtfError;
+      bool loadedFromDiskCache = false;
       try {
         if (meshProcessingOptions.enableDiskCache &&
             viewer3d::resources::TryLoadGdtfCache(gdtfPath, f.gdtfMode, objs)) {
+          loadedFromDiskCache = true;
         } else if (LoadGdtf(gdtfPath, objs, f.gdtfMode, &gdtfError)) {
           if (meshProcessingOptions.enableMeshOptimization)
             viewer3d::resources::OptimizeGdtfObjectsForRuntime(objs);
@@ -969,6 +1001,17 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       }
 
       if (!objs.empty()) {
+#ifndef NDEBUG
+        Logger::Instance().Log(
+            Logger::Level::Debug,
+            "GDTF runtime resource path=" + gdtfPath + " mode=\"" +
+                f.gdtfMode + "\" source=" +
+                (loadedFromDiskCache ? "disk_cache" : "fresh_parse") +
+                " revision_size=" + std::to_string(currentRevision.fileSize) +
+                " revision_mtime=" +
+                std::to_string(currentRevision.modificationTimeNs) + ' ' +
+                BuildGdtfObjectSignature(objs));
+#endif
         SetupGdtfMeshBuffers(objs, callbacks);
         state.loadedGdtf[resourceKey] = std::move(objs);
         state.loadedGdtfRevisions[resourceKey] = currentRevision;
