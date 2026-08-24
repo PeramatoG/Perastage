@@ -25,10 +25,10 @@ for function_name, end_marker in (
     body = match.group(0)
     panels_index = body.rfind("RefreshPanelsAfterMvrSceneChange")
     resume_index = body.find("mvrImportPipelineActive = false", panels_index)
-    layout_index = body.find("RefreshAfterSceneContentUpdate", panels_index)
+    layout_index = body.find("NotifySceneVisualContentChanged", panels_index)
     if panels_index < 0 or resume_index < 0 or layout_index < 0:
         raise SystemExit(
-            f"{function_name} must resume rendering and refresh Layout previews after panel updates"
+            f"{function_name} must resume rendering and notify Layout previews after panel updates"
         )
     if not panels_index < resume_index < layout_index:
         raise SystemExit(
@@ -42,8 +42,19 @@ refresh_match = re.search(
 )
 if not refresh_match:
     raise SystemExit("Unable to inspect RefreshPanelsAfterMvrSceneChange")
-if "RefreshAfterSceneContentUpdate" in refresh_match.group(0):
+if "NotifySceneVisualContentChanged" in refresh_match.group(0):
     raise SystemExit(
-        "Layout preview refresh must not be queued while the MVR pipeline is active"
+        "Layout preview notification must not be queued while the MVR pipeline is active"
     )
+
+required_hooks = {
+    "viewer2d/viewer2dpanel.cpp": "mainWindow->NotifySceneVisualContentChanged()",
+    "viewer3d/viewer3dpanel.cpp": "mainWindow->NotifySceneVisualContentChanged()",
+    "gui/scene_view_refresh.cpp": "mainWindow->NotifySceneVisualContentChanged()",
+    "gui/mainwindow.cpp": "void MainWindow::NotifySceneVisualContentChanged()",
+}
+for relative_path, token in required_hooks.items():
+    source = open(f"{sys.argv[1].rsplit('/gui/', 1)[0]}/{relative_path}", encoding="utf-8").read()
+    if token not in source:
+        raise SystemExit(f"Missing general Layout scene-change hook in {relative_path}")
 PY

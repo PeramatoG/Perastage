@@ -39,9 +39,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
-- Layout 2D View elements now refresh immediately after opening or merging an
-  MVR file, so saved layouts cannot continue showing scene content that was
-  replaced or removed by the import.
+- Layout 2D View elements now refresh after any visual scene change, including
+  adding, moving, editing, or removing scene elements as well as opening or
+  merging MVR files, so saved layouts cannot continue showing stale content.
 
 - Restored the established fixture-symbol capture and processing pipeline for
   consistent manual generation of compound-fixture symbols.

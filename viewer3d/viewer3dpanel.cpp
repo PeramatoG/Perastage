@@ -4311,6 +4311,9 @@ void Viewer3DPanel::UpdateScene() {
     ++m_sceneRevision;
     m_controller.MarkResourceSyncPending();
 
+    if (auto *mainWindow = MainWindow::Instance())
+        mainWindow->NotifySceneVisualContentChanged();
+
     if (ShouldPauseHeavyTasks() || m_cameraMoving)
         return;
 

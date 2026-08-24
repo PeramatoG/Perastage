@@ -309,8 +309,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   // Re-enables layout rendering before queuing the scene-dependent preview.
   owner->mvrImportPipelineActive = false;
-  if (owner->layoutViewerPanel)
-    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
+  owner->NotifySceneVisualContentChanged();
 
   importProgress.reset();
   importOverlay.reset();
@@ -568,8 +567,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
   RefreshPanelsAfterMvrSceneChange(false);
   owner->mvrImportPipelineActive = false;
-  if (owner->layoutViewerPanel)
-    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
+  owner->NotifySceneVisualContentChanged();
 
   const wxString fileName =
       wxFileName(wxString::FromUTF8(pathUtf8)).GetFullName();

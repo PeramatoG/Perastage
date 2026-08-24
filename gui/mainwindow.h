@@ -113,6 +113,7 @@ public:
   void CompleteManualFixtureSymbolPreparation(const std::string &fixtureUuid,
                                                bool applied);
   void RefreshAfterToolSceneUpdate();
+  void NotifySceneVisualContentChanged();
   void UpdateHighlightedWorldPositionInStatusBar(
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearHighlightedWorldPositionInStatusBar();
@@ -330,6 +331,7 @@ private:
   bool startupSplashCloseRequested = false;
   bool startupProjectLoadPending = true;
   bool mvrImportPipelineActive = false;
+  bool layoutSceneRefreshPending = false;
   bool startupDeferredOpenInProgress = false;
   std::optional<std::string> deferredStartupOpenPath;
   bool userConfigPersistedOnClose = false;

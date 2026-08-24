@@ -807,6 +807,10 @@ void Viewer2DPanel::UpdateScene(bool reload) {
   }
   InvalidatePickCache();
   RequestRepaint();
+  if (reload && this == Instance()) {
+    if (auto *mainWindow = MainWindow::Instance())
+      mainWindow->NotifySceneVisualContentChanged();
+  }
 }
 
 // Releases controller references to scene entries before a project is replaced.
