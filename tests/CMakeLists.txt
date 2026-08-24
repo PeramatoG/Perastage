@@ -552,8 +552,9 @@ add_executable(gdtf_read_services_test
                ../core/gdtf_archive_reader.cpp
                ../core/gdtf_description_reader.cpp
                ../core/gdtf_metadata_summary.cpp
+               ../mvr/gdtf_catalog_matcher.cpp
                ../core/filesystem_path_utils.cpp)
-target_include_directories(gdtf_read_services_test PRIVATE ../core)
+target_include_directories(gdtf_read_services_test PRIVATE ../core ../mvr)
 target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
 set_perastage_test_labels(GdtfReadServices LAYER tolerant-recovery DOMAINS gdtf zip)
@@ -2359,14 +2360,7 @@ add_test(NAME FixtureSymbolStructuralBaseline COMMAND fixture_symbol_baseline_te
 set(FIXTURE_SYMBOL_PROCESSING_WORKER_TEST_SOURCES
     fixture_symbol_processing_worker_test.cpp
     ../gui/services/fixture_symbol_processing_worker.cpp
-    ../gui/tools/scene_model_symbol_processing.cpp
-    ../core/symbols/Symbol2DImageBuilder.cpp
-    ../core/symbols/SymbolGeometrySimplifier.cpp
-    ../core/symbols/FixtureSymbolDiagnostics.cpp
-    ../core/geometry/RdpSimplifier.cpp
-    ../core/logger.cpp
-    ../core/diagnostics/DiagnosticPaths.cpp
-    ../core/filesystem_path_utils.cpp)
+    ../core/symbols/FixtureSymbolDiagnostics.cpp)
 
 foreach(worker_backend normal compatibility)
     set(test_target fixture_symbol_processing_worker_${worker_backend}_test)

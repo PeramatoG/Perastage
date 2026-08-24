@@ -26,6 +26,16 @@
 namespace mvr {
 namespace gdtf_import_matching {
 
+struct AutomaticMatchEvidence {
+  std::string displayTypeKey;
+  std::string resolvedFixtureName;
+  std::string requestedFixtureName;
+  std::string manufacturer;
+  std::string fixtureTypeId;
+  std::string modeName;
+  int footprint = 0;
+};
+
 // Identifies an explicit catalog replacement independently of imported labels.
 inline std::string BuildSelectedReplacementIdentity(
     const std::string &catalogRevisionId, const std::string &modeName) {
@@ -75,7 +85,7 @@ inline std::string SelectFallbackFixtureTypeName(const std::string &rawFixtureNo
 inline gdtf_catalog_matcher::GdtfDownloadRequest BuildDownloadRequest(
     const std::string &fixtureNodeAlias, const std::string &resolvedFixtureTypeName,
     const std::string &requestedMode, const std::string &resolvedManufacturer,
-    int requestedFootprint) {
+    int requestedFootprint, const std::string &fixtureTypeId = {}) {
   gdtf_catalog_matcher::GdtfDownloadRequest request;
   const std::string authoritative =
       gdtf_catalog_matcher::TrimFixtureIdentity(resolvedFixtureTypeName);
@@ -83,14 +93,33 @@ inline gdtf_catalog_matcher::GdtfDownloadRequest BuildDownloadRequest(
     request.authoritativeFixtureNames.push_back(authoritative);
   const std::string alias =
       gdtf_catalog_matcher::TrimFixtureIdentity(fixtureNodeAlias);
-  if (!alias.empty() && alias != authoritative)
-    request.secondaryAliases.push_back(alias);
   request.authoritativeIdentityIsPlaceholder =
       gdtf_catalog_matcher::IsGenericFixtureIdentity(authoritative);
+  if (!alias.empty() && alias != authoritative) {
+    request.diagnosticAliases.push_back(alias);
+    if (authoritative.empty()) {
+      request.authoritativeFixtureNames.push_back(alias);
+    } else if (request.authoritativeIdentityIsPlaceholder) {
+      request.secondaryAliases.push_back(alias);
+    }
+  }
   request.requestedMode = requestedMode;
   request.manufacturer =
       gdtf_catalog_matcher::TrimFixtureIdentity(resolvedManufacturer);
   request.requestedFootprint = requestedFootprint;
+  request.fixtureTypeId = fixtureTypeId;
+  return request;
+}
+
+// Builds the exact domain request used by automatic MVR catalog matching.
+inline gdtf_catalog_matcher::GdtfDownloadRequest BuildDownloadRequest(
+    const AutomaticMatchEvidence &evidence) {
+  auto request = BuildDownloadRequest(
+      evidence.requestedFixtureName, evidence.resolvedFixtureName,
+      evidence.modeName, evidence.manufacturer, evidence.footprint,
+      evidence.fixtureTypeId);
+  request.displayTypeKey = evidence.displayTypeKey;
+  request.resolvedFixtureName = evidence.resolvedFixtureName;
   return request;
 }
 

@@ -8,6 +8,9 @@ worker="$root/gui/services/fixture_symbol_processing_worker.cpp"
 worker_header="$root/gui/services/fixture_symbol_processing_worker.h"
 macos15_workflow="$root/.github/workflows/macos-15-manual-installer.yml"
 capture="$root/gui/tools/scene_model_symbol_capture_service.cpp"
+capture_header="$root/gui/tools/scene_model_symbol_capture_service.h"
+legacy_processing_cpp="$root/gui/tools/scene_model_symbol_processing.cpp"
+legacy_processing_header="$root/gui/tools/scene_model_symbol_processing.h"
 
 if rg -n 'wxProgressDialog|wxWindowDisabler|wxMessageBox|wxYield|detach\(' "$service"; then
   echo "Automatic fixture symbol preparation must remain cooperative and non-modal." >&2
@@ -30,6 +33,26 @@ rg -q 'std::stop_token' "$worker" "$worker_header"
 rg -q 'PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=ON' "$macos15_workflow"
 if rg -n '#if.*__APPLE__|#ifdef[[:space:]]+__APPLE__' "$worker" "$worker_header"; then
   echo "The fixture symbol fallback must not be selected for every macOS build." >&2
+  exit 1
+fi
+if [[ -e "$legacy_processing_cpp" || -e "$legacy_processing_header" ]]; then
+  echo "Fixture symbol processing must remain owned by the canonical capture service." >&2
+  exit 1
+fi
+processing_implementation_count="$(
+  rg -l 'SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders' \
+    "$root/gui" --glob '*.cpp' | wc -l | tr -d '[:space:]'
+)"
+if [[ "$processing_implementation_count" != "1" ]] ||
+   ! rg -q 'SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders' \
+     "$capture"; then
+  echo "Fixture symbol processing must have one canonical capture-service implementation." >&2
+  exit 1
+fi
+rg -q 'ProcessSceneModelOrthographicRenders' "$capture_header"
+rg -q '#include "tools/scene_model_symbol_capture_service.h"' "$worker"
+if rg -n 'WaitUntilIdle|scene_model_symbol_processing' "$worker" "$worker_header" "$service"; then
+  echo "Worker backends may change lifecycle primitives but not processing ownership." >&2
   exit 1
 fi
 if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$root/gui"; then

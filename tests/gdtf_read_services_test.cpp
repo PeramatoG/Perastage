@@ -14,6 +14,7 @@
 #include "gdtf_archive_reader.h"
 #include "gdtf_description_reader.h"
 #include "gdtf_metadata_summary.h"
+#include "gdtf_import_matching.h"
 #include "filesystem_path_utils.h"
 #include "wx_path_utils.h"
 
@@ -614,6 +615,30 @@ static void TestUnicodeZipExtractionCompatibility(const fs::path &dir) {
   assert(fs::is_regular_file(extractedRoot / "description.xml"));
 }
 
+// Verifies real archive identity reaches the automatic download request.
+static void TestImportFixtureTypeIdPropagation(const fs::path &dir) {
+  const fs::path archivePath = dir / "identity.gdtf";
+  const std::string fixtureTypeId =
+      "12345678-1234-4234-9234-123456789abc";
+  const std::string xml =
+      "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Beam 200\" "
+      "Manufacturer=\"Acme\" Description=\"Test\" FixtureTypeID=\"" +
+      fixtureTypeId + "\"><AttributeDefinitions/><Geometries/>"
+      "<DMXModes/></FixtureType></GDTF>";
+  assert(WriteArchive(archivePath, {{"description.xml", xml}}));
+  const auto archive = gdtf::ReadGdtfArchive(archivePath);
+  assert(archive.Success());
+  const auto identity = gdtf::ReadGdtfDescription(archive.descriptionXml);
+  assert(identity.Success());
+  assert(identity.fixtureTypeName == "Beam 200");
+  assert(identity.manufacturer == "Acme");
+  assert(identity.fixtureTypeId == fixtureTypeId);
+  const auto request = mvr::gdtf_import_matching::BuildDownloadRequest(
+      "Object", identity.fixtureTypeName, "Basic", identity.manufacturer, 16,
+      identity.fixtureTypeId);
+  assert(request.fixtureTypeId == fixtureTypeId);
+}
+
 // Runs focused read-layer regression tests using temporary archives only.
 int main() {
   wxInitializer initializer;
@@ -632,6 +657,7 @@ int main() {
   TestUnicodeZipFilenameCompatibility(dir);
   TestUnicodeZipWriteMetadata(dir);
   TestUnicodeZipExtractionCompatibility(dir);
+  TestImportFixtureTypeIdPropagation(dir);
 
   fs::remove_all(dir);
   return 0;

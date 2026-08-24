@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mvr {
@@ -29,12 +30,33 @@ struct GdtfCatalogModeCandidate {
 };
 
 struct GdtfCatalogEntry {
+  // Creates an empty catalog entry for parser population.
+  GdtfCatalogEntry() = default;
+  // Creates a catalog entry while preserving the established test call shape.
+  GdtfCatalogEntry(std::string revisionId, std::string manufacturerName,
+                   std::string modelName,
+                   std::vector<GdtfCatalogModeCandidate> catalogModes,
+                   long long modified, float catalogRating)
+      : rid(std::move(revisionId)), manufacturer(std::move(manufacturerName)),
+        fixtureName(std::move(modelName)), modes(std::move(catalogModes)),
+        lastModifiedUnix(modified), rating(catalogRating), downloadable(true) {}
+
   std::string rid;
   std::string manufacturer;
   std::string fixtureName;
   std::vector<GdtfCatalogModeCandidate> modes;
   long long lastModifiedUnix = 0;
   float rating = 0.0f;
+  std::string uuid;
+  std::string uploader;
+  std::string url;
+  std::string creator;
+  std::string creationDate;
+  std::string revision;
+  std::string version;
+  std::string ratingText;
+  bool downloadable = false;
+  std::string downloadabilityReason;
 };
 
 struct GdtfDownloadMatch {
@@ -47,10 +69,36 @@ struct GdtfDownloadMatch {
 struct GdtfDownloadRequest {
   std::vector<std::string> authoritativeFixtureNames;
   std::vector<std::string> secondaryAliases;
+  std::vector<std::string> diagnosticAliases;
   std::string requestedMode;
   std::string manufacturer;
   int requestedFootprint = 0;
   bool authoritativeIdentityIsPlaceholder = false;
+  std::string fixtureTypeId;
+  std::string catalogSnapshotSource;
+  std::string catalogUpdatedAt;
+  std::string catalogPayloadFingerprint;
+  std::size_t catalogPayloadBytes = 0;
+  std::size_t catalogParsedEntryCount = 0;
+  std::string displayTypeKey;
+  std::string resolvedFixtureName;
+};
+
+enum class FixtureIdentitySource {
+  Catalog,
+  AuthoritativeGdtf,
+  MvrAlias
+};
+
+struct CanonicalFixtureModel {
+  std::string rawText;
+  std::string normalizedFullText;
+  std::string canonicalText;
+  std::string modelIdentityText;
+  std::vector<std::string> modelTerms;
+  std::vector<std::string> numericModelTokens;
+  std::vector<std::string> descriptiveTerms;
+  FixtureIdentitySource source = FixtureIdentitySource::Catalog;
 };
 
 enum class FixtureNameMatchTier {
@@ -69,8 +117,8 @@ enum class GdtfModeMatchTier {
 };
 
 enum class NumericTokenCompatibility {
+  Different = -1,
   Missing = 0,
-  Different = 0,
   Exact = 1
 };
 
@@ -85,6 +133,7 @@ struct DownloadCandidateRank {
   FixtureNameMatchTier nameTier = FixtureNameMatchTier::None;
   bool footprintMatch = false;
   bool manufacturerMatch = false;
+  bool uploaderAuthority = false;
   long long recency = 0;
   float rating = 0.0f;
   GdtfModeMatchTier modeTier = GdtfModeMatchTier::None;
@@ -101,6 +150,12 @@ std::string StripParenthesizedSections(const std::string &text);
 bool IsLikelyVersionToken(const std::string &token);
 bool IsGenericFixtureIdentity(const std::string &identity);
 std::string BuildCoreFixtureNameKey(const std::string &text);
+CanonicalFixtureModel BuildCanonicalFixtureModel(
+    const std::string &text, const std::string &structuredManufacturer = {},
+    FixtureIdentitySource source = FixtureIdentitySource::Catalog);
+NumericTokenCompatibility ComputeNumericTokenCompatibility(
+    const CanonicalFixtureModel &catalog,
+    const CanonicalFixtureModel &requested);
 FixtureNameMatchTier ComputeFixtureNameMatchTier(
     const std::string &catalogFixtureName,
     const std::string &requestedFixtureName);

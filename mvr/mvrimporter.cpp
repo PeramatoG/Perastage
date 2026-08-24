@@ -17,6 +17,7 @@
  */
 #include "mvrimporter.h"
 #include "apppaths.h"
+#include "build_info.h"
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
@@ -639,12 +640,15 @@ static void LogMessage(const std::string &msg) {
 }
 
 struct GdtfConflict {
+  // Identifies the imported type group and queue row without authorizing a model.
   std::string type;
   std::string requestedFixtureName;
   std::string mvrPath;
   std::string appPath;
   std::string manufacturer;
+  // Preserves the resolved GDTF FixtureType Name as semantic model authority.
   std::string fixtureName;
+  std::string fixtureTypeId;
   std::string modeName;
   int footprint = 0;
   bool hasDictionaryEntry = false;
@@ -2372,6 +2376,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   struct GdtfFixtureMetadata {
     std::string fixtureName;
     std::string manufacturer;
+    std::string fixtureTypeId;
     float weightKg = 0.0f;
     float powerW = 0.0f;
     bool hasProperties = false;
@@ -2391,6 +2396,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     GdtfFixtureMetadata metadata;
     metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
     metadata.manufacturer = Trim(GetGdtfFixtureManufacturer(resolvedGdtfPath));
+    const std::string rawFixtureTypeId =
+        Trim(GetGdtfFixtureTypeId(resolvedGdtfPath));
+    metadata.fixtureTypeId = CanonicalizeUuid(rawFixtureTypeId);
+    if (metadata.fixtureTypeId.empty())
+      metadata.fixtureTypeId = rawFixtureTypeId;
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
     return gdtfFixtureMetadataCache
@@ -2713,6 +2723,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         }
         std::string resolvedGdtfPathForFixture;
         std::string resolvedGdtfManufacturer;
+        std::string resolvedFixtureTypeId;
         if (!fixture.gdtfSpec.empty()) {
           fixture.gdtfSpec = RemapArchivePathIfNeeded(fixture.gdtfSpec);
           const std::string &resolvedGdtfPath =
@@ -2724,6 +2735,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           const GdtfFixtureMetadata &metadata =
               getFixtureMetadata(resolvedGdtfPath);
           resolvedGdtfManufacturer = metadata.manufacturer;
+          resolvedFixtureTypeId = metadata.fixtureTypeId;
           fixture.typeName = metadata.fixtureName;
           if (fixture.typeName.empty()) {
             fixture.typeName =
@@ -2850,7 +2862,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               GdtfConflict{fixture.typeName, fixture.requestedFixtureName,
                            fixture.gdtfSpec, dictionaryEntry->path,
                            resolvedGdtfManufacturer,
-                           fixture.typeName, fixture.gdtfMode, footprint,
+                           fixture.typeName, resolvedFixtureTypeId,
+                           fixture.gdtfMode, footprint,
                            true});
         }
 
@@ -3834,6 +3847,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
         conflict.fixtureName = f.typeName;
       if (conflict.modeName.empty())
         conflict.modeName = f.gdtfMode;
+      if (conflict.fixtureTypeId.empty()) {
+        const std::string resolvedGdtfPath =
+            resolveFixtureGdtfPathForRead(f.gdtfSpec);
+        conflict.fixtureTypeId =
+            getFixtureMetadata(resolvedGdtfPath).fixtureTypeId;
+      }
       if (conflict.footprint <= 0) {
         const std::string resolvedGdtfPath =
             resolveFixtureGdtfPathForRead(f.gdtfSpec);
@@ -4313,12 +4332,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
               std::vector<gdtf_catalog_matcher::GdtfCatalogEntry>
                   catalogEntries;
+              mvr::gdtf_catalog_parser::GdtfCatalogParseResult parsedCatalog;
+              GdtfCatalogResultSource effectiveCatalogSource = catalogResult.source;
+              std::string effectiveCatalogUpdatedAt = catalogResult.snapshot
+                  ? catalogResult.snapshot->updatedAt : std::string{};
               std::string catalogFailureReason;
               if (!listPayload.empty()) {
-                catalogEntries = mvr::gdtf_catalog_parser::ParseCatalogEntries(listPayload);
+                parsedCatalog = mvr::gdtf_catalog_parser::ParseCatalog(listPayload);
+                catalogEntries = parsedCatalog.entries;
               }
 
-              if (catalogEntries.empty()) {
+              auto hasDownloadableCatalogEntry = [&]() {
+                return std::any_of(catalogEntries.begin(), catalogEntries.end(),
+                    [](const auto &entry) { return entry.downloadable; });
+              };
+              if (!hasDownloadableCatalogEntry()) {
                 reportProgress("[INFO] Cached catalog did not provide usable "
                                "entries; forcing online refresh.");
                 const GdtfCatalogRefreshResult forcedCatalogResult =
@@ -4331,7 +4359,11 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         refreshNowUtc, 0);
                 if (forcedCatalogResult.snapshot) {
                   listPayload = forcedCatalogResult.snapshot->listData;
-                  catalogEntries = mvr::gdtf_catalog_parser::ParseCatalogEntries(listPayload);
+                  parsedCatalog = mvr::gdtf_catalog_parser::ParseCatalog(listPayload);
+                  catalogEntries = parsedCatalog.entries;
+                  effectiveCatalogSource = forcedCatalogResult.source;
+                  effectiveCatalogUpdatedAt =
+                      forcedCatalogResult.snapshot->updatedAt;
                 }
                 reportProgress(
                     wxString::Format(
@@ -4343,7 +4375,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         .ToStdString());
               }
 
-              if (catalogEntries.empty()) {
+              if (!hasDownloadableCatalogEntry()) {
                 catalogFailureReason =
                     wxString::Format(
                         "Catalog fetch/parsing failed (%s, HTTP %ld, bytes=%zu)",
@@ -4353,7 +4385,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 reportProgress("[WARN] " + catalogFailureReason);
               }
 
-              if (!catalogEntries.empty()) {
+              if (hasDownloadableCatalogEntry()) {
                 // Reuses one authoritative download when distinct import aliases
                 // explicitly resolve to the same GDTF Share revision.
                 std::unordered_map<std::string, std::string>
@@ -4373,15 +4405,34 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                  req.type + "...");
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
+                  mvr::gdtf_import_matching::AutomaticMatchEvidence matchEvidence;
+                  matchEvidence.displayTypeKey = req.type;
+                  matchEvidence.resolvedFixtureName = req.fixtureName;
+                  matchEvidence.requestedFixtureName = req.requestedFixtureName;
+                  matchEvidence.manufacturer = req.manufacturer;
+                  matchEvidence.fixtureTypeId = req.fixtureTypeId;
+                  matchEvidence.modeName = req.modeName;
+                  matchEvidence.footprint = req.footprint;
                   const auto matchRequest =
-                      mvr::gdtf_import_matching::BuildDownloadRequest(
-                          req.requestedFixtureName, req.type, req.modeName,
-                          req.manufacturer, req.footprint);
+                      mvr::gdtf_import_matching::BuildDownloadRequest(matchEvidence);
+                  auto diagnosticMatchRequest = matchRequest;
+                  diagnosticMatchRequest.catalogSnapshotSource =
+                      effectiveCatalogSource == GdtfCatalogResultSource::Online
+                          ? "online" : "cache";
+                  diagnosticMatchRequest.catalogUpdatedAt = effectiveCatalogUpdatedAt;
+                  diagnosticMatchRequest.catalogPayloadBytes = parsedCatalog.payloadBytes;
+                  diagnosticMatchRequest.catalogPayloadFingerprint =
+                      parsedCatalog.payloadFingerprint;
+                  diagnosticMatchRequest.catalogParsedEntryCount =
+                      parsedCatalog.entries.size();
                   const auto bestMatch =
                       gdtf_catalog_matcher::SelectBestDownloadMatch(
-                          matchRequest, catalogEntries);
+                          diagnosticMatchRequest, catalogEntries);
 
                   if (!bestMatch.found || bestMatch.rid.empty()) {
+                    if (!bestMatch.selectionReason.empty())
+                      reportProgress("GDTF catalog no-match diagnostics: " +
+                                     bestMatch.selectionReason);
                     const wxString progressText =
                         rowProgressByType[req.type].totalBytes > 0
                             ? formatBytes(
@@ -4397,6 +4448,15 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     wxYieldIfNeeded();
                     continue;
                   }
+                  reportProgress(
+                      "GDTF automatic match diagnostics: build-version='" +
+                      std::string(perastage::build_info::appVersion()) +
+                      "'; build-commit='" +
+                      std::string(perastage::build_info::gitCommit()) +
+                      "'; queue-type='" +
+                      req.type + "'; resolved-fixture='" + req.fixtureName +
+                      "'; winner-rid='" + bestMatch.rid + "'; " +
+                      bestMatch.selectionReason);
 
                   const std::string baseFixturesPath =
 #ifdef NDEBUG

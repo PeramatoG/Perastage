@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "tools/scene_model_symbol_processing.h"
+#include "tools/scene_model_symbol_capture_service.h"
 
 namespace gui {
 

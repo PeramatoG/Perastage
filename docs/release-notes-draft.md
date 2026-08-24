@@ -39,6 +39,17 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Restored the established fixture-symbol capture and processing pipeline for
+  consistent manual generation of compound-fixture symbols.
+
+- Automatic GDTF Share matching during MVR import now rejects unrelated
+  fixtures that share only descriptive words, technical annotations, or DMX
+  characteristics, while preserving strong model-family matches and falling
+  back safely when catalog identity is weak or ambiguous. Automatic import and
+  the Search GDTF dialog now use the same catalog records, ensuring available
+  exact fixture models are consistently found. MVR object labels and generic
+  descriptive terms can no longer override the resolved fixture-model identity.
+
 - Restored macOS 15 Apple Silicon packaging compatibility with a dedicated
   worker fallback while preserving the established fixture-symbol processing
   behavior on Windows, Linux, and supported macOS toolchains.
@@ -455,6 +466,12 @@ Changes since **v1.5.0**.
   MVR object's display name or catalog popularity.
 
 ## Internal changes
+
+- Made the fixture-symbol processing ownership check portable across the Bash
+  versions and filesystem path conventions used by Debug CI runners.
+
+- Consolidated GDTF fixture identity reads through the existing loader cache and
+  corrected test linkage for the shared UUID implementation.
 
 - Restored reliable standalone MVR importer test builds by keeping their GDTF
   metadata and catalog dependencies aligned with the production importer.

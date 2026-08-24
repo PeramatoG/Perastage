@@ -28,6 +28,7 @@ class wxZipStreamLink;
 #include <wx/zipstrm.h>
 
 namespace {
+// Creates a temporary GDTF with mode and fixture identity metadata.
 std::string MakeGdtf()
 {
     wxFileName tempName(wxFileName::CreateTempFileName("gdtf_modes_"));
@@ -42,7 +43,8 @@ std::string MakeGdtf()
     const std::string xml =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<GDTF DataVersion=\"1.2\">"
-        "<FixtureType Name=\"ModeSummaryFixture\">"
+        "<FixtureType Name=\"ModeSummaryFixture\" "
+        "FixtureTypeID=\"12345678-1234-4234-9234-123456789abc\">"
         "<Geometries>"
         "<Geometry Name=\"Base\">"
         "<GeometryReference Name=\"Set 1\" Geometry=\"Pixel\"><Break DMXBreak=\"1\" DMXOffset=\"5\"/></GeometryReference>"
@@ -120,6 +122,8 @@ int main()
 
     const std::vector<GdtfChannelInfo> expandedChannels =
         GetGdtfModeChannels(gdtfPath, "GeometryExpanded");
+    assert(GetGdtfFixtureTypeId(gdtfPath) ==
+           "12345678-1234-4234-9234-123456789abc");
     assert(GetGdtfModeChannelCount(gdtfPath, "GeometryExpanded") == 16);
     assert(expandedChannels.size() == 4);
     assert(expandedChannels[0].channel == 5);
@@ -131,6 +135,8 @@ int main()
     float power = 1.0f;
     assert(GetGdtfModes("/tmp/perastage_missing_loader_modes.gdtf").empty());
     assert(GetGdtfFixtureName("/tmp/perastage_missing_loader_name.gdtf").empty());
+    assert(GetGdtfFixtureTypeId(
+               "/tmp/perastage_missing_loader_fixture_type_id.gdtf").empty());
     assert(!GetGdtfProperties("/tmp/perastage_missing_loader_props.gdtf",
                               weight, power));
     assert(weight == 0.0f);
