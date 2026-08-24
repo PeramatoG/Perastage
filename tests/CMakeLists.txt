@@ -152,6 +152,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
     add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
+    add_bash_policy_test(ResourceReferenceCacheKey ${CMAKE_CURRENT_SOURCE_DIR}/check_resource_reference_cache_key.sh)
     add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
     add_bash_policy_test(FixtureSymbol3DRefresh ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_3d_refresh.sh)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
@@ -2052,6 +2053,27 @@ target_link_libraries(gdtfloader_geometry_roots_test PRIVATE
 add_test(NAME GdtfLoaderGeometryRoots COMMAND gdtfloader_geometry_roots_test)
 set_library_env(GdtfLoaderGeometryRoots)
 
+add_executable(gdtfloader_file_model_cache_identity_test
+               gdtfloader_file_model_cache_identity_test.cpp
+               build_info_stub.cpp
+               ../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp
+               ../core/logger.cpp
+               ../core/gdtf_canonicalizer.cpp
+               ../core/gdtf_mutation_audit.cpp
+               ../viewer3d/loader3ds.cpp
+               ../viewer3d/loaderglb.cpp
+               ../viewer3d/meshprimitives.cpp
+               consolepanel_stub.cpp)
+target_include_directories(gdtfloader_file_model_cache_identity_test PRIVATE
+                           . ../viewer3d ../models ../gui ../third_party)
+target_link_libraries(gdtfloader_file_model_cache_identity_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2
+                      perastage_test_gdtf_archive_reader)
+add_test(NAME GdtfLoaderFileModelCacheIdentity
+         COMMAND gdtfloader_file_model_cache_identity_test)
+set_library_env(GdtfLoaderFileModelCacheIdentity)
+
 add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
@@ -2701,6 +2723,39 @@ target_link_libraries(scoped_single_model_capture_scene_test PRIVATE
 add_test(NAME ScopedSingleModelCaptureScene
          COMMAND scoped_single_model_capture_scene_test)
 
+add_executable(resource_reference_bounds_regression_test
+               resource_reference_bounds_regression_test.cpp
+               configmanager_layoutmanager_stub.cpp
+               resource_sync_key_stub.cpp
+               ../viewer3d/culling/bounds_cache_system.cpp
+               ../viewer3d/culling/primitive_bounds_utils.cpp
+               ../viewer3d/meshprimitives.cpp)
+target_include_directories(resource_reference_bounds_regression_test PRIVATE
+                           ../core ../models ../gui ../viewer3d
+                           ../viewer3d/culling ../viewer3d/resources)
+target_link_libraries(resource_reference_bounds_regression_test PRIVATE
+                      ${wxWidgets_LIBRARIES} perastage_test_diagnostics)
+add_test(NAME ResourceReferenceCacheKeyEquivalence
+         COMMAND resource_reference_bounds_regression_test)
+add_test(NAME BoundsCacheResolvedGdtfReferenceKeyRegression
+         COMMAND resource_reference_bounds_regression_test)
+
+add_executable(viewer2d_bounds_fit_test viewer2d_bounds_fit_test.cpp
+               ../viewer2d/viewer2dviewfit.cpp)
+target_include_directories(viewer2d_bounds_fit_test PRIVATE
+                           ../models ../viewer2d ../viewer3d
+                           ../viewer3d/interfaces)
+add_test(NAME Viewer2DFallbackFitDiagnosis COMMAND viewer2d_bounds_fit_test)
+add_test(NAME Viewer2DExplicitBoundsFitParity COMMAND viewer2d_bounds_fit_test)
+add_test(NAME Viewer2DAsymmetricProjectionFit COMMAND viewer2d_bounds_fit_test)
+add_test(NAME QuantumWashKnownGoodFitRegression COMMAND viewer2d_bounds_fit_test)
+add_test(NAME FixtureSymbolInstanceTransformIndependence
+         COMMAND scoped_single_model_capture_scene_test)
+add_test(NAME FixtureSymbolRepresentativeUuidIndependence
+         COMMAND scoped_single_model_capture_scene_test)
+add_test(NAME ProjectReplacementFixtureSymbolParity
+         COMMAND scoped_single_model_capture_scene_test)
+
 add_executable(fixture_geometry_bounds_test
                fixture_geometry_bounds_test.cpp
                ../gui/tools/fixture_geometry_bounds.cpp)
@@ -2709,6 +2764,10 @@ target_include_directories(fixture_geometry_bounds_test BEFORE PRIVATE
 target_include_directories(fixture_geometry_bounds_test PRIVATE
                            ../gui ../models)
 add_test(NAME FixtureGeometryBounds COMMAND fixture_geometry_bounds_test)
+add_test(NAME FixtureGeometryBoundsRendererUnitParity
+         COMMAND fixture_geometry_bounds_test)
+add_test(NAME FixtureGeometryBoundsTranslatedChild
+         COMMAND fixture_geometry_bounds_test)
 
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)

@@ -304,9 +304,8 @@ void FixtureSymbolPreparationService::RunNextStep() {
       FailCurrent("Fixture symbol preparation could not acquire a renderer.");
       return;
     }
-    tools::SceneModelSymbolCaptureOptions options;
-    options.alignToLocalAxes = true;
-    options.forcedFixtureColor = "#3FA9F5";
+    tools::SceneModelSymbolCaptureOptions options =
+        tools::BuildFixtureTypeSymbolCaptureOptions("automatic");
     if (work.bounds.valid)
       options.fixtureBoundsOverride = work.bounds;
     auto capture = tools::CaptureSceneModelOrthographicRenders(
@@ -314,6 +313,16 @@ void FixtureSymbolPreparationService::RunNextStep() {
         {tools::SceneModelKind::Fixture, work.fixtureUuid}, options);
     if (!capture.ok) {
       FailCurrent(capture.error);
+      return;
+    }
+    const symbol_cache::GdtfFileRevision capturedRevision =
+        symbol_cache::ReadGdtfFileRevision(
+            currentKey_->effectiveGdtfPath);
+    if (!work.sourceRevision.metadataAvailable ||
+        !capturedRevision.metadataAvailable ||
+        capturedRevision != work.sourceRevision) {
+      FailCurrent(
+          "Fixture symbol source changed during capture; retry is required.");
       return;
     }
     work.bounds = capture.fixtureBoundsMm;

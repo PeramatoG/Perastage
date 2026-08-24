@@ -1,5 +1,6 @@
 #include "mesh_processing.h"
 #include "filesystem_path_utils.h"
+#include "physical_asset_revision.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -17,13 +18,14 @@ namespace {
 
 constexpr uint32_t kMeshCacheMagic = 0x4843534Du; // MSCH
 constexpr uint32_t kGdtfCacheMagic = 0x48434747u; // GGCH
-constexpr uint32_t kCacheVersion = 3u;
+constexpr uint32_t kCacheVersion = 4u;
 constexpr float kOverdrawThreshold = 1.05f;
 
 struct CacheHeader {
   uint32_t magic = 0;
   uint32_t version = 0;
   int64_t sourceTimestampNs = 0;
+  uint64_t sourceSize = 0;
 };
 
 template <typename T>
@@ -88,15 +90,6 @@ std::string BuildGdtfCachePath(const std::string &sourcePath,
   return sourcePath + "." + std::to_string(HashCacheToken(modeName)) + ".cache";
 }
 
-int64_t GetSourceTimestampNs(const std::string &sourcePath) {
-  std::error_code ec;
-  const fs::file_time_type writeTime = fs::last_write_time(PathUtils::PathFromUtf8(sourcePath), ec);
-  if (ec)
-    return -1;
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(writeTime.time_since_epoch())
-      .count();
-}
-
 bool WriteMesh(std::ofstream &out, const Mesh &mesh) {
   if (!WriteVector(out, mesh.vertices) || !WriteVector(out, mesh.indices) ||
       !WriteVector(out, mesh.normals) || !WriteVector(out, mesh.texcoords) ||
@@ -130,12 +123,15 @@ bool ReadMesh(std::ifstream &in, Mesh &mesh) {
   return true;
 }
 
+// Validates that a disk cache belongs to the current physical source revision.
 bool ValidateHeader(const CacheHeader &header, uint32_t expectedMagic,
                     const std::string &sourcePath) {
   if (header.magic != expectedMagic || header.version != kCacheVersion)
     return false;
-  const int64_t sourceTimestampNs = GetSourceTimestampNs(sourcePath);
-  return sourceTimestampNs >= 0 && sourceTimestampNs == header.sourceTimestampNs;
+  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath);
+  return revision.metadataAvailable &&
+         revision.modificationTimeNs == header.sourceTimestampNs &&
+         revision.fileSize == header.sourceSize;
 }
 
 void OptimizeIndices(Mesh &mesh) {
@@ -180,9 +176,10 @@ bool TryLoadMeshCache(const std::string &sourcePath, Mesh &outMesh) {
   return ReadMesh(in, outMesh);
 }
 
+// Saves a model mesh with the bounded source revision used for validation.
 bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
-  const int64_t sourceTimestampNs = GetSourceTimestampNs(sourcePath);
-  if (sourceTimestampNs < 0)
+  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(sourcePath);
+  if (!revision.metadataAvailable)
     return false;
 
   std::ofstream out(BuildCachePath(sourcePath), std::ios::binary | std::ios::trunc);
@@ -192,7 +189,8 @@ bool TrySaveMeshCache(const std::string &sourcePath, const Mesh &mesh) {
   CacheHeader header;
   header.magic = kMeshCacheMagic;
   header.version = kCacheVersion;
-  header.sourceTimestampNs = sourceTimestampNs;
+  header.sourceTimestampNs = revision.modificationTimeNs;
+  header.sourceSize = revision.fileSize;
   return WriteRaw(out, header) && WriteMesh(out, mesh);
 }
 
@@ -229,8 +227,8 @@ bool TryLoadGdtfCache(const std::string &gdtfPath,
 bool TrySaveGdtfCache(const std::string &gdtfPath,
                       const std::string &modeName,
                       const std::vector<GdtfObject> &objects) {
-  const int64_t sourceTimestampNs = GetSourceTimestampNs(gdtfPath);
-  if (sourceTimestampNs < 0)
+  const PhysicalAssetRevision revision = ReadPhysicalAssetRevision(gdtfPath);
+  if (!revision.metadataAvailable)
     return false;
 
   std::ofstream out(BuildGdtfCachePath(gdtfPath, modeName),
@@ -241,7 +239,8 @@ bool TrySaveGdtfCache(const std::string &gdtfPath,
   CacheHeader header;
   header.magic = kGdtfCacheMagic;
   header.version = kCacheVersion;
-  header.sourceTimestampNs = sourceTimestampNs;
+  header.sourceTimestampNs = revision.modificationTimeNs;
+  header.sourceSize = revision.fileSize;
   if (!WriteRaw(out, header))
     return false;
 

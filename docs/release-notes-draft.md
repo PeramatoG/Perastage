@@ -39,6 +39,20 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Fixture-symbol rendering now notices GDTF files replaced at the same path,
+  rejects stale runtime and disk geometry caches, keeps the authoritative
+  dimensions of file-backed GDTF models isolated when several definitions
+  share one mesh, generates fixture-type symbols at a canonical origin without
+  inheriting instance translation, rotation, scale, shear, or parent placement,
+  and restores the exact offscreen 2D viewer state after Layout capture work.
+  Resource synchronization, visibility, rendering, and bounds calculation now
+  share one platform-neutral reference-key contract. Fixture capture now uses
+  the renderer's loaded GDTF bounds for its established framing, while physical
+  calibration uses the same metre/millimetre transform contract as rendering.
+  Together these changes prevent renderable fixtures from being framed with the
+  small unresolved-resource fallback solely because their path uses a different
+  slash or relative-path spelling.
+
 - Layout 2D View elements now refresh after any visual scene change, including
   adding, moving, editing, or removing scene elements as well as opening or
   merging MVR files, so saved layouts cannot continue showing stale content.

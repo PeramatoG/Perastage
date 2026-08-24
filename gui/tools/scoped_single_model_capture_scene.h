@@ -7,6 +7,7 @@
 #include "sceneobject.h"
 #include "support.h"
 #include "tools/scene_model_symbol_target.h"
+#include "tools/symbol_capture_transform_policy.h"
 #include "truss.h"
 
 class ConfigManager;
@@ -18,7 +19,7 @@ class ScopedSingleModelCaptureScene {
 public:
   ScopedSingleModelCaptureScene(ConfigManager &cfg,
                                 const SceneModelSymbolTarget &target,
-                                bool alignToLocalAxes);
+                                SymbolCaptureTransformPolicy transformPolicy);
   ~ScopedSingleModelCaptureScene();
 
   ScopedSingleModelCaptureScene(const ScopedSingleModelCaptureScene &) = delete;

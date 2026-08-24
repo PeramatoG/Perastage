@@ -5,6 +5,8 @@
 #endif
 
 #include "bounds_cache_system.h"
+
+#include "gdtf_object_bounds.h"
 #include "primitive_bounds_utils.h"
 
 #include "configmanager.h"
@@ -13,28 +15,13 @@
 #include "logger.h"
 #include "truss_defaults.h"
 #include "matrixutils.h"
+#include "resource_reference_cache_key.h"
 
 #include <algorithm>
 #include <array>
 #include <cfloat>
-#include <filesystem>
-
-namespace fs = std::filesystem;
 
 namespace {
-
-// Normalizes a model reference path for cache lookups.
-static std::string NormalizePath(const std::string &p) {
-  std::string out = p;
-  char sep = static_cast<char>(fs::path::preferred_separator);
-  std::replace(out.begin(), out.end(), '\\', sep);
-  return out;
-}
-
-// Resolves a resource reference to the cache key used by synchronization state.
-static std::string ResolveCacheKey(const std::string &pathRef) {
-  return NormalizePath(pathRef);
-}
 
 // Reports whether a layer is visible using the cached hidden-layer set.
 static bool IsLayerVisibleCached(const std::unordered_set<std::string> &hidden,
@@ -138,38 +125,26 @@ void BoundsCacheSystem::RebuildIfDirty(
     bb.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     std::string gdtfPath;
+    const std::string referenceKey =
+        viewer3d::resources::BuildResourceReferenceCacheKey(f.gdtfSpec);
     auto gdtfPathIt =
-        context.resourceSyncState.resolvedGdtfSpecs.find(ResolveCacheKey(f.gdtfSpec));
+        context.resourceSyncState.resolvedGdtfSpecs.find(referenceKey);
+    const bool resolvedEntryHit =
+        gdtfPathIt != context.resourceSyncState.resolvedGdtfSpecs.end();
     if (gdtfPathIt != context.resourceSyncState.resolvedGdtfSpecs.end() &&
         gdtfPathIt->second.attempted) {
       gdtfPath = gdtfPathIt->second.resolvedPath;
     }
     const std::string resourceKey = BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
     auto itg = context.resourceSyncState.loadedGdtf.find(resourceKey);
+    const bool loadedGdtfHit =
+        itg != context.resourceSyncState.loadedGdtf.end();
     if (itg != context.resourceSyncState.loadedGdtf.end()) {
       auto bit = context.modelBounds.find(resourceKey);
       if (bit == context.modelBounds.end()) {
         Viewer3DBoundingBox local;
-        local.min = {FLT_MAX, FLT_MAX, FLT_MAX};
-        local.max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
-        bool localFound = false;
-        for (const auto &obj : itg->second) {
-          for (size_t vi = 0; vi + 2 < obj.mesh.vertices.size(); vi += 3) {
-            std::array<float, 3> p = {
-                obj.mesh.vertices[vi] * RENDER_SCALE,
-                obj.mesh.vertices[vi + 1] * RENDER_SCALE,
-                obj.mesh.vertices[vi + 2] * RENDER_SCALE};
-            p = TransformPoint(obj.transform, p);
-            local.min[0] = std::min(local.min[0], p[0]);
-            local.min[1] = std::min(local.min[1], p[1]);
-            local.min[2] = std::min(local.min[2], p[2]);
-            local.max[0] = std::max(local.max[0], p[0]);
-            local.max[1] = std::max(local.max[1], p[1]);
-            local.max[2] = std::max(local.max[2], p[2]);
-            localFound = true;
-          }
-        }
-        if (localFound)
+        if (viewer3d::culling::ComputeGdtfObjectBoundsMeters(itg->second,
+                                                             local))
           bit = context.modelBounds.emplace(resourceKey, local).first;
       }
       if (bit != context.modelBounds.end()) {
@@ -200,6 +175,21 @@ void BoundsCacheSystem::RebuildIfDirty(
       }
     }
 
+#ifndef NDEBUG
+    Logger::Instance().Log(
+        Logger::Level::Debug,
+        "fixture_bounds fixture_uuid=" + uuid + " gdtf_spec=\"" +
+            f.gdtfSpec + "\" reference_key=\"" + referenceKey +
+            "\" resolved_entry_hit=" + (resolvedEntryHit ? "1" : "0") +
+            " resolved_path=\"" + gdtfPath + "\" mode=\"" + f.gdtfMode +
+            "\" loaded_gdtf_hit=" + (loadedGdtfHit ? "1" : "0") +
+            " source=" + (found ? "gdtf" : "fallback") + " min=" +
+            std::to_string(bb.min[0]) + ',' + std::to_string(bb.min[1]) + ',' +
+            std::to_string(bb.min[2]) + " max=" +
+            std::to_string(bb.max[0]) + ',' + std::to_string(bb.max[1]) + ',' +
+            std::to_string(bb.max[2]));
+#endif
+
     context.fixtureBounds[uuid] = bb;
   }
 
@@ -220,7 +210,8 @@ void BoundsCacheSystem::RebuildIfDirty(
     if (!t.symbolFile.empty()) {
       std::string path;
       auto pathIt =
-          context.resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
+          context.resourceSyncState.resolvedModelRefs.find(
+              viewer3d::resources::BuildResourceReferenceCacheKey(t.symbolFile));
       if (pathIt != context.resourceSyncState.resolvedModelRefs.end() &&
           pathIt->second.attempted) {
         path = pathIt->second.resolvedPath;
@@ -317,7 +308,9 @@ void BoundsCacheSystem::RebuildIfDirty(
 
         std::string path;
         auto modelIt =
-            context.resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(geo.modelFile));
+            context.resourceSyncState.resolvedModelRefs.find(
+                viewer3d::resources::BuildResourceReferenceCacheKey(
+                    geo.modelFile));
         if (modelIt != context.resourceSyncState.resolvedModelRefs.end() &&
             modelIt->second.attempted) {
           path = modelIt->second.resolvedPath;
@@ -366,7 +359,8 @@ void BoundsCacheSystem::RebuildIfDirty(
     } else if (!obj.modelFile.empty()) {
       std::string path;
       auto modelIt =
-          context.resourceSyncState.resolvedModelRefs.find(ResolveCacheKey(obj.modelFile));
+          context.resourceSyncState.resolvedModelRefs.find(
+              viewer3d::resources::BuildResourceReferenceCacheKey(obj.modelFile));
       if (modelIt != context.resourceSyncState.resolvedModelRefs.end() &&
           modelIt->second.attempted) {
         path = modelIt->second.resolvedPath;

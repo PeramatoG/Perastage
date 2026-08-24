@@ -118,16 +118,12 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   }
   window.PromoteManualFixtureSymbolPreparation(selectedFixtureUuid);
 
-  const std::string forcedFixtureColor = "#3FA9F5";
-  SceneModelSymbolCaptureOptions captureOptions;
-  captureOptions.forcedFixtureColor = forcedFixtureColor;
-  // Captured symbols must be orientation-neutral so per-instance rotation can be applied later in rendering/printing.
-  captureOptions.alignToLocalAxes = true;
+  SceneModelSymbolCaptureOptions captureOptions =
+      BuildFixtureTypeSymbolCaptureOptions("manual");
   auto capture = CaptureSceneModelOrthographicSymbols(
       *offscreenRenderer, cfg,
       SceneModelSymbolTarget{SceneModelKind::Fixture, selectedFixtureUuid},
       captureOptions);
-  captureOptions.alignToLocalAxes = false;
   if (!capture.ok) {
     window.CompleteManualFixtureSymbolPreparation(selectedFixtureUuid, false);
     wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,

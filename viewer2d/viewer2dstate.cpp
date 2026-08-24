@@ -316,10 +316,10 @@ void ScopedViewer2DState::Restore() {
     return;
 
   Viewer2DPanel *targetPanel =
-      restorePanel_ ? restorePanel_.get() : Viewer2DPanel::Instance();
+      restorePanel_ ? restorePanel_.get() : applyPanel_.get();
   Viewer2DRenderPanel *targetRenderPanel =
       restoreRenderPanel_ ? restoreRenderPanel_.get()
-                          : Viewer2DRenderPanel::Instance();
+                          : applyRenderPanel_.get();
 
   ApplyState(targetPanel, targetRenderPanel, *cfg_, previousState_,
              persistCameraToConfig_, true);

@@ -1,4 +1,5 @@
 #include "opaque_pass_utils.h"
+#include "resource_reference_cache_key.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,7 +26,7 @@ std::string NormalizeModelKey(const std::string &p) {
 
 // Resolves a path reference into the stable cache-key form.
 std::string ResolveCacheKey(const std::string &pathRef) {
-  return NormalizeModelKey(pathRef);
+  return viewer3d::resources::BuildResourceReferenceCacheKey(pathRef);
 }
 
 // Computes 2D command bounds including render-safe stroke padding.

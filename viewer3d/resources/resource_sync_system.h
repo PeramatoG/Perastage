@@ -6,6 +6,7 @@
 #include "fixture.h"
 #include "sceneobject.h"
 #include "truss.h"
+#include "physical_asset_revision.h"
 
 #include <functional>
 #include <optional>
@@ -40,7 +41,13 @@ struct ResourceSyncState {
   };
 
   std::unordered_map<std::string, Mesh> loadedMeshes;
+  std::unordered_map<std::string, viewer3d::resources::PhysicalAssetRevision>
+      loadedMeshRevisions;
   std::unordered_map<std::string, std::vector<GdtfObject>> loadedGdtf;
+  std::unordered_map<std::string, viewer3d::resources::PhysicalAssetRevision>
+      loadedGdtfRevisions;
+  std::unordered_map<std::string, viewer3d::resources::PhysicalAssetRevision>
+      attemptedGdtfRevisions;
   std::unordered_map<std::string, GdtfGeometryTree> loadedGdtfGeometryTrees;
   std::unordered_map<std::string, std::string> failedGdtfReasons;
   std::unordered_map<std::string, size_t> failedGdtfAttemptCounts;
@@ -86,4 +93,8 @@ public:
        const std::vector<const std::pair<const std::string, SceneObject> *> &visibleObjects,
        const std::vector<const std::pair<const std::string, Fixture> *> &visibleFixtures,
        ResourceSyncState &state, const ResourceSyncCallbacks &callbacks);
+
+  static bool InvalidatePhysicalAsset(
+      const std::string &physicalPath, const std::optional<std::string> &exactMode,
+      ResourceSyncState &state, const ResourceSyncCallbacks &callbacks);
 };

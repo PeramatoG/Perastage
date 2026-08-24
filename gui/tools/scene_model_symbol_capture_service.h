@@ -11,6 +11,7 @@
 #include "symbols/Symbol2DImageBuilder.h"
 #include "tools/fixture_geometry_bounds.h"
 #include "tools/scene_model_symbol_target.h"
+#include "tools/symbol_capture_transform_policy.h"
 
 class ConfigManager;
 class Viewer2DOffscreenRenderer;
@@ -18,12 +19,17 @@ class Viewer2DOffscreenRenderer;
 namespace tools {
 
 struct SceneModelSymbolCaptureOptions {
-  bool alignToLocalAxes = false;
+  SymbolCaptureTransformPolicy transformPolicy =
+      SymbolCaptureTransformPolicy::PreserveInstanceTransform;
+  std::string diagnosticOrigin;
   std::optional<std::string> forcedFixtureColor;
   wxSize viewportSize = wxSize(1200, 1200);
   std::optional<FixtureGeometryBounds> fixtureBoundsOverride;
   symbols::FixtureSymbolTimings *timings = nullptr;
 };
+
+SceneModelSymbolCaptureOptions BuildFixtureTypeSymbolCaptureOptions(
+    std::string diagnosticOrigin);
 
 struct SceneModelSymbolCaptureResult {
   bool ok = false;

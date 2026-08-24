@@ -16,4 +16,8 @@ bool ComputeViewFit(const ISelectionContext &selectionContext, Viewer2DView view
                     int viewportWidth, int viewportHeight,
                     ViewFitResult &result);
 
+bool ComputeViewFitForBounds(const Viewer3DBoundingBox &bounds,
+                             Viewer2DView view, int viewportWidth,
+                             int viewportHeight, ViewFitResult &result);
+
 } // namespace viewer2d
