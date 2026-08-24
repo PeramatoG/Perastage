@@ -49,6 +49,28 @@ void ExpandProjectedBounds(const ISelectionContext::BoundingBox &box,
   maxB = std::max(maxB, axisBMax);
 }
 
+// Computes fit state from already-projected axis bounds.
+bool ComputeProjectedViewFit(float minA, float maxA, float minB, float maxB,
+                             int viewportWidth, int viewportHeight,
+                             viewer2d::ViewFitResult &result) {
+  if (viewportWidth <= 0 || viewportHeight <= 0 || minA > maxA || minB > maxB)
+    return false;
+  const float centerA = (minA + maxA) * 0.5f;
+  const float centerB = (minB + maxB) * 0.5f;
+  const float spanA = std::max(maxA - minA, 0.25f);
+  const float spanB = std::max(maxB - minB, 0.25f);
+  const float requiredHalfA = spanA * 0.5f * kFitPaddingScale;
+  const float requiredHalfB = spanB * 0.5f * kFitPaddingScale;
+  const float zoomForWidth = static_cast<float>(viewportWidth) /
+                             (2.0f * kPixelsPerMeter * requiredHalfA);
+  const float zoomForHeight = static_cast<float>(viewportHeight) /
+                              (2.0f * kPixelsPerMeter * requiredHalfB);
+  result.zoom = std::max(kMinZoom, std::min(zoomForWidth, zoomForHeight));
+  result.offsetXPixels = -centerA * kPixelsPerMeter;
+  result.offsetYPixels = -centerB * kPixelsPerMeter;
+  return true;
+}
+
 } // namespace
 
 namespace viewer2d {
@@ -97,26 +119,21 @@ bool ComputeViewFit(const ISelectionContext &selectionContext, Viewer2DView view
     accumulateAll(selectionContext.GetObjectBoundsMap());
   }
 
-  if (minA > maxA || minB > maxB)
-    return false;
+  return ComputeProjectedViewFit(minA, maxA, minB, maxB, viewportWidth,
+                                 viewportHeight, result);
+}
 
-  const float centerA = (minA + maxA) * 0.5f;
-  const float centerB = (minB + maxB) * 0.5f;
-  const float spanA = std::max(maxA - minA, 0.25f);
-  const float spanB = std::max(maxB - minB, 0.25f);
-
-  const float requiredHalfA = spanA * 0.5f * kFitPaddingScale;
-  const float requiredHalfB = spanB * 0.5f * kFitPaddingScale;
-
-  const float zoomForWidth =
-      static_cast<float>(viewportWidth) / (2.0f * kPixelsPerMeter * requiredHalfA);
-  const float zoomForHeight = static_cast<float>(viewportHeight) /
-                              (2.0f * kPixelsPerMeter * requiredHalfB);
-
-  result.zoom = std::max(kMinZoom, std::min(zoomForWidth, zoomForHeight));
-  result.offsetXPixels = -centerA * kPixelsPerMeter;
-  result.offsetYPixels = -centerB * kPixelsPerMeter;
-  return true;
+// Computes viewer fit directly from one authoritative world-space bound.
+bool ComputeViewFitForBounds(const Viewer3DBoundingBox &bounds,
+                             Viewer2DView view, int viewportWidth,
+                             int viewportHeight, ViewFitResult &result) {
+  float minA = std::numeric_limits<float>::max();
+  float maxA = std::numeric_limits<float>::lowest();
+  float minB = std::numeric_limits<float>::max();
+  float maxB = std::numeric_limits<float>::lowest();
+  ExpandProjectedBounds(bounds, view, minA, maxA, minB, maxB);
+  return ComputeProjectedViewFit(minA, maxA, minB, maxB, viewportWidth,
+                                 viewportHeight, result);
 }
 
 } // namespace viewer2d

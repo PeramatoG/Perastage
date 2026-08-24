@@ -45,9 +45,12 @@ Changes since **v1.5.0**.
   share one mesh, generates fixture-type symbols at a canonical origin without
   inheriting instance translation, rotation, scale, shear, or parent placement,
   and restores the exact offscreen 2D viewer state after Layout capture work.
-  This prevents symbol output from depending on which fixture instance,
-  resource revision, fixture mode, or capture ran earlier in the application
-  session.
+  Resource synchronization, visibility, rendering, and bounds calculation now
+  share one platform-neutral reference-key contract, while fixture capture fits
+  directly from the authoritative GDTF bounds already used for calibration.
+  Together these changes prevent renderable fixtures from being framed with the
+  small unresolved-resource fallback solely because their path uses a different
+  slash or relative-path spelling.
 
 - Layout 2D View elements now refresh after any visual scene change, including
   adding, moving, editing, or removing scene elements as well as opening or

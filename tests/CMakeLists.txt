@@ -152,6 +152,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(FixtureSymbolAvailabilityBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_availability_boundary.sh)
     add_bash_policy_test(FixtureSymbolSourceArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_source_architecture.sh)
     add_bash_policy_test(FixtureSymbolCaptureIsolation ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_capture_isolation.sh)
+    add_bash_policy_test(ResourceReferenceCacheKey ${CMAKE_CURRENT_SOURCE_DIR}/check_resource_reference_cache_key.sh)
     add_bash_policy_test(FixtureSymbolPreparationArchitecture ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_preparation_architecture.sh)
     add_bash_policy_test(FixtureSymbol3DRefresh ${CMAKE_CURRENT_SOURCE_DIR}/check_fixture_symbol_3d_refresh.sh)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
@@ -2721,6 +2722,31 @@ target_link_libraries(scoped_single_model_capture_scene_test PRIVATE
                       ${wxWidgets_LIBRARIES})
 add_test(NAME ScopedSingleModelCaptureScene
          COMMAND scoped_single_model_capture_scene_test)
+
+add_executable(resource_reference_bounds_regression_test
+               resource_reference_bounds_regression_test.cpp
+               configmanager_layoutmanager_stub.cpp
+               resource_sync_key_stub.cpp
+               ../viewer3d/culling/bounds_cache_system.cpp
+               ../viewer3d/culling/primitive_bounds_utils.cpp
+               ../viewer3d/meshprimitives.cpp)
+target_include_directories(resource_reference_bounds_regression_test PRIVATE
+                           ../core ../models ../gui ../viewer3d
+                           ../viewer3d/culling ../viewer3d/resources)
+target_link_libraries(resource_reference_bounds_regression_test PRIVATE
+                      ${wxWidgets_LIBRARIES} perastage_test_diagnostics)
+add_test(NAME ResourceReferenceCacheKeyEquivalence
+         COMMAND resource_reference_bounds_regression_test)
+add_test(NAME BoundsCacheResolvedGdtfReferenceKeyRegression
+         COMMAND resource_reference_bounds_regression_test)
+
+add_executable(viewer2d_bounds_fit_test viewer2d_bounds_fit_test.cpp
+               ../viewer2d/viewer2dviewfit.cpp)
+target_include_directories(viewer2d_bounds_fit_test PRIVATE
+                           ../models ../viewer2d ../viewer3d
+                           ../viewer3d/interfaces)
+add_test(NAME Viewer2DFallbackFitDiagnosis COMMAND viewer2d_bounds_fit_test)
+add_test(NAME Viewer2DExplicitBoundsFitParity COMMAND viewer2d_bounds_fit_test)
 add_test(NAME FixtureSymbolInstanceTransformIndependence
          COMMAND scoped_single_model_capture_scene_test)
 add_test(NAME FixtureSymbolRepresentativeUuidIndependence

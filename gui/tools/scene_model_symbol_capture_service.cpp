@@ -22,6 +22,7 @@
 #include "truss.h"
 #include "viewer2doffscreenrenderer.h"
 #include "viewer2dpanel.h"
+#include "viewer2dviewfit.h"
 
 namespace tools {
 namespace {
@@ -418,7 +419,26 @@ SceneModelSymbolRenderResult CaptureSceneModelOrthographicRenders(
     else if (request.viewerView == symbols::SymbolCaptureViewerView::Side)
       viewerView = Viewer2DView::Side;
     capturePanel->SetView(viewerView);
-    capturePanel->FitViewToScene();
+    bool fittedAuthoritativeBounds = false;
+    if (target.kind == SceneModelKind::Fixture && fixtureBounds.valid) {
+      Viewer3DBoundingBox boundsMeters;
+      for (size_t axis = 0; axis < 3; ++axis) {
+        boundsMeters.min[axis] = fixtureBounds.min[axis] * 0.001f;
+        boundsMeters.max[axis] = fixtureBounds.max[axis] * 0.001f;
+      }
+      const Viewer2DViewState viewportState = capturePanel->GetViewState();
+      viewer2d::ViewFitResult fit;
+      fittedAuthoritativeBounds = viewer2d::ComputeViewFitForBounds(
+          boundsMeters, viewerView, viewportState.viewportWidth,
+          viewportState.viewportHeight, fit);
+      if (fittedAuthoritativeBounds) {
+        capturePanel->ApplyViewState(fit.offsetXPixels, fit.offsetYPixels,
+                                     fit.zoom, viewerView,
+                                     Viewer2DRenderMode::ByFixtureType);
+      }
+    }
+    if (!fittedAuthoritativeBounds)
+      capturePanel->FitViewToScene();
 #ifndef NDEBUG
     const Viewer2DViewState fittedState = capturePanel->GetViewState();
     diagnostics::DiagnosticLogger::Debug(

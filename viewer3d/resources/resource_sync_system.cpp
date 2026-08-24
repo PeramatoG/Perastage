@@ -3,6 +3,7 @@
 #include "gdtfloader.h"
 #include "mesh_processing.h"
 #include "resource_path_search.h"
+#include "resource_reference_cache_key.h"
 
 #include "loader3ds.h"
 #include "loaderglb.h"
@@ -433,20 +434,6 @@ std::string NormalizePath(const std::string &p) {
   return out;
 }
 
-// Normalizes a model path for cache-key comparisons.
-std::string NormalizeModelKey(const std::string &p) {
-  if (p.empty())
-    return {};
-  fs::path path(p);
-  path = path.lexically_normal();
-  return NormalizePath(path.string());
-}
-
-// Builds the stable cache key for a resource path reference.
-std::string ResolveCacheKey(const std::string &pathRef) {
-  return NormalizeModelKey(TrimPathRef(pathRef));
-}
-
 // Resolves a GDTF resource specification against scene and library paths.
 std::string ResolveGdtfPath(
     const std::string &base, const std::string &spec,
@@ -800,7 +787,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string cleanSpec = TrimPathRef(spec);
     if (cleanSpec.empty())
       return;
-    const std::string key = ResolveCacheKey(cleanSpec);
+    const std::string key =
+        viewer3d::resources::BuildResourceReferenceCacheKey(cleanSpec);
     auto [it, inserted] =
         state.resolvedGdtfSpecs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
     if (!inserted && HasValidResolvedPath(it->second, callbacks))
@@ -838,7 +826,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const std::string cleanModelRef = TrimPathRef(modelRef);
     if (cleanModelRef.empty())
       return;
-    const std::string key = ResolveCacheKey(cleanModelRef);
+    const std::string key =
+        viewer3d::resources::BuildResourceReferenceCacheKey(cleanModelRef);
     auto [it, inserted] =
         state.resolvedModelRefs.try_emplace(key, ResourceSyncState::PathResolutionEntry{});
     if (!inserted && HasValidResolvedPath(it->second, callbacks))
@@ -890,7 +879,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
 
   for (const auto *entry : visibleTrusses) {
     const auto &t = entry->second;
-    auto pathIt = state.resolvedModelRefs.find(ResolveCacheKey(t.symbolFile));
+    auto pathIt = state.resolvedModelRefs.find(
+        viewer3d::resources::BuildResourceReferenceCacheKey(t.symbolFile));
     const std::string path =
         (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
             ? pathIt->second.resolvedPath
@@ -902,7 +892,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     const auto &obj = entry->second;
     if (!obj.geometries.empty()) {
       for (const auto &geo : obj.geometries) {
-        auto pathIt = state.resolvedModelRefs.find(ResolveCacheKey(geo.modelFile));
+        auto pathIt = state.resolvedModelRefs.find(
+            viewer3d::resources::BuildResourceReferenceCacheKey(geo.modelFile));
         const std::string path =
             (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
                 ? pathIt->second.resolvedPath
@@ -912,7 +903,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       continue;
     }
 
-    auto pathIt = state.resolvedModelRefs.find(ResolveCacheKey(obj.modelFile));
+    auto pathIt = state.resolvedModelRefs.find(
+        viewer3d::resources::BuildResourceReferenceCacheKey(obj.modelFile));
     const std::string path =
         (pathIt != state.resolvedModelRefs.end() && pathIt->second.attempted)
             ? pathIt->second.resolvedPath
@@ -930,7 +922,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     if (f.gdtfSpec.empty())
       continue;
 
-    auto gdtfPathIt = state.resolvedGdtfSpecs.find(ResolveCacheKey(f.gdtfSpec));
+    auto gdtfPathIt = state.resolvedGdtfSpecs.find(
+        viewer3d::resources::BuildResourceReferenceCacheKey(f.gdtfSpec));
     const std::string gdtfPath =
         (gdtfPathIt != state.resolvedGdtfSpecs.end() && gdtfPathIt->second.attempted)
             ? gdtfPathIt->second.resolvedPath
@@ -1068,7 +1061,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       continue;
     }
 
-    auto gdtfPathIt = state.resolvedGdtfSpecs.find(ResolveCacheKey(fixture.gdtfSpec));
+    auto gdtfPathIt = state.resolvedGdtfSpecs.find(
+        viewer3d::resources::BuildResourceReferenceCacheKey(fixture.gdtfSpec));
     if (gdtfPathIt == state.resolvedGdtfSpecs.end() || !gdtfPathIt->second.attempted ||
         gdtfPathIt->second.resolvedPath.empty()) {
       state.fixtureNodeRegistry.erase(uuid);

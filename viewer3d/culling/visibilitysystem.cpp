@@ -20,6 +20,7 @@
 #include "configmanager.h"
 #include "matrixutils.h"
 #include "resource_sync_system.h"
+#include "resource_reference_cache_key.h"
 #include "scenedatamanager.h"
 
 #include <algorithm>
@@ -41,18 +42,6 @@ std::unordered_set<std::string> SnapshotHiddenLayers(const ConfigManager &cfg) {
   return cfg.GetHiddenLayers();
 }
 
-
-// Normalizes path separators for stable resource cache lookups.
-static std::string NormalizePath(const std::string &pathRef) {
-  std::string out = pathRef;
-  std::replace(out.begin(), out.end(), '\\', '/');
-  return out;
-}
-
-// Resolves the normalized cache key used by model and fixture resource maps.
-static std::string ResolveCacheKey(const std::string &pathRef) {
-  return NormalizePath(pathRef);
-}
 
 // Transforms a local point into world space using the supplied matrix.
 static std::array<float, 3> TransformPoint(const Matrix &m,
@@ -222,7 +211,8 @@ bool VisibilitySystem::EnsureBoundsComputed(
 
     std::string gdtfPath;
     auto gdtfIt = m_controller.GetResourceSyncState().resolvedGdtfSpecs.find(
-        ResolveCacheKey(fit->second.gdtfSpec));
+        viewer3d::resources::BuildResourceReferenceCacheKey(
+            fit->second.gdtfSpec));
     if (gdtfIt != m_controller.GetResourceSyncState().resolvedGdtfSpecs.end() &&
         gdtfIt->second.attempted)
       gdtfPath = gdtfIt->second.resolvedPath;
@@ -305,7 +295,8 @@ bool VisibilitySystem::EnsureBoundsComputed(
     if (!tit->second.symbolFile.empty()) {
       std::string path;
       auto modelIt = m_controller.GetResourceSyncState().resolvedModelRefs.find(
-          ResolveCacheKey(tit->second.symbolFile));
+          viewer3d::resources::BuildResourceReferenceCacheKey(
+              tit->second.symbolFile));
       if (modelIt != m_controller.GetResourceSyncState().resolvedModelRefs.end() &&
           modelIt->second.attempted)
         path = modelIt->second.resolvedPath;
@@ -402,7 +393,7 @@ bool VisibilitySystem::EnsureBoundsComputed(
 
       std::string path;
       auto modelIt = m_controller.GetResourceSyncState().resolvedModelRefs.find(
-          ResolveCacheKey(geo.modelFile));
+          viewer3d::resources::BuildResourceReferenceCacheKey(geo.modelFile));
       if (modelIt != m_controller.GetResourceSyncState().resolvedModelRefs.end() &&
           modelIt->second.attempted)
         path = modelIt->second.resolvedPath;
@@ -448,7 +439,9 @@ bool VisibilitySystem::EnsureBoundsComputed(
   } else if (!oit->second.modelFile.empty()) {
     std::string path;
     auto modelIt =
-        m_controller.GetResourceSyncState().resolvedModelRefs.find(ResolveCacheKey(oit->second.modelFile));
+        m_controller.GetResourceSyncState().resolvedModelRefs.find(
+            viewer3d::resources::BuildResourceReferenceCacheKey(
+                oit->second.modelFile));
     if (modelIt != m_controller.GetResourceSyncState().resolvedModelRefs.end() &&
         modelIt->second.attempted)
       path = modelIt->second.resolvedPath;
