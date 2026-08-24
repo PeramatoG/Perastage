@@ -17,6 +17,7 @@
  */
 #include "riderimporter.h"
 #include "filesystem_path_utils.h"
+#include "rider_text_semantics.h"
 
 #include <algorithm>
 #include <array>
@@ -699,6 +700,7 @@ std::vector<std::string> SplitPlus(const std::string &s) {
 
 bool IsFloorAlias(std::string_view value);
 bool IsLxSidesAlias(std::string_view value);
+bool IsLxHangName(const std::string &positionName);
 
 // Converts rider hang aliases into their canonical target names.
 std::string NormalizeHangName(const std::string &raw) {
@@ -716,6 +718,10 @@ std::string NormalizeHangName(const std::string &raw) {
     return static_cast<char>(std::toupper(c));
   });
   hang = std::regex_replace(hang, std::regex("\\s+"), " ");
+  const std::string semanticHang = rider_text::NormalizeHangAlias(hang);
+  if (semanticHang == "LX SIDES" || semanticHang == "SCREEN" ||
+      IsLxHangName(semanticHang))
+    return semanticHang;
   if (hang == "SIDE FILL" || hang == "SIDEFILL")
     return "SIDEFILL";
   if (IsLxSidesAlias(hang))
@@ -1000,14 +1006,9 @@ bool ContainsCaseInsensitive(std::string_view haystack,
   return it != haystack.end();
 }
 
+// Reports whether a hang value is a recognized physical floor alias.
 bool IsFloorAlias(std::string_view value) {
-  const bool effectAlias = ContainsCaseInsensitive(value, "efecto");
-  const bool floorAlias = ContainsCaseInsensitive(value, "floor");
-  const bool streetToFloorAlias = ContainsCaseInsensitive(value, "calle") &&
-                                  ContainsCaseInsensitive(value, "suelo");
-  const bool groundLaneAlias = ContainsCaseInsensitive(value, "ground") &&
-                               ContainsCaseInsensitive(value, "lane");
-  return effectAlias || floorAlias || streetToFloorAlias || groundLaneAlias;
+  return rider_text::NormalizeHangAlias(value) == "FLOOR";
 }
 
 // Reports whether a normalized hang is an explicit side-truss alias.
@@ -1289,30 +1290,19 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       havePending = false;
       continue;
     }
-    const std::string lowerLine = [&line]() {
-      std::string lowered = line;
-      std::transform(
-          lowered.begin(), lowered.end(), lowered.begin(),
-          [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      return lowered;
-    }();
-
-    if (lowerLine.find("sonido") != std::string::npos ||
-        lowerLine.find("audio") != std::string::npos ||
-        lowerLine.find("control de p.a.") != std::string::npos ||
-        lowerLine.find("monitores") != std::string::npos ||
-        lowerLine.find("microfon") != std::string::npos ||
-        lowerLine.find("video") != std::string::npos ||
-        lowerLine.find("realizacion") != std::string::npos ||
-        lowerLine.find("control") != std::string::npos) {
+    const rider_text::Section section = rider_text::ClassifySectionHeader(line);
+    if (section == rider_text::Section::Effects ||
+        section == rider_text::Section::LightingControl ||
+        section == rider_text::Section::Video ||
+        section == rider_text::Section::Ignored) {
       seenSectionHeader = true;
       inFixtures = false;
       inRigging = false;
-      inControl = lowerLine.find("control") != std::string::npos;
+      inControl = section == rider_text::Section::LightingControl;
       havePending = false;
       continue;
     }
-    if (lowerLine.find("rigging") != std::string::npos) {
+    if (section == rider_text::Section::Rigging) {
       seenSectionHeader = true;
       inFixtures = false;
       inRigging = true;
@@ -1320,9 +1310,7 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       havePending = false;
       continue;
     }
-    if (!inControl && (lowerLine.find("ilumin") != std::string::npos ||
-                       lowerLine.find("robotica") != std::string::npos ||
-                       lowerLine.find("convencion") != std::string::npos)) {
+    if (section == rider_text::Section::Lighting) {
       seenSectionHeader = true;
       inFixtures = true;
       inRigging = false;
@@ -1332,10 +1320,12 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
 
     std::smatch m;
     std::smatch hm;
-    if (std::regex_match(line, hm, kHangLineRe) ||
+    const std::optional<std::string> semanticHang =
+        rider_text::ClassifyHangHeader(line);
+    if (semanticHang.has_value() || std::regex_match(line, hm, kHangLineRe) ||
         std::regex_match(line, hm, kHangHeaderWithSuffixRe)) {
       havePending = false;
-      std::string captured = hm[1];
+      std::string captured = semanticHang ? *semanticHang : hm[1].str();
       if (IsFloorAlias(captured)) {
         currentHang = "FLOOR";
       } else {
@@ -2064,7 +2054,8 @@ bool RiderImporter::ImportText(const std::string &text,
       const bool isScreenHang = NormalizeHangName(currentHang) == "SCREEN";
       const bool isScreenDescription =
           ContainsCaseInsensitive(part, "pantalla") ||
-          ContainsCaseInsensitive(part, "screen");
+          ContainsCaseInsensitive(part, "screen") ||
+          ContainsCaseInsensitive(part, "led wall");
       if (isScreenHang && isScreenDescription) {
         float screenWidthMm = 8000.0f;
         float screenHeightMm = 5000.0f;
@@ -2158,22 +2149,19 @@ bool RiderImporter::ImportText(const std::string &text,
       havePending = false;
       continue;
     }
-    if (ContainsCaseInsensitive(line, "sonido") ||
-        ContainsCaseInsensitive(line, "audio") ||
-        ContainsCaseInsensitive(line, "control de p.a.") ||
-        ContainsCaseInsensitive(line, "monitores") ||
-        ContainsCaseInsensitive(line, "microfon") ||
-        ContainsCaseInsensitive(line, "video") ||
-        ContainsCaseInsensitive(line, "realizacion") ||
-        ContainsCaseInsensitive(line, "control")) {
+    const rider_text::Section section = rider_text::ClassifySectionHeader(line);
+    if (section == rider_text::Section::Effects ||
+        section == rider_text::Section::LightingControl ||
+        section == rider_text::Section::Video ||
+        section == rider_text::Section::Ignored) {
       seenSectionHeader = true;
       inFixtures = false;
       inRigging = false;
-      inControl = ContainsCaseInsensitive(line, "control");
+      inControl = section == rider_text::Section::LightingControl;
       havePending = false;
       continue;
     }
-    if (ContainsCaseInsensitive(line, "rigging")) {
+    if (section == rider_text::Section::Rigging) {
       seenSectionHeader = true;
       inFixtures = false;
       inRigging = true;
@@ -2181,9 +2169,7 @@ bool RiderImporter::ImportText(const std::string &text,
       havePending = false;
       continue;
     }
-    if (!inControl && (ContainsCaseInsensitive(line, "ilumin") ||
-                       ContainsCaseInsensitive(line, "robotica") ||
-                       ContainsCaseInsensitive(line, "convencion"))) {
+    if (section == rider_text::Section::Lighting) {
       seenSectionHeader = true;
       inFixtures = true;
       inRigging = false;
@@ -2193,10 +2179,12 @@ bool RiderImporter::ImportText(const std::string &text,
 
     std::smatch m;
     std::smatch hm;
-    if (std::regex_match(line, hm, kHangLineRe) ||
+    const std::optional<std::string> semanticHang =
+        rider_text::ClassifyHangHeader(line);
+    if (semanticHang.has_value() || std::regex_match(line, hm, kHangLineRe) ||
         std::regex_match(line, hm, kHangHeaderWithSuffixRe)) {
       havePending = false;
-      currentHang = NormalizeHangName(hm[1].str());
+      currentHang = semanticHang ? *semanticHang : NormalizeHangName(hm[1].str());
       std::string hangLineWithOverrides = line;
       if (const auto parsedMarginOverride = ParseTrussMarginOverrideMm(
               hangLineWithOverrides, distanceUnitSystem);

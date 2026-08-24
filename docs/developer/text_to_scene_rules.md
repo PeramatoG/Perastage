@@ -39,11 +39,8 @@ Filter behavior:
 3. Keeps motor/hoist lines found in rigging and normalizes them as
    `N MOTOR <capacity>Kg FOR <hang>`.
 4. Groups fixture output by detected hang (`LX1`, `LX2`, `FLOOR`, ...).
-5. Normalizes floor aliases to `FLOOR`:
-   - `floor`
-   - `efecto` / `efectos`
-   - `calle a suelo` / `calles a suelo`
-   - `ground lane` / `ground lanes`
+5. Normalizes physical floor aliases such as `suelo`, `piso`, `floor`,
+   `deck`, `calle(s) a suelo`, and `ground lane(s)` to `FLOOR`.
 6. Truss lines using `PUENTES LX` are expanded as `LX1`, `LX2`, `LX3`, ...
 7. Hoist lines using `PUENTES LX` are expanded and distributed over detected
    `LX*` targets in the same filtered rigging block.
@@ -54,8 +51,8 @@ Filter behavior:
 11. Expands `+` compound lines into individual fixture lines.
 12. Supports quantity-only lines (`N` followed by description on next line).
 13. Removes parenthesized notes from fixture tokens to reduce rider noise.
-14. The filter pass is idempotent for normalized truss lines ending in
-    `SCREEN` (re-applying **Apply filter** keeps those lines).
+14. The complete filter pass is idempotent: reapplying **Apply filter** to any
+    canonical result produces byte-identical text.
 15. Truss targets with accessory suffixes are normalized to the effective hang
     target (for example, `... + HUESITOS PARA PUENTES LX` is interpreted as
     `PUENTES LX`).
@@ -119,13 +116,20 @@ without changing matching logic.
 
 ## Section detection rules
 
-The importer keeps parsing state with sections (fixtures/rigging/control):
+The importer classifies complete normalized heading lines rather than searching
+for section words inside arbitrary descriptions. Quantity-prefixed equipment
+therefore remains equipment even when its model or purpose contains words such
+as `iluminar`, `control`, `video`, or `audio`.
 
-- Enters **fixtures mode** when a line contains: `ilumin`, `robotica`, or `convencion`.
-- Enters **rigging mode** when a line contains: `rigging`.
-- Leaves active import sections (fixtures/rigging) when a line contains terms like:
-  `sonido`, `audio`, `control de p.a.`, `monitores`, `microfon`, `video`,
-  `realizacion`, or `control`.
+- `ILUMINACION` / `LIGHTING` and `APARATOS` / `FIXTURES` enter fixture mode.
+- `RIGGING` and `RIGGING Y ESTRUCTURAS` enter rigging mode.
+- `EFECTOS` / `EFFECTS` is an ignored equipment-category boundary, not a
+  physical position. An effect explicitly listed under `FLOOR` or another
+  physical hang remains importable.
+- `CONTROL DE ILUMINACION` / `LIGHTING CONTROL` stops fixture collection.
+- `VIDEO` establishes video context without itself selecting a physical hang;
+  a following screen heading selects `SCREEN` and enables screen collection.
+- Audio and other recognized unrelated headings stop active collection.
 - If a hang-position line appears before explicit sections, the importer assumes fixtures mode.
 - If fixture list lines appear before **any recognized section header** and no
   hang header has been defined yet, the importer assumes fixtures mode and
@@ -136,14 +140,19 @@ The importer keeps parsing state with sections (fixtures/rigging/control):
 Recognized hang labels:
 
 - `LX<number>` (for example `LX1`, `LX2`, ...)
-- `screen` / `pantalla` / `proyeccion` / `proyección` / `led screen`
+- Front/LX1: `frontal`, `frente`, `puente frontal`, `front`, `front light`,
+  `front truss`, `downstage`
+- Middle/LX2: `cenital`, `central`, `medio`, `puente central`, `mid`,
+  `middle`, `center`, `centre`, `midstage`
+- Rear/LX3: `contra`, `contraluz`, `puente trasero`, `trasero`, `back`,
+  `rear`, `backlight`, `upstage`
+- Sides: `calle(s)`, `lateral(es)`, `side(s)`, `side light(s)`, and descriptive
+  `CALLES DIRECTAS ...` headings
+- Floor: `suelo`, `piso`, `calle(s) a suelo`, `floor`, `ground`, `deck`,
+  `ground lane(s)`
+- Screen: `screen`, `pantalla`, `pantalla led`, `proyeccion`, `proyección`,
+  `led screen`, `led wall`, `projection`
 - `backdrop` / `backdrops` / `telon` / `telones` / `puente de telon(es)`
-- `floor`
-- `efecto` / `efectos`
-- `calle a suelo` / `calles a suelo`
-- `ground lane` / `ground lanes`
-- `calle` / `calles`
-- `side` / `sides`
 
 Behavior:
 
@@ -151,13 +160,15 @@ Behavior:
 - Fixture hang headers can include extra descriptive suffix text before `:`
   (for example `CALLES EN LAYHER:`), while still keeping the detected hang
   alias (`CALLES` -> `LX SIDES`).
-- Floor aliases (`floor`, `efecto(s)`, `calle(s) a suelo`, `ground lane(s)`)
-  are normalized to `FLOOR`.
-- Side-position aliases (`calle(s)`, `side(s)`) are normalized to `LX SIDES`.
+- Front, middle, and rear semantic headings normalize to `LX1`, `LX2`, and
+  `LX3`; an explicit `LX<number>` always takes precedence.
+- Physical floor aliases are normalized to `FLOOR`; `EFFECTS` is not a hang.
+- Side-position aliases are normalized to the canonical value `LX SIDES`.
 - Explicit normalized headers such as `LX SIDES` are accepted as hang labels
   in both filtered text and direct import input.
-- Screen aliases (`screen`, `pantalla`, `proyeccion`, `proyección`, `led screen`) are normalized to
-  `SCREEN`.
+- Screen aliases are normalized to `SCREEN`. This allows the common
+  `VIDEO` → `PANTALLA LED` / `LED SCREEN` / `LED WALL` structure to reuse the
+  existing screen-object importer.
 - Backdrop aliases (`backdrop(s)`, `telon(es)`, `puente de telon(es)`) are
   normalized to `BACKDROP`.
 - The active hang affects fixture/truss layer naming and default placement (`Y/Z`).
@@ -170,6 +181,10 @@ Accepted fixture patterns:
 - Optional list bullets (`-` or `*`) before quantity are accepted.
 - Quantity-only lines (`N`) are accepted and applied to the next non-empty line.
 - `+` splits compound lines into independent fixture groups.
+- A plus segment without its own quantity inherits the first segment's
+  quantity (`1 FOLLOWSPOT + OPERATOR` becomes two quantity-one entries).
+- Ordinary parenthesized fixture annotations are removed from the canonical
+  token; no richer hidden fixture description is retained.
 
 Examples:
 
@@ -210,6 +225,8 @@ Special screen-object handling:
   `pantalla`, the importer creates **scene objects** instead of fixtures.
 - Size parsing looks for `<width>x<height>` values in meters (accepted forms
   include `8x5`, `8x5m`, `8m x 5m`).
+- Dimension parsing uses the physical meter pair and does not replace it with
+  a later pixel-resolution pair such as `1664x832 PIXELS`.
 - Parsed screen dimensions are applied as:
   - X (width) = parsed width
   - Z (height) = parsed height
