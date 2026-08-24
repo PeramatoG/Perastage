@@ -571,32 +571,49 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
                        const ResourceSyncCallbacks &callbacks,
                        const viewer3d::resources::MeshProcessingOptions &meshProcessingOptions,
                        bool &assetsChanged) {
-  if (path.empty() || state.loadedMeshes.find(path) != state.loadedMeshes.end())
+  if (path.empty())
     return;
 
+  const auto currentRevision =
+      viewer3d::resources::ReadPhysicalAssetRevision(path);
+  auto loaded = state.loadedMeshes.find(path);
+  auto loadedRevision = state.loadedMeshRevisions.find(path);
+  if (loaded != state.loadedMeshes.end() &&
+      loadedRevision != state.loadedMeshRevisions.end() &&
+      currentRevision.metadataAvailable &&
+      loadedRevision->second == currentRevision)
+    return;
+  if (loaded != state.loadedMeshes.end()) {
+    if (callbacks.releaseMeshBuffers)
+      callbacks.releaseMeshBuffers(loaded->second);
+    state.loadedMeshes.erase(loaded);
+    state.loadedMeshRevisions.erase(path);
+    assetsChanged = true;
+  }
+
   Mesh mesh;
-  bool loaded = false;
+  bool loadedFromSource = false;
 
   if (meshProcessingOptions.enableDiskCache &&
       viewer3d::resources::TryLoadMeshCache(path, mesh)) {
-    loaded = true;
+    loadedFromSource = true;
   }
 
   std::string ext = fs::path(path).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  if (!loaded) {
+  if (!loadedFromSource) {
     std::string loadException;
     try {
       if (ext == ".3ds")
-        loaded = Load3DS(path, mesh,
+        loadedFromSource = Load3DS(path, mesh,
                          meshProcessingOptions.applyThreeDsObjectTransforms);
       else if (ext == ".glb")
-        loaded = LoadGLB(path, mesh);
+        loadedFromSource = LoadGLB(path, mesh);
       else if (ext == ".obj") {
         std::string objError;
-        loaded = LoadOBJ(path, mesh, &objError);
-        if (!loaded && callbacks.appendConsoleMessage)
+        loadedFromSource = LoadOBJ(path, mesh, &objError);
+        if (!loadedFromSource && callbacks.appendConsoleMessage)
           callbacks.appendConsoleMessage("OBJ load failed for " + path + ": " + objError);
       }
     } catch (const std::exception &ex) {
@@ -608,17 +625,18 @@ void EnsureModelLoaded(const std::string &path, ResourceSyncState &state,
     if (!loadException.empty() && callbacks.appendConsoleMessage)
       callbacks.appendConsoleMessage("Model load exception for " + path + ": " + loadException);
 
-    if (loaded && meshProcessingOptions.enableMeshOptimization)
+    if (loadedFromSource && meshProcessingOptions.enableMeshOptimization)
       viewer3d::resources::OptimizeMeshForRuntime(mesh);
 
-    if (loaded && meshProcessingOptions.enableDiskCache)
+    if (loadedFromSource && meshProcessingOptions.enableDiskCache)
       viewer3d::resources::TrySaveMeshCache(path, mesh);
   }
 
-  if (loaded) {
+  if (loadedFromSource) {
     if (callbacks.setupMeshBuffers)
       callbacks.setupMeshBuffers(mesh);
     state.loadedMeshes[path] = std::move(mesh);
+    state.loadedMeshRevisions[path] = currentRevision;
     assetsChanged = true;
   } else if (callbacks.appendConsoleMessage) {
     callbacks.appendConsoleMessage("Failed to load model: " + path);
@@ -679,8 +697,11 @@ ResourceSyncResult ResourceSyncSystem::Sync(
         callbacks.releaseMeshBuffers(mesh);
     }
     state.loadedMeshes.clear();
+    state.loadedMeshRevisions.clear();
     ReleaseGdtfMeshBuffers(state, callbacks);
     state.loadedGdtf.clear();
+    state.loadedGdtfRevisions.clear();
+    state.attemptedGdtfRevisions.clear();
     state.loadedGdtfGeometryTrees.clear();
     state.fixtureNodeRegistry.clear();
     state.fixtureAnchorRegistry.clear();
@@ -894,6 +915,27 @@ ResourceSyncResult ResourceSyncSystem::Sync(
     }
 
     const std::string resourceKey = BuildGdtfResourceKey(gdtfPath, f.gdtfMode);
+    const auto currentRevision =
+        viewer3d::resources::ReadPhysicalAssetRevision(gdtfPath);
+    auto attemptedRevision = state.attemptedGdtfRevisions.find(resourceKey);
+    if (attemptedRevision != state.attemptedGdtfRevisions.end() &&
+        attemptedRevision->second != currentRevision) {
+      state.failedGdtfReasons.erase(resourceKey);
+      state.failedGdtfAttemptCounts.erase(resourceKey);
+      state.reportedGdtfFailureCounts.erase(resourceKey);
+      state.reportedGdtfFailureReasons.erase(resourceKey);
+    }
+    auto loadedRevision = state.loadedGdtfRevisions.find(resourceKey);
+    const bool revisionMatches =
+        currentRevision.metadataAvailable &&
+        loadedRevision != state.loadedGdtfRevisions.end() &&
+        loadedRevision->second == currentRevision;
+    if (state.loadedGdtf.find(resourceKey) != state.loadedGdtf.end() &&
+        !revisionMatches) {
+      ResourceSyncSystem::InvalidatePhysicalAsset(
+          gdtfPath, f.gdtfMode, state, callbacks);
+      result.assetsChanged = true;
+    }
     auto failedIt = state.failedGdtfReasons.find(resourceKey);
     if (failedIt != state.failedGdtfReasons.end()) {
       const size_t attempts = state.failedGdtfAttemptCounts[resourceKey];
@@ -929,6 +971,8 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       if (!objs.empty()) {
         SetupGdtfMeshBuffers(objs, callbacks);
         state.loadedGdtf[resourceKey] = std::move(objs);
+        state.loadedGdtfRevisions[resourceKey] = currentRevision;
+        state.attemptedGdtfRevisions[resourceKey] = currentRevision;
         state.failedGdtfAttemptCounts.erase(resourceKey);
 
         GdtfGeometryTree geometryTree;
@@ -946,6 +990,7 @@ ResourceSyncResult ResourceSyncSystem::Sync(
       } else {
         std::string reason = gdtfError.empty() ? "Failed to load GDTF" : gdtfError;
         state.failedGdtfReasons[resourceKey] = reason;
+        state.attemptedGdtfRevisions[resourceKey] = currentRevision;
         ++state.failedGdtfAttemptCounts[resourceKey];
         ++gdtfErrorCounts[resourceKey];
         gdtfErrorReasons[resourceKey] = reason;
@@ -1067,4 +1112,87 @@ ResourceSyncResult ResourceSyncSystem::Sync(
   }
 
   return result;
+}
+
+// Invalidates cached runtime data for one physical asset and optional GDTF mode.
+bool ResourceSyncSystem::InvalidatePhysicalAsset(
+    const std::string &physicalPath,
+    const std::optional<std::string> &exactMode, ResourceSyncState &state,
+    const ResourceSyncCallbacks &callbacks) {
+  bool invalidated = false;
+  const auto requestedRevision =
+      viewer3d::resources::ReadPhysicalAssetRevision(physicalPath);
+  auto meshIt = state.loadedMeshes.find(physicalPath);
+  if (meshIt == state.loadedMeshes.end()) {
+    for (auto candidate = state.loadedMeshRevisions.begin();
+         candidate != state.loadedMeshRevisions.end(); ++candidate) {
+      if (candidate->second.physicalPathIdentity ==
+          requestedRevision.physicalPathIdentity) {
+        meshIt = state.loadedMeshes.find(candidate->first);
+        break;
+      }
+    }
+  }
+  if (meshIt != state.loadedMeshes.end()) {
+    const std::string loadedPath = meshIt->first;
+    if (callbacks.releaseMeshBuffers)
+      callbacks.releaseMeshBuffers(meshIt->second);
+    state.loadedMeshes.erase(meshIt);
+    state.loadedMeshRevisions.erase(loadedPath);
+    invalidated = true;
+  }
+
+  for (auto it = state.loadedGdtf.begin(); it != state.loadedGdtf.end();) {
+    const auto revisionIt = state.loadedGdtfRevisions.find(it->first);
+    const bool pathMatches =
+        (revisionIt != state.loadedGdtfRevisions.end() &&
+         revisionIt->second.physicalPathIdentity ==
+             requestedRevision.physicalPathIdentity) ||
+        it->first.starts_with(physicalPath + "\nmode=");
+    const bool modeMatches =
+        !exactMode || it->first.ends_with("\nmode=" + *exactMode);
+    if (!pathMatches || !modeMatches) {
+      ++it;
+      continue;
+    }
+    if (callbacks.releaseMeshBuffers) {
+      for (auto &object : it->second)
+        callbacks.releaseMeshBuffers(object.mesh);
+    }
+    const std::string resourceKey = it->first;
+    it = state.loadedGdtf.erase(it);
+    state.loadedGdtfRevisions.erase(resourceKey);
+    state.attemptedGdtfRevisions.erase(resourceKey);
+    state.loadedGdtfGeometryTrees.erase(resourceKey);
+    state.geometryTreeVersionByResolvedGdtfPath.erase(resourceKey);
+    state.failedGdtfReasons.erase(resourceKey);
+    state.failedGdtfAttemptCounts.erase(resourceKey);
+    state.reportedGdtfFailureCounts.erase(resourceKey);
+    state.reportedGdtfFailureReasons.erase(resourceKey);
+    invalidated = true;
+  }
+  for (auto it = state.attemptedGdtfRevisions.begin();
+       it != state.attemptedGdtfRevisions.end();) {
+    const bool pathMatches =
+        it->second.physicalPathIdentity == requestedRevision.physicalPathIdentity;
+    const bool modeMatches =
+        !exactMode || it->first.ends_with("\nmode=" + *exactMode);
+    if (!pathMatches || !modeMatches) {
+      ++it;
+      continue;
+    }
+    const std::string resourceKey = it->first;
+    it = state.attemptedGdtfRevisions.erase(it);
+    state.failedGdtfReasons.erase(resourceKey);
+    state.failedGdtfAttemptCounts.erase(resourceKey);
+    state.reportedGdtfFailureCounts.erase(resourceKey);
+    state.reportedGdtfFailureReasons.erase(resourceKey);
+    invalidated = true;
+  }
+  if (invalidated) {
+    state.fixtureNodeRegistry.clear();
+    state.fixtureAnchorRegistry.clear();
+    state.fixtureRegistrySignatureByUuid.clear();
+  }
+  return invalidated;
 }

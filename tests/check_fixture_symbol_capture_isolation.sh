@@ -5,11 +5,18 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 capture="$root/gui/tools/scene_model_symbol_capture_service.cpp"
 service="$root/gui/services/fixture_symbol_preparation_service.cpp"
 compatibility="$root/gui/tools/scoped_single_model_capture_scene.cpp"
+resource_sync="$root/viewer3d/resources/resource_sync_system.cpp"
+resource_header="$root/viewer3d/resources/resource_sync_system.h"
+revision_header="$root/viewer3d/resources/physical_asset_revision.h"
 
 rg -q 'ScopedSingleModelCaptureScene' "$capture"
 rg -q 'originalFixtures_\.swap\(scene\.fixtures\)' "$compatibility"
 rg -q 'scene\.fixtures\.swap\(originalFixtures_\)' "$compatibility"
 rg -Fq 'PrepareForSceneReplacement();' "$capture"
+rg -q 'loadedGdtfRevisions' "$resource_header"
+rg -q 'ReadPhysicalAssetRevision' "$resource_sync" "$revision_header"
+rg -q 'InvalidatePhysicalAsset' "$resource_sync" "$resource_header"
+rg -q 'capturedRevision != work.sourceRevision' "$service"
 if rg -n 'CaptureSceneModelOrthographicStep|nextCaptureStep|captureSnapshot' "$capture" "$service"; then
   echo "Fixture capture must not yield between orthographic views." >&2
   exit 1

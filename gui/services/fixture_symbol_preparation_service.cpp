@@ -316,6 +316,16 @@ void FixtureSymbolPreparationService::RunNextStep() {
       FailCurrent(capture.error);
       return;
     }
+    const symbol_cache::GdtfFileRevision capturedRevision =
+        symbol_cache::ReadGdtfFileRevision(
+            currentKey_->effectiveGdtfPath);
+    if (!work.sourceRevision.metadataAvailable ||
+        !capturedRevision.metadataAvailable ||
+        capturedRevision != work.sourceRevision) {
+      FailCurrent(
+          "Fixture symbol source changed during capture; retry is required.");
+      return;
+    }
     work.bounds = capture.fixtureBoundsMm;
     work.renders = std::move(capture.renders);
     if (!coordinator_.CompleteCapture(*currentKey_, epoch_)) {

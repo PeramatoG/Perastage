@@ -39,6 +39,12 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Fixture-symbol rendering now notices GDTF files replaced at the same path,
+  rejects stale runtime and disk geometry caches, and restores the exact
+  offscreen 2D viewer state after Layout capture work. This prevents symbol
+  output from depending on which resource revision or capture ran earlier in
+  the application session.
+
 - Layout 2D View elements now refresh after any visual scene change, including
   adding, moving, editing, or removing scene elements as well as opening or
   merging MVR files, so saved layouts cannot continue showing stale content.

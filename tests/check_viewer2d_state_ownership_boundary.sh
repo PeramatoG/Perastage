@@ -35,6 +35,12 @@ for token in "ScopedViewer2DState" "CaptureState" "ApplyState" "FromLayoutDefini
   fi
 done
 
+if rg -n 'restorePanel_ \? restorePanel_\.get\(\) : Viewer2DPanel::Instance\(\)|restoreRenderPanel_.*Viewer2DRenderPanel::Instance' "$state_source" >/dev/null; then
+  echo "Scoped Viewer2D state must restore its apply targets by default." >&2
+  exit 1
+fi
+rg -q 'restorePanel_ \? restorePanel_\.get\(\) : applyPanel_\.get\(\)' "$state_source"
+
 for file in "$capture_file" "$rasterizer_file"; do
   if [[ ! -f "$file" ]]; then
     echo "Missing Layout preview state boundary file: ${file#$repo_root/}" >&2
