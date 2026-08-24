@@ -43,7 +43,8 @@ Changes since **v1.5.0**.
   adding, moving, editing, or removing scene elements as well as opening or
   merging MVR files, so saved layouts cannot continue showing stale content.
   Preview capture no longer feeds back into scene-change invalidation, avoiding
-  repeated Layout render queues when changing views.
+  repeated Layout render queues when changing views, and regenerated previews
+  now read the latest scene contents after elements are removed.
 
 - Restored the established fixture-symbol capture and processing pipeline for
   consistent manual generation of compound-fixture symbols.

@@ -66,4 +66,17 @@ for relative_path in (
         raise SystemExit(
             f"Viewer scene reloads must not invalidate Layout previews recursively: {relative_path}"
         )
+
+offscreen_source = open(
+    f"{sys.argv[1].rsplit('/gui/', 1)[0]}/viewer2d/viewer2doffscreenrenderer.cpp",
+    encoding="utf-8",
+).read()
+prepare_match = re.search(
+    r"void Viewer2DOffscreenRenderer::PrepareForCapture\(\) \{[\s\S]*?\n\}",
+    offscreen_source,
+)
+if not prepare_match or "panel_->UpdateScene()" not in prepare_match.group(0):
+    raise SystemExit(
+        "The offscreen Layout capture panel must synchronize current scene data before capture"
+    )
 PY
