@@ -79,4 +79,42 @@ if not prepare_match or "panel_->UpdateScene()" not in prepare_match.group(0):
     raise SystemExit(
         "The offscreen Layout capture panel must synchronize current scene data before capture"
     )
+
+invalidation_source = open(
+    f"{sys.argv[1].rsplit('/gui/', 1)[0]}/gui/layoutviewerpanel_render_invalidation.cpp",
+    encoding="utf-8",
+).read()
+invalidation_match = re.search(
+    r"void LayoutViewerPanel::InvalidateViewCacheForSceneContent\(ViewCache &cache\) "
+    r"\{[\s\S]*?\n\}",
+    invalidation_source,
+)
+if not invalidation_match:
+    raise SystemExit("Unable to inspect scene-dependent Layout cache invalidation")
+invalidation_body = invalidation_match.group(0)
+for token in (
+    "cache.captureVersion = -1",
+    "cache.persistentRgba.clear()",
+    "cache.persistentRgbaContentHash = 0",
+    "cache.renderDirty = true",
+):
+    if token not in invalidation_body:
+        raise SystemExit(f"Scene-dependent Layout cache invalidation is missing: {token}")
+if invalidation_source.count("InvalidateViewCacheForSceneContent(") < 3:
+    raise SystemExit(
+        "Explicit notifications and scene-hash detection must both discard stale Layout rasters"
+    )
+
+layout_panel_source = open(
+    f"{sys.argv[1].rsplit('/gui/', 1)[0]}/gui/layoutviewerpanel.cpp",
+    encoding="utf-8",
+).read()
+show_match = re.search(
+    r"void LayoutViewerPanel::OnShow\(wxShowEvent &event\) \{[\s\S]*?\n\}",
+    layout_panel_source,
+)
+if not show_match or "InvalidateRenderIfFrameChanged(true)" not in show_match.group(0):
+    raise SystemExit(
+        "Showing the Layout pane must detect scene changes missed while it was hidden"
+    )
 PY

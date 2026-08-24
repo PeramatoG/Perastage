@@ -1489,6 +1489,7 @@ void LayoutViewerPanel::OnShow(wxShowEvent &event) {
   if (event.IsShown()) {
     InitGL();
     SchedulePendingFitToViewport();
+    InvalidateRenderIfFrameChanged(true);
     if (isReadyToRender_ && NeedsRenderRebuild()) {
       RequestRenderRebuild();
     }

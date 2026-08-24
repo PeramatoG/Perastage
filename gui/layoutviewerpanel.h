@@ -264,6 +264,7 @@ private:
                                         const wxSize &textureSize,
                                         const wxSize &renderSize) const;
   void RequestRenderRebuild();
+  void InvalidateViewCacheForSceneContent(ViewCache &cache);
   void InvalidateRenderIfFrameChanged(bool includeSceneContent = true);
   size_t ComputeSceneContentHash() const;
   size_t HashViewContent(const layouts::Layout2DViewDefinition &view) const;

@@ -44,7 +44,8 @@ Changes since **v1.5.0**.
   merging MVR files, so saved layouts cannot continue showing stale content.
   Preview capture no longer feeds back into scene-change invalidation, avoiding
   repeated Layout render queues when changing views, and regenerated previews
-  now read the latest scene contents after elements are removed.
+  now discard saved rasters and read the latest scene contents after elements
+  are removed from a viewport or table.
 
 - Restored the established fixture-symbol capture and processing pipeline for
   consistent manual generation of compound-fixture symbols.
