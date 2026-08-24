@@ -39,12 +39,13 @@ if [[ -e "$legacy_processing_cpp" || -e "$legacy_processing_header" ]]; then
   echo "Fixture symbol processing must remain owned by the canonical capture service." >&2
   exit 1
 fi
-mapfile -t processing_implementations < <(
+processing_implementation_count="$(
   rg -l 'SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders' \
-    "$root/gui" --glob '*.cpp'
-)
-if [[ "${#processing_implementations[@]}" -ne 1 ||
-      "${processing_implementations[0]}" != "$capture" ]]; then
+    "$root/gui" --glob '*.cpp' | wc -l | tr -d '[:space:]'
+)"
+if [[ "$processing_implementation_count" != "1" ]] ||
+   ! rg -q 'SceneModelSymbolCaptureResult ProcessSceneModelOrthographicRenders' \
+     "$capture"; then
   echo "Fixture symbol processing must have one canonical capture-service implementation." >&2
   exit 1
 fi

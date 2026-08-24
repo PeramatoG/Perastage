@@ -467,6 +467,9 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
+- Made the fixture-symbol processing ownership check portable across the Bash
+  versions and filesystem path conventions used by Debug CI runners.
+
 - Consolidated GDTF fixture identity reads through the existing loader cache and
   corrected test linkage for the shared UUID implementation.
 
