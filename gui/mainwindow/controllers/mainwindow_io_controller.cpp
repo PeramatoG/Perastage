@@ -307,6 +307,11 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   RefreshPanelsAfterMvrSceneChange();
 
+  // Re-enables layout rendering before queuing the scene-dependent preview.
+  owner->mvrImportPipelineActive = false;
+  if (owner->layoutViewerPanel)
+    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
+
   importProgress.reset();
   importOverlay.reset();
   importDisabler.reset();
@@ -315,9 +320,6 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     const wxString fileName = wxFileName(filePath).GetFullName();
     owner->SetStatusText("MVR imported: " + fileName, 0);
   }
-  // Re-enables layout rendering only after all import-driven panel updates
-  // finish.
-  owner->mvrImportPipelineActive = false;
   diagnostics::DiagnosticLogger::Info(
       "MVR import completed: " +
       diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
@@ -364,9 +366,6 @@ void MainWindowIoController::RefreshPanelsAfterMvrSceneChange(
     wxCommandEvent autoColorEvent;
     owner->OnAutoColor(autoColorEvent);
   }
-
-  if (owner->layoutViewerPanel)
-    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
 }
 
 // Opens a file picker and imports the selected MVR file.
@@ -569,6 +568,8 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   viewer2d::ReconcileFixtureLabelOverridesWithScene(cfg);
   RefreshPanelsAfterMvrSceneChange(false);
   owner->mvrImportPipelineActive = false;
+  if (owner->layoutViewerPanel)
+    owner->layoutViewerPanel->RefreshAfterSceneContentUpdate();
 
   const wxString fileName =
       wxFileName(wxString::FromUTF8(pathUtf8)).GetFullName();
