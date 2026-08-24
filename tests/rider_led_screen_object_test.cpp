@@ -162,6 +162,16 @@ int main() {
       "RIGGING\n1 TRUSS 40X40 PRO 14m PARA PUENTE PANTALLA\n");
   AssertScreenContract(projection, 8.0f, 4.5f);
 
+  const ScreenSnapshot englishScreen = ImportAndCaptureScreen(
+      "VIDEO\nLED SCREEN\n1 LED SCREEN 10X5m 1664x832 PIXELS\n"
+      "RIGGING\n1 TRUSS 40X40 12m FOR SCREEN\n");
+  AssertScreenContract(englishScreen, 10.0f, 5.0f);
+
+  const ScreenSnapshot englishWall = ImportAndCaptureScreen(
+      "VIDEO\nLED WALL\n1 LED WALL 10 x 5 m\n"
+      "RIGGING\n1 TRUSS 40X40 12m FOR SCREEN\n");
+  AssertScreenContract(englishWall, 10.0f, 5.0f);
+
   const ScreenSnapshot fallback =
       ImportAndCaptureScreen("SCREEN\n1 PANTALLA LED PARA TRASERA\n"
                              "RIGGING\n1 TRUSS 40X40 14m PARA PANTALLA\n");

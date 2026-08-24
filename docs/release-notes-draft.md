@@ -39,6 +39,14 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Create from text now recognizes common Spanish and English front, middle,
+  rear, side, floor, and screen headings without mistaking words inside
+  equipment descriptions for section headers. Effects and lighting-control
+  lists no longer leak into fixture imports, while VIDEO screen subsections,
+  canonical filter output, and existing rigging commands remain compatible.
+  Apply filter and the initial Create filtering stage also remain responsive
+  when processing long or heavily formatted rider text.
+
 - Fixture-symbol rendering now notices GDTF files replaced at the same path,
   rejects stale runtime and disk geometry caches, keeps the authoritative
   dimensions of file-backed GDTF models isolated when several definitions

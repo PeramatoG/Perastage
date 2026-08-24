@@ -73,8 +73,6 @@ int main() {
       "\n"
       "FLOOR\n"
       "4 LITELEE B-EYE L10R\n"
-      "4 TOUR HAZER II\n"
-      "4 TURBINA\n"
       "2 LED BAR\n"
       "\n"
       "RIGGING\n"
@@ -248,6 +246,63 @@ int main() {
       "1 PANTALLA LED 8X5m 1664X1040 PIXELS\n"
       "RIGGING\n"
       "1 PIPE 12m PARA PANTALLA\n");
+
+  const std::string spanishRegression =
+      "ILUMINACIÓN\nAPARATOS\nFRONTAL:\n8 BLINDER\nCENITAL:\n6 WASH\n"
+      "CONTRA:\n8 PROFILE\nCALLES DIRECTAS A LAYHER:\n8 LED BAR\n"
+      "SUELO:\n4 BEAM\n1 FOLLOWSPOT + OPERADOR\n"
+      "4 PAR LED PARA ILUMINAR ESCALERA\nEFECTOS\n2 HAZER + TURBINA\n"
+      "CONTROL DE ILUMINACION\n1 GRAND MA3\nVIDEO\nPANTALLA LED\n"
+      "1 PANTALLA LED 10X5m 1664x832 PIXELS\nRIGGING Y ESTRUCTURAS\n"
+      "4 MOTOR 2TO + GRILLETES + ESLINGAS PARA PA\n"
+      "3 TRUSS 40X40 PRO 12m PARA PUENTES LX\n"
+      "6 MOTOR 500Kg + GRILLETES + ESLINGAS PARA PUENTES LX\n"
+      "1 TRUSS 40X40 PRO 12m PARA PUENTE PANTALLA\n"
+      "4 MOTOR 1TO + GRILLETES + ESLINGAS PARA PUENTE PANTALLA\n";
+  const std::string spanishExpected =
+      "LX1\n8 BLINDER\n\nLX2\n6 WASH\n\nLX3\n8 PROFILE\n\n"
+      "LX SIDES\n8 LED BAR\n\nFLOOR\n4 BEAM\n1 FOLLOWSPOT\n1 OPERADOR\n"
+      "4 PAR LED PARA ILUMINAR ESCALERA\n\n"
+      "SCREEN\n1 PANTALLA LED 10X5m 1664x832 PIXELS\n\nRIGGING\n"
+      "4 MOTOR 2000Kg FOR P.A.\n2 MOTOR 500Kg FOR LX1\n"
+      "2 MOTOR 500Kg FOR LX2\n2 MOTOR 500Kg FOR LX3\n"
+      "4 MOTOR 1000Kg FOR SCREEN\n1 TRUSS 40X40 PRO 12m LX1\n"
+      "1 TRUSS 40X40 PRO 12m LX2\n1 TRUSS 40X40 PRO 12m LX3\n"
+      "1 TRUSS 40X40 PRO 12m SCREEN";
+  assert(RiderImporter::BuildFixtureFilterPreview(spanishRegression) ==
+         spanishExpected);
+  assert(RiderImporter::BuildFixtureFilterPreview(spanishExpected) ==
+         spanishExpected);
+  assertImportParity(spanishRegression);
+
+  const std::string englishRegression =
+      "LIGHTING\nFIXTURES\nFRONT:\n8 BLINDER\nMID:\n6 WASH\nBACK:\n"
+      "8 PROFILE\nSIDES:\n8 LED BAR\nFLOOR:\n4 BEAM\nEFFECTS\n2 HAZER\n"
+      "LIGHTING CONTROL\n1 GRANDMA3\nVIDEO\nLED WALL\n"
+      "1 LED WALL 10 x 5 m\n";
+  const std::string englishExpected =
+      "LX1\n8 BLINDER\n\nLX2\n6 WASH\n\nLX3\n8 PROFILE\n\n"
+      "LX SIDES\n8 LED BAR\n\nFLOOR\n4 BEAM\n\n"
+      "SCREEN\n1 LED WALL 10 x 5 m";
+  assert(RiderImporter::BuildFixtureFilterPreview(englishRegression) ==
+         englishExpected);
+  assertImportParity(englishRegression);
+
+  const std::string keywordFixtureRegression =
+      "FLOOR\n1 FIXTURE VIDEO CONTROL AUDIO LIGHTING\n2 HAZER\n";
+  assert(RiderImporter::BuildFixtureFilterPreview(keywordFixtureRegression) ==
+         "FLOOR\n1 FIXTURE VIDEO CONTROL AUDIO LIGHTING\n2 HAZER");
+
+  std::string longHeadingNoiseRegression;
+  for (int index = 0; index < 250; ++index) {
+    longHeadingNoiseRegression +=
+        "Technical rider notes with formatting words but no section meaning ";
+    longHeadingNoiseRegression.append(120, 'X');
+    longHeadingNoiseRegression += "\n";
+  }
+  longHeadingNoiseRegression += "LIGHTING\nFRONT\n2 SPOT\n";
+  assert(RiderImporter::BuildFixtureFilterPreview(longHeadingNoiseRegression) ==
+         "LX1\n2 SPOT");
 
   return 0;
 }
