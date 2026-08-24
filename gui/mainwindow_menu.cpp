@@ -1977,4 +1977,6 @@ void MainWindow::OnDelete(wxCommandEvent &WXUNUSED(event)) {
     ensureObjectSelection();
     sceneObjPanel->DeleteSelected(false);
   }
+  if (hasAnySelection)
+    NotifySceneVisualContentChanged();
 }

@@ -48,13 +48,22 @@ if "NotifySceneVisualContentChanged" in refresh_match.group(0):
     )
 
 required_hooks = {
-    "viewer2d/viewer2dpanel.cpp": "mainWindow->NotifySceneVisualContentChanged()",
-    "viewer3d/viewer3dpanel.cpp": "mainWindow->NotifySceneVisualContentChanged()",
     "gui/scene_view_refresh.cpp": "mainWindow->NotifySceneVisualContentChanged()",
     "gui/mainwindow.cpp": "void MainWindow::NotifySceneVisualContentChanged()",
+    "gui/hoisttablepanel.cpp": "RefreshLayout2DViewsAfterSceneChange(this)",
 }
 for relative_path, token in required_hooks.items():
     source = open(f"{sys.argv[1].rsplit('/gui/', 1)[0]}/{relative_path}", encoding="utf-8").read()
     if token not in source:
         raise SystemExit(f"Missing general Layout scene-change hook in {relative_path}")
+
+for relative_path in (
+    "viewer2d/viewer2dpanel.cpp",
+    "viewer3d/viewer3dpanel.cpp",
+):
+    source = open(f"{sys.argv[1].rsplit('/gui/', 1)[0]}/{relative_path}", encoding="utf-8").read()
+    if "NotifySceneVisualContentChanged" in source:
+        raise SystemExit(
+            f"Viewer scene reloads must not invalidate Layout previews recursively: {relative_path}"
+        )
 PY

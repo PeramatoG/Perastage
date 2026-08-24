@@ -69,4 +69,9 @@ void RefreshSceneViewsAfterTableEdit(wxWindow *source, SceneUpdateScope scope) {
   RefreshLayoutViewer(source);
 }
 
+// Invalidates Layout 2D previews after a confirmed visual scene mutation.
+void RefreshLayout2DViewsAfterSceneChange(wxWindow *source) {
+  RefreshLayoutViewer(source);
+}
+
 } // namespace gui::sceneviewrefresh
