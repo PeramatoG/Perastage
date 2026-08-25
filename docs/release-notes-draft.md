@@ -49,6 +49,20 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- MVR-xchange TCP Mode now interoperates with applications such as grandMA3
+  that send the standards-defined source-station UUID array when requesting a
+  published revision, while retaining compatibility with the contradictory
+  single-string request example in MVR 1.6. Outgoing requests now identify the
+  remote station that owns the advertised revision, resolving request UUID
+  mismatch rejections from applications such as DMXRouter. DNS-SD advertising
+  now keeps group and station-instance identities distinct, uses a
+  collision-resistant station host name, and strictly associates each peer's
+  identity with its own SRV endpoint. Independent mDNS responders remain
+  isolated, and exact local listener endpoints are rejected to prevent
+  accidental self-connections. Joined peers may now retain their TCP connection
+  for later requests, while applications that reconnect for each operation
+  remain supported.
+
 - Fixtures of the same type now receive one consistent type color when
   text-to-scene generation cannot find their definition in the GDTF library.
 

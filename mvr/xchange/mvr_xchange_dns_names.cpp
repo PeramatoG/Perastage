@@ -36,9 +36,23 @@ std::string BuildMvrXchangeGroupServiceName(const std::string &groupName) {
   return SanitizeDnsLabel(groupName, "Default") + "." + kMvrXchangeServiceType;
 }
 
-// Builds the group-qualified DNS-SD instance name used by compatible MVR-xchange stations.
+// Builds a concrete station instance within one MVR-xchange group.
 std::string BuildMvrXchangeServiceInstanceName(const std::string &stationName, const std::string &groupName) {
   return SanitizeDnsLabel(stationName, "Perastage") + "." + BuildMvrXchangeGroupServiceName(groupName);
+}
+
+// Builds a stable per-station host name without coupling DNS identity to StationName.
+std::string BuildMvrXchangeHostName(const std::string &machineName, const std::string &stationUuid) {
+  std::string uuidSuffix;
+  for (unsigned char ch : stationUuid) if (std::isxdigit(ch)) uuidSuffix.push_back(static_cast<char>(std::tolower(ch)));
+  if (uuidSuffix.size() > 12) uuidSuffix.resize(12);
+  std::string machineLabel = SanitizeDnsLabel(machineName, "host");
+  const std::string prefix = "perastage-";
+  const std::string suffix = uuidSuffix.empty() ? std::string{} : "-" + uuidSuffix;
+  const std::size_t machineLimit = 63 - prefix.size() - suffix.size();
+  if (machineLabel.size() > machineLimit) machineLabel.resize(machineLimit);
+  while (!machineLabel.empty() && machineLabel.back() == '-') machineLabel.pop_back();
+  return prefix + (machineLabel.empty() ? std::string("host") : machineLabel) + suffix;
 }
 
 }

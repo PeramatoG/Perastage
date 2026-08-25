@@ -158,10 +158,13 @@ bool MvrXchangeTcpClient::SendLeave(const MvrXchangeRemoteStation &station, cons
 
 
 // Requests one advertised MVR file from a remote MVR-xchange station.
-std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &fromStationUuid, LogCallback logCallback) {
+std::optional<MvrXchangeCommit> MvrXchangeTcpClient::RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &sourceStationUuid, LogCallback logCallback) {
   std::intptr_t fd = -1;
   if (!Connect(station, fd, logCallback)) return std::nullopt;
-  const bool sent = SendJson(fd, mvr::xchange::BuildRequest(fileUuid, fromStationUuid));
+  const std::string canonicalFileUuid = CanonicalizeUuid(fileUuid);
+  const std::string canonicalSourceStationUuid = CanonicalizeUuid(sourceStationUuid);
+  if (logCallback) logCallback("MVR-xchange requesting FileUUID=" + canonicalFileUuid + " from StationUUID=" + canonicalSourceStationUuid + ".");
+  const bool sent = SendJson(fd, mvr::xchange::BuildRequest(canonicalFileUuid, {canonicalSourceStationUuid}));
   std::optional<std::uint64_t> advertisedSize;
   for (const auto &metadata : station.commits) {
     if ((fileUuid.empty() || metadata.fileUuid == CanonicalizeUuid(fileUuid)) && metadata.declaredFileSizeSpecified) advertisedSize = metadata.declaredFileSize;

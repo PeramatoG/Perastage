@@ -11,7 +11,8 @@
 
 namespace mvr::xchange {
 std::vector<DnsRecord> ParseMdnsRecords(const std::uint8_t *data, std::size_t size,
-                                        std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs);
+                                        std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs,
+                                        const std::string &responderAddress = {});
 }
 
 class MvrXchangeMdnsDiscovery {
@@ -31,7 +32,8 @@ private:
   void Run();
   void SendQueries();
   void ReceiveDatagram();
-  void ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex);
+  void ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex,
+                     const std::string &responderAddress);
 
   MvrXchangeSettings settings_;
   std::string groupServiceName_;

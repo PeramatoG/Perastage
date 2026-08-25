@@ -19,6 +19,7 @@ struct DnsRecord {
   std::uint32_t ttlSeconds = 0;
   std::uint32_t interfaceIndex = 0;
   std::uint64_t lastSeenMonotonicMs = 0;
+  std::string responderAddress;
 };
 
 class MdnsRecordCache {

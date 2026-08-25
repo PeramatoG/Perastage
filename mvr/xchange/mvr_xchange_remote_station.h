@@ -13,6 +13,7 @@ struct MvrXchangeRemoteStation {
   std::string serviceInstanceName;
   std::string normalizedDnsIdentity;
   std::string hostName;
+  std::string mdnsResponderAddress;
   std::string ipAddress;
   int port = 0;
   bool discovered = false;

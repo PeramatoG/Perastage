@@ -13,7 +13,10 @@
 #include "json.hpp"
 #include <cassert>
 #include <chrono>
+#include <set>
 #include <string>
+#include <thread>
+#include <tuple>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -22,6 +25,61 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
+
+struct LoopbackConnection {
+  std::intptr_t fd = -1;
+  std::vector<std::uint8_t> receiveBuffer;
+};
+
+// Opens one reusable TCP connection to a loopback MVR-xchange server.
+static LoopbackConnection ConnectLoopback(int port) {
+  LoopbackConnection connection;
+  connection.fd = static_cast<std::intptr_t>(socket(AF_INET, SOCK_STREAM, 0));
+  assert(connection.fd >= 0);
+  sockaddr_in address{};
+  address.sin_family = AF_INET;
+  address.sin_port = htons(static_cast<std::uint16_t>(port));
+  inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
+  assert(connect(connection.fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) == 0);
+  return connection;
+}
+
+// Sends one framed JSON message over an existing test connection.
+static void SendPersistentJson(const LoopbackConnection &connection, const std::string &json) {
+  const std::vector<std::uint8_t> payload(json.begin(), json.end());
+  const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
+  std::size_t sent = 0;
+  while (sent < packet.size()) {
+    const int count = static_cast<int>(send(connection.fd, reinterpret_cast<const char *>(packet.data() + sent), static_cast<int>(packet.size() - sent), 0));
+    assert(count > 0);
+    sent += static_cast<std::size_t>(count);
+  }
+}
+
+// Receives one framed packet while preserving coalesced bytes for the next message.
+static mvr::xchange::Packet ReceivePersistentPacket(LoopbackConnection &connection) {
+  while (true) {
+    mvr::xchange::Packet packet;
+    std::string error;
+    const auto status = mvr::xchange::DecodePacket(connection.receiveBuffer, packet, error);
+    if (status == mvr::xchange::DecodeStatus::Complete) return packet;
+    assert(status == mvr::xchange::DecodeStatus::NeedMoreData);
+    char buffer[4096];
+    const int received = static_cast<int>(recv(connection.fd, buffer, sizeof(buffer), 0));
+    assert(received > 0);
+    connection.receiveBuffer.insert(connection.receiveBuffer.end(), buffer, buffer + received);
+  }
+}
+
+// Closes one reusable loopback test connection.
+static void CloseLoopback(LoopbackConnection &connection) {
+#ifdef _WIN32
+  closesocket(connection.fd);
+#else
+  close(connection.fd);
+#endif
+  connection.fd = -1;
+}
 
 // Exchanges one raw JSON transaction with a loopback test server.
 static std::string ExchangeRawJson(int port, const std::string &json) {
@@ -201,10 +259,44 @@ static void TestMessages() {
   assert(errorJson["Message"] == "The MVR is not available on this client");
 }
 
+// Verifies canonical request source arrays and the specification-example string compatibility boundary.
+static void TestRequestSourceStations() {
+  const std::string firstUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const std::string secondUuid = "11111111-2222-3333-4444-555555555555";
+  const std::string fileUuid = "abcdefab-cdef-abcd-efab-cdefabcdefab";
+  auto canonical = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_REQUEST","FileUUID":"abcdefab-cdef-abcd-efab-cdefabcdefab","FromStationUUID":["AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"]})");
+  assert(canonical && mvr::xchange::ValidateMessage(*canonical).empty());
+  assert(canonical->sourceStationUuids == std::vector<std::string>{firstUuid});
+
+  auto multiple = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_REQUEST","FromStationUUID":["AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE","11111111-2222-3333-4444-555555555555"]})");
+  assert(multiple && mvr::xchange::ValidateMessage(*multiple).empty());
+  assert(multiple->sourceStationUuids == (std::vector<std::string>{firstUuid, secondUuid}));
+
+  auto legacy = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_REQUEST","FromStationUUID":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"})");
+  assert(legacy && mvr::xchange::ValidateMessage(*legacy).empty());
+  assert(legacy->sourceStationUuids == std::vector<std::string>{firstUuid});
+  auto emptyLegacy = mvr::xchange::ParseMessage(R"({"Type":"MVR_REQUEST","FromStationUUID":""})");
+  assert(emptyLegacy && mvr::xchange::ValidateMessage(*emptyLegacy).empty() && emptyLegacy->sourceStationUuids.empty());
+
+  const auto outgoing = nlohmann::json::parse(mvr::xchange::BuildRequest(
+      "ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB", {secondUuid}));
+  assert(outgoing["Type"] == "MVR_REQUEST");
+  assert(outgoing["FileUUID"] == fileUuid);
+  assert(outgoing["FromStationUUID"].is_array());
+  assert(outgoing["FromStationUUID"] == nlohmann::json::array({secondUuid}));
+  assert(std::find(outgoing["FromStationUUID"].begin(), outgoing["FromStationUUID"].end(), firstUuid) == outgoing["FromStationUUID"].end());
+  const auto noSources = nlohmann::json::parse(mvr::xchange::BuildRequest("", {}));
+  assert(noSources["FromStationUUID"].is_array() && noSources["FromStationUUID"].empty());
+}
+
 // Verifies canonical LEAVE output and the isolated legacy sender alias.
 static void TestLeaveMessages() {
   const std::string uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   const auto outgoing = nlohmann::json::parse(mvr::xchange::BuildLeave(uuid));
+  assert(outgoing["FromStationUUID"].is_string());
   assert(outgoing["FromStationUUID"] == uuid && !outgoing.contains("StationUUID"));
   auto canonical = mvr::xchange::ParseMessage(R"({"Type":"MVR_LEAVE","FromStationUUID":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"})");
   assert(canonical && canonical->fromStationUuid == uuid && mvr::xchange::ValidateMessage(*canonical).empty());
@@ -222,7 +314,11 @@ static void TestTypedErrors() {
       {R"({"Type":"MVR_COMMIT","FileUUID":"bad"})", "MVR_COMMIT_RET"},
       {R"({"Type":"MVR_LEAVE","FromStationUUID":"bad"})", "MVR_LEAVE_RET"},
       {R"({"Type":"MVR_REQUEST","FileUUID":"bad"})", "MVR_REQUEST_RET"},
-      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"}};
+      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":{}})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["bad"]})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",123]})", "MVR_REQUEST_RET"}};
   for (const auto &[json, expectedType] : cases) {
     const auto message = mvr::xchange::ParseMessage(json);
     assert(message && !message->type.empty());
@@ -336,12 +432,67 @@ static void TestMdnsRecordCache() {
   assert(cache.Resolve(group, 3000).empty());
 
   MdnsRecordCache official;
-  official.Apply({DnsRecordType::Ptr, group, "Member.Default._mvrxchange._tcp.local.", {}, {}, 0, 60, 1, 5000});
-  official.Apply({DnsRecordType::Srv, group, "group-host.local.", {}, {}, 43000, 60, 1, 5000});
-  official.Apply({DnsRecordType::Txt, group, {}, {}, {{"stationname", "Group member"}, {"stationuuid", "11111111-2222-3333-4444-555555555555"}}, 0, 60, 1, 5000});
-  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::1", {}, 0, 60, 1, 5000});
+  const std::string officialInstance = "Member.Default._mvrxchange._tcp.local.";
+  official.Apply({DnsRecordType::Ptr, group, officialInstance, {}, {}, 0, 60, 1, 5000, "192.0.2.1"});
+  official.Apply({DnsRecordType::Srv, officialInstance, "group-host.local.", {}, {}, 43000, 60, 1, 5000, "192.0.2.1"});
+  official.Apply({DnsRecordType::Txt, officialInstance, {}, {}, {{"stationname", "Group member"}, {"stationuuid", "11111111-2222-3333-4444-555555555555"}}, 0, 60, 1, 5000, "192.0.2.1"});
+  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::1", {}, 0, 60, 1, 5000, "192.0.2.1"});
   stations = official.Resolve(group, 5000);
   assert(stations.size() == 1 && stations[0].ipAddress == "2001:db8::1" && stations[0].port == 43000);
+  official.Apply({DnsRecordType::Srv, officialInstance, "group-host.local.", {}, {}, 43001, 60, 1, 5100, "192.0.2.1"});
+  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::2", {}, 0, 60, 1, 5100, "192.0.2.1"});
+  stations = official.Resolve(group, 5100);
+  assert(stations.size() == 1 && stations[0].ipAddress == "2001:db8::2" && stations[0].port == 43001 &&
+         stations[0].stationUuid == "11111111-2222-3333-4444-555555555555");
+
+  MdnsRecordCache multipleResponders;
+  for (const auto &[responder, instance, host, address, port, uuid] : std::vector<std::tuple<std::string, std::string, std::string, std::string, std::uint16_t, std::string>>{
+           {"192.0.2.11", "Station-A.Default._mvrxchange._tcp.local.", "station-a.local.", "192.0.2.11", 41001, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+           {"192.0.2.12", "Station-B.Default._mvrxchange._tcp.local.", "station-b.local.", "192.0.2.12", 41002, "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"}}) {
+    multipleResponders.Apply({DnsRecordType::Ptr, group, instance, {}, {}, 0, 120, 3, 8000, responder});
+    multipleResponders.Apply({DnsRecordType::Srv, instance, host, {}, {}, port, 120, 3, 8000, responder});
+    multipleResponders.Apply({DnsRecordType::Txt, instance, {}, {}, {{"stationname", host}, {"stationuuid", uuid}}, 0, 120, 3, 8000, responder});
+    multipleResponders.Apply({DnsRecordType::A, host, {}, address, {}, 0, 120, 3, 8000, responder});
+  }
+  stations = multipleResponders.Resolve(group, 8000);
+  assert(stations.size() == 2);
+  assert(stations[0].stationUuid != stations[1].stationUuid && stations[0].ipAddress != stations[1].ipAddress && stations[0].port != stations[1].port);
+
+  MdnsRecordCache isolatedOrigins;
+  const std::string isolatedInstance = "Isolated.Default._mvrxchange._tcp.local.";
+  isolatedOrigins.Apply({DnsRecordType::Ptr, group, isolatedInstance, {}, {}, 0, 120, 3, 8000, "192.0.2.21"});
+  isolatedOrigins.Apply({DnsRecordType::Srv, isolatedInstance, "isolated.local.", {}, {}, 42000, 120, 3, 8000, "192.0.2.21"});
+  isolatedOrigins.Apply({DnsRecordType::Txt, isolatedInstance, {}, {}, {{"stationname", "Wrong responder"}, {"stationuuid", "cccccccc-dddd-eeee-ffff-000000000000"}}, 0, 120, 3, 8000, "192.0.2.22"});
+  isolatedOrigins.Apply({DnsRecordType::A, "isolated.local.", {}, "192.0.2.22", {}, 0, 120, 3, 8000, "192.0.2.22"});
+  assert(isolatedOrigins.Resolve(group, 8000).empty());
+
+  MdnsRecordCache sameAddressCompatibility;
+  for (const auto &[instance, port, uuid] : std::vector<std::tuple<std::string, std::uint16_t, std::string>>{
+           {"Perastage.Default._mvrxchange._tcp.local.", 63610, "dddddddd-eeee-ffff-0000-111111111111"},
+           {"DMXRouter.Default._mvrxchange._tcp.local.", 52187, "eeeeeeee-ffff-0000-1111-222222222222"},
+           {"grandMA3.Default._mvrxchange._tcp.local.", 42424, "ffffffff-0000-1111-2222-333333333333"}}) {
+    sameAddressCompatibility.Apply({DnsRecordType::Ptr, kMvrXchangeServiceType, instance, {}, {}, 0, 120, 3, 8000, "192.0.2.30"});
+    sameAddressCompatibility.Apply({DnsRecordType::Srv, instance, "shared.local.", {}, {}, port, 120, 3, 8000, "192.0.2.30"});
+    sameAddressCompatibility.Apply({DnsRecordType::Txt, instance, {}, {}, {{"stationuuid", uuid}}, 0, 120, 3, 8000, "192.0.2.30"});
+  }
+  sameAddressCompatibility.Apply({DnsRecordType::A, "shared.local.", {}, "192.0.2.30", {}, 0, 120, 3, 8000, "192.0.2.30"});
+  stations = sameAddressCompatibility.Resolve(group, 8000);
+  assert(stations.size() == 3);
+  std::set<int> sameHostPorts;
+  for (const auto &station : stations) sameHostPorts.insert(station.port);
+  assert(sameHostPorts == std::set<int>({42424, 52187, 63610}));
+
+  MdnsRecordCache unsafeFallback;
+  const std::string grandMaInstance = "grandMA3.Default._mvrxchange._tcp.local.";
+  unsafeFallback.Apply({DnsRecordType::Ptr, group, grandMaInstance, {}, {}, 0, 120, 5, 9000, "192.168.0.107"});
+  unsafeFallback.Apply({DnsRecordType::Txt, grandMaInstance, {}, {}, {{"stationname", "grandMA3"}, {"stationuuid", "ffffffff-0000-1111-2222-333333333333"}}, 0, 120, 5, 9000, "192.168.0.107"});
+  unsafeFallback.Apply({DnsRecordType::Srv, group, "perastage.local.", {}, {}, 63610, 120, 5, 9000, "192.168.0.107"});
+  unsafeFallback.Apply({DnsRecordType::A, "perastage.local.", {}, "192.168.0.107", {}, 0, 120, 5, 9000, "192.168.0.107"});
+  assert(unsafeFallback.Resolve(group, 9000).empty());
+  unsafeFallback.Apply({DnsRecordType::Srv, grandMaInstance, "grandma.local.", {}, {}, 42424, 120, 5, 9100, "192.168.0.107"});
+  unsafeFallback.Apply({DnsRecordType::A, "grandma.local.", {}, "192.168.0.107", {}, 0, 120, 5, 9100, "192.168.0.107"});
+  stations = unsafeFallback.Resolve(group, 9100);
+  assert(stations.size() == 1 && stations[0].stationUuid == "ffffffff-0000-1111-2222-333333333333" && stations[0].port == 42424);
 
   MdnsRecordCache compatible;
   compatible.Apply({DnsRecordType::A, "base-host.local", {}, "192.0.2.20", {}, 0, 60, 2, 6000});
@@ -379,13 +530,13 @@ static void TestRawMdnsDatagram() {
   AppendDnsRecord(datagram, instance, 16, 120, txt);
   AppendDnsRecord(datagram, host, 1, 120, {192, 0, 2, 40});
   mvr::xchange::MdnsRecordCache cache;
-  cache.ApplyBatch(mvr::xchange::ParseMdnsRecords(datagram.data(), datagram.size(), 7, 1000));
+  cache.ApplyBatch(mvr::xchange::ParseMdnsRecords(datagram.data(), datagram.size(), 7, 1000, "192.0.2.40"));
   auto stations = cache.Resolve(group, 1000);
   assert(stations.size() == 1 && stations[0].port == 42464 && stations[0].ipAddress == "192.0.2.40");
   std::vector<std::uint8_t> goodbye(12, 0);
   goodbye[6] = 0; goodbye[7] = 1;
   AppendDnsRecord(goodbye, group, 12, 0, ptr);
-  const auto goodbyeRecords = mvr::xchange::ParseMdnsRecords(goodbye.data(), goodbye.size(), 7, 2000);
+  const auto goodbyeRecords = mvr::xchange::ParseMdnsRecords(goodbye.data(), goodbye.size(), 7, 2000, "192.0.2.40");
   assert(goodbyeRecords.size() == 1 && goodbyeRecords[0].type == mvr::xchange::DnsRecordType::Ptr);
   cache.ApplyBatch(goodbyeRecords);
   assert(cache.Resolve(group, 2500).size() == 1);
@@ -420,6 +571,10 @@ static void TestMalformedMessages() {
 static void TestDnsNames() {
   assert(mvr::xchange::BuildMvrXchangeGroupServiceName("Default") == "Default._mvrxchange._tcp.local.");
   assert(mvr::xchange::BuildMvrXchangeServiceInstanceName("Perastage", "Default") == "Perastage.Default._mvrxchange._tcp.local.");
+  assert(mvr::xchange::BuildMvrXchangeServiceInstanceName("Desk / Main", "Tour Group") == "Desk--Main.Tour-Group._mvrxchange._tcp.local.");
+  assert(mvr::xchange::BuildMvrXchangeHostName("PERAMATO-DESKTOP", "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE") == "perastage-PERAMATO-DESKTOP-aaaaaaaabbbb");
+  const auto longHost = mvr::xchange::BuildMvrXchangeHostName(std::string(80, 'x'), "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
+  assert(longHost.size() <= 63 && longHost.compare(longHost.size() - 13, 13, "-aaaaaaaabbbb") == 0);
   assert(mvr::xchange::NormalizeDnsName("Peer.DEFAULT.Local.") == "peer.default.local");
   assert(mvr::xchange::DnsNamesEqual("Peer.Default.local", "peer.default.LOCAL."));
 }
@@ -436,12 +591,22 @@ static void TestCanonicalUuidUse() {
 // Verifies remote station registry self-filtering, deduplication, and join states.
 static void TestStationRegistry() {
   MvrXchangeStationRegistry registry;
-  registry.SetLocalIdentity("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "Perastage.Default._mvrxchange._tcp.local.", 42424);
+  registry.SetLocalIdentity("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "Perastage.Default._mvrxchange._tcp.local.", "127.0.0.1", 42424);
   MvrXchangeRemoteStation own;
   own.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   own.ipAddress = "127.0.0.1";
   own.port = 42424;
   assert(!registry.UpsertDiscovered(own));
+  MvrXchangeStationRegistry endpointRegistry;
+  endpointRegistry.SetLocalIdentity("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", "Perastage.Default._mvrxchange._tcp.local.", "127.0.0.1", 42424);
+  MvrXchangeRemoteStation mixedSelf;
+  mixedSelf.stationUuid = "99999999-bbbb-cccc-dddd-eeeeeeeeeeee";
+  mixedSelf.serviceInstanceName = "Wrong.Default._mvrxchange._tcp.local.";
+  mixedSelf.ipAddress = "127.0.0.1";
+  mixedSelf.port = 42424;
+  assert(!endpointRegistry.UpsertDiscovered(mixedSelf));
+  mixedSelf.port = 42425;
+  assert(endpointRegistry.UpsertDiscovered(mixedSelf));
 
   MvrXchangeRemoteStation discovered;
   discovered.stationUuid = "BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF";
@@ -634,13 +799,74 @@ static void TestTcpTransactions() {
   endpoint.commits = {available};
   endpoint.commits[0].declaredFileSize = 3;
   endpoint.commits[0].declaredFileSizeSpecified = true;
-  const auto requested = client.RequestCommit(endpoint, available.fileUuid, remoteUuid, {});
+  std::vector<std::string> requestLogs;
+  const auto requested = client.RequestCommit(endpoint, available.fileUuid, localUuid, [&](const std::string &message) { requestLogs.push_back(message); });
   assert(requested && requested->payload == available.payload);
+  assert(std::find(requestLogs.begin(), requestLogs.end(),
+                   "MVR-xchange requesting FileUUID=" + available.fileUuid + " from StationUUID=" + localUuid + ".") != requestLogs.end());
+  assert(std::none_of(requestLogs.begin(), requestLogs.end(), [&](const std::string &message) {
+    return message.find("from StationUUID=" + remoteUuid) != std::string::npos;
+  }));
   assert(client.SendLeave(endpoint, remoteUuid, {}));
   assert(leftStation == remoteUuid);
   const auto stopStarted = std::chrono::steady_clock::now();
   server.Stop();
   assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
+}
+
+// Verifies joined peers can issue multiple messages on one persistent TCP connection.
+static void TestPersistentTcpConnection() {
+  const std::string localUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const std::string peerUuid = "11111111-2222-3333-4444-555555555555";
+  MvrXchangeCommit available{"abcdefab-cdef-abcd-efab-cdefabcdefab", localUuid, "persistent.mvr", {}, {}, {'m', 'v', 'r'}, 0, false, 0, 0, {}, true};
+  MvrXchangeSettings settings;
+  settings.stationName = "Persistent server";
+  settings.stationUuid = localUuid;
+  int joins = 0;
+  int commits = 0;
+  int leaves = 0;
+  MvrXchangeTcpServer server;
+  assert(server.Start(settings,
+                      [&](const std::string &fileUuid) { return fileUuid == available.fileUuid ? std::optional<MvrXchangeCommit>(available) : std::nullopt; },
+                      [&] { return std::vector<MvrXchangeCommit>{available}; }, {},
+                      [&](const MvrXchangeRemoteStation &) { ++joins; },
+                      [&](const std::string &uuid) { ++leaves; return uuid == peerUuid ? std::string{} : "Unexpected station."; },
+                      [&](const MvrXchangeCommit &) { ++commits; return std::string{}; }));
+
+  const std::string join = mvr::xchange::BuildJoin(peerUuid, "DMXRouter", {});
+  auto reconnectingPeer = ConnectLoopback(server.Port());
+  SendPersistentJson(reconnectingPeer, join);
+  auto packet = ReceivePersistentPacket(reconnectingPeer);
+  assert(packet.type == mvr::xchange::PacketType::Json);
+  CloseLoopback(reconnectingPeer);
+
+  auto persistentPeer = ConnectLoopback(server.Port());
+  SendPersistentJson(persistentPeer, join);
+  packet = ReceivePersistentPacket(persistentPeer);
+  auto joinRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(joinRet && joinRet->type == "MVR_JOIN_RET");
+  SendPersistentJson(persistentPeer, join);
+  packet = ReceivePersistentPacket(persistentPeer);
+  joinRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(joinRet && joinRet->type == "MVR_JOIN_RET" && joins == 3);
+
+  MvrXchangeCommit incoming{"22222222-3333-4444-5555-666666666666", peerUuid, "remote.mvr", {}, {}, {}, 0, false, 0, 0, {}, true};
+  incoming.declaredFileSize = 0;
+  incoming.declaredFileSizeSpecified = true;
+  SendPersistentJson(persistentPeer, mvr::xchange::BuildCommit(incoming));
+  packet = ReceivePersistentPacket(persistentPeer);
+  auto commitRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(commitRet && commitRet->type == "MVR_COMMIT_RET" && commitRet->ok && commits == 1);
+
+  SendPersistentJson(persistentPeer, mvr::xchange::BuildRequest(available.fileUuid, {localUuid}));
+  packet = ReceivePersistentPacket(persistentPeer);
+  assert(packet.type == mvr::xchange::PacketType::MvrFile && packet.payload == available.payload);
+  SendPersistentJson(persistentPeer, mvr::xchange::BuildLeave(peerUuid));
+  packet = ReceivePersistentPacket(persistentPeer);
+  auto leaveRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(leaveRet && leaveRet->type == "MVR_LEAVE_RET" && leaveRet->ok && leaves == 1);
+  CloseLoopback(persistentPeer);
+  server.Stop();
 }
 
 // Verifies an idle listener stops promptly without relying on accept interruption.
@@ -651,10 +877,32 @@ static void TestTcpServerIdleStop() {
   for (int iteration = 0; iteration < 10; ++iteration) {
     MvrXchangeTcpServer server;
     assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+    auto idleClient = ConnectLoopback(server.Port());
     const auto stopStarted = std::chrono::steady_clock::now();
     server.Stop();
     assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
+    CloseLoopback(idleClient);
   }
+}
+
+// Verifies persistent clients remain bounded by the server connection limit.
+static void TestPersistentConnectionLimit() {
+  MvrXchangeSettings settings;
+  settings.stationName = "Connection limit server";
+  settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  MvrXchangeTcpServer server;
+  assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+  std::vector<LoopbackConnection> clients;
+  for (int index = 0; index < 16; ++index) {
+    clients.push_back(ConnectLoopback(server.Port()));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  auto rejected = ConnectLoopback(server.Port());
+  char byte = 0;
+  assert(recv(rejected.fd, &byte, 1, 0) == 0);
+  CloseLoopback(rejected);
+  server.Stop();
+  for (auto &client : clients) CloseLoopback(client);
 }
 
 // Verifies the server returns the RET matching each recognizable malformed request.
@@ -669,7 +917,11 @@ static void TestTcpTypedErrorResponses() {
       {R"({"Type":"MVR_COMMIT","FileUUID":"bad"})", "MVR_COMMIT_RET"},
       {R"({"Type":"MVR_LEAVE","FromStationUUID":"bad"})", "MVR_LEAVE_RET"},
       {R"({"Type":"MVR_REQUEST","FileUUID":"bad"})", "MVR_REQUEST_RET"},
-      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"}};
+      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":{}})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["bad"]})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",123]})", "MVR_REQUEST_RET"}};
   for (const auto &[request, expectedType] : cases) {
     const auto response = nlohmann::json::parse(ExchangeRawJson(server.Port(), request));
     assert(response["Type"] == expectedType && response["OK"] == false);
@@ -682,6 +934,7 @@ int main() {
   TestCommitStore();
   TestPackets();
   TestMessages();
+  TestRequestSourceStations();
   TestLeaveMessages();
   TestTypedErrors();
   TestMalformedMessages();
@@ -695,7 +948,9 @@ int main() {
   TestPublicationDestinationPolicy();
   TestNetworkInterfaces();
   TestTcpTransactions();
+  TestPersistentTcpConnection();
   TestTcpServerIdleStop();
+  TestPersistentConnectionLimit();
   TestTcpTypedErrorResponses();
   return 0;
 }
