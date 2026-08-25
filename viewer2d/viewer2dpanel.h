@@ -347,6 +347,7 @@ private:
   };
 
   DragMode m_dragMode = DragMode::None;
+  bool m_middleMousePanning = false;
   DragAxis m_dragAxis = DragAxis::None;
   DragTarget m_dragTarget = DragTarget::None;
   std::vector<std::string> m_dragSelectionUuids;

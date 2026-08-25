@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "preferencesdialog.h"
+#include "../viewer_common/viewport_mouse_navigation.h"
 #include "configmanager.h"
 #include "guiconfigservices.h"
 #include "localization/localization_manager.h"
@@ -392,13 +393,26 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
 
   wxStaticBoxSizer *viewer3dNavigationSizer =
       new wxStaticBoxSizer(wxVERTICAL, viewer3dPanel, _("Navigation"));
-  viewer3dInvertOrbitCheck =
+  viewer3dInvertOrbitHorizontalCheck =
       new wxCheckBox(viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
-      _("Invert orbit/rotate vertical direction"));
-  const auto viewer3dInvertOrbitValue = cfg.GetValue("viewer3d_invert_orbit");
-  viewer3dInvertOrbitCheck->SetValue(viewer3dInvertOrbitValue &&
-                                     *viewer3dInvertOrbitValue == "1");
-  viewer3dNavigationSizer->Add(viewer3dInvertOrbitCheck, 0, wxALL, 8);
+                     _("Invert orbit horizontal direction"));
+  const auto viewer3dInvertOrbitHorizontalValue =
+      cfg.GetValue(std::string(
+          viewport_navigation::kHorizontalOrbitInversionConfigKey));
+  viewer3dInvertOrbitHorizontalCheck->SetValue(
+      viewer3dInvertOrbitHorizontalValue &&
+      *viewer3dInvertOrbitHorizontalValue == "1");
+  viewer3dNavigationSizer->Add(viewer3dInvertOrbitHorizontalCheck, 0,
+                               wxLEFT | wxRIGHT | wxTOP, 8);
+
+  viewer3dInvertOrbitVerticalCheck =
+      new wxCheckBox(viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
+                     _("Invert orbit vertical direction"));
+  const auto viewer3dInvertOrbitValue = cfg.GetValue(
+      std::string(viewport_navigation::kVerticalOrbitInversionConfigKey));
+  viewer3dInvertOrbitVerticalCheck->SetValue(viewer3dInvertOrbitValue &&
+                                             *viewer3dInvertOrbitValue == "1");
+  viewer3dNavigationSizer->Add(viewer3dInvertOrbitVerticalCheck, 0, wxALL, 8);
 
   wxStaticText *viewer3dNavigationHint = new wxStaticText(
       viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
@@ -589,8 +603,15 @@ bool PreferencesDialog::ApplyPreferences() {
            viewer3dByUniverseRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByUniverse;
   cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
-  cfg.SetValue("viewer3d_invert_orbit",
-               viewer3dInvertOrbitCheck && viewer3dInvertOrbitCheck->GetValue()
+  cfg.SetValue(std::string(viewport_navigation::kVerticalOrbitInversionConfigKey),
+               viewer3dInvertOrbitVerticalCheck &&
+                       viewer3dInvertOrbitVerticalCheck->GetValue()
+                   ? "1"
+                   : "0");
+  cfg.SetValue(std::string(
+                   viewport_navigation::kHorizontalOrbitInversionConfigKey),
+               viewer3dInvertOrbitHorizontalCheck &&
+                       viewer3dInvertOrbitHorizontalCheck->GetValue()
                    ? "1"
                    : "0");
   selection_movement_settings::SaveInteractiveTransformPolicy(
