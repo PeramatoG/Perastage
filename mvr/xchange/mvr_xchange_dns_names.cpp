@@ -36,9 +36,9 @@ std::string BuildMvrXchangeGroupServiceName(const std::string &groupName) {
   return SanitizeDnsLabel(groupName, "Default") + "." + kMvrXchangeServiceType;
 }
 
-// Builds the normative group-owned MVR-xchange DNS-SD instance name.
-std::string BuildMvrXchangeServiceInstanceName(const std::string &groupName) {
-  return BuildMvrXchangeGroupServiceName(groupName);
+// Builds a concrete station instance within one MVR-xchange group.
+std::string BuildMvrXchangeServiceInstanceName(const std::string &stationName, const std::string &groupName) {
+  return SanitizeDnsLabel(stationName, "Perastage") + "." + BuildMvrXchangeGroupServiceName(groupName);
 }
 
 // Builds a stable per-station host name without coupling DNS identity to StationName.

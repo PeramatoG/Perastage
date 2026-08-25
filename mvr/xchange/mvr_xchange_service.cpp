@@ -103,7 +103,8 @@ bool MvrXchangeService::Start(const MvrXchangeSettings &settings) {
   Log("MVR-xchange advertised A record: " + mdnsService_.AdvertisedIpAddress());
   {
     std::lock_guard lock(mutex_);
-    stationRegistry_.SetLocalIdentity(settings_.stationUuid, mdnsService_.ServiceInstanceName(), tcpServer_.Port());
+    stationRegistry_.SetLocalIdentity(settings_.stationUuid, mdnsService_.ServiceInstanceName(),
+                                      mdnsService_.AdvertisedIpAddress(), tcpServer_.Port());
   }
   if (!mdnsDiscovery_.Start(settings_, mdnsService_.ServiceInstanceName(), settings_.stationUuid,
                             [this](const std::string &msg) { Log(msg); })) {
@@ -251,14 +252,25 @@ std::string MvrXchangeService::HandleIncomingCommit(const MvrXchangeCommit &comm
 
 // Sends an outgoing MVR_JOIN to a remote station with a resolved service endpoint.
 bool MvrXchangeService::TryOutgoingJoin(const MvrXchangeRemoteStation &station) {
+  bool selfStation = false;
+  bool shouldJoin = false;
   {
     std::lock_guard lock(mutex_);
-    if (!stationRegistry_.ShouldInitiateOutgoingJoin(station)) return false;
+    selfStation = stationRegistry_.IsOwnStation(station);
+    if (!selfStation) shouldJoin = stationRegistry_.ShouldInitiateOutgoingJoin(station);
   }
+  if (selfStation) {
+    Log("MVR-xchange rejected a self JOIN endpoint for instance=" + station.serviceInstanceName + " at " +
+        station.ipAddress + ":" + std::to_string(station.port) + ".");
+    return false;
+  }
+  if (!shouldJoin) return false;
   const auto endpoint = ResolveOutgoingEndpoint(station);
   if (endpoint.ipAddress.empty() || endpoint.port <= 0) return false;
-  Log("MVR-xchange resolved StationUUID=" + station.stationUuid + " at " + endpoint.ipAddress + ":" + std::to_string(endpoint.port) +
-      " via mDNS responder=" + (station.mdnsResponderAddress.empty() ? std::string("unknown") : station.mdnsResponderAddress) + ".");
+  Log("MVR-xchange resolved StationName=" + station.stationName + " StationUUID=" + station.stationUuid +
+      " instance=" + station.serviceInstanceName + " SRV owner=" + station.serviceInstanceName +
+      " target=" + station.hostName + " endpoint=" + endpoint.ipAddress + ":" + std::to_string(endpoint.port) +
+      " responder=" + (station.mdnsResponderAddress.empty() ? std::string("unknown") : station.mdnsResponderAddress) + ".");
   MvrXchangeRemoteStation joinedStation;
   const auto commits = GetLocalCommits();
   if (!tcpClient_.SendJoin(endpoint, settings_, commits, joinedStation, [this](const std::string &msg) { Log(msg); })) return false;

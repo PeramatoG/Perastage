@@ -176,7 +176,8 @@ std::vector<MvrXchangeRemoteStation> MvrXchangeMdnsDiscovery::Snapshot() {
   cache_.Expire(now);
   auto stations = cache_.Resolve(groupServiceName_, now);
   stations.erase(std::remove_if(stations.begin(), stations.end(), [&](const auto &station) {
-    return !station.stationUuid.empty() && station.stationUuid == localStationUuid_;
+    return (!station.stationUuid.empty() && station.stationUuid == localStationUuid_) ||
+           (!station.serviceInstanceName.empty() && mvr::xchange::DnsNamesEqual(station.serviceInstanceName, localInstanceName_));
   }), stations.end());
   return stations;
 }
@@ -242,9 +243,9 @@ void MvrXchangeMdnsDiscovery::Run() {
   }
 }
 
-// Sends a PTR question for the official MVR-xchange base service.
+// Sends PTR questions for the selected group and MVR-xchange base service.
 void MvrXchangeMdnsDiscovery::SendQueries() {
-  for (const std::string &name : {std::string(mvr::xchange::kMvrXchangeServiceType)}) {
+  for (const std::string &name : {groupServiceName_, std::string(mvr::xchange::kMvrXchangeServiceType)}) {
     std::vector<std::uint8_t> packet(12, 0);
     packet[5] = 1;
     if (!AppendDnsName(packet, name)) continue;

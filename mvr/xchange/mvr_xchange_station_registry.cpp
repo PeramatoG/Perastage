@@ -4,10 +4,12 @@
 #include "mvr_xchange_dns_names.h"
 
 // Stores the local station identity so registry updates can ignore self records.
-void MvrXchangeStationRegistry::SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName, int localPort) {
+void MvrXchangeStationRegistry::SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName,
+                                                 const std::string &localIpAddress, int localPort) {
   localStationUuid_ = CanonicalizeUuid(stationUuid);
   localServiceInstanceName_ = serviceInstanceName;
-  (void)localPort;
+  localIpAddress_ = localIpAddress;
+  localPort_ = localPort;
 }
 
 // Inserts or updates a station discovered through mDNS.
@@ -129,6 +131,7 @@ bool MvrXchangeStationRegistry::MarkOutgoingJoined(const std::string &stationUui
 bool MvrXchangeStationRegistry::ShouldInitiateOutgoingJoin(const MvrXchangeRemoteStation &station) {
   auto key = station;
   key.stationUuid = CanonicalizeUuid(key.stationUuid);
+  if (IsOwnStation(key)) return false;
   auto it = FindStation(key);
   return it == stations_.end() || (!it->left && !it->incomingJoined && !it->outgoingJoined);
 }
@@ -180,6 +183,8 @@ bool MvrXchangeStationRegistry::CanSendCommitTo(const std::string &stationUuid) 
 // Returns true if a station appears to be this Perastage instance.
 bool MvrXchangeStationRegistry::IsOwnStation(const MvrXchangeRemoteStation &station) const {
   if (!station.stationUuid.empty() && station.stationUuid == localStationUuid_) return true;
+  if (!station.serviceInstanceName.empty() && mvr::xchange::DnsNamesEqual(station.serviceInstanceName, localServiceInstanceName_)) return true;
+  if (!localIpAddress_.empty() && localPort_ > 0 && station.ipAddress == localIpAddress_ && station.port == localPort_) return true;
   return false;
 }
 

@@ -92,19 +92,17 @@ std::vector<MvrXchangeRemoteStation> MdnsRecordCache::Resolve(const std::string 
   for (const auto &cached : records_) {
     const auto &ptr = cached.record;
     if (cached.expiryMonotonicMs <= nowMonotonicMs || ptr.type != DnsRecordType::Ptr) continue;
-    const bool canonicalGroupPtr = DnsNamesEqual(ptr.owner, kMvrXchangeServiceType) && DnsNamesEqual(ptr.target, groupServiceName);
-    const bool legacyGroupPtr = DnsNamesEqual(ptr.owner, groupServiceName);
     const std::string normalizedTarget = NormalizeDnsName(ptr.target);
     const std::string normalizedGroup = NormalizeDnsName(groupServiceName);
-    const bool compatibleBasePtr = DnsNamesEqual(ptr.owner, kMvrXchangeServiceType) && normalizedTarget.size() > normalizedGroup.size() &&
+    const bool stationTarget = normalizedTarget.size() > normalizedGroup.size() &&
                                    normalizedTarget[normalizedTarget.size() - normalizedGroup.size() - 1] == '.' &&
                                    normalizedTarget.compare(normalizedTarget.size() - normalizedGroup.size(), normalizedGroup.size(), normalizedGroup) == 0;
+    const bool compatibleBasePtr = DnsNamesEqual(ptr.owner, kMvrXchangeServiceType) && stationTarget;
+    const bool groupPtr = DnsNamesEqual(ptr.owner, groupServiceName) && stationTarget;
     const std::string scopedInstance = std::to_string(ptr.interfaceIndex) + "|" + ptr.responderAddress + "|" + normalizedTarget;
-    if ((!canonicalGroupPtr && !legacyGroupPtr && !compatibleBasePtr) || !seenInstances.insert(scopedInstance).second) continue;
+    if ((!groupPtr && !compatibleBasePtr) || !seenInstances.insert(scopedInstance).second) continue;
     const DnsRecord *srv = FindRecord(records_, DnsRecordType::Srv, ptr.target, ptr, nowMonotonicMs);
     const DnsRecord *txt = FindRecord(records_, DnsRecordType::Txt, ptr.target, ptr, nowMonotonicMs);
-    if (!srv && legacyGroupPtr) srv = FindRecord(records_, DnsRecordType::Srv, groupServiceName, ptr, nowMonotonicMs);
-    if (!txt && legacyGroupPtr) txt = FindRecord(records_, DnsRecordType::Txt, groupServiceName, ptr, nowMonotonicMs);
     if (!srv) continue;
     const DnsRecord *address = FindRecord(records_, DnsRecordType::A, srv->target, *srv, nowMonotonicMs);
     if (!address) address = FindRecord(records_, DnsRecordType::Aaaa, srv->target, *srv, nowMonotonicMs);

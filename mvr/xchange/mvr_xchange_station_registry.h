@@ -6,7 +6,8 @@
 
 class MvrXchangeStationRegistry {
 public:
-  void SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName, int localPort);
+  void SetLocalIdentity(const std::string &stationUuid, const std::string &serviceInstanceName,
+                        const std::string &localIpAddress, int localPort);
   bool UpsertDiscovered(MvrXchangeRemoteStation station);
   void ReconcileDiscovered(const std::vector<MvrXchangeRemoteStation> &stations);
   bool UpsertIncomingJoin(MvrXchangeRemoteStation station);
@@ -25,5 +26,7 @@ private:
   void MergeProvisionalDuplicates(std::string stationUuid);
   std::string localStationUuid_;
   std::string localServiceInstanceName_;
+  std::string localIpAddress_;
+  int localPort_ = 0;
   std::vector<MvrXchangeRemoteStation> stations_;
 };
