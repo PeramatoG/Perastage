@@ -15,7 +15,7 @@
 #endif
 
 namespace {
-constexpr std::size_t kMaxConcurrentTransactions = 16;
+constexpr std::size_t kMaxConcurrentConnections = 16;
 #ifdef _WIN32
 using SocketLength = int;
 #else
@@ -47,18 +47,16 @@ std::string FormatEndpoint(const sockaddr_in &addr) {
   return std::string(host) + ":" + std::to_string(ntohs(addr.sin_port));
 }
 
-// Applies bounded send and receive timeouts to one short-lived transaction.
+// Applies a bounded send timeout while allowing joined peers to remain idle.
 void ApplySocketTimeouts(std::intptr_t fd) {
 #ifdef _WIN32
   DWORD timeout = 5000;
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
-  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&timeout), sizeof(timeout));
 #else
   timeval timeout{};
   timeout.tv_sec = 5;
   timeout.tv_usec = 0;
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 #endif
 }
 }
@@ -165,9 +163,9 @@ void MvrXchangeTcpServer::Run() {
     if (fd < 0) continue;
     {
       std::lock_guard lock(clientsMutex_);
-      if (clientFds_.size() >= kMaxConcurrentTransactions) {
+      if (clientFds_.size() >= kMaxConcurrentConnections) {
         CloseSocketFd(fd);
-        if (logCallback_) logCallback_("MVR-xchange rejected a TCP transaction because the concurrency limit was reached.");
+        if (logCallback_) logCallback_("MVR-xchange rejected a TCP connection because the connection limit was reached.");
         continue;
       }
       clientFds_.push_back(fd);
@@ -191,7 +189,7 @@ void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
   mvr::xchange::PacketReassembler reassembler;
   char chunk[4096];
   bool receiveRequired = true;
-  while (running_ && disconnectReason != "transaction complete") {
+  while (running_) {
     if (receiveRequired) {
       int n = static_cast<int>(recv(clientFd, chunk, sizeof(chunk), 0));
       if (n == 0) { disconnectReason = "recv returned 0"; break; }
@@ -210,6 +208,7 @@ void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
       if (reassemblyStatus == mvr::xchange::DecodeStatus::Invalid) { disconnectReason = decodeError; break; }
       if (reassemblyStatus == mvr::xchange::DecodeStatus::NeedMoreData) { receiveRequired = buffer.empty(); continue; }
       auto packet = std::make_optional(std::move(complete));
+      reassembler.Reset();
       if (packet->type != mvr::xchange::PacketType::Json) { if (logCallback_) logCallback_("MVR-xchange received non-JSON packet from " + endpoint + "."); continue; }
       if (logCallback_) logCallback_("MVR-xchange received JSON packet from " + endpoint + ", bytes=" + std::to_string(packet->payload.size()) + ".");
       std::string line(packet->payload.begin(), packet->payload.end());
@@ -247,8 +246,8 @@ void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
         if (!commit || commit->payload.empty()) { SendJson(clientFd, mvr::xchange::BuildRequestError("The MVR is not available on this client")); if (logCallback_) logCallback_("MVR-xchange sent MVR_REQUEST_RET error to " + endpoint + " for FileUUID=" + msg->fileUuid + "."); }
         else { const auto payloadPacket = mvr::xchange::EncodePacket(mvr::xchange::PacketType::MvrFile, commit->payload); SendPacket(clientFd, payloadPacket); if (logCallback_) logCallback_("MVR-xchange sent MVR binary payload to " + endpoint + ", FileUUID=" + commit->fileUuid + ", bytes=" + std::to_string(commit->payload.size()) + "."); }
       } else { SendJson(clientFd, mvr::xchange::BuildRequestError("Unsupported MVR-xchange message.")); if (logCallback_) logCallback_("MVR-xchange received unsupported message " + msg->type + " from " + endpoint + "."); }
-      disconnectReason = "transaction complete";
-      break;
+      if (disconnectReason == "explicit MVR_LEAVE") break;
+      receiveRequired = buffer.empty();
     }
   }
   RemoveClient(clientFd);

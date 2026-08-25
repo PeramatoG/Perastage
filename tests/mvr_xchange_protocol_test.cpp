@@ -15,6 +15,7 @@
 #include <chrono>
 #include <set>
 #include <string>
+#include <thread>
 #include <tuple>
 #ifdef _WIN32
 #include <winsock2.h>
@@ -24,6 +25,61 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
+
+struct LoopbackConnection {
+  std::intptr_t fd = -1;
+  std::vector<std::uint8_t> receiveBuffer;
+};
+
+// Opens one reusable TCP connection to a loopback MVR-xchange server.
+static LoopbackConnection ConnectLoopback(int port) {
+  LoopbackConnection connection;
+  connection.fd = static_cast<std::intptr_t>(socket(AF_INET, SOCK_STREAM, 0));
+  assert(connection.fd >= 0);
+  sockaddr_in address{};
+  address.sin_family = AF_INET;
+  address.sin_port = htons(static_cast<std::uint16_t>(port));
+  inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
+  assert(connect(connection.fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) == 0);
+  return connection;
+}
+
+// Sends one framed JSON message over an existing test connection.
+static void SendPersistentJson(const LoopbackConnection &connection, const std::string &json) {
+  const std::vector<std::uint8_t> payload(json.begin(), json.end());
+  const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
+  std::size_t sent = 0;
+  while (sent < packet.size()) {
+    const int count = static_cast<int>(send(connection.fd, reinterpret_cast<const char *>(packet.data() + sent), static_cast<int>(packet.size() - sent), 0));
+    assert(count > 0);
+    sent += static_cast<std::size_t>(count);
+  }
+}
+
+// Receives one framed packet while preserving coalesced bytes for the next message.
+static mvr::xchange::Packet ReceivePersistentPacket(LoopbackConnection &connection) {
+  while (true) {
+    mvr::xchange::Packet packet;
+    std::string error;
+    const auto status = mvr::xchange::DecodePacket(connection.receiveBuffer, packet, error);
+    if (status == mvr::xchange::DecodeStatus::Complete) return packet;
+    assert(status == mvr::xchange::DecodeStatus::NeedMoreData);
+    char buffer[4096];
+    const int received = static_cast<int>(recv(connection.fd, buffer, sizeof(buffer), 0));
+    assert(received > 0);
+    connection.receiveBuffer.insert(connection.receiveBuffer.end(), buffer, buffer + received);
+  }
+}
+
+// Closes one reusable loopback test connection.
+static void CloseLoopback(LoopbackConnection &connection) {
+#ifdef _WIN32
+  closesocket(connection.fd);
+#else
+  close(connection.fd);
+#endif
+  connection.fd = -1;
+}
 
 // Exchanges one raw JSON transaction with a loopback test server.
 static std::string ExchangeRawJson(int port, const std::string &json) {
@@ -758,6 +814,61 @@ static void TestTcpTransactions() {
   assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
 }
 
+// Verifies joined peers can issue multiple messages on one persistent TCP connection.
+static void TestPersistentTcpConnection() {
+  const std::string localUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const std::string peerUuid = "11111111-2222-3333-4444-555555555555";
+  MvrXchangeCommit available{"abcdefab-cdef-abcd-efab-cdefabcdefab", localUuid, "persistent.mvr", {}, {}, {'m', 'v', 'r'}, 0, false, 0, 0, {}, true};
+  MvrXchangeSettings settings;
+  settings.stationName = "Persistent server";
+  settings.stationUuid = localUuid;
+  int joins = 0;
+  int commits = 0;
+  int leaves = 0;
+  MvrXchangeTcpServer server;
+  assert(server.Start(settings,
+                      [&](const std::string &fileUuid) { return fileUuid == available.fileUuid ? std::optional<MvrXchangeCommit>(available) : std::nullopt; },
+                      [&] { return std::vector<MvrXchangeCommit>{available}; }, {},
+                      [&](const MvrXchangeRemoteStation &) { ++joins; },
+                      [&](const std::string &uuid) { ++leaves; return uuid == peerUuid ? std::string{} : "Unexpected station."; },
+                      [&](const MvrXchangeCommit &) { ++commits; return std::string{}; }));
+
+  const std::string join = mvr::xchange::BuildJoin(peerUuid, "DMXRouter", {});
+  auto reconnectingPeer = ConnectLoopback(server.Port());
+  SendPersistentJson(reconnectingPeer, join);
+  auto packet = ReceivePersistentPacket(reconnectingPeer);
+  assert(packet.type == mvr::xchange::PacketType::Json);
+  CloseLoopback(reconnectingPeer);
+
+  auto persistentPeer = ConnectLoopback(server.Port());
+  SendPersistentJson(persistentPeer, join);
+  packet = ReceivePersistentPacket(persistentPeer);
+  auto joinRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(joinRet && joinRet->type == "MVR_JOIN_RET");
+  SendPersistentJson(persistentPeer, join);
+  packet = ReceivePersistentPacket(persistentPeer);
+  joinRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(joinRet && joinRet->type == "MVR_JOIN_RET" && joins == 3);
+
+  MvrXchangeCommit incoming{"22222222-3333-4444-5555-666666666666", peerUuid, "remote.mvr", {}, {}, {}, 0, false, 0, 0, {}, true};
+  incoming.declaredFileSize = 0;
+  incoming.declaredFileSizeSpecified = true;
+  SendPersistentJson(persistentPeer, mvr::xchange::BuildCommit(incoming));
+  packet = ReceivePersistentPacket(persistentPeer);
+  auto commitRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(commitRet && commitRet->type == "MVR_COMMIT_RET" && commitRet->ok && commits == 1);
+
+  SendPersistentJson(persistentPeer, mvr::xchange::BuildRequest(available.fileUuid, {localUuid}));
+  packet = ReceivePersistentPacket(persistentPeer);
+  assert(packet.type == mvr::xchange::PacketType::MvrFile && packet.payload == available.payload);
+  SendPersistentJson(persistentPeer, mvr::xchange::BuildLeave(peerUuid));
+  packet = ReceivePersistentPacket(persistentPeer);
+  auto leaveRet = mvr::xchange::ParseMessage(std::string(packet.payload.begin(), packet.payload.end()));
+  assert(leaveRet && leaveRet->type == "MVR_LEAVE_RET" && leaveRet->ok && leaves == 1);
+  CloseLoopback(persistentPeer);
+  server.Stop();
+}
+
 // Verifies an idle listener stops promptly without relying on accept interruption.
 static void TestTcpServerIdleStop() {
   MvrXchangeSettings settings;
@@ -766,10 +877,32 @@ static void TestTcpServerIdleStop() {
   for (int iteration = 0; iteration < 10; ++iteration) {
     MvrXchangeTcpServer server;
     assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+    auto idleClient = ConnectLoopback(server.Port());
     const auto stopStarted = std::chrono::steady_clock::now();
     server.Stop();
     assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
+    CloseLoopback(idleClient);
   }
+}
+
+// Verifies persistent clients remain bounded by the server connection limit.
+static void TestPersistentConnectionLimit() {
+  MvrXchangeSettings settings;
+  settings.stationName = "Connection limit server";
+  settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  MvrXchangeTcpServer server;
+  assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+  std::vector<LoopbackConnection> clients;
+  for (int index = 0; index < 16; ++index) {
+    clients.push_back(ConnectLoopback(server.Port()));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  auto rejected = ConnectLoopback(server.Port());
+  char byte = 0;
+  assert(recv(rejected.fd, &byte, 1, 0) == 0);
+  CloseLoopback(rejected);
+  server.Stop();
+  for (auto &client : clients) CloseLoopback(client);
 }
 
 // Verifies the server returns the RET matching each recognizable malformed request.
@@ -815,7 +948,9 @@ int main() {
   TestPublicationDestinationPolicy();
   TestNetworkInterfaces();
   TestTcpTransactions();
+  TestPersistentTcpConnection();
   TestTcpServerIdleStop();
+  TestPersistentConnectionLimit();
   TestTcpTypedErrorResponses();
   return 0;
 }

@@ -59,7 +59,9 @@ Changes since **v1.5.0**.
   collision-resistant station host name, and strictly associates each peer's
   identity with its own SRV endpoint. Independent mDNS responders remain
   isolated, and exact local listener endpoints are rejected to prevent
-  accidental self-connections.
+  accidental self-connections. Joined peers may now retain their TCP connection
+  for later requests, while applications that reconnect for each operation
+  remain supported.
 
 - Fixtures of the same type now receive one consistent type color when
   text-to-scene generation cannot find their definition in the GDTF library.
