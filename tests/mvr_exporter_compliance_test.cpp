@@ -87,6 +87,24 @@ static std::string BuildTrussGeometry3ds() {
   return {reinterpret_cast<const char *>(archive.data()), archive.size()};
 }
 
+// Builds a minimal 3DS document containing a standard diffuse bitmap map.
+static std::string BuildTexturedGeometry3ds(const std::string &textureName) {
+  std::vector<std::uint8_t> textureNamePayload(textureName.begin(),
+                                               textureName.end());
+  textureNamePayload.push_back(0);
+  std::vector<std::uint8_t> textureMap;
+  Append3dsChunk(textureMap, 0xA300, textureNamePayload);
+  std::vector<std::uint8_t> material;
+  Append3dsChunk(material, 0xA200, textureMap);
+  std::vector<std::uint8_t> editor;
+  Append3dsChunk(editor, 0xAFFF, material);
+  std::vector<std::uint8_t> root;
+  Append3dsChunk(root, 0x3D3D, editor);
+  std::vector<std::uint8_t> archive;
+  Append3dsChunk(archive, 0x4D4D, root);
+  return {reinterpret_cast<const char *>(archive.data()), archive.size()};
+}
+
 static std::string ReadCurrentZipEntry(wxZipInputStream &zip) {
   std::string content;
   char buffer[4096];
@@ -1578,6 +1596,68 @@ int main() {
   assert(importedScene.positions.count(legacyFixture.position) == 1);
   assert(legacyFixture.visualColorHex.empty());
   assert(!legacyFixture.mvrFixtureColorHex.empty());
+
+  cfg.Reset();
+  MvrScene &dependencyScene = cfg.GetScene();
+  dependencyScene.basePath = (tempDir / "dependency_scene").generic_string();
+  fs::create_directories(dependencyScene.basePath);
+  const fs::path dependencyDir(dependencyScene.basePath);
+  std::ofstream(dependencyDir / "textured.3ds", std::ios::binary)
+      << BuildTexturedGeometry3ds("shared.png");
+  std::ofstream(dependencyDir / "shared.png", std::ios::binary) << "PNG";
+  std::ofstream(dependencyDir / "mesh.bin", std::ios::binary) << "BIN";
+  std::ofstream(dependencyDir / "scene.gltf")
+      << R"({"asset":{"version":"2.0"},"buffers":[{"uri":"mesh.bin","byteLength":3}],"images":[{"uri":"shared.png"}]})";
+  std::ofstream(dependencyDir / "stale.png", std::ios::binary) << "STALE";
+  std::ofstream(dependencyDir / "stale.gltf")
+      << R"({"asset":{"version":"2.0"},"images":[{"uri":"stale.png"}]})";
+
+  SceneObject texturedObject;
+  texturedObject.uuid = "10000000-0000-4000-8000-000000000001";
+  texturedObject.name = "Textured 3DS";
+  texturedObject.modelFile = (dependencyDir / "textured.3ds").generic_string();
+  dependencyScene.sceneObjects[texturedObject.uuid] = texturedObject;
+  SceneObject gltfObject;
+  gltfObject.uuid = "10000000-0000-4000-8000-000000000002";
+  gltfObject.name = "External glTF";
+  gltfObject.modelFile = (dependencyDir / "scene.gltf").generic_string();
+  dependencyScene.sceneObjects[gltfObject.uuid] = gltfObject;
+
+  const fs::path dependencyMvrPath = tempDir / "model_dependencies.mvr";
+  assert(MvrExporter().ExportToFile(dependencyMvrPath.generic_string()));
+  const auto dependencyEntries = ReadArchiveTextEntries(dependencyMvrPath);
+  assert(dependencyEntries.count("textured.3ds") == 1);
+  assert(dependencyEntries.count("scene.gltf") == 1);
+  assert(dependencyEntries.count("mesh.bin") == 1);
+  assert(dependencyEntries.count("shared.png") == 1);
+  assert(dependencyEntries.count("stale.gltf") == 0);
+  assert(dependencyEntries.count("stale.png") == 0);
+  assert(dependencyEntries.at("scene.gltf").find("mesh.bin") !=
+         std::string::npos);
+  assert(dependencyEntries.at("scene.gltf").find("shared.png") !=
+         std::string::npos);
+
+  const fs::path collisionDir = tempDir / "dependency_collision";
+  fs::create_directories(collisionDir);
+  std::ofstream(collisionDir / "shared.png", std::ios::binary) << "OTHER";
+  std::ofstream(collisionDir / "collision.gltf")
+      << R"({"asset":{"version":"2.0"},"images":[{"uri":"shared.png"}]})";
+  SceneObject collisionObject;
+  collisionObject.uuid = "10000000-0000-4000-8000-000000000003";
+  collisionObject.name = "Conflicting dependency";
+  collisionObject.modelFile =
+      (collisionDir / "collision.gltf").generic_string();
+  dependencyScene.sceneObjects[collisionObject.uuid] = collisionObject;
+  MvrExporter collisionExporter;
+  assert(!collisionExporter.ExportToFile(
+      (tempDir / "model_dependency_collision.mvr").generic_string()));
+  assert(std::any_of(collisionExporter.GetExportDiagnostics().begin(),
+                     collisionExporter.GetExportDiagnostics().end(),
+                     [](const MvrExportDiagnostic &diagnostic) {
+                       return diagnostic.severity ==
+                                  MvrExportDiagnosticSeverity::Error &&
+                              diagnostic.resourceName == "shared.png";
+                     }));
 
   fs::remove_all(tempDir);
   return 0;

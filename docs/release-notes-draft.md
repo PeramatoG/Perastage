@@ -4,6 +4,11 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Textures, images, and external binary buffers used by 3DS and glTF geometry
+  now survive MVR export and re-import, while dependencies of deleted models
+  continue to be removed and filename collisions fail safely instead of
+  producing broken model references.
+
 - MVR export now presents concise, grouped fidelity warnings instead of raw
   technical diagnostics, while harmless UUID normalization stays in the log and
   export failures provide a focused, expandable result. The collapsed result
