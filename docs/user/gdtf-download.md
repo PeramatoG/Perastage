@@ -5,7 +5,7 @@ Perastage can download fixture profiles from GDTF Share.
 ## Before you start
 
 - You need an active GDTF Share account.
-- Internet access is required for login and downloads.
+- Internet access is required to load the online catalog and download files.
 
 ## Download workflow
 
@@ -13,6 +13,10 @@ Perastage can download fixture profiles from GDTF Share.
 2. Sign in when prompted.
 3. Search for the fixture profile you need.
 4. Download and store it in your local user library.
+
+If no catalog is available locally, Perastage asks you to sign in before it
+loads the online catalog. Cancelling that sign-in simply cancels the Download
+GDTF operation; it does not open an empty search window or report an error.
 
 ## Related tools
 
@@ -29,6 +33,6 @@ When available, Perastage stores the GDTF Share password in the operating system
 
 Official Perastage builds include wxSecretStore support. On Linux, password persistence also requires an active Freedesktop Secret Service provider such as GNOME Keyring or KWallet. On systems where the operating-system credential store is unavailable at runtime, or on intentionally minimal developer builds without secure-store support, Perastage can still validate credentials for the current operation, but it does not persist the password. Perastage shows a warning in this state, may keep the username as a non-secret hint, and will ask for the password again in a later session.
 
-The GDTF search dialog identifies whether it is showing the online catalog or a cached catalog. A cached catalog can be browsed without a current authenticated session, but Perastage will ask you to sign in when you download. If the online catalog was loaded successfully in the same workflow, the authenticated session is reused for the download without asking again.
+The GDTF search dialog identifies whether it is showing the online catalog or a cached catalog. A cached catalog can be browsed offline and without a current authenticated session, but Perastage will ask you to sign in when you download. Loading the online catalog and downloading require a GDTF Share account and an Internet connection. If the online catalog was loaded successfully in the same workflow, the authenticated session is reused for the download without asking again.
 
 Downloads are written to temporary sibling files first and are published only after the response is successful and ZIP-compatible. If a download, cancellation, or local publication step fails, an existing destination GDTF file is preserved.

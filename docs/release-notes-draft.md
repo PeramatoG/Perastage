@@ -28,6 +28,14 @@ Changes since **v1.5.0**.
 - Deferred fixture-symbol preparation now reuses unchanged GDTF inspection
   results instead of repeatedly scanning the same profile.
 
+## Fixes
+
+- Download GDTF now requests sign-in before loading an uncached catalog and no
+  longer opens an unusable empty search window when credentials are missing,
+  rejected, or the online catalog cannot be loaded. Cached catalogs remain
+  available for offline browsing, and cancelling sign-in ends the operation
+  cleanly.
+
 - Saved Layouts now retain bounded 2D-view and legend previews even when their
   vector replay data is too large to cache, reducing repeated rendering work
   when reopening unchanged projects.

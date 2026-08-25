@@ -426,7 +426,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
   GdtfShareResult initialLoginResult;
   GdtfShareResult initialCatalogResult;
   bool initialLoginAttempted = false;
-  const GdtfCatalogRefreshResult catalogResult =
+  GdtfCatalogRefreshResult catalogResult =
       catalogService.RefreshCatalogIfStale(
           [&](std::string &onlineListData) {
             if (!activeCredentials || activeCredentials->username.empty() ||
@@ -452,6 +452,107 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
   refreshOverlay.reset();
   refreshDisabler.reset();
+
+  bool catalogAuthenticationCancelled = false;
+  if (!catalogResult.snapshot) {
+    auto requestCatalogCredentials = [&]() -> bool {
+      while (true) {
+        const std::string initialUser =
+            activeCredentials
+                ? activeCredentials->username
+                : loadedCredentials.usernameHint.value_or(std::string());
+        GdtfLoginDialog loginDlg(this, initialUser, std::string());
+        if (loginDlg.ShowModal() != wxID_OK) {
+          catalogAuthenticationCancelled = true;
+          diagnostics::DiagnosticLogger::Info(
+              "GDTF catalog authentication cancelled; search dialog not opened.");
+          return false;
+        }
+
+        CredentialStore::Credentials enteredCredentials;
+        enteredCredentials.username = WxToUtf8(
+            wxString::FromUTF8(loginDlg.GetUsername()).Trim(true).Trim(false));
+        enteredCredentials.password = loginDlg.GetPassword();
+        if (enteredCredentials.username.empty() ||
+            enteredCredentials.password.empty()) {
+          wxMessageBox(_("Please provide username and password."),
+                       _("Login Error"), wxOK | wxICON_ERROR, this);
+          continue;
+        }
+        activeCredentials = std::move(enteredCredentials);
+        loadedCredentials.usernameHint = activeCredentials->username;
+        return true;
+      }
+    };
+
+    gdtf_share_workflow::CatalogAccessAction accessAction =
+        gdtf_share_workflow::DetermineCatalogAccessAction(
+            false, gdtfWorkflowState.credentialAvailability,
+            gdtfWorkflowState.lastAuthenticationResult, false);
+    while (accessAction ==
+           gdtf_share_workflow::CatalogAccessAction::RequestCredentials) {
+      diagnostics::DiagnosticLogger::Info(
+          "GDTF catalog login requested because no cache is available.");
+      activeCredentials.reset();
+      if (!requestCatalogCredentials())
+        return;
+
+      initialLoginAttempted = true;
+      gdtfClient.ResetSession();
+      initialLoginResult = gdtfClient.Login(activeCredentials->username,
+                                            activeCredentials->password);
+      gdtfWorkflowState.lastAuthenticationResult = initialLoginResult;
+      gdtfWorkflowState.credentialAvailability =
+          gdtf_share_workflow::CredentialAvailability::Complete;
+      if (initialLoginResult.Succeeded()) {
+        gdtfWorkflowState.sessionAuthenticated = true;
+        gdtfWorkflowState.authenticatedUsername = activeCredentials->username;
+        const CredentialStore::Result persistResult =
+            PersistGdtfCredentialsForGui(*activeCredentials, configManager);
+        if (!persistResult.Succeeded()) {
+          diagnostics::DiagnosticLogger::Warning(
+              std::string("GDTF credentials authenticated but persistence failed: status=") +
+              CredentialStore::StatusName(persistResult.status));
+          wxMessageBox(
+              _("GDTF Share credentials were authenticated for this operation, but the password could not be saved securely. You may need to enter it again after restart."),
+              _("GDTF Share credentials"), wxOK | wxICON_WARNING, this);
+        }
+        catalogResult = catalogService.RefreshCatalogIfStale(
+            [&](std::string &onlineListData) {
+              initialCatalogResult = gdtfClient.GetCatalog();
+              gdtfWorkflowState.lastCatalogResult = initialCatalogResult;
+              onlineListData = initialCatalogResult.payload;
+              return initialCatalogResult.Succeeded() &&
+                     !onlineListData.empty();
+            },
+            nowUtc, 0);
+      }
+      accessAction = gdtf_share_workflow::DetermineCatalogAccessAction(
+          false, gdtfWorkflowState.credentialAvailability,
+          gdtfWorkflowState.lastAuthenticationResult,
+          catalogResult.snapshot.has_value(), catalogAuthenticationCancelled);
+    }
+
+    if (!catalogResult.snapshot) {
+      std::string detail = catalogResult.failureMessage;
+      const std::optional<GdtfShareResult> &shareResult =
+          gdtfWorkflowState.lastCatalogResult
+              ? gdtfWorkflowState.lastCatalogResult
+              : gdtfWorkflowState.lastAuthenticationResult;
+      if (shareResult) {
+        detail = "result=" + GdtfShareResultCategoryName(shareResult->category) +
+                 " http=" + std::to_string(shareResult->httpStatus) +
+                 " transport=" + std::to_string(shareResult->transportCode);
+      }
+      diagnostics::DiagnosticLogger::Error(
+          "GDTF online catalog resolution failed; search dialog not opened: " +
+          detail);
+      wxMessageBox(
+          _("The GDTF catalog could not be loaded. Check your Internet connection and GDTF Share credentials."),
+          _("GDTF catalog unavailable"), wxOK | wxICON_ERROR, this);
+      return;
+    }
+  }
 
   const auto catalogResolveElapsedMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
