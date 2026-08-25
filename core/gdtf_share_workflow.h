@@ -27,6 +27,14 @@ enum class CredentialPromptReason {
   ExpiredSession
 };
 
+enum class CatalogAccessAction {
+  OpenCachedCatalog,
+  OpenOnlineCatalog,
+  RequestCredentials,
+  ReportCatalogFailure,
+  Cancel
+};
+
 struct WorkflowState {
   CatalogSource catalogSource = CatalogSource::None;
   CredentialAvailability credentialAvailability = CredentialAvailability::None;
@@ -64,6 +72,26 @@ inline CredentialPromptReason PromptReasonForAuthenticationResult(
 // Returns true when the prompt reason requires user credentials.
 inline bool ShouldPromptForCredentials(CredentialPromptReason reason) {
   return reason != CredentialPromptReason::None;
+}
+
+// Chooses the next user-visible step without coupling catalog state to GUI code.
+inline CatalogAccessAction DetermineCatalogAccessAction(
+    bool hasUsableCache, CredentialAvailability credentials,
+    const std::optional<GdtfShareResult> &authenticationResult,
+    bool onlineCatalogAvailable, bool authenticationCancelled = false) {
+  if (onlineCatalogAvailable)
+    return CatalogAccessAction::OpenOnlineCatalog;
+  if (hasUsableCache)
+    return CatalogAccessAction::OpenCachedCatalog;
+  if (authenticationCancelled)
+    return CatalogAccessAction::Cancel;
+  if (credentials != CredentialAvailability::Complete ||
+      (authenticationResult &&
+       authenticationResult->category ==
+           GdtfShareResultCategory::AuthenticationRejected)) {
+    return CatalogAccessAction::RequestCredentials;
+  }
+  return CatalogAccessAction::ReportCatalogFailure;
 }
 
 // Converts catalog source state to stable diagnostic text.

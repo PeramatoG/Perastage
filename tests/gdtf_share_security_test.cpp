@@ -276,6 +276,31 @@ void TestWorkflowPromptDecisions() {
            CredentialPromptReason::RejectedCredentials);
     assert(PromptReasonForAuthenticationResult(true, transport, true) ==
            CredentialPromptReason::ExpiredSession);
+
+    assert(DetermineCatalogAccessAction(false, CredentialAvailability::None,
+                                        std::nullopt, false) ==
+           CatalogAccessAction::RequestCredentials);
+    assert(DetermineCatalogAccessAction(true, CredentialAvailability::None,
+                                        std::nullopt, false) ==
+           CatalogAccessAction::OpenCachedCatalog);
+    assert(DetermineCatalogAccessAction(false, CredentialAvailability::Complete,
+                                        rejected, false) ==
+           CatalogAccessAction::RequestCredentials);
+    assert(DetermineCatalogAccessAction(true, CredentialAvailability::Complete,
+                                        rejected, false) ==
+           CatalogAccessAction::OpenCachedCatalog);
+    assert(DetermineCatalogAccessAction(false, CredentialAvailability::Complete,
+                                        std::nullopt, true) ==
+           CatalogAccessAction::OpenOnlineCatalog);
+    assert(DetermineCatalogAccessAction(false, CredentialAvailability::Complete,
+                                        transport, false) ==
+           CatalogAccessAction::ReportCatalogFailure);
+    assert(DetermineCatalogAccessAction(false, CredentialAvailability::None,
+                                        std::nullopt, false, true) ==
+           CatalogAccessAction::Cancel);
+    assert(DetermineCatalogAccessAction(true, CredentialAvailability::Complete,
+                                        transport, false) ==
+           CatalogAccessAction::OpenCachedCatalog);
 }
 
 // Verifies credential storage orchestration and metadata omit passwords.
