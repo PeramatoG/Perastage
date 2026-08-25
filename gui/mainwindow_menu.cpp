@@ -534,11 +534,16 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     }
 
     if (!catalogResult.snapshot) {
-      const std::string detail = gdtfWorkflowState.lastCatalogResult
-          ? gdtfWorkflowState.lastCatalogResult->message
-          : (gdtfWorkflowState.lastAuthenticationResult
-                 ? gdtfWorkflowState.lastAuthenticationResult->message
-                 : catalogResult.failureMessage);
+      std::string detail = catalogResult.failureMessage;
+      const std::optional<GdtfShareResult> &shareResult =
+          gdtfWorkflowState.lastCatalogResult
+              ? gdtfWorkflowState.lastCatalogResult
+              : gdtfWorkflowState.lastAuthenticationResult;
+      if (shareResult) {
+        detail = "result=" + GdtfShareResultCategoryName(shareResult->category) +
+                 " http=" + std::to_string(shareResult->httpStatus) +
+                 " transport=" + std::to_string(shareResult->transportCode);
+      }
       diagnostics::DiagnosticLogger::Error(
           "GDTF online catalog resolution failed; search dialog not opened: " +
           detail);
