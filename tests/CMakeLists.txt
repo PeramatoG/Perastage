@@ -914,6 +914,13 @@ target_include_directories(autopatcher_universe_wrap_test PRIVATE ../core ../mod
 add_test(NAME AutoPatchUniverseWrap COMMAND autopatcher_universe_wrap_test)
 set_library_env(AutoPatchUniverseWrap)
 
+add_executable(autopatcher_topology_test autopatcher_topology_test.cpp
+               ../core/autopatcher.cpp
+               ../core/patchmanager.cpp)
+target_include_directories(autopatcher_topology_test PRIVATE ../core ../models ../viewer3d)
+add_test(NAME AutoPatchTopology COMMAND autopatcher_topology_test)
+set_library_env(AutoPatchTopology)
+
 add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
