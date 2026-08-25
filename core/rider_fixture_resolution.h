@@ -11,14 +11,27 @@
 namespace rider_fixture_resolution {
 
 enum class State { Dictionary, Suggested, Review, Unresolved, Generic };
+enum class ResolutionOrigin {
+  Dictionary,
+  DictionaryModified,
+  AutomaticMatch,
+  UserSelection,
+  GenericFallback,
+  Skipped
+};
 
 struct Item {
   RiderImporter::FixtureTypeRequest request;
+  std::string originalFixtureType;
+  std::string effectiveFixtureType;
+  bool create = true;
   State state = State::Unresolved;
+  ResolutionOrigin origin = ResolutionOrigin::GenericFallback;
   std::optional<GdtfDictionary::Entry> dictionaryEntry;
   std::optional<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> suggestedEntry;
   std::optional<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> selectedEntry;
   std::string selectedMode;
+  std::string originalDictionaryMode;
   std::string details;
 
   bool RequiresModeSelection() const;
@@ -41,7 +54,17 @@ public:
   // Selects a real catalog entry while preserving multi-mode ambiguity.
   static void SelectCatalogEntry(
       Item &item,
-      const mvr::gdtf_catalog_matcher::GdtfCatalogEntry &entry);
+      const mvr::gdtf_catalog_matcher::GdtfCatalogEntry &entry,
+      ResolutionOrigin origin = ResolutionOrigin::UserSelection);
+
+  // Re-resolves one edited row using dictionary first and the shared MVR matcher.
+  static void ResolveItem(
+      Item &item,
+      const std::unordered_map<std::string, GdtfDictionary::Entry> &dictionary,
+      const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &catalog);
+
+  // Updates whether the original parsed fixture request should be created.
+  static void SetCreate(Item &item, bool create);
 
   // Selects the existing generic import fallback without persisting a mapping.
   static void SelectGeneric(Item &item);
@@ -55,5 +78,6 @@ public:
 };
 
 const char *StateName(State state);
+const char *OriginName(ResolutionOrigin origin);
 
 } // namespace rider_fixture_resolution

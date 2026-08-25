@@ -51,6 +51,9 @@ Changes since **v1.5.0**.
   screens and video-control equipment from fixture resolution, shows cached
   suggestions without delaying the dialog, and rejects empty GDTF Share
   catalogs without replacing the last known good cache.
+- Fixture resolution now automatically uses the shared MVR catalog matcher,
+  supports corrected fixture names and per-type creation choices, and searches
+  combined manufacturer and model identities such as GLP JDC1.
 
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.

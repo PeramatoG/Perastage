@@ -83,6 +83,7 @@ private:
 
     wxTextCtrl* manufacturerCtrl = nullptr;
     wxTextCtrl* fixtureCtrl = nullptr;
+    wxTextCtrl* generalQueryCtrl = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     wxStaticText* statusLabel = nullptr;
     wxButton* prevPageButton = nullptr;

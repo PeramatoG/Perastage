@@ -449,10 +449,11 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
     return;
   }
   std::string preparedRiderText;
+  RiderImporter::ImportPlan importPlan;
   const auto preflightResult =
       rider_fixture_resolution_gui::RunCreateFromTextPreflight(
           this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText,
-          &preparedRiderText);
+          &preparedRiderText, &importPlan);
   if (preflightResult != rider_fixture_resolution_gui::PreflightResult::Proceed)
     return;
   std::unique_ptr<wxWindowDisabler> importDisabler =
@@ -464,7 +465,8 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   if (!RiderImporter::ImportText(
-          preparedRiderText.empty() ? riderText : preparedRiderText, {}, true)) {
+          preparedRiderText.empty() ? riderText : preparedRiderText, {}, true,
+          &importPlan)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
@@ -494,10 +496,11 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   }
 
   std::string preparedRiderText;
+  RiderImporter::ImportPlan importPlan;
   const auto preflightResult =
       rider_fixture_resolution_gui::RunCreateFromTextPreflight(
           this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText,
-          &preparedRiderText);
+          &preparedRiderText, &importPlan);
   if (preflightResult !=
       rider_fixture_resolution_gui::PreflightResult::Proceed) {
     diagnostics::DiagnosticLogger::Info(
@@ -546,7 +549,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
             }
             GetStatusBar()->Update();
           },
-          true)) {
+          true, &importPlan)) {
     wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");

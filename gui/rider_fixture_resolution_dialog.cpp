@@ -62,11 +62,13 @@ wxString FormatCatalogIdentity(const rider_fixture_resolution::Item &item) {
 // Creates the modal fixture-resolution review without starting downloads.
 RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
     wxWindow *parent, rider_fixture_resolution::Analysis analysisIn,
+    std::unordered_map<std::string, GdtfDictionary::Entry> dictionaryIn,
     CatalogLoader cachedCatalogLoaderIn, CatalogLoader onlineCatalogLoaderIn)
     : wxDialog(parent, wxID_ANY, _("Resolve fixture types"), wxDefaultPosition,
                wxSize(1160, 680),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       analysis(std::move(analysisIn)),
+      dictionary(std::move(dictionaryIn)),
       cachedCatalogLoader(std::move(cachedCatalogLoaderIn)),
       onlineCatalogLoader(std::move(onlineCatalogLoaderIn)) {
   BuildLayout();
@@ -99,7 +101,9 @@ void RiderFixtureResolutionDialog::BuildLayout() {
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, wxDV_ROW_LINES);
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-  table->AppendTextColumn(_("Fixture type"), wxDATAVIEW_CELL_INERT, 220,
+  table->AppendToggleColumn(_("Create"), wxDATAVIEW_CELL_ACTIVATABLE, 65,
+                            wxALIGN_CENTER, flags);
+  table->AppendTextColumn(_("Fixture type"), wxDATAVIEW_CELL_EDITABLE, 220,
                           wxALIGN_LEFT, flags);
   table->AppendTextColumn(_("Qty"), wxDATAVIEW_CELL_INERT, 55, wxALIGN_RIGHT,
                           flags);
@@ -142,6 +146,8 @@ void RiderFixtureResolutionDialog::BuildLayout() {
               &RiderFixtureResolutionDialog::OnSelectionChanged, this);
   table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
               &RiderFixtureResolutionDialog::OnItemActivated, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED,
+              &RiderFixtureResolutionDialog::OnValueChanged, this);
   useSuggestedButton->Bind(wxEVT_BUTTON,
                            &RiderFixtureResolutionDialog::OnUseSuggested, this);
   searchButton->Bind(wxEVT_BUTTON, &RiderFixtureResolutionDialog::OnSearch,
@@ -160,14 +166,15 @@ void RiderFixtureResolutionDialog::RefreshTable() {
   table->DeleteAllItems();
   for (const auto &item : analysis.items) {
     wxVector<wxVariant> row;
-    row.push_back(wxString::FromUTF8(item.request.typeName));
+    row.push_back(item.create);
+    row.push_back(wxString::FromUTF8(item.effectiveFixtureType));
     row.push_back(wxString::Format("%d", item.request.quantity));
     row.push_back(JoinPositions(item.request.positions));
     row.push_back(FormatCatalogIdentity(item));
     row.push_back(item.selectedMode.empty()
                       ? wxString("-")
                       : wxString::FromUTF8(item.selectedMode));
-    row.push_back(wxString::FromUTF8(rider_fixture_resolution::StateName(item.state)));
+    row.push_back(wxString::FromUTF8(rider_fixture_resolution::OriginName(item.origin)));
     row.push_back(wxString::FromUTF8(item.details));
     table->AppendItem(row);
   }
@@ -179,23 +186,31 @@ void RiderFixtureResolutionDialog::RefreshTable() {
 // Updates row-action availability for the selected fixture row.
 void RiderFixtureResolutionDialog::RefreshSelectionControls() {
   rider_fixture_resolution::Item *item = SelectedItem();
-  useSuggestedButton->Enable(item && item->state == rider_fixture_resolution::State::Suggested &&
+  useSuggestedButton->Enable(item && item->create && item->state == rider_fixture_resolution::State::Suggested &&
                              item->suggestedEntry.has_value());
-  searchButton->Enable(item && item->state != rider_fixture_resolution::State::Dictionary);
-  useGenericButton->Enable(item && item->state != rider_fixture_resolution::State::Dictionary);
+  searchButton->Enable(item && item->create && item->state != rider_fixture_resolution::State::Dictionary);
+  useGenericButton->Enable(item && item->create && item->state != rider_fixture_resolution::State::Dictionary);
 }
 
 // Updates the real-mapping count while keeping Generic confirmation available.
 void RiderFixtureResolutionDialog::RefreshSummary() {
-  const size_t realMappings = static_cast<size_t>(std::count_if(
+  const size_t created = static_cast<size_t>(std::count_if(
+      analysis.items.begin(), analysis.items.end(), [](const auto &item) {
+        return item.create;
+      }));
+  const size_t automatic = static_cast<size_t>(std::count_if(
       analysis.items.begin(), analysis.items.end(),
       [](const auto &item) {
-        return item.state == rider_fixture_resolution::State::Dictionary ||
-               (item.selectedEntry && !item.RequiresModeSelection());
+        return item.create && item.origin == rider_fixture_resolution::ResolutionOrigin::AutomaticMatch;
       }));
+  const size_t generic = static_cast<size_t>(std::count_if(
+      analysis.items.begin(), analysis.items.end(), [](const auto &item) {
+        return item.create && item.origin == rider_fixture_resolution::ResolutionOrigin::GenericFallback;
+      }));
+  const size_t skipped = analysis.items.size() - created;
   summaryLabel->SetLabel(wxString::Format(
-      _("%zu real mappings selected; remaining rows use Generic"),
-      realMappings));
+      _("%zu fixture types will be created · %zu automatic matches · %zu generic · %zu skipped"),
+      created, automatic, generic, skipped));
   resolveButton->Enable(true);
 }
 
@@ -215,13 +230,15 @@ void RiderFixtureResolutionDialog::OnSelectionChanged(wxDataViewEvent &event) {
 
 // Edits a row mode through the activated Mode cell using valid profile modes.
 void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
-  if (event.GetColumn() != 4)
+  if (event.GetColumn() != 5)
     return;
   const int activatedRow = table->ItemToRow(event.GetItem());
   if (activatedRow != wxNOT_FOUND)
     table->SelectRow(activatedRow);
   auto *item = SelectedItem();
   if (!item)
+    return;
+  if (!item->create)
     return;
   std::vector<std::string> modes;
   if (item->state == rider_fixture_resolution::State::Dictionary &&
@@ -251,7 +268,38 @@ void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
       return;
     item->selectedMode = choice.GetStringSelection().ToStdString();
   }
+  if (item->dictionaryEntry) {
+    item->origin = item->selectedMode == item->originalDictionaryMode
+        ? rider_fixture_resolution::ResolutionOrigin::Dictionary
+        : rider_fixture_resolution::ResolutionOrigin::DictionaryModified;
+  }
   RefreshTable();
+  RefreshSummary();
+}
+
+// Applies committed Create and Fixture type cell edits to the resolution model.
+void RiderFixtureResolutionDialog::OnValueChanged(wxDataViewEvent &event) {
+  const int row = table->ItemToRow(event.GetItem());
+  if (row == wxNOT_FOUND || row >= static_cast<int>(analysis.items.size()))
+    return;
+  auto &item = analysis.items[static_cast<size_t>(row)];
+  wxVariant value;
+  table->GetValue(value, static_cast<unsigned int>(row),
+                  static_cast<unsigned int>(event.GetColumn()));
+  if (event.GetColumn() == 0) {
+    rider_fixture_resolution::Service::SetCreate(item, value.GetBool());
+    if (item.create)
+      rider_fixture_resolution::Service::ResolveItem(item, dictionary,
+                                                      catalogEntries);
+  } else if (event.GetColumn() == 1) {
+    const std::string edited =
+        mvr::gdtf_catalog_matcher::TrimFixtureIdentity(value.GetString().ToStdString());
+    item.effectiveFixtureType = edited.empty() ? item.originalFixtureType : edited;
+    rider_fixture_resolution::Service::ResolveItem(item, dictionary,
+                                                    catalogEntries);
+  }
+  RefreshTable();
+  RefreshSelectionControls();
   RefreshSummary();
 }
 
@@ -289,12 +337,14 @@ void RiderFixtureResolutionDialog::OnSearch(wxCommandEvent &) {
                               ? GdtfCatalogDisplaySource::Online
                               : GdtfCatalogDisplaySource::Cached,
                           catalogSource != CatalogSource::Online,
-                          item->request.typeName, catalogEntries);
+                          item->effectiveFixtureType, catalogEntries);
   if (dialog.ShowModal() != wxID_OK)
     return;
   const auto selected = dialog.GetSelectedEntry();
   if (selected)
-    rider_fixture_resolution::Service::SelectCatalogEntry(*item, *selected);
+    rider_fixture_resolution::Service::SelectCatalogEntry(
+        *item, *selected,
+        rider_fixture_resolution::ResolutionOrigin::UserSelection);
   RefreshTable();
   RefreshSelectionControls();
   RefreshSummary();
@@ -369,7 +419,13 @@ RiderFixtureResolutionDialog::BuildFixtureRequests() const {
   std::vector<RiderImporter::FixtureTypeRequest> requests;
   requests.reserve(analysis.items.size());
   for (const auto &item : analysis.items)
-    requests.push_back(item.request);
+  {
+    auto request = item.request;
+    request.typeName = item.effectiveFixtureType;
+    request.normalizedTypeName = GdtfDictionary::NormalizeTypeKey(
+        item.effectiveFixtureType);
+    requests.push_back(std::move(request));
+  }
   return requests;
 }
 

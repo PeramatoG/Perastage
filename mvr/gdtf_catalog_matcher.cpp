@@ -463,7 +463,11 @@ GdtfDownloadMatch SelectBestDownloadMatch(
       const auto requestedModel = BuildCanonicalFixtureModel(
           identity, request.manufacturer,
           FixtureIdentitySource::AuthoritativeGdtf);
-      auto tier = ComputeFixtureNameMatchTier(entry.fixtureName, identity);
+      auto tier = std::max(
+          ComputeFixtureNameMatchTier(entry.fixtureName, identity),
+          ComputeFixtureNameMatchTier(entry.manufacturer + " " +
+                                          entry.fixtureName,
+                                      identity));
       if (tier < FixtureNameMatchTier::CoreName && !catalogModel.canonicalText.empty() &&
           catalogModel.canonicalText == requestedModel.canonicalText)
         tier = FixtureNameMatchTier::CoreName;

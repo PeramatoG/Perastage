@@ -125,7 +125,8 @@ void LogAnalysisCounts(const rider_fixture_resolution::Analysis &analysis) {
 PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
                                            ConfigManager &configManager,
                                            const std::string &text,
-                                           std::string *filteredTextOut) {
+                                           std::string *filteredTextOut,
+                                           RiderImporter::ImportPlan *importPlanOut) {
   const auto preflightStarted = std::chrono::steady_clock::now();
   const auto riderStarted = std::chrono::steady_clock::now();
   const RiderImporter::TextAnalysis riderAnalysis =
@@ -209,11 +210,19 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       std::to_string(riderAnalysisMs) + " dictionary_load_ms=" +
       std::to_string(dictionaryLoadMs) + " dialog_visible_ms=" +
       std::to_string(dialogVisibleMs));
-  RiderFixtureResolutionDialog dialog(parent, std::move(analysis),
+  RiderFixtureResolutionDialog dialog(parent, std::move(analysis), dictionary,
                                       loadCachedCatalog, loadOnlineCatalog);
   if (dialog.ShowModal() != wxID_OK)
     return PreflightResult::Cancelled;
   analysis = dialog.TakeAnalysis();
+  if (importPlanOut) {
+    importPlanOut->fixtureSelections.clear();
+    for (const auto &item : analysis.items) {
+      importPlanOut->fixtureSelections.push_back({
+          item.request.normalizedTypeName, item.effectiveFixtureType,
+          item.create});
+    }
+  }
   LogAnalysisCounts(analysis);
 
   struct DownloadedSelection {
@@ -234,6 +243,8 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   };
 
   for (const auto &item : analysis.items) {
+    if (!item.create)
+      continue;
     if (!item.selectedEntry)
       continue;
     const std::string rid = item.selectedEntry->rid;
@@ -287,6 +298,8 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   }
 
   for (const auto &item : analysis.items) {
+    if (!item.create)
+      continue;
     if (!item.selectedEntry)
       continue;
     const auto found = downloads.find(item.selectedEntry->rid);
@@ -302,6 +315,8 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   }
 
   for (const auto &item : analysis.items) {
+    if (!item.create)
+      continue;
     if (item.state != rider_fixture_resolution::State::Dictionary ||
         !item.dictionaryEntry ||
         item.selectedMode == item.dictionaryEntry->mode)
@@ -317,6 +332,8 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   }
 
   for (const auto &item : analysis.items) {
+    if (!item.create)
+      continue;
     if (!item.selectedEntry)
       continue;
     const auto &downloaded = downloads.at(item.selectedEntry->rid);

@@ -93,6 +93,10 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
+    searchSizer->Add(new wxStaticText(this, wxID_ANY, _("Search:")), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+    generalQueryCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
+                                     wxDefaultSize, wxTE_PROCESS_ENTER);
+    searchSizer->Add(generalQueryCtrl, 1, wxRIGHT, 10);
     searchSizer->Add(new wxStaticText(this, wxID_ANY, _("Manufacturer:")), 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
     manufacturerCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition,
                                      wxDefaultSize, wxTE_PROCESS_ENTER);
@@ -156,8 +160,10 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
 
     manufacturerCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     fixtureCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
+    generalQueryCtrl->Bind(wxEVT_TEXT_ENTER, &GdtfSearchDialog::OnSearch, this);
     manufacturerCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
     fixtureCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
+    generalQueryCtrl->Bind(wxEVT_TEXT, &GdtfSearchDialog::OnSearchTextChanged, this);
     downloadButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnDownload, this);
     prevPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnPrevPage, this);
     nextPageButton->Bind(wxEVT_BUTTON, &GdtfSearchDialog::OnNextPage, this);
@@ -172,7 +178,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
         ParseList(currentListData);
     else
         entries = std::move(initialParsedEntries);
-    fixtureCtrl->ChangeValue(wxString::FromUTF8(initialFixtureQuery));
+    generalQueryCtrl->ChangeValue(wxString::FromUTF8(initialFixtureQuery));
     UpdateResults();
     UpdateStatusMessage(false);
 }
@@ -224,15 +230,23 @@ void GdtfSearchDialog::UpdateResults()
     const auto matches = mvr::gdtf_catalog_parser::FilterCatalogEntries(
         entries, manufacturerCtrl->GetValue().ToStdString(),
         fixtureCtrl->GetValue().ToStdString());
-    for (std::size_t index : matches)
-        filteredIndices.push_back(static_cast<int>(index));
+    const std::string general = mvr::gdtf_catalog_matcher::NormalizeForGdtfMatch(
+        generalQueryCtrl->GetValue().ToStdString());
+    for (std::size_t index : matches) {
+        const auto& entry = entries[index];
+        const std::string identity =
+            mvr::gdtf_catalog_matcher::NormalizeForGdtfMatch(
+                entry.manufacturer + " " + entry.fixtureName);
+        if (general.empty() || identity.find(general) != std::string::npos)
+            filteredIndices.push_back(static_cast<int>(index));
+    }
 
     lastFilterMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                        std::chrono::steady_clock::now() - filterStart)
                        .count();
     MaybeLogVerboseCatalogTrace(wxString::Format(
-        "Filtering manufacturer='%s' fixture='%s' matches=%zu filter_ms=%lld",
-        manufacturerCtrl->GetValue(), fixtureCtrl->GetValue(),
+        "Filtering query='%s' manufacturer='%s' fixture='%s' matches=%zu filter_ms=%lld",
+        generalQueryCtrl->GetValue(), manufacturerCtrl->GetValue(), fixtureCtrl->GetValue(),
         filteredIndices.size(), static_cast<long long>(lastFilterMs)));
 
     currentPage = 0;

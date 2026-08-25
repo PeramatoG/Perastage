@@ -40,7 +40,8 @@ int main() {
       {"PIXEL STROBE 800 RGB", "PIXELSTROBE800RGB", 2, {"LX3"}}};
   std::vector<GdtfCatalogEntry> catalog{
       {"revision-400", "Prolight Spain", "PIXEL STROBE 400 RGB",
-       {{"Standard", 24}}, 10, 5.0f}};
+       {{"Standard", 24}}, 10, 5.0f},
+      {"revision-jdc1", "GLP", "JDC1", {{"Standard", 62}}, 11, 5.0f}};
 
   Analysis analysis = Service::Analyze(requests, dictionary, catalog);
   assert(analysis.RequiresPreflight());
@@ -79,6 +80,20 @@ int main() {
       Service::Analyze({requests[1]}, dictionary, catalog);
   Service::MergeCatalogSuggestions(preservedChoice, backgroundMatch);
   assert(preservedChoice.items.front().state == State::Generic);
+
+  RiderImporter::FixtureTypeRequest editedRequest{
+      "GLP JDC1 16CH", "GLPJDC116CH", 4, {"LX1"}};
+  Analysis edited = Service::Analyze({editedRequest}, {}, catalog);
+  assert(edited.items.front().originalFixtureType == "GLP JDC1 16CH");
+  edited.items.front().effectiveFixtureType = "GLP JDC1";
+  Service::ResolveItem(edited.items.front(), {}, catalog);
+  assert(edited.items.front().originalFixtureType == "GLP JDC1 16CH");
+  assert(edited.items.front().effectiveFixtureType == "GLP JDC1");
+  assert(edited.items.front().selectedEntry);
+  assert(edited.items.front().selectedEntry->rid == "revision-jdc1");
+  assert(edited.items.front().origin == ResolutionOrigin::AutomaticMatch);
+  Service::SetCreate(edited.items.front(), false);
+  assert(edited.items.front().origin == ResolutionOrigin::Skipped);
 
   std::filesystem::remove(profilePath);
   return 0;

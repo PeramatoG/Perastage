@@ -21,6 +21,11 @@ Generic. Screen objects and video-control equipment are not treated as lighting
 fixtures. Cached catalog matching runs after the resolver is visible, and an
 empty or unavailable catalog leaves the offline Generic workflow usable.
 
+Fixture types can be corrected directly in the table without changing the
+source rider text. The **Create** checkbox can omit every fixture represented
+by a row while preserving trusses, screens, hoists, and other rider objects.
+Manual GDTF search uses the combined manufacturer and fixture identity.
+
 Double-click a row's **Mode** cell to choose from its valid modes. Dictionary
 rows show the mapped local GDTF filename, and confirmed dictionary-mode changes
 are saved only after **Resolve and create**.

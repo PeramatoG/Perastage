@@ -29,6 +29,7 @@ public:
   using CatalogLoader = std::function<std::optional<CatalogData>()>;
   RiderFixtureResolutionDialog(
       wxWindow *parent, rider_fixture_resolution::Analysis analysis,
+      std::unordered_map<std::string, GdtfDictionary::Entry> dictionary,
       CatalogLoader cachedCatalogLoader, CatalogLoader onlineCatalogLoader);
 
   rider_fixture_resolution::Analysis TakeAnalysis();
@@ -40,6 +41,7 @@ private:
   void RefreshSummary();
   void OnSelectionChanged(wxDataViewEvent &event);
   void OnItemActivated(wxDataViewEvent &event);
+  void OnValueChanged(wxDataViewEvent &event);
   void OnUseSuggested(wxCommandEvent &event);
   void OnSearch(wxCommandEvent &event);
   void OnUseGeneric(wxCommandEvent &event);
@@ -52,6 +54,7 @@ private:
   rider_fixture_resolution::Item *SelectedItem();
 
   rider_fixture_resolution::Analysis analysis;
+  std::unordered_map<std::string, GdtfDictionary::Entry> dictionary;
   std::string catalogPayload;
   std::string catalogUpdatedAt;
   std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> catalogEntries;

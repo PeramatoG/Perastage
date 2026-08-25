@@ -45,6 +45,12 @@ snapshot.
 Both **Create from text** and file-based **Import Rider** use this prepared
 analysis and the same fixture-resolution preflight before scene mutation.
 
+Each resolution row preserves its immutable parsed fixture identity separately
+from its editable effective fixture type. A prepared import plan applies the
+effective type or skips the original normalized request during fixture creation;
+non-fixture scene elements are unaffected. Automatic resolution delegates to
+`SelectBestDownloadMatch()` from the shared MVR matcher.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

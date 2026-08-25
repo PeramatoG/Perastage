@@ -34,6 +34,14 @@ public:
         std::string filteredText;
         std::vector<FixtureTypeRequest> fixtureTypes;
     };
+    struct FixtureImportSelection {
+        std::string originalNormalizedTypeName;
+        std::string effectiveTypeName;
+        bool create = true;
+    };
+    struct ImportPlan {
+        std::vector<FixtureImportSelection> fixtureSelections;
+    };
     struct ProgressState {
         std::string stage;
         int completed = 0;
@@ -60,5 +68,6 @@ public:
     // Import from raw rider text. Returns true on success.
     static bool ImportText(const std::string& text,
                            ProgressCallback progressCallback = {},
-                           bool skipFixtureFilterPreview = false);
+                           bool skipFixtureFilterPreview = false,
+                           const ImportPlan* importPlan = nullptr);
 };

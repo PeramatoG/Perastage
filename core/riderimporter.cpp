@@ -1851,7 +1851,8 @@ void ApplyImportedGdtfMetadata(Fixture &fixture,
 // Imports rider text into the current scene.
 bool RiderImporter::ImportText(const std::string &text,
                                ProgressCallback progressCallback,
-                               bool skipFixtureFilterPreview) {
+                               bool skipFixtureFilterPreview,
+                               const ImportPlan *importPlan) {
   if (text.empty())
     return false;
   RiderImportTimingStats timing;
@@ -2151,6 +2152,21 @@ bool RiderImporter::ImportText(const std::string &text,
           screenObjectRequests.push_back(std::move(request));
         }
         return;
+      }
+      const std::string originalNormalized =
+          GdtfDictionary::NormalizeTypeKey(part);
+      if (importPlan) {
+        const auto selection = std::find_if(
+            importPlan->fixtureSelections.begin(),
+            importPlan->fixtureSelections.end(), [&](const auto &candidate) {
+              return candidate.originalNormalizedTypeName == originalNormalized;
+            });
+        if (selection != importPlan->fixtureSelections.end()) {
+          if (!selection->create)
+            return;
+          if (!selection->effectiveTypeName.empty())
+            part = selection->effectiveTypeName;
+        }
       }
       int &counter = nameCounters[part];
       for (int i = 0; i < quantity; ++i) {
