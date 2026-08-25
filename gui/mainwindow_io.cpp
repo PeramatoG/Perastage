@@ -78,6 +78,16 @@ std::string Utf8StringFromPath(const std::filesystem::path &path) {
   return std::string(utf8.begin(), utf8.end());
 }
 
+// Returns the current project name suitable for a suggested output file name.
+wxString SuggestedProjectFileBaseName(const std::string &projectPath,
+                                      const wxString &projectDisplayName) {
+  if (!projectPath.empty())
+    return wxFileName(wxString::FromUTF8(projectPath)).GetName();
+  if (!projectDisplayName.IsEmpty() && projectDisplayName != "Untitled")
+    return projectDisplayName;
+  return {};
+}
+
 // Copies a generated fixture GDTF into the project MVR root and returns its
 // archive-relative file name.
 bool CopyFixtureGdtfIntoProject(const std::filesystem::path &sourcePath,
@@ -365,16 +375,11 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
     projDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("projects"));
 
-  wxString suggestedProjectName;
-  if (!currentProjectPath.empty()) {
-    suggestedProjectName =
-        wxFileName(wxString::FromUTF8(currentProjectPath)).GetName();
-  } else if (!currentProjectDisplayName.IsEmpty() &&
-             currentProjectDisplayName != "Untitled") {
-    suggestedProjectName = currentProjectDisplayName;
-  }
+  const wxString suggestedProjectName = SuggestedProjectFileBaseName(
+      currentProjectPath, currentProjectDisplayName);
   const wxString suggestedFileName =
-      suggestedProjectName.IsEmpty() ? wxString() : suggestedProjectName + projectExtension;
+      suggestedProjectName.IsEmpty() ? wxString()
+                                     : suggestedProjectName + projectExtension;
 
   wxFileDialog dlg(this, "Save Project", projDir, suggestedFileName, filter,
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -558,8 +563,13 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   diagnostics::DiagnosticLogger::Info("MVR export requested.");
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
-  wxFileDialog saveFileDialog(this, "Export MVR file", miscDir, "",
-                              "MVR files (*.mvr)|*.mvr",
+  const wxString suggestedProjectName = SuggestedProjectFileBaseName(
+      currentProjectPath, currentProjectDisplayName);
+  const wxString suggestedFileName = suggestedProjectName.IsEmpty()
+                                         ? wxString()
+                                         : suggestedProjectName + ".mvr";
+  wxFileDialog saveFileDialog(this, "Export MVR file", miscDir,
+                              suggestedFileName, "MVR files (*.mvr)|*.mvr",
                               wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
   if (saveFileDialog.ShowModal() == wxID_CANCEL)
