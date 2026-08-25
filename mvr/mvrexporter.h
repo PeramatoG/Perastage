@@ -18,6 +18,7 @@
 #pragma once
 
 #include "mvr_export_options.h"
+#include "mvr_export_diagnostic.h"
 
 #include <cstdint>
 #include <string>
@@ -43,7 +44,9 @@ public:
     // Serialize an isolated canonical scene snapshot without modifying live project state.
     bool ExportCanonicalSnapshotToBuffer(const MvrScene& scene,
                                          std::vector<uint8_t>& outBytes);
-    // Return non-fatal export warnings collected during the most recent export.
+    // Return structured diagnostics collected during the most recent export.
+    const std::vector<MvrExportDiagnostic>& GetExportDiagnostics() const;
+    // Return a legacy text view derived from structured diagnostics.
     const std::vector<std::string>& GetExportWarnings() const;
 
 private:
@@ -55,5 +58,8 @@ private:
     bool SerializeSnapshotToBuffer(const MvrScene& scene,
                                    std::vector<uint8_t>& outBytes,
                                    const MvrExportOptions& options);
-    std::vector<std::string> m_exportWarnings;
+    // Records and logs one structured diagnostic.
+    void AddDiagnostic(MvrExportDiagnostic diagnostic);
+    std::vector<MvrExportDiagnostic> m_exportDiagnostics;
+    mutable std::vector<std::string> m_exportWarningAdapter;
 };

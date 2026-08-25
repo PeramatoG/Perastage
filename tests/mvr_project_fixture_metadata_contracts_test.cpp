@@ -373,11 +373,12 @@ int main() {
   MvrExporter exporter;
   const fs::path standalonePath = workspace.Path() / "standalone.mvr";
   assert(exporter.ExportToFile(standalonePath.string(), MvrExportOptions{}));
-  assert(std::any_of(exporter.GetExportWarnings().begin(),
-                     exporter.GetExportWarnings().end(),
-                     [](const std::string &warning) {
-                       return warning.find("MalformedProvider") !=
-                              std::string::npos;
+  assert(std::any_of(exporter.GetExportDiagnostics().begin(),
+                     exporter.GetExportDiagnostics().end(),
+                     [](const MvrExportDiagnostic &diagnostic) {
+                       return diagnostic.code ==
+                                  MvrExportDiagnosticCode::ForeignMetadataDiscarded &&
+                              diagnostic.userVisible;
                      }));
   const ArchiveSnapshot standalone = ReadMvr(standalonePath);
   const SceneSignature standaloneSignature =

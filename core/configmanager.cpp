@@ -558,11 +558,6 @@ bool ConfigManager::SaveProject(const std::string &path) {
         const bool exported =
             exporter.ExportToBuffer(sceneBytes, CanonicalMvrExportOptions());
         const auto sceneExportEnd = std::chrono::steady_clock::now();
-        for (const std::string &warning : exporter.GetExportWarnings()) {
-          Logger::Instance().Log(Logger::Level::Warn,
-                                 "Project save MVR export warning: " +
-                                     warning);
-        }
         Logger::Instance().Log(
             Logger::Level::Info,
             "Project save scene serialization duration_ms=" +

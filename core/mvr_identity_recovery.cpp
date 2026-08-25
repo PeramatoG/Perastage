@@ -65,9 +65,11 @@ void AddDiagnostic(RecoveryResult &result, const std::string &kind,
                    const std::string &name, const std::string &context,
                    const std::string &identitySource,
                    const std::string &original, const std::string &replacement,
-                   RecoveryReason reason) {
+                   RecoveryReason reason, bool generatedNewIdentity = false,
+                   bool conflictingValidIdentities = false) {
   result.diagnostics.push_back(
-      {kind, name, context, identitySource, original, replacement, reason});
+      {kind, name, context, identitySource, original, replacement, reason,
+       generatedNewIdentity, conflictingValidIdentities});
 }
 
 // Derives a collision-free deterministic replacement within one identity scope.
@@ -136,32 +138,38 @@ void DiagnoseIdentityInputs(RecoveryResult &result, const std::string &kind,
                             const std::string &replacement) {
   const std::string canonicalKey = CanonicalizeUuid(key);
   const std::string canonicalField = CanonicalizeUuid(field);
+  const bool generatedNewIdentity = canonicalKey.empty() && canonicalField.empty();
+  const bool conflictingValidIdentities = !canonicalKey.empty() &&
+                                          !canonicalField.empty() &&
+                                          canonicalKey != canonicalField;
   if (key.empty())
     AddDiagnostic(result, kind, name, context, "map-key", key, replacement,
-                  RecoveryReason::Missing);
+                  RecoveryReason::Missing, generatedNewIdentity);
   else if (canonicalKey.empty())
     AddDiagnostic(result, kind, name, context, "map-key", key, replacement,
-                  RecoveryReason::Malformed);
+                  RecoveryReason::Malformed, generatedNewIdentity);
   else if (canonicalKey != key)
     AddDiagnostic(result, kind, name, context, "map-key", key, replacement,
-                  RecoveryReason::Canonicalized);
+                  RecoveryReason::Canonicalized, generatedNewIdentity);
 
   if (field.empty())
     AddDiagnostic(result, kind, name, context, "object-field", field,
-                  replacement, RecoveryReason::Missing);
+                  replacement, RecoveryReason::Missing, generatedNewIdentity);
   else if (canonicalField.empty())
     AddDiagnostic(result, kind, name, context, "object-field", field,
-                  replacement, RecoveryReason::Malformed);
+                  replacement, RecoveryReason::Malformed, generatedNewIdentity);
   else if (canonicalField != field)
     AddDiagnostic(result, kind, name, context, "object-field", field,
-                  replacement, RecoveryReason::Canonicalized);
+                  replacement, RecoveryReason::Canonicalized,
+                  generatedNewIdentity);
 
   if (!key.empty() && !field.empty() &&
       (canonicalKey.empty() || canonicalField.empty() ||
        canonicalKey != canonicalField)) {
     AddDiagnostic(result, kind, name, context, "map-key/object-field",
                   key + " | " + field, replacement,
-                  RecoveryReason::KeyFieldMismatch);
+                  RecoveryReason::KeyFieldMismatch, generatedNewIdentity,
+                  conflictingValidIdentities);
   }
 }
 

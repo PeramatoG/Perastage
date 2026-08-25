@@ -26,6 +26,8 @@ struct RecoveryDiagnostic {
   std::string originalIdentity;
   std::string replacementIdentity;
   RecoveryReason reason = RecoveryReason::Missing;
+  bool generatedNewIdentity = false;
+  bool conflictingValidIdentities = false;
 };
 
 struct RecoveryResult {

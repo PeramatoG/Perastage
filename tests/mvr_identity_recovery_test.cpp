@@ -199,6 +199,22 @@ void TestKeyFieldConflictMatrix() {
   assert(HasReason(first, mvridentity::RecoveryReason::Malformed));
   assert(HasReason(first, mvridentity::RecoveryReason::Missing));
   assert(HasReason(first, mvridentity::RecoveryReason::KeyFieldMismatch));
+  size_t validConflicts = 0;
+  size_t generatedIdentities = 0;
+  for (const auto &diagnostic : first.diagnostics) {
+    if (diagnostic.conflictingValidIdentities)
+      ++validConflicts;
+    if (diagnostic.generatedNewIdentity)
+      ++generatedIdentities;
+    if (diagnostic.objectName.empty() &&
+        (diagnostic.originalIdentity == "bad-field" ||
+         diagnostic.originalIdentity.empty())) {
+      assert(!diagnostic.conflictingValidIdentities);
+      assert(!diagnostic.generatedNewIdentity);
+    }
+  }
+  assert(validConflicts == 1);
+  assert(generatedIdentities == 0);
   assert(scene.sceneObjects.contains(kSceneObjectUuid));
   assert(scene.sceneObjects.contains(kSupportUuid));
   assert(scene.sceneObjects.contains(kFixtureUuid));
@@ -207,6 +223,26 @@ void TestKeyFieldConflictMatrix() {
   const auto second =
       mvridentity::RecoverSceneIdentities(scene, "key-field-matrix");
   assert(second.diagnostics.empty());
+}
+
+// Verifies unusable key and field identities mark one deterministic generation event.
+void TestGeneratedIdentityClassification() {
+  MvrScene scene;
+  SceneObject object;
+  object.name = "Generated identity";
+  object.uuid = "malformed-field";
+  scene.sceneObjects["malformed-key"] = object;
+
+  const auto result =
+      mvridentity::RecoverSceneIdentities(scene, "generated-identity");
+  size_t generatedEvents = 0;
+  for (const auto &diagnostic : result.diagnostics) {
+    if (diagnostic.generatedNewIdentity &&
+        diagnostic.reason == mvridentity::RecoveryReason::KeyFieldMismatch)
+      ++generatedEvents;
+  }
+  assert(generatedEvents == 1);
+  AssertCanonicalMap(scene.sceneObjects);
 }
 
 // Verifies layer duplicates recover deterministically and identity survives
@@ -287,6 +323,7 @@ int main() {
   TestSpellingsAndReferences();
   TestDuplicateAndAmbiguousAliases();
   TestKeyFieldConflictMatrix();
+  TestGeneratedIdentityClassification();
   TestLayerIdentityMatrix();
   TestUnresolvedReferenceDiagnostic();
   assert(RecoverDeterministicTrussUuid() == RecoverDeterministicTrussUuid());

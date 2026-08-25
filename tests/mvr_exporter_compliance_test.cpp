@@ -648,9 +648,52 @@ int main() {
   malformedSceneObject.modelFile = "primitive:cube";
   scene.sceneObjects[malformedSceneObject.uuid] = malformedSceneObject;
 
+  Fixture noProfileFixture;
+  noProfileFixture.uuid = "90000000-0000-4000-8000-000000000001";
+  noProfileFixture.instanceName = "No profile fixture";
+  noProfileFixture.address = "24.1";
+  scene.fixtures[noProfileFixture.uuid] = noProfileFixture;
+
+  Fixture missingProfileFixture;
+  missingProfileFixture.uuid = "90000000-0000-4000-8000-000000000002";
+  missingProfileFixture.instanceName = "Missing profile fixture";
+  missingProfileFixture.gdtfSpec =
+      (tempDir / "missing-profile.gdtf").generic_string();
+  missingProfileFixture.position = "unresolvable-position";
+  missingProfileFixture.address = "25.1";
+  scene.fixtures[missingProfileFixture.uuid] = missingProfileFixture;
+
   MvrExporter exporter;
   fs::path mvrPath = tempDir / "Test1.mvr";
   assert(exporter.ExportToFile(mvrPath.generic_string()));
+  size_t generatedMalformedObjectWarnings = 0;
+  size_t fixtureFallbackWarnings = 0;
+  size_t unresolvedPositionWarnings = 0;
+  for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
+    if (diagnostic.code == MvrExportDiagnosticCode::IdentityCanonicalized) {
+      assert(diagnostic.severity == MvrExportDiagnosticSeverity::Info);
+      assert(!diagnostic.userVisible);
+    }
+    if (diagnostic.code == MvrExportDiagnosticCode::IdentityGenerated &&
+        diagnostic.objectName == "Malformed SceneObject Recovery" &&
+        diagnostic.userVisible) {
+      ++generatedMalformedObjectWarnings;
+    }
+    if (diagnostic.code == MvrExportDiagnosticCode::GdtfFallbackUsed &&
+        (diagnostic.objectName == "No profile fixture" ||
+         diagnostic.objectName == "Missing profile fixture") &&
+        diagnostic.userVisible) {
+      ++fixtureFallbackWarnings;
+    }
+    if (diagnostic.code == MvrExportDiagnosticCode::ReferenceCleared &&
+        diagnostic.objectName == "Missing profile fixture" &&
+        diagnostic.userVisible) {
+      ++unresolvedPositionWarnings;
+    }
+  }
+  assert(generatedMalformedObjectWarnings == 1);
+  assert(fixtureFallbackWarnings == 2);
+  assert(unresolvedPositionWarnings == 1);
 
   const auto mvrGeometryEntries = ReadArchiveTextEntries(mvrPath);
   std::unordered_set<std::string> entries;

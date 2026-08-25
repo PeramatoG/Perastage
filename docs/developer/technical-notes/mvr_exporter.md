@@ -1,6 +1,52 @@
-# MVR exporter warning behavior
+# MVR exporter diagnostic behavior
 
-Perastage MVR export now distinguishes between fatal validation errors and non-fatal resource warnings.
+MVR export reports `MvrExportDiagnostic` records rather than treating log text as
+presentation data. Each record has a stable code, `Info`/`Warning`/`Error`
+severity, semantic impact, explicit user-visibility policy, optional object and
+resource context, and a technical detail for logging. The model is independent
+of wxWidgets.
+
+## Classification policy
+
+The exporter classifies the effect of recovery, not just its original reason.
+Canonical UUID spelling changes, inferred layers, safely recovered duplicate
+identity fields, transform recalculation that preserves world transforms,
+legacy Position remapping, normal pruning, successful GDTF canonicalization,
+and requested Symbol/Symdef preservation or flattening are `Info` and log-only.
+In particular, uppercase, braced, or otherwise noncanonical spelling represents
+the same UUID and is not a user warning.
+
+Meaningful identity replacement, cleared references, duplicate numeric fixture
+IDs, fallback or missing GDTFs, omitted resources or textures, placeholder or
+empty geometry, rejected foreign metadata, omitted invalid DMX addresses, and
+an unavailable requested compatibility representation are user-visible
+`Warning` records. Structural validation, transform integrity, canonicalization,
+archive I/O, and hierarchy recursion failures are user-visible `Error` records
+and make the operation fail.
+
+Identity storage mismatches are evaluated using both sources. A malformed or
+missing field remains log-only when the other source preserves the effective
+identity; two different valid identities produce one `IdentityConflict`, while
+two unusable sources produce one `IdentityGenerated`. Unresolved non-empty
+Position references produce `ReferenceCleared` because the reference is omitted.
+Failure to create a required physical-property GDTF patch or mandatory
+SceneObject placeholder geometry is fatal rather than silently exporting stale
+properties or deleting the object.
+
+The stable code policy is:
+
+| Codes | Severity | Normal UI |
+|---|---|---|
+| `IdentityCanonicalized`, `LayerInferred`, `TransformRepaired`, `InternalRecovery` | Info | Hidden |
+| `IdentityGenerated`, `IdentityReassigned`, `IdentityConflict`, `ReferenceCleared`, `SymbolIdentityReplaced`, `FixtureIdReassigned` | Warning | Shown |
+| `GdtfFallbackUsed`, `GdtfMissing`, `TrussGdtfMissing`, `GdtfPatchFailed` | Warning | Shown |
+| `TextureMissing`, `ResourceMissing`, `ResourceDuplicate`, `SupportGeometryMissing`, `PlaceholderGeometryUsed` | Warning | Shown |
+| `CompatibilityRepresentationUnavailable`, `ForeignMetadataDiscarded`, `DmxAddressOmitted` | Warning | Shown |
+| `TransformInvalid`, `StructuralValidationFailed`, `CanonicalizationFailed`, `ArchiveIoFailed`, `HierarchyRecursion` | Error | Shown; export fails |
+
+`GetExportDiagnostics()` is the authoritative API. `GetExportWarnings()` is a
+temporary compatibility view built from non-Info structured records; callers
+must not infer policy by parsing its English text.
 
 ## Non-fatal warnings
 
@@ -9,15 +55,24 @@ When `GeneralSceneDescription.xml` references a `fileName`/`GDTFSpec` entry that
 - Missing file warning: `Referenced file '<name>' is missing from the archive and will be omitted.`
 - Duplicate file warning: `Referenced file '<name>' appears multiple times; duplicates will be ignored.`
 
-Warnings are available through `MvrExporter::GetExportWarnings()` after `ExportToFile(...)`/`ExportToBuffer(...)`.
+Diagnostics are available through `MvrExporter::GetExportDiagnostics()` after
+`ExportToFile(...)`/`ExportToBuffer(...)`.
 
 ## Fatal errors
 
-Structural MVR compliance errors still fail export (for example missing `GeneralSceneDescription`, invalid version, or invalid required IDs).
+Structural MVR compliance errors still fail export (for example missing
+`GeneralSceneDescription`, invalid version, or invalid required IDs). Every
+export-abort path retains a structured Error for the caller.
 
 ## UI behavior
 
-GUI code should show export warnings only after any busy overlay is destroyed, so dialogs remain visible to the user.
+Standalone GUI export shows exactly one result dialog. Warning summaries are
+aggregated by semantic code, while a bounded, resizable details control lists
+affected objects and resources. Log-only diagnostics never enter this summary.
+The persistent diagnostic log remains the owner of full technical context.
+Project persistence, canonical snapshots, and MVR-xchange remain non-modal and
+may inspect structured records according to their own policy; they do not log a
+second copy of exporter-owned diagnostics.
 ## MVR node validity notes
 
 Support is a standard MVR scene node and is preserved as `<Support>` during import/export; if geometry is missing, Perastage writes an empty `<Geometries/>` plus required `ChainLength` so the logical Support remains schema-valid without inventing model geometry. Generic `<SceneObject>` nodes require a `<Geometries>` child, so Perastage writes a small 10 cm placeholder cube when no source geometry is available instead of writing invalid XML. Truss children are emitted in XSD `xs:sequence` order, with `Matrix` before `Geometries`, fixture identifiers after geometry-related content, and `CustomIdType` before `CustomId`.

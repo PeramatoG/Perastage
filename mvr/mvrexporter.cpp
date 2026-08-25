@@ -524,7 +524,7 @@ static std::string ToLowerAscii(std::string value) {
 }
 
 static void LogLegacyPositionUuidWarning(const std::string &message) {
-  Logger::Instance().Log(Logger::Level::Warn, message);
+  Logger::Instance().Log(Logger::Level::Info, message);
 }
 
 static std::string
@@ -980,7 +980,7 @@ static std::string ResolveExportSymbolUuid(
     const std::string &candidateUuid, const std::string &containerUuid,
     const std::string &symdefUuid, const std::string &deterministicSeed,
     std::unordered_set<std::string> &usedSymbolUuids,
-    std::vector<std::string> *exportWarnings, const std::string &context) {
+    bool *replacedMeaningfulUuid, const std::string &context) {
   const std::string canonicalCandidate = CanonicalizeUuid(candidateUuid);
   const std::string canonicalContainer = CanonicalizeUuid(containerUuid);
   const std::string canonicalSymdef = CanonicalizeUuid(symdefUuid);
@@ -996,11 +996,8 @@ static std::string ResolveExportSymbolUuid(
     return canonicalCandidate;
   }
 
-  if (!TrimAscii(candidateUuid).empty() && exportWarnings) {
-    exportWarnings->push_back(
-        "MVR export replaced invalid or conflicting Symbol uuid '" +
-                              TrimAscii(candidateUuid) + "' for " + context + ".");
-  }
+  if (replacedMeaningfulUuid)
+    *replacedMeaningfulUuid = !TrimAscii(candidateUuid).empty();
 
   for (int suffix = 0;; ++suffix) {
     const std::string seed = deterministicSeed + "#" + std::to_string(suffix);
@@ -2398,27 +2395,63 @@ bool MvrExporter::ExportToFile(const std::string &filePath,
 bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                           const std::string &filePath,
                                           const MvrExportOptions &options) {
-  m_exportWarnings.clear();
+  m_exportDiagnostics.clear();
+  m_exportWarningAdapter.clear();
   MvrScene scene = sourceScene;
   const auto identityRecovery =
       mvridentity::RecoverSceneIdentities(scene, "editable-scene");
+  std::unordered_set<std::string> emittedIdentityRecoveryWarnings;
   for (const auto &diagnostic : identityRecovery.diagnostics) {
     const std::string message =
         mvridentity::FormatRecoveryDiagnostic(diagnostic);
-    m_exportWarnings.push_back(message);
-    Logger::Instance().Log(Logger::Level::Warn, message);
+    const bool validIdentityConflict = diagnostic.conflictingValidIdentities;
+    const bool needsGeneratedIdentity = diagnostic.generatedNewIdentity;
+    const bool visibleCandidate =
+        diagnostic.reason == mvridentity::RecoveryReason::Duplicate ||
+        validIdentityConflict ||
+        diagnostic.reason == mvridentity::RecoveryReason::AmbiguousReference ||
+        diagnostic.reason == mvridentity::RecoveryReason::UnresolvedReference ||
+        needsGeneratedIdentity;
+    const std::string recoveryEventKey = diagnostic.objectKind + "|" +
+                                         diagnostic.objectName + "|" +
+                                         diagnostic.replacementIdentity;
+    const bool visible = visibleCandidate &&
+                         emittedIdentityRecoveryWarnings
+                             .insert(recoveryEventKey)
+                             .second;
+    AddDiagnostic({visible ? (diagnostic.reason == mvridentity::RecoveryReason::Duplicate
+                                  ? MvrExportDiagnosticCode::IdentityReassigned
+                                  : validIdentityConflict
+                                        ? MvrExportDiagnosticCode::IdentityConflict
+                                        : diagnostic.reason == mvridentity::RecoveryReason::AmbiguousReference ||
+                                                  diagnostic.reason == mvridentity::RecoveryReason::UnresolvedReference
+                                              ? MvrExportDiagnosticCode::ReferenceCleared
+                                              : MvrExportDiagnosticCode::IdentityGenerated)
+                           : diagnostic.reason == mvridentity::RecoveryReason::InferredLayer
+                                 ? MvrExportDiagnosticCode::LayerInferred
+                                 : diagnostic.reason == mvridentity::RecoveryReason::Canonicalized
+                                       ? MvrExportDiagnosticCode::IdentityCanonicalized
+                                       : MvrExportDiagnosticCode::InternalRecovery,
+                   visible ? MvrExportDiagnosticSeverity::Warning
+                           : MvrExportDiagnosticSeverity::Info,
+                   visible ? MvrExportDiagnosticImpact::IdentityChanged
+                           : MvrExportDiagnosticImpact::None,
+                   visible, diagnostic.objectKind, diagnostic.objectName,
+                   diagnostic.replacementIdentity, {}, message});
   }
   const auto transformIntegrity =
       scene_transform_integrity::ValidateAndRepair(scene);
   for (const auto &diagnostic : transformIntegrity.diagnostics) {
     const std::string message =
         scene_transform_integrity::FormatDiagnostic(diagnostic);
-    m_exportWarnings.push_back(message);
-    Logger::Instance().Log(
-        diagnostic.severity == scene_transform_integrity::Severity::Fatal
-            ? Logger::Level::Error
-            : Logger::Level::Warn,
-        message);
+    const bool fatal = diagnostic.severity == scene_transform_integrity::Severity::Fatal;
+    AddDiagnostic({fatal ? MvrExportDiagnosticCode::TransformInvalid
+                         : MvrExportDiagnosticCode::TransformRepaired,
+                   fatal ? MvrExportDiagnosticSeverity::Error
+                         : MvrExportDiagnosticSeverity::Info,
+                   fatal ? MvrExportDiagnosticImpact::ExportFailed
+                         : MvrExportDiagnosticImpact::None,
+                   fatal, {}, {}, diagnostic.uuid, {}, message});
   }
   if (!transformIntegrity.success)
     return false;
@@ -2573,8 +2606,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (!sourcePath.empty())
       message << " source='" << sourcePath << "'";
     message << ": " << reason;
-    m_exportWarnings.push_back(message.str());
-    Logger::Instance().Log(Logger::Level::Error, message.str());
+    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                   fs::path(entryName).filename().generic_string(), message.str()});
     return false;
   };
   if (!output.IsOk())
@@ -2691,6 +2726,13 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (allowReuseBySource)
       sourceToArchivePath[sourceIdentityKey] = archivePath;
     resourceEntries.push_back({fs::path(normalizedSource), archivePath});
+    if (!fs::exists(fs::path(normalizedSource)))
+      AddDiagnostic({MvrExportDiagnosticCode::ResourceMissing,
+                     MvrExportDiagnosticSeverity::Warning,
+                     MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {},
+                     fs::path(preferredArchivePath).filename().generic_string(),
+                     "Referenced MVR resource could not be found and will be omitted: " +
+                         fs::path(preferredArchivePath).filename().generic_string()});
     return archivePath;
   };
 
@@ -2706,19 +2748,25 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (resolvedGdtfPath.empty() && allowFallback) {
       resolvedGdtfPath = ResolveFallbackFixtureGdtfPath();
       if (!resolvedGdtfPath.empty()) {
-        Logger::Instance().Log(
-            Logger::Level::Warn,
-            "MVR export could not resolve fixture GDTF '" + rawGdtfPath +
-                "'. Using fallback '" +
-                fs::path(resolvedGdtfPath).filename().generic_string() + "'.");
+        AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
+                       MvrExportDiagnosticSeverity::Warning,
+                       MvrExportDiagnosticImpact::DataSubstituted, true,
+                       "Fixture", {}, objectUuid,
+                       fs::path(rawGdtfPath).filename().generic_string(),
+                       "MVR export could not resolve fixture GDTF '" + rawGdtfPath +
+                           "'. Using fallback '" +
+                           fs::path(resolvedGdtfPath).filename().generic_string() + "'."});
       }
     }
     if (resolvedGdtfPath.empty() && !allowFallback) {
       const std::string message =
           "MVR export omitted missing explicit auxiliary Truss GDTF '" +
           rawGdtfPath + "'; no fallback was substituted.";
-      m_exportWarnings.push_back(message);
-      Logger::Instance().Log(Logger::Level::Warn, message);
+      AddDiagnostic({MvrExportDiagnosticCode::TrussGdtfMissing,
+                     MvrExportDiagnosticSeverity::Warning,
+                     MvrExportDiagnosticImpact::DataOmitted, true, "Truss", {},
+                     objectUuid, fs::path(rawGdtfPath).filename().generic_string(),
+                     message});
       return {};
     }
     const std::string gdtfSourceForExport =
@@ -2753,8 +2801,15 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           Collect3dsTextureReferences(modelPath);
       for (const std::string &textureRef : textureRefs) {
         fs::path texturePath;
-        if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath))
+        if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath)) {
+          AddDiagnostic({MvrExportDiagnosticCode::TextureMissing,
+                         MvrExportDiagnosticSeverity::Warning,
+                         MvrExportDiagnosticImpact::DataOmitted, true, "Model", {}, {},
+                         fs::path(textureRef).filename().generic_string(),
+                         "A referenced 3DS texture could not be found and was omitted: " +
+                             fs::path(textureRef).filename().generic_string()});
           continue;
+        }
 
         std::string preferredTextureName = SanitizeArchiveFileName(
             textureRef, texturePath.filename().generic_string());
@@ -2774,8 +2829,15 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           continue;
         const fs::path candidate =
             modelDir / PathUtils::PathFromUtf8(trimmedRef);
-        if (!fs::exists(candidate))
+        if (!fs::exists(candidate)) {
+          AddDiagnostic({MvrExportDiagnosticCode::TextureMissing,
+                         MvrExportDiagnosticSeverity::Warning,
+                         MvrExportDiagnosticImpact::DataOmitted, true, "Model", {}, {},
+                         fs::path(trimmedRef).filename().generic_string(),
+                         "A referenced glTF texture could not be found and was omitted: " +
+                             fs::path(trimmedRef).filename().generic_string()});
           continue;
+        }
 
         std::string preferredTextureName = SanitizeArchiveFileName(
             trimmedRef, candidate.filename().generic_string());
@@ -2928,8 +2990,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           "MVR export reassigned duplicate FixtureIDNumeric " +
           std::to_string(originalId) + " for fixture '" + fixtureName +
           "' to the next available value " + std::to_string(repairedId) + ".";
-      m_exportWarnings.push_back(message);
-      Logger::Instance().Log(Logger::Level::Warn, message);
+      AddDiagnostic({MvrExportDiagnosticCode::FixtureIdReassigned,
+                     MvrExportDiagnosticSeverity::Warning,
+                     MvrExportDiagnosticImpact::IdentityChanged, true, "Fixture",
+                     fixtureName, fixture.uuid, {}, message});
     };
 
     std::unordered_map<std::string, std::pair<std::string, int>> result;
@@ -2991,6 +3055,25 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   const auto assignedUnitNumbers =
       BuildFixtureUnitNumbersForExport(scene.fixtures);
 
+  auto resolveObjectPosition = [&](const std::string &objectType,
+                                   const std::string &objectName,
+                                   const std::string &objectUuid,
+                                   const std::string &positionId,
+                                   const std::string &positionName) {
+    const std::string resolved =
+        resolvePositionReference(positionId, positionName);
+    if (resolved.empty() && !TrimAscii(positionId).empty()) {
+      AddDiagnostic({MvrExportDiagnosticCode::ReferenceCleared,
+                     MvrExportDiagnosticSeverity::Warning,
+                     MvrExportDiagnosticImpact::DataOmitted, true, objectType,
+                     objectName, objectUuid, {},
+                     "MVR export omitted an unresolved Position reference for " +
+                         objectType + " '" + objectName + "' (uuid=" +
+                         objectUuid + ")."});
+    }
+    return resolved;
+  };
+
   tinyxml2::XMLDocument doc;
   doc.InsertEndChild(
       doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
@@ -3021,10 +3104,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     g3d->InsertEndChild(geoMatrix);
     geos->InsertEndChild(g3d);
     owner->InsertEndChild(geos);
-    Logger::Instance().Log(
-        Logger::Level::Warn,
-                           std::string("MVR export added placeholder cube geometry for ") +
-                               nodeName + " uuid=" + objectUuid);
+    AddDiagnostic({MvrExportDiagnosticCode::PlaceholderGeometryUsed,
+                   MvrExportDiagnosticSeverity::Warning,
+                   MvrExportDiagnosticImpact::DataSubstituted, true, nodeName, {},
+                   objectUuid, {}, "MVR export substituted placeholder geometry for " +
+                                       std::string(nodeName) + "."});
     return true;
   };
 
@@ -3043,8 +3127,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const std::string warning =
         "Ignored opaque MVR UserData provider block '" + block.provider +
         "': " + reason;
-    m_exportWarnings.push_back(warning);
-    Logger::Instance().Log(Logger::Level::Warn, warning);
+    AddDiagnostic({MvrExportDiagnosticCode::ForeignMetadataDiscarded,
+                   MvrExportDiagnosticSeverity::Warning,
+                   MvrExportDiagnosticImpact::DataOmitted, true, "UserData", {},
+                   {}, block.provider, warning});
   };
   for (const MvrOpaqueUserDataBlock &block : scene.opaqueUserDataBlocks) {
     if (ToLowerAscii(TrimAscii(block.provider)) == "perastage") {
@@ -3290,14 +3376,17 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (fixtureSourceGdtf.empty() && !f.originalMvrGdtfSpec.empty()) {
       fixtureSourceGdtf = f.originalMvrGdtfSpec;
       ++preservedOriginalFixtureGdtfRecoveries;
-      Logger::Instance().Log(
-          Logger::Level::Warn,
-          wxString::Format(
+      AddDiagnostic({MvrExportDiagnosticCode::InternalRecovery,
+                     MvrExportDiagnosticSeverity::Info,
+                     MvrExportDiagnosticImpact::None, false, "Fixture",
+                     fixtureExportName, f.uuid,
+                     SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf"),
+                     wxString::Format(
               "Fixture '%s' (uuid=%s) had an empty current GDTF. Recovering "
               "preserved original MVR GDTFSpec '%s' for export.",
               fixtureExportName.c_str(), f.uuid.c_str(),
               fixtureSourceGdtf.c_str())
-              .ToStdString());
+                         .ToStdString()});
     }
     bool usedDummyFallbackForFixture = false;
     if (fixtureSourceGdtf.empty()) {
@@ -3310,14 +3399,24 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
             << ") has no GDTF and fallback '" << fallbackHint
             << "' is not available.";
-        Logger::Instance().Log(Logger::Level::Warn, msg.str());
+        AddDiagnostic({MvrExportDiagnosticCode::GdtfMissing,
+                       MvrExportDiagnosticSeverity::Warning,
+                       MvrExportDiagnosticImpact::DataOmitted, true, "Fixture",
+                       fixtureExportName, f.uuid,
+                       SanitizeArchiveFileName(fallbackHint, "fixture.gdtf"),
+                       msg.str()});
       } else {
         std::ostringstream msg;
         msg << "Fixture '" << fixtureExportName << "' (uuid=" << f.uuid
             << ") has no GDTF. Using fallback '"
             << fs::path(fixtureSourceGdtf).filename().string()
             << "' for MVR export.";
-        Logger::Instance().Log(Logger::Level::Info, msg.str());
+        AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
+                       MvrExportDiagnosticSeverity::Warning,
+                       MvrExportDiagnosticImpact::DataSubstituted, true,
+                       "Fixture", fixtureExportName, f.uuid,
+                       fs::path(fixtureSourceGdtf).filename().generic_string(),
+                       msg.str()});
         usedDummyFallbackForFixture = true;
         if (dummyFallbackFixtureExamples.size() < 5)
           dummyFallbackFixtureExamples.push_back(fixtureExportName +
@@ -3332,18 +3431,37 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       } else if (!usedDummyFallbackForFixture) {
         const std::string fallbackGdtf = ResolveFallbackFixtureGdtfPath();
         if (!fallbackGdtf.empty()) {
-          Logger::Instance().Log(
-              Logger::Level::Warn,
-              "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
-                  ") references missing GDTF '" + fixtureSourceGdtf +
+          AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
+                         MvrExportDiagnosticSeverity::Warning,
+                         MvrExportDiagnosticImpact::DataSubstituted, true,
+                         "Fixture", fixtureExportName, f.uuid,
+                         SanitizeArchiveFileName(fixtureSourceGdtf,
+                                                 "fixture.gdtf"),
+                         "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
+                  ") references missing GDTF '" +
+                  SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf") +
                   "'. Using fallback '" +
                   fs::path(fallbackGdtf).filename().generic_string() +
-                  "' for MVR export.");
+                  "' for MVR export."});
           fixtureSourceGdtf = fallbackGdtf;
           usedDummyFallbackForFixture = true;
           if (dummyFallbackFixtureExamples.size() < 5)
             dummyFallbackFixtureExamples.push_back(fixtureExportName +
                                                    " (uuid=" + f.uuid + ")");
+        }
+        else {
+          AddDiagnostic({MvrExportDiagnosticCode::GdtfMissing,
+                         MvrExportDiagnosticSeverity::Warning,
+                         MvrExportDiagnosticImpact::DataOmitted, true,
+                         "Fixture", fixtureExportName, f.uuid,
+                         SanitizeArchiveFileName(fixtureSourceGdtf,
+                                                 "fixture.gdtf"),
+                         "Fixture '" + fixtureExportName + "' (uuid=" + f.uuid +
+                             ") references missing GDTF '" +
+                             SanitizeArchiveFileName(fixtureSourceGdtf,
+                                                     "fixture.gdtf") +
+                             "' and no fallback is available."});
+          fixtureSourceGdtf.clear();
         }
       }
     }
@@ -3404,7 +3522,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (!fixtureGdtfArchivePath.empty())
       addStr("GDTFMode", f.gdtfMode.empty() ? "Default" : f.gdtfMode);
     if (!f.position.empty() || !f.positionName.empty())
-      addStr("Position", resolvePositionReference(f.position, f.positionName));
+      addStr("Position", resolveObjectPosition("Fixture", fixtureExportName,
+                                                f.uuid, f.position,
+                                                f.positionName));
     addStr("FixtureID", fixtureExportId.text);
     addInt("FixtureIDNumeric", fixtureExportId.numeric);
     auto unitIt = assignedUnitNumbers.find(f.uuid);
@@ -3423,14 +3543,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         addresses->InsertEndChild(addr);
         fe->InsertEndChild(addresses);
       } else {
-        Logger::Instance().Log(
-            Logger::Level::Warn,
-            wxString::Format("Skipping invalid DMX patch for fixture '%s' "
+        AddDiagnostic({MvrExportDiagnosticCode::DmxAddressOmitted,
+                       MvrExportDiagnosticSeverity::Warning,
+                       MvrExportDiagnosticImpact::DataOmitted, true, "Fixture",
+                       f.instanceName, f.uuid, {},
+                       wxString::Format("Skipping invalid DMX patch for fixture '%s' "
                              "(uuid=%s): '%s' (expected Universe.Address with "
                              "universe >= 1 and address in [1,512])",
                              f.instanceName.c_str(), f.uuid.c_str(),
                              trimmedAddress.c_str())
-                .ToStdString());
+                           .ToStdString()});
       }
     }
 
@@ -3440,6 +3562,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     parent->InsertEndChild(fe);
   };
 
+  bool fatalTrussGdtfGenerationFailure = false;
   auto exportTruss = [&](tinyxml2::XMLElement *parent, const Truss &t) {
     const Truss effectiveTruss =
         BuildEffectiveTrussTypeMetadata(t, trussTypeMetadataBySourceKey);
@@ -3503,11 +3626,29 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                 ? trussWorkspace.Path() / ((t.uuid.empty() ? std::string("truss") : t.uuid) + ".gdtf")
                                 : fs::path{};
         std::string conversionError;
-        if (!tempPath.empty() &&
-            BuildTrussGdtfFromInstance(effectiveTruss, tempPath, &conversionError)) {
+        if (!tempPath.empty() && BuildTrussGdtfFromInstance(
+                                     effectiveTruss, tempPath,
+                                     &conversionError)) {
           trussSourceGdtf = tempPath.string();
           exportGeneratedFiles.push_back(tempPath);
           exportWorkspaceLeases.push_back(trussWorkspace.TransferToSceneLease());
+        } else {
+          const bool required = trussGeometryAuthority ==
+                                TrussGeometryAuthority::Gdtf;
+          AddDiagnostic({MvrExportDiagnosticCode::TrussGdtfMissing,
+                         required ? MvrExportDiagnosticSeverity::Error
+                                  : MvrExportDiagnosticSeverity::Warning,
+                         required ? MvrExportDiagnosticImpact::ExportFailed
+                                  : MvrExportDiagnosticImpact::DataOmitted,
+                         true, "Truss", t.name, exportedTrussUuid,
+                         BuildTrussGdtfArchiveName(effectiveTruss),
+                         "MVR export could not generate the requested Truss "
+                         "GDTF for '" + t.name + "' (uuid=" +
+                             exportedTrussUuid + "): " +
+                             (conversionError.empty()
+                                  ? "the conversion did not produce an archive"
+                                  : conversionError)});
+          fatalTrussGdtfGenerationFailure |= required;
         }
       }
 
@@ -3545,7 +3686,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
     {
       const std::string positionRef =
-          resolvePositionReference(t.position, t.positionName);
+          resolveObjectPosition("Truss", t.name, t.uuid, t.position,
+                                t.positionName);
       if (!positionRef.empty()) {
         tinyxml2::XMLElement *e = doc.NewElement("Position");
         e->SetText(positionRef.c_str());
@@ -3609,19 +3751,29 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                  t.uuid.c_str(), t.sourceSymdefUuid.c_str())
                     .ToStdString());
           } else {
-            m_exportWarnings.push_back(
-                "MVR export could not resolve truss Symdef '" +
-                t.sourceSymdefUuid +
-                "' for direct Geometry3D export; preserving Symbol/Symdef "
-                "representation.");
+            AddDiagnostic({MvrExportDiagnosticCode::CompatibilityRepresentationUnavailable,
+                           MvrExportDiagnosticSeverity::Warning,
+                           MvrExportDiagnosticImpact::RequestNotHonored, true,
+                           "Truss", t.name, t.uuid, {},
+                           "MVR export could not resolve the requested direct "
+                           "geometry representation for truss '" + t.name +
+                               "'; Symbol/Symdef was preserved."});
             tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
             const std::string symbolMatrixText =
                 MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+            bool replacedSymbolUuid = false;
             const std::string symbolUuid = ResolveExportSymbolUuid(
                 t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
                 "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
                     symbolMatrixText + ":0",
-                usedSymbolUuids, &m_exportWarnings, "Truss uuid " + t.uuid);
+                usedSymbolUuids, &replacedSymbolUuid, "Truss uuid " + t.uuid);
+            if (replacedSymbolUuid)
+              AddDiagnostic({MvrExportDiagnosticCode::SymbolIdentityReplaced,
+                             MvrExportDiagnosticSeverity::Warning,
+                             MvrExportDiagnosticImpact::IdentityChanged, true,
+                             "Truss Symbol", t.name, t.uuid, {},
+                             "An invalid or conflicting Symbol UUID was replaced for truss '" +
+                                 t.name + "'."});
             sym->SetAttribute("uuid", symbolUuid.c_str());
             sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
             tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
@@ -3634,11 +3786,19 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
           const std::string symbolMatrixText =
               MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
+          bool replacedSymbolUuid = false;
           const std::string symbolUuid = ResolveExportSymbolUuid(
               t.sourceSymbolUuid, t.uuid, t.sourceSymdefUuid,
               "mvr:symbol:truss:" + t.uuid + ":" + t.sourceSymdefUuid + ":" +
                   symbolMatrixText + ":0",
-              usedSymbolUuids, &m_exportWarnings, "Truss uuid " + t.uuid);
+              usedSymbolUuids, &replacedSymbolUuid, "Truss uuid " + t.uuid);
+          if (replacedSymbolUuid)
+            AddDiagnostic({MvrExportDiagnosticCode::SymbolIdentityReplaced,
+                           MvrExportDiagnosticSeverity::Warning,
+                           MvrExportDiagnosticImpact::IdentityChanged, true,
+                           "Truss Symbol", t.name, t.uuid, {},
+                           "An invalid or conflicting Symbol UUID was replaced for truss '" +
+                               t.name + "'."});
           sym->SetAttribute("uuid", symbolUuid.c_str());
           sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
           tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
@@ -3721,7 +3881,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     se->InsertEndChild(mat);
 
     const std::string supportPositionRef =
-        resolvePositionReference(s.position, s.positionName);
+        resolveObjectPosition("Support", s.name, s.uuid, s.position,
+                              s.positionName);
     if (!supportPositionRef.empty()) {
       tinyxml2::XMLElement *position = doc.NewElement("Position");
       position->SetText(supportPositionRef.c_str());
@@ -3766,10 +3927,12 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     } else {
       tinyxml2::XMLElement *emptyGeometries = doc.NewElement("Geometries");
       se->InsertEndChild(emptyGeometries);
-      Logger::Instance().Log(
-          Logger::Level::Warn,
-                             "MVR export kept Support uuid=" + s.uuid +
-                                 " with empty Geometries because no source geometry is available");
+      AddDiagnostic({MvrExportDiagnosticCode::SupportGeometryMissing,
+                     MvrExportDiagnosticSeverity::Warning,
+                     MvrExportDiagnosticImpact::DataOmitted, true, "Support",
+                     s.name, s.uuid, {},
+                     "MVR export kept Support uuid=" + s.uuid +
+                         " with empty Geometries because no source geometry is available"});
     }
 
     const std::string supportFunction =
@@ -3823,8 +3986,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   };
   std::vector<PrimitiveGeometryMapEntry> primitiveGeometryMapEntries;
 
+  bool sceneObjectExportFailed = false;
   auto exportSceneObject = [&](tinyxml2::XMLElement *parent,
-                               const SceneObject &obj) {
+                               const SceneObject &obj) -> bool {
     struct CylinderTokenParams {
       float topRadiusMm = 0.5f;
       float bottomRadiusMm = 0.5f;
@@ -4023,8 +4187,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
     if (!oe->FirstChildElement("Geometries") &&
         !appendPlaceholderCubeGeometry(oe, obj.uuid, "SceneObject")) {
+      AddDiagnostic({MvrExportDiagnosticCode::PlaceholderGeometryUsed,
+                     MvrExportDiagnosticSeverity::Error,
+                     MvrExportDiagnosticImpact::ExportFailed, true,
+                     "SceneObject", obj.name, obj.uuid, {},
+                     "MVR export could not generate mandatory replacement "
+                     "geometry for SceneObject '" + obj.name + "' (uuid=" +
+                         obj.uuid + ")."});
       doc.DeleteNode(oe);
-      return;
+      sceneObjectExportFailed = true;
+      return false;
     }
 
     auto sceneObjectIdIt = assignedIds.find(obj.uuid);
@@ -4047,16 +4219,21 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     appendSceneObjectText("FixtureIDNumeric", std::to_string(sceneObjectNumericId));
 
     parent->InsertEndChild(oe);
+    return true;
   };
 
   std::unordered_set<std::string> exportedGroupUuids;
+  bool hierarchyRecursionDetected = false;
   auto exportGroupObject = [&](auto &&self, tinyxml2::XMLElement *parent,
                                const GroupObject &group) -> void {
     if (!exportedGroupUuids.insert(group.uuid).second) {
-      Logger::Instance().Log(
-          Logger::Level::Error,
-          "MVR export stopped recursive GroupObject revisit for uuid=" +
-              group.uuid);
+      hierarchyRecursionDetected = true;
+      AddDiagnostic({MvrExportDiagnosticCode::HierarchyRecursion,
+                     MvrExportDiagnosticSeverity::Error,
+                     MvrExportDiagnosticImpact::ExportFailed, true,
+                     "GroupObject", group.name, group.uuid, {},
+                     "MVR export stopped recursive GroupObject revisit for uuid=" +
+                         group.uuid});
       return;
     }
     tinyxml2::XMLElement *go = doc.NewElement("GroupObject");
@@ -4076,7 +4253,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       } else if (childRef.type == MvrNodeType::SceneObject) {
         auto it = scene.sceneObjects.find(childRef.uuid);
         if (it != scene.sceneObjects.end())
-          exportSceneObject(childList, it->second);
+          if (!exportSceneObject(childList, it->second))
+            sceneObjectExportFailed = true;
       } else if (childRef.type == MvrNodeType::Fixture) {
         auto it = scene.fixtures.find(childRef.uuid);
         if (it != scene.fixtures.end())
@@ -4155,7 +4333,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     for (const auto &[uid, obj] : scene.sceneObjects) {
       if (obj.layer != layer.name || !obj.parentGroupUuid.empty())
         continue;
-      exportSceneObject(childList, obj);
+      if (!exportSceneObject(childList, obj))
+        sceneObjectExportFailed = true;
     }
 
     layerElem->InsertEndChild(childList);
@@ -4189,7 +4368,13 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   for (const auto &[uid, obj] : scene.sceneObjects) {
     if ((obj.layer == DEFAULT_LAYER_NAME || obj.layer.empty()) &&
         obj.parentGroupUuid.empty())
-      exportSceneObject(rootChildList, obj);
+      if (!exportSceneObject(rootChildList, obj))
+        sceneObjectExportFailed = true;
+  }
+  if (hierarchyRecursionDetected || sceneObjectExportFailed ||
+      fatalTrussGdtfGenerationFailure) {
+    zip.Close();
+    return false;
   }
   if (rootChildList->FirstChild()) {
     tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
@@ -4297,9 +4482,12 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (normalizedPath.empty())
       continue;
     if (!seenArchivePaths.insert(normalizedPath).second) {
-      m_exportWarnings.push_back(
-          "Referenced file '" + normalizedPath +
-                                 "' appears multiple times; duplicates will be ignored.");
+      AddDiagnostic({MvrExportDiagnosticCode::ResourceDuplicate,
+                     MvrExportDiagnosticSeverity::Warning,
+                     MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {},
+                     fs::path(normalizedPath).filename().generic_string(),
+                     "Referenced file '" + normalizedPath +
+                         "' appears multiple times; duplicates will be ignored."});
       continue;
     }
     deduplicatedResources.push_back(entry);
@@ -4319,6 +4507,17 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       if (!tmp.empty()) {
         entry.sourcePath = fs::path(tmp);
         exportGeneratedFiles.push_back(entry.sourcePath);
+      } else {
+        AddDiagnostic({MvrExportDiagnosticCode::GdtfPatchFailed,
+                       MvrExportDiagnosticSeverity::Error,
+                       MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                       SanitizeArchiveFileName(entry.archivePath,
+                                               "fixture.gdtf"),
+                       "MVR export could not create the patched GDTF '" +
+                           SanitizeArchiveFileName(entry.archivePath,
+                                                   "fixture.gdtf") + "'."});
+        zip.Close();
+        return false;
       }
     }
     if (ToLowerAscii(fs::path(entry.archivePath).extension().string()) == ".gdtf") {
@@ -4335,7 +4534,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                                 canonicalOptions);
       if (!canonicalResult.success) {
         for (const std::string &error : canonicalResult.errors)
-          m_exportWarnings.push_back("GDTF canonicalization failed: " + error);
+          AddDiagnostic({MvrExportDiagnosticCode::CanonicalizationFailed,
+                         MvrExportDiagnosticSeverity::Error,
+                         MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                         fs::path(entry.archivePath).filename().generic_string(),
+                         "GDTF canonicalization failed: " + error});
         zip.Close();
         return failExport("CanonicalizeGdtf", entry.archivePath,
                           entry.sourcePath.string(),
@@ -4357,11 +4560,21 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                           : layerValidation.message);
   }
 
+  std::vector<std::string> validationWarnings;
   if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries,
-                           &m_exportWarnings)) {
+                           &validationWarnings)) {
+    AddDiagnostic({MvrExportDiagnosticCode::StructuralValidationFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {}, {},
+                   "MVR 1.6 structural validation failed."});
     zip.Close();
     return false;
   }
+  for (const std::string &warning : validationWarnings)
+    AddDiagnostic({MvrExportDiagnosticCode::ResourceMissing,
+                   MvrExportDiagnosticSeverity::Warning,
+                   MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {}, {},
+                   warning});
 
   // Serialize XML
   tinyxml2::XMLPrinter printer;
@@ -4490,17 +4703,21 @@ bool MvrExporter::SerializeSnapshotToBuffer(
     const MvrScene &scene, std::vector<uint8_t> &outBytes,
     const MvrExportOptions &options) {
   outBytes.clear();
+  m_exportDiagnostics.clear();
+  m_exportWarningAdapter.clear();
   runtime_storage::TemporaryWorkspace bufferWorkspace("mvr-export-buffer");
-  if (!bufferWorkspace.IsValid())
+  if (!bufferWorkspace.IsValid()) {
+    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {}, {},
+                   "MVR export could not create its temporary archive workspace."});
     return false;
+  }
   const std::string tempPath =
       (bufferWorkspace.Path() / "export-buffer.mvr").string();
   wxFileName tempFile(wxString::FromUTF8(tempPath));
   const bool exported = SerializeSnapshotToFile(scene, tempPath, options);
   if (!exported) {
-    Logger::Instance().Log(Logger::Level::Error,
-                           "MVR export-to-buffer failed while writing " +
-                               tempPath);
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
@@ -4509,18 +4726,23 @@ bool MvrExporter::SerializeSnapshotToBuffer(
                             ? fs::file_size(tempPath, sizeEc)
                             : 0;
   if (sizeEc || tempSize == 0) {
-    Logger::Instance().Log(
-        Logger::Level::Error,
-        "MVR export-to-buffer produced an empty or unreadable file '" +
-            tempPath + "' size=" + std::to_string(tempSize));
+    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                   "export-buffer.mvr",
+                   "MVR export-to-buffer produced an empty or unreadable file '" +
+                       tempPath + "' size=" + std::to_string(tempSize)});
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
 
   std::ifstream input(tempPath, std::ios::binary);
   if (!input.is_open()) {
-    Logger::Instance().Log(Logger::Level::Error,
-                           "MVR export-to-buffer could not open " + tempPath);
+    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                   "export-buffer.mvr",
+                   "MVR export-to-buffer could not open " + tempPath});
     wxRemoveFile(tempFile.GetFullPath());
     return false;
   }
@@ -4531,9 +4753,11 @@ bool MvrExporter::SerializeSnapshotToBuffer(
   if (size <= 0) {
     input.close();
     wxRemoveFile(tempFile.GetFullPath());
-    Logger::Instance().Log(Logger::Level::Error,
-                           "MVR export-to-buffer read zero bytes from " +
-                               tempPath);
+    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                   "export-buffer.mvr",
+                   "MVR export-to-buffer read zero bytes from " + tempPath});
     return false;
   }
   outBytes.resize(static_cast<size_t>(size));
@@ -4543,15 +4767,51 @@ bool MvrExporter::SerializeSnapshotToBuffer(
   input.close();
   wxRemoveFile(tempFile.GetFullPath());
   if (!readOk || outBytes.empty()) {
-    Logger::Instance().Log(Logger::Level::Error,
-                           "MVR export-to-buffer failed to read payload from " +
-                               tempPath);
+    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                   MvrExportDiagnosticSeverity::Error,
+                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                   "export-buffer.mvr",
+                   "MVR export-to-buffer failed to read payload from " +
+                       tempPath});
     return false;
   }
   return true;
 }
 
-// Return non-fatal validation and packaging warnings captured during export.
+// Records a diagnostic once and writes its technical form to the persistent log.
+void MvrExporter::AddDiagnostic(MvrExportDiagnostic diagnostic) {
+  const auto duplicate = std::find_if(
+      m_exportDiagnostics.begin(), m_exportDiagnostics.end(),
+      [&](const MvrExportDiagnostic &existing) {
+        return existing.code == diagnostic.code &&
+               existing.objectIdentity == diagnostic.objectIdentity &&
+               existing.resourceName == diagnostic.resourceName &&
+               existing.technicalDetail == diagnostic.technicalDetail;
+      });
+  if (duplicate != m_exportDiagnostics.end())
+    return;
+  const Logger::Level level =
+      diagnostic.severity == MvrExportDiagnosticSeverity::Error
+          ? Logger::Level::Error
+          : diagnostic.severity == MvrExportDiagnosticSeverity::Warning
+                ? Logger::Level::Warn
+                : Logger::Level::Info;
+  Logger::Instance().Log(level, diagnostic.technicalDetail);
+  m_exportDiagnostics.push_back(std::move(diagnostic));
+  m_exportWarningAdapter.clear();
+}
+
+// Returns all semantic diagnostics from the latest operation.
+const std::vector<MvrExportDiagnostic> &MvrExporter::GetExportDiagnostics() const {
+  return m_exportDiagnostics;
+}
+
+// Return a compatibility text view derived from structured diagnostics.
 const std::vector<std::string> &MvrExporter::GetExportWarnings() const {
-  return m_exportWarnings;
+  m_exportWarningAdapter.clear();
+  for (const auto &diagnostic : m_exportDiagnostics) {
+    if (diagnostic.severity != MvrExportDiagnosticSeverity::Info)
+      m_exportWarningAdapter.push_back(diagnostic.technicalDetail);
+  }
+  return m_exportWarningAdapter;
 }

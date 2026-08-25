@@ -4,6 +4,16 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- MVR export now presents concise, grouped fidelity warnings instead of raw
+  technical diagnostics, while harmless UUID normalization stays in the log and
+  export failures provide a focused, expandable result. The collapsed result
+  remains compact and uses reliably rendered summary markers on every platform.
+  Missing fixture profiles, unresolved positions, and failures to preserve
+  edited profile properties or required object geometry are now reported
+  explicitly instead of being silently omitted, with Linux export regression
+  coverage preserving the existing fixture-address and legacy truss migration
+  contracts.
+
 - Project reopening is faster for typical projects by loading packaged scene
   and configuration data directly, while retaining a safe large-project
   fallback and all existing MVR resource compatibility.
