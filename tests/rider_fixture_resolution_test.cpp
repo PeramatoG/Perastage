@@ -48,6 +48,15 @@ int main() {
   assert(analysis.items[1].state == State::Suggested);
   assert(analysis.items[2].state != State::Suggested);
 
+  const Analysis allKnown = Service::Analyze({requests.front()}, dictionary, {});
+  assert(!allKnown.RequiresPreflight());
+  const Analysis offlineUnknown = Service::Analyze({requests[2]}, dictionary, {});
+  assert(offlineUnknown.RequiresPreflight());
+  assert(offlineUnknown.items.front().state == State::Unresolved);
+  const Analysis emptyPath = Service::Analyze(
+      {requests.front()}, {{"GLP JDC1", GdtfDictionary::Entry{}}}, {});
+  assert(emptyPath.RequiresPreflight());
+
   Service::SelectCatalogEntry(analysis.items[1], *analysis.items[1].suggestedEntry);
   assert(analysis.items[1].selectedMode == "Standard");
   GdtfCatalogEntry multiMode{"multi", "Maker", "Model", {{"A", 8}, {"B", 16}},

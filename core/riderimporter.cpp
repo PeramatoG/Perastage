@@ -1681,8 +1681,7 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
 
 // Aggregates fixture aliases from the same parser output used by scene import.
 std::vector<RiderImporter::FixtureTypeRequest>
-RiderImporter::AnalyzeFixtureTypes(const std::string &text,
-                                   bool textAlreadyFiltered) {
+RiderImporter::AnalyzeFixtureTypes(const std::string &text) {
   const ParsedRiderImport parsed = ParseRiderImport(text);
   std::vector<FixtureTypeRequest> requests;
   std::unordered_map<std::string, size_t> indices;
@@ -1717,7 +1716,6 @@ RiderImporter::AnalyzeFixtureTypes(const std::string &text,
       request.positions.push_back(position);
     }
   }
-  (void)textAlreadyFiltered;
   return requests;
 }
 

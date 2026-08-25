@@ -4,9 +4,10 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
-- Create from text now analyzes unique fixture types before scene creation,
-  prioritizing valid dictionary mappings and preparing conservative cached GDTF
-  Share suggestions without mutating the scene.
+- Create from text now stops before scene creation when a rider contains unknown
+  fixture types, presents a resolution table with cached GDTF Share suggestions,
+  explicit mode selection and Generic fallback, and remembers confirmed GDTF
+  mappings for later riders.
 
 - Automatic DMX patching now keeps logical lighting Positions and their
   physically separate bridge components together whenever universe capacity

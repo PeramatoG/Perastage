@@ -368,6 +368,15 @@ std::string GdtfSearchDialog::GetSelectedName() const
     return {};
 }
 
+// Returns the complete selected catalog row for resolver consumers.
+std::optional<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
+GdtfSearchDialog::GetSelectedEntry() const
+{
+    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size()))
+        return entries[selectedIndex];
+    return std::nullopt;
+}
+
 std::string GdtfSearchDialog::GetCurrentListData() const
 {
     return currentListData;

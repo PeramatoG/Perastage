@@ -18,6 +18,15 @@ does not create a permanent dummy mapping. Profiles with one valid DMX mode may
 select it automatically; profiles with multiple modes require an explicit mode
 choice before their mapping can be committed.
 
+The runtime call chain is `RiderTextDialog` → `AnalyzeFixtureTypes` → cached
+catalog parsing and dictionary-first resolution → `RiderFixtureResolutionDialog`
+when intervention is required → confirmed downloads and dictionary persistence
+→ `RiderImporter::ImportText`. Cancellation and failed resolution return before
+the importer pushes its undo state or accesses mutable scene content. When no
+cached catalog exists, unknown rows still open as Unresolved; Search may request
+GDTF Share authentication to refresh the shared catalog, while Generic and
+Cancel remain available offline.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

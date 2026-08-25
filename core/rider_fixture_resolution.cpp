@@ -49,13 +49,14 @@ Analysis Service::Analyze(
     item.request = request;
     item.dictionaryEntry =
         GdtfDictionary::FindInLoadedDictionary(dictionary, request.typeName);
-    if (item.dictionaryEntry) {
+    if (item.dictionaryEntry && !item.dictionaryEntry->path.empty()) {
       item.state = State::Dictionary;
       item.selectedMode = item.dictionaryEntry->mode;
       item.details = "Active fixture dictionary";
       result.items.push_back(std::move(item));
       continue;
     }
+    item.dictionaryEntry.reset();
 
     GdtfDownloadRequest matchRequest;
     matchRequest.authoritativeFixtureNames.push_back(request.typeName);

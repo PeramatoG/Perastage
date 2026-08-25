@@ -7,6 +7,14 @@ begin only after confirmation, accepted mappings are remembered for later
 riders, and Generic remains available for a one-time fallback. When a selected
 profile has several DMX modes, you must choose the intended mode explicitly.
 
+The **Resolve fixture types** window appears whenever at least one referenced
+fixture has no valid file in the active dictionary, including when no catalog is
+available. **Use suggested** accepts a strong exact catalog match, **Search...**
+opens the existing GDTF Share browser for the selected alias, and **Use generic**
+continues with the one-import fallback without saving a dummy mapping. Selected
+profiles are downloaded only after **Resolve and create** is pressed. Cancelling
+closes the workflow before any scene content or dictionary mapping is changed.
+
 Use **Tools → Create from text** to build scene content from rider-style text.
 
 ## Supported inputs

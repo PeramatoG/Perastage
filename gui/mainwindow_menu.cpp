@@ -67,6 +67,7 @@
 #include "fixturetablepanel.h"
 #include "gdtf_catalog_service.h"
 #include "gdtfdictionary.h"
+#include "gdtf_download_workflow.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
 #include "gdtf_share_workflow.h"
@@ -766,22 +767,17 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
                                       rid);
         GdtfShareResult downloadResult =
-            gdtfClient.DownloadRevision(WxToUtf8(rid), WxToUtf8(dest));
-        if (downloadResult.category == GdtfShareResultCategory::AuthenticationRejected) {
-          diagnostics::DiagnosticLogger::Info(
-              "GDTF download auth prompt reason=expired_session");
-          activeCredentials.reset();
-          if (requestCredentialsFromDialog()) {
-            gdtfClient.ResetSession();
-            GdtfShareResult retryLogin;
-            if (ensureAuthenticated(retryLogin)) {
-              downloadResult =
-                  gdtfClient.DownloadRevision(WxToUtf8(rid), WxToUtf8(dest));
-            } else {
-              downloadResult = retryLogin;
-            }
-          }
-        }
+            gdtf_download_workflow::DownloadWithExpiredSessionRetry(
+                gdtfClient, WxToUtf8(rid), WxToUtf8(dest), [&]() {
+                  diagnostics::DiagnosticLogger::Info(
+                      "GDTF download auth prompt reason=expired_session");
+                  activeCredentials.reset();
+                  if (!requestCredentialsFromDialog())
+                    return false;
+                  gdtfClient.ResetSession();
+                  GdtfShareResult retryLogin;
+                  return ensureAuthenticated(retryLogin);
+                });
         long dlCode = downloadResult.httpStatus;
         bool ok = downloadResult.Succeeded();
         clearGdtfDownloadBlockingUi();

@@ -50,8 +50,7 @@ public:
     static std::string BuildFixtureFilterPreview(const std::string& text);
     // Analyzes unique fixture requests without changing scene or dictionary state.
     static std::vector<FixtureTypeRequest>
-    AnalyzeFixtureTypes(const std::string& text,
-                        bool textAlreadyFiltered = false);
+    AnalyzeFixtureTypes(const std::string& text);
     // Import from raw rider text. Returns true on success.
     static bool ImportText(const std::string& text,
                            ProgressCallback progressCallback = {},

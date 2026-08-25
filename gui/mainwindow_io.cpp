@@ -19,6 +19,7 @@
 #include "mvrxchange/mvr_xchange_dialog.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow_io_controller.h"
+#include "rider_fixture_resolution_workflow.h"
 
 #include <algorithm>
 #include <chrono>
@@ -479,6 +480,19 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
+  const bool riderTextAlreadyFiltered = dlg.IsCurrentTextFilteredPreview();
+  const auto preflightResult =
+      rider_fixture_resolution_gui::RunCreateFromTextPreflight(
+          this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText);
+  if (preflightResult !=
+      rider_fixture_resolution_gui::PreflightResult::Proceed) {
+    diagnostics::DiagnosticLogger::Info(
+        preflightResult == rider_fixture_resolution_gui::PreflightResult::Cancelled
+            ? "Text/rider fixture preflight cancelled."
+            : "Text/rider fixture preflight failed.");
+    return;
+  }
+
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   std::unique_ptr<wxWindowDisabler> createDisabler =
@@ -488,7 +502,6 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   std::unique_ptr<wxProgressDialog> createProgress;
   wxYieldIfNeeded();
 
-  const bool riderTextAlreadyFiltered = dlg.IsCurrentTextFilteredPreview();
   if (!RiderImporter::ImportText(
           riderText,
           [&](const RiderImporter::ProgressState &progress) {

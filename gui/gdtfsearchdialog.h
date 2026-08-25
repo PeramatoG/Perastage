@@ -20,6 +20,7 @@
 #include <wx/dataview.h>
 #include <wx/timer.h>
 #include <functional>
+#include <optional>
 #include <thread>
 #include <vector>
 #include "../mvr/gdtf_catalog_matcher.h"
@@ -56,6 +57,8 @@ public:
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;
     std::string GetSelectedName() const;
+    std::optional<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
+    GetSelectedEntry() const;
     std::string GetCurrentListData() const;
 private:
     void ParseList(const std::string& listData);
