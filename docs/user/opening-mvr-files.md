@@ -68,7 +68,8 @@ Perastage fixture categories are also stored in root-level `UserData/Data` with 
 When your changes are ready for exchange:
 
 1. Open **File → Export MVR...**.
-2. Choose destination and file name.
+2. Choose the destination. The file name initially matches the current project
+   name when one is available.
 3. Export the updated scene.
 
 ## Practical tip

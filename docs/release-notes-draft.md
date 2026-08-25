@@ -4,6 +4,10 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Export MVR now suggests the current project name as the destination file
+  name, matching the Save Project workflow while still allowing it to be
+  changed before export.
+
 - Textures, images, and external binary buffers used by 3DS and glTF geometry
   now survive MVR export and re-import, while dependencies of deleted models
   continue to be removed and filename collisions fail safely instead of
