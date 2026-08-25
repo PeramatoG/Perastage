@@ -651,6 +651,7 @@ int main() {
   Fixture noProfileFixture;
   noProfileFixture.uuid = "90000000-0000-4000-8000-000000000001";
   noProfileFixture.instanceName = "No profile fixture";
+  noProfileFixture.address = "24.1";
   scene.fixtures[noProfileFixture.uuid] = noProfileFixture;
 
   Fixture missingProfileFixture;
@@ -659,6 +660,7 @@ int main() {
   missingProfileFixture.gdtfSpec =
       (tempDir / "missing-profile.gdtf").generic_string();
   missingProfileFixture.position = "unresolvable-position";
+  missingProfileFixture.address = "25.1";
   scene.fixtures[missingProfileFixture.uuid] = missingProfileFixture;
 
   MvrExporter exporter;

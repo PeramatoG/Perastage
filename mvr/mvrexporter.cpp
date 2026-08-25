@@ -3633,9 +3633,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           exportGeneratedFiles.push_back(tempPath);
           exportWorkspaceLeases.push_back(trussWorkspace.TransferToSceneLease());
         } else {
-          const bool required = !importedFromMvrGeometry ||
-                                trussGeometryAuthority ==
-                                    TrussGeometryAuthority::Gdtf;
+          const bool required = trussGeometryAuthority ==
+                                TrussGeometryAuthority::Gdtf;
           AddDiagnostic({MvrExportDiagnosticCode::TrussGdtfMissing,
                          required ? MvrExportDiagnosticSeverity::Error
                                   : MvrExportDiagnosticSeverity::Warning,

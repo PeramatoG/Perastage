@@ -10,7 +10,9 @@ Changes since **v1.5.0**.
   remains compact and uses reliably rendered summary markers on every platform.
   Missing fixture profiles, unresolved positions, and failures to preserve
   edited profile properties or required object geometry are now reported
-  explicitly instead of being silently omitted.
+  explicitly instead of being silently omitted, with Linux export regression
+  coverage preserving the existing fixture-address and legacy truss migration
+  contracts.
 
 - Project reopening is faster for typical projects by loading packaged scene
   and configuration data directly, while retaining a safe large-project
