@@ -58,7 +58,8 @@ private:
   wxRadioButton *viewer3dByDeviceTypeRenderRadio = nullptr;
   wxRadioButton *viewer3dByLayerRenderRadio = nullptr;
   wxRadioButton *viewer3dByUniverseRenderRadio = nullptr;
-  wxCheckBox *viewer3dInvertOrbitCheck = nullptr;
+  wxCheckBox *viewer3dInvertOrbitHorizontalCheck = nullptr;
+  wxCheckBox *viewer3dInvertOrbitVerticalCheck = nullptr;
   wxCheckBox *groupMoveFixtureCheck = nullptr;
   wxCheckBox *groupMoveTrussCheck = nullptr;
   wxCheckBox *groupMoveSupportCheck = nullptr;

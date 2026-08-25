@@ -118,6 +118,12 @@ Changes since **v1.5.0**.
 
 ## New features and workflow improvements
 
+- Both 2D and 3D viewports now support Middle Mouse drag panning. The 3D viewer
+  also provides independent horizontal and vertical orbit-inversion preferences
+  that remain personal across project loads, while preserving existing
+  vertical-inversion settings and default navigation. Middle Mouse panning also
+  remains available while positioning provisional elements in the 2D view.
+
 - Cut, Copy, and Paste now use their matching Lucide icons in the Edit toolbar,
   making the scene clipboard controls easier to identify at a glance.
 

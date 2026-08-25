@@ -26,6 +26,7 @@
 #include "project_fixture_identity.h"
 #include "selection_movement_settings.h"
 #include "uuidutils.h"
+#include "user_navigation_preferences.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -62,7 +63,13 @@ std::vector<RestoredUserPreference> CaptureUserInteractionPreferences(
            selection_movement_settings::kLeftDragSelectionMovementConfigKey)},
       {selection_movement_settings::kLocalTransformSpaceConfigKey,
        config.GetValue(
-           selection_movement_settings::kLocalTransformSpaceConfigKey)}};
+           selection_movement_settings::kLocalTransformSpaceConfigKey)},
+      {user_navigation_preferences::kVerticalOrbitInversionConfigKey.data(),
+       config.GetValue(std::string(
+           user_navigation_preferences::kVerticalOrbitInversionConfigKey))},
+      {user_navigation_preferences::kHorizontalOrbitInversionConfigKey.data(),
+       config.GetValue(std::string(
+           user_navigation_preferences::kHorizontalOrbitInversionConfigKey))}};
 }
 
 // Restores user-level interaction preferences after project config loading.

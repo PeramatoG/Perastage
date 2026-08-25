@@ -9,6 +9,10 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
+add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
+target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
+add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
+
 set(PERASTAGE_TEST_MVR_CATALOG_SOURCES
     ../mvr/gdtf_catalog_matcher.cpp
     ../mvr/gdtf_catalog_parser.cpp)

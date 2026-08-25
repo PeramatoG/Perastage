@@ -47,6 +47,7 @@
 #include "../viewer_common/gl_framebuffer_capture_target.h"
 #include "../viewer_common/measure_overlay_style.h"
 #include "../viewer_common/magnet_anchor_overlay.h"
+#include "../viewer_common/viewport_mouse_navigation.h"
 #include "../viewport_interaction_scope.h"
 #include "canvas2d.h"
 #include "configmanager.h"
@@ -683,7 +684,9 @@ constexpr int kHoverHitTestTimerId = wxID_HIGHEST + 221;
 
 wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(Viewer2DPanel::OnPaint)
     EVT_LEFT_DOWN(Viewer2DPanel::OnMouseDown) EVT_LEFT_UP(
-        Viewer2DPanel::OnMouseUp) EVT_MOTION(Viewer2DPanel::OnMouseMove)
+        Viewer2DPanel::OnMouseUp) EVT_MIDDLE_DOWN(Viewer2DPanel::OnMouseDown)
+        EVT_MIDDLE_UP(Viewer2DPanel::OnMouseUp)
+        EVT_MOTION(Viewer2DPanel::OnMouseMove)
         EVT_LEFT_DCLICK(Viewer2DPanel::OnMouseDClick) EVT_MOUSEWHEEL(
             Viewer2DPanel::OnMouseWheel) EVT_RIGHT_UP(Viewer2DPanel::OnRightUp)
             EVT_KEY_DOWN(Viewer2DPanel::OnKeyDown)
@@ -3327,6 +3330,19 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(
 // rectangle selection.
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   m_hasLastMousePos = true;
+  if (event.MiddleDown()) {
+    if (!viewport_navigation::CanBeginViewer2DPan(
+            m_dragMode == DragMode::None, m_continuousPlacementActive))
+      return;
+    if (!HasCapture())
+      CaptureMouse();
+    m_middleMousePanning = true;
+    m_draggedSincePress = false;
+    m_dragMode = DragMode::View;
+    m_lastMousePos = event.GetPosition();
+    MarkInteractionActivity();
+    return;
+  }
   if (m_linePointSelectionActive && event.LeftDown()) {
     m_linePointSelectionConsumeMouseUp = true;
     wxPoint pos = ScreenToClient(wxGetMousePosition());
@@ -3564,6 +3580,21 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
 
 // Completes mouse-driven interaction and applies click or rectangle selections.
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
+  if (event.MiddleUp() && m_middleMousePanning) {
+    if (HasCapture())
+      ReleaseMouse();
+    m_middleMousePanning = false;
+    m_dragMode = viewport_navigation::ShouldResumeViewer2DSelection(
+                     m_continuousPlacementActive)
+                     ? DragMode::Selection
+                     : DragMode::None;
+    if (m_continuousPlacementActive)
+      AlignContinuousElementToPointer(event.GetPosition());
+    m_draggedSincePress = false;
+    ClearCursorWorldPosition();
+    RequestRepaint();
+    return;
+  }
   if (m_linePointSelectionConsumeMouseUp && event.LeftUp()) {
     m_linePointSelectionConsumeMouseUp = false;
     return;
@@ -4163,7 +4194,17 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   }
 }
 
+// Resets all transient 2D interaction state after mouse capture is lost.
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
+  m_middleMousePanning = false;
+  if (m_continuousPlacementActive) {
+    m_dragMode = DragMode::Selection;
+    m_pendingMagnetSnap.reset();
+    m_rectSelecting = false;
+    m_rectSelectionAcrossAllTables = false;
+    ClearCursorWorldPosition();
+    return;
+  }
   m_dragMode = DragMode::None;
   m_dragAxis = DragAxis::None;
   m_dragTarget = DragTarget::None;

@@ -86,6 +86,7 @@
 #include <cstdint>
 #include <utility>
 #include <limits>
+#include "../viewer_common/viewport_mouse_navigation.h"
 
 wxDEFINE_EVENT(wxEVT_VIEWER_REFRESH, wxThreadEvent);
 wxBEGIN_EVENT_TABLE(Viewer3DPanel, wxGLCanvas)
@@ -93,6 +94,8 @@ EVT_PAINT(Viewer3DPanel::OnPaint)
 EVT_SIZE(Viewer3DPanel::OnResize)
 EVT_LEFT_DOWN(Viewer3DPanel::OnMouseDown)
 EVT_LEFT_UP(Viewer3DPanel::OnMouseUp)
+EVT_MIDDLE_DOWN(Viewer3DPanel::OnMouseDown)
+EVT_MIDDLE_UP(Viewer3DPanel::OnMouseUp)
 EVT_MOTION(Viewer3DPanel::OnMouseMove)
 EVT_LEFT_DCLICK(Viewer3DPanel::OnMouseDClick)
 EVT_MOUSEWHEEL(Viewer3DPanel::OnMouseWheel)
@@ -183,10 +186,20 @@ bool IsFastInteractionModeEnabled()
     return ConfigManager::Get().GetFloat("viewer3d_fast_interaction_mode") >= 0.5f;
 }
 
-bool IsOrbitInversionEnabled()
+// Returns whether horizontal 3D orbit movement is inverted.
+bool IsHorizontalOrbitInversionEnabled()
 {
-    const auto value = ConfigManager::Get().GetValue("viewer3d_invert_orbit");
-    return value && *value == "1";
+    return viewport_navigation::ReadBooleanPreference(
+        ConfigManager::Get().GetValue(std::string(
+            user_navigation_preferences::kHorizontalOrbitInversionConfigKey)));
+}
+
+// Returns whether vertical 3D orbit movement is inverted.
+bool IsVerticalOrbitInversionEnabled()
+{
+    return viewport_navigation::ReadBooleanPreference(
+        ConfigManager::Get().GetValue(std::string(
+            user_navigation_preferences::kVerticalOrbitInversionConfigKey)));
 }
 
 bool Is2DDarkModeEnabled() {
@@ -1878,6 +1891,9 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 // Handles mouse button press
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     m_hasLastMousePos = true;
+    if (event.MiddleDown() &&
+        (m_dragging || m_rectSelecting || m_selectionDragArmed))
+        return;
     if (m_linePointSelectionActive && event.LeftDown()) {
         m_linePointSelectionConsumeMouseUp = true;
         wxPoint pos = ScreenToClient(wxGetMousePosition());
@@ -1949,7 +1965,11 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
             }
         }
 
-        if (event.ShiftDown() || event.MiddleDown())
+        if (viewport_navigation::ResolveViewer3DAction(
+                event.MiddleDown() ? viewport_navigation::MouseButton::Middle
+                                   : viewport_navigation::MouseButton::Left,
+                event.ShiftDown()) ==
+            viewport_navigation::Viewer3DAction::Pan)
             m_mode = InteractionMode::Pan;
         else
             m_mode = InteractionMode::Orbit;
@@ -2038,6 +2058,8 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
+        if (m_continuousPlacementActive && event.MiddleUp())
+            AlignContinuousElementToPointer(event.GetPosition());
         m_forceHoverQuery = true;
         Refresh();
     }
@@ -3723,9 +3745,12 @@ void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
 
     if (m_mode == InteractionMode::Orbit &&
         (event.LeftIsDown() || event.RightIsDown())) {
-    const float orbitPitchDirection = IsOrbitInversionEnabled() ? 1.0f : -1.0f;
-        m_camera.Orbit(static_cast<float>(dx) * 0.5f,
-                       orbitPitchDirection * static_cast<float>(dy) * 0.5f);
+        const auto orbitDeltas = viewport_navigation::ResolveOrbitDeltas(
+            static_cast<float>(dx) * 0.5f,
+            -static_cast<float>(dy) * 0.5f,
+            IsHorizontalOrbitInversionEnabled(),
+            IsVerticalOrbitInversionEnabled());
+        m_camera.Orbit(orbitDeltas.first, orbitDeltas.second);
     } else if (m_mode == InteractionMode::Pan &&
                (event.MiddleIsDown() || event.RightIsDown() ||
                 event.ShiftDown())) {

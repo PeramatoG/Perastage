@@ -111,6 +111,10 @@ viewer. Releasing the button after navigation immediately realigns the pending
 element beneath the pointer without confirming it. This mouse gesture does not
 add a shortcut-registry entry.
 
+Middle Mouse drag also pans either viewport during continuous placement. Its
+release realigns the provisional element beneath the pointer and never confirms
+or changes the current selection.
+
 The global `Ctrl+Z`/Undo command is session-aware while continuous placement is
 active. It restores the previous placement snapshot, removes the latest
 confirmed element, and keeps that element as the provisional pointer-following
@@ -153,6 +157,18 @@ prevents global-style actions from stealing keys during edit sessions.
 The following mouse gestures are implemented directly in viewer panels (not in
 the keyboard shortcut registry), and must stay aligned between viewers when they
 represent equivalent actions:
+
+- `Viewer2D`: Left Mouse drag retains its existing view-navigation and
+  selection priorities, Middle Mouse drag always pans the view, and the wheel
+  zooms.
+- `Viewer3D`: Left Mouse drag orbits, `Shift + Left Mouse drag` and Middle Mouse
+  drag pan, and the wheel zooms.
+- The 3D navigation preferences invert horizontal yaw and vertical pitch
+  independently. The legacy `viewer3d_invert_orbit` setting remains the
+  vertical preference, while `viewer3d_invert_orbit_horizontal` controls only
+  horizontal movement and defaults to off when absent. Both are user-level
+  preferences and are preserved when a project package is opened, regardless
+  of values stored by the project author.
 
 - `Ctrl + Left Drag`:
   rectangle selection in the active table context.
