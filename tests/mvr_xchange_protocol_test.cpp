@@ -201,10 +201,42 @@ static void TestMessages() {
   assert(errorJson["Message"] == "The MVR is not available on this client");
 }
 
+// Verifies canonical request source arrays and the specification-example string compatibility boundary.
+static void TestRequestSourceStations() {
+  const std::string firstUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const std::string secondUuid = "11111111-2222-3333-4444-555555555555";
+  auto canonical = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_REQUEST","FileUUID":"abcdefab-cdef-abcd-efab-cdefabcdefab","FromStationUUID":["AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"]})");
+  assert(canonical && mvr::xchange::ValidateMessage(*canonical).empty());
+  assert(canonical->fromStationUuids == std::vector<std::string>{firstUuid});
+
+  auto multiple = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_REQUEST","FromStationUUID":["AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE","11111111-2222-3333-4444-555555555555"]})");
+  assert(multiple && mvr::xchange::ValidateMessage(*multiple).empty());
+  assert(multiple->fromStationUuids == (std::vector<std::string>{firstUuid, secondUuid}));
+
+  auto legacy = mvr::xchange::ParseMessage(
+      R"({"Type":"MVR_REQUEST","FromStationUUID":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"})");
+  assert(legacy && mvr::xchange::ValidateMessage(*legacy).empty());
+  assert(legacy->fromStationUuids == std::vector<std::string>{firstUuid});
+  auto emptyLegacy = mvr::xchange::ParseMessage(R"({"Type":"MVR_REQUEST","FromStationUUID":""})");
+  assert(emptyLegacy && mvr::xchange::ValidateMessage(*emptyLegacy).empty() && emptyLegacy->fromStationUuids.empty());
+
+  const auto outgoing = nlohmann::json::parse(mvr::xchange::BuildRequest(
+      "ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB", {"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"}));
+  assert(outgoing["Type"] == "MVR_REQUEST");
+  assert(outgoing["FileUUID"] == "abcdefab-cdef-abcd-efab-cdefabcdefab");
+  assert(outgoing["FromStationUUID"].is_array());
+  assert(outgoing["FromStationUUID"] == nlohmann::json::array({firstUuid}));
+  const auto noSources = nlohmann::json::parse(mvr::xchange::BuildRequest("", {}));
+  assert(noSources["FromStationUUID"].is_array() && noSources["FromStationUUID"].empty());
+}
+
 // Verifies canonical LEAVE output and the isolated legacy sender alias.
 static void TestLeaveMessages() {
   const std::string uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   const auto outgoing = nlohmann::json::parse(mvr::xchange::BuildLeave(uuid));
+  assert(outgoing["FromStationUUID"].is_string());
   assert(outgoing["FromStationUUID"] == uuid && !outgoing.contains("StationUUID"));
   auto canonical = mvr::xchange::ParseMessage(R"({"Type":"MVR_LEAVE","FromStationUUID":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"})");
   assert(canonical && canonical->fromStationUuid == uuid && mvr::xchange::ValidateMessage(*canonical).empty());
@@ -222,7 +254,11 @@ static void TestTypedErrors() {
       {R"({"Type":"MVR_COMMIT","FileUUID":"bad"})", "MVR_COMMIT_RET"},
       {R"({"Type":"MVR_LEAVE","FromStationUUID":"bad"})", "MVR_LEAVE_RET"},
       {R"({"Type":"MVR_REQUEST","FileUUID":"bad"})", "MVR_REQUEST_RET"},
-      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"}};
+      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":{}})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["bad"]})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",123]})", "MVR_REQUEST_RET"}};
   for (const auto &[json, expectedType] : cases) {
     const auto message = mvr::xchange::ParseMessage(json);
     assert(message && !message->type.empty());
@@ -669,7 +705,11 @@ static void TestTcpTypedErrorResponses() {
       {R"({"Type":"MVR_COMMIT","FileUUID":"bad"})", "MVR_COMMIT_RET"},
       {R"({"Type":"MVR_LEAVE","FromStationUUID":"bad"})", "MVR_LEAVE_RET"},
       {R"({"Type":"MVR_REQUEST","FileUUID":"bad"})", "MVR_REQUEST_RET"},
-      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"}};
+      {R"({"Type":"MVR_REQUEST","FileUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":123})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":{}})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["bad"]})", "MVR_REQUEST_RET"},
+      {R"({"Type":"MVR_REQUEST","FromStationUUID":["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",123]})", "MVR_REQUEST_RET"}};
   for (const auto &[request, expectedType] : cases) {
     const auto response = nlohmann::json::parse(ExchangeRawJson(server.Port(), request));
     assert(response["Type"] == expectedType && response["OK"] == false);
@@ -682,6 +722,7 @@ int main() {
   TestCommitStore();
   TestPackets();
   TestMessages();
+  TestRequestSourceStations();
   TestLeaveMessages();
   TestTypedErrors();
   TestMalformedMessages();

@@ -73,6 +73,7 @@ Perastage implements the official TCP Mode exchange path conservatively:
 - Published revisions are kept in a bounded in-memory history. Each revision records the canonical `FileUUID`, local `StationUUID`, user-friendly file name, comment, creation timestamp, file size, and MVR payload.
 - Perastage only serves already-published in-memory MVR payloads. It does not export a new MVR from a network worker, and it refuses empty payloads. Manual publishing validates that the exported archive contains `GeneralSceneDescription.xml` before the revision is announced.
 - Unknown `FileUUID` requests receive a standard `MVR_REQUEST_RET` error. Empty `FileUUID` requests use the specification-defined latest-file behavior and return an error when no revision is available.
+- MVR 1.6 Table 74 defines `MVR_REQUEST.FromStationUUID` as an array of UUIDs, while the official request example inconsistently shows a single string. Perastage therefore emits only the normative array form, using an empty array when there is no source station, and accepts either an array or the documented string form at the input boundary. A non-empty legacy string is normalized to a one-element list, and the example's empty string is normalized to an empty list. Every non-empty UUID is validated and canonicalized before the request is handled. This compatibility does not apply to `MVR_LEAVE`: Table 70 defines its `FromStationUUID` separately as one UUID, so LEAVE output and canonical parsing remain singular.
 
 The following items are intentionally outside this implementation:
 
