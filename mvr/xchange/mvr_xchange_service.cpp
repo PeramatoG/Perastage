@@ -204,7 +204,7 @@ std::optional<MvrXchangeCommit> MvrXchangeService::RequestRemoteCommit(const std
     Log("MVR-xchange request failed because the remote station has no reachable endpoint.");
     return std::nullopt;
   }
-  return tcpClient_.RequestCommit(endpoint, canonicalFileUuid, settings_.stationUuid, [this](const std::string &msg) { Log(msg); });
+  return tcpClient_.RequestCommit(endpoint, canonicalFileUuid, canonicalStationUuid, [this](const std::string &msg) { Log(msg); });
 }
 
 // Installs a log callback for GUI-safe status forwarding.

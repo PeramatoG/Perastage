@@ -95,13 +95,13 @@ bool JsonBoolValue(const nlohmann::json &json, const char *key) {
 void ParseRequestSourceStations(const nlohmann::json &json, Message &message, const std::function<void(const std::string &)> &setStructuralError) {
   const auto it = json.find("FromStationUUID");
   if (it == json.end()) return;
-  message.fromStationUuidsSpecified = true;
+  message.sourceStationUuidsSpecified = true;
   if (it->is_string()) {
     const std::string value = it->get<std::string>();
     if (value.empty()) return;
     const std::string canonical = CanonicalizeUuid(value);
     if (canonical.empty()) setStructuralError("MVR_REQUEST contains an invalid FromStationUUID.");
-    else message.fromStationUuids.push_back(canonical);
+    else message.sourceStationUuids.push_back(canonical);
     return;
   }
   if (!it->is_array()) {
@@ -121,7 +121,7 @@ void ParseRequestSourceStations(const nlohmann::json &json, Message &message, co
     }
     parsed.push_back(canonical);
   }
-  message.fromStationUuids = std::move(parsed);
+  message.sourceStationUuids = std::move(parsed);
 }
 
 }
@@ -284,9 +284,9 @@ std::string BuildCommitRet(bool ok, const std::string &message) {
 }
 
 // Builds the official MVR_REQUEST message with its normative source-station array.
-std::string BuildRequest(const std::string &fileUuid, const std::vector<std::string> &fromStationUuids) {
+std::string BuildRequest(const std::string &fileUuid, const std::vector<std::string> &sourceStationUuids) {
   nlohmann::json sources = nlohmann::json::array();
-  for (const auto &uuid : fromStationUuids) sources.push_back(CanonicalizeUuid(uuid));
+  for (const auto &uuid : sourceStationUuids) sources.push_back(CanonicalizeUuid(uuid));
   return nlohmann::json{{"Type", "MVR_REQUEST"}, {"FileUUID", CanonicalizeUuid(fileUuid)}, {"FromStationUUID", std::move(sources)}}.dump();
 }
 

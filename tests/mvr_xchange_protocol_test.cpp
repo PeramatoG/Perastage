@@ -205,29 +205,31 @@ static void TestMessages() {
 static void TestRequestSourceStations() {
   const std::string firstUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   const std::string secondUuid = "11111111-2222-3333-4444-555555555555";
+  const std::string fileUuid = "abcdefab-cdef-abcd-efab-cdefabcdefab";
   auto canonical = mvr::xchange::ParseMessage(
       R"({"Type":"MVR_REQUEST","FileUUID":"abcdefab-cdef-abcd-efab-cdefabcdefab","FromStationUUID":["AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"]})");
   assert(canonical && mvr::xchange::ValidateMessage(*canonical).empty());
-  assert(canonical->fromStationUuids == std::vector<std::string>{firstUuid});
+  assert(canonical->sourceStationUuids == std::vector<std::string>{firstUuid});
 
   auto multiple = mvr::xchange::ParseMessage(
       R"({"Type":"MVR_REQUEST","FromStationUUID":["AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE","11111111-2222-3333-4444-555555555555"]})");
   assert(multiple && mvr::xchange::ValidateMessage(*multiple).empty());
-  assert(multiple->fromStationUuids == (std::vector<std::string>{firstUuid, secondUuid}));
+  assert(multiple->sourceStationUuids == (std::vector<std::string>{firstUuid, secondUuid}));
 
   auto legacy = mvr::xchange::ParseMessage(
       R"({"Type":"MVR_REQUEST","FromStationUUID":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"})");
   assert(legacy && mvr::xchange::ValidateMessage(*legacy).empty());
-  assert(legacy->fromStationUuids == std::vector<std::string>{firstUuid});
+  assert(legacy->sourceStationUuids == std::vector<std::string>{firstUuid});
   auto emptyLegacy = mvr::xchange::ParseMessage(R"({"Type":"MVR_REQUEST","FromStationUUID":""})");
-  assert(emptyLegacy && mvr::xchange::ValidateMessage(*emptyLegacy).empty() && emptyLegacy->fromStationUuids.empty());
+  assert(emptyLegacy && mvr::xchange::ValidateMessage(*emptyLegacy).empty() && emptyLegacy->sourceStationUuids.empty());
 
   const auto outgoing = nlohmann::json::parse(mvr::xchange::BuildRequest(
-      "ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB", {"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"}));
+      "ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB", {secondUuid}));
   assert(outgoing["Type"] == "MVR_REQUEST");
-  assert(outgoing["FileUUID"] == "abcdefab-cdef-abcd-efab-cdefabcdefab");
+  assert(outgoing["FileUUID"] == fileUuid);
   assert(outgoing["FromStationUUID"].is_array());
-  assert(outgoing["FromStationUUID"] == nlohmann::json::array({firstUuid}));
+  assert(outgoing["FromStationUUID"] == nlohmann::json::array({secondUuid}));
+  assert(std::find(outgoing["FromStationUUID"].begin(), outgoing["FromStationUUID"].end(), firstUuid) == outgoing["FromStationUUID"].end());
   const auto noSources = nlohmann::json::parse(mvr::xchange::BuildRequest("", {}));
   assert(noSources["FromStationUUID"].is_array() && noSources["FromStationUUID"].empty());
 }
@@ -670,8 +672,14 @@ static void TestTcpTransactions() {
   endpoint.commits = {available};
   endpoint.commits[0].declaredFileSize = 3;
   endpoint.commits[0].declaredFileSizeSpecified = true;
-  const auto requested = client.RequestCommit(endpoint, available.fileUuid, remoteUuid, {});
+  std::vector<std::string> requestLogs;
+  const auto requested = client.RequestCommit(endpoint, available.fileUuid, localUuid, [&](const std::string &message) { requestLogs.push_back(message); });
   assert(requested && requested->payload == available.payload);
+  assert(std::find(requestLogs.begin(), requestLogs.end(),
+                   "MVR-xchange requesting FileUUID=" + available.fileUuid + " from StationUUID=" + localUuid + ".") != requestLogs.end());
+  assert(std::none_of(requestLogs.begin(), requestLogs.end(), [&](const std::string &message) {
+    return message.find("from StationUUID=" + remoteUuid) != std::string::npos;
+  }));
   assert(client.SendLeave(endpoint, remoteUuid, {}));
   assert(leftStation == remoteUuid);
   const auto stopStarted = std::chrono::steady_clock::now();

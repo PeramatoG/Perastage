@@ -52,7 +52,9 @@ Changes since **v1.5.0**.
 - MVR-xchange TCP Mode now interoperates with applications such as grandMA3
   that send the standards-defined source-station UUID array when requesting a
   published revision, while retaining compatibility with the contradictory
-  single-string request example in MVR 1.6.
+  single-string request example in MVR 1.6. Outgoing requests now identify the
+  remote station that owns the advertised revision, resolving request UUID
+  mismatch rejections from applications such as DMXRouter.
 
 - Fixtures of the same type now receive one consistent type color when
   text-to-scene generation cannot find their definition in the GDTF library.

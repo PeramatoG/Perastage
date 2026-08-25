@@ -17,7 +17,7 @@ public:
   bool SendJoin(const MvrXchangeRemoteStation &station, const MvrXchangeSettings &settings, const std::vector<MvrXchangeCommit> &localCommits, MvrXchangeRemoteStation &joinedStation, LogCallback logCallback);
   bool SendCommit(const MvrXchangeRemoteStation &station, const MvrXchangeCommit &commit, LogCallback logCallback);
   bool SendLeave(const MvrXchangeRemoteStation &station, const std::string &stationUuid, LogCallback logCallback);
-  std::optional<MvrXchangeCommit> RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &fromStationUuid, LogCallback logCallback);
+  std::optional<MvrXchangeCommit> RequestCommit(const MvrXchangeRemoteStation &station, const std::string &fileUuid, const std::string &sourceStationUuid, LogCallback logCallback);
 
 private:
   bool Connect(const MvrXchangeRemoteStation &station, std::intptr_t &fd, LogCallback logCallback);
