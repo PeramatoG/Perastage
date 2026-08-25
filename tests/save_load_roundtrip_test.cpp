@@ -600,7 +600,22 @@ int main() {
     assert(project_identity::CollectRecoverableFixtureUuids(identityAuditScene)
                .empty());
 
-    cfg.Reset();
+    nlohmann::json foreignNavigationConfig = firstConfig;
+    foreignNavigationConfig["viewer3d_invert_orbit"] = "0";
+    foreignNavigationConfig["viewer3d_invert_orbit_horizontal"] = "1";
+    const std::filesystem::path foreignNavigationProject =
+        std::filesystem::temp_directory_path() /
+        "roundtrip_test_foreign_navigation.pstg";
+    WriteProjectWithConfig(temp, foreignNavigationProject,
+                           foreignNavigationConfig.dump(2));
+
+    cfg.SetValue("viewer3d_invert_orbit", "1");
+    cfg.SetValue("viewer3d_invert_orbit_horizontal", "0");
+    assert(cfg.LoadProject(foreignNavigationProject.string()));
+    assert(cfg.GetValue("viewer3d_invert_orbit") ==
+           std::optional<std::string>("1"));
+    assert(cfg.GetValue("viewer3d_invert_orbit_horizontal") ==
+           std::optional<std::string>("0"));
 
     assert(cfg.LoadProject(PathUtils::PathToUtf8(temp)));
 
@@ -742,6 +757,7 @@ int main() {
                .fixtureIdNumeric == 101);
 
     std::filesystem::remove(temp);
+    std::filesystem::remove(foreignNavigationProject);
     std::filesystem::remove(legacyProject);
     std::filesystem::remove(secondProject);
   std::filesystem::remove(ProjectUtils::GetDefaultLibraryPath("fixtures") +

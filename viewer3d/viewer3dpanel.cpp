@@ -191,7 +191,7 @@ bool IsHorizontalOrbitInversionEnabled()
 {
     return viewport_navigation::ReadBooleanPreference(
         ConfigManager::Get().GetValue(std::string(
-            viewport_navigation::kHorizontalOrbitInversionConfigKey)));
+            user_navigation_preferences::kHorizontalOrbitInversionConfigKey)));
 }
 
 // Returns whether vertical 3D orbit movement is inverted.
@@ -199,7 +199,7 @@ bool IsVerticalOrbitInversionEnabled()
 {
     return viewport_navigation::ReadBooleanPreference(
         ConfigManager::Get().GetValue(std::string(
-            viewport_navigation::kVerticalOrbitInversionConfigKey)));
+            user_navigation_preferences::kVerticalOrbitInversionConfigKey)));
 }
 
 bool Is2DDarkModeEnabled() {

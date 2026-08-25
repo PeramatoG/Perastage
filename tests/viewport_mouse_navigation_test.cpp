@@ -15,6 +15,11 @@ int main() {
          Viewer3DAction::Pan);
   assert(!IsExclusiveViewer2DPan(MouseButton::Left));
   assert(IsExclusiveViewer2DPan(MouseButton::Middle));
+  assert(CanBeginViewer2DPan(true, false));
+  assert(CanBeginViewer2DPan(false, true));
+  assert(!CanBeginViewer2DPan(false, false));
+  assert(ShouldResumeViewer2DSelection(true));
+  assert(!ShouldResumeViewer2DSelection(false));
 
   assert((ResolveOrbitDeltas(2.0f, -3.0f, false, false) ==
           std::pair(2.0f, -3.0f)));

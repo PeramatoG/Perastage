@@ -47,6 +47,7 @@
 #include "../viewer_common/gl_framebuffer_capture_target.h"
 #include "../viewer_common/measure_overlay_style.h"
 #include "../viewer_common/magnet_anchor_overlay.h"
+#include "../viewer_common/viewport_mouse_navigation.h"
 #include "../viewport_interaction_scope.h"
 #include "canvas2d.h"
 #include "configmanager.h"
@@ -3330,7 +3331,8 @@ void Viewer2DPanel::TrackHoverHitTestTelemetry(
 void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   m_hasLastMousePos = true;
   if (event.MiddleDown()) {
-    if (m_dragMode != DragMode::None)
+    if (!viewport_navigation::CanBeginViewer2DPan(
+            m_dragMode == DragMode::None, m_continuousPlacementActive))
       return;
     if (!HasCapture())
       CaptureMouse();
@@ -3582,7 +3584,10 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     if (HasCapture())
       ReleaseMouse();
     m_middleMousePanning = false;
-    m_dragMode = DragMode::None;
+    m_dragMode = viewport_navigation::ShouldResumeViewer2DSelection(
+                     m_continuousPlacementActive)
+                     ? DragMode::Selection
+                     : DragMode::None;
     if (m_continuousPlacementActive)
       AlignContinuousElementToPointer(event.GetPosition());
     m_draggedSincePress = false;
@@ -4192,6 +4197,14 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
 // Resets all transient 2D interaction state after mouse capture is lost.
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
   m_middleMousePanning = false;
+  if (m_continuousPlacementActive) {
+    m_dragMode = DragMode::Selection;
+    m_pendingMagnetSnap.reset();
+    m_rectSelecting = false;
+    m_rectSelectionAcrossAllTables = false;
+    ClearCursorWorldPosition();
+    return;
+  }
   m_dragMode = DragMode::None;
   m_dragAxis = DragAxis::None;
   m_dragTarget = DragTarget::None;

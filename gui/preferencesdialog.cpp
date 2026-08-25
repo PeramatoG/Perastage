@@ -398,7 +398,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
                      _("Invert orbit horizontal direction"));
   const auto viewer3dInvertOrbitHorizontalValue =
       cfg.GetValue(std::string(
-          viewport_navigation::kHorizontalOrbitInversionConfigKey));
+          user_navigation_preferences::kHorizontalOrbitInversionConfigKey));
   viewer3dInvertOrbitHorizontalCheck->SetValue(
       viewer3dInvertOrbitHorizontalValue &&
       *viewer3dInvertOrbitHorizontalValue == "1");
@@ -409,7 +409,7 @@ PreferencesDialog::PreferencesDialog(wxWindow *parent)
       new wxCheckBox(viewer3dNavigationSizer->GetStaticBox(), wxID_ANY,
                      _("Invert orbit vertical direction"));
   const auto viewer3dInvertOrbitValue = cfg.GetValue(
-      std::string(viewport_navigation::kVerticalOrbitInversionConfigKey));
+      std::string(user_navigation_preferences::kVerticalOrbitInversionConfigKey));
   viewer3dInvertOrbitVerticalCheck->SetValue(viewer3dInvertOrbitValue &&
                                              *viewer3dInvertOrbitValue == "1");
   viewer3dNavigationSizer->Add(viewer3dInvertOrbitVerticalCheck, 0, wxALL, 8);
@@ -603,13 +603,13 @@ bool PreferencesDialog::ApplyPreferences() {
            viewer3dByUniverseRenderRadio->GetValue())
     renderStyle = Viewer3DRenderStyle::ByUniverse;
   cfg.SetValue("viewer3d_render_style", ToConfigValue(renderStyle));
-  cfg.SetValue(std::string(viewport_navigation::kVerticalOrbitInversionConfigKey),
+  cfg.SetValue(std::string(user_navigation_preferences::kVerticalOrbitInversionConfigKey),
                viewer3dInvertOrbitVerticalCheck &&
                        viewer3dInvertOrbitVerticalCheck->GetValue()
                    ? "1"
                    : "0");
   cfg.SetValue(std::string(
-                   viewport_navigation::kHorizontalOrbitInversionConfigKey),
+                   user_navigation_preferences::kHorizontalOrbitInversionConfigKey),
                viewer3dInvertOrbitHorizontalCheck &&
                        viewer3dInvertOrbitHorizontalCheck->GetValue()
                    ? "1"

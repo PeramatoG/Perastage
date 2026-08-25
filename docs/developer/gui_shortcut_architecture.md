@@ -166,7 +166,9 @@ represent equivalent actions:
 - The 3D navigation preferences invert horizontal yaw and vertical pitch
   independently. The legacy `viewer3d_invert_orbit` setting remains the
   vertical preference, while `viewer3d_invert_orbit_horizontal` controls only
-  horizontal movement and defaults to off when absent.
+  horizontal movement and defaults to off when absent. Both are user-level
+  preferences and are preserved when a project package is opened, regardless
+  of values stored by the project author.
 
 - `Ctrl + Left Drag`:
   rectangle selection in the active table context.
