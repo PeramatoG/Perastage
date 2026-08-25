@@ -4,6 +4,11 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Automatic DMX patching now keeps logical lighting Positions and their
+  physically separate bridge components together whenever universe capacity
+  allows, including deterministic serpentine patching for parallel side
+  structures without relying on position names.
+
 - Export MVR now suggests the current project name as the destination file
   name, matching the Save Project workflow while still allowing it to be
   changed before export.
