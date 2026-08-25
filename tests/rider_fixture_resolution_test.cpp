@@ -100,6 +100,52 @@ int main() {
   assert(!analysis.items[1].selectedEntry);
   assert(analysis.items[1].details.find("Download failed") != std::string::npos);
 
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::LoadingCatalog}, {ProgressStage::ParsingCatalog}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::ParsingCatalog},
+      {ProgressStage::MatchingFixtures, 1, 2, 1}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::MatchingFixtures, 1, 2, 1},
+      {ProgressStage::MatchingFixtures, 2, 2, 1}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::MatchingFixtures, 2, 2, 1},
+      {ProgressStage::Complete, 2, 2, 1}));
+  assert(!Service::IsValidProgressTransition(
+      {ProgressStage::MatchingFixtures, 2, 2, 1},
+      {ProgressStage::MatchingFixtures, 3, 2, 1}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::LoadingCatalog}, {ProgressStage::Unavailable}));
+  assert(StatusSemanticForOrigin(ResolutionOrigin::Dictionary) ==
+         StatusSemantic::Neutral);
+  assert(StatusSemanticForOrigin(ResolutionOrigin::DictionaryModified) ==
+         StatusSemantic::Modified);
+  assert(StatusSemanticForOrigin(ResolutionOrigin::AutomaticMatch) ==
+         StatusSemantic::Success);
+  assert(StatusSemanticForOrigin(ResolutionOrigin::UserSelection) ==
+         StatusSemantic::Information);
+  assert(StatusSemanticForOrigin(ResolutionOrigin::GenericFallback) ==
+         StatusSemantic::Warning);
+  assert(StatusSemanticForOrigin(ResolutionOrigin::Skipped) ==
+         StatusSemantic::Muted);
+
+  std::vector<Progress> reportedProgress;
+  const Analysis progressAnalysis = Service::Analyze(
+      {requests[1], requests[2]}, {}, catalog,
+      [&](const Progress &progress) { reportedProgress.push_back(progress); });
+  assert(progressAnalysis.items.size() == 2);
+  assert(reportedProgress.size() == 3);
+  assert(reportedProgress[0].stage == ProgressStage::MatchingFixtures);
+  assert(reportedProgress[0].current == 1 && reportedProgress[0].total == 2);
+  assert(reportedProgress[1].current == 2 && reportedProgress[1].total == 2);
+  assert(reportedProgress[2].stage == ProgressStage::Complete);
+  assert(reportedProgress[2].automaticMatches == 1);
+
+  Analysis renamedDuringMatch = Service::Analyze({requests[1]}, {}, {});
+  renamedDuringMatch.items.front().effectiveFixtureType = "Edited after start";
+  Service::MergeCatalogSuggestions(renamedDuringMatch, backgroundMatch);
+  assert(!renamedDuringMatch.items.front().selectedEntry);
+
   std::filesystem::remove(profilePath);
   return 0;
 }

@@ -2,6 +2,8 @@
 
 #include "gdtfsearchdialog.h"
 #include "gdtfloader.h"
+#include "colorstore.h"
+#include "gdtf_resolution_status_style.h"
 #include "../core/diagnostics/DiagnosticLogger.h"
 
 #include <algorithm>
@@ -12,6 +14,7 @@
 #include <wx/button.h>
 #include <wx/choicdlg.h>
 #include <wx/dataview.h>
+#include <wx/gauge.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -21,6 +24,7 @@
 namespace {
 
 const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_LOADED(wxNewEventType());
+const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_PROGRESS(wxNewEventType());
 
 // Joins position labels for compact table presentation.
 wxString JoinPositions(const std::vector<std::string> &positions) {
@@ -80,6 +84,8 @@ RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
   Bind(wxEVT_SHOW, &RiderFixtureResolutionDialog::OnDialogShown, this);
   Bind(EVT_RIDER_CATALOG_LOADED,
        &RiderFixtureResolutionDialog::OnCatalogLoaded, this);
+  Bind(EVT_RIDER_CATALOG_PROGRESS,
+       &RiderFixtureResolutionDialog::OnProgress, this);
 }
 
 // Returns the user-reviewed resolution model after the modal dialog succeeds.
@@ -97,25 +103,33 @@ void RiderFixtureResolutionDialog::BuildLayout() {
   catalogStatusLabel = new wxStaticText(
       this, wxID_ANY, _("Loading cached GDTF catalog..."));
   root->Add(catalogStatusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
+  catalogProgressGauge = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition,
+                                     wxSize(-1, 6), wxGA_HORIZONTAL | wxGA_SMOOTH);
+  catalogProgressGauge->SetValue(0);
+  root->Add(catalogProgressGauge, 0,
+            wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
 
-  table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
-                                 wxDefaultSize, wxDV_ROW_LINES);
+  table = new wxDataViewCtrl(this, wxID_ANY, wxDefaultPosition,
+                             wxDefaultSize, wxDV_ROW_LINES);
+  tableStore = new ColorfulDataViewListStore();
+  table->AssociateModel(tableStore);
+  tableStore->DecRef();
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-  table->AppendToggleColumn(_("Create"), wxDATAVIEW_CELL_ACTIVATABLE, 65,
+  table->AppendToggleColumn(_("Create"), 0, wxDATAVIEW_CELL_ACTIVATABLE, 65,
                             wxALIGN_CENTER, flags);
-  table->AppendTextColumn(_("Fixture type"), wxDATAVIEW_CELL_EDITABLE, 220,
+  table->AppendTextColumn(_("Fixture type"), 1, wxDATAVIEW_CELL_EDITABLE, 220,
                           wxALIGN_LEFT, flags);
-  table->AppendTextColumn(_("Qty"), wxDATAVIEW_CELL_INERT, 55, wxALIGN_RIGHT,
+  table->AppendTextColumn(_("Qty"), 2, wxDATAVIEW_CELL_INERT, 55, wxALIGN_RIGHT,
                           flags);
-  table->AppendTextColumn(_("Positions"), wxDATAVIEW_CELL_INERT, 140,
+  table->AppendTextColumn(_("Positions"), 3, wxDATAVIEW_CELL_INERT, 140,
                           wxALIGN_LEFT, flags);
-  table->AppendTextColumn(_("Selected GDTF"), wxDATAVIEW_CELL_INERT, 270,
+  table->AppendTextColumn(_("Selected GDTF"), 4, wxDATAVIEW_CELL_INERT, 270,
                           wxALIGN_LEFT, flags);
-  table->AppendTextColumn(_("Mode"), wxDATAVIEW_CELL_INERT, 130, wxALIGN_LEFT,
+  table->AppendTextColumn(_("Mode"), 5, wxDATAVIEW_CELL_INERT, 130, wxALIGN_LEFT,
                           flags);
-  table->AppendTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 100, wxALIGN_LEFT,
+  table->AppendTextColumn(_("Status"), 6, wxDATAVIEW_CELL_INERT, 100, wxALIGN_LEFT,
                           flags);
-  table->AppendTextColumn(_("Details"), wxDATAVIEW_CELL_INERT, 220,
+  table->AppendTextColumn(_("Details"), 7, wxDATAVIEW_CELL_INERT, 220,
                           wxALIGN_LEFT, flags);
   root->Add(table, 1, wxEXPAND | wxLEFT | wxRIGHT, 12);
 
@@ -130,8 +144,8 @@ void RiderFixtureResolutionDialog::BuildLayout() {
   root->Add(actions, 0, wxEXPAND | wxALL, 12);
 
   auto *footer = new wxBoxSizer(wxHORIZONTAL);
-  auto *acceptAllButton =
-      new wxButton(this, wxID_ANY, _("Accept all suggestions"));
+  acceptAllButton = new wxButton(this, wxID_ANY, _("Accept all suggestions"));
+  acceptAllButton->Enable(false);
   summaryLabel = new wxStaticText(this, wxID_ANY, wxEmptyString);
   resolveButton = new wxButton(this, wxID_OK, _("Resolve and create"));
   auto *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
@@ -162,8 +176,8 @@ void RiderFixtureResolutionDialog::BuildLayout() {
 
 // Rebuilds table rows from the current resolution model.
 void RiderFixtureResolutionDialog::RefreshTable() {
-  const int selectedRow = table->GetSelectedRow();
-  table->DeleteAllItems();
+  const int selectedRow = SelectedRow();
+  tableStore->DeleteAllItems();
   for (const auto &item : analysis.items) {
     wxVector<wxVariant> row;
     row.push_back(item.create);
@@ -176,11 +190,18 @@ void RiderFixtureResolutionDialog::RefreshTable() {
                       : wxString::FromUTF8(item.selectedMode));
     row.push_back(wxString::FromUTF8(rider_fixture_resolution::OriginName(item.origin)));
     row.push_back(wxString::FromUTF8(item.details));
-    table->AppendItem(row);
+    tableStore->AppendItem(row);
+    const unsigned rowIndex = static_cast<unsigned>(tableStore->GetItemCount() - 1);
+    const unsigned statusColumn = 6;
+    const auto semantic =
+        rider_fixture_resolution::StatusSemanticForOrigin(item.origin);
+    if (semantic != rider_fixture_resolution::StatusSemantic::Neutral)
+      tableStore->SetCellTextColour(
+          rowIndex, statusColumn, GdtfResolutionStatusColour(semantic));
   }
   if (!analysis.items.empty())
-    table->SelectRow(std::clamp(selectedRow, 0,
-                                static_cast<int>(analysis.items.size()) - 1));
+    table->Select(tableStore->GetItem(static_cast<unsigned>(std::clamp(
+        selectedRow, 0, static_cast<int>(analysis.items.size()) - 1))));
 }
 
 // Updates row-action availability for the selected fixture row.
@@ -216,10 +237,16 @@ void RiderFixtureResolutionDialog::RefreshSummary() {
 
 // Returns the model item corresponding to the selected table row.
 rider_fixture_resolution::Item *RiderFixtureResolutionDialog::SelectedItem() {
-  const int row = table->GetSelectedRow();
+  const int row = SelectedRow();
   if (row < 0 || row >= static_cast<int>(analysis.items.size()))
     return nullptr;
   return &analysis.items[static_cast<size_t>(row)];
+}
+
+// Returns the currently selected model row or -1 when no row is selected.
+int RiderFixtureResolutionDialog::SelectedRow() const {
+  const wxDataViewItem selected = table->GetSelection();
+  return selected.IsOk() ? static_cast<int>(tableStore->GetRow(selected)) : -1;
 }
 
 // Refreshes actions when the selected row changes.
@@ -232,9 +259,9 @@ void RiderFixtureResolutionDialog::OnSelectionChanged(wxDataViewEvent &event) {
 void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
   if (event.GetColumn() != 5)
     return;
-  const int activatedRow = table->ItemToRow(event.GetItem());
+  const int activatedRow = static_cast<int>(tableStore->GetRow(event.GetItem()));
   if (activatedRow != wxNOT_FOUND)
-    table->SelectRow(activatedRow);
+    table->Select(tableStore->GetItem(static_cast<unsigned>(activatedRow)));
   auto *item = SelectedItem();
   if (!item)
     return;
@@ -279,13 +306,13 @@ void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
 
 // Applies committed Create and Fixture type cell edits to the resolution model.
 void RiderFixtureResolutionDialog::OnValueChanged(wxDataViewEvent &event) {
-  const int row = table->ItemToRow(event.GetItem());
+  const int row = static_cast<int>(tableStore->GetRow(event.GetItem()));
   if (row == wxNOT_FOUND || row >= static_cast<int>(analysis.items.size()))
     return;
   auto &item = analysis.items[static_cast<size_t>(row)];
   wxVariant value;
-  table->GetValue(value, static_cast<unsigned int>(row),
-                  static_cast<unsigned int>(event.GetColumn()));
+  tableStore->GetValueByRow(value, static_cast<unsigned int>(row),
+                            static_cast<unsigned int>(event.GetColumn()));
   if (event.GetColumn() == 0) {
     rider_fixture_resolution::Service::SetCreate(item, value.GetBool());
     if (item.create)
@@ -361,14 +388,40 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
   const auto requests = BuildFixtureRequests();
   wxWeakRef<RiderFixtureResolutionDialog> weakDialog(this);
   std::thread([loader, weakDialog, requests]() mutable {
+    auto report = [&weakDialog](const ProgressData &progress) {
+      RiderFixtureResolutionDialog *dialog = weakDialog.get();
+      if (!dialog)
+        return;
+      auto *event = new wxThreadEvent(EVT_RIDER_CATALOG_PROGRESS);
+      event->SetPayload(progress);
+      wxQueueEvent(dialog, event);
+    };
+    report({{rider_fixture_resolution::ProgressStage::LoadingCatalog}});
+    report({{rider_fixture_resolution::ProgressStage::ParsingCatalog}});
     auto loaded = loader();
     if (loaded) {
       const auto matchStarted = std::chrono::steady_clock::now();
-      loaded->matches = rider_fixture_resolution::Service::Analyze(
-          requests, {}, loaded->entries);
+      rider_fixture_resolution::Analysis matches;
+      size_t automaticMatches = 0;
+      for (size_t row = 0; row < requests.size(); ++row) {
+        auto one = rider_fixture_resolution::Service::Analyze(
+            {requests[row]}, {}, loaded->entries);
+        if (one.items.front().origin ==
+            rider_fixture_resolution::ResolutionOrigin::AutomaticMatch)
+          ++automaticMatches;
+        matches.items.push_back(one.items.front());
+        report({{rider_fixture_resolution::ProgressStage::MatchingFixtures,
+                 row + 1, requests.size(), automaticMatches},
+                row, one.items.front()});
+      }
+      report({{rider_fixture_resolution::ProgressStage::Complete,
+               requests.size(), requests.size(), automaticMatches}});
+      loaded->matches = std::move(matches);
       loaded->matchMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - matchStarted).count();
+    } else {
+      report({{rider_fixture_resolution::ProgressStage::Unavailable}});
     }
     RiderFixtureResolutionDialog *dialog = weakDialog.get();
     if (!dialog)
@@ -382,6 +435,8 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
 // Applies a completed cached catalog load on the wxWidgets UI thread.
 void RiderFixtureResolutionDialog::OnCatalogLoaded(wxThreadEvent &event) {
   catalogLoading = false;
+  if (!acceptAutomaticResults)
+    return;
   const auto loaded =
       event.GetPayload<std::optional<RiderFixtureResolutionDialog::CatalogData>>();
   if (!loaded) {
@@ -392,8 +447,56 @@ void RiderFixtureResolutionDialog::OnCatalogLoaded(wxThreadEvent &event) {
   ApplyCatalog(*loaded);
 }
 
+// Updates the visible gauge from real catalog and matching worker progress.
+void RiderFixtureResolutionDialog::OnProgress(wxThreadEvent &event) {
+  if (!acceptAutomaticResults)
+    return;
+  const auto data = event.GetPayload<ProgressData>();
+  const auto &progress = data.progress;
+  if (data.matchedItem && data.row < analysis.items.size()) {
+    rider_fixture_resolution::Service::MergeCatalogSuggestion(
+        analysis.items[data.row], *data.matchedItem);
+    RefreshTable();
+    RefreshSelectionControls();
+    RefreshSummary();
+  }
+  switch (progress.stage) {
+  case rider_fixture_resolution::ProgressStage::LoadingCatalog:
+    catalogStatusLabel->SetLabel(_("Loading cached GDTF catalog..."));
+    catalogProgressGauge->Pulse();
+    break;
+  case rider_fixture_resolution::ProgressStage::ParsingCatalog:
+    catalogStatusLabel->SetLabel(_("Parsing GDTF catalog..."));
+    catalogProgressGauge->Pulse();
+    break;
+  case rider_fixture_resolution::ProgressStage::MatchingFixtures:
+    catalogProgressGauge->SetRange(static_cast<int>(std::max<size_t>(progress.total, 1)));
+    catalogProgressGauge->SetValue(static_cast<int>(progress.current));
+    catalogStatusLabel->SetLabel(wxString::Format(
+        _("Matching GDTF candidates... %zu / %zu"), progress.current,
+        progress.total));
+    break;
+  case rider_fixture_resolution::ProgressStage::Complete:
+    catalogProgressGauge->SetRange(static_cast<int>(std::max<size_t>(progress.total, 1)));
+    catalogProgressGauge->SetValue(static_cast<int>(progress.total));
+    catalogStatusLabel->SetLabel(wxString::Format(
+        _("Automatic matching complete | %zu matches | %zu generic fallbacks"),
+        progress.automaticMatches,
+        progress.total - std::min(progress.total, progress.automaticMatches)));
+    acceptAllButton->Enable(true);
+    break;
+  case rider_fixture_resolution::ProgressStage::Unavailable:
+    catalogProgressGauge->SetValue(0);
+    catalogStatusLabel->SetLabel(
+        _("GDTF catalog unavailable - generic fallback remains available"));
+    break;
+  }
+}
+
 // Merges catalog suggestions into untouched rows and refreshes presentation.
 void RiderFixtureResolutionDialog::ApplyCatalog(const CatalogData &catalog) {
+  if (!acceptAutomaticResults)
+    return;
   catalogPayload = catalog.snapshot.listData;
   catalogUpdatedAt = catalog.snapshot.updatedAt;
   catalogEntries = catalog.entries;
@@ -406,8 +509,6 @@ void RiderFixtureResolutionDialog::ApplyCatalog(const CatalogData &catalog) {
       "Rider fixture preflight catalog: catalog_match_ms=" +
       std::to_string(catalog.matchMs));
   rider_fixture_resolution::Service::MergeCatalogSuggestions(analysis, matched);
-  catalogStatusLabel->SetLabel(wxString::Format(
-      _("Catalog loaded: %zu entries"), catalogEntries.size()));
   RefreshTable();
   RefreshSelectionControls();
   RefreshSummary();
@@ -454,6 +555,7 @@ void RiderFixtureResolutionDialog::OnAcceptAll(wxCommandEvent &) {
 
 // Closes successfully only after every non-dictionary row is explicitly ready.
 void RiderFixtureResolutionDialog::OnResolve(wxCommandEvent &) {
+  acceptAutomaticResults = false;
   rider_fixture_resolution::Service::FinalizeDefaults(analysis);
   EndModal(wxID_OK);
 }

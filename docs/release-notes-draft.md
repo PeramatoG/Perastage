@@ -57,6 +57,9 @@ Changes since **v1.5.0**.
 - Downloaded GDTF Share files now retain external-source identity when mapped
   from rider text, and recoverable download, mode, or dictionary failures fall
   back only the affected fixture type instead of cancelling scene creation.
+- Resolve fixture types now shows real catalog and per-fixture matching progress,
+  retains a final match summary, and uses the same semantic status colors as the
+  MVR GDTF download workflow.
 
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.

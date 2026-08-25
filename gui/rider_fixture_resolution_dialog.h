@@ -10,11 +10,13 @@
 #include <wx/dialog.h>
 
 class wxButton;
+class wxGauge;
 class wxDataViewEvent;
-class wxDataViewListCtrl;
+class wxDataViewCtrl;
 class wxStaticText;
 class wxShowEvent;
 class wxThreadEvent;
+class ColorfulDataViewListStore;
 
 class RiderFixtureResolutionDialog final : public wxDialog {
 public:
@@ -25,6 +27,11 @@ public:
     CatalogSource source = CatalogSource::None;
     std::optional<rider_fixture_resolution::Analysis> matches;
     long long matchMs = 0;
+  };
+  struct ProgressData {
+    rider_fixture_resolution::Progress progress;
+    size_t row = 0;
+    std::optional<rider_fixture_resolution::Item> matchedItem;
   };
   using CatalogLoader = std::function<std::optional<CatalogData>()>;
   RiderFixtureResolutionDialog(
@@ -49,9 +56,11 @@ private:
   void OnResolve(wxCommandEvent &event);
   void OnDialogShown(wxShowEvent &event);
   void OnCatalogLoaded(wxThreadEvent &event);
+  void OnProgress(wxThreadEvent &event);
   void ApplyCatalog(const CatalogData &catalog);
   std::vector<RiderImporter::FixtureTypeRequest> BuildFixtureRequests() const;
   rider_fixture_resolution::Item *SelectedItem();
+  int SelectedRow() const;
 
   rider_fixture_resolution::Analysis analysis;
   std::unordered_map<std::string, GdtfDictionary::Entry> dictionary;
@@ -63,11 +72,15 @@ private:
   CatalogLoader onlineCatalogLoader;
   bool catalogLoadStarted = false;
   bool catalogLoading = false;
-  wxDataViewListCtrl *table = nullptr;
+  bool acceptAutomaticResults = true;
+  wxDataViewCtrl *table = nullptr;
+  ColorfulDataViewListStore *tableStore = nullptr;
   wxButton *useSuggestedButton = nullptr;
   wxButton *searchButton = nullptr;
   wxButton *useGenericButton = nullptr;
   wxButton *resolveButton = nullptr;
+  wxButton *acceptAllButton = nullptr;
+  wxGauge *catalogProgressGauge = nullptr;
   wxStaticText *summaryLabel = nullptr;
   wxStaticText *catalogStatusLabel = nullptr;
 };

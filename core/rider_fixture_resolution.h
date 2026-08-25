@@ -5,6 +5,7 @@
 #include "../mvr/gdtf_catalog_matcher.h"
 
 #include <optional>
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -19,6 +20,28 @@ enum class ResolutionOrigin {
   GenericFallback,
   Skipped
 };
+enum class ProgressStage {
+  LoadingCatalog,
+  ParsingCatalog,
+  MatchingFixtures,
+  Complete,
+  Unavailable
+};
+enum class StatusSemantic {
+  Neutral,
+  Modified,
+  Success,
+  Information,
+  Warning,
+  Muted
+};
+struct Progress {
+  ProgressStage stage = ProgressStage::LoadingCatalog;
+  size_t current = 0;
+  size_t total = 0;
+  size_t automaticMatches = 0;
+};
+using ProgressCallback = std::function<void(const Progress &)>;
 
 struct Item {
   RiderImporter::FixtureTypeRequest request;
@@ -49,7 +72,12 @@ public:
   static Analysis Analyze(
       const std::vector<RiderImporter::FixtureTypeRequest> &requests,
       const std::unordered_map<std::string, GdtfDictionary::Entry> &dictionary,
-      const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &catalog);
+      const std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> &catalog,
+      ProgressCallback progress = {});
+
+  // Reports whether a progress transition is internally consistent.
+  static bool IsValidProgressTransition(const Progress &previous,
+                                        const Progress &next);
 
   // Selects a real catalog entry while preserving multi-mode ambiguity.
   static void SelectCatalogEntry(
@@ -78,9 +106,12 @@ public:
   // Merges catalog results without replacing explicit user decisions.
   static void MergeCatalogSuggestions(Analysis &current,
                                       const Analysis &matched);
+  // Merges one worker result without replacing a newer explicit decision.
+  static void MergeCatalogSuggestion(Item &current, const Item &matched);
 };
 
 const char *StateName(State state);
 const char *OriginName(ResolutionOrigin origin);
+StatusSemantic StatusSemanticForOrigin(ResolutionOrigin origin);
 
 } // namespace rider_fixture_resolution

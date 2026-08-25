@@ -58,6 +58,12 @@ authentication, download, validation, mode, and persistence failures update
 only the affected row to Generic fallback. User cancellation remains the only
 normal preflight outcome that cancels the complete import.
 
+The GUI-independent resolver reports `LoadingCatalog`, `ParsingCatalog`,
+`MatchingFixtures`, `Complete`, and `Unavailable` progress. Matching progress
+uses actual processed unique fixture rows, and the dialog ignores automatic
+results after its import plan has been committed. Resolution provenance maps to
+a shared semantic status palette also used by the MVR GDTF download queue.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

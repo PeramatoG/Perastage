@@ -32,6 +32,12 @@ source rider text. The **Create** checkbox can omit every fixture represented
 by a row while preserving trusses, screens, hoists, and other rider objects.
 Manual GDTF search uses the combined manufacturer and fixture identity.
 
+The resolver shows a compact progress gauge while loading and parsing the
+catalog, followed by real per-fixture matching progress. Its final summary stays
+visible, and the Status column uses distinct colors for dictionary, modified,
+automatic, user-assigned, Generic, and skipped outcomes. **Resolve and create**
+remains available while matching runs.
+
 Double-click a row's **Mode** cell to choose from its valid modes. Dictionary
 rows show the mapped local GDTF filename, and confirmed dictionary-mode changes
 are saved only after **Resolve and create**.

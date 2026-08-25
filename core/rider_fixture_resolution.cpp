@@ -41,18 +41,45 @@ bool Analysis::RequiresPreflight() const {
 Analysis Service::Analyze(
     const std::vector<RiderImporter::FixtureTypeRequest> &requests,
     const std::unordered_map<std::string, GdtfDictionary::Entry> &dictionary,
-    const std::vector<GdtfCatalogEntry> &catalog) {
+    const std::vector<GdtfCatalogEntry> &catalog,
+    ProgressCallback progress) {
   Analysis result;
   result.items.reserve(requests.size());
+  size_t automaticMatches = 0;
+  size_t processed = 0;
   for (const auto &request : requests) {
     Item item;
     item.request = request;
     item.originalFixtureType = request.typeName;
     item.effectiveFixtureType = request.typeName;
     ResolveItem(item, dictionary, catalog);
+    if (item.origin == ResolutionOrigin::AutomaticMatch)
+      ++automaticMatches;
     result.items.push_back(std::move(item));
+    ++processed;
+    if (progress)
+      progress({ProgressStage::MatchingFixtures, processed, requests.size(),
+                automaticMatches});
   }
+  if (progress)
+    progress({ProgressStage::Complete, requests.size(), requests.size(),
+              automaticMatches});
   return result;
+}
+
+// Validates monotonic matching progress independently from any GUI control.
+bool Service::IsValidProgressTransition(const Progress &previous,
+                                        const Progress &next) {
+  if (next.total > 0 && next.current > next.total)
+    return false;
+  if (previous.stage == ProgressStage::Complete ||
+      previous.stage == ProgressStage::Unavailable)
+    return false;
+  if (previous.stage == ProgressStage::MatchingFixtures &&
+      next.stage == ProgressStage::MatchingFixtures)
+    return next.total == previous.total && next.current >= previous.current &&
+           next.automaticMatches >= previous.automaticMatches;
+  return static_cast<int>(next.stage) >= static_cast<int>(previous.stage);
 }
 
 // Re-resolves an item through dictionary lookup and the shared MVR matcher.
@@ -152,19 +179,22 @@ void Service::FinalizeDefaults(Analysis &analysis) {
 void Service::MergeCatalogSuggestions(Analysis &current,
                                       const Analysis &matched) {
   const size_t count = std::min(current.items.size(), matched.items.size());
-  for (size_t index = 0; index < count; ++index) {
-    Item &target = current.items[index];
-    if (!target.create || target.state == State::Dictionary ||
-        target.state == State::Generic ||
-        target.selectedEntry)
-      continue;
-    target.state = matched.items[index].state;
-    target.suggestedEntry = matched.items[index].suggestedEntry;
-    target.selectedEntry = matched.items[index].selectedEntry;
-    target.selectedMode = matched.items[index].selectedMode;
-    target.origin = matched.items[index].origin;
-    target.details = matched.items[index].details;
-  }
+  for (size_t index = 0; index < count; ++index)
+    MergeCatalogSuggestion(current.items[index], matched.items[index]);
+}
+
+// Merges one automatic result only when its fixture identity is still current.
+void Service::MergeCatalogSuggestion(Item &target, const Item &matched) {
+  if (target.effectiveFixtureType != matched.effectiveFixtureType ||
+      !target.create || target.state == State::Dictionary ||
+      target.state == State::Generic || target.selectedEntry)
+    return;
+  target.state = matched.state;
+  target.suggestedEntry = matched.suggestedEntry;
+  target.selectedEntry = matched.selectedEntry;
+  target.selectedMode = matched.selectedMode;
+  target.origin = matched.origin;
+  target.details = matched.details;
 }
 
 // Converts resolution state to stable diagnostic text.
@@ -190,6 +220,19 @@ const char *OriginName(ResolutionOrigin origin) {
   case ResolutionOrigin::Skipped: return "Skipped";
   }
   return "Generic fallback";
+}
+
+// Maps resolution provenance to the shared semantic status presentation.
+StatusSemantic StatusSemanticForOrigin(ResolutionOrigin origin) {
+  switch (origin) {
+  case ResolutionOrigin::Dictionary: return StatusSemantic::Neutral;
+  case ResolutionOrigin::DictionaryModified: return StatusSemantic::Modified;
+  case ResolutionOrigin::AutomaticMatch: return StatusSemantic::Success;
+  case ResolutionOrigin::UserSelection: return StatusSemantic::Information;
+  case ResolutionOrigin::GenericFallback: return StatusSemantic::Warning;
+  case ResolutionOrigin::Skipped: return StatusSemantic::Muted;
+  }
+  return StatusSemantic::Warning;
 }
 
 } // namespace rider_fixture_resolution
