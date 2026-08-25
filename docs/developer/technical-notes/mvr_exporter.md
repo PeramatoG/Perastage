@@ -58,6 +58,24 @@ When `GeneralSceneDescription.xml` references a `fileName`/`GDTFSpec` entry that
 Diagnostics are available through `MvrExporter::GetExportDiagnostics()` after
 `ExportToFile(...)`/`ExportToBuffer(...)`.
 
+## Live resource dependency pruning
+
+Resource pruning follows the complete live dependency graph. File-bearing XML
+elements such as `Geometry3D` and `GDTFSpec` are direct MVR references. A live
+3DS, glTF, or GLB model may in turn reference root-level external resources,
+including bitmap images and glTF binary buffers; those model-internal files are
+transitive dependencies and remain in the archive even though the scene XML
+does not name them directly. Resources outside both sets are stale and are
+pruned, so deleting a model also removes dependencies used only by that model.
+
+Dependency discovery uses the resolved model source selected for export,
+including a model recovered from packaged scene resources. External dependency
+filenames remain identical to the model URI or bitmap filename. A
+case-insensitive archive-name collision between different source files fails
+export rather than silently renaming one side and breaking the model reference.
+Embedded `data:` URIs and remote HTTP(S) URIs do not require or trigger archive
+resource collection.
+
 ## Fatal errors
 
 Structural MVR compliance errors still fail export (for example missing

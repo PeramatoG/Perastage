@@ -330,6 +330,7 @@ static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
   return result;
 }
 
+// Reads a 3DS chunk header from the current stream position.
 static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
   if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id)))
     return false;
@@ -338,6 +339,7 @@ static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
   return true;
 }
 
+// Reads a null-terminated 3DS string without crossing its containing chunk.
 static std::string Read3dsCString(std::ifstream &file, std::streampos endPos) {
   std::string output;
   char ch = 0;
@@ -349,6 +351,7 @@ static std::string Read3dsCString(std::ifstream &file, std::streampos endPos) {
   return output;
 }
 
+// Collects bitmap filenames referenced by standard 3DS material map chunks.
 static std::vector<std::string>
 Collect3dsTextureReferences(const fs::path &modelPath) {
   std::vector<std::string> references;
@@ -419,16 +422,36 @@ Collect3dsTextureReferences(const fs::path &modelPath) {
   return references;
 }
 
+// Collects local external URIs from a glTF JSON document or GLB JSON chunk.
 static std::vector<std::string>
-CollectGltfTextureReferences(const fs::path &modelPath) {
+CollectGltfExternalReferences(const fs::path &modelPath) {
   std::vector<std::string> references;
-  std::ifstream file(modelPath);
+  std::ifstream file(modelPath, std::ios::binary);
   if (!file.is_open())
     return references;
 
   std::ostringstream content;
   content << file.rdbuf();
-  const std::string jsonText = content.str();
+  std::string jsonText = content.str();
+  if (ToLowerAscii(modelPath.extension().string()) == ".glb") {
+    constexpr uint32_t kGlbMagic = 0x46546C67;
+    constexpr uint32_t kJsonChunkType = 0x4E4F534A;
+    if (jsonText.size() < 20)
+      return references;
+    auto readUint32 = [&](size_t offset) {
+      const auto *bytes =
+          reinterpret_cast<const unsigned char *>(jsonText.data());
+      return static_cast<uint32_t>(bytes[offset]) |
+             (static_cast<uint32_t>(bytes[offset + 1]) << 8) |
+             (static_cast<uint32_t>(bytes[offset + 2]) << 16) |
+             (static_cast<uint32_t>(bytes[offset + 3]) << 24);
+    };
+    const uint32_t chunkLength = readUint32(12);
+    if (readUint32(0) != kGlbMagic || readUint32(16) != kJsonChunkType ||
+        chunkLength > jsonText.size() - 20)
+      return references;
+    jsonText = jsonText.substr(20, chunkLength);
+  }
   if (jsonText.empty())
     return references;
 
@@ -440,8 +463,10 @@ CollectGltfTextureReferences(const fs::path &modelPath) {
     if (uri.empty())
       continue;
 
-    // Ignore embedded data URIs. We only need to collect external files.
-    if (uri.rfind("data:", 0) == 0)
+    const std::string lowerUri = ToLowerAscii(TrimAscii(uri));
+    // Embedded and remote resources do not correspond to archive entries.
+    if (lowerUri.rfind("data:", 0) == 0 || lowerUri.rfind("http://", 0) == 0 ||
+        lowerUri.rfind("https://", 0) == 0)
       continue;
 
     if (seenRefs.insert(ToLowerAscii(uri)).second)
@@ -451,10 +476,11 @@ CollectGltfTextureReferences(const fs::path &modelPath) {
   return references;
 }
 
-static bool ResolveTextureDependencyPath(const fs::path &modelPath,
-                                         const std::string &textureRef,
-                                         fs::path &resolvedPath) {
-  const std::string normalizedRef = TrimAscii(textureRef);
+// Resolves a model-internal local URI relative to the exported model source.
+static bool ResolveModelDependencyPath(const fs::path &modelPath,
+                                       const std::string &dependencyRef,
+                                       fs::path &resolvedPath) {
+  const std::string normalizedRef = TrimAscii(dependencyRef);
   if (normalizedRef.empty())
     return false;
 
@@ -2625,6 +2651,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
   std::unordered_map<std::string, std::string> primitiveSourceByToken;
   std::unordered_set<std::string> reservedArchivePaths;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      modelDependenciesByArchivePath;
+  bool modelDependencyRegistrationFailed = false;
   auto primitiveWorkspace = CreateExportWorkspace("mvr-export-primitives");
   const std::string primitiveTempDir = primitiveWorkspace.IsValid()
                                            ? primitiveWorkspace.Path().string()
@@ -2789,70 +2818,107 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     return archivePath;
   };
 
-  auto registerModelTextureDependencies = [&](const std::string
-                                                  &rawModelSource) {
-    if (rawModelSource.empty())
+  auto registerModelDependencies = [&](const std::string &resolvedModelSource,
+                                       const std::string &modelArchivePath) {
+    if (resolvedModelSource.empty() || modelArchivePath.empty())
       return;
-    const std::string normalizedModelPath = normalizeSourcePath(rawModelSource);
-    const fs::path modelPath(normalizedModelPath);
+    const fs::path modelPath = PathUtils::PathFromUtf8(resolvedModelSource);
     std::string ext = ToLowerAscii(modelPath.extension().string());
+    std::vector<std::string> dependencyRefs;
     if (ext == ".3ds") {
-      const std::vector<std::string> textureRefs =
-          Collect3dsTextureReferences(modelPath);
-      for (const std::string &textureRef : textureRefs) {
-        fs::path texturePath;
-        if (!ResolveTextureDependencyPath(modelPath, textureRef, texturePath)) {
-          AddDiagnostic({MvrExportDiagnosticCode::TextureMissing,
-                         MvrExportDiagnosticSeverity::Warning,
-                         MvrExportDiagnosticImpact::DataOmitted, true, "Model", {}, {},
-                         fs::path(textureRef).filename().generic_string(),
-                         "A referenced 3DS texture could not be found and was omitted: " +
-                             fs::path(textureRef).filename().generic_string()});
-          continue;
-        }
-
-        std::string preferredTextureName = SanitizeArchiveFileName(
-            textureRef, texturePath.filename().generic_string());
-        registerResource(texturePath.generic_string(), preferredTextureName);
-      }
-      return;
+      dependencyRefs = Collect3dsTextureReferences(modelPath);
+    } else if (ext == ".gltf" || ext == ".glb") {
+      dependencyRefs = CollectGltfExternalReferences(modelPath);
     }
 
-    if (ext == ".gltf" || ext == ".glb") {
-      const std::vector<std::string> textureRefs =
-          CollectGltfTextureReferences(modelPath);
-      const fs::path modelDir =
-          modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
-      for (const std::string &textureRef : textureRefs) {
-        const std::string trimmedRef = TrimAscii(textureRef);
-        if (trimmedRef.empty())
-          continue;
-        const fs::path candidate =
-            modelDir / PathUtils::PathFromUtf8(trimmedRef);
-        if (!fs::exists(candidate)) {
-          AddDiagnostic({MvrExportDiagnosticCode::TextureMissing,
+    for (const std::string &dependencyRef : dependencyRefs) {
+      fs::path dependencyPath;
+      if (!ResolveModelDependencyPath(modelPath, dependencyRef,
+                                      dependencyPath)) {
+        AddDiagnostic(
+            {MvrExportDiagnosticCode::TextureMissing,
                          MvrExportDiagnosticSeverity::Warning,
-                         MvrExportDiagnosticImpact::DataOmitted, true, "Model", {}, {},
-                         fs::path(trimmedRef).filename().generic_string(),
-                         "A referenced glTF texture could not be found and was omitted: " +
-                             fs::path(trimmedRef).filename().generic_string()});
+             MvrExportDiagnosticImpact::DataOmitted,
+             true,
+             "Model",
+             {},
+             {},
+             fs::path(dependencyRef).filename().generic_string(),
+             "A required external model dependency could not be found: " +
+                 fs::path(dependencyRef).filename().generic_string()});
           continue;
         }
 
-        std::string preferredTextureName = SanitizeArchiveFileName(
-            trimmedRef, candidate.filename().generic_string());
-        registerResource(candidate.generic_string(), preferredTextureName);
+      std::string normalizedRef = TrimAscii(dependencyRef);
+      std::replace(normalizedRef.begin(), normalizedRef.end(), '\\', '/');
+      const std::string dependencyArchivePath =
+          fs::path(normalizedRef).filename().generic_string();
+      const std::string safeArchivePath = SanitizeArchiveFileName(
+          dependencyArchivePath, dependencyPath.filename().generic_string());
+      if (safeArchivePath != dependencyArchivePath) {
+        modelDependencyRegistrationFailed = true;
+        AddDiagnostic(
+            {MvrExportDiagnosticCode::StructuralValidationFailed,
+             MvrExportDiagnosticSeverity::Error,
+             MvrExportDiagnosticImpact::ExportFailed,
+             true,
+             "Model",
+             {},
+             {},
+             dependencyArchivePath,
+             "MVR export cannot preserve external model dependency URI '" +
+                 dependencyRef + "' as a root archive filename."});
+        continue;
+    }
+
+      const std::string dependencyIdentity =
+          buildSourceIdentityKey(dependencyPath.generic_string());
+      auto collision =
+          std::find_if(resourceEntries.begin(), resourceEntries.end(),
+                       [&](const ResourceEntry &entry) {
+                         return ToLowerAscii(entry.archivePath) ==
+                                ToLowerAscii(dependencyArchivePath);
+                       });
+      if (collision != resourceEntries.end()) {
+        if (buildSourceIdentityKey(collision->sourcePath.generic_string()) !=
+            dependencyIdentity) {
+          modelDependencyRegistrationFailed = true;
+          AddDiagnostic(
+              {MvrExportDiagnosticCode::StructuralValidationFailed,
+               MvrExportDiagnosticSeverity::Error,
+               MvrExportDiagnosticImpact::ExportFailed,
+               true,
+               "Model",
+               {},
+               {},
+               dependencyArchivePath,
+               "MVR export found conflicting resources for required model "
+               "dependency '" +
+                   dependencyArchivePath + "'."});
+          continue;
+        }
+      } else {
+        reservedArchivePaths.insert(dependencyArchivePath);
+        sourceToArchivePath.try_emplace(dependencyIdentity,
+                                        dependencyArchivePath);
+        resourceEntries.push_back({dependencyPath, dependencyArchivePath});
       }
+      modelDependenciesByArchivePath[modelArchivePath].insert(
+          dependencyArchivePath);
     }
   };
 
   auto registerModelResource =
       [&](const std::string &rawModelSource,
                                    const std::string &fallbackArchiveName) -> std::string {
+    const std::string resolvedModelSource =
+        resolveExistingResourceSourcePath(rawModelSource);
+    const std::string sourceForExport =
+        resolvedModelSource.empty() ? rawModelSource : resolvedModelSource;
     std::string archivePath = registerResource(
-        rawModelSource,
+        sourceForExport,
         SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
-    registerModelTextureDependencies(rawModelSource);
+    registerModelDependencies(resolvedModelSource, archivePath);
     return archivePath;
   };
 
@@ -4437,8 +4503,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   // Prunes non-referenced resources so deleted scene elements do not keep stale
   // payload files.
-  const std::unordered_set<std::string> referencedArchivePaths =
+  std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
+  for (const auto &[modelArchivePath, dependencies] :
+       modelDependenciesByArchivePath) {
+    if (!referencedArchivePaths.contains(
+            NormalizeArchiveEntryPath(modelArchivePath)))
+      continue;
+    for (const std::string &dependency : dependencies)
+      referencedArchivePaths.insert(NormalizeArchiveEntryPath(dependency));
+  }
   std::ostringstream fixtureGdtfExportDiagnostics;
   fixtureGdtfExportDiagnostics
       << "MVR export fixture GDTF diagnostics: real="
@@ -4493,6 +4567,11 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     deduplicatedResources.push_back(entry);
   }
   resourceEntries = std::move(deduplicatedResources);
+
+  if (modelDependencyRegistrationFailed) {
+    zip.Close();
+    return false;
+  }
 
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
@@ -4549,6 +4628,21 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       exportWorkspaceLeases.push_back(canonicalWorkspace.TransferToSceneLease());
     }
     ++plannedArchiveEntries[entry.archivePath];
+  }
+
+  for (const auto &[modelArchivePath, dependencies] :
+       modelDependenciesByArchivePath) {
+    if (!referencedArchivePaths.contains(
+            NormalizeArchiveEntryPath(modelArchivePath)))
+      continue;
+    for (const std::string &dependency : dependencies) {
+      if (plannedArchiveEntries[dependency] != 1) {
+        zip.Close();
+        return failExport(
+            "ValidateModelDependency", dependency, modelArchivePath,
+            "required external dependency is absent from the archive plan");
+      }
+    }
   }
 
   const auto layerValidation = layerdomain::ValidateSceneLayers(scene);
