@@ -651,6 +651,12 @@ int main() {
   MvrExporter exporter;
   fs::path mvrPath = tempDir / "Test1.mvr";
   assert(exporter.ExportToFile(mvrPath.generic_string()));
+  for (const auto &diagnostic : exporter.GetExportDiagnostics()) {
+    if (diagnostic.code == MvrExportDiagnosticCode::IdentityCanonicalized) {
+      assert(diagnostic.severity == MvrExportDiagnosticSeverity::Info);
+      assert(!diagnostic.userVisible);
+    }
+  }
 
   const auto mvrGeometryEntries = ReadArchiveTextEntries(mvrPath);
   std::unordered_set<std::string> entries;

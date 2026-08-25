@@ -107,7 +107,11 @@ bool MvrExporter::ExportToBuffer(std::vector<unsigned char> &,
 }
 // Returns collected export warnings for the stub exporter.
 const std::vector<std::string> &MvrExporter::GetExportWarnings() const {
-  return m_exportWarnings;
+  return m_exportWarningAdapter;
+}
+
+const std::vector<MvrExportDiagnostic> &MvrExporter::GetExportDiagnostics() const {
+  return m_exportDiagnostics;
 }
 
 

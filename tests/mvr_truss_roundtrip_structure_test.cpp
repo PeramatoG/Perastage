@@ -590,11 +590,12 @@ int main() {
   MvrExporter missingAuxiliaryExporter;
   assert(missingAuxiliaryExporter.ExportToFile(
       missingAuxiliaryMvrPath.string()));
-  assert(std::any_of(missingAuxiliaryExporter.GetExportWarnings().begin(),
-                     missingAuxiliaryExporter.GetExportWarnings().end(),
-                     [](const std::string &warning) {
-                       return warning.find("no fallback was substituted") !=
-                              std::string::npos;
+  assert(std::any_of(missingAuxiliaryExporter.GetExportDiagnostics().begin(),
+                     missingAuxiliaryExporter.GetExportDiagnostics().end(),
+                     [](const MvrExportDiagnostic &diagnostic) {
+                       return diagnostic.code ==
+                                  MvrExportDiagnosticCode::TrussGdtfMissing &&
+                              diagnostic.userVisible;
                      }));
   const auto missingAuxiliaryEntries =
       ReadArchiveTextEntries(missingAuxiliaryMvrPath);

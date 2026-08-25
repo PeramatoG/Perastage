@@ -56,6 +56,7 @@
 #include "hoisttablepanel.h"
 #include "layoutviewerpanel.h"
 #include "mvrexporter.h"
+#include "mvr_export_result_dialog.h"
 #include "mvrimporter.h"
 #include "mvr_preferences.h"
 #include "projectutils.h"
@@ -581,24 +582,14 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
     diagnostics::DiagnosticLogger::Error(
         "MVR export failed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
-    wxMessageBox("Failed to export MVR file.", "Error", wxICON_ERROR);
+    ShowMvrExportResult(this, false, exporter.GetExportDiagnostics());
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to export " + path);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "MVR export completed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(path.ToStdString()));
-    const auto &warnings = exporter.GetExportWarnings();
-    if (!warnings.empty()) {
-      wxString warningText;
-      for (const auto &warning : warnings) {
-        warningText += wxString::FromUTF8(warning);
-        warningText += "\n";
-      }
-      wxMessageBox(warningText, "Export Warnings", wxOK | wxICON_WARNING, this);
-    }
-    wxMessageBox("MVR file exported successfully.", "Success",
-                 wxICON_INFORMATION);
+    ShowMvrExportResult(this, true, exporter.GetExportDiagnostics());
     if (consolePanel)
       consolePanel->AppendMessage("[INFO] Exported " + path);
   }

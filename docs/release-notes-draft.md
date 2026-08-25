@@ -4,6 +4,10 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- MVR export now presents concise, grouped fidelity warnings instead of raw
+  technical diagnostics, while harmless UUID normalization stays in the log and
+  export failures provide a focused, expandable result.
+
 - Project reopening is faster for typical projects by loading packaged scene
   and configuration data directly, while retaining a safe large-project
   fallback and all existing MVR resource compatibility.
