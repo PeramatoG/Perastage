@@ -47,6 +47,11 @@ Changes since **v1.5.0**.
 - Resolve fixture types now builds reliably with MSVC when displaying an empty
   fixture-mode selection.
 
+- Create from text now keeps Generic fallback immediately available, excludes
+  screens and video-control equipment from fixture resolution, shows cached
+  suggestions without delaying the dialog, and rejects empty GDTF Share
+  catalogs without replacing the last known good cache.
+
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.
 

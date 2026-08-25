@@ -11,6 +11,7 @@ enum class PreflightResult { Proceed, Cancelled, Failed };
 
 PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
                                            ConfigManager &configManager,
-                                           const std::string &text);
+                                           const std::string &text,
+                                           std::string *filteredTextOut = nullptr);
 
 } // namespace rider_fixture_resolution_gui

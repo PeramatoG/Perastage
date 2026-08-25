@@ -27,6 +27,24 @@ cached catalog exists, unknown rows still open as Unresolved; Search may request
 GDTF Share authentication to refresh the shared catalog, while Generic and
 Cancel remain available offline.
 
+`AnalyzeText()` owns the single raw rider parse used by preflight and returns
+both filtered import text and fixture requests. Final creation imports that
+prepared text in already-filtered mode. Equipment classification is shared by
+analysis and creation: screen descriptions on the SCREEN Position become scene
+objects, and semantic operator/content-control requests are non-fixture
+equipment rather than dummy fixtures.
+
+The dialog initially receives dictionary-only state and starts validated cached
+catalog loading after it becomes visible. Review and Unresolved rows visibly
+default to Generic; incomplete or mode-ambiguous real selections normalize to
+Generic on confirmation. Catalog payloads are usable only when their schema is
+recognized and at least one downloadable named entry is parsed. Invalid online
+refreshes are rejected before cache publication, preserving the last known good
+snapshot.
+
+Both **Create from text** and file-based **Import Rider** use this prepared
+analysis and the same fixture-resolution preflight before scene mutation.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

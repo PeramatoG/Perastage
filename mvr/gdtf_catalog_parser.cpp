@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <initializer_list>
 #include <sstream>
+#include <chrono>
 
 namespace mvr::gdtf_catalog_parser {
 namespace {
@@ -145,15 +146,23 @@ ParseModes(const Json &item) {
 
 // Parses one catalog payload into displayable shared domain records.
 GdtfCatalogParseResult ParseCatalog(const std::string &payload) {
+  const auto started = std::chrono::steady_clock::now();
   GdtfCatalogParseResult result;
   result.payloadBytes = payload.size();
   result.payloadFingerprint = FingerprintPayload(payload);
   Json list = Json::parse(payload, nullptr, false);
-  if (list.is_discarded())
+  if (list.is_discarded()) {
+    result.parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
     return result;
+  }
   const Json *catalogArray = FindCatalogArray(list);
-  if (!catalogArray)
+  if (!catalogArray) {
+    result.parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
     return result;
+  }
+  result.schemaRecognized = true;
 
   for (const auto &item : *catalogArray) {
     if (!item.is_object())
@@ -176,8 +185,12 @@ GdtfCatalogParseResult ParseCatalog(const std::string &payload) {
     entry.downloadable = !entry.rid.empty();
     if (!entry.downloadable)
       entry.downloadabilityReason = "missing revision identifier";
+    if (entry.downloadable && !entry.fixtureName.empty())
+      ++result.usableEntryCount;
     result.entries.push_back(std::move(entry));
   }
+  result.parseMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - started).count();
   return result;
 }
 

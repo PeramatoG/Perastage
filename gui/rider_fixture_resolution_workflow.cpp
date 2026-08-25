@@ -23,7 +23,6 @@
 #include <thread>
 
 #include <wx/datetime.h>
-#include <wx/choicdlg.h>
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>
 #include <wx/utils.h>
@@ -64,34 +63,46 @@ bool EnsureAuthenticated(wxWindow *parent, ConfigManager &configManager,
                          std::optional<CredentialStore::Credentials> &credentials) {
   if (client.IsAuthenticated())
     return true;
-  if (!credentials || credentials->username.empty() || credentials->password.empty()) {
-    const auto loaded = LoadGdtfCredentialsForGuiDetailed(configManager);
+  const auto loaded = LoadGdtfCredentialsForGuiDetailed(configManager);
+  if (!credentials)
     credentials = loaded.credentials;
-    const std::string initialUser = credentials
-        ? credentials->username
-        : loaded.usernameHint.value_or(std::string());
-    GdtfLoginDialog login(parent, initialUser, std::string());
-    if (login.ShowModal() != wxID_OK)
+  while (true) {
+    if (!credentials || credentials->username.empty() ||
+        credentials->password.empty()) {
+      const std::string initialUser = credentials
+          ? credentials->username
+          : loaded.usernameHint.value_or(std::string());
+      GdtfLoginDialog login(parent, initialUser, std::string());
+      if (login.ShowModal() != wxID_OK)
+        return false;
+      credentials = CredentialStore::Credentials{login.GetUsername(),
+                                                  login.GetPassword()};
+    }
+    if (!credentials || credentials->username.empty() ||
+        credentials->password.empty())
       return false;
-    credentials = CredentialStore::Credentials{login.GetUsername(),
-                                                login.GetPassword()};
-  }
-  if (!credentials || credentials->username.empty() || credentials->password.empty())
-    return false;
-  client.ResetSession();
-  const auto result = WaitForNetworkTask(
-      parent, _("GDTF Share"), _("Signing in to GDTF Share..."),
-      std::async(std::launch::async, [&client, &credentials]() {
-        return client.Login(credentials->username, credentials->password);
-      }));
-  if (!result.Succeeded()) {
+    client.ResetSession();
+    const auto result = WaitForNetworkTask(
+        parent, _("GDTF Share"), _("Signing in to GDTF Share..."),
+        std::async(std::launch::async, [&client, &credentials]() {
+          return client.Login(credentials->username, credentials->password);
+        }));
+    if (result.Succeeded()) {
+      const CredentialStore::Result persisted =
+          PersistGdtfCredentialsForGui(*credentials, configManager);
+      if (!persisted.Succeeded()) {
+        wxMessageBox(
+            _("GDTF Share authentication succeeded, but the credentials could not be saved securely. You may need to enter them again after restart."),
+            _("GDTF Share credentials"), wxOK | wxICON_WARNING, parent);
+      }
+      return true;
+    }
     wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(result, "login")),
                  _("GDTF Share sign-in failed"), wxOK | wxICON_ERROR, parent);
+    if (result.category != GdtfShareResultCategory::AuthenticationRejected)
+      return false;
     credentials.reset();
-    return false;
   }
-  (void)PersistGdtfCredentialsForGui(*credentials, configManager);
-  return true;
 }
 
 // Logs stable aggregate counts for the preflight decision.
@@ -113,27 +124,51 @@ void LogAnalysisCounts(const rider_fixture_resolution::Analysis &analysis) {
 // Runs the complete non-destructive resolution gate before rider scene import.
 PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
                                            ConfigManager &configManager,
-                                           const std::string &text) {
-  const auto requests = RiderImporter::AnalyzeFixtureTypes(text);
+                                           const std::string &text,
+                                           std::string *filteredTextOut) {
+  const auto preflightStarted = std::chrono::steady_clock::now();
+  const auto riderStarted = std::chrono::steady_clock::now();
+  const RiderImporter::TextAnalysis riderAnalysis =
+      RiderImporter::AnalyzeText(text);
+  const auto riderAnalysisMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - riderStarted).count();
+  if (filteredTextOut)
+    *filteredTextOut = riderAnalysis.filteredText;
+  const auto &requests = riderAnalysis.fixtureTypes;
+  const auto dictionaryStarted = std::chrono::steady_clock::now();
   const auto dictionary = GdtfDictionary::Load().value_or(
       std::unordered_map<std::string, GdtfDictionary::Entry>{});
+  const auto dictionaryLoadMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - dictionaryStarted).count();
   auto analysis = rider_fixture_resolution::Service::Analyze(requests, dictionary, {});
   LogAnalysisCounts(analysis);
   if (!analysis.RequiresPreflight())
     return PreflightResult::Proceed;
 
   GdtfCatalogService catalogService;
-  auto snapshot = catalogService.GetCatalogSnapshot();
-  const auto parsedCatalog = snapshot
-      ? mvr::gdtf_catalog_parser::ParseCatalog(snapshot->listData).entries
-      : std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>{};
-  analysis = rider_fixture_resolution::Service::Analyze(requests, dictionary,
-                                                         parsedCatalog);
-  LogAnalysisCounts(analysis);
+  auto loadCachedCatalog = []()
+      -> std::optional<RiderFixtureResolutionDialog::CatalogData> {
+    GdtfCatalogService catalogService;
+    const auto cacheStarted = std::chrono::steady_clock::now();
+    const auto catalog = catalogService.GetParsedCatalogSnapshot();
+    const auto cacheReadMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - cacheStarted).count();
+    if (!catalog)
+      return std::nullopt;
+    diagnostics::DiagnosticLogger::Info(
+        "Rider fixture preflight catalog: catalog_cache_read_ms=" +
+        std::to_string(cacheReadMs) + " catalog_parse_ms=" +
+        std::to_string(catalog->parsed.parseMs) + " entries=" +
+        std::to_string(catalog->parsed.usableEntryCount));
+    return RiderFixtureResolutionDialog::CatalogData{
+        catalog->snapshot, catalog->parsed.entries,
+        RiderFixtureResolutionDialog::CatalogSource::Cached};
+  };
 
   GdtfShareClient client;
   std::optional<CredentialStore::Credentials> credentials;
-  auto loadOnlineCatalog = [&]() -> std::optional<GdtfCatalogSnapshot> {
+  auto loadOnlineCatalog = [&]()
+      -> std::optional<RiderFixtureResolutionDialog::CatalogData> {
     if (!EnsureAuthenticated(parent, configManager, client, credentials))
       return std::nullopt;
     const auto result = catalogService.RefreshCatalogIfStale(
@@ -146,12 +181,36 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
           return online.Succeeded() && !payload.empty();
         },
         wxDateTime::UNow().FormatISOCombined(' ').ToStdString(), 0);
-    return result.snapshot;
+    if (!result.snapshot)
+      return std::nullopt;
+    if (!result.parsedCatalog || !result.parsedCatalog->IsUsable())
+      return std::nullopt;
+    RiderFixtureResolutionDialog::CatalogData data{
+        *result.snapshot, result.parsedCatalog->entries,
+        result.source == GdtfCatalogResultSource::Online
+            ? RiderFixtureResolutionDialog::CatalogSource::Online
+            : RiderFixtureResolutionDialog::CatalogSource::Cached};
+    const auto matchStarted = std::chrono::steady_clock::now();
+    data.matches = WaitForNetworkTask(
+        parent, _("GDTF catalog"), _("Matching rider fixture types..."),
+        std::async(std::launch::async, [&requests, &data]() {
+          return rider_fixture_resolution::Service::Analyze(requests, {},
+                                                             data.entries);
+        }));
+    data.matchMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - matchStarted).count();
+    return data;
   };
 
-  RiderFixtureResolutionDialog dialog(
-      parent, std::move(analysis), snapshot ? snapshot->listData : std::string{},
-      snapshot ? snapshot->updatedAt : std::string{}, loadOnlineCatalog);
+  const auto dialogVisibleMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - preflightStarted).count();
+  diagnostics::DiagnosticLogger::Info(
+      "Rider fixture preflight timing: rider_analysis_ms=" +
+      std::to_string(riderAnalysisMs) + " dictionary_load_ms=" +
+      std::to_string(dictionaryLoadMs) + " dialog_visible_ms=" +
+      std::to_string(dialogVisibleMs));
+  RiderFixtureResolutionDialog dialog(parent, std::move(analysis),
+                                      loadCachedCatalog, loadOnlineCatalog);
   if (dialog.ShowModal() != wxID_OK)
     return PreflightResult::Cancelled;
   analysis = dialog.TakeAnalysis();
@@ -166,6 +225,14 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       ProjectUtils::GetWritableLibraryPath("fixtures"));
   std::error_code directoryError;
   std::filesystem::create_directories(fixtureDirectory, directoryError);
+  auto rollbackDictionary = [&]() {
+    std::string rollbackError;
+    if (!GdtfDictionary::Save(dictionary, &rollbackError)) {
+      diagnostics::DiagnosticLogger::Error(
+          "Rider fixture dictionary rollback failed: " + rollbackError);
+    }
+  };
+
   for (const auto &item : analysis.items) {
     if (!item.selectedEntry)
       continue;
@@ -219,32 +286,32 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
         "Rider fixture GDTF download completed: revision=" + rid);
   }
 
-  for (auto &item : analysis.items) {
+  for (const auto &item : analysis.items) {
     if (!item.selectedEntry)
       continue;
     const auto found = downloads.find(item.selectedEntry->rid);
     if (found == downloads.end())
       return PreflightResult::Failed;
-    if (item.selectedMode.empty() && found->second.modes.size() == 1)
-      item.selectedMode = found->second.modes.front();
-    if (item.selectedMode.empty() && found->second.modes.size() > 1) {
-      wxArrayString choices;
-      for (const std::string &mode : found->second.modes)
-        choices.Add(wxString::FromUTF8(mode));
-      wxSingleChoiceDialog modeDialog(
-          parent,
-          wxString::Format(_("Select a GDTF mode for %s."),
-                           wxString::FromUTF8(item.request.typeName)),
-          _("Select fixture mode"), choices);
-      if (modeDialog.ShowModal() != wxID_OK)
-        return PreflightResult::Cancelled;
-      item.selectedMode = modeDialog.GetStringSelection().ToStdString();
-    }
     if (std::find(found->second.modes.begin(), found->second.modes.end(),
                   item.selectedMode) == found->second.modes.end()) {
       wxMessageBox(wxString::Format(_("The selected mode for %s is not present in the downloaded GDTF. No scene objects were created."),
                                     wxString::FromUTF8(item.request.typeName)),
                    _("Fixture resolution failed"), wxOK | wxICON_ERROR, parent);
+      return PreflightResult::Failed;
+    }
+  }
+
+  for (const auto &item : analysis.items) {
+    if (item.state != rider_fixture_resolution::State::Dictionary ||
+        !item.dictionaryEntry ||
+        item.selectedMode == item.dictionaryEntry->mode)
+      continue;
+    GdtfDictionary::Entry changed = *item.dictionaryEntry;
+    changed.mode = item.selectedMode;
+    GdtfDictionary::UpdateDictionaryEntry(item.request.typeName, changed);
+    const auto persisted = GdtfDictionary::Get(item.request.typeName);
+    if (!persisted || persisted->mode != item.selectedMode) {
+      rollbackDictionary();
       return PreflightResult::Failed;
     }
   }
@@ -256,6 +323,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
     const auto persisted = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
         item.request.typeName, downloaded.path.string(), item.selectedMode);
     if (!persisted) {
+      rollbackDictionary();
       wxMessageBox(wxString::Format(_("Could not save the fixture dictionary mapping for %s. No scene objects were created."),
                                     wxString::FromUTF8(item.request.typeName)),
                    _("Fixture resolution failed"), wxOK | wxICON_ERROR, parent);

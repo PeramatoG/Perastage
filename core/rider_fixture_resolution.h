@@ -45,6 +45,13 @@ public:
 
   // Selects the existing generic import fallback without persisting a mapping.
   static void SelectGeneric(Item &item);
+
+  // Converts incomplete real selections to the non-blocking generic fallback.
+  static void FinalizeDefaults(Analysis &analysis);
+
+  // Merges catalog results without replacing explicit user decisions.
+  static void MergeCatalogSuggestions(Analysis &current,
+                                      const Analysis &matched);
 };
 
 const char *StateName(State state);

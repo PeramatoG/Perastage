@@ -3,6 +3,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include "../mvr/gdtf_catalog_parser.h"
 
 struct GdtfCatalogSnapshot {
   std::string listData;
@@ -30,6 +31,12 @@ struct GdtfCatalogRefreshResult {
   GdtfCatalogResultSource source = GdtfCatalogResultSource::None;
   bool staleFallback = false;
   std::string failureMessage;
+  std::optional<mvr::gdtf_catalog_parser::GdtfCatalogParseResult> parsedCatalog;
+};
+
+struct GdtfParsedCatalogSnapshot {
+  GdtfCatalogSnapshot snapshot;
+  mvr::gdtf_catalog_parser::GdtfCatalogParseResult parsed;
 };
 
 class GdtfCatalogService {
@@ -37,6 +44,7 @@ public:
   using RefreshCatalogFn = std::function<bool(std::string &listData)>;
 
   std::optional<GdtfCatalogSnapshot> GetCatalogSnapshot() const;
+  std::optional<GdtfParsedCatalogSnapshot> GetParsedCatalogSnapshot() const;
 
   GdtfCatalogRefreshResult
   RefreshCatalogIfStale(const RefreshCatalogFn &refreshCatalogFn,

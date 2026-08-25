@@ -15,6 +15,19 @@ continues with the one-import fallback without saving a dummy mapping. Selected
 profiles are downloaded only after **Resolve and create** is pressed. Cancelling
 closes the workflow before any scene content or dictionary mapping is changed.
 
+Generic fallback is the visible default and never blocks **Resolve and create**.
+Safe suggestions are optional; suggestions without a chosen mode fall back to
+Generic. Screen objects and video-control equipment are not treated as lighting
+fixtures. Cached catalog matching runs after the resolver is visible, and an
+empty or unavailable catalog leaves the offline Generic workflow usable.
+
+Double-click a row's **Mode** cell to choose from its valid modes. Dictionary
+rows show the mapped local GDTF filename, and confirmed dictionary-mode changes
+are saved only after **Resolve and create**.
+
+Importing a rider from a `.txt` or `.pdf` file uses the same preflight and
+fallback behavior as pasting rider text.
+
 Use **Tools → Create from text** to build scene content from rider-style text.
 
 ## Supported inputs

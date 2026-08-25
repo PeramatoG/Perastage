@@ -21,7 +21,7 @@ const GdtfCatalogEntry *FindRevision(const std::vector<GdtfCatalogEntry> &catalo
 
 // Reports whether a selected catalog profile still has an ambiguous mode.
 bool Item::RequiresModeSelection() const {
-  return selectedEntry && selectedEntry->modes.size() > 1 && selectedMode.empty();
+  return selectedEntry && selectedMode.empty();
 }
 
 // Reports whether the row can safely continue to the import stage.
@@ -66,7 +66,7 @@ Analysis Service::Analyze(
                                         : nullptr;
     if (!entry) {
       item.state = State::Unresolved;
-      item.details = "No reliable catalog candidate";
+      item.details = "No reliable catalog match; generic will be used unless changed";
       result.items.push_back(std::move(item));
       continue;
     }
@@ -79,13 +79,13 @@ Analysis Service::Analyze(
         BuildCanonicalFixtureModel(request.typeName));
     if (numeric == NumericTokenCompatibility::Different) {
       item.state = State::Unresolved;
-      item.details = "Conflicting numeric model identity";
+      item.details = "Conflicting numeric model identity; generic will be used unless changed";
     } else if (tier == FixtureNameMatchTier::ExactNormalized) {
       item.state = State::Suggested;
-      item.details = "Exact normalized model match";
+      item.details = "Exact normalized model match; generic remains the default";
     } else {
       item.state = State::Review;
-      item.details = "Plausible catalog match requires review";
+      item.details = "Plausible match requires review; generic remains the default";
     }
     result.items.push_back(std::move(item));
   }
@@ -104,6 +104,31 @@ void Service::SelectGeneric(Item &item) {
   item.selectedEntry.reset();
   item.selectedMode.clear();
   item.details = "Generic fallback selected for this import";
+}
+
+// Converts every incomplete non-dictionary row to Generic before import.
+void Service::FinalizeDefaults(Analysis &analysis) {
+  for (Item &item : analysis.items) {
+    if (item.state == State::Dictionary)
+      continue;
+    if (!item.selectedEntry || item.RequiresModeSelection())
+      SelectGeneric(item);
+  }
+}
+
+// Merges background catalog results only into untouched unresolved rows.
+void Service::MergeCatalogSuggestions(Analysis &current,
+                                      const Analysis &matched) {
+  const size_t count = std::min(current.items.size(), matched.items.size());
+  for (size_t index = 0; index < count; ++index) {
+    Item &target = current.items[index];
+    if (target.state == State::Dictionary || target.state == State::Generic ||
+        target.selectedEntry)
+      continue;
+    target.state = matched.items[index].state;
+    target.suggestedEntry = matched.items[index].suggestedEntry;
+    target.details = matched.items[index].details;
+  }
 }
 
 // Converts resolution state to stable diagnostic text.

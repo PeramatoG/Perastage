@@ -11,6 +11,14 @@ struct GdtfCatalogParseResult {
   std::vector<gdtf_catalog_matcher::GdtfCatalogEntry> entries;
   std::size_t payloadBytes = 0;
   std::string payloadFingerprint;
+  std::size_t usableEntryCount = 0;
+  bool schemaRecognized = false;
+  long long parseMs = 0;
+
+  // Reports whether parsing found a recognized catalog with usable entries.
+  bool IsUsable() const {
+    return schemaRecognized && usableEntryCount > 0;
+  }
 };
 
 GdtfCatalogParseResult ParseCatalog(const std::string &payload);

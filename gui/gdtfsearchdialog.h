@@ -52,7 +52,9 @@ public:
                      RefreshCatalogFn refreshCatalogFn,
                      GdtfCatalogDisplaySource initialSource = GdtfCatalogDisplaySource::Cached,
                      bool downloadRequiresAuthentication = false,
-                     const std::string& initialFixtureQuery = {});
+                     const std::string& initialFixtureQuery = {},
+                     std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
+                         initialParsedEntries = {});
     ~GdtfSearchDialog() override;
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;

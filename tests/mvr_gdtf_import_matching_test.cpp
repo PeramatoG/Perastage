@@ -258,6 +258,7 @@ static void VerifySharedMacCatalogPipeline() {
     {"manufacturer":"Martin Professional","fixture":"MAC Quantum Profile","uuid":"display-only"}
   ]}})json";
   const auto parsed = parser::ParseCatalog(payload);
+  assert(parsed.IsUsable());
   assert(parsed.entries.size() == 7);
   assert(parsed.payloadBytes == payload.size());
   assert(!parsed.payloadFingerprint.empty());
@@ -301,6 +302,10 @@ static void VerifyCatalogWrapperCompatibility() {
              .entries.size() == 1);
   assert(parser::ParseCatalog("{\"results\":{\"items\":[" + record + "]}}")
              .entries.size() == 1);
+  const auto emptyCatalog =
+      parser::ParseCatalog("{\"result\":true,\"list\":[]}");
+  assert(emptyCatalog.schemaRecognized);
+  assert(!emptyCatalog.IsUsable());
 }
 
 // Verifies structured GDTF manufacturer metadata reaches the real request builder.

@@ -30,6 +30,10 @@ public:
         int quantity = 0;
         std::vector<std::string> positions;
     };
+    struct TextAnalysis {
+        std::string filteredText;
+        std::vector<FixtureTypeRequest> fixtureTypes;
+    };
     struct ProgressState {
         std::string stage;
         int completed = 0;
@@ -51,6 +55,8 @@ public:
     // Analyzes unique fixture requests without changing scene or dictionary state.
     static std::vector<FixtureTypeRequest>
     AnalyzeFixtureTypes(const std::string& text);
+    // Prepares filtered import text and fixture types from one parser pass.
+    static TextAnalysis AnalyzeText(const std::string& text);
     // Import from raw rider text. Returns true on success.
     static bool ImportText(const std::string& text,
                            ProgressCallback progressCallback = {},

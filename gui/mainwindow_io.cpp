@@ -443,6 +443,18 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   const std::filesystem::path selectedPath(dlg.GetPath().ToStdWstring());
   const auto pathU8 = selectedPath.u8string();
   const std::string pathUtf8(pathU8.begin(), pathU8.end());
+  const std::string riderText = RiderImporter::LoadText(pathUtf8);
+  if (riderText.empty()) {
+    wxMessageBox(_("Failed to read rider."), _("Error"), wxICON_ERROR, this);
+    return;
+  }
+  std::string preparedRiderText;
+  const auto preflightResult =
+      rider_fixture_resolution_gui::RunCreateFromTextPreflight(
+          this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText,
+          &preparedRiderText);
+  if (preflightResult != rider_fixture_resolution_gui::PreflightResult::Proceed)
+    return;
   std::unique_ptr<wxWindowDisabler> importDisabler =
       std::make_unique<wxWindowDisabler>();
   std::unique_ptr<wxBusyInfo> importOverlay =
@@ -451,7 +463,8 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
-  if (!RiderImporter::Import(pathUtf8)) {
+  if (!RiderImporter::ImportText(
+          preparedRiderText.empty() ? riderText : preparedRiderText, {}, true)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
@@ -480,10 +493,11 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
-  const bool riderTextAlreadyFiltered = dlg.IsCurrentTextFilteredPreview();
+  std::string preparedRiderText;
   const auto preflightResult =
       rider_fixture_resolution_gui::RunCreateFromTextPreflight(
-          this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText);
+          this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText,
+          &preparedRiderText);
   if (preflightResult !=
       rider_fixture_resolution_gui::PreflightResult::Proceed) {
     diagnostics::DiagnosticLogger::Info(
@@ -503,7 +517,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   wxYieldIfNeeded();
 
   if (!RiderImporter::ImportText(
-          riderText,
+          preparedRiderText.empty() ? riderText : preparedRiderText,
           [&](const RiderImporter::ProgressState &progress) {
             if (!GetStatusBar())
               return;
@@ -532,7 +546,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
             }
             GetStatusBar()->Update();
           },
-          riderTextAlreadyFiltered)) {
+          true)) {
     wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");

@@ -66,6 +66,20 @@ int main() {
   Service::SelectGeneric(analysis.items[2]);
   assert(analysis.items[2].IsReady());
 
+  Analysis defaultFallback = Service::Analyze({requests[2]}, dictionary, {});
+  Service::FinalizeDefaults(defaultFallback);
+  assert(defaultFallback.items.front().state == State::Generic);
+  Analysis ambiguousFallback = Service::Analyze({requests[1]}, dictionary, catalog);
+  Service::SelectCatalogEntry(ambiguousFallback.items.front(), multiMode);
+  Service::FinalizeDefaults(ambiguousFallback);
+  assert(ambiguousFallback.items.front().state == State::Generic);
+  Analysis preservedChoice = Service::Analyze({requests[1]}, dictionary, {});
+  Service::SelectGeneric(preservedChoice.items.front());
+  const Analysis backgroundMatch =
+      Service::Analyze({requests[1]}, dictionary, catalog);
+  Service::MergeCatalogSuggestions(preservedChoice, backgroundMatch);
+  assert(preservedChoice.items.front().state == State::Generic);
+
   std::filesystem::remove(profilePath);
   return 0;
 }

@@ -304,6 +304,15 @@ int main() {
          englishExpected);
   assertImportParity(englishRegression);
 
+  const auto screenAnalysis = RiderImporter::AnalyzeText(
+      "VIDEO\nPANTALLA LED\n1 PANTALLA LED 10x5m\n");
+  assert(screenAnalysis.fixtureTypes.empty());
+  assert(screenAnalysis.filteredText.find("PANTALLA LED 10x5m") !=
+         std::string::npos);
+  const auto nonFixtureVideoAnalysis = RiderImporter::AnalyzeFixtureTypes(
+      "VIDEO\nPANTALLA LED\n1 ASUS CONTROL DE CONTENIDO\n");
+  assert(nonFixtureVideoAnalysis.empty());
+
   const std::string keywordFixtureRegression =
       "FLOOR\n1 FIXTURE VIDEO CONTROL AUDIO LIGHTING\n2 HAZER\n";
   assert(RiderImporter::BuildFixtureFilterPreview(keywordFixtureRegression) ==

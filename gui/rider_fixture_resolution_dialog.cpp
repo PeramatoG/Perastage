@@ -1,18 +1,26 @@
 #include "rider_fixture_resolution_dialog.h"
 
 #include "gdtfsearchdialog.h"
+#include "gdtfloader.h"
+#include "../core/diagnostics/DiagnosticLogger.h"
 
 #include <algorithm>
+#include <chrono>
+#include <filesystem>
 #include <sstream>
 
 #include <wx/button.h>
-#include <wx/choice.h>
+#include <wx/choicdlg.h>
 #include <wx/dataview.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/thread.h>
+#include <wx/weakref.h>
 
 namespace {
+
+const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_LOADED(wxNewEventType());
 
 // Joins position labels for compact table presentation.
 wxString JoinPositions(const std::vector<std::string> &positions) {
@@ -27,6 +35,20 @@ wxString JoinPositions(const std::vector<std::string> &positions) {
 
 // Formats the selected or suggested catalog identity for a resolution row.
 wxString FormatCatalogIdentity(const rider_fixture_resolution::Item &item) {
+  if (item.state == rider_fixture_resolution::State::Dictionary &&
+      item.dictionaryEntry && !item.dictionaryEntry->path.empty()) {
+    return wxString::FromUTF8(
+        std::filesystem::path(item.dictionaryEntry->path).filename().string());
+  }
+  if (item.state == rider_fixture_resolution::State::Generic ||
+      (!item.selectedEntry && !item.suggestedEntry))
+    return _("Generic fallback");
+  if (!item.selectedEntry && item.suggestedEntry) {
+    const auto &suggested = *item.suggestedEntry;
+    return wxString::FromUTF8(
+        "Generic fallback (suggested: " + suggested.manufacturer + " / " +
+        suggested.fixtureName + ")");
+  }
   const auto &entry = item.selectedEntry ? item.selectedEntry : item.suggestedEntry;
   if (!entry)
     return "-";
@@ -40,21 +62,22 @@ wxString FormatCatalogIdentity(const rider_fixture_resolution::Item &item) {
 // Creates the modal fixture-resolution review without starting downloads.
 RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
     wxWindow *parent, rider_fixture_resolution::Analysis analysisIn,
-    std::string catalogPayloadIn, std::string catalogUpdatedAtIn,
-    CatalogLoader catalogLoaderIn)
+    CatalogLoader cachedCatalogLoaderIn, CatalogLoader onlineCatalogLoaderIn)
     : wxDialog(parent, wxID_ANY, _("Resolve fixture types"), wxDefaultPosition,
                wxSize(1160, 680),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       analysis(std::move(analysisIn)),
-      catalogPayload(std::move(catalogPayloadIn)),
-      catalogUpdatedAt(std::move(catalogUpdatedAtIn)),
-      catalogLoader(std::move(catalogLoaderIn)) {
+      cachedCatalogLoader(std::move(cachedCatalogLoaderIn)),
+      onlineCatalogLoader(std::move(onlineCatalogLoaderIn)) {
   BuildLayout();
   RefreshTable();
   RefreshSelectionControls();
   RefreshSummary();
   SetMinSize(wxSize(780, 500));
   CentreOnParent();
+  Bind(wxEVT_SHOW, &RiderFixtureResolutionDialog::OnDialogShown, this);
+  Bind(EVT_RIDER_CATALOG_LOADED,
+       &RiderFixtureResolutionDialog::OnCatalogLoaded, this);
 }
 
 // Returns the user-reviewed resolution model after the modal dialog succeeds.
@@ -69,6 +92,9 @@ void RiderFixtureResolutionDialog::BuildLayout() {
                 this, wxID_ANY,
                 _("Review unknown rider fixture types before creating the scene.")),
             0, wxEXPAND | wxALL, 12);
+  catalogStatusLabel = new wxStaticText(
+      this, wxID_ANY, _("Loading cached GDTF catalog..."));
+  root->Add(catalogStatusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
 
   table = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                  wxDefaultSize, wxDV_ROW_LINES);
@@ -93,13 +119,10 @@ void RiderFixtureResolutionDialog::BuildLayout() {
   useSuggestedButton = new wxButton(this, wxID_ANY, _("Use suggested"));
   searchButton = new wxButton(this, wxID_ANY, _("Search..."));
   useGenericButton = new wxButton(this, wxID_ANY, _("Use generic"));
-  modeChoice = new wxChoice(this, wxID_ANY);
   actions->Add(useSuggestedButton, 0, wxRIGHT, 8);
   actions->Add(searchButton, 0, wxRIGHT, 8);
-  actions->Add(useGenericButton, 0, wxRIGHT, 16);
-  actions->Add(new wxStaticText(this, wxID_ANY, _("Mode:")), 0,
-               wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
-  actions->Add(modeChoice, 1);
+  actions->Add(useGenericButton, 0);
+  actions->AddStretchSpacer(1);
   root->Add(actions, 0, wxEXPAND | wxALL, 12);
 
   auto *footer = new wxBoxSizer(wxHORIZONTAL);
@@ -117,6 +140,8 @@ void RiderFixtureResolutionDialog::BuildLayout() {
 
   table->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
               &RiderFixtureResolutionDialog::OnSelectionChanged, this);
+  table->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+              &RiderFixtureResolutionDialog::OnItemActivated, this);
   useSuggestedButton->Bind(wxEVT_BUTTON,
                            &RiderFixtureResolutionDialog::OnUseSuggested, this);
   searchButton->Bind(wxEVT_BUTTON, &RiderFixtureResolutionDialog::OnSearch,
@@ -125,8 +150,6 @@ void RiderFixtureResolutionDialog::BuildLayout() {
                          &RiderFixtureResolutionDialog::OnUseGeneric, this);
   acceptAllButton->Bind(wxEVT_BUTTON,
                         &RiderFixtureResolutionDialog::OnAcceptAll, this);
-  modeChoice->Bind(wxEVT_CHOICE,
-                   &RiderFixtureResolutionDialog::OnModeSelected, this);
   resolveButton->Bind(wxEVT_BUTTON, &RiderFixtureResolutionDialog::OnResolve,
                       this);
 }
@@ -153,36 +176,27 @@ void RiderFixtureResolutionDialog::RefreshTable() {
                                 static_cast<int>(analysis.items.size()) - 1));
 }
 
-// Updates row-action availability and the explicit mode selector.
+// Updates row-action availability for the selected fixture row.
 void RiderFixtureResolutionDialog::RefreshSelectionControls() {
   rider_fixture_resolution::Item *item = SelectedItem();
   useSuggestedButton->Enable(item && item->state == rider_fixture_resolution::State::Suggested &&
                              item->suggestedEntry.has_value());
   searchButton->Enable(item && item->state != rider_fixture_resolution::State::Dictionary);
   useGenericButton->Enable(item && item->state != rider_fixture_resolution::State::Dictionary);
-  modeChoice->Clear();
-  if (!item || !item->selectedEntry) {
-    modeChoice->Enable(false);
-    return;
-  }
-  for (const auto &mode : item->selectedEntry->modes)
-    modeChoice->Append(wxString::FromUTF8(mode.name));
-  modeChoice->Enable(item->selectedEntry->modes.size() > 1);
-  if (!item->selectedMode.empty()) {
-    const int index = modeChoice->FindString(wxString::FromUTF8(item->selectedMode));
-    if (index != wxNOT_FOUND)
-      modeChoice->SetSelection(index);
-  }
 }
 
-// Updates completion counts and enables confirmation only for ready rows.
+// Updates the real-mapping count while keeping Generic confirmation available.
 void RiderFixtureResolutionDialog::RefreshSummary() {
-  const size_t ready = static_cast<size_t>(std::count_if(
+  const size_t realMappings = static_cast<size_t>(std::count_if(
       analysis.items.begin(), analysis.items.end(),
-      [](const auto &item) { return item.IsReady(); }));
-  summaryLabel->SetLabel(wxString::Format(_("%zu of %zu fixture types ready"),
-                                          ready, analysis.items.size()));
-  resolveButton->Enable(ready == analysis.items.size());
+      [](const auto &item) {
+        return item.state == rider_fixture_resolution::State::Dictionary ||
+               (item.selectedEntry && !item.RequiresModeSelection());
+      }));
+  summaryLabel->SetLabel(wxString::Format(
+      _("%zu real mappings selected; remaining rows use Generic"),
+      realMappings));
+  resolveButton->Enable(true);
 }
 
 // Returns the model item corresponding to the selected table row.
@@ -197,6 +211,48 @@ rider_fixture_resolution::Item *RiderFixtureResolutionDialog::SelectedItem() {
 void RiderFixtureResolutionDialog::OnSelectionChanged(wxDataViewEvent &event) {
   RefreshSelectionControls();
   event.Skip();
+}
+
+// Edits a row mode through the activated Mode cell using valid profile modes.
+void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
+  if (event.GetColumn() != 4)
+    return;
+  const int activatedRow = table->ItemToRow(event.GetItem());
+  if (activatedRow != wxNOT_FOUND)
+    table->SelectRow(activatedRow);
+  auto *item = SelectedItem();
+  if (!item)
+    return;
+  std::vector<std::string> modes;
+  if (item->state == rider_fixture_resolution::State::Dictionary &&
+      item->dictionaryEntry) {
+    modes = GetGdtfModes(item->dictionaryEntry->path);
+  } else if (item->selectedEntry) {
+    for (const auto &mode : item->selectedEntry->modes) {
+      if (!mode.name.empty())
+        modes.push_back(mode.name);
+    }
+  }
+  if (modes.empty())
+    return;
+  if (modes.size() == 1) {
+    item->selectedMode = modes.front();
+  } else {
+    wxArrayString choices;
+    for (const std::string &mode : modes)
+      choices.Add(wxString::FromUTF8(mode));
+    wxSingleChoiceDialog choice(
+        this, _("Choose a valid mode for this fixture row."),
+        _("Fixture mode"), choices);
+    const int current = choices.Index(wxString::FromUTF8(item->selectedMode));
+    if (current != wxNOT_FOUND)
+      choice.SetSelection(current);
+    if (choice.ShowModal() != wxID_OK)
+      return;
+    item->selectedMode = choice.GetStringSelection().ToStdString();
+  }
+  RefreshTable();
+  RefreshSummary();
 }
 
 // Accepts the safe suggestion for the selected row.
@@ -214,19 +270,26 @@ void RiderFixtureResolutionDialog::OnSearch(wxCommandEvent &) {
   auto *item = SelectedItem();
   if (!item)
     return;
-  if (catalogPayload.empty()) {
-    const auto loaded = catalogLoader ? catalogLoader() : std::nullopt;
+  if (catalogEntries.empty()) {
+    if (catalogLoading) {
+      wxMessageBox(_("The cached catalog is still loading. Generic fallback remains available."),
+                   _("GDTF catalog"), wxOK | wxICON_INFORMATION, this);
+      return;
+    }
+    const auto loaded = onlineCatalogLoader ? onlineCatalogLoader() : std::nullopt;
     if (!loaded) {
       wxMessageBox(_("The GDTF catalog is unavailable. You can use generic or cancel without changing the scene."),
                    _("GDTF catalog unavailable"), wxOK | wxICON_INFORMATION, this);
       return;
     }
-    catalogPayload = loaded->listData;
-    catalogUpdatedAt = loaded->updatedAt;
+    ApplyCatalog(*loaded);
   }
   GdtfSearchDialog dialog(this, catalogPayload, catalogUpdatedAt, nullptr,
-                          GdtfCatalogDisplaySource::Cached, true,
-                          item->request.typeName);
+                          catalogSource == CatalogSource::Online
+                              ? GdtfCatalogDisplaySource::Online
+                              : GdtfCatalogDisplaySource::Cached,
+                          catalogSource != CatalogSource::Online,
+                          item->request.typeName, catalogEntries);
   if (dialog.ShowModal() != wxID_OK)
     return;
   const auto selected = dialog.GetSelectedEntry();
@@ -235,6 +298,79 @@ void RiderFixtureResolutionDialog::OnSearch(wxCommandEvent &) {
   RefreshTable();
   RefreshSelectionControls();
   RefreshSummary();
+}
+
+// Starts cached catalog parsing only after the modal dialog becomes visible.
+void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
+  event.Skip();
+  if (!event.IsShown() || catalogLoadStarted || !cachedCatalogLoader)
+    return;
+  catalogLoadStarted = true;
+  catalogLoading = true;
+  const CatalogLoader loader = cachedCatalogLoader;
+  const auto requests = BuildFixtureRequests();
+  wxWeakRef<RiderFixtureResolutionDialog> weakDialog(this);
+  std::thread([loader, weakDialog, requests]() mutable {
+    auto loaded = loader();
+    if (loaded) {
+      const auto matchStarted = std::chrono::steady_clock::now();
+      loaded->matches = rider_fixture_resolution::Service::Analyze(
+          requests, {}, loaded->entries);
+      loaded->matchMs =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - matchStarted).count();
+    }
+    RiderFixtureResolutionDialog *dialog = weakDialog.get();
+    if (!dialog)
+      return;
+    auto *event = new wxThreadEvent(EVT_RIDER_CATALOG_LOADED);
+    event->SetPayload(loaded);
+    wxQueueEvent(dialog, event);
+  }).detach();
+}
+
+// Applies a completed cached catalog load on the wxWidgets UI thread.
+void RiderFixtureResolutionDialog::OnCatalogLoaded(wxThreadEvent &event) {
+  catalogLoading = false;
+  const auto loaded =
+      event.GetPayload<std::optional<RiderFixtureResolutionDialog::CatalogData>>();
+  if (!loaded) {
+    catalogStatusLabel->SetLabel(
+        _("Catalog unavailable; generic fallback remains available."));
+    return;
+  }
+  ApplyCatalog(*loaded);
+}
+
+// Merges catalog suggestions into untouched rows and refreshes presentation.
+void RiderFixtureResolutionDialog::ApplyCatalog(const CatalogData &catalog) {
+  catalogPayload = catalog.snapshot.listData;
+  catalogUpdatedAt = catalog.snapshot.updatedAt;
+  catalogEntries = catalog.entries;
+  catalogSource = catalog.source;
+  const auto matched = catalog.matches
+      ? *catalog.matches
+      : rider_fixture_resolution::Service::Analyze(BuildFixtureRequests(), {},
+                                                    catalogEntries);
+  diagnostics::DiagnosticLogger::Info(
+      "Rider fixture preflight catalog: catalog_match_ms=" +
+      std::to_string(catalog.matchMs));
+  rider_fixture_resolution::Service::MergeCatalogSuggestions(analysis, matched);
+  catalogStatusLabel->SetLabel(wxString::Format(
+      _("Catalog loaded: %zu entries"), catalogEntries.size()));
+  RefreshTable();
+  RefreshSelectionControls();
+  RefreshSummary();
+}
+
+// Copies fixture requests for pure background catalog matching.
+std::vector<RiderImporter::FixtureTypeRequest>
+RiderFixtureResolutionDialog::BuildFixtureRequests() const {
+  std::vector<RiderImporter::FixtureTypeRequest> requests;
+  requests.reserve(analysis.items.size());
+  for (const auto &item : analysis.items)
+    requests.push_back(item.request);
+  return requests;
 }
 
 // Selects the existing one-import generic fallback for the selected alias.
@@ -260,24 +396,8 @@ void RiderFixtureResolutionDialog::OnAcceptAll(wxCommandEvent &) {
   RefreshSummary();
 }
 
-// Stores the user's explicit mode choice for a multi-mode profile.
-void RiderFixtureResolutionDialog::OnModeSelected(wxCommandEvent &) {
-  auto *item = SelectedItem();
-  if (item && modeChoice->GetSelection() != wxNOT_FOUND)
-    item->selectedMode = modeChoice->GetStringSelection().ToStdString();
-  RefreshTable();
-  RefreshSelectionControls();
-  RefreshSummary();
-}
-
 // Closes successfully only after every non-dictionary row is explicitly ready.
 void RiderFixtureResolutionDialog::OnResolve(wxCommandEvent &) {
-  if (!std::all_of(analysis.items.begin(), analysis.items.end(),
-                   [](const auto &item) { return item.IsReady(); })) {
-    wxMessageBox(_("Resolve every fixture type or choose Use generic before continuing."),
-                 _("Fixture types require attention"), wxOK | wxICON_WARNING,
-                 this);
-    return;
-  }
+  rider_fixture_resolution::Service::FinalizeDefaults(analysis);
   EndModal(wxID_OK);
 }
