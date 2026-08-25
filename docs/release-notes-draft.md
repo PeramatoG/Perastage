@@ -44,6 +44,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Resolve fixture types now builds reliably with MSVC when displaying an empty
+  fixture-mode selection.
+
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.
 

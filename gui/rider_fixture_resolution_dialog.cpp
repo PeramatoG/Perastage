@@ -141,8 +141,9 @@ void RiderFixtureResolutionDialog::RefreshTable() {
     row.push_back(wxString::Format("%d", item.request.quantity));
     row.push_back(JoinPositions(item.request.positions));
     row.push_back(FormatCatalogIdentity(item));
-    row.push_back(item.selectedMode.empty() ? "-"
-                                            : wxString::FromUTF8(item.selectedMode));
+    row.push_back(item.selectedMode.empty()
+                      ? wxString("-")
+                      : wxString::FromUTF8(item.selectedMode));
     row.push_back(wxString::FromUTF8(rider_fixture_resolution::StateName(item.state)));
     row.push_back(wxString::FromUTF8(item.details));
     table->AppendItem(row);
