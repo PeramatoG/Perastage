@@ -43,6 +43,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Rider-import test executables now link reliably when using the shared fixture
+  dictionary alias normalization required by Create from text analysis.
+
 - Download GDTF now requests sign-in before loading an uncached catalog and no
   longer opens an unusable empty search window when credentials are missing,
   rejected, or the online catalog cannot be loaded. Cached catalogs remain

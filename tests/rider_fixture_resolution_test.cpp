@@ -6,16 +6,6 @@
 
 namespace GdtfDictionary {
 
-// Normalizes aliases for this isolated service test.
-std::string NormalizeTypeKey(const std::string &type) {
-  std::string result;
-  for (unsigned char character : type) {
-    if (!std::isspace(character))
-      result.push_back(static_cast<char>(std::toupper(character)));
-  }
-  return result;
-}
-
 // Implements the production dictionary lookup contract for isolated testing.
 std::optional<Entry> FindInLoadedDictionary(
     const std::unordered_map<std::string, Entry> &dictionary,
