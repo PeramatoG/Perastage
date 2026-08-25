@@ -15,6 +15,12 @@ continues with the one-import fallback without saving a dummy mapping. Selected
 profiles are downloaded only after **Resolve and create** is pressed. Cancelling
 closes the workflow before any scene content or dictionary mapping is changed.
 
+Successful GDTF resolutions are applied when possible. A recoverable download,
+validation, mode, authentication, or dictionary error changes only the affected
+fixture type to Generic fallback; scene creation continues with the remaining
+safe import plan. Downloaded GDTF Share sources retain their external identity
+and are not mislabeled as Perastage-generated derivatives.
+
 Generic fallback is the visible default and never blocks **Resolve and create**.
 Safe suggestions are optional; suggestions without a chosen mode fall back to
 Generic. Screen objects and video-control equipment are not treated as lighting

@@ -21,13 +21,13 @@ if preflight < 0 or scene_import < 0 or preflight >= scene_import:
 required = {
     "runtime service analysis": "rider_fixture_resolution::Service::Analyze",
     "modal resolver": "RiderFixtureResolutionDialog dialog",
-    "dictionary persistence": "CreateOrUpdatePerastageLibraryDerivative",
+    "external dictionary persistence": "CreateOrUpdateExternalLibraryMapping",
 }
 for label, token in required.items():
     if token not in workflow:
         raise SystemExit(f"Missing {label}: {token}")
 
-if "GdtfSearchDialog dialog" not in dialog or "item->request.typeName" not in dialog:
+if "GdtfSearchDialog dialog" not in dialog or "item->effectiveFixtureType" not in dialog:
     raise SystemExit("Resolver Search must call GdtfSearchDialog with the rider alias")
 for source in ("rider_fixture_resolution_dialog.cpp",
                "rider_fixture_resolution_workflow.cpp"):

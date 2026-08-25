@@ -1138,6 +1138,69 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
   return e;
 }
 
+// Registers an external source GDTF in dictionary-owned storage without derivative publication.
+ExternalMappingResult CreateOrUpdateExternalLibraryMapping(
+    const std::string &type, const std::string &gdtfPath,
+    const std::string &mode) {
+  std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
+  ExternalMappingResult result;
+  const std::string normalizedType = NormalizeTypeKey(type);
+  if (normalizedType.empty() || gdtfPath.empty()) {
+    result.failureStage = "validate-input";
+    result.error = "Fixture alias or source path is empty.";
+    return result;
+  }
+  const fs::path source = PathUtils::PathFromUtf8(gdtfPath);
+  if (!fs::is_regular_file(source)) {
+    result.failureStage = "validate-source";
+    result.error = "External GDTF source file does not exist.";
+    return result;
+  }
+  const fs::path dictionaryFile = GetConfiguredUserDictFile();
+  if (dictionaryFile.empty()) {
+    result.failureStage = "resolve-dictionary";
+    result.error = "The active fixture dictionary path is unavailable.";
+    return result;
+  }
+  const auto copy = ActiveDictionaryStorage::CopyAssetIntoDictionaryStorage(
+      {ActiveDictionaryStorage::DictionaryKind::Fixtures, dictionaryFile,
+       GetUserDictFile(), source, source.filename(),
+       FileImportUtils::ConflictPolicy::Overwrite});
+  if (!copy.success) {
+    result.failureStage = "copy-external-source";
+    result.error = "The external GDTF could not be copied into dictionary storage.";
+    return result;
+  }
+  auto dictionary = Load();
+  if (!dictionary) {
+    result.failureStage = "load-dictionary";
+    result.error = "The active fixture dictionary could not be loaded.";
+    return result;
+  }
+  Entry entry;
+  if (auto existing = FindInLoadedDictionary(*dictionary, type, false))
+    entry = *existing;
+  entry.path = copy.finalPath.string();
+  entry.mode = mode;
+  entry.importedAt = FileImportUtils::NowUtcIso8601();
+  entry.sha256 = copy.finalSha256;
+  std::string key = type;
+  if (auto existingKey = FindEquivalentTypeKey(*dictionary, normalizedType))
+    key = *existingKey;
+  (*dictionary)[key] = entry;
+  std::string saveError;
+  if (!Save(*dictionary, &saveError)) {
+    result.failureStage = "save-dictionary";
+    result.error = saveError.empty() ? "The fixture dictionary could not be saved."
+                                     : saveError;
+    return result;
+  }
+  result.success = true;
+  result.entry = entry;
+  result.storedFileName = copy.finalPath.filename().string();
+  return result;
+}
+
 // Registers an explicit user-library fixture import using deterministic
 // @Perastage derivative rules.
 void Update(const std::string &type, const std::string &gdtfPath,

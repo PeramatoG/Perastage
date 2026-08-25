@@ -132,6 +132,12 @@ void Service::SelectGeneric(Item &item) {
   item.details = "Generic fallback selected for this import";
 }
 
+// Records a recoverable resolution failure in the final GUI-independent plan.
+void Service::FallbackAfterFailure(Item &item, const std::string &reason) {
+  SelectGeneric(item);
+  item.details = reason + " - using generic fallback";
+}
+
 // Converts every incomplete non-dictionary row to Generic before import.
 void Service::FinalizeDefaults(Analysis &analysis) {
   for (Item &item : analysis.items) {

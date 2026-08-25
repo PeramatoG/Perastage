@@ -54,6 +54,9 @@ Changes since **v1.5.0**.
 - Fixture resolution now automatically uses the shared MVR catalog matcher,
   supports corrected fixture names and per-type creation choices, and searches
   combined manufacturer and model identities such as GLP JDC1.
+- Downloaded GDTF Share files now retain external-source identity when mapped
+  from rider text, and recoverable download, mode, or dictionary failures fall
+  back only the affected fixture type instead of cancelling scene creation.
 
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.

@@ -69,6 +69,9 @@ public:
   // Selects the existing generic import fallback without persisting a mapping.
   static void SelectGeneric(Item &item);
 
+  // Records a recoverable enhancement failure and selects Generic for the row.
+  static void FallbackAfterFailure(Item &item, const std::string &reason);
+
   // Converts incomplete real selections to the non-blocking generic fallback.
   static void FinalizeDefaults(Analysis &analysis);
 

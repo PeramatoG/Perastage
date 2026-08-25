@@ -98,7 +98,8 @@ bool EnsureAuthenticated(wxWindow *parent, ConfigManager &configManager,
       return true;
     }
     wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(result, "login")),
-                 _("GDTF Share sign-in failed"), wxOK | wxICON_ERROR, parent);
+                 _("GDTF Share sign-in unavailable"), wxOK | wxICON_WARNING,
+                 parent);
     if (result.category != GdtfShareResultCategory::AuthenticationRejected)
       return false;
     credentials.reset();
@@ -215,14 +216,6 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   if (dialog.ShowModal() != wxID_OK)
     return PreflightResult::Cancelled;
   analysis = dialog.TakeAnalysis();
-  if (importPlanOut) {
-    importPlanOut->fixtureSelections.clear();
-    for (const auto &item : analysis.items) {
-      importPlanOut->fixtureSelections.push_back({
-          item.request.normalizedTypeName, item.effectiveFixtureType,
-          item.create});
-    }
-  }
   LogAnalysisCounts(analysis);
 
   struct DownloadedSelection {
@@ -234,15 +227,10 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       ProjectUtils::GetWritableLibraryPath("fixtures"));
   std::error_code directoryError;
   std::filesystem::create_directories(fixtureDirectory, directoryError);
-  auto rollbackDictionary = [&]() {
-    std::string rollbackError;
-    if (!GdtfDictionary::Save(dictionary, &rollbackError)) {
-      diagnostics::DiagnosticLogger::Error(
-          "Rider fixture dictionary rollback failed: " + rollbackError);
-    }
-  };
+  size_t recoverableFailureCount = 0;
+  bool authenticationUnavailable = false;
 
-  for (const auto &item : analysis.items) {
+  for (auto &item : analysis.items) {
     if (!item.create)
       continue;
     if (!item.selectedEntry)
@@ -262,8 +250,18 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
         continue;
       }
     }
-    if (!EnsureAuthenticated(parent, configManager, client, credentials))
-      return PreflightResult::Failed;
+    if (authenticationUnavailable ||
+        !EnsureAuthenticated(parent, configManager, client, credentials)) {
+      authenticationUnavailable = true;
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Authentication unavailable");
+      ++recoverableFailureCount;
+      diagnostics::DiagnosticLogger::Warning(
+          "Rider fixture resolution fallback: alias=" + item.request.typeName +
+          " effective_type=" + item.effectiveFixtureType +
+          " rid=" + rid + " stage=authenticate");
+      continue;
+    }
     const CredentialStore::Credentials downloadCredentials = *credentials;
     GdtfShareResult download = WaitForNetworkTask(
         parent, _("Resolve fixture types"), _("Downloading selected GDTF..."),
@@ -281,40 +279,57 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       diagnostics::DiagnosticLogger::Error(
           "Rider fixture GDTF download failed: alias=" +
           item.request.typeName + " revision=" + rid);
-      wxMessageBox(wxString::Format(_("Could not download the GDTF selected for %s. No scene objects were created."),
-                                    wxString::FromUTF8(item.request.typeName)),
-                   _("Fixture resolution failed"), wxOK | wxICON_ERROR, parent);
-      return PreflightResult::Failed;
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Download failed");
+      ++recoverableFailureCount;
+      continue;
     }
     auto modes = GetGdtfModes(destination.string());
     if (modes.empty()) {
-      wxMessageBox(_("The downloaded file does not contain a usable GDTF mode. No scene objects were created."),
-                   _("Fixture resolution failed"), wxOK | wxICON_ERROR, parent);
-      return PreflightResult::Failed;
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Downloaded GDTF is invalid");
+      ++recoverableFailureCount;
+      diagnostics::DiagnosticLogger::Warning(
+          "Rider fixture resolution fallback: alias=" + item.request.typeName +
+          " effective_type=" + item.effectiveFixtureType + " rid=" + rid +
+          " source=" + destination.filename().string() +
+          " source_valid=false stage=validate-gdtf");
+      continue;
     }
     downloads.emplace(rid, DownloadedSelection{destination, std::move(modes)});
     diagnostics::DiagnosticLogger::Info(
         "Rider fixture GDTF download completed: revision=" + rid);
   }
 
-  for (const auto &item : analysis.items) {
+  for (auto &item : analysis.items) {
     if (!item.create)
       continue;
     if (!item.selectedEntry)
       continue;
     const auto found = downloads.find(item.selectedEntry->rid);
-    if (found == downloads.end())
-      return PreflightResult::Failed;
+    if (found == downloads.end()) {
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Selected GDTF is unavailable");
+      ++recoverableFailureCount;
+      continue;
+    }
     if (std::find(found->second.modes.begin(), found->second.modes.end(),
                   item.selectedMode) == found->second.modes.end()) {
-      wxMessageBox(wxString::Format(_("The selected mode for %s is not present in the downloaded GDTF. No scene objects were created."),
-                                    wxString::FromUTF8(item.request.typeName)),
-                   _("Fixture resolution failed"), wxOK | wxICON_ERROR, parent);
-      return PreflightResult::Failed;
+      const std::string failedRid = item.selectedEntry->rid;
+      const std::string failedMode = item.selectedMode;
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Selected mode is not present in the GDTF");
+      ++recoverableFailureCount;
+      diagnostics::DiagnosticLogger::Warning(
+          "Rider fixture resolution fallback: alias=" + item.request.typeName +
+          " effective_type=" + item.effectiveFixtureType +
+          " rid=" + failedRid + " mode=" + failedMode +
+          " stage=validate-mode");
+      continue;
     }
   }
 
-  for (const auto &item : analysis.items) {
+  for (auto &item : analysis.items) {
     if (!item.create)
       continue;
     if (item.state != rider_fixture_resolution::State::Dictionary ||
@@ -326,29 +341,56 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
     GdtfDictionary::UpdateDictionaryEntry(item.request.typeName, changed);
     const auto persisted = GdtfDictionary::Get(item.request.typeName);
     if (!persisted || persisted->mode != item.selectedMode) {
-      rollbackDictionary();
-      return PreflightResult::Failed;
+      item.selectedMode = item.originalDictionaryMode;
+      item.origin = rider_fixture_resolution::ResolutionOrigin::Dictionary;
+      item.details = "Dictionary mode change could not be saved; original mode retained";
+      ++recoverableFailureCount;
+      diagnostics::DiagnosticLogger::Warning(
+          "Rider fixture dictionary mode fallback: alias=" +
+          item.request.typeName + " effective_type=" + item.effectiveFixtureType +
+          " mode=" + item.selectedMode + " stage=save-dictionary-mode");
     }
   }
 
-  for (const auto &item : analysis.items) {
+  for (auto &item : analysis.items) {
     if (!item.create)
       continue;
     if (!item.selectedEntry)
       continue;
     const auto &downloaded = downloads.at(item.selectedEntry->rid);
-    const auto persisted = GdtfDictionary::CreateOrUpdatePerastageLibraryDerivative(
+    const auto persisted = GdtfDictionary::CreateOrUpdateExternalLibraryMapping(
         item.request.typeName, downloaded.path.string(), item.selectedMode);
-    if (!persisted) {
-      rollbackDictionary();
-      wxMessageBox(wxString::Format(_("Could not save the fixture dictionary mapping for %s. No scene objects were created."),
-                                    wxString::FromUTF8(item.request.typeName)),
-                   _("Fixture resolution failed"), wxOK | wxICON_ERROR, parent);
-      return PreflightResult::Failed;
+    if (!persisted.success) {
+      diagnostics::DiagnosticLogger::Warning(
+          "Rider fixture resolution fallback: alias=" + item.request.typeName +
+          " effective_type=" + item.effectiveFixtureType +
+          " rid=" + item.selectedEntry->rid + " mode=" + item.selectedMode +
+          " source=" + downloaded.path.filename().string() +
+          " source_valid=true derivative_attempted=false stage=" +
+          persisted.failureStage + " reason=" + persisted.error);
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Dictionary mapping could not be saved");
+      ++recoverableFailureCount;
+      continue;
     }
     diagnostics::DiagnosticLogger::Info(
         "Rider fixture mapping accepted: alias=" + item.request.typeName +
         " revision=" + item.selectedEntry->rid + " mode=" + item.selectedMode);
+  }
+  if (importPlanOut) {
+    importPlanOut->fixtureSelections.clear();
+    for (const auto &item : analysis.items) {
+      importPlanOut->fixtureSelections.push_back({
+          item.request.normalizedTypeName, item.effectiveFixtureType,
+          item.create});
+    }
+  }
+  if (recoverableFailureCount > 0) {
+    wxMessageBox(
+        wxString::Format(
+            _("%zu fixture types used generic fallback because GDTF resolution failed. See the diagnostic log for details."),
+            recoverableFailureCount),
+        _("Fixture resolution warning"), wxOK | wxICON_WARNING, parent);
   }
   return PreflightResult::Proceed;
 }

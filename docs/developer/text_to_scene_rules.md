@@ -51,6 +51,13 @@ effective type or skips the original normalized request during fixture creation;
 non-fixture scene elements are unaffected. Automatic resolution delegates to
 `SelectBestDownloadMatch()` from the shared MVR matcher.
 
+Downloaded catalog profiles are registered as validated external library
+sources through `CreateOrUpdateExternalLibraryMapping`; this path deliberately
+does not invoke the `@Perastage` derivative publication contract. Recoverable
+authentication, download, validation, mode, and persistence failures update
+only the affected row to Generic fallback. User cancellation remains the only
+normal preflight outcome that cancels the complete import.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

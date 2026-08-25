@@ -114,6 +114,17 @@ namespace GdtfDictionary {
     std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
         const std::string& type, const std::string& gdtfPath,
         const std::string& mode = {}, const std::string& category = {});
+    struct ExternalMappingResult {
+        bool success = false;
+        Entry entry;
+        std::string failureStage;
+        std::string error;
+        std::string storedFileName;
+    };
+    // Registers a validated external GDTF without claiming Perastage derivative ownership.
+    ExternalMappingResult CreateOrUpdateExternalLibraryMapping(
+        const std::string& type, const std::string& gdtfPath,
+        const std::string& mode = {});
     // Updates dictionary metadata without copying fixture files into the library.
     void UpdateDictionaryEntry(const std::string& type, const Entry& entry);
     void UpdateCategory(const std::string& type, const std::string& category);
