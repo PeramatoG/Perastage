@@ -27,16 +27,31 @@ wxSize ClampToDisplay(wxWindow *parent, wxSize requested) {
   return requested;
 }
 
+// Maps related diagnostic codes onto one user-facing summary category.
+MvrExportDiagnosticCode PresentationCode(MvrExportDiagnosticCode code) {
+  switch (code) {
+  case MvrExportDiagnosticCode::IdentityGenerated:
+  case MvrExportDiagnosticCode::IdentityReassigned:
+  case MvrExportDiagnosticCode::IdentityConflict:
+  case MvrExportDiagnosticCode::SymbolIdentityReplaced:
+    return MvrExportDiagnosticCode::IdentityGenerated;
+  case MvrExportDiagnosticCode::GdtfMissing:
+  case MvrExportDiagnosticCode::TrussGdtfMissing:
+  case MvrExportDiagnosticCode::GdtfPatchFailed:
+    return MvrExportDiagnosticCode::GdtfMissing;
+  default:
+    return code;
+  }
+}
+
 // Returns concise user-facing copy for a diagnostic category.
 wxString SummaryFor(MvrExportDiagnosticCode code, size_t count) {
   const wxString amount = wxString::FromUTF8(std::to_string(count));
   switch (code) {
   case MvrExportDiagnosticCode::GdtfFallbackUsed: return amount + " fixtures used a fallback GDTF.";
   case MvrExportDiagnosticCode::DmxAddressOmitted: return amount + " DMX addresses were omitted.";
-  case MvrExportDiagnosticCode::IdentityGenerated:
-  case MvrExportDiagnosticCode::IdentityReassigned:
-  case MvrExportDiagnosticCode::IdentityConflict:
-  case MvrExportDiagnosticCode::SymbolIdentityReplaced: return amount + " object identities were repaired.";
+  case MvrExportDiagnosticCode::IdentityGenerated: return amount + " object identities were repaired.";
+  case MvrExportDiagnosticCode::ReferenceCleared: return amount + " unresolved references were omitted.";
   case MvrExportDiagnosticCode::ForeignMetadataDiscarded: return amount + " third-party metadata blocks could not be preserved.";
   case MvrExportDiagnosticCode::TextureMissing: return amount + " model texture dependencies were omitted.";
   case MvrExportDiagnosticCode::ResourceMissing:
@@ -45,9 +60,8 @@ wxString SummaryFor(MvrExportDiagnosticCode code, size_t count) {
   case MvrExportDiagnosticCode::SupportGeometryMissing: return amount + " objects used adjusted geometry.";
   case MvrExportDiagnosticCode::FixtureIdReassigned: return amount + " fixture numeric identifiers were reassigned.";
   case MvrExportDiagnosticCode::CompatibilityRepresentationUnavailable: return amount + " trusses could not use the requested compatibility representation.";
-  case MvrExportDiagnosticCode::TrussGdtfMissing:
   case MvrExportDiagnosticCode::GdtfMissing:
-  case MvrExportDiagnosticCode::GdtfPatchFailed: return amount + " GDTF resources could not be preserved as requested.";
+    return amount + " GDTF resources could not be preserved as requested.";
   default: return amount + " export issues require attention.";
   }
 }
@@ -124,7 +138,7 @@ void ShowMvrExportResult(wxWindow *parent, bool exported,
   for (const auto &diagnostic : diagnostics) {
     if (!diagnostic.userVisible)
       continue;
-    ++counts[diagnostic.code];
+    ++counts[PresentationCode(diagnostic.code)];
     if (!diagnostic.objectName.empty())
       details += wxString::FromUTF8(diagnostic.objectType + " " + diagnostic.objectName + ": ");
     details += wxString::FromUTF8(diagnostic.technicalDetail) + "\n\n";

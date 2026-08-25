@@ -24,6 +24,15 @@ an unavailable requested compatibility representation are user-visible
 archive I/O, and hierarchy recursion failures are user-visible `Error` records
 and make the operation fail.
 
+Identity storage mismatches are evaluated using both sources. A malformed or
+missing field remains log-only when the other source preserves the effective
+identity; two different valid identities produce one `IdentityConflict`, while
+two unusable sources produce one `IdentityGenerated`. Unresolved non-empty
+Position references produce `ReferenceCleared` because the reference is omitted.
+Failure to create a required physical-property GDTF patch or mandatory
+SceneObject placeholder geometry is fatal rather than silently exporting stale
+properties or deleting the object.
+
 The stable code policy is:
 
 | Codes | Severity | Normal UI |
