@@ -180,7 +180,6 @@ bool MvrXchangeStationRegistry::CanSendCommitTo(const std::string &stationUuid) 
 // Returns true if a station appears to be this Perastage instance.
 bool MvrXchangeStationRegistry::IsOwnStation(const MvrXchangeRemoteStation &station) const {
   if (!station.stationUuid.empty() && station.stationUuid == localStationUuid_) return true;
-  if (!station.serviceInstanceName.empty() && mvr::xchange::DnsNamesEqual(station.serviceInstanceName, localServiceInstanceName_)) return true;
   return false;
 }
 

@@ -10,6 +10,7 @@ std::string SanitizeDnsLabel(const std::string &value, const std::string &fallba
 std::string NormalizeDnsName(const std::string &value);
 bool DnsNamesEqual(const std::string &left, const std::string &right);
 std::string BuildMvrXchangeGroupServiceName(const std::string &groupName);
-std::string BuildMvrXchangeServiceInstanceName(const std::string &stationName, const std::string &groupName);
+std::string BuildMvrXchangeServiceInstanceName(const std::string &groupName);
+std::string BuildMvrXchangeHostName(const std::string &machineName, const std::string &stationUuid);
 
 }

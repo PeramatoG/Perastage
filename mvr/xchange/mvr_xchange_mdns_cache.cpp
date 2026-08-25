@@ -12,18 +12,19 @@ namespace {
 std::string RecordIdentity(const DnsRecord &record) {
   std::string identity = std::to_string(static_cast<int>(record.type)) + "|" + NormalizeDnsName(record.owner);
   if (record.type == DnsRecordType::Ptr || record.type == DnsRecordType::Srv) identity += "|" + NormalizeDnsName(record.target);
-  if (record.type == DnsRecordType::A || record.type == DnsRecordType::Aaaa) identity += "|" + record.address;
-  return identity + "|" + std::to_string(record.interfaceIndex);
+  return identity + "|" + std::to_string(record.interfaceIndex) + "|" + record.responderAddress;
 }
 
-// Finds one non-expired record by type and normalized owner.
+// Finds one non-expired record by type, owner, interface, and responder.
 const DnsRecord *FindRecord(const std::vector<MdnsRecordCache::CachedRecord> &records,
                             DnsRecordType type, const std::string &owner,
-                            std::uint64_t nowMonotonicMs) {
+                            const DnsRecord &origin, std::uint64_t nowMonotonicMs) {
   const std::string normalizedOwner = NormalizeDnsName(owner);
   for (const auto &cached : records) {
     if (cached.expiryMonotonicMs > nowMonotonicMs && cached.record.type == type &&
-        NormalizeDnsName(cached.record.owner) == normalizedOwner) return &cached.record;
+        NormalizeDnsName(cached.record.owner) == normalizedOwner &&
+        cached.record.interfaceIndex == origin.interfaceIndex &&
+        cached.record.responderAddress == origin.responderAddress) return &cached.record;
   }
   return nullptr;
 }
@@ -55,7 +56,7 @@ void MdnsRecordCache::ApplyBatch(std::vector<DnsRecord> records) {
   std::map<std::string, DnsRecord> mergedTxt;
   for (auto &record : records) {
     if (record.type != DnsRecordType::Txt) { Apply(std::move(record)); continue; }
-    const std::string key = NormalizeDnsName(record.owner) + "|" + std::to_string(record.interfaceIndex);
+    const std::string key = NormalizeDnsName(record.owner) + "|" + std::to_string(record.interfaceIndex) + "|" + record.responderAddress;
     auto &merged = mergedTxt[key];
     if (merged.owner.empty()) merged = record;
     else {
@@ -91,25 +92,28 @@ std::vector<MvrXchangeRemoteStation> MdnsRecordCache::Resolve(const std::string 
   for (const auto &cached : records_) {
     const auto &ptr = cached.record;
     if (cached.expiryMonotonicMs <= nowMonotonicMs || ptr.type != DnsRecordType::Ptr) continue;
-    const bool groupPtr = DnsNamesEqual(ptr.owner, groupServiceName);
+    const bool canonicalGroupPtr = DnsNamesEqual(ptr.owner, kMvrXchangeServiceType) && DnsNamesEqual(ptr.target, groupServiceName);
+    const bool legacyGroupPtr = DnsNamesEqual(ptr.owner, groupServiceName);
     const std::string normalizedTarget = NormalizeDnsName(ptr.target);
     const std::string normalizedGroup = NormalizeDnsName(groupServiceName);
     const bool compatibleBasePtr = DnsNamesEqual(ptr.owner, kMvrXchangeServiceType) && normalizedTarget.size() > normalizedGroup.size() &&
                                    normalizedTarget[normalizedTarget.size() - normalizedGroup.size() - 1] == '.' &&
                                    normalizedTarget.compare(normalizedTarget.size() - normalizedGroup.size(), normalizedGroup.size(), normalizedGroup) == 0;
-    if ((!groupPtr && !compatibleBasePtr) || !seenInstances.insert(NormalizeDnsName(ptr.target)).second) continue;
-    const DnsRecord *srv = FindRecord(records_, DnsRecordType::Srv, ptr.target, nowMonotonicMs);
-    const DnsRecord *txt = FindRecord(records_, DnsRecordType::Txt, ptr.target, nowMonotonicMs);
-    if (!srv) srv = FindRecord(records_, DnsRecordType::Srv, groupServiceName, nowMonotonicMs);
-    if (!txt) txt = FindRecord(records_, DnsRecordType::Txt, groupServiceName, nowMonotonicMs);
+    const std::string scopedInstance = std::to_string(ptr.interfaceIndex) + "|" + ptr.responderAddress + "|" + normalizedTarget;
+    if ((!canonicalGroupPtr && !legacyGroupPtr && !compatibleBasePtr) || !seenInstances.insert(scopedInstance).second) continue;
+    const DnsRecord *srv = FindRecord(records_, DnsRecordType::Srv, ptr.target, ptr, nowMonotonicMs);
+    const DnsRecord *txt = FindRecord(records_, DnsRecordType::Txt, ptr.target, ptr, nowMonotonicMs);
+    if (!srv && legacyGroupPtr) srv = FindRecord(records_, DnsRecordType::Srv, groupServiceName, ptr, nowMonotonicMs);
+    if (!txt && legacyGroupPtr) txt = FindRecord(records_, DnsRecordType::Txt, groupServiceName, ptr, nowMonotonicMs);
     if (!srv) continue;
-    const DnsRecord *address = FindRecord(records_, DnsRecordType::A, srv->target, nowMonotonicMs);
-    if (!address) address = FindRecord(records_, DnsRecordType::Aaaa, srv->target, nowMonotonicMs);
+    const DnsRecord *address = FindRecord(records_, DnsRecordType::A, srv->target, *srv, nowMonotonicMs);
+    if (!address) address = FindRecord(records_, DnsRecordType::Aaaa, srv->target, *srv, nowMonotonicMs);
     if (!address) continue;
     MvrXchangeRemoteStation station;
     station.serviceInstanceName = ptr.target;
-    station.normalizedDnsIdentity = NormalizeDnsName(ptr.target);
+    station.normalizedDnsIdentity = scopedInstance;
     station.hostName = srv->target;
+    station.mdnsResponderAddress = ptr.responderAddress;
     station.ipAddress = address->address;
     station.port = srv->port;
     station.discovered = true;

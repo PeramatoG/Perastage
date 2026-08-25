@@ -176,8 +176,7 @@ std::vector<MvrXchangeRemoteStation> MvrXchangeMdnsDiscovery::Snapshot() {
   cache_.Expire(now);
   auto stations = cache_.Resolve(groupServiceName_, now);
   stations.erase(std::remove_if(stations.begin(), stations.end(), [&](const auto &station) {
-    return (!station.stationUuid.empty() && station.stationUuid == localStationUuid_) ||
-           (!station.serviceInstanceName.empty() && mvr::xchange::DnsNamesEqual(station.serviceInstanceName, localInstanceName_));
+    return !station.stationUuid.empty() && station.stationUuid == localStationUuid_;
   }), stations.end());
   return stations;
 }
@@ -243,9 +242,9 @@ void MvrXchangeMdnsDiscovery::Run() {
   }
 }
 
-// Sends PTR questions for the official group and base service names.
+// Sends a PTR question for the official MVR-xchange base service.
 void MvrXchangeMdnsDiscovery::SendQueries() {
-  for (const std::string &name : {groupServiceName_, std::string(mvr::xchange::kMvrXchangeServiceType)}) {
+  for (const std::string &name : {std::string(mvr::xchange::kMvrXchangeServiceType)}) {
     std::vector<std::uint8_t> packet(12, 0);
     packet[5] = 1;
     if (!AppendDnsName(packet, name)) continue;
@@ -273,13 +272,23 @@ void MvrXchangeMdnsDiscovery::ReceiveDatagram() {
 #else
   const int nativeFd = static_cast<int>(socket_);
 #endif
-  const int received = static_cast<int>(recv(nativeFd, reinterpret_cast<char *>(buffer.data()), static_cast<int>(buffer.size()), 0));
-  if (received > 0) ApplyDatagram(buffer.data(), static_cast<std::size_t>(received), 0);
+  sockaddr_in responder{};
+#ifdef _WIN32
+  int responderLength = sizeof(responder);
+#else
+  socklen_t responderLength = sizeof(responder);
+#endif
+  const int received = static_cast<int>(recvfrom(nativeFd, reinterpret_cast<char *>(buffer.data()), static_cast<int>(buffer.size()), 0,
+                                                 reinterpret_cast<sockaddr *>(&responder), &responderLength));
+  char responderAddress[INET_ADDRSTRLEN]{};
+  if (received > 0 && inet_ntop(AF_INET, &responder.sin_addr, responderAddress, sizeof(responderAddress)))
+    ApplyDatagram(buffer.data(), static_cast<std::size_t>(received), 0, responderAddress);
 }
 
 // Parses one DNS datagram into bounded answer and additional records.
 std::vector<mvr::xchange::DnsRecord> mvr::xchange::ParseMdnsRecords(const std::uint8_t *data, std::size_t size,
-                                                                    std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs) {
+                                                                    std::uint32_t interfaceIndex, std::uint64_t nowMonotonicMs,
+                                                                    const std::string &responderAddress) {
   std::vector<mvr::xchange::DnsRecord> parsedRecords;
   if (size < 12) return parsedRecords;
   std::size_t offset = 4;
@@ -302,6 +311,7 @@ std::vector<mvr::xchange::DnsRecord> mvr::xchange::ParseMdnsRecords(const std::u
     const std::size_t recordEnd = offset + length;
     record.ttlSeconds = ttl;
     record.interfaceIndex = interfaceIndex;
+    record.responderAddress = responderAddress;
     record.lastSeenMonotonicMs = nowMonotonicMs;
     bool supported = true;
     if (type == 12) { record.type = mvr::xchange::DnsRecordType::Ptr; supported = ReadDnsName(data, size, offset, record.target); }
@@ -337,7 +347,8 @@ std::vector<mvr::xchange::DnsRecord> mvr::xchange::ParseMdnsRecords(const std::u
 }
 
 // Applies one parsed DNS datagram to the persistent record cache.
-void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex) {
-  auto parsedRecords = mvr::xchange::ParseMdnsRecords(data, size, interfaceIndex, MonotonicMilliseconds());
+void MvrXchangeMdnsDiscovery::ApplyDatagram(const std::uint8_t *data, std::size_t size, std::uint32_t interfaceIndex,
+                                            const std::string &responderAddress) {
+  auto parsedRecords = mvr::xchange::ParseMdnsRecords(data, size, interfaceIndex, MonotonicMilliseconds(), responderAddress);
   if (!parsedRecords.empty()) { std::lock_guard lock(mutex_); cache_.ApplyBatch(std::move(parsedRecords)); }
 }

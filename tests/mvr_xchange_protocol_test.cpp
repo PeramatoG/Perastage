@@ -14,6 +14,7 @@
 #include <cassert>
 #include <chrono>
 #include <string>
+#include <tuple>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -374,12 +375,49 @@ static void TestMdnsRecordCache() {
   assert(cache.Resolve(group, 3000).empty());
 
   MdnsRecordCache official;
-  official.Apply({DnsRecordType::Ptr, group, "Member.Default._mvrxchange._tcp.local.", {}, {}, 0, 60, 1, 5000});
-  official.Apply({DnsRecordType::Srv, group, "group-host.local.", {}, {}, 43000, 60, 1, 5000});
-  official.Apply({DnsRecordType::Txt, group, {}, {}, {{"stationname", "Group member"}, {"stationuuid", "11111111-2222-3333-4444-555555555555"}}, 0, 60, 1, 5000});
-  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::1", {}, 0, 60, 1, 5000});
+  official.Apply({DnsRecordType::Ptr, kMvrXchangeServiceType, group, {}, {}, 0, 60, 1, 5000, "192.0.2.1"});
+  official.Apply({DnsRecordType::Srv, group, "group-host.local.", {}, {}, 43000, 60, 1, 5000, "192.0.2.1"});
+  official.Apply({DnsRecordType::Txt, group, {}, {}, {{"stationname", "Group member"}, {"stationuuid", "11111111-2222-3333-4444-555555555555"}}, 0, 60, 1, 5000, "192.0.2.1"});
+  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::1", {}, 0, 60, 1, 5000, "192.0.2.1"});
   stations = official.Resolve(group, 5000);
   assert(stations.size() == 1 && stations[0].ipAddress == "2001:db8::1" && stations[0].port == 43000);
+  official.Apply({DnsRecordType::Srv, group, "group-host.local.", {}, {}, 43001, 60, 1, 5100, "192.0.2.1"});
+  official.Apply({DnsRecordType::Aaaa, "group-host.local", {}, "2001:db8::2", {}, 0, 60, 1, 5100, "192.0.2.1"});
+  stations = official.Resolve(group, 5100);
+  assert(stations.size() == 1 && stations[0].ipAddress == "2001:db8::2" && stations[0].port == 43001 &&
+         stations[0].stationUuid == "11111111-2222-3333-4444-555555555555");
+
+  MdnsRecordCache multipleResponders;
+  for (const auto &[responder, host, address, port, uuid] : std::vector<std::tuple<std::string, std::string, std::string, std::uint16_t, std::string>>{
+           {"192.0.2.11", "station-a.local.", "192.0.2.11", 41001, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+           {"192.0.2.12", "station-b.local.", "192.0.2.12", 41002, "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"}}) {
+    multipleResponders.Apply({DnsRecordType::Ptr, kMvrXchangeServiceType, group, {}, {}, 0, 120, 3, 8000, responder});
+    multipleResponders.Apply({DnsRecordType::Srv, group, host, {}, {}, port, 120, 3, 8000, responder});
+    multipleResponders.Apply({DnsRecordType::Txt, group, {}, {}, {{"stationname", host}, {"stationuuid", uuid}}, 0, 120, 3, 8000, responder});
+    multipleResponders.Apply({DnsRecordType::A, host, {}, address, {}, 0, 120, 3, 8000, responder});
+  }
+  stations = multipleResponders.Resolve(group, 8000);
+  assert(stations.size() == 2);
+  assert(stations[0].stationUuid != stations[1].stationUuid && stations[0].ipAddress != stations[1].ipAddress && stations[0].port != stations[1].port);
+
+  MdnsRecordCache isolatedOrigins;
+  isolatedOrigins.Apply({DnsRecordType::Ptr, kMvrXchangeServiceType, group, {}, {}, 0, 120, 3, 8000, "192.0.2.21"});
+  isolatedOrigins.Apply({DnsRecordType::Srv, group, "isolated.local.", {}, {}, 42000, 120, 3, 8000, "192.0.2.21"});
+  isolatedOrigins.Apply({DnsRecordType::Txt, group, {}, {}, {{"stationname", "Wrong responder"}, {"stationuuid", "cccccccc-dddd-eeee-ffff-000000000000"}}, 0, 120, 3, 8000, "192.0.2.22"});
+  isolatedOrigins.Apply({DnsRecordType::A, "isolated.local.", {}, "192.0.2.22", {}, 0, 120, 3, 8000, "192.0.2.22"});
+  assert(isolatedOrigins.Resolve(group, 8000).empty());
+
+  MdnsRecordCache sameAddressCompatibility;
+  for (const auto &[instance, port, uuid] : std::vector<std::tuple<std::string, std::uint16_t, std::string>>{
+           {"Peer-A.Default._mvrxchange._tcp.local.", 43001, "dddddddd-eeee-ffff-0000-111111111111"},
+           {"Peer-B.Default._mvrxchange._tcp.local.", 43002, "eeeeeeee-ffff-0000-1111-222222222222"}}) {
+    sameAddressCompatibility.Apply({DnsRecordType::Ptr, kMvrXchangeServiceType, instance, {}, {}, 0, 120, 3, 8000, "192.0.2.30"});
+    sameAddressCompatibility.Apply({DnsRecordType::Srv, instance, "shared.local.", {}, {}, port, 120, 3, 8000, "192.0.2.30"});
+    sameAddressCompatibility.Apply({DnsRecordType::Txt, instance, {}, {}, {{"stationuuid", uuid}}, 0, 120, 3, 8000, "192.0.2.30"});
+  }
+  sameAddressCompatibility.Apply({DnsRecordType::A, "shared.local.", {}, "192.0.2.30", {}, 0, 120, 3, 8000, "192.0.2.30"});
+  stations = sameAddressCompatibility.Resolve(group, 8000);
+  assert(stations.size() == 2 && stations[0].port != stations[1].port && stations[0].stationUuid != stations[1].stationUuid);
 
   MdnsRecordCache compatible;
   compatible.Apply({DnsRecordType::A, "base-host.local", {}, "192.0.2.20", {}, 0, 60, 2, 6000});
@@ -401,13 +439,13 @@ static void TestMdnsRecordCache() {
 // Verifies raw answer and additional DNS records resolve through the normal cache.
 static void TestRawMdnsDatagram() {
   const std::string group = "Default._mvrxchange._tcp.local.";
-  const std::string instance = "Peer.Default._mvrxchange._tcp.local.";
+  const std::string instance = group;
   const std::string host = "PeerHost.local.";
   std::vector<std::uint8_t> datagram(12, 0);
   datagram[6] = 0; datagram[7] = 1;
   datagram[10] = 0; datagram[11] = 3;
   std::vector<std::uint8_t> ptr; AppendDnsName(ptr, instance);
-  AppendDnsRecord(datagram, group, 12, 120, ptr);
+  AppendDnsRecord(datagram, mvr::xchange::kMvrXchangeServiceType, 12, 120, ptr);
   std::vector<std::uint8_t> srv{0, 0, 0, 0, 0xa5, 0xe0}; AppendDnsName(srv, host);
   AppendDnsRecord(datagram, instance, 33, 120, srv);
   const std::string txtValue = "StationName=Peer";
@@ -417,13 +455,13 @@ static void TestRawMdnsDatagram() {
   AppendDnsRecord(datagram, instance, 16, 120, txt);
   AppendDnsRecord(datagram, host, 1, 120, {192, 0, 2, 40});
   mvr::xchange::MdnsRecordCache cache;
-  cache.ApplyBatch(mvr::xchange::ParseMdnsRecords(datagram.data(), datagram.size(), 7, 1000));
+  cache.ApplyBatch(mvr::xchange::ParseMdnsRecords(datagram.data(), datagram.size(), 7, 1000, "192.0.2.40"));
   auto stations = cache.Resolve(group, 1000);
   assert(stations.size() == 1 && stations[0].port == 42464 && stations[0].ipAddress == "192.0.2.40");
   std::vector<std::uint8_t> goodbye(12, 0);
   goodbye[6] = 0; goodbye[7] = 1;
-  AppendDnsRecord(goodbye, group, 12, 0, ptr);
-  const auto goodbyeRecords = mvr::xchange::ParseMdnsRecords(goodbye.data(), goodbye.size(), 7, 2000);
+  AppendDnsRecord(goodbye, mvr::xchange::kMvrXchangeServiceType, 12, 0, ptr);
+  const auto goodbyeRecords = mvr::xchange::ParseMdnsRecords(goodbye.data(), goodbye.size(), 7, 2000, "192.0.2.40");
   assert(goodbyeRecords.size() == 1 && goodbyeRecords[0].type == mvr::xchange::DnsRecordType::Ptr);
   cache.ApplyBatch(goodbyeRecords);
   assert(cache.Resolve(group, 2500).size() == 1);
@@ -457,7 +495,10 @@ static void TestMalformedMessages() {
 // Verifies MVR-xchange DNS-SD naming helpers.
 static void TestDnsNames() {
   assert(mvr::xchange::BuildMvrXchangeGroupServiceName("Default") == "Default._mvrxchange._tcp.local.");
-  assert(mvr::xchange::BuildMvrXchangeServiceInstanceName("Perastage", "Default") == "Perastage.Default._mvrxchange._tcp.local.");
+  assert(mvr::xchange::BuildMvrXchangeServiceInstanceName("Default") == "Default._mvrxchange._tcp.local.");
+  assert(mvr::xchange::BuildMvrXchangeHostName("PERAMATO-DESKTOP", "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE") == "perastage-PERAMATO-DESKTOP-aaaaaaaabbbb");
+  const auto longHost = mvr::xchange::BuildMvrXchangeHostName(std::string(80, 'x'), "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
+  assert(longHost.size() <= 63 && longHost.compare(longHost.size() - 13, 13, "-aaaaaaaabbbb") == 0);
   assert(mvr::xchange::NormalizeDnsName("Peer.DEFAULT.Local.") == "peer.default.local");
   assert(mvr::xchange::DnsNamesEqual("Peer.Default.local", "peer.default.LOCAL."));
 }

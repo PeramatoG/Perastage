@@ -54,7 +54,11 @@ Changes since **v1.5.0**.
   published revision, while retaining compatibility with the contradictory
   single-string request example in MVR 1.6. Outgoing requests now identify the
   remote station that owns the advertised revision, resolving request UUID
-  mismatch rejections from applications such as DMXRouter.
+  mismatch rejections from applications such as DMXRouter. DNS-SD advertising
+  now follows the MVR group-owned service topology, uses a collision-resistant
+  station host name, and keeps records from independent mDNS responders
+  isolated during discovery while retaining read compatibility with older
+  station-qualified advertisements.
 
 - Fixtures of the same type now receive one consistent type color when
   text-to-scene generation cannot find their definition in the GDTF library.

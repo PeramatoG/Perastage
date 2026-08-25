@@ -257,6 +257,8 @@ bool MvrXchangeService::TryOutgoingJoin(const MvrXchangeRemoteStation &station) 
   }
   const auto endpoint = ResolveOutgoingEndpoint(station);
   if (endpoint.ipAddress.empty() || endpoint.port <= 0) return false;
+  Log("MVR-xchange resolved StationUUID=" + station.stationUuid + " at " + endpoint.ipAddress + ":" + std::to_string(endpoint.port) +
+      " via mDNS responder=" + (station.mdnsResponderAddress.empty() ? std::string("unknown") : station.mdnsResponderAddress) + ".");
   MvrXchangeRemoteStation joinedStation;
   const auto commits = GetLocalCommits();
   if (!tcpClient_.SendJoin(endpoint, settings_, commits, joinedStation, [this](const std::string &msg) { Log(msg); })) return false;

@@ -82,7 +82,6 @@ std::string LocalAddressSummary() {
 struct MdnsServiceRecords {
   mdns_record_t discoveryPtr{};
   mdns_record_t ptr{};
-  mdns_record_t groupPtr{};
   mdns_record_t srv{};
   mdns_record_t txtName{};
   mdns_record_t txtUuid{};
@@ -99,9 +98,6 @@ MdnsServiceRecords BuildRecords(const MvrXchangeMdnsService *service, const sock
   records.ptr.name = MdnsStringLiteral(mvr::xchange::kMvrXchangeServiceType);
   records.ptr.type = MDNS_RECORDTYPE_PTR;
   records.ptr.data.ptr.name = MdnsString(service->ServiceInstanceName());
-  records.groupPtr.name = MdnsString(service->GroupServiceName());
-  records.groupPtr.type = MDNS_RECORDTYPE_PTR;
-  records.groupPtr.data.ptr.name = MdnsString(service->ServiceInstanceName());
   records.srv.name = MdnsString(service->ServiceInstanceName());
   records.srv.type = MDNS_RECORDTYPE_SRV;
   records.srv.data.srv.priority = 0;
@@ -147,9 +143,8 @@ static int MdnsCallback(int sock, const sockaddr *from, size_t addrlen, mdns_ent
   const bool any = rtype == MDNS_RECORDTYPE_ANY;
   if (mvr::xchange::DnsNamesEqual(query, mvr::xchange::kMvrXchangeDiscoveryService) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.discoveryPtr, nullptr, 0);
-  } else if ((mvr::xchange::DnsNamesEqual(query, service->ServiceType()) || mvr::xchange::DnsNamesEqual(query, service->GroupServiceName())) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
-    const mdns_record_t answer = mvr::xchange::DnsNamesEqual(query, service->GroupServiceName()) ? records.groupPtr : records.ptr;
-    SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, answer, records.additional.data(), records.additional.size());
+  } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceType()) && (rtype == MDNS_RECORDTYPE_PTR || any)) {
+    SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.ptr, records.additional.data(), records.additional.size());
   } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceInstanceName()) && (rtype == MDNS_RECORDTYPE_TXT)) {
     SendAnswer(sock, from, addrlen, queryId, rtype, rclass, queryName.str, queryName.length, records.txtName, &records.txtUuid, 1);
   } else if (mvr::xchange::DnsNamesEqual(query, service->ServiceInstanceName()) && (rtype == MDNS_RECORDTYPE_SRV || any)) {
@@ -176,13 +171,13 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
   serviceName_ = settings.stationName.empty() ? "Perastage" : settings.stationName;
   stationUuid_ = CanonicalizeUuid(settings.stationUuid);
   port_ = port;
-  hostName_ = LocalHostName();
+  hostName_ = mvr::xchange::BuildMvrXchangeHostName(LocalHostName(), stationUuid_);
   qualifiedHostName_ = hostName_ + ".local.";
   const auto selectedInterface = SelectMvrXchangeNetworkInterface(settings.selectedInterfaceId);
   advertisedIpAddress_ = selectedInterface.ipv4Address;
   selectedInterfaceDescription_ = FormatMvrXchangeNetworkInterface(selectedInterface);
   groupServiceName_ = mvr::xchange::BuildMvrXchangeGroupServiceName(settings.groupName);
-  serviceInstanceName_ = mvr::xchange::BuildMvrXchangeServiceInstanceName(serviceName_, settings.groupName);
+  serviceInstanceName_ = mvr::xchange::BuildMvrXchangeServiceInstanceName(settings.groupName);
 #ifdef PERASTAGE_MVR_XCHANGE_ENABLE_MDNS
   if (!OpenSocket()) {
 #ifdef _WIN32
@@ -205,6 +200,10 @@ bool MvrXchangeMdnsService::Start(const MvrXchangeSettings &settings, int port) 
                          " selectedInterface=" + selectedInterfaceDescription_ +
                          " advertisedA=" + advertisedIpAddress_ +
                          " candidates=" + LocalAddressSummary());
+  Logger::Instance().Log(Logger::Level::Info, "MVR-xchange mDNS records: PTR " + ServiceType() + " -> " + ServiceInstanceName() +
+                         "; SRV " + ServiceInstanceName() + " -> " + QualifiedHostName() + ":" + std::to_string(port_) +
+                         "; TXT " + ServiceInstanceName() + " StationName=" + serviceName_ + " StationUUID=" + stationUuid_ +
+                         "; A " + QualifiedHostName() + " -> " + advertisedIpAddress_ + ".");
   return true;
 #else
   lastError_ = "MVR-xchange mDNS advertisement failed because the vcpkg mdns backend is not available in this build. Install the vcpkg mdns port and rebuild Perastage.";
@@ -320,10 +319,8 @@ void MvrXchangeMdnsService::Announce(bool goodbye) {
   std::array<char, 2048> buffer{};
   if (goodbye) {
     mdns_goodbye_multicast(socket_, buffer.data(), buffer.size(), records.ptr, nullptr, 0, records.additional.data(), records.additional.size());
-    mdns_goodbye_multicast(socket_, buffer.data(), buffer.size(), records.groupPtr, nullptr, 0, records.additional.data(), records.additional.size());
   } else {
     mdns_announce_multicast(socket_, buffer.data(), buffer.size(), records.ptr, nullptr, 0, records.additional.data(), records.additional.size());
-    mdns_announce_multicast(socket_, buffer.data(), buffer.size(), records.groupPtr, nullptr, 0, records.additional.data(), records.additional.size());
   }
 #endif
 }
