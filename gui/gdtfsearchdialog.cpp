@@ -75,7 +75,8 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
                                    const std::string& cachedUpdatedAt,
                                    RefreshCatalogFn refreshCatalogFnIn,
                                    GdtfCatalogDisplaySource initialSource,
-                                   bool downloadRequiresAuthenticationIn)
+                                   bool downloadRequiresAuthenticationIn,
+                                   const std::string& initialFixtureQuery)
     : wxDialog(parent, wxID_ANY, _("Search GDTF"), wxDefaultPosition,
                wxSize(1000,700),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
@@ -166,6 +167,7 @@ GdtfSearchDialog::GdtfSearchDialog(wxWindow* parent, const std::string& listData
          searchDebounceTimer.GetId());
 
     ParseList(currentListData);
+    fixtureCtrl->ChangeValue(wxString::FromUTF8(initialFixtureQuery));
     UpdateResults();
     UpdateStatusMessage(false);
 }

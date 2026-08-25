@@ -76,6 +76,8 @@ namespace GdtfDictionary {
     // Returns the stored entry for a given type when the referenced file exists.
     // Missing referenced files return std::nullopt without mutating the dictionary.
     std::optional<Entry> Get(const std::string& type);
+    // Normalizes a fixture alias with the same rules used by dictionary lookup.
+    std::string NormalizeTypeKey(const std::string& type);
     // Looks up a type in an already loaded dictionary without reloading from disk.
     std::optional<Entry> FindInLoadedDictionary(
         const std::unordered_map<std::string, Entry>& dict,

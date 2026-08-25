@@ -1679,6 +1679,48 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   return BuildFilteredPreviewText(ParseRiderImport(text));
 }
 
+// Aggregates fixture aliases from the same parser output used by scene import.
+std::vector<RiderImporter::FixtureTypeRequest>
+RiderImporter::AnalyzeFixtureTypes(const std::string &text,
+                                   bool textAlreadyFiltered) {
+  const ParsedRiderImport parsed = ParseRiderImport(text);
+  std::vector<FixtureTypeRequest> requests;
+  std::unordered_map<std::string, size_t> indices;
+  for (const std::string &encoded : parsed.fixtureRequests) {
+    const size_t newline = encoded.find('\n');
+    if (newline == std::string::npos)
+      continue;
+    const std::string position = Trim(encoded.substr(0, newline));
+    const std::string fixtureLine = encoded.substr(newline + 1);
+    std::smatch match;
+    if (!std::regex_match(fixtureLine, match, kFixtureLineRe))
+      continue;
+    int quantity = 0;
+    if (!TryParseInt(match[1].str(), quantity) || quantity <= 0)
+      continue;
+    const std::string displayName = Trim(match[2].str());
+    const std::string normalized = GdtfDictionary::NormalizeTypeKey(displayName);
+    if (normalized.empty())
+      continue;
+    auto [it, inserted] = indices.emplace(normalized, requests.size());
+    if (inserted) {
+      FixtureTypeRequest request;
+      request.typeName = displayName;
+      request.normalizedTypeName = normalized;
+      requests.push_back(std::move(request));
+    }
+    FixtureTypeRequest &request = requests[it->second];
+    request.quantity += quantity;
+    if (!position.empty() &&
+        std::find(request.positions.begin(), request.positions.end(), position) ==
+            request.positions.end()) {
+      request.positions.push_back(position);
+    }
+  }
+  (void)textAlreadyFiltered;
+  return requests;
+}
+
 struct ImportedGdtfMetadata {
   std::string parsedFixtureName;
   bool hasProperties = false;

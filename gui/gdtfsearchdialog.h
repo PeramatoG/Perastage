@@ -50,7 +50,8 @@ public:
                      const std::string& cachedUpdatedAt,
                      RefreshCatalogFn refreshCatalogFn,
                      GdtfCatalogDisplaySource initialSource = GdtfCatalogDisplaySource::Cached,
-                     bool downloadRequiresAuthentication = false);
+                     bool downloadRequiresAuthentication = false,
+                     const std::string& initialFixtureQuery = {});
     ~GdtfSearchDialog() override;
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;

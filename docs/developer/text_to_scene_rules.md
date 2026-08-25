@@ -1,5 +1,23 @@
 # Text-to-scene rules (Rider importer)
 
+## Fixture type resolution preflight
+
+Create from text analyzes unique normalized fixture aliases with the same rider
+parser used by the final import. The analysis is non-destructive and aggregates
+quantity and Positions before any scene objects are created. The active fixture
+dictionary is always checked first; when all referenced profiles exist, scene
+creation proceeds without an additional prompt or catalog work.
+
+Unknown aliases may be compared with the cached GDTF Share catalog, so catalog
+suggestions can be inspected offline. Exact normalized model matches are safe
+suggestions, plausible weaker matches require review, numeric model
+contradictions remain unresolved, and no selection is downloaded merely by
+opening preflight. A confirmed real selection is remembered in the fixture
+dictionary, while Generic means the established fallback for that import and
+does not create a permanent dummy mapping. Profiles with one valid DMX mode may
+select it automatically; profiles with multiple modes require an explicit mode
+choice before their mapping can be committed.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

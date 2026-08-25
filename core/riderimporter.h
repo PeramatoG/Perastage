@@ -19,10 +19,17 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 // Parses simple rider files (.txt/.pdf) to create dummy fixtures and trusses
 class RiderImporter {
 public:
+    struct FixtureTypeRequest {
+        std::string typeName;
+        std::string normalizedTypeName;
+        int quantity = 0;
+        std::vector<std::string> positions;
+    };
     struct ProgressState {
         std::string stage;
         int completed = 0;
@@ -41,6 +48,10 @@ public:
     // Build a filtered text preview that keeps only fixture lines that would be
     // considered during text-to-scene import.
     static std::string BuildFixtureFilterPreview(const std::string& text);
+    // Analyzes unique fixture requests without changing scene or dictionary state.
+    static std::vector<FixtureTypeRequest>
+    AnalyzeFixtureTypes(const std::string& text,
+                        bool textAlreadyFiltered = false);
     // Import from raw rider text. Returns true on success.
     static bool ImportText(const std::string& text,
                            ProgressCallback progressCallback = {},

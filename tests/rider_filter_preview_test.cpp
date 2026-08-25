@@ -95,6 +95,22 @@ int main() {
   }
   assert(HasCanonicalSerialization(preview));
 
+  const auto rawRequests = RiderImporter::AnalyzeFixtureTypes(input, false);
+  const auto filteredRequests = RiderImporter::AnalyzeFixtureTypes(preview, true);
+  assert(rawRequests.size() == 4);
+  assert(filteredRequests.size() == rawRequests.size());
+  for (size_t i = 0; i < rawRequests.size(); ++i) {
+    assert(rawRequests[i].typeName == filteredRequests[i].typeName);
+    assert(rawRequests[i].quantity == filteredRequests[i].quantity);
+    assert(rawRequests[i].positions == filteredRequests[i].positions);
+  }
+  const auto aggregated = RiderImporter::AnalyzeFixtureTypes(
+      "LX1:\n8 GLP JDC1\nLX2:\n4 GLP JDC1\n", false);
+  assert(aggregated.size() == 1);
+  assert(aggregated.front().quantity == 12);
+  assert((aggregated.front().positions ==
+          std::vector<std::string>{"LX1", "LX2"}));
+
   const std::string crlfPreview =
       RiderImporter::BuildFixtureFilterPreview(ToCrLf(input));
   assert(crlfPreview == preview);

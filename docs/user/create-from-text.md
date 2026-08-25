@@ -1,5 +1,12 @@
 # Create from Text
 
+Before creating the scene, Perastage checks every unique fixture type against
+the active fixture dictionary. Unknown types can be reviewed against cached
+GDTF Share suggestions without signing in merely to open the review. Downloads
+begin only after confirmation, accepted mappings are remembered for later
+riders, and Generic remains available for a one-time fallback. When a selected
+profile has several DMX modes, you must choose the intended mode explicitly.
+
 Use **Tools → Create from text** to build scene content from rider-style text.
 
 ## Supported inputs

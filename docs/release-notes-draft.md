@@ -4,6 +4,10 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Create from text now analyzes unique fixture types before scene creation,
+  prioritizing valid dictionary mappings and preparing conservative cached GDTF
+  Share suggestions without mutating the scene.
+
 - Automatic DMX patching now keeps logical lighting Positions and their
   physically separate bridge components together whenever universe capacity
   allows, including deterministic serpentine patching for parallel side

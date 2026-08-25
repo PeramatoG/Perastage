@@ -1059,6 +1059,14 @@ target_link_libraries(truss_path_encoding_regression_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression_test)
 
+add_executable(rider_fixture_resolution_test
+               rider_fixture_resolution_test.cpp
+               ../core/rider_fixture_resolution.cpp
+               ../mvr/gdtf_catalog_matcher.cpp)
+target_include_directories(rider_fixture_resolution_test PRIVATE
+                           ../core ../mvr ../third_party)
+add_test(NAME RiderFixtureResolution COMMAND rider_fixture_resolution_test)
+
 add_executable(rider_truss_dictionary_normalization_test
                rider_truss_dictionary_normalization_test.cpp
                support/gdtf_test_fixture_builder.cpp

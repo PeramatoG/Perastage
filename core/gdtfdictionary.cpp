@@ -245,7 +245,8 @@ bool IsDummy1ChFallbackPath(const std::string &gdtfPath) {
          normalizedFileName == "genericgeneric1chperastage.gdtf";
 }
 
-std::string NormalizeTypeKey(const std::string &type) {
+// Normalizes fixture aliases for dictionary-equivalent lookup.
+std::string NormalizeTypeKeyImpl(const std::string &type) {
   std::string normalized;
   normalized.reserve(type.size());
   for (unsigned char ch : type) {
@@ -360,12 +361,12 @@ BuildPerastageCanonicalGdtfFileName(const std::filesystem::path &sourcePath) {
 std::optional<std::string>
 FindEquivalentTypeKey(const std::unordered_map<std::string, Entry> &dict,
                       const std::string &rawType) {
-  const std::string normalizedTarget = NormalizeTypeKey(rawType);
+  const std::string normalizedTarget = NormalizeTypeKeyImpl(rawType);
   if (normalizedTarget.empty())
     return std::nullopt;
 
   for (const auto &[existingType, _] : dict) {
-    if (NormalizeTypeKey(existingType) == normalizedTarget)
+    if (NormalizeTypeKeyImpl(existingType) == normalizedTarget)
       return existingType;
   }
   return std::nullopt;
@@ -375,7 +376,7 @@ bool ApplyCategoryUpdateForFile(std::unordered_map<std::string, Entry> &dict,
                                 const std::string &type,
                                 const std::string &gdtfPath,
                                 const std::string &category) {
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (normalizedType.empty())
     return false;
 
@@ -678,6 +679,11 @@ MergeDictionaryEntries(std::unordered_map<std::string, Entry> &current,
 }
 
 } // namespace
+
+// Normalizes fixture aliases for dictionary-equivalent lookup.
+std::string NormalizeTypeKey(const std::string &type) {
+  return NormalizeTypeKeyImpl(type);
+}
 
 
 // Validates that a fixtures dictionary file can be loaded without changing configuration.
@@ -994,7 +1000,7 @@ bool Save(const std::unordered_map<std::string, Entry> &dict,
 std::optional<Entry>
 FindInLoadedDictionary(const std::unordered_map<std::string, Entry> &dict,
     const std::string &type, bool validateExistingPath) {
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (normalizedType.empty())
     return std::nullopt;
   auto keyOpt = FindEquivalentTypeKey(dict, normalizedType);
@@ -1011,7 +1017,7 @@ FindInLoadedDictionary(const std::unordered_map<std::string, Entry> &dict,
 
 std::optional<Entry> Get(const std::string &type) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (normalizedType.empty())
     return std::nullopt;
   auto dictOpt = Load();
@@ -1037,7 +1043,7 @@ GetDefaultVisualColorForFixture(const std::string &type,
     return std::nullopt;
   const auto &dict = *dictOpt;
 
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (!normalizedType.empty()) {
     if (auto keyOpt = FindEquivalentTypeKey(dict, normalizedType)) {
       auto byType = dict.find(*keyOpt);
@@ -1064,7 +1070,7 @@ GetDefaultVisualColorForFixture(const std::string &type,
 // Updates one dictionary entry without performing any fixture file copies.
 void UpdateDictionaryEntry(const std::string &type, const Entry &entry) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (normalizedType.empty())
     return;
 
@@ -1104,7 +1110,7 @@ std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
     const std::string &type, const std::string &gdtfPath,
     const std::string &mode, const std::string &category) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (normalizedType.empty() || gdtfPath.empty())
     return std::nullopt;
   if (IsDummy1ChFallbackType(normalizedType) ||
@@ -1203,7 +1209,7 @@ void UpdateVisualColorForFile(const std::string &type,
                               const std::string &mode,
                               const std::string &color) {
   std::lock_guard<std::recursive_mutex> lock(StartupFileAccessGate::Mutex());
-  const std::string normalizedType = NormalizeTypeKey(type);
+  const std::string normalizedType = NormalizeTypeKeyImpl(type);
   if (normalizedType.empty())
     return;
   auto dictOpt = Load();
