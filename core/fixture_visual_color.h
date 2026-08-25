@@ -35,6 +35,9 @@ struct FixtureVisualColorAggregate {
   FixtureVisualColorSource source = FixtureVisualColorSource::Unresolved;
 };
 
+// Builds the stable fixture-type key used when assigning shared automatic colors.
+std::string BuildFixtureVisualColorGroupKey(const Fixture &fixture);
+
 // Normalizes a hexadecimal RGB color to canonical uppercase #RRGGBB form.
 std::optional<std::string> NormalizeFixtureVisualColor(std::string_view raw);
 

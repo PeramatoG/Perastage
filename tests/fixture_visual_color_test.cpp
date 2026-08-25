@@ -78,9 +78,27 @@ static void TestAggregation() {
   assert(!aggregate.mixed && !aggregate.colorHex);
 }
 
+// Verifies that missing-library fixtures are grouped by normalized type name.
+static void TestFixtureTypeGrouping() {
+  Fixture missingFirst;
+  missingFirst.typeName = "GLP JDC1";
+  Fixture missingSecond;
+  missingSecond.typeName = "glp  jdc1";
+  assert(BuildFixtureVisualColorGroupKey(missingFirst) ==
+         BuildFixtureVisualColorGroupKey(missingSecond));
+
+  Fixture knownFixture = missingFirst;
+  knownFixture.gdtfSpec = "GLP@JDC1.gdtf";
+  Fixture knownAlias = knownFixture;
+  knownAlias.typeName = "An alias";
+  assert(BuildFixtureVisualColorGroupKey(knownFixture) ==
+         BuildFixtureVisualColorGroupKey(knownAlias));
+}
+
 // Runs the fixture visual-color domain regression checks.
 int main() {
   TestResolution();
   TestAggregation();
+  TestFixtureTypeGrouping();
   return 0;
 }

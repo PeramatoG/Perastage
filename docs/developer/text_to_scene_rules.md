@@ -541,7 +541,9 @@ After a successful **Tools → Create from text** import:
 
 - The same **Auto color** routine used after MVR import is executed.
 - Fixture/layer colors are normalized immediately, including fallback random
-  colors for fixture groups with no dictionary color.
+  colors for fixture groups with no dictionary color. Fixtures without a GDTF
+  library match are grouped by their normalized parsed type name, so repeated
+  instances of the same missing fixture type receive the same color.
 - This runs before the final scene refresh, so users see the colored result as
   soon as text import completes.
 

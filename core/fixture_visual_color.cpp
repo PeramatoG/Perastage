@@ -2,6 +2,20 @@
 
 #include <cctype>
 
+// Builds the stable fixture-type key used when assigning shared automatic colors.
+std::string BuildFixtureVisualColorGroupKey(const Fixture &fixture) {
+  if (!fixture.gdtfSpec.empty())
+    return "gdtf\n" + fixture.gdtfSpec + "\n" + fixture.gdtfMode;
+
+  std::string normalizedType;
+  normalizedType.reserve(fixture.typeName.size());
+  for (const unsigned char value : fixture.typeName) {
+    if (!std::isspace(value))
+      normalizedType.push_back(static_cast<char>(std::tolower(value)));
+  }
+  return "type\n" + normalizedType + "\n" + fixture.gdtfMode;
+}
+
 // Normalizes a hexadecimal RGB color to canonical uppercase #RRGGBB form.
 std::optional<std::string> NormalizeFixtureVisualColor(std::string_view raw) {
   size_t first = 0;

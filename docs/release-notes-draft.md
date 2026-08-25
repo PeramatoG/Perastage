@@ -39,6 +39,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Fixtures of the same type now receive one consistent type color when
+  text-to-scene generation cannot find their definition in the GDTF library.
+
 - Create from text now recognizes common Spanish and English front, middle,
   rear, side, floor, and screen headings without mistaking words inside
   equipment descriptions for section headers. Effects and lighting-control
