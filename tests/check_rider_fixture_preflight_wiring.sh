@@ -29,6 +29,12 @@ for label, token in required.items():
 
 if "GdtfSearchDialog dialog" not in dialog or "item->effectiveFixtureType" not in dialog:
     raise SystemExit("Resolver Search must call GdtfSearchDialog with the rider alias")
+if "onlineCatalogLoadAttempted" not in dialog or "onlineCatalogLoader()" not in dialog:
+    raise SystemExit("Resolver must attempt shared online catalog acquisition after a cache miss")
+if "DetermineCatalogAccessAction" not in workflow:
+    raise SystemExit("Resolver catalog acquisition must use the shared GDTF access policy")
+if "gdtf_download_filename::ChooseDestination" not in workflow:
+    raise SystemExit("Resolver downloads must use the shared readable filename policy")
 for source in ("rider_fixture_resolution_dialog.cpp",
                "rider_fixture_resolution_model.cpp",
                "rider_fixture_resolution_workflow.cpp"):

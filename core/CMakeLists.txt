@@ -29,6 +29,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_channel_browser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_workflow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_filename.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp

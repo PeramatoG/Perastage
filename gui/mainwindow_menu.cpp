@@ -67,6 +67,7 @@
 #include "fixturetablepanel.h"
 #include "gdtf_catalog_service.h"
 #include "gdtfdictionary.h"
+#include "gdtf_download_filename.h"
 #include "gdtf_download_workflow.h"
 #include "gdtfloader.h"
 #include "gdtfnet.h"
@@ -750,9 +751,19 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     wxString rid = wxString::FromUTF8(searchDlg.GetSelectedId());
     wxString name = wxString::FromUTF8(searchDlg.GetSelectedName());
 
+    std::string manufacturer;
+    std::string fixtureName = WxToUtf8(name);
+    if (const auto selectedEntry = searchDlg.GetSelectedEntry()) {
+      manufacturer = selectedEntry->manufacturer;
+      fixtureName = selectedEntry->fixtureName;
+    }
+
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-    wxFileDialog saveDlg(this, "Save GDTF file", fixDir, name + ".gdtf",
+    const wxString suggestedFileName = wxString::FromUTF8(
+        gdtf_download_filename::BuildReadableFileName(manufacturer,
+                                                      fixtureName));
+    wxFileDialog saveDlg(this, "Save GDTF file", fixDir, suggestedFileName,
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     clearGdtfDownloadBlockingUi();
     if (saveDlg.ShowModal() == wxID_OK) {

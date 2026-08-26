@@ -69,6 +69,10 @@ Changes since **v1.5.0**.
 - Resolve fixture types now reports the mappings actually shown in the final
   table and uses portable separators, avoiding misleading match totals and
   incorrectly encoded summary characters on Windows.
+- New installations can now acquire the shared GDTF catalog directly from the
+  fixture resolver using the established Download GDTF sign-in and cache flow.
+  Manual assignments remain visually distinct, and downloaded profiles use
+  readable catalog-based filenames instead of numeric revision identifiers.
 - Shared colored data-view stores now validate item ownership and model-column
   bounds before value access or sorting, and resolver row updates publish one
   final attribute notification instead of exposing partial Status changes.

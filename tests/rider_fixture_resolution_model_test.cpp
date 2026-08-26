@@ -1,4 +1,5 @@
 #include "rider_fixture_resolution_model.h"
+#include "gdtf_resolution_status_style.h"
 
 #include <cassert>
 
@@ -74,6 +75,21 @@ int main() {
   wxDataViewItemAttr attr;
   assert(model.GetAttrByRow(0, RiderFixtureResolutionModel::Status, attr));
   assert(!model.GetAttrByRow(0, RiderFixtureResolutionModel::Mode, attr));
+  analysis.items[0].origin = ResolutionOrigin::Dictionary;
+  wxDataViewItemAttr dictionaryAttr;
+  assert(!model.GetAttrByRow(0, RiderFixtureResolutionModel::Status,
+                             dictionaryAttr));
+  analysis.items[0].origin = ResolutionOrigin::UserSelection;
+  wxDataViewItemAttr userSelectionAttr;
+  assert(model.GetAttrByRow(0, RiderFixtureResolutionModel::Status,
+                            userSelectionAttr));
+  assert(userSelectionAttr.HasColour());
+  for (const bool dark : {false, true}) {
+    assert(GdtfResolutionStatusColour(StatusSemantic::Information, dark) !=
+           GdtfResolutionStatusColour(StatusSemantic::Neutral, dark));
+    assert(GdtfResolutionStatusColour(StatusSemantic::Information, dark) !=
+           GdtfResolutionStatusColour(StatusSemantic::Success, dark));
+  }
   for (unsigned column = 0;
        column < RiderFixtureResolutionModel::ColumnCount; ++column) {
     const int compared = model.Compare(model.GetItem(0), model.GetItem(1),

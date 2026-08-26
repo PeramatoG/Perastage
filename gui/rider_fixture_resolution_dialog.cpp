@@ -414,8 +414,20 @@ void RiderFixtureResolutionDialog::OnCatalogLoaded(wxThreadEvent &event) {
   const auto loaded =
       event.GetPayload<std::optional<RiderFixtureResolutionDialog::CatalogData>>();
   if (!loaded) {
+    if (onlineCatalogLoader && !onlineCatalogLoadAttempted) {
+      onlineCatalogLoadAttempted = true;
+      catalogStatusLabel->SetLabel(
+          _("Acquiring the shared GDTF catalog..."));
+      catalogProgressGauge->Pulse();
+      const auto acquired = onlineCatalogLoader();
+      if (acquired) {
+        ApplyCatalog(*acquired);
+        return;
+      }
+    }
     catalogStatusLabel->SetLabel(
         _("Catalog unavailable; generic fallback remains available."));
+    catalogProgressGauge->SetValue(0);
     return;
   }
   ApplyCatalog(*loaded);

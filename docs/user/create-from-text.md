@@ -26,11 +26,17 @@ Safe suggestions are optional; suggestions without a chosen mode fall back to
 Generic. Screen objects and video-control equipment are not treated as lighting
 fixtures. Cached catalog matching runs after the resolver is visible, and an
 empty or unavailable catalog leaves the offline Generic workflow usable.
+On a new installation without a usable cache, Perastage makes one catalog
+acquisition attempt through the same GDTF Share sign-in and validated refresh
+workflow as **Tools > Download GDTF**. Cancelling sign-in or losing network
+access still leaves Generic fallback available.
 
 Fixture types can be corrected directly in the table without changing the
 source rider text. The **Create** checkbox can omit every fixture represented
 by a row while preserving trusses, screens, hoists, and other rider objects.
 Manual GDTF search uses the combined manufacturer and fixture identity.
+Downloaded profiles use a portable catalog-based filename, while their GDTF
+Share revision ID remains the internal download and deduplication identity.
 
 The resolver shows a compact progress gauge while loading and parsing the
 catalog, followed by real per-fixture matching progress. Its final summary stays

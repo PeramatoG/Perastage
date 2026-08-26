@@ -80,6 +80,7 @@ private:
   CatalogLoader onlineCatalogLoader;
   bool catalogLoadStarted = false;
   bool catalogLoading = false;
+  bool onlineCatalogLoadAttempted = false;
   bool acceptAutomaticResults = true;
   bool modelUpdateInProgress = false;
   std::atomic<bool> shuttingDown{false};

@@ -2830,6 +2830,12 @@ target_link_libraries(rider_fixture_resolution_model_test PRIVATE
 add_test(NAME RiderFixtureResolutionModel
          COMMAND rider_fixture_resolution_model_test)
 
+add_executable(gdtf_download_filename_test
+               gdtf_download_filename_test.cpp
+               ../core/gdtf_download_filename.cpp)
+target_include_directories(gdtf_download_filename_test PRIVATE ../core)
+add_test(NAME GdtfDownloadFilename COMMAND gdtf_download_filename_test)
+
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(perastage_geometry_target IN LISTS perastage_geometry_test_targets)

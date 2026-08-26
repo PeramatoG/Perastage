@@ -23,9 +23,11 @@ catalog parsing and dictionary-first resolution → `RiderFixtureResolutionDialo
 when intervention is required → confirmed downloads and dictionary persistence
 → `RiderImporter::ImportText`. Cancellation and failed resolution return before
 the importer pushes its undo state or accesses mutable scene content. When no
-cached catalog exists, unknown rows still open as Unresolved; Search may request
-GDTF Share authentication to refresh the shared catalog, while Generic and
-Cancel remain available offline.
+cached catalog exists, the open resolver makes one acquisition attempt through
+`DetermineCatalogAccessAction`, `GdtfCatalogService`, and the established GDTF
+Share credential flow. A successful validated refresh updates the normal shared
+cache and starts matching in the current resolver; cancellation or failure
+leaves Generic and Cancel available offline.
 
 `AnalyzeText()` owns the single raw rider parse used by preflight and returns
 both filtered import text and fixture requests. Final creation imports that
@@ -57,6 +59,9 @@ does not invoke the `@Perastage` derivative publication contract. Recoverable
 authentication, download, validation, mode, and persistence failures update
 only the affected row to Generic fallback. User cancellation remains the only
 normal preflight outcome that cancels the complete import.
+External downloads use the shared portable catalog-identity filename policy;
+the GDTF Share RID remains revision identity and is used as a suffix only when
+the readable local filename collides.
 
 The GUI-independent resolver reports `LoadingCatalog`, `ParsingCatalog`,
 `MatchingFixtures`, `Complete`, and `Unavailable` progress. Matching progress

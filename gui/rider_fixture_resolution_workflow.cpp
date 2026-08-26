@@ -6,15 +6,16 @@
 #include "../core/diagnostics/DiagnosticLogger.h"
 #include "../core/gdtf_catalog_service.h"
 #include "../core/gdtfdictionary.h"
+#include "../core/gdtf_download_filename.h"
 #include "../core/gdtf_download_workflow.h"
 #include "../core/gdtfnet.h"
+#include "../core/gdtf_share_workflow.h"
 #include "../core/projectutils.h"
 #include "../core/riderimporter.h"
 #include "../mvr/gdtf_catalog_parser.h"
 #include "gdtfloader.h"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <future>
@@ -29,16 +30,6 @@
 
 namespace rider_fixture_resolution_gui {
 namespace {
-
-// Replaces unsafe filename characters in a catalog revision identifier.
-std::string SafeFileStem(std::string value) {
-  for (char &character : value) {
-    const unsigned char byte = static_cast<unsigned char>(character);
-    if (!std::isalnum(byte) && character != '-' && character != '_')
-      character = '_';
-  }
-  return value.empty() ? "gdtf-share-fixture" : value;
-}
 
 // Waits for a network task while keeping wxWidgets event processing responsive.
 template <typename Result>
@@ -171,6 +162,18 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   std::optional<CredentialStore::Credentials> credentials;
   auto loadOnlineCatalog = [&]()
       -> std::optional<RiderFixtureResolutionDialog::CatalogData> {
+    const CredentialStore::LoadResult loadedCredentials =
+        LoadGdtfCredentialsForGuiDetailed(configManager);
+    const auto credentialAvailability =
+        gdtf_share_workflow::DetermineCredentialAvailability(
+            loadedCredentials);
+    const auto initialAction =
+        gdtf_share_workflow::DetermineCatalogAccessAction(
+            false, credentialAvailability, std::nullopt, false);
+    if (initialAction == gdtf_share_workflow::CatalogAccessAction::Cancel ||
+        initialAction ==
+            gdtf_share_workflow::CatalogAccessAction::OpenCachedCatalog)
+      return std::nullopt;
     if (!EnsureAuthenticated(parent, configManager, client, credentials))
       return std::nullopt;
     const auto result = catalogService.RefreshCatalogIfStale(
@@ -186,6 +189,16 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
     if (!result.snapshot)
       return std::nullopt;
     if (!result.parsedCatalog || !result.parsedCatalog->IsUsable())
+      return std::nullopt;
+    const auto resolvedAction =
+        gdtf_share_workflow::DetermineCatalogAccessAction(
+            result.source == GdtfCatalogResultSource::Cache,
+            credentialAvailability, std::nullopt,
+            result.source == GdtfCatalogResultSource::Online);
+    if (resolvedAction !=
+            gdtf_share_workflow::CatalogAccessAction::OpenOnlineCatalog &&
+        resolvedAction !=
+            gdtf_share_workflow::CatalogAccessAction::OpenCachedCatalog)
       return std::nullopt;
     RiderFixtureResolutionDialog::CatalogData data{
         *result.snapshot, result.parsedCatalog->entries,
@@ -239,7 +252,9 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
     if (downloads.find(rid) != downloads.end())
       continue;
     const std::filesystem::path destination =
-        fixtureDirectory / (SafeFileStem(rid) + ".gdtf");
+        gdtf_download_filename::ChooseDestination(
+            fixtureDirectory, item.selectedEntry->manufacturer,
+            item.selectedEntry->fixtureName, rid);
     if (std::filesystem::exists(destination)) {
       auto existingModes = GetGdtfModes(destination.string());
       if (!existingModes.empty()) {
