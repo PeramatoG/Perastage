@@ -1017,6 +1017,38 @@ static void TestPersistentTcpConnection() {
   server.Stop();
 }
 
+// Verifies no-client, repeated, and destructor-driven shutdown paths remain bounded.
+static void TestTcpServerStopLifecycle() {
+  MvrXchangeSettings settings;
+  settings.stationName = "Lifecycle server";
+  settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  MvrXchangeTcpServer noClientServer;
+  assert(noClientServer.Start(settings, {}, {}, {}, {}, {}, {}));
+  const auto noClientStopStarted = std::chrono::steady_clock::now();
+  noClientServer.Stop();
+  assert(std::chrono::steady_clock::now() - noClientStopStarted < std::chrono::seconds(2));
+  noClientServer.Stop();
+
+  std::mutex logMutex;
+  std::condition_variable logChanged;
+  bool clientAccepted = false;
+  LoopbackConnection idleClient;
+  const auto destructorStarted = std::chrono::steady_clock::now();
+  {
+    MvrXchangeTcpServer destructorServer;
+    assert(destructorServer.Start(settings, {}, {}, [&](const std::string &message) {
+      std::lock_guard lock(logMutex);
+      if (message.find("TCP client connected") != std::string::npos) clientAccepted = true;
+      logChanged.notify_all();
+    }, {}, {}, {}));
+    idleClient = ConnectLoopback(destructorServer.Port());
+    std::unique_lock lock(logMutex);
+    assert(logChanged.wait_for(lock, std::chrono::seconds(2), [&] { return clientAccepted; }));
+  }
+  assert(std::chrono::steady_clock::now() - destructorStarted < std::chrono::seconds(4));
+  CloseLoopback(idleClient);
+}
+
 // Verifies an idle listener stops promptly without relying on accept interruption.
 static void TestTcpServerIdleStop() {
   MvrXchangeSettings settings;
@@ -1035,6 +1067,7 @@ static void TestTcpServerIdleStop() {
     std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
               << " after Stop" << std::endl;
     assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
+    server.Stop();
     CloseLoopback(idleClient);
   }
 }
@@ -1138,6 +1171,7 @@ int main() {
   RunNamedTest("TestNetworkInterfaces", TestNetworkInterfaces);
   RunNamedTest("TestTcpTransactions", TestTcpTransactions);
   RunNamedTest("TestPersistentTcpConnection", TestPersistentTcpConnection);
+  RunNamedTest("TestTcpServerStopLifecycle", TestTcpServerStopLifecycle);
   RunNamedTest("TestTcpServerIdleStop", TestTcpServerIdleStop);
   RunNamedTest("TestPersistentConnectionLimit", TestPersistentConnectionLimit);
   RunNamedTest("TestTcpTypedErrorResponses", TestTcpTypedErrorResponses);

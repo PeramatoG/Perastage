@@ -163,6 +163,10 @@ void MvrXchangeTcpServer::Run() {
     if (fd < 0) continue;
     {
       std::lock_guard lock(clientsMutex_);
+      if (!running_) {
+        CloseSocketFd(fd);
+        break;
+      }
       if (clientFds_.size() >= kMaxConcurrentConnections) {
         CloseSocketFd(fd);
         if (logCallback_) logCallback_("MVR-xchange rejected a TCP connection because the connection limit was reached.");

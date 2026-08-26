@@ -51,6 +51,10 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- MVR-xchange TCP servers now stop promptly when an idle peer connects at the
+  same time shutdown begins, including on Windows, without changing protocol
+  behavior.
+
 - Fixture placement in the 3D viewer now acquires visible truss attachment
   paths within a small screen-space aperture regardless of camera-depth
   separation, while still committing fixtures onto the actual 3D path.
