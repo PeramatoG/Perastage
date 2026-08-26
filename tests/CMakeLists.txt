@@ -2818,6 +2818,18 @@ target_link_libraries(colorful_dataview_store_bounds_test PRIVATE
 add_test(NAME ColorfulDataViewStoreBounds
          COMMAND colorful_dataview_store_bounds_test)
 
+add_executable(rider_fixture_resolution_model_test
+               rider_fixture_resolution_model_test.cpp
+               ../gui/rider_fixture_resolution_model.cpp
+               ../core/rider_fixture_resolution.cpp
+               ../mvr/gdtf_catalog_matcher.cpp)
+target_include_directories(rider_fixture_resolution_model_test PRIVATE
+                           ../gui ../core ../mvr ../third_party)
+target_link_libraries(rider_fixture_resolution_model_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME RiderFixtureResolutionModel
+         COMMAND rider_fixture_resolution_model_test)
+
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(perastage_geometry_target IN LISTS perastage_geometry_test_targets)

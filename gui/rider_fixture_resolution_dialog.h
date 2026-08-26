@@ -19,7 +19,7 @@ class wxDataViewItem;
 class wxStaticText;
 class wxShowEvent;
 class wxThreadEvent;
-class ColorfulDataViewListStore;
+class RiderFixtureResolutionModel;
 
 class RiderFixtureResolutionDialog final : public wxDialog {
 public:
@@ -85,7 +85,7 @@ private:
   std::atomic<bool> shuttingDown{false};
   std::jthread catalogWorker;
   wxDataViewCtrl *table = nullptr;
-  ColorfulDataViewListStore *tableStore = nullptr;
+  RiderFixtureResolutionModel *tableModel = nullptr;
   wxButton *useSuggestedButton = nullptr;
   wxButton *searchButton = nullptr;
   wxButton *useGenericButton = nullptr;

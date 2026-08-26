@@ -2,14 +2,12 @@
 
 #include "gdtfsearchdialog.h"
 #include "gdtfloader.h"
-#include "colorstore.h"
-#include "gdtf_resolution_status_style.h"
+#include "rider_fixture_resolution_model.h"
 #include "../core/diagnostics/DiagnosticLogger.h"
 
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <filesystem>
 #include <sstream>
 
 #include <wx/button.h>
@@ -25,41 +23,6 @@ namespace {
 
 const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_LOADED(wxNewEventType());
 const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_PROGRESS(wxNewEventType());
-
-// Joins position labels for compact table presentation.
-wxString JoinPositions(const std::vector<std::string> &positions) {
-  wxString value;
-  for (const std::string &position : positions) {
-    if (!value.empty())
-      value += ", ";
-    value += wxString::FromUTF8(position);
-  }
-  return value;
-}
-
-// Formats the selected or suggested catalog identity for a resolution row.
-wxString FormatCatalogIdentity(const rider_fixture_resolution::Item &item) {
-  if (item.state == rider_fixture_resolution::State::Dictionary &&
-      item.dictionaryEntry && !item.dictionaryEntry->path.empty()) {
-    return wxString::FromUTF8(
-        std::filesystem::path(item.dictionaryEntry->path).filename().string());
-  }
-  if (item.state == rider_fixture_resolution::State::Generic ||
-      (!item.selectedEntry && !item.suggestedEntry))
-    return _("Generic fallback");
-  if (!item.selectedEntry && item.suggestedEntry) {
-    const auto &suggested = *item.suggestedEntry;
-    return wxString::FromUTF8(
-        "Generic fallback (suggested: " + suggested.manufacturer + " / " +
-        suggested.fixtureName + ")");
-  }
-  const auto &entry = item.selectedEntry ? item.selectedEntry : item.suggestedEntry;
-  if (!entry)
-    return "-";
-  if (entry->manufacturer.empty())
-    return wxString::FromUTF8(entry->fixtureName);
-  return wxString::FromUTF8(entry->manufacturer + " / " + entry->fixtureName);
-}
 
 } // namespace
 
@@ -119,13 +82,11 @@ void RiderFixtureResolutionDialog::BuildLayout() {
 
   table = new wxDataViewCtrl(this, wxID_ANY, wxDefaultPosition,
                              wxDefaultSize, wxDV_ROW_LINES);
-  tableStore = new ColorfulDataViewListStore();
-  tableStore->AppendColumn("bool");
-  for (int column = 1; column < 8; ++column)
-    tableStore->AppendColumn("string");
-  wxASSERT(tableStore->GetColumnCount() == 8);
-  table->AssociateModel(tableStore);
-  tableStore->DecRef();
+  tableModel = new RiderFixtureResolutionModel(analysis);
+  wxASSERT(tableModel->GetColumnCount() ==
+           RiderFixtureResolutionModel::ColumnCount);
+  table->AssociateModel(tableModel);
+  tableModel->DecRef();
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
   table->AppendToggleColumn(_("Create"), 0, wxDATAVIEW_CELL_ACTIVATABLE, 65,
                             wxALIGN_CENTER, flags);
@@ -188,71 +149,20 @@ void RiderFixtureResolutionDialog::BuildLayout() {
                      this);
 }
 
-// Populates stable table rows once for the dialog lifetime.
+// Validates the fixed table schema and selects the initial analysis row.
 void RiderFixtureResolutionDialog::PopulateTable() {
-  tableStore->DeleteAllItems();
-  for (size_t index = 0; index < analysis.items.size(); ++index) {
-    const auto &item = analysis.items[index];
-    wxVector<wxVariant> row;
-    row.push_back(item.create);
-    row.push_back(wxString::FromUTF8(item.effectiveFixtureType));
-    row.push_back(wxString::Format("%d", item.request.quantity));
-    row.push_back(JoinPositions(item.request.positions));
-    row.push_back(FormatCatalogIdentity(item));
-    row.push_back(item.selectedMode.empty()
-                      ? wxString("-")
-                      : wxString::FromUTF8(item.selectedMode));
-    row.push_back(wxString::FromUTF8(rider_fixture_resolution::OriginName(item.origin)));
-    row.push_back(wxString::FromUTF8(item.details));
-    wxASSERT(row.size() == tableStore->GetColumnCount());
-    if (row.size() != tableStore->GetColumnCount())
-      continue;
-    tableStore->AppendItem(row, static_cast<wxUIntPtr>(index + 1));
-    const unsigned rowIndex = static_cast<unsigned>(tableStore->GetItemCount() - 1);
-    const unsigned statusColumn = 6;
-    const auto semantic =
-        rider_fixture_resolution::StatusSemanticForOrigin(item.origin);
-    if (semantic != rider_fixture_resolution::StatusSemantic::Neutral)
-      tableStore->SetCellTextColour(
-          rowIndex, statusColumn, GdtfResolutionStatusColour(semantic));
-  }
+  wxASSERT(tableModel->GetColumnCount() ==
+           RiderFixtureResolutionModel::ColumnCount);
   if (!analysis.items.empty())
-    table->Select(tableStore->GetItem(0));
+    table->Select(tableModel->GetItem(0));
 }
 
 // Updates one stable model row and its semantic Status attribute in place.
 void RiderFixtureResolutionDialog::UpdateRow(size_t analysisIndex) {
   if (analysisIndex >= analysis.items.size())
     return;
-  const auto row = StoreRowForAnalysisIndex(analysisIndex);
-  if (!row || *row >= tableStore->GetItemCount())
-    return;
-  const auto &item = analysis.items[analysisIndex];
   modelUpdateInProgress = true;
-  wxVector<wxVariant> values;
-  values.push_back(item.create);
-  values.push_back(wxString::FromUTF8(item.effectiveFixtureType));
-  values.push_back(wxString::Format("%d", item.request.quantity));
-  values.push_back(JoinPositions(item.request.positions));
-  values.push_back(FormatCatalogIdentity(item));
-  values.push_back(item.selectedMode.empty() ? wxString("-")
-                                              : wxString::FromUTF8(item.selectedMode));
-  values.push_back(wxString::FromUTF8(
-      rider_fixture_resolution::OriginName(item.origin)));
-  values.push_back(wxString::FromUTF8(item.details));
-  for (unsigned column = 0; column < values.size(); ++column)
-    if (column < tableStore->GetColumnCount() &&
-        *row < tableStore->GetItemCount())
-      tableStore->SetValueByRow(values[column], *row, column);
-  constexpr unsigned statusColumn = 6;
-  tableStore->ClearCellTextColour(*row, statusColumn, false);
-  const auto semantic =
-      rider_fixture_resolution::StatusSemanticForOrigin(item.origin);
-  if (semantic != rider_fixture_resolution::StatusSemantic::Neutral)
-    tableStore->SetCellTextColour(
-        *row, statusColumn, GdtfResolutionStatusColour(semantic), false);
-  if (*row < tableStore->GetItemCount())
-    tableStore->RowChanged(*row);
+  tableModel->NotifyRowChanged(analysisIndex);
   modelUpdateInProgress = false;
 }
 
@@ -295,30 +205,22 @@ rider_fixture_resolution::Item *RiderFixtureResolutionDialog::SelectedItem() {
   return &analysis.items[*index];
 }
 
-// Resolves stable non-zero model item data to an analysis index.
+// Resolves a stable index-list model item to its analysis row.
 std::optional<size_t> RiderFixtureResolutionDialog::AnalysisIndexForItem(
     const wxDataViewItem &item) const {
   if (!item.IsOk())
     return std::nullopt;
-  const wxUIntPtr key = tableStore->GetItemData(item);
-  if (key == 0)
-    return std::nullopt;
-  const size_t index = static_cast<size_t>(key - 1);
+  const size_t index = static_cast<size_t>(tableModel->GetRow(item));
   return index < analysis.items.size() ? std::optional<size_t>(index)
                                        : std::nullopt;
 }
 
-// Finds the current store row for a stable analysis identity after sorting.
+// Maps stable analysis identity directly to its fixed model row.
 std::optional<unsigned>
 RiderFixtureResolutionDialog::StoreRowForAnalysisIndex(size_t analysisIndex) const {
-  const wxUIntPtr key = static_cast<wxUIntPtr>(analysisIndex + 1);
-  const unsigned count = tableStore->GetItemCount();
-  for (unsigned row = 0; row < count; ++row) {
-    const wxDataViewItem item = tableStore->GetItem(row);
-    if (item.IsOk() && tableStore->GetItemData(item) == key)
-      return row;
-  }
-  return std::nullopt;
+  return analysisIndex < analysis.items.size()
+             ? std::optional<unsigned>(static_cast<unsigned>(analysisIndex))
+             : std::nullopt;
 }
 
 // Refreshes actions when the selected row changes.
@@ -384,12 +286,16 @@ void RiderFixtureResolutionDialog::OnValueChanged(wxDataViewEvent &event) {
   if (!analysisIndex)
     return;
   const auto storeRow = StoreRowForAnalysisIndex(*analysisIndex);
-  if (!storeRow || *storeRow >= tableStore->GetItemCount())
+  if (!storeRow || *storeRow >= analysis.items.size())
     return;
   auto &item = analysis.items[*analysisIndex];
   wxVariant value;
-  tableStore->GetValueByRow(value, *storeRow,
-                            static_cast<unsigned int>(event.GetColumn()));
+  const int eventColumn = event.GetColumn();
+  if (eventColumn < 0 ||
+      static_cast<unsigned>(eventColumn) >= tableModel->GetColumnCount())
+    return;
+  tableModel->GetValueByRow(value, *storeRow,
+                            static_cast<unsigned int>(eventColumn));
   if (event.GetColumn() == 0) {
     rider_fixture_resolution::Service::SetCreate(item, value.GetBool());
     if (item.create)

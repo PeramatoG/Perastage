@@ -63,9 +63,9 @@ Changes since **v1.5.0**.
 - Resolve fixture types now keeps stable table rows during background matching
   and owns its cancellable catalog worker, preventing Debug assertions when
   rows update or the dialog closes while matching is active.
-- Resolve fixture types now registers every custom data-view model column before
-  rows are rendered, fixing the Windows Debug assertion raised when wxWidgets
-  requested Status or Details values from an empty model-column vector.
+- Resolve fixture types now uses a fixed eight-column, analysis-backed table
+  model, preventing Windows Debug assertions caused by an empty model schema
+  while preserving live matching updates, sorting, editing, and status colors.
 - Shared colored data-view stores now validate item ownership and model-column
   bounds before value access or sorting, and resolver row updates publish one
   final attribute notification instead of exposing partial Status changes.

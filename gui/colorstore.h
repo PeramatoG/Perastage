@@ -43,6 +43,14 @@ public:
   bool highlightBackgroundEnabled = false;
   bool highlightForegroundEnabled = false;
 
+  // Reports the schema registered in the list store instead of the base default.
+  unsigned int GetColumnCount() const override { return m_cols.size(); }
+
+  // Returns a registered column type without indexing outside the schema.
+  wxString GetColumnType(unsigned int column) const override {
+    return column < m_cols.size() ? m_cols[column] : wxString();
+  }
+
   // Finds a model-owned row without trusting a transient item identifier.
   std::optional<unsigned> FindOwnedRow(const wxDataViewItem &item) const {
     if (!item.IsOk())

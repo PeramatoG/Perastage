@@ -10,9 +10,15 @@ int main() {
   if (!initializer.IsOk())
     return 0;
   ColorfulDataViewListStore store;
+  assert(store.GetColumnCount() == 0);
   store.AppendColumn("bool");
+  assert(store.GetColumnCount() == 1);
   for (int column = 1; column < 8; ++column)
     store.AppendColumn("string");
+  assert(store.GetColumnCount() == 8);
+  assert(store.GetColumnType(0) == "bool");
+  assert(store.GetColumnType(7) == "string");
+  assert(store.GetColumnType(8).empty());
   wxVector<wxVariant> values;
   values.push_back(true);
   for (int column = 1; column < 8; ++column)

@@ -30,6 +30,7 @@ for label, token in required.items():
 if "GdtfSearchDialog dialog" not in dialog or "item->effectiveFixtureType" not in dialog:
     raise SystemExit("Resolver Search must call GdtfSearchDialog with the rider alias")
 for source in ("rider_fixture_resolution_dialog.cpp",
+               "rider_fixture_resolution_model.cpp",
                "rider_fixture_resolution_workflow.cpp"):
     if source not in gui_cmake:
         raise SystemExit(f"GUI CMake does not compile {source}")
