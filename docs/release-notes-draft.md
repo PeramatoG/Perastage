@@ -46,13 +46,14 @@ Changes since **v1.5.0**.
 
 - Added cross-platform Debug CI performance telemetry for phase timing, cache
   outcomes, runner resources, storage evolution, and diagnostic artifacts
-  with stable Windows interpreter resolution and without changing dependency
-  caching, builds, or test behavior.
+  with stable Windows interpreter resolution and toolchain-aware dependency
+  cache reuse, without changing builds or test behavior.
 
 ## Fixes
 
 - MVR-xchange TCP servers now stop promptly when an idle peer connects at the
-  same time shutdown begins, including on Windows, without changing protocol
+  same time shutdown begins, including on Windows, by keeping idle reads
+  interruptible without disconnecting valid idle peers or changing protocol
   behavior.
 
 - Fixture placement in the 3D viewer now acquires visible truss attachment

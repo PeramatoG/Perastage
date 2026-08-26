@@ -26,6 +26,13 @@ implemented by GitHub Actions are measured by monotonic checkpoints immediately
 before and after the action; this is the safest available approximation because
 an action cannot be wrapped by the repository's command runner.
 
+The Windows compiled vcpkg cache key includes the resolved MSVC toolset and
+Windows SDK versions from the same Hostx64/x64 environment used for dependency
+installation and compilation. A legacy restore prefix remains available only as
+a partial fallback, so rebuilding packages for a new hosted-runner toolchain can
+be saved under its new exact identity. The macOS key already incorporates both
+the Xcode version and resolved SDK identity.
+
 The Debug CI workflow does not upload installers, AppImages, DMGs, or platform packages.
 
 ## Merges into main

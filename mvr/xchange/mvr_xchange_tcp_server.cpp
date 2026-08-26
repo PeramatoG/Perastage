@@ -16,6 +16,7 @@
 
 namespace {
 constexpr std::size_t kMaxConcurrentConnections = 16;
+constexpr long kSocketPollMicroseconds = 200000;
 #ifdef _WIN32
 using SocketLength = int;
 #else
@@ -58,6 +59,16 @@ void ApplySocketTimeouts(std::intptr_t fd) {
   timeout.tv_usec = 0;
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 #endif
+}
+
+// Waits briefly for client input so server shutdown can interrupt an idle connection.
+int WaitForClientInput(std::intptr_t fd) {
+  fd_set readSet;
+  FD_ZERO(&readSet);
+  FD_SET(fd, &readSet);
+  timeval timeout{};
+  timeout.tv_usec = kSocketPollMicroseconds;
+  return select(static_cast<int>(fd + 1), &readSet, nullptr, nullptr, &timeout);
 }
 }
 
@@ -195,6 +206,10 @@ void MvrXchangeTcpServer::HandleClient(std::intptr_t clientFd) {
   bool receiveRequired = true;
   while (running_) {
     if (receiveRequired) {
+      const int ready = WaitForClientInput(clientFd);
+      if (!running_) break;
+      if (ready == 0) continue;
+      if (ready < 0) { disconnectReason = "socket readiness error"; break; }
       int n = static_cast<int>(recv(clientFd, chunk, sizeof(chunk), 0));
       if (n == 0) { disconnectReason = "recv returned 0"; break; }
       if (n < 0) { disconnectReason = "socket error"; break; }

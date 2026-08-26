@@ -312,6 +312,7 @@ jobs:
           set -euo pipefail
           xvfb-run -a -s "-screen 0 1920x1080x24" bash -c 'echo "DISPLAY=$DISPLAY" > "$CI_LOG_DIR/xvfb-linux-debug.txt"; test -n "$DISPLAY"; xdpyinfo >> "$CI_LOG_DIR/xvfb-linux-debug.txt"'
       - name: Run complete CTest suite
+        id: ctest-execution
         if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}
         run: |
           set +e
@@ -322,8 +323,9 @@ jobs:
           exit $ctest_exit
       - name: Record telemetry — CTest execution
         continue-on-error: true
+        if: ${{ always() }}
         shell: bash
-        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "CTest execution"
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "CTest execution" --status "${{ steps.ctest-execution.outcome || 'unknown' }}"
       - name: Run repository policy tests
         run: |
           export PERASTAGE_TEST_PYTHON="$(command -v python3)"
@@ -510,6 +512,44 @@ jobs:
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Windows test-tool preparation and Git Bash resolution"
+      - name: Persist Visual Studio Hostx64 x64 environment
+        id: windows-toolchain
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No Visual Studio installation with x64 C++ tools was found.' }
+          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
+          if (-not (Test-Path $devCmd)) { throw "VsDevCmd.bat was not found at: $devCmd" }
+          $envDump = cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set"
+          $envNames = @('INCLUDE','LIB','LIBPATH','Path','VSCMD_ARG_HOST_ARCH','VSCMD_ARG_TGT_ARCH','WindowsSdkDir','WindowsSDKVersion','VCINSTALLDIR','VCToolsInstallDir')
+          foreach ($line in $envDump) {
+            $separator = $line.IndexOf('=')
+            if ($separator -le 0) { continue }
+            $name = $line.Substring(0, $separator)
+            $value = $line.Substring($separator + 1)
+            Set-Item -Path "Env:$name" -Value $value
+            if ($envNames -contains $name) {
+              if ($name -ieq 'Path') { $value.Split(';') | Where-Object { $_ } | ForEach-Object { $_ | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 } }
+              else { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+            }
+          }
+          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
+          if (-not $cl) { throw 'cl.exe was not found after initializing the Visual Studio environment.' }
+          $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
+          if ($normalizedCl -match 'c:[\\/](mingw64|msys64)|mingw|msys|strawberry') { throw "Refusing non-MSVC compiler: $($cl.Source)" }
+          if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio is not Hostx64/x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
+          $toolset = Split-Path -Leaf $env:VCToolsInstallDir.TrimEnd('\')
+          $sdk = $env:WindowsSDKVersion.TrimEnd('\')
+          $cacheIdentity = "msvc-$toolset-sdk-$sdk-hostx64-x64".ToLowerInvariant()
+          if ($cacheIdentity -notmatch '^[a-z0-9.-]+$') { throw "Windows toolchain cache identity is not path-safe: $cacheIdentity" }
+          "cache-identity=$cacheIdentity" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "WINDOWS_TOOLCHAIN_CACHE_IDENTITY=$cacheIdentity" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Record telemetry — Visual Studio Hostx64/x64 environment initialization
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Visual Studio Hostx64/x64 environment initialization"
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: pwsh
@@ -544,8 +584,9 @@ jobs:
             .vcpkg-cache\installed
             .vcpkg-cache\packages
             .vcpkg-cache\binary
-          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.windows-toolchain.outputs.cache-identity }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
+            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.windows-toolchain.outputs.cache-identity }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
             vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
       - name: Record telemetry — Restore vcpkg compiled cache
         continue-on-error: true
@@ -580,7 +621,7 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --local-cache "$env:VCPKG_BINARY_CACHE" --mode read
+        run: '& "$env:PERASTAGE_PYTHON" .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --local-cache "$env:VCPKG_BINARY_CACHE" --mode read'
 
       - name: Record telemetry — Configure remote binary cache
         continue-on-error: true
@@ -637,37 +678,6 @@ jobs:
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
-      - name: Persist Visual Studio Hostx64 x64 environment
-        shell: pwsh
-        run: |
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $vsRoot = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
-          if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No Visual Studio installation with x64 C++ tools was found.' }
-          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
-          if (-not (Test-Path $devCmd)) { throw "VsDevCmd.bat was not found at: $devCmd" }
-          $envDump = cmd.exe /c "`"$devCmd`" -host_arch=x64 -arch=x64 >nul && set"
-          $envNames = @('INCLUDE','LIB','LIBPATH','Path','VSCMD_ARG_HOST_ARCH','VSCMD_ARG_TGT_ARCH','WindowsSdkDir','WindowsSDKVersion','VCINSTALLDIR','VCToolsInstallDir')
-          foreach ($line in $envDump) {
-            $separator = $line.IndexOf('=')
-            if ($separator -le 0) { continue }
-            $name = $line.Substring(0, $separator)
-            $value = $line.Substring($separator + 1)
-            Set-Item -Path "Env:$name" -Value $value
-            if ($envNames -contains $name) {
-              if ($name -ieq 'Path') { $value.Split(';') | Where-Object { $_ } | ForEach-Object { $_ | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 } }
-              else { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
-            }
-          }
-          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
-          if (-not $cl) { throw 'cl.exe was not found after initializing the Visual Studio environment.' }
-          $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
-          if ($normalizedCl -match 'c:[\\/](mingw64|msys64)|mingw|msys|strawberry') { throw "Refusing non-MSVC compiler: $($cl.Source)" }
-          if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio is not Hostx64/x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
-      - name: Record telemetry — Visual Studio Hostx64/x64 environment initialization
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Visual Studio Hostx64/x64 environment initialization"
       - name: Define Windows sccache compatibility boundary
         shell: pwsh
         run: |
@@ -777,6 +787,7 @@ jobs:
           & $env:PERASTAGE_SCCACHE_EXECUTABLE --show-stats --stats-format json | Out-File "$env:CI_LOG_DIR\sccache-windows-debug.json" -Encoding utf8
           & $env:PERASTAGE_PYTHON .github/scripts/write_sccache_summary.py --stats-json "$env:CI_LOG_DIR\sccache-windows-debug.json" --compile-commands build-windows-debug\compile_commands.json --platform windows-debug --architecture "${{ runner.arch }}" --backend $env:SCCACHE_BACKEND --cache-scope $env:SCCACHE_CACHE_SCOPE --scope-reason $env:SCCACHE_SCOPE_REASON --namespace $env:SCCACHE_NAMESPACE --compiler-identity $env:SCCACHE_COMPILER_IDENTITY --base-directory $env:SCCACHE_BASEDIRS --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Run Windows CTest suite
+        id: ctest-execution
         if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}
         shell: pwsh
         run: |
@@ -787,9 +798,10 @@ jobs:
           exit $ctestExit
       - name: Record telemetry — CTest execution
         continue-on-error: true
+        if: ${{ always() }}
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest execution"
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest execution" --status "${{ steps.ctest-execution.outcome || 'unknown' }}"
       - name: Finalize Windows performance telemetry
         continue-on-error: true
         if: ${{ always() }}
@@ -1097,6 +1109,7 @@ jobs:
           "$SCCACHE_PATH" --show-stats --stats-format json > "$CI_LOG_DIR/sccache-macos-debug.json"
           python3 .github/scripts/write_sccache_summary.py --stats-json "$CI_LOG_DIR/sccache-macos-debug.json" --compile-commands build/macos-debug/compile_commands.json --platform macos-debug --architecture "${{ runner.arch }}" --backend "$SCCACHE_BACKEND" --cache-scope "$SCCACHE_CACHE_SCOPE" --scope-reason "$SCCACHE_SCOPE_REASON" --namespace "$SCCACHE_NAMESPACE" --compiler-identity "$SCCACHE_COMPILER_IDENTITY" --base-directory "$SCCACHE_BASEDIRS" --launcher-validation "${{ steps.cmake-configure.outcome == 'success' && 'passed' || 'failed' }}" --build-succeeded "${{ steps.perastage-build.outcome == 'success' }}"
       - name: Run complete macOS CTest suite
+        id: ctest-execution
         if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}
         run: |
           set +e
@@ -1106,8 +1119,9 @@ jobs:
           python3 .github/scripts/summarize_ctest_results.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output "$CI_LOG_DIR/ctest-macos-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE"
           exit $ctest_exit
       - name: Record telemetry — CTest execution
+        if: ${{ always() }}
         shell: bash
-        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "CTest execution" || true
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "CTest execution" --status "${{ steps.ctest-execution.outcome || 'unknown' }}" || true
       - name: Finalize macOS performance telemetry
         if: ${{ always() }}
         shell: bash
