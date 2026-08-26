@@ -34,6 +34,9 @@ struct SnapSettings {
   std::optional<truss_screen_snap::ProjectionSnapshot> trussProjection;
   double trussScreenApertureLogicalPx =
       truss_screen_snap::kDefaultTrussScreenSnapApertureLogicalPx;
+  std::optional<truss_screen_snap::ProjectionSnapshot> fixturePathProjection;
+  double fixturePathScreenApertureLogicalPx =
+      truss_screen_snap::kDefaultFixturePathScreenSnapApertureLogicalPx;
 };
 
 struct SnapResult {

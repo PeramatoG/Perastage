@@ -592,9 +592,10 @@ struct JointMatch {
   std::size_t second = 0;
 };
 
-// Removes connector candidates already paired with an opposing nearby truss connector.
-std::vector<truss_attachment::Candidate> FilterOccupiedCandidates(
-    std::vector<truss_attachment::Candidate> candidates) {
+// Removes connector candidates already paired with an opposing nearby truss
+// connector.
+std::vector<truss_attachment::Candidate>
+FilterOccupiedCandidates(std::vector<truss_attachment::Candidate> candidates) {
   std::sort(candidates.begin(), candidates.end(),
             [](const auto &left, const auto &right) {
               return std::tie(left.ownerTrussUuid, left.stableId) <
@@ -681,6 +682,63 @@ BuildGroupCandidatesImpl(const MvrScene &scene, const Bounds &bounds,
           Scale(Normalize(insertionTransform.w), -bounds.size[2] * 0.5f));
   return truss_attachment::BuildAmbiguousCandidates(
       bounds.size, insertionTransform, groupUuid);
+}
+
+// Tests one continuous fixture path using screen-space or legacy world
+// acquisition.
+void ConsiderFixturePath(const SnapSource &source,
+                         const std::string &targetUuid,
+                         const truss_attachment_paths::Path &path,
+                         const std::array<float, 3> &insertion,
+                         const SnapSettings &settings, CandidateRank &bestRank,
+                         float &bestDistance, std::optional<SnapResult> &best) {
+  std::array<float, 3> target{};
+  float pathParameter = 0.0f;
+  CandidateRank rank;
+  rank.targetUuid = targetUuid;
+  rank.targetCandidateId = path.stableId;
+  if (settings.fixturePathProjection) {
+    const auto projected = truss_screen_snap::ClosestPointOnProjectedPolyline(
+        *settings.fixturePathProjection, path.worldPointsMm, insertion);
+    if (!projected || projected->screenDistanceLogicalPx >
+                          settings.fixturePathScreenApertureLogicalPx)
+      return;
+    target = projected->worldPointMm;
+    pathParameter = projected->pathParameter;
+    rank.primary = projected->screenDistanceLogicalPx;
+    rank.depthDifference = projected->depthDifference;
+    rank.worldDistance = projected->worldDistanceMm;
+    if (!IsBetterRank(rank, bestRank))
+      return;
+    bestRank = rank;
+  } else {
+    const auto closest =
+        truss_attachment_paths::ClosestPointOnPath(path, insertion, true);
+    if (!closest)
+      return;
+    target = closest->pointMm;
+    pathParameter = closest->pathParameter;
+    const float distance =
+        WeightedLength(Subtract(target, insertion), settings.axisWeights);
+    if (distance > settings.thresholdMm || distance >= bestDistance)
+      return;
+    bestDistance = distance;
+  }
+
+  SnapResult result;
+  result.snapped = true;
+  result.kind = SnapKind::FixtureToTruss;
+  result.sourceUuid = source.uuid;
+  result.targetUuid = targetUuid;
+  result.sourceType = source.type;
+  result.targetType = ObjectType::Truss;
+  result.translationDeltaMm = Subtract(target, insertion);
+  result.needsGrouping = true;
+  result.targetAttachmentPathId = path.stableId;
+  result.targetAttachmentPathParameter = pathParameter;
+  result.targetAttachmentProvenance = path.provenance;
+  result.targetAttachmentConfidence = path.diagnostics.confidence;
+  best = result;
 }
 
 } // namespace
@@ -828,15 +886,12 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
 
   if (source.type == ObjectType::Fixture) {
     const std::array<float, 3> insertion = sourceBounds->transform.o;
-    auto &resolver = settings.pathResolver ? *settings.pathResolver
-                                           : DefaultPathResolver();
+    auto &resolver =
+        settings.pathResolver ? *settings.pathResolver : DefaultPathResolver();
     for (const auto &[uuid, truss] : scene.trusses) {
       const Bounds targetBounds = MakeTrussBounds(truss);
       const auto resolution = resolver.Resolve(scene, truss);
-      auto consider = [&](const std::array<float, 3> &closest,
-                          const std::string &pathId, float pathParameter,
-                          truss_attachment_paths::Provenance provenance,
-                          float confidence) {
+      auto considerFallback = [&](const std::array<float, 3> &closest) {
         const std::array<float, 3> delta = Subtract(closest, insertion);
         const float distance = WeightedLength(delta, settings.axisWeights);
         if (distance > settings.thresholdMm || distance >= bestDistance)
@@ -851,23 +906,15 @@ std::optional<SnapResult> FindSnap(const MvrScene &scene,
         result.targetType = ObjectType::Truss;
         result.translationDeltaMm = delta;
         result.needsGrouping = true;
-        result.targetAttachmentPathId = pathId;
-        result.targetAttachmentPathParameter = pathParameter;
-        result.targetAttachmentProvenance = provenance;
-        result.targetAttachmentConfidence = confidence;
+        result.targetAttachmentProvenance =
+            truss_attachment_paths::Provenance::ApproximateBoundsFallback;
         best = result;
       };
-      for (const auto &path : resolution.paths) {
-        const auto point = truss_attachment_paths::ClosestPointOnPath(
-            path, insertion, true);
-        if (point)
-          consider(point->pointMm, path.stableId, point->pathParameter,
-                   path.provenance, path.diagnostics.confidence);
-      }
+      for (const auto &path : resolution.paths)
+        ConsiderFixturePath(source, uuid, path, insertion, settings,
+                            bestCandidateRank, bestDistance, best);
       if (resolution.paths.empty())
-        consider(ClosestPointOnSurface(targetBounds, insertion), {}, 0.0f,
-                 truss_attachment_paths::Provenance::ApproximateBoundsFallback,
-                 0.0f);
+        considerFallback(ClosestPointOnSurface(targetBounds, insertion));
     }
     return best;
   }

@@ -71,9 +71,19 @@ Fixture snapping uses reliable paths first and records the selected runtime path
 parameter, provenance, and confidence in transient `SnapResult` state. If no
 analyzable geometry or stable chord is available, the previous oriented-bounds
 surface calculation remains as an explicitly low-confidence
-`ApproximateBoundsFallback`. Fixture overlays project every point and draw continuous segments from the same
-resolved polylines; they do not expose truss connector Magnets. Truss and truss-group overlays
-continue to show the independent discrete connector candidates.
+`ApproximateBoundsFallback`. In the 3D viewer, continuous fixture paths are
+acquired within a 16-logical-pixel screen aperture. Camera-depth separation does
+not reject a visible path; depth and full world distance are deterministic
+tie-breakers after screen distance. Perspective-correct reconstruction resolves
+the selected screen position back onto the actual runtime polyline, so the
+committed result remains a complete 3D translation and retains its continuous
+path parameter. Calls without a fixture projection retain the existing
+world-space behavior, including the 2D viewers and headless callers.
+
+Fixture overlays project every point and draw continuous segments from the same
+resolved polylines; they do not expose truss connector Magnets. Truss and
+truss-group overlays continue to show the independent discrete connector
+candidates, whose acquisition and ranking are unchanged.
 
 The detector currently supports straight trusses with a clearly dominant axis.
 Curved, circular, corner, unusually sparse, and heavily occluded geometry will
