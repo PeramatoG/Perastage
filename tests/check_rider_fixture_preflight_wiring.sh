@@ -48,6 +48,8 @@ if "Acquiring the shared GDTF catalog" in dialog:
     raise SystemExit("Resolver must not retain the obsolete non-terminal acquisition label")
 if "RefreshCatalogCompletionStatus" not in dialog:
     raise SystemExit("Resolver acquisition must publish a stable final status")
+if "BuildCatalogMatchTargets" not in dialog:
+    raise SystemExit("Resolver matching must skip dictionary and explicit rows")
 for source in ("rider_fixture_resolution_dialog.cpp",
                "rider_fixture_resolution_model.cpp",
                "rider_fixture_resolution_workflow.cpp"):

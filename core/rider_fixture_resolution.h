@@ -78,6 +78,11 @@ struct Summary {
   size_t skipped = 0;
 };
 
+struct CatalogMatchTarget {
+  size_t analysisIndex = 0;
+  RiderImporter::FixtureTypeRequest request;
+};
+
 class Service {
 public:
   // Resolves dictionary entries first and matches each remaining alias once.
@@ -93,6 +98,10 @@ public:
 
   // Counts the resolutions that the current import plan will actually use.
   static Summary Summarize(const Analysis &analysis);
+
+  // Selects only unresolved untouched rows that can benefit from catalog matching.
+  static std::vector<CatalogMatchTarget>
+  BuildCatalogMatchTargets(const Analysis &analysis);
 
   // Selects a real catalog entry while preserving multi-mode ambiguity.
   static void SelectCatalogEntry(

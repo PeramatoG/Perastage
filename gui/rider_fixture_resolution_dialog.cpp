@@ -384,9 +384,11 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
   catalogLoadStarted = true;
   catalogLoading = true;
   const CatalogLoader loader = cachedCatalogLoader;
-  const auto requests = BuildFixtureRequests();
+  const auto targets = BuildCatalogMatchTargets();
+  const size_t analysisItemCount = analysis.items.size();
   catalogWorker = std::jthread(
-      [this, loader, requests](std::stop_token stopToken) mutable {
+      [this, loader, targets,
+       analysisItemCount](std::stop_token stopToken) mutable {
     auto report = [this, &stopToken](const ProgressData &progress) {
       if (stopToken.stop_requested() || shuttingDown.load())
         return;
@@ -400,22 +402,24 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
     if (loaded) {
       const auto matchStarted = std::chrono::steady_clock::now();
       rider_fixture_resolution::Analysis matches;
+      matches.items.resize(analysisItemCount);
       size_t automaticMatches = 0;
-      for (size_t row = 0; row < requests.size(); ++row) {
+      for (size_t targetIndex = 0; targetIndex < targets.size(); ++targetIndex) {
         if (stopToken.stop_requested() || shuttingDown.load())
           return;
+        const auto &target = targets[targetIndex];
         auto one = rider_fixture_resolution::Service::Analyze(
-            {requests[row]}, {}, loaded->entries);
+            {target.request}, {}, loaded->entries);
         if (one.items.front().origin ==
             rider_fixture_resolution::ResolutionOrigin::AutomaticMatch)
           ++automaticMatches;
-        matches.items.push_back(one.items.front());
+        matches.items[target.analysisIndex] = one.items.front();
         report({{rider_fixture_resolution::ProgressStage::MatchingFixtures,
-                 row + 1, requests.size(), automaticMatches},
-                row, one.items.front()});
+                 targetIndex + 1, targets.size(), automaticMatches},
+                target.analysisIndex, one.items.front()});
       }
       report({{rider_fixture_resolution::ProgressStage::Complete,
-               requests.size(), requests.size(), automaticMatches}});
+               targets.size(), targets.size(), automaticMatches}});
       loaded->matches = std::move(matches);
       loaded->matchMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -485,10 +489,12 @@ void RiderFixtureResolutionDialog::StartOnlineCatalogWorker(
   if (catalogWorker.joinable())
     catalogWorker.join();
   catalogLoading = true;
-  const auto requests = BuildFixtureRequests();
+  const auto targets = BuildCatalogMatchTargets();
+  const size_t analysisItemCount = analysis.items.size();
   const OnlineCatalogLoader loader = onlineCatalogLoader;
   catalogWorker = std::jthread(
-      [this, loader, credentials, requests](std::stop_token stopToken) mutable {
+      [this, loader, credentials, targets,
+       analysisItemCount](std::stop_token stopToken) mutable {
     auto report = [this, &stopToken](const ProgressData &progress) {
       if (stopToken.stop_requested() || shuttingDown.load())
         return;
@@ -506,22 +512,24 @@ void RiderFixtureResolutionDialog::StartOnlineCatalogWorker(
       auto &catalog = *result.catalog;
       const auto matchStarted = std::chrono::steady_clock::now();
       rider_fixture_resolution::Analysis matches;
+      matches.items.resize(analysisItemCount);
       size_t automaticMatches = 0;
-      for (size_t row = 0; row < requests.size(); ++row) {
+      for (size_t targetIndex = 0; targetIndex < targets.size(); ++targetIndex) {
         if (stopToken.stop_requested() || shuttingDown.load())
           return;
+        const auto &target = targets[targetIndex];
         auto one = rider_fixture_resolution::Service::Analyze(
-            {requests[row]}, {}, catalog.entries);
+            {target.request}, {}, catalog.entries);
         if (one.items.front().origin ==
             rider_fixture_resolution::ResolutionOrigin::AutomaticMatch)
           ++automaticMatches;
-        matches.items.push_back(one.items.front());
+        matches.items[target.analysisIndex] = one.items.front();
         report({{rider_fixture_resolution::ProgressStage::MatchingFixtures,
-                 row + 1, requests.size(), automaticMatches},
-                row, one.items.front()});
+                 targetIndex + 1, targets.size(), automaticMatches},
+                target.analysisIndex, one.items.front()});
       }
       report({{rider_fixture_resolution::ProgressStage::Complete,
-               requests.size(), requests.size(), automaticMatches}});
+               targets.size(), targets.size(), automaticMatches}});
       catalog.matches = std::move(matches);
       catalog.matchMs =
           std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -626,10 +634,17 @@ void RiderFixtureResolutionDialog::ApplyCatalog(const CatalogData &catalog) {
   catalogUpdatedAt = catalog.snapshot.updatedAt;
   catalogEntries = catalog.entries;
   catalogSource = catalog.source;
-  const auto matched = catalog.matches
-      ? *catalog.matches
-      : rider_fixture_resolution::Service::Analyze(BuildFixtureRequests(), {},
-                                                    catalogEntries);
+  rider_fixture_resolution::Analysis matched;
+  if (catalog.matches) {
+    matched = *catalog.matches;
+  } else {
+    matched.items.resize(analysis.items.size());
+    for (const auto &target : BuildCatalogMatchTargets()) {
+      auto one = rider_fixture_resolution::Service::Analyze(
+          {target.request}, {}, catalogEntries);
+      matched.items[target.analysisIndex] = std::move(one.items.front());
+    }
+  }
   diagnostics::DiagnosticLogger::Info(
       "Rider fixture preflight catalog: catalog_match_ms=" +
       std::to_string(catalog.matchMs));
@@ -640,20 +655,10 @@ void RiderFixtureResolutionDialog::ApplyCatalog(const CatalogData &catalog) {
   RefreshSummary();
 }
 
-// Copies fixture requests for pure background catalog matching.
-std::vector<RiderImporter::FixtureTypeRequest>
-RiderFixtureResolutionDialog::BuildFixtureRequests() const {
-  std::vector<RiderImporter::FixtureTypeRequest> requests;
-  requests.reserve(analysis.items.size());
-  for (const auto &item : analysis.items)
-  {
-    auto request = item.request;
-    request.typeName = item.effectiveFixtureType;
-    request.normalizedTypeName = GdtfDictionary::NormalizeTypeKey(
-        item.effectiveFixtureType);
-    requests.push_back(std::move(request));
-  }
-  return requests;
+// Selects stable analysis rows that still need pure catalog matching.
+std::vector<rider_fixture_resolution::CatalogMatchTarget>
+RiderFixtureResolutionDialog::BuildCatalogMatchTargets() const {
+  return rider_fixture_resolution::Service::BuildCatalogMatchTargets(analysis);
 }
 
 // Selects the existing one-import generic fallback for the selected alias.

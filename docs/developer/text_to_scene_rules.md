@@ -33,6 +33,9 @@ catalog retrieval, parsing, and matching run outside the UI thread and report
 stages to the dialog's existing label and gauge. Only credential entry crosses
 back to a modal UI prompt; automatic acquisition never opens a nested progress
 dialog. Confirming or cancelling stops acceptance of late results.
+Catalog matching targets only enabled, unresolved, untouched rows. Dictionary,
+DictionaryModified, UserSelection, AutomaticMatch, Generic, and Skipped rows
+are excluded, and determinate progress totals count only the remaining targets.
 
 `AnalyzeText()` owns the single raw rider parse used by preflight and returns
 both filtered import text and fixture requests. Final creation imports that

@@ -48,6 +48,18 @@ int main() {
   assert(analysis.items[0].state == State::Dictionary);
   assert(analysis.items[1].state == State::Suggested);
   assert(analysis.items[2].state != State::Suggested);
+  const auto remainingAfterInitialMatch =
+      Service::BuildCatalogMatchTargets(analysis);
+  assert(remainingAfterInitialMatch.size() == 1);
+  assert(remainingAfterInitialMatch.front().analysisIndex == 2);
+
+  Analysis dictionaryOnlyPreflight = Service::Analyze(requests, dictionary, {});
+  const auto catalogTargets =
+      Service::BuildCatalogMatchTargets(dictionaryOnlyPreflight);
+  assert(catalogTargets.size() == 2);
+  assert(catalogTargets[0].analysisIndex == 1);
+  assert(catalogTargets[1].analysisIndex == 2);
+  assert(catalogTargets[0].request.typeName == requests[1].typeName);
 
   const Analysis allKnown = Service::Analyze({requests.front()}, dictionary, {});
   assert(!allKnown.RequiresPreflight());

@@ -136,6 +136,30 @@ Summary Service::Summarize(const Analysis &analysis) {
   return summary;
 }
 
+// Selects unresolved rows without reprocessing dictionary or explicit choices.
+std::vector<CatalogMatchTarget>
+Service::BuildCatalogMatchTargets(const Analysis &analysis) {
+  std::vector<CatalogMatchTarget> targets;
+  targets.reserve(analysis.items.size());
+  for (size_t index = 0; index < analysis.items.size(); ++index) {
+    const Item &item = analysis.items[index];
+    if (!item.create || item.selectedEntry || item.state == State::Dictionary ||
+        item.state == State::Generic ||
+        item.origin == ResolutionOrigin::Dictionary ||
+        item.origin == ResolutionOrigin::DictionaryModified ||
+        item.origin == ResolutionOrigin::AutomaticMatch ||
+        item.origin == ResolutionOrigin::UserSelection ||
+        item.origin == ResolutionOrigin::Skipped)
+      continue;
+    auto request = item.request;
+    request.typeName = item.effectiveFixtureType;
+    request.normalizedTypeName =
+        GdtfDictionary::NormalizeTypeKey(item.effectiveFixtureType);
+    targets.push_back({index, std::move(request)});
+  }
+  return targets;
+}
+
 // Re-resolves an item through dictionary lookup and the shared MVR matcher.
 void Service::ResolveItem(
     Item &item,

@@ -33,6 +33,8 @@ access still leaves Generic fallback available.
 Catalog sign-in, download, parsing, and matching progress remain in the
 **Resolve fixture types** progress area; only the credential-entry dialog opens
 separately when user input is required.
+Automatic catalog matching skips rows already resolved by the active dictionary
+or an explicit selection, so the matching total represents unresolved rows only.
 
 Fixture types can be corrected directly in the table without changing the
 source rider text. The **Create** checkbox can omit every fixture represented

@@ -89,7 +89,8 @@ private:
   void OnOnlineCatalogLoaded(wxThreadEvent &event);
   void OnProgress(wxThreadEvent &event);
   void ApplyCatalog(const CatalogData &catalog);
-  std::vector<RiderImporter::FixtureTypeRequest> BuildFixtureRequests() const;
+  std::vector<rider_fixture_resolution::CatalogMatchTarget>
+  BuildCatalogMatchTargets() const;
   rider_fixture_resolution::Item *SelectedItem();
   std::optional<size_t> AnalysisIndexForItem(const wxDataViewItem &item) const;
   std::optional<unsigned> StoreRowForAnalysisIndex(size_t analysisIndex) const;

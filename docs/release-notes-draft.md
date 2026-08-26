@@ -76,6 +76,9 @@ Changes since **v1.5.0**.
 - Catalog sign-in, download, parsing, and automatic matching progress now stay
   inside Resolve fixture types instead of opening additional progress windows,
   with stable completion, cancellation, and offline-fallback status messages.
+- Automatic rider catalog matching now skips fixture types already resolved by
+  the active dictionary or an explicit choice, reducing unnecessary matching
+  work and making progress totals reflect only unresolved rows.
 - Shared colored data-view stores now validate item ownership and model-column
   bounds before value access or sorting, and resolver row updates publish one
   final attribute notification instead of exposing partial Status changes.
