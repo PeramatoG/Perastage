@@ -119,6 +119,9 @@ void RiderFixtureResolutionDialog::BuildLayout() {
   table = new wxDataViewCtrl(this, wxID_ANY, wxDefaultPosition,
                              wxDefaultSize, wxDV_ROW_LINES);
   tableStore = new ColorfulDataViewListStore();
+  tableStore->AppendColumn("bool");
+  for (int column = 1; column < 8; ++column)
+    tableStore->AppendColumn("string");
   table->AssociateModel(tableStore);
   tableStore->DecRef();
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;

@@ -63,6 +63,9 @@ Changes since **v1.5.0**.
 - Resolve fixture types now keeps stable table rows during background matching
   and owns its cancellable catalog worker, preventing Debug assertions when
   rows update or the dialog closes while matching is active.
+- Resolve fixture types now registers every custom data-view model column before
+  rows are rendered, fixing the Windows Debug assertion raised when wxWidgets
+  requested Status or Details values from an empty model-column vector.
 
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.
