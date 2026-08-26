@@ -3202,7 +3202,8 @@ magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
     for (int axis = 0; axis < 3; ++axis)
     settings.axisWeights[axis] =
         std::max(kMinimumViewAxisWeight, 1.0f - std::fabs(forward[axis]));
-    if (source.type == magnet_snap::ObjectType::Truss ||
+    if (source.type == magnet_snap::ObjectType::Fixture ||
+        source.type == magnet_snap::ObjectType::Truss ||
         source.type == magnet_snap::ObjectType::TrussGroup) {
         truss_screen_snap::ProjectionSnapshot snapshot;
         GLdouble modelView[16] = {};
@@ -3219,7 +3220,10 @@ magnet_snap::SnapSettings Viewer3DPanel::BuildActiveMagnetSettings(
                   snapshot.viewport.begin());
         snapshot.contentScale =
             std::max(1.0, static_cast<double>(GetContentScaleFactor()));
-        settings.trussProjection = snapshot;
+        if (source.type == magnet_snap::ObjectType::Fixture)
+            settings.fixturePathProjection = snapshot;
+        else
+            settings.trussProjection = snapshot;
     }
     return settings;
 }

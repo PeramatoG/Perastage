@@ -79,7 +79,8 @@ void DrawFixtureAttachmentPathOverlay(
   glPushMatrix();
   glLoadIdentity();
   glColor3f(1.0f, 0.1f, 0.1f);
-  glLineWidth(3.0f);
+  constexpr float kFixtureAttachmentPathLineWidth = 2.0f;
+  glLineWidth(kFixtureAttachmentPathLineWidth);
   for (const auto &path : paths) {
     glBegin(GL_LINE_STRIP);
     for (const auto &point : path.points)
