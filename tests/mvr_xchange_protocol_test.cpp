@@ -12,7 +12,12 @@
 #include "xchange/mvr_xchange_tcp_server.h"
 #include "json.hpp"
 #include <cassert>
+#include <cerrno>
 #include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <iostream>
+#include <mutex>
 #include <set>
 #include <string>
 #include <thread>
@@ -22,6 +27,7 @@
 #include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -30,6 +36,153 @@ struct LoopbackConnection {
   std::intptr_t fd = -1;
   std::vector<std::uint8_t> receiveBuffer;
 };
+
+enum class SocketReadiness {
+  Ready,
+  Error,
+  Timeout
+};
+
+enum class PeerCloseResult {
+  Closed,
+  UnexpectedData,
+  SocketError,
+  Timeout
+};
+
+class TestSocketRuntime {
+public:
+  TestSocketRuntime();
+  ~TestSocketRuntime();
+};
+
+// Keeps Winsock available for every client socket owned by this test executable.
+TestSocketRuntime::TestSocketRuntime() {
+#ifdef _WIN32
+  WSADATA data;
+  const int startupResult = WSAStartup(MAKEWORD(2, 2), &data);
+  if (startupResult != 0) {
+    std::cerr << "Winsock initialization failed for the MVR-xchange protocol test; error="
+              << startupResult << std::endl;
+    std::abort();
+  }
+#endif
+}
+
+// Releases the test executable's Winsock ownership after all sockets are closed.
+TestSocketRuntime::~TestSocketRuntime() {
+#ifdef _WIN32
+  WSACleanup();
+#endif
+}
+
+// Waits for a socket read operation to become safe within a fixed deadline.
+static SocketReadiness WaitForSocketReadable(std::intptr_t fd, std::chrono::milliseconds timeout) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (true) {
+    const auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(deadline - std::chrono::steady_clock::now());
+    if (remaining <= std::chrono::microseconds::zero()) return SocketReadiness::Timeout;
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(fd, &readSet);
+    timeval wait{};
+    wait.tv_sec = static_cast<long>(remaining.count() / 1000000);
+    wait.tv_usec = static_cast<long>(remaining.count() % 1000000);
+#ifdef _WIN32
+    const int ready = select(0, &readSet, nullptr, nullptr, &wait);
+    if (ready < 0 && WSAGetLastError() == WSAEINTR) continue;
+    if (ready < 0) return SocketReadiness::Error;
+#else
+    const int ready = select(static_cast<int>(fd + 1), &readSet, nullptr, nullptr, &wait);
+    if (ready < 0 && errno == EINTR) continue;
+    if (ready < 0) return SocketReadiness::Error;
+#endif
+    if (ready == 0) return SocketReadiness::Timeout;
+    return FD_ISSET(fd, &readSet) ? SocketReadiness::Ready : SocketReadiness::Error;
+  }
+}
+
+// Requires bounded socket readability before a test performs a receive operation.
+static void RequireSocketReadable(std::intptr_t fd, const char *operation) {
+  const auto readiness = WaitForSocketReadable(fd, std::chrono::seconds(2));
+  if (readiness == SocketReadiness::Ready) return;
+  std::cerr << operation << " did not become readable within the test deadline; result="
+            << (readiness == SocketReadiness::Timeout ? "timeout" : "socket error") << std::endl;
+  std::abort();
+}
+
+// Waits for a peer to close without allowing recv to block the test executable.
+static PeerCloseResult WaitForPeerClose(std::intptr_t fd, std::chrono::milliseconds timeout) {
+  const auto readiness = WaitForSocketReadable(fd, timeout);
+  if (readiness == SocketReadiness::Timeout) return PeerCloseResult::Timeout;
+  if (readiness == SocketReadiness::Error) return PeerCloseResult::SocketError;
+  char probe = 0;
+  const int received = static_cast<int>(recv(fd, &probe, 1, 0));
+  if (received == 0) return PeerCloseResult::Closed;
+  return received > 0 ? PeerCloseResult::UnexpectedData : PeerCloseResult::SocketError;
+}
+
+// Connects a test socket without allowing a stalled loopback connection to hang CTest.
+static bool ConnectSocketWithDeadline(std::intptr_t fd, const sockaddr_in &address, std::chrono::milliseconds timeout) {
+#ifdef _WIN32
+  u_long nonBlocking = 1;
+  if (ioctlsocket(fd, FIONBIO, &nonBlocking) != 0) return false;
+#else
+  const int originalFlags = fcntl(static_cast<int>(fd), F_GETFL, 0);
+  if (originalFlags < 0 || fcntl(static_cast<int>(fd), F_SETFL, originalFlags | O_NONBLOCK) != 0) return false;
+#endif
+  const int connectResult = connect(fd, reinterpret_cast<const sockaddr *>(&address), sizeof(address));
+#ifdef _WIN32
+  const int connectError = connectResult == 0 ? 0 : WSAGetLastError();
+  const bool pending = connectError == WSAEWOULDBLOCK || connectError == WSAEINPROGRESS || connectError == WSAEALREADY;
+#else
+  const int connectError = connectResult == 0 ? 0 : errno;
+  const bool pending = connectError == EINPROGRESS;
+#endif
+  bool connected = connectResult == 0;
+  if (!connected && pending) {
+    fd_set writeSet;
+    FD_ZERO(&writeSet);
+    FD_SET(fd, &writeSet);
+    timeval wait{};
+    wait.tv_sec = static_cast<long>(timeout.count() / 1000);
+    wait.tv_usec = static_cast<long>((timeout.count() % 1000) * 1000);
+#ifdef _WIN32
+    const int ready = select(0, nullptr, &writeSet, nullptr, &wait);
+#else
+    const int ready = select(static_cast<int>(fd + 1), nullptr, &writeSet, nullptr, &wait);
+#endif
+    int socketError = 0;
+#ifdef _WIN32
+    int errorLength = sizeof(socketError);
+#else
+    socklen_t errorLength = sizeof(socketError);
+#endif
+    connected = ready > 0 && getsockopt(fd, SOL_SOCKET, SO_ERROR,
+                                         reinterpret_cast<char *>(&socketError), &errorLength) == 0 && socketError == 0;
+  }
+#ifdef _WIN32
+  u_long blocking = 0;
+  if (ioctlsocket(fd, FIONBIO, &blocking) != 0) connected = false;
+#else
+  if (fcntl(static_cast<int>(fd), F_SETFL, originalFlags) != 0) connected = false;
+#endif
+  return connected;
+}
+
+// Bounds test-side sends so a stalled peer fails instead of hanging CTest.
+static bool ApplyTestSocketSendTimeout(std::intptr_t fd, std::chrono::milliseconds timeout) {
+#ifdef _WIN32
+  const DWORD timeoutMs = static_cast<DWORD>(timeout.count());
+  return setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO,
+                    reinterpret_cast<const char *>(&timeoutMs), sizeof(timeoutMs)) == 0;
+#else
+  timeval sendTimeout{};
+  sendTimeout.tv_sec = static_cast<long>(timeout.count() / 1000);
+  sendTimeout.tv_usec = static_cast<long>((timeout.count() % 1000) * 1000);
+  return setsockopt(static_cast<int>(fd), SOL_SOCKET, SO_SNDTIMEO, &sendTimeout, sizeof(sendTimeout)) == 0;
+#endif
+}
 
 // Opens one reusable TCP connection to a loopback MVR-xchange server.
 static LoopbackConnection ConnectLoopback(int port) {
@@ -40,7 +193,14 @@ static LoopbackConnection ConnectLoopback(int port) {
   address.sin_family = AF_INET;
   address.sin_port = htons(static_cast<std::uint16_t>(port));
   inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
-  assert(connect(connection.fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) == 0);
+  if (!ConnectSocketWithDeadline(connection.fd, address, std::chrono::seconds(2))) {
+    std::cerr << "Loopback MVR-xchange connection did not complete within the test deadline." << std::endl;
+    std::abort();
+  }
+  if (!ApplyTestSocketSendTimeout(connection.fd, std::chrono::seconds(2))) {
+    std::cerr << "Loopback MVR-xchange send timeout could not be configured." << std::endl;
+    std::abort();
+  }
   return connection;
 }
 
@@ -65,6 +225,7 @@ static mvr::xchange::Packet ReceivePersistentPacket(LoopbackConnection &connecti
     if (status == mvr::xchange::DecodeStatus::Complete) return packet;
     assert(status == mvr::xchange::DecodeStatus::NeedMoreData);
     char buffer[4096];
+    RequireSocketReadable(connection.fd, "Persistent MVR-xchange response");
     const int received = static_cast<int>(recv(connection.fd, buffer, sizeof(buffer), 0));
     assert(received > 0);
     connection.receiveBuffer.insert(connection.receiveBuffer.end(), buffer, buffer + received);
@@ -83,37 +244,24 @@ static void CloseLoopback(LoopbackConnection &connection) {
 
 // Exchanges one raw JSON transaction with a loopback test server.
 static std::string ExchangeRawJson(int port, const std::string &json) {
-  const auto fd = socket(AF_INET, SOCK_STREAM, 0);
-#ifdef _WIN32
-  assert(fd != INVALID_SOCKET);
-#else
-  assert(fd >= 0);
-#endif
-  sockaddr_in address{};
-  address.sin_family = AF_INET;
-  address.sin_port = htons(static_cast<std::uint16_t>(port));
-  inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
-  assert(connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) == 0);
+  auto connection = ConnectLoopback(port);
   const std::vector<std::uint8_t> payload(json.begin(), json.end());
   const auto packet = mvr::xchange::EncodePacket(mvr::xchange::PacketType::Json, payload);
   std::size_t sent = 0;
   while (sent < packet.size()) {
-    const int count = static_cast<int>(send(fd, reinterpret_cast<const char *>(packet.data() + sent), static_cast<int>(packet.size() - sent), 0));
+    const int count = static_cast<int>(send(connection.fd, reinterpret_cast<const char *>(packet.data() + sent), static_cast<int>(packet.size() - sent), 0));
     assert(count > 0);
     sent += static_cast<std::size_t>(count);
   }
   std::vector<std::uint8_t> response;
   char buffer[4096];
   while (true) {
-    const int received = static_cast<int>(recv(fd, buffer, sizeof(buffer), 0));
+    RequireSocketReadable(connection.fd, "Raw MVR-xchange response");
+    const int received = static_cast<int>(recv(connection.fd, buffer, sizeof(buffer), 0));
     assert(received > 0);
     response.insert(response.end(), buffer, buffer + received);
     if (auto decoded = mvr::xchange::TryDecodePacket(response)) {
-#ifdef _WIN32
-      closesocket(fd);
-#else
-      close(fd);
-#endif
+      CloseLoopback(connection);
       return {decoded->payload.begin(), decoded->payload.end()};
     }
   }
@@ -875,11 +1023,17 @@ static void TestTcpServerIdleStop() {
   settings.stationName = "Idle server";
   settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   for (int iteration = 0; iteration < 10; ++iteration) {
+    std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
+              << " starting" << std::endl;
     MvrXchangeTcpServer server;
     assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
     auto idleClient = ConnectLoopback(server.Port());
+    std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
+              << " before Stop" << std::endl;
     const auto stopStarted = std::chrono::steady_clock::now();
     server.Stop();
+    std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
+              << " after Stop" << std::endl;
     assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
     CloseLoopback(idleClient);
   }
@@ -890,19 +1044,45 @@ static void TestPersistentConnectionLimit() {
   MvrXchangeSettings settings;
   settings.stationName = "Connection limit server";
   settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  std::mutex logMutex;
+  std::condition_variable logChanged;
+  std::size_t acceptedConnections = 0;
+  bool connectionRejected = false;
   MvrXchangeTcpServer server;
-  assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+  assert(server.Start(settings, {}, {},
+                      [&](const std::string &message) {
+                        std::lock_guard lock(logMutex);
+                        if (message.find("TCP client connected") != std::string::npos) ++acceptedConnections;
+                        if (message.find("connection limit was reached") != std::string::npos) connectionRejected = true;
+                        logChanged.notify_all();
+                      },
+                      {}, {}, {}));
   std::vector<LoopbackConnection> clients;
   for (int index = 0; index < 16; ++index) {
     clients.push_back(ConnectLoopback(server.Port()));
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::unique_lock lock(logMutex);
+    const bool accepted = logChanged.wait_for(lock, std::chrono::seconds(2), [&] {
+      return acceptedConnections == clients.size();
+    });
+    assert(accepted);
   }
   auto rejected = ConnectLoopback(server.Port());
-  char byte = 0;
-  assert(recv(rejected.fd, &byte, 1, 0) == 0);
+  {
+    std::unique_lock lock(logMutex);
+    const bool rejectedAtLimit = logChanged.wait_for(lock, std::chrono::seconds(2), [&] { return connectionRejected; });
+    assert(rejectedAtLimit);
+  }
+  const auto closeResult = WaitForPeerClose(rejected.fd, std::chrono::seconds(2));
+  if (closeResult != PeerCloseResult::Closed) {
+    std::cerr << "Rejected MVR-xchange connection was not closed within the test deadline; result="
+              << (closeResult == PeerCloseResult::Timeout ? "timeout" :
+                  closeResult == PeerCloseResult::UnexpectedData ? "unexpected data" : "socket error")
+              << std::endl;
+    std::abort();
+  }
   CloseLoopback(rejected);
-  server.Stop();
   for (auto &client : clients) CloseLoopback(client);
+  server.Stop();
 }
 
 // Verifies the server returns the RET matching each recognizable malformed request.
@@ -929,28 +1109,37 @@ static void TestTcpTypedErrorResponses() {
   server.Stop();
 }
 
+// Runs one internal protocol test with flushed begin and end diagnostics.
+template <typename TestFunction>
+static void RunNamedTest(const char *name, TestFunction testFunction) {
+  std::cerr << "[MvrXchangeProtocol] BEGIN " << name << std::endl;
+  testFunction();
+  std::cerr << "[MvrXchangeProtocol] END " << name << std::endl;
+}
+
 // Runs focused non-GUI MVR-xchange protocol coverage.
 int main() {
-  TestCommitStore();
-  TestPackets();
-  TestMessages();
-  TestRequestSourceStations();
-  TestLeaveMessages();
-  TestTypedErrors();
-  TestMalformedMessages();
-  TestInventoryCompatibility();
-  TestPacketRejection();
-  TestMdnsRecordCache();
-  TestRawMdnsDatagram();
-  TestDnsNames();
-  TestCanonicalUuidUse();
-  TestStationRegistry();
-  TestPublicationDestinationPolicy();
-  TestNetworkInterfaces();
-  TestTcpTransactions();
-  TestPersistentTcpConnection();
-  TestTcpServerIdleStop();
-  TestPersistentConnectionLimit();
-  TestTcpTypedErrorResponses();
+  [[maybe_unused]] TestSocketRuntime socketRuntime;
+  RunNamedTest("TestCommitStore", TestCommitStore);
+  RunNamedTest("TestPackets", TestPackets);
+  RunNamedTest("TestMessages", TestMessages);
+  RunNamedTest("TestRequestSourceStations", TestRequestSourceStations);
+  RunNamedTest("TestLeaveMessages", TestLeaveMessages);
+  RunNamedTest("TestTypedErrors", TestTypedErrors);
+  RunNamedTest("TestMalformedMessages", TestMalformedMessages);
+  RunNamedTest("TestInventoryCompatibility", TestInventoryCompatibility);
+  RunNamedTest("TestPacketRejection", TestPacketRejection);
+  RunNamedTest("TestMdnsRecordCache", TestMdnsRecordCache);
+  RunNamedTest("TestRawMdnsDatagram", TestRawMdnsDatagram);
+  RunNamedTest("TestDnsNames", TestDnsNames);
+  RunNamedTest("TestCanonicalUuidUse", TestCanonicalUuidUse);
+  RunNamedTest("TestStationRegistry", TestStationRegistry);
+  RunNamedTest("TestPublicationDestinationPolicy", TestPublicationDestinationPolicy);
+  RunNamedTest("TestNetworkInterfaces", TestNetworkInterfaces);
+  RunNamedTest("TestTcpTransactions", TestTcpTransactions);
+  RunNamedTest("TestPersistentTcpConnection", TestPersistentTcpConnection);
+  RunNamedTest("TestTcpServerIdleStop", TestTcpServerIdleStop);
+  RunNamedTest("TestPersistentConnectionLimit", TestPersistentConnectionLimit);
+  RunNamedTest("TestTcpTypedErrorResponses", TestTcpTypedErrorResponses);
   return 0;
 }

@@ -1,6 +1,7 @@
 #include "gdtf_catalog_service.h"
 #include "apppaths.h"
 #include "logger.h"
+#include "../mvr/gdtf_catalog_parser.h"
 
 #include <chrono>
 #include <filesystem>
@@ -72,7 +73,9 @@ std::optional<long long> ComputeAgeSeconds(const std::string &updatedAt,
   return static_cast<long long>(ageMillis.GetValue() / 1000);
 }
 
-std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot() {
+// Loads the last validated catalog snapshot and optionally returns parsed data.
+std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot(
+    mvr::gdtf_catalog_parser::GdtfCatalogParseResult *parsedOut = nullptr) {
   const fs::path cachePath = GetCatalogCachePath();
   if (!fs::exists(cachePath))
     return std::nullopt;
@@ -106,6 +109,19 @@ std::optional<GdtfCatalogSnapshot> LoadCacheSnapshot() {
 
   if (snapshot.listData.empty())
     return std::nullopt;
+
+  const auto parsed = mvr::gdtf_catalog_parser::ParseCatalog(snapshot.listData);
+  if (!parsed.IsUsable()) {
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Ignoring unusable GDTF catalog cache: bytes=" +
+            std::to_string(parsed.payloadBytes) + " fingerprint=" +
+            parsed.payloadFingerprint + " usable_entries=" +
+            std::to_string(parsed.usableEntryCount));
+    return std::nullopt;
+  }
+  if (parsedOut)
+    *parsedOut = parsed;
 
   return snapshot;
 }
@@ -190,11 +206,24 @@ std::optional<GdtfCatalogSnapshot> GdtfCatalogService::GetCatalogSnapshot() cons
   return LoadCacheSnapshot();
 }
 
+// Loads and validates one reusable parsed catalog snapshot.
+std::optional<GdtfParsedCatalogSnapshot>
+GdtfCatalogService::GetParsedCatalogSnapshot() const {
+  mvr::gdtf_catalog_parser::GdtfCatalogParseResult parsed;
+  const auto snapshot = LoadCacheSnapshot(&parsed);
+  if (!snapshot)
+    return std::nullopt;
+  return GdtfParsedCatalogSnapshot{*snapshot, std::move(parsed)};
+}
+
 GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
     const RefreshCatalogFn &refreshCatalogFn, const std::string &nowUtcIso,
     long long refreshThresholdSeconds) const {
   GdtfCatalogRefreshResult result;
-  result.snapshot = LoadCacheSnapshot();
+  mvr::gdtf_catalog_parser::GdtfCatalogParseResult cachedParsed;
+  result.snapshot = LoadCacheSnapshot(&cachedParsed);
+  if (result.snapshot)
+    result.parsedCatalog = std::move(cachedParsed);
   result.metrics.cacheHit = result.snapshot.has_value();
   result.metrics.cacheMiss = !result.metrics.cacheHit;
   result.source = result.snapshot ? GdtfCatalogResultSource::Cache
@@ -222,6 +251,21 @@ GdtfCatalogRefreshResult GdtfCatalogService::RefreshCatalogIfStale(
     result.failureMessage = "Online catalog refresh failed";
     return result;
   }
+
+  const auto parsedRefresh =
+      mvr::gdtf_catalog_parser::ParseCatalog(refreshedListData);
+  if (!parsedRefresh.IsUsable()) {
+    result.staleFallback = result.snapshot.has_value();
+    result.failureMessage = "Online catalog refresh returned no usable entries";
+    Logger::Instance().Log(
+        Logger::Level::Warn,
+        "Rejected unusable GDTF catalog refresh: bytes=" +
+            std::to_string(parsedRefresh.payloadBytes) + " fingerprint=" +
+            parsedRefresh.payloadFingerprint + " usable_entries=" +
+            std::to_string(parsedRefresh.usableEntryCount));
+    return result;
+  }
+  result.parsedCatalog = parsedRefresh;
 
   GdtfCatalogSnapshot refreshedSnapshot;
   refreshedSnapshot.listData = refreshedListData;

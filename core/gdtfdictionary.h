@@ -19,6 +19,7 @@
 
 #include "dictionary_import.h"
 
+#include <cctype>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -76,6 +77,18 @@ namespace GdtfDictionary {
     // Returns the stored entry for a given type when the referenced file exists.
     // Missing referenced files return std::nullopt without mutating the dictionary.
     std::optional<Entry> Get(const std::string& type);
+    // Normalizes a fixture alias with the same rules used by dictionary lookup.
+    inline std::string NormalizeTypeKey(const std::string& type) {
+        std::string normalized;
+        normalized.reserve(type.size());
+        for (unsigned char character : type) {
+            if (std::isspace(character) != 0)
+                continue;
+            normalized.push_back(
+                static_cast<char>(std::toupper(character)));
+        }
+        return normalized;
+    }
     // Looks up a type in an already loaded dictionary without reloading from disk.
     std::optional<Entry> FindInLoadedDictionary(
         const std::unordered_map<std::string, Entry>& dict,
@@ -101,6 +114,17 @@ namespace GdtfDictionary {
     std::optional<Entry> CreateOrUpdatePerastageLibraryDerivative(
         const std::string& type, const std::string& gdtfPath,
         const std::string& mode = {}, const std::string& category = {});
+    struct ExternalMappingResult {
+        bool success = false;
+        Entry entry;
+        std::string failureStage;
+        std::string error;
+        std::string storedFileName;
+    };
+    // Registers a validated external GDTF without claiming Perastage derivative ownership.
+    ExternalMappingResult CreateOrUpdateExternalLibraryMapping(
+        const std::string& type, const std::string& gdtfPath,
+        const std::string& mode = {});
     // Updates dictionary metadata without copying fixture files into the library.
     void UpdateDictionaryEntry(const std::string& type, const Entry& entry);
     void UpdateCategory(const std::string& type, const std::string& category);

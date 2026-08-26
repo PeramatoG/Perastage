@@ -28,6 +28,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_dmx_inspector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_mode_channel_browser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_service.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_workflow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_download_filename.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
@@ -71,6 +73,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/startup_profile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rigging_extra_weight_settings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_grouping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp

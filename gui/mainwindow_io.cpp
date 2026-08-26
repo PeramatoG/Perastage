@@ -19,6 +19,7 @@
 #include "mvrxchange/mvr_xchange_dialog.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow_io_controller.h"
+#include "rider_fixture_resolution_workflow.h"
 
 #include <algorithm>
 #include <chrono>
@@ -442,6 +443,19 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   const std::filesystem::path selectedPath(dlg.GetPath().ToStdWstring());
   const auto pathU8 = selectedPath.u8string();
   const std::string pathUtf8(pathU8.begin(), pathU8.end());
+  const std::string riderText = RiderImporter::LoadText(pathUtf8);
+  if (riderText.empty()) {
+    wxMessageBox(_("Failed to read rider."), _("Error"), wxICON_ERROR, this);
+    return;
+  }
+  std::string preparedRiderText;
+  RiderImporter::ImportPlan importPlan;
+  const auto preflightResult =
+      rider_fixture_resolution_gui::RunCreateFromTextPreflight(
+          this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText,
+          &preparedRiderText, &importPlan);
+  if (preflightResult != rider_fixture_resolution_gui::PreflightResult::Proceed)
+    return;
   std::unique_ptr<wxWindowDisabler> importDisabler =
       std::make_unique<wxWindowDisabler>();
   std::unique_ptr<wxBusyInfo> importOverlay =
@@ -450,7 +464,9 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
 
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
-  if (!RiderImporter::Import(pathUtf8)) {
+  if (!RiderImporter::ImportText(
+          preparedRiderText.empty() ? riderText : preparedRiderText, {}, true,
+          &importPlan)) {
     wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
@@ -479,6 +495,21 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
     return;
   }
 
+  std::string preparedRiderText;
+  RiderImporter::ImportPlan importPlan;
+  const auto preflightResult =
+      rider_fixture_resolution_gui::RunCreateFromTextPreflight(
+          this, GetDefaultGuiConfigServices().LegacyConfigManager(), riderText,
+          &preparedRiderText, &importPlan);
+  if (preflightResult !=
+      rider_fixture_resolution_gui::PreflightResult::Proceed) {
+    diagnostics::DiagnosticLogger::Info(
+        preflightResult == rider_fixture_resolution_gui::PreflightResult::Cancelled
+            ? "Text/rider fixture preflight cancelled."
+            : "Text/rider fixture preflight failed.");
+    return;
+  }
+
   LockViewportInteraction();
   ScopeExit viewportUnlock([this]() { UnlockViewportInteraction(); });
   std::unique_ptr<wxWindowDisabler> createDisabler =
@@ -488,9 +519,8 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
   std::unique_ptr<wxProgressDialog> createProgress;
   wxYieldIfNeeded();
 
-  const bool riderTextAlreadyFiltered = dlg.IsCurrentTextFilteredPreview();
   if (!RiderImporter::ImportText(
-          riderText,
+          preparedRiderText.empty() ? riderText : preparedRiderText,
           [&](const RiderImporter::ProgressState &progress) {
             if (!GetStatusBar())
               return;
@@ -519,7 +549,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
             }
             GetStatusBar()->Update();
           },
-          riderTextAlreadyFiltered)) {
+          true, &importPlan)) {
     wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");

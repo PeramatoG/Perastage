@@ -95,6 +95,22 @@ int main() {
   }
   assert(HasCanonicalSerialization(preview));
 
+  const auto rawRequests = RiderImporter::AnalyzeFixtureTypes(input);
+  const auto filteredRequests = RiderImporter::AnalyzeFixtureTypes(preview);
+  assert(rawRequests.size() == 4);
+  assert(filteredRequests.size() == rawRequests.size());
+  for (size_t i = 0; i < rawRequests.size(); ++i) {
+    assert(rawRequests[i].typeName == filteredRequests[i].typeName);
+    assert(rawRequests[i].quantity == filteredRequests[i].quantity);
+    assert(rawRequests[i].positions == filteredRequests[i].positions);
+  }
+  const auto aggregated = RiderImporter::AnalyzeFixtureTypes(
+      "LX1:\n8 GLP JDC1\nLX2:\n4 GLP JDC1\n");
+  assert(aggregated.size() == 1);
+  assert(aggregated.front().quantity == 12);
+  assert((aggregated.front().positions ==
+          std::vector<std::string>{"LX1", "LX2"}));
+
   const std::string crlfPreview =
       RiderImporter::BuildFixtureFilterPreview(ToCrLf(input));
   assert(crlfPreview == preview);
@@ -287,6 +303,15 @@ int main() {
   assert(RiderImporter::BuildFixtureFilterPreview(englishRegression) ==
          englishExpected);
   assertImportParity(englishRegression);
+
+  const auto screenAnalysis = RiderImporter::AnalyzeText(
+      "VIDEO\nPANTALLA LED\n1 PANTALLA LED 10x5m\n");
+  assert(screenAnalysis.fixtureTypes.empty());
+  assert(screenAnalysis.filteredText.find("PANTALLA LED 10x5m") !=
+         std::string::npos);
+  const auto nonFixtureVideoAnalysis = RiderImporter::AnalyzeFixtureTypes(
+      "VIDEO\nPANTALLA LED\n1 ASUS CONTROL DE CONTENIDO\n");
+  assert(nonFixtureVideoAnalysis.empty());
 
   const std::string keywordFixtureRegression =
       "FLOOR\n1 FIXTURE VIDEO CONTROL AUDIO LIGHTING\n2 HAZER\n";

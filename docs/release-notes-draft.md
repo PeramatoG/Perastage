@@ -4,6 +4,11 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Create from text now stops before scene creation when a rider contains unknown
+  fixture types, presents a resolution table with cached GDTF Share suggestions,
+  explicit mode selection and Generic fallback, and remembers confirmed GDTF
+  mappings for later riders.
+
 - Automatic DMX patching now keeps logical lighting Positions and their
   physically separate bridge components together whenever universe capacity
   allows, including deterministic serpentine patching for parallel side
@@ -38,6 +43,51 @@ Changes since **v1.5.0**.
   results instead of repeatedly scanning the same profile.
 
 ## Fixes
+
+- Create-from-text fixture-resolution checks now use the repository's portable
+  test launchers consistently across Debug CI platforms.
+
+- Resolve fixture types now builds reliably with MSVC when displaying an empty
+  fixture-mode selection.
+
+- Create from text now keeps Generic fallback immediately available, excludes
+  screens and video-control equipment from fixture resolution, shows cached
+  suggestions without delaying the dialog, and rejects empty GDTF Share
+  catalogs without replacing the last known good cache.
+- Fixture resolution now automatically uses the shared MVR catalog matcher,
+  supports corrected fixture names and per-type creation choices, and searches
+  combined manufacturer and model identities such as GLP JDC1.
+- Downloaded GDTF Share files now retain external-source identity when mapped
+  from rider text, and recoverable download, mode, or dictionary failures fall
+  back only the affected fixture type instead of cancelling scene creation.
+- Resolve fixture types now shows real catalog and per-fixture matching progress,
+  retains a final match summary, and uses the same semantic status colors as the
+  MVR GDTF download workflow.
+- Resolve fixture types now keeps stable table rows during background matching
+  and owns its cancellable catalog worker, preventing Debug assertions when
+  rows update or the dialog closes while matching is active.
+- Resolve fixture types now uses a fixed eight-column, analysis-backed table
+  model, preventing Windows Debug assertions caused by an empty model schema
+  while preserving live matching updates, sorting, editing, and status colors.
+- Resolve fixture types now reports the mappings actually shown in the final
+  table and uses portable separators, avoiding misleading match totals and
+  incorrectly encoded summary characters on Windows.
+- New installations can now acquire the shared GDTF catalog directly from the
+  fixture resolver using the established Download GDTF sign-in and cache flow.
+  Manual assignments remain visually distinct, and downloaded profiles use
+  readable catalog-based filenames instead of numeric revision identifiers.
+- Catalog sign-in, download, parsing, and automatic matching progress now stay
+  inside Resolve fixture types instead of opening additional progress windows,
+  with stable completion, cancellation, and offline-fallback status messages.
+- Automatic rider catalog matching now skips fixture types already resolved by
+  the active dictionary or an explicit choice, reducing unnecessary matching
+  work and making progress totals reflect only unresolved rows.
+- Shared colored data-view stores now validate item ownership and model-column
+  bounds before value access or sorting, and resolver row updates publish one
+  final attribute notification instead of exposing partial Status changes.
+
+- Rider-import test executables now link reliably when using the shared fixture
+  dictionary alias normalization required by Create from text analysis.
 
 - Download GDTF now requests sign-in before loading an uncached catalog and no
   longer opens an unusable empty search window when credentials are missing,
@@ -551,6 +601,8 @@ Changes since **v1.5.0**.
   MVR object's display name or catalog popularity.
 
 ## Internal changes
+
+- Improved MVR-xchange TCP lifecycle diagnostics for cross-platform test runs.
 
 - Made the fixture-symbol processing ownership check portable across the Bash
   versions and filesystem path conventions used by Debug CI runners.

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
+#include "../gui/gdtf_resolution_status_style.h"
 #include "apppaths.h"
 #include "build_info.h"
 #include "configmanager.h"
@@ -4016,16 +4017,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               auto rowTextColor = [](DownloadRowState state) -> wxColour {
                 switch (state) {
                 case DownloadRowState::Downloaded:
-                  return wxColour(30, 120, 60);
+                  return GdtfResolutionStatusColour(
+                      rider_fixture_resolution::StatusSemantic::Success);
                 case DownloadRowState::Fallback:
-                  return wxColour(150, 100, 0);
+                  return GdtfResolutionStatusColour(
+                      rider_fixture_resolution::StatusSemantic::Warning);
                 case DownloadRowState::Canceled:
-                  return wxColour(130, 130, 130);
+                  return GdtfResolutionStatusColour(
+                      rider_fixture_resolution::StatusSemantic::Muted);
                 case DownloadRowState::Downloading:
-                  return wxColour(20, 80, 160);
+                  return GdtfResolutionStatusColour(
+                      rider_fixture_resolution::StatusSemantic::Information);
                 case DownloadRowState::Pending:
                 default:
-                  return wxColour(80, 80, 80);
+                  return GdtfResolutionStatusColour(
+                      rider_fixture_resolution::StatusSemantic::Neutral);
                 }
               };
 

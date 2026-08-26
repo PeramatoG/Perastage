@@ -1059,6 +1059,16 @@ target_link_libraries(truss_path_encoding_regression_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME TrussPathEncodingRegression COMMAND truss_path_encoding_regression_test)
 
+add_executable(rider_fixture_resolution_test
+               rider_fixture_resolution_test.cpp
+               ../core/rider_fixture_resolution.cpp
+               ../mvr/gdtf_catalog_matcher.cpp)
+target_include_directories(rider_fixture_resolution_test PRIVATE
+                           ../core ../mvr ../third_party)
+add_test(NAME RiderFixtureResolution COMMAND rider_fixture_resolution_test)
+add_bash_policy_test(RiderFixturePreflightWiring
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_rider_fixture_preflight_wiring.sh)
+
 add_executable(rider_truss_dictionary_normalization_test
                rider_truss_dictionary_normalization_test.cpp
                support/gdtf_test_fixture_builder.cpp
@@ -2797,6 +2807,32 @@ add_test(NAME FixtureGeometryBoundsRendererUnitParity
          COMMAND fixture_geometry_bounds_test)
 add_test(NAME FixtureGeometryBoundsTranslatedChild
          COMMAND fixture_geometry_bounds_test)
+
+add_executable(colorful_dataview_store_bounds_test
+               colorful_dataview_store_bounds_test.cpp)
+target_include_directories(colorful_dataview_store_bounds_test PRIVATE ../gui)
+target_link_libraries(colorful_dataview_store_bounds_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME ColorfulDataViewStoreBounds
+         COMMAND colorful_dataview_store_bounds_test)
+
+add_executable(rider_fixture_resolution_model_test
+               rider_fixture_resolution_model_test.cpp
+               ../gui/rider_fixture_resolution_model.cpp
+               ../core/rider_fixture_resolution.cpp
+               ../mvr/gdtf_catalog_matcher.cpp)
+target_include_directories(rider_fixture_resolution_model_test PRIVATE
+                           ../gui ../core ../mvr ../third_party)
+target_link_libraries(rider_fixture_resolution_model_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME RiderFixtureResolutionModel
+         COMMAND rider_fixture_resolution_model_test)
+
+add_executable(gdtf_download_filename_test
+               gdtf_download_filename_test.cpp
+               ../core/gdtf_download_filename.cpp)
+target_include_directories(gdtf_download_filename_test PRIVATE ../core)
+add_test(NAME GdtfDownloadFilename COMMAND gdtf_download_filename_test)
 
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)

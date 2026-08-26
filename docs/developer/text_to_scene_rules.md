@@ -1,5 +1,88 @@
 # Text-to-scene rules (Rider importer)
 
+## Fixture type resolution preflight
+
+Create from text analyzes unique normalized fixture aliases with the same rider
+parser used by the final import. The analysis is non-destructive and aggregates
+quantity and Positions before any scene objects are created. The active fixture
+dictionary is always checked first; when all referenced profiles exist, scene
+creation proceeds without an additional prompt or catalog work.
+
+Unknown aliases may be compared with the cached GDTF Share catalog, so catalog
+suggestions can be inspected offline. Exact normalized model matches are safe
+suggestions, plausible weaker matches require review, numeric model
+contradictions remain unresolved, and no selection is downloaded merely by
+opening preflight. A confirmed real selection is remembered in the fixture
+dictionary, while Generic means the established fallback for that import and
+does not create a permanent dummy mapping. Profiles with one valid DMX mode may
+select it automatically; profiles with multiple modes require an explicit mode
+choice before their mapping can be committed.
+
+The runtime call chain is `RiderTextDialog` → `AnalyzeFixtureTypes` → cached
+catalog parsing and dictionary-first resolution → `RiderFixtureResolutionDialog`
+when intervention is required → confirmed downloads and dictionary persistence
+→ `RiderImporter::ImportText`. Cancellation and failed resolution return before
+the importer pushes its undo state or accesses mutable scene content. When no
+cached catalog exists, the open resolver makes one acquisition attempt through
+`DetermineCatalogAccessAction`, `GdtfCatalogService`, and the established GDTF
+Share credential flow. A successful validated refresh updates the normal shared
+cache and starts matching in the current resolver; cancellation or failure
+leaves Generic and Cancel available offline.
+The dialog owns the cache and online-acquisition workers. Network login,
+catalog retrieval, parsing, and matching run outside the UI thread and report
+stages to the dialog's existing label and gauge. Only credential entry crosses
+back to a modal UI prompt; automatic acquisition never opens a nested progress
+dialog. Confirming or cancelling stops acceptance of late results.
+Catalog matching targets only enabled, unresolved, untouched rows. Dictionary,
+DictionaryModified, UserSelection, AutomaticMatch, Generic, and Skipped rows
+are excluded, and determinate progress totals count only the remaining targets.
+
+`AnalyzeText()` owns the single raw rider parse used by preflight and returns
+both filtered import text and fixture requests. Final creation imports that
+prepared text in already-filtered mode. Equipment classification is shared by
+analysis and creation: screen descriptions on the SCREEN Position become scene
+objects, and semantic operator/content-control requests are non-fixture
+equipment rather than dummy fixtures.
+
+The dialog initially receives dictionary-only state and starts validated cached
+catalog loading after it becomes visible. Review and Unresolved rows visibly
+default to Generic; incomplete or mode-ambiguous real selections normalize to
+Generic on confirmation. Catalog payloads are usable only when their schema is
+recognized and at least one downloadable named entry is parsed. Invalid online
+refreshes are rejected before cache publication, preserving the last known good
+snapshot.
+
+Both **Create from text** and file-based **Import Rider** use this prepared
+analysis and the same fixture-resolution preflight before scene mutation.
+
+Each resolution row preserves its immutable parsed fixture identity separately
+from its editable effective fixture type. A prepared import plan applies the
+effective type or skips the original normalized request during fixture creation;
+non-fixture scene elements are unaffected. Automatic resolution delegates to
+`SelectBestDownloadMatch()` from the shared MVR matcher.
+
+Downloaded catalog profiles are registered as validated external library
+sources through `CreateOrUpdateExternalLibraryMapping`; this path deliberately
+does not invoke the `@Perastage` derivative publication contract. Recoverable
+authentication, download, validation, mode, and persistence failures update
+only the affected row to Generic fallback. User cancellation remains the only
+normal preflight outcome that cancels the complete import.
+External downloads use the shared portable catalog-identity filename policy;
+the GDTF Share RID remains revision identity and is used as a suffix only when
+the readable local filename collides.
+
+The GUI-independent resolver reports `LoadingCatalog`, `ParsingCatalog`,
+`MatchingFixtures`, `Complete`, and `Unavailable` progress. Matching progress
+uses actual processed unique fixture rows, and the dialog ignores automatic
+results after its import plan has been committed. Resolution provenance maps to
+a shared semantic status palette also used by the MVR GDTF download queue.
+
+Resolver rows have immutable non-zero model keys for the dialog lifetime.
+Matching updates cells and Status attributes in place rather than deleting and
+rebuilding the active data view. The dialog owns a cancellable `std::jthread`;
+confirming or cancelling requests stop, ignores queued results, and preserves
+the finalized import plan.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

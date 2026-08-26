@@ -88,6 +88,10 @@ int main() {
   const std::filesystem::path nestedDummyFixtureFile =
       fixturesDir / "Dummy 1ch.gdtf";
   tests::gdtf::BuildMinimalValidFixture().WriteArchive(fixtureFile);
+  const std::filesystem::path externalFixtureFile =
+      isolatedRoot / "downloads" / "GLP@JDC1.gdtf";
+  std::filesystem::create_directories(externalFixtureFile.parent_path());
+  tests::gdtf::BuildMinimalValidFixture().WriteArchive(externalFixtureFile);
   WriteFile(unknownFixtureFile, "not a zip archive");
   WriteNestedDescriptionGdtf(nestedDummyFixtureFile);
 
@@ -129,6 +133,17 @@ int main() {
       "");
   dummyCanonicalPathEntry = GdtfDictionary::Get("Some Type");
   assert(!dummyCanonicalPathEntry.has_value());
+
+  const auto externalMapping =
+      GdtfDictionary::CreateOrUpdateExternalLibraryMapping(
+          "GLP JDC1", externalFixtureFile.string(), "ModeA");
+  assert(externalMapping.success);
+  assert(externalMapping.entry.mode == "ModeA");
+  assert(std::filesystem::exists(externalMapping.entry.path));
+  assert(std::filesystem::path(externalMapping.entry.path).filename() ==
+         "GLP@JDC1.gdtf");
+  assert(!GdtfDictionary::IsPerastageNamedGdtfFile(
+      externalMapping.entry.path));
 
   assert(GdtfDictionary::Save(*loadedOpt));
 

@@ -20,6 +20,7 @@
 #include <wx/dataview.h>
 #include <wx/timer.h>
 #include <functional>
+#include <optional>
 #include <thread>
 #include <vector>
 #include "../mvr/gdtf_catalog_matcher.h"
@@ -50,11 +51,16 @@ public:
                      const std::string& cachedUpdatedAt,
                      RefreshCatalogFn refreshCatalogFn,
                      GdtfCatalogDisplaySource initialSource = GdtfCatalogDisplaySource::Cached,
-                     bool downloadRequiresAuthentication = false);
+                     bool downloadRequiresAuthentication = false,
+                     const std::string& initialFixtureQuery = {},
+                     std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
+                         initialParsedEntries = {});
     ~GdtfSearchDialog() override;
     std::string GetSelectedId() const;
     std::string GetSelectedUrl() const;
     std::string GetSelectedName() const;
+    std::optional<mvr::gdtf_catalog_matcher::GdtfCatalogEntry>
+    GetSelectedEntry() const;
     std::string GetCurrentListData() const;
 private:
     void ParseList(const std::string& listData);
@@ -77,6 +83,7 @@ private:
 
     wxTextCtrl* manufacturerCtrl = nullptr;
     wxTextCtrl* fixtureCtrl = nullptr;
+    wxTextCtrl* generalQueryCtrl = nullptr;
     wxDataViewListCtrl* resultTable = nullptr;
     wxStaticText* statusLabel = nullptr;
     wxButton* prevPageButton = nullptr;

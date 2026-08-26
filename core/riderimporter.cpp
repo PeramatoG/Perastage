@@ -1210,6 +1210,32 @@ struct ParsedRiderImport {
   std::string filteredPreviewText;
 };
 
+enum class RiderEquipmentKind { Fixture, ScreenObject, NonFixture };
+
+// Classifies parsed equipment with the same semantics used by analysis and import.
+RiderEquipmentKind ClassifyRiderEquipment(const std::string &position,
+                                          const std::string &description) {
+  const bool screenPosition = NormalizeHangName(position) == "SCREEN";
+  const bool screenDescription =
+      ContainsCaseInsensitive(description, "pantalla") ||
+      ContainsCaseInsensitive(description, "screen") ||
+      ContainsCaseInsensitive(description, "led wall");
+  if (screenPosition && screenDescription)
+    return RiderEquipmentKind::ScreenObject;
+
+  const bool operatorEquipment =
+      ContainsCaseInsensitive(description, "operador") ||
+      ContainsCaseInsensitive(description, "operator");
+  const bool videoControlEquipment = screenPosition &&
+      (ContainsCaseInsensitive(description, "control de contenido") ||
+       ContainsCaseInsensitive(description, "content control") ||
+       ContainsCaseInsensitive(description, "media server") ||
+       ContainsCaseInsensitive(description, "servidor de medios"));
+  if (operatorEquipment || videoControlEquipment)
+    return RiderEquipmentKind::NonFixture;
+  return RiderEquipmentKind::Fixture;
+}
+
 // Parses raw rider text into filtered import requests and preview metadata.
 ParsedRiderImport ParseRiderImport(const std::string &text) {
   ParsedRiderImport parsed;
@@ -1679,6 +1705,57 @@ std::string RiderImporter::BuildFixtureFilterPreview(const std::string &text) {
   return BuildFilteredPreviewText(ParseRiderImport(text));
 }
 
+// Aggregates fixture aliases from the same parser output used by scene import.
+std::vector<RiderImporter::FixtureTypeRequest>
+RiderImporter::AnalyzeFixtureTypes(const std::string &text) {
+  return AnalyzeText(text).fixtureTypes;
+}
+
+// Prepares fixture resolution and final filtered import data from one parse.
+RiderImporter::TextAnalysis RiderImporter::AnalyzeText(const std::string &text) {
+  const ParsedRiderImport parsed = ParseRiderImport(text);
+  TextAnalysis analysis;
+  analysis.filteredText = BuildSceneImportText(parsed);
+  std::vector<FixtureTypeRequest> requests;
+  std::unordered_map<std::string, size_t> indices;
+  for (const std::string &encoded : parsed.fixtureRequests) {
+    const size_t newline = encoded.find('\n');
+    if (newline == std::string::npos)
+      continue;
+    const std::string position = Trim(encoded.substr(0, newline));
+    const std::string fixtureLine = encoded.substr(newline + 1);
+    std::smatch match;
+    if (!std::regex_match(fixtureLine, match, kFixtureLineRe))
+      continue;
+    int quantity = 0;
+    if (!TryParseInt(match[1].str(), quantity) || quantity <= 0)
+      continue;
+    const std::string displayName = Trim(match[2].str());
+    if (ClassifyRiderEquipment(position, displayName) !=
+        RiderEquipmentKind::Fixture)
+      continue;
+    const std::string normalized = GdtfDictionary::NormalizeTypeKey(displayName);
+    if (normalized.empty())
+      continue;
+    auto [it, inserted] = indices.emplace(normalized, requests.size());
+    if (inserted) {
+      FixtureTypeRequest request;
+      request.typeName = displayName;
+      request.normalizedTypeName = normalized;
+      requests.push_back(std::move(request));
+    }
+    FixtureTypeRequest &request = requests[it->second];
+    request.quantity += quantity;
+    if (!position.empty() &&
+        std::find(request.positions.begin(), request.positions.end(), position) ==
+            request.positions.end()) {
+      request.positions.push_back(position);
+    }
+  }
+  analysis.fixtureTypes = std::move(requests);
+  return analysis;
+}
+
 struct ImportedGdtfMetadata {
   std::string parsedFixtureName;
   bool hasProperties = false;
@@ -1774,7 +1851,8 @@ void ApplyImportedGdtfMetadata(Fixture &fixture,
 // Imports rider text into the current scene.
 bool RiderImporter::ImportText(const std::string &text,
                                ProgressCallback progressCallback,
-                               bool skipFixtureFilterPreview) {
+                               bool skipFixtureFilterPreview,
+                               const ImportPlan *importPlan) {
   if (text.empty())
     return false;
   RiderImportTimingStats timing;
@@ -2051,12 +2129,11 @@ bool RiderImporter::ImportText(const std::string &text,
         linearPlacementHangs.insert(currentHang);
       else if (!placementKey.empty())
         seenTypesForHang.insert(placementKey);
-      const bool isScreenHang = NormalizeHangName(currentHang) == "SCREEN";
-      const bool isScreenDescription =
-          ContainsCaseInsensitive(part, "pantalla") ||
-          ContainsCaseInsensitive(part, "screen") ||
-          ContainsCaseInsensitive(part, "led wall");
-      if (isScreenHang && isScreenDescription) {
+      const RiderEquipmentKind equipmentKind =
+          ClassifyRiderEquipment(currentHang, part);
+      if (equipmentKind == RiderEquipmentKind::NonFixture)
+        return;
+      if (equipmentKind == RiderEquipmentKind::ScreenObject) {
         float screenWidthMm = 8000.0f;
         float screenHeightMm = 5000.0f;
         TryParseScreenDimensionsMm(part, screenWidthMm, screenHeightMm);
@@ -2075,6 +2152,21 @@ bool RiderImporter::ImportText(const std::string &text,
           screenObjectRequests.push_back(std::move(request));
         }
         return;
+      }
+      const std::string originalNormalized =
+          GdtfDictionary::NormalizeTypeKey(part);
+      if (importPlan) {
+        const auto selection = std::find_if(
+            importPlan->fixtureSelections.begin(),
+            importPlan->fixtureSelections.end(), [&](const auto &candidate) {
+              return candidate.originalNormalizedTypeName == originalNormalized;
+            });
+        if (selection != importPlan->fixtureSelections.end()) {
+          if (!selection->create)
+            return;
+          if (!selection->effectiveTypeName.empty())
+            part = selection->effectiveTypeName;
+        }
       }
       int &counter = nameCounters[part];
       for (int i = 0; i < quantity; ++i) {
