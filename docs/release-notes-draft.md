@@ -66,6 +66,9 @@ Changes since **v1.5.0**.
 - Resolve fixture types now registers every custom data-view model column before
   rows are rendered, fixing the Windows Debug assertion raised when wxWidgets
   requested Status or Details values from an empty model-column vector.
+- Shared colored data-view stores now validate item ownership and model-column
+  bounds before value access or sorting, and resolver row updates publish one
+  final attribute notification instead of exposing partial Status changes.
 
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.

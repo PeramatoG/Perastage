@@ -17,6 +17,8 @@
  */
 #pragma once
 #include <algorithm>
+#include <cstdint>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 #include <wx/dataview.h>
@@ -40,6 +42,38 @@ public:
   bool selectionForegroundEnabled = false;
   bool highlightBackgroundEnabled = false;
   bool highlightForegroundEnabled = false;
+
+  // Finds a model-owned row without trusting a transient item identifier.
+  std::optional<unsigned> FindOwnedRow(const wxDataViewItem &item) const {
+    if (!item.IsOk())
+      return std::nullopt;
+    const unsigned count = GetItemCount();
+    for (unsigned row = 0; row < count; ++row) {
+      if (GetItem(row) == item)
+        return row;
+    }
+    return std::nullopt;
+  }
+
+  // Returns a cell value only when both item and model column are valid.
+  void GetValue(wxVariant &value, const wxDataViewItem &item,
+                unsigned int column) const override {
+    const auto row = FindOwnedRow(item);
+    if (!row || column >= GetColumnCount()) {
+      value.MakeNull();
+      return;
+    }
+    wxDataViewListStore::GetValueByRow(value, *row, column);
+  }
+
+  // Updates a cell only when both item and model column are valid.
+  bool SetValue(const wxVariant &value, const wxDataViewItem &item,
+                unsigned int column) override {
+    const auto row = FindOwnedRow(item);
+    return row && column < GetColumnCount()
+               ? wxDataViewListStore::SetValueByRow(value, *row, column)
+               : false;
+  }
 
   bool GetAttrByRow(unsigned row, unsigned col,
                     wxDataViewItemAttr &attr) const override {
@@ -198,21 +232,22 @@ public:
     }
   }
 
-  void SetCellTextColour(unsigned row, unsigned col, const wxColour &colour) {
+  void SetCellTextColour(unsigned row, unsigned col, const wxColour &colour,
+                         bool notify = true) {
     if (row >= cellAttrs.size())
       cellAttrs.resize(row + 1);
     if (col >= cellAttrs[row].size())
       cellAttrs[row].resize(col + 1);
     cellAttrs[row][col].SetColour(colour);
-    if (row < GetItemCount())
+    if (notify && row < GetItemCount())
       RowChanged(row);
   }
 
-  void ClearCellTextColour(unsigned row, unsigned col) {
+  void ClearCellTextColour(unsigned row, unsigned col, bool notify = true) {
     if (row >= cellAttrs.size() || col >= cellAttrs[row].size())
       return;
     cellAttrs[row][col] = wxDataViewItemAttr();
-    if (row < GetItemCount())
+    if (notify && row < GetItemCount())
       RowChanged(row);
   }
 
@@ -318,13 +353,19 @@ public:
 
   int Compare(const wxDataViewItem &item1, const wxDataViewItem &item2,
               unsigned int column, bool ascending) const override {
+    const auto row1 = FindOwnedRow(item1);
+    const auto row2 = FindOwnedRow(item2);
+    if (!row1 || !row2 || column >= GetColumnCount()) {
+      const auto key1 = reinterpret_cast<std::uintptr_t>(item1.GetID());
+      const auto key2 = reinterpret_cast<std::uintptr_t>(item2.GetID());
+      const int fallback = key1 < key2 ? -1 : (key1 > key2 ? 1 : 0);
+      return ascending ? fallback : -fallback;
+    }
     int res = 0;
     if (column == 1) {
       wxVariant v1, v2;
-      const_cast<ColorfulDataViewListStore *>(this)->GetValue(v1, item1,
-                                                              column);
-      const_cast<ColorfulDataViewListStore *>(this)->GetValue(v2, item2,
-                                                              column);
+      wxDataViewListStore::GetValueByRow(v1, *row1, column);
+      wxDataViewListStore::GetValueByRow(v2, *row2, column);
       wxString s1 = v1.GetString();
       wxString s2 = v2.GetString();
 
@@ -352,7 +393,12 @@ public:
         res = s1.Cmp(s2);
       }
     } else {
-      res = wxDataViewListStore::Compare(item1, item2, column, true);
+      wxVariant v1, v2;
+      wxDataViewListStore::GetValueByRow(v1, *row1, column);
+      wxDataViewListStore::GetValueByRow(v2, *row2, column);
+      res = v1.GetString().Cmp(v2.GetString());
+      if (v1.GetType() == "bool" && v2.GetType() == "bool")
+        res = static_cast<int>(v1.GetBool()) - static_cast<int>(v2.GetBool());
     }
 
     if (res == 0) {

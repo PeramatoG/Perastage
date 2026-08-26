@@ -7,6 +7,7 @@
 #include "../core/diagnostics/DiagnosticLogger.h"
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <sstream>
@@ -122,6 +123,7 @@ void RiderFixtureResolutionDialog::BuildLayout() {
   tableStore->AppendColumn("bool");
   for (int column = 1; column < 8; ++column)
     tableStore->AppendColumn("string");
+  wxASSERT(tableStore->GetColumnCount() == 8);
   table->AssociateModel(tableStore);
   tableStore->DecRef();
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
@@ -202,6 +204,9 @@ void RiderFixtureResolutionDialog::PopulateTable() {
                       : wxString::FromUTF8(item.selectedMode));
     row.push_back(wxString::FromUTF8(rider_fixture_resolution::OriginName(item.origin)));
     row.push_back(wxString::FromUTF8(item.details));
+    wxASSERT(row.size() == tableStore->GetColumnCount());
+    if (row.size() != tableStore->GetColumnCount())
+      continue;
     tableStore->AppendItem(row, static_cast<wxUIntPtr>(index + 1));
     const unsigned rowIndex = static_cast<unsigned>(tableStore->GetItemCount() - 1);
     const unsigned statusColumn = 6;
@@ -236,14 +241,18 @@ void RiderFixtureResolutionDialog::UpdateRow(size_t analysisIndex) {
       rider_fixture_resolution::OriginName(item.origin)));
   values.push_back(wxString::FromUTF8(item.details));
   for (unsigned column = 0; column < values.size(); ++column)
-    tableStore->SetValueByRow(values[column], *row, column);
+    if (column < tableStore->GetColumnCount() &&
+        *row < tableStore->GetItemCount())
+      tableStore->SetValueByRow(values[column], *row, column);
   constexpr unsigned statusColumn = 6;
-  tableStore->ClearCellTextColour(*row, statusColumn);
+  tableStore->ClearCellTextColour(*row, statusColumn, false);
   const auto semantic =
       rider_fixture_resolution::StatusSemanticForOrigin(item.origin);
   if (semantic != rider_fixture_resolution::StatusSemantic::Neutral)
     tableStore->SetCellTextColour(
-        *row, statusColumn, GdtfResolutionStatusColour(semantic));
+        *row, statusColumn, GdtfResolutionStatusColour(semantic), false);
+  if (*row < tableStore->GetItemCount())
+    tableStore->RowChanged(*row);
   modelUpdateInProgress = false;
 }
 

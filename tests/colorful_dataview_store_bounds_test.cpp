@@ -23,6 +23,19 @@ int main() {
     store.GetValueByRow(value, 0, column);
     assert(!value.IsNull());
   }
+  wxVector<wxVariant> secondValues(values);
+  secondValues[1] = wxString("second row");
+  store.AppendItem(secondValues, 2);
+  const wxDataViewItem firstItem = store.GetItem(0);
+  const wxDataViewItem secondItem = store.GetItem(1);
+  for (unsigned column = 0; column < 8; ++column)
+    (void)store.Compare(firstItem, secondItem, column, true);
+  (void)store.Compare(firstItem, secondItem, 8, true);
+  wxVariant invalidValue;
+  store.GetValue(invalidValue, firstItem, 8);
+  assert(invalidValue.IsNull());
+  store.DeleteItem(1);
+  (void)store.Compare(firstItem, secondItem, 1, true);
   wxDataViewItemAttr attr;
   assert(!store.GetAttrByRow(1, 0, attr));
   store.DeleteAllItems();
