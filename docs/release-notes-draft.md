@@ -44,6 +44,9 @@ Changes since **v1.5.0**.
 
 ## Fixes
 
+- Create-from-text fixture-resolution checks now use the repository's portable
+  test launchers consistently across Debug CI platforms.
+
 - Resolve fixture types now builds reliably with MSVC when displaying an empty
   fixture-mode selection.
 

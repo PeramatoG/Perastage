@@ -2,8 +2,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tests/test_tool_requirements.sh"
 
-python3 - "$repo_root" <<'PY'
+run_test_python - "$repo_root" <<'PY'
 from pathlib import Path
 import sys
 

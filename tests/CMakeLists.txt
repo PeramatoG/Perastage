@@ -1066,10 +1066,8 @@ add_executable(rider_fixture_resolution_test
 target_include_directories(rider_fixture_resolution_test PRIVATE
                            ../core ../mvr ../third_party)
 add_test(NAME RiderFixtureResolution COMMAND rider_fixture_resolution_test)
-if(UNIX)
-  add_test(NAME RiderFixturePreflightWiring
-           COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/check_rider_fixture_preflight_wiring.sh)
-endif()
+add_bash_policy_test(RiderFixturePreflightWiring
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_rider_fixture_preflight_wiring.sh)
 
 add_executable(rider_truss_dictionary_normalization_test
                rider_truss_dictionary_normalization_test.cpp
