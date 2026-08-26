@@ -131,6 +131,31 @@ sections = {
     'windows': ci[ci.index('  windows-debug:'):ci.index('\n  macos-debug:')],
     'macos': ci[ci.index('  macos-debug:'):],
 }
+
+assert '  pull_request:\n    branches:\n      - main\n' in ci, 'CI Debug must run for pull requests targeting main'
+for platform, text in sections.items():
+    platform_slug = f'{platform}-debug'
+    telemetry_step_ids = [
+        'vcpkg-downloads-cache', 'vcpkg-downloads-cache-save', 'vcpkg-cache',
+        'vcpkg-cache-save', 'vcpkg-remote-cache', 'cmake-configure', 'perastage-build',
+    ]
+    for step_id in telemetry_step_ids:
+        assert text.count(f'        id: {step_id}\n') == 1, (
+            f'{platform} Debug telemetry requires exactly one {step_id} step'
+        )
+    for needle in [
+        f'ci-telemetry-{platform_slug}.state.json',
+        f'ci-telemetry-{platform_slug}.json',
+        f'ci-{platform_slug}-performance-telemetry',
+        'steps.vcpkg-downloads-cache.outputs.cache-hit',
+        'steps.vcpkg-downloads-cache-save.outcome',
+        'steps.vcpkg-cache.outputs.cache-hit',
+        'steps.vcpkg-cache-save.outcome',
+        'steps.vcpkg-remote-cache.outputs.remote-enabled',
+        'steps.cmake-configure.outcome',
+        'steps.perastage-build.outcome',
+    ]:
+        assert needle in text, f'{platform} Debug telemetry integration is missing {needle}'
 assert 'push:\n    branches:\n      - main' in ci, 'CI Debug cache warming must trigger only on pushes to main'
 assert 'cache_warming: ${{ steps.resolve.outputs.cache_warming }}' in ci
 assert ci.count("if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}") == 3
