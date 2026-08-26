@@ -67,7 +67,7 @@ Analysis Service::Analyze(
   return result;
 }
 
-// Validates monotonic matching progress independently from any GUI control.
+// Validates catalog acquisition and monotonic matching stage transitions.
 bool Service::IsValidProgressTransition(const Progress &previous,
                                         const Progress &next) {
   if (next.total > 0 && next.current > next.total)
@@ -79,7 +79,31 @@ bool Service::IsValidProgressTransition(const Progress &previous,
       next.stage == ProgressStage::MatchingFixtures)
     return next.total == previous.total && next.current >= previous.current &&
            next.automaticMatches >= previous.automaticMatches;
-  return static_cast<int>(next.stage) >= static_cast<int>(previous.stage);
+  if (next.stage == ProgressStage::Unavailable)
+    return true;
+  switch (previous.stage) {
+  case ProgressStage::LoadingCatalog:
+    return next.stage == ProgressStage::ParsingCatalog ||
+           next.stage == ProgressStage::WaitingForCredentials;
+  case ProgressStage::WaitingForCredentials:
+    return next.stage == ProgressStage::Authenticating;
+  case ProgressStage::Authenticating:
+    return next.stage == ProgressStage::DownloadingCatalog ||
+           next.stage == ProgressStage::WaitingForCredentials;
+  case ProgressStage::DownloadingCatalog:
+    return next.stage == ProgressStage::ParsingCatalog;
+  case ProgressStage::ParsingCatalog:
+    return next.stage == ProgressStage::WaitingForCredentials ||
+           next.stage == ProgressStage::Authenticating ||
+           next.stage == ProgressStage::MatchingFixtures ||
+           next.stage == ProgressStage::Complete;
+  case ProgressStage::MatchingFixtures:
+    return next.stage == ProgressStage::Complete;
+  case ProgressStage::Complete:
+  case ProgressStage::Unavailable:
+    return false;
+  }
+  return false;
 }
 
 // Counts final row provenance without including discarded catalog candidates.

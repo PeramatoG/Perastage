@@ -28,6 +28,11 @@ cached catalog exists, the open resolver makes one acquisition attempt through
 Share credential flow. A successful validated refresh updates the normal shared
 cache and starts matching in the current resolver; cancellation or failure
 leaves Generic and Cancel available offline.
+The dialog owns the cache and online-acquisition workers. Network login,
+catalog retrieval, parsing, and matching run outside the UI thread and report
+stages to the dialog's existing label and gauge. Only credential entry crosses
+back to a modal UI prompt; automatic acquisition never opens a nested progress
+dialog. Confirming or cancelling stops acceptance of late results.
 
 `AnalyzeText()` owns the single raw rider parse used by preflight and returns
 both filtered import text and fixture requests. Final creation imports that

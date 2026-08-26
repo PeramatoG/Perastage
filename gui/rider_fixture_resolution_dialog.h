@@ -2,6 +2,7 @@
 
 #include "../core/rider_fixture_resolution.h"
 #include "../core/gdtf_catalog_service.h"
+#include "../core/credentialstore.h"
 
 #include <string>
 #include <functional>
@@ -36,11 +37,33 @@ public:
     size_t row = 0;
     std::optional<rider_fixture_resolution::Item> matchedItem;
   };
+  enum class OnlineCatalogStatus {
+    Success,
+    AuthenticationRejected,
+    Unavailable
+  };
+  struct OnlineCatalogResult {
+    OnlineCatalogStatus status = OnlineCatalogStatus::Unavailable;
+    std::optional<CatalogData> catalog;
+    std::string error;
+  };
   using CatalogLoader = std::function<std::optional<CatalogData>()>;
+  using OnlineProgressCallback =
+      std::function<void(const rider_fixture_resolution::Progress &)>;
+  using OnlineCatalogLoader = std::function<OnlineCatalogResult(
+      const CredentialStore::Credentials &, std::stop_token,
+      OnlineProgressCallback)>;
+  using CredentialRequester = std::function<
+      std::optional<CredentialStore::Credentials>(bool rejected)>;
+  using CredentialPersistCallback =
+      std::function<void(const CredentialStore::Credentials &)>;
   RiderFixtureResolutionDialog(
       wxWindow *parent, rider_fixture_resolution::Analysis analysis,
       std::unordered_map<std::string, GdtfDictionary::Entry> dictionary,
-      CatalogLoader cachedCatalogLoader, CatalogLoader onlineCatalogLoader);
+      CatalogLoader cachedCatalogLoader, OnlineCatalogLoader onlineCatalogLoader,
+      std::optional<CredentialStore::Credentials> initialCredentials,
+      CredentialRequester credentialRequester,
+      CredentialPersistCallback credentialPersistCallback);
   ~RiderFixtureResolutionDialog() override;
 
   rider_fixture_resolution::Analysis TakeAnalysis();
@@ -51,6 +74,7 @@ private:
   void UpdateRow(size_t analysisIndex);
   void RefreshSelectionControls();
   void RefreshSummary();
+  void RefreshCatalogCompletionStatus();
   void OnSelectionChanged(wxDataViewEvent &event);
   void OnItemActivated(wxDataViewEvent &event);
   void OnValueChanged(wxDataViewEvent &event);
@@ -62,6 +86,7 @@ private:
   void OnCancel(wxCommandEvent &event);
   void OnDialogShown(wxShowEvent &event);
   void OnCatalogLoaded(wxThreadEvent &event);
+  void OnOnlineCatalogLoaded(wxThreadEvent &event);
   void OnProgress(wxThreadEvent &event);
   void ApplyCatalog(const CatalogData &catalog);
   std::vector<RiderImporter::FixtureTypeRequest> BuildFixtureRequests() const;
@@ -69,6 +94,8 @@ private:
   std::optional<size_t> AnalysisIndexForItem(const wxDataViewItem &item) const;
   std::optional<unsigned> StoreRowForAnalysisIndex(size_t analysisIndex) const;
   void RequestWorkerStop();
+  void BeginOnlineCatalogAcquisition(bool rejectedCredentials = false);
+  void StartOnlineCatalogWorker(const CredentialStore::Credentials &credentials);
 
   rider_fixture_resolution::Analysis analysis;
   std::unordered_map<std::string, GdtfDictionary::Entry> dictionary;
@@ -77,7 +104,10 @@ private:
   std::vector<mvr::gdtf_catalog_matcher::GdtfCatalogEntry> catalogEntries;
   CatalogSource catalogSource = CatalogSource::None;
   CatalogLoader cachedCatalogLoader;
-  CatalogLoader onlineCatalogLoader;
+  OnlineCatalogLoader onlineCatalogLoader;
+  std::optional<CredentialStore::Credentials> catalogCredentials;
+  CredentialRequester credentialRequester;
+  CredentialPersistCallback credentialPersistCallback;
   bool catalogLoadStarted = false;
   bool catalogLoading = false;
   bool onlineCatalogLoadAttempted = false;

@@ -30,6 +30,9 @@ On a new installation without a usable cache, Perastage makes one catalog
 acquisition attempt through the same GDTF Share sign-in and validated refresh
 workflow as **Tools > Download GDTF**. Cancelling sign-in or losing network
 access still leaves Generic fallback available.
+Catalog sign-in, download, parsing, and matching progress remain in the
+**Resolve fixture types** progress area; only the credential-entry dialog opens
+separately when user input is required.
 
 Fixture types can be corrected directly in the table without changing the
 source rider text. The **Create** checkbox can omit every fixture represented

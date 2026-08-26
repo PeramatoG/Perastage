@@ -29,12 +29,25 @@ for label, token in required.items():
 
 if "GdtfSearchDialog dialog" not in dialog or "item->effectiveFixtureType" not in dialog:
     raise SystemExit("Resolver Search must call GdtfSearchDialog with the rider alias")
-if "onlineCatalogLoadAttempted" not in dialog or "onlineCatalogLoader()" not in dialog:
+if "onlineCatalogLoadAttempted" not in dialog or "BeginOnlineCatalogAcquisition" not in dialog:
     raise SystemExit("Resolver must attempt shared online catalog acquisition after a cache miss")
 if "DetermineCatalogAccessAction" not in workflow:
     raise SystemExit("Resolver catalog acquisition must use the shared GDTF access policy")
 if "gdtf_download_filename::ChooseDestination" not in workflow:
     raise SystemExit("Resolver downloads must use the shared readable filename policy")
+online_loader_start = workflow.find("auto loadOnlineCatalog")
+credential_request_start = workflow.find("auto requestCatalogCredentials", online_loader_start)
+if online_loader_start < 0 or credential_request_start < 0:
+    raise SystemExit("Resolver must expose focused online catalog and credential callbacks")
+automatic_online_path = workflow[online_loader_start:credential_request_start]
+if "WaitForNetworkTask" in automatic_online_path or "wxProgressDialog" in automatic_online_path:
+    raise SystemExit("Automatic resolver catalog acquisition must not open nested progress dialogs")
+if "std::stop_token" not in automatic_online_path:
+    raise SystemExit("Automatic resolver catalog acquisition must support owned cancellation")
+if "Acquiring the shared GDTF catalog" in dialog:
+    raise SystemExit("Resolver must not retain the obsolete non-terminal acquisition label")
+if "RefreshCatalogCompletionStatus" not in dialog:
+    raise SystemExit("Resolver acquisition must publish a stable final status")
 for source in ("rider_fixture_resolution_dialog.cpp",
                "rider_fixture_resolution_model.cpp",
                "rider_fixture_resolution_workflow.cpp"):

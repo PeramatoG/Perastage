@@ -22,6 +22,9 @@ enum class ResolutionOrigin {
 };
 enum class ProgressStage {
   LoadingCatalog,
+  WaitingForCredentials,
+  Authenticating,
+  DownloadingCatalog,
   ParsingCatalog,
   MatchingFixtures,
   Complete,

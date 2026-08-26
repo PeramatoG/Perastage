@@ -159,62 +159,99 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
   };
 
   GdtfShareClient client;
-  std::optional<CredentialStore::Credentials> credentials;
-  auto loadOnlineCatalog = [&]()
-      -> std::optional<RiderFixtureResolutionDialog::CatalogData> {
-    const CredentialStore::LoadResult loadedCredentials =
-        LoadGdtfCredentialsForGuiDetailed(configManager);
-    const auto credentialAvailability =
-        gdtf_share_workflow::DetermineCredentialAvailability(
-            loadedCredentials);
-    const auto initialAction =
-        gdtf_share_workflow::DetermineCatalogAccessAction(
-            false, credentialAvailability, std::nullopt, false);
-    if (initialAction == gdtf_share_workflow::CatalogAccessAction::Cancel ||
-        initialAction ==
-            gdtf_share_workflow::CatalogAccessAction::OpenCachedCatalog)
-      return std::nullopt;
-    if (!EnsureAuthenticated(parent, configManager, client, credentials))
-      return std::nullopt;
+  const CredentialStore::LoadResult loadedCredentials =
+      LoadGdtfCredentialsForGuiDetailed(configManager);
+  std::optional<CredentialStore::Credentials> credentials =
+      loadedCredentials.credentials;
+  const std::string catalogRefreshTime =
+      wxDateTime::UNow().FormatISOCombined(' ').ToStdString();
+  auto loadOnlineCatalog =
+      [&](const CredentialStore::Credentials &onlineCredentials,
+          std::stop_token stopToken,
+          RiderFixtureResolutionDialog::OnlineProgressCallback report)
+      -> RiderFixtureResolutionDialog::OnlineCatalogResult {
+    using OnlineStatus = RiderFixtureResolutionDialog::OnlineCatalogStatus;
+    if (stopToken.stop_requested())
+      return {OnlineStatus::Unavailable, std::nullopt, "cancelled"};
+    report({rider_fixture_resolution::ProgressStage::Authenticating});
+    GdtfShareClient catalogClient;
+    const GdtfShareResult login = catalogClient.Login(
+        onlineCredentials.username, onlineCredentials.password);
+    if (!login.Succeeded()) {
+      const auto action = gdtf_share_workflow::DetermineCatalogAccessAction(
+          false, gdtf_share_workflow::CredentialAvailability::Complete, login,
+          false);
+      return {action == gdtf_share_workflow::CatalogAccessAction::RequestCredentials
+                  ? OnlineStatus::AuthenticationRejected
+                  : OnlineStatus::Unavailable,
+              std::nullopt, FormatGdtfShareUserMessage(login, "login")};
+    }
+    if (stopToken.stop_requested())
+      return {OnlineStatus::Unavailable, std::nullopt, "cancelled"};
+    report({rider_fixture_resolution::ProgressStage::DownloadingCatalog});
     const auto result = catalogService.RefreshCatalogIfStale(
         [&](std::string &payload) {
-          const GdtfShareResult online = WaitForNetworkTask(
-              parent, _("GDTF Share"), _("Refreshing the GDTF catalog..."),
-              std::async(std::launch::async,
-                         [&client]() { return client.GetCatalog(); }));
+          if (stopToken.stop_requested())
+            return false;
+          const GdtfShareResult online = catalogClient.GetCatalog();
           payload = online.payload;
+          if (online.Succeeded() && !payload.empty())
+            report({rider_fixture_resolution::ProgressStage::ParsingCatalog});
           return online.Succeeded() && !payload.empty();
         },
-        wxDateTime::UNow().FormatISOCombined(' ').ToStdString(), 0);
+        catalogRefreshTime, 0);
     if (!result.snapshot)
-      return std::nullopt;
+      return {OnlineStatus::Unavailable, std::nullopt,
+              result.failureMessage};
     if (!result.parsedCatalog || !result.parsedCatalog->IsUsable())
-      return std::nullopt;
+      return {OnlineStatus::Unavailable, std::nullopt,
+              "catalog payload is unusable"};
     const auto resolvedAction =
         gdtf_share_workflow::DetermineCatalogAccessAction(
             result.source == GdtfCatalogResultSource::Cache,
-            credentialAvailability, std::nullopt,
+            gdtf_share_workflow::CredentialAvailability::Complete, login,
             result.source == GdtfCatalogResultSource::Online);
     if (resolvedAction !=
             gdtf_share_workflow::CatalogAccessAction::OpenOnlineCatalog &&
         resolvedAction !=
             gdtf_share_workflow::CatalogAccessAction::OpenCachedCatalog)
-      return std::nullopt;
+      return {OnlineStatus::Unavailable, std::nullopt,
+              "catalog access policy rejected the result"};
     RiderFixtureResolutionDialog::CatalogData data{
         *result.snapshot, result.parsedCatalog->entries,
         result.source == GdtfCatalogResultSource::Online
             ? RiderFixtureResolutionDialog::CatalogSource::Online
             : RiderFixtureResolutionDialog::CatalogSource::Cached};
-    const auto matchStarted = std::chrono::steady_clock::now();
-    data.matches = WaitForNetworkTask(
-        parent, _("GDTF catalog"), _("Matching rider fixture types..."),
-        std::async(std::launch::async, [&requests, &data]() {
-          return rider_fixture_resolution::Service::Analyze(requests, {},
-                                                             data.entries);
-        }));
-    data.matchMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - matchStarted).count();
-    return data;
+    return {OnlineStatus::Success, std::move(data), {}};
+  };
+
+  auto requestCatalogCredentials =
+      [&](bool rejected) -> std::optional<CredentialStore::Credentials> {
+    (void)rejected;
+    const std::string initialUser =
+        credentials ? credentials->username
+                    : loadedCredentials.usernameHint.value_or(std::string());
+    GdtfLoginDialog login(parent, initialUser, std::string());
+    if (login.ShowModal() != wxID_OK)
+      return std::nullopt;
+    CredentialStore::Credentials entered{login.GetUsername(),
+                                         login.GetPassword()};
+    if (entered.username.empty() || entered.password.empty())
+      return std::nullopt;
+    credentials = entered;
+    return entered;
+  };
+
+  auto persistCatalogCredentials =
+      [&](const CredentialStore::Credentials &authenticatedCredentials) {
+    credentials = authenticatedCredentials;
+    const CredentialStore::Result persisted =
+        PersistGdtfCredentialsForGui(authenticatedCredentials, configManager);
+    if (!persisted.Succeeded()) {
+      wxMessageBox(
+          _("GDTF Share authentication succeeded, but the credentials could not be saved securely. You may need to enter them again after restart."),
+          _("GDTF Share credentials"), wxOK | wxICON_WARNING, parent);
+    }
   };
 
   const auto dialogVisibleMs = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -225,7 +262,9 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       std::to_string(dictionaryLoadMs) + " dialog_visible_ms=" +
       std::to_string(dialogVisibleMs));
   RiderFixtureResolutionDialog dialog(parent, std::move(analysis), dictionary,
-                                      loadCachedCatalog, loadOnlineCatalog);
+                                      loadCachedCatalog, loadOnlineCatalog,
+                                      credentials, requestCatalogCredentials,
+                                      persistCatalogCredentials);
   if (dialog.ShowModal() != wxID_OK)
     return PreflightResult::Cancelled;
   analysis = dialog.TakeAnalysis();

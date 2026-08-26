@@ -104,6 +104,18 @@ int main() {
       {ProgressStage::LoadingCatalog}, {ProgressStage::ParsingCatalog}));
   assert(Service::IsValidProgressTransition(
       {ProgressStage::ParsingCatalog},
+      {ProgressStage::WaitingForCredentials}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::WaitingForCredentials},
+      {ProgressStage::Authenticating}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::Authenticating},
+      {ProgressStage::DownloadingCatalog}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::DownloadingCatalog},
+      {ProgressStage::ParsingCatalog}));
+  assert(Service::IsValidProgressTransition(
+      {ProgressStage::ParsingCatalog},
       {ProgressStage::MatchingFixtures, 1, 2, 1}));
   assert(Service::IsValidProgressTransition(
       {ProgressStage::MatchingFixtures, 1, 2, 1},

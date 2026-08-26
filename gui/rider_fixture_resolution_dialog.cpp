@@ -22,6 +22,8 @@
 namespace {
 
 const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_LOADED(wxNewEventType());
+const wxEventTypeTag<wxThreadEvent> EVT_RIDER_ONLINE_CATALOG_LOADED(
+    wxNewEventType());
 const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_PROGRESS(wxNewEventType());
 
 } // namespace
@@ -30,14 +32,21 @@ const wxEventTypeTag<wxThreadEvent> EVT_RIDER_CATALOG_PROGRESS(wxNewEventType())
 RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
     wxWindow *parent, rider_fixture_resolution::Analysis analysisIn,
     std::unordered_map<std::string, GdtfDictionary::Entry> dictionaryIn,
-    CatalogLoader cachedCatalogLoaderIn, CatalogLoader onlineCatalogLoaderIn)
+    CatalogLoader cachedCatalogLoaderIn,
+    OnlineCatalogLoader onlineCatalogLoaderIn,
+    std::optional<CredentialStore::Credentials> initialCredentials,
+    CredentialRequester credentialRequesterIn,
+    CredentialPersistCallback credentialPersistCallbackIn)
     : wxDialog(parent, wxID_ANY, _("Resolve fixture types"), wxDefaultPosition,
                wxSize(1160, 680),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
       analysis(std::move(analysisIn)),
       dictionary(std::move(dictionaryIn)),
       cachedCatalogLoader(std::move(cachedCatalogLoaderIn)),
-      onlineCatalogLoader(std::move(onlineCatalogLoaderIn)) {
+      onlineCatalogLoader(std::move(onlineCatalogLoaderIn)),
+      catalogCredentials(std::move(initialCredentials)),
+      credentialRequester(std::move(credentialRequesterIn)),
+      credentialPersistCallback(std::move(credentialPersistCallbackIn)) {
   BuildLayout();
   PopulateTable();
   RefreshSelectionControls();
@@ -47,6 +56,8 @@ RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
   Bind(wxEVT_SHOW, &RiderFixtureResolutionDialog::OnDialogShown, this);
   Bind(EVT_RIDER_CATALOG_LOADED,
        &RiderFixtureResolutionDialog::OnCatalogLoaded, this);
+  Bind(EVT_RIDER_ONLINE_CATALOG_LOADED,
+       &RiderFixtureResolutionDialog::OnOnlineCatalogLoaded, this);
   Bind(EVT_RIDER_CATALOG_PROGRESS,
        &RiderFixtureResolutionDialog::OnProgress, this);
 }
@@ -72,7 +83,7 @@ void RiderFixtureResolutionDialog::BuildLayout() {
                 _("Review unknown rider fixture types before creating the scene.")),
             0, wxEXPAND | wxALL, 12);
   catalogStatusLabel = new wxStaticText(
-      this, wxID_ANY, _("Loading cached GDTF catalog..."));
+      this, wxID_ANY, _("Checking cached GDTF catalog..."));
   root->Add(catalogStatusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
   catalogProgressGauge = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition,
                                      wxSize(-1, 6), wxGA_HORIZONTAL | wxGA_SMOOTH);
@@ -183,6 +194,19 @@ void RiderFixtureResolutionDialog::RefreshSummary() {
       summary.created, summary.automaticMatches, summary.genericFallbacks,
       summary.skipped));
   resolveButton->Enable(true);
+}
+
+// Shows a stable completion message derived from the applied resolution plan.
+void RiderFixtureResolutionDialog::RefreshCatalogCompletionStatus() {
+  const auto summary = rider_fixture_resolution::Service::Summarize(analysis);
+  if (summary.automaticMatches == 0) {
+    catalogStatusLabel->SetLabel(
+        _("Automatic matching complete | No additional matches found"));
+    return;
+  }
+  catalogStatusLabel->SetLabel(wxString::Format(
+      _("Automatic matching complete | %zu matches | %zu generic fallbacks"),
+      summary.automaticMatches, summary.genericFallbacks));
 }
 
 // Returns the model item corresponding to the selected table row.
@@ -325,13 +349,14 @@ void RiderFixtureResolutionDialog::OnSearch(wxCommandEvent &) {
                    _("GDTF catalog"), wxOK | wxICON_INFORMATION, this);
       return;
     }
-    const auto loaded = onlineCatalogLoader ? onlineCatalogLoader() : std::nullopt;
-    if (!loaded) {
+    if (onlineCatalogLoader) {
+      onlineCatalogLoadAttempted = true;
+      BeginOnlineCatalogAcquisition();
+    } else {
       wxMessageBox(_("The GDTF catalog is unavailable. You can use generic or cancel without changing the scene."),
                    _("GDTF catalog unavailable"), wxOK | wxICON_INFORMATION, this);
-      return;
     }
-    ApplyCatalog(*loaded);
+    return;
   }
   GdtfSearchDialog dialog(this, catalogPayload, catalogUpdatedAt, nullptr,
                           catalogSource == CatalogSource::Online
@@ -416,14 +441,8 @@ void RiderFixtureResolutionDialog::OnCatalogLoaded(wxThreadEvent &event) {
   if (!loaded) {
     if (onlineCatalogLoader && !onlineCatalogLoadAttempted) {
       onlineCatalogLoadAttempted = true;
-      catalogStatusLabel->SetLabel(
-          _("Acquiring the shared GDTF catalog..."));
-      catalogProgressGauge->Pulse();
-      const auto acquired = onlineCatalogLoader();
-      if (acquired) {
-        ApplyCatalog(*acquired);
-        return;
-      }
+      BeginOnlineCatalogAcquisition();
+      return;
     }
     catalogStatusLabel->SetLabel(
         _("Catalog unavailable; generic fallback remains available."));
@@ -431,6 +450,116 @@ void RiderFixtureResolutionDialog::OnCatalogLoaded(wxThreadEvent &event) {
     return;
   }
   ApplyCatalog(*loaded);
+}
+
+// Requests credentials on the UI thread before starting online acquisition.
+void RiderFixtureResolutionDialog::BeginOnlineCatalogAcquisition(
+    bool rejectedCredentials) {
+  if (!acceptAutomaticResults || shuttingDown.load())
+    return;
+  if (rejectedCredentials)
+    catalogCredentials.reset();
+  if (!catalogCredentials) {
+    catalogStatusLabel->SetLabel(
+        _("Waiting for GDTF Share credentials..."));
+    catalogProgressGauge->Pulse();
+    catalogCredentials = credentialRequester
+                             ? credentialRequester(rejectedCredentials)
+                             : std::nullopt;
+    if (!catalogCredentials) {
+      catalogStatusLabel->SetLabel(
+          _("GDTF catalog sign-in cancelled - generic fallback remains available"));
+      catalogProgressGauge->SetValue(0);
+      return;
+    }
+  }
+  catalogStatusLabel->SetLabel(_("Connecting to GDTF Share..."));
+  catalogProgressGauge->Pulse();
+  StartOnlineCatalogWorker(*catalogCredentials);
+}
+
+// Starts owned background authentication, refresh, parsing, and matching work.
+void RiderFixtureResolutionDialog::StartOnlineCatalogWorker(
+    const CredentialStore::Credentials &credentials) {
+  RequestWorkerStop();
+  if (catalogWorker.joinable())
+    catalogWorker.join();
+  catalogLoading = true;
+  const auto requests = BuildFixtureRequests();
+  const OnlineCatalogLoader loader = onlineCatalogLoader;
+  catalogWorker = std::jthread(
+      [this, loader, credentials, requests](std::stop_token stopToken) mutable {
+    auto report = [this, &stopToken](const ProgressData &progress) {
+      if (stopToken.stop_requested() || shuttingDown.load())
+        return;
+      auto *event = new wxThreadEvent(EVT_RIDER_CATALOG_PROGRESS);
+      event->SetPayload(progress);
+      wxQueueEvent(this, event);
+    };
+    OnlineCatalogResult result = loader(
+        credentials, stopToken,
+        [&](const rider_fixture_resolution::Progress &progress) {
+          report({progress});
+        });
+    if (result.catalog && !stopToken.stop_requested() &&
+        !shuttingDown.load()) {
+      auto &catalog = *result.catalog;
+      const auto matchStarted = std::chrono::steady_clock::now();
+      rider_fixture_resolution::Analysis matches;
+      size_t automaticMatches = 0;
+      for (size_t row = 0; row < requests.size(); ++row) {
+        if (stopToken.stop_requested() || shuttingDown.load())
+          return;
+        auto one = rider_fixture_resolution::Service::Analyze(
+            {requests[row]}, {}, catalog.entries);
+        if (one.items.front().origin ==
+            rider_fixture_resolution::ResolutionOrigin::AutomaticMatch)
+          ++automaticMatches;
+        matches.items.push_back(one.items.front());
+        report({{rider_fixture_resolution::ProgressStage::MatchingFixtures,
+                 row + 1, requests.size(), automaticMatches},
+                row, one.items.front()});
+      }
+      report({{rider_fixture_resolution::ProgressStage::Complete,
+               requests.size(), requests.size(), automaticMatches}});
+      catalog.matches = std::move(matches);
+      catalog.matchMs =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - matchStarted).count();
+    }
+    if (stopToken.stop_requested() || shuttingDown.load())
+      return;
+    auto *event = new wxThreadEvent(EVT_RIDER_ONLINE_CATALOG_LOADED);
+    event->SetPayload(result);
+    wxQueueEvent(this, event);
+  });
+}
+
+// Applies online acquisition results or returns to credential entry/fallback.
+void RiderFixtureResolutionDialog::OnOnlineCatalogLoaded(wxThreadEvent &event) {
+  catalogLoading = false;
+  if (!acceptAutomaticResults)
+    return;
+  const auto result = event.GetPayload<OnlineCatalogResult>();
+  if (result.status == OnlineCatalogStatus::AuthenticationRejected) {
+    BeginOnlineCatalogAcquisition(true);
+    return;
+  }
+  if (result.status != OnlineCatalogStatus::Success || !result.catalog) {
+    diagnostics::DiagnosticLogger::Warning(
+        "Rider fixture catalog acquisition unavailable: " + result.error);
+    catalogStatusLabel->SetLabel(
+        _("GDTF catalog unavailable - generic fallback remains available"));
+    catalogProgressGauge->SetValue(0);
+    return;
+  }
+  if (catalogCredentials && credentialPersistCallback)
+    credentialPersistCallback(*catalogCredentials);
+  ApplyCatalog(*result.catalog);
+  catalogProgressGauge->SetRange(
+      static_cast<int>(std::max<size_t>(analysis.items.size(), 1)));
+  catalogProgressGauge->SetValue(static_cast<int>(analysis.items.size()));
+  RefreshCatalogCompletionStatus();
 }
 
 // Updates the visible gauge from real catalog and matching worker progress.
@@ -448,7 +577,19 @@ void RiderFixtureResolutionDialog::OnProgress(wxThreadEvent &event) {
   }
   switch (progress.stage) {
   case rider_fixture_resolution::ProgressStage::LoadingCatalog:
-    catalogStatusLabel->SetLabel(_("Loading cached GDTF catalog..."));
+    catalogStatusLabel->SetLabel(_("Checking cached GDTF catalog..."));
+    catalogProgressGauge->Pulse();
+    break;
+  case rider_fixture_resolution::ProgressStage::WaitingForCredentials:
+    catalogStatusLabel->SetLabel(_("Waiting for GDTF Share credentials..."));
+    catalogProgressGauge->Pulse();
+    break;
+  case rider_fixture_resolution::ProgressStage::Authenticating:
+    catalogStatusLabel->SetLabel(_("Signing in to GDTF Share..."));
+    catalogProgressGauge->Pulse();
+    break;
+  case rider_fixture_resolution::ProgressStage::DownloadingCatalog:
+    catalogStatusLabel->SetLabel(_("Downloading GDTF catalog..."));
     catalogProgressGauge->Pulse();
     break;
   case rider_fixture_resolution::ProgressStage::ParsingCatalog:
@@ -465,10 +606,7 @@ void RiderFixtureResolutionDialog::OnProgress(wxThreadEvent &event) {
   case rider_fixture_resolution::ProgressStage::Complete: {
     catalogProgressGauge->SetRange(static_cast<int>(std::max<size_t>(progress.total, 1)));
     catalogProgressGauge->SetValue(static_cast<int>(progress.total));
-    const auto summary = rider_fixture_resolution::Service::Summarize(analysis);
-    catalogStatusLabel->SetLabel(wxString::Format(
-        _("Automatic matching complete | %zu matches | %zu generic fallbacks"),
-        summary.automaticMatches, summary.genericFallbacks));
+    RefreshCatalogCompletionStatus();
     acceptAllButton->Enable(true);
     break;
   }
