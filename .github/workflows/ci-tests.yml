@@ -103,6 +103,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
+      - name: Initialize Linux performance telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" init --platform linux-debug --display-name Linux --workspace "$GITHUB_WORKSPACE"
       - name: Prepare vcpkg and diagnostics directories
         run: |
           mkdir -p "$CI_LOG_DIR" "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
@@ -116,6 +120,14 @@ jobs:
           echo "VCPKG_BASELINE=${baseline}" >> "$GITHUB_ENV"
       - name: Install Linux test dependencies
         run: .github/scripts/install_vcpkg_build_prerequisites.sh linux
+      - name: Record telemetry — Environment / prerequisite preparation
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Environment / prerequisite preparation"
+      - name: Capture pre-cache filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" snapshot --label "before cache restoration" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/linux-debug"
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -124,6 +136,11 @@ jobs:
           key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Record telemetry — Restore vcpkg downloads cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
       - name: Restore vcpkg installed packages and binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
@@ -135,6 +152,15 @@ jobs:
           key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Record telemetry — Restore vcpkg compiled cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Restore vcpkg compiled cache" --status "${{ steps.vcpkg-cache.outcome || 'success' }}"
+      - name: Capture after cache restoration filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" snapshot --label "after cache restoration" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/linux-debug"
       - name: Bootstrap vcpkg
         run: |
           set -euo pipefail
@@ -147,6 +173,10 @@ jobs:
             git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Record telemetry — Bootstrap vcpkg
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Bootstrap vcpkg"
       - name: Ensure Mono is available for NuGet
         shell: bash
         run: mono --version
@@ -158,6 +188,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$VCPKG_ROOT/vcpkg" --local-cache "$VCPKG_BINARY_CACHE" --mode read
 
+      - name: Record telemetry — Configure remote binary cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Install vcpkg packages
         run: |
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
@@ -166,7 +201,16 @@ jobs:
             --downloads-root "$VCPKG_DOWNLOADS" \
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-linux-debug.log"
+      - name: Record telemetry — Install/materialize vcpkg packages
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+      - name: Capture after vcpkg install filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" snapshot --label "after vcpkg install" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/linux-debug"
       - name: Save vcpkg downloads cache
+        id: vcpkg-downloads-cache-save
         if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
@@ -183,6 +227,11 @@ jobs:
             .vcpkg-cache/binary
           key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
+      - name: Record telemetry — vcpkg cache save operations
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "vcpkg cache save operations" --status "${{ steps.vcpkg-cache-save.outcome || 'success' }}"
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
@@ -214,6 +263,10 @@ jobs:
           "$SCCACHE_PATH" --version | grep -F 'sccache 0.15.0'
           "$SCCACHE_PATH" --start-server
           "$SCCACHE_PATH" --zero-stats
+      - name: Record telemetry — sccache setup / initialization
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "sccache setup / initialization"
       - name: Write Linux compiler-cache initial cache
         run: python3 .github/scripts/write_cmake_compiler_cache_init.py --launcher "$SCCACHE_PATH" --output "$CI_LOG_DIR/cmake-compiler-cache-linux-debug.cmake"
       - name: Configure Debug tests
@@ -223,13 +276,31 @@ jobs:
           test -f build/linux-debug/compile_commands.json || { echo "Debug compile_commands.json was not generated"; exit 1; }
           if grep -Eq '(^|[[:space:]])-DNDEBUG([[:space:]]|$)' build/linux-debug/compile_commands.json; then echo "Debug tests must not compile with NDEBUG"; exit 1; fi
           python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/linux-debug --expected-c-id GNU --expected-cxx-id GNU --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"
+      - name: Record telemetry — CMake configure and toolchain validation
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "CMake configure and toolchain validation" --status "${{ steps.cmake-configure.outcome || 'success' }}"
       - name: Generate Linux CTest inventory
         run: |
           ctest --test-dir build/linux-debug -N -V > "$CI_LOG_DIR/ctest-inventory-linux-debug.txt"
           ctest --test-dir build/linux-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-linux-debug.json"
+      - name: Record telemetry — CTest inventory generation
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "CTest inventory generation"
       - name: Build complete test target set
         id: perastage-build
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-linux-debug.log" -- cmake --build build/linux-debug --target all --verbose
+      - name: Record telemetry — Complete Debug build
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Complete Debug build" --status "${{ steps.perastage-build.outcome || 'success' }}"
+      - name: Capture after build filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" snapshot --label "after build" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/linux-debug"
       - name: Capture Linux sccache statistics
         if: ${{ always() }}
         run: |
@@ -249,12 +320,53 @@ jobs:
           python3 .github/scripts/summarize_ctest_failures.py --platform linux --junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --log "$CI_LOG_DIR/ctest-linux-debug.log" --last-tests-failed build/linux-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-linux-debug-failures.csv"
           python3 .github/scripts/summarize_ctest_results.py --platform linux --junit "$CI_LOG_DIR/ctest-linux-debug.junit.xml" --output "$CI_LOG_DIR/ctest-linux-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE"
           exit $ctest_exit
+      - name: Record telemetry — CTest execution
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "CTest execution"
       - name: Run repository policy tests
         run: |
           export PERASTAGE_TEST_PYTHON="$(command -v python3)"
           bash tests/check_perastage_tree_modules.sh
           bash tests/check_no_configmanager_get_in_gui.sh
           bash tests/check_ci_cmake_language_policy.sh
+      - name: Record telemetry — Repository policy tests
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" checkpoint --phase "Repository policy tests"
+      - name: Finalize Linux performance telemetry
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: >-
+          python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" mark
+          --value "downloads_cache=${{ steps.vcpkg-downloads-cache.outputs.cache-hit || 'unknown' }}"
+          --value "cache_primary_key=${{ steps.vcpkg-cache.outputs.cache-primary-key || 'unavailable' }}"
+          --value "compiled_cache=${{ steps.vcpkg-cache.outputs.cache-hit || 'unknown' }}"
+          --value "remote_cache=${{ steps.vcpkg-remote-cache.outputs.remote-enabled || 'unknown' }}"
+          --value "remote_setup_result=${{ steps.vcpkg-remote-cache.outputs.setup-result || 'unknown' }}"
+          --value "fallback_local_only=${{ steps.vcpkg-remote-cache.outputs.fallback-local-only || 'unknown' }}"
+          --value "downloads_cache_save=${{ steps.vcpkg-downloads-cache-save.outcome || 'skipped' }}"
+          --value "compiled_cache_save=${{ steps.vcpkg-cache-save.outcome || 'skipped' }}"
+      - name: Publish Linux performance telemetry
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: >-
+          python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-linux-debug.state.json" finalize
+          --output "$CI_LOG_DIR/ci-telemetry-linux-debug.json" --summary "$GITHUB_STEP_SUMMARY"
+          --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED"
+          --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/linux-debug"
+          --vcpkg-log "$CI_LOG_DIR/vcpkg-install-linux-debug.log" --sccache-json "$CI_LOG_DIR/sccache-linux-debug.json"
+      - name: Upload Linux performance telemetry
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-linux-debug-performance-telemetry
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/ci-telemetry-linux-debug.json
+            out/ci-logs/ci-telemetry-linux-debug.state.json
       - name: Upload Linux test results
         if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
@@ -263,6 +375,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/ci-logs/ctest-inventory-linux-debug.*
+            out/ci-logs/ci-telemetry-linux-debug.*
             out/ci-logs/sccache-linux-debug*
             out/ci-logs/ctest-linux-debug.junit.xml
             out/ci-logs/ctest-linux-debug.log
@@ -312,6 +425,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
+      - name: Initialize Windows performance telemetry
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" init --platform windows-debug --display-name Windows --workspace "$env:GITHUB_WORKSPACE"
       - name: Prepare vcpkg and diagnostics directories
         shell: pwsh
         run: |
@@ -387,6 +504,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "ripgrep was not inherited by Git Bash: $env:PERASTAGE_RG" }
           "PERASTAGE_GIT_BASH=$bash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "path=$bash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - name: Record telemetry — Windows test-tool preparation and Git Bash resolution
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Windows test-tool preparation and Git Bash resolution"
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: pwsh
@@ -394,6 +515,10 @@ jobs:
           $baseline = (& "$env:PERASTAGE_PYTHON" .github/scripts/get_vcpkg_baseline.py vcpkg.json).Trim()
           "baseline=$baseline" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "VCPKG_BASELINE=$baseline" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Capture pre-cache filesystem telemetry
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "before cache restoration" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -402,6 +527,11 @@ jobs:
           key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Record telemetry — Restore vcpkg downloads cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
       - name: Restore vcpkg installed packages and binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
@@ -413,6 +543,15 @@ jobs:
           key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Record telemetry — Restore vcpkg compiled cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg compiled cache" --status "${{ steps.vcpkg-cache.outcome || 'success' }}"
+      - name: Capture after cache restoration filesystem telemetry
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after cache restoration" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Bootstrap vcpkg
         shell: pwsh
         run: |
@@ -425,6 +564,10 @@ jobs:
             git -C $env:VCPKG_ROOT checkout --force $env:VCPKG_BASELINE
           }
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Record telemetry — Bootstrap vcpkg
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Bootstrap vcpkg"
       - name: Configure GitHub Packages binary cache
         id: vcpkg-remote-cache
         shell: pwsh
@@ -432,6 +575,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --local-cache "$env:VCPKG_BINARY_CACHE" --mode read
 
+      - name: Record telemetry — Configure remote binary cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Install vcpkg packages
         shell: pwsh
         run: |
@@ -441,7 +589,16 @@ jobs:
             --downloads-root "$env:VCPKG_DOWNLOADS" `
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
             --log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log"
+      - name: Record telemetry — Install/materialize vcpkg packages
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+      - name: Capture after vcpkg install filesystem telemetry
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after vcpkg install" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Save vcpkg downloads cache
+        id: vcpkg-downloads-cache-save
         if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
@@ -458,6 +615,11 @@ jobs:
             .vcpkg-cache\binary
           key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
+      - name: Record telemetry — vcpkg cache save operations
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "vcpkg cache save operations" --status "${{ steps.vcpkg-cache-save.outcome || 'success' }}"
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         shell: pwsh
@@ -490,6 +652,10 @@ jobs:
           $normalizedCl = $cl.Source.Replace('/', '\').ToLowerInvariant()
           if ($normalizedCl -match 'c:[\\/](mingw64|msys64)|mingw|msys|strawberry') { throw "Refusing non-MSVC compiler: $($cl.Source)" }
           if ($env:VSCMD_ARG_HOST_ARCH -ne 'x64' -or $env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw "Visual Studio is not Hostx64/x64: host=$env:VSCMD_ARG_HOST_ARCH target=$env:VSCMD_ARG_TGT_ARCH" }
+      - name: Record telemetry — Visual Studio Hostx64/x64 environment initialization
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Visual Studio Hostx64/x64 environment initialization"
       - name: Define Windows sccache compatibility boundary
         shell: pwsh
         run: |
@@ -522,6 +688,10 @@ jobs:
           if ((& $env:PERASTAGE_SCCACHE_EXECUTABLE --version) -notmatch '^sccache 0\.15\.0') { throw 'Expected sccache v0.15.0.' }
           & $env:PERASTAGE_SCCACHE_EXECUTABLE --start-server
           & $env:PERASTAGE_SCCACHE_EXECUTABLE --zero-stats
+      - name: Record telemetry — sccache setup / initialization
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "sccache setup / initialization"
       - name: Write Windows compiler-cache initial cache
         shell: pwsh
         run: |
@@ -541,6 +711,11 @@ jobs:
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\cmake-configure-windows-debug.log" -- cmake -S . -B build-windows-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$env:CI_LOG_DIR\cmake-windows-debug-initial-cache.cmake" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Record telemetry — CMake configure
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CMake configure" --status "${{ steps.cmake-configure.outcome || 'success' }}"
       - name: Validate Windows Debug toolchain and sccache launcher
         shell: pwsh
         run: |
@@ -549,16 +724,33 @@ jobs:
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/validate_msvc_compile_commands.py --compile-commands build-windows-debug\compile_commands.json --output "$env:CI_LOG_DIR\msvc-compile-flags-windows-debug.log"
+      - name: Record telemetry — Toolchain and compile-command validation
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Toolchain and compile-command validation"
       - name: Generate Windows CTest inventory
         shell: pwsh
         run: |
           ctest --test-dir build-windows-debug -N -V | Out-File -FilePath "$env:CI_LOG_DIR\ctest-inventory-windows-debug.txt" -Encoding utf8
           ctest --test-dir build-windows-debug --show-only=json-v1 | Out-File -FilePath "$env:CI_LOG_DIR\ctest-inventory-windows-debug.json" -Encoding utf8
+      - name: Record telemetry — CTest inventory generation
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest inventory generation"
       - name: Build Windows Debug tests
         id: perastage-build
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/run_and_log.py --log "$env:CI_LOG_DIR\build-windows-debug.log" -- cmake --build build-windows-debug --target all --verbose
+      - name: Record telemetry — Complete Debug build
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Complete Debug build" --status "${{ steps.perastage-build.outcome || 'success' }}"
+      - name: Capture after build filesystem telemetry
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after build" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Capture Windows sccache statistics
         if: ${{ always() }}
         shell: pwsh
@@ -575,6 +767,45 @@ jobs:
           & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_failures.py --platform windows --junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --log "$env:CI_LOG_DIR\ctest-windows-debug.log" --last-tests-failed build-windows-debug\Testing\Temporary\LastTestsFailed.log --output "$env:CI_LOG_DIR\ctest-windows-debug-failures.csv"
           & "$env:PERASTAGE_PYTHON" .github/scripts/summarize_ctest_results.py --platform windows --junit "$env:CI_LOG_DIR\ctest-windows-debug.junit.xml" --output "$env:CI_LOG_DIR\ctest-windows-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$env:PERASTAGE_CI_PROFILE"
           exit $ctestExit
+      - name: Record telemetry — CTest execution
+        continue-on-error: true
+        shell: pwsh
+        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest execution"
+      - name: Finalize Windows performance telemetry
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: >-
+          python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" mark
+          --value "downloads_cache=${{ steps.vcpkg-downloads-cache.outputs.cache-hit || 'unknown' }}"
+          --value "cache_primary_key=${{ steps.vcpkg-cache.outputs.cache-primary-key || 'unavailable' }}"
+          --value "compiled_cache=${{ steps.vcpkg-cache.outputs.cache-hit || 'unknown' }}"
+          --value "remote_cache=${{ steps.vcpkg-remote-cache.outputs.remote-enabled || 'unknown' }}"
+          --value "remote_setup_result=${{ steps.vcpkg-remote-cache.outputs.setup-result || 'unknown' }}"
+          --value "fallback_local_only=${{ steps.vcpkg-remote-cache.outputs.fallback-local-only || 'unknown' }}"
+          --value "downloads_cache_save=${{ steps.vcpkg-downloads-cache-save.outcome || 'skipped' }}"
+          --value "compiled_cache_save=${{ steps.vcpkg-cache-save.outcome || 'skipped' }}"
+          --value "msvc_toolset=$env:VCToolsVersion" --value "windows_sdk=$env:WindowsSDKVersion"
+          --value "cl_executable=$env:PERASTAGE_MSVC_EXECUTABLE" --value "host_architecture=x64" --value "target_architecture=x64"
+      - name: Publish Windows performance telemetry
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: pwsh
+        run: >-
+          python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" finalize
+          --output "$env:CI_LOG_DIR/ci-telemetry-windows-debug.json" --summary "$env:GITHUB_STEP_SUMMARY"
+          --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED"
+          --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
+          --vcpkg-log "$env:CI_LOG_DIR/vcpkg-install-windows-debug.log" --sccache-json "$env:CI_LOG_DIR/sccache-windows-debug.json"
+      - name: Upload Windows performance telemetry
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-windows-debug-performance-telemetry
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/ci-telemetry-windows-debug.json
+            out/ci-logs/ci-telemetry-windows-debug.state.json
       - name: Upload Windows test results
         if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
@@ -583,6 +814,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/ci-logs/ctest-inventory-windows-debug.*
+            out/ci-logs/ci-telemetry-windows-debug.*
             out/ci-logs/sccache-windows-debug*
             out/ci-logs/ctest-windows-debug.junit.xml
             out/ci-logs/ctest-windows-debug.log
@@ -632,6 +864,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
+      - name: Initialize macOS performance telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" init --platform macos-debug --display-name macOS --workspace "$GITHUB_WORKSPACE"
       - name: Prepare vcpkg and diagnostics directories
         run: |
           mkdir -p "$CI_LOG_DIR" "$VCPKG_DOWNLOADS" "$VCPKG_INSTALLED" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
@@ -656,6 +892,14 @@ jobs:
           echo "MACOS_SDK_REALPATH=${current_sdk_realpath}" >> "$GITHUB_ENV"
       - name: Install macOS test tools
         run: .github/scripts/install_vcpkg_build_prerequisites.sh macos
+      - name: Record telemetry — Environment / prerequisite preparation
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Environment / prerequisite preparation"
+      - name: Capture pre-cache filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" snapshot --label "before cache restoration" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/macos-debug"
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -664,6 +908,11 @@ jobs:
           key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Record telemetry — Restore vcpkg downloads cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
       - name: Restore vcpkg installed packages and binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
@@ -675,6 +924,15 @@ jobs:
           key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Record telemetry — Restore vcpkg compiled cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Restore vcpkg compiled cache" --status "${{ steps.vcpkg-cache.outcome || 'success' }}"
+      - name: Capture after cache restoration filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" snapshot --label "after cache restoration" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/macos-debug"
       - name: Bootstrap vcpkg
         run: |
           set -euo pipefail
@@ -687,6 +945,10 @@ jobs:
             git -C "$VCPKG_ROOT" checkout --force "$VCPKG_BASELINE"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Record telemetry — Bootstrap vcpkg
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Bootstrap vcpkg"
       - name: Configure GitHub Packages binary cache
         id: vcpkg-remote-cache
         shell: bash
@@ -694,6 +956,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$VCPKG_ROOT/vcpkg" --local-cache "$VCPKG_BINARY_CACHE" --mode read
 
+      - name: Record telemetry — Configure remote binary cache
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Diagnose restored vcpkg SDK metadata
         run: |
           set -euo pipefail
@@ -713,7 +980,16 @@ jobs:
             --downloads-root "$VCPKG_DOWNLOADS" \
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-macos-debug.log"
+      - name: Record telemetry — Install/materialize vcpkg packages
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+      - name: Capture after vcpkg install filesystem telemetry
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" snapshot --label "after vcpkg install" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/macos-debug"
       - name: Save vcpkg downloads cache
+        id: vcpkg-downloads-cache-save
         if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
@@ -730,6 +1006,11 @@ jobs:
             .vcpkg-cache/binary
           key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
+      - name: Record telemetry — vcpkg cache save operations
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "vcpkg cache save operations" --status "${{ steps.vcpkg-cache-save.outcome || 'success' }}"
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
@@ -754,6 +1035,10 @@ jobs:
           "$SCCACHE_PATH" --version | grep -F 'sccache 0.15.0'
           "$SCCACHE_PATH" --start-server
           "$SCCACHE_PATH" --zero-stats
+      - name: Record telemetry — sccache setup / initialization
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "sccache setup / initialization"
       - name: Write macOS compiler-cache initial cache
         run: python3 .github/scripts/write_cmake_compiler_cache_init.py --launcher "$SCCACHE_PATH" --output "$CI_LOG_DIR/cmake-compiler-cache-macos-debug.cmake"
       - name: Configure macOS Debug tests
@@ -763,13 +1048,29 @@ jobs:
           python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/cmake-configure-macos-debug.log" -- cmake -S . -B build/macos-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT="$current_sdk_path" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-osx -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED" -DVCPKG_MANIFEST_MODE=OFF -DBUILD_TESTING=ON -DPERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=ON -C "$CI_LOG_DIR/cmake-compiler-cache-macos-debug.cmake"
           test -f build/macos-debug/compile_commands.json || { echo "macOS Debug compile_commands.json was not generated"; exit 1; }
           python3 .github/scripts/validate_cmake_toolchain.py --build-dir build/macos-debug --expected-c-id AppleClang --expected-cxx-id AppleClang --expected-generator Ninja --expected-build-type Debug --expected-launcher "$SCCACHE_PATH"
+      - name: Record telemetry — CMake configure and toolchain validation
+        continue-on-error: true
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "CMake configure and toolchain validation" --status "${{ steps.cmake-configure.outcome || 'success' }}"
       - name: Generate macOS CTest inventory
         run: |
           ctest --test-dir build/macos-debug -N -V > "$CI_LOG_DIR/ctest-inventory-macos-debug.txt"
           ctest --test-dir build/macos-debug --show-only=json-v1 > "$CI_LOG_DIR/ctest-inventory-macos-debug.json"
+      - name: Record telemetry — CTest inventory generation
+        continue-on-error: true
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "CTest inventory generation"
       - name: Build complete macOS test target set
         id: perastage-build
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-macos-debug.log" -- cmake --build build/macos-debug --target all --verbose
+      - name: Record telemetry — Complete Debug build
+        if: ${{ always() }}
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Complete Debug build" --status "${{ steps.perastage-build.outcome || 'success' }}" || true
+      - name: Capture after build filesystem telemetry
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" snapshot --label "after build" --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED" --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/macos-debug" || true
       - name: Capture macOS sccache statistics
         if: ${{ always() }}
         run: |
@@ -785,6 +1086,40 @@ jobs:
           python3 .github/scripts/summarize_ctest_failures.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --log "$CI_LOG_DIR/ctest-macos-debug.log" --last-tests-failed build/macos-debug/Testing/Temporary/LastTestsFailed.log --output "$CI_LOG_DIR/ctest-macos-debug-failures.csv"
           python3 .github/scripts/summarize_ctest_results.py --platform macos --junit "$CI_LOG_DIR/ctest-macos-debug.junit.xml" --output "$CI_LOG_DIR/ctest-macos-debug-results.json" --tested-sha "${{ needs.resolve-source.outputs.source_sha }}" --profile "$PERASTAGE_CI_PROFILE"
           exit $ctest_exit
+      - name: Record telemetry — CTest execution
+        shell: bash
+        run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "CTest execution" || true
+      - name: Finalize macOS performance telemetry
+        if: ${{ always() }}
+        shell: bash
+        run: >-
+          python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" mark
+          --value "downloads_cache=${{ steps.vcpkg-downloads-cache.outputs.cache-hit || 'unknown' }}"
+          --value "cache_primary_key=${{ steps.vcpkg-cache.outputs.cache-primary-key || 'unavailable' }}"
+          --value "compiled_cache=${{ steps.vcpkg-cache.outputs.cache-hit || 'unknown' }}"
+          --value "remote_cache=${{ steps.vcpkg-remote-cache.outputs.remote-enabled || 'unknown' }}"
+          --value "remote_setup_result=${{ steps.vcpkg-remote-cache.outputs.setup-result || 'unknown' }}"
+          --value "fallback_local_only=${{ steps.vcpkg-remote-cache.outputs.fallback-local-only || 'unknown' }}"
+          --value "downloads_cache_save=${{ steps.vcpkg-downloads-cache-save.outcome || 'skipped' }}"
+          --value "compiled_cache_save=${{ steps.vcpkg-cache-save.outcome || 'skipped' }}" || true
+      - name: Publish macOS performance telemetry
+        if: ${{ always() }}
+        shell: bash
+        run: >-
+          python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" finalize
+          --output "$CI_LOG_DIR/ci-telemetry-macos-debug.json" --summary "$GITHUB_STEP_SUMMARY"
+          --workspace "$GITHUB_WORKSPACE" --directory "$VCPKG_DOWNLOADS" --directory "$VCPKG_INSTALLED"
+          --directory "$VCPKG_PACKAGES" --directory "$VCPKG_BINARY_CACHE" --directory "build/macos-debug"
+          --vcpkg-log "$CI_LOG_DIR/vcpkg-install-macos-debug.log" --sccache-json "$CI_LOG_DIR/sccache-macos-debug.json" || true
+      - name: Upload macOS performance telemetry
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-macos-debug-performance-telemetry
+          if-no-files-found: ignore
+          path: |
+            out/ci-logs/ci-telemetry-macos-debug.json
+            out/ci-logs/ci-telemetry-macos-debug.state.json
       - name: Upload macOS test results
         if: ${{ always() && needs.resolve-source.outputs.cache_warming != 'true' }}
         uses: actions/upload-artifact@v7
@@ -793,6 +1128,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/ci-logs/ctest-inventory-macos-debug.*
+            out/ci-logs/ci-telemetry-macos-debug.*
             out/ci-logs/sccache-macos-debug*
             out/ci-logs/ctest-macos-debug.junit.xml
             out/ci-logs/ctest-macos-debug*.log

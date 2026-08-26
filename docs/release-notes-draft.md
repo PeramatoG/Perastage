@@ -42,6 +42,12 @@ Changes since **v1.5.0**.
 - Deferred fixture-symbol preparation now reuses unchanged GDTF inspection
   results instead of repeatedly scanning the same profile.
 
+## Internal changes
+
+- Added cross-platform Debug CI performance telemetry for phase timing, cache
+  outcomes, runner resources, storage evolution, and diagnostic artifacts
+  without changing dependency caching, builds, or test behavior.
+
 ## Fixes
 
 - Fixture placement in the 3D viewer now acquires visible truss attachment
