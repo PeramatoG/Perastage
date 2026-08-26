@@ -13,6 +13,8 @@
 #include "json.hpp"
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <set>
 #include <string>
 #include <thread>
@@ -890,14 +892,34 @@ static void TestPersistentConnectionLimit() {
   MvrXchangeSettings settings;
   settings.stationName = "Connection limit server";
   settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  std::mutex logMutex;
+  std::condition_variable logChanged;
+  std::size_t acceptedConnections = 0;
+  bool connectionRejected = false;
   MvrXchangeTcpServer server;
-  assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
+  assert(server.Start(settings, {}, {},
+                      [&](const std::string &message) {
+                        std::lock_guard lock(logMutex);
+                        if (message.find("TCP client connected") != std::string::npos) ++acceptedConnections;
+                        if (message.find("connection limit was reached") != std::string::npos) connectionRejected = true;
+                        logChanged.notify_all();
+                      },
+                      {}, {}, {}));
   std::vector<LoopbackConnection> clients;
   for (int index = 0; index < 16; ++index) {
     clients.push_back(ConnectLoopback(server.Port()));
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::unique_lock lock(logMutex);
+    const bool accepted = logChanged.wait_for(lock, std::chrono::seconds(2), [&] {
+      return acceptedConnections == clients.size();
+    });
+    assert(accepted);
   }
   auto rejected = ConnectLoopback(server.Port());
+  {
+    std::unique_lock lock(logMutex);
+    const bool rejectedAtLimit = logChanged.wait_for(lock, std::chrono::seconds(2), [&] { return connectionRejected; });
+    assert(rejectedAtLimit);
+  }
   char byte = 0;
   assert(recv(rejected.fd, &byte, 1, 0) == 0);
   CloseLoopback(rejected);
