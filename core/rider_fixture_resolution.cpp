@@ -82,6 +82,36 @@ bool Service::IsValidProgressTransition(const Progress &previous,
   return static_cast<int>(next.stage) >= static_cast<int>(previous.stage);
 }
 
+// Counts final row provenance without including discarded catalog candidates.
+Summary Service::Summarize(const Analysis &analysis) {
+  Summary summary;
+  for (const Item &item : analysis.items) {
+    if (!item.create || item.origin == ResolutionOrigin::Skipped) {
+      ++summary.skipped;
+      continue;
+    }
+    ++summary.created;
+    switch (item.origin) {
+    case ResolutionOrigin::Dictionary:
+    case ResolutionOrigin::DictionaryModified:
+      ++summary.dictionary;
+      break;
+    case ResolutionOrigin::AutomaticMatch:
+      ++summary.automaticMatches;
+      break;
+    case ResolutionOrigin::UserSelection:
+      ++summary.userSelections;
+      break;
+    case ResolutionOrigin::GenericFallback:
+      ++summary.genericFallbacks;
+      break;
+    case ResolutionOrigin::Skipped:
+      break;
+    }
+  }
+  return summary;
+}
+
 // Re-resolves an item through dictionary lookup and the shared MVR matcher.
 void Service::ResolveItem(
     Item &item,

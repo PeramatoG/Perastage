@@ -141,6 +141,31 @@ int main() {
   assert(reportedProgress[2].stage == ProgressStage::Complete);
   assert(reportedProgress[2].automaticMatches == 1);
 
+  Analysis displayedPlan;
+  displayedPlan.items.resize(7);
+  for (size_t index = 0; index < 5; ++index) {
+    displayedPlan.items[index].create = true;
+    displayedPlan.items[index].origin = ResolutionOrigin::Dictionary;
+  }
+  for (size_t index = 5; index < 7; ++index) {
+    displayedPlan.items[index].create = true;
+    displayedPlan.items[index].origin = ResolutionOrigin::GenericFallback;
+  }
+  const Summary displayedSummary = Service::Summarize(displayedPlan);
+  assert(displayedSummary.created == 7);
+  assert(displayedSummary.dictionary == 5);
+  assert(displayedSummary.automaticMatches == 0);
+  assert(displayedSummary.genericFallbacks == 2);
+  displayedPlan.items[0].origin = ResolutionOrigin::AutomaticMatch;
+  displayedPlan.items[1].create = false;
+  displayedPlan.items[1].origin = ResolutionOrigin::Skipped;
+  const Summary changedSummary = Service::Summarize(displayedPlan);
+  assert(changedSummary.created == 6);
+  assert(changedSummary.dictionary == 3);
+  assert(changedSummary.automaticMatches == 1);
+  assert(changedSummary.genericFallbacks == 2);
+  assert(changedSummary.skipped == 1);
+
   Analysis renamedDuringMatch = Service::Analyze({requests[1]}, {}, {});
   renamedDuringMatch.items.front().effectiveFixtureType = "Edited after start";
   Service::MergeCatalogSuggestions(renamedDuringMatch, backgroundMatch);

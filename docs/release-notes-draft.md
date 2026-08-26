@@ -66,6 +66,9 @@ Changes since **v1.5.0**.
 - Resolve fixture types now uses a fixed eight-column, analysis-backed table
   model, preventing Windows Debug assertions caused by an empty model schema
   while preserving live matching updates, sorting, editing, and status colors.
+- Resolve fixture types now reports the mappings actually shown in the final
+  table and uses portable separators, avoiding misleading match totals and
+  incorrectly encoded summary characters on Windows.
 - Shared colored data-view stores now validate item ownership and model-column
   bounds before value access or sorting, and resolver row updates publish one
   final attribute notification instead of exposing partial Status changes.

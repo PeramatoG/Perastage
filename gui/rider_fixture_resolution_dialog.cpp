@@ -177,23 +177,11 @@ void RiderFixtureResolutionDialog::RefreshSelectionControls() {
 
 // Updates the real-mapping count while keeping Generic confirmation available.
 void RiderFixtureResolutionDialog::RefreshSummary() {
-  const size_t created = static_cast<size_t>(std::count_if(
-      analysis.items.begin(), analysis.items.end(), [](const auto &item) {
-        return item.create;
-      }));
-  const size_t automatic = static_cast<size_t>(std::count_if(
-      analysis.items.begin(), analysis.items.end(),
-      [](const auto &item) {
-        return item.create && item.origin == rider_fixture_resolution::ResolutionOrigin::AutomaticMatch;
-      }));
-  const size_t generic = static_cast<size_t>(std::count_if(
-      analysis.items.begin(), analysis.items.end(), [](const auto &item) {
-        return item.create && item.origin == rider_fixture_resolution::ResolutionOrigin::GenericFallback;
-      }));
-  const size_t skipped = analysis.items.size() - created;
+  const auto summary = rider_fixture_resolution::Service::Summarize(analysis);
   summaryLabel->SetLabel(wxString::Format(
-      _("%zu fixture types will be created · %zu automatic matches · %zu generic · %zu skipped"),
-      created, automatic, generic, skipped));
+      _("%zu fixture types will be created | %zu automatic matches | %zu generic | %zu skipped"),
+      summary.created, summary.automaticMatches, summary.genericFallbacks,
+      summary.skipped));
   resolveButton->Enable(true);
 }
 
@@ -462,15 +450,16 @@ void RiderFixtureResolutionDialog::OnProgress(wxThreadEvent &event) {
         _("Matching GDTF candidates... %zu / %zu"), progress.current,
         progress.total));
     break;
-  case rider_fixture_resolution::ProgressStage::Complete:
+  case rider_fixture_resolution::ProgressStage::Complete: {
     catalogProgressGauge->SetRange(static_cast<int>(std::max<size_t>(progress.total, 1)));
     catalogProgressGauge->SetValue(static_cast<int>(progress.total));
+    const auto summary = rider_fixture_resolution::Service::Summarize(analysis);
     catalogStatusLabel->SetLabel(wxString::Format(
         _("Automatic matching complete | %zu matches | %zu generic fallbacks"),
-        progress.automaticMatches,
-        progress.total - std::min(progress.total, progress.automaticMatches)));
+        summary.automaticMatches, summary.genericFallbacks));
     acceptAllButton->Enable(true);
     break;
+  }
   case rider_fixture_resolution::ProgressStage::Unavailable:
     catalogProgressGauge->SetValue(0);
     catalogStatusLabel->SetLabel(

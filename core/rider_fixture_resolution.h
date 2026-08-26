@@ -66,6 +66,15 @@ struct Analysis {
   bool RequiresPreflight() const;
 };
 
+struct Summary {
+  size_t created = 0;
+  size_t dictionary = 0;
+  size_t automaticMatches = 0;
+  size_t userSelections = 0;
+  size_t genericFallbacks = 0;
+  size_t skipped = 0;
+};
+
 class Service {
 public:
   // Resolves dictionary entries first and matches each remaining alias once.
@@ -78,6 +87,9 @@ public:
   // Reports whether a progress transition is internally consistent.
   static bool IsValidProgressTransition(const Progress &previous,
                                         const Progress &next);
+
+  // Counts the resolutions that the current import plan will actually use.
+  static Summary Summarize(const Analysis &analysis);
 
   // Selects a real catalog entry while preserving multi-mode ambiguity.
   static void SelectCatalogEntry(
