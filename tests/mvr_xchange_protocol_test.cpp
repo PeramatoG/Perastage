@@ -1023,11 +1023,17 @@ static void TestTcpServerIdleStop() {
   settings.stationName = "Idle server";
   settings.stationUuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   for (int iteration = 0; iteration < 10; ++iteration) {
+    std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
+              << " starting" << std::endl;
     MvrXchangeTcpServer server;
     assert(server.Start(settings, {}, {}, {}, {}, {}, {}));
     auto idleClient = ConnectLoopback(server.Port());
+    std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
+              << " before Stop" << std::endl;
     const auto stopStarted = std::chrono::steady_clock::now();
     server.Stop();
+    std::cerr << "[MvrXchangeProtocol] TestTcpServerIdleStop iteration=" << iteration
+              << " after Stop" << std::endl;
     assert(std::chrono::steady_clock::now() - stopStarted < std::chrono::seconds(2));
     CloseLoopback(idleClient);
   }
@@ -1103,29 +1109,37 @@ static void TestTcpTypedErrorResponses() {
   server.Stop();
 }
 
+// Runs one internal protocol test with flushed begin and end diagnostics.
+template <typename TestFunction>
+static void RunNamedTest(const char *name, TestFunction testFunction) {
+  std::cerr << "[MvrXchangeProtocol] BEGIN " << name << std::endl;
+  testFunction();
+  std::cerr << "[MvrXchangeProtocol] END " << name << std::endl;
+}
+
 // Runs focused non-GUI MVR-xchange protocol coverage.
 int main() {
   [[maybe_unused]] TestSocketRuntime socketRuntime;
-  TestCommitStore();
-  TestPackets();
-  TestMessages();
-  TestRequestSourceStations();
-  TestLeaveMessages();
-  TestTypedErrors();
-  TestMalformedMessages();
-  TestInventoryCompatibility();
-  TestPacketRejection();
-  TestMdnsRecordCache();
-  TestRawMdnsDatagram();
-  TestDnsNames();
-  TestCanonicalUuidUse();
-  TestStationRegistry();
-  TestPublicationDestinationPolicy();
-  TestNetworkInterfaces();
-  TestTcpTransactions();
-  TestPersistentTcpConnection();
-  TestTcpServerIdleStop();
-  TestPersistentConnectionLimit();
-  TestTcpTypedErrorResponses();
+  RunNamedTest("TestCommitStore", TestCommitStore);
+  RunNamedTest("TestPackets", TestPackets);
+  RunNamedTest("TestMessages", TestMessages);
+  RunNamedTest("TestRequestSourceStations", TestRequestSourceStations);
+  RunNamedTest("TestLeaveMessages", TestLeaveMessages);
+  RunNamedTest("TestTypedErrors", TestTypedErrors);
+  RunNamedTest("TestMalformedMessages", TestMalformedMessages);
+  RunNamedTest("TestInventoryCompatibility", TestInventoryCompatibility);
+  RunNamedTest("TestPacketRejection", TestPacketRejection);
+  RunNamedTest("TestMdnsRecordCache", TestMdnsRecordCache);
+  RunNamedTest("TestRawMdnsDatagram", TestRawMdnsDatagram);
+  RunNamedTest("TestDnsNames", TestDnsNames);
+  RunNamedTest("TestCanonicalUuidUse", TestCanonicalUuidUse);
+  RunNamedTest("TestStationRegistry", TestStationRegistry);
+  RunNamedTest("TestPublicationDestinationPolicy", TestPublicationDestinationPolicy);
+  RunNamedTest("TestNetworkInterfaces", TestNetworkInterfaces);
+  RunNamedTest("TestTcpTransactions", TestTcpTransactions);
+  RunNamedTest("TestPersistentTcpConnection", TestPersistentTcpConnection);
+  RunNamedTest("TestTcpServerIdleStop", TestTcpServerIdleStop);
+  RunNamedTest("TestPersistentConnectionLimit", TestPersistentConnectionLimit);
+  RunNamedTest("TestTcpTypedErrorResponses", TestTcpTypedErrorResponses);
   return 0;
 }

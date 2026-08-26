@@ -602,6 +602,8 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
+- Improved MVR-xchange TCP lifecycle diagnostics for cross-platform test runs.
+
 - Made the fixture-symbol processing ownership check portable across the Bash
   versions and filesystem path conventions used by Debug CI runners.
 
