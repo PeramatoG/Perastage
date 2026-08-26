@@ -46,9 +46,6 @@ Changes since **v1.5.0**.
 
 - Create-from-text fixture-resolution checks now use the repository's portable
   test launchers consistently across Debug CI platforms.
-- Windows Debug network tests now synchronize with the MVR-xchange listener
-  before checking its connection limit, avoiding timing-dependent stalls on
-  slower runners.
 
 - Resolve fixture types now builds reliably with MSVC when displaying an empty
   fixture-mode selection.
