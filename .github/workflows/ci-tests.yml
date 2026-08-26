@@ -425,10 +425,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve-source.outputs.source_sha }}
-      - name: Initialize Windows performance telemetry
-        continue-on-error: true
-        shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" init --platform windows-debug --display-name Windows --workspace "$env:GITHUB_WORKSPACE"
       - name: Prepare vcpkg and diagnostics directories
         shell: pwsh
         run: |
@@ -437,6 +433,11 @@ jobs:
           "PERASTAGE_PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           cmake --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt"
           & $python --version | Out-File "$env:CI_LOG_DIR\environment-windows-debug.txt" -Append
+      - name: Initialize Windows performance telemetry
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" init --platform windows-debug --display-name Windows --workspace "$env:GITHUB_WORKSPACE"
       - name: Prepare Windows Debug test tools
         id: windows-test-tools
         shell: pwsh
@@ -507,7 +508,8 @@ jobs:
       - name: Record telemetry — Windows test-tool preparation and Git Bash resolution
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Windows test-tool preparation and Git Bash resolution"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Windows test-tool preparation and Git Bash resolution"
       - name: Read vcpkg baseline
         id: vcpkg-baseline
         shell: pwsh
@@ -518,7 +520,8 @@ jobs:
       - name: Capture pre-cache filesystem telemetry
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "before cache restoration" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "before cache restoration" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Restore vcpkg downloads
         id: vcpkg-downloads-cache
         uses: actions/cache/restore@v5
@@ -531,7 +534,8 @@ jobs:
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
       - name: Restore vcpkg installed packages and binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
@@ -547,11 +551,13 @@ jobs:
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg compiled cache" --status "${{ steps.vcpkg-cache.outcome || 'success' }}"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg compiled cache" --status "${{ steps.vcpkg-cache.outcome || 'success' }}"
       - name: Capture after cache restoration filesystem telemetry
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after cache restoration" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after cache restoration" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Bootstrap vcpkg
         shell: pwsh
         run: |
@@ -567,7 +573,8 @@ jobs:
       - name: Record telemetry — Bootstrap vcpkg
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Bootstrap vcpkg"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Bootstrap vcpkg"
       - name: Configure GitHub Packages binary cache
         id: vcpkg-remote-cache
         shell: pwsh
@@ -579,7 +586,8 @@ jobs:
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Install vcpkg packages
         shell: pwsh
         run: |
@@ -592,11 +600,13 @@ jobs:
       - name: Record telemetry — Install/materialize vcpkg packages
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Install/materialize vcpkg packages"
       - name: Capture after vcpkg install filesystem telemetry
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after vcpkg install" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after vcpkg install" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Save vcpkg downloads cache
         id: vcpkg-downloads-cache-save
         if: ${{ steps.vcpkg-downloads-cache.outputs.cache-hit != 'true' }}
@@ -619,7 +629,8 @@ jobs:
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "vcpkg cache save operations" --status "${{ steps.vcpkg-cache-save.outcome || 'success' }}"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "vcpkg cache save operations" --status "${{ steps.vcpkg-cache-save.outcome || 'success' }}"
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         shell: pwsh
@@ -655,7 +666,8 @@ jobs:
       - name: Record telemetry — Visual Studio Hostx64/x64 environment initialization
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Visual Studio Hostx64/x64 environment initialization"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Visual Studio Hostx64/x64 environment initialization"
       - name: Define Windows sccache compatibility boundary
         shell: pwsh
         run: |
@@ -691,7 +703,8 @@ jobs:
       - name: Record telemetry — sccache setup / initialization
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "sccache setup / initialization"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "sccache setup / initialization"
       - name: Write Windows compiler-cache initial cache
         shell: pwsh
         run: |
@@ -715,7 +728,8 @@ jobs:
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CMake configure" --status "${{ steps.cmake-configure.outcome || 'success' }}"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CMake configure" --status "${{ steps.cmake-configure.outcome || 'success' }}"
       - name: Validate Windows Debug toolchain and sccache launcher
         shell: pwsh
         run: |
@@ -727,7 +741,8 @@ jobs:
       - name: Record telemetry — Toolchain and compile-command validation
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Toolchain and compile-command validation"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Toolchain and compile-command validation"
       - name: Generate Windows CTest inventory
         shell: pwsh
         run: |
@@ -736,7 +751,8 @@ jobs:
       - name: Record telemetry — CTest inventory generation
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest inventory generation"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest inventory generation"
       - name: Build Windows Debug tests
         id: perastage-build
         shell: pwsh
@@ -746,11 +762,13 @@ jobs:
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Complete Debug build" --status "${{ steps.perastage-build.outcome || 'success' }}"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Complete Debug build" --status "${{ steps.perastage-build.outcome || 'success' }}"
       - name: Capture after build filesystem telemetry
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after build" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" snapshot --label "after build" --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED" --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"
       - name: Capture Windows sccache statistics
         if: ${{ always() }}
         shell: pwsh
@@ -770,13 +788,14 @@ jobs:
       - name: Record telemetry — CTest execution
         continue-on-error: true
         shell: pwsh
-        run: python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest execution"
+        run: |
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "CTest execution"
       - name: Finalize Windows performance telemetry
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
         run: >-
-          python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" mark
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" mark
           --value "downloads_cache=${{ steps.vcpkg-downloads-cache.outputs.cache-hit || 'unknown' }}"
           --value "cache_primary_key=${{ steps.vcpkg-cache.outputs.cache-primary-key || 'unavailable' }}"
           --value "compiled_cache=${{ steps.vcpkg-cache.outputs.cache-hit || 'unknown' }}"
@@ -792,7 +811,7 @@ jobs:
         if: ${{ always() }}
         shell: pwsh
         run: >-
-          python .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" finalize
+          & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" finalize
           --output "$env:CI_LOG_DIR/ci-telemetry-windows-debug.json" --summary "$env:GITHUB_STEP_SUMMARY"
           --workspace "$env:GITHUB_WORKSPACE" --directory "$env:VCPKG_DOWNLOADS" --directory "$env:VCPKG_INSTALLED"
           --directory "$env:VCPKG_PACKAGES" --directory "$env:VCPKG_BINARY_CACHE" --directory "build-windows-debug"

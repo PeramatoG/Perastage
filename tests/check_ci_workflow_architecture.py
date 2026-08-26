@@ -182,6 +182,13 @@ assert 'LastTestsDisabled.log' in ci, 'CI Debug test-result artifacts must retai
 assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'
 
 windows = sections['windows']
+windows_telemetry_commands = [line for line in windows.splitlines() if '.github/scripts/ci_telemetry.py' in line]
+assert windows_telemetry_commands, 'Windows Debug must invoke the CI telemetry helper'
+assert all(
+    line.lstrip().startswith('& "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py')
+    for line in windows_telemetry_commands
+), 'Windows Debug telemetry must use the resolved PERASTAGE_PYTHON executable'
+assert 'python .github/scripts/ci_telemetry.py' not in windows
 for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'validate_cmake_toolchain.py', '--expected-c-id MSVC', '--expected-cxx-id MSVC', '--interactive-debug-mode 0', '--timeout 120', '--output-junit', 'timeout-minutes: 180', 'ctest-inventory-windows-debug.txt', 'ctest-windows-debug-results.json', 'ci-windows-debug-test-results']:
     assert needle in windows, f'Windows Debug environment persistence is missing {needle}'
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')

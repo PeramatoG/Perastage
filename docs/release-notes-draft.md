@@ -46,7 +46,8 @@ Changes since **v1.5.0**.
 
 - Added cross-platform Debug CI performance telemetry for phase timing, cache
   outcomes, runner resources, storage evolution, and diagnostic artifacts
-  without changing dependency caching, builds, or test behavior.
+  with stable Windows interpreter resolution and without changing dependency
+  caching, builds, or test behavior.
 
 ## Fixes
 
