@@ -19,7 +19,6 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/thread.h>
-#include <wx/weakref.h>
 
 namespace {
 
@@ -76,7 +75,7 @@ RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
       cachedCatalogLoader(std::move(cachedCatalogLoaderIn)),
       onlineCatalogLoader(std::move(onlineCatalogLoaderIn)) {
   BuildLayout();
-  RefreshTable();
+  PopulateTable();
   RefreshSelectionControls();
   RefreshSummary();
   SetMinSize(wxSize(780, 500));
@@ -86,6 +85,14 @@ RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
        &RiderFixtureResolutionDialog::OnCatalogLoaded, this);
   Bind(EVT_RIDER_CATALOG_PROGRESS,
        &RiderFixtureResolutionDialog::OnProgress, this);
+}
+
+// Stops the owned catalog worker before wxWidgets destroys the event handler.
+RiderFixtureResolutionDialog::~RiderFixtureResolutionDialog() {
+  shuttingDown.store(true);
+  RequestWorkerStop();
+  if (catalogWorker.joinable())
+    catalogWorker.join();
 }
 
 // Returns the user-reviewed resolution model after the modal dialog succeeds.
@@ -172,13 +179,15 @@ void RiderFixtureResolutionDialog::BuildLayout() {
                         &RiderFixtureResolutionDialog::OnAcceptAll, this);
   resolveButton->Bind(wxEVT_BUTTON, &RiderFixtureResolutionDialog::OnResolve,
                       this);
+  cancelButton->Bind(wxEVT_BUTTON, &RiderFixtureResolutionDialog::OnCancel,
+                     this);
 }
 
-// Rebuilds table rows from the current resolution model.
-void RiderFixtureResolutionDialog::RefreshTable() {
-  const int selectedRow = SelectedRow();
+// Populates stable table rows once for the dialog lifetime.
+void RiderFixtureResolutionDialog::PopulateTable() {
   tableStore->DeleteAllItems();
-  for (const auto &item : analysis.items) {
+  for (size_t index = 0; index < analysis.items.size(); ++index) {
+    const auto &item = analysis.items[index];
     wxVector<wxVariant> row;
     row.push_back(item.create);
     row.push_back(wxString::FromUTF8(item.effectiveFixtureType));
@@ -190,7 +199,7 @@ void RiderFixtureResolutionDialog::RefreshTable() {
                       : wxString::FromUTF8(item.selectedMode));
     row.push_back(wxString::FromUTF8(rider_fixture_resolution::OriginName(item.origin)));
     row.push_back(wxString::FromUTF8(item.details));
-    tableStore->AppendItem(row);
+    tableStore->AppendItem(row, static_cast<wxUIntPtr>(index + 1));
     const unsigned rowIndex = static_cast<unsigned>(tableStore->GetItemCount() - 1);
     const unsigned statusColumn = 6;
     const auto semantic =
@@ -200,8 +209,39 @@ void RiderFixtureResolutionDialog::RefreshTable() {
           rowIndex, statusColumn, GdtfResolutionStatusColour(semantic));
   }
   if (!analysis.items.empty())
-    table->Select(tableStore->GetItem(static_cast<unsigned>(std::clamp(
-        selectedRow, 0, static_cast<int>(analysis.items.size()) - 1))));
+    table->Select(tableStore->GetItem(0));
+}
+
+// Updates one stable model row and its semantic Status attribute in place.
+void RiderFixtureResolutionDialog::UpdateRow(size_t analysisIndex) {
+  if (analysisIndex >= analysis.items.size())
+    return;
+  const auto row = StoreRowForAnalysisIndex(analysisIndex);
+  if (!row || *row >= tableStore->GetItemCount())
+    return;
+  const auto &item = analysis.items[analysisIndex];
+  modelUpdateInProgress = true;
+  wxVector<wxVariant> values;
+  values.push_back(item.create);
+  values.push_back(wxString::FromUTF8(item.effectiveFixtureType));
+  values.push_back(wxString::Format("%d", item.request.quantity));
+  values.push_back(JoinPositions(item.request.positions));
+  values.push_back(FormatCatalogIdentity(item));
+  values.push_back(item.selectedMode.empty() ? wxString("-")
+                                              : wxString::FromUTF8(item.selectedMode));
+  values.push_back(wxString::FromUTF8(
+      rider_fixture_resolution::OriginName(item.origin)));
+  values.push_back(wxString::FromUTF8(item.details));
+  for (unsigned column = 0; column < values.size(); ++column)
+    tableStore->SetValueByRow(values[column], *row, column);
+  constexpr unsigned statusColumn = 6;
+  tableStore->ClearCellTextColour(*row, statusColumn);
+  const auto semantic =
+      rider_fixture_resolution::StatusSemanticForOrigin(item.origin);
+  if (semantic != rider_fixture_resolution::StatusSemantic::Neutral)
+    tableStore->SetCellTextColour(
+        *row, statusColumn, GdtfResolutionStatusColour(semantic));
+  modelUpdateInProgress = false;
 }
 
 // Updates row-action availability for the selected fixture row.
@@ -237,16 +277,36 @@ void RiderFixtureResolutionDialog::RefreshSummary() {
 
 // Returns the model item corresponding to the selected table row.
 rider_fixture_resolution::Item *RiderFixtureResolutionDialog::SelectedItem() {
-  const int row = SelectedRow();
-  if (row < 0 || row >= static_cast<int>(analysis.items.size()))
+  const auto index = AnalysisIndexForItem(table->GetSelection());
+  if (!index || *index >= analysis.items.size())
     return nullptr;
-  return &analysis.items[static_cast<size_t>(row)];
+  return &analysis.items[*index];
 }
 
-// Returns the currently selected model row or -1 when no row is selected.
-int RiderFixtureResolutionDialog::SelectedRow() const {
-  const wxDataViewItem selected = table->GetSelection();
-  return selected.IsOk() ? static_cast<int>(tableStore->GetRow(selected)) : -1;
+// Resolves stable non-zero model item data to an analysis index.
+std::optional<size_t> RiderFixtureResolutionDialog::AnalysisIndexForItem(
+    const wxDataViewItem &item) const {
+  if (!item.IsOk())
+    return std::nullopt;
+  const wxUIntPtr key = tableStore->GetItemData(item);
+  if (key == 0)
+    return std::nullopt;
+  const size_t index = static_cast<size_t>(key - 1);
+  return index < analysis.items.size() ? std::optional<size_t>(index)
+                                       : std::nullopt;
+}
+
+// Finds the current store row for a stable analysis identity after sorting.
+std::optional<unsigned>
+RiderFixtureResolutionDialog::StoreRowForAnalysisIndex(size_t analysisIndex) const {
+  const wxUIntPtr key = static_cast<wxUIntPtr>(analysisIndex + 1);
+  const unsigned count = tableStore->GetItemCount();
+  for (unsigned row = 0; row < count; ++row) {
+    const wxDataViewItem item = tableStore->GetItem(row);
+    if (item.IsOk() && tableStore->GetItemData(item) == key)
+      return row;
+  }
+  return std::nullopt;
 }
 
 // Refreshes actions when the selected row changes.
@@ -259,12 +319,12 @@ void RiderFixtureResolutionDialog::OnSelectionChanged(wxDataViewEvent &event) {
 void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
   if (event.GetColumn() != 5)
     return;
-  const int activatedRow = static_cast<int>(tableStore->GetRow(event.GetItem()));
-  if (activatedRow != wxNOT_FOUND)
-    table->Select(tableStore->GetItem(static_cast<unsigned>(activatedRow)));
-  auto *item = SelectedItem();
-  if (!item)
+  const auto analysisIndex = AnalysisIndexForItem(event.GetItem());
+  if (!analysisIndex)
     return;
+  table->Select(event.GetItem());
+  auto &resolvedItem = analysis.items[*analysisIndex];
+  auto *item = &resolvedItem;
   if (!item->create)
     return;
   std::vector<std::string> modes;
@@ -300,18 +360,23 @@ void RiderFixtureResolutionDialog::OnItemActivated(wxDataViewEvent &event) {
         ? rider_fixture_resolution::ResolutionOrigin::Dictionary
         : rider_fixture_resolution::ResolutionOrigin::DictionaryModified;
   }
-  RefreshTable();
+  UpdateRow(*analysisIndex);
   RefreshSummary();
 }
 
 // Applies committed Create and Fixture type cell edits to the resolution model.
 void RiderFixtureResolutionDialog::OnValueChanged(wxDataViewEvent &event) {
-  const int row = static_cast<int>(tableStore->GetRow(event.GetItem()));
-  if (row == wxNOT_FOUND || row >= static_cast<int>(analysis.items.size()))
+  if (modelUpdateInProgress)
     return;
-  auto &item = analysis.items[static_cast<size_t>(row)];
+  const auto analysisIndex = AnalysisIndexForItem(event.GetItem());
+  if (!analysisIndex)
+    return;
+  const auto storeRow = StoreRowForAnalysisIndex(*analysisIndex);
+  if (!storeRow || *storeRow >= tableStore->GetItemCount())
+    return;
+  auto &item = analysis.items[*analysisIndex];
   wxVariant value;
-  tableStore->GetValueByRow(value, static_cast<unsigned int>(row),
+  tableStore->GetValueByRow(value, *storeRow,
                             static_cast<unsigned int>(event.GetColumn()));
   if (event.GetColumn() == 0) {
     rider_fixture_resolution::Service::SetCreate(item, value.GetBool());
@@ -325,24 +390,27 @@ void RiderFixtureResolutionDialog::OnValueChanged(wxDataViewEvent &event) {
     rider_fixture_resolution::Service::ResolveItem(item, dictionary,
                                                     catalogEntries);
   }
-  RefreshTable();
+  UpdateRow(*analysisIndex);
   RefreshSelectionControls();
   RefreshSummary();
 }
 
 // Accepts the safe suggestion for the selected row.
 void RiderFixtureResolutionDialog::OnUseSuggested(wxCommandEvent &) {
-  auto *item = SelectedItem();
+  const auto analysisIndex = AnalysisIndexForItem(table->GetSelection());
+  auto *item = analysisIndex ? &analysis.items[*analysisIndex] : nullptr;
   if (item && item->suggestedEntry)
     rider_fixture_resolution::Service::SelectCatalogEntry(*item, *item->suggestedEntry);
-  RefreshTable();
+  if (analysisIndex)
+    UpdateRow(*analysisIndex);
   RefreshSelectionControls();
   RefreshSummary();
 }
 
 // Opens the established catalog browser pre-filtered for the rider alias.
 void RiderFixtureResolutionDialog::OnSearch(wxCommandEvent &) {
-  auto *item = SelectedItem();
+  const auto analysisIndex = AnalysisIndexForItem(table->GetSelection());
+  auto *item = analysisIndex ? &analysis.items[*analysisIndex] : nullptr;
   if (!item)
     return;
   if (catalogEntries.empty()) {
@@ -372,7 +440,7 @@ void RiderFixtureResolutionDialog::OnSearch(wxCommandEvent &) {
     rider_fixture_resolution::Service::SelectCatalogEntry(
         *item, *selected,
         rider_fixture_resolution::ResolutionOrigin::UserSelection);
-  RefreshTable();
+  UpdateRow(*analysisIndex);
   RefreshSelectionControls();
   RefreshSummary();
 }
@@ -386,15 +454,14 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
   catalogLoading = true;
   const CatalogLoader loader = cachedCatalogLoader;
   const auto requests = BuildFixtureRequests();
-  wxWeakRef<RiderFixtureResolutionDialog> weakDialog(this);
-  std::thread([loader, weakDialog, requests]() mutable {
-    auto report = [&weakDialog](const ProgressData &progress) {
-      RiderFixtureResolutionDialog *dialog = weakDialog.get();
-      if (!dialog)
+  catalogWorker = std::jthread(
+      [this, loader, requests](std::stop_token stopToken) mutable {
+    auto report = [this, &stopToken](const ProgressData &progress) {
+      if (stopToken.stop_requested() || shuttingDown.load())
         return;
       auto *event = new wxThreadEvent(EVT_RIDER_CATALOG_PROGRESS);
       event->SetPayload(progress);
-      wxQueueEvent(dialog, event);
+      wxQueueEvent(this, event);
     };
     report({{rider_fixture_resolution::ProgressStage::LoadingCatalog}});
     report({{rider_fixture_resolution::ProgressStage::ParsingCatalog}});
@@ -404,6 +471,8 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
       rider_fixture_resolution::Analysis matches;
       size_t automaticMatches = 0;
       for (size_t row = 0; row < requests.size(); ++row) {
+        if (stopToken.stop_requested() || shuttingDown.load())
+          return;
         auto one = rider_fixture_resolution::Service::Analyze(
             {requests[row]}, {}, loaded->entries);
         if (one.items.front().origin ==
@@ -423,13 +492,12 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
     } else {
       report({{rider_fixture_resolution::ProgressStage::Unavailable}});
     }
-    RiderFixtureResolutionDialog *dialog = weakDialog.get();
-    if (!dialog)
+    if (stopToken.stop_requested() || shuttingDown.load())
       return;
     auto *event = new wxThreadEvent(EVT_RIDER_CATALOG_LOADED);
     event->SetPayload(loaded);
-    wxQueueEvent(dialog, event);
-  }).detach();
+    wxQueueEvent(this, event);
+  });
 }
 
 // Applies a completed cached catalog load on the wxWidgets UI thread.
@@ -456,7 +524,7 @@ void RiderFixtureResolutionDialog::OnProgress(wxThreadEvent &event) {
   if (data.matchedItem && data.row < analysis.items.size()) {
     rider_fixture_resolution::Service::MergeCatalogSuggestion(
         analysis.items[data.row], *data.matchedItem);
-    RefreshTable();
+    UpdateRow(data.row);
     RefreshSelectionControls();
     RefreshSummary();
   }
@@ -509,7 +577,8 @@ void RiderFixtureResolutionDialog::ApplyCatalog(const CatalogData &catalog) {
       "Rider fixture preflight catalog: catalog_match_ms=" +
       std::to_string(catalog.matchMs));
   rider_fixture_resolution::Service::MergeCatalogSuggestions(analysis, matched);
-  RefreshTable();
+  for (size_t index = 0; index < analysis.items.size(); ++index)
+    UpdateRow(index);
   RefreshSelectionControls();
   RefreshSummary();
 }
@@ -532,9 +601,11 @@ RiderFixtureResolutionDialog::BuildFixtureRequests() const {
 
 // Selects the existing one-import generic fallback for the selected alias.
 void RiderFixtureResolutionDialog::OnUseGeneric(wxCommandEvent &) {
-  if (auto *item = SelectedItem())
+  const auto analysisIndex = AnalysisIndexForItem(table->GetSelection());
+  if (auto *item = analysisIndex ? &analysis.items[*analysisIndex] : nullptr)
     rider_fixture_resolution::Service::SelectGeneric(*item);
-  RefreshTable();
+  if (analysisIndex)
+    UpdateRow(*analysisIndex);
   RefreshSelectionControls();
   RefreshSummary();
 }
@@ -548,7 +619,8 @@ void RiderFixtureResolutionDialog::OnAcceptAll(wxCommandEvent &) {
                                                              *item.suggestedEntry);
     }
   }
-  RefreshTable();
+  for (size_t index = 0; index < analysis.items.size(); ++index)
+    UpdateRow(index);
   RefreshSelectionControls();
   RefreshSummary();
 }
@@ -556,6 +628,22 @@ void RiderFixtureResolutionDialog::OnAcceptAll(wxCommandEvent &) {
 // Closes successfully only after every non-dictionary row is explicitly ready.
 void RiderFixtureResolutionDialog::OnResolve(wxCommandEvent &) {
   acceptAutomaticResults = false;
+  RequestWorkerStop();
   rider_fixture_resolution::Service::FinalizeDefaults(analysis);
+  for (size_t index = 0; index < analysis.items.size(); ++index)
+    UpdateRow(index);
   EndModal(wxID_OK);
+}
+
+// Cancels the modal workflow and requests cooperative worker shutdown.
+void RiderFixtureResolutionDialog::OnCancel(wxCommandEvent &) {
+  acceptAutomaticResults = false;
+  RequestWorkerStop();
+  EndModal(wxID_CANCEL);
+}
+
+// Requests cooperative cancellation without blocking the modal UI thread.
+void RiderFixtureResolutionDialog::RequestWorkerStop() {
+  if (catalogWorker.joinable())
+    catalogWorker.request_stop();
 }

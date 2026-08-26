@@ -64,6 +64,12 @@ uses actual processed unique fixture rows, and the dialog ignores automatic
 results after its import plan has been committed. Resolution provenance maps to
 a shared semantic status palette also used by the MVR GDTF download queue.
 
+Resolver rows have immutable non-zero model keys for the dialog lifetime.
+Matching updates cells and Status attributes in place rather than deleting and
+rebuilding the active data view. The dialog owns a cancellable `std::jthread`;
+confirming or cancelling requests stop, ignores queued results, and preserves
+the finalized import plan.
+
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
 It is intended to be the **single source of truth** for:

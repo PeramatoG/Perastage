@@ -60,6 +60,9 @@ Changes since **v1.5.0**.
 - Resolve fixture types now shows real catalog and per-fixture matching progress,
   retains a final match summary, and uses the same semantic status colors as the
   MVR GDTF download workflow.
+- Resolve fixture types now keeps stable table rows during background matching
+  and owns its cancellable catalog worker, preventing Debug assertions when
+  rows update or the dialog closes while matching is active.
 
 - Rider-import test executables now link reliably when using the shared fixture
   dictionary alias normalization required by Create from text analysis.

@@ -58,6 +58,8 @@ public:
       hasTextColour = attr.HasColour();
     }
 
+    if (row >= GetItemCount())
+      return hasAttr;
     const wxDataViewItem rowItem = GetItem(row);
     const wxUIntPtr itemKey = rowItem.IsOk() ? GetItemData(rowItem) : 0;
     bool isSelected =

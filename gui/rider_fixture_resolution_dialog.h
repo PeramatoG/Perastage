@@ -6,6 +6,8 @@
 #include <string>
 #include <functional>
 #include <optional>
+#include <atomic>
+#include <thread>
 
 #include <wx/dialog.h>
 
@@ -13,6 +15,7 @@ class wxButton;
 class wxGauge;
 class wxDataViewEvent;
 class wxDataViewCtrl;
+class wxDataViewItem;
 class wxStaticText;
 class wxShowEvent;
 class wxThreadEvent;
@@ -38,12 +41,14 @@ public:
       wxWindow *parent, rider_fixture_resolution::Analysis analysis,
       std::unordered_map<std::string, GdtfDictionary::Entry> dictionary,
       CatalogLoader cachedCatalogLoader, CatalogLoader onlineCatalogLoader);
+  ~RiderFixtureResolutionDialog() override;
 
   rider_fixture_resolution::Analysis TakeAnalysis();
 
 private:
   void BuildLayout();
-  void RefreshTable();
+  void PopulateTable();
+  void UpdateRow(size_t analysisIndex);
   void RefreshSelectionControls();
   void RefreshSummary();
   void OnSelectionChanged(wxDataViewEvent &event);
@@ -54,13 +59,16 @@ private:
   void OnUseGeneric(wxCommandEvent &event);
   void OnAcceptAll(wxCommandEvent &event);
   void OnResolve(wxCommandEvent &event);
+  void OnCancel(wxCommandEvent &event);
   void OnDialogShown(wxShowEvent &event);
   void OnCatalogLoaded(wxThreadEvent &event);
   void OnProgress(wxThreadEvent &event);
   void ApplyCatalog(const CatalogData &catalog);
   std::vector<RiderImporter::FixtureTypeRequest> BuildFixtureRequests() const;
   rider_fixture_resolution::Item *SelectedItem();
-  int SelectedRow() const;
+  std::optional<size_t> AnalysisIndexForItem(const wxDataViewItem &item) const;
+  std::optional<unsigned> StoreRowForAnalysisIndex(size_t analysisIndex) const;
+  void RequestWorkerStop();
 
   rider_fixture_resolution::Analysis analysis;
   std::unordered_map<std::string, GdtfDictionary::Entry> dictionary;
@@ -73,6 +81,9 @@ private:
   bool catalogLoadStarted = false;
   bool catalogLoading = false;
   bool acceptAutomaticResults = true;
+  bool modelUpdateInProgress = false;
+  std::atomic<bool> shuttingDown{false};
+  std::jthread catalogWorker;
   wxDataViewCtrl *table = nullptr;
   ColorfulDataViewListStore *tableStore = nullptr;
   wxButton *useSuggestedButton = nullptr;

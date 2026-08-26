@@ -2810,6 +2810,14 @@ add_test(NAME FixtureGeometryBoundsRendererUnitParity
 add_test(NAME FixtureGeometryBoundsTranslatedChild
          COMMAND fixture_geometry_bounds_test)
 
+add_executable(colorful_dataview_store_bounds_test
+               colorful_dataview_store_bounds_test.cpp)
+target_include_directories(colorful_dataview_store_bounds_test PRIVATE ../gui)
+target_link_libraries(colorful_dataview_store_bounds_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME ColorfulDataViewStoreBounds
+         COMMAND colorful_dataview_store_bounds_test)
+
 # Reuse the production mesh parsers in every standalone test that owns truss loading/building.
 get_property(perastage_geometry_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(perastage_geometry_target IN LISTS perastage_geometry_test_targets)

@@ -357,7 +357,14 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       continue;
     if (!item.selectedEntry)
       continue;
-    const auto &downloaded = downloads.at(item.selectedEntry->rid);
+    const auto downloadedIt = downloads.find(item.selectedEntry->rid);
+    if (downloadedIt == downloads.end()) {
+      rider_fixture_resolution::Service::FallbackAfterFailure(
+          item, "Selected GDTF is unavailable");
+      ++recoverableFailureCount;
+      continue;
+    }
+    const auto &downloaded = downloadedIt->second;
     const auto persisted = GdtfDictionary::CreateOrUpdateExternalLibraryMapping(
         item.request.typeName, downloaded.path.string(), item.selectedMode);
     if (!persisted.success) {

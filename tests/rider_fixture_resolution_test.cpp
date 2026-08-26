@@ -146,6 +146,17 @@ int main() {
   Service::MergeCatalogSuggestions(renamedDuringMatch, backgroundMatch);
   assert(!renamedDuringMatch.items.front().selectedEntry);
 
+  Analysis stableRows = Service::Analyze({requests[1], requests[2]}, {}, {});
+  const std::string neighborIdentity =
+      stableRows.items[1].originalFixtureType;
+  const Analysis firstMatch = Service::Analyze({requests[1]}, {}, catalog);
+  Service::MergeCatalogSuggestion(stableRows.items[0], firstMatch.items[0]);
+  assert(stableRows.items.size() == 2);
+  assert(stableRows.items[1].originalFixtureType == neighborIdentity);
+  Service::MergeCatalogSuggestion(stableRows.items[0], firstMatch.items[0]);
+  assert(stableRows.items.size() == 2);
+  assert(stableRows.items[1].originalFixtureType == neighborIdentity);
+
   std::filesystem::remove(profilePath);
   return 0;
 }
