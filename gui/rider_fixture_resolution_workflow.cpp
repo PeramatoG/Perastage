@@ -1,5 +1,4 @@
 #include "rider_fixture_resolution_workflow.h"
-#include "gdtf_share_message_formatter.h"
 
 #include "rider_fixture_resolution_dialog.h"
 #include "logindialog.h"
@@ -89,7 +88,7 @@ bool EnsureAuthenticated(wxWindow *parent, ConfigManager &configManager,
       }
       return true;
     }
-    wxMessageBox(FormatLocalizedGdtfShareUserMessage(result, GdtfShareGuiOperation::Login),
+    wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(result, "login")),
                  _("GDTF Share sign-in unavailable"), wxOK | wxICON_WARNING,
                  parent);
     if (result.category != GdtfShareResultCategory::AuthenticationRejected)
@@ -309,7 +308,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
         !EnsureAuthenticated(parent, configManager, client, credentials)) {
       authenticationUnavailable = true;
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::AuthenticationUnavailable);
+          item, "Authentication unavailable");
       ++recoverableFailureCount;
       diagnostics::DiagnosticLogger::Warning(
           "Rider fixture resolution fallback: alias=" + item.request.typeName +
@@ -335,14 +334,14 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
           "Rider fixture GDTF download failed: alias=" +
           item.request.typeName + " revision=" + rid);
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::DownloadFailed);
+          item, "Download failed");
       ++recoverableFailureCount;
       continue;
     }
     auto modes = GetGdtfModes(destination.string());
     if (modes.empty()) {
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::DownloadedGdtfInvalid);
+          item, "Downloaded GDTF is invalid");
       ++recoverableFailureCount;
       diagnostics::DiagnosticLogger::Warning(
           "Rider fixture resolution fallback: alias=" + item.request.typeName +
@@ -364,7 +363,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
     const auto found = downloads.find(item.selectedEntry->rid);
     if (found == downloads.end()) {
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::SelectedGdtfUnavailable);
+          item, "Selected GDTF is unavailable");
       ++recoverableFailureCount;
       continue;
     }
@@ -373,7 +372,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       const std::string failedRid = item.selectedEntry->rid;
       const std::string failedMode = item.selectedMode;
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::SelectedModeUnavailable);
+          item, "Selected mode is not present in the GDTF");
       ++recoverableFailureCount;
       diagnostics::DiagnosticLogger::Warning(
           "Rider fixture resolution fallback: alias=" + item.request.typeName +
@@ -399,7 +398,6 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       item.selectedMode = item.originalDictionaryMode;
       item.origin = rider_fixture_resolution::ResolutionOrigin::Dictionary;
       item.details = "Dictionary mode change could not be saved; original mode retained";
-      item.detailKind = rider_fixture_resolution::DetailKind::DictionaryModeSaveFailed;
       ++recoverableFailureCount;
       diagnostics::DiagnosticLogger::Warning(
           "Rider fixture dictionary mode fallback: alias=" +
@@ -416,7 +414,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
     const auto downloadedIt = downloads.find(item.selectedEntry->rid);
     if (downloadedIt == downloads.end()) {
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::SelectedGdtfUnavailable);
+          item, "Selected GDTF is unavailable");
       ++recoverableFailureCount;
       continue;
     }
@@ -432,7 +430,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
           " source_valid=true derivative_attempted=false stage=" +
           persisted.failureStage + " reason=" + persisted.error);
       rider_fixture_resolution::Service::FallbackAfterFailure(
-          item, rider_fixture_resolution::FailureKind::DictionaryMappingSaveFailed);
+          item, "Dictionary mapping could not be saved");
       ++recoverableFailureCount;
       continue;
     }

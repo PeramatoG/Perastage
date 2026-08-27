@@ -275,6 +275,11 @@ def string_literals(expression: str) -> list[tuple[str, int]]:
     return literals
 
 
+def is_stable_file_dialog_filter(expression: str, literal: str) -> bool:
+    """Recognizes machine-consumed wxFileDialog wildcard grammar as stable data."""
+    return "wxFileDialog" in expression and "*." in expression and "|" in expression
+
+
 def audit() -> int:
     try:
         allowlist = parse_allowlist()
@@ -294,6 +299,8 @@ def audit() -> int:
                 continue
             for literal, local_offset in string_literals(expression):
                 if not literal or not literal.strip() or literal in {"", "?", "[CMD] "}:
+                    continue
+                if is_stable_file_dialog_filter(expression, literal):
                     continue
                 if (rel, literal) in allowlist:
                     continue
@@ -330,6 +337,7 @@ def self_test() -> int:
     untranslated_factory = 'std::make_unique<wxProgressDialog>("Title", "Message");'
     translated_factory = 'std::make_unique<wxProgressDialog>(_("Title"), _("Message"));'
     technical_constructor = 'ProtocolFrame frame("StableIdentifier");'
+    stable_filter = 'wxFileDialog dlg(parent, _("Open"), path, "", "JSON files (*.json)|*.json");'
     assert unmarked_literals_for_test(untranslated_choice, constructor_pattern)
     assert unmarked_literals_for_test(untranslated_file, constructor_pattern)
     assert not unmarked_literals_for_test(translated_choice, constructor_pattern)
@@ -337,6 +345,7 @@ def self_test() -> int:
     assert unmarked_literals_for_test(untranslated_factory, constructor_pattern)
     assert not unmarked_literals_for_test(translated_factory, constructor_pattern)
     assert not unmarked_literals_for_test(technical_constructor, constructor_pattern)
+    assert is_stable_file_dialog_filter(stable_filter, "JSON files (*.json)|*.json")
     return 0
 
 

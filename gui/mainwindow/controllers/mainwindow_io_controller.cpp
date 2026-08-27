@@ -375,7 +375,7 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
     return;
 
   wxFileDialog openFileDialog(ownerRef_, _("Import MVR file"), miscDir, "",
-                              _("MVR files (*.mvr)|*.mvr"),
+                              "MVR files (*.mvr)|*.mvr",
                               wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
   if (openFileDialog.ShowModal() == wxID_CANCEL)

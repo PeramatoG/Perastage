@@ -176,7 +176,6 @@ void Service::ResolveItem(
       item.selectedMode = item.dictionaryEntry->mode;
       item.originalDictionaryMode = item.dictionaryEntry->mode;
       item.details = "Active fixture dictionary";
-      item.detailKind = DetailKind::ActiveDictionary;
       return;
     }
     item.dictionaryEntry.reset();
@@ -193,7 +192,6 @@ void Service::ResolveItem(
       item.state = State::Unresolved;
       item.origin = ResolutionOrigin::GenericFallback;
       item.details = "No reliable catalog match; generic will be used unless changed";
-      item.detailKind = DetailKind::NoReliableMatch;
       return;
     }
 
@@ -205,12 +203,10 @@ void Service::ResolveItem(
       item.state = State::Unresolved;
       item.origin = ResolutionOrigin::GenericFallback;
       item.details = "Conflicting numeric model identity; generic will be used unless changed";
-      item.detailKind = DetailKind::ConflictingIdentity;
     } else {
       item.state = State::Suggested;
       SelectCatalogEntry(item, *entry, ResolutionOrigin::AutomaticMatch);
       item.details = "Selected by the shared GDTF catalog matcher";
-      item.detailKind = DetailKind::AutomaticMatch;
     }
 }
 
@@ -239,38 +235,12 @@ void Service::SelectGeneric(Item &item) {
   item.selectedEntry.reset();
   item.selectedMode.clear();
   item.details = "Generic fallback selected for this import";
-  item.failureKind = FailureKind::None;
-  item.detailKind = DetailKind::GenericFallback;
 }
 
 // Records a recoverable resolution failure in the final GUI-independent plan.
-void Service::FallbackAfterFailure(Item &item, FailureKind failure) {
+void Service::FallbackAfterFailure(Item &item, const std::string &reason) {
   SelectGeneric(item);
-  item.failureKind = failure;
-  item.detailKind = DetailKind::FailureFallback;
-  switch (failure) {
-  case FailureKind::AuthenticationUnavailable:
-    item.details = "Authentication unavailable - using generic fallback";
-    break;
-  case FailureKind::DownloadFailed:
-    item.details = "Download failed - using generic fallback";
-    break;
-  case FailureKind::DownloadedGdtfInvalid:
-    item.details = "Downloaded GDTF is invalid - using generic fallback";
-    break;
-  case FailureKind::SelectedGdtfUnavailable:
-    item.details = "Selected GDTF is unavailable - using generic fallback";
-    break;
-  case FailureKind::SelectedModeUnavailable:
-    item.details = "Selected mode is not present in the GDTF - using generic fallback";
-    break;
-  case FailureKind::DictionaryMappingSaveFailed:
-    item.details = "Dictionary mapping could not be saved - using generic fallback";
-    break;
-  case FailureKind::None:
-    item.details = "Resolution failed - using generic fallback";
-    break;
-  }
+  item.details = reason + " - using generic fallback";
 }
 
 // Converts every incomplete non-dictionary row to Generic before import.
@@ -303,8 +273,6 @@ void Service::MergeCatalogSuggestion(Item &target, const Item &matched) {
   target.selectedMode = matched.selectedMode;
   target.origin = matched.origin;
   target.details = matched.details;
-  target.detailKind = matched.detailKind;
-  target.failureKind = matched.failureKind;
 }
 
 // Converts resolution state to stable diagnostic text.

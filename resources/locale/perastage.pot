@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.5.93\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-27 18:35+0000\n"
+"POT-Creation-Date: 2026-08-27 19:28+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -502,13 +502,6 @@ msgstr ""
 msgid "Open %s dictionary"
 msgstr ""
 
-#: gui/dictionaryeditdialog.cpp:1432 gui/dictionaryeditdialog.cpp:1562
-#: gui/dictionaryeditdialog.cpp:1587 gui/dictionaryeditdialog.cpp:1618
-#: gui/dictionaryeditdialog.cpp:1658 gui/dictionaryeditdialog.cpp:1701
-#: gui/dictionaryeditdialog.cpp:1759
-msgid "JSON dictionary files (*.json)|*.json"
-msgstr ""
-
 #: gui/dictionaryeditdialog.cpp:1443
 msgid ""
 "Could not open the selected dictionary.\n"
@@ -742,13 +735,6 @@ msgstr ""
 msgid "Select Truss file"
 msgstr ""
 
-#: gui/dictionaryeditdialog.cpp:2028 gui/dictionaryeditdialog.cpp:2799
-#: gui/trusstablepanel.cpp:562
-msgid ""
-"Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All "
-"files|*.*"
-msgstr ""
-
 #: gui/dictionaryeditdialog.cpp:2213
 msgid "importing a dictionary"
 msgstr ""
@@ -756,12 +742,6 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:2229 gui/dictionaryeditdialog.cpp:2245
 #: gui/dictionaryeditdialog.cpp:2257
 msgid "Import fixtures dictionary"
-msgstr ""
-
-#: gui/dictionaryeditdialog.cpp:2231 gui/dictionaryeditdialog.cpp:2315
-msgid ""
-"Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP "
-"files (*.zip)|*.zip"
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:2243 gui/dictionaryeditdialog.cpp:2255
@@ -863,10 +843,6 @@ msgstr ""
 msgid "Export fixtures dictionary"
 msgstr ""
 
-#: gui/dictionaryeditdialog.cpp:2452 gui/dictionaryeditdialog.cpp:2506
-msgid "JSON files (*.json)|*.json"
-msgstr ""
-
 #: gui/dictionaryeditdialog.cpp:2462
 msgid "Could not write fixtures dictionary snapshot."
 msgstr ""
@@ -914,10 +890,6 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:2547 gui/dictionaryeditdialog.cpp:2553
 #: gui/dictionaryeditdialog.cpp:2565 gui/dictionaryeditdialog.cpp:2570
 msgid "Export portable fixtures bundle"
-msgstr ""
-
-#: gui/dictionaryeditdialog.cpp:2555 gui/dictionaryeditdialog.cpp:2591
-msgid "ZIP files (*.zip)|*.zip"
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:2563
@@ -1765,10 +1737,6 @@ msgstr ""
 msgid "Export layout package"
 msgstr ""
 
-#: gui/layoutpanel.cpp:365
-msgid "Perastage layout packages (*.pslayout)|*.pslayout"
-msgstr ""
-
 #: gui/layoutpanel.cpp:374
 msgid "Could not export layout package.\n"
 msgstr ""
@@ -1779,13 +1747,6 @@ msgstr ""
 
 #: gui/layoutpanel.cpp:386
 msgid "Import layout template"
-msgstr ""
-
-#: gui/layoutpanel.cpp:388
-msgid ""
-"All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|"
-"Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout "
-"templates (*.json)|*.json"
 msgstr ""
 
 #: gui/layoutpanel.cpp:398
@@ -1876,11 +1837,6 @@ msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:377
 msgid "Import MVR file"
-msgstr ""
-
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:378
-#: gui/mainwindow_io.cpp:602
-msgid "MVR files (*.mvr)|*.mvr"
 msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:488
@@ -2211,10 +2167,6 @@ msgstr ""
 msgid "Import Rider"
 msgstr ""
 
-#: gui/mainwindow_io.cpp:438 gui/ridertextdialog.cpp:202
-msgid "Rider files (*.txt;*.pdf)|*.txt;*.pdf"
-msgstr ""
-
 #: gui/mainwindow_io.cpp:448
 msgid "Failed to read rider."
 msgstr ""
@@ -2272,10 +2224,6 @@ msgstr ""
 
 #: gui/mainwindow_io.cpp:674
 msgid "Save Truss"
-msgstr ""
-
-#: gui/mainwindow_io.cpp:676
-msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr ""
 
 #: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:876
@@ -2724,8 +2672,8 @@ msgstr ""
 #: gui/preferences/gdtf_credentials_panel.cpp:84
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
-#: gui/rider_fixture_resolution_workflow.cpp:88
-#: gui/rider_fixture_resolution_workflow.cpp:254 mvr/mvrimporter.cpp:3995
+#: gui/rider_fixture_resolution_workflow.cpp:87
+#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:3995
 msgid "GDTF Share credentials"
 msgstr ""
 
@@ -2954,10 +2902,6 @@ msgstr ""
 
 #: gui/mainwindow_menu.cpp:1850 gui/mainwindow_menu.cpp:1872
 msgid "Select Object file"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:1851 gui/mainwindow_menu.cpp:1873
-msgid "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"
 msgstr ""
 
 #: gui/mainwindow_menu_builders.cpp:13
@@ -3196,10 +3140,6 @@ msgstr ""
 
 #: gui/mainwindow_print.cpp:254
 msgid "Save 2D view as"
-msgstr ""
-
-#: gui/mainwindow_print.cpp:255 gui/mainwindow_print.cpp:405
-msgid "PDF files (*.pdf)|*.pdf"
 msgstr ""
 
 #: gui/mainwindow_print.cpp:263
@@ -3895,7 +3835,7 @@ msgid "Restart required"
 msgstr ""
 
 #: gui/rider_fixture_resolution_dialog.cpp:40
-#: gui/rider_fixture_resolution_workflow.cpp:322
+#: gui/rider_fixture_resolution_workflow.cpp:321
 msgid "Resolve fixture types"
 msgstr ""
 
@@ -4014,7 +3954,7 @@ msgid "GDTF catalog unavailable - generic fallback remains available"
 msgstr ""
 
 #: gui/rider_fixture_resolution_dialog.cpp:596
-#: gui/rider_fixture_resolution_workflow.cpp:78
+#: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "Signing in to GDTF Share..."
 msgstr ""
 
@@ -4032,8 +3972,6 @@ msgid "Matching GDTF candidates... %zu / %zu"
 msgstr ""
 
 #: gui/rider_fixture_resolution_model.cpp:31
-#: gui/rider_fixture_resolution_model.cpp:54
-#: gui/rider_fixture_resolution_model.cpp:57
 msgid "Generic fallback"
 msgstr ""
 
@@ -4041,109 +3979,33 @@ msgstr ""
 msgid "-"
 msgstr ""
 
-#: gui/rider_fixture_resolution_model.cpp:50
-msgid "Dictionary"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:51
-msgid "Dictionary modified"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:52
-msgid "Automatic match"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:53
-msgid "User assigned"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:55
-msgid "Skipped"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:64
-msgid "Active fixture dictionary"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:65
-msgid "No reliable catalog match; generic will be used unless changed"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:66
-msgid "Conflicting numeric model identity; generic will be used unless changed"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:67
-msgid "Selected by the shared GDTF catalog matcher"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:68
-msgid "Generic fallback selected for this import"
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:72
-msgid "Authentication is unavailable; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:74
-msgid "The GDTF download failed; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:76
-msgid "The downloaded GDTF is invalid; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:78
-msgid "The selected GDTF is unavailable; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:80
-msgid ""
-"The selected mode is not present in the GDTF; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:82
-msgid ""
-"The dictionary mapping could not be saved; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:84
-msgid "Fixture resolution failed; generic fallback will be used."
-msgstr ""
-
-#: gui/rider_fixture_resolution_model.cpp:88
-msgid ""
-"The dictionary mode change could not be saved; the original mode was "
-"retained."
-msgstr ""
-
-#: gui/rider_fixture_resolution_workflow.cpp:78
+#: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "GDTF Share"
 msgstr ""
 
-#: gui/rider_fixture_resolution_workflow.cpp:87
-#: gui/rider_fixture_resolution_workflow.cpp:253
+#: gui/rider_fixture_resolution_workflow.cpp:86
+#: gui/rider_fixture_resolution_workflow.cpp:252
 msgid ""
 "GDTF Share authentication succeeded, but the credentials could not be saved "
 "securely. You may need to enter them again after restart."
 msgstr ""
 
-#: gui/rider_fixture_resolution_workflow.cpp:93
+#: gui/rider_fixture_resolution_workflow.cpp:92
 msgid "GDTF Share sign-in unavailable"
 msgstr ""
 
-#: gui/rider_fixture_resolution_workflow.cpp:322
+#: gui/rider_fixture_resolution_workflow.cpp:321
 msgid "Downloading selected GDTF..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_workflow.cpp:454
+#: gui/rider_fixture_resolution_workflow.cpp:452
 #, c-format
 msgid ""
 "%zu fixture types used generic fallback because GDTF resolution failed. See "
 "the diagnostic log for details."
 msgstr ""
 
-#: gui/rider_fixture_resolution_workflow.cpp:456
+#: gui/rider_fixture_resolution_workflow.cpp:454
 msgid "Fixture resolution warning"
 msgstr ""
 
@@ -4369,11 +4231,6 @@ msgstr ""
 msgid "Select Object Model"
 msgstr ""
 
-#: gui/sceneobjecttablepanel.cpp:457
-msgid ""
-"3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All files|*.*"
-msgstr ""
-
 #: gui/selectfixturetypedialog.cpp:21
 msgid "Select Fixture Type"
 msgstr ""
@@ -4422,10 +4279,6 @@ msgstr ""
 #: gui/summarypanel.cpp:258 gui/summarypanel.cpp:267 gui/summarypanel.cpp:317
 #: gui/summarypanel.cpp:347 tests/localization_catalog_integration_test.cpp:193
 msgid "Count"
-msgstr ""
-
-#: gui/tableprinter.cpp:164
-msgid "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
 msgstr ""
 
 #: gui/tableprinter.cpp:172
@@ -4559,10 +4412,6 @@ msgstr ""
 
 #: gui/windows/SymbolPreviewWindow.cpp:178
 msgid "Export Symbol View as SVG"
-msgstr ""
-
-#: gui/windows/SymbolPreviewWindow.cpp:179
-msgid "SVG files (*.svg)|*.svg"
 msgstr ""
 
 #: gui/windows/SymbolPreviewWindow.cpp:188
@@ -4872,10 +4721,6 @@ msgstr ""
 #: viewer3d/viewer3dpanel.cpp:1535 viewer3d/viewer3dpanel.cpp:1540
 #: viewer3d/viewer3dpanel.cpp:1583 viewer3d/viewer3dpanel.cpp:1632
 msgid "Export image"
-msgstr ""
-
-#: viewer3d/viewer3dpanel.cpp:1524
-msgid "PNG files (*.png)|*.png"
 msgstr ""
 
 #: viewer3d/viewer3dpanel.cpp:1535 viewer3d/viewer3dpanel.cpp:1540

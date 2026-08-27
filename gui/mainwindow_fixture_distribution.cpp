@@ -171,10 +171,10 @@ void MainWindow::OnDistributeFixtures(wxCommandEvent &event) {
 
 // Reports a non-blocking fixture-distribution message in the status and
 // console.
-void MainWindow::ReportFixtureDistributionMessage(const char *message) {
-  SetStatusText(wxGetTranslation(message), 0);
+void MainWindow::ReportFixtureDistributionMessage(const std::string &message) {
+  SetStatusText(wxGetTranslation(wxString::FromUTF8(message)), 0);
   if (consolePanel)
-    consolePanel->AppendMessage(message);
+    consolePanel->AppendMessage(wxString::FromUTF8(message));
 }
 
 // Restores fixture selection after distribution refreshes all scene views.

@@ -435,7 +435,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
   wxFileDialog dlg(this, _("Import Rider"), miscDir, "",
-                   _("Rider files (*.txt;*.pdf)|*.txt;*.pdf"),
+                   "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -599,7 +599,7 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
                                          ? wxString()
                                          : suggestedProjectName + ".mvr";
   wxFileDialog saveFileDialog(this, _("Export MVR file"), miscDir,
-                              suggestedFileName, _("MVR files (*.mvr)|*.mvr"),
+                              suggestedFileName, "MVR files (*.mvr)|*.mvr",
                               wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
   if (saveFileDialog.ShowModal() == wxID_CANCEL)
@@ -673,7 +673,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog saveDlg(this, _("Save Truss"), trussDir,
                        wxString::FromUTF8(canonicalFileName),
-                       _("GDTF files (*.gdtf)|*.gdtf"),
+                       "GDTF files (*.gdtf)|*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
     return;

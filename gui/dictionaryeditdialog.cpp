@@ -774,8 +774,8 @@ bool AskImportPolicy(wxWindow *parent, DictionaryImportPolicy &policyOut) {
 }
 
 bool ConfirmReplaceAllOperation(wxWindow *parent,
-                                bool fixturesDictionary) {
-  const wxString message = fixturesDictionary
+                                const wxString &dictionaryName) {
+  const wxString message = dictionaryName == "fixtures"
       ? _("This will replace all current entries in the fixtures dictionary.\n"
           "This action is destructive.\n\nContinue?")
       : _("This will replace all current entries in the trusses dictionary.\n"
@@ -1429,7 +1429,7 @@ bool DictionaryEditDialog::RecoverInvalidActiveDictionary(
                             wxString::FromUTF8(
                                 currentPath.parent_path().string()),
                             wxString(),
-                            _("JSON dictionary files (*.json)|*.json"),
+                            "JSON dictionary files (*.json)|*.json",
                             wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fileDialog.ShowModal() != wxID_OK)
       return false;
@@ -1559,7 +1559,7 @@ void DictionaryEditDialog::OnOpenFixturesDictionary(
       PathUtils::PathFromUtf8(GdtfDictionary::GetActiveDictionaryFilePath());
   wxFileDialog dialog(this, _("Open fixtures dictionary"),
                       wxString::FromUTF8(currentPath.parent_path().string()),
-                      wxString(), _("JSON dictionary files (*.json)|*.json"),
+                      wxString(), "JSON dictionary files (*.json)|*.json",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -1584,7 +1584,7 @@ void DictionaryEditDialog::OnOpenTrussesDictionary(
       PathUtils::PathFromUtf8(TrussDictionary::GetActiveDictionaryFilePath());
   wxFileDialog dialog(this, _("Open trusses dictionary"),
                       wxString::FromUTF8(currentPath.parent_path().string()),
-                      wxString(), _("JSON dictionary files (*.json)|*.json"),
+                      wxString(), "JSON dictionary files (*.json)|*.json",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -1615,7 +1615,7 @@ void DictionaryEditDialog::OnNewFixturesDictionary(
     return;
   wxFileDialog dialog(this, _("Create fixtures dictionary"), wxString(),
                       "gdtf_dictionary.json",
-                      _("JSON dictionary files (*.json)|*.json"),
+                      "JSON dictionary files (*.json)|*.json",
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -1655,7 +1655,7 @@ void DictionaryEditDialog::OnNewTrussesDictionary(
     return;
   wxFileDialog dialog(this, _("Create trusses dictionary"), wxString(),
                       "truss_dictionary.json",
-                      _("JSON dictionary files (*.json)|*.json"),
+                      "JSON dictionary files (*.json)|*.json",
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -1698,7 +1698,7 @@ void DictionaryEditDialog::OnDuplicateFixturesDictionary(
           DictionaryDuplicate::BuildDefaultDuplicatePath(currentPath)
               .filename()
               .string()),
-      _("JSON dictionary files (*.json)|*.json"),
+      "JSON dictionary files (*.json)|*.json",
       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -1756,7 +1756,7 @@ void DictionaryEditDialog::OnDuplicateTrussesDictionary(
           DictionaryDuplicate::BuildDefaultDuplicatePath(currentPath)
               .filename()
               .string()),
-      _("JSON dictionary files (*.json)|*.json"),
+      "JSON dictionary files (*.json)|*.json",
       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -2025,9 +2025,9 @@ void DictionaryEditDialog::OnAdd(wxCommandEvent &WXUNUSED(event)) {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(this, _("Select Truss file"), trussDir, wxEmptyString,
-                      _("Truss files "
+                      "Truss files "
                       "(*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*."
-                      "glb|All files|*.*"),
+                      "glb|All files|*.*",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
@@ -2228,8 +2228,8 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, _("Import fixtures dictionary"), fixturesDir,
                           wxEmptyString,
-                          _("Dictionary files (*.json;*.zip)|*.json;*.zip|JSON "
-                          "files (*.json)|*.json|ZIP files (*.zip)|*.zip"),
+                          "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON "
+                          "files (*.json)|*.json|ZIP files (*.zip)|*.zip",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
@@ -2265,7 +2265,7 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
     return false;
   }
   if (policy == DictionaryImportPolicy::ReplaceAll &&
-      !ConfirmReplaceAllOperation(this, true)) {
+      !ConfirmReplaceAllOperation(this, "fixtures")) {
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
   }
@@ -2312,8 +2312,8 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, _("Import trusses dictionary"), trussesDir,
                           wxEmptyString,
-                          _("Dictionary files (*.json;*.zip)|*.json;*.zip|JSON "
-                          "files (*.json)|*.json|ZIP files (*.zip)|*.zip"),
+                          "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON "
+                          "files (*.json)|*.json|ZIP files (*.zip)|*.zip",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
@@ -2349,7 +2349,7 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
     return false;
   }
   if (policy == DictionaryImportPolicy::ReplaceAll &&
-      !ConfirmReplaceAllOperation(this, false)) {
+      !ConfirmReplaceAllOperation(this, "trusses")) {
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
   }
@@ -2449,7 +2449,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, _("Export fixtures dictionary"), fixturesDir,
                           "gdtf_dictionary_snapshot.json",
-                          _("JSON files (*.json)|*.json"),
+                          "JSON files (*.json)|*.json",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
@@ -2503,7 +2503,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, _("Export trusses dictionary"), trussesDir,
                           "truss_dictionary_snapshot.json",
-                          _("JSON files (*.json)|*.json"),
+                          "JSON files (*.json)|*.json",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
@@ -2552,7 +2552,7 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
   wxFileDialog fileDialog(this, _("Export portable fixtures bundle"), fixturesDir,
                           "gdtf_dictionary_bundle.zip",
-                          _("ZIP files (*.zip)|*.zip"),
+                          "ZIP files (*.zip)|*.zip",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
@@ -2588,7 +2588,7 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
   wxFileDialog fileDialog(this, _("Export portable trusses bundle"), trussesDir,
                           "truss_dictionary_bundle.zip",
-                          _("ZIP files (*.zip)|*.zip"),
+                          "ZIP files (*.zip)|*.zip",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
@@ -2796,9 +2796,9 @@ void DictionaryEditDialog::OnItemActivated(wxDataViewEvent &event) {
         this, _("Select Truss file"),
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses")),
         wxEmptyString,
-        _("Truss files "
+        "Truss files "
         "(*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All "
-        "files|*.*"),
+        "files|*.*",
         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;

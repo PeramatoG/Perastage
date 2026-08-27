@@ -252,7 +252,7 @@ void MainWindow::OnPrintViewer2D(wxCommandEvent &WXUNUSED(event)) {
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, _("Save 2D view as"), "", "viewer2d.pdf",
-                   _("PDF files (*.pdf)|*.pdf"),
+                   "PDF files (*.pdf)|*.pdf",
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() != wxID_OK)
     return;
@@ -402,7 +402,7 @@ void MainWindow::OnPrintLayout(wxCommandEvent &WXUNUSED(event)) {
   settings.SaveToConfig(cfg);
 
   wxFileDialog dlg(this, _("Save layout as"), "", "layout.pdf",
-                   _("PDF files (*.pdf)|*.pdf"),
+                   "PDF files (*.pdf)|*.pdf",
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() != wxID_OK)
     return;

@@ -362,7 +362,7 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
   const wxString selectedName = wxString::FromUTF8(*selectedLayout);
   wxFileDialog saveDialog(this, _("Export layout package"), wxEmptyString,
                           selectedName + ".pslayout",
-                          _("Perastage layout packages (*.pslayout)|*.pslayout"),
+                          "Perastage layout packages (*.pslayout)|*.pslayout",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDialog.ShowModal() != wxID_OK)
     return;
@@ -385,7 +385,7 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
 void LayoutPanel::OnImportLayoutTemplate(wxCommandEvent &) {
   wxFileDialog openDialog(this, _("Import layout template"), wxEmptyString,
                           wxEmptyString,
-                          _("All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json"),
+                          "All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (openDialog.ShowModal() != wxID_OK)
     return;

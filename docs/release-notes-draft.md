@@ -44,7 +44,7 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
-- Completed and hardened Spanish and Simplified Chinese localization across the current GUI, including complete GDTF Share and rider-preflight diagnostics, with synchronized catalogs and CI checks that detect untranslated dialog constructors while keeping command, configuration, filename, Undo/Redo, and serialization contracts locale-independent.
+- Completed and hardened Spanish and Simplified Chinese GUI localization with synchronized catalogs and CI checks, while preserving the existing rider-resolution, command, configuration, filename, Undo/Redo, serialization, and file-format contracts across languages.
 
 - Added cross-platform Debug CI performance telemetry for phase timing, cache
   outcomes, runner resources, storage evolution, and diagnostic artifacts

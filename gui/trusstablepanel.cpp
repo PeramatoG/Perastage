@@ -559,9 +559,9 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxString trussDir =
             wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
         wxFileDialog fdlg(this, _("Select Truss Model"), trussDir, wxEmptyString,
-                      _("Truss files "
+                      "Truss files "
                       "(*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*."
-                      "glb|All files|*.*"),
+                      "glb|All files|*.*",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() == wxID_OK) {
             bool changed = false;

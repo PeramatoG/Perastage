@@ -161,7 +161,7 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
   case TableType::SceneObjects: cfg.SetSceneObjectPrintColumns(toSave); break;
   }
 
-    wxFileDialog saveDlg(parent, _("Export CSV"), "", "", _("CSV files (*.csv)|*.csv|All files (*.*)|*.*"),
+    wxFileDialog saveDlg(parent, _("Export CSV"), "", "", "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDlg.ShowModal() != wxID_OK)
         return;

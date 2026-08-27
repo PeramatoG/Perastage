@@ -454,8 +454,8 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
 
     wxFileDialog fdlg(
         this, _("Select Object Model"), initialDir, wxEmptyString,
-        _("3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All "
-        "files|*.*"),
+        "3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All "
+        "files|*.*",
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() != wxID_OK)
             return;

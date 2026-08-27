@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-27 18:35+0000\n"
+"POT-Creation-Date: 2026-08-27 19:28+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -19,11 +19,12 @@ msgstr ""
 
 #: gui/about_dialog.cpp:137
 msgid ""
-"Free and open-source MVR viewer/editor for lighting and stage projects, with"
-" integrated 2D/3D visualization, MVR import/export, and Create from Text "
+"Free and open-source MVR viewer/editor for lighting and stage projects, with "
+"integrated 2D/3D visualization, MVR import/export, and Create from Text "
 "tools."
 msgstr ""
-"Perastage 是一款免费开源的 MVR 查看与编辑工具，面向灯光和舞台项目，集成 2D/3D 可视化、MVR 导入/导出以及“从文本创建”工具。"
+"Perastage 是一款免费开源的 MVR 查看与编辑工具，面向灯光和舞台项目，集成 "
+"2D/3D 可视化、MVR 导入/导出以及“从文本创建”工具。"
 
 #: gui/about_dialog.cpp:144
 msgid "Website"
@@ -49,7 +50,8 @@ msgstr "开源软件声明"
 msgid ""
 "Perastage is built with open-source technologies. Full dependency and "
 "license details are available in the project repository."
-msgstr "Perastage 基于开源技术构建。完整的依赖项和许可证信息可在项目仓库中查看。"
+msgstr ""
+"Perastage 基于开源技术构建。完整的依赖项和许可证信息可在项目仓库中查看。"
 
 #: gui/about_dialog.cpp:166 gui/mainwindow_menu_builders.cpp:132
 msgid "About Perastage"
@@ -78,7 +80,9 @@ msgstr "在查看器中连续放置"
 msgid ""
 "Left-click places each fixture; right-click or Escape cancels the fixture "
 "currently attached to the pointer."
-msgstr "单击鼠标左键放置每个灯具；单击鼠标右键或按 Escape 取消当前附着在指针上的灯具。"
+msgstr ""
+"单击鼠标左键放置每个灯具；单击鼠标右键或按 Escape 取消当前附着在指针上的灯"
+"具。"
 
 #: gui/addfixturedialog.cpp:45 gui/scene_object_primitive_dialogs.cpp:73
 msgid "Name:"
@@ -149,8 +153,7 @@ msgstr "取消全选"
 msgid "Show available console commands and examples."
 msgstr "显示可用的控制台命令和示例。"
 
-#: gui/consolepanel.cpp:223
-#: tests/localization_catalog_integration_test.cpp:199
+#: gui/consolepanel.cpp:223 tests/localization_catalog_integration_test.cpp:199
 msgid "Console commands"
 msgstr "控制台命令"
 
@@ -544,13 +547,6 @@ msgstr "恢复 %s 字典"
 msgid "Open %s dictionary"
 msgstr "打开 %s 字典"
 
-#: gui/dictionaryeditdialog.cpp:1432 gui/dictionaryeditdialog.cpp:1562
-#: gui/dictionaryeditdialog.cpp:1587 gui/dictionaryeditdialog.cpp:1618
-#: gui/dictionaryeditdialog.cpp:1658 gui/dictionaryeditdialog.cpp:1701
-#: gui/dictionaryeditdialog.cpp:1759
-msgid "JSON dictionary files (*.json)|*.json"
-msgstr "JSON 字典文件 (*.json)|*.json"
-
 #: gui/dictionaryeditdialog.cpp:1443
 msgid ""
 "Could not open the selected dictionary.\n"
@@ -773,7 +769,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1949
 msgid ""
-"Could not ingest the truss file into dictionary-owned GDTF storage. The dictionary was not saved.\n"
+"Could not ingest the truss file into dictionary-owned GDTF storage. The "
+"dictionary was not saved.\n"
 "\n"
 msgstr ""
 "无法将 truss 文件提取到字典拥有的 GDTF 存储中。字典未保存。\n"
@@ -814,14 +811,6 @@ msgstr "DMX 模式"
 msgid "Select Truss file"
 msgstr "选择桁架文件"
 
-#: gui/dictionaryeditdialog.cpp:2028 gui/dictionaryeditdialog.cpp:2799
-#: gui/trusstablepanel.cpp:562
-msgid ""
-"Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All "
-"files|*.*"
-msgstr ""
-"桁架文件 (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|所有文件|*.*"
-
 #: gui/dictionaryeditdialog.cpp:2213
 msgid "importing a dictionary"
 msgstr "导入字典"
@@ -830,14 +819,6 @@ msgstr "导入字典"
 #: gui/dictionaryeditdialog.cpp:2257
 msgid "Import fixtures dictionary"
 msgstr "导入灯具字典"
-
-#: gui/dictionaryeditdialog.cpp:2231 gui/dictionaryeditdialog.cpp:2315
-msgid ""
-"Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP "
-"files (*.zip)|*.zip"
-msgstr ""
-"字典文件 (*.json;*.zip)|*.json;*.zip|JSON 文件 (*.json)|*.json|ZIP 文件 "
-"(*.zip)|*.zip"
 
 #: gui/dictionaryeditdialog.cpp:2243 gui/dictionaryeditdialog.cpp:2255
 msgid ""
@@ -936,8 +917,7 @@ msgid "Trusses dictionary import"
 msgstr "桁架字典导入"
 
 #: gui/dictionaryeditdialog.cpp:2395
-msgid ""
-"Export does not change the active dictionary. Choose the export format."
+msgid "Export does not change the active dictionary. Choose the export format."
 msgstr "导出不会更改活动字典。选择导出格式。"
 
 #: gui/dictionaryeditdialog.cpp:2396
@@ -957,10 +937,6 @@ msgstr "无法加载用于导出的夹具字典。"
 #: gui/dictionaryeditdialog.cpp:2480
 msgid "Export fixtures dictionary"
 msgstr "导出灯具..."
-
-#: gui/dictionaryeditdialog.cpp:2452 gui/dictionaryeditdialog.cpp:2506
-msgid "JSON files (*.json)|*.json"
-msgstr "JSON 文件 (*.json)|*.json"
 
 #: gui/dictionaryeditdialog.cpp:2462
 msgid "Could not write fixtures dictionary snapshot."
@@ -1014,10 +990,6 @@ msgstr "无法加载用于便携式导出的夹具字典。"
 #: gui/dictionaryeditdialog.cpp:2565 gui/dictionaryeditdialog.cpp:2570
 msgid "Export portable fixtures bundle"
 msgstr "出口便携式灯具捆绑包"
-
-#: gui/dictionaryeditdialog.cpp:2555 gui/dictionaryeditdialog.cpp:2591
-msgid "ZIP files (*.zip)|*.zip"
-msgstr "ZIP 文件 (*.zip)|*.zip"
 
 #: gui/dictionaryeditdialog.cpp:2563
 msgid "Could not write fixtures portable bundle.\n"
@@ -1168,7 +1140,9 @@ msgstr "通道"
 msgid ""
 "Type, source, and mode controls select project fixture context. Power and "
 "weight edits update the GDTF file and append a revision entry."
-msgstr "类型、源和模式控件选择项目夹具上下文。功率和重量编辑更新 GDTF 文件并附加修订条目。"
+msgstr ""
+"类型、源和模式控件选择项目夹具上下文。功率和重量编辑更新 GDTF 文件并附加修订"
+"条目。"
 
 #: gui/fixtureeditdialog.cpp:692
 msgid "Preview"
@@ -1736,8 +1710,7 @@ msgid ""
 msgstr "仅当未关联电机灯具时，才能分配虚拟预设。"
 
 #: gui/layerpanel.cpp:84 gui/layerpanel.cpp:100 gui/summarypanel.cpp:256
-#: gui/summarypanel.cpp:316
-#: tests/localization_catalog_integration_test.cpp:191
+#: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:191
 msgid "Visible"
 msgstr "可见"
 
@@ -1879,10 +1852,6 @@ msgstr "未选择布局。"
 msgid "Export layout package"
 msgstr "导出布局包"
 
-#: gui/layoutpanel.cpp:365
-msgid "Perastage layout packages (*.pslayout)|*.pslayout"
-msgstr "Perastage 布局包 (*.pslayout)|*.pslayout"
-
 #: gui/layoutpanel.cpp:374
 msgid "Could not export layout package.\n"
 msgstr "无法导出布局包.\n"
@@ -1894,15 +1863,6 @@ msgstr "布局包导出成功。"
 #: gui/layoutpanel.cpp:386
 msgid "Import layout template"
 msgstr "导入布局模板"
-
-#: gui/layoutpanel.cpp:388
-msgid ""
-"All supported layout templates "
-"(*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages "
-"(*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json"
-msgstr ""
-"所有支持的布局模板 (*.pslayout;*.json)|*.pslayout;*.json|Perastage 布局包 "
-"(*.pslayout)|*.pslayout|旧版 JSON 布局模板 (*.json)|*.json"
 
 #: gui/layoutpanel.cpp:398
 msgid "Could not import layout template.\n"
@@ -1942,7 +1902,9 @@ msgstr "密码："
 msgid ""
 "The selected MVR contains %zu UUIDs that already exist in the current "
 "project. Choose how Perastage should handle those incoming objects."
-msgstr "所选的 MVR 包含当前项目中已存在的 %zu UUID。选择 Perastage 应如何处理这些传入对象。"
+msgstr ""
+"所选的 MVR 包含当前项目中已存在的 %zu UUID。选择 Perastage 应如何处理这些传入"
+"对象。"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:65
 msgid "MVR Merge UUID Collisions"
@@ -1993,11 +1955,6 @@ msgstr "已导入 MVR：%s"
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:377
 msgid "Import MVR file"
 msgstr "导入 MVR 文件"
-
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:378
-#: gui/mainwindow_io.cpp:602
-msgid "MVR files (*.mvr)|*.mvr"
-msgstr "MVR 文件 (*.mvr)|*.mvr"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:488
 msgid "MVR merge: importing selected file..."
@@ -2329,10 +2286,6 @@ msgstr "保存项目"
 msgid "Import Rider"
 msgstr "导入 Rider"
 
-#: gui/mainwindow_io.cpp:438 gui/ridertextdialog.cpp:202
-msgid "Rider files (*.txt;*.pdf)|*.txt;*.pdf"
-msgstr "Rider 文件 (*.txt;*.pdf)|*.txt;*.pdf"
-
 #: gui/mainwindow_io.cpp:448
 msgid "Failed to read rider."
 msgstr "导入 Rider 失败。"
@@ -2392,10 +2345,6 @@ msgstr "导出桁架..."
 msgid "Save Truss"
 msgstr "保存桁架"
 
-#: gui/mainwindow_io.cpp:676
-msgid "GDTF files (*.gdtf)|*.gdtf"
-msgstr "GDTF 文件 (*.gdtf)|*.gdtf"
-
 #: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:876
 msgid "Model file not found."
 msgstr "模型文件"
@@ -2436,7 +2385,8 @@ msgstr "保存夹具"
 
 #: gui/mainwindow_io.cpp:812
 msgid ""
-"This will overwrite the original GDTF library asset. Perastage normally preserves originals and exports a derived copy instead.\n"
+"This will overwrite the original GDTF library asset. Perastage normally "
+"preserves originals and exports a derived copy instead.\n"
 "\n"
 "Do you want to overwrite the original GDTF file?"
 msgstr ""
@@ -2847,8 +2797,8 @@ msgstr ""
 #: gui/preferences/gdtf_credentials_panel.cpp:84
 #: gui/preferences/gdtf_credentials_panel.cpp:95
 #: gui/preferences/gdtf_credentials_panel.cpp:100
-#: gui/rider_fixture_resolution_workflow.cpp:88
-#: gui/rider_fixture_resolution_workflow.cpp:254 mvr/mvrimporter.cpp:3995
+#: gui/rider_fixture_resolution_workflow.cpp:87
+#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:3995
 msgid "GDTF Share credentials"
 msgstr "GDTF Share 凭据"
 
@@ -2864,21 +2814,22 @@ msgstr "没有可用的 GDTF 目录。"
 
 #: gui/mainwindow_menu.cpp:671
 msgid ""
-"This build does not include secure password storage. The username was saved,"
-" but the password must be entered again after restart."
+"This build does not include secure password storage. The username was saved, "
+"but the password must be entered again after restart."
 msgstr "此构建未包含安全密码存储支持。用户名已保存，但重启后必须重新输入密码。"
 
 #: gui/mainwindow_menu.cpp:673
 msgid ""
-"The native secure password store is unavailable. The username was saved, but"
-" the password must be entered again after restart."
+"The native secure password store is unavailable. The username was saved, but "
+"the password must be entered again after restart."
 msgstr "原生安全密码存储不可用。用户名已保存，但重启后必须重新输入密码。"
 
 #: gui/mainwindow_menu.cpp:676
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but the non-"
 "secret username metadata could not be saved."
-msgstr "GDTF Share 凭据已通过本次操作的身份验证，但无法保存非机密用户名元数据。"
+msgstr ""
+"GDTF Share 凭据已通过本次操作的身份验证，但无法保存非机密用户名元数据。"
 
 #: gui/mainwindow_menu.cpp:678
 #, c-format
@@ -2900,8 +2851,7 @@ msgid "Downloading GDTF from GDTF Share..."
 msgstr "正在从 GDTF 共享下载 GDTF..."
 
 #: gui/mainwindow_menu.cpp:804
-msgid ""
-"GDTF downloaded successfully. Do you want to add it to the project now?"
+msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
 msgstr "GDTF 下载成功。您现在想将其添加到项目中吗？"
 
 #: gui/mainwindow_menu.cpp:806 gui/mvr_export_result_dialog.cpp:158
@@ -3096,10 +3046,6 @@ msgstr "桁架文件不受支持或不可读。支持的格式有 GDTF、GTruss�
 #: gui/mainwindow_menu.cpp:1850 gui/mainwindow_menu.cpp:1872
 msgid "Select Object file"
 msgstr "选择对象文件"
-
-#: gui/mainwindow_menu.cpp:1851 gui/mainwindow_menu.cpp:1873
-msgid "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"
-msgstr "3D 模型 (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"
 
 #: gui/mainwindow_menu_builders.cpp:13
 msgid "New\tCtrl+N"
@@ -3338,10 +3284,6 @@ msgstr "打印 2D 查看器"
 #: gui/mainwindow_print.cpp:254
 msgid "Save 2D view as"
 msgstr "将 2D 视图另存为"
-
-#: gui/mainwindow_print.cpp:255 gui/mainwindow_print.cpp:405
-msgid "PDF files (*.pdf)|*.pdf"
-msgstr "PDF 文件 (*.pdf)|*.pdf"
 
 #: gui/mainwindow_print.cpp:263
 msgid "Please choose a destination file for the 2D view."
@@ -3877,11 +3819,15 @@ msgstr "桁架符号使用直接 Geometry3D"
 
 #: gui/preferencesdialog.cpp:285
 msgid ""
-"Standard MVR representation: preserves imported Symbol/Symdef references when possible and is Perastage's canonical representation.\n"
-"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references into direct Geometry3D entries for compatibility with applications that do not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
+"Standard MVR representation: preserves imported Symbol/Symdef references "
+"when possible and is Perastage's canonical representation.\n"
+"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
+"into direct Geometry3D entries for compatibility with applications that do "
+"not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
 msgstr ""
 "标准 MVR 表示：尽可能保留导入的 Symbol/Symdef 引用。\n"
-"桁架符号使用直接 Geometry3D：将桁架的 Symbol/Symdef 引用展开为直接的 Geometry3D 条目，以提高与更多导入器的兼容性。"
+"桁架符号使用直接 Geometry3D：将桁架的 Symbol/Symdef 引用展开为直接的 "
+"Geometry3D 条目，以提高与更多导入器的兼容性。"
 
 #: gui/preferencesdialog.cpp:299
 msgid "MVR Import / Export"
@@ -3917,11 +3863,13 @@ msgstr "场景对象移动其所在组"
 
 #: gui/preferencesdialog.cpp:345
 msgid ""
-"When enabled, selecting this type inside a group moves the highest parent GroupObject during mouse, CLI, and Magnet transformations.\n"
+"When enabled, selecting this type inside a group moves the highest parent "
+"GroupObject during mouse, CLI, and Magnet transformations.\n"
 "Table edits always modify only the edited object.\n"
 "Selecting a GroupObject directly always moves that group."
 msgstr ""
-"启用后，选择组内此类型的对象时，鼠标、CLI 和 Magnet 变换会移动最高层父 GroupObject。\n"
+"启用后，选择组内此类型的对象时，鼠标、CLI 和 Magnet 变换会移动最高层父 "
+"GroupObject。\n"
 "表格编辑始终只修改被编辑的对象。\n"
 "直接选择 GroupObject 始终会移动该组。"
 
@@ -4034,7 +3982,7 @@ msgid "Restart required"
 msgstr "需要重启"
 
 #: gui/rider_fixture_resolution_dialog.cpp:40
-#: gui/rider_fixture_resolution_workflow.cpp:322
+#: gui/rider_fixture_resolution_workflow.cpp:321
 msgid "Resolve fixture types"
 msgstr "选择灯具类型"
 
@@ -4153,7 +4101,7 @@ msgid "GDTF catalog unavailable - generic fallback remains available"
 msgstr "GDTF 目录不可用 - 通用后备仍然可用"
 
 #: gui/rider_fixture_resolution_dialog.cpp:596
-#: gui/rider_fixture_resolution_workflow.cpp:78
+#: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "Signing in to GDTF Share..."
 msgstr "正在登录 GDTF 共享..."
 
@@ -4171,8 +4119,6 @@ msgid "Matching GDTF candidates... %zu / %zu"
 msgstr "匹配 GDTF 候选人... %zu / %zu"
 
 #: gui/rider_fixture_resolution_model.cpp:31
-#: gui/rider_fixture_resolution_model.cpp:54
-#: gui/rider_fixture_resolution_model.cpp:57
 msgid "Generic fallback"
 msgstr "通用回退"
 
@@ -4180,110 +4126,35 @@ msgstr "通用回退"
 msgid "-"
 msgstr "-"
 
-#: gui/rider_fixture_resolution_model.cpp:50
-msgid "Dictionary"
-msgstr "字典"
-
-#: gui/rider_fixture_resolution_model.cpp:51
-msgid "Dictionary modified"
-msgstr "字典已修改"
-
-#: gui/rider_fixture_resolution_model.cpp:52
-msgid "Automatic match"
-msgstr "自动匹配"
-
-#: gui/rider_fixture_resolution_model.cpp:53
-msgid "User assigned"
-msgstr "用户分配"
-
-#: gui/rider_fixture_resolution_model.cpp:55
-msgid "Skipped"
-msgstr "跳过"
-
-#: gui/rider_fixture_resolution_model.cpp:64
-msgid "Active fixture dictionary"
-msgstr "活动夹具词典"
-
-#: gui/rider_fixture_resolution_model.cpp:65
-msgid "No reliable catalog match; generic will be used unless changed"
-msgstr "没有可靠的目录匹配；除非更改，否则将使用通用"
-
-#: gui/rider_fixture_resolution_model.cpp:66
-msgid ""
-"Conflicting numeric model identity; generic will be used unless changed"
-msgstr "数值模型标识冲突；除非更改，否则将使用通用"
-
-#: gui/rider_fixture_resolution_model.cpp:67
-msgid "Selected by the shared GDTF catalog matcher"
-msgstr "由共享 GDTF 目录匹配器选择"
-
-#: gui/rider_fixture_resolution_model.cpp:68
-msgid "Generic fallback selected for this import"
-msgstr "为此导入选择通用后备"
-
-#: gui/rider_fixture_resolution_model.cpp:72
-msgid "Authentication is unavailable; generic fallback will be used."
-msgstr "无法进行身份验证；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:74
-msgid "The GDTF download failed; generic fallback will be used."
-msgstr "GDTF 下载失败；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:76
-msgid "The downloaded GDTF is invalid; generic fallback will be used."
-msgstr "下载的GDTF无效；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:78
-msgid "The selected GDTF is unavailable; generic fallback will be used."
-msgstr "所选的GDTF不可用；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:80
-msgid ""
-"The selected mode is not present in the GDTF; generic fallback will be used."
-msgstr "所选模式不存在于 GDTF 中；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:82
-msgid ""
-"The dictionary mapping could not be saved; generic fallback will be used."
-msgstr "字典映射无法保存；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:84
-msgid "Fixture resolution failed; generic fallback will be used."
-msgstr "夹具解析失败；将使用通用后备。"
-
-#: gui/rider_fixture_resolution_model.cpp:88
-msgid ""
-"The dictionary mode change could not be saved; the original mode was "
-"retained."
-msgstr "字典模式更改无法保存；保留了原来的模式。"
-
-#: gui/rider_fixture_resolution_workflow.cpp:78
+#: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "GDTF Share"
 msgstr "登录 GDTF Share"
 
-#: gui/rider_fixture_resolution_workflow.cpp:87
-#: gui/rider_fixture_resolution_workflow.cpp:253
+#: gui/rider_fixture_resolution_workflow.cpp:86
+#: gui/rider_fixture_resolution_workflow.cpp:252
 msgid ""
 "GDTF Share authentication succeeded, but the credentials could not be saved "
 "securely. You may need to enter them again after restart."
-msgstr "GDTF 共享身份验证成功，但无法安全保存凭据。重新启动后您可能需要再次输入它们。"
+msgstr ""
+"GDTF 共享身份验证成功，但无法安全保存凭据。重新启动后您可能需要再次输入它们。"
 
-#: gui/rider_fixture_resolution_workflow.cpp:93
+#: gui/rider_fixture_resolution_workflow.cpp:92
 msgid "GDTF Share sign-in unavailable"
 msgstr "没有可用的 GDTF 目录。"
 
-#: gui/rider_fixture_resolution_workflow.cpp:322
+#: gui/rider_fixture_resolution_workflow.cpp:321
 msgid "Downloading selected GDTF..."
 msgstr "正在下载所选灯具..."
 
-#: gui/rider_fixture_resolution_workflow.cpp:454
+#: gui/rider_fixture_resolution_workflow.cpp:452
 #, c-format
 msgid ""
 "%zu fixture types used generic fallback because GDTF resolution failed. See "
 "the diagnostic log for details."
-msgstr "%zu 夹具类型使用通用后备，因为 GDTF 解析失败。有关详细信息，请参阅诊断日志。"
+msgstr ""
+"%zu 夹具类型使用通用后备，因为 GDTF 解析失败。有关详细信息，请参阅诊断日志。"
 
-#: gui/rider_fixture_resolution_workflow.cpp:456
+#: gui/rider_fixture_resolution_workflow.cpp:454
 msgid "Fixture resolution warning"
 msgstr "夹具分辨率警告"
 
@@ -4328,7 +4199,8 @@ msgid ""
 "Autocomplete: Up/Down move, Enter/Tab accept, Esc closes suggestions. "
 "Ranking: exact > prefix > fuzzy + recent use + context."
 msgstr ""
-"自动完成：使用上/下键移动，Enter/Tab 接受，Esc 关闭建议。排序：完全匹配 > 前缀匹配 > 模糊匹配 + 最近使用 + 上下文。"
+"自动完成：使用上/下键移动，Enter/Tab 接受，Esc 关闭建议。排序：完全匹配 > 前"
+"缀匹配 > 模糊匹配 + 最近使用 + 上下文。"
 
 #: gui/ridertextdialog.cpp:150 gui/ridertextdialog.cpp:326
 msgid "Apply filter"
@@ -4352,16 +4224,14 @@ msgstr "示例文本"
 
 #: gui/ridertextdialog.cpp:325
 msgid ""
-"No fixture lines were detected with the current parser rules after "
-"filtering."
+"No fixture lines were detected with the current parser rules after filtering."
 msgstr "按当前解析规则筛选后未检测到灯具行。"
 
 #: gui/ridertextdialog.cpp:334
 msgid "Filtered text could not be decoded."
 msgstr "无法解码筛选后的文本。"
 
-#: gui/riggingpanel.cpp:182
-#: tests/localization_catalog_integration_test.cpp:195
+#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:195
 msgid "Position"
 msgstr "位置"
 
@@ -4512,11 +4382,6 @@ msgstr "模型文件"
 msgid "Select Object Model"
 msgstr "选择对象模型"
 
-#: gui/sceneobjecttablepanel.cpp:457
-msgid ""
-"3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All files|*.*"
-msgstr "3D 文件 (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|所有文件|*.*"
-
 #: gui/selectfixturetypedialog.cpp:21
 msgid "Select Fixture Type"
 msgstr "选择灯具类型"
@@ -4563,14 +4428,9 @@ msgid "Loading Perastage..."
 msgstr "正在加载表格..."
 
 #: gui/summarypanel.cpp:258 gui/summarypanel.cpp:267 gui/summarypanel.cpp:317
-#: gui/summarypanel.cpp:347
-#: tests/localization_catalog_integration_test.cpp:193
+#: gui/summarypanel.cpp:347 tests/localization_catalog_integration_test.cpp:193
 msgid "Count"
 msgstr "数量"
-
-#: gui/tableprinter.cpp:164
-msgid "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
-msgstr "CSV 文件 (*.csv)|*.csv|所有文件 (*.*)|*.*"
 
 #: gui/tableprinter.cpp:172
 msgid "Failed to save file."
@@ -4705,10 +4565,6 @@ msgstr "夹具 Symbol 预览"
 msgid "Export Symbol View as SVG"
 msgstr "将符号视图导出为 SVG"
 
-#: gui/windows/SymbolPreviewWindow.cpp:179
-msgid "SVG files (*.svg)|*.svg"
-msgstr "SVG 文件 (*.svg)|*.svg"
-
 #: gui/windows/SymbolPreviewWindow.cpp:188
 #: gui/windows/SymbolPreviewWindow.cpp:192
 msgid "Export Symbol View"
@@ -4737,8 +4593,8 @@ msgstr "正在加载上次项目..."
 
 #: main.cpp:395
 msgid ""
-"The Spanish translation catalog is not available in this build. Perastage is"
-" using English."
+"The Spanish translation catalog is not available in this build. Perastage is "
+"using English."
 msgstr "Spanish 翻译目录在此版本中不可用。 Peraget 使用的是英语。"
 
 #: main.cpp:397
@@ -5018,10 +4874,6 @@ msgstr "3D 查看器隐藏时无法导出。"
 msgid "Export image"
 msgstr "导出"
 
-#: viewer3d/viewer3dpanel.cpp:1524
-msgid "PNG files (*.png)|*.png"
-msgstr "PNG 文件 (*.png)|*.png"
-
 #: viewer3d/viewer3dpanel.cpp:1535 viewer3d/viewer3dpanel.cpp:1540
 msgid "OpenGL is not initialized yet."
 msgstr "OpenGL 尚未初始化。"
@@ -5046,6 +4898,129 @@ msgstr "渲染模式"
 #: viewer3d/viewer3dpanel.cpp:2466
 msgid "Export image..."
 msgstr "导出灯具..."
+
+#~ msgid "JSON dictionary files (*.json)|*.json"
+#~ msgstr "JSON 字典文件 (*.json)|*.json"
+
+#~ msgid ""
+#~ "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All "
+#~ "files|*.*"
+#~ msgstr ""
+#~ "桁架文件 (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|所有文"
+#~ "件|*.*"
+
+#~ msgid ""
+#~ "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|"
+#~ "ZIP files (*.zip)|*.zip"
+#~ msgstr ""
+#~ "字典文件 (*.json;*.zip)|*.json;*.zip|JSON 文件 (*.json)|*.json|ZIP 文件 "
+#~ "(*.zip)|*.zip"
+
+#~ msgid "JSON files (*.json)|*.json"
+#~ msgstr "JSON 文件 (*.json)|*.json"
+
+#~ msgid "ZIP files (*.zip)|*.zip"
+#~ msgstr "ZIP 文件 (*.zip)|*.zip"
+
+#~ msgid "Perastage layout packages (*.pslayout)|*.pslayout"
+#~ msgstr "Perastage 布局包 (*.pslayout)|*.pslayout"
+
+#~ msgid ""
+#~ "All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|"
+#~ "Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout "
+#~ "templates (*.json)|*.json"
+#~ msgstr ""
+#~ "所有支持的布局模板 (*.pslayout;*.json)|*.pslayout;*.json|Perastage 布局包 "
+#~ "(*.pslayout)|*.pslayout|旧版 JSON 布局模板 (*.json)|*.json"
+
+#~ msgid "MVR files (*.mvr)|*.mvr"
+#~ msgstr "MVR 文件 (*.mvr)|*.mvr"
+
+#~ msgid "Rider files (*.txt;*.pdf)|*.txt;*.pdf"
+#~ msgstr "Rider 文件 (*.txt;*.pdf)|*.txt;*.pdf"
+
+#~ msgid "GDTF files (*.gdtf)|*.gdtf"
+#~ msgstr "GDTF 文件 (*.gdtf)|*.gdtf"
+
+#~ msgid "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"
+#~ msgstr "3D 模型 (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"
+
+#~ msgid "PDF files (*.pdf)|*.pdf"
+#~ msgstr "PDF 文件 (*.pdf)|*.pdf"
+
+#~ msgid "Dictionary"
+#~ msgstr "字典"
+
+#~ msgid "Dictionary modified"
+#~ msgstr "字典已修改"
+
+#~ msgid "Automatic match"
+#~ msgstr "自动匹配"
+
+#~ msgid "User assigned"
+#~ msgstr "用户分配"
+
+#~ msgid "Skipped"
+#~ msgstr "跳过"
+
+#~ msgid "Active fixture dictionary"
+#~ msgstr "活动夹具词典"
+
+#~ msgid "No reliable catalog match; generic will be used unless changed"
+#~ msgstr "没有可靠的目录匹配；除非更改，否则将使用通用"
+
+#~ msgid ""
+#~ "Conflicting numeric model identity; generic will be used unless changed"
+#~ msgstr "数值模型标识冲突；除非更改，否则将使用通用"
+
+#~ msgid "Selected by the shared GDTF catalog matcher"
+#~ msgstr "由共享 GDTF 目录匹配器选择"
+
+#~ msgid "Generic fallback selected for this import"
+#~ msgstr "为此导入选择通用后备"
+
+#~ msgid "Authentication is unavailable; generic fallback will be used."
+#~ msgstr "无法进行身份验证；将使用通用后备。"
+
+#~ msgid "The GDTF download failed; generic fallback will be used."
+#~ msgstr "GDTF 下载失败；将使用通用后备。"
+
+#~ msgid "The downloaded GDTF is invalid; generic fallback will be used."
+#~ msgstr "下载的GDTF无效；将使用通用后备。"
+
+#~ msgid "The selected GDTF is unavailable; generic fallback will be used."
+#~ msgstr "所选的GDTF不可用；将使用通用后备。"
+
+#~ msgid ""
+#~ "The selected mode is not present in the GDTF; generic fallback will be "
+#~ "used."
+#~ msgstr "所选模式不存在于 GDTF 中；将使用通用后备。"
+
+#~ msgid ""
+#~ "The dictionary mapping could not be saved; generic fallback will be used."
+#~ msgstr "字典映射无法保存；将使用通用后备。"
+
+#~ msgid "Fixture resolution failed; generic fallback will be used."
+#~ msgstr "夹具解析失败；将使用通用后备。"
+
+#~ msgid ""
+#~ "The dictionary mode change could not be saved; the original mode was "
+#~ "retained."
+#~ msgstr "字典模式更改无法保存；保留了原来的模式。"
+
+#~ msgid ""
+#~ "3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All files|*.*"
+#~ msgstr ""
+#~ "3D 文件 (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|所有文件|*.*"
+
+#~ msgid "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+#~ msgstr "CSV 文件 (*.csv)|*.csv|所有文件 (*.*)|*.*"
+
+#~ msgid "SVG files (*.svg)|*.svg"
+#~ msgstr "SVG 文件 (*.svg)|*.svg"
+
+#~ msgid "PNG files (*.png)|*.png"
+#~ msgstr "PNG 文件 (*.png)|*.png"
 
 #~ msgid ".pslayout"
 #~ msgstr ".pslayout"
@@ -5139,9 +5114,11 @@ msgstr "导出灯具..."
 
 #~ msgid ""
 #~ "The console transforms the current mixed selection. Grouped trusses move "
-#~ "through their root group; fixtures, supports, and scene objects remain exact"
-#~ " targets."
-#~ msgstr "控制台转换当前的混合选择。分组桁架通过其根组移动；固定装置、支撑物和场景对象仍然是精确的目标。"
+#~ "through their root group; fixtures, supports, and scene objects remain "
+#~ "exact targets."
+#~ msgstr ""
+#~ "控制台转换当前的混合选择。分组桁架通过其根组移动；固定装置、支撑物和场景对"
+#~ "象仍然是精确的目标。"
 
 #~ msgid "Command    Description"
 #~ msgstr "命令    说明"
@@ -5152,7 +5129,8 @@ msgstr "导出灯具..."
 #~ msgid "Select fixtures by ID."
 #~ msgstr "按 ID 选择灯具。"
 
-#~ msgid "Select trusses by unit number (clears current truss selection first)."
+#~ msgid ""
+#~ "Select trusses by unit number (clears current truss selection first)."
 #~ msgstr "按单元编号选择桁架（会先清除当前桁架选择）。"
 
 #~ msgid "Selection syntax supports:"
@@ -5227,13 +5205,14 @@ msgstr "导出灯具..."
 #~ msgstr "提供两个值，可在所选对象之间从起始值到结束值线性分布。"
 
 #~ msgid ""
-#~ "Use compact or spaced `++` / `--` relative offsets, such as `++1`, `++ 1`, "
-#~ "`--1`, or `-- 1`."
-#~ msgstr "使用紧凑或间隔的“++”/“--”相对偏移量，例如“++1”、“++ 1”、“--1”或“-- 1”。"
+#~ "Use compact or spaced `++` / `--` relative offsets, such as `++1`, `++ "
+#~ "1`, `--1`, or `-- 1`."
+#~ msgstr ""
+#~ "使用紧凑或间隔的“++”/“--”相对偏移量，例如“++1”、“++ 1”、“--1”或“-- 1”。"
 
 #~ msgid ""
-#~ "You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for"
-#~ " `pos`."
+#~ "You can also type a comma-separated triplet like `1, 2, 3` as a shortcut "
+#~ "for `pos`."
 #~ msgstr "还可以输入逗号分隔的三元组（如 `1, 2, 3`），作为 `pos` 的快捷写法。"
 
 #~ msgid "Console commands:"
@@ -5251,20 +5230,22 @@ msgstr "导出灯具..."
 #~ msgstr "[错误] 无效变换：提供有效轴、有限数值、有效修饰符和非空选择。"
 
 #~ msgid ""
-#~ "[ERROR] Invalid transform: provide finite numeric values, valid modifiers, "
-#~ "and a non-empty selection."
+#~ "[ERROR] Invalid transform: provide finite numeric values, valid "
+#~ "modifiers, and a non-empty selection."
 #~ msgstr "[错误] 无效转换：提供有限数值、有效修饰符和非空选择。"
 
 #~ msgid ""
-#~ "[ERROR] Invalid transform triplet: provide three finite numeric components "
-#~ "and a non-empty selection."
+#~ "[ERROR] Invalid transform triplet: provide three finite numeric "
+#~ "components and a non-empty selection."
 #~ msgstr "[错误]无效的变换三元组：提供三个有限数值分量和一个非空选择。"
 
 #~ msgid ""
 #~ "The console works on the current selection. If fixtures are selected, "
 #~ "position and rotation commands apply to fixtures; otherwise they apply to "
 #~ "trusses."
-#~ msgstr "控制台作用于当前选择。如果选择了灯具，位置和旋转命令将应用于灯具；否则将应用于桁架。"
+#~ msgstr ""
+#~ "控制台作用于当前选择。如果选择了灯具，位置和旋转命令将应用于灯具；否则将应"
+#~ "用于桁架。"
 
 #~ msgid "Use `++` / `--` to apply relative offsets."
 #~ msgstr "使用 `++` / `--` 应用相对偏移。"

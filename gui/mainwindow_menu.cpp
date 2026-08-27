@@ -478,8 +478,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         enteredCredentials.password = loginDlg.GetPassword();
         if (enteredCredentials.username.empty() ||
             enteredCredentials.password.empty()) {
-          wxMessageBox(_(_("Please provide username and password.")),
-                       _(_("Login Error")), wxOK | wxICON_ERROR, this);
+          wxMessageBox(_("Please provide username and password."),
+                       _("Login Error"), wxOK | wxICON_ERROR, this);
           continue;
         }
         activeCredentials = std::move(enteredCredentials);
@@ -1848,7 +1848,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
       wxString objDir = wxString::FromUTF8(
           ProjectUtils::GetWritableLibraryPath("scene_objects"));
       wxFileDialog fdlg(this, _("Select Object file"), objDir, wxEmptyString,
-                        _("3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"),
+                        "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
                         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
@@ -1870,7 +1870,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     wxString objDir = wxString::FromUTF8(
         ProjectUtils::GetWritableLibraryPath("scene_objects"));
     wxFileDialog fdlg(this, _("Select Object file"), objDir, wxEmptyString,
-                      _("3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"),
+                      "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;

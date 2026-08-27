@@ -38,24 +38,6 @@ enum class StatusSemantic {
   Warning,
   Muted
 };
-enum class DetailKind {
-  ActiveDictionary,
-  NoReliableMatch,
-  ConflictingIdentity,
-  AutomaticMatch,
-  GenericFallback,
-  FailureFallback,
-  DictionaryModeSaveFailed
-};
-enum class FailureKind {
-  None,
-  AuthenticationUnavailable,
-  DownloadFailed,
-  DownloadedGdtfInvalid,
-  SelectedGdtfUnavailable,
-  SelectedModeUnavailable,
-  DictionaryMappingSaveFailed
-};
 struct Progress {
   ProgressStage stage = ProgressStage::LoadingCatalog;
   size_t current = 0;
@@ -77,8 +59,6 @@ struct Item {
   std::string selectedMode;
   std::string originalDictionaryMode;
   std::string details;
-  DetailKind detailKind = DetailKind::NoReliableMatch;
-  FailureKind failureKind = FailureKind::None;
 
   bool RequiresModeSelection() const;
   bool IsReady() const;
@@ -142,7 +122,7 @@ public:
   static void SelectGeneric(Item &item);
 
   // Records a recoverable enhancement failure and selects Generic for the row.
-  static void FallbackAfterFailure(Item &item, FailureKind failure);
+  static void FallbackAfterFailure(Item &item, const std::string &reason);
 
   // Converts incomplete real selections to the non-blocking generic fallback.
   static void FinalizeDefaults(Analysis &analysis);

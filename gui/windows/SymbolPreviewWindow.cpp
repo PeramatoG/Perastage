@@ -176,7 +176,7 @@ void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) 
   const wxString suggestedName =
       "fixture_symbol_" + viewLabel.Lower() + ".svg";
   wxFileDialog saveDialog(this, _("Export Symbol View as SVG"), wxEmptyString,
-                          suggestedName, _("SVG files (*.svg)|*.svg"),
+                          suggestedName, "SVG files (*.svg)|*.svg",
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDialog.ShowModal() != wxID_OK)
     return;

@@ -107,10 +107,9 @@ int main() {
   Service::SetCreate(edited.items.front(), false);
   assert(edited.items.front().origin == ResolutionOrigin::Skipped);
 
-  Service::FallbackAfterFailure(analysis.items[1], FailureKind::DownloadFailed);
+  Service::FallbackAfterFailure(analysis.items[1], "Download failed");
   assert(analysis.items[1].origin == ResolutionOrigin::GenericFallback);
   assert(!analysis.items[1].selectedEntry);
-  assert(analysis.items[1].failureKind == FailureKind::DownloadFailed);
   assert(analysis.items[1].details.find("Download failed") != std::string::npos);
 
   assert(Service::IsValidProgressTransition(

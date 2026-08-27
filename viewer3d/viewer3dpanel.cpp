@@ -1521,7 +1521,7 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     }
 
   wxFileDialog saveDialog(this, _("Export image"), wxEmptyString,
-                          "viewer3d_export.png", _("PNG files (*.png)|*.png"),
+                          "viewer3d_export.png", "PNG files (*.png)|*.png",
                             wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDialog.ShowModal() != wxID_OK)
         return false;
