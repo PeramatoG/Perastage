@@ -1885,7 +1885,8 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
     m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
     MainWindow::Instance()->SetStatusText(
-        wxString::FromUTF8(_("Measure: ") + distanceText), 0);
+        wxString::Format(_("Measure: %s"), wxString::FromUTF8(distanceText)),
+        0);
 }
 
 // Handles mouse button press

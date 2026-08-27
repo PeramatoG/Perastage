@@ -456,9 +456,10 @@ void MainWindow::SetupLayout() {
   SetStatusWidths(3, statusWidths);
   SetStatusText(_("Ready"), 0);
   SetStatusText(_("X: -- m  Y: -- m  Z: -- m"), 1);
-  SetStatusText(_("Version ") +
+  SetStatusText(wxString::Format(
+                    _("Version %s"),
                     wxString::FromUTF8(
-                        perastage::build_info::appVersionDisplay().data()),
+                        perastage::build_info::appVersionDisplay().data())),
                 2);
 
   // Ensure the View menu reflects the actual pane visibility

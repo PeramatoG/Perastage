@@ -36,7 +36,7 @@ UI_CALLEES = {
     "SetYesNoCancelLabels",
 }
 UI_CONSTRUCTOR_TYPES = {
-    "wxFileDialog", "wxDirDialog", "wxMessageDialog", "wxProgressDialog",
+    "wxDialog", "wxFileDialog", "wxDirDialog", "wxMessageDialog", "wxProgressDialog",
     "wxSingleChoiceDialog", "wxTextEntryDialog",
 }
 REPRESENTATIVE_MESSAGES = {
@@ -327,11 +327,15 @@ def self_test() -> int:
     untranslated_file = 'wxFileDialog dlg(parent, "Untranslated UI", path);'
     translated_choice = 'wxSingleChoiceDialog dlg(parent, _("Visible"), _("Title"), choices);'
     translated_file = 'wxFileDialog dlg(parent, _("Visible"), path);'
+    untranslated_factory = 'std::make_unique<wxProgressDialog>("Title", "Message");'
+    translated_factory = 'std::make_unique<wxProgressDialog>(_("Title"), _("Message"));'
     technical_constructor = 'ProtocolFrame frame("StableIdentifier");'
     assert unmarked_literals_for_test(untranslated_choice, constructor_pattern)
     assert unmarked_literals_for_test(untranslated_file, constructor_pattern)
     assert not unmarked_literals_for_test(translated_choice, constructor_pattern)
     assert not unmarked_literals_for_test(translated_file, constructor_pattern)
+    assert unmarked_literals_for_test(untranslated_factory, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_factory, constructor_pattern)
     assert not unmarked_literals_for_test(technical_constructor, constructor_pattern)
     return 0
 
@@ -347,7 +351,8 @@ def ui_callee_pattern() -> re.Pattern[str]:
     constructors = "|".join(re.escape(name) for name in sorted(UI_CONSTRUCTOR_TYPES, key=len, reverse=True))
     return re.compile(
         r"(?<![A-Za-z0-9_:])(?:" + callees + r")\s*\(|"
-        r"(?<![A-Za-z0-9_:])(?:" + constructors + r")\s+[A-Za-z_][A-Za-z0-9_]*\s*\("
+        r"(?<![A-Za-z0-9_:])(?:" + constructors + r")\s+[A-Za-z_][A-Za-z0-9_]*\s*\(|"
+        r"\b(?:std::)?make_unique\s*<\s*(?:" + constructors + r")\s*>\s*\("
     )
 
 

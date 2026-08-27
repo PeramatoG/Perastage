@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.5.93\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-27 14:31+0000\n"
+"POT-Creation-Date: 2026-08-27 18:35+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1225,8 +1225,8 @@ msgstr ""
 #: gui/mainwindow_io.cpp:470 gui/mainwindow_io.cpp:494
 #: gui/mainwindow_io.cpp:553 gui/mainwindow_io.cpp:686
 #: gui/mainwindow_io.cpp:696 gui/mainwindow_io.cpp:746
-#: gui/mainwindow_io.cpp:833 gui/mainwindow_io.cpp:875
-#: gui/mainwindow_io.cpp:893 gui/mainwindow_menu.cpp:813
+#: gui/mainwindow_io.cpp:834 gui/mainwindow_io.cpp:876
+#: gui/mainwindow_io.cpp:894 gui/mainwindow_menu.cpp:813
 #: gui/mainwindow_menu.cpp:817 gui/mainwindow_menu.cpp:1669
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
@@ -1309,6 +1309,85 @@ msgstr ""
 
 #: gui/gdtf/gdtf_wheel_inspector_panel.cpp:58
 msgid "Slot"
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:22
+msgid "GDTF Share sign-in completed."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:23
+msgid "GDTF Share download completed."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:25
+#, c-format
+msgid "Could not reach GDTF Share: %s."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:28
+msgid "GDTF Share sign-in timed out."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:29
+msgid "GDTF Share download timed out."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:32
+#, c-format
+msgid "The GDTF Share username or password is invalid (HTTP %ld)."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:39
+#, c-format
+msgid "GDTF Share rejected the sign-in request (HTTP %ld)."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:42
+#, c-format
+msgid "GDTF Share rejected the download request (HTTP %ld)."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:46
+msgid "GDTF Share rejected the sign-in request."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:47
+msgid "GDTF Share rejected the download request."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:51
+#, c-format
+msgid "GDTF Share returned HTTP %ld during sign-in."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:53
+#, c-format
+msgid "GDTF Share returned HTTP %ld during download."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:57
+msgid ""
+"GDTF Share returned an invalid response. See the diagnostic log for details."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:59
+msgid "GDTF Share sign-in was cancelled."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:60
+msgid "GDTF Share download was cancelled."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:62
+msgid "Could not save the GDTF Share download locally."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:64
+msgid "GDTF Share sign-in failed."
+msgstr ""
+
+#: gui/gdtf_share_message_formatter.cpp:65
+msgid "GDTF Share download failed."
 msgstr ""
 
 #: gui/gdtfsearchdialog.cpp:82
@@ -1686,10 +1765,6 @@ msgstr ""
 msgid "Export layout package"
 msgstr ""
 
-#: gui/layoutpanel.cpp:364
-msgid ".pslayout"
-msgstr ""
-
 #: gui/layoutpanel.cpp:365
 msgid "Perastage layout packages (*.pslayout)|*.pslayout"
 msgstr ""
@@ -1727,10 +1802,6 @@ msgstr ""
 
 #: gui/layouttextdialog.cpp:148
 msgid "Ok"
-msgstr ""
-
-#: gui/layoutviewerpanel_legend.cpp:1015 gui/layoutviewerpanel_legend.cpp:1063
-msgid "Hg"
 msgstr ""
 
 #: gui/logindialog.cpp:21
@@ -1799,7 +1870,8 @@ msgid "Failed to import MVR file."
 msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:320
-msgid "MVR imported: "
+#, c-format
+msgid "MVR imported: %s"
 msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:377
@@ -1840,7 +1912,8 @@ msgid "MVR Merge Cancelled"
 msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:591
-msgid "MVR merged: "
+#, c-format
+msgid "MVR merged: %s"
 msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
@@ -1861,23 +1934,21 @@ msgstr ""
 msgid "Project load failed."
 msgstr ""
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:660
-msgid "Project loaded: "
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:661
+#, c-format
+msgid "Project loaded: %s"
 msgstr ""
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:683
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:684
 msgid "Unsupported startup file format."
 msgstr ""
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:688
-msgid "Unsupported startup file. Use "
-msgstr ""
-
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:690
-msgid " or .mvr files."
+#, c-format
+msgid "Unsupported startup file. Use %s or .mvr files."
 msgstr ""
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:691
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:692
 msgid "Unsupported file"
 msgstr ""
 
@@ -1905,6 +1976,10 @@ msgstr ""
 
 #: gui/mainwindow.cpp:849
 msgid "Perastage is still loading"
+msgstr ""
+
+#: gui/mainwindow.cpp:878
+msgid "Project loading"
 msgstr ""
 
 #: gui/mainwindow.cpp:904 gui/mainwindow.cpp:1115
@@ -2017,10 +2092,6 @@ msgstr ""
 msgid "Activate a 2D or 3D scene viewport before distributing fixtures."
 msgstr ""
 
-#: gui/mainwindow_fixture_distribution.cpp:214
-msgid "distribute fixtures on truss"
-msgstr ""
-
 #: gui/mainwindow_fixture_distribution.cpp:221
 msgid "Fixtures distributed uniformly along the truss line."
 msgstr ""
@@ -2037,10 +2108,6 @@ msgstr ""
 #: gui/mainwindow_startup_splash.cpp:63
 #: gui/services/fixture_symbol_preparation_service.cpp:462
 msgid "Ready"
-msgstr ""
-
-#: gui/mainwindow_fixture_distribution.cpp:256
-msgid "distribute fixtures between truss points"
 msgstr ""
 
 #: gui/mainwindow_fixture_distribution.cpp:268
@@ -2161,13 +2228,18 @@ msgstr ""
 msgid "Rider text is empty."
 msgstr ""
 
+#: gui/mainwindow_io.cpp:535
+msgid "Text scene creation progress"
+msgstr ""
+
 #: gui/mainwindow_io.cpp:542
 #, c-format
 msgid "Text import: %s (%d/%d)"
 msgstr ""
 
 #: gui/mainwindow_io.cpp:548
-msgid "Text import: "
+#, c-format
+msgid "Text import: %s"
 msgstr ""
 
 #: gui/mainwindow_io.cpp:553
@@ -2206,7 +2278,7 @@ msgstr ""
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr ""
 
-#: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:875
+#: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:876
 msgid "Model file not found."
 msgstr ""
 
@@ -2224,7 +2296,7 @@ msgstr ""
 
 #: gui/mainwindow_io.cpp:719 gui/mainwindow_io.cpp:760
 #: gui/mainwindow_io.cpp:769 gui/mainwindow_io.cpp:777
-#: gui/mainwindow_io.cpp:838
+#: gui/mainwindow_io.cpp:839
 msgid "Export Fixture"
 msgstr ""
 
@@ -2257,38 +2329,39 @@ msgid "Overwrite Original GDTF"
 msgstr ""
 
 #: gui/mainwindow_io.cpp:832
-msgid "Failed to write file: "
+#, c-format
+msgid "Failed to write file: %s"
 msgstr ""
 
-#: gui/mainwindow_io.cpp:838
+#: gui/mainwindow_io.cpp:839
 msgid "Fixture exported successfully."
 msgstr ""
 
-#: gui/mainwindow_io.cpp:851
+#: gui/mainwindow_io.cpp:852
 msgid "No scene objects available."
 msgstr ""
 
-#: gui/mainwindow_io.cpp:851 gui/mainwindow_io.cpp:897
+#: gui/mainwindow_io.cpp:852 gui/mainwindow_io.cpp:898
 msgid "Export Scene Object"
 msgstr ""
 
-#: gui/mainwindow_io.cpp:883
+#: gui/mainwindow_io.cpp:884
 msgid "Save Object"
 msgstr ""
 
-#: gui/mainwindow_io.cpp:893
+#: gui/mainwindow_io.cpp:894
 msgid "Failed to copy file."
 msgstr ""
 
-#: gui/mainwindow_io.cpp:897
+#: gui/mainwindow_io.cpp:898
 msgid "Object exported successfully."
 msgstr ""
 
-#: gui/mainwindow_io.cpp:914 gui/mainwindow_print.cpp:651
+#: gui/mainwindow_io.cpp:915 gui/mainwindow_print.cpp:651
 msgid "Select table"
 msgstr ""
 
-#: gui/mainwindow_io.cpp:914 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/mainwindow_io.cpp:915 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
 #: gui/tableprinter.cpp:207
 msgid "Export CSV"
 msgstr ""
@@ -2336,15 +2409,16 @@ msgstr ""
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:459
-msgid "Version "
+#: gui/mainwindow_layout.cpp:460
+#, c-format
+msgid "Version %s"
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1087
+#: gui/mainwindow_layout.cpp:1088
 msgid "Layout view update skipped: target view not found."
 msgstr ""
 
-#: gui/mainwindow_layout.cpp:1117
+#: gui/mainwindow_layout.cpp:1118
 msgid "Layout view update failed."
 msgstr ""
 
@@ -2789,6 +2863,10 @@ msgstr ""
 msgid "Exit"
 msgstr ""
 
+#: gui/mainwindow_menu.cpp:1238 gui/mainwindow_menu.cpp:1273
+msgid "Perastage Help"
+msgstr ""
+
 #: gui/mainwindow_menu.cpp:1243
 msgid "Language:"
 msgstr ""
@@ -2805,40 +2883,44 @@ msgstr ""
 msgid "help.md file not found"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1273
-msgid "Perastage Help"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:1292
+#: gui/mainwindow_menu.cpp:1291
+#, c-format
 msgid ""
 "Could not create the logs folder.\n"
 "\n"
+"%s"
 msgstr ""
 
 #: gui/mainwindow_menu.cpp:1293 gui/mainwindow_menu.cpp:1311
-#: gui/mainwindow_menu.cpp:1326 gui/mainwindow_menu.cpp:1335
+#: gui/mainwindow_menu.cpp:1327 gui/mainwindow_menu.cpp:1336
 msgid "Perastage Diagnostics"
 msgstr ""
 
 #: gui/mainwindow_menu.cpp:1309
+#, c-format
 msgid ""
 "Could not open the logs folder.\n"
 "\n"
+"%s"
 msgstr ""
 
 #: gui/mainwindow_menu.cpp:1325
+#, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
 "\n"
+"%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1333
+#: gui/mainwindow_menu.cpp:1334
+#, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
 "\n"
+"%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1355
+#: gui/mainwindow_menu.cpp:1355 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr ""
 
@@ -4304,17 +4386,33 @@ msgstr ""
 msgid "Add from file..."
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:505
-msgid "Preparing fixture symbols: "
+#: gui/services/fixture_symbol_preparation_service.cpp:486
+msgid "fixture resource"
 msgstr ""
 
-#: gui/services/fixture_symbol_preparation_service.cpp:505
-#: gui/services/fixture_symbol_preparation_service.cpp:506
-msgid " - "
+#: gui/services/fixture_symbol_preparation_service.cpp:489
+msgid "Preparing"
+msgstr ""
+
+#: gui/services/fixture_symbol_preparation_service.cpp:493
+msgid "Capturing fixture views"
+msgstr ""
+
+#: gui/services/fixture_symbol_preparation_service.cpp:496
+msgid "Processing"
+msgstr ""
+
+#: gui/services/fixture_symbol_preparation_service.cpp:499
+msgid "Publishing"
+msgstr ""
+
+#: gui/services/fixture_symbol_preparation_service.cpp:502
+msgid "Refreshing"
 msgstr ""
 
 #: gui/services/fixture_symbol_preparation_service.cpp:507
-msgid " pending"
+#, c-format
+msgid "Preparing fixture symbols: %s - %s - %zu pending"
 msgstr ""
 
 #: gui/splashscreen.cpp:151
@@ -4672,19 +4770,19 @@ msgstr ""
 msgid "Gap measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3786 viewer3d/viewer3dpanel.cpp:1888
+#: viewer2d/viewer2dpanel.cpp:3786
 msgid "Measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:4032 viewer3d/viewer3dpanel.cpp:2432
+#: viewer2d/viewer2dpanel.cpp:4032 viewer3d/viewer3dpanel.cpp:2433
 msgid "Convert to Truss"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:4118 viewer3d/viewer3dpanel.cpp:2449
+#: viewer2d/viewer2dpanel.cpp:4118 viewer3d/viewer3dpanel.cpp:2450
 msgid "No position"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:4129 viewer3d/viewer3dpanel.cpp:2460
+#: viewer2d/viewer2dpanel.cpp:4129 viewer3d/viewer3dpanel.cpp:2461
 msgid "Select by position"
 msgstr ""
 
@@ -4792,10 +4890,15 @@ msgstr ""
 msgid "Failed to save PNG image."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2463
+#: viewer3d/viewer3dpanel.cpp:1888
+#, c-format
+msgid "Measure: %s"
+msgstr ""
+
+#: viewer3d/viewer3dpanel.cpp:2464
 msgid "Render style"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2465
+#: viewer3d/viewer3dpanel.cpp:2466
 msgid "Export image..."
 msgstr ""

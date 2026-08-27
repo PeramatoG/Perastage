@@ -875,7 +875,7 @@ bool MainWindow::LoadProjectFromPath(const std::string &path,
     if (showBlockingLoadUi) {
       if (!projectLoadProgressDialog) {
         projectLoadProgressDialog = std::make_unique<wxProgressDialog>(
-            "Project loading", message, kProjectLoadProgressSteps, this,
+            _("Project loading"), message, kProjectLoadProgressSteps, this,
             wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
       }
       if (total > 0) {

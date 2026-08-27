@@ -1235,15 +1235,15 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     const wxSize dialogSize(
         std::max(900, static_cast<int>(parentSize.x * 0.85)),
         std::max(700, static_cast<int>(parentSize.y * 0.85)));
-    wxDialog dlg(this, wxID_ANY, wxString::FromUTF8("Perastage Help"),
+    wxDialog dlg(this, wxID_ANY, _("Perastage Help"),
                  wxDefaultPosition, dialogSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
     wxStaticText *langLabel = new wxStaticText(&dlg, wxID_ANY, _("Language:"));
     wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
-    langChoice->Append(wxString::FromUTF8(_("English")));
-    langChoice->Append(wxString::FromUTF8(_("Español")));
+    langChoice->Append(_("English"));
+    langChoice->Append(_("Español"));
     langChoice->SetSelection(0);
     langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
     langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
@@ -1269,8 +1269,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     dlg.SetSizer(sizer);
     dlg.ShowModal();
   } else {
-    wxMessageBox(wxString::FromUTF8(_("help.md file not found")),
-                 wxString::FromUTF8(_("Perastage Help")), wxOK | wxICON_ERROR,
+    wxMessageBox(_("help.md file not found"),
+                 _("Perastage Help"), wxOK | wxICON_ERROR,
                  this);
   }
 }
@@ -1288,9 +1288,9 @@ void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
   if (!diagnostics::DiagnosticPaths::EnsureDirectory(logsDirectory, &error)) {
     diagnostics::DiagnosticLogger::Error("Unable to open logs folder: " +
                                          error);
-    wxMessageBox(
-        wxString::FromUTF8(_("Could not create the logs folder.\n\n") + error),
-        wxString::FromUTF8(_("Perastage Diagnostics")), wxOK | wxICON_ERROR, this);
+    wxMessageBox(wxString::Format(_("Could not create the logs folder.\n\n%s"),
+                                  wxString::FromUTF8(error)),
+                 _("Perastage Diagnostics"), wxOK | wxICON_ERROR, this);
     return;
   }
 
@@ -1306,9 +1306,9 @@ void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
 #endif
   const bool launched = wxExecute(command, wxEXEC_ASYNC) != 0;
   if (!launched) {
-    wxMessageBox(wxString::FromUTF8(_("Could not open the logs folder.\n\n") +
-                                    logsDirectory.string()),
-                 wxString::FromUTF8(_("Perastage Diagnostics")),
+    wxMessageBox(wxString::Format(_("Could not open the logs folder.\n\n%s"),
+                                  wxString::FromUTF8(logsDirectory.string())),
+                 _("Perastage Diagnostics"),
                  wxOK | wxICON_WARNING, this);
   }
 }
@@ -1321,19 +1321,19 @@ void MainWindow::OnExportDiagnosticReport(wxCommandEvent &WXUNUSED(event)) {
   if (!diagnostics::DiagnosticReport::ExportToFile(&reportPath, &error)) {
     diagnostics::DiagnosticLogger::Error("Diagnostic report export failed: " +
                                          error);
-    wxMessageBox(wxString::FromUTF8(
-                     _("Could not export the diagnostic report.\n\n") + error),
-                 wxString::FromUTF8(_("Perastage Diagnostics")),
+    wxMessageBox(wxString::Format(
+                     _("Could not export the diagnostic report.\n\n%s"),
+                     wxString::FromUTF8(error)),
+                 _("Perastage Diagnostics"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
 
   diagnostics::DiagnosticLogger::Info("Diagnostic report exported.");
-  wxMessageBox(
-      wxString::FromUTF8(_("Diagnostic report exported successfully.\n\n") +
-                         reportPath.string()),
-      wxString::FromUTF8(_("Perastage Diagnostics")), wxOK | wxICON_INFORMATION,
-      this);
+  wxMessageBox(wxString::Format(
+                   _("Diagnostic report exported successfully.\n\n%s"),
+                   wxString::FromUTF8(reportPath.string())),
+               _("Perastage Diagnostics"), wxOK | wxICON_INFORMATION, this);
 }
 
 // Checks the latest release asynchronously and shows a result dialog with

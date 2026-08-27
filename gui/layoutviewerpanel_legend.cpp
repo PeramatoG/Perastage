@@ -1012,7 +1012,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
   int lineWidth = 0;
   for (;;) {
     dc.SetFont(baseFont);
-    dc.GetTextExtent(_("Hg"), &lineWidth, &textHeight);
+    dc.GetTextExtent("Hg", &lineWidth, &textHeight);
     if (textHeight <= maxRowHeightPx || fontSizePx <= 1)
       break;
     --fontSizePx;
@@ -1060,7 +1060,7 @@ wxImage LayoutViewerPanel::BuildLegendImage(
     dc.SetFont(wrapFont);
     int wrapTextHeight = 0;
     int ignoredWidth = 0;
-    dc.GetTextExtent(_("Hg"), &ignoredWidth, &wrapTextHeight);
+    dc.GetTextExtent("Hg", &ignoredWidth, &wrapTextHeight);
     dc.SetFont(previousFont);
     if (wrapTextHeight <= wrapRowLimitPx || wrapFontPx <= 1)
       break;

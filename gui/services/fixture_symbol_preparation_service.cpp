@@ -482,30 +482,31 @@ void FixtureSymbolPreparationService::UpdateStatus() {
       }
     }
   }
-  std::string context = statusWork ? statusWork->displayLabel : "fixture resource";
+  wxString context = statusWork ? wxString::FromUTF8(statusWork->displayLabel)
+                                : _("fixture resource");
   if (statusKey && !statusKey->exactGdtfMode.empty())
-    context += " [" + statusKey->exactGdtfMode + "]";
-  std::string phase = "Preparing";
+    context += " [" + wxString::FromUTF8(statusKey->exactGdtfMode) + "]";
+  wxString phase = _("Preparing");
   if (statusWork) {
     switch (statusWork->stage) {
     case WorkStage::Capturing:
-      phase = "Capturing fixture views";
+      phase = _("Capturing fixture views");
       break;
     case WorkStage::Processing:
-      phase = "Processing";
+      phase = _("Processing");
       break;
     case WorkStage::Publishing:
-      phase = "Publishing";
+      phase = _("Publishing");
       break;
     case WorkStage::Finalizing:
-      phase = "Refreshing";
+      phase = _("Refreshing");
       break;
     }
   }
-  window_.SetStatusText(_("Preparing fixture symbols: ") + context + _(" - ") +
-                            phase + _(" - ") + std::to_string(pending) +
-                            _(" pending"),
-                        0);
+  window_.SetStatusText(
+      wxString::Format(_("Preparing fixture symbols: %s - %s - %zu pending"),
+                       context, phase, pending),
+      0);
 }
 
 // Finds a current-project fixture that owns the exact preparation identity.

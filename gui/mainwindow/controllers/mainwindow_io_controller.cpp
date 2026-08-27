@@ -317,7 +317,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   if (owner->GetStatusBar()) {
     const wxString fileName = wxFileName(filePath).GetFullName();
-    owner->SetStatusText(_("MVR imported: ") + fileName, 0);
+    owner->SetStatusText(wxString::Format(_("MVR imported: %s"), fileName), 0);
   }
   diagnostics::DiagnosticLogger::Info(
       "MVR import completed: " +
@@ -588,7 +588,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     owner->consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
   }
   if (owner->GetStatusBar())
-    owner->SetStatusText(_("MVR merged: ") + fileName, 0);
+    owner->SetStatusText(wxString::Format(_("MVR merged: %s"), fileName), 0);
   diagnostics::DiagnosticLogger::Info(
       "MVR merge completed: " +
       diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
@@ -657,7 +657,8 @@ bool MainWindowIoController::OpenPathFromCommandLine(
 
     if (owner->GetStatusBar()) {
       wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
-      owner->SetStatusText(_("Project loaded: ") + fileInfo.GetFullName(), 0);
+      owner->SetStatusText(
+          wxString::Format(_("Project loaded: %s"), fileInfo.GetFullName()), 0);
     }
     return true;
   }
@@ -685,9 +686,9 @@ bool MainWindowIoController::OpenPathFromCommandLine(
     owner->consolePanel->AppendMessage("Unsupported startup file: " +
                                        wxString::FromUTF8(pathUtf8));
   }
-  wxMessageBox(_("Unsupported startup file. Use ") +
-                   wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION) +
-                   _(" or .mvr files."),
+  wxMessageBox(wxString::Format(
+                   _("Unsupported startup file. Use %s or .mvr files."),
+                   wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION)),
                _("Unsupported file"), wxOK | wxICON_WARNING, owner);
   return false;
 }

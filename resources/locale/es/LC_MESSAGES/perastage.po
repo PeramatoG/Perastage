@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-27 14:31+0000\n"
+"POT-Creation-Date: 2026-08-27 18:35+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -15,13 +15,13 @@ msgstr ""
 
 #: gui/about_dialog.cpp:137
 msgid ""
-"Free and open-source MVR viewer/editor for lighting and stage projects, with "
-"integrated 2D/3D visualization, MVR import/export, and Create from Text "
+"Free and open-source MVR viewer/editor for lighting and stage projects, with"
+" integrated 2D/3D visualization, MVR import/export, and Create from Text "
 "tools."
 msgstr ""
 "Visor y editor MVR gratuito y de código abierto para proyectos de "
-"iluminación y espectáculos, con visualización 2D/3D integrada, importación y "
-"exportación MVR y herramientas «Crear desde texto»."
+"iluminación y espectáculos, con visualización 2D/3D integrada, importación y"
+" exportación MVR y herramientas «Crear desde texto»."
 
 #: gui/about_dialog.cpp:144
 msgid "Website"
@@ -154,7 +154,8 @@ msgstr "Deseleccionar todo"
 msgid "Show available console commands and examples."
 msgstr "Mostrar comandos y ejemplos disponibles de la consola."
 
-#: gui/consolepanel.cpp:223 tests/localization_catalog_integration_test.cpp:199
+#: gui/consolepanel.cpp:223
+#: tests/localization_catalog_integration_test.cpp:199
 msgid "Console commands"
 msgstr "Comandos de consola"
 
@@ -168,8 +169,7 @@ msgid ""
 "Choose whether to keep the existing file or use the new exported file."
 msgstr ""
 "Los siguientes archivos ya existen con contenido diferente.\n"
-"Elija si desea conservar el archivo existente o utilizar el nuevo archivo "
-"exportado."
+"Elija si desea conservar el archivo existente o utilizar el nuevo archivo exportado."
 
 #: gui/dictionary_export_conflict_dialog.cpp:29
 #: gui/dictionaryeditdialog.cpp:987 gui/dictionaryeditdialog.cpp:1042
@@ -299,8 +299,7 @@ msgid ""
 "Found entries: %zu\n"
 "Missing entries: %zu"
 msgstr ""
-"Algunas referencias de archivos importados no se pudieron resolver antes de "
-"aplicar:\n"
+"Algunas referencias de archivos importados no se pudieron resolver antes de aplicar:\n"
 "\n"
 "Entradas comprobadas: %zu\n"
 "Entradas encontradas: %zu\n"
@@ -408,8 +407,7 @@ msgid ""
 "\n"
 "Continue?"
 msgstr ""
-"Esto reemplazará todas las entradas actuales en el diccionario de "
-"accesorios.\n"
+"Esto reemplazará todas las entradas actuales en el diccionario de accesorios.\n"
 "Esta acción es destructiva.\n"
 "\n"
 "¿Continuar?"
@@ -761,8 +759,8 @@ msgstr ""
 msgid ""
 "Could not copy fixture file into the library. The dictionary was not saved."
 msgstr ""
-"No se pudo copiar el archivo del dispositivo a la biblioteca. El diccionario "
-"no se guardó."
+"No se pudo copiar el archivo del dispositivo a la biblioteca. El diccionario"
+" no se guardó."
 
 #: gui/dictionaryeditdialog.cpp:1862 gui/dictionaryeditdialog.cpp:1879
 #: gui/dictionaryeditdialog.cpp:1907
@@ -788,12 +786,10 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1949
 msgid ""
-"Could not ingest the truss file into dictionary-owned GDTF storage. The "
-"dictionary was not saved.\n"
+"Could not ingest the truss file into dictionary-owned GDTF storage. The dictionary was not saved.\n"
 "\n"
 msgstr ""
-"No se pudo ingerir el archivo truss en el almacenamiento GDTF propiedad del "
-"diccionario. El diccionario no se guardó.\n"
+"No se pudo ingerir el archivo truss en el almacenamiento GDTF propiedad del diccionario. El diccionario no se guardó.\n"
 "\n"
 
 #: gui/dictionaryeditdialog.cpp:1952 gui/dictionaryeditdialog.cpp:1973
@@ -837,8 +833,9 @@ msgid ""
 "Truss files (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|All "
 "files|*.*"
 msgstr ""
-"Archivos de truss (*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|"
-"Todos los archivos|*.*"
+"Archivos de truss "
+"(*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*.glb|Todos los "
+"archivos|*.*"
 
 #: gui/dictionaryeditdialog.cpp:2213
 msgid "importing a dictionary"
@@ -854,8 +851,8 @@ msgid ""
 "Dictionary files (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP "
 "files (*.zip)|*.zip"
 msgstr ""
-"Archivos de diccionario (*.json;*.zip)|*.json;*.zip|Archivos JSON (*.json)|*."
-"json|Archivos ZIP (*.zip)|*.zip"
+"Archivos de diccionario (*.json;*.zip)|*.json;*.zip|Archivos JSON "
+"(*.json)|*.json|Archivos ZIP (*.zip)|*.zip"
 
 #: gui/dictionaryeditdialog.cpp:2243 gui/dictionaryeditdialog.cpp:2255
 msgid ""
@@ -954,7 +951,8 @@ msgid "Trusses dictionary import"
 msgstr "Importación de diccionario de armaduras"
 
 #: gui/dictionaryeditdialog.cpp:2395
-msgid "Export does not change the active dictionary. Choose the export format."
+msgid ""
+"Export does not change the active dictionary. Choose the export format."
 msgstr ""
 "La exportación no cambia el diccionario activo. Elija el formato de "
 "exportación."
@@ -987,7 +985,8 @@ msgstr "No se pudo escribir la instantánea del diccionario de accesorios."
 
 #: gui/dictionaryeditdialog.cpp:2467
 msgid "Fixtures dictionary snapshot exported successfully."
-msgstr "La instantánea del diccionario de accesorios se exportó correctamente."
+msgstr ""
+"La instantánea del diccionario de accesorios se exportó correctamente."
 
 #: gui/dictionaryeditdialog.cpp:2469 gui/dictionaryeditdialog.cpp:2523
 #, c-format
@@ -1049,7 +1048,8 @@ msgstr "Paquete de accesorios portátiles exportado con éxito."
 
 #: gui/dictionaryeditdialog.cpp:2582
 msgid "Could not load trusses dictionary for portable export."
-msgstr "No se pudo cargar el diccionario de trusses para exportación portátil."
+msgstr ""
+"No se pudo cargar el diccionario de trusses para exportación portátil."
 
 #: gui/dictionaryeditdialog.cpp:2583 gui/dictionaryeditdialog.cpp:2589
 #: gui/dictionaryeditdialog.cpp:2601 gui/dictionaryeditdialog.cpp:2606
@@ -1069,10 +1069,8 @@ msgid ""
 "Reset active fixtures dictionary to application defaults?\n"
 "Current entries will be replaced after a backup is created."
 msgstr ""
-"¿Restablecer el diccionario de accesorios activos a los valores "
-"predeterminados de la aplicación? \n"
-"Las entradas actuales se reemplazarán después de crear una copia de "
-"seguridad."
+"¿Restablecer el diccionario de accesorios activos a los valores predeterminados de la aplicación? \n"
+"Las entradas actuales se reemplazarán después de crear una copia de seguridad."
 
 #: gui/dictionaryeditdialog.cpp:2619 gui/dictionaryeditdialog.cpp:2639
 msgid "Reset fixtures dictionary"
@@ -1099,10 +1097,8 @@ msgid ""
 "Reset active trusses dictionary to application defaults?\n"
 "Current entries will be replaced after a backup is created."
 msgstr ""
-"¿Restablecer el diccionario de trusses activos a los valores predeterminados "
-"de la aplicación? \n"
-"Las entradas actuales se reemplazarán después de crear una copia de "
-"seguridad."
+"¿Restablecer el diccionario de trusses activos a los valores predeterminados de la aplicación? \n"
+"Las entradas actuales se reemplazarán después de crear una copia de seguridad."
 
 #: gui/dictionaryeditdialog.cpp:2652 gui/dictionaryeditdialog.cpp:2671
 msgid "Reset trusses dictionary"
@@ -1193,9 +1189,9 @@ msgid ""
 "Type, source, and mode controls select project fixture context. Power and "
 "weight edits update the GDTF file and append a revision entry."
 msgstr ""
-"Los controles de tipo, fuente y modo seleccionan el contexto del dispositivo "
-"del proyecto. Las ediciones de potencia y peso actualizan el archivo GDTF y "
-"agregan una entrada de revisión."
+"Los controles de tipo, fuente y modo seleccionan el contexto del dispositivo"
+" del proyecto. Las ediciones de potencia y peso actualizan el archivo GDTF y"
+" agregan una entrada de revisión."
 
 #: gui/fixtureeditdialog.cpp:692
 msgid "Preview"
@@ -1365,8 +1361,8 @@ msgstr "Valor numérico no válido"
 #: gui/mainwindow_io.cpp:470 gui/mainwindow_io.cpp:494
 #: gui/mainwindow_io.cpp:553 gui/mainwindow_io.cpp:686
 #: gui/mainwindow_io.cpp:696 gui/mainwindow_io.cpp:746
-#: gui/mainwindow_io.cpp:833 gui/mainwindow_io.cpp:875
-#: gui/mainwindow_io.cpp:893 gui/mainwindow_menu.cpp:813
+#: gui/mainwindow_io.cpp:834 gui/mainwindow_io.cpp:876
+#: gui/mainwindow_io.cpp:894 gui/mainwindow_menu.cpp:813
 #: gui/mainwindow_menu.cpp:817 gui/mainwindow_menu.cpp:1669
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
@@ -1451,6 +1447,89 @@ msgstr "Ranuras para ruedas"
 msgid "Slot"
 msgstr "Ranura"
 
+#: gui/gdtf_share_message_formatter.cpp:22
+msgid "GDTF Share sign-in completed."
+msgstr "Inicio de sesión en GDTF Share completado."
+
+#: gui/gdtf_share_message_formatter.cpp:23
+msgid "GDTF Share download completed."
+msgstr "Descarga de GDTF Share completada."
+
+#: gui/gdtf_share_message_formatter.cpp:25
+#, c-format
+msgid "Could not reach GDTF Share: %s."
+msgstr "No se pudo conectar con GDTF Share: %s."
+
+#: gui/gdtf_share_message_formatter.cpp:28
+msgid "GDTF Share sign-in timed out."
+msgstr "Se agotó el tiempo de espera al iniciar sesión en GDTF Share."
+
+#: gui/gdtf_share_message_formatter.cpp:29
+msgid "GDTF Share download timed out."
+msgstr "Se agotó el tiempo de espera de la descarga de GDTF Share."
+
+#: gui/gdtf_share_message_formatter.cpp:32
+#, c-format
+msgid "The GDTF Share username or password is invalid (HTTP %ld)."
+msgstr ""
+"El nombre de usuario o la contraseña de GDTF Share no son válidos (HTTP "
+"%ld)."
+
+#: gui/gdtf_share_message_formatter.cpp:39
+#, c-format
+msgid "GDTF Share rejected the sign-in request (HTTP %ld)."
+msgstr "GDTF Share rechazó la solicitud de inicio de sesión (HTTP %ld)."
+
+#: gui/gdtf_share_message_formatter.cpp:42
+#, c-format
+msgid "GDTF Share rejected the download request (HTTP %ld)."
+msgstr "GDTF Share rechazó la solicitud de descarga (HTTP %ld)."
+
+#: gui/gdtf_share_message_formatter.cpp:46
+msgid "GDTF Share rejected the sign-in request."
+msgstr "GDTF Share rechazó la solicitud de inicio de sesión."
+
+#: gui/gdtf_share_message_formatter.cpp:47
+msgid "GDTF Share rejected the download request."
+msgstr "GDTF Share rechazó la solicitud de descarga."
+
+#: gui/gdtf_share_message_formatter.cpp:51
+#, c-format
+msgid "GDTF Share returned HTTP %ld during sign-in."
+msgstr "GDTF Share devolvió HTTP %ld durante el inicio de sesión."
+
+#: gui/gdtf_share_message_formatter.cpp:53
+#, c-format
+msgid "GDTF Share returned HTTP %ld during download."
+msgstr "GDTF Share devolvió HTTP %ld durante la descarga."
+
+#: gui/gdtf_share_message_formatter.cpp:57
+msgid ""
+"GDTF Share returned an invalid response. See the diagnostic log for details."
+msgstr ""
+"GDTF Share devolvió una respuesta no válida. Consulte el registro de "
+"diagnóstico para obtener más información."
+
+#: gui/gdtf_share_message_formatter.cpp:59
+msgid "GDTF Share sign-in was cancelled."
+msgstr "Se canceló el inicio de sesión en GDTF Share."
+
+#: gui/gdtf_share_message_formatter.cpp:60
+msgid "GDTF Share download was cancelled."
+msgstr "Se canceló la descarga de GDTF Share."
+
+#: gui/gdtf_share_message_formatter.cpp:62
+msgid "Could not save the GDTF Share download locally."
+msgstr "No se pudo guardar localmente la descarga de GDTF Share."
+
+#: gui/gdtf_share_message_formatter.cpp:64
+msgid "GDTF Share sign-in failed."
+msgstr "No se pudo iniciar sesión en GDTF Share."
+
+#: gui/gdtf_share_message_formatter.cpp:65
+msgid "GDTF Share download failed."
+msgstr "Error al descargar desde GDTF Share."
+
 #: gui/gdtfsearchdialog.cpp:82
 #: tests/localization_catalog_integration_test.cpp:203
 msgid "Search GDTF"
@@ -1534,7 +1613,8 @@ msgstr "Página %zu/%zu (%zu resultados)"
 #: gui/gdtfsearchdialog.cpp:362
 msgid "This catalog row has no downloadable revision identifier."
 msgstr ""
-"Esta fila del catálogo no tiene ningún identificador de revisión descargable."
+"Esta fila del catálogo no tiene ningún identificador de revisión "
+"descargable."
 
 #: gui/gdtfsearchdialog.cpp:487 gui/gdtfsearchdialog.cpp:541
 msgid "Showing cached GDTF catalog. Sign in is required to download."
@@ -1689,11 +1769,12 @@ msgstr "Seleccionar preajuste ficticio"
 msgid ""
 "Dummy preset can only be assigned when there is no linked motor fixture."
 msgstr ""
-"El ajuste preestablecido ficticio solo se puede asignar cuando no hay ningún "
-"elemento de motor vinculado."
+"El ajuste preestablecido ficticio solo se puede asignar cuando no hay ningún"
+" elemento de motor vinculado."
 
 #: gui/layerpanel.cpp:84 gui/layerpanel.cpp:100 gui/summarypanel.cpp:256
-#: gui/summarypanel.cpp:316 tests/localization_catalog_integration_test.cpp:191
+#: gui/summarypanel.cpp:316
+#: tests/localization_catalog_integration_test.cpp:191
 msgid "Visible"
 msgstr "Visible"
 
@@ -1835,10 +1916,6 @@ msgstr "No hay ningún diseño disponible para exportar."
 msgid "Export layout package"
 msgstr "Exportar paquete de diseño"
 
-#: gui/layoutpanel.cpp:364
-msgid ".pslayout"
-msgstr ".pslayout"
-
 #: gui/layoutpanel.cpp:365
 msgid "Perastage layout packages (*.pslayout)|*.pslayout"
 msgstr "Paquetes de diseño de Perastage (*.pslayout)|*.pslayout"
@@ -1857,13 +1934,13 @@ msgstr "Importar plantilla de diseño"
 
 #: gui/layoutpanel.cpp:388
 msgid ""
-"All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|"
-"Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout "
-"templates (*.json)|*.json"
+"All supported layout templates "
+"(*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages "
+"(*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json"
 msgstr ""
-"Todas las plantillas de diseño compatibles (*.pslayout;*.json)|*.pslayout;*."
-"json|Paquetes de diseño de Perastage (*.pslayout)|*.pslayout|Plantillas de "
-"diseño JSON heredadas (*.json)|*.json"
+"Todas las plantillas de diseño compatibles "
+"(*.pslayout;*.json)|*.pslayout;*.json|Paquetes de diseño de Perastage "
+"(*.pslayout)|*.pslayout|Plantillas de diseño JSON heredadas (*.json)|*.json"
 
 #: gui/layoutpanel.cpp:398
 msgid "Could not import layout template.\n"
@@ -1880,10 +1957,6 @@ msgstr "Mostrar esquema"
 #: gui/layouttextdialog.cpp:148
 msgid "Ok"
 msgstr "De acuerdo"
-
-#: gui/layoutviewerpanel_legend.cpp:1015 gui/layoutviewerpanel_legend.cpp:1063
-msgid "Hg"
-msgstr "Hg"
 
 #: gui/logindialog.cpp:21
 msgid "GDTF Share Login"
@@ -1955,8 +2028,9 @@ msgid "Failed to import MVR file."
 msgstr "No se pudo importar el archivo MVR."
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:320
-msgid "MVR imported: "
-msgstr "MVR importado:"
+#, c-format
+msgid "MVR imported: %s"
+msgstr "MVR importado: %s"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:377
 msgid "Import MVR file"
@@ -1998,8 +2072,9 @@ msgid "MVR Merge Cancelled"
 msgstr "MVR Fusión cancelada"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:591
-msgid "MVR merged: "
-msgstr "MVR fusionado:"
+#, c-format
+msgid "MVR merged: %s"
+msgstr "MVR fusionado: %s"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:643
 msgid "loading a project"
@@ -2019,23 +2094,21 @@ msgstr "No se pudo cargar el proyecto."
 msgid "Project load failed."
 msgstr "Error al cargar el proyecto."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:660
-msgid "Project loaded: "
-msgstr "Proyecto cargado:"
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:661
+#, c-format
+msgid "Project loaded: %s"
+msgstr "Proyecto cargado: %s"
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:683
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:684
 msgid "Unsupported startup file format."
 msgstr "Formato de archivo de inicio no compatible."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:688
-msgid "Unsupported startup file. Use "
-msgstr "Archivo de inicio no compatible. Usar"
-
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:690
-msgid " or .mvr files."
-msgstr "o archivos .mvr."
+#, c-format
+msgid "Unsupported startup file. Use %s or .mvr files."
+msgstr "Archivo de inicio no compatible. Use archivos %s o .mvr."
 
-#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:691
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:692
 msgid "Unsupported file"
 msgstr "Archivo no compatible"
 
@@ -2064,6 +2137,10 @@ msgstr "Espere a que termine la carga del proyecto inicial antes de %s."
 #: gui/mainwindow.cpp:849
 msgid "Perastage is still loading"
 msgstr "Perastage aún está cargando"
+
+#: gui/mainwindow.cpp:878
+msgid "Project loading"
+msgstr "Carga del proyecto"
 
 #: gui/mainwindow.cpp:904 gui/mainwindow.cpp:1115
 msgid "Loading project file..."
@@ -2146,8 +2223,8 @@ msgstr ""
 #: gui/mainwindow_fixture_distribution.cpp:111
 msgid "Fixture geometry must be loaded before using edge-to-edge spacing."
 msgstr ""
-"La geometría del accesorio debe cargarse antes de usar el espaciado de borde "
-"a borde."
+"La geometría del accesorio debe cargarse antes de usar el espaciado de borde"
+" a borde."
 
 #: gui/mainwindow_fixture_distribution.cpp:116
 msgid "Choose a start point and then a direction on the truss line."
@@ -2156,8 +2233,8 @@ msgstr "Elija un punto inicial y luego una dirección en la línea del truss."
 #: gui/mainwindow_fixture_distribution.cpp:117
 msgid "Choose two limits on the truss line for outside-in distribution."
 msgstr ""
-"Elija dos límites en la línea del truss para la distribución de afuera hacia "
-"adentro."
+"Elija dos límites en la línea del truss para la distribución de afuera hacia"
+" adentro."
 
 #: gui/mainwindow_fixture_distribution.cpp:121
 msgid "Fixture distribution cancelled."
@@ -2185,10 +2262,6 @@ msgid "Activate a 2D or 3D scene viewport before distributing fixtures."
 msgstr ""
 "Active una ventana gráfica de escena 2D o 3D antes de distribuir accesorios."
 
-#: gui/mainwindow_fixture_distribution.cpp:214
-msgid "distribute fixtures on truss"
-msgstr "distribuir accesorios en truss"
-
 #: gui/mainwindow_fixture_distribution.cpp:221
 msgid "Fixtures distributed uniformly along the truss line."
 msgstr ""
@@ -2210,10 +2283,6 @@ msgstr ""
 msgid "Ready"
 msgstr "Listo"
 
-#: gui/mainwindow_fixture_distribution.cpp:256
-msgid "distribute fixtures between truss points"
-msgstr "Distribuir accesorios entre puntos de truss."
-
 #: gui/mainwindow_fixture_distribution.cpp:268
 msgid "Fixtures distributed between the selected truss points."
 msgstr "Luminarias distribuidas entre los puntos de truss seleccionados."
@@ -2230,7 +2299,8 @@ msgstr "Modo de fijación"
 #: gui/mainwindow_fixture_replace.cpp:129
 msgid "Select at least one fixture before running Replace Fixtures."
 msgstr ""
-"Seleccione al menos un dispositivo antes de ejecutar Reemplazar dispositivos."
+"Seleccione al menos un dispositivo antes de ejecutar Reemplazar "
+"dispositivos."
 
 #: gui/mainwindow_fixture_replace.cpp:130
 #: gui/mainwindow_fixture_replace.cpp:140
@@ -2335,14 +2405,19 @@ msgstr "No se pudo importar el rider."
 msgid "Rider text is empty."
 msgstr "El texto del rider está vacío."
 
+#: gui/mainwindow_io.cpp:535
+msgid "Text scene creation progress"
+msgstr "Progreso de creación de escena desde texto"
+
 #: gui/mainwindow_io.cpp:542
 #, c-format
 msgid "Text import: %s (%d/%d)"
 msgstr "Importación de texto: %s (%d/%d)"
 
 #: gui/mainwindow_io.cpp:548
-msgid "Text import: "
-msgstr "Importación de texto:"
+#, c-format
+msgid "Text import: %s"
+msgstr "Importación de texto: %s"
 
 #: gui/mainwindow_io.cpp:553
 msgid "Failed to import rider text."
@@ -2380,7 +2455,7 @@ msgstr "Guardar armadura"
 msgid "GDTF files (*.gdtf)|*.gdtf"
 msgstr "GDTF archivos (*.gdtf)|*.gdtf"
 
-#: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:875
+#: gui/mainwindow_io.cpp:686 gui/mainwindow_io.cpp:876
 msgid "Model file not found."
 msgstr "Archivo de modelo no encontrado."
 
@@ -2398,7 +2473,7 @@ msgstr "No hay datos de partidos disponibles."
 
 #: gui/mainwindow_io.cpp:719 gui/mainwindow_io.cpp:760
 #: gui/mainwindow_io.cpp:769 gui/mainwindow_io.cpp:777
-#: gui/mainwindow_io.cpp:838
+#: gui/mainwindow_io.cpp:839
 msgid "Export Fixture"
 msgstr "Accesorio de exportación"
 
@@ -2420,14 +2495,11 @@ msgstr "Guardar accesorio"
 
 #: gui/mainwindow_io.cpp:812
 msgid ""
-"This will overwrite the original GDTF library asset. Perastage normally "
-"preserves originals and exports a derived copy instead.\n"
+"This will overwrite the original GDTF library asset. Perastage normally preserves originals and exports a derived copy instead.\n"
 "\n"
 "Do you want to overwrite the original GDTF file?"
 msgstr ""
-"Esto sobrescribirá el recurso de biblioteca GDTF original. Perastage "
-"normalmente conserva los originales y, en su lugar, exporta una copia "
-"derivada.\n"
+"Esto sobrescribirá el recurso de biblioteca GDTF original. Perastage normalmente conserva los originales y, en su lugar, exporta una copia derivada.\n"
 "\n"
 "¿Desea sobrescribir el archivo GDTF original?"
 
@@ -2436,38 +2508,39 @@ msgid "Overwrite Original GDTF"
 msgstr "Sobrescribir original GDTF"
 
 #: gui/mainwindow_io.cpp:832
-msgid "Failed to write file: "
-msgstr "No se pudo escribir el archivo:"
+#, c-format
+msgid "Failed to write file: %s"
+msgstr "No se pudo escribir el archivo: %s"
 
-#: gui/mainwindow_io.cpp:838
+#: gui/mainwindow_io.cpp:839
 msgid "Fixture exported successfully."
 msgstr "Accesorio exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:851
+#: gui/mainwindow_io.cpp:852
 msgid "No scene objects available."
 msgstr "No hay objetos de escena disponibles."
 
-#: gui/mainwindow_io.cpp:851 gui/mainwindow_io.cpp:897
+#: gui/mainwindow_io.cpp:852 gui/mainwindow_io.cpp:898
 msgid "Export Scene Object"
 msgstr "Exportar objeto de escena"
 
-#: gui/mainwindow_io.cpp:883
+#: gui/mainwindow_io.cpp:884
 msgid "Save Object"
 msgstr "Guardar objeto"
 
-#: gui/mainwindow_io.cpp:893
+#: gui/mainwindow_io.cpp:894
 msgid "Failed to copy file."
 msgstr "No se pudo copiar el archivo."
 
-#: gui/mainwindow_io.cpp:897
+#: gui/mainwindow_io.cpp:898
 msgid "Object exported successfully."
 msgstr "Objeto exportado exitosamente."
 
-#: gui/mainwindow_io.cpp:914 gui/mainwindow_print.cpp:651
+#: gui/mainwindow_io.cpp:915 gui/mainwindow_print.cpp:651
 msgid "Select table"
 msgstr "Seleccione tabla"
 
-#: gui/mainwindow_io.cpp:914 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
+#: gui/mainwindow_io.cpp:915 gui/tableprinter.cpp:164 gui/tableprinter.cpp:172
 #: gui/tableprinter.cpp:207
 msgid "Export CSV"
 msgstr "Exportar CSV"
@@ -2515,17 +2588,18 @@ msgstr "Rigging"
 msgid "X: -- m  Y: -- m  Z: -- m"
 msgstr "X: -- m Y: -- m Z: -- m"
 
-#: gui/mainwindow_layout.cpp:459
-msgid "Version "
-msgstr "Versión"
+#: gui/mainwindow_layout.cpp:460
+#, c-format
+msgid "Version %s"
+msgstr "Versión %s"
 
-#: gui/mainwindow_layout.cpp:1087
+#: gui/mainwindow_layout.cpp:1088
 msgid "Layout view update skipped: target view not found."
 msgstr ""
-"Se omitió la actualización de la vista de diseño: no se encontró la vista de "
-"destino."
+"Se omitió la actualización de la vista de diseño: no se encontró la vista de"
+" destino."
 
-#: gui/mainwindow_layout.cpp:1117
+#: gui/mainwindow_layout.cpp:1118
 msgid "Layout view update failed."
 msgstr "Error al actualizar la vista de diseño."
 
@@ -2855,8 +2929,8 @@ msgstr "GDTF catálogo no disponible"
 
 #: gui/mainwindow_menu.cpp:671
 msgid ""
-"This build does not include secure password storage. The username was saved, "
-"but the password must be entered again after restart."
+"This build does not include secure password storage. The username was saved,"
+" but the password must be entered again after restart."
 msgstr ""
 "Esta compilación no incluye almacenamiento seguro de contraseñas. El nombre "
 "de usuario se guardó, pero la contraseña debe introducirse de nuevo después "
@@ -2864,8 +2938,8 @@ msgstr ""
 
 #: gui/mainwindow_menu.cpp:673
 msgid ""
-"The native secure password store is unavailable. The username was saved, but "
-"the password must be entered again after restart."
+"The native secure password store is unavailable. The username was saved, but"
+" the password must be entered again after restart."
 msgstr ""
 "El almacén seguro nativo de contraseñas no está disponible. El nombre de "
 "usuario se guardó, pero la contraseña debe introducirse de nuevo después de "
@@ -2901,7 +2975,8 @@ msgid "Downloading GDTF from GDTF Share..."
 msgstr "Descargando GDTF de GDTF Compartir..."
 
 #: gui/mainwindow_menu.cpp:804
-msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
+msgid ""
+"GDTF downloaded successfully. Do you want to add it to the project now?"
 msgstr "GDTF se descargó exitosamente. ¿Quieres agregarlo al proyecto ahora?"
 
 #: gui/mainwindow_menu.cpp:806 gui/mvr_export_result_dialog.cpp:158
@@ -2915,7 +2990,8 @@ msgstr "Falta información de descarga."
 
 #: gui/mainwindow_menu.cpp:836
 msgid "Could not resolve writable user library path."
-msgstr "No se pudo resolver la ruta de escritura de la biblioteca del usuario."
+msgstr ""
+"No se pudo resolver la ruta de escritura de la biblioteca del usuario."
 
 #: gui/mainwindow_menu.cpp:837 gui/mainwindow_menu.cpp:849
 #: gui/mainwindow_menu_builders.cpp:96
@@ -2990,6 +3066,10 @@ msgstr "salir"
 msgid "Exit"
 msgstr "Salir"
 
+#: gui/mainwindow_menu.cpp:1238 gui/mainwindow_menu.cpp:1273
+msgid "Perastage Help"
+msgstr "Ayuda"
+
 #: gui/mainwindow_menu.cpp:1243
 msgid "Language:"
 msgstr "Idioma:"
@@ -3006,48 +3086,56 @@ msgstr "Español"
 msgid "help.md file not found"
 msgstr "Archivo help.md no encontrado"
 
-#: gui/mainwindow_menu.cpp:1273
-msgid "Perastage Help"
-msgstr "Ayuda"
-
-#: gui/mainwindow_menu.cpp:1292
+#: gui/mainwindow_menu.cpp:1291
+#, c-format
 msgid ""
 "Could not create the logs folder.\n"
 "\n"
+"%s"
 msgstr ""
 "No se pudo crear la carpeta de registros.\n"
 "\n"
+"%s"
 
 #: gui/mainwindow_menu.cpp:1293 gui/mainwindow_menu.cpp:1311
-#: gui/mainwindow_menu.cpp:1326 gui/mainwindow_menu.cpp:1335
+#: gui/mainwindow_menu.cpp:1327 gui/mainwindow_menu.cpp:1336
 msgid "Perastage Diagnostics"
 msgstr "Diagnóstico de Perastage"
 
 #: gui/mainwindow_menu.cpp:1309
+#, c-format
 msgid ""
 "Could not open the logs folder.\n"
 "\n"
+"%s"
 msgstr ""
 "No se pudo abrir la carpeta de registros.\n"
 "\n"
+"%s"
 
 #: gui/mainwindow_menu.cpp:1325
+#, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
 "\n"
+"%s"
 msgstr ""
 "No se pudo exportar el informe de diagnóstico.\n"
 "\n"
+"%s"
 
-#: gui/mainwindow_menu.cpp:1333
+#: gui/mainwindow_menu.cpp:1334
+#, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
 "\n"
+"%s"
 msgstr ""
 "Informe de diagnóstico exportado correctamente.\n"
 "\n"
+"%s"
 
-#: gui/mainwindow_menu.cpp:1355
+#: gui/mainwindow_menu.cpp:1355 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr "Actualizaciones de Perastage"
 
@@ -3459,7 +3547,8 @@ msgstr "El diccionario de truss está vacío."
 
 #: gui/mainwindow_truss_replace.cpp:96
 msgid "No dictionary entries contain a truss file path."
-msgstr "Ninguna entrada del diccionario contiene una ruta de archivo de truss."
+msgstr ""
+"Ninguna entrada del diccionario contiene una ruta de archivo de truss."
 
 #: gui/mainwindow_truss_replace.cpp:101
 msgid "Choose a truss from the dictionary:"
@@ -3538,7 +3627,8 @@ msgid "%zu truss could not use the requested compatibility representation."
 msgid_plural ""
 "%zu trusses could not use the requested compatibility representation."
 msgstr[0] ""
-"El truss %zu no pudo utilizar la representación de compatibilidad solicitada."
+"El truss %zu no pudo utilizar la representación de compatibilidad "
+"solicitada."
 msgstr[1] ""
 "%zu trusses no pudieron usar la representación de compatibilidad solicitada."
 
@@ -3547,7 +3637,8 @@ msgstr[1] ""
 msgid "%zu GDTF resource could not be preserved as requested."
 msgid_plural "%zu GDTF resources could not be preserved as requested."
 msgstr[0] "El recurso %zu GDTF no se pudo conservar según lo solicitado."
-msgstr[1] "Los recursos %zu GDTF no se pudieron conservar según lo solicitado."
+msgstr[1] ""
+"Los recursos %zu GDTF no se pudieron conservar según lo solicitado."
 
 #: gui/mvr_export_result_dialog.cpp:64
 #, c-format
@@ -3754,8 +3845,8 @@ msgid ""
 "The username was saved, but secure password storage is unavailable. The "
 "password must be entered again after restart."
 msgstr ""
-"El nombre de usuario se guardó, pero el almacenamiento seguro de contraseñas "
-"no está disponible. La contraseña deberá introducirse de nuevo después de "
+"El nombre de usuario se guardó, pero el almacenamiento seguro de contraseñas"
+" no está disponible. La contraseña deberá introducirse de nuevo después de "
 "reiniciar."
 
 #: gui/preferences/gdtf_credentials_panel.cpp:98
@@ -3870,7 +3961,8 @@ msgstr "Solo manualmente"
 #: gui/preferencesdialog.cpp:248
 msgid "Manual checks are always available from Help -> Check for Updates."
 msgstr ""
-"La búsqueda manual siempre está disponible en Ayuda > Buscar actualizaciones."
+"La búsqueda manual siempre está disponible en Ayuda > Buscar "
+"actualizaciones."
 
 #: gui/preferencesdialog.cpp:252
 msgid "Updates"
@@ -3898,19 +3990,11 @@ msgstr "Geometry3D directa para los símbolos de truss"
 
 #: gui/preferencesdialog.cpp:285
 msgid ""
-"Standard MVR representation: preserves imported Symbol/Symdef references "
-"when possible and is Perastage's canonical representation.\n"
-"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references "
-"into direct Geometry3D entries for compatibility with applications that do "
-"not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
+"Standard MVR representation: preserves imported Symbol/Symdef references when possible and is Perastage's canonical representation.\n"
+"Direct Geometry3D for truss symbols: expands truss Symbol/Symdef references into direct Geometry3D entries for compatibility with applications that do not correctly support Symbol/Symdef. Both modes are MVR 1.6 compliant."
 msgstr ""
-"Representación estándar de MVR: conserva las referencias Symbol/Symdef "
-"importadas cuando sea posible y es la representación canónica de "
-"Perastage. \n"
-"Direct Geometry3D para truss symbols: expands truss Symbol/Symdef "
-"referencias en entradas directas de Geometry3D para compatibilidad con "
-"aplicaciones que no admiten correctamente Symbol/Symdef. Ambos modos cumplen "
-"con MVR 1.6."
+"Representación estándar de MVR: conserva las referencias Symbol/Symdef importadas cuando sea posible y es la representación canónica de Perastage. \n"
+"Direct Geometry3D para truss symbols: expands truss Symbol/Symdef referencias en entradas directas de Geometry3D para compatibilidad con aplicaciones que no admiten correctamente Symbol/Symdef. Ambos modos cumplen con MVR 1.6."
 
 #: gui/preferencesdialog.cpp:299
 msgid "MVR Import / Export"
@@ -3923,8 +4007,8 @@ msgstr "Selección y &movimiento"
 #: gui/preferencesdialog.cpp:314
 msgid "Choose how interactive transforms handle objects inside groups."
 msgstr ""
-"Elija cómo gestionan las transformaciones interactivas los objetos dentro de "
-"grupos."
+"Elija cómo gestionan las transformaciones interactivas los objetos dentro de"
+" grupos."
 
 #: gui/preferencesdialog.cpp:321
 msgid "Grouped object movement"
@@ -3948,14 +4032,11 @@ msgstr "Los objetos de escena mueven el grupo que los contiene"
 
 #: gui/preferencesdialog.cpp:345
 msgid ""
-"When enabled, selecting this type inside a group moves the highest parent "
-"GroupObject during mouse, CLI, and Magnet transformations.\n"
+"When enabled, selecting this type inside a group moves the highest parent GroupObject during mouse, CLI, and Magnet transformations.\n"
 "Table edits always modify only the edited object.\n"
 "Selecting a GroupObject directly always moves that group."
 msgstr ""
-"Cuando se activa, al seleccionar este tipo dentro de un grupo se mueve el "
-"GroupObject superior durante las transformaciones con el ratón, la CLI y "
-"Magnet.\n"
+"Cuando se activa, al seleccionar este tipo dentro de un grupo se mueve el GroupObject superior durante las transformaciones con el ratón, la CLI y Magnet.\n"
 "Las ediciones de tabla siempre modifican únicamente el objeto editado.\n"
 "Seleccionar un GroupObject directamente siempre mueve ese grupo."
 
@@ -4043,8 +4124,7 @@ msgid ""
 "Selection rectangle: Ctrl + Left drag."
 msgstr ""
 "Órbita: arrastrar con el botón izquierdo o derecho.\n"
-"Pan: arrastrar con el botón central, con Mayús + arrastrar o con Mayús + "
-"botón izquierdo.\n"
+"Pan: arrastrar con el botón central, con Mayús + arrastrar o con Mayús + botón izquierdo.\n"
 "Zoom: rueda del ratón.\n"
 "Rectángulo de selección: Ctrl + arrastrar con el botón izquierdo."
 
@@ -4182,7 +4262,8 @@ msgstr ""
 
 #: gui/rider_fixture_resolution_dialog.cpp:452
 msgid "Catalog unavailable; generic fallback remains available."
-msgstr "Catálogo no disponible; el respaldo genérico sigue estando disponible."
+msgstr ""
+"Catálogo no disponible; el respaldo genérico sigue estando disponible."
 
 #: gui/rider_fixture_resolution_dialog.cpp:468
 #: gui/rider_fixture_resolution_dialog.cpp:592
@@ -4202,7 +4283,8 @@ msgstr "Conectándose a GDTF Compartir..."
 #: gui/rider_fixture_resolution_dialog.cpp:560
 #: gui/rider_fixture_resolution_dialog.cpp:624
 msgid "GDTF catalog unavailable - generic fallback remains available"
-msgstr "Catálogo GDTF no disponible: el respaldo genérico permanece disponible"
+msgstr ""
+"Catálogo GDTF no disponible: el respaldo genérico permanece disponible"
 
 #: gui/rider_fixture_resolution_dialog.cpp:596
 #: gui/rider_fixture_resolution_workflow.cpp:78
@@ -4259,11 +4341,12 @@ msgstr "Diccionario de accesorios activos"
 #: gui/rider_fixture_resolution_model.cpp:65
 msgid "No reliable catalog match; generic will be used unless changed"
 msgstr ""
-"No hay coincidencia de catálogo confiable; Se utilizará genérico a menos que "
-"se modifique."
+"No hay coincidencia de catálogo confiable; Se utilizará genérico a menos que"
+" se modifique."
 
 #: gui/rider_fixture_resolution_model.cpp:66
-msgid "Conflicting numeric model identity; generic will be used unless changed"
+msgid ""
+"Conflicting numeric model identity; generic will be used unless changed"
 msgstr ""
 "Identidad del modelo numérico en conflicto; Se utilizará genérico a menos "
 "que se modifique."
@@ -4425,7 +4508,8 @@ msgstr "Texto de ejemplo"
 
 #: gui/ridertextdialog.cpp:325
 msgid ""
-"No fixture lines were detected with the current parser rules after filtering."
+"No fixture lines were detected with the current parser rules after "
+"filtering."
 msgstr ""
 "No se detectaron líneas de aparatos con las reglas actuales del analizador "
 "después de filtrar."
@@ -4434,7 +4518,8 @@ msgstr ""
 msgid "Filtered text could not be decoded."
 msgstr "No se pudo decodificar el texto filtrado."
 
-#: gui/riggingpanel.cpp:182 tests/localization_catalog_integration_test.cpp:195
+#: gui/riggingpanel.cpp:182
+#: tests/localization_catalog_integration_test.cpp:195
 msgid "Position"
 msgstr "Posición"
 
@@ -4604,25 +4689,42 @@ msgstr "Seleccione un tipo de aparato:"
 msgid "Add from file..."
 msgstr "Añadir desde archivo..."
 
-#: gui/services/fixture_symbol_preparation_service.cpp:505
-msgid "Preparing fixture symbols: "
-msgstr "Preparando el accesorio symbols:"
+#: gui/services/fixture_symbol_preparation_service.cpp:486
+msgid "fixture resource"
+msgstr "recurso de aparato"
 
-#: gui/services/fixture_symbol_preparation_service.cpp:505
-#: gui/services/fixture_symbol_preparation_service.cpp:506
-msgid " - "
-msgstr " - "
+#: gui/services/fixture_symbol_preparation_service.cpp:489
+msgid "Preparing"
+msgstr "Preparando"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:493
+msgid "Capturing fixture views"
+msgstr "Capturando vistas de aparatos"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:496
+msgid "Processing"
+msgstr "Procesando"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:499
+msgid "Publishing"
+msgstr "Publicando"
+
+#: gui/services/fixture_symbol_preparation_service.cpp:502
+msgid "Refreshing"
+msgstr "Actualizando"
 
 #: gui/services/fixture_symbol_preparation_service.cpp:507
-msgid " pending"
-msgstr "pendiente"
+#, c-format
+msgid "Preparing fixture symbols: %s - %s - %zu pending"
+msgstr "Preparando símbolos de aparatos: %s - %s - %zu pendientes"
 
 #: gui/splashscreen.cpp:151
 msgid "Loading Perastage..."
 msgstr "Cargando Perastage..."
 
 #: gui/summarypanel.cpp:258 gui/summarypanel.cpp:267 gui/summarypanel.cpp:317
-#: gui/summarypanel.cpp:347 tests/localization_catalog_integration_test.cpp:193
+#: gui/summarypanel.cpp:347
+#: tests/localization_catalog_integration_test.cpp:193
 msgid "Count"
 msgstr "Cantidad"
 
@@ -4655,7 +4757,8 @@ msgstr "Los accesorios seleccionados ya están actualizados."
 #: gui/tools/fixture_category_assignment_tool.cpp:179
 #, c-format
 msgid "Auto-assigned categories to %zu fixture(s). Unknown: %zu."
-msgstr "Categorías asignadas automáticamente a %zu aparatos. Desconocido: %zu."
+msgstr ""
+"Categorías asignadas automáticamente a %zu aparatos. Desconocido: %zu."
 
 #: gui/tools/fixture_symbol_generation_tool.cpp:90
 msgid "No fixtures available in this project."
@@ -4676,7 +4779,8 @@ msgstr "No se pudo preparar el renderizador fuera de pantalla."
 #: gui/tools/fixture_symbol_generation_tool.cpp:115
 msgid "Could not isolate a fixture instance for this fixture type."
 msgstr ""
-"No se pudo aislar una instancia de dispositivo para este tipo de dispositivo."
+"No se pudo aislar una instancia de dispositivo para este tipo de "
+"dispositivo."
 
 #: gui/trusseditdialog.cpp:198
 msgid "MVR instance"
@@ -4798,8 +4902,8 @@ msgstr "Cargando el último proyecto..."
 
 #: main.cpp:395
 msgid ""
-"The Spanish translation catalog is not available in this build. Perastage is "
-"using English."
+"The Spanish translation catalog is not available in this build. Perastage is"
+" using English."
 msgstr ""
 "El catálogo de traducción Spanish no está disponible en esta compilación. "
 "Perastage está usando inglés."
@@ -4864,7 +4968,8 @@ msgstr "Cancelación solicitada. Terminando la transferencia actual..."
 #: mvr/mvrimporter.cpp:4171
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
-msgstr "%d/%zu procesados  |  %d descargados  |  %d fallback  |  %d cancelados"
+msgstr ""
+"%d/%zu procesados  |  %d descargados  |  %d fallback  |  %d cancelados"
 
 #: mvr/mvrimporter.cpp:4231
 msgid "Fallback to App"
@@ -4953,8 +5058,8 @@ msgstr "Falló la descarga o el análisis del catálogo."
 #, c-format
 msgid "Selected fixture types for download (catalog load failed: %s)"
 msgstr ""
-"Tipos de aparatos seleccionados para descargar (falló la carga del catálogo: "
-"%s)"
+"Tipos de aparatos seleccionados para descargar (falló la carga del catálogo:"
+" %s)"
 
 #: mvr/mvrimporter.cpp:4646
 msgid "Failed to load catalog list"
@@ -4982,19 +5087,19 @@ msgstr "Español"
 msgid "Gap measure: "
 msgstr "Medida de brecha:"
 
-#: viewer2d/viewer2dpanel.cpp:3786 viewer3d/viewer3dpanel.cpp:1888
+#: viewer2d/viewer2dpanel.cpp:3786
 msgid "Measure: "
 msgstr "Medida:"
 
-#: viewer2d/viewer2dpanel.cpp:4032 viewer3d/viewer3dpanel.cpp:2432
+#: viewer2d/viewer2dpanel.cpp:4032 viewer3d/viewer3dpanel.cpp:2433
 msgid "Convert to Truss"
 msgstr "Convertir a armadura"
 
-#: viewer2d/viewer2dpanel.cpp:4118 viewer3d/viewer3dpanel.cpp:2449
+#: viewer2d/viewer2dpanel.cpp:4118 viewer3d/viewer3dpanel.cpp:2450
 msgid "No position"
 msgstr "Sin posición"
 
-#: viewer2d/viewer2dpanel.cpp:4129 viewer3d/viewer3dpanel.cpp:2460
+#: viewer2d/viewer2dpanel.cpp:4129 viewer3d/viewer3dpanel.cpp:2461
 msgid "Select by position"
 msgstr "Seleccionar por posición"
 
@@ -5102,13 +5207,39 @@ msgstr "No se pudo crear un framebuffer fuera de la pantalla para exportar."
 msgid "Failed to save PNG image."
 msgstr "No se pudo guardar la imagen PNG."
 
-#: viewer3d/viewer3dpanel.cpp:2463
+#: viewer3d/viewer3dpanel.cpp:1888
+#, c-format
+msgid "Measure: %s"
+msgstr "Medida: %s"
+
+#: viewer3d/viewer3dpanel.cpp:2464
 msgid "Render style"
 msgstr "Estilo de renderizado"
 
-#: viewer3d/viewer3dpanel.cpp:2465
+#: viewer3d/viewer3dpanel.cpp:2466
 msgid "Export image..."
 msgstr "Exportar imagen..."
+
+#~ msgid ".pslayout"
+#~ msgstr ".pslayout"
+
+#~ msgid "Hg"
+#~ msgstr "Hg"
+
+#~ msgid " or .mvr files."
+#~ msgstr "o archivos .mvr."
+
+#~ msgid "distribute fixtures on truss"
+#~ msgstr "distribuir accesorios en truss"
+
+#~ msgid "distribute fixtures between truss points"
+#~ msgstr "Distribuir accesorios entre puntos de truss."
+
+#~ msgid " - "
+#~ msgstr " - "
+
+#~ msgid " pending"
+#~ msgstr "pendiente"
 
 #~ msgid "Perastage missing localization sentinel"
 #~ msgstr "Perastage falta centinela de localización"
@@ -5181,28 +5312,26 @@ msgstr "Exportar imagen..."
 
 #~ msgid ""
 #~ "The console transforms the current mixed selection. Grouped trusses move "
-#~ "through their root group; fixtures, supports, and scene objects remain "
-#~ "exact targets."
+#~ "through their root group; fixtures, supports, and scene objects remain exact"
+#~ " targets."
 #~ msgstr ""
-#~ "La consola transforma la selección mixta actual. Las armaduras agrupadas "
-#~ "se mueven a través de su grupo raíz; Los accesorios, soportes y objetos "
-#~ "de la escena siguen siendo objetivos exactos."
+#~ "La consola transforma la selección mixta actual. Las armaduras agrupadas se "
+#~ "mueven a través de su grupo raíz; Los accesorios, soportes y objetos de la "
+#~ "escena siguen siendo objetivos exactos."
 
 #~ msgid "Command    Description"
 #~ msgstr "Comando    Descripción"
 
 #~ msgid "Clears all selections (fixtures, trusses, scene objects)."
-#~ msgstr ""
-#~ "Limpia todas las selecciones (aparatos, trusses y objetos de escena)."
+#~ msgstr "Limpia todas las selecciones (aparatos, trusses y objetos de escena)."
 
 #~ msgid "Select fixtures by ID."
 #~ msgstr "Selecciona aparatos por ID."
 
-#~ msgid ""
-#~ "Select trusses by unit number (clears current truss selection first)."
+#~ msgid "Select trusses by unit number (clears current truss selection first)."
 #~ msgstr ""
-#~ "Selecciona trusses por número de unidad (limpia primero la selección "
-#~ "actual de trusses)."
+#~ "Selecciona trusses por número de unidad (limpia primero la selección actual "
+#~ "de trusses)."
 
 #~ msgid "Selection syntax supports:"
 #~ msgstr "La sintaxis de selección admite:"
@@ -5268,8 +5397,7 @@ msgstr "Exportar imagen..."
 #~ msgstr "Notas:"
 
 #~ msgid "Provide one value to apply it to all selected items."
-#~ msgstr ""
-#~ "Indique un valor para aplicarlo a todos los elementos seleccionados."
+#~ msgstr "Indique un valor para aplicarlo a todos los elementos seleccionados."
 
 #~ msgid ""
 #~ "Provide two values to linearly distribute from start to end across the "
@@ -5279,15 +5407,15 @@ msgstr "Exportar imagen..."
 #~ "selección."
 
 #~ msgid ""
-#~ "Use compact or spaced `++` / `--` relative offsets, such as `++1`, `++ "
-#~ "1`, `--1`, or `-- 1`."
+#~ "Use compact or spaced `++` / `--` relative offsets, such as `++1`, `++ 1`, "
+#~ "`--1`, or `-- 1`."
 #~ msgstr ""
-#~ "Utilice compensaciones relativas `++`/`--` compactas o espaciadas, como `+"
-#~ "+1`, `++ 1`, `--1` o `-- 1`."
+#~ "Utilice compensaciones relativas `++`/`--` compactas o espaciadas, como "
+#~ "`++1`, `++ 1`, `--1` o `-- 1`."
 
 #~ msgid ""
-#~ "You can also type a comma-separated triplet like `1, 2, 3` as a shortcut "
-#~ "for `pos`."
+#~ "You can also type a comma-separated triplet like `1, 2, 3` as a shortcut for"
+#~ " `pos`."
 #~ msgstr ""
 #~ "También puede escribir una terna separada por comas como `1, 2, 3` como "
 #~ "atajo para `pos`."
@@ -5309,27 +5437,27 @@ msgstr "Exportar imagen..."
 #~ "numéricos finitos, modificadores válidos y una selección no vacía."
 
 #~ msgid ""
-#~ "[ERROR] Invalid transform: provide finite numeric values, valid "
-#~ "modifiers, and a non-empty selection."
+#~ "[ERROR] Invalid transform: provide finite numeric values, valid modifiers, "
+#~ "and a non-empty selection."
 #~ msgstr ""
 #~ "[ERROR] Transformación no válida: proporciona valores numéricos finitos, "
 #~ "modificadores válidos y una selección no vacía."
 
 #~ msgid ""
-#~ "[ERROR] Invalid transform triplet: provide three finite numeric "
-#~ "components and a non-empty selection."
+#~ "[ERROR] Invalid transform triplet: provide three finite numeric components "
+#~ "and a non-empty selection."
 #~ msgstr ""
-#~ "[ERROR] Triplete de transformación no válido: proporciona tres "
-#~ "componentes numéricos finitos y una selección no vacía."
+#~ "[ERROR] Triplete de transformación no válido: proporciona tres componentes "
+#~ "numéricos finitos y una selección no vacía."
 
 #~ msgid ""
 #~ "The console works on the current selection. If fixtures are selected, "
 #~ "position and rotation commands apply to fixtures; otherwise they apply to "
 #~ "trusses."
 #~ msgstr ""
-#~ "La consola trabaja sobre la selección actual. Si hay aparatos "
-#~ "seleccionados, los comandos de posición y rotación se aplican a los "
-#~ "aparatos; de lo contrario se aplican a los trusses."
+#~ "La consola trabaja sobre la selección actual. Si hay aparatos seleccionados,"
+#~ " los comandos de posición y rotación se aplican a los aparatos; de lo "
+#~ "contrario se aplican a los trusses."
 
 #~ msgid "Use `++` / `--` to apply relative offsets."
 #~ msgstr "Use `++` / `--` para aplicar desplazamientos relativos."

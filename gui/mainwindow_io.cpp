@@ -532,7 +532,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
               if (!createProgress) {
                 createOverlay.reset();
                 createProgress = std::make_unique<wxProgressDialog>(
-                    "Text scene creation progress", stageText, safeTotal, this,
+                    _("Text scene creation progress"), stageText, safeTotal, this,
                     wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
               } else {
                 createProgress->SetRange(safeTotal);
@@ -545,7 +545,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
             } else {
               if (createProgress)
                 createProgress->Pulse(stageText);
-              SetStatusText(_("Text import: ") + stageText, 0);
+              SetStatusText(wxString::Format(_("Text import: %s"), stageText), 0);
             }
             GetStatusBar()->Update();
           },
@@ -829,7 +829,8 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
                   copyError);
     if (copyError) {
       wxMessageBox(
-          _("Failed to write file: ") + wxString::FromUTF8(copyError.message()),
+          wxString::Format(_("Failed to write file: %s"),
+                           wxString::FromUTF8(copyError.message())),
           _("Error"), wxOK | wxICON_ERROR);
       return;
     }

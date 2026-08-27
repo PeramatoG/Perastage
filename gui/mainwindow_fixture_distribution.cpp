@@ -211,7 +211,7 @@ void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
     ReportFixtureDistributionMessage(ResolveErrorMessage(resolved.error));
     return;
   }
-  services.History().PushUndoState(_("distribute fixtures on truss"));
+  services.History().PushUndoState("distribute fixtures on truss");
   fixture_line_distribution::Apply(services.Project().GetScene(), selection,
                                    resolved.line->start, resolved.line->end,
                                    true);
@@ -253,7 +253,7 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
       return;
     }
     IGuiConfigServices &active = GetDefaultGuiConfigServices();
-    active.History().PushUndoState(_("distribute fixtures between truss points"));
+    active.History().PushUndoState("distribute fixtures between truss points");
     if (!fixture_line_distribution::Apply(active.Project().GetScene(),
                                           selection, ToSceneMillimeters(*start),
                                           ToSceneMillimeters(*end), false)) {

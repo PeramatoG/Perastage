@@ -361,7 +361,7 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
 
   const wxString selectedName = wxString::FromUTF8(*selectedLayout);
   wxFileDialog saveDialog(this, _("Export layout package"), wxEmptyString,
-                          selectedName + _(".pslayout"),
+                          selectedName + ".pslayout",
                           _("Perastage layout packages (*.pslayout)|*.pslayout"),
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDialog.ShowModal() != wxID_OK)

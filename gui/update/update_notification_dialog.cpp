@@ -27,7 +27,7 @@ UpdateNotificationChoice ShowAvailableUpdateDialog(
     const bool allowVersionSuppression) {
   UpdateNotificationChoice choice;
 
-  wxDialog dialog(parent, wxID_ANY, "Perastage Updates", wxDefaultPosition,
+  wxDialog dialog(parent, wxID_ANY, _("Perastage Updates"), wxDefaultPosition,
                   wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
 
