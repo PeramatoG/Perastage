@@ -17,6 +17,22 @@ Pull requests targeting `main` run `CI Debug Tests` from `.github/workflows/ci-t
 - Debug jobs configure with `BUILD_TESTING=ON` and do not define `NDEBUG`, because several tests rely on `assert()`.
 - The workflow uploads diagnostics only on failure. Diagnostics include command logs, CMake configure logs, `CMakeCache.txt`, CTest logs, vcpkg failure logs, and a concise environment summary.
 
+Each Debug platform job also writes compact performance telemetry to the GitHub
+Step Summary and retains `ci-telemetry-<platform>-debug.json` in its normal test
+results artifact. The standard-library-only collector records comparable phase
+durations, cache outcomes, runner resources, disk evolution, relevant directory
+sizes and best-effort vcpkg and sccache figures. Cache restore and save phases
+implemented by GitHub Actions are measured by monotonic checkpoints immediately
+before and after the action; this is the safest available approximation because
+an action cannot be wrapped by the repository's command runner.
+
+The Windows compiled vcpkg cache key includes the resolved MSVC toolset and
+Windows SDK versions from the same Hostx64/x64 environment used for dependency
+installation and compilation. A legacy restore prefix remains available only as
+a partial fallback, so rebuilding packages for a new hosted-runner toolchain can
+be saved under its new exact identity. The macOS key already incorporates both
+the Xcode version and resolved SDK identity.
+
 The Debug CI workflow does not upload installers, AppImages, DMGs, or platform packages.
 
 ## Merges into main

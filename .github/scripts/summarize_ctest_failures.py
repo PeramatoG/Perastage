@@ -32,6 +32,25 @@ NOISE_PREFIXES = (
     "Environment variables:",
     "Test timeout computed to be",
 )
+NAMED_BLOCK_RE = re.compile(r"^.*?\b(BEGIN|END)\s+(\S+)\s*$")
+
+
+# Returns the most recent named diagnostic block that did not reach its END marker.
+def incomplete_named_block(lines: list[str]) -> str | None:
+    open_blocks: list[tuple[str, str]] = []
+    for line in lines:
+        match = NAMED_BLOCK_RE.match(line.strip())
+        if not match:
+            continue
+        marker, name = match.groups()
+        if marker == "BEGIN":
+            open_blocks.append((name, line.strip()))
+            continue
+        for index in range(len(open_blocks) - 1, -1, -1):
+            if open_blocks[index][0] == name:
+                del open_blocks[index]
+                break
+    return open_blocks[-1][1][:240] if open_blocks else None
 
 
 # Returns the first diagnostic line that is likely to explain a failure.
@@ -92,7 +111,10 @@ def failures_from_junit(platform: str, junit: Path | None) -> dict[str, Failure]
         node = failure_nodes[0] if failure_nodes else skipped_nodes[0]
         status = node.get("message") or node.tag
         body = "\n".join(filter(None, [node.text or "", testcase.findtext("system-out") or "", testcase.findtext("system-err") or ""]))
-        failures[name] = Failure(platform, name, status, meaningful_line(body, status), str(junit))
+        detail = meaningful_line(body, status)
+        if "timeout" in status.lower():
+            detail = incomplete_named_block([line.strip() for line in body.splitlines() if line.strip()]) or detail
+        failures[name] = Failure(platform, name, status, detail, str(junit))
     return failures
 
 
@@ -119,7 +141,10 @@ def failures_from_log(platform: str, log: Path | None) -> dict[str, Failure]:
         status = (match.group(2) + match.group(3)).strip()
         lookahead = "\n".join(lines[index + 1:index + 80])
         text = "\n".join(current_output + [lookahead])
-        failures[name] = Failure(platform, name, status, meaningful_line(text, status), str(log))
+        detail = meaningful_line(text, status)
+        if "timeout" in status.lower():
+            detail = incomplete_named_block(current_output) or detail
+        failures[name] = Failure(platform, name, status, detail, str(log))
     if current_test and current_test not in failures:
         tail = "\n".join(current_output[-80:])
         if any(marker in tail for marker in ("Interrupted", "Cancel", "cancel", "Terminated")):

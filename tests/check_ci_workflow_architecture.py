@@ -131,6 +131,31 @@ sections = {
     'windows': ci[ci.index('  windows-debug:'):ci.index('\n  macos-debug:')],
     'macos': ci[ci.index('  macos-debug:'):],
 }
+
+assert '  pull_request:\n    branches:\n      - main\n' in ci, 'CI Debug must run for pull requests targeting main'
+for platform, text in sections.items():
+    platform_slug = f'{platform}-debug'
+    telemetry_step_ids = [
+        'vcpkg-downloads-cache', 'vcpkg-downloads-cache-save', 'vcpkg-cache',
+        'vcpkg-cache-save', 'vcpkg-remote-cache', 'cmake-configure', 'perastage-build',
+    ]
+    for step_id in telemetry_step_ids:
+        assert text.count(f'        id: {step_id}\n') == 1, (
+            f'{platform} Debug telemetry requires exactly one {step_id} step'
+        )
+    for needle in [
+        f'ci-telemetry-{platform_slug}.state.json',
+        f'ci-telemetry-{platform_slug}.json',
+        f'ci-{platform_slug}-performance-telemetry',
+        'steps.vcpkg-downloads-cache.outputs.cache-hit',
+        'steps.vcpkg-downloads-cache-save.outcome',
+        'steps.vcpkg-cache.outputs.cache-hit',
+        'steps.vcpkg-cache-save.outcome',
+        'steps.vcpkg-remote-cache.outputs.remote-enabled',
+        'steps.cmake-configure.outcome',
+        'steps.perastage-build.outcome',
+    ]:
+        assert needle in text, f'{platform} Debug telemetry integration is missing {needle}'
 assert 'push:\n    branches:\n      - main' in ci, 'CI Debug cache warming must trigger only on pushes to main'
 assert 'cache_warming: ${{ steps.resolve.outputs.cache_warming }}' in ci
 assert ci.count("if: ${{ needs.resolve-source.outputs.cache_warming != 'true' }}") == 3
@@ -157,9 +182,21 @@ assert 'LastTestsDisabled.log' in ci, 'CI Debug test-result artifacts must retai
 assert 'wxwidgets' not in linux.lower(), 'Linux Debug must not install system wxWidgets packages'
 
 windows = sections['windows']
+windows_telemetry_commands = [line for line in windows.splitlines() if '.github/scripts/ci_telemetry.py' in line]
+assert windows_telemetry_commands, 'Windows Debug must invoke the CI telemetry helper'
+assert all(
+    line.lstrip().startswith('& "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py')
+    for line in windows_telemetry_commands
+), 'Windows Debug telemetry must use the resolved PERASTAGE_PYTHON executable'
+assert 'python .github/scripts/ci_telemetry.py' not in windows
 for needle in ['$env:GITHUB_ENV', '$env:GITHUB_PATH', 'PERASTAGE_PYTHON', 'Get-Command python', 'INCLUDE', 'LIBPATH', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH', 'validate_cmake_toolchain.py', '--expected-c-id MSVC', '--expected-cxx-id MSVC', '--interactive-debug-mode 0', '--timeout 120', '--output-junit', 'timeout-minutes: 180', 'ctest-inventory-windows-debug.txt', 'ctest-windows-debug-results.json', 'ci-windows-debug-test-results']:
     assert needle in windows, f'Windows Debug environment persistence is missing {needle}'
 assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Configure Windows Debug tests') < windows.index('Build Windows Debug tests')
+assert windows.index('Persist Visual Studio Hostx64 x64 environment') < windows.index('Restore vcpkg installed packages and binary archives')
+assert 'steps.windows-toolchain.outputs.cache-identity' in windows
+assert 'msvc-$toolset-sdk-$sdk-hostx64-x64' in windows
+assert windows.count('id: ctest-execution') == 1
+assert 'checkpoint --phase "CTest execution" --status "${{ steps.ctest-execution.outcome' in windows
 
 macos = sections['macos']
 for needle in ['sdk-${{ steps.macos-sdk.outputs.identity }}', 'xcrun --sdk macosx --show-sdk-path', '-DCMAKE_OSX_SYSROOT="$current_sdk_path"', 'Build complete macOS test target set', 'Run complete macOS CTest suite', '--output-junit', 'summarize_ctest_failures.py', 'summarize_ctest_results.py', 'ctest-inventory-macos-debug.txt', 'ctest-macos-debug-results.json', 'ci-macos-debug-test-results']:
@@ -171,6 +208,11 @@ for target in ['gdtf_share_security_test', 'credential_store_native_roundtrip_te
 macos_test = macos[macos.index('      - name: Run complete macOS CTest suite'):macos.index('      - name: Upload macOS test results')]
 for forbidden in ['-L release-gate', '--labels release-gate', 'Build release-gate and macOS tests', 'Run release-gate and macOS tests', 'continue-on-error']:
     assert forbidden not in macos_build + macos_test, f'macOS full-suite section must not contain {forbidden}'
+for platform, text in sections.items():
+    assert text.count('id: ctest-execution') == 1, f'{platform} Debug must expose the CTest outcome once'
+    ctest_checkpoint = text[text.index('      - name: Record telemetry — CTest execution'):]
+    assert 'if: ${{ always() }}' in ctest_checkpoint[:500], f'{platform} Debug must retain failed CTest telemetry'
+    assert 'steps.ctest-execution.outcome' in ctest_checkpoint[:1000], f'{platform} Debug telemetry must record the CTest outcome'
 
 sccache_action = 'mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10'
 assert ci.count(sccache_action) == 3, 'each Debug platform must use the reviewed sccache action commit'
