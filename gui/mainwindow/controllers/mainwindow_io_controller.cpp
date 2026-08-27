@@ -58,11 +58,11 @@ ShowMvrMergeUuidCollisionDialog(wxWindow *parent, std::size_t collisionCount) {
   choices.Add("Skip incoming colliding objects");
   wxSingleChoiceDialog dialog(
       parent,
-      wxString::Format("The selected MVR contains %zu UUIDs that already exist "
+      wxString::Format(_("The selected MVR contains %zu UUIDs that already exist "
                        "in the current project. Choose how Perastage should "
-                       "handle those incoming objects.",
+                       "handle those incoming objects."),
                        collisionCount),
-      "MVR Merge UUID Collisions", choices);
+      _("MVR Merge UUID Collisions"), choices);
   dialog.SetSelection(0);
 
   if (dialog.ShowModal() != wxID_OK)
@@ -116,7 +116,7 @@ ShowMvrFixtureTypeConflictDialog(wxWindow *parent,
       FormatFixtureTypeIdentityForDialog(conflict.incomingIdentity).c_str());
 
   wxSingleChoiceDialog dialog(parent, message,
-                              "MVR Merge Fixture Type Conflict", choices);
+                              _("MVR Merge Fixture Type Conflict"), choices);
   dialog.SetSelection(0);
   if (dialog.ShowModal() != wxID_OK)
     return std::nullopt;
@@ -227,14 +227,14 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
             importDisabler = std::make_unique<wxWindowDisabler>();
             if (shouldUseBusyOverlay)
               importOverlay =
-                  std::make_unique<wxBusyInfo>("Importing MVR file...");
+                  std::make_unique<wxBusyInfo>(_("Importing MVR file..."));
           }
           importProgress.reset();
           return;
         }
 
         if (progress.HasCount()) {
-          const wxString title = "MVR import progress";
+          const wxString title = _("MVR import progress");
           const wxString stageText = wxString::FromUTF8(stage);
           const int safeTotal = std::max(progress.total, 1);
           const int clampedCompleted =
@@ -374,8 +374,8 @@ void MainWindowIoController::OnImportMVR(wxCommandEvent &) {
   if (!ownerRef_)
     return;
 
-  wxFileDialog openFileDialog(ownerRef_, "Import MVR file", miscDir, "",
-                              "MVR files (*.mvr)|*.mvr",
+  wxFileDialog openFileDialog(ownerRef_, _("Import MVR file"), miscDir, "",
+                              _("MVR files (*.mvr)|*.mvr"),
                               wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
   if (openFileDialog.ShowModal() == wxID_CANCEL)

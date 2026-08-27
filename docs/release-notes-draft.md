@@ -44,7 +44,7 @@ Changes since **v1.5.0**.
 
 ## Internal changes
 
-- Completed and hardened Spanish and Simplified Chinese localization across the current GUI, with synchronized catalogs and CI checks that prevent untranslated presentation text or unstable command-interface translations from returning.
+- Completed and hardened Spanish and Simplified Chinese localization across the current GUI, including complete GDTF Share and rider-preflight diagnostics, with synchronized catalogs and CI checks that detect untranslated dialog constructors and prevent unstable command-interface translations from returning.
 
 - Added cross-platform Debug CI performance telemetry for phase timing, cache
   outcomes, runner resources, storage evolution, and diagnostic artifacts

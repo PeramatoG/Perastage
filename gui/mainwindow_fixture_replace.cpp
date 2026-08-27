@@ -109,7 +109,7 @@ std::optional<std::string> ChooseFixtureMode(wxWindow *parent,
       initialSelection = static_cast<int>(i);
   }
 
-  wxSingleChoiceDialog dlg(parent, "Select fixture mode", "Fixture mode",
+  wxSingleChoiceDialog dlg(parent, _("Select fixture mode"), _("Fixture mode"),
                            choices);
   if (initialSelection != wxNOT_FOUND)
     dlg.SetSelection(initialSelection);
@@ -132,12 +132,12 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   }
 
   wxArrayString sourceChoices;
-  sourceChoices.push_back("Fixture from scene");
-  sourceChoices.push_back("Fixture from dictionary");
-  sourceChoices.push_back("GDTF file");
+  sourceChoices.push_back(_("Fixture from scene"));
+  sourceChoices.push_back(_("Fixture from dictionary"));
+  sourceChoices.push_back(_("GDTF file"));
   wxSingleChoiceDialog sourceDlg(
       this,
-      "Choose the source for the replacement fixture:", "Replace Fixtures",
+      _("Choose the source for the replacement fixture:"), _("Replace Fixtures"),
       sourceChoices);
   if (sourceDlg.ShowModal() != wxID_OK)
     return;
@@ -147,14 +147,16 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
 
   if (sourceSelection == 0) {
     const auto &scene = cfg.GetScene();
-    std::vector<std::pair<std::string, const Fixture *>> sceneOptions;
+    std::vector<std::pair<wxString, const Fixture *>> sceneOptions;
     for (const auto &[uuid, fixture] : scene.fixtures) {
       if (fixture.gdtfSpec.empty())
         continue;
-      const std::string modeLabel =
-          fixture.gdtfMode.empty() ? "(no mode)" : fixture.gdtfMode;
-      const std::string label = fixture.typeName + " | " + modeLabel +
-                                " | id " + std::to_string(fixture.fixtureId);
+      const wxString modeLabel = fixture.gdtfMode.empty()
+                                     ? _("(no mode)")
+                                     : wxString::FromUTF8(fixture.gdtfMode);
+      const wxString label = wxString::Format(
+          _("%s | %s | ID %d"), wxString::FromUTF8(fixture.typeName),
+          modeLabel, fixture.fixtureId);
       sceneOptions.emplace_back(label, &fixture);
     }
     if (sceneOptions.empty()) {
@@ -165,11 +167,11 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
     wxArrayString choices;
     std::vector<const Fixture *> ordered;
     for (const auto &[label, fixture] : sceneOptions) {
-      choices.push_back(wxString::FromUTF8(label));
+      choices.push_back(label);
       ordered.push_back(fixture);
     }
     wxSingleChoiceDialog pickDlg(
-        this, "Choose a fixture from the scene:", "Replace Fixtures", choices);
+        this, _("Choose a fixture from the scene:"), _("Replace Fixtures"), choices);
     if (pickDlg.ShowModal() != wxID_OK)
       return;
     const int idx = pickDlg.GetSelection();
@@ -202,8 +204,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
                    _("Replace Fixtures"), wxOK | wxICON_WARNING, this);
       return;
     }
-    wxSingleChoiceDialog pickDlg(this, "Choose a fixture from the dictionary:",
-                                 "Replace Fixtures", choices);
+    wxSingleChoiceDialog pickDlg(this, _("Choose a fixture from the dictionary:"),
+                                 _("Replace Fixtures"), choices);
     if (pickDlg.ShowModal() != wxID_OK)
       return;
     const int idx = pickDlg.GetSelection();
@@ -217,7 +219,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+    wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString, "*.gdtf",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;

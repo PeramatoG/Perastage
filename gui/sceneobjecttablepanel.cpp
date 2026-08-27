@@ -425,7 +425,7 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxArrayString choices;
         for (const auto& n : layers)
             choices.push_back(wxString::FromUTF8(n));
-        wxSingleChoiceDialog sdlg(this, "Select layer", _("Layer"), choices);
+        wxSingleChoiceDialog sdlg(this, _("Select layer"), _("Layer"), choices);
         if (sdlg.ShowModal() != wxID_OK)
             return;
         wxString sel = sdlg.GetStringSelection();
@@ -453,9 +453,9 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
         }
 
     wxFileDialog fdlg(
-        this, "Select Object Model", initialDir, wxEmptyString,
-        "3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All "
-        "files|*.*",
+        this, _("Select Object Model"), initialDir, wxEmptyString,
+        _("3D files (*.glb;*.gltf;*.3ds;*.obj)|*.glb;*.gltf;*.3ds;*.obj|All "
+        "files|*.*"),
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
         if (fdlg.ShowModal() != wxID_OK)
             return;

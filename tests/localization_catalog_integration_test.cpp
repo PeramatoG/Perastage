@@ -134,16 +134,16 @@ int main() {
   const auto chineseResult =
       manager.Initialize(localization::AppLanguage::SimplifiedChinese);
   ok &= Check(chineseResult.catalogFound,
-              "Simplified Chinese draft catalog was not found.");
+              "Simplified Chinese complete catalog was not found.");
   ok &= Check(chineseResult.catalogLoaded,
-              "Simplified Chinese draft catalog was not loaded.");
+              "Simplified Chinese complete catalog was not loaded.");
   ok &= Check(chineseResult.activeLanguage ==
                   localization::AppLanguage::SimplifiedChinese,
               "Simplified Chinese did not become active after catalog loading.");
   ok &= Check(_("Preferences") == ChineseFixture({0x9996, 0x9009, 0x9879}),
               "Simplified Chinese catalog did not translate Preferences to 首选项.");
-  ok &= Check(_("Perastage missing localization sentinel") ==
-                  wxString("Perastage missing localization sentinel"),
+  const wxString missingSentinel = "Perastage missing localization sentinel";
+  ok &= Check(wxGetTranslation(missingSentinel) == missingSentinel,
               "Missing Simplified Chinese message did not fall back to source text.");
   ok &= Check(ExpectedChineseLanguageName() ==
                   ChineseFixture({0x7B80, 0x4F53, 0x4E2D, 0x6587}),

@@ -254,7 +254,7 @@ void LayoutPanel::OnContextMenu(wxDataViewEvent &evt) {
 
 // Adds a new empty layout with a user-provided name.
 void LayoutPanel::OnAddLayout(wxCommandEvent &) {
-  wxTextEntryDialog nameDlg(this, "Enter new layout name:", "Add Layout");
+  wxTextEntryDialog nameDlg(this, _("Enter new layout name:"), _("Add Layout"));
   if (nameDlg.ShowModal() != wxID_OK)
     return;
   std::string name = nameDlg.GetValue().ToStdString();
@@ -295,7 +295,7 @@ void LayoutPanel::OnRenameLayout(wxCommandEvent &) {
   }
 
   wxString currentName = wxString::FromUTF8(*selectedLayout);
-  wxTextEntryDialog dlg(this, "Enter new layout name:", "Rename Layout",
+  wxTextEntryDialog dlg(this, _("Enter new layout name:"), _("Rename Layout"),
                         currentName);
   if (dlg.ShowModal() != wxID_OK)
     return;
@@ -360,9 +360,9 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
   }
 
   const wxString selectedName = wxString::FromUTF8(*selectedLayout);
-  wxFileDialog saveDialog(this, "Export layout package", wxEmptyString,
-                          selectedName + ".pslayout",
-                          "Perastage layout packages (*.pslayout)|*.pslayout",
+  wxFileDialog saveDialog(this, _("Export layout package"), wxEmptyString,
+                          selectedName + _(".pslayout"),
+                          _("Perastage layout packages (*.pslayout)|*.pslayout"),
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDialog.ShowModal() != wxID_OK)
     return;
@@ -383,9 +383,9 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
 
 // Imports a portable or legacy layout template file.
 void LayoutPanel::OnImportLayoutTemplate(wxCommandEvent &) {
-  wxFileDialog openDialog(this, "Import layout template", wxEmptyString,
+  wxFileDialog openDialog(this, _("Import layout template"), wxEmptyString,
                           wxEmptyString,
-                          "All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json",
+                          _("All supported layout templates (*.pslayout;*.json)|*.pslayout;*.json|Perastage layout packages (*.pslayout)|*.pslayout|Legacy JSON layout templates (*.json)|*.json"),
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (openDialog.ShowModal() != wxID_OK)
     return;

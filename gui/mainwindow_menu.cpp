@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "about_dialog.h"
+#include "gdtf_share_message_formatter.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
@@ -173,25 +174,25 @@ void MainWindow::CreateToolBars() {
         }
       };
   fileToolBar->AddTool(ID_File_New, _("New"),
-                       loadToolbarIcon(_("file"), wxART_NEW),
+                       loadToolbarIcon("file", wxART_NEW),
                        _("Create a new project"));
   fileToolBar->AddTool(ID_File_Load, _("Open"),
-                       loadToolbarIcon(_("folder-open"), wxART_FILE_OPEN),
+                       loadToolbarIcon("folder-open", wxART_FILE_OPEN),
                        _("Open an existing project"));
   fileToolBar->AddTool(ID_File_Save, _("Save"),
-                       loadToolbarIcon(_("save"), wxART_FILE_SAVE),
+                       loadToolbarIcon("save", wxART_FILE_SAVE),
                        _("Save the current project"));
   fileToolBar->AddTool(ID_File_SaveAs, _("Save As"),
-                       loadToolbarIcon(_("save-all"), wxART_FILE_SAVE),
+                       loadToolbarIcon("save-all", wxART_FILE_SAVE),
                        _("Save the current project with a new name"));
   fileToolBar->AddTool(ID_File_ImportMVR, _("Import MVR"),
-                       loadToolbarIcon(_("file-input"), wxART_FILE_OPEN),
+                       loadToolbarIcon("file-input", wxART_FILE_OPEN),
                        _("Import an MVR file"));
   fileToolBar->AddTool(ID_File_ExportMVR, _("Export MVR"),
-                       loadToolbarIcon(_("file-output"), wxART_FILE_SAVE),
+                       loadToolbarIcon("file-output", wxART_FILE_SAVE),
                        _("Export the project to MVR"));
   fileToolBar->AddTool(ID_File_PrintMenu, _("Print"),
-                       loadToolbarIcon(_("printer"), wxART_PRINT),
+                       loadToolbarIcon("printer", wxART_PRINT),
                        _("Choose what to print"));
   fileToolBar->Realize();
 
@@ -206,20 +207,20 @@ void MainWindow::CreateToolBars() {
                                  wxDefaultSize, toolbarStyle);
   editToolBar->SetToolBitmapSize(wxSize(16, 16));
   editToolBar->AddTool(ID_Edit_Undo, _("Undo"),
-                       loadToolbarIcon(_("undo-2"), wxART_UNDO),
+                       loadToolbarIcon("undo-2", wxART_UNDO),
                        _("Undo last action"));
   editToolBar->AddTool(ID_Edit_Redo, _("Redo"),
-                       loadToolbarIcon(_("redo-2"), wxART_REDO),
+                       loadToolbarIcon("redo-2", wxART_REDO),
                        _("Redo last undone action"));
   editToolBar->AddSeparator();
   editToolBar->AddTool(ID_Edit_Cut, _("Cut"),
-                       loadToolbarIcon(_("scissors"), wxART_CUT),
+                       loadToolbarIcon("scissors", wxART_CUT),
                        _("Cut selected scene elements"));
   editToolBar->AddTool(ID_Edit_Copy, _("Copy"),
-                       loadToolbarIcon(_("copy"), wxART_COPY),
+                       loadToolbarIcon("copy", wxART_COPY),
                        _("Copy selected scene elements"));
   editToolBar->AddTool(ID_Edit_Paste, _("Paste"),
-                       loadToolbarIcon(_("clipboard-paste"), wxART_PASTE),
+                       loadToolbarIcon("clipboard-paste", wxART_PASTE),
                        _("Paste copied scene elements"));
   editToolBar->Realize();
   auiManager->AddPane(editToolBar, wxAuiPaneInfo()
@@ -233,28 +234,28 @@ void MainWindow::CreateToolBars() {
                                         wxDefaultSize, toolbarStyle);
   layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutViewsToolBar->AddTool(ID_View_Layout_Default, _("3D Layout View"),
-                              loadToolbarIcon(_("box"), wxART_MISSING_IMAGE),
+                              loadToolbarIcon("box", wxART_MISSING_IMAGE),
                               _("Switch to 3D Layout View"));
   layoutViewsToolBar->AddTool(
       ID_View_Layout_2D, _("2D Layout View"),
-      loadToolbarIcon(_("panels-right-bottom"), wxART_MISSING_IMAGE),
+      loadToolbarIcon("panels-right-bottom", wxART_MISSING_IMAGE),
       _("Switch to 2D Layout View"));
   layoutViewsToolBar->AddTool(
       ID_View_Layout_Mode, _("Layout Mode"),
-      loadToolbarIcon(_("square-asterisk"), wxART_MISSING_IMAGE),
+      loadToolbarIcon("square-asterisk", wxART_MISSING_IMAGE),
       _("Switch to Layout Mode View"));
   layoutViewsToolBar->AddSeparator();
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Top, _("Top View"),
-      loadToolbarIcon(_("cube-view-top"), wxART_MISSING_IMAGE),
+      loadToolbarIcon("cube-view-top", wxART_MISSING_IMAGE),
       _("Apply top view to active viewport"));
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Front, _("Front View"),
-      loadToolbarIcon(_("cube-view-front"), wxART_MISSING_IMAGE),
+      loadToolbarIcon("cube-view-front", wxART_MISSING_IMAGE),
       _("Apply front view to active viewport"));
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Side, _("Side View"),
-      loadToolbarIcon(_("cube-view-side"), wxART_MISSING_IMAGE),
+      loadToolbarIcon("cube-view-side", wxART_MISSING_IMAGE),
       _("Apply side view to active viewport"));
   layoutViewsToolBar->AddSeparator();
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_SelectTool,
@@ -340,10 +341,10 @@ void MainWindow::CreateToolBars() {
                           _("Insert a new scene object"));
   toolsToolBar->AddSeparator();
   toolsToolBar->AddTool(ID_Tools_DownloadGdtf, _("Download GDTF"),
-                        loadToolbarIcon(_("cloud-download"), wxART_MISSING_IMAGE),
+                        loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
                         _("Download GDTF"));
   toolsToolBar->AddTool(ID_Tools_ImportRiderText, _("Create from text"),
-                        loadToolbarIcon(_("notepad-text"), wxART_TIP),
+                        loadToolbarIcon("notepad-text", wxART_TIP),
                         _("Create from text"));
   toolsToolBar->Realize();
   auiManager->AddPane(toolsToolBar, wxAuiPaneInfo()
@@ -477,8 +478,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         enteredCredentials.password = loginDlg.GetPassword();
         if (enteredCredentials.username.empty() ||
             enteredCredentials.password.empty()) {
-          wxMessageBox(_("Please provide username and password."),
-                       _("Login Error"), wxOK | wxICON_ERROR, this);
+          wxMessageBox(_(_("Please provide username and password.")),
+                       _(_("Login Error")), wxOK | wxICON_ERROR, this);
           continue;
         }
         activeCredentials = std::move(enteredCredentials);
@@ -651,8 +652,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
       if (dialogCredentials.username.empty() ||
           dialogCredentials.password.empty()) {
-        showGdtfDownloadError("Please provide username and password.",
-                              "Login Error");
+        showGdtfDownloadError(_("Please provide username and password."),
+                              _("Login Error"));
         return false;
       }
 
@@ -706,7 +707,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       if (consolePanel)
         consolePanel->AppendMessage(
             "[INFO] Logging into GDTF Share using libcurl");
-      updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
+      updateGdtfDownloadBusyOverlay(_("Logging in to GDTF Share..."));
       loginResult = gdtfClient.Login(activeCredentials->username,
                                      activeCredentials->password);
       gdtfWorkflowState.lastAuthenticationResult = loginResult;
@@ -742,9 +743,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
     GdtfShareResult loginResult;
     if (!ensureAuthenticated(loginResult)) {
-      showGdtfDownloadError(wxString::FromUTF8(
-                                FormatGdtfShareUserMessage(loginResult, "login")),
-                            "Login Error");
+      showGdtfDownloadError(FormatLocalizedGdtfShareUserMessage(
+                                loginResult, GdtfShareGuiOperation::Login),
+                            _("Login Error"));
       return;
     }
 
@@ -763,7 +764,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     const wxString suggestedFileName = wxString::FromUTF8(
         gdtf_download_filename::BuildReadableFileName(manufacturer,
                                                       fixtureName));
-    wxFileDialog saveDlg(this, "Save GDTF file", fixDir, suggestedFileName,
+    wxFileDialog saveDlg(this, _("Save GDTF file"), fixDir, suggestedFileName,
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     clearGdtfDownloadBlockingUi();
     if (saveDlg.ShowModal() == wxID_OK) {
@@ -773,7 +774,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
       if (!rid.empty()) {
         gdtfDownloadDisabler = std::make_unique<wxWindowDisabler>();
-        updateGdtfDownloadBusyOverlay("Downloading GDTF from GDTF Share...");
+        updateGdtfDownloadBusyOverlay(_("Downloading GDTF from GDTF Share..."));
         if (consolePanel)
           consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
                                       rid);
@@ -808,7 +809,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
         } else {
           diagnostics::DiagnosticLogger::Error("GDTF download failed: http=" +
                                                std::to_string(dlCode));
-          wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(downloadResult, _("download"))), _("Error"),
+          wxMessageBox(FormatLocalizedGdtfShareUserMessage(
+                           downloadResult, GdtfShareGuiOperation::Download), _("Error"),
                        wxOK | wxICON_ERROR);
         }
       } else {
@@ -889,8 +891,8 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
     choices.Add(wxString::FromUTF8(positionName));
 
   wxSingleChoiceDialog dialog(
-      this, "Select hang position(s) to distribute hoist weights.",
-      "Distribute hoist weights", choices);
+      this, _("Select hang position(s) to distribute hoist weights."),
+      _("Distribute hoist weights"), choices);
   dialog.SetSelection(0);
   if (dialog.ShowModal() != wxID_OK)
     return;
@@ -1350,13 +1352,12 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
       busyInfo.reset();
       disabler.reset();
 
-      wxString title = "Perastage Updates";
+      wxString title = _("Perastage Updates");
       if (result.status == gui::update::CheckStatus::CheckFailed) {
-        wxString message = "Could not check for updates.\n\n";
+        wxString message = _("Could not check for updates.\n\n");
         message +=
             result.errorMessage.empty()
-                ? wxString::FromUTF8(
-                      "Please verify your network connection and try again.")
+                ? _("Please verify your network connection and try again.")
                 : wxString::FromUTF8(result.errorMessage);
         wxMessageBox(message, title, wxOK | wxICON_WARNING, this);
         return;
@@ -1364,11 +1365,12 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
 
       const wxString currentVersion = wxString::FromUTF8(result.currentVersion);
       const wxString latestVersion = wxString::FromUTF8(result.latestVersion);
-      wxString message = "Current version: " + currentVersion + "\n" +
-                         "Latest version: " + latestVersion + "\n\n";
+      wxString message = wxString::Format(
+          _("Current version: %s\nLatest version: %s\n\n"), currentVersion,
+          latestVersion);
 
       if (result.status == gui::update::CheckStatus::UpToDate) {
-        message += "You are up to date.";
+        message += _("You are up to date.");
         wxMessageBox(message, title, wxOK | wxICON_INFORMATION, this);
         return;
       }
@@ -1562,7 +1564,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     if (dlgRes == wxID_OPEN) {
       wxString fixDir =
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-      wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
+      wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString,
                         "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
@@ -1585,7 +1587,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+    wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString, "*.gdtf",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
@@ -1618,7 +1620,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       wxString trussDir =
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
       wxFileDialog fdlg(
-          this, "Select Truss file", trussDir, wxEmptyString,
+          this, _("Select Truss file"), trussDir, wxEmptyString,
           wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1637,7 +1639,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(
-        this, "Select Truss file", trussDir, wxEmptyString,
+        this, _("Select Truss file"), trussDir, wxEmptyString,
         wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
@@ -1845,8 +1847,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     if (dlgRes == wxID_OPEN) {
       wxString objDir = wxString::FromUTF8(
           ProjectUtils::GetWritableLibraryPath("scene_objects"));
-      wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
-                        "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
+      wxFileDialog fdlg(this, _("Select Object file"), objDir, wxEmptyString,
+                        _("3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"),
                         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
@@ -1867,8 +1869,8 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString objDir = wxString::FromUTF8(
         ProjectUtils::GetWritableLibraryPath("scene_objects"));
-    wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
-                      "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
+    wxFileDialog fdlg(this, _("Select Object file"), objDir, wxEmptyString,
+                      _("3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj"),
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;

@@ -532,7 +532,7 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
         wxArrayString choices;
         for (const auto& n : layers)
             choices.push_back(wxString::FromUTF8(n));
-        wxSingleChoiceDialog sdlg(this, "Select layer", "Layer", choices);
+        wxSingleChoiceDialog sdlg(this, _("Select layer"), _("Layer"), choices);
         if (sdlg.ShowModal() != wxID_OK)
             return;
         wxString sel = sdlg.GetStringSelection();
@@ -558,10 +558,10 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
   if (*namedColumn == TrussColumn::ModelFile) {
         wxString trussDir =
             wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
-        wxFileDialog fdlg(this, "Select Truss Model", trussDir, wxEmptyString,
-                      "Truss files "
+        wxFileDialog fdlg(this, _("Select Truss Model"), trussDir, wxEmptyString,
+                      _("Truss files "
                       "(*.gdtf;*.gtruss;*.3ds;*.glb)|*.gdtf;*.gtruss;*.3ds;*."
-                      "glb|All files|*.*",
+                      "glb|All files|*.*"),
                           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() == wxID_OK) {
             bool changed = false;

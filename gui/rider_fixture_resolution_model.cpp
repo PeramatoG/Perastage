@@ -67,7 +67,25 @@ wxString LocalizedDetails(const rider_fixture_resolution::Item &item) {
   case Detail::AutomaticMatch: return _("Selected by the shared GDTF catalog matcher");
   case Detail::GenericFallback: return _("Generic fallback selected for this import");
   case Detail::FailureFallback:
-    return _("A recoverable catalog error occurred; generic fallback will be used.");
+    switch (item.failureKind) {
+    case rider_fixture_resolution::FailureKind::AuthenticationUnavailable:
+      return _("Authentication is unavailable; generic fallback will be used.");
+    case rider_fixture_resolution::FailureKind::DownloadFailed:
+      return _("The GDTF download failed; generic fallback will be used.");
+    case rider_fixture_resolution::FailureKind::DownloadedGdtfInvalid:
+      return _("The downloaded GDTF is invalid; generic fallback will be used.");
+    case rider_fixture_resolution::FailureKind::SelectedGdtfUnavailable:
+      return _("The selected GDTF is unavailable; generic fallback will be used.");
+    case rider_fixture_resolution::FailureKind::SelectedModeUnavailable:
+      return _("The selected mode is not present in the GDTF; generic fallback will be used.");
+    case rider_fixture_resolution::FailureKind::DictionaryMappingSaveFailed:
+      return _("The dictionary mapping could not be saved; generic fallback will be used.");
+    case rider_fixture_resolution::FailureKind::None:
+      return _("Fixture resolution failed; generic fallback will be used.");
+    }
+    break;
+  case Detail::DictionaryModeSaveFailed:
+    return _("The dictionary mode change could not be saved; the original mode was retained.");
   }
   return {};
 }

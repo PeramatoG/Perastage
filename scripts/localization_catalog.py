@@ -32,7 +32,12 @@ UI_CALLEES = {
     "wxStaticText", "wxButton", "wxCheckBox", "wxRadioButton", "wxStaticBox",
     "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem", "Units::LabelWithUnit",
     "UpdatePaneCaption", "GetTextExtent", "BuildTooltip", "ShowDialog",
-    "ReportFixtureDistributionMessage",
+    "ReportFixtureDistributionMessage", "SetOKCancelLabels", "SetYesNoLabels",
+    "SetYesNoCancelLabels",
+}
+UI_CONSTRUCTOR_TYPES = {
+    "wxFileDialog", "wxDirDialog", "wxMessageDialog", "wxProgressDialog",
+    "wxSingleChoiceDialog", "wxTextEntryDialog",
 }
 REPRESENTATIVE_MESSAGES = {
     "Running library bootstrap...": "root main.cpp splash message",
@@ -277,7 +282,7 @@ def audit() -> int:
         print(error, file=sys.stderr)
         return 1
     findings: list[str] = []
-    callee_pattern = re.compile(r"(?<![A-Za-z0-9_:])(" + "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True)) + r")\s*\(")
+    callee_pattern = ui_callee_pattern()
     for path in source_files():
         rel = path.relative_to(ROOT).as_posix()
         if rel not in AUDIT_SOURCE_FILES and not rel.startswith(AUDIT_SOURCE_DIRECTORIES):
@@ -317,12 +322,42 @@ def self_test() -> int:
     assert "viewer2d/new_tool.cpp".startswith(AUDIT_SOURCE_DIRECTORIES)
     # Command output is not a high-confidence GUI call and stays outside gettext.
     assert not callee_is_audited("CommandProcessor::Execute")
+    constructor_pattern = ui_callee_pattern()
+    untranslated_choice = 'wxSingleChoiceDialog dlg(parent, "Untranslated UI", "Title", choices);'
+    untranslated_file = 'wxFileDialog dlg(parent, "Untranslated UI", path);'
+    translated_choice = 'wxSingleChoiceDialog dlg(parent, _("Visible"), _("Title"), choices);'
+    translated_file = 'wxFileDialog dlg(parent, _("Visible"), path);'
+    technical_constructor = 'ProtocolFrame frame("StableIdentifier");'
+    assert unmarked_literals_for_test(untranslated_choice, constructor_pattern)
+    assert unmarked_literals_for_test(untranslated_file, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_choice, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_file, constructor_pattern)
+    assert not unmarked_literals_for_test(technical_constructor, constructor_pattern)
     return 0
 
 
 def callee_is_audited(callee: str) -> bool:
     """Reports whether a call is a high-confidence GUI presentation boundary."""
     return callee in UI_CALLEES
+
+
+def ui_callee_pattern() -> re.Pattern[str]:
+    """Builds the matcher for UI calls and named known UI constructors."""
+    callees = "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True))
+    constructors = "|".join(re.escape(name) for name in sorted(UI_CONSTRUCTOR_TYPES, key=len, reverse=True))
+    return re.compile(
+        r"(?<![A-Za-z0-9_:])(?:" + callees + r")\s*\(|"
+        r"(?<![A-Za-z0-9_:])(?:" + constructors + r")\s+[A-Za-z_][A-Za-z0-9_]*\s*\("
+    )
+
+
+def unmarked_literals_for_test(text: str, pattern: re.Pattern[str]) -> list[str]:
+    """Returns unmarked literals found in test-only UI expressions."""
+    findings: list[str] = []
+    for match in pattern.finditer(text):
+        _, expression = find_matching_call(text, match.start())
+        findings.extend(literal for literal, _ in string_literals(expression) if literal.strip())
+    return findings
 
 
 def main() -> int:

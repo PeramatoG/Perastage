@@ -860,7 +860,7 @@ bool FixtureEditDialog::ValidateSessionBeforeApply() {
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   wxString fixDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-  wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+  wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString, "*.gdtf",
                     wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fdlg.ShowModal() != wxID_OK)
     return;

@@ -227,8 +227,8 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
 
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
-  wxString filter = "Perastage files (*" + projectExtension + ")|*" +
-                    projectExtension;
+  wxString filter = wxString::Format(_("Perastage files (*%s)|*%s"),
+                                     projectExtension, projectExtension);
   wxString projDir;
   if (auto last = ProjectUtils::LoadLastProjectPath())
     projDir =
@@ -236,7 +236,7 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
   else
     projDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("projects"));
-  wxFileDialog dlg(this, "Open Project", projDir, "", filter,
+  wxFileDialog dlg(this, _("Open Project"), projDir, "", filter,
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -363,8 +363,8 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   diagnostics::DiagnosticLogger::Info("Project save-as requested.");
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
-  wxString filter = "Perastage files (*" + projectExtension + ")|*" +
-                    projectExtension;
+  wxString filter = wxString::Format(_("Perastage files (*%s)|*%s"),
+                                     projectExtension, projectExtension);
   wxString projDir;
   if (!currentProjectPath.empty())
     projDir = wxString::FromUTF8(
@@ -382,7 +382,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
       suggestedProjectName.IsEmpty() ? wxString()
                                      : suggestedProjectName + projectExtension;
 
-  wxFileDialog dlg(this, "Save Project", projDir, suggestedFileName, filter,
+  wxFileDialog dlg(this, _("Save Project"), projDir, suggestedFileName, filter,
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -434,8 +434,8 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   diagnostics::DiagnosticLogger::Info("Text/rider import requested.");
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
-  wxFileDialog dlg(this, "Import Rider", miscDir, "",
-                   "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
+  wxFileDialog dlg(this, _("Import Rider"), miscDir, "",
+                   _("Rider files (*.txt;*.pdf)|*.txt;*.pdf"),
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -598,8 +598,8 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   const wxString suggestedFileName = suggestedProjectName.IsEmpty()
                                          ? wxString()
                                          : suggestedProjectName + ".mvr";
-  wxFileDialog saveFileDialog(this, "Export MVR file", miscDir,
-                              suggestedFileName, "MVR files (*.mvr)|*.mvr",
+  wxFileDialog saveFileDialog(this, _("Export MVR file"), miscDir,
+                              suggestedFileName, _("MVR files (*.mvr)|*.mvr"),
                               wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
   if (saveFileDialog.ShowModal() == wxID_CANCEL)
@@ -671,9 +671,9 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
           chosen->name.empty() ? sel : chosen->name);
   wxString trussDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
-  wxFileDialog saveDlg(this, "Save Truss", trussDir,
+  wxFileDialog saveDlg(this, _("Save Truss"), trussDir,
                        wxString::FromUTF8(canonicalFileName),
-                       "GDTF files (*.gdtf)|*.gdtf",
+                       _("GDTF files (*.gdtf)|*.gdtf"),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
     return;
@@ -797,7 +797,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
                       : PathUtils::PathFromUtf8(chosenGdtfSpec)
                             .filename()
                             .string();
-  wxFileDialog saveDlg(this, "Save Fixture", fixDir,
+  wxFileDialog saveDlg(this, _("Save Fixture"), fixDir,
                        wxString::FromUTF8(defaultName), "*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
@@ -880,7 +880,7 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
       wxString::FromUTF8(sel) + wxString(src.extension().string());
   wxString objDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("scene_objects"));
-  wxFileDialog saveDlg(this, "Save Object", objDir, defName,
+  wxFileDialog saveDlg(this, _("Save Object"), objDir, defName,
                        wxString("*") + wxString(src.extension().string()),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
@@ -911,7 +911,7 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   if (options.IsEmpty())
     return;
 
-  wxSingleChoiceDialog dlg(this, "Select table", "Export CSV", options);
+  wxSingleChoiceDialog dlg(this, _("Select table"), _("Export CSV"), options);
   if (dlg.ShowModal() != wxID_OK)
     return;
 

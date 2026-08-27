@@ -42,11 +42,11 @@ std::string GetPathStem(const std::string &path) {
 std::optional<std::pair<std::string, std::string>>
 ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
   wxArrayString sourceChoices;
-  sourceChoices.push_back("Truss from scene");
-  sourceChoices.push_back("Truss from dictionary");
-  sourceChoices.push_back("Truss file");
+  sourceChoices.push_back(_("Truss from scene"));
+  sourceChoices.push_back(_("Truss from dictionary"));
+  sourceChoices.push_back(_("Truss file"));
   wxSingleChoiceDialog sourceDlg(
-      parent, "Choose the source for the replacement truss:", "Replace Trusses",
+      parent, _("Choose the source for the replacement truss:"), _("Replace Trusses"),
       sourceChoices);
   if (sourceDlg.ShowModal() != wxID_OK)
     return std::nullopt;
@@ -65,7 +65,7 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
     for (const gui::TrussCreationSource &source : trussSources)
       choices.push_back(wxString::FromUTF8(source.displayName));
     wxSingleChoiceDialog pickDlg(
-        parent, "Choose a truss from the scene:", "Replace Trusses", choices);
+        parent, _("Choose a truss from the scene:"), _("Replace Trusses"), choices);
     if (pickDlg.ShowModal() != wxID_OK)
       return std::nullopt;
     const int idx = pickDlg.GetSelection();
@@ -98,8 +98,8 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
       return std::nullopt;
     }
 
-    wxSingleChoiceDialog pickDlg(parent, "Choose a truss from the dictionary:",
-                                 "Replace Trusses", choices);
+    wxSingleChoiceDialog pickDlg(parent, _("Choose a truss from the dictionary:"),
+                                 _("Replace Trusses"), choices);
     if (pickDlg.ShowModal() != wxID_OK)
       return std::nullopt;
     const int idx = pickDlg.GetSelection();
@@ -111,7 +111,7 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
 
   wxString trussDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
-  wxFileDialog fdlg(parent, "Select Truss file", trussDir, wxEmptyString,
+  wxFileDialog fdlg(parent, _("Select Truss file"), trussDir, wxEmptyString,
                     wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
                     wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fdlg.ShowModal() != wxID_OK)

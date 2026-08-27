@@ -1,4 +1,5 @@
 #include "preferences/gdtf_credentials_panel.h"
+#include "gdtf_share_message_formatter.h"
 
 #include "configmanager.h"
 #include "credentialstore.h"
@@ -113,8 +114,8 @@ void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)
   const GdtfShareResult loginResult =
       client.Login(credentials.username, credentials.password);
   if (!loginResult.Succeeded()) {
-    wxMessageBox(wxString::FromUTF8(
-                     FormatGdtfShareUserMessage(loginResult, _("login"))),
+    wxMessageBox(FormatLocalizedGdtfShareUserMessage(
+                     loginResult, GdtfShareGuiOperation::Login),
                  _("Validate credentials"), wxOK | wxICON_WARNING, this);
     return;
   }

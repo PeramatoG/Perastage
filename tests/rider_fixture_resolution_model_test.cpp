@@ -27,6 +27,7 @@ int main() {
   item.state = State::Suggested;
   item.origin = ResolutionOrigin::AutomaticMatch;
   item.details = "Selected by the shared GDTF catalog matcher";
+  item.detailKind = DetailKind::AutomaticMatch;
   analysis.items.push_back(item);
   item.effectiveFixtureType = "Unknown fixture";
   item.request.quantity = 1;
@@ -36,6 +37,7 @@ int main() {
   item.state = State::Generic;
   item.origin = ResolutionOrigin::GenericFallback;
   item.details = "Generic fallback selected for this import";
+  item.detailKind = DetailKind::GenericFallback;
   analysis.items.push_back(item);
 
   RiderFixtureResolutionModel model(analysis);

@@ -8,6 +8,7 @@
 #endif
 
 #include <GL/glew.h>
+#include <wx/translation.h>
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
@@ -182,7 +183,7 @@ FixtureLayoutCacheEntry BuildFixtureLayoutEntry(const FixtureLayoutKey &layoutKe
   }
 
   if (layoutKey.showId) {
-    wxString idLine = "ID: " + wxString::Format("%d", layoutKey.fixtureId);
+    wxString idLine = wxString::Format(_("ID: %d"), layoutKey.fixtureId);
     auto utf8 = idLine.ToUTF8();
     entry.lines.push_back(
         {std::string(utf8.data(), utf8.length()), layoutKey.idSize, kRegularFamily,
