@@ -198,20 +198,20 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   channelCountCtrl = new wxTextCtrl(this, wxID_ANY, wxString(),
                                     wxDefaultPosition, wxDefaultSize,
                                     wxTE_READONLY);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Mode"), 0,
+  grid->Add(new wxStaticText(this, wxID_ANY, _("Mode")), 0,
             wxALIGN_CENTER_VERTICAL);
   grid->Add(modeChoice, 1, wxEXPAND);
-  grid->Add(new wxStaticText(this, wxID_ANY, "Channel count"), 0,
+  grid->Add(new wxStaticText(this, wxID_ANY, _("Channel count")), 0,
             wxALIGN_CENTER_VERTICAL);
   grid->Add(channelCountCtrl, 1, wxEXPAND);
   root->Add(grid, 0, wxEXPAND | wxBOTTOM, 6);
-  auto *inspectionBox = new wxStaticBoxSizer(wxVERTICAL, this, "DMX inspection");
+  auto *inspectionBox = new wxStaticBoxSizer(wxVERTICAL, this, _("DMX inspection"));
   inspectionSlider = new wxSlider(this, wxID_ANY, 0, 0, 65535, wxDefaultPosition, wxDefaultSize);
   inspectionBox->Add(inspectionSlider, 0, wxEXPAND | wxBOTTOM, 4);
   auto *inspectionDetails = new wxFlexGridSizer(2, 4, 8);
   inspectionDetails->AddGrowableCol(1, 1);
-  inspectionValueLabel = new wxStaticText(this, wxID_ANY, "DMX value 0 of 65,535 · 0.00%");
-  inspectionDetails->Add(new wxStaticText(this, wxID_ANY, "Value"), 0, wxALIGN_TOP | wxTOP, 2);
+  inspectionValueLabel = new wxStaticText(this, wxID_ANY, _("DMX value 0 of 65,535 · 0.00%"));
+  inspectionDetails->Add(new wxStaticText(this, wxID_ANY, _("Value")), 0, wxALIGN_TOP | wxTOP, 2);
   inspectionDetails->Add(inspectionValueLabel, 1, wxEXPAND);
   inspectionMappingLabel = new wxTextCtrl(this, wxID_ANY, "Select a DMX channel to inspect its active function and wheel slot.",
                                           wxDefaultPosition, wxSize(-1, gui::gdtf_layout::Dip(this, 72)),
@@ -219,20 +219,20 @@ GdtfModesPanel::GdtfModesPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   inspectionMappingLabel->SetMinSize(wxSize(-1, gui::gdtf_layout::Dip(this, 72)));
   inspectionMappingLabel->SetBackgroundColour(GetBackgroundColour());
   inspectionMappingLabel->SetForegroundColour(GetForegroundColour());
-  inspectionDetails->Add(new wxStaticText(this, wxID_ANY, "Active"), 0, wxALIGN_TOP | wxTOP, 2);
+  inspectionDetails->Add(new wxStaticText(this, wxID_ANY, _("Active")), 0, wxALIGN_TOP | wxTOP, 2);
   inspectionDetails->Add(inspectionMappingLabel, 1, wxEXPAND);
   inspectionBox->Add(inspectionDetails, 0, wxEXPAND);
   root->Add(inspectionBox, 0, wxEXPAND | wxBOTTOM, 6);
-  root->Add(new wxStaticText(this, wxID_ANY, "Mode and channel browser"), 0,
+  root->Add(new wxStaticText(this, wxID_ANY, _("Mode and channel browser")), 0,
             wxBOTTOM, 3);
 
   browserCtrl = new wxDataViewCtrl(this, wxID_ANY, wxDefaultPosition,
                                    wxSize(-1, gui::gdtf_layout::Dip(this, 300)),
                                    wxDV_ROW_LINES | wxDV_VERT_RULES);
-  browserCtrl->AppendTextColumn("Item", GdtfModeDataViewModel::Item, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 180), wxALIGN_LEFT, 0);
-  browserCtrl->AppendTextColumn("DMX range", GdtfModeDataViewModel::DmxRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 90), wxALIGN_LEFT, 0);
-  browserCtrl->AppendTextColumn("Physical range", GdtfModeDataViewModel::PhysicalRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 130), wxALIGN_LEFT, 0);
-  browserCtrl->AppendTextColumn("Unit", GdtfModeDataViewModel::Unit, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 80), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn(_("Item"), GdtfModeDataViewModel::Item, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 180), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn(_("DMX range"), GdtfModeDataViewModel::DmxRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 90), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn(_("Physical range"), GdtfModeDataViewModel::PhysicalRange, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 130), wxALIGN_LEFT, 0);
+  browserCtrl->AppendTextColumn(_("Unit"), GdtfModeDataViewModel::Unit, wxDATAVIEW_CELL_INERT, gui::gdtf_layout::Dip(this, 80), wxALIGN_LEFT, 0);
   browserModel = new GdtfModeDataViewModel();
   browserCtrl->AssociateModel(browserModel);
   browserModel->DecRef();
@@ -376,7 +376,7 @@ void GdtfModesPanel::ClearModeDetails() {
     inspectionSlider->SetValue(0);
   }
   if (inspectionValueLabel)
-    inspectionValueLabel->SetLabel("DMX value 0 of 65,535 · 0.00%");
+    inspectionValueLabel->SetLabel(_("DMX value 0 of 65,535 · 0.00%"));
   SetInspectionMappingText("Select a DMX channel to inspect its active function and wheel slot.");
   if (wheelInspectionCallback)
     wheelInspectionCallback({"Select a DMX channel and move the inspection slider to resolve wheel and slot data.", {}});

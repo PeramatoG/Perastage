@@ -18,30 +18,30 @@ DictionaryExportConflictDialog::DictionaryExportConflictDialog(
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   topSizer->Add(new wxStaticText(
                     this, wxID_ANY,
-                    "The following files already exist with different content.\n"
-                    "Choose whether to keep the existing file or use the new exported file."),
+                    _("The following files already exist with different content.\n"
+                    "Choose whether to keep the existing file or use the new exported file.")),
                 0, wxALL, 10);
 
   table_ = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                   wxDV_ROW_LINES | wxDV_VERT_RULES);
   table_->SetMinSize(wxSize(940, 460));
   const int textFlags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-  table_->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 180, wxALIGN_LEFT,
+  table_->AppendTextColumn(_("File"), wxDATAVIEW_CELL_INERT, 180, wxALIGN_LEFT,
                            textFlags);
-  table_->AppendToggleColumn("Keep existing", wxDATAVIEW_CELL_ACTIVATABLE, 120,
+  table_->AppendToggleColumn(_("Keep existing"), wxDATAVIEW_CELL_ACTIVATABLE, 120,
                              wxALIGN_CENTER, wxDATAVIEW_COL_RESIZABLE);
-  table_->AppendToggleColumn("Use new", wxDATAVIEW_CELL_ACTIVATABLE, 120,
+  table_->AppendToggleColumn(_("Use new"), wxDATAVIEW_CELL_ACTIVATABLE, 120,
                              wxALIGN_CENTER, wxDATAVIEW_COL_RESIZABLE);
-  table_->AppendTextColumn("Existing path", wxDATAVIEW_CELL_INERT, 250,
+  table_->AppendTextColumn(_("Existing path"), wxDATAVIEW_CELL_INERT, 250,
                            wxALIGN_LEFT, textFlags);
-  table_->AppendTextColumn("New source", wxDATAVIEW_CELL_INERT, 250,
+  table_->AppendTextColumn(_("New source"), wxDATAVIEW_CELL_INERT, 250,
                            wxALIGN_LEFT, textFlags);
   topSizer->Add(table_, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
 
   wxBoxSizer *actionsSizer = new wxBoxSizer(wxHORIZONTAL);
   wxButton *selectExistingButton =
-      new wxButton(this, wxID_ANY, "Select all existing");
-  wxButton *selectNewButton = new wxButton(this, wxID_ANY, "Select all new");
+      new wxButton(this, wxID_ANY, _("Select all existing"));
+  wxButton *selectNewButton = new wxButton(this, wxID_ANY, _("Select all new"));
   actionsSizer->Add(selectExistingButton, 0, wxRIGHT, 8);
   actionsSizer->Add(selectNewButton, 0, wxRIGHT, 8);
   actionsSizer->AddStretchSpacer(1);

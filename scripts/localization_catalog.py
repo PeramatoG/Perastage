@@ -13,13 +13,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POT = ROOT / "resources" / "locale" / "perastage.pot"
-COMPLETE_LANGUAGES = ["es"]
-DRAFT_LANGUAGES = ["zh_CN"]
+COMPLETE_LANGUAGES = ["es", "zh_CN"]
+DRAFT_LANGUAGES: list[str] = []
 LANGUAGES = COMPLETE_LANGUAGES + DRAFT_LANGUAGES
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 EXCLUDED_PREFIXES = ("third_party/", "build/", "build-", "cmake-build", ".git/")
 AUDIT_ALLOWLIST = ROOT / "scripts" / "localization_audit_allowlist.txt"
-AUDIT_SOURCE_PREFIXES = ("gui/fixturetablepanel.cpp", "gui/trusstablepanel.cpp", "gui/hoisttablepanel.cpp", "gui/sceneobjecttablepanel.cpp", "gui/riggingpanel.cpp", "gui/layerpanel.cpp", "gui/summarypanel.cpp", "gui/addtrussdialog.cpp", "gui/gdtfsearchdialog.cpp", "gui/scene_object_primitive_dialogs.cpp", "gui/mainwindow.cpp", "gui/mainwindow_print.cpp", "gui/consolepanel.cpp")
+AUDIT_SOURCE_DIRECTORIES = ("gui/", "viewer2d/", "viewer3d/")
+AUDIT_SOURCE_FILES = {"main.cpp"}
 
 TRANSLATION_WRAPPERS = {"_", "wxGetTranslation", "wxTRANSLATE", "wxPLURAL"}
 UI_CALLEES = {
@@ -30,7 +31,8 @@ UI_CALLEES = {
     "wxFileDialog", "wxDirDialog", "wxTextEntryDialog", "wxSingleChoiceDialog",
     "wxStaticText", "wxButton", "wxCheckBox", "wxRadioButton", "wxStaticBox",
     "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem", "Units::LabelWithUnit",
-    "UpdatePaneCaption", "GetTextExtent", "BuildTooltip", "BuildHelp",
+    "UpdatePaneCaption", "GetTextExtent", "BuildTooltip", "ShowDialog",
+    "ReportFixtureDistributionMessage",
 }
 REPRESENTATIVE_MESSAGES = {
     "Running library bootstrap...": "root main.cpp splash message",
@@ -44,7 +46,6 @@ REPRESENTATIVE_MESSAGES = {
     "Count": "summary count label",
     "Position": "rigging table column label",
     "Fixture Weight": "rigging dynamic weight label",
-    "Console commands": "console help title",
     "Create scene from text": "rider text dialog title",
     "Search GDTF": "GDTF search dialog title",
     "Manufacturer:": "GDTF and metadata label",
@@ -53,7 +54,6 @@ REPRESENTATIVE_MESSAGES = {
     "Add Cube": "scene-object primitive dialog title",
     "Select what to print:": "print choice dialog prompt",
     "Do you want to save changes before %s?": "exit/save confirmation",
-    "Show available console commands and examples.": "console help tooltip",
     "Online GDTF catalog refresh failed.\n%s": "GDTF refresh warning",
     "Create scene from text": "rider text dialog title",
     "Load rider...": "rider text load button",
@@ -131,13 +131,12 @@ def po_messages(path: Path) -> set[str]:
     in_msgid = False
     obsolete = False
     for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw[3:] if raw.startswith("#~ ") else raw
-        if raw.startswith("#~ "):
-            obsolete = True
+        is_obsolete_line = raw.startswith("#~ ")
+        line = raw[3:] if is_obsolete_line else raw
         if line.startswith("msgid "):
             if current and not obsolete:
                 result.add("".join(current))
-            obsolete = raw.startswith("#~ ")
+            obsolete = is_obsolete_line
             current = [ast.literal_eval(line[6:].strip())]
             in_msgid = True
         elif in_msgid and line.startswith('"'):
@@ -281,7 +280,7 @@ def audit() -> int:
     callee_pattern = re.compile(r"(?<![A-Za-z0-9_:])(" + "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True)) + r")\s*\(")
     for path in source_files():
         rel = path.relative_to(ROOT).as_posix()
-        if not rel.startswith(AUDIT_SOURCE_PREFIXES):
+        if rel not in AUDIT_SOURCE_FILES and not rel.startswith(AUDIT_SOURCE_DIRECTORIES):
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for match in callee_pattern.finditer(text):
@@ -314,7 +313,16 @@ def self_test() -> int:
     unit_literal = 'Units::LabelWithUnit("Weight", suffix);'
     assert not string_literals(static_marker)
     assert string_literals(unit_literal)[0][0] == "Weight"
+    assert "gui/new_dialog.cpp".startswith(AUDIT_SOURCE_DIRECTORIES)
+    assert "viewer2d/new_tool.cpp".startswith(AUDIT_SOURCE_DIRECTORIES)
+    # Command output is not a high-confidence GUI call and stays outside gettext.
+    assert not callee_is_audited("CommandProcessor::Execute")
     return 0
+
+
+def callee_is_audited(callee: str) -> bool:
+    """Reports whether a call is a high-confidence GUI presentation boundary."""
+    return callee in UI_CALLEES
 
 
 def main() -> int:

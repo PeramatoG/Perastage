@@ -151,73 +151,8 @@ wxString ExtractConsoleSection(const wxString &markdown,
   return result.Trim();
 }
 
-// Builds localized console help while preserving executable command syntax.
-wxString BuildLocalizedConsoleHelpContent() {
-  wxString help;
-  help += _("The console transforms the current mixed selection. Grouped "
-            "trusses move through their root group; fixtures, supports, and "
-            "scene objects remain exact targets.");
-  help += "\n\n";
-  help += _("Selection");
-  help += "\n\n";
-  help += _("Command    Description");
-  help += "\n";
-  help += "`clear`    " +
-          _("Clears all selections (fixtures, trusses, scene objects).") + "\n";
-  help += "`f ...`    " + _("Select fixtures by ID.") + "\n";
-  help += "`t ...`    " +
-          _("Select trusses by unit number (clears current truss selection "
-            "first).") +
-          "\n\n";
-  help += _("Selection syntax supports:");
-  help += "\n\n";
-  help += "- " + _("Single IDs: `f 12`") + "\n";
-  help += "- " + _("Ranges: `f 1-5`, `f 1 thru 5`, `f 1 t 5`") + "\n";
-  help += "- " + _("Add/remove: `f + 10 - 3`") + "\n";
-  help += "- " + _("Mixed tokens: `f 1 3 5 7-9`") + "\n\n";
-  help += _("Position and rotation");
-  help += "\n\n";
-  help += _("Command          Description");
-  help += "\n";
-  help += "`pos x <values>`  " + _("Set X positions for the selection.") + "\n";
-  help += "`pos y <values>`  " + _("Set Y positions for the selection.") + "\n";
-  help += "`pos z <values>`  " + _("Set Z positions for the selection.") + "\n";
-  help += "`pos <x>,<y>,<z>` " + _("Set X/Y/Z in one command.") + "\n";
-  help += "`x <values>`      " + _("Shortcut for `pos x`.") + "\n";
-  help += "`y <values>`      " + _("Shortcut for `pos y`.") + "\n";
-  help += "`z <values>`      " + _("Shortcut for `pos z`.") + "\n";
-  help += "`rot x <values>`  " + _("Set rotation around X (roll).") + "\n";
-  help += "`rot y <values>`  " + _("Set rotation around Y (pitch).") + "\n";
-  help += "`rot z <values>`  " + _("Set rotation around Z (yaw).") + "\n";
-  help += "`rot x y z <values> --group`  " +
-          _("Rotate the full selection as one group around a pivot.") + "\n";
-  help += "`rot x y z <values> --g`      " + _("Alias of `--group`.") + "\n";
-  help += "`pos/rot ... --local|-l` " +
-          _("Use local axes for relative transforms.") + "\n\n";
-  help += _("Notes:");
-  help += "\n\n";
-  help +=
-      "- " + _("Provide one value to apply it to all selected items.") + "\n";
-  help += "- " +
-          _("Provide two values to linearly distribute from start to end "
-            "across the selection.") +
-          "\n";
-  help += "- " +
-          _("Use compact or spaced `++` / `--` relative offsets, such as "
-            "`++1`, `++ 1`, `--1`, or `-- 1`.") +
-          "\n";
-  help += "- " +
-          _("You can also type a comma-separated triplet like `1, 2, 3` as a "
-            "shortcut for `pos`.") +
-          "\n";
-  return help;
-}
-
-// Builds localized fallback console help when bundled help text is unavailable.
+// Loads stable English Console help with a built-in fallback.
 wxString BuildConsoleHelpContent() {
-  if (_("Console commands") != wxString("Console commands"))
-    return BuildLocalizedConsoleHelpContent();
-
   wxFileName helpPath(wxStandardPaths::Get().GetExecutablePath());
   helpPath.SetFullName("help.md");
   const wxString markdown = ReadUtf8File(helpPath.GetFullPath());
@@ -231,12 +166,12 @@ wxString BuildConsoleHelpContent() {
   if (!section.IsEmpty())
     return section;
 
-  wxString help = _("Console commands:");
+  wxString help = wxString("Console commands:");
   help += "\n- clear\n- f ...\n- t ...\n";
   help += "- pos x|y|z <values>\n- pos <x>,<y>,<z>\n";
   help += "- x|y|z <values>\n";
   help += "- rot x|y|z <values> [--group|--g] [pivotX,pivotY,pivotZ]\n";
-  help += _("Examples:");
+  help += wxString("Examples:");
   help += "\n- f 1-5\n- pos x 1 4\n- pos x ++1 --local\n- rot z --10\n";
   help += "- rot y ++45 --g --local -2.5,0,0";
   return help;
@@ -887,7 +822,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
         }
       }
       if (!changed) {
-        AppendMessage(_("[INFO] Transform is already at the requested value."));
+        AppendMessage(wxString("[INFO] Transform is already at the requested value."));
         return false;
       }
       cfg.PushUndoState(undoLabel);
@@ -1102,7 +1037,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             refreshSelectionAfterTransform();
         } else {
           AppendMessage(
-              _("[ERROR] Invalid transform: provide a valid axis, finite "
+              wxString("[ERROR] Invalid transform: provide a valid axis, finite "
                 "numeric values, valid modifiers, and a non-empty selection."));
           return;
         }
@@ -1130,7 +1065,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
             refreshSelectionAfterTransform();
         } else {
           AppendMessage(
-              _("[ERROR] Invalid transform: provide finite numeric values, "
+              wxString("[ERROR] Invalid transform: provide finite numeric values, "
                 "valid modifiers, and a non-empty selection."));
           return;
         }
@@ -1150,7 +1085,7 @@ void ConsolePanel::ProcessCommand(const wxString &cmdWx) {
                         });
         if (!validTriplet) {
           AppendMessage(
-              _("[ERROR] Invalid transform triplet: provide three finite "
+              wxString("[ERROR] Invalid transform triplet: provide three finite "
                 "numeric components and a non-empty selection."));
           return;
         }

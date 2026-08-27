@@ -32,20 +32,20 @@ wxDEFINE_EVENT(EVT_LAYOUT_SELECTED, wxCommandEvent);
 LayoutPanel::LayoutPanel(wxWindow *parent) : wxPanel(parent, wxID_ANY) {
   list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                 wxDefaultSize, wxDV_NO_HEADER);
-  list->AppendTextColumn("Layout");
+  list->AppendTextColumn(_("Layout"));
   ColumnUtils::EnforceMinColumnWidth(list);
 
   wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(list, 1, wxEXPAND | wxALL, 5);
 
   wxBoxSizer *btnSizer = new wxBoxSizer(wxHORIZONTAL);
-  auto *addBtn = new wxButton(this, wxID_ADD, "Add");
-  renameButton = new wxButton(this, wxID_EDIT, "Rename");
-  deleteButton = new wxButton(this, wxID_DELETE, "Delete");
+  auto *addBtn = new wxButton(this, wxID_ADD, _("Add"));
+  renameButton = new wxButton(this, wxID_EDIT, _("Rename"));
+  deleteButton = new wxButton(this, wxID_DELETE, _("Delete"));
   exportTemplateButton =
-      new wxButton(this, wxID_ANY, "Export template");
+      new wxButton(this, wxID_ANY, _("Export template"));
   auto *importTemplateBtn =
-      new wxButton(this, wxID_ANY, "Import template");
+      new wxButton(this, wxID_ANY, _("Import template"));
   btnSizer->Add(addBtn, 0, wxALL, 5);
   btnSizer->Add(renameButton, 0, wxALL, 5);
   btnSizer->Add(deleteButton, 0, wxALL, 5);
@@ -225,7 +225,7 @@ void LayoutPanel::OnContextMenu(wxDataViewEvent &evt) {
     landscapeItem->Check(true);
   else
     portraitItem->Check(true);
-  menu.AppendSubMenu(orientationMenu, "Orientation");
+  menu.AppendSubMenu(orientationMenu, _("Orientation"));
 
   int portraitId = portraitItem->GetId();
   int landscapeId = landscapeItem->GetId();
@@ -264,7 +264,7 @@ void LayoutPanel::OnAddLayout(wxCommandEvent &) {
   const auto &items = layouts::LayoutManager::Get().GetLayouts().Items();
   for (const auto &layout : items) {
     if (layout.name == name) {
-      wxMessageBox("Layout already exists.", "Add Layout",
+      wxMessageBox(_("Layout already exists."), _("Add Layout"),
                    wxOK | wxICON_ERROR, this);
       return;
     }
@@ -276,7 +276,7 @@ void LayoutPanel::OnAddLayout(wxCommandEvent &) {
   layout.pageSetup.landscape = true;
 
   if (!layouts::LayoutManager::Get().AddLayout(layout)) {
-    wxMessageBox("Could not add layout.", "Add Layout", wxOK | wxICON_ERROR,
+    wxMessageBox(_("Could not add layout."), _("Add Layout"), wxOK | wxICON_ERROR,
                  this);
     return;
   }
@@ -289,7 +289,7 @@ void LayoutPanel::OnAddLayout(wxCommandEvent &) {
 void LayoutPanel::OnRenameLayout(wxCommandEvent &) {
   const auto selectedLayout = GetSelectedLayoutNameOrRestore();
   if (!selectedLayout) {
-    wxMessageBox("No layout is available.", "Rename Layout",
+    wxMessageBox(_("No layout is available."), _("Rename Layout"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -306,7 +306,7 @@ void LayoutPanel::OnRenameLayout(wxCommandEvent &) {
     return;
 
   if (!layouts::LayoutManager::Get().RenameLayout(oldName, newName)) {
-    wxMessageBox("Layout name is not available.", "Rename Layout",
+    wxMessageBox(_("Layout name is not available."), _("Rename Layout"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -319,20 +319,20 @@ void LayoutPanel::OnRenameLayout(wxCommandEvent &) {
 void LayoutPanel::OnDeleteLayout(wxCommandEvent &) {
   const auto selectedLayout = GetSelectedLayoutNameOrRestore();
   if (!selectedLayout) {
-    wxMessageBox("No layout is available.", "Delete Layout",
+    wxMessageBox(_("No layout is available."), _("Delete Layout"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
 
   if (layouts::LayoutManager::Get().GetLayouts().Count() <= 1) {
-    wxMessageBox("Cannot delete the last layout.", "Delete Layout",
+    wxMessageBox(_("Cannot delete the last layout."), _("Delete Layout"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
 
   std::string layoutName = *selectedLayout;
   if (!layouts::LayoutManager::Get().RemoveLayout(layoutName)) {
-    wxMessageBox("Could not delete layout.", "Delete Layout",
+    wxMessageBox(_("Could not delete layout."), _("Delete Layout"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -354,7 +354,7 @@ void LayoutPanel::OnDeleteLayout(wxCommandEvent &) {
 void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
   const auto selectedLayout = GetSelectedLayoutNameOrRestore();
   if (!selectedLayout) {
-    wxMessageBox("No layout is available to export.", "Export layout package",
+    wxMessageBox(_("No layout is available to export."), _("Export layout package"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -371,14 +371,14 @@ void LayoutPanel::OnExportLayoutTemplate(wxCommandEvent &) {
   if (!layouts::LayoutManager::Get().ExportLayoutTemplate(
           selectedName.ToStdString(), saveDialog.GetPath().ToStdString(),
           &error)) {
-    wxMessageBox("Could not export layout package.\n" +
+    wxMessageBox(_("Could not export layout package.\n") +
                      wxString::FromUTF8(error),
-                 "Export layout package", wxOK | wxICON_ERROR, this);
+                 _("Export layout package"), wxOK | wxICON_ERROR, this);
     return;
   }
 
-  wxMessageBox("Layout package exported successfully.",
-               "Export layout package", wxOK | wxICON_INFORMATION, this);
+  wxMessageBox(_("Layout package exported successfully."),
+               _("Export layout package"), wxOK | wxICON_INFORMATION, this);
 }
 
 // Imports a portable or legacy layout template file.
@@ -395,9 +395,9 @@ void LayoutPanel::OnImportLayoutTemplate(wxCommandEvent &) {
   if (!layouts::LayoutManager::Get().ImportLayoutTemplate(
           openDialog.GetPath().ToStdString(), std::string(),
           &importedLayoutName, &error)) {
-    wxMessageBox("Could not import layout template.\n" +
+    wxMessageBox(_("Could not import layout template.\n") +
                      wxString::FromUTF8(error),
-                 "Import template", wxOK | wxICON_ERROR, this);
+                 _("Import template"), wxOK | wxICON_ERROR, this);
     return;
   }
 

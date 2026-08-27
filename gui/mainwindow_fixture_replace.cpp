@@ -126,8 +126,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto selectedUuids = GetSelectedExistingFixtureUuids(cfg);
   if (selectedUuids.empty()) {
-    wxMessageBox("Select at least one fixture before running Replace Fixtures.",
-                 "Replace Fixtures", wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(_("Select at least one fixture before running Replace Fixtures."),
+                 _("Replace Fixtures"), wxOK | wxICON_INFORMATION, this);
     return;
   }
 
@@ -158,8 +158,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
       sceneOptions.emplace_back(label, &fixture);
     }
     if (sceneOptions.empty()) {
-      wxMessageBox("There are no fixtures with GDTF data in the scene.",
-                   "Replace Fixtures", wxOK | wxICON_WARNING, this);
+      wxMessageBox(_("There are no fixtures with GDTF data in the scene."),
+                   _("Replace Fixtures"), wxOK | wxICON_WARNING, this);
       return;
     }
     wxArrayString choices;
@@ -185,7 +185,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   } else if (sourceSelection == 1) {
     auto dict = GdtfDictionary::Load();
     if (!dict || dict->empty()) {
-      wxMessageBox("The fixture dictionary is empty.", "Replace Fixtures",
+      wxMessageBox(_("The fixture dictionary is empty."), _("Replace Fixtures"),
                    wxOK | wxICON_WARNING, this);
       return;
     }
@@ -198,8 +198,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
       entries.emplace_back(typeName, entry);
     }
     if (entries.empty()) {
-      wxMessageBox("No dictionary entries contain a GDTF path.",
-                   "Replace Fixtures", wxOK | wxICON_WARNING, this);
+      wxMessageBox(_("No dictionary entries contain a GDTF path."),
+                   _("Replace Fixtures"), wxOK | wxICON_WARNING, this);
       return;
     }
     wxSingleChoiceDialog pickDlg(this, "Choose a fixture from the dictionary:",
@@ -230,7 +230,7 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (replacement.gdtfSpec.empty()) {
-    wxMessageBox("Invalid replacement fixture selection.", "Replace Fixtures",
+    wxMessageBox(_("Invalid replacement fixture selection."), _("Replace Fixtures"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -238,8 +238,8 @@ void MainWindow::OnReplaceSelectedFixtures(wxCommandEvent &WXUNUSED(event)) {
   const auto selectedMode =
       ChooseFixtureMode(this, replacement.gdtfSpec, replacement.gdtfMode);
   if (!selectedMode.has_value()) {
-    wxMessageBox("Could not read fixture modes from the selected GDTF.",
-                 "Replace Fixtures", wxOK | wxICON_ERROR, this);
+    wxMessageBox(_("Could not read fixture modes from the selected GDTF."),
+                 _("Replace Fixtures"), wxOK | wxICON_ERROR, this);
     return;
   }
   replacement.gdtfMode = *selectedMode;

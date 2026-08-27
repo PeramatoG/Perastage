@@ -3782,8 +3782,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
               MainWindow::Instance()->SetStatusText(
                   wxString::FromUTF8((m_measureToolState.mode ==
                                               Viewer2DMeasureMode::EdgeToEdge
-                                       ? "Gap measure: "
-                                       : "Measure: ") +
+                                       ? _("Gap measure: ")
+                                       : _("Measure: ")) +
                                      distanceText),
                   0);
             }
@@ -4029,7 +4029,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
                                          &sceneObjectUuid)) {
     wxMenu menu;
     constexpr int kConvertSceneObjectToTrussId = wxID_HIGHEST + 1300;
-    menu.Append(kConvertSceneObjectToTrussId, "Convert to Truss");
+    menu.Append(kConvertSceneObjectToTrussId, _("Convert to Truss"));
     const int selectedId =
         GetPopupMenuSelectionFromUser(menu, event.GetPosition());
     if (selectedId == kConvertSceneObjectToTrussId) {
@@ -4115,7 +4115,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     typeSubmenu->Append(nextTypeId++, wxString::FromUTF8(name));
   }
 
-  positionSubmenu->Append(kSelectPositionNoneId, "No position");
+  positionSubmenu->Append(kSelectPositionNoneId, _("No position"));
 
   std::vector<std::string> orderedPositions;
   orderedPositions.reserve(positionNames.size());
@@ -4126,7 +4126,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
   }
 
   filterMenu.AppendSubMenu(typeSubmenu.release(), typeMenuLabel);
-  filterMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
+  filterMenu.AppendSubMenu(positionSubmenu.release(), _("Select by position"));
 
   const int selectedId =
       GetPopupMenuSelectionFromUser(filterMenu, event.GetPosition());

@@ -31,22 +31,22 @@ Viewer2DPrintDialog::Viewer2DPrintDialog(
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
 
   wxStaticBoxSizer *pageSizeSizer =
-      new wxStaticBoxSizer(wxVERTICAL, this, "Page size");
+      new wxStaticBoxSizer(wxVERTICAL, this, _("Page size"));
   pageSizeA3Radio =
-      new wxRadioButton(this, wxID_ANY, "A3", wxDefaultPosition,
+      new wxRadioButton(this, wxID_ANY, _("A3"), wxDefaultPosition,
                         wxDefaultSize, wxRB_GROUP);
-  pageSizeA4Radio = new wxRadioButton(this, wxID_ANY, "A4");
+  pageSizeA4Radio = new wxRadioButton(this, wxID_ANY, _("A4"));
   pageSizeSizer->Add(pageSizeA3Radio, 0, wxALL, 5);
   pageSizeSizer->Add(pageSizeA4Radio, 0, wxALL, 5);
   topSizer->Add(pageSizeSizer, 0, wxEXPAND | wxALL, 10);
 
   if (showOrientation_) {
     wxStaticBoxSizer *orientationSizer =
-        new wxStaticBoxSizer(wxVERTICAL, this, "Orientation");
-    portraitRadio = new wxRadioButton(this, wxID_ANY, "Portrait",
+        new wxStaticBoxSizer(wxVERTICAL, this, _("Orientation"));
+    portraitRadio = new wxRadioButton(this, wxID_ANY, _("Portrait"),
                                       wxDefaultPosition, wxDefaultSize,
                                       wxRB_GROUP);
-    landscapeRadio = new wxRadioButton(this, wxID_ANY, "Landscape");
+    landscapeRadio = new wxRadioButton(this, wxID_ANY, _("Landscape"));
     orientationSizer->Add(portraitRadio, 0, wxALL, 5);
     orientationSizer->Add(landscapeRadio, 0, wxALL, 5);
     topSizer->Add(orientationSizer, 0,
@@ -56,11 +56,11 @@ Viewer2DPrintDialog::Viewer2DPrintDialog(
 
   if (showElementsDetail_) {
     wxStaticBoxSizer *elementsSizer =
-        new wxStaticBoxSizer(wxVERTICAL, this, "Elements detail");
-    detailedRadio = new wxRadioButton(this, wxID_ANY, "Detailed",
+        new wxStaticBoxSizer(wxVERTICAL, this, _("Elements detail"));
+    detailedRadio = new wxRadioButton(this, wxID_ANY, _("Detailed"),
                                       wxDefaultPosition, wxDefaultSize,
                                       wxRB_GROUP);
-    schematicRadio = new wxRadioButton(this, wxID_ANY, "Schematic");
+    schematicRadio = new wxRadioButton(this, wxID_ANY, _("Schematic"));
     elementsSizer->Add(detailedRadio, 0, wxALL, 5);
     elementsSizer->Add(schematicRadio, 0, wxALL, 5);
     topSizer->Add(elementsSizer, 0,

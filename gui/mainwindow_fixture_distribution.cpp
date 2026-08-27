@@ -14,13 +14,13 @@
 namespace {
 
 // Returns a user-facing validation message for a failed line resolution.
-std::string ResolveErrorMessage(fixture_line_distribution::ResolveError error) {
+const char *ResolveErrorMessage(fixture_line_distribution::ResolveError error) {
   if (error == fixture_line_distribution::ResolveError::TooFewFixtures)
-    return "Select at least two fixtures to distribute.";
+    return wxTRANSLATE("Select at least two fixtures to distribute.");
   if (error == fixture_line_distribution::ResolveError::MissingFixture)
-    return "The fixture selection is no longer available.";
-  return "The selected fixtures must share one straight line on the same or "
-         "connected trusses.";
+    return wxTRANSLATE("The fixture selection is no longer available.");
+  return wxTRANSLATE("The selected fixtures must share one straight line on the same or "
+         "connected trusses.");
 }
 
 // Converts a world point from millimeters to viewport meters.
@@ -89,7 +89,7 @@ void MainWindow::OnDistributeFixtures(wxCommandEvent &event) {
   }
   if (!focusIn2D && !focusIn3D) {
     ReportFixtureDistributionMessage(
-        "Open a 2D or 3D scene viewport before distributing fixtures.");
+        wxTRANSLATE("Open a 2D or 3D scene viewport before distributing fixtures."));
     return;
   }
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
@@ -108,17 +108,17 @@ void MainWindow::OnDistributeFixtures(wxCommandEvent &event) {
         viewportPanel->GetFixtureHalfExtentsMm(selection, line.start, line.end);
   if (options.edgeToEdge && halfExtents.size() != selection.size()) {
     ReportFixtureDistributionMessage(
-        "Fixture geometry must be loaded before using edge-to-edge spacing.");
+        wxTRANSLATE("Fixture geometry must be loaded before using edge-to-edge spacing."));
     return;
   }
   ReportFixtureDistributionMessage(
       options.fromPoint
-          ? "Choose a start point and then a direction on the truss line."
-          : "Choose two limits on the truss line for outside-in distribution.");
+          ? wxTRANSLATE("Choose a start point and then a direction on the truss line."
+          ): wxTRANSLATE("Choose two limits on the truss line for outside-in distribution."));
   auto complete = [this, selection, line, options, halfExtents](
                       const auto &firstMeters, const auto &secondMeters) {
     if (!firstMeters || !secondMeters) {
-      ReportFixtureDistributionMessage("Fixture distribution cancelled.");
+      ReportFixtureDistributionMessage(wxTRANSLATE("Fixture distribution cancelled."));
       return;
     }
     auto start = ToSceneMillimeters(*firstMeters);
@@ -149,17 +149,17 @@ void MainWindow::OnDistributeFixtures(wxCommandEvent &event) {
       active.History().Undo();
       if (!result.fits)
         ReportFixtureDistributionMessage(
-            "The selected fixtures do not fit on this truss line with the "
-            "requested spacing.");
+            wxTRANSLATE("The selected fixtures do not fit on this truss line with the "
+                        "requested spacing."));
       else
         ReportFixtureDistributionMessage(
-            "Fixture distribution could not be completed.");
+            wxTRANSLATE("Fixture distribution could not be completed."));
       return;
     }
     RefreshAfterToolSceneUpdate();
     RestoreFixtureDistributionSelection(selection);
     ReportFixtureDistributionMessage(
-        "Fixtures distributed with the requested spacing.");
+        wxTRANSLATE("Fixtures distributed with the requested spacing."));
   };
   if (focusIn3D)
     viewportPanel->BeginLinePointSelection(
@@ -171,8 +171,8 @@ void MainWindow::OnDistributeFixtures(wxCommandEvent &event) {
 
 // Reports a non-blocking fixture-distribution message in the status and
 // console.
-void MainWindow::ReportFixtureDistributionMessage(const std::string &message) {
-  SetStatusText(message, 0);
+void MainWindow::ReportFixtureDistributionMessage(const char *message) {
+  SetStatusText(wxGetTranslation(message), 0);
   if (consolePanel)
     consolePanel->AppendMessage(message);
 }
@@ -199,7 +199,7 @@ void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
   if (!ContainsFocusedWindow(viewport2DPanel, focus) &&
       !ContainsFocusedWindow(viewportPanel, focus)) {
     ReportFixtureDistributionMessage(
-        "Activate a 2D or 3D scene viewport before distributing fixtures.");
+        wxTRANSLATE("Activate a 2D or 3D scene viewport before distributing fixtures."));
     return;
   }
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
@@ -211,14 +211,14 @@ void MainWindow::OnDistributeFixturesOnTruss(wxCommandEvent &WXUNUSED(event)) {
     ReportFixtureDistributionMessage(ResolveErrorMessage(resolved.error));
     return;
   }
-  services.History().PushUndoState("distribute fixtures on truss");
+  services.History().PushUndoState(_("distribute fixtures on truss"));
   fixture_line_distribution::Apply(services.Project().GetScene(), selection,
                                    resolved.line->start, resolved.line->end,
                                    true);
   RefreshAfterToolSceneUpdate();
   RestoreFixtureDistributionSelection(selection);
   ReportFixtureDistributionMessage(
-      "Fixtures distributed uniformly along the truss line.");
+      wxTRANSLATE("Fixtures distributed uniformly along the truss line."));
 }
 
 // Starts two-point fixture distribution in the focused scene viewport.
@@ -229,7 +229,7 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
   const bool focusIn3D = ContainsFocusedWindow(viewportPanel, focus);
   if (!focusIn2D && !focusIn3D) {
     ReportFixtureDistributionMessage(
-        "Activate a 2D or 3D scene viewport before choosing endpoints.");
+        wxTRANSLATE("Activate a 2D or 3D scene viewport before choosing endpoints."));
     return;
   }
   IGuiConfigServices &services = GetDefaultGuiConfigServices();
@@ -243,29 +243,29 @@ void MainWindow::OnDistributeFixturesBetweenPoints(
   }
   const auto line = *resolved.line;
   ReportFixtureDistributionMessage(
-      "Choose two points on the truss line, or press Esc to cancel.");
+      wxTRANSLATE("Choose two points on the truss line, or press Esc to cancel."));
   auto completeSelection = [this, selection](const auto &start,
                                              const auto &end) {
     if (!start || !end) {
       if (consolePanel)
         consolePanel->AppendMessage("Fixture distribution cancelled.");
-      SetStatusText("Ready", 0);
+      SetStatusText(_("Ready"), 0);
       return;
     }
     IGuiConfigServices &active = GetDefaultGuiConfigServices();
-    active.History().PushUndoState("distribute fixtures between truss points");
+    active.History().PushUndoState(_("distribute fixtures between truss points"));
     if (!fixture_line_distribution::Apply(active.Project().GetScene(),
                                           selection, ToSceneMillimeters(*start),
                                           ToSceneMillimeters(*end), false)) {
       active.History().Undo();
       ReportFixtureDistributionMessage(
-          "Fixture distribution could not be completed.");
+          wxTRANSLATE("Fixture distribution could not be completed."));
       return;
     }
     RefreshAfterToolSceneUpdate();
     RestoreFixtureDistributionSelection(selection);
     ReportFixtureDistributionMessage(
-        "Fixtures distributed between the selected truss points.");
+        wxTRANSLATE("Fixtures distributed between the selected truss points."));
   };
 
   if (focusIn3D) {

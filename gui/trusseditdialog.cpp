@@ -195,7 +195,7 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
   mvrScroll->SetScrollRate(0, gui::gdtf_layout::Dip(this, 12));
   auto *mvrSizer = new wxBoxSizer(wxVERTICAL);
   mvrScroll->SetSizer(mvrSizer);
-  auto *mvrTitle = new wxStaticText(mvrScroll, wxID_ANY, "MVR instance");
+  auto *mvrTitle = new wxStaticText(mvrScroll, wxID_ANY, _("MVR instance"));
   wxFont mvrTitleFont = mvrTitle->GetFont();
   mvrTitleFont.SetWeight(wxFONTWEIGHT_BOLD);
   mvrTitle->SetFont(mvrTitleFont);
@@ -383,8 +383,8 @@ TrussEditDialog::TrussEditDialog(TrussTablePanel *p, int r)
                            gui::gdtf_layout::SectionPadding(this));
   rightWorkspaceSizer->Add(
       new wxStaticText(rightWorkspace, wxID_ANY,
-                       "Editing these fields creates or updates the truss "
-                       "GDTF. MVR-only fields remain project-scoped."),
+                       _("Editing these fields creates or updates the truss "
+                       "GDTF. MVR-only fields remain project-scoped.")),
       0, wxLEFT | wxRIGHT | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
   contextSplitter->SplitVertically(mvrScroll, rightWorkspace);
   contextSplitter->SetMinimumPaneSize(gui::gdtf_layout::MinimumContextPaneWidth(this));
@@ -517,8 +517,8 @@ bool TrussEditDialog::ValidateSessionBeforeApply() {
     return true;
   ClearSessionValidation();
   if (!rejectedSessionInputs.empty()) {
-    wxMessageBox("Fix malformed GDTF editor values before applying.",
-                 "GDTF validation", wxOK | wxICON_WARNING, this);
+    wxMessageBox(_("Fix malformed GDTF editor values before applying."),
+                 _("GDTF validation"), wxOK | wxICON_WARNING, this);
     return false;
   }
   const auto diagnostics = gdtfEditSession->Validate();
@@ -540,7 +540,7 @@ bool TrussEditDialog::ValidateSessionBeforeApply() {
       gdtfEditorPanel->SetPhysicalPropertyValidation(
           GdtfPhysicalPropertyField::Weight, diagnostic.message);
   }
-  wxMessageBox(wxString::FromUTF8(message), "GDTF validation",
+  wxMessageBox(wxString::FromUTF8(message), _("GDTF validation"),
                wxOK | wxICON_WARNING, this);
   return false;
 }
@@ -673,7 +673,7 @@ bool TrussEditDialog::ApplyChanges() {
         const std::string message = trussApplyResult.common.diagnostics.empty()
                                         ? "Could not apply truss GDTF changes."
                                         : trussApplyResult.common.diagnostics.front();
-        wxMessageBox(wxString::FromUTF8(message), "Truss GDTF",
+        wxMessageBox(wxString::FromUTF8(message), _("Truss GDTF"),
                      wxOK | wxICON_WARNING, this);
         return false;
       }

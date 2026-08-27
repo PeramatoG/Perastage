@@ -783,7 +783,7 @@ bool ConfirmReplaceAllOperation(wxWindow *parent,
   const wxString message =
       "This will replace all current entries in " + dictionaryName +
       " dictionary.\nThis action is destructive.\n\nContinue?";
-  return wxMessageBox(message, "Confirm replace all",
+  return wxMessageBox(message, _("Confirm replace all"),
                       wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
                       parent) == wxYES;
 }
@@ -985,18 +985,18 @@ void DictionaryEditDialog::BuildLayout() {
                          &DictionaryEditDialog::OnFixtureTableMouseLeave);
   });
   int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-  fixtureTable->AppendTextColumn("Name", wxDATAVIEW_CELL_EDITABLE, 200,
+  fixtureTable->AppendTextColumn(_("Name"), wxDATAVIEW_CELL_EDITABLE, 200,
                                  wxALIGN_LEFT, flags);
-  fixtureTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260,
+  fixtureTable->AppendTextColumn(_("File"), wxDATAVIEW_CELL_INERT, 260,
                                  wxALIGN_LEFT, flags);
-  fixtureTable->AppendTextColumn("Mode", wxDATAVIEW_CELL_INERT, 120,
+  fixtureTable->AppendTextColumn(_("Mode"), wxDATAVIEW_CELL_INERT, 120,
                                  wxALIGN_LEFT, flags);
-  fixtureTable->AppendTextColumn("Category", wxDATAVIEW_CELL_INERT, 130,
+  fixtureTable->AppendTextColumn(_("Category"), wxDATAVIEW_CELL_INERT, 130,
                                  wxALIGN_LEFT, flags);
   auto *colorRenderer =
       new ColorfulIconTextRenderer(wxDATAVIEW_CELL_INERT, wxALIGN_LEFT);
   colorRenderer->EnableEllipsize(wxELLIPSIZE_NONE);
-  fixtureTable->AppendColumn(new wxDataViewColumn("Type Color", colorRenderer,
+  fixtureTable->AppendColumn(new wxDataViewColumn(_("Type Color"), colorRenderer,
                                                   kFixtureVisualColorColumn,
                                                   110, wxALIGN_LEFT, flags));
   ColumnUtils::EnforceMinColumnWidth(fixtureTable);
@@ -1040,9 +1040,9 @@ void DictionaryEditDialog::BuildLayout() {
                          &DictionaryEditDialog::OnTrussTableMouseMove,
                          &DictionaryEditDialog::OnTrussTableMouseLeave);
   });
-  trussTable->AppendTextColumn("Name", wxDATAVIEW_CELL_EDITABLE, 200,
+  trussTable->AppendTextColumn(_("Name"), wxDATAVIEW_CELL_EDITABLE, 200,
                                wxALIGN_LEFT, flags);
-  trussTable->AppendTextColumn("File", wxDATAVIEW_CELL_INERT, 260, wxALIGN_LEFT,
+  trussTable->AppendTextColumn(_("File"), wxDATAVIEW_CELL_INERT, 260, wxALIGN_LEFT,
                                flags);
   ColumnUtils::EnforceMinColumnWidth(trussTable);
   trussesSelection = BuildDictionarySelectionControls(
@@ -1070,19 +1070,19 @@ void DictionaryEditDialog::BuildLayout() {
   trussSizer->Add(trussTable, 1, wxEXPAND | wxALL, 8);
   trussPanel->SetSizer(trussSizer);
 
-  notebook->AddPage(fixturePanel, "Fixtures");
-  notebook->AddPage(trussPanel, "Trusses");
+  notebook->AddPage(fixturePanel, _("Fixtures"));
+  notebook->AddPage(trussPanel, _("Trusses"));
 
   topSizer->Add(notebook, 1, wxEXPAND | wxALL, 8);
 
   wxBoxSizer *btnSizer = new wxBoxSizer(wxHORIZONTAL);
-  addBtn = new wxButton(this, wxID_ADD, "Add");
-  deleteBtn = new wxButton(this, wxID_DELETE, "Delete");
-  downloadBtn = new wxButton(this, wxID_ANY, "Download Fixture GDTF...");
-  importBtn = new wxButton(this, wxID_ANY, "Import...");
-  exportBtn = new wxButton(this, wxID_ANY, "Export...");
-  okBtn = new wxButton(this, wxID_OK, "OK");
-  cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
+  addBtn = new wxButton(this, wxID_ADD, _("Add"));
+  deleteBtn = new wxButton(this, wxID_DELETE, _("Delete"));
+  downloadBtn = new wxButton(this, wxID_ANY, _("Download Fixture GDTF..."));
+  importBtn = new wxButton(this, wxID_ANY, _("Import..."));
+  exportBtn = new wxButton(this, wxID_ANY, _("Export..."));
+  okBtn = new wxButton(this, wxID_OK, _("OK"));
+  cancelBtn = new wxButton(this, wxID_CANCEL, _("Cancel"));
 
   btnSizer->Add(addBtn, 0, wxRIGHT, 5);
   btnSizer->Add(deleteBtn, 0, wxRIGHT, 5);
@@ -1442,9 +1442,9 @@ bool DictionaryEditDialog::RecoverInvalidActiveDictionary(
                             : TrussDictionary::SetActiveDictionaryFilePath(
                                   selected, &error);
     if (!opened) {
-      wxMessageBox("Could not open the selected dictionary.\n\n" +
+      wxMessageBox(_("Could not open the selected dictionary.\n\n") +
                        wxString::FromUTF8(error),
-                   "Recover dictionary", wxOK | wxICON_ERROR, this);
+                   _("Recover dictionary"), wxOK | wxICON_ERROR, this);
       RefreshDictionarySelectionLabels();
       return false;
     }
@@ -1455,9 +1455,9 @@ bool DictionaryEditDialog::RecoverInvalidActiveDictionary(
                                 : TrussDictionary::SetActiveDictionaryFilePath(
                                       {}, &error);
     if (!setDefault) {
-      wxMessageBox("Could not switch to the default dictionary.\n\n" +
+      wxMessageBox(_("Could not switch to the default dictionary.\n\n") +
                        wxString::FromUTF8(error),
-                   "Recover dictionary", wxOK | wxICON_ERROR, this);
+                   _("Recover dictionary"), wxOK | wxICON_ERROR, this);
       return false;
     }
   } else {
@@ -1470,9 +1470,9 @@ bool DictionaryEditDialog::RecoverInvalidActiveDictionary(
                                : TrussDictionary::CreateDictionaryFileFromDefaults(
                                      activePath, &error);
     if (!recreated) {
-      wxMessageBox("Could not recreate the active dictionary.\n\n" +
+      wxMessageBox(_("Could not recreate the active dictionary.\n\n") +
                        wxString::FromUTF8(error),
-                   "Recover dictionary", wxOK | wxICON_ERROR, this);
+                   _("Recover dictionary"), wxOK | wxICON_ERROR, this);
       return false;
     }
   }
@@ -1536,7 +1536,7 @@ void DictionaryEditDialog::ShowDictionaryLoadStatusMessages() {
 
   if (!message.empty()) {
     wxMessageBox(message,
-                 hasError ? "Dictionary load error" : "Dictionary warning",
+                 hasError ? _("Dictionary load error") : _("Dictionary warning"),
                  wxOK | (hasError ? wxICON_ERROR : wxICON_WARNING), this);
   }
 }
@@ -1568,9 +1568,9 @@ void DictionaryEditDialog::OnOpenFixturesDictionary(
   std::string error;
   const std::string selected = std::string(dialog.GetPath().ToUTF8());
   if (!GdtfDictionary::SetActiveDictionaryFilePath(selected, &error)) {
-    wxMessageBox("Could not open fixtures dictionary.\n\n" +
+    wxMessageBox(_("Could not open fixtures dictionary.\n\n") +
                      wxString::FromUTF8(error),
-                 "Open dictionary", wxOK | wxICON_ERROR, this);
+                 _("Open dictionary"), wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
@@ -1593,9 +1593,9 @@ void DictionaryEditDialog::OnOpenTrussesDictionary(
   std::string error;
   const std::string selected = std::string(dialog.GetPath().ToUTF8());
   if (!TrussDictionary::SetActiveDictionaryFilePath(selected, &error)) {
-    wxMessageBox("Could not open trusses dictionary.\n\n" +
+    wxMessageBox(_("Could not open trusses dictionary.\n\n") +
                      wxString::FromUTF8(error),
-                 "Open dictionary", wxOK | wxICON_ERROR, this);
+                 _("Open dictionary"), wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
@@ -1633,9 +1633,9 @@ void DictionaryEditDialog::OnNewFixturesDictionary(
                                  selectedPath.string(), &error);
   if (!created || !GdtfDictionary::SetActiveDictionaryFilePath(
                       selectedPath.string(), &error)) {
-    wxMessageBox("Could not create fixtures dictionary.\n\n" +
+    wxMessageBox(_("Could not create fixtures dictionary.\n\n") +
                      wxString::FromUTF8(error),
-                 "New dictionary", wxOK | wxICON_ERROR, this);
+                 _("New dictionary"), wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
@@ -1673,9 +1673,9 @@ void DictionaryEditDialog::OnNewTrussesDictionary(
                                  selectedPath.string(), &error);
   if (!created || !TrussDictionary::SetActiveDictionaryFilePath(
                       selectedPath.string(), &error)) {
-    wxMessageBox("Could not create trusses dictionary.\n\n" +
+    wxMessageBox(_("Could not create trusses dictionary.\n\n") +
                      wxString::FromUTF8(error),
-                 "New dictionary", wxOK | wxICON_ERROR, this);
+                 _("New dictionary"), wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
@@ -1714,7 +1714,7 @@ void DictionaryEditDialog::OnDuplicateFixturesDictionary(
        defaultPath, selectedPath});
   if (!result.success) {
     wxMessageBox(BuildDuplicateErrorSummary(result),
-                 "Duplicate fixtures dictionary", wxOK | wxICON_ERROR, this);
+                 _("Duplicate fixtures dictionary"), wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
@@ -1729,9 +1729,9 @@ void DictionaryEditDialog::OnDuplicateFixturesDictionary(
     std::string error;
     if (!GdtfDictionary::SetActiveDictionaryFilePath(selectedPath.string(),
                                                      &error)) {
-      wxMessageBox("The duplicate was created but could not be activated.\n\n" +
+      wxMessageBox(_("The duplicate was created but could not be activated.\n\n") +
                        wxString::FromUTF8(error),
-                   "Duplicate fixtures dictionary", wxOK | wxICON_ERROR, this);
+                   _("Duplicate fixtures dictionary"), wxOK | wxICON_ERROR, this);
       RefreshDictionarySelectionLabels();
       return;
     }
@@ -1772,7 +1772,7 @@ void DictionaryEditDialog::OnDuplicateTrussesDictionary(
        defaultPath, selectedPath});
   if (!result.success) {
     wxMessageBox(BuildDuplicateErrorSummary(result),
-                 "Duplicate trusses dictionary", wxOK | wxICON_ERROR, this);
+                 _("Duplicate trusses dictionary"), wxOK | wxICON_ERROR, this);
     RefreshDictionarySelectionLabels();
     return;
   }
@@ -1787,9 +1787,9 @@ void DictionaryEditDialog::OnDuplicateTrussesDictionary(
     std::string error;
     if (!TrussDictionary::SetActiveDictionaryFilePath(selectedPath.string(),
                                                       &error)) {
-      wxMessageBox("The duplicate was created but could not be activated.\n\n" +
+      wxMessageBox(_("The duplicate was created but could not be activated.\n\n") +
                        wxString::FromUTF8(error),
-                   "Duplicate trusses dictionary", wxOK | wxICON_ERROR, this);
+                   _("Duplicate trusses dictionary"), wxOK | wxICON_ERROR, this);
       RefreshDictionarySelectionLabels();
       return;
     }
@@ -1808,9 +1808,9 @@ void DictionaryEditDialog::OnUseDefaultFixturesDictionary(
     return;
   std::string error;
   if (!GdtfDictionary::SetActiveDictionaryFilePath({}, &error)) {
-    wxMessageBox("Could not use the default fixtures dictionary path.\n\n" +
+    wxMessageBox(_("Could not use the default fixtures dictionary path.\n\n") +
                      wxString::FromUTF8(error),
-                 "Use Default", wxOK | wxICON_ERROR, this);
+                 _("Use Default"), wxOK | wxICON_ERROR, this);
     return;
   }
   LoadFixtures();
@@ -1825,9 +1825,9 @@ void DictionaryEditDialog::OnUseDefaultTrussesDictionary(
     return;
   std::string error;
   if (!TrussDictionary::SetActiveDictionaryFilePath({}, &error)) {
-    wxMessageBox("Could not use the default trusses dictionary path.\n\n" +
+    wxMessageBox(_("Could not use the default trusses dictionary path.\n\n") +
                      wxString::FromUTF8(error),
-                 "Use Default", wxOK | wxICON_ERROR, this);
+                 _("Use Default"), wxOK | wxICON_ERROR, this);
     return;
   }
   LoadTrusses();
@@ -1859,9 +1859,9 @@ bool DictionaryEditDialog::SaveFixtures() {
     if (std::filesystem::exists(path)) {
       auto copied = CopyToLibrary(this, path, "fixtures");
       if (!copied) {
-        wxMessageBox("Could not copy fixture file into the library. The "
-                     "dictionary was not saved.",
-                     "Save fixtures dictionary", wxICON_ERROR | wxOK, this);
+        wxMessageBox(_("Could not copy fixture file into the library. The "
+                     "dictionary was not saved."),
+                     _("Save fixtures dictionary"), wxICON_ERROR | wxOK, this);
         return false;
       }
       asset = *copied;
@@ -1876,9 +1876,9 @@ bool DictionaryEditDialog::SaveFixtures() {
     const auto normalizedColor = NormalizeFixtureHexColor(rawColor);
     if (!normalizedColor.has_value()) {
       wxMessageBox(
-          wxString::Format("Invalid color in row %d: '%s'\nExpected #RRGGBB.",
+          wxString::Format(_("Invalid color in row %d: '%s'\nExpected #RRGGBB."),
                            i + 1, wxString::FromUTF8(rawColor).c_str()),
-          "Save fixtures dictionary", wxICON_ERROR | wxOK, this);
+          _("Save fixtures dictionary"), wxICON_ERROR | wxOK, this);
       return false;
     }
     rows.push_back(
@@ -1904,9 +1904,9 @@ bool DictionaryEditDialog::SaveFixtures() {
   }
   std::string saveError;
   if (!GdtfDictionary::Save(dict, &saveError)) {
-    wxMessageBox("Could not save fixtures dictionary.\n\n" +
+    wxMessageBox(_("Could not save fixtures dictionary.\n\n") +
                      wxString::FromUTF8(saveError),
-                 "Save fixtures dictionary", wxICON_ERROR | wxOK, this);
+                 _("Save fixtures dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -1948,10 +1948,10 @@ bool DictionaryEditDialog::SaveTrusses() {
                "truss_dictionary.json",
            PathUtils::PathFromUtf8(path)});
       if (!ingested.success) {
-        wxMessageBox("Could not ingest the truss file into dictionary-owned "
-                     "GDTF storage. The dictionary was not saved.\n\n" +
+        wxMessageBox(_("Could not ingest the truss file into dictionary-owned "
+                     "GDTF storage. The dictionary was not saved.\n\n") +
                          wxString::FromUTF8(ingested.error),
-                     "Save trusses dictionary", wxICON_ERROR | wxOK, this);
+                     _("Save trusses dictionary"), wxICON_ERROR | wxOK, this);
         cleanupIngestedPaths();
         return false;
       }
@@ -1970,9 +1970,9 @@ bool DictionaryEditDialog::SaveTrusses() {
   std::string saveError;
   if (!TrussDictionary::Save(dict, &saveError)) {
     cleanupIngestedPaths();
-    wxMessageBox("Could not save trusses dictionary.\n\n" +
+    wxMessageBox(_("Could not save trusses dictionary.\n\n") +
                      wxString::FromUTF8(saveError),
-                 "Save trusses dictionary", wxICON_ERROR | wxOK, this);
+                 _("Save trusses dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2242,9 +2242,9 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   if (!preparedImport.errors.empty()) {
     DictionaryImportSummary errorSummary;
     errorSummary.errors = preparedImport.errors;
-    wxMessageBox("Invalid fixtures dictionary file.\n\n" +
+    wxMessageBox(_("Invalid fixtures dictionary file.\n\n") +
                      BuildSummaryText(errorSummary),
-                 "Import fixtures dictionary", wxOK | wxICON_ERROR, this);
+                 _("Import fixtures dictionary"), wxOK | wxICON_ERROR, this);
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
   }
@@ -2254,9 +2254,9 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   const auto validationPreview = GdtfDictionary::PreviewImportFromFile(
       importPath, DictionaryImportPolicy::AddMissing);
   if (validationPreview.HasErrors()) {
-    wxMessageBox("Invalid fixtures dictionary file.\n\n" +
+    wxMessageBox(_("Invalid fixtures dictionary file.\n\n") +
                      BuildSummaryText(validationPreview),
-                 "Import fixtures dictionary", wxOK | wxICON_ERROR, this);
+                 _("Import fixtures dictionary"), wxOK | wxICON_ERROR, this);
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
   }
@@ -2278,7 +2278,7 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
                          "\n\nPreview summary:\n" + BuildSummaryText(preview) +
                          "\n\nApply import?";
-  if (wxMessageBox(confirmText, "Confirm fixtures dictionary import",
+  if (wxMessageBox(confirmText, _("Confirm fixtures dictionary import"),
                    wxYES_NO | wxICON_QUESTION, this) != wxYES) {
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
@@ -2297,10 +2297,10 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
   LoadFixtures();
   const bool hasErrors = result.HasErrors();
   wxMessageBox((hasErrors
-                    ? "Fixtures dictionary import finished with errors.\n\n"
-                    : "Fixtures dictionary import completed.\n\n") +
+                    ? _("Fixtures dictionary import finished with errors.\n\n")
+                    : _("Fixtures dictionary import completed.\n\n")) +
                    BuildSummaryText(result),
-               "Fixtures dictionary import",
+               _("Fixtures dictionary import"),
                wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
@@ -2326,9 +2326,9 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   if (!preparedImport.errors.empty()) {
     DictionaryImportSummary errorSummary;
     errorSummary.errors = preparedImport.errors;
-    wxMessageBox("Invalid trusses dictionary file.\n\n" +
+    wxMessageBox(_("Invalid trusses dictionary file.\n\n") +
                      BuildSummaryText(errorSummary),
-                 "Import trusses dictionary", wxOK | wxICON_ERROR, this);
+                 _("Import trusses dictionary"), wxOK | wxICON_ERROR, this);
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
   }
@@ -2338,9 +2338,9 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   const auto validationPreview = TrussDictionary::PreviewImportFromFile(
       importPath, DictionaryImportPolicy::AddMissing);
   if (validationPreview.HasErrors()) {
-    wxMessageBox("Invalid trusses dictionary file.\n\n" +
+    wxMessageBox(_("Invalid trusses dictionary file.\n\n") +
                      BuildSummaryText(validationPreview),
-                 "Import trusses dictionary", wxOK | wxICON_ERROR, this);
+                 _("Import trusses dictionary"), wxOK | wxICON_ERROR, this);
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
   }
@@ -2362,7 +2362,7 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   wxString confirmText = "Policy:\n" + GetPolicyDescription(policy) +
                          "\n\nPreview summary:\n" + BuildSummaryText(preview) +
                          "\n\nApply import?";
-  if (wxMessageBox(confirmText, "Confirm trusses dictionary import",
+  if (wxMessageBox(confirmText, _("Confirm trusses dictionary import"),
                    wxYES_NO | wxICON_QUESTION, this) != wxYES) {
     DictionaryBundle::CleanupPreparedImport(preparedImport);
     return false;
@@ -2381,10 +2381,10 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
   LoadTrusses();
   const bool hasErrors = result.HasErrors();
   wxMessageBox((hasErrors
-                    ? "Trusses dictionary import finished with errors.\n\n"
-                    : "Trusses dictionary import completed.\n\n") +
+                    ? _("Trusses dictionary import finished with errors.\n\n")
+                    : _("Trusses dictionary import completed.\n\n")) +
                    BuildSummaryText(result),
-               "Trusses dictionary import",
+               _("Trusses dictionary import"),
                wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
@@ -2437,8 +2437,8 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
 
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt) {
-    wxMessageBox("Could not load fixtures dictionary for export.",
-                 "Export fixtures dictionary", wxICON_ERROR | wxOK, this);
+    wxMessageBox(_("Could not load fixtures dictionary for export."),
+                 _("Export fixtures dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2461,8 +2461,8 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
   SnapshotExportResult exportResult;
   if (!SaveFixturesSnapshotToFile(this, outputPath, *dictOpt,
                                   copyReferencedAssets, exportResult)) {
-    wxMessageBox("Could not write fixtures dictionary snapshot.",
-                 "Export fixtures dictionary", wxICON_ERROR | wxOK, this);
+    wxMessageBox(_("Could not write fixtures dictionary snapshot."),
+                 _("Export fixtures dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2479,7 +2479,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
         info += "\n- " + wxString::FromUTF8(exportResult.copy_errors[i]);
     }
   }
-  wxMessageBox(info, "Export fixtures dictionary", wxICON_INFORMATION | wxOK,
+  wxMessageBox(info, _("Export fixtures dictionary"), wxICON_INFORMATION | wxOK,
                this);
   return true;
 }
@@ -2491,8 +2491,8 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
 
   auto dictOpt = TrussDictionary::Load();
   if (!dictOpt) {
-    wxMessageBox("Could not load trusses dictionary for export.",
-                 "Export trusses dictionary", wxICON_ERROR | wxOK, this);
+    wxMessageBox(_("Could not load trusses dictionary for export."),
+                 _("Export trusses dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2515,8 +2515,8 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   SnapshotExportResult exportResult;
   if (!SaveTrussesSnapshotToFile(this, outputPath, *dictOpt,
                                  copyReferencedAssets, exportResult)) {
-    wxMessageBox("Could not write trusses dictionary snapshot.",
-                 "Export trusses dictionary", wxICON_ERROR | wxOK, this);
+    wxMessageBox(_("Could not write trusses dictionary snapshot."),
+                 _("Export trusses dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2533,7 +2533,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
         info += "\n- " + wxString::FromUTF8(exportResult.copy_errors[i]);
     }
   }
-  wxMessageBox(info, "Export trusses dictionary", wxICON_INFORMATION | wxOK,
+  wxMessageBox(info, _("Export trusses dictionary"), wxICON_INFORMATION | wxOK,
                this);
   return true;
 }
@@ -2545,8 +2545,8 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
 
   auto dictOpt = GdtfDictionary::Load();
   if (!dictOpt) {
-    wxMessageBox("Could not load fixtures dictionary for portable export.",
-                 "Export portable fixtures bundle", wxICON_ERROR | wxOK, this);
+    wxMessageBox(_("Could not load fixtures dictionary for portable export."),
+                 _("Export portable fixtures bundle"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2562,14 +2562,14 @@ bool DictionaryEditDialog::ExportFixturesPortableBundle() {
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
   std::string error;
   if (!DictionaryBundle::ExportFixturesBundle(*dictOpt, outputPath, error)) {
-    wxMessageBox("Could not write fixtures portable bundle.\n" +
+    wxMessageBox(_("Could not write fixtures portable bundle.\n") +
                      wxString::FromUTF8(error),
-                 "Export portable fixtures bundle", wxICON_ERROR | wxOK, this);
+                 _("Export portable fixtures bundle"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
-  wxMessageBox("Fixtures portable bundle exported successfully.",
-               "Export portable fixtures bundle", wxICON_INFORMATION | wxOK,
+  wxMessageBox(_("Fixtures portable bundle exported successfully."),
+               _("Export portable fixtures bundle"), wxICON_INFORMATION | wxOK,
                this);
   return true;
 }
@@ -2581,8 +2581,8 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
 
   auto dictOpt = TrussDictionary::Load();
   if (!dictOpt) {
-    wxMessageBox("Could not load trusses dictionary for portable export.",
-                 "Export portable trusses bundle", wxICON_ERROR | wxOK, this);
+    wxMessageBox(_("Could not load trusses dictionary for portable export."),
+                 _("Export portable trusses bundle"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
@@ -2598,14 +2598,14 @@ bool DictionaryEditDialog::ExportTrussesPortableBundle() {
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
   std::string error;
   if (!DictionaryBundle::ExportTrussesBundle(*dictOpt, outputPath, error)) {
-    wxMessageBox("Could not write trusses portable bundle.\n" +
+    wxMessageBox(_("Could not write trusses portable bundle.\n") +
                      wxString::FromUTF8(error),
-                 "Export portable trusses bundle", wxICON_ERROR | wxOK, this);
+                 _("Export portable trusses bundle"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
-  wxMessageBox("Trusses portable bundle exported successfully.",
-               "Export portable trusses bundle", wxICON_INFORMATION | wxOK,
+  wxMessageBox(_("Trusses portable bundle exported successfully."),
+               _("Export portable trusses bundle"), wxICON_INFORMATION | wxOK,
                this);
   return true;
 }
@@ -2616,9 +2616,9 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
     return false;
 
   if (wxMessageBox(
-          "Reset active fixtures dictionary to application defaults?\n"
-          "Current entries will be replaced after a backup is created.",
-          "Reset fixtures dictionary", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+          _("Reset active fixtures dictionary to application defaults?\n"
+          "Current entries will be replaced after a backup is created."),
+          _("Reset fixtures dictionary"), wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
           this) != wxYES) {
     return false;
   }
@@ -2635,10 +2635,10 @@ bool DictionaryEditDialog::ResetFixturesDictionaryToDefault() {
   LoadFixtures();
   const bool hasErrors = result.HasErrors() || result.missing_files_count > 0;
   wxMessageBox((hasErrors
-                    ? "Fixtures dictionary reset finished with issues.\n\n"
-                    : "Fixtures dictionary restored to defaults.\n\n") +
+                    ? _("Fixtures dictionary reset finished with issues.\n\n")
+                    : _("Fixtures dictionary restored to defaults.\n\n")) +
                    BuildSummaryText(result),
-               "Reset fixtures dictionary",
+               _("Reset fixtures dictionary"),
                wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }
@@ -2649,9 +2649,9 @@ bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
     return false;
 
   if (wxMessageBox(
-          "Reset active trusses dictionary to application defaults?\n"
-          "Current entries will be replaced after a backup is created.",
-          "Reset trusses dictionary", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+          _("Reset active trusses dictionary to application defaults?\n"
+          "Current entries will be replaced after a backup is created."),
+          _("Reset trusses dictionary"), wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
           this) != wxYES) {
     return false;
   }
@@ -2667,10 +2667,10 @@ bool DictionaryEditDialog::ResetTrussesDictionaryToDefault() {
        basePath});
   LoadTrusses();
   const bool hasErrors = result.HasErrors() || result.missing_files_count > 0;
-  wxMessageBox((hasErrors ? "Trusses dictionary reset finished with issues.\n\n"
-                          : "Trusses dictionary restored to defaults.\n\n") +
+  wxMessageBox((hasErrors ? _("Trusses dictionary reset finished with issues.\n\n")
+                          : _("Trusses dictionary restored to defaults.\n\n")) +
                    BuildSummaryText(result),
-               "Reset trusses dictionary",
+               _("Reset trusses dictionary"),
                wxOK | (hasErrors ? wxICON_WARNING : wxICON_INFORMATION), this);
   return !result.HasErrors();
 }

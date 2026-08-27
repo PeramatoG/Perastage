@@ -1515,7 +1515,7 @@ void Viewer3DPanel::Render(const RenderSize &renderSize) {
 // Exports the current 3D view to a PNG image chosen by the user.
 bool Viewer3DPanel::ExportCurrentViewToPng() {
     if (!IsShownOnScreen()) {
-    wxMessageBox("Cannot export while the 3D viewer is hidden.", "Export image",
+    wxMessageBox(_("Cannot export while the 3D viewer is hidden."), _("Export image"),
                  wxOK | wxICON_WARNING, this);
         return false;
     }
@@ -1532,12 +1532,12 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
 
     if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
                                       "ExportImage")) {
-        wxMessageBox("OpenGL is not initialized yet.", "Export image",
+        wxMessageBox(_("OpenGL is not initialized yet."), _("Export image"),
                      wxOK | wxICON_ERROR, this);
         return false;
     }
     if (!InitGL() || !m_glInitialized) {
-        wxMessageBox("OpenGL is not initialized yet.", "Export image",
+        wxMessageBox(_("OpenGL is not initialized yet."), _("Export image"),
                      wxOK | wxICON_ERROR, this);
         return false;
     }
@@ -1579,8 +1579,8 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
         glDeleteRenderbuffers(1, &depthRb);
         glDeleteTextures(1, &colorTex);
         glDeleteFramebuffers(1, &fbo);
-        wxMessageBox("Failed to create an offscreen framebuffer for export.",
-                     "Export image", wxOK | wxICON_ERROR, this);
+        wxMessageBox(_("Failed to create an offscreen framebuffer for export."),
+                     _("Export image"), wxOK | wxICON_ERROR, this);
         return false;
     }
 
@@ -1629,7 +1629,7 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
     }
 
     if (!image.SaveFile(saveDialog.GetPath(), wxBITMAP_TYPE_PNG)) {
-        wxMessageBox("Failed to save PNG image.", "Export image",
+        wxMessageBox(_("Failed to save PNG image."), _("Export image"),
                      wxOK | wxICON_ERROR, this);
         return false;
     }
@@ -1885,7 +1885,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
     m_controller.DrawOverlayTextLabels(labels, Is2DDarkModeEnabled());
     if (MainWindow::Instance() && MainWindow::Instance()->GetStatusBar())
     MainWindow::Instance()->SetStatusText(
-        wxString::FromUTF8("Measure: " + distanceText), 0);
+        wxString::FromUTF8(_("Measure: ") + distanceText), 0);
 }
 
 // Handles mouse button press
@@ -2429,7 +2429,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
     }
 
     if (menuModel.convertToTrussAvailable) {
-        rootMenu.Append(kConvertSceneObjectToTrussId, "Convert to Truss");
+        rootMenu.Append(kConvertSceneObjectToTrussId, _("Convert to Truss"));
         rootMenu.AppendSeparator();
     }
     if (menuModel.selectionAvailable) {
@@ -2446,7 +2446,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
             typeSubmenu->Append(itemId, wxString::FromUTF8(typeName));
         }
         auto positionSubmenu = std::make_unique<wxMenu>();
-        positionSubmenu->Append(kSelectPositionNoneId, "No position");
+        positionSubmenu->Append(kSelectPositionNoneId, _("No position"));
         for (const auto& positionName : orderedPositions) {
             wxASSERT_MSG(!positionName.empty(),
                          "Selection position label must not be empty.");
@@ -2457,12 +2457,12 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
         }
         rootMenu.AppendSubMenu(typeSubmenu.release(),
                                wxString::FromUTF8(menuModel.typeSubmenuLabel));
-        rootMenu.AppendSubMenu(positionSubmenu.release(), "Select by position");
+        rootMenu.AppendSubMenu(positionSubmenu.release(), _("Select by position"));
         rootMenu.AppendSeparator();
     }
-    rootMenu.AppendSubMenu(renderStyleSubmenu.release(), "Render style");
+    rootMenu.AppendSubMenu(renderStyleSubmenu.release(), _("Render style"));
     rootMenu.AppendSeparator();
-    rootMenu.Append(kExportImagePngId, "Export image...");
+    rootMenu.Append(kExportImagePngId, _("Export image..."));
 
   const int selectedId =
       GetPopupMenuSelectionFromUser(rootMenu, event.GetPosition());

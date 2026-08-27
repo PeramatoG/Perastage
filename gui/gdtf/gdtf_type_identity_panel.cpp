@@ -55,7 +55,7 @@ void GdtfTypeIdentityPanel::ConfigureFields(
       line->Add(row.value, 1, wxEXPAND | wxRIGHT, 5);
       auto *button = new wxButton(this, wxID_ANY,
                                   field.actionLabel.empty()
-                                      ? wxString("...")
+                                      ? wxString(_("..."))
                                       : wxString::FromUTF8(field.actionLabel));
       button->Bind(wxEVT_BUTTON, [this, id = field.field](wxCommandEvent &) {
         if (actionCallback)

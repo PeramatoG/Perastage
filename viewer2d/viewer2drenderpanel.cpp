@@ -93,12 +93,12 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
 
-  m_darkMode = new wxCheckBox(this, wxID_ANY, "Dark mode");
+  m_darkMode = new wxCheckBox(this, wxID_ANY, _("Dark mode"));
   m_darkMode->SetValue(cfg.GetFloat("view2d_dark_mode") != 0.0f);
   m_darkMode->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDarkMode, this);
 
   m_topFixturesInverted =
-      new wxCheckBox(this, wxID_ANY, "Force bottom view");
+      new wxCheckBox(this, wxID_ANY, _("Force bottom view"));
   m_topFixturesInverted->SetValue(
       cfg.GetFloat("view2d_top_fixtures_inverted") != 0.0f);
   m_topFixturesInverted->Bind(wxEVT_CHECKBOX,
@@ -111,10 +111,10 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
   m_view->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnView, this);
 
-  auto *gridBox = new wxStaticBoxSizer(wxVERTICAL, this, "Grid");
+  auto *gridBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Grid"));
   wxWindow *gridBoxParent = gridBox->GetStaticBox();
 
-  m_showGrid = new wxCheckBox(gridBoxParent, wxID_ANY, "Show grid");
+  m_showGrid = new wxCheckBox(gridBoxParent, wxID_ANY, _("Show grid"));
   m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
   m_showGrid->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowGrid, this);
 
@@ -133,14 +133,14 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_gridColor->Bind(wxEVT_COLOURPICKER_CHANGED,
                     &Viewer2DRenderPanel::OnGridColor, this);
 
-  m_drawAbove = new wxCheckBox(gridBoxParent, wxID_ANY, "Draw grid on top");
+  m_drawAbove = new wxCheckBox(gridBoxParent, wxID_ANY, _("Draw grid on top"));
   m_drawAbove->SetValue(cfg.GetFloat("grid_draw_above") != 0.0f);
   m_drawAbove->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnDrawAbove, this);
 
-  auto *rulerBox = new wxStaticBoxSizer(wxVERTICAL, this, "Ruler");
+  auto *rulerBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Ruler"));
   wxWindow *rulerBoxParent = rulerBox->GetStaticBox();
 
-  m_showRuler = new wxCheckBox(rulerBoxParent, wxID_ANY, "Show ruler");
+  m_showRuler = new wxCheckBox(rulerBoxParent, wxID_ANY, _("Show ruler"));
   m_showRuler->SetValue(cfg.GetFloat("ruler_show") != 0.0f);
   m_showRuler->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowRuler, this);
   m_rulerAxisXPosition = new wxSpinCtrlDouble(
@@ -229,12 +229,12 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_rulerAxisZColor->Bind(wxEVT_COLOURPICKER_CHANGED,
                           &Viewer2DRenderPanel::OnRulerAxisZColor, this);
 
-  auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, "Labels");
+  auto *labelBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Labels"));
   wxWindow *labelBoxParent = labelBox->GetStaticBox();
   m_labelScopeHint =
-      new wxStaticText(labelBoxParent, wxID_ANY, "Global profile (all fixtures)");
+      new wxStaticText(labelBoxParent, wxID_ANY, _("Global profile (all fixtures)"));
 
-  m_showLabelName = new wxCheckBox(labelBoxParent, wxID_ANY, "Show name");
+  m_showLabelName = new wxCheckBox(labelBoxParent, wxID_ANY, _("Show name"));
   m_showLabelName->SetValue(
       cfg.GetFloat(NAME_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelName->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelName,
@@ -255,7 +255,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_labelNameSize->Bind(wxEVT_TEXT_ENTER, &Viewer2DRenderPanel::OnTextEnter,
                         this);
 
-  m_showLabelId = new wxCheckBox(labelBoxParent, wxID_ANY, "Show ID");
+  m_showLabelId = new wxCheckBox(labelBoxParent, wxID_ANY, _("Show ID"));
   m_showLabelId->SetValue(
       cfg.GetFloat(ID_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelId->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowLabelId,
@@ -276,7 +276,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                       this);
 
   m_showLabelAddress =
-      new wxCheckBox(labelBoxParent, wxID_ANY, "Show DMX");
+      new wxCheckBox(labelBoxParent, wxID_ANY, _("Show DMX"));
   m_showLabelAddress->SetValue(
       cfg.GetFloat(DMX_KEYS[m_view->GetSelection()]) != 0.0f);
   m_showLabelAddress->Bind(wxEVT_CHECKBOX,
@@ -343,7 +343,7 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   gridBox->Add(m_showGrid, 0, wxALL, 5);
   gridBox->Add(m_gridStyle, 0, wxALL, 5);
   auto *colorSizer = new wxBoxSizer(wxHORIZONTAL);
-  colorSizer->Add(new wxStaticText(gridBoxParent, wxID_ANY, "Color"), 0,
+  colorSizer->Add(new wxStaticText(gridBoxParent, wxID_ANY, _("Color")), 0,
                   wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   colorSizer->Add(m_gridColor, 0);
   gridBox->Add(colorSizer, 0, wxALL, 5);
@@ -352,19 +352,19 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   rulerBox->Add(m_showRuler, 0, wxALL, 5);
   auto *rulerAxisXSizer = new wxBoxSizer(wxHORIZONTAL);
-  rulerAxisXSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "X ruler"),
+  rulerAxisXSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, _("X ruler")),
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   rulerAxisXSizer->Add(m_rulerAxisXPosition, 0, wxRIGHT, 4);
   rulerAxisXSizer->Add(m_rulerAxisXColor, 0);
   rulerBox->Add(rulerAxisXSizer, 0, wxALL, 5);
   auto *rulerAxisYSizer = new wxBoxSizer(wxHORIZONTAL);
-  rulerAxisYSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "Y ruler"),
+  rulerAxisYSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, _("Y ruler")),
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   rulerAxisYSizer->Add(m_rulerAxisYPosition, 0, wxRIGHT, 4);
   rulerAxisYSizer->Add(m_rulerAxisYColor, 0);
   rulerBox->Add(rulerAxisYSizer, 0, wxALL, 5);
   auto *rulerAxisZSizer = new wxBoxSizer(wxHORIZONTAL);
-  rulerAxisZSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, "Z ruler"),
+  rulerAxisZSizer->Add(new wxStaticText(rulerBoxParent, wxID_ANY, _("Z ruler")),
                        0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   rulerAxisZSizer->Add(m_rulerAxisZPosition, 0, wxRIGHT, 4);
   rulerAxisZSizer->Add(m_rulerAxisZColor, 0);
@@ -376,33 +376,33 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
 
   auto *nameSizer = new wxBoxSizer(wxHORIZONTAL);
   nameSizer->Add(m_showLabelName, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  nameSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
+  nameSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, _("Size")), 0,
                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   nameSizer->Add(m_labelNameSize, 0);
   labelBox->Add(nameSizer, 0, wxALL, 5);
 
   auto *idSizer = new wxBoxSizer(wxHORIZONTAL);
   idSizer->Add(m_showLabelId, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  idSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
+  idSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, _("Size")), 0,
                wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   idSizer->Add(m_labelIdSize, 0);
   labelBox->Add(idSizer, 0, wxALL, 5);
 
   auto *addrSizer = new wxBoxSizer(wxHORIZONTAL);
   addrSizer->Add(m_showLabelAddress, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-  addrSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Size"), 0,
+  addrSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, _("Size")), 0,
                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   addrSizer->Add(m_labelAddressSize, 0);
   labelBox->Add(addrSizer, 0, wxALL, 5);
 
   auto *distSizer = new wxBoxSizer(wxHORIZONTAL);
-  distSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Distance"), 0,
+  distSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, _("Distance")), 0,
                  wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   distSizer->Add(m_labelOffsetDistance, 0);
   labelBox->Add(distSizer, 0, wxALL, 5);
 
   auto *angleSizer = new wxBoxSizer(wxHORIZONTAL);
-  angleSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, "Angle"), 0,
+  angleSizer->Add(new wxStaticText(labelBoxParent, wxID_ANY, _("Angle")), 0,
                   wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
   angleSizer->Add(m_labelOffsetAngle, 0);
   labelBox->Add(angleSizer, 0, wxALL, 5);
@@ -442,10 +442,10 @@ void Viewer2DRenderPanel::RefreshLabelScopeHint() {
   if (HasFixtureSelection()) {
     const size_t count = ConfigManager::Get().GetSelectedFixtures().size();
     m_labelScopeHint->SetLabel(
-        wxString::Format("Selection profile active (%zu fixtures)", count));
+        wxString::Format(_("Selection profile active (%zu fixtures)"), count));
     m_labelScopeHint->SetForegroundColour(wxColour(0, 180, 200));
   } else {
-    m_labelScopeHint->SetLabel("Global profile (all fixtures)");
+    m_labelScopeHint->SetLabel(_("Global profile (all fixtures)"));
     m_labelScopeHint->SetForegroundColour(
         wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
   }

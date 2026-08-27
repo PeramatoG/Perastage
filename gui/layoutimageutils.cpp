@@ -78,7 +78,7 @@ std::optional<LayoutImageLoadResult> PromptForLayoutImage(wxWindow *parent,
   wxImage image;
   wxString error;
   if (!LoadLayoutImageFile(dialog.GetPath(), image, error)) {
-    wxMessageBox(error, "Invalid image", wxOK | wxICON_WARNING, parent);
+    wxMessageBox(error, _("Invalid image"), wxOK | wxICON_WARNING, parent);
     return std::nullopt;
   }
 

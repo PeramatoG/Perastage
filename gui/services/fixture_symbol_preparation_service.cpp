@@ -459,7 +459,7 @@ void FixtureSymbolPreparationService::FailCurrent(
 void FixtureSymbolPreparationService::UpdateStatus() {
   const std::size_t pending = coordinator_.PendingCount();
   if (pending == 0) {
-    window_.SetStatusText("Ready", 0);
+    window_.SetStatusText(_("Ready"), 0);
     return;
   }
   const WorkContext *statusWork = nullptr;
@@ -502,9 +502,9 @@ void FixtureSymbolPreparationService::UpdateStatus() {
       break;
     }
   }
-  window_.SetStatusText("Preparing fixture symbols: " + context + " - " +
-                            phase + " - " + std::to_string(pending) +
-                            " pending",
+  window_.SetStatusText(_("Preparing fixture symbols: ") + context + _(" - ") +
+                            phase + _(" - ") + std::to_string(pending) +
+                            _(" pending"),
                         0);
 }
 

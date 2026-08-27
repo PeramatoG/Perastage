@@ -56,8 +56,8 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
     const std::vector<gui::TrussCreationSource> trussSources =
         gui::CollectTrussCreationSources(scene.trusses, scene.basePath);
     if (trussSources.empty()) {
-      wxMessageBox("There are no reusable truss definitions in the scene.",
-                   "Replace Trusses", wxOK | wxICON_WARNING, parent);
+      wxMessageBox(_("There are no reusable truss definitions in the scene."),
+                   _("Replace Trusses"), wxOK | wxICON_WARNING, parent);
       return std::nullopt;
     }
 
@@ -79,7 +79,7 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
   if (sourceSelection == 1) {
     auto dict = TrussDictionary::Load();
     if (!dict || dict->empty()) {
-      wxMessageBox("The truss dictionary is empty.", "Replace Trusses",
+      wxMessageBox(_("The truss dictionary is empty."), _("Replace Trusses"),
                    wxOK | wxICON_WARNING, parent);
       return std::nullopt;
     }
@@ -93,8 +93,8 @@ ChooseReplacementTrussPath(wxWindow *parent, const MvrScene &scene) {
       entries.emplace_back(modelName, filePath);
     }
     if (entries.empty()) {
-      wxMessageBox("No dictionary entries contain a truss file path.",
-                   "Replace Trusses", wxOK | wxICON_WARNING, parent);
+      wxMessageBox(_("No dictionary entries contain a truss file path."),
+                   _("Replace Trusses"), wxOK | wxICON_WARNING, parent);
       return std::nullopt;
     }
 
@@ -166,8 +166,8 @@ void MainWindow::OnReplaceSelectedTrusses(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   auto selectedUuids = GetSelectedExistingTrussUuids(cfg);
   if (selectedUuids.empty()) {
-    wxMessageBox("Select at least one truss before running Replace Trusses.",
-                 "Replace Trusses", wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(_("Select at least one truss before running Replace Trusses."),
+                 _("Replace Trusses"), wxOK | wxICON_INFORMATION, this);
     return;
   }
 
@@ -177,9 +177,9 @@ void MainWindow::OnReplaceSelectedTrusses(wxCommandEvent &WXUNUSED(event)) {
 
   Truss replacement;
   if (!LoadTrussDefinition(selectedPath->first, replacement)) {
-    wxMessageBox("Unsupported or unreadable truss file. Supported formats are "
-                 "GDTF, GTruss, GLB, and 3DS.",
-                 "Replace Trusses", wxOK | wxICON_ERROR, this);
+    wxMessageBox(_("Unsupported or unreadable truss file. Supported formats are "
+                 "GDTF, GTruss, GLB, and 3DS."),
+                 _("Replace Trusses"), wxOK | wxICON_ERROR, this);
     return;
   }
 

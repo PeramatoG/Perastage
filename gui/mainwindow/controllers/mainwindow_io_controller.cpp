@@ -276,8 +276,8 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
     importOverlay.reset();
     importDisabler.reset();
     if (owner->GetStatusBar())
-      owner->SetStatusText("MVR import failed.", 0);
-    wxMessageBox("Failed to import MVR file.", "Error", wxOK | wxICON_ERROR,
+      owner->SetStatusText(_("MVR import failed."), 0);
+    wxMessageBox(_("Failed to import MVR file."), _("Error"), wxOK | wxICON_ERROR,
                  owner);
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to import " + filePath);
@@ -317,7 +317,7 @@ bool MainWindowIoController::ImportMvrFromPath(const std::string &pathUtf8) {
 
   if (owner->GetStatusBar()) {
     const wxString fileName = wxFileName(filePath).GetFullName();
-    owner->SetStatusText("MVR imported: " + fileName, 0);
+    owner->SetStatusText(_("MVR imported: ") + fileName, 0);
   }
   diagnostics::DiagnosticLogger::Info(
       "MVR import completed: " +
@@ -485,7 +485,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
   owner->mvrImportPipelineActive = true;
   SplashScreen::Hide();
   if (owner->GetStatusBar())
-    owner->SetStatusText("MVR merge: importing selected file...", 0);
+    owner->SetStatusText(_("MVR merge: importing selected file..."), 0);
 
   MvrImportResult importResult;
   MvrImporter mergeImporter;
@@ -500,8 +500,8 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     restoreMergeRollbackState();
     owner->mvrImportPipelineActive = false;
     if (owner->GetStatusBar())
-      owner->SetStatusText("MVR merge failed.", 0);
-    wxMessageBox("Failed to import MVR file for merge.", "Error",
+      owner->SetStatusText(_("MVR merge failed."), 0);
+    wxMessageBox(_("Failed to import MVR file for merge."), _("Error"),
                  wxOK | wxICON_ERROR, owner);
     if (owner->consolePanel)
       owner->consolePanel->AppendMessage("Failed to merge " +
@@ -522,7 +522,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
       restoreMergeRollbackState();
       owner->mvrImportPipelineActive = false;
       if (owner->GetStatusBar())
-        owner->SetStatusText("MVR merge cancelled.", 0);
+        owner->SetStatusText(_("MVR merge cancelled."), 0);
       return false;
     }
     mergeOptions.uuidCollisionBehavior = *collisionBehavior;
@@ -534,7 +534,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
       restoreMergeRollbackState();
       owner->mvrImportPipelineActive = false;
       if (owner->GetStatusBar())
-        owner->SetStatusText("MVR merge cancelled.", 0);
+        owner->SetStatusText(_("MVR merge cancelled."), 0);
       return false;
     }
     mergeOptions.fixtureTypeDecisions[conflict.normalizedTypeName] =
@@ -552,10 +552,10 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     restoreMergeRollbackState();
     owner->mvrImportPipelineActive = false;
     if (owner->GetStatusBar())
-      owner->SetStatusText("MVR merge cancelled.", 0);
-    wxMessageBox("The MVR merge was cancelled because fixture type definition "
-                 "conflicts were not resolved.",
-                 "MVR Merge Cancelled", wxOK | wxICON_WARNING, owner);
+      owner->SetStatusText(_("MVR merge cancelled."), 0);
+    wxMessageBox(_("The MVR merge was cancelled because fixture type definition "
+                 "conflicts were not resolved."),
+                 _("MVR Merge Cancelled"), wxOK | wxICON_WARNING, owner);
     return false;
   }
   cfg.SetSelectedFixtures(preservedSelectedFixtures);
@@ -588,7 +588,7 @@ bool MainWindowIoController::MergeMvrFromPath(const std::string &pathUtf8) {
     owner->consolePanel->AppendMessage(wxString::FromUTF8(summary.str()));
   }
   if (owner->GetStatusBar())
-    owner->SetStatusText("MVR merged: " + fileName, 0);
+    owner->SetStatusText(_("MVR merged: ") + fileName, 0);
   diagnostics::DiagnosticLogger::Info(
       "MVR merge completed: " +
       diagnostics::DiagnosticLogger::FileNameOnly(pathUtf8));
@@ -644,10 +644,10 @@ bool MainWindowIoController::OpenPathFromCommandLine(
       return false;
 
     if (!owner->LoadProjectFromPath(pathUtf8)) {
-      wxMessageBox("Failed to load project.", "Error", wxOK | wxICON_ERROR,
+      wxMessageBox(_("Failed to load project."), _("Error"), wxOK | wxICON_ERROR,
                    owner);
       if (owner->GetStatusBar())
-        owner->SetStatusText("Project load failed.", 0);
+        owner->SetStatusText(_("Project load failed."), 0);
       if (owner->consolePanel) {
         owner->consolePanel->AppendMessage("Failed to load " +
                                            wxString::FromUTF8(pathUtf8));
@@ -657,7 +657,7 @@ bool MainWindowIoController::OpenPathFromCommandLine(
 
     if (owner->GetStatusBar()) {
       wxFileName fileInfo(wxString::FromUTF8(pathUtf8));
-      owner->SetStatusText("Project loaded: " + fileInfo.GetFullName(), 0);
+      owner->SetStatusText(_("Project loaded: ") + fileInfo.GetFullName(), 0);
     }
     return true;
   }
@@ -680,14 +680,14 @@ bool MainWindowIoController::OpenPathFromCommandLine(
   }
 
   if (owner->GetStatusBar())
-    owner->SetStatusText("Unsupported startup file format.", 0);
+    owner->SetStatusText(_("Unsupported startup file format."), 0);
   if (owner->consolePanel) {
     owner->consolePanel->AppendMessage("Unsupported startup file: " +
                                        wxString::FromUTF8(pathUtf8));
   }
-  wxMessageBox("Unsupported startup file. Use " +
+  wxMessageBox(_("Unsupported startup file. Use ") +
                    wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION) +
-                   " or .mvr files.",
-               "Unsupported file", wxOK | wxICON_WARNING, owner);
+                   _(" or .mvr files."),
+               _("Unsupported file"), wxOK | wxICON_WARNING, owner);
   return false;
 }

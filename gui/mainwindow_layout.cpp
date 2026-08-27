@@ -318,22 +318,22 @@ void MainWindow::SetupLayout() {
   fixturePanel = new FixtureTablePanel(
       notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   FixtureTablePanel::SetInstance(fixturePanel);
-  notebook->AddPage(fixturePanel, "Fixtures");
+  notebook->AddPage(fixturePanel, _("Fixtures"));
 
   trussPanel = new TrussTablePanel(
       notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   TrussTablePanel::SetInstance(trussPanel);
-  notebook->AddPage(trussPanel, "Trusses");
+  notebook->AddPage(trussPanel, _("Trusses"));
 
   hoistPanel = new HoistTablePanel(
       notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   HoistTablePanel::SetInstance(hoistPanel);
-  notebook->AddPage(hoistPanel, "Hoists");
+  notebook->AddPage(hoistPanel, _("Hoists"));
 
   sceneObjPanel = new SceneObjectTablePanel(
       notebook, guiConfigServices, gui::InitialPopulationPolicy::Deferred);
   SceneObjectTablePanel::SetInstance(sceneObjPanel);
-  notebook->AddPage(sceneObjPanel, "Objects");
+  notebook->AddPage(sceneObjPanel, _("Objects"));
 
   // Add notebook on the left so the viewport can occupy
   // the remaining (and larger) central area
@@ -341,7 +341,7 @@ void MainWindow::SetupLayout() {
 
   auiManager->AddPane(notebook, wxAuiPaneInfo()
                                     .Name("DataNotebook")
-                                    .Caption("Data Views")
+                                    .Caption(_("Data Views"))
                                     .Left()
                                     .BestSize(500, 600)
                                     .MinSize(wxSize(200, 300))
@@ -355,7 +355,7 @@ void MainWindow::SetupLayout() {
   ConsolePanel::SetInstance(consolePanel);
   auiManager->AddPane(consolePanel, wxAuiPaneInfo()
                                         .Name("Console")
-                                        .Caption("Console")
+                                        .Caption(_("Console"))
                                         .Bottom()
                                         .Layer(1)
                                         .BestSize(-1, 150)
@@ -368,7 +368,7 @@ void MainWindow::SetupLayout() {
   LayerPanel::SetInstance(layerPanel);
   auiManager->AddPane(layerPanel, wxAuiPaneInfo()
                                       .Name("LayerPanel")
-                                      .Caption("Layers")
+                                      .Caption(_("Layers"))
                                       .Right()
                                       .Layer(1)
                                       .Row(0)
@@ -382,7 +382,7 @@ void MainWindow::SetupLayout() {
   LayoutPanel::SetInstance(layoutPanel);
   auiManager->AddPane(layoutPanel, wxAuiPaneInfo()
                                        .Name("LayoutPanel")
-                                       .Caption("Layouts")
+                                       .Caption(_("Layouts"))
                                        .Left()
                                        .Row(0)
                                        .Position(1)
@@ -396,7 +396,7 @@ void MainWindow::SetupLayout() {
   layoutViewerPanel = new LayoutViewerPanel(this);
   auiManager->AddPane(layoutViewerPanel, wxAuiPaneInfo()
                                             .Name("LayoutViewer")
-                                            .Caption("Layout Viewer")
+                                            .Caption(_("Layout Viewer"))
                                             .Center()
                                             .Dockable(true)
                                             .CaptionVisible(true)
@@ -411,7 +411,7 @@ void MainWindow::SetupLayout() {
   SummaryPanel::SetInstance(summaryPanel);
   auiManager->AddPane(summaryPanel, wxAuiPaneInfo()
                                         .Name("SummaryPanel")
-                                        .Caption("Summary")
+                                        .Caption(_("Summary"))
                                         .Right()
                                         .Layer(1)
                                         .Row(0)
@@ -425,7 +425,7 @@ void MainWindow::SetupLayout() {
   RiggingPanel::SetInstance(riggingPanel);
   auiManager->AddPane(riggingPanel, wxAuiPaneInfo()
                                         .Name("RiggingPanel")
-                                        .Caption("Rigging")
+                                        .Caption(_("Rigging"))
                                         .Bottom()
                                         .Layer(1)
                                         .Row(0)
@@ -454,9 +454,9 @@ void MainWindow::SetupLayout() {
   GetStatusBar()->SetFieldsCount(3);
   const int statusWidths[] = {-1, 260, 220};
   SetStatusWidths(3, statusWidths);
-  SetStatusText("Ready", 0);
-  SetStatusText("X: -- m  Y: -- m  Z: -- m", 1);
-  SetStatusText("Version " +
+  SetStatusText(_("Ready"), 0);
+  SetStatusText(_("X: -- m  Y: -- m  Z: -- m"), 1);
+  SetStatusText(_("Version ") +
                     wxString::FromUTF8(
                         perastage::build_info::appVersionDisplay().data()),
                 2);
@@ -1084,7 +1084,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     Logger::Instance().Log(
         "Layout 2D edit commit aborted: target view could not be resolved.");
     if (GetStatusBar()) {
-      SetStatusText("Layout view update skipped: target view not found.", 0);
+      SetStatusText(_("Layout view update skipped: target view not found."), 0);
     }
     finishEditingSession();
     return;
@@ -1114,7 +1114,7 @@ void MainWindow::OnLayout2DViewOk(wxCommandEvent &WXUNUSED(event)) {
     Logger::Instance().Log(
         "Layout 2D edit commit failed: UpdateLayout2DView returned false.");
     if (GetStatusBar()) {
-      SetStatusText("Layout view update failed.", 0);
+      SetStatusText(_("Layout view update failed."), 0);
     }
     finishEditingSession();
     return;

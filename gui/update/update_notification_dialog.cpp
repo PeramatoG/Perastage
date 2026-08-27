@@ -40,14 +40,14 @@ UpdateNotificationChoice ShowAvailableUpdateDialog(
   if (allowVersionSuppression) {
     suppressReminderCheck = new wxCheckBox(
         &dialog, wxID_ANY,
-        "Do not remind me again for this version");
+        _("Do not remind me again for this version"));
     topSizer->Add(suppressReminderCheck, 0, wxLEFT | wxRIGHT | wxBOTTOM, 12);
   }
 
   wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
   buttonSizer->AddStretchSpacer(1);
-  wxButton *yesButton = new wxButton(&dialog, wxID_YES, "Yes");
-  wxButton *noButton = new wxButton(&dialog, wxID_NO, "No");
+  wxButton *yesButton = new wxButton(&dialog, wxID_YES, _("Yes"));
+  wxButton *noButton = new wxButton(&dialog, wxID_NO, _("No"));
   yesButton->Bind(wxEVT_BUTTON, [&dialog](wxCommandEvent &) {
     dialog.EndModal(wxID_YES);
   });

@@ -43,6 +43,35 @@ wxString FormatCatalogIdentity(const rider_fixture_resolution::Item &item) {
   return wxString::FromUTF8(entry->manufacturer + " / " + entry->fixtureName);
 }
 
+// Maps locale-independent resolution metadata to GUI presentation text.
+wxString LocalizedOrigin(rider_fixture_resolution::ResolutionOrigin origin) {
+  using Origin = rider_fixture_resolution::ResolutionOrigin;
+  switch (origin) {
+  case Origin::Dictionary: return _("Dictionary");
+  case Origin::DictionaryModified: return _("Dictionary modified");
+  case Origin::AutomaticMatch: return _("Automatic match");
+  case Origin::UserSelection: return _("User assigned");
+  case Origin::GenericFallback: return _("Generic fallback");
+  case Origin::Skipped: return _("Skipped");
+  }
+  return _("Generic fallback");
+}
+
+// Maps structured Core detail state to localized explanatory text.
+wxString LocalizedDetails(const rider_fixture_resolution::Item &item) {
+  using Detail = rider_fixture_resolution::DetailKind;
+  switch (item.detailKind) {
+  case Detail::ActiveDictionary: return _("Active fixture dictionary");
+  case Detail::NoReliableMatch: return _("No reliable catalog match; generic will be used unless changed");
+  case Detail::ConflictingIdentity: return _("Conflicting numeric model identity; generic will be used unless changed");
+  case Detail::AutomaticMatch: return _("Selected by the shared GDTF catalog matcher");
+  case Detail::GenericFallback: return _("Generic fallback selected for this import");
+  case Detail::FailureFallback:
+    return _("A recoverable catalog error occurred; generic fallback will be used.");
+  }
+  return {};
+}
+
 } // namespace
 
 // Creates a fixed-schema view over the authoritative resolution analysis.
@@ -84,9 +113,9 @@ void RiderFixtureResolutionModel::GetValueByRow(wxVariant &value,
                                       : wxString::FromUTF8(item.selectedMode);
     break;
   case Status:
-    value = wxString::FromUTF8(rider_fixture_resolution::OriginName(item.origin));
+    value = LocalizedOrigin(item.origin);
     break;
-  case Details: value = wxString::FromUTF8(item.details); break;
+  case Details: value = LocalizedDetails(item); break;
   default: value.MakeNull(); break;
   }
 }

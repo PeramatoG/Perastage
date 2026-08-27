@@ -138,15 +138,15 @@ void SymbolPreviewWindow::ShowExportMenuAt(const wxPoint &point) {
   wxMenu menu;
   if (symbol && symbol->bounds.valid) {
     selectedViewForExport_ = cell->view;
-    menu.Append(ID_ExportSelectedViewAsSvg, "Export this view as SVG...");
+    menu.Append(ID_ExportSelectedViewAsSvg, _("Export this view as SVG..."));
   }
 
   if (HasAnyValidSymbol())
-    menu.Append(ID_ApplySymbolToFixture, "Apply views to fixture...");
+    menu.Append(ID_ApplySymbolToFixture, _("Apply views to fixture..."));
 
   if (menu.GetMenuItemCount() == 0) {
-    wxMessageBox("No valid symbol views are available.",
-                 "Fixture Symbol Preview", wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(_("No valid symbol views are available."),
+                 _("Fixture Symbol Preview"), wxOK | wxICON_INFORMATION, this);
     return;
   }
   PopupMenu(&menu, point);
@@ -185,11 +185,11 @@ void SymbolPreviewWindow::OnExportSelectedView(wxCommandEvent &WXUNUSED(event)) 
   if (!symbol_preview::ExportSymbolToSvg(*symbol,
                                          saveDialog.GetPath().ToStdString(),
                                          errorMessage)) {
-    wxMessageBox(errorMessage, "Export Symbol View", wxOK | wxICON_ERROR, this);
+    wxMessageBox(errorMessage, _("Export Symbol View"), wxOK | wxICON_ERROR, this);
     return;
   }
 
-  wxMessageBox("Symbol view exported successfully.", "Export Symbol View",
+  wxMessageBox(_("Symbol view exported successfully."), _("Export Symbol View"),
                wxOK | wxICON_INFORMATION, this);
 }
 
@@ -200,7 +200,7 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
   const symbol_preview::ApplySymbolsPresentation presentation =
       symbol_preview::BuildApplySymbolsPresentation(result);
   if (presentation.kind == symbol_preview::ApplySymbolsMessageKind::Error) {
-    wxMessageBox(presentation.message, "Apply Views to Fixture",
+    wxMessageBox(presentation.message, _("Apply Views to Fixture"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
@@ -212,7 +212,7 @@ void SymbolPreviewWindow::OnApplySymbolToFixture(wxCommandEvent &WXUNUSED(event)
   const long icon = presentation.kind == symbol_preview::ApplySymbolsMessageKind::Warning
                         ? wxICON_WARNING
                         : wxICON_INFORMATION;
-  wxMessageBox(presentation.message, "Apply Views to Fixture", wxOK | icon, this);
+  wxMessageBox(presentation.message, _("Apply Views to Fixture"), wxOK | icon, this);
 }
 
 void SymbolPreviewWindow::OnPaint(wxPaintEvent &WXUNUSED(event)) {

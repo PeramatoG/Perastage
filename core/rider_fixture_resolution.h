@@ -38,6 +38,14 @@ enum class StatusSemantic {
   Warning,
   Muted
 };
+enum class DetailKind {
+  ActiveDictionary,
+  NoReliableMatch,
+  ConflictingIdentity,
+  AutomaticMatch,
+  GenericFallback,
+  FailureFallback
+};
 struct Progress {
   ProgressStage stage = ProgressStage::LoadingCatalog;
   size_t current = 0;
@@ -59,6 +67,7 @@ struct Item {
   std::string selectedMode;
   std::string originalDictionaryMode;
   std::string details;
+  DetailKind detailKind = DetailKind::NoReliableMatch;
 
   bool RequiresModeSelection() const;
   bool IsReady() const;

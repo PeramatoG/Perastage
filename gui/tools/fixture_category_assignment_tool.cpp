@@ -96,8 +96,8 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const std::vector<std::string> selectedUuids = cfg.GetSelectedFixtures();
   if (selectedUuids.empty()) {
-    wxMessageBox("Select at least one fixture first.",
-                 "Auto-assign fixture categories", wxOK | wxICON_INFORMATION,
+    wxMessageBox(_("Select at least one fixture first."),
+                 _("Auto-assign fixture categories"), wxOK | wxICON_INFORMATION,
                  &window);
     return;
   }
@@ -165,8 +165,8 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
   }
 
   if (!changed) {
-    wxMessageBox("Selected fixtures are already up to date.",
-                 "Auto-assign fixture categories", wxOK | wxICON_INFORMATION,
+    wxMessageBox(_("Selected fixtures are already up to date."),
+                 _("Auto-assign fixture categories"), wxOK | wxICON_INFORMATION,
                  &window);
     return;
   }
@@ -176,9 +176,9 @@ void RunFixtureCategoryAssignment(MainWindow &window) {
   window.RefreshAfterToolSceneUpdate();
 
   wxMessageBox(wxString::Format(
-                   "Auto-assigned categories to %zu fixture(s). Unknown: %zu.",
+                   _("Auto-assigned categories to %zu fixture(s). Unknown: %zu."),
                    updatedCount, unknownCount),
-               "Auto-assign fixture categories", wxOK | wxICON_INFORMATION,
+               _("Auto-assign fixture categories"), wxOK | wxICON_INFORMATION,
                &window);
 }
 

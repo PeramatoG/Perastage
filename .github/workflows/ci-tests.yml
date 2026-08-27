@@ -292,6 +292,8 @@ jobs:
       - name: Build complete test target set
         id: perastage-build
         run: python3 .github/scripts/run_and_log.py --log "$CI_LOG_DIR/build-linux-debug.log" -- cmake --build build/linux-debug --target all --verbose
+      - name: Validate localization catalogs and presentation sources
+        run: cmake --build build/linux-debug --target perastage_check_translations
       - name: Record telemetry — Complete Debug build
         continue-on-error: true
         if: ${{ always() }}

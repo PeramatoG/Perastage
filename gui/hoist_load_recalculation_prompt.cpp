@@ -54,7 +54,7 @@ bool PromptAndApply(ConfigManager &cfg, wxWindow *parent,
         positionNames.size());
   }
 
-  const int answer = wxMessageBox(message, "Recalculate hoist loads",
+  const int answer = wxMessageBox(message, _("Recalculate hoist loads"),
                                   wxYES_NO | wxICON_QUESTION, parent);
   if (answer != wxYES)
     return false;
@@ -103,7 +103,7 @@ bool PromptAndApply(ConfigManager &cfg, wxWindow *parent,
           "%zu hoist(s) are within 75 kg of capacity after recalculation.",
           nearCapacityCount);
     }
-    wxMessageBox(warningMessage, "Hoist load warning", wxOK | wxICON_WARNING,
+    wxMessageBox(warningMessage, _("Hoist load warning"), wxOK | wxICON_WARNING,
                  parent);
   }
 

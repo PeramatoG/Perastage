@@ -88,7 +88,7 @@ bool EnsureAuthenticated(wxWindow *parent, ConfigManager &configManager,
       }
       return true;
     }
-    wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(result, "login")),
+    wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(result, _("login"))),
                  _("GDTF Share sign-in unavailable"), wxOK | wxICON_WARNING,
                  parent);
     if (result.category != GdtfShareResultCategory::AuthenticationRejected)

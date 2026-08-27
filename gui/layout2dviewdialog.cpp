@@ -60,9 +60,9 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   mainSizer->Add(contentSizer, 1, wxEXPAND);
 
   auto *scaleSizer = new wxBoxSizer(wxHORIZONTAL);
-  auto *scaleLabel = new wxStaticText(this, wxID_ANY, "Frame scale");
+  auto *scaleLabel = new wxStaticText(this, wxID_ANY, _("Frame scale"));
   scaleSlider = new wxSlider(this, wxID_ANY, 100, 25, 300);
-  scaleValueLabel = new wxStaticText(this, wxID_ANY, "100%");
+  scaleValueLabel = new wxStaticText(this, wxID_ANY, _("100%"));
   scaleSlider->Bind(wxEVT_SLIDER, &Layout2DViewDialog::OnScaleChanged, this);
 
   scaleSizer->Add(scaleLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
@@ -71,8 +71,8 @@ Layout2DViewDialog::Layout2DViewDialog(wxWindow *parent,
   mainSizer->Add(scaleSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   auto *buttonSizer = new wxStdDialogButtonSizer();
-  auto *okButton = new wxButton(this, wxID_OK, "OK");
-  auto *cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+  auto *okButton = new wxButton(this, wxID_OK, _("OK"));
+  auto *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
   okButton->Bind(wxEVT_BUTTON, &Layout2DViewDialog::OnOk, this);
   cancelButton->Bind(wxEVT_BUTTON, &Layout2DViewDialog::OnCancel, this);
   buttonSizer->AddButton(okButton);
@@ -183,5 +183,5 @@ void Layout2DViewDialog::UpdateScaleLabel() {
   if (!scaleValueLabel || !scaleSlider)
     return;
   scaleValueLabel->SetLabel(
-      wxString::Format("%d%%", scaleSlider->GetValue()));
+      wxString::Format(_("%d%%"), scaleSlider->GetValue()));
 }

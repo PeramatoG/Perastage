@@ -24,7 +24,7 @@ constexpr int kActivePreviewSize = 180;
 GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
     : wxPanel(parent, wxID_ANY) {
   auto *root = new wxBoxSizer(wxVERTICAL);
-  root->Add(new wxStaticText(this, wxID_ANY, "DMX inspection details"), 0, wxBOTTOM, 3);
+  root->Add(new wxStaticText(this, wxID_ANY, _("DMX inspection details")), 0, wxBOTTOM, 3);
   activeDetailsPanel = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition,
                                             wxDefaultSize, wxBORDER_SIMPLE | wxVSCROLL);
   activeDetailsPanel->SetScrollRate(0, 8);
@@ -52,10 +52,10 @@ GdtfWheelInspectorPanel::GdtfWheelInspectorPanel(wxWindow *parent)
   previewRow->Add(previewDetailsPanel, 1, wxEXPAND);
   root->Add(previewRow, 0, wxEXPAND | wxBOTTOM, 6);
 
-  root->Add(new wxStaticText(this, wxID_ANY, "Wheel slots"), 0, wxBOTTOM, 3);
+  root->Add(new wxStaticText(this, wxID_ANY, _("Wheel slots")), 0, wxBOTTOM, 3);
   slotList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                             wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_NO_HEADER);
-  slotList->AppendColumn("Slot", wxLIST_FORMAT_LEFT, 720);
+  slotList->AppendColumn(_("Slot"), wxLIST_FORMAT_LEFT, 720);
   slotImages = new wxImageList(kSlotThumbnailSize, kSlotThumbnailSize, true);
   slotList->AssignImageList(slotImages, wxIMAGE_LIST_SMALL);
   root->Add(slotList, 1, wxEXPAND);

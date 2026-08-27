@@ -176,6 +176,7 @@ void Service::ResolveItem(
       item.selectedMode = item.dictionaryEntry->mode;
       item.originalDictionaryMode = item.dictionaryEntry->mode;
       item.details = "Active fixture dictionary";
+      item.detailKind = DetailKind::ActiveDictionary;
       return;
     }
     item.dictionaryEntry.reset();
@@ -192,6 +193,7 @@ void Service::ResolveItem(
       item.state = State::Unresolved;
       item.origin = ResolutionOrigin::GenericFallback;
       item.details = "No reliable catalog match; generic will be used unless changed";
+      item.detailKind = DetailKind::NoReliableMatch;
       return;
     }
 
@@ -203,10 +205,12 @@ void Service::ResolveItem(
       item.state = State::Unresolved;
       item.origin = ResolutionOrigin::GenericFallback;
       item.details = "Conflicting numeric model identity; generic will be used unless changed";
+      item.detailKind = DetailKind::ConflictingIdentity;
     } else {
       item.state = State::Suggested;
       SelectCatalogEntry(item, *entry, ResolutionOrigin::AutomaticMatch);
       item.details = "Selected by the shared GDTF catalog matcher";
+      item.detailKind = DetailKind::AutomaticMatch;
     }
 }
 
@@ -235,12 +239,14 @@ void Service::SelectGeneric(Item &item) {
   item.selectedEntry.reset();
   item.selectedMode.clear();
   item.details = "Generic fallback selected for this import";
+  item.detailKind = DetailKind::GenericFallback;
 }
 
 // Records a recoverable resolution failure in the final GUI-independent plan.
 void Service::FallbackAfterFailure(Item &item, const std::string &reason) {
   SelectGeneric(item);
   item.details = reason + " - using generic fallback";
+  item.detailKind = DetailKind::FailureFallback;
 }
 
 // Converts every incomplete non-dictionary row to Generic before import.
@@ -273,6 +279,7 @@ void Service::MergeCatalogSuggestion(Item &target, const Item &matched) {
   target.selectedMode = matched.selectedMode;
   target.origin = matched.origin;
   target.details = matched.details;
+  target.detailKind = matched.detailKind;
 }
 
 // Converts resolution state to stable diagnostic text.

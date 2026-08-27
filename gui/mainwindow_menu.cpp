@@ -173,25 +173,25 @@ void MainWindow::CreateToolBars() {
         }
       };
   fileToolBar->AddTool(ID_File_New, _("New"),
-                       loadToolbarIcon("file", wxART_NEW),
+                       loadToolbarIcon(_("file"), wxART_NEW),
                        _("Create a new project"));
   fileToolBar->AddTool(ID_File_Load, _("Open"),
-                       loadToolbarIcon("folder-open", wxART_FILE_OPEN),
+                       loadToolbarIcon(_("folder-open"), wxART_FILE_OPEN),
                        _("Open an existing project"));
   fileToolBar->AddTool(ID_File_Save, _("Save"),
-                       loadToolbarIcon("save", wxART_FILE_SAVE),
+                       loadToolbarIcon(_("save"), wxART_FILE_SAVE),
                        _("Save the current project"));
   fileToolBar->AddTool(ID_File_SaveAs, _("Save As"),
-                       loadToolbarIcon("save-all", wxART_FILE_SAVE),
+                       loadToolbarIcon(_("save-all"), wxART_FILE_SAVE),
                        _("Save the current project with a new name"));
   fileToolBar->AddTool(ID_File_ImportMVR, _("Import MVR"),
-                       loadToolbarIcon("file-input", wxART_FILE_OPEN),
+                       loadToolbarIcon(_("file-input"), wxART_FILE_OPEN),
                        _("Import an MVR file"));
   fileToolBar->AddTool(ID_File_ExportMVR, _("Export MVR"),
-                       loadToolbarIcon("file-output", wxART_FILE_SAVE),
+                       loadToolbarIcon(_("file-output"), wxART_FILE_SAVE),
                        _("Export the project to MVR"));
   fileToolBar->AddTool(ID_File_PrintMenu, _("Print"),
-                       loadToolbarIcon("printer", wxART_PRINT),
+                       loadToolbarIcon(_("printer"), wxART_PRINT),
                        _("Choose what to print"));
   fileToolBar->Realize();
 
@@ -206,20 +206,20 @@ void MainWindow::CreateToolBars() {
                                  wxDefaultSize, toolbarStyle);
   editToolBar->SetToolBitmapSize(wxSize(16, 16));
   editToolBar->AddTool(ID_Edit_Undo, _("Undo"),
-                       loadToolbarIcon("undo-2", wxART_UNDO),
+                       loadToolbarIcon(_("undo-2"), wxART_UNDO),
                        _("Undo last action"));
   editToolBar->AddTool(ID_Edit_Redo, _("Redo"),
-                       loadToolbarIcon("redo-2", wxART_REDO),
+                       loadToolbarIcon(_("redo-2"), wxART_REDO),
                        _("Redo last undone action"));
   editToolBar->AddSeparator();
   editToolBar->AddTool(ID_Edit_Cut, _("Cut"),
-                       loadToolbarIcon("scissors", wxART_CUT),
+                       loadToolbarIcon(_("scissors"), wxART_CUT),
                        _("Cut selected scene elements"));
   editToolBar->AddTool(ID_Edit_Copy, _("Copy"),
-                       loadToolbarIcon("copy", wxART_COPY),
+                       loadToolbarIcon(_("copy"), wxART_COPY),
                        _("Copy selected scene elements"));
   editToolBar->AddTool(ID_Edit_Paste, _("Paste"),
-                       loadToolbarIcon("clipboard-paste", wxART_PASTE),
+                       loadToolbarIcon(_("clipboard-paste"), wxART_PASTE),
                        _("Paste copied scene elements"));
   editToolBar->Realize();
   auiManager->AddPane(editToolBar, wxAuiPaneInfo()
@@ -233,28 +233,28 @@ void MainWindow::CreateToolBars() {
                                         wxDefaultSize, toolbarStyle);
   layoutViewsToolBar->SetToolBitmapSize(wxSize(16, 16));
   layoutViewsToolBar->AddTool(ID_View_Layout_Default, _("3D Layout View"),
-                              loadToolbarIcon("box", wxART_MISSING_IMAGE),
+                              loadToolbarIcon(_("box"), wxART_MISSING_IMAGE),
                               _("Switch to 3D Layout View"));
   layoutViewsToolBar->AddTool(
       ID_View_Layout_2D, _("2D Layout View"),
-      loadToolbarIcon("panels-right-bottom", wxART_MISSING_IMAGE),
+      loadToolbarIcon(_("panels-right-bottom"), wxART_MISSING_IMAGE),
       _("Switch to 2D Layout View"));
   layoutViewsToolBar->AddTool(
       ID_View_Layout_Mode, _("Layout Mode"),
-      loadToolbarIcon("square-asterisk", wxART_MISSING_IMAGE),
+      loadToolbarIcon(_("square-asterisk"), wxART_MISSING_IMAGE),
       _("Switch to Layout Mode View"));
   layoutViewsToolBar->AddSeparator();
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Top, _("Top View"),
-      loadToolbarIcon("cube-view-top", wxART_MISSING_IMAGE),
+      loadToolbarIcon(_("cube-view-top"), wxART_MISSING_IMAGE),
       _("Apply top view to active viewport"));
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Front, _("Front View"),
-      loadToolbarIcon("cube-view-front", wxART_MISSING_IMAGE),
+      loadToolbarIcon(_("cube-view-front"), wxART_MISSING_IMAGE),
       _("Apply front view to active viewport"));
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Side, _("Side View"),
-      loadToolbarIcon("cube-view-side", wxART_MISSING_IMAGE),
+      loadToolbarIcon(_("cube-view-side"), wxART_MISSING_IMAGE),
       _("Apply side view to active viewport"));
   layoutViewsToolBar->AddSeparator();
   addToolWithDisabledIcon(layoutViewsToolBar, ID_View_Viewport_SelectTool,
@@ -340,10 +340,10 @@ void MainWindow::CreateToolBars() {
                           _("Insert a new scene object"));
   toolsToolBar->AddSeparator();
   toolsToolBar->AddTool(ID_Tools_DownloadGdtf, _("Download GDTF"),
-                        loadToolbarIcon("cloud-download", wxART_MISSING_IMAGE),
+                        loadToolbarIcon(_("cloud-download"), wxART_MISSING_IMAGE),
                         _("Download GDTF"));
   toolsToolBar->AddTool(ID_Tools_ImportRiderText, _("Create from text"),
-                        loadToolbarIcon("notepad-text", wxART_TIP),
+                        loadToolbarIcon(_("notepad-text"), wxART_TIP),
                         _("Create from text"));
   toolsToolBar->Realize();
   auiManager->AddPane(toolsToolBar, wxAuiPaneInfo()
@@ -800,19 +800,19 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
               "GDTF download completed: " +
               diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
           int addNow =
-              wxMessageBox("GDTF downloaded successfully. Do you want to add "
-                           "it to the project now?",
-                           "Success", wxYES_NO | wxICON_QUESTION, this);
+              wxMessageBox(_("GDTF downloaded successfully. Do you want to add "
+                           "it to the project now?"),
+                           _("Success"), wxYES_NO | wxICON_QUESTION, this);
           if (addNow == wxYES)
             AddFixtureFromGdtfPath(WxToUtf8(dest));
         } else {
           diagnostics::DiagnosticLogger::Error("GDTF download failed: http=" +
                                                std::to_string(dlCode));
-          wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(downloadResult, "download")), "Error",
+          wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(downloadResult, _("download"))), _("Error"),
                        wxOK | wxICON_ERROR);
         }
       } else {
-        wxMessageBox("Download information missing.", "Error",
+        wxMessageBox(_("Download information missing."), _("Error"),
                      wxOK | wxICON_ERROR);
       }
     }
@@ -831,8 +831,8 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   const std::string fixturesPath =
       ProjectUtils::GetWritableLibraryPath("fixtures");
   if (fixturesPath.empty()) {
-    wxMessageBox("Could not resolve writable user library path.",
-                 "Open user library folder", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Could not resolve writable user library path."),
+                 _("Open user library folder"), wxOK | wxICON_ERROR);
     return;
   }
 
@@ -843,8 +843,8 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
                                     folderPathUtf8.end());
   const wxString folderPath = wxString::FromUTF8(folderPathBytes.c_str());
   if (!wxLaunchDefaultApplication(folderPath)) {
-    wxMessageBox("Could not open the user library folder.",
-                 "Open user library folder", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Could not open the user library folder."),
+                 _("Open user library folder"), wxOK | wxICON_ERROR);
   }
 }
 
@@ -878,8 +878,8 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (hoistPositions.empty()) {
-    wxMessageBox("No hoists available for weight distribution.",
-                 "Distribute hoist weights", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("No hoists available for weight distribution."),
+                 _("Distribute hoist weights"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -909,8 +909,8 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (selectedSupportUuids.empty()) {
-    wxMessageBox("No hoists found for the selected position.",
-                 "Distribute hoist weights", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("No hoists found for the selected position."),
+                 _("Distribute hoist weights"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -1024,7 +1024,7 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedFixtures();
   if (selected.empty()) {
-    wxMessageBox("Please select fixtures to convert first.", "Convert to Hoist",
+    wxMessageBox(_("Please select fixtures to convert first."), _("Convert to Hoist"),
                  wxOK | wxICON_INFORMATION);
     return;
   }
@@ -1036,8 +1036,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
       convertible.push_back(uuid);
   }
   if (convertible.empty()) {
-    wxMessageBox("The selected fixtures cannot be converted.",
-                 "Convert to Hoist", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("The selected fixtures cannot be converted."),
+                 _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
     return;
   }
   cfg.PushUndoState("convert fixtures to hoists");
@@ -1065,8 +1065,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   RefreshRigging();
 
   wxMessageBox(
-      wxString::Format("Converted %zu fixture(s) to hoists.", newIds.size()),
-      "Convert to Hoist", wxOK | wxICON_INFORMATION);
+      wxString::Format(_("Converted %zu fixture(s) to hoists."), newIds.size()),
+      _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
 }
 
 
@@ -1075,8 +1075,8 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedSceneObjects();
   if (selected.empty()) {
-    wxMessageBox("Please select a scene object to convert first.",
-                 "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("Please select a scene object to convert first."),
+                 _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -1085,8 +1085,8 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   const SceneObjectToTrussConversionResult result =
       ConvertSceneObjectsWithSameModelToTrusses(scene, selected.front());
   if (result.convertedUuids.empty()) {
-    wxMessageBox("No scene objects with a valid model file were converted.",
-                 "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("No scene objects with a valid model file were converted."),
+                 _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -1108,10 +1108,10 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
   RefreshRigging();
 
-  wxMessageBox(wxString::Format("Converted %zu scene object(s) with model '%s' to truss.",
+  wxMessageBox(wxString::Format(_("Converted %zu scene object(s) with model '%s' to truss."),
                                 result.convertedUuids.size(),
                                 wxString::FromUTF8(result.modelFile).c_str()),
-               "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+               _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
 }
 
 // Runs the fixture symbol generation tool when the feature is enabled.
@@ -1240,8 +1240,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
     wxStaticText *langLabel = new wxStaticText(&dlg, wxID_ANY, _("Language:"));
     wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
-    langChoice->Append(wxString::FromUTF8("English"));
-    langChoice->Append(wxString::FromUTF8("Español"));
+    langChoice->Append(wxString::FromUTF8(_("English")));
+    langChoice->Append(wxString::FromUTF8(_("Español")));
     langChoice->SetSelection(0);
     langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
     langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
@@ -1267,8 +1267,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     dlg.SetSizer(sizer);
     dlg.ShowModal();
   } else {
-    wxMessageBox(wxString::FromUTF8("help.md file not found"),
-                 wxString::FromUTF8("Perastage Help"), wxOK | wxICON_ERROR,
+    wxMessageBox(wxString::FromUTF8(_("help.md file not found")),
+                 wxString::FromUTF8(_("Perastage Help")), wxOK | wxICON_ERROR,
                  this);
   }
 }
@@ -1287,8 +1287,8 @@ void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
     diagnostics::DiagnosticLogger::Error("Unable to open logs folder: " +
                                          error);
     wxMessageBox(
-        wxString::FromUTF8("Could not create the logs folder.\n\n" + error),
-        wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_ERROR, this);
+        wxString::FromUTF8(_("Could not create the logs folder.\n\n") + error),
+        wxString::FromUTF8(_("Perastage Diagnostics")), wxOK | wxICON_ERROR, this);
     return;
   }
 
@@ -1304,9 +1304,9 @@ void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
 #endif
   const bool launched = wxExecute(command, wxEXEC_ASYNC) != 0;
   if (!launched) {
-    wxMessageBox(wxString::FromUTF8("Could not open the logs folder.\n\n" +
+    wxMessageBox(wxString::FromUTF8(_("Could not open the logs folder.\n\n") +
                                     logsDirectory.string()),
-                 wxString::FromUTF8("Perastage Diagnostics"),
+                 wxString::FromUTF8(_("Perastage Diagnostics")),
                  wxOK | wxICON_WARNING, this);
   }
 }
@@ -1320,17 +1320,17 @@ void MainWindow::OnExportDiagnosticReport(wxCommandEvent &WXUNUSED(event)) {
     diagnostics::DiagnosticLogger::Error("Diagnostic report export failed: " +
                                          error);
     wxMessageBox(wxString::FromUTF8(
-                     "Could not export the diagnostic report.\n\n" + error),
-                 wxString::FromUTF8("Perastage Diagnostics"),
+                     _("Could not export the diagnostic report.\n\n") + error),
+                 wxString::FromUTF8(_("Perastage Diagnostics")),
                  wxOK | wxICON_ERROR, this);
     return;
   }
 
   diagnostics::DiagnosticLogger::Info("Diagnostic report exported.");
   wxMessageBox(
-      wxString::FromUTF8("Diagnostic report exported successfully.\n\n" +
+      wxString::FromUTF8(_("Diagnostic report exported successfully.\n\n") +
                          reportPath.string()),
-      wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_INFORMATION,
+      wxString::FromUTF8(_("Perastage Diagnostics")), wxOK | wxICON_INFORMATION,
       this);
 }
 
@@ -1662,9 +1662,9 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     Logger::Instance().Log(Logger::Level::Warn,
                            "Add truss validation failed: extension='" +
                                selectedExtension + "' path='" + path + "'.");
-    wxMessageBox("Unsupported or unreadable truss file. Supported formats are "
-                 "GDTF, GTruss, GLB, and 3DS.",
-                 "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Unsupported or unreadable truss file. Supported formats are "
+                 "GDTF, GTruss, GLB, and 3DS."),
+                 _("Error"), wxOK | wxICON_ERROR);
     return;
   }
   if (!baseTruss.name.empty())
