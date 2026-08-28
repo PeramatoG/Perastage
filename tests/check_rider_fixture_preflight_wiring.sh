@@ -12,6 +12,10 @@ root = Path(sys.argv[1])
 io_source = (root / "gui/mainwindow_io.cpp").read_text(encoding="utf-8")
 workflow = (root / "gui/rider_fixture_resolution_workflow.cpp").read_text(encoding="utf-8")
 dialog = (root / "gui/rider_fixture_resolution_dialog.cpp").read_text(encoding="utf-8")
+dialog_header = (root / "gui/rider_fixture_resolution_dialog.h").read_text(encoding="utf-8")
+worker = (root / "gui/rider_fixture_resolution_worker.cpp").read_text(encoding="utf-8")
+worker_header = (root / "gui/rider_fixture_resolution_worker.h").read_text(encoding="utf-8")
+macos15_workflow = (root / ".github/workflows/macos-15-manual-installer.yml").read_text(encoding="utf-8")
 gui_cmake = (root / "gui/CMakeLists.txt").read_text(encoding="utf-8")
 
 preflight = io_source.find("RunCreateFromTextPreflight")
@@ -43,8 +47,24 @@ if online_loader_start < 0 or credential_request_start < 0:
 automatic_online_path = workflow[online_loader_start:credential_request_start]
 if "WaitForNetworkTask" in automatic_online_path or "wxProgressDialog" in automatic_online_path:
     raise SystemExit("Automatic resolver catalog acquisition must not open nested progress dialogs")
-if "std::stop_token" not in automatic_online_path:
-    raise SystemExit("Automatic resolver catalog acquisition must support owned cancellation")
+if "stopToken.stop_requested()" not in automatic_online_path:
+    raise SystemExit("Automatic resolver catalog acquisition must remain cooperatively cancellable")
+if "RiderFixtureResolutionStopToken" not in dialog_header:
+    raise SystemExit("Online acquisition must use the resolver cancellation boundary")
+if "RiderFixtureResolutionWorker catalogWorker" not in dialog_header:
+    raise SystemExit("The resolver dialog must own its catalog worker")
+for token in ("RequestWorkerStop();", "catalogWorker.Join();"):
+    if token not in dialog:
+        raise SystemExit(f"Resolver shutdown/replacement must retain {token}")
+for token in ("std::jthread", "std::stop_token"):
+    if token not in worker + worker_header:
+        raise SystemExit(f"Normal resolver backend must retain managed {token}")
+if "PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT" not in worker + worker_header:
+    raise SystemExit("Resolver worker must provide the explicit compatibility backend")
+if "std::thread" not in worker + worker_header or "std::atomic<bool>" not in worker_header:
+    raise SystemExit("Compatibility backend must own a thread-safe cancellable worker")
+if "PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=ON" not in macos15_workflow:
+    raise SystemExit("Dedicated macOS 15 workflow must explicitly select compatibility")
 if "Acquiring the shared GDTF catalog" in dialog:
     raise SystemExit("Resolver must not retain the obsolete non-terminal acquisition label")
 if "RefreshCatalogCompletionStatus" not in dialog:

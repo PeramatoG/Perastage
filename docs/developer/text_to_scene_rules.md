@@ -79,9 +79,11 @@ a shared semantic status palette also used by the MVR GDTF download queue.
 
 Resolver rows have immutable non-zero model keys for the dialog lifetime.
 Matching updates cells and Status attributes in place rather than deleting and
-rebuilding the active data view. The dialog owns a cancellable `std::jthread`;
+rebuilding the active data view. The dialog owns a cancellable managed worker;
 confirming or cancelling requests stop, ignores queued results, and preserves
-the finalized import plan.
+the finalized import plan. Current toolchains use `std::jthread`, while the
+dedicated macOS 15 compatibility build uses an owned, explicitly joined
+`std::thread` with equivalent cooperative cancellation.
 
 This document explains the rules currently applied by Perastage when creating a scene from rider text loaded from `.txt` or extracted from `.pdf`.
 
