@@ -1,4 +1,5 @@
 #include "preferences/gdtf_credentials_panel.h"
+#include "gdtf_share_message_formatter.h"
 
 #include "configmanager.h"
 #include "credentialstore.h"
@@ -31,12 +32,12 @@ GdtfCredentialsPanel::GdtfCredentialsPanel(wxWindow *parent)
   wxFlexGridSizer *credentialsGrid = new wxFlexGridSizer(2, 2, 8, 10);
   credentialsGrid->AddGrowableCol(1, 1);
 
-  credentialsGrid->Add(new wxStaticText(this, wxID_ANY, "Username:"), 0,
+  credentialsGrid->Add(new wxStaticText(this, wxID_ANY, _("Username:")), 0,
                        wxALIGN_CENTER_VERTICAL);
   usernameCtrl = new wxTextCtrl(this, wxID_ANY);
   credentialsGrid->Add(usernameCtrl, 1, wxEXPAND);
 
-  credentialsGrid->Add(new wxStaticText(this, wxID_ANY, "Password:"), 0,
+  credentialsGrid->Add(new wxStaticText(this, wxID_ANY, _("Password:")), 0,
                        wxALIGN_CENTER_VERTICAL);
   passwordCtrl =
       new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
@@ -45,7 +46,7 @@ GdtfCredentialsPanel::GdtfCredentialsPanel(wxWindow *parent)
 
   topSizer->Add(credentialsGrid, 0, wxALL | wxEXPAND, 10);
 
-  validateButton = new wxButton(this, wxID_ANY, "Validate credentials");
+  validateButton = new wxButton(this, wxID_ANY, _("Validate credentials"));
   topSizer->Add(validateButton, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
   SetSizer(topSizer);
@@ -104,8 +105,8 @@ void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)
   const CredentialStore::Credentials credentials =
       ReadUiCredentials(usernameCtrl, passwordCtrl);
   if (credentials.username.empty() || credentials.password.empty()) {
-    wxMessageBox("Please enter username and password first.",
-                 "Validate credentials", wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(_("Please enter username and password first."),
+                 _("Validate credentials"), wxOK | wxICON_INFORMATION, this);
     return;
   }
 
@@ -113,9 +114,9 @@ void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)
   const GdtfShareResult loginResult =
       client.Login(credentials.username, credentials.password);
   if (!loginResult.Succeeded()) {
-    wxMessageBox(wxString::FromUTF8(
-                     FormatGdtfShareUserMessage(loginResult, "login")),
-                 "Validate credentials", wxOK | wxICON_WARNING, this);
+    wxMessageBox(FormatLocalizedGdtfShareUserMessage(
+                     loginResult, GdtfShareGuiOperation::Login),
+                 _("Validate credentials"), wxOK | wxICON_WARNING, this);
     return;
   }
 
@@ -128,6 +129,6 @@ void GdtfCredentialsPanel::OnValidateCredentials(wxCommandEvent &WXUNUSED(event)
                  _("Validate credentials"), wxOK | wxICON_WARNING, this);
     return;
   }
-  wxMessageBox("Credentials are valid and were saved.",
-               "Validate credentials", wxOK | wxICON_INFORMATION, this);
+  wxMessageBox(_("Credentials are valid and were saved."),
+               _("Validate credentials"), wxOK | wxICON_INFORMATION, this);
 }

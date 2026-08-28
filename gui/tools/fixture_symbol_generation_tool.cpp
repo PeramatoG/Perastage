@@ -87,7 +87,7 @@ std::vector<FixtureSymbolTypeOption> BuildFixtureOptions() {
 void RunFixtureSymbolGeneration(MainWindow &window) {
   auto options = BuildFixtureOptions();
   if (options.empty()) {
-    wxMessageBox("No fixtures available in this project.", "Generate Fixture Symbols",
+    wxMessageBox(_("No fixtures available in this project."), _("Generate Fixture Symbols"),
                  wxOK | wxICON_INFORMATION, &window);
     return;
   }
@@ -103,8 +103,8 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
   }
   Viewer2DOffscreenRenderer *offscreenRenderer = window.GetOffscreenRenderer();
   if (!offscreenRenderer) {
-    wxMessageBox("Could not prepare offscreen renderer.",
-                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    wxMessageBox(_("Could not prepare offscreen renderer."),
+                 _("Generate Fixture Symbols"), wxOK | wxICON_ERROR, &window);
     return;
   }
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -112,8 +112,8 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       FindSingleFixtureUuidForModelKeys(cfg.GetScene().fixtures,
                                         options[static_cast<size_t>(selection)].modelKeys);
   if (selectedFixtureUuid.empty()) {
-    wxMessageBox("Could not isolate a fixture instance for this fixture type.",
-                 "Generate Fixture Symbols", wxOK | wxICON_ERROR, &window);
+    wxMessageBox(_("Could not isolate a fixture instance for this fixture type."),
+                 _("Generate Fixture Symbols"), wxOK | wxICON_ERROR, &window);
     return;
   }
   window.PromoteManualFixtureSymbolPreparation(selectedFixtureUuid);
@@ -126,7 +126,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
       captureOptions);
   if (!capture.ok) {
     window.CompleteManualFixtureSymbolPreparation(selectedFixtureUuid, false);
-    wxMessageBox(capture.error, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
+    wxMessageBox(capture.error, _("Generate Fixture Symbols"), wxOK | wxICON_ERROR,
                  &window);
     return;
   }
@@ -139,7 +139,7 @@ void RunFixtureSymbolGeneration(MainWindow &window) {
                                                capture.symbols, calibrationError);
   if (!calibrated) {
     window.CompleteManualFixtureSymbolPreparation(selectedFixtureUuid, false);
-    wxMessageBox(calibrationError, "Generate Fixture Symbols", wxOK | wxICON_ERROR,
+    wxMessageBox(calibrationError, _("Generate Fixture Symbols"), wxOK | wxICON_ERROR,
                  &window);
     return;
   }

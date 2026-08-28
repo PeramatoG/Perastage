@@ -31,19 +31,19 @@ DictionarySelectionControls BuildDictionarySelectionControls(
   auto *buttonRow = new wxBoxSizer(wxHORIZONTAL);
 
   controls.activeFileLabel =
-      new wxStaticText(parent, wxID_ANY, "Dictionary: -", wxDefaultPosition,
+      new wxStaticText(parent, wxID_ANY, _("Dictionary: -"), wxDefaultPosition,
                        wxDefaultSize, wxST_ELLIPSIZE_MIDDLE);
   controls.activePathLabel =
-      new wxStaticText(parent, wxID_ANY, "Path: -", wxDefaultPosition,
+      new wxStaticText(parent, wxID_ANY, _("Path: -"), wxDefaultPosition,
                        wxDefaultSize, wxST_ELLIPSIZE_MIDDLE);
-  controls.openButton = new wxButton(parent, wxID_ANY, "Open...");
-  controls.newButton = new wxButton(parent, wxID_ANY, "New...");
-  controls.moreButton = new wxButton(parent, wxID_ANY, "More...");
+  controls.openButton = new wxButton(parent, wxID_ANY, _("Open..."));
+  controls.newButton = new wxButton(parent, wxID_ANY, _("New..."));
+  controls.moreButton = new wxButton(parent, wxID_ANY, _("More..."));
   controls.moreMenu = new wxMenu;
-  controls.moreMenu->Append(kDuplicateCurrentMenuId, "Duplicate Current...");
-  controls.moreMenu->Append(kUseDefaultMenuId, "Use Default");
+  controls.moreMenu->Append(kDuplicateCurrentMenuId, _("Duplicate Current..."));
+  controls.moreMenu->Append(kUseDefaultMenuId, _("Use Default"));
   controls.moreMenu->AppendSeparator();
-  controls.moreMenu->Append(kResetContentsMenuId, "Reset Contents...");
+  controls.moreMenu->Append(kResetContentsMenuId, _("Reset Contents..."));
 
   buttonRow->Add(controls.openButton, 0, wxRIGHT, 5);
   buttonRow->Add(controls.newButton, 0, wxRIGHT, 5);
@@ -88,13 +88,13 @@ void UpdateDictionarySelectionControls(
     const wxString &fullPath) {
   if (controls.activeFileLabel) {
     controls.activeFileLabel->SetLabel(
-        fileName.IsEmpty() ? wxString("Dictionary: -")
-                           : wxString("Dictionary: ") + fileName);
+        fileName.IsEmpty() ? wxString(_("Dictionary: -"))
+                           : wxString(_("Dictionary: ")) + fileName);
   }
   if (controls.activePathLabel) {
     controls.activePathLabel->SetLabel(fullPath.IsEmpty()
-                                           ? wxString("Path: -")
-                                           : wxString("Path: ") + fullPath);
+                                           ? wxString(_("Path: -"))
+                                           : wxString(_("Path: ")) + fullPath);
     controls.activePathLabel->SetToolTip(fullPath);
   }
 }

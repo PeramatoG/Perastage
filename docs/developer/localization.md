@@ -1,6 +1,6 @@
 # Localization
 
-Perastage uses wxWidgets gettext catalogs for user-facing interface text. English is the source language and default language. Spanish is the first complete translated catalog used to prove the infrastructure. Simplified Chinese (`zh_CN`) is currently scaffolded as a draft catalog and must not be treated as release-ready until it is fully translated and validated.
+Perastage uses wxWidgets gettext catalogs for user-facing interface text. English is the source language and default language. Spanish and Simplified Chinese (`zh_CN`) are complete release languages.
 
 ## User preference
 
@@ -33,7 +33,7 @@ Mark new Perastage-created user-facing UI text in the same change that introduce
 
 For formatted UI text, translate the complete format string first and then insert dynamic values. Dynamic values such as filenames, imported names, UUIDs, protocol values, fixture names, layer names, object names, paths, numeric values, and technical error details are parameters and must not be translated or normalized.
 
-Internal diagnostic logs are not the same as the user-visible Console panel. Diagnostic logs used for crash reports, files, debugging, protocol traces, and developer troubleshooting should normally stay stable English technical text. Console text that explains actions, errors, help, progress, or results to the user should be translated, while stable prefixes such as `[INFO]`, `[WARNING]`, `[ERROR]`, `[CMD]`, and `[METRIC]` remain unchanged for styling and parsing.
+The embedded Console is a GUI shell around a future external command interface. Localize its panel caption, menus, toolbar, tooltips, preferences, and GUI-only history/search/filter dialogs. Command grammar, names, arguments, flags, examples, help and option descriptions, processor output, error codes, command echo, machine-readable values, and technical logs remain stable English. Diagnostic and protocol logs used for crash reports, files, debugging, traces, and integrations also remain English, including `[INFO]`, `[WARNING]`, `[ERROR]`, `[CMD]`, and `[METRIC]` prefixes. When one operation reports to both surfaces, provide localized text at the GUI boundary while preserving a separate stable English Console message.
 
 Use the terminology in [localization_glossary.md](localization_glossary.md) for recurring technical terms. Preserve official standards and identifiers such as MVR, GDTF, DMX, Art-Net, UUID, XML, Geometry3D, Symbol, and Symdef when translating would reduce precision.
 
@@ -48,7 +48,7 @@ cmake --build build --target perastage_check_translations
 cmake --build build --target perastage_translations
 ```
 
-The helper script behind these targets is `scripts/localization_catalog.py`. It discovers tracked repository C/C++ sources with `git ls-files`, including root files such as `main.cpp`, generates `resources/locale/perastage.pot` with `xgettext`, merges source changes into enabled PO catalogs with `msgmerge`, validates catalogs with `msgfmt --check` and accelerator checks, rejects active fuzzy entries for every language, rejects untranslated active entries for complete languages, explicitly reports draft languages such as `zh_CN` as incomplete, and compares a temporary POT with the committed POT so stale templates fail the check. The audit inspects balanced wxWidgets UI call expressions across multiple lines for unmarked string literals. `scripts/localization_audit_allowlist.txt` accepts only documented stable exceptions in `path|literal|category|reason` format; localization-debt entries are rejected.
+The helper script behind these targets is `scripts/localization_catalog.py`. It discovers tracked repository C/C++ sources with `git ls-files`, generates `resources/locale/perastage.pot`, merges PO changes, validates catalogs and accelerators, rejects fuzzy or untranslated COMPLETE entries, and rejects a stale committed POT. Its high-confidence audit automatically covers tracked presentation sources under `gui/`, `viewer2d/`, and `viewer3d/`, plus explicit root presentation entry points, so modular files cannot silently escape review. `scripts/localization_audit_allowlist.txt` accepts only narrow documented stable exceptions in `path|literal|category|reason` format; localization debt is rejected.
 
 Developers may edit PO files directly or with Poedit. External translators can submit pull requests that change only `resources/locale/<language>/LC_MESSAGES/perastage.po`; maintainers should run `perastage_check_translations` and `perastage_translations` before merging.
 
@@ -69,13 +69,13 @@ cmake --build build --target perastage_translations
 Localization startup diagnostics report the requested language, active language, catalog-found state, catalog-load result, and the selected or expected catalog path suffixes. For Spanish startup, a successful run reports `requested=es active=es` and `catalog_loaded=1`. For Simplified Chinese startup with the draft catalog present, a successful run reports `Localization initialized: requested=zh_CN active=zh_CN catalog_found=1 catalog_loaded=1`.
 
 
-## Simplified Chinese draft catalog completion
+## Complete-language review
 
-The Simplified Chinese catalog lives at `resources/locale/zh_CN/LC_MESSAGES/perastage.po` and intentionally contains empty active `msgstr` entries while it is draft-only. Before any Simplified Chinese localization pull request is marked ready to merge:
+Spanish and Simplified Chinese catalogs must keep every active entry translated and non-fuzzy. Before a localization pull request is marked ready to merge:
 
 1. Fill every active `msgstr` in `resources/locale/zh_CN/LC_MESSAGES/perastage.po`.
 2. Validate placeholders, accelerator markers, line breaks, and format flags against the source text.
-3. Remove `zh_CN` from `DRAFT_LANGUAGES` and add it to `COMPLETE_LANGUAGES` in `scripts/localization_catalog.py`.
+3. Keep release languages in `COMPLETE_LANGUAGES` in `scripts/localization_catalog.py`.
 4. Run strict catalog checks with `cmake --build build --target perastage_check_translations` or `python3 scripts/localization_catalog.py check-po`.
 5. Run runtime localization tests, including catalog-loading and fallback coverage.
 6. Only then mark the draft pull request ready to merge.

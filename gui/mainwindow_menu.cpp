@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "about_dialog.h"
+#include "gdtf_share_message_formatter.h"
 #include "filesystem_path_utils.h"
 #include "mainwindow.h"
 #include "mainwindow/controllers/mainwindow_io_controller.h"
@@ -651,8 +652,8 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
       if (dialogCredentials.username.empty() ||
           dialogCredentials.password.empty()) {
-        showGdtfDownloadError("Please provide username and password.",
-                              "Login Error");
+        showGdtfDownloadError(_("Please provide username and password."),
+                              _("Login Error"));
         return false;
       }
 
@@ -706,7 +707,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
       if (consolePanel)
         consolePanel->AppendMessage(
             "[INFO] Logging into GDTF Share using libcurl");
-      updateGdtfDownloadBusyOverlay("Logging in to GDTF Share...");
+      updateGdtfDownloadBusyOverlay(_("Logging in to GDTF Share..."));
       loginResult = gdtfClient.Login(activeCredentials->username,
                                      activeCredentials->password);
       gdtfWorkflowState.lastAuthenticationResult = loginResult;
@@ -742,9 +743,9 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
 
     GdtfShareResult loginResult;
     if (!ensureAuthenticated(loginResult)) {
-      showGdtfDownloadError(wxString::FromUTF8(
-                                FormatGdtfShareUserMessage(loginResult, "login")),
-                            "Login Error");
+      showGdtfDownloadError(FormatLocalizedGdtfShareUserMessage(
+                                loginResult, GdtfShareGuiOperation::Login),
+                            _("Login Error"));
       return;
     }
 
@@ -763,7 +764,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
     const wxString suggestedFileName = wxString::FromUTF8(
         gdtf_download_filename::BuildReadableFileName(manufacturer,
                                                       fixtureName));
-    wxFileDialog saveDlg(this, "Save GDTF file", fixDir, suggestedFileName,
+    wxFileDialog saveDlg(this, _("Save GDTF file"), fixDir, suggestedFileName,
                          "*.gdtf", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     clearGdtfDownloadBlockingUi();
     if (saveDlg.ShowModal() == wxID_OK) {
@@ -773,7 +774,7 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
           diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
       if (!rid.empty()) {
         gdtfDownloadDisabler = std::make_unique<wxWindowDisabler>();
-        updateGdtfDownloadBusyOverlay("Downloading GDTF from GDTF Share...");
+        updateGdtfDownloadBusyOverlay(_("Downloading GDTF from GDTF Share..."));
         if (consolePanel)
           consolePanel->AppendMessage("[INFO] Downloading via libcurl rid=" +
                                       rid);
@@ -800,19 +801,20 @@ void MainWindow::OnDownloadGdtf(wxCommandEvent &WXUNUSED(event)) {
               "GDTF download completed: " +
               diagnostics::DiagnosticLogger::FileNameOnly(WxToUtf8(dest)));
           int addNow =
-              wxMessageBox("GDTF downloaded successfully. Do you want to add "
-                           "it to the project now?",
-                           "Success", wxYES_NO | wxICON_QUESTION, this);
+              wxMessageBox(_("GDTF downloaded successfully. Do you want to add "
+                           "it to the project now?"),
+                           _("Success"), wxYES_NO | wxICON_QUESTION, this);
           if (addNow == wxYES)
             AddFixtureFromGdtfPath(WxToUtf8(dest));
         } else {
           diagnostics::DiagnosticLogger::Error("GDTF download failed: http=" +
                                                std::to_string(dlCode));
-          wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(downloadResult, "download")), "Error",
+          wxMessageBox(FormatLocalizedGdtfShareUserMessage(
+                           downloadResult, GdtfShareGuiOperation::Download), _("Error"),
                        wxOK | wxICON_ERROR);
         }
       } else {
-        wxMessageBox("Download information missing.", "Error",
+        wxMessageBox(_("Download information missing."), _("Error"),
                      wxOK | wxICON_ERROR);
       }
     }
@@ -831,8 +833,8 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
   const std::string fixturesPath =
       ProjectUtils::GetWritableLibraryPath("fixtures");
   if (fixturesPath.empty()) {
-    wxMessageBox("Could not resolve writable user library path.",
-                 "Open user library folder", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Could not resolve writable user library path."),
+                 _("Open user library folder"), wxOK | wxICON_ERROR);
     return;
   }
 
@@ -843,8 +845,8 @@ void MainWindow::OnOpenUserLibraryFolder(wxCommandEvent &WXUNUSED(event)) {
                                     folderPathUtf8.end());
   const wxString folderPath = wxString::FromUTF8(folderPathBytes.c_str());
   if (!wxLaunchDefaultApplication(folderPath)) {
-    wxMessageBox("Could not open the user library folder.",
-                 "Open user library folder", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Could not open the user library folder."),
+                 _("Open user library folder"), wxOK | wxICON_ERROR);
   }
 }
 
@@ -878,25 +880,26 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (hoistPositions.empty()) {
-    wxMessageBox("No hoists available for weight distribution.",
-                 "Distribute hoist weights", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("No hoists available for weight distribution."),
+                 _("Distribute hoist weights"), wxOK | wxICON_INFORMATION);
     return;
   }
 
   wxArrayString choices;
-  choices.Add("All positions");
+  choices.Add(_("All positions"));
   for (const std::string &positionName : hoistPositions)
     choices.Add(wxString::FromUTF8(positionName));
 
   wxSingleChoiceDialog dialog(
-      this, "Select hang position(s) to distribute hoist weights.",
-      "Distribute hoist weights", choices);
+      this, _("Select hang position(s) to distribute hoist weights."),
+      _("Distribute hoist weights"), choices);
   dialog.SetSelection(0);
   if (dialog.ShowModal() != wxID_OK)
     return;
 
+  const int selectedIndex = dialog.GetSelection();
   const wxString selectedChoice = dialog.GetStringSelection();
-  const bool applyAllPositions = selectedChoice == "All positions";
+  const bool applyAllPositions = selectedIndex == 0;
   const std::string selectedPosition = WxToUtf8(selectedChoice);
 
   std::vector<std::string> selectedSupportUuids;
@@ -909,8 +912,8 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   }
 
   if (selectedSupportUuids.empty()) {
-    wxMessageBox("No hoists found for the selected position.",
-                 "Distribute hoist weights", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("No hoists found for the selected position."),
+                 _("Distribute hoist weights"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -1024,7 +1027,7 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedFixtures();
   if (selected.empty()) {
-    wxMessageBox("Please select fixtures to convert first.", "Convert to Hoist",
+    wxMessageBox(_("Please select fixtures to convert first."), _("Convert to Hoist"),
                  wxOK | wxICON_INFORMATION);
     return;
   }
@@ -1036,8 +1039,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
       convertible.push_back(uuid);
   }
   if (convertible.empty()) {
-    wxMessageBox("The selected fixtures cannot be converted.",
-                 "Convert to Hoist", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("The selected fixtures cannot be converted."),
+                 _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
     return;
   }
   cfg.PushUndoState("convert fixtures to hoists");
@@ -1065,8 +1068,8 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
   RefreshRigging();
 
   wxMessageBox(
-      wxString::Format("Converted %zu fixture(s) to hoists.", newIds.size()),
-      "Convert to Hoist", wxOK | wxICON_INFORMATION);
+      wxString::Format(_("Converted %zu fixture(s) to hoists."), newIds.size()),
+      _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
 }
 
 
@@ -1075,8 +1078,8 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   ConfigManager &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
   const auto selected = cfg.GetSelectedSceneObjects();
   if (selected.empty()) {
-    wxMessageBox("Please select a scene object to convert first.",
-                 "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("Please select a scene object to convert first."),
+                 _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -1085,8 +1088,8 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   const SceneObjectToTrussConversionResult result =
       ConvertSceneObjectsWithSameModelToTrusses(scene, selected.front());
   if (result.convertedUuids.empty()) {
-    wxMessageBox("No scene objects with a valid model file were converted.",
-                 "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+    wxMessageBox(_("No scene objects with a valid model file were converted."),
+                 _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
     return;
   }
 
@@ -1108,10 +1111,10 @@ void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {
   RefreshSummary();
   RefreshRigging();
 
-  wxMessageBox(wxString::Format("Converted %zu scene object(s) with model '%s' to truss.",
+  wxMessageBox(wxString::Format(_("Converted %zu scene object(s) with model '%s' to truss."),
                                 result.convertedUuids.size(),
                                 wxString::FromUTF8(result.modelFile).c_str()),
-               "Convert Scene Objects to Truss", wxOK | wxICON_INFORMATION);
+               _("Convert Scene Objects to Truss"), wxOK | wxICON_INFORMATION);
 }
 
 // Runs the fixture symbol generation tool when the feature is enabled.
@@ -1233,15 +1236,15 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     const wxSize dialogSize(
         std::max(900, static_cast<int>(parentSize.x * 0.85)),
         std::max(700, static_cast<int>(parentSize.y * 0.85)));
-    wxDialog dlg(this, wxID_ANY, wxString::FromUTF8("Perastage Help"),
+    wxDialog dlg(this, wxID_ANY, _("Perastage Help"),
                  wxDefaultPosition, dialogSize,
                  wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
     wxBoxSizer *langSizer = new wxBoxSizer(wxHORIZONTAL);
     wxStaticText *langLabel = new wxStaticText(&dlg, wxID_ANY, _("Language:"));
     wxChoice *langChoice = new wxChoice(&dlg, wxID_ANY);
-    langChoice->Append(wxString::FromUTF8("English"));
-    langChoice->Append(wxString::FromUTF8("Español"));
+    langChoice->Append(_("English"));
+    langChoice->Append(_("Español"));
     langChoice->SetSelection(0);
     langSizer->Add(langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
     langSizer->Add(langChoice, 0, wxALIGN_CENTER_VERTICAL);
@@ -1267,8 +1270,8 @@ void MainWindow::OnShowHelp(wxCommandEvent &WXUNUSED(event)) {
     dlg.SetSizer(sizer);
     dlg.ShowModal();
   } else {
-    wxMessageBox(wxString::FromUTF8("help.md file not found"),
-                 wxString::FromUTF8("Perastage Help"), wxOK | wxICON_ERROR,
+    wxMessageBox(_("help.md file not found"),
+                 _("Perastage Help"), wxOK | wxICON_ERROR,
                  this);
   }
 }
@@ -1286,9 +1289,9 @@ void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
   if (!diagnostics::DiagnosticPaths::EnsureDirectory(logsDirectory, &error)) {
     diagnostics::DiagnosticLogger::Error("Unable to open logs folder: " +
                                          error);
-    wxMessageBox(
-        wxString::FromUTF8("Could not create the logs folder.\n\n" + error),
-        wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_ERROR, this);
+    wxMessageBox(wxString::Format(_("Could not create the logs folder.\n\n%s"),
+                                  wxString::FromUTF8(error)),
+                 _("Perastage Diagnostics"), wxOK | wxICON_ERROR, this);
     return;
   }
 
@@ -1304,9 +1307,9 @@ void MainWindow::OnOpenLogsFolder(wxCommandEvent &WXUNUSED(event)) {
 #endif
   const bool launched = wxExecute(command, wxEXEC_ASYNC) != 0;
   if (!launched) {
-    wxMessageBox(wxString::FromUTF8("Could not open the logs folder.\n\n" +
-                                    logsDirectory.string()),
-                 wxString::FromUTF8("Perastage Diagnostics"),
+    wxMessageBox(wxString::Format(_("Could not open the logs folder.\n\n%s"),
+                                  wxString::FromUTF8(logsDirectory.string())),
+                 _("Perastage Diagnostics"),
                  wxOK | wxICON_WARNING, this);
   }
 }
@@ -1319,19 +1322,19 @@ void MainWindow::OnExportDiagnosticReport(wxCommandEvent &WXUNUSED(event)) {
   if (!diagnostics::DiagnosticReport::ExportToFile(&reportPath, &error)) {
     diagnostics::DiagnosticLogger::Error("Diagnostic report export failed: " +
                                          error);
-    wxMessageBox(wxString::FromUTF8(
-                     "Could not export the diagnostic report.\n\n" + error),
-                 wxString::FromUTF8("Perastage Diagnostics"),
+    wxMessageBox(wxString::Format(
+                     _("Could not export the diagnostic report.\n\n%s"),
+                     wxString::FromUTF8(error)),
+                 _("Perastage Diagnostics"),
                  wxOK | wxICON_ERROR, this);
     return;
   }
 
   diagnostics::DiagnosticLogger::Info("Diagnostic report exported.");
-  wxMessageBox(
-      wxString::FromUTF8("Diagnostic report exported successfully.\n\n" +
-                         reportPath.string()),
-      wxString::FromUTF8("Perastage Diagnostics"), wxOK | wxICON_INFORMATION,
-      this);
+  wxMessageBox(wxString::Format(
+                   _("Diagnostic report exported successfully.\n\n%s"),
+                   wxString::FromUTF8(reportPath.string())),
+               _("Perastage Diagnostics"), wxOK | wxICON_INFORMATION, this);
 }
 
 // Checks the latest release asynchronously and shows a result dialog with
@@ -1350,13 +1353,12 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
       busyInfo.reset();
       disabler.reset();
 
-      wxString title = "Perastage Updates";
+      wxString title = _("Perastage Updates");
       if (result.status == gui::update::CheckStatus::CheckFailed) {
-        wxString message = "Could not check for updates.\n\n";
+        wxString message = _("Could not check for updates.\n\n");
         message +=
             result.errorMessage.empty()
-                ? wxString::FromUTF8(
-                      "Please verify your network connection and try again.")
+                ? _("Please verify your network connection and try again.")
                 : wxString::FromUTF8(result.errorMessage);
         wxMessageBox(message, title, wxOK | wxICON_WARNING, this);
         return;
@@ -1364,11 +1366,12 @@ void MainWindow::OnCheckForUpdates(wxCommandEvent &WXUNUSED(event)) {
 
       const wxString currentVersion = wxString::FromUTF8(result.currentVersion);
       const wxString latestVersion = wxString::FromUTF8(result.latestVersion);
-      wxString message = "Current version: " + currentVersion + "\n" +
-                         "Latest version: " + latestVersion + "\n\n";
+      wxString message = wxString::Format(
+          _("Current version: %s\nLatest version: %s\n\n"), currentVersion,
+          latestVersion);
 
       if (result.status == gui::update::CheckStatus::UpToDate) {
-        message += "You are up to date.";
+        message += _("You are up to date.");
         wxMessageBox(message, title, wxOK | wxICON_INFORMATION, this);
         return;
       }
@@ -1562,7 +1565,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
     if (dlgRes == wxID_OPEN) {
       wxString fixDir =
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-      wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString,
+      wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString,
                         "*.gdtf", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
         return;
@@ -1585,7 +1588,7 @@ void MainWindow::OnAddFixture(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+    wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString, "*.gdtf",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
       return;
@@ -1618,7 +1621,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
       wxString trussDir =
           wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
       wxFileDialog fdlg(
-          this, "Select Truss file", trussDir, wxEmptyString,
+          this, _("Select Truss file"), trussDir, wxEmptyString,
           wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
           wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1637,7 +1640,7 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     wxString trussDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
     wxFileDialog fdlg(
-        this, "Select Truss file", trussDir, wxEmptyString,
+        this, _("Select Truss file"), trussDir, wxEmptyString,
         wxString::FromUTF8(GetTrussDefinitionFileDialogWildcard()),
         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)
@@ -1662,9 +1665,9 @@ void MainWindow::OnAddTruss(wxCommandEvent &WXUNUSED(event)) {
     Logger::Instance().Log(Logger::Level::Warn,
                            "Add truss validation failed: extension='" +
                                selectedExtension + "' path='" + path + "'.");
-    wxMessageBox("Unsupported or unreadable truss file. Supported formats are "
-                 "GDTF, GTruss, GLB, and 3DS.",
-                 "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Unsupported or unreadable truss file. Supported formats are "
+                 "GDTF, GTruss, GLB, and 3DS."),
+                 _("Error"), wxOK | wxICON_ERROR);
     return;
   }
   if (!baseTruss.name.empty())
@@ -1845,7 +1848,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
     if (dlgRes == wxID_OPEN) {
       wxString objDir = wxString::FromUTF8(
           ProjectUtils::GetWritableLibraryPath("scene_objects"));
-      wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
+      wxFileDialog fdlg(this, _("Select Object file"), objDir, wxEmptyString,
                         "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
                         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
       if (fdlg.ShowModal() != wxID_OK)
@@ -1867,7 +1870,7 @@ void MainWindow::OnAddSceneObject(wxCommandEvent &WXUNUSED(event)) {
   } else {
     wxString objDir = wxString::FromUTF8(
         ProjectUtils::GetWritableLibraryPath("scene_objects"));
-    wxFileDialog fdlg(this, "Select Object file", objDir, wxEmptyString,
+    wxFileDialog fdlg(this, _("Select Object file"), objDir, wxEmptyString,
                       "3D Models (*.3ds;*.glb;*.obj)|*.3ds;*.glb;*.obj",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() != wxID_OK)

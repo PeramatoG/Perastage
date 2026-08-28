@@ -23,3 +23,19 @@ This glossary records preferred Spanish terminology for recurring Perastage UI s
 | Hoist | motor | Preferred UI term for chain hoists where context is rigging. |
 | Layout | layout | Retained because it is already established in the Perastage UI. |
 | Viewport | visor | Preferred UI term for interactive viewports. |
+
+## Simplified Chinese guidance
+
+| English term | Simplified Chinese guidance | Notes |
+| --- | --- | --- |
+| MVR / GDTF / DMX / Art-Net / UUID / XML | Preserve in English | Official protocol, format, or identifier names. |
+| Symbol / Symdef | 符号 / Symdef | Preserve `Symdef` when it is the schema concept. |
+| Gobo | 图案片 | Keep `Gobo` unchanged where it is an official name or imported value. |
+| Pan / Tilt | 水平旋转 / 垂直旋转 | Preserve English in channel and function identifiers. |
+| Truss | 桁架 | Entertainment-rigging structure. |
+| Rigging | 吊挂 | Use for the general workflow; preserve imported names. |
+| Patch / Auto patch | 配接 / 自动配接 | DMX address assignment UI. |
+| Fixture | 灯具 | Lighting fixture. |
+| Hoist | 葫芦 | Chain-hoist UI; never alter object names. |
+| Layout | 布局 | Drawing/layout presentation. |
+| Viewport | 视口 | Interactive 2D or 3D viewport. |

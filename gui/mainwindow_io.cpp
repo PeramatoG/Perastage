@@ -227,8 +227,8 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
 
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
-  wxString filter = "Perastage files (*" + projectExtension + ")|*" +
-                    projectExtension;
+  wxString filter = wxString::Format(_("Perastage files (*%s)|*%s"),
+                                     projectExtension, projectExtension);
   wxString projDir;
   if (auto last = ProjectUtils::LoadLastProjectPath())
     projDir =
@@ -236,7 +236,7 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
   else
     projDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("projects"));
-  wxFileDialog dlg(this, "Open Project", projDir, "", filter,
+  wxFileDialog dlg(this, _("Open Project"), projDir, "", filter,
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -247,7 +247,7 @@ void MainWindow::OnLoad(wxCommandEvent &event) {
       "Project open selected: " +
       diagnostics::DiagnosticLogger::FileNameOnly(Utf8StringFromPath(selectedPath)));
   if (!LoadProjectFromPath(Utf8StringFromPath(selectedPath)))
-    wxMessageBox("Failed to load project.", "Error", wxOK | wxICON_ERROR,
+    wxMessageBox(_("Failed to load project."), _("Error"), wxOK | wxICON_ERROR,
                  this);
 }
 
@@ -338,8 +338,8 @@ void MainWindow::OnSave(wxCommandEvent &event) {
         "Project save failed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
         " - " + reason);
-    wxMessageBox("Failed to save project.\n\n" + wxString::FromUTF8(reason),
-                 "Error", wxOK | wxICON_ERROR, this);
+    wxMessageBox(_("Failed to save project.\n\n") + wxString::FromUTF8(reason),
+                 _("Error"), wxOK | wxICON_ERROR, this);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "Project save completed: " +
@@ -363,8 +363,8 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
   diagnostics::DiagnosticLogger::Info("Project save-as requested.");
   const wxString projectExtension =
       wxString::FromUTF8(ProjectUtils::PROJECT_EXTENSION);
-  wxString filter = "Perastage files (*" + projectExtension + ")|*" +
-                    projectExtension;
+  wxString filter = wxString::Format(_("Perastage files (*%s)|*%s"),
+                                     projectExtension, projectExtension);
   wxString projDir;
   if (!currentProjectPath.empty())
     projDir = wxString::FromUTF8(
@@ -382,7 +382,7 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
       suggestedProjectName.IsEmpty() ? wxString()
                                      : suggestedProjectName + projectExtension;
 
-  wxFileDialog dlg(this, "Save Project", projDir, suggestedFileName, filter,
+  wxFileDialog dlg(this, _("Save Project"), projDir, suggestedFileName, filter,
                    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;
@@ -409,8 +409,8 @@ void MainWindow::OnSaveAs(wxCommandEvent &event) {
         "Project save-as failed: " +
         diagnostics::DiagnosticLogger::FileNameOnly(currentProjectPath) +
         " - " + reason);
-    wxMessageBox("Failed to save project.\n\n" + wxString::FromUTF8(reason),
-                 "Error", wxICON_ERROR);
+    wxMessageBox(_("Failed to save project.\n\n") + wxString::FromUTF8(reason),
+                 _("Error"), wxICON_ERROR);
   } else {
     diagnostics::DiagnosticLogger::Info(
         "Project save-as completed: " +
@@ -434,7 +434,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   diagnostics::DiagnosticLogger::Info("Text/rider import requested.");
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("misc"));
-  wxFileDialog dlg(this, "Import Rider", miscDir, "",
+  wxFileDialog dlg(this, _("Import Rider"), miscDir, "",
                    "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
@@ -467,7 +467,7 @@ void MainWindow::OnImportRider(wxCommandEvent &event) {
   if (!RiderImporter::ImportText(
           preparedRiderText.empty() ? riderText : preparedRiderText, {}, true,
           &importPlan)) {
-    wxMessageBox("Failed to import rider.", "Error", wxICON_ERROR);
+    wxMessageBox(_("Failed to import rider."), _("Error"), wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import " + dlg.GetPath());
   } else {
@@ -491,7 +491,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
 
   const std::string riderText = dlg.GetRiderTextUtf8();
   if (riderText.empty()) {
-    wxMessageBox("Rider text is empty.", "Error", wxICON_ERROR);
+    wxMessageBox(_("Rider text is empty."), _("Error"), wxICON_ERROR);
     return;
   }
 
@@ -532,29 +532,29 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
               if (!createProgress) {
                 createOverlay.reset();
                 createProgress = std::make_unique<wxProgressDialog>(
-                    "Text scene creation progress", stageText, safeTotal, this,
+                    _("Text scene creation progress"), stageText, safeTotal, this,
                     wxPD_AUTO_HIDE | wxPD_SMOOTH | wxPD_APP_MODAL);
               } else {
                 createProgress->SetRange(safeTotal);
               }
               createProgress->Update(clampedCompleted, stageText);
               SetStatusText(
-                  wxString::Format("Text import: %s (%d/%d)", stageText,
+                  wxString::Format(_("Text import: %s (%d/%d)"), stageText,
                                    clampedCompleted, safeTotal),
                   0);
             } else {
               if (createProgress)
                 createProgress->Pulse(stageText);
-              SetStatusText("Text import: " + stageText, 0);
+              SetStatusText(wxString::Format(_("Text import: %s"), stageText), 0);
             }
             GetStatusBar()->Update();
           },
           true, &importPlan)) {
-    wxMessageBox("Failed to import rider text.", "Error", wxICON_ERROR);
+    wxMessageBox(_("Failed to import rider text."), _("Error"), wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage("[ERROR] Failed to import rider from text.");
     if (GetStatusBar())
-      SetStatusText("Text import failed.", 0);
+      SetStatusText(_("Text import failed."), 0);
     return;
   }
 
@@ -576,7 +576,7 @@ void MainWindow::OnImportRiderText(wxCommandEvent &WXUNUSED(event)) {
     }
   }
   if (GetStatusBar())
-    SetStatusText("Text import completed.", 0);
+    SetStatusText(_("Text import completed."), 0);
 }
 
 // Handles MVR file selection, import, and updates fixture/truss panels
@@ -598,7 +598,7 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   const wxString suggestedFileName = suggestedProjectName.IsEmpty()
                                          ? wxString()
                                          : suggestedProjectName + ".mvr";
-  wxFileDialog saveFileDialog(this, "Export MVR file", miscDir,
+  wxFileDialog saveFileDialog(this, _("Export MVR file"), miscDir,
                               suggestedFileName, "MVR files (*.mvr)|*.mvr",
                               wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
@@ -614,7 +614,7 @@ void MainWindow::OnExportMVR(wxCommandEvent &event) {
   SyncSceneData();
   const MvrExportOptions exportOptions = mvr::preferences::LoadExportOptions(
       guiConfigServices->LegacyConfigManager());
-  wxBusyInfo *busy = new wxBusyInfo("Saving project...", this);
+  wxBusyInfo *busy = new wxBusyInfo(_("Saving project..."), this);
   const bool exported =
       exporter.ExportToFile(path.ToStdString(), exportOptions);
   delete busy;
@@ -643,7 +643,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   for (const auto &[uuid, t] : trusses)
     names.insert(t.name);
   if (names.empty()) {
-    wxMessageBox("No truss data available.", "Export Truss",
+    wxMessageBox(_("No truss data available."), _("Export Truss"),
                  wxOK | wxICON_INFORMATION);
     return;
   }
@@ -671,7 +671,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
           chosen->name.empty() ? sel : chosen->name);
   wxString trussDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("trusses"));
-  wxFileDialog saveDlg(this, "Save Truss", trussDir,
+  wxFileDialog saveDlg(this, _("Save Truss"), trussDir,
                        wxString::FromUTF8(canonicalFileName),
                        "GDTF files (*.gdtf)|*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -683,7 +683,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   if (fs::path(modelPath).is_relative() && !scene.basePath.empty())
     modelPath = (fs::path(scene.basePath) / modelPath).string();
   if (!fs::exists(modelPath)) {
-    wxMessageBox("Model file not found.", "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Model file not found."), _("Error"), wxOK | wxICON_ERROR);
     return;
   }
 
@@ -692,8 +692,8 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   std::string error;
   const std::string exportedPath = std::string(saveDlg.GetPath().mb_str());
   if (!BuildTrussGdtfFromInstance(exportTruss, exportedPath, &error)) {
-    wxMessageBox(error.empty() ? "Failed to export truss GDTF." : error,
-                 "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(error.empty() ? _("Failed to export truss GDTF.") : error,
+                 _("Error"), wxOK | wxICON_ERROR);
     return;
   }
 
@@ -702,7 +702,7 @@ void MainWindow::OnExportTruss(wxCommandEvent &WXUNUSED(event)) {
   chosen->perastageAuxGdtfArchivePath = canonicalFileName;
   chosen->gdtfMode = chosen->gdtfMode.empty() ? "Default" : chosen->gdtfMode;
 
-  wxMessageBox("Truss exported successfully.", "Export Truss",
+  wxMessageBox(_("Truss exported successfully."), _("Export Truss"),
                wxOK | wxICON_INFORMATION);
 }
 
@@ -716,7 +716,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     if (!f.typeName.empty())
       types.insert(f.typeName);
   if (types.empty()) {
-    wxMessageBox("No fixture data available.", "Export Fixture",
+    wxMessageBox(_("No fixture data available."), _("Export Fixture"),
                  wxOK | wxICON_INFORMATION);
     return;
   }
@@ -743,7 +743,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   if (originalSrc.is_relative() && !base.empty())
     originalSrc = fs::path(base) / originalSrc;
   if (!fs::exists(originalSrc)) {
-    wxMessageBox("GDTF file not found.", "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(_("GDTF file not found."), _("Error"), wxOK | wxICON_ERROR);
     return;
   }
 
@@ -756,8 +756,8 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
         chosenTypeName, effectiveSrc.string(), chosen->gdtfMode,
         chosen->category);
     if (!derivative || derivative->path.empty()) {
-      wxMessageBox("Could not create the Perastage fixture derivative.",
-                   "Export Fixture", wxOK | wxICON_ERROR);
+      wxMessageBox(_("Could not create the Perastage fixture derivative."),
+                   _("Export Fixture"), wxOK | wxICON_ERROR);
       return;
     }
     effectiveSrc = PathUtils::PathFromUtf8(derivative->path);
@@ -765,8 +765,8 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
     if (!SetGdtfProperties(effectiveSrc.string(), chosen->weightKg,
                            chosen->powerConsumptionW,
                            GdtfMutationAudit::BuildPerastageModifiedBy())) {
-      wxMessageBox("Could not update the Perastage fixture derivative.",
-                   "Export Fixture", wxOK | wxICON_ERROR);
+      wxMessageBox(_("Could not update the Perastage fixture derivative."),
+                   _("Export Fixture"), wxOK | wxICON_ERROR);
       return;
     }
     std::string derivativeSpec = effectiveSrc.string();
@@ -774,7 +774,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
       std::string copyError;
       if (!CopyFixtureGdtfIntoProject(effectiveSrc, fs::path(scene.basePath),
                                       derivativeSpec, copyError)) {
-        wxMessageBox(wxString::FromUTF8(copyError), "Export Fixture",
+        wxMessageBox(wxString::FromUTF8(copyError), _("Export Fixture"),
                      wxOK | wxICON_ERROR);
         return;
       }
@@ -797,7 +797,7 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
                       : PathUtils::PathFromUtf8(chosenGdtfSpec)
                             .filename()
                             .string();
-  wxFileDialog saveDlg(this, "Save Fixture", fixDir,
+  wxFileDialog saveDlg(this, _("Save Fixture"), fixDir,
                        wxString::FromUTF8(defaultName), "*.gdtf",
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
@@ -809,10 +809,10 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
   if (fs::exists(target, equivalentError) &&
       fs::equivalent(target, originalSrc, equivalentError)) {
     const int answer = wxMessageBox(
-        "This will overwrite the original GDTF library asset. Perastage "
+        _("This will overwrite the original GDTF library asset. Perastage "
         "normally preserves originals and exports a derived copy instead.\n\n"
-        "Do you want to overwrite the original GDTF file?",
-        "Overwrite Original GDTF", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+        "Do you want to overwrite the original GDTF file?"),
+        _("Overwrite Original GDTF"), wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
         this);
     if (answer != wxYES)
       return;
@@ -829,13 +829,14 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
                   copyError);
     if (copyError) {
       wxMessageBox(
-          "Failed to write file: " + wxString::FromUTF8(copyError.message()),
-          "Error", wxOK | wxICON_ERROR);
+          wxString::Format(_("Failed to write file: %s"),
+                           wxString::FromUTF8(copyError.message())),
+          _("Error"), wxOK | wxICON_ERROR);
       return;
     }
   }
 
-  wxMessageBox("Fixture exported successfully.", "Export Fixture",
+  wxMessageBox(_("Fixture exported successfully."), _("Export Fixture"),
                wxOK | wxICON_INFORMATION);
 }
 
@@ -848,7 +849,7 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
     if (!obj.name.empty())
       names.insert(obj.name);
   if (names.empty()) {
-    wxMessageBox("No scene objects available.", "Export Scene Object",
+    wxMessageBox(_("No scene objects available."), _("Export Scene Object"),
                  wxOK | wxICON_INFORMATION);
     return;
   }
@@ -872,7 +873,7 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
   if (src.is_relative() && !scene.basePath.empty())
     src = fs::path(scene.basePath) / src;
   if (!fs::exists(src)) {
-    wxMessageBox("Model file not found.", "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Model file not found."), _("Error"), wxOK | wxICON_ERROR);
     return;
   }
 
@@ -880,7 +881,7 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
       wxString::FromUTF8(sel) + wxString(src.extension().string());
   wxString objDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("scene_objects"));
-  wxFileDialog saveDlg(this, "Save Object", objDir, defName,
+  wxFileDialog saveDlg(this, _("Save Object"), objDir, defName,
                        wxString("*") + wxString(src.extension().string()),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (saveDlg.ShowModal() != wxID_OK)
@@ -890,11 +891,11 @@ void MainWindow::OnExportSceneObject(wxCommandEvent &WXUNUSED(event)) {
   std::error_code ec;
   fs::copy_file(src, dest, fs::copy_options::overwrite_existing, ec);
   if (ec) {
-    wxMessageBox("Failed to copy file.", "Error", wxOK | wxICON_ERROR);
+    wxMessageBox(_("Failed to copy file."), _("Error"), wxOK | wxICON_ERROR);
     return;
   }
 
-  wxMessageBox("Object exported successfully.", "Export Scene Object",
+  wxMessageBox(_("Object exported successfully."), _("Export Scene Object"),
                wxOK | wxICON_INFORMATION);
 }
 
@@ -911,7 +912,7 @@ void MainWindow::OnExportCSV(wxCommandEvent &WXUNUSED(event)) {
   if (options.IsEmpty())
     return;
 
-  wxSingleChoiceDialog dlg(this, "Select table", "Export CSV", options);
+  wxSingleChoiceDialog dlg(this, _("Select table"), _("Export CSV"), options);
   if (dlg.ShowModal() != wxID_OK)
     return;
 

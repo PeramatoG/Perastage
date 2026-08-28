@@ -46,23 +46,22 @@ MvrExportDiagnosticCode PresentationCode(MvrExportDiagnosticCode code) {
 
 // Returns concise user-facing copy for a diagnostic category.
 wxString SummaryFor(MvrExportDiagnosticCode code, size_t count) {
-  const wxString amount = wxString::FromUTF8(std::to_string(count));
   switch (code) {
-  case MvrExportDiagnosticCode::GdtfFallbackUsed: return amount + " fixtures used a fallback GDTF.";
-  case MvrExportDiagnosticCode::DmxAddressOmitted: return amount + " DMX addresses were omitted.";
-  case MvrExportDiagnosticCode::IdentityGenerated: return amount + " object identities were repaired.";
-  case MvrExportDiagnosticCode::ReferenceCleared: return amount + " unresolved references were omitted.";
-  case MvrExportDiagnosticCode::ForeignMetadataDiscarded: return amount + " third-party metadata blocks could not be preserved.";
-  case MvrExportDiagnosticCode::TextureMissing: return amount + " model texture dependencies were omitted.";
+  case MvrExportDiagnosticCode::GdtfFallbackUsed: return wxString::Format(wxPLURAL("%zu fixture used a fallback GDTF.", "%zu fixtures used a fallback GDTF.", count), count);
+  case MvrExportDiagnosticCode::DmxAddressOmitted: return wxString::Format(wxPLURAL("%zu DMX address was omitted.", "%zu DMX addresses were omitted.", count), count);
+  case MvrExportDiagnosticCode::IdentityGenerated: return wxString::Format(wxPLURAL("%zu object identity was repaired.", "%zu object identities were repaired.", count), count);
+  case MvrExportDiagnosticCode::ReferenceCleared: return wxString::Format(wxPLURAL("%zu unresolved reference was omitted.", "%zu unresolved references were omitted.", count), count);
+  case MvrExportDiagnosticCode::ForeignMetadataDiscarded: return wxString::Format(wxPLURAL("%zu third-party metadata block could not be preserved.", "%zu third-party metadata blocks could not be preserved.", count), count);
+  case MvrExportDiagnosticCode::TextureMissing: return wxString::Format(wxPLURAL("%zu model texture dependency was omitted.", "%zu model texture dependencies were omitted.", count), count);
   case MvrExportDiagnosticCode::ResourceMissing:
-  case MvrExportDiagnosticCode::ResourceDuplicate: return amount + " archive resources could not be preserved.";
+  case MvrExportDiagnosticCode::ResourceDuplicate: return wxString::Format(wxPLURAL("%zu archive resource could not be preserved.", "%zu archive resources could not be preserved.", count), count);
   case MvrExportDiagnosticCode::PlaceholderGeometryUsed:
-  case MvrExportDiagnosticCode::SupportGeometryMissing: return amount + " objects used adjusted geometry.";
-  case MvrExportDiagnosticCode::FixtureIdReassigned: return amount + " fixture numeric identifiers were reassigned.";
-  case MvrExportDiagnosticCode::CompatibilityRepresentationUnavailable: return amount + " trusses could not use the requested compatibility representation.";
+  case MvrExportDiagnosticCode::SupportGeometryMissing: return wxString::Format(wxPLURAL("%zu object used adjusted geometry.", "%zu objects used adjusted geometry.", count), count);
+  case MvrExportDiagnosticCode::FixtureIdReassigned: return wxString::Format(wxPLURAL("%zu fixture numeric identifier was reassigned.", "%zu fixture numeric identifiers were reassigned.", count), count);
+  case MvrExportDiagnosticCode::CompatibilityRepresentationUnavailable: return wxString::Format(wxPLURAL("%zu truss could not use the requested compatibility representation.", "%zu trusses could not use the requested compatibility representation.", count), count);
   case MvrExportDiagnosticCode::GdtfMissing:
-    return amount + " GDTF resources could not be preserved as requested.";
-  default: return amount + " export issues require attention.";
+    return wxString::Format(wxPLURAL("%zu GDTF resource could not be preserved as requested.", "%zu GDTF resources could not be preserved as requested.", count), count);
+  default: return wxString::Format(wxPLURAL("%zu export issue requires attention.", "%zu export issues require attention.", count), count);
   }
 }
 
@@ -92,10 +91,10 @@ void ShowDialog(wxWindow *parent, const wxString &title,
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
   wxButton *detailsButton = nullptr;
   if (detailText) {
-    detailsButton = new wxButton(&dialog, wxID_ANY, "Show details...");
+    detailsButton = new wxButton(&dialog, wxID_ANY, _("Show details..."));
     buttons->Add(detailsButton, 0, wxRIGHT, 8);
   }
-  buttons->Add(new wxButton(&dialog, wxID_OK, "OK"));
+  buttons->Add(new wxButton(&dialog, wxID_OK, _("OK")));
   layout->Add(buttons, 0, wxALIGN_RIGHT | wxALL, 14);
   dialog.SetSizerAndFit(layout);
   wxSize collapsedSize = dialog.GetSize();
@@ -110,7 +109,7 @@ void ShowDialog(wxWindow *parent, const wxString &title,
         [&, detailText, detailsButton, collapsedSize](wxCommandEvent &) {
           const bool show = !detailText->IsShown();
           detailText->Show(show);
-          detailsButton->SetLabel(show ? "Hide details" : "Show details...");
+          detailsButton->SetLabel(show ? _("Hide details") : _("Show details..."));
           if (show) {
             dialog.SetMinSize(collapsedSize);
             dialog.SetSize(ClampToDisplay(
@@ -148,14 +147,14 @@ void ShowMvrExportResult(wxWindow *parent, bool exported,
     summary += "- " + SummaryFor(code, count) + "\n";
 
   if (!exported) {
-    ShowDialog(parent, "MVR export failed",
-               "The MVR file could not be created because export validation or file writing failed.",
+    ShowDialog(parent, _("MVR export failed"),
+               _("The MVR file could not be created because export validation or file writing failed."),
                {}, details);
   } else if (!counts.empty()) {
-    ShowDialog(parent, "MVR exported with warnings",
-               "The MVR file was exported successfully, but some data had to be adjusted or could not be preserved.",
+    ShowDialog(parent, _("MVR exported with warnings"),
+               _("The MVR file was exported successfully, but some data had to be adjusted or could not be preserved."),
                summary, details);
   } else {
-    ShowDialog(parent, "Success", "MVR file exported successfully.", {}, {});
+    ShowDialog(parent, _("Success"), _("MVR file exported successfully."), {}, {});
   }
 }

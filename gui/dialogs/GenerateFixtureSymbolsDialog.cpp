@@ -9,7 +9,7 @@ GenerateFixtureSymbolsDialog::GenerateFixtureSymbolsDialog(
     : wxDialog(parent, wxID_ANY, "Generate Fixture Symbols") {
   auto *root = new wxBoxSizer(wxVERTICAL);
   root->Add(new wxStaticText(this, wxID_ANY,
-                             "Select fixture type to generate symbols:"),
+                             _("Select fixture type to generate symbols:")),
             0, wxALL, 8);
 
   wxArrayString items;

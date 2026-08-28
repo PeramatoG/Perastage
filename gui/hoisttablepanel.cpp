@@ -722,9 +722,9 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxArrayString choices;
     for (const auto &option : GetHoistFunctionOptions())
       choices.push_back(wxString::FromUTF8(option));
-    choices.push_back("Other...");
+    choices.push_back(_("Other..."));
 
-    wxSingleChoiceDialog sdlg(this, "Select function", _("Function"), choices);
+    wxSingleChoiceDialog sdlg(this, _("Select function"), _("Function"), choices);
     // With the following code:
     int selIdx = choices.Index(current.GetString());
     if (selIdx != wxNOT_FOUND)
@@ -735,7 +735,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
       return;
     wxString sel = sdlg.GetStringSelection();
     if (sel == "Other...") {
-      wxTextEntryDialog otherDlg(this, "Enter function", _("Function"),
+      wxTextEntryDialog otherDlg(this, _("Enter function"), _("Function"),
                                  current.GetString());
       if (otherDlg.ShowModal() != wxID_OK)
         return;
@@ -764,7 +764,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     const auto &supports = cfg.GetScene().supports;
 
     wxArrayString choices = BuildDummyPresetChoices();
-    wxSingleChoiceDialog sdlg(this, "Select dummy preset", _("Dummy Preset"),
+    wxSingleChoiceDialog sdlg(this, _("Select dummy preset"), _("Dummy Preset"),
                               choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
@@ -808,7 +808,7 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxArrayString choices;
     for (const auto &n : layers)
       choices.push_back(wxString::FromUTF8(n));
-    wxSingleChoiceDialog sdlg(this, "Select layer", _("Layer"), choices);
+    wxSingleChoiceDialog sdlg(this, _("Select layer"), _("Layer"), choices);
     if (sdlg.ShowModal() != wxID_OK)
       return;
     wxString sel = sdlg.GetStringSelection();

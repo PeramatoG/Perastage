@@ -447,7 +447,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   fixtureScroll->SetScrollRate(0, gui::gdtf_layout::Dip(this, 12));
   auto *fixtureSpecificSizer = new wxBoxSizer(wxVERTICAL);
   fixtureScroll->SetSizer(fixtureSpecificSizer);
-  auto *fixtureTitle = new wxStaticText(fixtureScroll, wxID_ANY, "Fixture instance");
+  auto *fixtureTitle = new wxStaticText(fixtureScroll, wxID_ANY, _("Fixture instance"));
   wxFont fixtureTitleFont = fixtureTitle->GetFont();
   fixtureTitleFont.SetWeight(wxFONTWEIGHT_BOLD);
   fixtureTitle->SetFont(fixtureTitleFont);
@@ -660,7 +660,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   fixtureSpecificSizer->Add(fixtureGrid, 0, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   auto *modeChannelsSizer = new wxStaticBoxSizer(wxVERTICAL, fixtureScroll,
-                                                 "Mode channels");
+                                                 _("Mode channels"));
   fixtureChannelSummaryPanel = new GdtfChannelSummaryPanel(fixtureScroll);
   modeChannelsSizer->Add(fixtureChannelSummaryPanel, 1, wxEXPAND | wxALL,
                          gui::gdtf_layout::SectionPadding(this));
@@ -670,7 +670,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
 
   gdtfHostSizer->Add(gdtfEditorPanel, 1, wxEXPAND | wxALL, gui::gdtf_layout::SectionPadding(this));
   gdtfHostSizer->Add(new wxStaticText(gdtfPanelHost, wxID_ANY,
-                                      "Type, source, and mode controls select project fixture context. Power and weight edits update the GDTF file and append a revision entry."),
+                                      _("Type, source, and mode controls select project fixture context. Power and weight edits update the GDTF file and append a revision entry.")),
                      0, wxLEFT | wxRIGHT | wxBOTTOM, gui::gdtf_layout::SectionPadding(this));
 
   auto *visualPanel = new wxPanel(visualSplitter, wxID_ANY);
@@ -689,10 +689,10 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
   fixtureImagePreview = new wxStaticBitmap(previewPage, wxID_ANY, wxBitmap(220, 220));
   previewSizer->Add(fixtureImagePreview, 1, wxALIGN_CENTER | wxALL,
                     gui::gdtf_layout::SectionPadding(this));
-  visualNotebook->AddPage(previewPage, "Preview");
+  visualNotebook->AddPage(previewPage, _("Preview"));
 
   gdtfWheelInspectorPanel = new GdtfWheelInspectorPanel(visualNotebook);
-  visualNotebook->AddPage(gdtfWheelInspectorPanel, "GDTF wheels");
+  visualNotebook->AddPage(gdtfWheelInspectorPanel, _("GDTF wheels"));
 
   auto *symbolPage = new wxPanel(visualNotebook, wxID_ANY);
   wxBoxSizer *symbolRootSizer = new wxBoxSizer(wxVERTICAL);
@@ -720,7 +720,7 @@ FixtureEditDialog::FixtureEditDialog(FixtureTablePanel *p, int r)
     symbolColumn->Add(symbolPanels[i], 1, wxEXPAND);
     symbolSizer->Add(symbolColumn, 1, wxEXPAND | wxRIGHT, i < 2 ? 6 : 0);
   }
-  visualNotebook->AddPage(symbolPage, "Symbols");
+  visualNotebook->AddPage(symbolPage, _("Symbols"));
 
   visualSizer->Add(visualNotebook, 1, wxEXPAND);
   visualPanel->SetMinSize(wxSize(gui::gdtf_layout::MinimumVisualPaneWidth(this), -1));
@@ -831,8 +831,8 @@ bool FixtureEditDialog::ValidateSessionBeforeApply() {
     return true;
   ClearSessionValidation();
   if (!rejectedSessionInputs.empty()) {
-    wxMessageBox("Fix malformed GDTF editor values before applying.",
-                 "GDTF validation", wxOK | wxICON_WARNING, this);
+    wxMessageBox(_("Fix malformed GDTF editor values before applying."),
+                 _("GDTF validation"), wxOK | wxICON_WARNING, this);
     return false;
   }
   const auto diagnostics = gdtfEditSession->Validate();
@@ -851,7 +851,7 @@ bool FixtureEditDialog::ValidateSessionBeforeApply() {
       gdtfEditorPanel->SetPhysicalPropertyValidation(
           GdtfPhysicalPropertyField::Weight, diagnostic.message);
   }
-  wxMessageBox(wxString::FromUTF8(message), "GDTF validation",
+  wxMessageBox(wxString::FromUTF8(message), _("GDTF validation"),
                wxOK | wxICON_WARNING, this);
   return false;
 }
@@ -860,7 +860,7 @@ bool FixtureEditDialog::ValidateSessionBeforeApply() {
 void FixtureEditDialog::OnBrowse(wxCommandEvent &) {
   wxString fixDir =
       wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-  wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+  wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString, "*.gdtf",
                     wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (fdlg.ShowModal() != wxID_OK)
     return;
@@ -1049,12 +1049,12 @@ void FixtureEditDialog::UpdateVisualizers() {
         ResolvePreviewBackground(officialSymbolPreview->GetParent());
     if (LoadGdtfOfficialSvgSymbol(path, background, officialSymbol)) {
       officialSymbolPreview->SetBitmap(officialSymbol);
-      officialSymbolPreview->SetToolTip("Official GDTF SVG thumbnail resource.");
+      officialSymbolPreview->SetToolTip(_("Official GDTF SVG thumbnail resource."));
     } else {
       officialSymbolPreview->SetBitmap(
           CreatePreviewPlaceholder("No official SVG", background));
       officialSymbolPreview->SetToolTip(
-          "No official SVG thumbnail resource found in this GDTF.");
+          _("No official SVG thumbnail resource found in this GDTF."));
     }
   }
 
@@ -1067,7 +1067,7 @@ void FixtureEditDialog::UpdateVisualizers() {
       fixtureImagePreview->SetToolTip("");
     } else {
       fixtureImagePreview->SetBitmap(CreatePreviewPlaceholder("No image", background));
-      fixtureImagePreview->SetToolTip("No thumbnail image found in this GDTF.");
+      fixtureImagePreview->SetToolTip(_("No thumbnail image found in this GDTF."));
     }
     Layout();
   }
@@ -1349,7 +1349,7 @@ bool FixtureEditDialog::ApplyChanges() {
         const std::string message = fixtureApplyResult.common.diagnostics.empty()
                                         ? "Could not apply fixture GDTF changes."
                                         : fixtureApplyResult.common.diagnostics.front();
-        wxMessageBox(wxString::FromUTF8(message), "GDTF update",
+        wxMessageBox(wxString::FromUTF8(message), _("GDTF update"),
                      wxOK | wxICON_WARNING, this);
         return false;
       }

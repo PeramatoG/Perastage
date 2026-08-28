@@ -392,9 +392,9 @@ void MyApp::ShowLocalizationFallbackWarningIfNeeded(
   }
   localization_fallback_warning_shown_ = true;
   wxMessageBox(
-      "The Spanish translation catalog is not available in this build. "
-      "Perastage is using English.",
-      "Translation catalog unavailable", wxOK | wxICON_WARNING);
+      _("The Spanish translation catalog is not available in this build. "
+      "Perastage is using English."),
+      _("Translation catalog unavailable"), wxOK | wxICON_WARNING);
 }
 
 // Routes a single macOS file-open request to the shared external-open handler.

@@ -148,7 +148,7 @@ void SplashScreen::Show() {
   appInfoLabel->SetFont(appInfoFont);
 
   g_label =
-      new wxStaticText(panel, wxID_ANY, "Loading Perastage...", wxDefaultPosition,
+      new wxStaticText(panel, wxID_ANY, _("Loading Perastage..."), wxDefaultPosition,
                        wxDefaultSize, wxALIGN_CENTER);
   wxFont font = g_label->GetFont();
   font.MakeBold();

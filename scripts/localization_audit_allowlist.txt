@@ -3,3 +3,44 @@
 # Valid categories include diagnostic-log, command-syntax, serialization-key,
 # resource-path, technical-identifier, external-data, and test-fixture.
 # Do not add localization-debt entries; unresolved user-visible UI text must be marked.
+gui/dictionaryeditdialog.cpp|gdtf_dictionary.json|resource-path|Stable suggested dictionary filename.
+gui/dictionaryeditdialog.cpp|truss_dictionary.json|resource-path|Stable suggested dictionary filename.
+gui/dictionaryeditdialog.cpp|gdtf_dictionary_snapshot.json|resource-path|Stable suggested snapshot filename.
+gui/dictionaryeditdialog.cpp|truss_dictionary_snapshot.json|resource-path|Stable suggested snapshot filename.
+gui/dictionaryeditdialog.cpp|gdtf_dictionary_bundle.zip|resource-path|Stable suggested bundle filename.
+gui/dictionaryeditdialog.cpp|truss_dictionary_bundle.zip|resource-path|Stable suggested bundle filename.
+gui/dictionaryeditdialog.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+gui/fixtureeditdialog.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+gui/fixturetablepanel.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+gui/mainwindow_fixture_replace.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+gui/mainwindow_io.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+gui/mainwindow_io.cpp|*|technical-identifier|Stable dynamically composed file-extension wildcard.
+gui/mainwindow_menu.cpp|*.gdtf|technical-identifier|Stable file-extension wildcard.
+viewer3d/viewer3dpanel.cpp|viewer3d_export.png|resource-path|Stable suggested export filename.
+gui/dictionaryeditdialog.cpp|fixtures|resource-path|Stable writable-library directory key.
+gui/dictionaryeditdialog.cpp|trusses|resource-path|Stable writable-library directory key.
+gui/mainwindow_print.cpp|viewer2d.pdf|resource-path|Stable suggested PDF export filename.
+gui/mainwindow_print.cpp|layout.pdf|resource-path|Stable suggested PDF export filename.
+gui/mainwindow_menu.cpp|file|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|folder-open|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|save|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|save-all|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|file-input|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|file-output|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|printer|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|undo-2|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|redo-2|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|scissors|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|copy|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|clipboard-paste|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|box|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|panels-right-bottom|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|square-asterisk|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|cube-view-top|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|cube-view-front|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|cube-view-side|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|cloud-download|resource-path|Stable toolbar icon resource identifier.
+gui/mainwindow_menu.cpp|notepad-text|resource-path|Stable toolbar icon resource identifier.
+gui/layoutpanel.cpp|.pslayout|technical-identifier|Stable layout package filename extension.
+gui/layoutviewerpanel_legend.cpp|Hg|technical-identifier|Locale-independent font-height measurement probe, not displayed.
+gui/rider_fixture_resolution_workflow.cpp|login|technical-identifier|Stable Core GDTF Share operation identifier passed to the English formatter.

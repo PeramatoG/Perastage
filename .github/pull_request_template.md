@@ -67,7 +67,11 @@ Commands, configurations, sample files, and results:
 
 - [ ] User documentation updated where required
 - [ ] Developer or technical policy documentation updated where required
-- [ ] New user-facing text is marked for gettext translation
+- [ ] New or changed GUI presentation text is gettext-ready
+- [ ] Catalogs are synchronized when applicable
+- [ ] COMPLETE catalogs have no missing or fuzzy entries
+- [ ] `perastage_check_translations` passed
+- [ ] Intentional CLI, protocol, and technical strings remain stable English
 - [ ] Documentation links remain valid
 - [ ] No documentation or localization update is required
 

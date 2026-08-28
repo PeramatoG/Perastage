@@ -129,10 +129,10 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   mainSizer->Add(toolbarSizer, 0, wxEXPAND | wxALL, 8);
 
   wxBoxSizer *optionsSizer = new wxBoxSizer(wxHORIZONTAL);
-  solidBackgroundCtrl = new wxCheckBox(this, wxID_ANY, "Solid background");
+  solidBackgroundCtrl = new wxCheckBox(this, wxID_ANY, _("Solid background"));
   solidBackgroundCtrl->SetValue(solidBackground);
   optionsSizer->Add(solidBackgroundCtrl, 0, wxRIGHT, 12);
-  drawFrameCtrl = new wxCheckBox(this, wxID_ANY, "Show outline");
+  drawFrameCtrl = new wxCheckBox(this, wxID_ANY, _("Show outline"));
   drawFrameCtrl->SetValue(drawFrame);
   optionsSizer->Add(drawFrameCtrl, 0, wxRIGHT, 8);
   mainSizer->Add(optionsSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
@@ -145,8 +145,8 @@ LayoutTextDialog::LayoutTextDialog(wxWindow *parent,
   mainSizer->Add(textCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
   wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxButton *okButton = new wxButton(this, wxID_OK, "Ok");
-  wxButton *cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+  wxButton *okButton = new wxButton(this, wxID_OK, _("Ok"));
+  wxButton *cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
   buttonSizer->AddStretchSpacer();
   buttonSizer->Add(okButton, 0, wxRIGHT, 8);
   buttonSizer->Add(cancelButton, 0);

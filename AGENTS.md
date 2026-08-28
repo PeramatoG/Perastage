@@ -67,3 +67,8 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
   `ui::IsFeatureEnabled(...)` at call sites instead of scattering build macros.
 - Keep print-related Release defaults centralized in
   `ui::ApplyBuildDefaultsToViewer2DPrintSettings(...)`.
+
+## Localization policy
+- Follow `docs/developer/localization.md`: make new or changed GUI presentation text gettext-ready, synchronize catalogs, and keep every COMPLETE catalog free of missing or fuzzy entries.
+- Translate complete format strings and use gettext plural APIs. Keep Core locale-independent and do not translate stable domain/protocol/config identifiers, CLI grammar/help/output, or technical logs and diagnostics.
+- Do not use the localization audit allowlist to conceal translation debt, and keep `perastage_check_translations` passing.

@@ -23,7 +23,9 @@ truss = Path('gui/trusseditdialog.cpp').read_text()
 cmake_gui = Path('gui/CMakeLists.txt').read_text()
 cmake_core = Path('core/CMakeLists.txt').read_text()
 
-require('wxDataViewCtrl' in modes and 'AppendTextColumn("Item"' in modes, 'Mode browser must use wxDataViewCtrl with columns.')
+require(
+    'wxDataViewCtrl' in modes and 'browserCtrl->AppendTextColumn' in modes,
+    'Mode browser must use wxDataViewCtrl with columns.')
 require('channelListCtrl' not in modes_h + modes, 'Old multiline channel control must be removed.')
 require('class GdtfModeDataViewModel : public wxDataViewModel' in model_h, 'Hierarchical wxDataViewModel must exist.')
 require('SetValue' in model and 'return false' in model, 'GUI model must be read-only.')

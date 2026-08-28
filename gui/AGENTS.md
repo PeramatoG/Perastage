@@ -27,3 +27,8 @@ These rules apply to everything under `gui/`.
 5. **Shortcut changes must update docs**
    - If you add, remove, or modify keyboard shortcuts in `gui/` or their routing,
      update `docs/developer/gui_shortcut_architecture.md` in the same change.
+
+6. **Localize presentation at the GUI boundary**
+   - Mark new or changed GUI labels, messages, formats, and true plurals for gettext in the same change, and keep committed catalogs synchronized.
+   - Keep stable CLI/Console contracts, technical diagnostics, and domain/protocol identifiers in English; map structured Core state to translated presentation without comparing translated text.
+   - Follow `docs/developer/localization.md` and run `perastage_check_translations`; the audit allowlist is only for narrow, documented technical exceptions.

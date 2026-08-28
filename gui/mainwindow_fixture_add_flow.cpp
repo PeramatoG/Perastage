@@ -83,7 +83,7 @@ void LogPreparationDiagnostics(
 void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
                                         const std::string &suggestedName) {
   if (gdtfPath.empty()) {
-    wxMessageBox("No GDTF file selected.", "Add fixture", wxOK | wxICON_ERROR);
+    wxMessageBox(_("No GDTF file selected."), _("Add fixture"), wxOK | wxICON_ERROR);
     if (consolePanel)
       consolePanel->AppendMessage(
           "[ERROR] Add fixture failed: empty GDTF path");
@@ -98,9 +98,9 @@ void MainWindow::AddFixtureFromGdtfPath(const std::string &gdtfPath,
     const auto *error = gdtf::FirstError(preparation);
     const std::string reason =
         error ? error->message : "The selected GDTF file could not be read.";
-    wxMessageBox(wxString("Could not add the selected GDTF fixture.\n") +
+    wxMessageBox(wxString(_("Could not add the selected GDTF fixture.\n")) +
                      wxString::FromUTF8(reason),
-                 "Add fixture", wxOK | wxICON_ERROR);
+                 _("Add fixture"), wxOK | wxICON_ERROR);
     return;
   }
 

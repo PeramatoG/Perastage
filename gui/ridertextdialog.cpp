@@ -199,7 +199,7 @@ void RiderTextDialog::OnLoadFromFile(wxCommandEvent &WXUNUSED(event)) {
   wxString miscDir =
       wxString::FromUTF8(ProjectUtils::GetDefaultLibraryPath("misc"));
   wxFileDialog dlg(this, _("Import Rider"), miscDir, "",
-                   _("Rider files (*.txt;*.pdf)|*.txt;*.pdf"),
+                   "Rider files (*.txt;*.pdf)|*.txt;*.pdf",
                    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
   if (dlg.ShowModal() == wxID_CANCEL)
     return;

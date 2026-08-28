@@ -67,7 +67,7 @@ LayoutLegendEditDialog::LayoutLegendEditDialog(
   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
 
   showChannelColumnCheck_ =
-      new wxCheckBox(this, wxID_ANY, "Show channel count column");
+      new wxCheckBox(this, wxID_ANY, _("Show channel count column"));
   showChannelColumnCheck_->SetValue(legend.showChannelColumn);
   mainSizer->Add(showChannelColumnCheck_, 0, wxALL, 10);
 
@@ -95,8 +95,8 @@ LayoutLegendEditDialog::LayoutLegendEditDialog(
   mainSizer->Add(grid_, 1, wxEXPAND | wxLEFT | wxRIGHT, 10);
 
   wxBoxSizer *moveSizer = new wxBoxSizer(wxHORIZONTAL);
-  wxButton *upButton = new wxButton(this, wxID_ANY, "Move Up");
-  wxButton *downButton = new wxButton(this, wxID_ANY, "Move Down");
+  wxButton *upButton = new wxButton(this, wxID_ANY, _("Move Up"));
+  wxButton *downButton = new wxButton(this, wxID_ANY, _("Move Down"));
   moveSizer->Add(upButton, 0, wxRIGHT, 8);
   moveSizer->Add(downButton, 0);
   mainSizer->Add(moveSizer, 0, wxLEFT | wxRIGHT | wxTOP, 10);

@@ -13,13 +13,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POT = ROOT / "resources" / "locale" / "perastage.pot"
-COMPLETE_LANGUAGES = ["es"]
-DRAFT_LANGUAGES = ["zh_CN"]
+COMPLETE_LANGUAGES = ["es", "zh_CN"]
+DRAFT_LANGUAGES: list[str] = []
 LANGUAGES = COMPLETE_LANGUAGES + DRAFT_LANGUAGES
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 EXCLUDED_PREFIXES = ("third_party/", "build/", "build-", "cmake-build", ".git/")
 AUDIT_ALLOWLIST = ROOT / "scripts" / "localization_audit_allowlist.txt"
-AUDIT_SOURCE_PREFIXES = ("gui/fixturetablepanel.cpp", "gui/trusstablepanel.cpp", "gui/hoisttablepanel.cpp", "gui/sceneobjecttablepanel.cpp", "gui/riggingpanel.cpp", "gui/layerpanel.cpp", "gui/summarypanel.cpp", "gui/addtrussdialog.cpp", "gui/gdtfsearchdialog.cpp", "gui/scene_object_primitive_dialogs.cpp", "gui/mainwindow.cpp", "gui/mainwindow_print.cpp", "gui/consolepanel.cpp")
+AUDIT_SOURCE_DIRECTORIES = ("gui/", "viewer2d/", "viewer3d/")
+AUDIT_SOURCE_FILES = {"main.cpp"}
 
 TRANSLATION_WRAPPERS = {"_", "wxGetTranslation", "wxTRANSLATE", "wxPLURAL"}
 UI_CALLEES = {
@@ -30,7 +31,13 @@ UI_CALLEES = {
     "wxFileDialog", "wxDirDialog", "wxTextEntryDialog", "wxSingleChoiceDialog",
     "wxStaticText", "wxButton", "wxCheckBox", "wxRadioButton", "wxStaticBox",
     "wxStaticBoxSizer", "wxDataViewColumn", "AppendColumn", "AppendItem", "Units::LabelWithUnit",
-    "UpdatePaneCaption", "GetTextExtent", "BuildTooltip", "BuildHelp",
+    "UpdatePaneCaption", "GetTextExtent", "BuildTooltip", "ShowDialog",
+    "ReportFixtureDistributionMessage", "SetOKCancelLabels", "SetYesNoLabels",
+    "SetYesNoCancelLabels",
+}
+UI_CONSTRUCTOR_TYPES = {
+    "wxDialog", "wxFileDialog", "wxDirDialog", "wxMessageDialog", "wxProgressDialog",
+    "wxSingleChoiceDialog", "wxTextEntryDialog",
 }
 REPRESENTATIVE_MESSAGES = {
     "Running library bootstrap...": "root main.cpp splash message",
@@ -44,7 +51,6 @@ REPRESENTATIVE_MESSAGES = {
     "Count": "summary count label",
     "Position": "rigging table column label",
     "Fixture Weight": "rigging dynamic weight label",
-    "Console commands": "console help title",
     "Create scene from text": "rider text dialog title",
     "Search GDTF": "GDTF search dialog title",
     "Manufacturer:": "GDTF and metadata label",
@@ -53,7 +59,6 @@ REPRESENTATIVE_MESSAGES = {
     "Add Cube": "scene-object primitive dialog title",
     "Select what to print:": "print choice dialog prompt",
     "Do you want to save changes before %s?": "exit/save confirmation",
-    "Show available console commands and examples.": "console help tooltip",
     "Online GDTF catalog refresh failed.\n%s": "GDTF refresh warning",
     "Create scene from text": "rider text dialog title",
     "Load rider...": "rider text load button",
@@ -131,13 +136,12 @@ def po_messages(path: Path) -> set[str]:
     in_msgid = False
     obsolete = False
     for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw[3:] if raw.startswith("#~ ") else raw
-        if raw.startswith("#~ "):
-            obsolete = True
+        is_obsolete_line = raw.startswith("#~ ")
+        line = raw[3:] if is_obsolete_line else raw
         if line.startswith("msgid "):
             if current and not obsolete:
                 result.add("".join(current))
-            obsolete = raw.startswith("#~ ")
+            obsolete = is_obsolete_line
             current = [ast.literal_eval(line[6:].strip())]
             in_msgid = True
         elif in_msgid and line.startswith('"'):
@@ -271,6 +275,20 @@ def string_literals(expression: str) -> list[tuple[str, int]]:
     return literals
 
 
+def is_stable_file_dialog_filter(expression: str, literal: str) -> bool:
+    """Recognizes machine-consumed wxFileDialog wildcard grammar as stable data."""
+    return "wxFileDialog" in expression and "*." in expression and "|" in expression
+
+
+def choice_array_expressions(text: str) -> list[tuple[int, str]]:
+    """Returns wxString arrays whose names identify them as GUI choice lists."""
+    pattern = re.compile(
+        r"(?:const\s+)?wxString\s+(?:[A-Za-z_][A-Za-z0-9_]*)?choices\s*\[\s*\]\s*=\s*\{(.*?)\};",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return [(match.start(1), match.group(1)) for match in pattern.finditer(text)]
+
+
 def audit() -> int:
     try:
         allowlist = parse_allowlist()
@@ -278,10 +296,10 @@ def audit() -> int:
         print(error, file=sys.stderr)
         return 1
     findings: list[str] = []
-    callee_pattern = re.compile(r"(?<![A-Za-z0-9_:])(" + "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True)) + r")\s*\(")
+    callee_pattern = ui_callee_pattern()
     for path in source_files():
         rel = path.relative_to(ROOT).as_posix()
-        if not rel.startswith(AUDIT_SOURCE_PREFIXES):
+        if rel not in AUDIT_SOURCE_FILES and not rel.startswith(AUDIT_SOURCE_DIRECTORIES):
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for match in callee_pattern.finditer(text):
@@ -291,10 +309,19 @@ def audit() -> int:
             for literal, local_offset in string_literals(expression):
                 if not literal or not literal.strip() or literal in {"", "?", "[CMD] "}:
                     continue
+                if is_stable_file_dialog_filter(expression, literal):
+                    continue
                 if (rel, literal) in allowlist:
                     continue
                 findings.append(
                     f"{rel}:{line_number(text, match.start() + local_offset)}: unmarked UI literal {literal!r} in {expression.strip()}"
+                )
+        for expression_offset, expression in choice_array_expressions(text):
+            for literal, local_offset in string_literals(expression):
+                if not literal or not literal.strip() or (rel, literal) in allowlist:
+                    continue
+                findings.append(
+                    f"{rel}:{line_number(text, expression_offset + local_offset)}: unmarked GUI choice literal {literal!r}"
                 )
     if findings:
         print("High-confidence unmarked UI strings found:", file=sys.stderr)
@@ -314,7 +341,63 @@ def self_test() -> int:
     unit_literal = 'Units::LabelWithUnit("Weight", suffix);'
     assert not string_literals(static_marker)
     assert string_literals(unit_literal)[0][0] == "Weight"
+    assert "gui/new_dialog.cpp".startswith(AUDIT_SOURCE_DIRECTORIES)
+    assert "viewer2d/new_tool.cpp".startswith(AUDIT_SOURCE_DIRECTORIES)
+    # Command output is not a high-confidence GUI call and stays outside gettext.
+    assert not callee_is_audited("CommandProcessor::Execute")
+    constructor_pattern = ui_callee_pattern()
+    untranslated_choice = 'wxSingleChoiceDialog dlg(parent, "Untranslated UI", "Title", choices);'
+    untranslated_file = 'wxFileDialog dlg(parent, "Untranslated UI", path);'
+    translated_choice = 'wxSingleChoiceDialog dlg(parent, _("Visible"), _("Title"), choices);'
+    translated_file = 'wxFileDialog dlg(parent, _("Visible"), path);'
+    untranslated_factory = 'std::make_unique<wxProgressDialog>("Title", "Message");'
+    translated_factory = 'std::make_unique<wxProgressDialog>(_("Title"), _("Message"));'
+    technical_constructor = 'ProtocolFrame frame("StableIdentifier");'
+    untranslated_choice_add = 'choices.Add("Visible choice");'
+    translated_choice_add = 'choices.Add(_("Visible choice"));'
+    untranslated_choice_array = 'const wxString choices[] = {"Visible choice"};'
+    translated_choice_array = 'const wxString choices[] = {_("Visible choice")};'
+    stable_filter = 'wxFileDialog dlg(parent, _("Open"), path, "", "JSON files (*.json)|*.json");'
+    assert unmarked_literals_for_test(untranslated_choice, constructor_pattern)
+    assert unmarked_literals_for_test(untranslated_file, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_choice, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_file, constructor_pattern)
+    assert unmarked_literals_for_test(untranslated_factory, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_factory, constructor_pattern)
+    assert not unmarked_literals_for_test(technical_constructor, constructor_pattern)
+    assert unmarked_literals_for_test(untranslated_choice_add, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_choice_add, constructor_pattern)
+    assert choice_array_expressions(untranslated_choice_array)
+    assert string_literals(choice_array_expressions(untranslated_choice_array)[0][1])
+    assert not string_literals(choice_array_expressions(translated_choice_array)[0][1])
+    assert is_stable_file_dialog_filter(stable_filter, "JSON files (*.json)|*.json")
     return 0
+
+
+def callee_is_audited(callee: str) -> bool:
+    """Reports whether a call is a high-confidence GUI presentation boundary."""
+    return callee in UI_CALLEES
+
+
+def ui_callee_pattern() -> re.Pattern[str]:
+    """Builds the matcher for UI calls and named known UI constructors."""
+    callees = "|".join(re.escape(callee) for callee in sorted(UI_CALLEES, key=len, reverse=True))
+    constructors = "|".join(re.escape(name) for name in sorted(UI_CONSTRUCTOR_TYPES, key=len, reverse=True))
+    return re.compile(
+        r"(?<![A-Za-z0-9_:])(?:" + callees + r")\s*\(|"
+        r"\bchoices\s*\.\s*(?:Add|push_back)\s*\(|"
+        r"(?<![A-Za-z0-9_:])(?:" + constructors + r")\s+[A-Za-z_][A-Za-z0-9_]*\s*\(|"
+        r"\b(?:std::)?make_unique\s*<\s*(?:" + constructors + r")\s*>\s*\("
+    )
+
+
+def unmarked_literals_for_test(text: str, pattern: re.Pattern[str]) -> list[str]:
+    """Returns unmarked literals found in test-only UI expressions."""
+    findings: list[str] = []
+    for match in pattern.finditer(text):
+        _, expression = find_matching_call(text, match.start())
+        findings.extend(literal for literal, _ in string_literals(expression) if literal.strip())
+    return findings
 
 
 def main() -> int:

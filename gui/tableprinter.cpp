@@ -161,7 +161,7 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
   case TableType::SceneObjects: cfg.SetSceneObjectPrintColumns(toSave); break;
   }
 
-    wxFileDialog saveDlg(parent, "Export CSV", "", "", "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+    wxFileDialog saveDlg(parent, _("Export CSV"), "", "", "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
     if (saveDlg.ShowModal() != wxID_OK)
         return;
@@ -169,7 +169,7 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
     std::ofstream file(saveDlg.GetPath().ToUTF8().data());
     if (!file)
     {
-        wxMessageBox("Failed to save file.", "Export CSV", wxOK | wxICON_ERROR, parent);
+        wxMessageBox(_("Failed to save file."), _("Export CSV"), wxOK | wxICON_ERROR, parent);
         return;
     }
 
@@ -204,7 +204,7 @@ void ExportCSV(wxWindow* parent, wxDataViewListCtrl* table, TableType type,
     }
 
     file.close();
-    wxMessageBox("CSV exported successfully.", "Export CSV", wxOK | wxICON_INFORMATION, parent);
+    wxMessageBox(_("CSV exported successfully."), _("Export CSV"), wxOK | wxICON_INFORMATION, parent);
 }
 
 } // namespace TablePrinter

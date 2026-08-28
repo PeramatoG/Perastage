@@ -61,7 +61,7 @@ GdtfMetadataPanel::GdtfMetadataPanel(wxWindow *parent)
       descriptionCtrl->SetMinSize(
           wxSize(-1, gui::gdtf_layout::Dip(this, kDescriptionHeight)));
       descriptionCtrl->ShowPosition(0);
-      descriptionCtrl->SetToolTip("GDTF FixtureType description.");
+      descriptionCtrl->SetToolTip(_("GDTF FixtureType description."));
       descriptionCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent &) {
         NotifyDescriptionChanged();
       });

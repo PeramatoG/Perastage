@@ -176,6 +176,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(CiCMakeLanguagePolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_ci_cmake_language_policy.sh LABELS ci cmake release-gate)
     add_bash_policy_test(ReleaseGatePolicyPortability ${CMAKE_CURRENT_SOURCE_DIR}/check_release_gate_policy_portability.sh LABELS ci policy release-gate)
     add_bash_policy_test(PythonResolvedInterpreterPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_python_resolved_interpreter_policy.sh LABELS standard-strict policy)
+    add_bash_policy_test(LocalizationContractBoundaries ${CMAKE_CURRENT_SOURCE_DIR}/check_localization_contract_boundaries.sh LABELS localization policy release-gate)
 endif()
 
 if(Python3_Interpreter_FOUND)

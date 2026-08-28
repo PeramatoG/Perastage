@@ -524,7 +524,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     bool changed = false;
     wxString fixDir =
         wxString::FromUTF8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-    wxFileDialog fdlg(this, "Select GDTF file", fixDir, wxEmptyString, "*.gdtf",
+    wxFileDialog fdlg(this, _("Select GDTF file"), fixDir, wxEmptyString, "*.gdtf",
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST);
     if (fdlg.ShowModal() == wxID_OK) {
       wxString path = fdlg.GetPath();
@@ -692,7 +692,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     for (const auto &m : modes)
       choices.push_back(wxString::FromUTF8(m));
 
-    wxSingleChoiceDialog dlg(this, "Select DMX mode", "DMX Mode", choices);
+    wxSingleChoiceDialog dlg(this, _("Select DMX mode"), _("DMX Mode"), choices);
     if (dlg.ShowModal() != wxID_OK)
       return;
 
@@ -741,7 +741,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
     wxArrayString choices;
     for (const auto &n : layers)
       choices.push_back(wxString::FromUTF8(n));
-    wxSingleChoiceDialog dlg(this, "Select layer", "Layer", choices);
+    wxSingleChoiceDialog dlg(this, _("Select layer"), _("Layer"), choices);
     if (dlg.ShowModal() != wxID_OK)
       return;
     wxString sel = dlg.GetStringSelection();
@@ -850,7 +850,7 @@ void FixtureTablePanel::OnContextMenu(wxDataViewEvent &event) {
         "Beam",   "Blinder", "Conventional", "FX",    "Hoist",
         "Hybrid", "Laser",   "LED",          "Smoke", "Spot",
         "Strobe", "Unknown", "Video",        "Wash"};
-    wxSingleChoiceDialog dlg(this, "Select category", "Category", choices);
+    wxSingleChoiceDialog dlg(this, _("Select category"), _("Category"), choices);
     if (!current.GetString().empty()) {
       int sel = choices.Index(current.GetString());
       if (sel != wxNOT_FOUND)

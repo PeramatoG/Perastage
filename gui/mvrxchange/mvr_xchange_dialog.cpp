@@ -112,20 +112,20 @@ void MvrXchangeDialog::BuildLayout() {
   SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 
   auto *root = new wxBoxSizer(wxVERTICAL);
-  auto *title = new wxStaticText(this, wxID_ANY, "MVR-xchange");
+  auto *title = new wxStaticText(this, wxID_ANY, _("MVR-xchange"));
   wxFont titleFont = title->GetFont();
   titleFont.SetPointSize(titleFont.GetPointSize() + 4);
   titleFont.SetWeight(wxFONTWEIGHT_BOLD);
   title->SetFont(titleFont);
   auto *subtitle = new wxStaticText(
       this, wxID_ANY,
-      "Publish the current scene or request advertised MVR revisions from compatible TCP Mode stations.");
+      _("Publish the current scene or request advertised MVR revisions from compatible TCP Mode stations."));
   subtitle->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   root->Add(title, 0, wxLEFT | wxRIGHT | wxTOP, 14);
   root->Add(subtitle, 0, wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
-  auto *settingsBox = new wxStaticBoxSizer(wxVERTICAL, this, "Station settings");
-  statusText_ = new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Stopped");
+  auto *settingsBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Station settings"));
+  statusText_ = new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("Stopped"));
   stationNameCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.stationName));
   stationNameCtrl_->SetSelection(0, 0);
   stationNameCtrl_->SetInsertionPoint(0);
@@ -134,7 +134,7 @@ void MvrXchangeDialog::BuildLayout() {
   stationUuidCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, wxString::FromUTF8(settings_.stationUuid), wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
   portCtrl_ = new wxTextCtrl(settingsBox->GetStaticBox(), wxID_ANY, settings_.port > 0 ? wxString::Format("%d", settings_.port) : wxString("Auto"));
   interfaceChoice_ = new wxChoice(settingsBox->GetStaticBox(), wxID_ANY);
-  interfaceChoice_->Append("Auto / All suitable interfaces");
+  interfaceChoice_->Append(_("Auto / All suitable interfaces"));
   interfaces_ = ListMvrXchangeNetworkInterfaces();
   int selectedInterfaceIndex = 0;
   for (std::size_t i = 0; i < interfaces_.size(); ++i) {
@@ -143,51 +143,51 @@ void MvrXchangeDialog::BuildLayout() {
   }
   interfaceChoice_->SetSelection(selectedInterfaceIndex);
   auto *statusRow = new wxBoxSizer(wxHORIZONTAL);
-  statusRow->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Status:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+  statusRow->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("Status:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   statusRow->Add(statusText_, 1, wxALIGN_CENTER_VERTICAL);
   settingsBox->Add(statusRow, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
   auto *settingsGrid = new wxFlexGridSizer(4, 8, 8);
   settingsGrid->AddGrowableCol(1, 1);
   settingsGrid->AddGrowableCol(3, 1);
-  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Station name:"), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(stationNameCtrl_, 1, wxEXPAND);
-  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Group name:"), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(groupNameCtrl_, 1, wxEXPAND);
-  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Station UUID:"), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(stationUuidCtrl_, 1, wxEXPAND);
-  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "TCP port:"), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(portCtrl_, 1, wxEXPAND);
+  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("Station name:")), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(stationNameCtrl_, 1, wxEXPAND);
+  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("Group name:")), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(groupNameCtrl_, 1, wxEXPAND);
+  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("Station UUID:")), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(stationUuidCtrl_, 1, wxEXPAND);
+  settingsGrid->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("TCP port:")), 0, wxALIGN_CENTER_VERTICAL); settingsGrid->Add(portCtrl_, 1, wxEXPAND);
   settingsBox->Add(settingsGrid, 0, wxEXPAND | wxALL, 10);
   auto *interfaceRow = new wxBoxSizer(wxHORIZONTAL);
-  interfaceRow->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, "Network interface:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+  interfaceRow->Add(new wxStaticText(settingsBox->GetStaticBox(), wxID_ANY, _("Network interface:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
   interfaceRow->Add(interfaceChoice_, 1, wxEXPAND);
   settingsBox->Add(interfaceRow, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
   root->Add(settingsBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
-  auto *remoteBox = new wxStaticBoxSizer(wxVERTICAL, this, "Remote stations and MVR files");
-  remoteStationsText_ = new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, "0 discovered, 0 incoming joined, 0 outgoing joined");
+  auto *remoteBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Remote stations and MVR files"));
+  remoteStationsText_ = new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, _("0 discovered, 0 incoming joined, 0 outgoing joined"));
   remoteStationsText_->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
   remoteBox->Add(remoteStationsText_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
   const int flags = wxDATAVIEW_COL_RESIZABLE | wxDATAVIEW_COL_SORTABLE;
-  remoteBox->Add(new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, "Stations"), 0, wxLEFT | wxRIGHT | wxTOP, 10);
+  remoteBox->Add(new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, _("Stations")), 0, wxLEFT | wxRIGHT | wxTOP, 10);
   stationsList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 90), wxDV_ROW_LINES | wxDV_SINGLE | wxVSCROLL);
-  stationsList_->AppendTextColumn("Station", wxDATAVIEW_CELL_INERT, 250, wxALIGN_LEFT, flags);
-  stationsList_->AppendTextColumn("Membership", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, flags);
-  stationsList_->AppendTextColumn("Endpoint", wxDATAVIEW_CELL_INERT, 180, wxALIGN_LEFT, flags);
-  stationsList_->AppendTextColumn("Station UUID", wxDATAVIEW_CELL_INERT, 290, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn(_("Station"), wxDATAVIEW_CELL_INERT, 250, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn(_("Membership"), wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn(_("Endpoint"), wxDATAVIEW_CELL_INERT, 180, wxALIGN_LEFT, flags);
+  stationsList_->AppendTextColumn(_("Station UUID"), wxDATAVIEW_CELL_INERT, 290, wxALIGN_LEFT, flags);
   stationsList_->SetMinSize(wxSize(-1, 80));
   remoteBox->Add(stationsList_, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
-  remoteBox->Add(new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, "Advertised MVR files"), 0, wxLEFT | wxRIGHT | wxTOP, 10);
+  remoteBox->Add(new wxStaticText(remoteBox->GetStaticBox(), wxID_ANY, _("Advertised MVR files")), 0, wxLEFT | wxRIGHT | wxTOP, 10);
   availableFilesList_ = new wxDataViewListCtrl(remoteBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(-1, 130), wxDV_ROW_LINES | wxDV_SINGLE | wxVSCROLL);
-  availableFilesList_->AppendTextColumn("Station", wxDATAVIEW_CELL_INERT, 170, wxALIGN_LEFT, flags);
-  availableFilesList_->AppendTextColumn("MVR file", wxDATAVIEW_CELL_INERT, 230, wxALIGN_LEFT, flags);
-  availableFilesList_->AppendTextColumn("Size", wxDATAVIEW_CELL_INERT, 90, wxALIGN_LEFT, flags);
-  availableFilesList_->AppendTextColumn("File UUID", wxDATAVIEW_CELL_INERT, 250, wxALIGN_LEFT, flags);
-  availableFilesList_->AppendTextColumn("Comment", wxDATAVIEW_CELL_INERT, 220, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn(_("Station"), wxDATAVIEW_CELL_INERT, 170, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn(_("MVR file"), wxDATAVIEW_CELL_INERT, 230, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn(_("Size"), wxDATAVIEW_CELL_INERT, 90, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn(_("File UUID"), wxDATAVIEW_CELL_INERT, 250, wxALIGN_LEFT, flags);
+  availableFilesList_->AppendTextColumn(_("Comment"), wxDATAVIEW_CELL_INERT, 220, wxALIGN_LEFT, flags);
   availableFilesList_->SetMinSize(wxSize(-1, 100));
   remoteBox->Add(availableFilesList_, 2, wxEXPAND | wxALL, 10);
   root->Add(remoteBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
-  auto *logBox = new wxStaticBoxSizer(wxVERTICAL, this, "Log");
+  auto *logBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Log"));
   auto *logActions = new wxBoxSizer(wxHORIZONTAL);
   logActions->AddStretchSpacer();
-  copyLogButton_ = new wxButton(logBox->GetStaticBox(), wxID_ANY, "Copy Log");
+  copyLogButton_ = new wxButton(logBox->GetStaticBox(), wxID_ANY, _("Copy Log"));
   logActions->Add(copyLogButton_, 0);
   logBox->Add(logActions, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
   logCtrl_ = new wxTextCtrl(logBox->GetStaticBox(), wxID_ANY, {}, wxDefaultPosition, wxSize(-1, 140), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
@@ -196,18 +196,18 @@ void MvrXchangeDialog::BuildLayout() {
   root->Add(logBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
   auto *buttons = new wxBoxSizer(wxHORIZONTAL);
-  startButton_ = new wxButton(this, wxID_ANY, "Start");
-  stopButton_ = new wxButton(this, wxID_ANY, "Stop");
-  discoverButton_ = new wxButton(this, wxID_ANY, "Discover Now");
-  publishButton_ = new wxButton(this, wxID_ANY, "Publish Current MVR");
-  requestButton_ = new wxButton(this, wxID_ANY, "Request Selected MVR");
+  startButton_ = new wxButton(this, wxID_ANY, _("Start"));
+  stopButton_ = new wxButton(this, wxID_ANY, _("Stop"));
+  discoverButton_ = new wxButton(this, wxID_ANY, _("Discover Now"));
+  publishButton_ = new wxButton(this, wxID_ANY, _("Publish Current MVR"));
+  requestButton_ = new wxButton(this, wxID_ANY, _("Request Selected MVR"));
   buttons->Add(startButton_, 0, wxRIGHT, 8);
   buttons->Add(stopButton_, 0, wxRIGHT, 8);
   buttons->Add(discoverButton_, 0, wxRIGHT, 8);
   buttons->AddStretchSpacer();
   buttons->Add(publishButton_, 0, wxRIGHT, 8);
   buttons->Add(requestButton_, 0, wxRIGHT, 8);
-  buttons->Add(new wxButton(this, wxID_CLOSE, "Close"), 0);
+  buttons->Add(new wxButton(this, wxID_CLOSE, _("Close")), 0);
   root->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 14);
 
   SetSizer(root);
@@ -232,7 +232,7 @@ void MvrXchangeDialog::RefreshState() {
   if (shuttingDown_ || IsBeingDeleted() || !statusText_) return;
   const bool running = service_->IsRunning();
   const wxString endpoint = wxString::FromUTF8(service_->AdvertisedIpAddress()) + wxString::Format(":%d", service_->Port());
-  statusText_->SetLabel(running ? wxString("Running on ") + endpoint : wxString("Stopped"));
+  statusText_->SetLabel(running ? wxString(_("Running on ")) + endpoint : wxString(_("Stopped")));
   startButton_->Enable(!running);
   stopButton_->Enable(running);
   publishButton_->Enable(running);
@@ -250,7 +250,7 @@ void MvrXchangeDialog::RefreshState() {
     if (station.outgoingJoined) ++outgoing;
   }
   if (remoteStationsText_) {
-    remoteStationsText_->SetLabel(wxString::Format("%zu discovered, %zu incoming joined, %zu outgoing joined", discovered, incoming, outgoing));
+    remoteStationsText_->SetLabel(wxString::Format(_("%zu discovered, %zu incoming joined, %zu outgoing joined"), discovered, incoming, outgoing));
   }
 }
 
