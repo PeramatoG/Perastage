@@ -73,6 +73,8 @@ int main() {
       "\n"
       "FLOOR\n"
       "4 LITELEE B-EYE L10R\n"
+      "4 TOUR HAZER II\n"
+      "4 TURBINA\n"
       "2 LED BAR\n"
       "\n"
       "RIGGING\n"
@@ -97,7 +99,7 @@ int main() {
 
   const auto rawRequests = RiderImporter::AnalyzeFixtureTypes(input);
   const auto filteredRequests = RiderImporter::AnalyzeFixtureTypes(preview);
-  assert(rawRequests.size() == 4);
+  assert(rawRequests.size() == 6);
   assert(filteredRequests.size() == rawRequests.size());
   for (size_t i = 0; i < rawRequests.size(); ++i) {
     assert(rawRequests[i].typeName == filteredRequests[i].typeName);
@@ -278,7 +280,7 @@ int main() {
   const std::string spanishExpected =
       "LX1\n8 BLINDER\n\nLX2\n6 WASH\n\nLX3\n8 PROFILE\n\n"
       "LX SIDES\n8 LED BAR\n\nFLOOR\n4 BEAM\n1 FOLLOWSPOT\n1 OPERADOR\n"
-      "4 PAR LED PARA ILUMINAR ESCALERA\n\n"
+      "4 PAR LED PARA ILUMINAR ESCALERA\n2 HAZER\n2 TURBINA\n\n"
       "SCREEN\n1 PANTALLA LED 10X5m 1664x832 PIXELS\n\nRIGGING\n"
       "4 MOTOR 2000Kg FOR P.A.\n2 MOTOR 500Kg FOR LX1\n"
       "2 MOTOR 500Kg FOR LX2\n2 MOTOR 500Kg FOR LX3\n"
@@ -298,7 +300,7 @@ int main() {
       "1 LED WALL 10 x 5 m\n";
   const std::string englishExpected =
       "LX1\n8 BLINDER\n\nLX2\n6 WASH\n\nLX3\n8 PROFILE\n\n"
-      "LX SIDES\n8 LED BAR\n\nFLOOR\n4 BEAM\n\n"
+      "LX SIDES\n8 LED BAR\n\nFLOOR\n4 BEAM\n2 HAZER\n\n"
       "SCREEN\n1 LED WALL 10 x 5 m";
   assert(RiderImporter::BuildFixtureFilterPreview(englishRegression) ==
          englishExpected);

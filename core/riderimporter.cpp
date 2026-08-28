@@ -1317,8 +1317,16 @@ ParsedRiderImport ParseRiderImport(const std::string &text) {
       continue;
     }
     const rider_text::Section section = rider_text::ClassifySectionHeader(line);
-    if (section == rider_text::Section::Effects ||
-        section == rider_text::Section::LightingControl ||
+    if (section == rider_text::Section::Effects) {
+      seenSectionHeader = true;
+      inFixtures = true;
+      inRigging = false;
+      inControl = false;
+      currentHang = "FLOOR";
+      havePending = false;
+      continue;
+    }
+    if (section == rider_text::Section::LightingControl ||
         section == rider_text::Section::Video ||
         section == rider_text::Section::Ignored) {
       seenSectionHeader = true;
@@ -2242,8 +2250,16 @@ bool RiderImporter::ImportText(const std::string &text,
       continue;
     }
     const rider_text::Section section = rider_text::ClassifySectionHeader(line);
-    if (section == rider_text::Section::Effects ||
-        section == rider_text::Section::LightingControl ||
+    if (section == rider_text::Section::Effects) {
+      seenSectionHeader = true;
+      inFixtures = true;
+      inRigging = false;
+      inControl = false;
+      currentHang = "FLOOR";
+      havePending = false;
+      continue;
+    }
+    if (section == rider_text::Section::LightingControl ||
         section == rider_text::Section::Video ||
         section == rider_text::Section::Ignored) {
       seenSectionHeader = true;
