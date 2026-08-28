@@ -87,8 +87,9 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   SetInstance(this);
   Bind(wxEVT_CHAR_HOOK, &Viewer2DRenderPanel::OnNumericCharHook, this);
   ConfigManager &cfg = ConfigManager::Get();
-  wxString choices[] = {"Wireframe", "White", "By device type", "By layer", "By universe"};
-  m_radio = new wxRadioBox(this, wxID_ANY, "Render mode", wxDefaultPosition,
+  wxString choices[] = {_("Wireframe"), _("White"), _("By device type"),
+                        _("By layer"), _("By universe")};
+  m_radio = new wxRadioBox(this, wxID_ANY, _("Render mode"), wxDefaultPosition,
                            wxDefaultSize, 5, choices, 1, wxRA_SPECIFY_COLS);
   m_radio->SetSelection(static_cast<int>(cfg.GetFloat("view2d_render_mode")));
   m_radio->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnRadio, this);
@@ -105,8 +106,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
                               &Viewer2DRenderPanel::OnTopFixturesInverted,
                               this);
 
-  wxString viewChoices[] = {"Top", "Front", "Side"};
-  m_view = new wxRadioBox(this, wxID_ANY, "View", wxDefaultPosition,
+  wxString viewChoices[] = {_("Top"), _("Front"), _("Side")};
+  m_view = new wxRadioBox(this, wxID_ANY, _("View"), wxDefaultPosition,
                           wxDefaultSize, 3, viewChoices, 1, wxRA_SPECIFY_COLS);
   m_view->SetSelection(static_cast<int>(cfg.GetFloat("view2d_view")));
   m_view->Bind(wxEVT_RADIOBOX, &Viewer2DRenderPanel::OnView, this);
@@ -118,8 +119,8 @@ Viewer2DRenderPanel::Viewer2DRenderPanel(wxWindow *parent)
   m_showGrid->SetValue(cfg.GetFloat("grid_show") != 0.0f);
   m_showGrid->Bind(wxEVT_CHECKBOX, &Viewer2DRenderPanel::OnShowGrid, this);
 
-  wxString gridChoices[] = {"Lines", "Points", "Crosses"};
-  m_gridStyle = new wxRadioBox(gridBoxParent, wxID_ANY, "Grid style",
+  wxString gridChoices[] = {_("Lines"), _("Points"), _("Crosses")};
+  m_gridStyle = new wxRadioBox(gridBoxParent, wxID_ANY, _("Grid style"),
                                wxDefaultPosition, wxDefaultSize, 3,
                                gridChoices, 1, wxRA_SPECIFY_COLS);
   m_gridStyle->SetSelection(static_cast<int>(cfg.GetFloat("grid_style")));

@@ -280,6 +280,15 @@ def is_stable_file_dialog_filter(expression: str, literal: str) -> bool:
     return "wxFileDialog" in expression and "*." in expression and "|" in expression
 
 
+def choice_array_expressions(text: str) -> list[tuple[int, str]]:
+    """Returns wxString arrays whose names identify them as GUI choice lists."""
+    pattern = re.compile(
+        r"(?:const\s+)?wxString\s+(?:[A-Za-z_][A-Za-z0-9_]*)?choices\s*\[\s*\]\s*=\s*\{(.*?)\};",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return [(match.start(1), match.group(1)) for match in pattern.finditer(text)]
+
+
 def audit() -> int:
     try:
         allowlist = parse_allowlist()
@@ -306,6 +315,13 @@ def audit() -> int:
                     continue
                 findings.append(
                     f"{rel}:{line_number(text, match.start() + local_offset)}: unmarked UI literal {literal!r} in {expression.strip()}"
+                )
+        for expression_offset, expression in choice_array_expressions(text):
+            for literal, local_offset in string_literals(expression):
+                if not literal or not literal.strip() or (rel, literal) in allowlist:
+                    continue
+                findings.append(
+                    f"{rel}:{line_number(text, expression_offset + local_offset)}: unmarked GUI choice literal {literal!r}"
                 )
     if findings:
         print("High-confidence unmarked UI strings found:", file=sys.stderr)
@@ -337,6 +353,10 @@ def self_test() -> int:
     untranslated_factory = 'std::make_unique<wxProgressDialog>("Title", "Message");'
     translated_factory = 'std::make_unique<wxProgressDialog>(_("Title"), _("Message"));'
     technical_constructor = 'ProtocolFrame frame("StableIdentifier");'
+    untranslated_choice_add = 'choices.Add("Visible choice");'
+    translated_choice_add = 'choices.Add(_("Visible choice"));'
+    untranslated_choice_array = 'const wxString choices[] = {"Visible choice"};'
+    translated_choice_array = 'const wxString choices[] = {_("Visible choice")};'
     stable_filter = 'wxFileDialog dlg(parent, _("Open"), path, "", "JSON files (*.json)|*.json");'
     assert unmarked_literals_for_test(untranslated_choice, constructor_pattern)
     assert unmarked_literals_for_test(untranslated_file, constructor_pattern)
@@ -345,6 +365,11 @@ def self_test() -> int:
     assert unmarked_literals_for_test(untranslated_factory, constructor_pattern)
     assert not unmarked_literals_for_test(translated_factory, constructor_pattern)
     assert not unmarked_literals_for_test(technical_constructor, constructor_pattern)
+    assert unmarked_literals_for_test(untranslated_choice_add, constructor_pattern)
+    assert not unmarked_literals_for_test(translated_choice_add, constructor_pattern)
+    assert choice_array_expressions(untranslated_choice_array)
+    assert string_literals(choice_array_expressions(untranslated_choice_array)[0][1])
+    assert not string_literals(choice_array_expressions(translated_choice_array)[0][1])
     assert is_stable_file_dialog_filter(stable_filter, "JSON files (*.json)|*.json")
     return 0
 
@@ -360,6 +385,7 @@ def ui_callee_pattern() -> re.Pattern[str]:
     constructors = "|".join(re.escape(name) for name in sorted(UI_CONSTRUCTOR_TYPES, key=len, reverse=True))
     return re.compile(
         r"(?<![A-Za-z0-9_:])(?:" + callees + r")\s*\(|"
+        r"\bchoices\s*\.\s*(?:Add|push_back)\s*\(|"
         r"(?<![A-Za-z0-9_:])(?:" + constructors + r")\s+[A-Za-z_][A-Za-z0-9_]*\s*\(|"
         r"\b(?:std::)?make_unique\s*<\s*(?:" + constructors + r")\s*>\s*\("
     )

@@ -1606,8 +1606,8 @@ void DictionaryEditDialog::OnNewFixturesDictionary(
   if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Fixtures, _("creating a fixtures dictionary")))
     return;
   wxArrayString choices;
-  choices.Add("Empty dictionary");
-  choices.Add("From application defaults (seed once)");
+  choices.Add(_("Empty dictionary"));
+  choices.Add(_("From application defaults (seed once)"));
   wxSingleChoiceDialog choiceDialog(
       this, _("Choose how to create the new fixtures dictionary."),
       _("New fixtures dictionary"), choices);
@@ -1646,8 +1646,8 @@ void DictionaryEditDialog::OnNewTrussesDictionary(
   if (!ConfirmDirtyChangesBeforeReload(DictionaryEditorState::DictionaryEditorPage::Trusses, _("creating a trusses dictionary")))
     return;
   wxArrayString choices;
-  choices.Add("Empty dictionary");
-  choices.Add("From application defaults (seed once)");
+  choices.Add(_("Empty dictionary"));
+  choices.Add(_("From application defaults (seed once)"));
   wxSingleChoiceDialog choiceDialog(
       this, _("Choose how to create the new trusses dictionary."),
       _("New trusses dictionary"), choices);
@@ -2389,7 +2389,7 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
 
 // Opens the export format chooser and runs the selected export workflow.
 void DictionaryEditDialog::OnExportDictionary(wxCommandEvent &WXUNUSED(event)) {
-  const wxString choices[] = {"JSON Snapshot", "Portable ZIP Bundle"};
+  const wxString choices[] = {_("JSON Snapshot"), _("Portable ZIP Bundle")};
   wxSingleChoiceDialog dialog(
       this,
       _("Export does not change the active dictionary. Choose the export format."),

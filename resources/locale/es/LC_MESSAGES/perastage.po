@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-27 19:28+0000\n"
+"POT-Creation-Date: 2026-08-28 05:34+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -634,6 +634,14 @@ msgstr ""
 msgid "creating a fixtures dictionary"
 msgstr "creando un diccionario de accesorios"
 
+#: gui/dictionaryeditdialog.cpp:1609 gui/dictionaryeditdialog.cpp:1649
+msgid "Empty dictionary"
+msgstr "Diccionario vacío"
+
+#: gui/dictionaryeditdialog.cpp:1610 gui/dictionaryeditdialog.cpp:1650
+msgid "From application defaults (seed once)"
+msgstr "Desde los valores predeterminados de la aplicación (crear una vez)"
+
 #: gui/dictionaryeditdialog.cpp:1612
 msgid "Choose how to create the new fixtures dictionary."
 msgstr "Elige cómo crear el nuevo diccionario de aparatos."
@@ -803,8 +811,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1992 gui/dictionaryeditdialog.cpp:2765
 #: gui/fixtureeditdialog.cpp:863 gui/fixturetablepanel.cpp:527
-#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1567
-#: gui/mainwindow_menu.cpp:1590
+#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1568
+#: gui/mainwindow_menu.cpp:1591
 msgid "Select GDTF file"
 msgstr "Seleccione el archivo GDTF"
 
@@ -819,7 +827,7 @@ msgid "DMX Mode"
 msgstr "Modo DMX"
 
 #: gui/dictionaryeditdialog.cpp:2027 gui/dictionaryeditdialog.cpp:2796
-#: gui/mainwindow_menu.cpp:1623 gui/mainwindow_menu.cpp:1642
+#: gui/mainwindow_menu.cpp:1624 gui/mainwindow_menu.cpp:1643
 #: gui/mainwindow_truss_replace.cpp:114
 msgid "Select Truss file"
 msgstr "Seleccionar archivo de armadura"
@@ -928,6 +936,14 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:2385
 msgid "Trusses dictionary import"
 msgstr "Importación de diccionario de armaduras"
+
+#: gui/dictionaryeditdialog.cpp:2392
+msgid "JSON Snapshot"
+msgstr "Instantánea JSON"
+
+#: gui/dictionaryeditdialog.cpp:2392
+msgid "Portable ZIP Bundle"
+msgstr "Paquete ZIP portátil"
 
 #: gui/dictionaryeditdialog.cpp:2395
 msgid "Export does not change the active dictionary. Choose the export format."
@@ -1335,7 +1351,7 @@ msgstr "Valor numérico no válido"
 #: gui/mainwindow_io.cpp:696 gui/mainwindow_io.cpp:746
 #: gui/mainwindow_io.cpp:834 gui/mainwindow_io.cpp:876
 #: gui/mainwindow_io.cpp:894 gui/mainwindow_menu.cpp:813
-#: gui/mainwindow_menu.cpp:817 gui/mainwindow_menu.cpp:1669
+#: gui/mainwindow_menu.cpp:817 gui/mainwindow_menu.cpp:1670
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -1748,7 +1764,7 @@ msgid "Visible"
 msgstr "Visible"
 
 #: gui/layerpanel.cpp:87 gui/layerpanel.cpp:101 gui/summarypanel.cpp:264
-#: gui/summarypanel.cpp:318 viewer2d/viewer2drenderpanel.cpp:346
+#: gui/summarypanel.cpp:318 viewer2d/viewer2drenderpanel.cpp:347
 msgid "Color"
 msgstr "Color"
 
@@ -1932,6 +1948,18 @@ msgstr "Usuario:"
 msgid "Password:"
 msgstr "Contraseña:"
 
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:56
+msgid "Create new UUIDs for imported objects"
+msgstr "Crear UUID nuevos para los objetos importados"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:57
+msgid "Replace existing project objects"
+msgstr "Reemplazar los objetos existentes del proyecto"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:58
+msgid "Skip incoming colliding objects"
+msgstr "Omitir los objetos entrantes con UUID en conflicto"
+
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:61
 #, c-format
 msgid ""
@@ -1944,6 +1972,19 @@ msgstr ""
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:65
 msgid "MVR Merge UUID Collisions"
 msgstr "MVR Fusionar UUID Colisiones"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:102
+msgid "Use current project definition for imported fixtures"
+msgstr "Usar la definición del proyecto actual para los aparatos importados"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:104
+#, c-format
+msgid "Keep imported definition by renaming it to \"%s\""
+msgstr "Conservar la definición importada cambiándole el nombre a «%s»"
+
+#: gui/mainwindow/controllers/mainwindow_io_controller.cpp:106
+msgid "Cancel merge"
+msgstr "Cancelar fusión"
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:119
 msgid "MVR Merge Fixture Type Conflict"
@@ -2949,9 +2990,13 @@ msgid "No hoists available for weight distribution."
 msgstr "No hay polipastos disponibles para la distribución del peso."
 
 #: gui/mainwindow_menu.cpp:884 gui/mainwindow_menu.cpp:895
-#: gui/mainwindow_menu.cpp:915
+#: gui/mainwindow_menu.cpp:916
 msgid "Distribute hoist weights"
 msgstr "Distribuir los pesos del polipasto"
+
+#: gui/mainwindow_menu.cpp:889
+msgid "All positions"
+msgstr "Todas las posiciones"
 
 #: gui/mainwindow_menu.cpp:894
 msgid "Select hang position(s) to distribute hoist weights."
@@ -2959,76 +3004,76 @@ msgstr ""
 "Seleccione las posiciones de suspensión para distribuir los pesos del "
 "polipasto."
 
-#: gui/mainwindow_menu.cpp:914
+#: gui/mainwindow_menu.cpp:915
 msgid "No hoists found for the selected position."
 msgstr "No se encontraron polipastos para la posición seleccionada."
 
-#: gui/mainwindow_menu.cpp:1029
+#: gui/mainwindow_menu.cpp:1030
 msgid "Please select fixtures to convert first."
 msgstr "Seleccione los accesorios para convertir primero."
 
-#: gui/mainwindow_menu.cpp:1029 gui/mainwindow_menu.cpp:1042
-#: gui/mainwindow_menu.cpp:1071 gui/mainwindow_menu_builders.cpp:107
+#: gui/mainwindow_menu.cpp:1030 gui/mainwindow_menu.cpp:1043
+#: gui/mainwindow_menu.cpp:1072 gui/mainwindow_menu_builders.cpp:107
 msgid "Convert to Hoist"
 msgstr "Convertir en motor"
 
-#: gui/mainwindow_menu.cpp:1041
+#: gui/mainwindow_menu.cpp:1042
 msgid "The selected fixtures cannot be converted."
 msgstr "Los aparatos seleccionados no se pueden convertir."
 
-#: gui/mainwindow_menu.cpp:1070
+#: gui/mainwindow_menu.cpp:1071
 #, c-format
 msgid "Converted %zu fixture(s) to hoists."
 msgstr "Se convirtieron %zu accesorios en polipastos."
 
-#: gui/mainwindow_menu.cpp:1080
+#: gui/mainwindow_menu.cpp:1081
 msgid "Please select a scene object to convert first."
 msgstr "Seleccione un objeto de escena para convertir primero."
 
-#: gui/mainwindow_menu.cpp:1081 gui/mainwindow_menu.cpp:1091
-#: gui/mainwindow_menu.cpp:1116 gui/mainwindow_menu_builders.cpp:109
+#: gui/mainwindow_menu.cpp:1082 gui/mainwindow_menu.cpp:1092
+#: gui/mainwindow_menu.cpp:1117 gui/mainwindow_menu_builders.cpp:109
 msgid "Convert Scene Objects to Truss"
 msgstr "Convertir objetos de escena en truss"
 
-#: gui/mainwindow_menu.cpp:1090
+#: gui/mainwindow_menu.cpp:1091
 msgid "No scene objects with a valid model file were converted."
 msgstr ""
 "No se convirtió ningún objeto de escena con un archivo de modelo válido."
 
-#: gui/mainwindow_menu.cpp:1113
+#: gui/mainwindow_menu.cpp:1114
 #, c-format
 msgid "Converted %zu scene object(s) with model '%s' to truss."
 msgstr "Se convirtieron %zu objetos de escena con el modelo '%s' en truss."
 
-#: gui/mainwindow_menu.cpp:1149
+#: gui/mainwindow_menu.cpp:1150
 msgid "exiting"
 msgstr "salir"
 
-#: gui/mainwindow_menu.cpp:1149
+#: gui/mainwindow_menu.cpp:1150
 msgid "Exit"
 msgstr "Salir"
 
-#: gui/mainwindow_menu.cpp:1238 gui/mainwindow_menu.cpp:1273
+#: gui/mainwindow_menu.cpp:1239 gui/mainwindow_menu.cpp:1274
 msgid "Perastage Help"
 msgstr "Ayuda"
 
-#: gui/mainwindow_menu.cpp:1243
+#: gui/mainwindow_menu.cpp:1244
 msgid "Language:"
 msgstr "Idioma:"
 
-#: gui/mainwindow_menu.cpp:1245
+#: gui/mainwindow_menu.cpp:1246
 msgid "English"
 msgstr "Inglés"
 
-#: gui/mainwindow_menu.cpp:1246
+#: gui/mainwindow_menu.cpp:1247
 msgid "Español"
 msgstr "Español"
 
-#: gui/mainwindow_menu.cpp:1272
+#: gui/mainwindow_menu.cpp:1273
 msgid "help.md file not found"
 msgstr "Archivo help.md no encontrado"
 
-#: gui/mainwindow_menu.cpp:1291
+#: gui/mainwindow_menu.cpp:1292
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -3039,12 +3084,12 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:1293 gui/mainwindow_menu.cpp:1311
-#: gui/mainwindow_menu.cpp:1327 gui/mainwindow_menu.cpp:1336
+#: gui/mainwindow_menu.cpp:1294 gui/mainwindow_menu.cpp:1312
+#: gui/mainwindow_menu.cpp:1328 gui/mainwindow_menu.cpp:1337
 msgid "Perastage Diagnostics"
 msgstr "Diagnóstico de Perastage"
 
-#: gui/mainwindow_menu.cpp:1309
+#: gui/mainwindow_menu.cpp:1310
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -3055,7 +3100,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:1325
+#: gui/mainwindow_menu.cpp:1326
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -3066,7 +3111,7 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:1334
+#: gui/mainwindow_menu.cpp:1335
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -3077,11 +3122,11 @@ msgstr ""
 "\n"
 "%s"
 
-#: gui/mainwindow_menu.cpp:1355 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:1356 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr "Actualizaciones de Perastage"
 
-#: gui/mainwindow_menu.cpp:1357
+#: gui/mainwindow_menu.cpp:1358
 msgid ""
 "Could not check for updates.\n"
 "\n"
@@ -3089,11 +3134,11 @@ msgstr ""
 "No se pudieron buscar actualizaciones.\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:1360
+#: gui/mainwindow_menu.cpp:1361
 msgid "Please verify your network connection and try again."
 msgstr "Verifique su conexión de red e inténtelo nuevamente."
 
-#: gui/mainwindow_menu.cpp:1369
+#: gui/mainwindow_menu.cpp:1370
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -3104,11 +3149,11 @@ msgstr ""
 "Última versión: %s\n"
 "\n"
 
-#: gui/mainwindow_menu.cpp:1373
+#: gui/mainwindow_menu.cpp:1374
 msgid "You are up to date."
 msgstr "Estás al día."
 
-#: gui/mainwindow_menu.cpp:1667 gui/mainwindow_truss_replace.cpp:180
+#: gui/mainwindow_menu.cpp:1668 gui/mainwindow_truss_replace.cpp:180
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
@@ -3116,7 +3161,7 @@ msgstr ""
 "Archivo de truss no compatible o ilegible. Los formatos admitidos son GDTF, "
 "GTruss, GLB y 3DS."
 
-#: gui/mainwindow_menu.cpp:1850 gui/mainwindow_menu.cpp:1872
+#: gui/mainwindow_menu.cpp:1851 gui/mainwindow_menu.cpp:1873
 msgid "Select Object file"
 msgstr "Seleccionar archivo de objeto"
 
@@ -3701,8 +3746,8 @@ msgid "MVR file"
 msgstr "Archivo MVR"
 
 #: gui/mvrxchange/mvr_xchange_dialog.cpp:180
-#: viewer2d/viewer2drenderpanel.cpp:379 viewer2d/viewer2drenderpanel.cpp:386
-#: viewer2d/viewer2drenderpanel.cpp:393
+#: viewer2d/viewer2drenderpanel.cpp:380 viewer2d/viewer2drenderpanel.cpp:387
+#: viewer2d/viewer2drenderpanel.cpp:394
 msgid "Size"
 msgstr "Tamaño"
 
@@ -4017,7 +4062,7 @@ msgid "Disabled by default to preserve the current behavior."
 msgstr ""
 "Desactivado de forma predeterminada para mantener el comportamiento actual."
 
-#: gui/preferencesdialog.cpp:429
+#: gui/preferencesdialog.cpp:429 viewer2d/viewer2drenderpanel.cpp:92
 msgid "Render mode"
 msgstr "Modo de render"
 
@@ -4025,7 +4070,7 @@ msgstr "Modo de render"
 msgid "Standard"
 msgstr "Estándar"
 
-#: gui/preferencesdialog.cpp:434
+#: gui/preferencesdialog.cpp:434 viewer2d/viewer2drenderpanel.cpp:90
 msgid "White"
 msgstr "Blanco"
 
@@ -4037,19 +4082,19 @@ msgstr "Modo boceto"
 msgid "Textured"
 msgstr "Texturizado"
 
-#: gui/preferencesdialog.cpp:440
+#: gui/preferencesdialog.cpp:440 viewer2d/viewer2drenderpanel.cpp:90
 msgid "Wireframe"
 msgstr "Wireframe"
 
-#: gui/preferencesdialog.cpp:442
+#: gui/preferencesdialog.cpp:442 viewer2d/viewer2drenderpanel.cpp:90
 msgid "By device type"
 msgstr "Por tipo de dispositivo"
 
-#: gui/preferencesdialog.cpp:444
+#: gui/preferencesdialog.cpp:444 viewer2d/viewer2drenderpanel.cpp:91
 msgid "By layer"
 msgstr "Por capa"
 
-#: gui/preferencesdialog.cpp:446
+#: gui/preferencesdialog.cpp:446 viewer2d/viewer2drenderpanel.cpp:91
 msgid "By universe"
 msgstr "Por universo"
 
@@ -4930,75 +4975,107 @@ msgstr "Sin posición"
 msgid "Select by position"
 msgstr "Seleccionar por posición"
 
-#: viewer2d/viewer2drenderpanel.cpp:96
+#: viewer2d/viewer2drenderpanel.cpp:97
 msgid "Dark mode"
 msgstr "modo oscuro"
 
-#: viewer2d/viewer2drenderpanel.cpp:101
+#: viewer2d/viewer2drenderpanel.cpp:102
 msgid "Force bottom view"
 msgstr "Forzar vista inferior"
 
-#: viewer2d/viewer2drenderpanel.cpp:114
+#: viewer2d/viewer2drenderpanel.cpp:109
+msgid "Top"
+msgstr "Superior"
+
+#: viewer2d/viewer2drenderpanel.cpp:109
+msgid "Front"
+msgstr "Frontal"
+
+#: viewer2d/viewer2drenderpanel.cpp:109
+msgid "Side"
+msgstr "Lateral"
+
+#: viewer2d/viewer2drenderpanel.cpp:110
+msgid "View"
+msgstr "Vista"
+
+#: viewer2d/viewer2drenderpanel.cpp:115
 msgid "Grid"
 msgstr "Red"
 
-#: viewer2d/viewer2drenderpanel.cpp:117
+#: viewer2d/viewer2drenderpanel.cpp:118
 msgid "Show grid"
 msgstr "Mostrar cuadrícula"
 
-#: viewer2d/viewer2drenderpanel.cpp:136
+#: viewer2d/viewer2drenderpanel.cpp:122
+msgid "Lines"
+msgstr "Líneas"
+
+#: viewer2d/viewer2drenderpanel.cpp:122
+msgid "Points"
+msgstr "Puntos"
+
+#: viewer2d/viewer2drenderpanel.cpp:122
+msgid "Crosses"
+msgstr "Cruces"
+
+#: viewer2d/viewer2drenderpanel.cpp:123
+msgid "Grid style"
+msgstr "Estilo de cuadrícula"
+
+#: viewer2d/viewer2drenderpanel.cpp:137
 msgid "Draw grid on top"
 msgstr "Dibujar cuadrícula en la parte superior"
 
-#: viewer2d/viewer2drenderpanel.cpp:140
+#: viewer2d/viewer2drenderpanel.cpp:141
 msgid "Ruler"
 msgstr "Gobernante"
 
-#: viewer2d/viewer2drenderpanel.cpp:143
+#: viewer2d/viewer2drenderpanel.cpp:144
 msgid "Show ruler"
 msgstr "Mostrar regla"
 
-#: viewer2d/viewer2drenderpanel.cpp:232
+#: viewer2d/viewer2drenderpanel.cpp:233
 msgid "Labels"
 msgstr "Etiquetas"
 
-#: viewer2d/viewer2drenderpanel.cpp:235 viewer2d/viewer2drenderpanel.cpp:448
+#: viewer2d/viewer2drenderpanel.cpp:236 viewer2d/viewer2drenderpanel.cpp:449
 msgid "Global profile (all fixtures)"
 msgstr "Perfil global (todos los partidos)"
 
-#: viewer2d/viewer2drenderpanel.cpp:237
+#: viewer2d/viewer2drenderpanel.cpp:238
 msgid "Show name"
 msgstr "Mostrar nombre"
 
-#: viewer2d/viewer2drenderpanel.cpp:258
+#: viewer2d/viewer2drenderpanel.cpp:259
 msgid "Show ID"
 msgstr "Mostrar identificación"
 
-#: viewer2d/viewer2drenderpanel.cpp:279
+#: viewer2d/viewer2drenderpanel.cpp:280
 msgid "Show DMX"
 msgstr "Mostrar DMX"
 
-#: viewer2d/viewer2drenderpanel.cpp:355
+#: viewer2d/viewer2drenderpanel.cpp:356
 msgid "X ruler"
 msgstr "regla X"
 
-#: viewer2d/viewer2drenderpanel.cpp:361
+#: viewer2d/viewer2drenderpanel.cpp:362
 msgid "Y ruler"
 msgstr "regla Y"
 
-#: viewer2d/viewer2drenderpanel.cpp:367
+#: viewer2d/viewer2drenderpanel.cpp:368
 msgid "Z ruler"
 msgstr "regla Z"
 
-#: viewer2d/viewer2drenderpanel.cpp:399
+#: viewer2d/viewer2drenderpanel.cpp:400
 msgid "Distance"
 msgstr "Distancia"
 
-#: viewer2d/viewer2drenderpanel.cpp:405
+#: viewer2d/viewer2drenderpanel.cpp:406
 msgid "Angle"
 msgstr "Ángulo"
 
-#: viewer2d/viewer2drenderpanel.cpp:445
+#: viewer2d/viewer2drenderpanel.cpp:446
 #, c-format
 msgid "Selection profile active (%zu fixtures)"
 msgstr "Perfil de selección activo (aparatos %zu)"

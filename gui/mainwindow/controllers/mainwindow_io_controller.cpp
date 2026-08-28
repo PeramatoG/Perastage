@@ -53,9 +53,9 @@ enum class MvrImportChoice {
 std::optional<mvr::MvrMergeUuidCollisionBehavior>
 ShowMvrMergeUuidCollisionDialog(wxWindow *parent, std::size_t collisionCount) {
   wxArrayString choices;
-  choices.Add("Create new UUIDs for imported objects");
-  choices.Add("Replace existing project objects");
-  choices.Add("Skip incoming colliding objects");
+  choices.Add(_("Create new UUIDs for imported objects"));
+  choices.Add(_("Replace existing project objects"));
+  choices.Add(_("Skip incoming colliding objects"));
   wxSingleChoiceDialog dialog(
       parent,
       wxString::Format(_("The selected MVR contains %zu UUIDs that already exist "
@@ -99,11 +99,11 @@ std::optional<mvr::MvrMergeFixtureTypeDecision>
 ShowMvrFixtureTypeConflictDialog(wxWindow *parent,
                                  const mvr::MvrFixtureTypeConflict &conflict) {
   wxArrayString choices;
-  choices.Add("Use current project definition for imported fixtures");
+  choices.Add(_("Use current project definition for imported fixtures"));
   choices.Add(wxString::Format(
-      "Keep imported definition by renaming it to \"%s\"",
+      _("Keep imported definition by renaming it to \"%s\""),
       wxString::FromUTF8(conflict.suggestedIncomingTypeName).c_str()));
-  choices.Add("Cancel merge");
+  choices.Add(_("Cancel merge"));
 
   wxString message = wxString::Format(
       "The imported MVR uses fixture type \"%s\" with a different GDTF "

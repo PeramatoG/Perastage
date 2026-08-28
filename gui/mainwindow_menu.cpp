@@ -886,7 +886,7 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   }
 
   wxArrayString choices;
-  choices.Add("All positions");
+  choices.Add(_("All positions"));
   for (const std::string &positionName : hoistPositions)
     choices.Add(wxString::FromUTF8(positionName));
 
@@ -897,8 +897,9 @@ void MainWindow::OnDistributeHoistWeights(wxCommandEvent &WXUNUSED(event)) {
   if (dialog.ShowModal() != wxID_OK)
     return;
 
+  const int selectedIndex = dialog.GetSelection();
   const wxString selectedChoice = dialog.GetStringSelection();
-  const bool applyAllPositions = selectedChoice == "All positions";
+  const bool applyAllPositions = selectedIndex == 0;
   const std::string selectedPosition = WxToUtf8(selectedChoice);
 
   std::vector<std::string> selectedSupportUuids;
