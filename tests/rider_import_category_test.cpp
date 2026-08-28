@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <string>
@@ -91,6 +92,71 @@ int main() {
          kTolerance);
   assert(std::fabs(strobes.front()->transform.o[2] - (bottomZ + 200.0f)) <
          kTolerance);
+
+  cfg.Reset();
+  const std::string effectsRider =
+      "ILUMINACION\n"
+      "LX1\n"
+      "1 TRUSS GENERIC 10m LX1\n"
+      "EFECTOS\n"
+      "4 TOUR HAZER II + TURBINA\n"
+      "4 MAQUINA DE HUMO VERTICAL ANTARI M9\n"
+      "2 SPARKULAR\n"
+      "CONTROL DE ILUMINACION\n"
+      "1 GRAND MA3\n";
+  assert(RiderImporter::ImportText(effectsRider));
+
+  const auto &effectsFixtures = cfg.GetScene().fixtures;
+  assert(effectsFixtures.size() == 14);
+  int tourHazerCount = 0;
+  int turbineCount = 0;
+  int smokeMachineCount = 0;
+  int sparkularCount = 0;
+  std::vector<float> leftSmokeY;
+  std::vector<float> rightSmokeY;
+  for (const auto &[uuid, fixture] : effectsFixtures) {
+    (void)uuid;
+    assert(fixture.positionName == "FLOOR");
+    if (fixture.typeName == "SPARKULAR") {
+      ++sparkularCount;
+      assert(fixture.category != GdtfFixtureCategory::kSmoke);
+      assert(std::fabs(fixture.transform.o[0]) < 1000.0f);
+      continue;
+    }
+
+    assert(fixture.category == GdtfFixtureCategory::kSmoke);
+    assert(std::fabs(fixture.transform.o[2]) < kTolerance);
+    if (fixture.typeName == "TOUR HAZER II")
+      ++tourHazerCount;
+    else if (fixture.typeName == "TURBINA")
+      ++turbineCount;
+    else if (fixture.typeName == "MAQUINA DE HUMO VERTICAL ANTARI M9")
+      ++smokeMachineCount;
+    else
+      assert(false && "Unexpected EFFECTS fixture type");
+
+    if (fixture.transform.o[0] < 0.0f) {
+      assert(std::fabs(fixture.transform.o[0] + 4500.0f) < kTolerance);
+      leftSmokeY.push_back(fixture.transform.o[1]);
+    } else {
+      assert(std::fabs(fixture.transform.o[0] - 4500.0f) < kTolerance);
+      rightSmokeY.push_back(fixture.transform.o[1]);
+    }
+  }
+  assert(tourHazerCount == 4);
+  assert(turbineCount == 4);
+  assert(smokeMachineCount == 4);
+  assert(sparkularCount == 2);
+  assert(leftSmokeY.size() == 6);
+  assert(rightSmokeY.size() == 6);
+  for (std::vector<float> *sideY : {&leftSmokeY, &rightSmokeY}) {
+    std::sort(sideY->begin(), sideY->end());
+    for (size_t index = 0; index < sideY->size(); ++index) {
+      assert(std::fabs((*sideY)[index] -
+                       (1000.0f + static_cast<float>(index) * 500.0f)) <
+             kTolerance);
+    }
+  }
 
   return 0;
 }

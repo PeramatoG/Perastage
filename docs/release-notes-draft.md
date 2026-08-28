@@ -4,6 +4,11 @@ Changes since **v1.5.0**.
 
 ## Highlights
 
+- Create from text once again imports equipment listed below `EFECTOS` or
+  `EFFECTS` on the floor, including the established mirrored floor placement
+  for haze, smoke, fog, and fan fixtures while leaving other effects in their
+  normally resolved categories.
+
 - Create from text now stops before scene creation when a rider contains unknown
   fixture types, presents a resolution table with cached GDTF Share suggestions,
   explicit mode selection and Generic fallback, and remembers confirmed GDTF

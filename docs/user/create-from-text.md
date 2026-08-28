@@ -88,6 +88,8 @@ Current parser behavior includes:
 - Quantity + type fixture lines (for example, `12 Spot`)
 - Compound lines split by `+` (for example, `8 Wash + 4 Beam`)
 - Hang/position detection (`LX1`, `LX2`, `FLOOR`, `SIDES`, `SCREEN`, `BACKDROP`)
+- `EFECTOS` / `EFFECTS` equipment imported on `FLOOR`, with atmospheric
+  fixtures retaining the existing mirrored, floor-level Smoke placement
 - Truss/pipe parsing with optional hang target
 - Hoist/motor extraction from rigging lines
 - Optional coordinate and margin hints in rigging targets

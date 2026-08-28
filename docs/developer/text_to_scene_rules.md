@@ -206,9 +206,10 @@ as `iluminar`, `control`, `video`, or `audio`.
 
 - `ILUMINACION` / `LIGHTING` and `APARATOS` / `FIXTURES` enter fixture mode.
 - `RIGGING` and `RIGGING Y ESTRUCTURAS` enter rigging mode.
-- `EFECTOS` / `EFFECTS` is an ignored equipment-category boundary, not a
-  physical position. An effect explicitly listed under `FLOOR` or another
-  physical hang remains importable.
+- `EFECTOS` / `EFFECTS` enters fixture mode with the canonical physical
+  position `FLOOR`. Equipment in this section follows the normal dictionary,
+  GDTF, and category resolution pipeline; the section does not assign the
+  `Smoke` category.
 - `CONTROL DE ILUMINACION` / `LIGHTING CONTROL` stops fixture collection.
 - `VIDEO` establishes video context without itself selecting a physical hang;
   a following screen heading selects `SCREEN` and enables screen collection.
@@ -245,7 +246,8 @@ Behavior:
   alias (`CALLES` -> `LX SIDES`).
 - Front, middle, and rear semantic headings normalize to `LX1`, `LX2`, and
   `LX3`; an explicit `LX<number>` always takes precedence.
-- Physical floor aliases are normalized to `FLOOR`; `EFFECTS` is not a hang.
+- Physical floor aliases are normalized to `FLOOR`; `EFFECTS` selects that
+  placement context without becoming a position name itself.
 - Side-position aliases are normalized to the canonical value `LX SIDES`.
 - Explicit normalized headers such as `LX SIDES` are accepted as hang labels
   in both filtered text and direct import input.
