@@ -31,7 +31,7 @@ option(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS "Enable MVR-xchange mDNS discovery usin
 option(PERASTAGE_ENABLE_LOCALIZATION "Enable gettext-based UI localization catalogs" ON)
 option(PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE "Require wxSecretStore support in the wxWidgets build" OFF)
 option(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT
-       "Use the fixture-symbol worker fallback for the macOS 15 hosted toolchain" OFF)
+       "Use legacy worker-thread fallbacks for the macOS 15 hosted toolchain" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

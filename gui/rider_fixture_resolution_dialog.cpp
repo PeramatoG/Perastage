@@ -66,8 +66,7 @@ RiderFixtureResolutionDialog::RiderFixtureResolutionDialog(
 RiderFixtureResolutionDialog::~RiderFixtureResolutionDialog() {
   shuttingDown.store(true);
   RequestWorkerStop();
-  if (catalogWorker.joinable())
-    catalogWorker.join();
+  catalogWorker.Join();
 }
 
 // Returns the user-reviewed resolution model after the modal dialog succeeds.
@@ -386,9 +385,9 @@ void RiderFixtureResolutionDialog::OnDialogShown(wxShowEvent &event) {
   const CatalogLoader loader = cachedCatalogLoader;
   const auto targets = BuildCatalogMatchTargets();
   const size_t analysisItemCount = analysis.items.size();
-  catalogWorker = std::jthread(
+  catalogWorker.Start(
       [this, loader, targets,
-       analysisItemCount](std::stop_token stopToken) mutable {
+       analysisItemCount](RiderFixtureResolutionStopToken stopToken) mutable {
     auto report = [this, &stopToken](const ProgressData &progress) {
       if (stopToken.stop_requested() || shuttingDown.load())
         return;
@@ -486,15 +485,14 @@ void RiderFixtureResolutionDialog::BeginOnlineCatalogAcquisition(
 void RiderFixtureResolutionDialog::StartOnlineCatalogWorker(
     const CredentialStore::Credentials &credentials) {
   RequestWorkerStop();
-  if (catalogWorker.joinable())
-    catalogWorker.join();
+  catalogWorker.Join();
   catalogLoading = true;
   const auto targets = BuildCatalogMatchTargets();
   const size_t analysisItemCount = analysis.items.size();
   const OnlineCatalogLoader loader = onlineCatalogLoader;
-  catalogWorker = std::jthread(
+  catalogWorker.Start(
       [this, loader, credentials, targets,
-       analysisItemCount](std::stop_token stopToken) mutable {
+       analysisItemCount](RiderFixtureResolutionStopToken stopToken) mutable {
     auto report = [this, &stopToken](const ProgressData &progress) {
       if (stopToken.stop_requested() || shuttingDown.load())
         return;
@@ -706,6 +704,5 @@ void RiderFixtureResolutionDialog::OnCancel(wxCommandEvent &) {
 
 // Requests cooperative cancellation without blocking the modal UI thread.
 void RiderFixtureResolutionDialog::RequestWorkerStop() {
-  if (catalogWorker.joinable())
-    catalogWorker.request_stop();
+  catalogWorker.RequestStop();
 }

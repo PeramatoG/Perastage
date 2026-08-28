@@ -2436,6 +2436,23 @@ foreach(worker_backend normal compatibility)
              COMMAND ${test_target})
 endforeach()
 
+set(RIDER_FIXTURE_RESOLUTION_WORKER_TEST_SOURCES
+    rider_fixture_resolution_worker_test.cpp
+    ../gui/rider_fixture_resolution_worker.cpp)
+
+foreach(worker_backend normal compatibility)
+    set(test_target rider_fixture_resolution_worker_${worker_backend}_test)
+    add_executable(${test_target}
+                   ${RIDER_FIXTURE_RESOLUTION_WORKER_TEST_SOURCES})
+    target_include_directories(${test_target} PRIVATE ../gui)
+    if(worker_backend STREQUAL "compatibility")
+        target_compile_definitions(${test_target} PRIVATE
+            PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=1)
+    endif()
+    add_test(NAME RiderFixtureResolutionWorker.${worker_backend}
+             COMMAND ${test_target})
+endforeach()
+
 add_executable(fixture_symbol_svg_cache_test
                fixture_symbol_svg_cache_test.cpp
                ../core/symbols/fixture_symbol_svg_cache.cpp

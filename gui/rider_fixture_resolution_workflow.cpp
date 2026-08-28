@@ -167,7 +167,7 @@ PreflightResult RunCreateFromTextPreflight(wxWindow *parent,
       wxDateTime::UNow().FormatISOCombined(' ').ToStdString();
   auto loadOnlineCatalog =
       [&](const CredentialStore::Credentials &onlineCredentials,
-          std::stop_token stopToken,
+          RiderFixtureResolutionStopToken stopToken,
           RiderFixtureResolutionDialog::OnlineProgressCallback report)
       -> RiderFixtureResolutionDialog::OnlineCatalogResult {
     using OnlineStatus = RiderFixtureResolutionDialog::OnlineCatalogStatus;

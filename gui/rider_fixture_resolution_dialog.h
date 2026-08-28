@@ -3,12 +3,12 @@
 #include "../core/rider_fixture_resolution.h"
 #include "../core/gdtf_catalog_service.h"
 #include "../core/credentialstore.h"
+#include "rider_fixture_resolution_worker.h"
 
 #include <string>
 #include <functional>
 #include <optional>
 #include <atomic>
-#include <thread>
 
 #include <wx/dialog.h>
 
@@ -51,7 +51,7 @@ public:
   using OnlineProgressCallback =
       std::function<void(const rider_fixture_resolution::Progress &)>;
   using OnlineCatalogLoader = std::function<OnlineCatalogResult(
-      const CredentialStore::Credentials &, std::stop_token,
+      const CredentialStore::Credentials &, RiderFixtureResolutionStopToken,
       OnlineProgressCallback)>;
   using CredentialRequester = std::function<
       std::optional<CredentialStore::Credentials>(bool rejected)>;
@@ -115,7 +115,7 @@ private:
   bool acceptAutomaticResults = true;
   bool modelUpdateInProgress = false;
   std::atomic<bool> shuttingDown{false};
-  std::jthread catalogWorker;
+  RiderFixtureResolutionWorker catalogWorker;
   wxDataViewCtrl *table = nullptr;
   RiderFixtureResolutionModel *tableModel = nullptr;
   wxButton *useSuggestedButton = nullptr;

@@ -128,6 +128,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution_dialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution_workflow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution_worker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ridertext_autocomplete_provider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riggingpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sceneobjecttablepanel.cpp
