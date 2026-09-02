@@ -53,6 +53,37 @@
     "generated_sources": ["generated/build_info.cpp"],
     "conditional_subdirectories": ["tests"]
   },
+  "structural_guard": {
+    "third_party_ownership": {
+      "owned_directory": "third_party",
+      "vendor_directory_names": ["external", "externals", "thirdparty", "vendor", "vendors"],
+      "provenance_markers": [
+        "Vendored from ",
+        "Upstream-Repository:"
+      ],
+      "exceptions": []
+    },
+    "machine_path_scan": {
+      "root_files": [
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "CMakeSettings.json",
+        "CppProperties.json",
+        "setup.sh",
+        "setup_windows.ps1",
+        "vcpkg.json"
+      ],
+      "directory_prefixes": [".github/workflows/", "cmake/", "scripts/"],
+      "file_suffixes": [".cmake", ".json", ".ps1", ".sh", ".yaml", ".yml"],
+      "grandfathered_occurrences": [
+        {"file": "CMakeLists.txt", "value": "C:/vcpkg", "count": 1},
+        {"file": "CMakePresets.json", "value": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake", "count": 2},
+        {"file": "CMakeSettings.json", "value": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake", "count": 2},
+        {"file": "CppProperties.json", "value": "C:/vcpkg/installed/x64-windows/include", "count": 1},
+        {"file": "setup_windows.ps1", "value": "C:\\vcpkg", "count": 2}
+      ]
+    }
+  },
   "development_entry_points": {
     "build": ["CMakeLists.txt", "CMakePresets.json", "setup.sh", "setup_windows.ps1"],
     "tests": ["tests/CMakeLists.txt"],

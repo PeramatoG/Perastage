@@ -61,6 +61,50 @@ ownership. The baseline audit treats `main.cpp` and that header as the complete
 small set of accepted root C/C++ files and rejects any additional root source or
 header, case-insensitively by extension, with an actionable diagnostic.
 
+## Structural regression guard
+
+The ORG-002 guard extends the ORG-001 audit rather than creating a parallel
+repository checker. It enumerates Git-tracked files, so ignored builds, IDE
+state, caches, and other untracked local artifacts do not affect results. It
+protects four invariants:
+
+1. Vendored C/C++ code belongs under `third_party/`. The audit conservatively
+   detects vendor-style source directories and explicit upstream-provenance
+   metadata outside that owner; ordinary first-party copyright or license
+   headers are not treated as evidence of vendoring.
+2. Shared build/development configuration cannot acquire developer-specific
+   Windows, Linux, macOS, or WSL absolute paths outside the exact transitional
+   state recorded in the baseline.
+3. A top-level directory containing production C/C++ code must be classified by
+   the baseline. `tests/` and `third_party/` remain distinct from application
+   source modules, while source-free support directories are not misclassified.
+4. CMake cannot discover production sources through `file(GLOB ...)` or
+   `file(GLOB_RECURSE ...)`; resource globs remain valid.
+
+The check uses no branch name or checkout-path assumption and accepts an
+explicit tracked-file manifest for isolated fixtures.
+
+Intentional architecture changes should update the declarative baseline,
+document the new module's responsibility in the architecture and repository
+layout, add appropriate explicit CMake ownership where applicable, and update
+the focused fixtures in the same pull request. Source ownership is not otherwise
+frozen: later ORG work can move registration into module-owned CMake files while
+retaining explicit source lists.
+
+The baseline temporarily records exact file, value, and occurrence counts for
+existing `C:/vcpkg` and `C:\vcpkg` references in `CMakeLists.txt`,
+`CMakePresets.json`, `CMakeSettings.json`, `CppProperties.json`, and
+`setup_windows.ps1`. Each count describes the exact current repository state,
+not reusable permission: both additional and missing occurrences fail. ORG-005
+through ORG-011 must reduce or remove these entries together with the relevant
+legacy configuration; ORG-002 deliberately does not perform that cleanup.
+
+The `/mnt/c` values in the WSL presets are intentionally portable platform
+isolation paths: they prevent Linux package discovery from crossing into the
+standard Windows drive mount and are therefore accepted without an exception.
+User-specific paths below WSL drive mounts, such as
+`/mnt/d/Users/alice/toolchain`, remain forbidden.
+
 ## Repository-root roles and development entry points
 
 Root files are grouped by structural role in the machine-readable baseline. In
