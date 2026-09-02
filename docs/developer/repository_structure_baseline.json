@@ -54,6 +54,15 @@
     "conditional_subdirectories": ["tests"]
   },
   "structural_guard": {
+    "third_party_ownership": {
+      "owned_directory": "third_party",
+      "vendor_directory_names": ["external", "externals", "thirdparty", "vendor", "vendors"],
+      "provenance_markers": [
+        "Vendored from ",
+        "Upstream-Repository:"
+      ],
+      "exceptions": []
+    },
     "machine_path_scan": {
       "root_files": [
         "CMakeLists.txt",

@@ -14,7 +14,8 @@ from pathlib import Path
 
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 MACHINE_PATH_PATTERN = re.compile(
-    r"(?<![A-Za-z])(?:[A-Za-z]:[/\\](?:[^\s\"']+)|/(?:home|Users)/[^\s\"']+)"
+    r"(?<![A-Za-z])(?:[A-Za-z]:[/\\](?:[^\s\"']+)|/(?:home|Users)/[^\s\"']+|"
+    r"/mnt/[A-Za-z]/(?:Users|home)/[^\s\"']+)"
 )
 SOURCE_GLOB_PATTERN = re.compile(
     r"file\s*\(\s*GLOB(?:_RECURSE)?\b(?P<body>.*?)\)", re.IGNORECASE | re.DOTALL
@@ -67,7 +68,7 @@ def is_machine_path_configuration(relative: str, policy: dict) -> bool:
 
 
 def audit_machine_paths(root: Path, files: set[str], policy: dict) -> list[str]:
-    """Reject suspicious absolute paths beyond the exact transitional allowance."""
+    """Require suspicious absolute paths to match the exact transitional state."""
     allowed = Counter(
         (item["file"], item["value"])
         for item in policy["grandfathered_occurrences"]
@@ -94,6 +95,67 @@ def audit_machine_paths(root: Path, files: set[str], policy: dict) -> list[str]:
             f"({count} unapproved occurrence(s)); use a project/environment variable or update "
             "the narrow transitional baseline during an intentional migration"
         )
+    for (relative, value), count in sorted((allowed - found).items()):
+        errors.append(
+            f"stale grandfathered machine-path baseline for {relative}: expected {count} more "
+            f"occurrence(s) of {value!r}; update or remove the exception with the configuration change"
+        )
+    return errors
+
+
+def audit_top_level_source_modules(files: set[str], baseline: dict) -> list[str]:
+    """Reject production-looking source trees not classified by the top-level baseline."""
+    classified_directories = set(flatten_groups(baseline["top_level_directories"]))
+    classified_directories.update(
+        Path(relative).parts[0]
+        for relative in baseline["source_registration"]["generated_sources"]
+        if len(Path(relative).parts) > 1
+    )
+    unknown_modules = {
+        relative.split("/", 1)[0]
+        for relative in files
+        if "/" in relative
+        and Path(relative).suffix.lower() in SOURCE_SUFFIXES
+        and relative.split("/", 1)[0] not in classified_directories
+    }
+    return [
+        f"unregistered top-level source module: {directory}/; introducing production C/C++ code "
+        "requires intentional baseline classification, documented ownership, appropriate CMake "
+        "registration, and architecture/repository-layout documentation"
+        for directory in sorted(unknown_modules)
+    ]
+
+
+def audit_third_party_ownership(root: Path, files: set[str], policy: dict) -> list[str]:
+    """Reject conservative evidence of vendored C/C++ code outside its owned directory."""
+    owned_directory = policy["owned_directory"]
+    vendor_names = {name.lower() for name in policy["vendor_directory_names"]}
+    exceptions = set(policy["exceptions"])
+    errors = []
+    for relative in sorted(files):
+        if relative in exceptions or relative == owned_directory or relative.startswith(f"{owned_directory}/"):
+            continue
+        parts = Path(relative).parts
+        is_source = Path(relative).suffix.lower() in SOURCE_SUFFIXES
+        if is_source and any(part.lower() in vendor_names for part in parts[:-1]):
+            errors.append(
+                f"third-party ownership violation: {relative} is under a vendor-style directory "
+                f"outside {owned_directory}/; move vendored code under {owned_directory}/ or record "
+                "a narrow, justified exception"
+            )
+            continue
+        if not is_source:
+            continue
+        path = root / relative
+        if not path.is_file():
+            continue
+        content = path.read_text(encoding="utf-8", errors="replace")
+        marker = next((item for item in policy["provenance_markers"] if item in content), None)
+        if marker is not None:
+            errors.append(
+                f"third-party ownership violation: {relative} contains vendored provenance marker "
+                f"{marker!r} outside {owned_directory}/; move the code or declare a justified exception"
+            )
     return errors
 
 
@@ -173,6 +235,8 @@ def audit_repository(root: Path, baseline: dict, files: set[str]) -> list[str]:
                 errors.append(f"root source group is not registered by add_executable: {group}/")
 
     guard = baseline["structural_guard"]
+    errors.extend(audit_top_level_source_modules(files, baseline))
+    errors.extend(audit_third_party_ownership(root, files, guard["third_party_ownership"]))
     errors.extend(audit_machine_paths(root, files, guard["machine_path_scan"]))
     errors.extend(audit_source_discovery(root, files))
 

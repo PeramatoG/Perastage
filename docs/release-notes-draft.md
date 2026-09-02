@@ -13,7 +13,7 @@ Changes since **v1.6.0**.
 ## Technical and packaging changes
 
 - Added a reproducible repository-structure baseline and policy validation to protect current module and build ownership during future organization work.
-- Strengthened repository policy checks to prevent accidental root-source additions, machine-specific shared configuration, and implicit CMake source discovery.
+- Strengthened repository policy checks to protect third-party ownership, top-level module ownership, portable shared configuration, and explicit CMake source registration.
 
 ## Downloads and installation
 
