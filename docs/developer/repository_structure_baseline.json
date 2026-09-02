@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "top_level_directories": {
+    "source_modules": [
+      "core",
+      "gui",
+      "models",
+      "mvr",
+      "viewer2d",
+      "viewer3d",
+      "viewer_common"
+    ],
+    "runtime_content": ["library", "resources"],
+    "build_support": ["cmake", "scripts"],
+    "packaging": ["packaging"],
+    "quality_and_documentation": ["docs", "tests"],
+    "vendored_dependencies": ["third_party"],
+    "licenses": ["licenses"],
+    "automation_metadata": [".github"]
+  },
+  "root_file_roles": {
+    "application_entry_point": ["main.cpp"],
+    "compatibility_header": ["viewport_interaction_scope.h"],
+    "build_entry_points": ["CMakeLists.txt", "CMakePresets.json"],
+    "committed_legacy_development_configuration": [
+      "CMakeSettings.json",
+      "CppProperties.json"
+    ],
+    "setup_launchers": ["setup.sh", "setup_windows.ps1"],
+    "dependency_metadata": ["vcpkg.json"],
+    "project_metadata": ["VERSION", "LICENSE.txt", "THIRD_PARTY_LICENSES.md"],
+    "documentation_and_community": [
+      "README.md",
+      "help.md",
+      "CONTRIBUTING.md",
+      "CODE_OF_CONDUCT.md",
+      "SECURITY.md"
+    ],
+    "repository_guidance": ["AGENTS.md"]
+  },
+  "source_registration": {
+    "model": "Explicit source lists; no recursive project-source discovery.",
+    "module_cmake_directories": [
+      "core",
+      "gui",
+      "viewer2d",
+      "viewer3d",
+      "viewer_common"
+    ],
+    "root_registered_source_groups": ["models", "mvr", "core"],
+    "root_project_sources": ["main.cpp", "viewport_interaction_scope.h"],
+    "root_compiled_entry_points": ["main.cpp"],
+    "generated_sources": ["generated/build_info.cpp"],
+    "conditional_subdirectories": ["tests"]
+  },
+  "development_entry_points": {
+    "build": ["CMakeLists.txt", "CMakePresets.json", "setup.sh", "setup_windows.ps1"],
+    "tests": ["tests/CMakeLists.txt"],
+    "continuous_integration": [".github/workflows/ci-tests.yml"],
+    "packaging": [
+      "packaging/arch/PKGBUILD",
+      "packaging/windows/Perastage.iss"
+    ]
+  }
+}
