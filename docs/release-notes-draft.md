@@ -12,6 +12,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added a reproducible repository-structure baseline and policy validation to protect current module and build ownership during future organization work.
+
 ## Downloads and installation
 
 Choose the package that matches your operating system:

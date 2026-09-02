@@ -2,6 +2,13 @@
 
 This page provides a concise map of the main Perastage repository areas. For the broader high-level tree, see [perastage_tree.md](perastage_tree.md). For architectural boundaries and contribution rules, see [Architecture](architecture.md).
 
+The machine-readable ORG-001 baseline is
+[`repository_structure_baseline.json`](repository_structure_baseline.json). The
+`RepositoryStructureBaseline` policy test validates its required directories,
+root-file roles, build/development entry points, and current CMake ownership
+model. The JSON file is the authoritative categorized top-level directory list;
+this page remains its human-readable architectural counterpart.
+
 ## Top-level structure
 
 | Path | Purpose |
@@ -39,6 +46,35 @@ viewer_common/
 ```
 
 Keep this list aligned with `CMakeLists.txt` whenever a new top-level source module is introduced.
+
+The current arrangement is intentionally descriptive rather than fully
+decentralized. The root `CMakeLists.txt` creates the application target, directly
+registers `main.cpp`, generated `build_info.cpp`, and source groups from
+`models/`, `mvr/`, and `core/`. The five modules above contribute their explicit
+source lists through their own `CMakeLists.txt` files. `tests/` is added
+conditionally when testing is enabled. No recursive project-source discovery is
+used.
+
+The repository currently also contains `viewport_interaction_scope.h` at the
+root. ORG-001 records that compatibility header without deciding its future
+ownership. The baseline audit treats `main.cpp` and that header as the complete
+small set of accepted root C/C++ files and rejects any additional root source or
+header, case-insensitively by extension, with an actionable diagnostic.
+
+## Repository-root roles and development entry points
+
+Root files are grouped by structural role in the machine-readable baseline. In
+summary, `main.cpp` is the application entry point; `CMakeLists.txt` and
+`CMakePresets.json` are build entry points; `setup.sh` and `setup_windows.ps1`
+are setup/build launchers; `vcpkg.json` describes dependencies; and `VERSION`
+and the license files provide project metadata. `README.md`, `help.md`, the
+community documents, and `AGENTS.md` are documentation or repository guidance.
+
+`CMakeSettings.json` and `CppProperties.json` are recorded as committed legacy
+development configuration. Their future status is deliberately outside this
+baseline task. Repository-visible validation starts at `tests/CMakeLists.txt`
+and `.github/workflows/ci-tests.yml`; packaging entry points include
+`packaging/arch/PKGBUILD` and `packaging/windows/Perastage.iss`.
 
 ## Documentation layout
 

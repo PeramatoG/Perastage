@@ -180,6 +180,12 @@ if(BASH_EXECUTABLE)
 endif()
 
 if(Python3_Interpreter_FOUND)
+    add_repository_policy_test(RepositoryStructureBaseline ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_structure_baseline.py
+                               LABELS standard-strict policy cmake)
+    add_repository_policy_test(RepositoryStructureBaselineFixtures ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_structure_baseline_fixtures.py
+                               LABELS standard-strict policy cmake)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
     add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}
