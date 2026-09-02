@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise positive and negative fixtures for the ORG-001 structure audit."""
+"""Exercise ORG-001 baseline and ORG-002 structural regression fixtures."""
 
 from __future__ import annotations
 
@@ -215,11 +215,17 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
             result = self.run_audit(root)
         self.assertEqual(result.returncode, 1)
         self.assertIn("scripts/new-build-config.json:1 contains machine-specific absolute path", result.stderr)
-        self.assertIn(value, result.stderr)
+        self.assertIn(repr(value), result.stderr)
 
     def test_windows_machine_path_is_rejected(self) -> None:
         """Reject a new Windows drive-based development path."""
         self.assert_machine_path_rejected("D:/Development/toolchain/sdk")
+
+    def test_windows_user_path_with_backslashes_is_rejected(self) -> None:
+        """Reject deterministic Windows user paths written with backslashes."""
+        self.assert_machine_path_rejected(
+            r"C:\Users\RUNNER~1\AppData\Local\Temp\checkout"
+        )
 
     def test_linux_home_path_is_rejected(self) -> None:
         """Reject a new user-specific Linux home path."""
@@ -291,13 +297,33 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
         """Reject a user-specific path reached through a WSL drive mount."""
         self.assert_machine_path_rejected("/mnt/d/Users/alice/toolchain/sdk")
 
-    def test_checkout_path_and_url_are_not_machine_paths(self) -> None:
-        """Ignore fixture locations and URL schemes while scanning configuration."""
+    def test_checkout_location_does_not_trigger_machine_path_guard(self) -> None:
+        """Ignore the physical fixture location when it is not stored in shared configuration."""
         with tempfile.TemporaryDirectory(prefix="home-user-src-Perastage-") as temporary_directory:
             root = Path(temporary_directory)
             self.create_fixture(root)
+            result = self.run_audit(root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_urls_are_not_treated_as_machine_paths(self) -> None:
+        """Accept normal URLs in scanned shared configuration."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
             (root / "scripts/portable-config.json").write_text(
-                f"https://example.com/tool\ncheckout={root}\n", encoding="utf-8")
+                "https://example.com/tool\n", encoding="utf-8"
+            )
+            result = self.run_audit(root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_portable_project_path_indirection_is_accepted(self) -> None:
+        """Accept the existing project-directory variable form instead of a literal checkout path."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            (root / "scripts/portable-config.json").write_text(
+                "${projectDir}\\out\\build\n", encoding="utf-8"
+            )
             result = self.run_audit(root)
         self.assertEqual(result.returncode, 0, result.stderr)
 
