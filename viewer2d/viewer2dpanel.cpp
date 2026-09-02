@@ -48,7 +48,7 @@
 #include "../viewer_common/measure_overlay_style.h"
 #include "../viewer_common/magnet_anchor_overlay.h"
 #include "../viewer_common/viewport_mouse_navigation.h"
-#include "../viewport_interaction_scope.h"
+#include "viewport_interaction_scope.h"
 #include "canvas2d.h"
 #include "configmanager.h"
 #include "continuous_placement_scene.h"

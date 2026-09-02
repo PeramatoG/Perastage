@@ -20,7 +20,6 @@
   },
   "root_file_roles": {
     "application_entry_point": ["main.cpp"],
-    "compatibility_header": ["viewport_interaction_scope.h"],
     "build_entry_points": ["CMakeLists.txt", "CMakePresets.json"],
     "committed_legacy_development_configuration": [
       "CMakeSettings.json",
@@ -48,7 +47,7 @@
       "viewer_common"
     ],
     "root_registered_source_groups": ["models", "mvr", "core"],
-    "root_project_sources": ["main.cpp", "viewport_interaction_scope.h"],
+    "root_project_sources": ["main.cpp"],
     "root_compiled_entry_points": ["main.cpp"],
     "generated_sources": ["generated/build_info.cpp"],
     "conditional_subdirectories": ["tests"]

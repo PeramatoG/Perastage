@@ -84,7 +84,7 @@
 #include "logger.h"
 #include "logindialog.h"
 #include "magnet_snap.h"
-#include "../viewport_interaction_scope.h"
+#include "viewport_interaction_scope.h"
 #include "mainwindow_gdtf_credentials.h"
 #include "markdown.h"
 #include "preferencesdialog.h"
