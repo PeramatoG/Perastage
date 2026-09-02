@@ -57,7 +57,7 @@
 #include "selection_movement_settings.h"
 #include "interaction/context_menu_model.h"
 #include "../viewer_common/screen_line_projection.h"
-#include "../viewport_interaction_scope.h"
+#include "viewport_interaction_scope.h"
 #include "magnet_snap.h"
 #include "scene_grouping.h"
 #include "fixturepatchdialog.h"

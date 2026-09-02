@@ -7,7 +7,7 @@
 #include "guiconfigservices.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
-#include "../viewport_interaction_scope.h"
+#include "viewport_interaction_scope.h"
 
 namespace {
 

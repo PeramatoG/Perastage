@@ -55,10 +55,11 @@ source lists through their own `CMakeLists.txt` files. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
 
-The repository currently also contains `viewport_interaction_scope.h` at the
-root. ORG-001 records that compatibility header without deciding its future
-ownership. The baseline audit treats `main.cpp` and that header as the complete
-small set of accepted root C/C++ files and rejects any additional root source or
+Cross-cutting viewport interaction preference policy is owned by `core/`, next
+to the existing shared selection movement settings. GUI, 2D viewer, and 3D
+viewer consumers depend on that policy without introducing viewer or UI
+implementation dependencies into Core. The baseline audit treats `main.cpp` as
+the only accepted root C/C++ file and rejects any additional root source or
 header, case-insensitively by extension, with an actionable diagnostic.
 
 ## Structural regression guard
