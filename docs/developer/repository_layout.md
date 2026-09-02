@@ -61,6 +61,29 @@ ownership. The baseline audit treats `main.cpp` and that header as the complete
 small set of accepted root C/C++ files and rejects any additional root source or
 header, case-insensitively by extension, with an actionable diagnostic.
 
+## Structural regression guard
+
+The ORG-002 guard extends the ORG-001 audit rather than creating a parallel
+repository checker. It enumerates Git-tracked files, so ignored builds, IDE
+state, caches, and other untracked local artifacts do not affect results. It
+rejects unrecorded root C/C++ files, CMake globs that discover production source
+or header files, and machine-specific absolute paths in shared build and
+development configuration. The check uses no branch name or checkout-path
+assumption and accepts an explicit tracked-file manifest for isolated fixtures.
+
+Intentional architecture changes should update the declarative baseline and the
+corresponding focused fixtures in the same pull request. Source ownership is not
+otherwise frozen: later ORG work can move registration into module-owned CMake
+files while retaining explicit source lists.
+
+The baseline temporarily records exact file, value, and occurrence counts for
+existing `C:/vcpkg` and `C:\vcpkg` references in `CMakeLists.txt`,
+`CMakePresets.json`, `CMakeSettings.json`, `CppProperties.json`, and
+`setup_windows.ps1`. These narrow exceptions do not permit different values or
+additional occurrences. ORG-005 through ORG-011 are expected to remove the
+relevant legacy configuration and its exceptions; ORG-002 deliberately does not
+perform that cleanup.
+
 ## Repository-root roles and development entry points
 
 Root files are grouped by structural role in the machine-readable baseline. In
