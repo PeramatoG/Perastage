@@ -79,16 +79,68 @@ Expected values are a Git-for-Windows `bash.exe`, MSVC compilers under `VC\Tools
 
 ## CMake presets strategy
 
-Perastage uses CMake presets for repeatable local and CI builds.
+`CMakePresets.json` is the canonical, version-controlled source for supported
+local CMake configure and build behavior. Shared platform choices belong there;
+setup scripts may prepare and validate an environment, but ultimately delegate
+configuration and build semantics to those presets. CI and packaging workflows
+may use explicit CMake configuration for their separate clean-environment and
+artifact-building responsibilities.
 
 ```text
 CMakePresets.json
 CMakeUserPresets.json
 ```
 
-`CMakePresets.json` is the shared project-level preset file and is tracked in Git. Windows local builds expose one x64 Ninja path with Debug and Release configure presets plus matching build/stage presets.
+The tracked presets intentionally provide these local paths without aliases or
+duplicate platform configurations:
 
-`CMakeUserPresets.json` is local to each developer machine and should not be committed. Perastage no longer generates this file. Use it only if you intentionally need local machine overrides, and do not use it to create another vcpkg checkout or repository-local installed tree for the normal Windows workflow.
+- Windows x64 uses the `win-x64-*-ninja` configure presets and matching
+  `win-*-build-ninja` build presets. `setup_windows.ps1` validates dependencies,
+  imports the x64 MSVC environment, and then invokes those presets. The same
+  shared presets appear when the repository folder is opened in Visual Studio.
+- macOS Apple Silicon uses `mac-arm64-debug` / `mac-arm64-release` and their
+  matching build presets. Ninja and a developer-provided `VCPKG_ROOT` are
+  prerequisites, and secure credential-store support is required.
+- Native Linux and WSL intentionally share the existing `wsl-x64-debug` /
+  `wsl-x64-release` configure presets and matching build presets. Despite their
+  historical `wsl` names, their Linux host condition and system-package model
+  support both environments. Their `/mnt/c` ignore paths prevent a WSL build
+  from accidentally discovering Windows vcpkg packages and are harmless on
+  native Linux.
+
+`CMakeUserPresets.json` is an optional, developer-owned extension and is ignored
+by Git. Perastage does not generate or require it: setup scripts, CI, packaging,
+and normal supported builds operate from `CMakePresets.json` alone, subject to
+the documented external prerequisites. Use a user preset only for an
+intentionally machine-specific toolchain path, cache value, environment
+override, or personal build-directory variant. Inherit a shared preset rather
+than copying its configuration. For example, a developer whose private vcpkg
+checkout is at the illustrative path below could create this untracked file:
+
+```json
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "developer-win-debug",
+      "inherits": "win-x64-debug-ninja",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "D:/developer-example/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      }
+    }
+  ]
+}
+```
+
+The schema version matches the repository's CMake 3.21 minimum and supports
+configure-preset inheritance. Developer-specific paths belong only in this
+ignored file and must not become required shared state. This escape hatch does
+not replace the separately planned cleanup of the currently grandfathered
+shared Windows `C:/vcpkg` path.
+
+`CMakeSettings.json` and `CppProperties.json` remain transitional editor files.
+They are not the canonical shared configuration, and their eventual audit and
+resolution are deliberately outside this policy change.
 
 ## Visual Studio workflow on Windows
 
@@ -158,9 +210,13 @@ cmake --preset mac-arm64-release
 cmake --build --preset mac-release-build
 ```
 
-## WSL/Linux presets
+## Native Linux and WSL presets
 
-The WSL/Linux presets use system packages and intentionally ignore Windows vcpkg paths under `/mnt/c`.
+The historically named WSL/Linux presets are the supported local path on both
+native x64 Linux and x64 WSL. They use system packages, are enabled whenever
+the CMake host is Linux, and intentionally ignore Windows vcpkg paths under
+`/mnt/c` so WSL package discovery cannot cross into an incompatible Windows
+dependency tree.
 
 Use the WSL presets from a Linux/WSL environment where the required development packages are installed:
 
