@@ -54,6 +54,12 @@ for name in ("mac-arm64-debug", "mac-arm64-release"):
     assert cache["CMAKE_OSX_ARCHITECTURES"] == "arm64", name
     assert cache["PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE"] == "ON", name
 
+for name in ("win-x64-debug-ninja", "win-x64-release-ninja"):
+    preset = configure[name]
+    cache = preset["cacheVariables"]
+    assert preset["toolchainFile"] == "${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake", name
+    assert "CMAKE_TOOLCHAIN_FILE" not in cache, name
+
 setup_linux = Path("setup.sh").read_text(encoding="utf-8")
 for name in ("wsl-x64-debug", "wsl-x64-release", "wsl-debug-build", "wsl-release-build"):
     assert name in setup_linux, name

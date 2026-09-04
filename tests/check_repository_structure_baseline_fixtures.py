@@ -235,52 +235,40 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
         """Reject a new user-specific macOS home path."""
         self.assert_machine_path_rejected("/Users/alice/toolchains/sdk")
 
-    def test_grandfathered_legacy_configuration_passes(self) -> None:
-        """Accept only the recorded count of the legacy CMakeSettings path."""
+    def test_portable_environment_variable_path_is_accepted(self) -> None:
+        """Accept a toolchain path derived from a documented environment variable."""
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             self.create_fixture(root)
-            (root / "CMakeSettings.json").write_text(
-                "C:/vcpkg/scripts/buildsystems/vcpkg.cmake\n" * 2, encoding="utf-8")
+            (root / "scripts/portable-config.json").write_text(
+                "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake\n", encoding="utf-8")
             result = self.run_audit(root)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_additional_legacy_configuration_path_is_rejected(self) -> None:
-        """Reject occurrences beyond the exact grandfathered legacy count."""
+    def test_machine_path_is_rejected_without_legacy_exceptions(self) -> None:
+        """Reject the former fixed vcpkg path after removing legacy exceptions."""
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             self.create_fixture(root)
-            (root / "CMakeSettings.json").write_text(
-                "C:/vcpkg/scripts/buildsystems/vcpkg.cmake\n" * 3, encoding="utf-8")
+            (root / "scripts/windows-config.json").write_text(
+                "C:/vcpkg/scripts/buildsystems/vcpkg.cmake\n", encoding="utf-8")
             result = self.run_audit(root)
         self.assertEqual(result.returncode, 1)
         self.assertIn("1 unapproved occurrence(s)", result.stderr)
 
-    def test_missing_legacy_occurrence_is_rejected_as_stale(self) -> None:
-        """Reject a stale exception when configuration contains fewer recorded occurrences."""
+    def test_stale_fixture_exception_is_rejected(self) -> None:
+        """Keep proving that an exact-count exception cannot outlive its path."""
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             self.create_fixture(root)
-            (root / "CMakeSettings.json").write_text(
-                "C:/vcpkg/scripts/buildsystems/vcpkg.cmake\n", encoding="utf-8"
-            )
-            result = self.run_audit(root)
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("stale grandfathered machine-path baseline for CMakeSettings.json", result.stderr)
-
-    def test_removing_legacy_path_and_exception_together_passes(self) -> None:
-        """Accept cleanup that removes both legacy configuration and its exact exception."""
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory)
-            self.create_fixture(root)
-            (root / "CMakeSettings.json").write_text("{}\n", encoding="utf-8")
             baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
-            exceptions = baseline["structural_guard"]["machine_path_scan"]["grandfathered_occurrences"]
-            baseline["structural_guard"]["machine_path_scan"]["grandfathered_occurrences"] = [
-                item for item in exceptions if item["file"] != "CMakeSettings.json"
-            ]
+            baseline["structural_guard"]["machine_path_scan"]["grandfathered_occurrences"] = [{
+                "file": "scripts/legacy-config.json", "value": "C:/vcpkg", "count": 1
+            }]
+            (root / "scripts/legacy-config.json").write_text("{}\n", encoding="utf-8")
             result = self.run_audit(root, self.write_baseline(root, baseline))
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("stale grandfathered machine-path baseline for scripts/legacy-config.json", result.stderr)
 
     def test_portable_wsl_ignore_paths_are_accepted(self) -> None:
         """Accept standard WSL Windows-drive isolation paths used by supported presets."""

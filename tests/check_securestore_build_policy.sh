@@ -89,7 +89,8 @@ assert {preset['name'] for preset in windows_presets} == {'win-x64-debug-ninja',
 for preset in presets['configurePresets']:
     if preset['name'].startswith('win-x64-'):
         cache = preset.get('cacheVariables', {})
-        assert cache.get('CMAKE_TOOLCHAIN_FILE') == 'C:/vcpkg/scripts/buildsystems/vcpkg.cmake', preset['name']
+        assert preset.get('toolchainFile') == '${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake', preset['name']
+        assert 'CMAKE_TOOLCHAIN_FILE' not in cache, preset['name']
         assert 'VCPKG_INSTALLED_DIR' not in cache, preset['name']
         assert cache.get('VCPKG_MANIFEST_MODE') == 'OFF', preset['name']
         assert cache.get('VCPKG_MANIFEST_INSTALL') == 'OFF', preset['name']

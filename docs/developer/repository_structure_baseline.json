@@ -21,10 +21,6 @@
   "root_file_roles": {
     "application_entry_point": ["main.cpp"],
     "build_entry_points": ["CMakeLists.txt", "CMakePresets.json"],
-    "committed_legacy_development_configuration": [
-      "CMakeSettings.json",
-      "CppProperties.json"
-    ],
     "setup_launchers": ["setup.sh", "setup_windows.ps1"],
     "dependency_metadata": ["vcpkg.json"],
     "project_metadata": ["VERSION", "LICENSE.txt", "THIRD_PARTY_LICENSES.md"],
@@ -66,21 +62,13 @@
       "root_files": [
         "CMakeLists.txt",
         "CMakePresets.json",
-        "CMakeSettings.json",
-        "CppProperties.json",
         "setup.sh",
         "setup_windows.ps1",
         "vcpkg.json"
       ],
       "directory_prefixes": [".github/workflows/", "cmake/", "scripts/"],
       "file_suffixes": [".cmake", ".json", ".ps1", ".sh", ".yaml", ".yml"],
-      "grandfathered_occurrences": [
-        {"file": "CMakeLists.txt", "value": "C:/vcpkg", "count": 1},
-        {"file": "CMakePresets.json", "value": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake", "count": 2},
-        {"file": "CMakeSettings.json", "value": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake", "count": 2},
-        {"file": "CppProperties.json", "value": "C:/vcpkg/installed/x64-windows/include", "count": 1},
-        {"file": "setup_windows.ps1", "value": "C:\\vcpkg", "count": 2}
-      ]
+      "grandfathered_occurrences": []
     }
   },
   "development_entry_points": {
