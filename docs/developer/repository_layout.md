@@ -15,7 +15,7 @@ this page remains its human-readable architectural counterpart.
 |------|---------|
 | `main.cpp` | wxWidgets application entry point and top-level initialization. |
 | `CMakeLists.txt` | Root build orchestration, global dependencies, platform options, install rules, and module registration. |
-| `CMakePresets.json` | Supported configure/build presets for local development workflows. |
+| `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
 | `cmake/` | CMake helper scripts, generated configuration templates, and platform metadata templates. |
 | `core/` | Core logic, import helpers, dictionaries, patching, layouts, printing, persistence, and shared services. |
 | `gui/` | wxWidgets windows, dialogs, menus, panels, UI controllers, and user interaction workflows. |
@@ -120,6 +120,12 @@ development configuration. Their future status is deliberately outside this
 baseline task. Repository-visible validation starts at `tests/CMakeLists.txt`
 and `.github/workflows/ci-tests.yml`; packaging entry points include
 `packaging/arch/PKGBUILD` and `packaging/windows/Perastage.iss`.
+
+`CMakeUserPresets.json` is optional, ignored developer-local state for
+machine-specific overrides that inherit from the canonical shared presets. It
+is not a repository entry point and is not required by setup, CI, or packaging
+workflows. See the [build guide](build.md) for the supported preset matrix and a
+safe local override example.
 
 ## Documentation layout
 
