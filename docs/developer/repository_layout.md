@@ -92,10 +92,11 @@ frozen: later ORG work can move registration into module-owned CMake files while
 retaining explicit source lists.
 
 The baseline retains exact-count support for narrowly reviewed machine-path
-exceptions, but currently records none. Shared Windows presets resolve classic
-vcpkg through `VCPKG_ROOT`; developer-specific overrides belong in the ignored
-`CMakeUserPresets.json`. Fixtures continue to prove that new machine paths and
-stale exceptions are rejected.
+exceptions, but currently records none. Shared Windows presets load a tracked
+bootstrap toolchain that resolves classic vcpkg from a valid external
+`VCPKG_ROOT` or the standard user-wide integration descriptor; developer-specific
+overrides belong in the ignored `CMakeUserPresets.json`. Fixtures continue to
+prove that new machine paths and stale exceptions are rejected.
 
 The `/mnt/c` values in the WSL presets are intentionally portable platform
 isolation paths: they prevent Linux package discovery from crossing into the

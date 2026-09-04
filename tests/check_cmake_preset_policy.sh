@@ -57,7 +57,7 @@ for name in ("mac-arm64-debug", "mac-arm64-release"):
 for name in ("win-x64-debug-ninja", "win-x64-release-ninja"):
     preset = configure[name]
     cache = preset["cacheVariables"]
-    assert preset["toolchainFile"] == "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake", name
+    assert preset["toolchainFile"] == "${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake", name
     assert "CMAKE_TOOLCHAIN_FILE" not in cache, name
 
 setup_linux = Path("setup.sh").read_text(encoding="utf-8")

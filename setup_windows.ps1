@@ -176,19 +176,67 @@ function Initialize-X64MsvcEnvironment {
     }
 }
 
-# Resolves and validates the selected classic vcpkg installation.
-function Resolve-ClassicVcpkgInstallation {
+# Reports whether a candidate is Visual Studio's bundled vcpkg checkout.
+function Test-VisualStudioVcpkgRoot {
     param([string]$Root)
 
     if ([string]::IsNullOrWhiteSpace($Root)) {
-        $Root = $env:VCPKG_ROOT
+        return $false
+    }
+    $normalizedRoot = (ConvertTo-NormalizedPathText $Root).TrimEnd('\')
+    return $normalizedRoot -match '\\microsoft visual studio\\[^\\]+\\[^\\]+\\vc\\vcpkg$'
+}
+
+# Reports whether a candidate has the minimum external classic-vcpkg files.
+function Test-ExternalClassicVcpkgRoot {
+    param([string]$Root)
+
+    if ([string]::IsNullOrWhiteSpace($Root) -or (Test-VisualStudioVcpkgRoot -Root $Root)) {
+        return $false
+    }
+    return (Test-Path -LiteralPath (Join-Path $Root '.vcpkg-root')) -and
+        (Test-Path -LiteralPath (Join-Path $Root 'vcpkg.exe')) -and
+        (Test-Path -LiteralPath (Join-Path $Root 'scripts\buildsystems\vcpkg.cmake'))
+}
+
+# Reads the checkout registered by the standard user-wide vcpkg integration.
+function Get-UserWideVcpkgRoot {
+    $configRoot = if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $env:LOCALAPPDATA } else { $env:APPDATA }
+    if ([string]::IsNullOrWhiteSpace($configRoot)) {
+        return ''
+    }
+    $descriptor = Join-Path $configRoot 'vcpkg\vcpkg.path.txt'
+    if (-not (Test-Path -LiteralPath $descriptor)) {
+        return ''
+    }
+    return (Get-Content -LiteralPath $descriptor -Raw).Trim()
+}
+
+# Resolves and validates the selected classic vcpkg installation.
+function Resolve-ClassicVcpkgInstallation {
+    param([string]$ExplicitRoot)
+
+    $Root = $ExplicitRoot
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        if (Test-ExternalClassicVcpkgRoot -Root $env:VCPKG_ROOT) {
+            $Root = $env:VCPKG_ROOT
+        } else {
+            $userWideRoot = Get-UserWideVcpkgRoot
+            if (Test-ExternalClassicVcpkgRoot -Root $userWideRoot) {
+                $Root = $userWideRoot
+            }
+        }
     }
     if ([string]::IsNullOrWhiteSpace($Root)) {
-        throw 'A classic vcpkg root is required. Pass -VcpkgRoot or set VCPKG_ROOT before running setup_windows.ps1.'
+        throw 'Perastage could not resolve an external classic vcpkg checkout. Pass -VcpkgRoot, set VCPKG_ROOT to an external checkout, or run <external-vcpkg-root>\vcpkg.exe integrate install once from the intended checkout.'
+    }
+
+    if (Test-VisualStudioVcpkgRoot -Root $Root) {
+        throw "Visual Studio's bundled VC\vcpkg checkout is not supported for the Perastage classic dependency tree: $Root"
     }
 
     if (-not (Test-Path -LiteralPath $Root)) {
-        throw "The vcpkg root does not exist: $Root. Pass -VcpkgRoot or set VCPKG_ROOT to an existing classic vcpkg checkout."
+        throw "The resolved vcpkg root does not exist: $Root. Correct the explicit root or rerun vcpkg integrate install from the intended external checkout."
     }
 
     $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
@@ -197,6 +245,7 @@ function Resolve-ClassicVcpkgInstallation {
     $installedTriplet = Join-Path $resolvedRoot "installed\$script:PerastageVcpkgTriplet"
     $errors = @()
 
+    if (-not (Test-Path -LiteralPath (Join-Path $resolvedRoot '.vcpkg-root'))) { $errors += "Missing vcpkg root marker: $(Join-Path $resolvedRoot '.vcpkg-root')" }
     if (-not (Test-Path -LiteralPath $vcpkgExe)) { $errors += "Missing vcpkg executable: $vcpkgExe" }
     if (-not (Test-Path -LiteralPath $toolchainFile)) { $errors += "Missing vcpkg CMake toolchain: $toolchainFile" }
     if (-not (Test-Path -LiteralPath $installedTriplet)) { $errors += "Missing installed triplet directory: $installedTriplet" }
@@ -394,7 +443,7 @@ $repoRoot = Get-RepositoryRoot
 Set-Location $repoRoot
 Assert-CommandAvailable -CommandName 'cmake'
 $msvcEnvironment = Initialize-X64MsvcEnvironment -RequestedPath $VisualStudioPath -RequestedVersion $VisualStudioVersion
-$resolvedVcpkg = Resolve-ClassicVcpkgInstallation -Root $VcpkgRoot
+$resolvedVcpkg = Resolve-ClassicVcpkgInstallation -ExplicitRoot $VcpkgRoot
 Test-PerastageVcpkgDependencies -Vcpkg $resolvedVcpkg
 $env:VCPKG_ROOT = $resolvedVcpkg.Root
 $resolvedGitBash = Resolve-PerastageGitBash -ExplicitBash $BashExecutable

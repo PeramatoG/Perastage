@@ -25,7 +25,7 @@ for preset in windows_configure:
     assert preset.get('generator') == 'Ninja', name
     assert preset.get('architecture', {}).get('value') == 'x64', name
     assert preset.get('architecture', {}).get('strategy') == 'external', name
-    assert preset.get('toolchainFile') == '$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake', name
+    assert preset.get('toolchainFile') == '${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake', name
     assert 'CMAKE_TOOLCHAIN_FILE' not in cache, name
     assert cache.get('VCPKG_TARGET_TRIPLET') == 'x64-windows', name
     assert cache.get('VCPKG_MANIFEST_MODE') == 'OFF', name
@@ -39,7 +39,10 @@ required = [
     "[string]$VcpkgRoot = ''",
     '$Root = $env:VCPKG_ROOT',
     '$env:VCPKG_ROOT = $resolvedVcpkg.Root',
-    'Pass -VcpkgRoot or set VCPKG_ROOT',
+    'could not resolve an external classic vcpkg checkout',
+    'Get-UserWideVcpkgRoot',
+    'vcpkg.path.txt',
+    'Test-VisualStudioVcpkgRoot',
     'VSCMD_ARG_HOST_ARCH',
     'VSCMD_ARG_TGT_ARCH',
     'cl.exe banner does not identify an x64 target',

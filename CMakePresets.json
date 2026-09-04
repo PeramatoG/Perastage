@@ -112,7 +112,7 @@
       "description": "Release build using Ninja, MSVC and vcpkg",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
@@ -140,7 +140,7 @@
       "description": "Debug build using Ninja, MSVC and vcpkg",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "VCPKG_TARGET_TRIPLET": "x64-windows",

@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory() as tmp:
     portable_presets = presets.read_text(encoding='utf-8')
     presets.write_text(
         portable_presets.replace(
-            '$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake',
+            '${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake',
             'D:/fixture-vcpkg/scripts/buildsystems/vcpkg.cmake',
         ),
         encoding='utf-8',

@@ -78,7 +78,7 @@ If the CMake error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the toolchain under the selected classic vcpkg checkout. Set `VCPKG_ROOT` in the Windows user environment and restart Visual Studio, or put `VCPKG_ROOT` in the `environment` map of an ignored user preset that inherits `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`. Select that preset, clear the affected CMake cache, and reconfigure. The Perastage configure guard rejects the bundled toolchain before package discovery instead of reporting that wxWidgets is missing. You can also run the validation helper from a Visual Studio Developer PowerShell:
+then Visual Studio injected its bundled vcpkg instead of the intended external classic checkout. Put the external `VCPKG_ROOT` in the `environment` map of an ignored user preset that inherits `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`, or run `<external-vcpkg-root>\vcpkg.exe integrate install` once from the intended checkout. Reopen Visual Studio, select that preset, clear the affected CMake cache, and reconfigure. Perastage ignores a bundled `VC\vcpkg` environment value and falls back to the user-wide descriptor; do not reinstall wxWidgets merely because the wrong root was selected. You can also run the validation helper from a Visual Studio Developer PowerShell:
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild

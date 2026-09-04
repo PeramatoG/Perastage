@@ -29,7 +29,7 @@ The canonical local Windows presets are:
 - `win-x64-debug-ninja`
 - `win-x64-release-ninja`
 
-Both presets use the schema-v3 top-level `toolchainFile` field to select `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, plus `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. The top-level field prevents Visual Studio's vcpkg integration from replacing the selected toolchain. CMake therefore resolves already-installed packages from `$env{VCPKG_ROOT}/installed/x64-windows` and does not print `-- Running vcpkg install` during a clean Visual Studio configure.
+Both presets use the schema-v3 top-level `toolchainFile` field to load `cmake/PerastageWindowsVcpkgToolchain.cmake`, plus `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. This repository-owned bootstrap selects a valid external checkout from `VCPKG_ROOT`, or from the standard user-wide `vcpkg.path.txt` descriptor when Visual Studio has injected its bundled root. It then normalizes `VCPKG_ROOT` for downstream tools and includes the external vcpkg toolchain. CMake therefore resolves already-installed packages from the external `installed/x64-windows` tree and does not print `-- Running vcpkg install` during a clean Visual Studio configure.
 
 Install or repair dependencies manually before configuring if they are missing. A typical one-time command is:
 
@@ -49,7 +49,7 @@ $env:VCPKG_ROOT = 'D:\path\to\vcpkg'
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild -BashExecutable "C:\Program Files\Git\bin\bash.exe"
 ```
 
-`setup_windows.ps1` resolves the checkout from explicit `-VcpkgRoot` first and `VCPKG_ROOT` second, and fails if neither is supplied. It validates the selected classic vcpkg checkout, `vcpkg.exe`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. Before invoking the shared preset it exports the resolved root as `VCPKG_ROOT`, so validation and CMake cannot select different installations. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
+`setup_windows.ps1` resolves the checkout from explicit `-VcpkgRoot` first, a valid external `VCPKG_ROOT` second, and the standard user-wide integration descriptor third; it fails if none identifies a valid external checkout. It validates `vcpkg.exe`, `.vcpkg-root`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. Before invoking the shared preset it exports the resolved root as `VCPKG_ROOT`, so validation and CMake cannot select different installations. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
 
 If an older build was configured against wxWidgets without `secretstore`, manifest mode, another installed root, or an x86 compiler, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Deleting `.vs` or `build` does not require reinstalling packages, and deleting `$env:VCPKG_ROOT\installed` is not part of normal troubleshooting.
 
@@ -139,12 +139,13 @@ ignored file and must not become required shared state. The supported Visual Stu
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, install dependencies once in the selected classic vcpkg checkout and use one of these ways to pass its location to Visual Studio:
+For the standard Windows setup, install dependencies once in the selected classic vcpkg checkout and use one of these ways to make it discoverable:
 
 - **Persistent user environment:** set `VCPKG_ROOT` in the Windows user environment, then restart Visual Studio or close and reopen the folder so the IDE process inherits it.
-- **Ignored user preset:** create `CMakeUserPresets.json` with the environment-map example above, then select that inherited user preset in Visual Studio.
+- **Ignored user preset:** create `CMakeUserPresets.json` with the environment-map example above, then select that inherited user preset in Visual Studio. A valid explicit external root has highest priority.
+- **User-wide vcpkg integration:** run `<external-vcpkg-root>\vcpkg.exe integrate install` once from the intended external checkout, then reopen Visual Studio. Perastage reads `%LOCALAPPDATA%\vcpkg\vcpkg.path.txt` when no acceptable external environment root is available.
 
-Select a canonical Perastage Windows Ninja preset rather than an IDE-generated configuration. Because its top-level `toolchainFile` owns the toolchain and manifest mode and manifest auto-install are disabled, Visual Studio/CMake reuses `$env:VCPKG_ROOT\installed\x64-windows` and should not print `-- Running vcpkg install`.
+Select a canonical Perastage Windows Ninja preset rather than an IDE-generated configuration. Visual Studio 18 may inject its bundled `VC\vcpkg` as `VCPKG_ROOT`; the bootstrap deliberately ignores that value, selects the registered external checkout, and resets the configure-process environment before loading vcpkg. Manifest mode and manifest auto-install remain disabled.
 
 Typical setup:
 
@@ -301,7 +302,7 @@ If the error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the toolchain under the selected classic vcpkg checkout. Select the canonical Windows Ninja preset, clear the affected CMake cache with `setup_windows.ps1 -CleanBuild -SkipBuild`, and verify that `CMAKE_TOOLCHAIN_FILE` still points at `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`.
+then Visual Studio exposed its bundled vcpkg instead of the intended external checkout. Select the canonical Windows Ninja preset, clear the affected CMake cache with `setup_windows.ps1 -CleanBuild -SkipBuild`, and verify that `CMAKE_TOOLCHAIN_FILE` points at `cmake/PerastageWindowsVcpkgToolchain.cmake` while `PERASTAGE_RESOLVED_VCPKG_ROOT` identifies the external checkout.
 
 ## Secure credential-store verification
 
