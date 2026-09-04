@@ -190,6 +190,18 @@ def audit_repository(root: Path, baseline: dict, files: set[str]) -> list[str]:
     required_directories = flatten_groups(baseline["top_level_directories"])
     required_files = flatten_groups(baseline["root_file_roles"])
     entry_points = flatten_groups(baseline["development_entry_points"])
+    source_modules = set(baseline["top_level_directories"]["source_modules"])
+    module_cmake_directories = set(
+        baseline["source_registration"]["module_cmake_directories"]
+    )
+
+    if source_modules != module_cmake_directories:
+        errors.append(
+            "source-module classification differs from module CMake ownership: "
+            f"documented source modules {sorted(source_modules)}, module CMake directories "
+            f"{sorted(module_cmake_directories)}; every top-level source module must own its "
+            "application source registration"
+        )
 
     for relative in required_directories:
         if not (root / relative).is_dir():
@@ -233,6 +245,18 @@ def audit_repository(root: Path, baseline: dict, files: set[str]) -> list[str]:
         for group in baseline["source_registration"]["root_registered_source_groups"]:
             if not re.search(rf"(^|\s){re.escape(group)}/", executable_sources):
                 errors.append(f"root source group is not registered by add_executable: {group}/")
+        allowed_root_groups = set(
+            baseline["source_registration"]["root_registered_source_groups"]
+        )
+        for module in sorted(source_modules - allowed_root_groups):
+            feature_source_pattern = (
+                rf"(^|\s)[\"']?{re.escape(module)}/[^\s\)]*\.(?:c|cc|cpp|cxx)\b"
+            )
+            if re.search(feature_source_pattern, executable_sources, re.IGNORECASE):
+                errors.append(
+                    f"root add_executable retains feature source ownership for {module}/; "
+                    f"register application implementation sources in {module}/CMakeLists.txt"
+                )
 
     guard = baseline["structural_guard"]
     errors.extend(audit_top_level_source_modules(files, baseline))

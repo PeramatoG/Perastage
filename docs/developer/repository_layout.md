@@ -35,24 +35,17 @@ this page remains its human-readable architectural counterpart.
 
 ## Build module registration
 
-The root CMake file explicitly registers the main source modules with `add_subdirectory(...)` instead of discovering project sources recursively. The currently registered source modules are:
+The root CMake file explicitly registers every application source module with
+`add_subdirectory(...)` instead of discovering project sources recursively. The
+machine-readable `repository_structure_baseline.json` is the authoritative
+module-classification and registration list. The repository-structure guard
+keeps that classification, local module CMake ownership, and root registration
+from silently diverging.
 
-```text
-core/
-gui/
-models/
-viewer2d/
-viewer3d/
-viewer_common/
-```
-
-Keep this list aligned with `CMakeLists.txt` whenever a new top-level source module is introduced.
-
-The current arrangement is intentionally descriptive rather than fully
-decentralized. The root `CMakeLists.txt` creates the application target, directly
-registers `main.cpp`, generated `build_info.cpp`, and source groups from `mvr/`
-and `core/`. The six modules above contribute their explicit
-source lists through their own `CMakeLists.txt` files. `tests/` is added
+The source-registration arrangement is decentralized. The root `CMakeLists.txt`
+creates the application target and registers only its entry point and generated
+bootstrap source. Every module above contributes its explicit application source
+list through its own `CMakeLists.txt`. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
 

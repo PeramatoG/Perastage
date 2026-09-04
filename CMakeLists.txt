@@ -270,42 +270,11 @@ configure_file(
     @ONLY
 )
 
-add_library(perastage_uuid OBJECT core/uuidutils.cpp)
-target_include_directories(perastage_uuid PUBLIC ${CMAKE_SOURCE_DIR}/core)
+add_library(perastage_uuid OBJECT)
 
-add_executable(${PROJECT_NAME} main.cpp
+add_executable(${PROJECT_NAME}
+    main.cpp
     "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
-    core/runtime_storage.cpp
-    core/fixture_gdtf_derivative_contract.cpp
-    core/symbols/fixture_symbol_preparation_coordinator.cpp
-    core/symbols/fixture_symbol_preparation_requests.cpp
-    core/fixture_gdtf_derivative_publication.cpp
-    core/mvr_identity_recovery.cpp
-    core/project_fixture_gdtf_consolidator.cpp
-    mvr/gdtf_catalog_matcher.cpp
-    mvr/gdtf_catalog_parser.cpp
-    mvr/mvrimporter.cpp
-    mvr/mvr_merge_analyzer.cpp
-    mvr/mvr_merge_applier.cpp
-    mvr/mvr_merge_resource_rewriter.cpp
-    mvr/mvrscenemerger.cpp
-    mvr/mvrexporter.cpp
-    mvr/primitive_model_resources.cpp
-    mvr/xchange/mvr_xchange_commit.cpp
-    mvr/xchange/mvr_xchange_dns_names.cpp
-    mvr/xchange/mvr_xchange_mdns_discovery.cpp
-    mvr/xchange/mvr_xchange_mdns_cache.cpp
-    mvr/xchange/mvr_xchange_mdns_service.cpp
-    mvr/xchange/mvr_xchange_network_interfaces.cpp
-    mvr/xchange/mvr_xchange_remote_station.cpp
-    mvr/xchange/mvr_xchange_station_registry.cpp
-    mvr/xchange/mvr_xchange_tcp_client.cpp
-    mvr/xchange/mvr_xchange_message.cpp
-    mvr/xchange/mvr_xchange_packet.cpp
-    mvr/xchange/mvr_xchange_publication_policy.cpp
-    mvr/xchange/mvr_xchange_service.cpp
-    mvr/xchange/mvr_xchange_settings.cpp
-    mvr/xchange/mvr_xchange_tcp_server.cpp
 )
 
 if(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
@@ -532,17 +501,13 @@ endif()
 add_subdirectory(core)
 add_subdirectory(gui)
 add_subdirectory(models)
+add_subdirectory(mvr)
 add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
 add_subdirectory(viewer_common)
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 iphlpapi)
-endif()
-if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE PERASTAGE_MVR_XCHANGE_ENABLE_MDNS=1)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mdns::mdns)
 endif()
 
 # Mark as GUI application (no console)

@@ -19,6 +19,7 @@ Changes since **v1.6.0**.
 - Established the shared CMake presets as the canonical local build configuration and documented optional, untracked developer overrides across supported platforms.
 - Made the Windows classic-vcpkg workflow portable and reliable in Visual Studio through explicit or user-wide external checkout discovery, while ignoring the IDE's injected bundled dependency tree, keeping cross-platform validation reliable, and removing redundant legacy configuration files.
 - Gave the scene-model module explicit ownership of its application source registration while preserving existing build behavior.
+- Completed explicit CMake source ownership across all application modules and strengthened repository checks against architecture drift.
 
 ## Downloads and installation
 
