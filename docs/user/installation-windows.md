@@ -13,7 +13,9 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 
 ## Select a vcpkg checkout
 
-Set `VCPKG_ROOT` to the existing classic vcpkg checkout before using Visual Studio or CMake. The explicit `-VcpkgRoot` setup-script parameter takes precedence over an existing environment value, and the script exports its validated selection for the preset. The shared Windows Ninja presets point to `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, disable vcpkg manifest mode, disable manifest auto-install, and reuse `$env{VCPKG_ROOT}/installed/x64-windows`. Opening the repository in Visual Studio should not run vcpkg install, should not build packages, and should not create a `vcpkg_installed` directory in the repository or build tree.
+Set `VCPKG_ROOT` to the existing classic vcpkg checkout before using Visual Studio or CMake. The explicit `-VcpkgRoot` setup-script parameter takes precedence over an existing environment value, and the script exports its validated selection for the preset. The shared Windows Ninja presets use their top-level `toolchainFile` field to select `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, disable vcpkg manifest mode and manifest auto-install, and reuse `$env{VCPKG_ROOT}/installed/x64-windows`. Opening the repository in Visual Studio should not run vcpkg install, build packages, or create a `vcpkg_installed` directory in the repository or build tree.
+
+For direct Visual Studio use, either define `VCPKG_ROOT` persistently in the Windows user environment and restart Visual Studio, or define it in the `environment` map of an ignored `CMakeUserPresets.json` that inherits a canonical Perastage Windows preset. Select that shared or inherited preset after opening the folder.
 
 CI remains separate: GitHub Actions still uses the repository manifest, isolated installed roots, caches, and the pinned baseline for reproducible release builds.
 

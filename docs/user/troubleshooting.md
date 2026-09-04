@@ -52,15 +52,16 @@ or:
 Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)
 ```
 
-or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, CMake is probably not resolving the classic vcpkg installation at `$env{VCPKG_ROOT}/installed/x64-windows`.
+or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `podofo`, `Backward`, or `mdns`, first verify which vcpkg toolchain CMake selected. Do not reinstall an already-present package until the external classic checkout has been confirmed.
 
-The Windows Ninja presets intentionally disable vcpkg manifest mode and manifest auto-install. Visual Studio/CMake should not print `-- Running vcpkg install`, should not build packages during configure, and should not create a `vcpkg_installed` directory in the repository or build tree. Verify the expected classic vcpkg paths:
+The Windows Ninja presets intentionally disable vcpkg manifest mode and manifest auto-install. Visual Studio/CMake should not print `-- Running vcpkg install`, build packages during configure, or create a `vcpkg_installed` directory in the repository or build tree. Verify the expected classic vcpkg paths and selected toolchain:
 
 ```powershell
 Test-Path "$env:VCPKG_ROOT\vcpkg.exe"
 Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 Test-Path "$env:VCPKG_ROOT\installed\x64-windows\include\wx\secretstore.h"
 Test-Path "$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin\msgfmt.exe"
+Select-String -Path ".\build\win-x64-debug-ninja\CMakeCache.txt" -Pattern '^CMAKE_TOOLCHAIN_FILE'
 Test-Path ".\vcpkg_installed"
 Test-Path ".\build\win-x64-debug-ninja\vcpkg_installed"
 ```
@@ -77,7 +78,7 @@ If the CMake error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the toolchain under the selected classic vcpkg checkout. Select `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`, then run the validation helper from a Visual Studio Developer PowerShell:
+then Visual Studio is using its own vcpkg instance instead of the toolchain under the selected classic vcpkg checkout. Set `VCPKG_ROOT` in the Windows user environment and restart Visual Studio, or put `VCPKG_ROOT` in the `environment` map of an ignored user preset that inherits `Windows x64 Debug (Ninja)` or `Windows x64 Release (Ninja)`. Select that preset, clear the affected CMake cache, and reconfigure. The Perastage configure guard rejects the bundled toolchain before package discovery instead of reporting that wxWidgets is missing. You can also run the validation helper from a Visual Studio Developer PowerShell:
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild

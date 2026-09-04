@@ -25,7 +25,8 @@ for preset in windows_configure:
     assert preset.get('generator') == 'Ninja', name
     assert preset.get('architecture', {}).get('value') == 'x64', name
     assert preset.get('architecture', {}).get('strategy') == 'external', name
-    assert cache.get('CMAKE_TOOLCHAIN_FILE') == '$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake', name
+    assert preset.get('toolchainFile') == '$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake', name
+    assert 'CMAKE_TOOLCHAIN_FILE' not in cache, name
     assert cache.get('VCPKG_TARGET_TRIPLET') == 'x64-windows', name
     assert cache.get('VCPKG_MANIFEST_MODE') == 'OFF', name
     assert cache.get('VCPKG_MANIFEST_INSTALL') == 'OFF', name

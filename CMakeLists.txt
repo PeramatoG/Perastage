@@ -18,6 +18,9 @@ if(NOT PERASTAGE_PROJECT_VERSION MATCHES "^[0-9]+\.[0-9]+\.[0-9]+$")
     )
 endif()
 
+include(cmake/PerastageWindowsVcpkgGuard.cmake)
+perastage_validate_windows_classic_vcpkg("${CMAKE_HOST_WIN32}")
+
 project(
     Perastage
     VERSION ${PERASTAGE_PROJECT_VERSION}

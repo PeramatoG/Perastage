@@ -29,7 +29,7 @@ The canonical local Windows presets are:
 - `win-x64-debug-ninja`
 - `win-x64-release-ninja`
 
-Both presets use `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. This makes CMake resolve already-installed packages from `$env{VCPKG_ROOT}/installed/x64-windows` and prevents `-- Running vcpkg install` during a clean Visual Studio configure.
+Both presets use the schema-v3 top-level `toolchainFile` field to select `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, plus `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. The top-level field prevents Visual Studio's vcpkg integration from replacing the selected toolchain. CMake therefore resolves already-installed packages from `$env{VCPKG_ROOT}/installed/x64-windows` and does not print `-- Running vcpkg install` during a clean Visual Studio configure.
 
 Install or repair dependencies manually before configuring if they are missing. A typical one-time command is:
 
@@ -113,8 +113,8 @@ duplicate platform configurations:
 by Git. Perastage does not generate or require it: setup scripts, CI, packaging,
 and normal supported builds operate from `CMakePresets.json` alone, subject to
 the documented external prerequisites. Use a user preset only for an
-intentionally machine-specific toolchain path, cache value, environment
-override, or personal build-directory variant. Inherit a shared preset rather
+intentionally machine-specific environment value or personal build-directory
+variant. Inherit a shared preset rather
 than copying its configuration. For example, a developer whose private vcpkg
 checkout is at the illustrative path below could create this untracked file:
 
@@ -125,8 +125,8 @@ checkout is at the illustrative path below could create this untracked file:
     {
       "name": "developer-win-debug",
       "inherits": "win-x64-debug-ninja",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "D:/developer-example/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      "environment": {
+        "VCPKG_ROOT": "D:/developer-example/vcpkg"
       }
     }
   ]
@@ -139,7 +139,12 @@ ignored file and must not become required shared state. The supported Visual Stu
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, set `VCPKG_ROOT`, install dependencies once in the selected classic vcpkg checkout, run `setup_windows.ps1` to validate the environment if desired, then open the repository folder in Visual Studio and select one of the canonical Ninja presets. Because manifest mode and manifest auto-install are disabled in the shared Windows presets, Visual Studio/CMake reuses `$env:VCPKG_ROOT\installed\x64-windows` and should not print `-- Running vcpkg install`.
+For the standard Windows setup, install dependencies once in the selected classic vcpkg checkout and use one of these ways to pass its location to Visual Studio:
+
+- **Persistent user environment:** set `VCPKG_ROOT` in the Windows user environment, then restart Visual Studio or close and reopen the folder so the IDE process inherits it.
+- **Ignored user preset:** create `CMakeUserPresets.json` with the environment-map example above, then select that inherited user preset in Visual Studio.
+
+Select a canonical Perastage Windows Ninja preset rather than an IDE-generated configuration. Because its top-level `toolchainFile` owns the toolchain and manifest mode and manifest auto-install are disabled, Visual Studio/CMake reuses `$env:VCPKG_ROOT\installed\x64-windows` and should not print `-- Running vcpkg install`.
 
 Typical setup:
 
