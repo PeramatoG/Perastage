@@ -38,11 +38,12 @@
     "module_cmake_directories": [
       "core",
       "gui",
+      "models",
       "viewer2d",
       "viewer3d",
       "viewer_common"
     ],
-    "root_registered_source_groups": ["models", "mvr", "core"],
+    "root_registered_source_groups": ["mvr", "core"],
     "root_project_sources": ["main.cpp"],
     "root_compiled_entry_points": ["main.cpp"],
     "generated_sources": ["generated/build_info.cpp"],

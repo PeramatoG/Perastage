@@ -34,6 +34,7 @@ Perastage/
 |   `-- interfaces/              # Render/selection context contracts.
 |-- viewer_common/               # Shared viewer utilities used across viewer modules.
 |-- models/                      # Scene data structures (fixtures/trusses/hoists/objects/layers).
+|   `-- CMakeLists.txt           # Explicit model source registration for the application target.
 |-- mvr/                         # MVR format import/export modules and MVR-xchange networking.
 |-- packaging/                   # Installer, desktop integration, and package metadata.
 |-- tests/                       # Automated tests and lightweight checks.
