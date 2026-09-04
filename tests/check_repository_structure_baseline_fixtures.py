@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -104,7 +105,7 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             self.create_fixture(root)
-            (root / "models").rmdir()
+            shutil.rmtree(root / "models")
             result = self.run_audit(root)
         self.assertEqual(result.returncode, 1)
         self.assertIn("required top-level directory is missing: models/", result.stderr)

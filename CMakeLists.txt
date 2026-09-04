@@ -275,13 +275,6 @@ target_include_directories(perastage_uuid PUBLIC ${CMAKE_SOURCE_DIR}/core)
 
 add_executable(${PROJECT_NAME} main.cpp
     "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
-    models/fixture.cpp
-    models/continuous_placement_scene.cpp
-    models/continuous_placement_state.cpp
-    models/layer.cpp
-    models/mvrscene.cpp
-    models/sceneobject.cpp
-    models/truss.cpp
     core/runtime_storage.cpp
     core/fixture_gdtf_derivative_contract.cpp
     core/symbols/fixture_symbol_preparation_coordinator.cpp
@@ -538,6 +531,7 @@ endif()
 
 add_subdirectory(core)
 add_subdirectory(gui)
+add_subdirectory(models)
 add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
 add_subdirectory(viewer_common)

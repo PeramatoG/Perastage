@@ -40,6 +40,7 @@ The root CMake file explicitly registers the main source modules with `add_subdi
 ```text
 core/
 gui/
+models/
 viewer2d/
 viewer3d/
 viewer_common/
@@ -49,8 +50,8 @@ Keep this list aligned with `CMakeLists.txt` whenever a new top-level source mod
 
 The current arrangement is intentionally descriptive rather than fully
 decentralized. The root `CMakeLists.txt` creates the application target, directly
-registers `main.cpp`, generated `build_info.cpp`, and source groups from
-`models/`, `mvr/`, and `core/`. The five modules above contribute their explicit
+registers `main.cpp`, generated `build_info.cpp`, and source groups from `mvr/`
+and `core/`. The six modules above contribute their explicit
 source lists through their own `CMakeLists.txt` files. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
