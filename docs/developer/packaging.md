@@ -9,7 +9,7 @@ Perastage currently has two different build contexts:
 - **Local developer builds** use the CMake presets documented in [Build and dependency guide](build.md).
 - **GitHub Actions release builds** use dedicated workflow environments and may use their own dependency cache paths.
 
-Do not assume that local dependency paths, such as `C:/vcpkg`, also apply to CI workflows. CI packaging workflows define their own paths inside the GitHub Actions workspace.
+Do not assume that local dependency paths, such as a developer-selected `VCPKG_ROOT`, also apply to CI workflows. CI packaging workflows define their own paths inside the GitHub Actions workspace.
 
 ## Windows Packaging
 

@@ -9,25 +9,29 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 - Visual Studio 2022 with the C++ desktop workload.
 - CMake, either bundled with Visual Studio or installed separately.
 - Ninja, either bundled with Visual Studio or installed separately.
-- A classic vcpkg installation at `C:\vcpkg` with dependencies installed under `C:\vcpkg\installed\x64-windows`.
+- A classic vcpkg installation at the selected classic vcpkg checkout with dependencies installed under `$env:VCPKG_ROOT\installed\x64-windows`.
 
-## Recommended vcpkg location
+## Select a vcpkg checkout
 
-The normal local Windows workflow uses the existing classic vcpkg installation at `C:\vcpkg`. The shared Windows Ninja presets point to `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, disable vcpkg manifest mode, disable manifest auto-install, and reuse `C:/vcpkg/installed/x64-windows`. Opening the repository in Visual Studio should not run vcpkg install, should not build packages, and should not create a `vcpkg_installed` directory in the repository or build tree.
+Set `VCPKG_ROOT` to the existing classic vcpkg checkout before using Visual Studio or CMake. The explicit `-VcpkgRoot` setup-script parameter takes precedence over an existing environment value, and the script exports its validated selection for the preset. The shared Windows Ninja presets point to `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, disable vcpkg manifest mode, disable manifest auto-install, and reuse `$env{VCPKG_ROOT}/installed/x64-windows`. Opening the repository in Visual Studio should not run vcpkg install, should not build packages, and should not create a `vcpkg_installed` directory in the repository or build tree.
 
 CI remains separate: GitHub Actions still uses the repository manifest, isolated installed roots, caches, and the pinned baseline for reproducible release builds.
 
 ## Install dependencies
 
-Install Windows dependencies once into the classic `C:\vcpkg` tree before configuring:
+Select the classic checkout and install Windows dependencies once before configuring:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
+$env:VCPKG_ROOT = 'D:\path\to\vcpkg'
+```
+
+```powershell
+& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
 The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for CI and dependency documentation. For local Windows builds, `setup_windows.ps1` validates that the installed tree is ready; it does not install or rebuild packages.
 
-If wxWidgets was previously built without secure-store support, repair that package in `C:\vcpkg`, then use `-CleanBuild` so CMake probes the rebuilt classic dependency instead of a stale build cache.
+If wxWidgets was previously built without secure-store support, repair that package in the selected classic vcpkg checkout, then use `-CleanBuild` so CMake probes the rebuilt classic dependency instead of a stale build cache.
 
 ## Configure and Build with Visual Studio
 
@@ -128,7 +132,7 @@ Editing library content does not require administrator privileges because writes
 ## If Configuration Fails
 
 - Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` from the repository root.
-- Verify that `C:/vcpkg/vcpkg.exe`, `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, and `C:/vcpkg/installed/x64-windows` exist, or pass `-VcpkgRoot` to validate another existing classic vcpkg installation.
+- Verify that `$env{VCPKG_ROOT}/vcpkg.exe`, `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, and `$env{VCPKG_ROOT}/installed/x64-windows` exist, or pass `-VcpkgRoot` to validate another existing classic vcpkg installation.
 - Remove stale build directories and reconfigure.
 - If Visual Studio keeps stale state, close Visual Studio and remove the local `.vs` folder.
 - Follow the detailed fix paths in [Troubleshooting](troubleshooting.md).

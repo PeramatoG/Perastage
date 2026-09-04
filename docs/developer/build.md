@@ -22,35 +22,36 @@ This document covers baseline and advanced build behavior for Perastage. It is t
 
 ## Windows vcpkg dependency setup
 
-Perastage keeps the root `vcpkg.json` manifest as the dependency source of truth for CI and for documenting the required packages. The normal local Windows workflow is intentionally classic vcpkg: install dependencies once into `C:\vcpkg\installed\x64-windows`, then configure with the shared Ninja presets. Visual Studio and CMake must not run an automatic vcpkg install during local configure.
+Perastage keeps the root `vcpkg.json` manifest as the dependency source of truth for CI and for documenting the required packages. The normal local Windows workflow is intentionally classic vcpkg: set `VCPKG_ROOT` to a classic vcpkg checkout, install dependencies once into `$env:VCPKG_ROOT\installed\x64-windows`, and then configure with the shared Ninja presets. Visual Studio and CMake must not run an automatic vcpkg install during local configure.
 
 The canonical local Windows presets are:
 
 - `win-x64-debug-ninja`
 - `win-x64-release-ninja`
 
-Both presets use `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`, `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. This makes CMake resolve already-installed packages from `C:/vcpkg/installed/x64-windows` and prevents `-- Running vcpkg install` during a clean Visual Studio configure.
+Both presets use `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`, `VCPKG_TARGET_TRIPLET=x64-windows`, `VCPKG_MANIFEST_MODE=OFF`, and `VCPKG_MANIFEST_INSTALL=OFF`. This makes CMake resolve already-installed packages from `$env{VCPKG_ROOT}/installed/x64-windows` and prevents `-- Running vcpkg install` during a clean Visual Studio configure.
 
 Install or repair dependencies manually before configuring if they are missing. A typical one-time command is:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
+& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
-Gettext tools are build-time dependencies for localization catalog generation. On Windows they should resolve from `C:\vcpkg\installed\x64-windows\tools\gettext\bin`. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
+Gettext tools are build-time dependencies for localization catalog generation. On Windows they should resolve from `$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin`. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
 Use the setup script as a validator/build helper, not as an installer:
 
 ```powershell
 cd C:\path\to\Perastage
+$env:VCPKG_ROOT = 'D:\path\to\vcpkg'
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 # Optional explicit Git Bash override:
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild -BashExecutable "C:\Program Files\Git\bin\bash.exe"
 ```
 
-By default, `setup_windows.ps1` validates `C:\vcpkg`, `vcpkg.exe`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
+`setup_windows.ps1` resolves the checkout from explicit `-VcpkgRoot` first and `VCPKG_ROOT` second, and fails if neither is supplied. It validates the selected classic vcpkg checkout, `vcpkg.exe`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. Before invoking the shared preset it exports the resolved root as `VCPKG_ROOT`, so validation and CMake cannot select different installations. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
 
-If an older build was configured against wxWidgets without `secretstore`, manifest mode, another installed root, or an x86 compiler, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Deleting `.vs` or `build` does not require reinstalling packages, and deleting `C:\vcpkg\installed` is not part of normal troubleshooting.
+If an older build was configured against wxWidgets without `secretstore`, manifest mode, another installed root, or an x86 compiler, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Deleting `.vs` or `build` does not require reinstalling packages, and deleting `$env:VCPKG_ROOT\installed` is not part of normal troubleshooting.
 
 
 ### Canonical local Windows x64 bootstrap
@@ -63,7 +64,7 @@ Git Bash does not need to be first on `PATH`. The setup script accepts an option
 Git Bash could not be resolved. Install Git for Windows or pass -DBASH_EXECUTABLE=<Git for Windows bash.exe>; WSL and WindowsApps bash launchers are not supported.
 ```
 
-Use this clean Debug validation command after installing Visual Studio C++ tools, Git for Windows, Ninja, CMake, and classic `C:\vcpkg` dependencies:
+Use this clean Debug validation command after installing Visual Studio C++ tools, Git for Windows, Ninja, CMake, and classic vcpkg dependencies under `VCPKG_ROOT`:
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
@@ -91,7 +92,7 @@ CMakePresets.json
 CMakeUserPresets.json
 ```
 
-The tracked presets intentionally provide these local paths without aliases or
+The tracked presets intentionally provide these local workflows without aliases or
 duplicate platform configurations:
 
 - Windows x64 uses the `win-x64-*-ninja` configure presets and matching
@@ -134,21 +135,15 @@ checkout is at the illustrative path below could create this untracked file:
 
 The schema version matches the repository's CMake 3.21 minimum and supports
 configure-preset inheritance. Developer-specific paths belong only in this
-ignored file and must not become required shared state. This escape hatch does
-not replace the separately planned cleanup of the currently grandfathered
-shared Windows `C:/vcpkg` path.
-
-`CMakeSettings.json` and `CppProperties.json` remain transitional editor files.
-They are not the canonical shared configuration, and their eventual audit and
-resolution are deliberately outside this policy change.
+ignored file and must not become required shared state. The supported Visual Studio folder workflow consumes `CMakePresets.json` directly. The former `CMakeSettings.json` duplicated Debug and Release configuration with another generator, while `CppProperties.json` duplicated C++20 and include information supplied by CMake and pointed at the Debug preset compile database. Repository, setup, CI, packaging, documentation, test, and history audits found no unique current consumer or behavior, so both files were removed to prevent divergence. Visual Studio IntelliSense derives settings from the selected CMake preset; other editors may use its generated `compile_commands.json`.
 
 ## Visual Studio workflow on Windows
 
-For the standard Windows setup, install dependencies once in `C:\vcpkg`, run `setup_windows.ps1` to validate the environment if desired, then open the repository folder in Visual Studio and select one of the canonical Ninja presets. Because manifest mode and manifest auto-install are disabled in the shared Windows presets, Visual Studio/CMake reuses `C:\vcpkg\installed\x64-windows` and should not print `-- Running vcpkg install`.
+For the standard Windows setup, set `VCPKG_ROOT`, install dependencies once in the selected classic vcpkg checkout, run `setup_windows.ps1` to validate the environment if desired, then open the repository folder in Visual Studio and select one of the canonical Ninja presets. Because manifest mode and manifest auto-install are disabled in the shared Windows presets, Visual Studio/CMake reuses `$env:VCPKG_ROOT\installed\x64-windows` and should not print `-- Running vcpkg install`.
 
 Typical setup:
 
-1. Install the required `x64-windows` dependencies in `C:\vcpkg` once.
+1. Set `VCPKG_ROOT` and install the required `x64-windows` dependencies in the selected classic vcpkg checkout once.
 2. Run `setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` from the repository root to validate the toolchain and selected build directory.
 3. Open the repository folder in Visual Studio.
 4. Select `Local Machine`.
@@ -165,7 +160,7 @@ List available presets:
 cmake --list-presets
 ```
 
-Configure a Windows Debug Ninja build from a Visual Studio Developer PowerShell after installing dependencies in `C:\vcpkg`:
+Configure a Windows Debug Ninja build from a Visual Studio Developer PowerShell after installing dependencies in the selected classic vcpkg checkout:
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
@@ -284,15 +279,15 @@ or a similar error for `tinyxml2`, `CURL`, `GLEW`, `meshoptimizer`, `nanovg`, `p
 First verify that the dependency is installed in the intended vcpkg instance. For example:
 
 ```powershell
-C:\vcpkg\vcpkg.exe install --triplet x64-windows
+& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows
 ```
 
 Then verify that the expected vcpkg instance exists:
 
 ```powershell
-Test-Path "C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
-Test-Path "C:\vcpkg\installed\x64-windows\share\wxwidgets"
-Test-Path "C:\vcpkg\installed\x64-windows\include\zlib.h"
+Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+Test-Path "$env:VCPKG_ROOT\installed\x64-windows\share\wxwidgets"
+Test-Path "$env:VCPKG_ROOT\installed\x64-windows\include\zlib.h"
 ```
 
 If the error path contains Visual Studio's internal vcpkg, for example:
@@ -301,7 +296,7 @@ If the error path contains Visual Studio's internal vcpkg, for example:
 C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
 
-then Visual Studio is using its own vcpkg instance instead of the required `C:/vcpkg` toolchain. Select the canonical Windows Ninja preset, clear the affected CMake cache with `setup_windows.ps1 -CleanBuild -SkipBuild`, and verify that `CMAKE_TOOLCHAIN_FILE` still points at `C:/vcpkg/scripts/buildsystems/vcpkg.cmake`.
+then Visual Studio is using its own vcpkg instance instead of the toolchain under the selected classic vcpkg checkout. Select the canonical Windows Ninja preset, clear the affected CMake cache with `setup_windows.ps1 -CleanBuild -SkipBuild`, and verify that `CMAKE_TOOLCHAIN_FILE` still points at `$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`.
 
 ## Secure credential-store verification
 
@@ -323,7 +318,7 @@ Use a focused test build when validating GDTF Share credential storage for relea
 ```powershell
 cmake -S . -B build-security -G Ninja `
   -DCMAKE_BUILD_TYPE=Debug `
-  -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
   -DVCPKG_TARGET_TRIPLET=x64-windows `
   -DVCPKG_MANIFEST_MODE=OFF `
   -DVCPKG_MANIFEST_INSTALL=OFF `
@@ -364,7 +359,7 @@ Use `-CleanBuild` to force the same safe cleanup for the selected build director
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 ```
 
-Use `-VisualStudioPath` or `-VisualStudioVersion` to make multi-install selection explicit. The cleanup does not delete source files, `C:\vcpkg`, `C:\vcpkg\installed`, global vcpkg downloads, packages, buildtrees, or unrelated build directories.
+Use `-VisualStudioPath` or `-VisualStudioVersion` to make multi-install selection explicit. The cleanup does not delete source files, the selected classic vcpkg checkout, `$env:VCPKG_ROOT\installed`, global vcpkg downloads, packages, buildtrees, or unrelated build directories.
 
 ## CI vcpkg retry, cache, and diagnostics policy
 

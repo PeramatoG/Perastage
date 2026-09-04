@@ -17,6 +17,7 @@ Changes since **v1.6.0**.
 - Improved cross-platform reliability of the repository policy regression fixtures without weakening machine-specific path detection.
 - Clarified Core ownership of the shared viewport interaction preference policy and removed its temporary repository-root compatibility exception.
 - Established the shared CMake presets as the canonical local build configuration and documented optional, untracked developer overrides across supported platforms.
+- Made the Windows classic-vcpkg workflow portable through `VCPKG_ROOT` and removed redundant legacy Visual Studio configuration files.
 
 ## Downloads and installation
 

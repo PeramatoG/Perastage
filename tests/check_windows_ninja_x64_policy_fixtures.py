@@ -41,6 +41,19 @@ with tempfile.TemporaryDirectory() as tmp:
     assert ok.returncode == 0, ok.stderr + ok.stdout
     assert 'Checked ' in ok.stdout and 'first-party files' in ok.stdout, ok.stderr + ok.stdout
 
+    presets = repo / 'CMakePresets.json'
+    portable_presets = presets.read_text(encoding='utf-8')
+    presets.write_text(
+        portable_presets.replace(
+            '$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake',
+            'D:/fixture-vcpkg/scripts/buildsystems/vcpkg.cmake',
+        ),
+        encoding='utf-8',
+    )
+    fixed_root = run_policy(repo)
+    assert fixed_root.returncode != 0, fixed_root.stderr + fixed_root.stdout
+    presets.write_text(portable_presets, encoding='utf-8')
+
     first_party = repo / 'cmake' / 'policy.txt'
     first_party.parent.mkdir(parents=True, exist_ok=True)
     first_party.write_text('local-' + 'win-debug-ninja\n')

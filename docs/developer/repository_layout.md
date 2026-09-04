@@ -74,8 +74,7 @@ protects four invariants:
    metadata outside that owner; ordinary first-party copyright or license
    headers are not treated as evidence of vendoring.
 2. Shared build/development configuration cannot acquire developer-specific
-   Windows, Linux, macOS, or WSL absolute paths outside the exact transitional
-   state recorded in the baseline.
+   Windows, Linux, macOS, or WSL absolute paths.
 3. A top-level directory containing production C/C++ code must be classified by
    the baseline. `tests/` and `third_party/` remain distinct from application
    source modules, while source-free support directories are not misclassified.
@@ -92,13 +91,11 @@ the focused fixtures in the same pull request. Source ownership is not otherwise
 frozen: later ORG work can move registration into module-owned CMake files while
 retaining explicit source lists.
 
-The baseline temporarily records exact file, value, and occurrence counts for
-existing `C:/vcpkg` and `C:\vcpkg` references in `CMakeLists.txt`,
-`CMakePresets.json`, `CMakeSettings.json`, `CppProperties.json`, and
-`setup_windows.ps1`. Each count describes the exact current repository state,
-not reusable permission: both additional and missing occurrences fail. ORG-005
-through ORG-011 must reduce or remove these entries together with the relevant
-legacy configuration; ORG-002 deliberately does not perform that cleanup.
+The baseline retains exact-count support for narrowly reviewed machine-path
+exceptions, but currently records none. Shared Windows presets resolve classic
+vcpkg through `VCPKG_ROOT`; developer-specific overrides belong in the ignored
+`CMakeUserPresets.json`. Fixtures continue to prove that new machine paths and
+stale exceptions are rejected.
 
 The `/mnt/c` values in the WSL presets are intentionally portable platform
 isolation paths: they prevent Linux package discovery from crossing into the
@@ -115,9 +112,9 @@ are setup/build launchers; `vcpkg.json` describes dependencies; and `VERSION`
 and the license files provide project metadata. `README.md`, `help.md`, the
 community documents, and `AGENTS.md` are documentation or repository guidance.
 
-`CMakeSettings.json` and `CppProperties.json` are recorded as committed legacy
-development configuration. Their future status is deliberately outside this
-baseline task. Repository-visible validation starts at `tests/CMakeLists.txt`
+The obsolete Visual Studio `CMakeSettings.json` and `CppProperties.json` files
+were removed after their settings were verified as redundant with the canonical
+CMake presets and generated compile database. Repository-visible validation starts at `tests/CMakeLists.txt`
 and `.github/workflows/ci-tests.yml`; packaging entry points include
 `packaging/arch/PKGBUILD` and `packaging/windows/Perastage.iss`.
 

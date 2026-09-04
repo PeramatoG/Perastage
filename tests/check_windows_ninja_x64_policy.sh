@@ -25,7 +25,7 @@ for preset in windows_configure:
     assert preset.get('generator') == 'Ninja', name
     assert preset.get('architecture', {}).get('value') == 'x64', name
     assert preset.get('architecture', {}).get('strategy') == 'external', name
-    assert cache.get('CMAKE_TOOLCHAIN_FILE') == 'C:/vcpkg/scripts/buildsystems/vcpkg.cmake', name
+    assert cache.get('CMAKE_TOOLCHAIN_FILE') == '$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake', name
     assert cache.get('VCPKG_TARGET_TRIPLET') == 'x64-windows', name
     assert cache.get('VCPKG_MANIFEST_MODE') == 'OFF', name
     assert cache.get('VCPKG_MANIFEST_INSTALL') == 'OFF', name
@@ -35,7 +35,10 @@ assert {preset['configurePreset'] for preset in windows_build} <= {'win-x64-debu
 
 script = read('setup_windows.ps1')
 required = [
-    "[string]$VcpkgRoot = 'C:\\vcpkg'",
+    "[string]$VcpkgRoot = ''",
+    '$Root = $env:VCPKG_ROOT',
+    '$env:VCPKG_ROOT = $resolvedVcpkg.Root',
+    'Pass -VcpkgRoot or set VCPKG_ROOT',
     'VSCMD_ARG_HOST_ARCH',
     'VSCMD_ARG_TGT_ARCH',
     'cl.exe banner does not identify an x64 target',

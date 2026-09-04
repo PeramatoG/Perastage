@@ -3,7 +3,7 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
 
-    [string]$VcpkgRoot = 'C:\vcpkg',
+    [string]$VcpkgRoot = '',
 
     [string]$VisualStudioPath = '',
 
@@ -178,10 +178,17 @@ function Initialize-X64MsvcEnvironment {
 
 # Resolves and validates the selected classic vcpkg installation.
 function Resolve-ClassicVcpkgInstallation {
-    param([Parameter(Mandatory = $true)][string]$Root)
+    param([string]$Root)
+
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        $Root = $env:VCPKG_ROOT
+    }
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        throw 'A classic vcpkg root is required. Pass -VcpkgRoot or set VCPKG_ROOT before running setup_windows.ps1.'
+    }
 
     if (-not (Test-Path -LiteralPath $Root)) {
-        throw "The vcpkg root does not exist: $Root. Install dependencies once into C:\vcpkg or pass -VcpkgRoot to an existing classic vcpkg checkout."
+        throw "The vcpkg root does not exist: $Root. Pass -VcpkgRoot or set VCPKG_ROOT to an existing classic vcpkg checkout."
     }
 
     $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
@@ -389,6 +396,7 @@ Assert-CommandAvailable -CommandName 'cmake'
 $msvcEnvironment = Initialize-X64MsvcEnvironment -RequestedPath $VisualStudioPath -RequestedVersion $VisualStudioVersion
 $resolvedVcpkg = Resolve-ClassicVcpkgInstallation -Root $VcpkgRoot
 Test-PerastageVcpkgDependencies -Vcpkg $resolvedVcpkg
+$env:VCPKG_ROOT = $resolvedVcpkg.Root
 $resolvedGitBash = Resolve-PerastageGitBash -ExplicitBash $BashExecutable
 
 $presets = Get-CMakePresetNames -Configuration $Configuration
