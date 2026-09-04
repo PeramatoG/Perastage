@@ -37,13 +37,26 @@ run_case() {
 }
 
 for case_name in explicit-external visual-studio-override user-wide-only appdata-only; do
-    run_case "$case_name"
-    test "$(cat "$temporary_root/$case_name.result")" = "$external_root"
+    if ! run_case "$case_name"; then
+        echo "Resolver success fixture failed: $case_name" >&2
+        cat "$temporary_root/$case_name.log" >&2
+        exit 1
+    fi
+    if [[ "$(cat "$temporary_root/$case_name.result")" != 'PASS' ]]; then
+        echo "Resolver success fixture did not write PASS: $case_name" >&2
+        exit 1
+    fi
 done
 
-run_case bootstrap-user-wide
-test "$(cat "$temporary_root/bootstrap-user-wide.result")" = \
-    "$external_root|$external_root|TRUE"
+if ! run_case bootstrap-user-wide; then
+    echo 'Resolver bootstrap fixture failed: bootstrap-user-wide' >&2
+    cat "$temporary_root/bootstrap-user-wide.log" >&2
+    exit 1
+fi
+if [[ "$(cat "$temporary_root/bootstrap-user-wide.result")" != 'PASS' ]]; then
+    echo 'Resolver bootstrap fixture did not write PASS: bootstrap-user-wide' >&2
+    exit 1
+fi
 
 for case_name in stale-descriptor both-missing bundled-descriptor; do
     if run_case "$case_name"; then
