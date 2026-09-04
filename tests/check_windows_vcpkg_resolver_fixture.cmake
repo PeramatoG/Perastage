@@ -15,11 +15,27 @@ unset(ENV{VCPKG_ROOT})
 unset(ENV{LOCALAPPDATA})
 unset(ENV{APPDATA})
 
+file(MAKE_DIRECTORY
+    "${USER_CONFIG_ROOT}/vcpkg"
+    "${STALE_CONFIG_ROOT}/vcpkg"
+    "${BUNDLED_CONFIG_ROOT}/vcpkg"
+)
+file(WRITE "${USER_CONFIG_ROOT}/vcpkg/vcpkg.path.txt" "${EXTERNAL_ROOT}\n")
+file(WRITE "${STALE_CONFIG_ROOT}/vcpkg/vcpkg.path.txt" "${STALE_ROOT}\n")
+file(WRITE "${BUNDLED_CONFIG_ROOT}/vcpkg/vcpkg.path.txt"
+    "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg\n")
+
 if(CASE STREQUAL "explicit-external")
     set(ENV{VCPKG_ROOT} "${EXTERNAL_ROOT}")
     set(ENV{LOCALAPPDATA} "${USER_CONFIG_ROOT}")
 elseif(CASE STREQUAL "visual-studio-override")
     set(ENV{VCPKG_ROOT} "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg")
+    perastage_is_visual_studio_vcpkg_root("$ENV{VCPKG_ROOT}" is_bundled_root)
+    if(NOT is_bundled_root)
+        message(FATAL_ERROR
+            "${CASE} setup failed: the injected Visual Studio root was not recognized as bundled vcpkg."
+        )
+    endif()
     set(ENV{LOCALAPPDATA} "${USER_CONFIG_ROOT}")
 elseif(CASE STREQUAL "user-wide-only" OR CASE STREQUAL "bootstrap-user-wide")
     set(ENV{LOCALAPPDATA} "${USER_CONFIG_ROOT}")

@@ -13,16 +13,11 @@ user_config_root="$temporary_root/user-config"
 stale_config_root="$temporary_root/stale-config"
 bundled_config_root="$temporary_root/bundled-config"
 
-mkdir -p "$external_root/scripts/buildsystems" "$user_config_root/vcpkg" \
-    "$stale_config_root/vcpkg" "$bundled_config_root/vcpkg"
+mkdir -p "$external_root/scripts/buildsystems"
 touch "$external_root/.vcpkg-root" "$external_root/vcpkg.exe"
 cat >"$external_root/scripts/buildsystems/vcpkg.cmake" <<'EOF'
 set(SYNTHETIC_TOOLCHAIN_INCLUDED TRUE)
 EOF
-printf '%s\n' "$external_root" >"$user_config_root/vcpkg/vcpkg.path.txt"
-printf '%s\n' "$temporary_root/missing-vcpkg" >"$stale_config_root/vcpkg/vcpkg.path.txt"
-printf '%s\n' 'C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg' \
-    >"$bundled_config_root/vcpkg/vcpkg.path.txt"
 
 run_case() {
     local case_name="$1"
@@ -30,6 +25,7 @@ run_case() {
         -DEXTERNAL_ROOT="$external_root" \
         -DUSER_CONFIG_ROOT="$user_config_root" \
         -DSTALE_CONFIG_ROOT="$stale_config_root" \
+        -DSTALE_ROOT="$temporary_root/missing-vcpkg" \
         -DBUNDLED_CONFIG_ROOT="$bundled_config_root" \
         -DRESULT_FILE="$temporary_root/$case_name.result" \
         -DCASE="$case_name" -P "$fixture" \
