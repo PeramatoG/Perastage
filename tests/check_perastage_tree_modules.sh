@@ -7,7 +7,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TREE_DOC="$ROOT_DIR/docs/developer/perastage_tree.md"
 BASELINE="$ROOT_DIR/docs/developer/repository_structure_baseline.json"
 
-mapfile -t required_dirs < <(
+source_modules="$(
   python3 - "$BASELINE" <<'PY'
 import json
 import sys
@@ -16,7 +16,12 @@ with open(sys.argv[1], encoding="utf-8") as stream:
     baseline = json.load(stream)
 print(*baseline["top_level_directories"]["source_modules"], sep="\n")
 PY
-)
+)"
+
+required_dirs=()
+while IFS= read -r dir; do
+  [[ -n "$dir" ]] && required_dirs+=("$dir")
+done <<< "$source_modules"
 required_dirs+=(packaging cmake library resources third_party tests docs)
 
 missing_dirs=()
