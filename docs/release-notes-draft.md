@@ -24,6 +24,7 @@ Changes since **v1.6.0**.
 - Moved localization build configuration into a dedicated module while preserving existing catalog and platform behavior.
 - Moved build-tree runtime asset staging into a dedicated module while preserving existing cross-platform resource layouts.
 - Moved install-tree rules and packaging staging into a dedicated build module while preserving existing cross-platform installation layouts.
+- Moved CPack compatibility configuration into a dedicated build module while preserving existing package metadata and installer behavior.
 
 ## Downloads and installation
 

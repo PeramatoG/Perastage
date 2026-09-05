@@ -21,7 +21,7 @@ This document defines the expected directory conventions for Perastage.
 
 ## CMake convention
 
-- Root `CMakeLists.txt` owns target creation, module orchestration, and CPack configuration; `cmake/PerastageDependencies.cmake` owns application dependency discovery and capability validation, `cmake/PerastageLocalization.cmake` owns gettext discovery, catalog compilation, and translation maintenance and validation targets, `cmake/PerastageRuntimeStaging.cmake` owns build-tree runtime asset staging, and `cmake/PerastageInstall.cmake` owns install-tree rules and the `perastage_stage` target. Further packaging extraction remains pending.
+- Root `CMakeLists.txt` owns target creation and module orchestration; `cmake/PerastageDependencies.cmake` owns application dependency discovery and capability validation, `cmake/PerastageLocalization.cmake` owns gettext discovery, catalog compilation, and translation maintenance and validation targets, `cmake/PerastageRuntimeStaging.cmake` owns build-tree runtime asset staging, `cmake/PerastageInstall.cmake` owns install-tree rules and the `perastage_stage` target, and `cmake/PerastagePackaging.cmake` owns CPack and package-generator compatibility configuration.
 - Every top-level application source module contributes its explicit source list using its local `CMakeLists.txt` and `target_sources(${PROJECT_NAME} ...)`.
 - `docs/developer/repository_structure_baseline.json` is the authoritative machine-readable contract for source-module classification and CMake registration.
 - Avoid recursive or wildcard project-source discovery; list files explicitly.
