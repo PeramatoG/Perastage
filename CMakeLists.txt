@@ -187,26 +187,9 @@ add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
 add_subdirectory(viewer_common)
 
-# Include project directories pending the ORG-023/024 ownership audit.
+# Keep only shared and dependency-provided application include requirements here.
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/gui
-    ${CMAKE_SOURCE_DIR}/gui/mainwindow/controllers
-    ${CMAKE_SOURCE_DIR}/gui/mainwindow/ids
-    ${CMAKE_SOURCE_DIR}/models
-    ${CMAKE_SOURCE_DIR}/core
-    ${CMAKE_SOURCE_DIR}/core/layouts
-    ${CMAKE_SOURCE_DIR}/core/print
-    ${CMAKE_SOURCE_DIR}/mvr
     ${CMAKE_SOURCE_DIR}/third_party
-    ${CMAKE_SOURCE_DIR}/viewer3d
-    ${CMAKE_SOURCE_DIR}/viewer3d/interfaces
-    ${CMAKE_SOURCE_DIR}/viewer3d/resources
-    ${CMAKE_SOURCE_DIR}/viewer3d/culling
-    ${CMAKE_SOURCE_DIR}/viewer3d/labels
-    ${CMAKE_SOURCE_DIR}/viewer3d/picking
-    ${CMAKE_SOURCE_DIR}/viewer3d/render
-    ${CMAKE_SOURCE_DIR}/viewer2d
-    ${CMAKE_SOURCE_DIR}/viewer2d/pdf
     ${CMAKE_SOURCE_DIR}/resources
     ${_wx_includes}
     ${NANOVG_INCLUDE_DIR}

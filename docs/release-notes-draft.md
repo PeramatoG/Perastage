@@ -26,6 +26,7 @@ Changes since **v1.6.0**.
 - Moved install-tree rules and packaging staging into a dedicated build module while preserving existing cross-platform installation layouts.
 - Moved CPack compatibility configuration into a dedicated build module while preserving existing package metadata and installer behavior.
 - Completed the build-system modularization by isolating platform target configuration and simplifying the root CMake file to project orchestration.
+- Localized application include-directory ownership to feature modules while retaining shared and dependency-provided build requirements at the project level.
 
 ## Downloads and installation
 
