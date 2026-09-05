@@ -270,49 +270,11 @@ configure_file(
     @ONLY
 )
 
-add_library(perastage_uuid OBJECT core/uuidutils.cpp)
-target_include_directories(perastage_uuid PUBLIC ${CMAKE_SOURCE_DIR}/core)
+add_library(perastage_uuid OBJECT)
 
-add_executable(${PROJECT_NAME} main.cpp
+add_executable(${PROJECT_NAME}
+    main.cpp
     "${PERASTAGE_GENERATED_BUILD_INFO_CPP}"
-    models/fixture.cpp
-    models/continuous_placement_scene.cpp
-    models/continuous_placement_state.cpp
-    models/layer.cpp
-    models/mvrscene.cpp
-    models/sceneobject.cpp
-    models/truss.cpp
-    core/runtime_storage.cpp
-    core/fixture_gdtf_derivative_contract.cpp
-    core/symbols/fixture_symbol_preparation_coordinator.cpp
-    core/symbols/fixture_symbol_preparation_requests.cpp
-    core/fixture_gdtf_derivative_publication.cpp
-    core/mvr_identity_recovery.cpp
-    core/project_fixture_gdtf_consolidator.cpp
-    mvr/gdtf_catalog_matcher.cpp
-    mvr/gdtf_catalog_parser.cpp
-    mvr/mvrimporter.cpp
-    mvr/mvr_merge_analyzer.cpp
-    mvr/mvr_merge_applier.cpp
-    mvr/mvr_merge_resource_rewriter.cpp
-    mvr/mvrscenemerger.cpp
-    mvr/mvrexporter.cpp
-    mvr/primitive_model_resources.cpp
-    mvr/xchange/mvr_xchange_commit.cpp
-    mvr/xchange/mvr_xchange_dns_names.cpp
-    mvr/xchange/mvr_xchange_mdns_discovery.cpp
-    mvr/xchange/mvr_xchange_mdns_cache.cpp
-    mvr/xchange/mvr_xchange_mdns_service.cpp
-    mvr/xchange/mvr_xchange_network_interfaces.cpp
-    mvr/xchange/mvr_xchange_remote_station.cpp
-    mvr/xchange/mvr_xchange_station_registry.cpp
-    mvr/xchange/mvr_xchange_tcp_client.cpp
-    mvr/xchange/mvr_xchange_message.cpp
-    mvr/xchange/mvr_xchange_packet.cpp
-    mvr/xchange/mvr_xchange_publication_policy.cpp
-    mvr/xchange/mvr_xchange_service.cpp
-    mvr/xchange/mvr_xchange_settings.cpp
-    mvr/xchange/mvr_xchange_tcp_server.cpp
 )
 
 if(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
@@ -372,6 +334,8 @@ set(PERASTAGE_EXPECTED_VCPKG_GETTEXT_BIN_DIR "")
 if(WIN32)
     if(DEFINED VCPKG_INSTALLED_DIR AND NOT "${VCPKG_INSTALLED_DIR}" STREQUAL "")
         set(PERASTAGE_VCPKG_INSTALLED_ROOT "${VCPKG_INSTALLED_DIR}")
+    elseif(DEFINED ENV{VCPKG_ROOT} AND NOT "$ENV{VCPKG_ROOT}" STREQUAL "")
+        set(PERASTAGE_VCPKG_INSTALLED_ROOT "$ENV{VCPKG_ROOT}/installed")
     elseif(DEFINED CMAKE_TOOLCHAIN_FILE AND
            CMAKE_TOOLCHAIN_FILE MATCHES "[/\\]scripts[/\\]buildsystems[/\\]vcpkg\\.cmake$")
         get_filename_component(_perastage_vcpkg_buildsystems_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
@@ -436,7 +400,7 @@ add_dependencies(${PROJECT_NAME} perastage_generated_dummy_gdtf)
 if(PERASTAGE_ENABLE_LOCALIZATION)
     if(NOT PERASTAGE_MSGFMT_EXECUTABLE)
         if(WIN32)
-            message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but vcpkg gettext msgfmt.exe was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Expected msgfmt.exe: ${PERASTAGE_EXPECTED_VCPKG_MSGFMT}. Active vcpkg installed root: ${PERASTAGE_VCPKG_INSTALLED_ROOT}. Active vcpkg triplet: ${PERASTAGE_VCPKG_GETTEXT_TRIPLET}. For local Windows builds, install gettext[tools] into the classic C:/vcpkg x64-windows tree and keep VCPKG_MANIFEST_MODE=OFF; CI manifest builds must pass the same explicit installed root to CMake as VCPKG_INSTALLED_DIR. Then clear the affected CMake cache and reconfigure. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
+            message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but vcpkg gettext msgfmt.exe was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Expected msgfmt.exe: ${PERASTAGE_EXPECTED_VCPKG_MSGFMT}. Active vcpkg installed root: ${PERASTAGE_VCPKG_INSTALLED_ROOT}. Active vcpkg triplet: ${PERASTAGE_VCPKG_GETTEXT_TRIPLET}. For local Windows builds, set VCPKG_ROOT to the selected classic vcpkg checkout, install gettext[tools] for x64-windows, and keep VCPKG_MANIFEST_MODE=OFF; CI manifest builds must pass the same explicit installed root to CMake as VCPKG_INSTALLED_DIR. Then clear the affected CMake cache and reconfigure. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
         else()
             message(FATAL_ERROR "PERASTAGE_ENABLE_LOCALIZATION is ON, but GNU gettext msgfmt was not found. msgfmt is a build-time tool only and is not a Perastage runtime dependency. Install gettext/msgfmt and reconfigure: on macOS use Homebrew gettext; on Linux install the gettext package. To build an English-only development copy, explicitly configure with -DPERASTAGE_ENABLE_LOCALIZATION=OFF.")
         endif()
@@ -536,17 +500,14 @@ endif()
 
 add_subdirectory(core)
 add_subdirectory(gui)
+add_subdirectory(models)
+add_subdirectory(mvr)
 add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
 add_subdirectory(viewer_common)
 
 if(WIN32)
     target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 iphlpapi)
-endif()
-if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE PERASTAGE_MVR_XCHANGE_ENABLE_MDNS=1)
-    target_link_libraries(${PROJECT_NAME} PRIVATE mdns::mdns)
 endif()
 
 # Mark as GUI application (no console)

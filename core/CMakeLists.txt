@@ -16,6 +16,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/file_import_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_derivative_contract.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_derivative_publication.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
@@ -63,6 +65,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/markdown.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/magnet_snap.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identity_recovery.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_attachment_paths.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/patchmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/platform_locale.cpp
@@ -70,11 +73,13 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/print/PageSetup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print/Viewer2DPrintSettings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/projectutils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/project_fixture_gdtf_consolidator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/startup_profile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rigging_extra_weight_settings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/runtime_storage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_grouping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
@@ -106,6 +111,14 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/unit_label_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp
+)
+
+target_sources(perastage_uuid PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/uuidutils.cpp
+)
+
+target_include_directories(perastage_uuid PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
