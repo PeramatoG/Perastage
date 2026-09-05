@@ -20,6 +20,7 @@ Changes since **v1.6.0**.
 - Made the Windows classic-vcpkg workflow portable and reliable in Visual Studio through explicit or user-wide external checkout discovery, while ignoring the IDE's injected bundled dependency tree, keeping cross-platform validation reliable, and removing redundant legacy configuration files.
 - Gave the scene-model module explicit ownership of its application source registration while preserving existing build behavior.
 - Completed explicit CMake source ownership across all application modules and strengthened cross-platform, harness-aware repository checks against architecture drift.
+- Moved application dependency discovery into a dedicated build module while preserving existing package-manager and platform behavior.
 
 ## Downloads and installation
 
