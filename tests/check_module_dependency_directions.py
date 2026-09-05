@@ -94,10 +94,19 @@ def owner(root: Path, path: Path) -> str | None:
     return first if first in MODULES else None
 
 
+def repository_relative_path(root: Path, path: Path) -> Path:
+    """Return a path relative to consistently resolved repository roots."""
+    return path.resolve().relative_to(root.resolve())
+
+
 def repository_path_for_display(root: Path, path: Path) -> str:
     """Render a repository-relative path consistently on every platform."""
-    relative = path.relative_to(root) if path.is_absolute() else path
-    return relative.as_posix()
+    if not path.is_absolute():
+        return path.as_posix()
+    try:
+        return repository_relative_path(root, path).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
 
 
 def resolve_include(root: Path, source: Path, spelling: str) -> tuple[Path | None, list[Path]]:
@@ -128,10 +137,12 @@ def resolve_include(root: Path, source: Path, spelling: str) -> tuple[Path | Non
 
 def audit(root: Path) -> tuple[list[Evidence], list[str]]:
     """Build the current cross-module include inventory and resolution errors."""
+    root = root.resolve()
     evidence: list[Evidence] = []
     errors: list[str] = []
     for source in production_files(root):
-        consumer = source.relative_to(root).parts[0]
+        source_relative = repository_relative_path(root, source)
+        consumer = source_relative.parts[0]
         for spelling in quoted_includes(source.read_text(encoding="utf-8", errors="replace")):
             resolved, conflicts = resolve_include(root, source, spelling)
             if conflicts:
@@ -146,7 +157,9 @@ def audit(root: Path) -> tuple[list[Evidence], list[str]]:
                 continue
             provider = owner(root, resolved)
             if provider and provider != consumer:
-                evidence.append(Evidence(consumer, provider, source.relative_to(root), spelling, resolved.relative_to(root)))
+                evidence.append(
+                    Evidence(consumer, provider, source_relative, spelling, repository_relative_path(root, resolved))
+                )
     return evidence, errors
 
 

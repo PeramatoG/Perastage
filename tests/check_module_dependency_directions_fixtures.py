@@ -69,6 +69,18 @@ class ModuleDependencyDirectionFixtures(unittest.TestCase):
         evidence, _ = checker.audit(self.root)
         self.assertEqual(evidence[0].resolved, Path("viewer_common/shared.h"))
 
+    def test_display_path_normalizes_root_before_relativizing(self) -> None:
+        self.write("models/model.h")
+        lexical_root = self.root / "core" / ".."
+        resolved_path = (self.root / "models/model.h").resolve()
+        self.assertEqual(checker.repository_path_for_display(lexical_root, resolved_path), "models/model.h")
+
+    def test_outside_display_path_uses_a_normalized_fallback(self) -> None:
+        outside = self.root.parent / "outside.h"
+        rendered = checker.repository_path_for_display(self.root, outside)
+        self.assertTrue(rendered.endswith("/outside.h"))
+        self.assertNotIn("\\", rendered)
+
     def test_external_and_commented_includes_are_ignored(self) -> None:
         self.write("core/use.cpp", '#include <vector>\n#include "external_api.h"\n// #include "models/missing.h"\n')
         evidence, errors = checker.audit(self.root)
