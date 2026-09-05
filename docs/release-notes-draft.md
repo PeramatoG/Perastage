@@ -25,6 +25,7 @@ Changes since **v1.6.0**.
 - Moved build-tree runtime asset staging into a dedicated module while preserving existing cross-platform resource layouts.
 - Moved install-tree rules and packaging staging into a dedicated build module while preserving existing cross-platform installation layouts.
 - Moved CPack compatibility configuration into a dedicated build module while preserving existing package metadata and installer behavior.
+- Completed the build-system modularization by isolating platform target configuration and simplifying the root CMake file to project orchestration.
 
 ## Downloads and installation
 

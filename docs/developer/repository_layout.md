@@ -14,7 +14,7 @@ this page remains its human-readable architectural counterpart.
 | Path | Purpose |
 |------|---------|
 | `main.cpp` | wxWidgets application entry point and top-level initialization. |
-| `CMakeLists.txt` | Root build orchestration, platform options, install rules, and module registration. |
+| `CMakeLists.txt` | Project options, principal target creation, shared target configuration, and build-module orchestration. |
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
 | `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |
 | `core/` | Core logic, import helpers, dictionaries, patching, layouts, printing, persistence, and shared services. |
@@ -52,6 +52,14 @@ bootstrap source. Every module above contributes its explicit application source
 list through its own `CMakeLists.txt`. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
+
+Target-level operating-system configuration is dispatched once through
+`cmake/platform/PerastagePlatform.cmake`. The Windows owner configures the
+application resource, GUI subsystem, MSVC release symbols, and `Dbghelp`; the
+macOS owner configures the application bundle, plist, and icon resources. The
+Linux owner documents that no additional target configuration is currently
+required, while desktop, MIME, and icon installation remains in
+`cmake/PerastageInstall.cmake`.
 
 Cross-cutting viewport interaction preference policy is owned by `core/`, next
 to the existing shared selection movement settings. GUI, 2D viewer, and 3D

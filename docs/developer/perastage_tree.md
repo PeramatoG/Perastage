@@ -16,7 +16,8 @@ Perastage/
 |-- docs/                        # User documentation, architecture notes, repository map, and docs website assets.
 |-- AGENTS.md                    # Repository guidance for automated coding agents.
 |-- VERSION                      # Single project version source.
-|-- cmake/                       # Dependency, localization, and runtime-staging build modules, templates, and helper scripts.
+|-- cmake/                       # Focused build modules, templates, and helper scripts.
+|   `-- platform/                # Platform target-configuration dispatcher and OS-specific owners.
 |-- core/                        # Shared business logic and cross-cutting services.
 |   |-- layouts/                 # Printable layout/page management.
 |   `-- print/                   # Printing and PDF/table export helpers.
@@ -56,6 +57,7 @@ Perastage/
 - **`models/`**: core scene model (fixtures, trusses, hoists/supports, objects, layers).
 - **`mvr/`**: inbound/outbound integration with the MVR ecosystem, including MVR-xchange support.
 - **`packaging/`**: platform packaging metadata, installer scripts, and desktop integration files.
+- **`cmake/platform/`**: Windows and macOS target/build configuration plus the explicit Linux target-configuration boundary, selected through one dispatcher.
 
 ## Critical files (explicit exception to high-level granularity)
 
