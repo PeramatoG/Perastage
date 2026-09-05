@@ -56,6 +56,38 @@ coupling, but does not create source-local compiler isolation or a new target
 boundary. Stronger compile-time isolation would require a future target-level
 architecture change.
 
+### Internal module dependency directions
+
+The following contract records the current production source-level includes.
+It is not a target-level link graph: all seven modules still contribute to the
+single application target. Counts are evidence occurrences from the ORG-025
+audit; same-module includes and test sources are excluded.
+
+| Consumer | Accepted providers (evidence count) | Architectural rationale |
+|---|---|---|
+| `core` | `models` (46), `mvr` (5), `viewer2d` (4), `viewer3d` (7) | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
+| `models` | None | Scene data does not include another audited application module. |
+| `mvr` | `core` (55), `gui` (3), `models` (9), `viewer2d` (1), `viewer3d` (2) | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |
+| `gui` | `core` (411), `models` (42), `mvr` (15), `viewer2d` (77), `viewer3d` (45), `viewer_common` (5) | UI workflows orchestrate application services, interchange, both viewers, and shared GL utilities. |
+| `viewer_common` | `core` (4) | Shared viewer utilities use central preferences and diagnostics. |
+| `viewer2d` | `core` (26), `gui` (12), `models` (5), `viewer3d` (8), `viewer_common` (7) | 2D rendering consumes scene/services, shared GL support, existing 3D types, and UI command identifiers. |
+| `viewer3d` | `core` (70), `gui` (13), `models` (24), `viewer2d` (13), `viewer_common` (6) | 3D rendering consumes scene/services, shared GL support, 2D render interfaces, and existing UI status facilities. |
+
+The current graph contains intentional-for-current-architecture cycles between
+`core` and each of `mvr`, `viewer2d`, and `viewer3d`; between `gui` and each of
+`mvr`, `viewer2d`, and `viewer3d`; and between `viewer2d` and `viewer3d`.
+In particular, renderer-to-GUI includes, `mvr -> gui`, and Core's viewer
+includes are visible technical-debt directions rather than a proposed layering
+model. ORG-025 accepts them because they exist; removing them requires a
+separate behavior-preserving architecture change.
+
+`tests/check_module_dependency_directions.py` resolves quoted includes through
+source-relative paths and the application's ordered include roots, then rejects
+ambiguous project headers and directions outside this reviewed set. A legitimate
+new direction requires architectural review and a coordinated update to this
+section and the check's explicit `ACCEPTED_DIRECTIONS`; the check never blesses
+new edges automatically.
+
 ## Library convention
 
 - Scene-object presets live in `library/scene_objects/`.

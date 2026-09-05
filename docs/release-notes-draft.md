@@ -27,6 +27,7 @@ Changes since **v1.6.0**.
 - Moved CPack compatibility configuration into a dedicated build module while preserving existing package metadata and installer behavior.
 - Completed the build-system modularization by isolating platform target configuration and simplifying the root CMake file to project orchestration.
 - Localized application include-directory ownership to feature modules while retaining shared and dependency-provided build requirements at the project level.
+- Established a machine-checked contract for current internal module dependency directions, making accidental new coupling visible during repository validation.
 
 ## Downloads and installation
 
