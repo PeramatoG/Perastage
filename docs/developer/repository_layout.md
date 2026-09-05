@@ -14,9 +14,9 @@ this page remains its human-readable architectural counterpart.
 | Path | Purpose |
 |------|---------|
 | `main.cpp` | wxWidgets application entry point and top-level initialization. |
-| `CMakeLists.txt` | Root build orchestration, global dependencies, platform options, install rules, and module registration. |
+| `CMakeLists.txt` | Root build orchestration, platform options, install rules, and module registration. |
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
-| `cmake/` | CMake helper scripts, generated configuration templates, and platform metadata templates. |
+| `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |
 | `core/` | Core logic, import helpers, dictionaries, patching, layouts, printing, persistence, and shared services. |
 | `gui/` | wxWidgets windows, dialogs, menus, panels, UI controllers, and user interaction workflows. |
 | `models/` | Scene data models for fixtures, trusses, hoists, objects, layers, and placement data. |
@@ -34,6 +34,10 @@ this page remains its human-readable architectural counterpart.
 | `.github/workflows/` | GitHub Actions workflows for CI, packaging, release assets, and platform builds. |
 
 ## Build module registration
+
+Application dependency discovery and dependency capability validation are owned
+by `cmake/PerastageDependencies.cmake`, which the root includes before creating
+or registering targets that consume the discovered packages.
 
 The root CMake file explicitly registers every application source module with
 `add_subdirectory(...)` instead of discovering project sources recursively. The
