@@ -212,6 +212,12 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(IncludeDirectoryOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_include_directory_ownership.py
                                LABELS standard-strict policy cmake)
+    add_repository_policy_test(ModuleDependencyDirections ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_module_dependency_directions.py
+                               LABELS standard-strict policy architecture)
+    add_repository_policy_test(ModuleDependencyDirectionFixtures ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_module_dependency_directions_fixtures.py -v
+                               LABELS standard-strict policy architecture)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
     add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}
