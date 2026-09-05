@@ -194,6 +194,9 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(LocalizationBuildOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_localization_build_ownership.py
                                LABELS standard-strict policy cmake localization)
+    add_repository_policy_test(RuntimeResourceStagingOwnership ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_runtime_resource_staging_ownership.py
+                               LABELS standard-strict policy cmake)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
     add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}

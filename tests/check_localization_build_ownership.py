@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_CMAKE = ROOT / "CMakeLists.txt"
 LOCALIZATION_MODULE = ROOT / "cmake" / "PerastageLocalization.cmake"
+RUNTIME_STAGING_MODULE = ROOT / "cmake" / "PerastageRuntimeStaging.cmake"
 
 
 def has_call(source: str, command: str, first_argument: str) -> bool:
@@ -28,6 +29,7 @@ def main() -> int:
     """Reject localization build logic outside its dedicated CMake module."""
     root_cmake = ROOT_CMAKE.read_text(encoding="utf-8")
     localization_cmake = LOCALIZATION_MODULE.read_text(encoding="utf-8")
+    runtime_staging_cmake = RUNTIME_STAGING_MODULE.read_text(encoding="utf-8")
     errors: list[str] = []
 
     localization_include = re.compile(
@@ -79,10 +81,12 @@ def main() -> int:
         "PerastageVerifyFileExists.cmake",
     )
     for contract in runtime_contracts:
-        if contract not in root_cmake:
-            errors.append(f"root CMake must retain runtime staging contract: {contract}")
+        if contract in root_cmake:
+            errors.append(f"root CMake still owns runtime staging contract: {contract}")
         if contract in localization_cmake:
             errors.append(f"localization build module must not own runtime staging: {contract}")
+        if contract not in runtime_staging_cmake:
+            errors.append(f"runtime staging module is missing localization contract: {contract}")
 
     if errors:
         print("Localization build ownership check failed:", file=sys.stderr)
