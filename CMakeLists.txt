@@ -164,38 +164,6 @@ if(PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT)
         PERASTAGE_MACOS15_LEGACY_THREAD_COMPAT=1)
 endif()
 
-if(APPLE)
-    set(PERASTAGE_MACOS_INFO_PLIST "${CMAKE_BINARY_DIR}/PerastageInfo.plist")
-    set(EXECUTABLE_NAME "${PROJECT_NAME}")
-    set(PERASTAGE_VERSION "${PROJECT_VERSION}")
-
-    set(PERASTAGE_MACOS_RESOURCES
-        "${CMAKE_SOURCE_DIR}/resources/Perastage.icns"
-        "${CMAKE_SOURCE_DIR}/resources/PerastageProject.icns"
-        "${CMAKE_SOURCE_DIR}/resources/PerastageMVR.icns"
-    )
-
-    target_sources(${PROJECT_NAME} PRIVATE
-        ${PERASTAGE_MACOS_RESOURCES}
-    )
-
-    set_source_files_properties(${PERASTAGE_MACOS_RESOURCES} PROPERTIES
-        MACOSX_PACKAGE_LOCATION "Resources"
-    )
-
-    configure_file(
-        "${CMAKE_SOURCE_DIR}/cmake/PerastageInfo.plist.in"
-        "${PERASTAGE_MACOS_INFO_PLIST}"
-        @ONLY
-    )
-
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_INFO_PLIST "${PERASTAGE_MACOS_INFO_PLIST}"
-        RESOURCE "${PERASTAGE_MACOS_RESOURCES}"
-    )
-endif()
-
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API=1
@@ -209,15 +177,7 @@ set_source_files_properties("${PERASTAGE_GENERATED_BUILD_INFO_CPP}" PROPERTIES
     COMPILE_DEFINITIONS "PERASTAGE_BUILD_CONFIGURATION=\"$<CONFIG>\""
 )
 
-if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /Zc:__cplusplus)
-    target_compile_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Release>:/Zi>")
-    target_link_options(${PROJECT_NAME} PRIVATE
-        "$<$<CONFIG:Release>:/DEBUG>"
-        "$<$<CONFIG:Release>:/OPT:REF>"
-        "$<$<CONFIG:Release>:/OPT:ICF>"
-    )
-endif()
+include(cmake/platform/PerastagePlatform.cmake)
 
 add_subdirectory(core)
 add_subdirectory(gui)
@@ -227,15 +187,7 @@ add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
 add_subdirectory(viewer_common)
 
-if(WIN32)
-    target_sources(${PROJECT_NAME} PRIVATE resources/Perastage.rc)
-endif()
-
-# Mark as GUI application (no console)
-set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
-
-
-# Include project directories
+# Include project directories pending the ORG-023/024 ownership audit.
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/gui
     ${CMAKE_SOURCE_DIR}/gui/mainwindow/controllers
@@ -276,42 +228,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${_wx_libs}
 )
 
-if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE Dbghelp)
-endif()
-
-
-
-
-
-
-
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
 include(cmake/PerastageInstall.cmake)
-
-if(CMAKE_CONFIGURATION_TYPES)
-    set(PERASTAGE_SYMBOLS_DIR "${CMAKE_SOURCE_DIR}/out/symbols/windows")
-else()
-    if(CMAKE_BUILD_TYPE)
-        set(PERASTAGE_SYMBOLS_DIR "${CMAKE_SOURCE_DIR}/out/symbols/windows")
-    else()
-        set(PERASTAGE_SYMBOLS_DIR "${CMAKE_SOURCE_DIR}/out/symbols/windows")
-    endif()
-endif()
-
-if(WIN32 AND MSVC)
-    add_custom_target(perastage_symbols
-        COMMAND ${CMAKE_COMMAND}
-            "-DPDB_SOURCE=$<TARGET_PDB_FILE:${PROJECT_NAME}>"
-            "-DPDB_DESTINATION=${PERASTAGE_SYMBOLS_DIR}"
-            -P "${CMAKE_SOURCE_DIR}/cmake/PerastageCopySymbols.cmake"
-        DEPENDS ${PROJECT_NAME}
-    )
-endif()
-
 include(cmake/PerastageRuntimeStaging.cmake)
-
 include(cmake/PerastagePackaging.cmake)

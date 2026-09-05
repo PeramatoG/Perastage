@@ -203,6 +203,12 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(PackagingOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_packaging_ownership.py
                                LABELS standard-strict policy cmake)
+    add_repository_policy_test(PlatformCMakeOwnership ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_platform_cmake_ownership.py
+                               LABELS standard-strict policy cmake)
+    add_repository_policy_test(RootCMakeOrchestration ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_root_cmake_orchestration.py
+                               LABELS standard-strict policy cmake)
     add_repository_policy_test(DocsLinks ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_docs_links.py)
     add_repository_policy_test(TestTargetsNoSourceRootIncludes ${Python3_EXECUTABLE}
