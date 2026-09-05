@@ -16,7 +16,7 @@ Perastage/
 |-- docs/                        # User documentation, architecture notes, repository map, and docs website assets.
 |-- AGENTS.md                    # Repository guidance for automated coding agents.
 |-- VERSION                      # Single project version source.
-|-- cmake/                       # Dependency discovery, CMake templates, and helper scripts.
+|-- cmake/                       # Dependency and localization build modules, CMake templates, and helper scripts.
 |-- core/                        # Shared business logic and cross-cutting services.
 |   |-- layouts/                 # Printable layout/page management.
 |   `-- print/                   # Printing and PDF/table export helpers.

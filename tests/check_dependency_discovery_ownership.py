@@ -56,8 +56,10 @@ def main() -> int:
         if contract not in dependency_cmake:
             errors.append(f"dependency module is missing contract: {contract}")
 
-    if "find_package(Gettext QUIET)" not in root_cmake:
-        errors.append("localization-specific Gettext discovery must remain in root CMake for ORG-017")
+    if re.search(r"find_package\s*\(\s*Gettext\b", root_cmake):
+        errors.append("root CMake still discovers localization dependency Gettext")
+    if re.search(r"find_package\s*\(\s*Gettext\b", dependency_cmake):
+        errors.append("application dependency module must not discover localization dependency Gettext")
 
     if errors:
         print("Dependency discovery ownership check failed:", file=sys.stderr)
