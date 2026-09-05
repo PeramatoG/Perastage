@@ -94,6 +94,12 @@ def owner(root: Path, path: Path) -> str | None:
     return first if first in MODULES else None
 
 
+def repository_path_for_display(root: Path, path: Path) -> str:
+    """Render a repository-relative path consistently on every platform."""
+    relative = path.relative_to(root) if path.is_absolute() else path
+    return relative.as_posix()
+
+
 def resolve_include(root: Path, source: Path, spelling: str) -> tuple[Path | None, list[Path]]:
     """Resolve an include using source-relative and ordered application include roots."""
     relative = (source.parent / spelling).resolve()
@@ -130,9 +136,9 @@ def audit(root: Path) -> tuple[list[Evidence], list[str]]:
             resolved, conflicts = resolve_include(root, source, spelling)
             if conflicts:
                 label = "Ambiguous" if len(conflicts) > 1 else "Unresolved project-local"
-                rendered = ", ".join(str(path.relative_to(root)) for path in conflicts)
+                rendered = ", ".join(repository_path_for_display(root, path) for path in conflicts)
                 errors.append(
-                    f'{label} include:\n  source: {source.relative_to(root)}\n'
+                    f'{label} include:\n  source: {repository_path_for_display(root, source)}\n'
                     f'  include: "{spelling}"\n  candidates: {rendered}'
                 )
                 continue
@@ -154,8 +160,10 @@ def validate(root: Path, accepted: frozenset[tuple[str, str]]) -> tuple[list[Evi
         item = by_edge[edge][0]
         errors.append(
             f"Unexpected module dependency:\n  {item.consumer} -> {item.provider}\n"
-            f"  introduced by: {item.source}\n  include: \"{item.spelling}\"\n"
-            f"  resolved to: {item.resolved}\nUpdate architecture documentation and the accepted "
+            f"  introduced by: {repository_path_for_display(root, item.source)}\n"
+            f"  include: \"{item.spelling}\"\n"
+            f"  resolved to: {repository_path_for_display(root, item.resolved)}\n"
+            "Update architecture documentation and the accepted "
             "dependency contract only if this direction is intentional."
         )
     missing = sorted(accepted - set(by_edge))

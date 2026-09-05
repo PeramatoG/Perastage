@@ -47,7 +47,9 @@ class ModuleDependencyDirectionFixtures(unittest.TestCase):
         message = "\n".join(errors)
         self.assertIn("core -> models", message)
         self.assertIn('include: "model.h"', message)
+        self.assertIn("introduced by: core/use.cpp", message)
         self.assertIn("resolved to: models/model.h", message)
+        self.assertNotIn("\\", message)
 
     def test_same_module_include_does_not_create_an_edge(self) -> None:
         self.write("core/local.h")
@@ -79,6 +81,7 @@ class ModuleDependencyDirectionFixtures(unittest.TestCase):
         _, errors = checker.audit(self.root)
         self.assertIn("Ambiguous include", errors[0])
         self.assertIn("core/shared.h, models/shared.h", errors[0])
+        self.assertNotIn("\\", errors[0])
 
     def test_test_only_source_is_excluded(self) -> None:
         self.write("models/model.h")
