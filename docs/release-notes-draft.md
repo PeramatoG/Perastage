@@ -21,6 +21,7 @@ Changes since **v1.6.0**.
 - Gave the scene-model module explicit ownership of its application source registration while preserving existing build behavior.
 - Completed explicit CMake source ownership across all application modules and strengthened cross-platform, harness-aware repository checks against architecture drift.
 - Moved application dependency discovery into a dedicated build module while preserving existing package-manager and platform behavior.
+- Moved localization build configuration into a dedicated module while preserving existing catalog and platform behavior.
 
 ## Downloads and installation
 
