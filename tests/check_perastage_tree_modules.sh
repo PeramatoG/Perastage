@@ -20,6 +20,7 @@ PY
 
 required_dirs=()
 while IFS= read -r dir; do
+  dir="${dir%$'\r'}"
   [[ -n "$dir" ]] && required_dirs+=("$dir")
 done <<< "$source_modules"
 required_dirs+=(packaging cmake library resources third_party tests docs)
