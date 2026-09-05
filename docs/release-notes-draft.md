@@ -23,6 +23,7 @@ Changes since **v1.6.0**.
 - Moved application dependency discovery into a dedicated build module while preserving existing package-manager and platform behavior.
 - Moved localization build configuration into a dedicated module while preserving existing catalog and platform behavior.
 - Moved build-tree runtime asset staging into a dedicated module while preserving existing cross-platform resource layouts.
+- Moved install-tree rules and packaging staging into a dedicated build module while preserving existing cross-platform installation layouts.
 
 ## Downloads and installation
 
