@@ -8,7 +8,7 @@ TREE_DOC="$ROOT_DIR/docs/developer/perastage_tree.md"
 BASELINE="$ROOT_DIR/docs/developer/repository_structure_baseline.json"
 
 source_modules="$(
-  python3 - "$BASELINE" <<'PY'
+  run_test_python - "$BASELINE" <<'PY'
 import json
 import sys
 
