@@ -167,8 +167,53 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
             (root / "network/foo.cpp").touch()
             baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
             baseline["top_level_directories"]["source_modules"].append("network")
+            baseline["source_registration"]["module_cmake_directories"].append("network")
+            (root / "network/CMakeLists.txt").touch()
+            with (root / "CMakeLists.txt").open("a", encoding="utf-8") as stream:
+                stream.write("\nadd_subdirectory(network)\n")
             result = self.run_audit(root, self.write_baseline(root, baseline))
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_documented_source_module_without_cmake_ownership_is_rejected(self) -> None:
+        """Reject a documented source module that lacks module CMake ownership."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            baseline["top_level_directories"]["source_modules"].append("network")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("source-module classification differs from module CMake ownership", result.stderr)
+
+    def test_cmake_module_without_source_classification_is_rejected(self) -> None:
+        """Reject module CMake ownership without source-module classification."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            baseline["source_registration"]["module_cmake_directories"].append("network")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("source-module classification differs from module CMake ownership", result.stderr)
+
+    def test_root_owned_feature_source_is_rejected(self) -> None:
+        """Reject feature implementation ownership in the root application target."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            cmake = root / "CMakeLists.txt"
+            cmake.write_text(
+                cmake.read_text(encoding="utf-8").replace(
+                    "main.cpp",
+                    "main.cpp core/feature.cpp",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            (root / "core/feature.cpp").touch()
+            result = self.run_audit(root)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("root add_executable retains feature source ownership for core/", result.stderr)
 
     def test_vendored_marker_in_first_party_module_is_rejected(self) -> None:
         """Reject conservative provenance evidence outside third_party ownership."""

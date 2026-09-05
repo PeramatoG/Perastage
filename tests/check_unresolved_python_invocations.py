@@ -12,7 +12,7 @@ ALLOWED_FILES = {
     Path("tests/ci/test_vcpkg_install_retry.py"),
 }
 DIRECT_PYTHON = re.compile(
-    r"(?m)(?:^|[;&|`$()]\s*)(?P<cmd>python3?|/[^\s'\"]*/python3?)(?:\s|$)"
+    r"(?m)(?:^[ \t]*|[;&|`$()][ \t]*)(?P<cmd>python3?|/[^\s'\"]*/python3?)(?:\s|$)"
 )
 ALLOWED_CONTEXTS = (
     "#!/usr/bin/env python3",

@@ -9,7 +9,7 @@ This map is aligned with the terminology used in `README.md` and `docs/developer
 ```text
 Perastage/
 |-- main.cpp                     # wxWidgets application entry point.
-|-- CMakeLists.txt               # Root build orchestration and global dependencies.
+|-- CMakeLists.txt               # Root target creation, build orchestration, and module registration.
 |-- CMakePresets.json            # Supported local configure/build presets.
 |-- README.md                    # Product overview, features, and entry links.
 |-- help.md                      # In-app help content.
@@ -36,6 +36,7 @@ Perastage/
 |-- models/                      # Scene data structures (fixtures/trusses/hoists/objects/layers).
 |   `-- CMakeLists.txt           # Explicit model source registration for the application target.
 |-- mvr/                         # MVR format import/export modules and MVR-xchange networking.
+|   `-- CMakeLists.txt           # Explicit MVR and MVR-xchange source registration.
 |-- packaging/                   # Installer, desktop integration, and package metadata.
 |-- tests/                       # Automated tests and lightweight checks.
 |-- library/                     # Packaged runtime content (fixtures, trusses, etc.).
@@ -71,3 +72,5 @@ Perastage/
 - Avoid listing all individual files except truly critical entry points.
 - If repository layout changes, update this document in the same PR.
 - If a new top-level source module is introduced, update the architecture guard scripts under `tests/` when appropriate.
+- Every top-level application source module owns an explicit local CMake source list; the root does not normally register feature implementations, and no recursive source discovery is used.
+- `repository_structure_baseline.json` is the authoritative machine-readable contract for source-module classification and root module registration.

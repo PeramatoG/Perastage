@@ -5,23 +5,25 @@ require_ripgrep
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TREE_DOC="$ROOT_DIR/docs/developer/perastage_tree.md"
+BASELINE="$ROOT_DIR/docs/developer/repository_structure_baseline.json"
 
-required_dirs=(
-  core
-  gui
-  viewer2d
-  viewer3d
-  viewer_common
-  models
-  mvr
-  packaging
-  cmake
-  library
-  resources
-  third_party
-  tests
-  docs
-)
+source_modules="$(
+  run_test_python - "$BASELINE" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    baseline = json.load(stream)
+print(*baseline["top_level_directories"]["source_modules"], sep="\n")
+PY
+)"
+
+required_dirs=()
+while IFS= read -r dir; do
+  dir="${dir%$'\r'}"
+  [[ -n "$dir" ]] && required_dirs+=("$dir")
+done <<< "$source_modules"
+required_dirs+=(packaging cmake library resources third_party tests docs)
 
 missing_dirs=()
 for dir in "${required_dirs[@]}"; do

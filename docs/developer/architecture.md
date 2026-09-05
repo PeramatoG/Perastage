@@ -21,9 +21,10 @@ This document defines the expected directory conventions for Perastage.
 
 ## CMake convention
 
-- Root `CMakeLists.txt` owns target creation and global dependencies.
-- Feature directories contribute sources using local `CMakeLists.txt` files and `target_sources(${PROJECT_NAME} ...)`.
-- Avoid `file(GLOB_RECURSE ...)` for project source registration; list files explicitly.
+- Root `CMakeLists.txt` owns target creation, global dependencies, and module orchestration; it does not normally register feature-module implementation sources.
+- Every top-level application source module contributes its explicit source list using its local `CMakeLists.txt` and `target_sources(${PROJECT_NAME} ...)`.
+- `docs/developer/repository_structure_baseline.json` is the authoritative machine-readable contract for source-module classification and CMake registration.
+- Avoid recursive or wildcard project-source discovery; list files explicitly.
 - Keep include directories close to the module that owns them.
 
 ## Library convention
