@@ -995,6 +995,7 @@ jobs:
         shell: bash
         run: python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Diagnose restored vcpkg SDK metadata
+        id: macos-sdk-cache-guard
         run: |
           set -euo pipefail
           python3 .github/scripts/macos_sdk_cache_guard.py \
@@ -1005,6 +1006,11 @@ jobs:
             --purge-root "$VCPKG_INSTALLED" \
             --purge-root "$VCPKG_PACKAGES" \
             --purge-root "$VCPKG_BINARY_CACHE"
+      - name: Record telemetry — Validate restored vcpkg SDK metadata
+        continue-on-error: true
+        shell: bash
+        run: |
+          python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Validate restored vcpkg SDK metadata" --status "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}: ${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}"
       - name: Install vcpkg packages
         run: |
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet arm64-osx --manifest-root "$GITHUB_WORKSPACE" \
@@ -1047,7 +1053,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --sdk-guard-result "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}" --sdk-guard-reason "${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}" --sdk-invalidation-source "${{ steps.macos-sdk-cache-guard.outputs.invalidation-source }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
       - name: Define macOS sccache compatibility boundary
         run: |

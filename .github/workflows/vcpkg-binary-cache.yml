@@ -140,6 +140,7 @@ jobs:
           python3 .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$executable" --local-cache "$VCPKG_BINARY_CACHE" --mode readwrite
 
       - name: Guard restored macOS SDK metadata
+        id: macos-sdk-cache-guard
         if: ${{ runner.os == 'macOS' }}
         shell: bash
         run: |
@@ -197,4 +198,4 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         shell: bash
-        run: python3 .github/scripts/write_vcpkg_cache_summary.py --platform "${{ matrix.runner }}" --triplet "${{ matrix.triplet }}" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key || 'remote-validation-bypass' }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode readwrite --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted yes --install-outcome "${{ steps.vcpkg-install.outcome }}" --publication-verification "not independently verified; inspect the non-secret vcpkg install log and GitHub Packages"
+        run: python3 .github/scripts/write_vcpkg_cache_summary.py --platform "${{ matrix.runner }}" --triplet "${{ matrix.triplet }}" --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key || 'remote-validation-bypass' }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --sdk-guard-result "${{ steps.macos-sdk-cache-guard.outputs.guard-result || 'not applicable' }}" --sdk-guard-reason "${{ steps.macos-sdk-cache-guard.outputs.guard-reason || 'not applicable' }}" --sdk-invalidation-source "${{ steps.macos-sdk-cache-guard.outputs.invalidation-source || 'not applicable' }}" --remote-mode readwrite --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted yes --install-outcome "${{ steps.vcpkg-install.outcome }}" --publication-verification "not independently verified; inspect the non-secret vcpkg install log and GitHub Packages"

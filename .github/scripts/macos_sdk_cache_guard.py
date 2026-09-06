@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diagnose restored macOS vcpkg SDK metadata and purge stale Debug caches."""
+"""Validate restored macOS vcpkg SDK metadata and purge incompatible caches."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,19 @@ import re
 import shutil
 from pathlib import Path
 
-SDK_PATTERN = re.compile(r"/Applications/[^\s\"'<>]*Xcode[^\s\"'<>]*/[^\s\"'<>]*/SDKs/MacOSX(?:[0-9]+(?:\.[0-9]+)*)?\.sdk")
+# Match the SDK root only. In particular, metadata separators and a later
+# /Applications reference cannot become part of the same candidate.
+SDK_PATTERN = re.compile(
+    r"/Applications/"
+    r"(?:(?!/Applications/)[^\x00;\r\n\"'<>])*?Xcode"
+    r"(?:(?!/Applications/)[^\x00;\r\n\"'<>])*?\.app/Contents/Developer/"
+    r"Platforms/MacOSX\.platform/Developer/SDKs/"
+    r"MacOSX(?:[0-9]+(?:\.[0-9]+)*)?\.sdk"
+)
+
+TEXT_METADATA_SUFFIXES = frozenset({".cmake", ".pc", ".la"})
+MAX_METADATA_BYTES = 4 * 1024 * 1024
+SdkReferences = dict[str, set[Path]]
 
 
 def _resolve_existing(path: Path) -> Path | None:
@@ -20,24 +32,44 @@ def _resolve_existing(path: Path) -> Path | None:
     return None
 
 
-def discover_sdk_paths(roots: list[Path]) -> set[str]:
-    found: set[str] = set()
+def extract_sdk_paths(text: str) -> set[str]:
+    """Extract complete SDK roots from textual build metadata."""
+    return set(SDK_PATTERN.findall(text))
+
+
+def _is_build_metadata(path: Path) -> bool:
+    """Select vcpkg metadata consumed by CMake, pkg-config, or config scripts."""
+    if path.suffix.lower() in TEXT_METADATA_SUFFIXES:
+        return True
+    return path.name.endswith("-config") and path.suffix == ""
+
+
+def discover_sdk_paths(roots: list[Path]) -> SdkReferences:
+    """Discover SDK references and retain the metadata file that supplied each one."""
+    found: SdkReferences = {}
     for root in roots:
         if not root.is_dir():
             continue
         for current, dirs, files in os.walk(root):
-            dirs[:] = [d for d in dirs if d not in {".git", "downloads"}]
+            dirs[:] = [d for d in dirs if d not in {".git", "downloads", "doc", "docs"}]
             for name in files:
                 path = Path(current) / name
-                try:
-                    text = path.read_text(encoding="utf-8", errors="ignore")
-                except OSError:
+                if not _is_build_metadata(path):
                     continue
-                found.update(SDK_PATTERN.findall(text))
+                try:
+                    if path.stat().st_size > MAX_METADATA_BYTES:
+                        continue
+                    text = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeError):
+                    continue
+                for sdk_path in extract_sdk_paths(text):
+                    found.setdefault(sdk_path, set()).add(path)
     return found
 
 
-def classify_sdk_paths(current_sdk: Path, referenced_paths: set[str]) -> tuple[Path, list[str], list[str]]:
+def classify_sdk_paths(
+    current_sdk: Path, referenced_paths: SdkReferences | set[str]
+) -> tuple[Path, list[str], list[str]]:
     current_resolved = current_sdk.resolve()
     equivalent: list[str] = []
     stale: list[str] = []
@@ -60,6 +92,16 @@ def purge_cache_roots(roots: list[Path]) -> None:
         root.mkdir(parents=True, exist_ok=True)
 
 
+def _write_outputs(result: str, reason: str, source: str = "") -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if not output_path:
+        return
+    with Path(output_path).open("a", encoding="utf-8") as output:
+        output.write(f"guard-result={result}\n")
+        output.write(f"guard-reason={reason}\n")
+        output.write(f"invalidation-source={source}\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--current-sdk", required=True, type=Path)
@@ -76,13 +118,20 @@ def main() -> int:
         for value in equivalent:
             print(f"  {value}")
     if not stale:
+        reason = "compatible SDK metadata" if referenced else "no active SDK metadata found"
         print("No stale macOS SDK metadata found in restored vcpkg caches.")
+        _write_outputs("retained", reason)
         return 0
     print("Stale macOS SDK metadata found in restored vcpkg caches:")
     for value in stale:
+        sources = sorted(str(path) for path in referenced.get(value, set()))
         print(f"  {value}")
+        for source in sources:
+            print(f"    source: {source}")
     print("Purging ABI-sensitive restored Debug vcpkg caches before reinstall.")
     purge_cache_roots(args.purge_root)
+    first_source = sorted(str(path) for path in referenced.get(stale[0], set()))
+    _write_outputs("invalidated", "incompatible SDK metadata", first_source[0] if first_source else "")
     return 0
 
 
