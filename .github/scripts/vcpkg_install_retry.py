@@ -55,17 +55,18 @@ def run_attempt(command: list[str], log_path: Path, attempt: int) -> tuple[int, 
     collected: list[str] = []
     with log_path.open("a", encoding="utf-8", errors="replace") as log:
         header = f"\n=== vcpkg install attempt {attempt} ===\nCommand: {' '.join(command)}\n"
-        print(header, end="")
+        print(header, end="", flush=True)
         log.write(header)
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                   encoding="utf-8", errors="replace", bufsize=1)
         assert process.stdout is not None
         for line in process.stdout:
-            print(line, end="")
+            print(line, end="", flush=True)
             log.write(line)
             collected.append(line)
         return_code = process.wait()
         footer = f"=== attempt {attempt} exit code: {return_code} ===\n"
-        print(footer, end="")
+        print(footer, end="", flush=True)
         log.write(footer)
     return return_code, "".join(collected)
 

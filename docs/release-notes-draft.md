@@ -12,6 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Prevented compatible macOS dependency caches from being discarded because binary contents were misread as SDK metadata, and migrated CI away from an immutable stale cache snapshot so repaired dependencies can persist across runs.
 - Added a reproducible repository-structure baseline and policy validation to protect current module and build ownership during future organization work.
 - Strengthened repository policy checks to protect third-party ownership, top-level module ownership, portable shared configuration, and explicit CMake source registration.
 - Improved cross-platform reliability of the repository policy regression fixtures without weakening machine-specific path detection.
