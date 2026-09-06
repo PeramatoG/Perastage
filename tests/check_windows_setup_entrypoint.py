@@ -109,7 +109,7 @@ if ($VisualStudioVersion -eq 'fail') { throw 'delegated fixture failure' }
         assert forwarded["VisualStudioVersion"] == "[17.0,18.0)"
         assert forwarded["BashExecutable"] == str(temporary / "Git Bash/bash.exe")
         assert forwarded["SkipBuild"] is True and forwarded["CleanBuild"] is True
-        assert Path(forwarded["WorkingDirectory"]) == outside
+        assert os.path.samefile(forwarded["WorkingDirectory"], outside)
 
         default_run = subprocess.run(
             [powershell, "-NoProfile", "-File", str(repository / LAUNCHER.name)],
