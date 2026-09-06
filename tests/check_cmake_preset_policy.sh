@@ -66,7 +66,7 @@ for name in ("wsl-x64-debug", "wsl-x64-release", "wsl-debug-build", "wsl-release
 assert 'cmake --preset "$configure_preset"' in setup_linux
 assert 'cmake --build --preset "$build_preset"' in setup_linux
 
-setup_windows = Path("setup_windows.ps1").read_text(encoding="utf-8")
+setup_windows = Path("scripts/windows/PerastageWindowsBootstrap.ps1").read_text(encoding="utf-8")
 for name in ("win-x64-debug-ninja", "win-x64-release-ninja", "win-debug-build-ninja", "win-release-build-ninja"):
     assert name in setup_windows, name
 assert "cmake --preset $ConfigurePreset" in setup_windows

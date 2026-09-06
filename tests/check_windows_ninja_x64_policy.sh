@@ -34,7 +34,11 @@ for preset in windows_configure:
 windows_build = [preset for preset in presets['buildPresets'] if preset['name'].startswith('win-')]
 assert {preset['configurePreset'] for preset in windows_build} <= {'win-x64-debug-ninja', 'win-x64-release-ninja'}, windows_build
 
-script = read('setup_windows.ps1')
+launcher = read('setup_windows.ps1')
+script = read('scripts/windows/PerastageWindowsBootstrap.ps1')
+assert len(launcher.splitlines()) <= 40, 'root Windows setup launcher must remain small'
+assert "scripts\\windows\\PerastageWindowsBootstrap.ps1" in launcher
+assert '& $ImplementationScript @PSBoundParameters' in launcher
 required = [
     "[string]$VcpkgRoot = ''",
     '$Root = $env:VCPKG_ROOT',

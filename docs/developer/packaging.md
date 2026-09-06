@@ -35,6 +35,8 @@ The Windows installer workflow is the authoritative CI packaging flow. It perfor
 8. Upload the staged application, installer, and symbols as workflow artifacts.
 
 This CI flow intentionally uses workspace-local vcpkg paths and cache directories. That is separate from the recommended local Windows development setup, which uses the CMake presets described in [Build and dependency guide](build.md).
+The workflow intentionally configures CMake directly; it does not need to call
+the root setup launcher or its implementation under `scripts/windows/`.
 
 ### Local Windows installer flow
 

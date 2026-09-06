@@ -183,6 +183,9 @@ if(BASH_EXECUTABLE)
 endif()
 
 if(Python3_Interpreter_FOUND)
+    add_repository_policy_test(WindowsSetupEntrypoint ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_setup_entrypoint.py
+                               LABELS windows cmake policy)
     add_repository_policy_test(RepositoryStructureBaseline ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_structure_baseline.py
                                LABELS standard-strict policy cmake)

@@ -58,6 +58,9 @@ The recommended way to install Perastage is to download the latest release from 
 - On Linux, the AppImage remains the recommended generic package. Experimental Arch Linux packages may also be attached for Arch-based distributions and should be tested on real Arch, Manjaro, or EndeavourOS systems.
 
 If you want to build from source, setup and dependency notes are available in the documentation under `docs/`.
+The stable setup commands remain root `setup.sh` for Linux/WSL and root
+`setup_windows.ps1` for Windows; their platform implementations live under
+`scripts/linux/` and `scripts/windows/`.
 
 Recent 3D optimization updates depend on `meshoptimizer`; if you prepare dependencies manually, include it in your toolchain setup (see `docs/developer/build.md` and `setup_windows.ps1`).
 

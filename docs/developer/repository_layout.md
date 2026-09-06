@@ -147,10 +147,15 @@ and WSL share apt/dnf handling and the existing Debug
 `wsl-x64-debug`/`wsl-debug-build` and Release
 `wsl-x64-release`/`wsl-release-build` mappings.
 
-The Windows entry point is only partially separated: `setup_windows.ps1`
-imports reusable process, path, and Git Bash helpers from
-`scripts/windows/PerastageWindowsBootstrap.psm1`, while the root script still
-owns its Windows bootstrap, Visual Studio, vcpkg validation, and build workflow.
+`setup_windows.ps1` is likewise a small Windows launcher. It resolves
+`scripts/windows/PerastageWindowsBootstrap.ps1` from its own location and
+forwards the public PowerShell parameters. The implementation script owns the
+Visual Studio environment, classic-vcpkg and dependency validation, preset
+selection, cache cleanup, and configure/build sequencing; the adjacent
+`PerastageWindowsBootstrap.psm1` owns reusable native-process, path, and Git
+Bash helpers. The public options retain Debug as the default and include
+`-Configuration`, `-VcpkgRoot`, `-VisualStudioPath`, `-VisualStudioVersion`,
+`-BashExecutable`, `-SkipBuild`, and `-CleanBuild`.
 Repository documentation and policy tests refer to the root public commands;
 CI and packaging use presets directly rather than invoking either launcher.
 Changing the root invocation syntax, accepted options, diagnostics, exit
