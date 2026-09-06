@@ -39,22 +39,23 @@ assert gettext.get('host') is True, 'gettext must be a host dependency'
 assert gettext.get('platform') == 'windows', 'gettext host tools must be Windows-only in the manifest'
 assert 'tools' in gettext.get('features', []), 'gettext must request the tools feature'
 
-windows_roots = ['setup_windows.ps1', '.github/workflows/windows-installer.yml', 'docs/developer/build.md', 'docs/user/installation-windows.md', 'docs/user/troubleshooting.md', 'docs/developer/localization.md']
+windows_implementation = 'scripts/windows/PerastageWindowsBootstrap.ps1'
+windows_roots = [windows_implementation, '.github/workflows/windows-installer.yml', 'docs/developer/build.md', 'docs/user/installation-windows.md', 'docs/user/troubleshooting.md', 'docs/developer/localization.md']
 forbid(r'vcpkg(?:\.exe)?\s+install\s+"?gettext\[tools\]', *windows_roots, flags=re.I)
 
-require(r'PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE.*ON|PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml', 'setup_windows.ps1', 'packaging/arch/PKGBUILD')
+require(r'PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE.*ON|PERASTAGE_REQUIRE_SECURE_CREDENTIAL_STORE=ON', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml', windows_implementation, 'packaging/arch/PKGBUILD')
 require(r'bootstrap-vcpkg\.bat', '.github/workflows/windows-installer.yml')
 require(r'checkout --force|checkout --detach', '.github/workflows/windows-installer.yml')
 require(r'--x-install-root', '.github/workflows/windows-installer.yml')
 require(r'VCPKG_INSTALLED_DIR', '.github/workflows/windows-installer.yml')
-require(r'Initialize-X64MsvcEnvironment', 'setup_windows.ps1')
-require(r'VSCMD_ARG_HOST_ARCH.*x64|hostArch.*x64', 'setup_windows.ps1')
-require(r'VSCMD_ARG_TGT_ARCH.*x64|targetArch.*x64', 'setup_windows.ps1')
-require(r'for\\s\+x64|for\\s\*x64|for\\s\+x64', 'setup_windows.ps1')
-require(r'hostx64.*x64', 'setup_windows.ps1', flags=re.I)
-require(r'hostx86.*x86', 'setup_windows.ps1', flags=re.I)
-require(r'cached compiler Visual Studio root', 'setup_windows.ps1')
-require(r'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF', 'setup_windows.ps1', 'CMakePresets.json', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
+require(r'Initialize-X64MsvcEnvironment', windows_implementation)
+require(r'VSCMD_ARG_HOST_ARCH.*x64|hostArch.*x64', windows_implementation)
+require(r'VSCMD_ARG_TGT_ARCH.*x64|targetArch.*x64', windows_implementation)
+require(r'for\\s\+x64|for\\s\*x64|for\\s\+x64', windows_implementation)
+require(r'hostx64.*x64', windows_implementation, flags=re.I)
+require(r'hostx86.*x86', windows_implementation, flags=re.I)
+require(r'cached compiler Visual Studio root', windows_implementation)
+require(r'VCPKG_MANIFEST_MODE=OFF|VCPKG_MANIFEST_MODE.*OFF', windows_implementation, 'CMakePresets.json', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
 require(r'securestore-v2', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')
 require(r'0878b5224d4a4968940ee296a2e7fae2d3b62983', 'vcpkg.json')
 require(r'get_vcpkg_baseline\.py vcpkg\.json', '.github/workflows/windows-installer.yml', '.github/workflows/linux-installer.yml', '.github/workflows/arch-package.yml', '.github/workflows/macos-installer.yml', '.github/workflows/macos-15-manual-installer.yml')

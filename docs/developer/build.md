@@ -49,6 +49,10 @@ $env:VCPKG_ROOT = 'D:\path\to\vcpkg'
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild -BashExecutable "C:\Program Files\Git\bin\bash.exe"
 ```
 
+The root `setup_windows.ps1` command is the stable public entry point and may
+be invoked from any working directory by path. It delegates implementation to
+`scripts/windows/`, but developers should continue to use the root command.
+
 `setup_windows.ps1` resolves the checkout from explicit `-VcpkgRoot` first, a valid external `VCPKG_ROOT` second, and the standard user-wide integration descriptor third; it fails if none identifies a valid external checkout. It validates `vcpkg.exe`, `.vcpkg-root`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE`. Before invoking the shared preset it exports the resolved root as `VCPKG_ROOT`, so validation and CMake cannot select different installations. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
 
 If an older build was configured against wxWidgets without `secretstore`, manifest mode, another installed root, or an x86 compiler, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Deleting `.vs` or `build` does not require reinstalling packages, and deleting `$env:VCPKG_ROOT\installed` is not part of normal troubleshooting.

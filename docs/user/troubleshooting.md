@@ -84,6 +84,10 @@ then Visual Studio injected its bundled vcpkg instead of the intended external c
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
 ```
 
+Always use this root launcher for diagnostics. The delegated files under
+`scripts/windows/` are implementation details, and launcher errors identify a
+missing implementation before any toolchain validation begins.
+
 Useful cleanup commands from the repository root:
 
 ```powershell

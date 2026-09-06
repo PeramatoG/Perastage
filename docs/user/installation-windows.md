@@ -66,7 +66,10 @@ Build Windows Release (Ninja)
 
 ## Configure and Build from PowerShell
 
-From a Visual Studio Developer PowerShell in the repository root, validate dependencies and configure a Debug build:
+Use the root `setup_windows.ps1` launcher as the supported command; its detailed
+implementation is maintained under `scripts/windows/` and is not a separate
+user entry point. From a Visual Studio Developer PowerShell in the repository
+root, validate dependencies and configure a Debug build:
 
 ```powershell
 .\setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild
