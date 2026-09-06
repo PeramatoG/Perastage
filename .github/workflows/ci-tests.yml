@@ -954,9 +954,9 @@ jobs:
             .vcpkg-cache/installed
             .vcpkg-cache/packages
             .vcpkg-cache/binary
-          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            vcpkg-compiled-v4-${{ runner.os }}-${{ runner.arch }}-arm64-osx-sdk-${{ steps.macos-sdk.outputs.identity }}-${{ steps.vcpkg-baseline.outputs.baseline }}-
       - name: Record telemetry — Restore vcpkg compiled cache
         continue-on-error: true
         if: ${{ always() }}
@@ -1011,14 +1011,30 @@ jobs:
         shell: bash
         run: |
           python .github/scripts/ci_telemetry.py --state "$CI_LOG_DIR/ci-telemetry-macos-debug.state.json" checkpoint --phase "Validate restored vcpkg SDK metadata" --status "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}: ${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}"
-      - name: Install vcpkg packages
+      - name: Capture restored macOS vcpkg ABI diagnostics
         run: |
-          python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet arm64-osx --manifest-root "$GITHUB_WORKSPACE" \
+          python3 .github/scripts/vcpkg_cache_diagnostics.py --label before-install --installed-root "$VCPKG_INSTALLED" --packages-root "$VCPKG_PACKAGES" --binary-root "$VCPKG_BINARY_CACHE" --output "$CI_LOG_DIR/vcpkg-cache-macos-debug.json" --triplet arm64-osx --baseline "$VCPKG_BASELINE" --compiler "$(clang --version | head -1)" --sdk "$MACOS_SDK_REALPATH" --vcpkg-version "$("$VCPKG_ROOT/vcpkg" version | head -1)"
+      - name: Install vcpkg packages
+        id: vcpkg-install
+        run: |
+          python3 -u .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" --triplet arm64-osx --manifest-root "$GITHUB_WORKSPACE" \
             --install-root "$VCPKG_INSTALLED" \
             --packages-root "$VCPKG_PACKAGES" \
             --downloads-root "$VCPKG_DOWNLOADS" \
             --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 \
             --log "$CI_LOG_DIR/vcpkg-install-macos-debug.log"
+      - name: Capture installed macOS vcpkg ABI diagnostics
+        run: |
+          python3 .github/scripts/vcpkg_cache_diagnostics.py --label after-install --installed-root "$VCPKG_INSTALLED" --packages-root "$VCPKG_PACKAGES" --binary-root "$VCPKG_BINARY_CACHE" --output "$CI_LOG_DIR/vcpkg-cache-macos-debug.json" --triplet arm64-osx --baseline "$VCPKG_BASELINE" --compiler "$(clang --version | head -1)" --sdk "$MACOS_SDK_REALPATH" --vcpkg-version "$("$VCPKG_ROOT/vcpkg" version | head -1)"
+      - name: Upload macOS vcpkg cache diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: vcpkg-cache-diagnostics-macos-debug
+          path: |
+            out/ci-logs/vcpkg-cache-macos-debug.json
+            out/ci-logs/vcpkg-install-macos-debug.log
+          if-no-files-found: warn
       - name: Record telemetry — Install/materialize vcpkg packages
         continue-on-error: true
         shell: bash
@@ -1053,7 +1069,7 @@ jobs:
       - name: Summarize vcpkg cache behavior
         if: ${{ always() }}
         run: |
-          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --sdk-guard-result "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}" --sdk-guard-reason "${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}" --sdk-invalidation-source "${{ steps.macos-sdk-cache-guard.outputs.invalidation-source }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          python3 .github/scripts/write_vcpkg_cache_summary.py --platform macos-debug --triplet arm64-osx --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v4 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$CI_LOG_DIR/vcpkg-install-macos-debug.log" --sdk-guard-result "${{ steps.macos-sdk-cache-guard.outputs.guard-result }}" --sdk-guard-reason "${{ steps.macos-sdk-cache-guard.outputs.guard-reason }}" --sdk-invalidation-source "${{ steps.macos-sdk-cache-guard.outputs.invalidation-source }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
       - name: Define macOS sccache compatibility boundary
         run: |

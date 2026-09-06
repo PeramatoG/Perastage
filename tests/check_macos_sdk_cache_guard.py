@@ -14,6 +14,12 @@ SPEC = importlib.util.spec_from_file_location("guard", ROOT / ".github/scripts/m
 guard = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(guard)
+DIAGNOSTIC_SPEC = importlib.util.spec_from_file_location(
+    "vcpkg_cache_diagnostics", ROOT / ".github/scripts/vcpkg_cache_diagnostics.py"
+)
+diagnostics = importlib.util.module_from_spec(DIAGNOSTIC_SPEC)
+assert DIAGNOSTIC_SPEC.loader is not None
+DIAGNOSTIC_SPEC.loader.exec_module(diagnostics)
 
 
 def assert_classifies(current: Path, refs: set[str], stale_count: int) -> None:
@@ -106,18 +112,63 @@ def main() -> int:
         assert binary.exists() and (scan / "binary.zip").exists()
 
         summary = root / "summary.md"
+        install_log = root / "vcpkg-install.log"
+        install_log.write_text(
+            "Restored 0 package(s) from local cache\n"
+            "Building zlib:arm64-osx@1.3.2...\n"
+            "Building vcpkg-cmake-config:arm64-osx@2024-05-23...\n",
+            encoding="utf-8",
+        )
         environment["GITHUB_STEP_SUMMARY"] = str(summary)
         subprocess.run(
             [sys.executable, str(ROOT / ".github/scripts/write_vcpkg_cache_summary.py"),
              "--platform", "macos-debug", "--triplet", "arm64-osx", "--baseline", "test",
              "--primary-key", "test-key", "--downloads-hit", "true", "--compiled-hit", "true",
-             "--compiled-save-outcome", "skipped", "--sdk-guard-result", "invalidated",
-             "--sdk-guard-reason", "incompatible SDK metadata", "--sdk-invalidation-source", str(metadata)],
+             "--compiled-save-outcome", "skipped", "--sdk-guard-result", "retained",
+             "--sdk-guard-reason", "compatible SDK metadata", "--sdk-invalidation-source", "",
+             "--install-log", str(install_log)],
             check=True, env=environment,
         )
         summary_text = summary.read_text(encoding="utf-8")
-        assert "Effective compiled cache reuse: no, restored cache was invalidated" in summary_text
-        assert f"macOS SDK invalidation source: {metadata}" in summary_text
+        assert "Effective compiled cache reuse: no" in summary_text
+        assert "Binary packages restored: 0" in summary_text
+        assert "Source packages rebuilt: 2" in summary_text
+        reused_log = root / "vcpkg-reused.log"
+        reused_log.write_text("All requested installations are currently installed.\n", encoding="utf-8")
+        assert diagnostics is not None
+        summary_spec = importlib.util.spec_from_file_location(
+            "vcpkg_summary", ROOT / ".github/scripts/write_vcpkg_cache_summary.py"
+        )
+        summary_module = importlib.util.module_from_spec(summary_spec)
+        assert summary_spec.loader is not None
+        summary_spec.loader.exec_module(summary_module)
+        assert summary_module.parse_install_activity(reused_log) == ("yes", "unknown", "0")
+        assert summary_module.publication_status("success", "success", False, "44", "v4-key") == (
+            "yes, saved under `v4-key`"
+        )
+        assert summary_module.publication_status("success", "skipped", True, "0", "v4-key") == (
+            "not needed, repaired primary cache was an exact hit"
+        )
+        assert summary_module.publication_status("failure", "success", False, "unknown", "v4-key") == (
+            "no, dependency installation failed"
+        )
+
+        packages = root / "packages"
+        abi = packages / "zlib_arm64-osx" / "vcpkg_abi_info.txt"
+        abi.parent.mkdir(parents=True)
+        abi.write_text("abi abc123\ntriplet arm64-osx\ncompiler_hash def456\n", encoding="utf-8")
+        binary_root = root / "binary"
+        binary_root.mkdir()
+        (binary_root / "zlib_arm64-osx.1.3.2-vcpkgabc123.zip").write_bytes(b"zip")
+        args = type("Args", (), {
+            "label": "after-install", "installed_root": root / "installed",
+            "packages_root": packages, "binary_root": binary_root, "triplet": "arm64-osx",
+            "baseline": "baseline", "compiler": "clang", "sdk": "sdk", "vcpkg_version": "vcpkg",
+        })()
+        captured = diagnostics.capture(args)
+        assert captured["binary_archive_count"] == 1
+        assert captured["binary_archive_identifiers"] == ["zlib_arm64-osx.1.3.2-vcpkgabc123.zip"]
+        assert "abi abc123" in captured["abi_representatives"]["zlib"][0]
     return 0
 
 
