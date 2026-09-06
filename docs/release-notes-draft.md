@@ -28,7 +28,7 @@ Changes since **v1.6.0**.
 - Completed the build-system modularization by isolating platform target configuration and simplifying the root CMake file to project orchestration.
 - Localized application include-directory ownership to feature modules while retaining shared and dependency-provided build requirements at the project level.
 - Established a cross-platform, machine-checked contract for current internal module dependency directions, making accidental new coupling visible with consistent diagnostics on every supported operating system.
-- Kept the Linux/WSL setup command stable while moving its detailed bootstrap workflow into a dedicated platform script with focused compatibility checks.
+- Kept the Linux/WSL setup command stable while moving its detailed bootstrap workflow into a dedicated platform script with portable cross-platform compatibility checks.
 
 ## Downloads and installation
 
