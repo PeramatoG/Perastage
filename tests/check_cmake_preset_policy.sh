@@ -60,7 +60,7 @@ for name in ("win-x64-debug-ninja", "win-x64-release-ninja"):
     assert preset["toolchainFile"] == "${sourceDir}/cmake/PerastageWindowsVcpkgToolchain.cmake", name
     assert "CMAKE_TOOLCHAIN_FILE" not in cache, name
 
-setup_linux = Path("setup.sh").read_text(encoding="utf-8")
+setup_linux = Path("scripts/linux/PerastageLinuxBootstrap.sh").read_text(encoding="utf-8")
 for name in ("wsl-x64-debug", "wsl-x64-release", "wsl-debug-build", "wsl-release-build"):
     assert name in setup_linux, name
 assert 'cmake --preset "$configure_preset"' in setup_linux
@@ -78,7 +78,7 @@ test -z "$(git ls-files -- CMakeUserPresets.json)"
 
 if rg -n 'CMakeUserPresets\.json' \
     CMakeLists.txt CMakePresets.json setup.sh setup_windows.ps1 \
-    scripts/windows .github/workflows packaging; then
+    scripts/linux scripts/windows .github/workflows packaging; then
     echo "Operational setup, CI, or packaging configuration must not require CMakeUserPresets.json." >&2
     exit 1
 fi

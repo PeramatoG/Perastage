@@ -131,6 +131,31 @@ is not a repository entry point and is not required by setup, CI, or packaging
 workflows. See the [build guide](build.md) for the supported preset matrix and a
 safe local override example.
 
+### Setup-script ownership and compatibility
+
+The root setup files remain the discoverable, stable platform entry points.
+`setup.sh` is a small Linux/WSL launcher that resolves the checkout from its own
+location and delegates unchanged arguments to
+`scripts/linux/PerastageLinuxBootstrap.sh`; that implementation owns parsing,
+dependency installation, package-manager and command checks, preset selection,
+configure/build sequencing, and completion diagnostics. It accepts `Debug` or
+`Release` in any argument position plus `--skip-deps`, `--skip-build`, and
+`-h`/`--help`; Debug is the default. Help exits successfully, invalid arguments
+and setup failures exit nonzero, diagnostics retain their stdout/stderr intent,
+and invocation is independent of the caller's working directory. Native Linux
+and WSL share apt/dnf handling and the existing Debug
+`wsl-x64-debug`/`wsl-debug-build` and Release
+`wsl-x64-release`/`wsl-release-build` mappings.
+
+The Windows entry point is only partially separated: `setup_windows.ps1`
+imports reusable process, path, and Git Bash helpers from
+`scripts/windows/PerastageWindowsBootstrap.psm1`, while the root script still
+owns its Windows bootstrap, Visual Studio, vcpkg validation, and build workflow.
+Repository documentation and policy tests refer to the root public commands;
+CI and packaging use presets directly rather than invoking either launcher.
+Changing the root invocation syntax, accepted options, diagnostics, exit
+behavior, or preset mapping would therefore break the supported setup contract.
+
 ## Documentation layout
 
 Perastage documentation is intentionally split by audience and responsibility:
