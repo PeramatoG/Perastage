@@ -301,17 +301,7 @@ function Test-PerastageVcpkgDependencies {
         throw "Install the missing x64-windows packages into '$($Vcpkg.Root)' before configuring. The setup script validates dependencies but never installs or rebuilds them."
     }
 
-    $setupCandidates = @(
-        (Join-Path $Vcpkg.InstalledTriplet 'include\wx\msw\setup.h'),
-        (Join-Path $Vcpkg.InstalledTriplet 'include\wx\setup.h')
-    )
-    $setupHeader = $setupCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-    if (-not $setupHeader) {
-        throw "Unable to find wxWidgets setup.h under '$($Vcpkg.InstalledTriplet)'."
-    }
-    if ((Get-Content -LiteralPath $setupHeader -Raw) -notmatch '#\s*define\s+wxUSE_SECRETSTORE\s+1') {
-        throw "wxWidgets was found, but wxUSE_SECRETSTORE is not enabled in '$setupHeader'. Rebuild wxWidgets with the secretstore feature in the selected vcpkg installation."
-    }
+    Assert-PerastageWxSecretStoreHeaders -InstalledTriplet $Vcpkg.InstalledTriplet
 
     $gettextBin = Join-Path $Vcpkg.InstalledTriplet 'tools\gettext\bin'
     foreach ($tool in @('msgfmt.exe', 'xgettext.exe', 'msgmerge.exe', 'msgattrib.exe')) {

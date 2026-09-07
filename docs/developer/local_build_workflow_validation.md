@@ -7,24 +7,27 @@ canonical instructions remain in the [Build and Dependency Guide](build.md).
 CI is context only and does not replace native local execution.
 
 - **Merged `main` SHA:** `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76`
-- **Linux validation SHA after focused corrections:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec`
+- **GitHub-reachable PR head used for follow-up:** `c7fb7121434e3c499ee250c7b5afa732e8365040`
+- **Original Linux execution identifier:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec` (local historical identifier; the reproducible evidence reference is the published PR head above)
 - **Date:** 2026-09-07
 - **Precondition:** the tested commit contains merge `056f3f4`, PR #2339
   (**ORG-038: complete repository-organization regression audit**).
 
 **ORG-039 is not yet complete; external local validation remains required.**
-Windows x64, Apple Silicon macOS, and WSL x64 were unavailable and are recorded
-as pending rather than inferred from GitHub Actions. Native Linux was exercised
+The Windows attempt exposed the pre-configure regression and the corrected branch
+was not available for an external rerun. Apple Silicon macOS and WSL x64 were
+unavailable. All three remain pending rather than inferred from GitHub Actions.
+Native Linux was exercised
 in its own clean checkout.
 
 ## Validation matrix
 
 | Platform | Exact environment | Tested commit SHA | Clean checkout and prerequisites | Setup launcher | Debug configure / build / CTest | Release configure / build | Stage and resources | Canonical presets | Local override | Final status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Windows x64 native | Native Windows unavailable | `2483afe549e8a47b8ad153f81780e6c784f3e8ec` target, not executed | Not run against target `2483afe549e8a47b8ad153f81780e6c784f3e8ec` | Not run | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
-| macOS Apple Silicon | Native Apple Silicon macOS unavailable | `2483afe549e8a47b8ad153f81780e6c784f3e8ec` target, not executed | Not run against target `2483afe549e8a47b8ad153f81780e6c784f3e8ec` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
-| Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `2483afe549e8a47b8ad153f81780e6c784f3e8ec` | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
-| WSL x64 | WSL unavailable; native-Linux build not reused | `2483afe549e8a47b8ad153f81780e6c784f3e8ec` target, not executed | Not run against target `2483afe549e8a47b8ad153f81780e6c784f3e8ec` | Not run | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `c7fb7121434e3c499ee250c7b5afa732e8365040` | External report confirms clean vcpkg markers/status; full clean-checkout rerun remains required after correction | FAIL: false negative against generic `include\wx\setup.h`; focused correction applied, not externally retested | Not run after launcher failure | Not run | Not run | Canonical names confirmed; execution blocked before configure | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| macOS Apple Silicon | Native Apple Silicon macOS unavailable | `c7fb7121434e3c499ee250c7b5afa732e8365040` target, not executed | Not run against target `c7fb7121434e3c499ee250c7b5afa732e8365040` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `c7fb7121434e3c499ee250c7b5afa732e8365040` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
+| WSL x64 | WSL unavailable; native-Linux build not reused | `c7fb7121434e3c499ee250c7b5afa732e8365040` target, not executed | Not run against target `c7fb7121434e3c499ee250c7b5afa732e8365040` | Not run | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
 
 The checked-in names match every requested canonical family: Windows
 `win-x64-debug-ninja`, `win-x64-release-ninja`, `win-debug-build-ninja`,
@@ -161,6 +164,36 @@ git status --porcelain=v1 --untracked-files=all
 Git identified the ignore rule and confirmed the file was never tracked. CMake
 listed and configured the inherited preset, the shared preset remained
 unchanged, and the temporary file was removed.
+
+## Windows external validation follow-up
+
+A native Windows x64 clean-checkout attempt against GitHub-reachable PR head
+`c7fb7121434e3c499ee250c7b5afa732e8365040` used an external classic vcpkg
+checkout at `C:\vcpkg`. `vcpkg list` reported wxWidgets 3.3.3#1 with the
+`secretstore` feature. Both generated Release headers under
+`installed\x64-windows\lib\msw*\wx\setup.h` and the generated Debug header
+under `installed\x64-windows\debug\lib\msw*\wx\setup.h` defined
+`wxUSE_SECRETSTORE 1`. The generic public
+`installed\x64-windows\include\wx\setup.h` did not contain that platform
+setting.
+
+The root launcher failed before configure because its validator selected the
+generic header after the legacy `include\wx\msw\setup.h` candidate was absent.
+The correction now discovers generated headers independently for Debug and
+Release by enumerating `msw*` library configuration directories, retains the
+legacy generated MSW header as a compatibility candidate, deliberately ignores
+the generic public header, and requires every discovered generated header to
+define `wxUSE_SECRETSTORE 1`. Failure diagnostics list the configuration, exact
+header, and observed disabled or missing definition; absence diagnostics list
+the generated paths searched. The script remains validation-only and never
+installs or rebuilds wxWidgets.
+
+Deterministic fixtures cover a generic header with no usable setting plus valid
+Debug and Release generated headers (PASS), a generated Debug header defining
+zero (FAIL), and a generated Debug header missing the definition (FAIL). Windows
+remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected GitHub branch
+is rerun from a native clean checkout through setup, both canonical builds, full
+Debug CTest, Release staging/resources, and the local override check.
 
 ## Pending external execution
 
