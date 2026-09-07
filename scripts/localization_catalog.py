@@ -19,7 +19,7 @@ LANGUAGES = COMPLETE_LANGUAGES + DRAFT_LANGUAGES
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 EXCLUDED_PREFIXES = ("third_party/", "build/", "build-", "cmake-build", ".git/")
 AUDIT_ALLOWLIST = ROOT / "scripts" / "localization_audit_allowlist.txt"
-AUDIT_SOURCE_DIRECTORIES = ("gui/", "viewer2d/", "viewer3d/")
+AUDIT_SOURCE_DIRECTORIES = ("app/", "gui/", "viewer2d/", "viewer3d/")
 AUDIT_SOURCE_FILES = {"main.cpp"}
 
 TRANSLATION_WRAPPERS = {"_", "wxGetTranslation", "wxTRANSLATE", "wxPLURAL"}
@@ -40,7 +40,7 @@ UI_CONSTRUCTOR_TYPES = {
     "wxSingleChoiceDialog", "wxTextEntryDialog",
 }
 REPRESENTATIVE_MESSAGES = {
-    "Running library bootstrap...": "root main.cpp splash message",
+    "Running library bootstrap...": "App bootstrap splash message",
     "Fixture ID": "fixture table dynamic column label",
     "Model file": "fixture table dynamic column label",
     "Color Filter": "fixture table dynamic column label",

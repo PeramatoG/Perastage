@@ -59,12 +59,13 @@ architecture change.
 ### Internal module dependency directions
 
 The following contract records the current production source-level includes.
-It is not a target-level link graph: all seven modules still contribute to the
-single application target. Counts are evidence occurrences from the ORG-025
-audit; same-module includes and test sources are excluded.
+It is not a target-level link graph: all eight modules still contribute to the
+single application target. Counts are evidence occurrences from the current
+inventory; same-module includes and test sources are excluded.
 
 | Consumer | Accepted providers (evidence count) | Architectural rationale |
 |---|---|---|
+| `app` | `core` (12), `gui` (2), `viewer3d` (1) | Application composition coordinates lifecycle services, windows, and the existing GDTF cache teardown API. |
 | `core` | `models` (46), `mvr` (5), `viewer2d` (4), `viewer3d` (7) | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
 | `models` | None | Scene data does not include another audited application module. |
 | `mvr` | `core` (55), `gui` (3), `models` (9), `viewer2d` (1), `viewer3d` (2) | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |
@@ -88,98 +89,39 @@ new direction requires architectural review and a coordinated update to this
 section and the check's explicit `ACCEPTED_DIRECTIONS`; the check never blesses
 new edges automatically.
 
-## Application bootstrap ownership audit (ORG-030)
+## Application bootstrap ownership (ORG-030–033)
 
-ORG-030 audits the current root `main.cpp`; it does **not** move bootstrap code,
-create a module, change `MyApp`/`wxIMPLEMENT_APP`, or begin ORG-031, ORG-032, or
-ORG-033. The intended owner for a later extraction is a top-level `app/` module.
-Bootstrap is application composition: it may depend on Core services and GUI
-types, whereas neither `core/` nor other GUI-independent modules may depend on
-`app/` or acquire wxWidgets application-lifecycle responsibilities. This makes
-`app/` a clearer owner than `core/` or `gui/`.
+ORG-030 audited the former root-owned bootstrap and selected `app/` as the
+application-composition owner. ORG-031 through ORG-033 implement that boundary:
+`app/perastage_app.h` owns the `MyApp : wxApp` declaration and lifetime state,
+while `app/perastage_app.cpp` owns lifecycle methods and private bootstrap
+helpers. Root `main.cpp` is now limited to including the App declaration and
+invoking `wxIMPLEMENT_APP(MyApp)`.
 
-### Current responsibilities and future owners
+The extraction preserves the audited startup sequence and semantics: launch-CWD
+capture, CLI and platform open routing, two-stage deferred startup resolution,
+localization and fallback warning, diagnostics and crash handling, splash and
+main-window composition, metrics, platform hooks, and ordered shutdown. App
+depends downward on `core` (12 include occurrences), `gui` (2), and `viewer3d`
+(1). The Viewer3D direction remains intentional composition debt because App
+coordinates the existing GDTF cache shutdown API. No lower-level module may
+include App headers or depend upward on application lifecycle policy.
 
-The following classification is based on the current implementation and records
-the ordering, platform, and repository constraints that a later change must
-preserve. "App" means the proposed `app/` module, not an existing directory.
+`app/CMakeLists.txt` explicitly contributes the App declaration and
+implementation to `${PROJECT_NAME}` and exposes only its local include directory
+to that target. Root CMake registers `app/` after lower-level source modules;
+its `add_executable` continues to own only `main.cpp` and generated build
+information. The repository baseline, dependency-direction inventory, bootstrap
+ownership check, startup-publication guard, and localization catalog scanner
+enforce this implemented boundary.
 
-| Responsibility | Current owner and dependencies | Intended owner | Constraints and later references |
-|---|---|---|---|
-| Process/application entry wiring | `wxIMPLEMENT_APP(MyApp)` supplies the wxWidgets-generated process entry point. | Minimal root `main.cpp`. | Keep exactly one compiled root entry point and preserve wxWidgets platform entry semantics. Root `CMakeLists.txt`, the structure baseline and its fixture tests currently require this path. |
-| `wxApp` type and lifecycle declarations | The `MyApp : wxApp` declaration lists `OnInit`, `OnExit`, event/exception hooks, macOS callbacks, and private startup methods/state. | App, in a focused public `app/perastage_app.h`; implementations belong in App `.cpp` files. | The root should include the header solely to instantiate the application. Non-macOS compatibility declarations must remain so callback logic stays buildable/testable on all platforms. |
-| Startup sequencing | `MyApp::OnInit` creates metrics, configures debug behavior and process locale, captures the launch CWD, publishes app/vendor names, changes to the executable directory, initializes images/appearance, diagnostics, preferences/localization, splash/library bootstrap, and the main window before scheduling startup-open resolution. | App bootstrap implementation. | Preserve the exact sequence, especially capturing launch CWD before changing it; diagnostics before user-facing windows; configuration before localization; splash before library bootstrap; and deferred open resolution after window construction. |
-| Startup project/MVR resolution | `GetStartupPathFromArgs` accepts the first `.pstg` (via `ProjectUtils::PROJECT_EXTENSION`) or `.mvr` argument, resolves a relative argument against the captured launch CWD, and `FinalizeStartupOpenResolution` selects macOS explicit open, then CLI, then last project, then empty project. | App; path parsing/selection should become a separate, narrowly testable App helper because it is policy rather than UI presentation. | Preserve extension case folding, quote removal, UTF-8/filesystem conversions, precedence, `clearLastProject` values, two nested `CallAfter` calls that allow a macOS event to arrive, and the single queued `EVT_PROJECT_LOADED`. Packaging associations feed this input but do not depend on the source path. |
-| External-open routing | `HandleExternalOpenPath`, `StorePendingStartupExternalOpenPath`, `ConsumePendingStartupExternalOpenPath`, `ConsumePendingExternalOpenPath`, and `QueueProjectLoadedEvent` capture startup requests, queue requests while no top window exists, prevent duplicate initial loads, and later delegate to `MainWindow::EnqueueExternalOpenPath`. | App owns pre-window/lifecycle routing and state; GUI continues to own the ready-state/deferred-open pipeline in `MainWindow`. | Preserve GUI-thread `CallAfter`/`wxQueueEvent`, weak-window lifetime checks, request order, most-recent startup request semantics, and the atomic startup/load gates. Audit note: `ConsumePendingExternalOpenPath` currently has no caller; later work must not silently invent draining behavior during a move. |
-| macOS open callbacks | `MacOpenFile`, `MacOpenFiles`, and `MacOpenURL` convert wx strings, log safely, normalize, and enter the shared external-open route. | App lifecycle implementation. | Overrides apply only on `__WXOSX__`; declarations remain available elsewhere. Preserve ordered multi-file dispatch and LaunchServices/Finder timing. macOS bundle configuration is in `cmake/platform`, but does not name `main.cpp`. |
-| URI/path bootstrap helpers | `DecodeFileUriToPath`, `NormalizeExternalOpenPath`, `ToLowerAscii`, and the local UTF-8 conversion in `GetStartupPathFromArgs` decode `file://`, normalize separators/absolute paths, and compare extensions. | Initially private App implementation; extract pure parsing/selection portions into a testable App helper when useful. Shared encoding primitives may use existing Core `filesystem_path_utils`, but wx URI and launch policy must not move into Core. | Preserve macOS authority/slash handling, deliberate Windows avoidance of `wxFileName::Normalize`, filename-only diagnostics, and error fallbacks. |
-| Localization startup | `OnInit` calls `platform::EnsureProcessTextLocale`, reads `ui_language` from `ConfigManager`, initializes `LocalizationManager`, records timing and logs fallback; `ShowLocalizationFallbackWarningIfNeeded` schedules one Spanish-catalog warning after window creation. | App orchestration; locale and localization implementations remain in Core, warning presentation remains an App concern. | Preserve process-locale-before-config ordering, locale-independent numeric behavior, one-shot warning timing and exact translatable messages. The localization scanner and POT/complete PO source references currently name `main.cpp`. |
-| Diagnostic logging and crash handling | `OnInit` initializes `DiagnosticLogger` then `CrashHandler` and logs build/locale data. `OnExit` logs shutdown, calls `ShutdownGdtfCache`, marks runtime teardown, invokes `wxApp::OnExit`, then closes the logger. | App orchestration; implementations remain `core/diagnostics` and the Viewer3D GDTF cache owner. | Initialization must precede window construction and exception reporting. Teardown order must remain cache, crash-handler teardown marker, wx shutdown, final logger shutdown. |
-| Exception handling and event context | `FilterEvent` stores the last wx event summary. `LogExceptionWithStack`, `OnExceptionInMainLoop`, and `OnUnhandledException` log/report standard, allocation, and unknown exceptions; recoverable standard main-loop exceptions return `true`. | App lifecycle implementation; stack formatting can be a private diagnostics adapter, while logger/crash report mechanics remain Core diagnostics. | Preserve return behavior and last-event reporting. The `wxStackWalker` trace is Windows-only and exception hooks must retain wx lifecycle signatures. |
-| Application startup state | `MyApp` stores last-event text, atomic load/resolution gates, the explicit startup path, FIFO later-open paths, localization-warning state, shared metrics, and resolution start time. | App, preferably split by responsibility into bootstrap/open-routing state rather than exposed globally. | State must live for the wx application lifetime. Keep atomics where callbacks can cross delivery boundaries and keep `startup::Metrics` shared with `MainWindow`. |
-| Splash interaction | `OnInit` calls `SplashScreen::Show` and sets the library-bootstrap, main-window, and last-project messages. Final hiding/publication is driven by `MainWindow` startup composition. | App owns startup progress sequencing; GUI retains splash rendering and final publication. | Do not show/maximize the window from App. `tests/check_startup_window_publication.sh` inspects root `main.cpp` directly and must follow the implementation path later. |
-| Main-window creation and top-window publication | `OnInit` constructs `MainWindow(app::kName, nullptr, startup_metrics_)` and immediately calls `SetTopWindow`; `MainWindow::PublishInitialMainWindow` later updates layout, maximizes, and shows it. | App composes/sets the wx top window; GUI owns construction internals and authoritative visible publication. | Preserve top-window availability for external-open routing, weak references, and the hidden-until-composed invariant. |
-| Last-project loading | `OnInit` reads `ProjectUtils::LoadLastProjectPath`; `FinalizeStartupOpenResolution` uses it only if no explicit startup request wins and emits an empty-load event otherwise. | App selection policy; persistence remains Core `ProjectUtils`. | Read at the current point, preserve precedence and whether last-project state is cleared. Do not merge this with `MainWindow`'s separate user workflow. |
-| Startup metrics | `OnInit` creates `startup::Metrics` and records user-config/localization and main-window construction durations; finalization records delayed path-resolution duration. | App records orchestration spans; the neutral metrics data type remains Core and is passed to GUI consumers. | Preserve clock boundaries and shared ownership; extraction must not alter what time is included. |
-| Platform startup and debug behavior | `OnInit` uses `ConfigureWindowsDebugHeapLeakCheck` under MSVC Debug, sets wx dark-mode options, and changes CWD; `OnExit` optionally resets `ConfigManager` for leak reporting. | App, with platform-only helpers private to its implementation. | Preserve `PERASTAGE_CRT_LEAK_CHECK=1`, compile guards, MSVC CRT calls, wx version guard, all-platform system option, and shutdown reset timing. Platform CMake retains subsystem/bundle/resource ownership. |
-| Library bootstrap and cache teardown | `OnInit` invokes `ProjectUtils::RunStartupLibraryBootstrap`; `OnExit` invokes Viewer3D's `ShutdownGdtfCache`. | App coordinates calls; Core `ProjectUtils` and Viewer3D retain the underlying responsibilities. | Calls stay inside the established splash/diagnostic lifetime. This existing Viewer3D dependency is composition debt and must not be pushed into Core. |
-
-### Target boundary and dependency shape
-
-After the later extraction, root `main.cpp` should contain only the include of
-the App-owned `wxApp` declaration and `wxIMPLEMENT_APP(MyApp)` (plus the license
-header). `MyApp` needs its own header because the registration macro requires a
-complete named type at the root entry point; its state and non-override helpers
-remain private. App implementation files may depend downward on wxWidgets,
-`core/` configuration, filesystem, localization, platform-locale, startup
-metrics and diagnostics services, `gui/` (`MainWindow` and `SplashScreen`), and
-the existing Viewer3D cache shutdown API. GUI-independent modules must not
-include the App header or depend upward on bootstrap policy.
-
-Startup argument/path selection is the strongest candidate for a separate
-testable App helper: its inputs and precedence can be explicit without owning a
-window. wx event dispatch, lifecycle callbacks, diagnostic event capture, and
-the fallback dialog should remain private implementation details. A later
-design may narrow the direct Viewer3D teardown dependency through an
-owner-provided lifecycle interface, but ORG-030 neither introduces that
-interface nor changes behavior.
-
-When `app/` is actually created, it must have an explicit `app/CMakeLists.txt`
-using `target_sources`; root CMake must add the subdirectory while retaining
-only `main.cpp` and generated build information in `add_executable`. No globbing
-or broadened include path is warranted. The module-direction contract must add
-App as a composition-layer consumer, not as a provider to Core/GUI/viewers.
-
-### References that later implementation must update
-
-- Root `CMakeLists.txt` explicitly compiles `main.cpp`. The structure baseline
-  classifies it as the only root application source and compiled entry point;
-  `tests/check_repository_structure_baseline.py` enforces those lists and local
-  module registration, while its fixture suite embeds `main.cpp` and the
-  current module set. The minimal root file remains valid, but adding `app/`
-  requires coordinated baseline, fixture, root-registration, and module-CMake
-  updates rather than weakening the guard.
-- `tests/check_startup_window_publication.sh` reads `main.cpp` to reject direct
-  `Show`/`Maximize` calls and reads `gui/mainwindow_startup_splash.cpp` for the
-  authoritative publication sequence. It must inspect the App implementation
-  after the move while continuing to protect the same invariant.
-- `scripts/localization_catalog.py` explicitly includes `main.cpp` in its audit
-  set and identifies a representative root splash message. The POT and Spanish
-  and Simplified Chinese complete catalogs carry `#: main.cpp` locations for
-  the three splash messages and two fallback-warning strings. Source scanning,
-  representative wording, catalog regeneration, and COMPLETE-catalog checks
-  must be updated together after the strings move.
-- `docs/developer/repository_layout.md` and `perastage_tree.md` call `main.cpp`
-  the bootstrap/entry point. This architecture section, the machine-readable
-  baseline, and the GDTF editor architecture audit also mention its open-file
-  routing. Later documentation must distinguish the minimal root entry from the
-  App owner.
-- Windows installer file associations invoke the executable with one `.pstg`
-  or `.mvr` argument; Linux MIME/desktop integration and macOS bundle/
-  LaunchServices configuration likewise constrain observable open behavior.
-  They do not inspect or constrain the `main.cpp` path. Current GitHub Actions
-  and installer workflows impose executable, bundle, resource, and association
-  behavior but contain no direct source-path reference that needs changing.
+The detailed ORG-030 audit rationale remains the extraction contract: App owns
+wxWidgets lifecycle, startup selection and external-open queuing, localization
+orchestration, diagnostics, splash sequencing, `MainWindow` construction, and
+teardown. Core retains reusable services, GUI retains visible startup
+publication, and Viewer3D retains cache implementation. Startup argument/path
+selection may be split internally in a future focused change, but ORG-034 and
+later organization work is outside this implementation.
 
 ## Library convention
 

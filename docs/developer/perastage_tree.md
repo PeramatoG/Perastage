@@ -2,13 +2,13 @@
 
 > **Scope (high-level view):** this document summarizes the main modules and submodules only. For full file-level detail, use `rg --files` or your IDE tree view.
 
-This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
+This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`app`, `core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
 
 ## Top-level structure
 
 ```text
 Perastage/
-|-- main.cpp                     # Current wxWidgets entry point and bootstrap; planned to become entry-only.
+|-- main.cpp                     # Minimal wxWidgets application-entry wiring.
 |-- CMakeLists.txt               # Root target creation, build orchestration, and module registration.
 |-- CMakePresets.json            # Supported local configure/build presets.
 |-- README.md                    # Product overview, features, and entry links.
@@ -16,6 +16,8 @@ Perastage/
 |-- docs/                        # User documentation, architecture notes, repository map, and docs website assets.
 |-- AGENTS.md                    # Repository guidance for automated coding agents.
 |-- VERSION                      # Single project version source.
+|-- app/                         # Application lifecycle and startup/bootstrap composition.
+|   `-- CMakeLists.txt           # Explicit App source registration.
 |-- cmake/                       # Focused build modules, templates, and helper scripts.
 |   `-- platform/                # Platform target-configuration dispatcher and OS-specific owners.
 |-- core/                        # Shared business logic and cross-cutting services.
@@ -49,6 +51,7 @@ Perastage/
 
 ## Modules and responsibilities
 
+- **`app/`**: wxWidgets application lifecycle, startup orchestration, external-open routing, diagnostics coordination, and shutdown composition.
 - **`core/`**: project/config services, rider/PDF import helpers, auto-patch logic, layout/print support, and persistence/export utilities.
 - **`gui/`**: main UI composition and editing/visualization tools (tables, panels, dialogs, menus).
 - **`viewer2d/`**: 2D plan visualization and command/resource generation for printing/export.
@@ -61,10 +64,9 @@ Perastage/
 
 ## Critical files (explicit exception to high-level granularity)
 
-- `main.cpp`: current application bootstrap and sole root C/C++ entry point.
-  ORG-030 selects a future `app/` module for bootstrap composition, but does not
-  create it or move any code; see the ownership audit in
-  `docs/developer/architecture.md`.
+- `main.cpp`: minimal application-entry wiring and sole root C/C++ entry point.
+  The App-owned `MyApp` declaration and implementation live under `app/`; see
+  the implemented ownership boundary in `docs/developer/architecture.md`.
 - `CMakeLists.txt`: primary build orchestration.
 - `CMakePresets.json`: supported local configure/build presets.
 - `README.md`: functional/documentation reference.
