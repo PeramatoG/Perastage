@@ -92,3 +92,5 @@ Perastage/
 - If a new top-level source module is introduced, update the architecture guard scripts under `tests/` when appropriate.
 - Every top-level application source module owns an explicit local CMake source list; the root does not normally register feature implementations, and no recursive source discovery is used.
 - `repository_structure_baseline.json` is the authoritative machine-readable contract for source-module classification and root module registration.
+- New source modules must align that contract, explicit module and root CMake registration, architecture/layout documentation, and required guard inventories.
+- Root project sources are limited to documented entry-point exceptions, and developer-local presets, build trees, and IDE state must remain untracked.

@@ -7,6 +7,12 @@ the canonical human-readable map of repository paths and root-file roles, see
 
 ## Top-level layout
 
+<!-- repository-source-module-responsibilities: app=application lifecycle and startup composition; core=shared business logic and services; gui=wxWidgets UI and workflows; models=scene data structures; mvr=MVR interchange; viewer2d=2D rendering and export; viewer3d=3D rendering and loading; viewer_common=shared viewer utilities -->
+
+This stable marker is checked against the canonical source-module inventory in
+`repository_structure_baseline.json`; the descriptions below define each
+module's architectural responsibility.
+
 - `app/`: wxWidgets application lifecycle and startup composition.
 - `core/`: shared business logic and services.
 - `gui/`: wxWidgets UI and main window workflows.
@@ -32,6 +38,17 @@ the canonical human-readable map of repository paths and root-file roles, see
 - `docs/developer/repository_structure_baseline.json` is the authoritative machine-readable contract for source-module classification and CMake registration.
 - Avoid recursive or wildcard project-source discovery; list files explicitly.
 - Keep include directories close to the module that owns them.
+- Root C/C++ sources are restricted to explicitly approved architectural entry
+  points. `main.cpp` is the sole current exception; approving another requires
+  aligned baseline root-source and root-role contracts plus architecture and
+  repository-layout documentation.
+
+Introducing a top-level production source module requires one coordinated
+change: baseline classification and guard-set alignment, a local
+`CMakeLists.txt` with explicit `target_sources(...)` ownership, root
+`add_subdirectory(...)` registration, and descriptions in both this document
+and the repository layout. Dependency directions remain separately reviewed;
+the guard never adds an accepted edge for a new module automatically.
 
 ### Application include-directory ownership
 

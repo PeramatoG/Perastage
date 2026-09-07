@@ -4,13 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-MODULES = ("app", "core", "models", "mvr", "gui", "viewer_common", "viewer2d", "viewer3d")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+BASELINE = json.loads(
+    (REPOSITORY_ROOT / "docs/developer/repository_structure_baseline.json").read_text(encoding="utf-8")
+)
+MODULES = tuple(BASELINE["module_guard_sets"]["dependency_directions"])
 SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".hxx", ".c", ".cc", ".cpp", ".cxx"}
 # This is a reviewed contract, not a graph generated or rewritten by this check.
 ACCEPTED_DIRECTIONS: frozenset[tuple[str, str]] = frozenset({
@@ -206,7 +211,10 @@ def documentation_contract_errors(root: Path) -> list[str]:
                 documented.add((consumer, provider))
     errors: list[str] = []
     if consumers != set(MODULES):
-        errors.append("Architecture dependency table must contain exactly the eight production modules")
+        errors.append(
+            "Architecture dependency table must contain exactly the canonical production modules "
+            "from repository_structure_baseline.json"
+        )
     if documented != set(ACCEPTED_DIRECTIONS):
         errors.append(
             "Architecture dependency table and ACCEPTED_DIRECTIONS differ: "

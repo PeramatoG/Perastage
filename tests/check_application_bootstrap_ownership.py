@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LOWER_LEVEL_MODULES = ("core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common")
+BASELINE = json.loads(
+    (ROOT / "docs/developer/repository_structure_baseline.json").read_text(encoding="utf-8")
+)
+LOWER_LEVEL_MODULES = tuple(BASELINE["module_guard_sets"]["application_bootstrap_lower_level"])
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 
 
