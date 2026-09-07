@@ -13,6 +13,7 @@ and [the repository tree](perastage_tree.md) is only a concise navigation aid.
 - [Build Guide](build.md)
 - [Packaging](packaging.md)
 - [Repository Layout](repository_layout.md)
+- [Repository-Organization Regression Audit](repository_organization_regression_audit.md)
 - [Architecture](architecture.md)
 - [Documentation Policy](documentation_policy.md)
 - [Text-to-scene Rules](text_to_scene_rules.md)
