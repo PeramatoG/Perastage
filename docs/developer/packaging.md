@@ -2,6 +2,10 @@
 
 This document describes the supported distribution and file-association behavior for Perastage.
 
+This guide owns packaging procedures and platform distribution details.
+Repository and build-module ownership remain defined by
+[Repository Layout](repository_layout.md) and [Architecture](architecture.md).
+
 ## Packaging source of truth
 
 Perastage currently has two different build contexts:

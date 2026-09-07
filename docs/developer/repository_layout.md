@@ -1,13 +1,33 @@
 # Repository Layout
 
-This page provides a concise map of the main Perastage repository areas. For the broader high-level tree, see [perastage_tree.md](perastage_tree.md). For architectural boundaries and contribution rules, see [Architecture](architecture.md).
+This page is the authoritative human-readable source for Perastage repository
+paths, root-file roles, module locations, build/configuration locations, and
+repository entry-point ownership. For architectural boundaries and dependency
+direction, see [Architecture](architecture.md). For a shorter navigational
+view, see [perastage_tree.md](perastage_tree.md).
 
 The machine-readable ORG-001 baseline is
 [`repository_structure_baseline.json`](repository_structure_baseline.json). The
 `RepositoryStructureBaseline` policy test validates its required directories,
 root-file roles, build/development entry points, and current CMake ownership
-model. The JSON file is the authoritative categorized top-level directory list;
-this page remains its human-readable architectural counterpart.
+model. The JSON file is the machine-readable structural contract; this page is
+its human-readable layout counterpart.
+
+## Documentation source hierarchy
+
+Repository documentation has one owner for each kind of structural fact:
+
+1. [Architecture](architecture.md) owns architectural responsibilities, module
+   roles, and accepted dependency directions.
+2. This page owns the human-readable repository path and entry-point map.
+3. [`repository_structure_baseline.json`](repository_structure_baseline.json)
+   is the machine-readable structural contract enforced by repository checks.
+4. [perastage_tree.md](perastage_tree.md) is a concise navigation aid, not a
+   second architecture specification.
+5. Specialized guides retain procedural detail: [Build](build.md),
+   [Localization](localization.md), [Packaging](packaging.md), and
+   [GitHub Actions](github_actions_workflows.md). They defer architectural and
+   repository ownership rules to the documents above.
 
 ## Top-level structure
 
@@ -101,9 +121,10 @@ explicit tracked-file manifest for isolated fixtures.
 Intentional architecture changes should update the declarative baseline,
 document the new module's responsibility in the architecture and repository
 layout, add appropriate explicit CMake ownership where applicable, and update
-the focused fixtures in the same pull request. Source ownership is not otherwise
-frozen: later ORG work can move registration into module-owned CMake files while
-retaining explicit source lists.
+the focused fixtures in the same pull request. Source ownership is not
+otherwise frozen: intentional future structural changes may move files or
+modules when the baseline, documentation, CMake ownership, and focused fixtures
+are updated together.
 
 The baseline retains exact-count support for narrowly reviewed machine-path
 exceptions, but currently records none. Shared Windows presets load a tracked
@@ -177,12 +198,14 @@ Perastage documentation is intentionally split by audience and responsibility:
 |------|---------|
 | `README.md` | Short project overview, highlights, and entry links. |
 | `help.md` | In-app help content. |
-| [perastage_tree.md](perastage_tree.md) | High-level repository map used by architecture guard scripts. |
+| [perastage_tree.md](perastage_tree.md) | Concise navigational tree used by architecture guard scripts. |
 | `docs/developer/build.md` | Build requirements, dependency setup, and local CMake workflows. |
 | `docs/developer/packaging.md` | Release packaging, installers, desktop integration, and platform distribution notes. |
 | `docs/user/troubleshooting.md` | Known failure modes and practical fixes. |
 | `docs/developer/documentation_policy.md` | Documentation organization and synchronization rules. |
-| `docs/developer/architecture.md` | Architecture boundaries and project structure conventions. |
+| `docs/developer/architecture.md` | Authoritative architecture ownership, module roles, and dependency directions. |
+| `docs/developer/repository_layout.md` | Authoritative human-readable repository paths and root-file roles. |
+| `docs/developer/repository_structure_baseline.json` | Machine-readable structural contract enforced by tests. |
 | `docs/assets/` | Assets used by the documentation website. |
 | `docs/*.html` | Static documentation website entry points and shells. |
 | `docs/user/` | User-facing guides shown in the public documentation flow. |

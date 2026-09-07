@@ -2,6 +2,10 @@
 
 Perastage uses wxWidgets gettext catalogs for user-facing interface text. English is the source language and default language. Spanish and Simplified Chinese (`zh_CN`) are complete release languages.
 
+This guide owns localization policy and procedures. Repository and build-module
+ownership remain defined by [Repository Layout](repository_layout.md) and
+[Architecture](architecture.md).
+
 ## User preference
 
 The interface language is stored in user preferences under the stable key `ui_language`. Accepted values are:

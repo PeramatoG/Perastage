@@ -1,15 +1,20 @@
 # Architecture and repository conventions
 
-This document defines the expected directory conventions for Perastage.
+This document is the authoritative source for Perastage's architectural
+ownership, module responsibilities, and accepted dependency directions. For
+the canonical human-readable map of repository paths and root-file roles, see
+[Repository Layout](repository_layout.md).
 
 ## Top-level layout
 
+- `app/`: wxWidgets application lifecycle and startup composition.
 - `core/`: shared business logic and services.
 - `gui/`: wxWidgets UI and main window workflows.
 - `viewer2d/`: 2D renderer and PDF/export helpers.
 - `viewer3d/`: 3D renderer, loaders and render passes.
 - `models/`: core scene data structures.
 - `mvr/`: MVR import/export modules.
+- `viewer_common/`: utilities shared by the 2D and 3D viewers.
 - `third_party/`: vendored third-party single-header dependencies (for example `json.hpp`, `stb_easy_font.h`).
 - `library/`: bundled runtime content (fixtures, trusses, `scene_objects`, examples).
 
@@ -47,8 +52,8 @@ include requirements in `tests/CMakeLists.txt`; their requirements did not
 justify any application-target path. The audit also observed factual
 cross-module header use (notably GUI and viewers consuming Core and Models,
 Viewer3D consuming MVR data, and GUI consuming Viewer2D/Viewer3D facilities).
-ORG-025 will evaluate dependency direction; this audit defines no direction
-policy.
+That include-directory audit did not itself define direction policy. The
+subsequent dependency audit produced the enforced contract below.
 
 All feature modules still contribute to the same `${PROJECT_NAME}` target.
 Moving declarations to module CMake files records ownership and reduces root

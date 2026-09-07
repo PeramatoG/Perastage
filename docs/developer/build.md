@@ -2,6 +2,10 @@
 
 This document covers baseline and advanced build behavior for Perastage. It is the detailed companion to the short installation section in `README.md`.
 
+Repository path and CMake ownership are defined by
+[Repository Layout](repository_layout.md) and [Architecture](architecture.md);
+this guide owns build prerequisites and procedures.
+
 ## Core Requirements
 
 - CMake 3.21 or newer.
