@@ -2,7 +2,12 @@
 
 > **Scope (high-level view):** this document summarizes the main modules and submodules only. For full file-level detail, use `rg --files` or your IDE tree view.
 
-This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`app`, `core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
+This page is a concise navigational reference. The authoritative ownership and
+dependency rules live in [Architecture](architecture.md), while
+[Repository Layout](repository_layout.md) owns the detailed human-readable path
+and root-file map.
+
+This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`app`, `core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `scripts`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
 
 ## Top-level structure
 
@@ -11,6 +16,8 @@ Perastage/
 |-- main.cpp                     # Minimal wxWidgets application-entry wiring.
 |-- CMakeLists.txt               # Root target creation, build orchestration, and module registration.
 |-- CMakePresets.json            # Supported local configure/build presets.
+|-- setup.sh                     # Stable Linux/WSL setup launcher.
+|-- setup_windows.ps1            # Stable Windows setup launcher.
 |-- README.md                    # Product overview, features, and entry links.
 |-- help.md                      # In-app help content.
 |-- docs/                        # User documentation, architecture notes, repository map, and docs website assets.
@@ -20,6 +27,9 @@ Perastage/
 |   `-- CMakeLists.txt           # Explicit App source registration.
 |-- cmake/                       # Focused build modules, templates, and helper scripts.
 |   `-- platform/                # Platform target-configuration dispatcher and OS-specific owners.
+|-- scripts/                     # Setup implementations and repository/build utilities.
+|   |-- linux/                   # Implementation behind the stable root setup.sh launcher.
+|   `-- windows/                 # Implementation behind the stable root setup_windows.ps1 launcher.
 |-- core/                        # Shared business logic and cross-cutting services.
 |   |-- layouts/                 # Printable layout/page management.
 |   `-- print/                   # Printing and PDF/table export helpers.
@@ -70,7 +80,8 @@ Perastage/
 - `CMakeLists.txt`: primary build orchestration.
 - `CMakePresets.json`: supported local configure/build presets.
 - `README.md`: functional/documentation reference.
-- `docs/developer/architecture.md`: repository structure conventions.
+- `docs/developer/architecture.md`: authoritative architecture ownership and dependency rules.
+- `docs/developer/repository_layout.md`: authoritative human-readable repository layout.
 - `docs/developer/documentation_policy.md`: documentation organization and synchronization rules.
 
 ## Maintenance guidance

@@ -32,6 +32,7 @@ Changes since **v1.6.0**.
 - Kept the Linux/WSL setup command stable while moving its detailed bootstrap workflow into a dedicated platform script with portable cross-platform compatibility checks.
 - Kept the Windows setup command stable while moving Visual Studio, dependency validation, and build orchestration into dedicated platform scripts and aligning setup documentation.
 - Moved application startup and lifecycle composition into a dedicated module while preserving launch, open-file, localization, diagnostics, splash, and shutdown behavior, leaving the root entry point minimal.
+- Reconciled developer documentation with the current modular repository layout and clarified the authoritative references for architecture, paths, and structural policy.
 
 ## Downloads and installation
 

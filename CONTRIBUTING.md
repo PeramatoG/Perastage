@@ -142,10 +142,12 @@ Perastage should remain professional, modular, portable, and maintainable.
 - Preserve Windows, macOS, and Linux compatibility whenever the affected code is intended to be portable.
 - Add concise comments to explain intent, constraints, or non-obvious decisions; do not narrate self-explanatory code.
 
-Architecture and repository conventions are documented under `docs/developer/`, especially:
+Architecture and repository conventions are documented under `docs/developer/`:
 
-- `docs/developer/architecture.md`
-- `docs/developer/repository_layout.md`
+- `docs/developer/architecture.md` is authoritative for ownership, module roles,
+  and dependency direction.
+- `docs/developer/repository_layout.md` is authoritative for repository paths,
+  root-file roles, and the documentation source hierarchy.
 - `docs/developer/build.md`
 - `docs/developer/packaging.md`
 - `docs/developer/documentation_policy.md`

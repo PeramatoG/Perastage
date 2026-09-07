@@ -2,6 +2,12 @@
 
 This section collects maintainer-facing build, architecture, packaging, policy, and behavior-contract documentation.
 
+Start with [Architecture](architecture.md) for module ownership and dependency
+direction, or [Repository Layout](repository_layout.md) for paths, root-file
+roles, and the complete documentation source hierarchy. The machine-readable
+contract is [`repository_structure_baseline.json`](repository_structure_baseline.json),
+and [the repository tree](perastage_tree.md) is only a concise navigation aid.
+
 ## Entry points
 
 - [Build Guide](build.md)

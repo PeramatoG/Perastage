@@ -1,5 +1,9 @@
 # GitHub Actions workflow architecture
 
+This guide owns CI and automation procedures. Repository paths and architectural
+ownership remain defined by [Repository Layout](repository_layout.md) and
+[Architecture](architecture.md).
+
 Perastage uses separate workflows for validation, automatic test artifacts, compatibility packages, and formal releases. The separation keeps Debug test coverage out of Release package builders and prevents release publication before every package and asset check has succeeded.
 
 ## Issue maintenance
