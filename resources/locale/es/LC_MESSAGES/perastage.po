@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.85\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 05:34+0000\n"
+"POT-Creation-Date: 2026-09-07 00:21+0000\n"
 "PO-Revision-Date: 2026-07-13 14:45+0200\n"
 "Last-Translator: Luisma Peramato <perastage.app@gmail.com>\n"
 "Language-Team: Spanish\n"
@@ -12,6 +12,30 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: app/perastage_app.cpp:259
+msgid "Running library bootstrap..."
+msgstr "Inicializando la biblioteca..."
+
+#: app/perastage_app.cpp:262
+msgid "Creating main window..."
+msgstr "Creando la ventana principal..."
+
+#: app/perastage_app.cpp:276
+msgid "Loading last project..."
+msgstr "Cargando el último proyecto..."
+
+#: app/perastage_app.cpp:352
+msgid ""
+"The Spanish translation catalog is not available in this build. Perastage is "
+"using English."
+msgstr ""
+"El catálogo de traducción Spanish no está disponible en esta compilación. "
+"Perastage está usando inglés."
+
+#: app/perastage_app.cpp:354
+msgid "Translation catalog unavailable"
+msgstr "Catálogo de traducción no disponible"
 
 #: gui/about_dialog.cpp:137
 msgid ""
@@ -285,7 +309,7 @@ msgstr "Exportar solo referencias"
 #: gui/dictionaryeditdialog.cpp:1082 gui/dictionaryeditdialog.cpp:1345
 #: gui/dictionaryeditdialog.cpp:1412 gui/gdtfsearchdialog.cpp:151
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
-#: gui/rider_fixture_resolution_dialog.cpp:135 gui/ridertextdialog.cpp:152
+#: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:4084
 msgid "Cancel"
 msgstr "Cancelar"
@@ -447,7 +471,7 @@ msgstr "Nombre"
 #: gui/dictionaryeditdialog.cpp:989
 #: gui/fixturetable/fixture_table_columns.cpp:15
 #: gui/gdtf/gdtf_modes_panel.cpp:201
-#: gui/rider_fixture_resolution_dialog.cpp:112
+#: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr "Modo"
 
@@ -2283,7 +2307,7 @@ msgid "Select fixture mode"
 msgstr "Seleccione el modo de dispositivo"
 
 #: gui/mainwindow_fixture_replace.cpp:112
-#: gui/rider_fixture_resolution_dialog.cpp:276
+#: gui/rider_fixture_resolution_dialog.cpp:275
 msgid "Fixture mode"
 msgstr "Modo de fijación"
 
@@ -2908,7 +2932,7 @@ msgstr ""
 "No se pudo cargar el catálogo GDTF. Verifique su conexión a Internet y GDTF "
 "Comparta credenciales."
 
-#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:357
+#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:356
 msgid "GDTF catalog unavailable"
 msgstr "GDTF catálogo no disponible"
 
@@ -4143,66 +4167,66 @@ msgstr "Reinicio necesario"
 msgid "Resolve fixture types"
 msgstr "Resolver tipos de aparatos"
 
-#: gui/rider_fixture_resolution_dialog.cpp:83
+#: gui/rider_fixture_resolution_dialog.cpp:82
 msgid "Review unknown rider fixture types before creating the scene."
 msgstr ""
 "Revise los tipos de accesorios de ciclistas desconocidos antes de crear la "
 "escena."
 
-#: gui/rider_fixture_resolution_dialog.cpp:86
-#: gui/rider_fixture_resolution_dialog.cpp:588
+#: gui/rider_fixture_resolution_dialog.cpp:85
+#: gui/rider_fixture_resolution_dialog.cpp:586
 msgid "Checking cached GDTF catalog..."
 msgstr "Comprobando el catálogo GDTF almacenado en caché..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:102 gui/ridertextdialog.cpp:151
+#: gui/rider_fixture_resolution_dialog.cpp:101 gui/ridertextdialog.cpp:151
 msgid "Create"
 msgstr "Crear"
 
-#: gui/rider_fixture_resolution_dialog.cpp:104 mvr/mvrimporter.cpp:4062
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:4062
 msgid "Fixture type"
 msgstr "Tipo de aparato"
 
-#: gui/rider_fixture_resolution_dialog.cpp:106
+#: gui/rider_fixture_resolution_dialog.cpp:105
 msgid "Qty"
 msgstr "Cantidad"
 
-#: gui/rider_fixture_resolution_dialog.cpp:108
+#: gui/rider_fixture_resolution_dialog.cpp:107
 msgid "Positions"
 msgstr "Posiciones"
 
-#: gui/rider_fixture_resolution_dialog.cpp:110 mvr/mvrimporter.cpp:4064
+#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:4064
 msgid "Selected GDTF"
 msgstr "GDTF seleccionado"
 
-#: gui/rider_fixture_resolution_dialog.cpp:114 mvr/mvrimporter.cpp:4066
+#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:4066
 msgid "Status"
 msgstr "Estado"
 
-#: gui/rider_fixture_resolution_dialog.cpp:116 mvr/mvrimporter.cpp:4070
+#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:4070
 msgid "Details"
 msgstr "Detalles"
 
-#: gui/rider_fixture_resolution_dialog.cpp:121
+#: gui/rider_fixture_resolution_dialog.cpp:120
 msgid "Use suggested"
 msgstr "Uso sugerido"
 
-#: gui/rider_fixture_resolution_dialog.cpp:122
+#: gui/rider_fixture_resolution_dialog.cpp:121
 msgid "Search..."
 msgstr "Buscar..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:123
+#: gui/rider_fixture_resolution_dialog.cpp:122
 msgid "Use generic"
 msgstr "Usar genérico"
 
-#: gui/rider_fixture_resolution_dialog.cpp:131
+#: gui/rider_fixture_resolution_dialog.cpp:130
 msgid "Accept all suggestions"
 msgstr "Aceptar todas las sugerencias"
 
-#: gui/rider_fixture_resolution_dialog.cpp:134
+#: gui/rider_fixture_resolution_dialog.cpp:133
 msgid "Resolve and create"
 msgstr "Resolver y crear"
 
-#: gui/rider_fixture_resolution_dialog.cpp:193
+#: gui/rider_fixture_resolution_dialog.cpp:192
 #, c-format
 msgid ""
 "%zu fixture types will be created | %zu automatic matches | %zu generic | "
@@ -4211,35 +4235,35 @@ msgstr ""
 "Se crearán %zu tipos de aparatos | %zu coincidencias automáticas | %zu "
 "genérico | %zu omitido"
 
-#: gui/rider_fixture_resolution_dialog.cpp:204
+#: gui/rider_fixture_resolution_dialog.cpp:203
 msgid "Automatic matching complete | No additional matches found"
 msgstr ""
 "Coincidencia automática completa | No se encontraron coincidencias "
 "adicionales"
 
-#: gui/rider_fixture_resolution_dialog.cpp:208
+#: gui/rider_fixture_resolution_dialog.cpp:207
 #, c-format
 msgid "Automatic matching complete | %zu matches | %zu generic fallbacks"
 msgstr ""
 "Coincidencia automática completa | %zu coincidencias | %zu alternativas "
 "genéricas"
 
-#: gui/rider_fixture_resolution_dialog.cpp:275
+#: gui/rider_fixture_resolution_dialog.cpp:274
 msgid "Choose a valid mode for this fixture row."
 msgstr "Elija un modo válido para esta fila de dispositivos."
 
-#: gui/rider_fixture_resolution_dialog.cpp:348
+#: gui/rider_fixture_resolution_dialog.cpp:347
 msgid ""
 "The cached catalog is still loading. Generic fallback remains available."
 msgstr ""
 "El catálogo almacenado en caché aún se está cargando. El respaldo genérico "
 "sigue estando disponible."
 
-#: gui/rider_fixture_resolution_dialog.cpp:349
+#: gui/rider_fixture_resolution_dialog.cpp:348
 msgid "GDTF catalog"
 msgstr "catálogo GDTF"
 
-#: gui/rider_fixture_resolution_dialog.cpp:356
+#: gui/rider_fixture_resolution_dialog.cpp:355
 msgid ""
 "The GDTF catalog is unavailable. You can use generic or cancel without "
 "changing the scene."
@@ -4247,44 +4271,44 @@ msgstr ""
 "El catálogo GDTF no está disponible. Puedes usar genérico o cancelar sin "
 "cambiar de escena."
 
-#: gui/rider_fixture_resolution_dialog.cpp:452
+#: gui/rider_fixture_resolution_dialog.cpp:451
 msgid "Catalog unavailable; generic fallback remains available."
 msgstr "Catálogo no disponible; el respaldo genérico sigue estando disponible."
 
-#: gui/rider_fixture_resolution_dialog.cpp:468
-#: gui/rider_fixture_resolution_dialog.cpp:592
+#: gui/rider_fixture_resolution_dialog.cpp:467
+#: gui/rider_fixture_resolution_dialog.cpp:590
 msgid "Waiting for GDTF Share credentials..."
 msgstr "Esperando GDTF Compartir credenciales..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:475
+#: gui/rider_fixture_resolution_dialog.cpp:474
 msgid "GDTF catalog sign-in cancelled - generic fallback remains available"
 msgstr ""
 "GDTF inicio de sesión en el catálogo cancelado: el respaldo genérico "
 "permanece disponible"
 
-#: gui/rider_fixture_resolution_dialog.cpp:480
+#: gui/rider_fixture_resolution_dialog.cpp:479
 msgid "Connecting to GDTF Share..."
 msgstr "Conectándose a GDTF Compartir..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:560
-#: gui/rider_fixture_resolution_dialog.cpp:624
+#: gui/rider_fixture_resolution_dialog.cpp:558
+#: gui/rider_fixture_resolution_dialog.cpp:622
 msgid "GDTF catalog unavailable - generic fallback remains available"
 msgstr "Catálogo GDTF no disponible: el respaldo genérico permanece disponible"
 
-#: gui/rider_fixture_resolution_dialog.cpp:596
+#: gui/rider_fixture_resolution_dialog.cpp:594
 #: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "Signing in to GDTF Share..."
 msgstr "Iniciando sesión en GDTF Compartir..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:600
+#: gui/rider_fixture_resolution_dialog.cpp:598
 msgid "Downloading GDTF catalog..."
 msgstr "Descargando catálogo GDTF..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:604
+#: gui/rider_fixture_resolution_dialog.cpp:602
 msgid "Parsing GDTF catalog..."
 msgstr "Analizando el catálogo GDTF..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:611
+#: gui/rider_fixture_resolution_dialog.cpp:609
 #, c-format
 msgid "Matching GDTF candidates... %zu / %zu"
 msgstr "Coincidencia de candidatos GDTF... %zu / %zu"
@@ -4760,30 +4784,6 @@ msgstr "Vista Symbol exportada correctamente."
 #: gui/windows/SymbolPreviewWindow.cpp:215
 msgid "Apply Views to Fixture"
 msgstr "Aplicar vistas al dispositivo"
-
-#: main.cpp:302
-msgid "Running library bootstrap..."
-msgstr "Inicializando la biblioteca..."
-
-#: main.cpp:305
-msgid "Creating main window..."
-msgstr "Creando la ventana principal..."
-
-#: main.cpp:319
-msgid "Loading last project..."
-msgstr "Cargando el último proyecto..."
-
-#: main.cpp:395
-msgid ""
-"The Spanish translation catalog is not available in this build. Perastage is "
-"using English."
-msgstr ""
-"El catálogo de traducción Spanish no está disponible en esta compilación. "
-"Perastage está usando inglés."
-
-#: main.cpp:397
-msgid "Translation catalog unavailable"
-msgstr "Catálogo de traducción no disponible"
 
 #: mvr/mvrimporter.cpp:677
 msgid "Resolve GDTF source conflicts"

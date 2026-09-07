@@ -2,6 +2,7 @@
   "schema_version": 1,
   "top_level_directories": {
     "source_modules": [
+      "app",
       "core",
       "gui",
       "models",
@@ -36,6 +37,7 @@
   "source_registration": {
     "model": "Explicit source lists; no recursive project-source discovery.",
     "module_cmake_directories": [
+      "app",
       "core",
       "gui",
       "models",

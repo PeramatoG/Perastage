@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.5.93\n"
+"Project-Id-Version: Perastage 1.6.20\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 05:34+0000\n"
+"POT-Creation-Date: 2026-09-07 00:21+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,28 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: app/perastage_app.cpp:259
+msgid "Running library bootstrap..."
+msgstr ""
+
+#: app/perastage_app.cpp:262
+msgid "Creating main window..."
+msgstr ""
+
+#: app/perastage_app.cpp:276
+msgid "Loading last project..."
+msgstr ""
+
+#: app/perastage_app.cpp:352
+msgid ""
+"The Spanish translation catalog is not available in this build. Perastage is "
+"using English."
+msgstr ""
+
+#: app/perastage_app.cpp:354
+msgid "Translation catalog unavailable"
+msgstr ""
 
 #: gui/about_dialog.cpp:137
 msgid ""
@@ -267,7 +289,7 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:1082 gui/dictionaryeditdialog.cpp:1345
 #: gui/dictionaryeditdialog.cpp:1412 gui/gdtfsearchdialog.cpp:151
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
-#: gui/rider_fixture_resolution_dialog.cpp:135 gui/ridertextdialog.cpp:152
+#: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:4084
 msgid "Cancel"
 msgstr ""
@@ -398,7 +420,7 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:989
 #: gui/fixturetable/fixture_table_columns.cpp:15
 #: gui/gdtf/gdtf_modes_panel.cpp:201
-#: gui/rider_fixture_resolution_dialog.cpp:112
+#: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr ""
 
@@ -2116,7 +2138,7 @@ msgid "Select fixture mode"
 msgstr ""
 
 #: gui/mainwindow_fixture_replace.cpp:112
-#: gui/rider_fixture_resolution_dialog.cpp:276
+#: gui/rider_fixture_resolution_dialog.cpp:275
 msgid "Fixture mode"
 msgstr ""
 
@@ -2724,7 +2746,7 @@ msgid ""
 "GDTF Share credentials."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:357
+#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:356
 msgid "GDTF catalog unavailable"
 msgstr ""
 
@@ -3884,134 +3906,134 @@ msgstr ""
 msgid "Resolve fixture types"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:83
+#: gui/rider_fixture_resolution_dialog.cpp:82
 msgid "Review unknown rider fixture types before creating the scene."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:86
-#: gui/rider_fixture_resolution_dialog.cpp:588
+#: gui/rider_fixture_resolution_dialog.cpp:85
+#: gui/rider_fixture_resolution_dialog.cpp:586
 msgid "Checking cached GDTF catalog..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:102 gui/ridertextdialog.cpp:151
+#: gui/rider_fixture_resolution_dialog.cpp:101 gui/ridertextdialog.cpp:151
 msgid "Create"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:104 mvr/mvrimporter.cpp:4062
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:4062
 msgid "Fixture type"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:106
+#: gui/rider_fixture_resolution_dialog.cpp:105
 msgid "Qty"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:108
+#: gui/rider_fixture_resolution_dialog.cpp:107
 msgid "Positions"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:110 mvr/mvrimporter.cpp:4064
+#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:4064
 msgid "Selected GDTF"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:114 mvr/mvrimporter.cpp:4066
+#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:4066
 msgid "Status"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:116 mvr/mvrimporter.cpp:4070
+#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:4070
 msgid "Details"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:121
+#: gui/rider_fixture_resolution_dialog.cpp:120
 msgid "Use suggested"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:122
+#: gui/rider_fixture_resolution_dialog.cpp:121
 msgid "Search..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:123
+#: gui/rider_fixture_resolution_dialog.cpp:122
 msgid "Use generic"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:131
+#: gui/rider_fixture_resolution_dialog.cpp:130
 msgid "Accept all suggestions"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:134
+#: gui/rider_fixture_resolution_dialog.cpp:133
 msgid "Resolve and create"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:193
+#: gui/rider_fixture_resolution_dialog.cpp:192
 #, c-format
 msgid ""
 "%zu fixture types will be created | %zu automatic matches | %zu generic | "
 "%zu skipped"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:204
+#: gui/rider_fixture_resolution_dialog.cpp:203
 msgid "Automatic matching complete | No additional matches found"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:208
+#: gui/rider_fixture_resolution_dialog.cpp:207
 #, c-format
 msgid "Automatic matching complete | %zu matches | %zu generic fallbacks"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:275
+#: gui/rider_fixture_resolution_dialog.cpp:274
 msgid "Choose a valid mode for this fixture row."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:348
+#: gui/rider_fixture_resolution_dialog.cpp:347
 msgid ""
 "The cached catalog is still loading. Generic fallback remains available."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:349
+#: gui/rider_fixture_resolution_dialog.cpp:348
 msgid "GDTF catalog"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:356
+#: gui/rider_fixture_resolution_dialog.cpp:355
 msgid ""
 "The GDTF catalog is unavailable. You can use generic or cancel without "
 "changing the scene."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:452
+#: gui/rider_fixture_resolution_dialog.cpp:451
 msgid "Catalog unavailable; generic fallback remains available."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:468
-#: gui/rider_fixture_resolution_dialog.cpp:592
+#: gui/rider_fixture_resolution_dialog.cpp:467
+#: gui/rider_fixture_resolution_dialog.cpp:590
 msgid "Waiting for GDTF Share credentials..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:475
+#: gui/rider_fixture_resolution_dialog.cpp:474
 msgid "GDTF catalog sign-in cancelled - generic fallback remains available"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:480
+#: gui/rider_fixture_resolution_dialog.cpp:479
 msgid "Connecting to GDTF Share..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:560
-#: gui/rider_fixture_resolution_dialog.cpp:624
+#: gui/rider_fixture_resolution_dialog.cpp:558
+#: gui/rider_fixture_resolution_dialog.cpp:622
 msgid "GDTF catalog unavailable - generic fallback remains available"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:596
+#: gui/rider_fixture_resolution_dialog.cpp:594
 #: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "Signing in to GDTF Share..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:600
+#: gui/rider_fixture_resolution_dialog.cpp:598
 msgid "Downloading GDTF catalog..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:604
+#: gui/rider_fixture_resolution_dialog.cpp:602
 msgid "Parsing GDTF catalog..."
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:611
+#: gui/rider_fixture_resolution_dialog.cpp:609
 #, c-format
 msgid "Matching GDTF candidates... %zu / %zu"
 msgstr ""
@@ -4471,28 +4493,6 @@ msgstr ""
 #: gui/windows/SymbolPreviewWindow.cpp:203
 #: gui/windows/SymbolPreviewWindow.cpp:215
 msgid "Apply Views to Fixture"
-msgstr ""
-
-#: main.cpp:302
-msgid "Running library bootstrap..."
-msgstr ""
-
-#: main.cpp:305
-msgid "Creating main window..."
-msgstr ""
-
-#: main.cpp:319
-msgid "Loading last project..."
-msgstr ""
-
-#: main.cpp:395
-msgid ""
-"The Spanish translation catalog is not available in this build. Perastage is "
-"using English."
-msgstr ""
-
-#: main.cpp:397
-msgid "Translation catalog unavailable"
 msgstr ""
 
 #: mvr/mvrimporter.cpp:677

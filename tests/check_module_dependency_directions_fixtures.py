@@ -34,6 +34,12 @@ class ModuleDependencyDirectionFixtures(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(contents, encoding="utf-8")
 
+    def test_app_composition_direction_passes(self) -> None:
+        self.write("core/service.h")
+        self.write("app/perastage_app.cpp", '#include "service.h"\n')
+        _, errors = checker.validate(self.root, frozenset({("app", "core")}))
+        self.assertEqual(errors, [])
+
     def test_accepted_direction_passes(self) -> None:
         self.write("models/model.h")
         self.write("core/use.cpp", '#include "model.h"\n')

@@ -13,9 +13,10 @@ this page remains its human-readable architectural counterpart.
 
 | Path | Purpose |
 |------|---------|
-| `main.cpp` | Current wxWidgets application entry point and bootstrap; ORG-030 plans a later minimal entry boundary with bootstrap owned by `app/`. |
+| `main.cpp` | Minimal wxWidgets application-entry wiring; it includes the App-owned declaration and invokes `wxIMPLEMENT_APP(MyApp)`. |
 | `CMakeLists.txt` | Project options, principal target creation, shared target configuration, and build-module orchestration. |
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
+| `app/` | wxWidgets application lifecycle and startup/bootstrap composition, explicitly registered by its local CMake file. |
 | `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |
 | `core/` | Core logic, import helpers, dictionaries, patching, layouts, printing, persistence, and shared services. |
 | `gui/` | wxWidgets windows, dialogs, menus, panels, UI controllers, and user interaction workflows. |
@@ -48,18 +49,17 @@ from silently diverging.
 
 The source-registration arrangement is decentralized. The root `CMakeLists.txt`
 creates the application target and registers only its entry point and generated
-bootstrap source. Every module above contributes its explicit application source
+build-information source. Every module above contributes its explicit application source
 list through its own `CMakeLists.txt`. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
 
-The ORG-030 dependency audit in [Architecture](architecture.md#application-bootstrap-ownership-audit-org-030)
-selects a future top-level `app/` composition module for the wx application
-lifecycle and startup orchestration. That module does not exist yet: `main.cpp`
-still owns all current bootstrap behavior and remains the sole accepted root
-C/C++ source. A later implementation will leave only wx application entry
-wiring at the root and will add explicit App source registration; it must update
-the repository baseline and focused guards in the same change.
+The application-bootstrap boundary in [Architecture](architecture.md#application-bootstrap-ownership-org-030033)
+assigns wxWidgets lifecycle and startup orchestration to the top-level `app/`
+composition module. Root `main.cpp` remains the sole accepted root C/C++ source
+and contains only application-entry wiring. App is registered explicitly and
+may depend downward on Core, GUI, and Viewer3D; lower-level modules must not
+depend upward on App.
 
 Target-level operating-system configuration is dispatched once through
 `cmake/platform/PerastagePlatform.cmake`. The Windows owner configures the

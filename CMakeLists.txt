@@ -186,6 +186,7 @@ add_subdirectory(mvr)
 add_subdirectory(viewer2d)
 add_subdirectory(viewer3d)
 add_subdirectory(viewer_common)
+add_subdirectory(app)
 
 # Keep only shared and dependency-provided application include requirements here.
 target_include_directories(${PROJECT_NAME} PRIVATE

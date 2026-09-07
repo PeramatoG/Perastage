@@ -10,10 +10,11 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-MODULES = ("core", "models", "mvr", "gui", "viewer_common", "viewer2d", "viewer3d")
+MODULES = ("app", "core", "models", "mvr", "gui", "viewer_common", "viewer2d", "viewer3d")
 SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".hxx", ".c", ".cc", ".cpp", ".cxx"}
 # This is a reviewed contract, not a graph generated or rewritten by this check.
 ACCEPTED_DIRECTIONS: frozenset[tuple[str, str]] = frozenset({
+    ("app", "core"), ("app", "gui"), ("app", "viewer3d"),
     ("core", "models"), ("core", "mvr"), ("core", "viewer2d"), ("core", "viewer3d"),
     ("gui", "core"), ("gui", "models"), ("gui", "mvr"), ("gui", "viewer2d"),
     ("gui", "viewer3d"), ("gui", "viewer_common"),
@@ -27,6 +28,7 @@ ACCEPTED_DIRECTIONS: frozenset[tuple[str, str]] = frozenset({
 })
 # Keep this order aligned with application target include-directory accumulation.
 INCLUDE_ROOTS = (
+    "app",
     "core", "core/diagnostics", "core/layouts", "core/print",
     "gui", "gui/mainwindow/controllers", "gui/mainwindow/ids",
     "models", "mvr", "viewer2d", "viewer2d/pdf", "viewer3d",
@@ -46,7 +48,7 @@ class Evidence:
 
 
 def production_files(root: Path) -> list[Path]:
-    """Return audited C and C++ files owned by the seven production modules."""
+    """Return audited C and C++ files owned by the eight production modules."""
     return sorted(
         path
         for module in MODULES
@@ -204,7 +206,7 @@ def documentation_contract_errors(root: Path) -> list[str]:
                 documented.add((consumer, provider))
     errors: list[str] = []
     if consumers != set(MODULES):
-        errors.append("Architecture dependency table must contain exactly the seven production modules")
+        errors.append("Architecture dependency table must contain exactly the eight production modules")
     if documented != set(ACCEPTED_DIRECTIONS):
         errors.append(
             "Architecture dependency table and ACCEPTED_DIRECTIONS differ: "

@@ -31,7 +31,7 @@ Changes since **v1.6.0**.
 - Established a cross-platform, machine-checked contract for current internal module dependency directions, making accidental new coupling visible with consistent diagnostics on every supported operating system.
 - Kept the Linux/WSL setup command stable while moving its detailed bootstrap workflow into a dedicated platform script with portable cross-platform compatibility checks.
 - Kept the Windows setup command stable while moving Visual Studio, dependency validation, and build orchestration into dedicated platform scripts and aligning setup documentation.
-- Documented the application bootstrap's current responsibilities, dependencies, and lifecycle constraints to guide a later behavior-preserving modularization.
+- Moved application startup and lifecycle composition into a dedicated module while preserving launch, open-file, localization, diagnostics, splash, and shutdown behavior, leaving the root entry point minimal.
 
 ## Downloads and installation
 

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Perastage 1.4.89\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 05:34+0000\n"
+"POT-Creation-Date: 2026-09-07 00:21+0000\n"
 "PO-Revision-Date: 2026-07-13 20:34+0200\n"
 "Last-Translator: Perastage Translation Team <perastage.app@gmail.com>\n"
 "Language-Team: Simplified Chinese\n"
@@ -16,6 +16,28 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+
+#: app/perastage_app.cpp:259
+msgid "Running library bootstrap..."
+msgstr "正在初始化资源库..."
+
+#: app/perastage_app.cpp:262
+msgid "Creating main window..."
+msgstr "正在创建主窗口..."
+
+#: app/perastage_app.cpp:276
+msgid "Loading last project..."
+msgstr "正在加载上次项目..."
+
+#: app/perastage_app.cpp:352
+msgid ""
+"The Spanish translation catalog is not available in this build. Perastage is "
+"using English."
+msgstr "Spanish 翻译目录在此版本中不可用。 Peraget 使用的是英语。"
+
+#: app/perastage_app.cpp:354
+msgid "Translation catalog unavailable"
+msgstr "没有可用的 GDTF 目录。"
 
 #: gui/about_dialog.cpp:137
 msgid ""
@@ -283,7 +305,7 @@ msgstr "仅导出参考"
 #: gui/dictionaryeditdialog.cpp:1082 gui/dictionaryeditdialog.cpp:1345
 #: gui/dictionaryeditdialog.cpp:1412 gui/gdtfsearchdialog.cpp:151
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
-#: gui/rider_fixture_resolution_dialog.cpp:135 gui/ridertextdialog.cpp:152
+#: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
 #: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:4084
 msgid "Cancel"
 msgstr "取消"
@@ -443,7 +465,7 @@ msgstr "名称"
 #: gui/dictionaryeditdialog.cpp:989
 #: gui/fixturetable/fixture_table_columns.cpp:15
 #: gui/gdtf/gdtf_modes_panel.cpp:201
-#: gui/rider_fixture_resolution_dialog.cpp:112
+#: gui/rider_fixture_resolution_dialog.cpp:111
 msgid "Mode"
 msgstr "模式"
 
@@ -2233,7 +2255,7 @@ msgid "Select fixture mode"
 msgstr "选择夹具模式"
 
 #: gui/mainwindow_fixture_replace.cpp:112
-#: gui/rider_fixture_resolution_dialog.cpp:276
+#: gui/rider_fixture_resolution_dialog.cpp:275
 msgid "Fixture mode"
 msgstr "灯具类型"
 
@@ -2849,7 +2871,7 @@ msgid ""
 "GDTF Share credentials."
 msgstr "无法加载 GDTF 目录。检查您的互联网连接和 GDTF 共享凭据。"
 
-#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:357
+#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:356
 msgid "GDTF catalog unavailable"
 msgstr "没有可用的 GDTF 目录。"
 
@@ -4031,134 +4053,134 @@ msgstr "需要重启"
 msgid "Resolve fixture types"
 msgstr "选择灯具类型"
 
-#: gui/rider_fixture_resolution_dialog.cpp:83
+#: gui/rider_fixture_resolution_dialog.cpp:82
 msgid "Review unknown rider fixture types before creating the scene."
 msgstr "在创建场景之前检查未知的骑手固定装置类型。"
 
-#: gui/rider_fixture_resolution_dialog.cpp:86
-#: gui/rider_fixture_resolution_dialog.cpp:588
+#: gui/rider_fixture_resolution_dialog.cpp:85
+#: gui/rider_fixture_resolution_dialog.cpp:586
 msgid "Checking cached GDTF catalog..."
 msgstr "正在显示缓存的 GDTF 目录。"
 
-#: gui/rider_fixture_resolution_dialog.cpp:102 gui/ridertextdialog.cpp:151
+#: gui/rider_fixture_resolution_dialog.cpp:101 gui/ridertextdialog.cpp:151
 msgid "Create"
 msgstr "创建"
 
-#: gui/rider_fixture_resolution_dialog.cpp:104 mvr/mvrimporter.cpp:4062
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:4062
 msgid "Fixture type"
 msgstr "灯具类型"
 
-#: gui/rider_fixture_resolution_dialog.cpp:106
+#: gui/rider_fixture_resolution_dialog.cpp:105
 msgid "Qty"
 msgstr "数量"
 
-#: gui/rider_fixture_resolution_dialog.cpp:108
+#: gui/rider_fixture_resolution_dialog.cpp:107
 msgid "Positions"
 msgstr "位置"
 
-#: gui/rider_fixture_resolution_dialog.cpp:110 mvr/mvrimporter.cpp:4064
+#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:4064
 msgid "Selected GDTF"
 msgstr "所选 GDTF"
 
-#: gui/rider_fixture_resolution_dialog.cpp:114 mvr/mvrimporter.cpp:4066
+#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:4066
 msgid "Status"
 msgstr "状态"
 
-#: gui/rider_fixture_resolution_dialog.cpp:116 mvr/mvrimporter.cpp:4070
+#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:4070
 msgid "Details"
 msgstr "详细信息"
 
-#: gui/rider_fixture_resolution_dialog.cpp:121
+#: gui/rider_fixture_resolution_dialog.cpp:120
 msgid "Use suggested"
 msgstr "使用建议"
 
-#: gui/rider_fixture_resolution_dialog.cpp:122
+#: gui/rider_fixture_resolution_dialog.cpp:121
 msgid "Search..."
 msgstr "搜索 GDTF"
 
-#: gui/rider_fixture_resolution_dialog.cpp:123
+#: gui/rider_fixture_resolution_dialog.cpp:122
 msgid "Use generic"
 msgstr "使用通用"
 
-#: gui/rider_fixture_resolution_dialog.cpp:131
+#: gui/rider_fixture_resolution_dialog.cpp:130
 msgid "Accept all suggestions"
 msgstr "接受所有建议"
 
-#: gui/rider_fixture_resolution_dialog.cpp:134
+#: gui/rider_fixture_resolution_dialog.cpp:133
 msgid "Resolve and create"
 msgstr "解决并创建"
 
-#: gui/rider_fixture_resolution_dialog.cpp:193
+#: gui/rider_fixture_resolution_dialog.cpp:192
 #, c-format
 msgid ""
 "%zu fixture types will be created | %zu automatic matches | %zu generic | "
 "%zu skipped"
 msgstr "将创建 %zu 夹具类型 | %zu 自动匹配 | %zu 通用 | %zu 已跳过"
 
-#: gui/rider_fixture_resolution_dialog.cpp:204
+#: gui/rider_fixture_resolution_dialog.cpp:203
 msgid "Automatic matching complete | No additional matches found"
 msgstr "自动匹配完成|未找到其他匹配项"
 
-#: gui/rider_fixture_resolution_dialog.cpp:208
+#: gui/rider_fixture_resolution_dialog.cpp:207
 #, c-format
 msgid "Automatic matching complete | %zu matches | %zu generic fallbacks"
 msgstr "自动匹配完成| %zu 匹配 | %zu 通用后备"
 
-#: gui/rider_fixture_resolution_dialog.cpp:275
+#: gui/rider_fixture_resolution_dialog.cpp:274
 msgid "Choose a valid mode for this fixture row."
 msgstr "为此夹具行选择有效模式。"
 
-#: gui/rider_fixture_resolution_dialog.cpp:348
+#: gui/rider_fixture_resolution_dialog.cpp:347
 msgid ""
 "The cached catalog is still loading. Generic fallback remains available."
 msgstr "缓存的目录仍在加载。通用后备仍然可用。"
 
-#: gui/rider_fixture_resolution_dialog.cpp:349
+#: gui/rider_fixture_resolution_dialog.cpp:348
 msgid "GDTF catalog"
 msgstr "刷新 GDTF 目录"
 
-#: gui/rider_fixture_resolution_dialog.cpp:356
+#: gui/rider_fixture_resolution_dialog.cpp:355
 msgid ""
 "The GDTF catalog is unavailable. You can use generic or cancel without "
 "changing the scene."
 msgstr "GDTF 目录不可用。您可以使用通用或取消而不改变场景。"
 
-#: gui/rider_fixture_resolution_dialog.cpp:452
+#: gui/rider_fixture_resolution_dialog.cpp:451
 msgid "Catalog unavailable; generic fallback remains available."
 msgstr "目录不可用；通用后备仍然可用。"
 
-#: gui/rider_fixture_resolution_dialog.cpp:468
-#: gui/rider_fixture_resolution_dialog.cpp:592
+#: gui/rider_fixture_resolution_dialog.cpp:467
+#: gui/rider_fixture_resolution_dialog.cpp:590
 msgid "Waiting for GDTF Share credentials..."
 msgstr "GDTF Share 凭据"
 
-#: gui/rider_fixture_resolution_dialog.cpp:475
+#: gui/rider_fixture_resolution_dialog.cpp:474
 msgid "GDTF catalog sign-in cancelled - generic fallback remains available"
 msgstr "GDTF 目录登录已取消 - 通用回退仍然可用"
 
-#: gui/rider_fixture_resolution_dialog.cpp:480
+#: gui/rider_fixture_resolution_dialog.cpp:479
 msgid "Connecting to GDTF Share..."
 msgstr "正在连接到 GDTF 共享..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:560
-#: gui/rider_fixture_resolution_dialog.cpp:624
+#: gui/rider_fixture_resolution_dialog.cpp:558
+#: gui/rider_fixture_resolution_dialog.cpp:622
 msgid "GDTF catalog unavailable - generic fallback remains available"
 msgstr "GDTF 目录不可用 - 通用后备仍然可用"
 
-#: gui/rider_fixture_resolution_dialog.cpp:596
+#: gui/rider_fixture_resolution_dialog.cpp:594
 #: gui/rider_fixture_resolution_workflow.cpp:77
 msgid "Signing in to GDTF Share..."
 msgstr "正在登录 GDTF 共享..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:600
+#: gui/rider_fixture_resolution_dialog.cpp:598
 msgid "Downloading GDTF catalog..."
 msgstr "正在加载 GDTF 目录..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:604
+#: gui/rider_fixture_resolution_dialog.cpp:602
 msgid "Parsing GDTF catalog..."
 msgstr "正在加载 GDTF 目录..."
 
-#: gui/rider_fixture_resolution_dialog.cpp:611
+#: gui/rider_fixture_resolution_dialog.cpp:609
 #, c-format
 msgid "Matching GDTF candidates... %zu / %zu"
 msgstr "匹配 GDTF 候选人... %zu / %zu"
@@ -4623,28 +4645,6 @@ msgstr "Symbol 视图导出成功。"
 #: gui/windows/SymbolPreviewWindow.cpp:215
 msgid "Apply Views to Fixture"
 msgstr "将视图应用到夹具"
-
-#: main.cpp:302
-msgid "Running library bootstrap..."
-msgstr "正在初始化资源库..."
-
-#: main.cpp:305
-msgid "Creating main window..."
-msgstr "正在创建主窗口..."
-
-#: main.cpp:319
-msgid "Loading last project..."
-msgstr "正在加载上次项目..."
-
-#: main.cpp:395
-msgid ""
-"The Spanish translation catalog is not available in this build. Perastage is "
-"using English."
-msgstr "Spanish 翻译目录在此版本中不可用。 Peraget 使用的是英语。"
-
-#: main.cpp:397
-msgid "Translation catalog unavailable"
-msgstr "没有可用的 GDTF 目录。"
 
 #: mvr/mvrimporter.cpp:677
 msgid "Resolve GDTF source conflicts"

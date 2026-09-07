@@ -3,9 +3,10 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 main_source="$repo_root/main.cpp"
+app_source="$repo_root/app/perastage_app.cpp"
 splash_source="$repo_root/gui/mainwindow_startup_splash.cpp"
 
-if rg -q 'mainWindow->(Show|Maximize)\(' "$main_source"; then
+if rg -q 'mainWindow->(Show|Maximize)\(' "$main_source" "$app_source"; then
   echo "MyApp::OnInit must keep MainWindow hidden until final startup composition." >&2
   exit 1
 fi
