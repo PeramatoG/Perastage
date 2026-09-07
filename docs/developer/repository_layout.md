@@ -31,6 +31,13 @@ Repository documentation has one owner for each kind of structural fact:
 
 ## Top-level structure
 
+<!-- repository-source-modules: app, core, gui, models, mvr, viewer2d, viewer3d, viewer_common -->
+<!-- repository-root-source-roles: main.cpp=application_entry_point -->
+
+The marker above provides the deterministic layout mapping for the canonical
+source-module inventory; the table below provides the human-readable path role
+for every listed module.
+
 | Path | Purpose |
 |------|---------|
 | `main.cpp` | Minimal wxWidgets application-entry wiring; it includes the App-owned declaration and invokes `wxIMPLEMENT_APP(MyApp)`. |
@@ -65,7 +72,8 @@ The root CMake file explicitly registers every application source module with
 machine-readable `repository_structure_baseline.json` is the authoritative
 module-classification and registration list. The repository-structure guard
 keeps that classification, local module CMake ownership, and root registration
-from silently diverging.
+from silently diverging. Required architecture guard inventories and stable
+documentation markers are validated against the same canonical module list.
 
 The source-registration arrangement is decentralized. The root `CMakeLists.txt`
 creates the application target and registers only its entry point and generated
@@ -117,6 +125,16 @@ protects four invariants:
 
 The check uses no branch name or checkout-path assumption and accepts an
 explicit tracked-file manifest for isolated fixtures.
+
+Tracked developer-local configuration is rejected even if it is force-added:
+this includes root `CMakeUserPresets.json`, canonical local build directories,
+CMake build-tree metadata, and Visual Studio `.vs/` state. Critical ignore
+rules for local presets and the canonical `build/` directory are also part of
+the structural contract. `CMakeUserPresets.json` remains the supported,
+untracked mechanism for machine-specific preset overrides. Shared build and
+development configuration must use portable project or environment variables;
+literal developer-home paths are prohibited unless an exact, justified
+contract exception is recorded, and stale exceptions fail validation.
 
 Intentional architecture changes should update the declarative baseline,
 document the new module's responsibility in the architecture and repository

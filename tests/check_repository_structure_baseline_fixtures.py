@@ -55,10 +55,22 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.touch()
         registration = baseline["source_registration"]
+        marker = ", ".join(baseline["top_level_directories"]["source_modules"])
+        responsibilities = "; ".join(
+            f"{module}=fixture responsibility" for module in baseline["top_level_directories"]["source_modules"])
+        (root / "docs/developer").mkdir(parents=True, exist_ok=True)
+        (root / "docs/developer/architecture.md").write_text(
+            f"<!-- repository-source-module-responsibilities: {responsibilities} -->\n", encoding="utf-8")
+        (root / "docs/developer/repository_layout.md").write_text(
+            f"<!-- repository-source-modules: {marker} -->\n"
+            "<!-- repository-root-source-roles: main.cpp=application_entry_point -->\n",
+            encoding="utf-8")
+        (root / ".gitignore").write_text("build/\nCMakeUserPresets.json\n", encoding="utf-8")
         root_groups = " ".join(f"{group}/placeholder.cpp" for group in registration["root_registered_source_groups"])
         cmake_lines = [f"add_executable(Perastage main.cpp {root_groups})"]
         for directory in registration["module_cmake_directories"]:
-            (root / directory / "CMakeLists.txt").touch()
+            (root / directory / "CMakeLists.txt").write_text(
+                "target_sources(${PROJECT_NAME} PRIVATE placeholder.cpp)\n", encoding="utf-8")
             cmake_lines.append(f"add_subdirectory({directory})")
         for directory in registration["conditional_subdirectories"]:
             cmake_lines.append(f"add_subdirectory({directory})")
@@ -68,6 +80,37 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
             existing = path.read_text(encoding="utf-8") if path.is_file() else ""
             occurrences = (item["value"] + "\n") * item["count"]
             path.write_text(existing + occurrences, encoding="utf-8")
+
+    def align_documented_modules(self, root: Path, baseline: dict) -> None:
+        """Align both parseable documentation inventories with a fixture baseline."""
+        modules = ", ".join(baseline["top_level_directories"]["source_modules"])
+        for relative in ("docs/developer/architecture.md", "docs/developer/repository_layout.md"):
+            suffix = (
+                "<!-- repository-root-source-roles: main.cpp=application_entry_point -->\n"
+                if relative.endswith("repository_layout.md") else ""
+            )
+            marker = (
+                "<!-- repository-source-module-responsibilities: "
+                + "; ".join(f"{module}=fixture responsibility" for module in baseline["top_level_directories"]["source_modules"])
+                + " -->\n"
+                if relative.endswith("architecture.md")
+                else f"<!-- repository-source-modules: {modules} -->\n"
+            )
+            (root / relative).write_text(f"{marker}{suffix}", encoding="utf-8")
+
+    def add_aligned_module(self, root: Path, baseline: dict, module: str) -> None:
+        """Add every contract surface needed by a hypothetical source module."""
+        baseline["top_level_directories"]["source_modules"].append(module)
+        baseline["source_registration"]["module_cmake_directories"].append(module)
+        baseline["module_guard_sets"]["dependency_directions"].append(module)
+        baseline["module_guard_sets"]["application_bootstrap_lower_level"].append(module)
+        (root / module).mkdir(exist_ok=True)
+        (root / module / "module.cpp").touch()
+        (root / module / "CMakeLists.txt").write_text(
+            "target_sources(${PROJECT_NAME} PRIVATE module.cpp)\n", encoding="utf-8")
+        with (root / "CMakeLists.txt").open("a", encoding="utf-8") as stream:
+            stream.write(f"\nadd_subdirectory({module})\n")
+        self.align_documented_modules(root, baseline)
 
     def write_baseline(self, root: Path, baseline: dict) -> Path:
         """Write a fixture-specific declarative baseline outside the tracked manifest."""
@@ -119,6 +162,26 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
             result = self.run_audit(root)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_main_cpp_is_the_documented_allowed_root_entry_point(self) -> None:
+        """Accept main.cpp through aligned source and root-role contracts."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            result = self.run_audit(root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_root_source_allowlist_without_documented_role_is_rejected(self) -> None:
+        """Reject an attempted exception that updates only the loose source list."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            (root / "alternate.cpp").touch()
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            baseline["source_registration"]["root_project_sources"].append("alternate.cpp")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("documented root-source roles differ", result.stderr)
+
     def test_declared_modules_tests_third_party_and_support_data_pass(self) -> None:
         """Accept classified source trees and source-free unclassified support data."""
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -163,16 +226,79 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             self.create_fixture(root)
-            (root / "network/foo.cpp").parent.mkdir()
-            (root / "network/foo.cpp").touch()
             baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
-            baseline["top_level_directories"]["source_modules"].append("network")
-            baseline["source_registration"]["module_cmake_directories"].append("network")
-            (root / "network/CMakeLists.txt").touch()
-            with (root / "CMakeLists.txt").open("a", encoding="utf-8") as stream:
-                stream.write("\nadd_subdirectory(network)\n")
+            self.add_aligned_module(root, baseline, "network")
             result = self.run_audit(root, self.write_baseline(root, baseline))
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_source_module_without_root_registration_is_rejected(self) -> None:
+        """Reject a module whose otherwise aligned contract omits root orchestration."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            self.add_aligned_module(root, baseline, "network")
+            cmake = root / "CMakeLists.txt"
+            cmake.write_text(cmake.read_text(encoding="utf-8").replace("\nadd_subdirectory(network)\n", "\n"), encoding="utf-8")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("root add_subdirectory registrations differ", result.stderr)
+
+    def test_source_module_without_module_cmake_is_rejected(self) -> None:
+        """Reject an otherwise aligned module without explicit local source ownership."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            self.add_aligned_module(root, baseline, "network")
+            (root / "network/CMakeLists.txt").unlink()
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("module source-registration file is missing: network/CMakeLists.txt", result.stderr)
+
+    def test_source_module_without_architecture_documentation_is_rejected(self) -> None:
+        """Reject a module missing from the stable architecture marker."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            self.add_aligned_module(root, baseline, "network")
+            (root / "docs/developer/architecture.md").write_text(
+                "<!-- repository-source-module-responsibilities: "
+                + "; ".join(f"{module}=fixture responsibility" for module in baseline["top_level_directories"]["source_modules"][:-1])
+                + " -->\n",
+                encoding="utf-8")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("architecture.md source-module documentation is not aligned", result.stderr)
+
+    def test_source_module_without_layout_documentation_is_rejected(self) -> None:
+        """Reject a module missing from the stable repository-layout marker."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            self.add_aligned_module(root, baseline, "network")
+            original = ", ".join(baseline["top_level_directories"]["source_modules"][:-1])
+            (root / "docs/developer/repository_layout.md").write_text(
+                f"<!-- repository-source-modules: {original} -->\n"
+                "<!-- repository-root-source-roles: main.cpp=application_entry_point -->\n",
+                encoding="utf-8")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("repository_layout.md source-module documentation is not aligned", result.stderr)
+
+    def test_source_module_with_stale_required_guard_list_is_rejected(self) -> None:
+        """Reject a newly classified module omitted from a required architecture guard."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+            self.add_aligned_module(root, baseline, "network")
+            baseline["module_guard_sets"]["dependency_directions"].remove("network")
+            result = self.run_audit(root, self.write_baseline(root, baseline))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("dependency-direction module guard list is stale", result.stderr)
 
     def test_documented_source_module_without_cmake_ownership_is_rejected(self) -> None:
         """Reject a documented source module that lacks module CMake ownership."""
@@ -262,6 +388,48 @@ class RepositoryStructureBaselineTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("scripts/new-build-config.json:1 contains machine-specific absolute path", result.stderr)
         self.assertIn(repr(value), result.stderr)
+
+    def assert_tracked_local_path_rejected(self, relative: str) -> None:
+        """Verify tracked local state is rejected by its normalized repository path."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+            result = self.run_audit(root)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(f"tracked local configuration is prohibited: {relative}", result.stderr)
+
+    def test_tracked_cmake_user_presets_are_rejected(self) -> None:
+        """Keep supported local preset overrides out of repository control."""
+        self.assert_tracked_local_path_rejected("CMakeUserPresets.json")
+
+    def test_tracked_local_build_tree_file_is_rejected(self) -> None:
+        """Reject generated files beneath the canonical local build directory."""
+        self.assert_tracked_local_path_rejected("build/debug/CMakeFiles/state.txt")
+
+    def test_tracked_root_cmake_cache_is_rejected(self) -> None:
+        """Reject generated CMake cache state at repository root."""
+        self.assert_tracked_local_path_rejected("CMakeCache.txt")
+
+    def test_tracked_visual_studio_local_state_is_rejected(self) -> None:
+        """Reject developer-machine Visual Studio state."""
+        self.assert_tracked_local_path_rejected(".vs/Perastage/v17/.suo")
+
+    def test_tracked_local_vscode_settings_are_rejected(self) -> None:
+        """Reject only the VS Code files that repository policy keeps developer-local."""
+        self.assert_tracked_local_path_rejected(".vscode/settings.json")
+
+    def test_missing_critical_gitignore_rule_is_rejected(self) -> None:
+        """Require critical local-only policy patterns to remain ignored."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_fixture(root)
+            (root / ".gitignore").write_text("build/\n", encoding="utf-8")
+            result = self.run_audit(root)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("critical local-only pattern is missing from .gitignore: CMakeUserPresets.json", result.stderr)
 
     def test_windows_machine_path_is_rejected(self) -> None:
         """Reject a new Windows drive-based development path."""

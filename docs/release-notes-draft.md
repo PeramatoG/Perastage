@@ -33,6 +33,7 @@ Changes since **v1.6.0**.
 - Kept the Windows setup command stable while moving Visual Studio, dependency validation, and build orchestration into dedicated platform scripts and aligning setup documentation.
 - Moved application startup and lifecycle composition into a dedicated module while preserving launch, open-file, localization, diagnostics, splash, and shutdown behavior, leaving the root entry point minimal.
 - Reconciled developer documentation with the current modular repository layout and clarified the authoritative references for architecture, paths, and structural policy.
+- Enforced repository architecture boundaries for root entry points and source-module registration, and prevented developer-local build, preset, IDE, and machine-path configuration from being committed.
 
 ## Downloads and installation
 

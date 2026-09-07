@@ -52,7 +52,44 @@
     "generated_sources": ["generated/build_info.cpp"],
     "conditional_subdirectories": ["tests"]
   },
+  "documentation_contract": {
+    "architecture_source_modules_marker": "repository-source-module-responsibilities",
+    "repository_layout_source_modules_marker": "repository-source-modules",
+    "repository_layout_root_source_roles_marker": "repository-root-source-roles",
+    "root_source_roles": {
+      "main.cpp": "application_entry_point"
+    }
+  },
+  "module_guard_sets": {
+    "dependency_directions": [
+      "app", "core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common"
+    ],
+    "application_bootstrap_lower_level": [
+      "core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common"
+    ]
+  },
   "structural_guard": {
+    "local_configuration": {
+      "prohibited_root_files": [
+        "CMakeUserPresets.json",
+        "CMakeCache.txt",
+        "cmake_install.cmake",
+        "CTestTestfile.cmake",
+        "compile_commands.json",
+        "build.ninja",
+        ".ninja_deps",
+        ".ninja_log",
+        "Makefile"
+      ],
+      "prohibited_directory_prefixes": ["build/", "out/", "Debug/", "Release/", ".vs/"],
+      "prohibited_paths": [
+        ".vscode/extensions.json",
+        ".vscode/launch.json",
+        ".vscode/settings.json"
+      ],
+      "prohibited_build_tree_components": ["CMakeFiles", "Testing"],
+      "required_gitignore_patterns": ["build/", "CMakeUserPresets.json"]
+    },
     "third_party_ownership": {
       "owned_directory": "third_party",
       "vendor_directory_names": ["external", "externals", "thirdparty", "vendor", "vendors"],

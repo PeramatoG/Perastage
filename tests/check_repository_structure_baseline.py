@@ -126,6 +126,143 @@ def audit_top_level_source_modules(files: set[str], baseline: dict) -> list[str]
     ]
 
 
+def documented_modules(root: Path, relative: str, marker: str) -> set[str] | None:
+    """Read a deliberately parseable source-module marker from documentation."""
+    path = root / relative
+    if not path.is_file():
+        return None
+    match = re.search(
+        rf"<!--\s*{re.escape(marker)}\s*:\s*([^>]+?)\s*-->",
+        path.read_text(encoding="utf-8"),
+    )
+    if match is None:
+        return None
+    separator = ";" if "=" in match.group(1) else ","
+    items = [item.strip() for item in match.group(1).split(separator) if item.strip()]
+    if "=" in match.group(1) and any(not item.partition("=")[2].strip() for item in items):
+        return None
+    return {item.partition("=")[0].strip() for item in items}
+
+
+def audit_documentation_contract(root: Path, baseline: dict) -> list[str]:
+    """Keep stable architecture and layout markers aligned with the canonical inventory."""
+    policy = baseline["documentation_contract"]
+    source_modules = set(baseline["top_level_directories"]["source_modules"])
+    errors: list[str] = []
+    documents = (
+        ("docs/developer/architecture.md", policy["architecture_source_modules_marker"]),
+        ("docs/developer/repository_layout.md", policy["repository_layout_source_modules_marker"]),
+    )
+    for relative, marker in documents:
+        documented = documented_modules(root, relative, marker)
+        if documented is None:
+            errors.append(
+                f"{relative} is missing the parseable '<!-- {marker}: ... -->' source-module "
+                "inventory required by repository_structure_baseline.json"
+            )
+        elif documented != source_modules:
+            errors.append(
+                f"{relative} source-module documentation is not aligned with the canonical baseline: "
+                f"missing {sorted(source_modules - documented)}, unexpected {sorted(documented - source_modules)}; "
+                f"update its '<!-- {marker}: ... -->' marker and module description"
+            )
+
+    root_roles = policy["root_source_roles"]
+    allowed_sources = set(baseline["source_registration"]["root_project_sources"])
+    if set(root_roles) != allowed_sources:
+        errors.append(
+            "documented root-source roles differ from source_registration.root_project_sources: "
+            f"missing roles {sorted(allowed_sources - set(root_roles))}, stale roles "
+            f"{sorted(set(root_roles) - allowed_sources)}; align documentation_contract.root_source_roles"
+        )
+    for source, role in sorted(root_roles.items()):
+        if source not in baseline["root_file_roles"].get(role, []):
+            errors.append(
+                f"approved root source {source} has undocumented role {role!r}; add it to the matching "
+                "root_file_roles entry and document that role in docs/developer/repository_layout.md"
+            )
+    layout = root / "docs/developer/repository_layout.md"
+    role_marker = policy["repository_layout_root_source_roles_marker"]
+    role_match = re.search(
+        rf"<!--\s*{re.escape(role_marker)}\s*:\s*([^>]+?)\s*-->",
+        layout.read_text(encoding="utf-8") if layout.is_file() else "",
+    )
+    documented_roles = {}
+    if role_match:
+        for item in role_match.group(1).split(","):
+            source, separator, role = item.strip().partition("=")
+            if separator and source and role:
+                documented_roles[source] = role
+    if documented_roles != root_roles:
+        errors.append(
+            f"docs/developer/repository_layout.md root-source role marker is not aligned: "
+            f"expected {root_roles}, found {documented_roles}; update '<!-- {role_marker}: file=role -->' "
+            "with the corresponding human-readable root-file role"
+        )
+    return errors
+
+
+def audit_module_guard_sets(baseline: dict) -> list[str]:
+    """Validate full and intentionally reduced guard inventories against source modules."""
+    modules = set(baseline["top_level_directories"]["source_modules"])
+    guards = baseline["module_guard_sets"]
+    errors: list[str] = []
+    dependency_modules = set(guards["dependency_directions"])
+    if dependency_modules != modules:
+        errors.append(
+            "required dependency-direction module guard list is stale: "
+            f"missing {sorted(modules - dependency_modules)}, unexpected {sorted(dependency_modules - modules)}; "
+            "align module_guard_sets.dependency_directions without changing ACCEPTED_DIRECTIONS automatically"
+        )
+    expected_lower = modules - {"app"}
+    lower_modules = set(guards["application_bootstrap_lower_level"])
+    if lower_modules != expected_lower:
+        errors.append(
+            "application-bootstrap lower-level module guard list is stale: "
+            f"missing {sorted(expected_lower - lower_modules)}, unexpected {sorted(lower_modules - expected_lower)}; "
+            "align module_guard_sets.application_bootstrap_lower_level (the intentional source_modules minus app subset)"
+        )
+    return errors
+
+
+def audit_local_configuration(root: Path, files: set[str], policy: dict) -> list[str]:
+    """Reject tracked local build and IDE state and require critical ignore rules."""
+    errors: list[str] = []
+    prohibited_roots = set(policy["prohibited_root_files"])
+    prohibited_paths = set(policy["prohibited_paths"])
+    prefixes = tuple(policy["prohibited_directory_prefixes"])
+    components = set(policy["prohibited_build_tree_components"])
+    for relative in sorted(files):
+        parts = relative.split("/")
+        reason = None
+        if "/" not in relative and relative in prohibited_roots:
+            reason = "developer-local/generated root configuration"
+        elif relative in prohibited_paths:
+            reason = "project-local editor configuration intentionally kept untracked"
+        elif relative.startswith(prefixes):
+            reason = "repository-local build or IDE output"
+        elif any(part in components for part in parts[:-1]):
+            reason = "generated CMake/build-tree state"
+        if reason:
+            errors.append(
+                f"tracked local configuration is prohibited: {relative} ({reason}); remove it from Git "
+                "and keep local overrides/build output untracked"
+            )
+
+    gitignore = root / ".gitignore"
+    lines = {
+        line.strip() for line in gitignore.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    } if gitignore.is_file() else set()
+    for pattern in policy["required_gitignore_patterns"]:
+        if pattern not in lines:
+            errors.append(
+                f"critical local-only pattern is missing from .gitignore: {pattern}; restore it so "
+                "ordinary Git usage does not stage architecture-prohibited local state"
+            )
+    return errors
+
+
 def audit_third_party_ownership(root: Path, files: set[str], policy: dict) -> list[str]:
     """Reject conservative evidence of vendored C/C++ code outside its owned directory."""
     owned_directory = policy["owned_directory"]
@@ -217,7 +354,9 @@ def audit_repository(root: Path, baseline: dict, files: set[str]) -> list[str]:
     for relative in sorted(actual_root_sources - allowed_root_sources):
         errors.append(
             f"unexpected root project source: {relative}; root-level C/C++ files must be "
-            "recorded architectural entry points in repository_structure_baseline.json"
+            "restricted to explicit entry points so feature ownership remains modular; if a new "
+            "entry point is intentional, align repository_structure_baseline.json root source and "
+            "role contracts plus docs/developer/architecture.md and repository_layout.md"
         )
     for relative in sorted(allowed_root_sources - actual_root_sources):
         errors.append(f"recorded root project source is missing: {relative}")
@@ -236,7 +375,15 @@ def audit_repository(root: Path, baseline: dict, files: set[str]) -> list[str]:
         for module in baseline["source_registration"]["module_cmake_directories"]:
             module_cmake = root / module / "CMakeLists.txt"
             if not module_cmake.is_file():
-                errors.append(f"module source-registration file is missing: {module}/CMakeLists.txt")
+                errors.append(
+                    f"module source-registration file is missing: {module}/CMakeLists.txt; add explicit "
+                    "module-level target_sources ownership in the same architecture change"
+                )
+            elif not re.search(r"\btarget_sources\s*\(", module_cmake.read_text(encoding="utf-8"), re.IGNORECASE):
+                errors.append(
+                    f"module source-registration file lacks explicit target_sources ownership: "
+                    f"{module}/CMakeLists.txt"
+                )
         executable_match = re.search(r"add_executable\s*\(([^)]*)\)", cmake, re.DOTALL)
         executable_sources = executable_match.group(1) if executable_match else ""
         for entry_point in baseline["source_registration"]["root_compiled_entry_points"]:
@@ -259,7 +406,10 @@ def audit_repository(root: Path, baseline: dict, files: set[str]) -> list[str]:
                 )
 
     guard = baseline["structural_guard"]
+    errors.extend(audit_documentation_contract(root, baseline))
+    errors.extend(audit_module_guard_sets(baseline))
     errors.extend(audit_top_level_source_modules(files, baseline))
+    errors.extend(audit_local_configuration(root, files, guard["local_configuration"]))
     errors.extend(audit_third_party_ownership(root, files, guard["third_party_ownership"]))
     errors.extend(audit_machine_paths(root, files, guard["machine_path_scan"]))
     errors.extend(audit_source_discovery(root, files))
