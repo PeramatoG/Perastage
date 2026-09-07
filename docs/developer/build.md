@@ -229,6 +229,18 @@ dependency tree.
 
 Use the WSL presets from a Linux/WSL environment where the required development packages are installed:
 
+The root `setup.sh` launcher installs the distro packages needed by dependency
+discovery and the Spanish and Simplified Chinese locales used by the complete
+CTest suite on its supported apt path. The MVR-xchange `mdns` package
+is not available from those distro package sets. Supply it externally as
+documented in [MVR-xchange Notes](technical-notes/mvr_xchange.md), and expose
+the prefix containing `mdnsConfig.cmake` through `CMAKE_PREFIX_PATH` before
+using the canonical preset. For example, for an external vcpkg installed tree:
+
+```bash
+export CMAKE_PREFIX_PATH=/path/to/vcpkg-installed/x64-linux
+```
+
 ```bash
 cmake --preset wsl-x64-debug
 cmake --build --preset wsl-debug-build

@@ -85,4 +85,5 @@ if(NOT "${missing_output}${missing_error}" MATCHES "${expected_missing}")
     message(FATAL_ERROR "Missing Bash failure was not actionable: ${missing_output}${missing_error}")
 endif()
 
+file(REMOVE_RECURSE "${test_root}")
 message("OK: Bash resolver contract covers explicit precedence, host PATH discovery, Windows path rejection, Git candidate derivation, probes, and actionable failures.")

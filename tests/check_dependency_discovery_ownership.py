@@ -51,6 +51,7 @@ def main() -> int:
         "add_library(podofo::podofo UNKNOWN IMPORTED)",
         "perastage_probe_wx_secretstore(PERASTAGE_WX_SECRETSTORE_ENABLED)",
         "if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)",
+        "find_path(PERASTAGE_MDNS_INCLUDE_DIR mdns.h REQUIRED)",
     )
     for contract in required_contracts:
         if contract not in dependency_cmake:

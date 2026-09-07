@@ -915,8 +915,13 @@ target_link_libraries(layout_defaults_load_from_empty_config_test
 add_test(NAME LayoutDefaultsLoadFromEmptyConfig
          COMMAND layout_defaults_load_from_empty_config_test)
 
+set(PERASTAGE_TEST_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/runtime-library")
+file(REMOVE_RECURSE "${PERASTAGE_TEST_LIBRARY_PATH}")
+file(COPY "${CMAKE_SOURCE_DIR}/library/" DESTINATION "${PERASTAGE_TEST_LIBRARY_PATH}")
+
 function(set_library_env TEST_NAME)
-    set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
+    set_tests_properties(${TEST_NAME} PROPERTIES
+        ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${PERASTAGE_TEST_LIBRARY_PATH}")
 endfunction()
 
 set(LAYOUT_SOURCES

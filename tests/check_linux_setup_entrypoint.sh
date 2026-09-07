@@ -120,6 +120,10 @@ run_setup Release
 assert_file_contains "apt updates package metadata" 'sudo:apt-get update' "$COMMAND_LOG"
 assert_file_contains "apt installs the expected dependency prefix" \
     'sudo:apt-get install -y build-essential cmake ninja-build' "$COMMAND_LOG"
+assert_file_contains "apt installs dependencies required by CMake discovery" \
+    'libmeshoptimizer-dev libnanovg-dev libbackward-cpp-dev gettext' "$COMMAND_LOG"
+assert_file_contains "apt generates locales used by the complete CTest suite" \
+    'sudo:locale-gen es_ES.UTF-8 zh_CN.UTF-8' "$COMMAND_LOG"
 rm "$FAKE_BIN/apt-get"
 
 touch "$FAKE_BIN/dnf"
