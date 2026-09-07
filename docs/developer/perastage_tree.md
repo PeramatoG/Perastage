@@ -8,7 +8,7 @@ This map is aligned with the terminology used in `README.md` and `docs/developer
 
 ```text
 Perastage/
-|-- main.cpp                     # wxWidgets application entry point.
+|-- main.cpp                     # Current wxWidgets entry point and bootstrap; planned to become entry-only.
 |-- CMakeLists.txt               # Root target creation, build orchestration, and module registration.
 |-- CMakePresets.json            # Supported local configure/build presets.
 |-- README.md                    # Product overview, features, and entry links.
@@ -61,7 +61,10 @@ Perastage/
 
 ## Critical files (explicit exception to high-level granularity)
 
-- `main.cpp`: application bootstrap.
+- `main.cpp`: current application bootstrap and sole root C/C++ entry point.
+  ORG-030 selects a future `app/` module for bootstrap composition, but does not
+  create it or move any code; see the ownership audit in
+  `docs/developer/architecture.md`.
 - `CMakeLists.txt`: primary build orchestration.
 - `CMakePresets.json`: supported local configure/build presets.
 - `README.md`: functional/documentation reference.

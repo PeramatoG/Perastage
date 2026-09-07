@@ -13,7 +13,7 @@ this page remains its human-readable architectural counterpart.
 
 | Path | Purpose |
 |------|---------|
-| `main.cpp` | wxWidgets application entry point and top-level initialization. |
+| `main.cpp` | Current wxWidgets application entry point and bootstrap; ORG-030 plans a later minimal entry boundary with bootstrap owned by `app/`. |
 | `CMakeLists.txt` | Project options, principal target creation, shared target configuration, and build-module orchestration. |
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
 | `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |
@@ -52,6 +52,14 @@ bootstrap source. Every module above contributes its explicit application source
 list through its own `CMakeLists.txt`. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
+
+The ORG-030 dependency audit in [Architecture](architecture.md#application-bootstrap-ownership-audit-org-030)
+selects a future top-level `app/` composition module for the wx application
+lifecycle and startup orchestration. That module does not exist yet: `main.cpp`
+still owns all current bootstrap behavior and remains the sole accepted root
+C/C++ source. A later implementation will leave only wx application entry
+wiring at the root and will add explicit App source registration; it must update
+the repository baseline and focused guards in the same change.
 
 Target-level operating-system configuration is dispatched once through
 `cmake/platform/PerastagePlatform.cmake`. The Windows owner configures the
