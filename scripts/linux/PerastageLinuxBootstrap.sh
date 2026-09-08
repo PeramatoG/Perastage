@@ -150,9 +150,9 @@ parse_arguments "$@"
 REPOSITORY_ROOT="$(get_repository_root)"
 cd "$REPOSITORY_ROOT"
 
-assert_command_available "cmake"
-
 install_system_dependencies
+
+assert_command_available "cmake"
 
 CONFIGURE_PRESET="$(get_configure_preset)"
 BUILD_PRESET="$(get_build_preset)"

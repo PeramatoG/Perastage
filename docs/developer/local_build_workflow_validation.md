@@ -7,28 +7,27 @@ canonical instructions remain in the [Build and Dependency Guide](build.md).
 CI is context only and does not replace native local execution.
 
 - **Merged `main` SHA:** `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76`
-- **GitHub-reachable Windows rerun head:** `ee201dc5758df89c0a371e2060c339359181586d`
+- **GitHub-reachable Windows and WSL test head:** `f07b04d2fc4e0d5c164250730d202e7673c8bb29`
 - **Original Linux execution identifier:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec` (local historical identifier; the reproducible evidence reference is the published PR head above)
 - **Initial validation date:** 2026-09-07
-- **Windows corrective follow-up date:** 2026-09-08
+- **Windows and WSL corrective follow-up date:** 2026-09-08
 - **Precondition:** the tested commit contains merge `056f3f4`, PR #2339
   (**ORG-038: complete repository-organization regression audit**).
 
 **ORG-039 is not yet complete; external local validation remains required.**
-The Windows rerun passed setup, configure, and the Debug build, then exposed
-missing Debug test-tool documentation/preflight and two test portability issues. Apple Silicon macOS and WSL x64 were
-unavailable. All three remain pending rather than inferred from GitHub Actions.
-Native Linux was exercised
-in its own clean checkout.
+Windows and native Linux have complete local evidence. The clean WSL attempt
+exposed a bootstrap ordering regression before configure, and Apple Silicon
+macOS remains unavailable. WSL and macOS remain pending rather than inferred
+from GitHub Actions.
 
 ## Validation matrix
 
 | Platform | Exact environment | Tested commit SHA | Clean checkout and prerequisites | Setup launcher | Debug configure / build / CTest | Release configure / build | Stage and resources | Canonical presets | Local override | Final status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `ee201dc5758df89c0a371e2060c339359181586d` | PASS: external clean checkout and classic-vcpkg prerequisites | PASS: Debug clean setup/configure and secure-store probe | Configure PASS; build PASS (2476/2476); CTest FAIL (249 total: 213 passed, 36 failed) | Not run | Not run | Debug canonical configure/build PASS | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
-| macOS Apple Silicon | Native Apple Silicon macOS unavailable | `c7fb7121434e3c499ee250c7b5afa732e8365040` target, not executed | Not run against target `c7fb7121434e3c499ee250c7b5afa732e8365040` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
-| Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `c7fb7121434e3c499ee250c7b5afa732e8365040` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
-| WSL x64 | WSL unavailable; native-Linux build not reused | `c7fb7121434e3c499ee250c7b5afa732e8365040` target, not executed | Not run against target `c7fb7121434e3c499ee250c7b5afa732e8365040` | Not run | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | PASS: clean checkout, external classic vcpkg, no generated local configuration | PASS | PASS: 249/249 | PASS | PASS: staged resources verified | PASS | PASS: ignored temporary user preset removed | **PASS** |
+| macOS Apple Silicon | Native Apple Silicon macOS unavailable | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` target, not executed | Not run against target `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
+| WSL x64 | WSL2 Ubuntu 24.04.1 LTS x86_64; checkout under `/home/peramato/Perastage-ORG039-WSL` | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | PASS: clean checkout in WSL Linux filesystem; CMake initially absent | FAIL: CMake preflight ran before apt dependency installation; correction applied, not externally retested | Not run | Not run | Not run | Canonical names confirmed; execution blocked before configure | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
 
 The checked-in names match every requested canonical family: Windows
 `win-x64-debug-ninja`, `win-x64-release-ninja`, `win-debug-build-ninja`,
@@ -168,40 +167,42 @@ unchanged, and the temporary file was removed.
 
 ## Windows external validation follow-up
 
-The secret-store correction was externally rerun from a native Windows x64
-clean checkout at GitHub-reachable head
-`ee201dc5758df89c0a371e2060c339359181586d`, using the external classic vcpkg
-root `C:\vcpkg`. The generated Debug and Release wxWidgets setup headers both
-reported `wxUSE_SECRETSTORE=1`, and the secure-store CMake probe passed.
-`setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` passed, the
-canonical `win-x64-debug-ninja` configure passed, and
-`win-debug-build-ninja` completed all 2476 Ninja steps.
+Native Windows x64 validation completed successfully at GitHub-reachable head
+`f07b04d2fc4e0d5c164250730d202e7673c8bb29`. The stable setup launcher and
+canonical Debug configure passed, the Debug build completed, and the full CTest
+suite passed 249 of 249 tests. The canonical Release configure/build and stage
+passed; generated and copied resources were verified. The ignored
+`CMakeUserPresets.json` override worked and was removed, the checkout remained
+clean, and no repository-local `vcpkg_installed` tree was created. CI Debug
+Tests run #467 for the same head also completed successfully. This local result,
+not CI alone, promotes the Windows row to PASS.
 
-The complete Windows CTest run executed 249 tests: 213 passed and 36 failed.
-Thirty-four failures were policy/shell tests whose required `rg` executable was
-not on `PATH`. Two further failures came from test-only symlink assumptions in
-`MacosSdkCacheGuard` and `MissingRipgrepBehavior`; a standard non-elevated
-Windows process reported `WinError 1314`. These are test workflow and test
-portability findings, not application build failures.
+## WSL external validation follow-up
 
-The focused correction makes ripgrep an explicit Debug/full-CTest preflight
-requirement while leaving Release-only application builds unaffected and never
-installing software. `MissingRipgrepBehavior` now creates a portable temporary `dirname` wrapper in
-its isolated `PATH` instead of creating a symlink. The
-macOS SDK cache-guard test still runs its alias assertions wherever symlink
-creation is supported; when the operating system explicitly denies that
-capability, it reports the reason and continues all non-alias assertions.
+A genuinely clean WSL2 Ubuntu 24.04.1 LTS x86_64 environment checked out
+`f07b04d2fc4e0d5c164250730d202e7673c8bb29` under
+`/home/peramato/Perastage-ORG039-WSL`, inside the Linux filesystem rather than
+`/mnt/c`. CMake was not preinstalled. The documented command
+`./setup.sh Debug --skip-build` failed immediately with
+`Required command 'cmake' was not found in PATH.`
 
-Windows remains **PENDING EXTERNAL LOCAL VALIDATION**. The corrected published
-branch must be rerun externally through the full Debug CTest suite, Release
-configure/build/stage, resource checks, local override, and final cleanliness
-check before this row can become PASS.
+The root cause was bootstrap ordering: the implementation required CMake before
+calling the apt/dnf dependency installer, even though those installers own
+installing CMake. The focused correction installs dependencies first during a
+normal invocation and then validates that CMake is available before configure.
+When `--skip-deps` is supplied, installation remains disabled and the same
+preflight clearly rejects a missing preinstalled CMake. Preset selection,
+`--skip-build`, the root launcher boundary, and the external mDNS requirement
+remain unchanged.
+
+WSL remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected published
+head is rerun through setup, Debug configure/build/CTest, Release
+configure/build/stage, resource checks, the ignored local override, and final
+checkout cleanliness.
 
 ## Pending external execution
 
-Windows still requires clean native execution of the classic-vcpkg launcher,
-MSVC/Git Bash checks, Debug build and CTest, Release build/stage, resources, and
-local override. Apple Silicon macOS still requires both builds, Debug CTest,
+Apple Silicon macOS still requires both builds, Debug CTest,
 gettext/resources, external vcpkg, and a local override. WSL must independently
 exercise the launcher, Debug/CTest, Release/stage/resources, and `/mnt/c`
 isolation from a clean WSL-filesystem checkout. CI cannot promote these rows.

@@ -248,6 +248,10 @@ using the canonical preset. For example, for an external vcpkg installed tree:
 export CMAKE_PREFIX_PATH=/path/to/vcpkg-installed/x64-linux
 ```
 
+With dependency installation enabled, the launcher runs the supported package
+manager before validating that CMake is available. With `--skip-deps`, it
+performs no package installation and requires CMake to be preinstalled.
+
 ```bash
 cmake --preset wsl-x64-debug
 cmake --build --preset wsl-debug-build

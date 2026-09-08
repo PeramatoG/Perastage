@@ -8,6 +8,7 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 TEST_REPOSITORY="$TEMP_DIR/repository"
 FAKE_BIN="$TEMP_DIR/bin"
 COMMAND_LOG="$TEMP_DIR/commands.log"
+CMAKE_STUB="$TEMP_DIR/cmake-stub"
 mkdir -p "$TEST_REPOSITORY/scripts/linux" "$FAKE_BIN"
 cp "$ROOT_DIR/setup.sh" "$TEST_REPOSITORY/setup.sh"
 cp "$ROOT_DIR/scripts/linux/PerastageLinuxBootstrap.sh" "$TEST_REPOSITORY/scripts/linux/PerastageLinuxBootstrap.sh"
@@ -69,7 +70,7 @@ create_tool_wrapper dirname "$(command -v dirname)"
 
 export PERASTAGE_TEST_REPOSITORY="$TEST_REPOSITORY"
 
-cat >"$FAKE_BIN/cmake" <<EOF
+cat >"$CMAKE_STUB" <<EOF
 #!/bin/sh
 if [ "\$PWD" -ef "\$PERASTAGE_TEST_REPOSITORY" ]; then
     working_directory='repository-root'
@@ -78,9 +79,15 @@ else
 fi
 printf 'cmake:%s:%s\n' "\$working_directory" "\$*" >>"$COMMAND_LOG"
 EOF
+chmod +x "$CMAKE_STUB"
+cp "$CMAKE_STUB" "$FAKE_BIN/cmake"
 cat >"$FAKE_BIN/sudo" <<EOF
 #!/bin/sh
 printf 'sudo:%s\n' "\$*" >>"$COMMAND_LOG"
+if [ "\${PERASTAGE_SIMULATE_CMAKE_INSTALL:-0}" = 1 ] && [ "\${1:-}" = apt-get ] && [ "\${2:-}" = install ]; then
+    "$(command -v cp)" "$CMAKE_STUB" "$FAKE_BIN/cmake"
+    "$(command -v chmod)" +x "$FAKE_BIN/cmake"
+fi
 EOF
 chmod +x "$FAKE_BIN/cmake" "$FAKE_BIN/sudo"
 
@@ -115,6 +122,26 @@ assert_file_excludes "--skip-build avoids the build preset" '--build' "$COMMAND_
 
 touch "$FAKE_BIN/apt-get"
 chmod +x "$FAKE_BIN/apt-get"
+
+rm "$FAKE_BIN/cmake"
+: >"$COMMAND_LOG"
+PERASTAGE_SIMULATE_CMAKE_INSTALL=1 run_setup Debug --skip-build
+assert_file_contains "dependency installation runs before the CMake preflight" \
+    'sudo:apt-get install -y build-essential cmake ninja-build' "$COMMAND_LOG"
+assert_file_contains "configuration proceeds after dependency installation supplies CMake" \
+    'cmake:repository-root:--preset wsl-x64-debug' "$COMMAND_LOG"
+
+rm "$FAKE_BIN/cmake"
+: >"$COMMAND_LOG"
+if run_setup Debug --skip-deps --skip-build >"$TEMP_DIR/skip-deps-missing.out" 2>"$TEMP_DIR/skip-deps-missing.err"; then
+    echo "Setup unexpectedly accepted --skip-deps without preinstalled CMake." >&2
+    exit 1
+fi
+assert_file_contains "--skip-deps reports missing preinstalled CMake" \
+    "Required command 'cmake' was not found in PATH." "$TEMP_DIR/skip-deps-missing.err"
+assert_file_excludes "--skip-deps never installs missing CMake" 'sudo:' "$COMMAND_LOG"
+
+cp "$CMAKE_STUB" "$FAKE_BIN/cmake"
 : >"$COMMAND_LOG"
 run_setup Release
 assert_file_contains "apt updates package metadata" 'sudo:apt-get update' "$COMMAND_LOG"
