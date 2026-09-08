@@ -7,15 +7,16 @@ canonical instructions remain in the [Build and Dependency Guide](build.md).
 CI is context only and does not replace native local execution.
 
 - **Merged `main` SHA:** `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76`
-- **GitHub-reachable PR head used for follow-up:** `c7fb7121434e3c499ee250c7b5afa732e8365040`
+- **GitHub-reachable Windows rerun head:** `ee201dc5758df89c0a371e2060c339359181586d`
 - **Original Linux execution identifier:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec` (local historical identifier; the reproducible evidence reference is the published PR head above)
-- **Date:** 2026-09-07
+- **Initial validation date:** 2026-09-07
+- **Windows corrective follow-up date:** 2026-09-08
 - **Precondition:** the tested commit contains merge `056f3f4`, PR #2339
   (**ORG-038: complete repository-organization regression audit**).
 
 **ORG-039 is not yet complete; external local validation remains required.**
-The Windows attempt exposed the pre-configure regression and the corrected branch
-was not available for an external rerun. Apple Silicon macOS and WSL x64 were
+The Windows rerun passed setup, configure, and the Debug build, then exposed
+missing Debug test-tool documentation/preflight and two test portability issues. Apple Silicon macOS and WSL x64 were
 unavailable. All three remain pending rather than inferred from GitHub Actions.
 Native Linux was exercised
 in its own clean checkout.
@@ -24,7 +25,7 @@ in its own clean checkout.
 
 | Platform | Exact environment | Tested commit SHA | Clean checkout and prerequisites | Setup launcher | Debug configure / build / CTest | Release configure / build | Stage and resources | Canonical presets | Local override | Final status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `c7fb7121434e3c499ee250c7b5afa732e8365040` | External report confirms clean vcpkg markers/status; full clean-checkout rerun remains required after correction | FAIL: false negative against generic `include\wx\setup.h`; focused correction applied, not externally retested | Not run after launcher failure | Not run | Not run | Canonical names confirmed; execution blocked before configure | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `ee201dc5758df89c0a371e2060c339359181586d` | PASS: external clean checkout and classic-vcpkg prerequisites | PASS: Debug clean setup/configure and secure-store probe | Configure PASS; build PASS (2476/2476); CTest FAIL (249 total: 213 passed, 36 failed) | Not run | Not run | Debug canonical configure/build PASS | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
 | macOS Apple Silicon | Native Apple Silicon macOS unavailable | `c7fb7121434e3c499ee250c7b5afa732e8365040` target, not executed | Not run against target `c7fb7121434e3c499ee250c7b5afa732e8365040` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
 | Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `c7fb7121434e3c499ee250c7b5afa732e8365040` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
 | WSL x64 | WSL unavailable; native-Linux build not reused | `c7fb7121434e3c499ee250c7b5afa732e8365040` target, not executed | Not run against target `c7fb7121434e3c499ee250c7b5afa732e8365040` | Not run | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
@@ -167,33 +168,34 @@ unchanged, and the temporary file was removed.
 
 ## Windows external validation follow-up
 
-A native Windows x64 clean-checkout attempt against GitHub-reachable PR head
-`c7fb7121434e3c499ee250c7b5afa732e8365040` used an external classic vcpkg
-checkout at `C:\vcpkg`. `vcpkg list` reported wxWidgets 3.3.3#1 with the
-`secretstore` feature. Both generated Release headers under
-`installed\x64-windows\lib\msw*\wx\setup.h` and the generated Debug header
-under `installed\x64-windows\debug\lib\msw*\wx\setup.h` defined
-`wxUSE_SECRETSTORE 1`. The generic public
-`installed\x64-windows\include\wx\setup.h` did not contain that platform
-setting.
+The secret-store correction was externally rerun from a native Windows x64
+clean checkout at GitHub-reachable head
+`ee201dc5758df89c0a371e2060c339359181586d`, using the external classic vcpkg
+root `C:\vcpkg`. The generated Debug and Release wxWidgets setup headers both
+reported `wxUSE_SECRETSTORE=1`, and the secure-store CMake probe passed.
+`setup_windows.ps1 -Configuration Debug -CleanBuild -SkipBuild` passed, the
+canonical `win-x64-debug-ninja` configure passed, and
+`win-debug-build-ninja` completed all 2476 Ninja steps.
 
-The root launcher failed before configure because its validator selected the
-generic header after the legacy `include\wx\msw\setup.h` candidate was absent.
-The correction now discovers generated headers independently for Debug and
-Release by enumerating `msw*` library configuration directories, retains the
-legacy generated MSW header as a compatibility candidate, deliberately ignores
-the generic public header, and requires every discovered generated header to
-define `wxUSE_SECRETSTORE 1`. Failure diagnostics list the configuration, exact
-header, and observed disabled or missing definition; absence diagnostics list
-the generated paths searched. The script remains validation-only and never
-installs or rebuilds wxWidgets.
+The complete Windows CTest run executed 249 tests: 213 passed and 36 failed.
+Thirty-four failures were policy/shell tests whose required `rg` executable was
+not on `PATH`. Two further failures came from test-only symlink assumptions in
+`MacosSdkCacheGuard` and `MissingRipgrepBehavior`; a standard non-elevated
+Windows process reported `WinError 1314`. These are test workflow and test
+portability findings, not application build failures.
 
-Deterministic fixtures cover a generic header with no usable setting plus valid
-Debug and Release generated headers (PASS), a generated Debug header defining
-zero (FAIL), and a generated Debug header missing the definition (FAIL). Windows
-remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected GitHub branch
-is rerun from a native clean checkout through setup, both canonical builds, full
-Debug CTest, Release staging/resources, and the local override check.
+The focused correction makes ripgrep an explicit Debug/full-CTest preflight
+requirement while leaving Release-only application builds unaffected and never
+installing software. `MissingRipgrepBehavior` now creates a portable temporary `dirname` wrapper in
+its isolated `PATH` instead of creating a symlink. The
+macOS SDK cache-guard test still runs its alias assertions wherever symlink
+creation is supported; when the operating system explicitly denies that
+capability, it reports the reason and continues all non-alias assertions.
+
+Windows remains **PENDING EXTERNAL LOCAL VALIDATION**. The corrected published
+branch must be rerun externally through the full Debug CTest suite, Release
+configure/build/stage, resource checks, local override, and final cleanliness
+check before this row can become PASS.
 
 ## Pending external execution
 

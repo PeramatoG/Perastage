@@ -43,6 +43,13 @@ Install or repair dependencies manually before configuring if they are missing. 
 
 Gettext tools are build-time dependencies for localization catalog generation. On Windows they should resolve from `$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin`. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
 
+The complete Windows Debug CTest workflow also requires
+[ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) on `PATH`, because the
+registered shell policy tests use it for repository inspection. Ripgrep is a
+development/test tool, not an application runtime dependency. The Debug setup
+preflight reports an actionable error before configure when it is unavailable;
+a Release-only application build does not require it.
+
 Use the setup script as a validator/build helper, not as an installer:
 
 ```powershell

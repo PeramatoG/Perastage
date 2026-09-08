@@ -437,6 +437,7 @@ $resolvedVcpkg = Resolve-ClassicVcpkgInstallation -ExplicitRoot $VcpkgRoot
 Test-PerastageVcpkgDependencies -Vcpkg $resolvedVcpkg
 $env:VCPKG_ROOT = $resolvedVcpkg.Root
 $resolvedGitBash = Resolve-PerastageGitBash -ExplicitBash $BashExecutable
+Assert-PerastageWindowsDebugTestTools -Configuration $Configuration -GitBashPath $resolvedGitBash
 
 $presets = Get-CMakePresetNames -Configuration $Configuration
 $buildDir = Join-Path $repoRoot "build\$($presets.Configure)"

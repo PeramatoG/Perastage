@@ -14,11 +14,13 @@ LAUNCHER = ROOT / "setup_windows.ps1"
 IMPLEMENTATION = ROOT / "scripts/windows/PerastageWindowsBootstrap.ps1"
 BOOTSTRAP_MODULE = ROOT / "scripts/windows/PerastageWindowsBootstrap.psm1"
 WX_SECRETSTORE_LAYOUT_TEST = ROOT / "tests/check_windows_wx_secretstore_layout.ps1"
+DEBUG_LOCAL_TOOLS_TEST = ROOT / "tests/check_windows_debug_local_tools.ps1"
 
 launcher_text = LAUNCHER.read_text(encoding="utf-8")
 implementation_text = IMPLEMENTATION.read_text(encoding="utf-8")
 module_text = BOOTSTRAP_MODULE.read_text(encoding="utf-8")
 layout_test_text = WX_SECRETSTORE_LAYOUT_TEST.read_text(encoding="utf-8")
+debug_tools_test_text = DEBUG_LOCAL_TOOLS_TEST.read_text(encoding="utf-8")
 
 assert len(launcher_text.splitlines()) <= 40
 assert "$PSScriptRoot" in launcher_text
@@ -57,6 +59,12 @@ assert "debug\\lib" in module_text
 assert "Get-ChildItem -LiteralPath $libraryRoot -Directory -Filter 'msw*'" in module_text
 assert "include\\wx\\setup.h" in module_text
 assert "was ignored" in module_text
+assert "Assert-PerastageWindowsDebugTestTools -Configuration $Configuration -GitBashPath $resolvedGitBash" in implementation_text
+assert "development/test tool, not an application runtime dependency" in module_text
+assert "command -v rg >/dev/null 2>&1 && rg --version" in module_text
+assert "-Configuration Release" in debug_tools_test_text
+assert "-Configuration Debug" in debug_tools_test_text
+assert "ripgrep \\('rg'\\) is required on PATH" in debug_tools_test_text
 for fixture_contract in (
     "include\\wx\\setup.h",
     "debug\\lib\\mswud\\wx\\setup.h",
@@ -70,6 +78,20 @@ for fixture_contract in (
 
 powershell = shutil.which("pwsh") or shutil.which("powershell")
 if powershell:
+    debug_tools_result = subprocess.run(
+        [
+            powershell,
+            "-NoProfile",
+            "-File",
+            str(DEBUG_LOCAL_TOOLS_TEST),
+            "-ModulePath",
+            str(BOOTSTRAP_MODULE),
+        ],
+        text=True,
+        capture_output=True,
+    )
+    assert debug_tools_result.returncode == 0, debug_tools_result.stdout + debug_tools_result.stderr
+
     layout_result = subprocess.run(
         [
             powershell,

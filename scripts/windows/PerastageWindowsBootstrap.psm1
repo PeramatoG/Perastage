@@ -183,4 +183,27 @@ function Assert-PerastageWxSecretStoreHeaders {
     }
 }
 
-Export-ModuleMember -Function Invoke-PerastageNativeCommandCapture, ConvertTo-PerastageNormalizedPathText, Test-PerastageRejectedWindowsBashPath, Test-PerastageBashProbe, Get-PerastageGitBashCandidatesFromGit, Resolve-PerastageGitBash, Get-PerastageWxSetupHeaderGroups, Assert-PerastageWxSecretStoreHeaders
+# Validates tools required by the complete local Windows Debug test workflow.
+function Assert-PerastageWindowsDebugTestTools {
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Debug', 'Release')][string]$Configuration,
+        [string]$GitBashPath = ''
+    )
+
+    if ($Configuration -eq 'Release') {
+        return
+    }
+    $ripgrep = Get-Command 'rg' -ErrorAction SilentlyContinue
+    if (-not $ripgrep) {
+        throw "ripgrep ('rg') is required on PATH for the complete Perastage Windows Debug CTest policy suite. Install ripgrep, restart this shell, and rerun setup_windows.ps1. ripgrep is a development/test tool, not an application runtime dependency."
+    }
+    Write-Host "Debug CTest tool: ripgrep at $($ripgrep.Source)"
+    if (-not [string]::IsNullOrWhiteSpace($GitBashPath)) {
+        $probe = Invoke-PerastageNativeCommandCapture -FilePath $GitBashPath -ArgumentList @('--noprofile', '--norc', '-c', 'command -v rg >/dev/null 2>&1 && rg --version >/dev/null 2>&1')
+        if ($probe.ExitCode -ne 0) {
+            throw "ripgrep was found by PowerShell at '$($ripgrep.Source)' but is not available to Git Bash. Add its directory to PATH, restart this shell, and rerun setup_windows.ps1."
+        }
+    }
+}
+
+Export-ModuleMember -Function Invoke-PerastageNativeCommandCapture, ConvertTo-PerastageNormalizedPathText, Test-PerastageRejectedWindowsBashPath, Test-PerastageBashProbe, Get-PerastageGitBashCandidatesFromGit, Resolve-PerastageGitBash, Get-PerastageWxSetupHeaderGroups, Assert-PerastageWxSecretStoreHeaders, Assert-PerastageWindowsDebugTestTools
