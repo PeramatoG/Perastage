@@ -7,7 +7,8 @@ canonical instructions remain in the [Build and Dependency Guide](build.md).
 CI is context only and does not replace native local execution.
 
 - **Merged `main` SHA:** `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76`
-- **GitHub-reachable Windows and WSL test head:** `f07b04d2fc4e0d5c164250730d202e7673c8bb29`
+- **GitHub-reachable Windows test head:** `f07b04d2fc4e0d5c164250730d202e7673c8bb29`
+- **GitHub-reachable WSL test head:** `2375c1df439129cb4c01c04a43aea52d1cfa0a1e`
 - **Original Linux execution identifier:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec` (local historical identifier; the reproducible evidence reference is the published PR head above)
 - **Initial validation date:** 2026-09-07
 - **Windows and WSL corrective follow-up date:** 2026-09-08
@@ -16,9 +17,10 @@ CI is context only and does not replace native local execution.
 
 **ORG-039 is not yet complete; external local validation remains required.**
 Windows and native Linux have complete local evidence. The clean WSL attempt
-exposed a bootstrap ordering regression before configure, and Apple Silicon
-macOS remains unavailable. WSL and macOS remain pending rather than inferred
-from GitHub Actions.
+proved bootstrap, Debug configure, and Debug build behavior, then exposed a
+missing Debug test dependency and incorrect registration of Windows-only tests.
+Apple Silicon macOS remains unavailable. WSL and macOS remain pending rather
+than inferred from GitHub Actions.
 
 ## Validation matrix
 
@@ -27,7 +29,7 @@ from GitHub Actions.
 | Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | PASS: clean checkout, external classic vcpkg, no generated local configuration | PASS | PASS: 249/249 | PASS | PASS: staged resources verified | PASS | PASS: ignored temporary user preset removed | **PASS** |
 | macOS Apple Silicon | Native Apple Silicon macOS unavailable | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` target, not executed | Not run against target `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
 | Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
-| WSL x64 | WSL2 Ubuntu 24.04.1 LTS x86_64; checkout under `/home/peramato/Perastage-ORG039-WSL` | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | PASS: clean checkout in WSL Linux filesystem; CMake initially absent | FAIL: CMake preflight ran before apt dependency installation; correction applied, not externally retested | Not run | Not run | Not run | Canonical names confirmed; execution blocked before configure | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| WSL x64 | WSL2 Ubuntu 24.04.1 LTS x86_64; checkout under `/home/peramato/Perastage-ORG039-WSL` | `2375c1df439129cb4c01c04a43aea52d1cfa0a1e` | PASS: clean checkout in WSL Linux filesystem; bootstrap installed dependencies from an initially CMake-less environment; external baseline `mdns:x64-linux` | PASS: dependency installation and subsequent `--skip-deps --skip-build` configure | PASS / PASS / FAIL: 2475/2475 build steps; 249 CTests, 36 failed and 1 expected skip | Not run | Not run | Debug configure/build PASS; Release not yet run | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
 
 The checked-in names match every requested canonical family: Windows
 `win-x64-debug-ninja`, `win-x64-release-ninja`, `win-debug-build-ninja`,
@@ -179,20 +181,32 @@ not CI alone, promotes the Windows row to PASS.
 
 ## WSL external validation follow-up
 
-A genuinely clean WSL2 Ubuntu 24.04.1 LTS x86_64 environment checked out
-`f07b04d2fc4e0d5c164250730d202e7673c8bb29` under
+A genuinely clean WSL2 Ubuntu 24.04.1 LTS x86_64 environment checked out the
+GitHub-reachable head `2375c1df439129cb4c01c04a43aea52d1cfa0a1e` under
 `/home/peramato/Perastage-ORG039-WSL`, inside the Linux filesystem rather than
-`/mnt/c`. CMake was not preinstalled. The documented command
-`./setup.sh Debug --skip-build` failed immediately with
-`Required command 'cmake' was not found in PATH.`
+`/mnt/c`. CMake was not preinstalled. The corrected
+`./setup.sh Debug --skip-build` invocation installed the Ubuntu dependencies
+and test locales before the CMake preflight. External `mdns:x64-linux` was then
+installed from repository vcpkg baseline
+`0878b5224d4a4968940ee296a2e7fae2d3b62983` and exposed through
+`CMAKE_PREFIX_PATH=/home/peramato/Perastage-ORG039-vcpkg-installed/x64-linux`.
+The subsequent `./setup.sh Debug --skip-deps --skip-build` configure passed,
+and `cmake --build --preset wsl-debug-build` completed all 2475 build steps.
 
-The root cause was bootstrap ordering: the implementation required CMake before
-calling the apt/dnf dependency installer, even though those installers own
-installing CMake. The focused correction installs dependencies first during a
-normal invocation and then validates that CMake is available before configure.
-When `--skip-deps` is supplied, installation remains disabled and the same
-preflight clearly rejects a missing preinstalled CMake. Preset selection,
-`--skip-build`, the root launcher boundary, and the external mDNS requirement
+The first full `ctest --test-dir build/wsl-x64-debug --output-on-failure` run
+reported 249 tests, 36 failures, and one expected environment-dependent
+`CredentialStoreNativeRoundTrip` skip. Thirty-four failures were caused by
+missing `rg`. The other two were the Windows-only
+`PowerShellNativeCaptureWindowsPowerShell` and
+`PowerShellNativeCapturePowerShell7` tests, which CMake incorrectly registered
+after discovering Windows executables inherited through the WSL `PATH`.
+
+The focused correction adds ripgrep to both supported Linux package-manager
+dependency sets and retains `--skip-deps` as a strict no-install path. It also
+gates PowerShell native-capture discovery and registration on a Windows CMake
+host while preserving both tests on Windows. Deterministic entry-point and
+registration policy checks cover these contracts. The external mDNS
+requirement, canonical preset selection, and all cross-platform policy tests
 remain unchanged.
 
 WSL remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected published

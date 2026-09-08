@@ -12,7 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Validated the native Linux and Windows clean-checkout developer workflows, corrected Linux/WSL prerequisite installation order, completed Linux system dependency and locale setup, fixed external mDNS header discovery, corrected Windows wxWidgets secure-store and Debug test-tool validation, made cross-platform policy tests independent of Windows symlink privileges, and kept local test artifacts out of the source tree; Apple Silicon macOS and WSL validation remains pending.
+- Validated the native Linux and Windows clean-checkout developer workflows, corrected Linux/WSL prerequisite installation order and Debug test dependencies, prevented Windows-only PowerShell tests from registering on Linux hosts, completed Linux system dependency and locale setup, fixed external mDNS header discovery, corrected Windows wxWidgets secure-store and Debug test-tool validation, made cross-platform policy tests independent of Windows symlink privileges, and kept local test artifacts out of the source tree; Apple Silicon macOS and WSL validation remains pending.
 - Prevented compatible macOS dependency caches from being discarded because binary contents were misread as SDK metadata, and migrated CI away from an immutable stale cache snapshot so repaired dependencies can persist across runs.
 - Added a reproducible repository-structure baseline and policy validation to protect current module and build ownership during future organization work.
 - Strengthened repository policy checks to protect third-party ownership, top-level module ownership, portable shared configuration, and explicit CMake source registration.

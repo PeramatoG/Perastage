@@ -149,6 +149,8 @@ assert_file_contains "apt installs the expected dependency prefix" \
     'sudo:apt-get install -y build-essential cmake ninja-build' "$COMMAND_LOG"
 assert_file_contains "apt installs dependencies required by CMake discovery" \
     'libmeshoptimizer-dev libnanovg-dev libbackward-cpp-dev gettext' "$COMMAND_LOG"
+assert_file_contains "apt installs ripgrep for the complete Debug test suite" \
+    'gettext locales ripgrep' "$COMMAND_LOG"
 assert_file_contains "apt generates locales used by the complete CTest suite" \
     'sudo:locale-gen es_ES.UTF-8 zh_CN.UTF-8' "$COMMAND_LOG"
 rm "$FAKE_BIN/apt-get"
@@ -159,6 +161,8 @@ chmod +x "$FAKE_BIN/dnf"
 run_setup Debug --skip-build
 assert_file_contains "dnf installs the expected dependency prefix" \
     'sudo:dnf install -y gcc gcc-c++ make cmake ninja-build' "$COMMAND_LOG"
+assert_file_contains "dnf installs ripgrep for the complete Debug test suite" \
+    'wxGTK-devel ripgrep' "$COMMAND_LOG"
 rm "$FAKE_BIN/dnf"
 
 if run_setup --skip-build >"$TEMP_DIR/unsupported.out" 2>"$TEMP_DIR/unsupported.err"; then

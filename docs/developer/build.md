@@ -237,8 +237,10 @@ dependency tree.
 Use the WSL presets from a Linux/WSL environment where the required development packages are installed:
 
 The root `setup.sh` launcher installs the distro packages needed by dependency
-discovery and the Spanish and Simplified Chinese locales used by the complete
-CTest suite on its supported apt path. The MVR-xchange `mdns` package
+discovery, `ripgrep` for repository policy tests, and the Spanish and Simplified
+Chinese locales used by the complete CTest suite on its supported apt path.
+Ripgrep is a development/test dependency, not an application runtime
+dependency. The MVR-xchange `mdns` package
 is not available from those distro package sets. Supply it externally as
 documented in [MVR-xchange Notes](technical-notes/mvr_xchange.md), and expose
 the prefix containing `mdnsConfig.cmake` through `CMAKE_PREFIX_PATH` before
