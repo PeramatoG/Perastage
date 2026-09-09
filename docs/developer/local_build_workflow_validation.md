@@ -9,6 +9,7 @@ CI is context only and does not replace native local execution.
 - **Merged `main` SHA:** `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76`
 - **GitHub-reachable Windows test head:** `f07b04d2fc4e0d5c164250730d202e7673c8bb29`
 - **GitHub-reachable WSL test head:** `2375c1df439129cb4c01c04a43aea52d1cfa0a1e`
+- **GitHub-reachable macOS test head:** `425afc43aa81082a46ebb7ca5f1d0a465c2a3daf`
 - **Original Linux execution identifier:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec` (local historical identifier; the reproducible evidence reference is the published PR head above)
 - **Initial validation date:** 2026-09-07
 - **Windows and WSL corrective follow-up date:** 2026-09-08
@@ -16,20 +17,19 @@ CI is context only and does not replace native local execution.
   (**ORG-038: complete repository-organization regression audit**).
 
 **ORG-039 is not yet complete; external local validation remains required.**
-Windows and native Linux have complete local evidence. The clean WSL attempt
-proved bootstrap, Debug configure, and Debug build behavior, then exposed a
-missing Debug test dependency and incorrect registration of Windows-only tests.
-Apple Silicon macOS remains unavailable. WSL and macOS remain pending rather
-than inferred from GitHub Actions.
+Windows, native Linux, and WSL have complete local evidence. Apple Silicon
+macOS Debug configure and build passed, while its full CTest run exposed one
+restricted-PATH helper harness defect. macOS remains pending until the focused
+correction is rerun externally rather than inferred from GitHub Actions.
 
 ## Validation matrix
 
 | Platform | Exact environment | Tested commit SHA | Clean checkout and prerequisites | Setup launcher | Debug configure / build / CTest | Release configure / build | Stage and resources | Canonical presets | Local override | Final status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | PASS: clean checkout, external classic vcpkg, no generated local configuration | PASS | PASS: 249/249 | PASS | PASS: staged resources verified | PASS | PASS: ignored temporary user preset removed | **PASS** |
-| macOS Apple Silicon | Native Apple Silicon macOS unavailable | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` target, not executed | Not run against target `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | No documented launcher | Not run | Not run | Not run | Names inspected only | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| macOS Apple Silicon | Native Apple Silicon macOS; clean external checkout | `425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` | PASS: clean checkout and documented external prerequisites | No documented launcher | PASS / PASS / FAIL: 247/248 passed; only `ReleaseGatePolicyPortability` failed | Not yet recorded | Not yet recorded | Debug configure/build PASS | Not yet recorded | **PENDING EXTERNAL LOCAL VALIDATION** |
 | Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
-| WSL x64 | WSL2 Ubuntu 24.04.1 LTS x86_64; checkout under `/home/peramato/Perastage-ORG039-WSL` | `2375c1df439129cb4c01c04a43aea52d1cfa0a1e` | PASS: clean checkout in WSL Linux filesystem; bootstrap installed dependencies from an initially CMake-less environment; external baseline `mdns:x64-linux` | PASS: dependency installation and subsequent `--skip-deps --skip-build` configure | PASS / PASS / FAIL: 2475/2475 build steps; 249 CTests, 36 failed and 1 expected skip | Not run | Not run | Debug configure/build PASS; Release not yet run | Not run | **PENDING EXTERNAL LOCAL VALIDATION** |
+| WSL x64 | WSL2 Ubuntu 24.04.1 LTS x86_64; checkout under `/home/peramato/Perastage-ORG039-WSL` | `425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` | PASS: clean checkout in WSL Linux filesystem; bootstrap installed dependencies from an initially CMake-less environment; external baseline `mdns:x64-linux` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** |
 
 The checked-in names match every requested canonical family: Windows
 `win-x64-debug-ninja`, `win-x64-release-ninja`, `win-debug-build-ninja`,
@@ -209,17 +209,36 @@ registration policy checks cover these contracts. The external mDNS
 requirement, canonical preset selection, and all cross-platform policy tests
 remain unchanged.
 
-WSL remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected published
-head is rerun through setup, Debug configure/build/CTest, Release
-configure/build/stage, resource checks, the ignored local override, and final
-checkout cleanliness.
+The corrected workflow was subsequently rerun through setup, Debug
+configure/build/CTest, Release configure/build/stage, resource checks, the
+ignored local override, and final checkout cleanliness at
+`425afc43aa81082a46ebb7ca5f1d0a465c2a3daf`. All required checks passed, so the
+WSL row is PASS based on local execution rather than CI.
 
-## Pending external execution
+## macOS Apple Silicon external validation follow-up
 
-Apple Silicon macOS still requires both builds, Debug CTest,
-gettext/resources, external vcpkg, and a local override. WSL must independently
-exercise the launcher, Debug/CTest, Release/stage/resources, and `/mnt/c`
-isolation from a clean WSL-filesystem checkout. CI cannot promote these rows.
+A clean Apple Silicon macOS checkout at GitHub-reachable head
+`425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` configured with
+`cmake --preset mac-arm64-debug` and built with
+`cmake --build --preset mac-debug-build`. Both commands passed. The complete
+Debug CTest run passed 247 of 248 tests; only
+`ReleaseGatePolicyPortability` failed.
+
+The failure was a portability-harness defect, not a SecureStore or production
+failure. The restricted-PATH harness copied the discovered macOS `dirname`
+executable into its temporary tool directory. That copy returned an empty
+result, so a child policy script resolved the repository root instead of its
+own `tests/` directory and could not source `tests/test_tool_requirements.sh`.
+The focused correction uses a restricted-PATH wrapper which delegates to the
+original discovered executable, preserving its platform-managed behavior. An
+explicit assertion verifies directory resolution before the existing child
+policy checks run from both the repository root and an unrelated directory.
+Ripgrep remains absent from the restricted PATH.
+
+macOS remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected head is
+rerun through the full 248-test Debug suite and the remaining Release,
+resource-layout, local-override, and checkout-cleanliness checks. CI cannot
+promote this row.
 
 Normal PR CI remains required before merge, but it was not used as local
 evidence and was not available when this record was written. ORG-040 release

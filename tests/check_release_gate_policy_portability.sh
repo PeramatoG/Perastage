@@ -12,7 +12,7 @@ make_portable_temp_dir() {
   mktemp -d "$base/perastage-release-gate-policy.XXXXXX"
 }
 
-copy_tool_to_bin() {
+write_tool_wrapper() {
   local tool_name="$1"
   local source_path
   source_path="$(command -v "$tool_name")" || {
@@ -23,7 +23,8 @@ copy_tool_to_bin() {
   case "$source_path" in
     *.exe) target_name="$tool_name.exe" ;;
   esac
-  cp "$source_path" "$tmp_bin/$target_name"
+  # Wrapping preserves platform-managed tool behavior that may be lost when its executable is copied on macOS.
+  printf 'exec %q "$@"\n' "$source_path" >"$tmp_bin/$target_name"
   chmod +x "$tmp_bin/$target_name"
 }
 
@@ -45,12 +46,14 @@ trap 'rm -rf "$tmp_root"' EXIT
 
 tmp_bin="$tmp_root/bin"
 mkdir -p "$tmp_bin"
-copy_tool_to_bin bash
-copy_tool_to_bin dirname
-copy_tool_to_bin env
-copy_tool_to_bin cp
-copy_tool_to_bin chmod
-copy_tool_to_bin mkdir
+write_tool_wrapper dirname
+
+expected_tests_dir="$repo_root/tests"
+resolved_tests_dir="$(PATH="$tmp_bin" "$bash_path" -c 'dirname "$1"' _ "$repo_root/tests/check_securestore_build_policy.sh")"
+if [[ "$resolved_tests_dir" != "$expected_tests_dir" ]]; then
+  echo "Restricted-PATH dirname resolved '$resolved_tests_dir'; expected '$expected_tests_dir'." >&2
+  exit 1
+fi
 
 scripts=(
   "$repo_root/tests/check_securestore_build_policy.sh"
