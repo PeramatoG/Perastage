@@ -67,12 +67,13 @@ assert_command_available() {
 # Installs common Debian, Ubuntu, and WSL build dependencies when apt is available.
 install_apt_dependencies() {
     sudo apt-get update
-    sudo apt-get install -y         build-essential         cmake         ninja-build         git         curl         pkg-config         libgl1-mesa-dev         libglu1-mesa-dev         libglew-dev         libcurl4-openssl-dev         libtinyxml2-dev         libpodofo-dev         zlib1g-dev         libwxgtk3.2-dev
+    sudo apt-get install -y         build-essential         cmake         ninja-build         git         curl         pkg-config         libgl1-mesa-dev         libglu1-mesa-dev         libglew-dev         libcurl4-openssl-dev         libtinyxml2-dev         libpodofo-dev         zlib1g-dev         libwxgtk3.2-dev         libmeshoptimizer-dev         libnanovg-dev         libbackward-cpp-dev         gettext         locales         ripgrep
+    sudo locale-gen es_ES.UTF-8 zh_CN.UTF-8
 }
 
 # Installs common Fedora build dependencies when dnf is available.
 install_dnf_dependencies() {
-    sudo dnf install -y         gcc         gcc-c++         make         cmake         ninja-build         git         curl         pkgconf-pkg-config         mesa-libGL-devel         mesa-libGLU-devel         glew-devel         libcurl-devel         tinyxml2-devel         podofo-devel         zlib-ng-compat-devel         wxGTK-devel
+    sudo dnf install -y         gcc         gcc-c++         make         cmake         ninja-build         git         curl         pkgconf-pkg-config         mesa-libGL-devel         mesa-libGLU-devel         glew-devel         libcurl-devel         tinyxml2-devel         podofo-devel         zlib-ng-compat-devel         wxGTK-devel         ripgrep
 }
 
 # Installs system dependencies for the detected Linux package manager.
@@ -149,9 +150,9 @@ parse_arguments "$@"
 REPOSITORY_ROOT="$(get_repository_root)"
 cd "$REPOSITORY_ROOT"
 
-assert_command_available "cmake"
-
 install_system_dependencies
+
+assert_command_available "cmake"
 
 CONFIGURE_PRESET="$(get_configure_preset)"
 BUILD_PRESET="$(get_build_preset)"

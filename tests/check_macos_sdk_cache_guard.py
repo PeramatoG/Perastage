@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import errno
 import importlib.util
 import os
 import subprocess
@@ -27,6 +28,21 @@ def assert_classifies(current: Path, refs: set[str], stale_count: int) -> None:
     assert len(stale) == stale_count, stale
 
 
+def create_sdk_alias(alias: Path, target: Path) -> bool:
+    try:
+        alias.symlink_to(target, target_is_directory=True)
+        return True
+    except OSError as error:
+        unsupported_errors = {errno.EACCES, errno.EPERM, errno.ENOTSUP}
+        if error.errno not in unsupported_errors and getattr(error, "winerror", None) != 1314:
+            raise
+        print(
+            f"SKIP: SDK symlink-alias assertions require unavailable symlink capability: {error}",
+            file=sys.stderr,
+        )
+        return False
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="Perastage SDK Cache ") as tmp:
         root = Path(tmp)
@@ -35,21 +51,26 @@ def main() -> int:
         versioned = xcode / "MacOSX26.5.sdk"
         versioned.mkdir()
         alias = xcode / "MacOSX.sdk"
-        alias.symlink_to(versioned, target_is_directory=True)
+        alias_supported = create_sdk_alias(alias, versioned)
         other = xcode / "MacOSX25.4.sdk"
         other.mkdir()
 
         assert_classifies(versioned, {str(versioned)}, 0)
-        assert_classifies(versioned, {str(alias)}, 0)
+        if alias_supported:
+            assert_classifies(versioned, {str(alias)}, 0)
         assert_classifies(versioned, {str(xcode / "MacOSX24.0.sdk")}, 1)
         assert_classifies(versioned, {str(other)}, 1)
-        assert_classifies(versioned, {str(alias), str(root / "Applications" / "Xcode With Spaces.app" / "Contents" / "Developer" / "Platforms" / "MacOSX.platform" / "Developer" / "SDKs" / "MacOSX.sdk")}, 1)
+        if alias_supported:
+            assert_classifies(versioned, {str(alias), str(root / "Applications" / "Xcode With Spaces.app" / "Contents" / "Developer" / "Platforms" / "MacOSX.platform" / "Developer" / "SDKs" / "MacOSX.sdk")}, 1)
 
         sentinel = root / "retained" / "sentinel"
         sentinel.parent.mkdir()
         sentinel.write_text("keep", encoding="utf-8")
-        _, equivalent, stale = guard.classify_sdk_paths(versioned, {str(alias), str(versioned)})
-        assert len(equivalent) == 2 and not stale
+        equivalent_refs = {str(versioned)}
+        if alias_supported:
+            equivalent_refs.add(str(alias))
+        _, equivalent, stale = guard.classify_sdk_paths(versioned, equivalent_refs)
+        assert len(equivalent) == len(equivalent_refs) and not stale
         assert sentinel.exists()
 
         scan = root / "scan"
@@ -86,7 +107,7 @@ def main() -> int:
         retained_environment["GITHUB_OUTPUT"] = str(retained_output)
         subprocess.run(
             [sys.executable, str(ROOT / ".github/scripts/macos_sdk_cache_guard.py"),
-             "--current-sdk", str(alias), "--scan-root", str(root / "empty"),
+             "--current-sdk", str(alias if alias_supported else versioned), "--scan-root", str(root / "empty"),
              "--purge-root", str(retained_root)],
             check=True, env=retained_environment, capture_output=True, text=True,
         )

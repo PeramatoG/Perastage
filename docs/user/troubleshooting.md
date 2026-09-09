@@ -66,6 +66,12 @@ Test-Path ".\vcpkg_installed"
 Test-Path ".\build\win-x64-debug-ninja\vcpkg_installed"
 ```
 
+The public `include\wx\setup.h` is not the configuration-specific wxWidgets
+header. Current vcpkg layouts place generated MSW headers below Release
+`lib\msw*\wx\setup.h` and Debug `debug\lib\msw*\wx\setup.h` directories.
+`setup_windows.ps1` inspects both configuration groups and reports every
+generated header that is missing or does not define `wxUSE_SECRETSTORE 1`.
+
 The first four checks should be `True`; the final two checks should normally be `False` for local Windows builds. If a required package is missing, install or repair it manually in the selected classic vcpkg installation before configuring again. A typical one-time command is:
 
 ```powershell

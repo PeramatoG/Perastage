@@ -9,6 +9,8 @@ For the complete build and dependency reference, see [Build and Dependency Guide
 - Visual Studio 2022 with the C++ desktop workload.
 - CMake, either bundled with Visual Studio or installed separately.
 - Ninja, either bundled with Visual Studio or installed separately.
+- Ripgrep (`rg`) on `PATH` when configuring a Debug build for the complete
+  local CTest suite; it is not an application runtime dependency.
 - A classic vcpkg installation at the selected classic vcpkg checkout with dependencies installed under `$env:VCPKG_ROOT\installed\x64-windows`.
 
 ## Select a vcpkg checkout

@@ -238,6 +238,9 @@ if(Python3_Interpreter_FOUND)
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_release_workflows_untouched.py)
     add_repository_policy_test(BashTestRegistration ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_bash_test_registration.py)
+    add_repository_policy_test(WindowsPowerShellTestRegistration ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_powershell_test_registration.py
+                               LABELS standard-strict policy windows)
     add_repository_policy_test(WindowsDebugToolPreflight ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_debug_tool_preflight.py)
     add_repository_policy_test(CMakeToolchainValidator ${Python3_EXECUTABLE}
@@ -262,17 +265,19 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(GitBashResolverContract ${CMAKE_COMMAND}
                                ARGS -DREPO_ROOT=${CMAKE_SOURCE_DIR} -DBASH_EXECUTABLE=${BASH_EXECUTABLE} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_git_bash_resolver.cmake
                                LABELS standard-strict policy windows)
-    find_program(PERASTAGE_POWERSHELL_51 powershell.exe)
-    if(PERASTAGE_POWERSHELL_51)
-        add_repository_policy_test(PowerShellNativeCaptureWindowsPowerShell ${Python3_EXECUTABLE}
-                                   ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_powershell_native_command_capture.py --powershell ${PERASTAGE_POWERSHELL_51}
-                                   LABELS standard-strict policy windows)
-    endif()
-    find_program(PERASTAGE_POWERSHELL_7 pwsh.exe)
-    if(PERASTAGE_POWERSHELL_7)
-        add_repository_policy_test(PowerShellNativeCapturePowerShell7 ${Python3_EXECUTABLE}
-                                   ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_powershell_native_command_capture.py --powershell ${PERASTAGE_POWERSHELL_7}
-                                   LABELS standard-strict policy windows)
+    if(WIN32)
+        find_program(PERASTAGE_POWERSHELL_51 powershell.exe)
+        if(PERASTAGE_POWERSHELL_51)
+            add_repository_policy_test(PowerShellNativeCaptureWindowsPowerShell ${Python3_EXECUTABLE}
+                                       ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_powershell_native_command_capture.py --powershell ${PERASTAGE_POWERSHELL_51}
+                                       LABELS standard-strict policy windows)
+        endif()
+        find_program(PERASTAGE_POWERSHELL_7 pwsh.exe)
+        if(PERASTAGE_POWERSHELL_7)
+            add_repository_policy_test(PowerShellNativeCapturePowerShell7 ${Python3_EXECUTABLE}
+                                       ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_powershell_native_command_capture.py --powershell ${PERASTAGE_POWERSHELL_7}
+                                       LABELS standard-strict policy windows)
+        endif()
     endif()
 endif()
 
@@ -915,8 +920,13 @@ target_link_libraries(layout_defaults_load_from_empty_config_test
 add_test(NAME LayoutDefaultsLoadFromEmptyConfig
          COMMAND layout_defaults_load_from_empty_config_test)
 
+set(PERASTAGE_TEST_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/runtime-library")
+file(REMOVE_RECURSE "${PERASTAGE_TEST_LIBRARY_PATH}")
+file(COPY "${CMAKE_SOURCE_DIR}/library/" DESTINATION "${PERASTAGE_TEST_LIBRARY_PATH}")
+
 function(set_library_env TEST_NAME)
-    set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${CMAKE_SOURCE_DIR}/library")
+    set_tests_properties(${TEST_NAME} PROPERTIES
+        ENVIRONMENT "PERASTAGE_LIBRARY_PATH=${PERASTAGE_TEST_LIBRARY_PATH}")
 endfunction()
 
 set(LAYOUT_SOURCES

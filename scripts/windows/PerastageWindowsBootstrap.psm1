@@ -120,4 +120,90 @@ function Resolve-PerastageGitBash {
     throw 'Git Bash could not be resolved. Install Git for Windows or pass -DBASH_EXECUTABLE=<Git for Windows bash.exe>; WSL and WindowsApps bash launchers are not supported.'
 }
 
-Export-ModuleMember -Function Invoke-PerastageNativeCommandCapture, ConvertTo-PerastageNormalizedPathText, Test-PerastageRejectedWindowsBashPath, Test-PerastageBashProbe, Get-PerastageGitBashCandidatesFromGit, Resolve-PerastageGitBash
+# Returns generated wxWidgets MSW setup headers grouped by build configuration.
+function Get-PerastageWxSetupHeaderGroups {
+    param([Parameter(Mandatory = $true)][string]$InstalledTriplet)
+
+    $legacyHeader = Join-Path $InstalledTriplet 'include\wx\msw\setup.h'
+    $sharedHeaders = @()
+    if (Test-Path -LiteralPath $legacyHeader -PathType Leaf) {
+        $sharedHeaders += (Resolve-Path -LiteralPath $legacyHeader).Path
+    }
+
+    $groups = [ordered]@{}
+    foreach ($configuration in @('Debug', 'Release')) {
+        $libraryRoot = if ($configuration -eq 'Debug') {
+            Join-Path $InstalledTriplet 'debug\lib'
+        } else {
+            Join-Path $InstalledTriplet 'lib'
+        }
+        $headers = @($sharedHeaders)
+        if (Test-Path -LiteralPath $libraryRoot -PathType Container) {
+            $headers += Get-ChildItem -LiteralPath $libraryRoot -Directory -Filter 'msw*' |
+                ForEach-Object { Join-Path $_.FullName 'wx\setup.h' } |
+                Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+                ForEach-Object { (Resolve-Path -LiteralPath $_).Path }
+        }
+        $groups[$configuration] = @($headers | Select-Object -Unique)
+    }
+    return $groups
+}
+
+# Validates secret-store support in every generated wxWidgets MSW configuration header.
+function Assert-PerastageWxSecretStoreHeaders {
+    param([Parameter(Mandatory = $true)][string]$InstalledTriplet)
+
+    $groups = Get-PerastageWxSetupHeaderGroups -InstalledTriplet $InstalledTriplet
+    $failures = @()
+    foreach ($configuration in @('Debug', 'Release')) {
+        $headers = @($groups[$configuration])
+        if ($headers.Count -eq 0) {
+            $expectedRoot = if ($configuration -eq 'Debug') { 'debug\lib\msw*\wx\setup.h' } else { 'lib\msw*\wx\setup.h' }
+            $failures += "$configuration`: no generated setup header was found under '$(Join-Path $InstalledTriplet $expectedRoot)' or the legacy 'include\wx\msw\setup.h'."
+            continue
+        }
+        foreach ($header in $headers) {
+            $content = Get-Content -LiteralPath $header -Raw
+            if ($content -match '#\s*define\s+wxUSE_SECRETSTORE\s+1(?:\s|$)') {
+                Write-Host "wxWidgets $configuration setup header: $header (wxUSE_SECRETSTORE=1)"
+                continue
+            }
+            $observed = if ($content -match '#\s*define\s+wxUSE_SECRETSTORE\s+([^\s/]+)') {
+                "wxUSE_SECRETSTORE=$($Matches[1])"
+            } else {
+                'wxUSE_SECRETSTORE is not defined'
+            }
+            $failures += "$configuration`: '$header' ($observed)."
+        }
+    }
+
+    if ($failures.Count -gt 0) {
+        $details = $failures -join [Environment]::NewLine
+        throw "wxWidgets generated MSW setup-header validation failed. Inspected configuration-specific headers; the generic 'include\wx\setup.h' is not a generated platform configuration and was ignored.$([Environment]::NewLine)$details$([Environment]::NewLine)Rebuild wxWidgets with the secretstore feature in the selected vcpkg installation."
+    }
+}
+
+# Validates tools required by the complete local Windows Debug test workflow.
+function Assert-PerastageWindowsDebugTestTools {
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Debug', 'Release')][string]$Configuration,
+        [string]$GitBashPath = ''
+    )
+
+    if ($Configuration -eq 'Release') {
+        return
+    }
+    $ripgrep = Get-Command 'rg' -ErrorAction SilentlyContinue
+    if (-not $ripgrep) {
+        throw "ripgrep ('rg') is required on PATH for the complete Perastage Windows Debug CTest policy suite. Install ripgrep, restart this shell, and rerun setup_windows.ps1. ripgrep is a development/test tool, not an application runtime dependency."
+    }
+    Write-Host "Debug CTest tool: ripgrep at $($ripgrep.Source)"
+    if (-not [string]::IsNullOrWhiteSpace($GitBashPath)) {
+        $probe = Invoke-PerastageNativeCommandCapture -FilePath $GitBashPath -ArgumentList @('--noprofile', '--norc', '-c', 'command -v rg >/dev/null 2>&1 && rg --version >/dev/null 2>&1')
+        if ($probe.ExitCode -ne 0) {
+            throw "ripgrep was found by PowerShell at '$($ripgrep.Source)' but is not available to Git Bash. Add its directory to PATH, restart this shell, and rerun setup_windows.ps1."
+        }
+    }
+}
+
+Export-ModuleMember -Function Invoke-PerastageNativeCommandCapture, ConvertTo-PerastageNormalizedPathText, Test-PerastageRejectedWindowsBashPath, Test-PerastageBashProbe, Get-PerastageGitBashCandidatesFromGit, Resolve-PerastageGitBash, Get-PerastageWxSetupHeaderGroups, Assert-PerastageWxSecretStoreHeaders, Assert-PerastageWindowsDebugTestTools

@@ -14,7 +14,12 @@ SCRIPT = ROOT / 'tests/check_perastage_tree_modules.sh'
 with tempfile.TemporaryDirectory() as tmp:
     bin_dir = Path(tmp) / 'bin'
     bin_dir.mkdir()
-    os.symlink('/usr/bin/dirname', bin_dir / 'dirname')
+    dirname = bin_dir / 'dirname'
+    dirname.write_text(
+        "#!/bin/sh\npath=${1%/}\ncase $path in */*) printf '%s\\n' \"${path%/*}\" ;; *) printf '.\\n' ;; esac\n",
+        encoding='utf-8',
+    )
+    dirname.chmod(0o755)
     env = {**os.environ, 'PATH': str(bin_dir)}
     result = subprocess.run([BASH, str(SCRIPT)], env=env, text=True, capture_output=True)
     assert result.returncode == 127, result.stdout + result.stderr

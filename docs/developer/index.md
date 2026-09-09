@@ -14,6 +14,7 @@ and [the repository tree](perastage_tree.md) is only a concise navigation aid.
 - [Packaging](packaging.md)
 - [Repository Layout](repository_layout.md)
 - [Repository-Organization Regression Audit](repository_organization_regression_audit.md)
+- [Local Build Workflow Validation](local_build_workflow_validation.md)
 - [Architecture](architecture.md)
 - [Documentation Policy](documentation_policy.md)
 - [Text-to-scene Rules](text_to_scene_rules.md)

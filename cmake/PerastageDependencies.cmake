@@ -78,6 +78,10 @@ find_package(Backward CONFIG REQUIRED)
 
 if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)
     find_package(mdns CONFIG REQUIRED)
+    find_path(PERASTAGE_MDNS_INCLUDE_DIR mdns.h REQUIRED)
+    set_property(TARGET mdns::mdns APPEND PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES "${PERASTAGE_MDNS_INCLUDE_DIR}"
+    )
     message(STATUS "MVR-xchange mDNS backend enabled: vcpkg mdns")
 else()
     message(WARNING "MVR-xchange mDNS backend disabled by PERASTAGE_ENABLE_MVR_XCHANGE_MDNS=OFF.")
