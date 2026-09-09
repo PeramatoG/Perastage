@@ -9,25 +9,24 @@ CI is context only and does not replace native local execution.
 - **Merged `main` SHA:** `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76`
 - **GitHub-reachable Windows test head:** `f07b04d2fc4e0d5c164250730d202e7673c8bb29`
 - **GitHub-reachable WSL test head:** `2375c1df439129cb4c01c04a43aea52d1cfa0a1e`
-- **GitHub-reachable macOS test head:** `425afc43aa81082a46ebb7ca5f1d0a465c2a3daf`
+- **GitHub-reachable final validation head:** `ed8c4063fd6a60e69b901ea670c7b76d1edc8b71`
 - **Original Linux execution identifier:** `2483afe549e8a47b8ad153f81780e6c784f3e8ec` (local historical identifier; the reproducible evidence reference is the published PR head above)
 - **Initial validation date:** 2026-09-07
 - **Windows and WSL corrective follow-up date:** 2026-09-08
 - **Precondition:** the tested commit contains merge `056f3f4`, PR #2339
   (**ORG-038: complete repository-organization regression audit**).
 
-**ORG-039 is not yet complete; external local validation remains required.**
-Windows, native Linux, and WSL have complete local evidence. Apple Silicon
-macOS Debug configure and build passed, while its full CTest run exposed one
-restricted-PATH helper harness defect. macOS remains pending until the focused
-correction is rerun externally rather than inferred from GitHub Actions.
+All four supported environments now have complete clean-checkout local
+validation evidence. ORG-039 remains unchecked until this PR is merged to the
+default branch, as required by the immutable checklist contract. ORG-040 and
+ORG-041 have not started.
 
 ## Validation matrix
 
 | Platform | Exact environment | Tested commit SHA | Clean checkout and prerequisites | Setup launcher | Debug configure / build / CTest | Release configure / build | Stage and resources | Canonical presets | Local override | Final status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Windows x64 native | Native Windows x64; external classic vcpkg at `C:\vcpkg` | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` | PASS: clean checkout, external classic vcpkg, no generated local configuration | PASS | PASS: 249/249 | PASS | PASS: staged resources verified | PASS | PASS: ignored temporary user preset removed | **PASS** |
-| macOS Apple Silicon | Native Apple Silicon macOS; clean external checkout | `425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` | PASS: clean checkout and documented external prerequisites | No documented launcher | PASS / PASS / FAIL: 247/248 passed; only `ReleaseGatePolicyPortability` failed | Not yet recorded | Not yet recorded | Debug configure/build PASS | Not yet recorded | **PENDING EXTERNAL LOCAL VALIDATION** |
+| macOS Apple Silicon | Native arm64, macOS 26.5.1 (25F80), Command Line Tools, CMake 4.2.3, Ninja 1.13.2 | `ed8c4063fd6a60e69b901ea670c7b76d1edc8b71` | PASS: clean checkout, Homebrew gettext/ripgrep, external classic vcpkg with wxWidgets secretstore | NOT APPLICABLE: no documented macOS setup launcher | PASS / PASS / PASS: 248/248 | PASS / PASS: 371/371 | PASS: arm64 application and staged resources verified | PASS | PASS: ignored inherited preset configured and removed | **PASS** |
 | Native Linux x64 | Ubuntu 24.04.4 LTS, Linux 6.18.35 x86_64, GCC 13.3.0, CMake 3.28.3, Ninja 1.11.1 | `f07b04d2fc4e0d5c164250730d202e7673c8bb29` (published equivalent of the executed source state) | PASS: detached `/tmp` clone, empty initial porcelain status, no initial build/output/user preset; Ubuntu development packages and external vcpkg `mdns:x64-linux` | PASS: root `setup.sh` invoked by absolute path from `/tmp` with `Debug --skip-deps --skip-build` | PASS / PASS / PASS: 247 total, 245 passed, 0 failed, 2 expected environment-dependent skips | PASS / PASS | PASS: generated dummy fixture, bundled library, catalogs, resources, help, and licenses | PASS | PASS: ignored inherited preset listed and configured, then removed | **PASS** |
 | WSL x64 | WSL2 Ubuntu 24.04.1 LTS x86_64; checkout under `/home/peramato/Perastage-ORG039-WSL` | `425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` | PASS: clean checkout in WSL Linux filesystem; bootstrap installed dependencies from an initially CMake-less environment; external baseline `mdns:x64-linux` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** |
 
@@ -217,29 +216,73 @@ WSL row is PASS based on local execution rather than CI.
 
 ## macOS Apple Silicon external validation follow-up
 
-A clean Apple Silicon macOS checkout at GitHub-reachable head
-`425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` configured with
-`cmake --preset mac-arm64-debug` and built with
-`cmake --build --preset mac-debug-build`. Both commands passed. The complete
-Debug CTest run passed 247 of 248 tests; only
-`ReleaseGatePolicyPortability` failed.
+A clean native Apple Silicon checkout at
+`/Users/arenasaudio/Perastage-ORG039-macOS` completed final validation at
+GitHub-reachable head `ed8c4063fd6a60e69b901ea670c7b76d1edc8b71` on macOS
+26.5.1 (build 25F80). The environment used arm64 Command Line Tools from
+`/Library/Developer/CommandLineTools`, CMake 4.2.3, Ninja 1.13.2, Git 2.52.0,
+Homebrew 6.0.12, gettext, ripgrep 15.2.0, and the external
+`/Users/arenasaudio/vcpkg` checkout at manifest baseline
+`0878b5224d4a4968940ee296a2e7fae2d3b62983`. That checkout supplied wxWidgets
+3.3.1#1 with secretstore support.
 
-The failure was a portability-harness defect, not a SecureStore or production
-failure. The restricted-PATH harness copied the discovered macOS `dirname`
-executable into its temporary tool directory. That copy returned an empty
-result, so a child policy script resolved the repository root instead of its
-own `tests/` directory and could not source `tests/test_tool_requirements.sh`.
-The focused correction uses a restricted-PATH wrapper which delegates to the
-original discovered executable, preserving its platform-managed behavior. An
-explicit assertion verifies directory resolution before the existing child
-policy checks run from both the repository root and an unrelated directory.
-Ripgrep remains absent from the restricted PATH.
+### Debug and tests
 
-macOS remains **PENDING EXTERNAL LOCAL VALIDATION** until the corrected head is
-rerun through the full 248-test Debug suite and the remaining Release,
-resource-layout, local-override, and checkout-cleanliness checks. CI cannot
-promote this row.
+```bash
+export VCPKG_ROOT="$HOME/vcpkg"
+cmake --preset mac-arm64-debug
+cmake --build --preset mac-debug-build
+ctest --test-dir build/mac-arm64-debug \
+  -R '^ReleaseGatePolicyPortability$' --output-on-failure
+ctest --test-dir build/mac-arm64-debug --output-on-failure
+```
 
-Normal PR CI remains required before merge, but it was not used as local
-evidence and was not available when this record was written. ORG-040 release
-and installer validation and ORG-041 checklist finalization were not started.
+Debug configure and build passed. The focused corrected portability test passed
+1 of 1. The complete suite then passed 248 of 248 tests in 23.35 seconds with
+no failures; `CredentialStoreNativeRoundTrip` passed.
+
+Historically, the first macOS run at
+`425afc43aa81082a46ebb7ca5f1d0a465c2a3daf` passed 247 of 248 tests and exposed
+only `ReleaseGatePolicyPortability`. The restricted-PATH wrapper correction at
+`40e9e4ce54d026aa92052030aec12c853c37016d` fixed the copied macOS `dirname`
+behavior. Windows CI then exposed equivalent Git Bash drive paths written in
+different forms; the final correction at the validated head canonicalized both
+directories while retaining the restricted-PATH regression coverage.
+
+### Release, staging, and resources
+
+```bash
+rm -rf build/mac-arm64-release
+export VCPKG_ROOT="$HOME/vcpkg"
+cmake --preset mac-arm64-release
+cmake --build --preset mac-release-build
+cmake --build build/mac-arm64-release --target perastage_stage
+```
+
+Release configure and all 371 build steps passed, linking the arm64 Mach-O
+executable at `Perastage.app/Contents/MacOS/Perastage`. Staging passed to
+`out/install/Release/Perastage.app`. Verification covered `Info.plist`, the
+executable, Spanish and Simplified Chinese gettext catalogs, the logo, icons,
+font, generated `Dummy 1ch.gdtf`, fixture and truss dictionaries, `LICENSE.txt`,
+`THIRD_PARTY_LICENSES.md`, and `help.md`. The validated macOS contract retains
+runtime data below `Contents/Resources/resources/` and catalogs below
+`Contents/Resources/locale/`.
+
+### Local override and cleanliness
+
+A temporary ignored schema-v3 `CMakeUserPresets.json` defined
+`org039-mac-debug`, inherited `mac-arm64-debug`, and used
+`${sourceDir}/build/org039-mac-debug`. Configure passed, and its cache confirmed
+Debug, `arm64`, and `arm64-osx` for `CMAKE_BUILD_TYPE`,
+`CMAKE_OSX_ARCHITECTURES`, and `VCPKG_TARGET_TRIPLET`. Git confirmed the user
+preset was ignored and never tracked, shared `CMakePresets.json` was unchanged,
+and no repository-root `vcpkg_installed` existed. The temporary preset and build
+directory were removed, leaving the checkout clean.
+
+All required local rows are PASS based on native clean-checkout execution. CI
+Debug Tests run #471 also completed successfully at
+`ed8c4063fd6a60e69b901ea670c7b76d1edc8b71`; this is supporting context and was
+not substituted for local evidence. This documentation-only closure creates a
+new head whose CI result must be recorded separately after GitHub completes it.
+ORG-039 remains unchecked until merge. ORG-040 release/installer validation and
+ORG-041 checklist finalization were not started.
