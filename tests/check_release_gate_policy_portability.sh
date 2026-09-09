@@ -48,8 +48,8 @@ tmp_bin="$tmp_root/bin"
 mkdir -p "$tmp_bin"
 write_tool_wrapper dirname
 
-expected_tests_dir="$repo_root/tests"
-resolved_tests_dir="$(PATH="$tmp_bin" "$bash_path" -c 'dirname "$1"' _ "$repo_root/tests/check_securestore_build_policy.sh")"
+expected_tests_dir="$(cd "$repo_root/tests" && pwd)"
+resolved_tests_dir="$(PATH="$tmp_bin" "$bash_path" -c 'cd "$(dirname "$1")" && pwd' _ "$repo_root/tests/check_securestore_build_policy.sh")"
 if [[ "$resolved_tests_dir" != "$expected_tests_dir" ]]; then
   echo "Restricted-PATH dirname resolved '$resolved_tests_dir'; expected '$expected_tests_dir'." >&2
   exit 1
