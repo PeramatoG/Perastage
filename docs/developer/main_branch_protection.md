@@ -14,12 +14,11 @@ configuration for a later CH-003B. It complements, rather than repeats, the
 
 The audit was performed on 2026-09-10 at `origin/main` commit
 `93adfc05b63e420ae37672295eaf5efc5a760ab3`, after CH-002 was merged as PR
-#2344. The public GitHub REST API and the checked-out workflows were inspected.
-The environment had no authenticated GitHub CLI session and the public API did
-not expose repository permissions. It could read rulesets but could neither
-administer nor modify them. The classic branch-protection endpoint required
-authentication, so an administrator must determine the classic-protection state
-in the Settings UI before CH-003B.
+#2344. Current authenticated ruleset detail, the public GitHub REST API, and the
+checked-out workflows were inspected. This environment had no authenticated
+GitHub CLI session and could neither administer nor modify repository settings.
+Classic branch protection was not accessible with the current integration, so an
+administrator must determine its state in the Settings UI before CH-003B.
 
 ## Current protection of `main`
 
@@ -35,16 +34,22 @@ repository-level branch ruleset affecting `main`:
 | Non-fast-forward updates | Blocked |
 | Pull request required | No |
 | Required status checks | None |
-| Bypass actors | None returned by the ruleset detail |
+| Bypass actors | Repository admin role (`RepositoryRole`, actor ID `5`), `pull_request` mode; `current_user_can_bypass` was `pull_requests_only` |
+
+The current admin-role bypass applies only in the pull-request context. It is not
+an unrestricted direct-push bypass to `main` and therefore cannot authorize the
+direct main writes required by `Main Patch Release Artifacts` and `Minor Draft
+Release`. It is nevertheless part of the active ruleset and must be retained or
+deliberately reconsidered in CH-003B.
 
 No other repository or organization ruleset appeared in the effective rules for
 `main`; the only effective rules returned were deletion and non-fast-forward.
 This is strong evidence that no overlapping ruleset currently applies. It does
-not prove that classic branch protection is absent because that API response was
-`401 Requires authentication`. Before applying CH-003B, an administrator must
-inspect **Settings > Rules > Rulesets** and **Settings > Branches**, record any
-classic rule, and reconcile it rather than creating an accidentally layered
-policy.
+not prove that classic branch protection is absent because that setting was not
+accessible with the current integration. Before applying CH-003B, an
+administrator must inspect **Settings > Rules > Rulesets** and **Settings >
+Branches**, record any classic rule, and reconcile it rather than creating an
+accidentally layered policy.
 
 ## Git-state writer inventory
 
@@ -116,7 +121,8 @@ existing ruleset rather than layer a second one:
 | Require branches to be up to date | Disabled (loose), for the cost/risk balance above |
 | Block deletions | Enabled (retain current rule) |
 | Block force pushes / non-fast-forward updates | Enabled (retain current rule) |
-| Bypass | A **dedicated release-automation GitHub App**, Always allow, used only by the main-writing steps in `Main Patch Release Artifacts` and `Minor Draft Release` |
+| Existing admin bypass | Retain repository admin role (`RepositoryRole`, actor ID `5`) in Pull requests only mode; it does not authorize direct pushes |
+| Automation bypass | A **dedicated release-automation GitHub App**, Always allow, used only by the main-writing steps in `Main Patch Release Artifacts` and `Minor Draft Release` |
 
 Do not enable signed commits until the automation signing design is established;
 do not enable linear history because normal merge commits are current practice;
