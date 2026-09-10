@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "default_max_bytes": 2097152,
+  "prohibited_suffixes": [
+    ".7z", ".a", ".appimage", ".appx", ".bz2", ".class", ".d", ".deb",
+    ".dll", ".dmg", ".dylib", ".exe", ".exp", ".gcda", ".gcno", ".gz",
+    ".idb", ".ilk", ".ipdb", ".iobj", ".jar", ".lib", ".msi", ".nupkg",
+    ".o", ".obj", ".pch", ".pdb", ".pkg", ".profraw", ".pyc", ".rar",
+    ".rpm", ".so", ".suo", ".tar", ".tgz", ".user", ".whl", ".xz",
+    ".zip", ".zst"
+  ],
+  "prohibited_filename_patterns": [
+    "^CMakeCache\\.txt$",
+    "^CTestTestfile\\.cmake$",
+    "^cmake_install\\.cmake$",
+    "^compile_commands\\.json$",
+    "^install_manifest\\.txt$",
+    "^build\\.ninja$",
+    "^\\.DS_Store$",
+    "^\\.ninja_(?:deps|log)$",
+    "^.+\\.so(?:\\.[0-9]+)+$"
+  ],
+  "prohibited_path_components": [
+    ".cache", ".pytest_cache", ".vs", "__pycache__", "cmakefiles"
+  ],
+  "restricted_asset_suffixes": [".gdtf"],
+  "asset_classes": [
+    {
+      "name": "bundled fixture GDTFs",
+      "path_prefix": "library/fixtures/",
+      "suffixes": [".gdtf"],
+      "max_bytes": 6291456
+    },
+    {
+      "name": "bundled truss GDTFs",
+      "path_prefix": "library/trusses/",
+      "suffixes": [".gdtf"],
+      "max_bytes": 1048576
+    }
+  ],
+  "exact_exceptions": {}
+}

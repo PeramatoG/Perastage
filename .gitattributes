@@ -4,6 +4,12 @@
 * text=auto
 *.pdf binary
 *.PDF binary
+*.3ds -text
+*.gdtf -text
+*.icns -text
+*.ico -text
+*.png -text
+*.ttf -text
 tests/data/*.txt text eol=lf
 tests/fixtures/fixture_symbols/*.txt text eol=lf
 

@@ -2,6 +2,8 @@
 
 > **Historical snapshot:** This review describes the repository as it existed on 2026-02-13; its line counts are not the current policy. The authoritative limits and current hotspot baselines are in `tests/source_file_size_policy.json` and are enforced by `tests/check_source_file_size.py`.
 
+> **Current repository hygiene guard:** `tests/check_repository_hygiene.py` separately owns tracked-artifact and tracked-file byte limits through `tests/repository_hygiene_policy.json`. It blocks accidental build products and repository weight while preserving bounded bundled GDTFs in normal Git. It does not inspect or rewrite historical Git objects and does not introduce Git LFS. New intentional binary classes or exact exceptions require a narrow, documented policy update reviewed with the asset's ownership and size limit.
+
 ## Scope
 
 This review checks whether Perastage is now in a solid state of cleanliness/order to continue feature work.
