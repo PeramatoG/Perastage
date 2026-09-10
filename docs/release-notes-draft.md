@@ -36,6 +36,7 @@ Changes since **v1.6.0**.
 - Reconciled developer documentation with the current modular repository layout and clarified the authoritative references for architecture, paths, and structural policy.
 - Enforced repository architecture boundaries for root entry points and source-module registration, and prevented developer-local build, preset, IDE, and machine-path configuration from being committed.
 - Completed a test-backed regression audit of repository organization, build ownership, resource staging, packaging structure, documentation, and supported-platform boundaries.
+- Documented the post-refactor CI and release-packaging validation baseline, including verified local contracts and the exact hosted installer, compatibility-package, and safe release dry-run evidence required before completion.
 
 ## Downloads and installation
 
