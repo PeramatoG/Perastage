@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "default_max_lines": 1500,
+  "source_suffixes": [
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".h",
+    ".hh",
+    ".hpp",
+    ".hxx"
+  ],
+  "excluded_prefixes": [
+    "build/",
+    "generated/",
+    "third_party/",
+    "tests/fixtures/"
+  ],
+  "hotspots": {
+    "core/riderimporter.cpp": 4015,
+    "gui/dictionaryeditdialog.cpp": 2814,
+    "gui/fixtureeditdialog.cpp": 1522,
+    "gui/fixturetablepanel.cpp": 2007,
+    "gui/hoisttablepanel.cpp": 1660,
+    "gui/layoutviewerpanel.cpp": 3595,
+    "gui/layoutviewerpanel_legend.cpp": 1595,
+    "gui/mainwindow.cpp": 1852,
+    "gui/mainwindow_menu.cpp": 2082,
+    "gui/trusstablepanel.cpp": 1528,
+    "mvr/mvrexporter.cpp": 4911,
+    "mvr/mvrimporter.cpp": 5172,
+    "tests/mvr_exporter_compliance_test.cpp": 1664,
+    "viewer2d/pdf/layout_pdf_exporter.cpp": 2352,
+    "viewer2d/viewer2dpanel.cpp": 4550,
+    "viewer3d/gdtfloader.cpp": 2537,
+    "viewer3d/viewer3dcontroller.cpp": 2402,
+    "viewer3d/viewer3dpanel.cpp": 4556
+  }
+}

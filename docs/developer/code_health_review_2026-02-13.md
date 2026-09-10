@@ -1,5 +1,7 @@
 # Code health review (2026-02-13)
 
+> **Historical snapshot:** This review describes the repository as it existed on 2026-02-13; its line counts are not the current policy. The authoritative limits and current hotspot baselines are in `tests/source_file_size_policy.json` and are enforced by `tests/check_source_file_size.py`.
+
 ## Scope
 
 This review checks whether Perastage is now in a solid state of cleanliness/order to continue feature work.
