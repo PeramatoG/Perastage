@@ -1,14 +1,13 @@
 # Main branch protection contract
 
-This document records the CH-003A audit of GitHub protection and proposes the
-configuration for a later CH-003B. It complements, rather than repeats, the
+This document records the CH-003A audit, the CH-003B1 release-App preparation,
+and the proposed configuration for a later CH-003B2. It complements, rather than repeats, the
 [GitHub Actions workflow architecture](github_actions_workflows.md).
 
-> **Audit-only status:** CH-003A did not create, edit, disable, or delete a
-> ruleset or classic branch-protection rule. It did not change any release or
-> versioning workflow. CH-003B is **not ready to apply** until an administrator
-> verifies classic protection and provisions or identifies a narrowly scoped
-> automation identity.
+> **Preparation-only status:** CH-003B1 does not create, edit, disable, or delete
+> a ruleset or classic branch-protection rule. Required pull requests and status
+> checks must not be activated until the dedicated App is installed, validated,
+> enabled, and proven on an intended publication path.
 
 ## Audit basis and access limits
 
@@ -59,8 +58,8 @@ by them only prepare or validate runner-local files.
 
 | Workflow | Trigger and permissions | Remote writes and identity | Preconditions and architectural need |
 |---|---|---|---|
-| `Main Patch Release Artifacts` (`main-patch-test-build.yml`) | Push to `main` or manual dispatch; `contents: write`, `actions: read`, `packages: read`; serialized by `main-patch-version-bump` with cancellation disabled | The checkout-provided `GITHUB_TOKEN` pushes `HEAD:main` as the GitHub Actions installation (`github-actions[bot]`). It writes no tag, temporary ref, or Release. | Validates numeric `VERSION`, makes one patch increment, marks the commit to avoid recursion, and excludes bot-triggered push runs. The direct main write is required by the current automatic post-merge version/artifact architecture. |
-| `Minor Draft Release` (`minor-draft-release.yml`) | Manual dispatch; `contents: write`, `actions: read`, `packages: read`; serialized by `perastage-minor-draft-release` | The checkout-provided `GITHUB_TOKEN` creates and deletes exactly `refs/heads/automation/release-v<version>-<run-id>`, then may atomically fast-forward `refs/heads/main` and create `refs/tags/v<version>`. `github.token` is also passed to `gh` to create/edit a draft GitHub Release and upload assets. | Validates version/tag state and the artifact contract, builds all packages from the exact staged SHA, validates the assembled assets and provenance, refetches and requires `origin/main == BASE_SHA`, and normally publishes main plus tag with `git push --atomic`. Retry states are explicitly constrained. Every write is part of the stabilized minor-publication transaction or exact temp-ref cleanup. |
+| `Main Patch Release Artifacts` (`main-patch-test-build.yml`) | Push to `main` or manual dispatch; `contents: write`, `actions: read`, `packages: read`; serialized by `main-patch-version-bump` with cancellation disabled | Only `bump-version` can mint the dedicated App token. Its checkout explicitly persists either that token in enabled mode or `GITHUB_TOKEN` in transitional mode before pushing `HEAD:main`. It writes no tag, temporary ref, or Release. | Validates numeric `VERSION`, makes one patch increment, marks the commit to avoid recursion, and excludes bot-triggered push runs. The direct main write is required by the current automatic post-merge version/artifact architecture. |
+| `Minor Draft Release` (`minor-draft-release.yml`) | Manual dispatch; `contents: write`, `actions: read`, `packages: read`; serialized by `perastage-minor-draft-release` | Temporary-ref staging and cleanup retain `GITHUB_TOKEN`. Only `publish-release` can mint the dedicated App token and explicitly checks out with it in enabled mode before the atomic main/tag push and draft Release operations. | Validates version/tag state and the artifact contract, builds all packages from the exact staged SHA, validates the assembled assets and provenance, refetches and requires `origin/main == BASE_SHA`, and normally publishes main plus tag with `git push --atomic`. Retry states are explicitly constrained. Every write is part of the stabilized minor-publication transaction or exact temp-ref cleanup. |
 | `Recover Validated Minor Release` (`recover-minor-release.yml`) | Manual dispatch; `contents: write`, `actions: read`; serialized by `perastage-minor-release-recovery` | The checkout-provided `GITHUB_TOKEN` may create only the requested `refs/tags/v<version>` and may create/edit a draft GitHub Release and upload assets. It never updates `main` or a temporary branch. | Requires a full SHA and semantic version, requires that SHA to be reachable from current `origin/main`, verifies `VERSION`, the completed source `Minor Draft Release` run, the single unexpired validated artifact, checksums, and provenance. Dry run defaults to true. These restricted writes recover publication without rebuilding or moving main. |
 
 `CI Debug Tests` (`ci-tests.yml`) runs on pushes and pull requests to `main`, on
@@ -75,6 +74,47 @@ the credential persisted by `actions/checkout` is the repository's
 `GITHUB_TOKEN`: an installation access token for the GitHub Actions App. Ruleset
 bypass must therefore address the App/integration that authenticates the push,
 not the configured Git author.
+
+## Dedicated release-App transition
+
+The two main-writing jobs use `actions/create-github-app-token@v3` only when the
+repository variable `PERASTAGE_RELEASE_APP_ENABLED` is exactly `true`. They read
+the Client ID from repository variable `PERASTAGE_RELEASE_APP_CLIENT_ID`, read
+the private key from Actions secret `PERASTAGE_RELEASE_APP_PRIVATE_KEY`, and
+request only `permission-contents: write`. Omitting both `owner` and
+`repositories` uses the action's current-repository scope. Token revocation is
+left at its default, so the post step revokes the token at job completion.
+
+When enablement is absent or has any value other than `true`, the two jobs use
+their existing `GITHUB_TOKEN` path. This transitional default preserves current
+publication until manual provisioning is complete. When enablement is exactly
+`true`, token creation and a nonempty token are mandatory; a missing Client ID,
+missing or invalid private key, unavailable installation or permission, or token
+creation failure stops the publication job. The enabled path never selects
+`GITHUB_TOKEN` as a fallback.
+
+The selected authentication credential, not the configured Git author, controls
+ruleset authorization. Each publisher uses mutually exclusive checkout steps
+and passes the selected token directly to `actions/checkout@v6`, whose persisted
+credential is then used by `git push`. `publish-release` also assigns the same
+selected credential to `GH_TOKEN` for its existing Release transaction. Tokens
+are neither job outputs nor reusable-workflow inputs. Builders, temp-ref staging,
+cleanup, and `Recover Validated Minor Release` cannot access the dedicated App
+token.
+
+### Manual provisioning checklist
+
+1. Register a dedicated GitHub App for Perastage release automation.
+2. Grant only repository **Contents: Read and write**; request no unrelated organization or account permissions.
+3. Install the App only on `PeramatoG/Perastage`.
+4. Store its Client ID in repository variable `PERASTAGE_RELEASE_APP_CLIENT_ID`.
+5. Store its private key in Actions secret `PERASTAGE_RELEASE_APP_PRIVATE_KEY`.
+6. Keep `PERASTAGE_RELEASE_APP_ENABLED` unset or false initially.
+7. Manually run **Validate Release Automation App** and verify its App slug, installation ID, repository, and current-repository-only result.
+8. Set `PERASTAGE_RELEASE_APP_ENABLED=true`.
+9. Prove that a normal intended version bump or minor publication authenticates with the dedicated App.
+10. Only then, in CH-003B2, add that installed App to `Protect main` as an **Always allow** bypass actor and activate the planned PR/check rules.
+11. Do **not** add the built-in GitHub Actions App as an Always-allow bypass.
 
 ## Pull-request check contract
 

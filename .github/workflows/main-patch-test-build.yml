@@ -30,10 +30,44 @@ jobs:
       previous_version: ${{ steps.bump.outputs.previous_version }}
       new_version: ${{ steps.bump.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v6
+      - name: Create dedicated release App token
+        id: release-app-token
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+        uses: actions/create-github-app-token@v3
         with:
+          client-id: ${{ vars.PERASTAGE_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PERASTAGE_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Validate dedicated release App token
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+        env:
+          RELEASE_APP_TOKEN: ${{ steps.release-app-token.outputs.token }}
+        run: test -n "$RELEASE_APP_TOKEN"
+      - name: Check out main with the dedicated release App
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.release-app-token.outputs.token }}
           ref: main
           fetch-depth: 0
+      - name: Check out main with GITHUB_TOKEN
+        if: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED != 'true' }}
+        uses: actions/checkout@v6
+        with:
+          token: ${{ github.token }}
+          ref: main
+          fetch-depth: 0
+      - name: Summarize publication authentication
+        env:
+          RELEASE_APP_ENABLED: ${{ vars.PERASTAGE_RELEASE_APP_ENABLED == 'true' }}
+          RELEASE_APP_SLUG: ${{ steps.release-app-token.outputs.app-slug }}
+          RELEASE_APP_INSTALLATION_ID: ${{ steps.release-app-token.outputs.installation-id }}
+        run: |
+          if [ "$RELEASE_APP_ENABLED" = true ]; then
+            echo "Publication authentication: dedicated GitHub App (${RELEASE_APP_SLUG}, installation ${RELEASE_APP_INSTALLATION_ID})." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Publication authentication: GITHUB_TOKEN." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Bump patch version in VERSION
         id: bump
         run: |

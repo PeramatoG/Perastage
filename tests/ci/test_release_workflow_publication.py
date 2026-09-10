@@ -40,6 +40,67 @@ def test_workflows_encode_safe_publication_and_recovery_guards() -> None:
     assert recover.find("if [ \"$DRY_RUN\" = true ]; then") < recover.find("git tag -a \"$TAG\"")
 
 
+def test_release_app_credentials_are_confined_and_fail_closed() -> None:
+    workflows = {path.name: path.read_text() for path in WORKFLOWS.glob("*.yml")}
+    action = "actions/create-github-app-token@v3"
+    expected_users = {
+        "main-patch-test-build.yml": "  bump-version:",
+        "minor-draft-release.yml": "  publish-release:",
+        "validate-release-automation-app.yml": "  validate-release-app:",
+    }
+
+    assert {name for name, text in workflows.items() if action in text} == set(expected_users)
+    for name, job_marker in expected_users.items():
+        text = workflows[name]
+        assert text.count(action) == 1
+        assert text.index(action) > text.index(job_marker)
+        token_block = text[text.index(action) : text.index(action) + 400]
+        assert "permission-contents: write" in token_block
+        assert "owner:" not in token_block and "repositories:" not in token_block
+        assert "skip-token-revoke" not in text
+
+    patch = workflows["main-patch-test-build.yml"]
+    minor = workflows["minor-draft-release.yml"]
+    recovery = workflows["recover-minor-release.yml"]
+    for publisher in (patch, minor):
+        assert "vars.PERASTAGE_RELEASE_APP_ENABLED == 'true'" in publisher
+        assert "vars.PERASTAGE_RELEASE_APP_ENABLED != 'true'" in publisher
+        assert 'run: test -n "$RELEASE_APP_TOKEN"' in publisher
+        assert "token: ${{ steps.release-app-token.outputs.token }}" in publisher
+        assert "token: ${{ github.token }}" in publisher
+    assert patch.index("token: ${{ steps.release-app-token.outputs.token }}") < patch.index("git push origin HEAD:main")
+    publish_job = minor[minor.index("  publish-release:") : minor.index("  cleanup-temp-ref:")]
+    assert 'test -n "$RELEASE_APP_TOKEN"' in publish_job
+    assert 'export GH_TOKEN="$RELEASE_APP_TOKEN"' in publish_job
+    assert 'export GH_TOKEN="$BUILT_IN_TOKEN"' in publish_job
+    assert publish_job.index("token: ${{ steps.release-app-token.outputs.token }}") < publish_job.index("git push --atomic origin")
+    assert action not in recovery
+    assert "PERASTAGE_RELEASE_APP_" not in recovery
+
+    reusable_builders = [
+        "windows-installer.yml",
+        "linux-installer.yml",
+        "macos-installer.yml",
+        "macos-15-manual-installer.yml",
+        "arch-package.yml",
+    ]
+    for name in reusable_builders:
+        assert "PERASTAGE_RELEASE_APP_" not in workflows[name]
+        assert "release-app-token" not in workflows[name]
+
+
+def test_release_app_validation_is_read_only_and_repository_scoped() -> None:
+    validation = (WORKFLOWS / "validate-release-automation-app.yml").read_text()
+    assert "workflow_dispatch:" in validation
+    assert "push:" not in validation and "pull_request:" not in validation
+    assert "contents: read" in validation
+    assert 'gh api "/installation/repositories?per_page=100"' in validation
+    assert 'payload["total_count"] != 1' in validation
+    assert "git push" not in validation
+    assert "git tag" not in validation
+    assert "gh release" not in validation
+
+
 def test_atomic_branch_and_tag_push_succeeds_against_local_bare_remote(tmp_path: Path) -> None:
     remote = tmp_path / "remote.git"
     run(["git", "init", "--bare", str(remote)], tmp_path)

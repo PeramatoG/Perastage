@@ -51,6 +51,36 @@ The workflow serializes version mutation, increments only the patch component in
 
 It does not rerun Debug CI, and it does not build macOS 15 or Arch Linux compatibility packages. These artifacts are intended for manual testing and continuous verification of current hosted packaging runners. Automatic patch artifacts use GitHub Actions artifact retention and are not permanent release assets.
 
+### Release publication authentication
+
+The repository is prepared for a dedicated release-automation GitHub App without
+requiring its credentials during the transition. If
+`PERASTAGE_RELEASE_APP_ENABLED` is absent or not exactly `true`, `bump-version`
+and `publish-release` continue to authenticate with `GITHUB_TOKEN`. If it is
+exactly `true`, those jobs must successfully mint a token with
+`actions/create-github-app-token@v3`, repository variable
+`PERASTAGE_RELEASE_APP_CLIENT_ID`, Actions secret
+`PERASTAGE_RELEASE_APP_PRIVATE_KEY`, and only `contents: write`; failure stops
+the job without a `GITHUB_TOKEN` fallback.
+
+The action receives neither `owner` nor `repositories`, which scopes its token to
+the current repository, and default end-of-job revocation remains enabled. Only
+the patch `bump-version` job and final minor `publish-release` job can mint the
+token. Their mutually exclusive checkout steps persist the selected credential
+before any protected-main push. The minor publisher also uses that same selected
+token for its existing draft Release operations. Reusable package builders,
+minor temp-ref staging and cleanup, and recovery continue using ordinary tokens.
+Commit/tag author configuration remains `github-actions[bot]`; it is the checkout
+credential, rather than that attribution, that authenticates a push.
+
+Maintainers can run the manual-only **Validate Release Automation App** workflow
+before enablement. It requests the same permission, queries the token's accessible
+installation repositories, requires the sole result to be the current repository,
+and summarizes only the App slug, installation ID, repository, permission, and
+result. It performs no checkout, push, tag, Release, or branch mutation. See the
+[main branch protection contract](main_branch_protection.md) for provisioning and
+CH-003B2 prerequisites.
+
 ## Weekly and manual compatibility packages
 
 `Weekly Compatibility Packages` in `.github/workflows/compatibility-builds.yml` runs weekly at `03:27 UTC` on Tuesday and supports `workflow_dispatch` with an optional `source_ref`.
