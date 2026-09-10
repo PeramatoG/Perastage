@@ -12,6 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added an automated, cross-platform source-size guardrail that prevents existing C/C++ hotspots from growing beyond reviewable baselines and limits new source files to a maintainable default size.
 - Validated the native Linux, Windows, WSL, and Apple Silicon macOS clean-checkout developer workflows, corrected Linux/WSL prerequisite installation order and Debug test dependencies, prevented Windows-only PowerShell tests from registering on Linux hosts, completed Linux system dependency and locale setup, fixed external mDNS header discovery, corrected Windows wxWidgets secure-store and Debug test-tool validation, made restricted-path policy tests use canonical directories across macOS and Windows environments, and kept local test artifacts out of the source tree.
 - Prevented compatible macOS dependency caches from being discarded because binary contents were misread as SDK metadata, and migrated CI away from an immutable stale cache snapshot so repaired dependencies can persist across runs.
 - Added a reproducible repository-structure baseline and policy validation to protect current module and build ownership during future organization work.
