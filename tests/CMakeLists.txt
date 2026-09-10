@@ -189,6 +189,12 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(SourceFileSizeFixtures ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_source_file_size_test.py -v
                                LABELS standard-strict policy architecture)
+    add_repository_policy_test(RepositoryHygiene ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_hygiene.py
+                               LABELS standard-strict policy architecture)
+    add_repository_policy_test(RepositoryHygieneFixtures ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_hygiene_test.py -v
+                               LABELS standard-strict policy architecture)
     add_repository_policy_test(WindowsSetupEntrypoint ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_windows_setup_entrypoint.py
                                LABELS windows cmake policy)

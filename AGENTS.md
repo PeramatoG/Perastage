@@ -24,6 +24,7 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
      - `tests/check_perastage_tree_modules.sh`
      - `tests/check_no_configmanager_get_in_gui.sh`
      - `python3 tests/check_source_file_size.py`
+     - `python3 tests/check_repository_hygiene.py`
    - If a new architectural boundary is introduced, add a small `tests/check_*.sh` script in the same PR.
 
 5. **Refactoring strategy**
@@ -70,6 +71,13 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
 - `gui/fixtureeditdialog.cpp`
 
 The versioned policy file is authoritative for exact maximum line counts and also records any oversized maintained test source.
+
+## Repository hygiene policy
+
+- `tests/check_repository_hygiene.py` rejects tracked build outputs, compiled artifacts, caches, temporary archives, and files beyond the reviewable limits in `tests/repository_hygiene_policy.json`.
+- Bundled GDTFs are intentional normal-Git assets only under the configured `library/fixtures/` and `library/trusses/` scopes, with bounded per-file limits. This policy does not require Git LFS.
+- The guard evaluates the current tracked tree, not historical Git objects. History cleanup, including removal of old binary objects, requires a separate explicit migration decision.
+- A legitimate new binary class or exceptional file requires a narrow, documented policy rule and review of its path, format, purpose, and maximum size; never regenerate policy allowances automatically.
 
 ## Change quality
 - Keep changes small, focused, and explicit in responsibility naming.
