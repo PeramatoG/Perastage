@@ -78,8 +78,8 @@ before enablement. It requests the same permission, queries the token's accessib
 installation repositories, requires the sole result to be the current repository,
 and summarizes only the App slug, installation ID, repository, permission, and
 result. It performs no checkout, push, tag, Release, or branch mutation. See the
-[main branch protection contract](main_branch_protection.md) for provisioning and
-CH-003B2 prerequisites.
+[main branch protection contract](main_branch_protection.md) for the single
+remaining administrative activation and verification handoff.
 
 ## Weekly and manual compatibility packages
 
