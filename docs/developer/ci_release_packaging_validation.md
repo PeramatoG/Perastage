@@ -7,12 +7,19 @@ successful package build.
 
 ## Baseline and audit scope
 
-- Baseline `main`: `987ddd461726ee17d7e167c56be04c494dbc5487`.
-- Baseline `VERSION`: `1.6.25`.
+- ORG-041 reconciliation baseline `main`: `87ee5dd8f516a749fefed853e3cf661ad0a6f360`.
+- Reconciliation baseline `VERSION`: `1.6.26`.
+- ORG-040 merge: `6631d8d192f544697de3be30015989cc576ce082`.
+  ORG-038 merge `056f3f464e65fb0f524dd175964f6fffb55b55df`, ORG-039 merge
+  `774d689fb3097ca21af01bbb1fdbd16613e9cd2f`, and the ORG-040 merge are all
+  ancestors of this baseline. The baseline is the automatic patch-version
+  commit immediately after the ORG-040 merge.
+- Original ORG-040 audit baseline `main`: `987ddd461726ee17d7e167c56be04c494dbc5487`.
+- Original ORG-040 audit baseline `VERSION`: `1.6.25`.
 - ORG-039 merge: `774d689fb3097ca21af01bbb1fdbd16613e9cd2f`, which is an ancestor of the
-  baseline. The baseline is the automatic patch-version commit immediately
-  after that merge.
-- Audit snapshot: 2026-09-09 UTC.
+  original audit baseline. That baseline is the automatic patch-version commit
+  immediately after that merge.
+- Original audit snapshot: 2026-09-09 UTC; hosted-evidence reconciliation: 2026-09-10 UTC.
 - Workflow and script revision: every path below was audited as stored in
   baseline commit `987ddd461726ee17d7e167c56be04c494dbc5487`.
 
@@ -44,19 +51,20 @@ source.
 | Surface | Status | Exact evidence |
 |---|---|---|
 | PR CI and complete Debug tests | PASS | CI Debug Tests run [#472](https://github.com/PeramatoG/Perastage/actions/runs/34387485173), run id `34387485173`, source `51df89ad5a11bad8a5204faa9b00c112ce703a45`: `resolve-source`, `windows-debug`, `linux-debug`, and `macos-debug` all succeeded. Each platform completed its full build and CTest step and uploaded test results. |
-| Post-merge Debug CI | PENDING EXTERNAL VALIDATION | Run [#473](https://github.com/PeramatoG/Perastage/actions/runs/34399126771), run id `34399126771`, source `774d689fb3097ca21af01bbb1fdbd16613e9cd2f`: source resolution, Windows, and Linux succeeded, while macOS and the overall run were still in progress at the audit snapshot. |
-| Windows installer | PENDING EXTERNAL VALIDATION | Main Patch Release Artifacts run [#486](https://github.com/PeramatoG/Perastage/actions/runs/34399127104), run id `34399127104`, release source `987ddd461726ee17d7e167c56be04c494dbc5487`: the Windows builder was still building. |
+| Post-merge Debug CI | PASS | Run [#473](https://github.com/PeramatoG/Perastage/actions/runs/34399126771), run id `34399126771`, source `774d689fb3097ca21af01bbb1fdbd16613e9cd2f`: `resolve-source`, `windows-debug`, `linux-debug`, and `macos-debug` all succeeded. |
+| Windows installer | PASS | Main Patch Release Artifacts run [#486](https://github.com/PeramatoG/Perastage/actions/runs/34399127104), run id `34399127104`, release source `987ddd461726ee17d7e167c56be04c494dbc5487`: `windows-installer / build-windows-installer` succeeded. |
 | Linux AppImage | PASS | Run #486 `linux-installer / build-linux-appimage` succeeded from release source `987ddd461726ee17d7e167c56be04c494dbc5487`; configure, staged build, symbol upload, AppImage build, and AppImage upload all succeeded. Artifacts were `Perastage-linux-appimage`, `Perastage-linux-staged`, and `Perastage-linux-symbols`. |
-| Current macOS DMG | PENDING EXTERNAL VALIDATION | Run #486 current-macOS builder was still installing dependencies; packaging and DMG validation had not run. |
-| macOS 15 DMG | PENDING EXTERNAL VALIDATION | Weekly Compatibility Packages run [#8](https://github.com/PeramatoG/Perastage/actions/runs/34203307608) succeeded, but its source `bfada84e35db41bcd1bc4deb4bd6fbaa24396e76` predates the completed refactor and therefore is supporting evidence only. |
-| Arch package | PENDING EXTERNAL VALIDATION | Weekly Compatibility Packages run #8 succeeded, but its source predates the completed refactor and therefore is supporting evidence only. |
-| Minor-release dry run | PENDING EXTERNAL VALIDATION | The unauthenticated environment cannot dispatch `minor-draft-release.yml`; no hosted dry run was claimed. Static policy tests confirmed that dry run exits before staging, building, tagging, pushing, or release creation. |
+| Current macOS DMG | PASS | Run #486 `macos-installer / build-macos-installer` succeeded from release source `987ddd461726ee17d7e167c56be04c494dbc5487`. |
+| macOS 15 DMG | PASS | Weekly Compatibility Packages run [#9](https://github.com/PeramatoG/Perastage/actions/runs/34446176176), run id `34446176176`, exact source `987ddd461726ee17d7e167c56be04c494dbc5487`, version `1.6.25`: `macos15-installer / build-macos-installer` succeeded. |
+| Arch package | PASS | Run #9, run id `34446176176`, exact source `987ddd461726ee17d7e167c56be04c494dbc5487`, version `1.6.25`: `arch-package / build-arch-package` succeeded. |
+| Minor-release dry run | NOT INDEPENDENTLY VERIFIED | The public Actions API exposed no post-refactor `Minor Draft Release` run during the ORG-041 reconciliation; its newest visible run was #12 (run id `33170346649`) from 2026-08-28, before the refactor baseline. The reported later successful `dry_run=true` execution therefore cannot be assigned a run id, source SHA, version pair, or job list without fabricating metadata. Static policy tests still confirm that dry run exits before creating a temporary release ref, version commit, tag, package builds, or GitHub Release. |
 | Final artifact contract | PASS | Local release tests accepted the exact six-package contract and rejected missing, duplicate, empty, stale, and unexpected assets. Workflow policy tests confirmed that all five builders feed the final validator. |
 | Debug-symbol assembly | PASS | Local tests assembled real Windows, Linux, Arch, macOS 15, and current-macOS symbol inputs and rejected missing or malformed inputs. |
 | Checksums | PASS | Local final-asset validation generated `SHA256SUMS.txt` only after validating the package set. |
 | Provenance | PASS | Local final-asset validation generated and revalidated release provenance, including version and release source identity. |
 | Recovery path | PASS | Local publication tests exercised annotated-tag creation and atomic publication against a bare Git remote; static policy checks require recovery to fetch and validate the exact release SHA and validated artifact from the specified run without moving `main`. |
-| Final ORG-040 status | PENDING EXTERNAL VALIDATION | Run #486 must finish successfully, compatibility packages must be built successfully from an exact post-refactor SHA, the safe minor-release dry run must succeed, and the ORG-040 PR CI must be green. ORG-040 remains unchecked until review and merge. |
+| ORG-040 PR CI | PASS | CI Debug Tests run [#474](https://github.com/PeramatoG/Perastage/actions/runs/34445037552), run id `34445037552`, source head `f1529c9b1d04b3cd6f2ec6a30ea8ce01abfd4eab`: source resolution and all three platform Debug jobs succeeded. |
+| Final ORG-040 status | MERGED / COMPLETED | PR #2341 merged as `6631d8d192f544697de3be30015989cc576ce082` after its PR CI passed. Runs #473, #474, #486, and Compatibility Packages #9 supply the independently verifiable hosted CI and package evidence. The separately reported minor-release dry run is not labeled PASS here because its exact hosted metadata was unavailable from the public Actions record. |
 
 ## Audit conclusions
 
@@ -107,22 +115,18 @@ The following passed against the baseline workflow revision:
 - `bash tests/check_no_configmanager_get_in_gui.sh`
 - `python3 tests/check_docs_links.py`
 
-These checks provide static and local script evidence only; they do not replace
-the pending hosted package builds.
+These checks provide static and local script evidence only; the completed hosted
+runs above supply the distinct machine-backed CI and package evidence.
 
-## Required external validation
+## ORG-041 reconciliation conclusion
 
-1. Confirm run #486 completes successfully with successful Windows, Linux, and
-   current-macOS builders and inspect the uploaded installer/AppImage/DMG names.
-2. Dispatch `compatibility-builds.yml` with
-   `source_ref=987ddd461726ee17d7e167c56be04c494dbc5487` (or the reviewed ORG-040 head)
-   and require source resolution, macOS 15, Arch, and summary jobs to succeed.
-3. Dispatch `minor-draft-release.yml` from the reviewed ORG-040 branch with
-   `dry_run=true`; confirm that metadata/contract validation succeeds and that
-   no temporary ref, version commit, tag, build, or release is created.
-4. Require all jobs in the ORG-040 pull request's CI Debug Tests workflow to
-   succeed before merge.
-5. After review and successful external evidence, merge the ORG-040 PR. Only a
-   later main-branch change may mark the immutable ORG-040 checklist complete.
+The previously pending PR CI, post-merge CI, normal Windows/Linux/current-macOS
+packages, and macOS 15/Arch compatibility packages are now successful. This
+record does not equate a non-publishing dry run with a real release: no minor
+release publication was requested or performed as part of ORG-040 or ORG-041.
+The public Actions record did not expose the reported post-refactor dry run, so
+its exact metadata remains explicitly unverified rather than inferred.
 
-No ORG-041 work is included in this validation.
+ORG-040 is merged and complete. ORG-041 is a documentation and checklist
+consistency review only and becomes complete on the default branch only when
+its own pull request is merged.
