@@ -53,33 +53,18 @@ It does not rerun Debug CI, and it does not build macOS 15 or Arch Linux compati
 
 ### Release publication authentication
 
-The repository is prepared for a dedicated release-automation GitHub App without
-requiring its credentials during the transition. If
-`PERASTAGE_RELEASE_APP_ENABLED` is absent or not exactly `true`, `bump-version`
-and `publish-release` continue to authenticate with `GITHUB_TOKEN`. If it is
-exactly `true`, those jobs must successfully mint a token with
-`actions/create-github-app-token@v3`, repository variable
-`PERASTAGE_RELEASE_APP_CLIENT_ID`, Actions secret
-`PERASTAGE_RELEASE_APP_PRIVATE_KEY`, and only `contents: write`; failure stops
-the job without a `GITHUB_TOKEN` fallback.
+Dedicated-App mode is active. The patch `bump-version` and minor-release
+`publish-release` jobs mint a current-repository token for the **Perastage Release
+Automation** GitHub App using `actions/create-github-app-token@v3`. The App is
+installed only on `PeramatoG/Perastage`, requests only `contents: write`, and is the
+sole Integration with `always` bypass in the active `Protect main` ruleset.
 
-The action receives neither `owner` nor `repositories`, which scopes its token to
-the current repository, and default end-of-job revocation remains enabled. Only
-the patch `bump-version` job and final minor `publish-release` job can mint the
-token. Their mutually exclusive checkout steps persist the selected credential
-before any protected-main push. The minor publisher also uses that same selected
-token for its existing draft Release operations. Reusable package builders,
-minor temp-ref staging and cleanup, and recovery continue using ordinary tokens.
-Commit/tag author configuration remains `github-actions[bot]`; it is the checkout
-credential, rather than that attribution, that authenticates a push.
-
-Maintainers can run the manual-only **Validate Release Automation App** workflow
-before enablement. It requests the same permission, queries the token's accessible
-installation repositories, requires the sole result to be the current repository,
-and summarizes only the App slug, installation ID, repository, permission, and
-result. It performs no checkout, push, tag, Release, or branch mutation. See the
-[main branch protection contract](main_branch_protection.md) for the single
-remaining administrative activation and verification handoff.
+Token creation is fail-closed: enabled App mode never falls back to `GITHUB_TOKEN`.
+Only the two protected-main publishers can mint the token; package builders,
+temporary-reference staging and cleanup, and recovery cannot access it. The manual
+validation workflow verifies the installation and permission scope without a Git
+write. See the [main branch protection contract](main_branch_protection.md) for the
+verified live ruleset, security rationale, and rollback procedure.
 
 ## Weekly and manual compatibility packages
 
