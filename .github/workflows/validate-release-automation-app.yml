@@ -1,0 +1,58 @@
+name: Validate Release Automation App
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require dedicated release App configuration
+        env:
+          RELEASE_APP_CLIENT_ID: ${{ vars.PERASTAGE_RELEASE_APP_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          [ -n "$RELEASE_APP_CLIENT_ID" ] || { echo "PERASTAGE_RELEASE_APP_CLIENT_ID is not configured."; exit 1; }
+      - name: Create dedicated release App token
+        id: release-app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.PERASTAGE_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PERASTAGE_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Verify installation repository scope
+        env:
+          GH_TOKEN: ${{ steps.release-app-token.outputs.token }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          installation_repositories="$(mktemp)"
+          gh api "/installation/repositories?per_page=100" > "$installation_repositories"
+          python3 - "$installation_repositories" "$EXPECTED_REPOSITORY" <<'PY'
+          import json
+          import sys
+
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          repositories = [repository["full_name"] for repository in payload["repositories"]]
+          if payload["total_count"] != 1 or repositories != [sys.argv[2]]:
+              raise SystemExit(
+                  f"Expected installation token access only to {sys.argv[2]}, got {repositories}"
+              )
+          PY
+      - name: Summarize validated identity
+        env:
+          RELEASE_APP_SLUG: ${{ steps.release-app-token.outputs.app-slug }}
+          RELEASE_APP_INSTALLATION_ID: ${{ steps.release-app-token.outputs.installation-id }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo "# Release automation App validation"
+            echo "App: ${RELEASE_APP_SLUG}"
+            echo "Installation ID: ${RELEASE_APP_INSTALLATION_ID}"
+            echo "Repository: ${EXPECTED_REPOSITORY}"
+            echo "Requested permission: contents: write"
+            echo "Result: token creation and current-repository-only access validated without a Git write."
+          } >> "$GITHUB_STEP_SUMMARY"

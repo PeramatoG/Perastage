@@ -12,6 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Prepared narrowly scoped, fail-closed GitHub App authentication for trusted release publication while preserving the existing automation path until maintainers enable it.
 - Documented the audited main-branch protection contract and the narrow automation identity required before stronger protection can be safely activated.
 - Added a cross-platform repository hygiene guard that blocks accidentally tracked build artifacts and unexpectedly large files while preserving the bounded bundled GDTF library as normal Git assets.
 - Added an automated, cross-platform source-size guardrail that prevents existing C/C++ hotspots from growing beyond reviewable baselines and limits new source files to a maintainable default size.
