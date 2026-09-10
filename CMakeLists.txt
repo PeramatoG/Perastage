@@ -46,6 +46,17 @@ if(PERASTAGE_ENABLE_COMPILER_CACHE)
     endif()
 endif()
 
+option(PERASTAGE_ENABLE_COVERAGE
+       "Enable informational gcov instrumentation for Core/MVR coverage" OFF)
+if(PERASTAGE_ENABLE_COVERAGE)
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        message(FATAL_ERROR
+            "PERASTAGE_ENABLE_COVERAGE currently supports GCC builds only.")
+    endif()
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+endif()
+
 option(PERASTAGE_FORCE_WXDEBUG "Force linking wxWidgets debug libs" OFF)
 
 get_property(_perastage_build_testing_set CACHE BUILD_TESTING PROPERTY VALUE SET)

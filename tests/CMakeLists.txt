@@ -1190,6 +1190,7 @@ add_executable(mvr_gdtf_import_matching_test mvr_gdtf_import_matching_test.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES})
 target_include_directories(mvr_gdtf_import_matching_test PRIVATE ../mvr ../third_party)
 add_test(NAME MvrGdtfImportMatching COMMAND mvr_gdtf_import_matching_test)
+set_perastage_test_labels(MvrGdtfImportMatching LAYER perastage-extension DOMAINS mvr gdtf)
 
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                build_info_stub.cpp
@@ -1231,6 +1232,7 @@ target_include_directories(mvr_dmx_address_test PRIVATE
 target_link_libraries(mvr_dmx_address_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrDmxAddressConversion COMMAND mvr_dmx_address_test)
+set_perastage_test_labels(MvrDmxAddressConversion LAYER perastage-extension DOMAINS mvr)
 set_library_env(MvrDmxAddressConversion)
 
 
@@ -1275,6 +1277,7 @@ target_include_directories(mvr_support_userdata_roundtrip_test PRIVATE
 target_link_libraries(mvr_support_userdata_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrSupportUserDataRoundtrip COMMAND mvr_support_userdata_roundtrip_test)
+set_perastage_test_labels(MvrSupportUserDataRoundtrip LAYER perastage-extension DOMAINS mvr project)
 set_library_env(MvrSupportUserDataRoundtrip)
 
 add_executable(mvr_perastage_metadata_recovery_test
@@ -1356,6 +1359,7 @@ target_include_directories(mvr_layer_appearance_userdata_test PRIVATE
 target_link_libraries(mvr_layer_appearance_userdata_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrLayerAppearanceUserData COMMAND mvr_layer_appearance_userdata_test)
+set_perastage_test_labels(MvrLayerAppearanceUserData LAYER perastage-extension DOMAINS mvr project)
 set_library_env(MvrLayerAppearanceUserData)
 
 
@@ -1400,6 +1404,7 @@ target_include_directories(mvr_fixture_category_roundtrip_test PRIVATE
 target_link_libraries(mvr_fixture_category_roundtrip_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrFixtureCategoryRoundtrip COMMAND mvr_fixture_category_roundtrip_test)
+set_perastage_test_labels(MvrFixtureCategoryRoundtrip LAYER perastage-extension DOMAINS mvr gdtf)
 set_library_env(MvrFixtureCategoryRoundtrip)
 
 add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_identity_test.cpp
@@ -1447,6 +1452,7 @@ target_include_directories(mvr_sceneobject_symbol_identity_test PRIVATE
 target_link_libraries(mvr_sceneobject_symbol_identity_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrSceneObjectSymbolIdentity COMMAND mvr_sceneobject_symbol_identity_test)
+set_perastage_test_labels(MvrSceneObjectSymbolIdentity LAYER legacy-compatibility DOMAINS mvr zip)
 set_library_env(MvrSceneObjectSymbolIdentity)
 
 add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_test.cpp
@@ -1533,7 +1539,46 @@ target_include_directories(mvr_exporter_compliance_test PRIVATE
 target_link_libraries(mvr_exporter_compliance_test PRIVATE
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrExporterCompliance COMMAND mvr_exporter_compliance_test)
+set_perastage_test_labels(MvrExporterCompliance LAYER standard-strict DOMAINS mvr gdtf zip)
 set_library_env(MvrExporterCompliance)
+
+add_executable(mvr_importer_archive_characterization_test
+               mvr_importer_archive_characterization_test.cpp
+               build_info_stub.cpp
+               ../core/configmanager.cpp ../core/configservices.cpp
+               ../core/projectutils.cpp ../core/library/library_bootstrap.cpp
+               ../core/gdtfdictionary.cpp ../core/gdtf_fixture_category.cpp
+               ../core/layer_service.cpp ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp ../core/utf8_utils.cpp
+               ../core/trussdictionary.cpp ../core/trussloader.cpp
+               ../core/wx_path_utils.cpp ../core/runtime_storage.cpp
+               ../core/truss_gdtf_builder.cpp ../core/dummyprofilelibrary.cpp
+               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
+               ../viewer2d/fixture_label_overrides.cpp
+               ../mvr/mvrexporter.cpp ../core/scene_transform_integrity.cpp
+               ../core/mvr_identity_recovery.cpp
+               ../mvr/primitive_model_resources.cpp
+               ../core/gdtf_canonicalizer.cpp ../core/gdtf_mutation_audit.cpp
+               ../core/logger.cpp gdtfloader_stub.cpp consolepanel_stub.cpp
+               ../models/mvrscene.cpp ../models/fixture.cpp ../models/truss.cpp
+               ../models/sceneobject.cpp ../models/layer.cpp ${LAYOUT_SOURCES})
+target_include_directories(mvr_importer_archive_characterization_test PRIVATE
+                           . ../core ../models ../mvr ../gui ../third_party)
+target_link_libraries(mvr_importer_archive_characterization_test PRIVATE
+                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+add_test(NAME MvrImporterArchiveStrict
+         COMMAND mvr_importer_archive_characterization_test strict)
+set_perastage_test_labels(MvrImporterArchiveStrict LAYER standard-strict DOMAINS mvr zip)
+add_test(NAME MvrImporterArchiveLegacy
+         COMMAND mvr_importer_archive_characterization_test legacy)
+set_perastage_test_labels(MvrImporterArchiveLegacy LAYER legacy-compatibility DOMAINS mvr zip)
+add_test(NAME MvrImporterArchiveRecovery
+         COMMAND mvr_importer_archive_characterization_test recovery)
+set_perastage_test_labels(MvrImporterArchiveRecovery LAYER tolerant-recovery DOMAINS mvr zip)
+set_library_env(MvrImporterArchiveStrict)
+set_library_env(MvrImporterArchiveLegacy)
+set_library_env(MvrImporterArchiveRecovery)
 
 add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                build_info_stub.cpp
@@ -2313,6 +2358,7 @@ target_include_directories(mvr_patched_gdtf_export_test PRIVATE
                            . ../core ../models ../mvr ../gui ../viewer3d ../third_party)
 target_link_libraries(mvr_patched_gdtf_export_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2 perastage_test_gdtf_archive_reader)
 add_test(NAME MvrPatchedGdtfExportMutation COMMAND mvr_patched_gdtf_export_test)
+set_perastage_test_labels(MvrPatchedGdtfExportMutation LAYER perastage-extension DOMAINS mvr gdtf zip)
 set_library_env(MvrPatchedGdtfExportMutation)
 
 
@@ -2762,6 +2808,7 @@ add_executable(mvr_identity_recovery_test mvr_identity_recovery_test.cpp
                ../core/mvr_identity_recovery.cpp)
 target_include_directories(mvr_identity_recovery_test PRIVATE ../core ../models)
 add_test(NAME MvrIdentityRecovery COMMAND mvr_identity_recovery_test)
+set_perastage_test_labels(MvrIdentityRecovery LAYER perastage-extension DOMAINS mvr project)
 
 # Supplies the shared UUID implementation to every standalone test executable.
 get_property(perastage_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)

@@ -1,0 +1,97 @@
+name: Core MVR Coverage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "mvr/**"
+      - "models/**"
+      - "tests/**"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+      - ".github/workflows/core-mvr-coverage.yml"
+      - ".github/scripts/generate_core_mvr_coverage.py"
+
+permissions:
+  contents: read
+
+jobs:
+  core-mvr-coverage:
+    runs-on: ubuntu-latest
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
+      VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
+      VCPKG_PACKAGES: ${{ github.workspace }}/.vcpkg-cache/packages
+      VCPKG_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache/binary
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache/binary,readwrite
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install build and coverage prerequisites
+        run: |
+          .github/scripts/install_vcpkg_build_prerequisites.sh linux
+          python3 -m pip install --disable-pip-version-check gcovr==8.3
+      - name: Read pinned vcpkg baseline
+        id: vcpkg-baseline
+        run: |
+          set -euo pipefail
+          baseline="$(python3 .github/scripts/get_vcpkg_baseline.py vcpkg.json)"
+          echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
+      - name: Restore vcpkg downloads
+        uses: actions/cache@v5
+        with:
+          path: .vcpkg-cache/downloads
+          key: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: vcpkg-downloads-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Restore vcpkg installed packages and binary archives
+        uses: actions/cache@v5
+        with:
+          path: |
+            .vcpkg-cache/installed
+            .vcpkg-cache/packages
+            .vcpkg-cache/binary
+          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-linux-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
+      - name: Bootstrap pinned vcpkg baseline
+        run: |
+          set -euo pipefail
+          baseline="${{ steps.vcpkg-baseline.outputs.baseline }}"
+          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" checkout --force "$baseline"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          mkdir -p "$VCPKG_INSTALLED" "$VCPKG_DOWNLOADS" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
+      - name: Install dependencies
+        run: |
+          python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" \
+            --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
+            --install-root "$VCPKG_INSTALLED" --packages-root "$VCPKG_PACKAGES" \
+            --downloads-root "$VCPKG_DOWNLOADS" --attempts 4 \
+            --initial-delay-seconds 30 --max-delay-seconds 120
+      - name: Configure dedicated GCC coverage build
+        run: |
+          cmake -S . -B build/linux-coverage -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON \
+            -DPERASTAGE_ENABLE_COVERAGE=ON -DPERASTAGE_ENABLE_COMPILER_CACHE=OFF \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux -DVCPKG_INSTALLED_DIR="$VCPKG_INSTALLED"
+      - name: Build all production and test targets
+        run: cmake --build build/linux-coverage --target all --parallel 2
+      - name: Run registered tests
+        run: xvfb-run -a ctest --test-dir build/linux-coverage --output-on-failure
+      - name: Generate informational reports
+        run: |
+          python3 .github/scripts/generate_core_mvr_coverage.py \
+            --build-dir build/linux-coverage --output-dir out/core-mvr-coverage \
+            --commit "$GITHUB_SHA"
+      - name: Upload Core/MVR coverage report
+        uses: actions/upload-artifact@v6
+        with:
+          name: core-mvr-coverage-report
+          path: out/core-mvr-coverage
+          if-no-files-found: error
