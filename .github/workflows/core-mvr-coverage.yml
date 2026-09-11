@@ -44,6 +44,24 @@ jobs:
         run: |
           .github/scripts/install_vcpkg_build_prerequisites.sh linux
           python3 -m pip install --disable-pip-version-check gcovr==8.3
+      - name: Validate Linux test tools and locale
+        run: |
+          set -euo pipefail
+          sudo locale-gen es_ES.UTF-8 zh_CN.UTF-8
+          locale -a | grep -qi '^es_ES.utf8$' || {
+            echo "es_ES.UTF-8 locale was not generated"
+            exit 1
+          }
+          locale -a | grep -qi '^zh_CN.utf8$' || {
+            echo "zh_CN.UTF-8 locale was not generated"
+            exit 1
+          }
+          for tool in rg xvfb-run locale xdpyinfo; do
+            command -v "$tool" >/dev/null || {
+              echo "Required Linux test tool is missing: $tool"
+              exit 1
+            }
+          done
       - name: Read pinned vcpkg baseline
         id: vcpkg-baseline
         run: |
