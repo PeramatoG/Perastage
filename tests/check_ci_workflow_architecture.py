@@ -10,9 +10,40 @@ for workflow in workflow_paths:
     subprocess.run(['ruby', '-e', "require 'yaml'; YAML.load_file(ARGV[0])", str(workflow)], check=True)
 
 
+def job_env_runner_context_lines(workflow_text):
+    """Return lines using the unavailable runner context in a job-level env mapping."""
+    mapping_stack = []
+    invalid_lines = []
+    mapping_key = re.compile(r'^( *)([A-Za-z0-9_-]+):')
+    runner_context = re.compile(r'\$\{\{\s*runner\.')
+
+    for line_number, line in enumerate(workflow_text.splitlines(), start=1):
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+
+        indentation = len(line) - len(line.lstrip(' '))
+        while mapping_stack and mapping_stack[-1][0] >= indentation:
+            mapping_stack.pop()
+
+        match = mapping_key.match(line)
+        if match:
+            mapping_stack.append((indentation, match.group(2)))
+
+        path = [key for _, key in mapping_stack]
+        if len(path) >= 3 and path[0] == 'jobs' and path[2] == 'env' and runner_context.search(line):
+            invalid_lines.append(line_number)
+
+    return invalid_lines
+
+
 
 # GitHub Packages is a second, centrally configured cache layer with one trusted writer.
 all_workflows = {path.name: path.read_text() for path in workflow_paths}
+
+# The runner context exists after scheduling, so it cannot be evaluated in jobs.<job_id>.env.
+for name, workflow_text in all_workflows.items():
+    invalid_lines = job_env_runner_context_lines(workflow_text)
+    assert not invalid_lines, f'{name} job-level env uses runner context on lines {invalid_lines}'
 
 # Every workflow invocation must satisfy the retry helper's required logging contract.
 for name, workflow_text in all_workflows.items():
