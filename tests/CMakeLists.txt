@@ -141,6 +141,7 @@ set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell
 if(BASH_EXECUTABLE)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
+    add_bash_policy_test(MvrSceneNodeReaderBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_scene_node_reader_boundary.sh)
     add_bash_policy_test(OpenGLLifecycleCentralized ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
     add_bash_policy_test(ViewerSceneReplacementLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer_scene_replacement_lifecycle.sh)
     add_bash_policy_test(Viewer3DRawDragAnchor ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_raw_drag_anchor.sh)
