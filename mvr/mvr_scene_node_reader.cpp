@@ -178,8 +178,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
       scene_reader_detail::ReadFixtureCategory;
   const auto &ParseTrussRepresentation =
       scene_reader_detail::ParseTrussRepresentation;
-  const auto &IsRenderableTrussGeometry =
-      scene_reader_detail::IsRenderableTrussGeometry;
   const auto &DescribeTrussForLog = scene_reader_detail::DescribeTruss;
   const auto &ReadSupportHoistInfoElement =
       scene_reader_detail::ReadSupportHoistInfo;
@@ -744,7 +742,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         const fs::path resolvedSymbolPath =
             services.resolveScenePath(truss.symbolFile);
         const bool symbolRenderable =
-            IsRenderableTrussGeometry(truss.symbolFile);
+            scene_reader_detail::IsRenderableTrussGeometry(truss.symbolFile);
         std::error_code symbolExistsEc;
         const bool symbolExists =
             symbolRenderable &&
