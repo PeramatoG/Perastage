@@ -16,12 +16,13 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
-#include "mvr_import_package.h"
 #include "../gui/gdtf_resolution_status_style.h"
 #include "apppaths.h"
 #include "build_info.h"
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
+#include "mvr_import_package.h"
+#include "mvr_scene_node_reader.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "credentialstore.h"
 #endif
@@ -31,26 +32,26 @@
 #include "gdtfnet.h"
 #endif
 #include "fixture_label_overrides.h"
+#include "fixture_visual_color.h"
 #include "gdtf_catalog_matcher.h"
 #include "gdtf_catalog_parser.h"
-#include "fixture_visual_color.h"
 #include "gdtf_catalog_service.h"
 #include "gdtf_fixture_category.h"
 #include "gdtf_import_matching.h"
 #include "gdtfloader.h"
-#include "layer_service.h"
-#include "utf8_utils.h"
+#include "geometry_bounds_resolver.h"
 #include "groupobject.h"
+#include "layer_service.h"
 #include "matrixutils.h"
 #include "primitive_model_resources.h"
-#include "runtime_storage.h"
 #include "projectutils.h"
+#include "runtime_storage.h"
 #include "scene_grouping.h"
 #include "sceneobject.h"
 #include "support.h"
-#include "trussloader.h"
-#include "geometry_bounds_resolver.h"
 #include "truss_dimension_resolution.h"
+#include "trussloader.h"
+#include "utf8_utils.h"
 #include "uuidutils.h"
 
 #include "consolepanel.h"
@@ -92,13 +93,13 @@
 #include <tinyxml2.h>
 
 // wxWidgets zip support
+#include <wx/filename.h>
 #include <wx/intl.h>
 #include <wx/listctrl.h>
-#include <wx/wfstream.h>
 #include <wx/mstream.h>
-#include <wx/wx.h>
-#include <wx/filename.h>
 #include <wx/stdpaths.h>
+#include <wx/wfstream.h>
+#include <wx/wx.h>
 
 namespace fs = std::filesystem;
 namespace gdtf_catalog_matcher = mvr::gdtf_catalog_matcher;
@@ -151,13 +152,13 @@ static std::string ToLowerAscii(std::string text) {
 static std::string ResolveGdtfPath(const std::string &baseDir,
                                    const std::string &spec);
 
-// Reports whether extension metadata names one portable root-level archive file.
+// Reports whether extension metadata names one portable root-level archive
+// file.
 static bool IsPortableRootArchiveFileName(const std::string &value) {
   if (value.empty() || value == "." || value == "..")
     return false;
-  if (std::any_of(value.begin(), value.end(), [](unsigned char ch) {
-        return ch < 32 || ch == 127;
-      }))
+  if (std::any_of(value.begin(), value.end(),
+                  [](unsigned char ch) { return ch < 32 || ch == 127; }))
     return false;
   if (value.find('/') != std::string::npos ||
       value.find('\\') != std::string::npos ||
@@ -194,8 +195,8 @@ static std::string NormalizeFixtureNameLookupKey(std::string value) {
 }
 
 // Extracts the fixture-name segment from a Perastage canonical GDTF filename.
-static std::string ExtractPerastageFixtureNameFromFileName(
-    const fs::path &path) {
+static std::string
+ExtractPerastageFixtureNameFromFileName(const fs::path &path) {
   const std::string stem = path.stem().string();
   const size_t firstAt = stem.find('@');
   if (firstAt == std::string::npos)
@@ -295,24 +296,14 @@ static bool TryParseFloat(const std::string &text, float &out) {
   char *endPtr = nullptr;
   const double parsed = std::strtod(trimmedText.c_str(), &endPtr);
   if (endPtr == trimmedText.c_str() + trimmedText.size() && errno != ERANGE &&
-      std::isfinite(parsed) &&
-      std::isfinite(static_cast<float>(parsed))) {
+      std::isfinite(parsed) && std::isfinite(static_cast<float>(parsed))) {
     out = static_cast<float>(parsed);
     return true;
   }
   return false;
 }
 
-static bool IsRenderableTrussGeometry(const std::string &path) {
-  if (path.empty())
-    return false;
 
-  std::string ext = fs::path(path).extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
-  return ext == ".3ds" || ext == ".glb" || ext == ".gltf";
-}
 
 static fs::path ResolveSceneRelativePath(const std::string &basePath,
                                          const std::string &pathText) {
@@ -489,29 +480,6 @@ static std::string ResolveGdtfPath(const std::string &baseDir,
   return {};
 }
 
-static std::string DescribeTrussForLog(const Truss &truss) {
-  const std::string displayName = truss.name.empty() ? "(unnamed)" : truss.name;
-  std::ostringstream oss;
-  oss << "uuid='" << truss.uuid << "', name='" << displayName << "', model='"
-      << truss.model << "', modelFile='" << truss.modelFile << "', gdtfSpec='"
-      << truss.gdtfSpec << "', symbolFile='" << truss.symbolFile << "'";
-  return oss.str();
-}
-
-static Truss::GeometryRepresentation
-ParseTrussRepresentation(const std::string &value) {
-  const std::string lower = ToLowerCopy(Trim(value));
-  if (lower == "symbolsymdef")
-    return Truss::GeometryRepresentation::SymbolSymdef;
-  if (lower == "geometry3d")
-    return Truss::GeometryRepresentation::Geometry3D;
-  if (lower == "publicgdtf")
-    return Truss::GeometryRepresentation::PublicGdtf;
-  if (lower == "nativeperastage")
-    return Truss::GeometryRepresentation::NativePerastage;
-  return Truss::GeometryRepresentation::Unknown;
-}
-
 static std::string CieToHex(const std::string &cie) {
   std::string t = cie;
   std::replace(t.begin(), t.end(), ',', ' ');
@@ -590,20 +558,7 @@ static void LogMessage(const std::string &msg) {
   LogMessage(Logger::Level::Info, msg);
 }
 
-struct GdtfConflict {
-  // Identifies the imported type group and queue row without authorizing a model.
-  std::string type;
-  std::string requestedFixtureName;
-  std::string mvrPath;
-  std::string appPath;
-  std::string manufacturer;
-  // Preserves the resolved GDTF FixtureType Name as semantic model authority.
-  std::string fixtureName;
-  std::string fixtureTypeId;
-  std::string modeName;
-  int footprint = 0;
-  bool hasDictionaryEntry = false;
-};
+using GdtfConflict = mvr::SceneReadGdtfConflict;
 
 enum class GdtfConflictChoice { Mvr, App, Download };
 
@@ -731,281 +686,14 @@ static std::string GetDownloadFallbackPath(const GdtfConflict &conflict) {
   return !conflict.appPath.empty() ? conflict.appPath : conflict.mvrPath;
 }
 
-static void ApplySupportHoistInfoDefaults(Support &support) {
-  if (support.dummyProfileId.empty() && !support.dummyPreset.empty()) {
-    const auto profile =
-        DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
-    if (profile.has_value())
-      support.dummyProfileId = profile->id;
-  }
-
-  support.hoistFunction = NormalizeHoistFunction(
-      support.hoistFunction.empty() ? support.function : support.hoistFunction);
-  support.hoistDataSource = NormalizeHoistDataSource(support.hoistDataSource);
-  support.motorNameSource = ResolveHoistFieldDataSource(
-      support.motorNameSource, support.hoistDataSource);
-  support.motorManufacturerSource = ResolveHoistFieldDataSource(
-      support.motorManufacturerSource, support.hoistDataSource);
-  support.motorModelSource = ResolveHoistFieldDataSource(
-      support.motorModelSource, support.hoistDataSource);
-  support.capacitySource = ResolveHoistFieldDataSource(support.capacitySource,
-                                                       support.hoistDataSource);
-  support.weightSource = ResolveHoistFieldDataSource(support.weightSource,
-                                                     support.hoistDataSource);
-  support.hoistFunctionSource = ResolveHoistFieldDataSource(
-      support.hoistFunctionSource, support.hoistDataSource);
-  if (support.function.empty())
-    support.function = support.hoistFunction;
-}
-
-// Reads legacy per-fixture category metadata from older Perastage MVR exports.
-static void ReadFixtureCategoryFromUserData(tinyxml2::XMLElement *fixtureNode,
-                                            Fixture &fixture) {
-  if (!fixtureNode)
-    return;
-
-  tinyxml2::XMLElement *ud = fixtureNode->FirstChildElement("UserData");
-  if (!ud)
-    return;
-
-  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-       data = data->NextSiblingElement("Data")) {
-    tinyxml2::XMLElement *info = data->FirstChildElement("FixtureInfo");
-    if (!info)
-      continue;
-
-    if (tinyxml2::XMLElement *categoryNode =
-            info->FirstChildElement("Category")) {
-      if (const char *txt = categoryNode->GetText())
-        fixture.category = GdtfFixtureCategory::NormalizeCategory(Trim(txt));
-    }
-
-    if (tinyxml2::XMLElement *sourceNode =
-            info->FirstChildElement("CategorySource")) {
-      if (const char *txt = sourceNode->GetText())
-        fixture.categorySource = Trim(txt);
-    }
-    if (tinyxml2::XMLElement *reasonNode =
-            info->FirstChildElement("CategoryReason")) {
-      if (const char *txt = reasonNode->GetText())
-        fixture.categorySourceReason = Trim(txt);
-    }
-
-    if (!fixture.category.empty() && fixture.categorySource.empty())
-      fixture.categorySource = GdtfFixtureCategory::kManualSource;
-    if (fixture.categorySource == GdtfFixtureCategory::kManualSource)
-      fixture.categorySourceReason.clear();
-    return;
-  }
-}
-
-struct LegacyFixtureIdentity {
-  std::string instanceName;
-  std::string stableId;
-};
-
-// Reads legacy Perastage fixture identity fields used by older MVR exports.
-static LegacyFixtureIdentity
-ReadLegacyFixtureIdentityFromUserData(tinyxml2::XMLElement *fixtureNode) {
-  LegacyFixtureIdentity identity;
-  if (!fixtureNode)
-    return identity;
-
-  tinyxml2::XMLElement *ud = fixtureNode->FirstChildElement("UserData");
-  if (!ud)
-    return identity;
-
-  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-       data = data->NextSiblingElement("Data")) {
-    tinyxml2::XMLElement *info = data->FirstChildElement("FixtureInfo");
-    if (!info)
-      continue;
-
-    auto readText = [&](const char *name) -> std::string {
-      if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
-        if (const char *txt = el->GetText())
-          return Trim(txt);
-      }
-      return {};
-    };
-
-    identity.instanceName = readText("InstanceName");
-    identity.stableId = readText("StableId");
-    return identity;
-  }
-  return identity;
-}
-
-// Reads one Perastage hoist metadata element into a support.
-static void ReadSupportHoistInfoElement(
-    tinyxml2::XMLElement *info, Support &support,
-    std::vector<MvrImportDiagnostic> &diagnostics) {
-  if (!info)
-    return;
-
-  auto readFloat = [&](const char *name, float &out) {
-    if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
-      if (const char *txt = el->GetText()) {
-        float parsed = 0.0f;
-        if (TryParseFloat(txt, parsed)) {
-          out = parsed;
-        } else {
-          diagnostics.push_back(
-              {"invalid_hoist_numeric_field",
-               "Support '" + support.uuid + "' has invalid " + name +
-                   " metadata."});
-        }
-      }
-    }
-  };
-  auto readText = [&](const char *name) -> std::string {
-    if (tinyxml2::XMLElement *el = info->FirstChildElement(name)) {
-      if (const char *txt = el->GetText())
-        return Trim(txt);
-    }
-    return {};
-  };
-
-  readFloat("Capacity", support.capacityKg);
-  readFloat("Weight", support.weightKg);
-  if (tinyxml2::XMLElement *load = info->FirstChildElement("Load")) {
-    float parsed = 0.0f;
-    if (load->GetText() && TryParseFloat(load->GetText(), parsed)) {
-      support.loadKg = parsed;
-      support.loadSource = "Manual";
-    } else {
-      diagnostics.push_back(
-          {"invalid_hoist_numeric_field",
-           "Support '" + support.uuid + "' has invalid Load metadata."});
-    }
-  }
-
-  std::string hoistFunction = readText("RiggingPoint");
-  if (hoistFunction.empty())
-    hoistFunction = readText("Function");
-  if (!hoistFunction.empty())
-    support.hoistFunction = NormalizeHoistFunction(hoistFunction);
-
-  const std::string motorName = readText("MotorName");
-  if (!motorName.empty())
-    support.motorName = motorName;
-  const std::string manufacturer = readText("MotorManufacturer");
-  if (!manufacturer.empty())
-    support.motorManufacturer = manufacturer;
-  const std::string model = readText("MotorModel");
-  if (!model.empty())
-    support.motorModel = model;
-  const std::string fixtureUuid = readText("MotorFixtureUuid");
-  if (!fixtureUuid.empty()) {
-    const std::string canonicalFixtureUuid = CanonicalizeUuid(fixtureUuid);
-    if (canonicalFixtureUuid.empty()) {
-      diagnostics.push_back(
-          {"invalid_motor_fixture_uuid",
-           "Support '" + support.uuid +
-               "' has a malformed MotorFixtureUuid."});
-    } else {
-      support.motorFixtureUuid = canonicalFixtureUuid;
-    }
-  }
-
-  const std::string useDefaults = ToLowerCopy(readText("UseMotorDefaults"));
-  if (!useDefaults.empty()) {
-    if (useDefaults == "true" || useDefaults == "1" || useDefaults == "yes")
-      support.useMotorDefaults = true;
-    else if (useDefaults == "false" || useDefaults == "0" ||
-             useDefaults == "no")
-      support.useMotorDefaults = false;
-    else
-      diagnostics.push_back(
-          {"invalid_use_motor_defaults",
-           "Support '" + support.uuid +
-               "' has invalid UseMotorDefaults metadata."});
-  }
-
-  const std::string dummyPreset = readText("DummyPreset");
-  if (!dummyPreset.empty())
-    support.dummyPreset = dummyPreset;
-  const std::string dummyProfileId = readText("DummyProfileId");
-  if (!dummyProfileId.empty())
-    support.dummyProfileId = dummyProfileId;
-
-  std::string source = readText("ValueSource");
-  if (source.empty())
-    source = readText("DataSource");
-  if (!source.empty())
-    support.hoistDataSource = NormalizeHoistDataSource(source);
-
-  const std::string motorNameSource = readText("MotorNameSource");
-  if (!motorNameSource.empty())
-    support.motorNameSource = NormalizeHoistDataSource(motorNameSource);
-
-  const std::string motorManufacturerSource =
-      readText("MotorManufacturerSource");
-  if (!motorManufacturerSource.empty()) {
-    support.motorManufacturerSource =
-        NormalizeHoistDataSource(motorManufacturerSource);
-  }
-
-  const std::string motorModelSource = readText("MotorModelSource");
-  if (!motorModelSource.empty())
-    support.motorModelSource = NormalizeHoistDataSource(motorModelSource);
-
-  const std::string capacitySource = readText("CapacitySource");
-  if (!capacitySource.empty())
-    support.capacitySource = NormalizeHoistDataSource(capacitySource);
-
-  const std::string weightSource = readText("WeightSource");
-  if (!weightSource.empty())
-    support.weightSource = NormalizeHoistDataSource(weightSource);
-
-  std::string hoistFunctionSource = readText("RiggingPointSource");
-  if (hoistFunctionSource.empty())
-    hoistFunctionSource = readText("FunctionSource");
-  if (!hoistFunctionSource.empty()) {
-    support.hoistFunctionSource =
-        NormalizeHoistDataSource(hoistFunctionSource);
-  }
-}
-
-// Reads legacy Support/UserData hoist metadata into a support.
-static void ReadSupportHoistInfoFromUserData(tinyxml2::XMLElement *supportNode,
-                                             Support &support,
-                                             std::vector<MvrImportDiagnostic> &diagnostics) {
-  for (tinyxml2::XMLElement *ud = supportNode->FirstChildElement("UserData");
-       ud; ud = ud->NextSiblingElement("UserData")) {
-    for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
-      const std::string provider = ToLowerCopy(
-          Trim(data->Attribute("provider") ? data->Attribute("provider") : ""));
-      if (provider != "perastage")
-        continue;
-      const std::string version =
-          Trim(data->Attribute("ver") ? data->Attribute("ver") : "");
-      if (version.empty()) {
-        diagnostics.push_back(
-            {"legacy_perastage_metadata_missing_version",
-             "Accepted legacy Support metadata without a schema version."});
-      } else if (version != "1.0") {
-        diagnostics.push_back(
-            {"unsupported_perastage_metadata_version",
-             "Ignored legacy Support metadata with unsupported schema version '" +
-                 version + "'."});
-        continue;
-      }
-      tinyxml2::XMLElement *info = data->FirstChildElement("HoistInfo");
-      if (!info)
-        info = data->FirstChildElement("MotorInfo");
-      ReadSupportHoistInfoElement(info, support, diagnostics);
-    }
-  }
-}
-// Logs each structured MVR import diagnostic exactly once for discarded results.
-static void LogMvrImportDiagnostics(
-    const std::vector<MvrImportDiagnostic> &diagnostics) {
+// Logs each structured MVR import diagnostic exactly once for discarded
+// results.
+static void
+LogMvrImportDiagnostics(const std::vector<MvrImportDiagnostic> &diagnostics) {
   for (const MvrImportDiagnostic &diagnostic : diagnostics) {
-    LogMessage(Logger::Level::Warn,
-               "MVR metadata diagnostic [" + diagnostic.code + "]: " +
-                   diagnostic.message);
+    LogMessage(Logger::Level::Warn, "MVR metadata diagnostic [" +
+                                        diagnostic.code +
+                                        "]: " + diagnostic.message);
   }
 }
 
@@ -1210,9 +898,8 @@ MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
   return archivePath;
 }
 
-#include "mvr_scene_node_reader.h"
-
-// Parses GeneralSceneDescription.xml and populates the import result scene payload.
+// Parses GeneralSceneDescription.xml and populates the import result scene
+// payload.
 bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                 MvrImportResult &importResult,
                                 const MvrImportOptions &options,
@@ -1283,7 +970,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
          "Ignored additional root UserData elements beyond the first."});
   }
 
-  // Preserves validated foreign provider blocks without interpreting their schema.
+  // Preserves validated foreign provider blocks without interpreting their
+  // schema.
   if (tinyxml2::XMLElement *userData = root->FirstChildElement("UserData")) {
     for (tinyxml2::XMLElement *data = userData->FirstChildElement(); data;
          data = data->NextSiblingElement()) {
@@ -1310,8 +998,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           Trim(data->Attribute("ver") ? data->Attribute("ver") : ""),
           printer.CStr()};
       if (std::find(scene.opaqueUserDataBlocks.begin(),
-                    scene.opaqueUserDataBlocks.end(), block) ==
-          scene.opaqueUserDataBlocks.end())
+                    scene.opaqueUserDataBlocks.end(),
+                    block) == scene.opaqueUserDataBlocks.end())
         scene.opaqueUserDataBlocks.push_back(std::move(block));
     }
   }
@@ -1444,13 +1132,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   parseLayerAppearanceMap(root->FirstChildElement("UserData"));
 
-  struct RootFixtureTypeInfo {
-    std::string category;
-    std::string categorySource;
-    std::string visualColorHex;
-  };
-  std::unordered_map<std::string, RootFixtureTypeInfo>
-      rootFixtureTypeInfoByKey;
+  using RootFixtureTypeInfo = mvr::SceneReadFixtureTypeInfo;
+  std::unordered_map<std::string, RootFixtureTypeInfo> rootFixtureTypeInfoByKey;
 
   // Builds the root UserData fixture type key used by Perastage exports.
   auto buildFixtureTypeInfoKey = [](const std::string &gdtfSpec,
@@ -1507,8 +1190,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
             if (const char *txt = source->GetText())
               typeInfo.categorySource = Trim(txt);
           }
-          if (!typeInfo.category.empty() &&
-              typeInfo.categorySource.empty())
+          if (!typeInfo.category.empty() && typeInfo.categorySource.empty())
             typeInfo.categorySource = GdtfFixtureCategory::kManualSource;
           if (tinyxml2::XMLElement *visualColor =
                   info->FirstChildElement("VisualColor")) {
@@ -1518,8 +1200,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                 typeInfo.visualColorHex = value;
             }
           }
-          if (!typeInfo.category.empty() ||
-              !typeInfo.visualColorHex.empty())
+          if (!typeInfo.category.empty() || !typeInfo.visualColorHex.empty())
             rootFixtureTypeInfoByKey[key] = typeInfo;
         }
       }
@@ -1543,17 +1224,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, std::string> projectFixtureColorsByUuid;
-  struct ProjectFixtureIdentifiers {
-    int fixtureId = 0;
-    int fixtureIdNumeric = 0;
-    int unitNumber = 0;
-    std::string fixtureIdText;
-  };
+  using ProjectFixtureIdentifiers = mvr::SceneReadFixtureIdentifiers;
   std::unordered_map<std::string, ProjectFixtureIdentifiers>
       projectFixtureIdentifiersByUuid;
   std::unordered_set<std::string> projectFixtureColorMetadataUuids;
   std::unordered_set<std::string> consumedProjectFixtureColorUuids;
-  // Collects canonical Perastage fixture fidelity metadata for every import mode.
+  // Collects canonical Perastage fixture fidelity metadata for every import
+  // mode.
   auto parseProjectFixtureMetadata = [&](tinyxml2::XMLElement *userDataNode) {
     if (!userDataNode)
       return;
@@ -1567,11 +1244,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                data->FirstChildElement("ProjectFixtureMetadataMap");
            map; map = map->NextSiblingElement("ProjectFixtureMetadataMap")) {
         const std::string schemaVersion = Trim(
-            map->Attribute("schemaVersion") ? map->Attribute("schemaVersion") : "");
+            map->Attribute("schemaVersion") ? map->Attribute("schemaVersion")
+                                            : "");
         if (schemaVersion != "1.0") {
           importResult.diagnostics.push_back(
               {"unsupported_project_fixture_metadata_version",
-               "Ignored project fixture metadata with unsupported schema version '" +
+               "Ignored project fixture metadata with unsupported schema "
+               "version '" +
                    schemaVersion + "'."});
           continue;
         }
@@ -1630,8 +1309,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
           if (!projectFixtureColorsByUuid.emplace(uuid, storedColor).second) {
             importResult.diagnostics.push_back(
                 {"duplicate_project_fixture_metadata_uuid",
-                 "Ignored duplicate project fixture metadata for UUID '" + uuid +
-                     "'; the first entry takes precedence."});
+                 "Ignored duplicate project fixture metadata for UUID '" +
+                     uuid + "'; the first entry takes precedence."});
           }
         }
       }
@@ -2088,15 +1767,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return modes.front();
   };
 
-  struct GdtfFixtureMetadata {
-    std::string fixtureName;
-    std::string manufacturer;
-    std::string fixtureTypeId;
-    float weightKg = 0.0f;
-    float powerW = 0.0f;
-    bool hasProperties = false;
-  };
-  std::unordered_map<std::string, GdtfFixtureMetadata> gdtfFixtureMetadataCache;
+  using GdtfFixtureMetadata = mvr::SceneReadGdtfMetadata;  std::unordered_map<std::string, GdtfFixtureMetadata> gdtfFixtureMetadataCache;
   const GdtfFixtureMetadata kEmptyFixtureMetadata{};
   auto getFixtureMetadata =
       [&](const std::string &resolvedGdtfPath) -> const GdtfFixtureMetadata & {
@@ -2118,8 +1789,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       metadata.fixtureTypeId = rawFixtureTypeId;
     metadata.hasProperties =
         GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
-    return gdtfFixtureMetadataCache
-        .emplace(cacheKey, std::move(metadata))
+    return gdtfFixtureMetadataCache.emplace(cacheKey, std::move(metadata))
         .first->second;
   };
 
@@ -2249,11 +1919,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   std::unordered_set<std::string> usedStableUuids;
 
-  struct CachedCategory {
-    std::string category;
-    std::string source;
-    std::string reason;
-  };
+  using CachedCategory = mvr::SceneReadCachedCategory;
   std::unordered_map<std::string, CachedCategory> categoryByTypeKey;
   auto buildStableIdSeed = [&](const char *kind, tinyxml2::XMLElement *node,
                                const std::string &layerName,
@@ -2341,33 +2007,73 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
-  int trussSymbolSymdefPreservedCount = 0;
-  std::unordered_map<std::string, int> trussSymbolSymdefPreservedBySymdef;
+  auto remapArchivePathIfNeeded = [&](const std::string &path) {
+    return RemapArchivePathIfNeeded(path);
+  };
 
-  auto remapArchivePathIfNeeded =
-      [&](const std::string &path) { return RemapArchivePathIfNeeded(path); };
+  mvr::MvrSceneReadServices sceneReadServices{
+      textOf,
+      intOf,
+      fixtureIdOf,
+      parseMatrixOrIdentity,
+      remapArchivePathIfNeeded,
+      buildFixtureTypeInfoKey,
+      resolveStableUuid,
+      referenceUuidForNode,
+      ensurePositionEntry,
+      normalizeGdtfSpecForScene,
+      [&](const std::string &spec) {
+        const std::string resolved = ResolveGdtfPath(scene.basePath, spec);
+        return ToSceneRelativePathIfPossible(
+            scene.basePath,
+            PathUtils::PathFromUtf8(resolved.empty() ? spec : resolved));
+      },
+      resolveGdtfPathCached,
+      getFixtureMetadata,
+      resolveExistingGdtfModeCached,
+      getGdtfModeChannelCountCached,
+      getDictionaryEntryCached,
+      loadTrussDefinitionCached,
+      resolveSymdefReference,
+      normalizeAndResolveGeometryFileName,
+      appendGeometryInstance,
+      reportProgress,
+      [&](const std::string &path) {
+        return ToString(
+            ResolveSceneRelativePath(scene.basePath, path).u8string());
+      },
+      [](const std::string &message) {
+        LogMessage(Logger::Level::Debug, message);
+      },
+      [](const std::string &message) {
+        LogMessage(Logger::Level::Info, message);
+      },
+      [](const std::string &message) {
+        LogMessage(Logger::Level::Warn, message);
+      },
+      [](const std::string &message) {
+        LogMessage(Logger::Level::Error, message);
+      }};
+  mvr::MvrSceneReadMetadata sceneReadMetadata{
+      {rootFixtureTypeInfoByKey, projectFixtureIdentifiersByUuid,
+       projectFixtureColorsByUuid, projectFixtureColorMetadataUuids},
+      {rootTrussInfoByUuid, rootHoistInfoByUuid, perastageTypeToGdtfPath,
+       perastageInstanceToTypeKey},
+      {rootPrimitiveModelRefsBySceneObjectAndFile, legacyPositionIdToCanonical},
+      {layerColorByUuid, layerColorByName}};
+  mvr::MvrSceneReadState sceneReadState{
+      {fixtureUuidRemap, pendingGdtfConflictByType, categoryByTypeKey,
+       categoryInferenceByResolvedPath, consumedProjectFixtureColorUuids},
+      {consumedRootTrussInfoUuids, consumedRootHoistInfoUuids}};
+  mvr::MvrSceneReadMetrics sceneReadMetrics;
+  mvr::ReadMvrSceneNodes(sceneNode, scene, importResult, options,
+                         sceneReadServices, sceneReadMetadata, sceneReadState,
+                         sceneReadMetrics);
 
-  ReadMvrSceneNodes(
-      sceneNode, scene, importResult, options, fixtureUuidRemap, textOf, intOf,
-      fixtureIdOf, parseMatrixOrIdentity, remapArchivePathIfNeeded,
-      buildFixtureTypeInfoKey, resolveStableUuid, referenceUuidForNode,
-      ensurePositionEntry, normalizeGdtfSpecForScene, resolveGdtfPathCached,
-      getFixtureMetadata, resolveExistingGdtfModeCached,
-      getGdtfModeChannelCountCached, getDictionaryEntryCached,
-      loadTrussDefinitionCached, resolveSymdefReference,
-      normalizeAndResolveGeometryFileName, appendGeometryInstance,
-      reportProgress, pendingGdtfConflictByType, categoryByTypeKey,
-      categoryInferenceByResolvedPath, rootFixtureTypeInfoByKey,
-      projectFixtureIdentifiersByUuid, projectFixtureColorsByUuid,
-      projectFixtureColorMetadataUuids, consumedProjectFixtureColorUuids,
-      rootTrussInfoByUuid, consumedRootTrussInfoUuids, rootHoistInfoByUuid,
-      consumedRootHoistInfoUuids, perastageTypeToGdtfPath,
-      perastageInstanceToTypeKey,
-      rootPrimitiveModelRefsBySceneObjectAndFile,
-      legacyPositionIdToCanonical, layerColorByUuid, layerColorByName, isHexRgb,
-      trussSymbolSymdefPreservedCount,
-      trussSymbolSymdefPreservedBySymdef, parseChildList,
-      preservedGroupObjectCount);
+  const int trussSymbolSymdefPreservedCount =
+      sceneReadMetrics.trussSymbolSymdefPreservedCount;
+  const auto &trussSymbolSymdefPreservedBySymdef =
+      sceneReadMetrics.trussSymbolSymdefPreservedBySymdef;
 
   auto resolveFixtureGdtfPathForRead = [&](const std::string &spec) {
     if (spec.empty())
@@ -2607,8 +2313,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               summaryFont.SetWeight(wxFONTWEIGHT_BOLD);
               summaryText->SetFont(summaryFont);
               infoSizer->Add(summaryText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
-              wxStaticText *progressPhaseText = new wxStaticText(
-                  &downloadInfoDialog, wxID_ANY, _("Preparing download queue..."));
+              wxStaticText *progressPhaseText =
+                  new wxStaticText(&downloadInfoDialog, wxID_ANY,
+                                   _("Preparing download queue..."));
               progressPhaseText->SetForegroundColour(wxColour(140, 140, 140));
               infoSizer->Add(progressPhaseText, 0, wxLEFT | wxRIGHT | wxTOP, 8);
               wxGauge *progressGauge = new wxGauge(
@@ -2630,10 +2337,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                              wxLIST_FORMAT_LEFT, 460);
               downloadInfoList->InsertColumn(2, _("Status"), wxLIST_FORMAT_LEFT,
                                              170);
-              downloadInfoList->InsertColumn(3, _("Progress"), wxLIST_FORMAT_LEFT,
-                                             220);
-              downloadInfoList->InsertColumn(4, _("Details"), wxLIST_FORMAT_LEFT,
-                                             180);
+              downloadInfoList->InsertColumn(3, _("Progress"),
+                                             wxLIST_FORMAT_LEFT, 220);
+              downloadInfoList->InsertColumn(4, _("Details"),
+                                             wxLIST_FORMAT_LEFT, 180);
               infoSizer->Add(downloadInfoList, 1, wxEXPAND | wxALL, 8);
               wxStaticText *footerSummary = new wxStaticText(
                   &downloadInfoDialog, wxID_ANY,
@@ -2733,7 +2440,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   }
                 }
                 footerSummary->SetLabel(
-                    wxString::Format(_("%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"),
+                    wxString::Format(_("%d/%zu processed  |  %d downloaded  |  "
+                                       "%d fallback  |  %d canceled"),
                                      processed, rowStateByType.size(),
                                      downloaded, fallback, canceled));
               };
@@ -2883,7 +2591,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       [&](std::string &onlineListData) {
                         listResult = gdtfClient.GetCatalog();
                         onlineListData = listResult.payload;
-                        return listResult.Succeeded() && !onlineListData.empty();
+                        return listResult.Succeeded() &&
+                               !onlineListData.empty();
                       },
                       refreshNowUtc);
               if (catalogResult.snapshot) {
@@ -2904,17 +2613,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               std::vector<gdtf_catalog_matcher::GdtfCatalogEntry>
                   catalogEntries;
               mvr::gdtf_catalog_parser::GdtfCatalogParseResult parsedCatalog;
-              GdtfCatalogResultSource effectiveCatalogSource = catalogResult.source;
-              std::string effectiveCatalogUpdatedAt = catalogResult.snapshot
-                  ? catalogResult.snapshot->updatedAt : std::string{};
+              GdtfCatalogResultSource effectiveCatalogSource =
+                  catalogResult.source;
+              std::string effectiveCatalogUpdatedAt =
+                  catalogResult.snapshot ? catalogResult.snapshot->updatedAt
+                                         : std::string{};
               std::string catalogFailureReason;
               if (!listPayload.empty()) {
-                parsedCatalog = mvr::gdtf_catalog_parser::ParseCatalog(listPayload);
+                parsedCatalog =
+                    mvr::gdtf_catalog_parser::ParseCatalog(listPayload);
                 catalogEntries = parsedCatalog.entries;
               }
 
               auto hasDownloadableCatalogEntry = [&]() {
-                return std::any_of(catalogEntries.begin(), catalogEntries.end(),
+                return std::any_of(
+                    catalogEntries.begin(), catalogEntries.end(),
                     [](const auto &entry) { return entry.downloadable; });
               };
               if (!hasDownloadableCatalogEntry()) {
@@ -2925,12 +2638,14 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                         [&](std::string &onlineListData) {
                           listResult = gdtfClient.GetCatalog();
                           onlineListData = listResult.payload;
-                          return listResult.Succeeded() && !onlineListData.empty();
+                          return listResult.Succeeded() &&
+                                 !onlineListData.empty();
                         },
                         refreshNowUtc, 0);
                 if (forcedCatalogResult.snapshot) {
                   listPayload = forcedCatalogResult.snapshot->listData;
-                  parsedCatalog = mvr::gdtf_catalog_parser::ParseCatalog(listPayload);
+                  parsedCatalog =
+                      mvr::gdtf_catalog_parser::ParseCatalog(listPayload);
                   catalogEntries = parsedCatalog.entries;
                   effectiveCatalogSource = forcedCatalogResult.source;
                   effectiveCatalogUpdatedAt =
@@ -2976,7 +2691,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                                  req.type + "...");
                   if (req.footprint <= 0)
                     req.footprint = inferFootprintFromAddresses(req.type);
-                  mvr::gdtf_import_matching::AutomaticMatchEvidence matchEvidence;
+                  mvr::gdtf_import_matching::AutomaticMatchEvidence
+                      matchEvidence;
                   matchEvidence.displayTypeKey = req.type;
                   matchEvidence.resolvedFixtureName = req.fixtureName;
                   matchEvidence.requestedFixtureName = req.requestedFixtureName;
@@ -2985,13 +2701,17 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                   matchEvidence.modeName = req.modeName;
                   matchEvidence.footprint = req.footprint;
                   const auto matchRequest =
-                      mvr::gdtf_import_matching::BuildDownloadRequest(matchEvidence);
+                      mvr::gdtf_import_matching::BuildDownloadRequest(
+                          matchEvidence);
                   auto diagnosticMatchRequest = matchRequest;
                   diagnosticMatchRequest.catalogSnapshotSource =
                       effectiveCatalogSource == GdtfCatalogResultSource::Online
-                          ? "online" : "cache";
-                  diagnosticMatchRequest.catalogUpdatedAt = effectiveCatalogUpdatedAt;
-                  diagnosticMatchRequest.catalogPayloadBytes = parsedCatalog.payloadBytes;
+                          ? "online"
+                          : "cache";
+                  diagnosticMatchRequest.catalogUpdatedAt =
+                      effectiveCatalogUpdatedAt;
+                  diagnosticMatchRequest.catalogPayloadBytes =
+                      parsedCatalog.payloadBytes;
                   diagnosticMatchRequest.catalogPayloadFingerprint =
                       parsedCatalog.payloadFingerprint;
                   diagnosticMatchRequest.catalogParsedEntryCount =
@@ -3024,10 +2744,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       std::string(perastage::build_info::appVersion()) +
                       "'; build-commit='" +
                       std::string(perastage::build_info::gitCommit()) +
-                      "'; queue-type='" +
-                      req.type + "'; resolved-fixture='" + req.fixtureName +
-                      "'; winner-rid='" + bestMatch.rid + "'; " +
-                      bestMatch.selectionReason);
+                      "'; queue-type='" + req.type + "'; resolved-fixture='" +
+                      req.fixtureName + "'; winner-rid='" + bestMatch.rid +
+                      "'; " + bestMatch.selectionReason);
 
                   const std::string baseFixturesPath =
 #ifdef NDEBUG
@@ -3061,8 +2780,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                       break;
                     }
                   }
-                  updateStatusRow(req.type, selectedFixtureName, _("Downloading"),
-                                  "0 B / ? B", _("Fetching fixture package"),
+                  updateStatusRow(req.type, selectedFixtureName,
+                                  _("Downloading"), "0 B / ? B",
+                                  _("Fetching fixture package"),
                                   DownloadRowState::Downloading);
                   reportProgress("Downloading selected GDTFs: downloading " +
                                  req.type + "...");
@@ -3080,8 +2800,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     }
                     return bytesText;
                   };
-                  const std::string replacementIdentity =
-                      mvr::gdtf_import_matching::BuildSelectedReplacementIdentity(
+                  const std::string replacementIdentity = mvr::
+                      gdtf_import_matching::BuildSelectedReplacementIdentity(
                           bestMatch.rid, bestMatch.modeName);
                   const auto reusedDownload =
                       downloadedPathByReplacement.find(replacementIdentity);
@@ -3224,8 +2944,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               ackButton->Enable();
               downloadInfoDialog.Hide();
             } else {
-              wxMessageBox(wxString::FromUTF8(
-                             FormatGdtfShareUserMessage(loginResult, "login")),
+              wxMessageBox(wxString::FromUTF8(FormatGdtfShareUserMessage(
+                               loginResult, "login")),
                            _("GDTF Share login"), wxOK | wxICON_WARNING);
             }
 #else
@@ -3696,9 +3416,9 @@ bool MvrImporter::ImportAndRegisterFromBuffer(
     ProgressCallback progressCallback) {
   MvrImporter importer;
   MvrImportResult importResult;
-  const bool imported = importer.ImportFromBuffer(
-      bytes, importResult, MvrImportMode::ReplaceProject, options,
-      progressCallback);
+  const bool imported = importer.ImportFromBuffer(bytes, importResult,
+                                                  MvrImportMode::ReplaceProject,
+                                                  options, progressCallback);
   LogMvrImportDiagnostics(importResult.diagnostics);
   if (!imported)
     return false;
