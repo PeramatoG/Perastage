@@ -23,6 +23,7 @@ jobs:
   core-mvr-coverage:
     runs-on: ubuntu-latest
     env:
+      CI_LOG_DIR: ${{ runner.temp }}/perastage-core-mvr-coverage-logs
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
@@ -65,14 +66,22 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
           git -C "$VCPKG_ROOT" checkout --force "$baseline"
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
-          mkdir -p "$VCPKG_INSTALLED" "$VCPKG_DOWNLOADS" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
+          mkdir -p "$CI_LOG_DIR" "$VCPKG_INSTALLED" "$VCPKG_DOWNLOADS" "$VCPKG_PACKAGES" "$VCPKG_BINARY_CACHE"
       - name: Install dependencies
         run: |
           python3 .github/scripts/vcpkg_install_retry.py --vcpkg "$VCPKG_ROOT/vcpkg" \
             --triplet x64-linux --manifest-root "$GITHUB_WORKSPACE" \
             --install-root "$VCPKG_INSTALLED" --packages-root "$VCPKG_PACKAGES" \
             --downloads-root "$VCPKG_DOWNLOADS" --attempts 4 \
-            --initial-delay-seconds 30 --max-delay-seconds 120
+            --initial-delay-seconds 30 --max-delay-seconds 120 \
+            --log "$CI_LOG_DIR/vcpkg-install-core-mvr-coverage.log"
+      - name: Upload vcpkg install failure log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: core-mvr-coverage-vcpkg-install-log
+          path: ${{ env.CI_LOG_DIR }}/vcpkg-install-core-mvr-coverage.log
+          if-no-files-found: ignore
       - name: Configure dedicated GCC coverage build
         run: |
           cmake -S . -B build/linux-coverage -G Ninja \

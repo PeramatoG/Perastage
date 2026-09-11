@@ -5,13 +5,26 @@ import re
 import subprocess
 
 WORKFLOWS = Path('.github/workflows')
-for workflow in WORKFLOWS.glob('*.yml'):
+workflow_paths = sorted((*WORKFLOWS.glob('*.yml'), *WORKFLOWS.glob('*.yaml')))
+for workflow in workflow_paths:
     subprocess.run(['ruby', '-e', "require 'yaml'; YAML.load_file(ARGV[0])", str(workflow)], check=True)
 
 
 
 # GitHub Packages is a second, centrally configured cache layer with one trusted writer.
-all_workflows = {path.name: path.read_text() for path in WORKFLOWS.glob('*.yml')}
+all_workflows = {path.name: path.read_text() for path in workflow_paths}
+
+# Every workflow invocation must satisfy the retry helper's required logging contract.
+for name, workflow_text in all_workflows.items():
+    lines = workflow_text.splitlines()
+    for index, line in enumerate(lines):
+        if 'vcpkg_install_retry.py' not in line or not re.search(r'\bpython(?:3)?\b', line):
+            continue
+        command_lines = [line]
+        while command_lines[-1].rstrip().endswith(('\\', '`')) and index + len(command_lines) < len(lines):
+            command_lines.append(lines[index + len(command_lines)])
+        command = ' '.join(command_lines)
+        assert re.search(r'(?:^|\s)--log(?:\s|=)', command), f'{name} vcpkg_install_retry.py invocation must pass --log'
 writers = [name for name, text in all_workflows.items() if re.search(r'packages:\s*write', text)]
 assert writers == ['vcpkg-binary-cache.yml'], f'only the warming workflow may publish packages: {writers}'
 assert all('pull_request_target' not in text for text in all_workflows.values())
