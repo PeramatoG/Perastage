@@ -23,7 +23,6 @@ jobs:
   core-mvr-coverage:
     runs-on: ubuntu-latest
     env:
-      CI_LOG_DIR: ${{ runner.temp }}/perastage-core-mvr-coverage-logs
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       VCPKG_INSTALLED: ${{ github.workspace }}/.vcpkg-cache/installed
       VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-cache/downloads
@@ -34,6 +33,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Initialize Core/MVR coverage diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci_log_dir="$RUNNER_TEMP/perastage-core-mvr-coverage-logs"
+          mkdir -p "$ci_log_dir"
+          echo "CI_LOG_DIR=$ci_log_dir" >> "$GITHUB_ENV"
       - name: Install build and coverage prerequisites
         run: |
           .github/scripts/install_vcpkg_build_prerequisites.sh linux
