@@ -1,3 +1,20 @@
+/*
+ * This file is part of Perastage.
+ * Copyright (C) 2026 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
+ */
 #include "mvr_scene_node_reader.h"
 #include "mvr_scene_node_reader_detail.h"
 
@@ -525,8 +542,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                "Ignored unsafe TrussInfo AuxGdtf path '" + archiveName + "'."});
         } else {
           const std::string remapped = remapArchivePathIfNeeded(archiveName);
-          const fs::path resolved =
-              std::filesystem::path(services.resolveScenePath(remapped));
+          const fs::path resolved = services.resolveScenePath(remapped);
           std::error_code existsEc;
           if (fs::is_regular_file(resolved, existsEc) && !existsEc) {
             truss.perastageAuxGdtfArchivePath = remapped;
@@ -726,7 +742,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         }
 
         const fs::path resolvedSymbolPath =
-            std::filesystem::path(services.resolveScenePath(truss.symbolFile));
+            services.resolveScenePath(truss.symbolFile);
         const bool symbolRenderable =
             IsRenderableTrussGeometry(truss.symbolFile);
         std::error_code symbolExistsEc;

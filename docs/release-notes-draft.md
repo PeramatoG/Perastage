@@ -13,6 +13,7 @@ Changes since **v1.6.0**.
 ## Technical and packaging changes
 
 - Separated logical MVR scene-node and hierarchy reading into an independent compiled module while preserving existing fixture, rigging, geometry, layer, and compatibility behavior.
+- Preserved native Unicode filesystem paths across MVR scene-resource resolution on all supported platforms.
 
 - Separated MVR package acquisition and archive safety handling from semantic scene parsing to improve importer maintainability without changing supported MVR behavior.
 - Corrected the informational Core/MVR coverage workflow diagnostics, dependency logging, and Linux locale preparation, with CI policy checks that prevent incomplete test environments.

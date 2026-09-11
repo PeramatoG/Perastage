@@ -1766,8 +1766,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
     return modes.front();
   };
-
-  using GdtfFixtureMetadata = mvr::SceneReadGdtfMetadata;  std::unordered_map<std::string, GdtfFixtureMetadata> gdtfFixtureMetadataCache;
+  using GdtfFixtureMetadata = mvr::SceneReadGdtfMetadata;
+  std::unordered_map<std::string, GdtfFixtureMetadata>
+      gdtfFixtureMetadataCache;
   const GdtfFixtureMetadata kEmptyFixtureMetadata{};
   auto getFixtureMetadata =
       [&](const std::string &resolvedGdtfPath) -> const GdtfFixtureMetadata & {
@@ -2039,8 +2040,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       appendGeometryInstance,
       reportProgress,
       [&](const std::string &path) {
-        return ToString(
-            ResolveSceneRelativePath(scene.basePath, path).u8string());
+        return ResolveSceneRelativePath(scene.basePath, path);
       },
       [](const std::string &message) {
         LogMessage(Logger::Level::Debug, message);

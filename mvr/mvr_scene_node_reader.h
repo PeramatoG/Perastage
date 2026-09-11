@@ -15,6 +15,7 @@
 #include "mvr_import_types.h"
 #include "truss.h"
 
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -116,7 +117,7 @@ struct MvrSceneReadServices {
                      const std::string &)>
       appendGeometry;
   std::function<void(std::string, int, int)> reportProgress;
-  std::function<std::string(const std::string &)> resolveScenePath;
+  std::function<std::filesystem::path(const std::string &)> resolveScenePath;
   std::function<void(const std::string &)> logDebug;
   std::function<void(const std::string &)> logInfo;
   std::function<void(const std::string &)> logWarning;
