@@ -40,6 +40,25 @@ def job_env_runner_context_lines(workflow_text):
 # GitHub Packages is a second, centrally configured cache layer with one trusted writer.
 all_workflows = {path.name: path.read_text() for path in workflow_paths}
 
+# Core/MVR coverage runs the complete Linux test suite and needs its runtime locales.
+coverage = all_workflows['core-mvr-coverage.yml']
+coverage_preflight = coverage[
+    coverage.index('      - name: Validate Linux test tools and locale'):
+    coverage.index('      - name: Read pinned vcpkg baseline')
+]
+assert 'sudo locale-gen es_ES.UTF-8 zh_CN.UTF-8' in coverage_preflight, (
+    'Core/MVR coverage must generate the Spanish and Simplified Chinese locales'
+)
+for locale_name, locale_pattern in [
+    ('es_ES.UTF-8', '^es_ES.utf8$'),
+    ('zh_CN.UTF-8', '^zh_CN.utf8$'),
+]:
+    assert re.search(
+        rf"locale -a \| grep -qi ['\"]{re.escape(locale_pattern)}['\"]",
+        coverage_preflight,
+    ), f'Core/MVR coverage must verify {locale_name} availability'
+assert coverage.index('Validate Linux test tools and locale') < coverage.index('Run registered tests')
+
 # The runner context exists after scheduling, so it cannot be evaluated in jobs.<job_id>.env.
 for name, workflow_text in all_workflows.items():
     invalid_lines = job_env_runner_context_lines(workflow_text)

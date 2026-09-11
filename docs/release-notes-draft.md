@@ -12,7 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Corrected the informational Core/MVR coverage workflow diagnostics initialization and dependency logging, with CI policy checks that prevent invalid job-level runner context and missing installation logs.
+- Corrected the informational Core/MVR coverage workflow diagnostics, dependency logging, and Linux locale preparation, with CI policy checks that prevent incomplete test environments.
 - Established informational Linux coverage reporting for Core and MVR production code and expanded deterministic MVR import/export characterization ahead of future internal refactoring.
 - Reconciled maintainer documentation with the active main-branch ruleset and dedicated release-App configuration.
 
