@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvrimporter.h"
+#include "mvr_import_package.h"
 #include "../gui/gdtf_resolution_status_style.h"
 #include "apppaths.h"
 #include "build_info.h"
@@ -96,10 +97,8 @@
 #include <wx/wfstream.h>
 #include <wx/mstream.h>
 #include <wx/wx.h>
-class wxZipStreamLink;
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
-#include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
 namespace gdtf_catalog_matcher = mvr::gdtf_catalog_matcher;
@@ -149,47 +148,8 @@ static std::string ToLowerAscii(std::string text) {
   return text;
 }
 
-// Folds only ASCII uppercase characters for platform-neutral archive identity.
-static std::string FoldArchiveIdentityAscii(std::string text) {
-  for (char &ch : text) {
-    if (ch >= 'A' && ch <= 'Z')
-      ch = static_cast<char>(ch - 'A' + 'a');
-  }
-  return text;
-}
-
-// Escapes control characters in archive identities used by diagnostics.
-static std::string EscapeArchiveIdentity(const std::string &identity) {
-  std::ostringstream escaped;
-  for (unsigned char ch : identity) {
-    if (ch < 32 || ch == 127) {
-      escaped << "\\x" << std::hex << std::setw(2) << std::setfill('0')
-              << static_cast<int>(ch) << std::dec;
-    } else {
-      escaped << static_cast<char>(ch);
-    }
-  }
-  return escaped.str();
-}
-
 static std::string ResolveGdtfPath(const std::string &baseDir,
                                    const std::string &spec);
-
-static std::string NormalizeArchivePathValue(const std::string &archivePath) {
-  std::string normalized = Trim(NormalizeSlashes(archivePath));
-  // Be permissive with vendor MVRs that include an extra blank right before
-  // ".gdtf" (e.g. "Fixture Name .gdtf").
-  const std::string lowered = ToLowerAscii(normalized);
-  const size_t gdtfPos = lowered.rfind(".gdtf");
-  if (gdtfPos != std::string::npos && gdtfPos > 0) {
-    size_t trimPos = gdtfPos;
-    while (trimPos > 0 && normalized[trimPos - 1] == ' ')
-      --trimPos;
-    if (trimPos != gdtfPos)
-      normalized.erase(trimPos, gdtfPos - trimPos);
-  }
-  return normalized;
-}
 
 // Reports whether extension metadata names one portable root-level archive file.
 static bool IsPortableRootArchiveFileName(const std::string &value) {
@@ -209,7 +169,7 @@ static bool IsPortableRootArchiveFileName(const std::string &value) {
 }
 
 static std::string NormalizeGdtfLookupKey(const std::string &value) {
-  std::string normalized = NormalizeArchivePathValue(value);
+  std::string normalized = mvr::NormalizeImportArchivePath(value);
   if (normalized.empty())
     return normalized;
 
@@ -312,16 +272,6 @@ static std::string GenerateShortToken(size_t length = 10) {
   for (size_t i = 0; i < length; ++i)
     token.push_back(kAlphabet[dist(rng)]);
   return token;
-}
-
-static bool IsPathLikelyTooLong(const fs::path &path) {
-#ifdef _WIN32
-  constexpr size_t kLegacyMaxPathSafetyLimit = 245;
-  return ToString(path.u8string()).size() >= kLegacyMaxPathSafetyLimit;
-#else
-  (void)path;
-  return false;
-#endif
 }
 
 // Parses a trimmed float token and accepts only full-token numeric input.
@@ -450,7 +400,7 @@ static std::string ResolveScenePathForRead(const std::string &basePath,
                                            const std::string &pathText) {
   if (pathText.empty())
     return {};
-  const std::string normalized = NormalizeArchivePathValue(pathText);
+  const std::string normalized = mvr::NormalizeImportArchivePath(pathText);
   if (normalized.empty())
     return {};
   const std::string gdtfResolved = ResolveGdtfPath(basePath, normalized);
@@ -465,7 +415,7 @@ static std::string ResolveScenePathForRead(const std::string &basePath,
 // matches.
 static std::string ResolveGdtfPath(const std::string &baseDir,
                                    const std::string &spec) {
-  const std::string normalizedSpec = NormalizeArchivePathValue(spec);
+  const std::string normalizedSpec = mvr::NormalizeImportArchivePath(spec);
   if (normalizedSpec.empty())
     return {};
 
@@ -1219,63 +1169,13 @@ bool MvrImporter::ImportFromStreamIntoResult(
   importResult = MvrImportResult{};
   reportProgress("Extracting package resources...");
 
-  runtime_storage::TemporaryWorkspace importWorkspace("mvr-import");
-  if (!importWorkspace.IsValid()) {
-    LogMessage("Failed to create MVR import workspace.");
+  std::optional<mvr::ImportPackage> package =
+      mvr::AcquireImportPackage(input, importResult.diagnostics);
+  if (!package)
     return false;
-  }
-  std::string tempDir = ToString(importWorkspace.Path().u8string());
-  fs::path tempPath(tempDir);
-  if (!ExtractMvrZip(input, tempDir, importResult.diagnostics)) {
-    LogMessage("Failed to extract MVR file.");
-    return false;
-  }
 
-  int extractedGdtfEntryCount = 0;
-  std::error_code gdtfCountEc;
-  for (const auto &entry : fs::directory_iterator(tempPath, gdtfCountEc)) {
-    if (gdtfCountEc)
-      break;
-    std::error_code regularEc;
-    if (entry.is_regular_file(regularEc) && !regularEc &&
-        ToLowerAscii(entry.path().extension().string()) == ".gdtf") {
-      ++extractedGdtfEntryCount;
-    }
-  }
-  LogMessage(
-      Logger::Level::Info,
-      "MVR extraction diagnostics: basePath='" + ToString(tempPath.u8string()) +
-          "', extractedGdtfEntries=" + std::to_string(extractedGdtfEntryCount));
-
-  fs::path sceneFile = tempPath / "GeneralSceneDescription.xml";
-  std::error_code sceneFileEc;
-  if (!fs::exists(sceneFile, sceneFileEc) || sceneFileEc) {
-    // Some MVR packages may store the file with a different case.
-    std::string target = "generalscenedescription.xml";
-    sceneFileEc.clear();
-    for (const auto &entry : fs::directory_iterator(tempPath, sceneFileEc)) {
-      if (sceneFileEc)
-        break;
-      std::error_code regularFileEc;
-      if (entry.is_regular_file(regularFileEc) && !regularFileEc) {
-        std::string name = entry.path().filename().string();
-        std::string lower = name;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-                       [](unsigned char c) { return std::tolower(c); });
-        if (lower == target) {
-          sceneFile = entry.path();
-          break;
-        }
-      }
-    }
-  }
-  sceneFileEc.clear();
-  if (!fs::exists(sceneFile, sceneFileEc) || sceneFileEc) {
-    LogMessage("Missing GeneralSceneDescription.xml in MVR.");
-    return false;
-  }
-
-  std::string scenePath = ToString(sceneFile.u8string());
+  pathRemap = package->pathRemap;
+  const std::string scenePath = ToString(package->sceneXmlPath.u8string());
   reportProgress("Parsing scene data...");
   const bool parsed =
       ParseSceneXml(scenePath, importResult, options, progressCallback);
@@ -1283,7 +1183,7 @@ bool MvrImporter::ImportFromStreamIntoResult(
     return false;
 
   importResult.scene.runtimeResourceLeases.push_back(
-      importWorkspace.TransferToSceneLease());
+      package->workspace.TransferToSceneLease());
 
   if (mode == MvrImportMode::ReplaceProject) {
     ConfigManager::Get().Reset();
@@ -1297,7 +1197,7 @@ bool MvrImporter::ImportFromStreamIntoResult(
 // Normalizes an MVR archive path so extracted resources can be found reliably.
 std::string
 MvrImporter::NormalizeArchivePath(const std::string &archivePath) const {
-  return NormalizeArchivePathValue(archivePath);
+  return mvr::NormalizeImportArchivePath(archivePath);
 }
 
 // Returns a remapped extraction path for long archive entries when one exists.
@@ -1308,193 +1208,6 @@ MvrImporter::RemapArchivePathIfNeeded(const std::string &archivePath) const {
   if (it != pathRemap.end())
     return it->second;
   return archivePath;
-}
-
-// Extracts an MVR zip archive into the destination directory.
-bool MvrImporter::ExtractMvrZip(
-    const std::string &mvrPath, const std::string &destDir,
-    std::vector<MvrImportDiagnostic> &diagnostics) {
-  wxFileInputStream input(wxString::FromUTF8(mvrPath.c_str()));
-  if (!input.IsOk()) {
-    LogMessage("Failed to open MVR file.");
-    return false;
-  }
-
-  return ExtractMvrZip(input, destDir, diagnostics);
-}
-
-// Extracts an MVR stream with the same security and collision checks as files.
-bool MvrImporter::ExtractMvrZip(
-    wxInputStream &input, const std::string &destDir,
-    std::vector<MvrImportDiagnostic> &diagnostics) {
-  wxZipInputStream zipStream(input);
-  std::unique_ptr<wxZipEntry> entry;
-  std::unordered_map<std::string, std::string> identityByFoldedKey;
-  std::unordered_map<std::string, fs::path> extractedPathByIdentity;
-  std::unordered_set<std::string> ambiguousFoldedKeys;
-
-  auto discardCurrentEntry = [&]() {
-    char discardBuffer[4096];
-    while (true) {
-      zipStream.Read(discardBuffer, sizeof(discardBuffer));
-      if (zipStream.LastRead() == 0)
-        break;
-    }
-  };
-
-  while ((entry.reset(zipStream.GetNextEntry())), entry) {
-    // Extract entry names using UTF-8 to preserve special characters
-    std::string entryName = entry->GetName().ToUTF8().data();
-    const std::string normalizedUnsafeCheck = NormalizeSlashes(entryName);
-    const fs::path relativeEntryPath = PathUtils::PathFromUtf8(normalizedUnsafeCheck);
-    if (normalizedUnsafeCheck.empty() || relativeEntryPath.is_absolute() ||
-        relativeEntryPath.has_root_name() ||
-        normalizedUnsafeCheck.find(':') != std::string::npos ||
-        std::any_of(relativeEntryPath.begin(), relativeEntryPath.end(),
-                    [](const fs::path &part) { return part == ".."; })) {
-      LogMessage(Logger::Level::Warn,
-                 "Skipping unsafe MVR archive entry: " + entryName);
-      discardCurrentEntry();
-      continue;
-    }
-    fs::path fullPath =
-        PathUtils::PathFromUtf8(destDir) / relativeEntryPath;
-
-    if (entry->IsDir()) {
-      std::string dirUtf8 = ToString(fullPath.u8string());
-      wxFileName::Mkdir(wxString::FromUTF8(dirUtf8.c_str()), wxS_DIR_DEFAULT,
-                        wxPATH_MKDIR_FULL);
-      continue;
-    }
-
-    const std::string archiveIdentity = normalizedUnsafeCheck;
-    const std::string foldedIdentity =
-        FoldArchiveIdentityAscii(archiveIdentity);
-    if (ambiguousFoldedKeys.contains(foldedIdentity)) {
-      pathRemap.erase(NormalizeArchivePath(archiveIdentity));
-      discardCurrentEntry();
-      continue;
-    }
-    auto priorIdentityIt = identityByFoldedKey.find(foldedIdentity);
-    if (priorIdentityIt != identityByFoldedKey.end()) {
-      const bool exactDuplicate = priorIdentityIt->second == archiveIdentity;
-      const char *code = exactDuplicate ? "duplicate_mvr_archive_entry"
-                                        : "case_colliding_mvr_archive_entry";
-      diagnostics.push_back(
-          {code, std::string("Rejected ambiguous MVR archive entries '") +
-                     EscapeArchiveIdentity(priorIdentityIt->second) + "' and '" +
-                     EscapeArchiveIdentity(archiveIdentity) + "'."});
-      auto extractedIt =
-          extractedPathByIdentity.find(priorIdentityIt->second);
-      if (extractedIt != extractedPathByIdentity.end()) {
-        std::error_code removeEc;
-        fs::remove(extractedIt->second, removeEc);
-        extractedPathByIdentity.erase(extractedIt);
-      }
-      pathRemap.erase(NormalizeArchivePath(priorIdentityIt->second));
-      pathRemap.erase(NormalizeArchivePath(archiveIdentity));
-      ambiguousFoldedKeys.insert(foldedIdentity);
-      discardCurrentEntry();
-      if (foldedIdentity == "generalscenedescription.xml")
-        return false;
-      continue;
-    }
-    identityByFoldedKey.emplace(foldedIdentity, archiveIdentity);
-
-    std::string parentUtf8 = ToString(fullPath.parent_path().u8string());
-    wxFileName::Mkdir(wxString::FromUTF8(parentUtf8.c_str()), wxS_DIR_DEFAULT,
-                      wxPATH_MKDIR_FULL);
-
-    const std::string normalizedEntryName = NormalizeArchivePath(entryName);
-    const size_t fullPathLength = ToString(fullPath.u8string()).size();
-
-    auto tryOpenOutput = [](const fs::path &path) {
-      return std::ofstream(path, std::ios::binary);
-    };
-
-    std::ofstream output;
-    bool remapped = false;
-    if (!IsPathLikelyTooLong(fullPath))
-      output = tryOpenOutput(fullPath);
-
-    if (!output.is_open()) {
-      fs::path longDir = PathUtils::PathFromUtf8(destDir) / "_long";
-      std::string extension =
-          PathUtils::PathFromUtf8(entryName).extension().string();
-      std::string hashBase =
-          std::to_string(std::hash<std::string>{}(normalizedEntryName));
-      wxFileName::Mkdir(
-          wxString::FromUTF8(ToString(longDir.u8string()).c_str()),
-                        wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-
-      for (int suffix = 0; suffix < 64 && !output.is_open(); ++suffix) {
-        std::string candidateName = hashBase;
-        if (suffix > 0)
-          candidateName += "_" + std::to_string(suffix);
-        candidateName += extension;
-        fs::path candidatePath =
-            longDir / PathUtils::PathFromUtf8(candidateName);
-        output = tryOpenOutput(candidatePath);
-        if (output.is_open()) {
-          fullPath = candidatePath;
-          pathRemap[normalizedEntryName] = ToString(
-              (fs::path("_long") / PathUtils::PathFromUtf8(candidateName))
-                                                        .u8string());
-          remapped = true;
-        }
-      }
-    }
-
-    if (!output.is_open()) {
-      std::ostringstream msg;
-      msg << "Cannot create file while extracting MVR entry. entry='"
-          << entryName << "', path='" << ToString(fullPath.u8string())
-          << "', pathLength=" << fullPathLength;
-      const std::string loweredEntry = ToLowerAscii(normalizedEntryName);
-      const bool isSceneXml =
-          loweredEntry == "generalscenedescription.xml" ||
-          fs::path(loweredEntry).filename().generic_string() ==
-              "generalscenedescription.xml";
-      if (isSceneXml) {
-        LogMessage(Logger::Level::Error,
-                   msg.str() + " (required scene XML; aborting import)");
-        return false;
-      }
-
-      LogMessage(Logger::Level::Warn,
-                 msg.str() + " (asset entry skipped, continuing import)");
-      char discardBuffer[4096];
-      while (true) {
-        zipStream.Read(discardBuffer, sizeof(discardBuffer));
-        if (zipStream.LastRead() == 0)
-          break;
-      }
-      continue;
-    }
-
-    if (remapped) {
-      const std::string remappedPath = pathRemap[normalizedEntryName];
-      std::ostringstream warn;
-      warn << "MVR extraction remapped long path entry. entry='" << entryName
-           << "', remapped='" << remappedPath
-           << "', originalLength=" << fullPathLength;
-      LogMessage(Logger::Level::Warn, warn.str());
-    }
-
-    char buffer[4096];
-    while (true) {
-      zipStream.Read(buffer, sizeof(buffer));
-      size_t bytes = zipStream.LastRead();
-      if (bytes == 0)
-        break;
-      output.write(buffer, bytes);
-    }
-
-    output.close();
-    extractedPathByIdentity[archiveIdentity] = fullPath;
-  }
-
-  return true;
 }
 
 // Parses GeneralSceneDescription.xml and populates the import result scene
@@ -2261,7 +1974,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   const std::string kEmptyResolvedPath;
   auto resolveGdtfPathCached =
       [&](const std::string &spec) -> const std::string & {
-    const std::string normalized = NormalizeArchivePathValue(spec);
+    const std::string normalized = mvr::NormalizeImportArchivePath(spec);
     if (normalized.empty())
       return kEmptyResolvedPath;
 
@@ -2278,7 +1991,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
 
   auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
-    const std::string normalized = NormalizeArchivePathValue(spec);
+    const std::string normalized = mvr::NormalizeImportArchivePath(spec);
     if (normalized.empty())
       return std::string{};
     return ToSceneRelativePathIfPossible(

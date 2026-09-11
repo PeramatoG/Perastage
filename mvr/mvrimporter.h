@@ -137,14 +137,6 @@ private:
     std::unordered_map<std::string, std::string> pathRemap;
     std::unordered_map<std::string, std::string> fixtureUuidRemap;
 
-    // Creates a temporary directory for extracting the contents of the MVR archive
-
-    // Extracts the .mvr (ZIP) contents into the given destination directory
-    bool ExtractMvrZip(const std::string& mvrPath, const std::string& destDir,
-                       std::vector<MvrImportDiagnostic>& diagnostics);
-    bool ExtractMvrZip(wxInputStream& input, const std::string& destDir,
-                       std::vector<MvrImportDiagnostic>& diagnostics);
-
     bool ImportFromStreamIntoResult(wxInputStream& input,
                                     MvrImportResult& importResult,
                                     MvrImportMode mode,

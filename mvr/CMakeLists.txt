@@ -2,6 +2,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_matcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrimporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_analyzer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_applier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_resource_rewriter.cpp

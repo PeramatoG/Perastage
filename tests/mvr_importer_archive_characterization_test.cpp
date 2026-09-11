@@ -3,6 +3,8 @@
  */
 #include <cassert>
 #include <cstdint>
+#include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -10,11 +12,12 @@
 #include <wx/mstream.h>
 #include <wx/zipstrm.h>
 
+#include "mvr_import_package.h"
 #include "mvrimporter.h"
 
 // Builds an in-memory MVR archive with entries in deterministic order.
-static std::vector<std::uint8_t> BuildArchive(
-    const std::vector<std::pair<std::string, std::string>> &entries) {
+static std::vector<std::uint8_t>
+BuildArchive(const std::vector<std::pair<std::string, std::string>> &entries) {
   wxMemoryOutputStream memory;
   {
     wxZipOutputStream zip(memory);
@@ -53,7 +56,8 @@ static void TestStrictArchiveRejection() {
 static void TestLegacyRootNameCompatibility() {
   const std::string xml =
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"5\" provider=\"Legacy\" providerVersion=\"1\">"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"5\" "
+      "provider=\"Legacy\" providerVersion=\"1\">"
       "<Scene><Layers/></Scene></GeneralSceneDescription>";
   MvrImportResult result;
   assert(Import(BuildArchive({{"generalscenedescription.xml", xml}}), result));
@@ -66,7 +70,8 @@ static void TestLegacyRootNameCompatibility() {
 static void TestRecoverableUserDataDiagnostics() {
   const std::string xml =
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" provider=\"Test\" providerVersion=\"1\">"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Test\" providerVersion=\"1\">"
       "<UserData><Unknown/><Data ver=\"1\"><Value/></Data></UserData>"
       "<UserData><Data provider=\"Ignored\"/></UserData>"
       "<Scene><Layers/></Scene></GeneralSceneDescription>";
@@ -84,6 +89,39 @@ static void TestRecoverableUserDataDiagnostics() {
   assert(hasCode("missing_userdata_provider"));
 }
 
+// Verifies package acquisition safety, diagnostics, discovery, and lifetime.
+static void TestPackageAcquisitionBoundary() {
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\">"
+      "<Scene><Layers/></Scene></GeneralSceneDescription>";
+  const std::vector<std::uint8_t> validBytes = BuildArchive(
+      {{"../outside.txt", "unsafe"}, {"generalscenedescription.xml", xml}});
+  wxMemoryInputStream validInput(validBytes.data(), validBytes.size());
+  std::vector<MvrImportDiagnostic> diagnostics;
+  std::optional<mvr::ImportPackage> package =
+      mvr::AcquireImportPackage(validInput, diagnostics);
+  assert(package);
+  assert(std::filesystem::exists(package->sceneXmlPath));
+  assert(package->sceneXmlPath.parent_path() == package->rootPath);
+  assert(!std::filesystem::exists(package->rootPath.parent_path() /
+                                  "outside.txt"));
+
+  const std::vector<std::uint8_t> collisionBytes =
+      BuildArchive({{"GeneralSceneDescription.xml", xml},
+                    {"generalscenedescription.xml", xml}});
+  wxMemoryInputStream collisionInput(collisionBytes.data(),
+                                     collisionBytes.size());
+  diagnostics.clear();
+  assert(!mvr::AcquireImportPackage(collisionInput, diagnostics));
+  assert(diagnostics.size() == 1);
+  assert(diagnostics.front().code == "case_colliding_mvr_archive_entry");
+
+  const std::vector<std::uint8_t> invalidBytes = {'n', 'o', 't', 'z', 'i', 'p'};
+  wxMemoryInputStream invalidInput(invalidBytes.data(), invalidBytes.size());
+  diagnostics.clear();
+  assert(!mvr::AcquireImportPackage(invalidInput, diagnostics));
+}
+
 // Runs one independently labeled importer characterization scenario.
 int main(int argc, char **argv) {
   wxInitializer initializer;
@@ -96,6 +134,8 @@ int main(int argc, char **argv) {
     TestLegacyRootNameCompatibility();
   else if (scenario == "recovery")
     TestRecoverableUserDataDiagnostics();
+  else if (scenario == "package")
+    TestPackageAcquisitionBoundary();
   else
     assert(false);
   return 0;

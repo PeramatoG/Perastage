@@ -1007,7 +1007,8 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1044,7 +1045,8 @@ add_executable(mvr_project_fixture_metadata_contracts_test
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
@@ -1080,7 +1082,8 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1165,7 +1168,8 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1215,7 +1219,8 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../core/logger.cpp
@@ -1254,7 +1259,8 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1293,7 +1299,8 @@ add_executable(mvr_perastage_metadata_recovery_test
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
                ../core/scene_transform_integrity.cpp
@@ -1336,7 +1343,8 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1381,7 +1389,8 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1424,7 +1433,8 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1472,7 +1482,8 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1516,7 +1527,8 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -1553,7 +1565,8 @@ add_executable(mvr_importer_archive_characterization_test
                ../core/trussdictionary.cpp ../core/trussloader.cpp
                ../core/wx_path_utils.cpp ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp ../core/scene_transform_integrity.cpp
@@ -1576,9 +1589,13 @@ set_perastage_test_labels(MvrImporterArchiveLegacy LAYER legacy-compatibility DO
 add_test(NAME MvrImporterArchiveRecovery
          COMMAND mvr_importer_archive_characterization_test recovery)
 set_perastage_test_labels(MvrImporterArchiveRecovery LAYER tolerant-recovery DOMAINS mvr zip)
+add_test(NAME MvrImporterPackageAcquisition
+         COMMAND mvr_importer_archive_characterization_test package)
+set_perastage_test_labels(MvrImporterPackageAcquisition LAYER standard-strict DOMAINS mvr zip)
 set_library_env(MvrImporterArchiveStrict)
 set_library_env(MvrImporterArchiveLegacy)
 set_library_env(MvrImporterArchiveRecovery)
+set_library_env(MvrImporterPackageAcquisition)
 
 add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                build_info_stub.cpp
@@ -1606,7 +1623,8 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -2289,7 +2307,8 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                ../mvr/mvrexporter.cpp
@@ -2349,7 +2368,8 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
-               ../mvr/mvrimporter.cpp ../core/fixture_visual_color.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_package.cpp
+               ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
                consolepanel_stub.cpp
