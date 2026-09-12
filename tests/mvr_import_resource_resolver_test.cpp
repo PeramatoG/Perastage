@@ -61,9 +61,6 @@ bool GetGdtfProperties(const std::string &, float &, float &) { return false; }
 // Supplies failed truss loading for path-only test resources.
 bool LoadTrussDefinition(const std::string &, Truss &) { return false; }
 
-// Preserves identifiers because metadata parsing is outside this focused test.
-std::string CanonicalizeUuid(const std::string &uuid) { return uuid; }
-
 // Exercises resource lookup, caching, Unicode paths, and mode fallback order.
 int main() {
   const fs::path root =

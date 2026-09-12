@@ -110,7 +110,8 @@ target_include_directories(perastage_test_path_utils PRIVATE ../core)
 
 add_executable(mvr_import_resource_resolver_test
                mvr_import_resource_resolver_test.cpp
-               ../mvr/mvr_import_resource_resolver.cpp)
+               ../mvr/mvr_import_resource_resolver.cpp
+               ../core/uuidutils.cpp)
 target_include_directories(mvr_import_resource_resolver_test PRIVATE
                            ../core ../models ../mvr ../viewer3d)
 target_link_libraries(mvr_import_resource_resolver_test PRIVATE
