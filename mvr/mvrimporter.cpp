@@ -22,6 +22,7 @@
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #include "mvr_import_package.h"
+#include "mvr_import_reference_resolver.h"
 #include "mvr_import_resource_resolver.h"
 #include "mvr_scene_node_reader.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
@@ -669,6 +670,10 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
 
   MvrScene &scene = importResult.scene;
   scene.Clear();
+  mvr::MvrImportReferenceResolver referenceResolver(
+      [](const std::string &message) {
+        LogMessage(Logger::Level::Warn, message);
+      });
   scene.basePath =
       ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
   LogMessage(
@@ -1186,30 +1191,13 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   parseRootHoistInfoMap(root->FirstChildElement("UserData"));
 
   // ---- Parse AUXData for Symdefs and Positions ----
-  std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
   if (tinyxml2::XMLElement *auxNode = sceneNode->FirstChildElement("AUXData")) {
     for (tinyxml2::XMLElement *pos = auxNode->FirstChildElement("Position");
          pos; pos = pos->NextSiblingElement("Position")) {
       const std::string rawUid =
           Trim(pos->Attribute("uuid") ? pos->Attribute("uuid") : "");
       const char *name = pos->Attribute("name");
-      const std::string canonicalUid = CanonicalizeUuid(rawUid);
-      if (canonicalUid.empty()) {
-        if (rawUid.empty())
-          continue;
-        std::string seed =
-            "mvr:legacy-position:" + rawUid + ":" + (name ? Trim(name) : "");
-        const std::string generated = DeriveDeterministicUuid(seed);
-        legacyPositionIdToCanonical[rawUid] = generated;
-        scene.positions[generated] = name ? name : rawUid;
-        LogMessage(Logger::Level::Warn,
-                   "MVR import migrated non-canonical Position uuid '" +
-                       rawUid + "' -> '" + generated + "'");
-      } else {
-        if (canonicalUid != rawUid)
-          legacyPositionIdToCanonical[rawUid] = canonicalUid;
-        scene.positions[canonicalUid] = name ? name : "";
-      }
+      referenceResolver.ImportPosition(rawUid, name ? Trim(name) : "", scene);
     }
 
     std::function<void(tinyxml2::XMLElement *, const Matrix &,
@@ -1463,106 +1451,33 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                      const Matrix &, const std::string &)>
       parseChildList;
 
-  auto ensurePositionEntry = [&](const std::string &positionId) -> std::string {
-    if (positionId.empty())
-      return {};
-
-    auto legacyIt = legacyPositionIdToCanonical.find(positionId);
-    const std::string remappedId = legacyIt != legacyPositionIdToCanonical.end()
-                                       ? legacyIt->second
-                                       : positionId;
-    const std::string canonicalId = CanonicalizeUuid(remappedId);
-    const std::string normalizedId =
-        canonicalId.empty() ? remappedId : canonicalId;
-
-    auto it = scene.positions.find(normalizedId);
-    if (it != scene.positions.end())
-      return it->second;
-
-    // Create a placeholder entry so the position is preserved on export.
-    std::string generated = normalizedId;
-    if (generated.empty()) {
-      generated = DeriveDeterministicUuid("mvr:position-ref:" + positionId);
-      legacyPositionIdToCanonical[positionId] = generated;
-      LogMessage(Logger::Level::Warn,
-                 "MVR import generated canonical Position uuid '" + generated +
-                     "' for unresolved reference '" + positionId + "'");
-    }
-    scene.positions[generated] = positionId;
-    return positionId;
+  auto ensurePositionEntry = [&](const std::string &positionId) {
+    return referenceResolver.EnsurePosition(positionId, scene);
   };
-
-  std::unordered_set<std::string> usedStableUuids;
 
   using CachedCategory = mvr::SceneReadCachedCategory;
   std::unordered_map<std::string, CachedCategory> categoryByTypeKey;
-  auto buildStableIdSeed = [&](const char *kind, tinyxml2::XMLElement *node,
-                               const std::string &layerName,
-                               const Matrix &nodeTransform,
-                               const std::string &rawUuid) {
-    std::ostringstream seed;
-    seed << "mvr:" << kind << ':' << layerName << ':';
-    if (const char *nameAttr = node->Attribute("name"))
-      seed << Trim(nameAttr);
-    seed << ':' << MatrixUtils::FormatMatrix(nodeTransform) << ':' << rawUuid;
-    return seed.str();
-  };
-
   auto resolveStableUuid = [&](const char *kind, tinyxml2::XMLElement *node,
                                const std::string &layerName,
                                const Matrix &nodeTransform,
                                const std::string &legacyStableId = {}) {
     const char *uuidAttr = node->Attribute("uuid");
-    std::string rawUuid = uuidAttr ? Trim(uuidAttr) : std::string{};
-    std::string stableUuid = CanonicalizeUuid(rawUuid);
-    const std::string seed =
-        buildStableIdSeed(kind, node, layerName, nodeTransform, rawUuid);
-
-    if (stableUuid.empty()) {
-      const std::string legacyUuid = CanonicalizeUuid(Trim(legacyStableId));
-      if (!legacyUuid.empty()) {
-        stableUuid = legacyUuid;
-      } else if (!rawUuid.empty()) {
-        LogMessage(Logger::Level::Warn,
-                   wxString::Format("MVR import: %s UUID '%s' is invalid. "
-                                    "Applying deterministic fallback.",
-                                    kind, rawUuid.c_str())
-                       .ToStdString());
-      }
-      if (stableUuid.empty())
-        stableUuid = DeriveDeterministicUuid(seed);
-    }
-
-    if (usedStableUuids.contains(stableUuid)) {
-      LogMessage(Logger::Level::Warn,
-                 wxString::Format("MVR import: UUID collision for %s '%s'. "
-                                  "Applying controlled fallback UUID.",
-                                  kind, stableUuid.c_str())
-                     .ToStdString());
-      int suffix = 1;
-      std::string candidate;
-      do {
-        candidate =
-            DeriveDeterministicUuid(seed + "#" + std::to_string(suffix++));
-      } while (usedStableUuids.contains(candidate));
-      stableUuid = std::move(candidate);
-    }
-
-    usedStableUuids.insert(stableUuid);
-    return stableUuid;
+    const char *nameAttr = node->Attribute("name");
+    return referenceResolver.ResolveStableUuid(
+        {kind, layerName, nameAttr ? Trim(nameAttr) : "",
+         MatrixUtils::FormatMatrix(nodeTransform),
+         uuidAttr ? Trim(uuidAttr) : "", Trim(legacyStableId)});
   };
 
   auto referenceUuidForNode = [&](const char *kind, tinyxml2::XMLElement *node,
                                   const std::string &layerName,
                                   const Matrix &nodeTransform) {
     const char *uuidAttr = node->Attribute("uuid");
-    std::string rawUuid = uuidAttr ? Trim(uuidAttr) : std::string{};
-    std::string stableUuid = CanonicalizeUuid(rawUuid);
-    if (!stableUuid.empty())
-      return stableUuid;
-    const std::string seed =
-        buildStableIdSeed(kind, node, layerName, nodeTransform, rawUuid);
-    return DeriveDeterministicUuid(seed);
+    const char *nameAttr = node->Attribute("name");
+    return referenceResolver.ReferenceUuid(
+        {kind, layerName, nameAttr ? Trim(nameAttr) : "",
+         MatrixUtils::FormatMatrix(nodeTransform),
+         uuidAttr ? Trim(uuidAttr) : "", {}});
   };
 
   std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
@@ -1597,10 +1512,12 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
        projectFixtureColorsByUuid, projectFixtureColorMetadataUuids},
       {rootTrussInfoByUuid, rootHoistInfoByUuid, perastageTypeToGdtfPath,
        perastageInstanceToTypeKey},
-      {rootPrimitiveModelRefsBySceneObjectAndFile, legacyPositionIdToCanonical},
+      {rootPrimitiveModelRefsBySceneObjectAndFile,
+       referenceResolver.LegacyPositionRemap()},
       {layerColorByUuid, layerColorByName}};
   mvr::MvrSceneReadState sceneReadState{
-      {fixtureUuidRemap, pendingGdtfConflictByType, categoryByTypeKey,
+      {referenceResolver.FixtureUuidRemap(), pendingGdtfConflictByType,
+       categoryByTypeKey,
        categoryInferenceByResolvedPath, consumedProjectFixtureColorUuids},
       {consumedRootTrussInfoUuids, consumedRootHoistInfoUuids}};
   mvr::MvrSceneReadMetrics sceneReadMetrics;
@@ -2870,58 +2787,23 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   }
   LogMessage(Logger::Level::Info, importDiagnostics.str());
 
-  for (auto &[uuid, support] : scene.supports) {
-    if (support.motorFixtureUuid.empty())
-      continue;
-    const std::string canonical = CanonicalizeUuid(support.motorFixtureUuid);
-    if (canonical.empty())
-      continue;
-    auto aliasIt = fixtureUuidRemap.find(support.motorFixtureUuid);
-    const std::string resolved = aliasIt == fixtureUuidRemap.end()
-                                     ? canonical
-                                     : aliasIt->second;
-    if (scene.fixtures.contains(resolved)) {
-      support.motorFixtureUuid = resolved;
-    } else {
-      importResult.diagnostics.push_back(
-          {"unknown_motor_fixture_uuid",
-           "Support '" + uuid +
-               "' references an unknown MotorFixtureUuid."});
-      support.motorFixtureUuid.clear();
+  auto metadataUuids = [](const auto &entries) {
+    std::unordered_set<std::string> uuids;
+    for (const auto &[uuid, value] : entries) {
+      (void)value;
+      uuids.insert(uuid);
     }
-  }
-
-  auto diagnoseUnusedRootEntries =
-      [&](const auto &entries, const auto &consumed, const char *code,
-          const char *kind) {
-        std::vector<std::string> unknown;
-        for (const auto &[uuid, element] : entries) {
-          (void)element;
-          if (!consumed.contains(uuid))
-            unknown.push_back(uuid);
-        }
-        std::sort(unknown.begin(), unknown.end());
-        for (const std::string &uuid : unknown) {
-          importResult.diagnostics.push_back(
-              {code, std::string("Ignored ") + kind +
-                         " for unknown UUID '" + uuid + "'."});
-        }
-      };
-  diagnoseUnusedRootEntries(rootHoistInfoByUuid,
-                            consumedRootHoistInfoUuids,
-                            "unknown_hoist_info_uuid", "HoistInfo");
-  diagnoseUnusedRootEntries(rootTrussInfoByUuid,
-                            consumedRootTrussInfoUuids,
-                            "unknown_truss_info_uuid", "TrussInfo");
-  for (const auto &[uuid, color] : projectFixtureColorsByUuid) {
-    (void)color;
-    if (!consumedProjectFixtureColorUuids.contains(uuid)) {
-      importResult.diagnostics.push_back(
-          {"unknown_project_fixture_metadata_uuid",
-           "Ignored project fixture metadata for unknown UUID '" + uuid +
-               "'."});
-    }
-  }
+    return uuids;
+  };
+  const auto trussInfoUuids = metadataUuids(rootTrussInfoByUuid);
+  const auto hoistInfoUuids = metadataUuids(rootHoistInfoByUuid);
+  const auto projectFixtureMetadataUuids =
+      metadataUuids(projectFixtureColorsByUuid);
+  referenceResolver.Reconcile(
+      importResult,
+      {trussInfoUuids, consumedRootTrussInfoUuids, hoistInfoUuids,
+       consumedRootHoistInfoUuids, projectFixtureMetadataUuids,
+       consumedProjectFixtureColorUuids});
 
   std::string summary =
       "Parsed scene: " + std::to_string(scene.fixtures.size()) + " fixtures, " +
@@ -2929,7 +2811,6 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       std::to_string(scene.supports.size()) + " supports, " +
       std::to_string(scene.sceneObjects.size()) + " objects";
   LogMessage(summary);
-  importResult.fixtureUuidRemap = fixtureUuidRemap;
   return true;
 }
 
