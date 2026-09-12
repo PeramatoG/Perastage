@@ -11,7 +11,6 @@
 
 #include "fixture.h"
 #include "gdtf_fixture_category.h"
-#include "gdtfdictionary.h"
 #include "mvr_import_types.h"
 #include "truss.h"
 
@@ -29,14 +28,7 @@ class XMLElement;
 
 namespace mvr {
 
-struct SceneReadGdtfMetadata {
-  std::string fixtureName;
-  std::string manufacturer;
-  std::string fixtureTypeId;
-  float weightKg = 0.0f;
-  float powerW = 0.0f;
-  bool hasProperties = false;
-};
+class MvrImportResourceResolver;
 
 struct SceneReadLegacyFixtureIdentity {
   std::string stableId;
@@ -76,13 +68,13 @@ struct SceneReadGdtfConflict {
 };
 
 struct MvrSceneReadServices {
+  MvrImportResourceResolver &resources;
   std::function<std::string(tinyxml2::XMLElement *, const char *)> textOf;
   std::function<void(tinyxml2::XMLElement *, const char *, int &)> intOf;
   std::function<void(tinyxml2::XMLElement *, std::string &, int &)> fixtureIdOf;
   std::function<void(tinyxml2::XMLElement *, const char *, const std::string &,
                      Matrix &, bool)>
       parseMatrixOrIdentity;
-  std::function<std::string(const std::string &)> remapArchivePath;
   std::function<std::string(const std::string &, const std::string &,
                             const std::string &)>
       buildFixtureTypeInfoKey;
@@ -94,30 +86,14 @@ struct MvrSceneReadServices {
                             const std::string &, const Matrix &)>
       referenceUuid;
   std::function<std::string(const std::string &)> ensurePosition;
-  std::function<std::string(const std::string &)> normalizeGdtfSpec;
-  std::function<std::string(const std::string &)> normalizeSupportGdtfSpec;
-  std::function<const std::string &(const std::string &)> resolveGdtfPath;
-  std::function<const SceneReadGdtfMetadata &(const std::string &)>
-      fixtureMetadata;
-  std::function<std::string(const std::string &, const std::string &,
-                            std::optional<int>)>
-      resolveGdtfMode;
-  std::function<int(const std::string &, const std::string &)>
-      gdtfModeChannelCount;
-  std::function<const std::optional<GdtfDictionary::Entry> &(
-      const std::string &)>
-      dictionaryEntry;
-  std::function<bool(const std::string &, Truss &)> loadTrussDefinition;
   std::function<void(tinyxml2::XMLElement *, std::vector<SymdefGeometry> &,
                      std::string &, Matrix &)>
       resolveSymdef;
-  std::function<std::string(std::string)> normalizeGeometryFile;
   std::function<void(std::vector<GeometryInstance> &, const std::string &,
                      const Matrix &, const std::string &, const std::string &,
                      const std::string &)>
       appendGeometry;
   std::function<void(std::string, int, int)> reportProgress;
-  std::function<std::filesystem::path(const std::string &)> resolveScenePath;
   std::function<void(const std::string &)> logDebug;
   std::function<void(const std::string &)> logInfo;
   std::function<void(const std::string &)> logWarning;

@@ -2,6 +2,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_matcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrimporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_types.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
