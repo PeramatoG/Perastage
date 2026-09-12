@@ -21,6 +21,14 @@ std::string NormalizeImportArchivePath(const std::string &path) {
   std::replace(normalized.begin(), normalized.end(), '\\', '/');
   while (normalized.starts_with("./"))
     normalized.erase(0, 2);
+  const std::string extension = ".gdtf";
+  const size_t extensionPosition = normalized.rfind(extension);
+  if (extensionPosition != std::string::npos) {
+    size_t trimPosition = extensionPosition;
+    while (trimPosition > 0 && normalized[trimPosition - 1] == ' ')
+      --trimPosition;
+    normalized.erase(trimPosition, extensionPosition - trimPosition);
+  }
   return normalized;
 }
 
@@ -69,6 +77,12 @@ int main() {
   fs::create_directories(root);
   const fs::path exact = root / fs::path("Fixture Ä.gdtf");
   std::ofstream(exact).put('\n');
+  const fs::path unrelated = root / "Unrelated.gdtf";
+  std::ofstream(unrelated).put('\n');
+  const fs::path canonical = root / "Maker@Canonical Fixture@Perastage.gdtf";
+  std::ofstream(canonical).put('\n');
+  const fs::path support = root / "Support Fixture.gdtf";
+  std::ofstream(support).put('\n');
 
   mvr::MvrImportResourceResolver resolver(root);
   assert(resolver.ResolveGdtfPath("Fixture Ä.gdtf") ==
@@ -76,6 +90,11 @@ int main() {
   assert(resolver.ResolveGdtfPath("Fixture Ä") == PathUtils::PathToUtf8(exact));
   assert(resolver.ResolveGdtfPath("fixture Ä.GDTF") ==
          PathUtils::PathToUtf8(exact));
+  assert(resolver.ResolveGdtfPath("Canonical Fixture") ==
+         PathUtils::PathToUtf8(canonical));
+  assert(resolver.ResolveGdtfPath("---.gdtf") !=
+         PathUtils::PathToUtf8(unrelated));
+  assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath("---.gdtf")));
   const std::string &first = resolver.ResolveGdtfPath("Fixture Ä.gdtf");
   const std::string &second = resolver.ResolveGdtfPath("Fixture Ä.gdtf");
   assert(&first == &second);
@@ -83,6 +102,12 @@ int main() {
   assert(resolver.MakeSceneRelative(exact) == "Fixture Ä.gdtf");
   assert(resolver.ResolveScenePath("models/é.glb") ==
          root / fs::path("models/é.glb"));
+  assert(!resolver.GdtfFileExists(
+      resolver.ResolveGdtfPath("Missing Fixture .gdtf")));
+  assert(resolver.NormalizeSupportGdtfSpec("Missing Fixture .gdtf") ==
+         "Missing Fixture .gdtf");
+  assert(resolver.NormalizeSupportGdtfSpec("Support Fixture .gdtf") ==
+         "Support Fixture.gdtf");
 
   const std::vector<std::string> modes = {"Mode 16", "Standard", "Basic"};
   const auto count = [](const std::string &mode) {

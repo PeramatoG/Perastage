@@ -130,11 +130,13 @@ std::string FindGdtfPath(const fs::path &basePath, const std::string &spec) {
         ToLowerAscii(entry.path().extension().string()) != ".gdtf")
       continue;
     const fs::path entryPath = entry.path();
+    const std::string perastageFixtureName =
+        PerastageFixtureName(entryPath.filename());
     if (ToLowerAscii(Trim(entryPath.stem().string())) == expectedStem ||
         NormalizeGdtfLookupKey(entryPath.filename().generic_string()) ==
             expectedKey ||
-        NormalizeFixtureName(PerastageFixtureName(entryPath.filename())) ==
-            expectedFixture)
+        (!perastageFixtureName.empty() &&
+         NormalizeFixtureName(perastageFixtureName) == expectedFixture))
       return PathUtils::PathToUtf8(entryPath);
   }
   return {};
@@ -234,7 +236,7 @@ std::string MvrImportResourceResolver::NormalizeSupportGdtfSpec(
     return {};
   const std::string resolved = FindGdtfPath(sceneBasePath_, normalized);
   return MakeSceneRelative(
-      PathUtils::PathFromUtf8(resolved.empty() ? normalized : resolved));
+      PathUtils::PathFromUtf8(resolved.empty() ? spec : resolved));
 }
 
 // Resolves and caches a GDTF spec for the lifetime of this resolver.
