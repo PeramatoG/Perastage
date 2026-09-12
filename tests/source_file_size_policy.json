@@ -29,7 +29,7 @@
     "gui/mainwindow_menu.cpp": 2082,
     "gui/trusstablepanel.cpp": 1528,
     "mvr/mvrexporter.cpp": 4911,
-    "mvr/mvrimporter.cpp": 2989,
+    "mvr/mvrimporter.cpp": 2991,
     "tests/mvr_exporter_compliance_test.cpp": 1664,
     "viewer2d/pdf/layout_pdf_exporter.cpp": 2352,
     "viewer2d/viewer2dpanel.cpp": 4550,

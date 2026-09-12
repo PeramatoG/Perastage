@@ -410,7 +410,8 @@ std::string MvrImportResourceResolver::NormalizeGeometryFile(
     return primitive;
   fs::path resolved = ResolveScenePath(normalized);
   if (!PathUtils::PathFromUtf8(normalized).has_extension()) {
-    for (const std::string &extension : {".gltf", ".glb", ".3ds"}) {
+    const std::array<std::string, 3> extensions = {".gltf", ".glb", ".3ds"};
+    for (const std::string &extension : extensions) {
       fs::path candidate = resolved;
       candidate += extension;
       std::error_code ec;

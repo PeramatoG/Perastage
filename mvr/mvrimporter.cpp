@@ -1359,6 +1359,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return ToString(PathUtils::PathFromUtf8(fileName).u8string());
   };
 
+  std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
+      categoryInferenceByResolvedPath;
   mvr::MvrImportResourceResolver resources(
       PathUtils::PathFromUtf8(scene.basePath),
       [&](const std::string &path) { return RemapArchivePathIfNeeded(path); });
