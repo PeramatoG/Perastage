@@ -91,6 +91,23 @@ std::string PerastageFixtureName(const fs::path &path) {
   return stem.substr(first + 1, second - first - 1);
 }
 
+// Returns the actual directory entry only for a lexically exact filename.
+std::optional<fs::path> FindLexicallyExactRegularFile(
+    const fs::path &candidate) {
+  const fs::path parent = candidate.has_parent_path() ? candidate.parent_path()
+                                                       : fs::path(".");
+  std::error_code ec;
+  for (const auto &entry : fs::directory_iterator(parent, ec)) {
+    if (ec)
+      break;
+    std::error_code regularFileError;
+    if (entry.is_regular_file(regularFileError) && !regularFileError &&
+        entry.path().filename() == candidate.filename())
+      return entry.path();
+  }
+  return std::nullopt;
+}
+
 // Resolves a GDTF spec with the existing permissive filename fallbacks.
 std::string FindGdtfPath(const fs::path &basePath, const std::string &spec) {
   const std::string normalized = NormalizeImportArchivePath(spec);
@@ -99,16 +116,19 @@ std::string FindGdtfPath(const fs::path &basePath, const std::string &spec) {
   const fs::path relative = PathUtils::PathFromUtf8(normalized);
   fs::path candidate = basePath.empty() ? relative : basePath / relative;
   std::error_code ec;
-  if (ToLowerAscii(candidate.extension().string()) == ".gdtf" &&
-      fs::exists(candidate, ec) && !ec)
-    return PathUtils::PathToUtf8(candidate);
-  ec.clear();
+  if (ToLowerAscii(candidate.extension().string()) == ".gdtf") {
+    const std::optional<fs::path> exact =
+        FindLexicallyExactRegularFile(candidate);
+    if (exact)
+      return PathUtils::PathToUtf8(*exact);
+  }
   if (!candidate.has_extension()) {
     fs::path withExtension = candidate;
     withExtension += ".gdtf";
-    if (fs::exists(withExtension, ec) && !ec)
-      return PathUtils::PathToUtf8(withExtension);
-    ec.clear();
+    const std::optional<fs::path> exact =
+        FindLexicallyExactRegularFile(withExtension);
+    if (exact)
+      return PathUtils::PathToUtf8(*exact);
   }
 #if defined(_WIN32)
   if (basePath.empty())

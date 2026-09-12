@@ -75,7 +75,9 @@ int main() {
       fs::temp_directory_path() / fs::path(u8"perastage_resource_ünicode");
   fs::remove_all(root);
   fs::create_directories(root);
-  const fs::path exact = root / fs::path("Fixture Ä.gdtf");
+  const fs::path exactNamePath = fs::path(u8"Fixture Ä.gdtf");
+  const std::string exactName = PathUtils::PathToUtf8(exactNamePath);
+  const fs::path exact = root / exactNamePath;
   std::ofstream(exact).put('\n');
   const fs::path unrelated = root / "Unrelated.gdtf";
   std::ofstream(unrelated).put('\n');
@@ -85,23 +87,26 @@ int main() {
   std::ofstream(support).put('\n');
 
   mvr::MvrImportResourceResolver resolver(root);
-  assert(resolver.ResolveGdtfPath("Fixture Ä.gdtf") ==
+  assert(resolver.ResolveGdtfPath(exactName) == PathUtils::PathToUtf8(exact));
+  assert(resolver.ResolveGdtfPath(
+             PathUtils::PathToUtf8(fs::path(u8"Fixture Ä"))) ==
          PathUtils::PathToUtf8(exact));
-  assert(resolver.ResolveGdtfPath("Fixture Ä") == PathUtils::PathToUtf8(exact));
-  assert(resolver.ResolveGdtfPath("fixture Ä.GDTF") ==
+  assert(resolver.ResolveGdtfPath(
+             PathUtils::PathToUtf8(fs::path(u8"fixture Ä.GDTF"))) ==
          PathUtils::PathToUtf8(exact));
   assert(resolver.ResolveGdtfPath("Canonical Fixture") ==
          PathUtils::PathToUtf8(canonical));
   assert(resolver.ResolveGdtfPath("---.gdtf") !=
          PathUtils::PathToUtf8(unrelated));
   assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath("---.gdtf")));
-  const std::string &first = resolver.ResolveGdtfPath("Fixture Ä.gdtf");
-  const std::string &second = resolver.ResolveGdtfPath("Fixture Ä.gdtf");
+  const std::string &first = resolver.ResolveGdtfPath(exactName);
+  const std::string &second = resolver.ResolveGdtfPath(exactName);
   assert(&first == &second);
   assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath("missing")));
-  assert(resolver.MakeSceneRelative(exact) == "Fixture Ä.gdtf");
-  assert(resolver.ResolveScenePath("models/é.glb") ==
-         root / fs::path("models/é.glb"));
+  assert(resolver.MakeSceneRelative(exact) == exactName);
+  const fs::path unicodeModelPath = fs::path(u8"models/é.glb");
+  assert(resolver.ResolveScenePath(PathUtils::PathToUtf8(unicodeModelPath)) ==
+         root / unicodeModelPath);
   assert(!resolver.GdtfFileExists(
       resolver.ResolveGdtfPath("Missing Fixture .gdtf")));
   assert(resolver.NormalizeSupportGdtfSpec("Missing Fixture .gdtf") ==
