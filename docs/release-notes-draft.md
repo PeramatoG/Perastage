@@ -12,7 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Isolated MVR GDTF and scene-resource resolution, metadata access, and caching behind a GUI-independent import service while preserving compatible path, mode, and fixture-category handling, with reliable Debug test linking across supported builds.
+- Isolated MVR GDTF and scene-resource resolution, metadata access, and caching behind a GUI-independent import service while preserving compatible path, mode, and fixture-category handling, with reliable shared-utility linkage in Debug tests across supported builds.
 
 - Separated logical MVR scene-node and hierarchy reading into an independent compiled module while preserving existing fixture, rigging, geometry, layer, and compatibility behavior.
 - Preserved native Unicode filesystem paths across MVR scene-resource resolution on all supported platforms.
