@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_scene_node_reader.h"
+#include "mvr_import_resource_resolver.h"
 #include "mvr_scene_node_reader_detail.h"
 
 #include "filesystem_path_utils.h"
@@ -141,7 +142,10 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         services.parseMatrixOrIdentity(parent, elementName, context, out,
                                        inspectScale);
       };
-  const auto &remapArchivePathIfNeeded = services.remapArchivePath;
+  auto &resources = services.resources;
+  auto remapArchivePathIfNeeded = [&](const std::string &path) {
+    return resources.RemapArchivePath(path);
+  };
   const auto &buildFixtureTypeInfoKey = services.buildFixtureTypeInfoKey;
   auto resolveStableUuid = [&](const char *kind, tinyxml2::XMLElement *node,
                                const std::string &layer,
@@ -151,17 +155,39 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
   };
   const auto &referenceUuidForNode = services.referenceUuid;
   const auto &ensurePositionEntry = services.ensurePosition;
-  const auto &normalizeGdtfSpecForScene = services.normalizeGdtfSpec;
-  const auto &normalizeSupportGdtfSpec = services.normalizeSupportGdtfSpec;
-  const auto &resolveGdtfPathCached = services.resolveGdtfPath;
-  const auto &getFixtureMetadata = services.fixtureMetadata;
-  const auto &resolveExistingGdtfModeCached = services.resolveGdtfMode;
-  const auto &getGdtfModeChannelCountCached = services.gdtfModeChannelCount;
-  const auto &getDictionaryEntryCached = services.dictionaryEntry;
-  const auto &loadTrussDefinitionCached = services.loadTrussDefinition;
+  auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
+    return resources.NormalizeGdtfSpec(spec);
+  };
+  auto normalizeSupportGdtfSpec = [&](const std::string &spec) {
+    return resources.NormalizeSupportGdtfSpec(spec);
+  };
+  auto resolveGdtfPathCached =
+      [&](const std::string &spec) -> const std::string & {
+    return resources.ResolveGdtfPath(spec);
+  };
+  auto getFixtureMetadata =
+      [&](const std::string &path) -> const ImportGdtfMetadata & {
+    return resources.FixtureMetadata(path);
+  };
+  auto resolveExistingGdtfModeCached = [&](const std::string &path,
+                                           const std::string &mode,
+                                           std::optional<int> count) {
+    return resources.ResolveGdtfMode(path, mode, count);
+  };
+  auto getGdtfModeChannelCountCached = [&](const std::string &path,
+                                           const std::string &mode) {
+    return resources.GdtfModeChannelCount(path, mode);
+  };
+  auto getDictionaryEntryCached = [&](const std::string &type) -> const auto & {
+    return resources.DictionaryEntry(type);
+  };
+  auto loadTrussDefinitionCached = [&](const std::string &path, Truss &out) {
+    return resources.LoadTrussDefinition(path, out);
+  };
   const auto &resolveSymdefReference = services.resolveSymdef;
-  const auto &normalizeAndResolveGeometryFileName =
-      services.normalizeGeometryFile;
+  auto normalizeAndResolveGeometryFileName = [&](const std::string &path) {
+    return resources.NormalizeGeometryFile(path);
+  };
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
                                     const std::string &fileName,
                                     const Matrix &localTransform,
@@ -540,7 +566,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                "Ignored unsafe TrussInfo AuxGdtf path '" + archiveName + "'."});
         } else {
           const std::string remapped = remapArchivePathIfNeeded(archiveName);
-          const fs::path resolved = services.resolveScenePath(remapped);
+          const fs::path resolved = resources.ResolveScenePath(remapped);
           std::error_code existsEc;
           if (fs::is_regular_file(resolved, existsEc) && !existsEc) {
             truss.perastageAuxGdtfArchivePath = remapped;
@@ -740,7 +766,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         }
 
         const fs::path resolvedSymbolPath =
-            services.resolveScenePath(truss.symbolFile);
+            resources.ResolveScenePath(truss.symbolFile);
         const bool symbolRenderable =
             scene_reader_detail::IsRenderableTrussGeometry(truss.symbolFile);
         std::error_code symbolExistsEc;

@@ -1,0 +1,110 @@
+#include "mvr_import_resource_resolver.h"
+
+#include "filesystem_path_utils.h"
+#include "truss.h"
+
+#include <algorithm>
+#include <cassert>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
+
+namespace {
+int dictionaryLookups = 0;
+}
+
+namespace mvr {
+// Supplies archive-path normalization for this isolated resolver test.
+std::string NormalizeImportArchivePath(const std::string &path) {
+  std::string normalized = path;
+  std::replace(normalized.begin(), normalized.end(), '\\', '/');
+  while (normalized.starts_with("./"))
+    normalized.erase(0, 2);
+  return normalized;
+}
+
+// Disables primitive aliases because this test exercises file resources.
+bool ResolvePrimitiveTokenFromModelRef(const std::string &, std::string &) {
+  return false;
+}
+} // namespace mvr
+
+namespace GdtfDictionary {
+// Counts dictionary loads so cache behavior can be verified deterministically.
+std::optional<Entry> Get(const std::string &) {
+  ++dictionaryLookups;
+  return Entry{};
+}
+} // namespace GdtfDictionary
+
+// Supplies empty GDTF modes for path-only test resources.
+std::vector<std::string> GetGdtfModes(const std::string &) { return {}; }
+
+// Supplies an unavailable channel count for path-only test resources.
+int GetGdtfModeChannelCount(const std::string &, const std::string &) {
+  return -1;
+}
+
+// Supplies empty fixture names for path-only test resources.
+std::string GetGdtfFixtureName(const std::string &) { return {}; }
+
+// Supplies empty manufacturers for path-only test resources.
+std::string GetGdtfFixtureManufacturer(const std::string &) { return {}; }
+
+// Supplies empty fixture identifiers for path-only test resources.
+std::string GetGdtfFixtureTypeId(const std::string &) { return {}; }
+
+// Supplies absent physical properties for path-only test resources.
+bool GetGdtfProperties(const std::string &, float &, float &) { return false; }
+
+// Supplies failed truss loading for path-only test resources.
+bool LoadTrussDefinition(const std::string &, Truss &) { return false; }
+
+// Preserves identifiers because metadata parsing is outside this focused test.
+std::string CanonicalizeUuid(const std::string &uuid) { return uuid; }
+
+// Exercises resource lookup, caching, Unicode paths, and mode fallback order.
+int main() {
+  const fs::path root =
+      fs::temp_directory_path() / fs::path(u8"perastage_resource_ünicode");
+  fs::remove_all(root);
+  fs::create_directories(root);
+  const fs::path exact = root / fs::path("Fixture Ä.gdtf");
+  std::ofstream(exact).put('\n');
+
+  mvr::MvrImportResourceResolver resolver(root);
+  assert(resolver.ResolveGdtfPath("Fixture Ä.gdtf") ==
+         PathUtils::PathToUtf8(exact));
+  assert(resolver.ResolveGdtfPath("Fixture Ä") == PathUtils::PathToUtf8(exact));
+  assert(resolver.ResolveGdtfPath("fixture Ä.GDTF") ==
+         PathUtils::PathToUtf8(exact));
+  const std::string &first = resolver.ResolveGdtfPath("Fixture Ä.gdtf");
+  const std::string &second = resolver.ResolveGdtfPath("Fixture Ä.gdtf");
+  assert(&first == &second);
+  assert(!resolver.GdtfFileExists(resolver.ResolveGdtfPath("missing")));
+  assert(resolver.MakeSceneRelative(exact) == "Fixture Ä.gdtf");
+  assert(resolver.ResolveScenePath("models/é.glb") ==
+         root / fs::path("models/é.glb"));
+
+  const std::vector<std::string> modes = {"Mode 16", "Standard", "Basic"};
+  const auto count = [](const std::string &mode) {
+    return mode == "Basic" ? 8 : 16;
+  };
+  assert(mvr::MvrImportResourceResolver::SelectMode(modes, " mode 16 ", {},
+                                                    count) == "Mode 16");
+  assert(mvr::MvrImportResourceResolver::SelectMode(modes, "Legacy 016", {},
+                                                    count) == "Mode 16");
+  assert(mvr::MvrImportResourceResolver::SelectMode(modes, "Unknown", 8,
+                                                    count) == "Basic");
+  assert(mvr::MvrImportResourceResolver::SelectMode(modes, "Unknown", {},
+                                                    count) == "Standard");
+  assert(mvr::MvrImportResourceResolver::SelectMode(
+             {"First", "Second"}, "Unknown", {}, count) == "First");
+
+  resolver.DictionaryEntry("Fixture");
+  resolver.DictionaryEntry("Fixture");
+  assert(dictionaryLookups == 1);
+  fs::remove_all(root);
+  return 0;
+}

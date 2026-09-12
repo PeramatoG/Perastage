@@ -22,6 +22,7 @@
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #include "mvr_import_package.h"
+#include "mvr_import_resource_resolver.h"
 #include "mvr_scene_node_reader.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "credentialstore.h"
@@ -142,89 +143,6 @@ static std::string NormalizeSlashes(std::string path) {
   return path;
 }
 
-static std::string ToLowerAscii(std::string text) {
-  std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
-  return text;
-}
-
-static std::string ResolveGdtfPath(const std::string &baseDir,
-                                   const std::string &spec);
-
-// Reports whether extension metadata names one portable root-level archive
-// file.
-static bool IsPortableRootArchiveFileName(const std::string &value) {
-  if (value.empty() || value == "." || value == "..")
-    return false;
-  if (std::any_of(value.begin(), value.end(),
-                  [](unsigned char ch) { return ch < 32 || ch == 127; }))
-    return false;
-  if (value.find('/') != std::string::npos ||
-      value.find('\\') != std::string::npos ||
-      value.find(':') != std::string::npos)
-    return false;
-  const fs::path path = PathUtils::PathFromUtf8(value);
-  return !path.is_absolute() && !path.has_root_name() &&
-         path.filename().generic_string() == value;
-}
-
-static std::string NormalizeGdtfLookupKey(const std::string &value) {
-  std::string normalized = mvr::NormalizeImportArchivePath(value);
-  if (normalized.empty())
-    return normalized;
-
-  fs::path path = PathUtils::PathFromUtf8(normalized);
-  std::string stem = Trim(path.stem().string());
-  std::string ext = ToLowerAscii(path.extension().string());
-  if (ext.empty())
-    ext = ".gdtf";
-  return ToLowerAscii(stem + ext);
-}
-
-// Normalizes fixture names for filename-based GDTF identity matching.
-static std::string NormalizeFixtureNameLookupKey(std::string value) {
-  value = ToLowerAscii(Trim(value));
-  value.erase(std::remove_if(value.begin(), value.end(),
-                             [](unsigned char ch) {
-                               return std::isspace(ch) != 0 || ch == '_' ||
-                                      ch == '-';
-                             }),
-              value.end());
-  return value;
-}
-
-// Extracts the fixture-name segment from a Perastage canonical GDTF filename.
-static std::string
-ExtractPerastageFixtureNameFromFileName(const fs::path &path) {
-  const std::string stem = path.stem().string();
-  const size_t firstAt = stem.find('@');
-  if (firstAt == std::string::npos)
-    return {};
-  const size_t secondAt = stem.find('@', firstAt + 1);
-  if (secondAt == std::string::npos)
-    return {};
-  if (NormalizeFixtureNameLookupKey(stem.substr(secondAt + 1)) != "perastage")
-    return {};
-  return stem.substr(firstAt + 1, secondAt - firstAt - 1);
-}
-
-static std::string ExtractDigitSignature(const std::string &text) {
-  std::string digits;
-  digits.reserve(text.size());
-  for (unsigned char c : text) {
-    if (std::isdigit(c))
-      digits.push_back(static_cast<char>(c));
-  }
-  if (digits.empty())
-    return digits;
-
-  const size_t firstNonZero = digits.find_first_not_of('0');
-  if (firstNonZero == std::string::npos)
-    return "0";
-  return digits.substr(firstNonZero);
-}
-
 static bool IsNearlyEqualRelative(float a, float b, float relEps) {
   if (!std::isfinite(a) || !std::isfinite(b))
     return false;
@@ -304,181 +222,6 @@ static bool TryParseFloat(const std::string &text, float &out) {
 }
 
 
-
-static fs::path ResolveSceneRelativePath(const std::string &basePath,
-                                         const std::string &pathText) {
-  fs::path path = PathUtils::PathFromUtf8(pathText);
-  if (path.is_absolute() || basePath.empty())
-    return path;
-  return PathUtils::PathFromUtf8(basePath) / path;
-}
-
-// Compares path components using platform filesystem case-sensitivity rules.
-static bool SameFilesystemPathComponent(const fs::path &lhs,
-                                        const fs::path &rhs) {
-#if defined(_WIN32)
-  return ToLowerAscii(lhs.string()) == ToLowerAscii(rhs.string());
-#else
-  return lhs == rhs;
-#endif
-}
-
-// Returns true when candidate is inside base after both paths have been
-// normalized.
-static bool IsPathWithinDirectoryByComponents(const fs::path &candidate,
-                                              const fs::path &base) {
-  auto candidateIt = candidate.begin();
-  auto baseIt = base.begin();
-  for (; baseIt != base.end(); ++baseIt, ++candidateIt) {
-    if (candidateIt == candidate.end() ||
-        !SameFilesystemPathComponent(*candidateIt, *baseIt))
-      return false;
-  }
-  return true;
-}
-
-// Builds a normalized absolute path without throwing filesystem exceptions.
-static fs::path NormalizedAbsolutePathForImport(const fs::path &path,
-                                                std::error_code &ec) {
-  ec.clear();
-  fs::path absolute = path;
-  if (!absolute.is_absolute()) {
-    absolute = fs::absolute(path, ec);
-    if (ec)
-      return {};
-  }
-
-  std::error_code canonicalEc;
-  fs::path canonical = fs::weakly_canonical(absolute, canonicalEc);
-  if (!canonicalEc)
-    return canonical.lexically_normal();
-
-  return absolute.lexically_normal();
-}
-
-// Converts imported resource paths to scene-relative references only when they
-// stay under scene.basePath.
-static std::string
-ToSceneRelativePathIfPossible(const std::string &basePath,
-                                                 const fs::path &candidatePath) {
-  if (candidatePath.empty())
-    return {};
-
-  if (basePath.empty() || !candidatePath.is_absolute())
-    return ToString(candidatePath.u8string());
-
-  std::error_code ec;
-  const fs::path base =
-      NormalizedAbsolutePathForImport(PathUtils::PathFromUtf8(basePath), ec);
-  if (ec)
-    return ToString(candidatePath.u8string());
-
-  const fs::path candidate = NormalizedAbsolutePathForImport(candidatePath, ec);
-  if (ec)
-    return ToString(candidatePath.u8string());
-
-  if (!IsPathWithinDirectoryByComponents(candidate, base))
-    return ToString(candidatePath.u8string());
-
-  fs::path relative = fs::relative(candidate, base, ec);
-  if (ec || relative.empty())
-    return ToString(candidatePath.u8string());
-
-  return ToString(relative.u8string());
-}
-
-static std::string ResolveScenePathForRead(const std::string &basePath,
-                                           const std::string &pathText) {
-  if (pathText.empty())
-    return {};
-  const std::string normalized = mvr::NormalizeImportArchivePath(pathText);
-  if (normalized.empty())
-    return {};
-  const std::string gdtfResolved = ResolveGdtfPath(basePath, normalized);
-  if (!gdtfResolved.empty())
-    return gdtfResolved;
-  return ToString(ResolveSceneRelativePath(basePath, normalized).u8string());
-}
-
-// Resolves a scene-provided GDTF spec to the real extracted file path.
-// MVR files may omit ".gdtf" in <GDTFSpec> or use a different filename case,
-// so we progressively try exact, extension-appended and case-insensitive
-// matches.
-static std::string ResolveGdtfPath(const std::string &baseDir,
-                                   const std::string &spec) {
-  const std::string normalizedSpec = mvr::NormalizeImportArchivePath(spec);
-  if (normalizedSpec.empty())
-    return {};
-
-  fs::path candidate = baseDir.empty()
-                           ? PathUtils::PathFromUtf8(normalizedSpec)
-                           : PathUtils::PathFromUtf8(baseDir) /
-                                 PathUtils::PathFromUtf8(normalizedSpec);
-
-  std::error_code ec;
-  const std::string candidateExt = ToLowerAscii(candidate.extension().string());
-  if (candidateExt == ".gdtf" && fs::exists(candidate, ec) && !ec)
-    return ToString(candidate.u8string());
-  ec.clear();
-
-  if (!candidate.has_extension()) {
-    fs::path withExtension = candidate;
-    withExtension += ".gdtf";
-    if (fs::exists(withExtension, ec) && !ec)
-      return ToString(withExtension.u8string());
-    ec.clear();
-  }
-
-#if defined(_WIN32)
-  // Restricts fallback directory scans to the extracted MVR base directory on
-  // Windows.
-  if (baseDir.empty())
-    return {};
-  fs::path lookupDir = PathUtils::PathFromUtf8(baseDir);
-#else
-  fs::path lookupDir =
-      baseDir.empty() ? fs::current_path(ec) : PathUtils::PathFromUtf8(baseDir);
-#endif
-  if (ec || !fs::exists(lookupDir, ec) || ec)
-    return {};
-
-  const std::string expectedStem = ToLowerAscii(
-      Trim(PathUtils::PathFromUtf8(normalizedSpec).filename().stem().string()));
-  const std::string expectedFixtureNameKey =
-      NormalizeFixtureNameLookupKey(expectedStem);
-  const std::string normalizedSpecKey = NormalizeGdtfLookupKey(normalizedSpec);
-  for (const auto &entry : fs::directory_iterator(lookupDir, ec)) {
-    if (ec)
-      break;
-    if (!entry.is_regular_file())
-      continue;
-
-    const fs::path entryPath = entry.path();
-    if (ToLowerAscii(entryPath.extension().string()) != ".gdtf")
-      continue;
-    const std::string entryStem = ToLowerAscii(Trim(entryPath.stem().string()));
-    if (entryStem == expectedStem)
-      return ToString(entryPath.u8string());
-
-    // Last fallback: compare normalized names ignoring case and extra blanks
-    // before extension.
-    if (!normalizedSpecKey.empty() &&
-        NormalizeGdtfLookupKey(entryPath.filename().generic_string()) ==
-            normalizedSpecKey) {
-      return ToString(entryPath.u8string());
-    }
-
-    const std::string perastageFixtureName =
-        ExtractPerastageFixtureNameFromFileName(entryPath.filename());
-    if (!perastageFixtureName.empty() &&
-        NormalizeFixtureNameLookupKey(perastageFixtureName) ==
-            expectedFixtureNameKey) {
-      return ToString(entryPath.u8string());
-    }
-  }
-
-  return {};
-}
 
 static std::string CieToHex(const std::string &cie) {
   std::string t = cie;
@@ -1616,204 +1359,33 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return ToString(PathUtils::PathFromUtf8(fileName).u8string());
   };
 
-  auto normalizeAndResolveGeometryFileName = [&](std::string fileName) {
-    std::string normalized = normalizeGeometryFileName(std::move(fileName));
-    if (normalized.empty())
-      return normalized;
-    std::string primitiveToken;
-    if (mvr::ResolvePrimitiveTokenFromModelRef(normalized, primitiveToken))
-      return primitiveToken;
-    std::string remapped = RemapArchivePathIfNeeded(normalized);
-    if (mvr::ResolvePrimitiveTokenFromModelRef(remapped, primitiveToken))
-      return primitiveToken;
-    fs::path remappedPath = PathUtils::PathFromUtf8(remapped);
-    fs::path resolved = ResolveSceneRelativePath(scene.basePath, remapped);
-    if (!remappedPath.has_extension()) {
-      const std::array<std::string, 3> extensions = {".gltf", ".glb", ".3ds"};
-      for (const std::string &ext : extensions) {
-        fs::path candidate = resolved;
-        candidate += ext;
-        std::error_code existsEc;
-        if (fs::exists(candidate, existsEc) && !existsEc) {
-          resolved = candidate;
-          break;
-        }
-      }
-      if (!resolved.has_extension())
-        resolved += ".3ds";
-    }
-    return ToSceneRelativePathIfPossible(scene.basePath, resolved);
+  mvr::MvrImportResourceResolver resources(
+      PathUtils::PathFromUtf8(scene.basePath),
+      [&](const std::string &path) { return RemapArchivePathIfNeeded(path); });
+  auto normalizeAndResolveGeometryFileName = [&](const std::string &path) {
+    return resources.NormalizeGeometryFile(path);
   };
-
-  std::unordered_map<std::string, std::string> resolvedGdtfPathCache;
-  std::unordered_map<std::string, std::vector<std::string>> gdtfModesCache;
-  std::unordered_map<std::string, std::unordered_map<std::string, int>>
-      gdtfModeChannelCountCache;
-  std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
-      categoryInferenceByResolvedPath;
-  const std::string kEmptyResolvedPath;
-  auto resolveGdtfPathCached =
-      [&](const std::string &spec) -> const std::string & {
-    const std::string normalized = mvr::NormalizeImportArchivePath(spec);
-    if (normalized.empty())
-      return kEmptyResolvedPath;
-
-    auto it = resolvedGdtfPathCache.find(normalized);
-    if (it != resolvedGdtfPathCache.end())
-      return it->second;
-
-    std::string resolved = ResolveGdtfPath(scene.basePath, normalized);
-    if (resolved.empty())
-      resolved = ToString(
-          ResolveSceneRelativePath(scene.basePath, normalized).u8string());
-    return resolvedGdtfPathCache.emplace(normalized, std::move(resolved))
-        .first->second;
+  auto resolveGdtfPathCached = [&](const std::string &spec)
+      -> const std::string & { return resources.ResolveGdtfPath(spec); };
+  auto getFixtureMetadata = [&](const std::string &path)
+      -> const mvr::ImportGdtfMetadata & {
+    return resources.FixtureMetadata(path);
   };
-
-  auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
-    const std::string normalized = mvr::NormalizeImportArchivePath(spec);
-    if (normalized.empty())
-      return std::string{};
-    return ToSceneRelativePathIfPossible(
-        scene.basePath,
-        PathUtils::PathFromUtf8(resolveGdtfPathCached(normalized)));
+  auto resolvedGdtfFileExists = [&](const std::string &path) {
+    return resources.GdtfFileExists(path);
   };
-
-  auto resolvedGdtfFileExists = [](const std::string &gdtfPath) {
-    if (gdtfPath.empty())
-      return false;
-    std::error_code ec;
-    return fs::is_regular_file(PathUtils::PathFromUtf8(gdtfPath), ec) && !ec;
-  };
-
-  auto buildResolvedGdtfIdentityKey = [&](const std::string &gdtfPath) {
-    if (gdtfPath.empty())
-      return std::string{};
-    return PathUtils::BuildFilesystemIdentityKey(
-        PathUtils::PathFromUtf8(gdtfPath));
-  };
-
-  auto getGdtfModesCached =
-      [&](const std::string &gdtfPath) -> const std::vector<std::string> & {
-    const std::string cacheKey = buildResolvedGdtfIdentityKey(gdtfPath);
-    auto cacheIt = gdtfModesCache.find(cacheKey);
-    if (cacheIt != gdtfModesCache.end())
-      return cacheIt->second;
-    if (!resolvedGdtfFileExists(gdtfPath))
-      return gdtfModesCache.emplace(cacheKey, std::vector<std::string>{})
-          .first->second;
-    return gdtfModesCache.emplace(cacheKey, GetGdtfModes(gdtfPath))
-        .first->second;
-  };
-
-  auto getGdtfModeChannelCountCached = [&](const std::string &gdtfPath,
-                                           const std::string &modeName) {
-    if (!resolvedGdtfFileExists(gdtfPath))
-      return -1;
-    const std::string cacheKey = buildResolvedGdtfIdentityKey(gdtfPath);
-    auto &channelCountByMode = gdtfModeChannelCountCache[cacheKey];
-    auto countIt = channelCountByMode.find(modeName);
-    if (countIt != channelCountByMode.end())
-      return countIt->second;
-    const int count = GetGdtfModeChannelCount(gdtfPath, modeName);
-    channelCountByMode.emplace(modeName, count);
-    return count;
-  };
-
+  auto getGdtfModeChannelCountCached =
+      [&](const std::string &path, const std::string &mode) {
+        return resources.GdtfModeChannelCount(path, mode);
+      };
   auto resolveExistingGdtfModeCached =
-      [&](const std::string &gdtfPath, const std::string &requestedMode,
-                                           std::optional<int> channelCountHint) {
-    const std::vector<std::string> &modes = getGdtfModesCached(gdtfPath);
-    if (modes.empty())
-      return requestedMode;
-
-        const std::string normalizedRequested =
-            ToLowerAscii(Trim(requestedMode));
-    if (!normalizedRequested.empty()) {
-      for (const std::string &mode : modes) {
-        if (ToLowerAscii(Trim(mode)) == normalizedRequested)
-          return mode;
-      }
-    }
-
-    const std::string requestedDigitSignature =
-        ExtractDigitSignature(normalizedRequested);
-    if (!requestedDigitSignature.empty()) {
-      for (const std::string &mode : modes) {
-        const std::string modeDigitSignature =
-            ExtractDigitSignature(ToLowerAscii(Trim(mode)));
-        if (!modeDigitSignature.empty() &&
-            modeDigitSignature == requestedDigitSignature) {
-          return mode;
-        }
-      }
-    }
-
-    if (channelCountHint.has_value() && channelCountHint.value() > 0) {
-      for (const std::string &mode : modes) {
-        const int modeChannelCount =
-            getGdtfModeChannelCountCached(gdtfPath, mode);
-        if (modeChannelCount == channelCountHint.value())
-          return mode;
-      }
-    }
-
-    for (const std::string &mode : modes) {
-      const std::string normalized = ToLowerAscii(Trim(mode));
-      if (normalized == "default" || normalized == "standard")
-        return mode;
-    }
-
-    return modes.front();
-  };
-  using GdtfFixtureMetadata = mvr::SceneReadGdtfMetadata;
-  std::unordered_map<std::string, GdtfFixtureMetadata>
-      gdtfFixtureMetadataCache;
-  const GdtfFixtureMetadata kEmptyFixtureMetadata{};
-  auto getFixtureMetadata =
-      [&](const std::string &resolvedGdtfPath) -> const GdtfFixtureMetadata & {
-    if (resolvedGdtfPath.empty() || !resolvedGdtfFileExists(resolvedGdtfPath))
-      return kEmptyFixtureMetadata;
-
-    const std::string cacheKey = buildResolvedGdtfIdentityKey(resolvedGdtfPath);
-    auto it = gdtfFixtureMetadataCache.find(cacheKey);
-    if (it != gdtfFixtureMetadataCache.end())
-      return it->second;
-
-    GdtfFixtureMetadata metadata;
-    metadata.fixtureName = Trim(GetGdtfFixtureName(resolvedGdtfPath));
-    metadata.manufacturer = Trim(GetGdtfFixtureManufacturer(resolvedGdtfPath));
-    const std::string rawFixtureTypeId =
-        Trim(GetGdtfFixtureTypeId(resolvedGdtfPath));
-    metadata.fixtureTypeId = CanonicalizeUuid(rawFixtureTypeId);
-    if (metadata.fixtureTypeId.empty())
-      metadata.fixtureTypeId = rawFixtureTypeId;
-    metadata.hasProperties =
-        GetGdtfProperties(resolvedGdtfPath, metadata.weightKg, metadata.powerW);
-    return gdtfFixtureMetadataCache.emplace(cacheKey, std::move(metadata))
-        .first->second;
-  };
-
-  std::unordered_map<std::string, std::optional<Truss>> trussDefinitionCache;
-  auto loadTrussDefinitionCached = [&](const std::string &resolvedGdtfPath,
-                                       Truss &out) {
-    if (resolvedGdtfPath.empty())
-      return false;
-
-    const std::string cacheKey = buildResolvedGdtfIdentityKey(resolvedGdtfPath);
-    auto it = trussDefinitionCache.find(cacheKey);
-    if (it == trussDefinitionCache.end()) {
-      Truss loaded;
-      if (LoadTrussDefinition(resolvedGdtfPath, loaded))
-        it = trussDefinitionCache.emplace(cacheKey, std::move(loaded)).first;
-      else
-        it = trussDefinitionCache.emplace(cacheKey, std::nullopt).first;
-    }
-
-    if (!it->second.has_value())
-      return false;
-    out = *it->second;
-    return true;
+      [&](const std::string &path, const std::string &mode,
+          std::optional<int> channelCount) {
+        return resources.ResolveGdtfMode(path, mode, channelCount);
+      };
+  auto getDictionaryEntryCached = [&](const std::string &type)
+      -> const std::optional<GdtfDictionary::Entry> & {
+    return resources.DictionaryEntry(type);
   };
 
   auto appendGeometryInstance =
@@ -1991,57 +1563,21 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
     return DeriveDeterministicUuid(seed);
   };
 
-  std::unordered_map<std::string, std::optional<GdtfDictionary::Entry>>
-      dictionaryEntryByTypeCache;
-  auto getDictionaryEntryCached = [&](const std::string &typeName)
-      -> const std::optional<GdtfDictionary::Entry> & {
-    static const std::optional<GdtfDictionary::Entry> kEmptyEntry =
-        std::nullopt;
-    if (typeName.empty())
-      return kEmptyEntry;
-    auto it = dictionaryEntryByTypeCache.find(typeName);
-    if (it != dictionaryEntryByTypeCache.end())
-      return it->second;
-    return dictionaryEntryByTypeCache
-        .emplace(typeName, GdtfDictionary::Get(typeName))
-        .first->second;
-  };
-
   std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
-  auto remapArchivePathIfNeeded = [&](const std::string &path) {
-    return RemapArchivePathIfNeeded(path);
-  };
 
   mvr::MvrSceneReadServices sceneReadServices{
+      resources,
       textOf,
       intOf,
       fixtureIdOf,
       parseMatrixOrIdentity,
-      remapArchivePathIfNeeded,
       buildFixtureTypeInfoKey,
       resolveStableUuid,
       referenceUuidForNode,
       ensurePositionEntry,
-      normalizeGdtfSpecForScene,
-      [&](const std::string &spec) {
-        const std::string resolved = ResolveGdtfPath(scene.basePath, spec);
-        return ToSceneRelativePathIfPossible(
-            scene.basePath,
-            PathUtils::PathFromUtf8(resolved.empty() ? spec : resolved));
-      },
-      resolveGdtfPathCached,
-      getFixtureMetadata,
-      resolveExistingGdtfModeCached,
-      getGdtfModeChannelCountCached,
-      getDictionaryEntryCached,
-      loadTrussDefinitionCached,
       resolveSymdefReference,
-      normalizeAndResolveGeometryFileName,
       appendGeometryInstance,
       reportProgress,
-      [&](const std::string &path) {
-        return ResolveSceneRelativePath(scene.basePath, path);
-      },
       [](const std::string &message) {
         LogMessage(Logger::Level::Debug, message);
       },
@@ -2985,8 +2521,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
               if (selectedPathIt == selectedPathByType.end())
                 continue;
               f.gdtfSpec = selectedPathIt->second;
-            f.gdtfSpec = ToSceneRelativePathIfPossible(
-                  scene.basePath,
+            f.gdtfSpec = resources.MakeSceneRelative(
                   PathUtils::PathFromUtf8(
                       resolveFixtureGdtfPathForRead(f.gdtfSpec)));
               const std::string selectedResolvedGdtfPath =
@@ -3051,8 +2586,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
                     ? getGdtfModeChannelCountCached(resolvedGdtfPath,
                                                     f.gdtfMode)
                     : -1;
-            f.gdtfSpec = ToSceneRelativePathIfPossible(
-                scene.basePath,
+            f.gdtfSpec = resources.MakeSceneRelative(
                 PathUtils::PathFromUtf8(dictionaryResolvedPath));
             if (f.gdtfMode.empty())
               f.gdtfMode = dictEntry->mode;
@@ -3120,11 +2654,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       std::string resolvedCategoryPath =
           resolveFixtureGdtfPathForRead(fixture.gdtfSpec);
       if (!resolvedCategoryPath.empty()) {
-        resolvedCategoryPath =
-            ResolveScenePathForRead(scene.basePath, resolvedCategoryPath);
+        resolvedCategoryPath = resources.ResolveGdtfPath(resolvedCategoryPath);
       } else {
-        resolvedCategoryPath =
-            ResolveScenePathForRead(scene.basePath, fixture.gdtfSpec);
+        resolvedCategoryPath = resources.ResolveGdtfPath(fixture.gdtfSpec);
       }
 
       GdtfFixtureCategory::InferenceResult inferred;
