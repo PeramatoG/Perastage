@@ -1197,9 +1197,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       const std::string rawUid =
           Trim(pos->Attribute("uuid") ? pos->Attribute("uuid") : "");
       const char *name = pos->Attribute("name");
-      referenceResolver.ImportPosition(rawUid, name ? Trim(name) : "", scene);
+      referenceResolver.ImportPosition(
+          rawUid, name ? std::optional<std::string>{name} : std::nullopt, scene);
     }
-
     std::function<void(tinyxml2::XMLElement *, const Matrix &,
                        std::vector<SymdefGeometry> &)>
         parseSymdefChildList;

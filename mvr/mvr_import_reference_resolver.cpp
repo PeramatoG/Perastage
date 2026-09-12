@@ -9,6 +9,16 @@
 namespace mvr {
 namespace {
 
+// Trims the XML whitespace characters used by the legacy Position UUID seed.
+std::string TrimPositionSeedName(const std::string &name) {
+  constexpr const char *whitespace = " \t\r\n";
+  const std::size_t start = name.find_first_not_of(whitespace);
+  if (start == std::string::npos)
+    return {};
+  const std::size_t end = name.find_last_not_of(whitespace);
+  return name.substr(start, end - start + 1);
+}
+
 // Appends unknown metadata diagnostics in stable UUID order.
 void DiagnoseUnknownMetadata(const std::unordered_set<std::string> &entries,
                              const std::unordered_set<std::string> &consumed,
@@ -88,24 +98,26 @@ std::string MvrImportReferenceResolver::ReferenceUuid(
 }
 
 // Imports a standard Position UUID or isolates deterministic legacy recovery.
-void MvrImportReferenceResolver::ImportPosition(const std::string &rawUuid,
-                                                const std::string &name,
-                                                MvrScene &scene) {
+void MvrImportReferenceResolver::ImportPosition(
+    const std::string &rawUuid, const std::optional<std::string> &name,
+    MvrScene &scene) {
   const std::string canonical = CanonicalizeUuid(rawUuid);
   if (canonical.empty()) {
     if (rawUuid.empty())
       return;
+    const std::string originalName = name.value_or("");
     const std::string generated =
-        DeriveDeterministicUuid("mvr:legacy-position:" + rawUuid + ":" + name);
+        DeriveDeterministicUuid("mvr:legacy-position:" + rawUuid + ":" +
+                                TrimPositionSeedName(originalName));
     legacyPositionRemap_[rawUuid] = generated;
-    scene.positions[generated] = name.empty() ? rawUuid : name;
+    scene.positions[generated] = name ? originalName : rawUuid;
     Warn("MVR import migrated non-canonical Position uuid '" + rawUuid +
          "' -> '" + generated + "'");
     return;
   }
   if (canonical != rawUuid)
     legacyPositionRemap_[rawUuid] = canonical;
-  scene.positions[canonical] = name;
+  scene.positions[canonical] = name.value_or("");
 }
 
 // Preserves an unresolved Position reference for a lossless subsequent export.

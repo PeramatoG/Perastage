@@ -12,6 +12,7 @@
 #include "mvr_import_types.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -45,8 +46,8 @@ public:
 
   std::string ResolveStableUuid(const MvrImportedIdentity &identity);
   std::string ReferenceUuid(const MvrImportedIdentity &identity) const;
-  void ImportPosition(const std::string &rawUuid, const std::string &name,
-                      MvrScene &scene);
+  void ImportPosition(const std::string &rawUuid,
+                      const std::optional<std::string> &name, MvrScene &scene);
   std::string EnsurePosition(const std::string &positionId, MvrScene &scene);
   void RecordFixtureUuid(const std::string &rawUuid,
                          const std::string &resolvedUuid);

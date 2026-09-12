@@ -39,15 +39,33 @@ void TestStableIdentities() {
 void TestPositionNormalization() {
   mvr::MvrImportReferenceResolver resolver;
   MvrScene scene;
-  resolver.ImportPosition(kFixtureUuid, "Canonical", scene);
-  assert(scene.positions.at(kFixtureUuid) == "Canonical");
+  resolver.ImportPosition(kFixtureUuid, "  FOH Position  ", scene);
+  assert(scene.positions.at(kFixtureUuid) == "  FOH Position  ");
 
-  resolver.ImportPosition("legacy-position", "Legacy", scene);
+  resolver.ImportPosition("legacy-position", "  Legacy Position  ", scene);
   const std::string recovered =
       resolver.LegacyPositionRemap().at("legacy-position");
-  assert(CanonicalizeUuid(recovered) == recovered);
-  assert(scene.positions.at(recovered) == "Legacy");
-  assert(resolver.EnsurePosition("legacy-position", scene) == "Legacy");
+  assert(recovered ==
+         DeriveDeterministicUuid(
+             "mvr:legacy-position:legacy-position:Legacy Position"));
+  assert(scene.positions.at(recovered) == "  Legacy Position  ");
+  assert(resolver.EnsurePosition("legacy-position", scene) ==
+         "  Legacy Position  ");
+
+  resolver.ImportPosition("whitespace-position", "   \t  ", scene);
+  const std::string whitespaceUuid =
+      DeriveDeterministicUuid("mvr:legacy-position:whitespace-position:");
+  assert(scene.positions.at(whitespaceUuid) == "   \t  ");
+
+  resolver.ImportPosition("missing-name-position", std::nullopt, scene);
+  const std::string missingNameUuid =
+      DeriveDeterministicUuid("mvr:legacy-position:missing-name-position:");
+  assert(scene.positions.at(missingNameUuid) == "missing-name-position");
+
+  resolver.ImportPosition("empty-name-position", "", scene);
+  const std::string emptyNameUuid =
+      DeriveDeterministicUuid("mvr:legacy-position:empty-name-position:");
+  assert(scene.positions.at(emptyNameUuid).empty());
 }
 
 // Verifies complete-scene aliases, validation, diagnostics, and ordering.
