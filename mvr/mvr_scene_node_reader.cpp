@@ -132,7 +132,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                        const MvrSceneReadMetadata &metadata,
                        MvrSceneReadState &state, MvrSceneReadMetrics &metrics) {
 
-  auto &fixtureUuidRemap = state.fixtures.uuidRemap;
   const auto &textOf = services.textOf;
   const auto &intOf = services.intOf;
   const auto &fixtureIdOf = services.fixtureIdOf;
@@ -262,8 +261,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             rawUuidAttr ? Trim(rawUuidAttr) : std::string{};
         fixture.uuid = resolveStableUuid(
             "Fixture", node, layerName, nodeTransform, legacyIdentity.stableId);
-        if (!rawFixtureUuid.empty() && rawFixtureUuid != fixture.uuid)
-          fixtureUuidRemap[rawFixtureUuid] = fixture.uuid;
+        services.recordFixtureUuid(rawFixtureUuid, fixture.uuid);
         fixture.layer = layerName;
         fixture.transform = nodeTransform;
         fixture.localTransform = localTransform;
