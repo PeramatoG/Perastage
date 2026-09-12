@@ -1479,9 +1479,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
          MatrixUtils::FormatMatrix(nodeTransform),
          uuidAttr ? Trim(uuidAttr) : "", {}});
   };
-
   std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
-
   mvr::MvrSceneReadServices sceneReadServices{
       resources,
       textOf,
@@ -1491,6 +1489,9 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
       buildFixtureTypeInfoKey,
       resolveStableUuid,
       referenceUuidForNode,
+      [&](const std::string &rawUuid, const std::string &resolvedUuid) {
+        referenceResolver.RecordFixtureUuid(rawUuid, resolvedUuid);
+      },
       ensurePositionEntry,
       resolveSymdefReference,
       appendGeometryInstance,
@@ -1516,8 +1517,7 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
        referenceResolver.LegacyPositionRemap()},
       {layerColorByUuid, layerColorByName}};
   mvr::MvrSceneReadState sceneReadState{
-      {referenceResolver.FixtureUuidRemap(), pendingGdtfConflictByType,
-       categoryByTypeKey,
+      {pendingGdtfConflictByType, categoryByTypeKey,
        categoryInferenceByResolvedPath, consumedProjectFixtureColorUuids},
       {consumedRootTrussInfoUuids, consumedRootHoistInfoUuids}};
   mvr::MvrSceneReadMetrics sceneReadMetrics;

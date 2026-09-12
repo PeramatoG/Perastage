@@ -85,6 +85,8 @@ struct MvrSceneReadServices {
   std::function<std::string(const char *, tinyxml2::XMLElement *,
                             const std::string &, const Matrix &)>
       referenceUuid;
+  std::function<void(const std::string &, const std::string &)>
+      recordFixtureUuid;
   std::function<std::string(const std::string &)> ensurePosition;
   std::function<void(tinyxml2::XMLElement *, std::vector<SymdefGeometry> &,
                      std::string &, Matrix &)>
@@ -134,7 +136,6 @@ struct MvrSceneReadMetadata {
 };
 
 struct MvrSceneFixtureReadState {
-  std::unordered_map<std::string, std::string> &uuidRemap;
   std::unordered_map<std::string, SceneReadGdtfConflict> &pendingGdtfConflicts;
   std::unordered_map<std::string, SceneReadCachedCategory> &categoriesByType;
   std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>

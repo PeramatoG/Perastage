@@ -51,8 +51,6 @@ public:
   std::string EnsurePosition(const std::string &positionId, MvrScene &scene);
   void RecordFixtureUuid(const std::string &rawUuid,
                          const std::string &resolvedUuid);
-  std::unordered_map<std::string, std::string> &FixtureUuidRemap();
-  const std::unordered_map<std::string, std::string> &FixtureUuidRemap() const;
   const std::unordered_map<std::string, std::string> &
   LegacyPositionRemap() const;
   void Reconcile(MvrImportResult &result,

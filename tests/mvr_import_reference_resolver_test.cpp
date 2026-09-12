@@ -72,6 +72,8 @@ void TestPositionNormalization() {
 void TestPostParseReconciliation() {
   mvr::MvrImportReferenceResolver resolver;
   const std::string fixtureAlias = "20000000000040008000000000000001";
+  resolver.RecordFixtureUuid("", kFixtureUuid);
+  resolver.RecordFixtureUuid(kFixtureUuid, kFixtureUuid);
   resolver.RecordFixtureUuid(fixtureAlias, kFixtureUuid);
 
   MvrImportResult result;
@@ -97,6 +99,9 @@ void TestPostParseReconciliation() {
   assert(result.scene.supports.at(valid.uuid).motorFixtureUuid == kFixtureUuid);
   assert(result.scene.supports.at(unknown.uuid).motorFixtureUuid.empty());
   assert(result.fixtureUuidRemap.at(fixtureAlias) == kFixtureUuid);
+  assert(result.fixtureUuidRemap.size() == 1);
+  assert(!result.fixtureUuidRemap.contains(""));
+  assert(!result.fixtureUuidRemap.contains(kFixtureUuid));
   assert(result.diagnostics.size() == 7);
   assert(result.diagnostics[0].code == "unknown_motor_fixture_uuid");
   assert(result.diagnostics[1].message.find("hoist-a") != std::string::npos);

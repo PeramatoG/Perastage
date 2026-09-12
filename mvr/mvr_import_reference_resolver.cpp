@@ -145,18 +145,6 @@ void MvrImportReferenceResolver::RecordFixtureUuid(
     fixtureUuidRemap_[rawUuid] = resolvedUuid;
 }
 
-// Exposes fixture aliases through the narrow scene-reader state contract.
-std::unordered_map<std::string, std::string> &
-MvrImportReferenceResolver::FixtureUuidRemap() {
-  return fixtureUuidRemap_;
-}
-
-// Exposes fixture aliases through the read-only import result contract.
-const std::unordered_map<std::string, std::string> &
-MvrImportReferenceResolver::FixtureUuidRemap() const {
-  return fixtureUuidRemap_;
-}
-
 // Exposes recovered Position aliases as read-only scene metadata.
 const std::unordered_map<std::string, std::string> &
 MvrImportReferenceResolver::LegacyPositionRemap() const {

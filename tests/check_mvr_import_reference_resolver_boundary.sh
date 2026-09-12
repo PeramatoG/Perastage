@@ -15,4 +15,14 @@ if rg -n 'unknown_motor_fixture_uuid|unknown_(hoist|truss)_info_uuid|unknown_pro
   exit 1
 fi
 
+if rg -n 'uuidRemap|fixtureUuidRemap' mvr/mvr_scene_node_reader.h mvr/mvr_scene_node_reader.cpp; then
+  echo "The MVR scene-node reader must not own or mutate fixture UUID remap storage." >&2
+  exit 1
+fi
+
+if ! rg -q 'services\.recordFixtureUuid\(rawFixtureUuid, fixture\.uuid\)' mvr/mvr_scene_node_reader.cpp; then
+  echo "The MVR scene-node reader must record fixture aliases through its service boundary." >&2
+  exit 1
+fi
+
 echo "MVR import reference resolver boundary check passed."
