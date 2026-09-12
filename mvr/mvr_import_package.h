@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "mvrimporter.h"
+#include "mvr_import_types.h"
 #include "runtime_storage.h"
 
 #include <filesystem>
