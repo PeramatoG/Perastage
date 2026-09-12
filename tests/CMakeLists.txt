@@ -119,8 +119,7 @@ add_test(NAME MvrImportResourceResolver COMMAND mvr_import_resource_resolver_tes
 
 add_executable(mvr_import_reference_resolver_test
                mvr_import_reference_resolver_test.cpp
-               ../mvr/mvr_import_reference_resolver.cpp
-               ../core/uuidutils.cpp)
+               ../mvr/mvr_import_reference_resolver.cpp)
 target_include_directories(mvr_import_reference_resolver_test PRIVATE
                            ../core ../models ../mvr)
 add_test(NAME MvrImportReferenceResolver

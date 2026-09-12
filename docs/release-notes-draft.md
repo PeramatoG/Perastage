@@ -14,6 +14,7 @@ Changes since **v1.6.0**.
 
 - Isolated MVR identity normalization, legacy reference remapping, and post-parse cross-reference validation behind a reusable import component while preserving deterministic recovery and structured diagnostics.
 - Preserved Position names exactly as authored, including surrounding whitespace, when importing MVR files.
+- Fixed duplicate UUID utility linkage in the focused MVR reference resolver test on Windows.
 
 - Isolated MVR GDTF and scene-resource resolution, metadata access, and caching behind a GUI-independent import service while preserving deterministic resource-name spelling, unresolved support references, mode selection, and fixture-category handling across supported platforms.
 
