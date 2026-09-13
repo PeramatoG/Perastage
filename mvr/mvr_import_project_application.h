@@ -12,7 +12,6 @@
 #include <cstddef>
 
 class ConfigManager;
-enum class MvrImportSourceKind;
 struct MvrImportResult;
 
 namespace mvr {
@@ -27,8 +26,7 @@ class MvrImportProjectApplication {
 public:
   explicit MvrImportProjectApplication(ConfigManager &config);
 
-  ProjectApplicationResult Apply(const MvrImportResult &importResult,
-                                 MvrImportSourceKind sourceKind) const;
+  ProjectApplicationResult Apply(const MvrImportResult &importResult) const;
 
 private:
   ConfigManager &config_;

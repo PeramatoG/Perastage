@@ -180,8 +180,7 @@ static void TestParseOnlyAndFailureAtomicity() {
   assert(config.GetScene().provider == "Imported provider");
 }
 
-// Verifies replacement reset, resource lifetime, remap, and collision
-// semantics.
+// Verifies replacement reset, resource lifetime, and result preservation.
 static void TestProjectApplicationBoundary() {
   ConfigManager &config = ConfigManager::Get();
   config.Reset();
@@ -211,25 +210,23 @@ static void TestProjectApplicationBoundary() {
   viewer2d::SaveFixtureLabelOverrides(config, overrides);
 
   mvr::MvrImportProjectApplication application(config);
-  const mvr::ProjectApplicationResult applied =
-      application.Apply(result, MvrImportSourceKind::ProjectRestore);
+  const mvr::ProjectApplicationResult applied = application.Apply(result);
   assert(config.GetScene().provider == "Applied provider");
   assert(!config.GetValue("mvr_application_sentinel"));
   assert(config.GetScene().runtimeResourceLeases.size() == 1);
   assert(config.GetScene().runtimeResourceLeases.front() == lease);
-  assert(applied.migratedFixtureLabelOverrides == 1);
-  assert(applied.fixtureLabelOverrideCollisions == 1);
+  assert(applied.migratedFixtureLabelOverrides == 0);
+  assert(applied.fixtureLabelOverrideCollisions == 0);
   const auto migrated = viewer2d::LoadFixtureLabelOverrides(config);
-  assert(!migrated.contains("old-fixture"));
-  assert(migrated.contains("new-fixture"));
-  assert(migrated.contains("collision-source"));
-  assert(migrated.contains("collision-target"));
-  assert(migrated.contains("unrelated-fixture"));
+  assert(migrated.empty());
+  assert(result.scene.provider == "Applied provider");
+  assert(result.scene.runtimeResourceLeases.front() == lease);
+  assert(result.fixtureUuidRemap.size() == 3);
 
   MvrImportResult emptyRemapResult;
   emptyRemapResult.scene.provider = "Empty remap provider";
   const mvr::ProjectApplicationResult emptyApplied =
-      application.Apply(emptyRemapResult, MvrImportSourceKind::ProjectRestore);
+      application.Apply(emptyRemapResult);
   assert(config.GetScene().provider == "Empty remap provider");
   assert(emptyApplied.migratedFixtureLabelOverrides == 0);
   assert(emptyApplied.fixtureLabelOverrideCollisions == 0);
@@ -250,7 +247,7 @@ static void TestExternalImportResetSemantics() {
   result.diagnostics.push_back({"preserved_diagnostic", "Still available"});
 
   mvr::MvrImportProjectApplication application(config);
-  application.Apply(result, MvrImportSourceKind::ExternalImport);
+  application.Apply(result);
   assert(config.GetScene().provider == "External provider");
   assert(!config.GetValue("mvr_application_sentinel"));
   assert(viewer2d::LoadFixtureLabelOverrides(config).empty());

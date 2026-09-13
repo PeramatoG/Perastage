@@ -40,6 +40,10 @@ if rg -n 'RemapFixtureLabelOverrideKeys' mvr/mvrimporter.cpp; then
   echo "Fixture-label migration must not be duplicated in registration wrappers." >&2
   exit 1
 fi
+if rg -n 'LoadFixtureLabelOverrides|SaveFixtureLabelOverrides' "${application_files[@]}"; then
+  echo "Project application must not preserve old fixture-label overrides around reset." >&2
+  exit 1
+fi
 if [[ "$(rg -l 'RemapFixtureLabelOverrideKeys' mvr | wc -l | tr -d ' ')" != "1" ]]; then
   echo "MVR fixture-label migration must have one application-side owner." >&2
   exit 1

@@ -478,7 +478,7 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
                                                  options, progressCallback);
   if (imported && mode == MvrImportMode::ReplaceProject) {
     mvr::MvrImportProjectApplication application(ConfigManager::Get());
-    application.Apply(importResult, options.sourceKind);
+    application.Apply(importResult);
   }
   return imported;
 }
@@ -589,7 +589,7 @@ bool MvrImporter::ImportFromBuffer(
       ImportFromStreamIntoResult(input, importResult, options, progressCallback);
   if (imported && mode == MvrImportMode::ReplaceProject) {
     mvr::MvrImportProjectApplication application(ConfigManager::Get());
-    application.Apply(importResult, options.sourceKind);
+    application.Apply(importResult);
   }
   return imported;
 }

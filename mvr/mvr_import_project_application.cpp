@@ -25,21 +25,11 @@ MvrImportProjectApplication::MvrImportProjectApplication(ConfigManager &config)
 
 // Replaces the active project and migrates fixture-label keys from the result.
 ProjectApplicationResult
-MvrImportProjectApplication::Apply(const MvrImportResult &importResult,
-                                   MvrImportSourceKind sourceKind) const {
-  const bool preserveFixtureLabelOverrides =
-      sourceKind == MvrImportSourceKind::ProjectRestore &&
-      !importResult.fixtureUuidRemap.empty();
-  const viewer2d::FixtureLabelOverrideMap fixtureLabelOverrides =
-      preserveFixtureLabelOverrides
-          ? viewer2d::LoadFixtureLabelOverrides(config_)
-          : viewer2d::FixtureLabelOverrideMap{};
+MvrImportProjectApplication::Apply(const MvrImportResult &importResult) const {
   config_.Reset();
   config_.GetScene() = importResult.scene;
 
   ProjectApplicationResult result;
-  if (!fixtureLabelOverrides.empty())
-    viewer2d::SaveFixtureLabelOverrides(config_, fixtureLabelOverrides);
   result.migratedFixtureLabelOverrides =
       viewer2d::RemapFixtureLabelOverrideKeys(
           config_, importResult.fixtureUuidRemap,
