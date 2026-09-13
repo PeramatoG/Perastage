@@ -163,6 +163,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(MvrSceneNodeReaderBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_scene_node_reader_boundary.sh)
     add_bash_policy_test(MvrImportResourceResolverBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_resource_resolver_boundary.sh)
     add_bash_policy_test(MvrImportReferenceResolverBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_reference_resolver_boundary.sh)
+    add_bash_policy_test(MvrImportProjectApplicationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_project_application_boundary.sh)
     add_bash_policy_test(OpenGLLifecycleCentralized ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
     add_bash_policy_test(ViewerSceneReplacementLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer_scene_replacement_lifecycle.sh)
     add_bash_policy_test(Viewer3DRawDragAnchor ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_raw_drag_anchor.sh)
@@ -1029,7 +1030,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1069,7 +1070,7 @@ add_executable(mvr_project_fixture_metadata_contracts_test
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
@@ -1108,7 +1109,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1196,7 +1197,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1249,7 +1250,7 @@ add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1291,7 +1292,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1333,7 +1334,7 @@ add_executable(mvr_perastage_metadata_recovery_test
                ../core/trussloader.cpp ../core/wx_path_utils.cpp
                ../core/runtime_storage.cpp ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
@@ -1379,7 +1380,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1427,7 +1428,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1473,7 +1474,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1524,7 +1525,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1571,7 +1572,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1611,7 +1612,7 @@ add_executable(mvr_importer_archive_characterization_test
                ../core/trussdictionary.cpp ../core/trussloader.cpp
                ../core/wx_path_utils.cpp ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -1640,10 +1641,15 @@ set_perastage_test_labels(MvrImporterArchiveRecovery LAYER tolerant-recovery DOM
 add_test(NAME MvrImporterPackageAcquisition
          COMMAND mvr_importer_archive_characterization_test package)
 set_perastage_test_labels(MvrImporterPackageAcquisition LAYER standard-strict DOMAINS mvr zip)
+add_test(NAME MvrImportProjectApplication
+         COMMAND mvr_importer_archive_characterization_test application)
+set_perastage_test_labels(MvrImportProjectApplication
+                          LAYER standard-strict DOMAINS mvr project architecture)
 set_library_env(MvrImporterArchiveStrict)
 set_library_env(MvrImporterArchiveLegacy)
 set_library_env(MvrImporterArchiveRecovery)
 set_library_env(MvrImporterPackageAcquisition)
+set_library_env(MvrImportProjectApplication)
 
 add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                build_info_stub.cpp
@@ -1671,7 +1677,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/runtime_storage.cpp
                ../core/truss_gdtf_builder.cpp
                ../core/dummyprofilelibrary.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -2357,7 +2363,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp
@@ -2420,7 +2426,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
-               ../mvr/mvrimporter.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
+               ../mvr/mvrimporter.cpp ../mvr/mvr_import_project_application.cpp ../mvr/mvr_import_resource_resolver.cpp ../mvr/mvr_import_reference_resolver.cpp ../mvr/mvr_scene_node_reader.cpp
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp

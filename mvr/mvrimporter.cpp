@@ -22,6 +22,7 @@
 #include "configmanager.h"
 #include "filesystem_path_utils.h"
 #include "mvr_import_package.h"
+#include "mvr_import_project_application.h"
 #include "mvr_import_reference_resolver.h"
 #include "mvr_import_resource_resolver.h"
 #include "mvr_scene_node_reader.h"
@@ -33,7 +34,6 @@
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "gdtfnet.h"
 #endif
-#include "fixture_label_overrides.h"
 #include "fixture_visual_color.h"
 #include "gdtf_catalog_matcher.h"
 #include "gdtf_catalog_parser.h"
@@ -474,8 +474,13 @@ bool MvrImporter::ImportFromFile(const std::string &filePath,
                                  MvrImportMode mode,
                                  const MvrImportOptions &options,
                                  ProgressCallback progressCallback) {
-  return ImportFromFileIntoResult(filePath, importResult, mode, options,
-                                  progressCallback);
+  const bool imported = ImportFromFileIntoResult(filePath, importResult,
+                                                 options, progressCallback);
+  if (imported && mode == MvrImportMode::ReplaceProject) {
+    mvr::MvrImportProjectApplication application(ConfigManager::Get());
+    application.Apply(importResult);
+  }
+  return imported;
 }
 
 // Imports an MVR file into the provided scene without resetting global
@@ -506,7 +511,6 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
     return false;
 
   targetScene = std::move(importResult.scene);
-  fixtureUuidRemap = std::move(importResult.fixtureUuidRemap);
   return true;
 }
 
@@ -514,7 +518,6 @@ bool MvrImporter::ImportSceneFromFile(const std::string &filePath,
 // payload.
 bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
                                            MvrImportResult &importResult,
-                                           MvrImportMode mode,
                                            const MvrImportOptions &options,
                                            ProgressCallback progressCallback) {
   auto reportProgress = [&](std::string stage, int completed = 0,
@@ -525,7 +528,6 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
   };
 
   pathRemap.clear();
-  fixtureUuidRemap.clear();
   importResult = MvrImportResult{};
   // Treat the incoming path as UTF-8 to preserve any non-ASCII characters
   fs::path path = PathUtils::PathFromUtf8(filePath);
@@ -571,7 +573,7 @@ bool MvrImporter::ImportFromFileIntoResult(const std::string &filePath,
     LogMessage("Failed to open MVR file.");
     return false;
   }
-  return ImportFromStreamIntoResult(input, importResult, mode, options,
+  return ImportFromStreamIntoResult(input, importResult, options,
                                     progressCallback);
 }
 
@@ -583,13 +585,18 @@ bool MvrImporter::ImportFromBuffer(
   if (bytes.empty())
     return false;
   wxMemoryInputStream input(bytes.data(), bytes.size());
-  return ImportFromStreamIntoResult(input, importResult, mode, options,
-                                    progressCallback);
+  const bool imported =
+      ImportFromStreamIntoResult(input, importResult, options, progressCallback);
+  if (imported && mode == MvrImportMode::ReplaceProject) {
+    mvr::MvrImportProjectApplication application(ConfigManager::Get());
+    application.Apply(importResult);
+  }
+  return imported;
 }
 
 // Extracts and parses an MVR archive from an already-open stream.
 bool MvrImporter::ImportFromStreamIntoResult(
-    wxInputStream &input, MvrImportResult &importResult, MvrImportMode mode,
+    wxInputStream &input, MvrImportResult &importResult,
     const MvrImportOptions &options, ProgressCallback progressCallback) {
   auto reportProgress = [&](std::string stage, int completed = 0,
                             int total = 0) {
@@ -597,7 +604,6 @@ bool MvrImporter::ImportFromStreamIntoResult(
       progressCallback(ProgressState{std::move(stage), completed, total});
   };
   pathRemap.clear();
-  fixtureUuidRemap.clear();
   importResult = MvrImportResult{};
   reportProgress("Extracting package resources...");
 
@@ -617,12 +623,6 @@ bool MvrImporter::ImportFromStreamIntoResult(
   importResult.scene.runtimeResourceLeases.push_back(
       package->workspace.TransferToSceneLease());
 
-  if (mode == MvrImportMode::ReplaceProject) {
-    ConfigManager::Get().Reset();
-    ConfigManager::Get().GetScene() = importResult.scene;
-  }
-
-  fixtureUuidRemap = importResult.fixtureUuidRemap;
   return true;
 }
 
@@ -2837,9 +2837,6 @@ bool MvrImporter::ImportAndRegisterFromBuffer(
   LogMvrImportDiagnostics(importResult.diagnostics);
   if (!imported)
     return false;
-  size_t collisionCount = 0;
-  viewer2d::RemapFixtureLabelOverrideKeys(
-      ConfigManager::Get(), importResult.fixtureUuidRemap, &collisionCount);
   return true;
 }
 
@@ -2856,17 +2853,5 @@ bool MvrImporter::ImportAndRegister(const std::string &filePath,
   if (!imported)
     return false;
 
-  size_t collisionCount = 0;
-  const size_t migratedCount = viewer2d::RemapFixtureLabelOverrideKeys(
-      ConfigManager::Get(), importer.fixtureUuidRemap, &collisionCount);
-  if (!importer.fixtureUuidRemap.empty()) {
-    std::ostringstream oss;
-    oss << "MVR import fixture label override migration: remapped "
-        << migratedCount << " fixture override entries from "
-        << importer.fixtureUuidRemap.size() << " fixture UUID changes";
-    if (collisionCount > 0)
-      oss << " (" << collisionCount << " collisions skipped)";
-    LogMessage(Logger::Level::Info, oss.str());
-  }
   return true;
 }

@@ -105,18 +105,14 @@ public:
 
 private:
     std::unordered_map<std::string, std::string> pathRemap;
-    std::unordered_map<std::string, std::string> fixtureUuidRemap;
-
     bool ImportFromStreamIntoResult(wxInputStream& input,
                                     MvrImportResult& importResult,
-                                    MvrImportMode mode,
                                     const MvrImportOptions& options,
                                     ProgressCallback progressCallback);
 
     // Extracts and parses a .mvr file into an import result payload.
     bool ImportFromFileIntoResult(const std::string& filePath,
                                   MvrImportResult& importResult,
-                                  MvrImportMode mode,
                                   const MvrImportOptions& options,
                                   ProgressCallback progressCallback);
 
