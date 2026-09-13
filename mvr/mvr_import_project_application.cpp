@@ -25,11 +25,15 @@ MvrImportProjectApplication::MvrImportProjectApplication(ConfigManager &config)
 
 // Replaces the active project and migrates fixture-label keys from the result.
 ProjectApplicationResult
-MvrImportProjectApplication::Apply(const MvrImportResult &importResult) const {
+MvrImportProjectApplication::Apply(const MvrImportResult &importResult,
+                                   MvrImportSourceKind sourceKind) const {
+  const bool preserveFixtureLabelOverrides =
+      sourceKind == MvrImportSourceKind::ProjectRestore &&
+      !importResult.fixtureUuidRemap.empty();
   const viewer2d::FixtureLabelOverrideMap fixtureLabelOverrides =
-      importResult.fixtureUuidRemap.empty()
-          ? viewer2d::FixtureLabelOverrideMap{}
-          : viewer2d::LoadFixtureLabelOverrides(config_);
+      preserveFixtureLabelOverrides
+          ? viewer2d::LoadFixtureLabelOverrides(config_)
+          : viewer2d::FixtureLabelOverrideMap{};
   config_.Reset();
   config_.GetScene() = importResult.scene;
 
@@ -49,7 +53,7 @@ MvrImportProjectApplication::Apply(const MvrImportResult &importResult) const {
     if (result.fixtureLabelOverrideCollisions > 0)
       message << " (" << result.fixtureLabelOverrideCollisions
               << " collisions skipped)";
-    LogMessage(Logger::Level::Info, message.str());
+    Logger::Instance().Log(Logger::Level::Info, message.str());
   }
   return result;
 }

@@ -146,12 +146,16 @@ static void TestParseOnlyAndFailureAtomicity() {
       "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
       "<FixtureID>1</FixtureID><FixtureIDNumeric>1</FixtureIDNumeric>"
       "</Fixture></ChildList></Layer></Layers></Scene>"
+      "<UserData><Unknown/></UserData>"
       "</GeneralSceneDescription>";
+  const std::vector<std::uint8_t> bytes =
+      BuildArchive({{"GeneralSceneDescription.xml", xml}});
   MvrImportResult result;
-  assert(Import(BuildArchive({{"GeneralSceneDescription.xml", xml}}), result));
+  assert(Import(bytes, result));
   assert(result.scene.provider == "Imported provider");
   assert(result.scene.fixtures.size() == 1);
   assert(result.fixtureUuidRemap.size() == 1);
+  assert(!result.diagnostics.empty());
   assert(config.GetScene().provider == "Sentinel provider");
   assert(config.GetValue("mvr_application_sentinel") == "preserved");
   assert(viewer2d::LoadFixtureLabelOverrides(config).contains("old-fixture"));
@@ -161,6 +165,19 @@ static void TestParseOnlyAndFailureAtomicity() {
   assert(config.GetScene().provider == "Sentinel provider");
   assert(config.GetValue("mvr_application_sentinel") == "preserved");
   assert(viewer2d::LoadFixtureLabelOverrides(config).contains("old-fixture"));
+
+  MvrImportOptions replaceOptions;
+  replaceOptions.promptConflicts = false;
+  replaceOptions.applyDictionary = false;
+  replaceOptions.allowDummyFallback = false;
+  MvrImporter importer;
+  assert(importer.ImportFromBuffer(bytes, result, MvrImportMode::ReplaceProject,
+                                   replaceOptions));
+  assert(result.scene.provider == "Imported provider");
+  assert(result.scene.fixtures.size() == 1);
+  assert(result.fixtureUuidRemap.size() == 1);
+  assert(!result.diagnostics.empty());
+  assert(config.GetScene().provider == "Imported provider");
 }
 
 // Verifies replacement reset, resource lifetime, remap, and collision
@@ -194,7 +211,8 @@ static void TestProjectApplicationBoundary() {
   viewer2d::SaveFixtureLabelOverrides(config, overrides);
 
   mvr::MvrImportProjectApplication application(config);
-  const mvr::ProjectApplicationResult applied = application.Apply(result);
+  const mvr::ProjectApplicationResult applied =
+      application.Apply(result, MvrImportSourceKind::ProjectRestore);
   assert(config.GetScene().provider == "Applied provider");
   assert(!config.GetValue("mvr_application_sentinel"));
   assert(config.GetScene().runtimeResourceLeases.size() == 1);
@@ -211,10 +229,34 @@ static void TestProjectApplicationBoundary() {
   MvrImportResult emptyRemapResult;
   emptyRemapResult.scene.provider = "Empty remap provider";
   const mvr::ProjectApplicationResult emptyApplied =
-      application.Apply(emptyRemapResult);
+      application.Apply(emptyRemapResult, MvrImportSourceKind::ProjectRestore);
   assert(config.GetScene().provider == "Empty remap provider");
   assert(emptyApplied.migratedFixtureLabelOverrides == 0);
   assert(emptyApplied.fixtureLabelOverrideCollisions == 0);
+}
+
+// Verifies external replacement clears stale overrides despite UUID remapping.
+static void TestExternalImportResetSemantics() {
+  ConfigManager &config = ConfigManager::Get();
+  config.Reset();
+  config.SetValue("mvr_application_sentinel", "cleared by reset");
+  viewer2d::FixtureLabelOverride staleOverride;
+  staleOverride.showLabelName[0] = true;
+  viewer2d::SaveFixtureLabelOverrides(config, {{"old-fixture", staleOverride}});
+
+  MvrImportResult result;
+  result.scene.provider = "External provider";
+  result.fixtureUuidRemap = {{"old-fixture", "new-fixture"}};
+  result.diagnostics.push_back({"preserved_diagnostic", "Still available"});
+
+  mvr::MvrImportProjectApplication application(config);
+  application.Apply(result, MvrImportSourceKind::ExternalImport);
+  assert(config.GetScene().provider == "External provider");
+  assert(!config.GetValue("mvr_application_sentinel"));
+  assert(viewer2d::LoadFixtureLabelOverrides(config).empty());
+  assert(result.scene.provider == "External provider");
+  assert(result.fixtureUuidRemap.at("old-fixture") == "new-fixture");
+  assert(result.diagnostics.front().code == "preserved_diagnostic");
 }
 
 // Verifies file and buffer registration share equivalent project application.
@@ -264,6 +306,7 @@ int main(int argc, char **argv) {
     TestPackageAcquisitionBoundary();
   else if (scenario == "application") {
     TestParseOnlyAndFailureAtomicity();
+    TestExternalImportResetSemantics();
     TestProjectApplicationBoundary();
     TestFileAndBufferRegistrationParity();
   } else
