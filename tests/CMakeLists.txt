@@ -2444,7 +2444,7 @@ set_library_env(MvrPatchedGdtfExportMutation)
 
 add_executable(user_preferences_store_test
                user_preferences_store_test.cpp
-               ../core/uuidutils.cpp)
+               ../core/configservices.cpp)
 target_include_directories(user_preferences_store_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(user_preferences_store_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME UserPreferencesStore COMMAND user_preferences_store_test)
@@ -2481,7 +2481,7 @@ add_test(NAME FilesystemIdentity COMMAND filesystem_identity_test)
 
 add_executable(selection_state_test
                selection_state_test.cpp
-               ../core/uuidutils.cpp)
+               ../core/configservices.cpp)
 target_include_directories(selection_state_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(selection_state_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME SelectionState COMMAND selection_state_test)
@@ -2552,7 +2552,7 @@ set_library_env(LayoutImageResourceRegistry)
 
 add_executable(project_session_io_test
                project_session_io_test.cpp
-               ../core/uuidutils.cpp)
+               ../core/configservices.cpp)
 target_include_directories(project_session_io_test PRIVATE ../core ../third_party ../models)
 target_link_libraries(project_session_io_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME ProjectSessionIO COMMAND project_session_io_test)
@@ -2701,7 +2701,7 @@ add_executable(scene_clipboard_test
                ../core/scene_clipboard.cpp
                ../core/scene_grouping.cpp
                ../core/scene_node_operations.cpp
-               ../core/uuidutils.cpp)
+               ../core/configservices.cpp)
 target_include_directories(scene_clipboard_test PRIVATE
                            ../core ../models ../third_party)
 target_link_libraries(scene_clipboard_test PRIVATE ${wxWidgets_LIBRARIES})
