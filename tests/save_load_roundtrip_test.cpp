@@ -617,6 +617,10 @@ int main() {
     assert(cfg.GetValue("viewer3d_invert_orbit_horizontal") ==
            std::optional<std::string>("0"));
 
+    viewer2d::FixtureLabelOverride staleProjectOverride;
+    staleProjectOverride.showLabelName[0] = false;
+    viewer2d::SaveFixtureLabelOverrides(
+        cfg, {{"previous-project-fixture", staleProjectOverride}});
     assert(cfg.LoadProject(PathUtils::PathToUtf8(temp)));
 
     const auto &scene2 = cfg.GetScene();
@@ -660,6 +664,8 @@ int main() {
                .visualColorHex == "#778899");
     assert(scene2.fixtures.count(canonicalFixtureUuid) == 1);
     const auto fixtureOverrides = viewer2d::LoadFixtureLabelOverrides(cfg);
+    assert(fixtureOverrides.size() == 1);
+    assert(!fixtureOverrides.contains("previous-project-fixture"));
     assert(fixtureOverrides.count(canonicalFixtureUuid) == 1);
     const auto &fixture3Override = fixtureOverrides.at(canonicalFixtureUuid);
     assert(fixture3Override.showLabelName[0].has_value());
