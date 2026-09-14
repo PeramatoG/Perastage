@@ -139,13 +139,14 @@ static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *hoistInfoMap,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
-static std::string ExportLayerUuid(const std::string &layerUuid,
-                                   const std::string &layerName);
 static bool IsLayerColorMetadataValue(const std::string &color);
 static bool HasLayerAppearanceMetadata(const MvrScene &scene);
 static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
                                           tinyxml2::XMLElement *perastageData,
-                                          const MvrScene &scene);
+                                          const MvrScene &scene,
+                                          const std::unordered_map<std::string,
+                                                                   std::string>
+                                              &layerUuids);
 static bool HasTrussInfoMetadata(const Truss &truss);
 static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
                                     tinyxml2::XMLElement *trussInfoMap,
@@ -1845,17 +1846,6 @@ FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
   return data;
 }
 
-// Resolves the canonical MVR layer UUID exported for a Perastage layer.
-static std::string ExportLayerUuid(const std::string &layerUuid,
-                                   const std::string &layerName) {
-  if (layerUuid.empty())
-    return {};
-  return IsCanonicalUuidString(layerUuid)
-             ? layerUuid
-             : DeriveDeterministicUuid("mvr:layer:" + layerName + ":" +
-                                       layerUuid);
-}
-
 // Returns true when the color can be stored as Perastage #RRGGBB metadata.
 static bool IsLayerColorMetadataValue(const std::string &color) {
   if (color.size() != 7 || color[0] != '#')
@@ -1876,7 +1866,10 @@ static bool HasLayerAppearanceMetadata(const MvrScene &scene) {
 // colors.
 static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
                                           tinyxml2::XMLElement *perastageData,
-                                          const MvrScene &scene) {
+                                          const MvrScene &scene,
+                                          const std::unordered_map<std::string,
+                                                                   std::string>
+                                              &layerUuids) {
   if (!perastageData)
     return;
 
@@ -1896,7 +1889,9 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
       map = doc.NewElement("LayerAppearanceMap");
 
     tinyxml2::XMLElement *entry = doc.NewElement("PerastageLayerAppearance");
-    const std::string exportUuid = ExportLayerUuid(layerUuid, layer.name);
+    const auto preparedUuid = layerUuids.find(layerUuid);
+    const std::string exportUuid =
+        preparedUuid != layerUuids.end() ? preparedUuid->second : std::string{};
     if (!exportUuid.empty())
       entry->SetAttribute("uuid", exportUuid.c_str());
     if (!layer.name.empty())
@@ -2716,9 +2711,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   const auto &assignedIds = preparation.objectIds;
   const auto &assignedUnitNumbers = preparation.fixtureUnitNumbers;
-
+  for (auto &diagnostic : preparation.objectIdDiagnostics)
+    AddDiagnostic(std::move(diagnostic));
   tinyxml2::XMLDocument doc;
-
   auto resolveObjectPosition = [&](const std::string &objectType,
                                    const std::string &objectName,
                                    const std::string &objectUuid,
@@ -2728,6 +2723,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     (void)objectName;
     (void)positionId;
     (void)positionName;
+    const auto diagnostic =
+        preparation.positionReferenceDiagnostics.find(objectUuid);
+    if (diagnostic != preparation.positionReferenceDiagnostics.end())
+      AddDiagnostic(diagnostic->second);
     const auto it = preparation.positionReferences.find(objectUuid);
     return it != preparation.positionReferences.end() ? it->second
                                                        : std::string{};
@@ -2820,7 +2819,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   if (HasLayerAppearanceMetadata(scene)) {
     tinyxml2::XMLElement *rootPerastageData =
         FindOrCreatePerastageDataNode(doc, root);
-    AppendLayerAppearanceMetadata(doc, rootPerastageData, scene);
+    AppendLayerAppearanceMetadata(doc, rootPerastageData, scene,
+                                  preparation.layerUuids);
   }
 
   tinyxml2::XMLElement *sceneNode = doc.NewElement("Scene");

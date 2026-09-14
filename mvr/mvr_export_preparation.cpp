@@ -1,3 +1,20 @@
+/*
+ * This file is part of Perastage.
+ * Copyright (C) 2026 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
+ */
 #include "mvr_export_preparation.h"
 
 #include "mvr_identity_recovery.h"
@@ -223,7 +240,7 @@ void PrepareObjectIds(Result &result) {
       std::string name = TrimAscii(fixture.instanceName);
       if (name.empty())
         name = fixture.uuid.empty() ? "unnamed fixture" : fixture.uuid;
-      result.diagnostics.push_back(
+      result.objectIdDiagnostics.push_back(
           {MvrExportDiagnosticCode::FixtureIdReassigned,
            MvrExportDiagnosticSeverity::Warning,
            MvrExportDiagnosticImpact::IdentityChanged,
@@ -352,24 +369,27 @@ void PreparePositions(Result &result) {
       return it->second;
     return std::string{};
   };
-  auto prepareReference =
-      [&](const std::string &position, const std::string &positionName,
-          const std::string &uuid, const std::string &name, const char *type) {
-        const std::string resolved = resolve(position, positionName);
-        result.positionReferences[uuid] = resolved;
-        if (resolved.empty() && !TrimAscii(position).empty())
-          result.diagnostics.push_back(
-              {MvrExportDiagnosticCode::ReferenceCleared,
-               MvrExportDiagnosticSeverity::Warning,
-               MvrExportDiagnosticImpact::DataOmitted,
-               true,
-               type,
-               name,
-               uuid,
-               {},
-               "MVR export omitted an unresolved Position reference for " +
-                   std::string(type) + " '" + name + "' (uuid=" + uuid + ")."});
-      };
+  auto prepareReference = [&](const std::string &position,
+                              const std::string &positionName,
+                              const std::string &uuid, const std::string &name,
+                              const char *type) {
+    const std::string resolved = resolve(position, positionName);
+    result.positionReferences[uuid] = resolved;
+    if (resolved.empty() && !TrimAscii(position).empty())
+      result.positionReferenceDiagnostics.emplace(
+          uuid,
+          MvrExportDiagnostic{
+              MvrExportDiagnosticCode::ReferenceCleared,
+              MvrExportDiagnosticSeverity::Warning,
+              MvrExportDiagnosticImpact::DataOmitted,
+              true,
+              type,
+              name,
+              uuid,
+              {},
+              "MVR export omitted an unresolved Position reference for " +
+                  std::string(type) + " '" + name + "' (uuid=" + uuid + ")."});
+  };
   for (const auto &[uuid, object] : result.scene.fixtures)
     prepareReference(object.position, object.positionName, object.uuid,
                      object.instanceName, "Fixture");

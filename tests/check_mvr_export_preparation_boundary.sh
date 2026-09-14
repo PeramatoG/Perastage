@@ -16,5 +16,9 @@ done
 rg -q 'Result Prepare\(const MvrScene &sourceScene, const MvrExportOptions &options\)' "$implementation"
 rg -q 'mvr_export_preparation::Prepare\(sourceScene, options\)' "$exporter"
 rg -q 'class MvrExporter' "$repo_root/mvr/mvrexporter.h"
+if rg -n 'ExportLayerUuid|mvr:layer:' "$exporter" >/dev/null; then
+  echo "MVR exporter must consume prepared layer UUIDs without rederiving them." >&2
+  exit 1
+fi
 
 echo "MVR export preparation boundary check passed."

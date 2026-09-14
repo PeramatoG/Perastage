@@ -354,6 +354,8 @@ int main() {
              caseAPath, 101, "S101A", "#445566");
   AddFixture(scene, "20000000-0000-4000-8000-000000000002", "Fixture B",
              caseAPath, 101, "S101B", "");
+  scene.fixtures.at("20000000-0000-4000-8000-000000000002").position =
+      "unresolved-position";
   AddFixture(scene, "20000000-0000-4000-8000-000000000003", "Fixture C",
              caseAPath, 101, "", "#778899");
   AddFixture(scene, "20000000-0000-4000-8000-000000000004", "Edited ID",
@@ -373,6 +375,20 @@ int main() {
   MvrExporter exporter;
   const fs::path standalonePath = workspace.Path() / "standalone.mvr";
   assert(exporter.ExportToFile(standalonePath.string(), MvrExportOptions{}));
+  size_t fixtureIdDiagnosticIndex = exporter.GetExportDiagnostics().size();
+  size_t positionDiagnosticIndex = exporter.GetExportDiagnostics().size();
+  for (size_t index = 0; index < exporter.GetExportDiagnostics().size();
+       ++index) {
+    const MvrExportDiagnostic &diagnostic =
+        exporter.GetExportDiagnostics()[index];
+    if (diagnostic.code == MvrExportDiagnosticCode::FixtureIdReassigned &&
+        diagnostic.objectName == "Fixture B")
+      fixtureIdDiagnosticIndex = index;
+    if (diagnostic.code == MvrExportDiagnosticCode::ReferenceCleared &&
+        diagnostic.objectName == "Fixture B")
+      positionDiagnosticIndex = index;
+  }
+  assert(fixtureIdDiagnosticIndex < positionDiagnosticIndex);
   assert(std::any_of(exporter.GetExportDiagnostics().begin(),
                      exporter.GetExportDiagnostics().end(),
                      [](const MvrExportDiagnostic &diagnostic) {
