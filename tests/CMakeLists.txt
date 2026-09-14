@@ -1036,7 +1036,7 @@ add_executable(save_load_roundtrip_test save_load_roundtrip_test.cpp
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1074,7 +1074,7 @@ add_executable(mvr_project_fixture_metadata_contracts_test
                ../mvr/mvr_scene_node_reader_support.cpp
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
-               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp
+               ../viewer2d/fixture_label_overrides.cpp ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1115,7 +1115,7 @@ add_executable(project_support_userdata_roundtrip_test project_support_userdata_
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1203,7 +1203,7 @@ add_executable(rider_truss_dictionary_normalization_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1229,7 +1229,7 @@ set_perastage_test_labels(MvrGdtfImportMatching LAYER perastage-extension DOMAIN
 
 add_executable(mvr_dmx_address_test mvr_dmx_address_test.cpp
                build_info_stub.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1298,7 +1298,7 @@ add_executable(mvr_support_userdata_roundtrip_test mvr_support_userdata_roundtri
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1339,7 +1339,7 @@ add_executable(mvr_perastage_metadata_recovery_test
                ../mvr/mvr_import_package.cpp
                ../core/fixture_visual_color.cpp ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1386,7 +1386,7 @@ add_executable(mvr_layer_appearance_userdata_test mvr_layer_appearance_userdata_
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1434,7 +1434,7 @@ add_executable(mvr_fixture_category_roundtrip_test mvr_fixture_category_roundtri
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1480,7 +1480,7 @@ add_executable(mvr_sceneobject_symbol_identity_test mvr_sceneobject_symbol_ident
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1531,7 +1531,7 @@ add_executable(mvr_truss_roundtrip_structure_test mvr_truss_roundtrip_structure_
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1578,7 +1578,7 @@ add_executable(mvr_exporter_compliance_test mvr_exporter_compliance_test.cpp
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -1618,7 +1618,7 @@ add_executable(mvr_importer_archive_characterization_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp ../core/scene_transform_integrity.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
                ../core/gdtf_canonicalizer.cpp ../core/gdtf_mutation_audit.cpp
@@ -1683,7 +1683,7 @@ add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -2369,7 +2369,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../core/fixture_visual_color.cpp
                ${PERASTAGE_TEST_MVR_CATALOG_SOURCES}
                ../viewer2d/fixture_label_overrides.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -2395,7 +2395,7 @@ add_test(NAME SymbolFixtureApplyPresentation
 add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
-               ../mvr/mvrexporter.cpp
+               ../mvr/mvrexporter.cpp ../mvr/mvr_export_preparation.cpp
                ../core/scene_transform_integrity.cpp
                ../core/mvr_identity_recovery.cpp
                ../mvr/primitive_model_resources.cpp
@@ -3076,3 +3076,29 @@ add_test(NAME MvrSceneNodeReaderHeaderCompile
          COMMAND mvr_scene_node_reader_header_compile_test)
 set_perastage_test_labels(MvrSceneNodeReaderHeaderCompile
                           LAYER standard-strict DOMAINS mvr architecture)
+
+add_executable(mvr_export_preparation_test
+               mvr_export_preparation_test.cpp
+               ../mvr/mvr_export_preparation.cpp
+               ../core/mvr_identity_recovery.cpp
+               ../core/scene_transform_integrity.cpp
+               ../core/uuidutils.cpp)
+target_include_directories(mvr_export_preparation_test PRIVATE
+                           ../mvr ../core ../models)
+target_link_libraries(mvr_export_preparation_test PRIVATE ${wxWidgets_LIBRARIES})
+add_test(NAME MvrExportPreparation COMMAND mvr_export_preparation_test)
+set_perastage_test_labels(MvrExportPreparation
+                          LAYER standard-strict DOMAINS mvr architecture)
+
+add_executable(mvr_export_preparation_header_compile_test
+               mvr_export_preparation_header_compile_test.cpp)
+target_include_directories(mvr_export_preparation_header_compile_test PRIVATE
+                           ../mvr ../models)
+add_test(NAME MvrExportPreparationHeaderCompile
+         COMMAND mvr_export_preparation_header_compile_test)
+set_perastage_test_labels(MvrExportPreparationHeaderCompile
+                          LAYER standard-strict DOMAINS mvr architecture)
+
+add_bash_policy_test(MvrExportPreparationBoundary
+                     ${CMAKE_SOURCE_DIR}/tests/check_mvr_export_preparation_boundary.sh
+                     LABELS standard-strict mvr architecture policy)

@@ -12,6 +12,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated MVR export scene validation and deterministic preparation from XML serialization and package writing while preserving existing export behavior and diagnostics.
+
 - Isolated MVR identity normalization, legacy reference remapping, and post-parse cross-reference validation behind a reusable import component while preserving deterministic recovery and structured diagnostics.
 - Separated reusable MVR parsing results from active-project replacement while preserving established project-reset and result-inspection behavior.
 - Preserved Position names exactly as authored, including surrounding whitespace, when importing MVR files.

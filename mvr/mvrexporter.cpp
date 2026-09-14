@@ -30,8 +30,7 @@
 #include "utf8_utils.h"
 #include "matrixutils.h"
 #include "mvr_preferences.h"
-#include "mvr_identity_recovery.h"
-#include "scene_transform_integrity.h"
+#include "mvr_export_preparation.h"
 #include "primitive_model_resources.h"
 #include "runtime_storage.h"
 #include "projectutils.h"
@@ -96,12 +95,6 @@ struct ThreeDsChunkHeader {
   uint32_t length = 0;
 };
 
-struct FixtureExportId {
-  std::string text;
-  int numeric = 0;
-  bool preserveTextOnNumericRepair = false;
-};
-
 struct FixtureTypeInfoExport {
   std::string key;
   std::string gdtfSpec;
@@ -120,9 +113,6 @@ static bool TryComputeAbsoluteDmx(int universe1Based, int address1Based,
                                   int &absoluteOut);
 static std::string TrimAscii(std::string value);
 static std::string ToLowerAscii(std::string value);
-static FixtureExportId ResolveFixtureExportId(const Fixture &fixture);
-static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
-    const std::unordered_map<std::string, Fixture> &fixtures);
 static std::string
 BuildFixtureTypeInfoKey(const Fixture &fixture,
                                                const std::string &gdtfArchivePath);
@@ -149,13 +139,14 @@ static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
                                            tinyxml2::XMLElement *hoistInfoMap,
                                            const Support &support);
 static bool IsCanonicalUuidString(const std::string &value);
-static std::string ExportLayerUuid(const std::string &layerUuid,
-                                   const std::string &layerName);
 static bool IsLayerColorMetadataValue(const std::string &color);
 static bool HasLayerAppearanceMetadata(const MvrScene &scene);
 static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
                                           tinyxml2::XMLElement *perastageData,
-                                          const MvrScene &scene);
+                                          const MvrScene &scene,
+                                          const std::unordered_map<std::string,
+                                                                   std::string>
+                                              &layerUuids);
 static bool HasTrussInfoMetadata(const Truss &truss);
 static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
                                     tinyxml2::XMLElement *trussInfoMap,
@@ -213,121 +204,6 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
     needsPatch = true;
   }
   return needsPatch;
-}
-
-// Resolves the MVR FixtureID values from the current editable fixture ID.
-static FixtureExportId ResolveFixtureExportId(const Fixture &fixture) {
-  FixtureExportId id;
-  id.numeric =
-      fixture.fixtureId > 0 ? fixture.fixtureId : fixture.fixtureIdNumeric;
-  if (id.numeric <= 0)
-    id.numeric = 0;
-
-  const bool importedNumericStillMatches =
-      fixture.fixtureIdNumeric > 0 &&
-      fixture.fixtureId == fixture.fixtureIdNumeric;
-  if (importedNumericStillMatches)
-    id.text = TrimAscii(fixture.fixtureIdText);
-  id.preserveTextOnNumericRepair =
-      !id.text.empty() && id.text != std::to_string(id.numeric);
-  if (id.text.empty() && id.numeric > 0)
-    id.text = std::to_string(id.numeric);
-  return id;
-}
-
-// Builds a normalized fixture type key for UnitNumber export grouping.
-static std::string BuildFixtureUnitNumberTypeKey(const Fixture &fixture) {
-  auto normalize = [](std::string value) {
-    value = TrimAscii(std::move(value));
-    std::string normalized;
-    bool pendingSpace = false;
-    for (unsigned char ch : value) {
-      if (std::isspace(ch)) {
-        pendingSpace = !normalized.empty();
-        continue;
-      }
-      if (pendingSpace) {
-        normalized.push_back(' ');
-        pendingSpace = false;
-      }
-      normalized.push_back(static_cast<char>(ch));
-    }
-    return normalized;
-  };
-
-  for (const std::string *candidate :
-       {&fixture.typeName, &fixture.gdtfSpec, &fixture.requestedFixtureName,
-                                       &fixture.instanceName}) {
-    std::string key = normalize(*candidate);
-    if (!key.empty())
-      return key;
-  }
-  return "Unknown";
-}
-
-// Prepares deterministic UnitNumber values for fixtures without mutating the
-// editable scene.
-static std::unordered_map<std::string, int> BuildFixtureUnitNumbersForExport(
-    const std::unordered_map<std::string, Fixture> &fixtures) {
-  struct FixtureRef {
-    std::string uuid;
-    const Fixture *fixture = nullptr;
-  };
-
-  struct UnitGroup {
-    std::set<int> used;
-    std::vector<FixtureRef> missing;
-  };
-
-  std::unordered_map<std::string, int> result;
-  std::unordered_map<std::string, UnitGroup> groups;
-  for (const auto &[uuid, fixture] : fixtures) {
-    const std::string typeKey = BuildFixtureUnitNumberTypeKey(fixture);
-    UnitGroup &group = groups[typeKey];
-    if (fixture.unitNumber > 0) {
-      group.used.insert(fixture.unitNumber);
-      result[uuid] = fixture.unitNumber;
-    } else {
-      group.missing.push_back({uuid, &fixture});
-    }
-  }
-
-  constexpr float kPositionTieTolerance = 0.0001f;
-  for (auto &[_, group] : groups) {
-    std::sort(group.missing.begin(), group.missing.end(),
-              [=](const FixtureRef &lhs, const FixtureRef &rhs) {
-                const auto lhsPos = lhs.fixture->GetPosition();
-                const auto rhsPos = rhs.fixture->GetPosition();
-                if (std::fabs(lhsPos[1] - rhsPos[1]) > kPositionTieTolerance)
-                  return lhsPos[1] < rhsPos[1];
-                if (std::fabs(lhsPos[0] - rhsPos[0]) > kPositionTieTolerance)
-                  return lhsPos[0] < rhsPos[0];
-
-                const int lhsId = ResolveFixtureExportId(*lhs.fixture).numeric;
-                const int rhsId = ResolveFixtureExportId(*rhs.fixture).numeric;
-                if (lhsId != rhsId) {
-                  if (lhsId <= 0)
-                    return false;
-                  if (rhsId <= 0)
-                    return true;
-                  return lhsId < rhsId;
-                }
-                if (lhs.fixture->instanceName != rhs.fixture->instanceName)
-                  return lhs.fixture->instanceName < rhs.fixture->instanceName;
-                return lhs.uuid < rhs.uuid;
-              });
-
-    int nextUnitNumber = 1;
-    for (const FixtureRef &fixtureRef : group.missing) {
-      while (group.used.contains(nextUnitNumber))
-        ++nextUnitNumber;
-      result[fixtureRef.uuid] = nextUnitNumber;
-      group.used.insert(nextUnitNumber);
-      ++nextUnitNumber;
-    }
-  }
-
-  return result;
 }
 
 // Reads a 3DS chunk header from the current stream position.
@@ -1970,17 +1846,6 @@ FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
   return data;
 }
 
-// Resolves the canonical MVR layer UUID exported for a Perastage layer.
-static std::string ExportLayerUuid(const std::string &layerUuid,
-                                   const std::string &layerName) {
-  if (layerUuid.empty())
-    return {};
-  return IsCanonicalUuidString(layerUuid)
-             ? layerUuid
-             : DeriveDeterministicUuid("mvr:layer:" + layerName + ":" +
-                                       layerUuid);
-}
-
 // Returns true when the color can be stored as Perastage #RRGGBB metadata.
 static bool IsLayerColorMetadataValue(const std::string &color) {
   if (color.size() != 7 || color[0] != '#')
@@ -2001,7 +1866,10 @@ static bool HasLayerAppearanceMetadata(const MvrScene &scene) {
 // colors.
 static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
                                           tinyxml2::XMLElement *perastageData,
-                                          const MvrScene &scene) {
+                                          const MvrScene &scene,
+                                          const std::unordered_map<std::string,
+                                                                   std::string>
+                                              &layerUuids) {
   if (!perastageData)
     return;
 
@@ -2021,7 +1889,9 @@ static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
       map = doc.NewElement("LayerAppearanceMap");
 
     tinyxml2::XMLElement *entry = doc.NewElement("PerastageLayerAppearance");
-    const std::string exportUuid = ExportLayerUuid(layerUuid, layer.name);
+    const auto preparedUuid = layerUuids.find(layerUuid);
+    const std::string exportUuid =
+        preparedUuid != layerUuids.end() ? preparedUuid->second : std::string{};
     if (!exportUuid.empty())
       entry->SetAttribute("uuid", exportUuid.c_str());
     if (!layer.name.empty())
@@ -2423,69 +2293,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                           const MvrExportOptions &options) {
   m_exportDiagnostics.clear();
   m_exportWarningAdapter.clear();
-  MvrScene scene = sourceScene;
-  const auto identityRecovery =
-      mvridentity::RecoverSceneIdentities(scene, "editable-scene");
-  std::unordered_set<std::string> emittedIdentityRecoveryWarnings;
-  for (const auto &diagnostic : identityRecovery.diagnostics) {
-    const std::string message =
-        mvridentity::FormatRecoveryDiagnostic(diagnostic);
-    const bool validIdentityConflict = diagnostic.conflictingValidIdentities;
-    const bool needsGeneratedIdentity = diagnostic.generatedNewIdentity;
-    const bool visibleCandidate =
-        diagnostic.reason == mvridentity::RecoveryReason::Duplicate ||
-        validIdentityConflict ||
-        diagnostic.reason == mvridentity::RecoveryReason::AmbiguousReference ||
-        diagnostic.reason == mvridentity::RecoveryReason::UnresolvedReference ||
-        needsGeneratedIdentity;
-    const std::string recoveryEventKey = diagnostic.objectKind + "|" +
-                                         diagnostic.objectName + "|" +
-                                         diagnostic.replacementIdentity;
-    const bool visible = visibleCandidate &&
-                         emittedIdentityRecoveryWarnings
-                             .insert(recoveryEventKey)
-                             .second;
-    AddDiagnostic({visible ? (diagnostic.reason == mvridentity::RecoveryReason::Duplicate
-                                  ? MvrExportDiagnosticCode::IdentityReassigned
-                                  : validIdentityConflict
-                                        ? MvrExportDiagnosticCode::IdentityConflict
-                                        : diagnostic.reason == mvridentity::RecoveryReason::AmbiguousReference ||
-                                                  diagnostic.reason == mvridentity::RecoveryReason::UnresolvedReference
-                                              ? MvrExportDiagnosticCode::ReferenceCleared
-                                              : MvrExportDiagnosticCode::IdentityGenerated)
-                           : diagnostic.reason == mvridentity::RecoveryReason::InferredLayer
-                                 ? MvrExportDiagnosticCode::LayerInferred
-                                 : diagnostic.reason == mvridentity::RecoveryReason::Canonicalized
-                                       ? MvrExportDiagnosticCode::IdentityCanonicalized
-                                       : MvrExportDiagnosticCode::InternalRecovery,
-                   visible ? MvrExportDiagnosticSeverity::Warning
-                           : MvrExportDiagnosticSeverity::Info,
-                   visible ? MvrExportDiagnosticImpact::IdentityChanged
-                           : MvrExportDiagnosticImpact::None,
-                   visible, diagnostic.objectKind, diagnostic.objectName,
-                   diagnostic.replacementIdentity, {}, message});
-  }
-  const auto transformIntegrity =
-      scene_transform_integrity::ValidateAndRepair(scene);
-  for (const auto &diagnostic : transformIntegrity.diagnostics) {
-    const std::string message =
-        scene_transform_integrity::FormatDiagnostic(diagnostic);
-    const bool fatal = diagnostic.severity == scene_transform_integrity::Severity::Fatal;
-    AddDiagnostic({fatal ? MvrExportDiagnosticCode::TransformInvalid
-                         : MvrExportDiagnosticCode::TransformRepaired,
-                   fatal ? MvrExportDiagnosticSeverity::Error
-                         : MvrExportDiagnosticSeverity::Info,
-                   fatal ? MvrExportDiagnosticImpact::ExportFailed
-                         : MvrExportDiagnosticImpact::None,
-                   fatal, {}, {}, diagnostic.uuid, {}, message});
-  }
-  if (!transformIntegrity.success)
+  auto preparation = mvr_export_preparation::Prepare(sourceScene, options);
+  for (auto &diagnostic : preparation.diagnostics)
+    AddDiagnostic(std::move(diagnostic));
+  for (const std::string &message : preparation.informationalLogs)
+    LogLegacyPositionUuidWarning(message);
+  if (!preparation.success)
     return false;
+  const MvrScene &scene = preparation.scene;
   const TrussGeometryAuthority trussGeometryAuthority =
       GetTrussGeometryAuthoritySetting();
-  std::unordered_map<std::string, std::string> positions;
-  std::unordered_map<std::string, std::string> legacyPositionIdToCanonical;
-  std::unordered_set<std::string> usedPositionUuids;
   std::unordered_set<std::string> usedSymbolUuids;
   std::vector<fs::path> exportGeneratedFiles;
   std::vector<runtime_storage::SceneResourceLeasePtr> exportWorkspaceLeases;
@@ -2496,129 +2313,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         runtime_storage::RemoveOwnedPath(path, "MVR export generated file");
     }
   } exportGeneratedCleanup{exportGeneratedFiles};
-
-  auto reserveCanonicalPositionUuid = [&](const std::string &candidate,
-                                          const std::string &seedBase) {
-    std::string out = CanonicalizeUuid(candidate);
-    if (out.empty() || usedPositionUuids.contains(out)) {
-      int suffix = 0;
-      do {
-        out =
-            DeriveDeterministicUuid(seedBase + "#" + std::to_string(suffix++));
-      } while (usedPositionUuids.contains(out));
-    }
-    usedPositionUuids.insert(out);
-    return out;
-  };
-
-  for (const auto &[rawUuid, rawName] : scene.positions) {
-    const std::string name = TrimAscii(rawName);
-    const std::string canonical = CanonicalizeUuid(rawUuid);
-    if (!canonical.empty()) {
-      const std::string stable = reserveCanonicalPositionUuid(
-          canonical, "mvr:position:canonical:" + canonical + ":" + name);
-      positions[stable] = name;
-      if (stable != rawUuid)
-        legacyPositionIdToCanonical[rawUuid] = stable;
-      continue;
-    }
-
-    const std::string seed = "mvr:position:legacy:" + rawUuid + ":" + name;
-    const std::string generated = reserveCanonicalPositionUuid({}, seed);
-    positions[generated] = name.empty() ? rawUuid : name;
-    legacyPositionIdToCanonical[rawUuid] = generated;
-    LogLegacyPositionUuidWarning("MVR export converted legacy Position uuid '" +
-                                 rawUuid + "' to canonical '" + generated +
-                                 "' (name='" + positions[generated] + "')");
-  }
-
-  std::unordered_map<std::string, std::string> positionByName;
-  for (const auto &[uuid, name] : positions) {
-    if (!name.empty())
-      positionByName[name] = uuid;
-  }
-
-  auto ensurePositionEntry = [&](const std::string &positionId,
-                                 const std::string &nameHint) {
-    auto legacyIt = legacyPositionIdToCanonical.find(positionId);
-    if (legacyIt != legacyPositionIdToCanonical.end()) {
-      auto existing = positions.find(legacyIt->second);
-      if (existing != positions.end() && !nameHint.empty() &&
-          existing->second != nameHint)
-        existing->second = nameHint;
-      if (!nameHint.empty())
-        positionByName[nameHint] = legacyIt->second;
-      return;
-    }
-
-    const std::string canonicalId = CanonicalizeUuid(positionId);
-    if (!canonicalId.empty()) {
-      auto it = positions.find(canonicalId);
-      if (it == positions.end()) {
-        positions[canonicalId] = nameHint;
-      } else if (!nameHint.empty() && it->second != nameHint) {
-        // Refresh the stored name so Hang Position edits are preserved on
-        // export.
-        it->second = nameHint;
-      }
-      if (!nameHint.empty())
-        positionByName.try_emplace(nameHint, canonicalId);
-      return;
-    }
-
-    if (nameHint.empty())
-      return;
-
-    auto byName = positionByName.find(nameHint);
-    if (byName != positionByName.end())
-      return;
-
-    std::string newUuid =
-        reserveCanonicalPositionUuid({}, "mvr:position:name:" + nameHint);
-    positions[newUuid] = nameHint;
-    positionByName[nameHint] = newUuid;
-    if (!positionId.empty()) {
-      LogLegacyPositionUuidWarning(
-          "MVR export normalized legacy Position uuid '" + positionId +
-          "' -> '" + newUuid + "' (name='" + nameHint + "')");
-    }
-  };
-
-  for (const auto &[uid, fixture] : scene.fixtures)
-    ensurePositionEntry(fixture.position, fixture.positionName);
-  for (const auto &[uid, truss] : scene.trusses)
-    ensurePositionEntry(truss.position, truss.positionName);
-  for (const auto &[uid, support] : scene.supports)
-    ensurePositionEntry(support.position, support.positionName);
-
-  auto resolvePositionReference =
-      [&](const std::string &positionId,
-                                      const std::string &nameHint) -> std::string {
-    auto legacyIt = legacyPositionIdToCanonical.find(positionId);
-    if (legacyIt != legacyPositionIdToCanonical.end())
-      return legacyIt->second;
-
-    const std::string canonicalId = CanonicalizeUuid(positionId);
-    if (!canonicalId.empty() && positions.contains(canonicalId))
-      return canonicalId;
-
-    if (!nameHint.empty()) {
-      auto byName = positionByName.find(nameHint);
-      if (byName != positionByName.end()) {
-        if (!positionId.empty() && byName->second != positionId) {
-          Logger::Instance().Log(
-              Logger::Level::Info,
-              wxString::Format("MVR export remapped non-canonical Position "
-                               "'%s' to '%s' by name '%s'",
-                               positionId.c_str(), byName->second.c_str(),
-                               nameHint.c_str())
-                  .ToStdString());
-        }
-        return byName->second;
-      }
-    }
-    return {};
-  };
 
   wxFileOutputStream output(filePath);
   auto failExport = [&](const std::string &operation,
@@ -3015,134 +2709,27 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     return registerResource(sourcePath, preferredArchivePath);
   };
 
-  auto assignIds = [&]() {
-    int nextNumericId = 1;
-    std::unordered_set<int> reservedFixtureIds;
-    std::unordered_set<int> assignedFixtureIds;
-    std::unordered_set<int> usedIds;
-
-    auto sortedKeys = [](const auto &map) {
-      std::vector<std::string> keys;
-      keys.reserve(map.size());
-      for (const auto &[uid, value] : map) {
-        (void)value;
-        keys.push_back(uid);
-      }
-      std::sort(keys.begin(), keys.end());
-      return keys;
-    };
-
-    for (const std::string &uid : sortedKeys(scene.fixtures)) {
-      const Fixture &fixture = scene.fixtures.at(uid);
-      const int candidate = ResolveFixtureExportId(fixture).numeric;
-      if (candidate > 0)
-        reservedFixtureIds.insert(candidate);
-    }
-    usedIds = reservedFixtureIds;
-
-    auto allocId = [&]() {
-      while (usedIds.contains(nextNumericId))
-        ++nextNumericId;
-      usedIds.insert(nextNumericId);
-      return nextNumericId++;
-    };
-
-    auto logFixtureIdRepair = [&](const Fixture &fixture, int originalId,
-                                  int repairedId) {
-      std::string fixtureName = TrimAscii(fixture.instanceName);
-      if (fixtureName.empty())
-        fixtureName = fixture.uuid.empty() ? "unnamed fixture" : fixture.uuid;
-      const std::string message =
-          "MVR export reassigned duplicate FixtureIDNumeric " +
-          std::to_string(originalId) + " for fixture '" + fixtureName +
-          "' to the next available value " + std::to_string(repairedId) + ".";
-      AddDiagnostic({MvrExportDiagnosticCode::FixtureIdReassigned,
-                     MvrExportDiagnosticSeverity::Warning,
-                     MvrExportDiagnosticImpact::IdentityChanged, true, "Fixture",
-                     fixtureName, fixture.uuid, {}, message});
-    };
-
-    std::unordered_map<std::string, std::pair<std::string, int>> result;
-    for (const std::string &uid : sortedKeys(scene.fixtures)) {
-      const Fixture &f = scene.fixtures.at(uid);
-      FixtureExportId fixtureId = ResolveFixtureExportId(f);
-      if (fixtureId.numeric > 0) {
-        if (!assignedFixtureIds.insert(fixtureId.numeric).second) {
-          const int originalId = fixtureId.numeric;
-          fixtureId.numeric = allocId();
-          if (!fixtureId.preserveTextOnNumericRepair)
-            fixtureId.text = std::to_string(fixtureId.numeric);
-          logFixtureIdRepair(f, originalId, fixtureId.numeric);
-        }
-      } else {
-        fixtureId.numeric = allocId();
-        fixtureId.text = std::to_string(fixtureId.numeric);
-      }
-      if (fixtureId.text.empty())
-        fixtureId.text = std::to_string(fixtureId.numeric);
-      result[uid] = {fixtureId.text, fixtureId.numeric};
-    }
-
-    for (const std::string &uid : sortedKeys(scene.trusses)) {
-      const Truss &t = scene.trusses.at(uid);
-      int numeric = allocId();
-      std::string stringId = TrimAscii(t.name);
-      if (stringId.empty())
-        stringId = std::to_string(numeric);
-      result[uid] = {stringId, numeric};
-    }
-
-    for (const std::string &uid : sortedKeys(scene.supports)) {
-      const Support &s = scene.supports.at(uid);
-      int numeric = allocId();
-      std::string stringId = TrimAscii(s.name);
-      if (stringId.empty())
-        stringId = std::to_string(numeric);
-      result[uid] = {stringId, numeric};
-    }
-
-    for (const std::string &uid : sortedKeys(scene.sceneObjects)) {
-      const SceneObject &obj = scene.sceneObjects.at(uid);
-      int numeric = 0;
-      if (obj.fixtureIdNumeric > 0 &&
-          usedIds.insert(obj.fixtureIdNumeric).second)
-        numeric = obj.fixtureIdNumeric;
-      else
-        numeric = allocId();
-      std::string stringId = TrimAscii(obj.fixtureIdText);
-      if (stringId.empty())
-        stringId = std::to_string(numeric);
-      result[uid] = {stringId, numeric};
-    }
-    return result;
-  };
-
-  const auto assignedIds = assignIds();
-  const auto assignedUnitNumbers =
-      BuildFixtureUnitNumbersForExport(scene.fixtures);
-
-  auto resolveObjectPosition = [&](const std::string &objectType,
-                                   const std::string &objectName,
-                                   const std::string &objectUuid,
-                                   const std::string &positionId,
-                                   const std::string &positionName) {
-    const std::string resolved =
-        resolvePositionReference(positionId, positionName);
-    if (resolved.empty() && !TrimAscii(positionId).empty()) {
-      AddDiagnostic({MvrExportDiagnosticCode::ReferenceCleared,
-                     MvrExportDiagnosticSeverity::Warning,
-                     MvrExportDiagnosticImpact::DataOmitted, true, objectType,
-                     objectName, objectUuid, {},
-                     "MVR export omitted an unresolved Position reference for " +
-                         objectType + " '" + objectName + "' (uuid=" +
-                         objectUuid + ")."});
-    }
-    return resolved;
-  };
-
+  const auto &assignedIds = preparation.objectIds;
+  const auto &assignedUnitNumbers = preparation.fixtureUnitNumbers;
+  for (auto &diagnostic : preparation.objectIdDiagnostics)
+    AddDiagnostic(std::move(diagnostic));
   tinyxml2::XMLDocument doc;
   doc.InsertEndChild(
       doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
+  auto resolveObjectPosition = [&](const std::string &objectUuid) {
+    const auto informationalLog =
+        preparation.positionReferenceInformationalLogs.find(objectUuid);
+    if (informationalLog !=
+        preparation.positionReferenceInformationalLogs.end())
+      Logger::Instance().Log(Logger::Level::Info, informationalLog->second);
+    const auto diagnostic =
+        preparation.positionReferenceDiagnostics.find(objectUuid);
+    if (diagnostic != preparation.positionReferenceDiagnostics.end())
+      AddDiagnostic(diagnostic->second);
+    const auto it = preparation.positionReferences.find(objectUuid);
+    return it != preparation.positionReferences.end() ? it->second
+                                                       : std::string{};
+  };
 
   auto appendPlaceholderCubeGeometry = [&](tinyxml2::XMLElement *owner,
                                           const std::string &objectUuid,
@@ -3231,7 +2818,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   if (HasLayerAppearanceMetadata(scene)) {
     tinyxml2::XMLElement *rootPerastageData =
         FindOrCreatePerastageDataNode(doc, root);
-    AppendLayerAppearanceMetadata(doc, rootPerastageData, scene);
+    AppendLayerAppearanceMetadata(doc, rootPerastageData, scene,
+                                  preparation.layerUuids);
   }
 
   tinyxml2::XMLElement *sceneNode = doc.NewElement("Scene");
@@ -3239,7 +2827,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   // ---- AUXData ----
   tinyxml2::XMLElement *aux = doc.NewElement("AUXData");
-  for (const auto &[uuid, name] : positions) {
+  for (const auto &[uuid, name] : preparation.positions) {
     tinyxml2::XMLElement *pos = doc.NewElement("Position");
     pos->SetAttribute("uuid", uuid.c_str());
     if (!name.empty())
@@ -3428,16 +3016,15 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       }
     };
     auto idIt = assignedIds.find(f.uuid);
-    FixtureExportId fixtureExportId =
-        idIt != assignedIds.end()
-            ? FixtureExportId{idIt->second.first, idIt->second.second}
-            : ResolveFixtureExportId(f);
-    if (fixtureExportId.numeric <= 0) {
-      fixtureExportId.numeric = 1;
-      fixtureExportId.text = "1";
+    auto fixtureExportId =
+        idIt != assignedIds.end() ? idIt->second
+                                  : std::pair<std::string, int>{std::to_string(f.fixtureId), f.fixtureId};
+    if (fixtureExportId.second <= 0) {
+      fixtureExportId.second = 1;
+      fixtureExportId.first = "1";
     }
-    if (fixtureExportId.text.empty())
-      fixtureExportId.text = std::to_string(fixtureExportId.numeric);
+    if (fixtureExportId.first.empty())
+      fixtureExportId.first = std::to_string(fixtureExportId.second);
     std::string fixtureSourceGdtf = f.gdtfSpec;
     if (fixtureSourceGdtf.empty() && !f.originalMvrGdtfSpec.empty()) {
       fixtureSourceGdtf = f.originalMvrGdtfSpec;
@@ -3588,11 +3175,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (!fixtureGdtfArchivePath.empty())
       addStr("GDTFMode", f.gdtfMode.empty() ? "Default" : f.gdtfMode);
     if (!f.position.empty() || !f.positionName.empty())
-      addStr("Position", resolveObjectPosition("Fixture", fixtureExportName,
-                                                f.uuid, f.position,
-                                                f.positionName));
-    addStr("FixtureID", fixtureExportId.text);
-    addInt("FixtureIDNumeric", fixtureExportId.numeric);
+      addStr("Position", resolveObjectPosition(f.uuid));
+    addStr("FixtureID", fixtureExportId.first);
+    addInt("FixtureIDNumeric", fixtureExportId.second);
     auto unitIt = assignedUnitNumbers.find(f.uuid);
     addInt("UnitNumber",
            unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber);
@@ -3751,9 +3336,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     te->InsertEndChild(mat);
 
     {
-      const std::string positionRef =
-          resolveObjectPosition("Truss", t.name, t.uuid, t.position,
-                                t.positionName);
+      const std::string positionRef = resolveObjectPosition(t.uuid);
       if (!positionRef.empty()) {
         tinyxml2::XMLElement *e = doc.NewElement("Position");
         e->SetText(positionRef.c_str());
@@ -3946,9 +3529,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     mat->SetText(MatrixUtils::FormatMatrix(supportMatrixToWrite).c_str());
     se->InsertEndChild(mat);
 
-    const std::string supportPositionRef =
-        resolveObjectPosition("Support", s.name, s.uuid, s.position,
-                              s.positionName);
+    const std::string supportPositionRef = resolveObjectPosition(s.uuid);
     if (!supportPositionRef.empty()) {
       tinyxml2::XMLElement *position = doc.NewElement("Position");
       position->SetText(supportPositionRef.c_str());
@@ -4361,8 +3942,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       continue;
     tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
     if (!layerUuid.empty()) {
-      const std::string exportLayerUuid =
-          ExportLayerUuid(layerUuid, layer.name);
+      const std::string exportLayerUuid = preparation.layerUuids.at(layerUuid);
       layerElem->SetAttribute("uuid", exportLayerUuid.c_str());
     }
     if (!layer.name.empty())
@@ -4445,8 +4025,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   if (rootChildList->FirstChild()) {
     tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
     if (!defaultLayerUuid.empty()) {
-      const std::string exportDefaultLayerUuid =
-          ExportLayerUuid(defaultLayerUuid, defaultLayerName);
+      const std::string exportDefaultLayerUuid = preparation.layerUuids.at(defaultLayerUuid);
       defaultLayerElem->SetAttribute("uuid", exportDefaultLayerUuid.c_str());
     }
     if (!defaultLayerName.empty())
