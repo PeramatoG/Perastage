@@ -2714,15 +2714,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   for (auto &diagnostic : preparation.objectIdDiagnostics)
     AddDiagnostic(std::move(diagnostic));
   tinyxml2::XMLDocument doc;
-  auto resolveObjectPosition = [&](const std::string &objectType,
-                                   const std::string &objectName,
-                                   const std::string &objectUuid,
-                                   const std::string &positionId,
-                                   const std::string &positionName) {
-    (void)objectType;
-    (void)objectName;
-    (void)positionId;
-    (void)positionName;
+  doc.InsertEndChild(
+      doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
+  auto resolveObjectPosition = [&](const std::string &objectUuid) {
+    const auto informationalLog =
+        preparation.positionReferenceInformationalLogs.find(objectUuid);
+    if (informationalLog !=
+        preparation.positionReferenceInformationalLogs.end())
+      Logger::Instance().Log(Logger::Level::Info, informationalLog->second);
     const auto diagnostic =
         preparation.positionReferenceDiagnostics.find(objectUuid);
     if (diagnostic != preparation.positionReferenceDiagnostics.end())
@@ -3176,9 +3175,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (!fixtureGdtfArchivePath.empty())
       addStr("GDTFMode", f.gdtfMode.empty() ? "Default" : f.gdtfMode);
     if (!f.position.empty() || !f.positionName.empty())
-      addStr("Position", resolveObjectPosition("Fixture", fixtureExportName,
-                                                f.uuid, f.position,
-                                                f.positionName));
+      addStr("Position", resolveObjectPosition(f.uuid));
     addStr("FixtureID", fixtureExportId.first);
     addInt("FixtureIDNumeric", fixtureExportId.second);
     auto unitIt = assignedUnitNumbers.find(f.uuid);
@@ -3339,9 +3336,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     te->InsertEndChild(mat);
 
     {
-      const std::string positionRef =
-          resolveObjectPosition("Truss", t.name, t.uuid, t.position,
-                                t.positionName);
+      const std::string positionRef = resolveObjectPosition(t.uuid);
       if (!positionRef.empty()) {
         tinyxml2::XMLElement *e = doc.NewElement("Position");
         e->SetText(positionRef.c_str());
@@ -3534,9 +3529,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     mat->SetText(MatrixUtils::FormatMatrix(supportMatrixToWrite).c_str());
     se->InsertEndChild(mat);
 
-    const std::string supportPositionRef =
-        resolveObjectPosition("Support", s.name, s.uuid, s.position,
-                              s.positionName);
+    const std::string supportPositionRef = resolveObjectPosition(s.uuid);
     if (!supportPositionRef.empty()) {
       tinyxml2::XMLElement *position = doc.NewElement("Position");
       position->SetText(supportPositionRef.c_str());

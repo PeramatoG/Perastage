@@ -43,6 +43,8 @@ struct Result {
   std::vector<MvrExportDiagnostic> objectIdDiagnostics;
   std::unordered_map<std::string, MvrExportDiagnostic>
       positionReferenceDiagnostics;
+  std::unordered_map<std::string, std::string>
+      positionReferenceInformationalLogs;
   std::vector<std::string> informationalLogs;
 };
 

@@ -359,22 +359,32 @@ void PreparePositions(Result &result) {
     ensure(object.position, object.positionName);
   for (const auto &[uuid, object] : result.scene.supports)
     ensure(object.position, object.positionName);
-  auto resolve = [&](const std::string &id, const std::string &name) {
+  auto resolve = [&](const std::string &id, const std::string &name,
+                     bool &resolvedByName) {
+    resolvedByName = false;
     if (auto it = legacyToCanonical.find(id); it != legacyToCanonical.end())
       return it->second;
     const std::string canonical = CanonicalizeUuid(id);
     if (!canonical.empty() && result.positions.contains(canonical))
       return canonical;
-    if (auto it = byName.find(name); !name.empty() && it != byName.end())
+    if (auto it = byName.find(name); !name.empty() && it != byName.end()) {
+      resolvedByName = true;
       return it->second;
+    }
     return std::string{};
   };
   auto prepareReference = [&](const std::string &position,
                               const std::string &positionName,
                               const std::string &uuid, const std::string &name,
                               const char *type) {
-    const std::string resolved = resolve(position, positionName);
+    bool resolvedByName = false;
+    const std::string resolved =
+        resolve(position, positionName, resolvedByName);
     result.positionReferences[uuid] = resolved;
+    if (resolvedByName && !position.empty() && resolved != position)
+      result.positionReferenceInformationalLogs.emplace(
+          uuid, "MVR export remapped non-canonical Position '" + position +
+                    "' to '" + resolved + "' by name '" + positionName + "'");
     if (resolved.empty() && !TrimAscii(position).empty())
       result.positionReferenceDiagnostics.emplace(
           uuid,

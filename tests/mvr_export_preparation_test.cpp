@@ -116,6 +116,11 @@ void TestPositionPreparation() {
       MakeFixture(unresolvedUuid, "Unresolved Fixture", 2, 2, 0.0f);
   unresolved.position = "missing-position";
   scene.fixtures.emplace(unresolvedUuid, unresolved);
+  const std::string remappedUuid = "89898989-8989-4989-8989-898989898989";
+  Fixture remapped = MakeFixture(remappedUuid, "Remapped Fixture", 3, 3, 0.0f);
+  remapped.position = "outdated-position";
+  remapped.positionName = "Canonical Position";
+  scene.fixtures.emplace(remappedUuid, remapped);
 
   const auto result =
       mvr_export_preparation::Prepare(scene, CanonicalMvrExportOptions());
@@ -129,6 +134,10 @@ void TestPositionPreparation() {
   assert(preparedLegacy.size() == 36);
   assert(result.positionReferences.at(supportUuid) == preparedLegacy);
   assert(result.positionReferences.at(unresolvedUuid).empty());
+  assert(result.positionReferences.at(remappedUuid) == canonicalPosition);
+  assert(result.positionReferenceInformationalLogs.at(remappedUuid) ==
+         "MVR export remapped non-canonical Position 'outdated-position' to '" +
+             canonicalPosition + "' by name 'Canonical Position'");
   assert(repeated.positionReferences.at(trussUuid) == preparedLegacy);
   const auto diagnostic =
       result.positionReferenceDiagnostics.find(unresolvedUuid);
@@ -139,6 +148,7 @@ void TestPositionPreparation() {
   assert(diagnostic->second.userVisible);
   assert(scene.positions.contains("legacy-position"));
   assert(scene.fixtures.at(unresolvedUuid).position == "missing-position");
+  assert(scene.fixtures.at(remappedUuid).position == "outdated-position");
 }
 
 // Verifies fatal transform validation retains its established diagnostic model.

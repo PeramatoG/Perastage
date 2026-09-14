@@ -397,6 +397,8 @@ int main() {
                               diagnostic.userVisible;
                      }));
   const ArchiveSnapshot standalone = ReadMvr(standalonePath);
+  assert(standalone.sceneXml.rfind(
+             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>", 0) == 0);
   const SceneSignature standaloneSignature =
       ParseSceneSignature(standalone.sceneXml, true);
   assert(CountForeignProviderBlocks(standalone.sceneXml,
