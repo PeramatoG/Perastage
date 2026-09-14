@@ -25,17 +25,24 @@ namespace mvr_xml_serialization {
 
 // Creates the fixed MVR 1.6 document envelope in its established order.
 tinyxml2::XMLElement *CreateDocument(tinyxml2::XMLDocument &document,
-                                    const std::string &providerVersion) {
+                                     const std::string &providerVersion) {
   document.InsertEndChild(
       document.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
-  tinyxml2::XMLElement *root =
-      document.NewElement("GeneralSceneDescription");
+  tinyxml2::XMLElement *root = document.NewElement("GeneralSceneDescription");
   root->SetAttribute("verMajor", 1);
   root->SetAttribute("verMinor", 6);
   root->SetAttribute("provider", "Perastage");
   root->SetAttribute("providerVersion", providerVersion.c_str());
   document.InsertEndChild(root);
   return root;
+}
+
+// Appends and returns the standard Scene node after any root UserData.
+tinyxml2::XMLElement *AppendScene(tinyxml2::XMLDocument &document,
+                                  tinyxml2::XMLElement *root) {
+  tinyxml2::XMLElement *scene = document.NewElement("Scene");
+  root->InsertEndChild(scene);
+  return scene;
 }
 
 // Writes prepared Position UUID and name values without further normalization.

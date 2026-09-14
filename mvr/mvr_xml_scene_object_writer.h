@@ -21,11 +21,12 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace tinyxml2 {
 class XMLDocument;
 class XMLElement;
-}
+} // namespace tinyxml2
 
 namespace mvr_xml_serialization {
 
@@ -60,37 +61,78 @@ struct SymbolValues {
   Matrix matrix;
 };
 
+struct GeometryReference {
+  std::optional<GeometryValues> geometry;
+  std::optional<SymbolValues> symbol;
+};
+
+struct TrussValues {
+  ObjectValues object;
+  Matrix matrix;
+  std::string position;
+  std::vector<GeometryReference> geometries;
+  std::string function;
+  std::string gdtfSpec;
+  std::string gdtfMode;
+  std::string fixtureId;
+  int fixtureIdNumeric = 0;
+  int unitNumber = 0;
+  int customIdType = 0;
+  int customId = 0;
+};
+
+struct SupportValues {
+  ObjectValues object;
+  Matrix matrix;
+  std::string position;
+  std::vector<GeometryValues> geometries;
+  bool emitEmptyGeometries = false;
+  std::string function;
+  float chainLength = 0.0f;
+  std::string gdtfSpec;
+  std::string gdtfMode;
+  std::string fixtureId;
+  int fixtureIdNumeric = 0;
+};
+
+struct SceneObjectValues {
+  ObjectValues object;
+  Matrix matrix;
+  std::vector<GeometryReference> geometries;
+  std::string fixtureId;
+  int fixtureIdNumeric = 0;
+};
+
 // Appends one standard MVR Fixture node using fully resolved export values.
 void AppendFixture(tinyxml2::XMLDocument &document,
-                   tinyxml2::XMLElement *parent,
-                   const FixtureValues &values);
+                   tinyxml2::XMLElement *parent, const FixtureValues &values);
 
-// Creates a named standard MVR object node with resolved identity values.
-tinyxml2::XMLElement *CreateObject(tinyxml2::XMLDocument &document,
-                                   const char *nodeName,
-                                   const ObjectValues &values);
+// Appends one resolved standard MVR Truss node.
+void AppendTruss(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
+                 const TrussValues &values);
 
-// Creates a standard MVR hierarchy container node.
-tinyxml2::XMLElement *CreateContainer(tinyxml2::XMLDocument &document,
-                                      const char *nodeName);
+// Appends one resolved standard MVR Support node.
+void AppendSupport(tinyxml2::XMLDocument &document,
+                   tinyxml2::XMLElement *parent, const SupportValues &values);
 
-// Appends a standard text child when the resolved value is non-empty.
-void AppendText(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *parent,
-                const char *nodeName, const std::string &value);
+// Appends one resolved standard MVR SceneObject node.
+void AppendSceneObject(tinyxml2::XMLDocument &document,
+                       tinyxml2::XMLElement *parent,
+                       const SceneObjectValues &values);
 
-// Appends a standard integer child when the resolved value is nonzero.
-void AppendInteger(tinyxml2::XMLDocument &document,
-                   tinyxml2::XMLElement *parent, const char *nodeName,
-                   int value);
+// Creates the standard Layers container.
+tinyxml2::XMLElement *CreateLayers(tinyxml2::XMLDocument &document);
 
-// Appends a resolved standard Geometry3D node and matrix.
-void AppendGeometry(tinyxml2::XMLDocument &document,
-                    tinyxml2::XMLElement *geometries,
-                    const GeometryValues &values);
+// Appends a standard Layer containing an already-populated ChildList.
+void AppendLayer(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *layers,
+                 const ObjectValues &values, tinyxml2::XMLElement *childList);
 
-// Appends a resolved standard Symbol node and matrix.
-void AppendSymbol(tinyxml2::XMLDocument &document,
-                  tinyxml2::XMLElement *geometries,
-                  const SymbolValues &values);
+// Creates a standard GroupObject with matrix and ChildList.
+void AppendGroupObject(tinyxml2::XMLDocument &document,
+                       tinyxml2::XMLElement *parent, const ObjectValues &values,
+                       const Matrix &matrix, tinyxml2::XMLElement *childList);
+
+// Creates an unattached standard ChildList.
+tinyxml2::XMLElement *CreateChildList(tinyxml2::XMLDocument &document);
 
 } // namespace mvr_xml_serialization

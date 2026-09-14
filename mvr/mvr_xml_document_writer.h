@@ -26,7 +26,7 @@
 namespace tinyxml2 {
 class XMLDocument;
 class XMLElement;
-}
+} // namespace tinyxml2
 
 namespace mvr_xml_serialization {
 
@@ -44,7 +44,11 @@ struct SymdefValues {
 
 // Creates the MVR declaration and GeneralSceneDescription root.
 tinyxml2::XMLElement *CreateDocument(tinyxml2::XMLDocument &document,
-                                    const std::string &providerVersion);
+                                     const std::string &providerVersion);
+
+// Appends and returns the standard Scene node.
+tinyxml2::XMLElement *AppendScene(tinyxml2::XMLDocument &document,
+                                  tinyxml2::XMLElement *root);
 
 // Creates AUXData and appends prepared Position nodes without inserting it.
 tinyxml2::XMLElement *AppendPreparedPositions(

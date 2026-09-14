@@ -18,8 +18,9 @@
 #pragma once
 
 #include <cstddef>
-#include <string>
 #include <map>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -27,7 +28,7 @@ class MvrScene;
 namespace tinyxml2 {
 class XMLDocument;
 class XMLElement;
-}
+} // namespace tinyxml2
 
 namespace mvr_xml_extension {
 
@@ -47,6 +48,25 @@ struct PrimitiveGeometryMetadata {
   std::string fileName;
   std::string perastageModelRef;
   size_t geometryIndex = 0;
+};
+
+struct TrussInfoMetadata {
+  std::string uuid;
+  std::optional<float> manualLoadKg;
+  std::string manufacturer, model, length, width, height, weight;
+  std::string gdtfDescription, crossSectionType, crossSection, modelFile;
+  std::string positionName, representation, typeKey, auxGdtf;
+};
+
+struct HoistInfoMetadata {
+  std::string uuid;
+  float capacityKg = 0.0f, weightKg = 0.0f;
+  std::optional<float> manualLoadKg;
+  std::string riggingPoint, motorName, motorManufacturer, motorModel;
+  std::string motorFixtureUuid, useMotorDefaults, dummyProfileId, dummyPreset;
+  std::string valueSource, motorNameSource, motorManufacturerSource;
+  std::string motorModelSource, capacitySource, weightSource;
+  std::string riggingPointSource;
 };
 
 // Finds or creates the root Perastage-owned Data element.
@@ -77,13 +97,18 @@ void AppendPrimitiveGeometryMap(
     tinyxml2::XMLDocument &document, tinyxml2::XMLElement *perastageData,
     const std::vector<PrimitiveGeometryMetadata> &entries);
 
-// Creates a Perastage-owned metadata container for resolved extension values.
-tinyxml2::XMLElement *CreateMetadataElement(tinyxml2::XMLDocument &document,
-                                            const char *nodeName);
+// Appends resolved Perastage TrussInfo metadata in established order.
+void AppendTrussInfo(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *map,
+                     const TrussInfoMetadata &values);
 
-// Appends a non-empty text node to Perastage-owned metadata.
-void AppendMetadataText(tinyxml2::XMLDocument &document,
-                        tinyxml2::XMLElement *parent, const char *nodeName,
-                        const std::string &value);
+// Appends resolved Perastage HoistInfo metadata in established order.
+void AppendHoistInfo(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *map,
+                     const HoistInfoMetadata &values);
+
+// Creates the root Perastage TrussInfoMap container.
+tinyxml2::XMLElement *CreateTrussInfoMap(tinyxml2::XMLDocument &document);
+
+// Creates the root Perastage HoistInfoMap container.
+tinyxml2::XMLElement *CreateHoistInfoMap(tinyxml2::XMLDocument &document);
 
 } // namespace mvr_xml_extension

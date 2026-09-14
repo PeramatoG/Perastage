@@ -28,6 +28,18 @@ rg -q 'mvr_xml_serialization::AppendSymdef' "$exporter"
 rg -q 'mvr_xml_extension::AppendFixtureTypes' "$exporter"
 rg -q 'mvr_xml_extension::AppendProjectFixtures' "$exporter"
 rg -q 'mvr_xml_extension::AppendPrimitiveGeometryMap' "$exporter"
+rg -q 'mvr_xml_serialization::AppendTruss' "$exporter"
+rg -q 'mvr_xml_serialization::AppendSupport' "$exporter"
+rg -q 'mvr_xml_serialization::AppendSceneObject' "$exporter"
+rg -q 'mvr_xml_serialization::AppendLayer' "$exporter"
+rg -q 'mvr_xml_serialization::AppendGroupObject' "$exporter"
+rg -q 'mvr_xml_extension::AppendTrussInfo' "$exporter"
+rg -q 'mvr_xml_extension::AppendHoistInfo' "$exporter"
+
+if rg -n 'mvr_xml_serialization::CreateContainer|mvr_xml_extension::CreateMetadataElement' "$exporter" >/dev/null; then
+  echo "MvrExporter must not bypass semantic writers through generic XML factories." >&2
+  exit 1
+fi
 
 for node in GeneralSceneDescription AUXData Position Symdef Layers Layer Fixture Truss Support SceneObject GroupObject ChildList FixtureTypeInfoMap ProjectFixtureMetadataMap PrimitiveGeometryMap TrussInfo HoistInfo; do
   if rg -n "NewElement\(\"${node}\"" "$exporter" >/dev/null; then

@@ -40,7 +40,8 @@ std::string TrimAscii(std::string value) {
   return value;
 }
 
-// Converts provider identifiers to lowercase for case-insensitive ownership checks.
+// Converts provider identifiers to lowercase for case-insensitive ownership
+// checks.
 std::string ToLowerAscii(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char ch) { return std::tolower(ch); });
@@ -68,9 +69,8 @@ tinyxml2::XMLElement *FindPerastageUserData(tinyxml2::XMLElement *node) {
 // Validates a Perastage layer color metadata value.
 bool IsLayerColor(const std::string &color) {
   return color.size() == 7 && color[0] == '#' &&
-         std::all_of(color.begin() + 1, color.end(), [](unsigned char ch) {
-           return std::isxdigit(ch) != 0;
-         });
+         std::all_of(color.begin() + 1, color.end(),
+                     [](unsigned char ch) { return std::isxdigit(ch) != 0; });
 }
 
 } // namespace
@@ -101,10 +101,9 @@ tinyxml2::XMLElement *FindOrCreateDataNode(tinyxml2::XMLDocument &document,
 
 // Reports whether the scene contains valid Perastage layer color metadata.
 bool HasLayerAppearance(const MvrScene &scene) {
-  return std::any_of(scene.layers.begin(), scene.layers.end(),
-                     [](const auto &entry) {
-                       return IsLayerColor(entry.second.color);
-                     });
+  return std::any_of(
+      scene.layers.begin(), scene.layers.end(),
+      [](const auto &entry) { return IsLayerColor(entry.second.color); });
 }
 
 // Appends the Perastage layer appearance map in established scene order.
@@ -124,9 +123,8 @@ void AppendLayerAppearance(
     tinyxml2::XMLElement *entry =
         document.NewElement("PerastageLayerAppearance");
     const auto preparedUuid = layerUuids.find(layerUuid);
-    const std::string exportUuid = preparedUuid != layerUuids.end()
-                                       ? preparedUuid->second
-                                       : std::string{};
+    const std::string exportUuid =
+        preparedUuid != layerUuids.end() ? preparedUuid->second : std::string{};
     if (!exportUuid.empty())
       entry->SetAttribute("uuid", exportUuid.c_str());
     if (!layer.name.empty())
@@ -179,8 +177,7 @@ void AppendProjectFixtures(tinyxml2::XMLDocument &document,
                            const MvrScene &scene) {
   if (!perastageData)
     return;
-  tinyxml2::XMLElement *map =
-      document.NewElement("ProjectFixtureMetadataMap");
+  tinyxml2::XMLElement *map = document.NewElement("ProjectFixtureMetadataMap");
   map->SetAttribute("schemaVersion", "1.0");
   std::map<std::string, const Fixture *> fixturesByUuid;
   for (const auto &[key, fixture] : scene.fixtures) {
@@ -190,8 +187,7 @@ void AppendProjectFixtures(tinyxml2::XMLDocument &document,
       fixturesByUuid[uuid] = &fixture;
   }
   for (const auto &[uuid, fixture] : fixturesByUuid) {
-    tinyxml2::XMLElement *entry =
-        document.NewElement("ProjectFixtureMetadata");
+    tinyxml2::XMLElement *entry = document.NewElement("ProjectFixtureMetadata");
     entry->SetAttribute("uuid", uuid.c_str());
     entry->SetAttribute("fixtureId", fixture->fixtureId);
     entry->SetAttribute("fixtureIdNumeric", fixture->fixtureIdNumeric);
@@ -200,7 +196,8 @@ void AppendProjectFixtures(tinyxml2::XMLDocument &document,
     const std::string color = TrimAscii(fixture->visualColorHex);
     if (fixture->visualColorState != FixtureProjectColorState::Missing ||
         !color.empty()) {
-      entry->SetAttribute("hasVisualColorHex", color.empty() ? "false" : "true");
+      entry->SetAttribute("hasVisualColorHex",
+                          color.empty() ? "false" : "true");
       if (!color.empty())
         entry->SetAttribute("visualColorHex", color.c_str());
     }
@@ -231,11 +228,7 @@ void AppendPrimitiveGeometryMap(
   perastageData->InsertEndChild(map);
 }
 
-// Creates a Perastage-owned metadata container for resolved extension values.
-tinyxml2::XMLElement *CreateMetadataElement(tinyxml2::XMLDocument &document,
-                                            const char *nodeName) {
-  return document.NewElement(nodeName);
-}
+namespace {
 
 // Appends a non-empty text node to Perastage-owned metadata.
 void AppendMetadataText(tinyxml2::XMLDocument &document,
@@ -246,6 +239,95 @@ void AppendMetadataText(tinyxml2::XMLDocument &document,
   tinyxml2::XMLElement *node = document.NewElement(nodeName);
   node->SetText(value.c_str());
   parent->InsertEndChild(node);
+}
+
+} // namespace
+
+// Appends resolved Perastage TrussInfo metadata in established order.
+void AppendTrussInfo(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *map,
+                     const TrussInfoMetadata &values) {
+  tinyxml2::XMLElement *info = document.NewElement("TrussInfo");
+  info->SetAttribute("uuid", values.uuid.c_str());
+  if (values.manualLoadKg) {
+    tinyxml2::XMLElement *load = document.NewElement("Load");
+    load->SetAttribute("unit", "kg");
+    load->SetAttribute("source", "Manual");
+    load->SetText(std::to_string(*values.manualLoadKg).c_str());
+    info->InsertEndChild(load);
+  }
+  AppendMetadataText(document, info, "Manufacturer", values.manufacturer);
+  AppendMetadataText(document, info, "Model", values.model);
+  AppendMetadataText(document, info, "Length", values.length);
+  AppendMetadataText(document, info, "Width", values.width);
+  AppendMetadataText(document, info, "Height", values.height);
+  AppendMetadataText(document, info, "Weight", values.weight);
+  AppendMetadataText(document, info, "GdtfDescription", values.gdtfDescription);
+  AppendMetadataText(document, info, "CrossSectionType",
+                     values.crossSectionType);
+  AppendMetadataText(document, info, "CrossSection", values.crossSection);
+  AppendMetadataText(document, info, "ModelFile", values.modelFile);
+  AppendMetadataText(document, info, "PositionName", values.positionName);
+  AppendMetadataText(document, info, "HangPos", values.positionName);
+  AppendMetadataText(document, info, "Representation", values.representation);
+  AppendMetadataText(document, info, "TypeKey", values.typeKey);
+  AppendMetadataText(document, info, "AuxGdtf", values.auxGdtf);
+  map->InsertEndChild(info);
+}
+
+// Appends resolved Perastage HoistInfo metadata in established order.
+void AppendHoistInfo(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *map,
+                     const HoistInfoMetadata &values) {
+  tinyxml2::XMLElement *info = document.NewElement("HoistInfo");
+  info->SetAttribute("uuid", values.uuid.c_str());
+  auto appendKilograms = [&](const char *name, float value) {
+    if (value == 0.0f)
+      return;
+    tinyxml2::XMLElement *node = document.NewElement(name);
+    node->SetAttribute("unit", "kg");
+    node->SetText(std::to_string(value).c_str());
+    info->InsertEndChild(node);
+  };
+  appendKilograms("Capacity", values.capacityKg);
+  appendKilograms("Weight", values.weightKg);
+  if (values.manualLoadKg) {
+    tinyxml2::XMLElement *load = document.NewElement("Load");
+    load->SetAttribute("unit", "kg");
+    load->SetText(std::to_string(*values.manualLoadKg).c_str());
+    info->InsertEndChild(load);
+  }
+  AppendMetadataText(document, info, "RiggingPoint", values.riggingPoint);
+  AppendMetadataText(document, info, "MotorName", values.motorName);
+  AppendMetadataText(document, info, "MotorManufacturer",
+                     values.motorManufacturer);
+  AppendMetadataText(document, info, "MotorModel", values.motorModel);
+  AppendMetadataText(document, info, "MotorFixtureUuid",
+                     values.motorFixtureUuid);
+  AppendMetadataText(document, info, "UseMotorDefaults",
+                     values.useMotorDefaults);
+  AppendMetadataText(document, info, "DummyProfileId", values.dummyProfileId);
+  AppendMetadataText(document, info, "DummyPreset", values.dummyPreset);
+  AppendMetadataText(document, info, "ValueSource", values.valueSource);
+  AppendMetadataText(document, info, "DataSource", values.valueSource);
+  AppendMetadataText(document, info, "MotorNameSource", values.motorNameSource);
+  AppendMetadataText(document, info, "MotorManufacturerSource",
+                     values.motorManufacturerSource);
+  AppendMetadataText(document, info, "MotorModelSource",
+                     values.motorModelSource);
+  AppendMetadataText(document, info, "CapacitySource", values.capacitySource);
+  AppendMetadataText(document, info, "WeightSource", values.weightSource);
+  AppendMetadataText(document, info, "RiggingPointSource",
+                     values.riggingPointSource);
+  map->InsertEndChild(info);
+}
+
+// Creates the root Perastage TrussInfoMap container.
+tinyxml2::XMLElement *CreateTrussInfoMap(tinyxml2::XMLDocument &document) {
+  return document.NewElement("TrussInfoMap");
+}
+
+// Creates the root Perastage HoistInfoMap container.
+tinyxml2::XMLElement *CreateHoistInfoMap(tinyxml2::XMLDocument &document) {
+  return document.NewElement("HoistInfoMap");
 }
 
 } // namespace mvr_xml_extension
