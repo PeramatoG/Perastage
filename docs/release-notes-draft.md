@@ -12,7 +12,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Separated core MVR document and fixture XML writing from export orchestration while preserving package compatibility.
+- Separated MVR XML writing from export orchestration by standard node and Perastage extension responsibility while preserving package compatibility.
 
 - Separated MVR export scene validation and deterministic preparation from XML serialization and package writing while preserving existing export behavior and diagnostics.
 

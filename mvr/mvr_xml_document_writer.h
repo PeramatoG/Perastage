@@ -1,7 +1,27 @@
+/*
+ * This file is part of Perastage.
+ * Copyright (C) 2026 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
+ */
 #pragma once
+
+#include "types.h"
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace tinyxml2 {
 class XMLDocument;
@@ -9,6 +29,18 @@ class XMLElement;
 }
 
 namespace mvr_xml_serialization {
+
+struct SymdefGeometryValues {
+  std::string fileName;
+  std::string geometryType;
+  Matrix matrix;
+};
+
+struct SymdefValues {
+  std::string uuid;
+  std::string geometryType;
+  std::vector<SymdefGeometryValues> geometries;
+};
 
 // Creates the MVR declaration and GeneralSceneDescription root.
 tinyxml2::XMLElement *CreateDocument(tinyxml2::XMLDocument &document,
@@ -18,5 +50,9 @@ tinyxml2::XMLElement *CreateDocument(tinyxml2::XMLDocument &document,
 tinyxml2::XMLElement *AppendPreparedPositions(
     tinyxml2::XMLDocument &document,
     const std::unordered_map<std::string, std::string> &positions);
+
+// Appends a Symdef with fully resolved geometry archive references.
+void AppendSymdef(tinyxml2::XMLDocument &document, tinyxml2::XMLElement *aux,
+                  const SymdefValues &values);
 
 } // namespace mvr_xml_serialization

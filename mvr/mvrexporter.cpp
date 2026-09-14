@@ -98,16 +98,7 @@ struct ThreeDsChunkHeader {
   uint32_t length = 0;
 };
 
-struct FixtureTypeInfoExport {
-  std::string key;
-  std::string gdtfSpec;
-  std::string gdtfMode;
-  std::string manufacturer;
-  std::string model;
-  std::string category;
-  std::string categorySource;
-  std::string visualColorHex;
-};
+using FixtureTypeInfoExport = mvr_xml_extension::FixtureTypeMetadata;
 
 static bool TryParseInt(std::string_view text, int &out);
 static bool ParseMvrAddressNodeText(const std::string &text, int &universeOut,
@@ -123,9 +114,7 @@ static bool IsManualFixtureCategorySource(const std::string &source);
 static void MergeFixtureTypeInfoExport(
     std::map<std::string, FixtureTypeInfoExport> &metadataByType,
     const Fixture &fixture, const std::string &gdtfArchivePath);
-static void AppendFixtureTypeMetadata(
-    tinyxml2::XMLDocument &doc, tinyxml2::XMLElement *perastageData,
-    const std::map<std::string, FixtureTypeInfoExport> &metadataByType);
+
 
 static bool ShouldExportSupportHoistInfo(const Support &support);
 static bool NearlyEqualPhysicalValue(float lhs, float rhs);
@@ -636,84 +625,6 @@ static void MergeFixtureTypeInfoExport(
   if (!visualColorHex.empty() &&
       (entry.visualColorHex.empty() || visualColorHex < entry.visualColorHex))
     entry.visualColorHex = visualColorHex;
-}
-
-// Appends deduplicated fixture type metadata to root Perastage UserData.
-static void AppendFixtureTypeMetadata(
-    tinyxml2::XMLDocument &doc, tinyxml2::XMLElement *perastageData,
-    const std::map<std::string, FixtureTypeInfoExport> &metadataByType) {
-  if (!perastageData || metadataByType.empty())
-    return;
-
-  tinyxml2::XMLElement *map = doc.NewElement("FixtureTypeInfoMap");
-  for (const auto &[key, entry] : metadataByType) {
-    tinyxml2::XMLElement *info = doc.NewElement("FixtureTypeInfo");
-    info->SetAttribute("key", entry.key.c_str());
-    if (!entry.gdtfSpec.empty())
-      info->SetAttribute("gdtfSpec", entry.gdtfSpec.c_str());
-    if (!entry.gdtfMode.empty())
-      info->SetAttribute("gdtfMode", entry.gdtfMode.c_str());
-    if (!entry.manufacturer.empty())
-      info->SetAttribute("manufacturer", entry.manufacturer.c_str());
-    if (!entry.model.empty())
-      info->SetAttribute("model", entry.model.c_str());
-
-    if (!entry.category.empty()) {
-      tinyxml2::XMLElement *category = doc.NewElement("Category");
-      category->SetText(entry.category.c_str());
-      info->InsertEndChild(category);
-    }
-    if (!entry.category.empty() && !entry.categorySource.empty()) {
-      tinyxml2::XMLElement *source = doc.NewElement("CategorySource");
-      source->SetText(entry.categorySource.c_str());
-      info->InsertEndChild(source);
-    }
-    if (!entry.visualColorHex.empty()) {
-      tinyxml2::XMLElement *visualColor = doc.NewElement("VisualColor");
-      visualColor->SetText(entry.visualColorHex.c_str());
-      info->InsertEndChild(visualColor);
-    }
-    map->InsertEndChild(info);
-  }
-  perastageData->InsertEndChild(map);
-}
-
-// Appends canonical fixture fidelity metadata keyed by instance UUID.
-static void AppendProjectFixtureMetadata(tinyxml2::XMLDocument &doc,
-                                         tinyxml2::XMLElement *perastageData,
-                                         const MvrScene &scene) {
-  if (!perastageData)
-    return;
-
-  tinyxml2::XMLElement *map = doc.NewElement("ProjectFixtureMetadataMap");
-  map->SetAttribute("schemaVersion", "1.0");
-  std::map<std::string, const Fixture *> fixturesByUuid;
-  for (const auto &[key, fixture] : scene.fixtures) {
-    (void)key;
-    const std::string uuid = CanonicalizeUuid(fixture.uuid);
-    if (!uuid.empty())
-      fixturesByUuid[uuid] = &fixture;
-  }
-  for (const auto &[uuid, fixture] : fixturesByUuid) {
-    tinyxml2::XMLElement *entry = doc.NewElement("ProjectFixtureMetadata");
-    entry->SetAttribute("uuid", uuid.c_str());
-    entry->SetAttribute("fixtureId", fixture->fixtureId);
-    entry->SetAttribute("fixtureIdNumeric", fixture->fixtureIdNumeric);
-    entry->SetAttribute("fixtureIdText", fixture->fixtureIdText.c_str());
-    entry->SetAttribute("unitNumber", fixture->unitNumber);
-    const std::string color = TrimAscii(fixture->visualColorHex);
-    if (fixture->visualColorState != FixtureProjectColorState::Missing ||
-        !color.empty()) {
-      entry->SetAttribute("hasVisualColorHex", color.empty() ? "false" : "true");
-      if (!color.empty())
-        entry->SetAttribute("visualColorHex", color.c_str());
-    }
-    map->InsertEndChild(entry);
-  }
-  if (map->FirstChild())
-    perastageData->InsertEndChild(map);
-  else
-    doc.DeleteNode(map);
 }
 
 // Builds the canonical root-level Perastage GDTF archive filename for a truss.
@@ -1806,7 +1717,7 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
   if (!trussInfoMap || !HasTrussInfoMetadata(truss))
     return;
 
-  tinyxml2::XMLElement *info = doc.NewElement("TrussInfo");
+  tinyxml2::XMLElement *info = mvr_xml_extension::CreateMetadataElement(doc, "TrussInfo");
   info->SetAttribute("uuid", exportUuid.c_str());
   auto addTxt = [&](const char *name, const std::string &value) {
     if (value.empty())
@@ -1816,7 +1727,7 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
     info->InsertEndChild(node);
   };
   if (truss.hasManualLoadOverride) {
-    tinyxml2::XMLElement *load = doc.NewElement("Load");
+    tinyxml2::XMLElement *load = mvr_xml_extension::CreateMetadataElement(doc, "Load");
     load->SetAttribute("unit", "kg");
     load->SetAttribute("source", "Manual");
     load->SetText(std::to_string(truss.manualLoadKg).c_str());
@@ -1853,7 +1764,7 @@ static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
   if (!hoistInfoMap)
     return;
 
-  tinyxml2::XMLElement *info = doc.NewElement("HoistInfo");
+  tinyxml2::XMLElement *info = mvr_xml_extension::CreateMetadataElement(doc, "HoistInfo");
   info->SetAttribute("uuid", support.uuid.c_str());
 
   auto addText = [&](const char *name, const std::string &value) {
@@ -1876,7 +1787,7 @@ static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
   addNum("Capacity", support.capacityKg, "kg");
   addNum("Weight", support.weightKg, "kg");
   if (support.loadSource == "Manual") {
-    tinyxml2::XMLElement *load = doc.NewElement("Load");
+    tinyxml2::XMLElement *load = mvr_xml_extension::CreateMetadataElement(doc, "Load");
     load->SetAttribute("unit", "kg");
     load->SetText(std::to_string(support.loadKg).c_str());
     info->InsertEndChild(load);
@@ -2619,15 +2530,15 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       return false;
     }
 
-    tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-    tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+    tinyxml2::XMLElement *geos = mvr_xml_serialization::CreateContainer(doc, "Geometries");
+    tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
     g3d->SetAttribute("fileName", modelArchivePath.c_str());
     constexpr float kPlaceholderCubeSizeMeters = 0.1f;
     Matrix placeholderMatrix = MatrixUtils::Identity();
     placeholderMatrix.u = {kPlaceholderCubeSizeMeters, 0.0f, 0.0f};
     placeholderMatrix.v = {0.0f, kPlaceholderCubeSizeMeters, 0.0f};
     placeholderMatrix.w = {0.0f, 0.0f, kPlaceholderCubeSizeMeters};
-    tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+    tinyxml2::XMLElement *geoMatrix = mvr_xml_serialization::CreateContainer(doc, "Matrix");
     geoMatrix->SetText(MatrixUtils::FormatMatrix(placeholderMatrix).c_str());
     g3d->InsertEndChild(geoMatrix);
     geos->InsertEndChild(g3d);
@@ -2692,7 +2603,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                   preparation.layerUuids);
   }
 
-  tinyxml2::XMLElement *sceneNode = doc.NewElement("Scene");
+  tinyxml2::XMLElement *sceneNode = mvr_xml_serialization::CreateContainer(doc, "Scene");
   root->InsertEndChild(sceneNode);
 
   // ---- AUXData ----
@@ -2704,18 +2615,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   for (const auto &[uuid, file] : scene.symdefFiles) {
     if (!referencedSymdefUuids.contains(uuid))
       continue;
-    tinyxml2::XMLElement *sym = doc.NewElement("Symdef");
-    sym->SetAttribute("uuid", uuid.c_str());
-
+    mvr_xml_serialization::SymdefValues symdefValues;
+    symdefValues.uuid = uuid;
     auto tit = scene.symdefTypes.find(uuid);
     if (tit != scene.symdefTypes.end() && !tit->second.empty())
-      sym->SetAttribute("geometryType", tit->second.c_str());
+      symdefValues.geometryType = tit->second;
 
     std::vector<SymdefGeometry> geometries;
     auto geoIt = scene.symdefGeometries.find(uuid);
     if (geoIt != scene.symdefGeometries.end())
       geometries = geoIt->second;
-
     if (geometries.empty() && !file.empty()) {
       SymdefGeometry fallback;
       fallback.file = file;
@@ -2727,38 +2636,23 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         fallback.geometryType = tit->second;
       geometries.push_back(std::move(fallback));
     }
-
-    if (!geometries.empty()) {
-      tinyxml2::XMLElement *cl = doc.NewElement("ChildList");
-      for (const SymdefGeometry &geo : geometries) {
-        if (geo.file.empty())
-          continue;
-
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
-        std::string archivePath = registerModelResource(geo.file, "symbol.3ds");
-        g3d->SetAttribute("fileName", archivePath.c_str());
-        if (!geo.geometryType.empty())
-          g3d->SetAttribute("geometryType", geo.geometryType.c_str());
-
-        std::string matrixText = MatrixUtils::FormatMatrix(geo.transform);
-        tinyxml2::XMLElement *matrix = doc.NewElement("Matrix");
-        matrix->SetText(matrixText.c_str());
-        g3d->InsertEndChild(matrix);
-
-        cl->InsertEndChild(g3d);
-      }
-
-      if (cl->FirstChild())
-        sym->InsertEndChild(cl);
+    for (const SymdefGeometry &geometry : geometries) {
+      if (geometry.file.empty())
+        continue;
+      mvr_xml_serialization::SymdefGeometryValues resolvedGeometry;
+      resolvedGeometry.fileName =
+          registerModelResource(geometry.file, "symbol.3ds");
+      resolvedGeometry.geometryType = geometry.geometryType;
+      resolvedGeometry.matrix = geometry.transform;
+      symdefValues.geometries.push_back(std::move(resolvedGeometry));
     }
-
-    aux->InsertEndChild(sym);
+    mvr_xml_serialization::AppendSymdef(doc, aux, symdefValues);
   }
   if (aux->FirstChild())
     sceneNode->InsertEndChild(aux);
 
   // ---- Layers ----
-  tinyxml2::XMLElement *layersNode = doc.NewElement("Layers");
+  tinyxml2::XMLElement *layersNode = mvr_xml_serialization::CreateContainer(doc, "Layers");
 
   std::unordered_set<std::string> usedFixtureUuids;
   std::unordered_set<std::string> usedObjectExportUuids;
@@ -2810,8 +2704,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     usedObjectExportUuids.insert(exportUuid);
     trussExportUuids[uuid] = exportUuid;
   }
-  tinyxml2::XMLElement *trussInfoMap = doc.NewElement("TrussInfoMap");
-  tinyxml2::XMLElement *hoistInfoMap = doc.NewElement("HoistInfoMap");
+  tinyxml2::XMLElement *trussInfoMap = mvr_xml_extension::CreateMetadataElement(doc, "TrussInfoMap");
+  tinyxml2::XMLElement *hoistInfoMap = mvr_xml_extension::CreateMetadataElement(doc, "HoistInfoMap");
   std::map<std::string, FixtureTypeInfoExport> fixtureTypeMetadata;
   std::unordered_map<std::string, Truss> trussTypeMetadataBySourceKey;
   for (const auto &[uuid, truss] : scene.trusses) {
@@ -3062,7 +2956,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   auto exportTruss = [&](tinyxml2::XMLElement *parent, const Truss &t) {
     const Truss effectiveTruss =
         BuildEffectiveTrussTypeMetadata(t, trussTypeMetadataBySourceKey);
-    tinyxml2::XMLElement *te = doc.NewElement("Truss");
+    tinyxml2::XMLElement *te = mvr_xml_serialization::CreateContainer(doc, "Truss");
     const auto exportUuidIt = trussExportUuids.find(t.uuid);
     const std::string exportedTrussUuid =
         exportUuidIt != trussExportUuids.end()
@@ -3176,14 +3070,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const Matrix matrixToWrite =
         t.parentGroupUuid.empty() ? t.transform : t.localTransform;
     std::string mstr = MatrixUtils::FormatMatrix(matrixToWrite);
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    tinyxml2::XMLElement *mat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
     mat->SetText(mstr.c_str());
     te->InsertEndChild(mat);
 
     {
       const std::string positionRef = resolveObjectPosition(t.uuid);
       if (!positionRef.empty()) {
-        tinyxml2::XMLElement *e = doc.NewElement("Position");
+        tinyxml2::XMLElement *e = mvr_xml_serialization::CreateContainer(doc, "Position");
         e->SetText(positionRef.c_str());
         te->InsertEndChild(e);
       }
@@ -3196,7 +3090,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         const bool flattenSymbol =
             options.trussGeometryExportMode ==
             MvrTrussGeometryExportMode::DirectGeometry3DForTrussSymbols;
-        tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+        tinyxml2::XMLElement *geos = mvr_xml_serialization::CreateContainer(doc, "Geometries");
         if (flattenSymbol) {
           std::vector<SymdefGeometry> geometries;
           auto geoIt = scene.symdefGeometries.find(t.sourceSymdefUuid);
@@ -3220,7 +3114,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           for (const SymdefGeometry &geo : geometries) {
             if (geo.file.empty())
               continue;
-            tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+            tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
             const std::string archivePath =
                 registerModelResource(geo.file, "truss.3ds");
             if (archivePath.empty())
@@ -3230,7 +3124,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
               g3d->SetAttribute("geometryType", geo.geometryType.c_str());
             const Matrix composedMatrix =
                 MatrixUtils::Multiply(t.sourceSymbolMatrix, geo.transform);
-            tinyxml2::XMLElement *geoMat = doc.NewElement("Matrix");
+            tinyxml2::XMLElement *geoMat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
             geoMat->SetText(MatrixUtils::FormatMatrix(composedMatrix).c_str());
             g3d->InsertEndChild(geoMat);
             geos->InsertEndChild(g3d);
@@ -3252,7 +3146,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                            "MVR export could not resolve the requested direct "
                            "geometry representation for truss '" + t.name +
                                "'; Symbol/Symdef was preserved."});
-            tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
+            tinyxml2::XMLElement *sym = mvr_xml_serialization::CreateContainer(doc, "Symbol");
             const std::string symbolMatrixText =
                 MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
             bool replacedSymbolUuid = false;
@@ -3270,14 +3164,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                  t.name + "'."});
             sym->SetAttribute("uuid", symbolUuid.c_str());
             sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
-            tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
+            tinyxml2::XMLElement *symMat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
             symMat->SetText(symbolMatrixText.c_str());
             sym->InsertEndChild(symMat);
             geos->InsertEndChild(sym);
             te->InsertEndChild(geos);
           }
         } else {
-          tinyxml2::XMLElement *sym = doc.NewElement("Symbol");
+          tinyxml2::XMLElement *sym = mvr_xml_serialization::CreateContainer(doc, "Symbol");
           const std::string symbolMatrixText =
               MatrixUtils::FormatMatrix(t.sourceSymbolMatrix);
           bool replacedSymbolUuid = false;
@@ -3295,7 +3189,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                t.name + "'."});
           sym->SetAttribute("uuid", symbolUuid.c_str());
           sym->SetAttribute("symdef", t.sourceSymdefUuid.c_str());
-          tinyxml2::XMLElement *symMat = doc.NewElement("Matrix");
+          tinyxml2::XMLElement *symMat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
           symMat->SetText(symbolMatrixText.c_str());
           sym->InsertEndChild(symMat);
           geos->InsertEndChild(sym);
@@ -3314,14 +3208,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
             ext.begin(), ext.end(), ext.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         if (ext == ".3ds" || ext == ".glb") {
-          tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-          tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+          tinyxml2::XMLElement *geos = mvr_xml_serialization::CreateContainer(doc, "Geometries");
+          tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
           std::string symbolArchivePath =
               registerModelResource(t.symbolFile, "truss.3ds");
           g3d->SetAttribute("fileName", symbolArchivePath.c_str());
           if (!t.sourceGeometryType.empty())
             g3d->SetAttribute("geometryType", t.sourceGeometryType.c_str());
-          tinyxml2::XMLElement *geoMat = doc.NewElement("Matrix");
+          tinyxml2::XMLElement *geoMat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
           geoMat->SetText(
               MatrixUtils::FormatMatrix(t.sourceGeometryMatrix).c_str());
           g3d->InsertEndChild(geoMat);
@@ -3337,16 +3231,16 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       }
     }
     if (!t.function.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("Function");
+      tinyxml2::XMLElement *e = mvr_xml_serialization::CreateContainer(doc, "Function");
       e->SetText(t.function.c_str());
       te->InsertEndChild(e);
     }
     if (!trussGdtfArchivePath.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
+      tinyxml2::XMLElement *e = mvr_xml_serialization::CreateContainer(doc, "GDTFSpec");
       e->SetText(trussGdtfArchivePath.c_str());
       te->InsertEndChild(e);
 
-      tinyxml2::XMLElement *modeElement = doc.NewElement("GDTFMode");
+      tinyxml2::XMLElement *modeElement = mvr_xml_serialization::CreateContainer(doc, "GDTFMode");
       modeElement->SetText(t.gdtfMode.empty() ? "Default" : t.gdtfMode.c_str());
       te->InsertEndChild(modeElement);
     }
@@ -3363,20 +3257,20 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   };
 
   auto exportSupport = [&](tinyxml2::XMLElement *parent, const Support &s) {
-    tinyxml2::XMLElement *se = doc.NewElement("Support");
+    tinyxml2::XMLElement *se = mvr_xml_serialization::CreateContainer(doc, "Support");
     se->SetAttribute("uuid", s.uuid.c_str());
     if (!s.name.empty())
       se->SetAttribute("name", s.name.c_str());
 
     const Matrix supportMatrixToWrite =
         s.parentGroupUuid.empty() ? s.transform : s.localTransform;
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    tinyxml2::XMLElement *mat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
     mat->SetText(MatrixUtils::FormatMatrix(supportMatrixToWrite).c_str());
     se->InsertEndChild(mat);
 
     const std::string supportPositionRef = resolveObjectPosition(s.uuid);
     if (!supportPositionRef.empty()) {
-      tinyxml2::XMLElement *position = doc.NewElement("Position");
+      tinyxml2::XMLElement *position = mvr_xml_serialization::CreateContainer(doc, "Position");
       position->SetText(supportPositionRef.c_str());
       se->InsertEndChild(position);
     }
@@ -3384,7 +3278,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     tinyxml2::XMLElement *geos = nullptr;
     auto ensureGeometries = [&]() {
       if (!geos)
-        geos = doc.NewElement("Geometries");
+        geos = mvr_xml_serialization::CreateContainer(doc, "Geometries");
       return geos;
     };
     for (const auto &geo : s.geometries) {
@@ -3394,9 +3288,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           registerModelResource(geo.modelFile, "support.3ds");
       if (modelArchivePath.empty())
         continue;
-      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+      tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
       g3d->SetAttribute("fileName", modelArchivePath.c_str());
-      tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+      tinyxml2::XMLElement *geoMatrix = mvr_xml_serialization::CreateContainer(doc, "Matrix");
       geoMatrix->SetText(MatrixUtils::FormatMatrix(geo.localTransform).c_str());
       g3d->InsertEndChild(geoMatrix);
       ensureGeometries()->InsertEndChild(g3d);
@@ -3405,9 +3299,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       std::string modelArchivePath =
           registerModelResource(s.modelFile, "support.3ds");
       if (!modelArchivePath.empty()) {
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
         g3d->SetAttribute("fileName", modelArchivePath.c_str());
-        tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+        tinyxml2::XMLElement *geoMatrix = mvr_xml_serialization::CreateContainer(doc, "Matrix");
         geoMatrix->SetText(
             MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
         g3d->InsertEndChild(geoMatrix);
@@ -3417,7 +3311,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (geos && geos->FirstChild()) {
       se->InsertEndChild(geos);
     } else {
-      tinyxml2::XMLElement *emptyGeometries = doc.NewElement("Geometries");
+      tinyxml2::XMLElement *emptyGeometries = mvr_xml_serialization::CreateContainer(doc, "Geometries");
       se->InsertEndChild(emptyGeometries);
       AddDiagnostic({MvrExportDiagnosticCode::SupportGeometryMissing,
                      MvrExportDiagnosticSeverity::Warning,
@@ -3431,23 +3325,23 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         s.function.empty() ? NormalizeHoistFunction(s.hoistFunction)
                            : s.function;
     if (!supportFunction.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("Function");
+      tinyxml2::XMLElement *e = mvr_xml_serialization::CreateContainer(doc, "Function");
       e->SetText(supportFunction.c_str());
       se->InsertEndChild(e);
     }
-    tinyxml2::XMLElement *chainLength = doc.NewElement("ChainLength");
+    tinyxml2::XMLElement *chainLength = mvr_xml_serialization::CreateContainer(doc, "ChainLength");
     chainLength->SetText(std::to_string(std::max(s.chainLength, 0.0f)).c_str());
     se->InsertEndChild(chainLength);
 
     std::string supportGdtfArchivePath =
         registerGdtfResource(s.uuid, s.gdtfSpec, "");
     if (!supportGdtfArchivePath.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("GDTFSpec");
+      tinyxml2::XMLElement *e = mvr_xml_serialization::CreateContainer(doc, "GDTFSpec");
       e->SetText(supportGdtfArchivePath.c_str());
       se->InsertEndChild(e);
     }
     if (!supportGdtfArchivePath.empty()) {
-      tinyxml2::XMLElement *e = doc.NewElement("GDTFMode");
+      tinyxml2::XMLElement *e = mvr_xml_serialization::CreateContainer(doc, "GDTFMode");
       e->SetText(s.gdtfMode.empty() ? "Default" : s.gdtfMode.c_str());
       se->InsertEndChild(e);
     }
@@ -3457,10 +3351,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         (supportIdIt != assignedIds.end()) ? supportIdIt->second.second : 0;
     if (supportNumericId <= 0)
       supportNumericId = 1;
-    tinyxml2::XMLElement *supportId = doc.NewElement("FixtureID");
+    tinyxml2::XMLElement *supportId = mvr_xml_serialization::CreateContainer(doc, "FixtureID");
     supportId->SetText(std::to_string(supportNumericId).c_str());
     se->InsertEndChild(supportId);
-    tinyxml2::XMLElement *supportIdNumeric = doc.NewElement("FixtureIDNumeric");
+    tinyxml2::XMLElement *supportIdNumeric = mvr_xml_serialization::CreateContainer(doc, "FixtureIDNumeric");
     supportIdNumeric->SetText(std::to_string(supportNumericId).c_str());
     se->InsertEndChild(supportIdNumeric);
 
@@ -3470,12 +3364,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     parent->InsertEndChild(se);
   };
 
-  struct PrimitiveGeometryMapEntry {
-    std::string sceneObjectUuid;
-    std::string fileName;
-    std::string perastageModelRef;
-    size_t geometryIndex = 0;
-  };
+  using PrimitiveGeometryMapEntry =
+      mvr_xml_extension::PrimitiveGeometryMetadata;
   std::vector<PrimitiveGeometryMapEntry> primitiveGeometryMapEntries;
 
   bool sceneObjectExportFailed = false;
@@ -3543,24 +3433,24 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const Matrix objectMatrixToWrite =
         obj.parentGroupUuid.empty() ? obj.transform : obj.localTransform;
 
-    tinyxml2::XMLElement *oe = doc.NewElement("SceneObject");
+    tinyxml2::XMLElement *oe = mvr_xml_serialization::CreateContainer(doc, "SceneObject");
     oe->SetAttribute("uuid", obj.uuid.c_str());
     if (!obj.name.empty())
       oe->SetAttribute("name", obj.name.c_str());
 
     std::string mstr = MatrixUtils::FormatMatrix(objectMatrixToWrite);
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    tinyxml2::XMLElement *mat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
     mat->SetText(mstr.c_str());
     oe->InsertEndChild(mat);
 
     if (!obj.geometries.empty()) {
-      tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
+      tinyxml2::XMLElement *geos = mvr_xml_serialization::CreateContainer(doc, "Geometries");
       size_t geometryIndex = 0;
       for (const auto &geo : obj.geometries) {
         if (geo.modelFile.empty())
           continue;
 
-        tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+        tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
         std::string modelRef = geo.modelFile;
         std::string modelArchivePath =
             registerPrimitiveModelResource(modelRef, obj.uuid);
@@ -3642,7 +3532,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         }
 
         std::string geoMatrixText = MatrixUtils::FormatMatrix(geoMatrixToWrite);
-        tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+        tinyxml2::XMLElement *geoMatrix = mvr_xml_serialization::CreateContainer(doc, "Matrix");
         geoMatrix->SetText(geoMatrixText.c_str());
         g3d->InsertEndChild(geoMatrix);
 
@@ -3653,8 +3543,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       if (geos->FirstChild())
         oe->InsertEndChild(geos);
     } else if (!obj.modelFile.empty()) {
-      tinyxml2::XMLElement *geos = doc.NewElement("Geometries");
-      tinyxml2::XMLElement *g3d = doc.NewElement("Geometry3D");
+      tinyxml2::XMLElement *geos = mvr_xml_serialization::CreateContainer(doc, "Geometries");
+      tinyxml2::XMLElement *g3d = mvr_xml_serialization::CreateContainer(doc, "Geometry3D");
       std::string modelArchivePath =
           registerPrimitiveModelResource(obj.modelFile, obj.uuid);
       if (modelArchivePath.empty()) {
@@ -3668,7 +3558,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
           primitiveGeometryMapEntries.push_back(
               {obj.uuid, modelArchivePath, obj.modelFile, 0});
         }
-        tinyxml2::XMLElement *geoMatrix = doc.NewElement("Matrix");
+        tinyxml2::XMLElement *geoMatrix = mvr_xml_serialization::CreateContainer(doc, "Matrix");
         geoMatrix->SetText(
             MatrixUtils::FormatMatrix(MatrixUtils::Identity()).c_str());
         g3d->InsertEndChild(geoMatrix);
@@ -3728,15 +3618,15 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                          group.uuid});
       return;
     }
-    tinyxml2::XMLElement *go = doc.NewElement("GroupObject");
+    tinyxml2::XMLElement *go = mvr_xml_serialization::CreateContainer(doc, "GroupObject");
     go->SetAttribute("uuid", group.uuid.c_str());
     if (!group.name.empty())
       go->SetAttribute("name", group.name.c_str());
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
+    tinyxml2::XMLElement *mat = mvr_xml_serialization::CreateContainer(doc, "Matrix");
     mat->SetText(MatrixUtils::FormatMatrix(group.localTransform).c_str());
     go->InsertEndChild(mat);
 
-    tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
+    tinyxml2::XMLElement *childList = mvr_xml_serialization::CreateContainer(doc, "ChildList");
     for (const auto &childRef : group.children) {
       if (childRef.type == MvrNodeType::Truss) {
         auto it = scene.trusses.find(childRef.uuid);
@@ -3785,7 +3675,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   for (const auto &[layerUuid, layer] : scene.layers) {
     if (layer.name == DEFAULT_LAYER_NAME)
       continue;
-    tinyxml2::XMLElement *layerElem = doc.NewElement("Layer");
+    tinyxml2::XMLElement *layerElem = mvr_xml_serialization::CreateContainer(doc, "Layer");
     if (!layerUuid.empty()) {
       const std::string exportLayerUuid = preparation.layerUuids.at(layerUuid);
       layerElem->SetAttribute("uuid", exportLayerUuid.c_str());
@@ -3793,7 +3683,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (!layer.name.empty())
       layerElem->SetAttribute("name", layer.name.c_str());
 
-    tinyxml2::XMLElement *childList = doc.NewElement("ChildList");
+    tinyxml2::XMLElement *childList = mvr_xml_serialization::CreateContainer(doc, "ChildList");
 
     for (const auto &[uid, group] : scene.groupObjects) {
       if (group.layer != layer.name || !group.parentGroupUuid.empty())
@@ -3834,7 +3724,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   // Objects with no layer
-  tinyxml2::XMLElement *rootChildList = doc.NewElement("ChildList");
+  tinyxml2::XMLElement *rootChildList = mvr_xml_serialization::CreateContainer(doc, "ChildList");
   for (const auto &[uid, group] : scene.groupObjects) {
     if (!(group.layer == DEFAULT_LAYER_NAME || group.layer.empty()) ||
         !group.parentGroupUuid.empty())
@@ -3868,7 +3758,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     return false;
   }
   if (rootChildList->FirstChild()) {
-    tinyxml2::XMLElement *defaultLayerElem = doc.NewElement("Layer");
+    tinyxml2::XMLElement *defaultLayerElem = mvr_xml_serialization::CreateContainer(doc, "Layer");
     if (!defaultLayerUuid.empty()) {
       const std::string exportDefaultLayerUuid = preparation.layerUuids.at(defaultLayerUuid);
       defaultLayerElem->SetAttribute("uuid", exportDefaultLayerUuid.c_str());
@@ -3882,13 +3772,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   if (!fixtureTypeMetadata.empty()) {
     tinyxml2::XMLElement *rootPerastageDataForFixtures =
         mvr_xml_extension::FindOrCreateDataNode(doc, root);
-    AppendFixtureTypeMetadata(doc, rootPerastageDataForFixtures,
-                                      fixtureTypeMetadata);
+    mvr_xml_extension::AppendFixtureTypes(
+        doc, rootPerastageDataForFixtures, fixtureTypeMetadata);
   }
 
   tinyxml2::XMLElement *rootPerastageDataForProject =
       mvr_xml_extension::FindOrCreateDataNode(doc, root);
-  AppendProjectFixtureMetadata(doc, rootPerastageDataForProject, scene);
+  mvr_xml_extension::AppendProjectFixtures(
+      doc, rootPerastageDataForProject, scene);
 
   if (trussInfoMap->FirstChild()) {
     tinyxml2::XMLElement *rootPerastageDataForTrusses =
@@ -3907,20 +3798,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   if (!primitiveGeometryMapEntries.empty()) {
-    tinyxml2::XMLElement *data = mvr_xml_extension::FindOrCreateDataNode(doc, root);
-    tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
-    for (const auto &primitiveEntry : primitiveGeometryMapEntries) {
-      tinyxml2::XMLElement *entry = doc.NewElement("Entry");
-      entry->SetAttribute("sceneObjectUuid",
-                          primitiveEntry.sceneObjectUuid.c_str());
-      entry->SetAttribute("fileName", primitiveEntry.fileName.c_str());
-      entry->SetAttribute("perastageModelRef",
-                          primitiveEntry.perastageModelRef.c_str());
-      entry->SetAttribute("geometryIndex",
-                          static_cast<unsigned>(primitiveEntry.geometryIndex));
-      map->InsertEndChild(entry);
-    }
-    data->InsertEndChild(map);
+    tinyxml2::XMLElement *data =
+        mvr_xml_extension::FindOrCreateDataNode(doc, root);
+    mvr_xml_extension::AppendPrimitiveGeometryMap(
+        doc, data, primitiveGeometryMapEntries);
   }
 
   sceneNode->InsertEndChild(layersNode);

@@ -1,6 +1,24 @@
+/*
+ * This file is part of Perastage.
+ * Copyright (C) 2026 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
+ */
 #include "mvr_xml_extension_writer.h"
 
 #include "mvrscene.h"
+#include "uuidutils.h"
 
 #include <tinyxml2.h>
 
@@ -118,6 +136,116 @@ void AppendLayerAppearance(
   }
   if (map && !map->Parent())
     perastageData->InsertEndChild(map);
+}
+
+// Appends resolved fixture-type metadata in stable map order.
+void AppendFixtureTypes(
+    tinyxml2::XMLDocument &document, tinyxml2::XMLElement *perastageData,
+    const std::map<std::string, FixtureTypeMetadata> &metadataByType) {
+  if (!perastageData || metadataByType.empty())
+    return;
+  tinyxml2::XMLElement *map = document.NewElement("FixtureTypeInfoMap");
+  for (const auto &[key, entry] : metadataByType) {
+    (void)key;
+    tinyxml2::XMLElement *info = document.NewElement("FixtureTypeInfo");
+    info->SetAttribute("key", entry.key.c_str());
+    if (!entry.gdtfSpec.empty())
+      info->SetAttribute("gdtfSpec", entry.gdtfSpec.c_str());
+    if (!entry.gdtfMode.empty())
+      info->SetAttribute("gdtfMode", entry.gdtfMode.c_str());
+    if (!entry.manufacturer.empty())
+      info->SetAttribute("manufacturer", entry.manufacturer.c_str());
+    if (!entry.model.empty())
+      info->SetAttribute("model", entry.model.c_str());
+    auto appendText = [&](const char *name, const std::string &value) {
+      if (value.empty())
+        return;
+      tinyxml2::XMLElement *node = document.NewElement(name);
+      node->SetText(value.c_str());
+      info->InsertEndChild(node);
+    };
+    appendText("Category", entry.category);
+    if (!entry.category.empty())
+      appendText("CategorySource", entry.categorySource);
+    appendText("VisualColor", entry.visualColorHex);
+    map->InsertEndChild(info);
+  }
+  perastageData->InsertEndChild(map);
+}
+
+// Appends canonical fixture fidelity metadata keyed by instance UUID.
+void AppendProjectFixtures(tinyxml2::XMLDocument &document,
+                           tinyxml2::XMLElement *perastageData,
+                           const MvrScene &scene) {
+  if (!perastageData)
+    return;
+  tinyxml2::XMLElement *map =
+      document.NewElement("ProjectFixtureMetadataMap");
+  map->SetAttribute("schemaVersion", "1.0");
+  std::map<std::string, const Fixture *> fixturesByUuid;
+  for (const auto &[key, fixture] : scene.fixtures) {
+    (void)key;
+    const std::string uuid = CanonicalizeUuid(fixture.uuid);
+    if (!uuid.empty())
+      fixturesByUuid[uuid] = &fixture;
+  }
+  for (const auto &[uuid, fixture] : fixturesByUuid) {
+    tinyxml2::XMLElement *entry =
+        document.NewElement("ProjectFixtureMetadata");
+    entry->SetAttribute("uuid", uuid.c_str());
+    entry->SetAttribute("fixtureId", fixture->fixtureId);
+    entry->SetAttribute("fixtureIdNumeric", fixture->fixtureIdNumeric);
+    entry->SetAttribute("fixtureIdText", fixture->fixtureIdText.c_str());
+    entry->SetAttribute("unitNumber", fixture->unitNumber);
+    const std::string color = TrimAscii(fixture->visualColorHex);
+    if (fixture->visualColorState != FixtureProjectColorState::Missing ||
+        !color.empty()) {
+      entry->SetAttribute("hasVisualColorHex", color.empty() ? "false" : "true");
+      if (!color.empty())
+        entry->SetAttribute("visualColorHex", color.c_str());
+    }
+    map->InsertEndChild(entry);
+  }
+  if (map->FirstChild())
+    perastageData->InsertEndChild(map);
+  else
+    document.DeleteNode(map);
+}
+
+// Appends resolved primitive geometry compatibility metadata.
+void AppendPrimitiveGeometryMap(
+    tinyxml2::XMLDocument &document, tinyxml2::XMLElement *perastageData,
+    const std::vector<PrimitiveGeometryMetadata> &entries) {
+  if (!perastageData || entries.empty())
+    return;
+  tinyxml2::XMLElement *map = document.NewElement("PrimitiveGeometryMap");
+  for (const PrimitiveGeometryMetadata &value : entries) {
+    tinyxml2::XMLElement *entry = document.NewElement("Entry");
+    entry->SetAttribute("sceneObjectUuid", value.sceneObjectUuid.c_str());
+    entry->SetAttribute("fileName", value.fileName.c_str());
+    entry->SetAttribute("perastageModelRef", value.perastageModelRef.c_str());
+    entry->SetAttribute("geometryIndex",
+                        static_cast<unsigned>(value.geometryIndex));
+    map->InsertEndChild(entry);
+  }
+  perastageData->InsertEndChild(map);
+}
+
+// Creates a Perastage-owned metadata container for resolved extension values.
+tinyxml2::XMLElement *CreateMetadataElement(tinyxml2::XMLDocument &document,
+                                            const char *nodeName) {
+  return document.NewElement(nodeName);
+}
+
+// Appends a non-empty text node to Perastage-owned metadata.
+void AppendMetadataText(tinyxml2::XMLDocument &document,
+                        tinyxml2::XMLElement *parent, const char *nodeName,
+                        const std::string &value) {
+  if (value.empty())
+    return;
+  tinyxml2::XMLElement *node = document.NewElement(nodeName);
+  node->SetText(value.c_str());
+  parent->InsertEndChild(node);
 }
 
 } // namespace mvr_xml_extension

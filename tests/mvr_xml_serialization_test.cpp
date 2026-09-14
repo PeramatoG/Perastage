@@ -7,6 +7,7 @@
 #include <tinyxml2.h>
 
 #include <cassert>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -32,7 +33,19 @@ int main() {
   root->InsertEndChild(scene);
   tinyxml2::XMLElement *aux = mvr_xml_serialization::AppendPreparedPositions(
       document, {{"position-uuid", "Front"}});
+  mvr_xml_serialization::SymdefValues symdef;
+  symdef.uuid = "symdef-uuid";
+  symdef.geometryType = "Model";
+  symdef.geometries.push_back(
+      {"resolved-symbol.glb", "Model", MatrixUtils::Identity()});
+  mvr_xml_serialization::AppendSymdef(document, aux, symdef);
   scene->InsertEndChild(aux);
+  const tinyxml2::XMLElement *symdefNode = aux->FirstChildElement("Symdef");
+  assert(symdefNode);
+  const tinyxml2::XMLElement *geometry =
+      symdefNode->FirstChildElement("ChildList")->FirstChildElement("Geometry3D");
+  assert(std::string(geometry->Attribute("fileName")) == "resolved-symbol.glb");
+  assert(geometry->FirstChildElement("Matrix"));
 
   tinyxml2::XMLElement *layers = document.NewElement("Layers");
   tinyxml2::XMLElement *layer = document.NewElement("Layer");
@@ -66,6 +79,35 @@ int main() {
     assert(expectedChildren[index++] == child->Name());
   }
   assert(index == expectedChildren.size());
+  assert(fixtureNode->FirstChildElement("Addresses")
+             ->FirstChildElement("Address")
+             ->IntAttribute("break") == 0);
+
+  mvr_xml_serialization::FixtureValues minimalFixture;
+  minimalFixture.uuid = "minimal-fixture";
+  minimalFixture.name = "Minimal";
+  minimalFixture.matrix = MatrixUtils::Identity();
+  mvr_xml_serialization::AppendFixture(document, children, minimalFixture);
+  const tinyxml2::XMLElement *minimalNode =
+      fixtureNode->NextSiblingElement("Fixture");
+  assert(minimalNode->FirstChildElement("Matrix"));
+  assert(!minimalNode->FirstChildElement("GDTFSpec"));
+  assert(!minimalNode->FirstChildElement("GDTFMode"));
+
+  std::map<std::string, mvr_xml_extension::FixtureTypeMetadata> fixtureTypes;
+  fixtureTypes["type"] = {"type", "Fixture.gdtf", "Default", "Maker",
+                           "Model", "Wash", "Manual", "#112233"};
+  mvr_xml_extension::AppendFixtureTypes(document, perastageData, fixtureTypes);
+  const tinyxml2::XMLElement *typeInfo = perastageData
+                                             ->FirstChildElement("FixtureTypeInfoMap")
+                                             ->FirstChildElement("FixtureTypeInfo");
+  assert(std::string(typeInfo->FirstChildElement()->Name()) == "Category");
+
+  std::vector<mvr_xml_extension::PrimitiveGeometryMetadata> primitiveEntries = {
+      {"object-uuid", "primitive.glb", "primitive:cube", 0}};
+  mvr_xml_extension::AppendPrimitiveGeometryMap(document, perastageData,
+                                                 primitiveEntries);
+  assert(perastageData->FirstChildElement("PrimitiveGeometryMap"));
   assert(std::string(scene->FirstChildElement()->Name()) == "AUXData");
   assert(std::string(scene->LastChildElement()->Name()) == "Layers");
   assert(std::string(root->FirstChildElement()->Name()) == "UserData");
