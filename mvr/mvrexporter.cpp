@@ -31,6 +31,9 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
+#include "mvr_xml_document_writer.h"
+#include "mvr_xml_extension_writer.h"
+#include "mvr_xml_scene_object_writer.h"
 #include "primitive_model_resources.h"
 #include "runtime_storage.h"
 #include "projectutils.h"
@@ -129,24 +132,6 @@ static bool NearlyEqualPhysicalValue(float lhs, float rhs);
 static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
                                           const std::string &gdtfPath,
                                           GdtfOverrides &overrides);
-static tinyxml2::XMLElement *
-FindFirstPerastageUserData(tinyxml2::XMLElement *node);
-static tinyxml2::XMLElement *
-FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
-                                                            tinyxml2::XMLElement *node);
-
-static void AppendSupportHoistInfoMetadata(tinyxml2::XMLDocument &doc,
-                                           tinyxml2::XMLElement *hoistInfoMap,
-                                           const Support &support);
-static bool IsCanonicalUuidString(const std::string &value);
-static bool IsLayerColorMetadataValue(const std::string &color);
-static bool HasLayerAppearanceMetadata(const MvrScene &scene);
-static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
-                                          tinyxml2::XMLElement *perastageData,
-                                          const MvrScene &scene,
-                                          const std::unordered_map<std::string,
-                                                                   std::string>
-                                              &layerUuids);
 static bool HasTrussInfoMetadata(const Truss &truss);
 static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
                                     tinyxml2::XMLElement *trussInfoMap,
@@ -156,8 +141,6 @@ static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
                                     const std::string &auxGdtfArchivePath);
 static void LogLegacyPositionUuidWarning(const std::string &message);
 
-static constexpr const char *kMvrProvider = "Perastage";
-static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 static constexpr const char *kDummyFallbackFixtureGdtfFileName =
     "Dummy 1ch.gdtf";
 static constexpr const char *kPerastageNamedDummyFallbackFixtureGdtfFileName =
@@ -1798,112 +1781,6 @@ static bool ShouldExportSupportHoistInfo(const Support &support) {
          NormalizeHoistDataSource(support.hoistFunctionSource) != "Inherited";
 }
 
-// Finds the first UserData element that already contains Perastage-owned data.
-static tinyxml2::XMLElement *
-FindFirstPerastageUserData(tinyxml2::XMLElement *node) {
-  if (!node)
-    return nullptr;
-
-  tinyxml2::XMLElement *firstUserData = node->FirstChildElement("UserData");
-
-  for (tinyxml2::XMLElement *ud = node->FirstChildElement("UserData"); ud;
-       ud = ud->NextSiblingElement("UserData")) {
-    for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-         data = data->NextSiblingElement("Data")) {
-      const std::string provider = TrimAscii(
-          data->Attribute("provider") ? data->Attribute("provider") : "");
-      if (provider.empty() || ToLowerAscii(provider) == "perastage")
-        return ud;
-    }
-  }
-
-  // Root MVR UserData is a singleton, so reuse a foreign-only container.
-  return firstUserData;
-}
-
-// Finds or creates the Perastage Data element under a valid parent node.
-static tinyxml2::XMLElement *
-FindOrCreatePerastageDataNode(tinyxml2::XMLDocument &doc,
-                                                            tinyxml2::XMLElement *node) {
-  tinyxml2::XMLElement *ud = FindFirstPerastageUserData(node);
-  if (!ud) {
-    ud = doc.NewElement("UserData");
-    node->InsertEndChild(ud);
-  }
-
-  for (tinyxml2::XMLElement *data = ud->FirstChildElement("Data"); data;
-       data = data->NextSiblingElement("Data")) {
-    const std::string provider = TrimAscii(
-        data->Attribute("provider") ? data->Attribute("provider") : "");
-    if (provider.empty() || ToLowerAscii(provider) == "perastage")
-      return data;
-  }
-
-  tinyxml2::XMLElement *data = doc.NewElement("Data");
-  data->SetAttribute("provider", kMvrProvider);
-  data->SetAttribute("ver", kPerastageUserDataSchemaVersion);
-  ud->InsertEndChild(data);
-  return data;
-}
-
-// Returns true when the color can be stored as Perastage #RRGGBB metadata.
-static bool IsLayerColorMetadataValue(const std::string &color) {
-  if (color.size() != 7 || color[0] != '#')
-    return false;
-  return std::all_of(color.begin() + 1, color.end(),
-                     [](unsigned char ch) { return std::isxdigit(ch) != 0; });
-}
-
-// Returns true when any layer has Perastage color metadata to export.
-static bool HasLayerAppearanceMetadata(const MvrScene &scene) {
-  return std::any_of(scene.layers.begin(), scene.layers.end(),
-                     [](const auto &entry) {
-    return IsLayerColorMetadataValue(entry.second.color);
-  });
-}
-
-// Appends the root-level Perastage layer appearance map when layers define
-// colors.
-static void AppendLayerAppearanceMetadata(tinyxml2::XMLDocument &doc,
-                                          tinyxml2::XMLElement *perastageData,
-                                          const MvrScene &scene,
-                                          const std::unordered_map<std::string,
-                                                                   std::string>
-                                              &layerUuids) {
-  if (!perastageData)
-    return;
-
-  tinyxml2::XMLElement *map = nullptr;
-  for (tinyxml2::XMLElement *existing =
-           perastageData->FirstChildElement("LayerAppearanceMap");
-       existing;
-       existing = existing->NextSiblingElement("LayerAppearanceMap")) {
-    map = existing;
-    break;
-  }
-
-  for (const auto &[layerUuid, layer] : scene.layers) {
-    if (!IsLayerColorMetadataValue(layer.color))
-      continue;
-    if (!map)
-      map = doc.NewElement("LayerAppearanceMap");
-
-    tinyxml2::XMLElement *entry = doc.NewElement("PerastageLayerAppearance");
-    const auto preparedUuid = layerUuids.find(layerUuid);
-    const std::string exportUuid =
-        preparedUuid != layerUuids.end() ? preparedUuid->second : std::string{};
-    if (!exportUuid.empty())
-      entry->SetAttribute("uuid", exportUuid.c_str());
-    if (!layer.name.empty())
-      entry->SetAttribute("name", layer.name.c_str());
-    entry->SetAttribute("color", layer.color.c_str());
-    map->InsertEndChild(entry);
-  }
-
-  if (map && !map->Parent())
-    perastageData->InsertEndChild(map);
-}
-
 // Returns true when a truss carries Perastage-specific metadata for export.
 static bool HasTrussInfoMetadata(const Truss &truss) {
   return truss.hasManualLoadOverride || !truss.gdtfDescription.empty() ||
@@ -2714,8 +2591,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   for (auto &diagnostic : preparation.objectIdDiagnostics)
     AddDiagnostic(std::move(diagnostic));
   tinyxml2::XMLDocument doc;
-  doc.InsertEndChild(
-      doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
   auto resolveObjectPosition = [&](const std::string &objectUuid) {
     const auto informationalLog =
         preparation.positionReferenceInformationalLogs.find(objectUuid);
@@ -2765,13 +2640,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     return true;
   };
 
-  tinyxml2::XMLElement *root = doc.NewElement("GeneralSceneDescription");
-  root->SetAttribute("verMajor", 1);
-  root->SetAttribute("verMinor", 6);
-  root->SetAttribute("provider", kMvrProvider);
-  root->SetAttribute("providerVersion",
-                     perastage::build_info::appVersion().data());
-  doc.InsertEndChild(root);
+  tinyxml2::XMLElement *root = mvr_xml_serialization::CreateDocument(
+      doc, std::string(perastage::build_info::appVersion()));
 
   // Rehydrates only well-formed foreign Data elements beneath the one root UserData.
   std::unordered_set<std::string> emittedOpaqueBlocks;
@@ -2815,10 +2685,10 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     userData->InsertEndChild(data->DeepClone(&doc));
   }
 
-  if (HasLayerAppearanceMetadata(scene)) {
+  if (mvr_xml_extension::HasLayerAppearance(scene)) {
     tinyxml2::XMLElement *rootPerastageData =
-        FindOrCreatePerastageDataNode(doc, root);
-    AppendLayerAppearanceMetadata(doc, rootPerastageData, scene,
+        mvr_xml_extension::FindOrCreateDataNode(doc, root);
+    mvr_xml_extension::AppendLayerAppearance(doc, rootPerastageData, scene,
                                   preparation.layerUuids);
   }
 
@@ -2826,14 +2696,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   root->InsertEndChild(sceneNode);
 
   // ---- AUXData ----
-  tinyxml2::XMLElement *aux = doc.NewElement("AUXData");
-  for (const auto &[uuid, name] : preparation.positions) {
-    tinyxml2::XMLElement *pos = doc.NewElement("Position");
-    pos->SetAttribute("uuid", uuid.c_str());
-    if (!name.empty())
-      pos->SetAttribute("name", name.c_str());
-    aux->InsertEndChild(pos);
-  }
+  tinyxml2::XMLElement *aux =
+      mvr_xml_serialization::AppendPreparedPositions(doc,
+                                                     preparation.positions);
   const std::unordered_set<std::string> referencedSymdefUuids =
       CollectReferencedSymdefUuids(scene, options);
   for (const auto &[uuid, file] : scene.symdefFiles) {
@@ -2963,8 +2828,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   std::vector<std::string> dummyFallbackFixtureExamples;
 
   auto exportFixture = [&](tinyxml2::XMLElement *parent, const Fixture &f) {
-    tinyxml2::XMLElement *fe = doc.NewElement("Fixture");
-
     std::string stableUuid = CanonicalizeUuid(f.uuid);
     const std::string seed = "mvr-export-fixture:" + f.uuid + ":" +
                              f.instanceName + ":" +
@@ -2995,26 +2858,9 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
     usedFixtureUuids.insert(stableUuid);
 
-    fe->SetAttribute("uuid", stableUuid.c_str());
     const std::string fixtureExportName = TrimAscii(f.instanceName).empty()
                                               ? "Fixture"
                                               : TrimAscii(f.instanceName);
-    fe->SetAttribute("name", fixtureExportName.c_str());
-
-    auto addInt = [&](const char *n, int v) {
-      if (v != 0) {
-        tinyxml2::XMLElement *e = doc.NewElement(n);
-        e->SetText(std::to_string(v).c_str());
-        fe->InsertEndChild(e);
-      }
-    };
-    auto addStr = [&](const char *n, const std::string &s) {
-      if (!s.empty()) {
-        tinyxml2::XMLElement *e = doc.NewElement(n);
-        e->SetText(s.c_str());
-        fe->InsertEndChild(e);
-      }
-    };
     auto idIt = assignedIds.find(f.uuid);
     auto fixtureExportId =
         idIt != assignedIds.end() ? idIt->second
@@ -3164,35 +3010,21 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
     const Matrix fixtureMatrixToWrite =
         f.parentGroupUuid.empty() ? f.transform : f.localTransform;
-    std::string mstr = MatrixUtils::FormatMatrix(fixtureMatrixToWrite);
-    tinyxml2::XMLElement *mat = doc.NewElement("Matrix");
-    mat->SetText(mstr.c_str());
-    fe->InsertEndChild(mat);
-
-    addStr("GDTFSpec", fixtureGdtfArchivePath);
-    // Keep fixture GDTF payloads byte-preserved unless the user intentionally
-    // edits type-level physical properties that must be exported through GDTF.
-    if (!fixtureGdtfArchivePath.empty())
-      addStr("GDTFMode", f.gdtfMode.empty() ? "Default" : f.gdtfMode);
-    if (!f.position.empty() || !f.positionName.empty())
-      addStr("Position", resolveObjectPosition(f.uuid));
-    addStr("FixtureID", fixtureExportId.first);
-    addInt("FixtureIDNumeric", fixtureExportId.second);
+    const std::string position =
+        (!f.position.empty() || !f.positionName.empty())
+            ? resolveObjectPosition(f.uuid)
+            : std::string{};
     auto unitIt = assignedUnitNumbers.find(f.uuid);
-    addInt("UnitNumber",
-           unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber);
+    const int unitNumber =
+        unitIt != assignedUnitNumbers.end() ? unitIt->second : f.unitNumber;
 
+    std::optional<int> absoluteDmxAddress;
     if (!f.address.empty()) {
       const std::string trimmedAddress = TrimAscii(f.address);
       auto [universe, channel] = ParseAddress(trimmedAddress);
       int absoluteAddress = 0;
       if (TryComputeAbsoluteDmx(universe, channel, absoluteAddress)) {
-        tinyxml2::XMLElement *addresses = doc.NewElement("Addresses");
-        tinyxml2::XMLElement *addr = doc.NewElement("Address");
-        addr->SetAttribute("break", 0);
-        addr->SetText(std::to_string(absoluteAddress).c_str());
-        addresses->InsertEndChild(addr);
-        fe->InsertEndChild(addresses);
+        absoluteDmxAddress = absoluteAddress;
       } else {
         AddDiagnostic({MvrExportDiagnosticCode::DmxAddressOmitted,
                        MvrExportDiagnosticSeverity::Warning,
@@ -3207,10 +3039,23 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       }
     }
 
+    mvr_xml_serialization::FixtureValues values;
+    values.uuid = stableUuid;
+    values.name = fixtureExportName;
+    values.matrix = fixtureMatrixToWrite;
+    values.gdtfSpec = fixtureGdtfArchivePath;
+    // Keep fixture GDTF payloads byte-preserved unless physical edits require
+    // a patched resource selected by orchestration.
+    if (!fixtureGdtfArchivePath.empty())
+      values.gdtfMode = f.gdtfMode.empty() ? "Default" : f.gdtfMode;
+    values.position = position;
+    values.fixtureId = fixtureExportId.first;
+    values.fixtureIdNumeric = fixtureExportId.second;
+    values.unitNumber = unitNumber;
+    values.absoluteDmxAddress = absoluteDmxAddress;
     if (!f.mvrFixtureColorHex.empty())
-      addStr("Color", HexToCie(f.mvrFixtureColorHex));
-
-    parent->InsertEndChild(fe);
+      values.color = HexToCie(f.mvrFixtureColorHex);
+    mvr_xml_serialization::AppendFixture(doc, parent, values);
   };
 
   bool fatalTrussGdtfGenerationFailure = false;
@@ -4036,18 +3881,18 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   if (!fixtureTypeMetadata.empty()) {
     tinyxml2::XMLElement *rootPerastageDataForFixtures =
-        FindOrCreatePerastageDataNode(doc, root);
+        mvr_xml_extension::FindOrCreateDataNode(doc, root);
     AppendFixtureTypeMetadata(doc, rootPerastageDataForFixtures,
                                       fixtureTypeMetadata);
   }
 
   tinyxml2::XMLElement *rootPerastageDataForProject =
-      FindOrCreatePerastageDataNode(doc, root);
+      mvr_xml_extension::FindOrCreateDataNode(doc, root);
   AppendProjectFixtureMetadata(doc, rootPerastageDataForProject, scene);
 
   if (trussInfoMap->FirstChild()) {
     tinyxml2::XMLElement *rootPerastageDataForTrusses =
-        FindOrCreatePerastageDataNode(doc, root);
+        mvr_xml_extension::FindOrCreateDataNode(doc, root);
     rootPerastageDataForTrusses->InsertEndChild(trussInfoMap);
   } else {
     doc.DeleteNode(trussInfoMap);
@@ -4055,14 +3900,14 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   if (hoistInfoMap->FirstChild()) {
     tinyxml2::XMLElement *rootPerastageDataForHoists =
-        FindOrCreatePerastageDataNode(doc, root);
+        mvr_xml_extension::FindOrCreateDataNode(doc, root);
     rootPerastageDataForHoists->InsertEndChild(hoistInfoMap);
   } else {
     doc.DeleteNode(hoistInfoMap);
   }
 
   if (!primitiveGeometryMapEntries.empty()) {
-    tinyxml2::XMLElement *data = FindOrCreatePerastageDataNode(doc, root);
+    tinyxml2::XMLElement *data = mvr_xml_extension::FindOrCreateDataNode(doc, root);
     tinyxml2::XMLElement *map = doc.NewElement("PrimitiveGeometryMap");
     for (const auto &primitiveEntry : primitiveGeometryMapEntries) {
       tinyxml2::XMLElement *entry = doc.NewElement("Entry");

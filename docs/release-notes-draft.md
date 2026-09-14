@@ -12,6 +12,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated core MVR document and fixture XML writing from export orchestration while preserving package compatibility.
+
 - Separated MVR export scene validation and deterministic preparation from XML serialization and package writing while preserving existing export behavior and diagnostics.
 
 - Isolated MVR identity normalization, legacy reference remapping, and post-parse cross-reference validation behind a reusable import component while preserving deterministic recovery and structured diagnostics.

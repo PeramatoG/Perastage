@@ -19,6 +19,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_resource_rewriter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrscenemerger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrexporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_document_writer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_extension_writer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_scene_object_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_preparation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/primitive_model_resources.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_commit.cpp
