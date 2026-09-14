@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,9 @@ struct Options {
   std::string sourceLabel;
 };
 
+using DescriptionMutator =
+    std::function<bool(tinyxml2::XMLDocument &document)>;
+
 // Canonicalizes a parsed GDTF description.xml document in memory.
 Result CanonicalizeDescription(tinyxml2::XMLDocument &doc,
                                const Options &options = {});
@@ -33,6 +37,11 @@ Result ValidateDescription(const tinyxml2::XMLDocument &doc,
 Result CanonicalizeArchive(const std::filesystem::path &sourcePath,
                            const std::filesystem::path &destinationPath,
                            const Options &options = {});
+
+// Rewrites an archive after applying a caller-owned description mutation.
+Result RewriteArchiveDescription(const std::filesystem::path &sourcePath,
+                                 const std::filesystem::path &destinationPath,
+                                 const DescriptionMutator &mutator);
 
 // Validates a GDTF archive against Perastage export rules.
 Result ValidateArchive(const std::filesystem::path &sourcePath,

@@ -383,6 +383,36 @@ Result CanonicalizeArchive(const fs::path &sourcePath, const fs::path &destinati
   return result;
 }
 
+// Rewrites a GDTF archive after applying a focused description mutation.
+Result RewriteArchiveDescription(const fs::path &sourcePath,
+                                 const fs::path &destinationPath,
+                                 const DescriptionMutator &mutator) {
+  Result result;
+  std::vector<ZipEntryData> entries;
+  if (!ReadZipEntries(sourcePath, entries, result))
+    return result;
+  auto description =
+      std::find_if(entries.begin(), entries.end(), [](const ZipEntryData &entry) {
+        return Lower(entry.name) == "description.xml";
+      });
+  if (description == entries.end())
+    return result;
+  tinyxml2::XMLDocument document;
+  if (document.Parse(description->bytes.c_str(), description->bytes.size()) !=
+      tinyxml2::XML_SUCCESS) {
+    return result;
+  }
+  if (!mutator || !mutator(document))
+    return result;
+  description->name = "description.xml";
+  description->bytes = PrintDocument(document);
+  if (!WriteZipEntries(destinationPath, entries, result))
+    return result;
+  result.changed = true;
+  result.success = result.errors.empty();
+  return result;
+}
+
 // Validates a GDTF archive against export rules.
 Result ValidateArchive(const fs::path &sourcePath, const Options &options) {
   Result result;

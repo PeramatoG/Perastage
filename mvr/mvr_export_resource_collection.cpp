@@ -1,6 +1,19 @@
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_export_resource_collection.h"
 
@@ -483,7 +496,9 @@ std::string ResourceCollection::RegisterPrimitiveModelResource(const std::string
     const fs::path output = m_primitiveWorkspace /
       ("primitive_" + label + "_" + [&] { std::ostringstream out; out << std::hex << std::hash<std::string>{}(key); return out.str(); }() + ".glb");
     if (!mvr::WritePrimitiveModelForToken(key, output.generic_string())) return {};
-    source = output.generic_string(); m_primitiveSourceByToken[key] = source;
+    source = output.generic_string();
+    m_primitiveSourceByToken[key] = source;
+    AdoptGeneratedResource(output, ResourceProvenance::CompatibilityFallback);
   }
   return RegisterResource(source, mvr::PrimitiveArchivePathForToken(token, objectUuid),
                           ResourceKind::PrimitiveModel, ResourceProvenance::CompatibilityFallback);
@@ -510,43 +525,50 @@ void ResourceCollection::AssociateGdtfArchive(const std::string &objectUuid,
     m_plan.gdtfArchiveByObjectUuid[objectUuid] = archivePath;
 }
 
-// Prunes unreferenced entries, closes model dependencies, and deduplicates paths.
-ResourcePlan ResourceCollection::Finalize(const std::unordered_set<std::string> &referencedPaths) {
+// Prunes entries, closes dependencies, and keeps the first duplicate path.
+ResourcePlan FinalizeResourcePlan(
+    ResourcePlan plan, const std::unordered_set<std::string> &referencedPaths,
+    const DiagnosticSink &diagnosticSink,
+    const InformationalLogSink &informationalLogSink) {
   std::unordered_set<std::string> closure = referencedPaths;
-  for (const auto &[model, dependencies] : m_plan.modelDependenciesByArchivePath) {
-    if (!closure.contains(NormalizeArchiveEntryPath(model)))
+  for (const auto &[model, dependencies] : plan.modelDependenciesByArchivePath) {
+    if (!closure.contains(ResourceCollection::NormalizeArchiveEntryPath(model)))
       continue;
     for (const std::string &dependency : dependencies)
-      closure.insert(NormalizeArchiveEntryPath(dependency));
+      closure.insert(ResourceCollection::NormalizeArchiveEntryPath(dependency));
   }
 
-  const std::size_t before = m_plan.entries.size();
+  const std::size_t before = plan.entries.size();
+  std::size_t prunedCount = 0;
   std::vector<ResourceEntry> referenced;
-  for (const ResourceEntry &entry : m_plan.entries) {
-    const std::string normalized = NormalizeArchiveEntryPath(entry.archivePath);
+  for (const ResourceEntry &entry : plan.entries) {
+    const std::string normalized = ResourceCollection::NormalizeArchiveEntryPath(entry.archivePath);
     if (normalized.empty() || !closure.contains(normalized)) {
-      if (!normalized.empty() && m_informationalLogSink)
-        m_informationalLogSink(
+      if (!normalized.empty() && informationalLogSink)
+        informationalLogSink(
             "MVR export pruned unreferenced archive resource: " + normalized);
+      if (!normalized.empty())
+        ++prunedCount;
       continue;
     }
     referenced.push_back(entry);
   }
-  if (m_informationalLogSink)
-    m_informationalLogSink(
+  if (informationalLogSink)
+    informationalLogSink(
         "MVR export resource pruning summary: referenced_paths=" +
         std::to_string(closure.size()) + ", planned_resources_before=" +
         std::to_string(before) + ", planned_resources_after=" +
-        std::to_string(referenced.size()));
+        std::to_string(referenced.size()) + ", pruned=" +
+        std::to_string(prunedCount));
 
   std::unordered_set<std::string> seen;
   std::vector<ResourceEntry> deduplicated;
   deduplicated.reserve(referenced.size());
   for (const ResourceEntry &entry : referenced) {
-    const std::string normalized = NormalizeArchiveEntryPath(entry.archivePath);
+    const std::string normalized = ResourceCollection::NormalizeArchiveEntryPath(entry.archivePath);
     if (!seen.insert(normalized).second) {
-      if (m_diagnosticSink)
-        m_diagnosticSink({MvrExportDiagnosticCode::ResourceDuplicate,
+      if (diagnosticSink)
+        diagnosticSink({MvrExportDiagnosticCode::ResourceDuplicate,
           MvrExportDiagnosticSeverity::Warning,
           MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {},
           fs::path(normalized).filename().generic_string(),
@@ -556,7 +578,15 @@ ResourcePlan ResourceCollection::Finalize(const std::unordered_set<std::string> 
     }
     deduplicated.push_back(entry);
   }
-  m_plan.entries = std::move(deduplicated);
+  plan.entries = std::move(deduplicated);
+  return plan;
+}
+
+// Finalizes the collected resource plan with the configured diagnostic sinks.
+ResourcePlan ResourceCollection::Finalize(
+    const std::unordered_set<std::string> &referencedPaths) {
+  m_plan = FinalizeResourcePlan(std::move(m_plan), referencedPaths,
+                                m_diagnosticSink, m_informationalLogSink);
   return m_plan;
 }
 

@@ -1,6 +1,19 @@
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
+ *
+ * Perastage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Perastage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
 
@@ -40,8 +53,38 @@ struct ResourcePlan {
   std::vector<runtime_storage::SceneResourceLeasePtr> workspaceLeases;
 };
 
+struct GdtfRewriteRequest {
+  std::string color;
+  bool hasWeightKg{false};
+  float weightKg{0.0f};
+  bool hasPowerW{false};
+  float powerW{0.0f};
+  bool hasLengthMm{false};
+  float lengthMm{0.0f};
+  bool hasWidthMm{false};
+  float widthMm{0.0f};
+  bool hasHeightMm{false};
+  float heightMm{0.0f};
+  std::string manufacturer;
+  std::string model;
+};
+
+struct GdtfPreparationResult {
+  bool success{false};
+  ResourcePlan plan;
+  std::string failureOperation;
+  std::string failureArchivePath;
+  std::string failureSourcePath;
+  std::string failureReason;
+};
+
 using DiagnosticSink = std::function<void(MvrExportDiagnostic)>;
 using InformationalLogSink = std::function<void(const std::string &)>;
+
+ResourcePlan FinalizeResourcePlan(
+    ResourcePlan plan, const std::unordered_set<std::string> &referencedPaths,
+    const DiagnosticSink &diagnosticSink,
+    const InformationalLogSink &informationalLogSink);
 
 class ResourceCollection {
 public:
@@ -72,6 +115,8 @@ public:
   void AssociateGdtfArchive(const std::string &objectUuid,
                             const std::string &archivePath);
   ResourcePlan Finalize(const std::unordered_set<std::string> &referencedPaths);
+  GdtfPreparationResult PrepareGdtfResources(
+      const std::unordered_map<std::string, GdtfRewriteRequest> &rewriteRequests);
 
   const std::unordered_map<std::string, std::string> &
   GdtfArchiveByObjectUuid() const;

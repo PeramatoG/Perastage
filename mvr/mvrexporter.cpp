@@ -21,8 +21,6 @@
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
-#include "gdtf_mutation_audit.h"
-#include "gdtf_canonicalizer.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "logger.h"
@@ -73,21 +71,6 @@ class wxZipStreamLink;
 
 namespace fs = std::filesystem;
 
-struct GdtfOverrides {
-  std::string color;
-  bool hasWeightKg = false;
-  float weightKg = 0.0f;
-  bool hasPowerW = false;
-  float powerW = 0.0f;
-  bool hasLengthMm = false;
-  float lengthMm = 0.0f;
-  bool hasWidthMm = false;
-  float widthMm = 0.0f;
-  bool hasHeightMm = false;
-  float heightMm = 0.0f;
-  std::string manufacturer;
-  std::string model;
-};
 
 using FixtureTypeInfoExport = mvr_xml_extension::FixtureTypeMetadata;
 
@@ -111,7 +94,7 @@ static bool ShouldExportSupportHoistInfo(const Support &support);
 static bool NearlyEqualPhysicalValue(float lhs, float rhs);
 static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
                                           const std::string &gdtfPath,
-                                          GdtfOverrides &overrides);
+                                          mvr_export_resources::GdtfRewriteRequest &overrides);
 static bool HasTrussInfoMetadata(const Truss &truss);
 static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
                                     tinyxml2::XMLElement *trussInfoMap,
@@ -131,9 +114,6 @@ static constexpr const char *kLegacyFallbackFixtureGdtfFileName =
     "Generic 1ch.gdtf";
 static constexpr const char *kPerastageNamedLegacyFallbackFixtureGdtfFileName =
     "Generic@Generic_1ch@Perastage.gdtf";
-static constexpr const char *kPhysicalPropertiesRevisionText =
-    "Updated physical properties for Perastage MVR export";
-
 // Compares physical values using the exporter tolerance.
 static bool NearlyEqualPhysicalValue(float lhs, float rhs) {
   return std::fabs(lhs - rhs) <= 0.001f;
@@ -142,7 +122,7 @@ static bool NearlyEqualPhysicalValue(float lhs, float rhs) {
 // Decides whether fixture edits require a patched exported GDTF copy.
 static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
                                           const std::string &gdtfPath,
-                                          GdtfOverrides &overrides) {
+                                          mvr_export_resources::GdtfRewriteRequest &overrides) {
   if (!fixture.physicalPropertiesDirty || gdtfPath.empty())
     return false;
 
@@ -1520,187 +1500,6 @@ static std::string HexToCie(const std::string &hex) {
 static runtime_storage::TemporaryWorkspace CreateExportWorkspace(const std::string &kind) {
   return runtime_storage::TemporaryWorkspace(kind);
 }
-
-static bool ExtractZip(const std::string &zipPath, const std::string &destDir) {
-  if (!fs::exists(zipPath))
-    return false;
-  wxLogNull logNo;
-  wxFileInputStream input(zipPath);
-  if (!input.IsOk())
-    return false;
-  wxZipInputStream zipStream(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zipStream.GetNextEntry())), entry) {
-    std::string filename = entry->GetName().ToStdString();
-    std::string fullPath = destDir + "/" + filename;
-    if (entry->IsDir()) {
-      wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-      continue;
-    }
-    wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT,
-                      wxPATH_MKDIR_FULL);
-    std::ofstream output(fullPath, std::ios::binary);
-    if (!output.is_open())
-      return false;
-    char buffer[4096];
-    while (true) {
-      zipStream.Read(buffer, sizeof(buffer));
-      size_t bytes = zipStream.LastRead();
-      if (bytes == 0)
-        break;
-      output.write(buffer, bytes);
-    }
-    output.close();
-  }
-  return true;
-}
-
-static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
-  wxFileOutputStream output(dstZip);
-  if (!output.IsOk())
-    return false;
-  wxZipOutputStream zip(output);
-  for (auto &p : fs::recursive_directory_iterator(srcDir)) {
-    if (!p.is_regular_file())
-      continue;
-    fs::path rel = fs::relative(p.path(), srcDir);
-    auto *e = new wxZipEntry(rel.generic_string());
-    e->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(e);
-    std::ifstream in(p.path(), std::ios::binary);
-    char buf[4096];
-    while (in.good()) {
-      in.read(buf, sizeof(buf));
-      std::streamsize s = in.gcount();
-      if (s > 0)
-        zip.Write(buf, s);
-    }
-    zip.CloseEntry();
-  }
-  zip.Close();
-  return true;
-}
-
-
-// Inserts a GDTF FixtureType child at the standard schema position.
-static tinyxml2::XMLElement *InsertGdtfFixtureTypeChildInOrder(
-    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
-    const char *name) {
-  tinyxml2::XMLElement *node = doc.NewElement(name);
-  static constexpr const char *kOrder[] = {
-      "AttributeDefinitions", "Wheels", "PhysicalDescriptions", "Models",
-      "Geometries", "DMXModes", "Revisions", "FTPresets", "Protocols"};
-
-  int targetIndex = -1;
-  for (int i = 0; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
-    if (std::string(name) == kOrder[i]) {
-      targetIndex = i;
-      break;
-    }
-  }
-
-  tinyxml2::XMLElement *previous = nullptr;
-  if (targetIndex >= 0) {
-    for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
-         child = child->NextSiblingElement()) {
-      for (int i = targetIndex + 1; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0]));
-           ++i) {
-        if (std::string(child->Name()) == kOrder[i]) {
-          tinyxml2::XMLNode *inserted =
-              previous ? fixtureType->InsertAfterChild(previous, node)
-                       : fixtureType->InsertFirstChild(node);
-          return inserted ? inserted->ToElement() : nullptr;
-        }
-      }
-      previous = child;
-    }
-  }
-
-  tinyxml2::XMLNode *inserted = fixtureType->InsertEndChild(node);
-  return inserted ? inserted->ToElement() : nullptr;
-}
-
-// Creates a temporary patched GDTF copy for intentional MVR export overrides.
-static std::string CreatePatchedGdtf(const std::string &gdtfPath,
-                                     const GdtfOverrides &ov) {
-  auto tempWorkspace = CreateExportWorkspace("mvr-export-gdtf-patch");
-  if (!tempWorkspace.IsValid())
-    return {};
-  std::string tempDir = tempWorkspace.Path().string();
-  if (!ExtractZip(gdtfPath, tempDir))
-    return {};
-  std::string descPath = tempDir + "/description.xml";
-  tinyxml2::XMLDocument doc;
-  if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-    return {};
-  tinyxml2::XMLElement *ft = doc.FirstChildElement("GDTF");
-  if (ft)
-    ft = ft->FirstChildElement("FixtureType");
-  else
-    ft = doc.FirstChildElement("FixtureType");
-  if (!ft)
-    return {};
-  bool patched = false;
-  if (!ov.color.empty()) {
-    tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
-    if (models) {
-      std::string cie = HexToCie(ov.color);
-      for (tinyxml2::XMLElement *m = models->FirstChildElement("Model"); m;
-           m = m->NextSiblingElement("Model"))
-        m->SetAttribute("Color", cie.c_str());
-      patched = true;
-    }
-  }
-  const std::optional<float> weightKg =
-      ov.hasWeightKg ? std::optional<float>(ov.weightKg) : std::nullopt;
-  const std::optional<float> powerW =
-      ov.hasPowerW ? std::optional<float>(ov.powerW) : std::nullopt;
-  patched =
-      GdtfMutationAudit::ApplyPhysicalProperties(ft, doc, weightKg, powerW) ||
-            patched;
-  if (!ov.manufacturer.empty()) {
-    ft->SetAttribute("Manufacturer", ov.manufacturer.c_str());
-    patched = true;
-  }
-  if (!ov.model.empty()) {
-    ft->SetAttribute("Name", ov.model.c_str());
-    patched = true;
-  }
-
-  if (ov.hasLengthMm || ov.hasWidthMm || ov.hasHeightMm) {
-    tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
-    tinyxml2::XMLElement *model =
-        models ? models->FirstChildElement("Model") : nullptr;
-    if (!models)
-      models = InsertGdtfFixtureTypeChildInOrder(ft, doc, "Models");
-    if (!model)
-      model = models->InsertNewChildElement("Model");
-    if (ov.hasLengthMm)
-      model->SetAttribute("Length", ov.lengthMm / 1000.0f);
-    if (ov.hasWidthMm)
-      model->SetAttribute("Width", ov.widthMm / 1000.0f);
-    if (ov.hasHeightMm)
-      model->SetAttribute("Height", ov.heightMm / 1000.0f);
-    patched = true;
-  }
-
-  if (patched) {
-    GdtfMutationAudit::AppendRevision(
-        ft, doc,
-        (ov.hasWeightKg || ov.hasPowerW)
-                     ? kPhysicalPropertiesRevisionText
-                     : "Patched fixture metadata for MVR export",
-        GdtfMutationAudit::BuildPerastageModifiedBy());
-  }
-
-  doc.SaveFile(descPath.c_str());
-  std::string outPath = (tempWorkspace.Path().parent_path() /
-                         (tempWorkspace.Path().filename().string() + ".gdtf")).string();
-  if (!ZipDir(tempDir, outPath))
-    return {};
-  return outPath;
-}
-
 // Serialize the configured scene into a .mvr archive and collect non-fatal
 // export warnings.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
@@ -1733,7 +1532,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       GetTrussGeometryAuthoritySetting();
   std::unordered_set<std::string> usedSymbolUuids;
   std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
-  std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
+  std::unordered_map<std::string, mvr_export_resources::GdtfRewriteRequest>
+      gdtfRewriteRequests;
   std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
   mvr_export_resources::ResourceCollection resourceCollection(
       scene.basePath,
@@ -1767,13 +1567,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   wxZipOutputStream zip(output);
 
-  auto registerResource = [&](const std::string &source,
-                              const std::string &archive,
-                              bool reuse = true) {
-    return resourceCollection.RegisterResource(source, archive,
-        mvr_export_resources::ResourceKind::Model,
-        mvr_export_resources::ResourceProvenance::StandardPreserved, reuse);
-  };
   auto registerGdtfResource = [&](const std::string &uuid,
                                   const std::string &source,
                                   const std::string &preferred,
@@ -2153,7 +1946,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       ++exportedRealFixtureGdtfCount;
     std::string fixtureName =
         SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
-    GdtfOverrides fixtureOverrides;
+    mvr_export_resources::GdtfRewriteRequest fixtureOverrides;
     const bool needsPhysicalPatch =
         FixtureNeedsPhysicalGdtfPatch(f, fixtureSourceGdtf, fixtureOverrides);
     if (needsPhysicalPatch) {
@@ -2182,7 +1975,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         fixtureGdtfArchivePath =
             registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName, false);
         physicalPatchArchiveByKey[patchKey.str()] = fixtureGdtfArchivePath;
-        gdtfOverrides[fixtureGdtfArchivePath] = fixtureOverrides;
+        gdtfRewriteRequests[fixtureGdtfArchivePath] = fixtureOverrides;
       }
     } else {
       fixtureGdtfArchivePath =
@@ -2326,7 +2119,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const std::string exportTrussTypeKey =
         BuildExportTrussTypeKey(effectiveTruss, trussGdtfArchivePath);
     if (!trussGdtfArchivePath.empty()) {
-      auto &ov = gdtfOverrides[trussGdtfArchivePath];
+      auto &ov = gdtfRewriteRequests[trussGdtfArchivePath];
       ov.hasLengthMm = true;
       ov.lengthMm = effectiveTruss.lengthMm;
       ov.hasWidthMm = true;
@@ -2895,80 +2688,34 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   Logger::Instance().Log(Logger::Level::Info,
                          fixtureGdtfExportDiagnostics.str());
 
-  mvr_export_resources::ResourcePlan resourcePlan =
-      resourceCollection.Finalize(referencedArchivePaths);
-  auto &resourceEntries = resourcePlan.entries;
-
+  resourceCollection.Finalize(referencedArchivePaths);
   if (resourceCollection.HasFatalDependencyError()) {
     zip.Close();
     return false;
   }
 
+  mvr_export_resources::GdtfPreparationResult gdtfPreparation =
+      resourceCollection.PrepareGdtfResources(gdtfRewriteRequests);
+  if (!gdtfPreparation.success) {
+    zip.Close();
+    if (gdtfPreparation.failureOperation == "CanonicalizeGdtf") {
+      return failExport(gdtfPreparation.failureOperation,
+                        gdtfPreparation.failureArchivePath,
+                        gdtfPreparation.failureSourcePath,
+                        gdtfPreparation.failureReason);
+    }
+    return false;
+  }
+  mvr_export_resources::ResourcePlan resourcePlan =
+      std::move(gdtfPreparation.plan);
+  auto &resourceEntries = resourcePlan.entries;
+
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
 
-  for (auto &entry : resourceEntries) {
-    if (!fs::exists(entry.sourcePath))
-      continue;
-    auto cit = gdtfOverrides.find(entry.archivePath);
-    if (cit != gdtfOverrides.end()) {
-      std::string tmp =
-          CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
-      if (!tmp.empty()) {
-        entry.sourcePath = fs::path(tmp);
-        if (entry.provenance != mvr_export_resources::
-                                    ResourceProvenance::CompatibilityFallback) {
-          entry.provenance =
-              mvr_export_resources::ResourceProvenance::StandardGenerated;
-        }
-        resourceCollection.AdoptGeneratedResource(entry.sourcePath);
-      } else {
-        AddDiagnostic({MvrExportDiagnosticCode::GdtfPatchFailed,
-                       MvrExportDiagnosticSeverity::Error,
-                       MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                       SanitizeArchiveFileName(entry.archivePath,
-                                               "fixture.gdtf"),
-                       "MVR export could not create the patched GDTF '" +
-                           SanitizeArchiveFileName(entry.archivePath,
-                                                   "fixture.gdtf") + "'."});
-        zip.Close();
-        return false;
-      }
-    }
-    if (ToLowerAscii(fs::path(entry.archivePath).extension().string()) == ".gdtf") {
-      auto canonicalWorkspace = CreateExportWorkspace("mvr-export-canonical");
-      fs::path canonicalPath = canonicalWorkspace.IsValid()
-                                   ? canonicalWorkspace.Path() / SanitizeArchiveFileName(entry.archivePath, "fixture.gdtf")
-                                   : fs::path{};
-      GdtfCanonicalizer::Options canonicalOptions;
-      canonicalOptions.allowFixtureTypeIdRepair = true;
-      canonicalOptions.stableIdSeed = entry.archivePath + "|" + entry.sourcePath.string();
-      canonicalOptions.sourceLabel = entry.archivePath + " from " + entry.sourcePath.string();
-      const GdtfCanonicalizer::Result canonicalResult =
-          GdtfCanonicalizer::CanonicalizeArchive(entry.sourcePath, canonicalPath,
-                                                canonicalOptions);
-      if (!canonicalResult.success) {
-        for (const std::string &error : canonicalResult.errors)
-          AddDiagnostic({MvrExportDiagnosticCode::CanonicalizationFailed,
-                         MvrExportDiagnosticSeverity::Error,
-                         MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                         fs::path(entry.archivePath).filename().generic_string(),
-                         "GDTF canonicalization failed: " + error});
-        zip.Close();
-        return failExport("CanonicalizeGdtf", entry.archivePath,
-                          entry.sourcePath.string(),
-                          "canonicalizer reported errors");
-      }
-      entry.sourcePath = canonicalPath;
-      if (entry.provenance != mvr_export_resources::
-                                  ResourceProvenance::CompatibilityFallback) {
-        entry.provenance =
-            mvr_export_resources::ResourceProvenance::StandardGenerated;
-      }
-      resourceCollection.AdoptGeneratedResource(canonicalPath);
-      resourceCollection.AdoptWorkspace(std::move(canonicalWorkspace));
-    }
-    ++plannedArchiveEntries[entry.archivePath];
+  for (const auto &entry : resourceEntries) {
+    if (fs::exists(entry.sourcePath))
+      ++plannedArchiveEntries[entry.archivePath];
   }
 
   for (const auto &[modelArchivePath, dependencies] :
