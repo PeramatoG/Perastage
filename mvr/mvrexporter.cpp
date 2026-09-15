@@ -29,6 +29,8 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
+#include "mvr_export_archive_writer.h"
+#include "mvr_export_transport.h"
 #include "mvr_export_resource_collection.h"
 #include "mvr_xml_document_writer.h"
 #include "mvr_xml_extension_writer.h"
@@ -40,11 +42,7 @@
 #include "truss_gdtf_builder.h"
 #include "uuidutils.h"
 
-#include <wx/wfstream.h>
 #include <wx/wx.h>
-class wxZipStreamLink;
-#include <wx/filename.h>
-#include <wx/zipstrm.h>
 
 #include <tinyxml2.h>
 
@@ -1544,7 +1542,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
         Logger::Instance().Log(Logger::Level::Info, message);
       });
 
-  wxFileOutputStream output(filePath);
   auto failExport = [&](const std::string &operation,
                         const std::string &entryName,
                         const std::string &sourcePath,
@@ -1562,10 +1559,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                    fs::path(entryName).filename().generic_string(), message.str()});
     return false;
   };
-  if (!output.IsOk())
-    return failExport("OpenOutput", {}, filePath, "could not open output file");
-
-  wxZipOutputStream zip(output);
 
   auto registerGdtfResource = [&](const std::string &uuid,
                                   const std::string &source,
@@ -2616,7 +2609,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
   if (hierarchyRecursionDetected || sceneObjectExportFailed ||
       fatalTrussGdtfGenerationFailure) {
-    zip.Close();
     return false;
   }
   if (rootChildList->FirstChild()) {
@@ -2689,15 +2681,12 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                          fixtureGdtfExportDiagnostics.str());
 
   resourceCollection.Finalize(referencedArchivePaths);
-  if (resourceCollection.HasFatalDependencyError()) {
-    zip.Close();
+  if (resourceCollection.HasFatalDependencyError())
     return false;
-  }
 
   mvr_export_resources::GdtfPreparationResult gdtfPreparation =
       resourceCollection.PrepareGdtfResources(gdtfRewriteRequests);
   if (!gdtfPreparation.success) {
-    zip.Close();
     if (gdtfPreparation.failureOperation == "CanonicalizeGdtf") {
       return failExport(gdtfPreparation.failureOperation,
                         gdtfPreparation.failureArchivePath,
@@ -2725,7 +2714,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       continue;
     for (const std::string &dependency : dependencies) {
       if (plannedArchiveEntries[dependency] != 1) {
-        zip.Close();
         return failExport(
             "ValidateModelDependency", dependency, modelArchivePath,
             "required external dependency is absent from the archive plan");
@@ -2735,7 +2723,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   const auto layerValidation = layerdomain::ValidateSceneLayers(scene);
   if (layerValidation.status != layerdomain::LayerStatus::Success) {
-    zip.Close();
     return failExport("ValidateLayers", "GeneralSceneDescription.xml", {},
                       layerValidation.message.empty()
                           ? layerdomain::StatusMessage(layerValidation.status)
@@ -2749,7 +2736,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                    MvrExportDiagnosticSeverity::Error,
                    MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {}, {},
                    "MVR 1.6 structural validation failed."});
-    zip.Close();
     return false;
   }
   for (const std::string &warning : validationWarnings)
@@ -2763,101 +2749,28 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   doc.Print(&printer);
   std::string xmlData = printer.CStr();
   if (!IsValidUtf8(xmlData)) {
-    zip.Close();
     return failExport("ValidateXmlUtf8", "GeneralSceneDescription.xml", {},
                       "serialized XML is not valid UTF-8");
   }
   tinyxml2::XMLDocument strictParse;
   if (strictParse.Parse(xmlData.c_str(), xmlData.size()) != tinyxml2::XML_SUCCESS) {
-    zip.Close();
     return failExport("ValidateXmlParse", "GeneralSceneDescription.xml", {},
                       "serialized XML failed strict parse");
   }
 
-  std::unordered_set<std::string> writtenArchiveEntries;
-  {
-    if (!writtenArchiveEntries.insert("GeneralSceneDescription.xml").second) {
-      zip.Close();
-      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
-                        "duplicate ZIP entry");
-    }
-    auto *entry = new wxZipEntry("GeneralSceneDescription.xml");
-    entry->SetMethod(wxZIP_METHOD_DEFLATE);
-    if (!zip.PutNextEntry(entry)) {
-      zip.Close();
-      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
-                        "could not create ZIP entry");
-    }
-    zip.Write(xmlData.c_str(), xmlData.size());
-    if (!zip.IsOk()) {
-      zip.CloseEntry();
-      zip.Close();
-      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
-                        "could not write XML bytes");
-    }
-    if (!zip.CloseEntry()) {
-      zip.Close();
-      return failExport("WriteXml", "GeneralSceneDescription.xml", {},
-                        "could not close ZIP entry");
-    }
-  }
-
+  mvr_export_archive::Request archiveRequest;
+  archiveRequest.destinationPath = filePath;
+  archiveRequest.sceneXml = std::move(xmlData);
   for (const auto &resource : resourceEntries) {
-    if (!fs::exists(resource.sourcePath) || resource.archivePath.empty())
-      continue;
-    if (!writtenArchiveEntries.insert(resource.archivePath).second) {
-      zip.Close();
-      return failExport("WriteResource", resource.archivePath,
-                        resource.sourcePath.string(), "duplicate ZIP entry");
-    }
-    auto *e = new wxZipEntry(resource.archivePath);
-    e->SetMethod(wxZIP_METHOD_DEFLATE);
-    if (!zip.PutNextEntry(e)) {
-      zip.Close();
-      return failExport("WriteResource", resource.archivePath,
-                        resource.sourcePath.string(),
-                        "could not create ZIP entry");
-    }
-    std::ifstream in(resource.sourcePath, std::ios::binary);
-    if (!in.is_open()) {
-      zip.CloseEntry();
-      zip.Close();
-      return failExport("WriteResource", resource.archivePath,
-                        resource.sourcePath.string(),
-                        "could not open source file");
-    }
-    char buf[4096];
-    while (in.good()) {
-      in.read(buf, sizeof(buf));
-      std::streamsize s = in.gcount();
-      if (s > 0) {
-        zip.Write(buf, s);
-        if (!zip.IsOk()) {
-          zip.CloseEntry();
-          zip.Close();
-          return failExport("WriteResource", resource.archivePath,
-                            resource.sourcePath.string(),
-                            "could not write resource bytes");
-        }
-      }
-    }
-    if (in.bad()) {
-      zip.CloseEntry();
-      zip.Close();
-      return failExport("WriteResource", resource.archivePath,
-                        resource.sourcePath.string(),
-                        "could not read source file");
-    }
-    if (!zip.CloseEntry()) {
-      zip.Close();
-      return failExport("WriteResource", resource.archivePath,
-                        resource.sourcePath.string(),
-                        "could not close ZIP entry");
-    }
+    if (fs::exists(resource.sourcePath) && !resource.archivePath.empty())
+      archiveRequest.resources.push_back(
+          {resource.sourcePath, resource.archivePath});
   }
-
-  if (!zip.Close())
-    return failExport("FinalizeArchive", {}, filePath, "could not close ZIP");
+  const mvr_export_archive::Result archiveResult =
+      mvr_export_archive::Write(archiveRequest);
+  if (!archiveResult.success)
+    return failExport(archiveResult.operation, archiveResult.archivePath,
+                      archiveResult.sourcePath, archiveResult.reason);
   return true;
 }
 
@@ -2887,77 +2800,20 @@ bool MvrExporter::SerializeSnapshotToBuffer(
   outBytes.clear();
   m_exportDiagnostics.clear();
   m_exportWarningAdapter.clear();
-  runtime_storage::TemporaryWorkspace bufferWorkspace("mvr-export-buffer");
-  if (!bufferWorkspace.IsValid()) {
-    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
-                   MvrExportDiagnosticSeverity::Error,
-                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {}, {},
-                   "MVR export could not create its temporary archive workspace."});
+  const mvr_export_transport::Result result = mvr_export_transport::WriteToBuffer(
+      [&](const std::string &path) {
+        return SerializeSnapshotToFile(scene, path, options);
+      },
+      outBytes);
+  if (result.success)
+    return true;
+  if (result.archiveWriteFailed)
     return false;
-  }
-  const std::string tempPath =
-      (bufferWorkspace.Path() / "export-buffer.mvr").string();
-  wxFileName tempFile(wxString::FromUTF8(tempPath));
-  const bool exported = SerializeSnapshotToFile(scene, tempPath, options);
-  if (!exported) {
-    wxRemoveFile(tempFile.GetFullPath());
-    return false;
-  }
-  std::error_code sizeEc;
-  const auto tempSize = fs::exists(tempPath, sizeEc) && !sizeEc
-                            ? fs::file_size(tempPath, sizeEc)
-                            : 0;
-  if (sizeEc || tempSize == 0) {
-    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
-                   MvrExportDiagnosticSeverity::Error,
-                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                   "export-buffer.mvr",
-                   "MVR export-to-buffer produced an empty or unreadable file '" +
-                       tempPath + "' size=" + std::to_string(tempSize)});
-    wxRemoveFile(tempFile.GetFullPath());
-    return false;
-  }
-
-  std::ifstream input(tempPath, std::ios::binary);
-  if (!input.is_open()) {
-    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
-                   MvrExportDiagnosticSeverity::Error,
-                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                   "export-buffer.mvr",
-                   "MVR export-to-buffer could not open " + tempPath});
-    wxRemoveFile(tempFile.GetFullPath());
-    return false;
-  }
-
-  input.seekg(0, std::ios::end);
-  const std::streampos size = input.tellg();
-  input.seekg(0, std::ios::beg);
-  if (size <= 0) {
-    input.close();
-    wxRemoveFile(tempFile.GetFullPath());
-    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
-                   MvrExportDiagnosticSeverity::Error,
-                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                   "export-buffer.mvr",
-                   "MVR export-to-buffer read zero bytes from " + tempPath});
-    return false;
-  }
-  outBytes.resize(static_cast<size_t>(size));
-  input.read(reinterpret_cast<char *>(outBytes.data()), size);
-
-  const bool readOk = input.good() || input.eof();
-  input.close();
-  wxRemoveFile(tempFile.GetFullPath());
-  if (!readOk || outBytes.empty()) {
-    AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
-                   MvrExportDiagnosticSeverity::Error,
-                   MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                   "export-buffer.mvr",
-                   "MVR export-to-buffer failed to read payload from " +
-                       tempPath});
-    return false;
-  }
-  return true;
+  AddDiagnostic({MvrExportDiagnosticCode::ArchiveIoFailed,
+                 MvrExportDiagnosticSeverity::Error,
+                 MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
+                 result.archivePath, result.reason});
+  return false;
 }
 
 // Records a diagnostic once and writes its technical form to the persistent log.
