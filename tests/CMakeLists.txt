@@ -2929,10 +2929,23 @@ add_test(NAME SelectionDragMath COMMAND selection_drag_math_test)
 add_executable(viewer3d_interaction_policy_test
                viewer3d_interaction_policy_test.cpp
                ../viewer3d/interaction/navigation_interaction_policy.cpp
+               ../viewer3d/interaction/selection_drag_activation.cpp
                ../viewer3d/interaction/selection_interaction_policy.cpp)
 target_include_directories(viewer3d_interaction_policy_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME Viewer3DInteractionPolicy COMMAND viewer3d_interaction_policy_test)
+
+add_executable(viewer3d_scene_selection_policy_test
+               viewer3d_scene_selection_policy_test.cpp
+               ../viewer3d/interaction/scene_selection_policy.cpp
+               ../viewer3d/interaction/selection_interaction_policy.cpp
+               ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp
+               ../models/mvrscene.cpp)
+target_include_directories(viewer3d_scene_selection_policy_test PRIVATE
+                           ../viewer3d/interaction ../core ../models)
+add_test(NAME Viewer3DSceneSelectionPolicy
+         COMMAND viewer3d_scene_selection_policy_test)
 
 add_executable(viewer3d_context_menu_model_test
                viewer3d_context_menu_model_test.cpp

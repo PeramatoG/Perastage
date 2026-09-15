@@ -1,4 +1,5 @@
 #include "../viewer3d/interaction/navigation_interaction_policy.h"
+#include "../viewer3d/interaction/selection_drag_activation.h"
 #include "../viewer3d/interaction/selection_interaction_policy.h"
 
 #include <cassert>
@@ -30,9 +31,50 @@ int main() {
   assert(ResolveWheelZoomSteps(-240, 120) == 2.0f);
   assert(!ResolveWheelZoomSteps(120, 0));
   assert(!ResolveWheelZoomSteps(0, 120));
-  assert(!HasSelectionDragStarted(2, -2, 3));
-  assert(HasSelectionDragStarted(3, 0, 3));
-  assert(HasSelectionDragStarted(0, -3, 3));
+  const auto left = ResolveKeyboardCameraInput({CameraDirection::Left});
+  const auto right = ResolveKeyboardCameraInput({CameraDirection::Right});
+  const auto up = ResolveKeyboardCameraInput({CameraDirection::Up});
+  const auto down = ResolveKeyboardCameraInput({CameraDirection::Down});
+  assert(left.action == KeyboardCameraIntent::Action::Orbit &&
+         left.horizontal == -5.0f && left.vertical == 0.0f);
+  assert(right.action == KeyboardCameraIntent::Action::Orbit &&
+         right.horizontal == 5.0f && right.vertical == 0.0f);
+  assert(up.action == KeyboardCameraIntent::Action::Orbit &&
+         up.horizontal == 0.0f && up.vertical == 5.0f);
+  assert(down.action == KeyboardCameraIntent::Action::Orbit &&
+         down.horizontal == 0.0f && down.vertical == -5.0f);
+  const auto shifted =
+      ResolveKeyboardCameraInput({CameraDirection::Down, true, true});
+  assert(shifted.action == KeyboardCameraIntent::Action::Pan &&
+         shifted.horizontal == 0.0f && shifted.vertical == -0.1f);
+  const auto altUp =
+      ResolveKeyboardCameraInput({CameraDirection::Up, false, true});
+  const auto altRight =
+      ResolveKeyboardCameraInput({CameraDirection::Right, false, true});
+  assert(altUp.action == KeyboardCameraIntent::Action::Zoom &&
+         altUp.horizontal == -1.0f);
+  assert(altRight.action == KeyboardCameraIntent::Action::Zoom &&
+         altRight.horizontal == 1.0f);
+
+  SelectionDragActivation activation;
+  const auto armedAt = std::chrono::steady_clock::time_point{};
+  assert(activation.Evaluate(armedAt, 20, 20) ==
+         SelectionDragActivation::Decision::Inactive);
+  activation.Arm(armedAt);
+  assert(activation.Evaluate(armedAt + std::chrono::milliseconds(119), 20, 0) ==
+         SelectionDragActivation::Decision::WaitingForDelay);
+  assert(activation.Evaluate(armedAt + std::chrono::milliseconds(120), 2, -2) ==
+         SelectionDragActivation::Decision::WaitingForMovement);
+  assert(activation.Evaluate(armedAt + std::chrono::milliseconds(120), 3, 0) ==
+         SelectionDragActivation::Decision::Active);
+  activation.MarkMoved();
+  assert(activation.HasMoved());
+  assert(activation.Evaluate(armedAt + std::chrono::milliseconds(120), 0, 0) ==
+         SelectionDragActivation::Decision::Active);
+  activation.Reset();
+  assert(!activation.IsArmed() && !activation.HasMoved());
+  assert(activation.Evaluate(armedAt + std::chrono::seconds(1), 20, 20) ==
+         SelectionDragActivation::Decision::Inactive);
 
   NavigationSession session;
   assert(!session.IsActive() && !session.HasMoved());

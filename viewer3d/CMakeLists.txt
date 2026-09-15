@@ -6,6 +6,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_math.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/context_menu_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/navigation_interaction_policy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_activation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_interaction_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/scene_selection_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/labels/label_render_system.cpp
@@ -41,6 +42,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller_cache_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_camera_input.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dviewfit.cpp
 )
 

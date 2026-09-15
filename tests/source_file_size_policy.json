@@ -35,6 +35,6 @@
     "viewer2d/viewer2dpanel.cpp": 4550,
     "viewer3d/gdtfloader.cpp": 2537,
     "viewer3d/viewer3dcontroller.cpp": 2402,
-    "viewer3d/viewer3dpanel.cpp": 4438
+    "viewer3d/viewer3dpanel.cpp": 4268
   }
 }

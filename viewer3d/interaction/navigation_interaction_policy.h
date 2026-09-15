@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../../viewer_common/viewport_mouse_navigation.h"
+
 #include <optional>
 
 namespace viewer3d::interaction {
@@ -56,14 +58,30 @@ struct CameraDragIntent {
   float vertical = 0.0f;
 };
 
+enum class CameraDirection { Left, Right, Up, Down };
+
+struct KeyboardCameraInput {
+  CameraDirection direction = CameraDirection::Left;
+  bool shiftDown = false;
+  bool altDown = false;
+};
+
+struct KeyboardCameraIntent {
+  enum class Action { Orbit, Pan, Zoom };
+
+  Action action = Action::Orbit;
+  float horizontal = 0.0f;
+  float vertical = 0.0f;
+};
+
 // Resolves a pointer movement into a camera action without widget dependencies.
 std::optional<CameraDragIntent> ResolveCameraDrag(const CameraDragInput &input);
 
+// Resolves an arrow-key gesture into the established camera action and delta.
+KeyboardCameraIntent
+ResolveKeyboardCameraInput(const KeyboardCameraInput &input);
+
 // Converts a platform wheel report into the established signed zoom step count.
 std::optional<float> ResolveWheelZoomSteps(int rotation, int wheelDelta);
-
-// Reports whether pointer travel has crossed the per-axis selection drag
-// threshold.
-bool HasSelectionDragStarted(int deltaX, int deltaY, int thresholdPixels);
 
 } // namespace viewer3d::interaction

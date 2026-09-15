@@ -39,14 +39,12 @@ ResolveCameraDrag(const CameraDragInput &input) {
     return std::nullopt;
 
   if (input.mode == NavigationMode::Orbit && input.orbitButtonDown) {
-    float horizontal = static_cast<float>(deltaX) * 0.5f;
-    float vertical = -static_cast<float>(deltaY) * 0.5f;
-    if (input.orbitPreferences.invertHorizontal)
-      horizontal = -horizontal;
-    if (input.orbitPreferences.invertVertical)
-      vertical = -vertical;
-    return CameraDragIntent{CameraDragIntent::Action::Orbit, horizontal,
-                            vertical};
+    const auto deltas = viewport_navigation::ResolveOrbitDeltas(
+        static_cast<float>(deltaX) * 0.5f, -static_cast<float>(deltaY) * 0.5f,
+        input.orbitPreferences.invertHorizontal,
+        input.orbitPreferences.invertVertical);
+    return CameraDragIntent{CameraDragIntent::Action::Orbit, deltas.first,
+                            deltas.second};
   }
   if (input.mode == NavigationMode::Pan && input.panGestureActive) {
     return CameraDragIntent{CameraDragIntent::Action::Pan,
@@ -54,6 +52,33 @@ ResolveCameraDrag(const CameraDragInput &input) {
                             static_cast<float>(deltaY) * 0.01f};
   }
   return std::nullopt;
+}
+
+// Resolves an arrow-key gesture into the established camera action and delta.
+KeyboardCameraIntent
+ResolveKeyboardCameraInput(const KeyboardCameraInput &input) {
+  const float horizontalDirection =
+      input.direction == CameraDirection::Left    ? -1.0f
+      : input.direction == CameraDirection::Right ? 1.0f
+                                                  : 0.0f;
+  const float verticalDirection = input.direction == CameraDirection::Up ? 1.0f
+                                  : input.direction == CameraDirection::Down
+                                      ? -1.0f
+                                      : 0.0f;
+
+  if (input.shiftDown) {
+    return {KeyboardCameraIntent::Action::Pan, horizontalDirection * 0.1f,
+            verticalDirection * 0.1f};
+  }
+  if (input.altDown) {
+    const float zoom = input.direction == CameraDirection::Left ||
+                               input.direction == CameraDirection::Up
+                           ? -1.0f
+                           : 1.0f;
+    return {KeyboardCameraIntent::Action::Zoom, zoom, 0.0f};
+  }
+  return {KeyboardCameraIntent::Action::Orbit, horizontalDirection * 5.0f,
+          verticalDirection * 5.0f};
 }
 
 // Converts a platform wheel report into the established signed zoom step count.
@@ -65,13 +90,6 @@ std::optional<float> ResolveWheelZoomSteps(int rotation, int wheelDelta) {
   if (steps == 0.0f || !std::isfinite(steps))
     return std::nullopt;
   return steps;
-}
-
-// Reports whether pointer travel has crossed the per-axis selection drag
-// threshold.
-bool HasSelectionDragStarted(int deltaX, int deltaY, int thresholdPixels) {
-  return std::abs(deltaX) >= thresholdPixels ||
-         std::abs(deltaY) >= thresholdPixels;
 }
 
 } // namespace viewer3d::interaction

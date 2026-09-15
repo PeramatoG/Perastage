@@ -59,6 +59,7 @@
 #include "interaction/navigation_interaction_policy.h"
 #include "interaction/selection_interaction_policy.h"
 #include "interaction/scene_selection_policy.h"
+#include "interaction/selection_drag_activation.h"
 #include "../viewer_common/screen_line_projection.h"
 #include "viewport_interaction_scope.h"
 #include "magnet_snap.h"
@@ -112,11 +113,8 @@ wxEND_EVENT_TABLE()
 
 namespace {
 constexpr auto kPauseDelay = std::chrono::milliseconds(200);
-constexpr int kZoomInteractionTimeoutMs = 260;
 constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
 constexpr auto kResourceSyncInterval = std::chrono::milliseconds(250);
-constexpr int kSelectionDragDelayMs = 120;
-constexpr int kSelectionDragStartThresholdPx = 3;
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
@@ -1103,7 +1101,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
       m_forceHoverQuery ||
         (nowForHover - m_lastHoverQueryTime) >= kHoverQueryInterval;
     const bool hoverQueriesPausedForInteraction =
-        m_cameraMoving || m_isInteracting || m_navigationSession.IsActive() || m_selectionDragArmed;
+        m_cameraMoving || m_isInteracting || m_navigationSession.IsActive() || m_selectionDragActivation.IsArmed();
     if (hoverQueriesPausedForInteraction && shouldUpdateHoverQuery)
     viewer3d::diagnostics::Log(
         "Hover picking paused during active interaction.");
@@ -1203,7 +1201,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
 
     if (m_rectSelecting)
         DrawSelectionRectangle(w, h);
-    if (m_selectionDragArmed && !m_linePointSelectionActive)
+    if (m_selectionDragActivation.IsArmed() && !m_linePointSelectionActive)
         DrawSelectionDragGizmo(renderSize);
     if (m_linePointSelectionActive) {
         const auto lineStart =
@@ -1240,7 +1238,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     const auto magnetReferences = ConfigManager::Get().GetValue(
         magnet_snap::kShowAnchorReferencesConfigKey);
     const auto magnetSource = BuildActiveMagnetSource();
-    if (!m_linePointSelectionActive && magnetSource && m_selectionDragArmed &&
+    if (!m_linePointSelectionActive && magnetSource && m_selectionDragActivation.IsArmed() &&
         (!magnetReferences || *magnetReferences != "0")) {
         auto toMeters = [](const std::array<float, 3> &pointMm) {
             return std::array<float, 3>{pointMm[0] / 1000.0f,
@@ -1786,7 +1784,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     if (event.MiddleDown() &&
-        (m_navigationSession.IsActive() || m_rectSelecting || m_selectionDragArmed))
+        (m_navigationSession.IsActive() || m_rectSelecting || m_selectionDragActivation.IsArmed()))
         return;
     if (m_linePointSelectionActive && event.LeftDown()) {
         m_linePointSelectionConsumeMouseUp = true;
@@ -1922,10 +1920,10 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         return;
     }
 
-  if (event.LeftUp() && m_selectionDragArmed) {
+  if (event.LeftUp() && m_selectionDragActivation.IsArmed()) {
         if (HasCapture())
             ReleaseMouse();
-        if (m_selectionDragMoved) {
+        if (m_selectionDragActivation.HasMoved()) {
             CommitActiveMagnetSnap();
             FinalizeSelectionDrag();
             m_navigationSession.MarkMoved();
@@ -2722,10 +2720,8 @@ void Viewer3DPanel::DrawSelectionRectangle(int width, int height) {
 
 // Clears all transient selection-drag state.
 void Viewer3DPanel::ResetSelectionDragState() {
-    m_selectionDragArmed = false;
-    m_selectionDragMoved = false;
+    m_selectionDragActivation.Reset();
     m_selectionDragUndoPushed = false;
-    m_selectionDragPressTime = 0;
     m_selectionDragTarget = HoverTargetTable::None;
     m_dragSelectionUuids.clear();
     m_dragFixtureUuids.clear();
@@ -2858,10 +2854,8 @@ bool Viewer3DPanel::PrepareSelectionDrag(const wxPoint &mousePos) {
 
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_pendingMagnetSnap.reset();
-    m_selectionDragArmed = true;
-    m_selectionDragMoved = false;
+    m_selectionDragActivation.Arm(std::chrono::steady_clock::now());
     m_selectionDragUndoPushed = false;
-    m_selectionDragPressTime = wxGetLocalTimeMillis();
     viewer3d::diagnostics::Logf("Selection dragging prepared target=%d count=%zu",
                               static_cast<int>(target),
                               m_dragSelectionUuids.size());
@@ -3222,9 +3216,9 @@ void Viewer3DPanel::FinalizeSelectionDrag() {
   viewer3d::diagnostics::Logf(
       "Selection dragging finalize moved=%d fixtures=%zu trusses=%zu "
       "objects=%zu",
-                                m_selectionDragMoved ? 1 : 0, m_dragFixtureUuids.size(),
+                                m_selectionDragActivation.HasMoved() ? 1 : 0, m_dragFixtureUuids.size(),
                                 m_dragTrussUuids.size(), m_dragSceneObjectUuids.size());
-    if (!m_selectionDragMoved)
+    if (!m_selectionDragActivation.HasMoved())
         return;
 
     ConfigManager& cfg = ConfigManager::Get();
@@ -3269,7 +3263,7 @@ void Viewer3DPanel::BeginContinuousPlacement(
     m_placementViewRevision.Invalidate();
     m_continuousPlacementUuid = elementUuid;
     m_continuousPlacedUuids.clear();
-    m_selectionDragArmed = true;
+    m_selectionDragActivation.Arm(std::chrono::steady_clock::now());
     m_selectionDragUndoPushed = true;
   m_selectionDragTarget =
       type == ContinuousPlacementType::Fixture ? HoverTargetTable::Fixtures
@@ -3345,7 +3339,7 @@ void Viewer3DPanel::BeginClipboardBatchPlacement(
     if (anchorCount > 0)
         for (float &coordinate : m_selectionDragAnchorMeters)
             coordinate /= static_cast<float>(anchorCount);
-    m_selectionDragArmed = true;
+    m_selectionDragActivation.Arm(std::chrono::steady_clock::now());
     m_selectionDragUndoPushed = true;
     m_pendingMagnetSnap.reset();
     m_placementViewRevision.Invalidate();
@@ -3550,7 +3544,7 @@ void Viewer3DPanel::RefreshContinuousPlacementViews() {
 
 // Draws the axis gizmo for an armed or active selection drag.
 void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize &renderSize) {
-    if (!m_selectionDragArmed || m_dragSelectionUuids.empty() ||
+    if (!m_selectionDragActivation.IsArmed() || m_dragSelectionUuids.empty() ||
         !renderSize.IsValid()) {
         return;
     }
@@ -3621,34 +3615,20 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize &renderSize) {
     glMatrixMode(GL_MODELVIEW);
 }
 
-// Applies the standard orbit or pan response for an active camera drag.
-void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
-                                    const wxPoint& mousePos)
+// Translates wx pointer state into a GUI-independent camera drag intent.
+std::optional<viewer3d::interaction::CameraDragIntent>
+Viewer3DPanel::ResolveCameraDragIntent(const wxMouseEvent& event,
+                                      const wxPoint& mousePos) const
 {
-    const auto intent = viewer3d::interaction::ResolveCameraDrag({
+    return viewer3d::interaction::ResolveCameraDrag({
         m_navigationSession.GetMode(),
-        {m_lastMousePos.x, m_lastMousePos.y},
-        {mousePos.x, mousePos.y},
+        {m_lastMousePos.x, m_lastMousePos.y}, {mousePos.x, mousePos.y},
         event.LeftIsDown() || event.RightIsDown(),
         event.MiddleIsDown() || event.RightIsDown() || event.ShiftDown(),
         {IsHorizontalOrbitInversionEnabled(),
          IsVerticalOrbitInversionEnabled()}});
-    if (!intent)
-        return;
-
-    m_navigationSession.MarkMoved();
-    m_isInteracting = true;
-    m_cameraMoving = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
-    if (intent->action ==
-        viewer3d::interaction::CameraDragIntent::Action::Orbit) {
-        m_camera.Orbit(intent->horizontal, intent->vertical);
-    } else {
-        m_camera.Pan(intent->horizontal, intent->vertical);
-    }
-    m_lastMousePos = mousePos;
-    m_placementViewRevision.Invalidate();
 }
+
 
 // Aligns the provisional fixture with the raw view-plane position under the
 // pointer.
@@ -3673,7 +3653,7 @@ bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
     m_continuousConstraintReferenceValid = false;
     m_continuousAxisSwitchArmed = true;
-    m_selectionDragMoved = true;
+    m_selectionDragActivation.MarkMoved();
     m_lastMousePos = mousePos;
     return true;
 }
@@ -3703,7 +3683,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         if (GetClientRect().Contains(livePos))
             pos = livePos;
         if (m_navigationSession.IsActive() && event.Dragging()) {
-            ApplyCameraDrag(event, pos);
+            if (const auto intent = ResolveCameraDragIntent(event, pos))
+                ApplyCameraIntent(*intent, pos);
             PresentContinuousPlacementFrame();
             return;
         }
@@ -3803,7 +3784,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                     if (worldDelta[0] != 0.0f || worldDelta[1] != 0.0f ||
                         worldDelta[2] != 0.0f) {
                         ApplySelectionDragDelta(worldDelta);
-                        m_selectionDragMoved = true;
+                        m_selectionDragActivation.MarkMoved();
                     }
                 }
             } else {
@@ -3819,7 +3800,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
           ApplySelectionDragDelta({(*currentPoint)[0] - (*lastPoint)[0],
                          (*currentPoint)[1] - (*lastPoint)[1],
                          (*currentPoint)[2] - (*lastPoint)[2]});
-                    m_selectionDragMoved = true;
+                    m_selectionDragActivation.MarkMoved();
                 } else {
                     m_lastMousePos = pos;
                     m_placementViewRevision.Invalidate();
@@ -3836,7 +3817,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     }
   viewer3d::diagnostics::Logf(
       "Mouse move pos=(%d,%d) dragging=%d selectionDrag=%d rect=%d", pos.x,
-      pos.y, event.Dragging() ? 1 : 0, m_selectionDragArmed ? 1 : 0,
+      pos.y, event.Dragging() ? 1 : 0, m_selectionDragActivation.IsArmed() ? 1 : 0,
       m_rectSelecting ? 1 : 0);
   if (m_measureToolEnabled && m_measureHasAnchor &&
       !m_measureHasCommittedTarget) {
@@ -3851,18 +3832,18 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         return;
     }
 
-  if (m_selectionDragArmed && event.Dragging() && event.LeftIsDown()) {
-        if ((wxGetLocalTimeMillis() - m_selectionDragPressTime).ToLong() <
-            kSelectionDragDelayMs) {
+  if (m_selectionDragActivation.IsArmed() && event.Dragging() && event.LeftIsDown()) {
+        const int dx = pos.x - m_lastMousePos.x;
+        const int dy = pos.y - m_lastMousePos.y;
+        const auto activationDecision = m_selectionDragActivation.Evaluate(
+            std::chrono::steady_clock::now(), dx, dy);
+        if (activationDecision == viewer3d::interaction::
+                                      SelectionDragActivation::Decision::WaitingForDelay) {
             m_lastMousePos = pos;
             return;
         }
-
-        const int dx = pos.x - m_lastMousePos.x;
-        const int dy = pos.y - m_lastMousePos.y;
-    if (!m_selectionDragMoved &&
-        !viewer3d::interaction::HasSelectionDragStarted(
-            dx, dy, kSelectionDragStartThresholdPx))
+        if (activationDecision == viewer3d::interaction::
+                                      SelectionDragActivation::Decision::WaitingForMovement)
             return;
         if (dx != 0 || dy != 0) {
             const RenderSize renderSize = ResolveRenderSize(this);
@@ -3886,7 +3867,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                             axisVector[1] * static_cast<float>(axisDeltaMeters),
                             axisVector[2] * static_cast<float>(axisDeltaMeters)};
                         ApplySelectionDragDelta(worldDelta);
-                        m_selectionDragMoved = true;
+                        m_selectionDragActivation.MarkMoved();
                         m_navigationSession.MarkMoved();
                     }
                 } else {
@@ -3902,7 +3883,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                             (*currentPoint)[2] - (*lastPoint)[2]};
                         ApplySelectionDragDelta(worldDelta);
                         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
-                        m_selectionDragMoved = true;
+                        m_selectionDragActivation.MarkMoved();
                         m_navigationSession.MarkMoved();
                     }
                 }
@@ -3916,10 +3897,12 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         return;
     }
 
-    if (m_navigationSession.IsActive() && event.Dragging())
-        ApplyCameraDrag(event, pos);
-    else
+    if (m_navigationSession.IsActive() && event.Dragging()) {
+        if (const auto intent = ResolveCameraDragIntent(event, pos))
+            ApplyCameraIntent(*intent, pos);
+    } else {
         m_lastMousePos = pos;
+    }
 
     // Mark that the mouse has moved so OnPaint can update hover info
     m_mouseMoved = true;
@@ -3928,37 +3911,6 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     Refresh();
 }
 
-// Handles mouse wheel (zoom)
-void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
-    m_hasLastMousePos = true;
-    viewer3d::diagnostics::Logf("Mouse wheel start rotation=%d delta=%d",
-                                event.GetWheelRotation(), event.GetWheelDelta());
-    SetFocus();
-
-    // wxWidgets may report multiple wheel detents in a single event.
-    // Use the ratio of the rotation to the wheel delta to scale zoom
-    // steps accordingly so that large scrolls result in proportionally
-    // larger zoom changes.
-    const auto steps = viewer3d::interaction::ResolveWheelZoomSteps(
-        event.GetWheelRotation(), event.GetWheelDelta());
-    if (!steps) {
-    viewer3d::diagnostics::Log(
-        "Mouse wheel ignored because zoom steps are invalid or zero.");
-        return;
-    }
-    m_controller.SetInteracting(true);
-    m_isInteracting = true;
-    m_cameraMoving = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
-
-    m_camera.Zoom(*steps);
-    m_placementViewRevision.Invalidate();
-    if (m_continuousPlacementActive)
-        AlignContinuousElementToPointer(event.GetPosition());
-    ArmZoomInteractionTimeout();
-
-    Refresh();
-}
 
 // Opens an editor for the item under the double-click position.
 void Viewer3DPanel::OnMouseDClick(wxMouseEvent &event) {
@@ -4042,108 +3994,6 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent &event) {
     Refresh();
 }
 
-// Handles keyboard shortcuts for viewport tools and camera actions.
-void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
-    viewer3d::diagnostics::Logf("Key interaction start key=%d shift=%d alt=%d",
-                                event.GetKeyCode(), event.ShiftDown() ? 1 : 0,
-                                event.AltDown() ? 1 : 0);
-  if (!m_mouseInside && !HasFocus()) {
-    event.Skip();
-    return;
-  }
-    if (gui::IsEditableWidgetFocused(wxWindow::FindFocus())) {
-        event.Skip();
-        return;
-    }
-
-    bool shift = event.ShiftDown();
-    bool alt = event.AltDown();
-    bool zoomTriggered = false;
-
-    switch (event.GetKeyCode()) {
-        case WXK_ESCAPE:
-            if (m_linePointSelectionActive) {
-                CancelLinePointSelection();
-                return;
-            }
-            if (m_continuousPlacementActive) {
-                CancelContinuousPlacement();
-                return;
-            }
-            if (m_measureToolEnabled) {
-                SetMeasureToolEnabled(false);
-                return;
-            }
-            event.Skip();
-            return;
-        case 'M':
-        case 'm':
-            SetMeasureToolEnabled(!m_measureToolEnabled);
-            return;
-        case WXK_LEFT:
-            if (shift)
-                m_camera.Pan(-0.1f, 0.0f);
-            else if (alt) {
-                m_camera.Zoom(-1.0f);
-                zoomTriggered = true;
-            } else
-                m_camera.Orbit(-5.0f, 0.0f);
-            break;
-        case WXK_RIGHT:
-            if (shift)
-                m_camera.Pan(0.1f, 0.0f);
-            else if (alt) {
-                m_camera.Zoom(1.0f);
-                zoomTriggered = true;
-            } else
-                m_camera.Orbit(5.0f, 0.0f);
-            break;
-        case WXK_UP:
-            if (shift)
-                m_camera.Pan(0.0f, 0.1f);
-            else if (alt) {
-                m_camera.Zoom(-1.0f);
-                zoomTriggered = true;
-            } else
-                m_camera.Orbit(0.0f, 5.0f);
-            break;
-        case WXK_DOWN:
-            if (shift)
-                m_camera.Pan(0.0f, -0.1f);
-            else if (alt) {
-                m_camera.Zoom(1.0f);
-                zoomTriggered = true;
-            } else
-                m_camera.Orbit(0.0f, -5.0f);
-            break;
-        case WXK_DELETE:
-        case WXK_NUMPAD_DELETE: {
-            if (MainWindow::Instance()) {
-                wxCommandEvent deleteEvent(wxEVT_MENU, ID_Edit_Delete);
-                MainWindow::Instance()->GetEventHandler()->ProcessEvent(deleteEvent);
-                return;
-            }
-            event.Skip();
-            return;
-        }
-        default:
-            event.Skip();
-            return;
-    }
-
-    m_controller.SetInteracting(true);
-    m_isInteracting = true;
-    m_cameraMoving = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
-    if (zoomTriggered)
-        ArmZoomInteractionTimeout();
-    m_placementViewRevision.Invalidate();
-    if (m_continuousPlacementActive && m_hasLastMousePos)
-        AlignContinuousElementToPointer(m_lastMousePos);
-
-    viewer3d::diagnostics::Log("Key interaction end.");
-    Refresh();
-}
 
 // Resets the camera to its default isometric view.
 bool Viewer3DPanel::ResetCameraToIsometric() {
@@ -4390,27 +4240,7 @@ bool Viewer3DPanel::ShouldPauseHeavyTasks() {
     return false;
 }
 
-// Arms the timeout that ends wheel-driven zoom interaction.
-void Viewer3DPanel::ArmZoomInteractionTimeout() {
-    m_zoomInteractionTimer.StartOnce(kZoomInteractionTimeoutMs);
-}
 
-// Ends wheel-driven zoom interaction after input has gone idle.
-void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent &event) {
-    (void)event;
-
-    if (m_navigationSession.IsActive() || m_rectSelecting)
-        return;
-
-    m_isInteracting = false;
-    m_cameraMoving = false;
-    m_controller.SetInteracting(false);
-    m_controller.SetCameraMoving(false);
-    m_controller.MarkResourceSyncPending();
-    m_mouseMoved = true;
-    m_forceHoverQuery = true;
-    Refresh();
-}
 
 // Loads persisted camera state from configuration into the 3D camera.
 void Viewer3DPanel::LoadCameraFromConfig()
