@@ -15,6 +15,7 @@ Changes since **v1.6.0**.
 - Improved Windows Debug CI dependency performance by separating ABI-protected vcpkg binary archives from mutable installation trees, broadening safe cache reuse across runner updates, and adding cache-source and installation-time diagnostics.
 
 - Separated reusable mouse and keyboard camera navigation, pointer-drag activation state, and grouped selection decisions from the wxWidgets/OpenGL panel, with production-path interaction coverage, while preserving existing viewport behavior.
+- Separated reusable 3D viewer hover, refresh, interaction-settle, resource-sync cadence, and performance telemetry decisions from the wxWidgets/OpenGL panel while preserving existing viewport behavior.
 
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 

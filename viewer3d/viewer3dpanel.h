@@ -32,6 +32,7 @@
 #include "interaction/selection_drag_math.h"
 #include "interaction/navigation_interaction_policy.h"
 #include "interaction/selection_drag_activation.h"
+#include "interaction/viewer_runtime_policy.h"
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
 #include "ui_render_size.h"
@@ -84,7 +85,7 @@ public:
     Viewer3DCamera& GetCamera() { return m_camera; }
     const Viewer3DCamera& GetCamera() const { return m_camera; }
     bool ShouldPauseHeavyTasks();
-    bool IsCameraMoving() const { return m_cameraMoving; }
+    bool IsCameraMoving() const { return m_runtimeState.IsCameraMoving(); }
     void SetStandardView(Viewer2DView view);
     bool FrameSceneToFit();
     bool ResetCameraToIsometric();
@@ -142,7 +143,7 @@ public:
     bool IsClipboardPlacementActive() const;
     void CancelClipboardPlacement();
 
-    enum class HoverTargetTable { None, Fixtures, Trusses, SceneObjects };
+    using HoverTargetTable = viewer3d::interaction::HoverTarget;
 
 private:
     wxGLContext* m_glContext;
@@ -200,10 +201,7 @@ private:
     std::array<float, 3> m_continuousConstraintWorldOriginMeters{
         0.0f, 0.0f, 0.0f};
 
-    std::chrono::steady_clock::time_point m_lastInteractionTime{};
-    bool m_isInteracting = false;
-    bool m_cameraMoving = false;
-    std::chrono::steady_clock::time_point m_lastResourceSyncCheck{};
+    viewer3d::interaction::ViewerRuntimeState m_runtimeState;
     std::vector<std::string> m_lastAppliedSelectionUuids;
     std::vector<std::string> m_lastAppliedPrimarySelectionUuids;
 
@@ -288,40 +286,7 @@ private:
     wxString m_hoverText;
     std::string m_hoverUuid;
 
-    struct HoverQueryState {
-        wxPoint mouseFramebufferPos;
-        uint64_t cameraRevision = 0;
-        uint64_t hiddenLayersRevision = 0;
-        uint64_t sceneRevision = 0;
-    };
-    HoverQueryState m_lastHoverQueryState{};
-    bool m_hasLastHoverQueryState = false;
-    std::chrono::steady_clock::time_point m_lastHoverQueryTime{};
-    bool m_forceHoverQuery = false;
-    HoverTargetTable m_lastHoverTargetTable = HoverTargetTable::None;
-    uint64_t m_cameraRevision = 0;
-    uint64_t m_hiddenLayersRevision = 0;
-    uint64_t m_sceneRevision = 0;
-    uint64_t m_selectionRevision = 0;
-    uint64_t m_highlightRevision = 0;
-    size_t m_lastCameraFingerprint = 0;
-    size_t m_lastHiddenLayersFingerprint = 0;
-    size_t m_lastThreadCameraFingerprint = 0;
-    bool m_hasLastThreadCameraFingerprint = false;
     bool m_paintInProgress = false;
-    bool m_selectionRefreshPending = false;
-    bool m_highlightRefreshPending = false;
-    std::chrono::steady_clock::time_point m_refreshTelemetryWindowStart{};
-    int m_fullRefreshesInCurrentWindow = 0;
-    int m_highlightRefreshesInCurrentWindow = 0;
-    double m_fullRenderMsAccumInCurrentWindow = 0.0;
-    int m_fullRenderSamplesInCurrentWindow = 0;
-    double m_hoverQueryMsAccumInCurrentWindow = 0.0;
-    int m_hoverQuerySamplesInCurrentWindow = 0;
-    double m_highlightUpdateMsAccumInCurrentWindow = 0.0;
-    int m_highlightUpdateSamplesInCurrentWindow = 0;
-
-    // True when the mouse moved since the last paint
 
     bool m_measureToolEnabled = false;
     Viewer2DMeasureMode m_measureMode = Viewer2DMeasureMode::CenterToCenter;
@@ -348,8 +313,6 @@ private:
         const ISelectionContext::BoundingBox& a, const ISelectionContext::BoundingBox& b) const;
     // Draws the 3D measurement line and optional distance overlay.
     void DrawMeasureOverlay(const RenderSize& renderSize);
-    bool m_mouseMoved = false;
-
     // True once OpenGL/GLEW initialization has been performed
     bool m_glInitialized = false;
 
