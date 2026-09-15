@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -84,6 +85,13 @@ const ResourceEntry *FindEntry(const ResourcePlan &plan,
   return found == plan.entries.end() ? nullptr : &*found;
 }
 
+// Compares two existing paths by filesystem identity across supported platforms.
+bool PathsReferToSameFile(const fs::path &left, const fs::path &right) {
+  std::error_code error;
+  const bool equivalent = fs::equivalent(left, right, error);
+  return !error && equivalent;
+}
+
 } // namespace
 
 namespace ProjectUtils {
@@ -108,7 +116,7 @@ int main() {
 
   std::vector<MvrExportDiagnostic> diagnostics;
   std::vector<std::string> logs;
-  ResourceCollection collection(
+  auto collection = std::make_unique<ResourceCollection>(
       root.string(),
       [&](MvrExportDiagnostic diagnostic) {
         diagnostics.push_back(std::move(diagnostic));
@@ -119,13 +127,13 @@ int main() {
   const fs::path collision = root / "collision.bin";
   WriteFile(preserved, "preserved");
   WriteFile(collision, "collision");
-  const std::string first = collection.RegisterResource(
+  const std::string first = collection->RegisterResource(
       preserved.string(), "bad:name.bin", ResourceKind::Model,
       ResourceProvenance::StandardPreserved);
-  const std::string reused = collection.RegisterResource(
+  const std::string reused = collection->RegisterResource(
       preserved.string(), "ignored.bin", ResourceKind::Model,
       ResourceProvenance::StandardPreserved);
-  const std::string collided = collection.RegisterResource(
+  const std::string collided = collection->RegisterResource(
       collision.string(), "BAD_NAME.BIN", ResourceKind::Model,
       ResourceProvenance::StandardPreserved);
   Expect(first == "bad_name.bin", "filename sanitization changed", failures);
@@ -188,20 +196,20 @@ int main() {
   WriteFile(gltf,
             R"({"buffers":[{"uri":"local.bin"},{"uri":"data:abc"},{"uri":"http://example/a.bin"},{"uri":"https://example/b.bin"}]})");
   const std::string gltfArchive =
-      collection.RegisterModelResource(gltf.string(), "model.gltf");
+      collection->RegisterModelResource(gltf.string(), "model.gltf");
   const fs::path glb = root / "model.glb";
   WriteFile(root / "glb.bin", "glb");
   WriteFile(glb, MakeGlb(R"({"asset":{"version":"2.0"},"buffers":[{"uri":"glb.bin"}]})"));
   const std::string glbArchive =
-      collection.RegisterModelResource(glb.string(), "model.glb");
+      collection->RegisterModelResource(glb.string(), "model.glb");
   const fs::path model3ds = root / "model.3ds";
   WriteFile(root / "texture.png", "texture");
   WriteFile(model3ds, Make3dsWithTexture("texture.png"));
   const std::string threeDsArchive =
-      collection.RegisterModelResource(model3ds.string(), "model.3ds");
+      collection->RegisterModelResource(model3ds.string(), "model.3ds");
   const fs::path missingGltf = root / "missing.gltf";
   WriteFile(missingGltf, R"({"buffers":[{"uri":"missing.bin"}]})");
-  collection.RegisterModelResource(missingGltf.string(), "missing.gltf");
+  collection->RegisterModelResource(missingGltf.string(), "missing.gltf");
   Expect(std::any_of(diagnostics.begin(), diagnostics.end(),
                      [](const MvrExportDiagnostic &diagnostic) {
                        return diagnostic.code ==
@@ -210,18 +218,18 @@ int main() {
                      }),
          "missing dependency diagnostic changed", failures);
 
-  const std::string primitiveOne = collection.RegisterPrimitiveModelResource(
+  const std::string primitiveOne = collection->RegisterPrimitiveModelResource(
       " Primitive:Cube ", "object-one");
-  const std::string primitiveTwo = collection.RegisterPrimitiveModelResource(
+  const std::string primitiveTwo = collection->RegisterPrimitiveModelResource(
       "primitive:cube", "object-two");
   Expect(primitiveOne == primitiveTwo,
          "normalized primitive resource was not reused", failures);
 
   tests::gdtf::BuildMinimalValidFixture().WriteArchive(root / "fixture.gdtf");
-  const std::string gdtfArchive = collection.RegisterGdtfResource(
+  const std::string gdtfArchive = collection->RegisterGdtfResource(
       "fixture-uuid", (root / "fixture.gdtf").string(), "fixture.gdtf");
 
-  ResourcePlan pruned = collection.Finalize(
+  ResourcePlan pruned = collection->Finalize(
       {first, gltfArchive, glbArchive, threeDsArchive, primitiveOne,
        gdtfArchive});
   Expect(FindEntry(pruned, "local.bin") != nullptr,
@@ -252,19 +260,22 @@ int main() {
   Expect(preservedGdtf &&
              preservedGdtf->provenance ==
                  ResourceProvenance::StandardPreserved &&
-             preservedGdtf->sourcePath == root / "fixture.gdtf",
+             PathsReferToSameFile(preservedGdtf->sourcePath,
+                                  root / "fixture.gdtf"),
          "preserved GDTF state changed before preparation", failures);
 
   GdtfRewriteRequest rewrite;
   rewrite.hasWeightKg = true;
   rewrite.weightKg = 12.5f;
   GdtfPreparationResult prepared =
-      collection.PrepareGdtfResources({{gdtfArchive, rewrite}});
+      collection->PrepareGdtfResources({{gdtfArchive, rewrite}});
   Expect(prepared.success, "GDTF preparation failed", failures);
   const ResourceEntry *preparedGdtf = FindEntry(prepared.plan, gdtfArchive);
   Expect(preparedGdtf && fs::exists(preparedGdtf->sourcePath),
          "final GDTF source path is not package-ready", failures);
-  Expect(preparedGdtf && preparedGdtf->sourcePath != root / "fixture.gdtf",
+  Expect(preparedGdtf &&
+             !PathsReferToSameFile(preparedGdtf->sourcePath,
+                                   root / "fixture.gdtf"),
          "patched GDTF did not use a prepared source", failures);
   Expect(preparedGdtf && preparedGdtf->provenance ==
                             ResourceProvenance::StandardGenerated,
@@ -283,21 +294,41 @@ int main() {
                          prepared.plan.workspaceLeases.end(),
                          [&](const auto &lease) {
                            return lease &&
-                                  lease->Path() ==
-                                      preparedGdtf->sourcePath.parent_path();
+                                  PathsReferToSameFile(
+                                      lease->Path(),
+                                      preparedGdtf->sourcePath.parent_path());
                          }),
          "final GDTF workspace lease is stale", failures);
 
-  ResourceCollection failingCollection(root.string(), {}, {});
+  std::vector<MvrExportDiagnostic> failureDiagnostics;
+  auto failingCollection = std::make_unique<ResourceCollection>(
+      root.string(),
+      [&](MvrExportDiagnostic diagnostic) {
+        failureDiagnostics.push_back(std::move(diagnostic));
+      },
+      InformationalLogSink{});
   const fs::path invalidGdtf = root / "invalid.gdtf";
-  WriteFile(invalidGdtf, "not a zip");
-  const std::string invalidArchive = failingCollection.RegisterGdtfResource(
-      "invalid", invalidGdtf.string(), "invalid.gdtf");
-  failingCollection.Finalize({invalidArchive});
-  const GdtfPreparationResult failed =
-      failingCollection.PrepareGdtfResources({});
+  tests::gdtf::WriteMalformedXmlArchive(invalidGdtf);
+  const std::string invalidArchive = failingCollection->RegisterResource(
+      invalidGdtf.string(), "invalid.gdtf", ResourceKind::Gdtf,
+      ResourceProvenance::StandardPreserved);
+  failingCollection->Finalize({invalidArchive});
+  GdtfPreparationResult failed =
+      failingCollection->PrepareGdtfResources({});
   Expect(!failed.success && failed.failureOperation == "CanonicalizeGdtf",
          "GDTF preparation failure did not propagate", failures);
+  Expect(std::any_of(failureDiagnostics.begin(), failureDiagnostics.end(),
+                     [](const MvrExportDiagnostic &diagnostic) {
+                       return diagnostic.code ==
+                              MvrExportDiagnosticCode::CanonicalizationFailed;
+                     }),
+         "canonicalization failure diagnostic was not emitted", failures);
+
+  failed = {};
+  failingCollection.reset();
+  prepared = {};
+  pruned = {};
+  collection.reset();
 
   runtime_storage::SetRuntimeRootOverrideForTests({});
   fs::remove_all(root, cleanupError);
