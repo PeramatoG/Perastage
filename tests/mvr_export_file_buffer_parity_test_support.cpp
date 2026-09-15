@@ -3,6 +3,7 @@
 #include "configmanager.h"
 #include "layer.h"
 #include "mvrexporter.h"
+#include "wx_path_utils.h"
 
 #include <wx/mstream.h>
 #include <wx/wfstream.h>
@@ -54,7 +55,8 @@ void VerifyMvrExportFileBufferParity(ConfigManager &config,
   std::vector<uint8_t> buffer;
   assert(exporter.ExportToBuffer(buffer));
 
-  wxFileInputStream fileInput(filePath.generic_string());
+  wxFileInputStream fileInput(
+      WxPathUtils::WxStringFromFilesystemPath(filePath));
   assert(fileInput.IsOk());
   const auto fileEntries = ReadEntries(fileInput);
   wxMemoryInputStream bufferInput(buffer.data(), buffer.size());

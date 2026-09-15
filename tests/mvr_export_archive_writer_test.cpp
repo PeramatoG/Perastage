@@ -2,6 +2,7 @@
  * This file is part of Perastage.
  */
 #include "mvr_export_archive_writer.h"
+#include "wx_path_utils.h"
 
 #include <wx/init.h>
 #include <wx/wfstream.h>
@@ -19,7 +20,7 @@ namespace fs = std::filesystem;
 // Reads all payloads from an archive for exact characterization.
 static std::unordered_map<std::string, std::string>
 ReadEntries(const fs::path &path) {
-  wxFileInputStream input(path.string());
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(path));
   assert(input.IsOk());
   wxZipInputStream zip(input);
   std::unordered_map<std::string, std::string> entries;

@@ -3201,7 +3201,7 @@ set_perastage_test_labels(MvrExportArchiveWriterHeaderCompile
 add_executable(mvr_export_archive_writer_test
                mvr_export_archive_writer_test.cpp
                ../mvr/mvr_export_archive_writer.cpp)
-target_include_directories(mvr_export_archive_writer_test PRIVATE ../mvr)
+target_include_directories(mvr_export_archive_writer_test PRIVATE ../mvr ../core)
 target_link_libraries(mvr_export_archive_writer_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME MvrExportArchiveWriter COMMAND mvr_export_archive_writer_test)
 set_perastage_test_labels(MvrExportArchiveWriter

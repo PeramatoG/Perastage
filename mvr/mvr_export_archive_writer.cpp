@@ -9,6 +9,8 @@
  */
 #include "mvr_export_archive_writer.h"
 
+#include "wx_path_utils.h"
+
 #include <wx/wfstream.h>
 class wxZipStreamLink;
 #include <wx/zipstrm.h>
@@ -56,7 +58,8 @@ Result WriteBytes(wxZipOutputStream &zip,
 
 // Writes prepared XML and resources to an MVR ZIP package.
 Result Write(const Request &request) {
-  wxFileOutputStream output(request.destinationPath.string());
+  wxFileOutputStream output(
+      WxPathUtils::WxStringFromFilesystemPath(request.destinationPath));
   if (!output.IsOk())
     return Failure("OpenOutput", {}, request.destinationPath.string(),
                    "could not open output file");
