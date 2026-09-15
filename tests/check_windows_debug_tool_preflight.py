@@ -23,13 +23,31 @@ def require(text: str, needle: str, message: str) -> bool:
     return False
 
 
+def reject(text: str, needle: str, message: str) -> bool:
+    if needle not in text:
+        return True
+    print(message)
+    return False
+
+
+def require_line(text: str, expected: str, message: str) -> bool:
+    if expected in text.splitlines():
+        return True
+    print(message)
+    return False
+
+
 def main() -> int:
     text = WORKFLOW.read_text(encoding="utf-8")
     windows = text[text.index("  windows-debug:"):text.index("\n  macos-debug:")]
     prepare = workflow_step(text, "Prepare Windows Debug test tools")
     resolve_bash = workflow_step(text, "Resolve Git Bash for Windows tests")
     persist_toolchain = workflow_step(windows, "Persist Visual Studio Hostx64 x64 environment")
-    restore_vcpkg = workflow_step(windows, "Restore vcpkg installed packages and binary archives")
+    restore_vcpkg = workflow_step(windows, "Restore vcpkg binary archives")
+    binary_cache_key = next((line.strip() for line in restore_vcpkg.splitlines()
+                             if line.strip().startswith("key: ")), "")
+    binary_restore_keys = "\n".join(line.strip() for line in restore_vcpkg.splitlines()
+                                    if line.strip().startswith("vcpkg-binary-v4-"))
     write_cache = workflow_step(text, "Write Windows compiler-cache initial cache")
     configure = workflow_step(text, "Configure Windows Debug tests")
     validate = workflow_step(text, "Validate Windows Debug toolchain and sccache launcher")
@@ -50,7 +68,16 @@ def main() -> int:
     ok &= require(persist_toolchain, "$env:VCToolsInstallDir", "Windows cache identity must include the active MSVC toolset.")
     ok &= require(persist_toolchain, "$env:WindowsSDKVersion", "Windows cache identity must include the active Windows SDK.")
     ok &= require(persist_toolchain, "cache-identity=$cacheIdentity", "Windows Debug must publish a path-safe cache identity.")
-    ok &= require(restore_vcpkg, "steps.windows-toolchain.outputs.cache-identity", "The compiled vcpkg cache key must include the resolved Windows toolchain identity.")
+    ok &= require(restore_vcpkg, "path: .vcpkg-cache\\binary", "The Windows vcpkg cache must store binary archives.")
+    ok &= reject(restore_vcpkg, ".vcpkg-cache\\installed", "The Windows binary cache must not store the mutable installed tree.")
+    ok &= reject(restore_vcpkg, ".vcpkg-cache\\packages", "The Windows binary cache must not store the mutable packages tree.")
+    ok &= require(binary_cache_key, "key: vcpkg-binary-v4-", "The Windows binary cache must use the vcpkg-binary-v4 namespace.")
+    ok &= require(binary_cache_key, "${{ runner.os }}-${{ runner.arch }}-x64-windows-", "The Windows binary cache key must include the runner and triplet identities.")
+    ok &= require(binary_cache_key, "${{ steps.vcpkg-baseline.outputs.baseline }}", "The Windows binary cache key must include the pinned vcpkg baseline.")
+    ok &= require(binary_cache_key, "${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}", "The Windows binary cache key must include both dependency configuration inputs.")
+    ok &= require_line(binary_restore_keys, "vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.vcpkg-baseline.outputs.baseline }}-", "The Windows binary cache must provide a baseline-compatible restore prefix.")
+    ok &= require_line(binary_restore_keys, "vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-", "The Windows binary cache must provide a triplet-compatible restore prefix.")
+    ok &= reject(binary_cache_key, "steps.windows-toolchain.outputs.cache-identity", "The ABI-addressed vcpkg binary cache must not be fragmented by exact toolchain identity.")
     ok &= require(write_cache, "$bashExecutable = $env:PERASTAGE_GIT_BASH", "Initial-cache generation must read the validated Git Bash path.")
     ok &= require(write_cache, '--bash-executable "$bashExecutable"', "Initial-cache generation must pass the validated Git Bash path to its helper.")
     ok &= require(configure, 'cmake -S . -B build-windows-debug', "Windows Debug must configure with CMake.")
@@ -60,8 +87,8 @@ def main() -> int:
     if not (text.find("Resolve Git Bash for Windows tests") < text.find("Configure Windows Debug tests")):
         print("Windows Debug must resolve and probe Git Bash before CMake configure.")
         ok = False
-    if not (windows.find("Persist Visual Studio Hostx64 x64 environment") < windows.find("Restore vcpkg installed packages and binary archives")):
-        print("Windows Debug must resolve and persist its toolchain before restoring compiled vcpkg packages.")
+    if not (windows.find("Persist Visual Studio Hostx64 x64 environment") < windows.find("Restore vcpkg binary archives")):
+        print("Windows Debug must resolve and persist its toolchain before restoring vcpkg binary archives.")
         ok = False
     if "bash -lc 'printf" in resolve_bash or "bash --login" in resolve_bash:
         print("Windows Debug Git Bash probes must not use login-shell mode.")
