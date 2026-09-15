@@ -21,8 +21,6 @@
 #include "configmanager.h"
 #include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
-#include "gdtf_mutation_audit.h"
-#include "gdtf_canonicalizer.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
 #include "logger.h"
@@ -31,6 +29,7 @@
 #include "matrixutils.h"
 #include "mvr_preferences.h"
 #include "mvr_export_preparation.h"
+#include "mvr_export_resource_collection.h"
 #include "mvr_xml_document_writer.h"
 #include "mvr_xml_extension_writer.h"
 #include "mvr_xml_scene_object_writer.h"
@@ -72,31 +71,6 @@ class wxZipStreamLink;
 
 namespace fs = std::filesystem;
 
-struct GdtfOverrides {
-  std::string color;
-  bool hasWeightKg = false;
-  float weightKg = 0.0f;
-  bool hasPowerW = false;
-  float powerW = 0.0f;
-  bool hasLengthMm = false;
-  float lengthMm = 0.0f;
-  bool hasWidthMm = false;
-  float widthMm = 0.0f;
-  bool hasHeightMm = false;
-  float heightMm = 0.0f;
-  std::string manufacturer;
-  std::string model;
-};
-
-struct ResourceEntry {
-  fs::path sourcePath;
-  std::string archivePath;
-};
-
-struct ThreeDsChunkHeader {
-  uint16_t id = 0;
-  uint32_t length = 0;
-};
 
 using FixtureTypeInfoExport = mvr_xml_extension::FixtureTypeMetadata;
 
@@ -120,7 +94,7 @@ static bool ShouldExportSupportHoistInfo(const Support &support);
 static bool NearlyEqualPhysicalValue(float lhs, float rhs);
 static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
                                           const std::string &gdtfPath,
-                                          GdtfOverrides &overrides);
+                                          mvr_export_resources::GdtfRewriteRequest &overrides);
 static bool HasTrussInfoMetadata(const Truss &truss);
 static void AppendTrussInfoMetadata(tinyxml2::XMLDocument &doc,
                                     tinyxml2::XMLElement *trussInfoMap,
@@ -140,9 +114,6 @@ static constexpr const char *kLegacyFallbackFixtureGdtfFileName =
     "Generic 1ch.gdtf";
 static constexpr const char *kPerastageNamedLegacyFallbackFixtureGdtfFileName =
     "Generic@Generic_1ch@Perastage.gdtf";
-static constexpr const char *kPhysicalPropertiesRevisionText =
-    "Updated physical properties for Perastage MVR export";
-
 // Compares physical values using the exporter tolerance.
 static bool NearlyEqualPhysicalValue(float lhs, float rhs) {
   return std::fabs(lhs - rhs) <= 0.001f;
@@ -151,7 +122,7 @@ static bool NearlyEqualPhysicalValue(float lhs, float rhs) {
 // Decides whether fixture edits require a patched exported GDTF copy.
 static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
                                           const std::string &gdtfPath,
-                                          GdtfOverrides &overrides) {
+                                          mvr_export_resources::GdtfRewriteRequest &overrides) {
   if (!fixture.physicalPropertiesDirty || gdtfPath.empty())
     return false;
 
@@ -177,195 +148,6 @@ static bool FixtureNeedsPhysicalGdtfPatch(const Fixture &fixture,
   }
   return needsPatch;
 }
-
-// Reads a 3DS chunk header from the current stream position.
-static bool Read3dsChunkHeader(std::ifstream &file, ThreeDsChunkHeader &chunk) {
-  if (!file.read(reinterpret_cast<char *>(&chunk.id), sizeof(chunk.id)))
-    return false;
-  if (!file.read(reinterpret_cast<char *>(&chunk.length), sizeof(chunk.length)))
-    return false;
-  return true;
-}
-
-// Reads a null-terminated 3DS string without crossing its containing chunk.
-static std::string Read3dsCString(std::ifstream &file, std::streampos endPos) {
-  std::string output;
-  char ch = 0;
-  while (file.tellg() < endPos && file.read(&ch, 1)) {
-    if (ch == '\0')
-      break;
-    output.push_back(ch);
-  }
-  return output;
-}
-
-// Collects bitmap filenames referenced by standard 3DS material map chunks.
-static std::vector<std::string>
-Collect3dsTextureReferences(const fs::path &modelPath) {
-  std::vector<std::string> references;
-  std::ifstream file(modelPath, std::ios::binary);
-  if (!file.is_open())
-    return references;
-
-  ThreeDsChunkHeader root;
-  if (!Read3dsChunkHeader(file, root) || root.id != 0x4D4D)
-    return references;
-
-  std::unordered_set<std::string> seenRefs;
-  const std::streampos rootEnd = static_cast<std::streampos>(root.length);
-  while (file.tellg() < rootEnd) {
-    ThreeDsChunkHeader chunk;
-    if (!Read3dsChunkHeader(file, chunk))
-      break;
-    const std::streampos chunkData = file.tellg();
-    const std::streampos chunkEnd =
-        chunkData + static_cast<std::streamoff>(chunk.length - 6);
-    if (chunk.id != 0x3D3D) {
-      file.seekg(chunkEnd);
-      continue;
-    }
-
-    while (file.tellg() < chunkEnd) {
-      ThreeDsChunkHeader sub;
-      if (!Read3dsChunkHeader(file, sub))
-        break;
-      const std::streampos subData = file.tellg();
-      const std::streampos subEnd =
-          subData + static_cast<std::streamoff>(sub.length - 6);
-      if (sub.id != 0xAFFF) {
-        file.seekg(subEnd);
-        continue;
-      }
-
-      while (file.tellg() < subEnd) {
-        ThreeDsChunkHeader matChunk;
-        if (!Read3dsChunkHeader(file, matChunk))
-          break;
-        const std::streampos matData = file.tellg();
-        const std::streampos matEnd =
-            matData + static_cast<std::streamoff>(matChunk.length - 6);
-        if (matChunk.id != 0xA200) {
-          file.seekg(matEnd);
-          continue;
-        }
-
-        while (file.tellg() < matEnd) {
-          ThreeDsChunkHeader texChunk;
-          if (!Read3dsChunkHeader(file, texChunk))
-            break;
-          const std::streampos texData = file.tellg();
-          const std::streampos texEnd =
-              texData + static_cast<std::streamoff>(texChunk.length - 6);
-          if (texChunk.id == 0xA300) {
-            const std::string value = Read3dsCString(file, texEnd);
-            if (!value.empty() && seenRefs.insert(ToLowerAscii(value)).second)
-              references.push_back(value);
-          }
-          file.seekg(texEnd);
-        }
-      }
-    }
-  }
-
-  return references;
-}
-
-// Collects local external URIs from a glTF JSON document or GLB JSON chunk.
-static std::vector<std::string>
-CollectGltfExternalReferences(const fs::path &modelPath) {
-  std::vector<std::string> references;
-  std::ifstream file(modelPath, std::ios::binary);
-  if (!file.is_open())
-    return references;
-
-  std::ostringstream content;
-  content << file.rdbuf();
-  std::string jsonText = content.str();
-  if (ToLowerAscii(modelPath.extension().string()) == ".glb") {
-    constexpr uint32_t kGlbMagic = 0x46546C67;
-    constexpr uint32_t kJsonChunkType = 0x4E4F534A;
-    if (jsonText.size() < 20)
-      return references;
-    auto readUint32 = [&](size_t offset) {
-      const auto *bytes =
-          reinterpret_cast<const unsigned char *>(jsonText.data());
-      return static_cast<uint32_t>(bytes[offset]) |
-             (static_cast<uint32_t>(bytes[offset + 1]) << 8) |
-             (static_cast<uint32_t>(bytes[offset + 2]) << 16) |
-             (static_cast<uint32_t>(bytes[offset + 3]) << 24);
-    };
-    const uint32_t chunkLength = readUint32(12);
-    if (readUint32(0) != kGlbMagic || readUint32(16) != kJsonChunkType ||
-        chunkLength > jsonText.size() - 20)
-      return references;
-    jsonText = jsonText.substr(20, chunkLength);
-  }
-  if (jsonText.empty())
-    return references;
-
-  std::unordered_set<std::string> seenRefs;
-  const std::regex uriRegex(R"re("uri"\s*:\s*"([^"]+)")re");
-  for (std::sregex_iterator it(jsonText.begin(), jsonText.end(), uriRegex), end;
-       it != end; ++it) {
-    std::string uri = (*it)[1].str();
-    if (uri.empty())
-      continue;
-
-    const std::string lowerUri = ToLowerAscii(TrimAscii(uri));
-    // Embedded and remote resources do not correspond to archive entries.
-    if (lowerUri.rfind("data:", 0) == 0 || lowerUri.rfind("http://", 0) == 0 ||
-        lowerUri.rfind("https://", 0) == 0)
-      continue;
-
-    if (seenRefs.insert(ToLowerAscii(uri)).second)
-      references.push_back(std::move(uri));
-  }
-
-  return references;
-}
-
-// Resolves a model-internal local URI relative to the exported model source.
-static bool ResolveModelDependencyPath(const fs::path &modelPath,
-                                       const std::string &dependencyRef,
-                                       fs::path &resolvedPath) {
-  const std::string normalizedRef = TrimAscii(dependencyRef);
-  if (normalizedRef.empty())
-    return false;
-
-  const fs::path refPath = PathUtils::PathFromUtf8(normalizedRef);
-  if (refPath.is_absolute() && fs::exists(refPath)) {
-    resolvedPath = refPath;
-    return true;
-  }
-
-  const fs::path modelDir =
-      modelPath.has_parent_path() ? modelPath.parent_path() : fs::path();
-  if (modelDir.empty())
-    return false;
-
-  const fs::path direct = modelDir / refPath;
-  if (fs::exists(direct)) {
-    resolvedPath = direct;
-    return true;
-  }
-
-  std::error_code ec;
-  for (const auto &entry : fs::directory_iterator(
-           modelDir, fs::directory_options::skip_permission_denied, ec)) {
-    if (ec)
-      break;
-    if (!entry.is_regular_file())
-      continue;
-    if (ToLowerAscii(entry.path().filename().string()) ==
-        ToLowerAscii(refPath.filename().string())) {
-      resolvedPath = entry.path();
-      return true;
-    }
-  }
-
-  return false;
-}
-
 enum class TrussGeometryAuthority {
   MvrGeometry = 0,
   Gdtf = 1,
@@ -424,82 +206,6 @@ TruncateFileNamePreservingExtension(const std::string &fileName,
 // Sanitizes arbitrary input into a single portable archive filename.
 static std::string SanitizeArchiveFileName(const std::string &input,
                                            const std::string &fallbackName);
-
-static std::string ResolveFallbackFixtureGdtfPath() {
-  static const std::string resolvedPath = []() {
-    const fs::path basePath = ProjectUtils::GetBaseLibraryPath("fixtures");
-    const std::array<fs::path, 5> candidates = {
-        basePath / kDummyFallbackFixtureGdtfFileName,
-        basePath / kPerastageNamedDummyFallbackFixtureGdtfFileName,
-        basePath / kUnknownNamedDummyFallbackFixtureGdtfFileName,
-        basePath / kLegacyFallbackFixtureGdtfFileName,
-        basePath / kPerastageNamedLegacyFallbackFixtureGdtfFileName,
-    };
-    for (const fs::path &fallbackPath : candidates) {
-      std::error_code ec;
-      if (fs::exists(fallbackPath, ec) && !ec &&
-          fs::is_regular_file(fallbackPath, ec) && !ec) {
-        return fallbackPath.generic_string();
-      }
-    }
-    return std::string{};
-  }();
-  return resolvedPath;
-}
-
-// Returns true when an archive filename is already reserved case-insensitively.
-static bool ContainsArchiveFileNameCaseInsensitive(
-    const std::unordered_set<std::string> &usedPaths,
-    const std::string &candidate) {
-  const std::string candidateKey = ToLowerAscii(candidate);
-  return std::any_of(usedPaths.begin(), usedPaths.end(),
-                     [&](const std::string &used) {
-                       return ToLowerAscii(used) == candidateKey;
-                     });
-}
-
-// Creates a unique root-level MVR archive filename from any source-like path.
-static std::string
-EnsureUniqueArchivePath(const std::string &proposed,
-                                           std::unordered_set<std::string> &usedPaths) {
-  constexpr size_t kMaxArchiveEntryNameLength = 120;
-  std::string normalized = SanitizeArchiveFileName(proposed, "resource.bin");
-  normalized = TruncateFileNamePreservingExtension(normalized,
-                                                   kMaxArchiveEntryNameLength);
-  if (normalized.empty() ||
-      fs::path(normalized).stem().generic_string().empty())
-    normalized = "resource.bin";
-  if (!ContainsArchiveFileNameCaseInsensitive(usedPaths, normalized)) {
-    usedPaths.insert(normalized);
-    return normalized;
-  }
-
-  fs::path stemPath = fs::path(normalized);
-  std::string ext = stemPath.extension().generic_string();
-  std::string stem = stemPath.stem().generic_string();
-  if (stem.empty())
-    stem = "resource";
-  int index = 1;
-  while (true) {
-    const std::string suffix = "_" + std::to_string(index + 1);
-    std::string adjustedStem = stem;
-    const size_t candidateMaxStemLength =
-        (kMaxArchiveEntryNameLength > ext.size() + suffix.size())
-            ? kMaxArchiveEntryNameLength - ext.size() - suffix.size()
-            : 0;
-    if (adjustedStem.size() > candidateMaxStemLength)
-      adjustedStem = adjustedStem.substr(0, candidateMaxStemLength);
-    if (adjustedStem.empty())
-      adjustedStem = "resource";
-    std::string candidate = adjustedStem + suffix + ext;
-    if (!ContainsArchiveFileNameCaseInsensitive(usedPaths, candidate)) {
-      usedPaths.insert(candidate);
-      return candidate;
-    }
-    ++index;
-  }
-}
-
 // Sanitizes arbitrary input into a single portable archive filename.
 static std::string SanitizeArchiveFileName(const std::string &input,
                                            const std::string &fallbackName) {
@@ -1533,45 +1239,6 @@ CollectReferencedArchivePaths(const tinyxml2::XMLDocument &doc) {
 
   return referencedPaths;
 }
-
-// Logs referenced and pruned archive paths to diagnose unexpected retained
-// resources.
-static void LogResourcePruneDiagnostics(
-    const std::unordered_set<std::string> &referencedArchivePaths,
-    const std::vector<ResourceEntry> &allResourceEntries,
-    const std::vector<ResourceEntry> &keptResourceEntries) {
-  std::unordered_set<std::string> keptNormalized;
-  keptNormalized.reserve(keptResourceEntries.size());
-  for (const auto &entry : keptResourceEntries) {
-    const std::string normalized = NormalizeArchiveEntryPath(entry.archivePath);
-    if (!normalized.empty())
-      keptNormalized.insert(normalized);
-  }
-
-  size_t prunedCount = 0;
-  for (const auto &entry : allResourceEntries) {
-    const std::string normalized = NormalizeArchiveEntryPath(entry.archivePath);
-    if (normalized.empty())
-      continue;
-    if (!keptNormalized.contains(normalized)) {
-      ++prunedCount;
-      Logger::Instance().Log(
-          Logger::Level::Info,
-          "MVR export pruned unreferenced archive resource: " + normalized);
-    }
-  }
-
-  Logger::Instance().Log(
-      Logger::Level::Info,
-      "MVR export resource pruning summary: referenced_paths=" +
-          std::to_string(referencedArchivePaths.size()) +
-          ", planned_resources_before=" +
-          std::to_string(allResourceEntries.size()) +
-          ", planned_resources_after=" +
-          std::to_string(keptResourceEntries.size()) +
-          ", pruned=" + std::to_string(prunedCount));
-}
-
 // Returns whether a Symdef has enough geometry data to flatten into Geometry3D
 // nodes.
 static bool CanFlattenSymdefGeometry(const MvrScene &scene,
@@ -1833,187 +1500,6 @@ static std::string HexToCie(const std::string &hex) {
 static runtime_storage::TemporaryWorkspace CreateExportWorkspace(const std::string &kind) {
   return runtime_storage::TemporaryWorkspace(kind);
 }
-
-static bool ExtractZip(const std::string &zipPath, const std::string &destDir) {
-  if (!fs::exists(zipPath))
-    return false;
-  wxLogNull logNo;
-  wxFileInputStream input(zipPath);
-  if (!input.IsOk())
-    return false;
-  wxZipInputStream zipStream(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(zipStream.GetNextEntry())), entry) {
-    std::string filename = entry->GetName().ToStdString();
-    std::string fullPath = destDir + "/" + filename;
-    if (entry->IsDir()) {
-      wxFileName::Mkdir(fullPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-      continue;
-    }
-    wxFileName::Mkdir(wxFileName(fullPath).GetPath(), wxS_DIR_DEFAULT,
-                      wxPATH_MKDIR_FULL);
-    std::ofstream output(fullPath, std::ios::binary);
-    if (!output.is_open())
-      return false;
-    char buffer[4096];
-    while (true) {
-      zipStream.Read(buffer, sizeof(buffer));
-      size_t bytes = zipStream.LastRead();
-      if (bytes == 0)
-        break;
-      output.write(buffer, bytes);
-    }
-    output.close();
-  }
-  return true;
-}
-
-static bool ZipDir(const std::string &srcDir, const std::string &dstZip) {
-  wxFileOutputStream output(dstZip);
-  if (!output.IsOk())
-    return false;
-  wxZipOutputStream zip(output);
-  for (auto &p : fs::recursive_directory_iterator(srcDir)) {
-    if (!p.is_regular_file())
-      continue;
-    fs::path rel = fs::relative(p.path(), srcDir);
-    auto *e = new wxZipEntry(rel.generic_string());
-    e->SetMethod(wxZIP_METHOD_DEFLATE);
-    zip.PutNextEntry(e);
-    std::ifstream in(p.path(), std::ios::binary);
-    char buf[4096];
-    while (in.good()) {
-      in.read(buf, sizeof(buf));
-      std::streamsize s = in.gcount();
-      if (s > 0)
-        zip.Write(buf, s);
-    }
-    zip.CloseEntry();
-  }
-  zip.Close();
-  return true;
-}
-
-
-// Inserts a GDTF FixtureType child at the standard schema position.
-static tinyxml2::XMLElement *InsertGdtfFixtureTypeChildInOrder(
-    tinyxml2::XMLElement *fixtureType, tinyxml2::XMLDocument &doc,
-    const char *name) {
-  tinyxml2::XMLElement *node = doc.NewElement(name);
-  static constexpr const char *kOrder[] = {
-      "AttributeDefinitions", "Wheels", "PhysicalDescriptions", "Models",
-      "Geometries", "DMXModes", "Revisions", "FTPresets", "Protocols"};
-
-  int targetIndex = -1;
-  for (int i = 0; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0])); ++i) {
-    if (std::string(name) == kOrder[i]) {
-      targetIndex = i;
-      break;
-    }
-  }
-
-  tinyxml2::XMLElement *previous = nullptr;
-  if (targetIndex >= 0) {
-    for (tinyxml2::XMLElement *child = fixtureType->FirstChildElement(); child;
-         child = child->NextSiblingElement()) {
-      for (int i = targetIndex + 1; i < static_cast<int>(sizeof(kOrder) / sizeof(kOrder[0]));
-           ++i) {
-        if (std::string(child->Name()) == kOrder[i]) {
-          tinyxml2::XMLNode *inserted =
-              previous ? fixtureType->InsertAfterChild(previous, node)
-                       : fixtureType->InsertFirstChild(node);
-          return inserted ? inserted->ToElement() : nullptr;
-        }
-      }
-      previous = child;
-    }
-  }
-
-  tinyxml2::XMLNode *inserted = fixtureType->InsertEndChild(node);
-  return inserted ? inserted->ToElement() : nullptr;
-}
-
-// Creates a temporary patched GDTF copy for intentional MVR export overrides.
-static std::string CreatePatchedGdtf(const std::string &gdtfPath,
-                                     const GdtfOverrides &ov) {
-  auto tempWorkspace = CreateExportWorkspace("mvr-export-gdtf-patch");
-  if (!tempWorkspace.IsValid())
-    return {};
-  std::string tempDir = tempWorkspace.Path().string();
-  if (!ExtractZip(gdtfPath, tempDir))
-    return {};
-  std::string descPath = tempDir + "/description.xml";
-  tinyxml2::XMLDocument doc;
-  if (doc.LoadFile(descPath.c_str()) != tinyxml2::XML_SUCCESS)
-    return {};
-  tinyxml2::XMLElement *ft = doc.FirstChildElement("GDTF");
-  if (ft)
-    ft = ft->FirstChildElement("FixtureType");
-  else
-    ft = doc.FirstChildElement("FixtureType");
-  if (!ft)
-    return {};
-  bool patched = false;
-  if (!ov.color.empty()) {
-    tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
-    if (models) {
-      std::string cie = HexToCie(ov.color);
-      for (tinyxml2::XMLElement *m = models->FirstChildElement("Model"); m;
-           m = m->NextSiblingElement("Model"))
-        m->SetAttribute("Color", cie.c_str());
-      patched = true;
-    }
-  }
-  const std::optional<float> weightKg =
-      ov.hasWeightKg ? std::optional<float>(ov.weightKg) : std::nullopt;
-  const std::optional<float> powerW =
-      ov.hasPowerW ? std::optional<float>(ov.powerW) : std::nullopt;
-  patched =
-      GdtfMutationAudit::ApplyPhysicalProperties(ft, doc, weightKg, powerW) ||
-            patched;
-  if (!ov.manufacturer.empty()) {
-    ft->SetAttribute("Manufacturer", ov.manufacturer.c_str());
-    patched = true;
-  }
-  if (!ov.model.empty()) {
-    ft->SetAttribute("Name", ov.model.c_str());
-    patched = true;
-  }
-
-  if (ov.hasLengthMm || ov.hasWidthMm || ov.hasHeightMm) {
-    tinyxml2::XMLElement *models = ft->FirstChildElement("Models");
-    tinyxml2::XMLElement *model =
-        models ? models->FirstChildElement("Model") : nullptr;
-    if (!models)
-      models = InsertGdtfFixtureTypeChildInOrder(ft, doc, "Models");
-    if (!model)
-      model = models->InsertNewChildElement("Model");
-    if (ov.hasLengthMm)
-      model->SetAttribute("Length", ov.lengthMm / 1000.0f);
-    if (ov.hasWidthMm)
-      model->SetAttribute("Width", ov.widthMm / 1000.0f);
-    if (ov.hasHeightMm)
-      model->SetAttribute("Height", ov.heightMm / 1000.0f);
-    patched = true;
-  }
-
-  if (patched) {
-    GdtfMutationAudit::AppendRevision(
-        ft, doc,
-        (ov.hasWeightKg || ov.hasPowerW)
-                     ? kPhysicalPropertiesRevisionText
-                     : "Patched fixture metadata for MVR export",
-        GdtfMutationAudit::BuildPerastageModifiedBy());
-  }
-
-  doc.SaveFile(descPath.c_str());
-  std::string outPath = (tempWorkspace.Path().parent_path() /
-                         (tempWorkspace.Path().filename().string() + ".gdtf")).string();
-  if (!ZipDir(tempDir, outPath))
-    return {};
-  return outPath;
-}
-
 // Serialize the configured scene into a .mvr archive and collect non-fatal
 // export warnings.
 bool MvrExporter::ExportToFile(const std::string &filePath) {
@@ -2045,15 +1531,18 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   const TrussGeometryAuthority trussGeometryAuthority =
       GetTrussGeometryAuthoritySetting();
   std::unordered_set<std::string> usedSymbolUuids;
-  std::vector<fs::path> exportGeneratedFiles;
-  std::vector<runtime_storage::SceneResourceLeasePtr> exportWorkspaceLeases;
-  struct ExportGeneratedCleanup {
-    std::vector<fs::path> &paths;
-    ~ExportGeneratedCleanup() {
-      for (const auto &path : paths)
-        runtime_storage::RemoveOwnedPath(path, "MVR export generated file");
-    }
-  } exportGeneratedCleanup{exportGeneratedFiles};
+  std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
+  std::unordered_map<std::string, mvr_export_resources::GdtfRewriteRequest>
+      gdtfRewriteRequests;
+  std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
+  mvr_export_resources::ResourceCollection resourceCollection(
+      scene.basePath,
+      [&](MvrExportDiagnostic diagnostic) {
+        AddDiagnostic(std::move(diagnostic));
+      },
+      [&](const std::string &message) {
+        Logger::Instance().Log(Logger::Level::Info, message);
+      });
 
   wxFileOutputStream output(filePath);
   auto failExport = [&](const std::string &operation,
@@ -2078,376 +1567,22 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
 
   wxZipOutputStream zip(output);
 
-  std::vector<ResourceEntry> resourceEntries;
-  std::unordered_map<std::string, std::string> sourceToArchivePath;
-  std::unordered_map<std::string, std::string> physicalPatchArchiveByKey;
-  std::unordered_map<std::string, std::string> gdtfArchiveByObjectUuid;
-  std::unordered_map<std::string, GdtfOverrides> gdtfOverrides;
-  std::unordered_map<std::string, std::string> trussArchiveByTypeKey;
-  std::unordered_map<std::string, std::string> primitiveSourceByToken;
-  std::unordered_set<std::string> reservedArchivePaths;
-  std::unordered_map<std::string, std::unordered_set<std::string>>
-      modelDependenciesByArchivePath;
-  bool modelDependencyRegistrationFailed = false;
-  auto primitiveWorkspace = CreateExportWorkspace("mvr-export-primitives");
-  const std::string primitiveTempDir = primitiveWorkspace.IsValid()
-                                           ? primitiveWorkspace.Path().string()
-                                           : std::string{};
-  if (primitiveWorkspace.IsValid())
-    exportWorkspaceLeases.push_back(primitiveWorkspace.TransferToSceneLease());
-
-  auto normalizeSourcePath = [&](const std::string &rawPath) {
-    fs::path src = PathUtils::PathFromUtf8(rawPath);
-    if (src.is_relative() && !scene.basePath.empty())
-      src = PathUtils::PathFromUtf8(scene.basePath) / src;
-    std::error_code ec;
-    fs::path weak = fs::weakly_canonical(src, ec);
-    if (!ec)
-      return PathUtils::PathToUtf8(weak);
-    ec.clear();
-    fs::path absolute = fs::absolute(src, ec);
-    return PathUtils::PathToUtf8(ec ? src.lexically_normal()
-                                    : absolute.lexically_normal());
+  auto registerGdtfResource = [&](const std::string &uuid,
+                                  const std::string &source,
+                                  const std::string &preferred,
+                                  bool reuse = true,
+                                  bool derivative = false,
+                                  bool fallback = true) {
+    return resourceCollection.RegisterGdtfResource(
+        uuid, source, preferred, reuse, derivative, fallback);
   };
-
-  auto buildSourceIdentityKey = [&](const std::string &sourcePath) {
-    return PathUtils::BuildFilesystemIdentityKey(
-        PathUtils::PathFromUtf8(sourcePath));
+  auto registerModelResource = [&](const std::string &source,
+                                   const std::string &fallback) {
+    return resourceCollection.RegisterModelResource(source, fallback);
   };
-
-  auto findSceneResourceByFileName =
-      [&](const std::string &rawSource) -> std::string {
-    if (rawSource.empty() || scene.basePath.empty())
-      return {};
-
-    const fs::path sourcePath = PathUtils::PathFromUtf8(rawSource);
-    const fs::path requestedFileName = sourcePath.filename();
-    if (requestedFileName.empty())
-      return {};
-
-    const fs::path basePath = PathUtils::PathFromUtf8(scene.basePath);
-    std::error_code ec;
-    if (!fs::exists(basePath, ec) || ec)
-      return {};
-
-    const std::string requestedLower =
-        ToLowerAscii(requestedFileName.generic_string());
-    for (const auto &entry : fs::directory_iterator(basePath, ec)) {
-      if (ec)
-        break;
-      std::error_code regularEc;
-      if (!entry.is_regular_file(regularEc) || regularEc)
-        continue;
-      if (ToLowerAscii(entry.path().filename().generic_string()) ==
-          requestedLower) {
-        return entry.path().generic_string();
-      }
-    }
-    return {};
-  };
-
-  auto resolveExistingResourceSourcePath =
-      [&](const std::string &rawSource) -> std::string {
-    if (rawSource.empty())
-      return {};
-
-    std::string normalizedSource = normalizeSourcePath(rawSource);
-    std::error_code sourceExistsEc;
-    if (fs::exists(PathUtils::PathFromUtf8(normalizedSource), sourceExistsEc) &&
-        !sourceExistsEc) {
-      return normalizedSource;
-    }
-
-    const std::string sceneResourceSource =
-        findSceneResourceByFileName(rawSource);
-    if (!sceneResourceSource.empty()) {
-      normalizedSource = normalizeSourcePath(sceneResourceSource);
-      Logger::Instance().Log(
-          Logger::Level::Info,
-          "MVR export resolved packaged resource '" + rawSource +
-              "' by filename in scene resources: " + normalizedSource);
-      return normalizedSource;
-    }
-
-    return {};
-  };
-
-  auto registerResource = [&](const std::string &rawSource,
-                              const std::string &preferredArchivePath,
-                              bool allowReuseBySource = true) -> std::string {
-    if (rawSource.empty())
-      return {};
-    std::string normalizedSource = resolveExistingResourceSourcePath(rawSource);
-    if (normalizedSource.empty())
-      normalizedSource = normalizeSourcePath(rawSource);
-    const std::string sourceIdentityKey = buildSourceIdentityKey(normalizedSource);
-    auto srcIt = sourceToArchivePath.find(sourceIdentityKey);
-    if (allowReuseBySource && srcIt != sourceToArchivePath.end())
-      return srcIt->second;
-
-    std::string archivePath =
-        EnsureUniqueArchivePath(preferredArchivePath, reservedArchivePaths);
-    if (allowReuseBySource)
-      sourceToArchivePath[sourceIdentityKey] = archivePath;
-    resourceEntries.push_back({fs::path(normalizedSource), archivePath});
-    if (!fs::exists(fs::path(normalizedSource)))
-      AddDiagnostic({MvrExportDiagnosticCode::ResourceMissing,
-                     MvrExportDiagnosticSeverity::Warning,
-                     MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {},
-                     fs::path(preferredArchivePath).filename().generic_string(),
-                     "Referenced MVR resource could not be found and will be omitted: " +
-                         fs::path(preferredArchivePath).filename().generic_string()});
-    return archivePath;
-  };
-
-  auto registerGdtfResource =
-      [&](const std::string &objectUuid, const std::string &rawGdtfPath,
-          const std::string &preferredName, bool allowReuseBySource = true,
-          bool usePreferredDerivativeName = false,
-          bool allowFallback = true) -> std::string {
-    if (rawGdtfPath.empty())
-      return {};
-
-    std::string resolvedGdtfPath = resolveExistingResourceSourcePath(rawGdtfPath);
-    if (resolvedGdtfPath.empty() && allowFallback) {
-      resolvedGdtfPath = ResolveFallbackFixtureGdtfPath();
-      if (!resolvedGdtfPath.empty()) {
-        AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
-                       MvrExportDiagnosticSeverity::Warning,
-                       MvrExportDiagnosticImpact::DataSubstituted, true,
-                       "Fixture", {}, objectUuid,
-                       fs::path(rawGdtfPath).filename().generic_string(),
-                       "MVR export could not resolve fixture GDTF '" + rawGdtfPath +
-                           "'. Using fallback '" +
-                           fs::path(resolvedGdtfPath).filename().generic_string() + "'."});
-      }
-    }
-    if (resolvedGdtfPath.empty() && !allowFallback) {
-      const std::string message =
-          "MVR export omitted missing explicit auxiliary Truss GDTF '" +
-          rawGdtfPath + "'; no fallback was substituted.";
-      AddDiagnostic({MvrExportDiagnosticCode::TrussGdtfMissing,
-                     MvrExportDiagnosticSeverity::Warning,
-                     MvrExportDiagnosticImpact::DataOmitted, true, "Truss", {},
-                     objectUuid, fs::path(rawGdtfPath).filename().generic_string(),
-                     message});
-      return {};
-    }
-    const std::string gdtfSourceForExport =
-        resolvedGdtfPath.empty() ? rawGdtfPath : resolvedGdtfPath;
-
-    std::string fileName = preferredName;
-    if (!usePreferredDerivativeName &&
-        ToLowerAscii(PathUtils::PathFromUtf8(rawGdtfPath).extension().string()) ==
-            ".gdtf" &&
-        !GdtfDictionary::IsPerastageNamedGdtfFile(rawGdtfPath)) {
-      fileName =
-          GdtfDictionary::BuildPerastageCanonicalGdtfFileName(gdtfSourceForExport);
-    }
-    if (fileName.empty())
-      fileName = SanitizeArchiveFileName(rawGdtfPath, "fixture.gdtf");
-    std::string archivePath =
-        registerResource(gdtfSourceForExport, fileName, allowReuseBySource);
-    if (!objectUuid.empty() && !archivePath.empty())
-      gdtfArchiveByObjectUuid[objectUuid] = archivePath;
-    return archivePath;
-  };
-
-  auto registerModelDependencies = [&](const std::string &resolvedModelSource,
-                                       const std::string &modelArchivePath) {
-    if (resolvedModelSource.empty() || modelArchivePath.empty())
-      return;
-    const fs::path modelPath = PathUtils::PathFromUtf8(resolvedModelSource);
-    std::string ext = ToLowerAscii(modelPath.extension().string());
-    std::vector<std::string> dependencyRefs;
-    if (ext == ".3ds") {
-      dependencyRefs = Collect3dsTextureReferences(modelPath);
-    } else if (ext == ".gltf" || ext == ".glb") {
-      dependencyRefs = CollectGltfExternalReferences(modelPath);
-    }
-
-    for (const std::string &dependencyRef : dependencyRefs) {
-      fs::path dependencyPath;
-      if (!ResolveModelDependencyPath(modelPath, dependencyRef,
-                                      dependencyPath)) {
-        AddDiagnostic(
-            {MvrExportDiagnosticCode::TextureMissing,
-                         MvrExportDiagnosticSeverity::Warning,
-             MvrExportDiagnosticImpact::DataOmitted,
-             true,
-             "Model",
-             {},
-             {},
-             fs::path(dependencyRef).filename().generic_string(),
-             "A required external model dependency could not be found: " +
-                 fs::path(dependencyRef).filename().generic_string()});
-          continue;
-        }
-
-      std::string normalizedRef = TrimAscii(dependencyRef);
-      std::replace(normalizedRef.begin(), normalizedRef.end(), '\\', '/');
-      const std::string dependencyArchivePath =
-          fs::path(normalizedRef).filename().generic_string();
-      const std::string safeArchivePath = SanitizeArchiveFileName(
-          dependencyArchivePath, dependencyPath.filename().generic_string());
-      if (safeArchivePath != dependencyArchivePath) {
-        modelDependencyRegistrationFailed = true;
-        AddDiagnostic(
-            {MvrExportDiagnosticCode::StructuralValidationFailed,
-             MvrExportDiagnosticSeverity::Error,
-             MvrExportDiagnosticImpact::ExportFailed,
-             true,
-             "Model",
-             {},
-             {},
-             dependencyArchivePath,
-             "MVR export cannot preserve external model dependency URI '" +
-                 dependencyRef + "' as a root archive filename."});
-        continue;
-    }
-
-      const std::string dependencyIdentity =
-          buildSourceIdentityKey(dependencyPath.generic_string());
-      auto collision =
-          std::find_if(resourceEntries.begin(), resourceEntries.end(),
-                       [&](const ResourceEntry &entry) {
-                         return ToLowerAscii(entry.archivePath) ==
-                                ToLowerAscii(dependencyArchivePath);
-                       });
-      if (collision != resourceEntries.end()) {
-        if (buildSourceIdentityKey(collision->sourcePath.generic_string()) !=
-            dependencyIdentity) {
-          modelDependencyRegistrationFailed = true;
-          AddDiagnostic(
-              {MvrExportDiagnosticCode::StructuralValidationFailed,
-               MvrExportDiagnosticSeverity::Error,
-               MvrExportDiagnosticImpact::ExportFailed,
-               true,
-               "Model",
-               {},
-               {},
-               dependencyArchivePath,
-               "MVR export found conflicting resources for required model "
-               "dependency '" +
-                   dependencyArchivePath + "'."});
-          continue;
-        }
-      } else {
-        reservedArchivePaths.insert(dependencyArchivePath);
-        sourceToArchivePath.try_emplace(dependencyIdentity,
-                                        dependencyArchivePath);
-        resourceEntries.push_back({dependencyPath, dependencyArchivePath});
-      }
-      modelDependenciesByArchivePath[modelArchivePath].insert(
-          dependencyArchivePath);
-    }
-  };
-
-  auto registerModelResource =
-      [&](const std::string &rawModelSource,
-                                   const std::string &fallbackArchiveName) -> std::string {
-    const std::string resolvedModelSource =
-        resolveExistingResourceSourcePath(rawModelSource);
-    const std::string sourceForExport =
-        resolvedModelSource.empty() ? rawModelSource : resolvedModelSource;
-    std::string archivePath = registerResource(
-        sourceForExport,
-        SanitizeArchiveFileName(rawModelSource, fallbackArchiveName));
-    registerModelDependencies(resolvedModelSource, archivePath);
-    return archivePath;
-  };
-
-  auto registerPrimitiveModelResource =
-      [&](const std::string &modelRef,
-                                            const std::string &objectUuid) -> std::string {
-    std::string primitiveToken;
-    if (!mvr::ResolvePrimitiveTokenFromModelRef(modelRef, primitiveToken))
-      return {};
-    const std::string normalizedModelRef = ToLowerAscii(TrimAscii(modelRef));
-
-    auto convertCylinderTokenMillimetersToMeters =
-        [&](const std::string &token) {
-      std::string normalized = ToLowerAscii(TrimAscii(token));
-      if (normalized.rfind("primitive:cylinder", 0) != 0)
-        return normalized;
-      const size_t separator = normalized.find(';');
-          if (separator == std::string::npos ||
-              separator + 1 >= normalized.size())
-        return normalized;
-
-      std::vector<std::string> fields;
-      std::stringstream stream(normalized.substr(separator + 1));
-      std::string field;
-      bool changed = false;
-      while (std::getline(stream, field, ';')) {
-        const size_t equalPos = field.find('=');
-        if (equalPos == std::string::npos) {
-          fields.push_back(field);
-          continue;
-        }
-        const std::string key = field.substr(0, equalPos);
-        const std::string value = field.substr(equalPos + 1);
-        if (key == "top" || key == "bottom" || key == "height") {
-          try {
-            const float parsed = std::stof(value);
-            const float meters = parsed / 1000.0f;
-            fields.push_back(key + "=" + std::to_string(meters));
-            changed = true;
-          } catch (...) {
-            fields.push_back(field);
-          }
-        } else {
-          fields.push_back(field);
-        }
-      }
-
-      if (!changed)
-        return normalized;
-      std::string out = "primitive:cylinder";
-      for (const auto &entry : fields) {
-        if (!entry.empty())
-          out += ";" + entry;
-      }
-      return out;
-    };
-
-    const std::string primitiveKeyRaw =
-        normalizedModelRef.empty() ? primitiveToken : normalizedModelRef;
-    const std::string primitiveKey =
-        convertCylinderTokenMillimetersToMeters(primitiveKeyRaw);
-
-    auto sourceIt = primitiveSourceByToken.find(primitiveKey);
-    std::string sourcePath;
-    if (sourceIt != primitiveSourceByToken.end()) {
-      sourcePath = sourceIt->second;
-    } else {
-      std::string primitiveLabel = primitiveToken;
-      const size_t colonPos = primitiveLabel.find(':');
-      if (colonPos != std::string::npos && colonPos + 1 < primitiveLabel.size())
-        primitiveLabel = primitiveLabel.substr(colonPos + 1);
-      for (char &ch : primitiveLabel) {
-        if (!std::isalnum(static_cast<unsigned char>(ch)))
-          ch = '_';
-      }
-      if (primitiveLabel.empty())
-        primitiveLabel = "shape";
-      const std::size_t primitiveHash = std::hash<std::string>{}(primitiveKey);
-      const std::string tempFileName =
-          wxString::Format("primitive_%s_%zx.glb", primitiveLabel.c_str(),
-                           primitiveHash)
-                                           .ToStdString();
-      fs::path outputPath = PathUtils::PathFromUtf8(primitiveTempDir) /
-                            PathUtils::PathFromUtf8(tempFileName);
-      if (!mvr::WritePrimitiveModelForToken(primitiveKey,
-                                            outputPath.generic_string()))
-        return {};
-      sourcePath = outputPath.generic_string();
-      primitiveSourceByToken[primitiveKey] = sourcePath;
-    }
-
-    const std::string preferredArchivePath =
-        mvr::PrimitiveArchivePathForToken(primitiveToken, objectUuid);
-    return registerResource(sourcePath, preferredArchivePath);
+  auto registerPrimitiveModelResource = [&](const std::string &modelRef,
+                                             const std::string &uuid) {
+    return resourceCollection.RegisterPrimitiveModelResource(modelRef, uuid);
   };
 
   const auto &assignedIds = preparation.objectIds;
@@ -2728,7 +1863,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
     bool usedDummyFallbackForFixture = false;
     if (fixtureSourceGdtf.empty()) {
-      fixtureSourceGdtf = ResolveFallbackFixtureGdtfPath();
+      fixtureSourceGdtf = mvr_export_resources::ResourceCollection::
+          ResolveFallbackFixtureGdtfPath();
       const std::string fallbackHint =
           std::string(kDummyFallbackFixtureGdtfFileName) +
           " (legacy: " + kLegacyFallbackFixtureGdtfFileName + ")";
@@ -2763,11 +1899,12 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     }
     if (!fixtureSourceGdtf.empty()) {
       const std::string resolvedFixtureSource =
-          resolveExistingResourceSourcePath(fixtureSourceGdtf);
+          resourceCollection.ResolveSourcePath(fixtureSourceGdtf);
       if (!resolvedFixtureSource.empty()) {
         fixtureSourceGdtf = resolvedFixtureSource;
       } else if (!usedDummyFallbackForFixture) {
-        const std::string fallbackGdtf = ResolveFallbackFixtureGdtfPath();
+        const std::string fallbackGdtf = mvr_export_resources::
+            ResourceCollection::ResolveFallbackFixtureGdtfPath();
         if (!fallbackGdtf.empty()) {
           AddDiagnostic({MvrExportDiagnosticCode::GdtfFallbackUsed,
                          MvrExportDiagnosticSeverity::Warning,
@@ -2809,7 +1946,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       ++exportedRealFixtureGdtfCount;
     std::string fixtureName =
         SanitizeArchiveFileName(fixtureSourceGdtf, "fixture.gdtf");
-    GdtfOverrides fixtureOverrides;
+    mvr_export_resources::GdtfRewriteRequest fixtureOverrides;
     const bool needsPhysicalPatch =
         FixtureNeedsPhysicalGdtfPatch(f, fixtureSourceGdtf, fixtureOverrides);
     if (needsPhysicalPatch) {
@@ -2822,7 +1959,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     std::string fixtureGdtfArchivePath;
     if (needsPhysicalPatch) {
       std::ostringstream patchKey;
-      patchKey << buildSourceIdentityKey(normalizeSourcePath(fixtureSourceGdtf))
+      patchKey << resourceCollection.BuildSourceIdentity(fixtureSourceGdtf)
                << '|'
                << (fixtureOverrides.hasWeightKg ? fixtureOverrides.weightKg
                                                 : -1.0f)
@@ -2833,12 +1970,12 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
       if (patchIt != physicalPatchArchiveByKey.end()) {
         fixtureGdtfArchivePath = patchIt->second;
         if (!f.uuid.empty())
-          gdtfArchiveByObjectUuid[f.uuid] = fixtureGdtfArchivePath;
+          resourceCollection.AssociateGdtfArchive(f.uuid, fixtureGdtfArchivePath);
       } else {
         fixtureGdtfArchivePath =
             registerGdtfResource(f.uuid, fixtureSourceGdtf, fixtureName, false);
         physicalPatchArchiveByKey[patchKey.str()] = fixtureGdtfArchivePath;
-        gdtfOverrides[fixtureGdtfArchivePath] = fixtureOverrides;
+        gdtfRewriteRequests[fixtureGdtfArchivePath] = fixtureOverrides;
       }
     } else {
       fixtureGdtfArchivePath =
@@ -2922,7 +2059,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     if (trussArchiveIt != trussArchiveByTypeKey.end()) {
       trussGdtfArchivePath = trussArchiveIt->second;
       if (!exportedTrussUuid.empty())
-        gdtfArchiveByObjectUuid[exportedTrussUuid] = trussGdtfArchivePath;
+        resourceCollection.AssociateGdtfArchive(exportedTrussUuid, trussGdtfArchivePath);
     } else {
       std::string trussSourceGdtf = t.gdtfSpec;
       if (trussSourceGdtf.empty() &&
@@ -2948,8 +2085,8 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
                                      effectiveTruss, tempPath,
                                      &conversionError)) {
           trussSourceGdtf = tempPath.string();
-          exportGeneratedFiles.push_back(tempPath);
-          exportWorkspaceLeases.push_back(trussWorkspace.TransferToSceneLease());
+          resourceCollection.AdoptGeneratedResource(tempPath);
+          resourceCollection.AdoptWorkspace(std::move(trussWorkspace));
         } else {
           const bool required = trussGeometryAuthority ==
                                 TrussGeometryAuthority::Gdtf;
@@ -2982,7 +2119,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
     const std::string exportTrussTypeKey =
         BuildExportTrussTypeKey(effectiveTruss, trussGdtfArchivePath);
     if (!trussGdtfArchivePath.empty()) {
-      auto &ov = gdtfOverrides[trussGdtfArchivePath];
+      auto &ov = gdtfRewriteRequests[trussGdtfArchivePath];
       ov.hasLengthMm = true;
       ov.lengthMm = effectiveTruss.lengthMm;
       ov.hasWidthMm = true;
@@ -3533,14 +2670,6 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   // payload files.
   std::unordered_set<std::string> referencedArchivePaths =
       CollectReferencedArchivePaths(doc);
-  for (const auto &[modelArchivePath, dependencies] :
-       modelDependenciesByArchivePath) {
-    if (!referencedArchivePaths.contains(
-            NormalizeArchiveEntryPath(modelArchivePath)))
-      continue;
-    for (const std::string &dependency : dependencies)
-      referencedArchivePaths.insert(NormalizeArchiveEntryPath(dependency));
-  }
   std::ostringstream fixtureGdtfExportDiagnostics;
   fixtureGdtfExportDiagnostics
       << "MVR export fixture GDTF diagnostics: real="
@@ -3559,107 +2688,38 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   Logger::Instance().Log(Logger::Level::Info,
                          fixtureGdtfExportDiagnostics.str());
 
-  const std::vector<ResourceEntry> allResourceEntriesBeforePrune =
-      resourceEntries;
-  resourceEntries.erase(
-      std::remove_if(resourceEntries.begin(), resourceEntries.end(),
-                     [&](const ResourceEntry &entry) {
-                       const std::string normalized =
-                           NormalizeArchiveEntryPath(entry.archivePath);
-                       return normalized.empty() ||
-                              !referencedArchivePaths.contains(normalized);
-                     }),
-      resourceEntries.end());
-  LogResourcePruneDiagnostics(referencedArchivePaths,
-                              allResourceEntriesBeforePrune, resourceEntries);
-
-  // Deduplicate archive resources and keep only the first entry for each
-  // archive path.
-  std::unordered_set<std::string> seenArchivePaths;
-  std::vector<ResourceEntry> deduplicatedResources;
-  deduplicatedResources.reserve(resourceEntries.size());
-  for (const auto &entry : resourceEntries) {
-    const std::string normalizedPath =
-        NormalizeArchiveEntryPath(entry.archivePath);
-    if (normalizedPath.empty())
-      continue;
-    if (!seenArchivePaths.insert(normalizedPath).second) {
-      AddDiagnostic({MvrExportDiagnosticCode::ResourceDuplicate,
-                     MvrExportDiagnosticSeverity::Warning,
-                     MvrExportDiagnosticImpact::DataOmitted, true, {}, {}, {},
-                     fs::path(normalizedPath).filename().generic_string(),
-                     "Referenced file '" + normalizedPath +
-                         "' appears multiple times; duplicates will be ignored."});
-      continue;
-    }
-    deduplicatedResources.push_back(entry);
-  }
-  resourceEntries = std::move(deduplicatedResources);
-
-  if (modelDependencyRegistrationFailed) {
+  resourceCollection.Finalize(referencedArchivePaths);
+  if (resourceCollection.HasFatalDependencyError()) {
     zip.Close();
     return false;
   }
 
+  mvr_export_resources::GdtfPreparationResult gdtfPreparation =
+      resourceCollection.PrepareGdtfResources(gdtfRewriteRequests);
+  if (!gdtfPreparation.success) {
+    zip.Close();
+    if (gdtfPreparation.failureOperation == "CanonicalizeGdtf") {
+      return failExport(gdtfPreparation.failureOperation,
+                        gdtfPreparation.failureArchivePath,
+                        gdtfPreparation.failureSourcePath,
+                        gdtfPreparation.failureReason);
+    }
+    return false;
+  }
+  mvr_export_resources::ResourcePlan resourcePlan =
+      std::move(gdtfPreparation.plan);
+  auto &resourceEntries = resourcePlan.entries;
+
   std::unordered_map<std::string, int> plannedArchiveEntries;
   plannedArchiveEntries["GeneralSceneDescription.xml"] = 1;
 
-  for (auto &entry : resourceEntries) {
-    if (!fs::exists(entry.sourcePath))
-      continue;
-    auto cit = gdtfOverrides.find(entry.archivePath);
-    if (cit != gdtfOverrides.end()) {
-      std::string tmp =
-          CreatePatchedGdtf(entry.sourcePath.string(), cit->second);
-      if (!tmp.empty()) {
-        entry.sourcePath = fs::path(tmp);
-        exportGeneratedFiles.push_back(entry.sourcePath);
-      } else {
-        AddDiagnostic({MvrExportDiagnosticCode::GdtfPatchFailed,
-                       MvrExportDiagnosticSeverity::Error,
-                       MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                       SanitizeArchiveFileName(entry.archivePath,
-                                               "fixture.gdtf"),
-                       "MVR export could not create the patched GDTF '" +
-                           SanitizeArchiveFileName(entry.archivePath,
-                                                   "fixture.gdtf") + "'."});
-        zip.Close();
-        return false;
-      }
-    }
-    if (ToLowerAscii(fs::path(entry.archivePath).extension().string()) == ".gdtf") {
-      auto canonicalWorkspace = CreateExportWorkspace("mvr-export-canonical");
-      fs::path canonicalPath = canonicalWorkspace.IsValid()
-                                   ? canonicalWorkspace.Path() / SanitizeArchiveFileName(entry.archivePath, "fixture.gdtf")
-                                   : fs::path{};
-      GdtfCanonicalizer::Options canonicalOptions;
-      canonicalOptions.allowFixtureTypeIdRepair = true;
-      canonicalOptions.stableIdSeed = entry.archivePath + "|" + entry.sourcePath.string();
-      canonicalOptions.sourceLabel = entry.archivePath + " from " + entry.sourcePath.string();
-      const GdtfCanonicalizer::Result canonicalResult =
-          GdtfCanonicalizer::CanonicalizeArchive(entry.sourcePath, canonicalPath,
-                                                canonicalOptions);
-      if (!canonicalResult.success) {
-        for (const std::string &error : canonicalResult.errors)
-          AddDiagnostic({MvrExportDiagnosticCode::CanonicalizationFailed,
-                         MvrExportDiagnosticSeverity::Error,
-                         MvrExportDiagnosticImpact::ExportFailed, true, {}, {}, {},
-                         fs::path(entry.archivePath).filename().generic_string(),
-                         "GDTF canonicalization failed: " + error});
-        zip.Close();
-        return failExport("CanonicalizeGdtf", entry.archivePath,
-                          entry.sourcePath.string(),
-                          "canonicalizer reported errors");
-      }
-      entry.sourcePath = canonicalPath;
-      exportGeneratedFiles.push_back(canonicalPath);
-      exportWorkspaceLeases.push_back(canonicalWorkspace.TransferToSceneLease());
-    }
-    ++plannedArchiveEntries[entry.archivePath];
+  for (const auto &entry : resourceEntries) {
+    if (fs::exists(entry.sourcePath))
+      ++plannedArchiveEntries[entry.archivePath];
   }
 
   for (const auto &[modelArchivePath, dependencies] :
-       modelDependenciesByArchivePath) {
+       resourcePlan.modelDependenciesByArchivePath) {
     if (!referencedArchivePaths.contains(
             NormalizeArchiveEntryPath(modelArchivePath)))
       continue;
@@ -3683,7 +2743,7 @@ bool MvrExporter::SerializeSnapshotToFile(const MvrScene &sourceScene,
   }
 
   std::vector<std::string> validationWarnings;
-  if (!ValidateMvr16Export(doc, gdtfArchiveByObjectUuid, plannedArchiveEntries,
+  if (!ValidateMvr16Export(doc, resourcePlan.gdtfArchiveByObjectUuid, plannedArchiveEntries,
                            &validationWarnings)) {
     AddDiagnostic({MvrExportDiagnosticCode::StructuralValidationFailed,
                    MvrExportDiagnosticSeverity::Error,
