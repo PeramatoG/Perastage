@@ -30,6 +30,8 @@
 #include <wx/glcanvas.h>
 #include "../viewer2d/viewer2d_measure_tool.h"
 #include "interaction/selection_drag_math.h"
+#include "interaction/navigation_interaction_policy.h"
+#include "interaction/selection_drag_activation.h"
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
 #include "ui_render_size.h"
@@ -147,8 +149,7 @@ private:
     Viewer3DCamera m_camera;
 
     // Mouse interaction state
-    bool m_dragging = false;
-    bool m_draggedSincePress = false;
+    viewer3d::interaction::NavigationSession m_navigationSession;
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
     bool m_hasLastMousePos = false;
@@ -156,8 +157,7 @@ private:
     bool m_rectSelectionAcrossAllTables = false;
     wxPoint m_rectSelectStart;
     wxPoint m_rectSelectEnd;
-    bool m_selectionDragArmed = false;
-    bool m_selectionDragMoved = false;
+    viewer3d::interaction::SelectionDragActivation m_selectionDragActivation;
     bool m_selectionDragUndoPushed = false;
     bool m_magnetEnabled = false;
     bool m_leftDragSelectionMovementEnabled = false;
@@ -167,7 +167,6 @@ private:
     std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
     mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
     mutable truss_attachment_paths::Resolver m_trussAttachmentPathResolver;
-    wxLongLong m_selectionDragPressTime = 0;
     HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;
     std::vector<std::string> m_dragSelectionUuids;
     std::vector<std::string> m_dragFixtureUuids;
@@ -201,9 +200,6 @@ private:
     std::array<float, 3> m_continuousConstraintWorldOriginMeters{
         0.0f, 0.0f, 0.0f};
 
-    // Type of interaction currently active (Orbit or Pan)
-    enum class InteractionMode { None, Orbit, Pan };
-    InteractionMode m_mode = InteractionMode::None;
     std::chrono::steady_clock::time_point m_lastInteractionTime{};
     bool m_isInteracting = false;
     bool m_cameraMoving = false;
@@ -230,7 +226,12 @@ private:
     void OnKeyDown(wxKeyEvent& event);
     void OnMouseEnter(wxMouseEvent& event);
     void OnMouseLeave(wxMouseEvent& event);
-    void ApplyCameraDrag(const wxMouseEvent& event, const wxPoint& mousePos);
+    std::optional<viewer3d::interaction::CameraDragIntent>
+    ResolveCameraDragIntent(const wxMouseEvent& event,
+                            const wxPoint& mousePos) const;
+    void ApplyCameraIntent(
+        const viewer3d::interaction::CameraDragIntent& intent,
+        const wxPoint& mousePos);
 
     // Clear all selected scene object types and refresh related UI state.
     void ClearAllObjectSelections(const char* undoLabel);

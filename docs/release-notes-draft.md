@@ -12,6 +12,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated reusable mouse and keyboard camera navigation, pointer-drag activation state, and grouped selection decisions from the wxWidgets/OpenGL panel, with production-path interaction coverage, while preserving existing viewport behavior.
+
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 
 - Separated MVR resource selection, dependency collection, and deterministic package planning from export orchestration while preserving existing archive compatibility.

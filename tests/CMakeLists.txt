@@ -168,6 +168,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(MvrExportArchiveBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_export_archive_boundary.sh)
     add_bash_policy_test(OpenGLLifecycleCentralized ${CMAKE_CURRENT_SOURCE_DIR}/check_opengl_lifecycle_centralized.sh)
     add_bash_policy_test(ViewerSceneReplacementLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer_scene_replacement_lifecycle.sh)
+    add_bash_policy_test(Viewer3DInteractionPolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_interaction_policy_boundary.sh)
     add_bash_policy_test(Viewer3DRawDragAnchor ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_raw_drag_anchor.sh)
     add_bash_policy_test(TrussAttachmentCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_truss_attachment_core_boundary.sh)
     add_bash_policy_test(Layout2DRasterizationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
@@ -2924,6 +2925,29 @@ add_executable(selection_drag_math_test
 target_include_directories(selection_drag_math_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME SelectionDragMath COMMAND selection_drag_math_test)
+
+add_executable(viewer3d_interaction_policy_test
+               viewer3d_interaction_policy_test.cpp
+               ../viewer3d/interaction/navigation_interaction_policy.cpp
+               ../viewer3d/interaction/selection_drag_activation.cpp
+               ../viewer3d/interaction/selection_interaction_policy.cpp)
+target_include_directories(viewer3d_interaction_policy_test PRIVATE
+                           ../viewer3d/interaction)
+add_test(NAME Viewer3DInteractionPolicy COMMAND viewer3d_interaction_policy_test)
+
+add_executable(viewer3d_scene_selection_policy_test
+               viewer3d_scene_selection_policy_test.cpp
+               ../viewer3d/interaction/scene_selection_policy.cpp
+               ../viewer3d/interaction/selection_interaction_policy.cpp
+               ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp
+               ../models/mvrscene.cpp)
+target_include_directories(viewer3d_scene_selection_policy_test PRIVATE
+                           ../viewer3d/interaction ../core ../models)
+target_link_libraries(viewer3d_scene_selection_policy_test PRIVATE
+                      perastage_uuid)
+add_test(NAME Viewer3DSceneSelectionPolicy
+         COMMAND viewer3d_scene_selection_policy_test)
 
 add_executable(viewer3d_context_menu_model_test
                viewer3d_context_menu_model_test.cpp
