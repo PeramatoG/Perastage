@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <iomanip>
 #include <optional>
@@ -170,6 +171,16 @@ bool ApplyRewriteRequest(tinyxml2::XMLDocument &document,
 
 namespace mvr_export_resources {
 
+// Selects GDTF canonicalization from the final archive path exactly as before CH-202.
+bool ShouldCanonicalizeAsGdtf(const ResourceEntry &entry) {
+  std::string extension = fs::path(entry.archivePath).extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char character) {
+                   return static_cast<char>(std::tolower(character));
+                 });
+  return extension == ".gdtf";
+}
+
 // Patches and canonicalizes referenced GDTFs into package-ready plan entries.
 GdtfPreparationResult ResourceCollection::PrepareGdtfResources(
     const std::unordered_map<std::string, GdtfRewriteRequest> &rewriteRequests) {
@@ -216,8 +227,7 @@ GdtfPreparationResult ResourceCollection::PrepareGdtfResources(
       AdoptGeneratedResource(patchedPath);
     }
 
-    if (entry.kind != ResourceKind::Gdtf &&
-        entry.sourcePath.extension() != ".gdtf") {
+    if (!ShouldCanonicalizeAsGdtf(entry)) {
       continue;
     }
     runtime_storage::TemporaryWorkspace canonicalWorkspace(

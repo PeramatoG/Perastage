@@ -86,6 +86,9 @@ ResourcePlan FinalizeResourcePlan(
     const DiagnosticSink &diagnosticSink,
     const InformationalLogSink &informationalLogSink);
 
+// Returns whether the final archive identity requires GDTF canonicalization.
+bool ShouldCanonicalizeAsGdtf(const ResourceEntry &entry);
+
 class ResourceCollection {
 public:
   ResourceCollection(std::string sceneBasePath, DiagnosticSink diagnosticSink,

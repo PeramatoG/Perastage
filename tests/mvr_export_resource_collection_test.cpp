@@ -141,6 +141,27 @@ int main() {
              "models/test.glb",
          "archive path normalization changed", failures);
 
+  const ResourceEntry archiveGdtf{root / "source.gdtf", "fixture.gdtf",
+                                  ResourceKind::Gdtf,
+                                  ResourceProvenance::StandardPreserved};
+  const ResourceEntry sourceOnlyGdtf{root / "source.gdtf", "fixture.bin",
+                                     ResourceKind::Gdtf,
+                                     ResourceProvenance::StandardPreserved};
+  const ResourceEntry renamedGdtf{root / "source.bin", "fixture.gdtf",
+                                  ResourceKind::Model,
+                                  ResourceProvenance::StandardPreserved};
+  const ResourceEntry mixedCaseGdtf{root / "source.bin", "fixture.GdTf",
+                                    ResourceKind::Model,
+                                    ResourceProvenance::StandardPreserved};
+  Expect(ShouldCanonicalizeAsGdtf(archiveGdtf),
+         "lowercase final GDTF archive path was not selected", failures);
+  Expect(!ShouldCanonicalizeAsGdtf(sourceOnlyGdtf),
+         "source extension overrode the final archive identity", failures);
+  Expect(ShouldCanonicalizeAsGdtf(renamedGdtf),
+         "renamed GDTF archive identity was not authoritative", failures);
+  Expect(ShouldCanonicalizeAsGdtf(mixedCaseGdtf),
+         "mixed-case final GDTF extension was not selected", failures);
+
   ResourcePlan duplicatePlan;
   duplicatePlan.entries = {
       {preserved, "duplicate.bin", ResourceKind::Model,
