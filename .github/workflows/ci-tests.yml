@@ -582,19 +582,35 @@ jobs:
         shell: pwsh
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Restore vcpkg downloads cache" --status "${{ steps.vcpkg-downloads-cache.outcome || 'success' }}"
-      - name: Restore vcpkg installed packages and binary archives
+      # Binary archives are ABI-addressed by vcpkg. Keep them independent from the
+      # mutable installed and packages trees so compatible archives remain reusable.
+      # Retired step label: Restore vcpkg installed packages and binary archives.
+      # Retired mixed-tree namespace: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-
+      # steps.windows-toolchain.outputs.cache-identity is deliberately excluded because vcpkg enforces ABI compatibility.
+      - name: Restore vcpkg binary archives
         id: vcpkg-cache
         uses: actions/cache/restore@v5
         with:
-          path: |
-            .vcpkg-cache\installed
-            .vcpkg-cache\packages
-            .vcpkg-cache\binary
-          key: vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.windows-toolchain.outputs.cache-identity }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          path: .vcpkg-cache\binary
+          key: vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.vcpkg-baseline.outputs.baseline }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.windows-toolchain.outputs.cache-identity }}-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
-            vcpkg-compiled-v3-${{ runner.os }}-${{ runner.arch }}-x64-windows-default-${{ steps.vcpkg-baseline.outputs.baseline }}-
-      - name: Record telemetry — Restore vcpkg compiled cache
+            vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-${{ steps.vcpkg-baseline.outputs.baseline }}-
+            vcpkg-binary-v4-${{ runner.os }}-${{ runner.arch }}-x64-windows-
+      - name: Report GitHub Actions vcpkg binary cache restoration
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $exactHit = '${{ steps.vcpkg-cache.outputs.cache-hit }}' -eq 'true'
+          $matchedKey = '${{ steps.vcpkg-cache.outputs.cache-matched-key }}'
+          if ($exactHit) { $status = 'exact hit' }
+          elseif (-not [string]::IsNullOrWhiteSpace($matchedKey)) { $status = 'partial/fallback hit' }
+          else { $status = 'miss' }
+          Write-Host "GitHub Actions vcpkg binary cache: $status"
+          Write-Host "Primary key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}"
+          Write-Host "Matched key: $($matchedKey ?? '<none>')"
+          Write-Host "Local binary cache: $env:VCPKG_BINARY_CACHE"
+          Write-Host 'The installed and packages trees are intentionally reconstructed and are not cached.'
+      - name: Record telemetry — Restore vcpkg binary cache
         continue-on-error: true
         if: ${{ always() }}
         shell: pwsh
@@ -629,6 +645,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: '& "$env:PERASTAGE_PYTHON" .github/scripts/setup_vcpkg_github_packages.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --local-cache "$env:VCPKG_BINARY_CACHE" --mode read'
 
+      - name: Report configured vcpkg binary sources
+        shell: pwsh
+        run: |
+          Write-Host "Resolved local binary cache: $env:VCPKG_BINARY_CACHE"
+          if ($env:VCPKG_BINARY_SOURCES -match 'nugetconfig') {
+            Write-Host 'Binary sources: local files (read/write), GitHub Packages via authenticated NuGet config (read)'
+          } else {
+            Write-Host 'Binary sources: local files (read/write); GitHub Packages unavailable for this run'
+          }
+
       - name: Record telemetry — Configure remote binary cache
         continue-on-error: true
         if: ${{ always() }}
@@ -636,14 +662,23 @@ jobs:
         run: |
           & "$env:PERASTAGE_PYTHON" .github/scripts/ci_telemetry.py --state "$env:CI_LOG_DIR/ci-telemetry-windows-debug.state.json" checkpoint --phase "Configure remote binary cache" --status "${{ steps.vcpkg-remote-cache.outcome || 'success' }}"
       - name: Install vcpkg packages
+        id: vcpkg-install
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
-            --install-root "$env:VCPKG_INSTALLED" `
-            --packages-root "$env:VCPKG_PACKAGES" `
-            --downloads-root "$env:VCPKG_DOWNLOADS" `
-            --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
-            --log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log"
+          $started = Get-Date
+          try {
+            & "$env:PERASTAGE_PYTHON" .github/scripts/vcpkg_install_retry.py --vcpkg "$env:VCPKG_ROOT\vcpkg.exe" --triplet x64-windows --manifest-root "$env:GITHUB_WORKSPACE" `
+              --install-root "$env:VCPKG_INSTALLED" `
+              --packages-root "$env:VCPKG_PACKAGES" `
+              --downloads-root "$env:VCPKG_DOWNLOADS" `
+              --attempts 4 --initial-delay-seconds 30 --max-delay-seconds 120 `
+              --log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            $elapsed = [math]::Round(((Get-Date) - $started).TotalSeconds, 1)
+            "elapsed-seconds=$elapsed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "vcpkg dependency installation elapsed time: $elapsed seconds"
+          }
       - name: Record telemetry — Install/materialize vcpkg packages
         continue-on-error: true
         shell: pwsh
@@ -661,15 +696,13 @@ jobs:
         with:
           path: .vcpkg-cache/downloads
           key: ${{ steps.vcpkg-downloads-cache.outputs.cache-primary-key }}
-      - name: Save vcpkg installed packages and binary archives
+      - name: Save vcpkg binary archives
+        # Retired step label: Save vcpkg installed packages and binary archives.
         id: vcpkg-cache-save
         if: ${{ steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v5
         with:
-          path: |
-            .vcpkg-cache\installed
-            .vcpkg-cache\packages
-            .vcpkg-cache\binary
+          path: .vcpkg-cache\binary
           key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
       - name: Record telemetry — vcpkg cache save operations
@@ -682,7 +715,7 @@ jobs:
         if: ${{ always() }}
         shell: pwsh
         run: |
-          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v3 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
+          & "$env:PERASTAGE_PYTHON" .github/scripts/write_vcpkg_cache_summary.py --platform windows --triplet x64-windows --baseline "${{ steps.vcpkg-baseline.outputs.baseline }}" --schema v4 --primary-key "${{ steps.vcpkg-cache.outputs.cache-primary-key }}" --matched-key "${{ steps.vcpkg-cache.outputs.cache-matched-key }}" --downloads-hit "${{ steps.vcpkg-downloads-cache.outputs.cache-hit }}" --compiled-hit "${{ steps.vcpkg-cache.outputs.cache-hit }}" --compiled-save-outcome "${{ steps.vcpkg-cache-save.outcome }}" --install-outcome "${{ steps.vcpkg-install.outcome }}" --install-log "$env:CI_LOG_DIR\vcpkg-install-windows-debug.log" --install-elapsed-seconds "${{ steps.vcpkg-install.outputs.elapsed-seconds }}" --remote-mode read --remote-enabled "${{ steps.vcpkg-remote-cache.outputs.remote-enabled }}" --remote-setup-result "${{ steps.vcpkg-remote-cache.outputs.setup-result }}" --fallback-local-only "${{ steps.vcpkg-remote-cache.outputs.fallback-local-only }}" --publish-permitted no --publication-verification not-applicable
 
       - name: Define Windows sccache compatibility boundary
         shell: pwsh
