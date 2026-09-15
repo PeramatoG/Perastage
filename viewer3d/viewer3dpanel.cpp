@@ -56,6 +56,9 @@
 #include "clipboard_placement_confirmation.h"
 #include "selection_movement_settings.h"
 #include "interaction/context_menu_model.h"
+#include "interaction/navigation_interaction_policy.h"
+#include "interaction/selection_interaction_policy.h"
+#include "interaction/scene_selection_policy.h"
 #include "../viewer_common/screen_line_projection.h"
 #include "viewport_interaction_scope.h"
 #include "magnet_snap.h"
@@ -206,117 +209,7 @@ bool Is2DDarkModeEnabled() {
     return ConfigManager::Get().GetFloat("view2d_dark_mode") >= 0.5f;
 }
 
-struct HoverTableHighlights {
-    std::vector<std::string> fixtures;
-    std::vector<std::string> trusses;
-    std::vector<std::string> supports;
-    std::vector<std::string> sceneObjects;
-};
-
-// Appends a UUID to a sequence when it is not already present.
-void AppendUniqueUuid(std::vector<std::string>& uuids, const std::string& uuid) {
-    if (uuid.empty())
-        return;
-    if (std::find(uuids.begin(), uuids.end(), uuid) == uuids.end())
-        uuids.push_back(uuid);
-}
-
-// Splits one UUID into the table bucket that owns it.
-void AppendUuidToTableHighlights(const MvrScene& scene, const std::string& uuid,
-                                 HoverTableHighlights& highlights) {
-    if (scene.fixtures.find(uuid) != scene.fixtures.end())
-        AppendUniqueUuid(highlights.fixtures, uuid);
-    else if (scene.trusses.find(uuid) != scene.trusses.end())
-        AppendUniqueUuid(highlights.trusses, uuid);
-    else if (scene.supports.find(uuid) != scene.supports.end())
-        AppendUniqueUuid(highlights.supports, uuid);
-    else if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end())
-        AppendUniqueUuid(highlights.sceneObjects, uuid);
-}
-
-// Splits related hover UUIDs by table ownership for synchronized table highlights.
-HoverTableHighlights BuildHoverTableHighlights(const MvrScene& scene,
-                                               const std::string& hoverUuid) {
-    HoverTableHighlights highlights;
-    for (const auto& uuid :
-         scene_grouping::ExpandHoverForGroupHighlights(scene, hoverUuid)) {
-        AppendUuidToTableHighlights(scene, uuid, highlights);
-    }
-    return highlights;
-}
-
-// Builds the cross-table selection represented by a clicked scene item.
-HoverTableHighlights BuildClickSelectionHighlights(
-    const MvrScene& scene, const std::string& uuid) {
-    HoverTableHighlights highlights;
-    AppendUuidToTableHighlights(scene, uuid, highlights);
-    for (const auto& relatedUuid :
-         scene_grouping::ExpandHoverForGroupHighlights(scene, uuid)) {
-        AppendUuidToTableHighlights(scene, relatedUuid, highlights);
-    }
-    return highlights;
-}
-
-// Returns true when every grouped click UUID is already selected.
-bool ContainsAllUuids(const std::vector<std::string>& selection,
-                      const std::vector<std::string>& clickedUuids) {
-    return std::all_of(clickedUuids.begin(), clickedUuids.end(),
-                       [&](const std::string& uuid) {
-                           return std::find(selection.begin(), selection.end(),
-                                            uuid) != selection.end();
-                       });
-}
-
-// Adds missing clicked UUIDs to an existing selection while preserving order.
-std::vector<std::string> AddClickedUuids(std::vector<std::string> selection,
-                                         const std::vector<std::string>& clickedUuids) {
-    for (const auto& uuid : clickedUuids) {
-        if (std::find(selection.begin(), selection.end(), uuid) == selection.end())
-            selection.push_back(uuid);
-    }
-    return selection;
-}
-
-// Adds or removes grouped click UUIDs from an existing additive selection.
-std::vector<std::string> ToggleClickedUuids(std::vector<std::string> selection,
-                                            const std::vector<std::string>& clickedUuids) {
-    if (clickedUuids.empty())
-        return selection;
-    const bool removeClickedUuids = ContainsAllUuids(selection, clickedUuids);
-    for (const auto& uuid : clickedUuids) {
-        auto it = std::find(selection.begin(), selection.end(), uuid);
-        if (removeClickedUuids) {
-            if (it != selection.end())
-                selection.erase(it);
-        } else if (it == selection.end()) {
-            selection.push_back(uuid);
-        }
-    }
-    return selection;
-}
-
-// Updates one typed selection according to the additive click mode.
-std::vector<std::string> ResolveClickedSelection(
-    const std::vector<std::string>& currentSelection,
-    const std::vector<std::string>& clickedUuids, bool additive, bool addOnly) {
-    if (!additive)
-        return clickedUuids;
-    if (addOnly)
-        return AddClickedUuids(currentSelection, clickedUuids);
-    return ToggleClickedUuids(currentSelection, clickedUuids);
-}
-
-// Flattens typed table selections into one viewer UUID list.
-std::vector<std::string> FlattenSelectionHighlights(
-    const HoverTableHighlights& selection) {
-    std::set<std::string> mergedSelection;
-    mergedSelection.insert(selection.fixtures.begin(), selection.fixtures.end());
-    mergedSelection.insert(selection.trusses.begin(), selection.trusses.end());
-    mergedSelection.insert(selection.supports.begin(), selection.supports.end());
-    mergedSelection.insert(selection.sceneObjects.begin(),
-                           selection.sceneObjects.end());
-    return std::vector<std::string>(mergedSelection.begin(), mergedSelection.end());
-}
+using HoverTableHighlights = viewer3d::interaction::TypedSelection;
 
 // Builds a typed selection snapshot from the current configuration state.
 HoverTableHighlights BuildCurrentSelectionHighlights(const ConfigManager& cfg) {
@@ -676,7 +569,7 @@ void ApplyObjectSelectionToUi(const HoverTableHighlights& selection,
     }
 
     if (panel)
-        panel->SetSelectedFixtures(FlattenSelectionHighlights(selection));
+        panel->SetSelectedFixtures(viewer3d::interaction::FlattenTypedSelection(selection));
 
     selection::ScopedOrigin selectionOrigin(selection::Origin::Viewer3D);
     if (FixtureTablePanel::Instance())
@@ -1210,7 +1103,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
       m_forceHoverQuery ||
         (nowForHover - m_lastHoverQueryTime) >= kHoverQueryInterval;
     const bool hoverQueriesPausedForInteraction =
-        m_cameraMoving || m_isInteracting || m_dragging || m_selectionDragArmed;
+        m_cameraMoving || m_isInteracting || m_navigationSession.IsActive() || m_selectionDragArmed;
     if (hoverQueriesPausedForInteraction && shouldUpdateHoverQuery)
     viewer3d::diagnostics::Log(
         "Hover picking paused during active interaction.");
@@ -1893,7 +1786,7 @@ void Viewer3DPanel::DrawMeasureOverlay(const RenderSize &renderSize) {
 void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
     m_hasLastMousePos = true;
     if (event.MiddleDown() &&
-        (m_dragging || m_rectSelecting || m_selectionDragArmed))
+        (m_navigationSession.IsActive() || m_rectSelecting || m_selectionDragArmed))
         return;
     if (m_linePointSelectionActive && event.LeftDown()) {
         m_linePointSelectionConsumeMouseUp = true;
@@ -1919,13 +1812,14 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
         return;
     }
     if (m_continuousPlacementActive && event.LeftDown()) {
-    m_mode = event.ShiftDown() ? InteractionMode::Pan : InteractionMode::Orbit;
-        m_dragging = true;
+        m_navigationSession.Begin(
+            event.ShiftDown() ? viewer3d::interaction::NavigationMode::Pan
+                              : viewer3d::interaction::NavigationMode::Orbit);
         m_controller.SetInteracting(true);
         m_isInteracting = true;
         m_cameraMoving = true;
         m_lastInteractionTime = std::chrono::steady_clock::now();
-        m_draggedSincePress = false;
+        m_navigationSession.ClearMoved();
         m_lastMousePos = event.GetPosition();
         SetFocus();
         CaptureMouse();
@@ -1949,7 +1843,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
             m_lastInteractionTime = std::chrono::steady_clock::now();
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
-            m_draggedSincePress = false;
+            m_navigationSession.ClearMoved();
             CaptureMouse();
             return;
         }
@@ -1958,7 +1852,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
         !event.RightDown() && m_leftDragSelectionMovementEnabled) {
             if (PrepareSelectionDrag(event.GetPosition())) {
                 m_lastMousePos = event.GetPosition();
-                m_draggedSincePress = false;
+                m_navigationSession.ClearMoved();
                 SetFocus();
                 CaptureMouse();
                 Refresh();
@@ -1966,21 +1860,19 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
             }
         }
 
-        if (viewport_navigation::ResolveViewer3DAction(
+        const auto navigationMode =
+            viewport_navigation::ResolveViewer3DAction(
                 event.MiddleDown() ? viewport_navigation::MouseButton::Middle
                                    : viewport_navigation::MouseButton::Left,
-                event.ShiftDown()) ==
-            viewport_navigation::Viewer3DAction::Pan)
-            m_mode = InteractionMode::Pan;
-        else
-            m_mode = InteractionMode::Orbit;
-
-        m_dragging = true;
+                event.ShiftDown()) == viewport_navigation::Viewer3DAction::Pan
+                ? viewer3d::interaction::NavigationMode::Pan
+                : viewer3d::interaction::NavigationMode::Orbit;
+        m_navigationSession.Begin(navigationMode);
         m_controller.SetInteracting(true);
         m_isInteracting = true;
         m_cameraMoving = true;
         m_lastInteractionTime = std::chrono::steady_clock::now();
-        m_draggedSincePress = false;
+        m_navigationSession.ClearMoved();
         m_lastMousePos = event.GetPosition();
         SetFocus();
         CaptureMouse();
@@ -1994,22 +1886,21 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
                               event.GetX(), event.GetY(),
                               event.LeftUp() ? 1 : 0, event.MiddleUp() ? 1 : 0,
                               event.RightUp() ? 1 : 0,
-                                m_draggedSincePress ? 1 : 0);
+                                m_navigationSession.HasMoved() ? 1 : 0);
     if (m_linePointSelectionConsumeMouseUp && event.LeftUp()) {
         m_linePointSelectionConsumeMouseUp = false;
         return;
     }
     if (m_continuousPlacementActive && event.LeftUp()) {
-        const bool navigated = m_draggedSincePress;
-        m_dragging = false;
+        const bool navigated = m_navigationSession.HasMoved();
+        m_navigationSession.End();
         m_isInteracting = false;
         m_cameraMoving = false;
         m_controller.SetInteracting(false);
         m_controller.SetCameraMoving(false);
-        m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
-        m_draggedSincePress = false;
+        m_navigationSession.ClearMoved();
         if (navigated) {
             AlignContinuousElementToPointer(event.GetPosition());
         } else {
@@ -2024,10 +1915,8 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
             ReleaseMouse();
         ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
         m_rectSelecting = false;
-        m_dragging = false;
+        m_navigationSession.Reset();
         m_lastInteractionTime = std::chrono::steady_clock::now();
-        m_mode = InteractionMode::None;
-        m_draggedSincePress = false;
         m_forceHoverQuery = true;
         Refresh();
         return;
@@ -2039,24 +1928,23 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         if (m_selectionDragMoved) {
             CommitActiveMagnetSnap();
             FinalizeSelectionDrag();
-            m_draggedSincePress = true;
+            m_navigationSession.MarkMoved();
         }
         ResetSelectionDragState();
         m_forceHoverQuery = true;
         Refresh();
-        if (m_draggedSincePress) {
-            m_draggedSincePress = false;
+        if (m_navigationSession.HasMoved()) {
+            m_navigationSession.ClearMoved();
             return;
         }
     }
 
-  if (m_dragging && (event.LeftUp() || event.MiddleUp() || event.RightUp())) {
-        m_dragging = false;
+  if (m_navigationSession.IsActive() && (event.LeftUp() || event.MiddleUp() || event.RightUp())) {
+        m_navigationSession.End();
         m_isInteracting = false;
         m_cameraMoving = false;
         m_controller.SetInteracting(false);
         m_controller.SetCameraMoving(false);
-        m_mode = InteractionMode::None;
         if (HasCapture())
             ReleaseMouse();
         if (m_continuousPlacementActive && event.MiddleUp())
@@ -2065,7 +1953,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         Refresh();
     }
 
-  if (event.LeftUp() && !m_draggedSincePress) {
+  if (event.LeftUp() && !m_navigationSession.HasMoved()) {
         m_forceHoverQuery = true;
         const RenderSize renderSize = ResolveRenderSize(this);
         const int w = renderSize.width;
@@ -2143,18 +2031,18 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
             const bool additive = event.ShiftDown() || event.ControlDown();
             const bool addOnly = event.ControlDown();
             const HoverTableHighlights clickedSelection =
-                BuildClickSelectionHighlights(cfg.GetScene(), uuid);
+                viewer3d::interaction::BuildClickSelection(cfg.GetScene(), uuid);
             HoverTableHighlights resolvedSelection;
       resolvedSelection.fixtures =
-          ResolveClickedSelection(cfg.GetSelectedFixtures(),
+          viewer3d::interaction::ResolveClickedSelection(cfg.GetSelectedFixtures(),
                                   clickedSelection.fixtures, additive, addOnly);
       resolvedSelection.trusses =
-          ResolveClickedSelection(cfg.GetSelectedTrusses(),
+          viewer3d::interaction::ResolveClickedSelection(cfg.GetSelectedTrusses(),
                                   clickedSelection.trusses, additive, addOnly);
       resolvedSelection.supports =
-          ResolveClickedSelection(cfg.GetSelectedSupports(),
+          viewer3d::interaction::ResolveClickedSelection(cfg.GetSelectedSupports(),
                                   clickedSelection.supports, additive, addOnly);
-            resolvedSelection.sceneObjects = ResolveClickedSelection(
+            resolvedSelection.sceneObjects = viewer3d::interaction::ResolveClickedSelection(
                 cfg.GetSelectedSceneObjects(), clickedSelection.sceneObjects,
                 additive, addOnly);
             ApplyObjectSelectionToUi(resolvedSelection, this);
@@ -2162,7 +2050,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
             ClearAllObjectSelections("clear selection");
         }
     }
-    m_draggedSincePress = false;
+    m_navigationSession.ClearMoved();
 }
 
 // Synchronizes the current hover highlight with the 3D controller and tables.
@@ -2176,7 +2064,7 @@ void Viewer3DPanel::SynchronizeHoverHighlight() {
 
     const MvrScene& scene = ConfigManager::Get().GetScene();
     const HoverTableHighlights relatedHighlights =
-        BuildHoverTableHighlights(scene, m_hoverUuid);
+        viewer3d::interaction::BuildHoverSelection(scene, m_hoverUuid);
     if (FixtureTablePanel::Instance()) {
         const std::string primaryUuid =
             scene.fixtures.find(m_hoverUuid) != scene.fixtures.end()
@@ -2319,7 +2207,7 @@ void Viewer3DPanel::OnRightUp(wxMouseEvent &event) {
         CancelContinuousPlacement();
         return;
     }
-    if (m_draggedSincePress)
+    if (m_navigationSession.HasMoved())
         return;
 
     const RenderSize renderSize = ResolveRenderSize(this);
@@ -2709,12 +2597,11 @@ void Viewer3DPanel::CancelLinePointSelection() {
 
 // Resets interaction state after wxWidgets reports lost mouse capture.
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
-    m_dragging = false;
+    m_navigationSession.End();
     m_isInteracting = false;
     m_cameraMoving = false;
     m_controller.SetInteracting(false);
     m_controller.SetCameraMoving(false);
-    m_mode = InteractionMode::None;
     m_rectSelecting = false;
     m_rectSelectionAcrossAllTables = false;
     ResetSelectionDragState();
@@ -2738,15 +2625,15 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
     const wxPoint pickEnd = ToFramebufferPoint(this, end);
   if (m_rectSelectionAcrossAllTables) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
-        selection.fixtures = AddClickedUuids(
+        selection.fixtures = viewer3d::interaction::AddSelectionUuids(
         selection.fixtures,
         m_controller.GetFixturesInScreenRect(pickStart.x, pickStart.y,
                                              pickEnd.x, pickEnd.y, w, h));
-        selection.trusses = AddClickedUuids(
+        selection.trusses = viewer3d::interaction::AddSelectionUuids(
         selection.trusses,
         m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
                                    pickEnd.y, w, h));
-        selection.sceneObjects = AddClickedUuids(
+        selection.sceneObjects = viewer3d::interaction::AddSelectionUuids(
         selection.sceneObjects,
         m_controller.GetSceneObjectsInScreenRect(pickStart.x, pickStart.y,
                                                  pickEnd.x, pickEnd.y, w, h));
@@ -2757,7 +2644,7 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
   if (FixtureTablePanel::Instance() &&
       FixtureTablePanel::Instance()->IsActivePage()) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
-        selection.fixtures = AddClickedUuids(
+        selection.fixtures = viewer3d::interaction::AddSelectionUuids(
         selection.fixtures,
         m_controller.GetFixturesInScreenRect(pickStart.x, pickStart.y,
                                              pickEnd.x, pickEnd.y, w, h));
@@ -2765,7 +2652,7 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
   } else if (TrussTablePanel::Instance() &&
              TrussTablePanel::Instance()->IsActivePage()) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
-        selection.trusses = AddClickedUuids(
+        selection.trusses = viewer3d::interaction::AddSelectionUuids(
         selection.trusses,
         m_controller.GetTrussesInScreenRect(pickStart.x, pickStart.y, pickEnd.x,
                                    pickEnd.y, w, h));
@@ -2773,7 +2660,7 @@ void Viewer3DPanel::ApplyRectangleSelection(const wxPoint& start,
   } else if (SceneObjectTablePanel::Instance() &&
              SceneObjectTablePanel::Instance()->IsActivePage()) {
         HoverTableHighlights selection = BuildCurrentSelectionHighlights(cfg);
-        selection.sceneObjects = AddClickedUuids(
+        selection.sceneObjects = viewer3d::interaction::AddSelectionUuids(
         selection.sceneObjects,
         m_controller.GetSceneObjectsInScreenRect(pickStart.x, pickStart.y,
                                                  pickEnd.x, pickEnd.y, w, h));
@@ -3738,28 +3625,26 @@ void Viewer3DPanel::DrawSelectionDragGizmo(const RenderSize &renderSize) {
 void Viewer3DPanel::ApplyCameraDrag(const wxMouseEvent& event,
                                     const wxPoint& mousePos)
 {
-    const int dx = mousePos.x - m_lastMousePos.x;
-    const int dy = mousePos.y - m_lastMousePos.y;
-    if (dx == 0 && dy == 0)
+    const auto intent = viewer3d::interaction::ResolveCameraDrag({
+        m_navigationSession.GetMode(),
+        {m_lastMousePos.x, m_lastMousePos.y},
+        {mousePos.x, mousePos.y},
+        event.LeftIsDown() || event.RightIsDown(),
+        event.MiddleIsDown() || event.RightIsDown() || event.ShiftDown(),
+        {IsHorizontalOrbitInversionEnabled(),
+         IsVerticalOrbitInversionEnabled()}});
+    if (!intent)
         return;
 
-    m_draggedSincePress = true;
+    m_navigationSession.MarkMoved();
     m_isInteracting = true;
     m_cameraMoving = true;
     m_lastInteractionTime = std::chrono::steady_clock::now();
-
-    if (m_mode == InteractionMode::Orbit &&
-        (event.LeftIsDown() || event.RightIsDown())) {
-        const auto orbitDeltas = viewport_navigation::ResolveOrbitDeltas(
-            static_cast<float>(dx) * 0.5f,
-            -static_cast<float>(dy) * 0.5f,
-            IsHorizontalOrbitInversionEnabled(),
-            IsVerticalOrbitInversionEnabled());
-        m_camera.Orbit(orbitDeltas.first, orbitDeltas.second);
-    } else if (m_mode == InteractionMode::Pan &&
-               (event.MiddleIsDown() || event.RightIsDown() ||
-                event.ShiftDown())) {
-        m_camera.Pan(-dx * 0.01f, dy * 0.01f);
+    if (intent->action ==
+        viewer3d::interaction::CameraDragIntent::Action::Orbit) {
+        m_camera.Orbit(intent->horizontal, intent->vertical);
+    } else {
+        m_camera.Pan(intent->horizontal, intent->vertical);
     }
     m_lastMousePos = mousePos;
     m_placementViewRevision.Invalidate();
@@ -3817,7 +3702,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         const wxPoint livePos = ScreenToClient(wxGetMousePosition());
         if (GetClientRect().Contains(livePos))
             pos = livePos;
-        if (m_dragging && event.Dragging()) {
+        if (m_navigationSession.IsActive() && event.Dragging()) {
             ApplyCameraDrag(event, pos);
             PresentContinuousPlacementFrame();
             return;
@@ -3961,7 +3846,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
 
   if (m_rectSelecting && event.Dragging()) {
         m_rectSelectEnd = pos;
-        m_draggedSincePress = true;
+        m_navigationSession.MarkMoved();
         Refresh();
         return;
     }
@@ -3976,8 +3861,8 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         const int dx = pos.x - m_lastMousePos.x;
         const int dy = pos.y - m_lastMousePos.y;
     if (!m_selectionDragMoved &&
-        std::abs(dx) < kSelectionDragStartThresholdPx &&
-            std::abs(dy) < kSelectionDragStartThresholdPx)
+        !viewer3d::interaction::HasSelectionDragStarted(
+            dx, dy, kSelectionDragStartThresholdPx))
             return;
         if (dx != 0 || dy != 0) {
             const RenderSize renderSize = ResolveRenderSize(this);
@@ -4002,7 +3887,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                             axisVector[2] * static_cast<float>(axisDeltaMeters)};
                         ApplySelectionDragDelta(worldDelta);
                         m_selectionDragMoved = true;
-                        m_draggedSincePress = true;
+                        m_navigationSession.MarkMoved();
                     }
                 } else {
                     const auto rawAnchor = CurrentRawSelectionDragAnchor();
@@ -4018,7 +3903,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
                         ApplySelectionDragDelta(worldDelta);
                         m_selectionDragAxis = viewer3d::SelectionDragAxis::None;
                         m_selectionDragMoved = true;
-                        m_draggedSincePress = true;
+                        m_navigationSession.MarkMoved();
                     }
                 }
             }
@@ -4031,7 +3916,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         return;
     }
 
-    if (m_dragging && event.Dragging())
+    if (m_navigationSession.IsActive() && event.Dragging())
         ApplyCameraDrag(event, pos);
     else
         m_lastMousePos = pos;
@@ -4054,12 +3939,9 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
     // Use the ratio of the rotation to the wheel delta to scale zoom
     // steps accordingly so that large scrolls result in proportionally
     // larger zoom changes.
-    int rotation = event.GetWheelRotation();
-    int deltaWheel = event.GetWheelDelta();
-    float steps = 0.0f;
-    if (deltaWheel != 0)
-        steps = -static_cast<float>(rotation) / static_cast<float>(deltaWheel);
-    if (steps == 0.0f || !std::isfinite(steps)) {
+    const auto steps = viewer3d::interaction::ResolveWheelZoomSteps(
+        event.GetWheelRotation(), event.GetWheelDelta());
+    if (!steps) {
     viewer3d::diagnostics::Log(
         "Mouse wheel ignored because zoom steps are invalid or zero.");
         return;
@@ -4069,7 +3951,7 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
     m_cameraMoving = true;
     m_lastInteractionTime = std::chrono::steady_clock::now();
 
-    m_camera.Zoom(steps);
+    m_camera.Zoom(*steps);
     m_placementViewRevision.Invalidate();
     if (m_continuousPlacementActive)
         AlignContinuousElementToPointer(event.GetPosition());
@@ -4454,7 +4336,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
     const bool hasRelevantVisualChange =
       cameraChanged || m_controller.IsResourceSyncPending() ||
       m_selectionRefreshPending || m_highlightRefreshPending || m_mouseMoved ||
-      m_forceHoverQuery || m_rectSelecting || m_dragging || m_isInteracting ||
+      m_forceHoverQuery || m_rectSelecting || m_navigationSession.IsActive() || m_isInteracting ||
         m_cameraMoving;
     if (!hasRelevantVisualChange)
         return;
@@ -4517,7 +4399,7 @@ void Viewer3DPanel::ArmZoomInteractionTimeout() {
 void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent &event) {
     (void)event;
 
-    if (m_dragging || m_rectSelecting)
+    if (m_navigationSession.IsActive() || m_rectSelecting)
         return;
 
     m_isInteracting = false;

@@ -30,6 +30,7 @@
 #include <wx/glcanvas.h>
 #include "../viewer2d/viewer2d_measure_tool.h"
 #include "interaction/selection_drag_math.h"
+#include "interaction/navigation_interaction_policy.h"
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
 #include "ui_render_size.h"
@@ -147,8 +148,7 @@ private:
     Viewer3DCamera m_camera;
 
     // Mouse interaction state
-    bool m_dragging = false;
-    bool m_draggedSincePress = false;
+    viewer3d::interaction::NavigationSession m_navigationSession;
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
     bool m_hasLastMousePos = false;
@@ -201,9 +201,6 @@ private:
     std::array<float, 3> m_continuousConstraintWorldOriginMeters{
         0.0f, 0.0f, 0.0f};
 
-    // Type of interaction currently active (Orbit or Pan)
-    enum class InteractionMode { None, Orbit, Pan };
-    InteractionMode m_mode = InteractionMode::None;
     std::chrono::steady_clock::time_point m_lastInteractionTime{};
     bool m_isInteracting = false;
     bool m_cameraMoving = false;
