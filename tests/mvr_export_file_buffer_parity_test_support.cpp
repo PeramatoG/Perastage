@@ -34,7 +34,9 @@ ReadEntries(wxInputStream &input) {
   std::unordered_map<std::string, std::string> entries;
   std::unique_ptr<wxZipEntry> entry;
   while ((entry.reset(zip.GetNextEntry())), entry)
-    assert(entries.emplace(entry->GetName().ToStdString(), ReadEntry(zip)).second);
+    assert(entries
+               .emplace(entry->GetName(wxPATH_UNIX).ToStdString(), ReadEntry(zip))
+               .second);
   return entries;
 }
 

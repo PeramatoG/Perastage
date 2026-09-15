@@ -30,7 +30,9 @@ ReadEntries(const fs::path &path) {
     char buffer[256];
     while (zip.Read(buffer, sizeof(buffer)).LastRead() > 0)
       payload.append(buffer, zip.LastRead());
-    assert(entries.emplace(entry->GetName().ToStdString(), payload).second);
+    assert(entries
+               .emplace(entry->GetName(wxPATH_UNIX).ToStdString(), payload)
+               .second);
   }
   return entries;
 }
