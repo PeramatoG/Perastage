@@ -2944,6 +2944,8 @@ add_executable(viewer3d_scene_selection_policy_test
                ../models/mvrscene.cpp)
 target_include_directories(viewer3d_scene_selection_policy_test PRIVATE
                            ../viewer3d/interaction ../core ../models)
+target_link_libraries(viewer3d_scene_selection_policy_test PRIVATE
+                      perastage_uuid)
 add_test(NAME Viewer3DSceneSelectionPolicy
          COMMAND viewer3d_scene_selection_policy_test)
 
