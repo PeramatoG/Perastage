@@ -47,6 +47,7 @@ def main() -> int:
     parser.add_argument("--baseline", required=True)
     parser.add_argument("--schema", default="v3")
     parser.add_argument("--primary-key", required=True)
+    parser.add_argument("--matched-key", default="")
     parser.add_argument("--downloads-hit", required=True)
     parser.add_argument("--compiled-hit", required=True)
     parser.add_argument("--compiled-save-outcome", required=True)
@@ -60,6 +61,7 @@ def main() -> int:
     parser.add_argument("--fallback-local-only", default="true")
     parser.add_argument("--publish-permitted", default="no")
     parser.add_argument("--install-outcome", default="not reported")
+    parser.add_argument("--install-elapsed-seconds", default="not reported")
     parser.add_argument("--publication-verification", default="not applicable")
     args = parser.parse_args()
 
@@ -69,6 +71,7 @@ def main() -> int:
         return 0
 
     exact_hit = args.compiled_hit.lower() == "true"
+    cache_restore = "exact hit" if exact_hit else "partial/fallback hit" if args.matched_key else "miss"
     save_outcome = normalized(args.compiled_save_outcome)
     save_attempted = "no, exact compiled cache was restored" if exact_hit else "yes, after vcpkg install succeeded"
     saved_status = "skipped because an exact cache already existed" if exact_hit else save_outcome
@@ -88,6 +91,8 @@ def main() -> int:
         f"- Cache schema version: {args.schema}",
         f"- Downloads cache hit: {normalized(args.downloads_hit)}",
         f"- Compiled vcpkg cache hit: {normalized(args.compiled_hit)}",
+        f"- GitHub Actions binary cache result: {cache_restore}",
+        f"- Matched binary cache key: `{normalized(args.matched_key)}`",
         f"- Effective compiled cache reuse: {effective_reuse}",
         f"- Installed packages reused without rebuild: {installed_reused}",
         f"- Binary packages restored: {binary_restored}",
@@ -106,6 +111,7 @@ def main() -> int:
         f"- Fallback to local-only: {args.fallback_local_only}",
         f"- Permitted to publish remotely: {args.publish_permitted}",
         f"- vcpkg install outcome: {args.install_outcome}",
+        f"- vcpkg install elapsed time: {normalized(args.install_elapsed_seconds)} seconds",
         f"- Remote publication verification: {args.publication_verification}",
         "",
     ]
