@@ -15,13 +15,11 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
 #include <tinyxml2.h>
 #include <wx/init.h>
 #include <wx/mstream.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
-
 #include "app_version.h"
 #include "build_info.h"
 #include "configmanager.h"
@@ -29,12 +27,12 @@
 #include "gdtf_test_fixture_builder.h"
 #include "matrixutils.h"
 #include "mvrexporter.h"
+#include "mvr_export_file_buffer_parity_test_support.h"
 #include "mvrimporter.h"
 #include "sceneobject.h"
 #include "support.h"
 #include "truss.h"
 #include "uuidutils.h"
-
 namespace fs = std::filesystem;
 static constexpr const char *kPerastageUserDataSchemaVersion = "1.0";
 
@@ -1658,6 +1656,8 @@ int main() {
                                   MvrExportDiagnosticSeverity::Error &&
                               diagnostic.resourceName == "shared.png";
                      }));
+
+  VerifyMvrExportFileBufferParity(cfg, tempDir);
 
   fs::remove_all(tempDir);
   return 0;
