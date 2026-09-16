@@ -16,9 +16,7 @@ void Viewer3DPanel::ApplyCameraIntent(
     const viewer3d::interaction::CameraDragIntent &intent,
     const wxPoint &mousePos) {
   m_navigationSession.MarkMoved();
-  m_isInteracting = true;
-  m_cameraMoving = true;
-  m_lastInteractionTime = std::chrono::steady_clock::now();
+  m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
   if (intent.action == viewer3d::interaction::CameraDragIntent::Action::Orbit)
     m_camera.Orbit(intent.horizontal, intent.vertical);
   else
@@ -46,9 +44,7 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
     return;
   }
   m_controller.SetInteracting(true);
-  m_isInteracting = true;
-  m_cameraMoving = true;
-  m_lastInteractionTime = std::chrono::steady_clock::now();
+  m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
 
   m_camera.Zoom(*steps);
   m_placementViewRevision.Invalidate();
@@ -136,9 +132,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
     m_camera.Zoom(cameraIntent.horizontal);
 
   m_controller.SetInteracting(true);
-  m_isInteracting = true;
-  m_cameraMoving = true;
-  m_lastInteractionTime = std::chrono::steady_clock::now();
+  m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
   if (zoomTriggered)
     ArmZoomInteractionTimeout();
   m_placementViewRevision.Invalidate();
@@ -161,12 +155,10 @@ void Viewer3DPanel::OnZoomInteractionTimeout(wxTimerEvent &event) {
   if (m_navigationSession.IsActive() || m_rectSelecting)
     return;
 
-  m_isInteracting = false;
-  m_cameraMoving = false;
+  m_runtimeState.EndInteraction();
   m_controller.SetInteracting(false);
   m_controller.SetCameraMoving(false);
   m_controller.MarkResourceSyncPending();
-  m_mouseMoved = true;
-  m_forceHoverQuery = true;
+  m_runtimeState.MarkPointerMoved();
   Refresh();
 }

@@ -112,9 +112,6 @@ wxEND_EVENT_TABLE()
 
 
 namespace {
-constexpr auto kPauseDelay = std::chrono::milliseconds(200);
-constexpr auto kHoverQueryInterval = std::chrono::milliseconds(40);
-constexpr auto kResourceSyncInterval = std::chrono::milliseconds(250);
 constexpr int kExportImageWidth = 1920;
 constexpr int kExportImageHeight = 1080;
 constexpr double kDefaultFovYDegrees = 45.0;
@@ -848,7 +845,8 @@ Viewer3DPanel::Viewer3DPanel(wxWindow* parent)
         event.Skip();
     });
     m_threadRunning = true;
-    m_lastResourceSyncCheck = std::chrono::steady_clock::now();
+    m_runtimeState.InitializeResourceSyncCadence(
+        std::chrono::steady_clock::now());
     m_refreshThread = std::thread(&Viewer3DPanel::RefreshLoop, this);
 }
 
@@ -986,12 +984,16 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
 
     const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
     if (m_controller.IsResourceSyncPending() && !pauseHeavyTasks &&
-        !m_cameraMoving && m_controller.ConsumeResourceSyncPending()) {
+        !m_runtimeState.IsCameraMoving() && m_controller.ConsumeResourceSyncPending()) {
         m_controller.UpdateResourcesIfDirty();
     }
 
-    const bool highlightRefreshPendingAtFrameStart = m_highlightRefreshPending;
-    const bool highlightOnlyRefresh = false;
+    const std::uint64_t highlightRevisionAtFrameStart =
+        m_runtimeState.HighlightRevision();
+    const bool highlightRefreshPendingAtFrameStart =
+        m_runtimeState.HighlightRefreshPending();
+    const std::uint64_t selectionRevisionAtFrameStart =
+        m_runtimeState.SelectionRevision();
     const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
     const auto hiddenLayers = ConfigManager::Get().GetHiddenLayers();
 
@@ -1033,8 +1035,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         std::chrono::duration<double, std::milli>(
             std::chrono::steady_clock::now() - fullRenderStart)
             .count();
-    m_fullRenderMsAccumInCurrentWindow += fullRenderElapsedMs;
-    ++m_fullRenderSamplesInCurrentWindow;
+    m_runtimeState.RecordFullRender(fullRenderElapsedMs);
 
     // Ensure the OpenGL context is current before drawing overlays.
     if (!gl_lifecycle::TrySetCurrent(*this, m_glContext, "Viewer3DPanel",
@@ -1056,62 +1057,33 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
   const bool skipLabelWork =
-      m_cameraMoving &&
+      m_runtimeState.IsCameraMoving() &&
         (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
-    if (cameraFingerprint != m_lastCameraFingerprint) {
-        ++m_cameraRevision;
-        m_lastCameraFingerprint = cameraFingerprint;
-    }
+    m_runtimeState.ObserveCameraFingerprint(cameraFingerprint);
 
     size_t hiddenLayersFingerprint = 0;
     for (const std::string& layer : hiddenLayers)
         HashCombine(hiddenLayersFingerprint, layer);
-    if (hiddenLayersFingerprint != m_lastHiddenLayersFingerprint) {
-        ++m_hiddenLayersRevision;
-        m_lastHiddenLayersFingerprint = hiddenLayersFingerprint;
-    }
+    m_runtimeState.ObserveHiddenLayersFingerprint(hiddenLayersFingerprint);
 
   const HoverTargetTable activeTable = IsCrossTableViewportActionsEnabled()
                                            ? HoverTargetTable::Fixtures
                                            : ResolveActiveHoverTargetTable();
-
-    if (activeTable != m_lastHoverTargetTable) {
-        m_forceHoverQuery = true;
-        m_lastHoverTargetTable = activeTable;
-    }
-
     const wxPoint pickPos = ToFramebufferPoint(this, m_lastMousePos);
-    const HoverQueryState currentHoverQueryState{
-      pickPos, m_cameraRevision, m_hiddenLayersRevision, m_sceneRevision};
-  const bool hoverStateChanged =
-      !m_hasLastHoverQueryState ||
-      currentHoverQueryState.mouseFramebufferPos !=
-          m_lastHoverQueryState.mouseFramebufferPos ||
-      currentHoverQueryState.cameraRevision !=
-          m_lastHoverQueryState.cameraRevision ||
-      currentHoverQueryState.hiddenLayersRevision !=
-          m_lastHoverQueryState.hiddenLayersRevision ||
-      currentHoverQueryState.sceneRevision !=
-          m_lastHoverQueryState.sceneRevision;
-    const bool shouldUpdateHoverQuery =
-        m_forceHoverQuery || m_mouseMoved || hoverStateChanged || !m_hasHover;
     const auto nowForHover = std::chrono::steady_clock::now();
-  const bool hoverCadenceDue =
-      m_forceHoverQuery ||
-        (nowForHover - m_lastHoverQueryTime) >= kHoverQueryInterval;
-    const bool hoverQueriesPausedForInteraction =
-        m_cameraMoving || m_isInteracting || m_navigationSession.IsActive() || m_selectionDragActivation.IsArmed();
-    if (hoverQueriesPausedForInteraction && shouldUpdateHoverQuery)
-    viewer3d::diagnostics::Log(
-        "Hover picking paused during active interaction.");
-  const bool shouldRunHoverQuery = !hoverQueriesPausedForInteraction &&
-        (!skipLabelWork || m_forceHoverQuery) &&
-        shouldUpdateHoverQuery && hoverCadenceDue &&
-        activeTable != HoverTargetTable::None &&
-        (m_forceHoverQuery || hoverStateChanged);
+    const viewer3d::interaction::HoverQueryInput hoverQueryInput{
+        {pickPos.x, pickPos.y}, activeTable, m_hasHover, skipLabelWork,
+        m_navigationSession.IsActive(), m_selectionDragActivation.IsArmed(),
+        nowForHover};
+    const auto hoverDecision =
+        m_runtimeState.EvaluateHoverQuery(hoverQueryInput);
+    if (hoverDecision.paused &&
+        (hoverDecision.stateChanged || m_runtimeState.IsHoverQueryForced()))
+      viewer3d::diagnostics::Log(
+          "Hover picking paused during active interaction.");
 
-    if (shouldRunHoverQuery) {
+    if (hoverDecision.shouldRun) {
         const auto hoverQueryStart = std::chrono::steady_clock::now();
         HoverTargetTable pickedTable = activeTable;
         if (IsCrossTableViewportActionsEnabled())
@@ -1124,8 +1096,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - hoverQueryStart)
                 .count();
-        m_hoverQueryMsAccumInCurrentWindow += hoverQueryElapsedMs;
-        ++m_hoverQuerySamplesInCurrentWindow;
+        m_runtimeState.RecordHoverQuery(hoverQueryElapsedMs);
         hoverQueryRan = true;
         if (found) {
             if (!skipLabelWork && activeTable != HoverTargetTable::Fixtures) {
@@ -1146,12 +1117,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         }
     }
 
-    if (hoverQueryRan) {
-        m_lastHoverQueryState = currentHoverQueryState;
-        m_hasLastHoverQueryState = true;
-        m_lastHoverQueryTime = nowForHover;
-        m_forceHoverQuery = false;
-    }
+    if (hoverQueryRan)
+        m_runtimeState.CompleteHoverQuery(hoverQueryInput);
 
     if (hoverQueryRan && found) {
         m_hasHover = true;
@@ -1166,7 +1133,7 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
         m_hasHover = false;
         m_hoverUuid.clear();
         m_hoverText.clear();
-    } else if (skipLabelWork) {
+    } else if (hoverDecision.shouldClearStaleHover) {
         m_hasHover = false;
         m_hoverUuid.clear();
         m_hoverText.clear();
@@ -1181,10 +1148,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - highlightUpdateStart)
                 .count();
-        m_highlightUpdateMsAccumInCurrentWindow += highlightUpdateElapsedMs;
-        ++m_highlightUpdateSamplesInCurrentWindow;
+        m_runtimeState.RecordHighlightUpdate(highlightUpdateElapsedMs);
     }
-    m_mouseMoved = false;
+    m_runtimeState.CompletePointerFrame();
 
     // Draw labels before swapping buffers to avoid losing them.
     if (!pauseHeavyTasks && !skipLabelWork) {
@@ -1296,53 +1262,26 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     }
     DrawMeasureOverlay(renderSize);
 
-    ++m_fullRefreshesInCurrentWindow;
-
     const auto telemetryNow = std::chrono::steady_clock::now();
-    if (m_refreshTelemetryWindowStart.time_since_epoch().count() == 0)
-        m_refreshTelemetryWindowStart = telemetryNow;
-    const auto telemetryElapsed = telemetryNow - m_refreshTelemetryWindowStart;
-    if (telemetryElapsed >= std::chrono::seconds(1)) {
-    const double avgFullRenderMs =
-        m_fullRenderSamplesInCurrentWindow > 0
-            ? (m_fullRenderMsAccumInCurrentWindow /
-               static_cast<double>(m_fullRenderSamplesInCurrentWindow))
-            : 0.0;
-    const double avgHoverQueryMs =
-        m_hoverQuerySamplesInCurrentWindow > 0
-            ? (m_hoverQueryMsAccumInCurrentWindow /
-               static_cast<double>(m_hoverQuerySamplesInCurrentWindow))
-            : 0.0;
-        const double avgHighlightUpdateMs =
-            m_highlightUpdateSamplesInCurrentWindow > 0
-                ? (m_highlightUpdateMsAccumInCurrentWindow /
-                   static_cast<double>(m_highlightUpdateSamplesInCurrentWindow))
-                : 0.0;
-    wxLogDebug("Viewer3DPanel refreshes/s full=%d highlight=%d "
-               "full_render_ms=%.3f hover_query_ms=%.3f "
-               "highlight_update_ms=%.3f hover_samples=%d highlight_samples=%d",
-                   m_fullRefreshesInCurrentWindow,
-                   m_highlightRefreshesInCurrentWindow, avgFullRenderMs,
-                   avgHoverQueryMs, avgHighlightUpdateMs,
-                   m_hoverQuerySamplesInCurrentWindow,
-                   m_highlightUpdateSamplesInCurrentWindow);
-        m_refreshTelemetryWindowStart = telemetryNow;
-        m_fullRefreshesInCurrentWindow = 0;
-        m_highlightRefreshesInCurrentWindow = 0;
-        m_fullRenderMsAccumInCurrentWindow = 0.0;
-        m_fullRenderSamplesInCurrentWindow = 0;
-        m_hoverQueryMsAccumInCurrentWindow = 0.0;
-        m_hoverQuerySamplesInCurrentWindow = 0;
-        m_highlightUpdateMsAccumInCurrentWindow = 0.0;
-        m_highlightUpdateSamplesInCurrentWindow = 0;
+    if (const auto telemetry =
+            m_runtimeState.TakeTelemetrySnapshot(telemetryNow)) {
+      wxLogDebug("Viewer3DPanel refreshes/s full=%d highlight=%d "
+                 "full_render_ms=%.3f hover_query_ms=%.3f "
+                 "highlight_update_ms=%.3f hover_samples=%d highlight_samples=%d",
+                 telemetry->fullRefreshes, telemetry->highlightRefreshes,
+                 telemetry->averageFullRenderMs,
+                 telemetry->averageHoverQueryMs,
+                 telemetry->averageHighlightUpdateMs,
+                 telemetry->hoverQuerySamples,
+                 telemetry->highlightUpdateSamples);
     }
 
     if (!highlightChanged && highlightRefreshPendingAtFrameStart)
-        m_highlightRefreshPending = false;
+        m_runtimeState.CompleteHighlightRefresh(highlightRevisionAtFrameStart);
     if (highlightChanged)
         Refresh(false);
-    if (m_selectionRefreshPending)
-        m_selectionRefreshPending = false;
+    if (m_runtimeState.SelectionRefreshPending())
+        m_runtimeState.CompleteSelectionRefresh(selectionRevisionAtFrameStart);
 
     SwapBuffers(); // Swap after drawing labels to ensure they are visible
     viewer3d::diagnostics::Log("OpenGL render frame end.");
@@ -1394,7 +1333,7 @@ void Viewer3DPanel::Render(const RenderSize &renderSize) {
         DrawTexturedGroundPlaneBackdrop();
     }
 
-    m_controller.SetCameraMoving(m_cameraMoving);
+    m_controller.SetCameraMoving(m_runtimeState.IsCameraMoving());
     m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
                              ToSceneRenderMode(renderStyle));
 
@@ -1486,7 +1425,7 @@ bool Viewer3DPanel::ExportCurrentViewToPng() {
         DrawTexturedGroundPlaneBackdrop();
     }
 
-    const bool previousCameraMoving = m_cameraMoving;
+    const bool previousCameraMoving = m_runtimeState.IsCameraMoving();
     m_controller.SetCameraMoving(false);
     m_controller.RenderScene(IsWireframeRenderStyle(renderStyle),
                              ToSceneRenderMode(renderStyle));
@@ -1814,9 +1753,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
             event.ShiftDown() ? viewer3d::interaction::NavigationMode::Pan
                               : viewer3d::interaction::NavigationMode::Orbit);
         m_controller.SetInteracting(true);
-        m_isInteracting = true;
-        m_cameraMoving = true;
-        m_lastInteractionTime = std::chrono::steady_clock::now();
+        m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
         m_navigationSession.ClearMoved();
         m_lastMousePos = event.GetPosition();
         SetFocus();
@@ -1836,9 +1773,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
             m_rectSelectionAcrossAllTables =
                 event.ShiftDown() || IsCrossTableViewportActionsEnabled();
             m_controller.SetInteracting(true);
-            m_isInteracting = true;
-            m_cameraMoving = true;
-            m_lastInteractionTime = std::chrono::steady_clock::now();
+            m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
             m_navigationSession.ClearMoved();
@@ -1867,9 +1802,7 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
                 : viewer3d::interaction::NavigationMode::Orbit;
         m_navigationSession.Begin(navigationMode);
         m_controller.SetInteracting(true);
-        m_isInteracting = true;
-        m_cameraMoving = true;
-        m_lastInteractionTime = std::chrono::steady_clock::now();
+        m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
         m_navigationSession.ClearMoved();
         m_lastMousePos = event.GetPosition();
         SetFocus();
@@ -1892,8 +1825,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
     if (m_continuousPlacementActive && event.LeftUp()) {
         const bool navigated = m_navigationSession.HasMoved();
         m_navigationSession.End();
-        m_isInteracting = false;
-        m_cameraMoving = false;
+        m_runtimeState.EndInteraction();
         m_controller.SetInteracting(false);
         m_controller.SetCameraMoving(false);
         if (HasCapture())
@@ -1904,7 +1836,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         } else {
             ConfirmContinuousPlacement();
         }
-        m_forceHoverQuery = true;
+        m_runtimeState.ForceHoverQuery();
         Refresh();
         return;
     }
@@ -1914,8 +1846,8 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
         m_rectSelecting = false;
         m_navigationSession.Reset();
-        m_lastInteractionTime = std::chrono::steady_clock::now();
-        m_forceHoverQuery = true;
+        m_runtimeState.TouchInteraction(std::chrono::steady_clock::now());
+        m_runtimeState.ForceHoverQuery();
         Refresh();
         return;
     }
@@ -1929,7 +1861,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
             m_navigationSession.MarkMoved();
         }
         ResetSelectionDragState();
-        m_forceHoverQuery = true;
+        m_runtimeState.ForceHoverQuery();
         Refresh();
         if (m_navigationSession.HasMoved()) {
             m_navigationSession.ClearMoved();
@@ -1939,20 +1871,19 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
 
   if (m_navigationSession.IsActive() && (event.LeftUp() || event.MiddleUp() || event.RightUp())) {
         m_navigationSession.End();
-        m_isInteracting = false;
-        m_cameraMoving = false;
+        m_runtimeState.EndInteraction();
         m_controller.SetInteracting(false);
         m_controller.SetCameraMoving(false);
         if (HasCapture())
             ReleaseMouse();
         if (m_continuousPlacementActive && event.MiddleUp())
             AlignContinuousElementToPointer(event.GetPosition());
-        m_forceHoverQuery = true;
+        m_runtimeState.ForceHoverQuery();
         Refresh();
     }
 
   if (event.LeftUp() && !m_navigationSession.HasMoved()) {
-        m_forceHoverQuery = true;
+        m_runtimeState.ForceHoverQuery();
         const RenderSize renderSize = ResolveRenderSize(this);
         const int w = renderSize.width;
         const int h = renderSize.height;
@@ -2053,11 +1984,11 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
 
 // Synchronizes the current hover highlight with the 3D controller and tables.
 void Viewer3DPanel::SynchronizeHoverHighlight() {
-    ++m_highlightRevision;
-    m_highlightRefreshPending = true;
+    m_runtimeState.MarkHighlightChanged();
     wxLogDebug("Viewer3D hover highlight changed: uuid=%s revision=%llu",
                m_hoverUuid.c_str(),
-               static_cast<unsigned long long>(m_highlightRevision));
+               static_cast<unsigned long long>(
+                   m_runtimeState.HighlightRevision()));
     m_controller.SetHighlightUuid(m_hoverUuid);
 
     const MvrScene& scene = ConfigManager::Get().GetScene();
@@ -2596,8 +2527,7 @@ void Viewer3DPanel::CancelLinePointSelection() {
 // Resets interaction state after wxWidgets reports lost mouse capture.
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
     m_navigationSession.End();
-    m_isInteracting = false;
-    m_cameraMoving = false;
+    m_runtimeState.EndInteraction();
     m_controller.SetInteracting(false);
     m_controller.SetCameraMoving(false);
     m_rectSelecting = false;
@@ -3891,8 +3821,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
         }
 
         m_lastMousePos = pos;
-        m_mouseMoved = true;
-        m_forceHoverQuery = true;
+        m_runtimeState.MarkPointerMoved();
         Refresh();
         return;
     }
@@ -3905,8 +3834,7 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     }
 
     // Mark that the mouse has moved so OnPaint can update hover info
-    m_mouseMoved = true;
-    m_forceHoverQuery = true;
+    m_runtimeState.MarkPointerMoved();
 
     Refresh();
 }
@@ -3923,7 +3851,7 @@ void Viewer3DPanel::OnMouseDClick(wxMouseEvent &event) {
         return;
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
-    const bool cameraWasMoving = m_cameraMoving;
+    const bool cameraWasMoving = m_runtimeState.IsCameraMoving();
     if (cameraWasMoving)
         m_controller.SetCameraMoving(false);
 
@@ -4011,9 +3939,7 @@ bool Viewer3DPanel::FrameSceneToFit() {
     if (!viewer3d::FrameSceneInCamera(m_controller, width, height, m_camera))
         return false;
 
-    m_isInteracting = true;
-    m_cameraMoving = true;
-    m_lastInteractionTime = std::chrono::steady_clock::now();
+    m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
     m_controller.SetInteracting(true);
     m_placementViewRevision.Invalidate();
     Refresh();
@@ -4052,8 +3978,7 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent &event) {
     m_measureHasPreviewMousePos = false;
     m_hasHover = false;
     m_hoverUuid.clear();
-    ++m_highlightRevision;
-    m_highlightRefreshPending = true;
+    m_runtimeState.MarkHighlightChanged();
     m_controller.SetHighlightUuid("");
     if (FixtureTablePanel::Instance())
         FixtureTablePanel::Instance()->HighlightFixture(std::string());
@@ -4070,10 +3995,10 @@ void Viewer3DPanel::OnMouseLeave(wxMouseEvent &event) {
 // Updates scene resources only when the 3D canvas is fully shown and its GL
 // context can be safely activated.
 void Viewer3DPanel::UpdateScene() {
-    ++m_sceneRevision;
+    m_runtimeState.MarkSceneChanged();
     m_controller.MarkResourceSyncPending();
 
-    if (ShouldPauseHeavyTasks() || m_cameraMoving)
+    if (ShouldPauseHeavyTasks() || m_runtimeState.IsCameraMoving())
         return;
 
     if (!PrepareGlResourceSync("UpdateScene"))
@@ -4116,8 +4041,7 @@ void Viewer3DPanel::SetSelectedFixtures(const std::vector<std::string> &uuids) {
         return;
     m_lastAppliedSelectionUuids = expandedUuids;
     m_lastAppliedPrimarySelectionUuids = uuids;
-    ++m_selectionRevision;
-    m_selectionRefreshPending = true;
+    m_runtimeState.MarkSelectionChanged();
     m_controller.SetSelectedUuids(expandedUuids, uuids);
     Refresh();
 }
@@ -4175,30 +4099,20 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
     if (m_shuttingDown || m_modalDialogActive || !m_glContext || IsBeingDeleted())
         return;
 
-    const size_t cameraFingerprint = ComputeCameraFingerprint(m_camera);
-  const bool cameraChanged = !m_hasLastThreadCameraFingerprint ||
-        cameraFingerprint != m_lastThreadCameraFingerprint;
-    if (cameraChanged) {
-        m_lastThreadCameraFingerprint = cameraFingerprint;
-        m_hasLastThreadCameraFingerprint = true;
-    }
-
+    const bool resourceSyncPending = m_controller.IsResourceSyncPending();
     const bool hasRelevantVisualChange =
-      cameraChanged || m_controller.IsResourceSyncPending() ||
-      m_selectionRefreshPending || m_highlightRefreshPending || m_mouseMoved ||
-      m_forceHoverQuery || m_rectSelecting || m_navigationSession.IsActive() || m_isInteracting ||
-        m_cameraMoving;
+        m_runtimeState.ShouldRepaintForThreadRefresh(
+            {ComputeCameraFingerprint(m_camera), resourceSyncPending,
+             m_rectSelecting, m_navigationSession.IsActive()});
     if (!hasRelevantVisualChange)
         return;
 
-    if (m_controller.IsResourceSyncPending() && !m_cameraMoving) {
+    if (resourceSyncPending && !m_runtimeState.IsCameraMoving()) {
         const auto now = std::chrono::steady_clock::now();
-        const bool syncCadenceDue =
-            (now - m_lastResourceSyncCheck) >= kResourceSyncInterval;
-        if (syncCadenceDue) {
+        if (m_runtimeState.IsResourceSyncCadenceDue(now)) {
             if (!PrepareGlResourceSync("OnThreadRefresh"))
                 return;
-            m_lastResourceSyncCheck = now;
+            m_runtimeState.AcceptResourceSyncCadence(now);
             if (m_controller.ConsumeResourceSyncPending())
                 m_controller.UpdateResourcesIfDirty();
         }
@@ -4215,29 +4129,18 @@ void Viewer3DPanel::SetModalDialogActive(bool active) {
 
 // Returns whether expensive scene work should pause during active navigation.
 bool Viewer3DPanel::ShouldPauseHeavyTasks() {
-    const auto now = std::chrono::steady_clock::now();
-    const bool interactionGraceActive =
-        (now - m_lastInteractionTime) < kPauseDelay;
-
-    if (interactionGraceActive && (m_isInteracting || m_cameraMoving))
-        return true;
-
-    if (!m_isInteracting && !m_cameraMoving)
-        return false;
-
-    m_isInteracting = false;
-    m_cameraMoving = false;
-    m_controller.SetInteracting(false);
-    m_controller.SetCameraMoving(false);
-
     const bool fastInteractionMode = IsFastInteractionModeEnabled();
-
-    if (fastInteractionMode) {
-        m_controller.MarkResourceSyncPending();
-        m_mouseMoved = true;
+    const auto decision = m_runtimeState.EvaluateHeavyTaskPause(
+        std::chrono::steady_clock::now(), fastInteractionMode);
+    if (decision.clearControllerInteraction) {
+        m_controller.SetInteracting(false);
+        m_controller.SetCameraMoving(false);
     }
-
-    return false;
+    if (decision.requestDeferredResourceSync)
+        m_controller.MarkResourceSyncPending();
+    if (decision.markHoverDirty)
+        m_runtimeState.MarkPointerDirty();
+    return decision.pauseHeavyTasks;
 }
 
 

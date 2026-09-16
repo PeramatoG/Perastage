@@ -9,6 +9,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_drag_activation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/selection_interaction_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/scene_selection_policy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer_runtime_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/labels/label_render_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loader3ds.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loaderglb.cpp
