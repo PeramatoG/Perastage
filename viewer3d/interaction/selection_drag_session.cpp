@@ -1,5 +1,7 @@
 #include "selection_drag_session.h"
 
+#include <cstddef>
+
 namespace viewer3d::interaction {
 
 // Starts a drag from a typed selection and its world-space anchor.

@@ -11,7 +11,7 @@ files=(
   "$root/models/continuous_placement_state.cpp"
 )
 
-forbidden='wxWidgets|wx(Point|MouseEvent|Window)|GL/|glew|Viewer3DPanel|Viewer3DController|ConfigManager|TablePanel|MainWindow|HistoryManager|\.Refresh\(|->Refresh\('
+forbidden='wxWidgets|wx/|wx(Point|MouseEvent|Window)|GL/|OpenGL/|glew|Viewer3DPanel|Viewer3DController|ConfigManager|TablePanel|MainWindow|HistoryManager|(^|[^[:alnum:]_])Refresh\('
 if rg -n "$forbidden" "${files[@]}"; then
   echo "Viewer3D tool session boundary contains an adapter dependency." >&2
   exit 1
