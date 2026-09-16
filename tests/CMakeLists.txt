@@ -170,6 +170,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(ViewerSceneReplacementLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer_scene_replacement_lifecycle.sh)
     add_bash_policy_test(Viewer3DInteractionPolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_interaction_policy_boundary.sh)
     add_bash_policy_test(Viewer3DRuntimePolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_runtime_policy_boundary.sh)
+    add_bash_policy_test(Viewer3DToolSessionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_tool_session_boundary.sh)
     add_bash_policy_test(Viewer3DRawDragAnchor ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer3d_raw_drag_anchor.sh)
     add_bash_policy_test(TrussAttachmentCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_truss_attachment_core_boundary.sh)
     add_bash_policy_test(Layout2DRasterizationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
@@ -2942,6 +2943,19 @@ add_executable(viewer3d_runtime_policy_test
 target_include_directories(viewer3d_runtime_policy_test PRIVATE
                            ../viewer3d/interaction ../viewer_common)
 add_test(NAME Viewer3DRuntimePolicy COMMAND viewer3d_runtime_policy_test)
+
+add_executable(viewer3d_tool_session_test
+               viewer3d_tool_session_test.cpp
+               ../viewer3d/interaction/selection_drag_session.cpp
+               ../viewer3d/interaction/line_point_selection_session.cpp
+               ../viewer3d/interaction/selection_drag_math.cpp
+               ../models/continuous_placement_state.cpp
+               ../viewer2d/viewer2d_measure_tool.cpp
+               ../viewer2d/viewer2d_coordinate_math.cpp)
+target_include_directories(viewer3d_tool_session_test PRIVATE
+                           ../viewer3d/interaction ../viewer3d ../viewer2d
+                           ../core ../models)
+add_test(NAME Viewer3DToolSession COMMAND viewer3d_tool_session_test)
 
 add_executable(viewer3d_scene_selection_policy_test
                viewer3d_scene_selection_policy_test.cpp

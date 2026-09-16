@@ -32,6 +32,60 @@ bool ViewRevisionState::NeedsAlignment() const {
   return alignedRevision_ != revision_;
 }
 
+// Starts a placement and clears confirmation history from the prior session.
+void SessionState::Begin(ContinuousPlacementType newType,
+                         const std::string &newUuid) {
+  active = true;
+  type = newType;
+  uuid = newUuid;
+  confirmedUuids.clear();
+  viewRevision.Invalidate();
+  ClearConstraintReference();
+}
+
+// Records the current provisional element as confirmed.
+void SessionState::RecordConfirmed() { confirmedUuids.push_back(uuid); }
+
+// Restores a previously confirmed element as the provisional element.
+void SessionState::RestoreAfterUndo(const std::string &restoredUuid) {
+  uuid = restoredUuid;
+  if (!confirmedUuids.empty() && confirmedUuids.back() == restoredUuid)
+    confirmedUuids.pop_back();
+  viewRevision.Invalidate();
+}
+
+// Clears the active placement and all transient bookkeeping.
+void SessionState::Reset() {
+  active = false;
+  type = ContinuousPlacementType::None;
+  uuid.clear();
+  confirmedUuids.clear();
+  batchActive = false;
+  ClearConstraintReference();
+}
+
+// Enables or disables batch placement.
+void SessionState::SetBatchActive(bool isActive) { batchActive = isActive; }
+
+// Captures the neutral pointer and world origins used for axis constraints.
+void SessionState::SetConstraintReference(
+    PointerPosition pointer, const std::array<float, 3> &worldMeters) {
+  constraintPointerOrigin = pointer;
+  constraintWorldOriginMeters = worldMeters;
+  constraintReferenceValid = true;
+}
+
+// Clears the active axis constraint reference.
+void SessionState::ClearConstraintReference() {
+  constraintReferenceValid = false;
+  constraintPointerOrigin = {};
+  constraintWorldOriginMeters = {0.0f, 0.0f, 0.0f};
+  axisSwitchArmed = true;
+}
+
+// Enables or disables the next axis-switch decision.
+void SessionState::SetAxisSwitchArmed(bool armed) { axisSwitchArmed = armed; }
+
 // Computes the one-shot delta that aligns the raw origin to an absolute
 // pointer.
 std::array<float, 3>
