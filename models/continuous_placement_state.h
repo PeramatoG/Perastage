@@ -46,19 +46,24 @@ class SessionState {
 public:
   // Starts a placement and clears confirmation history from the prior session.
   void Begin(ContinuousPlacementType type, const std::string &uuid);
+  // Starts a clean clipboard batch-placement session.
+  void BeginBatch();
+  // Replaces the provisional element while preserving confirmation history.
+  void ContinueWithProvisional(const std::string &uuid);
   // Records the current provisional element as confirmed.
   void RecordConfirmed();
   // Restores a previously confirmed element as the provisional element.
   void RestoreAfterUndo(const std::string &uuid);
   // Clears the active placement and all transient bookkeeping.
   void Reset();
-  // Enables or disables batch placement.
-  void SetBatchActive(bool active);
   // Captures the neutral pointer and world origins used for axis constraints.
   void SetConstraintReference(PointerPosition pointer,
                               const std::array<float, 3> &worldMeters);
   // Clears the active axis constraint reference.
   void ClearConstraintReference();
+  // Clears only the active constraint reference and preserves axis-switch
+  // state.
+  void ClearConstraintReferencePreservingAxisSwitch();
   // Enables or disables the next axis-switch decision.
   void SetAxisSwitchArmed(bool armed);
 

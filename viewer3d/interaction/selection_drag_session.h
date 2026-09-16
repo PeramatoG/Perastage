@@ -18,6 +18,12 @@ public:
   // Starts a drag from a typed selection and its world-space anchor.
   void Begin(const scene_grouping::ObjectSelection &selection,
              HoverTarget target, const std::array<float, 3> &anchorMeters);
+  // Starts a drag whose active UUID scope intentionally differs from its typed
+  // buckets.
+  void BeginWithActiveUuids(const scene_grouping::ObjectSelection &selection,
+                            const std::vector<std::string> &activeUuids,
+                            HoverTarget target,
+                            const std::array<float, 3> &anchorMeters);
   // Clears all state associated with the current drag.
   void Reset();
   // Rebuilds the stable flattened UUID view from the typed buckets.
@@ -26,8 +32,16 @@ public:
   void SetAnchor(const std::array<float, 3> &anchorMeters);
   // Records the currently constrained drag axis.
   void SetAxis(SelectionDragAxis axis);
+  // Clears the active drag-axis constraint.
+  void ClearAxis();
   // Records that history has been captured for this gesture.
   void MarkUndoPushed();
+  // Stores a pending snap preview result.
+  void SetPendingSnap(const magnet_snap::SnapResult &snap);
+  // Clears the pending snap preview result.
+  void ClearPendingSnap();
+  // Applies a world-space delta to the current anchor.
+  void ApplyAnchorDelta(const std::array<float, 3> &deltaMeters);
 
   scene_grouping::ObjectSelection selection;
   std::vector<std::string> uuids;

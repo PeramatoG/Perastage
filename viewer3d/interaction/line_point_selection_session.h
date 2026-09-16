@@ -13,8 +13,16 @@ public:
              const std::array<float, 3> &end);
   // Stores the first selected point and initializes its preview.
   void CommitFirst(const std::array<float, 3> &point);
+  // Marks the next matching mouse-up as consumed by point selection.
+  void MarkMouseUpToConsume();
+  // Consumes and clears a pending point-selection mouse-up.
+  bool ConsumeMouseUp();
   // Updates the transient point shown before the next click.
   void SetPreview(const std::optional<std::array<float, 3>> &point);
+  // Completes point selection and clears point-specific transient state.
+  void Complete();
+  // Cancels point selection while retaining pending mouse-up suppression.
+  void Cancel();
   // Clears selection and mouse-up suppression state.
   void Reset();
 

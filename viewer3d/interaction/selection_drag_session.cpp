@@ -13,6 +13,18 @@ void SelectionDragSession::Begin(
   RebuildFlattenedSelection();
 }
 
+// Starts a drag with an explicit active UUID scope and typed transform buckets.
+void SelectionDragSession::BeginWithActiveUuids(
+    const scene_grouping::ObjectSelection &newSelection,
+    const std::vector<std::string> &activeUuids, HoverTarget newTarget,
+    const std::array<float, 3> &newAnchorMeters) {
+  Reset();
+  selection = newSelection;
+  uuids = activeUuids;
+  target = newTarget;
+  anchorMeters = newAnchorMeters;
+}
+
 // Clears all state associated with the current drag.
 void SelectionDragSession::Reset() {
   selection = {};
@@ -43,7 +55,25 @@ void SelectionDragSession::SetAxis(SelectionDragAxis newAxis) {
   axis = newAxis;
 }
 
+// Clears the active drag-axis constraint.
+void SelectionDragSession::ClearAxis() { axis = SelectionDragAxis::None; }
+
 // Records that history has been captured for this gesture.
 void SelectionDragSession::MarkUndoPushed() { undoPushed = true; }
+
+// Stores a pending snap preview result.
+void SelectionDragSession::SetPendingSnap(const magnet_snap::SnapResult &snap) {
+  pendingSnap = snap;
+}
+
+// Clears the pending snap preview result.
+void SelectionDragSession::ClearPendingSnap() { pendingSnap.reset(); }
+
+// Applies a world-space delta to the current anchor.
+void SelectionDragSession::ApplyAnchorDelta(
+    const std::array<float, 3> &deltaMeters) {
+  for (std::size_t axisIndex = 0; axisIndex < anchorMeters.size(); ++axisIndex)
+    anchorMeters[axisIndex] += deltaMeters[axisIndex];
+}
 
 } // namespace viewer3d::interaction
