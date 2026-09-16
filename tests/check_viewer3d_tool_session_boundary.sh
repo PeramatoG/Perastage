@@ -18,3 +18,12 @@ if rg -n "$forbidden" "${files[@]}"; then
 fi
 
 echo "Viewer3D tool session boundary check passed."
+
+stale_panel_state='m_continuousPlacementActive|m_linePointSelectionActive|m_measureToolEnabled|m_placementViewRevision'
+if rg -n "$stale_panel_state" "$root/viewer3d" \
+    --glob 'viewer3dpanel*.cpp' --glob 'viewer3dpanel*.h'; then
+  echo "Viewer3DPanel implementation contains removed session-state members." >&2
+  exit 1
+fi
+
+echo "Viewer3DPanel session-state migration check passed."

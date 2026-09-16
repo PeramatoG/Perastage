@@ -17,6 +17,7 @@ Changes since **v1.6.0**.
 - Separated reusable mouse and keyboard camera navigation, pointer-drag activation state, and grouped selection decisions from the wxWidgets/OpenGL panel, with production-path interaction coverage, while preserving existing viewport behavior.
 - Separated reusable 3D viewer hover, refresh, interaction-settle, resource-sync cadence, and performance telemetry decisions from the wxWidgets/OpenGL panel while preserving existing viewport behavior.
 - Encapsulated reusable 3D manipulation, continuous-placement, line-point selection, and measurement lifecycles behind guarded GUI-independent boundaries while preserving existing viewport behavior.
+- Corrected cross-platform Viewer3D camera-input integration with the extracted interaction sessions.
 
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 
