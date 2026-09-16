@@ -26,6 +26,10 @@ public:
                             const std::array<float, 3> &anchorMeters);
   // Clears all state associated with the current drag.
   void Reset();
+  // Completes the current drag and clears its transient state.
+  void Complete();
+  // Cancels the current drag and clears its transient state.
+  void Cancel();
   // Rebuilds the stable flattened UUID view from the typed buckets.
   void RebuildFlattenedSelection();
   // Records a world-space anchor after movement or snap adjustment.
@@ -43,13 +47,33 @@ public:
   // Applies a world-space delta to the current anchor.
   void ApplyAnchorDelta(const std::array<float, 3> &deltaMeters);
 
-  scene_grouping::ObjectSelection selection;
-  std::vector<std::string> uuids;
-  HoverTarget target = HoverTarget::None;
-  std::array<float, 3> anchorMeters{0.0f, 0.0f, 0.0f};
-  SelectionDragAxis axis = SelectionDragAxis::None;
-  bool undoPushed = false;
-  std::optional<magnet_snap::SnapResult> pendingSnap;
+  // Returns the typed transform selection for the current drag.
+  const scene_grouping::ObjectSelection &Selection() const {
+    return selection_;
+  }
+  // Returns the active UUID scope used by viewer feedback.
+  const std::vector<std::string> &Uuids() const { return uuids_; }
+  // Returns the table category that initiated the drag.
+  HoverTarget Target() const { return target_; }
+  // Returns the current world-space drag anchor.
+  const std::array<float, 3> &AnchorMeters() const { return anchorMeters_; }
+  // Returns the current axis constraint.
+  SelectionDragAxis Axis() const { return axis_; }
+  // Reports whether undo history has been captured for the drag.
+  bool IsUndoPushed() const { return undoPushed_; }
+  // Returns the pending snap preview result.
+  const std::optional<magnet_snap::SnapResult> &PendingSnap() const {
+    return pendingSnap_;
+  }
+
+private:
+  scene_grouping::ObjectSelection selection_;
+  std::vector<std::string> uuids_;
+  HoverTarget target_ = HoverTarget::None;
+  std::array<float, 3> anchorMeters_{0.0f, 0.0f, 0.0f};
+  SelectionDragAxis axis_ = SelectionDragAxis::None;
+  bool undoPushed_ = false;
+  std::optional<magnet_snap::SnapResult> pendingSnap_;
 };
 
 } // namespace viewer3d::interaction

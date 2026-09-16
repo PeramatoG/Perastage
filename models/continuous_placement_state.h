@@ -25,6 +25,7 @@ public:
   void CompleteAlignmentAttempt(bool succeeded);
 
   // Reports whether placement must be recomputed from the absolute pointer.
+  // Reports whether placement needs realignment to the view.
   bool NeedsAlignment() const;
 
   // Returns the current revision for deterministic diagnostics and tests.
@@ -54,6 +55,10 @@ public:
   void RecordConfirmed();
   // Restores a previously confirmed element as the provisional element.
   void RestoreAfterUndo(const std::string &uuid);
+  // Completes the placement sequence and clears its session state.
+  void Complete();
+  // Cancels the placement sequence and clears its session state.
+  void Cancel();
   // Clears the active placement and all transient bookkeeping.
   void Reset();
   // Captures the neutral pointer and world origins used for axis constraints.
@@ -67,16 +72,51 @@ public:
   // Enables or disables the next axis-switch decision.
   void SetAxisSwitchArmed(bool armed);
 
-  bool active = false;
-  ContinuousPlacementType type = ContinuousPlacementType::None;
-  std::string uuid;
-  std::vector<std::string> confirmedUuids;
-  ViewRevisionState viewRevision;
-  bool batchActive = false;
-  bool constraintReferenceValid = false;
-  bool axisSwitchArmed = true;
-  PointerPosition constraintPointerOrigin;
-  std::array<float, 3> constraintWorldOriginMeters{0.0f, 0.0f, 0.0f};
+  // Reports whether placement is active.
+  bool IsActive() const { return active_; }
+  // Returns the element type owned by the session.
+  ContinuousPlacementType Type() const { return type_; }
+  // Returns the current provisional element UUID.
+  const std::string &Uuid() const { return uuid_; }
+  // Returns the confirmed element history.
+  const std::vector<std::string> &ConfirmedUuids() const {
+    return confirmedUuids_;
+  }
+  // Reports whether clipboard batch placement is active.
+  bool IsBatchActive() const { return batchActive_; }
+  // Reports whether an axis constraint reference is available.
+  bool HasConstraintReference() const { return constraintReferenceValid_; }
+  // Reports whether the next axis-switch decision is armed.
+  bool IsAxisSwitchArmed() const { return axisSwitchArmed_; }
+  // Returns the neutral pointer origin for constrained placement.
+  PointerPosition ConstraintPointerOrigin() const {
+    return constraintPointerOrigin_;
+  }
+  // Returns the world origin for constrained placement.
+  const std::array<float, 3> &ConstraintWorldOriginMeters() const {
+    return constraintWorldOriginMeters_;
+  }
+  // Invalidates placement alignment after a view change.
+  void InvalidateView() { viewRevision_.Invalidate(); }
+  // Marks placement as aligned to the current view.
+  void MarkViewAligned() { viewRevision_.MarkAligned(); }
+  // Records whether an alignment attempt completed successfully.
+  void CompleteAlignmentAttempt(bool succeeded) {
+    viewRevision_.CompleteAlignmentAttempt(succeeded);
+  }
+  bool NeedsAlignment() const { return viewRevision_.NeedsAlignment(); }
+
+private:
+  bool active_ = false;
+  ContinuousPlacementType type_ = ContinuousPlacementType::None;
+  std::string uuid_;
+  std::vector<std::string> confirmedUuids_;
+  ViewRevisionState viewRevision_;
+  bool batchActive_ = false;
+  bool constraintReferenceValid_ = false;
+  bool axisSwitchArmed_ = true;
+  PointerPosition constraintPointerOrigin_;
+  std::array<float, 3> constraintWorldOriginMeters_{0.0f, 0.0f, 0.0f};
 };
 
 // Computes the one-shot delta that aligns the raw origin to an absolute

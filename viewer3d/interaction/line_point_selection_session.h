@@ -26,12 +26,28 @@ public:
   // Clears selection and mouse-up suppression state.
   void Reset();
 
-  bool active = false;
-  bool consumeMouseUp = false;
-  std::array<float, 3> start{};
-  std::array<float, 3> end{};
-  std::optional<std::array<float, 3>> first;
-  std::optional<std::array<float, 3>> preview;
+  // Reports whether point selection is active.
+  bool IsActive() const { return active_; }
+  // Reports whether the next matching mouse-up must be consumed.
+  bool HasMouseUpToConsume() const { return consumeMouseUp_; }
+  // Returns the line start in world coordinates.
+  const std::array<float, 3> &Start() const { return start_; }
+  // Returns the line end in world coordinates.
+  const std::array<float, 3> &End() const { return end_; }
+  // Returns the first committed point when present.
+  const std::optional<std::array<float, 3>> &First() const { return first_; }
+  // Returns the current preview point when present.
+  const std::optional<std::array<float, 3>> &Preview() const {
+    return preview_;
+  }
+
+private:
+  bool active_ = false;
+  bool consumeMouseUp_ = false;
+  std::array<float, 3> start_{};
+  std::array<float, 3> end_{};
+  std::optional<std::array<float, 3>> first_;
+  std::optional<std::array<float, 3>> preview_;
 };
 
 } // namespace viewer3d::interaction

@@ -9,9 +9,9 @@ void SelectionDragSession::Begin(
     const scene_grouping::ObjectSelection &newSelection, HoverTarget newTarget,
     const std::array<float, 3> &newAnchorMeters) {
   Reset();
-  selection = newSelection;
-  target = newTarget;
-  anchorMeters = newAnchorMeters;
+  selection_ = newSelection;
+  target_ = newTarget;
+  anchorMeters_ = newAnchorMeters;
   RebuildFlattenedSelection();
 }
 
@@ -21,61 +21,67 @@ void SelectionDragSession::BeginWithActiveUuids(
     const std::vector<std::string> &activeUuids, HoverTarget newTarget,
     const std::array<float, 3> &newAnchorMeters) {
   Reset();
-  selection = newSelection;
-  uuids = activeUuids;
-  target = newTarget;
-  anchorMeters = newAnchorMeters;
+  selection_ = newSelection;
+  uuids_ = activeUuids;
+  target_ = newTarget;
+  anchorMeters_ = newAnchorMeters;
 }
 
 // Clears all state associated with the current drag.
 void SelectionDragSession::Reset() {
-  selection = {};
-  uuids.clear();
-  target = HoverTarget::None;
-  anchorMeters = {0.0f, 0.0f, 0.0f};
-  axis = SelectionDragAxis::None;
-  undoPushed = false;
-  pendingSnap.reset();
+  selection_ = {};
+  uuids_.clear();
+  target_ = HoverTarget::None;
+  anchorMeters_ = {0.0f, 0.0f, 0.0f};
+  axis_ = SelectionDragAxis::None;
+  undoPushed_ = false;
+  pendingSnap_.reset();
 }
+
+// Completes the current drag and clears its transient state.
+void SelectionDragSession::Complete() { Reset(); }
+
+// Cancels the current drag and clears its transient state.
+void SelectionDragSession::Cancel() { Reset(); }
 
 // Rebuilds the stable flattened UUID view from the typed buckets.
 void SelectionDragSession::RebuildFlattenedSelection() {
-  uuids.clear();
-  for (const auto *bucket : {&selection.fixtures, &selection.trusses,
-                             &selection.supports, &selection.sceneObjects})
-    uuids.insert(uuids.end(), bucket->begin(), bucket->end());
+  uuids_.clear();
+  for (const auto *bucket : {&selection_.fixtures, &selection_.trusses,
+                             &selection_.supports, &selection_.sceneObjects})
+    uuids_.insert(uuids_.end(), bucket->begin(), bucket->end());
 }
 
 // Records a world-space anchor after movement or snap adjustment.
 void SelectionDragSession::SetAnchor(
     const std::array<float, 3> &newAnchorMeters) {
-  anchorMeters = newAnchorMeters;
+  anchorMeters_ = newAnchorMeters;
 }
 
 // Records the currently constrained drag axis.
 void SelectionDragSession::SetAxis(SelectionDragAxis newAxis) {
-  axis = newAxis;
+  axis_ = newAxis;
 }
 
 // Clears the active drag-axis constraint.
-void SelectionDragSession::ClearAxis() { axis = SelectionDragAxis::None; }
+void SelectionDragSession::ClearAxis() { axis_ = SelectionDragAxis::None; }
 
 // Records that history has been captured for this gesture.
-void SelectionDragSession::MarkUndoPushed() { undoPushed = true; }
+void SelectionDragSession::MarkUndoPushed() { undoPushed_ = true; }
 
 // Stores a pending snap preview result.
 void SelectionDragSession::SetPendingSnap(const magnet_snap::SnapResult &snap) {
-  pendingSnap = snap;
+  pendingSnap_ = snap;
 }
 
 // Clears the pending snap preview result.
-void SelectionDragSession::ClearPendingSnap() { pendingSnap.reset(); }
+void SelectionDragSession::ClearPendingSnap() { pendingSnap_.reset(); }
 
 // Applies a world-space delta to the current anchor.
 void SelectionDragSession::ApplyAnchorDelta(
     const std::array<float, 3> &deltaMeters) {
-  for (std::size_t axisIndex = 0; axisIndex < anchorMeters.size(); ++axisIndex)
-    anchorMeters[axisIndex] += deltaMeters[axisIndex];
+  for (std::size_t axisIndex = 0; axisIndex < anchorMeters_.size(); ++axisIndex)
+    anchorMeters_[axisIndex] += deltaMeters[axisIndex];
 }
 
 } // namespace viewer3d::interaction

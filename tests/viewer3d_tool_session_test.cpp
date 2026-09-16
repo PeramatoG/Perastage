@@ -11,78 +11,93 @@ int main() {
   using viewer3d::interaction::SelectionDragSession;
 
   SelectionDragSession drag;
-  assert(drag.uuids.empty() && !drag.undoPushed && !drag.pendingSnap);
+  assert(drag.Uuids().empty() && !drag.IsUndoPushed() && !drag.PendingSnap());
   scene_grouping::ObjectSelection selection;
   selection.fixtures = {"fixture-a", "fixture-b"};
   selection.trusses = {"truss-a"};
   selection.supports = {"support-a"};
   selection.sceneObjects = {"object-a"};
   drag.Begin(selection, HoverTarget::Fixtures, {1.0f, 2.0f, 3.0f});
-  assert((drag.uuids == std::vector<std::string>{"fixture-a", "fixture-b",
-                                                 "truss-a", "support-a",
-                                                 "object-a"}));
-  assert(drag.target == HoverTarget::Fixtures && drag.anchorMeters[1] == 2.0f);
+  assert((drag.Uuids() == std::vector<std::string>{"fixture-a", "fixture-b",
+                                                   "truss-a", "support-a",
+                                                   "object-a"}));
+  assert(drag.Target() == HoverTarget::Fixtures &&
+         drag.AnchorMeters()[1] == 2.0f);
   drag.BeginWithActiveUuids(selection, {"fixture-b"}, HoverTarget::Fixtures,
                             {1.0f, 2.0f, 3.0f});
-  assert((drag.uuids == std::vector<std::string>{"fixture-b"}));
-  assert(drag.selection.fixtures.size() == 2);
+  assert((drag.Uuids() == std::vector<std::string>{"fixture-b"}));
+  assert(drag.Selection().fixtures.size() == 2);
   drag.SetAnchor({4.0f, 5.0f, 6.0f});
   drag.SetAxis(viewer3d::SelectionDragAxis::Y);
   drag.MarkUndoPushed();
   drag.SetPendingSnap(magnet_snap::SnapResult{});
   drag.ClearPendingSnap();
-  assert(!drag.pendingSnap);
+  assert(!drag.PendingSnap());
   drag.SetPendingSnap(magnet_snap::SnapResult{});
-  drag.Reset();
-  assert(drag.uuids.empty() && drag.target == HoverTarget::None);
-  assert(drag.axis == viewer3d::SelectionDragAxis::None && !drag.undoPushed);
-  assert(!drag.pendingSnap && drag.anchorMeters[0] == 0.0f);
+  drag.Complete();
+  assert(drag.Uuids().empty() && drag.Target() == HoverTarget::None);
+  assert(drag.Axis() == viewer3d::SelectionDragAxis::None &&
+         !drag.IsUndoPushed());
+  assert(!drag.PendingSnap() && drag.AnchorMeters()[0] == 0.0f);
+  drag.Begin(selection, HoverTarget::Fixtures, {1.0f, 2.0f, 3.0f});
+  drag.Cancel();
+  assert(drag.Uuids().empty() && drag.Target() == HoverTarget::None);
 
   continuous_placement::SessionState placement;
-  assert(!placement.active);
+  assert(!placement.IsActive());
   placement.Begin(ContinuousPlacementType::Fixture, "fixture-a");
-  assert(placement.active && placement.uuid == "fixture-a");
+  assert(placement.IsActive() && placement.Uuid() == "fixture-a");
   placement.RecordConfirmed();
   placement.SetConstraintReference({12, 24}, {1.0f, 2.0f, 3.0f});
   placement.SetAxisSwitchArmed(false);
-  placement.viewRevision.MarkAligned();
+  placement.MarkViewAligned();
   placement.ContinueWithProvisional("fixture-b");
-  assert(placement.confirmedUuids.size() == 1 && placement.uuid == "fixture-b");
-  assert(placement.viewRevision.NeedsAlignment());
-  assert(!placement.constraintReferenceValid && placement.axisSwitchArmed);
+  assert(placement.ConfirmedUuids().size() == 1 &&
+         placement.Uuid() == "fixture-b");
+  assert(placement.NeedsAlignment());
+  assert(!placement.HasConstraintReference() && placement.IsAxisSwitchArmed());
   placement.SetConstraintReference({12, 24}, {1.0f, 2.0f, 3.0f});
   placement.SetAxisSwitchArmed(false);
-  assert(placement.constraintReferenceValid && !placement.axisSwitchArmed);
+  assert(placement.HasConstraintReference() && !placement.IsAxisSwitchArmed());
   placement.ClearConstraintReferencePreservingAxisSwitch();
-  assert(!placement.constraintReferenceValid && !placement.axisSwitchArmed);
+  assert(!placement.HasConstraintReference() && !placement.IsAxisSwitchArmed());
   placement.RestoreAfterUndo("fixture-a");
-  assert(placement.confirmedUuids.empty());
-  assert(placement.uuid == "fixture-a" && placement.axisSwitchArmed);
+  assert(placement.ConfirmedUuids().empty());
+  assert(placement.Uuid() == "fixture-a" && placement.IsAxisSwitchArmed());
   placement.RecordConfirmed();
   placement.BeginBatch();
-  assert(placement.active && placement.batchActive);
-  assert(placement.type == ContinuousPlacementType::None);
-  assert(placement.uuid.empty() && placement.confirmedUuids.empty());
-  assert(!placement.constraintReferenceValid && placement.axisSwitchArmed);
+  assert(placement.IsActive() && placement.IsBatchActive());
+  assert(placement.Type() == ContinuousPlacementType::None);
+  assert(placement.Uuid().empty() && placement.ConfirmedUuids().empty());
+  assert(!placement.HasConstraintReference() && placement.IsAxisSwitchArmed());
   placement.Reset();
-  assert(!placement.active && placement.uuid.empty() && !placement.batchActive);
-  assert(!placement.constraintReferenceValid && placement.axisSwitchArmed);
+  assert(!placement.IsActive() && placement.Uuid().empty() &&
+         !placement.IsBatchActive());
+  assert(!placement.HasConstraintReference() && placement.IsAxisSwitchArmed());
+  placement.Begin(ContinuousPlacementType::Fixture, "fixture-c");
+  placement.Complete();
+  assert(!placement.IsActive() && placement.Uuid().empty());
+  placement.Begin(ContinuousPlacementType::Fixture, "fixture-d");
+  placement.Cancel();
+  assert(!placement.IsActive() && placement.Uuid().empty());
 
   viewer3d::interaction::LinePointSelectionSession line;
   line.Begin({0.0f, 1.0f, 2.0f}, {3.0f, 4.0f, 5.0f});
   line.MarkMouseUpToConsume();
   line.CommitFirst({1.0f, 2.0f, 3.0f});
   line.SetPreview(std::array<float, 3>{2.0f, 3.0f, 4.0f});
-  assert(line.active && line.first && line.preview && line.consumeMouseUp);
+  assert(line.IsActive() && line.First() && line.Preview() &&
+         line.HasMouseUpToConsume());
   line.Complete();
-  assert(!line.active && !line.first && !line.preview);
+  assert(!line.IsActive() && !line.First() && !line.Preview());
   assert(line.ConsumeMouseUp() && !line.ConsumeMouseUp());
   line.Begin({0.0f, 1.0f, 2.0f}, {3.0f, 4.0f, 5.0f});
   line.MarkMouseUpToConsume();
   line.Cancel();
-  assert(!line.active && !line.first && !line.preview && line.consumeMouseUp);
+  assert(!line.IsActive() && !line.First() && !line.Preview() &&
+         line.HasMouseUpToConsume());
   line.Reset();
-  assert(!line.consumeMouseUp);
+  assert(!line.HasMouseUpToConsume());
 
   Viewer2DMeasureToolState measure;
   measure.enabled = true;

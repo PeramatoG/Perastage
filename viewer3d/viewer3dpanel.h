@@ -140,7 +140,7 @@ public:
         std::function<void()> cancelCallback);
     bool UndoContinuousPlacement();
     bool IsContinuousPlacementActive() const {
-        return m_continuousPlacementSession.active;
+        return m_continuousPlacementSession.IsActive();
     }
     bool IsClipboardPlacementActive() const;
     void CancelClipboardPlacement();
@@ -218,7 +218,7 @@ private:
     // Prepares the GL context before running resource synchronization work.
     bool PrepareGlResourceSync(const char* caller);
     void DrawSelectionRectangle(int width, int height);
-    void ResetSelectionDragState();
+    void ResetSelectionDragState(bool completed = false);
     bool PrepareSelectionDrag(const wxPoint& mousePos);
     std::array<float, 3> ComputeSelectionCenterMeters(
         const std::vector<std::string>& uuids, HoverTargetTable target) const;
@@ -247,7 +247,7 @@ private:
                                           const std::string &elementUuid);
     void ConfirmContinuousPlacement();
     void CancelContinuousPlacement();
-    void EndContinuousPlacementState();
+    void EndContinuousPlacementState(bool completed);
     void RefreshContinuousPlacementViews();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
     std::array<float, 3> GetSelectionDragAxisVector(
