@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 class BoundsCacheSystem {
 public:
@@ -31,4 +32,10 @@ public:
       const std::unordered_map<std::string, Truss> &trusses,
       const std::unordered_map<std::string, SceneObject> &objects,
       const std::unordered_map<std::string, Fixture> &fixtures);
+
+  static size_t InvalidateTransformedBounds(
+      std::unordered_map<std::string, Viewer3DBoundingBox> &fixtureBounds,
+      std::unordered_map<std::string, Viewer3DBoundingBox> &trussBounds,
+      std::unordered_map<std::string, Viewer3DBoundingBox> &objectBounds,
+      const std::vector<std::string> &uuids);
 };

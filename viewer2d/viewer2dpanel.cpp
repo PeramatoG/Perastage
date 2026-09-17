@@ -1638,7 +1638,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   bool drawFixtureLabels = true;
   if (m_renderOverrides && m_renderOverrides->drawFixtureLabels.has_value())
     drawFixtureLabels = m_renderOverrides->drawFixtureLabels.value();
-  if (drawFixtureLabels) {
+  const bool suppressInteractiveLabels =
+      swapBuffers && !m_renderOverrides &&
+      m_controller.IsInteractiveTransformActive();
+  if (drawFixtureLabels && !suppressInteractiveLabels) {
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
                                       m_interactiveLabelMode);
   }
@@ -2068,6 +2071,8 @@ bool Viewer2DPanel::ApplySelectionDelta(
   if (m_placementSession.IsBatchPlacement())
     policy =
         scene_grouping::InteractiveTransformPolicy{false, false, false, false};
+  const auto transformFeedback = scene_grouping::BuildInteractiveSelectionFeedback(
+      cfg.GetScene(), selection, policy);
   if (hasTranslation) {
     scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm,
                                        transform_space::TransformSpace::World,
@@ -2086,11 +2091,13 @@ bool Viewer2DPanel::ApplySelectionDelta(
   const bool changed =
       hasTranslation || previousSnap.has_value() != m_pendingMagnetSnap.has_value();
   if (changed)
-    m_controller.MarkSceneTransformsDirty();
+    m_controller.MarkInteractiveTransformsDirty(
+        transformFeedback.highlightedUuids);
   return changed;
 }
 
 void Viewer2DPanel::FinalizeSelectionDrag() {
+  FinishInteractiveTransformPresentation();
   StopDragTableUpdates();
   ConfigManager &cfg = ConfigManager::Get();
   if (!m_interaction.selection.fixtures.empty() &&
@@ -2365,6 +2372,7 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
 
 // Clears placement-only interaction state without changing the scene.
 void Viewer2DPanel::EndContinuousPlacementState() {
+  FinishInteractiveTransformPresentation();
   m_placementSession.Reset();
   m_clipboardSingleConfirm = {};
   m_clipboardSingleCancel = {};
@@ -4072,6 +4080,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
 
 // Resets all transient 2D interaction state after mouse capture is lost.
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
+  FinishInteractiveTransformPresentation();
   m_interaction.Cancel(m_placementSession.IsActive());
   m_pendingMagnetSnap.reset();
   ClearCursorWorldPosition();

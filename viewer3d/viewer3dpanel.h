@@ -243,6 +243,7 @@ private:
         const wxPoint &mousePos);
     void CancelLinePointSelection();
     void PresentInteractiveTransformFrame();
+    void FinishInteractiveTransformPresentation();
     void ConfigureContinuousPlacementDrag(ContinuousPlacementType type,
                                           const std::string &elementUuid);
     void ConfirmContinuousPlacement();

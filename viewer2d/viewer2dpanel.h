@@ -238,6 +238,7 @@ private:
   void RequestRepaint();
   void RequestRepaint(const wxRect &dirtyRect);
   void PresentInteractiveTransformFrame();
+  void FinishInteractiveTransformPresentation();
   void ResetRepaintCoalescing();
   void TrackRefreshTelemetry();
   bool RenderToRGBABackBufferFallback(std::vector<unsigned char> &pixels,
@@ -343,6 +344,7 @@ private:
   bool m_mouseInside = false;
   bool m_hasHover = false;
   bool m_interactiveLabelMode = false;
+  std::chrono::steady_clock::time_point m_lastInteractivePresentation{};
   wxTimer m_interactionResumeTimer;
   wxTimer m_hoverHitTestTimer;
   wxPoint m_pendingHoverScreenPos;

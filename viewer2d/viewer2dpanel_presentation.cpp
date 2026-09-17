@@ -28,6 +28,20 @@ void Viewer2DPanel::PresentInteractiveTransformFrame() {
   wxASSERT_MSG(wxIsMainThread(),
                "Interactive presentation must run on the UI thread.");
   RequestRepaint();
+  const auto now = std::chrono::steady_clock::now();
+  if (now - m_lastInteractivePresentation >= std::chrono::milliseconds(16)) {
+    m_lastInteractivePresentation = now;
+    Update();
+  }
+}
+
+// Flushes the final transform frame and restores settled rendering.
+void Viewer2DPanel::FinishInteractiveTransformPresentation() {
+  if (!m_controller.IsInteractiveTransformActive())
+    return;
+  m_controller.SetInteractiveTransformActive(false);
+  m_controller.MarkSceneTransformsDirty();
+  RequestRepaint();
   Update();
 }
 

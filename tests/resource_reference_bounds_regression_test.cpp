@@ -69,5 +69,20 @@ int main() {
   assert(std::fabs(Span(bounds, 0) - 1.0f) < 0.0001f);
   assert(std::fabs(Span(bounds, 1) - 0.6f) < 0.0001f);
   assert(std::fabs(Span(bounds, 2) - 0.4f) < 0.0001f);
+
+  fixtureBounds.emplace("unrelated-fixture", bounds);
+  trussBounds.emplace("moved-truss", bounds);
+  trussBounds.emplace("unrelated-truss", bounds);
+  objectBounds.emplace("moved-object", bounds);
+  objectBounds.emplace("unrelated-object", bounds);
+  assert(BoundsCacheSystem::InvalidateTransformedBounds(
+             fixtureBounds, trussBounds, objectBounds,
+             {fixture.uuid, "moved-truss", "moved-object"}) == 3);
+  assert(!fixtureBounds.contains(fixture.uuid));
+  assert(!trussBounds.contains("moved-truss"));
+  assert(!objectBounds.contains("moved-object"));
+  assert(fixtureBounds.contains("unrelated-fixture"));
+  assert(trussBounds.contains("unrelated-truss"));
+  assert(objectBounds.contains("unrelated-object"));
   return 0;
 }

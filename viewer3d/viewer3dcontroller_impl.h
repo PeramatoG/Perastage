@@ -1,0 +1,88 @@
+#pragma once
+
+// Stores private controller cache, rendering, and interaction state.
+struct Viewer3DController::Impl {
+  ResourceSyncState resourceSyncState;
+  std::unordered_map<std::string, BoundingBox> modelBounds;
+  size_t sceneVersion = 0;
+  size_t cachedVersion = static_cast<size_t>(-1);
+  bool sceneChangedDirty = true;
+  bool assetsChangedDirty = true;
+  bool visibilityChangedDirty = true;
+  std::unordered_map<std::string, BoundingBox> fixtureBounds;
+  std::unordered_map<std::string, BoundingBox> trussBounds;
+  std::unordered_map<std::string, BoundingBox> objectBounds;
+  std::unordered_set<std::string> boundsHiddenLayers;
+  std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
+  std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *> sortedObjects;
+  std::vector<const std::pair<const std::string, Fixture> *>
+      visibleSortedFixtures;
+  std::vector<const std::pair<const std::string, Truss> *> visibleSortedTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *>
+      visibleSortedObjects;
+  std::unordered_set<std::string> lastHiddenLayers;
+  std::unordered_set<std::string> lastHiddenFixtureTypes;
+  size_t sceneLayerMembershipFingerprint = 0;
+  bool hasSceneLayerMembershipFingerprint = false;
+  size_t hiddenLayersVersion = 0;
+  bool sortedListsDirty = true;
+  bool sortedListsLastWas2D = false;
+  Viewer2DView sortedListsLastView = Viewer2DView::Top;
+  mutable std::mutex sortedListsMutex;
+  std::unordered_map<std::string, std::array<float, 3>> typeColors;
+  std::unordered_map<std::string, std::array<float, 3>> layerColors;
+  std::string highlightUuid;
+  std::unordered_set<std::string> groupHighlightUuids;
+  std::unordered_set<std::string> selectedUuids;
+  std::unordered_set<std::string> primarySelectedUuids;
+  NVGcontext *vg = nullptr;
+  int font = -1;
+  int fontBold = -1;
+  ICanvas2D *captureCanvas = nullptr;
+  Viewer2DView captureView = Viewer2DView::Top;
+  bool captureIncludeGrid = true;
+  bool captureOnly = false;
+  bool captureUseSymbols = false;
+  std::optional<bool> forceBottomViewForTopFixturesOverride;
+  std::optional<bool> symbolCaptureRenderProfileOverride;
+  std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
+  SymbolCache bottomSymbolCache;
+  bool darkMode = false;
+  Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
+  bool whiteModelStyleEnabled = false;
+  bool sketchStyleEnabled = false;
+  bool sketchBasePassActive = false;
+  bool pureWhiteStyleEnabled = false;
+  bool texturedStyleEnabled = false;
+  bool showSelectionOutline2D = false;
+  bool isInteracting = false;
+  bool interactiveTransformActive = false;
+  bool cameraMoving = false;
+  bool useAdaptiveLineProfile = true;
+  bool skipOutlinesForCurrentFrame = false;
+  int updateResourcesCallsPerFrame = 0;
+  std::atomic<bool> resourceSyncPending{true};
+  std::atomic<bool> sceneReplacementActive{false};
+  mutable VisibleSet cachedVisibleSet;
+  mutable VisibleSet cachedLayerVisibleCandidates;
+  mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
+  mutable std::unordered_set<std::string> layerVisibleCandidatesHiddenLayers;
+  mutable std::unordered_set<std::string>
+      layerVisibleCandidatesHiddenFixtureTypes;
+  mutable size_t layerVisibleCandidatesRevision = 0;
+  mutable size_t visibleSetLayerCandidatesRevision = static_cast<size_t>(-1);
+  mutable bool visibleSetFrustumCulling = false;
+  mutable float visibleSetMinPixels = -1.0f;
+  mutable std::array<int, 4> visibleSetViewport = {0, 0, 0, 0};
+  mutable std::array<double, 16> visibleSetModel = {};
+  mutable std::array<double, 16> visibleSetProjection = {};
+  mutable bool visibleSetIs2DViewer = false;
+  mutable Viewer2DView visibleSetView = Viewer2DView::Top;
+  std::unique_ptr<SceneRenderer> sceneRenderer;
+  std::unique_ptr<SketchPostProcessPass> sketchPostProcessPass;
+  std::unique_ptr<VisibilitySystem> visibilitySystem;
+  std::unique_ptr<SelectionSystem> selectionSystem;
+  std::unique_ptr<IdPickPass> idPickPass;
+  std::unique_ptr<LabelRenderSystem> labelRenderSystem;
+};

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard lightweight live-transform presentation in both scene viewers."""
+"""Guard lightweight, coalesced live-transform presentation in both viewers."""
 
 from pathlib import Path
 
@@ -22,38 +22,44 @@ def function_body(path: str, signature: str) -> str:
     raise AssertionError(f"unterminated {signature} in {path}")
 
 
-mark_dirty = function_body(
+incremental = function_body(
     "viewer3d/viewer3dcontroller.cpp",
-    "void Viewer3DController::MarkSceneTransformsDirty()",
+    "void Viewer3DController::MarkInteractiveTransformsDirty(",
 )
-assert "sceneChangedDirty = true" in mark_dirty
-assert "sortedListsDirty = true" in mark_dirty
-assert "MarkResourceSyncPending" not in mark_dirty
+assert "InvalidateTransformedBounds" in incremental
+assert "interactiveTransformActive = true" in incremental
+for forbidden in ("sceneChangedDirty", "sortedListsDirty", "MarkResourceSyncPending", "RebuildIfDirty"):
+    assert forbidden not in incremental
 
-lightweight = function_body(
-    "viewer3d/viewer3dcontroller.cpp",
-    "void Viewer3DController::UpdateFrameStateLightweight()",
-)
-assert "RefreshTransformCachesIfDirty" in lightweight
-
-for path, signature, repaint in (
-    (
-        "viewer2d/viewer2dpanel_presentation.cpp",
-        "void Viewer2DPanel::PresentInteractiveTransformFrame()",
-        "RequestRepaint()",
-    ),
-    (
-        "viewer3d/viewer3dpanel_presentation.cpp",
-        "void Viewer3DPanel::PresentInteractiveTransformFrame()",
-        "Refresh(false)",
-    ),
+for path, panel, repaint in (
+    ("viewer2d/viewer2dpanel_presentation.cpp", "Viewer2DPanel", "RequestRepaint()"),
+    ("viewer3d/viewer3dpanel_presentation.cpp", "Viewer3DPanel", "Refresh(false)"),
 ):
-    body = function_body(path, signature)
-    assert repaint in body and "Update()" in body
+    present = function_body(path, f"void {panel}::PresentInteractiveTransformFrame()")
+    assert repaint in present
+    for forbidden in ("UpdateScene", "UpdateResourcesIfDirty", "MarkSceneTransformsDirty"):
+        assert forbidden not in present
+    if panel == "Viewer3DPanel":
+        assert "Update()" not in present
+    finish = function_body(path, f"void {panel}::FinishInteractiveTransformPresentation()")
+    assert "SetInteractiveTransformActive(false)" in finish
+    assert "MarkSceneTransformsDirty" in finish and "Update()" in finish
 
-for path in ("viewer2d/viewer2dpanel.cpp", "viewer3d/viewer3dpanel.cpp"):
-    motion = function_body(path, "void Viewer" + path.split("viewer")[1][:2].upper() + "Panel::OnMouseMove")
+for path, panel in (
+    ("viewer2d/viewer2dpanel.cpp", "Viewer2DPanel"),
+    ("viewer3d/viewer3dpanel.cpp", "Viewer3DPanel"),
+):
+    motion = function_body(path, f"void {panel}::OnMouseMove")
     assert "if (changed)" in motion
     assert "PresentInteractiveTransformFrame()" in motion
+    assert "UpdateResourcesIfDirty" not in motion
+
+controller = (ROOT / "viewer3d/viewer3dcontroller.cpp").read_text(encoding="utf-8")
+assert "interactiveTransformActive" in controller
+assert "m_impl->cameraMoving ||" in controller
+viewer2d = (ROOT / "viewer2d/viewer2dpanel.cpp").read_text(encoding="utf-8")
+viewer3d = (ROOT / "viewer3d/viewer3dpanel.cpp").read_text(encoding="utf-8")
+assert "drawFixtureLabels && !suppressInteractiveLabels" in viewer2d
+assert "m_controller.IsInteractiveTransformActive() ||" in viewer3d
 
 print("Interactive transform presentation architecture is intact.")

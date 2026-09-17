@@ -10,7 +10,7 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
-- Restored responsive live geometry updates while dragging or placing objects in the 2D and 3D viewers, without forcing heavyweight model and resource reloads for every pointer movement.
+- Restored smooth live geometry updates while dragging or placing objects in the 2D and 3D viewers, with frame-coalesced presentation, lightweight bounds refreshes, and temporary label suppression during movement.
 
 ## Technical and packaging changes
 

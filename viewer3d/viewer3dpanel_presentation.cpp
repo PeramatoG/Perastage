@@ -5,12 +5,20 @@ void Viewer3DPanel::PresentInteractiveTransformFrame() {
     wxASSERT_MSG(wxIsMainThread(),
                  "Interactive presentation must run on the UI thread.");
     Refresh(false);
+}
+
+// Flushes the final transform frame and restores settled rendering.
+void Viewer3DPanel::FinishInteractiveTransformPresentation() {
+    if (!m_controller.IsInteractiveTransformActive())
+        return;
+    m_controller.SetInteractiveTransformActive(false);
+    m_controller.MarkSceneTransformsDirty();
+    Refresh(false);
     if (!m_paintInProgress)
         Update();
 }
 
-// Aligns the provisional fixture with the raw view-plane position under the
-// pointer.
+// Aligns the provisional fixture with the raw view-plane pointer position.
 bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     const RenderSize renderSize = ResolveRenderSize(this);
     if (!renderSize.IsValid() ||

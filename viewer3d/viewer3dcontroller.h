@@ -89,6 +89,7 @@ public:
   void PrepareForSceneReplacement();
   void CompleteSceneReplacement();
   void MarkSceneTransformsDirty();
+  void MarkInteractiveTransformsDirty(const std::vector<std::string> &uuids);
   void MarkResourceSyncPending();
   bool IsResourceSyncPending() const;
   bool ConsumeResourceSyncPending();
@@ -105,6 +106,8 @@ public:
 
   void SetDarkMode(bool enabled);
   void SetInteracting(bool interacting);
+  void SetInteractiveTransformActive(bool active);
+  bool IsInteractiveTransformActive() const;
   void SetCameraMoving(bool moving);
   bool IsCameraMoving() const override;
   void SetSelectionOutlineEnabled(bool enabled);

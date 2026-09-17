@@ -70,6 +70,21 @@ static Viewer3DBoundingBox TransformBounds(const Viewer3DBoundingBox &local,
 
 } // namespace
 
+// Invalidates only cached bounds whose transforms changed interactively.
+size_t BoundsCacheSystem::InvalidateTransformedBounds(
+    std::unordered_map<std::string, Viewer3DBoundingBox> &fixtureBounds,
+    std::unordered_map<std::string, Viewer3DBoundingBox> &trussBounds,
+    std::unordered_map<std::string, Viewer3DBoundingBox> &objectBounds,
+    const std::vector<std::string> &uuids) {
+  size_t invalidated = 0;
+  for (const auto &uuid : uuids) {
+    invalidated += fixtureBounds.erase(uuid);
+    invalidated += trussBounds.erase(uuid);
+    invalidated += objectBounds.erase(uuid);
+  }
+  return invalidated;
+}
+
 // Rebuilds cached object bounds when scene, asset, or visibility state changes.
 void BoundsCacheSystem::RebuildIfDirty(
     Context &context,

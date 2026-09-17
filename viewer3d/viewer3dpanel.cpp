@@ -1057,8 +1057,9 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
   const bool skipLabelWork =
-      m_runtimeState.IsCameraMoving() &&
-        (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
+      m_controller.IsInteractiveTransformActive() ||
+      (m_runtimeState.IsCameraMoving() &&
+       (IsFastInteractionModeEnabled() || skipLabelsWhenMoving));
 
     m_runtimeState.ObserveCameraFingerprint(cameraFingerprint);
 
@@ -2513,6 +2514,7 @@ void Viewer3DPanel::CancelLinePointSelection() {
 
 // Resets interaction state after wxWidgets reports lost mouse capture.
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
+    FinishInteractiveTransformPresentation();
     m_navigationSession.End();
     m_runtimeState.EndInteraction();
     m_controller.SetInteracting(false);
@@ -2637,6 +2639,7 @@ void Viewer3DPanel::DrawSelectionRectangle(int width, int height) {
 
 // Clears all transient selection-drag state.
 void Viewer3DPanel::ResetSelectionDragState(bool completed) {
+    FinishInteractiveTransformPresentation();
     m_selectionDragActivation.Reset();
     if (completed)
         m_selectionDragSession.Complete();
@@ -3082,6 +3085,8 @@ bool Viewer3DPanel::ApplySelectionDragDelta(
   if (m_continuousPlacementSession.IsBatchActive())
     policy = scene_grouping::InteractiveTransformPolicy{false, false, false,
                                                          false};
+  const auto transformFeedback = scene_grouping::BuildInteractiveSelectionFeedback(
+      cfg.GetScene(), selection, policy);
   if (hasTranslation) {
     scene_grouping::TranslateSelection(
         cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
@@ -3105,7 +3110,8 @@ bool Viewer3DPanel::ApplySelectionDragDelta(
                          previousSnap.has_value() !=
                              m_selectionDragSession.PendingSnap().has_value();
     if (changed)
-        m_controller.MarkSceneTransformsDirty();
+        m_controller.MarkInteractiveTransformsDirty(
+            transformFeedback.highlightedUuids);
     return changed;
 }
 
@@ -3125,6 +3131,8 @@ void Viewer3DPanel::FinalizeSelectionDrag() {
                                 m_selectionDragSession.Selection().trusses.size(), m_selectionDragSession.Selection().sceneObjects.size());
     if (!m_selectionDragActivation.HasMoved())
         return;
+
+    FinishInteractiveTransformPresentation();
 
     ConfigManager& cfg = ConfigManager::Get();
     if (!m_selectionDragSession.Selection().fixtures.empty() && FixtureTablePanel::Instance()) {
@@ -3420,6 +3428,7 @@ bool Viewer3DPanel::UndoContinuousPlacement() {
 
 // Ends placement state through the requested lifecycle transition.
 void Viewer3DPanel::EndContinuousPlacementState(bool completed) {
+    FinishInteractiveTransformPresentation();
     if (completed)
         m_continuousPlacementSession.Complete();
     else
@@ -4038,6 +4047,7 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
 
     const bool resourceSyncPending = m_controller.IsResourceSyncPending();
     const bool hasRelevantVisualChange =
+        m_controller.IsInteractiveTransformActive() ||
         m_runtimeState.ShouldRepaintForThreadRefresh(
             {ComputeCameraFingerprint(m_camera), resourceSyncPending,
              m_rectSelecting, m_navigationSession.IsActive()});
