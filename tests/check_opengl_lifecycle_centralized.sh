@@ -26,6 +26,15 @@ if rg -q "glew_init_utils.cpp" viewer3d/CMakeLists.txt; then
   exit 1
 fi
 
+# GLEW must precede headers that transitively include the platform OpenGL API.
+viewer2d_glew_line="$(rg -n '^#include <GL/glew\.h>$' viewer2d/viewer2dpanel.cpp | cut -d: -f1)"
+viewer2d_context_line="$(rg -n '^#include "gl_context_utils\.h"$' viewer2d/viewer2dpanel.cpp | cut -d: -f1)"
+if [[ -z "$viewer2d_glew_line" || -z "$viewer2d_context_line" ||
+      "$viewer2d_glew_line" -ge "$viewer2d_context_line" ]]; then
+  echo "viewer2dpanel.cpp must include GLEW before gl_context_utils.h." >&2
+  exit 1
+fi
+
 if rg -n "viewer3d|../viewer3d" viewer_common --glob '*.{h,cpp}' >/tmp/perastage_viewer_common_viewer3d_refs.txt; then
   echo "viewer_common must not depend on viewer3d-owned headers or sources:" >&2
   cat /tmp/perastage_viewer_common_viewer3d_refs.txt >&2

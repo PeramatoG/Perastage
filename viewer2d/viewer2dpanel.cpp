@@ -28,8 +28,9 @@
 #include <windows.h>
 #endif
 
-#include "gl_context_utils.h"
 #include <GL/glew.h>
+// GLEW must precede headers that may transitively include gl.h.
+#include "gl_context_utils.h"
 // macOS uses the OpenGL framework headers; guard includes for cross-platform
 // builds.
 #ifdef __APPLE__
@@ -4283,7 +4284,6 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
         wxPoint(m_interaction.rectangleStart.x, m_interaction.rectangleStart.y),
         wxPoint(m_interaction.rectangleEnd.x, m_interaction.rectangleEnd.y));
     m_interaction.UpdateRectangle({pos.x, pos.y});
-    m_interaction.draggedSincePress = true;
     MarkInteractionActivity();
     const wxRect newRect = BuildSelectionRectDirtyRegion(
         wxPoint(m_interaction.rectangleStart.x, m_interaction.rectangleStart.y),
