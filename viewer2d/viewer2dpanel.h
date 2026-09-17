@@ -31,6 +31,7 @@
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
 #include "interaction/viewer2d_interaction_session.h"
+#include "interaction/viewer2d_runtime_state.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include <wx/glcanvas.h>
@@ -212,14 +213,7 @@ private:
   using DragMode = viewer2d::interaction::DragMode;
   using DragAxis = viewer2d::interaction::DragAxis;
   using DragTarget = viewer2d::interaction::DragTarget;
-  enum class PickQueryKind {
-    None,
-    FixtureLabel,
-    TrussLabel,
-    HoistLabel,
-    SceneObjectLabel,
-    PickUuid
-  };
+  using PickQueryKind = viewer2d::interaction::PickQueryKind;
 
   void InitGL();
   void Render();
@@ -282,8 +276,6 @@ private:
   void OnInteractionPauseTimer(wxTimerEvent &event);
   void OnHoverHitTestTimer(wxTimerEvent &event);
   void ScheduleHoverHitTest(const wxPoint &screenPos, bool forceNow = false);
-  int GetHoverHitTestIntervalMs() const;
-  int GetHoverMoveThresholdPx() const;
   void TrackHoverHitTestTelemetry(std::chrono::microseconds duration);
   void ScheduleHoverLabelRefresh(const wxPoint &screenPos);
   bool TryUpdateHoverHighlightFast(const wxPoint &screenPos);
@@ -302,9 +294,6 @@ private:
                       const std::string &uuid);
   void InvalidatePickCache();
   size_t BuildHiddenLayersHash();
-  bool IsPickCacheReusable(PickQueryKind queryKind, const wxPoint &framebufferPos,
-                           int viewportWidth, int viewportHeight,
-                           size_t hiddenLayersHash, bool clickSelection) const;
   bool ApplyHoverUuid(const std::string &newUuid, bool requestRepaint);
   void ClearHoverState(bool requestRepaint);
   bool IsExpensiveVisualInteractionActive() const;
@@ -324,29 +313,8 @@ private:
 
   static constexpr int kSelectionDragStartThresholdPx = 3;
   static constexpr int kDragTableUpdateIntervalMs = 50;
-  static constexpr int kHoverHitTestIdleIntervalMs = 10;
-  static constexpr int kHoverHitTestInteractingIntervalMs = 35;
-  static constexpr int kHoverMoveThresholdPx = 3;
-  static constexpr int kHoverIdleMoveThresholdPx = 0;
-  static constexpr std::chrono::milliseconds kPauseDelay{200};
-  static constexpr int kPickCacheReuseDistancePx = 3;
-
-  struct PickCacheEntry {
-    bool valid = false;
-    PickQueryKind queryKind = PickQueryKind::None;
-    wxPoint framebufferPos;
-    int viewportWidth = 0;
-    int viewportHeight = 0;
-    Viewer2DView view = Viewer2DView::Top;
-    size_t hiddenLayersHash = 0;
-    bool clickSelection = false;
-    uint64_t sceneGeneration = 0;
-    std::chrono::steady_clock::time_point timestamp{};
-    bool found = false;
-    std::string uuid;
-  };
-
   viewer2d::interaction::Viewer2DInteractionSession m_interaction;
+  viewer2d::interaction::Viewer2DRuntimeState m_runtimeState;
   bool m_magnetEnabled = false;
   bool m_leftDragSelectionMovementEnabled = false;
   bool m_axisConstrainedMovementEnabled = true;
@@ -379,21 +347,12 @@ private:
   float m_zoom = 1.0f;
   bool m_mouseInside = false;
   bool m_hasHover = false;
-  std::chrono::steady_clock::time_point m_lastInteractionTime{};
-  bool m_isInteracting = false;
   bool m_interactiveLabelMode = false;
   wxTimer m_interactionResumeTimer;
   wxTimer m_hoverHitTestTimer;
   wxPoint m_pendingHoverScreenPos;
-  wxPoint m_lastHoverQueryScreenPos;
   wxPoint m_lastFastHoverScreenPos;
   bool m_fastHoverHasPos = false;
-  bool m_hoverQueryHasPos = false;
-  bool m_hoverHitTestPending = false;
-  std::chrono::steady_clock::time_point m_lastHoverHitTestTime{};
-  bool m_viewMotionSinceLastHoverHitTest = false;
-  PickCacheEntry m_pickCache;
-  uint64_t m_pickCacheSceneGeneration = 0;
   bool m_logFirstPickAfterSceneUpdate = false;
   bool m_lastUpdateSceneReloadRequested = false;
   bool m_enableSelection = true;

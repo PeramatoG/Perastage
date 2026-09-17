@@ -826,8 +826,7 @@ void Viewer2DPanel::SetRenderMode(Viewer2DRenderMode mode) {
 void Viewer2DPanel::SetView(Viewer2DView view) {
   m_view = view;
   m_placementViewRevision.Invalidate();
-  m_viewMotionSinceLastHoverHitTest = true;
-  InvalidatePickCache();
+  m_runtimeState.MarkViewMotion();
   RequestRepaint();
 }
 
@@ -1840,7 +1839,7 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   ResetRepaintCoalescing();
   InitGL();
 
-  const bool wasInteracting = m_isInteracting;
+  const bool wasInteracting = m_runtimeState.IsInteracting();
   const bool pauseHeavyTasks = ShouldPauseHeavyTasks();
   if (wasInteracting && !pauseHeavyTasks &&
       m_interaction.mode == DragMode::None && !m_interaction.rectangleActive) {
@@ -2829,20 +2828,14 @@ void Viewer2DPanel::QueueDragTableUpdate(DragTarget target,
   m_dragTableUpdateCv.notify_one();
 }
 
+// Reports whether recent interaction should still pause expensive work.
 bool Viewer2DPanel::ShouldPauseHeavyTasks() {
   // Returns true while recent input activity is still within the debounce
   // window. Callers should throttle only expensive synchronization work
   // (scene/resource updates, heavy snapshots). Visual overlays such as labels
   // should stay on-screen through an interactive lightweight rendering path.
-  if (!m_isInteracting)
-    return false;
-
-  const auto now = std::chrono::steady_clock::now();
-  if ((now - m_lastInteractionTime) < kPauseDelay)
-    return true;
-
-  m_isInteracting = false;
-  return false;
+  return m_runtimeState.ShouldPauseHeavyTasks(
+      std::chrono::steady_clock::now());
 }
 
 bool Viewer2DPanel::IsExpensiveVisualInteractionActive() const {
@@ -2860,77 +2853,51 @@ bool Viewer2DPanel::IsExpensiveVisualInteractionActive() const {
          m_interaction.selectionMoved;
 }
 
+// Records interaction activity and arms the wxWidgets settle timer.
 void Viewer2DPanel::MarkInteractionActivity() {
-  m_isInteracting = true;
-  m_lastInteractionTime = std::chrono::steady_clock::now();
-  m_interactionResumeTimer.StartOnce(static_cast<int>(kPauseDelay.count()) +
-                                     10);
+  m_runtimeState.MarkInteractionActivity(std::chrono::steady_clock::now());
+  m_interactionResumeTimer.StartOnce(
+      viewer2d::interaction::Viewer2DRuntimeState::
+              kInteractionGracePeriodMs +
+          10);
 }
 
+// Requests the established repaint after the interaction grace period settles.
 void Viewer2DPanel::OnInteractionPauseTimer(wxTimerEvent &WXUNUSED(event)) {
   if (!ShouldPauseHeavyTasks())
     RequestRepaint();
 }
 
+// Runs pending hover work when the wxWidgets timer fires.
 void Viewer2DPanel::OnHoverHitTestTimer(wxTimerEvent &WXUNUSED(event)) {
-  if (!m_hoverHitTestPending)
+  if (!m_runtimeState.IsHoverQueryPending())
     return;
   RunHoverHitTest(m_pendingHoverScreenPos);
 }
 
+// Schedules detailed label hover work for the current pointer.
 void Viewer2DPanel::ScheduleHoverLabelRefresh(const wxPoint &screenPos) {
   ScheduleHoverHitTest(screenPos, false);
 }
 
-int Viewer2DPanel::GetHoverHitTestIntervalMs() const {
-  const bool isDragging = m_interaction.mode != DragMode::None;
-  const bool interacting = m_isInteracting || m_viewMotionSinceLastHoverHitTest;
-  if (isDragging || interacting)
-    return kHoverHitTestInteractingIntervalMs;
-  return kHoverHitTestIdleIntervalMs;
-}
-
-int Viewer2DPanel::GetHoverMoveThresholdPx() const {
-  if (m_interaction.mode != DragMode::None)
-    return kHoverMoveThresholdPx;
-  return kHoverIdleMoveThresholdPx;
-}
-
+// Adapts a wxWidgets pointer event to the neutral hover scheduler.
 void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos,
                                          bool forceNow) {
   if (!m_enableSelection || !IsShownOnScreen())
     return;
 
   m_pendingHoverScreenPos = screenPos;
-  m_hoverHitTestPending = true;
-  const int hitTestIntervalMs = GetHoverHitTestIntervalMs();
-  const int moveThresholdPx = GetHoverMoveThresholdPx();
-
   const auto now = std::chrono::steady_clock::now();
-  if (!forceNow && m_hoverQueryHasPos) {
-    const int manhattanMoved =
-        std::abs(screenPos.x - m_lastHoverQueryScreenPos.x) +
-        std::abs(screenPos.y - m_lastHoverQueryScreenPos.y);
-    const auto elapsedMs =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - m_lastHoverHitTestTime)
-            .count();
-    if (manhattanMoved < moveThresholdPx && elapsedMs < hitTestIntervalMs)
-      return;
-  }
-
-  const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             now - m_lastHoverHitTestTime)
-                             .count();
-  if (forceNow || elapsedMs >= hitTestIntervalMs) {
+  const auto decision = m_runtimeState.ScheduleHover(
+      {{screenPos.x, screenPos.y}, forceNow,
+       m_interaction.mode != DragMode::None, now});
+  if (decision.runNow) {
     m_hoverHitTestTimer.Stop();
     RunHoverHitTest(screenPos);
     return;
   }
-
-  const int delayMs =
-      std::max(1, hitTestIntervalMs - static_cast<int>(elapsedMs));
-  m_hoverHitTestTimer.StartOnce(delayMs);
+  if (decision.delayMilliseconds > 0)
+    m_hoverHitTestTimer.StartOnce(decision.delayMilliseconds);
 }
 
 bool Viewer2DPanel::ApplyHoverUuid(const std::string &newUuid,
@@ -2979,8 +2946,7 @@ void Viewer2DPanel::ClearHoverState(bool requestRepaint) {
 
 // Invalidates cached picking results after scene, view, or visibility changes.
 void Viewer2DPanel::InvalidatePickCache() {
-  m_pickCache.valid = false;
-  ++m_pickCacheSceneGeneration;
+  m_runtimeState.InvalidatePickCache();
 }
 
 // Builds a hash for hidden-layer state and invalidates stale pick cache
@@ -2988,35 +2954,8 @@ void Viewer2DPanel::InvalidatePickCache() {
 size_t Viewer2DPanel::BuildHiddenLayersHash() {
   const size_t hash =
       HashStringContainer(ConfigManager::Get().GetHiddenLayers());
-  if (m_pickCache.valid && m_pickCache.hiddenLayersHash != hash)
-    InvalidatePickCache();
+  m_runtimeState.ObserveHiddenLayersFingerprint(hash);
   return hash;
-}
-
-// Returns whether a recent picking query can be reused for the current pointer
-// location.
-bool Viewer2DPanel::IsPickCacheReusable(PickQueryKind queryKind,
-                                        const wxPoint &framebufferPos,
-                                        int viewportWidth, int viewportHeight,
-                                        size_t hiddenLayersHash,
-                                        bool clickSelection) const {
-  if (!m_pickCache.valid || m_pickCache.queryKind != queryKind)
-    return false;
-  if (m_pickCache.viewportWidth != viewportWidth ||
-      m_pickCache.viewportHeight != viewportHeight)
-    return false;
-  if (m_pickCache.view != m_view)
-    return false;
-  if (m_pickCache.hiddenLayersHash != hiddenLayersHash)
-    return false;
-  if (m_pickCache.clickSelection != clickSelection)
-    return false;
-  if (m_pickCache.sceneGeneration != m_pickCacheSceneGeneration)
-    return false;
-  const int dx = framebufferPos.x - m_pickCache.framebufferPos.x;
-  const int dy = framebufferPos.y - m_pickCache.framebufferPos.y;
-  return (dx * dx + dy * dy) <=
-         (kPickCacheReuseDistancePx * kPickCacheReuseDistancePx);
 }
 
 // Stores a pick result and logs the first interaction pick after a scene
@@ -3026,18 +2965,16 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
                                    int viewportWidth, int viewportHeight,
                                    size_t hiddenLayersHash, bool clickSelection,
                                    bool found, const std::string &uuid) {
-  m_pickCache.valid = true;
-  m_pickCache.queryKind = queryKind;
-  m_pickCache.framebufferPos = framebufferPos;
-  m_pickCache.viewportWidth = viewportWidth;
-  m_pickCache.viewportHeight = viewportHeight;
-  m_pickCache.view = m_view;
-  m_pickCache.hiddenLayersHash = hiddenLayersHash;
-  m_pickCache.clickSelection = clickSelection;
-  m_pickCache.sceneGeneration = m_pickCacheSceneGeneration;
-  m_pickCache.timestamp = std::chrono::steady_clock::now();
-  m_pickCache.found = found;
-  m_pickCache.uuid = uuid;
+  m_runtimeState.StorePickCache(
+      {queryKind,
+       {framebufferPos.x, framebufferPos.y},
+       viewportWidth,
+       viewportHeight,
+       static_cast<int>(m_view),
+       hiddenLayersHash,
+       clickSelection,
+       m_runtimeState.SceneGeneration()},
+      {found, uuid});
 
   if (m_logFirstPickAfterSceneUpdate) {
     const char *queryName = "none";
@@ -3068,7 +3005,8 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
             std::string(m_lastUpdateSceneReloadRequested ? "true" : "false") +
             " query='" + queryName +
             "' objectUnderCursor=" + std::string(found ? "true" : "false") +
-            " sceneGeneration=" + std::to_string(m_pickCacheSceneGeneration) +
+            " sceneGeneration=" +
+            std::to_string(m_runtimeState.SceneGeneration()) +
             ".");
     m_logFirstPickAfterSceneUpdate = false;
   }
@@ -3080,11 +3018,19 @@ bool Viewer2DPanel::TryResolvePickUuidWithCache(const wxPoint &framebufferPos,
                                                 int viewportHeight,
                                                 size_t hiddenLayersHash,
                                                 std::string &uuidOut) {
-  if (IsPickCacheReusable(PickQueryKind::PickUuid, framebufferPos,
-                          viewportWidth, viewportHeight, hiddenLayersHash,
-                          false)) {
-    uuidOut = m_pickCache.uuid;
-    return m_pickCache.found;
+  const viewer2d::interaction::PickCacheKey cacheKey{
+      PickQueryKind::PickUuid,
+      {framebufferPos.x, framebufferPos.y},
+      viewportWidth,
+      viewportHeight,
+      static_cast<int>(m_view),
+      hiddenLayersHash,
+      false,
+      m_runtimeState.SceneGeneration()};
+  if (m_runtimeState.IsPickCacheReusable(cacheKey)) {
+    const auto &result = m_runtimeState.CachedPickResult();
+    uuidOut = result.uuid;
+    return result.found;
   }
 
   std::string pickedUuid;
@@ -3105,10 +3051,19 @@ bool Viewer2DPanel::TryResolvePickLabelWithCache(
     PickQueryKind queryKind, const wxPoint &framebufferPos, int viewportWidth,
     int viewportHeight, size_t hiddenLayersHash, bool clickSelection,
     std::string &uuidOut) {
-  if (IsPickCacheReusable(queryKind, framebufferPos, viewportWidth,
-                          viewportHeight, hiddenLayersHash, clickSelection)) {
-    uuidOut = m_pickCache.uuid;
-    return m_pickCache.found;
+  const viewer2d::interaction::PickCacheKey cacheKey{
+      queryKind,
+      {framebufferPos.x, framebufferPos.y},
+      viewportWidth,
+      viewportHeight,
+      static_cast<int>(m_view),
+      hiddenLayersHash,
+      clickSelection,
+      m_runtimeState.SceneGeneration()};
+  if (m_runtimeState.IsPickCacheReusable(cacheKey)) {
+    const auto &result = m_runtimeState.CachedPickResult();
+    uuidOut = result.uuid;
+    return result.found;
   }
 
   wxString label;
@@ -3216,13 +3171,12 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   if (!m_enableSelection || !IsShownOnScreen())
     return;
 
-  m_hoverHitTestPending = false;
-  if (m_interaction.mode == DragMode::Selection)
+  if (m_interaction.mode == DragMode::Selection) {
+    m_runtimeState.CancelHoverQuery();
     return;
-  m_lastHoverHitTestTime = std::chrono::steady_clock::now();
-  m_lastHoverQueryScreenPos = screenPos;
-  m_hoverQueryHasPos = true;
-  m_viewMotionSinceLastHoverHitTest = false;
+  }
+  m_runtimeState.CompleteHoverQuery(
+      {screenPos.x, screenPos.y}, std::chrono::steady_clock::now());
 
   const bool skipLabelWork = ShouldPauseHeavyTasks();
   if (skipLabelWork) {
@@ -3385,7 +3339,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     m_interaction.BeginPrimary({m_lastMousePos.x, m_lastMousePos.y});
     MarkInteractionActivity();
     m_hoverHitTestTimer.Stop();
-    m_hoverHitTestPending = false;
+    m_runtimeState.CancelHoverQuery();
 
     if (!m_enableSelection || !IsShownOnScreen())
       return;
@@ -4297,8 +4251,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     m_offsetX += dx / m_zoom;
     m_offsetY += dy / m_zoom;
     m_placementViewRevision.Invalidate();
-    m_viewMotionSinceLastHoverHitTest = true;
-    InvalidatePickCache();
+    m_runtimeState.MarkViewMotion();
     m_lastMousePos = pos;
     m_interaction.MarkNavigationMoved({pos.x, pos.y});
     MarkInteractionActivity();
@@ -4333,13 +4286,12 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
     steps = static_cast<float>(rotation) / static_cast<float>(deltaWheel);
   float factor = std::pow(1.1f, steps);
   m_zoom *= factor;
-  m_viewMotionSinceLastHoverHitTest = true;
+  m_runtimeState.MarkViewMotion();
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
   m_placementViewRevision.Invalidate();
   if (m_continuousPlacementActive)
     AlignContinuousElementToPointer(event.GetPosition());
-  InvalidatePickCache();
   if (m_persistViewState)
     SaveViewToConfig();
   RequestRepaint();
@@ -4453,7 +4405,7 @@ void Viewer2DPanel::OnMouseLeave(wxMouseEvent &event) {
   ClearCursorWorldPosition();
   if (m_enableSelection) {
     m_hoverHitTestTimer.Stop();
-    m_hoverHitTestPending = false;
+    m_runtimeState.CancelHoverQuery();
     ClearHoverState(true);
   }
   event.Skip();

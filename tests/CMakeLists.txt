@@ -177,6 +177,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(Layout2DViewCaptureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
     add_bash_policy_test(Viewer2DStateOwnershipBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
     add_bash_policy_test(Viewer2DInteractionSessionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_interaction_session_boundary.sh)
+    add_bash_policy_test(Viewer2DRuntimeStateBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_runtime_state_boundary.sh)
     add_bash_policy_test(Viewer2DRenderToRGBAFboBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
     add_bash_policy_test(Viewer2DFboCaptureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_fbo_capture_diagnostics.sh)
     add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
@@ -2944,6 +2945,13 @@ add_executable(viewer2d_interaction_session_test
 target_include_directories(viewer2d_interaction_session_test PRIVATE
                            ../viewer2d/interaction ../viewer_common)
 add_test(NAME Viewer2DInteractionSession COMMAND viewer2d_interaction_session_test)
+
+add_executable(viewer2d_runtime_state_test
+               viewer2d_runtime_state_test.cpp
+               ../viewer2d/interaction/viewer2d_runtime_state.cpp)
+target_include_directories(viewer2d_runtime_state_test PRIVATE
+                           ../viewer2d/interaction)
+add_test(NAME Viewer2DRuntimeState COMMAND viewer2d_runtime_state_test)
 
 add_executable(viewer3d_runtime_policy_test
                viewer3d_runtime_policy_test.cpp
