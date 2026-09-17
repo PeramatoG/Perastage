@@ -31,6 +31,8 @@
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
 #include "interaction/viewer2d_interaction_session.h"
+#include "interaction/viewer2d_line_point_selection_session.h"
+#include "interaction/viewer2d_placement_session.h"
 #include "interaction/viewer2d_runtime_state.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
@@ -198,8 +200,9 @@ public:
       std::function<void()> confirmCallback,
       std::function<void()> cancelCallback);
   bool UndoContinuousPlacement();
+  // Reports whether any continuous-placement session is active.
   bool IsContinuousPlacementActive() const {
-    return m_continuousPlacementActive;
+    return m_placementSession.IsActive();
   }
   bool IsClipboardPlacementActive() const;
   void CancelClipboardPlacement();
@@ -321,22 +324,13 @@ private:
   transform_space::TransformSpace m_transformSpace =
       transform_space::TransformSpace::World;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
-  bool m_continuousPlacementActive = false;
-  bool m_linePointSelectionActive = false;
-  bool m_linePointSelectionConsumeMouseUp = false;
-  std::array<float, 3> m_linePointSelectionStart{};
-  std::array<float, 3> m_linePointSelectionEnd{};
-  std::optional<std::array<float, 3>> m_linePointSelectionFirst;
-  std::optional<std::array<float, 3>> m_linePointSelectionPreview;
+  viewer2d::interaction::Viewer2DPlacementSession m_placementSession;
+  viewer2d::interaction::Viewer2DLinePointSelectionSession
+      m_linePointSelectionSession;
   LinePointSelectionCallback m_linePointSelectionCallback;
-  ContinuousPlacementType m_continuousPlacementType =
-      ContinuousPlacementType::None;
   continuous_placement::ViewRevisionState m_placementViewRevision;
-  std::string m_continuousPlacementUuid;
-  std::vector<std::string> m_continuousPlacedUuids;
   std::function<std::string(const std::string &)> m_clipboardSingleConfirm;
   std::function<void(const std::string &)> m_clipboardSingleCancel;
-  bool m_clipboardBatchPlacement = false;
   std::function<void()> m_clipboardBatchConfirm;
   std::function<void()> m_clipboardBatchCancel;
   wxLongLong m_dragPressTime = 0;
