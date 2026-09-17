@@ -180,6 +180,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(Viewer2DDecisionPolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_decision_policy_boundary.sh)
     add_bash_policy_test(Viewer2DRuntimeStateBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_runtime_state_boundary.sh)
     add_bash_policy_test(Viewer2DToolSessionsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_tool_sessions_boundary.sh)
+    add_bash_policy_test(Viewer2DRenderPlanBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_plan_boundary.sh)
     add_bash_policy_test(Viewer2DRenderToRGBAFboBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
     add_bash_policy_test(Viewer2DFboCaptureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_fbo_capture_diagnostics.sh)
     add_bash_policy_test(LayoutPreviewFailureDiagnostics ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_preview_failure_diagnostics.sh)
@@ -2534,6 +2535,13 @@ add_executable(continuous_placement_scene_test
 target_include_directories(continuous_placement_scene_test PRIVATE
                            ../models)
 add_test(NAME ContinuousPlacementScene COMMAND continuous_placement_scene_test)
+
+add_executable(viewer2d_render_frame_plan_test
+               viewer2d_render_frame_plan_test.cpp
+               ../viewer2d/render/viewer2d_render_frame_plan.cpp)
+target_include_directories(viewer2d_render_frame_plan_test PRIVATE
+                           ../viewer2d ../viewer2d/render ../viewer3d)
+add_test(NAME Viewer2DRenderFramePlan COMMAND viewer2d_render_frame_plan_test)
 
 add_executable(viewer2d_coordinate_math_test
                viewer2d_coordinate_math_test.cpp

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "../viewer3d/viewer3d_types.h"
 #include "canvas2d.h"
-#include "viewer3dcontroller.h"
 
 namespace viewer2d {
 
