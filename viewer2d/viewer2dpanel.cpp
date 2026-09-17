@@ -751,45 +751,6 @@ Viewer2DPanel *Viewer2DPanel::Instance() { return g_instance; }
 
 void Viewer2DPanel::SetInstance(Viewer2DPanel *panel) { g_instance = panel; }
 
-void Viewer2DPanel::RequestRepaint() {
-  if (m_fullRepaintQueued)
-    return;
-  m_repaintQueued = true;
-  m_fullRepaintQueued = true;
-  TrackRefreshTelemetry();
-  Refresh(false);
-}
-
-void Viewer2DPanel::RequestRepaint(const wxRect &dirtyRect) {
-  if (!dirtyRect.IsEmpty() && !m_fullRepaintQueued && !m_repaintQueued) {
-    m_repaintQueued = true;
-    TrackRefreshTelemetry();
-    RefreshRect(dirtyRect, false);
-    return;
-  }
-  RequestRepaint();
-}
-
-void Viewer2DPanel::ResetRepaintCoalescing() {
-  m_repaintQueued = false;
-  m_fullRepaintQueued = false;
-}
-
-void Viewer2DPanel::TrackRefreshTelemetry() {
-#ifndef NDEBUG
-  const auto now = std::chrono::steady_clock::now();
-  if (m_refreshTelemetryWindowStart.time_since_epoch().count() == 0)
-    m_refreshTelemetryWindowStart = now;
-  ++m_refreshesInCurrentWindow;
-  const auto elapsed = now - m_refreshTelemetryWindowStart;
-  if (elapsed >= std::chrono::seconds(1)) {
-    wxLogDebug("Viewer2DPanel refreshes/s: %d", m_refreshesInCurrentWindow);
-    m_refreshTelemetryWindowStart = now;
-    m_refreshesInCurrentWindow = 0;
-  }
-#endif
-}
-
 // Updates cached 2D scene data, selection state, and repaint scheduling.
 void Viewer2DPanel::UpdateScene(bool reload) {
   if (reload && m_enableSelection && ShouldPauseHeavyTasks())
@@ -1836,6 +1797,14 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
 // Handles paint events by refreshing interaction state and rendering the view.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
+  if (m_paintInProgress)
+    return;
+  m_paintInProgress = true;
+  struct PaintGuard {
+    bool &active;
+    // Clears the paint guard when the current frame exits.
+    ~PaintGuard() { active = false; }
+  } paintGuard{m_paintInProgress};
   ResetRepaintCoalescing();
   InitGL();
 
@@ -2066,10 +2035,10 @@ void Viewer2DPanel::CommitActiveMagnetSnap() {
   magnet_snap::ApplyCommittedSnapGrouping(cfg.GetScene(), *m_pendingMagnetSnap);
 }
 
-void Viewer2DPanel::ApplySelectionDelta(
+bool Viewer2DPanel::ApplySelectionDelta(
     const std::array<float, 3> &deltaMeters) {
   if (m_interaction.activeUuids.empty())
-    return;
+    return false;
 
   float dxMm = deltaMeters[0] * 1000.0f;
   float dyMm = deltaMeters[1] * 1000.0f;
@@ -2106,10 +2075,12 @@ void Viewer2DPanel::ApplySelectionDelta(
   if (m_placementSession.IsBatchPlacement())
     policy =
         scene_grouping::InteractiveTransformPolicy{false, false, false, false};
+  if (m_activeTransformTargets.empty())
+    m_activeTransformTargets = scene_grouping::BuildInteractiveTransformTargets(
+        cfg.GetScene(), selection, policy);
   if (hasTranslation) {
-    scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm,
-                                       transform_space::TransformSpace::World,
-                                       policy);
+    scene_grouping::TranslateTargets(cfg.GetScene(), m_activeTransformTargets,
+                                     deltaMm);
   }
   if (!m_placementSession.IsBatchPlacement()) {
     if (auto snap = FindActiveMagnetSnap()) {
@@ -2121,9 +2092,12 @@ void Viewer2DPanel::ApplySelectionDelta(
   }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();
+  return hasTranslation || previousSnap.has_value() ||
+         m_pendingMagnetSnap.has_value();
 }
 
 void Viewer2DPanel::FinalizeSelectionDrag() {
+  FinishInteractiveTransformPresentation();
   StopDragTableUpdates();
   ConfigManager &cfg = ConfigManager::Get();
   if (!m_interaction.selection.fixtures.empty() &&
@@ -2398,6 +2372,7 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
 
 // Clears placement-only interaction state without changing the scene.
 void Viewer2DPanel::EndContinuousPlacementState() {
+  FinishInteractiveTransformPresentation();
   m_placementSession.Reset();
   m_clipboardSingleConfirm = {};
   m_clipboardSingleCancel = {};
@@ -4105,6 +4080,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
 
 // Resets all transient 2D interaction state after mouse capture is lost.
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
+  FinishInteractiveTransformPresentation();
   m_interaction.Cancel(m_placementSession.IsActive());
   m_pendingMagnetSnap.reset();
   ClearCursorWorldPosition();
@@ -4122,13 +4098,13 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
         *rawWorld, m_pendingMagnetSnap->translationDeltaMm);
   }
 
-  ApplySelectionDelta(
+  const bool changed = ApplySelectionDelta(
       continuous_placement::AbsoluteAlignmentDelta(*pointerWorld, *rawWorld));
   m_placementViewRevision.CompleteAlignmentAttempt(true);
   m_interaction.axis = DragAxis::None;
   m_interaction.selectionMoved = true;
   m_lastMousePos = screenPos;
-  return true;
+  return changed;
 }
 
 // Handles pointer-following placement, selection movement, and view panning.
@@ -4148,9 +4124,12 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   }
   if (m_placementSession.IsActive() &&
       !(m_interaction.mode == DragMode::View && event.Dragging())) {
-    const wxPoint pos = event.GetPosition();
+    wxPoint pos = ScreenToClient(wxGetMousePosition());
+    if (!GetClientRect().Contains(pos))
+      pos = event.GetPosition();
+    bool changed = false;
     if (m_placementViewRevision.NeedsAlignment()) {
-      AlignContinuousElementToPointer(pos);
+      changed = AlignContinuousElementToPointer(pos);
     } else {
       const auto framebufferDelta =
           pixel_coordinates::IncrementalFramebufferDelta(
@@ -4183,14 +4162,15 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
       }
       const float pixelsPerMeter = PIXELS_PER_METER * m_zoom;
       if ((dx != 0 || dy != 0) && pixelsPerMeter > 0.0f) {
-        ApplySelectionDelta(
+        changed = ApplySelectionDelta(
             MapDragDelta(static_cast<float>(dx) / pixelsPerMeter,
                          static_cast<float>(-dy) / pixelsPerMeter));
       }
     }
     m_interaction.selectionMoved = true;
     m_lastMousePos = pos;
-    RequestRepaint();
+    if (changed)
+      PresentInteractiveTransformFrame();
     return;
   }
   wxPoint pos = event.GetPosition();
@@ -4210,6 +4190,13 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   }
 
   if (m_interaction.mode == DragMode::Selection && event.Dragging()) {
+    const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+    const auto latest = interactive_frame::ResolveLatestPointer(
+        {pos.x, pos.y}, GetClientRect().Contains(livePos)
+                            ? std::optional<interactive_frame::PointerPosition>(
+                                  {livePos.x, livePos.y})
+                            : std::nullopt);
+    pos = wxPoint(latest.x, latest.y);
     const auto motion = m_interaction.ResolveSelectionMotion(
         {pos.x, pos.y}, (wxGetLocalTimeMillis() - m_dragPressTime).ToLong(),
         m_axisConstrainedMovementEnabled);
@@ -4220,10 +4207,11 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     if (ppm > 0.0f) {
       const float dxMeters = static_cast<float>(motion.deltaX) / ppm;
       const float dyMeters = static_cast<float>(-motion.deltaY) / ppm;
-      ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
+      const bool changed = ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
       MarkInteractionActivity();
       m_interaction.MarkSelectionMoved();
-      RequestRepaint();
+      if (changed)
+        PresentInteractiveTransformFrame();
     }
 
     m_lastMousePos = pos;

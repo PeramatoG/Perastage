@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.
+
 ## Technical and packaging changes
 
 - Improved Windows Debug CI dependency performance by separating ABI-protected vcpkg binary archives from mutable installation trees, broadening safe cache reuse across runner updates, and adding cache-source and installation-time diagnostics.

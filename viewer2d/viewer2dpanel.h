@@ -36,6 +36,7 @@
 #include "interaction/viewer2d_runtime_state.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
+#include "interactive_frame_policy.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
@@ -237,6 +238,8 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void RequestRepaint();
   void RequestRepaint(const wxRect &dirtyRect);
+  void PresentInteractiveTransformFrame();
+  void FinishInteractiveTransformPresentation();
   void ResetRepaintCoalescing();
   void TrackRefreshTelemetry();
   bool RenderToRGBABackBufferFallback(std::vector<unsigned char> &pixels,
@@ -251,7 +254,7 @@ private:
   void NotifyHighlightedWorldPosition(
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearCursorWorldPosition();
-  void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
+  bool ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
   magnet_snap::SnapSettings BuildActiveMagnetSettings() const;
   std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;
@@ -324,6 +327,9 @@ private:
   transform_space::TransformSpace m_transformSpace =
       transform_space::TransformSpace::World;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
+  std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
+  interactive_frame::Cadence m_interactivePresentationCadence;
+  bool m_paintInProgress = false;
   viewer2d::interaction::Viewer2DPlacementSession m_placementSession;
   viewer2d::interaction::Viewer2DLinePointSelectionSession
       m_linePointSelectionSession;

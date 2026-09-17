@@ -40,6 +40,7 @@
 #include "ui_render_size.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
+#include "interactive_frame_policy.h"
 #include <array>
 #include <functional>
 #include <memory>
@@ -229,7 +230,7 @@ private:
     std::optional<std::array<float, 3>> ProjectMouseToSelectionDragViewPlane(
         const wxPoint& mousePos, const RenderSize& renderSize,
         const std::array<float, 3>& planePointMeters) const;
-    void ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
+    bool ApplySelectionDragDelta(const std::array<float, 3>& deltaMeters);
     std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
     magnet_snap::SnapSettings BuildActiveMagnetSettings(
         const magnet_snap::SnapSource& source) const;
@@ -242,7 +243,8 @@ private:
     std::optional<std::array<float, 3>> ProjectMouseOntoLine(
         const wxPoint &mousePos);
     void CancelLinePointSelection();
-    void PresentContinuousPlacementFrame();
+    void PresentInteractiveTransformFrame();
+    void FinishInteractiveTransformPresentation();
     void ConfigureContinuousPlacementDrag(ContinuousPlacementType type,
                                           const std::string &elementUuid);
     void ConfirmContinuousPlacement();
@@ -265,6 +267,8 @@ private:
     std::string m_hoverUuid;
 
     bool m_paintInProgress = false;
+    interactive_frame::Cadence m_interactivePresentationCadence;
+    std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
 
     Viewer2DMeasureToolState m_measureState;
     wxPoint m_measurePreviewMousePos;

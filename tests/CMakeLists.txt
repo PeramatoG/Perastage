@@ -214,6 +214,9 @@ if(BASH_EXECUTABLE)
 endif()
 
 if(Python3_Interpreter_FOUND)
+    add_repository_policy_test(InteractiveTransformPresentation ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_interactive_transform_presentation.py
+                               LABELS standard-strict policy architecture)
     add_repository_policy_test(SourceFileSize ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_source_file_size.py
                                LABELS standard-strict policy architecture)
@@ -2939,6 +2942,12 @@ add_executable(viewer3d_interaction_policy_test
 target_include_directories(viewer3d_interaction_policy_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME Viewer3DInteractionPolicy COMMAND viewer3d_interaction_policy_test)
+
+add_executable(interactive_frame_policy_test
+               interactive_frame_policy_test.cpp
+               ../viewer_common/interactive_frame_policy.cpp)
+target_include_directories(interactive_frame_policy_test PRIVATE ../viewer_common)
+add_test(NAME InteractiveFramePolicy COMMAND interactive_frame_policy_test)
 
 add_executable(viewer2d_interaction_session_test
                viewer2d_interaction_session_test.cpp

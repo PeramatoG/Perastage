@@ -1011,6 +1011,14 @@ void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
                         const InteractiveTransformPolicy &policy) {
   const auto targets =
       BuildInteractiveTransformTargets(scene, selection, policy);
+  TranslateTargets(scene, targets, deltaMm, space);
+}
+
+// Translates a previously resolved set of effective transform targets.
+void TranslateTargets(MvrScene &scene,
+                      const std::vector<SceneTransformTarget> &targets,
+                      const std::array<float, 3> &deltaMm,
+                      transform_space::TransformSpace space) {
   for (const auto &target : targets) {
     const Matrix transform = GetTargetWorldTransform(scene, target);
     SetTargetWorldTransform(scene, target,

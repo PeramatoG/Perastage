@@ -45,6 +45,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller_cache_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_camera_input.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dviewfit.cpp
 )

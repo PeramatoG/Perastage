@@ -113,6 +113,13 @@ void TranslateSelection(MvrScene &scene, const ObjectSelection &selection,
                             transform_space::TransformSpace::World,
                         const InteractiveTransformPolicy &policy = {});
 
+// Translates a previously resolved set of effective transform targets.
+void TranslateTargets(MvrScene &scene,
+                      const std::vector<SceneTransformTarget> &targets,
+                      const std::array<float, 3> &deltaMm,
+                      transform_space::TransformSpace space =
+                          transform_space::TransformSpace::World);
+
 // Rotates effective selection targets around a millimeter pivot.
 void RotateSelectionAroundPivot(MvrScene &scene,
                                 const ObjectSelection &selection, int axis,
