@@ -20,6 +20,7 @@ Changes since **v1.6.0**.
 - Corrected cross-platform Viewer3D camera-input integration with the extracted interaction sessions.
 - Isolated reusable 2D viewport navigation, rectangle selection, and selection-drag session state behind a GUI-independent boundary, with portable lifecycle checks that preserve existing interaction behavior and cross-platform compilation.
 - Isolated reusable 2D hover scheduling, interaction settling, and picking-cache decisions behind a GUI-independent boundary while preserving existing viewport responsiveness and picking behavior.
+- Isolated reusable 2D continuous-placement and line-point-selection lifecycle state behind GUI-independent boundaries while preserving existing tool behavior.
 
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 

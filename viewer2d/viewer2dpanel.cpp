@@ -1040,17 +1040,15 @@ void Viewer2DPanel::SetTransformSpace(transform_space::TransformSpace space) {
 void Viewer2DPanel::BeginLinePointSelection(
     const std::array<float, 3> &lineStart, const std::array<float, 3> &lineEnd,
     LinePointSelectionCallback callback) {
-  m_linePointSelectionActive = true;
-  m_linePointSelectionConsumeMouseUp = false;
-  m_linePointSelectionStart = lineStart;
-  m_linePointSelectionEnd = lineEnd;
-  m_linePointSelectionFirst.reset();
-  m_linePointSelectionPreview.reset();
+  m_linePointSelectionSession.Begin(lineStart, lineEnd);
   const wxPoint livePos = ScreenToClient(wxGetMousePosition());
-  if (GetClientRect().Contains(livePos))
-    m_linePointSelectionPreview = ProjectMouseOntoLine(livePos);
-  else if (m_hasLastMousePos)
-    m_linePointSelectionPreview = ProjectMouseOntoLine(m_lastMousePos);
+  if (GetClientRect().Contains(livePos)) {
+    if (const auto preview = ProjectMouseOntoLine(livePos))
+      m_linePointSelectionSession.UpdatePreview(*preview);
+  } else if (m_hasLastMousePos) {
+    if (const auto preview = ProjectMouseOntoLine(m_lastMousePos))
+      m_linePointSelectionSession.UpdatePreview(*preview);
+  }
   m_linePointSelectionCallback = std::move(callback);
   SetFocus();
   RequestRepaint();
@@ -1066,26 +1064,25 @@ Viewer2DPanel::ProjectMouseOntoLine(const wxPoint &screenPos) const {
   if (!renderSize.IsValid() || !pointer)
     return std::nullopt;
   const auto start = Viewer2DMeasureWorldToScreen(
-      m_linePointSelectionStart, m_view, renderSize.width, renderSize.height,
-      m_zoom, m_offsetX, m_offsetY);
+      m_linePointSelectionSession.LineStart(), m_view, renderSize.width,
+      renderSize.height, m_zoom, m_offsetX, m_offsetY);
   const auto end = Viewer2DMeasureWorldToScreen(
-      m_linePointSelectionEnd, m_view, renderSize.width, renderSize.height,
-      m_zoom, m_offsetX, m_offsetY);
+      m_linePointSelectionSession.LineEnd(), m_view, renderSize.width,
+      renderSize.height, m_zoom, m_offsetX, m_offsetY);
   if (!start || !end)
     return std::nullopt;
   return viewer_common::ProjectPointerOntoScreenLine(
-      m_linePointSelectionStart, m_linePointSelectionEnd, *start, *end,
+      m_linePointSelectionSession.LineStart(),
+      m_linePointSelectionSession.LineEnd(), *start, *end,
       {static_cast<float>(pointer->x), static_cast<float>(pointer->y)});
 }
 
 // Cancels the active hang-line endpoint selection without changing fixtures.
 void Viewer2DPanel::CancelLinePointSelection() {
-  if (!m_linePointSelectionActive)
+  if (!m_linePointSelectionSession.IsActive())
     return;
   auto callback = std::move(m_linePointSelectionCallback);
-  m_linePointSelectionActive = false;
-  m_linePointSelectionFirst.reset();
-  m_linePointSelectionPreview.reset();
+  m_linePointSelectionSession.Reset();
   NotifyHighlightedWorldPosition(std::nullopt);
   RequestRepaint();
   if (callback)
@@ -1533,14 +1530,17 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
       viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
   }
 
-  if (m_interaction.mode == DragMode::Selection && !m_linePointSelectionActive)
+  if (m_interaction.mode == DragMode::Selection &&
+      !m_linePointSelectionSession.IsActive())
     DrawSelectionDragGizmo(w, h);
 
-  if (m_linePointSelectionActive) {
+  if (m_linePointSelectionSession.IsActive()) {
     const auto lineStart = Viewer2DMeasureWorldToScreen(
-        m_linePointSelectionStart, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
+        m_linePointSelectionSession.LineStart(), m_view, w, h, m_zoom,
+        m_offsetX, m_offsetY);
     const auto lineEnd = Viewer2DMeasureWorldToScreen(
-        m_linePointSelectionEnd, m_view, w, h, m_zoom, m_offsetX, m_offsetY);
+        m_linePointSelectionSession.LineEnd(), m_view, w, h, m_zoom, m_offsetX,
+        m_offsetY);
     if (lineStart && lineEnd) {
       viewer_common::FixtureAttachmentScreenPath path;
       path.points = {{(*lineStart)[0], h - (*lineStart)[1]},
@@ -1549,10 +1549,10 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
     std::vector<viewer_common::MagnetAnchorScreenReference> markers;
     std::vector<const std::array<float, 3> *> markerPoints;
-    if (m_linePointSelectionFirst)
-      markerPoints.push_back(&*m_linePointSelectionFirst);
-    if (m_linePointSelectionPreview)
-      markerPoints.push_back(&*m_linePointSelectionPreview);
+    if (m_linePointSelectionSession.FirstPoint())
+      markerPoints.push_back(&*m_linePointSelectionSession.FirstPoint());
+    if (m_linePointSelectionSession.PreviewPoint())
+      markerPoints.push_back(&*m_linePointSelectionSession.PreviewPoint());
     for (const auto *point : markerPoints) {
       if (!point)
         continue;
@@ -1575,7 +1575,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   const auto magnetReferences = ConfigManager::Get().GetValue(
       magnet_snap::kShowAnchorReferencesConfigKey);
   const auto magnetSource = BuildActiveMagnetSource();
-  if (!m_linePointSelectionActive && magnetSource &&
+  if (!m_linePointSelectionSession.IsActive() && magnetSource &&
       m_interaction.mode == DragMode::Selection &&
       (!magnetReferences || *magnetReferences != "0")) {
     auto toMeters = [](const std::array<float, 3> &pointMm) {
@@ -1846,7 +1846,7 @@ void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
     m_controller.Update();
   }
 
-  if (m_continuousPlacementActive && m_hasLastMousePos &&
+  if (m_placementSession.IsActive() && m_hasLastMousePos &&
       m_placementViewRevision.NeedsAlignment())
     AlignContinuousElementToPointer(m_lastMousePos);
 
@@ -2103,7 +2103,7 @@ void Viewer2DPanel::ApplySelectionDelta(
   }
   auto policy =
       selection_movement_settings::LoadInteractiveTransformPolicy(cfg);
-  if (m_clipboardBatchPlacement)
+  if (m_placementSession.IsBatchPlacement())
     policy =
         scene_grouping::InteractiveTransformPolicy{false, false, false, false};
   if (hasTranslation) {
@@ -2111,7 +2111,7 @@ void Viewer2DPanel::ApplySelectionDelta(
                                        transform_space::TransformSpace::World,
                                        policy);
   }
-  if (!m_clipboardBatchPlacement) {
+  if (!m_placementSession.IsBatchPlacement()) {
     if (auto snap = FindActiveMagnetSnap()) {
       magnet_snap::ApplySnapTransform(cfg.GetScene(), *snap, policy);
       m_pendingMagnetSnap = snap;
@@ -2167,11 +2167,8 @@ void Viewer2DPanel::BeginContinuousPlacement(ContinuousPlacementType type,
   if (!continuous_placement::Contains(cfg.GetScene(), type, elementUuid))
     return;
 
-  m_continuousPlacementActive = true;
-  m_continuousPlacementType = type;
+  m_placementSession.BeginNative(type, elementUuid);
   m_placementViewRevision.Invalidate();
-  m_continuousPlacementUuid = elementUuid;
-  m_continuousPlacedUuids.clear();
   const DragTarget target =
       type == ContinuousPlacementType::Fixture   ? DragTarget::Fixtures
       : type == ContinuousPlacementType::Truss   ? DragTarget::Trusses
@@ -2199,6 +2196,9 @@ void Viewer2DPanel::BeginClipboardContinuousPlacement(
     std::function<std::string(const std::string &)> confirmCallback,
     std::function<void(const std::string &)> cancelCallback) {
   BeginContinuousPlacement(type, elementUuid);
+  if (!m_placementSession.IsActive())
+    return;
+  m_placementSession.BeginClipboardSingle(type, elementUuid);
   m_clipboardSingleConfirm = std::move(confirmCallback);
   m_clipboardSingleCancel = std::move(cancelCallback);
 }
@@ -2208,11 +2208,9 @@ void Viewer2DPanel::BeginClipboardBatchPlacement(
     const scene_grouping::ObjectSelection &selection,
     std::function<void()> confirmCallback,
     std::function<void()> cancelCallback) {
-  m_clipboardBatchPlacement = true;
+  m_placementSession.BeginClipboardBatch();
   m_clipboardBatchConfirm = std::move(confirmCallback);
   m_clipboardBatchCancel = std::move(cancelCallback);
-  m_continuousPlacementActive = true;
-  m_continuousPlacementType = ContinuousPlacementType::None;
   viewer2d::interaction::SelectionBuckets interactionSelection{
       selection.fixtures, selection.trusses, selection.supports,
       selection.sceneObjects};
@@ -2231,8 +2229,7 @@ void Viewer2DPanel::BeginClipboardBatchPlacement(
 
 // Reports whether clipboard-sourced placement owns the 2D interaction.
 bool Viewer2DPanel::IsClipboardPlacementActive() const {
-  return m_continuousPlacementActive &&
-         (m_clipboardSingleCancel || m_clipboardBatchPlacement);
+  return m_placementSession.IsClipboardPlacement();
 }
 
 // Cancels only clipboard-sourced 2D placement.
@@ -2243,49 +2240,51 @@ void Viewer2DPanel::CancelClipboardPlacement() {
 
 // Commits the current element and creates the next pointer-driven copy.
 void Viewer2DPanel::ConfirmContinuousPlacement() {
-  if (m_clipboardBatchPlacement) {
+  if (m_placementSession.IsBatchPlacement()) {
     const auto callback = m_clipboardBatchConfirm;
     EndContinuousPlacementState();
     if (callback)
       callback();
     return;
   }
-  if (m_clipboardSingleConfirm) {
+  if (m_placementSession.Mode() ==
+      viewer2d::interaction::PlacementMode::ClipboardSingle) {
     const auto confirm = m_clipboardSingleConfirm;
     const auto cancel = m_clipboardSingleCancel;
     const std::string nextUuid = scene_clipboard::ConfirmSinglePlacement(
-        m_continuousPlacementUuid, [this]() { CommitActiveMagnetSnap(); },
-        confirm);
+        m_placementSession.ProvisionalUuid(),
+        [this]() { CommitActiveMagnetSnap(); }, confirm);
     if (nextUuid.empty()) {
       EndContinuousPlacementState();
       return;
     }
-    const auto placedUuids = m_continuousPlacedUuids;
-    BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
+    BeginContinuousPlacement(m_placementSession.Type(), nextUuid);
     m_clipboardSingleConfirm = confirm;
     m_clipboardSingleCancel = cancel;
-    m_continuousPlacedUuids = placedUuids;
+    m_placementSession.BeginClipboardSingle(m_placementSession.Type(),
+                                            nextUuid);
     if (m_hasLastMousePos)
       AlignContinuousElementToPointer(m_lastMousePos);
     RefreshContinuousPlacementViews();
     return;
   }
   ConfigManager &cfg = ConfigManager::Get();
-  if (!continuous_placement::Contains(cfg.GetScene(), m_continuousPlacementType,
-                                      m_continuousPlacementUuid)) {
+  if (!continuous_placement::Contains(cfg.GetScene(), m_placementSession.Type(),
+                                      m_placementSession.ProvisionalUuid())) {
     CancelContinuousPlacement();
     return;
   }
 
   auto nextRawPosition = continuous_placement::PositionMeters(
-      cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid);
+      cfg.GetScene(), m_placementSession.Type(),
+      m_placementSession.ProvisionalUuid());
   if (m_pendingMagnetSnap) {
     nextRawPosition = continuous_placement::RawAnchorFromPreview(
         nextRawPosition, m_pendingMagnetSnap->translationDeltaMm);
   }
   cfg.PushUndoState(std::string("place ") + continuous_placement::ElementName(
-                                                m_continuousPlacementType));
-  m_continuousPlacedUuids.push_back(m_continuousPlacementUuid);
+                                                m_placementSession.Type()));
+  m_placementSession.RecordConfirmedUuid();
   const std::string nextUuid =
       wxString::Format(
           "uuid_%lld",
@@ -2293,18 +2292,18 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
               std::chrono::steady_clock::now().time_since_epoch().count()))
           .ToStdString();
   if ((!continuous_placement::CloneElement(
-          cfg.GetScene(), m_continuousPlacementType, m_continuousPlacementUuid,
-          nextUuid)) ||
+          cfg.GetScene(), m_placementSession.Type(),
+          m_placementSession.ProvisionalUuid(), nextUuid)) ||
       nextUuid.empty()) {
     CancelContinuousPlacement();
     return;
   }
   continuous_placement::SetPositionMeters(
-      cfg.GetScene(), m_continuousPlacementType, nextUuid, nextRawPosition);
+      cfg.GetScene(), m_placementSession.Type(), nextUuid, nextRawPosition);
   CommitActiveMagnetSnap();
-  const auto placedUuids = m_continuousPlacedUuids;
-  BeginContinuousPlacement(m_continuousPlacementType, nextUuid);
-  m_continuousPlacedUuids = placedUuids;
+  const auto placedUuids = m_placementSession.PlacedUuids();
+  BeginContinuousPlacement(m_placementSession.Type(), nextUuid);
+  m_placementSession.RestorePlacedUuids(placedUuids);
   if (m_hasLastMousePos)
     AlignContinuousElementToPointer(m_lastMousePos);
   RefreshContinuousPlacementViews();
@@ -2312,37 +2311,39 @@ void Viewer2DPanel::ConfirmContinuousPlacement() {
 
 // Removes the uncommitted element and ends continuous placement.
 void Viewer2DPanel::CancelContinuousPlacement() {
-  if (m_clipboardBatchPlacement) {
+  if (m_placementSession.IsBatchPlacement()) {
     const auto callback = m_clipboardBatchCancel;
     EndContinuousPlacementState();
     if (callback)
       callback();
     return;
   }
-  if (m_clipboardSingleCancel) {
+  if (m_placementSession.Mode() ==
+      viewer2d::interaction::PlacementMode::ClipboardSingle) {
     const auto cancel = m_clipboardSingleCancel;
-    const std::string uuid = m_continuousPlacementUuid;
+    const std::string uuid = m_placementSession.ProvisionalUuid();
     EndContinuousPlacementState();
-    cancel(uuid);
+    if (cancel)
+      cancel(uuid);
     RefreshContinuousPlacementViews();
     return;
   }
   RestorePendingMagnetSnapPreview();
   ConfigManager &cfg = ConfigManager::Get();
-  continuous_placement::EraseElement(cfg.GetScene(), m_continuousPlacementType,
-                                     m_continuousPlacementUuid);
-  if (m_continuousPlacedUuids.empty()) {
+  continuous_placement::EraseElement(cfg.GetScene(), m_placementSession.Type(),
+                                     m_placementSession.ProvisionalUuid());
+  if (m_placementSession.PlacedUuids().empty()) {
     if (cfg.CanUndo())
       cfg.Undo();
   } else {
     const MvrScene finalScene = cfg.GetScene();
-    for (size_t i = 0; i <= m_continuousPlacedUuids.size() && cfg.CanUndo();
-         ++i) {
+    for (size_t i = 0;
+         i <= m_placementSession.PlacedUuids().size() && cfg.CanUndo(); ++i) {
       cfg.Undo();
     }
     cfg.PushUndoState(
         std::string("continuous ") +
-        continuous_placement::ElementName(m_continuousPlacementType) +
+        continuous_placement::ElementName(m_placementSession.Type()) +
         " placement");
     cfg.GetScene() = finalScene;
   }
@@ -2352,24 +2353,24 @@ void Viewer2DPanel::CancelContinuousPlacement() {
 
 // Undoes one confirmed element while keeping the placement session active.
 bool Viewer2DPanel::UndoContinuousPlacement() {
-  if (!m_continuousPlacementActive)
+  if (!m_placementSession.IsActive())
     return false;
 
-  if (m_clipboardSingleCancel || m_clipboardBatchPlacement) {
+  if (m_placementSession.IsClipboardPlacement()) {
     CancelContinuousPlacement();
     return true;
   }
 
   ConfigManager &cfg = ConfigManager::Get();
   RestorePendingMagnetSnapPreview();
-  if (m_continuousPlacedUuids.empty()) {
+  if (m_placementSession.PlacedUuids().empty()) {
     if (cfg.CanUndo())
       cfg.Undo();
     EndContinuousPlacementState();
     RefreshContinuousPlacementViews();
     return true;
   }
-  if (m_continuousPlacedUuids.size() == 1) {
+  if (m_placementSession.PlacedUuids().size() == 1) {
     if (cfg.CanUndo())
       cfg.Undo();
     if (cfg.CanUndo())
@@ -2379,32 +2380,27 @@ bool Viewer2DPanel::UndoContinuousPlacement() {
     return true;
   }
 
-  const std::string restoredUuid = m_continuousPlacedUuids.back();
-  m_continuousPlacedUuids.pop_back();
+  const std::string restoredUuid = m_placementSession.TakeLastConfirmedUuid();
   if (cfg.CanUndo())
     cfg.Undo();
-  if (!continuous_placement::Contains(cfg.GetScene(), m_continuousPlacementType,
+  if (!continuous_placement::Contains(cfg.GetScene(), m_placementSession.Type(),
                                       restoredUuid)) {
     EndContinuousPlacementState();
     RefreshContinuousPlacementViews();
     return true;
   }
-  const auto placedUuids = m_continuousPlacedUuids;
-  BeginContinuousPlacement(m_continuousPlacementType, restoredUuid);
-  m_continuousPlacedUuids = placedUuids;
+  const auto placedUuids = m_placementSession.PlacedUuids();
+  BeginContinuousPlacement(m_placementSession.Type(), restoredUuid);
+  m_placementSession.RestorePlacedUuids(placedUuids);
   RefreshContinuousPlacementViews();
   return true;
 }
 
 // Clears placement-only interaction state without changing the scene.
 void Viewer2DPanel::EndContinuousPlacementState() {
-  m_continuousPlacementActive = false;
-  m_continuousPlacementType = ContinuousPlacementType::None;
-  m_continuousPlacementUuid.clear();
-  m_continuousPlacedUuids.clear();
+  m_placementSession.Reset();
   m_clipboardSingleConfirm = {};
   m_clipboardSingleCancel = {};
-  m_clipboardBatchPlacement = false;
   m_clipboardBatchConfirm = {};
   m_clipboardBatchCancel = {};
   m_interaction.ResetGesture();
@@ -3292,7 +3288,7 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
   if (event.MiddleDown()) {
     const wxPoint position = event.GetPosition();
     if (!m_interaction.BeginPan({position.x, position.y},
-                                m_continuousPlacementActive))
+                                m_placementSession.IsActive()))
       return;
     if (!HasCapture())
       CaptureMouse();
@@ -3300,31 +3296,25 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     MarkInteractionActivity();
     return;
   }
-  if (m_linePointSelectionActive && event.LeftDown()) {
-    m_linePointSelectionConsumeMouseUp = true;
+  if (m_linePointSelectionSession.IsActive() && event.LeftDown()) {
+    m_linePointSelectionSession.MarkConsumeNextMouseUp();
     wxPoint pos = ScreenToClient(wxGetMousePosition());
     if (!GetClientRect().Contains(pos))
       pos = event.GetPosition();
     const auto point = ProjectMouseOntoLine(pos);
     if (!point)
       return;
-    if (!m_linePointSelectionFirst) {
-      m_linePointSelectionFirst = point;
-      m_linePointSelectionPreview = point;
-    } else {
-      const auto first = m_linePointSelectionFirst;
+    if (const auto completed =
+            m_linePointSelectionSession.AcceptPoint(*point)) {
       auto callback = std::move(m_linePointSelectionCallback);
-      m_linePointSelectionActive = false;
-      m_linePointSelectionFirst.reset();
-      m_linePointSelectionPreview.reset();
       NotifyHighlightedWorldPosition(std::nullopt);
       if (callback)
-        callback(first, point);
+        callback(completed->first, completed->second);
     }
     RequestRepaint();
     return;
   }
-  if (m_continuousPlacementActive && event.LeftDown()) {
+  if (m_placementSession.IsActive() && event.LeftDown()) {
     CaptureMouse();
     m_lastMousePos = event.GetPosition();
     m_interaction.BeginPlacementNavigation(
@@ -3523,18 +3513,17 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   if (event.MiddleUp() && m_interaction.middleMousePanning) {
     if (HasCapture())
       ReleaseMouse();
-    m_interaction.EndPan(m_continuousPlacementActive);
-    if (m_continuousPlacementActive)
+    m_interaction.EndPan(m_placementSession.IsActive());
+    if (m_placementSession.IsActive())
       AlignContinuousElementToPointer(event.GetPosition());
     ClearCursorWorldPosition();
     RequestRepaint();
     return;
   }
-  if (m_linePointSelectionConsumeMouseUp && event.LeftUp()) {
-    m_linePointSelectionConsumeMouseUp = false;
+  if (event.LeftUp() && m_linePointSelectionSession.ConsumeNextMouseUp()) {
     return;
   }
-  if (m_continuousPlacementActive && event.LeftUp()) {
+  if (m_placementSession.IsActive() && event.LeftUp()) {
     if (HasCapture())
       ReleaseMouse();
     const bool navigated = m_interaction.draggedSincePress;
@@ -3916,11 +3905,11 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 
 // Opens the active table selection menu when right-clicking empty viewer space.
 void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
-  if (m_linePointSelectionActive) {
+  if (m_linePointSelectionSession.IsActive()) {
     CancelLinePointSelection();
     return;
   }
-  if (m_continuousPlacementActive) {
+  if (m_placementSession.IsActive()) {
     CancelContinuousPlacement();
     return;
   }
@@ -4116,7 +4105,7 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
 
 // Resets all transient 2D interaction state after mouse capture is lost.
 void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
-  m_interaction.Cancel(m_continuousPlacementActive);
+  m_interaction.Cancel(m_placementSession.IsActive());
   m_pendingMagnetSnap.reset();
   ClearCursorWorldPosition();
 }
@@ -4145,19 +4134,19 @@ bool Viewer2DPanel::AlignContinuousElementToPointer(const wxPoint &screenPos) {
 // Handles pointer-following placement, selection movement, and view panning.
 void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   m_hasLastMousePos = true;
-  if (m_linePointSelectionActive) {
+  if (m_linePointSelectionSession.IsActive()) {
     wxPoint pos = ScreenToClient(wxGetMousePosition());
     if (!GetClientRect().Contains(pos))
       pos = event.GetPosition();
     if (const auto point = ProjectMouseOntoLine(pos)) {
-      m_linePointSelectionPreview = point;
+      m_linePointSelectionSession.UpdatePreview(*point);
       m_lastMousePos = pos;
-      NotifyHighlightedWorldPosition(m_linePointSelectionPreview);
+      NotifyHighlightedWorldPosition(m_linePointSelectionSession.PreviewPoint());
       RequestRepaint();
     }
     return;
   }
-  if (m_continuousPlacementActive &&
+  if (m_placementSession.IsActive() &&
       !(m_interaction.mode == DragMode::View && event.Dragging())) {
     const wxPoint pos = event.GetPosition();
     if (m_placementViewRevision.NeedsAlignment()) {
@@ -4177,7 +4166,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
       }
       int dx = (*framebufferDelta)[0];
       int dy = (*framebufferDelta)[1];
-      if (m_axisConstrainedMovementEnabled && !m_clipboardBatchPlacement) {
+      if (m_axisConstrainedMovementEnabled && !m_placementSession.IsBatchPlacement()) {
         if (m_interaction.axis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||
              std::abs(dy) >= kSelectionDragStartThresholdPx)) {
@@ -4290,7 +4279,7 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
   m_placementViewRevision.Invalidate();
-  if (m_continuousPlacementActive)
+  if (m_placementSession.IsActive())
     AlignContinuousElementToPointer(event.GetPosition());
   if (m_persistViewState)
     SaveViewToConfig();
@@ -4333,7 +4322,7 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
   if (m_zoom < 0.1f)
     m_zoom = 0.1f;
   m_placementViewRevision.Invalidate();
-  if (m_continuousPlacementActive && m_hasLastMousePos)
+  if (m_placementSession.IsActive() && m_hasLastMousePos)
     AlignContinuousElementToPointer(m_lastMousePos);
   InvalidatePickCache();
   if (m_persistViewState)
@@ -4344,11 +4333,11 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
 
 // Handles local keyboard shortcuts when the 2D viewport owns focus.
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
-  if (m_linePointSelectionActive && event.GetKeyCode() == WXK_ESCAPE) {
+  if (m_linePointSelectionSession.IsActive() && event.GetKeyCode() == WXK_ESCAPE) {
     CancelLinePointSelection();
     return;
   }
-  if (m_continuousPlacementActive && event.GetKeyCode() == WXK_ESCAPE) {
+  if (m_placementSession.IsActive() && event.GetKeyCode() == WXK_ESCAPE) {
     CancelContinuousPlacement();
     return;
   }
