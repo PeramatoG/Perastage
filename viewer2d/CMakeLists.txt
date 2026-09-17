@@ -16,10 +16,13 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_measure_tool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2d_coordinate_math.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_label_overrides.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_scope_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_interaction_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_line_point_selection_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_placement_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_runtime_state.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_navigation_policy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_selection_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_presentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_helpers.cpp

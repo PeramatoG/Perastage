@@ -31,9 +31,11 @@
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
 #include "interaction/viewer2d_interaction_session.h"
+#include "interaction/viewer2d_interaction_scope_policy.h"
 #include "interaction/viewer2d_line_point_selection_session.h"
 #include "interaction/viewer2d_placement_session.h"
 #include "interaction/viewer2d_runtime_state.h"
+#include "interaction/viewer2d_selection_policy.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include "interactive_frame_policy.h"
@@ -218,6 +220,8 @@ private:
   using DragAxis = viewer2d::interaction::DragAxis;
   using DragTarget = viewer2d::interaction::DragTarget;
   using PickQueryKind = viewer2d::interaction::PickQueryKind;
+  using InteractionScope = viewer2d::interaction::InteractionScope;
+  using SceneElementKind = viewer2d::interaction::SceneElementKind;
 
   void InitGL();
   void Render();
@@ -286,6 +290,17 @@ private:
   void ScheduleHoverLabelRefresh(const wxPoint &screenPos);
   bool TryUpdateHoverHighlightFast(const wxPoint &screenPos);
   void RunHoverHitTest(const wxPoint &screenPos);
+  InteractionScope ResolveInteractionScope() const;
+  InteractionScope ResolveActiveTableScope() const;
+  SceneElementKind ResolveSceneElementKind(const std::string &uuid) const;
+  viewer2d::interaction::SelectionBuckets CurrentSelectionBuckets() const;
+  bool ResolvePickForScope(InteractionScope scope, const wxPoint &pickPos,
+                           int viewportWidth, int viewportHeight,
+                           size_t hiddenLayersHash, bool clickSelection,
+                           std::string &uuidOut);
+  bool ApplyClickSelectionDecision(
+      const viewer2d::interaction::ClickSelectionDecision &decision);
+  void ClearHoverForOtherScopes(InteractionScope scope);
   bool TryResolvePickUuidWithCache(const wxPoint &framebufferPos, int viewportWidth,
                                    int viewportHeight, size_t hiddenLayersHash,
                                    std::string &uuidOut);
