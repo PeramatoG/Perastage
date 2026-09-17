@@ -77,7 +77,6 @@
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
-#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cfloat>
@@ -345,8 +344,7 @@ static void CombineHashValue(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
-// Computes a stable fingerprint for scene elements whose layer controls
-// visibility.
+// Computes a stable fingerprint for scene-element layer membership.
 static size_t ComputeSceneLayerMembershipFingerprint(const MvrScene &scene) {
   std::vector<std::string> entries;
   entries.reserve(scene.fixtures.size() + scene.trusses.size() +
@@ -886,8 +884,7 @@ bool Viewer3DController::EnsureBoundsComputed(
                                                         hiddenLayers);
 }
 
-// Loads meshes or GDTF models referenced by scene objects. Called when the
-// scene is updated.
+// Updates lightweight controller state for the current frame.
 void Viewer3DController::Update() { UpdateFrameStateLightweight(); }
 
 // Updates frame State Lightweight.
@@ -921,6 +918,25 @@ void Viewer3DController::UpdateFrameStateLightweight() {
         m_impl->layerVisibleCandidatesSceneVersion);
     MarkResourceSyncPending();
   }
+  RefreshTransformCachesIfDirty();
+}
+
+// Rebuilds transform-dependent bounds without synchronizing scene resources.
+void Viewer3DController::RefreshTransformCachesIfDirty() {
+  ConfigManager &cfg = ConfigManager::Get();
+  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
+  BoundsCacheSystem::Context boundsContext{
+      m_impl->resourceSyncState,      m_impl->modelBounds,
+      m_impl->fixtureBounds,          m_impl->trussBounds,
+      m_impl->objectBounds,           m_impl->boundsHiddenLayers,
+      m_impl->sceneVersion,           m_impl->cachedVersion,
+      m_impl->sceneChangedDirty,      m_impl->assetsChangedDirty,
+      m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
+      m_impl->sortedListsDirty};
+  BoundsCacheSystem::RebuildIfDirty(
+      boundsContext, hiddenLayers, SceneDataManager::Instance().GetTrusses(),
+      SceneDataManager::Instance().GetSceneObjects(),
+      SceneDataManager::Instance().GetFixtures());
 }
 
 // Clears cached scene-entry pointers before the owning scene containers change.
@@ -953,7 +969,6 @@ void Viewer3DController::MarkSceneTransformsDirty() {
   std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
   m_impl->sceneChangedDirty = true;
   m_impl->sortedListsDirty = true;
-  MarkResourceSyncPending();
 }
 
 // Marks resource Sync Pending.
@@ -1034,8 +1049,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg));
   };
 
-  // Keep resource processing identical between normal viewing and symbol
-  // capture.
+  // Uses identical resource processing for normal viewing and symbol capture.
   callbacks.meshProcessingOptions = viewer3d::resources::MeshProcessingOptions{
       .enableMeshOptimization = true, .enableDiskCache = true};
 
@@ -1063,16 +1077,7 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     m_impl->modelBounds.clear();
   }
 
-  BoundsCacheSystem::Context boundsContext{
-      m_impl->resourceSyncState,      m_impl->modelBounds,
-      m_impl->fixtureBounds,          m_impl->trussBounds,
-      m_impl->objectBounds,           m_impl->boundsHiddenLayers,
-      m_impl->sceneVersion,           m_impl->cachedVersion,
-      m_impl->sceneChangedDirty,      m_impl->assetsChangedDirty,
-      m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
-      m_impl->sortedListsDirty};
-  BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
-                                    objects, fixtures);
+  RefreshTransformCachesIfDirty();
   m_impl->lastHiddenLayers = hiddenLayers;
   m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
 }
@@ -1158,8 +1163,7 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const bool isSideView = context.view == Viewer2DView::Side;
   const bool isBottomView = context.view == Viewer2DView::Bottom;
 
-  // View mode flags are grouped here so the rest of RenderScene remains a
-  // straight orchestration flow.
+  // Groups view-mode flags before render-pipeline orchestration.
   (void)isTopView;
   (void)isFrontView;
   (void)isSideView;
@@ -1840,12 +1844,7 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
   mesh.buffersReady = false;
 }
 
-// Draws a mesh using the given color. When selected or highlighted the
-// mesh is rendered entirely in cyan or green respectively.
-// Draws a mesh using GL triangles. The optional scale parameter allows
-// converting vertex units (e.g. millimeters) to meters.
-// Draws a mesh using GL triangles. The optional scale parameter allows
-// converting vertex units (e.g. millimeters) to meters.
+// Draws a scaled triangle mesh with selection or highlight coloring.
 // Draws the reference grid on one of the principal planes
 // Draws the XYZ axes centered at origin
 void Viewer3DController::DrawAxes() {

@@ -237,6 +237,7 @@ private:
   void OnCaptureLost(wxMouseCaptureLostEvent &event);
   void RequestRepaint();
   void RequestRepaint(const wxRect &dirtyRect);
+  void PresentInteractiveTransformFrame();
   void ResetRepaintCoalescing();
   void TrackRefreshTelemetry();
   bool RenderToRGBABackBufferFallback(std::vector<unsigned char> &pixels,
@@ -251,7 +252,7 @@ private:
   void NotifyHighlightedWorldPosition(
       const std::optional<std::array<float, 3>> &positionMeters);
   void ClearCursorWorldPosition();
-  void ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
+  bool ApplySelectionDelta(const std::array<float, 3> &deltaMeters);
   std::optional<magnet_snap::SnapSource> BuildActiveMagnetSource() const;
   magnet_snap::SnapSettings BuildActiveMagnetSettings() const;
   std::optional<magnet_snap::SnapResult> FindActiveMagnetSnap() const;

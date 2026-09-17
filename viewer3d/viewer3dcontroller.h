@@ -85,6 +85,7 @@ public:
   void Update();
   void UpdateResourcesIfDirty();
   void UpdateFrameStateLightweight();
+  void RefreshTransformCachesIfDirty();
   void PrepareForSceneReplacement();
   void CompleteSceneReplacement();
   void MarkSceneTransformsDirty();

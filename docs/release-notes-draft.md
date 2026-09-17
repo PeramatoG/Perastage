@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored responsive live geometry updates while dragging or placing objects in the 2D and 3D viewers, without forcing heavyweight model and resource reloads for every pointer movement.
+
 ## Technical and packaging changes
 
 - Improved Windows Debug CI dependency performance by separating ABI-protected vcpkg binary archives from mutable installation trees, broadening safe cache reuse across runner updates, and adding cache-source and installation-time diagnostics.
