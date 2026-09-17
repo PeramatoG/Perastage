@@ -175,6 +175,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(TrussAttachmentCoreBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_truss_attachment_core_boundary.sh)
     add_bash_policy_test(Layout2DRasterizationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
     add_bash_policy_test(Layout2DViewCaptureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
+    add_bash_policy_test(LayoutViewerInteractionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_interaction_boundary.sh)
     add_bash_policy_test(Viewer2DStateOwnershipBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
     add_bash_policy_test(Viewer2DInteractionSessionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_interaction_session_boundary.sh)
     add_bash_policy_test(Viewer2DDecisionPolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_decision_policy_boundary.sh)
@@ -214,6 +215,16 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(PythonResolvedInterpreterPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_python_resolved_interpreter_policy.sh LABELS standard-strict policy)
     add_bash_policy_test(LocalizationContractBoundaries ${CMAKE_CURRENT_SOURCE_DIR}/check_localization_contract_boundaries.sh LABELS localization policy release-gate)
 endif()
+
+add_executable(layout_viewer_interaction_session_test
+               layout_viewer_interaction_session_test.cpp
+               ../gui/layout_viewer_interaction_session.cpp)
+target_include_directories(layout_viewer_interaction_session_test PRIVATE
+                           ../core ../core/layouts ../core/print ../gui)
+add_test(NAME LayoutViewerInteractionSession
+         COMMAND layout_viewer_interaction_session_test)
+set_perastage_test_labels(LayoutViewerInteractionSession
+                          LAYER standard-strict DOMAINS gui architecture)
 
 if(Python3_Interpreter_FOUND)
     add_repository_policy_test(InteractiveTransformPresentation ${Python3_EXECUTABLE}

@@ -18,11 +18,6 @@ wxPoint GetLogicalMousePosition(const wxMouseEvent &event);
 // Converts a logical point to framebuffer coordinates using the window content scale.
 wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint);
 
-// Snaps an integer coordinate to the nearest layout grid increment.
-int SnapToGrid(int value);
-
-
-
 // Returns the localized loading overlay message shown while layout content is rendering.
 wxString BuildLoadingOverlayLabel();
 

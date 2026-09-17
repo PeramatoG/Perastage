@@ -25,6 +25,7 @@ Changes since **v1.6.0**.
 - Isolated reusable 2D continuous-placement and line-point-selection lifecycle state behind GUI-independent boundaries while preserving existing tool behavior.
 - Separated reusable 2D navigation, typed selection, and hover-routing decisions from the wxWidgets/OpenGL panel while preserving established viewport interaction behavior.
 - Completed the 2D viewer architecture split by isolating reusable frame decisions, ruler state, and layout-overlay geometry while retaining OpenGL and window lifecycle ownership in the panel.
+- Isolated layout-editor pointer sessions, frame-handle hit testing, and frame move/resize decisions behind a GUI-independent boundary while preserving existing image proportions, grid snapping, and undo behavior.
 
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 

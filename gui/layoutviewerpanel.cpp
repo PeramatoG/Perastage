@@ -87,8 +87,6 @@ constexpr int kZoomCacheStepsPerLevel = 2;
 constexpr int kFitMarginPx = 40;
 constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
-constexpr int kHandleHoverPadPx = 6;
-constexpr int kMinFrameSize = 24;
 constexpr int kMaxRenderDimension = 8192;
 constexpr size_t kMaxRenderPixels =
     static_cast<size_t>(kMaxRenderDimension) * kMaxRenderDimension;
@@ -545,7 +543,7 @@ void LayoutViewerPanel::ResetPreviewCachesForProjectLoad() {
   hasSceneContentHash = false;
   lastSceneContentHash = 0;
   pendingFrameCommit_ = false;
-  deferredResizeFrame_.reset();
+  interactionSession_.ResetForLayoutReplacement();
   layoutVersion++;
   viewRenderVersion++;
   InvalidateSelectionIndexCache();
@@ -991,8 +989,9 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     const layouts::Layout2DViewDefinition *activeView =
         static_cast<const LayoutViewerPanel *>(this)->GetEditableView();
     const bool showDeferredResizeOverlay =
-        deferredResizeFrame_.has_value() && dragMode != FrameDragMode::None &&
-        dragMode != FrameDragMode::Move;
+        interactionSession_.DeferredResize().has_value() &&
+        interactionSession_.DragMode() != FrameDragMode::None &&
+        interactionSession_.DragMode() != FrameDragMode::Move;
     const int selectedViewId =
         selectedElementType == SelectedElementType::View2D && activeView
             ? activeView->id
@@ -1176,14 +1175,16 @@ void LayoutViewerPanel::DrawLoadingOverlay(const wxSize &size) {
   glDisable(GL_TEXTURE_2D);
 }
 
+// Draws the session-owned deferred resize frame over the current layout.
 void LayoutViewerPanel::DrawDeferredResizeOverlay() {
-  if (!deferredResizeFrame_.has_value())
+  if (!interactionSession_.DeferredResize().has_value())
     return;
-  if (dragMode == FrameDragMode::None || dragMode == FrameDragMode::Move)
+  if (interactionSession_.DragMode() == FrameDragMode::None ||
+      interactionSession_.DragMode() == FrameDragMode::Move)
     return;
 
   wxRect frameRect;
-  if (!GetFrameRect(*deferredResizeFrame_, frameRect))
+  if (!GetFrameRect(*interactionSession_.DeferredResize(), frameRect))
     return;
 
   glColor4ub(160, 160, 160, 110);
@@ -1342,21 +1343,22 @@ void LayoutViewerPanel::OnSize(wxSizeEvent &) {
   Refresh();
 }
 
+// Begins frame editing or viewport panning from a left-button press.
 void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
   SetFocus();
   pendingFrameCommit_ = false;
-  deferredResizeFrame_.reset();
   const wxPoint pos = layoutviewerpanel::GetLogicalMousePosition(event);
+  const gui::layoutinteraction::Point pointer{pos.x, pos.y};
   SelectElementAtPosition(pos);
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
       GetFrameRect(selectedFrame, frameRect)) {
-    FrameDragMode mode = HitTestFrame(pos, frameRect);
+    const FrameDragMode mode = gui::layoutinteraction::HitTestFrame(
+        pointer, {frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
+                  frameRect.GetHeight()});
     if (mode != FrameDragMode::None) {
-      dragMode = mode;
-      dragStartPos = pos;
-      dragStartFrame = selectedFrame;
+      interactionSession_.BeginFrameDrag(mode, pointer, selectedFrame);
       CaptureMouse();
       if (!currentLayout.name.empty()) {
         auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
@@ -1367,38 +1369,37 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
     }
   }
 
-  isPanning = true;
-  lastMousePos = pos;
+  interactionSession_.BeginPan(pointer);
   CaptureMouse();
 }
 
+// Finalizes the active frame edit or viewport pan gesture.
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
+  const FrameDragMode dragMode = interactionSession_.DragMode();
   if (dragMode != FrameDragMode::None) {
-    if (dragMode != FrameDragMode::Move && deferredResizeFrame_.has_value()) {
-      layouts::Layout2DViewFrame finalFrame = *deferredResizeFrame_;
-      finalFrame.width = std::max(kMinFrameSize, layoutviewerpanel::SnapToGrid(finalFrame.width));
-      finalFrame.height =
-          std::max(kMinFrameSize, layoutviewerpanel::SnapToGrid(finalFrame.height));
+    if (dragMode != FrameDragMode::Move &&
+        interactionSession_.DeferredResize().has_value()) {
+      const layouts::Layout2DViewFrame finalFrame =
+          gui::layoutinteraction::FinalizeResizedFrame(
+              *interactionSession_.DeferredResize());
       ApplyFrameUpdateToSelection(finalFrame, false);
     }
     if (dragMode == FrameDragMode::Move) {
       layouts::Layout2DViewFrame finalFrame;
       if (GetSelectedFrame(finalFrame)) {
-        finalFrame.x = layoutviewerpanel::SnapToGrid(finalFrame.x);
-        finalFrame.y = layoutviewerpanel::SnapToGrid(finalFrame.y);
+        finalFrame = gui::layoutinteraction::FinalizeMovedFrame(finalFrame);
         ApplyFrameUpdateToSelection(finalFrame, true);
       }
       CommitPendingFrameUpdate();
     }
-    deferredResizeFrame_.reset();
-    dragMode = FrameDragMode::None;
+    interactionSession_.CompleteFrameDrag();
     layouts::LayoutManager::Get().EndBatchUpdate();
     if (HasCapture())
       ReleaseMouse();
     return;
   }
-  if (isPanning) {
-    isPanning = false;
+  if (interactionSession_.IsPanning()) {
+    interactionSession_.EndPan();
     if (HasCapture())
       ReleaseMouse();
   }
@@ -1497,118 +1498,58 @@ void LayoutViewerPanel::OnShow(wxShowEvent &event) {
   event.Skip();
 }
 
+// Routes pointer motion through frame-edit and viewport-pan policies.
 void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
-  wxPoint currentPos = layoutviewerpanel::GetLogicalMousePosition(event);
+  const wxPoint currentPos = layoutviewerpanel::GetLogicalMousePosition(event);
+  const gui::layoutinteraction::Point pointer{currentPos.x, currentPos.y};
   layouts::Layout2DViewFrame selectedFrame;
   wxRect frameRect;
   if (GetSelectedFrame(selectedFrame) &&
       GetFrameRect(selectedFrame, frameRect)) {
-    hoverMode = HitTestFrame(currentPos, frameRect);
-    SetCursor(CursorForMode(hoverMode));
+    interactionSession_.UpdateHoverMode(gui::layoutinteraction::HitTestFrame(
+        pointer, {frameRect.GetX(), frameRect.GetY(), frameRect.GetWidth(),
+                  frameRect.GetHeight()}));
+    SetCursor(CursorForMode(interactionSession_.HoverMode()));
   } else {
-    hoverMode = FrameDragMode::None;
+    interactionSession_.UpdateHoverMode(FrameDragMode::None);
     SetCursor(wxCursor(wxCURSOR_ARROW));
   }
 
+  const FrameDragMode dragMode = interactionSession_.DragMode();
   if (dragMode != FrameDragMode::None && event.Dragging()) {
     SetCursor(CursorForMode(dragMode));
-    wxPoint delta = currentPos - dragStartPos;
-    wxPoint logicalDelta(static_cast<int>(std::lround(delta.x / zoom)),
-                         static_cast<int>(std::lround(delta.y / zoom)));
-    layouts::Layout2DViewFrame frame = dragStartFrame;
-    if (dragMode == FrameDragMode::Move) {
-      frame.x += logicalDelta.x;
-      frame.y += logicalDelta.y;
-    } else {
-      if (selectedElementType == SelectedElementType::Image) {
-        const auto *image = GetSelectedImage();
-        const double ratio = image && image->aspectRatio > 0.0f
-                                 ? image->aspectRatio
-                                 : 0.0;
-        const bool useHeight =
-            dragMode == FrameDragMode::ResizeBottom ||
-            (dragMode == FrameDragMode::ResizeCorner &&
-             std::abs(logicalDelta.y) > std::abs(logicalDelta.x));
-        if (ratio > 0.0) {
-          if (dragMode == FrameDragMode::ResizeRight ||
-              dragMode == FrameDragMode::ResizeCorner) {
-            frame.width = std::max(
-                kMinFrameSize, dragStartFrame.width + logicalDelta.x);
-            frame.height = std::max(
-                kMinFrameSize,
-                static_cast<int>(std::lround(frame.width / ratio)));
-          }
-          if (dragMode == FrameDragMode::ResizeBottom ||
-              dragMode == FrameDragMode::ResizeCorner) {
-            const int candidateHeight = std::max(
-                kMinFrameSize, dragStartFrame.height + logicalDelta.y);
-            const int candidateWidth = std::max(
-                kMinFrameSize,
-                static_cast<int>(std::lround(candidateHeight * ratio)));
-            if (dragMode == FrameDragMode::ResizeBottom ||
-                std::abs(logicalDelta.y) > std::abs(logicalDelta.x)) {
-              frame.height = candidateHeight;
-              frame.width = candidateWidth;
-            }
-          }
-          if (useHeight) {
-            frame.height = std::max(kMinFrameSize, frame.height);
-            frame.width = std::max(
-                kMinFrameSize,
-                static_cast<int>(std::lround(frame.height * ratio)));
-          } else {
-            frame.width = std::max(kMinFrameSize, frame.width);
-            frame.height = std::max(
-                kMinFrameSize,
-                static_cast<int>(std::lround(frame.width / ratio)));
-          }
-        } else {
-          if (dragMode == FrameDragMode::ResizeRight ||
-              dragMode == FrameDragMode::ResizeCorner) {
-            frame.width =
-                std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
-          }
-          if (dragMode == FrameDragMode::ResizeBottom ||
-              dragMode == FrameDragMode::ResizeCorner) {
-            frame.height =
-                std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
-          }
-        }
-      } else {
-        if (dragMode == FrameDragMode::ResizeRight ||
-            dragMode == FrameDragMode::ResizeCorner) {
-          frame.width =
-              std::max(kMinFrameSize, dragStartFrame.width + logicalDelta.x);
-        }
-        if (dragMode == FrameDragMode::ResizeBottom ||
-            dragMode == FrameDragMode::ResizeCorner) {
-          frame.height =
-              std::max(kMinFrameSize, dragStartFrame.height + logicalDelta.y);
-        }
-      }
+    std::optional<double> imageAspectRatio;
+    if (selectedElementType == SelectedElementType::Image) {
+      const auto *image = GetSelectedImage();
+      imageAspectRatio = image ? image->aspectRatio : 0.0;
     }
+    const layouts::Layout2DViewFrame frame =
+        gui::layoutinteraction::ComputeDraggedFrame(
+            dragMode, interactionSession_.DragStartFrame(),
+            interactionSession_.DragStartPointer(), pointer, zoom,
+            imageAspectRatio);
     const bool updatePosition = dragMode == FrameDragMode::Move;
     if (updatePosition) {
       ApplyFrameUpdateToSelection(frame, true);
     } else {
-      deferredResizeFrame_ = frame;
+      interactionSession_.SetDeferredResize(frame);
       Refresh();
     }
     return;
   }
 
-  if (!isPanning || !event.Dragging())
+  if (!interactionSession_.IsPanning() || !event.Dragging())
     return;
 
-  wxPoint delta = currentPos - lastMousePos;
-  panOffset += delta;
-  lastMousePos = currentPos;
+  const gui::layoutinteraction::Point delta =
+      interactionSession_.UpdatePan(pointer);
+  panOffset += wxPoint(delta.x, delta.y);
   Refresh();
 }
 
 // Updates visual zoom around the cursor and defers high-quality cache rendering.
 void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
-  if (dragMode != FrameDragMode::None)
+  if (interactionSession_.DragMode() != FrameDragMode::None)
     return;
   const int rotation = event.GetWheelRotation();
   const int delta = event.GetWheelDelta();
@@ -1639,14 +1580,13 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   Refresh();
 }
 
+// Commits pending movement and cancels transient state after capture loss.
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
-  isPanning = false;
-  deferredResizeFrame_.reset();
   CommitPendingFrameUpdate();
-  if (dragMode != FrameDragMode::None) {
+  if (interactionSession_.DragMode() != FrameDragMode::None) {
     layouts::LayoutManager::Get().EndBatchUpdate();
   }
-  dragMode = FrameDragMode::None;
+  interactionSession_.CancelAfterCaptureLoss();
 }
 
 void LayoutViewerPanel::ApplyFrameUpdateToSelection(
@@ -3491,36 +3431,7 @@ bool LayoutViewerPanel::SelectElementAtPosition(const wxPoint &pos) {
   return false;
 }
 
-LayoutViewerPanel::FrameDragMode
-LayoutViewerPanel::HitTestFrame(const wxPoint &pos,
-                                const wxRect &frameRect) const {
-  wxRect handleRight(frameRect.GetRight() - kHandleHalfPx - kHandleHoverPadPx,
-                     frameRect.GetTop() + frameRect.GetHeight() / 2 -
-                         kHandleHalfPx - kHandleHoverPadPx,
-                     kHandleSizePx + kHandleHoverPadPx * 2,
-                     kHandleSizePx + kHandleHoverPadPx * 2);
-  wxRect handleBottom(frameRect.GetLeft() + frameRect.GetWidth() / 2 -
-                          kHandleHalfPx - kHandleHoverPadPx,
-                      frameRect.GetBottom() - kHandleHalfPx - kHandleHoverPadPx,
-                      kHandleSizePx + kHandleHoverPadPx * 2,
-                      kHandleSizePx + kHandleHoverPadPx * 2);
-  wxRect handleCorner(frameRect.GetRight() - kHandleHalfPx - kHandleHoverPadPx,
-                      frameRect.GetBottom() - kHandleHalfPx -
-                          kHandleHoverPadPx,
-                      kHandleSizePx + kHandleHoverPadPx * 2,
-                      kHandleSizePx + kHandleHoverPadPx * 2);
-
-  if (handleCorner.Contains(pos))
-    return FrameDragMode::ResizeCorner;
-  if (handleRight.Contains(pos))
-    return FrameDragMode::ResizeRight;
-  if (handleBottom.Contains(pos))
-    return FrameDragMode::ResizeBottom;
-  if (frameRect.Contains(pos))
-    return FrameDragMode::Move;
-  return FrameDragMode::None;
-}
-
+// Maps a frame interaction mode to its wx cursor presentation.
 wxCursor LayoutViewerPanel::CursorForMode(FrameDragMode mode) const {
   switch (mode) {
   case FrameDragMode::ResizeRight:
