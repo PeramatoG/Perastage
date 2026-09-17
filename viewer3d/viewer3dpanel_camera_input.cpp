@@ -22,7 +22,7 @@ void Viewer3DPanel::ApplyCameraIntent(
   else
     m_camera.Pan(intent.horizontal, intent.vertical);
   m_lastMousePos = mousePos;
-  m_placementViewRevision.Invalidate();
+  m_continuousPlacementSession.InvalidateView();
 }
 
 // Handles mouse wheel (zoom)
@@ -47,8 +47,8 @@ void Viewer3DPanel::OnMouseWheel(wxMouseEvent &event) {
   m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
 
   m_camera.Zoom(*steps);
-  m_placementViewRevision.Invalidate();
-  if (m_continuousPlacementActive)
+  m_continuousPlacementSession.InvalidateView();
+  if (IsContinuousPlacementActive())
     AlignContinuousElementToPointer(event.GetPosition());
   ArmZoomInteractionTimeout();
 
@@ -72,15 +72,15 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
   std::optional<viewer3d::interaction::CameraDirection> direction;
   switch (event.GetKeyCode()) {
   case WXK_ESCAPE:
-    if (m_linePointSelectionActive) {
+    if (m_linePointSelectionSession.IsActive()) {
       CancelLinePointSelection();
       return;
     }
-    if (m_continuousPlacementActive) {
+    if (IsContinuousPlacementActive()) {
       CancelContinuousPlacement();
       return;
     }
-    if (m_measureToolEnabled) {
+    if (IsMeasureToolEnabled()) {
       SetMeasureToolEnabled(false);
       return;
     }
@@ -88,7 +88,7 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
     return;
   case 'M':
   case 'm':
-    SetMeasureToolEnabled(!m_measureToolEnabled);
+    SetMeasureToolEnabled(!IsMeasureToolEnabled());
     return;
   case WXK_LEFT:
     direction = viewer3d::interaction::CameraDirection::Left;
@@ -135,8 +135,8 @@ void Viewer3DPanel::OnKeyDown(wxKeyEvent &event) {
   m_runtimeState.BeginInteraction(std::chrono::steady_clock::now());
   if (zoomTriggered)
     ArmZoomInteractionTimeout();
-  m_placementViewRevision.Invalidate();
-  if (m_continuousPlacementActive && m_hasLastMousePos)
+  m_continuousPlacementSession.InvalidateView();
+  if (IsContinuousPlacementActive() && m_hasLastMousePos)
     AlignContinuousElementToPointer(m_lastMousePos);
 
   viewer3d::diagnostics::Log("Key interaction end.");

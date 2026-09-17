@@ -32,6 +32,82 @@ bool ViewRevisionState::NeedsAlignment() const {
   return alignedRevision_ != revision_;
 }
 
+// Starts a placement and clears confirmation history from the prior session.
+void SessionState::Begin(ContinuousPlacementType newType,
+                         const std::string &newUuid) {
+  active_ = true;
+  type_ = newType;
+  uuid_ = newUuid;
+  confirmedUuids_.clear();
+  viewRevision_.Invalidate();
+  ClearConstraintReference();
+}
+
+// Starts a clean clipboard batch-placement session.
+void SessionState::BeginBatch() {
+  Reset();
+  active_ = true;
+  batchActive_ = true;
+  viewRevision_.Invalidate();
+}
+
+// Replaces the provisional element while preserving confirmation history.
+void SessionState::ContinueWithProvisional(const std::string &newUuid) {
+  uuid_ = newUuid;
+  viewRevision_.Invalidate();
+  ClearConstraintReference();
+}
+
+// Records the current provisional element as confirmed.
+void SessionState::RecordConfirmed() { confirmedUuids_.push_back(uuid_); }
+
+// Restores a previously confirmed element as the provisional element.
+void SessionState::RestoreAfterUndo(const std::string &restoredUuid) {
+  if (!confirmedUuids_.empty() && confirmedUuids_.back() == restoredUuid)
+    confirmedUuids_.pop_back();
+  ContinueWithProvisional(restoredUuid);
+}
+
+// Completes the placement sequence and clears its session state.
+void SessionState::Complete() { Reset(); }
+
+// Cancels the placement sequence and clears its session state.
+void SessionState::Cancel() { Reset(); }
+
+// Clears the active placement and all transient bookkeeping.
+void SessionState::Reset() {
+  active_ = false;
+  type_ = ContinuousPlacementType::None;
+  uuid_.clear();
+  confirmedUuids_.clear();
+  batchActive_ = false;
+  ClearConstraintReference();
+}
+
+// Captures the neutral pointer and world origins used for axis constraints.
+void SessionState::SetConstraintReference(
+    PointerPosition pointer, const std::array<float, 3> &worldMeters) {
+  constraintPointerOrigin_ = pointer;
+  constraintWorldOriginMeters_ = worldMeters;
+  constraintReferenceValid_ = true;
+}
+
+// Clears the active axis constraint reference.
+void SessionState::ClearConstraintReference() {
+  ClearConstraintReferencePreservingAxisSwitch();
+  axisSwitchArmed_ = true;
+}
+
+// Clears only the active constraint reference and preserves axis-switch state.
+void SessionState::ClearConstraintReferencePreservingAxisSwitch() {
+  constraintReferenceValid_ = false;
+  constraintPointerOrigin_ = {};
+  constraintWorldOriginMeters_ = {0.0f, 0.0f, 0.0f};
+}
+
+// Enables or disables the next axis-switch decision.
+void SessionState::SetAxisSwitchArmed(bool armed) { axisSwitchArmed_ = armed; }
+
 // Computes the one-shot delta that aligns the raw origin to an absolute
 // pointer.
 std::array<float, 3>

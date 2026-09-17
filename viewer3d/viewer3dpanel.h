@@ -32,6 +32,8 @@
 #include "interaction/selection_drag_math.h"
 #include "interaction/navigation_interaction_policy.h"
 #include "interaction/selection_drag_activation.h"
+#include "interaction/selection_drag_session.h"
+#include "interaction/line_point_selection_session.h"
 #include "interaction/viewer_runtime_policy.h"
 #include "viewer3dcamera.h"
 #include "viewer3dcontroller.h"
@@ -96,9 +98,9 @@ public:
     // Toggles the 3D measure tool with the requested measuring mode.
     void SetMeasureToolEnabled(bool enabled, Viewer2DMeasureMode mode);
     // Returns whether the 3D measure tool is currently enabled.
-    bool IsMeasureToolEnabled() const { return m_measureToolEnabled; }
+    bool IsMeasureToolEnabled() const { return m_measureState.enabled; }
     // Returns the active 3D measure mode.
-    Viewer2DMeasureMode GetMeasureToolMode() const { return m_measureMode; }
+    Viewer2DMeasureMode GetMeasureToolMode() const { return m_measureState.mode; }
     // Enables or disables Magnet snapping for 3D selection dragging.
     void SetMagnetEnabled(bool enabled, bool persist = true);
     // Returns whether Magnet snapping is currently enabled for 3D selection dragging.
@@ -138,7 +140,7 @@ public:
         std::function<void()> cancelCallback);
     bool UndoContinuousPlacement();
     bool IsContinuousPlacementActive() const {
-        return m_continuousPlacementActive;
+        return m_continuousPlacementSession.IsActive();
     }
     bool IsClipboardPlacementActive() const;
     void CancelClipboardPlacement();
@@ -159,47 +161,21 @@ private:
     wxPoint m_rectSelectStart;
     wxPoint m_rectSelectEnd;
     viewer3d::interaction::SelectionDragActivation m_selectionDragActivation;
-    bool m_selectionDragUndoPushed = false;
+    viewer3d::interaction::SelectionDragSession m_selectionDragSession;
     bool m_magnetEnabled = false;
     bool m_leftDragSelectionMovementEnabled = false;
     bool m_axisConstrainedMovementEnabled = true;
     transform_space::TransformSpace m_transformSpace =
         transform_space::TransformSpace::World;
-    std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
     mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
     mutable truss_attachment_paths::Resolver m_trussAttachmentPathResolver;
-    HoverTargetTable m_selectionDragTarget = HoverTargetTable::None;
-    std::vector<std::string> m_dragSelectionUuids;
-    std::vector<std::string> m_dragFixtureUuids;
-    std::vector<std::string> m_dragTrussUuids;
-    std::vector<std::string> m_dragSupportUuids;
-    std::vector<std::string> m_dragSceneObjectUuids;
-    std::array<float, 3> m_selectionDragAnchorMeters{0.0f, 0.0f, 0.0f};
-    viewer3d::SelectionDragAxis m_selectionDragAxis =
-        viewer3d::SelectionDragAxis::None;
-    bool m_continuousPlacementActive = false;
-    bool m_linePointSelectionActive = false;
-    bool m_linePointSelectionConsumeMouseUp = false;
-    std::array<float, 3> m_linePointSelectionStart{};
-    std::array<float, 3> m_linePointSelectionEnd{};
-    std::optional<std::array<float, 3>> m_linePointSelectionFirst;
-    std::optional<std::array<float, 3>> m_linePointSelectionPreview;
+    continuous_placement::SessionState m_continuousPlacementSession;
+    viewer3d::interaction::LinePointSelectionSession m_linePointSelectionSession;
     LinePointSelectionCallback m_linePointSelectionCallback;
-    ContinuousPlacementType m_continuousPlacementType =
-        ContinuousPlacementType::None;
-    continuous_placement::ViewRevisionState m_placementViewRevision;
-    std::string m_continuousPlacementUuid;
-    std::vector<std::string> m_continuousPlacedUuids;
     std::function<std::string(const std::string &)> m_clipboardSingleConfirm;
     std::function<void(const std::string &)> m_clipboardSingleCancel;
-    bool m_clipboardBatchPlacement = false;
     std::function<void()> m_clipboardBatchConfirm;
     std::function<void()> m_clipboardBatchCancel;
-    bool m_continuousConstraintReferenceValid = false;
-    bool m_continuousAxisSwitchArmed = true;
-    wxPoint m_continuousConstraintPointerOrigin;
-    std::array<float, 3> m_continuousConstraintWorldOriginMeters{
-        0.0f, 0.0f, 0.0f};
 
     viewer3d::interaction::ViewerRuntimeState m_runtimeState;
     std::vector<std::string> m_lastAppliedSelectionUuids;
@@ -242,7 +218,7 @@ private:
     // Prepares the GL context before running resource synchronization work.
     bool PrepareGlResourceSync(const char* caller);
     void DrawSelectionRectangle(int width, int height);
-    void ResetSelectionDragState();
+    void ResetSelectionDragState(bool completed = false);
     bool PrepareSelectionDrag(const wxPoint& mousePos);
     std::array<float, 3> ComputeSelectionCenterMeters(
         const std::vector<std::string>& uuids, HoverTargetTable target) const;
@@ -267,9 +243,11 @@ private:
         const wxPoint &mousePos);
     void CancelLinePointSelection();
     void PresentContinuousPlacementFrame();
+    void ConfigureContinuousPlacementDrag(ContinuousPlacementType type,
+                                          const std::string &elementUuid);
     void ConfirmContinuousPlacement();
     void CancelContinuousPlacement();
-    void EndContinuousPlacementState();
+    void EndContinuousPlacementState(bool completed);
     void RefreshContinuousPlacementViews();
     void DrawSelectionDragGizmo(const RenderSize& renderSize);
     std::array<float, 3> GetSelectionDragAxisVector(
@@ -288,15 +266,7 @@ private:
 
     bool m_paintInProgress = false;
 
-    bool m_measureToolEnabled = false;
-    Viewer2DMeasureMode m_measureMode = Viewer2DMeasureMode::CenterToCenter;
-    bool m_measureHasAnchor = false;
-    std::string m_measureAnchorUuid;
-    std::array<float, 3> m_measureAnchorWorldMeters{0.0f, 0.0f, 0.0f};
-    std::array<float, 3> m_measureAnchorDrawWorldMeters{0.0f, 0.0f, 0.0f};
-    bool m_measureHasCommittedTarget = false;
-    std::array<float, 3> m_measureCommittedTargetWorldMeters{0.0f, 0.0f, 0.0f};
-    std::array<float, 3> m_measureCommittedTargetDrawWorldMeters{0.0f, 0.0f, 0.0f};
+    Viewer2DMeasureToolState m_measureState;
     wxPoint m_measurePreviewMousePos;
     bool m_measureHasPreviewMousePos = false;
 
