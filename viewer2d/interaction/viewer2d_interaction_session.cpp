@@ -41,6 +41,14 @@ bool Viewer2DInteractionSession::BeginPan(PointerPosition position,
   return true;
 }
 
+// Starts temporary left-button viewport navigation during placement.
+void Viewer2DInteractionSession::BeginPlacementNavigation(
+    PointerPosition position) {
+  draggedSincePress = false;
+  mode = DragMode::View;
+  lastPointer = position;
+}
+
 // Starts rectangle selection and records its cross-table selection intent.
 void Viewer2DInteractionSession::BeginRectangleSelection(
     PointerPosition position, bool acrossAllTables) {
@@ -55,6 +63,7 @@ void Viewer2DInteractionSession::BeginRectangleSelection(
 void Viewer2DInteractionSession::BeginSelectionDrag(
     DragTarget dragTarget, std::vector<std::string> activeSelection,
     SelectionBuckets typedSelection) {
+  ResetGesture();
   mode = DragMode::Selection;
   target = dragTarget;
   activeUuids = std::move(activeSelection);
@@ -103,6 +112,20 @@ void Viewer2DInteractionSession::MarkNavigationMoved(PointerPosition position) {
   draggedSincePress = true;
 }
 
+// Records that a selection transform was applied during the gesture.
+void Viewer2DInteractionSession::MarkSelectionMoved() {
+  selectionMoved = true;
+  draggedSincePress = true;
+}
+
+// Records that undo history has already been captured for the gesture.
+void Viewer2DInteractionSession::MarkUndoPushed() {
+  selectionUndoPushed = true;
+}
+
+// Clears the active axis constraint without ending the gesture.
+void Viewer2DInteractionSession::ClearAxis() { axis = DragAxis::None; }
+
 // Finishes a temporary middle-button pan and restores placement selection.
 void Viewer2DInteractionSession::EndPan(bool continuousPlacementActive) {
   middleMousePanning = false;
@@ -110,6 +133,24 @@ void Viewer2DInteractionSession::EndPan(bool continuousPlacementActive) {
              continuousPlacementActive)
              ? DragMode::Selection
              : DragMode::None;
+  draggedSincePress = false;
+}
+
+// Restores selection mode after left-button placement navigation.
+void Viewer2DInteractionSession::EndPlacementNavigation() {
+  mode = DragMode::Selection;
+  draggedSincePress = false;
+}
+
+// Completes a gesture while retaining its click-suppression outcome.
+void Viewer2DInteractionSession::CompleteGesture() {
+  const bool suppressClick = draggedSincePress;
+  ResetGesture();
+  draggedSincePress = suppressClick;
+}
+
+// Clears click suppression after the panel consumes the pointer outcome.
+void Viewer2DInteractionSession::ConsumePointerOutcome() {
   draggedSincePress = false;
 }
 

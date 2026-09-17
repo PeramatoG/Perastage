@@ -32,7 +32,7 @@
     "mvr/mvrimporter.cpp": 2857,
     "tests/mvr_exporter_compliance_test.cpp": 1664,
     "viewer2d/pdf/layout_pdf_exporter.cpp": 2352,
-    "viewer2d/viewer2dpanel.cpp": 4497,
+    "viewer2d/viewer2dpanel.cpp": 4470,
     "viewer3d/gdtfloader.cpp": 2537,
     "viewer3d/viewer3dcontroller.cpp": 2402,
     "viewer3d/viewer3dpanel.cpp": 4135

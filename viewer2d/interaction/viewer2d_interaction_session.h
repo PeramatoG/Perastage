@@ -44,6 +44,8 @@ public:
   void BeginPrimary(PointerPosition position);
   // Starts an exclusive middle-button viewport-pan gesture when permitted.
   bool BeginPan(PointerPosition position, bool continuousPlacementActive);
+  // Starts temporary left-button viewport navigation during placement.
+  void BeginPlacementNavigation(PointerPosition position);
   // Starts rectangle selection and records its cross-table selection intent.
   void BeginRectangleSelection(PointerPosition position, bool acrossAllTables);
   // Starts selection movement for the supplied typed selection.
@@ -58,8 +60,20 @@ public:
   void UpdateRectangle(PointerPosition position);
   // Records viewport movement for click suppression.
   void MarkNavigationMoved(PointerPosition position);
+  // Records that a selection transform was applied during the gesture.
+  void MarkSelectionMoved();
+  // Records that undo history has already been captured for the gesture.
+  void MarkUndoPushed();
+  // Clears the active axis constraint without ending the gesture.
+  void ClearAxis();
   // Finishes a temporary middle-button pan and restores placement selection.
   void EndPan(bool continuousPlacementActive);
+  // Restores selection mode after left-button placement navigation.
+  void EndPlacementNavigation();
+  // Completes a gesture while retaining its click-suppression outcome.
+  void CompleteGesture();
+  // Clears click suppression after the panel consumes the pointer outcome.
+  void ConsumePointerOutcome();
   // Clears selection and rectangle state while leaving neutral pointer data.
   void ResetGesture();
   // Cancels transient state after mouse capture is lost.
