@@ -64,6 +64,7 @@
 #include "logger.h"
 #include "mainwindow.h"
 #include "positionvalueupdate.h"
+#include "render/viewer2d_render_frame_plan.h"
 #include "scene_grouping.h"
 #include "scene_object_primitive_editing.h"
 #include "sceneobjecttablepanel.h"
@@ -1233,14 +1234,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   if (!m_glInitialized) {
     return;
   }
-  // Interaction policy:
-  // - Keep throttling expensive synchronization while recent interaction is
-  //   active.
-  // - Use interactive label mode only for visually expensive interaction
-  //   paths. Simple selection clicks must not toggle it.
-  const bool pauseHeavyTasks = m_enableSelection && ShouldPauseHeavyTasks();
-  m_interactiveLabelMode =
-      m_enableSelection && IsExpensiveVisualInteractionActive();
   RenderSize resolvedSize = ResolveRenderSize(this);
   if (m_captureFramebufferSizeOverride &&
       m_captureFramebufferSizeOverride->GetWidth() > 0 &&
@@ -1296,69 +1289,38 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   ConfigManager &cfg = ConfigManager::Get();
+  const auto framePlan = BuildRenderFramePlan();
+  m_interactiveLabelMode = framePlan.interactiveLabelMode;
+
   // Keep controller resources/cache in sync in the 2D viewer as well.
-  // The 3D panel triggers this from its own render loop, but the 2D panel
-  // renders directly through the shared controller and otherwise misses
-  // scene/layer visibility refreshes.
-  if (!pauseHeavyTasks)
+  if (!framePlan.skipResourceSynchronization)
     m_controller.UpdateResourcesIfDirty();
-  bool darkMode = cfg.GetFloat("view2d_dark_mode") != 0.0f;
-  if (m_renderOverrides && m_renderOverrides->darkMode.has_value())
-    darkMode = m_renderOverrides->darkMode.value();
-  m_controller.SetDarkMode(darkMode);
-  if (darkMode)
+  m_controller.SetDarkMode(framePlan.darkMode);
+  if (framePlan.darkMode)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   else
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  bool showGrid = cfg.GetFloat("grid_show") != 0.0f;
-  if (m_renderOverrides && m_renderOverrides->showGrid.has_value())
-    showGrid = m_renderOverrides->showGrid.value();
-  int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
-  float gridR = cfg.GetFloat("grid_color_r");
-  float gridG = cfg.GetFloat("grid_color_g");
-  float gridB = cfg.GetFloat("grid_color_b");
-  bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
-  bool showRuler = cfg.GetFloat("ruler_show") != 0.0f;
-  if (m_renderOverrides && m_renderOverrides->showRuler.has_value())
-    showRuler = m_renderOverrides->showRuler.value();
-  const float rulerSmallTickMeters = cfg.GetFloat("ruler_tick_small_m");
-  const float rulerLargeTickMeters = cfg.GetFloat("ruler_tick_large_m");
-  const float rulerAxisXPosition = cfg.GetFloat("ruler_axis_x_position");
-  const float rulerAxisYPosition = cfg.GetFloat("ruler_axis_y_position");
-  const float rulerAxisZPosition = cfg.GetFloat("ruler_axis_z_position");
-  const float rulerAxisXColorR = cfg.GetFloat("ruler_axis_x_color_r");
-  const float rulerAxisXColorG = cfg.GetFloat("ruler_axis_x_color_g");
-  const float rulerAxisXColorB = cfg.GetFloat("ruler_axis_x_color_b");
-  const float rulerAxisYColorR = cfg.GetFloat("ruler_axis_y_color_r");
-  const float rulerAxisYColorG = cfg.GetFloat("ruler_axis_y_color_g");
-  const float rulerAxisYColorB = cfg.GetFloat("ruler_axis_y_color_b");
-  const float rulerAxisZColorR = cfg.GetFloat("ruler_axis_z_color_r");
-  const float rulerAxisZColorG = cfg.GetFloat("ruler_axis_z_color_g");
-  const float rulerAxisZColorB = cfg.GetFloat("ruler_axis_z_color_b");
+
+  const int gridStyle = static_cast<int>(cfg.GetFloat("grid_style"));
+  const float gridR = cfg.GetFloat("grid_color_r");
+  const float gridG = cfg.GetFloat("grid_color_g");
+  const float gridB = cfg.GetFloat("grid_color_b");
+  const bool drawAbove = cfg.GetFloat("grid_draw_above") != 0.0f;
   const auto distanceUnitSystem =
       Units::ParseDistanceUnitSystem(cfg.GetValue("ui_distance_unit_system"));
+  const auto rulerState = BuildRulerOverlayViewState(
+      w, h, distanceUnitSystem == Units::DistanceUnitSystem::Imperial);
 
-  std::optional<bool> forceBottomViewForTopFixturesOverride;
-  std::optional<bool> symbolCaptureRenderProfileOverride;
-  std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
-  if (m_renderOverrides) {
-    forceBottomViewForTopFixturesOverride =
-        m_renderOverrides->forceBottomViewForTopFixtures;
-    symbolCaptureRenderProfileOverride =
-        m_renderOverrides->symbolCaptureRenderProfile;
-    symbolCaptureIncludeCoplanarEdgesOverride =
-        m_renderOverrides->symbolCaptureIncludeCoplanarEdges;
-  }
   m_controller.SetForceBottomViewForTopFixturesOverride(
-      forceBottomViewForTopFixturesOverride);
+      framePlan.forceBottomViewForTopFixtures);
   m_controller.SetSymbolCaptureRenderProfileOverride(
-      symbolCaptureRenderProfileOverride);
+      framePlan.symbolCaptureRenderProfile);
   m_controller.SetSymbolCaptureIncludeCoplanarEdgesOverride(
-      symbolCaptureIncludeCoplanarEdgesOverride);
+      framePlan.symbolCaptureIncludeCoplanarEdges);
 
   std::unique_ptr<ICanvas2D> recordingCanvas;
-  if (m_captureNextFrame) {
+  if (framePlan.captureActive) {
     m_lastCapturedFrame.Clear();
     recordingCanvas = CreateRecordingCanvas(m_lastCapturedFrame, false);
     // The recorded commands operate in the same world-space coordinates used by
@@ -1372,14 +1334,14 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     recordingCanvas->BeginFrame();
     recordingCanvas->SetTransform(transform);
     m_controller.SetCaptureCanvas(recordingCanvas.get(), m_view,
-                                  m_captureIncludeGrid,
-                                  m_useSimplifiedFootprints);
+                                  framePlan.captureIncludeGrid,
+                                  framePlan.useSimplifiedFootprints);
   } else {
     m_controller.SetCaptureCanvas(nullptr, m_view);
   }
 
-  m_controller.RenderScene(true, m_renderMode, m_view, showGrid, gridStyle,
-                           gridR, gridG, gridB, drawAbove, true,
+  m_controller.RenderScene(true, m_renderMode, m_view, framePlan.showGrid,
+                           gridStyle, gridR, gridG, gridB, drawAbove, true,
                            m_preferPerastageSvgSymbolsForLayouts);
 
   if (m_enableSelection && m_mouseInside &&
@@ -1393,104 +1355,11 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
     }
   }
 
-  if (m_layoutEditAspect && *m_layoutEditAspect > 0.0f) {
-    if (!m_layoutEditBaseSize || m_layoutEditBaseSize->GetWidth() <= 0 ||
-        m_layoutEditBaseSize->GetHeight() <= 0) {
-      float aspect = *m_layoutEditAspect;
-      float padding = static_cast<float>(std::min(w, h)) * 0.1f;
-      float maxWidth = static_cast<float>(w) - padding * 2.0f;
-      float maxHeight = static_cast<float>(h) - padding * 2.0f;
-      float targetWidth = maxWidth;
-      float targetHeight = targetWidth / aspect;
-      if (targetHeight > maxHeight) {
-        targetHeight = maxHeight;
-        targetWidth = targetHeight * aspect;
-      }
-      m_layoutEditBaseSize =
-          wxSize(static_cast<int>(std::lround(targetWidth)),
-                 static_cast<int>(std::lround(targetHeight)));
-    }
+  DrawLayoutEditOverlay(w, h);
 
-    if (m_layoutEditBaseSize && m_layoutEditBaseSize->GetWidth() > 0 &&
-        m_layoutEditBaseSize->GetHeight() > 0) {
-      float targetWidth = static_cast<float>(m_layoutEditBaseSize->GetWidth()) *
-                          m_layoutEditScale;
-      float targetHeight =
-          static_cast<float>(m_layoutEditBaseSize->GetHeight()) *
-          m_layoutEditScale;
-      float left = (static_cast<float>(w) - targetWidth) * 0.5f;
-      float bottom = (static_cast<float>(h) - targetHeight) * 0.5f;
-
-      GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
-      if (depthEnabled)
-        glDisable(GL_DEPTH_TEST);
-
-      glMatrixMode(GL_PROJECTION);
-      glPushMatrix();
-      glLoadIdentity();
-      glOrtho(0.0f, static_cast<float>(w), 0.0f, static_cast<float>(h), -1.0f,
-              1.0f);
-      glMatrixMode(GL_MODELVIEW);
-      glPushMatrix();
-      glLoadIdentity();
-
-      glColor3f(1.0f, 0.0f, 0.0f);
-      glLineWidth(2.0f);
-      glBegin(GL_LINE_LOOP);
-      glVertex2f(left, bottom);
-      glVertex2f(left + targetWidth, bottom);
-      glVertex2f(left + targetWidth, bottom + targetHeight);
-      glVertex2f(left, bottom + targetHeight);
-      glEnd();
-
-      glPopMatrix();
-      glMatrixMode(GL_PROJECTION);
-      glPopMatrix();
-      glMatrixMode(GL_MODELVIEW);
-
-      if (depthEnabled)
-        glEnable(GL_DEPTH_TEST);
-    }
-  }
-
-  if (showRuler) {
-    viewer2d::RulerOverlayViewState rulerState;
-    rulerState.width = w;
-    rulerState.height = h;
-    rulerState.zoom = m_zoom;
-    rulerState.offsetPixelsX = m_offsetX;
-    rulerState.offsetPixelsY = m_offsetY;
-    rulerState.smallTickMeters = rulerSmallTickMeters;
-    rulerState.largeTickMeters = rulerLargeTickMeters;
-    rulerState.xRulerPositionMeters = rulerAxisXPosition;
-    rulerState.yRulerPositionMeters = rulerAxisYPosition;
-    rulerState.zRulerPositionMeters = rulerAxisZPosition;
-    rulerState.xRulerColor = {rulerAxisXColorR, rulerAxisXColorG,
-                              rulerAxisXColorB, 1.0f};
-    rulerState.yRulerColor = {rulerAxisYColorR, rulerAxisYColorG,
-                              rulerAxisYColorB, 1.0f};
-    rulerState.zRulerColor = {rulerAxisZColorR, rulerAxisZColorG,
-                              rulerAxisZColorB, 1.0f};
-    rulerState.useImperialUnits =
-        distanceUnitSystem == Units::DistanceUnitSystem::Imperial;
-    rulerState.view = m_view;
-    viewer2d::DrawRulerOverlay(rulerState, darkMode);
-    const auto rulerLabels =
-        viewer2d::BuildRulerScreenLabels(rulerState, darkMode);
-    if (!rulerLabels.empty()) {
-      std::vector<OverlayTextLabel> overlayLabels;
-      overlayLabels.reserve(rulerLabels.size());
-      for (const auto &label : rulerLabels) {
-        overlayLabels.push_back({label.xPixels, label.yPixels, label.text,
-                                 label.centerOnX, label.centerOnY,
-                                 3.0f * m_zoom, true, label.color.r,
-                                 label.color.g, label.color.b});
-      }
-      m_controller.DrawOverlayTextLabels(overlayLabels, darkMode);
-    }
-    if (recordingCanvas)
-      viewer2d::EmitRulerToCanvas(rulerState, darkMode, *recordingCanvas);
-  }
+  if (framePlan.showRuler)
+    DrawRulerOverlayFrame(rulerState, framePlan.darkMode,
+                          recordingCanvas.get());
 
   if (m_interaction.mode == DragMode::Selection &&
       !m_linePointSelectionSession.IsActive())
@@ -1628,23 +1497,21 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
                              ? m_measureToolState.committedTargetMeasureWorld
                              : *targetWorld,
                          m_view, w, h, m_zoom, m_offsetX, m_offsetY,
-                         distanceUnitSystem, darkMode, targetScreenOverride);
+                         distanceUnitSystem, framePlan.darkMode,
+                         targetScreenOverride);
     }
   }
 
   // Draw fixture/hoist labels after all overlays so they remain on top of
   // rulers and other scene elements. Scale with zoom so labels behave like
   // regular scene objects instead of remaining a constant screen size.
-  bool drawFixtureLabels = true;
-  if (m_renderOverrides && m_renderOverrides->drawFixtureLabels.has_value())
-    drawFixtureLabels = m_renderOverrides->drawFixtureLabels.value();
-  if (drawFixtureLabels) {
+  if (framePlan.drawFixtureLabels) {
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
                                       m_interactiveLabelMode);
   }
 
   if (swapBuffers && m_enableSelection && m_interaction.rectangleActive)
-    DrawSelectionRectangle(w, h, darkMode);
+    DrawSelectionRectangle(w, h, framePlan.darkMode);
 
   if (recordingCanvas) {
     recordingCanvas->EndFrame();
@@ -2806,8 +2673,7 @@ bool Viewer2DPanel::ShouldPauseHeavyTasks() {
   // window. Callers should throttle only expensive synchronization work
   // (scene/resource updates, heavy snapshots). Visual overlays such as labels
   // should stay on-screen through an interactive lightweight rendering path.
-  return m_runtimeState.ShouldPauseHeavyTasks(
-      std::chrono::steady_clock::now());
+  return m_runtimeState.ShouldPauseHeavyTasks(std::chrono::steady_clock::now());
 }
 
 bool Viewer2DPanel::IsExpensiveVisualInteractionActive() const {
@@ -2829,9 +2695,8 @@ bool Viewer2DPanel::IsExpensiveVisualInteractionActive() const {
 void Viewer2DPanel::MarkInteractionActivity() {
   m_runtimeState.MarkInteractionActivity(std::chrono::steady_clock::now());
   m_interactionResumeTimer.StartOnce(
-      viewer2d::interaction::Viewer2DRuntimeState::
-              kInteractionGracePeriodMs +
-          10);
+      viewer2d::interaction::Viewer2DRuntimeState::kInteractionGracePeriodMs +
+      10);
 }
 
 // Requests the established repaint after the interaction grace period settles.
@@ -2860,9 +2725,11 @@ void Viewer2DPanel::ScheduleHoverHitTest(const wxPoint &screenPos,
 
   m_pendingHoverScreenPos = screenPos;
   const auto now = std::chrono::steady_clock::now();
-  const auto decision = m_runtimeState.ScheduleHover(
-      {{screenPos.x, screenPos.y}, forceNow,
-       m_interaction.mode != DragMode::None, now});
+  const auto decision =
+      m_runtimeState.ScheduleHover({{screenPos.x, screenPos.y},
+                                    forceNow,
+                                    m_interaction.mode != DragMode::None,
+                                    now});
   if (decision.runNow) {
     m_hoverHitTestTimer.Stop();
     RunHoverHitTest(screenPos);
@@ -2937,16 +2804,15 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
                                    int viewportWidth, int viewportHeight,
                                    size_t hiddenLayersHash, bool clickSelection,
                                    bool found, const std::string &uuid) {
-  m_runtimeState.StorePickCache(
-      {queryKind,
-       {framebufferPos.x, framebufferPos.y},
-       viewportWidth,
-       viewportHeight,
-       static_cast<int>(m_view),
-       hiddenLayersHash,
-       clickSelection,
-       m_runtimeState.SceneGeneration()},
-      {found, uuid});
+  m_runtimeState.StorePickCache({queryKind,
+                                 {framebufferPos.x, framebufferPos.y},
+                                 viewportWidth,
+                                 viewportHeight,
+                                 static_cast<int>(m_view),
+                                 hiddenLayersHash,
+                                 clickSelection,
+                                 m_runtimeState.SceneGeneration()},
+                                {found, uuid});
 
   if (m_logFirstPickAfterSceneUpdate) {
     const char *queryName = "none";
@@ -2975,11 +2841,9 @@ void Viewer2DPanel::StorePickCache(PickQueryKind queryKind,
         "Viewer2DPanel: first cursor hit-test after scene update; "
         "reloadRequested=" +
             std::string(m_lastUpdateSceneReloadRequested ? "true" : "false") +
-            " query='" + queryName +
-            "' objectUnderCursor=" + std::string(found ? "true" : "false") +
-            " sceneGeneration=" +
-            std::to_string(m_runtimeState.SceneGeneration()) +
-            ".");
+            " query='" + queryName + "' objectUnderCursor=" +
+            std::string(found ? "true" : "false") + " sceneGeneration=" +
+            std::to_string(m_runtimeState.SceneGeneration()) + ".");
     m_logFirstPickAfterSceneUpdate = false;
   }
 }
@@ -3126,10 +2990,12 @@ Viewer2DPanel::CurrentSelectionBuckets() const {
 }
 
 // Executes the panel-owned picking operation selected by the scope policy.
-bool Viewer2DPanel::ResolvePickForScope(
-    InteractionScope scope, const wxPoint &pickPos, int viewportWidth,
-    int viewportHeight, size_t hiddenLayersHash, bool clickSelection,
-    std::string &uuidOut) {
+bool Viewer2DPanel::ResolvePickForScope(InteractionScope scope,
+                                        const wxPoint &pickPos,
+                                        int viewportWidth, int viewportHeight,
+                                        size_t hiddenLayersHash,
+                                        bool clickSelection,
+                                        std::string &uuidOut) {
   const auto route =
       viewer2d::interaction::Viewer2DInteractionScopePolicy::ResolveHoverRoute(
           scope);
@@ -3138,9 +3004,9 @@ bool Viewer2DPanel::ResolvePickForScope(
                                        hiddenLayersHash, uuidOut);
   if (route.queryKind == PickQueryKind::None)
     return false;
-  return TryResolvePickLabelWithCache(
-      route.queryKind, pickPos, viewportWidth, viewportHeight, hiddenLayersHash,
-      clickSelection, uuidOut);
+  return TryResolvePickLabelWithCache(route.queryKind, pickPos, viewportWidth,
+                                      viewportHeight, hiddenLayersHash,
+                                      clickSelection, uuidOut);
 }
 
 // Clears table hover state that cannot belong to the active scoped query.
@@ -3162,9 +3028,9 @@ bool Viewer2DPanel::ApplyClickSelectionDecision(
   ConfigManager &cfg = ConfigManager::Get();
   if (decision.clearAll) {
     const auto current = CurrentSelectionBuckets();
-    const bool changed = !current.fixtures.empty() || !current.trusses.empty() ||
-                         !current.supports.empty() ||
-                         !current.sceneObjects.empty();
+    const bool changed =
+        !current.fixtures.empty() || !current.trusses.empty() ||
+        !current.supports.empty() || !current.sceneObjects.empty();
     if (changed) {
       cfg.PushUndoState("clear selection");
       cfg.SetSelectedFixtures({});
@@ -3300,8 +3166,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
     m_runtimeState.CancelHoverQuery();
     return;
   }
-  m_runtimeState.CompleteHoverQuery(
-      {screenPos.x, screenPos.y}, std::chrono::steady_clock::now());
+  m_runtimeState.CompleteHoverQuery({screenPos.x, screenPos.y},
+                                    std::chrono::steady_clock::now());
 
   const bool skipLabelWork = ShouldPauseHeavyTasks();
   if (skipLabelWork) {
@@ -3325,9 +3191,8 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   const InteractionScope scope = ResolveInteractionScope();
   found = ResolvePickForScope(scope, pickPos, w, h, hiddenLayersHash, false,
                               newUuid);
-  if (found &&
-      !viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
-          scope, ResolveSceneElementKind(newUuid))) {
+  if (found && !viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
+                   scope, ResolveSceneElementKind(newUuid))) {
     found = false;
     newUuid.clear();
   }
@@ -3618,8 +3483,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
     const InteractionScope scope = ResolveInteractionScope();
-    bool found = ResolvePickForScope(scope, pickPos, w, h, hiddenLayersHash,
-                                     true, uuid);
+    bool found =
+        ResolvePickForScope(scope, pickPos, w, h, hiddenLayersHash, true, uuid);
     if (found &&
         !viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
             scope, ResolveSceneElementKind(uuid))) {
@@ -3728,13 +3593,12 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
 
     const SceneElementKind clickedKind = ResolveSceneElementKind(uuid);
     const bool eligible =
-        found &&
-        viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
-            scope, clickedKind);
+        found && viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
+                     scope, clickedKind);
     const auto selectionDecision =
         viewer2d::interaction::Viewer2DSelectionPolicy::DecideClick(
-            {eligible, clickedKind, uuid, event.ShiftDown(), event.ControlDown(),
-             scope == InteractionScope::CrossTable,
+            {eligible, clickedKind, uuid, event.ShiftDown(),
+             event.ControlDown(), scope == InteractionScope::CrossTable,
              CurrentSelectionBuckets()});
     const bool selectionChanged =
         ApplyClickSelectionDecision(selectionDecision);
@@ -3985,7 +3849,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     if (const auto point = ProjectMouseOntoLine(pos)) {
       m_linePointSelectionSession.UpdatePreview(*point);
       m_lastMousePos = pos;
-      NotifyHighlightedWorldPosition(m_linePointSelectionSession.PreviewPoint());
+      NotifyHighlightedWorldPosition(
+          m_linePointSelectionSession.PreviewPoint());
       RequestRepaint();
     }
     return;
@@ -4013,7 +3878,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
       }
       int dx = (*framebufferDelta)[0];
       int dy = (*framebufferDelta)[1];
-      if (m_axisConstrainedMovementEnabled && !m_placementSession.IsBatchPlacement()) {
+      if (m_axisConstrainedMovementEnabled &&
+          !m_placementSession.IsBatchPlacement()) {
         if (m_interaction.axis == DragAxis::None &&
             (std::abs(dx) >= kSelectionDragStartThresholdPx ||
              std::abs(dy) >= kSelectionDragStartThresholdPx)) {
@@ -4075,7 +3941,8 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     if (ppm > 0.0f) {
       const float dxMeters = static_cast<float>(motion.deltaX) / ppm;
       const float dyMeters = static_cast<float>(-motion.deltaY) / ppm;
-      const bool changed = ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
+      const bool changed =
+          ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
       MarkInteractionActivity();
       m_interaction.MarkSelectionMoved();
       if (changed)
@@ -4186,7 +4053,8 @@ bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
 
 // Handles local keyboard shortcuts when the 2D viewport owns focus.
 void Viewer2DPanel::OnKeyDown(wxKeyEvent &event) {
-  if (m_linePointSelectionSession.IsActive() && event.GetKeyCode() == WXK_ESCAPE) {
+  if (m_linePointSelectionSession.IsActive() &&
+      event.GetKeyCode() == WXK_ESCAPE) {
     CancelLinePointSelection();
     return;
   }

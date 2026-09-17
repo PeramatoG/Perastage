@@ -9,6 +9,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_graphics_encoder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pdf/pdf_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/print_diagnostics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/render/viewer2d_render_frame_plan.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbolcache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dcommandrenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2doffscreenrenderer.cpp
@@ -25,6 +26,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/interaction/viewer2d_selection_policy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_presentation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_rendering.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpanel_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2dpdfexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer2drenderpanel.cpp

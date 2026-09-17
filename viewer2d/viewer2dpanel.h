@@ -79,6 +79,13 @@ namespace glcapture {
 class FramebufferCaptureTargetCache;
 }
 
+namespace viewer2d {
+struct RulerOverlayViewState;
+namespace render {
+struct RenderFramePlan;
+}
+}
+
 class Viewer2DPanel : public wxGLCanvas {
 public:
   explicit Viewer2DPanel(wxWindow *parent, bool allowOffscreenRender = false,
@@ -226,6 +233,13 @@ private:
   void InitGL();
   void Render();
   void RenderInternal(bool swapBuffers);
+  viewer2d::render::RenderFramePlan BuildRenderFramePlan();
+  viewer2d::RulerOverlayViewState
+  BuildRulerOverlayViewState(int width, int height, bool useImperialUnits) const;
+  void DrawLayoutEditOverlay(int width, int height);
+  void DrawRulerOverlayFrame(
+      const viewer2d::RulerOverlayViewState &rulerState, bool darkMode,
+      ICanvas2D *recordingCanvas);
   void OnPaint(wxPaintEvent &event);
   bool TryBindGlContextForInteraction();
 
