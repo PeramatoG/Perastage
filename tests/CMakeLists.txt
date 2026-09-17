@@ -177,6 +177,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(Layout2DViewCaptureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
     add_bash_policy_test(Viewer2DStateOwnershipBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
     add_bash_policy_test(Viewer2DInteractionSessionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_interaction_session_boundary.sh)
+    add_bash_policy_test(Viewer2DDecisionPolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_decision_policy_boundary.sh)
     add_bash_policy_test(Viewer2DRuntimeStateBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_runtime_state_boundary.sh)
     add_bash_policy_test(Viewer2DToolSessionsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_tool_sessions_boundary.sh)
     add_bash_policy_test(Viewer2DRenderToRGBAFboBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_render_to_rgba_fbo_boundary.sh)
@@ -2955,6 +2956,28 @@ add_executable(viewer2d_interaction_session_test
 target_include_directories(viewer2d_interaction_session_test PRIVATE
                            ../viewer2d/interaction ../viewer_common)
 add_test(NAME Viewer2DInteractionSession COMMAND viewer2d_interaction_session_test)
+
+add_executable(viewer2d_navigation_policy_test
+               viewer2d_navigation_policy_test.cpp
+               ../viewer2d/interaction/viewer2d_navigation_policy.cpp)
+target_include_directories(viewer2d_navigation_policy_test PRIVATE
+                           ../viewer2d/interaction)
+add_test(NAME Viewer2DNavigationPolicy COMMAND viewer2d_navigation_policy_test)
+
+add_executable(viewer2d_interaction_scope_policy_test
+               viewer2d_interaction_scope_policy_test.cpp
+               ../viewer2d/interaction/viewer2d_interaction_scope_policy.cpp)
+target_include_directories(viewer2d_interaction_scope_policy_test PRIVATE
+                           ../viewer2d/interaction)
+add_test(NAME Viewer2DInteractionScopePolicy
+         COMMAND viewer2d_interaction_scope_policy_test)
+
+add_executable(viewer2d_selection_policy_test
+               viewer2d_selection_policy_test.cpp
+               ../viewer2d/interaction/viewer2d_selection_policy.cpp)
+target_include_directories(viewer2d_selection_policy_test PRIVATE
+                           ../viewer2d/interaction)
+add_test(NAME Viewer2DSelectionPolicy COMMAND viewer2d_selection_policy_test)
 
 add_executable(viewer2d_placement_session_test
                viewer2d_placement_session_test.cpp

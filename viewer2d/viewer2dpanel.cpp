@@ -60,6 +60,7 @@
 #include "fixturetablepanel.h"
 #include "gl_state_guard.h"
 #include "hoisttablepanel.h"
+#include "interaction/viewer2d_navigation_policy.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "positionvalueupdate.h"
@@ -3077,6 +3078,174 @@ bool Viewer2DPanel::TryResolvePickLabelWithCache(
   return found;
 }
 
+// Converts active table state and cross-table preference into a plain scope.
+Viewer2DPanel::InteractionScope Viewer2DPanel::ResolveInteractionScope() const {
+  if (IsCrossTableViewportActionsEnabled())
+    return InteractionScope::CrossTable;
+  return ResolveActiveTableScope();
+}
+
+// Converts active table state into a plain scope without preference overrides.
+Viewer2DPanel::InteractionScope Viewer2DPanel::ResolveActiveTableScope() const {
+  if (FixtureTablePanel::Instance() &&
+      FixtureTablePanel::Instance()->IsActivePage())
+    return InteractionScope::Fixture;
+  if (TrussTablePanel::Instance() &&
+      TrussTablePanel::Instance()->IsActivePage())
+    return InteractionScope::Truss;
+  if (HoistTablePanel::Instance() &&
+      HoistTablePanel::Instance()->IsActivePage())
+    return InteractionScope::Support;
+  if (SceneObjectTablePanel::Instance() &&
+      SceneObjectTablePanel::Instance()->IsActivePage())
+    return InteractionScope::SceneObject;
+  return InteractionScope::None;
+}
+
+// Classifies a picked UUID using the current scene's typed containers.
+Viewer2DPanel::SceneElementKind
+Viewer2DPanel::ResolveSceneElementKind(const std::string &uuid) const {
+  const auto &scene = ConfigManager::Get().GetScene();
+  if (scene.fixtures.find(uuid) != scene.fixtures.end())
+    return SceneElementKind::Fixture;
+  if (scene.trusses.find(uuid) != scene.trusses.end())
+    return SceneElementKind::Truss;
+  if (scene.supports.find(uuid) != scene.supports.end())
+    return SceneElementKind::Support;
+  if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end())
+    return SceneElementKind::SceneObject;
+  return SceneElementKind::None;
+}
+
+// Snapshots all typed selections for policy evaluation.
+viewer2d::interaction::SelectionBuckets
+Viewer2DPanel::CurrentSelectionBuckets() const {
+  const ConfigManager &cfg = ConfigManager::Get();
+  return {cfg.GetSelectedFixtures(), cfg.GetSelectedTrusses(),
+          cfg.GetSelectedSupports(), cfg.GetSelectedSceneObjects()};
+}
+
+// Executes the panel-owned picking operation selected by the scope policy.
+bool Viewer2DPanel::ResolvePickForScope(
+    InteractionScope scope, const wxPoint &pickPos, int viewportWidth,
+    int viewportHeight, size_t hiddenLayersHash, bool clickSelection,
+    std::string &uuidOut) {
+  const auto route =
+      viewer2d::interaction::Viewer2DInteractionScopePolicy::ResolveHoverRoute(
+          scope);
+  if (route.queryKind == PickQueryKind::PickUuid)
+    return TryResolvePickUuidWithCache(pickPos, viewportWidth, viewportHeight,
+                                       hiddenLayersHash, uuidOut);
+  if (route.queryKind == PickQueryKind::None)
+    return false;
+  return TryResolvePickLabelWithCache(
+      route.queryKind, pickPos, viewportWidth, viewportHeight, hiddenLayersHash,
+      clickSelection, uuidOut);
+}
+
+// Clears table hover state that cannot belong to the active scoped query.
+void Viewer2DPanel::ClearHoverForOtherScopes(InteractionScope scope) {
+  if (scope == InteractionScope::CrossTable)
+    return;
+  if (scope != InteractionScope::Fixture && FixtureTablePanel::Instance())
+    FixtureTablePanel::Instance()->HighlightFixture(std::string());
+  if (scope != InteractionScope::Truss && TrussTablePanel::Instance())
+    TrussTablePanel::Instance()->HighlightTruss(std::string());
+  if (scope != InteractionScope::SceneObject &&
+      SceneObjectTablePanel::Instance())
+    SceneObjectTablePanel::Instance()->HighlightObject(std::string());
+}
+
+// Applies a pure click-selection decision to configuration, tables, and viewer.
+bool Viewer2DPanel::ApplyClickSelectionDecision(
+    const viewer2d::interaction::ClickSelectionDecision &decision) {
+  ConfigManager &cfg = ConfigManager::Get();
+  if (decision.clearAll) {
+    const auto current = CurrentSelectionBuckets();
+    const bool changed = !current.fixtures.empty() || !current.trusses.empty() ||
+                         !current.supports.empty() ||
+                         !current.sceneObjects.empty();
+    if (changed) {
+      cfg.PushUndoState("clear selection");
+      cfg.SetSelectedFixtures({});
+      cfg.SetSelectedTrusses({});
+      cfg.SetSelectedSupports({});
+      cfg.SetSelectedSceneObjects({});
+      if (Viewer2DRenderPanel::Instance())
+        Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
+    }
+    m_controller.SetSelectedUuids({});
+    if (FixtureTablePanel::Instance())
+      FixtureTablePanel::Instance()->ClearSelection();
+    if (TrussTablePanel::Instance())
+      TrussTablePanel::Instance()->ClearSelection();
+    if (HoistTablePanel::Instance())
+      HoistTablePanel::Instance()->ClearSelection();
+    if (SceneObjectTablePanel::Instance())
+      SceneObjectTablePanel::Instance()->ClearSelection();
+    return changed;
+  }
+
+  bool changed = false;
+  std::vector<std::string> selection;
+  switch (decision.changedKind) {
+  case SceneElementKind::Fixture:
+    selection = decision.selection.fixtures;
+    if (selection != cfg.GetSelectedFixtures()) {
+      cfg.PushUndoState("fixture selection");
+      cfg.SetSelectedFixtures(selection);
+      changed = true;
+      if (Viewer2DRenderPanel::Instance())
+        Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
+    }
+    if (FixtureTablePanel::Instance())
+      FixtureTablePanel::Instance()->SelectByUuid(selection, false);
+    break;
+  case SceneElementKind::Truss:
+    selection = decision.selection.trusses;
+    if (selection != cfg.GetSelectedTrusses()) {
+      cfg.PushUndoState("truss selection");
+      cfg.SetSelectedTrusses(selection);
+      changed = true;
+    }
+    if (TrussTablePanel::Instance())
+      TrussTablePanel::Instance()->SelectByUuid(selection, false);
+    break;
+  case SceneElementKind::Support:
+    selection = decision.selection.supports;
+    if (selection != cfg.GetSelectedSupports()) {
+      cfg.PushUndoState("support selection");
+      cfg.SetSelectedSupports(selection);
+      changed = true;
+    }
+    if (HoistTablePanel::Instance())
+      HoistTablePanel::Instance()->SelectByUuid(selection, false);
+    break;
+  case SceneElementKind::SceneObject:
+    selection = decision.selection.sceneObjects;
+    if (selection != cfg.GetSelectedSceneObjects()) {
+      cfg.PushUndoState("scene object selection");
+      cfg.SetSelectedSceneObjects(selection);
+      changed = true;
+    }
+    if (SceneObjectTablePanel::Instance())
+      SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
+    break;
+  case SceneElementKind::None:
+    return false;
+  }
+
+  if (ResolveInteractionScope() == InteractionScope::CrossTable) {
+    m_controller.SetSelectedUuids(decision.viewerSelection);
+  } else {
+    m_controller.SetSelectedUuids(
+        BuildViewerSelectionForTableSelection(cfg, selection,
+                                              decision.additive),
+        decision.additive ? BuildDirectSelection(cfg) : selection);
+  }
+  return changed;
+}
+
 // Updates hover highlighting through the lightweight pick-UUID path when
 // available.
 bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
@@ -3084,18 +3253,11 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
       m_interaction.mode != DragMode::None)
     return false;
 
-  const bool crossTableActions = IsCrossTableViewportActionsEnabled();
-  const bool fixtureActive = FixtureTablePanel::Instance() &&
-                             FixtureTablePanel::Instance()->IsActivePage();
-  const bool trussActive = TrussTablePanel::Instance() &&
-                           TrussTablePanel::Instance()->IsActivePage();
-  const bool sceneObjectActive =
-      SceneObjectTablePanel::Instance() &&
-      SceneObjectTablePanel::Instance()->IsActivePage();
-  const bool hoistActive = HoistTablePanel::Instance() &&
-                           HoistTablePanel::Instance()->IsActivePage();
-  if (!crossTableActions &&
-      (hoistActive || (!fixtureActive && !trussActive && !sceneObjectActive)))
+  const InteractionScope scope = ResolveInteractionScope();
+  const auto route =
+      viewer2d::interaction::Viewer2DInteractionScopePolicy::ResolveHoverRoute(
+          scope);
+  if (!route.fastUuidPickAllowed)
     return false;
 
   const RenderSize renderSize = ResolveRenderSize(this);
@@ -3115,20 +3277,12 @@ bool Viewer2DPanel::TryUpdateHoverHighlightFast(const wxPoint &screenPos) {
     return true;
   }
 
-  const auto &scene = ConfigManager::Get().GetScene();
-  std::string newUuid;
-  if ((crossTableActions || fixtureActive) &&
-      scene.fixtures.find(pickedUuid) != scene.fixtures.end())
-    newUuid = pickedUuid;
-  else if ((crossTableActions || trussActive) &&
-           scene.trusses.find(pickedUuid) != scene.trusses.end())
-    newUuid = pickedUuid;
-  else if ((crossTableActions || hoistActive) &&
-           scene.supports.find(pickedUuid) != scene.supports.end())
-    newUuid = pickedUuid;
-  else if ((crossTableActions || sceneObjectActive) &&
-           scene.sceneObjects.find(pickedUuid) != scene.sceneObjects.end())
-    newUuid = pickedUuid;
+  const SceneElementKind kind = ResolveSceneElementKind(pickedUuid);
+  const std::string newUuid =
+      viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(scope,
+                                                                     kind)
+          ? pickedUuid
+          : std::string();
 
   const bool changed = ApplyHoverUuid(newUuid, true);
   if (changed)
@@ -3168,54 +3322,17 @@ void Viewer2DPanel::RunHoverHitTest(const wxPoint &screenPos) {
   std::string newUuid;
   bool found = false;
 
-  if (IsCrossTableViewportActionsEnabled()) {
-    found =
-        TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, newUuid);
-  } else if (FixtureTablePanel::Instance() &&
-             FixtureTablePanel::Instance()->IsActivePage()) {
-    found =
-        TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos, w, h,
-                                     hiddenLayersHash, false, newUuid);
-    if (found) {
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->HighlightTruss(std::string());
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    }
-  } else if (TrussTablePanel::Instance() &&
-             TrussTablePanel::Instance()->IsActivePage()) {
-    found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos, w,
-                                         h, hiddenLayersHash, false, newUuid);
-    if (found) {
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(std::string());
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    }
-  } else if (HoistTablePanel::Instance() &&
-             HoistTablePanel::Instance()->IsActivePage()) {
-    found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos, w,
-                                         h, hiddenLayersHash, false, newUuid);
-    if (found) {
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(std::string());
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->HighlightTruss(std::string());
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->HighlightObject(std::string());
-    }
-  } else if (SceneObjectTablePanel::Instance() &&
-             SceneObjectTablePanel::Instance()->IsActivePage()) {
-    found =
-        TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
-                                     w, h, hiddenLayersHash, false, newUuid);
-    if (found) {
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->HighlightFixture(std::string());
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->HighlightTruss(std::string());
-    }
+  const InteractionScope scope = ResolveInteractionScope();
+  found = ResolvePickForScope(scope, pickPos, w, h, hiddenLayersHash, false,
+                              newUuid);
+  if (found &&
+      !viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
+          scope, ResolveSceneElementKind(newUuid))) {
+    found = false;
+    newUuid.clear();
   }
+  if (found)
+    ClearHoverForOtherScopes(scope);
 
   if (found) {
     ApplyHoverUuid(newUuid, true);
@@ -3330,86 +3447,22 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
-    bool found = false;
-    DragTarget target = DragTarget::None;
-    if (FixtureTablePanel::Instance() &&
-        FixtureTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos,
-                                           w, h, hiddenLayersHash, false, uuid);
-      target = DragTarget::Fixtures;
-    } else if (TrussTablePanel::Instance() &&
-               TrussTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos,
-                                           w, h, hiddenLayersHash, false, uuid);
-      target = DragTarget::Trusses;
-    } else if (HoistTablePanel::Instance() &&
-               HoistTablePanel::Instance()->IsActivePage()) {
-      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos,
-                                           w, h, hiddenLayersHash, false, uuid);
-      target = DragTarget::Supports;
-    } else if (SceneObjectTablePanel::Instance() &&
-               SceneObjectTablePanel::Instance()->IsActivePage()) {
-      found =
-          TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
-                                       w, h, hiddenLayersHash, false, uuid);
-      target = DragTarget::SceneObjects;
-    }
-
-    if (found && target != DragTarget::None) {
-      ConfigManager &cfg = ConfigManager::Get();
-      std::vector<std::string> selection;
-      switch (target) {
-      case DragTarget::Fixtures:
-        selection = cfg.GetSelectedFixtures();
-        break;
-      case DragTarget::Trusses:
-        selection = cfg.GetSelectedTrusses();
-        break;
-      case DragTarget::Supports:
-        selection = cfg.GetSelectedSupports();
-        break;
-      case DragTarget::SceneObjects:
-        selection = cfg.GetSelectedSceneObjects();
-        break;
-      default:
-        break;
-      }
-
-      auto it = std::find(selection.begin(), selection.end(), uuid);
-      const bool dragCurrentSelection = it != selection.end();
-      std::vector<std::string> activeUuids =
-          selection.size() > 1 || dragCurrentSelection
-              ? selection
-              : std::vector<std::string>{uuid};
-      viewer2d::interaction::SelectionBuckets dragSelection;
-
-      if (dragCurrentSelection) {
-        dragSelection.fixtures = cfg.GetSelectedFixtures();
-        dragSelection.trusses = cfg.GetSelectedTrusses();
-        dragSelection.supports = cfg.GetSelectedSupports();
-        dragSelection.sceneObjects = cfg.GetSelectedSceneObjects();
-      } else {
-        switch (target) {
-        case DragTarget::Fixtures:
-          dragSelection.fixtures = {uuid};
-          break;
-        case DragTarget::Trusses:
-          dragSelection.trusses = {uuid};
-          break;
-        case DragTarget::Supports:
-          dragSelection.supports = {uuid};
-          break;
-        case DragTarget::SceneObjects:
-          dragSelection.sceneObjects = {uuid};
-          break;
-        default:
-          break;
-        }
-      }
-
+    const InteractionScope scope = ResolveActiveTableScope();
+    const bool found = ResolvePickForScope(scope, pickPos, w, h,
+                                           hiddenLayersHash, false, uuid);
+    const SceneElementKind kind = ResolveSceneElementKind(uuid);
+    const DragTarget target =
+        viewer2d::interaction::Viewer2DSelectionPolicy::DragTargetFor(kind);
+    const auto drag =
+        viewer2d::interaction::Viewer2DSelectionPolicy::PrepareDrag(
+            target, uuid, CurrentSelectionBuckets());
+    if (found &&
+        viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(scope,
+                                                                       kind) &&
+        drag.valid) {
       ApplyHoverUuid(uuid, true);
-      m_interaction.BeginSelectionDrag(target, std::move(activeUuids),
-                                       std::move(dragSelection));
+      m_interaction.BeginSelectionDrag(drag.target, drag.activeUuids,
+                                       drag.selection);
     }
   }
 }
@@ -3564,27 +3617,15 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     std::string uuid;
     const wxPoint pickPos = ToFramebufferPoint(this, event.GetPosition());
     const size_t hiddenLayersHash = BuildHiddenLayersHash();
-    bool found = false;
-    if (IsCrossTableViewportActionsEnabled())
-      found =
-          TryResolvePickUuidWithCache(pickPos, w, h, hiddenLayersHash, uuid);
-    else if (FixtureTablePanel::Instance() &&
-             FixtureTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::FixtureLabel, pickPos,
-                                           w, h, hiddenLayersHash, true, uuid);
-    else if (TrussTablePanel::Instance() &&
-             TrussTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::TrussLabel, pickPos,
-                                           w, h, hiddenLayersHash, true, uuid);
-    else if (HoistTablePanel::Instance() &&
-             HoistTablePanel::Instance()->IsActivePage())
-      found = TryResolvePickLabelWithCache(PickQueryKind::HoistLabel, pickPos,
-                                           w, h, hiddenLayersHash, true, uuid);
-    else if (SceneObjectTablePanel::Instance() &&
-             SceneObjectTablePanel::Instance()->IsActivePage())
-      found =
-          TryResolvePickLabelWithCache(PickQueryKind::SceneObjectLabel, pickPos,
-                                       w, h, hiddenLayersHash, true, uuid);
+    const InteractionScope scope = ResolveInteractionScope();
+    bool found = ResolvePickForScope(scope, pickPos, w, h, hiddenLayersHash,
+                                     true, uuid);
+    if (found &&
+        !viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
+            scope, ResolveSceneElementKind(uuid))) {
+      found = false;
+      uuid.clear();
+    }
 
     ConfigManager &cfg = ConfigManager::Get();
     if (m_measureToolState.enabled) {
@@ -3675,201 +3716,28 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
         }
       }
     }
-    bool selectionChanged = false;
     if (found) {
       m_hasHover = true;
       m_hoverUuid = uuid;
       m_controller.SetHighlightUuid(m_hoverUuid);
-      bool additive = event.ShiftDown() || event.ControlDown();
-      const bool addOnly = event.ControlDown();
-      std::vector<std::string> selection;
-      if (IsCrossTableViewportActionsEnabled()) {
-        auto updateSelection = [&](std::vector<std::string> current) {
-          if (additive) {
-            auto it = std::find(current.begin(), current.end(), uuid);
-            if (it != current.end() && !addOnly)
-              current.erase(it);
-            else if (it == current.end())
-              current.push_back(uuid);
-            return current;
-          }
-          return std::vector<std::string>{uuid};
-        };
-        const auto &scene = cfg.GetScene();
-        if (scene.fixtures.find(uuid) != scene.fixtures.end()) {
-          selection = updateSelection(additive ? cfg.GetSelectedFixtures()
-                                               : std::vector<std::string>{});
-          if (selection != cfg.GetSelectedFixtures()) {
-            cfg.PushUndoState("fixture selection");
-            cfg.SetSelectedFixtures(selection);
-            selectionChanged = true;
-          }
-          if (FixtureTablePanel::Instance())
-            FixtureTablePanel::Instance()->SelectByUuid(selection, false);
-        } else if (scene.trusses.find(uuid) != scene.trusses.end()) {
-          selection = updateSelection(additive ? cfg.GetSelectedTrusses()
-                                               : std::vector<std::string>{});
-          if (selection != cfg.GetSelectedTrusses()) {
-            cfg.PushUndoState("truss selection");
-            cfg.SetSelectedTrusses(selection);
-            selectionChanged = true;
-          }
-          if (TrussTablePanel::Instance())
-            TrussTablePanel::Instance()->SelectByUuid(selection, false);
-        } else if (scene.supports.find(uuid) != scene.supports.end()) {
-          selection = updateSelection(additive ? cfg.GetSelectedSupports()
-                                               : std::vector<std::string>{});
-          if (selection != cfg.GetSelectedSupports()) {
-            cfg.PushUndoState("support selection");
-            cfg.SetSelectedSupports(selection);
-            selectionChanged = true;
-          }
-          if (HoistTablePanel::Instance())
-            HoistTablePanel::Instance()->SelectByUuid(selection, false);
-        } else if (scene.sceneObjects.find(uuid) != scene.sceneObjects.end()) {
-          selection = updateSelection(additive ? cfg.GetSelectedSceneObjects()
-                                               : std::vector<std::string>{});
-          if (selection != cfg.GetSelectedSceneObjects()) {
-            cfg.PushUndoState("scene object selection");
-            cfg.SetSelectedSceneObjects(selection);
-            selectionChanged = true;
-          }
-          if (SceneObjectTablePanel::Instance())
-            SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
-        }
-        std::vector<std::string> mergedSelection;
-        const auto appendSelection =
-            [&](const std::vector<std::string> &source) {
-              mergedSelection.insert(mergedSelection.end(), source.begin(),
-                                     source.end());
-            };
-        appendSelection(cfg.GetSelectedFixtures());
-        appendSelection(cfg.GetSelectedTrusses());
-        appendSelection(cfg.GetSelectedSupports());
-        appendSelection(cfg.GetSelectedSceneObjects());
-        m_controller.SetSelectedUuids(mergedSelection);
-      } else if (FixtureTablePanel::Instance() &&
-                 FixtureTablePanel::Instance()->IsActivePage()) {
-        if (additive)
-          selection = cfg.GetSelectedFixtures();
-        if (additive) {
-          auto it = std::find(selection.begin(), selection.end(), uuid);
-          if (it != selection.end() && !addOnly)
-            selection.erase(it);
-          else if (it == selection.end())
-            selection.push_back(uuid);
-        } else {
-          selection = {uuid};
-        }
-        if (selection != cfg.GetSelectedFixtures()) {
-          cfg.PushUndoState("fixture selection");
-          cfg.SetSelectedFixtures(selection);
-          selectionChanged = true;
-          if (Viewer2DRenderPanel::Instance())
-            Viewer2DRenderPanel::Instance()
-                ->RefreshLabelControlsFromSelection();
-        }
-        m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive),
-            additive ? BuildDirectSelection(cfg) : selection);
-        FixtureTablePanel::Instance()->SelectByUuid(selection, false);
-      } else if (TrussTablePanel::Instance() &&
-                 TrussTablePanel::Instance()->IsActivePage()) {
-        if (additive)
-          selection = cfg.GetSelectedTrusses();
-        if (additive) {
-          auto it = std::find(selection.begin(), selection.end(), uuid);
-          if (it != selection.end() && !addOnly)
-            selection.erase(it);
-          else if (it == selection.end())
-            selection.push_back(uuid);
-        } else {
-          selection = {uuid};
-        }
-        if (selection != cfg.GetSelectedTrusses()) {
-          cfg.PushUndoState("truss selection");
-          cfg.SetSelectedTrusses(selection);
-          selectionChanged = true;
-        }
-        m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive),
-            additive ? BuildDirectSelection(cfg) : selection);
-        TrussTablePanel::Instance()->SelectByUuid(selection, false);
-      } else if (HoistTablePanel::Instance() &&
-                 HoistTablePanel::Instance()->IsActivePage()) {
-        if (additive)
-          selection = cfg.GetSelectedSupports();
-        if (additive) {
-          auto it = std::find(selection.begin(), selection.end(), uuid);
-          if (it != selection.end() && !addOnly)
-            selection.erase(it);
-          else if (it == selection.end())
-            selection.push_back(uuid);
-        } else {
-          selection = {uuid};
-        }
-        if (selection != cfg.GetSelectedSupports()) {
-          cfg.PushUndoState("support selection");
-          cfg.SetSelectedSupports(selection);
-          selectionChanged = true;
-        }
-        m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive),
-            additive ? BuildDirectSelection(cfg) : selection);
-        HoistTablePanel::Instance()->SelectByUuid(selection, false);
-      } else if (SceneObjectTablePanel::Instance() &&
-                 SceneObjectTablePanel::Instance()->IsActivePage()) {
-        if (additive)
-          selection = cfg.GetSelectedSceneObjects();
-        if (additive) {
-          auto it = std::find(selection.begin(), selection.end(), uuid);
-          if (it != selection.end() && !addOnly)
-            selection.erase(it);
-          else if (it == selection.end())
-            selection.push_back(uuid);
-        } else {
-          selection = {uuid};
-        }
-        if (selection != cfg.GetSelectedSceneObjects()) {
-          cfg.PushUndoState("scene object selection");
-          cfg.SetSelectedSceneObjects(selection);
-          selectionChanged = true;
-        }
-        m_controller.SetSelectedUuids(
-            BuildViewerSelectionForTableSelection(cfg, selection, additive),
-            additive ? BuildDirectSelection(cfg) : selection);
-        SceneObjectTablePanel::Instance()->SelectByUuid(selection, false);
-      }
     } else {
       m_hasHover = false;
       m_hoverUuid.clear();
       m_controller.SetHighlightUuid("");
-      const bool hasAnySelection = !cfg.GetSelectedFixtures().empty() ||
-                                   !cfg.GetSelectedTrusses().empty() ||
-                                   !cfg.GetSelectedSupports().empty() ||
-                                   !cfg.GetSelectedSceneObjects().empty();
-      if (hasAnySelection) {
-        cfg.PushUndoState("clear selection");
-        cfg.SetSelectedFixtures({});
-        cfg.SetSelectedTrusses({});
-        cfg.SetSelectedSupports({});
-        cfg.SetSelectedSceneObjects({});
-        selectionChanged = true;
-        if (Viewer2DRenderPanel::Instance())
-          Viewer2DRenderPanel::Instance()->RefreshLabelControlsFromSelection();
-      }
-
-      m_controller.SetSelectedUuids({});
-
-      if (FixtureTablePanel::Instance())
-        FixtureTablePanel::Instance()->ClearSelection();
-      if (TrussTablePanel::Instance())
-        TrussTablePanel::Instance()->ClearSelection();
-      if (HoistTablePanel::Instance())
-        HoistTablePanel::Instance()->ClearSelection();
-      if (SceneObjectTablePanel::Instance())
-        SceneObjectTablePanel::Instance()->ClearSelection();
     }
+
+    const SceneElementKind clickedKind = ResolveSceneElementKind(uuid);
+    const bool eligible =
+        found &&
+        viewer2d::interaction::Viewer2DInteractionScopePolicy::Accepts(
+            scope, clickedKind);
+    const auto selectionDecision =
+        viewer2d::interaction::Viewer2DSelectionPolicy::DecideClick(
+            {eligible, clickedKind, uuid, event.ShiftDown(), event.ControlDown(),
+             scope == InteractionScope::CrossTable,
+             CurrentSelectionBuckets()});
+    const bool selectionChanged =
+        ApplyClickSelectionDecision(selectionDecision);
     const bool highlightChanged =
         oldHasHover != m_hasHover || oldHoverUuid != m_hoverUuid;
     if (selectionChanged || highlightChanged)
@@ -4225,8 +4093,11 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     int dy = framebufferPos.y - lastFramebufferPos.y;
     if (dx == 0 && dy == 0)
       return;
-    m_offsetX += dx / m_zoom;
-    m_offsetY += dy / m_zoom;
+    const auto navigation =
+        viewer2d::interaction::Viewer2DNavigationPolicy::ApplyDragPan(
+            {m_offsetX, m_offsetY, m_zoom}, dx, dy);
+    m_offsetX = navigation.view.offsetX;
+    m_offsetY = navigation.view.offsetY;
     m_placementViewRevision.Invalidate();
     m_runtimeState.MarkViewMotion();
     m_lastMousePos = pos;
@@ -4261,11 +4132,11 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
   float steps = 0.0f;
   if (deltaWheel != 0)
     steps = static_cast<float>(rotation) / static_cast<float>(deltaWheel);
-  float factor = std::pow(1.1f, steps);
-  m_zoom *= factor;
+  const auto navigation =
+      viewer2d::interaction::Viewer2DNavigationPolicy::ApplyWheelZoom(
+          {m_offsetX, m_offsetY, m_zoom}, steps);
+  m_zoom = navigation.view.zoom;
   m_runtimeState.MarkViewMotion();
-  if (m_zoom < 0.1f)
-    m_zoom = 0.1f;
   m_placementViewRevision.Invalidate();
   if (m_placementSession.IsActive())
     AlignContinuousElementToPointer(event.GetPosition());
@@ -4276,39 +4147,33 @@ void Viewer2DPanel::OnMouseWheel(wxMouseEvent &event) {
 
 // Applies keyboard pan and zoom navigation to the 2D viewport.
 bool Viewer2DPanel::TryHandleViewportNavigationKey(int keyCode, bool altDown) {
-  const float panStep = 10.0f / m_zoom;
-
+  using NavigationKey = viewer2d::interaction::NavigationKey;
+  NavigationKey key = NavigationKey::Unsupported;
   switch (keyCode) {
   case WXK_LEFT:
-    if (altDown)
-      m_zoom *= 1.1f;
-    else
-      m_offsetX += panStep;
+    key = NavigationKey::Left;
     break;
   case WXK_RIGHT:
-    if (altDown)
-      m_zoom /= 1.1f;
-    else
-      m_offsetX -= panStep;
+    key = NavigationKey::Right;
     break;
   case WXK_UP:
-    if (altDown)
-      m_zoom *= 1.1f;
-    else
-      m_offsetY -= panStep;
+    key = NavigationKey::Up;
     break;
   case WXK_DOWN:
-    if (altDown)
-      m_zoom /= 1.1f;
-    else
-      m_offsetY += panStep;
+    key = NavigationKey::Down;
     break;
   default:
-    return false;
+    break;
   }
 
-  if (m_zoom < 0.1f)
-    m_zoom = 0.1f;
+  const auto navigation =
+      viewer2d::interaction::Viewer2DNavigationPolicy::ApplyKeyboard(
+          {m_offsetX, m_offsetY, m_zoom}, key, altDown);
+  if (!navigation.handled)
+    return false;
+  m_offsetX = navigation.view.offsetX;
+  m_offsetY = navigation.view.offsetY;
+  m_zoom = navigation.view.zoom;
   m_placementViewRevision.Invalidate();
   if (m_placementSession.IsActive() && m_hasLastMousePos)
     AlignContinuousElementToPointer(m_lastMousePos);
