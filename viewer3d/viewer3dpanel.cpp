@@ -1057,9 +1057,8 @@ void Viewer3DPanel::OnPaint(wxPaintEvent &event) {
     const bool skipLabelsWhenMoving =
         ConfigManager::Get().GetFloat("viewer3d_skip_labels_when_moving") >= 0.5f;
   const bool skipLabelWork =
-      m_controller.IsInteractiveTransformActive() ||
-      (m_runtimeState.IsCameraMoving() &&
-       (IsFastInteractionModeEnabled() || skipLabelsWhenMoving));
+      m_runtimeState.IsCameraMoving() &&
+        (IsFastInteractionModeEnabled() || skipLabelsWhenMoving);
 
     m_runtimeState.ObserveCameraFingerprint(cameraFingerprint);
 
@@ -3085,12 +3084,12 @@ bool Viewer3DPanel::ApplySelectionDragDelta(
   if (m_continuousPlacementSession.IsBatchActive())
     policy = scene_grouping::InteractiveTransformPolicy{false, false, false,
                                                          false};
-  const auto transformFeedback = scene_grouping::BuildInteractiveSelectionFeedback(
-      cfg.GetScene(), selection, policy);
+  if (m_activeTransformTargets.empty())
+    m_activeTransformTargets = scene_grouping::BuildInteractiveTransformTargets(
+        cfg.GetScene(), selection, policy);
   if (hasTranslation) {
-    scene_grouping::TranslateSelection(
-        cfg.GetScene(), selection, {dxMm, dyMm, dzMm},
-        transform_space::TransformSpace::World, policy);
+    scene_grouping::TranslateTargets(cfg.GetScene(), m_activeTransformTargets,
+                                     {dxMm, dyMm, dzMm});
   }
     if (!m_continuousPlacementSession.IsBatchActive()) {
       if (auto snap = FindActiveMagnetSnap()) {
@@ -3106,13 +3105,8 @@ bool Viewer3DPanel::ApplySelectionDragDelta(
     }
     m_selectionDragSession.ApplyAnchorDelta(deltaMeters);
     UpdateSelectionDragStatusPosition();
-    const bool changed = hasTranslation ||
-                         previousSnap.has_value() !=
-                             m_selectionDragSession.PendingSnap().has_value();
-    if (changed)
-        m_controller.MarkInteractiveTransformsDirty(
-            transformFeedback.highlightedUuids);
-    return changed;
+    return hasTranslation || previousSnap.has_value() ||
+           m_selectionDragSession.PendingSnap().has_value();
 }
 
 // Updates the status bar with the active selection drag insertion point.
@@ -3131,7 +3125,6 @@ void Viewer3DPanel::FinalizeSelectionDrag() {
                                 m_selectionDragSession.Selection().trusses.size(), m_selectionDragSession.Selection().sceneObjects.size());
     if (!m_selectionDragActivation.HasMoved())
         return;
-
     FinishInteractiveTransformPresentation();
 
     ConfigManager& cfg = ConfigManager::Get();
@@ -3706,6 +3699,13 @@ void Viewer3DPanel::OnMouseMove(wxMouseEvent &event) {
     }
 
   if (m_selectionDragActivation.IsArmed() && event.Dragging() && event.LeftIsDown()) {
+        const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+        const auto latest = interactive_frame::ResolveLatestPointer(
+            {pos.x, pos.y}, GetClientRect().Contains(livePos)
+                                ? std::optional<interactive_frame::PointerPosition>(
+                                      {livePos.x, livePos.y})
+                                : std::nullopt);
+        pos = wxPoint(latest.x, latest.y);
         bool changed = false;
         const int dx = pos.x - m_lastMousePos.x;
         const int dy = pos.y - m_lastMousePos.y;
@@ -4047,7 +4047,6 @@ void Viewer3DPanel::OnThreadRefresh(wxThreadEvent &event) {
 
     const bool resourceSyncPending = m_controller.IsResourceSyncPending();
     const bool hasRelevantVisualChange =
-        m_controller.IsInteractiveTransformActive() ||
         m_runtimeState.ShouldRepaintForThreadRefresh(
             {ComputeCameraFingerprint(m_camera), resourceSyncPending,
              m_rectSelecting, m_navigationSession.IsActive()});

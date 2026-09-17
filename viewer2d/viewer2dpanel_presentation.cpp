@@ -23,29 +23,7 @@ void Viewer2DPanel::RequestRepaint(const wxRect &dirtyRect) {
   RequestRepaint();
 }
 
-// Presents a moved scene transform before further pointer events run.
-void Viewer2DPanel::PresentInteractiveTransformFrame() {
-  wxASSERT_MSG(wxIsMainThread(),
-               "Interactive presentation must run on the UI thread.");
-  RequestRepaint();
-  const auto now = std::chrono::steady_clock::now();
-  if (now - m_lastInteractivePresentation >= std::chrono::milliseconds(16)) {
-    m_lastInteractivePresentation = now;
-    Update();
-  }
-}
-
-// Flushes the final transform frame and restores settled rendering.
-void Viewer2DPanel::FinishInteractiveTransformPresentation() {
-  if (!m_controller.IsInteractiveTransformActive())
-    return;
-  m_controller.SetInteractiveTransformActive(false);
-  m_controller.MarkSceneTransformsDirty();
-  RequestRepaint();
-  Update();
-}
-
-// Clears repaint coalescing after a paint event begins.
+// Clears repaint coalescing after paint begins.
 void Viewer2DPanel::ResetRepaintCoalescing() {
   m_repaintQueued = false;
   m_fullRepaintQueued = false;
@@ -65,4 +43,25 @@ void Viewer2DPanel::TrackRefreshTelemetry() {
     m_refreshesInCurrentWindow = 0;
   }
 #endif
+}
+
+
+// Presents the newest transform at a bounded interactive frame cadence.
+void Viewer2DPanel::PresentInteractiveTransformFrame() {
+  RequestRepaint();
+  if (!m_paintInProgress && m_interactivePresentationCadence.IsPresentationDue(
+                                std::chrono::steady_clock::now()))
+    Update();
+}
+
+// Flushes the final transform and reconciles transform-dependent caches once.
+void Viewer2DPanel::FinishInteractiveTransformPresentation() {
+  if (m_activeTransformTargets.empty())
+    return;
+  m_activeTransformTargets.clear();
+  m_controller.MarkSceneTransformsDirty();
+  m_interactivePresentationCadence.Reset();
+  RequestRepaint();
+  if (!m_paintInProgress)
+    Update();
 }

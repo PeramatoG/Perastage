@@ -40,6 +40,7 @@
 #include "ui_render_size.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
+#include "interactive_frame_policy.h"
 #include <array>
 #include <functional>
 #include <memory>
@@ -266,6 +267,8 @@ private:
     std::string m_hoverUuid;
 
     bool m_paintInProgress = false;
+    interactive_frame::Cadence m_interactivePresentationCadence;
+    std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
 
     Viewer2DMeasureToolState m_measureState;
     wxPoint m_measurePreviewMousePos;

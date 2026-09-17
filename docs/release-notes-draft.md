@@ -10,7 +10,7 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
-- Restored smooth live geometry updates while dragging or placing objects in the 2D and 3D viewers, with frame-coalesced presentation, lightweight bounds refreshes, and temporary label suppression during movement.
+- Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.
 
 ## Technical and packaging changes
 

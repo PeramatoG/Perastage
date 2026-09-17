@@ -36,6 +36,7 @@
 #include "interaction/viewer2d_runtime_state.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
+#include "interactive_frame_policy.h"
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
 #include <array>
@@ -326,6 +327,9 @@ private:
   transform_space::TransformSpace m_transformSpace =
       transform_space::TransformSpace::World;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
+  std::vector<scene_grouping::SceneTransformTarget> m_activeTransformTargets;
+  interactive_frame::Cadence m_interactivePresentationCadence;
+  bool m_paintInProgress = false;
   viewer2d::interaction::Viewer2DPlacementSession m_placementSession;
   viewer2d::interaction::Viewer2DLinePointSelectionSession
       m_linePointSelectionSession;
@@ -344,7 +348,6 @@ private:
   bool m_mouseInside = false;
   bool m_hasHover = false;
   bool m_interactiveLabelMode = false;
-  std::chrono::steady_clock::time_point m_lastInteractivePresentation{};
   wxTimer m_interactionResumeTimer;
   wxTimer m_hoverHitTestTimer;
   wxPoint m_pendingHoverScreenPos;

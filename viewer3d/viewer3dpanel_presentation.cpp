@@ -1,24 +1,30 @@
 #include "viewer3dpanel.h"
 
-// Repaints an interactive transform before further mouse events run.
+#include <chrono>
+
+// Presents the newest transform at a bounded interactive frame cadence.
 void Viewer3DPanel::PresentInteractiveTransformFrame() {
-    wxASSERT_MSG(wxIsMainThread(),
-                 "Interactive presentation must run on the UI thread.");
     Refresh(false);
+    if (!m_paintInProgress &&
+        m_interactivePresentationCadence.IsPresentationDue(
+            std::chrono::steady_clock::now()))
+        Update();
 }
 
-// Flushes the final transform frame and restores settled rendering.
+// Flushes the final transform and reconciles transform-dependent caches once.
 void Viewer3DPanel::FinishInteractiveTransformPresentation() {
-    if (!m_controller.IsInteractiveTransformActive())
+    if (m_activeTransformTargets.empty())
         return;
-    m_controller.SetInteractiveTransformActive(false);
+    m_activeTransformTargets.clear();
     m_controller.MarkSceneTransformsDirty();
+    m_interactivePresentationCadence.Reset();
     Refresh(false);
     if (!m_paintInProgress)
         Update();
 }
 
-// Aligns the provisional fixture with the raw view-plane pointer position.
+// Aligns the provisional fixture with the raw view-plane position under the
+// pointer.
 bool Viewer3DPanel::AlignContinuousElementToPointer(const wxPoint &mousePos) {
     const RenderSize renderSize = ResolveRenderSize(this);
     if (!renderSize.IsValid() ||

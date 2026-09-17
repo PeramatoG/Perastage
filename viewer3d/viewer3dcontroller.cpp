@@ -77,6 +77,7 @@
 
 #include <wx/wx.h>
 #define NANOVG_GL2_IMPLEMENTATION
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cfloat>
@@ -96,7 +97,90 @@
 
 namespace fs = std::filesystem;
 
-#include "viewer3dcontroller_impl.h"
+struct Viewer3DController::Impl {
+  ResourceSyncState resourceSyncState;
+  std::unordered_map<std::string, BoundingBox> modelBounds;
+  size_t sceneVersion = 0;
+  size_t cachedVersion = static_cast<size_t>(-1);
+  bool sceneChangedDirty = true;
+  bool assetsChangedDirty = true;
+  bool visibilityChangedDirty = true;
+  std::unordered_map<std::string, BoundingBox> fixtureBounds;
+  std::unordered_map<std::string, BoundingBox> trussBounds;
+  std::unordered_map<std::string, BoundingBox> objectBounds;
+  std::unordered_set<std::string> boundsHiddenLayers;
+  std::vector<const std::pair<const std::string, Fixture> *> sortedFixtures;
+  std::vector<const std::pair<const std::string, Truss> *> sortedTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *> sortedObjects;
+  std::vector<const std::pair<const std::string, Fixture> *>
+      visibleSortedFixtures;
+  std::vector<const std::pair<const std::string, Truss> *> visibleSortedTrusses;
+  std::vector<const std::pair<const std::string, SceneObject> *>
+      visibleSortedObjects;
+  std::unordered_set<std::string> lastHiddenLayers;
+  std::unordered_set<std::string> lastHiddenFixtureTypes;
+  size_t sceneLayerMembershipFingerprint = 0;
+  bool hasSceneLayerMembershipFingerprint = false;
+  size_t hiddenLayersVersion = 0;
+  bool sortedListsDirty = true;
+  bool sortedListsLastWas2D = false;
+  Viewer2DView sortedListsLastView = Viewer2DView::Top;
+  mutable std::mutex sortedListsMutex;
+  std::unordered_map<std::string, std::array<float, 3>> typeColors;
+  std::unordered_map<std::string, std::array<float, 3>> layerColors;
+  std::string highlightUuid;
+  std::unordered_set<std::string> groupHighlightUuids;
+  std::unordered_set<std::string> selectedUuids;
+  std::unordered_set<std::string> primarySelectedUuids;
+  NVGcontext *vg = nullptr;
+  int font = -1;
+  int fontBold = -1;
+  ICanvas2D *captureCanvas = nullptr;
+  Viewer2DView captureView = Viewer2DView::Top;
+  bool captureIncludeGrid = true;
+  bool captureOnly = false;
+  bool captureUseSymbols = false;
+  std::optional<bool> forceBottomViewForTopFixturesOverride;
+  std::optional<bool> symbolCaptureRenderProfileOverride;
+  std::optional<bool> symbolCaptureIncludeCoplanarEdgesOverride;
+  SymbolCache bottomSymbolCache;
+  bool darkMode = false;
+  Viewer2DRenderMode activeRenderMode = Viewer2DRenderMode::White;
+  bool whiteModelStyleEnabled = false;
+  bool sketchStyleEnabled = false;
+  bool sketchBasePassActive = false;
+  bool pureWhiteStyleEnabled = false;
+  bool texturedStyleEnabled = false;
+  bool showSelectionOutline2D = false;
+  bool isInteracting = false;
+  bool cameraMoving = false;
+  bool useAdaptiveLineProfile = true;
+  bool skipOutlinesForCurrentFrame = false;
+  int updateResourcesCallsPerFrame = 0;
+  std::atomic<bool> resourceSyncPending{true};
+  std::atomic<bool> sceneReplacementActive{false};
+  mutable VisibleSet cachedVisibleSet;
+  mutable VisibleSet cachedLayerVisibleCandidates;
+  mutable size_t layerVisibleCandidatesSceneVersion = static_cast<size_t>(-1);
+  mutable std::unordered_set<std::string> layerVisibleCandidatesHiddenLayers;
+  mutable std::unordered_set<std::string>
+      layerVisibleCandidatesHiddenFixtureTypes;
+  mutable size_t layerVisibleCandidatesRevision = 0;
+  mutable size_t visibleSetLayerCandidatesRevision = static_cast<size_t>(-1);
+  mutable bool visibleSetFrustumCulling = false;
+  mutable float visibleSetMinPixels = -1.0f;
+  mutable std::array<int, 4> visibleSetViewport = {0, 0, 0, 0};
+  mutable std::array<double, 16> visibleSetModel = {};
+  mutable std::array<double, 16> visibleSetProjection = {};
+  mutable bool visibleSetIs2DViewer = false;
+  mutable Viewer2DView visibleSetView = Viewer2DView::Top;
+  std::unique_ptr<SceneRenderer> sceneRenderer;
+  std::unique_ptr<SketchPostProcessPass> sketchPostProcessPass;
+  std::unique_ptr<VisibilitySystem> visibilitySystem;
+  std::unique_ptr<SelectionSystem> selectionSystem;
+  std::unique_ptr<IdPickPass> idPickPass;
+  std::unique_ptr<LabelRenderSystem> labelRenderSystem;
+};
 
 struct LineRenderProfile {
   float lineWidth = 1.0f;
@@ -261,7 +345,8 @@ static void CombineHashValue(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
-// Computes a stable fingerprint for scene-element layer membership.
+// Computes a stable fingerprint for scene elements whose layer controls
+// visibility.
 static size_t ComputeSceneLayerMembershipFingerprint(const MvrScene &scene) {
   std::vector<std::string> entries;
   entries.reserve(scene.fixtures.size() + scene.trusses.size() +
@@ -801,7 +886,8 @@ bool Viewer3DController::EnsureBoundsComputed(
                                                         hiddenLayers);
 }
 
-// Updates lightweight controller state for the current frame.
+// Loads meshes or GDTF models referenced by scene objects. Called when the
+// scene is updated.
 void Viewer3DController::Update() { UpdateFrameStateLightweight(); }
 
 // Updates frame State Lightweight.
@@ -835,25 +921,6 @@ void Viewer3DController::UpdateFrameStateLightweight() {
         m_impl->layerVisibleCandidatesSceneVersion);
     MarkResourceSyncPending();
   }
-  RefreshTransformCachesIfDirty();
-}
-
-// Rebuilds transform-dependent bounds without synchronizing scene resources.
-void Viewer3DController::RefreshTransformCachesIfDirty() {
-  ConfigManager &cfg = ConfigManager::Get();
-  const auto hiddenLayers = ControllerSnapshotHiddenLayers(cfg);
-  BoundsCacheSystem::Context boundsContext{
-      m_impl->resourceSyncState,      m_impl->modelBounds,
-      m_impl->fixtureBounds,          m_impl->trussBounds,
-      m_impl->objectBounds,           m_impl->boundsHiddenLayers,
-      m_impl->sceneVersion,           m_impl->cachedVersion,
-      m_impl->sceneChangedDirty,      m_impl->assetsChangedDirty,
-      m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
-      m_impl->sortedListsDirty};
-  BoundsCacheSystem::RebuildIfDirty(
-      boundsContext, hiddenLayers, SceneDataManager::Instance().GetTrusses(),
-      SceneDataManager::Instance().GetSceneObjects(),
-      SceneDataManager::Instance().GetFixtures());
 }
 
 // Clears cached scene-entry pointers before the owning scene containers change.
@@ -886,27 +953,7 @@ void Viewer3DController::MarkSceneTransformsDirty() {
   std::lock_guard<std::mutex> lock(m_impl->sortedListsMutex);
   m_impl->sceneChangedDirty = true;
   m_impl->sortedListsDirty = true;
-}
-
-// Invalidates only bounds belonging to objects moved by an interactive transform.
-void Viewer3DController::MarkInteractiveTransformsDirty(
-    const std::vector<std::string> &uuids) {
-  m_impl->interactiveTransformActive = true;
-  BoundsCacheSystem::InvalidateTransformedBounds(
-      m_impl->fixtureBounds, m_impl->trussBounds, m_impl->objectBounds, uuids);
-  const auto appendUnique = [](auto &entries, const std::string &uuid) {
-    if (std::find(entries.begin(), entries.end(), uuid) == entries.end())
-      entries.push_back(uuid);
-  };
-  const auto &scene = ConfigManager::Get().GetScene();
-  for (const auto &uuid : uuids) {
-    if (scene.fixtures.contains(uuid))
-      appendUnique(m_impl->cachedVisibleSet.fixtureUuids, uuid);
-    else if (scene.trusses.contains(uuid))
-      appendUnique(m_impl->cachedVisibleSet.trussUuids, uuid);
-    else if (scene.sceneObjects.contains(uuid))
-      appendUnique(m_impl->cachedVisibleSet.objectUuids, uuid);
-  }
+  MarkResourceSyncPending();
 }
 
 // Marks resource Sync Pending.
@@ -987,7 +1034,8 @@ void Viewer3DController::UpdateResourcesIfDirty() {
       ConsolePanel::Instance()->AppendMessage(wxString::FromUTF8(msg));
   };
 
-  // Uses identical resource processing for normal viewing and symbol capture.
+  // Keep resource processing identical between normal viewing and symbol
+  // capture.
   callbacks.meshProcessingOptions = viewer3d::resources::MeshProcessingOptions{
       .enableMeshOptimization = true, .enableDiskCache = true};
 
@@ -1015,7 +1063,16 @@ void Viewer3DController::UpdateResourcesIfDirty() {
     m_impl->modelBounds.clear();
   }
 
-  RefreshTransformCachesIfDirty();
+  BoundsCacheSystem::Context boundsContext{
+      m_impl->resourceSyncState,      m_impl->modelBounds,
+      m_impl->fixtureBounds,          m_impl->trussBounds,
+      m_impl->objectBounds,           m_impl->boundsHiddenLayers,
+      m_impl->sceneVersion,           m_impl->cachedVersion,
+      m_impl->sceneChangedDirty,      m_impl->assetsChangedDirty,
+      m_impl->visibilityChangedDirty, m_impl->sortedListsMutex,
+      m_impl->sortedListsDirty};
+  BoundsCacheSystem::RebuildIfDirty(boundsContext, hiddenLayers, trusses,
+                                    objects, fixtures);
   m_impl->lastHiddenLayers = hiddenLayers;
   m_impl->lastHiddenFixtureTypes = cfg.GetHiddenFixtureTypes();
 }
@@ -1087,10 +1144,11 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
 
   context.fastInteractionMode = IsFastInteractionModeEnabled(cfg);
 
-  // Active camera and object transforms share the optional-work fast path.
-  context.skipOptionalWork = context.fastInteractionMode &&
-                             (m_impl->cameraMoving ||
-                              m_impl->interactiveTransformActive);
+  // During camera movement we prioritize frame pacing: keep drawing the
+  // scene and camera updates, but defer optional CPU/GPU work until the
+  // interaction grace period ends in Viewer3DPanel::ShouldPauseHeavyTasks().
+  context.skipOptionalWork =
+      m_impl->cameraMoving && context.fastInteractionMode;
   context.skipCapture = context.skipOptionalWork && skipCaptureWhenMoving;
   context.skipOutlinesForCurrentFrame =
       context.skipOptionalWork && skipOutlinesWhenMoving;
@@ -1100,7 +1158,8 @@ void Viewer3DController::RenderScene(bool wireframe, Viewer2DRenderMode mode,
   const bool isSideView = context.view == Viewer2DView::Side;
   const bool isBottomView = context.view == Viewer2DView::Bottom;
 
-  // Groups view-mode flags before render-pipeline orchestration.
+  // View mode flags are grouped here so the rest of RenderScene remains a
+  // straight orchestration flow.
   (void)isTopView;
   (void)isFrontView;
   (void)isSideView;
@@ -1416,16 +1475,6 @@ void Viewer3DController::SetDarkMode(bool enabled) {
 // Sets interacting.
 void Viewer3DController::SetInteracting(bool interacting) {
   m_impl->isInteracting = interacting;
-}
-
-// Records object-transform interaction independently from camera motion.
-void Viewer3DController::SetInteractiveTransformActive(bool active) {
-  m_impl->interactiveTransformActive = active;
-}
-
-// Reports whether an object-transform interaction is active.
-bool Viewer3DController::IsInteractiveTransformActive() const {
-  return m_impl->interactiveTransformActive;
 }
 
 // Sets camera Moving.
@@ -1791,7 +1840,12 @@ void Viewer3DController::ReleaseMeshBuffers(Mesh &mesh) {
   mesh.buffersReady = false;
 }
 
-// Draws a scaled triangle mesh with selection or highlight coloring.
+// Draws a mesh using the given color. When selected or highlighted the
+// mesh is rendered entirely in cyan or green respectively.
+// Draws a mesh using GL triangles. The optional scale parameter allows
+// converting vertex units (e.g. millimeters) to meters.
+// Draws a mesh using GL triangles. The optional scale parameter allows
+// converting vertex units (e.g. millimeters) to meters.
 // Draws the reference grid on one of the principal planes
 // Draws the XYZ axes centered at origin
 void Viewer3DController::DrawAxes() {

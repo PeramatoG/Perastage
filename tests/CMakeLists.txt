@@ -2943,6 +2943,12 @@ target_include_directories(viewer3d_interaction_policy_test PRIVATE
                            ../viewer3d/interaction)
 add_test(NAME Viewer3DInteractionPolicy COMMAND viewer3d_interaction_policy_test)
 
+add_executable(interactive_frame_policy_test
+               interactive_frame_policy_test.cpp
+               ../viewer_common/interactive_frame_policy.cpp)
+target_include_directories(interactive_frame_policy_test PRIVATE ../viewer_common)
+add_test(NAME InteractiveFramePolicy COMMAND interactive_frame_policy_test)
+
 add_executable(viewer2d_interaction_session_test
                viewer2d_interaction_session_test.cpp
                ../viewer2d/interaction/viewer2d_interaction_session.cpp)

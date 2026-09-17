@@ -1295,7 +1295,6 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   }
 
   ConfigManager &cfg = ConfigManager::Get();
-  m_controller.UpdateFrameStateLightweight();
   // Keep controller resources/cache in sync in the 2D viewer as well.
   // The 3D panel triggers this from its own render loop, but the 2D panel
   // renders directly through the shared controller and otherwise misses
@@ -1638,10 +1637,7 @@ void Viewer2DPanel::RenderInternal(bool swapBuffers) {
   bool drawFixtureLabels = true;
   if (m_renderOverrides && m_renderOverrides->drawFixtureLabels.has_value())
     drawFixtureLabels = m_renderOverrides->drawFixtureLabels.value();
-  const bool suppressInteractiveLabels =
-      swapBuffers && !m_renderOverrides &&
-      m_controller.IsInteractiveTransformActive();
-  if (drawFixtureLabels && !suppressInteractiveLabels) {
+  if (drawFixtureLabels) {
     m_controller.DrawAllFixtureLabels(w, h, m_view, m_zoom,
                                       m_interactiveLabelMode);
   }
@@ -1801,6 +1797,14 @@ bool Viewer2DPanel::RenderToRGBABackBufferFallback(
 // Handles paint events by refreshing interaction state and rendering the view.
 void Viewer2DPanel::OnPaint(wxPaintEvent &WXUNUSED(event)) {
   wxPaintDC dc(this);
+  if (m_paintInProgress)
+    return;
+  m_paintInProgress = true;
+  struct PaintGuard {
+    bool &active;
+    // Clears the paint guard when the current frame exits.
+    ~PaintGuard() { active = false; }
+  } paintGuard{m_paintInProgress};
   ResetRepaintCoalescing();
   InitGL();
 
@@ -2071,12 +2075,12 @@ bool Viewer2DPanel::ApplySelectionDelta(
   if (m_placementSession.IsBatchPlacement())
     policy =
         scene_grouping::InteractiveTransformPolicy{false, false, false, false};
-  const auto transformFeedback = scene_grouping::BuildInteractiveSelectionFeedback(
-      cfg.GetScene(), selection, policy);
+  if (m_activeTransformTargets.empty())
+    m_activeTransformTargets = scene_grouping::BuildInteractiveTransformTargets(
+        cfg.GetScene(), selection, policy);
   if (hasTranslation) {
-    scene_grouping::TranslateSelection(cfg.GetScene(), selection, deltaMm,
-                                       transform_space::TransformSpace::World,
-                                       policy);
+    scene_grouping::TranslateTargets(cfg.GetScene(), m_activeTransformTargets,
+                                     deltaMm);
   }
   if (!m_placementSession.IsBatchPlacement()) {
     if (auto snap = FindActiveMagnetSnap()) {
@@ -2088,12 +2092,8 @@ bool Viewer2DPanel::ApplySelectionDelta(
   }
   NotifyHighlightedWorldPosition(ComputeSelectionDragCenterMeters());
   ScheduleDragTableUpdate();
-  const bool changed =
-      hasTranslation || previousSnap.has_value() != m_pendingMagnetSnap.has_value();
-  if (changed)
-    m_controller.MarkInteractiveTransformsDirty(
-        transformFeedback.highlightedUuids);
-  return changed;
+  return hasTranslation || previousSnap.has_value() ||
+         m_pendingMagnetSnap.has_value();
 }
 
 void Viewer2DPanel::FinalizeSelectionDrag() {
@@ -4190,6 +4190,13 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
   }
 
   if (m_interaction.mode == DragMode::Selection && event.Dragging()) {
+    const wxPoint livePos = ScreenToClient(wxGetMousePosition());
+    const auto latest = interactive_frame::ResolveLatestPointer(
+        {pos.x, pos.y}, GetClientRect().Contains(livePos)
+                            ? std::optional<interactive_frame::PointerPosition>(
+                                  {livePos.x, livePos.y})
+                            : std::nullopt);
+    pos = wxPoint(latest.x, latest.y);
     const auto motion = m_interaction.ResolveSelectionMotion(
         {pos.x, pos.y}, (wxGetLocalTimeMillis() - m_dragPressTime).ToLong(),
         m_axisConstrainedMovementEnabled);
@@ -4200,8 +4207,7 @@ void Viewer2DPanel::OnMouseMove(wxMouseEvent &event) {
     if (ppm > 0.0f) {
       const float dxMeters = static_cast<float>(motion.deltaX) / ppm;
       const float dyMeters = static_cast<float>(-motion.deltaY) / ppm;
-      const bool changed =
-          ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
+      const bool changed = ApplySelectionDelta(MapDragDelta(dxMeters, dyMeters));
       MarkInteractionActivity();
       m_interaction.MarkSelectionMoved();
       if (changed)

@@ -43,7 +43,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/resource_sync_system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcamera.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller_impl.h
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dcontroller_cache_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/viewer3dpanel_presentation.cpp
