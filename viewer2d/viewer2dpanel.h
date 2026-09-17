@@ -30,6 +30,7 @@
 #include "canvas2d.h"
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
+#include "interaction/viewer2d_interaction_session.h"
 #include "magnet_snap.h"
 #include "transform_space.h"
 #include <wx/glcanvas.h>
@@ -208,9 +209,9 @@ public:
 private:
   mutable truss_attachment::CandidateResolver m_trussCandidateResolver;
   mutable truss_attachment_paths::Resolver m_trussAttachmentPathResolver;
-  enum class DragMode { None, View, Selection, RectSelection };
-  enum class DragAxis { None, Horizontal, Vertical };
-  enum class DragTarget { None, Fixtures, Trusses, Supports, SceneObjects };
+  using DragMode = viewer2d::interaction::DragMode;
+  using DragAxis = viewer2d::interaction::DragAxis;
+  using DragTarget = viewer2d::interaction::DragTarget;
   enum class PickQueryKind {
     None,
     FixtureLabel,
@@ -321,7 +322,6 @@ private:
   void QueueDragTableUpdate(DragTarget target,
                             std::vector<std::string> uuids);
 
-  static constexpr long kSelectionDragDelayMs = 150;
   static constexpr int kSelectionDragStartThresholdPx = 3;
   static constexpr int kDragTableUpdateIntervalMs = 50;
   static constexpr int kHoverHitTestIdleIntervalMs = 10;
@@ -346,24 +346,13 @@ private:
     std::string uuid;
   };
 
-  DragMode m_dragMode = DragMode::None;
-  bool m_middleMousePanning = false;
-  DragAxis m_dragAxis = DragAxis::None;
-  DragTarget m_dragTarget = DragTarget::None;
-  std::vector<std::string> m_dragSelectionUuids;
-  std::vector<std::string> m_dragFixtureUuids;
-  std::vector<std::string> m_dragTrussUuids;
-  std::vector<std::string> m_dragSupportUuids;
-  std::vector<std::string> m_dragSceneObjectUuids;
-  bool m_dragSelectionMoved = false;
-  bool m_dragSelectionPushedUndo = false;
+  viewer2d::interaction::Viewer2DInteractionSession m_interaction;
   bool m_magnetEnabled = false;
   bool m_leftDragSelectionMovementEnabled = false;
   bool m_axisConstrainedMovementEnabled = true;
   transform_space::TransformSpace m_transformSpace =
       transform_space::TransformSpace::World;
   std::optional<magnet_snap::SnapResult> m_pendingMagnetSnap;
-  bool m_draggedSincePress = false;
   bool m_continuousPlacementActive = false;
   bool m_linePointSelectionActive = false;
   bool m_linePointSelectionConsumeMouseUp = false;
@@ -383,10 +372,6 @@ private:
   std::function<void()> m_clipboardBatchConfirm;
   std::function<void()> m_clipboardBatchCancel;
   wxLongLong m_dragPressTime = 0;
-  bool m_rectSelecting = false;
-  bool m_rectSelectionAcrossAllTables = false;
-  wxPoint m_rectSelectStart;
-  wxPoint m_rectSelectEnd;
   wxPoint m_lastMousePos;
   bool m_hasLastMousePos = false;
   float m_offsetX = 0.0f;
