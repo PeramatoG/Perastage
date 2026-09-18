@@ -17,10 +17,19 @@
  */
 #pragma once
 
-#include <cstdint>
+#include "LayoutCollection.h"
+#include "canvas2d.h"
+#include "configservices.h"
+#include "layout_2d_view_rasterizer.h"
+#include "layout_viewer_interaction_session.h"
+#include "layout_viewer_selection_state.h"
+#include "symbolcache.h"
+#include "viewer2dpanel.h"
+#include "viewer2dstate.h"
 #include <chrono>
-#include <memory>
+#include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -28,21 +37,15 @@
 #include <vector>
 #include <wx/glcanvas.h>
 #include <wx/wx.h>
-#include "LayoutCollection.h"
-#include "configservices.h"
-#include "canvas2d.h"
-#include "layout_2d_view_rasterizer.h"
-#include "layout_viewer_interaction_session.h"
-#include "symbolcache.h"
-#include "viewer2dpanel.h"
-#include "viewer2dstate.h"
 
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_EDIT, wxCommandEvent);
 wxDECLARE_EVENT(EVT_LAYOUT_RENDER_READY, wxCommandEvent);
 wxDECLARE_EVENT(EVT_LAYOUT_VIEW_SELECTED, wxCommandEvent);
 
 class Viewer2DOffscreenRenderer;
-namespace startup { struct Metrics; }
+namespace startup {
+struct Metrics;
+}
 
 class LayoutViewerPanel : public wxGLCanvas {
 public:
@@ -276,6 +279,8 @@ private:
   void EmitEditViewRequest();
   void EmitViewSelectionChanged(int viewId);
   bool SelectElementAtPosition(const wxPoint &pos);
+  bool GetElementFrame(gui::layoutselection::LayoutElementRef element,
+                       layouts::Layout2DViewFrame &frame) const;
   bool GetLegendFrameById(int legendId,
                           layouts::Layout2DViewFrame &frame) const;
   bool GetEventTableFrameById(int tableId,
@@ -301,19 +306,20 @@ private:
   size_t HashLegendItems(
       const std::vector<LegendItem> &items,
       const layouts::LayoutLegendDefinition *legend = nullptr) const;
-  size_t ComputeLegendContentHash(
-      const layouts::LayoutLegendDefinition &legend) const;
+  size_t
+  ComputeLegendContentHash(const layouts::LayoutLegendDefinition &legend) const;
   void EnsureLegendDataCurrentForCacheValidation();
   wxImage BuildLegendImage(const wxSize &size, const wxSize &logicalSize,
                            double renderZoom,
                            const std::vector<LegendItem> &items,
                            const layouts::LayoutLegendDefinition &legend,
                            const SymbolDefinitionSnapshot *symbols) const;
-  size_t HashEventTableFields(
-      const layouts::LayoutEventTableDefinition &table) const;
-  wxImage BuildEventTableImage(
-      const wxSize &size, const wxSize &logicalSize, double renderZoom,
-      const layouts::LayoutEventTableDefinition &table) const;
+  size_t
+  HashEventTableFields(const layouts::LayoutEventTableDefinition &table) const;
+  wxImage
+  BuildEventTableImage(const wxSize &size, const wxSize &logicalSize,
+                       double renderZoom,
+                       const layouts::LayoutEventTableDefinition &table) const;
   size_t HashTextContent(const layouts::LayoutTextDefinition &text) const;
   size_t HashImageContent(const layouts::LayoutImageDefinition &image) const;
   void ClearCachedImageSource(ImageCache &cache);
@@ -327,28 +333,14 @@ private:
   using FrameDragMode = gui::layoutinteraction::FrameDragMode;
   wxCursor CursorForMode(FrameDragMode mode) const;
 
-  enum class SelectedElementType {
-    None,
-    View2D,
-    Legend,
-    EventTable,
-    Text,
-    Image
-  };
-
-  struct ZOrderedElement {
-    SelectedElementType type = SelectedElementType::None;
-    int id = -1;
-    int zIndex = 0;
-    size_t order = 0;
-  };
+  using LayoutElementKind = gui::layoutselection::LayoutElementKind;
+  using ZOrderedElement = gui::layoutselection::ZOrderedElement;
 
   struct SelectionIndexCache {
     bool dirty = true;
     std::vector<ZOrderedElement> zOrderedElements;
     std::unordered_map<int, const layouts::Layout2DViewDefinition *> viewById;
-    std::unordered_map<int, const layouts::LayoutLegendDefinition *>
-        legendById;
+    std::unordered_map<int, const layouts::LayoutLegendDefinition *> legendById;
     std::unordered_map<int, const layouts::LayoutEventTableDefinition *>
         eventTableById;
     std::unordered_map<int, const layouts::LayoutTextDefinition *> textById;
@@ -358,12 +350,11 @@ private:
   void InvalidateSelectionIndexCache();
   void EnsureSelectionIndexCache();
   std::vector<ZOrderedElement> BuildZOrderedElements() const;
-  std::pair<int, int> GetZIndexRange() const;
+  gui::layoutselection::ElementRefsByKind BuildElementIdsByKind() const;
   bool IsLayoutEmpty() const;
 
   static constexpr double kLegendContentScale = 0.7;
-  static constexpr double kLegendFontScale =
-      (2.0 / 3.0) * kLegendContentScale;
+  static constexpr double kLegendFontScale = (2.0 / 3.0) * kLegendContentScale;
 
   layouts::LayoutDefinition currentLayout;
   double zoom = 1.0;
@@ -372,8 +363,7 @@ private:
   int layoutVersion = 0;
   int viewRenderVersion = 0;
   bool captureInProgress = false;
-  SelectedElementType selectedElementType = SelectedElementType::None;
-  int selectedElementId = -1;
+  gui::layoutselection::LayoutViewerSelectionState selectionState_;
   wxGLContext *glContext_ = nullptr;
   bool glInitialized_ = false;
   bool isReadyToRender_ = false;

@@ -6,6 +6,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGEND_SOURCE = ROOT / "gui" / "layoutviewerpanel_legend.cpp"
+GETTER_SOURCES = {
+    "layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView()":
+        ROOT / "gui" / "layoutviewerpanel_view.cpp",
+    "layouts::LayoutLegendDefinition *LayoutViewerPanel::GetSelectedLegend()":
+        LEGEND_SOURCE,
+    "LayoutViewerPanel::GetSelectedEventTable()":
+        ROOT / "gui" / "layoutviewerpanel_eventtable.cpp",
+    "layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText()":
+        ROOT / "gui" / "layoutviewerpanel_text.cpp",
+    "layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage()":
+        ROOT / "gui" / "layoutviewerpanel_image.cpp",
+}
 
 
 def function_body(source: str, signature: str) -> str:
@@ -28,7 +40,12 @@ def function_body(source: str, signature: str) -> str:
 
 
 def main() -> None:
-    """Verify Legend semantic refresh uses the non-mutating const lookup path."""
+    """Verify read/query paths cannot mutate Layout Viewer selection."""
+    for signature, path in GETTER_SOURCES.items():
+        getter_body = function_body(path.read_text(encoding="utf-8"), signature)
+        assert "selectionState_.Select(" not in getter_body, signature
+        assert "selectionState_.Clear(" not in getter_body, signature
+
     source = LEGEND_SOURCE.read_text(encoding="utf-8")
     body = function_body(source, "void LayoutViewerPanel::RefreshLegendData()")
 
@@ -42,8 +59,8 @@ def main() -> None:
     assert body.count("GetSelectedLegend()") == 1
     assert "BuildLegendItems(selectedLegend)" in body
     assert "HashLegendItems(items, selectedLegend)" in body
-    assert "selectedElementType =" not in body
-    assert "selectedElementId =" not in body
+    assert "selectionState_.Select(" not in body
+    assert "selectionState_.Clear(" not in body
     assert "interactionSession_" not in body
 
 

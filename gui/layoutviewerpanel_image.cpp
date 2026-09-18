@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "layoutviewerpanel.h"
 #include "filesystem_path_utils.h"
+#include "layoutviewerpanel.h"
 
 #include <algorithm>
 #include <cmath>
@@ -34,17 +34,17 @@
 #endif
 
 #ifdef __APPLE__
-#  include <OpenGL/gl.h>
-#  include <OpenGL/glu.h>
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#  include <GL/gl.h>
-#  include <GL/glu.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
-#include "layoutimageutils.h"
 #include "LayoutManager.h"
-#include "guiconfigservices.h"
 #include "configmanager.h"
+#include "guiconfigservices.h"
+#include "layoutimageutils.h"
 
 namespace {
 constexpr int kMinFrameSize = 24;
@@ -60,7 +60,8 @@ void HashCombine(size_t &seed, size_t value) {
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-// Reads the on-disk size and mtime used to validate decoded source image cache entries.
+// Reads the on-disk size and mtime used to validate decoded source image cache
+// entries.
 ImageSourceFileState GetImageSourceFileState(const std::string &imagePath) {
   ImageSourceFileState state;
   if (imagePath.empty())
@@ -81,8 +82,8 @@ ImageSourceFileState GetImageSourceFileState(const std::string &imagePath) {
       return state;
 
     state.size = fileSize;
-    state.writeTime = static_cast<std::int64_t>(
-        writeTime.time_since_epoch().count());
+    state.writeTime =
+        static_cast<std::int64_t>(writeTime.time_since_epoch().count());
     state.valid = true;
   } catch (const std::exception &) {
     state.valid = false;
@@ -91,31 +92,31 @@ ImageSourceFileState GetImageSourceFileState(const std::string &imagePath) {
 }
 } // namespace
 
-// Returns the selected image definition, defaulting to the first image when needed.
+// Returns the selected image definition, defaulting to the first image when
+// needed.
 layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage() {
   if (currentLayout.imageViews.empty())
     return nullptr;
-  if (selectedElementType == SelectedElementType::Image &&
-      selectedElementId >= 0) {
+  if (selectionState_.Current().kind == LayoutElementKind::Image &&
+      selectionState_.Current().id >= 0) {
     for (auto &image : currentLayout.imageViews) {
-      if (image.id == selectedElementId)
+      if (image.id == selectionState_.Current().id)
         return &image;
     }
   }
-  selectedElementType = SelectedElementType::Image;
-  selectedElementId = currentLayout.imageViews.front().id;
   return &currentLayout.imageViews.front();
 }
 
-// Returns the selected image definition without modifying the current selection.
-const layouts::LayoutImageDefinition *LayoutViewerPanel::GetSelectedImage()
-    const {
+// Returns the selected image definition without modifying the current
+// selection.
+const layouts::LayoutImageDefinition *
+LayoutViewerPanel::GetSelectedImage() const {
   if (currentLayout.imageViews.empty())
     return nullptr;
-  if (selectedElementType == SelectedElementType::Image &&
-      selectedElementId >= 0) {
+  if (selectionState_.Current().kind == LayoutElementKind::Image &&
+      selectionState_.Current().id >= 0) {
     for (const auto &image : currentLayout.imageViews) {
-      if (image.id == selectedElementId)
+      if (image.id == selectionState_.Current().id)
         return &image;
     }
   }
@@ -138,9 +139,10 @@ bool LayoutViewerPanel::GetImageFrameById(
   return false;
 }
 
-// Applies a frame update to the selected image and schedules texture refresh work.
-void LayoutViewerPanel::UpdateImageFrame(const layouts::Layout2DViewFrame &frame,
-                                         bool updatePosition) {
+// Applies a frame update to the selected image and schedules texture refresh
+// work.
+void LayoutViewerPanel::UpdateImageFrame(
+    const layouts::Layout2DViewFrame &frame, bool updatePosition) {
   layouts::LayoutImageDefinition *image = GetSelectedImage();
   if (!image)
     return;
@@ -165,9 +167,10 @@ void LayoutViewerPanel::UpdateImageFrame(const layouts::Layout2DViewFrame &frame
   Refresh();
 }
 
-// Opens the image picker and updates the selected layout image from the chosen file.
+// Opens the image picker and updates the selected layout image from the chosen
+// file.
 void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::Image)
+  if (selectionState_.Current().kind != LayoutElementKind::Image)
     return;
   layouts::LayoutImageDefinition *image = GetSelectedImage();
   if (!image)
@@ -186,20 +189,17 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   if (image->aspectRatio > 0.0f) {
     if (image->frame.width > 0) {
       image->frame.height = std::max(
-          kMinFrameSize,
-          static_cast<int>(std::lround(image->frame.width /
-                                       image->aspectRatio)));
+          kMinFrameSize, static_cast<int>(std::lround(image->frame.width /
+                                                      image->aspectRatio)));
     } else if (image->frame.height > 0) {
       image->frame.width = std::max(
-          kMinFrameSize,
-          static_cast<int>(std::lround(image->frame.height *
-                                       image->aspectRatio)));
+          kMinFrameSize, static_cast<int>(std::lround(image->frame.height *
+                                                      image->aspectRatio)));
     } else {
       image->frame.width = kMinFrameSize;
       image->frame.height = std::max(
-          kMinFrameSize,
-          static_cast<int>(std::lround(image->frame.width /
-                                       image->aspectRatio)));
+          kMinFrameSize, static_cast<int>(std::lround(image->frame.width /
+                                                      image->aspectRatio)));
     }
   }
 
@@ -212,9 +212,10 @@ void LayoutViewerPanel::OnEditImage(wxCommandEvent &) {
   Refresh();
 }
 
-// Removes the selected image element from the layout and releases its cache entry.
+// Removes the selected image element from the layout and releases its cache
+// entry.
 void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::Image)
+  if (selectionState_.Current().kind != LayoutElementKind::Image)
     return;
   const layouts::LayoutImageDefinition *image = GetSelectedImage();
   if (!image)
@@ -232,25 +233,23 @@ void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
                                   }),
                    images.end());
       InvalidateSelectionIndexCache();
-      if (selectedElementId == imageId) {
+      if (selectionState_.Current().id == imageId) {
         if (!currentLayout.view2dViews.empty()) {
-          selectedElementType = SelectedElementType::View2D;
-          selectedElementId = currentLayout.view2dViews.front().id;
+          selectionState_.Select(LayoutElementKind::View2D,
+                                 currentLayout.view2dViews.front().id);
         } else if (!currentLayout.legendViews.empty()) {
-          selectedElementType = SelectedElementType::Legend;
-          selectedElementId = currentLayout.legendViews.front().id;
+          selectionState_.Select(LayoutElementKind::Legend,
+                                 currentLayout.legendViews.front().id);
         } else if (!currentLayout.eventTables.empty()) {
-          selectedElementType = SelectedElementType::EventTable;
-          selectedElementId = currentLayout.eventTables.front().id;
+          selectionState_.Select(LayoutElementKind::EventTable,
+                                 currentLayout.eventTables.front().id);
         } else if (!currentLayout.textViews.empty()) {
-          selectedElementType = SelectedElementType::Text;
-          selectedElementId = currentLayout.textViews.front().id;
+          selectionState_.Select(LayoutElementKind::Text,
+                                 currentLayout.textViews.front().id);
         } else if (!images.empty()) {
-          selectedElementType = SelectedElementType::Image;
-          selectedElementId = images.front().id;
+          selectionState_.Select(LayoutElementKind::Image, images.front().id);
         } else {
-          selectedElementType = SelectedElementType::None;
-          selectedElementId = -1;
+          selectionState_.Clear();
         }
       }
     }
@@ -263,7 +262,8 @@ void LayoutViewerPanel::OnDeleteImage(wxCommandEvent &) {
   Refresh();
 }
 
-// Draws a layout image element using its cached GL texture or a placeholder fill.
+// Draws a layout image element using its cached GL texture or a placeholder
+// fill.
 void LayoutViewerPanel::DrawImageElement(
     const layouts::LayoutImageDefinition &image, int activeImageId) {
   ImageCache &cache = GetImageCache(image.id);
@@ -287,8 +287,7 @@ void LayoutViewerPanel::DrawImageElement(
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
     glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glTexCoord2f(0.0f, 0.0f);
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
@@ -301,8 +300,7 @@ void LayoutViewerPanel::DrawImageElement(
                static_cast<float>(frameRect.GetTop()));
     glVertex2f(static_cast<float>(frameRect.GetRight()),
                static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
@@ -316,8 +314,7 @@ void LayoutViewerPanel::DrawImageElement(
                static_cast<float>(frameRect.GetTop()));
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
@@ -335,18 +332,20 @@ void LayoutViewerPanel::ClearCachedImageSource(ImageCache &cache) {
   cache.hasSourceFileState = false;
 }
 
-// Loads or reuses the decoded source image when the path and file state are unchanged.
+// Loads or reuses the decoded source image when the path and file state are
+// unchanged.
 bool LayoutViewerPanel::EnsureCachedImageSource(
     const layouts::LayoutImageDefinition &image, ImageCache &cache) {
   const ImageSourceFileState fileState =
       GetImageSourceFileState(image.imagePath);
-  const bool sourceCurrent =
-      cache.hasSourceImage && cache.sourceImage.IsOk() &&
-      cache.sourceImagePath == image.imagePath && fileState.valid &&
-      cache.hasSourceFileState && cache.sourceFileSize == fileState.size &&
-      cache.sourceWriteTime == fileState.writeTime;
+  const bool sourceCurrent = cache.hasSourceImage && cache.sourceImage.IsOk() &&
+                             cache.sourceImagePath == image.imagePath &&
+                             fileState.valid && cache.hasSourceFileState &&
+                             cache.sourceFileSize == fileState.size &&
+                             cache.sourceWriteTime == fileState.writeTime;
   if (sourceCurrent)
-    return cache.sourceImage.GetWidth() > 0 && cache.sourceImage.GetHeight() > 0;
+    return cache.sourceImage.GetWidth() > 0 &&
+           cache.sourceImage.GetHeight() > 0;
 
   ClearCachedImageSource(cache);
   if (image.imagePath.empty() || !fileState.valid)

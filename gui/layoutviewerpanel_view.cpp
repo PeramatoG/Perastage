@@ -206,15 +206,13 @@ void DrawFailurePlaceholder(const wxRect &frameRect) {
 layouts::Layout2DViewDefinition *LayoutViewerPanel::GetEditableView() {
   if (currentLayout.view2dViews.empty())
     return nullptr;
-  if (selectedElementType == SelectedElementType::View2D &&
-      selectedElementId >= 0) {
+  if (selectionState_.Current().kind == LayoutElementKind::View2D &&
+      selectionState_.Current().id >= 0) {
     for (auto &view : currentLayout.view2dViews) {
-      if (view.id == selectedElementId)
+      if (view.id == selectionState_.Current().id)
         return &view;
     }
   }
-  selectedElementType = SelectedElementType::View2D;
-  selectedElementId = currentLayout.view2dViews.front().id;
   return &currentLayout.view2dViews.front();
 }
 
@@ -223,10 +221,10 @@ const layouts::Layout2DViewDefinition *
 LayoutViewerPanel::GetEditableView() const {
   if (currentLayout.view2dViews.empty())
     return nullptr;
-  if (selectedElementType == SelectedElementType::View2D &&
-      selectedElementId >= 0) {
+  if (selectionState_.Current().kind == LayoutElementKind::View2D &&
+      selectionState_.Current().id >= 0) {
     for (const auto &view : currentLayout.view2dViews) {
-      if (view.id == selectedElementId)
+      if (view.id == selectionState_.Current().id)
         return &view;
     }
   }
@@ -268,14 +266,14 @@ void LayoutViewerPanel::RefreshEditedViewById(int viewId) {
 
 // Emits a request to edit the selected Layout 2D view.
 void LayoutViewerPanel::OnEditView(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::View2D)
+  if (selectionState_.Current().kind != LayoutElementKind::View2D)
     return;
   EmitEditViewRequest();
 }
 
 // Deletes the selected Layout 2D view from the current layout.
 void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::View2D)
+  if (selectionState_.Current().kind != LayoutElementKind::View2D)
     return;
   const layouts::Layout2DViewDefinition *view = GetEditableView();
   if (!view)
@@ -293,26 +291,24 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
                                  }),
                   views.end());
       InvalidateSelectionIndexCache();
-      if (selectedElementType == SelectedElementType::View2D &&
-          selectedElementId == viewId) {
+      if (selectionState_.Current().kind == LayoutElementKind::View2D &&
+          selectionState_.Current().id == viewId) {
         if (!views.empty()) {
-          selectedElementType = SelectedElementType::View2D;
-          selectedElementId = views.front().id;
+          selectionState_.Select(LayoutElementKind::View2D, views.front().id);
         } else if (!currentLayout.legendViews.empty()) {
-          selectedElementType = SelectedElementType::Legend;
-          selectedElementId = currentLayout.legendViews.front().id;
+          selectionState_.Select(LayoutElementKind::Legend,
+                                 currentLayout.legendViews.front().id);
         } else if (!currentLayout.imageViews.empty()) {
-          selectedElementType = SelectedElementType::Image;
-          selectedElementId = currentLayout.imageViews.front().id;
+          selectionState_.Select(LayoutElementKind::Image,
+                                 currentLayout.imageViews.front().id);
         } else if (!currentLayout.textViews.empty()) {
-          selectedElementType = SelectedElementType::Text;
-          selectedElementId = currentLayout.textViews.front().id;
+          selectionState_.Select(LayoutElementKind::Text,
+                                 currentLayout.textViews.front().id);
         } else if (!currentLayout.eventTables.empty()) {
-          selectedElementType = SelectedElementType::EventTable;
-          selectedElementId = currentLayout.eventTables.front().id;
+          selectionState_.Select(LayoutElementKind::EventTable,
+                                 currentLayout.eventTables.front().id);
         } else {
-          selectedElementType = SelectedElementType::None;
-          selectedElementId = -1;
+          selectionState_.Clear();
         }
       }
     }
@@ -327,7 +323,7 @@ void LayoutViewerPanel::OnDeleteView(wxCommandEvent &) {
 
 // Toggles the visible frame for the selected Layout 2D view.
 void LayoutViewerPanel::OnToggleViewFrame(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::View2D)
+  if (selectionState_.Current().kind != LayoutElementKind::View2D)
     return;
   layouts::Layout2DViewDefinition *view = GetEditableView();
   if (!view)
@@ -406,51 +402,51 @@ void LayoutViewerPanel::DrawViewElement(
   }
   if (!persistentRasterMatches) {
     gui::layoutcapture::ScheduleLayout2DViewCaptureIfNeeded(
-      gui::layoutcapture::Layout2DViewCaptureRequest{
-          &view, capturePanel, offscreenRenderer, viewRenderVersion,
-          viewContentHash, captureInProgress, cache.captureInProgress,
-          cache.hasCapture, cache.hasRenderState, cache.hasCaptureContentHash,
-          cache.captureContentHash, cache.captureVersion, false},
-      gui::layoutcapture::Layout2DViewCaptureCallbacks{
-          [this](bool inProgress) { captureInProgress = inProgress; },
-          [&cache](bool inProgress) { cache.captureInProgress = inProgress; },
-          [this, &cache](const viewer2d::Viewer2DState &renderState) {
-            cache.renderState = renderState;
-            cache.hasRenderState = true;
-            if (startupMetrics_)
-              ++startupMetrics_->viewSceneCaptureCount;
-          },
-          [this, viewId = view.id](
-              CommandBuffer buffer, Viewer2DViewState state,
-              std::shared_ptr<const SymbolDefinitionSnapshot> symbols,
-              int fallbackViewportWidth, int fallbackViewportHeight,
-              size_t captureContentHash, int captureVersion) {
-            ViewCache &cache = GetViewCache(viewId);
-            cache.buffer = std::move(buffer);
-            cache.viewState = state;
-            if (cache.viewState.viewportWidth <= 0 &&
-                fallbackViewportWidth > 0) {
-              cache.viewState.viewportWidth = fallbackViewportWidth;
-            }
-            if (cache.viewState.viewportHeight <= 0 &&
-                fallbackViewportHeight > 0) {
-              cache.viewState.viewportHeight = fallbackViewportHeight;
-            }
-            cache.symbols = std::move(symbols);
-            cache.hasCapture = !cache.buffer.commands.empty();
-            cache.captureContentHash = captureContentHash;
-            cache.hasCaptureContentHash = true;
-            cache.captureVersion = captureVersion;
-            cache.restoredFromPersistentCache = false;
-            cache.captureInProgress = false;
-            captureInProgress = false;
-            cache.renderDirty = true;
-            renderDirty = true;
-            cache.textureSize = wxSize(0, 0);
-            cache.renderZoom = 0.0;
-            RequestRenderRebuild();
-            Refresh();
-          }});
+        gui::layoutcapture::Layout2DViewCaptureRequest{
+            &view, capturePanel, offscreenRenderer, viewRenderVersion,
+            viewContentHash, captureInProgress, cache.captureInProgress,
+            cache.hasCapture, cache.hasRenderState, cache.hasCaptureContentHash,
+            cache.captureContentHash, cache.captureVersion, false},
+        gui::layoutcapture::Layout2DViewCaptureCallbacks{
+            [this](bool inProgress) { captureInProgress = inProgress; },
+            [&cache](bool inProgress) { cache.captureInProgress = inProgress; },
+            [this, &cache](const viewer2d::Viewer2DState &renderState) {
+              cache.renderState = renderState;
+              cache.hasRenderState = true;
+              if (startupMetrics_)
+                ++startupMetrics_->viewSceneCaptureCount;
+            },
+            [this, viewId = view.id](
+                CommandBuffer buffer, Viewer2DViewState state,
+                std::shared_ptr<const SymbolDefinitionSnapshot> symbols,
+                int fallbackViewportWidth, int fallbackViewportHeight,
+                size_t captureContentHash, int captureVersion) {
+              ViewCache &cache = GetViewCache(viewId);
+              cache.buffer = std::move(buffer);
+              cache.viewState = state;
+              if (cache.viewState.viewportWidth <= 0 &&
+                  fallbackViewportWidth > 0) {
+                cache.viewState.viewportWidth = fallbackViewportWidth;
+              }
+              if (cache.viewState.viewportHeight <= 0 &&
+                  fallbackViewportHeight > 0) {
+                cache.viewState.viewportHeight = fallbackViewportHeight;
+              }
+              cache.symbols = std::move(symbols);
+              cache.hasCapture = !cache.buffer.commands.empty();
+              cache.captureContentHash = captureContentHash;
+              cache.hasCaptureContentHash = true;
+              cache.captureVersion = captureVersion;
+              cache.restoredFromPersistentCache = false;
+              cache.captureInProgress = false;
+              captureInProgress = false;
+              cache.renderDirty = true;
+              renderDirty = true;
+              cache.textureSize = wxSize(0, 0);
+              cache.renderZoom = 0.0;
+              RequestRenderRebuild();
+              Refresh();
+            }});
   }
 
   wxRect frameRect;

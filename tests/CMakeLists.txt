@@ -160,6 +160,7 @@ set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell
 if(BASH_EXECUTABLE)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
+    add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(MvrSceneNodeReaderBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_scene_node_reader_boundary.sh)
     add_bash_policy_test(MvrImportResourceResolverBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_resource_resolver_boundary.sh)
     add_bash_policy_test(MvrImportReferenceResolverBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_import_reference_resolver_boundary.sh)
@@ -224,6 +225,15 @@ target_include_directories(layout_viewer_interaction_session_test PRIVATE
 add_test(NAME LayoutViewerInteractionSession
          COMMAND layout_viewer_interaction_session_test)
 set_perastage_test_labels(LayoutViewerInteractionSession
+                          LAYER standard-strict DOMAINS gui architecture)
+
+add_executable(layout_viewer_selection_state_test
+               layout_viewer_selection_state_test.cpp
+               ../gui/layout_viewer_selection_state.cpp)
+target_include_directories(layout_viewer_selection_state_test PRIVATE ../gui)
+add_test(NAME LayoutViewerSelectionState
+         COMMAND layout_viewer_selection_state_test)
+set_perastage_test_labels(LayoutViewerSelectionState
                           LAYER standard-strict DOMAINS gui architecture)
 
 if(Python3_Interpreter_FOUND)
