@@ -9,6 +9,12 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
+add_executable(inspection_contract_test
+               inspection_contract_test.cpp
+               ../core/inspection/inspection_contract.cpp)
+target_include_directories(inspection_contract_test PRIVATE ../core)
+add_test(NAME InspectionContract COMMAND inspection_contract_test)
+
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
 add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
@@ -158,6 +164,7 @@ target_link_libraries(perastage_test_required_fixture_svg PUBLIC
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
+    add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
