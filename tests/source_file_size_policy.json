@@ -26,7 +26,7 @@
     "gui/layoutviewerpanel.cpp": 3307,
     "gui/layoutviewerpanel_legend.cpp": 1595,
     "gui/mainwindow.cpp": 1852,
-    "gui/mainwindow_menu.cpp": 2082,
+    "gui/mainwindow_menu.cpp": 1662,
     "gui/trusstablepanel.cpp": 1528,
     "mvr/mvrexporter.cpp": 2855,
     "mvr/mvrimporter.cpp": 2857,
