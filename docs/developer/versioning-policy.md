@@ -120,38 +120,34 @@ workflow need cannot be met by GitHub Releases and repository history.
 
 ## Main Branch PATCH Automation
 
-PATCH is automatically incremented after normal updates to `main` by the `Main Patch Version and Test Installer Builds` workflow.
+PATCH is automatically incremented after normal accepted non-bot updates to `main` by the `Main Patch Release Artifacts` workflow.
 
-The workflow validates `VERSION` using `MAJOR.MINOR.PATCH`, increments only PATCH, and commits the result back to `main`.
+The workflow validates `VERSION` using `MAJOR.MINOR.PATCH`, increments only PATCH, and commits the result back to `main` using `[skip version-bump]` to prevent a bump loop. It passes the generated commit's exact SHA to the three primary Release package builders:
 
-The automated commit message includes `[skip version-bump]`, and the workflow skips commits that include this marker to prevent bump loops.
+- Windows Release installer.
+- Ubuntu Release AppImage.
+- Current macOS Release DMG.
 
-The same workflow dispatches these existing installer workflows on `main` for test artifacts:
-
-- `windows-installer.yml`
-- `linux-installer.yml`
-- `macos-installer.yml`
-
-This automation does not create Git tags and does not create GitHub Releases.
+These outputs are GitHub Actions test and verification artifacts, not official GitHub Release assets. This automation does not create an official Git tag or GitHub Release.
 
 ## Manual MINOR Draft Release Workflow
 
 Perastage includes a manual workflow named `Minor Draft Release` in `.github/workflows/minor-draft-release.yml`.
 
-This workflow is triggered only by `workflow_dispatch`.
+This workflow is triggered only by `workflow_dispatch` and supports a dry-run mode.
 
 It performs these actions for a MINOR release:
 
-- Validates the root `VERSION` format.
-- Increments MINOR and resets PATCH to `0`.
-- Commits the new `VERSION` to `main` with `[skip version-bump]` to prevent the automatic PATCH bump workflow from running on that commit.
-- Creates and pushes an annotated release tag in the format `vMAJOR.MINOR.0`.
-- Builds Windows, Linux, and macOS installers from the new release tag using the existing installer workflows.
-- Creates a GitHub Draft Release for the new tag.
+- Resolves current `main` to an exact base SHA, validates `VERSION`, and computes the next `MAJOR.MINOR.0` version and tag.
+- For a real run, creates a run-specific temporary automation ref with a staged release commit containing the `VERSION` change.
+- Builds all five maintained release packages from that exact staged release SHA: the Windows installer, Ubuntu AppImage, macOS 15 Apple Silicon DMG, current macOS Apple Silicon DMG, and Arch Linux x86-64 package.
+- Treats package and final-asset validation as blocking requirements.
+- Only after validation succeeds, verifies the expected `main` state and publishes the validated release Git state. Normal publication advances `main` to the staged commit and creates the annotated tag transactionally.
+- Creates or updates a draft GitHub Release with the validated public assets.
 - Uses `docs/release-notes-draft.md` as the release body when the file is present and non-empty.
-- Falls back to GitHub automatic release-note generation only if the curated draft is missing or empty.
-- Attaches the Windows installer, Linux AppImage, and macOS DMG assets to the draft release.
+- May use GitHub-generated notes when the curated draft is missing or empty.
+- Cleans up its temporary release ref.
 
-The workflow intentionally leaves the release as a draft so the maintainer can manually review, edit, and publish it.
+The workflow intentionally leaves the GitHub Release as a draft so the maintainer can manually review, edit, and publish it. It does not create MAJOR releases automatically.
 
-This workflow does not publish the release automatically and does not create MAJOR releases.
+See [GitHub Actions workflow architecture](github_actions_workflows.md) for the canonical workflow mechanics, transactional publication, artifact validation, and recovery procedures.
