@@ -11,6 +11,7 @@ contracts describe one subsystem without superseding their canonical parent.
 | Architecture, module ownership, and dependency direction | [Architecture](architecture.md) |
 | Repository paths and build ownership | [Repository Layout](repository_layout.md), with [`repository_structure_baseline.json`](repository_structure_baseline.json) as the machine-readable structural contract |
 | Code-health and refactoring policy | [Code Health](code_health.md) |
+| Maintainer operations and recovery | [Maintainer Runbook](maintainer_runbook.md) |
 | Build and dependency workflows | [Build and Dependency Guide](build.md) |
 | Packaging and platform integration | [Packaging](packaging.md) |
 | CI and release workflow architecture | [GitHub Actions workflow architecture](github_actions_workflows.md), with [Main branch protection](main_branch_protection.md) as the focused ruleset contract |

@@ -221,6 +221,7 @@ Perastage documentation is intentionally split by audience and responsibility:
 | `help.md` | In-app help content. |
 | [perastage_tree.md](perastage_tree.md) | Concise navigational tree used by architecture guard scripts. |
 | `docs/developer/build.md` | Build requirements, dependency setup, and local CMake workflows. |
+| `docs/developer/maintainer_runbook.md` | Operational index for routine maintenance, recovery, and external-service dependencies. |
 | `docs/developer/packaging.md` | Release packaging, installers, desktop integration, and platform distribution notes. |
 | `docs/user/troubleshooting.md` | Known failure modes and practical fixes. |
 | `docs/developer/documentation_policy.md` | Documentation organization and synchronization rules. |
