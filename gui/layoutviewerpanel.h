@@ -23,6 +23,7 @@
 #include "layout_2d_view_rasterizer.h"
 #include "layout_viewer_interaction_session.h"
 #include "layout_viewer_selection_state.h"
+#include "layout_viewer_viewport_state.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"
 #include "viewer2dstate.h"
@@ -359,8 +360,7 @@ private:
   static constexpr double kLegendFontScale = (2.0 / 3.0) * kLegendContentScale;
 
   layouts::LayoutDefinition currentLayout;
-  double zoom = 1.0;
-  wxPoint panOffset{0, 0};
+  gui::layoutviewport::LayoutViewerViewportState viewportState_;
   gui::layoutinteraction::LayoutViewerInteractionSession interactionSession_;
   int layoutVersion = 0;
   int viewRenderVersion = 0;
@@ -397,7 +397,6 @@ private:
   std::vector<LegendItem> legendItems_;
   size_t legendDataHash = 0;
   bool legendDataDirty_ = true;
-  bool pendingFitOnResize = false;
   bool deferredFitToViewportScheduled_ = false;
   bool pendingFrameCommit_ = false;
   SelectionIndexCache selectionIndexCache_;
