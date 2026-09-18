@@ -12,6 +12,7 @@ Changes since **v1.6.0**.
 
 - Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.
 - Fixed Layout Viewer 2D View dragging and resizing so Legend refreshes cannot redirect edits to a Legend.
+- Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
 
@@ -27,6 +28,7 @@ Changes since **v1.6.0**.
 - Separated reusable 2D navigation, typed selection, and hover-routing decisions from the wxWidgets/OpenGL panel while preserving established viewport interaction behavior.
 - Completed the 2D viewer architecture split by isolating reusable frame decisions, ruler state, and layout-overlay geometry while retaining OpenGL and window lifecycle ownership in the panel.
 - Isolated layout-editor pointer sessions, frame-handle hit testing, and frame move/resize decisions behind a GUI-independent boundary while preserving existing image proportions, grid snapping, and undo behavior.
+- Isolated Layout Viewer selection identity, default selection, and stable Z-order decisions behind a GUI-independent boundary while preserving established editing and stacking behavior.
 
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 

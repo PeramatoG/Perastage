@@ -76,6 +76,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/localized_unit_labels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewerpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewer_interaction_session.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layout_viewer_selection_state.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_2d_view_capture_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_2d_view_rasterizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layout_view_cache_archive.cpp

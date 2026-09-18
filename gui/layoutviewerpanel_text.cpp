@@ -28,45 +28,44 @@
 #endif
 
 #ifdef __APPLE__
-#  include <OpenGL/gl.h>
-#  include <OpenGL/glu.h>
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#  include <GL/gl.h>
-#  include <GL/glu.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 
 #include <wx/log.h>
 #include <wx/richtext/richtextbuffer.h>
 
+#include "LayoutManager.h"
+#include "configmanager.h"
+#include "guiconfigservices.h"
 #include "layouttextdialog.h"
 #include "layouttextutils.h"
 #include "layoutviewerpanel_shared.h"
-#include "LayoutManager.h"
-#include "guiconfigservices.h"
-#include "configmanager.h"
 
 layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText() {
   if (currentLayout.textViews.empty())
     return nullptr;
-  if (selectedElementType == SelectedElementType::Text &&
-      selectedElementId >= 0) {
+  if (selectionState_.Current().kind == LayoutElementKind::Text &&
+      selectionState_.Current().id >= 0) {
     for (auto &text : currentLayout.textViews) {
-      if (text.id == selectedElementId)
+      if (text.id == selectionState_.Current().id)
         return &text;
     }
   }
-  selectedElementType = SelectedElementType::Text;
-  selectedElementId = currentLayout.textViews.front().id;
   return &currentLayout.textViews.front();
 }
 
-const layouts::LayoutTextDefinition *LayoutViewerPanel::GetSelectedText() const {
+const layouts::LayoutTextDefinition *
+LayoutViewerPanel::GetSelectedText() const {
   if (currentLayout.textViews.empty())
     return nullptr;
-  if (selectedElementType == SelectedElementType::Text &&
-      selectedElementId >= 0) {
+  if (selectionState_.Current().kind == LayoutElementKind::Text &&
+      selectionState_.Current().id >= 0) {
     for (const auto &text : currentLayout.textViews) {
-      if (text.id == selectedElementId)
+      if (text.id == selectionState_.Current().id)
         return &text;
     }
   }
@@ -115,7 +114,7 @@ void LayoutViewerPanel::UpdateTextFrame(const layouts::Layout2DViewFrame &frame,
 }
 
 void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::Text)
+  if (selectionState_.Current().kind != LayoutElementKind::Text)
     return;
   layouts::LayoutTextDefinition *text = GetSelectedText();
   if (!text)
@@ -123,9 +122,9 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   const wxString richText =
       wxString::FromUTF8(text->richText.data(), text->richText.size());
   const wxString fallbackText =
-      text->text.empty() ? wxString("Light Plot")
-                         : wxString::FromUTF8(text->text.data(),
-                                              text->text.size());
+      text->text.empty()
+          ? wxString("Light Plot")
+          : wxString::FromUTF8(text->text.data(), text->text.size());
   LayoutTextDialog dialog(this, richText, fallbackText, text->solidBackground,
                           text->drawFrame);
   if (dialog.ShowModal() != wxID_OK)
@@ -138,15 +137,13 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
   wxScopedCharBuffer richBuf = updatedRichText.ToUTF8();
   wxScopedCharBuffer plainBuf = updatedPlainText.ToUTF8();
   if (updatedRichText.IsEmpty() && hadRichText) {
-    wxLogWarning(
-        "LayoutViewerPanel::OnEditText received empty rich text, "
-        "preserving previous rich text to avoid losing formatting.");
+    wxLogWarning("LayoutViewerPanel::OnEditText received empty rich text, "
+                 "preserving previous rich text to avoid losing formatting.");
   } else {
     text->richText.assign(richBuf.data() ? richBuf.data() : "",
                           richBuf.length());
   }
-  text->text.assign(plainBuf.data() ? plainBuf.data() : "",
-                    plainBuf.length());
+  text->text.assign(plainBuf.data() ? plainBuf.data() : "", plainBuf.length());
   text->solidBackground = dialog.GetSolidBackground();
   text->drawFrame = dialog.GetDrawFrame();
   if (!currentLayout.name.empty()) {
@@ -159,7 +156,7 @@ void LayoutViewerPanel::OnEditText(wxCommandEvent &) {
 }
 
 void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::Text)
+  if (selectionState_.Current().kind != LayoutElementKind::Text)
     return;
   const layouts::LayoutTextDefinition *text = GetSelectedText();
   if (!text)
@@ -177,25 +174,23 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
                                  }),
                   texts.end());
       InvalidateSelectionIndexCache();
-      if (selectedElementId == textId) {
+      if (selectionState_.Current().id == textId) {
         if (!currentLayout.view2dViews.empty()) {
-          selectedElementType = SelectedElementType::View2D;
-          selectedElementId = currentLayout.view2dViews.front().id;
+          selectionState_.Select(LayoutElementKind::View2D,
+                                 currentLayout.view2dViews.front().id);
         } else if (!currentLayout.legendViews.empty()) {
-          selectedElementType = SelectedElementType::Legend;
-          selectedElementId = currentLayout.legendViews.front().id;
+          selectionState_.Select(LayoutElementKind::Legend,
+                                 currentLayout.legendViews.front().id);
         } else if (!currentLayout.eventTables.empty()) {
-          selectedElementType = SelectedElementType::EventTable;
-          selectedElementId = currentLayout.eventTables.front().id;
+          selectionState_.Select(LayoutElementKind::EventTable,
+                                 currentLayout.eventTables.front().id);
         } else if (!currentLayout.imageViews.empty()) {
-          selectedElementType = SelectedElementType::Image;
-          selectedElementId = currentLayout.imageViews.front().id;
+          selectionState_.Select(LayoutElementKind::Image,
+                                 currentLayout.imageViews.front().id);
         } else if (!texts.empty()) {
-          selectedElementType = SelectedElementType::Text;
-          selectedElementId = texts.front().id;
+          selectionState_.Select(LayoutElementKind::Text, texts.front().id);
         } else {
-          selectedElementType = SelectedElementType::None;
-          selectedElementId = -1;
+          selectionState_.Clear();
         }
       }
     }
@@ -209,7 +204,7 @@ void LayoutViewerPanel::OnDeleteText(wxCommandEvent &) {
 }
 
 void LayoutViewerPanel::OnToggleTextFrame(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::Text)
+  if (selectionState_.Current().kind != LayoutElementKind::Text)
     return;
   layouts::LayoutTextDefinition *text = GetSelectedText();
   if (!text)
@@ -227,7 +222,7 @@ void LayoutViewerPanel::OnToggleTextFrame(wxCommandEvent &) {
 }
 
 void LayoutViewerPanel::OnToggleTextTransparentBackground(wxCommandEvent &) {
-  if (selectedElementType != SelectedElementType::Text)
+  if (selectionState_.Current().kind != LayoutElementKind::Text)
     return;
   layouts::LayoutTextDefinition *text = GetSelectedText();
   if (!text)
@@ -267,8 +262,7 @@ void LayoutViewerPanel::DrawTextElement(
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
     glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glTexCoord2f(0.0f, 0.0f);
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
@@ -281,8 +275,7 @@ void LayoutViewerPanel::DrawTextElement(
                static_cast<float>(frameRect.GetTop()));
     glVertex2f(static_cast<float>(frameRect.GetRight()),
                static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
@@ -301,8 +294,7 @@ void LayoutViewerPanel::DrawTextElement(
                static_cast<float>(frameRect.GetTop()));
     glVertex2f(static_cast<float>(frameRight),
                static_cast<float>(frameRect.GetTop()));
-    glVertex2f(static_cast<float>(frameRight),
-               static_cast<float>(frameBottom));
+    glVertex2f(static_cast<float>(frameRight), static_cast<float>(frameBottom));
     glVertex2f(static_cast<float>(frameRect.GetLeft()),
                static_cast<float>(frameRect.GetBottom()));
     glEnd();
