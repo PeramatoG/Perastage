@@ -23,6 +23,7 @@
 
 #include "colorfulrenderers.h"
 #include "colorstore.h"
+#include "dataview_sort_profiles.h"
 #include "columnutils.h"
 #include "dictionary_bundle.h"
 #include "dictionary_snapshot_service.h"
@@ -37,7 +38,6 @@
 #include "table_column_indices.h"
 #include "trussdictionary.h"
 #include "truss_asset_ingestion.h"
-
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -48,7 +48,6 @@
 #include <wx/colordlg.h>
 #include <wx/dcmemory.h>
 #include <wx/filename.h>
-
 namespace {
 using FixtureDictionaryColumn = DictionaryFixtureTableColumns::Column;
 using TrussDictionaryColumn = DictionaryTrussTableColumns::Column;
@@ -558,6 +557,7 @@ void DictionaryEditDialog::BuildLayout() {
                                       wxDefaultSize, wxDV_ROW_LINES);
   trussTable->AssociateModel(trussStore);
   trussStore->DecRef();
+  DataViewSortProfiles::ConfigureDictionaries(*fixtureStore, *trussStore);
   BindTableHoverEvents(trussTable, this,
                        &DictionaryEditDialog::OnTrussTableMouseMove,
                        &DictionaryEditDialog::OnTrussTableMouseLeave);

@@ -17,6 +17,7 @@
  */
 #include "trusstablepanel.h"
 #include "dataview_deferred_selection_guard.h"
+#include "dataview_sort_profiles.h"
 #include "localized_unit_labels.h"
 #include "columnutils.h"
 #include "colorfulrenderers.h"
@@ -289,6 +290,7 @@ TrussTablePanel::~TrussTablePanel()
 
 void TrussTablePanel::InitializeTable()
 {
+    DataViewSortProfiles::ConfigureTruss(*store);
     const auto distanceUnit = ResolveDistanceUnitSystem();
     const auto weightUnit = ResolveWeightUnitSystem();
     const wxString distanceSuffix = wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));

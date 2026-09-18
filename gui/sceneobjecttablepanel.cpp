@@ -18,6 +18,7 @@
 #include "runtime_storage.h"
 #include "sceneobjecttablepanel.h"
 #include "dataview_deferred_selection_guard.h"
+#include "dataview_sort_profiles.h"
 #include "localized_unit_labels.h"
 #include "columnutils.h"
 #include "colorfulrenderers.h"
@@ -253,6 +254,7 @@ SceneObjectTablePanel::~SceneObjectTablePanel() {
 }
 
 void SceneObjectTablePanel::InitializeTable() {
+  DataViewSortProfiles::ConfigureSceneObject(*store);
     const auto distanceUnit = ResolveDistanceUnitSystem();
   const wxString distanceSuffix =
       wxString::FromUTF8(Units::DistanceUnitSuffix(distanceUnit));
