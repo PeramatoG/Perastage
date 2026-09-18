@@ -90,6 +90,12 @@ int main() {
     assert(GdtfResolutionStatusColour(StatusSemantic::Information, dark) !=
            GdtfResolutionStatusColour(StatusSemantic::Success, dark));
   }
+  analysis.items[0].request.quantity = 2;
+  analysis.items[1].request.quantity = 10;
+  assert(model.Compare(model.GetItem(0), model.GetItem(1),
+                       RiderFixtureResolutionModel::Quantity, true) < 0);
+  assert(model.Compare(model.GetItem(0), model.GetItem(1),
+                       RiderFixtureResolutionModel::Quantity, false) > 0);
   for (unsigned column = 0;
        column < RiderFixtureResolutionModel::ColumnCount; ++column) {
     const int compared = model.Compare(model.GetItem(0), model.GetItem(1),

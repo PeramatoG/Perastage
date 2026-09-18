@@ -17,6 +17,7 @@
  */
 #include "fixturetablepanel.h"
 #include "dataview_deferred_selection_guard.h"
+#include "dataview_sort_profiles.h"
 #include "addressdialog.h"
 #include "configmanager.h"
 #include "consolepanel.h"
@@ -64,9 +65,7 @@
 #include <wx/tokenzr.h>
 #include <wx/version.h>
 #include <wx/wupdlock.h>
-
 namespace fs = std::filesystem;
-
 namespace {
 
 // Converts UUID selection order into the current row indexes for row-based edits.
@@ -291,6 +290,7 @@ void FixtureTablePanel::InitializeTable() {
       FixtureTableColumns::Column::Weight)] =
       ui::LocalizedLabelWithUnit(_("Weight"), weightSuffix);
   FixtureTableColumns::ConfigureColumns(table, columnLabels);
+  DataViewSortProfiles::ConfigureFixture(*store);
 }
 
 // Rebuilds table rows from scene fixtures and reapplies validation highlights.

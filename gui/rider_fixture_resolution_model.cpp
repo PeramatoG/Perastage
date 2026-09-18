@@ -142,6 +142,10 @@ int RiderFixtureResolutionModel::Compare(const wxDataViewItem &item1,
   if (column == Create) {
     result = static_cast<int>(value1.GetBool()) -
              static_cast<int>(value2.GetBool());
+  } else if (column == Quantity) {
+    const int quantity1 = analysis.items[row1].request.quantity;
+    const int quantity2 = analysis.items[row2].request.quantity;
+    result = quantity1 < quantity2 ? -1 : quantity1 > quantity2 ? 1 : 0;
   } else {
     result = value1.GetString().CmpNoCase(value2.GetString());
   }

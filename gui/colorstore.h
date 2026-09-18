@@ -16,15 +16,29 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "dataview_sort_utils.h"
 #include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <wx/dataview.h>
 
 class ColorfulDataViewListStore : public wxDataViewListStore {
 public:
+  using SortMode = DataViewSort::Mode;
+
+  // Assigns an explicit semantic sorting policy to a model column.
+  void SetColumnSortMode(unsigned int column, SortMode mode) {
+    columnSortModes[column] = mode;
+  }
+
+  // Returns the registered policy or deterministic plain-text default.
+  SortMode GetColumnSortMode(unsigned int column) const {
+    const auto found = columnSortModes.find(column);
+    return found == columnSortModes.end() ? SortMode::Text : found->second;
+  }
   std::vector<wxDataViewItemAttr> rowAttrs;
   std::vector<std::vector<wxDataViewItemAttr>> cellAttrs;
   std::vector<bool> selectionRows;
@@ -369,45 +383,10 @@ public:
       const int fallback = key1 < key2 ? -1 : (key1 > key2 ? 1 : 0);
       return ascending ? fallback : -fallback;
     }
-    int res = 0;
-    if (column == 1) {
-      wxVariant v1, v2;
-      wxDataViewListStore::GetValueByRow(v1, *row1, column);
-      wxDataViewListStore::GetValueByRow(v2, *row2, column);
-      wxString s1 = v1.GetString();
-      wxString s2 = v2.GetString();
-
-      auto parse = [](const wxString &s, wxString &prefix, long &num) {
-        int pos = s.find_last_of(' ');
-        if (pos != wxNOT_FOUND && s.Mid(pos + 1).ToLong(&num)) {
-          prefix = s.Left(pos);
-          return true;
-        }
-        return false;
-      };
-
-      wxString p1, p2;
-      long n1 = 0, n2 = 0;
-      bool ok1 = parse(s1, p1, n1);
-      bool ok2 = parse(s2, p2, n2);
-      if (ok1 && ok2 && p1 == p2) {
-        if (n1 < n2)
-          res = -1;
-        else if (n1 > n2)
-          res = 1;
-        else
-          res = 0;
-      } else {
-        res = s1.Cmp(s2);
-      }
-    } else {
-      wxVariant v1, v2;
-      wxDataViewListStore::GetValueByRow(v1, *row1, column);
-      wxDataViewListStore::GetValueByRow(v2, *row2, column);
-      res = v1.GetString().Cmp(v2.GetString());
-      if (v1.GetType() == "bool" && v2.GetType() == "bool")
-        res = static_cast<int>(v1.GetBool()) - static_cast<int>(v2.GetBool());
-    }
+    wxVariant v1, v2;
+    wxDataViewListStore::GetValueByRow(v1, *row1, column);
+    wxDataViewListStore::GetValueByRow(v2, *row2, column);
+    int res = DataViewSort::Compare(v1, v2, GetColumnSortMode(column));
 
     if (res == 0) {
       const wxUIntPtr key1 = GetItemData(item1);
@@ -420,4 +399,7 @@ public:
 
     return ascending ? res : -res;
   }
+
+private:
+  std::unordered_map<unsigned int, SortMode> columnSortModes;
 };

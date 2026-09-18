@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Fixed sortable data-table columns to use semantic numeric and natural ordering instead of lexicographic string ordering.
+
 - Restored cross-platform Debug compilation of the Dictionary Editor after its snapshot-service architecture update.
 
 - Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.

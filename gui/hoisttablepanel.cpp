@@ -17,8 +17,8 @@
  */
 #include "hoisttablepanel.h"
 #include "dataview_deferred_selection_guard.h"
+#include "dataview_sort_profiles.h"
 #include "localized_unit_labels.h"
-
 #include "colorfulrenderers.h"
 #include "columnutils.h"
 #include "configmanager.h"
@@ -57,7 +57,6 @@
 #include <wx/wupdlock.h> // freeze/thaw UI during batch edits
 
 static HoistTablePanel *s_instance = nullptr;
-
 namespace {
 
 using HoistColumn = HoistTableColumns::Column;
@@ -476,6 +475,7 @@ HoistTablePanel::~HoistTablePanel() {
 }
 
 void HoistTablePanel::InitializeTable() {
+  DataViewSortProfiles::ConfigureHoist(*store);
   const auto distanceUnit = ResolveDistanceUnitSystem();
   const auto weightUnit = ResolveWeightUnitSystem();
   const wxString distanceSuffix =
