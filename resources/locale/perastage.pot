@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Perastage 1.6.20\n"
+"Project-Id-Version: Perastage 1.6.58\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-07 00:21+0000\n"
+"POT-Creation-Date: 2026-09-18 09:18+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -77,7 +77,7 @@ msgstr ""
 msgid "About Perastage"
 msgstr ""
 
-#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:333
+#: gui/addfixturedialog.cpp:24 gui/mainwindow_menu.cpp:325
 msgid "Add Fixture"
 msgstr ""
 
@@ -126,7 +126,7 @@ msgstr ""
 msgid "Channel:"
 msgstr ""
 
-#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:340
+#: gui/addsceneobjectdialog.cpp:11 gui/mainwindow_menu.cpp:332
 msgid "Add Scene Object"
 msgstr ""
 
@@ -139,7 +139,7 @@ msgstr ""
 msgid "Insertion point %s"
 msgstr ""
 
-#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:336
+#: gui/addtrussdialog.cpp:71 gui/mainwindow_menu.cpp:328
 msgid "Add Truss"
 msgstr ""
 
@@ -187,7 +187,7 @@ msgstr ""
 
 #: gui/dictionary_export_conflict_dialog.cpp:29
 #: gui/dictionaryeditdialog.cpp:987 gui/dictionaryeditdialog.cpp:1042
-#: gui/mainwindow_menu.cpp:201
+#: gui/mainwindow_menu.cpp:193
 msgid "File"
 msgstr ""
 
@@ -290,7 +290,7 @@ msgstr ""
 #: gui/dictionaryeditdialog.cpp:1412 gui/gdtfsearchdialog.cpp:151
 #: gui/layout2dviewdialog.cpp:75 gui/layouttextdialog.cpp:149
 #: gui/rider_fixture_resolution_dialog.cpp:134 gui/ridertextdialog.cpp:152
-#: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:4084
+#: gui/scene_object_primitive_dialogs.cpp:139 mvr/mvrimporter.cpp:1811
 msgid "Cancel"
 msgstr ""
 
@@ -470,7 +470,7 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1081 gui/layout2dviewdialog.cpp:74
 #: gui/mvr_export_result_dialog.cpp:97
-#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:4086
+#: gui/scene_object_primitive_dialogs.cpp:138 mvr/mvrimporter.cpp:1813
 msgid "OK"
 msgstr ""
 
@@ -491,7 +491,7 @@ msgstr ""
 msgid "Unsaved dictionary edits"
 msgstr ""
 
-#: gui/dictionaryeditdialog.cpp:1345 gui/mainwindow_menu.cpp:182
+#: gui/dictionaryeditdialog.cpp:1345 gui/mainwindow_menu.cpp:174
 msgid "Save"
 msgstr ""
 
@@ -744,8 +744,8 @@ msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:1992 gui/dictionaryeditdialog.cpp:2765
 #: gui/fixtureeditdialog.cpp:863 gui/fixturetablepanel.cpp:527
-#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1568
-#: gui/mainwindow_menu.cpp:1591
+#: gui/mainwindow_fixture_replace.cpp:222 gui/mainwindow_menu.cpp:1149
+#: gui/mainwindow_menu.cpp:1172
 msgid "Select GDTF file"
 msgstr ""
 
@@ -760,7 +760,7 @@ msgid "DMX Mode"
 msgstr ""
 
 #: gui/dictionaryeditdialog.cpp:2027 gui/dictionaryeditdialog.cpp:2796
-#: gui/mainwindow_menu.cpp:1624 gui/mainwindow_menu.cpp:1643
+#: gui/mainwindow_menu.cpp:1205 gui/mainwindow_menu.cpp:1224
 #: gui/mainwindow_truss_replace.cpp:114
 msgid "Select Truss file"
 msgstr ""
@@ -1111,7 +1111,7 @@ msgid "Fixture ID"
 msgstr ""
 
 #: gui/fixturetable/fixture_table_columns.cpp:13 gui/hoisttablepanel.cpp:488
-#: gui/summarypanel.cpp:260 gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:687
+#: gui/summarypanel.cpp:260 gui/summarypanel.cpp:269 mvr/mvrimporter.cpp:336
 msgid "Type"
 msgstr ""
 
@@ -1225,8 +1225,10 @@ msgstr ""
 #: gui/fixturetablepanel.cpp:1049 gui/fixturetablepanel.cpp:1055
 #: gui/fixturetablepanel.cpp:1063 gui/fixturetablepanel.cpp:1069
 #: gui/fixturetablepanel.cpp:1105 gui/fixturetablepanel.cpp:1112
-#: gui/hoisttablepanel.cpp:921 gui/hoisttablepanel.cpp:926
-#: gui/hoisttablepanel.cpp:932 gui/hoisttablepanel.cpp:939
+#: gui/gdtf_share_download_workflow.cpp:441
+#: gui/gdtf_share_download_workflow.cpp:445 gui/hoisttablepanel.cpp:921
+#: gui/hoisttablepanel.cpp:926 gui/hoisttablepanel.cpp:932
+#: gui/hoisttablepanel.cpp:939
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:280
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:504
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:647
@@ -1236,8 +1238,7 @@ msgstr ""
 #: gui/mainwindow_io.cpp:553 gui/mainwindow_io.cpp:686
 #: gui/mainwindow_io.cpp:696 gui/mainwindow_io.cpp:746
 #: gui/mainwindow_io.cpp:834 gui/mainwindow_io.cpp:876
-#: gui/mainwindow_io.cpp:894 gui/mainwindow_menu.cpp:813
-#: gui/mainwindow_menu.cpp:817 gui/mainwindow_menu.cpp:1670
+#: gui/mainwindow_io.cpp:894 gui/mainwindow_menu.cpp:1251
 #: gui/ridertextdialog.cpp:218 gui/ridertextdialog.cpp:224
 #: gui/ridertextdialog.cpp:233 gui/ridertextdialog.cpp:245
 #: gui/ridertextdialog.cpp:319 gui/ridertextdialog.cpp:334
@@ -1319,6 +1320,95 @@ msgstr ""
 
 #: gui/gdtf/gdtf_wheel_inspector_panel.cpp:58
 msgid "Slot"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:109
+#: gui/gdtf_share_download_workflow.cpp:283
+msgid "Please provide username and password."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:110
+#: gui/gdtf_share_download_workflow.cpp:284
+#: gui/gdtf_share_download_workflow.cpp:376
+msgid "Login Error"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:148
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but the "
+"password could not be saved securely. You may need to enter it again after "
+"restart."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:149
+#: gui/gdtf_share_download_workflow.cpp:309
+#: gui/preferences/gdtf_credentials_panel.cpp:84
+#: gui/preferences/gdtf_credentials_panel.cpp:95
+#: gui/preferences/gdtf_credentials_panel.cpp:100
+#: gui/rider_fixture_resolution_workflow.cpp:87
+#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:1721
+msgid "GDTF Share credentials"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:182
+msgid ""
+"The GDTF catalog could not be loaded. Check your Internet connection and "
+"GDTF Share credentials."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:183
+#: gui/rider_fixture_resolution_dialog.cpp:356
+msgid "GDTF catalog unavailable"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:299
+msgid ""
+"This build does not include secure password storage. The username was saved, "
+"but the password must be entered again after restart."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:301
+msgid ""
+"The native secure password store is unavailable. The username was saved, but "
+"the password must be entered again after restart."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:304
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but the non-"
+"secret username metadata could not be saved."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:306
+#, c-format
+msgid ""
+"GDTF Share credentials were authenticated for this operation, but the "
+"password was not saved (%s)."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:338
+msgid "Logging in to GDTF Share..."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:395
+msgid "Save GDTF file"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:405
+msgid "Downloading GDTF from GDTF Share..."
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:432
+msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:434
+#: gui/mvr_export_result_dialog.cpp:158 mvr/mvrimporter.cpp:2332
+msgid "Success"
+msgstr ""
+
+#: gui/gdtf_share_download_workflow.cpp:445
+msgid "Download information missing."
 msgstr ""
 
 #: gui/gdtf_share_message_formatter.cpp:22
@@ -1709,7 +1799,7 @@ msgstr ""
 msgid "Move Down"
 msgstr ""
 
-#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:378
+#: gui/layoutpanel.cpp:35 gui/mainwindow_menu.cpp:370
 #: gui/mainwindow_print.cpp:209
 msgid "Layout"
 msgstr ""
@@ -1873,7 +1963,7 @@ msgid "Choose how Perastage should import the selected MVR file."
 msgstr ""
 
 #: gui/mainwindow/controllers/mainwindow_io_controller.cpp:151
-#: gui/mainwindow_menu.cpp:188
+#: gui/mainwindow_menu.cpp:180
 msgid "Import MVR"
 msgstr ""
 
@@ -2433,472 +2523,387 @@ msgstr ""
 msgid "Layout view update failed."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:176
+#: gui/mainwindow_menu.cpp:168
 msgid "New"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:178
+#: gui/mainwindow_menu.cpp:170
 msgid "Create a new project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:179
+#: gui/mainwindow_menu.cpp:171
 msgid "Open"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:181
+#: gui/mainwindow_menu.cpp:173
 msgid "Open an existing project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:184
+#: gui/mainwindow_menu.cpp:176
 msgid "Save the current project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:185
+#: gui/mainwindow_menu.cpp:177
 msgid "Save As"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:187
+#: gui/mainwindow_menu.cpp:179
 msgid "Save the current project with a new name"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:190
+#: gui/mainwindow_menu.cpp:182
 msgid "Import an MVR file"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:191
+#: gui/mainwindow_menu.cpp:183
 msgid "Export MVR"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:193
+#: gui/mainwindow_menu.cpp:185
 msgid "Export the project to MVR"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:194 gui/mainwindow_print.cpp:214
+#: gui/mainwindow_menu.cpp:186 gui/mainwindow_print.cpp:214
 msgid "Print"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:196
+#: gui/mainwindow_menu.cpp:188
 msgid "Choose what to print"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:209
+#: gui/mainwindow_menu.cpp:201
 msgid "Undo"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:211
+#: gui/mainwindow_menu.cpp:203
 msgid "Undo last action"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:212
+#: gui/mainwindow_menu.cpp:204
 msgid "Redo"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:214
+#: gui/mainwindow_menu.cpp:206
 msgid "Redo last undone action"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:216
+#: gui/mainwindow_menu.cpp:208
 msgid "Cut"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:218
+#: gui/mainwindow_menu.cpp:210
 msgid "Cut selected scene elements"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:219
+#: gui/mainwindow_menu.cpp:211
 msgid "Copy"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:221
+#: gui/mainwindow_menu.cpp:213
 msgid "Copy selected scene elements"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:222
+#: gui/mainwindow_menu.cpp:214
 msgid "Paste"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:224
+#: gui/mainwindow_menu.cpp:216
 msgid "Paste copied scene elements"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:228
+#: gui/mainwindow_menu.cpp:220
 msgid "Edit"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:236 gui/mainwindow_menu_builders.cpp:68
+#: gui/mainwindow_menu.cpp:228 gui/mainwindow_menu_builders.cpp:68
 msgid "3D Layout View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:238
+#: gui/mainwindow_menu.cpp:230
 msgid "Switch to 3D Layout View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:240 gui/mainwindow_menu_builders.cpp:69
+#: gui/mainwindow_menu.cpp:232 gui/mainwindow_menu_builders.cpp:69
 msgid "2D Layout View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:242
+#: gui/mainwindow_menu.cpp:234
 msgid "Switch to 2D Layout View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:244
+#: gui/mainwindow_menu.cpp:236
 msgid "Layout Mode"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:246
+#: gui/mainwindow_menu.cpp:238
 msgid "Switch to Layout Mode View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:249
+#: gui/mainwindow_menu.cpp:241
 msgid "Top View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:251
+#: gui/mainwindow_menu.cpp:243
 msgid "Apply top view to active viewport"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:253
+#: gui/mainwindow_menu.cpp:245
 msgid "Front View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:255
+#: gui/mainwindow_menu.cpp:247
 msgid "Apply front view to active viewport"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:257
+#: gui/mainwindow_menu.cpp:249
 msgid "Side View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:259
+#: gui/mainwindow_menu.cpp:251
 msgid "Apply side view to active viewport"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:262
+#: gui/mainwindow_menu.cpp:254
 msgid "Select Tool"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:264
+#: gui/mainwindow_menu.cpp:256
 msgid "Switch to standard selection mode"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:266
+#: gui/mainwindow_menu.cpp:258
 msgid "Measure Tool"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:268
+#: gui/mainwindow_menu.cpp:260
 msgid "Toggle center-to-center measure tool"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:270
+#: gui/mainwindow_menu.cpp:262
 msgid "Gap Measure Tool"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:272
+#: gui/mainwindow_menu.cpp:264
 msgid "Toggle edge-to-edge gap measure tool"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:274
+#: gui/mainwindow_menu.cpp:266
 msgid "Axis Lock"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:275
+#: gui/mainwindow_menu.cpp:267
 msgid "Toggle axis-constrained selection movement"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:278
+#: gui/mainwindow_menu.cpp:270
 msgid "Drag Move"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:279
+#: gui/mainwindow_menu.cpp:271
 msgid "Toggle left-click selection dragging"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:282
+#: gui/mainwindow_menu.cpp:274
 msgid "Local Axes"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:284
+#: gui/mainwindow_menu.cpp:276
 msgid "Use local axes for viewport transforms"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:287
+#: gui/mainwindow_menu.cpp:279
 msgid "Magnet"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:288
+#: gui/mainwindow_menu.cpp:280
 msgid "Toggle Magnet snapping while dragging"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:292
+#: gui/mainwindow_menu.cpp:284
 msgid "Cross-table Actions"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:294
+#: gui/mainwindow_menu.cpp:286
 msgid "Toggle viewport actions across all tables"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:325 gui/mainwindow_menu_builders.cpp:86
+#: gui/mainwindow_menu.cpp:317 gui/mainwindow_menu_builders.cpp:86
 msgid "Layout Views"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:335
+#: gui/mainwindow_menu.cpp:327
 msgid "Insert a new fixture"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:338
+#: gui/mainwindow_menu.cpp:330
 msgid "Insert a new truss"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:341
+#: gui/mainwindow_menu.cpp:333
 msgid "Insert a new scene object"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:343 gui/mainwindow_menu.cpp:345
-#: mvr/mvrimporter.cpp:691
+#: gui/mainwindow_menu.cpp:335 gui/mainwindow_menu.cpp:337
+#: mvr/mvrimporter.cpp:340
 msgid "Download GDTF"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:346 gui/mainwindow_menu.cpp:348
+#: gui/mainwindow_menu.cpp:338 gui/mainwindow_menu.cpp:340
 #: gui/ridertextdialog.cpp:77
 msgid "Create from text"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:352
+#: gui/mainwindow_menu.cpp:344
 msgid "Tools"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:361
+#: gui/mainwindow_menu.cpp:353
 msgid "Add 2D View"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:362
+#: gui/mainwindow_menu.cpp:354
 msgid "Add 2D View to Layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:363
+#: gui/mainwindow_menu.cpp:355
 msgid "Add Legend"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:365
+#: gui/mainwindow_menu.cpp:357
 msgid "Add fixture legend to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:367
+#: gui/mainwindow_menu.cpp:359
 msgid "Add Event Table"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:368
+#: gui/mainwindow_menu.cpp:360
 msgid "Add event table to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:369
+#: gui/mainwindow_menu.cpp:361
 msgid "Add Text"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:371
+#: gui/mainwindow_menu.cpp:363
 msgid "Add text box to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:372
+#: gui/mainwindow_menu.cpp:364
 msgid "Add Image"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:374
+#: gui/mainwindow_menu.cpp:366
 msgid "Add image to layout"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:392 gui/mainwindow_menu.cpp:395
+#: gui/mainwindow_menu.cpp:384 gui/mainwindow_menu.cpp:387
 msgid "creating a new project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:395
+#: gui/mainwindow_menu.cpp:387
 msgid "New Project"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:481 gui/mainwindow_menu.cpp:655
-msgid "Please provide username and password."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:482 gui/mainwindow_menu.cpp:656
-#: gui/mainwindow_menu.cpp:748
-msgid "Login Error"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:520
-msgid ""
-"GDTF Share credentials were authenticated for this operation, but the "
-"password could not be saved securely. You may need to enter it again after "
-"restart."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:521 gui/mainwindow_menu.cpp:681
-#: gui/preferences/gdtf_credentials_panel.cpp:84
-#: gui/preferences/gdtf_credentials_panel.cpp:95
-#: gui/preferences/gdtf_credentials_panel.cpp:100
-#: gui/rider_fixture_resolution_workflow.cpp:87
-#: gui/rider_fixture_resolution_workflow.cpp:253 mvr/mvrimporter.cpp:3995
-msgid "GDTF Share credentials"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:554
-msgid ""
-"The GDTF catalog could not be loaded. Check your Internet connection and "
-"GDTF Share credentials."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:555 gui/rider_fixture_resolution_dialog.cpp:356
-msgid "GDTF catalog unavailable"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:671
-msgid ""
-"This build does not include secure password storage. The username was saved, "
-"but the password must be entered again after restart."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:673
-msgid ""
-"The native secure password store is unavailable. The username was saved, but "
-"the password must be entered again after restart."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:676
-msgid ""
-"GDTF Share credentials were authenticated for this operation, but the non-"
-"secret username metadata could not be saved."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:678
-#, c-format
-msgid ""
-"GDTF Share credentials were authenticated for this operation, but the "
-"password was not saved (%s)."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:710
-msgid "Logging in to GDTF Share..."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:767
-msgid "Save GDTF file"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:777
-msgid "Downloading GDTF from GDTF Share..."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:804
-msgid "GDTF downloaded successfully. Do you want to add it to the project now?"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:806 gui/mvr_export_result_dialog.cpp:158
-#: mvr/mvrimporter.cpp:4592
-msgid "Success"
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:817
-msgid "Download information missing."
-msgstr ""
-
-#: gui/mainwindow_menu.cpp:836
+#: gui/mainwindow_menu.cpp:417
 msgid "Could not resolve writable user library path."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:837 gui/mainwindow_menu.cpp:849
+#: gui/mainwindow_menu.cpp:418 gui/mainwindow_menu.cpp:430
 #: gui/mainwindow_menu_builders.cpp:96
 msgid "Open user library folder"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:848
+#: gui/mainwindow_menu.cpp:429
 msgid "Could not open the user library folder."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:883
+#: gui/mainwindow_menu.cpp:464
 msgid "No hoists available for weight distribution."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:884 gui/mainwindow_menu.cpp:895
-#: gui/mainwindow_menu.cpp:916
+#: gui/mainwindow_menu.cpp:465 gui/mainwindow_menu.cpp:476
+#: gui/mainwindow_menu.cpp:497
 msgid "Distribute hoist weights"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:889
+#: gui/mainwindow_menu.cpp:470
 msgid "All positions"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:894
+#: gui/mainwindow_menu.cpp:475
 msgid "Select hang position(s) to distribute hoist weights."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:915
+#: gui/mainwindow_menu.cpp:496
 msgid "No hoists found for the selected position."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1030
+#: gui/mainwindow_menu.cpp:611
 msgid "Please select fixtures to convert first."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1030 gui/mainwindow_menu.cpp:1043
-#: gui/mainwindow_menu.cpp:1072 gui/mainwindow_menu_builders.cpp:107
+#: gui/mainwindow_menu.cpp:611 gui/mainwindow_menu.cpp:624
+#: gui/mainwindow_menu.cpp:653 gui/mainwindow_menu_builders.cpp:107
 msgid "Convert to Hoist"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1042
+#: gui/mainwindow_menu.cpp:623
 msgid "The selected fixtures cannot be converted."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1071
+#: gui/mainwindow_menu.cpp:652
 #, c-format
 msgid "Converted %zu fixture(s) to hoists."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1081
+#: gui/mainwindow_menu.cpp:662
 msgid "Please select a scene object to convert first."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1082 gui/mainwindow_menu.cpp:1092
-#: gui/mainwindow_menu.cpp:1117 gui/mainwindow_menu_builders.cpp:109
+#: gui/mainwindow_menu.cpp:663 gui/mainwindow_menu.cpp:673
+#: gui/mainwindow_menu.cpp:698 gui/mainwindow_menu_builders.cpp:109
 msgid "Convert Scene Objects to Truss"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1091
+#: gui/mainwindow_menu.cpp:672
 msgid "No scene objects with a valid model file were converted."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1114
+#: gui/mainwindow_menu.cpp:695
 #, c-format
 msgid "Converted %zu scene object(s) with model '%s' to truss."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1150
+#: gui/mainwindow_menu.cpp:731
 msgid "exiting"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1150
+#: gui/mainwindow_menu.cpp:731
 msgid "Exit"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1239 gui/mainwindow_menu.cpp:1274
+#: gui/mainwindow_menu.cpp:820 gui/mainwindow_menu.cpp:855
 msgid "Perastage Help"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1244
+#: gui/mainwindow_menu.cpp:825
 msgid "Language:"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1246
+#: gui/mainwindow_menu.cpp:827
 msgid "English"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1247
+#: gui/mainwindow_menu.cpp:828
 msgid "Español"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1273
+#: gui/mainwindow_menu.cpp:854
 msgid "help.md file not found"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1292
+#: gui/mainwindow_menu.cpp:873
 #, c-format
 msgid ""
 "Could not create the logs folder.\n"
@@ -2906,12 +2911,12 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1294 gui/mainwindow_menu.cpp:1312
-#: gui/mainwindow_menu.cpp:1328 gui/mainwindow_menu.cpp:1337
+#: gui/mainwindow_menu.cpp:875 gui/mainwindow_menu.cpp:893
+#: gui/mainwindow_menu.cpp:909 gui/mainwindow_menu.cpp:918
 msgid "Perastage Diagnostics"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1310
+#: gui/mainwindow_menu.cpp:891
 #, c-format
 msgid ""
 "Could not open the logs folder.\n"
@@ -2919,7 +2924,7 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1326
+#: gui/mainwindow_menu.cpp:907
 #, c-format
 msgid ""
 "Could not export the diagnostic report.\n"
@@ -2927,7 +2932,7 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1335
+#: gui/mainwindow_menu.cpp:916
 #, c-format
 msgid ""
 "Diagnostic report exported successfully.\n"
@@ -2935,21 +2940,21 @@ msgid ""
 "%s"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1356 gui/update/update_notification_dialog.cpp:30
+#: gui/mainwindow_menu.cpp:937 gui/update/update_notification_dialog.cpp:30
 msgid "Perastage Updates"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1358
+#: gui/mainwindow_menu.cpp:939
 msgid ""
 "Could not check for updates.\n"
 "\n"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1361
+#: gui/mainwindow_menu.cpp:942
 msgid "Please verify your network connection and try again."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1370
+#: gui/mainwindow_menu.cpp:951
 #, c-format
 msgid ""
 "Current version: %s\n"
@@ -2957,17 +2962,17 @@ msgid ""
 "\n"
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1374
+#: gui/mainwindow_menu.cpp:955
 msgid "You are up to date."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1668 gui/mainwindow_truss_replace.cpp:180
+#: gui/mainwindow_menu.cpp:1249 gui/mainwindow_truss_replace.cpp:180
 msgid ""
 "Unsupported or unreadable truss file. Supported formats are GDTF, GTruss, "
 "GLB, and 3DS."
 msgstr ""
 
-#: gui/mainwindow_menu.cpp:1851 gui/mainwindow_menu.cpp:1873
+#: gui/mainwindow_menu.cpp:1432 gui/mainwindow_menu.cpp:1454
 msgid "Select Object file"
 msgstr ""
 
@@ -3607,7 +3612,7 @@ msgid ""
 "Share credentials."
 msgstr ""
 
-#: gui/preferences/gdtf_credentials_panel.cpp:94 mvr/mvrimporter.cpp:3992
+#: gui/preferences/gdtf_credentials_panel.cpp:94 mvr/mvrimporter.cpp:1718
 msgid ""
 "The username was saved, but secure password storage is unavailable. The "
 "password must be entered again after restart."
@@ -3919,7 +3924,7 @@ msgstr ""
 msgid "Create"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:4062
+#: gui/rider_fixture_resolution_dialog.cpp:103 mvr/mvrimporter.cpp:1789
 msgid "Fixture type"
 msgstr ""
 
@@ -3931,15 +3936,15 @@ msgstr ""
 msgid "Positions"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:4064
+#: gui/rider_fixture_resolution_dialog.cpp:109 mvr/mvrimporter.cpp:1791
 msgid "Selected GDTF"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:4066
+#: gui/rider_fixture_resolution_dialog.cpp:113 mvr/mvrimporter.cpp:1793
 msgid "Status"
 msgstr ""
 
-#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:4070
+#: gui/rider_fixture_resolution_dialog.cpp:115 mvr/mvrimporter.cpp:1797
 msgid "Details"
 msgstr ""
 
@@ -4495,164 +4500,164 @@ msgstr ""
 msgid "Apply Views to Fixture"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:677
+#: mvr/mvrimporter.cpp:326
 msgid "Resolve GDTF source conflicts"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:680
+#: mvr/mvrimporter.cpp:329
 msgid "Choose which source to keep for each fixture type."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:688
+#: mvr/mvrimporter.cpp:337
 msgid "MVR"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:689
+#: mvr/mvrimporter.cpp:338
 msgid "App"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:703 mvr/mvrimporter.cpp:704 mvr/mvrimporter.cpp:706
+#: mvr/mvrimporter.cpp:352 mvr/mvrimporter.cpp:353 mvr/mvrimporter.cpp:355
 msgid "Select all"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:3993
+#: mvr/mvrimporter.cpp:1719
 #, c-format
 msgid ""
 "GDTF Share credentials were authenticated for this operation, but were not "
 "saved (%s)."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4006
+#: mvr/mvrimporter.cpp:1732
 msgid "GDTF download queue"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4040
+#: mvr/mvrimporter.cpp:1766
 msgid "Selected fixture types for download"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4046
+#: mvr/mvrimporter.cpp:1773
 msgid "Preparing download queue..."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4068
+#: mvr/mvrimporter.cpp:1795
 msgid "Progress"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4075
+#: mvr/mvrimporter.cpp:1802
 msgid "0 processed  |  0 downloaded  |  0 fallback"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4115
+#: mvr/mvrimporter.cpp:1842
 msgid "Cancel requested. Finishing current transfer..."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4171
+#: mvr/mvrimporter.cpp:1898
 #, c-format
 msgid "%d/%zu processed  |  %d downloaded  |  %d fallback  |  %d canceled"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4231
+#: mvr/mvrimporter.cpp:1959
 msgid "Fallback to App"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4235
+#: mvr/mvrimporter.cpp:1963
 msgid "Fallback to MVR"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4236
+#: mvr/mvrimporter.cpp:1964
 msgid "Fallback to dummy"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4293
+#: mvr/mvrimporter.cpp:2021
 msgid "Pending"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4296
+#: mvr/mvrimporter.cpp:2024
 msgid "Waiting to match catalog entry"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4306
+#: mvr/mvrimporter.cpp:2034
 msgid "Loading GDTF catalog..."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4402
+#: mvr/mvrimporter.cpp:2137
 #, c-format
 msgid "Selected fixture types for download (catalog entries: %zu)"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4405
+#: mvr/mvrimporter.cpp:2140
 msgid "Downloading selected fixtures..."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4451
+#: mvr/mvrimporter.cpp:2191
 msgid "No catalog match found"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4499 mvr/mvrimporter.cpp:4558
+#: mvr/mvrimporter.cpp:2239 mvr/mvrimporter.cpp:2298
 msgid "Downloading"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4500 mvr/mvrimporter.cpp:4560
+#: mvr/mvrimporter.cpp:2240 mvr/mvrimporter.cpp:2300
 msgid "Fetching fixture package"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4579
+#: mvr/mvrimporter.cpp:2319
 msgid "Downloaded and assigned"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4582
+#: mvr/mvrimporter.cpp:2322
 #, c-format
 msgid " (Mode: %s)"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4602 mvr/mvrimporter.cpp:4627
+#: mvr/mvrimporter.cpp:2342 mvr/mvrimporter.cpp:2367
 msgid "Canceled"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4606
+#: mvr/mvrimporter.cpp:2346
 msgid "Canceled by user"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4619
+#: mvr/mvrimporter.cpp:2359
 msgid "Download failed"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4628
+#: mvr/mvrimporter.cpp:2368
 msgid "Canceled before download start"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4633
+#: mvr/mvrimporter.cpp:2373
 msgid "Queue canceled. Keeping downloaded fixtures."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4635
+#: mvr/mvrimporter.cpp:2375
 msgid "Queue finished."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4639
+#: mvr/mvrimporter.cpp:2379
 msgid "Catalog fetch/parsing failed."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4641
+#: mvr/mvrimporter.cpp:2381
 #, c-format
 msgid "Selected fixture types for download (catalog load failed: %s)"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4646
+#: mvr/mvrimporter.cpp:2386
 msgid "Failed to load catalog list"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4651
+#: mvr/mvrimporter.cpp:2391
 #, c-format
 msgid "Catalog load failed. %s. Keeping available fallbacks."
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4657
+#: mvr/mvrimporter.cpp:2397
 #, c-format
 msgid "%s - queue finished"
 msgstr ""
 
-#: mvr/mvrimporter.cpp:4664
+#: mvr/mvrimporter.cpp:2404
 msgid "GDTF Share login"
 msgstr ""
 
@@ -4660,23 +4665,23 @@ msgstr ""
 msgid "Spanish"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3785
+#: viewer2d/viewer2dpanel.cpp:3575
 msgid "Gap measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:3786
+#: viewer2d/viewer2dpanel.cpp:3576
 msgid "Measure: "
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:4032 viewer3d/viewer3dpanel.cpp:2433
+#: viewer2d/viewer2dpanel.cpp:3648 viewer3d/viewer3dpanel.cpp:2244
 msgid "Convert to Truss"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:4118 viewer3d/viewer3dpanel.cpp:2450
+#: viewer2d/viewer2dpanel.cpp:3734 viewer3d/viewer3dpanel.cpp:2261
 msgid "No position"
 msgstr ""
 
-#: viewer2d/viewer2dpanel.cpp:4129 viewer3d/viewer3dpanel.cpp:2461
+#: viewer2d/viewer2dpanel.cpp:3745 viewer3d/viewer3dpanel.cpp:2272
 msgid "Select by position"
 msgstr ""
 
@@ -4790,37 +4795,37 @@ msgstr ""
 msgid "ID: %d"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1518
+#: viewer3d/viewer3dpanel.cpp:1348
 msgid "Cannot export while the 3D viewer is hidden."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1518 viewer3d/viewer3dpanel.cpp:1523
-#: viewer3d/viewer3dpanel.cpp:1535 viewer3d/viewer3dpanel.cpp:1540
-#: viewer3d/viewer3dpanel.cpp:1583 viewer3d/viewer3dpanel.cpp:1632
+#: viewer3d/viewer3dpanel.cpp:1348 viewer3d/viewer3dpanel.cpp:1353
+#: viewer3d/viewer3dpanel.cpp:1365 viewer3d/viewer3dpanel.cpp:1370
+#: viewer3d/viewer3dpanel.cpp:1413 viewer3d/viewer3dpanel.cpp:1462
 msgid "Export image"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1535 viewer3d/viewer3dpanel.cpp:1540
+#: viewer3d/viewer3dpanel.cpp:1365 viewer3d/viewer3dpanel.cpp:1370
 msgid "OpenGL is not initialized yet."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1582
+#: viewer3d/viewer3dpanel.cpp:1412
 msgid "Failed to create an offscreen framebuffer for export."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1632
+#: viewer3d/viewer3dpanel.cpp:1462
 msgid "Failed to save PNG image."
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:1888
+#: viewer3d/viewer3dpanel.cpp:1716
 #, c-format
 msgid "Measure: %s"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2464
+#: viewer3d/viewer3dpanel.cpp:2275
 msgid "Render style"
 msgstr ""
 
-#: viewer3d/viewer3dpanel.cpp:2466
+#: viewer3d/viewer3dpanel.cpp:2277
 msgid "Export image..."
 msgstr ""

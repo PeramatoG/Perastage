@@ -2646,6 +2646,9 @@ add_bash_policy_test(MainToolbarContract
 add_bash_policy_test(MainWindowMenuRoutingContract
                      ${CMAKE_CURRENT_SOURCE_DIR}/check_mainwindow_menu_routing_contract.sh
                      LABELS "gui;architecture")
+add_bash_policy_test(MainWindowGdtfDownloadBoundary
+                     ${CMAKE_CURRENT_SOURCE_DIR}/check_mainwindow_gdtf_download_boundary.sh
+                     LABELS "gui;architecture;gdtf")
 add_bash_policy_test(StartupWindowPublication
                      ${CMAKE_CURRENT_SOURCE_DIR}/check_startup_window_publication.sh
                      LABELS "gui;startup;architecture")

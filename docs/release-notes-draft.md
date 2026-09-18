@@ -16,6 +16,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated the GDTF Share catalog, authentication, search, and download interface workflow from the main-window menu implementation while preserving existing behavior.
+
 - Improved Windows Debug CI dependency performance by separating ABI-protected vcpkg binary archives from mutable installation trees, broadening safe cache reuse across runner updates, and adding cache-source and installation-time diagnostics.
 
 - Separated reusable mouse and keyboard camera navigation, pointer-drag activation state, and grouped selection decisions from the wxWidgets/OpenGL panel, with production-path interaction coverage, while preserving existing viewport behavior.
