@@ -19,7 +19,8 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 | Module | File | Function(s) | Mutation scope |
 |---|---|---|---|
-| Viewer 3D API | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)`, `MutateGdtfDocumentWithResult(...)` | Writes `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, reports structured diagnostics, and publishes through a unique sibling temporary archive before atomic replacement. |
+| Core document mutation | `core/gdtf_document_mutation.cpp` | `gdtf::MutateDocument(...)` | Writes `FixtureType/@Description` and `PhysicalDescriptions/Properties` (`Weight`, `PowerConsumption`), appends a standard `Revision`, canonicalizes the description, reports structured diagnostics, and publishes through a unique sibling temporary archive before atomic replacement. |
+| Viewer 3D compatibility facade | `viewer3d/gdtfloader.cpp` | `SetGdtfProperties(...)`, `MutateGdtfDocumentWithResult(...)` | Preserves the legacy public API by delegating the transaction to Core and invalidates the corresponding Viewer3D loader cache entry after successful atomic replacement. |
 | GUI symbol workflow | `gui/windows/symbol_fixture_applier.cpp` | `RewriteGdtf(...)` + `AppendMutationAuditMetadata(...)` (called by `ApplySymbolsToFixtureGdtf(...)`) | Writes/updates SVG symbol assets and model SVG offsets, appends a standard `Revision`, rewrites `.gdtf`. |
 | Project fixture editor | `core/gdtf/editor/project_fixture_gdtf_apply_adapter.cpp` + `core/fixture_gdtf_derivative_publication.cpp` | `PrepareProjectDerivative(...)`, document mutation, `PublishPreparedDerivative(...)` | Mutates a private non-canonical project working copy, validates the four-view ownership contract, and atomically publishes before fixture rebinding. Incomplete derivatives are discarded rather than published canonically. |
 | Truss GDTF generation | `core/truss_gdtf_builder.cpp` | `BuildTrussGdtfFromInstance(...)`, `ConvertLegacyGtrussToGdtf(...)`; `gui/trusseditdialog.cpp` calls the builder when truss type fields are edited | Creates Perastage-owned truss GDTF archives with a standard `Structure` root geometry, deterministic `FixtureTypeID`, standard `Revision`, and no custom XML nodes. |
@@ -28,6 +29,8 @@ Perastage currently mutates GDTF archives at the following integration points.
 
 ### Notes on ownership
 
+- `core/gdtf_document_mutation.{h,cpp}` owns the document mutation and archive publication transaction; it preserves unrelated resources, structured publication-stage diagnostics, failure hooks, and atomic replacement semantics.
+- `viewer3d/gdtfloader.cpp` retains only the source-compatible mutation facade and Viewer3D-specific cache invalidation after Core reports completed replacement.
 - `core/gdtf_mutation_audit.{h,cpp}` is the single owner of Perastage GDTF revision semantics.
 - `core/gdtf_canonicalizer.{h,cpp}` is the shared owner of export-time GDTF structural canonicalization and validation.
 - Write call sites in other modules must use this helper API instead of hand-rolling custom revision XML shapes.
