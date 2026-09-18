@@ -35,18 +35,25 @@ find_include_line() {
   printf '%s\n' "${match%%:*}"
 }
 
-# GLEW must precede headers that transitively include the platform OpenGL API.
-viewer2d_glew_line="$(find_include_line '^#include <GL/glew\.h>[[:space:]]*$' viewer2d/viewer2dpanel.cpp)"
-viewer2d_context_line="$(find_include_line '^#include "gl_context_utils\.h"[[:space:]]*$' viewer2d/viewer2dpanel.cpp)"
-if ! [[ "$viewer2d_glew_line" =~ ^[0-9]+$ &&
-        "$viewer2d_context_line" =~ ^[0-9]+$ ]]; then
-  echo "viewer2dpanel.cpp must include GLEW and gl_context_utils.h." >&2
-  exit 1
-fi
-if ((viewer2d_glew_line >= viewer2d_context_line)); then
-  echo "viewer2dpanel.cpp must include GLEW before gl_context_utils.h." >&2
-  exit 1
-fi
+# Requires GLEW before headers that transitively include the platform OpenGL API.
+check_glew_include_order() {
+  local source_file="$1"
+  local glew_line
+  local context_line
+  glew_line="$(find_include_line '^#include <GL/glew\.h>[[:space:]]*$' "$source_file")"
+  context_line="$(find_include_line '^#include "gl_context_utils\.h"[[:space:]]*$' "$source_file")"
+  if ! [[ "$glew_line" =~ ^[0-9]+$ && "$context_line" =~ ^[0-9]+$ ]]; then
+    echo "$source_file must include GLEW and gl_context_utils.h." >&2
+    exit 1
+  fi
+  if ((glew_line >= context_line)); then
+    echo "$source_file must include GLEW before gl_context_utils.h." >&2
+    exit 1
+  fi
+}
+
+check_glew_include_order viewer2d/viewer2dpanel.cpp
+check_glew_include_order gui/layoutviewerpanel.cpp
 
 # Verify include matching remains portable across LF and CRLF checkouts.
 include_order_lf="${TMPDIR:-/tmp}/perastage_include_order_lf_$$.cpp"
