@@ -32,7 +32,7 @@ print(match.group(0))
 PY
 )"
 
-for token in "pendingFitOnResize = true" "SchedulePendingFitToViewport"; do
+for token in "viewportState_.RequestAutomaticFit" "SchedulePendingFitToViewport"; do
   if [[ "$request_body" != *"$token"* ]]; then
     echo "RequestFitToViewport is missing expected token: $token" >&2
     exit 1
@@ -50,7 +50,7 @@ print(match.group(0))
 PY
 )"
 
-for token in "GetLogicalClientSize" "kMinimumStableFitSizePx" "IsShownOnScreen"; do
+for token in "GetLogicalClientSize" "IsViewportReadyForAutomaticFit" "IsShownOnScreen"; do
   if [[ "$ready_body" != *"$token"* ]]; then
     echo "Automatic fit readiness must verify stable visible client geometry: $token" >&2
     exit 1
@@ -68,7 +68,7 @@ print(match.group(0))
 PY
 )"
 
-for token in "pendingFitOnResize" "IsViewportReadyForAutomaticFit" "ResetViewToFit" "pendingFitOnResize = false" "RequestRenderRebuild" "Refresh"; do
+for token in "ConsumeAutomaticFitIfReady" "ResetViewToFit" "RequestRenderRebuild" "Refresh"; do
   if [[ "$attempt_body" != *"$token"* ]]; then
     echo "Automatic fit completion is missing expected token: $token" >&2
     exit 1
@@ -124,7 +124,7 @@ allowed_functions = {
     'LayoutViewerPanel::ResetViewToFit',
 }
 violations = []
-for match in re.finditer(r'(pendingFitOnResize = true|ResetViewToFit\(\);)', text):
+for match in re.finditer(r'(viewportState_\.RequestAutomaticFit\(\)|ResetViewToFit\(\);)', text):
     prefix = text[:match.start()]
     funcs = re.findall(r'(?:bool|void|wxRect|double)\s+(LayoutViewerPanel::\w+)\([^;]*?\)\s*(?:const\s*)?\{', prefix)
     current = funcs[-1] if funcs else '<unknown>'

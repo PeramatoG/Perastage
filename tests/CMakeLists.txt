@@ -177,6 +177,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(Layout2DRasterizationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_rasterization_boundary.sh)
     add_bash_policy_test(Layout2DViewCaptureBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_2d_view_capture_boundary.sh)
     add_bash_policy_test(LayoutViewerInteractionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_interaction_boundary.sh)
+    add_bash_policy_test(LayoutViewerViewportBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_viewport_boundary.sh LABELS standard-strict architecture gui)
     add_bash_policy_test(Viewer2DStateOwnershipBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_state_ownership_boundary.sh)
     add_bash_policy_test(Viewer2DInteractionSessionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_interaction_session_boundary.sh)
     add_bash_policy_test(Viewer2DDecisionPolicyBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_viewer2d_decision_policy_boundary.sh)
@@ -234,6 +235,15 @@ target_include_directories(layout_viewer_selection_state_test PRIVATE ../gui)
 add_test(NAME LayoutViewerSelectionState
          COMMAND layout_viewer_selection_state_test)
 set_perastage_test_labels(LayoutViewerSelectionState
+                          LAYER standard-strict DOMAINS gui architecture)
+
+add_executable(layout_viewer_viewport_state_test
+               layout_viewer_viewport_state_test.cpp
+               ../gui/layout_viewer_viewport_state.cpp)
+target_include_directories(layout_viewer_viewport_state_test PRIVATE ../gui)
+add_test(NAME LayoutViewerViewportState
+         COMMAND layout_viewer_viewport_state_test)
+set_perastage_test_labels(LayoutViewerViewportState
                           LAYER standard-strict DOMAINS gui architecture)
 
 if(Python3_Interpreter_FOUND)

@@ -80,17 +80,14 @@
 #include "viewer2dstate.h"
 
 namespace {
-constexpr double kMinZoom = 0.25;
-constexpr double kMaxZoom = 10.0;
-constexpr double kZoomStep = 1.1;
+using gui::layoutviewport::kMaxRenderBytes;
+using gui::layoutviewport::kMaxRenderDimension;
+using gui::layoutviewport::kMaxRenderPixels;
+using gui::layoutviewport::kMinZoom;
+using gui::layoutviewport::kZoomStep;
 constexpr int kZoomCacheStepsPerLevel = 2;
-constexpr int kFitMarginPx = 40;
 constexpr int kHandleSizePx = 10;
 constexpr int kHandleHalfPx = kHandleSizePx / 2;
-constexpr int kMaxRenderDimension = 8192;
-constexpr size_t kMaxRenderPixels =
-    static_cast<size_t>(kMaxRenderDimension) * kMaxRenderDimension;
-constexpr size_t kMaxRenderBytes = 64 * 1024 * 1024;
 constexpr int kEditMenuId = wxID_HIGHEST + 490;
 constexpr int kDeleteMenuId = wxID_HIGHEST + 491;
 constexpr int kDeleteLegendMenuId = wxID_HIGHEST + 492;
@@ -143,47 +140,19 @@ void ValidateGlStateAfterRender(const char *stage, int expectedWidth,
   }
 }
 
-// Computes a safe per-frame zoom cap constrained by render dimensions and pixel
-// budget.
-double GetMaxZoomForFrame(const layouts::Layout2DViewFrame &frame) {
-  if (frame.width <= 0 || frame.height <= 0)
-    return kMaxZoom;
-
-  const double width = static_cast<double>(frame.width);
-  const double height = static_cast<double>(frame.height);
-  const double byDimension =
-      std::min(static_cast<double>(kMaxRenderDimension) / width,
-               static_cast<double>(kMaxRenderDimension) / height);
-  const double sourcePixels = width * height;
-  if (sourcePixels <= 0.0)
-    return std::clamp(byDimension, kMinZoom, kMaxZoom);
-
-  const double maxPixelsByArea =
-      static_cast<double>(kMaxRenderBytes / 4) / sourcePixels;
-  if (maxPixelsByArea <= 0.0)
-    return std::clamp(byDimension, kMinZoom, kMaxZoom);
-
-  const double byPixelBudget = std::sqrt(maxPixelsByArea);
-  const double maxZoom = std::min(byDimension, byPixelBudget);
-  return std::clamp(maxZoom, kMinZoom, kMaxZoom);
-}
-
-// Computes the layout-wide maximum safe zoom across all renderable frame
-// collections.
+// Computes the layout-wide maximum safe zoom across all renderable frames.
 double GetLayoutSafeMaxZoom(const layouts::LayoutDefinition &layout) {
-  double maxZoom = kMaxZoom;
-  auto clampFromFrames = [&maxZoom](const auto &collection) {
-    for (const auto &entry : collection) {
-      maxZoom = std::min(maxZoom, GetMaxZoomForFrame(entry.frame));
-    }
+  std::vector<gui::layoutviewport::Size> frameSizes;
+  auto appendFrames = [&frameSizes](const auto &collection) {
+    for (const auto &entry : collection)
+      frameSizes.push_back({entry.frame.width, entry.frame.height});
   };
-
-  clampFromFrames(layout.view2dViews);
-  clampFromFrames(layout.legendViews);
-  clampFromFrames(layout.eventTables);
-  clampFromFrames(layout.textViews);
-  clampFromFrames(layout.imageViews);
-  return std::clamp(maxZoom, kMinZoom, kMaxZoom);
+  appendFrames(layout.view2dViews);
+  appendFrames(layout.legendViews);
+  appendFrames(layout.eventTables);
+  appendFrames(layout.textViews);
+  appendFrames(layout.imageViews);
+  return gui::layoutviewport::GetLayoutSafeMaxZoom(frameSizes);
 }
 
 bool AreEqual(const layouts::Layout2DViewFrame &lhs,
@@ -543,7 +512,7 @@ LayoutViewerPanel::~LayoutViewerPanel() {
 
 // Requests a deferred automatic fit once the pane has a stable visible size.
 void LayoutViewerPanel::RequestFitToViewport() {
-  pendingFitOnResize = true;
+  viewportState_.RequestAutomaticFit();
   SchedulePendingFitToViewport();
 }
 
@@ -870,14 +839,10 @@ void LayoutViewerPanel::OnPaint(wxPaintEvent &) {
     const double pageWidth = currentLayout.pageSetup.PageWidthPt();
     const double pageHeight = currentLayout.pageSetup.PageHeightPt();
 
-    const double scaledWidth = pageWidth * zoom;
-    const double scaledHeight = pageHeight * zoom;
-
-    const wxPoint center(logicalSize.GetWidth() / 2,
-                         logicalSize.GetHeight() / 2);
-    const wxPoint topLeft(
-        center.x - static_cast<int>(scaledWidth / 2.0) + panOffset.x,
-        center.y - static_cast<int>(scaledHeight / 2.0) + panOffset.y);
+    const wxRect pageRect = GetPageRect();
+    const double scaledWidth = pageWidth * viewportState_.Zoom();
+    const double scaledHeight = pageHeight * viewportState_.Zoom();
+    const wxPoint topLeft = pageRect.GetPosition();
 
     glColor4ub(255, 255, 255, 255);
     glBegin(GL_QUADS);
@@ -1446,8 +1411,8 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
     const layouts::Layout2DViewFrame frame =
         gui::layoutinteraction::ComputeDraggedFrame(
             dragMode, interactionSession_.DragStartFrame(),
-            interactionSession_.DragStartPointer(), pointer, zoom,
-            imageAspectRatio);
+            interactionSession_.DragStartPointer(), pointer,
+            viewportState_.Zoom(), imageAspectRatio);
     const bool updatePosition = dragMode == FrameDragMode::Move;
     if (updatePosition) {
       ApplyFrameUpdateToSelection(frame, true);
@@ -1463,7 +1428,7 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
 
   const gui::layoutinteraction::Point delta =
       interactionSession_.UpdatePan(pointer);
-  panOffset += wxPoint(delta.x, delta.y);
+  viewportState_.ApplyPan({delta.x, delta.y});
   Refresh();
 }
 
@@ -1472,30 +1437,13 @@ void LayoutViewerPanel::OnMouseMove(wxMouseEvent &event) {
 void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
   if (interactionSession_.DragMode() != FrameDragMode::None)
     return;
-  const int rotation = event.GetWheelRotation();
-  const int delta = event.GetWheelDelta();
-  if (delta == 0 || rotation == 0)
+  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
+  const wxPoint mousePos = layoutviewerpanel::GetLogicalMousePosition(event);
+  if (!viewportState_.ApplyWheelZoom(
+          event.GetWheelRotation(), event.GetWheelDelta(),
+          {mousePos.x, mousePos.y}, {size.GetWidth(), size.GetHeight()},
+          GetLayoutSafeMaxZoom(currentLayout)))
     return;
-
-  const double steps =
-      static_cast<double>(rotation) / static_cast<double>(delta);
-  const double factor = std::pow(kZoomStep, steps);
-  const double safeMaxZoom = GetLayoutSafeMaxZoom(currentLayout);
-  const double newZoom = std::clamp(zoom * factor, kMinZoom, safeMaxZoom);
-  if (std::abs(newZoom - zoom) < 1e-6)
-    return;
-
-  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  wxPoint center(size.GetWidth() / 2, size.GetHeight() / 2);
-  wxPoint mousePos = layoutviewerpanel::GetLogicalMousePosition(event);
-
-  wxPoint relative = mousePos - center - panOffset;
-  const double scale = newZoom / zoom;
-  wxPoint newRelative(static_cast<int>(relative.x * scale),
-                      static_cast<int>(relative.y * scale));
-
-  panOffset += relative - newRelative;
-  zoom = newZoom;
   InvalidateRenderIfFrameChanged(false);
   RequestRenderRebuild();
   Refresh();
@@ -1826,19 +1774,18 @@ void LayoutViewerPanel::OnSendToBack(wxCommandEvent &) {
 
 // Reports whether the current client area can produce a reliable automatic fit.
 bool LayoutViewerPanel::IsViewportReadyForAutomaticFit() const {
-  constexpr int kMinimumStableFitSizePx = 100;
   const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  return size.GetWidth() >= kMinimumStableFitSizePx &&
-         size.GetHeight() >= kMinimumStableFitSizePx && IsShownOnScreen();
+  return gui::layoutviewport::IsViewportReadyForAutomaticFit(
+      {size.GetWidth(), size.GetHeight()}, IsShownOnScreen());
 }
 
 // Attempts to consume the pending automatic fit with the current viewport.
 bool LayoutViewerPanel::TryCompletePendingFitToViewport() {
-  if (!pendingFitOnResize || !IsViewportReadyForAutomaticFit())
+  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
+  if (!viewportState_.ConsumeAutomaticFitIfReady(
+          {size.GetWidth(), size.GetHeight()}, IsShownOnScreen()))
     return false;
-
   ResetViewToFit();
-  pendingFitOnResize = false;
   InvalidateRenderIfFrameChanged(false);
   RequestRenderRebuild();
   Refresh();
@@ -1847,9 +1794,9 @@ bool LayoutViewerPanel::TryCompletePendingFitToViewport() {
 
 // Schedules at most one deferred automatic-fit attempt for the pending request.
 void LayoutViewerPanel::SchedulePendingFitToViewport() {
-  if (!pendingFitOnResize || deferredFitToViewportScheduled_)
+  if (!viewportState_.HasPendingAutomaticFit() ||
+      deferredFitToViewportScheduled_)
     return;
-
   deferredFitToViewportScheduled_ = true;
   wxWeakRef<LayoutViewerPanel> weakThis(this);
   CallAfter([weakThis]() {
@@ -1865,54 +1812,42 @@ void LayoutViewerPanel::SchedulePendingFitToViewport() {
 
 // Resets the layout camera so the page fits within the current viewport.
 void LayoutViewerPanel::ResetViewToFit() {
-  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
-  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
-
-  if (pageWidth <= 0.0 || pageHeight <= 0.0 || size.GetWidth() <= 0 ||
-      size.GetHeight() <= 0) {
-    zoom = 1.0;
-    panOffset = wxPoint(0, 0);
-    return;
-  }
-
-  const double fitWidth =
-      static_cast<double>(size.GetWidth() - kFitMarginPx) / pageWidth;
-  const double fitHeight =
-      static_cast<double>(size.GetHeight() - kFitMarginPx) / pageHeight;
-  zoom = std::clamp(std::min(fitWidth, fitHeight), kMinZoom, kMaxZoom);
-  panOffset = wxPoint(0, 0);
+  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
+  viewportState_.Fit({size.GetWidth(), size.GetHeight()},
+                     currentLayout.pageSetup.PageWidthPt(),
+                     currentLayout.pageSetup.PageHeightPt());
   InvalidateRenderIfFrameChanged(false);
 }
 
+// Adapts pure page geometry to the wx rectangle used for rendering.
 wxRect LayoutViewerPanel::GetPageRect() const {
-  wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
-  const double pageWidth = currentLayout.pageSetup.PageWidthPt();
-  const double pageHeight = currentLayout.pageSetup.PageHeightPt();
-  const double scaledWidth = pageWidth * zoom;
-  const double scaledHeight = pageHeight * zoom;
-  const wxPoint center(size.GetWidth() / 2, size.GetHeight() / 2);
-  const wxPoint topLeft(
-      center.x - static_cast<int>(scaledWidth / 2.0) + panOffset.x,
-      center.y - static_cast<int>(scaledHeight / 2.0) + panOffset.y);
-  return wxRect(topLeft.x, topLeft.y, static_cast<int>(scaledWidth),
-                static_cast<int>(scaledHeight));
+  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
+  const auto rect = viewportState_.PageRect(
+      {size.GetWidth(), size.GetHeight()},
+      currentLayout.pageSetup.PageWidthPt(),
+      currentLayout.pageSetup.PageHeightPt());
+  return wxRect(rect.x, rect.y, rect.width, rect.height);
 }
 
+// Adapts pure frame geometry to the wx rectangle used for hit testing.
 bool LayoutViewerPanel::GetFrameRect(const layouts::Layout2DViewFrame &frame,
                                      wxRect &rect) const {
-  if (frame.width <= 0 || frame.height <= 0)
+  const wxSize size = layoutviewerpanel::GetLogicalClientSize(this);
+  gui::layoutviewport::Rect viewportRect;
+  if (!viewportState_.FrameRect(
+          {size.GetWidth(), size.GetHeight()},
+          currentLayout.pageSetup.PageWidthPt(),
+          currentLayout.pageSetup.PageHeightPt(),
+          {static_cast<double>(frame.x), static_cast<double>(frame.y),
+           static_cast<double>(frame.width), static_cast<double>(frame.height)},
+          viewportRect))
     return false;
-  wxRect pageRect = GetPageRect();
-  const int scaledX = static_cast<int>(std::lround(frame.x * zoom));
-  const int scaledY = static_cast<int>(std::lround(frame.y * zoom));
-  const int scaledWidth = static_cast<int>(std::lround(frame.width * zoom));
-  const int scaledHeight = static_cast<int>(std::lround(frame.height * zoom));
-  rect = wxRect(pageRect.GetLeft() + scaledX, pageRect.GetTop() + scaledY,
-                scaledWidth, scaledHeight);
+  rect = wxRect(viewportRect.x, viewportRect.y, viewportRect.width,
+                viewportRect.height);
   return true;
 }
 
+// Calculates a raster frame size for the requested cache zoom.
 wxSize
 LayoutViewerPanel::GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
                                        double targetZoom) const {
@@ -1934,20 +1869,18 @@ LayoutViewerPanel::GetFrameSizeForZoom(const layouts::Layout2DViewFrame &frame,
     return wxSize(0, 0);
   const size_t pixelCount =
       static_cast<size_t>(scaledWidth) * static_cast<size_t>(scaledHeight);
-  if (pixelCount > kMaxRenderPixels)
-    return wxSize(0, 0);
-  if (pixelCount > kMaxRenderBytes / 4)
+  if (pixelCount > kMaxRenderPixels || pixelCount > kMaxRenderBytes / 4)
     return wxSize(0, 0);
   return wxSize(scaledWidth, scaledHeight);
 }
 
 // Quantizes the current visual zoom into a stable raster-cache LOD bucket.
 double LayoutViewerPanel::GetRenderZoom() const {
-  if (zoom <= 0.0)
+  if (viewportState_.Zoom() <= 0.0)
     return kMinZoom;
 
   const double safeMaxZoom = GetLayoutSafeMaxZoom(currentLayout);
-  const double zoomSteps = std::log(zoom) / std::log(kZoomStep);
+  const double zoomSteps = std::log(viewportState_.Zoom()) / std::log(kZoomStep);
   const double bucketSteps =
       std::round(zoomSteps / kZoomCacheStepsPerLevel) * kZoomCacheStepsPerLevel;
   const double bucketZoom = std::pow(kZoomStep, bucketSteps);

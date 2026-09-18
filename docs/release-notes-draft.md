@@ -29,6 +29,7 @@ Changes since **v1.6.0**.
 - Completed the 2D viewer architecture split by isolating reusable frame decisions, ruler state, and layout-overlay geometry while retaining OpenGL and window lifecycle ownership in the panel.
 - Isolated layout-editor pointer sessions, frame-handle hit testing, and frame move/resize decisions behind a GUI-independent boundary while preserving existing image proportions, grid snapping, and undo behavior.
 - Isolated Layout Viewer selection identity, default selection, and stable Z-order decisions behind a GUI-independent boundary while preserving established editing and stacking behavior.
+- Isolated Layout Viewer viewport navigation, fit, geometry, and safe-zoom decisions behind a GUI-independent boundary while preserving established viewport behavior.
 
 - Separated MVR archive creation and file/buffer transport from scene export orchestration while preserving canonical cross-platform package contents, diagnostics, and Unicode-safe filesystem paths.
 
