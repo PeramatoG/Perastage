@@ -22,6 +22,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added a concise maintainer runbook that routes routine operations, recovery, and external-service dependencies to their canonical repository procedures.
+
 - Consolidated maintainer documentation around current canonical sources and focused subsystem contracts, removing obsolete audit and checkpoint journals.
 
 - Replaced the dated code-health review with a living, policy-linked maintenance contract.

@@ -70,6 +70,7 @@ for canonical_link in (
     "[Architecture](architecture.md)",
     "[Repository Layout](repository_layout.md)",
     "[Code Health](code_health.md)",
+    "[Maintainer Runbook](maintainer_runbook.md)",
     "[Build and Dependency Guide](build.md)",
     "[Packaging](packaging.md)",
     "[GitHub Actions workflow architecture](github_actions_workflows.md)",
@@ -79,6 +80,14 @@ for canonical_link in (
         failures.append(f"developer index canonical section is missing {canonical_link}")
 if "validation" in canonical_section.lower() or "audit.md" in canonical_section:
     failures.append("developer index presents audit or validation evidence as canonical")
+
+# Keep the operational index connected to the detailed procedure owners.
+require_text(DOCS / "developer" / "maintainer_runbook.md", (
+    "[Build](build.md)",
+    "[Packaging](packaging.md)",
+    "[GitHub Actions workflow architecture](github_actions_workflows.md)",
+    "[Main branch protection](main_branch_protection.md)",
+))
 
 readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
 if re.search(r"docs/developer/[^)\s]*(?:audit|validation)[^)\s]*\.md", readme_text, re.IGNORECASE):
