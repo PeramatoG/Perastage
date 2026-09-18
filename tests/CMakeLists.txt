@@ -648,7 +648,6 @@ add_executable(hoist_table_edit_service_test
                ../core/scene_grouping.cpp
                ../core/scene_node_operations.cpp
                ../core/units/units.cpp
-               ../core/uuidutils.cpp
                ../models/mvrscene.cpp)
 target_include_directories(hoist_table_edit_service_test PRIVATE
                            ../gui ../core ../models)
