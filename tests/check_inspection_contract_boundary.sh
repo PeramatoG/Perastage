@@ -11,7 +11,40 @@ files=(
 
 cd "$repo_root"
 
-forbidden='(<wx/|wx[A-Z]|MainWindow|ConfigManager|ConsolePanel|Viewer[23]D|gettext|_\()'
+validate_includes() {
+  local file="$1"
+  shift
+  local include
+  local allowed
+  local accepted
+  local -a includes=()
+
+  mapfile -t includes < <(
+    rg -o '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"][^>"]+[>"]' "$file" |
+      sed -E 's/^[[:space:]]*#[[:space:]]*include[[:space:]]*//'
+  )
+  for include in "${includes[@]}"; do
+    accepted=false
+    for allowed in "$@"; do
+      if [[ "$include" == "$allowed" ]]; then
+        accepted=true
+        break
+      fi
+    done
+    if [[ "$accepted" != true ]]; then
+      echo "Unexpected include in $file: $include" >&2
+      return 1
+    fi
+  done
+}
+
+# Every permitted dependency is explicit so a new project include requires review.
+validate_includes core/inspection/inspection_contract.h \
+  '<cstdint>' '<filesystem>' '<optional>' '<string>' '<vector>'
+validate_includes core/inspection/inspection_contract.cpp \
+  '"inspection_contract.h"' '<algorithm>'
+
+forbidden='(wx[A-Z]|MainWindow|ConfigManager|ConsolePanel|Viewer[23]D|gettext|_\()'
 if rg -n "$forbidden" "${files[@]}"; then
   echo "Core inspection contract must remain independent of GUI and application services." >&2
   exit 1

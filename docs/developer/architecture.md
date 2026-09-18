@@ -152,9 +152,11 @@ Core owns the neutral request, structured result, and diagnostic types under
 a filesystem input and preserves ordered diagnostics with stable technical
 identifiers, severity, domain, classification, and optional source metadata.
 Future CLI, Inspector GUI, Console, and other adapters consume these structured
-results, while serialization and presentation remain frontend responsibilities.
-File readers and format-specific inspection services are intentionally separate
-from this contract.
+results. Serialization and presentation are outside this semantic contract: a
+deterministic shared serialization boundary may be added separately, while
+frontends own presentation formatting. The current contract remains neutral to
+both concerns, and file readers and format-specific inspection services remain
+separate from it.
 
 ## Library convention
 

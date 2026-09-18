@@ -9,12 +9,6 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
-add_executable(inspection_contract_test
-               inspection_contract_test.cpp
-               ../core/inspection/inspection_contract.cpp)
-target_include_directories(inspection_contract_test PRIVATE ../core)
-add_test(NAME InspectionContract COMMAND inspection_contract_test)
-
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
 add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
@@ -99,6 +93,14 @@ function(add_repository_policy_test test_name command_path)
     endif()
 endfunction()
 
+add_executable(inspection_contract_test
+               inspection_contract_test.cpp
+               ../core/inspection/inspection_contract.cpp)
+target_include_directories(inspection_contract_test PRIVATE ../core)
+add_test(NAME InspectionContract COMMAND inspection_contract_test)
+set_perastage_test_labels(InspectionContract
+                          LAYER perastage-extension
+                          DOMAINS architecture core)
 
 add_library(perastage_test_diagnostics STATIC
             ../core/apppaths.cpp
