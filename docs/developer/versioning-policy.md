@@ -98,6 +98,26 @@ Suggested labels:
 - `ci`
 - `internal`
 
+## Change History Policy
+
+Perastage intentionally does not maintain a standalone manual `CHANGELOG.md`.
+GitHub Releases are the canonical curated public history of published versions.
+The release-notes draft is only the working source for the next release: maintainers
+review it, remove excessive or internal detail, and the MINOR release workflow uses
+the curated result as the draft GitHub Release body. The final GitHub Release, not
+[`release-notes-draft.md`](../release-notes-draft.md), is the permanent public record.
+
+Git commits, pull requests, tags, and compare views are the detailed engineering
+history. Maintainers and coding agents should use those sources when they need
+implementation details, rationale, changed files, tests, or a complete release
+delta rather than reconstructing every merged pull request in a second manually
+maintained chronological file. This avoids duplicated history and drift.
+
+If a concrete need arises for a complete offline or repository-local release
+history, prefer a generated artifact derived from tags, GitHub Releases, or pull
+request metadata. Reconsider a standalone changelog only when a real consumer or
+workflow need cannot be met by GitHub Releases and repository history.
+
 ## Main Branch PATCH Automation
 
 PATCH is automatically incremented after normal updates to `main` by the `Main Patch Version and Test Installer Builds` workflow.

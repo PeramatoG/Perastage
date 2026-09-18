@@ -15,6 +15,7 @@ contracts describe one subsystem without superseding their canonical parent.
 | Build and dependency workflows | [Build and Dependency Guide](build.md) |
 | Packaging and platform integration | [Packaging](packaging.md) |
 | CI and release workflow architecture | [GitHub Actions workflow architecture](github_actions_workflows.md), with [Main branch protection](main_branch_protection.md) as the focused ruleset contract |
+| Versioning and release/change-history policy | [Versioning Policy](versioning-policy.md) |
 | Localization | [Localization](localization.md), with the [Localization glossary](localization_glossary.md) as its terminology companion |
 | Documentation organization | [Documentation Policy](documentation_policy.md) |
 
