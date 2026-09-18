@@ -7,7 +7,7 @@ This document defines how Perastage writes and version-stamps GDTF files, with a
 
 Perastage is permissive when importing GDTF/MVR data and strict when exporting it. Loading a legacy or externally generated GDTF must not rewrite the user's source file just because it was read, but every GDTF that leaves Perastage is normalized through the shared `core/gdtf_canonicalizer` layer before it is written directly or embedded in an MVR archive.
 
-The GDTF 1.2 XSD artifact used for Phase 4A verification is `mvrdevelopment/tools:gdtf.xsd` from the public GDTF/MVR tools repository, advertised there as the GDTF 1.2 XSD Schema; the fetched artifact size was 53,467 bytes with SHA-256 `13a044d297f19d0437965657fb21d02f7b2b02541aabeba5f11e5000074ac2f2`. That schema defines `FixtureType` as an ordered sequence where `AttributeDefinitions`, `Geometries`, and `DMXModes` have `minOccurs="1"`; `Wheels`, `PhysicalDescriptions`, `Models`, `Revisions`, `FTPresets`, and `Protocols` have `minOccurs="0"`; and `Name`, `Manufacturer`, `Description`, and `FixtureTypeID` are required attributes. This is stricter than the prose sentence that one or more sections may be empty or missing, so Perastage treats non-canonical input permissively but keeps generated strict fixtures and publication output aligned to the verified XSD.
+The GDTF 1.2 XSD used to verify this policy is `mvrdevelopment/tools:gdtf.xsd` from the public GDTF/MVR tools repository, advertised there as the GDTF 1.2 XSD Schema; the fetched artifact size was 53,467 bytes with SHA-256 `13a044d297f19d0437965657fb21d02f7b2b02541aabeba5f11e5000074ac2f2`. That schema defines `FixtureType` as an ordered sequence where `AttributeDefinitions`, `Geometries`, and `DMXModes` have `minOccurs="1"`; `Wheels`, `PhysicalDescriptions`, `Models`, `Revisions`, `FTPresets`, and `Protocols` have `minOccurs="0"`; and `Name`, `Manufacturer`, `Description`, and `FixtureTypeID` are required attributes. This is stricter than the prose sentence that one or more sections may be empty or missing, so Perastage treats non-canonical input permissively but keeps generated strict fixtures and publication output aligned to the verified XSD.
 
 The canonicalizer enforces the official GDTF `FixtureType` child order (`AttributeDefinitions`, `Wheels`, `PhysicalDescriptions`, `Models`, `Geometries`, `DMXModes`, `Revisions`, `FTPresets`, `Protocols`), removes non-standard `FixtureType` children such as legacy `PerastageMutationAudit`, preserves valid standard sections and resources, validates required root/fixture structure, and repairs Perastage-owned placeholder `FixtureTypeID` values with deterministic stable IDs when safe.
 
@@ -135,7 +135,7 @@ A GDTF mutation change is accepted only if all conditions below hold:
 - `tests/check_no_configmanager_get_in_gui.sh`
   - mandatory guardrail for GUI access patterns.
 
-## Project Fixture Apply adapter policy (Checkpoint 08B)
+## Project Fixture apply adapter policy
 
 Project Fixture Weight and PowerConsumption edits are now owned by a non-GUI apply adapter. The adapter consumes a session-built apply request, validates the stable fixture UUID, resolved operational GDTF path, selected mode, finite non-negative physical values, and explicit `GdtfWritePolicy` before mutating files or project data.
 
@@ -143,11 +143,11 @@ Project Fixture Weight and PowerConsumption edits are now owned by a non-GUI app
 
 After a successful physical write, the adapter propagates Weight and PowerConsumption to fixtures in the resulting source/type family using fixture UUIDs, marks the values as GDTF-sourced, clears physical dirty state, and reports only positions whose effective Weight changed. Type, source reference, and mode context selections are applied to the target fixture; selected mode is not propagated to unrelated fixtures.
 
-## Checkpoint 08 apply adapters
+## Project apply adapters
 
-Checkpoint 08 is complete: Fixture Edit now routes session-backed type, source, mode, Weight, and PowerConsumption changes through the non-GUI ProjectFixtureGdtfApplyAdapter, and Project Truss GDTF type edits route through ProjectTrussGdtfApplyAdapter. Truss generation is controlled by dirty GDTF type fields; geometry-only and MVR-only edits remain non-generating. Operational resource paths are resolved separately from portable project references. Adapter failures do not commit project, table, or session state, while UI messages, preview refresh, and viewer refresh remain host-owned. StartupRouter and direct .gdtf opening remain Checkpoint 09 work.
+Fixture Edit routes session-backed type, source, mode, Weight, and PowerConsumption changes through the non-GUI ProjectFixtureGdtfApplyAdapter, and Project Truss GDTF type edits route through ProjectTrussGdtfApplyAdapter. Truss generation is controlled by dirty GDTF type fields; geometry-only and MVR-only edits remain non-generating. Operational resource paths are resolved separately from portable project references. Adapter failures do not commit project, table, or session state, while UI messages, preview refresh, and viewer refresh remain host-owned. Direct `.gdtf` opening remains unsupported.
 
-## Checkpoint 08D Apply transaction policy
+## Apply transaction policy
 
 Adapters validate requests, perform required external file preparation, and return prepared project mutations. Hosts create one project undo checkpoint only after adapter success and before committing the prepared mutation to the project model. Existing verified Perastage derivatives may be overwritten; ordinary library, external, or extracted sources must create a derivative before physical mutation. UTF-8 path boundaries must use `PathUtils::PathToUtf8(...)` and `PathUtils::PathFromUtf8(...)`. External file changes cannot be undone by project undo and must be reported separately from project commits.
 
@@ -157,7 +157,7 @@ Perastage GDTF edit sessions now expose `FixtureType/@Description` as a document
 
 Project truss generation appends a standard revision whose `Text` summarizes the dirty GDTF fields instead of always using the initial generation text. Project truss generation records `Structure/@CrossSectionType` using the official GDTF 1.2 enum values `TrussFramework` and `Tube`. `Structure/@TrussCrossSection` is preserved as the truss cross-section name and is written only when CrossSectionType is `TrussFramework`; when CrossSectionType is `Tube`, the editor/project state preserves the name but generated GDTF omits the attribute. Tube-specific `CrossSectionHeight` and `CrossSectionWallThickness` remain unsupported.
 
-## Phase 4A float serialization and archive-name comparison policy
+## Float serialization and archive-name comparison policy
 
 GDTF physical-property mutations write finite `float` values with locale-independent shortest-roundtrip text generated through `std::to_chars` in general format. The emitted token must parse back to the same finite `float`, use `.` as the decimal separator when a separator is needed, and avoid artificial precision caps or locale-dependent commas. NaN and positive or negative infinity are rejected before archive extraction or publication, reported through `GdtfDocumentMutationResult.errors`, and must leave the original archive bytes unchanged.
 

@@ -23,6 +23,11 @@ Domain labels such as `gdtf`, `mvr`, `rider`, `project`, `layout`, `pdf`, `zip`,
 
 ## Fixture sources
 
+Normal pull-request tests must use local deterministic fixtures and must not
+download live GDTF Share or schema content. Pin any official fixture or schema
+needed for conformance testing in the repository according to its license and
+the repository hygiene policy.
+
 Use `tests/support/gdtf_test_fixture_builder.*` for small deterministic GDTF archives needed by unit and integration tests. Use static golden files when a test must not depend on the builder implementation itself. Use official schemas or public official fixtures when the contract being tested is schema conformance or interoperability with published standard examples.
 
 Builder-generated archives must use deterministic entry order, `/` separators, canonical UUIDs for strict tests, and secure relative archive paths. Deliberately malformed byte-level ZIP fixtures should stay separate from ordinary builders so archive-reader edge cases remain deterministic across wxWidgets, zlib, and platforms.

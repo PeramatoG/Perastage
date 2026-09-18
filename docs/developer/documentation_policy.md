@@ -19,6 +19,23 @@ Use dedicated documents for deeper topics:
 - `docs/user/troubleshooting.md` for platform-specific failure modes and fixes.
 - Existing policy/spec files (for example `docs/developer/text_to_scene_rules.md` and `docs/developer/gdtf_mutation_policy.md`) for behavior contracts.
 
+## Developer Documentation Authority
+
+The [Developer Documentation index](index.md) is the canonical entry map.
+Canonical sources own project-wide policy; focused technical notes own only
+their named subsystem and link back rather than repeating parent policy.
+
+Permanent documentation describes current behavior and contracts. Point-in-time
+audits, pull-request evidence, CI run logs, and checkpoint journals normally
+belong in Git and pull-request history. Retain historical material only when it
+has an explicit ongoing maintenance purpose that a current contract cannot
+serve. When staged work is complete, fold its durable rules into the current
+owner and remove chronological checkpoint prose.
+
+Do not create a second exhaustive inventory. Keep volatile inventories,
+thresholds, and live measurements in their machine-enforced reports or policy
+files.
+
 ## Formatting Rules
 
 - Use `##` headings for major sections and `###` for subtopics.

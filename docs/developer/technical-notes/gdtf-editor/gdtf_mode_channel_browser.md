@@ -1,6 +1,6 @@
 # GDTF mode and channel browser
 
-Checkpoint 08E2 replaces the previous flattened read-only mode-channel text with a hierarchical, read-only browser.
+The GDTF editor presents modes and channels through a hierarchical, read-only browser.
 
 ## Hierarchy
 
@@ -41,9 +41,9 @@ Core parsing has no wxWidgets dependency and does not use GUI diagnostics. The G
 
 `FixtureEditDialog` owns the active parsed document cache and reloads it when the active GDTF source changes or an apply operation produces a new source. Changing only the selected mode reuses the cached document.
 
-## Read-only status and 08E3 extension points
+## Read-only status and wheel inspection
 
-08E2 intentionally does not implement wheels, gobos, color swatches, sliders, live DMX, simulation, editing, or XML writing. Wheel and attribute-rich inspection remains reserved for Checkpoint 08E3.
+The browser does not implement editing, sliders, live DMX, simulation, or XML writing. Wheel and attribute-rich inspection is owned by the focused wheel inspector.
 
 ## Quick channel summary
 

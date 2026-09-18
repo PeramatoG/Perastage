@@ -89,7 +89,7 @@ Layout render-ready event rather than immediately after `InteractiveReady`.
 Candidate inspection then advances one fixture per idle slice, keeping paint,
 timer and input events ahead of non-essential post-startup scanning.
 
-## Phase 2 project archive sources
+## Project archive sources
 
 The primary `.pstg` traversal now captures `config.json` into an owned byte
 payload and patches packaged layout-image paths before the configuration store

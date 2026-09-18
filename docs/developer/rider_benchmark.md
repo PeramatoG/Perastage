@@ -35,24 +35,9 @@ before and after rider-related optimizations.
    ctest -R RiderImportBenchmark
    ```
 
-## Current baseline
+## Comparing results
 
-The following measurements were captured on the test container after
-installation of the required system packages:
-
-- Input: `tests/data/rider_large.txt`
-- Iterations: 3
-- Average import time: **~29.3 ms**
-- Peak RSS increase: **~2.5 MB**
-- Fixtures imported: **1129**
-- Trusses imported: **0**
-
-Per-iteration details from the run:
-```
-Run 1: 34.2445 ms, peak +2512 kB, RSS 9352 kB, fixtures 1129
-Run 2: 27.1049 ms, peak +2512 kB, RSS 9352 kB, fixtures 1129
-Run 3: 26.5294 ms, peak +2512 kB, RSS 9352 kB, fixtures 1129
-```
-
-Re-running the steps above after optimizations will produce comparable numbers
-for regression tracking.
+Record the source revision, compiler and build type, host hardware, iteration
+count, elapsed time, peak RSS, and imported object counts with each result.
+Compare before and after runs on the same provisioned host; this document does
+not define a portable timing or memory threshold.

@@ -1,4 +1,4 @@
-# Grouped transform mutation audit
+# Grouped transform mutation contract
 
 Perastage treats each scene node's editable world matrix as the visible
 placement and stores a local matrix for MVR hierarchy persistence.
@@ -31,7 +31,7 @@ Perastage editing policy; it does not change MVR import hierarchy semantics.
 - Renderer, loader, and view caches contain derived transforms and do not own
   editable hierarchy state.
 
-## Additional audited paths
+## Additional mutation paths
 
 - Duplication constructs independent top-level nodes and intentionally clears
   inherited hierarchy ownership before insertion.
