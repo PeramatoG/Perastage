@@ -233,6 +233,20 @@ LayoutViewerPanel::GetEditableView() const {
   return nullptr;
 }
 
+// Finds a Layout 2D view frame by identifier without changing selection.
+bool LayoutViewerPanel::GetViewFrameById(
+    int viewId, layouts::Layout2DViewFrame &frame) const {
+  if (viewId <= 0)
+    return false;
+  for (const auto &view : currentLayout.view2dViews) {
+    if (view.id == viewId) {
+      frame = view.frame;
+      return true;
+    }
+  }
+  return false;
+}
+
 // Marks one 2D view cache dirty and schedules a rebuild only for the updated
 // view element.
 void LayoutViewerPanel::RefreshEditedViewById(int viewId) {

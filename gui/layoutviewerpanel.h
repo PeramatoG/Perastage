@@ -281,6 +281,8 @@ private:
   bool SelectElementAtPosition(const wxPoint &pos);
   bool GetElementFrame(gui::layoutselection::LayoutElementRef element,
                        layouts::Layout2DViewFrame &frame) const;
+  bool GetViewFrameById(int viewId,
+                        layouts::Layout2DViewFrame &frame) const;
   bool GetLegendFrameById(int legendId,
                           layouts::Layout2DViewFrame &frame) const;
   bool GetEventTableFrameById(int tableId,

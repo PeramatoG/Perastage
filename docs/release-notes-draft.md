@@ -12,7 +12,7 @@ Changes since **v1.6.0**.
 
 - Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.
 - Fixed Layout Viewer 2D View dragging and resizing so Legend refreshes cannot redirect edits to a Legend.
-- Restored Windows Debug compilation of the Layout Viewer after its selection architecture update.
+- Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
 
