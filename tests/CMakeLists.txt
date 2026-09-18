@@ -198,6 +198,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LayoutViewerFitLifecycle ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_fit_lifecycle.sh)
     add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
+    add_bash_policy_test(DictionarySnapshotServiceBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_snapshot_service_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(GdtfMetadataSummaryBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
     add_bash_policy_test(GdtfDocumentMutationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_document_mutation_boundary.sh)
     add_bash_policy_test(GdtfMetadataPanelBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_panel_boundary.sh)
@@ -2933,6 +2934,14 @@ add_executable(active_dictionary_storage_test active_dictionary_storage_test.cpp
 target_include_directories(active_dictionary_storage_test PRIVATE ../core ../third_party)
 target_link_libraries(active_dictionary_storage_test PRIVATE perastage_test_active_dictionary_storage)
 add_test(NAME ActiveDictionaryStorage COMMAND active_dictionary_storage_test)
+
+add_executable(dictionary_snapshot_service_test
+               dictionary_snapshot_service_test.cpp
+               ../core/dictionary_snapshot_service.cpp
+               ../core/filesystem_path_utils.cpp)
+target_include_directories(dictionary_snapshot_service_test PRIVATE
+                           ../core ../third_party)
+add_test(NAME DictionarySnapshotService COMMAND dictionary_snapshot_service_test)
 
 add_executable(gdtf_share_security_test
                gdtf_share_security_test.cpp

@@ -10,11 +10,15 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored cross-platform Debug compilation of the Dictionary Editor after its snapshot-service architecture update.
+
 - Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.
 - Fixed Layout Viewer 2D View dragging and resizing so Legend refreshes cannot redirect edits to a Legend.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Separated reusable dictionary JSON snapshot serialization and reference-path validation from the Dictionary Editor while preserving existing snapshot and portable bundle behavior.
 
 - Moved GDTF document mutation and atomic archive publication into a reusable Core component while preserving existing GDTF output, diagnostics, compatibility APIs, and Viewer3D cache refresh behavior.
 

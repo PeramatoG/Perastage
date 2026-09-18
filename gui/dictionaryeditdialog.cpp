@@ -25,15 +25,13 @@
 #include "colorstore.h"
 #include "columnutils.h"
 #include "dictionary_bundle.h"
-#include "dictionary_export_conflict_dialog.h"
-#include "dictionary_json_contract.h"
+#include "dictionary_snapshot_service.h"
 #include "dictionary_reset_service.h"
 #include "dictionary_selection_controls.h"
 #include "file_import_utils.h"
 #include "gdtf_fixture_category.h"
 #include "gdtfdictionary.h"
 #include "gdtfloader.h"
-#include "json.hpp"
 #include "mainwindow.h"
 #include "projectutils.h"
 #include "table_column_indices.h"
@@ -43,7 +41,6 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -241,119 +238,20 @@ struct CopiedLibraryAsset {
   std::string sha256;
 };
 
-struct ExportPathStatusSummary {
-  size_t total_entries = 0;
-  size_t found_entries = 0;
-  size_t missing_entries = 0;
-  std::vector<std::string> missing_files;
-};
-
-struct SnapshotExportResult {
-  bool success = false;
-  size_t copied_assets = 0;
-  size_t missing_assets = 0;
-  std::vector<std::string> copy_errors;
-};
-
-struct SnapshotExportConflictResolution {
-  bool accepted = true;
-  std::unordered_map<std::string, bool> useNewByFileName;
-};
-
-struct ImportPathValidationSummary {
-  size_t checked_entries = 0;
-  size_t found_entries = 0;
-  size_t missing_entries = 0;
-  std::vector<std::string> missing_examples;
-};
-
-bool HasExistingPath(const std::filesystem::path &candidate) {
-  if (candidate.empty())
-    return false;
-  std::error_code ec;
-  return std::filesystem::exists(candidate, ec);
-}
-
-std::filesystem::path
-ResolveImportRelativePath(const std::filesystem::path &jsonPath,
-                          const std::filesystem::path &rawPath) {
-  if (rawPath.is_absolute())
-    return rawPath;
-
-  const std::filesystem::path importDir = jsonPath.parent_path();
-  const std::filesystem::path directPath = importDir / rawPath;
-  if (HasExistingPath(directPath))
-    return directPath;
-
-  const std::filesystem::path snapshotAssetsPath =
-      importDir / (jsonPath.stem().string() + "_assets") / rawPath;
-  if (HasExistingPath(snapshotAssetsPath))
-    return snapshotAssetsPath;
-  return directPath;
-}
-
-void RegisterMissingExample(ImportPathValidationSummary &summary,
-                            const std::string &entryName,
-                            const std::string &path) {
-  constexpr size_t kMaxMissingExamples = 5;
-  if (summary.missing_examples.size() >= kMaxMissingExamples)
-    return;
-  summary.missing_examples.push_back(entryName + " -> " + path);
-}
-
-ExportPathStatusSummary AnalyzeFixtureExportPaths(
-    const std::unordered_map<std::string, GdtfDictionary::Entry> &dict) {
-  ExportPathStatusSummary summary;
-  constexpr size_t kMaxMissingExamples = 10;
-  summary.total_entries = dict.size();
-  for (const auto &[name, entry] : dict) {
-    if (HasExistingPath(PathUtils::PathFromUtf8(entry.path)))
-      ++summary.found_entries;
-    else {
-      ++summary.missing_entries;
-      if (summary.missing_files.size() < kMaxMissingExamples) {
-        const std::string fileName =
-            std::filesystem::path(entry.path).filename().string();
-        summary.missing_files.push_back(fileName.empty() ? name : fileName);
-      }
-    }
-  }
-  return summary;
-}
-
-ExportPathStatusSummary AnalyzeTrussExportPaths(
-    const std::unordered_map<std::string, std::string> &dict) {
-  ExportPathStatusSummary summary;
-  constexpr size_t kMaxMissingExamples = 10;
-  summary.total_entries = dict.size();
-  for (const auto &[name, path] : dict) {
-    if (HasExistingPath(PathUtils::PathFromUtf8(path)))
-      ++summary.found_entries;
-    else {
-      ++summary.missing_entries;
-      if (summary.missing_files.size() < kMaxMissingExamples) {
-        const std::string fileName =
-            std::filesystem::path(path).filename().string();
-        summary.missing_files.push_back(fileName.empty() ? name : fileName);
-      }
-    }
-  }
-  return summary;
-}
-
+// Presents reference availability and asks whether to export a snapshot.
 bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
-                             const ExportPathStatusSummary &summary) {
+                             const DictionarySnapshotService::ExportPathStatus &summary) {
   wxString message = wxString::Format(
       _("Found file references in the loaded dictionary.\n\n"
         "Total entries: %zu\n"
         "Entries with file found: %zu\n"
         "Entries with missing file: %zu"),
-      summary.total_entries, summary.found_entries, summary.missing_entries);
-  if (!summary.missing_files.empty()) {
+      summary.totalEntries, summary.foundEntries, summary.missingEntries);
+  if (!summary.missingFiles.empty()) {
     message += _("\nMissing files:");
-    for (const auto &file : summary.missing_files)
+    for (const auto &file : summary.missingFiles)
       message += "\n- " + wxString::FromUTF8(file);
-    if (summary.missing_entries > summary.missing_files.size())
+    if (summary.missingEntries > summary.missingFiles.size())
       message += "\n- ...";
   }
   message += _("\n\nDo you want to export references only?");
@@ -364,250 +262,20 @@ bool ConfirmExportReferences(wxWindow *parent, const wxString &title,
   return confirmDialog.ShowModal() == wxID_OK;
 }
 
-std::optional<std::string> CopySnapshotAsset(
-    const std::filesystem::path &sourcePath,
-    const std::filesystem::path &targetAssetsDir,
-    const std::unordered_map<std::string, bool> &useNewByFileName) {
-  if (!HasExistingPath(sourcePath))
-    return std::nullopt;
-
-  std::error_code ec;
-  std::filesystem::create_directories(targetAssetsDir, ec);
-  if (ec)
-    return std::nullopt;
-
-  const std::string fileName = sourcePath.filename().string();
-  if (fileName.empty())
-    return std::nullopt;
-  const std::filesystem::path destPath = targetAssetsDir / fileName;
-  const auto keepExistingIt = useNewByFileName.find(fileName);
-  if (keepExistingIt != useNewByFileName.end() && !keepExistingIt->second &&
-      HasExistingPath(destPath)) {
-    return fileName;
-  }
-  std::filesystem::copy_file(sourcePath, destPath,
-                             std::filesystem::copy_options::overwrite_existing,
-                             ec);
-  if (ec)
-    return std::nullopt;
-  return fileName;
-}
-
-template <typename GatherPathsFn>
-SnapshotExportConflictResolution
-ResolveExportConflicts(wxWindow *parent, const wxString &title,
-                       const std::filesystem::path &outputPath,
-                       GatherPathsFn &&gatherSourcePaths) {
-  SnapshotExportConflictResolution resolution;
-  const std::filesystem::path outputDir = outputPath.parent_path();
-
-  std::vector<std::filesystem::path> sourcePaths = gatherSourcePaths();
-  std::sort(sourcePaths.begin(), sourcePaths.end(),
-            [](const std::filesystem::path &a, const std::filesystem::path &b) {
-              return a.filename().string() < b.filename().string();
-            });
-  sourcePaths.erase(std::unique(sourcePaths.begin(), sourcePaths.end()),
-                    sourcePaths.end());
-
-  std::vector<DictionaryExportConflictDialog::Item> conflicts;
-  for (const std::filesystem::path &sourcePath : sourcePaths) {
-    if (!HasExistingPath(sourcePath))
-      continue;
-    const std::string fileName = sourcePath.filename().string();
-    if (fileName.empty())
-      continue;
-    const std::filesystem::path destinationPath = outputDir / fileName;
-    if (!HasExistingPath(destinationPath))
-      continue;
-
-    const auto sourceHash = FileImportUtils::ComputeFileSha256(sourcePath);
-    const auto destinationHash =
-        FileImportUtils::ComputeFileSha256(destinationPath);
-    if (sourceHash && destinationHash && *sourceHash == *destinationHash)
-      continue;
-
-    conflicts.push_back(DictionaryExportConflictDialog::Item{
-        fileName, destinationPath.string(), sourcePath.string(), true});
-  }
-
-  std::sort(conflicts.begin(), conflicts.end(),
-            [](const DictionaryExportConflictDialog::Item &a,
-               const DictionaryExportConflictDialog::Item &b) {
-              return a.file_name < b.file_name;
-            });
-
-  if (conflicts.empty())
-    return resolution;
-
-  DictionaryExportConflictDialog dialog(parent, title, std::move(conflicts));
-  if (dialog.ShowModal() != wxID_OK) {
-    resolution.accepted = false;
-    return resolution;
-  }
-  for (const auto &item : dialog.GetItems())
-    resolution.useNewByFileName[item.file_name] = item.use_new;
-  return resolution;
-}
-
-std::optional<nlohmann::json> LoadJsonFromFile(const std::string &filePath,
-                                               std::string &error) {
-  std::ifstream in(filePath);
-  if (!in.is_open()) {
-    error = "Could not open import file";
-    return std::nullopt;
-  }
-
-  nlohmann::json root;
-  try {
-    in >> root;
-  } catch (const std::exception &e) {
-    error = std::string("Failed to parse JSON: ") + e.what();
-    return std::nullopt;
-  }
-  return root;
-}
-
-ImportPathValidationSummary
-ValidateFixtureImportPaths(const std::string &importPath) {
-  ImportPathValidationSummary summary;
-  std::string loadError;
-  auto rootOpt = LoadJsonFromFile(importPath, loadError);
-  if (!rootOpt)
-    return summary;
-
-  std::string parseError;
-  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(
-      *rootOpt, "fixtures", parseError);
-  if (!entriesOpt)
-    return summary;
-
-  const std::filesystem::path importFilePath =
-      PathUtils::PathFromUtf8(importPath);
-  const std::filesystem::path libraryDir =
-      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("fixtures"));
-
-  auto checkEntry = [&](const std::string &entryName,
-                        const nlohmann::json &entryJson) {
-    if (!entryJson.is_object())
-      return;
-    std::string rawPath;
-    if (entryJson.contains("file") && entryJson["file"].is_string())
-      rawPath = entryJson["file"].get<std::string>();
-    else if (entryJson.contains("path") && entryJson["path"].is_string())
-      rawPath = entryJson["path"].get<std::string>();
-    if (rawPath.empty())
-      return;
-
-    ++summary.checked_entries;
-    const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(rawPath);
-    const std::filesystem::path importRelativePath =
-        ResolveImportRelativePath(importFilePath, sourcePath);
-    const std::filesystem::path libraryRelativePath =
-        libraryDir / sourcePath.filename();
-    if (HasExistingPath(importRelativePath) ||
-        HasExistingPath(libraryRelativePath)) {
-      ++summary.found_entries;
-      return;
-    }
-
-    ++summary.missing_entries;
-    RegisterMissingExample(summary, entryName, rawPath);
-  };
-
-  const auto &entries = **entriesOpt;
-  if (entries.is_object()) {
-    for (auto it = entries.begin(); it != entries.end(); ++it)
-      checkEntry(it.key(), it.value());
-  } else if (entries.is_array()) {
-    for (size_t i = 0; i < entries.size(); ++i) {
-      const auto &entryJson = entries[i];
-      if (!entryJson.is_object() || !entryJson.contains("name") ||
-          !entryJson["name"].is_string()) {
-        continue;
-      }
-      checkEntry(entryJson["name"].get<std::string>(), entryJson);
-    }
-  }
-  return summary;
-}
-
-ImportPathValidationSummary
-ValidateTrussImportPaths(const std::string &importPath) {
-  ImportPathValidationSummary summary;
-  std::string loadError;
-  auto rootOpt = LoadJsonFromFile(importPath, loadError);
-  if (!rootOpt)
-    return summary;
-
-  std::string parseError;
-  auto entriesOpt = DictionaryJsonContract::GetEntriesForType(
-      *rootOpt, "trusses", parseError);
-  if (!entriesOpt)
-    return summary;
-
-  const std::filesystem::path importFilePath =
-      PathUtils::PathFromUtf8(importPath);
-  const std::filesystem::path libraryDir =
-      PathUtils::PathFromUtf8(ProjectUtils::GetWritableLibraryPath("trusses"));
-
-  auto checkEntry = [&](const std::string &entryName,
-                        const nlohmann::json &entryJson) {
-    if (!entryJson.is_object())
-      return;
-    std::string rawPath;
-    if (entryJson.contains("file") && entryJson["file"].is_string())
-      rawPath = entryJson["file"].get<std::string>();
-    else if (entryJson.contains("path") && entryJson["path"].is_string())
-      rawPath = entryJson["path"].get<std::string>();
-    if (rawPath.empty())
-      return;
-
-    ++summary.checked_entries;
-    const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(rawPath);
-    const std::filesystem::path importRelativePath =
-        ResolveImportRelativePath(importFilePath, sourcePath);
-    const std::filesystem::path libraryRelativePath =
-        libraryDir / sourcePath.filename();
-    if (HasExistingPath(importRelativePath) ||
-        HasExistingPath(libraryRelativePath)) {
-      ++summary.found_entries;
-      return;
-    }
-
-    ++summary.missing_entries;
-    RegisterMissingExample(summary, entryName, rawPath);
-  };
-
-  const auto &entries = **entriesOpt;
-  if (entries.is_object()) {
-    for (auto it = entries.begin(); it != entries.end(); ++it)
-      checkEntry(it.key(), it.value());
-  } else if (entries.is_array()) {
-    for (size_t i = 0; i < entries.size(); ++i) {
-      const auto &entryJson = entries[i];
-      if (!entryJson.is_object() || !entryJson.contains("name") ||
-          !entryJson["name"].is_string()) {
-        continue;
-      }
-      checkEntry(entryJson["name"].get<std::string>(), entryJson);
-    }
-  }
-  return summary;
-}
-
+// Presents unresolved import references and asks whether to continue.
 bool ConfirmImportMissingPaths(wxWindow *parent, const wxString &title,
-                               const ImportPathValidationSummary &summary) {
-  if (summary.missing_entries == 0)
+                               const DictionarySnapshotService::ImportPathValidation &summary) {
+  if (summary.missingEntries == 0)
     return true;
 
   wxString message = wxString::Format(
       _("Some imported file references could not be resolved before applying:\n\n"
         "Checked entries: %zu\nFound entries: %zu\nMissing entries: %zu"),
-      summary.checked_entries, summary.found_entries,
-      summary.missing_entries);
-  if (!summary.missing_examples.empty()) {
+      summary.checkedEntries, summary.foundEntries,
+      summary.missingEntries);
+  if (!summary.missingExamples.empty()) {
     message += _("\n\nMissing examples:");
-    for (const auto &example : summary.missing_examples)
+    for (const auto &example : summary.missingExamples)
       message += "\n- " + wxString::FromUTF8(example);
   }
   message += _("\n\nContinue with import anyway?");
@@ -785,82 +453,6 @@ bool ConfirmReplaceAllOperation(wxWindow *parent,
                       parent) == wxYES;
 }
 
-bool SaveFixturesSnapshotToFile(
-    wxWindow *parent, const std::string &outputPath,
-    const std::unordered_map<std::string, GdtfDictionary::Entry> &dict,
-    bool copyReferencedAssets, SnapshotExportResult &exportResult) {
-  std::vector<std::string> keys;
-  keys.reserve(dict.size());
-  for (const auto &[name, _] : dict)
-    keys.push_back(name);
-  std::sort(keys.begin(), keys.end());
-
-  const std::filesystem::path outputFsPath =
-      PathUtils::PathFromUtf8(outputPath);
-  const std::filesystem::path targetAssetsDir = outputFsPath.parent_path();
-  std::unordered_map<std::string, bool> useNewByFileName;
-  if (copyReferencedAssets) {
-    auto resolution = ResolveExportConflicts(
-        parent, "Resolve fixture export conflicts", outputFsPath, [&dict]() {
-          std::vector<std::filesystem::path> paths;
-          paths.reserve(dict.size());
-          for (const auto &[_, entry] : dict) {
-            if (!entry.path.empty())
-              paths.push_back(PathUtils::PathFromUtf8(entry.path));
-          }
-          return paths;
-        });
-    if (!resolution.accepted)
-      return false;
-    useNewByFileName = std::move(resolution.useNewByFileName);
-  }
-
-  nlohmann::json entries = nlohmann::json::object();
-  for (const auto &name : keys) {
-    const auto &entry = dict.at(name);
-    if (entry.path.empty() && entry.mode.empty() && entry.category.empty() &&
-        entry.visualColorHex.empty())
-      continue;
-    nlohmann::json obj;
-    if (!entry.path.empty()) {
-      const std::filesystem::path sourcePath =
-          PathUtils::PathFromUtf8(entry.path);
-      if (copyReferencedAssets) {
-        const auto copiedRelativePath =
-            CopySnapshotAsset(sourcePath, targetAssetsDir, useNewByFileName);
-        if (copiedRelativePath) {
-          obj["file"] = *copiedRelativePath;
-          ++exportResult.copied_assets;
-        } else {
-          ++exportResult.missing_assets;
-          exportResult.copy_errors.push_back(name + " -> " + entry.path);
-        }
-      } else {
-        const std::string fileName = sourcePath.filename().string();
-        if (!fileName.empty())
-          obj["file"] = fileName;
-      }
-    }
-    if (!entry.mode.empty())
-      obj["mode"] = entry.mode;
-    if (!entry.category.empty())
-      obj["category"] = entry.category;
-    if (!entry.visualColorHex.empty())
-      obj["visual_color"] = entry.visualColorHex;
-    if (!obj.empty())
-      entries[name] = obj;
-  }
-
-  const nlohmann::json root =
-      DictionaryJsonContract::MakeRoot("fixtures", std::move(entries));
-  std::ofstream out(outputPath);
-  if (!out.is_open())
-    return false;
-  out << root.dump(4);
-  exportResult.success = true;
-  return true;
-}
-
 // Summarizes the result of a completed dictionary duplication.
 wxString BuildDuplicateSummary(const DictionaryDuplicate::Result &result) {
   wxString message = _("Dictionary duplicated successfully.");
@@ -887,69 +479,6 @@ wxString BuildDuplicateErrorSummary(const DictionaryDuplicate::Result &result) {
   return message;
 }
 
-bool SaveTrussesSnapshotToFile(
-    wxWindow *parent, const std::string &outputPath,
-    const std::unordered_map<std::string, std::string> &dict,
-    bool copyReferencedAssets, SnapshotExportResult &exportResult) {
-  std::vector<std::string> keys;
-  keys.reserve(dict.size());
-  for (const auto &[name, _] : dict)
-    keys.push_back(name);
-  std::sort(keys.begin(), keys.end());
-
-  const std::filesystem::path outputFsPath =
-      PathUtils::PathFromUtf8(outputPath);
-  const std::filesystem::path targetAssetsDir = outputFsPath.parent_path();
-  std::unordered_map<std::string, bool> useNewByFileName;
-  if (copyReferencedAssets) {
-    auto resolution = ResolveExportConflicts(
-        parent, "Resolve truss export conflicts", outputFsPath, [&dict]() {
-          std::vector<std::filesystem::path> paths;
-          paths.reserve(dict.size());
-          for (const auto &[_, path] : dict) {
-            if (!path.empty())
-              paths.push_back(PathUtils::PathFromUtf8(path));
-          }
-          return paths;
-        });
-    if (!resolution.accepted)
-      return false;
-    useNewByFileName = std::move(resolution.useNewByFileName);
-  }
-
-  nlohmann::json entries = nlohmann::json::object();
-  for (const auto &name : keys) {
-    const auto &path = dict.at(name);
-    if (path.empty())
-      continue;
-    const std::filesystem::path sourcePath = PathUtils::PathFromUtf8(path);
-    if (copyReferencedAssets) {
-      const auto copiedRelativePath =
-          CopySnapshotAsset(sourcePath, targetAssetsDir, useNewByFileName);
-      if (copiedRelativePath) {
-        entries[name] = nlohmann::json{{"file", *copiedRelativePath}};
-        ++exportResult.copied_assets;
-      } else {
-        ++exportResult.missing_assets;
-        exportResult.copy_errors.push_back(name + " -> " + path);
-      }
-      continue;
-    }
-    const std::string fileName = sourcePath.filename().string();
-    if (fileName.empty())
-      continue;
-    entries[name] = nlohmann::json{{"file", fileName}};
-  }
-
-  const nlohmann::json root =
-      DictionaryJsonContract::MakeRoot("trusses", std::move(entries));
-  std::ofstream out(outputPath);
-  if (!out.is_open())
-    return false;
-  out << root.dump(4);
-  exportResult.success = true;
-  return true;
-}
 } // namespace
 
 DictionaryEditDialog::DictionaryEditDialog(wxWindow *parent)
@@ -2272,7 +1801,11 @@ bool DictionaryEditDialog::ImportFixturesDictionary() {
 
   const auto preview =
       GdtfDictionary::PreviewImportFromFile(importPath, policy);
-  const auto pathValidation = ValidateFixtureImportPaths(importPath);
+  const auto pathValidation =
+      DictionarySnapshotService::ValidateFixtureImportPaths(
+          PathUtils::PathFromUtf8(importPath),
+          PathUtils::PathFromUtf8(
+              ProjectUtils::GetWritableLibraryPath("fixtures")));
   wxString confirmText = wxString::Format(
       _("Policy:\n%s\n\nPreview summary:\n%s\n\nApply import?"),
       GetPolicyDescription(policy), BuildSummaryText(preview));
@@ -2356,7 +1889,11 @@ bool DictionaryEditDialog::ImportTrussesDictionary() {
 
   const auto preview =
       TrussDictionary::PreviewImportFromFile(importPath, policy);
-  const auto pathValidation = ValidateTrussImportPaths(importPath);
+  const auto pathValidation =
+      DictionarySnapshotService::ValidateTrussImportPaths(
+          PathUtils::PathFromUtf8(importPath),
+          PathUtils::PathFromUtf8(
+              ProjectUtils::GetWritableLibraryPath("trusses")));
   wxString confirmText = wxString::Format(
       _("Policy:\n%s\n\nPreview summary:\n%s\n\nApply import?"),
       GetPolicyDescription(policy), BuildSummaryText(preview));
@@ -2440,7 +1977,7 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
     return false;
   }
 
-  const auto exportSummary = AnalyzeFixtureExportPaths(*dictOpt);
+  const auto exportSummary = DictionarySnapshotService::AnalyzeFixtureExportPaths(*dictOpt);
   if (!ConfirmExportReferences(this, _("Export fixtures dictionary"),
                                exportSummary))
     return false;
@@ -2454,29 +1991,16 @@ bool DictionaryEditDialog::ExportFixturesDictionary() {
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
-  const bool copyReferencedAssets = false;
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  SnapshotExportResult exportResult;
-  if (!SaveFixturesSnapshotToFile(this, outputPath, *dictOpt,
-                                  copyReferencedAssets, exportResult)) {
+  const auto exportResult = DictionarySnapshotService::WriteFixtureSnapshot(
+      PathUtils::PathFromUtf8(outputPath), *dictOpt);
+  if (!exportResult.success) {
     wxMessageBox(_("Could not write fixtures dictionary snapshot."),
                  _("Export fixtures dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
-  wxString info = _("Fixtures dictionary snapshot exported successfully.");
-  if (copyReferencedAssets) {
-    info += wxString::Format(_("\nCopied assets: %zu"),
-                             exportResult.copied_assets);
-    if (exportResult.missing_assets > 0) {
-      info += wxString::Format(_("\nMissing assets: %zu"),
-                               exportResult.missing_assets);
-      const size_t exampleCount =
-          std::min<size_t>(exportResult.copy_errors.size(), 5);
-      for (size_t i = 0; i < exampleCount; ++i)
-        info += "\n- " + wxString::FromUTF8(exportResult.copy_errors[i]);
-    }
-  }
+  const wxString info = _("Fixtures dictionary snapshot exported successfully.");
   wxMessageBox(info, _("Export fixtures dictionary"), wxICON_INFORMATION | wxOK,
                this);
   return true;
@@ -2494,7 +2018,7 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
     return false;
   }
 
-  const auto exportSummary = AnalyzeTrussExportPaths(*dictOpt);
+  const auto exportSummary = DictionarySnapshotService::AnalyzeTrussExportPaths(*dictOpt);
   if (!ConfirmExportReferences(this, _("Export trusses dictionary"),
                                exportSummary))
     return false;
@@ -2508,29 +2032,16 @@ bool DictionaryEditDialog::ExportTrussesDictionary() {
   if (fileDialog.ShowModal() != wxID_OK)
     return false;
 
-  const bool copyReferencedAssets = false;
   const std::string outputPath = std::string(fileDialog.GetPath().ToUTF8());
-  SnapshotExportResult exportResult;
-  if (!SaveTrussesSnapshotToFile(this, outputPath, *dictOpt,
-                                 copyReferencedAssets, exportResult)) {
+  const auto exportResult = DictionarySnapshotService::WriteTrussSnapshot(
+      PathUtils::PathFromUtf8(outputPath), *dictOpt);
+  if (!exportResult.success) {
     wxMessageBox(_("Could not write trusses dictionary snapshot."),
                  _("Export trusses dictionary"), wxICON_ERROR | wxOK, this);
     return false;
   }
 
-  wxString info = _("Trusses dictionary snapshot exported successfully.");
-  if (copyReferencedAssets) {
-    info += wxString::Format(_("\nCopied assets: %zu"),
-                             exportResult.copied_assets);
-    if (exportResult.missing_assets > 0) {
-      info += wxString::Format(_("\nMissing assets: %zu"),
-                               exportResult.missing_assets);
-      const size_t exampleCount =
-          std::min<size_t>(exportResult.copy_errors.size(), 5);
-      for (size_t i = 0; i < exampleCount; ++i)
-        info += "\n- " + wxString::FromUTF8(exportResult.copy_errors[i]);
-    }
-  }
+  const wxString info = _("Trusses dictionary snapshot exported successfully.");
   wxMessageBox(info, _("Export trusses dictionary"), wxICON_INFORMATION | wxOK,
                this);
   return true;
