@@ -19,12 +19,15 @@ Repository documentation has one owner for each kind of structural fact:
 
 1. [Architecture](architecture.md) owns architectural responsibilities, module
    roles, and accepted dependency directions.
-2. This page owns the human-readable repository path and entry-point map.
-3. [`repository_structure_baseline.json`](repository_structure_baseline.json)
+2. [Code Health](code_health.md) owns the durable maintenance and refactoring
+   principles, while machine-enforced policy files own volatile thresholds and
+   inventories.
+3. This page owns the human-readable repository path and entry-point map.
+4. [`repository_structure_baseline.json`](repository_structure_baseline.json)
    is the machine-readable structural contract enforced by repository checks.
-4. [perastage_tree.md](perastage_tree.md) is a concise navigation aid, not a
+5. [perastage_tree.md](perastage_tree.md) is a concise navigation aid, not a
    second architecture specification.
-5. Specialized guides retain procedural detail: [Build](build.md),
+6. Specialized guides retain procedural detail: [Build](build.md),
    [Localization](localization.md), [Packaging](packaging.md), and
    [GitHub Actions](github_actions_workflows.md). They defer architectural and
    repository ownership rules to the documents above.
