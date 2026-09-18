@@ -395,7 +395,7 @@ wxString BuildSummaryText(const DictionaryImportSummary &summary) {
   wxString text = wxString::Format(
       _("Added: %zu\nOverwritten: %zu\nSkipped: %zu\nMissing files: %zu\n"),
       summary.added_count, summary.overwritten_count, summary.skipped_count,
-      summary.missingFiles_count);
+      summary.missing_files_count);
   if (!summary.missing_file_examples.empty()) {
     text += _("Missing file examples:");
     for (const auto &example : summary.missing_file_examples)
