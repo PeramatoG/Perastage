@@ -28,6 +28,7 @@
 #include "guiconfigservices.h"
 #include "hang_position_dialog.h"
 #include "hoist_load_recalculation_prompt.h"
+#include "hoisttable/hoist_table_edit_service.h"
 #include "hoist_weight_distribution.h"
 #include "layerpanel.h"
 #include "matrixutils.h"
@@ -287,38 +288,7 @@ bool IsNumChar(char c) {
          c == '+';
 }
 
-inline bool NearlyEqualFloat(float a, float b) {
-  return std::abs(a - b) < 0.0001f;
-}
-
-void MarkTextFieldManualIfEdited(const std::string &editedValue,
-                                 const std::string &oldEffectiveValue,
-                                 std::string &fieldSource,
-                                 const std::string &oldFieldValue,
-                                 std::string &fieldValue) {
-  if (editedValue != oldEffectiveValue) {
-    fieldSource = "Manual";
-    fieldValue = editedValue;
-    return;
-  }
-
-  if (!IsManualHoistDataSource(fieldSource))
-    fieldValue = oldFieldValue;
-}
-
-void MarkNumericFieldManualIfEdited(float editedValue, float oldEffectiveValue,
-                                    std::string &fieldSource,
-                                    float oldFieldValue, float &fieldValue) {
-  if (!NearlyEqualFloat(editedValue, oldEffectiveValue)) {
-    fieldSource = "Manual";
-    fieldValue = editedValue;
-    return;
-  }
-
-  if (!IsManualHoistDataSource(fieldSource))
-    fieldValue = oldFieldValue;
-}
-
+// Resolves preset defaults for displaying effective support values.
 std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
   std::optional<DummyHoistProfile> profile;
   if (!support.dummyProfileId.empty())
@@ -338,11 +308,12 @@ std::optional<HoistPresetDefaults> FindPresetDefaults(const Support &support) {
   return defaults;
 }
 
+// Resolves linked fixture defaults for displaying effective support values.
 std::optional<HoistFixtureDefaults>
 FindFixtureDefaults(const MvrScene &scene, const Support &support) {
   if (support.motorFixtureUuid.empty())
     return std::nullopt;
-  auto it = scene.fixtures.find(support.motorFixtureUuid);
+  const auto it = scene.fixtures.find(support.motorFixtureUuid);
   if (it == scene.fixtures.end())
     return std::nullopt;
   return BuildHoistFixtureDefaults(it->second);
@@ -1166,259 +1137,60 @@ void HoistTablePanel::ApplyPositionValueUpdates(
 
 // Persists edited support table values back into scene supports.
 void HoistTablePanel::UpdateSceneData(bool logChanges) {
-  // Ensure in-place cell editors commit pending values before reading table
-  // rows.
   if (table)
     DataViewEditCommit::CommitPendingEdit(table);
 
   (void)logChanges;
   ConfigManager &cfg = guiConfigServices->LegacyConfigManager();
-  auto &scene = cfg.GetScene();
-  size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
-  bool anyChanged = false;
-  std::unordered_set<std::string> changedWeightPositions;
-  bool undoPushed = false;
-  auto pushUndoIfNeeded = [&]() {
-    if (!undoPushed) {
-      cfg.PushUndoState("edit support");
-      undoPushed = true;
-    }
-  };
+  class SceneAdapter final : public HoistTableEditService::ISceneAdapter {
+  public:
+    // Binds the edit service to the panel's active configuration.
+    explicit SceneAdapter(ConfigManager &config) : config(config) {}
 
-  // Apply table values only when a support row actually changed.
-  for (size_t i = 0; i < count; ++i) {
-    auto it = scene.supports.find(rowUuids[i]);
-    if (it == scene.supports.end())
-      continue;
-
-    const Support old = it->second;
-    Support next = old;
-
-    wxVariant v;
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Name));
-    next.name = std::string(v.GetString().ToUTF8());
-
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Type));
-    next.function = std::string(v.GetString().ToUTF8());
-
-    const auto oldEffective = ResolveEffectiveSupportData(
-        old, FindPresetDefaults(old), FindFixtureDefaults(scene, old));
-
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Function));
-    const std::string editedHoistFunction =
-        NormalizeHoistFunction(std::string(v.GetString().ToUTF8()));
-    next.hoistFunction = editedHoistFunction;
-
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Motor));
-    const std::string editedMotorName = std::string(v.GetString().ToUTF8());
-    next.motorName = editedMotorName;
-
-    table->GetValue(v, i, ColumnIndex(HoistColumn::DummyPreset));
-    next.dummyPreset = std::string(v.GetString().ToUTF8());
-    if (next.dummyPreset.empty()) {
-      next.dummyProfileId.clear();
-    } else {
-      const auto profile =
-          DummyProfileLibrary::FindByDisplayName(next.dummyPreset);
-      next.dummyProfileId = profile.has_value() ? profile->id : "";
+    // Pushes the single undo snapshot requested by an edit operation.
+    void PushUndoState(const std::string &description) override {
+      config.PushUndoState(description);
     }
 
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Layer));
-    std::string layerStr = std::string(v.GetString().ToUTF8());
-    if (layerStr.empty())
-      next.layer.clear();
-    else
-      next.layer = layerStr;
+    // Returns the active scene owned by the configuration manager.
+    MvrScene &GetScene() override { return config.GetScene(); }
 
-    table->GetValue(v, i, ColumnIndex(HoistColumn::HangPosition));
-    next.positionName = std::string(v.GetString().ToUTF8());
-
-    const auto distanceUnit = ResolveDistanceUnitSystem();
-    const auto weightUnit = ResolveWeightUnitSystem();
-    double xMm = old.transform.o[0], yMm = old.transform.o[1],
-           zMm = old.transform.o[2];
-    table->GetValue(v, i, ColumnIndex(HoistColumn::PositionX));
-    if (const auto parsed = Units::ParseDistanceToMillimeters(
-            std::string(v.GetString().ToUTF8()), distanceUnit);
-        parsed.has_value())
-      xMm = *parsed;
-    table->GetValue(v, i, ColumnIndex(HoistColumn::PositionY));
-    if (const auto parsed = Units::ParseDistanceToMillimeters(
-            std::string(v.GetString().ToUTF8()), distanceUnit);
-        parsed.has_value())
-      yMm = *parsed;
-    table->GetValue(v, i, ColumnIndex(HoistColumn::PositionZ));
-    if (const auto parsed = Units::ParseDistanceToMillimeters(
-            std::string(v.GetString().ToUTF8()), distanceUnit);
-        parsed.has_value())
-      zMm = *parsed;
-
-    double roll = 0, pitch = 0, yaw = 0;
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Roll));
-    {
-      wxString s = v.GetString();
-      if (!DegreeSymbol().empty())
-            s.Replace(DegreeSymbol(), "");
-      s.ToDouble(&roll);
-    }
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Pitch));
-    {
-      wxString s = v.GetString();
-      if (!DegreeSymbol().empty())
-            s.Replace(DegreeSymbol(), "");
-      s.ToDouble(&pitch);
-    }
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Yaw));
-    {
-      wxString s = v.GetString();
-      if (!DegreeSymbol().empty())
-            s.Replace(DegreeSymbol(), "");
-      s.ToDouble(&yaw);
+    // Returns the distance units selected by the user.
+    Units::DistanceUnitSystem GetDistanceUnitSystem() const override {
+      return Units::ParseDistanceUnitSystem(
+          config.GetValue("ui_distance_unit_system"));
     }
 
-    const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
-    const bool transformChanged =
-        !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
-        !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
-        !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
-        std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
-        std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
-        std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
-
-    if (transformChanged) {
-      Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
-                                              static_cast<float>(pitch),
-                                              static_cast<float>(roll));
-      next.transform = MatrixUtils::ApplyRotationPreservingScale(
-          old.transform, rot,
-          {static_cast<float>(xMm), static_cast<float>(yMm),
-           static_cast<float>(zMm)});
+    // Returns the weight units selected by the user.
+    Units::WeightUnitSystem GetWeightUnitSystem() const override {
+      return Units::ParseWeightUnitSystem(
+          config.GetValue("ui_weight_unit_system"));
     }
 
-    table->GetValue(v, i, ColumnIndex(HoistColumn::ChainLength));
-    double chainLen = 0.0;
-    v.GetString().ToDouble(&chainLen);
-    next.chainLength = static_cast<float>(chainLen);
-
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Capacity));
-    float editedCapacityKg = old.capacityKg;
-    if (const auto parsed = Units::ParseWeightToKilograms(
-            std::string(v.GetString().ToUTF8()), weightUnit);
-        parsed.has_value()) {
-      editedCapacityKg = static_cast<float>(*parsed);
-      next.capacityKg = editedCapacityKg;
+    // Resolves a stable dummy profile identifier through the library owner.
+    std::optional<DummyHoistProfile>
+    FindDummyProfileById(const std::string &profileId) const override {
+      return DummyProfileLibrary::FindById(profileId);
     }
 
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Weight));
-    float editedWeightKg = old.weightKg;
-    if (const auto parsed = Units::ParseWeightToKilograms(
-            std::string(v.GetString().ToUTF8()), weightUnit);
-        parsed.has_value()) {
-      editedWeightKg = static_cast<float>(*parsed);
-      next.weightKg = editedWeightKg;
+    // Resolves a displayed dummy profile name through the library owner.
+    std::optional<DummyHoistProfile> FindDummyProfileByDisplayName(
+        const std::string &displayName) const override {
+      return DummyProfileLibrary::FindByDisplayName(displayName);
     }
 
-    table->GetValue(v, i, ColumnIndex(HoistColumn::Load));
-    if (const auto parsed = Units::ParseWeightToKilograms(
-            std::string(v.GetString().ToUTF8()), weightUnit);
-        parsed.has_value()) {
-      next.loadKg = static_cast<float>(*parsed);
-      auto automaticIt = pendingAutomaticLoadByUuid.find(old.uuid);
-      if (automaticIt != pendingAutomaticLoadByUuid.end()) {
-        next.loadSource =
-            ShouldUseAutomaticHoistLoad(old.loadKg, next.loadKg,
-                                        automaticIt->second)
-                ? "Auto"
-                : "Manual";
-        if (next.loadSource == "Auto")
-          next.loadKg = automaticIt->second;
-      }
-    }
+  private:
+    ConfigManager &config;
+  } adapter(cfg);
 
-    next.motorNameSource =
-        ResolveHoistFieldDataSource(next.motorNameSource, next.hoistDataSource);
-    next.capacitySource =
-        ResolveHoistFieldDataSource(next.capacitySource, next.hoistDataSource);
-    next.weightSource =
-        ResolveHoistFieldDataSource(next.weightSource, next.hoistDataSource);
-    next.hoistFunctionSource = ResolveHoistFieldDataSource(
-        next.hoistFunctionSource, next.hoistDataSource);
-
-    MarkTextFieldManualIfEdited(editedMotorName, oldEffective.motorName,
-                                next.motorNameSource, old.motorName,
-                                next.motorName);
-    MarkNumericFieldManualIfEdited(editedCapacityKg, oldEffective.capacityKg,
-                                   next.capacitySource, old.capacityKg,
-                                   next.capacityKg);
-    MarkNumericFieldManualIfEdited(editedWeightKg, oldEffective.weightKg,
-                                   next.weightSource, old.weightKg,
-                                   next.weightKg);
-    MarkTextFieldManualIfEdited(editedHoistFunction, oldEffective.hoistFunction,
-                                next.hoistFunctionSource, old.hoistFunction,
-                                next.hoistFunction);
-
-    const bool supportChanged =
-        old.name != next.name || old.function != next.function ||
-                                old.hoistFunction != next.hoistFunction ||
-                                old.motorName != next.motorName ||
-                                old.motorManufacturer != next.motorManufacturer ||
-                                old.motorModel != next.motorModel ||
-                                old.dummyProfileId != next.dummyProfileId ||
-                                old.dummyPreset != next.dummyPreset ||
-                                NormalizeHoistDataSource(old.hoistDataSource) !=
-                                    NormalizeHoistDataSource(next.hoistDataSource) ||
-        old.layer != next.layer || old.positionName != next.positionName ||
-        transformChanged || old.chainLength != next.chainLength ||
-        !Units::NearlyEqualWeightKilograms(old.capacityKg, next.capacityKg,
-                                           0.001) ||
-        !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg,
-                                           0.001) ||
-                                !Units::NearlyEqualWeightKilograms(old.loadKg, next.loadKg, 0.001) ||
-                                old.loadSource != next.loadSource ||
-                                NormalizeHoistDataSource(old.motorNameSource) !=
-                                    NormalizeHoistDataSource(next.motorNameSource) ||
-                                NormalizeHoistDataSource(old.motorManufacturerSource) !=
-                                    NormalizeHoistDataSource(next.motorManufacturerSource) ||
-                                NormalizeHoistDataSource(old.motorModelSource) !=
-                                    NormalizeHoistDataSource(next.motorModelSource) ||
-                                NormalizeHoistDataSource(old.capacitySource) !=
-                                    NormalizeHoistDataSource(next.capacitySource) ||
-                                NormalizeHoistDataSource(old.weightSource) !=
-                                    NormalizeHoistDataSource(next.weightSource) ||
-                                NormalizeHoistDataSource(old.hoistFunctionSource) !=
-                                    NormalizeHoistDataSource(next.hoistFunctionSource);
-    const bool weightChanged =
-        !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
-    if (!supportChanged)
-      continue;
-
-    pushUndoIfNeeded();
-    anyChanged = true;
-    if (weightChanged) {
-      changedWeightPositions.insert(NormalizePositionName(old.positionName));
-      changedWeightPositions.insert(NormalizePositionName(next.positionName));
-    }
-    const Matrix requestedWorldTransform = next.transform;
-    next.transform = old.transform;
-    it->second = next;
-    if (transformChanged) {
-      scene_node_operations::ApplyExactWorldTransform(
-          scene, MvrNodeType::Support, it->second.uuid,
-          requestedWorldTransform);
-    }
-    if (!it->second.position.empty())
-      scene.positions[it->second.position] = it->second.positionName;
-  }
-
-  if (!anyChanged) {
-    pendingAutomaticLoadByUuid.clear();
-    return;
-  }
-
+  const auto result = HoistTableEditService::UpdateSceneData(
+      adapter, {table, rowUuids, pendingAutomaticLoadByUuid});
   pendingAutomaticLoadByUuid.clear();
+  if (!result.anyChanged)
+    return;
 
   const bool loadsRecalculated = HoistLoadRecalculationPrompt::PromptAndApply(
-      cfg, this, changedWeightPositions, false);
+      cfg, this, result.changedWeightPositions, false);
   if (loadsRecalculated)
     ReloadData();
 

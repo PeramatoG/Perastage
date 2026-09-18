@@ -20,6 +20,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated hoist table row-to-scene editing into a focused service while preserving inherited field sources, dummy profiles, automatic loads, transforms, undo, and view-refresh behavior.
+
 - Separated truss table row-to-scene editing and equal-type physical-property synchronization into a focused service while preserving undo, resource-reference, load-recalculation, and view-refresh behavior.
 
 - Separated reusable dictionary JSON snapshot serialization and reference-path validation from the Dictionary Editor while preserving existing snapshot and portable bundle behavior.
