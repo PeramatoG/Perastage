@@ -3050,6 +3050,12 @@ target_include_directories(viewer2d_interaction_session_test PRIVATE
                            ../viewer2d/interaction ../viewer_common)
 add_test(NAME Viewer2DInteractionSession COMMAND viewer2d_interaction_session_test)
 
+add_executable(mouse_capture_ownership_state_test
+               mouse_capture_ownership_state_test.cpp)
+target_include_directories(mouse_capture_ownership_state_test PRIVATE
+                           ${CMAKE_CURRENT_SOURCE_DIR}/../gui)
+add_test(NAME MouseCaptureOwnershipState COMMAND mouse_capture_ownership_state_test)
+
 add_executable(viewer2d_navigation_policy_test
                viewer2d_navigation_policy_test.cpp
                ../viewer2d/interaction/viewer2d_navigation_policy.cpp)

@@ -496,9 +496,8 @@ LayoutViewerPanel::LayoutViewerPanel(wxWindow *parent)
 }
 
 LayoutViewerPanel::~LayoutViewerPanel() {
-  if (HasCapture()) {
-    ReleaseMouse();
-  }
+  if (mouseCapture_.IsOwned())
+    mouseCapture_.Release("destructor");
   Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnLoadingTimer, this,
          kLoadingTimerId);
   Unbind(wxEVT_TIMER, &LayoutViewerPanel::OnRenderDelayTimer, this,
@@ -1244,7 +1243,10 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
                   frameRect.GetHeight()});
     if (mode != FrameDragMode::None) {
       interactionSession_.BeginFrameDrag(mode, pointer, selectedFrame);
-      CaptureMouse();
+      if (!mouseCapture_.TryAcquire("frame-drag")) {
+        interactionSession_.CancelAfterCaptureLoss();
+        return;
+      }
       if (!currentLayout.name.empty()) {
         auto &cfg = GetDefaultGuiConfigServices().LegacyConfigManager();
         cfg.PushUndoState("edit layout element frame");
@@ -1253,11 +1255,10 @@ void LayoutViewerPanel::OnLeftDown(wxMouseEvent &event) {
       return;
     }
   }
-
   interactionSession_.BeginPan(pointer);
-  CaptureMouse();
+  if (!mouseCapture_.TryAcquire("viewport-pan"))
+    interactionSession_.CancelAfterCaptureLoss();
 }
-
 // Finalizes the active frame edit or viewport pan gesture.
 void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
   const FrameDragMode dragMode = interactionSession_.DragMode();
@@ -1279,14 +1280,12 @@ void LayoutViewerPanel::OnLeftUp(wxMouseEvent &) {
     }
     interactionSession_.CompleteFrameDrag();
     layouts::LayoutManager::Get().EndBatchUpdate();
-    if (HasCapture())
-      ReleaseMouse();
+    mouseCapture_.Release("frame-drag");
     return;
   }
   if (interactionSession_.IsPanning()) {
     interactionSession_.EndPan();
-    if (HasCapture())
-      ReleaseMouse();
+    mouseCapture_.Release("viewport-pan");
   }
 }
 
@@ -1451,6 +1450,7 @@ void LayoutViewerPanel::OnMouseWheel(wxMouseEvent &event) {
 
 // Commits pending movement and cancels transient state after capture loss.
 void LayoutViewerPanel::OnCaptureLost(wxMouseCaptureLostEvent &) {
+  mouseCapture_.AbandonOnLoss("active-gesture");
   CommitPendingFrameUpdate();
   if (interactionSession_.DragMode() != FrameDragMode::None) {
     layouts::LayoutManager::Get().EndBatchUpdate();

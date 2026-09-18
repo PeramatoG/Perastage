@@ -22,15 +22,22 @@ constexpr long kSelectionDragDelayMilliseconds = 150;
 } // namespace
 
 // Starts a primary-button gesture in viewport-navigation mode.
-void Viewer2DInteractionSession::BeginPrimary(PointerPosition position) {
+bool Viewer2DInteractionSession::BeginPrimary(PointerPosition position) {
+  if (mode != DragMode::None || middleMousePanning)
+    return false;
   ResetGesture();
   mode = DragMode::View;
   lastPointer = position;
+  return true;
 }
 
 // Starts an exclusive middle-button viewport-pan gesture when permitted.
 bool Viewer2DInteractionSession::BeginPan(PointerPosition position,
                                           bool continuousPlacementActive) {
+  if (middleMousePanning ||
+      (mode != DragMode::None &&
+       !(continuousPlacementActive && mode == DragMode::Selection)))
+    return false;
   if (!viewport_navigation::CanBeginViewer2DPan(mode == DragMode::None,
                                                 continuousPlacementActive))
     return false;
@@ -42,11 +49,14 @@ bool Viewer2DInteractionSession::BeginPan(PointerPosition position,
 }
 
 // Starts temporary left-button viewport navigation during placement.
-void Viewer2DInteractionSession::BeginPlacementNavigation(
+bool Viewer2DInteractionSession::BeginPlacementNavigation(
     PointerPosition position) {
+  if (middleMousePanning || mode != DragMode::Selection)
+    return false;
   draggedSincePress = false;
   mode = DragMode::View;
   lastPointer = position;
+  return true;
 }
 
 // Starts rectangle selection and records its cross-table selection intent.
@@ -154,7 +164,7 @@ void Viewer2DInteractionSession::ConsumePointerOutcome() {
   draggedSincePress = false;
 }
 
-// Clears selection and rectangle state while leaving neutral pointer data.
+// Clears every gesture marker so stale middle-button state cannot survive.
 void Viewer2DInteractionSession::ResetGesture() {
   mode = DragMode::None;
   axis = DragAxis::None;
@@ -166,11 +176,11 @@ void Viewer2DInteractionSession::ResetGesture() {
   draggedSincePress = false;
   rectangleActive = false;
   rectangleAcrossAllTables = false;
+  middleMousePanning = false;
 }
 
 // Cancels transient state after mouse capture is lost.
 void Viewer2DInteractionSession::Cancel(bool continuousPlacementActive) {
-  middleMousePanning = false;
   ResetGesture();
   if (continuousPlacementActive)
     mode = DragMode::Selection;

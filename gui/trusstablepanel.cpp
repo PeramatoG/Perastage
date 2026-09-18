@@ -283,6 +283,8 @@ TrussTablePanel::TrussTablePanel(
 // Releases table resources and detaches the truss pane from AUI layout management.
 TrussTablePanel::~TrussTablePanel()
 {
+    if (mouseCapture.IsOwned())
+        mouseCapture.Release("destructor");
     if (wxAuiManager *manager = wxAuiManager::GetManager(this))
         manager->DetachPane(this);
     store = nullptr;
@@ -784,29 +786,32 @@ void TrussTablePanel::OnContextMenu(wxDataViewEvent &event) {
     }
 }
 
+// Begins drag selection with explicitly owned mouse capture.
 void TrussTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
     startRow = table->ItemToRow(item);
-    if (startRow != wxNOT_FOUND)
+    if (startRow != wxNOT_FOUND && !dragSelecting)
     {
-        dragSelecting = true;
-        CaptureMouse();
+        dragSelecting = mouseCapture.TryAcquire("row-selection");
     }
     evt.Skip();
 }
 
+// Completes drag selection and balances its owned capture.
 void TrussTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
         dragSelecting = false;
-        ReleaseMouse();
+        mouseCapture.Release("row-selection");
     }
     evt.Skip();
 }
 
+// Invalidates capture ownership before cancelling drag selection.
 void TrussTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+    mouseCapture.AbandonOnLoss("row-selection");
     dragSelecting = false;
 }
 

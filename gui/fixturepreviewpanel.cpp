@@ -181,6 +181,8 @@ FixturePreviewPanel::FixturePreviewPanel(wxWindow* parent)
 
 FixturePreviewPanel::~FixturePreviewPanel()
 {
+    if (m_mouseCapture.IsOwned())
+        m_mouseCapture.Release("destructor");
     delete m_glContext;
 }
 
@@ -350,29 +352,34 @@ void FixturePreviewPanel::OnResize(wxSizeEvent&)
     Refresh();
 }
 
+// Starts camera orbiting with explicitly owned mouse capture.
 void FixturePreviewPanel::OnMouseDown(wxMouseEvent& evt)
 {
+    if (m_dragging)
+        return;
     SetFocus();
     m_dragging = true;
     m_lastMousePos = evt.GetPosition();
-    if(!HasCapture()){
-        CaptureMouse();
-    }
+    m_dragging = m_mouseCapture.TryAcquire("camera-orbit");
 }
 
+// Completes camera orbiting and balances its owned capture.
 void FixturePreviewPanel::OnMouseUp(wxMouseEvent&)
 {
     if(m_dragging){
         m_dragging = false;
-        if(HasCapture()) ReleaseMouse();
+        m_mouseCapture.Release("camera-orbit");
     }
 }
 
+// Invalidates capture ownership before cancelling camera orbiting.
 void FixturePreviewPanel::OnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(evt))
 {
+    m_mouseCapture.AbandonOnLoss("camera-orbit");
     m_dragging = false;
 }
 
+// Updates camera orbiting or completes it when all buttons are released.
 void FixturePreviewPanel::OnMouseMove(wxMouseEvent& evt)
 {
     if(m_dragging && (evt.LeftIsDown() || evt.MiddleIsDown() || evt.RightIsDown())){
@@ -384,9 +391,7 @@ void FixturePreviewPanel::OnMouseMove(wxMouseEvent& evt)
         Refresh();
     } else if(m_dragging) {
         m_dragging = false;
-        if(HasCapture()){
-            ReleaseMouse();
-        }
+        m_mouseCapture.Release("camera-orbit");
     }
 }
 

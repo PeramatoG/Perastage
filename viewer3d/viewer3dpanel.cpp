@@ -859,8 +859,8 @@ Viewer3DPanel::~Viewer3DPanel() {
            m_zoomInteractionTimer.GetId());
     m_zoomInteractionTimer.Stop();
     DeletePendingEvents();
-    if (HasCapture())
-        ReleaseMouse();
+    if (m_mouseCapture.IsOwned())
+        m_mouseCapture.Release("destructor");
     StopRefreshThread();
     delete m_glContext;
     m_glContext = nullptr;
@@ -1752,7 +1752,11 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
         m_navigationSession.ClearMoved();
         m_lastMousePos = event.GetPosition();
         SetFocus();
-        CaptureMouse();
+        if (!m_mouseCapture.TryAcquire("placement-navigation")) {
+            m_navigationSession.End();
+            m_runtimeState.EndInteraction();
+            m_controller.SetInteracting(false);
+        }
         return;
     }
   viewer3d::diagnostics::Logf(
@@ -1772,7 +1776,10 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
             m_rectSelectStart = event.GetPosition();
             m_rectSelectEnd = m_rectSelectStart;
             m_navigationSession.ClearMoved();
-            CaptureMouse();
+            if (!m_mouseCapture.TryAcquire("rectangle-selection")) {
+                m_rectSelecting = false;
+                m_navigationSession.Reset();
+            }
             return;
         }
 
@@ -1782,7 +1789,8 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
                 m_lastMousePos = event.GetPosition();
                 m_navigationSession.ClearMoved();
                 SetFocus();
-                CaptureMouse();
+                if (!m_mouseCapture.TryAcquire("selection-drag"))
+                    ResetSelectionDragState();
                 Refresh();
                 return;
             }
@@ -1801,7 +1809,11 @@ void Viewer3DPanel::OnMouseDown(wxMouseEvent &event) {
         m_navigationSession.ClearMoved();
         m_lastMousePos = event.GetPosition();
         SetFocus();
-        CaptureMouse();
+        if (!m_mouseCapture.TryAcquire("navigation")) {
+            m_navigationSession.End();
+            m_runtimeState.EndInteraction();
+            m_controller.SetInteracting(false);
+        }
     }
 }
 
@@ -1822,8 +1834,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         m_runtimeState.EndInteraction();
         m_controller.SetInteracting(false);
         m_controller.SetCameraMoving(false);
-        if (HasCapture())
-            ReleaseMouse();
+        m_mouseCapture.Release("placement-navigation");
         m_navigationSession.ClearMoved();
         if (navigated) {
             AlignContinuousElementToPointer(event.GetPosition());
@@ -1835,8 +1846,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         return;
     }
   if (event.LeftUp() && m_rectSelecting) {
-        if (HasCapture())
-            ReleaseMouse();
+        m_mouseCapture.Release("rectangle-selection");
         ApplyRectangleSelection(m_rectSelectStart, m_rectSelectEnd);
         m_rectSelecting = false;
         m_navigationSession.Reset();
@@ -1847,8 +1857,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
     }
 
   if (event.LeftUp() && m_selectionDragActivation.IsArmed()) {
-        if (HasCapture())
-            ReleaseMouse();
+        m_mouseCapture.Release("selection-drag");
         if (m_selectionDragActivation.HasMoved()) {
             CommitActiveMagnetSnap();
             FinalizeSelectionDrag();
@@ -1868,8 +1877,7 @@ void Viewer3DPanel::OnMouseUp(wxMouseEvent &event) {
         m_runtimeState.EndInteraction();
         m_controller.SetInteracting(false);
         m_controller.SetCameraMoving(false);
-        if (HasCapture())
-            ReleaseMouse();
+        m_mouseCapture.Release("navigation");
         if (m_continuousPlacementSession.IsActive() && event.MiddleUp())
             AlignContinuousElementToPointer(event.GetPosition());
         m_runtimeState.ForceHoverQuery();
@@ -2513,6 +2521,7 @@ void Viewer3DPanel::CancelLinePointSelection() {
 
 // Resets interaction state after wxWidgets reports lost mouse capture.
 void Viewer3DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
+    m_mouseCapture.AbandonOnLoss("active-gesture");
     FinishInteractiveTransformPresentation();
     m_navigationSession.End();
     m_runtimeState.EndInteraction();

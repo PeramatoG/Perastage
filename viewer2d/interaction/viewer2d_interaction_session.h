@@ -41,11 +41,11 @@ struct SelectionDragMotion {
 class Viewer2DInteractionSession {
 public:
   // Starts a primary-button gesture in viewport-navigation mode.
-  void BeginPrimary(PointerPosition position);
+  bool BeginPrimary(PointerPosition position);
   // Starts an exclusive middle-button viewport-pan gesture when permitted.
   bool BeginPan(PointerPosition position, bool continuousPlacementActive);
   // Starts temporary left-button viewport navigation during placement.
-  void BeginPlacementNavigation(PointerPosition position);
+  bool BeginPlacementNavigation(PointerPosition position);
   // Starts rectangle selection and records its cross-table selection intent.
   void BeginRectangleSelection(PointerPosition position, bool acrossAllTables);
   // Starts selection movement for the supplied typed selection.
@@ -74,7 +74,7 @@ public:
   void CompleteGesture();
   // Clears click suppression after the panel consumes the pointer outcome.
   void ConsumePointerOutcome();
-  // Clears selection and rectangle state while leaving neutral pointer data.
+  // Clears all gesture state, including any middle-button pan marker.
   void ResetGesture();
   // Cancels transient state after mouse capture is lost.
   void Cancel(bool continuousPlacementActive);

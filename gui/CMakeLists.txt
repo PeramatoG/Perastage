@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/columnselectiondialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/consolepanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/console_command_parser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mouse_capture_ownership.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_feature_flags.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_text_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionaryeditdialog.cpp
