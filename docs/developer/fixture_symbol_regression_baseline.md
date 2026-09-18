@@ -95,5 +95,5 @@ A stored-SVG-valid **skipped** job contains resolve and exact-view validation;
 an inspection skip also contains inspect. A **generated** job contains all applicable phases,
 including bounds through refresh and persistence phases. A **failed** job keeps
 every phase completed before its failure; later phases remain absent. Outcomes
-are deliberately limited to `skipped`, `generated`, and `failed` at this
-checkpoint.
+are deliberately limited to `skipped`, `generated`, and `failed` by the current
+contract.

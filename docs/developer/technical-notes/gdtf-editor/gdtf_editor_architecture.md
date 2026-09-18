@@ -39,8 +39,9 @@ capabilities:
 - `ProjectTruss` exposes source selection and the type data used for GDTF
   generation: manufacturer, model, dimensions, weight, description, and cross
   section.
-- `StandaloneFile` is read-only. There is no standalone editor startup route or
-  file association.
+- `StandaloneFile` is read-only by default. The Core context can represent an
+  explicitly supplied supported writable policy, but no standalone editor host,
+  startup route, or file association currently exposes that capability.
 
 Mode selection chooses an existing GDTF mode for a project fixture; it does not
 edit a `DMXMode`. Source references are host selections, not document fields.
@@ -110,7 +111,8 @@ behavior.
 
 ## Current limitations
 
-- Direct standalone `.gdtf` editing and startup routing are not implemented.
+- No GUI host, startup route, or file association currently exposes standalone
+  `.gdtf` editing, although the Core context can represent a writable policy.
 - Mode definitions and wheel data are inspected read-only; project mode
   selection does not modify them.
 - Tube-specific cross-section height and wall thickness are not editable.
