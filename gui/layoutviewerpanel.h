@@ -32,6 +32,7 @@
 #include "configservices.h"
 #include "canvas2d.h"
 #include "layout_2d_view_rasterizer.h"
+#include "layout_viewer_interaction_session.h"
 #include "symbolcache.h"
 #include "viewer2dpanel.h"
 #include "viewer2dstate.h"
@@ -323,15 +324,7 @@ private:
                          double renderZoom,
                          const layouts::LayoutTextDefinition &text) const;
 
-  enum class FrameDragMode {
-    None,
-    Move,
-    ResizeRight,
-    ResizeBottom,
-    ResizeCorner
-  };
-
-  FrameDragMode HitTestFrame(const wxPoint &pos, const wxRect &frameRect) const;
+  using FrameDragMode = gui::layoutinteraction::FrameDragMode;
   wxCursor CursorForMode(FrameDragMode mode) const;
 
   enum class SelectedElementType {
@@ -375,13 +368,7 @@ private:
   layouts::LayoutDefinition currentLayout;
   double zoom = 1.0;
   wxPoint panOffset{0, 0};
-  bool isPanning = false;
-  wxPoint lastMousePos{0, 0};
-  FrameDragMode dragMode = FrameDragMode::None;
-  FrameDragMode hoverMode = FrameDragMode::None;
-  wxPoint dragStartPos{0, 0};
-  layouts::Layout2DViewFrame dragStartFrame;
-  std::optional<layouts::Layout2DViewFrame> deferredResizeFrame_;
+  gui::layoutinteraction::LayoutViewerInteractionSession interactionSession_;
   int layoutVersion = 0;
   int viewRenderVersion = 0;
   bool captureInProgress = false;

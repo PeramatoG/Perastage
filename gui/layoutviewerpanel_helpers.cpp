@@ -4,10 +4,6 @@
 #include <wx/event.h>
 #include <wx/window.h>
 
-namespace {
-constexpr int kLayoutGridStep = 5;
-}
-
 namespace layoutviewerpanel {
 
 // Returns the logical client size for a window or zero size when the window is null.
@@ -36,17 +32,6 @@ wxPoint ToFramebufferPoint(wxWindow *window, const wxPoint &logicalPoint) {
   return wxPoint(static_cast<int>(std::lround(logicalPoint.x * contentScale)),
                  static_cast<int>(std::lround(logicalPoint.y * contentScale)));
 }
-
-// Snaps an integer coordinate to the nearest layout grid increment.
-int SnapToGrid(int value) {
-  if (kLayoutGridStep <= 1)
-    return value;
-  return static_cast<int>(
-      std::lround(static_cast<double>(value) / kLayoutGridStep) *
-      kLayoutGridStep);
-}
-
-
 
 // Builds the loading overlay label shown during layout rendering.
 wxString BuildLoadingOverlayLabel() {
