@@ -642,6 +642,21 @@ target_link_libraries(truss_table_edit_service_test PRIVATE
 add_test(NAME TrussTableEditService COMMAND truss_table_edit_service_test)
 set_tests_properties(TrussTableEditService PROPERTIES SKIP_RETURN_CODE 77)
 
+add_executable(hoist_table_edit_service_test
+               hoist_table_edit_service_test.cpp
+               ../gui/hoisttable/hoist_table_edit_service.cpp
+               ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp
+               ../core/units/units.cpp
+               ../core/uuidutils.cpp
+               ../models/mvrscene.cpp)
+target_include_directories(hoist_table_edit_service_test PRIVATE
+                           ../gui ../core ../models)
+target_link_libraries(hoist_table_edit_service_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME HoistTableEditService COMMAND hoist_table_edit_service_test)
+set_tests_properties(HoistTableEditService PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(mainwindow_cli_shortcut_router_test
                mainwindow_cli_shortcut_router_test.cpp
                ../gui/mainwindow_cli_shortcut_router.cpp
