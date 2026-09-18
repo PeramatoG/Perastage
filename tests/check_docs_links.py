@@ -74,6 +74,7 @@ for canonical_link in (
     "[Build and Dependency Guide](build.md)",
     "[Packaging](packaging.md)",
     "[GitHub Actions workflow architecture](github_actions_workflows.md)",
+    "[Versioning Policy](versioning-policy.md)",
     "[Localization](localization.md)",
 ):
     if canonical_link not in canonical_section:
