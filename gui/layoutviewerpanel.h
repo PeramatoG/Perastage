@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "mouse_capture_ownership.h"
 
 #include "LayoutCollection.h"
 #include "canvas2d.h"
@@ -362,6 +363,7 @@ private:
   layouts::LayoutDefinition currentLayout;
   gui::layoutviewport::LayoutViewerViewportState viewportState_;
   gui::layoutinteraction::LayoutViewerInteractionSession interactionSession_;
+  ui::MouseCaptureOwner mouseCapture_{*this, "LayoutViewerPanel"};
   int layoutVersion = 0;
   int viewRenderVersion = 0;
   bool captureInProgress = false;

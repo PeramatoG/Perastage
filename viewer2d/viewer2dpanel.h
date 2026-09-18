@@ -31,6 +31,7 @@
 #include "viewer3dcontroller.h"
 #include "viewer2d_measure_tool.h"
 #include "interaction/viewer2d_interaction_session.h"
+#include "../gui/mouse_capture_ownership.h"
 #include "interaction/viewer2d_interaction_scope_policy.h"
 #include "interaction/viewer2d_line_point_selection_session.h"
 #include "interaction/viewer2d_placement_session.h"
@@ -349,6 +350,7 @@ private:
   static constexpr int kSelectionDragStartThresholdPx = 3;
   static constexpr int kDragTableUpdateIntervalMs = 50;
   viewer2d::interaction::Viewer2DInteractionSession m_interaction;
+  ui::MouseCaptureOwner m_mouseCapture;
   viewer2d::interaction::Viewer2DRuntimeState m_runtimeState;
   bool m_magnetEnabled = false;
   bool m_leftDragSelectionMovementEnabled = false;

@@ -259,8 +259,6 @@ FixtureTablePanel::FixtureTablePanel(wxWindow *parent,
 FixtureTablePanel::~FixtureTablePanel() {
   if (wxAuiManager *manager = wxAuiManager::GetManager(this))
     manager->DetachPane(this);
-  if (HasCapture())
-    ReleaseMouse();
   SetInstance(nullptr);
   store = nullptr;
 }
@@ -1488,8 +1486,6 @@ void FixtureTablePanel::OnItemActivated(wxDataViewEvent &event) {
   // the dialog avoids a later destruction-time assert/crash.
   if (dragSelecting) {
     dragSelecting = false;
-    if (HasCapture())
-      ReleaseMouse();
   }
 
   int r = table->ItemToRow(item);

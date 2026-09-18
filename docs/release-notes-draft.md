@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Prevented Windows debug assertions during rapid or interrupted mouse drags by balancing capture ownership across viewers, layout editing, previews, and tables.
+
 - Fixed sortable data-table columns to use semantic numeric and natural ordering instead of lexicographic string ordering.
 
 - Restored cross-platform Debug compilation of the Dictionary Editor after its snapshot-service architecture update.

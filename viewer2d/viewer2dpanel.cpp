@@ -711,6 +711,7 @@ wxBEGIN_EVENT_TABLE(Viewer2DPanel, wxGLCanvas) EVT_PAINT(
     : wxGLCanvas(parent, wxID_ANY, gl_lifecycle::GetStandardCanvasAttributes(),
                  wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE),
       m_allowOffscreenRender(allowOffscreenRender),
+      m_mouseCapture(*this, "Viewer2DPanel"),
       m_interactionResumeTimer(this, kInteractionPauseTimerId),
       m_hoverHitTestTimer(this, kHoverHitTestTimerId),
       m_persistViewState(persistViewState), m_enableSelection(enableSelection) {
@@ -737,8 +738,8 @@ Viewer2DPanel::~Viewer2DPanel() {
                                   "destructor cleanup")) {
     ReleaseCaptureFramebufferTarget();
   }
-  if (HasCapture())
-    ReleaseMouse();
+  if (m_mouseCapture.IsOwned())
+    m_mouseCapture.Release("destructor");
   if (g_instance == this)
     g_instance = nullptr;
   m_interaction.ResetGesture();
@@ -3247,8 +3248,10 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     if (!m_interaction.BeginPan({position.x, position.y},
                                 m_placementSession.IsActive()))
       return;
-    if (!HasCapture())
-      CaptureMouse();
+    if (!m_mouseCapture.TryAcquire("middle-pan")) {
+      m_interaction.Cancel(m_placementSession.IsActive());
+      return;
+    }
     m_lastMousePos = position;
     MarkInteractionActivity();
     return;
@@ -3272,18 +3275,26 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
     return;
   }
   if (m_placementSession.IsActive() && event.LeftDown()) {
-    CaptureMouse();
     m_lastMousePos = event.GetPosition();
-    m_interaction.BeginPlacementNavigation(
-        {m_lastMousePos.x, m_lastMousePos.y});
+    if (!m_interaction.BeginPlacementNavigation(
+            {m_lastMousePos.x, m_lastMousePos.y}))
+      return;
+    if (!m_mouseCapture.TryAcquire("placement-navigation")) {
+      m_interaction.Cancel(true);
+      return;
+    }
     MarkInteractionActivity();
     return;
   }
   if (event.LeftDown()) {
-    CaptureMouse();
     m_dragPressTime = wxGetLocalTimeMillis();
     m_lastMousePos = event.GetPosition();
-    m_interaction.BeginPrimary({m_lastMousePos.x, m_lastMousePos.y});
+    if (!m_interaction.BeginPrimary({m_lastMousePos.x, m_lastMousePos.y}))
+      return;
+    if (!m_mouseCapture.TryAcquire("primary")) {
+      m_interaction.Cancel(false);
+      return;
+    }
     MarkInteractionActivity();
     m_hoverHitTestTimer.Stop();
     m_runtimeState.CancelHoverQuery();
@@ -3297,7 +3308,6 @@ void Viewer2DPanel::OnMouseDown(wxMouseEvent &event) {
           event.ShiftDown() || IsCrossTableViewportActionsEnabled());
       return;
     }
-
     if (!m_leftDragSelectionMovementEnabled)
       return;
 
@@ -3404,8 +3414,7 @@ void Viewer2DPanel::OnMouseDClick(wxMouseEvent &event) {
 // Completes mouse-driven interaction and applies click or rectangle selections.
 void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
   if (event.MiddleUp() && m_interaction.middleMousePanning) {
-    if (HasCapture())
-      ReleaseMouse();
+    m_mouseCapture.Release("middle-pan");
     m_interaction.EndPan(m_placementSession.IsActive());
     if (m_placementSession.IsActive())
       AlignContinuousElementToPointer(event.GetPosition());
@@ -3417,8 +3426,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     return;
   }
   if (m_placementSession.IsActive() && event.LeftUp()) {
-    if (HasCapture())
-      ReleaseMouse();
+    m_mouseCapture.Release("placement-navigation");
     const bool navigated = m_interaction.draggedSincePress;
     m_interaction.EndPlacementNavigation();
     if (navigated) {
@@ -3434,8 +3442,7 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     const wxRect dirtyRect = BuildSelectionRectDirtyRegion(
         wxPoint(m_interaction.rectangleStart.x, m_interaction.rectangleStart.y),
         wxPoint(m_interaction.rectangleEnd.x, m_interaction.rectangleEnd.y));
-    if (HasCapture())
-      ReleaseMouse();
+    m_mouseCapture.Release("rectangle-selection");
     if (m_interaction.rectangleActive)
       ApplyRectangleSelection(
           wxPoint(m_interaction.rectangleStart.x,
@@ -3446,10 +3453,8 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     RequestRepaint(dirtyRect);
     return;
   }
-
   if (event.LeftUp() && m_interaction.mode != DragMode::None) {
-    if (HasCapture())
-      ReleaseMouse();
+    m_mouseCapture.Release("primary");
     if (m_interaction.mode == DragMode::Selection &&
         m_interaction.selectionMoved) {
       CommitActiveMagnetSnap();
@@ -3459,7 +3464,6 @@ void Viewer2DPanel::OnMouseUp(wxMouseEvent &event) {
     m_interaction.CompleteGesture();
     ClearCursorWorldPosition();
   }
-
   if (!m_enableSelection) {
     m_interaction.ConsumePointerOutcome();
     return;
@@ -3808,14 +3812,6 @@ void Viewer2DPanel::OnRightUp(wxMouseEvent &event) {
     RequestRepaint();
     return;
   }
-}
-
-// Resets all transient 2D interaction state after mouse capture is lost.
-void Viewer2DPanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(event)) {
-  FinishInteractiveTransformPresentation();
-  m_interaction.Cancel(m_placementSession.IsActive());
-  m_pendingMagnetSnap.reset();
-  ClearCursorWorldPosition();
 }
 
 // Aligns the provisional fixture with the raw world position under the pointer.

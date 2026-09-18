@@ -25,6 +25,7 @@
 #pragma once
 
 #include "continuous_placement_type.h"
+#include "../gui/mouse_capture_ownership.h"
 #include "scene_grouping.h"
 #include "continuous_placement_state.h"
 #include <wx/glcanvas.h>
@@ -154,6 +155,7 @@ private:
 
     // Mouse interaction state
     viewer3d::interaction::NavigationSession m_navigationSession;
+    ui::MouseCaptureOwner m_mouseCapture{*this, "Viewer3DPanel"};
     bool m_mouseInside = false;
     wxPoint m_lastMousePos;
     bool m_hasLastMousePos = false;

@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "mouse_capture_ownership.h"
 #include "initial_population_policy.h"
 
 #include <wx/wx.h>
@@ -71,6 +72,7 @@ private:
     wxUIntPtr nextRowKey = 1;
     std::string highlightedUuid;
     bool dragSelecting = false;
+    ui::MouseCaptureOwner mouseCapture{*this, "SceneObjectTablePanel"};
     bool modelFileEditCommitPending = false;
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;

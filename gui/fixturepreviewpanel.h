@@ -16,6 +16,7 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "mouse_capture_ownership.h"
 
 #include <wx/glcanvas.h>
 #include <vector>
@@ -60,8 +61,8 @@ private:
     float m_bbMax[3];
 
     bool m_dragging = false;
+    ui::MouseCaptureOwner m_mouseCapture{*this, "FixturePreviewPanel"};
     wxPoint m_lastMousePos;
 
     wxDECLARE_EVENT_TABLE();
 };
-

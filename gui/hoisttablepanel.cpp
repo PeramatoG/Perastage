@@ -438,6 +438,8 @@ HoistTablePanel::HoistTablePanel(
 // Releases table resources and detaches the hoist pane from AUI layout
 // management.
 HoistTablePanel::~HoistTablePanel() {
+  if (mouseCapture.IsOwned())
+    mouseCapture.Release("destructor");
   if (wxAuiManager *manager = wxAuiManager::GetManager(this))
     manager->DetachPane(this);
   if (s_instance == this)
@@ -956,27 +958,30 @@ void HoistTablePanel::OnContextMenu(wxDataViewEvent &event) {
   }
 }
 
+// Begins drag selection with explicitly owned mouse capture.
 void HoistTablePanel::OnLeftDown(wxMouseEvent &evt) {
   wxDataViewItem item;
   wxDataViewColumn *col;
   table->HitTest(evt.GetPosition(), item, col);
   startRow = table->ItemToRow(item);
-  if (startRow != wxNOT_FOUND) {
-    dragSelecting = true;
-    CaptureMouse();
+  if (startRow != wxNOT_FOUND && !dragSelecting) {
+    dragSelecting = mouseCapture.TryAcquire("row-selection");
   }
   evt.Skip();
 }
 
+// Completes drag selection and balances its owned capture.
 void HoistTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
     dragSelecting = false;
-    ReleaseMouse();
+    mouseCapture.Release("row-selection");
   }
   evt.Skip();
 }
 
+// Invalidates capture ownership before cancelling drag selection.
 void HoistTablePanel::OnCaptureLost(wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+  mouseCapture.AbandonOnLoss("row-selection");
   dragSelecting = false;
 }
 

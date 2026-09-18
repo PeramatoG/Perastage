@@ -17,6 +17,7 @@
  */
 #pragma once
 #include "initial_population_policy.h"
+#include "mouse_capture_ownership.h"
 
 #include <wx/wx.h>
 #include <wx/dataview.h>
@@ -76,6 +77,7 @@ private:
     std::vector<wxString> modelPaths;  // Displayed model file paths (.gtruss if any)
     std::vector<wxString> symbolPaths; // Resolved geometry file paths
     bool dragSelecting = false;
+    ui::MouseCaptureOwner mouseCapture{*this, "TrussTablePanel"};
     int startRow = -1;
     IGuiConfigServices *guiConfigServices = nullptr;
     std::unique_ptr<gui::DataViewDeferredSelectionGuard> deferredSelectionGuard;

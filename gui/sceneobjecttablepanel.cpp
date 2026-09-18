@@ -248,6 +248,8 @@ SceneObjectTablePanel::SceneObjectTablePanel(wxWindow *parent,
 // Releases table resources and detaches the scene-object pane from AUI layout
 // management.
 SceneObjectTablePanel::~SceneObjectTablePanel() {
+    if (mouseCapture.IsOwned())
+        mouseCapture.Release("destructor");
     if (wxAuiManager *manager = wxAuiManager::GetManager(this))
         manager->DetachPane(this);
     store = nullptr;
@@ -598,16 +600,16 @@ void SceneObjectTablePanel::OnContextMenu(wxDataViewEvent &event) {
     RefreshSceneObjectVisuals();
 }
 
+// Begins drag selection with explicitly owned mouse capture.
 void SceneObjectTablePanel::OnLeftDown(wxMouseEvent& evt)
 {
     wxDataViewItem item;
     wxDataViewColumn* col;
     table->HitTest(evt.GetPosition(), item, col);
     startRow = table->ItemToRow(item);
-    if (startRow != wxNOT_FOUND)
+    if (startRow != wxNOT_FOUND && !dragSelecting)
     {
-        dragSelecting = true;
-        CaptureMouse();
+        dragSelecting = mouseCapture.TryAcquire("row-selection");
     }
     evt.Skip();
 }
@@ -636,16 +638,19 @@ void SceneObjectTablePanel::OnLeftDClick(wxMouseEvent &evt) {
     evt.Skip();
 }
 
+// Completes drag selection and balances its owned capture.
 void SceneObjectTablePanel::OnLeftUp(wxMouseEvent &evt) {
   if (dragSelecting) {
         dragSelecting = false;
-        ReleaseMouse();
+        mouseCapture.Release("row-selection");
     }
     evt.Skip();
 }
 
+// Invalidates capture ownership before cancelling drag selection.
 void SceneObjectTablePanel::OnCaptureLost(
     wxMouseCaptureLostEvent &WXUNUSED(evt)) {
+    mouseCapture.AbandonOnLoss("row-selection");
     dragSelecting = false;
 }
 

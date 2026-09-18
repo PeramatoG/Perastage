@@ -14,6 +14,7 @@ int main() {
   assert(session.draggedSincePress);
   session.EndPan(false);
   assert(session.mode == DragMode::None);
+  assert(!session.middleMousePanning);
   assert(!session.draggedSincePress);
 
   session.BeginSelectionDrag(DragTarget::Fixtures, {"fixture"}, {});
@@ -33,6 +34,7 @@ int main() {
   session.ResetGesture();
   assert(!session.rectangleActive);
   assert(!session.rectangleAcrossAllTables);
+  assert(!session.middleMousePanning);
 
   SelectionBuckets selection;
   selection.fixtures = {"fixture-a", "fixture-b"};
@@ -75,6 +77,7 @@ int main() {
   assert(session.activeUuids.empty());
   assert(session.selection.fixtures.empty());
   assert(!session.selectionMoved && !session.selectionUndoPushed);
+  assert(!session.middleMousePanning);
 
   session.BeginPrimary({0, 0});
   session.BeginSelectionDrag(DragTarget::SceneObjects, {"object"}, {});
@@ -93,6 +96,31 @@ int main() {
   session.EndPlacementNavigation();
   assert(session.mode == DragMode::Selection);
   assert(!session.draggedSincePress);
+
+  // Interleaved buttons cannot replace an active gesture or its capture.
+  session.Cancel(false);
+  assert(session.BeginPan({1, 2}, false));
+  assert(!session.BeginPrimary({3, 4}));
+  assert(!session.BeginPan({3, 4}, false));
+  assert(session.middleMousePanning && session.mode == DragMode::View);
+  session.Cancel(false);
+  assert(!session.middleMousePanning && session.mode == DragMode::None);
+
+  assert(session.BeginPrimary({5, 6}));
+  assert(!session.BeginPan({7, 8}, false));
+  assert(session.mode == DragMode::View && !session.middleMousePanning);
+  session.ResetGesture();
+
+  // Continuous placement permits pan only from its neutral selection state.
+  session.Cancel(true);
+  assert(session.BeginPan({9, 10}, true));
+  assert(!session.BeginPlacementNavigation({9, 10}));
+  session.EndPan(true);
+  assert(session.mode == DragMode::Selection && !session.middleMousePanning);
+  assert(session.BeginPlacementNavigation({11, 12}));
+  assert(!session.BeginPan({11, 12}, true));
+  session.Cancel(true);
+  assert(session.mode == DragMode::Selection && !session.middleMousePanning);
 
   return 0;
 }
