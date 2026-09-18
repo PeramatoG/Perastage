@@ -18,8 +18,6 @@
 #include "gdtfloader.h"
 #include "filesystem_path_utils.h"
 #include "gdtf_archive_reader.h"
-#include "gdtf_mutation_audit.h"
-#include "gdtf_canonicalizer.h"
 #include "loader3ds.h"
 #include "loaderglb.h"
 #include "matrixutils.h"
@@ -37,21 +35,11 @@
 #include <string_view>
 #include <tinyxml2.h>
 #include <wx/wx.h>
-#include <wx/wfstream.h>
-class wxZipStreamLink;
-#include <wx/zipstrm.h>
 #include <wx/filename.h>
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#endif
-
 #include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <chrono>
-#include <random>
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -62,7 +50,6 @@ class wxZipStreamLink;
 #include <sstream>
 #include <iomanip>
 #include <mutex>
-#include <system_error>
 
 namespace fs = std::filesystem;
 
@@ -2174,341 +2161,19 @@ std::string GetGdtfModelColor(const std::string& gdtfPath)
     }
 }
 
-namespace {
-
-struct ArchivePublicationResult {
-    bool success = false;
-    std::string stage;
-    std::string diagnostic;
-    fs::path tempPath;
-};
-
-// Reports whether the archive-relative path is portable and safe to publish.
-bool IsSafeArchiveRelativePath(const fs::path& path)
-{
-    const std::string value = path.generic_string();
-    if (value.empty() || value.front() == '/' || value.find('\\') != std::string::npos)
-        return false;
-    std::stringstream stream(value);
-    std::string component;
-    while (std::getline(stream, component, '/')) {
-        if (component.empty() || component == "." || component == "..")
-            return false;
-    }
-    return true;
-}
-
-// Creates a unique temporary archive path next to the target archive.
-fs::path MakeUniqueSiblingArchivePath(const fs::path& targetPath)
-{
-    const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-    std::random_device device;
-    for (int attempt = 0; attempt < 100; ++attempt) {
-        const fs::path candidate = targetPath.parent_path() /
-            (targetPath.filename().string() + ".tmp." + std::to_string(now) + "." +
-             std::to_string(device()) + "." + std::to_string(attempt));
-        std::error_code ec;
-        if (!fs::exists(candidate, ec))
-            return candidate;
-    }
-    return targetPath.parent_path() / (targetPath.filename().string() + ".tmp");
-}
-
-// Removes a temporary archive path without throwing during cleanup.
-void RemoveTemporaryArchive(const fs::path& path)
-{
-    if (path.empty())
-        return;
-    std::error_code ec;
-    fs::remove(path, ec);
-}
-
-// Invokes an optional publication hook before a named stage.
-bool AllowPublicationStage(const GdtfDocumentMutationPublicationHooks* hooks,
-                           const std::string& stage,
-                           ArchivePublicationResult& result)
-{
-    if (!hooks || !hooks->beforeStage)
-        return true;
-    std::string error;
-    if (hooks->beforeStage(stage, error))
-        return true;
-    result.stage = stage;
-    result.diagnostic = error.empty() ? "publication stage was rejected by test hook" : error;
-    return false;
-}
-
-// Writes a directory into a temporary GDTF archive with checked ZIP operations.
-ArchivePublicationResult WriteDirectoryArchive(const std::string& srcDir,
-                                               const fs::path& targetPath,
-                                               const GdtfDocumentMutationPublicationHooks* hooks)
-{
-    ArchivePublicationResult result;
-    result.tempPath = MakeUniqueSiblingArchivePath(targetPath);
-
-    std::vector<fs::directory_entry> files;
-    std::error_code ec;
-    for (fs::recursive_directory_iterator it(srcDir, ec), end; it != end; it.increment(ec)) {
-        if (ec) {
-            result.stage = "EnumerateArchiveEntries";
-            result.diagnostic = ec.message();
-            return result;
-        }
-        if (it->is_regular_file(ec) && !ec)
-            files.push_back(*it);
-    }
-    std::sort(files.begin(), files.end(), [](const fs::directory_entry& left,
-                                             const fs::directory_entry& right) {
-        return left.path().generic_string() < right.path().generic_string();
-    });
-
-    if (!AllowPublicationStage(hooks, "BeforeOpenTemporaryArchive", result))
-        return result;
-    wxFileOutputStream output(result.tempPath.string());
-    if (!output.IsOk()) {
-        result.stage = "OpenTemporaryArchive";
-        result.diagnostic = "could not open temporary GDTF archive for writing";
-        return result;
-    }
-
-    wxZipOutputStream zip(output);
-    for (const auto& file : files) {
-        const fs::path rel = fs::relative(file.path(), srcDir, ec);
-        if (ec || !IsSafeArchiveRelativePath(rel)) {
-            result.stage = "ValidateArchiveEntryPath";
-            result.diagnostic = ec ? ec.message() : ("unsafe archive entry path: " + rel.generic_string());
-            return result;
-        }
-        if (!AllowPublicationStage(hooks, "BeforePutNextEntry", result)) {
-            return result;
-        }
-        auto* entry = new wxZipEntry(rel.generic_string());
-        entry->SetMethod(wxZIP_METHOD_DEFLATE);
-        if (!zip.PutNextEntry(entry)) {
-            result.stage = "PutNextEntry";
-            result.diagnostic = "could not create archive entry: " + rel.generic_string();
-            return result;
-        }
-        std::ifstream input(file.path(), std::ios::binary);
-        if (!input.is_open()) {
-            result.stage = "OpenArchiveInput";
-            result.diagnostic = "could not open archive input: " + file.path().string();
-            return result;
-        }
-        char buffer[4096];
-        while (input.good()) {
-            input.read(buffer, sizeof(buffer));
-            const std::streamsize count = input.gcount();
-            if (count <= 0)
-                continue;
-            if (!AllowPublicationStage(hooks, "BeforeWriteEntryBytes", result)) {
-                return result;
-            }
-            zip.Write(buffer, count);
-            if (zip.LastWrite() != static_cast<size_t>(count)) {
-                result.stage = "WriteEntryBytes";
-                result.diagnostic = "could not write archive entry bytes: " + rel.generic_string();
-                return result;
-            }
-        }
-        if (!input.eof()) {
-            result.stage = "ReadArchiveInput";
-            result.diagnostic = "could not read archive input: " + file.path().string();
-            return result;
-        }
-        if (!zip.CloseEntry()) {
-            result.stage = "CloseArchiveEntry";
-            result.diagnostic = "could not close archive entry: " + rel.generic_string();
-            return result;
-        }
-    }
-    if (!AllowPublicationStage(hooks, "BeforeCloseTemporaryArchive", result)) {
-        return result;
-    }
-    const bool zipClosed = zip.Close();
-    const bool outputClosed = output.Close();
-    if (!zipClosed || !outputClosed) {
-        result.stage = "CloseTemporaryArchive";
-        result.diagnostic = "could not close temporary GDTF archive";
-        return result;
-    }
-    result.success = true;
-    return result;
-}
-
-} // namespace
-
-namespace {
-
-tinyxml2::XMLElement* EnsurePropertiesNode(tinyxml2::XMLElement* fixtureType,
-                                           tinyxml2::XMLDocument& doc)
-{
-    if (!fixtureType)
-        return nullptr;
-
-    tinyxml2::XMLElement* physicalDescriptions =
-        fixtureType->FirstChildElement("PhysicalDescriptions");
-    if (!physicalDescriptions) {
-        physicalDescriptions = doc.NewElement("PhysicalDescriptions");
-        fixtureType->InsertEndChild(physicalDescriptions);
-    }
-
-    tinyxml2::XMLElement* properties =
-        physicalDescriptions->FirstChildElement("Properties");
-    if (!properties) {
-        properties = doc.NewElement("Properties");
-        physicalDescriptions->InsertEndChild(properties);
-    }
-    return properties;
-}
-
-} // namespace
-
-
-// Reports whether requested GDTF physical-property mutations are finite.
-static bool ValidateFinitePhysicalPropertyInputs(
-    const GdtfDocumentMutationRequest& request, std::vector<std::string>& errors)
-{
-    bool valid = true;
-    if (request.weightSet && !std::isfinite(request.weightKg)) {
-        errors.push_back("GDTF mutation rejected non-finite Weight value");
-        valid = false;
-    }
-    if (request.powerSet && !std::isfinite(request.powerW)) {
-        errors.push_back("GDTF mutation rejected non-finite PowerConsumption value");
-        valid = false;
-    }
-    return valid;
-}
-
-// Replaces the target archive with a completed sibling archive.
-static bool ReplaceArchiveAtomically(const fs::path& tempPath, const fs::path& targetPath,
-                                     std::string& error)
-{
-    std::error_code ec;
-#ifdef _WIN32
-    const std::wstring tempWide = tempPath.wstring();
-    const std::wstring targetWide = targetPath.wstring();
-    const BOOL moved = MoveFileExW(tempWide.c_str(), targetWide.c_str(),
-                                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
-    if (!moved)
-        ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
-#else
-    fs::rename(tempPath, targetPath, ec);
-#endif
-    if (ec) {
-        error = ec.message();
-        fs::remove(tempPath, ec);
-        return false;
-    }
-    return true;
-}
-
-// Mutates selected FixtureType document fields in one extracted archive transaction.
+// Delegates document mutation to Core and invalidates Viewer3D cache state after publication.
 GdtfDocumentMutationResult MutateGdtfDocumentWithResult(
     const std::string& gdtfPath,
     const GdtfDocumentMutationRequest& request,
     const std::string& modifiedByProgram,
     const GdtfDocumentMutationPublicationHooks* publicationHooks)
 {
-    GdtfDocumentMutationResult result;
-    result.publicationPath = gdtfPath;
-    if (gdtfPath.empty()) {
-        result.errors.push_back("GDTF path is empty");
-        return result;
+    GdtfDocumentMutationResult result = gdtf::MutateDocument(
+        gdtfPath, request, modifiedByProgram, publicationHooks);
+    if (result.atomicReplacementCompleted) {
+        std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
+        GdtfCache().erase(gdtfPath);
     }
-    if (!ValidateFinitePhysicalPropertyInputs(request, result.errors))
-        return result;
-
-    TempExtraction extraction(gdtfPath);
-    if (!extraction.IsValid()) {
-        result.errors.push_back("Could not extract GDTF archive");
-        return result;
-    }
-
-    const std::string descPath = extraction.Path() + "/description.xml";
-    tinyxml2::XMLDocument doc;
-    if (!ParseXmlWithEscapedControlFallback(descPath, doc)) {
-        result.errors.push_back("Could not parse description.xml");
-        return result;
-    }
-
-    tinyxml2::XMLElement* fixtureType = GdtfMutationAudit::EnsureFixtureType(doc);
-    if (!fixtureType) {
-        result.errors.push_back("description.xml is missing FixtureType");
-        return result;
-    }
-
-    bool mutated = false;
-    if (request.descriptionSet) {
-        fixtureType->SetAttribute("Description", request.description.c_str());
-        mutated = true;
-    }
-    if (request.weightSet || request.powerSet) {
-        mutated = GdtfMutationAudit::ApplyPhysicalProperties(
-                      fixtureType, doc,
-                      request.weightSet ? std::optional<float>(request.weightKg) : std::nullopt,
-                      request.powerSet ? std::optional<float>(request.powerW) : std::nullopt) ||
-                  mutated;
-    }
-    if (!mutated) {
-        result.success = true;
-        return result;
-    }
-
-    GdtfMutationAudit::AppendRevision(
-        fixtureType, doc,
-        request.revisionText.empty()
-            ? "Updated GDTF document fields from Perastage"
-            : request.revisionText,
-        modifiedByProgram);
-
-    GdtfCanonicalizer::Options canonicalOptions;
-    canonicalOptions.allowFixtureTypeIdRepair = true;
-    canonicalOptions.stableIdSeed = gdtfPath;
-    canonicalOptions.sourceLabel = gdtfPath;
-    const GdtfCanonicalizer::Result canonicalResult =
-        GdtfCanonicalizer::CanonicalizeDescription(doc, canonicalOptions);
-    result.changed = canonicalResult.changed || mutated;
-    result.warnings = canonicalResult.warnings;
-    if (!canonicalResult.success) {
-        result.errors = canonicalResult.errors;
-        return result;
-    }
-
-    if (doc.SaveFile(descPath.c_str()) != tinyxml2::XML_SUCCESS) {
-        result.errors.push_back("Could not save canonical description.xml");
-        return result;
-    }
-
-    const fs::path targetPath(gdtfPath);
-    ArchivePublicationResult publication = WriteDirectoryArchive(extraction.Path(), targetPath, publicationHooks);
-    if (!publication.success) {
-        result.errors.push_back("GDTF publication failed at " + publication.stage + ": " +
-                                publication.diagnostic);
-        RemoveTemporaryArchive(publication.tempPath);
-        return result;
-    }
-
-    ArchivePublicationResult hookResult;
-    if (!AllowPublicationStage(publicationHooks, "BeforeAtomicReplace", hookResult)) {
-        result.errors.push_back("GDTF publication failed at " + hookResult.stage + ": " +
-                                hookResult.diagnostic);
-        RemoveTemporaryArchive(publication.tempPath);
-        return result;
-    }
-
-    std::string replaceError;
-    if (!ReplaceArchiveAtomically(publication.tempPath, targetPath, replaceError)) {
-        result.errors.push_back("GDTF publication failed at AtomicReplace: " + replaceError);
-        RemoveTemporaryArchive(publication.tempPath);
-        return result;
-    }
-    result.atomicReplacementCompleted = true;
-
-    std::lock_guard<std::recursive_mutex> lock(g_gdtfCacheMutex);
-    GdtfCache().erase(gdtfPath);
-    result.success = true;
     return result;
 }
 

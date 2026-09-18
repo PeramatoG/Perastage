@@ -17,11 +17,11 @@
  */
 #pragma once
 
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "gdtf_document_mutation.h"
 #include "gdtf_geometry_types.h"
 
 // Metadata for a GDTF model definition. Length/Width/Height correspond
@@ -111,29 +111,10 @@ void ShutdownGdtfCache() noexcept;
 // the file cannot be parsed.
 std::string GetGdtfModelColor(const std::string& gdtfPath);
 
-struct GdtfDocumentMutationResult {
-    bool success = false;
-    bool changed = false;
-    std::vector<std::string> warnings;
-    std::vector<std::string> errors;
-    std::string publicationPath;
-    bool atomicReplacementCompleted = false;
-};
-
-
-struct GdtfDocumentMutationPublicationHooks {
-    std::function<bool(const std::string &stage, std::string &error)> beforeStage;
-};
-
-struct GdtfDocumentMutationRequest {
-    bool descriptionSet = false;
-    std::string description;
-    bool weightSet = false;
-    float weightKg = 0.0f;
-    bool powerSet = false;
-    float powerW = 0.0f;
-    std::string revisionText;
-};
+using GdtfDocumentMutationResult = gdtf::DocumentMutationResult;
+using GdtfDocumentMutationPublicationHooks =
+    gdtf::DocumentMutationPublicationHooks;
+using GdtfDocumentMutationRequest = gdtf::DocumentMutationRequest;
 
 // Updates document-level FixtureType and physical-property values with structured diagnostics.
 GdtfDocumentMutationResult MutateGdtfDocumentWithResult(

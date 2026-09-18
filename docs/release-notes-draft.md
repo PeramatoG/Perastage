@@ -16,6 +16,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Moved GDTF document mutation and atomic archive publication into a reusable Core component while preserving existing GDTF output, diagnostics, compatibility APIs, and Viewer3D cache refresh behavior.
+
 - Separated the GDTF Share catalog, authentication, search, and download interface workflow from the main-window menu implementation while preserving existing behavior.
 
 - Improved Windows Debug CI dependency performance by separating ABI-protected vcpkg binary archives from mutable installation trees, broadening safe cache reuse across runner updates, and adding cache-source and installation-time diagnostics.

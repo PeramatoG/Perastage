@@ -199,6 +199,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(LibraryUserDataPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_library_user_data_policy.sh)
     add_bash_policy_test(DictionaryPathsPolicy ${CMAKE_CURRENT_SOURCE_DIR}/check_dictionary_paths.sh)
     add_bash_policy_test(GdtfMetadataSummaryBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_summary_boundary.sh)
+    add_bash_policy_test(GdtfDocumentMutationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_document_mutation_boundary.sh)
     add_bash_policy_test(GdtfMetadataPanelBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_metadata_panel_boundary.sh)
     add_bash_policy_test(GdtfReusablePanelsBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_reusable_panels_boundary.sh)
     add_bash_policy_test(GdtfEditorPanelBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_editor_panel_boundary.sh)
@@ -2254,6 +2255,7 @@ set_tests_properties(SketchPostProcessArchitecture PROPERTIES
 add_executable(gdtfloader_primitive_test gdtfloader_primitive_test.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -2272,6 +2274,7 @@ add_executable(fixture_symbol_source_test fixture_symbol_source_test.cpp
                build_info_stub.cpp
                ../viewer3d/resources/fixture_symbol_source.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
@@ -2308,6 +2311,7 @@ set_library_env(Loader3dsNativeDimensions)
 
 add_executable(gdtfloader_channel_modes_test gdtfloader_channel_modes_test.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -2326,6 +2330,7 @@ set_library_env(GdtfLoaderChannelModeSummaries)
 add_executable(gdtfloader_geometry_roots_test gdtfloader_geometry_roots_test.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -2345,6 +2350,7 @@ add_executable(gdtfloader_file_model_cache_identity_test
                gdtfloader_file_model_cache_identity_test.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -2366,6 +2372,7 @@ add_executable(gdtfloader_set_properties_test gdtfloader_set_properties_test.cpp
                support/gdtf_test_fixture_builder.cpp
                build_info_stub.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../core/runtime_storage.cpp
                ../core/logger.cpp
                ../core/gdtf_canonicalizer.cpp
@@ -2422,6 +2429,7 @@ add_executable(symbol_fixture_applier_gdtf_test symbol_fixture_applier_gdtf_test
                ../models/sceneobject.cpp
                ../models/layer.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
@@ -2487,6 +2495,7 @@ add_executable(mvr_patched_gdtf_export_test mvr_patched_gdtf_export_test.cpp
                ../models/sceneobject.cpp
                ../models/layer.cpp
                ../viewer3d/gdtfloader.cpp
+               ../core/gdtf_document_mutation.cpp
                ../viewer3d/loader3ds.cpp
                ../viewer3d/loaderglb.cpp
                ../viewer3d/meshprimitives.cpp
