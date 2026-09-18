@@ -626,6 +626,22 @@ target_include_directories(fixture_table_parser_test PRIVATE ../gui)
 target_link_libraries(fixture_table_parser_test PRIVATE ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureTableParser COMMAND fixture_table_parser_test)
 
+add_executable(truss_table_edit_service_test
+               truss_table_edit_service_test.cpp
+               ../gui/trusstable/truss_table_edit_service.cpp
+               ../gui/resource_reference_sync.cpp
+               ../core/filesystem_path_utils.cpp
+               ../core/scene_grouping.cpp
+               ../core/scene_node_operations.cpp
+               ../core/units/units.cpp
+               ../models/mvrscene.cpp)
+target_include_directories(truss_table_edit_service_test PRIVATE
+                           ../gui ../core ../models)
+target_link_libraries(truss_table_edit_service_test PRIVATE
+                      ${wxWidgets_LIBRARIES})
+add_test(NAME TrussTableEditService COMMAND truss_table_edit_service_test)
+set_tests_properties(TrussTableEditService PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(mainwindow_cli_shortcut_router_test
                mainwindow_cli_shortcut_router_test.cpp
                ../gui/mainwindow_cli_shortcut_router.cpp
