@@ -1,5 +1,13 @@
 # GDTF editor architecture audit
 
+> **Active checkpoint contract:** This document began as a dated architecture
+> audit and now records the staged GDTF editor boundaries through the current
+> checkpoints below. The focused context, UI, and compatibility documents in
+> this directory own their named details; canonical mutation and resource
+> identity policy remains in
+> [GDTF Mutation Policy](../../gdtf_mutation_policy.md) and
+> [GDTF resource identity](../../gdtf_resource_identity.md).
+
 This checkpoint documents the current GDTF viewing and editing responsibilities before adding a reusable GDTF editor route. It is based on the code paths reviewed on 2026-07-07 and does not introduce a standalone `.gdtf` startup route.
 
 ## Current GDTF read points

@@ -19,6 +19,15 @@ def require_text(path: pathlib.Path, required: tuple[str, ...]) -> None:
         if marker not in text:
             failures.append(f"{path.relative_to(ROOT)} is missing required marker: {marker}")
 
+
+def markdown_section(text: str, heading: str) -> str:
+    """Return one level-two Markdown section for authority checks."""
+    marker = f"## {heading}"
+    if marker not in text:
+        return ""
+    section = text.split(marker, 1)[1]
+    return section.split("\n## ", 1)[0]
+
 link_pattern = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 for md_file in sorted([ROOT / "README.md", *DOCS.rglob("*.md")]):
     text = md_file.read_text(encoding="utf-8")
@@ -61,6 +70,32 @@ require_text(DOCS / "developer" / "code_health_review_2026-02-13.md", (
 ))
 if "following `docs/developer/code_health_review_2026-02-13.md`" in (ROOT / "AGENTS.md").read_text(encoding="utf-8"):
     failures.append("AGENTS.md presents the February 2026 review as current authority")
+
+# Keep living owners separate from dated evidence in the canonical entry map.
+developer_index = (DOCS / "developer" / "index.md").read_text(encoding="utf-8")
+canonical_section = markdown_section(developer_index, "Canonical project-wide sources")
+historical_section = markdown_section(developer_index, "Historical / validation evidence")
+for canonical_link in (
+    "[Architecture](architecture.md)",
+    "[Repository Layout](repository_layout.md)",
+    "[Code Health](code_health.md)",
+    "[Build and Dependency Guide](build.md)",
+    "[Packaging](packaging.md)",
+    "[GitHub Actions workflow architecture](github_actions_workflows.md)",
+    "[Localization](localization.md)",
+):
+    if canonical_link not in canonical_section:
+        failures.append(f"developer index canonical section is missing {canonical_link}")
+if "validation" in canonical_section.lower() or "audit.md" in canonical_section:
+    failures.append("developer index presents audit or validation evidence as canonical")
+if "repository_organization_regression_audit.md" not in historical_section:
+    failures.append("developer index does not classify repository audit evidence as historical")
+if "ci_release_packaging_validation.md" not in historical_section:
+    failures.append("developer index does not classify CI/release validation as historical")
+
+readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
+if re.search(r"docs/developer/[^)\s]*(?:audit|validation)[^)\s]*\.md", readme_text, re.IGNORECASE):
+    failures.append("README links directly to historical audit or validation evidence")
 
 if failures:
     print("Documentation link check failed:", file=sys.stderr)

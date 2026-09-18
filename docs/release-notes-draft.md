@@ -22,6 +22,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Consolidated maintainer documentation around clear canonical sources, focused subsystem contracts, and explicitly historical validation evidence.
+
 - Replaced the dated code-health review as maintainer guidance with a living, policy-linked code-health contract while retaining the original review as historical evidence.
 
 - Separated hoist table row-to-scene editing into a focused service while preserving inherited field sources, dummy profiles, automatic loads, transforms, undo, and view-refresh behavior.

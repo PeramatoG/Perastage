@@ -1,5 +1,11 @@
 # GDTF mutation audit (Perastage)
 
+> **Historical implementation evidence — not current policy:** This note
+> preserves the helper-level review that established revision traceability. The
+> current contract, including write points, revision fields, and legacy
+> compatibility, is [GDTF Mutation Policy](../gdtf_mutation_policy.md). Treat
+> that policy and the implementation—not this snapshot—as authoritative.
+
 Perastage centralizes standard GDTF revision traceability in `core/gdtf_mutation_audit.{h,cpp}`.
 
 ## API

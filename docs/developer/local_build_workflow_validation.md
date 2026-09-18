@@ -1,5 +1,11 @@
 # ORG-039 Local Build Workflow Validation
 
+> **Historical validation evidence — not current policy:** The platform results
+> below apply only to the identified revisions and dates. Use the current
+> [Build and Dependency Guide](build.md) for supported workflows and
+> [GitHub Actions workflow architecture](github_actions_workflows.md) for CI
+> responsibilities.
+
 ## Scope and current status
 
 This is an execution-evidence record, not a new build specification. The

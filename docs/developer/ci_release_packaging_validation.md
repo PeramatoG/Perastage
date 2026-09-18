@@ -1,5 +1,11 @@
 # CI and Release Packaging Validation
 
+> **Historical validation evidence — not current policy:** This report preserves
+> the ORG-040/041 results for the revisions named below. Use
+> [GitHub Actions workflow architecture](github_actions_workflows.md) for the
+> living CI/release contract and [Packaging](packaging.md) for current staging
+> and platform integration guidance.
+
 This document records the ORG-040 validation snapshot for the repository after
 the full organization refactor. It deliberately separates static/local checks
 from GitHub-hosted build evidence and does not treat workflow inspection as a

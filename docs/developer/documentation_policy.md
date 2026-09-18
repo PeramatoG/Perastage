@@ -19,6 +19,26 @@ Use dedicated documents for deeper topics:
 - `docs/user/troubleshooting.md` for platform-specific failure modes and fixes.
 - Existing policy/spec files (for example `docs/developer/text_to_scene_rules.md` and `docs/developer/gdtf_mutation_policy.md`) for behavior contracts.
 
+## Developer Documentation Authority
+
+The [Developer Documentation index](index.md) is the canonical entry map. Keep
+developer material in one of these roles:
+
+- **Canonical/current sources** own project-wide policy or the primary contract
+  for a domain. Related documents link back rather than repeating that policy.
+- **Active focused contracts** own a named subsystem or implementation detail
+  and remain subordinate to the relevant canonical source. The
+  [Technical Notes index](technical-notes/index.md) provides their topic entry
+  points.
+- **Historical/validation evidence** records a dated audit, measurement, or
+  checkpoint. Preserve useful evidence at stable paths, but add a clear banner,
+  link to the current owner, and state that dated results are not current
+  policy.
+
+Do not create a second exhaustive documentation inventory. Update the existing
+indexes when authority changes, and keep volatile inventories or thresholds in
+their machine-enforced policy files.
+
 ## Formatting Rules
 
 - Use `##` headings for major sections and `###` for subtopics.

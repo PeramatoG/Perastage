@@ -1,5 +1,12 @@
 # GDTF Editor Checkpoint 08D Regression Matrix
 
+> **Historical checkpoint evidence — not current policy:** This matrix records
+> the 08D validation expectations. Dated results must not be treated as the
+> current editor state. Use the
+> [GDTF editor architecture and checkpoint contracts](gdtf_editor_architecture_audit.md),
+> [context boundaries](gdtf_editor_context_boundaries.md), and
+> [GDTF Mutation Policy](../../gdtf_mutation_policy.md) for current ownership.
+
 Checkpoint 08D verifies transaction stability after Fixture and Truss hosts adopted the reusable GDTF editor panels and apply adapters.
 
 ## Fixture sources

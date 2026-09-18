@@ -1,5 +1,12 @@
 # ORG-038 Repository-Organization Regression Audit
 
+> **Historical validation evidence — not current policy:** This report records
+> one repository revision. Its measurements and PASS results must not be treated
+> as current. See [Architecture](architecture.md),
+> [Repository Layout](repository_layout.md), and
+> [`repository_structure_baseline.json`](repository_structure_baseline.json)
+> for the current human- and machine-readable contracts.
+
 ## Purpose and authority
 
 This record captures the evidence reviewed for ORG-038. It is not an

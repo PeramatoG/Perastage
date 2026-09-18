@@ -1,5 +1,12 @@
 # CI Debug Tests audit
 
+> **Historical validation evidence — not current policy:** This is a dated,
+> revision-specific test audit. Its inventories, failures, and measurements must
+> not be treated as the current CI state. See
+> [GitHub Actions workflow architecture](github_actions_workflows.md) for the
+> living CI contract, [Build](build.md) for current test commands, and
+> [Test fixture policy](test_fixture_policy.md) for durable fixture rules.
+
 Baseline SHA: `ec6dee42371f51dc02520e3eb9fc4bea4d0daeca`.
 Audit date: 2026-07-22.
 
