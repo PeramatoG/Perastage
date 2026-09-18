@@ -18,6 +18,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated truss table row-to-scene editing and equal-type physical-property synchronization into a focused service while preserving undo, resource-reference, load-recalculation, and view-refresh behavior.
+
 - Separated reusable dictionary JSON snapshot serialization and reference-path validation from the Dictionary Editor while preserving existing snapshot and portable bundle behavior.
 
 - Moved GDTF document mutation and atomic archive publication into a reusable Core component while preserving existing GDTF output, diagnostics, compatibility APIs, and Viewer3D cache refresh behavior.

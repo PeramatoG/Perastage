@@ -32,7 +32,6 @@
 #include "scene_grouping.h"
 #include "scene_node_operations.h"
 #include "projectutils.h"
-#include "resource_reference_sync.h"
 #include "riggingpanel.h"
 #include "stringutils.h"
 #include "summarypanel.h"
@@ -41,6 +40,7 @@
 #include "trussdictionary.h"
 #include "trusseditdialog.h"
 #include "trussloader.h"
+#include "trusstable/truss_table_edit_service.h"
 #include "units/unit_label_utils.h"
 #include "units/units.h"
 #include "viewer2dpanel.h"
@@ -138,12 +138,6 @@ void PropagateSharedTrussTypeDimensionValues(wxDataViewListCtrl *table,
 const wxString &DegreeSymbol() {
   static const wxString kDegreeSymbol = wxString::FromUTF8("\xC2\xB0");
   return kDegreeSymbol;
-}
-
-constexpr const char *kUnassignedPosition = "Unassigned";
-
-std::string NormalizePositionName(const std::string &positionName) {
-    return positionName.empty() ? kUnassignedPosition : positionName;
 }
 
 Units::DistanceUnitSystem ResolveDistanceUnitSystem() {
@@ -970,289 +964,43 @@ void TrussTablePanel::UpdateSceneData(bool logChanges)
     if (table)
         DataViewEditCommit::CommitPendingEdit(table);
 
-
     ConfigManager& cfg = guiConfigServices->LegacyConfigManager();
-    auto& scene = cfg.GetScene();
     RebuildRowCachesFromRowKeys();
-    size_t count = std::min((size_t)table->GetItemCount(), rowUuids.size());
 
-    struct Dim {
-        float len;
-        float wid;
-        float hei;
-        float weight;
-    };
-    std::unordered_map<std::string, Dim> dims;
-    std::unordered_set<std::string> changedTrussIds;
-    std::unordered_set<std::string> changedWeightPositions;
-    std::vector<std::pair<std::string, std::string>> updatedTrusses;
+    class SceneAdapter final : public TrussTableEditService::ISceneAdapter {
+    public:
+        explicit SceneAdapter(ConfigManager& config) : config(config) {}
 
-  auto makeKey = [](const std::string &n, const std::string &m,
-                    const std::string &mo) { return n + "" + m + "" + mo; };
-
-    bool undoPushed = false;
-    bool anyChanged = false;
-    auto pushUndoIfNeeded = [&]() {
-    if (!undoPushed) {
-            cfg.PushUndoState("edit truss");
-            undoPushed = true;
-        }
-    };
-
-  // First pass: compute row updates and track canonical dimensions per truss
-  // group.
-  for (size_t i = 0; i < count; ++i) {
-        auto it = scene.trusses.find(rowUuids[i]);
-        if (it == scene.trusses.end())
-            continue;
-
-        const Truss old = it->second;
-        Truss next = old;
-        wxVariant v;
-
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Name));
-        next.name = std::string(v.GetString().mb_str());
-
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Layer));
-        std::string layerStr = std::string(v.GetString().mb_str());
-        if (layerStr.empty())
-            next.layer.clear();
-        else
-            next.layer = layerStr;
-
-        if (i < symbolPaths.size())
-            next.symbolFile = gui::PreserveSceneResourceReferenceForTableSync(
-                scene.basePath, old.symbolFile, std::string(symbolPaths[i].ToUTF8()));
-        else if (i < modelPaths.size())
-            next.symbolFile = gui::PreserveSceneResourceReferenceForTableSync(
-                scene.basePath, old.symbolFile, std::string(modelPaths[i].ToUTF8()));
-        else {
-      table->GetValue(v, i, ColumnIndex(TrussColumn::ModelFile));
-            next.symbolFile = std::string(v.GetString().ToUTF8());
+        // Pushes the panel operation into the existing project undo history.
+        void PushUndoState(const std::string& description) override {
+            config.PushUndoState(description);
         }
 
-        if (i < modelPaths.size())
-            next.modelFile = gui::PreserveSceneResourceReferenceForTableSync(
-                scene.basePath, old.modelFile, std::string(modelPaths[i].ToUTF8()),
-                old.symbolFile);
-        else {
-      table->GetValue(v, i, ColumnIndex(TrussColumn::ModelFile));
-            next.modelFile = std::string(v.GetString().ToUTF8());
+        // Returns the scene owned by the panel's configuration service.
+        MvrScene& GetScene() override { return config.GetScene(); }
+
+        // Returns the active distance units supplied by the GUI boundary.
+        Units::DistanceUnitSystem GetDistanceUnitSystem() const override {
+            return ResolveDistanceUnitSystem();
         }
 
-    table->GetValue(v, i, ColumnIndex(TrussColumn::HangPosition));
-        next.positionName = std::string(v.GetString().mb_str());
-
-        const auto distanceUnit = ResolveDistanceUnitSystem();
-        const auto weightUnit = ResolveWeightUnitSystem();
-    double xMm = old.transform.o[0], yMm = old.transform.o[1],
-           zMm = old.transform.o[2];
-    table->GetValue(v, i, ColumnIndex(TrussColumn::PositionX));
-    if (const auto parsed = Units::ParseDistanceToMillimeters(
-            std::string(v.GetString().ToUTF8()), distanceUnit);
-        parsed.has_value())
-            xMm = *parsed;
-    table->GetValue(v, i, ColumnIndex(TrussColumn::PositionY));
-    if (const auto parsed = Units::ParseDistanceToMillimeters(
-            std::string(v.GetString().ToUTF8()), distanceUnit);
-        parsed.has_value())
-            yMm = *parsed;
-    table->GetValue(v, i, ColumnIndex(TrussColumn::PositionZ));
-    if (const auto parsed = Units::ParseDistanceToMillimeters(
-            std::string(v.GetString().ToUTF8()), distanceUnit);
-        parsed.has_value())
-            zMm = *parsed;
-
-        double roll = 0, pitch = 0, yaw = 0;
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Roll));
-        {
-            wxString s = v.GetString();
-            if (!DegreeSymbol().empty())
-            s.Replace(DegreeSymbol(), "");
-            s.ToDouble(&roll);
-        }
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Pitch));
-        {
-            wxString s = v.GetString();
-            if (!DegreeSymbol().empty())
-            s.Replace(DegreeSymbol(), "");
-            s.ToDouble(&pitch);
-        }
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Yaw));
-        {
-            wxString s = v.GetString();
-            if (!DegreeSymbol().empty())
-            s.Replace(DegreeSymbol(), "");
-            s.ToDouble(&yaw);
+        // Returns the active weight units supplied by the GUI boundary.
+        Units::WeightUnitSystem GetWeightUnitSystem() const override {
+            return ResolveWeightUnitSystem();
         }
 
-        const auto currentEuler = MatrixUtils::MatrixToEuler(old.transform);
-        const bool transformChanged =
-            !Units::NearlyEqualDistanceMillimeters(old.transform.o[0], xMm, 0.5) ||
-            !Units::NearlyEqualDistanceMillimeters(old.transform.o[1], yMm, 0.5) ||
-            !Units::NearlyEqualDistanceMillimeters(old.transform.o[2], zMm, 0.5) ||
-            std::abs(static_cast<double>(currentEuler[2]) - roll) > 0.05 ||
-            std::abs(static_cast<double>(currentEuler[1]) - pitch) > 0.05 ||
-            std::abs(static_cast<double>(currentEuler[0]) - yaw) > 0.05;
+    private:
+        ConfigManager& config;
+    } adapter(cfg);
 
-    if (transformChanged) {
-            Matrix rot = MatrixUtils::EulerToMatrix(static_cast<float>(yaw),
-                                                    static_cast<float>(pitch),
-                                                    static_cast<float>(roll));
-            next.transform = MatrixUtils::ApplyRotationPreservingScale(
-                old.transform, rot,
-          {static_cast<float>(xMm), static_cast<float>(yMm),
-                 static_cast<float>(zMm)});
-        }
-
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Manufacturer));
-        next.manufacturer = std::string(v.GetString().mb_str());
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Model));
-        next.model = std::string(v.GetString().mb_str());
-
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Length));
-        if (const auto parsed = Units::ParseDistanceToMillimeters(
-                std::string(v.GetString().ToUTF8()), distanceUnit);
-            parsed.has_value())
-            next.lengthMm = static_cast<float>(*parsed);
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Width));
-        if (const auto parsed = Units::ParseDistanceToMillimeters(
-                std::string(v.GetString().ToUTF8()), distanceUnit);
-            parsed.has_value())
-            next.widthMm = static_cast<float>(*parsed);
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Height));
-        if (const auto parsed = Units::ParseDistanceToMillimeters(
-                std::string(v.GetString().ToUTF8()), distanceUnit);
-            parsed.has_value())
-            next.heightMm = static_cast<float>(*parsed);
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Weight));
-        if (const auto parsed = Units::ParseWeightToKilograms(
-                std::string(v.GetString().ToUTF8()), weightUnit);
-            parsed.has_value())
-            next.weightKg = static_cast<float>(*parsed);
-    table->GetValue(v, i, ColumnIndex(TrussColumn::Load));
-        {
-            const std::string loadText = std::string(v.GetString().ToUTF8());
-            if (loadText.empty()) {
-                next.manualLoadKg = 0.0f;
-                next.hasManualLoadOverride = false;
-            } else if (const auto parsed = Units::ParseWeightToKilograms(
-                           loadText, weightUnit);
-                       parsed.has_value()) {
-                next.manualLoadKg = static_cast<float>(*parsed);
-                next.hasManualLoadOverride = true;
-            }
-        }
-
-        const bool trussChanged =
-        old.name != next.name || old.layer != next.layer ||
-        old.modelFile != next.modelFile || old.symbolFile != next.symbolFile ||
-        old.positionName != next.positionName || transformChanged ||
-        old.manufacturer != next.manufacturer || old.model != next.model ||
-        !Units::NearlyEqualDistanceMillimeters(old.lengthMm, next.lengthMm,
-                                               0.5) ||
-        !Units::NearlyEqualDistanceMillimeters(old.widthMm, next.widthMm,
-                                               0.5) ||
-        !Units::NearlyEqualDistanceMillimeters(old.heightMm, next.heightMm,
-                                               0.5) ||
-            !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001) ||
-        old.hasManualLoadOverride != next.hasManualLoadOverride ||
-        !Units::NearlyEqualWeightKilograms(old.manualLoadKg, next.manualLoadKg,
-                                           0.001);
-        const bool weightChanged =
-            !Units::NearlyEqualWeightKilograms(old.weightKg, next.weightKg, 0.001);
-        const bool hangPositionChanged = old.positionName != next.positionName;
-
-    if (trussChanged) {
-            pushUndoIfNeeded();
-            anyChanged = true;
-            if (weightChanged || hangPositionChanged) {
-                changedWeightPositions.insert(NormalizePositionName(old.positionName));
-                changedWeightPositions.insert(NormalizePositionName(next.positionName));
-            }
-            const Matrix requestedWorldTransform = next.transform;
-            next.transform = old.transform;
-            it->second = next;
-            if (transformChanged) {
-                scene_node_operations::ApplyExactWorldTransform(
-                    scene, MvrNodeType::Truss, it->second.uuid,
-                    requestedWorldTransform);
-            }
-            if (!it->second.position.empty())
-                scene.positions[it->second.position] = it->second.positionName;
-            changedTrussIds.insert(it->second.uuid);
-            updatedTrusses.emplace_back(it->second.name, it->second.uuid);
-        }
-
-        const Truss& canonicalSource = trussChanged ? it->second : old;
-        std::string key = makeKey(canonicalSource.name,
-                                  canonicalSource.manufacturer,
-                                  canonicalSource.model);
-
-        if (trussChanged || !dims.count(key))
-        {
-            dims[key] = {canonicalSource.lengthMm, canonicalSource.widthMm,
-                         canonicalSource.heightMm, canonicalSource.weightKg};
-        }
-    }
-
-    // Second pass: synchronize dimensions across equal truss type groups.
-    for (size_t i = 0; i < count; ++i)
-    {
-        auto it = scene.trusses.find(rowUuids[i]);
-        if (it == scene.trusses.end())
-            continue;
-
-        std::string key = makeKey(it->second.name,
-                                  it->second.manufacturer,
-                                  it->second.model);
-        auto dit = dims.find(key);
-        if (dit == dims.end())
-            continue;
-
-        const float lenMm = dit->second.len;
-        const float widMm = dit->second.wid;
-        const float heiMm = dit->second.hei;
-        const float weightKg = dit->second.weight;
-
-        const bool synchronizedWeightChanged =
-            !Units::NearlyEqualWeightKilograms(it->second.weightKg, weightKg, 0.001);
-        if (it->second.lengthMm != lenMm || it->second.widthMm != widMm ||
-        it->second.heightMm != heiMm || synchronizedWeightChanged) {
-            pushUndoIfNeeded();
-            anyChanged = true;
-            it->second.lengthMm = lenMm;
-            it->second.widthMm = widMm;
-            it->second.heightMm = heiMm;
-            it->second.weightKg = weightKg;
-            if (synchronizedWeightChanged) {
-      changedWeightPositions.insert(
-          NormalizePositionName(it->second.positionName));
-            }
-
-            wxString lenStr = wxString::Format("%.2f", lenMm / 1000.0f);
-            wxString widStr =
-                widMm > 0.0f ? wxString::Format("%.2f", widMm / 1000.0f) : wxString();
-            wxString heiStr =
-                heiMm > 0.0f ? wxString::Format("%.2f", heiMm / 1000.0f) : wxString();
-            wxString weiStr = wxString::Format("%.2f", weightKg);
-      table->SetValue(wxVariant(lenStr), i, ColumnIndex(TrussColumn::Length));
-      table->SetValue(wxVariant(widStr), i, ColumnIndex(TrussColumn::Width));
-      table->SetValue(wxVariant(heiStr), i, ColumnIndex(TrussColumn::Height));
-      table->SetValue(wxVariant(weiStr), i, ColumnIndex(TrussColumn::Weight));
-
-            if (changedTrussIds.insert(it->second.uuid).second)
-                updatedTrusses.emplace_back(it->second.name, it->second.uuid);
-        }
-    }
-
-    AppendTrussUpdateLog(updatedTrusses, logChanges);
-
-    if (!anyChanged)
+    const auto result = TrussTableEditService::UpdateSceneData(
+        adapter, table, rowUuids, modelPaths, symbolPaths);
+    AppendTrussUpdateLog(result.updatedTrusses, logChanges);
+    if (!result.anyChanged)
         return;
 
-  HoistLoadRecalculationPrompt::PromptAndApply(cfg, this,
-                                               changedWeightPositions);
+    HoistLoadRecalculationPrompt::PromptAndApply(
+        cfg, this, result.changedWeightPositions);
 
     if (SummaryPanel::Instance() && IsActivePage())
         SummaryPanel::Instance()->ShowTrussSummary();
