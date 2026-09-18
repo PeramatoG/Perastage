@@ -227,6 +227,9 @@ set_perastage_test_labels(LayoutViewerInteractionSession
                           LAYER standard-strict DOMAINS gui architecture)
 
 if(Python3_Interpreter_FOUND)
+    add_repository_policy_test(LayoutViewerSelectionStability ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_stability.py
+                               LABELS standard-strict regression gui)
     add_repository_policy_test(InteractiveTransformPresentation ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_interactive_transform_presentation.py
                                LABELS standard-strict policy architecture)

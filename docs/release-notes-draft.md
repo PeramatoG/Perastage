@@ -11,6 +11,7 @@ Changes since **v1.6.0**.
 ## Important fixes
 
 - Restored smooth, current-pointer object dragging in the 2D and 3D viewers while keeping scene visibility stable throughout each drag.
+- Fixed Layout Viewer 2D View dragging and resizing so Legend refreshes cannot redirect edits to a Legend.
 
 ## Technical and packaging changes
 

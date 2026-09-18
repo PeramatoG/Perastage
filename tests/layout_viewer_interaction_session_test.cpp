@@ -143,6 +143,42 @@ void TestFinalization() {
                          {0, 0, 23, 1}),
                      {0, 0, 25, 24}));
 }
+
+// Verifies frame candidates can be applied without changing sibling elements.
+void TestElementFrameIsolation() {
+  layouts::Layout2DViewFrame view{10, 20, 100, 80};
+  layouts::Layout2DViewFrame legend{200, 210, 120, 90};
+  layouts::Layout2DViewFrame eventTable{300, 310, 130, 100};
+  layouts::Layout2DViewFrame text{400, 410, 140, 110};
+  layouts::Layout2DViewFrame image{500, 510, 160, 80};
+
+  const layouts::Layout2DViewFrame originalLegend = legend;
+  view = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::Move, view, {0, 0}, {25, -15}, 1.0);
+  assert(FramesEqual(view, {35, 5, 100, 80}));
+  assert(FramesEqual(legend, originalLegend));
+
+  view = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::ResizeCorner, view, {0, 0}, {20, 30}, 1.0);
+  assert(FramesEqual(view, {35, 5, 120, 110}));
+  assert(FramesEqual(legend, originalLegend));
+
+  legend = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::Move, legend, {0, 0}, {-10, 15}, 1.0);
+  legend = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::ResizeRight, legend, {0, 0}, {20, 0}, 1.0);
+  assert(FramesEqual(legend, {190, 225, 140, 90}));
+
+  eventTable = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::Move, eventTable, {0, 0}, {5, 7}, 1.0);
+  text = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::Move, text, {0, 0}, {-8, 3}, 1.0);
+  image = gui::layoutinteraction::ComputeDraggedFrame(
+      FrameDragMode::Move, image, {0, 0}, {12, -6}, 1.0, 2.0);
+  assert(FramesEqual(eventTable, {305, 317, 130, 100}));
+  assert(FramesEqual(text, {392, 413, 140, 110}));
+  assert(FramesEqual(image, {512, 504, 160, 80}));
+}
 } // namespace
 
 // Runs deterministic interaction-session and frame-policy checks.
@@ -152,5 +188,6 @@ int main() {
   TestFrameGeometry();
   TestAspectRatioGeometry();
   TestFinalization();
+  TestElementFrameIsolation();
   return 0;
 }

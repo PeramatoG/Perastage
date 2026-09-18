@@ -775,7 +775,7 @@ void LayoutViewerPanel::RefreshLegendData() {
     legendDataDirty_ = false;
     return;
   }
-  const auto *selectedLegend = GetSelectedLegend();
+  const auto *selectedLegend = static_cast<const LayoutViewerPanel *>(this)->GetSelectedLegend();
   std::vector<LegendItem> items = BuildLegendItems(selectedLegend);
   size_t newHash = HashLegendItems(items, selectedLegend);
   if (newHash == legendDataHash) {
