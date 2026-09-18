@@ -11,6 +11,8 @@ files=(
   core/truss_asset_ingestion.cpp
   core/dictionary_reset_service.h
   core/dictionary_reset_service.cpp
+  core/dictionary_snapshot_service.h
+  core/dictionary_snapshot_service.cpp
 )
 
 if rg -n "wx[A-Za-z_]*|<wx/" "${files[@]}"; then

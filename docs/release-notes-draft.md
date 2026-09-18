@@ -16,6 +16,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Separated reusable dictionary JSON snapshot serialization and reference-path validation from the Dictionary Editor while preserving existing snapshot and portable bundle behavior.
+
 - Moved GDTF document mutation and atomic archive publication into a reusable Core component while preserving existing GDTF output, diagnostics, compatibility APIs, and Viewer3D cache refresh behavior.
 
 - Separated the GDTF Share catalog, authentication, search, and download interface workflow from the main-window menu implementation while preserving existing behavior.
