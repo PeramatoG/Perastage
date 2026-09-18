@@ -1,9 +1,8 @@
 # Developer Documentation
 
 This index identifies the current owner for each kind of maintainer-facing
-information. Canonical documents define project-wide policy; focused contracts
-describe one subsystem without superseding their canonical parent. Dated audits
-and validation reports preserve evidence only.
+information. Canonical documents define project-wide policy, while focused
+contracts describe one subsystem without superseding their canonical parent.
 
 ## Canonical project-wide sources
 
@@ -25,7 +24,7 @@ architecture or repository-layout specification.
 
 - **MVR:** the [Canonical MVR contract](technical-notes/canonical_mvr_contract.md)
   owns format and behavior rules. [MVR identity recovery](mvr_identity_recovery.md),
-  [grouped transform mutation](grouped_transform_mutation_audit.md),
+  [grouped transform mutation](grouped_transform_mutation.md),
   [attachment paths](truss_fixture_attachment_paths.md), and the
   [MVR technical-note entry points](technical-notes/index.md#mvr-contracts) cover
   narrower implementation responsibilities.
@@ -46,19 +45,6 @@ architecture or repository-layout specification.
   and the remaining topic-specific documents in this directory. These apply
   only to their named subsystem and defer project-wide ownership to the table
   above.
-
-## Historical / validation evidence
-
-These records explain what was inspected at a specific revision or checkpoint.
-Their dated measurements and results are not current policy; each record links
-to its current owner:
-
-- [Repository-organization regression audit](repository_organization_regression_audit.md)
-- [Local build workflow validation](local_build_workflow_validation.md)
-- [CI and release packaging validation](ci_release_packaging_validation.md)
-- [CI Debug tests audit](ci_test_audit.md)
-- [Code-health review from 2026-02-13](code_health_review_2026-02-13.md)
-- [Historical technical-note evidence](technical-notes/index.md#historical--validation-evidence)
 
 The [issue triage policy](../../.github/ISSUE_TRIAGE.md) remains the focused
 repository-maintenance contract for issue handling.

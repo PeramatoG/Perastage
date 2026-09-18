@@ -21,23 +21,20 @@ Use dedicated documents for deeper topics:
 
 ## Developer Documentation Authority
 
-The [Developer Documentation index](index.md) is the canonical entry map. Keep
-developer material in one of these roles:
+The [Developer Documentation index](index.md) is the canonical entry map.
+Canonical sources own project-wide policy; focused technical notes own only
+their named subsystem and link back rather than repeating parent policy.
 
-- **Canonical/current sources** own project-wide policy or the primary contract
-  for a domain. Related documents link back rather than repeating that policy.
-- **Active focused contracts** own a named subsystem or implementation detail
-  and remain subordinate to the relevant canonical source. The
-  [Technical Notes index](technical-notes/index.md) provides their topic entry
-  points.
-- **Historical/validation evidence** records a dated audit, measurement, or
-  checkpoint. Preserve useful evidence at stable paths, but add a clear banner,
-  link to the current owner, and state that dated results are not current
-  policy.
+Permanent documentation describes current behavior and contracts. Point-in-time
+audits, pull-request evidence, CI run logs, and checkpoint journals normally
+belong in Git and pull-request history. Retain historical material only when it
+has an explicit ongoing maintenance purpose that a current contract cannot
+serve. When staged work is complete, fold its durable rules into the current
+owner and remove chronological checkpoint prose.
 
-Do not create a second exhaustive documentation inventory. Update the existing
-indexes when authority changes, and keep volatile inventories or thresholds in
-their machine-enforced policy files.
+Do not create a second exhaustive inventory. Keep volatile inventories,
+thresholds, and live measurements in their machine-enforced reports or policy
+files.
 
 ## Formatting Rules
 

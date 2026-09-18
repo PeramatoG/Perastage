@@ -59,9 +59,3 @@ package refactors. The detailed contracts remain in the
 [canonical MVR contract](technical-notes/canonical_mvr_contract.md),
 [GDTF mutation policy](gdtf_mutation_policy.md), and related focused technical
 notes; this page does not replace them.
-
-## Historical evidence
-
-The [February 2026 code-health review](code_health_review_2026-02-13.md) is
-retained as historical evidence. Its measurements, hotspot list, and suggested
-backlog describe that point in time and are not current policy.

@@ -3,8 +3,7 @@
 Technical notes are focused maintainer contracts below the project-wide owners
 listed in the [Developer Documentation index](../index.md). An active note owns
 only its named implementation area; it does not replace architecture,
-repository, build, or subsystem policy. Point-in-time evidence is separated at
-the end of this page.
+repository, build, or subsystem policy.
 
 ## MVR contracts
 
@@ -24,8 +23,7 @@ one level above because they span MVR and scene-model ownership.
 ## GDTF contracts
 
 - [GDTF Unicode ZIP filename compatibility](gdtf_unicode_zip_filename_compatibility.md)
-- [GDTF editor architecture and checkpoint contracts](gdtf-editor/gdtf_editor_architecture_audit.md)
-- [GDTF editor context boundaries](gdtf-editor/gdtf_editor_context_boundaries.md)
+- [GDTF editor architecture](gdtf-editor/gdtf_editor_architecture.md)
 - [GDTF editor UI layout](gdtf-editor/gdtf_editor_ui_layout.md)
 - [GDTF read/write compatibility](gdtf-editor/gdtf_read_write_compatibility.md)
 - [GDTF mode and channel browser](gdtf-editor/gdtf_mode_channel_browser.md)
@@ -48,12 +46,3 @@ These notes defer mutation and derivative identity rules to the canonical
 ## Runtime and storage contracts
 
 - [Runtime storage and temporary workspaces](runtime_storage_and_temp_workspaces.md)
-
-## Historical / validation evidence
-
-These documents retain useful checkpoint evidence, not current policy:
-
-- [GDTF mutation audit](gdtf_mutation_audit.md) — superseded as an authority by
-  the [GDTF Mutation Policy](../gdtf_mutation_policy.md).
-- [GDTF Editor Checkpoint 08D regression matrix](gdtf-editor/gdtf_editor_checkpoint08d_regression_matrix.md)
-  — a checkpoint test record; current editor contracts are linked above.

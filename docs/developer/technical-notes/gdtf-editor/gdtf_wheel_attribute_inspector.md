@@ -1,6 +1,6 @@
 # GDTF Wheel and Attribute Inspector
 
-Checkpoint 08E3 adds a read-only inspection architecture for wheel, filter, media, graphic-wheel, and DMX value resolution. The feature is split so core parsing and resolving remain independent from wxWidgets, project data, sessions, Apply, undo, and XML writing.
+The editor uses a read-only inspection architecture for wheel, filter, media, graphic-wheel, and DMX value resolution. The feature is split so core parsing and resolving remain independent from wxWidgets, project data, sessions, Apply, undo, and XML writing.
 
 ## Architecture summary
 
@@ -40,7 +40,7 @@ It preserves multiple LogicalChannels in source order, decomposes normalized val
 
 ## Read-only and future editing boundary
 
-The inspector state is typed and read-only: selected channel, current inspection value, active function/set, wheel, slot, resource, and diagnostics are represented without exposing mutable XML nodes. Checkpoint 08E3 does not add editable cells, Save, dirty state, undo commands, add/delete/reorder behavior, XML writing, live DMX, animation playback, prism rendering, or project/session mutation.
+The inspector state is typed and read-only: selected channel, current inspection value, active function/set, wheel, slot, resource, and diagnostics are represented without exposing mutable XML nodes. The inspector does not provide editable cells, Save, dirty state, undo commands, add/delete/reorder behavior, XML writing, live DMX, animation playback, prism rendering, or project/session mutation.
 
 ## Connected Fixture Edit presentation
 

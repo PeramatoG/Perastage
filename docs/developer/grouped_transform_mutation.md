@@ -1,10 +1,4 @@
-# Grouped transform mutation audit
-
-> **Active focused contract:** Despite its audit-era filename, this document
-> owns the current grouped scene-mutation and deletion rules. It complements the
-> broader [Canonical MVR contract](technical-notes/canonical_mvr_contract.md)
-> and [viewer coordinate contract](viewer_coordinate_contract.md); it is not a
-> point-in-time validation report.
+# Grouped transform mutation contract
 
 Perastage treats each scene node's editable world matrix as the visible
 placement and stores a local matrix for MVR hierarchy persistence.
@@ -37,7 +31,7 @@ Perastage editing policy; it does not change MVR import hierarchy semantics.
 - Renderer, loader, and view caches contain derived transforms and do not own
   editable hierarchy state.
 
-## Additional audited paths
+## Additional mutation paths
 
 - Duplication constructs independent top-level nodes and intentionally clears
   inherited hierarchy ownership before insertion.

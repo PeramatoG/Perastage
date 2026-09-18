@@ -55,8 +55,7 @@ for load_path in re.findall(r"loadMarkdown\('([^']+\.md)'\)", "\n".join(p.read_t
     if not (DOCS / load_path).exists():
         failures.append(f"HTML wrapper loads missing markdown: {load_path}")
 
-# Keep the living code-health contract discoverable and prevent the dated
-# review or a hand-maintained hotspot inventory from becoming authoritative.
+# Keep the living code-health contract and machine-owned inventories discoverable.
 require_text(ROOT / "AGENTS.md", ("docs/developer/code_health.md", "tests/source_file_size_policy.json"))
 require_text(DOCS / "developer" / "code_health.md", (
     "tests/source_file_size_policy.json",
@@ -64,17 +63,9 @@ require_text(DOCS / "developer" / "code_health.md", (
     "github_actions_workflows.md",
     "documentation_policy.md",
 ))
-require_text(DOCS / "developer" / "code_health_review_2026-02-13.md", (
-    "Historical evidence — not current policy",
-    "[Code Health](code_health.md)",
-))
-if "following `docs/developer/code_health_review_2026-02-13.md`" in (ROOT / "AGENTS.md").read_text(encoding="utf-8"):
-    failures.append("AGENTS.md presents the February 2026 review as current authority")
-
-# Keep living owners separate from dated evidence in the canonical entry map.
+# Keep the major living owners discoverable in the canonical entry map.
 developer_index = (DOCS / "developer" / "index.md").read_text(encoding="utf-8")
 canonical_section = markdown_section(developer_index, "Canonical project-wide sources")
-historical_section = markdown_section(developer_index, "Historical / validation evidence")
 for canonical_link in (
     "[Architecture](architecture.md)",
     "[Repository Layout](repository_layout.md)",
@@ -88,10 +79,6 @@ for canonical_link in (
         failures.append(f"developer index canonical section is missing {canonical_link}")
 if "validation" in canonical_section.lower() or "audit.md" in canonical_section:
     failures.append("developer index presents audit or validation evidence as canonical")
-if "repository_organization_regression_audit.md" not in historical_section:
-    failures.append("developer index does not classify repository audit evidence as historical")
-if "ci_release_packaging_validation.md" not in historical_section:
-    failures.append("developer index does not classify CI/release validation as historical")
 
 readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
 if re.search(r"docs/developer/[^)\s]*(?:audit|validation)[^)\s]*\.md", readme_text, re.IGNORECASE):

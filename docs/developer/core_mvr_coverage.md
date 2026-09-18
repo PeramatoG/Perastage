@@ -1,6 +1,6 @@
 # Core and MVR coverage
 
-Perastage maintains an informational Linux/GCC coverage baseline for production code
+Perastage maintains an informational Linux/GCC coverage report for production code
 under `core/` and `mvr/`. Tests, generated code, dependencies, GUI, and viewer modules
 are outside the reported denominator. There is no line, function, or branch percentage
 gate; failures indicate a broken build, test, or report collection rather than a low
@@ -38,15 +38,9 @@ python3 .github/scripts/generate_core_mvr_coverage.py \
   --commit "$(git rev-parse HEAD)"
 ```
 
-The first local smoke baseline is recorded below. It includes the complete production denominator and the three new importer archive scenarios; the dedicated workflow runs the complete registered suite and its artifact/job summary is authoritative for the full-suite baseline. It was produced with GCC gcov
-instrumentation (`--coverage -O0 -g`) and gcovr 8.3 from a working tree based on commit `a38ddd3b1af3fc9cd99882753e423450da53e815` on
-2026-09-10.
-
-| Scope | Line coverage |
-|---|---:|
-| `core/` | `0.83%` |
-| `mvr/` | `4.06%` |
-| Combined | `1.80%` |
+The workflow artifact and job summary are authoritative for current coverage
+figures. Local results are suitable for before/after comparison only when the
+compiler, report tool, source revision, and selected tests are held constant.
 
 The normative MVR archive assertions in the characterization suite use the official
 [MVR 1.6 file format and archive rules](https://github.com/mvrdevelopment/spec/blob/main/mvr-spec.md#file-format),
