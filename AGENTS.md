@@ -12,7 +12,7 @@ and `docs/developer/repository_layout.md` for repository paths and build ownersh
    - Avoid adding large logic blocks to hotspot files.
    - If a change introduces a new responsibility, create/use adjacent files organized by responsibility.
 
-2. **File-size guardrail (soft limit)**
+2. **File-size guardrail**
    - `tests/check_source_file_size.py` enforces the default physical-line limit and reviewed hotspot baselines declared in `tests/source_file_size_policy.json` for tracked project C/C++ files.
    - `tests/source_file_size_policy.json` is authoritative for the exact current threshold, exclusions, and hotspot inventory. Hotspots may stay the same size or shrink, but growth above the recorded baseline fails the guard.
    - Baseline reductions are intentional, reviewable changes: the guard never rewrites the policy when a hotspot shrinks.

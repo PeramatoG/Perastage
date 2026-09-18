@@ -53,6 +53,7 @@ require_text(DOCS / "developer" / "code_health.md", (
     "tests/source_file_size_policy.json",
     "tests/check_repository_hygiene.py",
     "github_actions_workflows.md",
+    "documentation_policy.md",
 ))
 require_text(DOCS / "developer" / "code_health_review_2026-02-13.md", (
     "Historical evidence — not current policy",

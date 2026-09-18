@@ -3,6 +3,8 @@
 This document is the living source of truth for Perastage code-health
 principles. It defines the durable maintenance contract; exact repository
 inventories and limits remain owned by their machine-enforced policies.
+Documentation ownership and maintenance rules remain in
+[Documentation Policy](documentation_policy.md).
 
 ## Refactoring principles
 
