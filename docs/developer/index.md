@@ -17,6 +17,7 @@ and [the repository tree](perastage_tree.md) is only a concise navigation aid.
 - [Local Build Workflow Validation](local_build_workflow_validation.md)
 - [CI and Release Packaging Validation](ci_release_packaging_validation.md)
 - [Architecture](architecture.md)
+- [Code Health](code_health.md)
 - [Documentation Policy](documentation_policy.md)
 - [Text-to-scene Rules](text_to_scene_rules.md)
 - [GDTF Mutation Policy](gdtf_mutation_policy.md)

@@ -22,6 +22,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Replaced the dated code-health review as maintainer guidance with a living, policy-linked code-health contract while retaining the original review as historical evidence.
+
 - Separated hoist table row-to-scene editing into a focused service while preserving inherited field sources, dummy profiles, automatic loads, transforms, undo, and view-refresh behavior.
 
 - Separated truss table row-to-scene editing and equal-type physical-property synchronization into a focused service while preserving undo, resource-reference, load-recalculation, and view-refresh behavior.

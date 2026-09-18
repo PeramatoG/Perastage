@@ -1,7 +1,10 @@
 # AGENTS.md (global)
 
 ## Objective
-Keep Perastage clean and modular while continuing to deliver new features, following `docs/developer/code_health_review_2026-02-13.md`.
+Keep Perastage clean and modular while continuing to deliver new features.
+Follow `docs/developer/code_health.md` for the living maintenance contract,
+`docs/developer/architecture.md` for module ownership and dependency direction,
+and `docs/developer/repository_layout.md` for repository paths and build ownership.
 
 ## Mandatory global rules
 
@@ -9,15 +12,15 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
    - Avoid adding large logic blocks to hotspot files.
    - If a change introduces a new responsibility, create/use adjacent files organized by responsibility.
 
-2. **File-size guardrail (soft limit)**
-   - `tests/check_source_file_size.py` automatically enforces a default maximum of **1500 physical lines** for tracked project C/C++ files.
-   - Existing files above that limit are explicitly grandfathered in `tests/source_file_size_policy.json` at their current maximum. They may stay the same size or shrink, but any growth above the recorded maximum fails the guard.
+2. **File-size guardrail**
+   - `tests/check_source_file_size.py` enforces the default physical-line limit and reviewed hotspot baselines declared in `tests/source_file_size_policy.json` for tracked project C/C++ files.
+   - `tests/source_file_size_policy.json` is authoritative for the exact current threshold, exclusions, and hotspot inventory. Hotspots may stay the same size or shrink, but growth above the recorded baseline fails the guard.
    - Baseline reductions are intentional, reviewable changes: the guard never rewrites the policy when a hotspot shrinks.
    - When touching a file near the limit, prioritize responsibility extraction before adding major features. If extraction is not feasible in the same PR, include a short technical note in the PR description with the next recommended split.
 
 3. **Architecture and build conventions**
    - Keep explicit source ownership in CMake (no `GLOB_RECURSE` for project source registration).
-   - Respect module boundaries described in `docs/developer/architecture.md` and `docs/developer/perastage_tree.md`.
+   - Respect module boundaries described in `docs/developer/architecture.md` and path ownership described in `docs/developer/repository_layout.md`; `docs/developer/perastage_tree.md` is a navigation aid.
 
 4. **Mandatory checks before closing changes**
    - Run and keep green:
@@ -52,25 +55,11 @@ Keep Perastage clean and modular while continuing to deliver new features, follo
    - This is required for meaningful feature changes, and not required for minor internal refactors, small bug fixes, formatting-only changes, build-system maintenance, or invisible technical changes that do not affect user experience.
 
 ## Current hotspots (watch for growth)
-- `mvr/mvrimporter.cpp`
-- `mvr/mvrexporter.cpp`
-- `viewer3d/viewer3dpanel.cpp`
-- `viewer2d/viewer2dpanel.cpp`
-- `core/riderimporter.cpp`
-- `gui/layoutviewerpanel.cpp`
-- `gui/dictionaryeditdialog.cpp`
-- `viewer3d/gdtfloader.cpp`
-- `viewer3d/viewer3dcontroller.cpp`
-- `viewer2d/pdf/layout_pdf_exporter.cpp`
-- `gui/mainwindow_menu.cpp`
-- `gui/fixturetablepanel.cpp`
-- `gui/mainwindow.cpp`
-- `gui/hoisttablepanel.cpp`
-- `gui/layoutviewerpanel_legend.cpp`
-- `gui/trusstablepanel.cpp`
-- `gui/fixtureeditdialog.cpp`
 
-The versioned policy file is authoritative for exact maximum line counts and also records any oversized maintained test source.
+Do not maintain a parallel hotspot list in this file. The versioned
+`tests/source_file_size_policy.json` policy is authoritative for exact maximum
+line counts and the current inventory, including any oversized maintained test
+source.
 
 ## Repository hygiene policy
 
