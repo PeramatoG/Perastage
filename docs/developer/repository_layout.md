@@ -92,7 +92,11 @@ paths and inventories ZIP entry metadata without extraction or XML parsing;
 its public interface and implementation are standard-library-only apart from
 the neutral inspection contract. The narrow `perastage_archive_zip_directory`
 static library gives package inspection and the existing GDTF reader one owner
-for bounded raw classic-ZIP directory mechanics. `tests/` is added conditionally when
+for bounded raw classic-ZIP directory mechanics. Core also owns
+`perastage_gdtf_read`, the shared production implementation of the archive,
+description, and immutable document readers, and `perastage_inspection_gdtf`,
+which composes them with package inventory and the neutral inspection contract.
+`tests/` is added conditionally when
 testing is enabled. No recursive project-source discovery is used.
 
 The application-bootstrap boundary in [Architecture](architecture.md#application-bootstrap-ownership-org-030033)

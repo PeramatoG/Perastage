@@ -33,6 +33,34 @@ add_library(perastage_inspection_package STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/package_inspection.cpp
 )
 
+add_library(perastage_gdtf_read STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_description_reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
+)
+
+target_compile_features(perastage_gdtf_read PUBLIC cxx_std_20)
+target_include_directories(perastage_gdtf_read PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_gdtf_read
+    PUBLIC perastage_archive_zip_directory
+    PRIVATE tinyxml2::tinyxml2 ${_wx_libs}
+)
+
+add_library(perastage_inspection_gdtf STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/gdtf_inspection.cpp
+)
+
+target_compile_features(perastage_inspection_gdtf PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_gdtf PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_inspection_gdtf
+    PUBLIC perastage_inspection_core perastage_inspection_package
+           perastage_gdtf_read
+)
+
 target_compile_features(perastage_inspection_package PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_package PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -44,6 +72,8 @@ target_link_libraries(perastage_inspection_package
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_archive_zip_directory
+    perastage_gdtf_read
+    perastage_inspection_gdtf
     perastage_inspection_core
 )
 
@@ -70,8 +100,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_derivative_publication.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_description_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_insertion_preparation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_metadata_summary.cpp
@@ -85,7 +113,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_canonicalizer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_document_mutation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_mutation_audit.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_document.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_edit_session.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_editable_values.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/gdtf_editor_context.cpp
