@@ -7,6 +7,19 @@ target_include_directories(perastage_inspection_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+add_library(perastage_inspection_serialization STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_json_serializer.cpp
+)
+
+target_compile_features(perastage_inspection_serialization PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_serialization
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_inspection_serialization
+    PUBLIC perastage_inspection_core
+)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_inspection_core)
 
 target_sources(${PROJECT_NAME} PRIVATE

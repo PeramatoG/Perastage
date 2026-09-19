@@ -62,6 +62,7 @@ inspection_statements() {
 expected_core_configuration='add_library(perastage_inspection_core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp )
 target_compile_features(perastage_inspection_core PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} )
+target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core )
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_inspection_core)'
 actual_core_configuration="$(inspection_statements "$core_cmake")"
 if [[ "$actual_core_configuration" != "$expected_core_configuration" ]]; then
@@ -81,7 +82,7 @@ for cmake_file in "${cmake_files[@]}"; do
     continue
   fi
   if [[ -n "$(inspection_statements "$cmake_file")" ]]; then
-    echo "perastage_inspection_core may only be configured by core and consumed by its focused test." >&2
+    echo "perastage_inspection_core may only be configured by Core and used by its reviewed consumers." >&2
     echo "Unexpected configuration: $cmake_file" >&2
     exit 1
   fi
@@ -92,4 +93,4 @@ if rg -n 'inspection_contract\.cpp' "$tests_cmake"; then
   exit 1
 fi
 
-echo "OK: reusable inspection target has one explicit implementation and two independent consumers."
+echo "OK: reusable inspection target retains one implementation and only its reviewed consumers."

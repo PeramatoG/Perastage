@@ -152,11 +152,11 @@ Core owns the neutral request, structured result, and diagnostic types under
 a filesystem input and preserves ordered diagnostics with stable technical
 identifiers, severity, domain, classification, and optional source metadata.
 Future CLI, Inspector GUI, Console, and other adapters consume these structured
-results. Serialization and presentation are outside this semantic contract: a
-deterministic shared serialization boundary may be added separately, while
-frontends own presentation formatting. The current contract remains neutral to
-both concerns, and file readers and format-specific inspection services remain
-separate from it.
+results. Serialization and presentation are outside this semantic contract.
+The separate `perastage_inspection_serialization` boundary converts an existing
+result to deterministic machine-readable JSON, while frontends own presentation
+formatting. The semantic contract remains neutral to both concerns, and file
+readers and format-specific inspection services remain separate from it.
 
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes
@@ -179,6 +179,34 @@ current importer also contains wxWidgets UI and application interactions.
 Adding those paths now would therefore introduce XML/archive dependencies or
 incorrectly pull GUI/application/model integration into this standard-library
 foundation. Viewer and App sources are not dependencies of this target.
+
+`perastage_inspection_serialization` is a C++20 static library that owns only
+`core/inspection/inspection_json_serializer.cpp`. Its standard-C++ public API
+accepts the semantic `Result` and returns a compact JSON string; the vendored
+JSON implementation remains private. The library depends on
+`perastage_inspection_core` and has no GUI, App, viewer, XML, networking, or
+graphics dependency. It serializes in-memory results and does not inspect or
+reparse files.
+
+Inspection JSON schema version `1` contains `schema_version`, `request`,
+`success`, `worst_severity`, and `diagnostics`. The request contains
+`source_path`; diagnostics contain `severity`, `domain`, `classification`,
+`code`, `message`, and an optional `location`. Locations may contain
+`source_path`, `package_entry`, `xml_path`, `line`, and `column`, with absent
+optional values omitted. An absent diagnostic location is omitted, an empty
+result has a null `worst_severity`, and `diagnostics` is always an array in the
+semantic insertion order. Filesystem paths are emitted as UTF-8 with generic
+`/` separators, and compact output is deterministic for the same result.
+
+The stable severity tokens are `information`, `warning`, `error`, and `fatal`;
+domain tokens are `input`, `package`, `xml`, and `content`; classification
+tokens are `general`, `standards`, and `compatibility`. Stable field names and
+tokens do not silently change within a schema version. Removing or renaming a
+field, changing its type, or reinterpreting its meaning requires a new schema
+version. Deliberate additive optional fields may retain the version when
+existing meanings remain unchanged. Object key order and presentation
+formatting are not schema guarantees, and future CLI text output is outside the
+JSON schema.
 
 ## Library convention
 
