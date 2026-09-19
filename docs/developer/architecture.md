@@ -34,7 +34,7 @@ module's architectural responsibility.
 
 - Root `CMakeLists.txt` owns project options, principal target creation, shared target configuration, and module orchestration. Focused modules own dependency discovery (`PerastageDependencies.cmake`), localization (`PerastageLocalization.cmake`), runtime staging (`PerastageRuntimeStaging.cmake`), installation (`PerastageInstall.cmake`), and packaging (`PerastagePackaging.cmake`).
 - `cmake/platform/PerastagePlatform.cmake` dispatches target-level platform configuration to separate Windows, macOS, and Linux owners after the application target exists. Linux desktop, MIME, and icon integration remains installation configuration rather than target configuration.
-- Every top-level application source module contributes its explicit source list using its local `CMakeLists.txt` and `target_sources(${PROJECT_NAME} ...)`.
+- Every top-level application source module registers its production sources explicitly in its local `CMakeLists.txt`. Most sources use `target_sources(${PROJECT_NAME} ...)`; focused reusable targets own their sources directly and are linked by the application.
 - `docs/developer/repository_structure_baseline.json` is the authoritative machine-readable contract for source-module classification and CMake registration.
 - Avoid recursive or wildcard project-source discovery; list files explicitly.
 - Keep include directories close to the module that owns them.
@@ -157,6 +157,28 @@ deterministic shared serialization boundary may be added separately, while
 frontends own presentation formatting. The current contract remains neutral to
 both concerns, and file readers and format-specific inspection services remain
 separate from it.
+
+`perastage_inspection_core` is the first minimal non-GUI link boundary. This
+static library owns only `core/inspection/inspection_contract.cpp`, publishes
+the `core/` include root, and requires C++20; it has no wxWidgets or other
+third-party link dependency. The Perastage application and the focused
+`InspectionContract` executable both link this one production implementation.
+The focused target is intentionally not a general Core library or a migration
+of MVR and GDTF code. It may grow only when a concrete inspection service
+requires another reviewed dependency.
+
+The dependency audit supporting this boundary found that the API-010 header
+and implementation use only the C++ standard library. The GDTF description
+reader and its snapshots are presentation-independent but use tinyxml2, while
+`GdtfDocument` composes that reader with the archive reader. The archive reader
+still uses wxWidgets base file and ZIP streams plus the Core filesystem-to-wx
+path adapter. On the MVR side, scene-node parsing, import result types,
+reference resolution, and project-application separation provide reusable
+read-side pieces, but package acquisition accepts `wxInputStream`, and the
+current importer also contains wxWidgets UI and application interactions.
+Adding those paths now would therefore introduce XML/archive dependencies or
+incorrectly pull GUI/application/model integration into this standard-library
+foundation. Viewer and App sources are not dependencies of this target.
 
 ## Library convention
 

@@ -80,8 +80,10 @@ documentation markers are validated against the same canonical module list.
 
 The source-registration arrangement is decentralized. The root `CMakeLists.txt`
 creates the application target and registers only its entry point and generated
-build-information source. Every module above contributes its explicit application source
-list through its own `CMakeLists.txt`. `tests/` is added
+build-information source. Every module above registers its explicit production
+source list through its own `CMakeLists.txt`; `core/` additionally owns the
+focused `perastage_inspection_core` static library and links it into the
+application rather than compiling its implementation directly there. `tests/` is added
 conditionally when testing is enabled. No recursive project-source discovery is
 used.
 

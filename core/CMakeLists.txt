@@ -1,3 +1,14 @@
+add_library(perastage_inspection_core STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp
+)
+
+target_compile_features(perastage_inspection_core PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_inspection_core)
+
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/active_dictionary_storage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/autopatcher.cpp
@@ -52,7 +63,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoistpresetlibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_weight_distribution.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/library/library_bootstrap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/localization/app_language.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/localization/localization_manager.cpp
