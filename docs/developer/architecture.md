@@ -180,6 +180,30 @@ Adding those paths now would therefore introduce XML/archive dependencies or
 incorrectly pull GUI/application/model integration into this standard-library
 foundation. Viewer and App sources are not dependencies of this target.
 
+INS-110 adds `perastage_gdtf_read` as the single production owner of
+`gdtf_archive_reader.cpp`, `gdtf_description_reader.cpp`, and
+`gdtf/editor/gdtf_document.cpp`. The application and the focused
+`perastage_inspection_gdtf` target consume that implementation. The read target
+keeps tinyxml2 and the existing wxWidgets archive/base facilities private; its
+public headers expose only standard C++ and immutable GDTF read models. Where
+current dependency discovery cannot express a base-only wx target, the
+aggregate wx link list remains a temporary private implementation dependency.
+
+`perastage_inspection_gdtf` composes INS-100 package inventory with
+`LoadGdtfDocument`. The existing archive snapshot exposes the selected raw
+`description.xml`, its actual entry path, and canonical or compatibility state.
+The existing description snapshot supplies fixture metadata, revisions,
+physical values, DMX modes, wheels, slots, and resource references. Original
+reader diagnostics remain in those snapshots and are also adapted to ordered
+API-010 diagnostics with stable `gdtf.archive.*` and
+`gdtf.description.*` codes.
+
+The service is strictly read-only and follows stable DIN SPEC 15800:2022-02
+behavior from the official specification `main` branch. It does not rewrite
+XML, canonicalize archives, invoke editor sessions, retrieve resource bytes, or
+add another GDTF parser. Semantic coverage is limited to the established read
+models; deeper validation and preview are future responsibilities.
+
 `perastage_inspection_serialization` is a C++20 static library that owns only
 `core/inspection/inspection_json_serializer.cpp`. Its standard-C++ public API
 accepts the semantic `Result` and returns a compact JSON string; the vendored
