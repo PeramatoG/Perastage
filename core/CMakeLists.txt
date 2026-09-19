@@ -20,7 +20,32 @@ target_link_libraries(perastage_inspection_serialization
     PUBLIC perastage_inspection_core
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE perastage_inspection_core)
+add_library(perastage_archive_zip_directory STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/archive_zip_directory.cpp
+)
+
+target_compile_features(perastage_archive_zip_directory PUBLIC cxx_std_20)
+target_include_directories(perastage_archive_zip_directory PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_library(perastage_inspection_package STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/package_inspection.cpp
+)
+
+target_compile_features(perastage_inspection_package PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_package PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_inspection_package
+    PUBLIC perastage_inspection_core
+    PRIVATE perastage_archive_zip_directory
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_archive_zip_directory
+    perastage_inspection_core
+)
 
 target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/active_dictionary_storage.cpp

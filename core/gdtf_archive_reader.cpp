@@ -1,5 +1,7 @@
 #include "gdtf_archive_reader.h"
 
+#include "archive_entry_path.h"
+#include "archive_zip_directory.h"
 #include "wx_path_utils.h"
 
 #include <algorithm>
@@ -7,7 +9,6 @@
 #include <cstdint>
 #include <exception>
 #include <fstream>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <system_error>
@@ -33,10 +34,7 @@ std::string LowerAscii(std::string value) {
   return value;
 }
 
-struct RawZipEntryName {
-  std::string bytes;
-  bool utf8Flag = false;
-};
+using RawZipEntryName = perastage::archive::zip::DirectoryEntry;
 
 struct DecodedZipEntryName {
   std::string path;
@@ -50,115 +48,17 @@ bool IsAscii(const std::string &value) {
                      [](unsigned char c) { return c < 0x80; });
 }
 
-// Reports whether raw bytes are a well-formed UTF-8 sequence.
-bool IsValidUtf8(const std::string &value) {
-  size_t i = 0;
-  while (i < value.size()) {
-    const unsigned char c = static_cast<unsigned char>(value[i]);
-    size_t extra = 0;
-    uint32_t code = 0;
-    if (c <= 0x7F) {
-      ++i;
-      continue;
-    }
-    if ((c & 0xE0) == 0xC0) {
-      extra = 1;
-      code = c & 0x1F;
-      if (code == 0)
-        return false;
-    } else if ((c & 0xF0) == 0xE0) {
-      extra = 2;
-      code = c & 0x0F;
-    } else if ((c & 0xF8) == 0xF0) {
-      extra = 3;
-      code = c & 0x07;
-    } else
-      return false;
-    if (i + extra >= value.size())
-      return false;
-    for (size_t j = 1; j <= extra; ++j) {
-      const unsigned char t = static_cast<unsigned char>(value[i + j]);
-      if ((t & 0xC0) != 0x80)
-        return false;
-      code = (code << 6) | (t & 0x3F);
-    }
-    if ((extra == 1 && code < 0x80) || (extra == 2 && code < 0x800) ||
-        (extra == 3 && code < 0x10000) || code > 0x10FFFF ||
-        (code >= 0xD800 && code <= 0xDFFF))
-      return false;
-    i += extra + 1;
-  }
-  return true;
-}
-
-// Reads a little-endian 16-bit value from ZIP metadata.
-uint16_t ReadLe16(const std::vector<unsigned char> &data, size_t offset) {
-  return static_cast<uint16_t>(data[offset]) |
-         (static_cast<uint16_t>(data[offset + 1]) << 8);
-}
-
-// Reads a little-endian 32-bit value from ZIP metadata.
-uint32_t ReadLe32(const std::vector<unsigned char> &data, size_t offset) {
-  return static_cast<uint32_t>(data[offset]) |
-         (static_cast<uint32_t>(data[offset + 1]) << 8) |
-         (static_cast<uint32_t>(data[offset + 2]) << 16) |
-         (static_cast<uint32_t>(data[offset + 3]) << 24);
-}
-
-// Locates the ZIP end-of-central-directory record in bounded trailing data.
-std::optional<size_t>
-FindEndOfCentralDirectory(const std::vector<unsigned char> &data) {
-  if (data.size() < 22)
-    return std::nullopt;
-  const size_t maxComment = 0xffff;
-  const size_t minOffset =
-      data.size() > 22 + maxComment ? data.size() - 22 - maxComment : 0;
-  for (size_t i = data.size() - 22;; --i) {
-    if (ReadLe32(data, i) == 0x06054b50)
-      return i;
-    if (i == minOffset)
-      break;
-  }
-  return std::nullopt;
-}
-
-// Reads raw ZIP central-directory entry names before wxWidgets decodes them.
+// Reads shared raw ZIP names while leaving GDTF compatibility policy local.
 std::vector<RawZipEntryName>
 ReadRawCentralDirectoryNames(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input)
-    return {};
-  std::vector<unsigned char> data((std::istreambuf_iterator<char>(input)), {});
-  const std::optional<size_t> eocdOffset = FindEndOfCentralDirectory(data);
-  if (!eocdOffset)
-    return {};
-
-  const uint16_t entryCount = ReadLe16(data, *eocdOffset + 10);
-  size_t i = ReadLe32(data, *eocdOffset + 16);
-  std::vector<RawZipEntryName> names;
-  for (uint16_t entryIndex = 0;
-       entryIndex < entryCount && i + 46 <= data.size(); ++entryIndex) {
-    if (ReadLe32(data, i) != 0x02014b50)
-      break;
-    const uint16_t flags = ReadLe16(data, i + 8);
-    const uint16_t nameLen = ReadLe16(data, i + 28);
-    const uint16_t extraLen = ReadLe16(data, i + 30);
-    const uint16_t commentLen = ReadLe16(data, i + 32);
-    if (i + 46u + nameLen + extraLen + commentLen > data.size())
-      break;
-    names.push_back(
-        {std::string(reinterpret_cast<const char *>(&data[i + 46]), nameLen),
-         (flags & (1u << 11)) != 0});
-    i += 46u + nameLen + extraLen + commentLen;
-  }
-  return names;
+  return perastage::archive::zip::ReadDirectory(path).entries;
 }
 
 // Decodes one raw ZIP entry name according to GDTF compatibility policy.
 DecodedZipEntryName DecodeZipEntryName(const RawZipEntryName &raw) {
   DecodedZipEntryName decoded;
   if (raw.utf8Flag || !IsAscii(raw.bytes)) {
-    if (!IsValidUtf8(raw.bytes)) {
+    if (!perastage::archive::zip::IsValidUtf8(raw.bytes)) {
       decoded.failed = true;
       return decoded;
     }
@@ -172,7 +72,7 @@ DecodedZipEntryName DecodeZipEntryName(const RawZipEntryName &raw) {
 
 // Normalizes ZIP entry names to archive-relative paths with forward slashes.
 std::string NormalizeArchivePath(std::string path) {
-  std::replace(path.begin(), path.end(), '\\', '/');
+  path = perastage::archive::NormalizeEntrySeparators(std::move(path));
   while (path.rfind("./", 0) == 0)
     path.erase(0, 2);
   return path;
@@ -180,21 +80,7 @@ std::string NormalizeArchivePath(std::string path) {
 
 // Reports whether a normalized archive path is unsafe to materialize or trust.
 bool IsUnsafeArchivePath(const std::string &path) {
-  if (path.empty() || path.front() == '/' ||
-      path.find(':') != std::string::npos)
-    return true;
-  size_t start = 0;
-  while (start <= path.size()) {
-    const size_t slash = path.find('/', start);
-    const std::string part = path.substr(
-        start, slash == std::string::npos ? std::string::npos : slash - start);
-    if (part == "..")
-      return true;
-    if (slash == std::string::npos)
-      break;
-    start = slash + 1;
-  }
-  return false;
+  return perastage::archive::IsUnsafeNormalizedEntryPath(path);
 }
 
 // Returns the final archive path component for case-insensitive lookup.

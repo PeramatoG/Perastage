@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -117,7 +118,7 @@ inline std::uint32_t ComputeCrc32(const std::string &payload) {
 
 // Writes a deterministic stored ZIP whose entry names remain exact raw bytes.
 inline bool WriteStoredZipWithRawNames(
-    const std::string &archivePath,
+    const std::filesystem::path &archivePath,
     const std::vector<std::pair<std::string, std::string>> &entries,
     std::string &error) {
   if (entries.size() > std::numeric_limits<std::uint16_t>::max()) {

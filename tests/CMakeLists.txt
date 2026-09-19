@@ -33,6 +33,7 @@ add_executable(fixture_line_distribution_test
 target_include_directories(fixture_line_distribution_test PRIVATE
                            ../core ../models ../viewer3d ../third_party)
 target_link_libraries(fixture_line_distribution_test PRIVATE
+                      perastage_archive_zip_directory
                       tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME FixtureLineDistribution COMMAND fixture_line_distribution_test)
 
@@ -111,6 +112,14 @@ set_perastage_test_labels(InspectionJsonSerializer
                           LAYER perastage-extension
                           DOMAINS architecture core)
 
+add_executable(package_inspection_test package_inspection_test.cpp)
+target_link_libraries(package_inspection_test PRIVATE
+                      perastage_inspection_package)
+add_test(NAME PackageInspection COMMAND package_inspection_test)
+set_perastage_test_labels(PackageInspection
+                          LAYER standard-strict
+                          DOMAINS architecture core zip gdtf mvr security)
+
 add_library(perastage_test_diagnostics STATIC
             ../core/apppaths.cpp
             ../core/configservices.cpp
@@ -163,6 +172,8 @@ add_library(perastage_test_gdtf_archive_reader STATIC
             ../core/gdtf_archive_reader.cpp)
 target_include_directories(perastage_test_gdtf_archive_reader PRIVATE ../core)
 target_link_libraries(perastage_test_gdtf_archive_reader PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(perastage_test_gdtf_archive_reader PUBLIC
+                      perastage_archive_zip_directory)
 
 add_library(perastage_test_required_fixture_svg STATIC
             build_info_stub.cpp
@@ -178,6 +189,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
+    add_bash_policy_test(InspectionPackageBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_package_boundary.sh LABELS standard-strict architecture core zip security)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
@@ -560,7 +572,8 @@ add_executable(magnet_snap_test magnet_snap_test.cpp
     ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp
 )
 target_include_directories(magnet_snap_test PRIVATE ../core ../models ../viewer3d ../third_party)
-target_link_libraries(magnet_snap_test PRIVATE tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
+target_link_libraries(magnet_snap_test PRIVATE perastage_archive_zip_directory
+                      tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
 add_test(NAME MagnetSnapCore COMMAND magnet_snap_test)
 
 add_executable(truss_attachment_paths_test truss_attachment_paths_test.cpp
@@ -570,7 +583,9 @@ add_executable(truss_attachment_paths_test truss_attachment_paths_test.cpp
     ../models/mvrscene.cpp
     ../viewer3d/loader3ds.cpp ../viewer3d/loaderglb.cpp)
 target_include_directories(truss_attachment_paths_test PRIVATE ../core ../models ../viewer3d ../third_party)
-target_link_libraries(truss_attachment_paths_test PRIVATE tinyxml2::tinyxml2 ${wxWidgets_LIBRARIES})
+target_link_libraries(truss_attachment_paths_test PRIVATE
+                      perastage_archive_zip_directory tinyxml2::tinyxml2
+                      ${wxWidgets_LIBRARIES})
 add_test(NAME TrussAttachmentPaths COMMAND truss_attachment_paths_test)
 
 add_executable(truss_screen_snap_test truss_screen_snap_test.cpp
@@ -734,7 +749,9 @@ add_executable(gdtf_metadata_summary_test
                ../core/gdtf_description_reader.cpp
                ../core/gdtf_metadata_summary.cpp)
 target_include_directories(gdtf_metadata_summary_test PRIVATE ../core)
-target_link_libraries(gdtf_metadata_summary_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtf_metadata_summary_test PRIVATE
+                      perastage_archive_zip_directory ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfMetadataSummary COMMAND gdtf_metadata_summary_test)
 
 add_executable(gdtf_read_services_test
@@ -745,7 +762,9 @@ add_executable(gdtf_read_services_test
                ../mvr/gdtf_catalog_matcher.cpp
                ../core/filesystem_path_utils.cpp)
 target_include_directories(gdtf_read_services_test PRIVATE ../core ../mvr)
-target_link_libraries(gdtf_read_services_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtf_read_services_test PRIVATE
+                      perastage_archive_zip_directory ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfReadServices COMMAND gdtf_read_services_test)
 set_perastage_test_labels(GdtfReadServices LAYER tolerant-recovery DOMAINS gdtf zip)
 
@@ -817,7 +836,8 @@ add_executable(gdtf_fixture_insertion_preparation_test
                ../core/filesystem_path_utils.cpp)
 target_include_directories(gdtf_fixture_insertion_preparation_test PRIVATE ../core)
 target_link_libraries(gdtf_fixture_insertion_preparation_test PRIVATE
-                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+                      perastage_archive_zip_directory ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfFixtureInsertionPreparation
          COMMAND gdtf_fixture_insertion_preparation_test)
 
@@ -860,7 +880,9 @@ add_executable(gdtf_editor_context_test
                ../core/gdtf/editor/project_truss_gdtf_context.cpp
                ../core/gdtf/editor/standalone_gdtf_context.cpp)
 target_include_directories(gdtf_editor_context_test PRIVATE ../core)
-target_link_libraries(gdtf_editor_context_test PRIVATE ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+target_link_libraries(gdtf_editor_context_test PRIVATE
+                      perastage_archive_zip_directory ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME GdtfEditorContext COMMAND gdtf_editor_context_test)
 
 add_executable(gdtf_fixture_category_test
@@ -1456,7 +1478,8 @@ add_executable(mvr_perastage_metadata_recovery_test
 target_include_directories(mvr_perastage_metadata_recovery_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_perastage_metadata_recovery_test PRIVATE
-                      ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
+                      perastage_archive_zip_directory ${wxWidgets_LIBRARIES}
+                      tinyxml2::tinyxml2)
 add_test(NAME MvrPerastageMetadataRecovery
          COMMAND mvr_perastage_metadata_recovery_test)
 set_perastage_test_labels(MvrPerastageMetadataRecovery

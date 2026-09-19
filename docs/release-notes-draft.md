@@ -22,6 +22,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added a framework-independent, read-only package inventory boundary for supported GDTF and MVR files, including Unicode-preserving entry metadata, shared bounded ZIP directory checks, and safe rejection of malformed, unsupported, or traversal-style packages without extracting or importing package contents.
+
 - Added a deterministic, versioned JSON boundary for neutral inspection results, with cross-platform UTF-8 verification for automation without coupling inspection semantics to command-line or graphical presentation.
 
 - Introduced a minimal reusable non-GUI inspection library shared by the application and focused architecture tests, with strict ownership checks that preserve one implementation for future inspection frontends without migrating unrelated Core code.

@@ -188,6 +188,48 @@ JSON implementation remains private. The library depends on
 graphics dependency. It serializes in-memory results and does not inspect or
 reparse files.
 
+`perastage_inspection_package` is the INS-100 C++20 static boundary for
+read-only `.gdtf` and `.mvr` classification and ZIP metadata inventory. Its
+public model is standard C++ and builds on the neutral inspection contract;
+the standard-library raw ZIP metadata target is its only implementation
+dependency. Package inspection does not depend on wxWidgets.
+The service does not start a GUI lifecycle, create a project, extract package
+contents, or read XML payloads. Direct `.xml` and generic `.zip` inputs are
+unsupported and are never guessed from their contents.
+
+Inventory entries retain the decoded archive spelling for display. A separate
+forward-slash normalized identity is published only when the entry is a safe
+archive-relative path. Empty, absolute, drive/root-style, colon-bearing, and
+`..` traversal identities (including traversal written with backslashes) stay
+visible but are marked unusable and diagnosed. Classic ZIP field widths bound
+metadata allocations; ZIP64 and multi-disk packages receive the neutral fatal
+`package.unsupported_zip_structure` implementation diagnostic rather than
+being mislabeled as malformed or as standards violations. Sentinel values are
+never interpreted as offsets. This
+layer exposes only the presence of the canonical
+root filename; GDTF and MVR XML semantics remain deferred to INS-110 and
+INS-120, and conformance findings remain deferred to INS-130.
+
+The standard-library-only `perastage_archive_zip_directory` static library owns
+bounded classic-ZIP directory mechanics shared by package inspection and the
+existing GDTF reader: EOCD lookup with comment validation, single-disk and
+ZIP64 checks, central-directory bounds, local/central filename consistency,
+raw filename bytes, UTF-8 flags, and entry order. GDTF retains its compatibility
+decoding and diagnostics. The stricter layout-package preflight remains local
+because it combines these mechanics with layout-specific canonical-path and
+entry-count policy; migrating it is intentionally deferred to avoid changing
+layout import behavior in INS-100.
+
+The shared ZIP metadata entries also provide classic uncompressed size and
+portable directory identity from a trailing `/`. Package inspection builds its
+inventory directly from that metadata, without wx streams or positional
+pairing. The MVR importer remains a separate extraction/import workflow.
+
+The standards baseline is the current stable DIN SPEC 15800:2022-02 / GDTF
+1.2 and DIN SPEC 15801:2023-12 / MVR 1.6 package format. INS-100 uses only
+stable package identity facts and does not implement future proposals or
+semantic validation.
+
 Inspection JSON schema version `1` contains `schema_version`, `request`,
 `success`, `worst_severity`, and `diagnostics`. The request contains
 `source_path`; diagnostics contain `severity`, `domain`, `classification`,
