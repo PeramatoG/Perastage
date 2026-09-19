@@ -1,5 +1,6 @@
 #include "gdtf_archive_reader.h"
 
+#include "archive_entry_path.h"
 #include "wx_path_utils.h"
 
 #include <algorithm>
@@ -172,7 +173,7 @@ DecodedZipEntryName DecodeZipEntryName(const RawZipEntryName &raw) {
 
 // Normalizes ZIP entry names to archive-relative paths with forward slashes.
 std::string NormalizeArchivePath(std::string path) {
-  std::replace(path.begin(), path.end(), '\\', '/');
+  path = perastage::archive::NormalizeEntrySeparators(std::move(path));
   while (path.rfind("./", 0) == 0)
     path.erase(0, 2);
   return path;
@@ -180,21 +181,7 @@ std::string NormalizeArchivePath(std::string path) {
 
 // Reports whether a normalized archive path is unsafe to materialize or trust.
 bool IsUnsafeArchivePath(const std::string &path) {
-  if (path.empty() || path.front() == '/' ||
-      path.find(':') != std::string::npos)
-    return true;
-  size_t start = 0;
-  while (start <= path.size()) {
-    const size_t slash = path.find('/', start);
-    const std::string part = path.substr(
-        start, slash == std::string::npos ? std::string::npos : slash - start);
-    if (part == "..")
-      return true;
-    if (slash == std::string::npos)
-      break;
-    start = slash + 1;
-  }
-  return false;
+  return perastage::archive::IsUnsafeNormalizedEntryPath(path);
 }
 
 // Returns the final archive path component for case-insensitive lookup.

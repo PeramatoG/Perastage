@@ -9,6 +9,7 @@
  */
 #include "mvr_import_package.h"
 
+#include "archive_entry_path.h"
 #include "filesystem_path_utils.h"
 #include "logger.h"
 
@@ -45,8 +46,7 @@ std::string Trim(const std::string &value) {
 
 // Converts archive separators to their portable representation.
 std::string NormalizeSlashes(std::string path) {
-  std::replace(path.begin(), path.end(), '\\', '/');
-  return path;
+  return perastage::archive::NormalizeEntrySeparators(std::move(path));
 }
 
 // Lowercases ASCII text used for portable archive comparisons.
@@ -115,11 +115,9 @@ bool ExtractArchive(wxInputStream &input, const fs::path &destination,
     const std::string normalizedUnsafeCheck = NormalizeSlashes(entryName);
     const fs::path relativeEntryPath =
         PathUtils::PathFromUtf8(normalizedUnsafeCheck);
-    if (normalizedUnsafeCheck.empty() || relativeEntryPath.is_absolute() ||
-        relativeEntryPath.has_root_name() ||
-        normalizedUnsafeCheck.find(':') != std::string::npos ||
-        std::any_of(relativeEntryPath.begin(), relativeEntryPath.end(),
-                    [](const fs::path &part) { return part == ".."; })) {
+    if (perastage::archive::IsUnsafeNormalizedEntryPath(
+            normalizedUnsafeCheck) ||
+        relativeEntryPath.is_absolute() || relativeEntryPath.has_root_name()) {
       Logger::Instance().Log(Logger::Level::Warn,
                              "Skipping unsafe MVR archive entry: " + entryName);
       discardCurrentEntry();

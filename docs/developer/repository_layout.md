@@ -86,7 +86,11 @@ focused `perastage_inspection_core` static library and links it into the
 application rather than compiling its implementation directly there. Core also
 owns the separate `perastage_inspection_serialization` static library, whose
 standard-C++ interface serializes existing neutral inspection results while its
-vendored JSON dependency remains private. `tests/` is added conditionally when
+vendored JSON dependency remains private. Core also owns the focused
+`perastage_inspection_package` static library. It classifies `.gdtf` and `.mvr`
+paths and inventories ZIP entry metadata without extraction or XML parsing;
+its standard-C++ public interface keeps the wxWidgets base/archive dependency
+private. `tests/` is added conditionally when
 testing is enabled. No recursive project-source discovery is used.
 
 The application-bootstrap boundary in [Architecture](architecture.md#application-bootstrap-ownership-org-030033)

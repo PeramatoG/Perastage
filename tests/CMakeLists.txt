@@ -111,6 +111,14 @@ set_perastage_test_labels(InspectionJsonSerializer
                           LAYER perastage-extension
                           DOMAINS architecture core)
 
+add_executable(package_inspection_test package_inspection_test.cpp)
+target_link_libraries(package_inspection_test PRIVATE
+                      perastage_inspection_package)
+add_test(NAME PackageInspection COMMAND package_inspection_test)
+set_perastage_test_labels(PackageInspection
+                          LAYER standard-strict
+                          DOMAINS architecture core zip gdtf mvr security)
+
 add_library(perastage_test_diagnostics STATIC
             ../core/apppaths.cpp
             ../core/configservices.cpp
@@ -178,6 +186,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
+    add_bash_policy_test(InspectionPackageBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_package_boundary.sh LABELS standard-strict architecture core zip security)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)

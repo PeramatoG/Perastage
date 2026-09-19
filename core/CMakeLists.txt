@@ -20,6 +20,19 @@ target_link_libraries(perastage_inspection_serialization
     PUBLIC perastage_inspection_core
 )
 
+add_library(perastage_inspection_package STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/package_inspection.cpp
+)
+
+target_compile_features(perastage_inspection_package PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_package PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_inspection_package
+    PUBLIC perastage_inspection_core
+    PRIVATE ${_wx_base_libs}
+)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_inspection_core)
 
 target_sources(${PROJECT_NAME} PRIVATE
