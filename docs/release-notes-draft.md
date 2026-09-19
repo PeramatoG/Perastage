@@ -22,7 +22,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Introduced a minimal reusable non-GUI inspection library shared by the application and focused architecture tests, establishing one implementation for future inspection frontends without migrating unrelated Core code.
+- Introduced a minimal reusable non-GUI inspection library shared by the application and focused architecture tests, with strict ownership checks that preserve one implementation for future inspection frontends without migrating unrelated Core code.
 
 - Established a cross-platform architecture guard for the GUI-independent, read-only inspection contract used by future file-analysis tools and frontends.
 
