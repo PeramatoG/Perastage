@@ -6,9 +6,20 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 using namespace perastage::inspection;
 using namespace perastage::inspection::serialization;
+
+namespace {
+
+// Copies explicit UTF-8 code units into a byte string for JSON assertions.
+std::string Utf8String(std::u8string_view value) {
+  return std::string(reinterpret_cast<const char *>(value.data()),
+                     value.size());
+}
+
+} // namespace
 
 // Verifies the complete schema shape for an empty successful result.
 void TestEmptySuccessfulResult() {
@@ -127,11 +138,16 @@ void TestDiagnosticOrderingAndTokens() {
 
 // Verifies UTF-8 paths, JSON escaping, omitted optionals, and determinism.
 void TestUnicodeEscapingAndDeterminism() {
+  const std::string expectedSourcePath = Utf8String(u8"資料/灯具.gdtf");
+  const std::string expectedMessage =
+      Utf8String(u8"Quoted \"message\" with newline\n雪");
+  const std::string expectedPackageEntry =
+      Utf8String(u8"géométrie/灯具\\name.json");
   Diagnostic diagnostic;
   diagnostic.code = "content.escaped";
-  diagnostic.message = "Quoted \"message\" with newline\n雪";
+  diagnostic.message = expectedMessage;
   diagnostic.location = DiagnosticLocation{};
-  diagnostic.location->packageEntry = "géométrie/灯具\\name.json";
+  diagnostic.location->packageEntry = expectedPackageEntry;
   const Result result{{std::filesystem::path(u8"資料/灯具.gdtf")},
                       {diagnostic}};
 
@@ -141,9 +157,11 @@ void TestUnicodeEscapingAndDeterminism() {
   const auto &location = parsed.at("diagnostics").at(0).at("location");
 
   assert(first == second);
-  assert(parsed.at("request").at("source_path") == "資料/灯具.gdtf");
-  assert(parsed.at("diagnostics").at(0).at("message") == diagnostic.message);
-  assert(location.at("package_entry") == *diagnostic.location->packageEntry);
+  assert(first.find(R"(\"message\")") != std::string::npos);
+  assert(first.find(R"(newline\n)") != std::string::npos);
+  assert(parsed.at("request").at("source_path") == expectedSourcePath);
+  assert(parsed.at("diagnostics").at(0).at("message") == expectedMessage);
+  assert(location.at("package_entry") == expectedPackageEntry);
   assert(location.size() == 1);
 }
 
