@@ -145,6 +145,19 @@ publication, and Viewer3D retains cache implementation. Startup argument/path
 selection may be split internally in a future focused change, but ORG-034 and
 later organization work is outside this implementation.
 
+## Tool and inspection contract
+
+Core owns the neutral request, structured result, and diagnostic types under
+`core/inspection/`. The contract is GUI-independent and read-only: it identifies
+a filesystem input and preserves ordered diagnostics with stable technical
+identifiers, severity, domain, classification, and optional source metadata.
+Future CLI, Inspector GUI, Console, and other adapters consume these structured
+results. Serialization and presentation are outside this semantic contract: a
+deterministic shared serialization boundary may be added separately, while
+frontends own presentation formatting. The current contract remains neutral to
+both concerns, and file readers and format-specific inspection services remain
+separate from it.
+
 ## Library convention
 
 - Scene-object presets live in `library/scene_objects/`.

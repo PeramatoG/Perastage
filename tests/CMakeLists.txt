@@ -93,6 +93,14 @@ function(add_repository_policy_test test_name command_path)
     endif()
 endfunction()
 
+add_executable(inspection_contract_test
+               inspection_contract_test.cpp
+               ../core/inspection/inspection_contract.cpp)
+target_include_directories(inspection_contract_test PRIVATE ../core)
+add_test(NAME InspectionContract COMMAND inspection_contract_test)
+set_perastage_test_labels(InspectionContract
+                          LAYER perastage-extension
+                          DOMAINS architecture core)
 
 add_library(perastage_test_diagnostics STATIC
             ../core/apppaths.cpp
@@ -158,6 +166,7 @@ target_link_libraries(perastage_test_required_fixture_svg PUBLIC
 perastage_resolve_git_bash(RESOLVED_BASH_EXECUTABLE REQUIRED_FOR_TESTING)
 set(BASH_EXECUTABLE "${RESOLVED_BASH_EXECUTABLE}" CACHE FILEPATH "Resolved shell for repository policy tests" FORCE)
 if(BASH_EXECUTABLE)
+    add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
