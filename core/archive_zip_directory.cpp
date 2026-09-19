@@ -156,6 +156,7 @@ DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
         ReadLe32(central.data()) != kCentralDirectorySignature)
       return Fail(DirectoryReadStatus::Malformed);
     const std::uint16_t flags = ReadLe16(central.data() + 8);
+    const std::uint32_t uncompressedSize = ReadLe32(central.data() + 24);
     const std::uint16_t nameLength = ReadLe16(central.data() + 28);
     const std::uint16_t extraLength = ReadLe16(central.data() + 30);
     const std::uint16_t commentLength = ReadLe16(central.data() + 32);
@@ -165,6 +166,8 @@ DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
         46ULL + nameLength + extraLength + commentLength;
     if (startDisk != 0)
       return Fail(DirectoryReadStatus::MultiDiskUnsupported);
+    if (uncompressedSize == kZip64Uint32Sentinel)
+      return Fail(DirectoryReadStatus::Zip64Unsupported);
     if (nameLength == 0 || recordSize > centralEnd - cursor)
       return Fail(DirectoryReadStatus::Malformed);
     std::string centralName(nameLength, '\0');
@@ -190,8 +193,9 @@ DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
         localName != centralName)
       return Fail(DirectoryReadStatus::Malformed);
 
-    result.entries.push_back(
-        {std::move(centralName), (flags & (1U << 11)) != 0});
+    const bool directory = !centralName.empty() && centralName.back() == '/';
+    result.entries.push_back({std::move(centralName), (flags & (1U << 11)) != 0,
+                              uncompressedSize, directory});
     cursor += recordSize;
   }
   if (cursor != centralEnd)

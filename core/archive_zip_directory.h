@@ -19,6 +19,8 @@ enum class DirectoryReadStatus : std::uint8_t {
 struct DirectoryEntry {
   std::string bytes;
   bool utf8Flag = false;
+  std::uint64_t uncompressedSize = 0;
+  bool directory = false;
 };
 
 // Carries bounded classic-ZIP directory metadata or a structural failure.

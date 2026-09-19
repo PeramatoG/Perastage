@@ -63,7 +63,7 @@ expected_core_configuration='add_library(perastage_inspection_core STATIC ${CMAK
 target_compile_features(perastage_inspection_core PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} )
 target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core )
-target_link_libraries(perastage_inspection_package PUBLIC perastage_inspection_core PRIVATE perastage_archive_zip_directory ${_wx_base_libs} )
+target_link_libraries(perastage_inspection_package PUBLIC perastage_inspection_core PRIVATE perastage_archive_zip_directory )
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_archive_zip_directory perastage_inspection_core )'
 actual_core_configuration="$(inspection_statements "$core_cmake")"
 if [[ "$actual_core_configuration" != "$expected_core_configuration" ]]; then

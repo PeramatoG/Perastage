@@ -28,27 +28,12 @@ if(WIN32)
         list(APPEND _wx_libs wx::xml)
     endif()
     set(_wx_includes "")
-    set(_wx_base_libs wx::base)
     find_package(tinyxml2 CONFIG REQUIRED)
 else()
     find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext xml)
     include(${wxWidgets_USE_FILE})
     set(_wx_libs ${wxWidgets_LIBRARIES})
     set(_wx_includes ${wxWidgets_INCLUDE_DIRS})
-    if(TARGET wx::base)
-        set(_wx_base_libs wx::base)
-    else()
-        # FindwxWidgets does not expose component targets on every supported
-        # Unix package; wx-config's base-only link flags keep inspection free
-        # of GUI lifecycle dependencies in that compatibility path.
-        execute_process(
-            COMMAND "${wxWidgets_CONFIG_EXECUTABLE}" --libs base
-            OUTPUT_VARIABLE _wx_base_flags
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            COMMAND_ERROR_IS_FATAL ANY
-        )
-        separate_arguments(_wx_base_libs NATIVE_COMMAND "${_wx_base_flags}")
-    endif()
     find_package(tinyxml2 REQUIRED)
 endif()
 find_package(OpenGL REQUIRED)

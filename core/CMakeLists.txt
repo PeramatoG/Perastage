@@ -39,7 +39,7 @@ target_include_directories(perastage_inspection_package PUBLIC
 )
 target_link_libraries(perastage_inspection_package
     PUBLIC perastage_inspection_core
-    PRIVATE perastage_archive_zip_directory ${_wx_base_libs}
+    PRIVATE perastage_archive_zip_directory
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

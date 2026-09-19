@@ -49,6 +49,8 @@ inline constexpr char EmptyInputPath[] = "input.empty_path";
 inline constexpr char UnsupportedFileType[] = "input.unsupported_file_type";
 inline constexpr char OpenFailed[] = "package.open_failed";
 inline constexpr char MalformedArchive[] = "package.malformed_archive";
+inline constexpr char UnsupportedZipStructure[] =
+    "package.unsupported_zip_structure";
 inline constexpr char UnsafeEntryPath[] = "package.unsafe_entry_path";
 inline constexpr char FilenameDecodeFailed[] = "package.filename_decode_failed";
 inline constexpr char UnexpectedReadFailure[] =

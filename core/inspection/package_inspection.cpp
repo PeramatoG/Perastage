@@ -2,15 +2,10 @@
 
 #include "archive_entry_path.h"
 #include "archive_zip_directory.h"
-#include "wx_path_utils.h"
 
 #include <algorithm>
 #include <cctype>
 #include <exception>
-#include <memory>
-
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
 
 namespace perastage::inspection {
 namespace {
@@ -78,33 +73,28 @@ bool ReadInventory(PackageInspectionResult &result,
                    PackageInventory &inventory) {
   const archive::zip::DirectoryReadResult directory =
       archive::zip::ReadDirectory(result.inspection.request.sourcePath);
-  if (!directory.Success()) {
-    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
-                  package_diagnostic_codes::MalformedArchive,
-                  "The ZIP package directory could not be read.");
-    return false;
-  }
-  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(
-      result.inspection.request.sourcePath));
-  if (!input.IsOk()) {
+  if (directory.status == archive::zip::DirectoryReadStatus::OpenFailed) {
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
                   package_diagnostic_codes::OpenFailed,
                   "The input package could not be opened for reading.");
     return false;
   }
+  if (directory.status == archive::zip::DirectoryReadStatus::Malformed) {
+    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+                  package_diagnostic_codes::MalformedArchive,
+                  "The ZIP package directory could not be read.");
+    return false;
+  }
+  if (!directory.Success()) {
+    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+                  package_diagnostic_codes::UnsupportedZipStructure,
+                  "The ZIP package uses a structure that package inspection "
+                  "does not currently support.");
+    return false;
+  }
 
-  wxZipInputStream zip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  std::size_t entryIndex = 0;
-  while ((entry.reset(zip.GetNextEntry())), entry) {
-    if (entryIndex >= directory.entries.size()) {
-      AddDiagnostic(result, DiagnosticSeverity::Fatal,
-                    DiagnosticDomain::Package,
-                    package_diagnostic_codes::MalformedArchive,
-                    "The ZIP entry inventory is inconsistent.");
-      return false;
-    }
-    const std::string &rawName = directory.entries[entryIndex++].bytes;
+  for (const archive::zip::DirectoryEntry &entry : directory.entries) {
+    const std::string &rawName = entry.bytes;
     if (!archive::zip::IsValidUtf8(rawName)) {
       AddDiagnostic(result, DiagnosticSeverity::Error,
                     DiagnosticDomain::Package,
@@ -133,28 +123,10 @@ bool ReadInventory(PackageInspectionResult &result,
     }
 
     item.type =
-        entry->IsDir() ? PackageEntryType::Directory : PackageEntryType::File;
-    const wxFileOffset size = entry->GetSize();
-    if (size != wxInvalidOffset && size >= 0) {
-      item.uncompressedSize = static_cast<std::uint64_t>(size);
-      item.sizeKnown = true;
-    }
+        entry.directory ? PackageEntryType::Directory : PackageEntryType::File;
+    item.uncompressedSize = entry.uncompressedSize;
+    item.sizeKnown = true;
     inventory.entries.push_back(std::move(item));
-  }
-
-  if (entryIndex != directory.entries.size()) {
-    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
-                  package_diagnostic_codes::MalformedArchive,
-                  "The ZIP entry inventory is incomplete.");
-    return false;
-  }
-
-  if (zip.GetLastError() != wxSTREAM_EOF &&
-      zip.GetLastError() != wxSTREAM_NO_ERROR) {
-    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
-                  package_diagnostic_codes::MalformedArchive,
-                  "The ZIP package directory could not be read completely.");
-    return false;
   }
   return true;
 }

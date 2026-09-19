@@ -1,28 +1,18 @@
 #include "inspection/package_inspection.h"
 
-#include "wx_path_utils.h"
+#include "support/archive_entry_test_utils.h"
 
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <string>
-#include <utility>
 #include <vector>
-
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
 using namespace perastage::inspection;
 
 namespace {
-struct EntryData {
-  std::string name;
-  std::string contents;
-  bool directory = false;
-};
-
 // Converts a UTF-8 literal to std::string without execution-encoding
 // dependence.
 std::string Utf8(const char8_t *value) {
@@ -30,46 +20,19 @@ std::string Utf8(const char8_t *value) {
   return std::string(text.begin(), text.end());
 }
 
-// Writes an ordered synthetic ZIP package through the production archive
-// dependency.
-void WritePackage(const fs::path &path, const std::vector<EntryData> &entries) {
-  wxFileOutputStream output(WxPathUtils::WxStringFromFilesystemPath(path));
-  assert(output.IsOk());
-  wxZipOutputStream zip(output);
-  for (const EntryData &entry : entries) {
-    assert(zip.PutNextEntry(wxString::FromUTF8(entry.name)));
-    if (!entry.directory)
-      zip.Write(entry.contents.data(), entry.contents.size());
-    assert(zip.CloseEntry());
-  }
-  assert(zip.Close());
+// Writes one deterministic classic ZIP with byte-exact raw entry names.
+void WritePackage(
+    const fs::path &path,
+    const std::vector<std::pair<std::string, std::string>> &entries) {
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error));
+  assert(error.empty());
 }
 
 // Reads a file as bytes for source-package non-mutation checks.
 std::vector<unsigned char> ReadBytes(const fs::path &path) {
   std::ifstream input(path, std::ios::binary);
   return {std::istreambuf_iterator<char>(input), {}};
-}
-
-// Replaces equal-length ZIP filename bytes in local and central records.
-void ReplaceArchiveNameBytes(const fs::path &path, const std::string &from,
-                             const std::string &to) {
-  assert(from.size() == to.size());
-  std::vector<unsigned char> bytes = ReadBytes(path);
-  const std::vector<unsigned char> needle(from.begin(), from.end());
-  std::size_t replacements = 0;
-  for (auto found = std::search(bytes.begin(), bytes.end(), needle.begin(),
-                                needle.end());
-       found != bytes.end();
-       found = std::search(found + to.size(), bytes.end(), needle.begin(),
-                           needle.end())) {
-    std::copy(to.begin(), to.end(), found);
-    ++replacements;
-  }
-  assert(replacements == 2);
-  std::ofstream output(path, std::ios::binary | std::ios::trunc);
-  output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
-  assert(output.good());
 }
 
 // Truncates trailing ZIP directory bytes for deterministic malformed input.
@@ -90,6 +53,19 @@ void PatchZip64EntryCountSentinel(const fs::path &path) {
                                  signature.end());
   assert(found != bytes.end() && bytes.end() - found >= 22);
   found[8] = found[9] = found[10] = found[11] = 0xff;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+  assert(output.good());
+}
+
+// Marks the EOCD as a split archive without changing its bounded structure.
+void PatchMultiDiskSentinel(const fs::path &path) {
+  std::vector<unsigned char> bytes = ReadBytes(path);
+  const std::vector<unsigned char> signature{0x50, 0x4b, 0x05, 0x06};
+  const auto found = std::search(bytes.begin(), bytes.end(), signature.begin(),
+                                 signature.end());
+  assert(found != bytes.end() && bytes.end() - found >= 22);
+  found[4] = 1;
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
   assert(output.good());
@@ -118,7 +94,7 @@ bool HasCode(const PackageInspectionResult &result, const std::string &code) {
 void TestGdtfInventory(const fs::path &root) {
   const fs::path path = root / "fixture.GDTF";
   WritePackage(path, {{"description.xml", "<GDTF/>"},
-                      {"models/", {}, true},
+                      {"models/", {}},
                       {"models/body.glb", "model"}});
   const std::vector<unsigned char> before = ReadBytes(path);
   const PackageInspectionResult result = InspectPackage(path);
@@ -208,17 +184,27 @@ void TestMalformedSupportedInput(const fs::path &root) {
   PatchZip64EntryCountSentinel(zip64);
   const PackageInspectionResult zip64Result = InspectPackage(zip64);
   assert(!zip64Result.inventory);
-  assert(HasCode(zip64Result, package_diagnostic_codes::MalformedArchive));
+  assert(
+      HasCode(zip64Result, package_diagnostic_codes::UnsupportedZipStructure));
+  assert(!HasCode(zip64Result, package_diagnostic_codes::MalformedArchive));
+
+  const fs::path multiDisk = root / "multi-disk.gdtf";
+  WritePackage(multiDisk, {{"description.xml", "<GDTF/>"}});
+  PatchMultiDiskSentinel(multiDisk);
+  const PackageInspectionResult multiDiskResult = InspectPackage(multiDisk);
+  assert(!multiDiskResult.inventory);
+  assert(HasCode(multiDiskResult,
+                 package_diagnostic_codes::UnsupportedZipStructure));
+  assert(!HasCode(multiDiskResult, package_diagnostic_codes::MalformedArchive));
 }
 
 // Verifies invalid raw UTF-8 is diagnosed without trusting the damaged name.
 void TestInvalidFilenameEncoding(const fs::path &root) {
   const fs::path path = root / "invalid-name.gdtf";
-  WritePackage(path, {{"description.xml", "<GDTF/>"},
-                      {"bad-x.bin", "invalid"},
-                      {"models/body.glb", "safe"}});
   const std::string invalidName("bad-\xc3.bin", 9);
-  ReplaceArchiveNameBytes(path, "bad-x.bin", invalidName);
+  WritePackage(path, {{"description.xml", "<GDTF/>"},
+                      {invalidName, "invalid"},
+                      {"models/body.glb", "safe"}});
 
   const PackageInspectionResult first = InspectPackage(path);
   const PackageInspectionResult second = InspectPackage(path);
@@ -243,15 +229,11 @@ void TestUnsafeEntryPaths(const fs::path &root) {
   const std::vector<std::string> unsafeNames = {
       "../escape.bin", "folder/../../escape.bin", "/absolute.bin",
       "C:/absolute.bin", "..\\escape.bin"};
-  std::vector<EntryData> entries{{"description.xml", "<GDTF/>"}};
-  for (const std::string &name : unsafeNames) {
-    if (name == "/absolute.bin")
-      continue;
+  std::vector<std::pair<std::string, std::string>> entries{
+      {"description.xml", "<GDTF/>"}};
+  for (const std::string &name : unsafeNames)
     entries.push_back({name, "unsafe"});
-  }
-  entries.push_back({"xabsolute.bin", "unsafe"});
   WritePackage(path, entries);
-  ReplaceArchiveNameBytes(path, "xabsolute.bin", "/absolute.bin");
 
   const PackageInspectionResult result = InspectPackage(path);
   assert(result.inventory);
