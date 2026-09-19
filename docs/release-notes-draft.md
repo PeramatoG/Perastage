@@ -22,7 +22,7 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Established an architecture-guarded, GUI-independent, read-only inspection contract for future file-analysis tools and frontends.
+- Established a cross-platform architecture guard for the GUI-independent, read-only inspection contract used by future file-analysis tools and frontends.
 
 - Added a concise maintainer runbook that routes routine operations, recovery, and external-service dependencies to their canonical repository procedures.
 

@@ -17,13 +17,8 @@ validate_includes() {
   local include
   local allowed
   local accepted
-  local -a includes=()
 
-  mapfile -t includes < <(
-    rg -o '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"][^>"]+[>"]' "$file" |
-      sed -E 's/^[[:space:]]*#[[:space:]]*include[[:space:]]*//'
-  )
-  for include in "${includes[@]}"; do
+  while IFS= read -r include; do
     accepted=false
     for allowed in "$@"; do
       if [[ "$include" == "$allowed" ]]; then
@@ -35,7 +30,10 @@ validate_includes() {
       echo "Unexpected include in $file: $include" >&2
       return 1
     fi
-  done
+  done < <(
+    rg -o '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"][^>"]+[>"]' "$file" |
+      sed -E 's/^[[:space:]]*#[[:space:]]*include[[:space:]]*//'
+  )
 }
 
 # Every permitted dependency is explicit so a new project include requires review.
