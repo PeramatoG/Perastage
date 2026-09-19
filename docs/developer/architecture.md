@@ -200,11 +200,22 @@ Inventory entries retain the decoded archive spelling for display. A separate
 forward-slash normalized identity is published only when the entry is a safe
 archive-relative path. Empty, absolute, drive/root-style, colon-bearing, and
 `..` traversal identities (including traversal written with backslashes) stay
-visible but are marked unusable and diagnosed. The deterministic ceiling of
-65,535 entries and 64 KiB per entry name is Perastage inventory safety policy
-rather than a DIN conformance rule. This layer exposes only the presence of the canonical
+visible but are marked unusable and diagnosed. Classic ZIP field widths bound
+metadata allocations; ZIP64 and multi-disk packages are rejected
+deterministically rather than interpreting sentinel values as offsets. This
+layer exposes only the presence of the canonical
 root filename; GDTF and MVR XML semantics remain deferred to INS-110 and
 INS-120, and conformance findings remain deferred to INS-130.
+
+The standard-library-only `perastage_archive_zip_directory` static library owns
+bounded classic-ZIP directory mechanics shared by package inspection and the
+existing GDTF reader: EOCD lookup with comment validation, single-disk and
+ZIP64 checks, central-directory bounds, local/central filename consistency,
+raw filename bytes, UTF-8 flags, and entry order. GDTF retains its compatibility
+decoding and diagnostics. The stricter layout-package preflight remains local
+because it combines these mechanics with layout-specific canonical-path and
+entry-count policy; migrating it is intentionally deferred to avoid changing
+layout import behavior in INS-100.
 
 The standards baseline is the current stable DIN SPEC 15800:2022-02 / GDTF
 1.2 and DIN SPEC 15801:2023-12 / MVR 1.6 package format. INS-100 uses only

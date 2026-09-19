@@ -72,6 +72,29 @@ void ReplaceArchiveNameBytes(const fs::path &path, const std::string &from,
   assert(output.good());
 }
 
+// Truncates trailing ZIP directory bytes for deterministic malformed input.
+void TruncateBytes(const fs::path &path, std::size_t count) {
+  std::vector<unsigned char> bytes = ReadBytes(path);
+  assert(bytes.size() > count);
+  bytes.resize(bytes.size() - count);
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+  assert(output.good());
+}
+
+// Replaces the classic EOCD entry count with the ZIP64 sentinel value.
+void PatchZip64EntryCountSentinel(const fs::path &path) {
+  std::vector<unsigned char> bytes = ReadBytes(path);
+  const std::vector<unsigned char> signature{0x50, 0x4b, 0x05, 0x06};
+  const auto found = std::search(bytes.begin(), bytes.end(), signature.begin(),
+                                 signature.end());
+  assert(found != bytes.end() && bytes.end() - found >= 22);
+  found[8] = found[9] = found[10] = found[11] = 0xff;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+  assert(output.good());
+}
+
 // Finds an inventory entry by its original display spelling.
 const PackageEntry *FindEntry(const PackageInventory &inventory,
                               const std::string &displayPath) {
@@ -169,6 +192,49 @@ void TestMalformedSupportedInput(const fs::path &root) {
   assert(!result.inventory);
   assert(HasCode(result, package_diagnostic_codes::MalformedArchive));
   assert(!HasCode(result, package_diagnostic_codes::UnsupportedFileType));
+
+  const fs::path truncated = root / "truncated.gdtf";
+  WritePackage(truncated, {{"description.xml", "<GDTF/>"}});
+  TruncateBytes(truncated, 8);
+  const PackageInspectionResult truncatedResult = InspectPackage(truncated);
+  assert(!truncatedResult.inventory);
+  assert(HasCode(truncatedResult, package_diagnostic_codes::MalformedArchive));
+  assert(
+      !HasCode(truncatedResult, package_diagnostic_codes::UnsupportedFileType));
+
+  const fs::path zip64 = root / "zip64.mvr";
+  WritePackage(zip64,
+               {{"GeneralSceneDescription.xml", "<GeneralSceneDescription/>"}});
+  PatchZip64EntryCountSentinel(zip64);
+  const PackageInspectionResult zip64Result = InspectPackage(zip64);
+  assert(!zip64Result.inventory);
+  assert(HasCode(zip64Result, package_diagnostic_codes::MalformedArchive));
+}
+
+// Verifies invalid raw UTF-8 is diagnosed without trusting the damaged name.
+void TestInvalidFilenameEncoding(const fs::path &root) {
+  const fs::path path = root / "invalid-name.gdtf";
+  WritePackage(path, {{"description.xml", "<GDTF/>"},
+                      {"bad-x.bin", "invalid"},
+                      {"models/body.glb", "safe"}});
+  const std::string invalidName("bad-\xc3.bin", 9);
+  ReplaceArchiveNameBytes(path, "bad-x.bin", invalidName);
+
+  const PackageInspectionResult first = InspectPackage(path);
+  const PackageInspectionResult second = InspectPackage(path);
+  assert(first.inventory && second.inventory);
+  assert(HasCode(first, package_diagnostic_codes::FilenameDecodeFailed));
+  assert(HasCode(second, package_diagnostic_codes::FilenameDecodeFailed));
+  assert(FindEntry(*first.inventory, "description.xml"));
+  assert(FindEntry(*first.inventory, "models/body.glb"));
+  assert(std::none_of(first.inventory->entries.begin(),
+                      first.inventory->entries.end(),
+                      [&](const PackageEntry &entry) {
+                        return entry.normalizedPath == invalidName;
+                      }));
+  assert(first.inventory->entries.size() == second.inventory->entries.size());
+  assert(first.inspection.diagnostics.size() ==
+         second.inspection.diagnostics.size());
 }
 
 // Verifies unsafe names remain visible but never become trusted identities.
@@ -214,6 +280,7 @@ int main() {
   TestMvrInventoryAndUnicode(root);
   TestUnsupportedInputs(root);
   TestMalformedSupportedInput(root);
+  TestInvalidFilenameEncoding(root);
   TestUnsafeEntryPaths(root);
   fs::remove_all(root, error);
   return 0;

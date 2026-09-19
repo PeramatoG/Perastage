@@ -90,7 +90,9 @@ vendored JSON dependency remains private. Core also owns the focused
 `perastage_inspection_package` static library. It classifies `.gdtf` and `.mvr`
 paths and inventories ZIP entry metadata without extraction or XML parsing;
 its standard-C++ public interface keeps the wxWidgets base/archive dependency
-private. `tests/` is added conditionally when
+private. The narrow, standard-library-only `perastage_archive_zip_directory`
+static library gives package inspection and the existing GDTF reader one owner
+for bounded raw classic-ZIP directory mechanics. `tests/` is added conditionally when
 testing is enabled. No recursive project-source discovery is used.
 
 The application-bootstrap boundary in [Architecture](architecture.md#application-bootstrap-ownership-org-030033)

@@ -8,6 +8,7 @@ core_cmake="$repo_root/core/CMakeLists.txt"
 tests_cmake="$repo_root/tests/CMakeLists.txt"
 header="$repo_root/core/inspection/package_inspection.h"
 source_file="$repo_root/core/inspection/package_inspection.cpp"
+zip_source="$repo_root/core/archive_zip_directory.cpp"
 
 owner_count="$(rg -l 'inspection/package_inspection\.cpp' "$repo_root"/*/CMakeLists.txt | wc -l | tr -d ' ')"
 if [[ "$owner_count" != "1" ]]; then
@@ -19,8 +20,21 @@ if ! rg -Uq 'add_library\(perastage_inspection_package STATIC[[:space:]]+\$\{CMA
   echo "perastage_inspection_package must be a focused static library." >&2
   exit 1
 fi
-if ! rg -Uq 'target_link_libraries\(perastage_inspection_package[[:space:]]+PUBLIC perastage_inspection_core[[:space:]]+PRIVATE \$\{_wx_base_libs\}' "$core_cmake"; then
+if ! rg -Uq 'target_link_libraries\(perastage_inspection_package[[:space:]]+PUBLIC perastage_inspection_core[[:space:]]+PRIVATE perastage_archive_zip_directory \$\{_wx_base_libs\}' "$core_cmake"; then
   echo "Package inspection must expose Core and keep wx base private." >&2
+  exit 1
+fi
+zip_owner_count="$(rg -l 'archive_zip_directory\.cpp' "$repo_root"/*/CMakeLists.txt | wc -l | tr -d ' ')"
+if [[ "$zip_owner_count" != "1" ]]; then
+  echo "archive_zip_directory.cpp must have exactly one production owner." >&2
+  exit 1
+fi
+if rg -n 'wx/|wxString|inspection/' "$repo_root/core/archive_zip_directory.h" "$zip_source"; then
+  echo "Raw ZIP directory metadata must remain standard-library-only." >&2
+  exit 1
+fi
+if rg -n 'ReadLe(16|32)|06054b50|02014b50' "$source_file"; then
+  echo "Package inspection must consume rather than duplicate raw ZIP mechanics." >&2
   exit 1
 fi
 if ! rg -Uq 'target_link_libraries\(package_inspection_test PRIVATE[[:space:]]+perastage_inspection_package' "$tests_cmake"; then

@@ -51,8 +51,6 @@ inline constexpr char OpenFailed[] = "package.open_failed";
 inline constexpr char MalformedArchive[] = "package.malformed_archive";
 inline constexpr char UnsafeEntryPath[] = "package.unsafe_entry_path";
 inline constexpr char FilenameDecodeFailed[] = "package.filename_decode_failed";
-inline constexpr char InventoryLimitExceeded[] =
-    "package.inventory_limit_exceeded";
 inline constexpr char UnexpectedReadFailure[] =
     "package.unexpected_read_failure";
 } // namespace package_diagnostic_codes
