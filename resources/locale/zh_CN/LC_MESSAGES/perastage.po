@@ -57,8 +57,8 @@ msgid "License"
 msgstr "许可证"
 
 #: gui/about_dialog.cpp:152
-msgid "This software is licensed under the GNU General Public License v3.0."
-msgstr "本软件采用 GNU 通用公共许可证 v3.0 授权。"
+msgid "This software is licensed under the GNU General Public License version 3 or later."
+msgstr "本软件采用 GNU 通用公共许可证第 3 版或更高版本授权。"
 
 #: gui/about_dialog.cpp:153
 msgid "Author"

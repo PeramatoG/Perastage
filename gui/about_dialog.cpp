@@ -149,7 +149,7 @@ wxSizer *CreateAboutContent(wxDialog *dialog) {
 
   AddSection(
       dialog, contentSizer, _("License"),
-      _("This software is licensed under the GNU General Public License v3.0."));
+      _("This software is licensed under the GNU General Public License version 3 or later."));
   AddSection(dialog, contentSizer, _("Author"), wxString::FromUTF8("Luisma Peramato"));
   AddSection(
       dialog, contentSizer, _("Open-source software notice"),

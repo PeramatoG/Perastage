@@ -1,7 +1,7 @@
 /*
  * This file is part of Perastage.
  * Copyright (C) 2025 Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: Panel-owned OpenGL overlay rendering for the 2D viewer.
  */
 

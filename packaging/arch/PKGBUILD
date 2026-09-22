@@ -107,7 +107,7 @@ package() {
 
   install -d "$pkgdir/usr/share/licenses/$pkgname"
   ln -s /opt/perastage/LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
-  ln -s /opt/perastage/THIRD_PARTY_LICENSES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_LICENSES.md"
+  ln -s /opt/perastage/THIRD_PARTY_NOTICES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_NOTICES.md"
 
   test -x "$pkgdir/opt/perastage/Perastage"
   test -d "$pkgdir/opt/perastage/resources"

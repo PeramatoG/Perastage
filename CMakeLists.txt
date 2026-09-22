@@ -227,6 +227,7 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
+include(cmake/PerastageVcpkgNotices.cmake)
 include(cmake/PerastageInstall.cmake)
 include(cmake/PerastageRuntimeStaging.cmake)
 include(cmake/PerastagePackaging.cmake)

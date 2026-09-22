@@ -18,7 +18,7 @@
 /*
  * File: viewer3dcamera.h
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: Orbital camera for 3D navigation around a target point.
  */
 

@@ -18,7 +18,7 @@
 /*
  * File: viewer3dcontroller.h
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: Controller class for 3D viewer logic and state.
  */
 

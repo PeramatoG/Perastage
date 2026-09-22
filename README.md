@@ -14,7 +14,7 @@
   <img alt="wxWidgets" src="https://img.shields.io/badge/wxWidgets-3.3.1-green?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square">
   <a href="https://github.com/PeramatoG/Perastage/blob/main/LICENSE.txt">
-    <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square">
+    <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue?style=flat-square">
   </a>
 </p>
 
@@ -106,7 +106,7 @@ This is particularly useful for keeping Perastage as compatible and practical as
 
 ## License
 
-Perastage is distributed under the GNU General Public License v3.0. See [LICENSE.txt](LICENSE.txt).
+Perastage is distributed under the GNU General Public License version 3 or later (`GPL-3.0-or-later`). See [LICENSE.txt](LICENSE.txt).
 
 ## Author
 

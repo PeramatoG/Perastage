@@ -35,6 +35,7 @@ def main() -> int:
         "cmake/PerastageDependencies.cmake",
         "cmake/PerastageLocalization.cmake",
         "cmake/platform/PerastagePlatform.cmake",
+        "cmake/PerastageVcpkgNotices.cmake",
         "cmake/PerastageInstall.cmake",
         "cmake/PerastageRuntimeStaging.cmake",
         "cmake/PerastagePackaging.cmake",
