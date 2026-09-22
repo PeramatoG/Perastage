@@ -27,12 +27,36 @@ if(WIN32)
     if(TARGET wx::xml)
         list(APPEND _wx_libs wx::xml)
     endif()
+    if(NOT TARGET wx::base)
+        message(FATAL_ERROR "The configured wxWidgets package does not provide the required wx::base target.")
+    endif()
+    set(_wx_base_libs wx::base)
     set(_wx_includes "")
     find_package(tinyxml2 CONFIG REQUIRED)
 else()
     find_package(wxWidgets REQUIRED COMPONENTS core base aui gl html richtext xml)
     include(${wxWidgets_USE_FILE})
     set(_wx_libs ${wxWidgets_LIBRARIES})
+    if(NOT wxWidgets_CONFIG_EXECUTABLE)
+        message(FATAL_ERROR "wxWidgets base linkage requires the wx-config executable selected by FindwxWidgets.")
+    endif()
+    execute_process(
+        COMMAND sh "${wxWidgets_CONFIG_EXECUTABLE}"
+                ${wxWidgets_SELECT_OPTIONS} --libs base
+        OUTPUT_VARIABLE _wx_base_libs
+        RESULT_VARIABLE _wx_base_result
+        ERROR_VARIABLE _wx_base_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT _wx_base_result EQUAL 0)
+        message(FATAL_ERROR
+            "Could not resolve wxWidgets base libraries from the selected wx-config: ${_wx_base_error}")
+    endif()
+    separate_arguments(_wx_base_libs NATIVE_COMMAND "${_wx_base_libs}")
+    string(REPLACE "-framework;" "-framework " _wx_base_libs "${_wx_base_libs}")
+    string(REPLACE "-weak_framework;" "-weak_framework " _wx_base_libs "${_wx_base_libs}")
+    string(REPLACE "-arch;" "-arch " _wx_base_libs "${_wx_base_libs}")
+    string(REPLACE "-isysroot;" "-isysroot " _wx_base_libs "${_wx_base_libs}")
     set(_wx_includes ${wxWidgets_INCLUDE_DIRS})
     find_package(tinyxml2 REQUIRED)
 endif()

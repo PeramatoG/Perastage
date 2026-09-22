@@ -45,7 +45,7 @@ target_include_directories(perastage_gdtf_read PUBLIC
 )
 target_link_libraries(perastage_gdtf_read
     PUBLIC perastage_archive_zip_directory
-    PRIVATE tinyxml2::tinyxml2 ${_wx_libs}
+    PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
 add_library(perastage_inspection_gdtf STATIC
@@ -71,10 +71,7 @@ target_link_libraries(perastage_inspection_package
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    perastage_archive_zip_directory
     perastage_gdtf_read
-    perastage_inspection_gdtf
-    perastage_inspection_core
 )
 
 target_sources(${PROJECT_NAME} PRIVATE

@@ -9,7 +9,6 @@ tests_cmake="$repo_root/tests/CMakeLists.txt"
 header="$repo_root/core/inspection/package_inspection.h"
 source_file="$repo_root/core/inspection/package_inspection.cpp"
 zip_source="$repo_root/core/archive_zip_directory.cpp"
-dependencies_cmake="$repo_root/cmake/PerastageDependencies.cmake"
 
 owner_count="$(rg -l 'inspection/package_inspection\.cpp' "$repo_root"/*/CMakeLists.txt | wc -l | tr -d ' ')"
 if [[ "$owner_count" != "1" ]]; then
@@ -54,8 +53,9 @@ if rg -n 'wx/|wx[A-Z]|wxIMPLEMENT_APP|wxTheApp' "$source_file"; then
   echo "Package inspection implementation must remain independent of wxWidgets." >&2
   exit 1
 fi
-if rg -n '_wx_base_libs' "$core_cmake" "$dependencies_cmake"; then
-  echo "Package inspection must not introduce wx base-only link plumbing." >&2
+package_link_block="$(sed -n '/target_link_libraries(perastage_inspection_package/,/^)/p' "$core_cmake")"
+if printf '%s\n' "$package_link_block" | rg -n '_wx_(base_)?libs|wx::'; then
+  echo "Package inspection must remain independent of every wx dependency." >&2
   exit 1
 fi
 if rg -n 'wx/|wx[A-Z]' "$repo_root/tests/package_inspection_test.cpp"; then

@@ -161,8 +161,9 @@ readers and format-specific inspection services remain separate from it.
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes
 the `core/` include root, and requires C++20; it has no wxWidgets or other
-third-party link dependency. The Perastage application and the focused
-`InspectionContract` executable both link this one production implementation.
+third-party link dependency. The focused inspection services and
+`InspectionContract` executable link this one production implementation. The
+application will link it when a production inspection frontend is introduced.
 The focused target is intentionally not a general Core library or a migration
 of MVR and GDTF code. It may grow only when a concrete inspection service
 requires another reviewed dependency.
@@ -183,11 +184,13 @@ foundation. Viewer and App sources are not dependencies of this target.
 INS-110 adds `perastage_gdtf_read` as the single production owner of
 `gdtf_archive_reader.cpp`, `gdtf_description_reader.cpp`, and
 `gdtf/editor/gdtf_document.cpp`. The application and the focused
-`perastage_inspection_gdtf` target consume that implementation. The read target
-keeps tinyxml2 and the existing wxWidgets archive/base facilities private; its
-public headers expose only standard C++ and immutable GDTF read models. Where
-current dependency discovery cannot express a base-only wx target, the
-aggregate wx link list remains a temporary private implementation dependency.
+`perastage_inspection_gdtf` target independently consume that implementation;
+the inspection service is not linked into the application until a real
+frontend consumes it. The read target keeps tinyxml2 and wxWidgets base/archive
+facilities private, using `wx::base` with config packages and base-only flags
+from the already-selected `wx-config` on Linux and macOS. Its public headers
+expose only standard C++ and immutable GDTF read models. The application's
+existing aggregate wx GUI dependency list remains unchanged.
 
 `perastage_inspection_gdtf` composes INS-100 package inventory with
 `LoadGdtfDocument`. The existing archive snapshot exposes the selected raw
