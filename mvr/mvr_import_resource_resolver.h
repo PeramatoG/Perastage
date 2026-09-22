@@ -10,6 +10,7 @@
 #pragma once
 
 #include "gdtfdictionary.h"
+#include "mvr_scene_node_reader.h"
 #include "truss.h"
 
 #include <filesystem>
@@ -20,15 +21,6 @@
 #include <vector>
 
 namespace mvr {
-
-struct ImportGdtfMetadata {
-  std::string fixtureName;
-  std::string manufacturer;
-  std::string fixtureTypeId;
-  float weightKg = 0.0f;
-  float powerW = 0.0f;
-  bool hasProperties = false;
-};
 
 class MvrImportResourceResolver {
 public:
@@ -77,5 +69,10 @@ private:
   const std::string emptyPath_;
   const ImportGdtfMetadata emptyMetadata_;
 };
+
+// Adapts the application resource resolver to scene-reader callbacks.
+MvrSceneResourceServices
+MakeSceneResourceServices(MvrImportResourceResolver &resolver);
+MvrSceneReadServices::ModelServices MakeApplicationSceneModelServices();
 
 } // namespace mvr

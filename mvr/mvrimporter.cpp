@@ -25,6 +25,7 @@
 #include "mvr_import_project_application.h"
 #include "mvr_import_reference_resolver.h"
 #include "mvr_import_resource_resolver.h"
+#include "mvr_read_service.h"
 #include "mvr_scene_node_reader.h"
 #ifdef PERASTAGE_ENABLE_MVR_GDTF_DOWNLOAD_API
 #include "credentialstore.h"
@@ -91,10 +92,7 @@
 #include <utility>
 #include <vector>
 
-// TinyXML2
 #include <tinyxml2.h>
-
-// wxWidgets zip support
 #include <wx/filename.h>
 #include <wx/intl.h>
 #include <wx/listctrl.h>
@@ -222,8 +220,6 @@ static bool TryParseFloat(const std::string &text, float &out) {
   return false;
 }
 
-
-
 static std::string CieToHex(const std::string &cie) {
   std::string t = cie;
   std::replace(t.begin(), t.end(), ',', ' ');
@@ -255,9 +251,6 @@ static std::string CieToHex(const std::string &cie) {
   return os.str();
 }
 
-// Helper to log errors both to stderr and the application's console panel.
-// Log a message to both the log file and the application's console panel.
-// Console updates are queued to the GUI thread to avoid blocking.
 // Describes the import source kind for diagnostic logging.
 static const char *DescribeMvrImportSourceKind(MvrImportSourceKind sourceKind) {
   switch (sourceKind) {
@@ -615,8 +608,14 @@ bool MvrImporter::ImportFromStreamIntoResult(
   pathRemap = package->pathRemap;
   const std::string scenePath = ToString(package->sceneXmlPath.u8string());
   reportProgress("Parsing scene data...");
-  const bool parsed =
-      ParseSceneXml(scenePath, importResult, options, progressCallback);
+  auto readProgress = [&](std::string stage, int completed, int total) {
+    reportProgress(std::move(stage), completed, total);
+  };
+  const bool parsed = !options.applyDictionary
+                          ? mvr::ReadAcquiredMvrPackage(*package, importResult,
+                                                       options, readProgress)
+                          : ParseSceneXml(scenePath, importResult, options,
+                                          progressCallback);
   if (!parsed)
     return false;
 
@@ -1481,7 +1480,8 @@ bool MvrImporter::ParseSceneXml(const std::string &sceneXmlPath,
   };
   std::unordered_map<std::string, GdtfConflict> pendingGdtfConflictByType;
   mvr::MvrSceneReadServices sceneReadServices{
-      resources,
+      mvr::MakeSceneResourceServices(resources),
+      mvr::MakeApplicationSceneModelServices(),
       textOf,
       intOf,
       fixtureIdOf,

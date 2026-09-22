@@ -29,20 +29,13 @@ std::uint32_t ReadLe32(const unsigned char *bytes) {
          (static_cast<std::uint32_t>(bytes[3]) << 24);
 }
 
-// Reads an exact bounded byte range without allocating from ZIP offsets.
-bool ReadBytes(std::ifstream &input, std::uint64_t offset, void *buffer,
-               std::size_t size) {
-  if (offset > static_cast<std::uint64_t>(
-                   std::numeric_limits<std::streamoff>::max()) ||
-      size >
-          static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max()))
+// Copies one exact bounded byte range from an in-memory archive.
+bool ReadBytes(std::span<const std::uint8_t> input, std::uint64_t offset,
+               void *buffer, std::size_t size) {
+  if (offset > input.size() || size > input.size() - offset)
     return false;
-  input.clear();
-  input.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
-  if (!input.good())
-    return false;
-  input.read(static_cast<char *>(buffer), static_cast<std::streamsize>(size));
-  return input.gcount() == static_cast<std::streamsize>(size);
+  std::copy_n(input.data() + offset, size, static_cast<std::uint8_t *>(buffer));
+  return true;
 }
 
 // Locates the real EOCD by requiring its comment to end at the file boundary.
@@ -108,16 +101,11 @@ bool IsValidUtf8(const std::string &text) {
   return true;
 }
 
-// Reads bounded, structurally validated classic-ZIP central-directory metadata.
-DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
-  std::ifstream input(archivePath, std::ios::binary);
-  if (!input.is_open())
-    return Fail(DirectoryReadStatus::OpenFailed);
-  input.seekg(0, std::ios::end);
-  const std::streamoff endPosition = input.tellg();
-  if (endPosition < 22)
+// Reads bounded directory metadata from an owned byte view.
+DirectoryReadResult ReadDirectory(std::span<const std::uint8_t> input) {
+  if (input.size() < 22)
     return Fail(DirectoryReadStatus::Malformed);
-  const std::uint64_t fileSize = static_cast<std::uint64_t>(endPosition);
+  const std::uint64_t fileSize = input.size();
   const std::size_t tailSize = static_cast<std::size_t>(
       std::min<std::uint64_t>(fileSize, kMaximumEocdSize));
   std::vector<unsigned char> tail(tailSize);
@@ -201,6 +189,24 @@ DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
   if (cursor != centralEnd)
     return Fail(DirectoryReadStatus::Malformed);
   return result;
+}
+
+// Reads bounded directory metadata from a filesystem archive.
+DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
+  std::ifstream input(archivePath, std::ios::binary);
+  if (!input.is_open())
+    return Fail(DirectoryReadStatus::OpenFailed);
+  input.seekg(0, std::ios::end);
+  const std::streamoff end = input.tellg();
+  if (end < 0)
+    return Fail(DirectoryReadStatus::Malformed);
+  input.seekg(0, std::ios::beg);
+  std::vector<std::uint8_t> bytes(static_cast<std::size_t>(end));
+  if (!bytes.empty())
+    input.read(reinterpret_cast<char *>(bytes.data()), end);
+  if (!input && !bytes.empty())
+    return Fail(DirectoryReadStatus::Malformed);
+  return ReadDirectory(bytes);
 }
 
 } // namespace perastage::archive::zip

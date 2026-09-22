@@ -1,6 +1,7 @@
 /*
  * This file is part of Perastage.
  */
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
@@ -320,7 +321,8 @@ static void TestMvrInspectionService() {
   const MvrInspectionResult first = InspectMvr(path);
   const MvrInspectionResult second = InspectMvr(path);
   assert(first.Success() && first.packageInventory && first.snapshot);
-  assert(first.snapshot->versionMajor == 1 && first.snapshot->versionMinor == 6);
+  assert(first.snapshot->versionMajor == 1 &&
+         first.snapshot->versionMinor == 6);
   assert(first.snapshot->provider == "Inspector");
   assert(first.snapshot->providerVersion == "2");
   assert(first.snapshot->sceneDescriptionEntry ==
@@ -336,19 +338,24 @@ static void TestMvrInspectionService() {
   assert(config.GetScene().provider == "Sentinel");
   assert(config.GetValue("mvr_inspection_sentinel") == "preserved");
   std::ifstream unchanged(path, std::ios::binary);
-  const std::vector<std::uint8_t> after{std::istreambuf_iterator<char>(unchanged),
-                                       {}};
+  const std::vector<std::uint8_t> after{
+      std::istreambuf_iterator<char>(unchanged), {}};
   assert(after == bytes);
 
   const MvrInspectionResult malformed =
       InspectMvrBytes(BuildArchive({{"GeneralSceneDescription.xml", "<bad"}}));
   assert(!malformed.Success());
   assert(malformed.inspection.HasFatalDiagnostics());
-  const MvrInspectionResult legacy = InspectMvrBytes(BuildArchive(
-      {{"generalscenedescription.xml", xml}}));
+  const MvrInspectionResult legacy =
+      InspectMvrBytes(BuildArchive({{"generalscenedescription.xml", xml}}));
   assert(legacy.Success());
-  assert(!legacy.inspection.diagnostics.empty());
-  assert(legacy.inspection.diagnostics.back().classification ==
+  const auto legacyFinding = std::find_if(
+      legacy.inspection.diagnostics.begin(),
+      legacy.inspection.diagnostics.end(), [](const Diagnostic &diagnostic) {
+        return diagnostic.code == "mvr.package.non_canonical_scene_description";
+      });
+  assert(legacyFinding != legacy.inspection.diagnostics.end());
+  assert(legacyFinding->classification ==
          DiagnosticClassification::Compatibility);
   std::filesystem::remove_all(directory);
 }

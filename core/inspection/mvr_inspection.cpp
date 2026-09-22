@@ -1,7 +1,8 @@
 #include "inspection/mvr_inspection.h"
 
+#include "archive_entry_path.h"
 #include "mvr_import_package.h"
-#include "mvrimporter.h"
+#include "mvr_read_service.h"
 
 #include <algorithm>
 #include <fstream>
@@ -15,10 +16,11 @@ namespace {
 // Appends a neutral diagnostic with optional package-entry context.
 void AddDiagnostic(MvrInspectionResult &result, DiagnosticSeverity severity,
                    DiagnosticDomain domain,
-                   DiagnosticClassification classification,
-                   std::string code, std::string message,
+                   DiagnosticClassification classification, std::string code,
+                   std::string message,
                    std::optional<std::string> entry = std::nullopt) {
-  Diagnostic diagnostic{severity, domain, classification, std::move(code),
+  Diagnostic diagnostic{severity,           domain,
+                        classification,     std::move(code),
                         std::move(message), std::nullopt};
   DiagnosticLocation location;
   location.sourcePath = result.inspection.request.sourcePath;
@@ -52,6 +54,33 @@ void AddReference(std::set<std::pair<std::string, std::string>> &references,
     references.emplace(kind, mvr::NormalizeImportArchivePath(path));
 }
 
+// Returns descriptors in stable UUID order for any scene map.
+template <typename Map, typename Convert>
+std::vector<MvrSceneNodeDescriptor> SortedDescriptors(const Map &nodes,
+                                                      Convert convert) {
+  std::vector<MvrSceneNodeDescriptor> descriptors;
+  descriptors.reserve(nodes.size());
+  for (const auto &[uuid, node] : nodes) {
+    (void)uuid;
+    descriptors.push_back(convert(node));
+  }
+  std::sort(descriptors.begin(), descriptors.end(),
+            [](const auto &left, const auto &right) {
+              return left.uuid < right.uuid;
+            });
+  return descriptors;
+}
+
+// Converts group child references to stable UUID order.
+std::vector<std::string> GroupChildUuids(const GroupObject &group) {
+  std::vector<std::string> children;
+  children.reserve(group.children.size());
+  for (const GroupObjectChildRef &child : group.children)
+    children.push_back(child.uuid);
+  std::sort(children.begin(), children.end());
+  return children;
+}
+
 // Derives deterministic summaries from the authoritative parsed scene.
 MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
                                     const mvr::ImportPackage &package,
@@ -74,7 +103,10 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
   std::set<std::pair<std::string, std::string>> references;
   for (const auto &[id, fixture] : scene.fixtures) {
     (void)id;
-    AddReference(references, "gdtf", fixture.gdtfSpec);
+    AddReference(references, "gdtf",
+                 fixture.originalMvrGdtfSpec.empty()
+                     ? fixture.gdtfSpec
+                     : fixture.originalMvrGdtfSpec);
   }
   for (const auto &[id, truss] : scene.trusses) {
     (void)id;
@@ -96,15 +128,84 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
   for (const auto &[kind, path] : references)
     snapshot.referencedResources.push_back({kind, path});
 
-  snapshot.nodeCounts = {{"layers", scene.layers.size()},
-                         {"fixtures", scene.fixtures.size()},
-                         {"trusses", scene.trusses.size()},
-                         {"supports", scene.supports.size()},
-                         {"scene_objects", scene.sceneObjects.size()},
-                         {"group_objects", scene.groupObjects.size()},
+  snapshot.layers = SortedDescriptors(scene.layers, [](const Layer &layer) {
+    std::vector<std::string> children = layer.childUUIDs;
+    std::sort(children.begin(), children.end());
+    return MvrSceneNodeDescriptor{"layer", layer.uuid, layer.name,         {},
+                                  {},      {},         std::move(children)};
+  });
+  snapshot.fixtures =
+      SortedDescriptors(scene.fixtures, [](const Fixture &node) {
+        const std::string reference = node.originalMvrGdtfSpec.empty()
+                                          ? node.gdtfSpec
+                                          : node.originalMvrGdtfSpec;
+        return MvrSceneNodeDescriptor{"fixture",
+                                      node.uuid,
+                                      node.instanceName,
+                                      node.layer,
+                                      node.parentGroupUuid,
+                                      reference,
+                                      {}};
+      });
+  snapshot.trusses = SortedDescriptors(scene.trusses, [](const Truss &node) {
+    const std::string reference =
+        !node.gdtfSpec.empty() ? node.gdtfSpec : node.symbolFile;
+    return MvrSceneNodeDescriptor{
+        "truss",   node.uuid, node.name, node.layer, node.parentGroupUuid,
+        reference, {}};
+  });
+  snapshot.supports =
+      SortedDescriptors(scene.supports, [](const Support &node) {
+        const std::string reference =
+            !node.gdtfSpec.empty() ? node.gdtfSpec : node.modelFile;
+        return MvrSceneNodeDescriptor{
+            "support", node.uuid, node.name, node.layer, node.parentGroupUuid,
+            reference, {}};
+      });
+  snapshot.sceneObjects =
+      SortedDescriptors(scene.sceneObjects, [](const SceneObject &node) {
+        return MvrSceneNodeDescriptor{"scene_object",
+                                      node.uuid,
+                                      node.name,
+                                      node.layer,
+                                      node.parentGroupUuid,
+                                      node.GetPrimaryModel(),
+                                      {}};
+      });
+  snapshot.groupObjects =
+      SortedDescriptors(scene.groupObjects, [](const GroupObject &node) {
+        return MvrSceneNodeDescriptor{"group_object",
+                                      node.uuid,
+                                      node.name,
+                                      node.layer,
+                                      node.parentGroupUuid,
+                                      {},
+                                      GroupChildUuids(node)};
+      });
+
+  snapshot.nodeCounts = {{"layers", snapshot.layers.size()},
+                         {"fixtures", snapshot.fixtures.size()},
+                         {"trusses", snapshot.trusses.size()},
+                         {"supports", snapshot.supports.size()},
+                         {"scene_objects", snapshot.sceneObjects.size()},
+                         {"group_objects", snapshot.groupObjects.size()},
                          {"positions", scene.positions.size()},
                          {"symdefs", scene.symdefGeometries.size()}};
   return snapshot;
+}
+
+// Maps known tolerant-reader findings and defaults unknown codes to General.
+DiagnosticClassification ImportClassification(const std::string &code) {
+  static const std::set<std::string> compatibilityCodes = {
+      "legacy_perastage_metadata_missing_version"};
+  static const std::set<std::string> standardsCodes = {
+      "multiple_root_userdata", "invalid_root_userdata_child",
+      "missing_userdata_provider"};
+  if (compatibilityCodes.contains(code))
+    return DiagnosticClassification::Compatibility;
+  if (standardsCodes.contains(code))
+    return DiagnosticClassification::Standards;
+  return DiagnosticClassification::General;
 }
 
 // Adapts established importer diagnostics without changing their messages.
@@ -112,9 +213,34 @@ void AppendImporterDiagnostics(MvrInspectionResult &result,
                                const MvrImportResult &parsed) {
   for (const MvrImportDiagnostic &source : parsed.diagnostics) {
     AddDiagnostic(result, DiagnosticSeverity::Warning,
-                  DiagnosticDomain::Content,
-                  DiagnosticClassification::Compatibility,
+                  DiagnosticDomain::Content, ImportClassification(source.code),
                   "mvr.import." + source.code, source.message);
+  }
+}
+
+// Reports safely provable missing archive resources without resolving online.
+void AppendMissingResourceDiagnostics(MvrInspectionResult &result) {
+  if (!result.snapshot || !result.packageInventory)
+    return;
+  std::set<std::string> packaged;
+  for (const PackageEntry &entry : result.packageInventory->entries) {
+    if (entry.pathSafe && entry.normalizedPath &&
+        entry.type == PackageEntryType::File)
+      packaged.insert(*entry.normalizedPath);
+  }
+  for (const MvrResourceReference &reference :
+       result.snapshot->referencedResources) {
+    const std::string normalized =
+        archive::NormalizeEntrySeparators(reference.archivePath);
+    if (normalized.empty() ||
+        archive::IsUnsafeNormalizedEntryPath(normalized) ||
+        packaged.contains(normalized))
+      continue;
+    AddDiagnostic(result, DiagnosticSeverity::Warning,
+                  DiagnosticDomain::Content, DiagnosticClassification::General,
+                  "mvr.resource.missing_packaged_resource",
+                  "A referenced packaged resource is missing from the MVR.",
+                  normalized);
   }
 }
 
@@ -137,18 +263,26 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
     return result;
   }
 
+  PackageInspectionResult packageInventory =
+      InspectPackage(bytes, PackageKind::Mvr, request);
+  result.inspection = std::move(packageInventory.inspection);
+  result.packageInventory = std::move(packageInventory.inventory);
+  if (result.inspection.HasFatalDiagnostics())
+    return result;
+
   std::vector<MvrImportDiagnostic> packageDiagnostics;
   std::optional<mvr::ImportPackage> package =
       mvr::AcquireImportPackage(bytes, packageDiagnostics);
   for (const MvrImportDiagnostic &source : packageDiagnostics) {
-    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
-                  DiagnosticClassification::Standards,
+    AddDiagnostic(result,
+                  package ? DiagnosticSeverity::Warning
+                          : DiagnosticSeverity::Fatal,
+                  DiagnosticDomain::Package, DiagnosticClassification::General,
                   "mvr.package." + source.code, source.message);
   }
   if (!package) {
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
-                  DiagnosticClassification::General,
-                  "mvr.package.read_failed",
+                  DiagnosticClassification::General, "mvr.package.read_failed",
                   "The MVR package could not be safely read.");
     return result;
   }
@@ -158,9 +292,7 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
   options.promptConflicts = false;
   options.applyDictionary = false;
   options.allowDummyFallback = false;
-  MvrImporter importer;
-  if (!importer.ImportFromBuffer(bytes, parsed, MvrImportMode::ParseOnly,
-                                 options)) {
+  if (!mvr::ReadAcquiredMvrPackage(*package, parsed, options)) {
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Xml,
                   DiagnosticClassification::General, "mvr.xml.parse_failed",
                   "GeneralSceneDescription.xml could not be parsed.",
@@ -170,26 +302,16 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
   }
   AppendImporterDiagnostics(result, parsed);
 
-  PackageInventory inventory;
-  inventory.kind = PackageKind::Mvr;
-  if (!request.sourcePath.empty()) {
-    PackageInspectionResult packageResult = InspectPackage(request);
-    for (Diagnostic &diagnostic : packageResult.inspection.diagnostics)
-      result.inspection.diagnostics.push_back(std::move(diagnostic));
-    if (packageResult.inventory)
-      inventory = std::move(*packageResult.inventory);
+  result.snapshot = BuildSnapshot(parsed, *package, *result.packageInventory);
+  if (result.snapshot->sceneDescriptionEntry != "GeneralSceneDescription.xml") {
+    AddDiagnostic(
+        result, DiagnosticSeverity::Warning, DiagnosticDomain::Package,
+        DiagnosticClassification::Compatibility,
+        "mvr.package.non_canonical_scene_description",
+        "A case-insensitive legacy scene-description filename was accepted.",
+        result.snapshot->sceneDescriptionEntry);
   }
-  result.packageInventory = inventory;
-  result.snapshot = BuildSnapshot(parsed, *package, inventory);
-  if (result.snapshot->sceneDescriptionEntry !=
-      "GeneralSceneDescription.xml") {
-    AddDiagnostic(result, DiagnosticSeverity::Warning,
-                  DiagnosticDomain::Package,
-                  DiagnosticClassification::Compatibility,
-                  "mvr.package.non_canonical_scene_description",
-                  "A case-insensitive legacy scene-description filename was accepted.",
-                  result.snapshot->sceneDescriptionEntry);
-  }
+  AppendMissingResourceDiagnostics(result);
   return result;
 }
 
@@ -202,10 +324,17 @@ MvrInspectionResult InspectMvr(const Request &request) {
     result.packageInventory = std::move(package.inventory);
     return result;
   }
-  MvrInspectionResult result = InspectMvrBytes(ReadBytes(request.sourcePath), request);
-  if (package.inventory)
+  if (!package.inventory || package.inventory->kind != PackageKind::Mvr) {
+    MvrInspectionResult result;
+    result.inspection = std::move(package.inspection);
     result.packageInventory = std::move(package.inventory);
-  return result;
+    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
+                  DiagnosticClassification::General,
+                  "mvr.input.unsupported_package_kind",
+                  "The input package is not an MVR file.");
+    return result;
+  }
+  return InspectMvrBytes(ReadBytes(request.sourcePath), request);
 }
 
 // Wraps a filesystem path in the neutral MVR inspection request.

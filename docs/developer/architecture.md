@@ -252,23 +252,34 @@ portable directory identity from a trailing `/`. Package inspection builds its
 inventory directly from that metadata, without wx streams or positional
 pairing. The MVR importer remains a separate extraction/import workflow.
 
-INS-120 adds `perastage_inspection_mvr`, a read-only service whose public API
-uses standard C++ filesystem paths or owned bytes. It composes the INS-100 MVR
-inventory with the production `MvrImporter` parse-only path and the existing
-`mvr_import_package`, scene-node, resource-resolution, and reference-resolution
-readers. Results own the selected scene-description entry and original XML,
+INS-120 adds `perastage_mvr_read` as the single production owner of MVR package
+acquisition, read orchestration, scene-node reading, resource resolution, and
+reference resolution. `MvrImporter` delegates parse-only imports to that seam;
+its project application, conflict dialogs, download workflow, and dictionary
+application remain in the application-facing importer. The reusable target's
+remaining wxWidgets dependency is limited to base memory and ZIP streams used
+by the established safe extraction implementation.
+
+`perastage_inspection_mvr` is a read-only consumer whose public API uses
+standard C++ filesystem paths or owned bytes. It composes the INS-100 MVR
+inventory with one acquired package passed to `perastage_mvr_read`, avoiding a
+second extraction. Byte inputs use the same bounded central-directory reader
+directly from memory, so they retain the same ordered entry names, sizes, path
+safety, and package diagnostics as filesystem inputs. Results own the selected
+scene-description entry and original XML,
 embedded GDTF entry paths, safe scene resource references, metadata, and
-deterministically ordered node counts; temporary extraction paths and leases
-are not exposed.
+deterministically ordered node descriptors and counts, including layer and
+group child relationships; temporary extraction paths and leases are not
+exposed.
 
 The service never invokes project application, replacement, merge, dialogs,
 viewers, or configuration mutation. Inspection disables dictionary application
 and dummy fallback, and it has no dependency on GDTF Share or download
 workflows, so missing referenced GDTFs remain read-only diagnostic context.
-The established package/import implementation still uses wxWidgets base ZIP
-and memory-stream facilities internally as the smallest behavior-preserving
-reuse seam, but no wxWidgets type crosses the inspection API and no `wxApp` or
-GUI lifecycle is required. Broader schema validation, nested resource byte
+No wxWidgets type crosses the inspection API and no `wxApp` or GUI lifecycle
+is required. The standalone inspection test links only the production
+inspection/read targets and normal non-GUI dependencies. Broader schema
+validation, nested resource byte
 browsing, and characterization beyond the focused service contract remain
 outside this boundary.
 

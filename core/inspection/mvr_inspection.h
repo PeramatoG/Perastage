@@ -29,6 +29,20 @@ struct MvrResourceReference {
   bool operator==(const MvrResourceReference &) const = default;
 };
 
+// Describes one immutable scene node and its authored hierarchy references.
+struct MvrSceneNodeDescriptor {
+  std::string kind;
+  std::string uuid;
+  std::string name;
+  std::string layerUuid;
+  std::string parentGroupUuid;
+  std::string resourceReference;
+  std::vector<std::string> childUuids;
+
+  // Compares deterministic scene descriptors by value.
+  bool operator==(const MvrSceneNodeDescriptor &) const = default;
+};
+
 // Carries the immutable, presentation-neutral facts read from one MVR.
 struct MvrInspectionSnapshot {
   int versionMajor = 0;
@@ -39,6 +53,12 @@ struct MvrInspectionSnapshot {
   std::string sceneDescriptionXml;
   std::vector<std::string> embeddedGdtfEntries;
   std::vector<MvrResourceReference> referencedResources;
+  std::vector<MvrSceneNodeDescriptor> layers;
+  std::vector<MvrSceneNodeDescriptor> fixtures;
+  std::vector<MvrSceneNodeDescriptor> trusses;
+  std::vector<MvrSceneNodeDescriptor> supports;
+  std::vector<MvrSceneNodeDescriptor> sceneObjects;
+  std::vector<MvrSceneNodeDescriptor> groupObjects;
   std::vector<MvrNodeCount> nodeCounts;
 };
 

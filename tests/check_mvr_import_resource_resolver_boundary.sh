@@ -15,8 +15,15 @@ if rg -n 'resolvedGdtfPathCache|gdtfModesCache|gdtfModeChannelCountCache|gdtfFix
   exit 1
 fi
 
-if ! rg -q 'MvrImportResourceResolver &resources' mvr/mvr_scene_node_reader.h; then
-  echo "The scene reader must consume the cohesive resource resolver boundary." >&2
+for callback in remapArchivePath normalizeGdtfSpec resolveGdtfPath \
+  fixtureMetadata resolveGdtfMode dictionaryEntry resolveScenePath; do
+  if ! rg -q "$callback" mvr/mvr_scene_node_reader.h; then
+    echo "The scene reader must retain the $callback read-service callback." >&2
+    exit 1
+  fi
+done
+if ! rg -q 'resources\.ResolveGdtfPath' mvr/mvrimporter.cpp; then
+  echo "The application importer must adapt the cohesive resource resolver into the shared reader." >&2
   exit 1
 fi
 

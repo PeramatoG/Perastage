@@ -63,6 +63,7 @@ target_include_directories(perastage_inspection_mvr
 )
 target_link_libraries(perastage_inspection_mvr
     PUBLIC perastage_inspection_core perastage_inspection_package
+           perastage_mvr_read
 )
 
 target_compile_features(perastage_inspection_gdtf PUBLIC cxx_std_20)
@@ -88,6 +89,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/geometry_bounds_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/layer_service.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/truss_dimension_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/active_dictionary_storage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/autopatcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/apppaths.cpp
@@ -105,13 +109,10 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_snapshot_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dummyprofilelibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/file_import_utils.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_derivative_contract.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/fixture_gdtf_derivative_publication.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfdictionary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_insertion_preparation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_metadata_summary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_color_cie.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/gdtf_wheel_catalog.cpp
@@ -134,7 +135,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf/editor/standalone_gdtf_context.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtfnet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/geometry/RdpSimplifier.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/geometry_bounds_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/guiconfigservices.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoistpresetlibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hoist_weight_distribution.cpp
@@ -149,7 +149,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplatePackageService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutSelectionPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewpresets.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/layer_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/markdown.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/magnet_snap.cpp
@@ -168,7 +167,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/runtime_storage.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/scene_grouping.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_transform_integrity.cpp
@@ -186,7 +184,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/Symbol2DBuilder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/symbols/PerastageSvgSymbol.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/trussdictionary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/truss_dimension_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_asset_ingestion.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_attachment_candidates.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/truss_screen_snap.cpp
@@ -195,7 +192,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_render_size.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pixel_coordinate_math.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui_unit_utils.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/utf8_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wx_path_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/unit_label_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/units/units.cpp

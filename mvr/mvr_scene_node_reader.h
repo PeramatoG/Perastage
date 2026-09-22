@@ -11,6 +11,7 @@
 
 #include "fixture.h"
 #include "gdtf_fixture_category.h"
+#include "gdtfdictionary.h"
 #include "mvr_import_types.h"
 #include "truss.h"
 
@@ -28,7 +29,14 @@ class XMLElement;
 
 namespace mvr {
 
-class MvrImportResourceResolver;
+struct ImportGdtfMetadata {
+  std::string fixtureName;
+  std::string manufacturer;
+  std::string fixtureTypeId;
+  float weightKg = 0.0f;
+  float powerW = 0.0f;
+  bool hasProperties = false;
+};
 
 struct SceneReadLegacyFixtureIdentity {
   std::string stableId;
@@ -67,8 +75,35 @@ struct SceneReadGdtfConflict {
   bool hasDictionaryEntry = false;
 };
 
+struct MvrSceneResourceServices {
+  std::function<std::string(const std::string &)> remapArchivePath;
+  std::function<std::string(const std::string &)> normalizeGdtfSpec;
+  std::function<std::string(const std::string &)> normalizeSupportGdtfSpec;
+  std::function<std::string(const std::string &)> resolveGdtfPath;
+  std::function<ImportGdtfMetadata(const std::string &)> fixtureMetadata;
+  std::function<std::string(const std::string &, const std::string &,
+                            std::optional<int>)>
+      resolveGdtfMode;
+  std::function<int(const std::string &, const std::string &)>
+      gdtfModeChannelCount;
+  std::function<std::optional<GdtfDictionary::Entry>(const std::string &)>
+      dictionaryEntry;
+  std::function<bool(const std::string &, Truss &)> loadTrussDefinition;
+  std::function<std::filesystem::path(const std::string &)> resolveScenePath;
+  std::function<std::string(const std::string &)> normalizeGeometryFile;
+};
+
 struct MvrSceneReadServices {
-  MvrImportResourceResolver &resources;
+  MvrSceneResourceServices resources;
+  struct ModelServices {
+    std::function<std::optional<GeometryBounds>(const std::filesystem::path &,
+                                                std::string *)>
+        geometryBounds;
+    std::function<void(Truss &, bool)> resolveTrussDimensions;
+    std::function<void(MvrScene &)> reconcileLayers;
+    std::function<std::optional<std::string>(const std::string &)>
+        dummyProfileId;
+  } model;
   std::function<std::string(tinyxml2::XMLElement *, const char *)> textOf;
   std::function<void(tinyxml2::XMLElement *, const char *, int &)> intOf;
   std::function<void(tinyxml2::XMLElement *, std::string &, int &)> fixtureIdOf;

@@ -29,7 +29,10 @@ std::string DescribeTruss(const Truss &truss);
 Truss::GeometryRepresentation
 ParseTrussRepresentation(const std::string &value);
 bool IsRenderableTrussGeometry(const std::string &path);
-void ApplySupportDefaults(Support &support);
+void ApplySupportDefaults(
+    Support &support,
+    const std::function<std::optional<std::string>(const std::string &)>
+        &profileIdLookup);
 void ReadFixtureCategory(tinyxml2::XMLElement *fixtureNode, Fixture &fixture);
 SceneReadLegacyFixtureIdentity
 ReadLegacyFixtureIdentity(tinyxml2::XMLElement *fixtureNode);

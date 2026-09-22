@@ -9,10 +9,14 @@
  */
 #include "mvr_import_resource_resolver.h"
 
+#include "dummyprofilelibrary.h"
 #include "filesystem_path_utils.h"
 #include "gdtfloader.h"
+#include "geometry_bounds_resolver.h"
+#include "layer_service.h"
 #include "mvr_import_package.h"
 #include "primitive_model_resources.h"
+#include "truss_dimension_resolution.h"
 #include "trussloader.h"
 #include "uuidutils.h"
 
@@ -92,10 +96,10 @@ std::string PerastageFixtureName(const fs::path &path) {
 }
 
 // Returns the actual directory entry only for a lexically exact filename.
-std::optional<fs::path> FindLexicallyExactRegularFile(
-    const fs::path &candidate) {
-  const fs::path parent = candidate.has_parent_path() ? candidate.parent_path()
-                                                       : fs::path(".");
+std::optional<fs::path>
+FindLexicallyExactRegularFile(const fs::path &candidate) {
+  const fs::path parent =
+      candidate.has_parent_path() ? candidate.parent_path() : fs::path(".");
   std::error_code ec;
   for (const auto &entry : fs::directory_iterator(parent, ec)) {
     if (ec)
@@ -446,6 +450,55 @@ std::string MvrImportResourceResolver::NormalizeGeometryFile(
       resolved += ".3ds";
   }
   return MakeSceneRelative(resolved);
+}
+
+// Adapts the application resource resolver to scene-reader callbacks.
+MvrSceneResourceServices
+MakeSceneResourceServices(MvrImportResourceResolver &resolver) {
+  return {
+      [&](const std::string &value) {
+        return resolver.RemapArchivePath(value);
+      },
+      [&](const std::string &value) {
+        return resolver.NormalizeGdtfSpec(value);
+      },
+      [&](const std::string &value) {
+        return resolver.NormalizeSupportGdtfSpec(value);
+      },
+      [&](const std::string &value) { return resolver.ResolveGdtfPath(value); },
+      [&](const std::string &value) { return resolver.FixtureMetadata(value); },
+      [&](const std::string &path, const std::string &mode,
+          std::optional<int> count) {
+        return resolver.ResolveGdtfMode(path, mode, count);
+      },
+      [&](const std::string &path, const std::string &mode) {
+        return resolver.GdtfModeChannelCount(path, mode);
+      },
+      [&](const std::string &type) { return resolver.DictionaryEntry(type); },
+      [&](const std::string &path, Truss &truss) {
+        return resolver.LoadTrussDefinition(path, truss);
+      },
+      [&](const std::string &path) { return resolver.ResolveScenePath(path); },
+      [&](const std::string &path) {
+        return resolver.NormalizeGeometryFile(path);
+      }};
+}
+
+// Adapts application enrichments while keeping them outside the read service.
+MvrSceneReadServices::ModelServices MakeApplicationSceneModelServices() {
+  return {
+      [](const std::filesystem::path &path, std::string *diagnostic) {
+        return GeometryBoundsResolver::Resolve(path, diagnostic);
+      },
+      [](Truss &truss, bool legacyMetadataContext) {
+        ResolveTrussDimensionsFromGeometry(truss, legacyMetadataContext);
+      },
+      [](MvrScene &scene) { (void)layerdomain::ReconcileLegacyLayers(scene); },
+      [](const std::string &displayName) -> std::optional<std::string> {
+        const auto profile =
+            DummyProfileLibrary::FindByDisplayName(displayName);
+        return profile ? std::optional<std::string>(profile->id) : std::nullopt;
+      }};
 }
 
 } // namespace mvr

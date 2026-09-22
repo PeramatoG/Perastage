@@ -69,10 +69,8 @@ const char *CanonicalRootDocument(PackageKind kind) {
 }
 
 // Inventories ZIP metadata in archive order without reading entry payloads.
-bool ReadInventory(PackageInspectionResult &result,
-                   PackageInventory &inventory) {
-  const archive::zip::DirectoryReadResult directory =
-      archive::zip::ReadDirectory(result.inspection.request.sourcePath);
+bool ReadInventory(PackageInspectionResult &result, PackageInventory &inventory,
+                   const archive::zip::DirectoryReadResult &directory) {
   if (directory.status == archive::zip::DirectoryReadStatus::OpenFailed) {
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
                   package_diagnostic_codes::OpenFailed,
@@ -163,7 +161,9 @@ PackageInspectionResult InspectPackage(const Request &request) {
   try {
     PackageInventory inventory;
     inventory.kind = *kind;
-    if (ReadInventory(result, inventory))
+    if (ReadInventory(
+            result, inventory,
+            archive::zip::ReadDirectory(result.inspection.request.sourcePath)))
       result.inventory = std::move(inventory);
   } catch (const std::exception &) {
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
@@ -181,6 +181,29 @@ PackageInspectionResult InspectPackage(const Request &request) {
 PackageInspectionResult
 InspectPackage(const std::filesystem::path &sourcePath) {
   return InspectPackage(Request{sourcePath});
+}
+
+// Inventories one owned package buffer without writing it to the filesystem.
+PackageInspectionResult InspectPackage(const std::vector<std::uint8_t> &bytes,
+                                       PackageKind kind,
+                                       const Request &request) {
+  PackageInspectionResult result;
+  result.inspection.request = request;
+  PackageInventory inventory;
+  inventory.kind = kind;
+  try {
+    if (ReadInventory(result, inventory, archive::zip::ReadDirectory(bytes)))
+      result.inventory = std::move(inventory);
+  } catch (const std::exception &) {
+    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+                  package_diagnostic_codes::UnexpectedReadFailure,
+                  "An unexpected package read failure occurred.");
+  } catch (...) {
+    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+                  package_diagnostic_codes::UnexpectedReadFailure,
+                  "An unexpected package read failure occurred.");
+  }
+  return result;
 }
 
 } // namespace perastage::inspection
