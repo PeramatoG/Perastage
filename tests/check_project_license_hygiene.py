@@ -13,6 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_GPLV3_SHA256 = "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
 
 
+def normalize_newlines(text: str) -> str:
+    """Normalize conventional text-file line endings to LF."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def main() -> int:
     """Reject modified GPL text, competing root candidates, and metadata drift."""
     errors: list[str] = []
@@ -22,9 +27,9 @@ def main() -> int:
         errors.append("LICENSE.txt is missing")
         license_text = ""
     else:
-        license_bytes = license_path.read_bytes()
-        license_text = license_bytes.decode("utf-8")
-        actual_digest = hashlib.sha256(license_bytes).hexdigest()
+        license_text = normalize_newlines(license_path.read_bytes().decode("utf-8"))
+        # Hash newline-normalized text so canonical content is checked identically on every platform.
+        actual_digest = hashlib.sha256(license_text.encode("utf-8")).hexdigest()
         if actual_digest != CANONICAL_GPLV3_SHA256:
             errors.append(
                 "LICENSE.txt does not match the canonical GPLv3 text: "
