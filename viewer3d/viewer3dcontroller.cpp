@@ -18,7 +18,7 @@
 /*
  * File: viewer3dcontroller.cpp
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: Implementation of 3D viewer logic.
  */
 

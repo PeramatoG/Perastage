@@ -56,7 +56,7 @@ msgid "License"
 msgstr ""
 
 #: gui/about_dialog.cpp:152
-msgid "This software is licensed under the GNU General Public License v3.0."
+msgid "This software is licensed under the GNU General Public License version 3 or later."
 msgstr ""
 
 #: gui/about_dialog.cpp:153

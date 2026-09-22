@@ -55,9 +55,16 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 # Copy license files to the platform runtime asset directory.
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/LICENSE.txt ${PERASTAGE_RUNTIME_ASSET_DIR}
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/THIRD_PARTY_LICENSES.md ${PERASTAGE_RUNTIME_ASSET_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md ${PERASTAGE_RUNTIME_ASSET_DIR}
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/licenses ${PERASTAGE_RUNTIME_ASSET_DIR}/licenses
 )
+if(IS_DIRECTORY "${PERASTAGE_GENERATED_VCPKG_NOTICE_DIR}")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${PERASTAGE_GENERATED_VCPKG_NOTICE_DIR}"
+                "${PERASTAGE_RUNTIME_ASSET_DIR}/licenses/vcpkg"
+    )
+endif()
 
 set(LIBRARY_SUBDIRS fixtures trusses misc scene_objects projects default_layouts hoists)
 foreach(subdir IN LISTS LIBRARY_SUBDIRS)

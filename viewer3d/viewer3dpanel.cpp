@@ -18,7 +18,7 @@
 /*
  * File: viewer3dpanel.cpp
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: Implementation of the 3D viewer panel using OpenGL.
  */
 

@@ -18,7 +18,7 @@
 /*
  * File: navigation_diagnostics.h
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: Debug-only diagnostics for high-rate 3D viewer navigation.
  */
 

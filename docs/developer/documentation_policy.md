@@ -139,5 +139,6 @@ Use this short checklist for PRs that claim **no functional change**:
 
 ## License Reference
 
-- Keep license details in `LICENSE.txt` as the single source of truth.
-- Reference the license from `README.md` and any documentation that needs legal context.
+- Keep `LICENSE.txt` as the canonical, unmodified GNU GPL version 3 legal text.
+- State the project licensing choice consistently as `GPL-3.0-or-later` in project-facing metadata, and use “GNU General Public License version 3 or later” in prose.
+- Reference `LICENSE.txt` from `README.md` and any documentation that needs the full legal text.

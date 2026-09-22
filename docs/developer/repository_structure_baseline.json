@@ -24,7 +24,7 @@
     "build_entry_points": ["CMakeLists.txt", "CMakePresets.json"],
     "setup_launchers": ["setup.sh", "setup_windows.ps1"],
     "dependency_metadata": ["vcpkg.json"],
-    "project_metadata": ["VERSION", "LICENSE.txt", "THIRD_PARTY_LICENSES.md"],
+    "project_metadata": ["VERSION", "LICENSE.txt", "THIRD_PARTY_NOTICES.md"],
     "documentation_and_community": [
       "README.md",
       "help.md",

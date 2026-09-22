@@ -18,7 +18,7 @@
 /*
  * File: viewer3dpanel.h
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: OpenGL-based 3D viewer panel using wxGLCanvas.
  */
 

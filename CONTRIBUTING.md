@@ -325,6 +325,6 @@ For a first contribution, documentation, tests, small bug fixes, and reduced rep
 
 ## License
 
-By contributing to Perastage, you agree that your contribution will be released under the same license as the project, currently the GNU General Public License v3.0.
+By contributing to Perastage, you agree that your contribution will be released under the same license as the project, the GNU General Public License version 3 or later (`GPL-3.0-or-later`).
 
 See `LICENSE.txt` for the complete license terms.

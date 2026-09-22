@@ -18,7 +18,7 @@
 /*
  * File: viewer2dpanel.h
  * Author: Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  * Description: OpenGL-based top-down viewer sharing models with the 3D view.
  */
 

@@ -1,7 +1,7 @@
 /*
  * This file is part of Perastage.
  * Copyright (C) 2026 Luisma Peramato
- * License: GNU General Public License v3.0
+ * License: GNU General Public License version 3 or later
  */
 
 #pragma once

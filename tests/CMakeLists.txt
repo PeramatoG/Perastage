@@ -303,6 +303,15 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(RepositoryStructureBaseline ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_structure_baseline.py
                                LABELS standard-strict policy cmake)
+    add_repository_policy_test(ProjectLicenseHygiene ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_project_license_hygiene.py
+                               LABELS standard-strict policy packaging)
+    add_repository_policy_test(ThirdPartyNoticeIntegrity ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_third_party_notice_integrity.py
+                               LABELS standard-strict policy packaging)
+    add_repository_policy_test(VcpkgNoticeGeneration ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_vcpkg_notice_generation.py
+                               LABELS standard-strict policy packaging cmake)
     add_repository_policy_test(RepositoryStructureBaselineFixtures ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_repository_structure_baseline_fixtures.py
                                LABELS standard-strict policy cmake)
