@@ -71,3 +71,7 @@ tests/fixtures/fixture_symbols/*.txt text eol=lf
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# Preserve authoritative upstream legal text whitespace exactly.
+licenses/podofo_COPYING.LGPL.txt whitespace=-blank-at-eol,-blank-at-eof
+licenses/podofo_COPYING.MPL.txt whitespace=-blank-at-eol,-blank-at-eof

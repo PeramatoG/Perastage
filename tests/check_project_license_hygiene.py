@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_GPLV3_SHA256 = "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
 
 
 def main() -> int:
@@ -20,7 +22,14 @@ def main() -> int:
         errors.append("LICENSE.txt is missing")
         license_text = ""
     else:
-        license_text = license_path.read_text(encoding="utf-8")
+        license_bytes = license_path.read_bytes()
+        license_text = license_bytes.decode("utf-8")
+        actual_digest = hashlib.sha256(license_bytes).hexdigest()
+        if actual_digest != CANONICAL_GPLV3_SHA256:
+            errors.append(
+                "LICENSE.txt does not match the canonical GPLv3 text: "
+                f"expected SHA-256 {CANONICAL_GPLV3_SHA256}, got {actual_digest}"
+            )
     obsolete_notice = ROOT / ("THIRD_PARTY_" + "LICENSES.md")
     if obsolete_notice.exists():
         errors.append(f"obsolete {obsolete_notice.name} still exists")
@@ -34,7 +43,7 @@ def main() -> int:
     if not license_text.startswith("                    GNU GENERAL PUBLIC LICENSE\n"):
         errors.append("LICENSE.txt has a project title or copyright preamble")
 
-    candidate = re.compile(r"^(?:LICENSE|LICENCE|COPYING|COPYRIGHT|PATENTS)(?:[._-].*)?$", re.I)
+    candidate = re.compile(r"^(?:LICENSE|LICENCE|COPYING|COPYRIGHT|PATENTS|UNLICENSE|OFL)(?:[._-].*)?$", re.I)
     candidates = sorted(path.name for path in ROOT.iterdir() if path.is_file() and candidate.match(path.name))
     if candidates != ["LICENSE.txt"]:
         errors.append(f"root project-license candidates are {candidates!r}, expected ['LICENSE.txt']")

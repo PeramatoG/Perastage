@@ -24,9 +24,11 @@ def main() -> int:
         output.mkdir()
         (output / "stale.txt").write_text("stale\n", encoding="utf-8")
         script = temp / "collect.cmake"
+        helper = (ROOT / "cmake/PerastageVcpkgNotices.cmake").as_posix()
         script.write_text(
-            f'include("{ROOT / "cmake/PerastageVcpkgNotices.cmake"}")\n'
-            f'perastage_collect_vcpkg_notices("{installed}" "test-triplet" "{output}")\n',
+            f'include("{helper}")\n'
+            f'perastage_collect_vcpkg_notices("{installed.as_posix()}" '
+            f'"test-triplet" "{output.as_posix()}")\n',
             encoding="utf-8",
         )
         subprocess.run(["cmake", "-P", str(script)], check=True)
@@ -36,15 +38,18 @@ def main() -> int:
             raise SystemExit(f"unexpected generated notices: {actual!r}")
 
         missing_output = temp / "missing-generated"
+        missing_output.mkdir()
+        (missing_output / "stale.txt").write_text("stale\n", encoding="utf-8")
         missing_script = temp / "missing.cmake"
         missing_script.write_text(
-            f'include("{ROOT / "cmake/PerastageVcpkgNotices.cmake"}")\n'
-            f'perastage_collect_vcpkg_notices("{temp / "absent"}" "triplet" "{missing_output}")\n',
+            f'include("{helper}")\n'
+            f'perastage_collect_vcpkg_notices("{(temp / "absent").as_posix()}" '
+            f'"triplet" "{missing_output.as_posix()}")\n',
             encoding="utf-8",
         )
         subprocess.run(["cmake", "-P", str(missing_script)], check=True)
         if missing_output.exists():
-            raise SystemExit("an absent vcpkg share tree created output")
+            raise SystemExit("an absent vcpkg share tree left stale generated output")
     print("vcpkg notice generation check passed.")
     return 0
 

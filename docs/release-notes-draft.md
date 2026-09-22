@@ -22,8 +22,6 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
-- Standardized project licensing metadata on GNU GPL version 3 or later, restored the canonical GPLv3 legal text, corrected bundled third-party notices, and included package-provided vcpkg copyright notices in official staged builds.
-
 - Added a read-only, GUI-independent GDTF inspection service that exposes package contents, fixture metadata, DMX modes, wheel references, raw XML, and structured compatibility diagnostics without modifying or canonicalizing source files, while keeping its shared reader dependency limited to wxWidgets base/archive facilities.
 
 - Added a framework-independent, read-only package inventory boundary for supported GDTF and MVR files, including Unicode-preserving entry metadata, shared bounded ZIP directory checks, and safe rejection of malformed, unsupported, or traversal-style packages without extracting or importing package contents.

@@ -5,11 +5,11 @@ set(PERASTAGE_GENERATED_VCPKG_NOTICE_DIR
 # Rebuild the generated notice directory from an installed vcpkg share tree.
 function(perastage_collect_vcpkg_notices installed_dir target_triplet output_dir)
     set(share_dir "${installed_dir}/${target_triplet}/share")
+    file(REMOVE_RECURSE "${output_dir}")
     if(NOT IS_DIRECTORY "${share_dir}")
         return()
     endif()
 
-    file(REMOVE_RECURSE "${output_dir}")
     file(MAKE_DIRECTORY "${output_dir}")
     file(GLOB copyright_files LIST_DIRECTORIES FALSE "${share_dir}/*/copyright")
     list(SORT copyright_files)
