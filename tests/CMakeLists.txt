@@ -188,6 +188,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionPackageBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_package_boundary.sh LABELS standard-strict architecture core zip security)
     add_bash_policy_test(GdtfInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_inspection_boundary.sh LABELS standard-strict architecture core gdtf inspection)
+    add_bash_policy_test(MvrInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_inspection_boundary.sh LABELS standard-strict architecture core mvr inspection)
     add_bash_policy_test(DocsPerastageTreeModules ${CMAKE_CURRENT_SOURCE_DIR}/check_perastage_tree_modules.sh)
     add_bash_policy_test(GuiNoConfigManagerGet ${CMAKE_CURRENT_SOURCE_DIR}/check_no_configmanager_get_in_gui.sh)
     add_bash_policy_test(LayoutViewerSelectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_layout_viewer_selection_boundary.sh LABELS standard-strict architecture gui)
@@ -1770,6 +1771,7 @@ add_executable(mvr_importer_archive_characterization_test
 target_include_directories(mvr_importer_archive_characterization_test PRIVATE
                            . ../core ../models ../mvr ../gui ../third_party)
 target_link_libraries(mvr_importer_archive_characterization_test PRIVATE
+                      perastage_inspection_mvr
                       ${wxWidgets_LIBRARIES} tinyxml2::tinyxml2)
 add_test(NAME MvrImporterArchiveStrict
          COMMAND mvr_importer_archive_characterization_test strict)
@@ -1787,11 +1789,16 @@ add_test(NAME MvrImportProjectApplication
          COMMAND mvr_importer_archive_characterization_test application)
 set_perastage_test_labels(MvrImportProjectApplication
                           LAYER standard-strict DOMAINS mvr project architecture)
+add_test(NAME MvrInspection
+         COMMAND mvr_importer_archive_characterization_test inspection)
+set_perastage_test_labels(MvrInspection
+                          LAYER standard-strict DOMAINS mvr inspection architecture zip)
 set_library_env(MvrImporterArchiveStrict)
 set_library_env(MvrImporterArchiveLegacy)
 set_library_env(MvrImporterArchiveRecovery)
 set_library_env(MvrImporterPackageAcquisition)
 set_library_env(MvrImportProjectApplication)
+set_library_env(MvrInspection)
 
 add_executable(rider_save_roundtrip_test rider_save_roundtrip_test.cpp
                build_info_stub.cpp

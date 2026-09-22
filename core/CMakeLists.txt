@@ -52,6 +52,19 @@ add_library(perastage_inspection_gdtf STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/gdtf_inspection.cpp
 )
 
+add_library(perastage_inspection_mvr STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/mvr_inspection.cpp
+)
+
+target_compile_features(perastage_inspection_mvr PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_mvr
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/models ${CMAKE_SOURCE_DIR}/mvr
+)
+target_link_libraries(perastage_inspection_mvr
+    PUBLIC perastage_inspection_core perastage_inspection_package
+)
+
 target_compile_features(perastage_inspection_gdtf PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_gdtf PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <cstdint>
 
 class wxInputStream;
 
@@ -36,6 +37,11 @@ std::string NormalizeImportArchivePath(const std::string &archivePath);
 // Safely extracts an MVR stream and locates its root scene description.
 std::optional<ImportPackage>
 AcquireImportPackage(wxInputStream &input,
+                     std::vector<MvrImportDiagnostic> &diagnostics);
+
+// Safely extracts owned MVR bytes without exposing wxWidgets stream types.
+std::optional<ImportPackage>
+AcquireImportPackage(const std::vector<std::uint8_t> &bytes,
                      std::vector<MvrImportDiagnostic> &diagnostics);
 
 } // namespace mvr

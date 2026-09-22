@@ -252,6 +252,26 @@ portable directory identity from a trailing `/`. Package inspection builds its
 inventory directly from that metadata, without wx streams or positional
 pairing. The MVR importer remains a separate extraction/import workflow.
 
+INS-120 adds `perastage_inspection_mvr`, a read-only service whose public API
+uses standard C++ filesystem paths or owned bytes. It composes the INS-100 MVR
+inventory with the production `MvrImporter` parse-only path and the existing
+`mvr_import_package`, scene-node, resource-resolution, and reference-resolution
+readers. Results own the selected scene-description entry and original XML,
+embedded GDTF entry paths, safe scene resource references, metadata, and
+deterministically ordered node counts; temporary extraction paths and leases
+are not exposed.
+
+The service never invokes project application, replacement, merge, dialogs,
+viewers, or configuration mutation. Inspection disables dictionary application
+and dummy fallback, and it has no dependency on GDTF Share or download
+workflows, so missing referenced GDTFs remain read-only diagnostic context.
+The established package/import implementation still uses wxWidgets base ZIP
+and memory-stream facilities internally as the smallest behavior-preserving
+reuse seam, but no wxWidgets type crosses the inspection API and no `wxApp` or
+GUI lifecycle is required. Broader schema validation, nested resource byte
+browsing, and characterization beyond the focused service contract remain
+outside this boundary.
+
 The standards baseline is the current stable DIN SPEC 15800:2022-02 / GDTF
 1.2 and DIN SPEC 15801:2023-12 / MVR 1.6 package format. INS-100 uses only
 stable package identity facts and does not implement future proposals or

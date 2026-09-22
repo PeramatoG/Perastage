@@ -22,6 +22,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added a read-only MVR inspection service that exposes package inventory, original scene XML, scene metadata and counts, embedded GDTF references, and structured diagnostics through standard C++ inputs without applying the scene or downloading missing resources.
+
 - Added a read-only, GUI-independent GDTF inspection service that exposes package contents, fixture metadata, DMX modes, wheel references, raw XML, and structured compatibility diagnostics without modifying or canonicalizing source files, while keeping its shared reader dependency limited to wxWidgets base/archive facilities.
 
 - Added a framework-independent, read-only package inventory boundary for supported GDTF and MVR files, including Unicode-preserving entry metadata, shared bounded ZIP directory checks, and safe rejection of malformed, unsupported, or traversal-style packages without extracting or importing package contents.
