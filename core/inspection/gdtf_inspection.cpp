@@ -1,0 +1,265 @@
+#include "inspection/gdtf_inspection.h"
+
+#include <utility>
+
+namespace perastage::inspection {
+namespace {
+
+// Describes the neutral representation of one existing reader diagnostic.
+struct DiagnosticMapping {
+  DiagnosticSeverity severity;
+  DiagnosticDomain domain;
+  DiagnosticClassification classification;
+  const char *code;
+};
+
+// Maps archive-reader findings without changing their established semantics.
+DiagnosticMapping MapArchiveDiagnostic(gdtf::ArchiveDiagnosticCode code) {
+  using Code = gdtf::ArchiveDiagnosticCode;
+  switch (code) {
+  case Code::None:
+    return {DiagnosticSeverity::Information, DiagnosticDomain::Package,
+            DiagnosticClassification::General, "gdtf.archive.none"};
+  case Code::NonCanonicalDescriptionXml:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Package,
+            DiagnosticClassification::Compatibility,
+            "gdtf.archive.non_canonical_description_xml"};
+  case Code::Utf8FlagMissing:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Package,
+            DiagnosticClassification::Compatibility,
+            "gdtf.archive.utf8_flag_missing"};
+  case Code::Utf8FallbackUsed:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Package,
+            DiagnosticClassification::Compatibility,
+            "gdtf.archive.utf8_fallback_used"};
+  case Code::LegacyFilenameEncodingUsed:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Package,
+            DiagnosticClassification::Compatibility,
+            "gdtf.archive.legacy_filename_encoding_used"};
+  case Code::EmptySourcePath:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
+            DiagnosticClassification::General,
+            "gdtf.archive.empty_source_path"};
+  case Code::OpenFailed:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
+            DiagnosticClassification::General, "gdtf.archive.open_failed"};
+  case Code::NoReadableEntries:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.no_readable_entries"};
+  case Code::MissingDescriptionXml:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::Standards,
+            "gdtf.archive.missing_description_xml"};
+  case Code::DuplicateDescriptionXml:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::Standards,
+            "gdtf.archive.duplicate_description_xml"};
+  case Code::AmbiguousDescriptionXml:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.ambiguous_description_xml"};
+  case Code::EmptyDescriptionXml:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Xml,
+            DiagnosticClassification::General,
+            "gdtf.archive.empty_description_xml"};
+  case Code::UnsafeEntryPath:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.unsafe_entry_path"};
+  case Code::EntryReadFailed:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.entry_read_failed"};
+  case Code::EntryTooLarge:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.entry_too_large"};
+  case Code::FilesystemError:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
+            DiagnosticClassification::General,
+            "gdtf.archive.filesystem_error"};
+  case Code::UnexpectedException:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.unexpected_exception"};
+  case Code::FilenameDecodeFailed:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.filename_decode_failed"};
+  case Code::FilenameEncodingAmbiguous:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+            DiagnosticClassification::General,
+            "gdtf.archive.filename_encoding_ambiguous"};
+  case Code::ResourceNotFound:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.archive.resource_not_found"};
+  case Code::ResourcePathAmbiguous:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.archive.resource_path_ambiguous"};
+  case Code::ResourceEntryTooLarge:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.archive.resource_entry_too_large"};
+  case Code::ResourceReadFailed:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.archive.resource_read_failed"};
+  case Code::UnsafeResourcePath:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.archive.unsafe_resource_path"};
+  case Code::ResourceFilenameDecodeFailed:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.archive.resource_filename_decode_failed"};
+  }
+  return {DiagnosticSeverity::Fatal, DiagnosticDomain::Package,
+          DiagnosticClassification::General, "gdtf.archive.unknown"};
+}
+
+// Maps description-reader findings without independently interpreting XML.
+DiagnosticMapping
+MapDescriptionDiagnostic(gdtf::DescriptionDiagnosticCode code) {
+  using Code = gdtf::DescriptionDiagnosticCode;
+  switch (code) {
+  case Code::None:
+    return {DiagnosticSeverity::Information, DiagnosticDomain::Xml,
+            DiagnosticClassification::General, "gdtf.description.none"};
+  case Code::MalformedXml:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Xml,
+            DiagnosticClassification::General,
+            "gdtf.description.malformed_xml"};
+  case Code::MissingRoot:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Xml,
+            DiagnosticClassification::Standards,
+            "gdtf.description.missing_root"};
+  case Code::MissingFixtureType:
+    return {DiagnosticSeverity::Fatal, DiagnosticDomain::Content,
+            DiagnosticClassification::Standards,
+            "gdtf.description.missing_fixture_type"};
+  case Code::MissingDmxModes:
+    return {DiagnosticSeverity::Error, DiagnosticDomain::Content,
+            DiagnosticClassification::Standards,
+            "gdtf.description.missing_dmx_modes"};
+  case Code::MissingUsableDmxMode:
+    return {DiagnosticSeverity::Error, DiagnosticDomain::Content,
+            DiagnosticClassification::Standards,
+            "gdtf.description.missing_usable_dmx_mode"};
+  case Code::UnknownElement:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.description.unknown_element"};
+  case Code::MissingLocalResource:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.description.missing_local_resource"};
+  case Code::MissingWheelMediaResource:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.description.missing_wheel_media_resource"};
+  case Code::AmbiguousWheelMediaResource:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Content,
+            DiagnosticClassification::General,
+            "gdtf.description.ambiguous_wheel_media_resource"};
+  case Code::NonCanonicalWheelMediaCaseMatch:
+    return {DiagnosticSeverity::Warning, DiagnosticDomain::Content,
+            DiagnosticClassification::Compatibility,
+            "gdtf.description.non_canonical_wheel_media_case_match"};
+  }
+  return {DiagnosticSeverity::Error, DiagnosticDomain::Xml,
+          DiagnosticClassification::General, "gdtf.description.unknown"};
+}
+
+// Appends an adapted archive diagnostic while retaining the original snapshot.
+void AppendArchiveDiagnostic(GdtfInspectionResult &result,
+                             const gdtf::ArchiveDiagnostic &source) {
+  const DiagnosticMapping mapping = MapArchiveDiagnostic(source.code);
+  Diagnostic diagnostic{mapping.severity, mapping.domain, mapping.classification,
+                        mapping.code, source.message, std::nullopt};
+  DiagnosticLocation location;
+  location.sourcePath = result.inspection.request.sourcePath;
+  if (!source.entryPath.empty())
+    location.packageEntry = source.entryPath;
+  diagnostic.location = std::move(location);
+  result.inspection.diagnostics.push_back(std::move(diagnostic));
+}
+
+// Appends an adapted description diagnostic with XML and package context.
+void AppendDescriptionDiagnostic(GdtfInspectionResult &result,
+                                 const gdtf::DescriptionDiagnostic &source,
+                                 const std::string &entryPath) {
+  const DiagnosticMapping mapping = MapDescriptionDiagnostic(source.code);
+  Diagnostic diagnostic{mapping.severity, mapping.domain, mapping.classification,
+                        mapping.code, source.message, std::nullopt};
+  DiagnosticLocation location;
+  location.sourcePath = result.inspection.request.sourcePath;
+  if (!entryPath.empty())
+    location.packageEntry = entryPath;
+  if (!source.path.empty())
+    location.xmlPath = source.path;
+  diagnostic.location = std::move(location);
+  result.inspection.diagnostics.push_back(std::move(diagnostic));
+}
+
+// Reports whether any adapted finding records compatibility acceptance.
+bool HasCompatibilityDiagnostic(const Result &inspection) {
+  for (const Diagnostic &diagnostic : inspection.diagnostics) {
+    if (diagnostic.classification == DiagnosticClassification::Compatibility)
+      return true;
+  }
+  return false;
+}
+
+} // namespace
+
+// Reports whether a usable semantic document was produced.
+bool GdtfInspectionResult::Success() const {
+  return document.has_value() && document->Valid() &&
+         !inspection.HasFatalDiagnostics();
+}
+
+// Inspects one GDTF through package inventory and established read services.
+GdtfInspectionResult InspectGdtf(const Request &request) {
+  GdtfInspectionResult result;
+  PackageInspectionResult package = InspectPackage(request);
+  result.inspection = std::move(package.inspection);
+  result.packageInventory = std::move(package.inventory);
+  if (result.inspection.HasFatalDiagnostics())
+    return result;
+  if (!result.packageInventory ||
+      result.packageInventory->kind != PackageKind::Gdtf) {
+    Diagnostic diagnostic;
+    diagnostic.severity = DiagnosticSeverity::Fatal;
+    diagnostic.domain = DiagnosticDomain::Input;
+    diagnostic.code = "gdtf.input.unsupported_package_kind";
+    diagnostic.message = "The input package is not a GDTF file.";
+    diagnostic.location = DiagnosticLocation{request.sourcePath};
+    result.inspection.diagnostics.push_back(std::move(diagnostic));
+    return result;
+  }
+
+  gdtf::GdtfDocument document = gdtf::LoadGdtfDocument(request.sourcePath);
+  for (const auto &diagnostic : document.Archive().diagnostics)
+    AppendArchiveDiagnostic(result, diagnostic);
+  for (const auto &diagnostic : document.Description().diagnostics) {
+    AppendDescriptionDiagnostic(result, diagnostic,
+                                document.Archive().descriptionEntryPath);
+  }
+  result.document = std::move(document);
+  if (result.Success()) {
+    result.status = HasCompatibilityDiagnostic(result.inspection)
+                        ? GdtfReadStatus::CompatibilityAccepted
+                        : GdtfReadStatus::Canonical;
+  }
+  return result;
+}
+
+// Wraps a filesystem path in the neutral GDTF inspection request.
+GdtfInspectionResult InspectGdtf(const std::filesystem::path &sourcePath) {
+  return InspectGdtf(Request{sourcePath});
+}
+
+} // namespace perastage::inspection

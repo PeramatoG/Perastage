@@ -83,7 +83,8 @@ creates the application target and registers only its entry point and generated
 build-information source. Every module above registers its explicit production
 source list through its own `CMakeLists.txt`; `core/` additionally owns the
 focused `perastage_inspection_core` static library and links it into the
-application rather than compiling its implementation directly there. Core also
+inspection services and focused tests rather than compiling private copies of
+its implementation. Core also
 owns the separate `perastage_inspection_serialization` static library, whose
 standard-C++ interface serializes existing neutral inspection results while its
 vendored JSON dependency remains private. Core also owns the focused
@@ -92,7 +93,15 @@ paths and inventories ZIP entry metadata without extraction or XML parsing;
 its public interface and implementation are standard-library-only apart from
 the neutral inspection contract. The narrow `perastage_archive_zip_directory`
 static library gives package inspection and the existing GDTF reader one owner
-for bounded raw classic-ZIP directory mechanics. `tests/` is added conditionally when
+for bounded raw classic-ZIP directory mechanics. Core also owns
+`perastage_gdtf_read`, the shared production implementation of the archive,
+description, and immutable document readers, and `perastage_inspection_gdtf`,
+which composes them with package inventory and the neutral inspection contract.
+The application and inspection service independently consume the shared reader;
+the inspection service is not linked into the application before a production
+frontend needs it. The reader's private wx dependency is base/archive-only,
+while the application's existing GUI component set is unchanged.
+`tests/` is added conditionally when
 testing is enabled. No recursive project-source discovery is used.
 
 The application-bootstrap boundary in [Architecture](architecture.md#application-bootstrap-ownership-org-030033)

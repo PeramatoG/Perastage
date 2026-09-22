@@ -161,8 +161,9 @@ readers and format-specific inspection services remain separate from it.
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes
 the `core/` include root, and requires C++20; it has no wxWidgets or other
-third-party link dependency. The Perastage application and the focused
-`InspectionContract` executable both link this one production implementation.
+third-party link dependency. The focused inspection services and
+`InspectionContract` executable link this one production implementation. The
+application will link it when a production inspection frontend is introduced.
 The focused target is intentionally not a general Core library or a migration
 of MVR and GDTF code. It may grow only when a concrete inspection service
 requires another reviewed dependency.
@@ -179,6 +180,32 @@ current importer also contains wxWidgets UI and application interactions.
 Adding those paths now would therefore introduce XML/archive dependencies or
 incorrectly pull GUI/application/model integration into this standard-library
 foundation. Viewer and App sources are not dependencies of this target.
+
+INS-110 adds `perastage_gdtf_read` as the single production owner of
+`gdtf_archive_reader.cpp`, `gdtf_description_reader.cpp`, and
+`gdtf/editor/gdtf_document.cpp`. The application and the focused
+`perastage_inspection_gdtf` target independently consume that implementation;
+the inspection service is not linked into the application until a real
+frontend consumes it. The read target keeps tinyxml2 and wxWidgets base/archive
+facilities private, using `wx::base` with config packages and base-only flags
+from the already-selected `wx-config` on Linux and macOS. Its public headers
+expose only standard C++ and immutable GDTF read models. The application's
+existing aggregate wx GUI dependency list remains unchanged.
+
+`perastage_inspection_gdtf` composes INS-100 package inventory with
+`LoadGdtfDocument`. The existing archive snapshot exposes the selected raw
+`description.xml`, its actual entry path, and canonical or compatibility state.
+The existing description snapshot supplies fixture metadata, revisions,
+physical values, DMX modes, wheels, slots, and resource references. Original
+reader diagnostics remain in those snapshots and are also adapted to ordered
+API-010 diagnostics with stable `gdtf.archive.*` and
+`gdtf.description.*` codes.
+
+The service is strictly read-only and follows stable DIN SPEC 15800:2022-02
+behavior from the official specification `main` branch. It does not rewrite
+XML, canonicalize archives, invoke editor sessions, retrieve resource bytes, or
+add another GDTF parser. Semantic coverage is limited to the established read
+models; deeper validation and preview are future responsibilities.
 
 `perastage_inspection_serialization` is a C++20 static library that owns only
 `core/inspection/inspection_json_serializer.cpp`. Its standard-C++ public API
