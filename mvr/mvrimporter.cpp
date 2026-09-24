@@ -1745,9 +1745,16 @@ bool MvrImporter::ImportFromStreamIntoResult(
   auto readProgress = [&](std::string stage, int completed, int total) {
     reportProgress(std::move(stage), completed, total);
   };
-  const bool parsed =
-      mvr::ReadAcquiredMvrPackage(*package, importResult, options, &environment,
-                                  &readContext, readProgress);
+  const bool parsed = mvr::ReadAcquiredMvrPackage(
+      *package, importResult, options, &environment, &readContext, readProgress,
+      [](mvr::MvrReadLogLevel level, const std::string &message) {
+        const Logger::Level mapped =
+            level == mvr::MvrReadLogLevel::Error     ? Logger::Level::Error
+            : level == mvr::MvrReadLogLevel::Warning ? Logger::Level::Warn
+            : level == mvr::MvrReadLogLevel::Debug   ? Logger::Level::Debug
+                                                     : Logger::Level::Info;
+        LogMessage(mapped, message);
+      });
   if (!parsed)
     return false;
   ApplyApplicationDictionaryMappings(importResult, resources, readContext,

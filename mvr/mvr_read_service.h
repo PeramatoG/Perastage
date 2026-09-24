@@ -21,6 +21,9 @@ namespace mvr {
 // Reports read progress without exposing importer or GUI callback types.
 using MvrReadProgressCallback =
     std::function<void(std::string stage, int completed, int total)>;
+enum class MvrReadLogLevel { Debug, Info, Warning, Error };
+using MvrReadLogCallback =
+    std::function<void(MvrReadLogLevel, const std::string &)>;
 
 // Supplies resource and model enrichment without changing XML traversal.
 struct MvrReadEnvironment {
@@ -40,6 +43,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                             const MvrImportOptions &options = {},
                             const MvrReadEnvironment *environment = nullptr,
                             MvrReadContext *context = nullptr,
-                            MvrReadProgressCallback progress = {});
+                            MvrReadProgressCallback progress = {},
+                            MvrReadLogCallback log = {});
 
 } // namespace mvr

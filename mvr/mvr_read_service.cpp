@@ -143,7 +143,12 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                             const MvrImportOptions &options,
                             const MvrReadEnvironment *environment,
                             MvrReadContext *context,
-                            MvrReadProgressCallback progressCallback) {
+                            MvrReadProgressCallback progressCallback,
+                            MvrReadLogCallback logCallback) {
+  auto logMessage = [&](MvrReadLogLevel level, const std::string &message) {
+    if (logCallback)
+      logCallback(level, message);
+  };
   const std::string sceneXmlPath = PathUtils::PathToUtf8(package.sceneXmlPath);
   auto reportProgress = [&](std::string stage, int completed = 0,
                             int total = 0) {
@@ -155,26 +160,26 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   tinyxml2::XMLDocument doc;
   tinyxml2::XMLError result = doc.LoadFile(sceneXmlPath.c_str());
   if (result != tinyxml2::XML_SUCCESS) {
-    LogMessage("Failed to load XML: " + sceneXmlPath);
+    logMessage(MvrReadLogLevel::Info, "Failed to load XML: " + sceneXmlPath);
     return false;
   }
 
   tinyxml2::XMLElement *root = doc.FirstChildElement("GeneralSceneDescription");
   if (!root) {
-    LogMessage("Missing GeneralSceneDescription node");
+    logMessage(MvrReadLogLevel::Info, "Missing GeneralSceneDescription node");
     return false;
   }
 
   MvrScene &scene = importResult.scene;
   scene.Clear();
   mvr::MvrImportReferenceResolver referenceResolver(
-      [](const std::string &message) {
-        LogMessage(ReadLogLevel::Warn, message);
+      [&](const std::string &message) {
+        logMessage(MvrReadLogLevel::Warning, message);
       });
   scene.basePath =
       ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
-  LogMessage(
-      ReadLogLevel::Info,
+  logMessage(
+      MvrReadLogLevel::Info, ReadLogLevel::Info,
       std::string("MVR import mode: source=") + "read-service" +
           ", promptConflicts=" + (options.promptConflicts ? "true" : "false") +
           ", applyDictionary=" + (options.applyDictionary ? "true" : "false") +
@@ -190,10 +195,11 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   constexpr int SUPPORTED_MINOR = 6;
   if (scene.versionMajor != SUPPORTED_MAJOR ||
       scene.versionMinor > SUPPORTED_MINOR) {
-    LogMessage("Warning: unsupported MVR version " +
-               std::to_string(scene.versionMajor) + "." +
-               std::to_string(scene.versionMinor) +
-               ". Results may be incomplete.");
+    logMessage(MvrReadLogLevel::Info, "Warning: unsupported MVR version " +
+                                          std::to_string(scene.versionMajor) +
+                                          "." +
+                                          std::to_string(scene.versionMinor) +
+                                          ". Results may be incomplete.");
   }
 
   const char *provider = root->Attribute("provider");
@@ -250,7 +256,8 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
 
   tinyxml2::XMLElement *sceneNode = root->FirstChildElement("Scene");
   if (!sceneNode) {
-    LogMessage("No Scene node found in GeneralSceneDescription");
+    logMessage(MvrReadLogLevel::Info,
+               "No Scene node found in GeneralSceneDescription");
     return true;
   }
 
@@ -312,8 +319,8 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       }
     }
     if (found) {
-      LogMessage(
-          ReadLogLevel::Info,
+      logMessage(
+          MvrReadLogLevel::Info, ReadLogLevel::Info,
           std::string("MVR import loaded Perastage sidecar manifest from ") +
               originLabel);
     }
@@ -325,8 +332,9 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   if (!hasRootManifest &&
       parsePerastageManifest(sceneNode->FirstChildElement("UserData"),
                              "legacy Scene/UserData")) {
-    LogMessage(ReadLogLevel::Warn, "MVR import used legacy Scene/UserData "
-                                   "fallback for Perastage sidecar manifest");
+    logMessage(MvrReadLogLevel::Warning,
+               "MVR import used legacy Scene/UserData "
+               "fallback for Perastage sidecar manifest");
   }
 
   std::unordered_map<std::string, std::string> layerColorByUuid;
@@ -786,7 +794,8 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       if (const char *txt = matrix->GetText()) {
         std::string raw = txt;
         if (!MatrixUtils::ParseMatrix(raw, out)) {
-          LogMessage("Failed to parse matrix in " + contextTag + ": " + raw);
+          logMessage(MvrReadLogLevel::Info,
+                     "Failed to parse matrix in " + contextTag + ": " + raw);
           out = MatrixUtils::Identity();
           return;
         }
@@ -1013,17 +1022,17 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       resolveSymdefReference,
       appendGeometryInstance,
       reportProgress,
-      [](const std::string &message) {
-        LogMessage(ReadLogLevel::Debug, message);
+      [&](const std::string &message) {
+        logMessage(MvrReadLogLevel::Debug, message);
       },
-      [](const std::string &message) {
-        LogMessage(ReadLogLevel::Info, message);
+      [&](const std::string &message) {
+        logMessage(MvrReadLogLevel::Info, message);
       },
-      [](const std::string &message) {
-        LogMessage(ReadLogLevel::Warn, message);
+      [&](const std::string &message) {
+        logMessage(MvrReadLogLevel::Warning, message);
       },
-      [](const std::string &message) {
-        LogMessage(ReadLogLevel::Error, message);
+      [&](const std::string &message) {
+        logMessage(MvrReadLogLevel::Error, message);
       }};
   mvr::MvrSceneReadMetadata sceneReadMetadata{
       {rootFixtureTypeInfoByKey, projectFixtureIdentifiersByUuid,
