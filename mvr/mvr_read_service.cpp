@@ -981,7 +981,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
        },
        [](const std::string &, const std::string &) { return -1; },
        [](const std::string &) {
-         return std::optional<GdtfDictionary::Entry>{};
+         return std::optional<SceneReadDictionaryEntry>{};
        },
        [](const std::string &, Truss &) { return false; },
        [&](const std::string &path) {

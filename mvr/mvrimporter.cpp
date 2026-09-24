@@ -1491,8 +1491,10 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
       if (entry)
         fixture.category =
             GdtfFixtureCategory::NormalizeCategory(entry->category);
-      if (!fixture.category.empty())
+      if (!fixture.category.empty()) {
         fixture.categorySource = GdtfFixtureCategory::kManualSource;
+        fixture.categorySourceReason.clear();
+      }
     }
     if (fixture.category.empty() && !key.empty() && byType.contains(key)) {
       const auto &cached = byType.at(key);
@@ -1500,7 +1502,7 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
       fixture.categorySource = cached.source;
       fixture.categorySourceReason = cached.reason;
     }
-    if (fixture.category.empty()) {
+    if (fixture.category.empty() && !fixture.gdtfSpec.empty()) {
       const std::string resolved = resources.ResolveGdtfPath(fixture.gdtfSpec);
       auto [it, inserted] = byResolvedPath.try_emplace(resolved);
       if (inserted) {
@@ -1516,9 +1518,13 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
       fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
       fixture.categorySourceReason = it->second.reason;
     }
-    if (!key.empty())
-      byType[key] = {fixture.category, fixture.categorySource,
-                     fixture.categorySourceReason};
+    if (!fixture.category.empty() && !key.empty())
+      byType[key] = {
+          fixture.category,
+          fixture.categorySource.empty() ? GdtfFixtureCategory::kManualSource
+                                         : fixture.categorySource,
+          fixture.categorySourceReason.empty() ? "cached"
+                                               : fixture.categorySourceReason};
 
     if (!fixture.gdtfSpec.empty()) {
       const std::string resolved = resources.ResolveGdtfPath(fixture.gdtfSpec);

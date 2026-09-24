@@ -10,7 +10,7 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
-- Kept standalone MVR inspection independent of application GDTF enrichment, while restoring cached fixture-category inference, final mode compatibility resolution, and default-layer normalization for normal imports.
+- Kept standalone MVR inspection independent of application GDTF enrichment, while restoring exact cached fixture-category provenance, final mode compatibility resolution, and default-layer normalization for normal imports.
 
 - Preserved fixture-category dictionary updates and the complete GDTF Share conflict-download workflow when importing MVR files through the shared inspection reader.
 
