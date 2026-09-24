@@ -11,6 +11,7 @@
 
 #include "archive_entry_path.h"
 #include "filesystem_path_utils.h"
+#include "logger.h"
 
 #include <algorithm>
 #include <cctype>
@@ -18,7 +19,6 @@
 #include <functional>
 #include <iomanip>
 #include <memory>
-#include <random>
 #include <sstream>
 #include <unordered_set>
 
@@ -119,6 +119,8 @@ bool ExtractArchive(wxInputStream &input, const fs::path &destination,
     if (perastage::archive::IsUnsafeNormalizedEntryPath(
             normalizedUnsafeCheck) ||
         relativeEntryPath.is_absolute() || relativeEntryPath.has_root_name()) {
+      Logger::Instance().Log(Logger::Level::Warn,
+                             "Skipping unsafe MVR archive entry: " + entryName);
       discardCurrentEntry();
       continue;
     }
@@ -220,8 +222,14 @@ bool ExtractArchive(wxInputStream &input, const fs::path &destination,
           fs::path(loweredEntry).filename().generic_string() ==
               "generalscenedescription.xml";
       if (isSceneXml) {
+        Logger::Instance().Log(Logger::Level::Error,
+                               message.str() +
+                                   " (required scene XML; aborting import)");
         return false;
       }
+      Logger::Instance().Log(Logger::Level::Warn,
+                             message.str() +
+                                 " (asset entry skipped, continuing import)");
       discardCurrentEntry();
       continue;
     }
@@ -232,6 +240,7 @@ bool ExtractArchive(wxInputStream &input, const fs::path &destination,
       warning << "MVR extraction remapped long path entry. entry='" << entryName
               << "', remapped='" << remappedPath
               << "', originalLength=" << fullPathLength;
+      Logger::Instance().Log(Logger::Level::Warn, warning.str());
     }
 
     char buffer[4096];
@@ -273,49 +282,6 @@ fs::path FindSceneXml(const fs::path &rootPath) {
 
 namespace mvr {
 
-struct ImportWorkspace::State {
-  fs::path path;
-
-  // Removes the extraction directory when the final lease is released.
-  ~State() {
-    std::error_code error;
-    fs::remove_all(path, error);
-  }
-};
-
-// Creates one unique temporary extraction workspace.
-ImportWorkspace::ImportWorkspace() {
-  std::error_code error;
-  const fs::path base = fs::temp_directory_path(error);
-  if (error)
-    return;
-  std::random_device random;
-  for (int attempt = 0; attempt < 32; ++attempt) {
-    const fs::path candidate =
-        base / ("perastage-mvr-read-" + std::to_string(random()) + "-" +
-                std::to_string(attempt));
-    if (fs::create_directory(candidate, error)) {
-      state_ = std::make_shared<State>(State{candidate});
-      return;
-    }
-    error.clear();
-  }
-}
-
-// Reports whether the extraction workspace exists.
-bool ImportWorkspace::IsValid() const { return state_ != nullptr; }
-
-// Returns the extraction directory while its lease remains alive.
-const fs::path &ImportWorkspace::Path() const {
-  static const fs::path empty;
-  return state_ ? state_->path : empty;
-}
-
-// Transfers shared cleanup ownership to the parsed scene.
-std::shared_ptr<void> ImportWorkspace::TransferToSceneLease() {
-  return std::move(state_);
-}
-
 // Normalizes a packaged resource path for importer lookup and remapping.
 std::string NormalizeImportArchivePath(const std::string &archivePath) {
   std::string normalized = Trim(NormalizeSlashes(archivePath));
@@ -335,14 +301,16 @@ std::string NormalizeImportArchivePath(const std::string &archivePath) {
 std::optional<ImportPackage>
 AcquireImportPackage(wxInputStream &input,
                      std::vector<MvrImportDiagnostic> &diagnostics) {
-  ImportWorkspace workspace;
+  runtime_storage::TemporaryWorkspace workspace("mvr-import");
   if (!workspace.IsValid()) {
+    Logger::Instance().Log("Failed to create MVR import workspace.");
     return std::nullopt;
   }
 
   const fs::path rootPath = workspace.Path();
   std::unordered_map<std::string, std::string> pathRemap;
   if (!ExtractArchive(input, rootPath, pathRemap, diagnostics)) {
+    Logger::Instance().Log("Failed to extract MVR file.");
     return std::nullopt;
   }
 
@@ -357,9 +325,14 @@ AcquireImportPackage(wxInputStream &input,
       ++extractedGdtfEntryCount;
     }
   }
+  Logger::Instance().Log(
+      Logger::Level::Info,
+      "MVR extraction diagnostics: basePath='" + ToString(rootPath.u8string()) +
+          "', extractedGdtfEntries=" + std::to_string(extractedGdtfEntryCount));
 
   const fs::path sceneXmlPath = FindSceneXml(rootPath);
   if (sceneXmlPath.empty()) {
+    Logger::Instance().Log("Missing GeneralSceneDescription.xml in MVR.");
     return std::nullopt;
   }
 

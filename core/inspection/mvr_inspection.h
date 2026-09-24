@@ -35,12 +35,23 @@ struct MvrSceneNodeDescriptor {
   std::string uuid;
   std::string name;
   std::string layerUuid;
+  std::string layerName;
   std::string parentGroupUuid;
   std::string resourceReference;
   std::vector<std::string> childUuids;
 
   // Compares deterministic scene descriptors by value.
   bool operator==(const MvrSceneNodeDescriptor &) const = default;
+};
+
+// Preserves one foreign provider block without interpreting its schema.
+struct MvrForeignUserDataDescriptor {
+  std::string provider;
+  std::string version;
+  std::string xml;
+
+  // Compares preserved foreign data by exact retained values.
+  bool operator==(const MvrForeignUserDataDescriptor &) const = default;
 };
 
 // Carries the immutable, presentation-neutral facts read from one MVR.
@@ -59,6 +70,7 @@ struct MvrInspectionSnapshot {
   std::vector<MvrSceneNodeDescriptor> supports;
   std::vector<MvrSceneNodeDescriptor> sceneObjects;
   std::vector<MvrSceneNodeDescriptor> groupObjects;
+  std::vector<MvrForeignUserDataDescriptor> foreignUserData;
   std::vector<MvrNodeCount> nodeCounts;
 };
 

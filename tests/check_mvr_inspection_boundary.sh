@@ -26,10 +26,17 @@ fi
 
 grep -Fq 'add_library(perastage_mvr_read STATIC' "$mvr_cmake" ||
   fail "the reusable MVR read target is missing"
+grep -Fq 'add_library(perastage_mvr_import_application_read STATIC' "$mvr_cmake" ||
+  fail "application read adapters must have a separate production owner"
 read_block="$(sed -n '/add_library(perastage_mvr_read STATIC/,/^)/p' "$mvr_cmake")"
 if printf '%s\n' "$read_block" | grep -Eiq 'project_application|merge|export|xchange|download|gdtfnet|dialog|gui'; then
   fail "the read target contains application, mutation, network, or GUI sources"
 fi
+if printf '%s\n' "$read_block" | grep -Fq 'mvr_import_application_read_services'; then
+  fail "the reusable read target must not own application enrichment adapters"
+fi
+grep -Fq 'perastage_runtime_storage' "$mvr_cmake" ||
+  fail "MVR acquisition must reuse the production runtime-storage target"
 
 for source_name in mvr_import_package.cpp mvr_import_reference_resolver.cpp \
   mvr_import_resource_resolver.cpp mvr_read_service.cpp \
@@ -56,5 +63,18 @@ if grep -Eiq 'MainWindow|ConfigManager|viewer|gdtfnet|download|ImportAndRegister
 fi
 grep -Fq 'ReadAcquiredMvrPackage' "$source" ||
   fail "the service must use the acquired-package read seam"
+
+importer="$root/mvr/mvrimporter.cpp"
+if grep -Eq 'FirstChildElement\("(GeneralSceneDescription|UserData|Layers|Symdef)' "$importer"; then
+  fail "MvrImporter must not own GeneralSceneDescription XML traversal"
+fi
+if grep -Eq 'ReadMvrSceneNodes|ParseSceneXml' "$importer"; then
+  fail "MvrImporter must not own a second scene-parser orchestration path"
+fi
+grep -Fq 'mvr::ReadAcquiredMvrPackage(' "$importer" ||
+  fail "every importer mode must delegate to the shared parser"
+if grep -Eq 'applyDictionary[^\n]*\?.*ReadAcquiredMvrPackage|ReadAcquiredMvrPackage[^\n]*applyDictionary' "$importer"; then
+  fail "dictionary policy must not select the XML parser"
+fi
 
 echo "MVR inspection boundary check passed"

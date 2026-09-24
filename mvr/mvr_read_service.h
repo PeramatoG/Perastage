@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mvr_import_package.h"
+#include "mvr_scene_node_reader.h"
 
 #include <functional>
 #include <string>
@@ -20,10 +21,23 @@ namespace mvr {
 using MvrReadProgressCallback =
     std::function<void(std::string stage, int completed, int total)>;
 
+// Supplies resource and model enrichment without changing XML traversal.
+struct MvrReadEnvironment {
+  MvrSceneResourceServices resources;
+  MvrSceneReadServices::ModelServices model;
+};
+
+// Carries neutral parser state needed by optional application post-read work.
+struct MvrReadContext {
+  std::vector<SceneReadGdtfConflict> gdtfConflicts;
+};
+
 // Parses one already-acquired package through the production read model.
 bool ReadAcquiredMvrPackage(const ImportPackage &package,
                             MvrImportResult &result,
                             const MvrImportOptions &options = {},
+                            const MvrReadEnvironment *environment = nullptr,
+                            MvrReadContext *context = nullptr,
                             MvrReadProgressCallback progress = {});
 
 } // namespace mvr

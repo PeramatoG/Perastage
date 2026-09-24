@@ -24,6 +24,18 @@ add_library(perastage_archive_zip_directory STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/archive_zip_directory.cpp
 )
 
+add_library(perastage_runtime_storage STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticPaths.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/logger.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/runtime_storage.cpp
+)
+target_compile_features(perastage_runtime_storage PUBLIC cxx_std_20)
+target_include_directories(perastage_runtime_storage PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics
+)
+
 target_compile_features(perastage_archive_zip_directory PUBLIC cxx_std_20)
 target_include_directories(perastage_archive_zip_directory PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -45,7 +57,7 @@ target_include_directories(perastage_gdtf_read PUBLIC
 )
 target_link_libraries(perastage_gdtf_read
     PUBLIC perastage_archive_zip_directory
-    PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
+    PRIVATE perastage_runtime_storage tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
 add_library(perastage_inspection_gdtf STATIC
@@ -86,6 +98,7 @@ target_link_libraries(perastage_inspection_package
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     perastage_gdtf_read
+    perastage_runtime_storage
 )
 
 target_sources(${PROJECT_NAME} PRIVATE
@@ -101,7 +114,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/credentialstore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/CrashHandler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticLogger.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticPaths.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticReport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_bundle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dictionary_duplicate.cpp
@@ -149,7 +161,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutTemplatePackageService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layouts/LayoutSelectionPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/layoutviewpresets.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/markdown.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/magnet_snap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_identity_recovery.cpp
@@ -166,7 +177,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/riderimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_fixture_resolution.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rider_text_semantics.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/runtime_storage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_clipboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_node_operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene_transform_integrity.cpp

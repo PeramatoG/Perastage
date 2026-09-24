@@ -68,7 +68,9 @@ std::size_t Count(const MvrInspectionSnapshot &snapshot,
 void TestStandaloneInspectionParity() {
   const std::string xml =
       "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
-      "provider=\"Standalone\" providerVersion=\"1\"><Scene><Layers>"
+      "provider=\"Standalone\" providerVersion=\"1\">"
+      "<UserData><Data provider=\"Foreign\" ver=\"2\"><Value raw=\"yes\"/>"
+      "</Data></UserData><Scene><Layers>"
       "<Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Main\">"
       "<ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000001\" "
       "name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
@@ -117,6 +119,9 @@ void TestStandaloneInspectionParity() {
   assert(fromFile.snapshot->sceneObjects == fromBytes.snapshot->sceneObjects);
   assert(fromFile.snapshot->groupObjects == fromBytes.snapshot->groupObjects);
   assert(fromFile.snapshot->nodeCounts == fromBytes.snapshot->nodeCounts);
+  assert(fromFile.snapshot->fixtures.front().layerUuid ==
+         "10000000-0000-4000-8000-000000000001");
+  assert(fromFile.snapshot->fixtures.front().layerName == "Main");
   assert(Count(*fromFile.snapshot, "fixtures") ==
          fromFile.snapshot->fixtures.size());
   assert(Count(*fromFile.snapshot, "trusses") == 1);
@@ -128,6 +133,13 @@ void TestStandaloneInspectionParity() {
          std::vector<std::string>{"40000000-0000-4000-8000-000000000001"});
   assert(fromFile.snapshot->sceneObjects.front().parentGroupUuid ==
          fromFile.snapshot->groupObjects.front().uuid);
+  assert(fromFile.snapshot->sceneObjects.front().layerUuid ==
+         "10000000-0000-4000-8000-000000000001");
+  assert(fromFile.snapshot->foreignUserData.size() == 1);
+  assert(fromFile.snapshot->foreignUserData.front().provider == "Foreign");
+  assert(fromFile.snapshot->foreignUserData.front().version == "2");
+  assert(fromFile.snapshot->foreignUserData.front().xml ==
+         "<Data provider=\"Foreign\" ver=\"2\"><Value raw=\"yes\"/></Data>");
   assert(ReadBytes(path) == bytes);
   fs::remove_all(root);
 }

@@ -141,6 +141,8 @@ namespace mvr {
 bool ReadAcquiredMvrPackage(const ImportPackage &package,
                             MvrImportResult &importResult,
                             const MvrImportOptions &options,
+                            const MvrReadEnvironment *environment,
+                            MvrReadContext *context,
                             MvrReadProgressCallback progressCallback) {
   const std::string sceneXmlPath = PathUtils::PathToUtf8(package.sceneXmlPath);
   auto reportProgress = [&](std::string stage, int completed = 0,
@@ -956,7 +958,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   };
   std::unordered_map<std::string, SceneReadGdtfConflict>
       pendingGdtfConflictByType;
-  mvr::MvrSceneReadServices sceneReadServices{
+  MvrReadEnvironment packageEnvironment{
       {[&](const std::string &path) { return RemapPackagePath(package, path); },
        [&](const std::string &path) {
          return NormalizeImportArchivePath(path);
@@ -991,7 +993,12 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
          return std::optional<GeometryBounds>{};
        },
        [](Truss &, bool) {}, [](MvrScene &) {},
-       [](const std::string &) { return std::optional<std::string>{}; }},
+       [](const std::string &) { return std::optional<std::string>{}; }}};
+  const MvrReadEnvironment &readEnvironment =
+      environment ? *environment : packageEnvironment;
+  mvr::MvrSceneReadServices sceneReadServices{
+      readEnvironment.resources,
+      readEnvironment.model,
       textOf,
       intOf,
       fixtureIdOf,
@@ -1051,6 +1058,18 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       importResult, {trussInfoUuids, consumedRootTrussInfoUuids, hoistInfoUuids,
                      consumedRootHoistInfoUuids, projectFixtureMetadataUuids,
                      consumedProjectFixtureColorUuids});
+  if (context) {
+    context->gdtfConflicts.clear();
+    context->gdtfConflicts.reserve(pendingGdtfConflictByType.size());
+    for (const auto &[type, conflict] : pendingGdtfConflictByType) {
+      (void)type;
+      context->gdtfConflicts.push_back(conflict);
+    }
+    std::sort(context->gdtfConflicts.begin(), context->gdtfConflicts.end(),
+              [](const auto &left, const auto &right) {
+                return left.type < right.type;
+              });
+  }
   return true;
 }
 

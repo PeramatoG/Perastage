@@ -22,7 +22,8 @@ for callback in remapArchivePath normalizeGdtfSpec resolveGdtfPath \
     exit 1
   fi
 done
-if ! rg -q 'resources\.ResolveGdtfPath' mvr/mvrimporter.cpp; then
+if ! rg -q 'resolver\.ResolveGdtfPath' \
+    mvr/mvr_import_application_read_services.cpp; then
   echo "The application importer must adapt the cohesive resource resolver into the shared reader." >&2
   exit 1
 fi

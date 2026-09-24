@@ -43,6 +43,7 @@
 #include <iomanip>
 #include <sstream>
 #include <system_error>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
@@ -160,8 +161,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
   auto resolveGdtfPathCached = [&](const std::string &spec) {
     return resources.resolveGdtfPath(spec);
   };
-  auto getFixtureMetadata =
-      [&](const std::string &path) {
+  auto getFixtureMetadata = [&](const std::string &path) {
     return resources.fixtureMetadata(path);
   };
   auto resolveExistingGdtfModeCached = [&](const std::string &path,
@@ -771,9 +771,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             fs::exists(resolvedSymbolPath, symbolExistsEc) && !symbolExistsEc;
         if (symbolExists) {
           std::string boundsDiagnostic;
-          truss.localGeometryBounds =
-              services.model.geometryBounds(resolvedSymbolPath,
-                                            &boundsDiagnostic);
+          truss.localGeometryBounds = services.model.geometryBounds(
+              resolvedSymbolPath, &boundsDiagnostic);
           if (truss.localGeometryBounds) {
             const bool legacyMetadataContext =
                 !hasGdtfMetadataAuthority &&
@@ -781,8 +780,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                      Truss::GeometryRepresentation::SymbolSymdef ||
                  truss.sourceRepresentation ==
                      Truss::GeometryRepresentation::Geometry3D);
-            services.model.resolveTrussDimensions(truss,
-                                                  legacyMetadataContext);
+            services.model.resolveTrussDimensions(truss, legacyMetadataContext);
           } else if (!boundsDiagnostic.empty()) {
             importResult.diagnostics.push_back(
                 {"truss_geometry_bounds_unavailable",
@@ -1363,6 +1361,20 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
     }
     bool isDefaultLayer = layerStr.empty();
 
+    std::unordered_set<std::string> existingLayerNodes;
+    const auto rememberExistingNodes =
+        [&existingLayerNodes](const auto &nodes) {
+          for (const auto &[uuid, node] : nodes) {
+            (void)node;
+            existingLayerNodes.insert(uuid);
+          }
+        };
+    rememberExistingNodes(scene.fixtures);
+    rememberExistingNodes(scene.trusses);
+    rememberExistingNodes(scene.supports);
+    rememberExistingNodes(scene.sceneObjects);
+    rememberExistingNodes(scene.groupObjects);
+
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
       parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,
@@ -1390,6 +1402,20 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           }
         }
       }
+      const auto appendNewRootNodes = [&existingLayerNodes,
+                                       &l](const auto &nodes) {
+        for (const auto &[uuid, node] : nodes) {
+          if (!existingLayerNodes.contains(uuid) &&
+              node.parentGroupUuid.empty())
+            l.childUUIDs.push_back(uuid);
+        }
+      };
+      appendNewRootNodes(scene.fixtures);
+      appendNewRootNodes(scene.trusses);
+      appendNewRootNodes(scene.supports);
+      appendNewRootNodes(scene.sceneObjects);
+      appendNewRootNodes(scene.groupObjects);
+      std::sort(l.childUUIDs.begin(), l.childUUIDs.end());
       scene.layers[l.uuid] = l;
     }
   }

@@ -152,7 +152,7 @@ add_executable(mvr_import_resource_resolver_test
 target_include_directories(mvr_import_resource_resolver_test PRIVATE
                            ../core ../models ../mvr ../viewer3d)
 target_link_libraries(mvr_import_resource_resolver_test PRIVATE
-                      perastage_test_path_utils)
+                      perastage_mvr_read perastage_test_path_utils)
 add_test(NAME MvrImportResourceResolver COMMAND mvr_import_resource_resolver_test)
 
 add_executable(mvr_import_reference_resolver_test
@@ -160,6 +160,8 @@ add_executable(mvr_import_reference_resolver_test
               )
 target_include_directories(mvr_import_reference_resolver_test PRIVATE
                            ../core ../models ../mvr)
+target_link_libraries(mvr_import_reference_resolver_test PRIVATE
+                      perastage_mvr_read)
 add_test(NAME MvrImportReferenceResolver
          COMMAND mvr_import_reference_resolver_test)
 set_perastage_test_labels(MvrImportReferenceResolver
@@ -3501,5 +3503,7 @@ foreach(mvr_read_consumer
         rider_save_roundtrip_test
         symbol_fixture_applier_gdtf_test
         mvr_patched_gdtf_export_test)
-    target_link_libraries(${mvr_read_consumer} PRIVATE perastage_mvr_read)
+    target_link_libraries(${mvr_read_consumer} PRIVATE
+                          perastage_mvr_read
+                          perastage_mvr_import_application_read)
 endforeach()

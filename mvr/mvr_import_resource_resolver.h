@@ -70,9 +70,4 @@ private:
   const ImportGdtfMetadata emptyMetadata_;
 };
 
-// Adapts the application resource resolver to scene-reader callbacks.
-MvrSceneResourceServices
-MakeSceneResourceServices(MvrImportResourceResolver &resolver);
-MvrSceneReadServices::ModelServices MakeApplicationSceneModelServices();
-
 } // namespace mvr

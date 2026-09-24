@@ -10,9 +10,10 @@
 #pragma once
 
 #include "mvr_import_types.h"
+#include "runtime_storage.h"
+
 #include <cstdint>
 #include <filesystem>
-#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -22,27 +23,9 @@ class wxInputStream;
 
 namespace mvr {
 
-// Owns one automatically removed temporary MVR extraction directory.
-class ImportWorkspace {
-public:
-  ImportWorkspace();
-  ImportWorkspace(ImportWorkspace &&) noexcept = default;
-  ImportWorkspace &operator=(ImportWorkspace &&) noexcept = default;
-  ImportWorkspace(const ImportWorkspace &) = delete;
-  ImportWorkspace &operator=(const ImportWorkspace &) = delete;
-
-  bool IsValid() const;
-  const std::filesystem::path &Path() const;
-  std::shared_ptr<void> TransferToSceneLease();
-
-private:
-  struct State;
-  std::shared_ptr<State> state_;
-};
-
 // Owns an extracted MVR package and keeps its temporary workspace alive.
 struct ImportPackage {
-  ImportWorkspace workspace;
+  runtime_storage::TemporaryWorkspace workspace;
   std::filesystem::path rootPath;
   std::filesystem::path sceneXmlPath;
   std::unordered_map<std::string, std::string> pathRemap;

@@ -360,6 +360,52 @@ static void TestMvrInspectionService() {
   std::filesystem::remove_all(directory);
 }
 
+// Verifies dictionary policy does not select a different structural parser.
+static void TestSharedParserModeParity() {
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<AUXData><Position uuid=\"70000000-0000-4000-8000-000000000001\" "
+      "name=\"Position\"/></AUXData><Layers><Layer "
+      "uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Layer Name\">"
+      "<ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000001\" "
+      "name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<GDTFSpec>fixture.gdtf</GDTFSpec></Fixture><Truss "
+      "uuid=\"30000000-0000-4000-8000-000000000001\" name=\"Truss\">"
+      "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/></Truss>"
+      "<Support uuid=\"40000000-0000-4000-8000-000000000001\" "
+      "name=\"Support\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<Geometries/></Support><GroupObject "
+      "uuid=\"50000000-0000-4000-8000-000000000001\" name=\"Group\">"
+      "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><ChildList>"
+      "<SceneObject uuid=\"60000000-0000-4000-8000-000000000001\" "
+      "name=\"Object\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<Geometries/></SceneObject></ChildList></GroupObject></ChildList>"
+      "</Layer></Layers></Scene></GeneralSceneDescription>";
+  const std::vector<std::uint8_t> bytes =
+      BuildArchive({{"GeneralSceneDescription.xml", xml}});
+  MvrImportOptions withoutDictionary;
+  withoutDictionary.promptConflicts = false;
+  withoutDictionary.applyDictionary = false;
+  withoutDictionary.allowDummyFallback = false;
+  MvrImportOptions withDictionary = withoutDictionary;
+  withDictionary.applyDictionary = true;
+  MvrImporter importer;
+  MvrImportResult first;
+  MvrImportResult second;
+  assert(importer.ImportFromBuffer(bytes, first, MvrImportMode::ParseOnly,
+                                   withoutDictionary));
+  assert(importer.ImportFromBuffer(bytes, second, MvrImportMode::ParseOnly,
+                                   withDictionary));
+  assert(first.scene.layers.size() == second.scene.layers.size());
+  assert(first.scene.fixtures.size() == second.scene.fixtures.size());
+  assert(first.scene.trusses.size() == second.scene.trusses.size());
+  assert(first.scene.supports.size() == second.scene.supports.size());
+  assert(first.scene.sceneObjects.size() == second.scene.sceneObjects.size());
+  assert(first.scene.groupObjects.size() == second.scene.groupObjects.size());
+  assert(first.scene.positions == second.scene.positions);
+  assert(first.diagnostics.size() == second.diagnostics.size());
+}
+
 // Runs one independently labeled importer characterization scenario.
 int main(int argc, char **argv) {
   wxInitializer initializer;
@@ -379,9 +425,10 @@ int main(int argc, char **argv) {
     TestExternalImportResetSemantics();
     TestProjectApplicationBoundary();
     TestFileAndBufferRegistrationParity();
-  } else if (scenario == "inspection")
+  } else if (scenario == "inspection") {
     TestMvrInspectionService();
-  else
+    TestSharedParserModeParity();
+  } else
     assert(false);
   return 0;
 }

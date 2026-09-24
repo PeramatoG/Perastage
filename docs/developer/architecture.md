@@ -254,11 +254,21 @@ pairing. The MVR importer remains a separate extraction/import workflow.
 
 INS-120 adds `perastage_mvr_read` as the single production owner of MVR package
 acquisition, read orchestration, scene-node reading, resource resolution, and
-reference resolution. `MvrImporter` delegates parse-only imports to that seam;
-its project application, conflict dialogs, download workflow, and dictionary
-application remain in the application-facing importer. The reusable target's
+reference resolution. Every `MvrImporter` mode delegates General Scene
+Description traversal to that seam. The focused
+`perastage_mvr_import_application_read` adapter supplies local/embedded GDTF
+metadata, mode resolution, truss definitions, geometry bounds, legacy layer
+reconciliation, and dummy-hoist lookup to the same parser. Project application,
+conflict dialogs, download workflow, and dictionary application remain outside
+the shared parser in the application-facing importer. The reusable target's
 remaining wxWidgets dependency is limited to base memory and ZIP streams used
 by the established safe extraction implementation.
+
+MVR package acquisition reuses `perastage_runtime_storage`, the production
+owner of `TemporaryWorkspace` and `SceneResourceLease`; inspection does not
+define a parallel temporary-directory lifetime. The Inspector supplies a
+restricted package-only read environment to the shared parser, while application
+imports supply the richer adapter without changing XML traversal ownership.
 
 `perastage_inspection_mvr` is a read-only consumer whose public API uses
 standard C++ filesystem paths or owned bytes. It composes the INS-100 MVR
