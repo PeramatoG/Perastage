@@ -1042,37 +1042,6 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                          sceneReadServices, sceneReadMetadata, sceneReadState,
                          sceneReadMetrics);
 
-  for (auto &[uuid, fixture] : scene.fixtures) {
-    (void)uuid;
-    if (fixture.category.empty() && !fixture.typeName.empty()) {
-      const auto entry =
-          readEnvironment.resources.dictionaryEntry(fixture.typeName);
-      if (entry) {
-        fixture.category =
-            GdtfFixtureCategory::NormalizeCategory(entry->category);
-        if (!fixture.category.empty())
-          fixture.categorySource = GdtfFixtureCategory::kManualSource;
-      }
-    }
-    if (!fixture.category.empty())
-      continue;
-    const std::string resolved =
-        readEnvironment.resources.resolveGdtfPath(fixture.gdtfSpec);
-    GdtfFixtureCategory::InferenceResult inferred;
-    if (!resolved.empty() &&
-        std::filesystem::is_regular_file(PathUtils::PathFromUtf8(resolved))) {
-      inferred = GdtfFixtureCategory::InferFromGdtf(resolved);
-    } else {
-      inferred.reason = "GDTF file is missing";
-    }
-    fixture.category =
-        GdtfFixtureCategory::NormalizeCategory(inferred.category);
-    if (fixture.category.empty())
-      fixture.category = GdtfFixtureCategory::kUnknown;
-    fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
-    fixture.categorySourceReason = inferred.reason;
-  }
-
   auto metadataUuids = [](const auto &entries) {
     std::unordered_set<std::string> uuids;
     for (const auto &[uuid, value] : entries) {

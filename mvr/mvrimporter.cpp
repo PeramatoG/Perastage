@@ -1475,12 +1475,84 @@ static void ApplyApplicationDictionaryMappings(
   }
 }
 
-// Persists manually authored fixture categories after an application import.
+// Applies application-only category, mode, and default-layer enrichment.
 static void
-PersistManualFixtureCategories(const mvr::MvrReadContext &readContext) {
+ApplyApplicationSceneEnrichment(MvrImportResult &result,
+                                mvr::MvrImportResourceResolver &resources) {
+  std::unordered_map<std::string, mvr::SceneReadCachedCategory> byType;
+  std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
+      byResolvedPath;
+  for (auto &[uuid, fixture] : result.scene.fixtures) {
+    (void)uuid;
+    const std::string key =
+        !fixture.typeName.empty() ? fixture.typeName : fixture.gdtfSpec;
+    if (fixture.category.empty() && !fixture.typeName.empty()) {
+      const auto &entry = resources.DictionaryEntry(fixture.typeName);
+      if (entry)
+        fixture.category =
+            GdtfFixtureCategory::NormalizeCategory(entry->category);
+      if (!fixture.category.empty())
+        fixture.categorySource = GdtfFixtureCategory::kManualSource;
+    }
+    if (fixture.category.empty() && !key.empty() && byType.contains(key)) {
+      const auto &cached = byType.at(key);
+      fixture.category = cached.category;
+      fixture.categorySource = cached.source;
+      fixture.categorySourceReason = cached.reason;
+    }
+    if (fixture.category.empty()) {
+      const std::string resolved = resources.ResolveGdtfPath(fixture.gdtfSpec);
+      auto [it, inserted] = byResolvedPath.try_emplace(resolved);
+      if (inserted) {
+        if (!resolved.empty() && resources.GdtfFileExists(resolved))
+          it->second = GdtfFixtureCategory::InferFromGdtf(resolved);
+        else
+          it->second.reason = "GDTF file is missing";
+      }
+      fixture.category =
+          GdtfFixtureCategory::NormalizeCategory(it->second.category);
+      if (fixture.category.empty())
+        fixture.category = GdtfFixtureCategory::kUnknown;
+      fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+      fixture.categorySourceReason = it->second.reason;
+    }
+    if (!key.empty())
+      byType[key] = {fixture.category, fixture.categorySource,
+                     fixture.categorySourceReason};
+
+    if (!fixture.gdtfSpec.empty()) {
+      const std::string resolved = resources.ResolveGdtfPath(fixture.gdtfSpec);
+      const int channelCount =
+          (!resolved.empty() && !fixture.gdtfMode.empty())
+              ? resources.GdtfModeChannelCount(resolved, fixture.gdtfMode)
+              : -1;
+      fixture.gdtfMode = resources.ResolveGdtfMode(
+          resolved, fixture.gdtfMode,
+          channelCount > 0 ? std::optional<int>(channelCount) : std::nullopt);
+    }
+  }
+  const bool hasDefault =
+      std::any_of(result.scene.layers.begin(), result.scene.layers.end(),
+                  [](const auto &entry) {
+                    return entry.second.name == DEFAULT_LAYER_NAME;
+                  });
+  if (!hasDefault) {
+    Layer layer;
+    layer.uuid = "layer_default";
+    layer.name = DEFAULT_LAYER_NAME;
+    result.scene.layers[layer.uuid] = layer;
+  }
+}
+
+// Persists manually authored fixture categories after an application import.
+static void PersistManualFixtureCategories(const MvrImportResult &result) {
   std::unordered_map<std::string, std::string> updates;
-  for (const auto &[type, category] : readContext.manualCategoryUpdates)
-    updates[type] = category;
+  for (const auto &[uuid, fixture] : result.scene.fixtures) {
+    (void)uuid;
+    if (!fixture.typeName.empty() && !fixture.category.empty() &&
+        fixture.categorySource == GdtfFixtureCategory::kManualSource)
+      updates[fixture.typeName] = fixture.category;
+  }
   GdtfDictionary::UpdateCategoriesBulk(updates);
 }
 
@@ -1674,7 +1746,8 @@ bool MvrImporter::ImportFromStreamIntoResult(
     return false;
   ApplyApplicationDictionaryMappings(importResult, resources, readContext,
                                      options, progressCallback);
-  PersistManualFixtureCategories(readContext);
+  ApplyApplicationSceneEnrichment(importResult, resources);
+  PersistManualFixtureCategories(importResult);
 
   importResult.scene.runtimeResourceLeases.push_back(
       package->workspace.TransferToSceneLease());

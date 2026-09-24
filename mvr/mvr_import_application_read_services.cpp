@@ -38,7 +38,13 @@ MakeApplicationReadEnvironment(MvrImportResourceResolver &resolver) {
       [&](const std::string &path, const std::string &mode) {
         return resolver.GdtfModeChannelCount(path, mode);
       },
-      [&](const std::string &type) { return resolver.DictionaryEntry(type); },
+      [&](const std::string &type) -> std::optional<SceneReadDictionaryEntry> {
+        const auto &entry = resolver.DictionaryEntry(type);
+        if (!entry)
+          return std::nullopt;
+        return SceneReadDictionaryEntry{entry->path, entry->mode,
+                                        entry->category};
+      },
       [&](const std::string &path, Truss &truss) {
         return resolver.LoadTrussDefinition(path, truss);
       },

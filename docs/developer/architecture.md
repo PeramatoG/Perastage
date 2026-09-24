@@ -269,6 +269,11 @@ facts. The application importer applies dictionary persistence and the existing
 GDTF Share conflict/download workflow after reading; inspection requests no
 such side effects.
 
+Fixture-category inference, final GDTF mode compatibility resolution, and
+synthetic default-layer creation are application enrichment. They run after the
+shared structural read with per-type and per-resource caches, so the Inspector
+does not open nested GDTFs or synthesize application scene state.
+
 MVR package acquisition reuses `perastage_runtime_storage`, the production
 owner of `TemporaryWorkspace` and `SceneResourceLease`; inspection does not
 define a parallel temporary-directory lifetime. The Inspector supplies a

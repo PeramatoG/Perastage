@@ -414,7 +414,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             fixture.visualColorState = FixtureProjectColorState::Present;
           }
         }
-        const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
+        const std::optional<mvr::SceneReadDictionaryEntry> dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);
         auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())

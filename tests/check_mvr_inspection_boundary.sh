@@ -58,6 +58,9 @@ fi
 if grep -Eiq 'wx[A-Z]|wxWidgets|MainWindow|ConfigManager|viewer|download|gdtfnet|canonical' "$header"; then
   fail "the public API exposes GUI, project, network, or mutation dependencies"
 fi
+if grep -Fq 'gdtfdictionary' "$root/mvr/mvr_scene_node_reader.h"; then
+  fail "the reusable scene-reader contract must not expose the application dictionary"
+fi
 if grep -Eiq 'MainWindow|ConfigManager|viewer|gdtfnet|download|ImportAndRegister|ReplaceProject' "$source"; then
   fail "the service may not apply projects or invoke GUI/network workflows"
 fi

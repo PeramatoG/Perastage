@@ -11,7 +11,6 @@
 
 #include "fixture.h"
 #include "gdtf_fixture_category.h"
-#include "gdtfdictionary.h"
 #include "mvr_import_types.h"
 #include "truss.h"
 
@@ -75,6 +74,12 @@ struct SceneReadGdtfConflict {
   bool hasDictionaryEntry = false;
 };
 
+struct SceneReadDictionaryEntry {
+  std::string path;
+  std::string mode;
+  std::string category;
+};
+
 struct MvrSceneResourceServices {
   std::function<std::string(const std::string &)> remapArchivePath;
   std::function<std::string(const std::string &)> normalizeGdtfSpec;
@@ -86,7 +91,7 @@ struct MvrSceneResourceServices {
       resolveGdtfMode;
   std::function<int(const std::string &, const std::string &)>
       gdtfModeChannelCount;
-  std::function<std::optional<GdtfDictionary::Entry>(const std::string &)>
+  std::function<std::optional<SceneReadDictionaryEntry>(const std::string &)>
       dictionaryEntry;
   std::function<bool(const std::string &, Truss &)> loadTrussDefinition;
   std::function<std::filesystem::path(const std::string &)> resolveScenePath;
