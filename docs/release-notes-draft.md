@@ -10,6 +10,10 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Preserved fixture-category dictionary updates and the complete GDTF Share conflict-download workflow when importing MVR files through the shared inspection reader.
+
+- Restored bounded filesystem ZIP inventory reads and removed redundant full-file loading during filesystem MVR inspection.
+
 - Prevented Windows debug assertions during rapid or interrupted mouse drags by balancing capture ownership across viewers, layout editing, previews, and tables.
 
 - Fixed sortable data-table columns to use semantic numeric and natural ordering instead of lexicographic string ordering.

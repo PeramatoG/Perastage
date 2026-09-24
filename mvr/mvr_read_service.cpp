@@ -1042,6 +1042,37 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                          sceneReadServices, sceneReadMetadata, sceneReadState,
                          sceneReadMetrics);
 
+  for (auto &[uuid, fixture] : scene.fixtures) {
+    (void)uuid;
+    if (fixture.category.empty() && !fixture.typeName.empty()) {
+      const auto entry =
+          readEnvironment.resources.dictionaryEntry(fixture.typeName);
+      if (entry) {
+        fixture.category =
+            GdtfFixtureCategory::NormalizeCategory(entry->category);
+        if (!fixture.category.empty())
+          fixture.categorySource = GdtfFixtureCategory::kManualSource;
+      }
+    }
+    if (!fixture.category.empty())
+      continue;
+    const std::string resolved =
+        readEnvironment.resources.resolveGdtfPath(fixture.gdtfSpec);
+    GdtfFixtureCategory::InferenceResult inferred;
+    if (!resolved.empty() &&
+        std::filesystem::is_regular_file(PathUtils::PathFromUtf8(resolved))) {
+      inferred = GdtfFixtureCategory::InferFromGdtf(resolved);
+    } else {
+      inferred.reason = "GDTF file is missing";
+    }
+    fixture.category =
+        GdtfFixtureCategory::NormalizeCategory(inferred.category);
+    if (fixture.category.empty())
+      fixture.category = GdtfFixtureCategory::kUnknown;
+    fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
+    fixture.categorySourceReason = inferred.reason;
+  }
+
   auto metadataUuids = [](const auto &entries) {
     std::unordered_set<std::string> uuids;
     for (const auto &[uuid, value] : entries) {
@@ -1060,6 +1091,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                      consumedProjectFixtureColorUuids});
   if (context) {
     context->gdtfConflicts.clear();
+    context->manualCategoryUpdates.clear();
     context->gdtfConflicts.reserve(pendingGdtfConflictByType.size());
     for (const auto &[type, conflict] : pendingGdtfConflictByType) {
       (void)type;
@@ -1069,6 +1101,20 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
               [](const auto &left, const auto &right) {
                 return left.type < right.type;
               });
+    for (const auto &[uuid, fixture] : importResult.scene.fixtures) {
+      (void)uuid;
+      if (!fixture.typeName.empty() && !fixture.category.empty() &&
+          fixture.categorySource == GdtfFixtureCategory::kManualSource) {
+        context->manualCategoryUpdates.emplace_back(fixture.typeName,
+                                                    fixture.category);
+      }
+    }
+    std::sort(context->manualCategoryUpdates.begin(),
+              context->manualCategoryUpdates.end());
+    context->manualCategoryUpdates.erase(
+        std::unique(context->manualCategoryUpdates.begin(),
+                    context->manualCategoryUpdates.end()),
+        context->manualCategoryUpdates.end());
   }
   return true;
 }

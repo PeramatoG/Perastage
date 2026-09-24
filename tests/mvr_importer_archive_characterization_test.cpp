@@ -17,6 +17,7 @@
 
 #include "configmanager.h"
 #include "fixture_label_overrides.h"
+#include "gdtfdictionary.h"
 #include "inspection/mvr_inspection.h"
 #include "mvr_import_package.h"
 #include "mvr_import_project_application.h"
@@ -318,6 +319,7 @@ static void TestMvrInspectionService() {
   config.Reset();
   config.GetScene().provider = "Sentinel";
   config.SetValue("mvr_inspection_sentinel", "preserved");
+  GdtfDictionary::ResetSaveCallCountForTesting();
   const MvrInspectionResult first = InspectMvr(path);
   const MvrInspectionResult second = InspectMvr(path);
   assert(first.Success() && first.packageInventory && first.snapshot);
@@ -337,10 +339,13 @@ static void TestMvrInspectionService() {
          second.inspection.diagnostics.size());
   assert(config.GetScene().provider == "Sentinel");
   assert(config.GetValue("mvr_inspection_sentinel") == "preserved");
-  std::ifstream unchanged(path, std::ios::binary);
-  const std::vector<std::uint8_t> after{
-      std::istreambuf_iterator<char>(unchanged), {}};
-  assert(after == bytes);
+  assert(GdtfDictionary::GetSaveCallCountForTesting() == 0);
+  {
+    std::ifstream unchanged(path, std::ios::binary);
+    const std::vector<std::uint8_t> after{
+        std::istreambuf_iterator<char>(unchanged), {}};
+    assert(after == bytes);
+  }
 
   const MvrInspectionResult malformed =
       InspectMvrBytes(BuildArchive({{"GeneralSceneDescription.xml", "<bad"}}));

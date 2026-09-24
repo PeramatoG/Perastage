@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 
 namespace mvr {
 
@@ -30,6 +31,7 @@ struct MvrReadEnvironment {
 // Carries neutral parser state needed by optional application post-read work.
 struct MvrReadContext {
   std::vector<SceneReadGdtfConflict> gdtfConflicts;
+  std::vector<std::pair<std::string, std::string>> manualCategoryUpdates;
 };
 
 // Parses one already-acquired package through the production read model.

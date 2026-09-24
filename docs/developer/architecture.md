@@ -264,6 +264,11 @@ the shared parser in the application-facing importer. The reusable target's
 remaining wxWidgets dependency is limited to base memory and ZIP streams used
 by the established safe extraction implementation.
 
+The shared read context returns neutral conflict and manually authored category
+facts. The application importer applies dictionary persistence and the existing
+GDTF Share conflict/download workflow after reading; inspection requests no
+such side effects.
+
 MVR package acquisition reuses `perastage_runtime_storage`, the production
 owner of `TemporaryWorkspace` and `SceneResourceLease`; inspection does not
 define a parallel temporary-directory lifetime. The Inspector supplies a

@@ -44,4 +44,9 @@ std::optional<ImportPackage>
 AcquireImportPackage(const std::vector<std::uint8_t> &bytes,
                      std::vector<MvrImportDiagnostic> &diagnostics);
 
+// Safely extracts an MVR filesystem package through the existing stream reader.
+std::optional<ImportPackage>
+AcquireImportPackage(const std::filesystem::path &path,
+                     std::vector<MvrImportDiagnostic> &diagnostics);
+
 } // namespace mvr

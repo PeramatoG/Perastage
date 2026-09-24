@@ -30,12 +30,6 @@ void AddDiagnostic(MvrInspectionResult &result, DiagnosticSeverity severity,
   result.inspection.diagnostics.push_back(std::move(diagnostic));
 }
 
-// Reads a file without changing its contents or filesystem metadata.
-std::vector<std::uint8_t> ReadBytes(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(input), {}};
-}
-
 // Converts a filesystem path to its unchanged UTF-8 byte representation.
 std::string PathUtf8(const std::filesystem::path &path) {
   const std::u8string value = path.u8string();
@@ -292,28 +286,16 @@ bool MvrInspectionResult::Success() const {
   return snapshot.has_value() && !inspection.HasFatalDiagnostics();
 }
 
-// Inspects owned bytes through package acquisition and parse-only importing.
-MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
-                                    const Request &request) {
+// Completes inspection from one inventory and one acquired package.
+static MvrInspectionResult CompleteMvrInspection(
+    PackageInspectionResult packageInventory,
+    std::optional<mvr::ImportPackage> package,
+    const std::vector<MvrImportDiagnostic> &packageDiagnostics) {
   MvrInspectionResult result;
-  result.inspection.request = request;
-  if (bytes.empty()) {
-    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
-                  DiagnosticClassification::General, "mvr.input.empty",
-                  "The MVR input is empty.");
-    return result;
-  }
-
-  PackageInspectionResult packageInventory =
-      InspectPackage(bytes, PackageKind::Mvr, request);
   result.inspection = std::move(packageInventory.inspection);
   result.packageInventory = std::move(packageInventory.inventory);
   if (result.inspection.HasFatalDiagnostics())
     return result;
-
-  std::vector<MvrImportDiagnostic> packageDiagnostics;
-  std::optional<mvr::ImportPackage> package =
-      mvr::AcquireImportPackage(bytes, packageDiagnostics);
   for (const MvrImportDiagnostic &source : packageDiagnostics) {
     AddDiagnostic(result,
                   package ? DiagnosticSeverity::Warning
@@ -327,7 +309,6 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
                   "The MVR package could not be safely read.");
     return result;
   }
-
   MvrImportResult parsed;
   MvrImportOptions options;
   options.promptConflicts = false;
@@ -342,7 +323,6 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
     return result;
   }
   AppendImporterDiagnostics(result, parsed);
-
   result.snapshot = BuildSnapshot(parsed, *package, *result.packageInventory);
   if (result.snapshot->sceneDescriptionEntry != "GeneralSceneDescription.xml") {
     AddDiagnostic(
@@ -356,26 +336,47 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
   return result;
 }
 
-// Inspects one filesystem MVR without modifying the source package.
-MvrInspectionResult InspectMvr(const Request &request) {
-  PackageInspectionResult package = InspectPackage(request);
-  if (package.inspection.HasFatalDiagnostics()) {
+// Inspects owned bytes through one inventory and one package acquisition.
+MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
+                                    const Request &request) {
+  if (bytes.empty()) {
     MvrInspectionResult result;
-    result.inspection = std::move(package.inspection);
-    result.packageInventory = std::move(package.inventory);
+    result.inspection.request = request;
+    AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
+                  DiagnosticClassification::General, "mvr.input.empty",
+                  "The MVR input is empty.");
     return result;
   }
-  if (!package.inventory || package.inventory->kind != PackageKind::Mvr) {
+  PackageInspectionResult inventory =
+      InspectPackage(bytes, PackageKind::Mvr, request);
+  std::vector<MvrImportDiagnostic> diagnostics;
+  std::optional<mvr::ImportPackage> package;
+  if (!inventory.inspection.HasFatalDiagnostics())
+    package = mvr::AcquireImportPackage(bytes, diagnostics);
+  return CompleteMvrInspection(std::move(inventory), std::move(package),
+                               diagnostics);
+}
+
+// Inspects one filesystem MVR through one inventory and package acquisition.
+MvrInspectionResult InspectMvr(const Request &request) {
+  PackageInspectionResult inventory = InspectPackage(request);
+  if (!inventory.inspection.HasFatalDiagnostics() &&
+      (!inventory.inventory || inventory.inventory->kind != PackageKind::Mvr)) {
     MvrInspectionResult result;
-    result.inspection = std::move(package.inspection);
-    result.packageInventory = std::move(package.inventory);
+    result.inspection = std::move(inventory.inspection);
+    result.packageInventory = std::move(inventory.inventory);
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Input,
                   DiagnosticClassification::General,
                   "mvr.input.unsupported_package_kind",
                   "The input package is not an MVR file.");
     return result;
   }
-  return InspectMvrBytes(ReadBytes(request.sourcePath), request);
+  std::vector<MvrImportDiagnostic> diagnostics;
+  std::optional<mvr::ImportPackage> package;
+  if (!inventory.inspection.HasFatalDiagnostics())
+    package = mvr::AcquireImportPackage(request.sourcePath, diagnostics);
+  return CompleteMvrInspection(std::move(inventory), std::move(package),
+                               diagnostics);
 }
 
 // Wraps a filesystem path in the neutral MVR inspection request.

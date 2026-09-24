@@ -24,6 +24,7 @@
 
 #include <wx/filename.h>
 #include <wx/mstream.h>
+#include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
@@ -347,6 +348,16 @@ AcquireImportPackage(const std::vector<std::uint8_t> &bytes,
   if (bytes.empty())
     return std::nullopt;
   wxMemoryInputStream input(bytes.data(), bytes.size());
+  return AcquireImportPackage(input, diagnostics);
+}
+
+// Adapts a filesystem path to the established stream-based package reader.
+std::optional<ImportPackage>
+AcquireImportPackage(const std::filesystem::path &path,
+                     std::vector<MvrImportDiagnostic> &diagnostics) {
+  wxFileInputStream input(wxString(path.wstring()));
+  if (!input.IsOk())
+    return std::nullopt;
   return AcquireImportPackage(input, diagnostics);
 }
 

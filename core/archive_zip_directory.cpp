@@ -29,6 +29,22 @@ std::uint32_t ReadLe32(const unsigned char *bytes) {
          (static_cast<std::uint32_t>(bytes[3]) << 24);
 }
 
+// Reads an exact bounded byte range without allocating from ZIP offsets.
+bool ReadBytes(std::ifstream &input, std::uint64_t offset, void *buffer,
+               std::size_t size) {
+  if (offset > static_cast<std::uint64_t>(
+                   std::numeric_limits<std::streamoff>::max()) ||
+      size >
+          static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max()))
+    return false;
+  input.clear();
+  input.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
+  if (!input.good())
+    return false;
+  input.read(static_cast<char *>(buffer), static_cast<std::streamsize>(size));
+  return input.gcount() == static_cast<std::streamsize>(size);
+}
+
 // Copies one exact bounded byte range from an in-memory archive.
 bool ReadBytes(std::span<const std::uint8_t> input, std::uint64_t offset,
                void *buffer, std::size_t size) {
@@ -191,22 +207,99 @@ DirectoryReadResult ReadDirectory(std::span<const std::uint8_t> input) {
   return result;
 }
 
-// Reads bounded directory metadata from a filesystem archive.
+// Reads bounded, structurally validated classic-ZIP central-directory metadata.
 DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
   std::ifstream input(archivePath, std::ios::binary);
   if (!input.is_open())
     return Fail(DirectoryReadStatus::OpenFailed);
   input.seekg(0, std::ios::end);
-  const std::streamoff end = input.tellg();
-  if (end < 0)
+  const std::streamoff endPosition = input.tellg();
+  if (endPosition < 22)
     return Fail(DirectoryReadStatus::Malformed);
-  input.seekg(0, std::ios::beg);
-  std::vector<std::uint8_t> bytes(static_cast<std::size_t>(end));
-  if (!bytes.empty())
-    input.read(reinterpret_cast<char *>(bytes.data()), end);
-  if (!input && !bytes.empty())
+  const std::uint64_t fileSize = static_cast<std::uint64_t>(endPosition);
+  const std::size_t tailSize = static_cast<std::size_t>(
+      std::min<std::uint64_t>(fileSize, kMaximumEocdSize));
+  std::vector<unsigned char> tail(tailSize);
+  if (!ReadBytes(input, fileSize - tailSize, tail.data(), tail.size()))
     return Fail(DirectoryReadStatus::Malformed);
-  return ReadDirectory(bytes);
+
+  const std::optional<std::size_t> eocdOffset = FindEndOfCentralDirectory(tail);
+  if (!eocdOffset)
+    return Fail(DirectoryReadStatus::Malformed);
+  const unsigned char *eocd = tail.data() + *eocdOffset;
+  const std::uint16_t disk = ReadLe16(eocd + 4);
+  const std::uint16_t centralDisk = ReadLe16(eocd + 6);
+  const std::uint16_t entriesOnDisk = ReadLe16(eocd + 8);
+  const std::uint16_t entryCount = ReadLe16(eocd + 10);
+  const std::uint32_t centralSize = ReadLe32(eocd + 12);
+  const std::uint32_t centralOffset = ReadLe32(eocd + 16);
+  if (disk != 0 || centralDisk != 0 || entriesOnDisk != entryCount)
+    return Fail(DirectoryReadStatus::MultiDiskUnsupported);
+  if (entryCount == kZip64Uint16Sentinel ||
+      centralSize == kZip64Uint32Sentinel ||
+      centralOffset == kZip64Uint32Sentinel)
+    return Fail(DirectoryReadStatus::Zip64Unsupported);
+  const std::uint64_t eocdFileOffset = fileSize - tailSize + *eocdOffset;
+  if (centralOffset > fileSize || centralSize > fileSize - centralOffset ||
+      static_cast<std::uint64_t>(centralOffset) + centralSize != eocdFileOffset)
+    return Fail(DirectoryReadStatus::Malformed);
+
+  DirectoryReadResult result{DirectoryReadStatus::Success, {}};
+  result.entries.reserve(entryCount);
+  std::uint64_t cursor = centralOffset;
+  const std::uint64_t centralEnd = cursor + centralSize;
+  for (std::uint16_t index = 0; index < entryCount; ++index) {
+    std::array<unsigned char, 46> central{};
+    if (cursor > centralEnd || centralEnd - cursor < central.size() ||
+        !ReadBytes(input, cursor, central.data(), central.size()) ||
+        ReadLe32(central.data()) != kCentralDirectorySignature)
+      return Fail(DirectoryReadStatus::Malformed);
+    const std::uint16_t flags = ReadLe16(central.data() + 8);
+    const std::uint32_t uncompressedSize = ReadLe32(central.data() + 24);
+    const std::uint16_t nameLength = ReadLe16(central.data() + 28);
+    const std::uint16_t extraLength = ReadLe16(central.data() + 30);
+    const std::uint16_t commentLength = ReadLe16(central.data() + 32);
+    const std::uint16_t startDisk = ReadLe16(central.data() + 34);
+    const std::uint32_t localOffset = ReadLe32(central.data() + 42);
+    const std::uint64_t recordSize =
+        46ULL + nameLength + extraLength + commentLength;
+    if (startDisk != 0)
+      return Fail(DirectoryReadStatus::MultiDiskUnsupported);
+    if (uncompressedSize == kZip64Uint32Sentinel)
+      return Fail(DirectoryReadStatus::Zip64Unsupported);
+    if (nameLength == 0 || recordSize > centralEnd - cursor)
+      return Fail(DirectoryReadStatus::Malformed);
+    std::string centralName(nameLength, '\0');
+    if (!ReadBytes(input, cursor + 46, centralName.data(), nameLength))
+      return Fail(DirectoryReadStatus::Malformed);
+
+    std::array<unsigned char, 30> local{};
+    if (localOffset == kZip64Uint32Sentinel)
+      return Fail(DirectoryReadStatus::Zip64Unsupported);
+    if (localOffset >= centralOffset ||
+        centralOffset - localOffset < local.size() ||
+        !ReadBytes(input, localOffset, local.data(), local.size()) ||
+        ReadLe32(local.data()) != kLocalHeaderSignature)
+      return Fail(DirectoryReadStatus::Malformed);
+    const std::uint16_t localNameLength = ReadLe16(local.data() + 26);
+    const std::uint16_t localExtraLength = ReadLe16(local.data() + 28);
+    if (30ULL + localNameLength + localExtraLength >
+        centralOffset - localOffset)
+      return Fail(DirectoryReadStatus::Malformed);
+    std::string localName(localNameLength, '\0');
+    if (!ReadBytes(input, static_cast<std::uint64_t>(localOffset) + 30,
+                   localName.data(), localNameLength) ||
+        localName != centralName)
+      return Fail(DirectoryReadStatus::Malformed);
+
+    const bool directory = !centralName.empty() && centralName.back() == '/';
+    result.entries.push_back({std::move(centralName), (flags & (1U << 11)) != 0,
+                              uncompressedSize, directory});
+    cursor += recordSize;
+  }
+  if (cursor != centralEnd)
+    return Fail(DirectoryReadStatus::Malformed);
+  return result;
 }
 
 } // namespace perastage::archive::zip
