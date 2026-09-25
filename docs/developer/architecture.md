@@ -167,10 +167,11 @@ mismatched payloads remain binary. UTF-8 XML and explicitly supported text can
 be previewed without rewriting source content. Embedded GDTF packages in MVR are
 acquired through this bounded path and passed to the same GDTF inspection
 implementation used for standalone files. Because that authoritative reader is
-currently path-based, owned GDTF bytes use an automatically removed scoped
-workspace; its internal path is replaced with the caller's source identity and
-is never exposed by the inspection result. Image and model decoding remains the
-responsibility of later presentation-specific preview adapters.
+currently path-based, owned GDTF bytes use the existing automatically removed
+`runtime_storage::TemporaryWorkspace`; its internal path is replaced with the
+caller's source identity and is never exposed by the inspection result. Image
+and model decoding remains the responsibility of later presentation-specific
+preview adapters.
 
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes

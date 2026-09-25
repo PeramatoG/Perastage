@@ -2,16 +2,13 @@
 
 #include "archive_entry_path.h"
 #include "archive_zip_directory.h"
+#include "archive_zip_entry_reader.h"
 #include "gdtf_archive_reader.h"
-#include "wx_path_utils.h"
+#include "inspection/gdtf_byte_source.h"
 
 #include <algorithm>
 #include <cctype>
-#include <memory>
-
-#include <wx/mstream.h>
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
+#include <exception>
 
 namespace perastage::inspection {
 namespace {
@@ -37,10 +34,13 @@ std::string Extension(const std::string &path) {
 // Appends one resource-operation diagnostic with package-entry context.
 void AddDiagnostic(Result &result, DiagnosticSeverity severity,
                    const char *code, std::string message,
-                   const std::string &entry) {
+                   const std::string &entry,
+                   DiagnosticClassification classification =
+                       DiagnosticClassification::General) {
   Diagnostic diagnostic;
   diagnostic.severity = severity;
   diagnostic.domain = DiagnosticDomain::Content;
+  diagnostic.classification = classification;
   diagnostic.code = code;
   diagnostic.message = std::move(message);
   diagnostic.location = DiagnosticLocation{result.request.sourcePath, entry};
@@ -90,109 +90,84 @@ ResourceKind IdentifyKind(const std::string &path,
   return ResourceKind::Binary;
 }
 
-// Reads one selected entry while enforcing the limit during decompression.
-template <typename InputStream>
-ResourceReadResult
-ReadGenericResource(InputStream &input, const std::string &resourcePath,
-                    std::uint64_t maxBytes, const Request &request) {
-  ResourceReadResult result;
-  result.inspection.request = request;
-  result.requestedPath = resourcePath;
-  const std::string normalized =
-      archive::NormalizeEntrySeparators(resourcePath);
-  if (maxBytes == 0 || maxBytes > kMaximumResourceReadBytes) {
-    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
-                  resource_diagnostic_codes::InvalidReadLimit,
-                  "The requested resource read limit is invalid.", normalized);
-    return result;
-  }
-  if (normalized.empty() || archive::IsUnsafeNormalizedEntryPath(normalized)) {
-    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
-                  resource_diagnostic_codes::UnsafePath,
-                  "The requested resource path is unsafe.", normalized);
-    return result;
-  }
-
-  std::vector<std::string> matchingPaths;
-  {
-    wxZipInputStream zip(input);
-    std::unique_ptr<wxZipEntry> inventoryEntry;
-    while ((inventoryEntry.reset(zip.GetNextEntry())), inventoryEntry) {
-      const wxScopedCharBuffer utf8 = inventoryEntry->GetName().ToUTF8();
-      if (!utf8 || inventoryEntry->IsDir())
-        continue;
-      const std::string path = archive::NormalizeEntrySeparators(utf8.data());
-      if (!archive::IsUnsafeNormalizedEntryPath(path) &&
-          LowerAscii(path) == LowerAscii(normalized))
-        matchingPaths.push_back(path);
+// Resolves one exact safe entry through authoritative central-directory facts.
+std::optional<std::size_t>
+SelectGenericEntry(const archive::zip::DirectoryReadResult &directory,
+                   const std::string &normalized, ResourceReadResult &result) {
+  std::vector<std::size_t> exactMatches;
+  std::vector<std::size_t> caseMatches;
+  for (std::size_t index = 0; index < directory.entries.size(); ++index) {
+    const archive::zip::DirectoryEntry &entry = directory.entries[index];
+    if (!archive::zip::IsValidUtf8(entry.bytes) || entry.directory)
+      continue;
+    const std::string path = archive::NormalizeEntrySeparators(entry.bytes);
+    if (!archive::IsUnsafeNormalizedEntryPath(path) &&
+        LowerAscii(path) == LowerAscii(normalized)) {
+      caseMatches.push_back(index);
+      if (path == normalized)
+        exactMatches.push_back(index);
     }
   }
-  if (matchingPaths.empty()) {
+  if (exactMatches.empty() && caseMatches.size() <= 1) {
     AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
                   resource_diagnostic_codes::NotFound,
                   "The requested package resource was not found.", normalized);
-    return result;
+    return std::nullopt;
   }
-  if (matchingPaths.size() != 1 || matchingPaths.front() != normalized) {
+  if (exactMatches.size() != 1 || caseMatches.size() != 1) {
     AddDiagnostic(
         result.inspection, DiagnosticSeverity::Error,
         resource_diagnostic_codes::Ambiguous,
         "The requested package resource is ambiguous or not an exact match.",
         normalized);
-    return result;
+    return std::nullopt;
   }
+  return exactMatches.front();
+}
 
-  input.SeekI(0);
-  wxZipInputStream dataZip(input);
-  std::unique_ptr<wxZipEntry> entry;
-  while ((entry.reset(dataZip.GetNextEntry())), entry) {
-    const wxScopedCharBuffer utf8 = entry->GetName().ToUTF8();
-    if (!utf8 || archive::NormalizeEntrySeparators(utf8.data()) != normalized)
-      continue;
-    const wxFileOffset claimedSize = entry->GetSize();
-    if (claimedSize >= 0 &&
-        static_cast<std::uint64_t>(claimedSize) > maxBytes) {
-      AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
-                    resource_diagnostic_codes::TooLarge,
-                    "The requested resource exceeds the safe read limit.",
-                    normalized);
-      return result;
-    }
-    std::uint8_t buffer[8192];
-    while (true) {
-      dataZip.Read(buffer, sizeof(buffer));
-      const std::size_t count = dataZip.LastRead();
-      if (count == 0)
-        break;
-      if (count > maxBytes || result.bytes.size() > maxBytes - count) {
-        result.bytes.clear();
-        AddDiagnostic(
-            result.inspection, DiagnosticSeverity::Error,
-            resource_diagnostic_codes::TooLarge,
-            "The resource payload exceeded the safe read limit while reading.",
-            normalized);
-        return result;
-      }
-      result.bytes.insert(result.bytes.end(), buffer, buffer + count);
-    }
-    if (dataZip.GetLastError() != wxSTREAM_NO_ERROR &&
-        dataZip.GetLastError() != wxSTREAM_EOF) {
-      result.bytes.clear();
-      AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
-                    resource_diagnostic_codes::ReadFailed,
-                    "The requested package resource could not be read.",
-                    normalized);
-      return result;
-    }
-    result.resolvedPath = normalized;
-    result.kind = IdentifyKind(normalized, result.bytes);
-    return result;
+// Converts a bounded indexed-entry read into a neutral resource result.
+void ApplyEntryRead(const archive::zip::EntryReadResult &read,
+                    const std::string &normalized, ResourceReadResult &result) {
+  if (read.status == archive::zip::EntryReadStatus::EntryTooLarge) {
+    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                  resource_diagnostic_codes::TooLarge,
+                  "The requested resource exceeds the safe read limit.",
+                  normalized);
+    return;
   }
-  AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
-                resource_diagnostic_codes::ReadFailed,
-                "The selected package resource could not be reopened.",
-                normalized);
-  return result;
+  if (!read.Success()) {
+    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                  resource_diagnostic_codes::ReadFailed,
+                  "The requested package resource could not be read.",
+                  normalized);
+    return;
+  }
+  result.resolvedPath = normalized;
+  result.bytes = read.bytes;
+  result.kind = IdentifyKind(normalized, result.bytes);
+  result.completed = true;
+}
+
+// Validates a generic resource request before authoritative entry selection.
+bool PrepareGenericRead(const std::string &resourcePath, std::uint64_t maxBytes,
+                        const Request &request, ResourceReadResult &result,
+                        std::string &normalized) {
+  result.inspection.request = request;
+  result.requestedPath = resourcePath;
+  normalized = archive::NormalizeEntrySeparators(resourcePath);
+  if (maxBytes == 0 || maxBytes > kMaximumResourceReadBytes) {
+    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                  resource_diagnostic_codes::InvalidReadLimit,
+                  "The requested resource read limit is invalid.", normalized);
+    return false;
+  }
+  if (normalized.empty() || archive::IsUnsafeNormalizedEntryPath(normalized)) {
+    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                  resource_diagnostic_codes::UnsafePath,
+                  "The requested resource path is unsafe.", normalized);
+    return false;
+  }
+  return true;
 }
 
 // Converts an established GDTF read result without changing lookup policy.
@@ -206,6 +181,8 @@ ResourceReadResult ConvertGdtfRead(const gdtf::GdtfResourceReadResult &source,
   result.kind = IdentifyKind(source.entryPath, result.bytes);
   for (const auto &finding : source.diagnostics) {
     const char *code = resource_diagnostic_codes::ReadFailed;
+    DiagnosticSeverity severity = DiagnosticSeverity::Error;
+    DiagnosticClassification classification = DiagnosticClassification::General;
     if (finding.code == gdtf::ArchiveDiagnosticCode::ResourceNotFound)
       code = resource_diagnostic_codes::NotFound;
     else if (finding.code == gdtf::ArchiveDiagnosticCode::ResourcePathAmbiguous)
@@ -214,12 +191,18 @@ ResourceReadResult ConvertGdtfRead(const gdtf::GdtfResourceReadResult &source,
       code = resource_diagnostic_codes::UnsafePath;
     else if (finding.code == gdtf::ArchiveDiagnosticCode::ResourceEntryTooLarge)
       code = resource_diagnostic_codes::TooLarge;
-    AddDiagnostic(result.inspection,
-                  finding.code == gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed
-                      ? DiagnosticSeverity::Warning
-                      : DiagnosticSeverity::Error,
-                  code, finding.message, finding.entryPath);
+    else if (finding.code == gdtf::ArchiveDiagnosticCode::Utf8FallbackUsed ||
+             finding.code == gdtf::ArchiveDiagnosticCode::Utf8FlagMissing ||
+             finding.code ==
+                 gdtf::ArchiveDiagnosticCode::LegacyFilenameEncodingUsed) {
+      code = resource_diagnostic_codes::CompatibilityFallback;
+      severity = DiagnosticSeverity::Warning;
+      classification = DiagnosticClassification::Compatibility;
+    }
+    AddDiagnostic(result.inspection, severity, code, finding.message,
+                  finding.entryPath, classification);
   }
+  result.completed = source.Success();
   return result;
 }
 
@@ -229,6 +212,7 @@ TextPreviewResult MakeTextPreview(ResourceReadResult read) {
   const bool readSucceeded = read.Success();
   result.inspection = std::move(read.inspection);
   result.resolvedPath = std::move(read.resolvedPath);
+  result.completed = readSucceeded;
   if (!readSucceeded)
     return result;
   if (read.kind != ResourceKind::XmlText && read.kind != ResourceKind::Text) {
@@ -241,6 +225,7 @@ TextPreviewResult MakeTextPreview(ResourceReadResult read) {
   result.text.assign(reinterpret_cast<const char *>(read.bytes.data()),
                      read.bytes.size());
   if (!archive::zip::IsValidUtf8(result.text)) {
+    result.completed = false;
     result.text.clear();
     AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
                   resource_diagnostic_codes::InvalidTextEncoding,
@@ -253,12 +238,20 @@ TextPreviewResult MakeTextPreview(ResourceReadResult read) {
 
 // Reports whether a resource operation produced a selected payload.
 bool ResourceReadResult::Success() const {
-  return !resolvedPath.empty() && inspection.Success();
+  return completed && !resolvedPath.empty() &&
+         std::none_of(inspection.diagnostics.begin(),
+                      inspection.diagnostics.end(), [](const Diagnostic &item) {
+                        return item.severity >= DiagnosticSeverity::Error;
+                      });
 }
 
 // Reports whether a resource operation produced supported text.
 bool TextPreviewResult::Success() const {
-  return !resolvedPath.empty() && !text.empty() && inspection.Success();
+  return completed && !resolvedPath.empty() &&
+         std::none_of(inspection.diagnostics.begin(),
+                      inspection.diagnostics.end(), [](const Diagnostic &item) {
+                        return item.severity >= DiagnosticSeverity::Error;
+                      });
 }
 
 // Adapts the authoritative package inventory into browseable descriptors.
@@ -333,40 +326,103 @@ ResourceReadResult ReadPackageResource(const std::filesystem::path &packagePath,
                                        const std::string &resourcePath,
                                        std::uint64_t maxBytes) {
   const Request request{packagePath};
-  if (maxBytes == 0 || maxBytes > kMaximumResourceReadBytes) {
+  ResourceReadResult result;
+  std::string normalized;
+  try {
+    if (!PrepareGenericRead(resourcePath, maxBytes, request, result,
+                            normalized))
+      return result;
+    if (packageKind == PackageKind::Gdtf)
+      return ConvertGdtfRead(
+          gdtf::ReadGdtfArchiveResource(packagePath, resourcePath, maxBytes),
+          request);
+    const archive::zip::DirectoryReadResult directory =
+        archive::zip::ReadDirectory(packagePath);
+    if (!directory.Success()) {
+      AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                    resource_diagnostic_codes::ReadFailed,
+                    "The package directory could not be read.", normalized);
+      return result;
+    }
+    const std::optional<std::size_t> index =
+        SelectGenericEntry(directory, normalized, result);
+    if (!index)
+      return result;
+    if (directory.entries[*index].uncompressedSize > maxBytes) {
+      AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                    resource_diagnostic_codes::TooLarge,
+                    "The requested resource exceeds the safe read limit.",
+                    normalized);
+      return result;
+    }
+    ApplyEntryRead(archive::zip::ReadEntry(packagePath, *index, maxBytes),
+                   normalized, result);
+  } catch (const std::exception &) {
     ResourceReadResult result;
     result.inspection.request = request;
     result.requestedPath = resourcePath;
     AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
-                  resource_diagnostic_codes::InvalidReadLimit,
-                  "The requested resource read limit is invalid.",
-                  resourcePath);
-    return result;
-  }
-  if (packageKind == PackageKind::Gdtf)
-    return ConvertGdtfRead(
-        gdtf::ReadGdtfArchiveResource(packagePath, resourcePath, maxBytes),
-        request);
-  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(packagePath));
-  if (!input.IsOk()) {
-    ResourceReadResult result;
-    result.inspection.request = request;
-    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
                   resource_diagnostic_codes::ReadFailed,
-                  "The package could not be opened for resource reading.",
-                  resourcePath);
+                  "The package resource could not be read.", resourcePath);
     return result;
   }
-  return ReadGenericResource(input, resourcePath, maxBytes, request);
+  return result;
 }
 
 // Reads one owned-buffer package resource without filesystem extraction.
 ResourceReadResult
-ReadPackageResource(std::span<const std::uint8_t> packageBytes, PackageKind,
-                    const std::string &resourcePath, std::uint64_t maxBytes,
-                    const Request &request) {
-  wxMemoryInputStream input(packageBytes.data(), packageBytes.size());
-  return ReadGenericResource(input, resourcePath, maxBytes, request);
+ReadPackageResource(std::span<const std::uint8_t> packageBytes,
+                    PackageKind packageKind, const std::string &resourcePath,
+                    std::uint64_t maxBytes, const Request &request) {
+  ResourceReadResult result;
+  std::string normalized;
+  try {
+    if (!PrepareGenericRead(resourcePath, maxBytes, request, result,
+                            normalized))
+      return result;
+    if (packageKind == PackageKind::Gdtf) {
+      internal::GdtfByteSource source(packageBytes);
+      if (!source.Valid()) {
+        AddDiagnostic(
+            result.inspection, DiagnosticSeverity::Error,
+            resource_diagnostic_codes::ReadFailed,
+            "A workspace for GDTF resource reading could not be created.",
+            normalized);
+        return result;
+      }
+      return ConvertGdtfRead(
+          gdtf::ReadGdtfArchiveResource(source.Path(), resourcePath, maxBytes),
+          request);
+    }
+    const archive::zip::DirectoryReadResult directory =
+        archive::zip::ReadDirectory(packageBytes);
+    if (!directory.Success()) {
+      AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                    resource_diagnostic_codes::ReadFailed,
+                    "The package directory could not be read.", normalized);
+      return result;
+    }
+    const std::optional<std::size_t> index =
+        SelectGenericEntry(directory, normalized, result);
+    if (!index)
+      return result;
+    if (directory.entries[*index].uncompressedSize > maxBytes) {
+      AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                    resource_diagnostic_codes::TooLarge,
+                    "The requested resource exceeds the safe read limit.",
+                    normalized);
+      return result;
+    }
+    ApplyEntryRead(archive::zip::ReadEntry(packageBytes, *index, maxBytes),
+                   normalized, result);
+  } catch (const std::exception &) {
+    result.inspection.request = request;
+    result.requestedPath = resourcePath;
+    AddDiagnostic(result.inspection, DiagnosticSeverity::Error,
+                  resource_diagnostic_codes::ReadFailed,
+                  "The package resource could not be read.", resourcePath);
+  }
+  return result;
 }
 
 // Returns an unchanged bounded UTF-8 preview from a filesystem package.

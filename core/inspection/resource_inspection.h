@@ -40,6 +40,7 @@ struct ResourceReadResult {
   std::string resolvedPath;
   std::vector<std::uint8_t> bytes;
   ResourceKind kind = ResourceKind::Binary;
+  bool completed = false;
 
   bool Success() const;
 };
@@ -49,6 +50,7 @@ struct TextPreviewResult {
   Result inspection;
   std::string resolvedPath;
   std::string text;
+  bool completed = false;
 
   bool Success() const;
 };
@@ -64,6 +66,8 @@ inline constexpr char UnsupportedTextPreview[] =
     "resource.unsupported_text_preview";
 inline constexpr char InvalidTextEncoding[] = "resource.invalid_text_encoding";
 inline constexpr char InvalidNestedGdtf[] = "resource.invalid_nested_gdtf";
+inline constexpr char CompatibilityFallback[] =
+    "resource.compatibility_fallback";
 } // namespace resource_diagnostic_codes
 
 std::vector<ResourceDescriptor>

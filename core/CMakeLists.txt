@@ -61,6 +61,10 @@ add_library(perastage_archive_zip_directory STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/archive_zip_directory.cpp
 )
 
+add_library(perastage_archive_zip_entry_reader STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/archive_zip_entry_reader.cpp
+)
+
 add_library(perastage_runtime_storage STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/DiagnosticPaths.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/filesystem_path_utils.cpp
@@ -78,12 +82,29 @@ target_include_directories(perastage_archive_zip_directory PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+target_compile_features(perastage_archive_zip_entry_reader PUBLIC cxx_std_20)
+target_include_directories(perastage_archive_zip_entry_reader PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_archive_zip_entry_reader PRIVATE ${_wx_base_libs})
+
 add_library(perastage_inspection_package STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/package_inspection.cpp
 )
 
 add_library(perastage_inspection_resource STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/resource_inspection.cpp
+)
+
+add_library(perastage_inspection_gdtf_byte_source STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/gdtf_byte_source.cpp
+)
+target_compile_features(perastage_inspection_gdtf_byte_source PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_gdtf_byte_source PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_inspection_gdtf_byte_source
+    PRIVATE perastage_runtime_storage
 )
 
 add_library(perastage_gdtf_read STATIC
@@ -128,6 +149,7 @@ target_link_libraries(perastage_inspection_gdtf
     PUBLIC perastage_inspection_core perastage_inspection_package
            perastage_inspection_validation
            perastage_gdtf_read
+    PRIVATE perastage_inspection_gdtf_byte_source
 )
 
 target_compile_features(perastage_inspection_resource PUBLIC cxx_std_20)
@@ -136,7 +158,8 @@ target_include_directories(perastage_inspection_resource PUBLIC
 )
 target_link_libraries(perastage_inspection_resource
     PUBLIC perastage_inspection_core perastage_inspection_package
-    PRIVATE perastage_archive_zip_directory perastage_gdtf_read ${_wx_base_libs}
+    PRIVATE perastage_archive_zip_directory perastage_archive_zip_entry_reader
+            perastage_gdtf_read perastage_inspection_gdtf_byte_source
 )
 
 add_library(perastage_inspection_nested_gdtf STATIC
