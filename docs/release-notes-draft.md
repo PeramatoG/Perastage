@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored fixture-category fallback diagnostics during normal MVR imports.
+
 - Restored MVR import summaries for matrix anomalies, preserved truss symbols, and parsed scene contents.
 
 - Restored progress reporting for MVR fixture-category enrichment and final GDTF mode resolution.

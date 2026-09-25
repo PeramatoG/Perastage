@@ -1483,6 +1483,9 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
   std::unordered_map<std::string, mvr::SceneReadCachedCategory> byType;
   std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
       byResolvedPath;
+  std::unordered_map<std::string, int> fallbackReasons;
+  std::unordered_map<std::string, int> fallbackCategories;
+  int fallbackCount = 0;
   int completed = 0;
   const int total = static_cast<int>(result.scene.fixtures.size());
   if (progress)
@@ -1522,6 +1525,13 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
         fixture.category = GdtfFixtureCategory::kUnknown;
       fixture.categorySource = GdtfFixtureCategory::kAutoFallbackSource;
       fixture.categorySourceReason = it->second.reason;
+      ++fallbackCount;
+      ++fallbackReasons[it->second.reason.empty() ? "unknown"
+                                                  : it->second.reason];
+      ++fallbackCategories[fixture.category];
+      LogMessage(Logger::Level::Debug,
+                 "Auto category fallback: " + fixture.instanceName + " -> " +
+                     fixture.category + " [" + it->second.reason + "]");
     }
     if (!fixture.category.empty() && !key.empty())
       byType[key] = {
@@ -1534,6 +1544,11 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
     if (progress && (completed == total || completed % 10 == 0))
       progress({"Applying fixture categories...", completed, total});
   }
+  LogMessage(Logger::Level::Info,
+             "Auto category fallback applied to " +
+                 std::to_string(fallbackCount) + " fixtures across " +
+                 std::to_string(fallbackReasons.size()) + " reasons and " +
+                 std::to_string(fallbackCategories.size()) + " categories.");
   if (progress)
     progress({"Building fixtures, trusses, and objects...", 0, 0});
   completed = 0;
