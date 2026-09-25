@@ -138,6 +138,35 @@ void TestValidationLayers() {
       Validation(semantic, ValidationLayer::SemanticInteroperability).status ==
       ValidationStatus::Valid);
   assert(HasCode(semantic, "mvr.resource.missing_packaged_resource"));
+
+  const std::string missingProvider =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<Layers/></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult providerSemantic = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", missingProvider}}));
+  assert(Validation(providerSemantic, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(Validation(providerSemantic, ValidationLayer::SemanticInteroperability)
+             .status == ValidationStatus::Invalid);
+  assert(HasCode(providerSemantic, "mvr.semantic.missing_provider"));
+  assert(HasCode(providerSemantic, "mvr.semantic.missing_provider_version"));
+
+  const std::string fixtureRules =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage\" providerVersion=\"1.7\"><Scene><Layers>"
+      "<Layer uuid=\"10000000-0000-4000-8000-000000000001\"><ChildList>"
+      "<Fixture uuid=\"20000000-0000-4000-8000-000000000001\">"
+      "<FixtureID>1</FixtureID><FixtureTypeId>7</FixtureTypeId>"
+      "<UnitNumber>1</UnitNumber></Fixture></ChildList></Layer>"
+      "</Layers></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult fixtureSemantic = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", fixtureRules}}));
+  assert(Validation(fixtureSemantic, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(Validation(fixtureSemantic, ValidationLayer::SemanticInteroperability)
+             .status == ValidationStatus::Invalid);
+  assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_missing_child_list"));
+  assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_type_id_not_allowed"));
 }
 
 // Finds one stable summary count by node type.
@@ -274,7 +303,8 @@ void TestUnnamedAuthoredLayer() {
   const std::string layerUuid = "10000000-0000-4000-8000-000000000010";
   const std::string fixtureUuid = "20000000-0000-4000-8000-000000000010";
   const std::string xml =
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Test\" providerVersion=\"1\"><Scene>"
       "<Layers><Layer uuid=\"" +
       layerUuid + "\"><ChildList><Fixture uuid=\"" + fixtureUuid +
       "\" name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
@@ -305,7 +335,8 @@ void TestRecoveredUuidLayerOwnership() {
   const std::string groupUuid = "30000000-0000-4000-8000-000000000001";
   const std::string identity = "1,0,0,0,1,0,0,0,1,0,0,0";
   const std::string xml =
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Test\" providerVersion=\"1\"><Scene>"
       "<Layers><Layer uuid=\"" +
       firstLayer +
       "\" name=\"Shared\">"
@@ -433,7 +464,8 @@ void TestPackageAndResourceDiagnostics() {
       "name=\"Layer\"><ChildList><Fixture "
       "uuid=\"20000000-0000-4000-8000-000000000001\" name=\"Fixture\">"
       "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
-      "<GDTFSpec>missing.gdtf</GDTFSpec></Fixture></ChildList></Layer>"
+      "<GDTFSpec>missing.gdtf</GDTFSpec><ChildList/></Fixture>"
+      "</ChildList></Layer>"
       "</Layers></Scene></GeneralSceneDescription>";
 
   const MvrInspectionResult auxiliaryCollision =

@@ -6,10 +6,7 @@
 #include <libxml/xmlschemas.h>
 
 #include <algorithm>
-#include <cstdarg>
-#include <cstdio>
-#include <fstream>
-#include <iterator>
+#include <climits>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -29,6 +26,7 @@ struct ErrorSink {
   DiagnosticLocation location;
   std::string code;
   bool externalResourceDenied = false;
+  bool externalResourceIsError = false;
 };
 
 // Removes unstable whitespace emitted at the end of libxml2 messages.
@@ -84,21 +82,21 @@ xmlParserErrors DenyExternalResource(void *context, const char *url,
   if (sink && sink->diagnostics) {
     sink->externalResourceDenied = true;
     sink->diagnostics->push_back(
-        {DiagnosticSeverity::Error, DiagnosticDomain::Xml,
-         DiagnosticClassification::Standards,
+        {sink->externalResourceIsError ? DiagnosticSeverity::Error
+                                       : DiagnosticSeverity::Warning,
+         DiagnosticDomain::Xml,
+         sink->externalResourceIsError ? DiagnosticClassification::Standards
+                                       : DiagnosticClassification::General,
          "validation.external_resource_denied",
-         "Validation denied an external XML or schema resource.",
+         sink->externalResourceIsError
+             ? "Schema validation denied an uncontrolled external resource."
+             : "XML inspection ignored an external resource under its security "
+               "policy.",
          sink->location});
   }
   return XML_IO_NETWORK_ATTEMPT;
 }
 #endif
-
-// Reads an XSD as immutable bytes from the repository schema set.
-std::string ReadSchema(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(input), {}};
-}
 
 // Constructs the stable result shell for the two independent validation stages.
 XmlSchemaValidationResult NewResult(const SchemaDescriptor &descriptor) {
@@ -120,6 +118,15 @@ ValidateXmlAgainstSchema(std::string_view xml,
   static std::once_flag initialized;
   std::call_once(initialized, [] { xmlInitParser(); });
   XmlSchemaValidationResult result = NewResult(descriptor);
+  if (xml.size() > static_cast<std::size_t>(INT_MAX)) {
+    result.xml.status = ValidationStatus::Unavailable;
+    result.xml.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticDomain::Xml,
+         DiagnosticClassification::General, "xml.input.too_large",
+         "The XML input exceeds the validation engine size limit.",
+         sourceLocation});
+    return result;
+  }
   ErrorSink xmlErrors{&result.xml.diagnostics, sourceLocation,
                       "xml.well_formedness.invalid"};
   xmlParserCtxtPtr rawParser = xmlNewParserCtxt();
@@ -154,8 +161,7 @@ ValidateXmlAgainstSchema(std::string_view xml,
   }
   result.xml.status = ValidationStatus::Valid;
 
-  const std::string xsd =
-      descriptor.xsd.empty() ? ReadSchema(descriptor.path) : descriptor.xsd;
+  const std::string &xsd = descriptor.xsd;
   if (xsd.empty()) {
     result.schema.status = ValidationStatus::Unavailable;
     result.schema.diagnostics.push_back(
@@ -165,11 +171,21 @@ ValidateXmlAgainstSchema(std::string_view xml,
          sourceLocation});
     return result;
   }
+  if (xsd.size() > static_cast<std::size_t>(INT_MAX)) {
+    result.schema.status = ValidationStatus::Unavailable;
+    result.schema.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticDomain::Content,
+         DiagnosticClassification::Standards, "schema.input.too_large",
+         "The XSD input exceeds the validation engine size limit.",
+         sourceLocation});
+    return result;
+  }
   SchemaParser schemaParser(
       xmlSchemaNewMemParserCtxt(xsd.data(), static_cast<int>(xsd.size())),
       &xmlSchemaFreeParserCtxt);
   ErrorSink schemaErrors{&result.schema.diagnostics, sourceLocation,
                          "schema.definition.invalid"};
+  schemaErrors.externalResourceIsError = true;
   if (schemaParser)
     xmlSchemaSetParserStructuredErrors(schemaParser.get(),
                                        CollectStructuredError, &schemaErrors);
@@ -199,21 +215,17 @@ ValidateXmlAgainstSchema(std::string_view xml,
   return result;
 }
 
-// Returns the pinned Perastage GDTF 1.2 schema descriptor.
+// Returns the pinned official GDTF 1.2 schema descriptor.
 SchemaDescriptor Gdtf12Schema() {
-  return {{"gdtf", "1.2", "perastage-1", "perastage:gdtf:1.2",
-           "098d3791f77f0895bd859adf01864b4826e2006f"},
-          std::filesystem::path(PERASTAGE_STANDARD_SCHEMA_DIR) / "gdtf" /
-              "1.2" / "gdtf-perastage.xsd",
+  return {{"gdtf", "1.2", "gdtf-1.2", "mvrdevelopment/tools:gdtf.xsd",
+           "e199c6ed635de23cb5ebf9654ee54a358775a065"},
           std::string(schemas::kGdtf12)};
 }
 
-// Returns the pinned Perastage MVR 1.6 schema descriptor.
+// Returns the pinned official MVR 1.6 schema descriptor.
 SchemaDescriptor Mvr16Schema() {
-  return {{"mvr", "1.6", "perastage-1", "perastage:mvr:1.6",
-           "098d3791f77f0895bd859adf01864b4826e2006f"},
-          std::filesystem::path(PERASTAGE_STANDARD_SCHEMA_DIR) / "mvr" / "1.6" /
-              "mvr-perastage.xsd",
+  return {{"mvr", "1.6", "mvr-1.6", "mvrdevelopment/tools:mvr.xsd",
+           "e199c6ed635de23cb5ebf9654ee54a358775a065"},
           std::string(schemas::kMvr16)};
 }
 

@@ -17,9 +17,9 @@ add_library(perastage_inspection_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp
 )
 
-file(READ "${CMAKE_SOURCE_DIR}/resources/standards/gdtf/1.2/gdtf-perastage.xsd"
+file(READ "${CMAKE_SOURCE_DIR}/resources/standards/gdtf/1.2/gdtf.xsd"
      PERASTAGE_GDTF_12_XSD)
-file(READ "${CMAKE_SOURCE_DIR}/resources/standards/mvr/1.6/mvr-perastage.xsd"
+file(READ "${CMAKE_SOURCE_DIR}/resources/standards/mvr/1.6/mvr.xsd"
      PERASTAGE_MVR_16_XSD)
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/standard_schemas.h.in
@@ -33,9 +33,6 @@ target_compile_features(perastage_inspection_validation PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_validation PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
-)
-target_compile_definitions(perastage_inspection_validation PRIVATE
-    PERASTAGE_STANDARD_SCHEMA_DIR="${CMAKE_SOURCE_DIR}/resources/standards"
 )
 target_link_libraries(perastage_inspection_validation
     PUBLIC perastage_inspection_core

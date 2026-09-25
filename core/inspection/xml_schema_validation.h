@@ -3,7 +3,6 @@
 #include "inspection/inspection_contract.h"
 
 #include <cstdint>
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -46,7 +45,6 @@ struct ValidationResult {
 // Describes one local, repository-controlled XSD input.
 struct SchemaDescriptor {
   SchemaIdentity identity;
-  std::filesystem::path path;
   std::string xsd;
 };
 

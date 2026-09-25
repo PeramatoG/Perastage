@@ -12,6 +12,7 @@
 #include "mvr_import_package.h"
 #include "mvr_scene_node_reader.h"
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -41,6 +42,9 @@ struct MvrReadContext {
   std::unordered_map<std::string, std::string> layerUuidByNodeUuid;
   std::unordered_map<std::string, std::vector<std::string>>
       directChildUuidsByLayerUuid;
+  std::size_t fixtureCount = 0;
+  std::size_t fixturesMissingChildList = 0;
+  std::size_t fixturesWithFixtureTypeId = 0;
 };
 
 // Parses one already-acquired package through the production read model.

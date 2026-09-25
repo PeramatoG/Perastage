@@ -336,6 +336,39 @@ void AppendMissingResourceDiagnostics(MvrInspectionResult &result) {
   }
 }
 
+// Adds MVR 1.6 rules that the official backwards-compatible XSD cannot express.
+void AppendMvr16SemanticDiagnostics(MvrInspectionResult &result,
+                                    const mvr::MvrReadContext &context) {
+  if (!result.snapshot || result.snapshot->versionMajor != 1 ||
+      result.snapshot->versionMinor != 6)
+    return;
+  if (result.snapshot->provider.empty()) {
+    AddDiagnostic(result, DiagnosticSeverity::Error, DiagnosticDomain::Content,
+                  DiagnosticClassification::Standards,
+                  "mvr.semantic.missing_provider",
+                  "MVR 1.6 requires the provider attribute.");
+  }
+  if (result.snapshot->providerVersion.empty()) {
+    AddDiagnostic(result, DiagnosticSeverity::Error, DiagnosticDomain::Content,
+                  DiagnosticClassification::Standards,
+                  "mvr.semantic.missing_provider_version",
+                  "MVR 1.6 requires the providerVersion attribute.");
+  }
+  if (context.fixturesMissingChildList > 0) {
+    AddDiagnostic(result, DiagnosticSeverity::Error, DiagnosticDomain::Content,
+                  DiagnosticClassification::Standards,
+                  "mvr.semantic.fixture_missing_child_list",
+                  "MVR 1.6 requires each Fixture to contain ChildList.");
+  }
+  if (context.fixturesWithFixtureTypeId > 0) {
+    AddDiagnostic(result, DiagnosticSeverity::Error, DiagnosticDomain::Content,
+                  DiagnosticClassification::Standards,
+                  "mvr.semantic.fixture_type_id_not_allowed",
+                  "FixtureTypeId is a legacy MVR 1.5 element and is not "
+                  "allowed in MVR 1.6.");
+  }
+}
+
 // Summarizes existing read findings without reinterpreting scene XML.
 ValidationResult SemanticValidation(const Result &inspection) {
   ValidationResult validation;
@@ -419,6 +452,7 @@ static MvrInspectionResult CompleteMvrInspection(
         result.snapshot->sceneDescriptionEntry);
   }
   AppendMissingResourceDiagnostics(result);
+  AppendMvr16SemanticDiagnostics(result, readContext);
   result.validation.push_back(SemanticValidation(result.inspection));
   return result;
 }

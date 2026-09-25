@@ -1,5 +1,5 @@
-# INS-130 schema characterization fixtures
+# INS-130 official-schema characterization fixtures
 
-These small documents provide reproducible, offline behavioral comparison inputs. The `valid-minimal.xml` files validate against both the Perastage-maintained schema and the pinned upstream tools schema at revision `e199c6ed635de23cb5ebf9654ee54a358775a065`. The negative documents exercise stable specification requirements: required GDTF attribute definitions and ordering, and required MVR scene structure and root ordering. Those negative documents are rejected by both schema sets. `mvr/1.6/missing-provider.xml` records the intentional version-specific difference: Perastage rejects it because MVR 1.6 requires provider metadata, while the upstream comparison XSD accepts it to remain backwards-compatible with older MVR versions.
+These documents are deterministic offline inputs for the exact schemas under `resources/standards/`. The valid minimal documents and structural negatives reflect the pinned official `mvrdevelopment/tools` schemas at revision `e199c6ed635de23cb5ebf9654ee54a358775a065`.
 
-Normal repository tests use only the Perastage schemas. During schema review, maintainers may obtain the pinned upstream schemas separately and run the same fixture set against them; upstream schemas are never downloaded by the test suite.
+`mvr/1.6/missing-provider.xml` is intentionally accepted by the backwards-compatible official XSD. The MVR inspection semantic layer rejects its missing MVR 1.6 provider metadata. Normal tests never download schemas or contact upstream services.

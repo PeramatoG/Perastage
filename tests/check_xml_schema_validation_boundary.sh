@@ -12,6 +12,7 @@ if rg -n 'LibXml2::LibXml2|<libxml/' "$root"/{app,gui,models,mvr,viewer2d,viewer
   fail "libxml2 escaped its dedicated implementation"
 fi
 if rg -n 'xml(Doc|Schema|Parser|Node|Error)|libxml' "$header"; then fail "public validation API exposes libxml2"; fi
+if rg -n 'filesystem|SchemaDescriptor.*path' "$header"; then fail "validation descriptors must use embedded schema bytes"; fi
 if rg -n 'wx[A-Z]|wxWidgets' "$header" "$source"; then fail "validation depends on GUI types"; fi
 grep -Fq 'XML_PARSE_NONET' "$source" || fail "XML parsing must prohibit network access"
 grep -Fq 'XML_PARSE_NO_XXE' "$source" || fail "XML parsing must disable external entities"
@@ -21,4 +22,5 @@ grep -Fq 'xmlCtxtSetResourceLoader' "$source" || fail "XML parsing must install 
 grep -Fq 'xmlSchemaSetResourceLoader' "$source" || fail "schema parsing must install a resource-denial loader"
 if rg -n 'find\("<xs:(import|include)' "$source"; then fail "schema security must not rely on substring matching"; fi
 if rg -n 'XML_PARSE_NOENT' "$source"; then fail "entity expansion must remain disabled"; fi
+if rg -n 'PERASTAGE_STANDARD_SCHEMA_DIR|ReadSchema' "$source" "$cmake"; then fail "validation must not require source-tree schemas at runtime"; fi
 echo "XML schema validation boundary check passed"
