@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Extended read-only MVR inspection summaries with parsed Position and Symdef structures already retained by the production reader.
+
 - Restored application import logging from the shared MVR reader while keeping standalone inspection independent of the application logger.
 - Kept Inspector layer hierarchy derivation read-only without changing imported layer child data.
 

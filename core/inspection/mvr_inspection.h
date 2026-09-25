@@ -70,6 +70,8 @@ struct MvrInspectionSnapshot {
   std::vector<MvrSceneNodeDescriptor> supports;
   std::vector<MvrSceneNodeDescriptor> sceneObjects;
   std::vector<MvrSceneNodeDescriptor> groupObjects;
+  std::vector<MvrSceneNodeDescriptor> positions;
+  std::vector<MvrSceneNodeDescriptor> symdefs;
   std::vector<MvrForeignUserDataDescriptor> foreignUserData;
   std::vector<MvrNodeCount> nodeCounts;
 };

@@ -229,14 +229,41 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
         {block.provider, block.version, block.xml});
   }
 
+  for (const auto &[uuid, name] : scene.positions)
+    snapshot.positions.push_back({"position", uuid, name, {}, {}, {}, {}, {}});
+  std::sort(snapshot.positions.begin(), snapshot.positions.end(),
+            [](const auto &left, const auto &right) {
+              return left.uuid < right.uuid;
+            });
+  for (const auto &[uuid, geometries] : scene.symdefGeometries) {
+    std::vector<std::string> resources;
+    for (const SymdefGeometry &geometry : geometries)
+      if (!geometry.file.empty())
+        resources.push_back(geometry.file);
+    std::sort(resources.begin(), resources.end());
+    snapshot.symdefs.push_back(
+        {"symdef",
+         uuid,
+         {},
+         {},
+         {},
+         {},
+         resources.empty() ? std::string{} : resources.front(),
+         std::move(resources)});
+  }
+  std::sort(snapshot.symdefs.begin(), snapshot.symdefs.end(),
+            [](const auto &left, const auto &right) {
+              return left.uuid < right.uuid;
+            });
+
   snapshot.nodeCounts = {{"layers", snapshot.layers.size()},
                          {"fixtures", snapshot.fixtures.size()},
                          {"trusses", snapshot.trusses.size()},
                          {"supports", snapshot.supports.size()},
                          {"scene_objects", snapshot.sceneObjects.size()},
                          {"group_objects", snapshot.groupObjects.size()},
-                         {"positions", scene.positions.size()},
-                         {"symdefs", scene.symdefGeometries.size()}};
+                         {"positions", snapshot.positions.size()},
+                         {"symdefs", snapshot.symdefs.size()}};
   return snapshot;
 }
 
