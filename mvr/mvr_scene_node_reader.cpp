@@ -150,7 +150,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                                const std::string &legacyId = std::string{}) {
     return services.resolveStableUuid(kind, node, layer, transform, legacyId);
   };
-  const auto &referenceUuidForNode = services.referenceUuid;
   const auto &ensurePositionEntry = services.ensurePosition;
   auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
     return resources.normalizeGdtfSpec(spec);
@@ -245,8 +244,9 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
 
   // Parses a Fixture XML node into scene data while preserving its original
   // matching identity.
-  std::function<void(tinyxml2::XMLElement *, const std::string &,
-                     const Matrix &, const Matrix &, const std::string &)>
+  std::function<std::string(tinyxml2::XMLElement *, const std::string &,
+                            const Matrix &, const Matrix &,
+                            const std::string &)>
       parseFixture = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
                          const Matrix &nodeTransform,
@@ -482,6 +482,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         }
 
         scene.fixtures[fixture.uuid] = fixture;
+        return fixture.uuid;
       };
 
   // Applies Perastage TrussInfo metadata as the effective edited truss state.
@@ -577,8 +578,9 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
       }
   };
 
-  std::function<void(tinyxml2::XMLElement *, const std::string &,
-                     const Matrix &, const Matrix &, const std::string &)>
+  std::function<std::string(tinyxml2::XMLElement *, const std::string &,
+                            const Matrix &, const Matrix &,
+                            const std::string &)>
       parseTruss = [&](tinyxml2::XMLElement *node, const std::string &layerName,
                        const Matrix &nodeTransform,
                        const Matrix &localTransform,
@@ -810,12 +812,14 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         }
 
         scene.trusses[truss.uuid] = truss;
+        return truss.uuid;
       };
 
   // Parses a Support XML node into scene data while preserving group-local
   // transforms.
-  std::function<void(tinyxml2::XMLElement *, const std::string &,
-                     const Matrix &, const Matrix &, const std::string &)>
+  std::function<std::string(tinyxml2::XMLElement *, const std::string &,
+                            const Matrix &, const Matrix &,
+                            const std::string &)>
       parseSupport = [&](tinyxml2::XMLElement *node,
                          const std::string &layerName,
                          const Matrix &nodeTransform,
@@ -929,12 +933,14 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           support.positionName = posIt->second;
 
         scene.supports[support.uuid] = support;
+        return support.uuid;
       };
 
   // Parses a SceneObject XML node into scene data while preserving group-local
   // transforms.
-  std::function<void(tinyxml2::XMLElement *, const std::string &,
-                     const Matrix &, const Matrix &, const std::string &)>
+  std::function<std::string(tinyxml2::XMLElement *, const std::string &,
+                            const Matrix &, const Matrix &,
+                            const std::string &)>
       parseSceneObj = [&](tinyxml2::XMLElement *node,
                           const std::string &layerName,
                           const Matrix &nodeTransform,
@@ -1204,6 +1210,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         } else {
           scene.sceneObjects[obj.uuid] = obj;
         }
+        return obj.uuid;
       };
 
   tinyxml2::XMLElement *layersNode = sceneNode->FirstChildElement("Layers");
@@ -1283,47 +1290,40 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
 
       std::string nodeName = name;
       if (nodeName == "Fixture") {
-        parseFixture(child, layerName, nodeTransform, local, parentGroupUuid);
-        recordLayerOwnership(
-            referenceUuidForNode("Fixture", child, layerName, nodeTransform));
+        const std::string finalUuid = parseFixture(
+            child, layerName, nodeTransform, local, parentGroupUuid);
+        recordLayerOwnership(finalUuid);
         reportNodeProgress("Fixture");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::Fixture,
-               referenceUuidForNode("Fixture", child, layerName,
-                                    nodeTransform)});
+              {MvrNodeType::Fixture, finalUuid});
         }
       } else if (nodeName == "Truss") {
-        parseTruss(child, layerName, nodeTransform, local, parentGroupUuid);
-        recordLayerOwnership(
-            referenceUuidForNode("Truss", child, layerName, nodeTransform));
+        const std::string finalUuid =
+            parseTruss(child, layerName, nodeTransform, local, parentGroupUuid);
+        recordLayerOwnership(finalUuid);
         reportNodeProgress("Truss");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::Truss,
-               referenceUuidForNode("Truss", child, layerName, nodeTransform)});
+              {MvrNodeType::Truss, finalUuid});
         }
       } else if (nodeName == "Support") {
-        parseSupport(child, layerName, nodeTransform, local, parentGroupUuid);
-        recordLayerOwnership(
-            referenceUuidForNode("Support", child, layerName, nodeTransform));
+        const std::string finalUuid = parseSupport(
+            child, layerName, nodeTransform, local, parentGroupUuid);
+        recordLayerOwnership(finalUuid);
         reportNodeProgress("Support");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::Support,
-               referenceUuidForNode("Support", child, layerName,
-                                    nodeTransform)});
+              {MvrNodeType::Support, finalUuid});
         }
       } else if (nodeName == "SceneObject") {
-        parseSceneObj(child, layerName, nodeTransform, local, parentGroupUuid);
-        recordLayerOwnership(referenceUuidForNode("SceneObject", child,
-                                                  layerName, nodeTransform));
+        const std::string finalUuid = parseSceneObj(
+            child, layerName, nodeTransform, local, parentGroupUuid);
+        recordLayerOwnership(finalUuid);
         reportNodeProgress("SceneObject");
         if (!parentGroupUuid.empty()) {
           scene.groupObjects[parentGroupUuid].children.push_back(
-              {MvrNodeType::SceneObject,
-               referenceUuidForNode("SceneObject", child, layerName,
-                                    nodeTransform)});
+              {MvrNodeType::SceneObject, finalUuid});
         }
       } else if (nodeName == "GroupObject") {
         GroupObject group;

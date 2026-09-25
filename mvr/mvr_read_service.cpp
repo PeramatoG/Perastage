@@ -972,19 +972,6 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
          uuidAttr ? Trim(uuidAttr) : "", Trim(legacyStableId)});
   };
 
-  auto referenceUuidForNode = [&](const char *kind, tinyxml2::XMLElement *node,
-                                  const std::string &layerName,
-                                  const Matrix &nodeTransform) {
-    const char *uuidAttr = node->Attribute("uuid");
-    const char *nameAttr = node->Attribute("name");
-    return referenceResolver.ReferenceUuid(
-        {kind,
-         layerName,
-         nameAttr ? Trim(nameAttr) : "",
-         MatrixUtils::FormatMatrix(nodeTransform),
-         uuidAttr ? Trim(uuidAttr) : "",
-         {}});
-  };
   std::unordered_map<std::string, SceneReadGdtfConflict>
       pendingGdtfConflictByType;
   MvrReadEnvironment packageEnvironment{
@@ -1034,7 +1021,6 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       parseMatrixOrIdentity,
       buildFixtureTypeInfoKey,
       resolveStableUuid,
-      referenceUuidForNode,
       [&](const std::string &rawUuid, const std::string &resolvedUuid) {
         referenceResolver.RecordFixtureUuid(rawUuid, resolvedUuid);
       },

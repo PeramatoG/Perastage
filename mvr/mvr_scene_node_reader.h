@@ -122,9 +122,6 @@ struct MvrSceneReadServices {
                             const std::string &, const Matrix &,
                             const std::string &)>
       resolveStableUuid;
-  std::function<std::string(const char *, tinyxml2::XMLElement *,
-                            const std::string &, const Matrix &)>
-      referenceUuid;
   std::function<void(const std::string &, const std::string &)>
       recordFixtureUuid;
   std::function<void(const std::string &, const std::string &)>

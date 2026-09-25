@@ -134,6 +134,10 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
     for (const SymdefGeometry &geometry : geometries)
       AddReference(references, "geometry", geometry.file);
   }
+  for (const auto &[uuid, file] : scene.symdefFiles) {
+    (void)uuid;
+    AddReference(references, "geometry", file);
+  }
   for (const auto &[kind, path] : references)
     snapshot.referencedResources.push_back({kind, path});
 
@@ -209,18 +213,38 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             [](const auto &left, const auto &right) {
               return left.uuid < right.uuid;
             });
-  for (const auto &[uuid, geometries] : scene.symdefGeometries) {
-    std::vector<std::string> resources;
-    for (const SymdefGeometry &geometry : geometries)
-      if (!geometry.file.empty())
-        resources.push_back(geometry.file);
-    std::sort(resources.begin(), resources.end());
+  std::set<std::string> symdefUuids;
+  for (const auto &[uuid, value] : scene.symdefGeometries) {
+    (void)value;
+    symdefUuids.insert(uuid);
+  }
+  for (const auto &[uuid, value] : scene.symdefFiles) {
+    (void)value;
+    symdefUuids.insert(uuid);
+  }
+  for (const auto &[uuid, value] : scene.symdefTypes) {
+    (void)value;
+    symdefUuids.insert(uuid);
+  }
+  for (const auto &[uuid, value] : scene.symdefMatrices) {
+    (void)value;
+    symdefUuids.insert(uuid);
+  }
+  for (const std::string &uuid : symdefUuids) {
+    std::set<std::string> retainedResources;
+    const auto geometries = scene.symdefGeometries.find(uuid);
+    if (geometries != scene.symdefGeometries.end()) {
+      for (const SymdefGeometry &geometry : geometries->second)
+        if (!geometry.file.empty())
+          retainedResources.insert(geometry.file);
+    }
+    const auto file = scene.symdefFiles.find(uuid);
+    if (file != scene.symdefFiles.end() && !file->second.empty())
+      retainedResources.insert(file->second);
+    std::vector<std::string> resources(retainedResources.begin(),
+                                       retainedResources.end());
     snapshot.symdefs.push_back({uuid, std::move(resources)});
   }
-  std::sort(snapshot.symdefs.begin(), snapshot.symdefs.end(),
-            [](const auto &left, const auto &right) {
-              return left.uuid < right.uuid;
-            });
 
   snapshot.nodeCounts = {{"layers", snapshot.layers.size()},
                          {"fixtures", snapshot.fixtures.size()},
