@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <vector>
 
 namespace perastage::inspection {
 
@@ -30,5 +31,7 @@ struct GdtfInspectionResult {
 
 GdtfInspectionResult InspectGdtf(const Request &request);
 GdtfInspectionResult InspectGdtf(const std::filesystem::path &sourcePath);
+GdtfInspectionResult InspectGdtf(const std::vector<std::uint8_t> &bytes,
+                                 const Request &request = {});
 
 } // namespace perastage::inspection

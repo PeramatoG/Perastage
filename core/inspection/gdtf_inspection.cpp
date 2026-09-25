@@ -1,5 +1,8 @@
 #include "inspection/gdtf_inspection.h"
 
+#include <atomic>
+#include <chrono>
+#include <fstream>
 #include <utility>
 
 namespace perastage::inspection {
@@ -229,6 +232,51 @@ ValidationResult SemanticValidation(const Result &inspection) {
   return validation;
 }
 
+// Removes the scoped byte-inspection workspace when inspection completes.
+class ScopedInspectionFile {
+public:
+  // Writes owned bytes to one unique, short-lived local inspection file.
+  explicit ScopedInspectionFile(const std::vector<std::uint8_t> &bytes) {
+    static std::atomic<std::uint64_t> sequence{0};
+    const auto stamp =
+        std::chrono::steady_clock::now().time_since_epoch().count();
+    directory_ = std::filesystem::temp_directory_path() /
+                 ("perastage-gdtf-inspection-" + std::to_string(stamp) + "-" +
+                  std::to_string(sequence.fetch_add(1)));
+    std::error_code error;
+    std::filesystem::create_directory(directory_, error);
+    if (error)
+      return;
+    path_ = directory_ / "nested.gdtf";
+    std::ofstream output(path_, std::ios::binary);
+    if (!bytes.empty())
+      output.write(reinterpret_cast<const char *>(bytes.data()),
+                   static_cast<std::streamsize>(bytes.size()));
+    valid_ = output.good();
+  }
+
+  // Prevents a scoped workspace from acquiring multiple cleanup owners.
+  ScopedInspectionFile(const ScopedInspectionFile &) = delete;
+  // Prevents reassignment of the scoped workspace cleanup owner.
+  ScopedInspectionFile &operator=(const ScopedInspectionFile &) = delete;
+
+  // Removes all scoped inspection bytes without exposing their path.
+  ~ScopedInspectionFile() {
+    std::error_code error;
+    std::filesystem::remove_all(directory_, error);
+  }
+
+  // Reports whether the complete owned buffer was published temporarily.
+  bool Valid() const { return valid_; }
+  // Returns the internal path consumed only by the established reader.
+  const std::filesystem::path &Path() const { return path_; }
+
+private:
+  std::filesystem::path directory_;
+  std::filesystem::path path_;
+  bool valid_ = false;
+};
+
 } // namespace
 
 // Reports whether a usable semantic document was produced.
@@ -284,6 +332,43 @@ GdtfInspectionResult InspectGdtf(const Request &request) {
 // Wraps a filesystem path in the neutral GDTF inspection request.
 GdtfInspectionResult InspectGdtf(const std::filesystem::path &sourcePath) {
   return InspectGdtf(Request{sourcePath});
+}
+
+// Inspects owned GDTF bytes through the same established filesystem reader.
+GdtfInspectionResult InspectGdtf(const std::vector<std::uint8_t> &bytes,
+                                 const Request &request) {
+  ScopedInspectionFile source(bytes);
+  if (!source.Valid()) {
+    GdtfInspectionResult result;
+    result.inspection.request = request;
+    Diagnostic diagnostic;
+    diagnostic.severity = DiagnosticSeverity::Fatal;
+    diagnostic.domain = DiagnosticDomain::Input;
+    diagnostic.code = "gdtf.input.byte_workspace_failed";
+    diagnostic.message =
+        "A scoped workspace for GDTF byte inspection could not be created.";
+    result.inspection.diagnostics.push_back(std::move(diagnostic));
+    return result;
+  }
+  GdtfInspectionResult result = InspectGdtf(source.Path());
+  result.inspection.request = request;
+  for (Diagnostic &diagnostic : result.inspection.diagnostics) {
+    if (diagnostic.location)
+      diagnostic.location->sourcePath = request.sourcePath;
+  }
+  for (ValidationResult &validation : result.validation) {
+    for (Diagnostic &diagnostic : validation.diagnostics) {
+      if (diagnostic.location)
+        diagnostic.location->sourcePath = request.sourcePath;
+    }
+  }
+  if (result.document) {
+    gdtf::ArchiveReadResult archive = result.document->Archive();
+    archive.sourcePath = request.sourcePath;
+    result.document =
+        gdtf::GdtfDocument(std::move(archive), result.document->Description());
+  }
+  return result;
 }
 
 } // namespace perastage::inspection

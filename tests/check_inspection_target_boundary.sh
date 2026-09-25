@@ -66,6 +66,7 @@ target_include_directories(perastage_inspection_core PUBLIC ${CMAKE_CURRENT_SOUR
 target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core )
 target_link_libraries(perastage_inspection_mvr PUBLIC perastage_inspection_core perastage_inspection_package perastage_inspection_validation perastage_mvr_read )
 target_link_libraries(perastage_inspection_gdtf PUBLIC perastage_inspection_core perastage_inspection_package perastage_inspection_validation perastage_gdtf_read )
+target_link_libraries(perastage_inspection_resource PUBLIC perastage_inspection_core perastage_inspection_package PRIVATE perastage_archive_zip_directory perastage_gdtf_read ${_wx_base_libs} )
 target_link_libraries(perastage_inspection_package PUBLIC perastage_inspection_core PRIVATE perastage_archive_zip_directory )'
 actual_core_configuration="$(inspection_statements "$core_cmake")"
 if [[ "$actual_core_configuration" != "$expected_core_configuration" ]]; then

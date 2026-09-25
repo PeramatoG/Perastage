@@ -82,6 +82,10 @@ add_library(perastage_inspection_package STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/package_inspection.cpp
 )
 
+add_library(perastage_inspection_resource STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/resource_inspection.cpp
+)
+
 add_library(perastage_gdtf_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_archive_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_description_reader.cpp
@@ -124,6 +128,26 @@ target_link_libraries(perastage_inspection_gdtf
     PUBLIC perastage_inspection_core perastage_inspection_package
            perastage_inspection_validation
            perastage_gdtf_read
+)
+
+target_compile_features(perastage_inspection_resource PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_resource PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_inspection_resource
+    PUBLIC perastage_inspection_core perastage_inspection_package
+    PRIVATE perastage_archive_zip_directory perastage_gdtf_read ${_wx_base_libs}
+)
+
+add_library(perastage_inspection_nested_gdtf STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/nested_gdtf_inspection.cpp
+)
+target_compile_features(perastage_inspection_nested_gdtf PUBLIC cxx_std_20)
+target_include_directories(perastage_inspection_nested_gdtf PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(perastage_inspection_nested_gdtf
+    PUBLIC perastage_inspection_resource perastage_inspection_gdtf
 )
 
 target_compile_features(perastage_inspection_package PUBLIC cxx_std_20)
