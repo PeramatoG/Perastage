@@ -11,6 +11,7 @@ Changes since **v1.6.0**.
 ## Important fixes
 
 - Restored application import logging from the shared MVR reader while keeping standalone inspection independent of the application logger.
+- Kept Inspector layer hierarchy derivation read-only without changing imported layer child data.
 
 - Kept standalone MVR inspection independent of application GDTF enrichment, while restoring exact cached fixture-category provenance, final mode compatibility resolution, and default-layer normalization for normal imports.
 

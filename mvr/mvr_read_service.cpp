@@ -37,8 +37,6 @@ namespace fs = std::filesystem;
 
 namespace {
 
-enum class ReadLogLevel { Debug, Info, Warn, Error };
-
 // Converts a UTF-8 filesystem string without changing its bytes.
 std::string ToString(const std::u8string &value) {
   return {value.begin(), value.end()};
@@ -119,12 +117,6 @@ std::string CieToHex(const std::string &cie) {
   return os.str();
 }
 
-// Discards optional application logging at the standalone read boundary.
-void LogMessage(ReadLogLevel, const std::string &) {}
-
-// Discards optional informational logging at the standalone read boundary.
-void LogMessage(const std::string &) {}
-
 // Applies package path remapping while retaining authored archive spelling.
 std::string RemapPackagePath(const mvr::ImportPackage &package,
                              const std::string &path) {
@@ -179,7 +171,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   scene.basePath =
       ToString(PathUtils::PathFromUtf8(sceneXmlPath).parent_path().u8string());
   logMessage(
-      MvrReadLogLevel::Info, ReadLogLevel::Info,
+      MvrReadLogLevel::Info,
       std::string("MVR import mode: source=") + "read-service" +
           ", promptConflicts=" + (options.promptConflicts ? "true" : "false") +
           ", applyDictionary=" + (options.applyDictionary ? "true" : "false") +
@@ -320,7 +312,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
     }
     if (found) {
       logMessage(
-          MvrReadLogLevel::Info, ReadLogLevel::Info,
+          MvrReadLogLevel::Info,
           std::string("MVR import loaded Perastage sidecar manifest from ") +
               originLabel);
     }

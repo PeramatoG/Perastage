@@ -80,10 +80,21 @@ std::vector<std::string> GroupChildUuids(const GroupObject &group) {
 std::unordered_map<std::string, std::string>
 BuildLayerMembership(const MvrScene &scene) {
   std::unordered_map<std::string, std::string> membership;
-  for (const auto &[layerUuid, layer] : scene.layers) {
-    for (const std::string &childUuid : layer.childUUIDs)
-      membership.emplace(childUuid, layerUuid);
-  }
+  std::unordered_map<std::string, std::string> layerUuidByName;
+  for (const auto &[layerUuid, layer] : scene.layers)
+    layerUuidByName.emplace(layer.name, layerUuid);
+  const auto addNodes = [&](const auto &nodes) {
+    for (const auto &[uuid, node] : nodes) {
+      const auto layer = layerUuidByName.find(node.layer);
+      if (layer != layerUuidByName.end())
+        membership.emplace(uuid, layer->second);
+    }
+  };
+  addNodes(scene.fixtures);
+  addNodes(scene.trusses);
+  addNodes(scene.supports);
+  addNodes(scene.sceneObjects);
+  addNodes(scene.groupObjects);
   bool changed = true;
   while (changed) {
     changed = false;

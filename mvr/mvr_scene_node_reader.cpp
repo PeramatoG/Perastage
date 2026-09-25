@@ -1361,20 +1361,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
     }
     bool isDefaultLayer = layerStr.empty();
 
-    std::unordered_set<std::string> existingLayerNodes;
-    const auto rememberExistingNodes =
-        [&existingLayerNodes](const auto &nodes) {
-          for (const auto &[uuid, node] : nodes) {
-            (void)node;
-            existingLayerNodes.insert(uuid);
-          }
-        };
-    rememberExistingNodes(scene.fixtures);
-    rememberExistingNodes(scene.trusses);
-    rememberExistingNodes(scene.supports);
-    rememberExistingNodes(scene.sceneObjects);
-    rememberExistingNodes(scene.groupObjects);
-
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
       parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,
@@ -1402,20 +1388,6 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
           }
         }
       }
-      const auto appendNewRootNodes = [&existingLayerNodes,
-                                       &l](const auto &nodes) {
-        for (const auto &[uuid, node] : nodes) {
-          if (!existingLayerNodes.contains(uuid) &&
-              node.parentGroupUuid.empty())
-            l.childUUIDs.push_back(uuid);
-        }
-      };
-      appendNewRootNodes(scene.fixtures);
-      appendNewRootNodes(scene.trusses);
-      appendNewRootNodes(scene.supports);
-      appendNewRootNodes(scene.sceneObjects);
-      appendNewRootNodes(scene.groupObjects);
-      std::sort(l.childUUIDs.begin(), l.childUUIDs.end());
       scene.layers[l.uuid] = l;
     }
   }
