@@ -1,15 +1,134 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Perastage-maintained machine-readable implementation of MVR 1.6. -->
+<!-- Perastage-maintained XSD 1.0 implementation derived from MVR 1.6. -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:simpleType name="Uuid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="PositiveVersion">
+    <xs:restriction base="xs:positiveInteger"/>
+  </xs:simpleType>
+  <xs:complexType name="NamedUuid">
+    <xs:attribute name="uuid" type="Uuid" use="required"/>
+    <xs:attribute name="name" type="xs:string" default=""/>
+  </xs:complexType>
+  <xs:complexType name="ForeignData" mixed="true">
+    <xs:sequence>
+      <xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="provider" type="xs:string" use="required"/>
+    <xs:attribute name="ver" type="xs:string" default="1"/>
+  </xs:complexType>
+  <xs:complexType name="UserData">
+    <xs:sequence>
+      <xs:element name="Data" type="ForeignData" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Geometry">
+    <xs:sequence>
+      <xs:element name="Matrix" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="fileName" type="xs:string"/>
+    <xs:attribute name="uuid" type="Uuid"/>
+  </xs:complexType>
+  <xs:complexType name="Geometries">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Geometry3D" type="Geometry"/>
+      <xs:element name="Symbol" type="Geometry"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="Symdef">
+    <xs:complexContent>
+      <xs:extension base="NamedUuid">
+        <xs:sequence>
+          <xs:element name="ChildList">
+            <xs:complexType>
+              <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="Geometry3D" type="Geometry"/>
+                <xs:element name="Symbol" type="Geometry"/>
+              </xs:choice>
+            </xs:complexType>
+          </xs:element>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AuxData">
+    <xs:sequence>
+      <xs:element name="Class" type="NamedUuid" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Symdef" type="Symdef" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Position" type="NamedUuid" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SceneNode">
+    <xs:sequence>
+      <xs:element name="Matrix" type="xs:string" minOccurs="0"/>
+      <xs:element name="Classing" type="Uuid" minOccurs="0"/>
+      <xs:element name="Geometries" type="Geometries" minOccurs="0"/>
+      <xs:element name="GDTFSpec" type="xs:string" minOccurs="0"/>
+      <xs:element name="GDTFMode" type="xs:string" minOccurs="0"/>
+      <xs:element name="FixtureID" type="xs:string" minOccurs="0"/>
+      <xs:element name="UnitNumber" type="xs:positiveInteger" minOccurs="0"/>
+      <xs:element name="ChildList" type="ChildList" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="uuid" type="Uuid" use="required"/>
+    <xs:attribute name="name" type="xs:string" default=""/>
+  </xs:complexType>
+  <xs:complexType name="GroupNode">
+    <xs:sequence>
+      <xs:element name="Matrix" type="xs:string" minOccurs="0"/>
+      <xs:element name="Classing" type="Uuid" minOccurs="0"/>
+      <xs:element name="ChildList" type="ChildList"/>
+    </xs:sequence>
+    <xs:attribute name="uuid" type="Uuid" use="required"/>
+    <xs:attribute name="name" type="xs:string" default=""/>
+  </xs:complexType>
+  <xs:complexType name="ChildList">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="SceneObject" type="SceneNode"/>
+      <xs:element name="GroupObject" type="GroupNode"/>
+      <xs:element name="Fixture" type="SceneNode"/>
+      <xs:element name="FocusPoint" type="SceneNode"/>
+      <xs:element name="Truss" type="SceneNode"/>
+      <xs:element name="Support" type="SceneNode"/>
+      <xs:element name="VideoScreen" type="SceneNode"/>
+      <xs:element name="Projector" type="SceneNode"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="Layer">
+    <xs:sequence>
+      <xs:element name="Matrix" type="xs:string" minOccurs="0"/>
+      <xs:element name="ChildList" type="ChildList" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="uuid" type="Uuid" use="required"/>
+    <xs:attribute name="name" type="xs:string" default=""/>
+  </xs:complexType>
+  <xs:complexType name="Layers">
+    <xs:sequence>
+      <xs:element name="Layer" type="Layer" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Scene">
+    <xs:all>
+      <xs:element name="AUXData" type="AuxData" minOccurs="0"/>
+      <xs:element name="Layers" type="Layers"/>
+    </xs:all>
+  </xs:complexType>
   <xs:element name="GeneralSceneDescription">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="Scene" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
-        <xs:element name="UserData" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
+        <xs:element name="UserData" type="UserData" minOccurs="0"/>
+        <xs:element name="Scene" type="Scene"/>
       </xs:sequence>
-      <xs:attribute name="verMajor" type="xs:nonNegativeInteger" use="required" fixed="1"/>
-      <xs:attribute name="verMinor" type="xs:nonNegativeInteger" use="required" fixed="6"/>
-      <xs:anyAttribute processContents="lax"/>
+      <xs:attribute name="verMajor" type="PositiveVersion" use="required" fixed="1"/>
+      <xs:attribute name="verMinor" type="PositiveVersion" use="required" fixed="6"/>
+      <xs:attribute name="provider" type="xs:string" use="required"/>
+      <xs:attribute name="providerVersion" type="xs:string" use="required"/>
     </xs:complexType>
+    <xs:key name="UniqueLayerUuid">
+      <xs:selector xpath="Scene/Layers/Layer"/>
+      <xs:field xpath="@uuid"/>
+    </xs:key>
   </xs:element>
 </xs:schema>

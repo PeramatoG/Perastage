@@ -28,6 +28,7 @@ struct ErrorSink {
   std::vector<Diagnostic> *diagnostics = nullptr;
   DiagnosticLocation location;
   std::string code;
+  bool externalResourceDenied = false;
 };
 
 // Removes unstable whitespace emitted at the end of libxml2 messages.
@@ -39,7 +40,7 @@ std::string NormalizeMessage(std::string message) {
 }
 
 // Collects a structured libxml2 error without exposing backend types publicly.
-void CollectStructuredError(void *context, xmlError *error) {
+void CollectError(void *context, const xmlError *error) {
   auto *sink = static_cast<ErrorSink *>(context);
   if (!sink || !sink->diagnostics || !error)
     return;
@@ -55,6 +56,43 @@ void CollectStructuredError(void *context, xmlError *error) {
                                        : "XML validation failed."),
        std::move(location)});
 }
+
+// Adapts the structured callback to the pinned libxml2 callback signature.
+#if LIBXML_VERSION >= 21500
+void CollectStructuredError(void *context, const xmlError *error) {
+  CollectError(context, error);
+}
+#else
+void CollectStructuredError(void *context, xmlError *error) {
+  CollectError(context, error);
+}
+#endif
+
+#if LIBXML_VERSION >= 21500
+// Rejects every external XML or schema resource at the parser boundary.
+xmlParserErrors DenyExternalResource(void *context, const char *url,
+                                     const char *publicId, xmlResourceType type,
+                                     xmlParserInputFlags flags,
+                                     xmlParserInput **output) {
+  (void)url;
+  (void)publicId;
+  (void)type;
+  (void)flags;
+  if (output)
+    *output = nullptr;
+  auto *sink = static_cast<ErrorSink *>(context);
+  if (sink && sink->diagnostics) {
+    sink->externalResourceDenied = true;
+    sink->diagnostics->push_back(
+        {DiagnosticSeverity::Error, DiagnosticDomain::Xml,
+         DiagnosticClassification::Standards,
+         "validation.external_resource_denied",
+         "Validation denied an external XML or schema resource.",
+         sink->location});
+  }
+  return XML_IO_NETWORK_ATTEMPT;
+}
+#endif
 
 // Reads an XSD as immutable bytes from the repository schema set.
 std::string ReadSchema(const std::filesystem::path &path) {
@@ -80,7 +118,6 @@ ValidateXmlAgainstSchema(std::string_view xml,
                          const SchemaDescriptor &descriptor,
                          const DiagnosticLocation &sourceLocation) {
   static std::once_flag initialized;
-  static std::mutex parserErrorMutex;
   std::call_once(initialized, [] { xmlInitParser(); });
   XmlSchemaValidationResult result = NewResult(descriptor);
   ErrorSink xmlErrors{&result.xml.diagnostics, sourceLocation,
@@ -92,15 +129,24 @@ ValidateXmlAgainstSchema(std::string_view xml,
   }
   std::unique_ptr<xmlParserCtxt, decltype(&xmlFreeParserCtxt)> parser(
       rawParser, &xmlFreeParserCtxt);
-  XmlDoc document(nullptr, &xmlFreeDoc);
-  {
-    const std::lock_guard lock(parserErrorMutex);
-    xmlSetStructuredErrorFunc(&xmlErrors, CollectStructuredError);
-    document.reset(xmlCtxtReadMemory(
-        parser.get(), xml.data(), static_cast<int>(xml.size()), "inspected.xml",
-        nullptr, XML_PARSE_NONET));
-    xmlSetStructuredErrorFunc(nullptr, nullptr);
-  }
+#if LIBXML_VERSION >= 21500
+  xmlCtxtSetErrorHandler(parser.get(), CollectStructuredError, &xmlErrors);
+  xmlCtxtSetResourceLoader(parser.get(), DenyExternalResource, &xmlErrors);
+  constexpr int parseOptions =
+      XML_PARSE_NONET | XML_PARSE_NO_XXE | XML_PARSE_NO_SYS_CATALOG;
+#else
+  static std::mutex legacyErrorMutex;
+  const std::lock_guard legacyErrorLock(legacyErrorMutex);
+  xmlSetStructuredErrorFunc(&xmlErrors, CollectStructuredError);
+  constexpr int parseOptions = XML_PARSE_NONET;
+#endif
+  XmlDoc document(xmlCtxtReadMemory(parser.get(), xml.data(),
+                                    static_cast<int>(xml.size()),
+                                    "inspected.xml", nullptr, parseOptions),
+                  &xmlFreeDoc);
+#if LIBXML_VERSION < 21500
+  xmlSetStructuredErrorFunc(nullptr, nullptr);
+#endif
   if (!document) {
     result.xml.status = ValidationStatus::Invalid;
     result.schema.status = ValidationStatus::NotRun;
@@ -119,18 +165,6 @@ ValidateXmlAgainstSchema(std::string_view xml,
          sourceLocation});
     return result;
   }
-  if (xsd.find("<xs:import") != std::string::npos ||
-      xsd.find("<xs:include") != std::string::npos) {
-    result.schema.status = ValidationStatus::Unavailable;
-    result.schema.diagnostics.push_back(
-        {DiagnosticSeverity::Error, DiagnosticDomain::Content,
-         DiagnosticClassification::Standards,
-         "schema.external_dependency_prohibited",
-         "The validation schema requests an unsupported external dependency.",
-         sourceLocation});
-    return result;
-  }
-
   SchemaParser schemaParser(
       xmlSchemaNewMemParserCtxt(xsd.data(), static_cast<int>(xsd.size())),
       &xmlSchemaFreeParserCtxt);
@@ -139,9 +173,14 @@ ValidateXmlAgainstSchema(std::string_view xml,
   if (schemaParser)
     xmlSchemaSetParserStructuredErrors(schemaParser.get(),
                                        CollectStructuredError, &schemaErrors);
+#if LIBXML_VERSION >= 21500
+  if (schemaParser)
+    xmlSchemaSetResourceLoader(schemaParser.get(), DenyExternalResource,
+                               &schemaErrors);
+#endif
   Schema compiled(schemaParser ? xmlSchemaParse(schemaParser.get()) : nullptr,
                   &xmlSchemaFree);
-  if (!compiled) {
+  if (!compiled || schemaErrors.externalResourceDenied) {
     result.schema.status = ValidationStatus::Unavailable;
     return result;
   }
@@ -163,7 +202,7 @@ ValidateXmlAgainstSchema(std::string_view xml,
 // Returns the pinned Perastage GDTF 1.2 schema descriptor.
 SchemaDescriptor Gdtf12Schema() {
   return {{"gdtf", "1.2", "perastage-1", "perastage:gdtf:1.2",
-          "098d3791f77f0895bd859adf01864b4826e2006f"},
+           "098d3791f77f0895bd859adf01864b4826e2006f"},
           std::filesystem::path(PERASTAGE_STANDARD_SCHEMA_DIR) / "gdtf" /
               "1.2" / "gdtf-perastage.xsd",
           std::string(schemas::kGdtf12)};
@@ -172,7 +211,7 @@ SchemaDescriptor Gdtf12Schema() {
 // Returns the pinned Perastage MVR 1.6 schema descriptor.
 SchemaDescriptor Mvr16Schema() {
   return {{"mvr", "1.6", "perastage-1", "perastage:mvr:1.6",
-          "098d3791f77f0895bd859adf01864b4826e2006f"},
+           "098d3791f77f0895bd859adf01864b4826e2006f"},
           std::filesystem::path(PERASTAGE_STANDARD_SCHEMA_DIR) / "mvr" / "1.6" /
               "mvr-perastage.xsd",
           std::string(schemas::kMvr16)};

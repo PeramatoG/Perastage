@@ -3,7 +3,8 @@
 - **Format/version:** General Device Type Format (GDTF) 1.2.
 - **Normative reference:** DIN SPEC 15800:2022-02.
 - **Implementation source:** `mvrdevelopment/spec`, revision `098d3791f77f0895bd859adf01864b4826e2006f`.
-- **Ownership:** This XSD is maintained by Perastage as a machine-readable implementation of the referenced specification. It is not an official GDTF Group schema.
-- **Development comparison:** `mvrdevelopment/tools/gdtf.xsd`, revision `e199c6ed635de23cb5ebf9654ee54a358775a065`, was used only as a behavioral comparison reference and is not vendored here.
-- **XSD 1.0 limits:** Cross-references, uniqueness beyond expressible keys, geometry/DMX relationships, resource existence, archive paths, and conditional requirements remain semantic or package checks. Extension content is intentionally tolerated inside represented containers.
-- **Known difference:** This focused schema represents the top-level ordered families consumed by Perastage and does not reproduce the upstream schema's complete leaf vocabulary. Semantic acceptance does not imply schema validity, and schema validity does not imply complete GDTF compliance.
+- **Ownership:** This XSD is maintained by Perastage as a machine-readable implementation derived from the referenced specification. It is not an official GDTF Group schema.
+- **Development comparison:** Representative fixtures under `tests/fixtures/standards/gdtf/1.2/` were compared with `mvrdevelopment/tools/gdtf.xsd` at revision `e199c6ed635de23cb5ebf9654ee54a358775a065`; the upstream schema is not vendored or downloaded by tests.
+- **Structural coverage:** The schema models required fixture metadata, attribute definitions and collections, ordered fixture families, common wheel/physical/model/geometry/DMX structures, scalar and enumeration types, uniqueness constraints, and top-level geometry references.
+- **XSD 1.0 limits:** Some conditional cardinality, default-name uniqueness, feature and DMX cross-references, resource existence, and archive rules require semantic or package validation. Less commonly consumed leaf structures remain candidates for further specification-derived expansion.
+- **Intentional differences:** No behavioral difference exists for the committed comparison fixtures. Perastage uses a narrower explicitly modeled leaf vocabulary than the comparison schema rather than silently accepting defined standard structures through wildcards. XSD success is not complete GDTF compliance.

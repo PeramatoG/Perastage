@@ -1,27 +1,260 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Perastage-maintained machine-readable implementation of GDTF 1.2. -->
+<!-- Perastage-maintained XSD 1.0 implementation derived from GDTF 1.2. -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:simpleType name="Name">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Uuid">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="YesNo">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Yes"/>
+      <xs:enumeration value="No"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Primitive">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Undefined"/>
+      <xs:enumeration value="Cube"/>
+      <xs:enumeration value="Cylinder"/>
+      <xs:enumeration value="Sphere"/>
+      <xs:enumeration value="Base"/>
+      <xs:enumeration value="Conventional"/>
+      <xs:enumeration value="Pigtail"/>
+      <xs:enumeration value="Scanner"/>
+      <xs:enumeration value="MovingHead"/>
+      <xs:enumeration value="Yoke"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="Feature">
+    <xs:attribute name="Name" type="Name" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="FeatureGroup">
+    <xs:sequence>
+      <xs:element name="Feature" type="Feature" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required"/>
+    <xs:attribute name="Pretty" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="FeatureGroups">
+    <xs:sequence>
+      <xs:element name="FeatureGroup" type="FeatureGroup" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ActivationGroup">
+    <xs:attribute name="Name" type="Name" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="ActivationGroups">
+    <xs:sequence>
+      <xs:element name="ActivationGroup" type="ActivationGroup" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Attribute">
+    <xs:attribute name="Name" type="Name" use="required"/>
+    <xs:attribute name="Pretty" type="xs:string" use="required"/>
+    <xs:attribute name="Feature" type="xs:string" use="required"/>
+    <xs:attribute name="ActivationGroup" type="Name"/>
+    <xs:attribute name="MainAttribute" type="Name"/>
+    <xs:attribute name="PhysicalUnit" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="Attributes">
+    <xs:sequence>
+      <xs:element name="Attribute" type="Attribute" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="AttributeDefinitions">
+    <xs:all>
+      <xs:element name="ActivationGroups" type="ActivationGroups" minOccurs="0"/>
+      <xs:element name="FeatureGroups" type="FeatureGroups"/>
+      <xs:element name="Attributes" type="Attributes"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="Slot">
+    <xs:attribute name="Name" type="xs:string" use="required"/>
+    <xs:attribute name="Color" type="xs:string"/>
+    <xs:attribute name="Filter" type="Name"/>
+    <xs:attribute name="MediaFileName" type="xs:string"/>
+    <xs:attribute name="Gobo" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="Wheel">
+    <xs:sequence>
+      <xs:element name="Slot" type="Slot" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="Wheels">
+    <xs:sequence>
+      <xs:element name="Wheel" type="Wheel" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Property">
+    <xs:attribute name="Value" type="xs:float" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="Temperature">
+    <xs:attribute name="Low" type="xs:float"/>
+    <xs:attribute name="High" type="xs:float"/>
+  </xs:complexType>
+  <xs:complexType name="Properties">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Weight" type="Property"/>
+      <xs:element name="LegHeight" type="Property"/>
+      <xs:element name="OperatingTemperature" type="Temperature"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="PhysicalDescriptions">
+    <xs:sequence>
+      <xs:element name="Properties" type="Properties" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Model">
+    <xs:attribute name="Name" type="Name" use="required"/>
+    <xs:attribute name="Length" type="xs:float"/>
+    <xs:attribute name="Width" type="xs:float"/>
+    <xs:attribute name="Height" type="xs:float"/>
+    <xs:attribute name="PrimitiveType" type="Primitive"/>
+    <xs:attribute name="File" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="Models">
+    <xs:sequence>
+      <xs:element name="Model" type="Model" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Geometry">
+    <xs:sequence>
+      <xs:element name="Geometry" type="Geometry" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required"/>
+    <xs:attribute name="Model" type="Name"/>
+    <xs:attribute name="Position" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="Geometries">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Geometry" type="Geometry"/>
+      <xs:element name="Axis" type="Geometry"/>
+      <xs:element name="Beam" type="Geometry"/>
+      <xs:element name="GeometryReference" type="Geometry"/>
+      <xs:element name="Support" type="Geometry"/>
+      <xs:element name="Structure" type="Geometry"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="ChannelFunction">
+    <xs:sequence>
+      <xs:element name="ChannelSet" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="Name" type="xs:string"/>
+          <xs:attribute name="DMXFrom" type="xs:string"/>
+          <xs:attribute name="PhysicalFrom" type="xs:float"/>
+          <xs:attribute name="PhysicalTo" type="xs:float"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name"/>
+    <xs:attribute name="Attribute" type="Name"/>
+    <xs:attribute name="DMXFrom" type="xs:string"/>
+    <xs:attribute name="Default" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="LogicalChannel">
+    <xs:sequence>
+      <xs:element name="ChannelFunction" type="ChannelFunction" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="Attribute" type="Name" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="DMXChannel">
+    <xs:sequence>
+      <xs:element name="LogicalChannel" type="LogicalChannel" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="DMXBreak" type="xs:positiveInteger"/>
+    <xs:attribute name="Offset" type="xs:string"/>
+    <xs:attribute name="Geometry" type="Name" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="DMXChannels">
+    <xs:sequence>
+      <xs:element name="DMXChannel" type="DMXChannel" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DMXMode">
+    <xs:sequence>
+      <xs:element name="DMXChannels" type="DMXChannels"/>
+      <xs:element name="Relations" minOccurs="0"/>
+      <xs:element name="FTMacros" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required"/>
+    <xs:attribute name="Geometry" type="Name" use="required"/>
+    <xs:attribute name="Description" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="DMXModes">
+    <xs:sequence>
+      <xs:element name="DMXMode" type="DMXMode" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Revision">
+    <xs:attribute name="Text" type="xs:string" use="required"/>
+    <xs:attribute name="Date" type="xs:dateTime" use="required"/>
+    <xs:attribute name="UserID" type="xs:unsignedInt"/>
+    <xs:attribute name="ModifiedBy" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="Revisions">
+    <xs:sequence>
+      <xs:element name="Revision" type="Revision" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Protocols">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="Art-Net"/>
+      <xs:element name="sACN"/>
+      <xs:element name="RDM"/>
+      <xs:element name="CanOpen"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="FixtureType">
+    <xs:sequence>
+      <xs:element name="AttributeDefinitions" type="AttributeDefinitions"/>
+      <xs:element name="Wheels" type="Wheels" minOccurs="0"/>
+      <xs:element name="PhysicalDescriptions" type="PhysicalDescriptions" minOccurs="0"/>
+      <xs:element name="Models" type="Models" minOccurs="0"/>
+      <xs:element name="Geometries" type="Geometries"/>
+      <xs:element name="DMXModes" type="DMXModes"/>
+      <xs:element name="Revisions" type="Revisions" minOccurs="0"/>
+      <xs:element name="FTPresets" minOccurs="0"/>
+      <xs:element name="Protocols" type="Protocols" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required"/>
+    <xs:attribute name="ShortName" type="xs:string"/>
+    <xs:attribute name="LongName" type="xs:string"/>
+    <xs:attribute name="Manufacturer" type="xs:string" use="required"/>
+    <xs:attribute name="Description" type="xs:string" use="required"/>
+    <xs:attribute name="FixtureTypeID" type="Uuid" use="required"/>
+    <xs:attribute name="Thumbnail" type="xs:string"/>
+    <xs:attribute name="RefFT" type="Uuid"/>
+    <xs:attribute name="CanHaveChildren" type="YesNo"/>
+  </xs:complexType>
   <xs:element name="GDTF">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="FixtureType">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="AttributeDefinitions" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
-              <xs:element name="Wheels" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-              <xs:element name="PhysicalDescriptions" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-              <xs:element name="Models" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-              <xs:element name="Geometries" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-              <xs:element name="DMXModes" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-              <xs:element name="Revisions" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-              <xs:element name="Protocols" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
-            </xs:sequence>
-            <xs:attribute name="Name" type="xs:string" use="required"/>
-            <xs:anyAttribute processContents="lax"/>
-          </xs:complexType>
-        </xs:element>
+        <xs:element name="FixtureType" type="FixtureType"/>
       </xs:sequence>
       <xs:attribute name="DataVersion" use="required" fixed="1.2"/>
     </xs:complexType>
+    <xs:key name="UniqueAttribute">
+      <xs:selector xpath="FixtureType/AttributeDefinitions/Attributes/Attribute"/>
+      <xs:field xpath="@Name"/>
+    </xs:key>
+    <xs:key name="UniqueModel">
+      <xs:selector xpath="FixtureType/Models/Model"/>
+      <xs:field xpath="@Name"/>
+    </xs:key>
+    <xs:key name="UniqueTopGeometry">
+      <xs:selector xpath="FixtureType/Geometries/*"/>
+      <xs:field xpath="@Name"/>
+    </xs:key>
+    <xs:keyref name="ModeGeometryReference" refer="UniqueTopGeometry">
+      <xs:selector xpath="FixtureType/DMXModes/DMXMode"/>
+      <xs:field xpath="@Geometry"/>
+    </xs:keyref>
   </xs:element>
 </xs:schema>

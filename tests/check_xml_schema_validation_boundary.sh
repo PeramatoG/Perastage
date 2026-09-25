@@ -14,5 +14,11 @@ fi
 if rg -n 'xml(Doc|Schema|Parser|Node|Error)|libxml' "$header"; then fail "public validation API exposes libxml2"; fi
 if rg -n 'wx[A-Z]|wxWidgets' "$header" "$source"; then fail "validation depends on GUI types"; fi
 grep -Fq 'XML_PARSE_NONET' "$source" || fail "XML parsing must prohibit network access"
+grep -Fq 'XML_PARSE_NO_XXE' "$source" || fail "XML parsing must disable external entities"
+grep -Fq 'XML_PARSE_NO_SYS_CATALOG' "$source" || fail "XML parsing must disable system catalogs"
+grep -Fq 'xmlCtxtSetErrorHandler' "$source" || fail "XML parsing must use a context-local error handler"
+grep -Fq 'xmlCtxtSetResourceLoader' "$source" || fail "XML parsing must install a resource-denial loader"
+grep -Fq 'xmlSchemaSetResourceLoader' "$source" || fail "schema parsing must install a resource-denial loader"
+if rg -n 'find\("<xs:(import|include)' "$source"; then fail "schema security must not rely on substring matching"; fi
 if rg -n 'XML_PARSE_NOENT' "$source"; then fail "entity expansion must remain disabled"; fi
 echo "XML schema validation boundary check passed"

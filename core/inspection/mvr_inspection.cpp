@@ -345,7 +345,8 @@ ValidationResult SemanticValidation(const Result &inspection) {
     if (diagnostic.domain == DiagnosticDomain::Content &&
         diagnostic.classification != DiagnosticClassification::Compatibility) {
       validation.diagnostics.push_back(diagnostic);
-      validation.status = ValidationStatus::Invalid;
+      if (diagnostic.severity >= DiagnosticSeverity::Error)
+        validation.status = ValidationStatus::Invalid;
     }
   }
   return validation;
