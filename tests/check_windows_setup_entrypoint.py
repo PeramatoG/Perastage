@@ -54,6 +54,9 @@ for responsibility in (
     assert responsibility in implementation_text, responsibility
 
 assert "Assert-PerastageWxSecretStoreHeaders -InstalledTriplet $Vcpkg.InstalledTriplet" in implementation_text
+assert "include\\libxml2\\libxml\\parser.h" in implementation_text
+assert "share\\libxml2\\copyright" in implementation_text
+assert "libxml2 version:" in implementation_text
 assert "include\\wx\\setup.h" not in implementation_text
 assert "debug\\lib" in module_text
 assert "Get-ChildItem -LiteralPath $libraryRoot -Directory -Filter 'msw*'" in module_text

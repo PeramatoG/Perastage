@@ -56,13 +56,47 @@ void CollectError(void *context, const xmlError *error) {
 }
 
 // Adapts the structured callback to the pinned libxml2 callback signature.
-#if LIBXML_VERSION >= 21500
+#if LIBXML_VERSION >= 21200
 void CollectStructuredError(void *context, const xmlError *error) {
   CollectError(context, error);
 }
 #else
 void CollectStructuredError(void *context, xmlError *error) {
   CollectError(context, error);
+}
+#endif
+
+#if LIBXML_VERSION < 21500
+// Detects external XSD dependencies structurally for older libxml2 releases.
+bool HasExternalSchemaDependency(const std::string &xsd) {
+  std::unique_ptr<xmlParserCtxt, decltype(&xmlFreeParserCtxt)> parser(
+      xmlNewParserCtxt(), &xmlFreeParserCtxt);
+  if (!parser)
+    return true;
+  XmlDoc schemaDocument(
+      xmlCtxtReadMemory(parser.get(), xsd.data(), static_cast<int>(xsd.size()),
+                        "embedded-schema.xsd", nullptr, XML_PARSE_NONET),
+      &xmlFreeDoc);
+  if (!schemaDocument)
+    return true;
+  for (xmlNode *node = xmlDocGetRootElement(schemaDocument.get()); node;) {
+    if (node->type == XML_ELEMENT_NODE && node->ns && node->ns->href &&
+        xmlStrEqual(node->ns->href,
+                    BAD_CAST "http://www.w3.org/2001/XMLSchema") &&
+        (xmlStrEqual(node->name, BAD_CAST "import") ||
+         xmlStrEqual(node->name, BAD_CAST "include") ||
+         xmlStrEqual(node->name, BAD_CAST "redefine")))
+      return true;
+    if (node->children) {
+      node = node->children;
+      continue;
+    }
+    while (node && !node->next)
+      node = node->parent;
+    if (node)
+      node = node->next;
+  }
+  return false;
 }
 #endif
 
@@ -180,6 +214,18 @@ ValidateXmlAgainstSchema(std::string_view xml,
          sourceLocation});
     return result;
   }
+#if LIBXML_VERSION < 21500
+  if (HasExternalSchemaDependency(xsd)) {
+    result.schema.status = ValidationStatus::Unavailable;
+    result.schema.diagnostics.push_back(
+        {DiagnosticSeverity::Error, DiagnosticDomain::Xml,
+         DiagnosticClassification::Standards,
+         "validation.external_resource_denied",
+         "Schema validation denied an uncontrolled external resource.",
+         sourceLocation});
+    return result;
+  }
+#endif
   SchemaParser schemaParser(
       xmlSchemaNewMemParserCtxt(xsd.data(), static_cast<int>(xsd.size())),
       &xmlSchemaFreeParserCtxt);

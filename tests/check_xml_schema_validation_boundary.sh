@@ -20,6 +20,11 @@ grep -Fq 'XML_PARSE_NO_SYS_CATALOG' "$source" || fail "XML parsing must disable 
 grep -Fq 'xmlCtxtSetErrorHandler' "$source" || fail "XML parsing must use a context-local error handler"
 grep -Fq 'xmlCtxtSetResourceLoader' "$source" || fail "XML parsing must install a resource-denial loader"
 grep -Fq 'xmlSchemaSetResourceLoader' "$source" || fail "schema parsing must install a resource-denial loader"
+grep -Fq '#if LIBXML_VERSION >= 21200' "$source" || fail "const structured-error callbacks must use the libxml2 2.12 transition"
+grep -Fq '#if LIBXML_VERSION >= 21500' "$source" || fail "2.15-only resource APIs must retain an independent guard"
+grep -Fq '#if LIBXML_VERSION < 21500' "$source" || fail "older libxml2 must retain a secure schema fallback"
+grep -Fq 'HasExternalSchemaDependency' "$source" || fail "older libxml2 must reject external schema dependencies structurally"
+if rg -n '(reinterpret_cast|static_cast|const_cast|\([^)]*xmlStructuredErrorFunc[^)]*\)).*CollectStructuredError' "$source"; then fail "structured-error callbacks must not use compatibility casts"; fi
 if rg -n 'find\("<xs:(import|include)' "$source"; then fail "schema security must not rely on substring matching"; fi
 if rg -n 'XML_PARSE_NOENT' "$source"; then fail "entity expansion must remain disabled"; fi
 if rg -n 'PERASTAGE_STANDARD_SCHEMA_DIR|ReadSchema' "$source" "$cmake"; then fail "validation must not require source-tree schemas at runtime"; fi

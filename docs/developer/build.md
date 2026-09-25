@@ -14,6 +14,7 @@ this guide owns build prerequisites and procedures.
 - Required libraries:
   - wxWidgets
   - tinyxml2
+  - libxml2 with XSD support
   - OpenGL / GLU
   - GLEW
   - CURL
@@ -38,7 +39,7 @@ Both presets use the schema-v3 top-level `toolchainFile` field to load `cmake/Pe
 Install or repair dependencies manually before configuring if they are missing. A typical one-time command is:
 
 ```powershell
-& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
+& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 libxml2[core] curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
 Gettext tools are build-time dependencies for localization catalog generation. On Windows they should resolve from `$env:VCPKG_ROOT\installed\x64-windows\tools\gettext\bin`. They are not Perastage runtime dependencies. Homebrew gettext is keg-only on macOS; add `$(brew --prefix gettext)/bin` to `PATH` before configuring CMake so `msgfmt`, `xgettext`, `msgmerge`, and `msgattrib` resolve consistently.
@@ -64,7 +65,7 @@ The root `setup_windows.ps1` command is the stable public entry point and may
 be invoked from any working directory by path. It delegates implementation to
 `scripts/windows/`, but developers should continue to use the root command.
 
-`setup_windows.ps1` resolves the checkout from explicit `-VcpkgRoot` first, a valid external `VCPKG_ROOT` second, and the standard user-wide integration descriptor third; it fails if none identifies a valid external checkout. It validates `vcpkg.exe`, `.vcpkg-root`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers, gettext tools, and `wxUSE_SECRETSTORE` in the generated Debug and Release MSW configuration headers under the vcpkg library directories. The generic public `include\wx\setup.h` is not a generated platform configuration and is not used for this feature check. Before invoking the shared preset it exports the resolved root as `VCPKG_ROOT`, so validation and CMake cannot select different installations. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
+`setup_windows.ps1` resolves the checkout from explicit `-VcpkgRoot` first, a valid external `VCPKG_ROOT` second, and the standard user-wide integration descriptor third; it fails if none identifies a valid external checkout. It validates `vcpkg.exe`, `.vcpkg-root`, `scripts\buildsystems\vcpkg.cmake`, `installed\x64-windows`, representative package headers and metadata (including libxml2), gettext tools, and `wxUSE_SECRETSTORE` in the generated Debug and Release MSW configuration headers under the vcpkg library directories. The generic public `include\wx\setup.h` is not a generated platform configuration and is not used for this feature check. Before invoking the shared preset it exports the resolved root as `VCPKG_ROOT`, so validation and CMake cannot select different installations. It also imports and validates an x64 MSVC environment and removes only the selected Perastage build directory when a stale incompatible CMake cache is detected. It does not clone vcpkg, bootstrap vcpkg, run vcpkg installs, generate `CMakeUserPresets.json`, create `.tools\vcpkg`, or create a repository-local `vcpkg_installed` tree.
 
 If an older build was configured against wxWidgets without `secretstore`, manifest mode, another installed root, or an x86 compiler, rerun the script with `-CleanBuild` to delete only the selected Perastage build directory before reconfiguring. Deleting `.vs` or `build` does not require reinstalling packages, and deleting `$env:VCPKG_ROOT\installed` is not part of normal troubleshooting.
 
