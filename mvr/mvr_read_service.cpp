@@ -1043,6 +1043,38 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                          sceneReadServices, sceneReadMetadata, sceneReadState,
                          sceneReadMetrics);
 
+  if (matrixScaleAggregation.acceptedTinyUniformScaleCount > 0) {
+    logMessage(MvrReadLogLevel::Info,
+               "MVR import matrix summary: accepted " +
+                   std::to_string(
+                       matrixScaleAggregation.acceptedTinyUniformScaleCount) +
+                   " tiny uniform geometry scales without warning.");
+  }
+  if (matrixScaleAggregation.suspiciousMatrixCount > 0) {
+    logMessage(
+        MvrReadLogLevel::Warning,
+        "MVR import matrix anomalies: " +
+            std::to_string(matrixScaleAggregation.suspiciousMatrixCount) +
+            " suspicious matrices.");
+    for (const std::string &example : matrixScaleAggregation.suspiciousExamples)
+      logMessage(MvrReadLogLevel::Warning,
+                 "MVR import suspicious matrix: " + example);
+  }
+  if (sceneReadMetrics.trussSymbolSymdefPreservedCount > 0) {
+    logMessage(
+        MvrReadLogLevel::Info,
+        "MVR import truss Symbol/Symdef representation preserved for " +
+            std::to_string(sceneReadMetrics.trussSymbolSymdefPreservedCount) +
+            " trusses.");
+  }
+  logMessage(MvrReadLogLevel::Info,
+             "Parsed scene: layers=" + std::to_string(scene.layers.size()) +
+                 ", fixtures=" + std::to_string(scene.fixtures.size()) +
+                 ", trusses=" + std::to_string(scene.trusses.size()) +
+                 ", supports=" + std::to_string(scene.supports.size()) +
+                 ", sceneObjects=" + std::to_string(scene.sceneObjects.size()) +
+                 ", groups=" + std::to_string(scene.groupObjects.size()) + ".");
+
   auto metadataUuids = [](const auto &entries) {
     std::unordered_set<std::string> uuids;
     for (const auto &[uuid, value] : entries) {

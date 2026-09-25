@@ -10,6 +10,8 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored MVR import summaries for matrix anomalies, preserved truss symbols, and parsed scene contents.
+
 - Restored progress reporting for MVR fixture-category enrichment and final GDTF mode resolution.
 
 - Extended read-only MVR inspection summaries with parsed Position and Symdef structures already retained by the production reader.
