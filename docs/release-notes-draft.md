@@ -40,7 +40,7 @@ Changes since **v1.6.0**.
 ## Technical and packaging changes
 
 - Added offline, read-only validation with exact pinned official GDTF 1.2 and MVR 1.6 schemas, while keeping well-formedness, structural standards, version-specific semantics, and compatibility results separate.
-- Improved compatibility with locally managed libxml2 versions and added earlier Windows dependency diagnostics for classic vcpkg builds.
+- Improved compatibility with locally managed libxml2 versions, added earlier Windows dependency diagnostics for classic vcpkg builds, and included the corresponding runtime legal notice.
 
 - Added a standalone, read-only MVR inspection service backed by the same single parser as application imports, exposing equivalent filesystem and in-memory package inventory, original scene XML, deterministic scene hierarchy, preserved foreign provider data, embedded and missing resource references, and structured diagnostics without applying the scene or downloading missing resources.
 

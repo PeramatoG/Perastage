@@ -30,10 +30,10 @@ $env:VCPKG_ROOT = 'D:\path\to\vcpkg'
 ```
 
 ```powershell
-& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
+& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows wxwidgets[secretstore] gettext[tools] tinyxml2 libxml2[core] curl glew zlib nanovg podofo meshoptimizer backward-cpp mdns
 ```
 
-The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support and declares Windows gettext tools as a host dependency for CI and dependency documentation. For local Windows builds, `setup_windows.ps1` validates that the installed tree is ready; it does not install or rebuild packages.
+The manifest requests `wxwidgets[secretstore]` for Windows Credential Manager support, `libxml2[core]` for offline XML schema validation, and Windows gettext tools as a host dependency for CI and dependency documentation. For local Windows builds, `setup_windows.ps1` validates that the installed tree is ready; it does not install or rebuild packages.
 
 If wxWidgets was previously built without secure-store support, repair that package in the selected classic vcpkg checkout, then use `-CleanBuild` so CMake probes the rebuilt classic dependency instead of a stale build cache.
 

@@ -459,7 +459,8 @@ void TestStructuralDiagnosticSummaries() {
 // Verifies package safety, collision severity, and missing-resource reporting.
 void TestPackageAndResourceDiagnostics() {
   const std::string xml =
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage Test\" providerVersion=\"1.0\"><Scene>"
       "<Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" "
       "name=\"Layer\"><ChildList><Fixture "
       "uuid=\"20000000-0000-4000-8000-000000000001\" name=\"Fixture\">"

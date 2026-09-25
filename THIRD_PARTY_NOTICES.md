@@ -19,6 +19,7 @@ The versions resolved by a package manager can vary for system-package builds. O
 |---|---|---|
 | [wxWidgets](https://www.wxwidgets.org/) | LGPL-2.0-or-later WITH WxWindows-exception-3.1 | [License](licenses/wxwidgets_LICENSE.txt) |
 | [tinyxml2](https://github.com/leethomason/tinyxml2) | Zlib | [License](licenses/tinyxml2_LICENSE.txt) |
+| [libxml2](https://gitlab.gnome.org/GNOME/libxml2) | MIT | [License](licenses/libxml2_LICENSE.txt) |
 | [libcurl](https://curl.se/libcurl/) | curl license, with an additional ISC notice in the pinned vcpkg package | [Primary license](licenses/curl_LICENSE.txt); [inet_ntop notice](licenses/curl_inet_ntop_NOTICE.txt) |
 | [GLEW](https://github.com/nigels-com/glew) | BSD-3-Clause, MIT, and SGI-B-2.0 combined notices | [Combined upstream notices](licenses/glew_LICENSE.txt) |
 | [zlib](https://www.zlib.net/) | Zlib | [License](licenses/zlib_LICENSE.txt) |
