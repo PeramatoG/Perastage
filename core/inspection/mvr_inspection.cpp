@@ -141,15 +141,20 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
   for (const auto &[kind, path] : references)
     snapshot.referencedResources.push_back({kind, path});
 
-  snapshot.layers = SortedDescriptors(scene.layers, [&](const Layer &layer) {
+  for (const auto &[layerUuid, layerName] :
+       readContext.authoredLayerNameByUuid) {
     std::vector<std::string> children;
-    const auto found = readContext.directChildUuidsByLayerUuid.find(layer.uuid);
+    const auto found = readContext.directChildUuidsByLayerUuid.find(layerUuid);
     if (found != readContext.directChildUuidsByLayerUuid.end())
       children = found->second;
     std::sort(children.begin(), children.end());
-    return MvrSceneNodeDescriptor{
-        "layer", layer.uuid, layer.name, {}, {}, {}, {}, std::move(children)};
-  });
+    snapshot.layers.push_back(
+        {"layer", layerUuid, layerName, {}, {}, {}, {}, std::move(children)});
+  }
+  std::sort(snapshot.layers.begin(), snapshot.layers.end(),
+            [](const auto &left, const auto &right) {
+              return left.uuid < right.uuid;
+            });
   snapshot.fixtures =
       SortedDescriptors(scene.fixtures, [&](const Fixture &node) {
         const std::string reference = node.originalMvrGdtfSpec.empty()

@@ -125,6 +125,8 @@ struct MvrSceneReadServices {
   std::function<void(const std::string &, const std::string &)>
       recordFixtureUuid;
   std::function<void(const std::string &, const std::string &)>
+      recordAuthoredLayer;
+  std::function<void(const std::string &, const std::string &)>
       recordNodeLayerUuid;
   std::function<void(const std::string &, const std::string &)>
       recordDirectLayerChildUuid;

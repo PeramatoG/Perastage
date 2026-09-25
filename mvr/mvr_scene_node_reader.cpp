@@ -1386,6 +1386,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
 
     const char *uuidAttr = layer->Attribute("uuid");
     const std::string layerUuid = uuidAttr ? uuidAttr : "";
+    services.recordAuthoredLayer(layerUuid, layerStr);
     tinyxml2::XMLElement *childList = layer->FirstChildElement("ChildList");
     if (childList)
       parseChildList(childList, isDefaultLayer ? DEFAULT_LAYER_NAME : layerStr,

@@ -162,6 +162,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
   if (context) {
     context->gdtfConflicts.clear();
     context->manualCategoryUpdates.clear();
+    context->authoredLayerNameByUuid.clear();
     context->layerUuidByNodeUuid.clear();
     context->directChildUuidsByLayerUuid.clear();
   }
@@ -1023,6 +1024,10 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       resolveStableUuid,
       [&](const std::string &rawUuid, const std::string &resolvedUuid) {
         referenceResolver.RecordFixtureUuid(rawUuid, resolvedUuid);
+      },
+      [&](const std::string &layerUuid, const std::string &layerName) {
+        if (context && !layerUuid.empty())
+          context->authoredLayerNameByUuid[layerUuid] = layerName;
       },
       [&](const std::string &nodeUuid, const std::string &layerUuid) {
         if (context)

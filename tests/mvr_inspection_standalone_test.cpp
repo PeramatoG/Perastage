@@ -189,6 +189,32 @@ void TestStandaloneInspectionParity() {
   fs::remove_all(root);
 }
 
+// Verifies an unnamed authored Layer remains visible to inspection by UUID.
+void TestUnnamedAuthoredLayer() {
+  const std::string layerUuid = "10000000-0000-4000-8000-000000000010";
+  const std::string fixtureUuid = "20000000-0000-4000-8000-000000000010";
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<Layers><Layer uuid=\"" +
+      layerUuid + "\"><ChildList><Fixture uuid=\"" + fixtureUuid +
+      "\" name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "</Fixture></ChildList></Layer></Layers></Scene>"
+      "</GeneralSceneDescription>";
+
+  const MvrInspectionResult inspected =
+      InspectMvrBytes(BuildArchive({{"GeneralSceneDescription.xml", xml}}));
+  assert(inspected.Success() && inspected.snapshot);
+  assert(inspected.snapshot->layers.size() == 1);
+  const MvrSceneNodeDescriptor &layer = inspected.snapshot->layers.front();
+  assert(layer.uuid == layerUuid);
+  assert(layer.name.empty());
+  assert(inspected.snapshot->fixtures.size() == 1);
+  const MvrSceneNodeDescriptor &fixture = inspected.snapshot->fixtures.front();
+  assert(layer.childUuids == std::vector<std::string>{fixture.uuid});
+  assert(fixture.uuid == fixtureUuid);
+  assert(fixture.layerUuid == layerUuid);
+}
+
 // Verifies recovered node identities remain authoritative across hierarchy
 // views.
 void TestRecoveredUuidLayerOwnership() {
@@ -370,6 +396,7 @@ void TestNonMvrPackageKind() {
 // Runs the standalone MVR inspection contract without application or GUI code.
 int main() {
   TestStandaloneInspectionParity();
+  TestUnnamedAuthoredLayer();
   TestRecoveredUuidLayerOwnership();
   TestStructuralDiagnosticSummaries();
   TestPackageAndResourceDiagnostics();
