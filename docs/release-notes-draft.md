@@ -12,14 +12,14 @@ Changes since **v1.6.0**.
 
 - Restored fixture-category fallback diagnostics during normal MVR imports.
 
-- Restored MVR import summaries for matrix anomalies, preserved truss symbols, and parsed scene contents.
+- Restored detailed MVR import diagnostics for matrix contexts and examples, per-Symdef truss usage, GDTF resolution, dictionary state, and fixture-category fallback reasons.
 
 - Restored progress reporting for MVR fixture-category enrichment and final GDTF mode resolution.
 
 - Extended read-only MVR inspection summaries with parsed Position and Symdef structures already retained by the production reader.
 
 - Restored application import logging from the shared MVR reader while keeping standalone inspection independent of the application logger.
-- Kept Inspector layer hierarchy derivation read-only without changing imported layer child data.
+- Corrected read-only MVR inspection for recovered node identities, exact authored layer names (including unnamed layers), duplicate layers, direct-child hierarchy, nested groups, and complete deterministic Symdef resource inventories without changing imported scene data.
 
 - Kept standalone MVR inspection independent of application GDTF enrichment, while restoring exact cached fixture-category provenance, final mode compatibility resolution, and default-layer normalization for normal imports.
 
@@ -48,6 +48,7 @@ Changes since **v1.6.0**.
 - Added a deterministic, versioned JSON boundary for neutral inspection results, with cross-platform UTF-8 verification for automation without coupling inspection semantics to command-line or graphical presentation.
 
 - Introduced a minimal reusable non-GUI inspection library shared by the application and focused architecture tests, with strict ownership checks that preserve one implementation for future inspection frontends without migrating unrelated Core code.
+- Corrected MVR reader build ownership so reusable Core and scene-model implementations remain registered by their owning modules and are linked without duplicate compilation.
 
 - Established a cross-platform architecture guard for the GUI-independent, read-only inspection contract used by future file-analysis tools and frontends.
 

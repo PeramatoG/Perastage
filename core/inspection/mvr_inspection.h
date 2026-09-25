@@ -44,6 +44,15 @@ struct MvrSceneNodeDescriptor {
   bool operator==(const MvrSceneNodeDescriptor &) const = default;
 };
 
+// Describes one retained Symdef and its packaged geometry references.
+struct MvrSymdefDescriptor {
+  std::string uuid;
+  std::vector<std::string> resourceReferences;
+
+  // Compares deterministic Symdef descriptors by value.
+  bool operator==(const MvrSymdefDescriptor &) const = default;
+};
+
 // Preserves one foreign provider block without interpreting its schema.
 struct MvrForeignUserDataDescriptor {
   std::string provider;
@@ -71,7 +80,7 @@ struct MvrInspectionSnapshot {
   std::vector<MvrSceneNodeDescriptor> sceneObjects;
   std::vector<MvrSceneNodeDescriptor> groupObjects;
   std::vector<MvrSceneNodeDescriptor> positions;
-  std::vector<MvrSceneNodeDescriptor> symdefs;
+  std::vector<MvrSymdefDescriptor> symdefs;
   std::vector<MvrForeignUserDataDescriptor> foreignUserData;
   std::vector<MvrNodeCount> nodeCounts;
 };

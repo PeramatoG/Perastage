@@ -14,7 +14,9 @@
 
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace mvr {
 
@@ -35,6 +37,10 @@ struct MvrReadEnvironment {
 struct MvrReadContext {
   std::vector<SceneReadGdtfConflict> gdtfConflicts;
   std::vector<std::pair<std::string, std::string>> manualCategoryUpdates;
+  std::unordered_map<std::string, std::string> authoredLayerNameByUuid;
+  std::unordered_map<std::string, std::string> layerUuidByNodeUuid;
+  std::unordered_map<std::string, std::vector<std::string>>
+      directChildUuidsByLayerUuid;
 };
 
 // Parses one already-acquired package through the production read model.

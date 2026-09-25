@@ -35,6 +35,22 @@ fi
 if printf '%s\n' "$read_block" | grep -Fq 'mvr_import_application_read_services'; then
   fail "the reusable read target must not own application enrichment adapters"
 fi
+if printf '%s\n' "$read_block" | grep -Eq '(CMAKE_SOURCE_DIR\}/|\.\./)(core|models)/.*\.cpp'; then
+  fail "the reusable read target must not directly own Core or Model sources"
+fi
+for source_name in fixture_visual_color.cpp gdtf_fixture_category.cpp \
+  scene_grouping.cpp utf8_utils.cpp; do
+  grep -Fq "\${CMAKE_CURRENT_SOURCE_DIR}/$source_name" "$root/core/CMakeLists.txt" ||
+    fail "$source_name must be registered by Core"
+  count="$(grep -F -h "\${CMAKE_CURRENT_SOURCE_DIR}/$source_name" \
+    "$root"/{app,core,gui,models,mvr,viewer2d,viewer3d,viewer_common}/CMakeLists.txt | wc -l)"
+  [ "$count" -eq 1 ] || fail "$source_name must have one production owner"
+done
+grep -Fq '${CMAKE_CURRENT_SOURCE_DIR}/mvrscene.cpp' "$root/models/CMakeLists.txt" ||
+  fail "mvrscene.cpp must be registered by Models"
+count="$(grep -F -h '${CMAKE_CURRENT_SOURCE_DIR}/mvrscene.cpp' \
+  "$root"/{app,core,gui,models,mvr,viewer2d,viewer3d,viewer_common}/CMakeLists.txt | wc -l)"
+[ "$count" -eq 1 ] || fail "mvrscene.cpp must have one production owner"
 grep -Fq 'perastage_runtime_storage' "$mvr_cmake" ||
   fail "MVR acquisition must reuse the production runtime-storage target"
 

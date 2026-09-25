@@ -262,11 +262,18 @@ reconciliation, and dummy-hoist lookup to the same parser. Project application,
 conflict dialogs, download workflow, and dictionary application remain outside
 the shared parser in the application-facing importer. The reusable target's
 remaining wxWidgets dependency is limited to base memory and ZIP streams used
-by the established safe extraction implementation.
+by the established safe extraction implementation. The narrow
+`perastage_mvr_core_support` and `perastage_mvr_scene_model` targets are declared
+by Core and Models respectively, so the shared reader links their single
+production implementations without directly registering foreign module
+sources or creating a broad general-purpose Core library.
 
 The shared read context returns neutral conflict and manually authored category
-facts. The application importer applies dictionary persistence and the existing
-GDTF Share conflict/download workflow after reading; inspection requests no
+facts, exact authored layer UUID membership for every parsed node, and each
+layer's direct authored child UUIDs. This preserves duplicate layer names and
+nested group inheritance without mutating application scene models solely for
+inspection. The application importer applies dictionary persistence and the
+existing GDTF Share conflict/download workflow after reading; inspection requests no
 such side effects.
 
 Fixture-category inference, final GDTF mode compatibility resolution, and
@@ -288,9 +295,11 @@ directly from memory, so they retain the same ordered entry names, sizes, path
 safety, and package diagnostics as filesystem inputs. Results own the selected
 scene-description entry and original XML,
 embedded GDTF entry paths, safe scene resource references, metadata, and
-deterministically ordered node descriptors and counts, including layer and
-group child relationships; temporary extraction paths and leases are not
-exposed.
+deterministically ordered node descriptors and counts, including authoritative
+layer and group child relationships. Symdefs use a dedicated descriptor whose
+ordered values are retained packaged geometry references rather than child
+UUIDs; those references also participate in the resource inventory. Temporary
+extraction paths and leases are not exposed.
 
 The service never invokes project application, replacement, merge, dialogs,
 viewers, or configuration mutation. Inspection disables dictionary application
