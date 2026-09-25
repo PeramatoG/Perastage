@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Perastage-maintained machine-readable implementation of GDTF 1.2. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:element name="GDTF">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="FixtureType">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AttributeDefinitions" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
+              <xs:element name="Wheels" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+              <xs:element name="PhysicalDescriptions" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+              <xs:element name="Models" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+              <xs:element name="Geometries" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+              <xs:element name="DMXModes" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+              <xs:element name="Revisions" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+              <xs:element name="Protocols" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+            </xs:sequence>
+            <xs:attribute name="Name" type="xs:string" use="required"/>
+            <xs:anyAttribute processContents="lax"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="DataVersion" use="required" fixed="1.2"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Perastage-maintained machine-readable implementation of MVR 1.6. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:element name="GeneralSceneDescription">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Scene" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
+        <xs:element name="UserData" minOccurs="0"><xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax"/></xs:sequence><xs:anyAttribute processContents="lax"/></xs:complexType></xs:element>
+      </xs:sequence>
+      <xs:attribute name="verMajor" type="xs:nonNegativeInteger" use="required" fixed="1"/>
+      <xs:attribute name="verMinor" type="xs:nonNegativeInteger" use="required" fixed="6"/>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

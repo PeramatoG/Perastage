@@ -346,3 +346,11 @@ JSON schema.
 
 - Keyboard shortcut routing and scope rules are documented in `docs/developer/../developer/gui_shortcut_architecture.md`.
 - Storage source-of-truth and runtime precedence are documented in `docs/developer/storage_policy.md`.
+
+### XML and standards validation layers
+
+Inspection reports three independent validation layers. XML well-formedness answers only whether the retained source is parseable; XSD validation checks the applicable repository-controlled schema; semantic/interoperability validation reuses facts from the established TinyXML2-backed GDTF and MVR readers. Compatibility diagnostics remain independently classified and never become standards success merely because tolerant reading succeeded. Likewise, XSD success is not evidence of complete GDTF or MVR compliance.
+
+`perastage_inspection_validation` is the sole owner of libxml2. Its private adapter uses libxml2 only as an XSD 1.0 engine and exposes neutral Core values; no libxml2 or wxWidgets type crosses its public API. TinyXML2 and the existing production readers remain authoritative for semantic data. Parsing and schema compilation prohibit network access, external schema dependencies are rejected, and validation uses only inspected bytes and repository-controlled local schemas.
+
+Perastage owns the schemas under `resources/standards/gdtf/1.2/` and `resources/standards/mvr/1.6/`. They implement GDTF 1.2 / DIN SPEC 15800:2022-02 and MVR 1.6 / DIN SPEC 15801:2023-12 from `mvrdevelopment/spec` revision `098d3791f77f0895bd859adf01864b4826e2006f`; they are not official upstream schemas. During development, upstream `mvrdevelopment/tools` schemas at revision `e199c6ed635de23cb5ebf9654ee54a358775a065` serve only as a comparison oracle. Each schema's `PROVENANCE.md` records its focused coverage, intentional comparison differences, and XSD 1.0 limitations. Package constraints, resource existence, graph/reference integrity, conditional relationships, and other rules XSD 1.0 cannot reliably express remain package or semantic diagnostics.

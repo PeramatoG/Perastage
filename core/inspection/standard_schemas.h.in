@@ -1,0 +1,10 @@
+#pragma once
+
+#include <string_view>
+
+namespace perastage::inspection::schemas {
+
+inline constexpr std::string_view kGdtf12 = R"PerastageGdtf(@PERASTAGE_GDTF_12_XSD@)PerastageGdtf";
+inline constexpr std::string_view kMvr16 = R"PerastageMvr(@PERASTAGE_MVR_16_XSD@)PerastageMvr";
+
+} // namespace perastage::inspection::schemas

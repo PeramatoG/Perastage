@@ -336,6 +336,21 @@ void AppendMissingResourceDiagnostics(MvrInspectionResult &result) {
   }
 }
 
+// Summarizes existing read findings without reinterpreting scene XML.
+ValidationResult SemanticValidation(const Result &inspection) {
+  ValidationResult validation;
+  validation.layer = ValidationLayer::SemanticInteroperability;
+  validation.status = ValidationStatus::Valid;
+  for (const Diagnostic &diagnostic : inspection.diagnostics) {
+    if (diagnostic.domain == DiagnosticDomain::Content &&
+        diagnostic.classification != DiagnosticClassification::Compatibility) {
+      validation.diagnostics.push_back(diagnostic);
+      validation.status = ValidationStatus::Invalid;
+    }
+  }
+  return validation;
+}
+
 } // namespace
 
 // Reports whether package and semantic reads produced a usable snapshot.
@@ -366,6 +381,15 @@ static MvrInspectionResult CompleteMvrInspection(
                   "The MVR package could not be safely read.");
     return result;
   }
+  const std::string sceneXml = ReadText(package->sceneXmlPath);
+  DiagnosticLocation validationLocation;
+  validationLocation.sourcePath = result.inspection.request.sourcePath;
+  validationLocation.packageEntry = PathUtf8(
+      std::filesystem::relative(package->sceneXmlPath, package->rootPath));
+  XmlSchemaValidationResult validation =
+      ValidateXmlAgainstSchema(sceneXml, Mvr16Schema(), validationLocation);
+  result.validation.push_back(std::move(validation.xml));
+  result.validation.push_back(std::move(validation.schema));
   MvrImportResult parsed;
   mvr::MvrReadContext readContext;
   MvrImportOptions options;
@@ -379,6 +403,7 @@ static MvrInspectionResult CompleteMvrInspection(
                   "GeneralSceneDescription.xml could not be parsed.",
                   PathUtf8(std::filesystem::relative(package->sceneXmlPath,
                                                      package->rootPath)));
+    result.validation.push_back(SemanticValidation(result.inspection));
     return result;
   }
   AppendImporterDiagnostics(result, parsed);
@@ -393,6 +418,7 @@ static MvrInspectionResult CompleteMvrInspection(
         result.snapshot->sceneDescriptionEntry);
   }
   AppendMissingResourceDiagnostics(result);
+  result.validation.push_back(SemanticValidation(result.inspection));
   return result;
 }
 

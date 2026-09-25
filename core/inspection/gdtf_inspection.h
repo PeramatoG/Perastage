@@ -2,6 +2,7 @@
 
 #include "gdtf/editor/gdtf_document.h"
 #include "inspection/package_inspection.h"
+#include "inspection/xml_schema_validation.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -21,6 +22,7 @@ struct GdtfInspectionResult {
   Result inspection;
   std::optional<PackageInventory> packageInventory;
   std::optional<gdtf::GdtfDocument> document;
+  std::vector<ValidationResult> validation;
   GdtfReadStatus status = GdtfReadStatus::Unusable;
 
   bool Success() const;
