@@ -1,9 +1,4 @@
 add_library(perastage_mvr_read STATIC
-    ${CMAKE_SOURCE_DIR}/core/fixture_visual_color.cpp
-    ${CMAKE_SOURCE_DIR}/core/gdtf_fixture_category.cpp
-    ${CMAKE_SOURCE_DIR}/core/scene_grouping.cpp
-    ${CMAKE_SOURCE_DIR}/core/utf8_utils.cpp
-    ${CMAKE_SOURCE_DIR}/models/mvrscene.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_matcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.cpp
@@ -21,7 +16,8 @@ target_include_directories(perastage_mvr_read
 )
 target_link_libraries(perastage_mvr_read
     PUBLIC perastage_uuid perastage_runtime_storage
-    PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
+    PRIVATE perastage_mvr_core_support perastage_mvr_scene_model
+            tinyxml2::tinyxml2 ${_wx_base_libs}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE perastage_mvr_read)

@@ -1475,6 +1475,48 @@ static void ApplyApplicationDictionaryMappings(
   }
 }
 
+// Logs application-specific GDTF resolution results after mapping policy.
+static void
+LogApplicationGdtfResolutionSummary(const MvrImportResult &result,
+                                    mvr::MvrImportResourceResolver &resources,
+                                    const MvrImportOptions &options) {
+  int fixturesWithGdtfSpec = 0;
+  int resolvedFixtureGdtfs = 0;
+  std::vector<std::string> unresolvedExamples;
+  for (const auto &[uuid, fixture] : result.scene.fixtures) {
+    (void)uuid;
+    const std::string spec = fixture.originalMvrGdtfSpec.empty()
+                                 ? fixture.gdtfSpec
+                                 : fixture.originalMvrGdtfSpec;
+    if (spec.empty())
+      continue;
+    ++fixturesWithGdtfSpec;
+    const std::string resolved = resources.ResolveGdtfPath(spec);
+    if (!resolved.empty() && resources.GdtfFileExists(resolved)) {
+      ++resolvedFixtureGdtfs;
+    } else if (unresolvedExamples.size() < 5) {
+      unresolvedExamples.push_back(spec);
+    }
+  }
+  std::ostringstream summary;
+  summary << "MVR import GDTF diagnostics: basePath='" << result.scene.basePath
+          << "', fixturesWithGdtfSpec=" << fixturesWithGdtfSpec
+          << ", resolvedFixtureGdtfs=" << resolvedFixtureGdtfs
+          << ", unresolvedFixtureGdtfs="
+          << (fixturesWithGdtfSpec - resolvedFixtureGdtfs)
+          << ", dictionaryMapping="
+          << (options.applyDictionary ? "enabled" : "disabled");
+  if (!unresolvedExamples.empty()) {
+    summary << ", unresolvedExamples=";
+    for (std::size_t index = 0; index < unresolvedExamples.size(); ++index) {
+      if (index > 0)
+        summary << "; ";
+      summary << unresolvedExamples[index];
+    }
+  }
+  LogMessage(Logger::Level::Info, summary.str());
+}
+
 // Applies application-only category, mode, and default-layer enrichment.
 static void
 ApplyApplicationSceneEnrichment(MvrImportResult &result,
@@ -1483,8 +1525,8 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
   std::unordered_map<std::string, mvr::SceneReadCachedCategory> byType;
   std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
       byResolvedPath;
-  std::unordered_map<std::string, int> fallbackReasons;
-  std::unordered_map<std::string, int> fallbackCategories;
+  std::unordered_map<std::string, size_t> fallbackReasons;
+  std::unordered_map<std::string, size_t> fallbackCategories;
   int fallbackCount = 0;
   int completed = 0;
   const int total = static_cast<int>(result.scene.fixtures.size());
@@ -1544,11 +1586,11 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
     if (progress && (completed == total || completed % 10 == 0))
       progress({"Applying fixture categories...", completed, total});
   }
-  LogMessage(Logger::Level::Info,
-             "Auto category fallback applied to " +
-                 std::to_string(fallbackCount) + " fixtures across " +
-                 std::to_string(fallbackReasons.size()) + " reasons and " +
-                 std::to_string(fallbackCategories.size()) + " categories.");
+  LogMessage(
+      Logger::Level::Info,
+      "Auto category fallback applied to " + std::to_string(fallbackCount) +
+          " fixtures; reasons: " + JoinMatrixContextCounts(fallbackReasons) +
+          "; categories: " + JoinMatrixContextCounts(fallbackCategories));
   if (progress)
     progress({"Building fixtures, trusses, and objects...", 0, 0});
   completed = 0;
@@ -1793,6 +1835,7 @@ bool MvrImporter::ImportFromStreamIntoResult(
   ApplyApplicationDictionaryMappings(importResult, resources, readContext,
                                      options, progressCallback);
   ApplyApplicationSceneEnrichment(importResult, resources, progressCallback);
+  LogApplicationGdtfResolutionSummary(importResult, resources, options);
   PersistManualFixtureCategories(importResult);
 
   importResult.scene.runtimeResourceLeases.push_back(

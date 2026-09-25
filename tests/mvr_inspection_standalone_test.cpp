@@ -2,6 +2,7 @@
 
 #include "support/archive_entry_test_utils.h"
 
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -27,7 +28,9 @@ void WriteMvr(const fs::path &path, const std::string &xml) {
       path,
       {{"GeneralSceneDescription.xml", xml},
        {"fixture.gdtf", "embedded"},
-       {"models/object.glb", "geometry"}},
+       {"models/object.glb", "geometry"},
+       {"models/a.3ds", "symdef-a"},
+       {"models/z.3ds", "symdef-z"}},
       error));
   assert(error.empty());
 }
@@ -70,7 +73,12 @@ void TestStandaloneInspectionParity() {
       "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
       "provider=\"Standalone\" providerVersion=\"1\">"
       "<UserData><Data provider=\"Foreign\" ver=\"2\"><Value raw=\"yes\"/>"
-      "</Data></UserData><Scene><Layers>"
+      "</Data></UserData><Scene><AUXData>"
+      "<Position uuid=\"70000000-0000-4000-8000-000000000001\" name=\"FOH\"/>"
+      "<Symdef uuid=\"80000000-0000-4000-8000-000000000001\">"
+      "<ChildList><Geometry3D fileName=\"models/z.3ds\"/>"
+      "<Geometry3D fileName=\"models/a.3ds\"/></ChildList></Symdef>"
+      "</AUXData><Layers>"
       "<Layer uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Main\">"
       "<ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000001\" "
       "name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
@@ -87,7 +95,12 @@ void TestStandaloneInspectionParity() {
       "name=\"Object\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
       "<Geometries><Geometry3D fileName=\"models/object.glb\"/>"
       "</Geometries></SceneObject></ChildList></GroupObject>"
-      "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+      "</ChildList></Layer>"
+      "<Layer uuid=\"10000000-0000-4000-8000-000000000002\" name=\"Main\">"
+      "<ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000002\" "
+      "name=\"Fixture 2\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<GDTFSpec>fixture.gdtf</GDTFSpec></Fixture></ChildList></Layer>"
+      "</Layers></Scene></GeneralSceneDescription>";
   const fs::path root = fs::temp_directory_path() / "perastage-mvr-inspection";
   fs::create_directories(root);
   const fs::path path = root / "scene.mvr";
@@ -122,6 +135,16 @@ void TestStandaloneInspectionParity() {
   assert(fromFile.snapshot->fixtures.front().layerUuid ==
          "10000000-0000-4000-8000-000000000001");
   assert(fromFile.snapshot->fixtures.front().layerName == "Main");
+  assert(fromFile.snapshot->fixtures.back().layerUuid ==
+         "10000000-0000-4000-8000-000000000002");
+  assert(fromFile.snapshot->layers.size() == 2);
+  assert(fromFile.snapshot->layers.front().childUuids ==
+         (std::vector<std::string>{"20000000-0000-4000-8000-000000000001",
+                                   "30000000-0000-4000-8000-000000000001",
+                                   "50000000-0000-4000-8000-000000000001",
+                                   "60000000-0000-4000-8000-000000000001"}));
+  assert(fromFile.snapshot->layers.back().childUuids ==
+         std::vector<std::string>{"20000000-0000-4000-8000-000000000002"});
   assert(Count(*fromFile.snapshot, "fixtures") ==
          fromFile.snapshot->fixtures.size());
   assert(Count(*fromFile.snapshot, "trusses") == 1);
@@ -135,6 +158,20 @@ void TestStandaloneInspectionParity() {
          fromFile.snapshot->groupObjects.front().uuid);
   assert(fromFile.snapshot->sceneObjects.front().layerUuid ==
          "10000000-0000-4000-8000-000000000001");
+  assert(Count(*fromFile.snapshot, "positions") == 1);
+  assert(Count(*fromFile.snapshot, "symdefs") == 1);
+  assert(fromFile.snapshot->symdefs.front().uuid ==
+         "80000000-0000-4000-8000-000000000001");
+  assert(fromFile.snapshot->symdefs.front().resourceReferences ==
+         (std::vector<std::string>{"models/a.3ds", "models/z.3ds"}));
+  const auto hasSymdefResource = [&](const std::string &path) {
+    return std::find(fromFile.snapshot->referencedResources.begin(),
+                     fromFile.snapshot->referencedResources.end(),
+                     MvrResourceReference{"geometry", path}) !=
+           fromFile.snapshot->referencedResources.end();
+  };
+  assert(hasSymdefResource("models/a.3ds"));
+  assert(hasSymdefResource("models/z.3ds"));
   assert(fromFile.snapshot->foreignUserData.size() == 1);
   assert(fromFile.snapshot->foreignUserData.front().provider == "Foreign");
   assert(fromFile.snapshot->foreignUserData.front().version == "2");

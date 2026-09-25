@@ -73,6 +73,28 @@ bool IsGeometryMatrixContext(const std::string &context) {
          context == "Symbol" || context == "Truss/Geometry3D";
 }
 
+// Formats deterministic diagnostic counts by context.
+std::string
+JoinContextCounts(const std::unordered_map<std::string, std::size_t> &counts) {
+  if (counts.empty())
+    return "none";
+  std::vector<std::pair<std::string, std::size_t>> sorted(counts.begin(),
+                                                          counts.end());
+  std::sort(sorted.begin(), sorted.end(),
+            [](const auto &left, const auto &right) {
+              if (left.second != right.second)
+                return left.second > right.second;
+              return left.first < right.first;
+            });
+  std::ostringstream stream;
+  for (std::size_t index = 0; index < sorted.size(); ++index) {
+    if (index > 0)
+      stream << ", ";
+    stream << sorted[index].first << '=' << sorted[index].second;
+  }
+  return stream.str();
+}
+
 // Builds a stable child-geometry identity.
 std::string
 BuildSceneObjectGeometryInstanceKey(const std::string &parentUuid,
@@ -137,6 +159,12 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                             MvrReadContext *context,
                             MvrReadProgressCallback progressCallback,
                             MvrReadLogCallback logCallback) {
+  if (context) {
+    context->gdtfConflicts.clear();
+    context->manualCategoryUpdates.clear();
+    context->layerUuidByNodeUuid.clear();
+    context->directChildUuidsByLayerUuid.clear();
+  }
   auto logMessage = [&](MvrReadLogLevel level, const std::string &message) {
     if (logCallback)
       logCallback(level, message);
@@ -1010,6 +1038,14 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
       [&](const std::string &rawUuid, const std::string &resolvedUuid) {
         referenceResolver.RecordFixtureUuid(rawUuid, resolvedUuid);
       },
+      [&](const std::string &nodeUuid, const std::string &layerUuid) {
+        if (context)
+          context->layerUuidByNodeUuid[nodeUuid] = layerUuid;
+      },
+      [&](const std::string &layerUuid, const std::string &childUuid) {
+        if (context)
+          context->directChildUuidsByLayerUuid[layerUuid].push_back(childUuid);
+      },
       ensurePositionEntry,
       resolveSymdefReference,
       appendGeometryInstance,
@@ -1048,24 +1084,43 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
                "MVR import matrix summary: accepted " +
                    std::to_string(
                        matrixScaleAggregation.acceptedTinyUniformScaleCount) +
-                   " tiny uniform geometry scales without warning.");
+                   " tiny uniform geometry scales without warning. Contexts: " +
+                   JoinContextCounts(matrixScaleAggregation.acceptedByContext));
   }
   if (matrixScaleAggregation.suspiciousMatrixCount > 0) {
     logMessage(
         MvrReadLogLevel::Warning,
         "MVR import matrix anomalies: " +
             std::to_string(matrixScaleAggregation.suspiciousMatrixCount) +
-            " suspicious matrices.");
+            " suspicious matrices detected. Contexts: " +
+            JoinContextCounts(matrixScaleAggregation.suspiciousByContext));
     for (const std::string &example : matrixScaleAggregation.suspiciousExamples)
       logMessage(MvrReadLogLevel::Warning,
-                 "MVR import suspicious matrix: " + example);
+                 "MVR import suspicious matrix example: " + example);
   }
   if (sceneReadMetrics.trussSymbolSymdefPreservedCount > 0) {
-    logMessage(
-        MvrReadLogLevel::Info,
-        "MVR import truss Symbol/Symdef representation preserved for " +
-            std::to_string(sceneReadMetrics.trussSymbolSymdefPreservedCount) +
-            " trusses.");
+    std::vector<std::pair<std::string, int>> symdefCounts(
+        sceneReadMetrics.trussSymbolSymdefPreservedBySymdef.begin(),
+        sceneReadMetrics.trussSymbolSymdefPreservedBySymdef.end());
+    std::sort(symdefCounts.begin(), symdefCounts.end(),
+              [](const auto &left, const auto &right) {
+                if (left.second != right.second)
+                  return left.second > right.second;
+                return left.first < right.first;
+              });
+    std::ostringstream summary;
+    summary << "MVR import truss Symbol/Symdef representation preserved for "
+            << sceneReadMetrics.trussSymbolSymdefPreservedCount << " trusses";
+    if (!symdefCounts.empty()) {
+      summary << ". Symdef counts: ";
+      for (std::size_t index = 0; index < symdefCounts.size(); ++index) {
+        if (index > 0)
+          summary << ", ";
+        summary << '\'' << symdefCounts[index].first
+                << "'=" << symdefCounts[index].second;
+      }
+    }
+    logMessage(MvrReadLogLevel::Info, summary.str());
   }
   logMessage(MvrReadLogLevel::Info,
              "Parsed scene: layers=" + std::to_string(scene.layers.size()) +

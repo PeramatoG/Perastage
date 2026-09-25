@@ -127,6 +127,10 @@ struct MvrSceneReadServices {
       referenceUuid;
   std::function<void(const std::string &, const std::string &)>
       recordFixtureUuid;
+  std::function<void(const std::string &, const std::string &)>
+      recordNodeLayerUuid;
+  std::function<void(const std::string &, const std::string &)>
+      recordDirectLayerChildUuid;
   std::function<std::string(const std::string &)> ensurePosition;
   std::function<void(tinyxml2::XMLElement *, std::vector<SymdefGeometry> &,
                      std::string &, Matrix &)>

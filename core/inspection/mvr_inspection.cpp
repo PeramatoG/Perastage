@@ -76,49 +76,17 @@ std::vector<std::string> GroupChildUuids(const GroupObject &group) {
   return children;
 }
 
-// Resolves authored layer membership through layer and group child lists.
-std::unordered_map<std::string, std::string>
-BuildLayerMembership(const MvrScene &scene) {
-  std::unordered_map<std::string, std::string> membership;
-  std::unordered_map<std::string, std::string> layerUuidByName;
-  for (const auto &[layerUuid, layer] : scene.layers)
-    layerUuidByName.emplace(layer.name, layerUuid);
-  const auto addNodes = [&](const auto &nodes) {
-    for (const auto &[uuid, node] : nodes) {
-      const auto layer = layerUuidByName.find(node.layer);
-      if (layer != layerUuidByName.end())
-        membership.emplace(uuid, layer->second);
-    }
-  };
-  addNodes(scene.fixtures);
-  addNodes(scene.trusses);
-  addNodes(scene.supports);
-  addNodes(scene.sceneObjects);
-  addNodes(scene.groupObjects);
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const auto &[groupUuid, group] : scene.groupObjects) {
-      const auto layer = membership.find(groupUuid);
-      if (layer == membership.end())
-        continue;
-      for (const GroupObjectChildRef &child : group.children)
-        changed |= membership.emplace(child.uuid, layer->second).second;
-    }
-  }
-  return membership;
-}
-
-// Returns the authoritative layer UUID for one parsed scene node.
-std::string
-LayerUuidFor(const std::unordered_map<std::string, std::string> &membership,
-             const std::string &uuid) {
-  const auto found = membership.find(uuid);
-  return found == membership.end() ? std::string{} : found->second;
+// Returns the authored layer UUID retained for one parsed node.
+std::string LayerUuidFor(const mvr::MvrReadContext &context,
+                         const std::string &nodeUuid) {
+  const auto found = context.layerUuidByNodeUuid.find(nodeUuid);
+  return found == context.layerUuidByNodeUuid.end() ? std::string{}
+                                                    : found->second;
 }
 
 // Derives deterministic summaries from the authoritative parsed scene.
 MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
+                                    const mvr::MvrReadContext &readContext,
                                     const mvr::ImportPackage &package,
                                     const PackageInventory &inventory) {
   const MvrScene &scene = parsed.scene;
@@ -161,13 +129,19 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
     for (const GeometryInstance &geometry : object.geometries)
       AddReference(references, "geometry", geometry.modelFile);
   }
+  for (const auto &[uuid, geometries] : scene.symdefGeometries) {
+    (void)uuid;
+    for (const SymdefGeometry &geometry : geometries)
+      AddReference(references, "geometry", geometry.file);
+  }
   for (const auto &[kind, path] : references)
     snapshot.referencedResources.push_back({kind, path});
 
-  const auto layerMembership = BuildLayerMembership(scene);
-
-  snapshot.layers = SortedDescriptors(scene.layers, [](const Layer &layer) {
-    std::vector<std::string> children = layer.childUUIDs;
+  snapshot.layers = SortedDescriptors(scene.layers, [&](const Layer &layer) {
+    std::vector<std::string> children;
+    const auto found = readContext.directChildUuidsByLayerUuid.find(layer.uuid);
+    if (found != readContext.directChildUuidsByLayerUuid.end())
+      children = found->second;
     std::sort(children.begin(), children.end());
     return MvrSceneNodeDescriptor{
         "layer", layer.uuid, layer.name, {}, {}, {}, {}, std::move(children)};
@@ -179,7 +153,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
                                           : node.originalMvrGdtfSpec;
         return MvrSceneNodeDescriptor{
             "fixture",         node.uuid,
-            node.instanceName, LayerUuidFor(layerMembership, node.uuid),
+            node.instanceName, LayerUuidFor(readContext, node.uuid),
             node.layer,        node.parentGroupUuid,
             reference,         {}};
       });
@@ -188,7 +162,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
         !node.gdtfSpec.empty() ? node.gdtfSpec : node.symbolFile;
     return MvrSceneNodeDescriptor{
         "truss",    node.uuid,
-        node.name,  LayerUuidFor(layerMembership, node.uuid),
+        node.name,  LayerUuidFor(readContext, node.uuid),
         node.layer, node.parentGroupUuid,
         reference,  {}};
   });
@@ -198,7 +172,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             !node.gdtfSpec.empty() ? node.gdtfSpec : node.modelFile;
         return MvrSceneNodeDescriptor{
             "support",  node.uuid,
-            node.name,  LayerUuidFor(layerMembership, node.uuid),
+            node.name,  LayerUuidFor(readContext, node.uuid),
             node.layer, node.parentGroupUuid,
             reference,  {}};
       });
@@ -207,7 +181,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
         return MvrSceneNodeDescriptor{"scene_object",
                                       node.uuid,
                                       node.name,
-                                      LayerUuidFor(layerMembership, node.uuid),
+                                      LayerUuidFor(readContext, node.uuid),
                                       node.layer,
                                       node.parentGroupUuid,
                                       node.GetPrimaryModel(),
@@ -218,7 +192,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
         return MvrSceneNodeDescriptor{"group_object",
                                       node.uuid,
                                       node.name,
-                                      LayerUuidFor(layerMembership, node.uuid),
+                                      LayerUuidFor(readContext, node.uuid),
                                       node.layer,
                                       node.parentGroupUuid,
                                       {},
@@ -241,15 +215,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
       if (!geometry.file.empty())
         resources.push_back(geometry.file);
     std::sort(resources.begin(), resources.end());
-    snapshot.symdefs.push_back(
-        {"symdef",
-         uuid,
-         {},
-         {},
-         {},
-         {},
-         resources.empty() ? std::string{} : resources.front(),
-         std::move(resources)});
+    snapshot.symdefs.push_back({uuid, std::move(resources)});
   }
   std::sort(snapshot.symdefs.begin(), snapshot.symdefs.end(),
             [](const auto &left, const auto &right) {
@@ -348,11 +314,13 @@ static MvrInspectionResult CompleteMvrInspection(
     return result;
   }
   MvrImportResult parsed;
+  mvr::MvrReadContext readContext;
   MvrImportOptions options;
   options.promptConflicts = false;
   options.applyDictionary = false;
   options.allowDummyFallback = false;
-  if (!mvr::ReadAcquiredMvrPackage(*package, parsed, options)) {
+  if (!mvr::ReadAcquiredMvrPackage(*package, parsed, options, nullptr,
+                                   &readContext)) {
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Xml,
                   DiagnosticClassification::General, "mvr.xml.parse_failed",
                   "GeneralSceneDescription.xml could not be parsed.",
@@ -361,7 +329,8 @@ static MvrInspectionResult CompleteMvrInspection(
     return result;
   }
   AppendImporterDiagnostics(result, parsed);
-  result.snapshot = BuildSnapshot(parsed, *package, *result.packageInventory);
+  result.snapshot =
+      BuildSnapshot(parsed, readContext, *package, *result.packageInventory);
   if (result.snapshot->sceneDescriptionEntry != "GeneralSceneDescription.xml") {
     AddDiagnostic(
         result, DiagnosticSeverity::Warning, DiagnosticDomain::Package,

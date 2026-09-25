@@ -1,3 +1,18 @@
+add_library(perastage_mvr_core_support STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixture_visual_color.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_fixture_category.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene_grouping.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utf8_utils.cpp
+)
+target_compile_features(perastage_mvr_core_support PUBLIC cxx_std_20)
+target_include_directories(perastage_mvr_core_support
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+)
+target_link_libraries(perastage_mvr_core_support
+    PUBLIC perastage_uuid
+    PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
+)
+
 add_library(perastage_inspection_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_contract.cpp
 )
