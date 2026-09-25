@@ -17,7 +17,6 @@
  */
 #include "mvr_scene_node_reader_detail.h"
 
-#include "dummyprofilelibrary.h"
 #include "gdtf_fixture_category.h"
 #include "support.h"
 #include "uuidutils.h"
@@ -112,12 +111,15 @@ bool IsRenderableTrussGeometry(const std::string &path) {
 }
 
 // Applies defaulted and normalized values to imported Support hoist metadata.
-void ApplySupportDefaults(Support &support) {
+void ApplySupportDefaults(
+    Support &support,
+    const std::function<std::optional<std::string>(const std::string &)>
+        &profileIdLookup) {
   if (support.dummyProfileId.empty() && !support.dummyPreset.empty()) {
-    const auto profile =
-        DummyProfileLibrary::FindByDisplayName(support.dummyPreset);
-    if (profile.has_value())
-      support.dummyProfileId = profile->id;
+    const std::optional<std::string> profileId =
+        profileIdLookup(support.dummyPreset);
+    if (profileId)
+      support.dummyProfileId = *profileId;
   }
 
   support.hoistFunction = NormalizeHoistFunction(

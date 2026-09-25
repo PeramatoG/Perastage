@@ -252,6 +252,57 @@ portable directory identity from a trailing `/`. Package inspection builds its
 inventory directly from that metadata, without wx streams or positional
 pairing. The MVR importer remains a separate extraction/import workflow.
 
+INS-120 adds `perastage_mvr_read` as the single production owner of MVR package
+acquisition, read orchestration, scene-node reading, resource resolution, and
+reference resolution. Every `MvrImporter` mode delegates General Scene
+Description traversal to that seam. The focused
+`perastage_mvr_import_application_read` adapter supplies local/embedded GDTF
+metadata, mode resolution, truss definitions, geometry bounds, legacy layer
+reconciliation, and dummy-hoist lookup to the same parser. Project application,
+conflict dialogs, download workflow, and dictionary application remain outside
+the shared parser in the application-facing importer. The reusable target's
+remaining wxWidgets dependency is limited to base memory and ZIP streams used
+by the established safe extraction implementation.
+
+The shared read context returns neutral conflict and manually authored category
+facts. The application importer applies dictionary persistence and the existing
+GDTF Share conflict/download workflow after reading; inspection requests no
+such side effects.
+
+Fixture-category inference, final GDTF mode compatibility resolution, and
+synthetic default-layer creation are application enrichment. They run after the
+shared structural read with per-type and per-resource caches, so the Inspector
+does not open nested GDTFs or synthesize application scene state.
+
+MVR package acquisition reuses `perastage_runtime_storage`, the production
+owner of `TemporaryWorkspace` and `SceneResourceLease`; inspection does not
+define a parallel temporary-directory lifetime. The Inspector supplies a
+restricted package-only read environment to the shared parser, while application
+imports supply the richer adapter without changing XML traversal ownership.
+
+`perastage_inspection_mvr` is a read-only consumer whose public API uses
+standard C++ filesystem paths or owned bytes. It composes the INS-100 MVR
+inventory with one acquired package passed to `perastage_mvr_read`, avoiding a
+second extraction. Byte inputs use the same bounded central-directory reader
+directly from memory, so they retain the same ordered entry names, sizes, path
+safety, and package diagnostics as filesystem inputs. Results own the selected
+scene-description entry and original XML,
+embedded GDTF entry paths, safe scene resource references, metadata, and
+deterministically ordered node descriptors and counts, including layer and
+group child relationships; temporary extraction paths and leases are not
+exposed.
+
+The service never invokes project application, replacement, merge, dialogs,
+viewers, or configuration mutation. Inspection disables dictionary application
+and dummy fallback, and it has no dependency on GDTF Share or download
+workflows, so missing referenced GDTFs remain read-only diagnostic context.
+No wxWidgets type crosses the inspection API and no `wxApp` or GUI lifecycle
+is required. The standalone inspection test links only the production
+inspection/read targets and normal non-GUI dependencies. Broader schema
+validation, nested resource byte
+browsing, and characterization beyond the focused service contract remain
+outside this boundary.
+
 The standards baseline is the current stable DIN SPEC 15800:2022-02 / GDTF
 1.2 and DIN SPEC 15801:2023-12 / MVR 1.6 package format. INS-100 uses only
 stable package identity facts and does not implement future proposals or

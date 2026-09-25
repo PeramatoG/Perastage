@@ -10,6 +10,23 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Restored fixture-category fallback diagnostics during normal MVR imports.
+
+- Restored MVR import summaries for matrix anomalies, preserved truss symbols, and parsed scene contents.
+
+- Restored progress reporting for MVR fixture-category enrichment and final GDTF mode resolution.
+
+- Extended read-only MVR inspection summaries with parsed Position and Symdef structures already retained by the production reader.
+
+- Restored application import logging from the shared MVR reader while keeping standalone inspection independent of the application logger.
+- Kept Inspector layer hierarchy derivation read-only without changing imported layer child data.
+
+- Kept standalone MVR inspection independent of application GDTF enrichment, while restoring exact cached fixture-category provenance, final mode compatibility resolution, and default-layer normalization for normal imports.
+
+- Preserved fixture-category dictionary updates and the complete GDTF Share conflict-download workflow when importing MVR files through the shared inspection reader.
+
+- Restored bounded filesystem ZIP inventory reads and removed redundant full-file loading during filesystem MVR inspection.
+
 - Prevented Windows debug assertions during rapid or interrupted mouse drags by balancing capture ownership across viewers, layout editing, previews, and tables.
 
 - Fixed sortable data-table columns to use semantic numeric and natural ordering instead of lexicographic string ordering.
@@ -21,6 +38,8 @@ Changes since **v1.6.0**.
 - Restored Windows Debug compilation of the Layout Viewer after its selection architecture update, including View2D frame lookup integration.
 
 ## Technical and packaging changes
+
+- Added a standalone, read-only MVR inspection service backed by the same single parser as application imports, exposing equivalent filesystem and in-memory package inventory, original scene XML, deterministic scene hierarchy, preserved foreign provider data, embedded and missing resource references, and structured diagnostics without applying the scene or downloading missing resources.
 
 - Added a read-only, GUI-independent GDTF inspection service that exposes package contents, fixture metadata, DMX modes, wheel references, raw XML, and structured compatibility diagnostics without modifying or canonicalizing source files, while keeping its shared reader dependency limited to wxWidgets base/archive facilities.
 

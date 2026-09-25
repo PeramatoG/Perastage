@@ -59,5 +59,8 @@ inline constexpr char UnexpectedReadFailure[] =
 
 PackageInspectionResult InspectPackage(const Request &request);
 PackageInspectionResult InspectPackage(const std::filesystem::path &sourcePath);
+PackageInspectionResult InspectPackage(const std::vector<std::uint8_t> &bytes,
+                                       PackageKind kind,
+                                       const Request &request = {});
 
 } // namespace perastage::inspection

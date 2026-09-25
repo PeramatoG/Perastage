@@ -1,19 +1,58 @@
-target_sources(${PROJECT_NAME} PRIVATE
+add_library(perastage_mvr_read STATIC
+    ${CMAKE_SOURCE_DIR}/core/fixture_visual_color.cpp
+    ${CMAKE_SOURCE_DIR}/core/gdtf_fixture_category.cpp
+    ${CMAKE_SOURCE_DIR}/core/scene_grouping.cpp
+    ${CMAKE_SOURCE_DIR}/core/utf8_utils.cpp
+    ${CMAKE_SOURCE_DIR}/models/mvrscene.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_matcher.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_read_service.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_support.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/primitive_model_resources.cpp
+)
+target_compile_features(perastage_mvr_read PUBLIC cxx_std_20)
+target_include_directories(perastage_mvr_read
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    PRIVATE ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/viewer3d
+            ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_mvr_read
+    PUBLIC perastage_uuid perastage_runtime_storage
+    PRIVATE tinyxml2::tinyxml2 ${_wx_base_libs}
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE perastage_mvr_read)
+
+add_library(perastage_mvr_import_application_read STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_application_read_services.cpp
+)
+target_compile_features(perastage_mvr_import_application_read PUBLIC cxx_std_20)
+target_include_directories(perastage_mvr_import_application_read
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/models
+    PRIVATE ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/viewer3d
+)
+target_link_libraries(perastage_mvr_import_application_read
+    PUBLIC perastage_mvr_read
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    perastage_mvr_import_application_read
+)
+
+target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/gdtf_catalog_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvrimporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_application_read_services.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_project_application.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_project_application.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_reference_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_types.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_read_service.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_detail.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_support.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_package.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_analyzer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_applier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_resource_rewriter.cpp
@@ -27,7 +66,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_extension_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_xml_scene_object_writer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_export_preparation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/primitive_model_resources.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_commit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_dns_names.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/xchange/mvr_xchange_mdns_discovery.cpp

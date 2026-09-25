@@ -116,12 +116,6 @@ private:
                                   const MvrImportOptions& options,
                                   ProgressCallback progressCallback);
 
-    // Parses the GeneralSceneDescription.xml file and updates the import result payload.
-    bool ParseSceneXml(const std::string& sceneXmlPath,
-                       MvrImportResult& importResult,
-                       const MvrImportOptions& options,
-                       ProgressCallback progressCallback);
-
     std::string NormalizeArchivePath(const std::string& archivePath) const;
     std::string RemapArchivePathIfNeeded(const std::string& archivePath) const;
 };

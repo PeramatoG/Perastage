@@ -16,20 +16,17 @@
  * along with Perastage. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mvr_scene_node_reader.h"
-#include "mvr_import_resource_resolver.h"
 #include "mvr_scene_node_reader_detail.h"
 
 #include "filesystem_path_utils.h"
 #include "fixture_visual_color.h"
 #include "gdtf_import_matching.h"
-#include "geometry_bounds_resolver.h"
 #include "groupobject.h"
 #include "layer_service.h"
 #include "matrixutils.h"
 #include "scene_grouping.h"
 #include "sceneobject.h"
 #include "support.h"
-#include "truss_dimension_resolution.h"
 #include "utf8_utils.h"
 #include "uuidutils.h"
 
@@ -46,6 +43,7 @@
 #include <iomanip>
 #include <sstream>
 #include <system_error>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
@@ -133,6 +131,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                        MvrSceneReadState &state, MvrSceneReadMetrics &metrics) {
 
   const auto &textOf = services.textOf;
+  const auto &resources = services.resources;
   const auto &intOf = services.intOf;
   const auto &fixtureIdOf = services.fixtureIdOf;
   auto parseMatrixOrIdentity =
@@ -141,9 +140,8 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         services.parseMatrixOrIdentity(parent, elementName, context, out,
                                        inspectScale);
       };
-  auto &resources = services.resources;
   auto remapArchivePathIfNeeded = [&](const std::string &path) {
-    return resources.RemapArchivePath(path);
+    return resources.remapArchivePath(path);
   };
   const auto &buildFixtureTypeInfoKey = services.buildFixtureTypeInfoKey;
   auto resolveStableUuid = [&](const char *kind, tinyxml2::XMLElement *node,
@@ -155,37 +153,35 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
   const auto &referenceUuidForNode = services.referenceUuid;
   const auto &ensurePositionEntry = services.ensurePosition;
   auto normalizeGdtfSpecForScene = [&](const std::string &spec) {
-    return resources.NormalizeGdtfSpec(spec);
+    return resources.normalizeGdtfSpec(spec);
   };
   auto normalizeSupportGdtfSpec = [&](const std::string &spec) {
-    return resources.NormalizeSupportGdtfSpec(spec);
+    return resources.normalizeSupportGdtfSpec(spec);
   };
-  auto resolveGdtfPathCached =
-      [&](const std::string &spec) -> const std::string & {
-    return resources.ResolveGdtfPath(spec);
+  auto resolveGdtfPathCached = [&](const std::string &spec) {
+    return resources.resolveGdtfPath(spec);
   };
-  auto getFixtureMetadata =
-      [&](const std::string &path) -> const ImportGdtfMetadata & {
-    return resources.FixtureMetadata(path);
+  auto getFixtureMetadata = [&](const std::string &path) {
+    return resources.fixtureMetadata(path);
   };
   auto resolveExistingGdtfModeCached = [&](const std::string &path,
                                            const std::string &mode,
                                            std::optional<int> count) {
-    return resources.ResolveGdtfMode(path, mode, count);
+    return resources.resolveGdtfMode(path, mode, count);
   };
   auto getGdtfModeChannelCountCached = [&](const std::string &path,
                                            const std::string &mode) {
-    return resources.GdtfModeChannelCount(path, mode);
+    return resources.gdtfModeChannelCount(path, mode);
   };
-  auto getDictionaryEntryCached = [&](const std::string &type) -> const auto & {
-    return resources.DictionaryEntry(type);
+  auto getDictionaryEntryCached = [&](const std::string &type) {
+    return resources.dictionaryEntry(type);
   };
   auto loadTrussDefinitionCached = [&](const std::string &path, Truss &out) {
-    return resources.LoadTrussDefinition(path, out);
+    return resources.loadTrussDefinition(path, out);
   };
   const auto &resolveSymdefReference = services.resolveSymdef;
   auto normalizeAndResolveGeometryFileName = [&](const std::string &path) {
-    return resources.NormalizeGeometryFile(path);
+    return resources.normalizeGeometryFile(path);
   };
   auto appendGeometryInstance = [&](std::vector<GeometryInstance> &instances,
                                     const std::string &fileName,
@@ -208,8 +204,10 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
       scene_reader_detail::ReadSupportHoistInfo;
   const auto &ReadSupportHoistInfoFromUserData =
       scene_reader_detail::ReadSupportHoistUserData;
-  const auto &ApplySupportHoistInfoDefaults =
-      scene_reader_detail::ApplySupportDefaults;
+  auto ApplySupportHoistInfoDefaults = [&](Support &support) {
+    scene_reader_detail::ApplySupportDefaults(support,
+                                              services.model.dummyProfileId);
+  };
   auto &pendingGdtfConflictByType = state.fixtures.pendingGdtfConflicts;
   auto &categoryByTypeKey = state.fixtures.categoriesByType;
   auto &categoryInferenceByResolvedPath = state.fixtures.categoryInferences;
@@ -416,7 +414,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             fixture.visualColorState = FixtureProjectColorState::Present;
           }
         }
-        const std::optional<GdtfDictionary::Entry> &dictionaryEntry =
+        const std::optional<mvr::SceneReadDictionaryEntry> dictionaryEntry =
             getDictionaryEntryCached(fixture.typeName);
         auto posIt = scene.positions.find(fixture.position);
         if (posIt != scene.positions.end())
@@ -564,7 +562,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                "Ignored unsafe TrussInfo AuxGdtf path '" + archiveName + "'."});
         } else {
           const std::string remapped = remapArchivePathIfNeeded(archiveName);
-          const fs::path resolved = resources.ResolveScenePath(remapped);
+          const fs::path resolved = resources.resolveScenePath(remapped);
           std::error_code existsEc;
           if (fs::is_regular_file(resolved, existsEc) && !existsEc) {
             truss.perastageAuxGdtfArchivePath = remapped;
@@ -764,7 +762,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
         }
 
         const fs::path resolvedSymbolPath =
-            resources.ResolveScenePath(truss.symbolFile);
+            resources.resolveScenePath(truss.symbolFile);
         const bool symbolRenderable =
             scene_reader_detail::IsRenderableTrussGeometry(truss.symbolFile);
         std::error_code symbolExistsEc;
@@ -773,7 +771,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
             fs::exists(resolvedSymbolPath, symbolExistsEc) && !symbolExistsEc;
         if (symbolExists) {
           std::string boundsDiagnostic;
-          truss.localGeometryBounds = GeometryBoundsResolver::Resolve(
+          truss.localGeometryBounds = services.model.geometryBounds(
               resolvedSymbolPath, &boundsDiagnostic);
           if (truss.localGeometryBounds) {
             const bool legacyMetadataContext =
@@ -782,7 +780,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
                      Truss::GeometryRepresentation::SymbolSymdef ||
                  truss.sourceRepresentation ==
                      Truss::GeometryRepresentation::Geometry3D);
-            ResolveTrussDimensionsFromGeometry(truss, legacyMetadataContext);
+            services.model.resolveTrussDimensions(truss, legacyMetadataContext);
           } else if (!boundsDiagnostic.empty()) {
             importResult.diagnostics.push_back(
                 {"truss_geometry_bounds_unavailable",
@@ -1394,11 +1392,7 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
     }
   }
 
-  const auto reconcileResult = layerdomain::ReconcileLegacyLayers(scene);
-  if (reconcileResult.status == layerdomain::LayerStatus::Success) {
-    services.logWarning("Reconciled legacy layer metadata: " +
-                        reconcileResult.message);
-  }
+  services.model.reconcileLayers(scene);
 
   if (preservedGroupObjectCount > 0) {
     services.logInfo("MVR import preserved GroupObject count=" +

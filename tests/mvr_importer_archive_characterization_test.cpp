@@ -1,6 +1,7 @@
 /*
  * This file is part of Perastage.
  */
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
@@ -16,6 +17,8 @@
 
 #include "configmanager.h"
 #include "fixture_label_overrides.h"
+#include "gdtfdictionary.h"
+#include "inspection/mvr_inspection.h"
 #include "mvr_import_package.h"
 #include "mvr_import_project_application.h"
 #include "mvrimporter.h"
@@ -287,6 +290,127 @@ static void TestFileAndBufferRegistrationParity() {
   assert(config.GetScene().runtimeResourceLeases.size() == bufferLeaseCount);
 }
 
+// Verifies inspection composes inventory with parse-only scene facts.
+static void TestMvrInspectionService() {
+  using namespace perastage::inspection;
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Inspector\" providerVersion=\"2\"><Scene><Layers>"
+      "<Layer uuid=\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\" name=\"Layer\">"
+      "<ChildList><Fixture uuid=\"33333333-3333-4333-8333-333333333333\" "
+      "name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<GDTFSpec>fixture.gdtf</GDTFSpec></Fixture>"
+      "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+  const std::vector<std::uint8_t> bytes =
+      BuildArchive({{"GeneralSceneDescription.xml", xml},
+                    {"fixture.gdtf", "embedded"},
+                    {"models/scene.glb", "geometry"}});
+  const std::filesystem::path directory =
+      std::filesystem::temp_directory_path() /
+      std::filesystem::path(std::u8string(u8"perastage-inspection-á"));
+  std::filesystem::create_directories(directory);
+  const std::filesystem::path path = directory / "scene.mvr";
+  {
+    std::ofstream output(path, std::ios::binary);
+    output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+  }
+
+  ConfigManager &config = ConfigManager::Get();
+  config.Reset();
+  config.GetScene().provider = "Sentinel";
+  config.SetValue("mvr_inspection_sentinel", "preserved");
+  GdtfDictionary::ResetSaveCallCountForTesting();
+  const MvrInspectionResult first = InspectMvr(path);
+  const MvrInspectionResult second = InspectMvr(path);
+  assert(first.Success() && first.packageInventory && first.snapshot);
+  assert(first.snapshot->versionMajor == 1 &&
+         first.snapshot->versionMinor == 6);
+  assert(first.snapshot->provider == "Inspector");
+  assert(first.snapshot->providerVersion == "2");
+  assert(first.snapshot->sceneDescriptionEntry ==
+         "GeneralSceneDescription.xml");
+  assert(first.snapshot->sceneDescriptionXml == xml);
+  assert(first.snapshot->embeddedGdtfEntries ==
+         std::vector<std::string>{"fixture.gdtf"});
+  assert(first.snapshot->nodeCounts == second.snapshot->nodeCounts);
+  assert(first.snapshot->referencedResources ==
+         second.snapshot->referencedResources);
+  assert(first.inspection.diagnostics.size() ==
+         second.inspection.diagnostics.size());
+  assert(config.GetScene().provider == "Sentinel");
+  assert(config.GetValue("mvr_inspection_sentinel") == "preserved");
+  assert(GdtfDictionary::GetSaveCallCountForTesting() == 0);
+  {
+    std::ifstream unchanged(path, std::ios::binary);
+    const std::vector<std::uint8_t> after{
+        std::istreambuf_iterator<char>(unchanged), {}};
+    assert(after == bytes);
+  }
+
+  const MvrInspectionResult malformed =
+      InspectMvrBytes(BuildArchive({{"GeneralSceneDescription.xml", "<bad"}}));
+  assert(!malformed.Success());
+  assert(malformed.inspection.HasFatalDiagnostics());
+  const MvrInspectionResult legacy =
+      InspectMvrBytes(BuildArchive({{"generalscenedescription.xml", xml}}));
+  assert(legacy.Success());
+  const auto legacyFinding = std::find_if(
+      legacy.inspection.diagnostics.begin(),
+      legacy.inspection.diagnostics.end(), [](const Diagnostic &diagnostic) {
+        return diagnostic.code == "mvr.package.non_canonical_scene_description";
+      });
+  assert(legacyFinding != legacy.inspection.diagnostics.end());
+  assert(legacyFinding->classification ==
+         DiagnosticClassification::Compatibility);
+  std::filesystem::remove_all(directory);
+}
+
+// Verifies dictionary policy does not select a different structural parser.
+static void TestSharedParserModeParity() {
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<AUXData><Position uuid=\"70000000-0000-4000-8000-000000000001\" "
+      "name=\"Position\"/></AUXData><Layers><Layer "
+      "uuid=\"10000000-0000-4000-8000-000000000001\" name=\"Layer Name\">"
+      "<ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000001\" "
+      "name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<GDTFSpec>fixture.gdtf</GDTFSpec></Fixture><Truss "
+      "uuid=\"30000000-0000-4000-8000-000000000001\" name=\"Truss\">"
+      "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><Geometries/></Truss>"
+      "<Support uuid=\"40000000-0000-4000-8000-000000000001\" "
+      "name=\"Support\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<Geometries/></Support><GroupObject "
+      "uuid=\"50000000-0000-4000-8000-000000000001\" name=\"Group\">"
+      "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix><ChildList>"
+      "<SceneObject uuid=\"60000000-0000-4000-8000-000000000001\" "
+      "name=\"Object\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
+      "<Geometries/></SceneObject></ChildList></GroupObject></ChildList>"
+      "</Layer></Layers></Scene></GeneralSceneDescription>";
+  const std::vector<std::uint8_t> bytes =
+      BuildArchive({{"GeneralSceneDescription.xml", xml}});
+  MvrImportOptions withoutDictionary;
+  withoutDictionary.promptConflicts = false;
+  withoutDictionary.applyDictionary = false;
+  withoutDictionary.allowDummyFallback = false;
+  MvrImportOptions withDictionary = withoutDictionary;
+  withDictionary.applyDictionary = true;
+  MvrImporter importer;
+  MvrImportResult first;
+  MvrImportResult second;
+  assert(importer.ImportFromBuffer(bytes, first, MvrImportMode::ParseOnly,
+                                   withoutDictionary));
+  assert(importer.ImportFromBuffer(bytes, second, MvrImportMode::ParseOnly,
+                                   withDictionary));
+  assert(first.scene.layers.size() == second.scene.layers.size());
+  assert(first.scene.fixtures.size() == second.scene.fixtures.size());
+  assert(first.scene.trusses.size() == second.scene.trusses.size());
+  assert(first.scene.supports.size() == second.scene.supports.size());
+  assert(first.scene.sceneObjects.size() == second.scene.sceneObjects.size());
+  assert(first.scene.groupObjects.size() == second.scene.groupObjects.size());
+  assert(first.scene.positions == second.scene.positions);
+  assert(first.diagnostics.size() == second.diagnostics.size());
+}
+
 // Runs one independently labeled importer characterization scenario.
 int main(int argc, char **argv) {
   wxInitializer initializer;
@@ -306,6 +430,9 @@ int main(int argc, char **argv) {
     TestExternalImportResetSemantics();
     TestProjectApplicationBoundary();
     TestFileAndBufferRegistrationParity();
+  } else if (scenario == "inspection") {
+    TestMvrInspectionService();
+    TestSharedParserModeParity();
   } else
     assert(false);
   return 0;

@@ -92,10 +92,10 @@ std::string PerastageFixtureName(const fs::path &path) {
 }
 
 // Returns the actual directory entry only for a lexically exact filename.
-std::optional<fs::path> FindLexicallyExactRegularFile(
-    const fs::path &candidate) {
-  const fs::path parent = candidate.has_parent_path() ? candidate.parent_path()
-                                                       : fs::path(".");
+std::optional<fs::path>
+FindLexicallyExactRegularFile(const fs::path &candidate) {
+  const fs::path parent =
+      candidate.has_parent_path() ? candidate.parent_path() : fs::path(".");
   std::error_code ec;
   for (const auto &entry : fs::directory_iterator(parent, ec)) {
     if (ec)

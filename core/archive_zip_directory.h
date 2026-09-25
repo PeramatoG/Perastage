@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,7 @@ struct DirectoryReadResult {
 };
 
 DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath);
+DirectoryReadResult ReadDirectory(std::span<const std::uint8_t> archiveBytes);
 
 bool IsValidUtf8(const std::string &text);
 
