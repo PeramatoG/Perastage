@@ -19,7 +19,7 @@ Changes since **v1.6.0**.
 - Extended read-only MVR inspection summaries with parsed Position and Symdef structures already retained by the production reader.
 
 - Restored application import logging from the shared MVR reader while keeping standalone inspection independent of the application logger.
-- Corrected read-only MVR inspection for recovered node identities, duplicate or unnamed authored layers, direct-child hierarchy, nested groups, and complete deterministic Symdef resource inventories without changing imported scene data.
+- Corrected read-only MVR inspection for recovered node identities, exact authored layer names (including unnamed layers), duplicate layers, direct-child hierarchy, nested groups, and complete deterministic Symdef resource inventories without changing imported scene data.
 
 - Kept standalone MVR inspection independent of application GDTF enrichment, while restoring exact cached fixture-category provenance, final mode compatibility resolution, and default-layer normalization for normal imports.
 

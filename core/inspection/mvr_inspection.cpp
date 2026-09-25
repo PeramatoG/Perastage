@@ -84,6 +84,16 @@ std::string LayerUuidFor(const mvr::MvrReadContext &context,
                                                     : found->second;
 }
 
+// Returns the authored layer name or the node's compatibility fallback.
+std::string LayerNameFor(const mvr::MvrReadContext &context,
+                         const std::string &nodeUuid,
+                         const std::string &fallback) {
+  const std::string layerUuid = LayerUuidFor(context, nodeUuid);
+  const auto found = context.authoredLayerNameByUuid.find(layerUuid);
+  return found == context.authoredLayerNameByUuid.end() ? fallback
+                                                        : found->second;
+}
+
 // Derives deterministic summaries from the authoritative parsed scene.
 MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
                                     const mvr::MvrReadContext &readContext,
@@ -161,51 +171,65 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
                                           ? node.gdtfSpec
                                           : node.originalMvrGdtfSpec;
         return MvrSceneNodeDescriptor{
-            "fixture",         node.uuid,
-            node.instanceName, LayerUuidFor(readContext, node.uuid),
-            node.layer,        node.parentGroupUuid,
-            reference,         {}};
+            "fixture",
+            node.uuid,
+            node.instanceName,
+            LayerUuidFor(readContext, node.uuid),
+            LayerNameFor(readContext, node.uuid, node.layer),
+            node.parentGroupUuid,
+            reference,
+            {}};
       });
   snapshot.trusses = SortedDescriptors(scene.trusses, [&](const Truss &node) {
     const std::string reference =
         !node.gdtfSpec.empty() ? node.gdtfSpec : node.symbolFile;
     return MvrSceneNodeDescriptor{
-        "truss",    node.uuid,
-        node.name,  LayerUuidFor(readContext, node.uuid),
-        node.layer, node.parentGroupUuid,
-        reference,  {}};
+        "truss",
+        node.uuid,
+        node.name,
+        LayerUuidFor(readContext, node.uuid),
+        LayerNameFor(readContext, node.uuid, node.layer),
+        node.parentGroupUuid,
+        reference,
+        {}};
   });
   snapshot.supports =
       SortedDescriptors(scene.supports, [&](const Support &node) {
         const std::string reference =
             !node.gdtfSpec.empty() ? node.gdtfSpec : node.modelFile;
         return MvrSceneNodeDescriptor{
-            "support",  node.uuid,
-            node.name,  LayerUuidFor(readContext, node.uuid),
-            node.layer, node.parentGroupUuid,
-            reference,  {}};
+            "support",
+            node.uuid,
+            node.name,
+            LayerUuidFor(readContext, node.uuid),
+            LayerNameFor(readContext, node.uuid, node.layer),
+            node.parentGroupUuid,
+            reference,
+            {}};
       });
   snapshot.sceneObjects =
       SortedDescriptors(scene.sceneObjects, [&](const SceneObject &node) {
-        return MvrSceneNodeDescriptor{"scene_object",
-                                      node.uuid,
-                                      node.name,
-                                      LayerUuidFor(readContext, node.uuid),
-                                      node.layer,
-                                      node.parentGroupUuid,
-                                      node.GetPrimaryModel(),
-                                      {}};
+        return MvrSceneNodeDescriptor{
+            "scene_object",
+            node.uuid,
+            node.name,
+            LayerUuidFor(readContext, node.uuid),
+            LayerNameFor(readContext, node.uuid, node.layer),
+            node.parentGroupUuid,
+            node.GetPrimaryModel(),
+            {}};
       });
   snapshot.groupObjects =
       SortedDescriptors(scene.groupObjects, [&](const GroupObject &node) {
-        return MvrSceneNodeDescriptor{"group_object",
-                                      node.uuid,
-                                      node.name,
-                                      LayerUuidFor(readContext, node.uuid),
-                                      node.layer,
-                                      node.parentGroupUuid,
-                                      {},
-                                      GroupChildUuids(node)};
+        return MvrSceneNodeDescriptor{
+            "group_object",
+            node.uuid,
+            node.name,
+            LayerUuidFor(readContext, node.uuid),
+            LayerNameFor(readContext, node.uuid, node.layer),
+            node.parentGroupUuid,
+            {},
+            GroupChildUuids(node)};
       });
   for (const MvrOpaqueUserDataBlock &block : scene.opaqueUserDataBlocks) {
     snapshot.foreignUserData.push_back(

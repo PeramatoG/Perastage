@@ -213,6 +213,7 @@ void TestUnnamedAuthoredLayer() {
   assert(layer.childUuids == std::vector<std::string>{fixture.uuid});
   assert(fixture.uuid == fixtureUuid);
   assert(fixture.layerUuid == layerUuid);
+  assert(fixture.layerName.empty());
 }
 
 // Verifies recovered node identities remain authoritative across hierarchy
