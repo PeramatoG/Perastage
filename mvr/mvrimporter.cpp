@@ -1478,10 +1478,15 @@ static void ApplyApplicationDictionaryMappings(
 // Applies application-only category, mode, and default-layer enrichment.
 static void
 ApplyApplicationSceneEnrichment(MvrImportResult &result,
-                                mvr::MvrImportResourceResolver &resources) {
+                                mvr::MvrImportResourceResolver &resources,
+                                MvrImporter::ProgressCallback progress) {
   std::unordered_map<std::string, mvr::SceneReadCachedCategory> byType;
   std::unordered_map<std::string, GdtfFixtureCategory::InferenceResult>
       byResolvedPath;
+  int completed = 0;
+  const int total = static_cast<int>(result.scene.fixtures.size());
+  if (progress)
+    progress({"Applying fixture categories...", 0, total});
   for (auto &[uuid, fixture] : result.scene.fixtures) {
     (void)uuid;
     const std::string key =
@@ -1525,7 +1530,17 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
                                          : fixture.categorySource,
           fixture.categorySourceReason.empty() ? "cached"
                                                : fixture.categorySourceReason};
-
+    ++completed;
+    if (progress && (completed == total || completed % 10 == 0))
+      progress({"Applying fixture categories...", completed, total});
+  }
+  if (progress)
+    progress({"Building fixtures, trusses, and objects...", 0, 0});
+  completed = 0;
+  if (progress)
+    progress({"Resolving GDTF modes...", 0, total});
+  for (auto &[uuid, fixture] : result.scene.fixtures) {
+    (void)uuid;
     if (!fixture.gdtfSpec.empty()) {
       const std::string resolved = resources.ResolveGdtfPath(fixture.gdtfSpec);
       const int channelCount =
@@ -1536,6 +1551,9 @@ ApplyApplicationSceneEnrichment(MvrImportResult &result,
           resolved, fixture.gdtfMode,
           channelCount > 0 ? std::optional<int>(channelCount) : std::nullopt);
     }
+    ++completed;
+    if (progress && (completed == total || completed % 50 == 0))
+      progress({"Resolving GDTF modes...", completed, total});
   }
   const bool hasDefault =
       std::any_of(result.scene.layers.begin(), result.scene.layers.end(),
@@ -1759,7 +1777,7 @@ bool MvrImporter::ImportFromStreamIntoResult(
     return false;
   ApplyApplicationDictionaryMappings(importResult, resources, readContext,
                                      options, progressCallback);
-  ApplyApplicationSceneEnrichment(importResult, resources);
+  ApplyApplicationSceneEnrichment(importResult, resources, progressCallback);
   PersistManualFixtureCategories(importResult);
 
   importResult.scene.runtimeResourceLeases.push_back(
