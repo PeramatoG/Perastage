@@ -75,3 +75,5 @@ tests/fixtures/fixture_symbols/*.txt text eol=lf
 # Preserve authoritative upstream legal text whitespace exactly.
 licenses/podofo_COPYING.LGPL.txt whitespace=-blank-at-eol,-blank-at-eof
 licenses/podofo_COPYING.MPL.txt whitespace=-blank-at-eol,-blank-at-eof
+resources/standards/gdtf/1.2/gdtf.xsd text eol=lf whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+resources/standards/mvr/1.6/mvr.xsd text eol=lf whitespace=-blank-at-eol,-blank-at-eof

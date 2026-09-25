@@ -20,6 +20,8 @@ namespace fs = std::filesystem;
 using perastage::inspection::DiagnosticClassification;
 using perastage::inspection::GdtfInspectionResult;
 using perastage::inspection::GdtfReadStatus;
+using perastage::inspection::ValidationLayer;
+using perastage::inspection::ValidationStatus;
 
 namespace {
 
@@ -77,13 +79,73 @@ bool HasDiagnostic(const GdtfInspectionResult &result, const std::string &code,
                      });
 }
 
+// Returns one validation stage from a GDTF inspection result.
+const perastage::inspection::ValidationResult &
+Validation(const GdtfInspectionResult &result, ValidationLayer layer) {
+  const auto found = std::find_if(
+      result.validation.begin(), result.validation.end(),
+      [layer](const auto &validation) { return validation.layer == layer; });
+  assert(found != result.validation.end());
+  return *found;
+}
+
+// Returns a minimal GDTF 1.2 document accepted by both compared schemas.
+std::string StandardsValidXml() {
+  return "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Fixture\" "
+         "Manufacturer=\"Perastage\" Description=\"Valid fixture\" "
+         "FixtureTypeID=\"12345678-1234-4234-9234-123456789abc\">"
+         "<AttributeDefinitions><FeatureGroups/><Attributes/>"
+         "</AttributeDefinitions><Geometries><Geometry Name=\"Root\"/>"
+         "</Geometries><DMXModes><DMXMode Name=\"Mode\" Geometry=\"Root\">"
+         "<DMXChannels/></DMXMode></DMXModes></FixtureType></GDTF>";
+}
+
+// Verifies schema requirements without changing tolerant reader success policy.
+void TestValidationLayers(const fs::path &directory) {
+  const fs::path validPath = directory / "standards-valid.gdtf";
+  WriteArchive(validPath, {{"description.xml", StandardsValidXml()}});
+  const GdtfInspectionResult valid =
+      perastage::inspection::InspectGdtf(validPath);
+  assert(Validation(valid, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Valid);
+  assert(Validation(valid, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+
+  const fs::path invalidPath = directory / "standards-invalid.gdtf";
+  WriteArchive(invalidPath,
+               {{"description.xml",
+                 "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Fixture\" "
+                 "Manufacturer=\"Perastage\" Description=\"Invalid\" "
+                 "FixtureTypeID=\"12345678-1234-4234-9234-123456789abc\">"
+                 "<Geometries/><DMXModes/></FixtureType></GDTF>"}});
+  const GdtfInspectionResult invalid =
+      perastage::inspection::InspectGdtf(invalidPath);
+  assert(Validation(invalid, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Valid);
+  assert(Validation(invalid, ValidationLayer::Schema).status ==
+         ValidationStatus::Invalid);
+
+  const fs::path compatiblePath = directory / "standards-compatible.gdtf";
+  WriteArchive(compatiblePath,
+               {{"nested/DESCRIPTION.XML", StandardsValidXml()}});
+  const GdtfInspectionResult compatible =
+      perastage::inspection::InspectGdtf(compatiblePath);
+  assert(compatible.status == GdtfReadStatus::CompatibilityAccepted);
+  assert(Validation(compatible, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(HasDiagnostic(compatible, "gdtf.archive.non_canonical_description_xml",
+                       DiagnosticClassification::Compatibility));
+}
+
 // Verifies canonical inspection, source preservation, and direct-reader parity.
 void TestCanonicalAndParity(const fs::path &directory) {
   const fs::path path = directory / "canonical.gdtf";
   const std::string xml = CompleteXml();
   WriteArchive(path, {{"description.xml", xml},
                       {"wheels/blue.png", "png"},
-                      {"models/\xC3\xA9" "clairage.glb", "glb"}});
+                      {"models/\xC3\xA9"
+                       "clairage.glb",
+                       "glb"}});
   const std::vector<unsigned char> before = ReadBytes(path);
 
   const GdtfInspectionResult inspected =
@@ -94,7 +156,8 @@ void TestCanonicalAndParity(const fs::path &directory) {
   assert(inspected.packageInventory->entries.size() == 3);
   assert(inspected.packageInventory->canonicalRootDocumentPresent);
   assert(inspected.packageInventory->entries.back().displayPath ==
-         "models/\xC3\xA9" "clairage.glb");
+         "models/\xC3\xA9"
+         "clairage.glb");
   assert(inspected.document);
   const auto &archive = inspected.document->Archive();
   const auto &description = inspected.document->Description();
@@ -117,7 +180,8 @@ void TestCanonicalAndParity(const fs::path &directory) {
   const gdtf::GdtfDescriptionSnapshot directDescription =
       gdtf::ReadGdtfDescription(directArchive.descriptionXml,
                                 {"description.xml", "wheels/blue.png",
-                                 "models/\xC3\xA9" "clairage.glb"});
+                                 "models/\xC3\xA9"
+                                 "clairage.glb"});
   assert(archive.descriptionXml == directArchive.descriptionXml);
   assert(archive.descriptionEntryPath == directArchive.descriptionEntryPath);
   assert(description.fixtureTypeName == directDescription.fixtureTypeName);
@@ -146,8 +210,7 @@ void TestCompatibilityDescription(const fs::path &directory) {
          "nested/DESCRIPTION.XML");
   assert(!inspected.document->Archive().standardsCompliantDescriptionLocation);
   assert(inspected.document->Archive().usedCompatibilityDescriptionFallback);
-  assert(HasDiagnostic(inspected,
-                       "gdtf.archive.non_canonical_description_xml",
+  assert(HasDiagnostic(inspected, "gdtf.archive.non_canonical_description_xml",
                        DiagnosticClassification::Compatibility));
 }
 
@@ -162,6 +225,10 @@ void TestMalformedXml(const fs::path &directory) {
   assert(!inspected.Success());
   assert(HasDiagnostic(inspected, "gdtf.description.malformed_xml",
                        DiagnosticClassification::General));
+  assert(Validation(inspected, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Invalid);
+  assert(Validation(inspected, ValidationLayer::Schema).status ==
+         ValidationStatus::NotRun);
   assert(ReadBytes(path) == before);
 }
 
@@ -178,9 +245,9 @@ void TestSemanticDiagnostics(const fs::path &directory) {
   assert(inspected.Success());
   assert(HasDiagnostic(inspected, "gdtf.description.missing_dmx_modes",
                        DiagnosticClassification::Standards));
-  assert(HasDiagnostic(
-      inspected, "gdtf.description.missing_wheel_media_resource",
-      DiagnosticClassification::General));
+  assert(HasDiagnostic(inspected,
+                       "gdtf.description.missing_wheel_media_resource",
+                       DiagnosticClassification::General));
 }
 
 // Verifies case-compatible wheel resources are classified as compatibility.
@@ -192,15 +259,16 @@ void TestWheelCaseCompatibility(const fs::path &directory) {
       perastage::inspection::InspectGdtf(path);
   assert(inspected.Success());
   assert(inspected.status == GdtfReadStatus::CompatibilityAccepted);
-  assert(HasDiagnostic(
-      inspected, "gdtf.description.non_canonical_wheel_media_case_match",
-      DiagnosticClassification::Compatibility));
+  assert(HasDiagnostic(inspected,
+                       "gdtf.description.non_canonical_wheel_media_case_match",
+                       DiagnosticClassification::Compatibility));
 }
 
 // Verifies non-GDTF inputs stop after neutral package classification.
 void TestUnsupportedInput(const fs::path &directory) {
   const fs::path path = directory / "scene.mvr";
-  WriteArchive(path, {{"GeneralSceneDescription.xml", "<GeneralSceneDescription/>"}});
+  WriteArchive(path,
+               {{"GeneralSceneDescription.xml", "<GeneralSceneDescription/>"}});
   const GdtfInspectionResult inspected =
       perastage::inspection::InspectGdtf(path);
   assert(!inspected.Success());
@@ -220,6 +288,7 @@ int main() {
   fs::remove_all(directory);
   fs::create_directories(directory);
   TestCanonicalAndParity(directory);
+  TestValidationLayers(directory);
   TestCompatibilityDescription(directory);
   TestMalformedXml(directory);
   TestSemanticDiagnostics(directory);

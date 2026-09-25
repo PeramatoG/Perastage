@@ -346,3 +346,11 @@ JSON schema.
 
 - Keyboard shortcut routing and scope rules are documented in `docs/developer/../developer/gui_shortcut_architecture.md`.
 - Storage source-of-truth and runtime precedence are documented in `docs/developer/storage_policy.md`.
+
+### XML and standards validation layers
+
+Inspection reports three independent validation layers. XML well-formedness answers only whether the retained source is parseable; XSD validation checks the applicable embedded schema; semantic/interoperability validation reuses facts from the established TinyXML2-backed GDTF and MVR readers. Package and compatibility diagnostics remain independently classified. Neither tolerant reading nor XSD success proves complete standards or interoperability compliance.
+
+`perastage_inspection_validation` is the sole owner of libxml2. Its private adapter uses libxml2 only as an XSD 1.0 engine and exposes neutral Core values; no libxml2 or wxWidgets type crosses its public API. TinyXML2 and the existing production readers remain authoritative for semantic data. Context-local resource loaders deny external XML and schema resources, and parsing disables external entities, network access, and system catalogs.
+
+The schema layer embeds exact official `mvrdevelopment/tools` files from revision `e199c6ed635de23cb5ebf9654ee54a358775a065`: `gdtf.xsd` for GDTF 1.2 / DIN SPEC 15800:2022-02 and `mvr.xsd` for MVR 1.6 / DIN SPEC 15801:2023-12. Their stable specification basis is `mvrdevelopment/spec@098d3791f77f0895bd859adf01864b4826e2006f`. Provenance files record source paths and hashes, while an offline guard detects changes. The official MVR XSD is intentionally backwards-compatible, so version-specific provider, Fixture `ChildList`, and `FixtureTypeId` rules remain semantic checks in the existing reader path. XSD 1.0 limitations, package constraints, resource existence, and graph/reference integrity remain semantic or package responsibilities.

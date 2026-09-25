@@ -1,6 +1,7 @@
 #pragma once
 
 #include "inspection/package_inspection.h"
+#include "inspection/xml_schema_validation.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -90,6 +91,7 @@ struct MvrInspectionResult {
   Result inspection;
   std::optional<PackageInventory> packageInventory;
   std::optional<MvrInspectionSnapshot> snapshot;
+  std::vector<ValidationResult> validation;
 
   bool Success() const;
 };

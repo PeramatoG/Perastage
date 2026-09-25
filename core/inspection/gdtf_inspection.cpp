@@ -213,6 +213,22 @@ bool HasCompatibilityDiagnostic(const Result &inspection) {
   return false;
 }
 
+// Summarizes existing reader findings as an independent semantic layer.
+ValidationResult SemanticValidation(const Result &inspection) {
+  ValidationResult validation;
+  validation.layer = ValidationLayer::SemanticInteroperability;
+  validation.status = ValidationStatus::Valid;
+  for (const Diagnostic &diagnostic : inspection.diagnostics) {
+    if (diagnostic.domain != DiagnosticDomain::Package &&
+        diagnostic.classification == DiagnosticClassification::Standards) {
+      validation.diagnostics.push_back(diagnostic);
+      if (diagnostic.severity >= DiagnosticSeverity::Error)
+        validation.status = ValidationStatus::Invalid;
+    }
+  }
+  return validation;
+}
+
 } // namespace
 
 // Reports whether a usable semantic document was produced.
@@ -248,6 +264,14 @@ GdtfInspectionResult InspectGdtf(const Request &request) {
     AppendDescriptionDiagnostic(result, diagnostic,
                                 document.Archive().descriptionEntryPath);
   }
+  DiagnosticLocation validationLocation;
+  validationLocation.sourcePath = request.sourcePath;
+  validationLocation.packageEntry = document.Archive().descriptionEntryPath;
+  XmlSchemaValidationResult validation = ValidateXmlAgainstSchema(
+      document.Archive().descriptionXml, Gdtf12Schema(), validationLocation);
+  result.validation.push_back(std::move(validation.xml));
+  result.validation.push_back(std::move(validation.schema));
+  result.validation.push_back(SemanticValidation(result.inspection));
   result.document = std::move(document);
   if (result.Success()) {
     result.status = HasCompatibilityDiagnostic(result.inspection)

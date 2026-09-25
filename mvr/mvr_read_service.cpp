@@ -1037,6 +1037,15 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
         if (context)
           context->directChildUuidsByLayerUuid[layerUuid].push_back(childUuid);
       },
+      [&](bool hasChildList, bool hasFixtureTypeId) {
+        if (!context)
+          return;
+        ++context->fixtureCount;
+        if (!hasChildList)
+          ++context->fixturesMissingChildList;
+        if (hasFixtureTypeId)
+          ++context->fixturesWithFixtureTypeId;
+      },
       ensurePositionEntry,
       resolveSymdefReference,
       appendGeometryInstance,

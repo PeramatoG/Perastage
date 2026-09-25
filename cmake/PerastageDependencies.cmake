@@ -98,6 +98,7 @@ else()
     endif()
 endif()
 find_package(ZLIB REQUIRED)
+find_package(LibXml2 REQUIRED)
 find_package(Backward CONFIG REQUIRED)
 
 if(PERASTAGE_ENABLE_MVR_XCHANGE_MDNS)

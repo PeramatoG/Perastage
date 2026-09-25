@@ -274,6 +274,8 @@ function Test-PerastageVcpkgDependencies {
         @{ Name = 'wxWidgets'; Path = 'include\wx\secretstore.h' },
         @{ Name = 'CURL'; Path = 'include\curl\curl.h' },
         @{ Name = 'tinyxml2'; Path = 'include\tinyxml2.h' },
+        @{ Name = 'libxml2'; Path = 'include\libxml2\libxml\parser.h' },
+        @{ Name = 'libxml2 package metadata'; Path = 'share\libxml2\copyright' },
         @{ Name = 'ZLIB'; Path = 'include\zlib.h' },
         @{ Name = 'GLEW'; Path = 'include\GL\glew.h' },
         @{ Name = 'NanoVG'; Path = 'include\nanovg.h' },
@@ -302,6 +304,14 @@ function Test-PerastageVcpkgDependencies {
     }
 
     Assert-PerastageWxSecretStoreHeaders -InstalledTriplet $Vcpkg.InstalledTriplet
+
+    $vcpkgStatus = Join-Path $Vcpkg.InstalledTriplet 'vcpkg\status'
+    if (Test-Path -LiteralPath $vcpkgStatus) {
+        $statusText = Get-Content -LiteralPath $vcpkgStatus -Raw
+        if ($statusText -match '(?ms)^Package: libxml2\r?\nVersion: ([^\r\n]+)') {
+            Write-Host "libxml2 version: $($Matches[1])"
+        }
+    }
 
     $gettextBin = Join-Path $Vcpkg.InstalledTriplet 'tools\gettext\bin'
     foreach ($tool in @('msgfmt.exe', 'xgettext.exe', 'msgmerge.exe', 'msgattrib.exe')) {

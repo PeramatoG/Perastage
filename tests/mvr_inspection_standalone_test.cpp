@@ -60,6 +60,115 @@ bool HasCode(const MvrInspectionResult &result, const std::string &code) {
   return false;
 }
 
+// Returns one validation stage from an MVR inspection result.
+const ValidationResult &Validation(const MvrInspectionResult &result,
+                                   ValidationLayer layer) {
+  const auto found = std::find_if(
+      result.validation.begin(), result.validation.end(),
+      [layer](const auto &validation) { return validation.layer == layer; });
+  assert(found != result.validation.end());
+  return *found;
+}
+
+// Returns a minimal MVR 1.6 document accepted by both compared schemas.
+std::string StandardsValidXml() {
+  return "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+         "provider=\"Perastage\" providerVersion=\"1.7\">"
+         "<UserData><Data provider=\"Example\"/></UserData><Scene><Layers>"
+         "<Layer uuid=\"10000000-0000-4000-8000-000000000001\" "
+         "name=\"Main\"><ChildList/></Layer></Layers></Scene>"
+         "</GeneralSceneDescription>";
+}
+
+// Verifies MVR root requirements and independent XML/schema outcomes.
+void TestValidationLayers() {
+  const MvrInspectionResult valid = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", StandardsValidXml()}}));
+  assert(valid.Success());
+  assert(Validation(valid, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Valid);
+  assert(Validation(valid, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+
+  const std::string missingScene =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage\" providerVersion=\"1.7\"/>";
+  const MvrInspectionResult invalid = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", missingScene}}));
+  assert(Validation(invalid, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Valid);
+  assert(Validation(invalid, ValidationLayer::Schema).status ==
+         ValidationStatus::Invalid);
+
+  const std::string wrongOrder =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage\" providerVersion=\"1.7\"><Scene><Layers/>"
+      "</Scene><UserData/></GeneralSceneDescription>";
+  const MvrInspectionResult ordered = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", wrongOrder}}));
+  assert(Validation(ordered, ValidationLayer::Schema).status ==
+         ValidationStatus::Invalid);
+
+  const MvrInspectionResult malformed = InspectMvrBytes(BuildArchive(
+      {{"GeneralSceneDescription.xml", "<GeneralSceneDescription>"}}));
+  assert(Validation(malformed, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Invalid);
+  assert(Validation(malformed, ValidationLayer::Schema).status ==
+         ValidationStatus::NotRun);
+
+  const MvrInspectionResult compatible = InspectMvrBytes(
+      BuildArchive({{"generalscenedescription.xml", StandardsValidXml()}}));
+  assert(Validation(compatible, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(HasCode(compatible, "mvr.package.non_canonical_scene_description"));
+
+  const std::string semanticWarning =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage\" providerVersion=\"1.7\"><Scene><Layers>"
+      "<Layer uuid=\"10000000-0000-4000-8000-000000000001\"><ChildList>"
+      "<Fixture uuid=\"20000000-0000-4000-8000-000000000001\">"
+      "<GDTFSpec>missing.gdtf</GDTFSpec><FixtureID>1</FixtureID>"
+      "<UnitNumber>1</UnitNumber><ChildList/></Fixture></ChildList></Layer>"
+      "</Layers></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult semantic = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", semanticWarning}}));
+  assert(Validation(semantic, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(
+      Validation(semantic, ValidationLayer::SemanticInteroperability).status ==
+      ValidationStatus::Valid);
+  assert(HasCode(semantic, "mvr.resource.missing_packaged_resource"));
+
+  const std::string missingProvider =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<Layers/></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult providerSemantic = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", missingProvider}}));
+  assert(Validation(providerSemantic, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(Validation(providerSemantic, ValidationLayer::SemanticInteroperability)
+             .status == ValidationStatus::Invalid);
+  assert(HasCode(providerSemantic, "mvr.semantic.missing_provider"));
+  assert(HasCode(providerSemantic, "mvr.semantic.missing_provider_version"));
+
+  const std::string fixtureRules =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage\" providerVersion=\"1.7\"><Scene><Layers>"
+      "<Layer uuid=\"10000000-0000-4000-8000-000000000001\"><ChildList>"
+      "<Fixture uuid=\"20000000-0000-4000-8000-000000000001\">"
+      "<FixtureID>1</FixtureID><FixtureTypeId>7</FixtureTypeId>"
+      "<UnitNumber>1</UnitNumber></Fixture></ChildList></Layer>"
+      "</Layers></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult fixtureSemantic = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", fixtureRules}}));
+  assert(Validation(fixtureSemantic, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(Validation(fixtureSemantic, ValidationLayer::SemanticInteroperability)
+             .status == ValidationStatus::Invalid);
+  assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_missing_child_list"));
+  assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_type_id_not_allowed"));
+}
+
 // Finds one stable summary count by node type.
 std::size_t Count(const MvrInspectionSnapshot &snapshot,
                   const std::string &type) {
@@ -194,7 +303,8 @@ void TestUnnamedAuthoredLayer() {
   const std::string layerUuid = "10000000-0000-4000-8000-000000000010";
   const std::string fixtureUuid = "20000000-0000-4000-8000-000000000010";
   const std::string xml =
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Test\" providerVersion=\"1\"><Scene>"
       "<Layers><Layer uuid=\"" +
       layerUuid + "\"><ChildList><Fixture uuid=\"" + fixtureUuid +
       "\" name=\"Fixture\"><Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
@@ -225,7 +335,8 @@ void TestRecoveredUuidLayerOwnership() {
   const std::string groupUuid = "30000000-0000-4000-8000-000000000001";
   const std::string identity = "1,0,0,0,1,0,0,0,1,0,0,0";
   const std::string xml =
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Test\" providerVersion=\"1\"><Scene>"
       "<Layers><Layer uuid=\"" +
       firstLayer +
       "\" name=\"Shared\">"
@@ -348,12 +459,14 @@ void TestStructuralDiagnosticSummaries() {
 // Verifies package safety, collision severity, and missing-resource reporting.
 void TestPackageAndResourceDiagnostics() {
   const std::string xml =
-      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage Test\" providerVersion=\"1.0\"><Scene>"
       "<Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\" "
       "name=\"Layer\"><ChildList><Fixture "
       "uuid=\"20000000-0000-4000-8000-000000000001\" name=\"Fixture\">"
       "<Matrix>1,0,0,0,1,0,0,0,1,0,0,0</Matrix>"
-      "<GDTFSpec>missing.gdtf</GDTFSpec></Fixture></ChildList></Layer>"
+      "<GDTFSpec>missing.gdtf</GDTFSpec><ChildList/></Fixture>"
+      "</ChildList></Layer>"
       "</Layers></Scene></GeneralSceneDescription>";
 
   const MvrInspectionResult auxiliaryCollision =
@@ -364,6 +477,11 @@ void TestPackageAndResourceDiagnostics() {
   assert(HasCode(auxiliaryCollision,
                  "mvr.package.case_colliding_mvr_archive_entry"));
   assert(HasCode(auxiliaryCollision, "mvr.resource.missing_packaged_resource"));
+  assert(Validation(auxiliaryCollision, ValidationLayer::Schema).status ==
+         ValidationStatus::Invalid);
+  assert(
+      Validation(auxiliaryCollision, ValidationLayer::SemanticInteroperability)
+          .status == ValidationStatus::Valid);
 
   const MvrInspectionResult rootCollision =
       InspectMvrBytes(BuildArchive({{"GeneralSceneDescription.xml", xml},
@@ -396,6 +514,7 @@ void TestNonMvrPackageKind() {
 
 // Runs the standalone MVR inspection contract without application or GUI code.
 int main() {
+  TestValidationLayers();
   TestStandaloneInspectionParity();
   TestUnnamedAuthoredLayer();
   TestRecoveredUuidLayerOwnership();

@@ -1290,6 +1290,9 @@ void ReadMvrSceneNodes(tinyxml2::XMLElement *sceneNode, MvrScene &scene,
 
       std::string nodeName = name;
       if (nodeName == "Fixture") {
+        services.recordFixtureStandardFacts(
+            child->FirstChildElement("ChildList") != nullptr,
+            child->FirstChildElement("FixtureTypeId") != nullptr);
         const std::string finalUuid = parseFixture(
             child, layerName, nodeTransform, local, parentGroupUuid);
         recordLayerOwnership(finalUuid);
