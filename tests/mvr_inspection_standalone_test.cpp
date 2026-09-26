@@ -60,6 +60,121 @@ bool HasCode(const MvrInspectionResult &result, const std::string &code) {
   return false;
 }
 
+// Reports whether any inspection or validation finding has a classification.
+bool HasClassification(const MvrInspectionResult &result,
+                       DiagnosticClassification classification) {
+  const auto matches = [classification](const Diagnostic &diagnostic) {
+    return diagnostic.classification == classification;
+  };
+  if (std::any_of(result.inspection.diagnostics.begin(),
+                  result.inspection.diagnostics.end(), matches))
+    return true;
+  for (const ValidationResult &validation : result.validation) {
+    if (std::any_of(validation.diagnostics.begin(),
+                    validation.diagnostics.end(), matches))
+      return true;
+  }
+  return false;
+}
+
+// Compares every stable field of two inspection diagnostics.
+void AssertDiagnosticEqual(const Diagnostic &left, const Diagnostic &right) {
+  assert(left.severity == right.severity);
+  assert(left.domain == right.domain);
+  assert(left.classification == right.classification);
+  assert(left.code == right.code);
+  assert(left.message == right.message);
+  assert(left.location.has_value() == right.location.has_value());
+  if (left.location) {
+    assert(left.location->sourcePath == right.location->sourcePath);
+    assert(left.location->packageEntry == right.location->packageEntry);
+    assert(left.location->xmlPath == right.location->xmlPath);
+    assert(left.location->line == right.location->line);
+    assert(left.location->column == right.location->column);
+  }
+}
+
+// Compares the complete stable public MVR inspection projection.
+void AssertStableResultEqual(const MvrInspectionResult &left,
+                             const MvrInspectionResult &right) {
+  assert(left.Success() == right.Success());
+  assert(left.inspection.request.sourcePath ==
+         right.inspection.request.sourcePath);
+  assert(left.inspection.diagnostics.size() ==
+         right.inspection.diagnostics.size());
+  for (std::size_t index = 0; index < left.inspection.diagnostics.size();
+       ++index)
+    AssertDiagnosticEqual(left.inspection.diagnostics[index],
+                          right.inspection.diagnostics[index]);
+  assert(left.packageInventory.has_value() ==
+         right.packageInventory.has_value());
+  if (left.packageInventory) {
+    assert(left.packageInventory->kind == right.packageInventory->kind);
+    assert(left.packageInventory->canonicalRootDocumentPresent ==
+           right.packageInventory->canonicalRootDocumentPresent);
+    assert(left.packageInventory->entries.size() ==
+           right.packageInventory->entries.size());
+    for (std::size_t index = 0; index < left.packageInventory->entries.size();
+         ++index) {
+      const PackageEntry &a = left.packageInventory->entries[index];
+      const PackageEntry &b = right.packageInventory->entries[index];
+      assert(a.displayPath == b.displayPath);
+      assert(a.normalizedPath == b.normalizedPath);
+      assert(a.extension == b.extension);
+      assert(a.type == b.type);
+      assert(a.uncompressedSize == b.uncompressedSize);
+      assert(a.sizeKnown == b.sizeKnown);
+      assert(a.pathSafe == b.pathSafe);
+    }
+  }
+  assert(left.validation.size() == right.validation.size());
+  for (std::size_t index = 0; index < left.validation.size(); ++index) {
+    assert(left.validation[index].layer == right.validation[index].layer);
+    assert(left.validation[index].status == right.validation[index].status);
+    assert(left.validation[index].schema.has_value() ==
+           right.validation[index].schema.has_value());
+    if (left.validation[index].schema) {
+      assert(left.validation[index].schema->format ==
+             right.validation[index].schema->format);
+      assert(left.validation[index].schema->formatVersion ==
+             right.validation[index].schema->formatVersion);
+      assert(left.validation[index].schema->schemaVersion ==
+             right.validation[index].schema->schemaVersion);
+      assert(left.validation[index].schema->provenance ==
+             right.validation[index].schema->provenance);
+      assert(left.validation[index].schema->sourceRevision ==
+             right.validation[index].schema->sourceRevision);
+    }
+    assert(left.validation[index].diagnostics.size() ==
+           right.validation[index].diagnostics.size());
+    for (std::size_t diagnostic = 0;
+         diagnostic < left.validation[index].diagnostics.size(); ++diagnostic)
+      AssertDiagnosticEqual(left.validation[index].diagnostics[diagnostic],
+                            right.validation[index].diagnostics[diagnostic]);
+  }
+  assert(left.snapshot.has_value() == right.snapshot.has_value());
+  if (!left.snapshot)
+    return;
+  const MvrInspectionSnapshot &a = *left.snapshot;
+  const MvrInspectionSnapshot &b = *right.snapshot;
+  assert(a.versionMajor == b.versionMajor && a.versionMinor == b.versionMinor);
+  assert(a.provider == b.provider && a.providerVersion == b.providerVersion);
+  assert(a.sceneDescriptionEntry == b.sceneDescriptionEntry);
+  assert(a.sceneDescriptionXml == b.sceneDescriptionXml);
+  assert(a.embeddedGdtfEntries == b.embeddedGdtfEntries);
+  assert(a.referencedResources == b.referencedResources);
+  assert(a.layers == b.layers);
+  assert(a.fixtures == b.fixtures);
+  assert(a.trusses == b.trusses);
+  assert(a.supports == b.supports);
+  assert(a.sceneObjects == b.sceneObjects);
+  assert(a.groupObjects == b.groupObjects);
+  assert(a.positions == b.positions);
+  assert(a.symdefs == b.symdefs);
+  assert(a.foreignUserData == b.foreignUserData);
+  assert(a.nodeCounts == b.nodeCounts);
+}
+
 // Returns one validation stage from an MVR inspection result.
 const ValidationResult &Validation(const MvrInspectionResult &result,
                                    ValidationLayer layer) {
@@ -89,6 +204,7 @@ void TestValidationLayers() {
          ValidationStatus::Valid);
   assert(Validation(valid, ValidationLayer::Schema).status ==
          ValidationStatus::Valid);
+  assert(!HasClassification(valid, DiagnosticClassification::Compatibility));
 
   const std::string missingScene =
       "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
@@ -121,6 +237,16 @@ void TestValidationLayers() {
   assert(Validation(compatible, ValidationLayer::Schema).status ==
          ValidationStatus::Valid);
   assert(HasCode(compatible, "mvr.package.non_canonical_scene_description"));
+  assert(
+      HasClassification(compatible, DiagnosticClassification::Compatibility));
+
+  const std::string mixedXml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\"><Scene>"
+      "<Layers/></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult mixed = InspectMvrBytes(
+      BuildArchive({{"generalscenedescription.xml", mixedXml}}));
+  assert(HasClassification(mixed, DiagnosticClassification::Compatibility));
+  assert(HasClassification(mixed, DiagnosticClassification::Standards));
 
   const std::string semanticWarning =
       "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
@@ -220,12 +346,17 @@ void TestStandaloneInspectionParity() {
   const fs::path path = root / "scene.mvr";
   WriteMvr(path, xml);
   const std::vector<std::uint8_t> bytes = ReadBytes(path);
+  const std::vector<std::uint8_t> originalBytes = bytes;
 
   const MvrInspectionResult fromFile = InspectMvr(path);
-  const MvrInspectionResult fromBytes = InspectMvrBytes(bytes);
+  const Request logicalRequest{path};
+  const MvrInspectionResult fromBytes = InspectMvrBytes(bytes, logicalRequest);
+  const MvrInspectionResult repeated = InspectMvrBytes(bytes, logicalRequest);
   assert(fromFile.Success() && fromBytes.Success());
   assert(fromFile.snapshot && fromBytes.snapshot);
   assert(fromFile.packageInventory && fromBytes.packageInventory);
+  AssertStableResultEqual(fromFile, fromBytes);
+  AssertStableResultEqual(fromBytes, repeated);
   assert(fromFile.packageInventory->entries.size() ==
          fromBytes.packageInventory->entries.size());
   for (std::size_t index = 0; index < fromFile.packageInventory->entries.size();
@@ -295,6 +426,7 @@ void TestStandaloneInspectionParity() {
   assert(fromFile.snapshot->foreignUserData.front().xml ==
          "<Data provider=\"Foreign\" ver=\"2\"><Value raw=\"yes\"/></Data>");
   assert(ReadBytes(path) == bytes);
+  assert(bytes == originalBytes);
   fs::remove_all(root);
 }
 

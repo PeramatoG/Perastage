@@ -1,10 +1,11 @@
 # Core and MVR coverage
 
 Perastage maintains an informational Linux/GCC coverage report for production code
-under `core/` and `mvr/`. Tests, generated code, dependencies, GUI, and viewer modules
-are outside the reported denominator. There is no line, function, or branch percentage
-gate; failures indicate a broken build, test, or report collection rather than a low
-percentage.
+under `core/` and `mvr/`. It also reports `core/inspection/` as an explicit
+**Inspection** subset of Core. Tests, generated code, dependencies, GUI, and viewer
+modules are outside the reported denominator. There is no line, function, or branch
+percentage gate; failures indicate a broken build, test, or report collection rather
+than a low percentage.
 
 The dedicated `Core MVR Coverage` workflow runs on manual dispatch and on relevant
 pushes to `main`. It does not run for pull requests or pure documentation and version
@@ -16,7 +17,13 @@ and uploads `core-mvr-coverage-report` with:
 - `coverage.txt`, a human-readable summary;
 - `index.html` and per-file HTML pages;
 - `coverage.json` and `coverage.xml`, machine-readable reports;
-- `summary.md`, the concise Core, MVR, and combined result plus largest file gaps.
+- `summary.md`, the concise Core, Inspection, MVR, and combined result plus largest
+  file gaps.
+
+Inspection lines contribute to both the Core row and the Inspection subset row. The
+combined figure remains Core plus MVR only, so the Inspection subset is not counted a
+second time. An empty Inspection subset is reported safely as `n/a`. The report is
+informational and does not enforce a minimum percentage for any scope.
 
 ## Local reproduction
 

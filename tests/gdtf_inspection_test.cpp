@@ -17,6 +17,7 @@
 #include <wx/zipstrm.h>
 
 namespace fs = std::filesystem;
+using perastage::inspection::Diagnostic;
 using perastage::inspection::DiagnosticClassification;
 using perastage::inspection::GdtfInspectionResult;
 using perastage::inspection::GdtfReadStatus;
@@ -66,6 +67,111 @@ void WriteArchive(
 std::vector<unsigned char> ReadBytes(const fs::path &path) {
   std::ifstream input(path, std::ios::binary);
   return {(std::istreambuf_iterator<char>(input)), {}};
+}
+
+// Compares every stable field of two adapted diagnostics.
+void AssertDiagnosticEqual(const Diagnostic &left, const Diagnostic &right) {
+  assert(left.severity == right.severity);
+  assert(left.domain == right.domain);
+  assert(left.classification == right.classification);
+  assert(left.code == right.code);
+  assert(left.message == right.message);
+  assert(left.location.has_value() == right.location.has_value());
+  if (left.location) {
+    assert(left.location->sourcePath == right.location->sourcePath);
+    assert(left.location->packageEntry == right.location->packageEntry);
+    assert(left.location->xmlPath == right.location->xmlPath);
+    assert(left.location->line == right.location->line);
+    assert(left.location->column == right.location->column);
+  }
+}
+
+// Compares the complete stable public GDTF inspection projection.
+void AssertStableResultEqual(const GdtfInspectionResult &left,
+                             const GdtfInspectionResult &right) {
+  assert(left.status == right.status);
+  assert(left.Success() == right.Success());
+  assert(left.inspection.request.sourcePath ==
+         right.inspection.request.sourcePath);
+  assert(left.inspection.diagnostics.size() ==
+         right.inspection.diagnostics.size());
+  for (std::size_t index = 0; index < left.inspection.diagnostics.size();
+       ++index)
+    AssertDiagnosticEqual(left.inspection.diagnostics[index],
+                          right.inspection.diagnostics[index]);
+  assert(left.packageInventory.has_value() ==
+         right.packageInventory.has_value());
+  if (left.packageInventory) {
+    assert(left.packageInventory->kind == right.packageInventory->kind);
+    assert(left.packageInventory->canonicalRootDocumentPresent ==
+           right.packageInventory->canonicalRootDocumentPresent);
+    assert(left.packageInventory->entries.size() ==
+           right.packageInventory->entries.size());
+    for (std::size_t index = 0; index < left.packageInventory->entries.size();
+         ++index) {
+      const auto &a = left.packageInventory->entries[index];
+      const auto &b = right.packageInventory->entries[index];
+      assert(a.displayPath == b.displayPath);
+      assert(a.normalizedPath == b.normalizedPath);
+      assert(a.extension == b.extension);
+      assert(a.type == b.type);
+      assert(a.uncompressedSize == b.uncompressedSize);
+      assert(a.sizeKnown == b.sizeKnown);
+      assert(a.pathSafe == b.pathSafe);
+    }
+  }
+  assert(left.validation.size() == right.validation.size());
+  for (std::size_t index = 0; index < left.validation.size(); ++index) {
+    const auto &a = left.validation[index];
+    const auto &b = right.validation[index];
+    assert(a.layer == b.layer);
+    assert(a.status == b.status);
+    assert(a.schema.has_value() == b.schema.has_value());
+    if (a.schema) {
+      assert(a.schema->format == b.schema->format);
+      assert(a.schema->formatVersion == b.schema->formatVersion);
+      assert(a.schema->schemaVersion == b.schema->schemaVersion);
+      assert(a.schema->provenance == b.schema->provenance);
+      assert(a.schema->sourceRevision == b.schema->sourceRevision);
+    }
+    assert(a.diagnostics.size() == b.diagnostics.size());
+    for (std::size_t diagnostic = 0; diagnostic < a.diagnostics.size();
+         ++diagnostic)
+      AssertDiagnosticEqual(a.diagnostics[diagnostic],
+                            b.diagnostics[diagnostic]);
+  }
+  assert(left.document.has_value() == right.document.has_value());
+  if (!left.document)
+    return;
+  const auto &leftArchive = left.document->Archive();
+  const auto &rightArchive = right.document->Archive();
+  const auto &leftDescription = left.document->Description();
+  const auto &rightDescription = right.document->Description();
+  assert(leftArchive.descriptionXml == rightArchive.descriptionXml);
+  assert(leftArchive.descriptionEntryPath == rightArchive.descriptionEntryPath);
+  assert(leftArchive.usedCompatibilityDescriptionFallback ==
+         rightArchive.usedCompatibilityDescriptionFallback);
+  assert(leftArchive.standardsCompliantDescriptionLocation ==
+         rightArchive.standardsCompliantDescriptionLocation);
+  assert(leftDescription.dataVersion == rightDescription.dataVersion);
+  assert(leftDescription.fixtureTypeName == rightDescription.fixtureTypeName);
+  assert(leftDescription.manufacturer == rightDescription.manufacturer);
+  assert(leftDescription.dmxModeNames == rightDescription.dmxModeNames);
+  assert(leftDescription.wheels.size() == rightDescription.wheels.size());
+  for (std::size_t wheel = 0; wheel < leftDescription.wheels.size(); ++wheel) {
+    assert(leftDescription.wheels[wheel].name ==
+           rightDescription.wheels[wheel].name);
+    assert(leftDescription.wheels[wheel].slots.size() ==
+           rightDescription.wheels[wheel].slots.size());
+    for (std::size_t slot = 0;
+         slot < leftDescription.wheels[wheel].slots.size(); ++slot) {
+      const auto &a = leftDescription.wheels[wheel].slots[slot];
+      const auto &b = rightDescription.wheels[wheel].slots[slot];
+      assert(a.name == b.name);
+      assert(a.mediaFileName == b.mediaFileName);
+      assert(a.resourceReferences == b.resourceReferences);
+    }
+  }
 }
 
 // Reports whether an adapted diagnostic has a code and classification.
@@ -182,12 +288,23 @@ void TestCanonicalAndParity(const fs::path &directory) {
                                 {"description.xml", "wheels/blue.png",
                                  "models/\xC3\xA9"
                                  "clairage.glb"});
+  const gdtf::GdtfDocument directDocument = gdtf::LoadGdtfDocument(path);
+  const gdtf::GdtfResourceReadResult directResource =
+      gdtf::ReadGdtfArchiveResource(path, "wheels/blue.png");
   assert(archive.descriptionXml == directArchive.descriptionXml);
   assert(archive.descriptionEntryPath == directArchive.descriptionEntryPath);
   assert(description.fixtureTypeName == directDescription.fixtureTypeName);
+  assert(description.dataVersion == directDescription.dataVersion);
+  assert(description.manufacturer == directDescription.manufacturer);
   assert(description.dmxModeNames == directDescription.dmxModeNames);
   assert(description.wheels.front().slots.front().resourceReferences ==
          directDescription.wheels.front().slots.front().resourceReferences);
+  assert(directDocument.Valid());
+  assert(directDocument.Description().fixtureTypeId ==
+         description.fixtureTypeId);
+  assert(directResource.Success());
+  assert(directResource.entryPath == "wheels/blue.png");
+  assert(directResource.bytes == std::vector<unsigned char>({'p', 'n', 'g'}));
   assert(ReadBytes(path) == before);
 
   const GdtfInspectionResult repeated =
@@ -196,6 +313,67 @@ void TestCanonicalAndParity(const fs::path &directory) {
          description.dmxModeNames);
   assert(repeated.inspection.diagnostics.size() ==
          inspected.inspection.diagnostics.size());
+}
+
+// Verifies file and owned-byte parity, determinism, Unicode, and non-mutation.
+void TestOwnedBytesParity(const fs::path &directory) {
+  const fs::path unicodeDirectory =
+      directory / fs::path(std::u8string(u8"fixture-path-é"));
+  fs::create_directories(unicodeDirectory);
+  const fs::path path = unicodeDirectory / "parity.gdtf";
+  WriteArchive(path, {{"description.xml", CompleteXml()},
+                      {"wheels/蓝色.png", "image"},
+                      {"models/nested/灯具.glb", "model"}});
+  const std::vector<unsigned char> bytes = ReadBytes(path);
+  const perastage::inspection::Request logicalRequest{path};
+  const GdtfInspectionResult fromFile =
+      perastage::inspection::InspectGdtf(path);
+  const GdtfInspectionResult fromBytes =
+      perastage::inspection::InspectGdtf(bytes, logicalRequest);
+  const GdtfInspectionResult repeated =
+      perastage::inspection::InspectGdtf(bytes, logicalRequest);
+  AssertStableResultEqual(fromFile, fromBytes);
+  AssertStableResultEqual(fromBytes, repeated);
+  assert(fromFile.document->SourceFilePresent());
+  assert(!fromBytes.document->SourceFilePresent());
+  assert(fromBytes.document->SourcePath().empty());
+  assert(bytes == ReadBytes(path));
+}
+
+// Verifies standards and compatibility findings remain distinct when mixed.
+void TestMixedDiagnosticClassifications(const fs::path &directory) {
+  const fs::path path = directory / "mixed.gdtf";
+  WriteArchive(path, {{"nested/DESCRIPTION.XML",
+                       "<GDTF DataVersion=\"1.2\"><FixtureType Name=\"Mixed\" "
+                       "Manufacturer=\"Perastage\"/></GDTF>"}});
+  const GdtfInspectionResult inspected =
+      perastage::inspection::InspectGdtf(path);
+  assert(HasDiagnostic(inspected, "gdtf.archive.non_canonical_description_xml",
+                       DiagnosticClassification::Compatibility));
+  assert(HasDiagnostic(inspected, "gdtf.description.missing_dmx_modes",
+                       DiagnosticClassification::Standards));
+}
+
+// Verifies malformed owned inputs return structured fatal results repeatedly.
+void TestMalformedOwnedInputMatrix() {
+  const std::vector<std::vector<unsigned char>> corpus = {
+      {},
+      {'n', 'o', 't', '-', 'z', 'i', 'p'},
+      {'P', 'K', 3, 4, 0, 0, 0, 0},
+  };
+  for (std::size_t index = 0; index < corpus.size(); ++index) {
+    const perastage::inspection::Request request{
+        fs::path("malformed-" + std::to_string(index) + ".gdtf")};
+    const auto before = corpus[index];
+    const GdtfInspectionResult first =
+        perastage::inspection::InspectGdtf(corpus[index], request);
+    const GdtfInspectionResult second =
+        perastage::inspection::InspectGdtf(corpus[index], request);
+    assert(!first.Success());
+    assert(first.inspection.HasFatalDiagnostics());
+    AssertStableResultEqual(first, second);
+    assert(corpus[index] == before);
+  }
 }
 
 // Verifies accepted noncanonical description selection is explicit.
@@ -288,6 +466,9 @@ int main() {
   fs::remove_all(directory);
   fs::create_directories(directory);
   TestCanonicalAndParity(directory);
+  TestOwnedBytesParity(directory);
+  TestMixedDiagnosticClassifications(directory);
+  TestMalformedOwnedInputMatrix();
   TestValidationLayers(directory);
   TestCompatibilityDescription(directory);
   TestMalformedXml(directory);
