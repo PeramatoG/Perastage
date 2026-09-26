@@ -1,5 +1,8 @@
 #include "inspection/gdtf_inspection.h"
 
+#include "inspection/gdtf_byte_source.h"
+
+#include <exception>
 #include <utility>
 
 namespace perastage::inspection {
@@ -284,6 +287,56 @@ GdtfInspectionResult InspectGdtf(const Request &request) {
 // Wraps a filesystem path in the neutral GDTF inspection request.
 GdtfInspectionResult InspectGdtf(const std::filesystem::path &sourcePath) {
   return InspectGdtf(Request{sourcePath});
+}
+
+// Inspects owned GDTF bytes through the same established filesystem reader.
+GdtfInspectionResult InspectGdtf(const std::vector<std::uint8_t> &bytes,
+                                 const Request &request) {
+  try {
+    internal::GdtfByteSource source(bytes);
+    if (!source.Valid()) {
+      GdtfInspectionResult result;
+      result.inspection.request = request;
+      Diagnostic diagnostic;
+      diagnostic.severity = DiagnosticSeverity::Fatal;
+      diagnostic.domain = DiagnosticDomain::Input;
+      diagnostic.code = "gdtf.input.byte_workspace_failed";
+      diagnostic.message =
+          "A scoped workspace for GDTF byte inspection could not be created.";
+      result.inspection.diagnostics.push_back(std::move(diagnostic));
+      return result;
+    }
+    GdtfInspectionResult result = InspectGdtf(source.Path());
+    result.inspection.request = request;
+    for (Diagnostic &diagnostic : result.inspection.diagnostics) {
+      if (diagnostic.location)
+        diagnostic.location->sourcePath = request.sourcePath;
+    }
+    for (ValidationResult &validation : result.validation) {
+      for (Diagnostic &diagnostic : validation.diagnostics) {
+        if (diagnostic.location)
+          diagnostic.location->sourcePath = request.sourcePath;
+      }
+    }
+    if (result.document) {
+      gdtf::ArchiveReadResult archive = result.document->Archive();
+      archive.sourcePath.clear();
+      result.document = gdtf::GdtfDocument(std::move(archive),
+                                           result.document->Description());
+    }
+    return result;
+  } catch (const std::exception &) {
+    GdtfInspectionResult result;
+    result.inspection.request = request;
+    Diagnostic diagnostic;
+    diagnostic.severity = DiagnosticSeverity::Fatal;
+    diagnostic.domain = DiagnosticDomain::Input;
+    diagnostic.code = "gdtf.input.byte_workspace_failed";
+    diagnostic.message =
+        "A scoped workspace for GDTF byte inspection could not be created.";
+    result.inspection.diagnostics.push_back(std::move(diagnostic));
+    return result;
+  }
 }
 
 } // namespace perastage::inspection

@@ -127,6 +127,15 @@ set_perastage_test_labels(PackageInspection
                           LAYER standard-strict
                           DOMAINS architecture core zip gdtf mvr security)
 
+add_executable(resource_inspection_test resource_inspection_test.cpp)
+target_include_directories(resource_inspection_test PRIVATE ../core)
+target_link_libraries(resource_inspection_test PRIVATE
+                      perastage_inspection_nested_gdtf ${wxWidgets_LIBRARIES})
+add_test(NAME ResourceInspection COMMAND resource_inspection_test)
+set_perastage_test_labels(ResourceInspection
+                          LAYER standard-strict
+                          DOMAINS architecture core zip gdtf mvr security)
+
 add_executable(mvr_inspection_standalone_test
                mvr_inspection_standalone_test.cpp)
 target_include_directories(mvr_inspection_standalone_test PRIVATE ../core)
@@ -208,6 +217,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionPackageBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_package_boundary.sh LABELS standard-strict architecture core zip security)
+    add_bash_policy_test(ResourceInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_resource_inspection_boundary.sh LABELS standard-strict architecture core zip security)
     add_bash_policy_test(GdtfInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_inspection_boundary.sh LABELS standard-strict architecture core gdtf inspection)
     add_bash_policy_test(MvrInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_mvr_inspection_boundary.sh LABELS standard-strict architecture core mvr inspection)
     add_bash_policy_test(XmlSchemaValidationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_xml_schema_validation_boundary.sh LABELS standard-strict architecture core security)

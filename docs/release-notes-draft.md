@@ -39,6 +39,10 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added a safe, read-only package resource inspection boundary with bounded raw reads, conservative file-kind identification, unchanged UTF-8 text previews, and embedded GDTF inspection through the established standalone path. Image and model decoding remains outside the semantic inspection service.
+- Improved package resource inspection reliability across platforms, including deterministic owned-byte reads and consistent GDTF compatibility handling.
+- Ensured package browsing binds each selected ZIP entry to its exact payload even when archive directory ordering differs, while retaining bounded signature detection for large resources.
+
 - Added offline, read-only validation with exact pinned official GDTF 1.2 and MVR 1.6 schemas, while keeping well-formedness, structural standards, version-specific semantics, and compatibility results separate.
 - Improved compatibility with locally managed libxml2 versions, added earlier Windows dependency diagnostics for classic vcpkg builds, and included the corresponding runtime legal notice.
 
@@ -47,6 +51,7 @@ Changes since **v1.6.0**.
 - Added a read-only, GUI-independent GDTF inspection service that exposes package contents, fixture metadata, DMX modes, wheel references, raw XML, and structured compatibility diagnostics without modifying or canonicalizing source files, while keeping its shared reader dependency limited to wxWidgets base/archive facilities.
 
 - Added a framework-independent, read-only package inventory boundary for supported GDTF and MVR files, including Unicode-preserving entry metadata, shared bounded ZIP directory checks, and safe rejection of malformed, unsupported, or traversal-style packages without extracting or importing package contents.
+- Hardened resource browsing for portable nested and Unicode ZIP paths, including valid UTF-8 names without an archive encoding flag, and capped lightweight media sniffing independently of caller input.
 
 - Added a deterministic, versioned JSON boundary for neutral inspection results, with cross-platform UTF-8 verification for automation without coupling inspection semantics to command-line or graphical presentation.
 

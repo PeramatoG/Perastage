@@ -16,11 +16,12 @@ enum class DirectoryReadStatus : std::uint8_t {
   Zip64Unsupported,
 };
 
-// Preserves raw central-directory filename metadata in archive order.
+// Preserves validated central-directory metadata and local-record identity.
 struct DirectoryEntry {
   std::string bytes;
   bool utf8Flag = false;
   std::uint64_t uncompressedSize = 0;
+  std::uint64_t localHeaderOffset = 0;
   bool directory = false;
 };
 

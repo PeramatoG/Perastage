@@ -158,6 +158,27 @@ result to deterministic machine-readable JSON, while frontends own presentation
 formatting. The semantic contract remains neutral to both concerns, and file
 readers and format-specific inspection services remain separate from it.
 
+Resource browsing adapts the authoritative package inventory into neutral entry
+descriptors and provides explicit-limit raw reads for filesystem and owned-byte
+packages. Reads reject unsafe or ambiguous paths and enforce the caller's limit
+both before allocation and while decompressing. Validated local-header offsets
+bind central-directory selections to their physical ZIP records. Content kinds
+are identified conservatively from bounded prefixes plus filename hints, so
+large entries need not be read completely. Prefixes have a fixed 64-byte
+per-entry ceiling, which covers the supported signatures and bounds aggregate
+payload storage for the classic-ZIP entry-count limit; uncertain or mismatched
+payloads remain binary. UTF-8 XML and explicitly supported text can
+be previewed without rewriting source content. Embedded GDTF packages in MVR are
+acquired through this bounded path and passed to the same GDTF inspection
+implementation used for standalone files. Because that authoritative reader is
+currently path-based, owned GDTF bytes use the existing automatically removed
+`runtime_storage::TemporaryWorkspace`; its internal path is replaced with the
+caller identity in diagnostics and is never exposed by the inspection result.
+Byte-backed GDTF documents have no standalone filesystem source, while nested
+results retain the outer package request and embedded entry identity separately.
+Image and model decoding remains the responsibility of later
+presentation-specific preview adapters.
+
 `perastage_inspection_core` is the first minimal non-GUI link boundary. This
 static library owns only `core/inspection/inspection_contract.cpp`, publishes
 the `core/` include root, and requires C++20; it has no wxWidgets or other
