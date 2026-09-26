@@ -4,11 +4,18 @@
 
 #include <cassert>
 #include <string>
+#include <string_view>
 
 using namespace perastage::inspection;
 using namespace perastage::inspection::serialization;
 
 namespace {
+
+// Copies explicit UTF-8 code units into a byte string for JSON assertions.
+std::string Utf8String(std::u8string_view value) {
+  return std::string(reinterpret_cast<const char *>(value.data()),
+                     value.size());
+}
 
 // Creates a structured diagnostic for ordering and classification assertions.
 Diagnostic Finding(DiagnosticSeverity severity,
@@ -30,7 +37,7 @@ PackageInventory Package(PackageKind kind) {
 // Creates one fully populated resource descriptor for report checks.
 ResourceDescriptor Resource(PackageKind kind) {
   ResourceDescriptor resource;
-  resource.displayPath = "資料/resource.xml";
+  resource.displayPath = Utf8String(u8"資料/resource.xml");
   resource.normalizedPath = resource.displayPath;
   resource.packageKind = kind;
   resource.size = 42;
@@ -55,6 +62,11 @@ ValidationResult Validation() {
 
 // Verifies the complete deterministic MVR report projection.
 void TestMvrReport() {
+  const std::string expectedSourcePath = Utf8String(u8"資料/灯具-ñ.mvr");
+  const std::string provider = Utf8String(u8"Pérastage");
+  const std::string embeddedGdtf = Utf8String(u8"fixtures/灯具.gdtf");
+  const std::string fixtureName = Utf8String(u8"灯具");
+  const std::string resourcePath = Utf8String(u8"資料/resource.xml");
   MvrInspectionResult result;
   result.inspection.request.sourcePath =
       std::filesystem::path(u8"資料/灯具-ñ.mvr");
@@ -69,19 +81,19 @@ void TestMvrReport() {
   auto &snapshot = *result.snapshot;
   snapshot.versionMajor = 1;
   snapshot.versionMinor = 6;
-  snapshot.provider = "Pérastage";
+  snapshot.provider = provider;
   snapshot.providerVersion = "1.7";
   snapshot.sceneDescriptionEntry = "GeneralSceneDescription.xml";
   snapshot.sceneDescriptionXml = "<GeneralSceneDescription/>";
-  snapshot.embeddedGdtfEntries = {"fixtures/灯具.gdtf"};
+  snapshot.embeddedGdtfEntries = {embeddedGdtf};
   snapshot.referencedResources = {{"geometry", "models/fixture.glb"}};
   snapshot.fixtures.push_back({"fixture",
                                "fixture-1",
-                               "灯具",
+                               fixtureName,
                                "layer-1",
                                "Main",
                                {},
-                               "fixtures/灯具.gdtf",
+                               embeddedGdtf,
                                {}});
   snapshot.nodeCounts = {{"layers", 1}, {"fixtures", 1}};
 
@@ -94,12 +106,13 @@ void TestMvrReport() {
   assert(first == second);
   assert(json.at("schema_version") == kInspectionJsonSchemaVersion);
   assert(json.at("format") == "MVR");
-  assert(json.at("request").at("source_path") == "資料/灯具-ñ.mvr");
+  assert(json.at("request").at("source_path") == expectedSourcePath);
   assert(json.at("diagnostics").at(0).at("code") == "report.first");
   assert(json.at("diagnostics").at(1).at("classification") == "compatibility");
   assert(json.at("package").at("entries").at(0).at("display_path") ==
          "root.xml");
   assert(json.at("resources").at(0).at("kind") == "xml_text");
+  assert(json.at("resources").at(0).at("display_path") == resourcePath);
   assert(json.at("validation").at(0).at("layer") == "schema");
   assert(json.at("validation")
              .at(0)
@@ -108,11 +121,11 @@ void TestMvrReport() {
              .at("classification") == "standards");
   const auto &serialized = json.at("snapshot");
   assert(serialized.at("version_major") == 1);
-  assert(serialized.at("provider") == "Pérastage");
+  assert(serialized.at("provider") == provider);
   assert(serialized.at("root_xml") == "<GeneralSceneDescription/>");
-  assert(serialized.at("fixtures").at(0).at("name") == "灯具");
+  assert(serialized.at("fixtures").at(0).at("name") == fixtureName);
   assert(serialized.at("node_counts").at(1).at("count") == 1);
-  assert(serialized.at("embedded_gdtfs").at(0) == "fixtures/灯具.gdtf");
+  assert(serialized.at("embedded_gdtfs").at(0) == embeddedGdtf);
   assert(serialized.at("referenced_resources").at(0).at("archive_path") ==
          "models/fixture.glb");
   assert(first.find("workspace") == std::string::npos);

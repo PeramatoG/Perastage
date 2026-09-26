@@ -3,8 +3,15 @@
 
 #include <iostream>
 #include <string>
+#include <string_view>
 
 namespace {
+
+// Copies explicit UTF-8 code units into a byte string for presentation checks.
+std::string Utf8String(std::u8string_view value) {
+  return std::string(reinterpret_cast<const char *>(value.data()),
+                     value.size());
+}
 
 // Reports a failed presentation assertion with its stable label.
 bool Expect(bool condition, const char *label) {
@@ -82,21 +89,28 @@ bool CheckFormatters() {
                        "raw-read=yes | text-preview=yes | path=safe\n",
                    "resources golden");
 
+  const std::string sourcePath = Utf8String(u8"Unicode/escena-ñ.mvr");
+  const std::string provider = Utf8String(u8"Pérastage");
   inspection::MvrInspectionResult mvr;
-  mvr.inspection.request.sourcePath = "Unicode/escena-ñ.mvr";
+  mvr.inspection.request.sourcePath =
+      std::filesystem::path(std::u8string(u8"Unicode/escena-ñ.mvr"));
   mvr.packageInventory = inventory;
   mvr.snapshot.emplace();
   mvr.snapshot->versionMajor = 1;
   mvr.snapshot->versionMinor = 6;
-  mvr.snapshot->provider = "Pérastage";
+  mvr.snapshot->provider = provider;
   mvr.snapshot->providerVersion = "1";
   mvr.snapshot->sceneDescriptionXml = "<GeneralSceneDescription/>";
   mvr.snapshot->nodeCounts = {{"layers", 1}, {"fixtures", 2}};
   const std::string summary = cli::FormatMvrSummary(mvr, {resource});
   passed &= Expect(summary.find("Format: MVR\nStatus: inspected\n") == 0,
                    "MVR summary golden prefix");
-  passed &= Expect(summary.find("Provider: Pérastage\n") != std::string::npos,
-                   "MVR Unicode summary");
+  passed &=
+      Expect(summary.find("Input: " + sourcePath + "\n") != std::string::npos,
+             "MVR Unicode path summary");
+  passed &=
+      Expect(summary.find("Provider: " + provider + "\n") != std::string::npos,
+             "MVR Unicode provider summary");
 
   mvr.inspection.diagnostics.push_back(
       Finding(inspection::DiagnosticSeverity::Warning,
