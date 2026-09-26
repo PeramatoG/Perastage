@@ -295,6 +295,26 @@ void TestValidationLayers() {
   assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_type_id_not_allowed"));
 }
 
+// Verifies deterministic failure and immutability for malformed MVR containers.
+void TestMalformedOwnedInputMatrix() {
+  const std::vector<std::vector<std::uint8_t>> corpus = {
+      {},
+      {'n', 'o', 't', '-', 'z', 'i', 'p'},
+      {'P', 'K', 3, 4, 0, 0, 0, 0},
+  };
+  for (std::size_t index = 0; index < corpus.size(); ++index) {
+    const Request request{
+        fs::path("malformed-" + std::to_string(index) + ".mvr")};
+    const std::vector<std::uint8_t> before = corpus[index];
+    const MvrInspectionResult first = InspectMvrBytes(corpus[index], request);
+    const MvrInspectionResult second = InspectMvrBytes(corpus[index], request);
+    assert(!first.Success());
+    assert(first.inspection.HasFatalDiagnostics());
+    AssertStableResultEqual(first, second);
+    assert(corpus[index] == before);
+  }
+}
+
 // Finds one stable summary count by node type.
 std::size_t Count(const MvrInspectionSnapshot &snapshot,
                   const std::string &type) {
@@ -647,6 +667,7 @@ void TestNonMvrPackageKind() {
 // Runs the standalone MVR inspection contract without application or GUI code.
 int main() {
   TestValidationLayers();
+  TestMalformedOwnedInputMatrix();
   TestStandaloneInspectionParity();
   TestUnnamedAuthoredLayer();
   TestRecoveredUuidLayerOwnership();

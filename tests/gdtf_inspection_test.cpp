@@ -86,7 +86,7 @@ void AssertDiagnosticEqual(const Diagnostic &left, const Diagnostic &right) {
   }
 }
 
-// Compares the complete stable public GDTF inspection projection.
+// Compares all stable public GDTF facts except intentional source identity.
 void AssertStableResultEqual(const GdtfInspectionResult &left,
                              const GdtfInspectionResult &right) {
   assert(left.status == right.status);
@@ -149,13 +149,62 @@ void AssertStableResultEqual(const GdtfInspectionResult &left,
   const auto &rightDescription = right.document->Description();
   assert(leftArchive.descriptionXml == rightArchive.descriptionXml);
   assert(leftArchive.descriptionEntryPath == rightArchive.descriptionEntryPath);
+  assert(leftArchive.entries.size() == rightArchive.entries.size());
+  for (std::size_t index = 0; index < leftArchive.entries.size(); ++index) {
+    const auto &a = leftArchive.entries[index];
+    const auto &b = rightArchive.entries[index];
+    assert(a.path == b.path);
+    assert(a.size == b.size);
+    assert(a.sizeKnown == b.sizeKnown);
+    assert(a.directory == b.directory);
+    assert(a.nameUsedUtf8CompatibilityFallback ==
+           b.nameUsedUtf8CompatibilityFallback);
+  }
+  assert(leftArchive.diagnostics.size() == rightArchive.diagnostics.size());
+  for (std::size_t index = 0; index < leftArchive.diagnostics.size(); ++index) {
+    const auto &a = leftArchive.diagnostics[index];
+    const auto &b = rightArchive.diagnostics[index];
+    assert(a.code == b.code);
+    assert(a.message == b.message);
+    assert(a.entryPath == b.entryPath);
+  }
   assert(leftArchive.usedCompatibilityDescriptionFallback ==
          rightArchive.usedCompatibilityDescriptionFallback);
   assert(leftArchive.standardsCompliantDescriptionLocation ==
          rightArchive.standardsCompliantDescriptionLocation);
+  assert(leftArchive.utf8FlagMissingEntryCount ==
+         rightArchive.utf8FlagMissingEntryCount);
   assert(leftDescription.dataVersion == rightDescription.dataVersion);
   assert(leftDescription.fixtureTypeName == rightDescription.fixtureTypeName);
   assert(leftDescription.manufacturer == rightDescription.manufacturer);
+  assert(leftDescription.shortName == rightDescription.shortName);
+  assert(leftDescription.longName == rightDescription.longName);
+  assert(leftDescription.description == rightDescription.description);
+  assert(leftDescription.fixtureTypeId == rightDescription.fixtureTypeId);
+  assert(leftDescription.thumbnail == rightDescription.thumbnail);
+  assert(leftDescription.createDate == rightDescription.createDate);
+  assert(leftDescription.revision == rightDescription.revision);
+  assert(leftDescription.weightKgPresent == rightDescription.weightKgPresent);
+  assert(leftDescription.weightKg == rightDescription.weightKg);
+  assert(leftDescription.powerConsumptionWPresent ==
+         rightDescription.powerConsumptionWPresent);
+  assert(leftDescription.powerConsumptionW ==
+         rightDescription.powerConsumptionW);
+  assert(leftDescription.modelColorHex == rightDescription.modelColorHex);
+  assert(leftDescription.trussCrossSectionType ==
+         rightDescription.trussCrossSectionType);
+  assert(leftDescription.trussCrossSection ==
+         rightDescription.trussCrossSection);
+  assert(leftDescription.revisions.size() == rightDescription.revisions.size());
+  for (std::size_t index = 0; index < leftDescription.revisions.size();
+       ++index) {
+    const auto &a = leftDescription.revisions[index];
+    const auto &b = rightDescription.revisions[index];
+    assert(a.text == b.text);
+    assert(a.date == b.date);
+    assert(a.userId == b.userId);
+    assert(a.modifiedBy == b.modifiedBy);
+  }
   assert(leftDescription.dmxModeNames == rightDescription.dmxModeNames);
   assert(leftDescription.wheels.size() == rightDescription.wheels.size());
   for (std::size_t wheel = 0; wheel < leftDescription.wheels.size(); ++wheel) {
@@ -172,6 +221,38 @@ void AssertStableResultEqual(const GdtfInspectionResult &left,
       assert(a.resourceReferences == b.resourceReferences);
     }
   }
+  assert(leftDescription.diagnostics.size() ==
+         rightDescription.diagnostics.size());
+  for (std::size_t index = 0; index < leftDescription.diagnostics.size();
+       ++index) {
+    const auto &a = leftDescription.diagnostics[index];
+    const auto &b = rightDescription.diagnostics[index];
+    assert(a.code == b.code);
+    assert(a.message == b.message);
+    assert(a.path == b.path);
+  }
+  assert(left.document->Modes() == right.document->Modes());
+  assert(left.document->RepeatedFamilies().size() ==
+         right.document->RepeatedFamilies().size());
+  for (std::size_t index = 0; index < left.document->RepeatedFamilies().size();
+       ++index) {
+    assert(left.document->RepeatedFamilies()[index].familyKind ==
+           right.document->RepeatedFamilies()[index].familyKind);
+    assert(left.document->RepeatedFamilies()[index].names ==
+           right.document->RepeatedFamilies()[index].names);
+  }
+  assert(left.document->Valid() == right.document->Valid());
+}
+
+// Compares source identity for repeated use of the same GDTF entry point.
+void AssertSourceIdentityEqual(const GdtfInspectionResult &left,
+                               const GdtfInspectionResult &right) {
+  assert(left.document.has_value() == right.document.has_value());
+  if (left.document) {
+    assert(left.document->SourcePath() == right.document->SourcePath());
+    assert(left.document->SourceFilePresent() ==
+           right.document->SourceFilePresent());
+  }
 }
 
 // Reports whether an adapted diagnostic has a code and classification.
@@ -183,6 +264,23 @@ bool HasDiagnostic(const GdtfInspectionResult &result, const std::string &code,
                        return diagnostic.code == code &&
                               diagnostic.classification == classification;
                      });
+}
+
+// Finds a classification in all public GDTF diagnostics.
+bool HasClassification(const GdtfInspectionResult &result,
+                       DiagnosticClassification classification) {
+  const auto matches = [classification](const Diagnostic &diagnostic) {
+    return diagnostic.classification == classification;
+  };
+  if (std::any_of(result.inspection.diagnostics.begin(),
+                  result.inspection.diagnostics.end(), matches))
+    return true;
+  for (const auto &validation : result.validation) {
+    if (std::any_of(validation.diagnostics.begin(),
+                    validation.diagnostics.end(), matches))
+      return true;
+  }
+  return false;
 }
 
 // Returns one validation stage from a GDTF inspection result.
@@ -216,6 +314,7 @@ void TestValidationLayers(const fs::path &directory) {
          ValidationStatus::Valid);
   assert(Validation(valid, ValidationLayer::Schema).status ==
          ValidationStatus::Valid);
+  assert(!HasClassification(valid, DiagnosticClassification::Compatibility));
 
   const fs::path invalidPath = directory / "standards-invalid.gdtf";
   WriteArchive(invalidPath,
@@ -230,6 +329,8 @@ void TestValidationLayers(const fs::path &directory) {
          ValidationStatus::Valid);
   assert(Validation(invalid, ValidationLayer::Schema).status ==
          ValidationStatus::Invalid);
+  assert(HasClassification(invalid, DiagnosticClassification::Standards));
+  assert(!HasClassification(invalid, DiagnosticClassification::Compatibility));
 
   const fs::path compatiblePath = directory / "standards-compatible.gdtf";
   WriteArchive(compatiblePath,
@@ -241,6 +342,7 @@ void TestValidationLayers(const fs::path &directory) {
          ValidationStatus::Valid);
   assert(HasDiagnostic(compatible, "gdtf.archive.non_canonical_description_xml",
                        DiagnosticClassification::Compatibility));
+  assert(!HasClassification(compatible, DiagnosticClassification::Standards));
 }
 
 // Verifies canonical inspection, source preservation, and direct-reader parity.
@@ -309,10 +411,8 @@ void TestCanonicalAndParity(const fs::path &directory) {
 
   const GdtfInspectionResult repeated =
       perastage::inspection::InspectGdtf(path);
-  assert(repeated.document->Description().dmxModeNames ==
-         description.dmxModeNames);
-  assert(repeated.inspection.diagnostics.size() ==
-         inspected.inspection.diagnostics.size());
+  AssertStableResultEqual(inspected, repeated);
+  AssertSourceIdentityEqual(inspected, repeated);
 }
 
 // Verifies file and owned-byte parity, determinism, Unicode, and non-mutation.
@@ -321,10 +421,36 @@ void TestOwnedBytesParity(const fs::path &directory) {
       directory / fs::path(std::u8string(u8"fixture-path-é"));
   fs::create_directories(unicodeDirectory);
   const fs::path path = unicodeDirectory / "parity.gdtf";
-  WriteArchive(path, {{"description.xml", CompleteXml()},
-                      {"wheels/蓝色.png", "image"},
+  std::string xml = CompleteXml();
+  const std::string asciiReference =
+      "MediaFileName=\"blue\" Gobo=\"wheels/blue.png\"";
+  const std::string unicodeReference =
+      "MediaFileName=\"蓝色\" Gobo=\"wheels/蓝色.png\"";
+  assert(xml.find(asciiReference) != std::string::npos);
+  xml.replace(xml.find(asciiReference), asciiReference.size(),
+              unicodeReference);
+  WriteArchive(path, {{"description.xml", xml},
+                      {"wheels/蓝色.png", "unicode-image"},
                       {"models/nested/灯具.glb", "model"}});
   const std::vector<unsigned char> bytes = ReadBytes(path);
+  const std::vector<unsigned char> originalBytes = bytes;
+  const gdtf::ArchiveReadResult directArchive = gdtf::ReadGdtfArchive(path);
+  assert(std::any_of(
+      directArchive.entries.begin(), directArchive.entries.end(),
+      [](const auto &entry) { return entry.path == "wheels/蓝色.png"; }));
+  const gdtf::GdtfDescriptionSnapshot directDescription =
+      gdtf::ReadGdtfDescription(
+          directArchive.descriptionXml,
+          {"description.xml", "wheels/蓝色.png", "models/nested/灯具.glb"});
+  assert(directDescription.wheels.front().slots.front().resourceReferences ==
+         std::vector<std::string>{"wheels/蓝色.png"});
+  const gdtf::GdtfResourceReadResult directResource =
+      gdtf::ReadGdtfArchiveResource(path, "wheels/蓝色.png");
+  assert(directResource.Success());
+  assert(directResource.entryPath == "wheels/蓝色.png");
+  assert(directResource.bytes ==
+         std::vector<unsigned char>({'u', 'n', 'i', 'c', 'o', 'd', 'e', '-',
+                                     'i', 'm', 'a', 'g', 'e'}));
   const perastage::inspection::Request logicalRequest{path};
   const GdtfInspectionResult fromFile =
       perastage::inspection::InspectGdtf(path);
@@ -334,10 +460,18 @@ void TestOwnedBytesParity(const fs::path &directory) {
       perastage::inspection::InspectGdtf(bytes, logicalRequest);
   AssertStableResultEqual(fromFile, fromBytes);
   AssertStableResultEqual(fromBytes, repeated);
+  AssertSourceIdentityEqual(fromBytes, repeated);
+  assert(fromFile.document->Description()
+             .wheels.front()
+             .slots.front()
+             .resourceReferences ==
+         directDescription.wheels.front().slots.front().resourceReferences);
   assert(fromFile.document->SourceFilePresent());
+  assert(fromFile.document->SourcePath() == path);
   assert(!fromBytes.document->SourceFilePresent());
   assert(fromBytes.document->SourcePath().empty());
   assert(bytes == ReadBytes(path));
+  assert(bytes == originalBytes);
 }
 
 // Verifies standards and compatibility findings remain distinct when mixed.
@@ -352,6 +486,8 @@ void TestMixedDiagnosticClassifications(const fs::path &directory) {
                        DiagnosticClassification::Compatibility));
   assert(HasDiagnostic(inspected, "gdtf.description.missing_dmx_modes",
                        DiagnosticClassification::Standards));
+  assert(HasClassification(inspected, DiagnosticClassification::Compatibility));
+  assert(HasClassification(inspected, DiagnosticClassification::Standards));
 }
 
 // Verifies malformed owned inputs return structured fatal results repeatedly.
