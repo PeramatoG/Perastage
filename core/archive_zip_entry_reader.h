@@ -1,5 +1,7 @@
 #pragma once
 
+#include "archive_zip_directory.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -16,17 +18,26 @@ enum class EntryReadStatus : std::uint8_t {
   ReadFailed,
 };
 
-// Carries one bounded ZIP payload selected by authoritative directory index.
+// Carries one bounded ZIP payload selected by validated local-record identity.
 struct EntryReadResult {
   EntryReadStatus status = EntryReadStatus::ReadFailed;
   std::vector<std::uint8_t> bytes;
+  bool complete = false;
 
   bool Success() const;
 };
 
 EntryReadResult ReadEntry(const std::filesystem::path &archivePath,
-                          std::size_t entryIndex, std::uint64_t maxBytes);
+                          const DirectoryEntry &entry, std::uint64_t maxBytes);
 EntryReadResult ReadEntry(std::span<const std::uint8_t> archiveBytes,
-                          std::size_t entryIndex, std::uint64_t maxBytes);
+                          const DirectoryEntry &entry, std::uint64_t maxBytes);
+std::vector<EntryReadResult>
+ReadEntryPrefixes(const std::filesystem::path &archivePath,
+                  const std::vector<DirectoryEntry> &entries,
+                  std::uint64_t maxBytes);
+std::vector<EntryReadResult>
+ReadEntryPrefixes(std::span<const std::uint8_t> archiveBytes,
+                  const std::vector<DirectoryEntry> &entries,
+                  std::uint64_t maxBytes);
 
 } // namespace perastage::archive::zip

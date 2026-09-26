@@ -320,7 +320,7 @@ GdtfInspectionResult InspectGdtf(const std::vector<std::uint8_t> &bytes,
     }
     if (result.document) {
       gdtf::ArchiveReadResult archive = result.document->Archive();
-      archive.sourcePath = request.sourcePath;
+      archive.sourcePath.clear();
       result.document = gdtf::GdtfDocument(std::move(archive),
                                            result.document->Description());
     }

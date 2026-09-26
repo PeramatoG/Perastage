@@ -282,17 +282,43 @@ DescribePackageResources(const std::filesystem::path &packagePath,
                          std::uint64_t maxSniffBytes) {
   std::vector<ResourceDescriptor> resources =
       DescribePackageResources(inventory);
-  for (ResourceDescriptor &resource : resources) {
-    if (!resource.rawReadSupported || !resource.normalizedPath ||
-        (resource.sizeKnown && resource.size > maxSniffBytes))
+  const archive::zip::DirectoryReadResult directory =
+      archive::zip::ReadDirectory(packagePath);
+  if (!directory.Success() || maxSniffBytes == 0)
+    return resources;
+  std::vector<std::optional<std::size_t>> prefixIndices(resources.size());
+  std::vector<archive::zip::DirectoryEntry> selectedEntries;
+  for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
+       ++resourceIndex) {
+    ResourceDescriptor &resource = resources[resourceIndex];
+    if (!resource.rawReadSupported || !resource.normalizedPath)
       continue;
-    const ResourceReadResult read = ReadPackageResource(
-        packagePath, inventory.kind, *resource.normalizedPath, maxSniffBytes);
-    if (!read.Success())
+    ResourceReadResult selection;
+    const std::optional<std::size_t> index =
+        SelectGenericEntry(directory, *resource.normalizedPath, selection);
+    if (!index)
       continue;
-    resource.kind = read.kind;
-    resource.textPreviewSupported =
-        read.kind == ResourceKind::XmlText || read.kind == ResourceKind::Text;
+    prefixIndices[resourceIndex] = selectedEntries.size();
+    selectedEntries.push_back(directory.entries[*index]);
+  }
+  const std::vector<archive::zip::EntryReadResult> prefixes =
+      archive::zip::ReadEntryPrefixes(packagePath, selectedEntries,
+                                      maxSniffBytes);
+  for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
+       ++resourceIndex) {
+    ResourceDescriptor &resource = resources[resourceIndex];
+    if (!prefixIndices[resourceIndex])
+      continue;
+    const archive::zip::EntryReadResult &prefix =
+        prefixes[*prefixIndices[resourceIndex]];
+    if (!prefix.Success())
+      continue;
+    resource.kind = IdentifyKind(*resource.normalizedPath, prefix.bytes);
+    if (!prefix.complete && (resource.kind == ResourceKind::XmlText ||
+                             resource.kind == ResourceKind::Text))
+      resource.kind = ResourceKind::Binary;
+    resource.textPreviewSupported = resource.kind == ResourceKind::XmlText ||
+                                    resource.kind == ResourceKind::Text;
   }
   return resources;
 }
@@ -304,18 +330,44 @@ DescribePackageResources(std::span<const std::uint8_t> packageBytes,
                          std::uint64_t maxSniffBytes, const Request &request) {
   std::vector<ResourceDescriptor> resources =
       DescribePackageResources(inventory);
-  for (ResourceDescriptor &resource : resources) {
-    if (!resource.rawReadSupported || !resource.normalizedPath ||
-        (resource.sizeKnown && resource.size > maxSniffBytes))
+  const archive::zip::DirectoryReadResult directory =
+      archive::zip::ReadDirectory(packageBytes);
+  if (!directory.Success() || maxSniffBytes == 0)
+    return resources;
+  std::vector<std::optional<std::size_t>> prefixIndices(resources.size());
+  std::vector<archive::zip::DirectoryEntry> selectedEntries;
+  for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
+       ++resourceIndex) {
+    ResourceDescriptor &resource = resources[resourceIndex];
+    if (!resource.rawReadSupported || !resource.normalizedPath)
       continue;
-    const ResourceReadResult read =
-        ReadPackageResource(packageBytes, inventory.kind,
-                            *resource.normalizedPath, maxSniffBytes, request);
-    if (!read.Success())
+    ResourceReadResult selection;
+    selection.inspection.request = request;
+    const std::optional<std::size_t> index =
+        SelectGenericEntry(directory, *resource.normalizedPath, selection);
+    if (!index)
       continue;
-    resource.kind = read.kind;
-    resource.textPreviewSupported =
-        read.kind == ResourceKind::XmlText || read.kind == ResourceKind::Text;
+    prefixIndices[resourceIndex] = selectedEntries.size();
+    selectedEntries.push_back(directory.entries[*index]);
+  }
+  const std::vector<archive::zip::EntryReadResult> prefixes =
+      archive::zip::ReadEntryPrefixes(packageBytes, selectedEntries,
+                                      maxSniffBytes);
+  for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
+       ++resourceIndex) {
+    ResourceDescriptor &resource = resources[resourceIndex];
+    if (!prefixIndices[resourceIndex])
+      continue;
+    const archive::zip::EntryReadResult &prefix =
+        prefixes[*prefixIndices[resourceIndex]];
+    if (!prefix.Success())
+      continue;
+    resource.kind = IdentifyKind(*resource.normalizedPath, prefix.bytes);
+    if (!prefix.complete && (resource.kind == ResourceKind::XmlText ||
+                             resource.kind == ResourceKind::Text))
+      resource.kind = ResourceKind::Binary;
+    resource.textPreviewSupported = resource.kind == ResourceKind::XmlText ||
+                                    resource.kind == ResourceKind::Text;
   }
   return resources;
 }
@@ -355,7 +407,8 @@ ResourceReadResult ReadPackageResource(const std::filesystem::path &packagePath,
                     normalized);
       return result;
     }
-    ApplyEntryRead(archive::zip::ReadEntry(packagePath, *index, maxBytes),
+    ApplyEntryRead(archive::zip::ReadEntry(packagePath,
+                                           directory.entries[*index], maxBytes),
                    normalized, result);
   } catch (const std::exception &) {
     ResourceReadResult result;
@@ -413,7 +466,8 @@ ReadPackageResource(std::span<const std::uint8_t> packageBytes,
                     normalized);
       return result;
     }
-    ApplyEntryRead(archive::zip::ReadEntry(packageBytes, *index, maxBytes),
+    ApplyEntryRead(archive::zip::ReadEntry(packageBytes,
+                                           directory.entries[*index], maxBytes),
                    normalized, result);
   } catch (const std::exception &) {
     result.inspection.request = request;

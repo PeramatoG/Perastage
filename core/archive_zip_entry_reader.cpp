@@ -2,7 +2,9 @@
 
 #include "wx_path_utils.h"
 
+#include <algorithm>
 #include <memory>
+#include <unordered_map>
 
 #include <wx/mstream.h>
 #include <wx/wfstream.h>
@@ -11,59 +13,149 @@
 namespace perastage::archive::zip {
 namespace {
 
-// Reads one indexed ZIP entry while enforcing the limit during decompression.
+// Reads one validated local ZIP record with all-or-nothing limit semantics.
 template <typename InputStream>
-EntryReadResult ReadEntryFromStream(InputStream &input, std::size_t entryIndex,
+EntryReadResult ReadEntryFromStream(InputStream &input,
+                                    const DirectoryEntry &expected,
                                     std::uint64_t maxBytes) {
   wxZipInputStream zip(input);
   std::unique_ptr<wxZipEntry> entry;
-  for (std::size_t index = 0; (entry.reset(zip.GetNextEntry())), entry;
-       ++index) {
-    if (index != entryIndex)
-      continue;
-    const wxFileOffset claimedSize = entry->GetSize();
-    if (claimedSize >= 0 && static_cast<std::uint64_t>(claimedSize) > maxBytes)
-      return {EntryReadStatus::EntryTooLarge, {}};
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetOffset() >= 0 &&
+        static_cast<std::uint64_t>(entry->GetOffset()) ==
+            expected.localHeaderOffset)
+      break;
+  }
+  if (!entry)
+    return {EntryReadStatus::EntryMissing, {}};
+  if (entry->IsDir() != expected.directory)
+    return {EntryReadStatus::ReadFailed, {}};
+  const wxString entryName = entry->GetName();
+  const wxScopedCharBuffer utf8 = entryName.ToUTF8();
+  if (!utf8 || std::string(utf8.data()) != expected.bytes)
+    return {EntryReadStatus::ReadFailed, {}};
+  const wxFileOffset claimedSize = entry->GetSize();
+  if (claimedSize >= 0 && static_cast<std::uint64_t>(claimedSize) > maxBytes)
+    return {EntryReadStatus::EntryTooLarge, {}};
 
-    EntryReadResult result{EntryReadStatus::Success, {}};
+  EntryReadResult result{EntryReadStatus::Success, {}};
+  std::uint8_t buffer[8192];
+  while (true) {
+    const std::uint64_t remaining = maxBytes - result.bytes.size();
+    const std::uint64_t requested =
+        remaining >= sizeof(buffer) ? remaining : remaining + 1;
+    const std::size_t request = static_cast<std::size_t>(
+        std::min<std::uint64_t>(sizeof(buffer), requested));
+    zip.Read(buffer, request);
+    const std::size_t count = zip.LastRead();
+    if (count == 0)
+      break;
+    if (count > remaining)
+      return {EntryReadStatus::EntryTooLarge, {}};
+    result.bytes.insert(result.bytes.end(), buffer, buffer + count);
+  }
+  if (zip.GetLastError() != wxSTREAM_NO_ERROR &&
+      zip.GetLastError() != wxSTREAM_EOF)
+    return {EntryReadStatus::ReadFailed, {}};
+  result.complete = true;
+  return result;
+}
+
+// Reads bounded prefixes for selected local records in one sequential pass.
+template <typename InputStream>
+std::vector<EntryReadResult>
+ReadPrefixesFromStream(InputStream &input,
+                       const std::vector<DirectoryEntry> &expected,
+                       std::uint64_t maxBytes) {
+  std::vector<EntryReadResult> results(expected.size(),
+                                       {EntryReadStatus::EntryMissing, {}});
+  std::unordered_map<std::uint64_t, std::size_t> byOffset;
+  for (std::size_t index = 0; index < expected.size(); ++index)
+    byOffset.emplace(expected[index].localHeaderOffset, index);
+
+  wxZipInputStream zip(input);
+  std::unique_ptr<wxZipEntry> entry;
+  while ((entry.reset(zip.GetNextEntry())), entry) {
+    if (entry->GetOffset() < 0)
+      continue;
+    const auto selected =
+        byOffset.find(static_cast<std::uint64_t>(entry->GetOffset()));
+    if (selected == byOffset.end())
+      continue;
+    const DirectoryEntry &identity = expected[selected->second];
+    const wxString entryName = entry->GetName();
+    const wxScopedCharBuffer utf8 = entryName.ToUTF8();
+    if (!utf8 || std::string(utf8.data()) != identity.bytes ||
+        entry->IsDir() != identity.directory) {
+      results[selected->second].status = EntryReadStatus::ReadFailed;
+      continue;
+    }
+    EntryReadResult &result = results[selected->second];
+    result.status = EntryReadStatus::Success;
     std::uint8_t buffer[8192];
-    while (true) {
-      zip.Read(buffer, sizeof(buffer));
+    while (result.bytes.size() < maxBytes) {
+      const std::size_t request =
+          static_cast<std::size_t>(std::min<std::uint64_t>(
+              sizeof(buffer), maxBytes - result.bytes.size()));
+      zip.Read(buffer, request);
       const std::size_t count = zip.LastRead();
       if (count == 0)
         break;
-      if (count > maxBytes || result.bytes.size() > maxBytes - count)
-        return {EntryReadStatus::EntryTooLarge, {}};
       result.bytes.insert(result.bytes.end(), buffer, buffer + count);
     }
-    if (zip.GetLastError() != wxSTREAM_NO_ERROR &&
-        zip.GetLastError() != wxSTREAM_EOF)
-      return {EntryReadStatus::ReadFailed, {}};
-    return result;
+    if (result.bytes.size() < maxBytes &&
+        zip.GetLastError() != wxSTREAM_NO_ERROR &&
+        zip.GetLastError() != wxSTREAM_EOF) {
+      result.status = EntryReadStatus::ReadFailed;
+      result.bytes.clear();
+    } else if (result.bytes.size() < maxBytes) {
+      result.complete = true;
+    }
   }
-  return {EntryReadStatus::EntryMissing, {}};
+  return results;
 }
 } // namespace
 
-// Reports whether the indexed ZIP payload was read completely.
+// Reports whether the selected ZIP payload was read completely or as a prefix.
 bool EntryReadResult::Success() const {
   return status == EntryReadStatus::Success;
 }
 
-// Opens a fresh filesystem stream and reads one authoritative entry index.
+// Opens a filesystem stream at one validated local-record offset.
 EntryReadResult ReadEntry(const std::filesystem::path &archivePath,
-                          std::size_t entryIndex, std::uint64_t maxBytes) {
+                          const DirectoryEntry &entry, std::uint64_t maxBytes) {
   wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
   if (!input.IsOk())
     return {EntryReadStatus::OpenFailed, {}};
-  return ReadEntryFromStream(input, entryIndex, maxBytes);
+  return ReadEntryFromStream(input, entry, maxBytes);
 }
 
-// Opens a fresh memory stream and reads one authoritative entry index.
+// Opens a memory stream at one validated local-record offset.
 EntryReadResult ReadEntry(std::span<const std::uint8_t> archiveBytes,
-                          std::size_t entryIndex, std::uint64_t maxBytes) {
+                          const DirectoryEntry &entry, std::uint64_t maxBytes) {
   wxMemoryInputStream input(archiveBytes.data(), archiveBytes.size());
-  return ReadEntryFromStream(input, entryIndex, maxBytes);
+  return ReadEntryFromStream(input, entry, maxBytes);
+}
+
+// Reads selected filesystem prefixes without rescanning the archive per entry.
+std::vector<EntryReadResult>
+ReadEntryPrefixes(const std::filesystem::path &archivePath,
+                  const std::vector<DirectoryEntry> &entries,
+                  std::uint64_t maxBytes) {
+  wxFileInputStream input(WxPathUtils::WxStringFromFilesystemPath(archivePath));
+  if (!input.IsOk())
+    return std::vector<EntryReadResult>(entries.size(),
+                                        {EntryReadStatus::OpenFailed, {}});
+  return ReadPrefixesFromStream(input, entries, maxBytes);
+}
+
+// Reads selected memory prefixes without rescanning the archive per entry.
+std::vector<EntryReadResult>
+ReadEntryPrefixes(std::span<const std::uint8_t> archiveBytes,
+                  const std::vector<DirectoryEntry> &entries,
+                  std::uint64_t maxBytes) {
+  wxMemoryInputStream input(archiveBytes.data(), archiveBytes.size());
+  return ReadPrefixesFromStream(input, entries, maxBytes);
 }
 
 } // namespace perastage::archive::zip

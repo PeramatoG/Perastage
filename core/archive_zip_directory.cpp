@@ -199,7 +199,7 @@ DirectoryReadResult ReadDirectory(std::span<const std::uint8_t> input) {
 
     const bool directory = !centralName.empty() && centralName.back() == '/';
     result.entries.push_back({std::move(centralName), (flags & (1U << 11)) != 0,
-                              uncompressedSize, directory});
+                              uncompressedSize, localOffset, directory});
     cursor += recordSize;
   }
   if (cursor != centralEnd)
@@ -294,7 +294,7 @@ DirectoryReadResult ReadDirectory(const std::filesystem::path &archivePath) {
 
     const bool directory = !centralName.empty() && centralName.back() == '/';
     result.entries.push_back({std::move(centralName), (flags & (1U << 11)) != 0,
-                              uncompressedSize, directory});
+                              uncompressedSize, localOffset, directory});
     cursor += recordSize;
   }
   if (cursor != centralEnd)
