@@ -54,8 +54,7 @@ target_include_directories(perastage_inspection_serialization
     PRIVATE ${CMAKE_SOURCE_DIR}/third_party
 )
 target_link_libraries(perastage_inspection_serialization
-    PUBLIC perastage_inspection_core perastage_inspection_gdtf
-           perastage_inspection_mvr perastage_inspection_resource
+    PUBLIC perastage_inspection_core
 )
 
 add_library(perastage_archive_zip_directory STATIC
@@ -181,6 +180,23 @@ target_include_directories(perastage_inspection_package PUBLIC
 target_link_libraries(perastage_inspection_package
     PUBLIC perastage_inspection_core
     PRIVATE perastage_archive_zip_directory
+)
+
+add_library(perastage_inspection_report_serialization STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_report_json_serializer.cpp
+)
+target_compile_features(perastage_inspection_report_serialization PUBLIC
+    cxx_std_20
+)
+target_include_directories(perastage_inspection_report_serialization
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+target_link_libraries(perastage_inspection_report_serialization
+    PUBLIC perastage_inspection_serialization
+           perastage_inspection_gdtf
+           perastage_inspection_mvr
+           perastage_inspection_resource
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

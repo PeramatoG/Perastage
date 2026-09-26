@@ -1,8 +1,5 @@
-#include "inspection/inspection_json_serializer.h"
 #include "inspection_outcome.h"
 #include "inspection_text_formatter.h"
-
-#include "json.hpp"
 
 #include <iostream>
 #include <string>
@@ -134,81 +131,7 @@ bool CheckFormatters() {
   return passed;
 }
 
-// Verifies complete deterministic JSON additions and retained XML.
-bool CheckJson() {
-  using namespace perastage;
-  inspection::MvrInspectionResult result;
-  result.inspection.request.sourcePath = "Unicode/escena-ñ.mvr";
-  result.snapshot.emplace();
-  result.snapshot->versionMajor = 1;
-  result.snapshot->versionMinor = 6;
-  result.snapshot->provider = "Pérastage";
-  result.snapshot->sceneDescriptionXml = "<GeneralSceneDescription/>";
-  result.snapshot->fixtures.push_back(
-      {"fixture", "2", "Fixture", "1", "Layer", {}, "fixture.gdtf", {}});
-  result.snapshot->nodeCounts.push_back({"fixtures", 1});
-  const std::string first =
-      inspection::serialization::SerializeMvrReportToJson(result, {});
-  const std::string second =
-      inspection::serialization::SerializeMvrReportToJson(result, {});
-  const auto json = nlohmann::json::parse(first);
-  bool passed = Expect(first == second, "deterministic JSON");
-  passed &= Expect(json["schema_version"] == 1 && json["format"] == "MVR",
-                   "JSON report identity");
-  passed &= Expect(json["snapshot"]["root_xml"] == "<GeneralSceneDescription/>",
-                   "retained XML JSON");
-  passed &= Expect(first.find("workspace") == std::string::npos,
-                   "no temporary path JSON");
-  inspection::GdtfInspectionResult gdtf;
-  gdtf.inspection.request.sourcePath = "fixture.gdtf";
-  gdtf.status = inspection::GdtfReadStatus::CompatibilityAccepted;
-  gdtf::ArchiveReadResult archive;
-  archive.descriptionXml = "<GDTF/>";
-  archive.descriptionEntryPath = "Description.xml";
-  archive.usedCompatibilityDescriptionFallback = true;
-  archive.standardsCompliantDescriptionLocation = false;
-  archive.utf8FlagMissingEntryCount = 2;
-  gdtf::GdtfDescriptionSnapshot description;
-  description.dataVersion = "1.2";
-  description.fixtureTypeName = "Fixture";
-  description.dmxModeNames = {"Mode A", "Mode B"};
-  description.wheels = {{"Color", {}}, {"Gobo", {}}};
-  gdtf.document.emplace(std::move(archive), std::move(description));
-  const std::string firstGdtf =
-      inspection::serialization::SerializeGdtfReportToJson(gdtf, {});
-  const std::string secondGdtf =
-      inspection::serialization::SerializeGdtfReportToJson(gdtf, {});
-  const auto gdtfJson = nlohmann::json::parse(firstGdtf);
-  passed &= Expect(firstGdtf == secondGdtf, "deterministic GDTF JSON");
-  passed &= Expect(gdtfJson["format"] == "GDTF" &&
-                       gdtfJson["document"]["root_xml"] == "<GDTF/>",
-                   "GDTF report JSON");
-  passed &= Expect(gdtfJson["status"] == "compatibility_accepted" &&
-                       gdtfJson["document"]["valid"] == true,
-                   "GDTF compatibility and validity JSON");
-  passed &= Expect(gdtfJson["document"]["modes"] ==
-                       nlohmann::json({"Mode A", "Mode B"}),
-                   "GDTF modes JSON");
-  passed &=
-      Expect(gdtfJson["document"]["repeated_families"] ==
-                 nlohmann::json::parse(
-                     R"([{"family_kind":"wheel","names":["Color","Gobo"]}])"),
-             "GDTF repeated families JSON");
-  const auto &archiveJson = gdtfJson["document"]["archive"];
-  passed &= Expect(
-      archiveJson["description_entry_path"] == "Description.xml" &&
-          archiveJson["used_compatibility_description_fallback"] == true &&
-          archiveJson["standards_compliant_description_location"] == false &&
-          archiveJson["utf8_flag_missing_entry_count"] == 2,
-      "GDTF archive state JSON");
-  passed &= Expect(firstGdtf.find("workspace") == std::string::npos,
-                   "no temporary GDTF path JSON");
-  return passed;
-}
-
 } // namespace
 
-// Runs CLI inspection outcome, formatter, and serialization checks.
-int main() {
-  return CheckOutcome() && CheckFormatters() && CheckJson() ? 0 : 1;
-}
+// Runs CLI inspection outcome and human formatter checks.
+int main() { return CheckOutcome() && CheckFormatters() ? 0 : 1; }

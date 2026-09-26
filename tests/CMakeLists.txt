@@ -153,6 +153,18 @@ set_perastage_test_labels(InspectionJsonSerializer
                           LAYER perastage-extension
                           DOMAINS architecture core)
 
+add_executable(inspection_report_json_serializer_test
+               inspection_report_json_serializer_test.cpp)
+target_include_directories(inspection_report_json_serializer_test PRIVATE
+                           ../third_party)
+target_link_libraries(inspection_report_json_serializer_test PRIVATE
+                      perastage_inspection_report_serialization)
+add_test(NAME InspectionReportJsonSerializer
+         COMMAND inspection_report_json_serializer_test)
+set_perastage_test_labels(InspectionReportJsonSerializer
+                          LAYER perastage-extension
+                          DOMAINS architecture core inspection gdtf mvr)
+
 add_executable(package_inspection_test package_inspection_test.cpp)
 target_link_libraries(package_inspection_test PRIVATE
                       perastage_inspection_package)
@@ -250,6 +262,7 @@ if(BASH_EXECUTABLE)
     add_bash_policy_test(InspectionContractBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_contract_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionTargetBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_target_boundary.sh LABELS standard-strict architecture core)
     add_bash_policy_test(InspectionSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_serialization_boundary.sh LABELS standard-strict architecture core)
+    add_bash_policy_test(InspectionReportSerializationBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_report_serialization_boundary.sh LABELS standard-strict architecture core inspection gdtf mvr)
     add_bash_policy_test(InspectionPackageBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_inspection_package_boundary.sh LABELS standard-strict architecture core zip security)
     add_bash_policy_test(ResourceInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_resource_inspection_boundary.sh LABELS standard-strict architecture core zip security)
     add_bash_policy_test(GdtfInspectionBoundary ${CMAKE_CURRENT_SOURCE_DIR}/check_gdtf_inspection_boundary.sh LABELS standard-strict architecture core gdtf inspection)

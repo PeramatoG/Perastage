@@ -27,7 +27,7 @@ ALLOWED_LINK_TARGETS = {
     "perastage_inspection_gdtf",
     "perastage_inspection_mvr",
     "perastage_inspection_resource",
-    "perastage_inspection_serialization",
+    "perastage_inspection_report_serialization",
 }
 
 

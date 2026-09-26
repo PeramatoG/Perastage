@@ -156,10 +156,13 @@ a filesystem input and preserves ordered diagnostics with stable technical
 identifiers, severity, domain, classification, and optional source metadata.
 Future CLI, Inspector GUI, Console, and other adapters consume these structured
 results. Serialization and presentation are outside this semantic contract.
-The separate `perastage_inspection_serialization` boundary converts an existing
-result to deterministic machine-readable JSON, while frontends own presentation
-formatting. The semantic contract remains neutral to both concerns, and file
-readers and format-specific inspection services remain separate from it.
+The minimal `perastage_inspection_serialization` boundary converts an existing
+neutral `Result` to deterministic machine-readable JSON, while the higher-level
+`perastage_inspection_report_serialization` boundary composes complete reports
+from existing GDTF, MVR, resource, and validation results. Frontends continue to
+own presentation formatting. The semantic contract remains neutral to both
+concerns, and file readers and format-specific inspection services remain
+separate from them.
 
 Resource browsing adapts the authoritative package inventory into neutral entry
 descriptors and provides explicit-limit raw reads for filesystem and owned-byte
@@ -238,6 +241,14 @@ JSON implementation remains private. The library depends on
 `perastage_inspection_core` and has no GUI, App, viewer, XML, networking, or
 graphics dependency. It serializes in-memory results and does not inspect or
 reparse files.
+
+`perastage_inspection_report_serialization` is the frontend-neutral C++20
+composition boundary for complete GDTF and MVR reports. It depends on the
+minimal base serializer and the focused GDTF, MVR, and resource Inspection
+targets, reuses the base serializer's private diagnostic/path/token helpers,
+and adds only already-structured package, validation, document, and snapshot
+facts. It never reparses packages or XML, exposes no JSON implementation or
+GUI/wx type, and keeps complete reports from broadening the API-030 base target.
 
 `perastage_inspection_package` is the INS-100 C++20 static boundary for
 read-only `.gdtf` and `.mvr` classification and ZIP metadata inventory. Its

@@ -14,7 +14,7 @@ target_link_libraries(perastage_cli_support PUBLIC
     perastage_inspection_gdtf
     perastage_inspection_mvr
     perastage_inspection_resource
-    perastage_inspection_serialization)
+    perastage_inspection_report_serialization)
 
 add_executable(perastage_cli)
 target_sources(perastage_cli PRIVATE main.cpp)

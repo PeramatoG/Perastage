@@ -1,7 +1,7 @@
 #include "inspect_command.h"
 
 #include "inspection/gdtf_inspection.h"
-#include "inspection/inspection_json_serializer.h"
+#include "inspection/inspection_report_json_serializer.h"
 #include "inspection/mvr_inspection.h"
 #include "inspection/resource_inspection.h"
 #include "inspection_outcome.h"

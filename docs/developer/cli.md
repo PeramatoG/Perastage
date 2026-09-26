@@ -45,10 +45,11 @@ paths are passed directly through the standard C++ filesystem boundary.
 - `xml` writes only the exact retained `description.xml` or
   `GeneralSceneDescription.xml` payload. It adds no heading or newline and
   performs no parsing, rewriting, or pretty-printing.
-- `--json` writes one complete schema-version-1 report. The Core serializer
-  extends the existing base result fields with format status, package,
-  resources, validation, and GDTF document or MVR snapshot facts. The base
-  `SerializeResultToJson(Result)` contract remains unchanged.
+- `--json` writes one complete schema-version-1 report. The Core
+  `perastage_inspection_report_serialization` boundary composes format status,
+  package, resources, validation, and GDTF document or MVR snapshot facts over
+  the minimal base result serialization. The base `SerializeResultToJson(Result)`
+  contract remains unchanged.
 
 Both presentation modes consume the same single in-memory result returned by
 `InspectGdtf` or `InspectMvr`. Resource metadata comes from the neutral resource
@@ -76,8 +77,8 @@ findings are not duplicated there.
 
 `cli/main.cpp` only adapts process arguments and invokes the independently
 testable standard-C++ runner. CLI sources depend only on public Core inspection
-headers and link the focused GDTF, MVR, resource, and serialization inspection
-targets. The semantic work stays in Inspection Core, including its private or
+headers and link the focused GDTF, MVR, resource, and report-serialization
+inspection targets. The semantic work stays in Inspection Core, including its private or
 transitive reader dependencies. CLI code does not include or directly call MVR
 or GDTF reader implementations.
 
