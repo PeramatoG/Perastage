@@ -164,8 +164,10 @@ packages. Reads reject unsafe or ambiguous paths and enforce the caller's limit
 both before allocation and while decompressing. Validated local-header offsets
 bind central-directory selections to their physical ZIP records. Content kinds
 are identified conservatively from bounded prefixes plus filename hints, so
-large entries need not be read completely; uncertain or mismatched payloads
-remain binary. UTF-8 XML and explicitly supported text can
+large entries need not be read completely. Prefixes have a fixed 64-byte
+per-entry ceiling, which covers the supported signatures and bounds aggregate
+payload storage for the classic-ZIP entry-count limit; uncertain or mismatched
+payloads remain binary. UTF-8 XML and explicitly supported text can
 be previewed without rewriting source content. Embedded GDTF packages in MVR are
 acquired through this bounded path and passed to the same GDTF inspection
 implementation used for standalone files. Because that authoritative reader is

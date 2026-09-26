@@ -120,7 +120,7 @@ inline std::uint32_t ComputeCrc32(const std::string &payload) {
 inline bool WriteStoredZipWithRawNames(
     const std::filesystem::path &archivePath,
     const std::vector<std::pair<std::string, std::string>> &entries,
-    std::string &error) {
+    std::string &error, bool utf8Names = true) {
   if (entries.size() > std::numeric_limits<std::uint16_t>::max()) {
     error = "ZIP fixture has too many entries";
     return false;
@@ -144,7 +144,7 @@ inline bool WriteStoredZipWithRawNames(
                          static_cast<std::uint32_t>(bytes.size())};
     AppendLe32(bytes, 0x04034b50);
     AppendLe16(bytes, 20);
-    AppendLe16(bytes, 0x0800);
+    AppendLe16(bytes, utf8Names ? 0x0800 : 0);
     AppendLe16(bytes, 0);
     AppendLe16(bytes, 0);
     AppendLe16(bytes, 0);
@@ -166,7 +166,7 @@ inline bool WriteStoredZipWithRawNames(
     AppendLe32(bytes, 0x02014b50);
     AppendLe16(bytes, 20);
     AppendLe16(bytes, 20);
-    AppendLe16(bytes, 0x0800);
+    AppendLe16(bytes, utf8Names ? 0x0800 : 0);
     AppendLe16(bytes, 0);
     AppendLe16(bytes, 0);
     AppendLe16(bytes, 0);

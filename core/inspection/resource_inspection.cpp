@@ -13,6 +13,9 @@
 namespace perastage::inspection {
 namespace {
 constexpr std::uint64_t kMaximumResourceReadBytes = 256ull * 1024ull * 1024ull;
+// Sixty-four bytes cover supported signatures and bound classic-ZIP sniff
+// storage.
+constexpr std::uint64_t kMaximumResourceSniffBytes = 64;
 
 // Folds ASCII letters for deterministic resource comparisons.
 std::string LowerAscii(std::string value) {
@@ -286,6 +289,8 @@ DescribePackageResources(const std::filesystem::path &packagePath,
       archive::zip::ReadDirectory(packagePath);
   if (!directory.Success() || maxSniffBytes == 0)
     return resources;
+  const std::uint64_t sniffBytes =
+      std::min(maxSniffBytes, kMaximumResourceSniffBytes);
   std::vector<std::optional<std::size_t>> prefixIndices(resources.size());
   std::vector<archive::zip::DirectoryEntry> selectedEntries;
   for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
@@ -303,7 +308,7 @@ DescribePackageResources(const std::filesystem::path &packagePath,
   }
   const std::vector<archive::zip::EntryReadResult> prefixes =
       archive::zip::ReadEntryPrefixes(packagePath, selectedEntries,
-                                      maxSniffBytes);
+                                      sniffBytes);
   for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
        ++resourceIndex) {
     ResourceDescriptor &resource = resources[resourceIndex];
@@ -334,6 +339,8 @@ DescribePackageResources(std::span<const std::uint8_t> packageBytes,
       archive::zip::ReadDirectory(packageBytes);
   if (!directory.Success() || maxSniffBytes == 0)
     return resources;
+  const std::uint64_t sniffBytes =
+      std::min(maxSniffBytes, kMaximumResourceSniffBytes);
   std::vector<std::optional<std::size_t>> prefixIndices(resources.size());
   std::vector<archive::zip::DirectoryEntry> selectedEntries;
   for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
@@ -352,7 +359,7 @@ DescribePackageResources(std::span<const std::uint8_t> packageBytes,
   }
   const std::vector<archive::zip::EntryReadResult> prefixes =
       archive::zip::ReadEntryPrefixes(packageBytes, selectedEntries,
-                                      maxSniffBytes);
+                                      sniffBytes);
   for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
        ++resourceIndex) {
     ResourceDescriptor &resource = resources[resourceIndex];

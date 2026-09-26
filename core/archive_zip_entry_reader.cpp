@@ -28,11 +28,8 @@ EntryReadResult ReadEntryFromStream(InputStream &input,
   }
   if (!entry)
     return {EntryReadStatus::EntryMissing, {}};
+  // ReadDirectory already validated this offset and its raw central/local name.
   if (entry->IsDir() != expected.directory)
-    return {EntryReadStatus::ReadFailed, {}};
-  const wxString entryName = entry->GetName();
-  const wxScopedCharBuffer utf8 = entryName.ToUTF8();
-  if (!utf8 || std::string(utf8.data()) != expected.bytes)
     return {EntryReadStatus::ReadFailed, {}};
   const wxFileOffset claimedSize = entry->GetSize();
   if (claimedSize >= 0 && static_cast<std::uint64_t>(claimedSize) > maxBytes)
@@ -83,10 +80,8 @@ ReadPrefixesFromStream(InputStream &input,
     if (selected == byOffset.end())
       continue;
     const DirectoryEntry &identity = expected[selected->second];
-    const wxString entryName = entry->GetName();
-    const wxScopedCharBuffer utf8 = entryName.ToUTF8();
-    if (!utf8 || std::string(utf8.data()) != identity.bytes ||
-        entry->IsDir() != identity.directory) {
+    // The validated local offset is the physical identity across wx path formats.
+    if (entry->IsDir() != identity.directory) {
       results[selected->second].status = EntryReadStatus::ReadFailed;
       continue;
     }

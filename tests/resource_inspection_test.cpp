@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,16 @@ void WritePackage(
     const std::vector<std::pair<std::string, std::string>> &entries) {
   std::string error;
   assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error));
+  assert(error.empty());
+}
+
+// Writes a package whose valid UTF-8 entry names omit the optional ZIP flag.
+void WritePackageWithoutUtf8Flag(
+    const fs::path &path,
+    const std::vector<std::pair<std::string, std::string>> &entries) {
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error,
+                                                    false));
   assert(error.empty());
 }
 
@@ -170,11 +181,10 @@ void TestBoundedDescriptorSniff(const fs::path &root) {
   const fs::path path = root / "large-sniff.mvr";
   std::string largePng("\x89PNG\r\n\x1a\n", 8);
   largePng.append(4096, 'x');
-  std::string misleadingText("text-prefix");
-  misleadingText.append(64, '\0');
+  const std::string boundedText(128, 't');
   WritePackage(path, {{"large.png", largePng},
                       {"fake.png", "not-image"},
-                      {"misleading.txt", misleadingText}});
+                      {"bounded.txt", boundedText}});
   const PackageInspectionResult package = InspectPackage(path);
   assert(package.inventory);
   const auto filesystem = DescribePackageResources(path, *package.inventory, 8);
@@ -186,6 +196,60 @@ void TestBoundedDescriptorSniff(const fs::path &root) {
   assert(owned[0].kind == ResourceKind::Image);
   assert(filesystem[1].kind == ResourceKind::Binary);
   assert(filesystem[2].kind == ResourceKind::Binary);
+  const auto hugeFilesystem = DescribePackageResources(
+      path, *package.inventory, std::numeric_limits<std::uint64_t>::max());
+  const auto repeatedFilesystem = DescribePackageResources(
+      path, *package.inventory, std::numeric_limits<std::uint64_t>::max());
+  const auto hugeOwned = DescribePackageResources(
+      bytes, *package.inventory, std::numeric_limits<std::uint64_t>::max(),
+      Request{path});
+  assert(hugeFilesystem.size() == 3 && hugeOwned.size() == 3);
+  for (std::size_t index = 0; index < hugeFilesystem.size(); ++index) {
+    assert(hugeFilesystem[index].kind == repeatedFilesystem[index].kind);
+    assert(hugeFilesystem[index].kind == hugeOwned[index].kind);
+  }
+  assert(hugeFilesystem[0].kind == ResourceKind::Image);
+  assert(hugeFilesystem[1].kind == ResourceKind::Binary);
+  assert(hugeFilesystem[2].kind == ResourceKind::Binary);
+}
+
+// Verifies nested and unflagged UTF-8 names use validated raw ZIP identity.
+void TestPortableNestedPaths(const fs::path &root) {
+  const fs::path path = root / "portable-nested.mvr";
+  const std::string imagePath = "folder/subfolder/resource.png";
+  const std::string unicodePath =
+      "folder/\xC3\xBCnterordner/gr\xC3\xBC\xC3\x9F" "e.xml";
+  const std::string png("\x89PNG\r\n\x1a\npayload", 15);
+  const std::string xml =
+      "<?xml version=\"1.0\"?><name>Gr\xC3\xBC\xC3\x9F" "e</name>";
+  WritePackageWithoutUtf8Flag(path,
+                              {{imagePath, png}, {unicodePath, xml}});
+  const PackageInspectionResult package = InspectPackage(path);
+  assert(package.inspection.Success() && package.inventory);
+  assert(package.inventory->entries[1].normalizedPath == unicodePath);
+  const std::vector<std::uint8_t> bytes = ReadBytes(path);
+
+  for (const bool owned : {false, true}) {
+    const ResourceReadResult image =
+        owned ? ReadPackageResource(bytes, PackageKind::Mvr, imagePath, 1024,
+                                    Request{path})
+              : ReadPackageResource(path, PackageKind::Mvr, imagePath, 1024);
+    assert(image.Success() && image.requestedPath == imagePath);
+    assert(image.resolvedPath == imagePath && image.kind == ResourceKind::Image);
+    assert(image.bytes == std::vector<std::uint8_t>(png.begin(), png.end()));
+
+    const ResourceReadResult text =
+        owned ? ReadPackageResource(bytes, PackageKind::Mvr, unicodePath, 1024,
+                                    Request{path})
+              : ReadPackageResource(path, PackageKind::Mvr, unicodePath, 1024);
+    const TextPreviewResult preview =
+        owned ? PreviewPackageText(bytes, PackageKind::Mvr, unicodePath, 1024,
+                                   Request{path})
+              : PreviewPackageText(path, PackageKind::Mvr, unicodePath, 1024);
+    assert(text.Success() && text.resolvedPath == unicodePath);
+    assert(text.bytes == std::vector<std::uint8_t>(xml.begin(), xml.end()));
+    assert(preview.Success() && preview.text == xml);
+  }
 }
 
 // Verifies central-directory order cannot redirect a selected resource payload.
@@ -460,6 +524,7 @@ int main() {
   fs::create_directories(root);
   TestDescriptors(root);
   TestBoundedDescriptorSniff(root);
+  TestPortableNestedPaths(root);
   TestReorderedCentralDirectory(root);
   TestReadsAndPreview(root);
   TestGdtfResourceLookup(root);
