@@ -40,6 +40,46 @@ def percent(values: tuple[int, int]) -> str:
     return f"{covered * 100.0 / total:.2f}%" if total else "n/a"
 
 
+def coverage_scopes(report: dict) -> dict[str, tuple[int, int]]:
+    core = totals(report, "core/")
+    mvr = totals(report, "mvr/")
+    return {
+        "core": core,
+        "inspection": totals(report, "core/inspection/"),
+        "mvr": mvr,
+        "combined": (core[0] + mvr[0], core[1] + mvr[1]),
+    }
+
+
+def render_summary(report: dict, commit: str) -> str:
+    scopes = coverage_scopes(report)
+    gaps = sorted(
+        ((totals({"files": [entry]}), entry["file"]) for entry in report["files"]),
+        key=lambda item: item[0][1] - item[0][0],
+        reverse=True,
+    )[:5]
+    summary = [
+        "## Core/MVR coverage",
+        "",
+        f"Tested commit: `{commit}`",
+        "",
+        "| Scope | Covered / total lines | Line coverage |",
+        "|---|---:|---:|",
+        f"| `core/` | {scopes['core'][0]} / {scopes['core'][1]} | {percent(scopes['core'])} |",
+        f"| Inspection (`core/inspection/`) | {scopes['inspection'][0]} / {scopes['inspection'][1]} | {percent(scopes['inspection'])} |",
+        f"| `mvr/` | {scopes['mvr'][0]} / {scopes['mvr'][1]} | {percent(scopes['mvr'])} |",
+        f"| Combined | {scopes['combined'][0]} / {scopes['combined'][1]} | {percent(scopes['combined'])} |",
+        "",
+        "Largest uncovered files:",
+    ]
+    summary.extend(
+        f"- `{name}`: {values[1] - values[0]} uncovered lines"
+        for values, name in gaps
+    )
+    summary.append("\nCoverage is informational; no percentage threshold is enforced.\n")
+    return "\n".join(summary)
+
+
 def main() -> int:
     args = parse_args()
     root = Path(__file__).resolve().parents[2]
@@ -76,33 +116,7 @@ def main() -> int:
     )
 
     report = json.loads((output / "coverage.json").read_text(encoding="utf-8"))
-    core = totals(report, "core/")
-    mvr = totals(report, "mvr/")
-    combined = (core[0] + mvr[0], core[1] + mvr[1])
-    gaps = sorted(
-        ((totals({"files": [entry]}), entry["file"]) for entry in report["files"]),
-        key=lambda item: item[0][1] - item[0][0],
-        reverse=True,
-    )[:5]
-    summary = [
-        "## Core/MVR coverage",
-        "",
-        f"Tested commit: `{args.commit}`",
-        "",
-        "| Scope | Covered / total lines | Line coverage |",
-        "|---|---:|---:|",
-        f"| `core/` | {core[0]} / {core[1]} | {percent(core)} |",
-        f"| `mvr/` | {mvr[0]} / {mvr[1]} | {percent(mvr)} |",
-        f"| Combined | {combined[0]} / {combined[1]} | {percent(combined)} |",
-        "",
-        "Largest uncovered files:",
-    ]
-    summary.extend(
-        f"- `{name}`: {values[1] - values[0]} uncovered lines"
-        for values, name in gaps
-    )
-    summary.append("\nCoverage is informational; no percentage threshold is enforced.\n")
-    rendered = "\n".join(summary)
+    rendered = render_summary(report, args.commit)
     (output / "summary.md").write_text(rendered, encoding="utf-8")
     if args.summary:
         args.summary.parent.mkdir(parents=True, exist_ok=True)

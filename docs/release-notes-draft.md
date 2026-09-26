@@ -8,6 +8,8 @@ Changes since **v1.6.0**.
 
 ## Compatibility, stability, and performance
 
+- Strengthened read-only Inspector reliability with complete deterministic parity, malformed-container, Unicode resource, diagnostic-separation, and non-mutation characterization, and made Inspector coverage explicitly visible in the informational Core/MVR report.
+
 ## Important fixes
 
 - Restored fixture-category fallback diagnostics during normal MVR imports.
