@@ -161,18 +161,48 @@ bool CheckJson() {
                    "no temporary path JSON");
   inspection::GdtfInspectionResult gdtf;
   gdtf.inspection.request.sourcePath = "fixture.gdtf";
-  gdtf.status = inspection::GdtfReadStatus::Canonical;
+  gdtf.status = inspection::GdtfReadStatus::CompatibilityAccepted;
   gdtf::ArchiveReadResult archive;
   archive.descriptionXml = "<GDTF/>";
+  archive.descriptionEntryPath = "Description.xml";
+  archive.usedCompatibilityDescriptionFallback = true;
+  archive.standardsCompliantDescriptionLocation = false;
+  archive.utf8FlagMissingEntryCount = 2;
   gdtf::GdtfDescriptionSnapshot description;
   description.dataVersion = "1.2";
   description.fixtureTypeName = "Fixture";
+  description.dmxModeNames = {"Mode A", "Mode B"};
+  description.wheels = {{"Color", {}}, {"Gobo", {}}};
   gdtf.document.emplace(std::move(archive), std::move(description));
-  const auto gdtfJson = nlohmann::json::parse(
-      inspection::serialization::SerializeGdtfReportToJson(gdtf, {}));
+  const std::string firstGdtf =
+      inspection::serialization::SerializeGdtfReportToJson(gdtf, {});
+  const std::string secondGdtf =
+      inspection::serialization::SerializeGdtfReportToJson(gdtf, {});
+  const auto gdtfJson = nlohmann::json::parse(firstGdtf);
+  passed &= Expect(firstGdtf == secondGdtf, "deterministic GDTF JSON");
   passed &= Expect(gdtfJson["format"] == "GDTF" &&
                        gdtfJson["document"]["root_xml"] == "<GDTF/>",
                    "GDTF report JSON");
+  passed &= Expect(gdtfJson["status"] == "compatibility_accepted" &&
+                       gdtfJson["document"]["valid"] == true,
+                   "GDTF compatibility and validity JSON");
+  passed &= Expect(gdtfJson["document"]["modes"] ==
+                       nlohmann::json({"Mode A", "Mode B"}),
+                   "GDTF modes JSON");
+  passed &=
+      Expect(gdtfJson["document"]["repeated_families"] ==
+                 nlohmann::json::parse(
+                     R"([{"family_kind":"wheel","names":["Color","Gobo"]}])"),
+             "GDTF repeated families JSON");
+  const auto &archiveJson = gdtfJson["document"]["archive"];
+  passed &= Expect(
+      archiveJson["description_entry_path"] == "Description.xml" &&
+          archiveJson["used_compatibility_description_fallback"] == true &&
+          archiveJson["standards_compliant_description_location"] == false &&
+          archiveJson["utf8_flag_missing_entry_count"] == 2,
+      "GDTF archive state JSON");
+  passed &= Expect(firstGdtf.find("workspace") == std::string::npos,
+                   "no temporary GDTF path JSON");
   return passed;
 }
 

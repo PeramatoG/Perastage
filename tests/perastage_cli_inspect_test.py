@@ -29,9 +29,12 @@ def write_package(path: Path, root_name: str, xml: str) -> None:
         package.writestr("resources/readme.txt", "resource")
 
 
-def run(executable: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-    """Launch the real executable while preserving stdout and stderr separately."""
-    return subprocess.run([str(executable), *arguments], text=True, capture_output=True, check=False)
+def run(executable: Path, *arguments: str) -> tuple[int, str, str]:
+    """Launch the real executable and decode its technical output as UTF-8."""
+    result = subprocess.run([str(executable), *arguments], capture_output=True, check=False)
+    return (result.returncode,
+            result.stdout.decode("utf-8", errors="strict"),
+            result.stderr.decode("utf-8", errors="strict"))
 
 
 def require(condition: bool, message: str) -> None:
@@ -47,48 +50,61 @@ def main() -> int:
         root = Path(directory)
         gdtf = root / "fixture.gdtf"
         mvr = root / "scene.mvr"
-        unicode_mvr = root / "escena-ñ.mvr"
+        unicode_name = "資料-灯具-ñ.mvr"
+        unicode_mvr = root / unicode_name
+        unsafe_mvr = root / "unsafe-entry.mvr"
         compatibility = root / "compat.gdtf"
         malformed = root / "broken.mvr"
         unsupported = root / "notes.txt"
         write_package(gdtf, "description.xml", GDTF_XML)
         write_package(mvr, "GeneralSceneDescription.xml", MVR_XML)
         write_package(unicode_mvr, "GeneralSceneDescription.xml", MVR_XML)
+        write_package(unsafe_mvr, "GeneralSceneDescription.xml", MVR_XML)
+        with zipfile.ZipFile(unsafe_mvr, "a", zipfile.ZIP_STORED) as package:
+            package.writestr("../unsafe-resource.txt", "unsafe")
         write_package(compatibility, "Description.xml", GDTF_XML)
         malformed.write_bytes(b"not a zip")
         unsupported.write_text("text", encoding="utf-8")
 
         result = run(executable, "inspect", str(gdtf))
-        require(result.returncode == 0 and "Format: GDTF" in result.stdout and not result.stderr,
+        require(result[0] == 0 and "Format: GDTF" in result[1] and not result[2],
                 "valid GDTF summary")
         result = run(executable, "inspect", str(mvr))
-        require(result.returncode == 0 and "Format: MVR" in result.stdout and not result.stderr,
+        require(result[0] == 0 and "Format: MVR" in result[1] and not result[2],
                 "valid MVR summary")
         result = run(executable, "inspect", str(mvr), "--view", "inventory")
-        require(result.returncode == 0 and "GeneralSceneDescription.xml" in result.stdout,
+        require(result[0] == 0 and "GeneralSceneDescription.xml" in result[1],
                 "inventory view")
         result = run(executable, "inspect", str(mvr), "--view", "resources")
-        require(result.returncode == 0 and "GeneralSceneDescription.xml" in result.stdout
-                and "raw-read=yes" in result.stdout, "resources view")
+        require(result[0] == 0 and "GeneralSceneDescription.xml" in result[1]
+                and "raw-read=yes" in result[1], "resources view")
         result = run(executable, "inspect", str(mvr), "--view", "diagnostics")
-        require(result.returncode == 0 and not result.stderr, "diagnostics view")
+        require(result[0] == 0 and not result[2], "diagnostics view")
         result = run(executable, "inspect", str(mvr), "--view", "xml")
-        require(result.returncode == 0 and result.stdout == MVR_XML, "exact XML output")
+        require(result[0] == 0 and result[1] == MVR_XML, "exact XML output")
         result = run(executable, "inspect", str(gdtf), "--json")
-        report = json.loads(result.stdout)
-        require(result.returncode == 0 and report["format"] == "GDTF" and report["document"]["root_xml"] == GDTF_XML,
+        report = json.loads(result[1])
+        require(result[0] == 0 and report["format"] == "GDTF" and report["document"]["root_xml"] == GDTF_XML,
                 "complete GDTF JSON")
         result = run(executable, "inspect", str(compatibility), "--json")
-        require(result.returncode == 1 and json.loads(result.stdout)["status"] == "compatibility_accepted",
+        require(result[0] == 1 and json.loads(result[1])["status"] == "compatibility_accepted",
                 "compatibility warning")
+        result = run(executable, "inspect", str(unsafe_mvr), "--json")
+        unsafe_report = json.loads(result[1])
+        require(result[0] == 1 and not result[2], "unsafe-entry stderr cleanliness")
+        require(any(item["code"] == "package.unsafe_entry_path"
+                    for item in unsafe_report["diagnostics"]),
+                "unsafe-entry structured diagnostic")
         result = run(executable, "inspect", str(malformed), "--json")
-        require(result.returncode == 3 and json.loads(result.stdout)["success"] is False and not result.stderr,
+        require(result[0] == 3 and json.loads(result[1])["success"] is False and not result[2],
                 "structured malformed source")
         result = run(executable, "inspect", str(unsupported))
-        require(result.returncode == 4 and not result.stdout and "unsupported input type" in result.stderr,
+        require(result[0] == 4 and not result[1] and "unsupported input type" in result[2],
                 "unsupported input routing")
         result = run(executable, "inspect", str(unicode_mvr), "--json")
-        require(result.returncode == 0 and "escena-ñ.mvr" in json.loads(result.stdout)["request"]["source_path"],
+        unicode_source_path = json.loads(result[1])["request"]["source_path"]
+        require(result[0] == 0 and Path(unicode_source_path).name == unicode_name
+                and "�" not in unicode_source_path and "Ã" not in unicode_source_path,
                 "Unicode filesystem path")
     return 0
 

@@ -270,6 +270,7 @@ SerializeGdtfReportToJson(const GdtfInspectionResult &result,
   root["document"] = nullptr;
   if (result.document) {
     const auto &description = result.document->Description();
+    const auto &archive = result.document->Archive();
     nlohmann::json revisions = nlohmann::json::array();
     for (const auto &revision : description.revisions)
       revisions.push_back({{"text", revision.text},
@@ -285,6 +286,10 @@ SerializeGdtfReportToJson(const GdtfInspectionResult &result,
                          {"resource_references", slot.resourceReferences}});
       wheels.push_back({{"name", wheel.name}, {"slots", std::move(slots)}});
     }
+    nlohmann::json repeatedFamilies = nlohmann::json::array();
+    for (const auto &family : result.document->RepeatedFamilies())
+      repeatedFamilies.push_back(
+          {{"family_kind", family.familyKind}, {"names", family.names}});
     root["document"] = {
         {"data_version", description.dataVersion},
         {"fixture_type_name", description.fixtureTypeName},
@@ -307,6 +312,17 @@ SerializeGdtfReportToJson(const GdtfInspectionResult &result,
         {"truss_cross_section_type", description.trussCrossSectionType},
         {"truss_cross_section", description.trussCrossSection},
         {"dmx_modes", description.dmxModeNames},
+        {"valid", result.document->Valid()},
+        {"modes", result.document->Modes()},
+        {"repeated_families", std::move(repeatedFamilies)},
+        {"archive",
+         {{"description_entry_path", archive.descriptionEntryPath},
+          {"used_compatibility_description_fallback",
+           archive.usedCompatibilityDescriptionFallback},
+          {"standards_compliant_description_location",
+           archive.standardsCompliantDescriptionLocation},
+          {"utf8_flag_missing_entry_count",
+           archive.utf8FlagMissingEntryCount}}},
         {"revisions", std::move(revisions)},
         {"wheels", std::move(wheels)},
         {"root_xml", result.document->Archive().descriptionXml}};
