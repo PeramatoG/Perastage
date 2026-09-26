@@ -7,13 +7,14 @@ the canonical human-readable map of repository paths and root-file roles, see
 
 ## Top-level layout
 
-<!-- repository-source-module-responsibilities: app=application lifecycle and startup composition; core=shared business logic and services; gui=wxWidgets UI and workflows; models=scene data structures; mvr=MVR interchange; viewer2d=2D rendering and export; viewer3d=3D rendering and loading; viewer_common=shared viewer utilities -->
+<!-- repository-source-module-responsibilities: app=application lifecycle and startup composition; cli=headless command-line entry and grammar; core=shared business logic and services; gui=wxWidgets UI and workflows; models=scene data structures; mvr=MVR interchange; viewer2d=2D rendering and export; viewer3d=3D rendering and loading; viewer_common=shared viewer utilities -->
 
 This stable marker is checked against the canonical source-module inventory in
 `repository_structure_baseline.json`; the descriptions below define each
 module's architectural responsibility.
 
 - `app/`: wxWidgets application lifecycle and startup composition.
+- `cli/`: headless command-line entry point and stable technical grammar.
 - `core/`: shared business logic and services.
 - `gui/`: wxWidgets UI and main window workflows.
 - `viewer2d/`: 2D renderer and PDF/export helpers.
@@ -72,7 +73,7 @@ Viewer3D consuming MVR data, and GUI consuming Viewer2D/Viewer3D facilities).
 That include-directory audit did not itself define direction policy. The
 subsequent dependency audit produced the enforced contract below.
 
-All feature modules still contribute to the same `${PROJECT_NAME}` target.
+All GUI feature modules still contribute to the same `${PROJECT_NAME}` target.
 Moving declarations to module CMake files records ownership and reduces root
 coupling, but does not create source-local compiler isolation or a new target
 boundary. Stronger compile-time isolation would require a future target-level
@@ -81,20 +82,22 @@ architecture change.
 ### Internal module dependency directions
 
 The following contract records the current production source-level includes.
-It is not a target-level link graph: all eight modules still contribute to the
-single application target. Counts are evidence occurrences from the current
-inventory; same-module includes and test sources are excluded.
+It is not a target-level link graph: the eight GUI feature modules contribute
+to the application target, while `cli` owns separate command-line targets.
+Counts are evidence occurrences from the current inventory; same-module
+includes and test sources are excluded.
 
 | Consumer | Accepted providers (evidence count) | Architectural rationale |
 |---|---|---|
 | `app` | `core` (12), `gui` (2), `viewer3d` (1) | Application composition coordinates lifecycle services, windows, and the existing GDTF cache teardown API. |
-| `core` | `models` (46), `mvr` (5), `viewer2d` (4), `viewer3d` (7) | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
+| `cli` | `core` (1) | The headless command-line shell uses only the canonical Core product name; future commands must preserve this downward-only boundary. |
+| `core` | `models` (46), `mvr` (7), `viewer2d` (4), `viewer3d` (7) | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
 | `models` | None | Scene data does not include another audited application module. |
-| `mvr` | `core` (55), `gui` (3), `models` (9), `viewer2d` (1), `viewer3d` (2) | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |
-| `gui` | `core` (411), `models` (42), `mvr` (15), `viewer2d` (77), `viewer3d` (45), `viewer_common` (5) | UI workflows orchestrate application services, interchange, both viewers, and shared GL utilities. |
+| `mvr` | `core` (92), `gui` (3), `models` (24), `viewer2d` (1), `viewer3d` (3) | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |
+| `gui` | `core` (420), `models` (47), `mvr` (15), `viewer2d` (77), `viewer3d` (45), `viewer_common` (5) | UI workflows orchestrate application services, interchange, both viewers, and shared GL utilities. |
 | `viewer_common` | `core` (4) | Shared viewer utilities use central preferences and diagnostics. |
-| `viewer2d` | `core` (26), `gui` (12), `models` (5), `viewer3d` (8), `viewer_common` (7) | 2D rendering consumes scene/services, shared GL support, existing 3D types, and UI command identifiers. |
-| `viewer3d` | `core` (70), `gui` (13), `models` (24), `viewer2d` (13), `viewer_common` (6) | 3D rendering consumes scene/services, shared GL support, 2D render interfaces, and existing UI status facilities. |
+| `viewer2d` | `core` (27), `gui` (13), `models` (6), `viewer3d` (9), `viewer_common` (9) | 2D rendering consumes scene/services, shared GL support, existing 3D types, and UI command identifiers. |
+| `viewer3d` | `core` (72), `gui` (17), `models` (25), `viewer2d` (13), `viewer_common` (8) | 3D rendering consumes scene/services, shared GL support, 2D render interfaces, and existing UI status facilities. |
 
 The current graph contains intentional-for-current-architecture cycles between
 `core` and each of `mvr`, `viewer2d`, and `viewer3d`; between `gui` and each of

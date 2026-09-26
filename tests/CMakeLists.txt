@@ -9,6 +9,21 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 enable_testing()
 
+add_executable(perastage_cli_runner_test perastage_cli_runner_test.cpp)
+target_link_libraries(perastage_cli_runner_test PRIVATE perastage_cli_support)
+target_compile_definitions(perastage_cli_runner_test PRIVATE
+                           PERASTAGE_CLI_TEST_VERSION="${PROJECT_VERSION}")
+add_test(NAME PerastageCliRunner COMMAND perastage_cli_runner_test)
+set_tests_properties(PerastageCliRunner PROPERTIES
+                     LABELS "standard-strict;architecture;cli")
+
+add_test(NAME PerastageCliSmoke
+         COMMAND "${Python3_EXECUTABLE}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/perastage_cli_smoke_test.py"
+                 "$<TARGET_FILE:perastage_cli>" "${PROJECT_VERSION}")
+set_tests_properties(PerastageCliSmoke PROPERTIES
+                     LABELS "standard-strict;architecture;cli" TIMEOUT 20)
+
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
 add_test(NAME ViewportMouseNavigation COMMAND viewport_mouse_navigation_test)
@@ -380,6 +395,12 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(ApplicationBootstrapOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_application_bootstrap_ownership.py
                                LABELS standard-strict policy architecture cmake)
+    add_repository_policy_test(CliBoundary ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_cli_boundary.py
+                               LABELS standard-strict policy architecture cmake cli)
+    add_repository_policy_test(CliBoundaryFixtures ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_cli_boundary_fixtures.py -v
+                               LABELS standard-strict policy architecture cmake cli)
     add_repository_policy_test(ModuleDependencyDirectionFixtures ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_module_dependency_directions_fixtures.py -v
                                LABELS standard-strict policy architecture)

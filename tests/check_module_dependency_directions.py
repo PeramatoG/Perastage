@@ -20,6 +20,7 @@ SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".hxx", ".c", ".cc", ".cpp", ".cxx"}
 # This is a reviewed contract, not a graph generated or rewritten by this check.
 ACCEPTED_DIRECTIONS: frozenset[tuple[str, str]] = frozenset({
     ("app", "core"), ("app", "gui"), ("app", "viewer3d"),
+    ("cli", "core"),
     ("core", "models"), ("core", "mvr"), ("core", "viewer2d"), ("core", "viewer3d"),
     ("gui", "core"), ("gui", "models"), ("gui", "mvr"), ("gui", "viewer2d"),
     ("gui", "viewer3d"), ("gui", "viewer_common"),
@@ -34,6 +35,7 @@ ACCEPTED_DIRECTIONS: frozenset[tuple[str, str]] = frozenset({
 # Keep this order aligned with application target include-directory accumulation.
 INCLUDE_ROOTS = (
     "app",
+    "cli",
     "core", "core/diagnostics", "core/layouts", "core/print",
     "gui", "gui/mainwindow/controllers", "gui/mainwindow/ids",
     "models", "mvr", "viewer2d", "viewer2d/pdf", "viewer3d",
@@ -53,7 +55,7 @@ class Evidence:
 
 
 def production_files(root: Path) -> list[Path]:
-    """Return audited C and C++ files owned by the eight production modules."""
+    """Return audited C and C++ files owned by the production modules."""
     return sorted(
         path
         for module in MODULES

@@ -7,7 +7,7 @@ dependency rules live in [Architecture](architecture.md), while
 [Repository Layout](repository_layout.md) owns the detailed human-readable path
 and root-file map.
 
-This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`app`, `core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `scripts`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
+This map is aligned with the terminology used in `README.md` and `docs/developer/architecture.md`: functional modules (`app`, `cli`, `core`, `gui`, `viewer2d`, `viewer3d`, `viewer_common`, `models`, `mvr`), packaged runtime content (`library`, `resources`), packaging and build support (`cmake`, `scripts`, `packaging`, `.github/workflows`), vendored dependencies (`third_party`), and tests/docs (`tests`, `docs`).
 
 ## Top-level structure
 
@@ -25,6 +25,8 @@ Perastage/
 |-- VERSION                      # Single project version source.
 |-- app/                         # Application lifecycle and startup/bootstrap composition.
 |   `-- CMakeLists.txt           # Explicit App source registration.
+|-- cli/                         # Dedicated headless command-line executable and grammar.
+|   `-- CMakeLists.txt           # Explicit CLI target and source ownership.
 |-- cmake/                       # Focused build modules, templates, and helper scripts.
 |   `-- platform/                # Platform target-configuration dispatcher and OS-specific owners.
 |-- scripts/                     # Setup implementations and repository/build utilities.
@@ -62,6 +64,7 @@ Perastage/
 ## Modules and responsibilities
 
 - **`app/`**: wxWidgets application lifecycle, startup orchestration, external-open routing, diagnostics coordination, and shutdown composition.
+- **`cli/`**: standard-C++ command-line entry point and stable technical grammar, without GUI lifecycle dependencies.
 - **`core/`**: project/config services, rider/PDF import helpers, auto-patch logic, layout/print support, and persistence/export utilities.
 - **`gui/`**: main UI composition and editing/visualization tools (tables, panels, dialogs, menus).
 - **`viewer2d/`**: 2D plan visualization and command/resource generation for printing/export.

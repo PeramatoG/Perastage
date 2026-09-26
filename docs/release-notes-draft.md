@@ -41,6 +41,8 @@ Changes since **v1.6.0**.
 
 ## Technical and packaging changes
 
+- Added a dedicated headless command-line executable for development and cross-platform automation, with stable help and version output, deterministic usage errors, and strengthened automated separation from GUI startup, application state, localization, and packaging; it is not included in shipped packages yet.
+
 - Added a safe, read-only package resource inspection boundary with bounded raw reads, conservative file-kind identification, unchanged UTF-8 text previews, and embedded GDTF inspection through the established standalone path. Image and model decoding remains outside the semantic inspection service.
 - Improved package resource inspection reliability across platforms, including deterministic owned-byte reads and consistent GDTF compatibility handling.
 - Ensured package browsing binds each selected ZIP entry to its exact payload even when archive directory ordering differs, while retaining bounded signature detection for large resources.

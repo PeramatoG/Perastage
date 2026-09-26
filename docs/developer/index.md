@@ -39,6 +39,8 @@ architecture or repository-layout specification.
   [GUI Shortcut Architecture](gui_shortcut_architecture.md),
   [Storage Policy](storage_policy.md), and
   [Text-to-scene Rules](text_to_scene_rules.md).
+- **Command line:** the [Developer CLI](cli.md) documents the headless executable,
+  current grammar, and development-only distribution contract.
 - **Rendering and placement:** [Viewer coordinate and placement](viewer_coordinate_contract.md),
   [UI unit systems](ui_unit_systems.md), and the
   [viewer technical-note entry points](technical-notes/index.md#viewer-and-rendering-contracts).

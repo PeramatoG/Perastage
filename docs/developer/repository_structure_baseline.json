@@ -3,6 +3,7 @@
   "top_level_directories": {
     "source_modules": [
       "app",
+      "cli",
       "core",
       "gui",
       "models",
@@ -38,6 +39,7 @@
     "model": "Explicit source lists; no recursive project-source discovery.",
     "module_cmake_directories": [
       "app",
+      "cli",
       "core",
       "gui",
       "models",
@@ -62,10 +64,10 @@
   },
   "module_guard_sets": {
     "dependency_directions": [
-      "app", "core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common"
+      "app", "cli", "core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common"
     ],
     "application_bootstrap_lower_level": [
-      "core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common"
+      "cli", "core", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common"
     ]
   },
   "structural_guard": {

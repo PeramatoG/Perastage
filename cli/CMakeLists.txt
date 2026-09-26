@@ -1,0 +1,14 @@
+add_library(perastage_cli_support STATIC)
+target_sources(perastage_cli_support PRIVATE cli_runner.cpp cli_runner.h)
+target_compile_features(perastage_cli_support PUBLIC cxx_std_20)
+target_include_directories(perastage_cli_support
+    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+    PRIVATE "${CMAKE_SOURCE_DIR}/core")
+target_compile_definitions(perastage_cli_support PRIVATE
+    PERASTAGE_CLI_VERSION="${PROJECT_VERSION}")
+
+add_executable(perastage_cli)
+target_sources(perastage_cli PRIVATE main.cpp)
+target_compile_features(perastage_cli PRIVATE cxx_std_20)
+target_link_libraries(perastage_cli PRIVATE perastage_cli_support)
+set_target_properties(perastage_cli PROPERTIES OUTPUT_NAME "perastage-cli")

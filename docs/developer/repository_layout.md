@@ -34,7 +34,7 @@ Repository documentation has one owner for each kind of structural fact:
 
 ## Top-level structure
 
-<!-- repository-source-modules: app, core, gui, models, mvr, viewer2d, viewer3d, viewer_common -->
+<!-- repository-source-modules: app, cli, core, gui, models, mvr, viewer2d, viewer3d, viewer_common -->
 <!-- repository-root-source-roles: main.cpp=application_entry_point -->
 
 The marker above provides the deterministic layout mapping for the canonical
@@ -47,6 +47,7 @@ for every listed module.
 | `CMakeLists.txt` | Project options, principal target creation, shared target configuration, and build-module orchestration. |
 | `CMakePresets.json` | Canonical tracked configure/build presets for supported local development workflows. |
 | `app/` | wxWidgets application lifecycle and startup/bootstrap composition, explicitly registered by its local CMake file. |
+| `cli/` | Dedicated headless command-line entry point and independently testable grammar, explicitly owned by its local CMake file. |
 | `cmake/` | Dependency discovery, CMake helper scripts, generated configuration templates, and platform metadata templates. |
 | `core/` | Core logic, import helpers, dictionaries, patching, layouts, printing, persistence, and shared services. |
 | `gui/` | wxWidgets windows, dialogs, menus, panels, UI controllers, and user interaction workflows. |
@@ -80,7 +81,9 @@ documentation markers are validated against the same canonical module list.
 
 The source-registration arrangement is decentralized. The root `CMakeLists.txt`
 creates the application target and registers only its entry point and generated
-build-information source. Every module above registers its explicit production
+build-information source. The dedicated `cli/` module owns the separate
+`perastage_cli` executable and `perastage_cli_support` grammar library; it does
+not contribute sources to the GUI application. Every module above registers its explicit production
 source list through its own `CMakeLists.txt`; `core/` additionally owns the
 focused `perastage_inspection_core` static library and links it into the
 inspection services and focused tests rather than compiling private copies of
