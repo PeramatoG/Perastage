@@ -3,64 +3,120 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "cli"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
+INCLUDE_RE = re.compile(r'^\s*#\s*include\s*[<"]([^">]+)[">]', re.MULTILINE)
+FORBIDDEN_INCLUDE_BASENAMES = {
+    "configmanager.h",
+    "credentialstore.h",
+    "gdtfnet.h",
+    "mainwindow.h",
+    "perastage_app.h",
+    "projectutils.h",
+    "splashscreen.h",
+    "startup_profile.h",
+}
+FORBIDDEN_INCLUDE_PATHS = {"localization/localization_manager.h"}
 
 
-def check() -> list[str]:
+def normalized_include(include: str) -> str:
+    """Normalize include separators for platform-independent comparisons."""
+    return include.replace("\\", "/").lower()
+
+
+def forbidden_include(include: str) -> bool:
+    """Identify direct GUI, wxWidgets, and application-state bootstrap includes."""
+    normalized = normalized_include(include)
+    basename = normalized.rsplit("/", 1)[-1]
+    if normalized.startswith("wx/"):
+        return True
+    if basename in FORBIDDEN_INCLUDE_BASENAMES or normalized in FORBIDDEN_INCLUDE_PATHS:
+        return True
+    return any(
+        normalized.startswith(f"{module}/")
+        for module in ("app", "gui", "models", "mvr", "viewer2d", "viewer3d", "viewer_common")
+    )
+
+
+def check(root: Path = REPOSITORY_ROOT) -> list[str]:
     """Return violations of the dedicated CLI architecture contract."""
+    root = root.resolve()
+    cli = root / "cli"
     errors: list[str] = []
-    cmake_path = CLI / "CMakeLists.txt"
-    if not cmake_path.is_file():
+    cli_cmake_path = cli / "CMakeLists.txt"
+    root_cmake_path = root / "CMakeLists.txt"
+    if not cli_cmake_path.is_file():
         return ["cli/ must have explicit local CMake ownership"]
-    cmake = cmake_path.read_text(encoding="utf-8")
-    root_cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+    if not root_cmake_path.is_file():
+        return ["Root CMakeLists.txt is missing"]
+    cli_cmake = cli_cmake_path.read_text(encoding="utf-8")
+    root_cmake = root_cmake_path.read_text(encoding="utf-8")
 
     requirements = (
-        (r"add_executable\s*\(\s*perastage_cli\b", "perastage_cli target is missing"),
-        (r"OUTPUT_NAME\s+[\"']?perastage-cli[\"']?", "CLI output name must be perastage-cli"),
-        (r"add_subdirectory\s*\(\s*cli\s*\)", "Root CMake must register cli/"),
+        (cli_cmake, r"add_executable\s*\(\s*perastage_cli\b", "perastage_cli target is missing"),
+        (cli_cmake, r"OUTPUT_NAME\s+[\"']?perastage-cli[\"']?", "CLI output name must be perastage-cli"),
+        (root_cmake, r"add_subdirectory\s*\(\s*cli\s*\)", "Root CMake must register cli/"),
     )
-    for pattern, message in requirements:
-        text = root_cmake if "Root" in message else cmake
+    for text, pattern, message in requirements:
         if not re.search(pattern, text, re.IGNORECASE):
             errors.append(message)
 
-    forbidden_cmake = {
-        r"target_sources\s*\(\s*\$\{PROJECT_NAME\}.*?cli[/\\]": "CLI sources must not be registered into the GUI target",
+    contamination = re.compile(
+        r"target_sources\s*\(\s*\$\{PROJECT_NAME\}[^)]*(?:cli[/\\]|cli_runner|perastage_cli)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    for path, text in ((root_cmake_path, root_cmake), (cli_cmake_path, cli_cmake)):
+        if contamination.search(text):
+            errors.append(f"CLI sources must not be registered into the GUI target: {path.relative_to(root)}")
+
+    forbidden_cli_cmake = {
         r"(?:WIN32_EXECUTABLE|MACOSX_BUNDLE)\s+TRUE": "CLI must remain a console, non-bundle executable",
         r"target_link_libraries\s*\(\s*perastage_cli(?:_support)?\b[^)]*\b(?:app|gui|viewer2d|viewer3d|viewer_common)\b": "CLI targets must not link application, GUI, or viewer targets",
         r"install\s*\([^)]*\bperastage_cli\b": "CLI must not be installed",
     }
-    for pattern, message in forbidden_cmake.items():
-        if re.search(pattern, cmake, re.IGNORECASE | re.DOTALL):
+    for pattern, message in forbidden_cli_cmake.items():
+        if re.search(pattern, cli_cmake, re.IGNORECASE | re.DOTALL):
             errors.append(message)
 
-    forbidden_source = re.compile(
-        r"wxIMPLEMENT_APP|wxApp|ConfigManager|(?:^|[/\\])(?:app|gui|viewer2d|viewer3d|viewer_common)(?:[/\\]|\.)",
-        re.MULTILINE,
-    )
-    for path in CLI.rglob("*"):
-        if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES:
-            if forbidden_source.search(path.read_text(encoding="utf-8", errors="replace")):
-                errors.append(f"CLI source crosses the GUI/application lifecycle boundary: {path.relative_to(ROOT)}")
+    forbidden_tokens = re.compile(r"wxIMPLEMENT_APP|\bwxApp\b|\bConfigManager\b")
+    for path in cli.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in SOURCE_SUFFIXES:
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        for include in INCLUDE_RE.findall(source):
+            if forbidden_include(include):
+                errors.append(
+                    f'CLI source has a forbidden direct include "{include}": {path.relative_to(root)}'
+                )
+        if forbidden_tokens.search(source):
+            errors.append(f"CLI source uses a GUI/application bootstrap token: {path.relative_to(root)}")
 
-    packaging_files = [ROOT / "cmake/PerastageInstall.cmake", ROOT / "cmake/PerastageRuntimeStaging.cmake"]
-    packaging_files.extend(path for path in (ROOT / "packaging").rglob("*") if path.is_file())
+    packaging_files = [
+        root / "cmake/PerastageInstall.cmake",
+        root / "cmake/PerastageRuntimeStaging.cmake",
+        root / "cmake/PerastagePackaging.cmake",
+    ]
+    packaging_files.extend(path for path in (root / "packaging").rglob("*") if path.is_file())
     for path in packaging_files:
-        if "perastage-cli" in path.read_text(encoding="utf-8", errors="replace") or "perastage_cli" in path.read_text(encoding="utf-8", errors="replace"):
-            errors.append(f"Development CLI must not be installed or packaged: {path.relative_to(ROOT)}")
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if "perastage-cli" in text or "perastage_cli" in text:
+            errors.append(f"Development CLI must not be installed or packaged: {path.relative_to(root)}")
     return errors
 
 
 def main() -> int:
     """Run the CLI architecture policy check."""
-    errors = check()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=Path, default=REPOSITORY_ROOT)
+    args = parser.parse_args()
+    errors = check(args.root)
     if errors:
         print("CLI boundary check failed:", file=sys.stderr)
         for error in errors:
