@@ -63,7 +63,7 @@ serialization_statements() {
 expected_core_configuration='add_library(perastage_inspection_serialization STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_json_serializer.cpp )
 target_compile_features(perastage_inspection_serialization PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_serialization PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${CMAKE_SOURCE_DIR}/third_party )
-target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core )'
+target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core perastage_inspection_gdtf perastage_inspection_mvr perastage_inspection_resource )'
 if [[ "$(serialization_statements "$core_cmake")" != "$expected_core_configuration" ]]; then
   echo "perastage_inspection_serialization must retain its focused production configuration." >&2
   serialization_statements "$core_cmake" >&2
@@ -77,7 +77,8 @@ if [[ "$(serialization_statements "$tests_cmake")" != "$expected_test_configurat
 fi
 
 for cmake_file in "${cmake_files[@]}"; do
-  if [[ "$cmake_file" == "$core_cmake" || "$cmake_file" == "$tests_cmake" ]]; then
+  if [[ "$cmake_file" == "$core_cmake" || "$cmake_file" == "$tests_cmake" ||
+        "$cmake_file" == "$repo_root/cli/CMakeLists.txt" ]]; then
     continue
   fi
   if [[ -n "$(serialization_statements "$cmake_file")" ]]; then

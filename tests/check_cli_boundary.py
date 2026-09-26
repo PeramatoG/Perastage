@@ -22,6 +22,13 @@ FORBIDDEN_INCLUDE_BASENAMES = {
     "startup_profile.h",
 }
 FORBIDDEN_INCLUDE_PATHS = {"localization/localization_manager.h"}
+ALLOWED_LINK_TARGETS = {
+    "perastage_cli_support",
+    "perastage_inspection_gdtf",
+    "perastage_inspection_mvr",
+    "perastage_inspection_resource",
+    "perastage_inspection_serialization",
+}
 
 
 def normalized_include(include: str) -> str:
@@ -82,6 +89,16 @@ def check(root: Path = REPOSITORY_ROOT) -> list[str]:
     for pattern, message in forbidden_cli_cmake.items():
         if re.search(pattern, cli_cmake, re.IGNORECASE | re.DOTALL):
             errors.append(message)
+
+    link_blocks = re.findall(
+        r"target_link_libraries\s*\(\s*perastage_cli(?:_support)?\b([^)]*)\)",
+        cli_cmake,
+        re.IGNORECASE | re.DOTALL,
+    )
+    for block in link_blocks:
+        linked_targets = set(re.findall(r"\bperastage_[a-z0-9_]+\b", block.lower()))
+        for target in sorted(linked_targets - ALLOWED_LINK_TARGETS):
+            errors.append(f"CLI target has a forbidden direct link dependency: {target}")
 
     forbidden_tokens = re.compile(r"wxIMPLEMENT_APP|\bwxApp\b|\bConfigManager\b")
     for path in cli.rglob("*"):

@@ -74,6 +74,9 @@ std::vector<ResourceDescriptor>
 DescribePackageResources(const PackageInventory &inventory);
 std::vector<ResourceDescriptor>
 DescribePackageResources(const std::filesystem::path &packagePath,
+                         const PackageInventory &inventory);
+std::vector<ResourceDescriptor>
+DescribePackageResources(const std::filesystem::path &packagePath,
                          const PackageInventory &inventory,
                          std::uint64_t maxSniffBytes);
 std::vector<ResourceDescriptor>

@@ -18,7 +18,8 @@ class SceneResourceLease;
 
 class TemporaryWorkspace {
 public:
-  explicit TemporaryWorkspace(const std::string &kind = "operation");
+  explicit TemporaryWorkspace(const std::string &kind = "operation",
+                              bool logActivity = true);
   ~TemporaryWorkspace() noexcept;
   TemporaryWorkspace(TemporaryWorkspace &&other) noexcept;
   TemporaryWorkspace &operator=(TemporaryWorkspace &&other) noexcept;
@@ -32,6 +33,7 @@ public:
 
 private:
   std::filesystem::path path_;
+  bool logActivity_ = true;
 };
 
 class SceneResourceLease {
@@ -50,6 +52,8 @@ private:
 using SceneResourceLeasePtr = std::shared_ptr<SceneResourceLease>;
 
 bool IsInsideRuntimeRoot(const std::filesystem::path &path);
-void RemoveOwnedPath(const std::filesystem::path &path, const std::string &label) noexcept;
+void RemoveOwnedPath(const std::filesystem::path &path,
+                     const std::string &label,
+                     bool logActivity = true) noexcept;
 
 } // namespace runtime_storage

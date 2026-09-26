@@ -82,7 +82,7 @@ documentation markers are validated against the same canonical module list.
 The source-registration arrangement is decentralized. The root `CMakeLists.txt`
 creates the application target and registers only its entry point and generated
 build-information source. The dedicated `cli/` module owns the separate
-`perastage_cli` executable and `perastage_cli_support` grammar library; it does
+`perastage_cli` executable and `perastage_cli_support` command/presentation library; it does
 not contribute sources to the GUI application. Every module above registers its explicit production
 source list through its own `CMakeLists.txt`; `core/` additionally owns the
 focused `perastage_inspection_core` static library and links it into the

@@ -301,17 +301,20 @@ std::string NormalizeImportArchivePath(const std::string &archivePath) {
 // Safely extracts an MVR stream and locates its root scene description.
 std::optional<ImportPackage>
 AcquireImportPackage(wxInputStream &input,
-                     std::vector<MvrImportDiagnostic> &diagnostics) {
-  runtime_storage::TemporaryWorkspace workspace("mvr-import");
+                     std::vector<MvrImportDiagnostic> &diagnostics,
+                     bool logActivity) {
+  runtime_storage::TemporaryWorkspace workspace("mvr-import", logActivity);
   if (!workspace.IsValid()) {
-    Logger::Instance().Log("Failed to create MVR import workspace.");
+    if (logActivity)
+      Logger::Instance().Log("Failed to create MVR import workspace.");
     return std::nullopt;
   }
 
   const fs::path rootPath = workspace.Path();
   std::unordered_map<std::string, std::string> pathRemap;
   if (!ExtractArchive(input, rootPath, pathRemap, diagnostics)) {
-    Logger::Instance().Log("Failed to extract MVR file.");
+    if (logActivity)
+      Logger::Instance().Log("Failed to extract MVR file.");
     return std::nullopt;
   }
 
@@ -326,14 +329,17 @@ AcquireImportPackage(wxInputStream &input,
       ++extractedGdtfEntryCount;
     }
   }
-  Logger::Instance().Log(
-      Logger::Level::Info,
-      "MVR extraction diagnostics: basePath='" + ToString(rootPath.u8string()) +
-          "', extractedGdtfEntries=" + std::to_string(extractedGdtfEntryCount));
+  if (logActivity)
+    Logger::Instance().Log(Logger::Level::Info,
+                           "MVR extraction diagnostics: basePath='" +
+                               ToString(rootPath.u8string()) +
+                               "', extractedGdtfEntries=" +
+                               std::to_string(extractedGdtfEntryCount));
 
   const fs::path sceneXmlPath = FindSceneXml(rootPath);
   if (sceneXmlPath.empty()) {
-    Logger::Instance().Log("Missing GeneralSceneDescription.xml in MVR.");
+    if (logActivity)
+      Logger::Instance().Log("Missing GeneralSceneDescription.xml in MVR.");
     return std::nullopt;
   }
 
@@ -344,21 +350,23 @@ AcquireImportPackage(wxInputStream &input,
 // Adapts owned bytes to the established stream-based package reader.
 std::optional<ImportPackage>
 AcquireImportPackage(const std::vector<std::uint8_t> &bytes,
-                     std::vector<MvrImportDiagnostic> &diagnostics) {
+                     std::vector<MvrImportDiagnostic> &diagnostics,
+                     bool logActivity) {
   if (bytes.empty())
     return std::nullopt;
   wxMemoryInputStream input(bytes.data(), bytes.size());
-  return AcquireImportPackage(input, diagnostics);
+  return AcquireImportPackage(input, diagnostics, logActivity);
 }
 
 // Adapts a filesystem path to the established stream-based package reader.
 std::optional<ImportPackage>
 AcquireImportPackage(const std::filesystem::path &path,
-                     std::vector<MvrImportDiagnostic> &diagnostics) {
+                     std::vector<MvrImportDiagnostic> &diagnostics,
+                     bool logActivity) {
   wxFileInputStream input(wxString(path.wstring()));
   if (!input.IsOk())
     return std::nullopt;
-  return AcquireImportPackage(input, diagnostics);
+  return AcquireImportPackage(input, diagnostics, logActivity);
 }
 
 } // namespace mvr

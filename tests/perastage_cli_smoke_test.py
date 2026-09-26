@@ -7,10 +7,14 @@ import subprocess
 import sys
 
 HELP = """Usage: perastage-cli [--help | --version]
+       perastage-cli inspect <file> [--view <view> | --json]
 
 Options:
   -h, --help  Show this help and exit.
   --version   Show the CLI version and exit.
+
+Commands:
+  inspect     Inspect a GDTF or MVR package.
 """
 
 

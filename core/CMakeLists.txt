@@ -54,7 +54,8 @@ target_include_directories(perastage_inspection_serialization
     PRIVATE ${CMAKE_SOURCE_DIR}/third_party
 )
 target_link_libraries(perastage_inspection_serialization
-    PUBLIC perastage_inspection_core
+    PUBLIC perastage_inspection_core perastage_inspection_gdtf
+           perastage_inspection_mvr perastage_inspection_resource
 )
 
 add_library(perastage_archive_zip_directory STATIC

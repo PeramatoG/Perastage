@@ -90,7 +90,7 @@ includes and test sources are excluded.
 | Consumer | Accepted providers (evidence count) | Architectural rationale |
 |---|---|---|
 | `app` | `core` (12), `gui` (2), `viewer3d` (1) | Application composition coordinates lifecycle services, windows, and the existing GDTF cache teardown API. |
-| `cli` | `core` (1) | The headless command-line shell uses only the canonical Core product name; future commands must preserve this downward-only boundary. |
+| `cli` | `core` (10) | The headless command-line shell consumes only the canonical Core product name and public Inspection APIs; semantic readers remain transitive implementation details. |
 | `core` | `models` (46), `mvr` (7), `viewer2d` (4), `viewer3d` (7) | Application services coordinate scene data, interchange, and existing symbol/geometry implementations. |
 | `models` | None | Scene data does not include another audited application module. |
 | `mvr` | `core` (92), `gui` (3), `models` (24), `viewer2d` (1), `viewer3d` (3) | Interchange uses shared services and scene data plus existing import presentation, label, and geometry facilities. |

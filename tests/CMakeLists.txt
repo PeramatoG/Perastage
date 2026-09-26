@@ -17,12 +17,31 @@ add_test(NAME PerastageCliRunner COMMAND perastage_cli_runner_test)
 set_tests_properties(PerastageCliRunner PROPERTIES
                      LABELS "standard-strict;architecture;cli")
 
+add_executable(perastage_cli_inspection_presentation_test
+               cli_inspection_presentation_test.cpp)
+target_include_directories(perastage_cli_inspection_presentation_test PRIVATE
+                           ../cli ../third_party)
+target_link_libraries(perastage_cli_inspection_presentation_test PRIVATE
+                      perastage_cli_support)
+add_test(NAME PerastageCliInspectionPresentation
+         COMMAND perastage_cli_inspection_presentation_test)
+set_tests_properties(PerastageCliInspectionPresentation PROPERTIES
+                     LABELS "standard-strict;architecture;cli;inspection")
+
 add_test(NAME PerastageCliSmoke
          COMMAND "${Python3_EXECUTABLE}"
                  "${CMAKE_CURRENT_SOURCE_DIR}/perastage_cli_smoke_test.py"
                  "$<TARGET_FILE:perastage_cli>" "${PROJECT_VERSION}")
 set_tests_properties(PerastageCliSmoke PROPERTIES
                      LABELS "standard-strict;architecture;cli" TIMEOUT 20)
+
+add_test(NAME PerastageCliInspect
+         COMMAND "${Python3_EXECUTABLE}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/perastage_cli_inspect_test.py"
+                 "$<TARGET_FILE:perastage_cli>")
+set_tests_properties(PerastageCliInspect PROPERTIES
+                     LABELS "standard-strict;architecture;cli;inspection"
+                     TIMEOUT 30)
 
 add_executable(viewport_mouse_navigation_test viewport_mouse_navigation_test.cpp)
 target_include_directories(viewport_mouse_navigation_test PRIVATE ../viewer_common)
