@@ -1,12 +1,13 @@
 #include "inspection_json_serializer.h"
 
-#include "json.hpp"
+#include "inspection_json_serialization_detail.h"
 
 #include <filesystem>
 #include <stdexcept>
 #include <string>
 
 namespace perastage::inspection::serialization {
+namespace detail {
 namespace {
 
 // Converts a filesystem path to UTF-8 with generic path separators.
@@ -74,6 +75,8 @@ nlohmann::json SerializeLocation(const DiagnosticLocation &location) {
   return serialized;
 }
 
+} // namespace
+
 // Serializes one diagnostic without introducing presentation-only fields.
 nlohmann::json SerializeDiagnostic(const Diagnostic &diagnostic) {
   nlohmann::json serialized{
@@ -81,32 +84,33 @@ nlohmann::json SerializeDiagnostic(const Diagnostic &diagnostic) {
       {"domain", DomainToken(diagnostic.domain)},
       {"classification", ClassificationToken(diagnostic.classification)},
       {"code", diagnostic.code},
-      {"message", diagnostic.message},
-  };
+      {"message", diagnostic.message}};
   if (diagnostic.location)
     serialized["location"] = SerializeLocation(*diagnostic.location);
   return serialized;
 }
 
-} // namespace
-
-// Serializes a result to deterministic compact versioned JSON.
-std::string SerializeResultToJson(const Result &result) {
+// Builds the backward-compatible base object shared by all report serializers.
+nlohmann::json SerializeBase(const Result &result) {
   nlohmann::json diagnostics = nlohmann::json::array();
   for (const Diagnostic &diagnostic : result.diagnostics)
     diagnostics.push_back(SerializeDiagnostic(diagnostic));
-
   nlohmann::json root{
       {"schema_version", kInspectionJsonSchemaVersion},
       {"request", {{"source_path", SerializePath(result.request.sourcePath)}}},
       {"success", result.Success()},
       {"worst_severity", nullptr},
-      {"diagnostics", std::move(diagnostics)},
-  };
-  if (const auto worstSeverity = result.WorstSeverity())
-    root["worst_severity"] = SeverityToken(*worstSeverity);
+      {"diagnostics", std::move(diagnostics)}};
+  if (const auto severity = result.WorstSeverity())
+    root["worst_severity"] = SeverityToken(*severity);
+  return root;
+}
 
-  return root.dump();
+} // namespace detail
+
+// Serializes a result to deterministic compact versioned JSON.
+std::string SerializeResultToJson(const Result &result) {
+  return detail::SerializeBase(result).dump();
 }
 
 } // namespace perastage::inspection::serialization

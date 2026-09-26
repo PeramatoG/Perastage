@@ -281,6 +281,14 @@ DescribePackageResources(const PackageInventory &inventory) {
 // Adds bounded filesystem signature facts to authoritative descriptors.
 std::vector<ResourceDescriptor>
 DescribePackageResources(const std::filesystem::path &packagePath,
+                         const PackageInventory &inventory) {
+  return DescribePackageResources(packagePath, inventory,
+                                  kMaximumResourceSniffBytes);
+}
+
+// Adds explicitly bounded filesystem signature facts to descriptors.
+std::vector<ResourceDescriptor>
+DescribePackageResources(const std::filesystem::path &packagePath,
                          const PackageInventory &inventory,
                          std::uint64_t maxSniffBytes) {
   std::vector<ResourceDescriptor> resources =
@@ -307,8 +315,7 @@ DescribePackageResources(const std::filesystem::path &packagePath,
     selectedEntries.push_back(directory.entries[*index]);
   }
   const std::vector<archive::zip::EntryReadResult> prefixes =
-      archive::zip::ReadEntryPrefixes(packagePath, selectedEntries,
-                                      sniffBytes);
+      archive::zip::ReadEntryPrefixes(packagePath, selectedEntries, sniffBytes);
   for (std::size_t resourceIndex = 0; resourceIndex < resources.size();
        ++resourceIndex) {
     ResourceDescriptor &resource = resources[resourceIndex];

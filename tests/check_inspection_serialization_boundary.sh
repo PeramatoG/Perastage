@@ -8,6 +8,7 @@ core_cmake="$repo_root/core/CMakeLists.txt"
 tests_cmake="$repo_root/tests/CMakeLists.txt"
 header="$repo_root/core/inspection/inspection_json_serializer.h"
 source_file="$repo_root/core/inspection/inspection_json_serializer.cpp"
+detail_header="$repo_root/core/inspection/inspection_json_serialization_detail.h"
 serializer_source='inspection/inspection_json_serializer.cpp'
 
 cmake_files=("$repo_root/CMakeLists.txt" "$repo_root"/*/CMakeLists.txt)
@@ -35,7 +36,8 @@ serialization_statements() {
       gsub(/[[:space:]]+/, " ", normalized)
       sub(/^ /, "", normalized)
       sub(/ $/, "", normalized)
-      if (index(normalized, target) != 0)
+      target_pattern = "(^|[^A-Za-z0-9_])" target "([^A-Za-z0-9_]|$)"
+      if (normalized ~ target_pattern)
         print normalized
     }
     {
@@ -63,7 +65,8 @@ serialization_statements() {
 expected_core_configuration='add_library(perastage_inspection_serialization STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_json_serializer.cpp )
 target_compile_features(perastage_inspection_serialization PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_serialization PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${CMAKE_SOURCE_DIR}/third_party )
-target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core )'
+target_link_libraries(perastage_inspection_serialization PUBLIC perastage_inspection_core )
+target_link_libraries(perastage_inspection_report_serialization PUBLIC perastage_inspection_serialization perastage_inspection_gdtf perastage_inspection_mvr perastage_inspection_resource )'
 if [[ "$(serialization_statements "$core_cmake")" != "$expected_core_configuration" ]]; then
   echo "perastage_inspection_serialization must retain its focused production configuration." >&2
   serialization_statements "$core_cmake" >&2
@@ -91,8 +94,13 @@ if rg -n '(json\.hpp|nlohmann::json)' "$header"; then
   exit 1
 fi
 
+if rg -n '(gdtf_inspection|mvr_inspection|resource_inspection|inspection_json_serialization_detail)' "$header"; then
+  echo "The base serializer public header must expose only neutral Result serialization." >&2
+  exit 1
+fi
+
 forbidden='(wx[A-Z]|MainWindow|ConfigManager|CredentialStore|ConsolePanel|Viewer[23]D|curl|tinyxml|OpenGL)'
-if rg -n "$forbidden" "$header" "$source_file"; then
+if rg -n "$forbidden" "$header" "$source_file" "$detail_header"; then
   echo "Inspection serialization must remain independent of UI, runtime, networking, and graphics services." >&2
   exit 1
 fi

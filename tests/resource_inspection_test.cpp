@@ -168,11 +168,14 @@ void TestDescriptors(const fs::path &root) {
   assert(descriptors[1].pathSafe && descriptors[1].rawReadSupported);
   const auto repeated =
       DescribePackageResources(path, *package.inventory, 1024);
+  const auto defaultBounded = DescribePackageResources(path, *package.inventory);
   assert(repeated.size() == descriptors.size());
+  assert(defaultBounded.size() == descriptors.size());
   for (std::size_t index = 0; index < descriptors.size(); ++index) {
     assert(repeated[index].displayPath == descriptors[index].displayPath);
     assert(repeated[index].normalizedPath == descriptors[index].normalizedPath);
     assert(repeated[index].kind == descriptors[index].kind);
+    assert(defaultBounded[index].kind == descriptors[index].kind);
   }
 }
 

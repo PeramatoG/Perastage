@@ -53,7 +53,8 @@ fs::path GetPerastageRuntimeRoot() {
 fs::path GetPerastageSessionRoot() {
   if (!g_sessionRoot.empty())
     return g_sessionRoot;
-  g_sessionRoot = GetPerastageRuntimeRoot() / "sessions" / ("session-" + UniqueToken());
+  g_sessionRoot =
+      GetPerastageRuntimeRoot() / "sessions" / ("session-" + UniqueToken());
   CreateDirectories(g_sessionRoot);
   std::ofstream marker(g_sessionRoot / "perastage-session.marker");
   marker << "Perastage runtime session\n";
@@ -80,7 +81,8 @@ void SetRuntimeRootOverrideForTests(const fs::path &root) {
   g_sessionRoot.clear();
 }
 
-// Removes old Perastage session directories only when they contain the marker file.
+// Removes old Perastage session directories only when they contain the marker
+// file.
 void CleanupStaleRuntimeStorage() {
   const fs::path sessions = GetPerastageRuntimeRoot() / "sessions";
   std::error_code ec;
@@ -125,33 +127,42 @@ bool IsInsideRuntimeRoot(const fs::path &path) {
 }
 
 // Removes an owned runtime path after validating containment.
-void RemoveOwnedPath(const fs::path &path, const std::string &label) noexcept {
+void RemoveOwnedPath(const fs::path &path, const std::string &label,
+                     bool logActivity) noexcept {
   try {
     if (path.empty())
       return;
     if (!IsInsideRuntimeRoot(path)) {
-      Logger::Instance().Log(Logger::Level::Warn,
-                             "Refusing to remove non-runtime " + label + ": " + path.string());
+      if (logActivity)
+        Logger::Instance().Log(Logger::Level::Warn,
+                               "Refusing to remove non-runtime " + label +
+                                   ": " + path.string());
       return;
     }
     std::error_code ec;
     const auto count = fs::remove_all(path, ec);
-    Logger::Instance().Log(ec ? Logger::Level::Warn : Logger::Level::Info,
-                           (ec ? "Failed removing " : "Removed ") + label + ": " +
-                               path.string() + " entries=" + std::to_string(count));
+    if (logActivity)
+      Logger::Instance().Log(ec ? Logger::Level::Warn : Logger::Level::Info,
+                             (ec ? "Failed removing " : "Removed ") + label +
+                                 ": " + path.string() +
+                                 " entries=" + std::to_string(count));
   } catch (...) {
   }
 }
 
 // Creates a unique operation-scoped workspace.
-TemporaryWorkspace::TemporaryWorkspace(const std::string &kind) {
+TemporaryWorkspace::TemporaryWorkspace(const std::string &kind,
+                                       bool logActivity)
+    : logActivity_(logActivity) {
   const fs::path root = GetPerastageOperationRoot();
   for (int i = 0; i < 64; ++i) {
     fs::path candidate = root / (kind + '-' + UniqueToken());
     std::error_code ec;
     if (fs::create_directory(candidate, ec) && !ec) {
       path_ = candidate;
-      Logger::Instance().Log(Logger::Level::Info, "Created runtime workspace: " + path_.string());
+      if (logActivity_)
+        Logger::Instance().Log(Logger::Level::Info,
+                               "Created runtime workspace: " + path_.string());
       break;
     }
   }
@@ -161,13 +172,18 @@ TemporaryWorkspace::TemporaryWorkspace(const std::string &kind) {
 TemporaryWorkspace::~TemporaryWorkspace() noexcept { Cleanup(); }
 
 // Moves temporary workspace ownership.
-TemporaryWorkspace::TemporaryWorkspace(TemporaryWorkspace &&other) noexcept : path_(std::move(other.path_)) { other.path_.clear(); }
+TemporaryWorkspace::TemporaryWorkspace(TemporaryWorkspace &&other) noexcept
+    : path_(std::move(other.path_)), logActivity_(other.logActivity_) {
+  other.path_.clear();
+}
 
 // Replaces this workspace with another owned workspace.
-TemporaryWorkspace &TemporaryWorkspace::operator=(TemporaryWorkspace &&other) noexcept {
+TemporaryWorkspace &
+TemporaryWorkspace::operator=(TemporaryWorkspace &&other) noexcept {
   if (this != &other) {
     Cleanup();
     path_ = std::move(other.path_);
+    logActivity_ = other.logActivity_;
     other.path_.clear();
   }
   return *this;
@@ -175,7 +191,7 @@ TemporaryWorkspace &TemporaryWorkspace::operator=(TemporaryWorkspace &&other) no
 
 // Removes the workspace immediately when still owned.
 void TemporaryWorkspace::Cleanup() noexcept {
-  RemoveOwnedPath(path_, "temporary workspace");
+  RemoveOwnedPath(path_, "temporary workspace", logActivity_);
   path_.clear();
 }
 
@@ -187,9 +203,11 @@ std::shared_ptr<SceneResourceLease> TemporaryWorkspace::TransferToSceneLease() {
 }
 
 // Creates a lease for scene/session runtime resources.
-SceneResourceLease::SceneResourceLease(fs::path path) : path_(std::move(path)) {}
+SceneResourceLease::SceneResourceLease(fs::path path)
+    : path_(std::move(path)) {}
 
-// Releases scene/session runtime resources when the final shared owner disappears.
+// Releases scene/session runtime resources when the final shared owner
+// disappears.
 SceneResourceLease::~SceneResourceLease() noexcept { Cleanup(); }
 
 // Removes scene/session runtime resources immediately when still owned.

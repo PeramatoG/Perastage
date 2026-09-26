@@ -82,7 +82,7 @@ documentation markers are validated against the same canonical module list.
 The source-registration arrangement is decentralized. The root `CMakeLists.txt`
 creates the application target and registers only its entry point and generated
 build-information source. The dedicated `cli/` module owns the separate
-`perastage_cli` executable and `perastage_cli_support` grammar library; it does
+`perastage_cli` executable and `perastage_cli_support` command/presentation library; it does
 not contribute sources to the GUI application. Every module above registers its explicit production
 source list through its own `CMakeLists.txt`; `core/` additionally owns the
 focused `perastage_inspection_core` static library and links it into the
@@ -90,7 +90,10 @@ inspection services and focused tests rather than compiling private copies of
 its implementation. Core also
 owns the separate `perastage_inspection_serialization` static library, whose
 standard-C++ interface serializes existing neutral inspection results while its
-vendored JSON dependency remains private. Core also owns the focused
+vendored JSON dependency remains private. The separate
+`perastage_inspection_report_serialization` target composes complete GDTF/MVR
+reports from structured Inspection results without broadening that minimal base
+boundary. Core also owns the focused
 `perastage_inspection_package` static library. It classifies `.gdtf` and `.mvr`
 paths and inventories ZIP entry metadata without extraction or XML parsing;
 its public interface and implementation are standard-library-only apart from

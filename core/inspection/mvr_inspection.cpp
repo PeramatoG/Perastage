@@ -473,7 +473,7 @@ MvrInspectionResult InspectMvrBytes(const std::vector<std::uint8_t> &bytes,
   std::vector<MvrImportDiagnostic> diagnostics;
   std::optional<mvr::ImportPackage> package;
   if (!inventory.inspection.HasFatalDiagnostics())
-    package = mvr::AcquireImportPackage(bytes, diagnostics);
+    package = mvr::AcquireImportPackage(bytes, diagnostics, false);
   return CompleteMvrInspection(std::move(inventory), std::move(package),
                                diagnostics);
 }
@@ -495,7 +495,7 @@ MvrInspectionResult InspectMvr(const Request &request) {
   std::vector<MvrImportDiagnostic> diagnostics;
   std::optional<mvr::ImportPackage> package;
   if (!inventory.inspection.HasFatalDiagnostics())
-    package = mvr::AcquireImportPackage(request.sourcePath, diagnostics);
+    package = mvr::AcquireImportPackage(request.sourcePath, diagnostics, false);
   return CompleteMvrInspection(std::move(inventory), std::move(package),
                                diagnostics);
 }
