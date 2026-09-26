@@ -191,6 +191,7 @@ set_source_files_properties("${PERASTAGE_GENERATED_BUILD_INFO_CPP}" PROPERTIES
 include(cmake/platform/PerastagePlatform.cmake)
 
 add_subdirectory(core)
+add_subdirectory(cli)
 add_subdirectory(gui)
 add_subdirectory(models)
 add_subdirectory(mvr)

@@ -380,6 +380,9 @@ if(Python3_Interpreter_FOUND)
     add_repository_policy_test(ApplicationBootstrapOwnership ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_application_bootstrap_ownership.py
                                LABELS standard-strict policy architecture cmake)
+    add_repository_policy_test(CliBoundary ${Python3_EXECUTABLE}
+                               ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_cli_boundary.py
+                               LABELS standard-strict policy architecture cmake cli)
     add_repository_policy_test(ModuleDependencyDirectionFixtures ${Python3_EXECUTABLE}
                                ARGS ${CMAKE_CURRENT_SOURCE_DIR}/check_module_dependency_directions_fixtures.py -v
                                LABELS standard-strict policy architecture)
