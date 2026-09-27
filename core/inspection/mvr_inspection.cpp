@@ -76,6 +76,17 @@ std::vector<std::string> GroupChildUuids(const GroupObject &group) {
   return children;
 }
 
+// Returns direct authored child UUIDs in deterministic order.
+std::vector<std::string> DirectChildUuids(const mvr::MvrReadContext &context,
+                                          const std::string &parentUuid) {
+  const auto found = context.directChildUuidsByParentUuid.find(parentUuid);
+  if (found == context.directChildUuidsByParentUuid.end())
+    return {};
+  std::vector<std::string> children = found->second;
+  std::sort(children.begin(), children.end());
+  return children;
+}
+
 // Returns the authored layer UUID retained for one parsed node.
 std::string LayerUuidFor(const mvr::MvrReadContext &context,
                          const std::string &nodeUuid) {
@@ -148,6 +159,9 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
     (void)uuid;
     AddReference(references, "geometry", file);
   }
+  for (const mvr::MvrNeutralSceneNode &node : readContext.neutralSceneNodes)
+    for (const auto &[kind, path] : node.resourceReferences)
+      AddReference(references, kind.c_str(), path);
   for (const auto &[kind, path] : references)
     snapshot.referencedResources.push_back({kind, path});
 
@@ -178,7 +192,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             reference,
-            {}};
+            DirectChildUuids(readContext, node.uuid)};
       });
   snapshot.trusses = SortedDescriptors(scene.trusses, [&](const Truss &node) {
     const std::string reference =
@@ -191,7 +205,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
         LayerNameFor(readContext, node.uuid, node.layer),
         node.parentGroupUuid,
         reference,
-        {}};
+        DirectChildUuids(readContext, node.uuid)};
   });
   snapshot.supports =
       SortedDescriptors(scene.supports, [&](const Support &node) {
@@ -205,7 +219,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             reference,
-            {}};
+            DirectChildUuids(readContext, node.uuid)};
       });
   snapshot.sceneObjects =
       SortedDescriptors(scene.sceneObjects, [&](const SceneObject &node) {
@@ -217,10 +231,14 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             node.GetPrimaryModel(),
-            {}};
+            DirectChildUuids(readContext, node.uuid)};
       });
   snapshot.groupObjects =
       SortedDescriptors(scene.groupObjects, [&](const GroupObject &node) {
+        std::vector<std::string> children =
+            DirectChildUuids(readContext, node.uuid);
+        if (children.empty())
+          children = GroupChildUuids(node);
         return MvrSceneNodeDescriptor{
             "group_object",
             node.uuid,
@@ -229,8 +247,41 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
             LayerNameFor(readContext, node.uuid, node.layer),
             node.parentGroupUuid,
             {},
-            GroupChildUuids(node)};
+            std::move(children)};
       });
+  for (const mvr::MvrNeutralSceneNode &node : readContext.neutralSceneNodes) {
+    const std::string reference = node.resourceReferences.empty()
+                                      ? std::string{}
+                                      : node.resourceReferences.front().second;
+    std::vector<std::string> children =
+        DirectChildUuids(readContext, node.uuid);
+    MvrSceneNodeDescriptor descriptor{node.kind == "FocusPoint" ? "focus_point"
+                                      : node.kind == "VideoScreen"
+                                          ? "video_screen"
+                                          : "projector",
+                                      node.uuid,
+                                      node.name,
+                                      node.layerUuid,
+                                      node.layerName,
+                                      node.parentGroupUuid,
+                                      reference,
+                                      std::move(children)};
+    if (node.kind == "FocusPoint")
+      snapshot.focusPoints.push_back(std::move(descriptor));
+    else if (node.kind == "VideoScreen")
+      snapshot.videoScreens.push_back(std::move(descriptor));
+    else if (node.kind == "Projector")
+      snapshot.projectors.push_back(std::move(descriptor));
+  }
+  const auto sortDescriptors = [](auto &descriptors) {
+    std::sort(descriptors.begin(), descriptors.end(),
+              [](const auto &left, const auto &right) {
+                return left.uuid < right.uuid;
+              });
+  };
+  sortDescriptors(snapshot.focusPoints);
+  sortDescriptors(snapshot.videoScreens);
+  sortDescriptors(snapshot.projectors);
   for (const MvrOpaqueUserDataBlock &block : scene.opaqueUserDataBlocks) {
     snapshot.foreignUserData.push_back(
         {block.provider, block.version, block.xml});
@@ -281,6 +332,9 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
                          {"supports", snapshot.supports.size()},
                          {"scene_objects", snapshot.sceneObjects.size()},
                          {"group_objects", snapshot.groupObjects.size()},
+                         {"focus_points", snapshot.focusPoints.size()},
+                         {"video_screens", snapshot.videoScreens.size()},
+                         {"projectors", snapshot.projectors.size()},
                          {"positions", snapshot.positions.size()},
                          {"symdefs", snapshot.symdefs.size()}};
   return snapshot;
@@ -369,6 +423,50 @@ void AppendMvr16SemanticDiagnostics(MvrInspectionResult &result,
   }
 }
 
+// Adds MVR 1.5 requirements provable from authoritative shared-reader facts.
+void AppendMvr15SemanticDiagnostics(MvrInspectionResult &result,
+                                    const mvr::MvrReadContext &context) {
+  if (!result.snapshot || result.snapshot->versionMajor != 1 ||
+      result.snapshot->versionMinor != 5)
+    return;
+  for (const std::string &supportUuid : context.supportsMissingChainLength) {
+    AddDiagnostic(result, DiagnosticSeverity::Error, DiagnosticDomain::Content,
+                  DiagnosticClassification::Standards,
+                  "mvr.semantic.support_missing_chain_length",
+                  "MVR 1.5 Support '" + supportUuid +
+                      "' is missing required ChainLength.");
+  }
+}
+
+// Returns truthful validation layers for the parsed MVR document version.
+XmlSchemaValidationResult
+ValidateMvrVersion(std::string_view sceneXml, int versionMajor,
+                   int versionMinor, const DiagnosticLocation &sourceLocation) {
+  if (versionMajor == 1 && versionMinor == 6)
+    return ValidateXmlAgainstSchema(sceneXml, Mvr16Schema(), sourceLocation);
+  const bool version15 = versionMajor == 1 && versionMinor == 5;
+  SchemaDescriptor unavailable{
+      {"mvr", std::to_string(versionMajor) + "." + std::to_string(versionMinor),
+       "not_published",
+       version15 ? "mvrdevelopment/spec:mvr-spec.md"
+                 : "no_applicable_pinned_specification",
+       version15 ? "04faa85205ad12989b8e3e95e8fe8f949650a637" : ""},
+      {}};
+  XmlSchemaValidationResult validation =
+      ValidateXmlAgainstSchema(sceneXml, unavailable, sourceLocation);
+  if (validation.schema.status == ValidationStatus::Unavailable &&
+      !validation.schema.diagnostics.empty()) {
+    validation.schema.diagnostics.front().code =
+        "mvr.schema.unavailable_for_version";
+    validation.schema.diagnostics.front().severity =
+        DiagnosticSeverity::Information;
+    validation.schema.diagnostics.front().message =
+        "No applicable pinned official XSD is available for this MVR "
+        "version; schema conformance was not evaluated.";
+  }
+  return validation;
+}
+
 // Summarizes existing read findings without reinterpreting scene XML.
 ValidationResult SemanticValidation(const Result &inspection) {
   ValidationResult validation;
@@ -420,10 +518,6 @@ static MvrInspectionResult CompleteMvrInspection(
   validationLocation.sourcePath = result.inspection.request.sourcePath;
   validationLocation.packageEntry = PathUtf8(
       std::filesystem::relative(package->sceneXmlPath, package->rootPath));
-  XmlSchemaValidationResult validation =
-      ValidateXmlAgainstSchema(sceneXml, Mvr16Schema(), validationLocation);
-  result.validation.push_back(std::move(validation.xml));
-  result.validation.push_back(std::move(validation.schema));
   MvrImportResult parsed;
   mvr::MvrReadContext readContext;
   MvrImportOptions options;
@@ -432,6 +526,10 @@ static MvrInspectionResult CompleteMvrInspection(
   options.allowDummyFallback = false;
   if (!mvr::ReadAcquiredMvrPackage(*package, parsed, options, nullptr,
                                    &readContext)) {
+    XmlSchemaValidationResult validation =
+        ValidateMvrVersion(sceneXml, 0, 0, validationLocation);
+    result.validation.push_back(std::move(validation.xml));
+    result.validation.push_back(std::move(validation.schema));
     AddDiagnostic(result, DiagnosticSeverity::Fatal, DiagnosticDomain::Xml,
                   DiagnosticClassification::General, "mvr.xml.parse_failed",
                   "GeneralSceneDescription.xml could not be parsed.",
@@ -443,6 +541,11 @@ static MvrInspectionResult CompleteMvrInspection(
   AppendImporterDiagnostics(result, parsed);
   result.snapshot =
       BuildSnapshot(parsed, readContext, *package, *result.packageInventory);
+  XmlSchemaValidationResult validation =
+      ValidateMvrVersion(sceneXml, result.snapshot->versionMajor,
+                         result.snapshot->versionMinor, validationLocation);
+  result.validation.push_back(std::move(validation.xml));
+  result.validation.push_back(std::move(validation.schema));
   if (result.snapshot->sceneDescriptionEntry != "GeneralSceneDescription.xml") {
     AddDiagnostic(
         result, DiagnosticSeverity::Warning, DiagnosticDomain::Package,
@@ -452,6 +555,7 @@ static MvrInspectionResult CompleteMvrInspection(
         result.snapshot->sceneDescriptionEntry);
   }
   AppendMissingResourceDiagnostics(result);
+  AppendMvr15SemanticDiagnostics(result, readContext);
   AppendMvr16SemanticDiagnostics(result, readContext);
   result.validation.push_back(SemanticValidation(result.inspection));
   return result;

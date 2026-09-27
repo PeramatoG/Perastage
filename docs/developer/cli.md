@@ -40,10 +40,10 @@ surface is:
 - the command identity and argument roles shown above;
 - the JSON field names, value types, enum tokens, diagnostic codes, and
   meanings declared stable by the Inspection API;
-- the top-level `schema_version`, `request`, `success`, `worst_severity`,
-  `diagnostics`, `format`, `status`, `package`, `resources`, and `validation`
-  members, plus the format-specific `document` (GDTF) or `snapshot` (MVR)
-  member;
+- the top-level `schema_version`, `request`, `success`, `has_findings`,
+  `worst_severity`, `diagnostics`, `format`, `status`, `package`, `resources`,
+  and `validation` members, plus the format-specific `document` (GDTF) or
+  `snapshot` (MVR) member;
 - the exit codes and stdout/stderr responsibilities below;
 - UTF-8 JSON strings and lossless Unicode filesystem-path round trips; and
 - diagnostic locations, when Core supplies them: `source_path` identifies the
@@ -66,6 +66,30 @@ version output formatting is likewise presentation-only unless a token is
 explicitly added to this section as stable. Exact XML output is a retained
 source payload for inspection, not a versioned Perastage data schema.
 
+For complete GDTF and MVR reports, `success` means that the read operation
+produced the format-specific structured `document` or `snapshot`; it does not
+claim standards conformance. `has_findings` is true when any base or validation
+diagnostic is warning, error, or fatal, and `worst_severity` is the greatest
+severity across both collections (including information). The top-level
+`diagnostics` array continues to contain only base inspection diagnostics;
+validation findings remain in their original `validation` layers so XML
+well-formedness, schema conformance, and semantic/interoperability provenance
+stay distinct. Thus a parseable schema-invalid file has `success: true`,
+`has_findings: true`, an aggregate `worst_severity` of `error`, and exit code
+`1`. An unreadable file has `success: false` and exit code `3`.
+
+MVR validation is version-aware. MVR 1.6 uses the pinned official 1.6 XSD and
+the separate parser-level 1.6 semantic rules. No authoritative MVR 1.5 XSD is
+available in the pinned upstream schema history, so an MVR 1.5 report truthfully
+marks the schema layer `unavailable` and identifies the pinned specification
+revision used for parser-level 1.5 semantic checks; that Markdown specification
+revision is not an XSD. Unsupported versions instead identify that no
+applicable specification is pinned and leave `source_revision` empty. MVR 1.5
+is not tested against the incompatible structural expectations of the 1.6 XSD.
+The focused MVR 1.5 Support check currently proves required `ChainLength`
+element presence; numeric value-domain validation remains unavailable without
+an applicable official schema.
+
 When the CLI is publicly released, a published machine-facing CLI/schema
 contract will not silently remove, rename, type-change, or semantically
 reinterpret existing behavior. Additive JSON fields remain permitted under the
@@ -85,9 +109,11 @@ presentation text.
 - `resources` renders ordered Core `ResourceDescriptor` values, including
   kind, known size, supported operations, and path safety. It does not decode
   images or models.
-- `diagnostics` renders top-level and validation-layer findings with severity,
-  classification, domain, stable code, message, and available location. It
-  keeps standards and compatibility findings distinct.
+- `diagnostics` renders semantically unique top-level and validation-layer
+  findings with severity, classification, domain, stable code, message, and
+  available location. It keeps standards and compatibility findings distinct.
+  Identical findings repeated for validation provenance are shown and counted
+  once in human views; the complete JSON retains every original layer member.
 - `xml` writes only the exact retained `description.xml` or
   `GeneralSceneDescription.xml` payload. It adds no heading or newline and
   performs no parsing, rewriting, or pretty-printing.
@@ -96,6 +122,8 @@ presentation text.
   package, resources, validation, and GDTF document or MVR snapshot facts over
   the minimal base result serialization. The base `SerializeResultToJson(Result)`
   contract remains unchanged.
+  MVR snapshots add deterministic `focus_points`, `video_screens`, and
+  `projectors` collections alongside the existing scene-node collections.
 
 Both presentation modes consume the same single in-memory result returned by
 `InspectGdtf` or `InspectMvr`. Resource metadata comes from the neutral resource

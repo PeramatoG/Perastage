@@ -326,8 +326,7 @@ DescribePackageResources(const std::filesystem::path &packagePath,
     if (!prefix.Success())
       continue;
     resource.kind = IdentifyKind(*resource.normalizedPath, prefix.bytes);
-    if (!prefix.complete && (resource.kind == ResourceKind::XmlText ||
-                             resource.kind == ResourceKind::Text))
+    if (!prefix.complete && resource.kind == ResourceKind::Text)
       resource.kind = ResourceKind::Binary;
     resource.textPreviewSupported = resource.kind == ResourceKind::XmlText ||
                                     resource.kind == ResourceKind::Text;
@@ -377,8 +376,7 @@ DescribePackageResources(std::span<const std::uint8_t> packageBytes,
     if (!prefix.Success())
       continue;
     resource.kind = IdentifyKind(*resource.normalizedPath, prefix.bytes);
-    if (!prefix.complete && (resource.kind == ResourceKind::XmlText ||
-                             resource.kind == ResourceKind::Text))
+    if (!prefix.complete && resource.kind == ResourceKind::Text)
       resource.kind = ResourceKind::Binary;
     resource.textPreviewSupported = resource.kind == ResourceKind::XmlText ||
                                     resource.kind == ResourceKind::Text;

@@ -28,6 +28,7 @@ configure_file(
 )
 add_library(perastage_inspection_validation STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/inspection/xml_schema_validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/inspection/inspection_report_aggregation.cpp
 )
 target_compile_features(perastage_inspection_validation PUBLIC cxx_std_20)
 target_include_directories(perastage_inspection_validation PUBLIC

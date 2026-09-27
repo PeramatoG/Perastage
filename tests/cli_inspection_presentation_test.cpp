@@ -115,9 +115,21 @@ bool CheckFormatters() {
   mvr.inspection.diagnostics.push_back(
       Finding(inspection::DiagnosticSeverity::Warning,
               inspection::DiagnosticClassification::Compatibility));
-  const std::string diagnostics = cli::FormatDiagnostics(mvr.inspection, {});
+  inspection::ValidationResult duplicateLayer;
+  duplicateLayer.layer = inspection::ValidationLayer::SemanticInteroperability;
+  duplicateLayer.status = inspection::ValidationStatus::Invalid;
+  duplicateLayer.diagnostics = mvr.inspection.diagnostics;
+  inspection::Diagnostic distinct = duplicateLayer.diagnostics.front();
+  distinct.location = inspection::DiagnosticLocation{
+      std::nullopt, "other.xml", std::nullopt, std::nullopt, std::nullopt};
+  duplicateLayer.diagnostics.push_back(distinct);
+  const std::string diagnostics =
+      cli::FormatDiagnostics(mvr.inspection, {duplicateLayer});
   passed &= Expect(diagnostics == "warning | compatibility | content | "
-                                  "test.finding | Synthetic finding.\n",
+                                  "test.finding | Synthetic finding.\n"
+                                  "warning | compatibility | content | "
+                                  "test.finding | Synthetic finding. | "
+                                  "location=#other.xml\n",
                    "diagnostics golden");
 
   inspection::GdtfInspectionResult gdtf;

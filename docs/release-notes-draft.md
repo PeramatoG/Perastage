@@ -20,6 +20,17 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Corrected Inspector and development CLI handling of large XML package
+  resources, aligned complete-report validation outcomes with CLI exit codes,
+  and removed duplicate human-facing diagnostic rows without discarding
+  structured validation provenance. MVR 1.5 inspection now avoids misleading
+  MVR 1.6 schema errors, reports semantic findings against verified official
+  MVR 1.5 specification provenance, and keeps unsupported-version provenance
+  explicit. Read-only scene snapshots now include focus points, video screens,
+  and projectors with their deterministic packaged-resource references and
+  complete direct authored child hierarchy across standard MVR 1.6 ChildList
+  owners, without attributing descendant resources to their neutral parent.
+
 - Restored fixture-category fallback diagnostics during normal MVR imports.
 
 - Restored detailed MVR import diagnostics for matrix contexts and examples, per-Symdef truss usage, GDTF resolution, dictionary state, and fixture-category fallback reasons.

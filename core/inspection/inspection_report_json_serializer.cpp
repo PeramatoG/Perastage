@@ -1,5 +1,6 @@
 #include "inspection_report_json_serializer.h"
 
+#include "inspection/inspection_report_aggregation.h"
 #include "inspection_json_serialization_detail.h"
 
 #include "json.hpp"
@@ -9,6 +10,34 @@
 
 namespace perastage::inspection::serialization {
 namespace {
+
+// Returns a stable report-wide severity token.
+const char *AggregateSeverityToken(DiagnosticSeverity severity) {
+  switch (severity) {
+  case DiagnosticSeverity::Information:
+    return "information";
+  case DiagnosticSeverity::Warning:
+    return "warning";
+  case DiagnosticSeverity::Error:
+    return "error";
+  case DiagnosticSeverity::Fatal:
+    return "fatal";
+  }
+  throw std::invalid_argument("Unknown inspection diagnostic severity");
+}
+
+// Applies complete-report facts while leaving layered diagnostics intact.
+void ApplyAggregate(nlohmann::json &root, const Result &inspection,
+                    const std::vector<ValidationResult> &validation,
+                    bool structuredOutputAvailable) {
+  const ReportAggregate aggregate =
+      AggregateReport(inspection, validation, structuredOutputAvailable);
+  root["success"] = aggregate.operationalSuccess;
+  root["has_findings"] = aggregate.hasFindings;
+  root["worst_severity"] = nullptr;
+  if (aggregate.worstSeverity)
+    root["worst_severity"] = AggregateSeverityToken(*aggregate.worstSeverity);
+}
 
 // Returns a stable package kind token.
 const char *PackageKindToken(PackageKind kind) {
@@ -160,6 +189,8 @@ std::string
 SerializeGdtfReportToJson(const GdtfInspectionResult &result,
                           const std::vector<ResourceDescriptor> &resources) {
   nlohmann::json root = detail::SerializeBase(result.inspection);
+  ApplyAggregate(root, result.inspection, result.validation,
+                 result.document.has_value());
   root["format"] = "GDTF";
   const char *status = result.status == GdtfReadStatus::Canonical ? "canonical"
                        : result.status == GdtfReadStatus::CompatibilityAccepted
@@ -237,6 +268,8 @@ std::string
 SerializeMvrReportToJson(const MvrInspectionResult &result,
                          const std::vector<ResourceDescriptor> &resources) {
   nlohmann::json root = detail::SerializeBase(result.inspection);
+  ApplyAggregate(root, result.inspection, result.validation,
+                 result.snapshot.has_value());
   root["format"] = "MVR";
   root["status"] = result.Success() ? "inspected" : "unusable";
   root["package"] = SerializePackage(result.packageInventory);
@@ -276,6 +309,9 @@ SerializeMvrReportToJson(const MvrInspectionResult &result,
         {"supports", SerializeNodes(snapshot.supports)},
         {"scene_objects", SerializeNodes(snapshot.sceneObjects)},
         {"group_objects", SerializeNodes(snapshot.groupObjects)},
+        {"focus_points", SerializeNodes(snapshot.focusPoints)},
+        {"video_screens", SerializeNodes(snapshot.videoScreens)},
+        {"projectors", SerializeNodes(snapshot.projectors)},
         {"positions", SerializeNodes(snapshot.positions)},
         {"symdefs", std::move(symdefs)},
         {"foreign_user_data", std::move(foreign)},

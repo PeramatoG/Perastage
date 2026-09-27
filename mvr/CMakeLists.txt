@@ -5,6 +5,7 @@ add_library(perastage_mvr_read STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_import_resource_resolver.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_read_service.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_neutral.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_support.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/primitive_model_resources.cpp
 )
@@ -49,6 +50,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_read_service.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_detail.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mvr_scene_node_reader_neutral.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_analyzer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_applier.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mvr_merge_resource_rewriter.cpp

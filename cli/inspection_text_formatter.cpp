@@ -1,5 +1,7 @@
 #include "inspection_text_formatter.h"
 
+#include "inspection/inspection_report_aggregation.h"
+
 #include <array>
 #include <sstream>
 
@@ -112,13 +114,8 @@ const char *ResourceKind(inspection::ResourceKind value) {
 std::array<std::size_t, 4>
 DiagnosticCounts(const inspection::Result &result,
                  const std::vector<inspection::ValidationResult> &validation) {
-  std::array<std::size_t, 4> counts{};
-  for (const auto &item : result.diagnostics)
-    ++counts[static_cast<std::size_t>(item.severity)];
-  for (const auto &layer : validation)
-    for (const auto &item : layer.diagnostics)
-      ++counts[static_cast<std::size_t>(item.severity)];
-  return counts;
+  return inspection::AggregateReport(result, validation, true)
+      .uniqueDiagnosticCounts;
 }
 
 // Appends common deterministic summary fields.
@@ -252,16 +249,14 @@ FormatResources(const std::vector<inspection::ResourceDescriptor> &resources) {
   return out.str();
 }
 
-// Formats top-level and validation diagnostics without deduplication.
+// Formats semantically unique diagnostics while preserving structured layers.
 std::string
 FormatDiagnostics(const inspection::Result &result,
                   const std::vector<inspection::ValidationResult> &validation) {
   std::ostringstream out;
-  for (const auto &item : result.diagnostics)
+  for (const auto &item :
+       inspection::CollectUniqueDiagnostics(result, validation))
     AppendDiagnostic(out, item);
-  for (const auto &layer : validation)
-    for (const auto &item : layer.diagnostics)
-      AppendDiagnostic(out, item);
   return out.str();
 }
 

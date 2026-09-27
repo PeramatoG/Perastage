@@ -165,6 +165,12 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
     context->authoredLayerNameByUuid.clear();
     context->layerUuidByNodeUuid.clear();
     context->directChildUuidsByLayerUuid.clear();
+    context->directChildUuidsByParentUuid.clear();
+    context->neutralSceneNodes.clear();
+    context->fixtureCount = 0;
+    context->fixturesMissingChildList = 0;
+    context->fixturesWithFixtureTypeId = 0;
+    context->supportsMissingChainLength.clear();
   }
   auto logMessage = [&](MvrReadLogLevel level, const std::string &message) {
     if (logCallback)
@@ -1045,6 +1051,19 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
           ++context->fixturesMissingChildList;
         if (hasFixtureTypeId)
           ++context->fixturesWithFixtureTypeId;
+      },
+      [&](const std::string &supportUuid, bool hasChainLength) {
+        if (context && !hasChainLength)
+          context->supportsMissingChainLength.push_back(supportUuid);
+      },
+      [&](MvrNeutralSceneNode node) {
+        if (context)
+          context->neutralSceneNodes.push_back(std::move(node));
+      },
+      [&](const std::string &parentUuid, const std::string &childUuid) {
+        if (context && !parentUuid.empty() && !childUuid.empty())
+          context->directChildUuidsByParentUuid[parentUuid].push_back(
+              childUuid);
       },
       ensurePositionEntry,
       resolveSymdefReference,
