@@ -30,6 +30,52 @@ Unknown options or views, missing view values, and extra positional arguments
 are usage errors. Shell-quoted paths containing spaces and Unicode filesystem
 paths are passed directly through the standard C++ filesystem boundary.
 
+## Automation contract
+
+The CLI is development-only today, but automation should use the executable
+name `perastage-cli`, the `inspect` command, and the
+`inspect <file> --json` form. For that machine-facing form, the compatibility
+surface is:
+
+- the command identity and argument roles shown above;
+- the JSON field names, value types, enum tokens, diagnostic codes, and
+  meanings declared stable by the Inspection API;
+- the top-level `schema_version`, `request`, `success`, `worst_severity`,
+  `diagnostics`, `format`, `status`, `package`, `resources`, and `validation`
+  members, plus the format-specific `document` (GDTF) or `snapshot` (MVR)
+  member;
+- the exit codes and stdout/stderr responsibilities below;
+- UTF-8 JSON strings and lossless Unicode filesystem-path round trips; and
+- diagnostic locations, when Core supplies them: `source_path` identifies the
+  inspected filesystem input, `package_entry` identifies an archive member,
+  `xml_path` identifies a location within XML, and `line`/`column` provide
+  one-based parser coordinates when available.
+
+Consumers must select behavior by `schema_version` and should ignore unknown
+object members so additive fields remain compatible. Schema version `1` is the
+current contract. Within one schema version, existing fields and diagnostic
+location members keep their names, JSON types, token meanings, and semantics;
+new optional fields may be added. Removing or renaming a field, changing its
+type, or reinterpreting its meaning incompatibly requires a new schema version.
+Array order is contractual only where the Inspection API describes the data as
+ordered; JSON object member order and serialized whitespace are not.
+
+Human `--view` output is presentation-only. Headings, whitespace, alignment,
+prose, and layout may change and must not be parsed by automation. Help and
+version output formatting is likewise presentation-only unless a token is
+explicitly added to this section as stable. Exact XML output is a retained
+source payload for inspection, not a versioned Perastage data schema.
+
+When the CLI is publicly released, a published machine-facing CLI/schema
+contract will not silently remove, rename, type-change, or semantically
+reinterpret existing behavior. Additive JSON fields remain permitted under the
+rules above; incompatible JSON changes require an explicit schema-version
+change. Incompatible command or exit-code changes require an intentional
+compatibility decision with corresponding documentation and regression tests.
+This policy establishes the compatibility baseline without treating the
+currently uninstalled binary as already shipped or promising stability for
+presentation text.
+
 ## Inspection views
 
 - `summary` renders compact format-specific document or scene facts, package
@@ -71,7 +117,9 @@ Requested data (human views, exact XML, and JSON) goes to standard output.
 Structured JSON remains available there for a supported malformed source when
 Core returns diagnostics. Standard error is reserved for usage errors,
 unsupported types, and concise unexpected process failures; normal inspection
-findings are not duplicated there.
+findings are not duplicated there. Automation should interpret the process exit
+code before inspecting output; warning/error reports at code `1` and structured
+fatal reports at code `3` can still contain valid JSON on standard output.
 
 ## Architecture and distribution
 
@@ -86,5 +134,9 @@ The command starts no `wxApp`, creates no window, and initializes no App, GUI,
 viewer, ConfigManager, localization, project state, networking, library, or
 credential service. The executable remains a Windows console program and a
 non-bundle macOS executable. It deliberately has no install or packaging rule;
-public distribution and the CLI-220 automation compatibility contract remain
-future work.
+public distribution remains future work. Because the CLI never owns or loads
+credential storage, user-secret services, or networking state, those contents
+cannot enter its output; adding such a dependency is forbidden rather than
+handled by output scrubbing. Reports expose the requested source path and
+archive/XML locations supplied by Inspection Core, but not private temporary
+workspace paths used by implementations.
