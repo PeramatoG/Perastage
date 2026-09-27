@@ -18,6 +18,7 @@ struct Result {
 
 struct Options {
   bool allowFixtureTypeIdRepair = false;
+  bool allowPlaceholderFixtureTypeIdRepair = false;
   std::string stableIdSeed;
   std::string sourceLabel;
 };

@@ -324,7 +324,10 @@ Result CanonicalizeDescription(tinyxml2::XMLDocument &doc, const Options &option
 
   const char *id = fixtureType->Attribute("FixtureTypeID");
   if (!id || !IsValidGuid(id) || IsPlaceholderFixtureTypeId(id)) {
-    if (!options.allowFixtureTypeIdRepair) {
+    const bool placeholderRepairAllowed =
+        id && IsPlaceholderFixtureTypeId(id) &&
+        options.allowPlaceholderFixtureTypeIdRepair;
+    if (!options.allowFixtureTypeIdRepair && !placeholderRepairAllowed) {
       AddError(result, options, "FixtureTypeID is missing, invalid, or a placeholder");
       return result;
     }

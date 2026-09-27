@@ -819,8 +819,14 @@ void MainWindow::OnExportFixture(wxCommandEvent &WXUNUSED(event)) {
       return;
   }
 
+  std::error_code effectiveSourceError;
+  const bool targetIsEffectiveSource =
+      fs::exists(target, effectiveSourceError) && !effectiveSourceError &&
+      fs::equivalent(target, effectiveSrc, effectiveSourceError) &&
+      !effectiveSourceError;
   std::string publicationError;
-  if (!fixture_gdtf::PublishCanonicalGdtfCopy(effectiveSrc, target,
+  if (!targetIsEffectiveSource &&
+      !fixture_gdtf::PublishCanonicalGdtfCopy(effectiveSrc, target,
                                                publicationError)) {
     wxMessageBox(wxString::Format(_("Failed to write file: %s"),
                                   wxString::FromUTF8(publicationError)),

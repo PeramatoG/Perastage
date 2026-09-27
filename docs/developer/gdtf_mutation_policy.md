@@ -66,6 +66,19 @@ publication paths to fail without replacing an existing destination. The
 external source remains unchanged, and publication never falls back to copying
 the rejected archive.
 
+Fixture Export retains the existing no-copy result when the chosen destination
+is already the effective source file. When the destination is the original
+asset but the effective source is a distinct Perastage derivative, the existing
+overwrite confirmation remains required before the canonical copy atomically
+replaces that original asset.
+
+Perastage-owned publication enables deterministic repair only for
+`FixtureTypeID` values recognized by `IsPlaceholderFixtureTypeId()`. The seed
+is a stable publication-policy identifier combined with FixtureType identity
+fields, never a transient working filename. Valid identifiers remain unchanged,
+while missing or otherwise malformed non-placeholder identifiers still fail
+strict publication.
+
 ### Notes on ownership
 
 - `core/gdtf_document_mutation.{h,cpp}` owns the document mutation and archive publication transaction; it preserves unrelated resources, structured publication-stage diagnostics, failure hooks, and atomic replacement semantics.

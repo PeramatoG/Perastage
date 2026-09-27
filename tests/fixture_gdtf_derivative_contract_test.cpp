@@ -76,6 +76,16 @@ int CountCanonicalizationRevisions(const std::string &xml) {
   return count;
 }
 
+// Reads the FixtureTypeID from one description payload.
+std::string ReadFixtureTypeId(const std::string &xml) {
+  tinyxml2::XMLDocument document;
+  assert(document.Parse(xml.c_str(), xml.size()) == tinyxml2::XML_SUCCESS);
+  const auto *fixtureType =
+      document.FirstChildElement("GDTF")->FirstChildElement("FixtureType");
+  const char *id = fixtureType->Attribute("FixtureTypeID");
+  return id ? id : "";
+}
+
 // Verifies canonical derivatives require all four stored fixture-symbol views.
 int main() {
   const fs::path root = fs::temp_directory_path() /
@@ -171,6 +181,8 @@ int main() {
   assert(legacySource != canonicalDestination);
   assert(ReadFileBytes(canonicalDestination) != originalLegacyBytes);
   std::string canonicalXml = ReadDescriptionXml(canonicalDestination);
+  assert(ReadFixtureTypeId(canonicalXml) ==
+         tests::gdtf::FixtureBuilder::kMinimalFixtureTypeId);
   assert(canonicalXml.find("Editor=") == std::string::npos);
   assert(canonicalXml.find("PerastageMutationAudit") == std::string::npos);
   assert(canonicalXml.find("<FTPresets") != std::string::npos);
@@ -185,6 +197,42 @@ int main() {
       canonicalDestination, root / "Repeated@Perastage.gdtf", error));
   assert(CountCanonicalizationRevisions(
              ReadDescriptionXml(root / "Repeated@Perastage.gdtf")) == 1);
+
+  const fs::path placeholderSource = root / "PlaceholderSource.gdtf";
+  const fs::path placeholderFirst = root / "PlaceholderFirst@Perastage.gdtf";
+  const fs::path placeholderSecond = root / "PlaceholderSecond@Perastage.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("Placeholder Fixture", "Perastage",
+                           "00000000-0000-0000-0000-000000000001")
+      .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
+      .WriteArchive(placeholderSource);
+  const std::string originalPlaceholderBytes = ReadFileBytes(placeholderSource);
+  assert(fixture_gdtf::PublishCanonicalGdtfCopy(
+      placeholderSource, placeholderFirst, error));
+  assert(fixture_gdtf::PublishCanonicalGdtfCopy(
+      placeholderSource, placeholderSecond, error));
+  const std::string firstRepairedId =
+      ReadFixtureTypeId(ReadDescriptionXml(placeholderFirst));
+  const std::string secondRepairedId =
+      ReadFixtureTypeId(ReadDescriptionXml(placeholderSecond));
+  assert(firstRepairedId == secondRepairedId);
+  assert(firstRepairedId != "00000000-0000-0000-0000-000000000001");
+  assert(firstRepairedId.size() == 36);
+  assert(ReadFileBytes(placeholderSource) == originalPlaceholderBytes);
+
+  const fs::path invalidIdSource = root / "InvalidIdSource.gdtf";
+  const fs::path invalidIdDestination = root / "InvalidId@Perastage.gdtf";
+  tests::gdtf::BuildMinimalValidFixture()
+      .WithFixtureIdentity("Invalid ID Fixture", "Perastage", "not-a-guid")
+      .WithModelResource("main")
+      .WithPerastageGeneratedSymbols()
+      .WriteArchive(invalidIdSource);
+  const std::string originalInvalidIdBytes = ReadFileBytes(invalidIdSource);
+  assert(!fixture_gdtf::PublishCanonicalGdtfCopy(
+      invalidIdSource, invalidIdDestination, error));
+  assert(ReadFileBytes(invalidIdSource) == originalInvalidIdBytes);
+  assert(!fs::exists(invalidIdDestination));
 
   const fs::path unknownSource = root / "UnknownSource.gdtf";
   const fs::path refusedDestination = root / "Unknown@Perastage.gdtf";

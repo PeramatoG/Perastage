@@ -32,6 +32,16 @@ std::filesystem::path BuildCanonicalWorkingPath(
   return workingPath;
 }
 
+// Builds deterministic canonicalization options for Perastage-owned output.
+GdtfCanonicalizer::Options BuildPublicationCanonicalizationOptions(
+    const std::filesystem::path &sourceLabel) {
+  GdtfCanonicalizer::Options options;
+  options.allowPlaceholderFixtureTypeIdRepair = true;
+  options.stableIdSeed = "Perastage canonical GDTF publication";
+  options.sourceLabel = sourceLabel.filename().string();
+  return options;
+}
+
 // Replaces a published archive atomically with a completed private archive.
 bool ReplacePublishedArchive(const std::filesystem::path &workingPath,
                              const std::filesystem::path &publishedPath,
@@ -94,8 +104,10 @@ bool PublishCanonicalGdtfCopy(const std::filesystem::path &sourcePath,
     return false;
   }
   const fs::path workingPath = BuildCanonicalWorkingPath(publishedPath);
+  const GdtfCanonicalizer::Options options =
+      BuildPublicationCanonicalizationOptions(sourcePath);
   const GdtfCanonicalizer::Result canonical =
-      GdtfCanonicalizer::CanonicalizeArchive(sourcePath, workingPath);
+      GdtfCanonicalizer::CanonicalizeArchive(sourcePath, workingPath, options);
   if (!canonical.success) {
     fs::remove(workingPath, ec);
     errorMessage = canonical.errors.empty()
@@ -167,9 +179,11 @@ bool PublishPreparedDerivative(const PreparedDerivative &prepared,
   }
   const fs::path canonicalWorkingPath =
       BuildCanonicalWorkingPath(prepared.publishedPath);
+  const GdtfCanonicalizer::Options options =
+      BuildPublicationCanonicalizationOptions(prepared.publishedPath);
   const GdtfCanonicalizer::Result canonical =
       GdtfCanonicalizer::CanonicalizeArchive(prepared.workingPath,
-                                             canonicalWorkingPath);
+                                             canonicalWorkingPath, options);
   fs::remove(prepared.workingPath);
   if (!canonical.success) {
     fs::remove(canonicalWorkingPath);

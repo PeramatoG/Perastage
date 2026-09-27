@@ -2983,56 +2983,6 @@ target_include_directories(clipboard_placement_confirmation_test PRIVATE ../core
 add_test(NAME ClipboardPlacementConfirmation
          COMMAND clipboard_placement_confirmation_test)
 
-get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
-foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
-    get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
-    if(PERASTAGE_TEST_SOURCES AND
-       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
-       NOT "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
-                       ../core/fixture_gdtf_derivative_contract.cpp)
-        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
-                              perastage_test_required_fixture_svg)
-    endif()
-    if(PERASTAGE_TEST_SOURCES AND
-       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-        if(NOT "../core/fixture_gdtf_derivative_publication.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-            target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
-                           ../core/fixture_gdtf_derivative_publication.cpp)
-        endif()
-        if(NOT "../core/gdtf_canonicalizer.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-            target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
-                           ../core/gdtf_canonicalizer.cpp)
-        endif()
-    endif()
-    if(PERASTAGE_TEST_SOURCES AND
-       "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
-       NOT "../core/symbols/PerastageSvgSymbol.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
-                              perastage_test_required_fixture_svg)
-    endif()
-    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
-       PERASTAGE_TEST_SOURCES AND
-       ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
-        "../core/configservices.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
-        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_diagnostics)
-    endif()
-    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_path_utils" AND
-       PERASTAGE_TEST_SOURCES AND
-       ("../viewer3d/gdtfloader.cpp
-               ../core/runtime_storage.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
-        "../viewer3d/loader3ds.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
-        "../viewer3d/loaderglb.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
-        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_path_utils)
-    endif()
-    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_gdtf_archive_reader" AND
-       PERASTAGE_TEST_SOURCES AND
-       "../viewer3d/gdtfloader.cpp
-               ../core/runtime_storage.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
-        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_gdtf_archive_reader)
-    endif()
-endforeach()
-
 add_executable(picking_coordinate_utils_test
                picking_coordinate_utils_test.cpp
                ../viewer3d/picking/picking_coordinate_utils.cpp)
@@ -3607,4 +3557,64 @@ foreach(mvr_read_consumer
     target_link_libraries(${mvr_read_consumer} PRIVATE
                           perastage_mvr_read
                           perastage_mvr_import_application_read)
+endforeach()
+
+# Completes standalone test dependencies after every test target is declared.
+get_property(PERASTAGE_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(PERASTAGE_TEST_TARGET IN LISTS PERASTAGE_TEST_TARGETS)
+    get_target_property(PERASTAGE_TEST_SOURCES ${PERASTAGE_TEST_TARGET} SOURCES)
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                       ../core/fixture_gdtf_derivative_contract.cpp)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
+                              perastage_test_required_fixture_svg)
+    endif()
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/gdtfdictionary.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        if(NOT "../core/fixture_gdtf_derivative_publication.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+            target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                           ../core/fixture_gdtf_derivative_publication.cpp)
+        endif()
+        if(NOT "../core/gdtf_canonicalizer.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+            target_sources(${PERASTAGE_TEST_TARGET} PRIVATE
+                           ../core/gdtf_canonicalizer.cpp)
+        endif()
+        get_target_property(PERASTAGE_GDTF_DICTIONARY_TEST_SOURCES
+                            ${PERASTAGE_TEST_TARGET} SOURCES)
+        if(NOT "../core/fixture_gdtf_derivative_publication.cpp" IN_LIST
+               PERASTAGE_GDTF_DICTIONARY_TEST_SOURCES OR
+           NOT "../core/gdtf_canonicalizer.cpp" IN_LIST
+               PERASTAGE_GDTF_DICTIONARY_TEST_SOURCES)
+            message(FATAL_ERROR
+                    "${PERASTAGE_TEST_TARGET} has incomplete GDTF dictionary publication dependencies")
+        endif()
+    endif()
+    if(PERASTAGE_TEST_SOURCES AND
+       "../core/fixture_gdtf_derivative_contract.cpp" IN_LIST PERASTAGE_TEST_SOURCES AND
+       NOT "../core/symbols/PerastageSvgSymbol.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE
+                              perastage_test_required_fixture_svg)
+    endif()
+    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_diagnostics" AND
+       PERASTAGE_TEST_SOURCES AND
+       ("../core/logger.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../core/configservices.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_diagnostics)
+    endif()
+    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_path_utils" AND
+       PERASTAGE_TEST_SOURCES AND
+       ("../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../viewer3d/loader3ds.cpp" IN_LIST PERASTAGE_TEST_SOURCES OR
+        "../viewer3d/loaderglb.cpp" IN_LIST PERASTAGE_TEST_SOURCES))
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_path_utils)
+    endif()
+    if(NOT PERASTAGE_TEST_TARGET STREQUAL "perastage_test_gdtf_archive_reader" AND
+       PERASTAGE_TEST_SOURCES AND
+       "../viewer3d/gdtfloader.cpp
+               ../core/runtime_storage.cpp" IN_LIST PERASTAGE_TEST_SOURCES)
+        target_link_libraries(${PERASTAGE_TEST_TARGET} PRIVATE perastage_test_gdtf_archive_reader)
+    endif()
 endforeach()
