@@ -293,6 +293,25 @@ void TestValidationLayers() {
              .status == ValidationStatus::Invalid);
   assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_missing_child_list"));
   assert(HasCode(fixtureSemantic, "mvr.semantic.fixture_type_id_not_allowed"));
+
+  const std::string version15Fixture =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"5\"><Scene>"
+      "<Layers><Layer uuid=\"10000000-0000-4000-8000-000000000001\">"
+      "<ChildList><Fixture uuid=\"20000000-0000-4000-8000-000000000001\">"
+      "<FixtureID>1</FixtureID><FixtureTypeId>7</FixtureTypeId>"
+      "<UnitNumber>1</UnitNumber></Fixture></ChildList></Layer></Layers>"
+      "</Scene></GeneralSceneDescription>";
+  const MvrInspectionResult version15 = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", version15Fixture}}));
+  assert(version15.snapshot && version15.snapshot->versionMinor == 5);
+  assert(Validation(version15, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(
+      Validation(version15, ValidationLayer::SemanticInteroperability).status ==
+      ValidationStatus::Valid);
+  assert(!HasCode(version15, "mvr.semantic.missing_provider"));
+  assert(!HasCode(version15, "mvr.semantic.fixture_missing_child_list"));
+  assert(!HasCode(version15, "mvr.semantic.fixture_type_id_not_allowed"));
 }
 
 // Verifies deterministic failure and immutability for malformed MVR containers.

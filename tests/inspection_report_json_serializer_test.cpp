@@ -54,7 +54,7 @@ ValidationResult Validation() {
   ValidationResult validation;
   validation.layer = ValidationLayer::Schema;
   validation.status = ValidationStatus::Invalid;
-  validation.diagnostics.push_back(Finding(DiagnosticSeverity::Warning,
+  validation.diagnostics.push_back(Finding(DiagnosticSeverity::Error,
                                            DiagnosticClassification::Standards,
                                            "schema.warning"));
   return validation;
@@ -106,6 +106,9 @@ void TestMvrReport() {
   assert(first == second);
   assert(json.at("schema_version") == kInspectionJsonSchemaVersion);
   assert(json.at("format") == "MVR");
+  assert(json.at("success") == true);
+  assert(json.at("has_findings") == true);
+  assert(json.at("worst_severity") == "error");
   assert(json.at("request").at("source_path") == expectedSourcePath);
   assert(json.at("diagnostics").at(0).at("code") == "report.first");
   assert(json.at("diagnostics").at(1).at("classification") == "compatibility");
@@ -172,6 +175,9 @@ void TestGdtfReport() {
   assert(json.at("schema_version") == kInspectionJsonSchemaVersion);
   assert(json.at("format") == "GDTF");
   assert(json.at("status") == "compatibility_accepted");
+  assert(json.at("success") == true);
+  assert(json.at("has_findings") == true);
+  assert(json.at("worst_severity") == "error");
   assert(document.at("root_xml") == "<GDTF/>");
   assert(document.at("manufacturer") == "Perastage");
   assert(document.at("revisions").at(0).at("text") == "Initial");

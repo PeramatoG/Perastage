@@ -34,8 +34,8 @@ void WritePackageWithoutUtf8Flag(
     const fs::path &path,
     const std::vector<std::pair<std::string, std::string>> &entries) {
   std::string error;
-  assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error,
-                                                    false));
+  assert(
+      tests::archive::WriteStoredZipWithRawNames(path, entries, error, false));
   assert(error.empty());
 }
 
@@ -168,7 +168,8 @@ void TestDescriptors(const fs::path &root) {
   assert(descriptors[1].pathSafe && descriptors[1].rawReadSupported);
   const auto repeated =
       DescribePackageResources(path, *package.inventory, 1024);
-  const auto defaultBounded = DescribePackageResources(path, *package.inventory);
+  const auto defaultBounded =
+      DescribePackageResources(path, *package.inventory);
   assert(repeated.size() == descriptors.size());
   assert(defaultBounded.size() == descriptors.size());
   for (std::size_t index = 0; index < descriptors.size(); ++index) {
@@ -184,9 +185,14 @@ void TestBoundedDescriptorSniff(const fs::path &root) {
   const fs::path path = root / "large-sniff.mvr";
   std::string largePng("\x89PNG\r\n\x1a\n", 8);
   largePng.append(4096, 'x');
+  std::string largeXml = "<?xml version=\"1.0\"?><GeneralSceneDescription>";
+  largeXml.append(4096, 'x');
+  largeXml.append("</GeneralSceneDescription>");
   const std::string boundedText(128, 't');
   WritePackage(path, {{"large.png", largePng},
                       {"fake.png", "not-image"},
+                      {"GeneralSceneDescription.xml", largeXml},
+                      {"description.xml", largeXml},
                       {"bounded.txt", boundedText}});
   const PackageInspectionResult package = InspectPackage(path);
   assert(package.inventory);
@@ -194,11 +200,19 @@ void TestBoundedDescriptorSniff(const fs::path &root) {
   const std::vector<std::uint8_t> bytes = ReadBytes(path);
   const auto owned =
       DescribePackageResources(bytes, *package.inventory, 8, Request{path});
-  assert(filesystem.size() == 3 && owned.size() == filesystem.size());
+  assert(filesystem.size() == 5 && owned.size() == filesystem.size());
   assert(filesystem[0].size > 8 && filesystem[0].kind == ResourceKind::Image);
   assert(owned[0].kind == ResourceKind::Image);
   assert(filesystem[1].kind == ResourceKind::Binary);
-  assert(filesystem[2].kind == ResourceKind::Binary);
+  assert(filesystem[2].kind == ResourceKind::XmlText);
+  assert(filesystem[2].textPreviewSupported);
+  assert(filesystem[3].kind == ResourceKind::XmlText);
+  assert(filesystem[3].textPreviewSupported);
+  assert(owned[2].kind == ResourceKind::XmlText &&
+         owned[2].textPreviewSupported);
+  assert(owned[3].kind == ResourceKind::XmlText &&
+         owned[3].textPreviewSupported);
+  assert(filesystem[4].kind == ResourceKind::Binary);
   const auto hugeFilesystem = DescribePackageResources(
       path, *package.inventory, std::numeric_limits<std::uint64_t>::max());
   const auto repeatedFilesystem = DescribePackageResources(
@@ -206,27 +220,28 @@ void TestBoundedDescriptorSniff(const fs::path &root) {
   const auto hugeOwned = DescribePackageResources(
       bytes, *package.inventory, std::numeric_limits<std::uint64_t>::max(),
       Request{path});
-  assert(hugeFilesystem.size() == 3 && hugeOwned.size() == 3);
+  assert(hugeFilesystem.size() == 5 && hugeOwned.size() == 5);
   for (std::size_t index = 0; index < hugeFilesystem.size(); ++index) {
     assert(hugeFilesystem[index].kind == repeatedFilesystem[index].kind);
     assert(hugeFilesystem[index].kind == hugeOwned[index].kind);
   }
   assert(hugeFilesystem[0].kind == ResourceKind::Image);
   assert(hugeFilesystem[1].kind == ResourceKind::Binary);
-  assert(hugeFilesystem[2].kind == ResourceKind::Binary);
+  assert(hugeFilesystem[2].kind == ResourceKind::XmlText);
+  assert(hugeFilesystem[3].kind == ResourceKind::XmlText);
+  assert(hugeFilesystem[4].kind == ResourceKind::Binary);
 }
 
 // Verifies nested and unflagged UTF-8 names use validated raw ZIP identity.
 void TestPortableNestedPaths(const fs::path &root) {
   const fs::path path = root / "portable-nested.mvr";
   const std::string imagePath = "folder/subfolder/resource.png";
-  const std::string unicodePath =
-      "folder/\xC3\xBCnterordner/gr\xC3\xBC\xC3\x9F" "e.xml";
+  const std::string unicodePath = "folder/\xC3\xBCnterordner/gr\xC3\xBC\xC3\x9F"
+                                  "e.xml";
   const std::string png("\x89PNG\r\n\x1a\npayload", 15);
-  const std::string xml =
-      "<?xml version=\"1.0\"?><name>Gr\xC3\xBC\xC3\x9F" "e</name>";
-  WritePackageWithoutUtf8Flag(path,
-                              {{imagePath, png}, {unicodePath, xml}});
+  const std::string xml = "<?xml version=\"1.0\"?><name>Gr\xC3\xBC\xC3\x9F"
+                          "e</name>";
+  WritePackageWithoutUtf8Flag(path, {{imagePath, png}, {unicodePath, xml}});
   const PackageInspectionResult package = InspectPackage(path);
   assert(package.inspection.Success() && package.inventory);
   assert(package.inventory->entries[1].normalizedPath == unicodePath);
@@ -238,7 +253,8 @@ void TestPortableNestedPaths(const fs::path &root) {
                                     Request{path})
               : ReadPackageResource(path, PackageKind::Mvr, imagePath, 1024);
     assert(image.Success() && image.requestedPath == imagePath);
-    assert(image.resolvedPath == imagePath && image.kind == ResourceKind::Image);
+    assert(image.resolvedPath == imagePath &&
+           image.kind == ResourceKind::Image);
     assert(image.bytes == std::vector<std::uint8_t>(png.begin(), png.end()));
 
     const ResourceReadResult text =

@@ -2,6 +2,7 @@
 
 #include "diagnostics/DiagnosticLogger.h"
 #include "guiconfigservices.h"
+#include "inspection/inspection_report_aggregation.h"
 #include "inspection/inspector_presentation.h"
 #include "inspection/resource_inspection.h"
 #include "wx_path_utils.h"
@@ -157,11 +158,8 @@ int ReadInt(const IGuiPreferencesService &preferences, const char *key,
 std::vector<perastage::inspection::Diagnostic> AllDiagnostics(
     const perastage::inspection::Result &inspection,
     const std::vector<perastage::inspection::ValidationResult> &validation) {
-  auto diagnostics = inspection.diagnostics;
-  for (const auto &result : validation)
-    diagnostics.insert(diagnostics.end(), result.diagnostics.begin(),
-                       result.diagnostics.end());
-  return diagnostics;
+  return perastage::inspection::CollectUniqueDiagnostics(inspection,
+                                                         validation);
 }
 
 // Appends common file, diagnostic-total, and validation-layer facts.

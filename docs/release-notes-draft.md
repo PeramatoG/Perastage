@@ -20,6 +20,11 @@ Changes since **v1.6.0**.
 
 ## Important fixes
 
+- Corrected Inspector and development CLI handling of large XML package
+  resources, aligned complete-report validation outcomes with CLI exit codes,
+  and removed duplicate human-facing diagnostic rows without discarding
+  structured validation provenance.
+
 - Restored fixture-category fallback diagnostics during normal MVR imports.
 
 - Restored detailed MVR import diagnostics for matrix contexts and examples, per-Symdef truss usage, GDTF resolution, dictionary state, and fixture-category fallback reasons.

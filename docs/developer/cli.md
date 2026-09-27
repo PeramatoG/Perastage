@@ -40,10 +40,10 @@ surface is:
 - the command identity and argument roles shown above;
 - the JSON field names, value types, enum tokens, diagnostic codes, and
   meanings declared stable by the Inspection API;
-- the top-level `schema_version`, `request`, `success`, `worst_severity`,
-  `diagnostics`, `format`, `status`, `package`, `resources`, and `validation`
-  members, plus the format-specific `document` (GDTF) or `snapshot` (MVR)
-  member;
+- the top-level `schema_version`, `request`, `success`, `has_findings`,
+  `worst_severity`, `diagnostics`, `format`, `status`, `package`, `resources`,
+  and `validation` members, plus the format-specific `document` (GDTF) or
+  `snapshot` (MVR) member;
 - the exit codes and stdout/stderr responsibilities below;
 - UTF-8 JSON strings and lossless Unicode filesystem-path round trips; and
 - diagnostic locations, when Core supplies them: `source_path` identifies the
@@ -66,6 +66,18 @@ version output formatting is likewise presentation-only unless a token is
 explicitly added to this section as stable. Exact XML output is a retained
 source payload for inspection, not a versioned Perastage data schema.
 
+For complete GDTF and MVR reports, `success` means that the read operation
+produced the format-specific structured `document` or `snapshot`; it does not
+claim standards conformance. `has_findings` is true when any base or validation
+diagnostic is warning, error, or fatal, and `worst_severity` is the greatest
+severity across both collections (including information). The top-level
+`diagnostics` array continues to contain only base inspection diagnostics;
+validation findings remain in their original `validation` layers so XML
+well-formedness, schema conformance, and semantic/interoperability provenance
+stay distinct. Thus a parseable schema-invalid file has `success: true`,
+`has_findings: true`, an aggregate `worst_severity` of `error`, and exit code
+`1`. An unreadable file has `success: false` and exit code `3`.
+
 When the CLI is publicly released, a published machine-facing CLI/schema
 contract will not silently remove, rename, type-change, or semantically
 reinterpret existing behavior. Additive JSON fields remain permitted under the
@@ -85,9 +97,11 @@ presentation text.
 - `resources` renders ordered Core `ResourceDescriptor` values, including
   kind, known size, supported operations, and path safety. It does not decode
   images or models.
-- `diagnostics` renders top-level and validation-layer findings with severity,
-  classification, domain, stable code, message, and available location. It
-  keeps standards and compatibility findings distinct.
+- `diagnostics` renders semantically unique top-level and validation-layer
+  findings with severity, classification, domain, stable code, message, and
+  available location. It keeps standards and compatibility findings distinct.
+  Identical findings repeated for validation provenance are shown and counted
+  once in human views; the complete JSON retains every original layer member.
 - `xml` writes only the exact retained `description.xml` or
   `GeneralSceneDescription.xml` payload. It adds no heading or newline and
   performs no parsing, rewriting, or pretty-printing.
