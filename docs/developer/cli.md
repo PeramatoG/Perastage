@@ -82,8 +82,13 @@ MVR validation is version-aware. MVR 1.6 uses the pinned official 1.6 XSD and
 the separate parser-level 1.6 semantic rules. No authoritative MVR 1.5 XSD is
 available in the pinned upstream schema history, so an MVR 1.5 report truthfully
 marks the schema layer `unavailable` and identifies the pinned specification
-revision used for parser-level 1.5 semantic checks; it is not tested against
-the incompatible structural expectations of the 1.6 XSD.
+revision used for parser-level 1.5 semantic checks; that Markdown specification
+revision is not an XSD. Unsupported versions instead identify that no
+applicable specification is pinned and leave `source_revision` empty. MVR 1.5
+is not tested against the incompatible structural expectations of the 1.6 XSD.
+The focused MVR 1.5 Support check currently proves required `ChainLength`
+element presence; numeric value-domain validation remains unavailable without
+an applicable official schema.
 
 When the CLI is publicly released, a published machine-facing CLI/schema
 contract will not silently remove, rename, type-change, or semantically

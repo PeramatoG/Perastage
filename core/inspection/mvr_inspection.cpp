@@ -434,10 +434,13 @@ ValidateMvrVersion(std::string_view sceneXml, int versionMajor,
                    int versionMinor, const DiagnosticLocation &sourceLocation) {
   if (versionMajor == 1 && versionMinor == 6)
     return ValidateXmlAgainstSchema(sceneXml, Mvr16Schema(), sourceLocation);
+  const bool version15 = versionMajor == 1 && versionMinor == 5;
   SchemaDescriptor unavailable{
       {"mvr", std::to_string(versionMajor) + "." + std::to_string(versionMinor),
-       "not_published", "mvrdevelopment/spec:mvr-spec.md",
-       "addcca1bf9ba6c63552d63802015c098a4fc1d8d"},
+       "not_published",
+       version15 ? "mvrdevelopment/spec:mvr-spec.md"
+                 : "no_applicable_pinned_specification",
+       version15 ? "04faa85205ad12989b8e3e95e8fe8f949650a637" : ""},
       {}};
   XmlSchemaValidationResult validation =
       ValidateXmlAgainstSchema(sceneXml, unavailable, sourceLocation);

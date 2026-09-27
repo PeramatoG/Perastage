@@ -258,6 +258,12 @@ void TestValidationLayers() {
       BuildArchive({{"generalscenedescription.xml", StandardsValidXml()}}));
   assert(Validation(compatible, ValidationLayer::Schema).status ==
          ValidationStatus::Valid);
+  assert(Validation(compatible, ValidationLayer::Schema).schema);
+  assert(Validation(compatible, ValidationLayer::Schema).schema->provenance ==
+         "mvrdevelopment/tools:mvr.xsd");
+  assert(
+      Validation(compatible, ValidationLayer::Schema).schema->sourceRevision ==
+      "e199c6ed635de23cb5ebf9654ee54a358775a065");
   assert(HasCode(compatible, "mvr.package.non_canonical_scene_description"));
   assert(
       HasClassification(compatible, DiagnosticClassification::Compatibility));
@@ -326,6 +332,8 @@ void TestValidationLayers() {
   const MvrInspectionResult version15 = InspectMvrBytes(
       BuildArchive({{"GeneralSceneDescription.xml", version15Fixture}}));
   assert(version15.snapshot && version15.snapshot->versionMinor == 5);
+  assert(Validation(version15, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Valid);
   assert(Validation(version15, ValidationLayer::Schema).status ==
          ValidationStatus::Unavailable);
   assert(ValidationHasCode(version15, "mvr.schema.unavailable_for_version"));
@@ -399,8 +407,10 @@ void TestVersion15NeutralSceneFacts() {
          "1.5");
   assert(Validation(owned, ValidationLayer::Schema).schema->schemaVersion ==
          "not_published");
+  assert(Validation(owned, ValidationLayer::Schema).schema->provenance ==
+         "mvrdevelopment/spec:mvr-spec.md");
   assert(Validation(owned, ValidationLayer::Schema).schema->sourceRevision ==
-         "addcca1bf9ba6c63552d63802015c098a4fc1d8d");
+         "04faa85205ad12989b8e3e95e8fe8f949650a637");
   assert(ValidationHasCode(owned, "mvr.schema.unavailable_for_version"));
   assert(!ValidationHasCode(owned, "schema.document.invalid"));
   assert(HasCode(owned, "mvr.semantic.support_missing_chain_length"));
@@ -436,6 +446,54 @@ void TestVersion15NeutralSceneFacts() {
 
   const fs::path path =
       fs::temp_directory_path() / "perastage-mvr-15-neutral.mvr";
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error));
+  assert(error.empty());
+  const MvrInspectionResult filesystem = InspectMvr(path);
+  const MvrInspectionResult ownedWithPath =
+      InspectMvrBytes(bytes, Request{path});
+  AssertStableResultEqual(filesystem, ownedWithPath);
+  fs::remove(path);
+
+  std::string missingSupports;
+  for (int index = 0; index < 16; ++index) {
+    missingSupports += "<Support uuid=\"80000000-0000-4000-8000-" +
+                       std::to_string(100000000000ULL +
+                                      static_cast<unsigned long long>(index)) +
+                       "\"><Geometries/></Support>";
+  }
+  const std::string sixteenMissingXml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"5\"><Scene>"
+      "<Layers><Layer uuid=\"10000000-0000-4000-8000-000000000016\">"
+      "<ChildList>" +
+      missingSupports +
+      "</ChildList></Layer></Layers></Scene></GeneralSceneDescription>";
+  const MvrInspectionResult sixteenMissing = InspectMvrBytes(
+      BuildArchive({{"GeneralSceneDescription.xml", sixteenMissingXml}}));
+  assert(CountCode(sixteenMissing,
+                   "mvr.semantic.support_missing_chain_length") == 16);
+}
+
+// Verifies unsupported versions never claim the pinned MVR 1.5 specification.
+void TestUnsupportedVersionProvenance() {
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"7\"><Scene>"
+      "<Layers/></Scene></GeneralSceneDescription>";
+  const std::vector<std::pair<std::string, std::string>> entries = {
+      {"GeneralSceneDescription.xml", xml}};
+  const std::vector<std::uint8_t> bytes = BuildArchive(entries);
+  const MvrInspectionResult owned = InspectMvrBytes(bytes);
+  const ValidationResult &schema = Validation(owned, ValidationLayer::Schema);
+  assert(owned.Success() && owned.snapshot);
+  assert(Validation(owned, ValidationLayer::XmlWellFormedness).status ==
+         ValidationStatus::Valid);
+  assert(schema.status == ValidationStatus::Unavailable && schema.schema);
+  assert(schema.schema->schemaVersion == "not_published");
+  assert(schema.schema->provenance == "no_applicable_pinned_specification");
+  assert(schema.schema->sourceRevision.empty());
+
+  const fs::path path =
+      fs::temp_directory_path() / "perastage-mvr-unsupported-version.mvr";
   std::string error;
   assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error));
   assert(error.empty());
@@ -819,6 +877,7 @@ void TestNonMvrPackageKind() {
 int main() {
   TestValidationLayers();
   TestVersion15NeutralSceneFacts();
+  TestUnsupportedVersionProvenance();
   TestMalformedOwnedInputMatrix();
   TestStandaloneInspectionParity();
   TestUnnamedAuthoredLayer();
