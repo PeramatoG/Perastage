@@ -34,6 +34,7 @@
 #include "consolepanel.h"
 #include "fixturetablepanel.h"
 #include "hoisttablepanel.h"
+#include "inspection/inspector_workspace_panel.h"
 #include "layout2dviewdialog.h"
 #include "layoutimageutils.h"
 #include "layoutpanel.h"
@@ -104,6 +105,13 @@ bool IsPerspectiveCompatibleWithPreset(wxAuiManager *manager,
     return IsPaneShown(manager, "LayoutViewer") &&
            !IsPaneShown(manager, "3DViewport") &&
            !IsPaneShown(manager, "2DViewport");
+  }
+
+  if (preset.name == "inspector_view") {
+    return IsPaneShown(manager, "InspectorWorkspace") &&
+           !IsPaneShown(manager, "3DViewport") &&
+           !IsPaneShown(manager, "2DViewport") &&
+           !IsPaneShown(manager, "LayoutViewer");
   }
 
   return true;
@@ -436,6 +444,22 @@ void MainWindow::SetupLayout() {
                                         .MaximizeButton(true)
                                         .PaneBorder(true));
 
+  inspectorWorkspacePanel = new gui::inspection::InspectorWorkspacePanel(
+      this, guiConfigServices->Preferences());
+  auiManager->AddPane(inspectorWorkspacePanel,
+                      wxAuiPaneInfo()
+                          .Name("InspectorWorkspace")
+                          .Caption(_("MVR / GDTF Inspector"))
+                          .Center()
+                          .Dockable(true)
+                          .CaptionVisible(true)
+                          .PaneBorder(false)
+                          .BestSize(halfWidth, 600)
+                          .MinSize(wxSize(640, 400))
+                          .CloseButton(true)
+                          .MaximizeButton(true)
+                          .Hide());
+
   // Apply all changes to layout
   auiManager->Update();
 
@@ -497,6 +521,7 @@ void MainWindow::ApplyCanonicalPaneDocking() {
   dockPane("LayoutViewer", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("3DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("2DViewport", [](wxAuiPaneInfo &pane) { pane.Center(); });
+  dockPane("InspectorWorkspace", [](wxAuiPaneInfo &pane) { pane.Center(); });
   dockPane("2DRenderOptions", [](wxAuiPaneInfo &pane) {
     pane.Right().Layer(0).Row(0).Position(0);
   });
@@ -581,14 +606,25 @@ void MainWindow::ApplyLayoutPreset(const LayoutViewPreset &preset,
     if (preset.name == "3d_layout_view") {
       applyPaneState({"3DViewport"}, true);
       applyPaneState(
-          {"2DViewport", "2DRenderOptions", "LayoutPanel", "LayoutViewer"},
+          {"2DViewport", "2DRenderOptions", "LayoutPanel", "LayoutViewer",
+           "InspectorWorkspace"},
           false);
     } else if (preset.name == "2d_layout_view") {
       applyPaneState({"2DViewport", "2DRenderOptions"}, true);
-      applyPaneState({"3DViewport", "LayoutPanel", "LayoutViewer"}, false);
+      applyPaneState(
+          {"3DViewport", "LayoutPanel", "LayoutViewer", "InspectorWorkspace"},
+          false);
     } else if (preset.name == "layout_mode_view") {
       applyPaneState({"LayoutPanel", "LayoutViewer"}, true);
-      applyPaneState({"3DViewport", "2DViewport", "2DRenderOptions"}, false);
+      applyPaneState({"3DViewport", "2DViewport", "2DRenderOptions",
+                      "InspectorWorkspace"},
+                     false);
+    } else if (preset.name == "inspector_view") {
+      applyPaneState({"InspectorWorkspace", "Console"}, true);
+      applyPaneState({"3DViewport", "2DViewport", "2DRenderOptions",
+                      "DataNotebook", "LayerPanel", "SummaryPanel",
+                      "RiggingPanel", "LayoutPanel", "LayoutViewer"},
+                     false);
     }
   } else {
     applyPaneState(preset.showPanes, true);
@@ -738,6 +774,18 @@ void MainWindow::OnApply2DLayout(wxCommandEvent &WXUNUSED(event)) {
 
 void MainWindow::OnApplyLayoutModeLayout(wxCommandEvent &WXUNUSED(event)) {
   ApplyLayoutModePerspective();
+}
+
+// Applies the first-class read-only Inspector workspace preset.
+void MainWindow::OnApplyInspectorLayout(wxCommandEvent &WXUNUSED(event)) {
+  if (!auiManager)
+    return;
+  if (layoutModeActive)
+    PersistLayout2DViewState();
+  const auto *preset = LayoutViewPresetRegistry::GetPreset("inspector_view");
+  if (!preset)
+    return;
+  ApplyLayoutPreset(*preset, std::nullopt, false, true);
 }
 
 void MainWindow::OnLayoutViewEdit(wxCommandEvent &WXUNUSED(event)) {

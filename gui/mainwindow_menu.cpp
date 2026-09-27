@@ -25,7 +25,7 @@
 #include "mainwindow_menu_text_utils.h"
 #include "mainwindow_view_controller.h"
 #include "uuidutils.h"
-
+#include "inspection/inspector_workspace_panel.h"
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -38,7 +38,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
 #include <wx/artprov.h>
 #include <wx/busyinfo.h>
 #include <wx/choicdlg.h>
@@ -235,6 +234,8 @@ void MainWindow::CreateToolBars() {
       ID_View_Layout_Mode, _("Layout Mode"),
       loadToolbarIcon("square-asterisk", wxART_MISSING_IMAGE),
       _("Switch to Layout Mode View"));
+  gui::inspection::AddInspectorWorkspaceTool(
+      layoutViewsToolBar, loadToolbarIcon("file", wxART_NORMAL_FILE));
   layoutViewsToolBar->AddSeparator();
   layoutViewsToolBar->AddTool(
       ID_View_Viewport_Top, _("Top View"),
@@ -651,7 +652,6 @@ void MainWindow::OnConvertToHoist(wxCommandEvent &WXUNUSED(event)) {
       wxString::Format(_("Converted %zu fixture(s) to hoists."), newIds.size()),
       _("Convert to Hoist"), wxOK | wxICON_INFORMATION);
 }
-
 
 // Converts selected scene objects sharing the same model file into trusses.
 void MainWindow::OnConvertSceneObjectsToTruss(wxCommandEvent &WXUNUSED(event)) {

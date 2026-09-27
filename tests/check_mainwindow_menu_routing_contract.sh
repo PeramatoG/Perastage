@@ -62,6 +62,7 @@ expected_routes = {
     "ID_View_Layout_2D": "OnApply2DLayout",
     "ID_View_Layout_Mode": "OnApplyLayoutModeLayout",
     "ID_Tools_DownloadGdtf": "OnDownloadGdtf",
+    "ID_View_Layout_Inspector": "OnApplyInspectorLayout",
     "ID_Tools_EditDictionaries": "OnEditDictionaries",
     "ID_Tools_OpenUserLibraryFolder": "OnOpenUserLibraryFolder",
     "ID_Tools_ImportRiderText": "OnImportRiderText",

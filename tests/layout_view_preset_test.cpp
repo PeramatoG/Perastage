@@ -28,6 +28,7 @@ void Assert3D(const PaneState &state) {
   assert(!state.at("2DRenderOptions"));
   assert(!state.at("LayoutPanel"));
   assert(!state.at("LayoutViewer"));
+  assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
                                  "SummaryPanel", "RiggingPanel"})
     assert(state.at(pane));
@@ -42,6 +43,7 @@ void Assert2D(const PaneState &state) {
   assert(state.at("2DRenderOptions"));
   assert(!state.at("LayoutPanel"));
   assert(!state.at("LayoutViewer"));
+  assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
                                  "SummaryPanel", "RiggingPanel"})
     assert(state.at(pane));
@@ -56,8 +58,21 @@ void AssertLayout(const PaneState &state) {
   assert(!state.at("2DRenderOptions"));
   assert(state.at("LayoutPanel"));
   assert(state.at("LayoutViewer"));
+  assert(!state.at("InspectorWorkspace"));
   for (const std::string pane : {"DataNotebook", "Console", "LayerPanel",
                                  "SummaryPanel", "RiggingPanel"})
+    assert(!state.at(pane));
+  for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
+    assert(state.at(std::string(toolbar)));
+}
+
+// Verifies the complete canonical Inspector pane visibility contract.
+void AssertInspector(const PaneState &state) {
+  assert(state.at("InspectorWorkspace"));
+  assert(state.at("Console"));
+  for (const std::string pane : {"3DViewport", "2DViewport", "2DRenderOptions",
+                                 "LayoutPanel", "LayoutViewer", "DataNotebook",
+                                 "LayerPanel", "SummaryPanel", "RiggingPanel"})
     assert(!state.at(pane));
   for (const std::string_view toolbar : gui::kAlwaysVisibleToolbarPanes)
     assert(state.at(std::string(toolbar)));
@@ -71,8 +86,8 @@ int main() {
   for (const std::string pane :
        {"3DViewport", "2DViewport", "2DRenderOptions", "LayoutPanel",
         "LayoutViewer", "DataNotebook", "Console", "LayerPanel", "SummaryPanel",
-        "RiggingPanel", "FileToolbar", "EditToolbar", "LayoutViewsToolbar",
-        "ToolsToolbar", "LayoutToolbar"})
+        "RiggingPanel", "InspectorWorkspace", "FileToolbar", "EditToolbar",
+        "LayoutViewsToolbar", "ToolsToolbar", "LayoutToolbar"})
     state[pane] = false;
 
   ApplyCanonicalPreset(state, "layout_mode_view");
@@ -87,6 +102,15 @@ int main() {
   ApplyCanonicalPreset(state, "layout_mode_view");
   ApplyCanonicalPreset(state, "2d_layout_view");
   Assert2D(state);
+
+  ApplyCanonicalPreset(state, "inspector_view");
+  AssertInspector(state);
+  ApplyCanonicalPreset(state, "3d_layout_view");
+  Assert3D(state);
+  ApplyCanonicalPreset(state, "inspector_view");
+  AssertInspector(state);
+  ApplyCanonicalPreset(state, "layout_mode_view");
+  AssertLayout(state);
   ApplyCanonicalPreset(state, "layout_mode_view");
   AssertLayout(state);
   ApplyCanonicalPreset(state, "2d_layout_view");

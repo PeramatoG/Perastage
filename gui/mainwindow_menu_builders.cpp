@@ -68,6 +68,7 @@ wxMenu *BuildLayoutViewsMenu() {
   layoutMenu->Append(ID_View_Layout_Default, _("3D Layout View"));
   layoutMenu->Append(ID_View_Layout_2D, _("2D Layout View"));
   layoutMenu->Append(ID_View_Layout_Mode, _("Layout Mode View"));
+  layoutMenu->Append(ID_View_Layout_Inspector, _("MVR / GDTF Inspector"));
   return layoutMenu;
 }
 

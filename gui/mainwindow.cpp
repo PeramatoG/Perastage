@@ -445,6 +445,7 @@ EVT_MENU(ID_View_Layout_EventTable, MainWindow::OnLayoutAddEventTable)
 EVT_MENU(ID_View_Layout_Text, MainWindow::OnLayoutAddText)
 EVT_MENU(ID_View_Layout_Image, MainWindow::OnLayoutAddImage)
 EVT_MENU(ID_Tools_DownloadGdtf, MainWindow::OnDownloadGdtf)
+EVT_MENU(ID_View_Layout_Inspector, MainWindow::OnApplyInspectorLayout)
 EVT_MENU(ID_Tools_EditDictionaries, MainWindow::OnEditDictionaries)
 EVT_MENU(ID_Tools_ExportFixture, MainWindow::OnExportFixture)
 EVT_MENU(ID_Tools_ExportTruss, MainWindow::OnExportTruss)
@@ -1198,7 +1199,6 @@ void MainWindow::ResetProject(bool applyLayoutDefaultsForNewProject) {
   RefreshRigging();
   UpdateTitle();
 }
-
 
 // Returns the current project name displayed in the main window title.
 wxString MainWindow::GetCurrentProjectDisplayName() const {

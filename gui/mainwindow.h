@@ -55,6 +55,7 @@ class LayoutPanel;
 class LayoutViewerPanel;
 class SummaryPanel;
 class RiggingPanel;
+namespace gui::inspection { class InspectorWorkspacePanel; }
 struct LayoutViewPreset;
 class MainWindowIoController;
 class IGuiConfigServices;
@@ -153,6 +154,7 @@ private:
   LayoutViewerPanel *layoutViewerPanel = nullptr;
   SummaryPanel *summaryPanel = nullptr;
   RiggingPanel *riggingPanel = nullptr;
+  gui::inspection::InspectorWorkspacePanel *inspectorWorkspacePanel = nullptr;
   wxAuiToolBar *fileToolBar = nullptr;
   wxAuiToolBar *editToolBar = nullptr;
   wxAuiToolBar *layoutToolBar = nullptr;
@@ -239,6 +241,7 @@ private:
   void OnApplyDefaultLayout(wxCommandEvent &event); // Reset to default layout
   void OnApply2DLayout(wxCommandEvent &event);      // Apply 2D layout
   void OnApplyLayoutModeLayout(wxCommandEvent &event); // Apply layout mode
+  void OnApplyInspectorLayout(wxCommandEvent &event); // Apply Inspector layout
   void OnViewportTopView(wxCommandEvent &event);
   void OnViewportFrontView(wxCommandEvent &event);
   void OnViewportSideView(wxCommandEvent &event);

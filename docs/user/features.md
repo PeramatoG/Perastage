@@ -28,6 +28,18 @@ Perastage is designed for lighting designers, programmers, and technicians who n
 
 ## MVR and GDTF Workflows
 
+### Read-only MVR / GDTF Inspector
+
+- Open **View > Layout Views > MVR / GDTF Inspector** to switch to a dedicated
+  workspace and examine a standalone `.mvr` or
+  `.gdtf` without importing it or changing the active project.
+- Use the left package navigator, central retained-XML view, and right-side
+  summary and structured diagnostics. Package paths and diagnostics can be copied,
+  while the XML view supports selection, copy-all, and wrapping find-next or
+  find-previous navigation.
+- The Inspector is intentionally read-only. It does not edit packages, resolve
+  missing resources online, or open embedded GDTFs as nested documents.
+
 ### MVR import and open behavior
 
 - Imports MVR 1.6 scenes with fixtures, trusses, hoists/supports, and generic objects.
