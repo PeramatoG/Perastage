@@ -104,7 +104,7 @@ void TestMvrReport() {
                                    "Main",
                                    "group-1",
                                    "models/screen.glb",
-                                   {}});
+                                   {"fixture-child"}});
   snapshot.projectors.push_back({"projector",
                                  "projector-1",
                                  "Projector",
@@ -152,6 +152,8 @@ void TestMvrReport() {
   assert(serialized.at("focus_points").at(0).at("kind") == "focus_point");
   assert(serialized.at("video_screens").at(0).at("parent_group_uuid") ==
          "group-1");
+  assert(serialized.at("video_screens").at(0).at("child_uuids") ==
+         nlohmann::json({"fixture-child"}));
   assert(serialized.at("projectors").at(0).at("resource_reference") ==
          "projector.gdtf");
   assert(serialized.at("node_counts").at(1).at("count") == 1);

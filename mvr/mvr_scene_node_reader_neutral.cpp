@@ -26,6 +26,8 @@ void CollectNeutralReferences(tinyxml2::XMLElement *element,
   if (!element)
     return;
   const std::string name = element->Name() ? element->Name() : "";
+  if (name == "ChildList")
+    return;
   const bool mediaSources =
       insideMediaSources || name == "Sources" || name == "Projections";
   if (name == "GDTFSpec")

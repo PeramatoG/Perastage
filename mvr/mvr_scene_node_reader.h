@@ -146,7 +146,7 @@ struct MvrSceneReadServices {
   std::function<void(const std::string &, bool)> recordSupportStandardFacts;
   std::function<void(MvrNeutralSceneNode)> recordNeutralSceneNode;
   std::function<void(const std::string &, const std::string &)>
-      recordGroupChildUuid;
+      recordDirectChildUuid;
   std::function<std::string(const std::string &)> ensurePosition;
   std::function<void(tinyxml2::XMLElement *, std::vector<SymdefGeometry> &,
                      std::string &, Matrix &)>

@@ -225,8 +225,9 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
   snapshot.groupObjects =
       SortedDescriptors(scene.groupObjects, [&](const GroupObject &node) {
         std::vector<std::string> children;
-        const auto found = readContext.childUuidsByGroupUuid.find(node.uuid);
-        if (found != readContext.childUuidsByGroupUuid.end())
+        const auto found =
+            readContext.directChildUuidsByParentUuid.find(node.uuid);
+        if (found != readContext.directChildUuidsByParentUuid.end())
           children = found->second;
         else
           children = GroupChildUuids(node);
@@ -245,6 +246,11 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
     const std::string reference = node.resourceReferences.empty()
                                       ? std::string{}
                                       : node.resourceReferences.front().second;
+    std::vector<std::string> children;
+    const auto found = readContext.directChildUuidsByParentUuid.find(node.uuid);
+    if (found != readContext.directChildUuidsByParentUuid.end())
+      children = found->second;
+    std::sort(children.begin(), children.end());
     MvrSceneNodeDescriptor descriptor{node.kind == "FocusPoint" ? "focus_point"
                                       : node.kind == "VideoScreen"
                                           ? "video_screen"
@@ -255,7 +261,7 @@ MvrInspectionSnapshot BuildSnapshot(const MvrImportResult &parsed,
                                       node.layerName,
                                       node.parentGroupUuid,
                                       reference,
-                                      {}};
+                                      std::move(children)};
     if (node.kind == "FocusPoint")
       snapshot.focusPoints.push_back(std::move(descriptor));
     else if (node.kind == "VideoScreen")

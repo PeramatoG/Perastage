@@ -43,7 +43,7 @@ struct MvrReadContext {
   std::unordered_map<std::string, std::vector<std::string>>
       directChildUuidsByLayerUuid;
   std::unordered_map<std::string, std::vector<std::string>>
-      childUuidsByGroupUuid;
+      directChildUuidsByParentUuid;
   std::vector<MvrNeutralSceneNode> neutralSceneNodes;
   std::size_t fixtureCount = 0;
   std::size_t fixturesMissingChildList = 0;

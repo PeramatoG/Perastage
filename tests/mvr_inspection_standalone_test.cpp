@@ -474,6 +474,93 @@ void TestVersion15NeutralSceneFacts() {
                    "mvr.semantic.support_missing_chain_length") == 16);
 }
 
+// Verifies MVR 1.6 neutral parents retain direct children and own resources.
+void TestVersion16NeutralChildHierarchy() {
+  const std::string layerUuid = "10000000-0000-4000-8000-000000000016";
+  const std::string groupUuid = "20000000-0000-4000-8000-000000000016";
+  const std::string screenUuid = "30000000-0000-4000-8000-000000000016";
+  const std::string fixtureUuid = "40000000-0000-4000-8000-000000000016";
+  const std::string focusUuid = "45000000-0000-4000-8000-000000000016";
+  const std::string projectorUuid = "50000000-0000-4000-8000-000000000016";
+  const std::string objectUuid = "60000000-0000-4000-8000-000000000016";
+  const std::string xml =
+      "<GeneralSceneDescription verMajor=\"1\" verMinor=\"6\" "
+      "provider=\"Perastage\" providerVersion=\"1.7\"><Scene><Layers>"
+      "<Layer uuid=\"" +
+      layerUuid + "\" name=\"Layer\"><ChildList><GroupObject uuid=\"" +
+      groupUuid + "\" name=\"Group\"><ChildList><VideoScreen uuid=\"" +
+      screenUuid +
+      "\" name=\"Screen\"><Geometries><Geometry3D "
+      "fileName=\"models/screen.3ds\"/></Geometries><ChildList><Fixture "
+      "uuid=\"" +
+      fixtureUuid +
+      "\" name=\"Child Fixture\"><GDTFSpec>fixtures/child.gdtf</GDTFSpec>"
+      "<FixtureID>1</FixtureID><UnitNumber>1</UnitNumber><ChildList>"
+      "<FocusPoint uuid=\"" +
+      focusUuid +
+      "\" name=\"Nested Focus\"><Geometries/></FocusPoint></ChildList>"
+      "</Fixture></ChildList><FixtureID>Screen 1</FixtureID></VideoScreen>"
+      "<Projector uuid=\"" +
+      projectorUuid +
+      "\" name=\"Projector\"><Geometries><Geometry3D "
+      "fileName=\"models/projector.3ds\"/></Geometries><Projections/>"
+      "<ChildList><SceneObject uuid=\"" +
+      objectUuid +
+      "\" name=\"Child Object\"><Geometries><Geometry3D "
+      "fileName=\"models/child-object.3ds\"/></Geometries></SceneObject>"
+      "</ChildList><FixtureID>Projector 1</FixtureID></Projector></ChildList>"
+      "</GroupObject></ChildList></Layer></Layers></Scene>"
+      "</GeneralSceneDescription>";
+  const std::vector<std::pair<std::string, std::string>> entries = {
+      {"GeneralSceneDescription.xml", xml},
+      {"models/screen.3ds", "screen"},
+      {"fixtures/child.gdtf", "fixture"},
+      {"models/projector.3ds", "projector"},
+      {"models/child-object.3ds", "child object"}};
+  const std::vector<std::uint8_t> bytes = BuildArchive(entries);
+  const MvrInspectionResult owned = InspectMvrBytes(bytes);
+  assert(owned.Success() && owned.snapshot);
+  assert(Validation(owned, ValidationLayer::Schema).status ==
+         ValidationStatus::Valid);
+  assert(owned.snapshot->layers.front().childUuids ==
+         std::vector<std::string>{groupUuid});
+  assert(owned.snapshot->groupObjects.front().childUuids ==
+         (std::vector<std::string>{screenUuid, projectorUuid}));
+  assert(owned.snapshot->videoScreens.front().childUuids ==
+         std::vector<std::string>{fixtureUuid});
+  assert(owned.snapshot->projectors.front().childUuids ==
+         std::vector<std::string>{objectUuid});
+  assert(owned.snapshot->videoScreens.front().resourceReference ==
+         "models/screen.3ds");
+  assert(owned.snapshot->fixtures.front().resourceReference ==
+         "fixtures/child.gdtf");
+  assert(owned.snapshot->projectors.front().resourceReference ==
+         "models/projector.3ds");
+  assert(owned.snapshot->sceneObjects.front().resourceReference ==
+         "models/child-object.3ds");
+  const auto hasReference = [&](const char *kind, const char *path) {
+    return std::find(owned.snapshot->referencedResources.begin(),
+                     owned.snapshot->referencedResources.end(),
+                     MvrResourceReference{kind, path}) !=
+           owned.snapshot->referencedResources.end();
+  };
+  assert(hasReference("geometry", "models/screen.3ds"));
+  assert(hasReference("gdtf", "fixtures/child.gdtf"));
+  assert(hasReference("geometry", "models/projector.3ds"));
+  assert(hasReference("geometry", "models/child-object.3ds"));
+
+  const fs::path path =
+      fs::temp_directory_path() / "perastage-mvr-neutral-children.mvr";
+  std::string error;
+  assert(tests::archive::WriteStoredZipWithRawNames(path, entries, error));
+  assert(error.empty());
+  const MvrInspectionResult filesystem = InspectMvr(path);
+  const MvrInspectionResult ownedWithPath =
+      InspectMvrBytes(bytes, Request{path});
+  AssertStableResultEqual(filesystem, ownedWithPath);
+  fs::remove(path);
+}
+
 // Verifies unsupported versions never claim the pinned MVR 1.5 specification.
 void TestUnsupportedVersionProvenance() {
   const std::string xml =
@@ -877,6 +964,7 @@ void TestNonMvrPackageKind() {
 int main() {
   TestValidationLayers();
   TestVersion15NeutralSceneFacts();
+  TestVersion16NeutralChildHierarchy();
   TestUnsupportedVersionProvenance();
   TestMalformedOwnedInputMatrix();
   TestStandaloneInspectionParity();

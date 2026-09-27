@@ -27,7 +27,9 @@ Changes since **v1.6.0**.
   MVR 1.6 schema errors, reports semantic findings against verified official
   MVR 1.5 specification provenance, and keeps unsupported-version provenance
   explicit. Read-only scene snapshots now include focus points, video screens,
-  and projectors with their deterministic packaged-resource references.
+  and projectors with their deterministic packaged-resource references and
+  direct authored child hierarchy, without attributing descendant resources to
+  their neutral parent.
 
 - Restored fixture-category fallback diagnostics during normal MVR imports.
 

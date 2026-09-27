@@ -165,7 +165,7 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
     context->authoredLayerNameByUuid.clear();
     context->layerUuidByNodeUuid.clear();
     context->directChildUuidsByLayerUuid.clear();
-    context->childUuidsByGroupUuid.clear();
+    context->directChildUuidsByParentUuid.clear();
     context->neutralSceneNodes.clear();
     context->fixtureCount = 0;
     context->fixturesMissingChildList = 0;
@@ -1060,9 +1060,10 @@ bool ReadAcquiredMvrPackage(const ImportPackage &package,
         if (context)
           context->neutralSceneNodes.push_back(std::move(node));
       },
-      [&](const std::string &groupUuid, const std::string &childUuid) {
-        if (context && !groupUuid.empty() && !childUuid.empty())
-          context->childUuidsByGroupUuid[groupUuid].push_back(childUuid);
+      [&](const std::string &parentUuid, const std::string &childUuid) {
+        if (context && !parentUuid.empty() && !childUuid.empty())
+          context->directChildUuidsByParentUuid[parentUuid].push_back(
+              childUuid);
       },
       ensurePositionEntry,
       resolveSymdefReference,
